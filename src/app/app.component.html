@@ -1,2 +1,54 @@
 
 <router-outlet />
+
+@if(relStrTableData()) {
+
+    <div class="table-container">
+
+        <div class="symbols-column">
+
+            <div class="column-cell">Symbol/Date</div>
+
+            @for(symbol of relStrTableData().symbols; track symbol) {
+
+                <div class="column-cell">{{symbol}}</div>
+
+            }
+
+        </div>
+
+        <div class="rows-container">
+    
+            <div class="row">
+
+                @for(date of relStrTableData().dates; track date) {
+
+                    <div class="cell">{{date}}</div>
+    
+                }
+
+            </div>
+    
+            @for(row of relStrTableData().data; track row) {
+        
+                <div class="row">
+                    
+                    @for(el of row; track el) {
+        
+                        <div class="cell">
+        
+                            <p class="text">{{el}}</p>
+        
+                        </div>
+            
+                    }
+        
+                </div>
+        
+            }
+        
+        </div>
+        
+    </div>
+
+}
