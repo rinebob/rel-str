@@ -1,6 +1,6 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { CalculationData, CalculationResult, DataSet, RanksByDate, RelStrTableData, ResultsDataSet, StockData, StockDatum, StockRanks, StockResults } from './interfaces';
+import { CalculationData, CalculationResult, DataSet, RanksByDate, RelStrTableData, ResultsDataSet, StockData, StockDatum, StockResults } from './interfaces';
 import * as stockData from '../assets/data/stocks';
 import { BASELINE_EQUITY_SYMBOLS, COMPARISON_MATRICES } from './constants';
 
