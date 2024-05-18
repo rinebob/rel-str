@@ -1,4 +1,4 @@
-import { StockDatum, StockData } from "./../../app/interfaces";
+import { StockDatum, StockData } from "../common/interfaces-rs";
 
 export const AAPL: StockDatum[] = [
     {"45037": 165.21},
