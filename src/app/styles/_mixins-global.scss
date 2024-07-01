@@ -1,0 +1,110 @@
+@use './variables-global';
+
+//////////////////// LAYOUT //////////////////
+
+////////////// FLEXBOX //////////////////////
+
+@mixin flexboxLayout($flex-direction: row, $justify-content: flex-start, $align-items: flex-start) {
+    display: flex;
+    flex-direction: $flex-direction;
+    justify-content: $justify-content;
+    align-items: $align-items;
+
+}
+
+////////////// END FLEXBOX //////////////////////
+
+
+////////////// BORDER //////////////////////
+
+
+@mixin border1($color: black, $radius: 4px) {
+    border-radius: $radius;
+    border: 1px solid $color;
+}
+
+////////////// END BORDER //////////////////////////// 
+
+
+
+////////////////// ELEMENTS ///////////////////
+
+@mixin globalTopnavMenuCss() {
+    // @include global.globalColors($background-color: var(--topnav-menu-item-color), $color: var(--topnav-menu-item-text-color));
+    border-radius: 0 !important;
+    max-width: 100%;
+    overflow: hidden;
+    padding: 0;
+    
+    .topnav-active {
+        // @include global.globalColors(var(--topnav-menu-item-active-color), var(--topnav-menu-item-text-active-color));
+    }
+    
+    .mat-mdc-menu-content {
+        padding: 0 !important;
+    }
+    
+    button.mat-mdc-menu-item {
+        // @include global.globalTopnavMenuButtonStyles;
+        margin: 0 !important;
+        width: 100%;
+        border-radius: 0;
+        
+        &:hover {
+            // @include global.globalColors(var(--topnav-menu-item-hover-color) !important, var(--topnav-menu-item-text-hover-color) !important);
+            
+        }
+    }
+
+    // @include global.response(xs) {
+    //     width: 100vw !important;
+    // }
+}
+
+@mixin globalTopnavMenuButtonStyles($height: var(--size-button-tall)) {
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    height: $height;
+    margin: 4px 8px;
+    padding: 0 24px;
+    text-align: left;
+    width: 276px;
+
+    .mdc-list-item__primary-text {
+        @include textButtonMain;
+        @include globalColors($background-color: inherit, $color: inherit);
+    }
+
+    @include response(xl) {
+        @include textSizes($font-weight: 400, $font-size: globalVar.globalFontSize(heading-s), $line-height: globalVar.globalLineHeight(heading-s));
+        height: calc($height * .8);
+        margin: 3px 6px;
+        padding: 0 20px;
+        width: 220px;
+
+        .mdc-list-item__primary-text {
+            @include textSizes($font-weight: 400, $font-size: globalVar.globalFontSize(heading-s), $line-height: globalVar.globalLineHeight(heading-s));
+        }
+    }
+}
+
+
+
+
+
+
+
+
+///////////////// TEXT //////////////////////////
+
+
+
+
+
+
+
+
+
+
+
