@@ -1,0 +1,37 @@
+@use '../styles/mixins-global' as global;
+@use '../styles/variables-global';
+
+:host {
+    mat-sidenav-container,
+    mat-drawer-container {
+        height: 100%;
+        width: 100%;
+    
+        ::ng-deep {
+            .mat-drawer-shown {
+                background-color: rgba(0,0,0, 0.6);
+            }
+        }
+        
+        mat-sidenav,
+        mat-drawer {
+            @include global.flexboxLayout(column, flex-start, flex-start);
+            background-color: white;
+            height: 100%;
+            width: 350px;
+        }
+        
+        mat-sidenav-content,
+        mat-drawer-content {
+            height: 100%;
+            overflow: hidden;
+        }
+    
+        .menu-button {
+            border: none;
+            outline: none;
+        }
+    }
+    
+    
+}
