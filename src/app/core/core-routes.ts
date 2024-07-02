@@ -39,6 +39,7 @@ import { AppRoutes } from "./common/interfaces";
                 loadComponent: () => import('../features/rs/comps/history/history.component')
                 .then(mod => mod.HistoryComponent),
             },
+            {path: AppRoutes.LOGOUT, redirectTo: '/', pathMatch: 'full'},
         ]
     },
     { path: '**', redirectTo: '/', pathMatch:'full'},

@@ -30,6 +30,7 @@
             
             .nav-menu-item-container {
                 @include global.flexboxLayout(column, flex-start, flex-start);
+                cursor: pointer;
                 padding: 10px 0;
                 width: 100%;
 
@@ -41,7 +42,6 @@
 
         .nav-menu-item {
             color: var(--mobile-nav-menu-item-color);
-            cursor: pointer;
             font: 400 14px/20px var(--indra-main-font);
             text-decoration: none;
             text-transform: uppercase;
