@@ -102,3 +102,5 @@ export const NAV_MENU_ITEMS: NavItem[] = [
     //         },
 
 ]
+
+export const NUM_HEATMAP_MIDPOINTS = 11;
