@@ -25,10 +25,17 @@ export interface DataSet {
     [key: string]: StockData;        // key = symbol
 }
 
+export interface DatumWithColor {
+    value: number;
+    color: string;
+    index?: number;
+}
+
 export interface RelStrTableData {
     symbols: string[];
     dates: string[];
-    data: number[][];
+    // data: number[][];
+    data: DatumWithColor[][];
 }
 
 export interface Rank {

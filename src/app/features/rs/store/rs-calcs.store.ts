@@ -4,6 +4,7 @@ import { DataSet, RelStrTableData } from "../common/interfaces-rs";
 type RelStrCalcState = {
     allData: DataSet,
     relStrTableData: RelStrTableData,
+    heatmapColors: string[],
 }
 
 const initialState: RelStrCalcState = {
@@ -13,6 +14,7 @@ const initialState: RelStrCalcState = {
 		dates: [],
 		data: [[]],
 	},
+    heatmapColors: [],
 }
 
 export const RsCalcsStore = signalStore(
@@ -21,6 +23,8 @@ export const RsCalcsStore = signalStore(
     withMethods((store) => ({
         setAllData(allData: DataSet){patchState(store, {allData})},
         setRelStrTableData(relStrTableData: RelStrTableData){patchState(store, {relStrTableData})},
+        setHeatmapColors(heatmapColors: string[]){patchState(store, {heatmapColors})},
+
     })),
     withComputed(() => ({})),
 );

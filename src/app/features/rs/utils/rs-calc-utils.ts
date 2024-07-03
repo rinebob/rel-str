@@ -1,11 +1,12 @@
 import { BASELINE_EQUITY_SYMBOLS, COMPARISON_MATRICES } from "../common/constants-rs";
-import { CalculationData, CalculationResult, DataSet, RanksByDate, RelStrTableData, StockData, StockDatum } from "../common/interfaces-rs";
+import { CalculationData, CalculationResult, DataSet, DatumWithColor, RanksByDate, RelStrTableData, StockData, StockDatum } from "../common/interfaces-rs";
+import { generateColorArray } from "./color-utils";
 
-export function generateRelStrTableDataSet(data: StockData[], baseline: string) {
+export function generateRelStrTableDataSet(data: StockData[], baseline: string, heatmapColors: string[]) {
     let allData = createDataObject(data);
     allData = generatePercentChangesAndRanks(baseline, allData);
     allData = generateFinalDataSet(allData);
-    const relStrTableData = generateTableData(allData);
+    const relStrTableData = generateTableData(allData, heatmapColors);
     // console.log('rSU gRSTDS final allData object: ', allData);
     // console.log('rSU gRSTDS final relStrTableData object: ', relStrTableData);
 
@@ -66,7 +67,7 @@ function generateFinalDataSet(allData: DataSet): DataSet {
     // console.log('********** RS CALC UTILS generateFinalDataSet ************');
 
     for (const stock of Object.values(allData)) {
-        // console.log('a gFDS stock: ', stock);
+        // console.log('rSUtil gFDS stock: ', stock);
 
         let calculationResult: CalculationResult = {};
         let ranksByDate: RanksByDate = {};
@@ -91,8 +92,12 @@ function generateFinalDataSet(allData: DataSet): DataSet {
 // dates: array of dates corresponding to the dates of each stock price in the data set
 // data: Array of arrays.  Inner array is an array of numbers corresponding to the rank 
 // for each day for that symbol.  Outer array has elements of the inner array for each symbol
-function generateTableData(allData: DataSet): RelStrTableData {
+// 7-2-24 - adding color value to the inner array
+// use interface DatumWithColor {datum: number, color: string} 
+function generateTableData(allData: DataSet, heatmapColors: string[]): RelStrTableData {
     let symbols: string[] = [];
+
+    console.log('rSUtil gDT input heatmap colors: ', heatmapColors);
 
     for (const symbol of Object.keys(allData)) {
         if (!BASELINE_EQUITY_SYMBOLS.includes(symbol)) {
@@ -101,21 +106,29 @@ function generateTableData(allData: DataSet): RelStrTableData {
     }
 
     const datesData = allData[symbols[0]];
-    // console.log('a gDT datesData: ', datesData);
+    // console.log('rSUtil gDT datesData: ', datesData);
     const dates = Object.keys(datesData.ranksByDate);
-    // console.log('a gDT dates: ', dates);
+    // console.log('rSUtil gDT dates: ', dates);
 
     let tableData = [];
+    // const colorArray = generateColorArray(11);
     for (const symbol of symbols) {
         // console.log(`------ ${symbol} ---------------`);
-        let rowData: number[] = [];
+        // let rowData: number[] = [];
+        let rowData: DatumWithColor[] = [];
         for (const date of dates) {
-            const value = allData[symbol].ranksByDate[date].rank;
-            rowData.push(value);
+            // const value = allData[symbol].ranksByDate[date].rank;
+            const value = Math.round(allData[symbol].ranksByDate[date].rank * 100);
+            // rowData.push(value);
+            const index = Math.round((Number((value * .10).toFixed(2))));
+            const color = heatmapColors[index];
+            const datum: DatumWithColor = {value, color, index};
+            // console.log('rank/index/color/datum: ', value, index, color, datum);
+            rowData.push(datum);
         }
         tableData.push(rowData);
     }
-    // console.log('a gDT tableData: ', tableData);
+    // console.log('rSUtil gDT tableData: ', tableData);
 
     const relStrTableData: RelStrTableData = {
         symbols,
@@ -123,7 +136,7 @@ function generateTableData(allData: DataSet): RelStrTableData {
         data: tableData,
     };
 
-    // console.log('a gDT relStrTableData: ', relStrTableData);
+    // console.log('rSUtil gDT relStrTableData: ', relStrTableData);
 
     return relStrTableData;
 
@@ -148,12 +161,12 @@ function generateEmptyResultsObjects(stockData: StockDatum[]): CalculationData[]
 
 function calculatePercentChange(results: CalculationData[]): CalculationData[] {
     // console.log('********** RS CALC UTILS calculatePercentChange ************');
-    // console.log('a cPC input results.length/results: ', results.length, results);
+    // console.log('rSUtil cPC input results.length/results: ', results.length, results);
     for (let i = 1; i < results.length; i++) {
         // console.log('results[i]: ', results[i])
         // const date = results[i].date
         const pctChg = ((results[i].close - results[i - 1].close) / results[i].close) * 100;
-        // console.log('a CPC date/close/pctChg: ', results[i].date, results[i].close, pctChg)
+        // console.log('rSUtil CPC date/close/pctChg: ', results[i].date, results[i].close, pctChg)
         results[i].percentChange = Number(pctChg.toFixed(4));
     }
 
@@ -162,14 +175,14 @@ function calculatePercentChange(results: CalculationData[]): CalculationData[] {
 
 function calculateRanks(baseline: StockData, subject: StockData): StockData {
     // console.log(`======== CALCULATE RANKS ================`);
-    // console.log('a cRs input results: ', results);
+    // console.log('rSUtil cRs input results: ', results);
 
     let subjectPctChgs = [];
     let baselinePctChgs = [];
 
     for (let i = 5; i < subject.results.length; i++) {
         const day = subject.results[i];
-        //   console.log('a cRs i/day data: ', i, day.date, day.close, day.percentChange);
+        //   console.log('rSUtil cRs i/day data: ', i, day.date, day.close, day.percentChange);
 
         subjectPctChgs = [];
         baselinePctChgs = [];
@@ -182,12 +195,12 @@ function calculateRanks(baseline: StockData, subject: StockData): StockData {
         subject.results[i] = { ...day };
     }
 
-    // console.log('a cRs final subject: ', subject);
+    // console.log('rSUtil cRs final subject: ', subject);
     return subject;
 }
 
 function calculateRank(subject: number[], baseline: number[]): number {
-    // console.log('a cR input pctChgs subject/baseling: ', subject, baseline);
+    // console.log('rSUtil cR input pctChgs subject/baseling: ', subject, baseline);
     let rank = 0;
 
     let outcomesByMatrix: { [key: string]: number } = {};
@@ -207,17 +220,17 @@ function calculateRank(subject: number[], baseline: number[]): number {
         outcomesByMatrix[matrix] = pctChg;
     }
 
-    // console.log('a cR final outcomesByMatrix: ', outcomesByMatrix);
-    // console.log('a cR O.v(outcomesByMatrix): ', Object.values(outcomesByMatrix));
-    // console.log('a cR O.e(outcomesByMatrix): ', Object.entries(outcomesByMatrix));
+    // console.log('rSUtil cR final outcomesByMatrix: ', outcomesByMatrix);
+    // console.log('rSUtil cR O.v(outcomesByMatrix): ', Object.values(outcomesByMatrix));
+    // console.log('rSUtil cR O.e(outcomesByMatrix): ', Object.entries(outcomesByMatrix));
 
     const outcomes = Object.entries(outcomesByMatrix);
     outcomes.sort(compare);
-    // console.log('a cR sorted outcomes/length: ', outcomes, outcomes.length);
+    // console.log('rSUtil cR sorted outcomes/length: ', outcomes, outcomes.length);
 
     const index = outcomes.findIndex((el) => el[0] === '11111') + 1;
     rank = index / COMPARISON_MATRICES.length;
-    // console.log('a cR 11111 index/rank: ', index, rank);
+    // console.log('rSUtil cR 11111 index/rank: ', index, rank);
 
     return rank;
 }
