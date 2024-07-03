@@ -1,33 +1,17 @@
-import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 
-import { StockData } from '../../common/interfaces-rs';
-import { ALL_STOCK_DATA } from '../../data/stocks';
-import { generateRelStrTableDataSet } from '../../utils/rs-calc-utils';
 import { RelStrBaseComponent } from '../rel-str-base/rel-str-base.component';
+import { HeatmapComponent } from './heatmap/heatmap.component';
 
 @Component({
 	selector: 'rs-dashboard',
 	standalone: true,
-	imports: [],
+	imports: [HeatmapComponent],
 	templateUrl: './dashboard.component.html',
 	styleUrl: './dashboard.component.scss',
 	changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class DashboardComponent extends RelStrBaseComponent implements OnInit {
+export class DashboardComponent extends RelStrBaseComponent {
 	title = 'rel-str';
-
-	ngOnInit() {
-        this.generateRelStrTableData(ALL_STOCK_DATA, 'QQQ');
-	}
-
-    generateRelStrTableData(stockData: StockData[], baseline: string) {
-        const {allData, relStrTableData} = generateRelStrTableDataSet(stockData, baseline);
-        // console.log('d gRSTDS final allData: ', allData);
-        // console.log('d gRSTDS final relStrTableData: ', relStrTableData);
-        this.rsCalcsStore.setAllData(allData);
-        this.rsCalcsStore.setRelStrTableData(relStrTableData);
-    }
-
-	
 }
 

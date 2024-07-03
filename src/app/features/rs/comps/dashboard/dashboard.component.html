@@ -1,52 +1,19 @@
 
-@if(rsCalcsStore.relStrTableData()) {
+<div class="dashboard-container">
 
-    <div class="table-container">
+    <div class="buttons-container">
 
-        <div class="symbols-column">
+        <button class="task-button">Select stock / list</button>
+        <button class="task-button">Timeframe</button>
+        <button class="task-button">Sort / filter</button>
 
-            <div class="column-cell">Symbol/Date</div>
+    </div>
 
-            @for(symbol of rsCalcsStore.relStrTableData().symbols; track symbol) {
+    <div class="heatmap-container">
 
-                <div class="column-cell">{{symbol}}</div>
-
-            }
-
-        </div>
-
-        <div class="rows-container">
-    
-            <div class="row">
-
-                @for(date of rsCalcsStore.relStrTableData().dates; track date) {
-
-                    <div class="cell">{{date}}</div>
-    
-                }
-
-            </div>
-    
-            @for(row of rsCalcsStore.relStrTableData().data; track row) {
-        
-                <div class="row">
-                    
-                    @for(el of row; track el) {
-        
-                        <div class="cell">
-        
-                            <p class="text">{{el}}</p>
-        
-                        </div>
-            
-                    }
-        
-                </div>
-        
-            }
-        
-        </div>
+        <rs-heatmap />
         
     </div>
 
-}
+</div>
+
