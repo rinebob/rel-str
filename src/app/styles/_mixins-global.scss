@@ -29,6 +29,18 @@
 
 ////////////////// ELEMENTS ///////////////////
 
+@mixin rsButtonOne() {
+    background-color: lightgrey;
+    color: black;
+    font: 400 14px/20px Arial;
+    text-decoration: none;
+    text-transform: uppercase;
+    cursor: pointer;
+    padding: 10px 6px;
+    min-width: 150px;
+}
+
+
 @mixin globalTopnavMenuCss() {
     // @include global.globalColors($background-color: var(--topnav-menu-item-color), $color: var(--topnav-menu-item-text-color));
     border-radius: 0 !important;
