@@ -59,6 +59,7 @@
 
         &.column-header {
             cursor: default;
+            font-size: 10px;
         }
     }
 
@@ -78,10 +79,6 @@
     .text {
         font-size: 12px;
         margin: 0;
-    }
-
-    .hidden-button {
-
     }
 
     .button-cell {

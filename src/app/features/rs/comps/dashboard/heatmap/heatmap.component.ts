@@ -25,14 +25,14 @@ export class HeatmapComponent extends RelStrBaseComponent {
 
     ngOnInit() {
         this.rsCalcsStore.setHeatmapColors(generateColorArray(NUM_HEATMAP_MIDPOINTS));
-        console.log('h ngOI colors array: ', this.rsCalcsStore.heatmapColors());
+        // console.log('h ngOI colors array: ', this.rsCalcsStore.heatmapColors());
         this.generateRelStrTableData(ALL_STOCK_DATA, 'QQQ');
 	}
 
     generateRelStrTableData(stockData: StockData[], baseline: string) {
         const {allData, relStrTableData} = generateRelStrTableDataSet(stockData, baseline, this.rsCalcsStore.heatmapColors());
-        console.log('h gRSTDS final allData: ', allData);
-        console.log('h gRSTDS final relStrTableData: ', relStrTableData);
+        // console.log('h gRSTDS final allData: ', allData);
+        // console.log('h gRSTDS final relStrTableData: ', relStrTableData);
         this.rsCalcsStore.setAllData(allData);
         this.rsCalcsStore.setRelStrTableData(relStrTableData);
     }
@@ -42,7 +42,7 @@ export class HeatmapComponent extends RelStrBaseComponent {
     }
 
     handleSymbolSelection(symbol: string, selectionType: SelectionType) {
-        console.log('h hSS symbol/selection type: ', symbol, selectionType);
+        // console.log('h hSS symbol/selection type: ', symbol, selectionType);
     }
 
 
