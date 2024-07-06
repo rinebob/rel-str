@@ -31,13 +31,14 @@
 
 @mixin rsButtonOne() {
     background-color: lightgrey;
+    border-radius: 4px;
     color: black;
     font: 400 14px/20px Arial;
     text-decoration: none;
     text-transform: uppercase;
     cursor: pointer;
-    padding: 10px 6px;
-    min-width: 150px;
+    border: none;
+    padding: 8px 16px;
 }
 
 

@@ -3,7 +3,7 @@
 
 :host {
     @include global.flexboxLayout(row, flex-start, center);
-    background-color: lightgrey;
+    background-color: rgb(230, 230, 230);
     height: 64px;
     
     //////////////// CONTAINERS
@@ -23,11 +23,7 @@
     ///////////////// ELEMENTS
 
     .nav-button {
-        border: none;
-        background-color: darkgray;
-        cursor: pointer;
-        font: 400 16px/24px Arial;
-        height: 30px;
+        @include global.rsButtonOne();
 
         &:not(:last-of-type) {
             margin-right: 20px;
