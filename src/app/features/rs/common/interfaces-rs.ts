@@ -1,3 +1,4 @@
+import { FormControl } from "@angular/forms";
 
 
 export interface StockDatum {
@@ -52,4 +53,15 @@ export interface CalculationResult {
 
 export interface ResultsDataSet {
     [key: string]: StockResults;        // key = symbol
+}
+
+export interface RelStrStockList {
+    name: string;
+    baseline: string;
+    symbols?: string[];
+}
+
+export interface RelStrListForm {
+    nameControl: FormControl;
+    baselineControl: FormControl;
 }

@@ -1,6 +1,8 @@
-import { ChangeDetectionStrategy, Component, effect, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, effect, inject, signal } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop'
 
 import { RsCalcsStore } from '../../store/rs-calcs.store';
+import { RsAppStore } from '../../store/rs-app.store';
 
 @Component({
 	selector: 'rs-rel-str-base',
@@ -11,7 +13,13 @@ import { RsCalcsStore } from '../../store/rs-calcs.store';
 	changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RelStrBaseComponent {
+    destroyRef = inject(DestroyRef);
+
+    rsAppStore = inject(RsAppStore);
 	rsCalcsStore = inject(RsCalcsStore);
+
+    allStockLists$ = toObservable(this.rsAppStore.allStockLists);
+    stockList$ = toObservable(this.rsAppStore.allStockLists);
 
 	constructor() {
 		// effect(() => {
@@ -20,7 +28,7 @@ export class RelStrBaseComponent {
 	}
 
 	effect()  {
-        console.log('rSBC eff allData: ', this.rsCalcsStore.allData())
-        console.log('rSBC eff relStrTableData: ', this.rsCalcsStore.relStrTableData())
+        // console.log('rSBC eff allData: ', this.rsCalcsStore.allData())
+        // console.log('rSBC eff relStrTableData: ', this.rsCalcsStore.relStrTableData())
     }
 }
