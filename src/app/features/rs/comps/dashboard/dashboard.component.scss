@@ -4,6 +4,17 @@
 :host {
 
     /////////////////// CONTAINERS ///////////////////
+    
+    .close-button-container {
+        @include global.flexboxLayout(row, flex-end, center);
+        margin: 0 20px;
+    }
+
+    mat-drawer-content {
+        height: 100vh;
+    }
+    
+    
     .dashboard-container {
         @include global.flexboxLayout(column, flex-start, center);
         gap: 20px;

@@ -1,19 +1,45 @@
 
-<div class="dashboard-container">
 
-    <div class="buttons-container">
+<mat-drawer-container [hasBackdrop]="true">
 
-        <button class="task-button">Select stock / list</button>
-        <button class="task-button">Timeframe</button>
-        <button class="task-button">Sort / filter</button>
+    <mat-drawer #selectStock mode="over" position="end">
 
-    </div>
+        <rs-select-stock-panel (listSelected)="handleListSelected()" />
 
-    <div class="heatmap-container">
+        <div class="close-button-container">
 
-        <rs-heatmap />
+            <button mat-flat-button class="task-button" (click)="handleCloseSelectStockPanel()">close</button>
+
+        </div>
+
+    </mat-drawer>
+
+    <mat-drawer-content>
+
+            <!-- FOR DEVELOPMENT ONLY -->
+        <!-- <rs-select-stock-panel /> -->
+
+        <div class="dashboard-container">
+
+            <div class="buttons-container">
+
+                <button mat-flat-button class="task-button" (click)="handleSelectStock()">Select stock / list</button>
+                <button mat-flat-button class="task-button" (click)="handleChangeTimeframe()">Timeframe</button>
+                <button mat-flat-button class="task-button" (click)="handleSortFilter()">Sort / filter</button>
         
-    </div>
+            </div>
+        
+            <div class="heatmap-container">
+        
+                <rs-heatmap />
+                
+            </div>
 
-</div>
+        </div>
+
+    </mat-drawer-content>
+
+</mat-drawer-container>
+
+
 
