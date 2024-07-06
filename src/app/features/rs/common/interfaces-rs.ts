@@ -1,3 +1,4 @@
+import { FormControl } from "@angular/forms";
 
 
 export interface StockDatum {
@@ -25,10 +26,17 @@ export interface DataSet {
     [key: string]: StockData;        // key = symbol
 }
 
+export interface DatumWithColor {
+    value: number;
+    color: string;
+    index?: number;
+}
+
 export interface RelStrTableData {
     symbols: string[];
     dates: string[];
-    data: number[][];
+    // data: number[][];
+    data: DatumWithColor[][];
 }
 
 export interface Rank {
@@ -45,4 +53,15 @@ export interface CalculationResult {
 
 export interface ResultsDataSet {
     [key: string]: StockResults;        // key = symbol
+}
+
+export interface RelStrStockList {
+    name: string;
+    baseline: string;
+    symbols?: string[];
+}
+
+export interface RelStrListForm {
+    nameControl: FormControl;
+    baselineControl: FormControl;
 }

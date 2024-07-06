@@ -1,0 +1,27 @@
+<nav class="header-container">
+
+    <button mat-icon-button class="menu-button" (click)="handleMenuOpen()">
+        
+        <mat-icon>menu</mat-icon>
+    
+    </button>
+    
+    <p class="header-text">Relative Strength Heatmap</p>
+    
+    <div class="nav-buttons-container">
+
+        @for(item of NAV_MENU_ITEMS; track item.name) {
+
+            @if (item.external === true) {
+                <button mat-flat-button class="nav-button" (click)="handleNavigation(item.href)">
+
+                    {{item.text | uppercase}}
+
+                </button>
+            }
+
+        }
+        
+    </div>
+    
+</nav>

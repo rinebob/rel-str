@@ -1,5 +1,11 @@
+import { RelStrStockList } from "./interfaces-rs";
 
 export const BASELINE_EQUITY_SYMBOLS = ['SPY', 'QQQ'];
+
+export const MOCK_STOCK_LISTS: RelStrStockList[] = [
+    {name: 'list one with a long list name', baseline: 'QQQ', symbols: ['AAPL', 'NVDA', 'TSLA']},
+    {name: 'list two', baseline: 'QQQ', symbols: ['MSFT', 'AMAT']},
+];
 
 export const COMPARISON_MATRICES = [
 ['00000'],

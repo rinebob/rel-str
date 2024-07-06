@@ -1,0 +1,39 @@
+@use '../../../styles/mixins-global' as global;
+@use '../../../styles/variables-global' as globalVar;
+
+:host {
+    @include global.flexboxLayout(row, flex-start, center);
+    background-color: rgb(230, 230, 230);
+    height: 64px;
+    
+    //////////////// CONTAINERS
+    
+    
+    .header-container {
+        @include global.flexboxLayout(row, flex-start, center);
+        width: 100%;
+        
+        .nav-buttons-container {
+            @include global.flexboxLayout(row, flex-end, center);
+            margin: 0 20px 0 auto;
+
+        }
+    }
+
+    ///////////////// ELEMENTS
+
+    .nav-button {
+        @include global.rsButtonOne();
+
+        &:not(:last-of-type) {
+            margin-right: 20px;
+        }
+    }
+
+    //////////////// TEXT
+
+    .header-text {
+        font: 500 24px/36px Arial;
+        margin: 0 20px;
+    }
+}

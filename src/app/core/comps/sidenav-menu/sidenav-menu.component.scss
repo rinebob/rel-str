@@ -1,0 +1,60 @@
+@use '../../../styles/mixins-global' as global;
+@use '../../../styles/variables-global';
+
+:host {
+
+    
+    .logo-container {
+        @include global.flexboxLayout(row, flex-end, center);
+        margin-top: 30px;
+        width: 100%;
+
+        .logo {
+            margin-left: 10px;
+        }
+
+        .menu-button {
+            border: none;
+            margin-right: 30px;
+            outline: none;
+        }
+    }
+
+    .sidenav-menu-container {
+        @include global.flexboxLayout(column, flex-start, flex-start);
+        padding: 0 30px; 
+
+        .main-menu-container {
+            @include global.flexboxLayout(column, flex-start, flex-start);
+            width: 100%;
+            
+            .nav-menu-item-container {
+                @include global.flexboxLayout(column, flex-start, flex-start);
+                cursor: pointer;
+                padding: 10px 0;
+                width: 100%;
+
+                &:hover {
+                    background-color: lightgrey;
+                }
+            }
+        }
+
+        .nav-menu-item {
+            color: var(--mobile-nav-menu-item-color);
+            font: 400 14px/20px var(--indra-main-font);
+            text-decoration: none;
+            text-transform: uppercase;
+        }
+
+        .menu-text {
+            color: var(--menu-item-color);
+            font: 500 16px/24px var(--indra-main-font);
+
+            .link-text {
+                color: var(--dropdown-menu-item-color);
+                text-decoration: none;
+            }
+        }
+    }
+}

@@ -1,59 +1,49 @@
-
+@use '../../../../styles/mixins-global' as global;
+@use '../../../../styles/variables-global';
 
 :host {
 
-    width: 100%;
-    height: 100%;
-    margin: 50px;
-
-    .table-container {
-        display: flex;
-        justify-content: flex-start;
-        align-items: flex-start;
-
-        .symbols-column {
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
-            align-items: center;
-        }
-
-        .rows-container {
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
-            align-items: flex-start;
-            overflow-x: scroll;
-            width: 100%;
+    /////////////////// CONTAINERS ///////////////////
     
-            .row {
-                display: flex;
-                justify-content: flex-end;
-                align-items: center;
-            }
+    .close-button-container {
+        @include global.flexboxLayout(row, flex-end, center);
+        margin: 0 20px;
+    }
+
+    mat-drawer-content {
+        height: 100vh;
+    }
+    
+    
+    .dashboard-container {
+        @include global.flexboxLayout(column, flex-start, center);
+        gap: 20px;
+        margin: 20px;
+        
+        .buttons-container {
+            @include global.flexboxLayout(row, space-evenly, center);
+            gap: 20px;
+
+
+        }
+
+        .heatmap-container {
+            width: 100%;
         }
     }
 
-    .cell {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 50px;
-        width: 50px;
-        border: 1px solid black;
+
+    /////////////// ELEMENTS /////////////////
+
+    .task-button {
+        @include global.rsButtonOne();
     }
 
-    .column-cell {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 50px;
-        width: 100px;
-        border: 1px solid black;
-    }
 
-    .text {
-        font-size: 12px;
-        margin: 0;
-    }
+
+
+    ///////////// TEXT ///////////////////////
+
+
+
 }

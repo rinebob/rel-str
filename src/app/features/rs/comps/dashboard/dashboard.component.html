@@ -1,52 +1,45 @@
 
-@if(relStrTableData()) {
 
-    <div class="table-container">
+<mat-drawer-container [hasBackdrop]="true">
 
-        <div class="symbols-column">
+    <mat-drawer #selectStock mode="over" position="end">
 
-            <div class="column-cell">Symbol/Date</div>
+        <rs-select-stock-panel (listSelected)="handleListSelected()" />
 
-            @for(symbol of relStrTableData().symbols; track symbol) {
+        <div class="close-button-container">
 
-                <div class="column-cell">{{symbol}}</div>
-
-            }
+            <button mat-flat-button class="task-button" (click)="handleCloseSelectStockPanel()">close</button>
 
         </div>
 
-        <div class="rows-container">
-    
-            <div class="row">
+    </mat-drawer>
 
-                @for(date of relStrTableData().dates; track date) {
+    <mat-drawer-content>
 
-                    <div class="cell">{{date}}</div>
-    
-                }
+            <!-- FOR DEVELOPMENT ONLY -->
+        <!-- <rs-select-stock-panel /> -->
 
+        <div class="dashboard-container">
+
+            <div class="buttons-container">
+
+                <button mat-flat-button class="task-button" (click)="handleSelectStock()">Select stock / list</button>
+                <button mat-flat-button class="task-button" (click)="handleChangeTimeframe()">Timeframe</button>
+                <button mat-flat-button class="task-button" (click)="handleSortFilter()">Sort / filter</button>
+        
             </div>
-    
-            @for(row of relStrTableData().data; track row) {
         
-                <div class="row">
-                    
-                    @for(el of row; track el) {
+            <div class="heatmap-container">
         
-                        <div class="cell">
-        
-                            <p class="text">{{el}}</p>
-        
-                        </div>
-            
-                    }
-        
-                </div>
-        
-            }
-        
-        </div>
-        
-    </div>
+                <rs-heatmap />
+                
+            </div>
 
-}
+        </div>
+
+    </mat-drawer-content>
+
+</mat-drawer-container>
+
+
+

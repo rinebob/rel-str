@@ -1,0 +1,34 @@
+
+<div class="logo-container">
+
+    <button mat-icon-button class="menu-button" (click)="handleCloseSidenav()">
+        
+        <mat-icon>close</mat-icon>
+    
+    </button>
+
+</div>
+
+<div class="sidenav-menu-container">
+
+    <div class="main-menu-container">
+
+        @for(item of NAV_MENU_ITEMS; track item.name) {
+
+            <div class="nav-menu-item-container"
+                        routerLink="{{item.href}}"
+                        (click)="handleNavigation(item)"
+            >
+
+                <div class="nav-menu-item">
+                    {{item.text}}
+                   
+                </div>
+
+            </div>
+
+        }
+
+    </div>
+
+</div>

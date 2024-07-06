@@ -1,1 +1,20 @@
-<router-outlet/>
+
+<mat-drawer-container [hasBackdrop]="true">
+
+    <mat-drawer #sidenav mode="over" position="start">
+
+        <rs-sidenav-menu (closeSidenav)="handleCloseSidenav()"
+                         (navigate)="handleNavigation($event)"
+        />
+
+    </mat-drawer>
+
+    <mat-drawer-content>
+
+        <rs-header (openSidenav)="handleOpenSidenav()" />
+
+        <router-outlet></router-outlet>
+
+    </mat-drawer-content>
+
+</mat-drawer-container>
