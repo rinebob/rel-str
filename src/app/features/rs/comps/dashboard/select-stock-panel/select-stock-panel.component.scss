@@ -1,0 +1,83 @@
+@use '../../../../../styles/mixins-global' as global;
+@use '../../../../../styles/variables-global';
+
+:host {
+
+    .select-stock-panel-container {
+        @include global.flexboxLayout(column, flex-start, flex-start);
+        padding: 20px;
+        width: 400px;
+        
+        .header-container {
+            @include global.flexboxLayout(row, space-between, center);
+            margin: 20px 0;
+            width: 100%;
+
+        }
+        
+        .list-container {
+            @include global.flexboxLayout(column, flex-start, flex-start);
+            // margin: 20px 0 50px;
+
+            .list-item-container {
+                @include global.flexboxLayout(row, flex-start, center);
+                width: 100%;
+                margin: 4px 0;
+                
+                .buttons-container {
+                    @include global.flexboxLayout(row, flex-end, center);
+                    margin-left: auto;
+                }
+            }
+
+
+        }
+
+        .form-container {
+            @include global.flexboxLayout(column, center, flex-start);
+            padding: 20px 0;
+            width: 100%;
+
+            .mat-mdc-form-field {
+
+                width: 90%;
+            }
+        }
+    }
+
+    
+
+    .crud-button {
+        @include global.rsButtonOne();
+        // border: none;
+        // padding: 4px 8px;
+        // min-width: inherit;
+        
+        &:not(:last-of-type) {
+            margin: 0 12px;
+            
+        }
+
+        mat-icon {
+            margin: 0;
+        }
+    }
+
+    .create-button {
+        align-self: flex-end;
+    }
+
+    .list-item {
+        cursor: pointer;
+        margin: 0;
+        padding: 0 20px 0 0;
+    }
+
+    .header-text {
+        margin: 0;
+    }
+
+    .button-text {
+        margin: 0;
+    }
+}
