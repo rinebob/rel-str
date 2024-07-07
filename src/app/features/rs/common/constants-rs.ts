@@ -7,6 +7,10 @@ export const MOCK_STOCK_LISTS: RelStrStockList[] = [
     {name: 'list two', baseline: 'QQQ', symbols: ['MSFT', 'AMAT']},
 ];
 
+export const CREATE_TEXT = 'create new list';
+export const FORM_MODE_CREATE_TEXT = 'create new stock list';
+export const FORM_MODE_EDIT_TEXT = 'edit stock list';
+
 export const COMPARISON_MATRICES = [
 ['00000'],
 ['00001'],

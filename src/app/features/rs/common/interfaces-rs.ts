@@ -65,3 +65,10 @@ export interface RelStrListForm {
     nameControl: FormControl;
     baselineControl: FormControl;
 }
+
+export enum FormMode {
+    CREATE = 'create',
+    EDIT = 'edit'
+}
+
+export type StockListFormMode = FormMode.CREATE | FormMode.EDIT;
