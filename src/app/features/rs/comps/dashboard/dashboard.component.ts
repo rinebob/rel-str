@@ -36,11 +36,6 @@ export class DashboardComponent extends RelStrBaseComponent implements OnInit {
     handleSortFilter() {
         
     }
-
-    handleListSelected() {
-        // console.log('d hLS list selected. closing panel');
-        this.selectStockPanel.close();
-    }
     
     handleCloseSelectStockPanel() {
         // console.log('d hCSSP close select stock panel');
