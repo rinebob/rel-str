@@ -1,0 +1,34 @@
+@use '../../../../../../styles/mixins-global' as global;
+@use '../../../../../../styles/variables-global';
+
+:host {
+    @include global.flexboxLayout(column, flex-start, flex-start);
+    width: 100%;
+
+    .form-container {
+        @include global.flexboxLayout(column, center, flex-start);
+        padding: 20px 0;
+        width: 100%;
+
+        .mat-mdc-form-field {
+
+            width: 90%;
+        }
+    }
+
+    .crud-button {
+        @include global.rsButtonOne();
+        
+        &:not(:last-of-type) {
+            margin: 0 12px;
+        }
+
+        p {
+            margin: 0;
+        }
+
+        mat-icon {
+            margin: 0;
+        }
+    }
+}
