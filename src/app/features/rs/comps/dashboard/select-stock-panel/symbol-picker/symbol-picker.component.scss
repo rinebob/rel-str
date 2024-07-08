@@ -1,0 +1,41 @@
+@use '../../../../../../styles/mixins-global' as global;
+@use '../../../../../../styles/variables-global';
+
+:host {
+
+    .symbol-picker-container {
+        @include global.flexboxLayout(row, space-between, flex-start);
+        gap: 20px;
+        
+        .picker-list-container {
+            @include global.flexboxLayout(column, flex-start, center);
+
+            p {
+                margin: 0;
+                padding: 0;
+            }
+
+            .picker-list {
+                @include global.flexboxLayout(column, flex-start, flex-start);
+                border: 1px solid black;
+                height: 300px;
+                overflow-x: hidden;
+                overflow-y: auto;
+                min-width: 200px;
+
+                .datum-container {
+                    @include global.flexboxLayout(row, flex-start, center);
+                    border-bottom: 1px solid black;
+                    padding: 2px 0 2px 4px;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                    width: 100%;
+                }
+            }
+        }
+    }
+
+    .symbol-text {
+        width: 50px;
+    }
+}
