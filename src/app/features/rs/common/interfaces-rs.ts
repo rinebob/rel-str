@@ -58,7 +58,7 @@ export interface ResultsDataSet {
 export interface RelStrStockList {
     name: string;
     baseline: string;
-    symbols?: string[];
+    symbols: Company[];
 }
 
 export interface RelStrListForm {
@@ -72,3 +72,8 @@ export enum FormMode {
 }
 
 export type StockListFormMode = FormMode.CREATE | FormMode.EDIT;
+
+export interface Company {
+    symbol: string;
+    company: string;
+}

@@ -3,9 +3,39 @@ import { RelStrStockList } from "./interfaces-rs";
 export const BASELINE_EQUITY_SYMBOLS = ['SPY', 'QQQ'];
 
 export const MOCK_STOCK_LISTS: RelStrStockList[] = [
-    {name: 'list one with a long list name', baseline: 'QQQ', symbols: ['AAPL', 'NVDA', 'TSLA']},
-    {name: 'list two', baseline: 'QQQ', symbols: ['MSFT', 'AMAT']},
+    {name: 'list one with a long list name', baseline: 'QQQ', symbols: [
+        {
+            symbol: "AAPL",
+            company: "Apple Inc."
+        }, 
+        {
+            symbol: "NVDA",
+            company: "Nvidia Corporation"
+        }, 
+        {
+            symbol: "TSLA",
+            company: "Tesla, Inc."
+        },
+    ]},
+
+    {name: 'list two', baseline: 'QQQ', symbols: [
+        {
+            symbol: "MSFT",
+            company: "Microsoft"
+        },
+        {
+            symbol: "AMAT",
+            company: "Applied Materials, Inc."
+        },
+    ]},
 ];
+
+
+
+
+
+
+
 
 export const CREATE_TEXT = 'create new list';
 export const FORM_MODE_CREATE_TEXT = 'create new stock list';
