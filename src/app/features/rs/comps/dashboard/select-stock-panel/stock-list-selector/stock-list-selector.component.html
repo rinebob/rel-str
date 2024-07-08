@@ -12,7 +12,15 @@
 
         <div class="list-item-container">
 
-            <p class="list-item" (click)="handleSelectList(list)">{{list.name}}</p>
+            <div class="list-name-container"
+                 [class.active]="list.name === rsAppStore.selectedStockList().name"
+            >
+                
+                <p class="list-name-text" (click)="handleSelectList(list)">
+                    {{list.name}}
+                </p>
+
+            </div>
 
             <div class="buttons-container">
                 

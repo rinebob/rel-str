@@ -48,7 +48,9 @@ export function withStockListFeature() {
             },
 
             setFormMode(formMode: FormMode) {patchState(store, {formMode})},
+
             setShowForm(showForm: boolean) {patchState(store, {showForm})},
+
             setFormData(formData: RelStrStockList) {
                 // console.log('wSLFeat sFD input form data: ', formData);
                 patchState(store, {formData})
@@ -59,19 +61,14 @@ export function withStockListFeature() {
                 let allStockLists = [...store.allStockLists()];
                 // console.log('wSLFeat sL save list. input form data: ', formData);
                 if (store.formMode() === FormMode.EDIT) {
-                    
                     allStockLists = store.allStockLists().filter(l => l.name !== store.selectedStockList()?.name);
                     allStockLists = [...allStockLists, formData];
-                    
                 } else {
                     allStockLists = [...store.allStockLists(), formData];
-                    
                 }
-
-                patchState(store, {allStockLists});
+                patchState(store, {allStockLists, selectedStockList: formData});
                 // console.log('wSLFeat sL final allStockLists: ', store.allStockLists());
             },
-
         })),
     )
 }

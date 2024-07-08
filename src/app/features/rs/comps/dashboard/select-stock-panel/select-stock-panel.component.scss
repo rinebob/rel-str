@@ -4,5 +4,5 @@
 :host {
     @include global.flexboxLayout(column, flex-start, flex-start);
     padding: 20px;
-    width: 400px;
+    min-width: 400px;
 }
