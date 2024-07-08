@@ -5,7 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
-import { FormMode, RelStrListForm, RelStrStockList } from '../../../../common/interfaces-rs';
+import { Company, FormMode, RelStrListForm, RelStrStockList } from '../../../../common/interfaces-rs';
 import { SymbolPickerComponent } from '../symbol-picker/symbol-picker.component';
 import { RelStrBaseComponent } from '../../../rel-str-base/rel-str-base.component';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -28,6 +28,7 @@ export class StockListFormComponent extends RelStrBaseComponent implements OnIni
 
     formMode = signal<'edit' | 'create'>('create');
     showForm = signal<boolean>(false);
+    localSymbolsSelection = signal<Company[]>([]);
     
     nameControl = new FormControl('');
     baselineControl = new FormControl('');
@@ -65,18 +66,22 @@ export class StockListFormComponent extends RelStrBaseComponent implements OnIni
                     this.populateForm(stockList);
                 }
             }
-
         });
 
         this.listForm.valueChanges.pipe(debounceTime(300), takeUntilDestroyed(this.destroyRef)).subscribe(changes => {
             // console.log('sLF ngOI list form value changes sub: ', changes);
-            let newList: RelStrStockList = {
-                name: changes.nameControl,
-                baseline: changes.baselineControl,
-            }
-            // console.log('sLF ngOI newList: ', newList);
-            this.rsAppStore.setFormData(newList);
+            this.setFormData()
         });
+    }
+
+    setFormData() {
+        let newList: RelStrStockList = {
+            name: this.listForm.controls.nameControl.value,
+            baseline: this.listForm.controls.baselineControl.value,
+            symbols: this.localSymbolsSelection(),
+        }
+        // console.log('sLF ngOI newList: ', newList);
+        this.rsAppStore.setFormData(newList);
     }
 
     reset() {
@@ -86,6 +91,12 @@ export class StockListFormComponent extends RelStrBaseComponent implements OnIni
     populateForm(list: RelStrStockList) {
         this.listForm.controls.nameControl.setValue(list.name);
         this.listForm.controls.baselineControl.setValue(list.baseline);
+    }
+
+    handleLocalSymbolsOutput(symbols: Company[]) {
+        // console.log('sLF hLSO handle local symbols output: ', symbols);
+        this.localSymbolsSelection.set([...symbols]);
+        this.setFormData();
     }
 
     handleSaveList() {

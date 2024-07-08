@@ -3,7 +3,6 @@
 
 :host {
     @include global.flexboxLayout(column, flex-start, flex-start);
-    width: 100%;
 
     .form-container {
         @include global.flexboxLayout(column, center, flex-start);
@@ -14,6 +13,10 @@
 
             width: 90%;
         }
+    }
+
+    .buttons-container {
+        margin: 16px 0;
     }
 
     .crud-button {
