@@ -1,11 +1,12 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { RelStrBaseComponent } from '../../rel-str-base/rel-str-base.component';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { NgStyle } from '@angular/common';
+
 import { ALL_STOCK_DATA } from '../../../data/stocks';
+import { NUM_HEATMAP_MIDPOINTS } from '../../../../../core/common/constants';
 import { StockData } from '../../../common/interfaces-rs';
 import { generateRelStrTableDataSet } from '../../../utils/rs-calc-utils';
 import { generateColorArray } from '../../../utils/color-utils';
-import { NgStyle } from '@angular/common';
-import { NUM_HEATMAP_MIDPOINTS } from '../../../../../core/common/constants';
+import { RelStrBaseComponent } from '../../rel-str-base/rel-str-base.component';
 
 type SelectionType = 'chart' | 'history';
 

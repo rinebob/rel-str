@@ -1,10 +1,10 @@
 import { ChangeDetectionStrategy, Component, OnInit, signal, ViewChild } from '@angular/core';
-
-import { RelStrBaseComponent } from '../rel-str-base/rel-str-base.component';
-import { HeatmapComponent } from './heatmap/heatmap.component';
 import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
-import { SelectStockPanelComponent } from './select-stock-panel/select-stock-panel.component';
+
 import { MOCK_STOCK_LISTS } from '../../common/constants-rs';
+import { HeatmapComponent } from './heatmap/heatmap.component';
+import { SelectStockPanelComponent } from './select-stock-panel/select-stock-panel.component';
+import { RelStrBaseComponent } from '../rel-str-base/rel-str-base.component';
 
 @Component({
 	selector: 'rs-dashboard',
@@ -22,6 +22,10 @@ export class DashboardComponent extends RelStrBaseComponent implements OnInit {
 
     ngOnInit() {
         this.rsAppStore.setAllStockLists(MOCK_STOCK_LISTS);
+
+        // this.selectedStockList$.pipe().subscribe(list => {
+        //     console.log('d ngOI selected stock list sub: ', list);
+        // });
     }
 
     handleSelectStock() {

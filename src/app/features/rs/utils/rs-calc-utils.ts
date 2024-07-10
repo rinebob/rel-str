@@ -97,7 +97,8 @@ function generateFinalDataSet(allData: DataSet): DataSet {
 function generateTableData(allData: DataSet, heatmapColors: string[]): RelStrTableData {
     let symbols: string[] = [];
 
-    console.log('rSUtil gDT input heatmap colors: ', heatmapColors);
+    // console.log('rSUtil gDT input allData: ', allData);
+    // console.log('rSUtil gDT input heatmap colors: ', heatmapColors);
 
     for (const symbol of Object.keys(allData)) {
         if (!BASELINE_EQUITY_SYMBOLS.includes(symbol)) {
@@ -117,6 +118,8 @@ function generateTableData(allData: DataSet, heatmapColors: string[]): RelStrTab
         // let rowData: number[] = [];
         let rowData: DatumWithColor[] = [];
         for (const date of dates) {
+            // console.log('rSUtil gDT date: ', date);
+            // console.log('rSUtil gDT allData[symbol].ranksByDate[date]: ', allData[symbol].ranksByDate[date]);
             // const value = allData[symbol].ranksByDate[date].rank;
             const value = Math.round(allData[symbol].ranksByDate[date].rank * 100);
             // rowData.push(value);

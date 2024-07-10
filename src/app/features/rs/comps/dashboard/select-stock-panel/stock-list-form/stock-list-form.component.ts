@@ -5,13 +5,14 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { combineLatest } from 'rxjs';
+import { debounceTime } from 'rxjs/operators';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+
 import { Company, FormMode, RelStrListForm, RelStrStockList } from '../../../../common/interfaces-rs';
+import { FORM_MODE_CREATE_TEXT, FORM_MODE_EDIT_TEXT } from '../../../../common/constants-rs';
 import { SymbolPickerComponent } from '../symbol-picker/symbol-picker.component';
 import { RelStrBaseComponent } from '../../../rel-str-base/rel-str-base.component';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { debounceTime } from 'rxjs/operators';
-import { combineLatest } from 'rxjs';
-import { FORM_MODE_CREATE_TEXT, FORM_MODE_EDIT_TEXT } from '../../../../common/constants-rs';
 
 @Component({
   selector: 'rs-stock-list-form',
