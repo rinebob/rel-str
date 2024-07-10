@@ -1,12 +1,12 @@
 import { ChangeDetectionStrategy, Component, inject, ViewChild } from '@angular/core';
 import { Router, RouterModule, RouterOutlet } from '@angular/router';
-
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSidenav, MatSidenavModule } from '@angular/material/sidenav';
+
+import { NavItem } from './common/interfaces';
 import { HeaderComponent } from './comps/header/header.component';
 import { SidenavMenuComponent } from './comps/sidenav-menu/sidenav-menu.component';
-import { NavItem } from './common/interfaces';
 
 @Component({
 	selector: 'rs-core',

@@ -1,13 +1,14 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { RelStrBaseComponent } from '../../../rel-str-base/rel-str-base.component';
 import { UpperCasePipe } from '@angular/common';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
+import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
+
 import { FormMode, RelStrStockList } from '../../../../common/interfaces-rs';
 import { CREATE_TEXT, FORM_MODE_CREATE_TEXT, FORM_MODE_EDIT_TEXT } from '../../../../common/constants-rs';
+import { RelStrBaseComponent } from '../../../rel-str-base/rel-str-base.component';
 
 @Component({
   selector: 'rs-stock-list-selector',

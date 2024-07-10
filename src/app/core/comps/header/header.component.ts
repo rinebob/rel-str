@@ -1,9 +1,10 @@
-import { ChangeDetectionStrategy, Component, inject, output } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
-import {MatMenuModule} from '@angular/material/menu';
-import { NAV_MENU_ITEMS } from '../../common/constants';
-import { Router, RouterModule } from '@angular/router';
 import { UpperCasePipe } from '@angular/common';
+import { ChangeDetectionStrategy, Component, inject, output } from '@angular/core';
+import { Router, RouterModule } from '@angular/router';
+import { MatIconModule } from '@angular/material/icon';
+import { MatMenuModule } from '@angular/material/menu';
+
+import { NAV_MENU_ITEMS } from '../../common/constants';
 
 @Component({
   selector: 'rs-header',

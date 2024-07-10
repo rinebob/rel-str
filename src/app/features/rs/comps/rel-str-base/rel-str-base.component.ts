@@ -25,12 +25,12 @@ export class RelStrBaseComponent {
     showForm$ = toObservable(this.rsAppStore.showForm);
 
 	constructor() {
-		// effect(() => {
-        //     this.effect();
-        // });
+		// effect(
+        //     this.effect
+        // );
 	}
 
-	effect()  {
+	effect = () => {
         // console.log('rSBC eff allData: ', this.rsAppStore.allData())
         // console.log('rSBC eff relStrTableData: ', this.rsAppStore.relStrTableData())
         // console.log('rSBC eff form data: ', this.rsAppStore.formData())

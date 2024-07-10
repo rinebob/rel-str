@@ -1,7 +1,51 @@
-/* You can add global styles to this file, and also import other style files */
+@use './app/styles/mixins-global' as global;
+@use './app/styles/variables-global' as globalVar;
+
+
 body {
     margin: 0;
     padding: 0;
 }
 html, body { height: 100%; }
-body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+body {
+    margin: 0; 
+    font-family: Roboto, "Helvetica Neue", sans-serif;
+
+    p { 
+        margin: 0;
+        padding: 0;
+    }
+}
+
+// @include global.globalTopnavMenuCss();
+.global-topnav-menu-css {
+    // @include global.globalColors($background-color: white, $color: blue);
+    border-radius: 0 !important;
+    max-width: 100%;
+    overflow: hidden;
+    padding: 0;
+    
+    .topnav-active {
+        // @include global.globalColors(var(--topnav-menu-item-active-color), var(--topnav-menu-item-text-active-color));
+    }
+    
+    .mat-mdc-menu-content {
+        padding: 0 !important;
+    }
+    
+    button.mat-mdc-menu-item {
+        // @include global.globalTopnavMenuButtonStyles;
+        margin: 0 !important;
+        width: 100%;
+        border-radius: 0;
+        
+        &:hover {
+            // @include global.globalColors(var(--topnav-menu-item-hover-color) !important, var(--topnav-menu-item-text-hover-color) !important);
+            
+        }
+    }
+
+    // @include global.response(xs) {
+    //     width: 100vw !important;
+    // }
+}

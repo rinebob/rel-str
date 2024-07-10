@@ -1,9 +1,10 @@
 import { ChangeDetectionStrategy, Component, OnInit, output, signal } from '@angular/core';
-import { RelStrBaseComponent } from '../../../rel-str-base/rel-str-base.component';
-import { SYMBOL_DATA } from '../../../../../../../assets/data/picker-table-data';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Company, FormMode } from '../../../../common/interfaces-rs';
 import { combineLatest } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+
+import { SYMBOL_DATA } from '../../../../../../../assets/data/picker-table-data';
+import { Company, FormMode } from '../../../../common/interfaces-rs';
+import { RelStrBaseComponent } from '../../../rel-str-base/rel-str-base.component';
 
 @Component({
   selector: 'rs-symbol-picker',
