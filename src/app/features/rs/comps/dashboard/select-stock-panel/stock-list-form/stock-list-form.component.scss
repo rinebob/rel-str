@@ -2,7 +2,8 @@
 @use '../../../../../../styles/variables-global';
 
 :host {
-    @include global.flexboxLayout(column, flex-start, flex-start);
+    @include global.flexboxLayout(column, flex-start, center);
+    // width: 50%;
 
     .form-container {
         @include global.flexboxLayout(column, center, flex-start);

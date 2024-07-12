@@ -21,12 +21,23 @@
 
         <div class="dashboard-container">
 
-            <div class="buttons-container">
+            <div class="header-container">
 
-                <button mat-flat-button class="task-button" (click)="handleSelectStock()">Select stock / list</button>
-                <button mat-flat-button class="task-button" (click)="handleChangeTimeframe()">Timeframe</button>
-                <button mat-flat-button class="task-button" (click)="handleSortFilter()">Sort / filter</button>
-        
+                <div class="name-container">
+
+                    <p class="header-text">List: {{rsAppStore.selectedStockList().name}}</p>
+                    <p class="header-text">Baseline symbol: {{rsAppStore.selectedStockList().baseline}}</p>
+
+                </div>
+                
+                <div class="buttons-container">
+    
+                    <button mat-flat-button class="task-button" (click)="handleSelectStock()">Select stock / list</button>
+                    <button mat-flat-button class="task-button" (click)="handleChangeTimeframe()">Timeframe</button>
+                    <button mat-flat-button class="task-button" (click)="handleSortFilter()">Sort / filter</button>
+            
+                </div>
+
             </div>
         
             <div class="heatmap-container">

@@ -9,10 +9,11 @@ import { combineLatest } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
-import { Company, FormMode, RelStrListForm, RelStrStockList } from '../../../../common/interfaces-rs';
-import { FORM_MODE_CREATE_TEXT, FORM_MODE_EDIT_TEXT } from '../../../../common/constants-rs';
+import { Company, FormMode, RanksDataWithColors, RelStrListForm, RelStrStockList } from '../../../../common/interfaces-rs';
+import { FORM_MODE_CREATE_TEXT, FORM_MODE_EDIT_TEXT, STOCK_LIST_INITIALIZER } from '../../../../common/constants-rs';
 import { SymbolPickerComponent } from '../symbol-picker/symbol-picker.component';
 import { RelStrBaseComponent } from '../../../rel-str-base/rel-str-base.component';
+import { resolveExistingRanksData } from '../../../../utils/rs-calc-utils';
 
 @Component({
   selector: 'rs-stock-list-form',
@@ -27,9 +28,9 @@ import { RelStrBaseComponent } from '../../../rel-str-base/rel-str-base.componen
 })
 export class StockListFormComponent extends RelStrBaseComponent implements OnInit {
 
-    formMode = signal<'edit' | 'create'>('create');
-    showForm = signal<boolean>(false);
+    localStockList = signal<RelStrStockList>(STOCK_LIST_INITIALIZER);
     localSymbolsSelection = signal<Company[]>([]);
+    formDataWithSymbols = signal<RelStrStockList>(STOCK_LIST_INITIALIZER);
     
     nameControl = new FormControl('');
     baselineControl = new FormControl('');
@@ -54,7 +55,7 @@ export class StockListFormComponent extends RelStrBaseComponent implements OnIni
             this.formMode$,
             this.showForm$
         ]).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(([stockList, formMode, showForm]) => {
-            // console.log('sLF ngOI cL formMode/showForm sub: ', formMode, showForm);
+            // console.log('sLF ngOI cL stockList/formMode/showForm sub: ', stockList, formMode, showForm);
             
             if (!!showForm) {
                 // console.log('sLF ngOI cL showForm true');
@@ -65,6 +66,7 @@ export class StockListFormComponent extends RelStrBaseComponent implements OnIni
                 } else if (formMode === FormMode.EDIT) {
                     // console.log('sLF ngOI cL formMode edit. selected list: ', stockList);
                     this.populateForm(stockList);
+                    this.localStockList.set(stockList);
                 }
             }
         });
@@ -80,9 +82,10 @@ export class StockListFormComponent extends RelStrBaseComponent implements OnIni
             name: this.listForm.controls.nameControl.value,
             baseline: this.listForm.controls.baselineControl.value,
             symbols: this.localSymbolsSelection(),
+            ranksDataWithColors: {},
         }
         // console.log('sLF ngOI newList: ', newList);
-        this.rsAppStore.setFormData(newList);
+        this.formDataWithSymbols.set(newList);
     }
 
     reset() {
@@ -101,9 +104,21 @@ export class StockListFormComponent extends RelStrBaseComponent implements OnIni
     }
 
     handleSaveList() {
-        // console.log('sLF hEL handle save list');
+        // console.log('sLF hSL handle save list. form mode: ', this.rsAppStore.formMode());
+
+        const newList= this.formDataWithSymbols();
+        if (this.rsAppStore.formMode() === FormMode.CREATE) {
+            this.rsAppStore.saveList(newList);
+        } else {
+
+            const pairsToSave = resolveExistingRanksData(this.localStockList(), this.localSymbolsSelection());
+            // console.log('sLF hSL pairs to save: ', pairsToSave);
+            newList.ranksDataWithColors = {...pairsToSave};
+            // console.log('sLF hSL list to save: ', {...newList});
+
+            this.rsAppStore.saveList({...newList});
+        }
         this.reset();
-        this.rsAppStore.saveList();
         this.rsAppStore.setShowForm(false);
     }
 
