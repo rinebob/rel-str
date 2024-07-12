@@ -1,6 +1,183 @@
 import { BASELINE_EQUITY_SYMBOLS, COMPARISON_MATRICES } from "../common/constants-rs";
-import { CalculationData, CalculationResult, DataSet, DatumWithColor, RanksByDate, RelStrTableData, StockData, StockDatum } from "../common/interfaces-rs";
-import { generateColorArray } from "./color-utils";
+import { BaselineTargetRankDatum, CalculationData, CalculationResult, Company, DataSet, DatumWithColor, RanksByDate, RanksDataWithColors, RelStrStockList, RelStrTableData, StockData, StockDatum, StringNumberObject } from "../common/interfaces-rs";
+
+/////////////////// START 7/10/24 ////////////////////////
+
+// generates an object with date and rank for a baseline/symbol pair
+export function generatePairData(baselineData: StockDatum[], targetData: StockDatum[], heatmapColors: string[] ) {
+
+    const baselinePercentChangeData = generatePercentChangeData(baselineData);
+    const targetPercentChangeData = generatePercentChangeData(targetData);
+    const targetRanksData = generateTargetRanksData(baselinePercentChangeData, targetPercentChangeData, heatmapColors);
+
+    console.log('rsCU gPD baseline/target pct chg data: ', baselinePercentChangeData, targetPercentChangeData);
+    // console.log('rsCU gPD target ranks data: ', targetRanksData);
+
+    return targetRanksData;
+
+}
+
+function generatePercentChangeData(stockData: StockDatum[]): StringNumberObject[] {
+    // console.log('rsCU gPCD symbol: ');
+
+    const percentChangeData: StringNumberObject[] = [];
+    let yestVal = 0;
+    let todayVal = 0;
+    let value = 0;
+
+    for (const datum of stockData) {
+        const date = Object.keys(datum)[0];
+        todayVal = Object.values(datum)[0];
+        if (yestVal !== 0) {
+            value = ((todayVal - yestVal) / yestVal) * 100;
+            const datum: StringNumberObject = {
+                date,
+                value,
+            }
+            percentChangeData.push(datum);
+        }
+
+        // console.log('rsCU gPCD yestVal/todayVal/pctChange: ', date, yestVal, todayVal, value);
+
+        yestVal = todayVal;
+    }
+
+    return percentChangeData;
+    
+
+}
+
+function generateTargetRanksData(baseline: StringNumberObject[], target: StringNumberObject[], heatmapColors: string[]) {
+    console.log(`======== CALCULATE RANKS ================`);
+    console.log('rSUtil cRs input baseline/target: ', baseline, target);
+
+    const targetRanks: StringNumberObject[] = [];
+    const targetRanksWithColors: BaselineTargetRankDatum[] = [];
+    
+    for (let i = 5; i < Object.keys(target).length; i ++) {
+        // console.log('rsCU gTRD i/O.k(target)[i]: ', i, Object.keys(target)[i]);
+        const date = target[i].date;
+        // console.log(`-------- date: ${date} ------------`);
+        let targetPctChgs = [];
+        let baselinePctChgs = [];
+
+        for (let j = 0; j <= 4; j++) {
+            // console.log(`-------- i: ${i} / j: ${j} ------------`);
+            // console.log('baseline[i-j]: ', baseline[i-j]);
+            // console.log('O.v(baseline[i-j]: 'Object.values);
+
+            const baselinePctChange = Object.values(baseline)[i - j]
+            const targetPctChange = Object.values(target)[i - j]
+            // console.log('baselinePctChg/targetPctChg: ', baselinePctChange, targetPctChange);
+
+            targetPctChgs.push(targetPctChange);
+            baselinePctChgs.push(baselinePctChange);
+        }
+        // console.log('pctChgs target/baseline: ', targetPctChgs, baselinePctChgs);
+        const rank = calculateRsRank(targetPctChgs, baselinePctChgs);
+        const targetRank: StringNumberObject = {date, value: rank}
+        targetRanks.push(targetRank);
+        // console.log('targetRank: ', targetRank);
+        const targetRankWithColor: BaselineTargetRankDatum = addColorToRank(targetRank, heatmapColors);
+        targetRanksWithColors.push(targetRankWithColor);
+        
+        
+    }
+    
+    
+    // console.log('final targetRanks: ', targetRanks);
+    console.log('final targetRanksWithColors: ', targetRanksWithColors);
+
+    // return targetRanks;
+    return targetRanksWithColors;
+
+}
+
+function calculateRsRank(target: StringNumberObject[], baseline: StringNumberObject[]): number {
+    // console.log('rSUtil cR input pctChgs target/baseling: ', target, baseline);
+    let rank = 0;
+
+    let outcomesByMatrix: { [key: string]: number } = {};
+    for (let i = 0; i <= COMPARISON_MATRICES.length - 1; i++) {
+        let changes = [];
+        const matrix = COMPARISON_MATRICES[i][0];
+        const matrixEls = matrix.split('');
+
+        for (let i = 0; i < matrixEls.length; i++) {
+            const el = matrixEls[i];
+            const val = el === '1' ? target[i].value : baseline[i].value;
+            changes.push(val);
+        }
+
+        const pctChg = Number(changes.reduce((accumulator, currentValue) => accumulator + currentValue, changes[0]).toFixed(4));
+
+        outcomesByMatrix[matrix] = pctChg;
+    }
+
+    // console.log('rSUtil cR final outcomesByMatrix: ', outcomesByMatrix);
+    // console.log('rSUtil cR O.v(outcomesByMatrix): ', Object.values(outcomesByMatrix));
+    // console.log('rSUtil cR O.e(outcomesByMatrix): ', Object.entries(outcomesByMatrix));
+
+    const outcomes = Object.entries(outcomesByMatrix);
+    outcomes.sort(compare);
+    // console.log('rSUtil cR sorted outcomes/length: ', outcomes, outcomes.length);
+
+    const index = outcomes.findIndex((el) => el[0] === '11111') + 1;
+    rank = index / COMPARISON_MATRICES.length;
+    // console.log('rSUtil cR 11111 index/rank: ', index, rank);
+
+    return rank;
+}
+
+function addColorToRank(targetRank: StringNumberObject, heatmapColors: string[]): BaselineTargetRankDatum {
+
+    const value = Math.round(targetRank.value * 100);
+    const index = Math.round((Number((value * .10).toFixed(2))));
+    const color = heatmapColors[index];
+    const datum: BaselineTargetRankDatum = {...targetRank, index, color};
+
+    return datum;
+}
+
+export function getPairsForList(list: RelStrStockList) {
+    // console.log('sLFeat gHD get pairs for list: ', list);
+    const baseline = list.baseline;
+    let pairs: string[] = [];
+    for (const symbol of list.symbols) {
+        const pair = `${baseline}_${symbol.symbol}`;
+        pairs.push(pair);
+    }
+    // console.log('sLFeat gHD baseline/pairs: ', baseline, pairs);
+
+    return pairs;
+
+}
+
+export function resolveExistingRanksData(list: RelStrStockList, symbols: Company[]): RanksDataWithColors {
+    console.log('sLF hSL existing list: ', {...list});
+
+    const baseline = list.baseline;
+    let pairsToSave: RanksDataWithColors = {};
+
+    const existingPairs = {...list.ranksDataWithColors};
+    console.log('sLF hSL existing pairs: ', {...existingPairs});
+
+    for (const symbol of symbols) {
+        const pair = `${baseline}_${symbol.symbol}`;
+        console.log('sLF hSL pair to save: ', pair);
+        if (!!existingPairs[pair]) {
+            console.log('sLF hSL pair exists - add to list');
+            pairsToSave[pair] = existingPairs[pair];
+        } else {
+            console.log('sLF hSL pair doesnt exist');
+        }
+    }
+    console.log('sLF hSL pairs to save: ', pairsToSave);
+    return pairsToSave;
+}
+////////////////////////////////////////////////////////
+
+/////////////// INITIAL IMPLEMENTATIONS ///////////////////////////
 
 export function generateRelStrTableDataSet(data: StockData[], baseline: string, heatmapColors: string[]) {
     let allData = createDataObject(data);
@@ -177,8 +354,8 @@ function calculatePercentChange(results: CalculationData[]): CalculationData[] {
 }
 
 function calculateRanks(baseline: StockData, subject: StockData): StockData {
-    // console.log(`======== CALCULATE RANKS ================`);
-    // console.log('rSUtil cRs input results: ', results);
+    console.log(`======== CALCULATE RANKS ================`);
+    // console.log('rSUtil cRs input baseline/target: ', baseline/subject);
 
     let subjectPctChgs = [];
     let baselinePctChgs = [];

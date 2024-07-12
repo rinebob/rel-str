@@ -1,5 +1,7 @@
 import { RelStrStockList } from "./interfaces-rs";
 
+export const STOCK_LIST_INITIALIZER: RelStrStockList = {name: '', baseline: '', symbols: [], ranksDataWithColors: {}};
+
 export const BASELINE_EQUITY_SYMBOLS = ['SPY', 'QQQ'];
 
 export const MOCK_STOCK_LISTS: RelStrStockList[] = [
@@ -17,7 +19,6 @@ export const MOCK_STOCK_LISTS: RelStrStockList[] = [
             company: "Tesla, Inc."
         },
     ]},
-
     {name: 'list two', baseline: 'QQQ', symbols: [
         {
             symbol: "MSFT",
@@ -26,6 +27,87 @@ export const MOCK_STOCK_LISTS: RelStrStockList[] = [
         {
             symbol: "AMAT",
             company: "Applied Materials, Inc."
+        },
+        
+    ]},
+    {name: 'list three', baseline: 'QQQ', symbols: [
+        {
+            symbol: "MSFT",
+            company: "Microsoft"
+        },
+        {
+            symbol: "AMAT",
+            company: "Applied Materials, Inc."
+        },
+        {
+            symbol: "AAPL",
+            company: "Apple Inc."
+        }, 
+        
+    ]},
+    {name: 'list four', baseline: 'QQQ', symbols: [
+        {
+            symbol: "MSFT",
+            company: "Microsoft"
+        },
+        {
+            symbol: "AMAT",
+            company: "Applied Materials, Inc."
+        },
+        {
+            symbol: "NVDA",
+            company: "Nvidia Corporation"
+        }, 
+        
+    ]},
+    {name: 'list five', baseline: 'QQQ', symbols: [
+        {
+            symbol: "AAPL",
+            company: "Apple Inc."
+        },
+        {
+            symbol: "NVDA",
+            company: "Nvidia Corporation"
+        }, 
+        {
+            symbol: "TSLA",
+            company: "Tesla, Inc."
+        },
+    ]},
+    {name: 'list six', baseline: 'QQQ', symbols: [
+        {
+            symbol: "MSFT",
+            company: "Microsoft"
+        },
+        {
+            symbol: "AMAT",
+            company: "Applied Materials, Inc."
+        },
+        {
+            symbol: "AAPL",
+            company: "Apple Inc."
+        },
+    ]},
+    {name: 'list seven', baseline: 'QQQ', symbols: [
+        {
+            symbol: "MSFT",
+            company: "Microsoft"
+        },
+        {
+            symbol: "NVDA",
+            company: "Nvidia Corporation"
+        },
+        {
+            symbol: "AAPL",
+            company: "Apple Inc."
+        },
+        {
+            symbol: "AMAT",
+            company: "Applied Materials, Inc."
+        },
+        {
+            symbol: "TSLA",
+            company: "Tesla, Inc."
         },
     ]},
 ];
