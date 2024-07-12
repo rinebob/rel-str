@@ -13,10 +13,11 @@
         <div class="list-item-container">
 
             <div class="list-name-container"
+                 (click)="handleSelectList(list)"
                  [class.active]="list.name === rsAppStore.selectedStockList().name"
             >
                 
-                <p class="list-name-text" (click)="handleSelectList(list)">
+                <p class="list-name-text">
                     {{list.name}}
                 </p>
 
