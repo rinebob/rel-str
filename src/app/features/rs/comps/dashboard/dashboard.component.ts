@@ -27,7 +27,7 @@ export class DashboardComponent extends RelStrBaseComponent implements OnInit {
         this.rsAppStore.getSupportedSymbolsList();
         this.rsAppStore.getSupportedPairsList();
         this.rsAppStore.setAllStockLists(MOCK_STOCK_LISTS);
-        this.rsAppStore.setSelectedStockList(MOCK_STOCK_LISTS[0]);
+        this.rsAppStore.initializeList({...MOCK_STOCK_LISTS[0]});
     }
 
     handleSelectStock() {

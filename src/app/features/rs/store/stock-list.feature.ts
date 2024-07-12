@@ -178,8 +178,7 @@ export function withStockListFeature() {
 
             resolveExistingRanksData(list: RelStrStockList) {
                 // console.log('-----------------');
-                // const list = store.selectedStockList()
-                // console.log('sLFeat rERD selected stock list sub: ', {...list});
+                // console.log('sLFeat rERD input list: ', {...list});
                 const pairs = getPairsForList(list);
                 // console.log('sLFeat rERD pairs: ', pairs);
                 const existingPairs = !!list.ranksDataWithColors ? Object.keys(list.ranksDataWithColors) : [];
@@ -197,12 +196,10 @@ export function withStockListFeature() {
                 }
 
                 // console.log('sLFeat rERD pairsToFetch: ', pairsToFetch);
-                // let ranksDataWithColors = {}
                 if (list.ranksDataWithColors === undefined || pairsToFetch.length) {
                     // console.log('sLFeat rERD no list ranks with colors or pairs to fetch not empty');
                     const ranksData = this.getHeatmapData(pairsToFetch);
                     // console.log('sLFeat rERD ranksData: ', ranksData);
-                    // console.log('sLFeat rERD O.e(ranksData): ', Object.entries(ranksData));
                     
                     const updatedRanksData = list.ranksDataWithColors !== undefined ? {...list.ranksDataWithColors, ...ranksData} : {...ranksData};
                     // console.log('sLFeat rERD updatedRanksData: ', updatedRanksData);
@@ -215,18 +212,41 @@ export function withStockListFeature() {
                 return list;
             },
 
+            initializeList(list: RelStrStockList) {
+                let allStockLists = [...store.allStockLists()];
+                // console.log('wSLFeat sL save list. input formMode/list: ', store.formMode(), {...list});
+                list = this.resolveExistingRanksData(list);
+                allStockLists = this.sortLists(list, allStockLists);
+                // console.log('wSLFeat iL allStockLists post filter pre save: ', allStockLists);
+                patchState(store, {allStockLists, selectedStockList: list});
+            },
+
             saveList(list: RelStrStockList) {
                 let allStockLists = [...store.allStockLists()];
-                // console.log('wSLFeat sL save list. input list: ', {...list});
+                // console.log('wSLFeat sL save list. input formMode/list: ', store.formMode(), {...list});
+                list = this.resolveExistingRanksData(list);
                 if (store.formMode() === FormMode.EDIT) {
-                    list = this.resolveExistingRanksData(list)
-                    allStockLists = store.allStockLists().filter(l => l.name !== store.selectedStockList()?.name);
-                    allStockLists = [...allStockLists, list];
+                    // console.log('wSLFeat sL allStockLists post filter pre save: ', allStockLists);
+                    allStockLists = this.sortLists(list, allStockLists);
                 } else {
                     allStockLists = [...store.allStockLists(), list];
                 }
+                // console.log('wSLFeat sL list with ranks data: ', {...list});
                 patchState(store, {allStockLists, selectedStockList: list});
                 // console.log('wSLFeat sL final allStockLists: ', store.allStockLists());
+            },
+
+            sortLists(targetList: RelStrStockList, allStockLists: RelStrStockList[]) {
+                let lists: RelStrStockList[] = [];
+                for (const list of allStockLists) {
+                    if (list.name !== targetList.name) {
+                        lists.push(list);
+                    } else {
+                        lists.push(targetList);
+                    }
+                }
+
+                return lists;
             },
 
             deleteStockList(name: string) {
