@@ -1,14 +1,14 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { NgStyle } from '@angular/common';
 
 import { ALL_STOCK_DATA } from '../../../data/stocks';
-import { NUM_HEATMAP_MIDPOINTS } from '../../../../../core/common/constants';
-import { StockData } from '../../../common/interfaces-rs';
+import { BaselineTargetRankDatum, StockData } from '../../../common/interfaces-rs';
 import { generateRelStrTableDataSet } from '../../../utils/rs-calc-utils';
-import { generateColorArray } from '../../../utils/color-utils';
 import { RelStrBaseComponent } from '../../rel-str-base/rel-str-base.component';
 
 type SelectionType = 'chart' | 'history';
+
+const HEADER_CELL_CORNER_TEXT = 'Symbol/Date';
 
 @Component({
   selector: 'rs-heatmap',
@@ -20,14 +20,32 @@ type SelectionType = 'chart' | 'history';
 })
 export class HeatmapComponent extends RelStrBaseComponent {
     
+    headerCells = signal<string[]>([]);
+    ranksDataWithColorsEntries = signal<[string, BaselineTargetRankDatum[]][]>([]);
+
     constructor() {
         super();
     }
 
     ngOnInit() {
-        this.rsCalcsStore.setHeatmapColors(generateColorArray(NUM_HEATMAP_MIDPOINTS));
-        // console.log('h ngOI colors array: ', this.rsCalcsStore.heatmapColors());
         this.generateRelStrTableData(ALL_STOCK_DATA, 'QQQ');
+
+        this.selectedStockList$.pipe().subscribe(list => {
+            // console.log('h ngOI selected stock list sub: ', list);
+            if (!!list.ranksDataWithColors) {
+                const entries = Object.entries(list.ranksDataWithColors);
+                // console.log('h ngOI O.e(list): ', entries);
+                this.ranksDataWithColorsEntries.set(entries);
+                const data = entries[0][1];
+                // console.log('h ngOI data: ', data);
+                const dates: string[] = [HEADER_CELL_CORNER_TEXT];
+                for (const datum of data) {
+                    dates.push(datum.date);
+                }
+                // console.log('h ngOI dates: ', dates);
+                this.headerCells.set(dates);
+            }
+        });
 	}
 
     generateRelStrTableData(stockData: StockData[], baseline: string) {
