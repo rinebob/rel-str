@@ -27,7 +27,7 @@
                 padding: 8px;
 
                 &:hover {
-                    background-color: lightgrey;
+                    background-color: darkgrey;
                 }
 
                 p {
@@ -54,7 +54,7 @@
     }
 
     .active {
-        background-color: darkgrey;
+        background-color: lightgrey;
     }
 
     .crud-button {
