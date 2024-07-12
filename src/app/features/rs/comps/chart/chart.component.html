@@ -1,1 +1,76 @@
-<p>chart works!</p>
+
+
+<!-- <div class="chart-container"> -->
+
+    chart component
+    
+    <form class="form-container" [formGroup]="symbolForm" (ngSubmit)="handleGetData()">
+
+        <mat-form-field>
+            <mat-label>Symbol</mat-label>
+            
+            <input matInput
+                    type="text"
+                    class="list-form-control"
+                    placeholder="Enter symbol"
+                    formControlName="symbolControl"
+            >
+
+        </mat-form-field>
+
+        <div class="buttons-container">
+                
+            <button type="submit" mat-flat-button class="crud-button" (click)="handleGetData()">
+                <p class="button-text">get data</p>
+            </button>
+            
+            <button mat-flat-button class="crud-button" (click)="handleClear()">
+                <p class="button-text">clear form</p>
+            </button>
+    
+        </div>
+
+    </form>
+
+
+    <div class="bottom-container">
+
+        @if(rsAppStore.supportedSymbolsList().length) {
+    
+            <div class="data-container">
+                
+                @for(symbol of rsAppStore.supportedSymbolsList(); track symbol) {
+    
+                    <p>Symbol: {{symbol}}</p>
+                    
+                }
+                
+            </div>
+
+        }
+
+        @if(stockData().length) {
+    
+            <div class="data-container">
+
+                @for(datum of stockData(); track datum) {
+    
+
+                    <div class="datum-container">
+        
+                        <p>Date: {{getDate(datum)}}</p>
+                        <p>Close: {{getPrice(datum)}}</p>
+                        
+                    </div>
+
+                }
+            
+            </div>
+
+        }
+    
+        
+        
+    </div>
+
+<!-- </div> -->

@@ -1,0 +1,65 @@
+@use '../../../../styles/mixins-global' as global;
+@use '../../../../styles/variables-global';
+
+
+:host {
+    @include global.flexboxLayout(column, flex-start, flex-start);
+    padding: 50px;
+
+    .form-container {
+        @include global.flexboxLayout(column, center, flex-start);
+        padding: 20px 0;
+        width: 100%;
+
+        .mat-mdc-form-field {
+
+            width: 200px;
+        }
+    }
+
+    .buttons-container {
+        margin: 16px 0;
+
+        button {
+            margin: 0;
+
+            &:first-of-type {
+                margin-right: 20px;
+            }
+        }
+    }
+
+    .bottom-container {
+        @include global.flexboxLayout(row, flex-start, flex-start);
+        gap: 20px;
+        overflow-y: auto;
+        width: 100%;
+
+        .data-container {
+            @include global.flexboxLayout(column, flex-start, flex-start);
+            gap: 20px;
+            
+            .datum-container {
+                @include global.flexboxLayout(row, flex-start, flex-start);
+                
+            }
+        }
+    }
+
+
+    .crud-button {
+        @include global.rsButtonOne();
+        
+        &:not(:last-of-type) {
+            margin: 0 12px;
+        }
+
+        p {
+            margin: 0;
+        }
+
+        mat-icon {
+            margin: 0;
+        }
+    }
+}
