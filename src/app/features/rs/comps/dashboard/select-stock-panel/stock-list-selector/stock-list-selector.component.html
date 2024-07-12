@@ -1,0 +1,41 @@
+<button mat-flat-button class="crud-button create-button" (click)="handleCreateNewList()">{{CREATE_TEXT}}</button>
+
+<div class="header-container">
+
+    <p class="header-text">EXISTING STOCK LISTS</p>
+
+</div>
+
+<div class="list-container">
+
+    @for(list of rsAppStore.allStockLists(); track list) {
+
+        <div class="list-item-container">
+
+            <div class="list-name-container"
+                 [class.active]="list.name === rsAppStore.selectedStockList().name"
+            >
+                
+                <p class="list-name-text" (click)="handleSelectList(list)">
+                    {{list.name}}
+                </p>
+
+            </div>
+
+            <div class="buttons-container">
+                
+                <button mat-flat-button class="crud-button" (click)="handleEditList(list)">
+                    <mat-icon>edit</mat-icon>
+                </button>
+
+                <button mat-flat-button class="crud-button" (click)="handleDeleteList(list.name)">
+                    <mat-icon>delete</mat-icon>
+                </button>
+
+            </div>
+
+        </div>
+
+    }
+
+</div>

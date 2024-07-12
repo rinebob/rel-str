@@ -19,16 +19,20 @@ export class RelStrBaseComponent {
 	rsCalcsStore = inject(RsCalcsStore);
 
     allStockLists$ = toObservable(this.rsAppStore.allStockLists);
-    stockList$ = toObservable(this.rsAppStore.allStockLists);
+    selectedStockList$ = toObservable(this.rsAppStore.selectedStockList);
+
+    formMode$ = toObservable(this.rsAppStore.formMode);
+    showForm$ = toObservable(this.rsAppStore.showForm);
 
 	constructor() {
-		// effect(() => {
-        //     this.effect();
-        // });
+		// effect(
+        //     this.effect
+        // );
 	}
 
-	effect()  {
-        // console.log('rSBC eff allData: ', this.rsCalcsStore.allData())
-        // console.log('rSBC eff relStrTableData: ', this.rsCalcsStore.relStrTableData())
+	effect = () => {
+        // console.log('rSBC eff allData: ', this.rsAppStore.allData())
+        // console.log('rSBC eff relStrTableData: ', this.rsAppStore.relStrTableData())
+        // console.log('rSBC eff form data: ', this.rsAppStore.formData())
     }
 }

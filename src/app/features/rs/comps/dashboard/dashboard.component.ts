@@ -1,10 +1,12 @@
-import { ChangeDetectionStrategy, Component, OnInit, signal, ViewChild } from '@angular/core';
-
-import { RelStrBaseComponent } from '../rel-str-base/rel-str-base.component';
-import { HeatmapComponent } from './heatmap/heatmap.component';
+import { ChangeDetectionStrategy, Component, OnInit, ViewChild } from '@angular/core';
 import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
-import { SelectStockPanelComponent } from './select-stock-panel/select-stock-panel.component';
+
 import { MOCK_STOCK_LISTS } from '../../common/constants-rs';
+import { HeatmapComponent } from './heatmap/heatmap.component';
+import { SelectStockPanelComponent } from './select-stock-panel/select-stock-panel.component';
+import { RelStrBaseComponent } from '../rel-str-base/rel-str-base.component';
+import { generateColorArray } from '../../utils/color-utils';
+import { NUM_HEATMAP_MIDPOINTS } from '../../../../core/common/constants';
 
 @Component({
 	selector: 'rs-dashboard',
@@ -21,7 +23,11 @@ export class DashboardComponent extends RelStrBaseComponent implements OnInit {
 	title = 'rel-str';
 
     ngOnInit() {
+        this.rsCalcsStore.setHeatmapColors(generateColorArray(NUM_HEATMAP_MIDPOINTS));
+        this.rsAppStore.getSupportedSymbolsList();
+        this.rsAppStore.getSupportedPairsList();
         this.rsAppStore.setAllStockLists(MOCK_STOCK_LISTS);
+        this.rsAppStore.setSelectedStockList(MOCK_STOCK_LISTS[0]);
     }
 
     handleSelectStock() {
@@ -35,11 +41,6 @@ export class DashboardComponent extends RelStrBaseComponent implements OnInit {
     
     handleSortFilter() {
         
-    }
-
-    handleListSelected() {
-        // console.log('d hLS list selected. closing panel');
-        this.selectStockPanel.close();
     }
     
     handleCloseSelectStockPanel() {

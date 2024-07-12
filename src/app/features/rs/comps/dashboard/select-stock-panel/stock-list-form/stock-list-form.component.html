@@ -1,0 +1,48 @@
+@if(rsAppStore.showForm() === true) {
+<!-- @if(true) { -->
+
+    <p class="form-header">{{((rsAppStore.formMode()) === FormMode.CREATE ? FORM_MODE_CREATE_TEXT : FORM_MODE_EDIT_TEXT) | uppercase}}</p>
+
+    <div class="form-container" [formGroup]="listForm">
+
+        <mat-form-field>
+            <mat-label>List name</mat-label>
+            
+            <input matInput
+                   type="text"
+                   class="list-form-control"
+                   placeholder="Enter name of list"
+                   formControlName="nameControl"
+            >
+
+        </mat-form-field>
+
+        <mat-form-field>
+            <mat-label>Baseline ticker</mat-label>
+            
+            <input matInput
+                   type="text"
+                   class="list-form-control"
+                   placeholder="Enter baseline ticker symbol"
+                   formControlName="baselineControl"
+            >
+
+        </mat-form-field>
+
+    </div>
+
+    <rs-symbol-picker (localSymbolsOuput)="handleLocalSymbolsOutput($event)" />
+
+    <div class="buttons-container">
+                
+        <button mat-flat-button class="crud-button" (click)="handleSaveList()">
+            <p class="button-text">save</p>
+        </button>
+        
+        <button mat-flat-button class="crud-button" (click)="handleCancel()">
+            <p class="button-text">cancel</p>
+        </button>
+
+    </div>
+
+}

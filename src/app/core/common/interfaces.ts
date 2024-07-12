@@ -48,3 +48,10 @@ export interface NavItem {
     target?: string;
     mobileOnly?: boolean;
 }
+
+export interface Equity {
+    symbol: string;
+    company?: string;
+    exchange?: string;
+
+}
