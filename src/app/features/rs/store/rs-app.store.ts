@@ -2,13 +2,9 @@ import { signalStore, withState, withMethods, withComputed, patchState } from "@
 import { withStockListFeature } from "./stock-list.feature";
 
 type RsAppState = {
-    // allStockLists: RelStrStockList[],
-    // stockList: RelStrStockList | undefined,
 }
 
 const initialState: RsAppState = {
-    // allStockLists: [],
-    // stockList: undefined,
 }
 
 export const RsAppStore = signalStore(
