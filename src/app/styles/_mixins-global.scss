@@ -41,6 +41,21 @@
     padding: 8px 16px;
 }
 
+@mixin heatmapCell() {
+    @include flexboxLayout(column, center, center);
+        height: var(--heatmap-cell-height);
+        width: var(--heatmap-cell-width);
+
+        &.first {
+            width: 100px;
+        }
+}
+
+@mixin heatmapCellText() {
+    font-size: 12px;
+        margin: 0;
+}
+
 
 @mixin globalTopnavMenuCss() {
     // @include global.globalColors($background-color: var(--topnav-menu-item-color), $color: var(--topnav-menu-item-text-color));
