@@ -8,6 +8,7 @@ export enum AppRoutes {
 	SIGNUP = 'signup',
 	CHART = 'chart',
 	HISTORY = 'history',
+    CHAT = 'chat',
 	// ROBERT = 'robert',
 	// KANBAN = 'kanban',
 	// AUDIO = 'audio',
