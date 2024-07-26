@@ -8,7 +8,7 @@ import { APP_ROUTES } from './app.routes';
 import { initializeApp, provideFirebaseApp } from '@angular/fire/app';
 import { getAuth, provideAuth } from '@angular/fire/auth';
 import { initializeAppCheck, ReCaptchaEnterpriseProvider, provideAppCheck } from '@angular/fire/app-check';
-import { getFirestore, provideFirestore } from '@angular/fire/firestore';
+import { connectFirestoreEmulator, getFirestore, provideFirestore } from '@angular/fire/firestore';
 import { getFunctions, provideFunctions } from '@angular/fire/functions';
 import { getPerformance, providePerformance } from '@angular/fire/performance';
 import { getStorage, provideStorage } from '@angular/fire/storage';
@@ -22,16 +22,25 @@ export const appConfig: ApplicationConfig = {
 		provideClientHydration(),
 		provideAnimationsAsync(),
 		provideHttpClient(),
-		provideFirebaseApp(() => initializeApp(FIREBASE_CONFIG)),
 		provideAuth(() => getAuth()),
-		provideAppCheck(() => {
-			// TODO get a reCAPTCHA Enterprise here https://console.cloud.google.com/security/recaptcha?project=_
-			const provider = new ReCaptchaEnterpriseProvider(REL_STR_RECAPTCHA_KEY);
-			return initializeAppCheck(undefined, { provider, isTokenAutoRefreshEnabled: true });
-		}),
-		provideFirestore(() => getFirestore()),
-		provideFunctions(() => getFunctions()),
-		providePerformance(() => getPerformance()),
-		provideStorage(() => getStorage()),
+		// provideAppCheck(() => {
+            // 	// TODO get a reCAPTCHA Enterprise here https://console.cloud.google.com/security/recaptcha?project=_
+            // 	const provider = new ReCaptchaEnterpriseProvider(REL_STR_RECAPTCHA_KEY);
+            // 	return initializeAppCheck(undefined, { provider, isTokenAutoRefreshEnabled: true });
+            // }),
+        // provideFirestore(() => getFirestore()),
+        provideFirestore(() => {
+            const firestore = getFirestore();
+            if (location.hostname === 'localhost') {
+                connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
+            }
+            return firestore;
+        }),
+        provideFunctions(() => getFunctions()),
+        providePerformance(() => getPerformance()),
+        provideStorage(() => getStorage()), 
+        provideFirebaseApp(() => initializeApp(FIREBASE_CONFIG)),
+
+
 	],
 };
