@@ -5,6 +5,7 @@ import { ALL_STOCK_DATA } from '../../../data/stocks';
 import { BaselineTargetRankDatum, StockData } from '../../../common/interfaces-rs';
 import { generateRelStrTableDataSet } from '../../../utils/rs-calc-utils';
 import { RelStrBaseComponent } from '../../rel-str-base/rel-str-base.component';
+import { AppRoutes } from '../../../../../core/common/interfaces';
 
 type SelectionType = 'chart' | 'history';
 
@@ -62,6 +63,8 @@ export class HeatmapComponent extends RelStrBaseComponent {
 
     handleSymbolSelection(symbol: string, selectionType: SelectionType) {
         // console.log('h hSS symbol/selection type: ', symbol, selectionType);
+        const route = selectionType === 'chart' ? AppRoutes.CHART : AppRoutes.HISTORY;
+        this.router.navigate([route])
     }
 
 

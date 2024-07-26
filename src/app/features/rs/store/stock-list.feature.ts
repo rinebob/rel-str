@@ -72,6 +72,11 @@ export function withStockListFeature() {
                 relStrDbService.updateData(symbol, data);
             },
 
+            addSupportedSymbolsList() {
+                // console.log('sLFeat aSSL add supported symbols list called')
+                relStrDbService.createSupportedSymbolsListDoc();
+            },
+
             getSupportedSymbolsList() {
                 const supportedSymbolsList = relStrDbService.getSupportedSymbolsList();
                 // console.log('sLFeat gSSL supportedSymbolsList: ', supportedSymbolsList)
