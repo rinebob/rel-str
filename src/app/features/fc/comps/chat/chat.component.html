@@ -1,1 +1,58 @@
-<p>chat works!</p>
+
+<div class="chat-container">
+
+    @for(message of (messages$ | async); track message) {
+
+        {{message}}
+
+        @if(message) {
+
+            <div class="message-container">
+    
+                <img class="message-image"
+                     [src]="message['profilePicUrl']"
+                     [alt]="message['name']"
+                />
+    
+                <div class="content-container">
+    
+                    <div class="message-text">
+    
+                        {{message['text']}}
+                    
+                    </div>
+    
+                    <div class="image-container">
+                        
+                        <img class="message-image" [src]="message['imageUrl']" alt="image" />
+                    
+                    </div>
+    
+                    <span class="timestamp">
+                        {{message['timestamp'].toDate().toLocaleTimeString()}}
+                    </span>
+    
+                </div>
+    
+    
+            </div>
+            
+        }
+
+        @if(message['response']) {
+
+            <div class="response-container">
+
+                <div class="message-text">
+
+                    {{message['response']}}
+                
+                </div>
+
+            </div>
+
+        }
+
+    }
+
+</div>
