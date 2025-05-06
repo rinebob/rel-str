@@ -2,9 +2,11 @@ import { signalStore, withState, withMethods, withComputed, patchState } from "@
 import { withStockListFeature } from "./stock-list.feature";
 
 type RsAppState = {
+    selectedSymbol: string,
 }
 
 const initialState: RsAppState = {
+    selectedSymbol: '',
 }
 
 export const RsAppStore = signalStore(
@@ -14,6 +16,10 @@ export const RsAppStore = signalStore(
     withComputed(() => ({})),
     withMethods((store) => ({
         
+        setSelectedSymbol(selectedSymbol: string) {
+            // console.log('rASto sSS set selected symbol: ', selectedSymbol);
+            patchState(store, {selectedSymbol});
+        },
 
     })),
 );

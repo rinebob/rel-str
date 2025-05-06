@@ -1,4 +1,101 @@
-@if(rsCalcsStore.relStrTableData()) {
+
+
+<!-- /////////////// NEW IMPLEMENTATION ////////////////////////// -->
+
+@if(rsAppStore.selectedStockList()) {
+
+    <div class="heatmap-container">
+
+        <div class="heatmap-rows-container">
+
+                <!-- HEADER ROW -->
+
+            <div class="heatmap-row header-row">
+    
+                @for(cell of headerCells(); track cell; let idx = $index) {
+    
+                    <div class="header-cell"
+                        [class.first]="idx === 0"
+                    >
+    
+                        <p class="heatmap-text">{{cell}}</p>
+            
+                    </div>
+                }
+    
+            </div>
+
+            @for(entry of ranksDataWithColorsEntries(); track entry) {
+        
+                <div class="heatmap-row data-row">
+    
+                    <div class="heatmap-cell first">{{entry[0]}}</div>
+    
+                    @for(datum of entry[1]; track datum) {
+    
+                        <div class="heatmap-cell"
+                             [ngStyle]="{'background-color': datum.color}"
+                        >
+    
+                            <p class="heatmap-text">{{datum.value}}</p>
+                            <p class="heatmap-text">{{datum.index}}</p>
+                            <p class="heatmap-text">{{datum.color}}</p>
+    
+                        </div>
+    
+                        
+                    }
+                    <!-- <div class="heatmap-cell">Chart</div>
+                    <div class="heatmap-cell">Signals</div> -->
+    
+                </div>
+        
+            }
+
+        </div>
+
+        <div class="buttons-column-container">
+
+            <div class="buttons-row-container">
+
+                <div class="header-cell"></div>
+                <div class="header-cell"></div>
+                
+            </div>
+
+            @for(entry of ranksDataWithColorsEntries(); track entry) {
+
+                <div class="buttons-row-container">
+
+                    <div class="heatmap-cell button-cell" (click)="handleSymbolSelection(entry[0], 'chart')">Chart</div>
+                    <div class="heatmap-cell button-cell" (click)="handleSymbolSelection(entry[0], 'history')">History</div>
+                    
+                </div>
+
+            }
+
+
+        </div>
+
+
+
+
+    </div>
+
+
+}
+
+
+
+
+
+
+<!-- ///////////////////////////////////////////////// -->
+
+
+<!-- ////////////// LEGACY IMPLEMENTATION //////////////////// -->
+
+<!-- @if(rsCalcsStore.relStrTableData()) {
 
     <div class="table-container">
 
@@ -79,7 +176,7 @@
 
         </div>
         
-    </div>
+    </div> -->
 
         <!-- DO NOT DELETE - SHOWS HEATMAP COLOR SWATCHES -->
     <!-- <div class="color-grid-container">
@@ -97,4 +194,4 @@
 
     <!-- END DO NOT DELETE -->
 
-}
+<!-- } -->

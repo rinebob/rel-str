@@ -10,7 +10,7 @@ export function generatePairData(baselineData: StockDatum[], targetData: StockDa
     const targetPercentChangeData = generatePercentChangeData(targetData);
     const targetRanksData = generateTargetRanksData(baselinePercentChangeData, targetPercentChangeData, heatmapColors);
 
-    console.log('rsCU gPD baseline/target pct chg data: ', baselinePercentChangeData, targetPercentChangeData);
+    // console.log('rsCU gPD baseline/target pct chg data: ', baselinePercentChangeData, targetPercentChangeData);
     // console.log('rsCU gPD target ranks data: ', targetRanksData);
 
     return targetRanksData;
@@ -48,8 +48,8 @@ function generatePercentChangeData(stockData: StockDatum[]): StringNumberObject[
 }
 
 function generateTargetRanksData(baseline: StringNumberObject[], target: StringNumberObject[], heatmapColors: string[]) {
-    console.log(`======== CALCULATE RANKS ================`);
-    console.log('rSUtil cRs input baseline/target: ', baseline, target);
+    // console.log(`======== CALCULATE RANKS ================`);
+    // console.log('rSUtil cRs input baseline/target: ', baseline, target);
 
     const targetRanks: StringNumberObject[] = [];
     const targetRanksWithColors: BaselineTargetRankDatum[] = [];
@@ -86,7 +86,7 @@ function generateTargetRanksData(baseline: StringNumberObject[], target: StringN
     
     
     // console.log('final targetRanks: ', targetRanks);
-    console.log('final targetRanksWithColors: ', targetRanksWithColors);
+    // console.log('final targetRanksWithColors: ', targetRanksWithColors);
 
     // return targetRanks;
     return targetRanksWithColors;
@@ -154,25 +154,25 @@ export function getPairsForList(list: RelStrStockList) {
 }
 
 export function resolveExistingRanksData(list: RelStrStockList, symbols: Company[]): RanksDataWithColors {
-    console.log('sLF hSL existing list: ', {...list});
+    // console.log('sLF hSL existing list: ', {...list});
 
     const baseline = list.baseline;
     let pairsToSave: RanksDataWithColors = {};
 
     const existingPairs = {...list.ranksDataWithColors};
-    console.log('sLF hSL existing pairs: ', {...existingPairs});
+    // console.log('sLF hSL existing pairs: ', {...existingPairs});
 
     for (const symbol of symbols) {
         const pair = `${baseline}_${symbol.symbol}`;
-        console.log('sLF hSL pair to save: ', pair);
+        // console.log('sLF hSL pair to save: ', pair);
         if (!!existingPairs[pair]) {
-            console.log('sLF hSL pair exists - add to list');
+            // console.log('sLF hSL pair exists - add to list');
             pairsToSave[pair] = existingPairs[pair];
         } else {
-            console.log('sLF hSL pair doesnt exist');
+            // console.log('sLF hSL pair doesnt exist');
         }
     }
-    console.log('sLF hSL pairs to save: ', pairsToSave);
+    // console.log('sLF hSL pairs to save: ', pairsToSave);
     return pairsToSave;
 }
 ////////////////////////////////////////////////////////
@@ -354,7 +354,7 @@ function calculatePercentChange(results: CalculationData[]): CalculationData[] {
 }
 
 function calculateRanks(baseline: StockData, subject: StockData): StockData {
-    console.log(`======== CALCULATE RANKS ================`);
+    // console.log(`======== CALCULATE RANKS ================`);
     // console.log('rSUtil cRs input baseline/target: ', baseline/subject);
 
     let subjectPctChgs = [];

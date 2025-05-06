@@ -46,3 +46,7 @@ Thumbs.db
 *-debug.log
 .runtimeconfig.json
 src/secrets/secrets.ts
+angular-ssr.json
+
+# windsurf rules
+.windsurfrules

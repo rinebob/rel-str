@@ -34,7 +34,7 @@ export class StockListSelectorComponent extends RelStrBaseComponent {
 
     handleSelectList(list: RelStrStockList) {
         // console.log('sLS hSL select list called.  list: ', list);
-        this.rsAppStore.setSelectedStockList({...list});
+        this.rsAppStore.initializeList({...list});
     }
 
     handleEditList(list: RelStrStockList) {

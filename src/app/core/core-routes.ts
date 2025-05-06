@@ -39,6 +39,18 @@ import { AppRoutes } from "./common/interfaces";
                 loadComponent: () => import('../features/rs/comps/history/history.component')
                 .then(mod => mod.HistoryComponent),
             },
+
+
+            // Friendly Chat codelab feature.  Not part of Rel Str app
+            // For development/learning only
+            // code adapted from firebase codelab 
+            // https://firebase.google.com/codelabs/firebase-web#0
+            {path: AppRoutes.CHAT, 
+                loadComponent: () => import('../features/fc/comps/chat/chat.component')
+                .then(mod => mod.ChatComponent),
+            },
+
+
             {path: AppRoutes.LOGOUT, redirectTo: '/', pathMatch: 'full'},
         ]
     },

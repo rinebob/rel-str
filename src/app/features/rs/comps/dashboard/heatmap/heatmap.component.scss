@@ -3,107 +3,180 @@
 
 :host {
 
-    .table-container {
-        @include global.flexboxLayout();
+    ////////// NEW IMPLEMENTATION ////////////////////
 
-        .symbols-column {
-            @include global.flexboxLayout(column, flex-start, center);
-        }
-        
-        .rows-container {
+    .heatmap-container {
+        @include global.flexboxLayout(row, flex-start, flex-start);
+        // overflow-x: scroll;
+        // overflow-y: hidden;
+        // width: 100%;
+
+        .heatmap-rows-container {
             @include global.flexboxLayout(column, flex-start, flex-start);
             overflow-x: scroll;
             overflow-y: hidden;
             width: 100%;
-            
-            .row {
-                @include global.flexboxLayout(row, flex-end, center);
-                border-top: 1px solid black;
-                display: flex;
-                justify-content: flex-end;
-                align-items: center;
 
-                &:last-of-type {
-                    border-bottom: 1px solid black;
-                }
+            .header-row {
+                // border-top: 1px solid black;
+                // border-bottom: 1px solid black;
             }
-        }
-        
-        .row-buttons-container {
-            @include global.flexboxLayout(row, flex-start, flex-start);
-            border-left: 1px solid black;
-            
-            .buttons-column {
-                @include global.flexboxLayout(column, space-evenly, center);
+
+            .heatmap-row {
+                @include global.flexboxLayout();
+    
                 
             }
-
-        }
-    }
-
-    .color-grid-container {
-        @include global.flexboxLayout();
-        flex-wrap: wrap;
-    }
-
-    .cell {
-        @include global.flexboxLayout(column, center, center);
-        cursor: pointer;
-        height: 50px;
-        width: 50px;
-        
-        &:not(:first-of-type) {
-            border-left: 1px solid black;
-
         }
 
-        &.column-header {
-            cursor: default;
-            font-size: 10px;
+        .buttons-column-container {
+            @include global.flexboxLayout(column, flex-end, center);
+            border-right: 1px solid black;
+            
+            .buttons-row-container {
+                @include global.flexboxLayout();
+
+            }
         }
+
     }
 
-    .column-cell {
-        @include global.flexboxLayout(row, center, center);
-        height: 50px;
-        width: 100px;
-        border-top: 1px solid black;
+    .header-cell {
+        @include global.heatmapCell();
         border-left: 1px solid black;
-        border-right: 1px solid black;
-
-        &:last-of-type {
-            border-bottom: 1px solid black;
-        }
+        border-top: 1px solid black;
+        border-bottom: 1px solid black;
     }
 
-    .text {
-        font-size: 12px;
-        margin: 0;
+    .heatmap-cell {
+        @include global.heatmapCell();
+        // border: 1px solid black;
+        border-left: 1px solid black;
+        border-bottom: 1px solid black;
+
+        &.first {
+            width: 100px;
+        }
     }
 
     .button-cell {
-        @include global.flexboxLayout(row, center, center);
-        border-top: 1px solid black;
-        border-right: 1px solid black;
+        @include global.heatmapCell();
+        // border: 1px solid black;
         cursor: pointer;
-        height: 50px;
-        width: 50px;
-
-        &:last-of-type {
-            border-bottom: 1px solid black;
-        }
+    }
+    
+    .heatmap-text {
+        @include global.heatmapCellText();
+        // font-size: 10px;
+        // margin: 0;
     }
 
-    .color-cell {
-        @include global.flexboxLayout(row, center, center);
-        border: 1px solid black;
-        height: 50px;
-        width: 50px;
-        text-align: center;
-        vertical-align: middle;
 
-        p {
-            margin: 0;
-        }
-    }
+    ////////////////////////////////////////////////
+
+    ////////// LEGACY IMPLEMENTATION ////////////
+
+    // .table-container {
+    //     @include global.flexboxLayout();
+
+    //     .symbols-column {
+    //         @include global.flexboxLayout(column, flex-start, center);
+    //     }
+        
+    //     .rows-container {
+    //         @include global.flexboxLayout(column, flex-start, flex-start);
+    //         overflow-x: scroll;
+    //         overflow-y: hidden;
+    //         width: 100%;
+            
+    //         .row {
+    //             @include global.flexboxLayout(row, flex-end, center);
+    //             border-top: 1px solid black;
+    //             display: flex;
+    //             justify-content: flex-end;
+    //             align-items: center;
+
+    //             &:last-of-type {
+    //                 border-bottom: 1px solid black;
+    //             }
+    //         }
+    //     }
+        
+    //     .row-buttons-container {
+    //         @include global.flexboxLayout(row, flex-start, flex-start);
+    //         border-left: 1px solid black;
+            
+    //         .buttons-column {
+    //             @include global.flexboxLayout(column, space-evenly, center);
+                
+    //         }
+
+    //     }
+    // }
+
+    // .color-grid-container {
+    //     @include global.flexboxLayout();
+    //     flex-wrap: wrap;
+    // }
+
+    // .cell {
+    //     @include global.flexboxLayout(column, center, center);
+    //     cursor: pointer;
+    //     height: 50px;
+    //     width: 50px;
+        
+    //     &:not(:first-of-type) {
+    //         border-left: 1px solid black;
+
+    //     }
+
+    //     &.column-header {
+    //         cursor: default;
+    //         font-size: 10px;
+    //     }
+    // }
+
+    // .column-cell {
+    //     @include global.flexboxLayout(row, center, center);
+    //     height: 50px;
+    //     width: 100px;
+    //     border-top: 1px solid black;
+    //     border-left: 1px solid black;
+    //     border-right: 1px solid black;
+
+    //     &:last-of-type {
+    //         border-bottom: 1px solid black;
+    //     }
+    // }
+
+    // .text {
+    //     font-size: 12px;
+    //     margin: 0;
+    // }
+
+    // .button-cell {
+    //     @include global.flexboxLayout(row, center, center);
+    //     border-top: 1px solid black;
+    //     border-right: 1px solid black;
+    //     cursor: pointer;
+    //     height: 50px;
+    //     width: 50px;
+
+    //     &:last-of-type {
+    //         border-bottom: 1px solid black;
+    //     }
+    // }
+
+    // .color-cell {
+    //     @include global.flexboxLayout(row, center, center);
+    //     border: 1px solid black;
+    //     height: 50px;
+    //     width: 50px;
+    //     text-align: center;
+    //     vertical-align: middle;
+
+    //     p {
+    //         margin: 0;
+    //     }
+    // }
 }
