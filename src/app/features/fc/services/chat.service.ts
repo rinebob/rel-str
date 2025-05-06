@@ -57,7 +57,7 @@ export class ChatService {
   firestore: Firestore = inject(Firestore);
   auth: Auth = inject(Auth);
   storage: Storage = inject(Storage);
-  messaging: Messaging = inject(Messaging);
+//   messaging: Messaging = inject(Messaging);
   router: Router = inject(Router);
   private provider = new GoogleAuthProvider();
   LOADING_IMAGE_URL = 'https://www.google.com/images/spin-32.gif?a';
@@ -80,14 +80,13 @@ export class ChatService {
   logout() {}
 
   // Adds a text or image message to Cloud Firestore.
-  addMessage = async (
-    textMessage: string | null,
-    imageUrl: string | null
-  ): Promise<void | DocumentReference<DocumentData>> => {};
+  addMessage = async (textMessage: string, imageUrl?: string): Promise<void | DocumentReference<DocumentData>> => {
+
+  };
 
   // Saves a new message to Cloud Firestore.
   saveTextMessage = async (messageText: string) => {
-    return this.addMessage(messageText, null);
+    return this.addMessage(messageText, '');
   };
 
   // Loads chat messages history and listens for upcoming ones.

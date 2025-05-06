@@ -3,12 +3,13 @@ import {
   } from '@angular/fire/firestore';
 
 export interface ChatMessage {
-    name: string,
-    profilePicUrl: string,
-    // timestamp: FieldValue,
-    uid: string,
-    text?: string,
-    imageUrl?: string
+    name: string;
+    profilePicUrl: string;
+    // timestamp: FieldValue;
+    uid: string;
+    text?: string;
+    imageUrl?: string;
+    response?: string;
   };
 
   export const CHAT_MESSAGE_INITIALIZER: ChatMessage = {
@@ -17,4 +18,6 @@ export interface ChatMessage {
     uid: '',
     text: '',
     imageUrl: '',
+    response: '',
+
   }
