@@ -2,8 +2,10 @@ import { AsyncPipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { DocumentData } from '@angular/fire/firestore';
 import { FormsModule } from '@angular/forms';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
+
 import { ChatService } from '../../services/chat.service';
+import { MOCK_MESSAGES } from '../../common/messages-mock-data';
 
 @Component({
   selector: 'app-chat-page',
@@ -14,9 +16,16 @@ import { ChatService } from '../../services/chat.service';
 })
 export class ChatComponent {
   chatService = inject(ChatService);
-  messages$ = this.chatService.loadMessages() as Observable<DocumentData[]>;
+//   messages$ = this.chatService.loadMessages() as Observable<DocumentData[]>;
+  messages$ = of(MOCK_MESSAGES);
   user$ = this.chatService.user$;
   text = '';
+
+  ngOnInit() {
+    this.messages$.pipe().subscribe(messages => {
+        console.log('c ngOI messages sub: ', messages)
+    });
+  }
 
   sendTextMessage() {
     this.chatService.saveTextMessage(this.text);
