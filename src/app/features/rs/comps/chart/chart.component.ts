@@ -7,12 +7,11 @@ import { MatInputModule } from '@angular/material/input';
 import { StockData, StockDatum } from '../../common/interfaces-rs';
 
 @Component({
-  selector: 'rs-chart',
-  standalone: true,
-  imports: [ReactiveFormsModule, MatFormFieldModule, MatButtonModule, MatInputModule],
-  templateUrl: './chart.component.html',
-  styleUrl: './chart.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+    selector: 'rs-chart',
+    imports: [ReactiveFormsModule, MatFormFieldModule, MatButtonModule, MatInputModule],
+    templateUrl: './chart.component.html',
+    styleUrl: './chart.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ChartComponent extends RelStrBaseComponent implements OnInit {
 

@@ -7,12 +7,11 @@ import { MatMenuModule } from '@angular/material/menu';
 import { NAV_MENU_ITEMS } from '../../common/constants';
 
 @Component({
-  selector: 'rs-header',
-  standalone: true,
-  imports: [MatIconModule, MatMenuModule, RouterModule, UpperCasePipe],
-  templateUrl: './header.component.html',
-  styleUrl: './header.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+    selector: 'rs-header',
+    imports: [MatIconModule, MatMenuModule, RouterModule, UpperCasePipe],
+    templateUrl: './header.component.html',
+    styleUrl: './header.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class HeaderComponent {
 

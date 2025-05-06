@@ -11,12 +11,11 @@ import { CREATE_TEXT, FORM_MODE_CREATE_TEXT, FORM_MODE_EDIT_TEXT } from '../../.
 import { RelStrBaseComponent } from '../../../rel-str-base/rel-str-base.component';
 
 @Component({
-  selector: 'rs-stock-list-selector',
-  standalone: true,
-  imports: [MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, ReactiveFormsModule, UpperCasePipe,],
-  templateUrl: './stock-list-selector.component.html',
-  styleUrl: './stock-list-selector.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+    selector: 'rs-stock-list-selector',
+    imports: [MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, ReactiveFormsModule, UpperCasePipe,],
+    templateUrl: './stock-list-selector.component.html',
+    styleUrl: './stock-list-selector.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class StockListSelectorComponent extends RelStrBaseComponent {
 

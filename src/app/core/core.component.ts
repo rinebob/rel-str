@@ -9,12 +9,11 @@ import { HeaderComponent } from './comps/header/header.component';
 import { SidenavMenuComponent } from './comps/sidenav-menu/sidenav-menu.component';
 
 @Component({
-	selector: 'rs-core',
-	standalone: true,
-	imports: [RouterOutlet, MatButtonModule, MatIconModule, MatSidenavModule, HeaderComponent, SidenavMenuComponent, RouterModule],
-	templateUrl: './core.component.html',
-	styleUrl: './core.component.scss',
-	changeDetection: ChangeDetectionStrategy.OnPush,
+    selector: 'rs-core',
+    imports: [RouterOutlet, MatButtonModule, MatIconModule, MatSidenavModule, HeaderComponent, SidenavMenuComponent, RouterModule],
+    templateUrl: './core.component.html',
+    styleUrl: './core.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class CoreComponent {
 	//TODO: convert to signal ViewChild

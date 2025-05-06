@@ -16,11 +16,12 @@
       "prefix": "rs",
       "architect": {
         "build": {
-          "builder": "@angular-devkit/build-angular:browser",
+          "builder": "@angular-devkit/build-angular:application",
           "options": {
-            "outputPath": "dist/rel-str",
+            "outputPath": {
+              "base": "dist/rel-str"
+            },
             "index": "src/index.html",
-            "main": "src/main.ts",
             "polyfills": [
               "zone.js"
             ],
@@ -40,7 +41,8 @@
                 "undici",
                 "@grpc/grpc-js",
                 "@grpc/proto-loader"
-            ]
+            ],
+            "browser": "src/main.ts"
           },
           "configurations": {
             "production": {
