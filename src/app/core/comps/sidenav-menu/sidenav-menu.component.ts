@@ -7,7 +7,6 @@ import { NavItem } from '../../common/interfaces';
 
 @Component({
     selector: 'rs-sidenav-menu',
-    standalone: true,
     imports: [MatIconModule, RouterModule],
     templateUrl: './sidenav-menu.component.html',
     styleUrl: './sidenav-menu.component.scss',

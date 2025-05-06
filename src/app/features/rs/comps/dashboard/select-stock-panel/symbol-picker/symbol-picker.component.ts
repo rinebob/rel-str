@@ -7,12 +7,11 @@ import { Company, FormMode } from '../../../../common/interfaces-rs';
 import { RelStrBaseComponent } from '../../../rel-str-base/rel-str-base.component';
 
 @Component({
-  selector: 'rs-symbol-picker',
-  standalone: true,
-  imports: [],
-  templateUrl: './symbol-picker.component.html',
-  styleUrl: './symbol-picker.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+    selector: 'rs-symbol-picker',
+    imports: [],
+    templateUrl: './symbol-picker.component.html',
+    styleUrl: './symbol-picker.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SymbolPickerComponent extends RelStrBaseComponent implements OnInit {
 

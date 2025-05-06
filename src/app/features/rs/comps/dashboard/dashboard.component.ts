@@ -12,12 +12,11 @@ import { RANKS_WITH_COLORS_BY_SYMBOL, RAW_STOCK_DATA_BY_SYMBOL } from '../../dat
 import { RelStrDbService } from '../../services/rel-str-db.service';
 
 @Component({
-	selector: 'rs-dashboard',
-	standalone: true,
-	imports: [HeatmapComponent, MatSidenavModule, SelectStockPanelComponent],
-	templateUrl: './dashboard.component.html',
-	styleUrl: './dashboard.component.scss',
-	changeDetection: ChangeDetectionStrategy.OnPush,
+    selector: 'rs-dashboard',
+    imports: [HeatmapComponent, MatSidenavModule, SelectStockPanelComponent],
+    templateUrl: './dashboard.component.html',
+    styleUrl: './dashboard.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class DashboardComponent extends RelStrBaseComponent implements OnInit {
 
