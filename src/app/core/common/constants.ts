@@ -81,14 +81,6 @@ export const NAV_MENU_ITEMS: NavItem[] = [
         external: false,
         target: '_self',
     },
-    {
-        name: 'chat',
-        text: 'chat',
-        href: 'chat',
-        mobileOnly: false,
-        external: false,
-        target: '_self',
-    },
     // {
     //     name: 'chart',
     //     text: '',
