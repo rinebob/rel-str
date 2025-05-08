@@ -35,6 +35,14 @@ import { AppRoutes } from "./common/interfaces";
                 loadComponent: () => import('../features/rs/comps/chart/chart.component')
                 .then(mod => mod.ChartComponent),
             },
+            {path: AppRoutes.CHART_TWO,
+                loadComponent: () => import('../features/rs/comps/chart-two/chart-two.component')
+                .then(mod => mod.ChartTwoComponent),
+            },
+            {path: AppRoutes.RS_TABLE,
+                loadComponent: () => import('../features/rs/comps/rs-table/rs-table.component')
+                .then(mod => mod.RsTableComponent),
+            },
             {path: AppRoutes.HISTORY, 
                 loadComponent: () => import('../features/rs/comps/history/history.component')
                 .then(mod => mod.HistoryComponent),

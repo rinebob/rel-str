@@ -1,0 +1,43 @@
+<section class="candlestick-chart-two">
+  <h2>MSFT Candlestick Chart (Syncfusion Demo)</h2>
+  <div class="zoom-controls" style="display: flex; gap: 1rem; margin-bottom: 1rem; align-items: center;">
+    <button type="button" aria-label="Scroll to Start" (click)="scrollToStart()">⏮️</button>
+    <button type="button" aria-label="Zoom In" (click)="zoomIn()">🔍+</button>
+    <button type="button" aria-label="Zoom Out" (click)="zoomOut()">🔍-</button>
+    <button type="button" aria-label="Reset Zoom" (click)="resetZoom()">Reset</button>
+    <button type="button" aria-label="Scroll to End" (click)="scrollToEnd()">⏭️</button>
+    <span class="zoom-status">Zoom: {{ (zoomFactor() * 100) | number:'1.0-0' }}%</span>
+    <label style="margin-left:2rem; user-select:none;">
+      <input type="checkbox" [checked]="tooltipEnabled()" (change)="toggleTooltip()" />
+      Show Tooltip
+    </label>
+  </div>
+  @if (candleData().length === 0) {
+    <div class="loading">Loading OHLC data...</div>
+
+  } @else {
+
+    <ejs-chart #msftChart id="candlestick-chart-two" [primaryXAxis]="{ valueType: 'DateTime', title: 'Date', zoomFactor: zoomFactor(), zoomPosition: zoomPosition(), plotOffset: 40 }" [primaryYAxis]="{ title: 'Price (USD)', labelFormat: '${value}' }" [tooltip]="{ enable: tooltipEnabled() }" (axisLabelRender)="onAxisLabelRender($event)" (tooltipRender)="onTooltipRender($event)" [zoomSettings]="{ enableSelectionZooming: true, enablePinchZooming: true, mode: 'X' }" (zoomComplete)="onChartZoomComplete($event)">
+      <e-series-collection>
+        <e-series
+          [dataSource]="candleData()"
+          type='Candle'
+          xName='x'
+          high='high'
+          low='low'
+          open='open'
+          close='close'
+          name='MSFT'>
+        </e-series>
+      </e-series-collection>
+    </ejs-chart>
+    @if (firstVisibleYear() !== null) {
+      <div class="x-axis-year-label-row">
+        <span class="x-axis-year-label">{{ firstVisibleYear() }}</span>
+      </div>
+    }
+    <div class="rs-comparison-summary">
+      RS Comparison: {{ rsComparisonSummary() }}
+    </div>
+  }
+</section>

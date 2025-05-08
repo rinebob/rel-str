@@ -1,5 +1,12 @@
 @use './variables-global';
 
+@use 'sass:math';
+// Global rem() function for px-to-rem conversion
+@function rem($px, $base: 16) {
+  @return math.div($px, $base) * 1rem;
+}
+
+
 //////////////////// LAYOUT //////////////////
 
 ////////////// FLEXBOX //////////////////////
@@ -125,6 +132,25 @@
 
 
 ///////////////// TEXT //////////////////////////
+
+@mixin customScrollbar() {
+  // Webkit browsers
+  &::-webkit-scrollbar {
+    width: rem(12);
+    background: var(--theme-surface);
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--theme-scrollbar-thumb, #bbb);
+    border-radius: rem(8);
+    border: rem(2) solid var(--theme-surface);
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--theme-scrollbar-thumb-hover, #888);
+  }
+  // Firefox
+  scrollbar-width: thin;
+  scrollbar-color: var(--theme-scrollbar-thumb, #bbb) var(--theme-surface);
+}
 
 
 

@@ -17,7 +17,7 @@ export function generatePairData(baselineData: StockDatum[], targetData: StockDa
 
 }
 
-function generatePercentChangeData(stockData: StockDatum[]): StringNumberObject[] {
+export function generatePercentChangeData(stockData: StockDatum[]): StringNumberObject[] {
     // console.log('rsCU gPCD symbol: ');
 
     const percentChangeData: StringNumberObject[] = [];
@@ -47,7 +47,7 @@ function generatePercentChangeData(stockData: StockDatum[]): StringNumberObject[
 
 }
 
-function generateTargetRanksData(baseline: StringNumberObject[], target: StringNumberObject[], heatmapColors: string[]) {
+export function generateTargetRanksData(baseline: StringNumberObject[], target: StringNumberObject[], heatmapColors: string[]) {
     // console.log(`======== CALCULATE RANKS ================`);
     // console.log('rSUtil cRs input baseline/target: ', baseline, target);
 
@@ -130,13 +130,9 @@ function calculateRsRank(target: StringNumberObject[], baseline: StringNumberObj
 }
 
 function addColorToRank(targetRank: StringNumberObject, heatmapColors: string[]): BaselineTargetRankDatum {
-
-    const value = Math.round(targetRank.value * 100);
-    const index = Math.round((Number((value * .10).toFixed(2))));
-    const color = heatmapColors[index];
-    const datum: BaselineTargetRankDatum = {...targetRank, index, color};
-
-    return datum;
+    const colorIdx = Math.floor(targetRank.value * (heatmapColors.length - 1));
+    const color = heatmapColors[colorIdx];
+    return { ...targetRank, index: colorIdx, color };
 }
 
 export function getPairsForList(list: RelStrStockList) {
