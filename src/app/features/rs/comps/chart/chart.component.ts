@@ -5,10 +5,14 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatButtonModule } from '@angular/material/button';
 import { MatInputModule } from '@angular/material/input';
 import { StockData, StockDatum } from '../../common/interfaces-rs';
+import { ChartModule, CandleSeriesService, DateTimeService, TooltipService, ZoomService } from '@syncfusion/ej2-angular-charts';
+import { AAPL } from '../../data/AAPL';
 
 @Component({
     selector: 'rs-chart',
-    imports: [ReactiveFormsModule, MatFormFieldModule, MatButtonModule, MatInputModule],
+    standalone: true,
+    imports: [ReactiveFormsModule, MatFormFieldModule, MatButtonModule, MatInputModule, ChartModule],
+    providers: [CandleSeriesService, DateTimeService, TooltipService, ZoomService],
     templateUrl: './chart.component.html',
     styleUrl: './chart.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush

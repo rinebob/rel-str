@@ -1,8 +1,13 @@
-
+$axis-label-fallback: #888;
 
 :root {
-
+    --theme-surface: #fff;
+    --theme-on-surface: #222;
     --heatmap-cell-height: 60px;
     --heatmap-cell-width: 60px;
+}
 
+[data-theme="dark"] {
+    --theme-surface: #222;
+    --theme-on-surface: #fff;
 }

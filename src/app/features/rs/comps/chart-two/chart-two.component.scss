@@ -1,0 +1,16 @@
+@use '../../../../styles/variables-global' as *;
+@use '../../../../styles/mixins-global' as *;
+
+.x-axis-year-label-row {
+  display: flex;
+  align-items: flex-start;
+  margin-top: rem(4); // 0.25rem
+}
+
+.x-axis-year-label {
+  margin-left: rem(56); // 3.5rem;
+  font-size: rem(14.4); // 0.9rem;
+  font-weight: bold;
+  color: var(--axis-label-color, $axis-label-fallback);
+  user-select: none;
+}
