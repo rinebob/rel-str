@@ -11,6 +11,14 @@
       <input type="checkbox" [checked]="tooltipEnabled()" (change)="toggleTooltip()" />
       Show Tooltip
     </label>
+    <button
+      type="button"
+      style="margin-left: 1rem; user-select: none;"
+      (click)="toggleDataSubset()"
+      aria-label="Toggle Data Subset"
+    >
+      {{ useDataSubset() ? 'Show All Data' : 'Show Subset' }}
+    </button>
   </div>
   @if (candleData().length === 0) {
     <div class="loading">Loading OHLC data...</div>

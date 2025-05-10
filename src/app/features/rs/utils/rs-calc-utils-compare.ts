@@ -25,7 +25,11 @@ export function compareRsDatasets(
   for (let i = 0; i < len; i++) {
     const origVal = Number(original[i].value);
     const optVal = Number(optimized[i].value);
+    // if (original[i].date !== optimized[i].date) {
+    //   console.warn(`Date mismatch at i=${i}: original=${original[i].date}, optimized=${optimized[i].date}`);
+    // }
     if (Math.abs(origVal - optVal) > 1e-8) {
+      // console.warn(`Value mismatch at i=${i}: date=${original[i].date}, orig=${origVal}, opt=${optVal}`);
       mismatches.push({
         i,
         date: original[i].date,

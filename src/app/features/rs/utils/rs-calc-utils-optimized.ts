@@ -41,6 +41,14 @@ export function generateTargetRanksDataOptimized(
     target: StringNumberObject[],
     heatmapColors: string[]
 ): BaselineTargetRankDatum[] {
+    // Toggle to use only a subset of the most recent N rows for performance/testing
+    const USE_DATA_SUBSET = true; // Set to true to use a subset, false for all data
+    const DATA_SUBSET_SIZE = 100;  // Number of rows to use if subset enabled
+    if (USE_DATA_SUBSET && baseline.length > DATA_SUBSET_SIZE && target.length > DATA_SUBSET_SIZE) {
+        baseline = baseline.slice(-DATA_SUBSET_SIZE);
+        target = target.slice(-DATA_SUBSET_SIZE);
+    }
+
     const targetRanksWithColors: BaselineTargetRankDatum[] = [];
     const n = target.length;
     // Preallocate rolling windows
@@ -54,6 +62,8 @@ export function generateTargetRanksDataOptimized(
             baselinePctChgs[j] = baseline[i - j].value;
         }
         const rank = calculateRankOptimized(targetPctChgs, baselinePctChgs);
+        // Debug log after all variables are set
+        // console.log(`[OPTIMIZED] date=${date} targetPctChgs=${JSON.stringify(targetPctChgs.map((v, idx) => ({date: target[i - idx].date, value: v})))} baselinePctChgs=${JSON.stringify(baselinePctChgs.map((v, idx) => ({date: baseline[i - idx].date, value: v})))} rank=${rank}`);
         const targetRank: StringNumberObject = { date, value: rank };
         const targetRankWithColor: BaselineTargetRankDatum = addColorToRank(targetRank, heatmapColors);
         // Attach rolling window arrays for debugging
