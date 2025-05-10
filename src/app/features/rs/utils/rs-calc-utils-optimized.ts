@@ -41,6 +41,13 @@ export function generateTargetRanksDataOptimized(
     target: StringNumberObject[],
     heatmapColors: string[]
 ): BaselineTargetRankDatum[] {
+    // Only use the most recent 100 rows
+    // const N = 100;
+    // if (baseline.length > N && target.length > N) {
+    //     baseline = baseline.slice(-N);
+    //     target = target.slice(-N);
+    // }
+
     const targetRanksWithColors: BaselineTargetRankDatum[] = [];
     const n = target.length;
     // Preallocate rolling windows
@@ -54,6 +61,8 @@ export function generateTargetRanksDataOptimized(
             baselinePctChgs[j] = baseline[i - j].value;
         }
         const rank = calculateRankOptimized(targetPctChgs, baselinePctChgs);
+        // Debug log after all variables are set
+        // console.log(`[OPTIMIZED] date=${date} targetPctChgs=${JSON.stringify(targetPctChgs.map((v, idx) => ({date: target[i - idx].date, value: v})))} baselinePctChgs=${JSON.stringify(baselinePctChgs.map((v, idx) => ({date: baseline[i - idx].date, value: v})))} rank=${rank}`);
         const targetRank: StringNumberObject = { date, value: rank };
         const targetRankWithColor: BaselineTargetRankDatum = addColorToRank(targetRank, heatmapColors);
         // Attach rolling window arrays for debugging

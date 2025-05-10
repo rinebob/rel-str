@@ -294,12 +294,15 @@ export class ChartTwoComponent {
     // Generate percent change arrays
     const msftPct = generatePercentChangeData(msftCloses);
     const qqqPct = generatePercentChangeData(qqqCloses);
-    console.log('[RS] msftPct:', msftPct.slice(0,5));
-    console.log('[RS] qqqPct:', qqqPct.slice(0,5));
+    // Slice off the first 5 elements to align with RS Table logic (rolling window)
+    const msftPctWindowed = msftPct.slice(5);
+    const qqqPctWindowed = qqqPct.slice(5);
+    console.log('[RS] msftPctWindowed:', msftPctWindowed.slice(0,5));
+    console.log('[RS] qqqPctWindowed:', qqqPctWindowed.slice(0,5));
     // Generate heatmap color array (11 colors for 0-1)
     const heatmapColors = generateColorArray(11);
     // Run comparison
-    const result = compareRsDatasets(qqqPct, msftPct, heatmapColors);
+    const result = compareRsDatasets(qqqPctWindowed, msftPctWindowed, heatmapColors);
     console.log('[RS] RS comparison result:', result);
     // Set summary
     if (result.mismatches.length === 0) {

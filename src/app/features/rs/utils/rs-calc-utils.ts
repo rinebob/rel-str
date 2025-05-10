@@ -51,6 +51,13 @@ export function generateTargetRanksData(baseline: StringNumberObject[], target: 
     // console.log(`======== CALCULATE RANKS ================`);
     // console.log('rSUtil cRs input baseline/target: ', baseline, target);
 
+    // Only use the most recent 100 rows
+    // const N = 100;
+    // if (baseline.length > N && target.length > N) {
+    //     baseline = baseline.slice(-N);
+    //     target = target.slice(-N);
+    // }
+
     const targetRanks: StringNumberObject[] = [];
     const targetRanksWithColors: BaselineTargetRankDatum[] = [];
     
@@ -75,6 +82,9 @@ export function generateTargetRanksData(baseline: StringNumberObject[], target: 
         }
         // console.log('pctChgs target/baseline: ', targetPctChgs, baselinePctChgs);
         const rank = calculateRsRank(targetPctChgs, baselinePctChgs);
+
+        // console.log(`[ORIG] date=${date} targetPctChgs=${JSON.stringify(targetPctChgs)} baselinePctChgs=${JSON.stringify(baselinePctChgs)} rank=${rank}`);
+
         const targetRank: StringNumberObject = {date, value: rank}
         targetRanks.push(targetRank);
         // console.log('targetRank: ', targetRank);
@@ -117,7 +127,7 @@ function calculateRsRank(target: StringNumberObject[], baseline: StringNumberObj
             changes.push(val);
         }
 
-        const pctChg = Number(changes.reduce((accumulator, currentValue) => accumulator + currentValue, changes[0]).toFixed(4));
+        const pctChg = Number(changes.reduce((accumulator, currentValue) => accumulator + currentValue, 0).toFixed(4));
 
         outcomesByMatrix[matrix] = pctChg;
     }
