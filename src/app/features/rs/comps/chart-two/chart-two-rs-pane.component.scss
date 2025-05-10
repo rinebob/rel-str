@@ -1,0 +1,21 @@
+@use '../../../../styles/variables-global' as *;
+@use '../../../../styles/mixins-global' as *;
+
+.rs-pane {
+  display: flex;
+  height: rem(100); // 100px
+  width: 100%;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.chart-two-main-flex-col > .rs-pane {
+  width: 100%;
+}
+
+
+.rs-bar {
+  flex: 1 1 0;
+  height: 100%;
+  transition: background 0.2s;
+}

@@ -5,8 +5,8 @@ import { HttpClient } from '@angular/common/http';
 import { provideHttpClient } from '@angular/common/http';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { generatePercentChangeData, generateTargetRanksData } from '../../utils/rs-calc-utils';
-import { generateTargetRanksDataOptimized } from '../../utils/rs-calc-utils-optimized';
+import { generatePercentChangeData, generateTargetRanksData, calculateRank, addColorToRank } from '../../utils/rs-calc-utils';
+import { generateTargetRanksDataOptimized, calculateRankOptimized } from '../../utils/rs-calc-utils-optimized';
 import { generateColorArray } from '../../utils/color-utils';
 import { StringNumberObject } from '../../common/interfaces-rs';
 
@@ -124,30 +124,41 @@ export class RsTableComponent {
     }
     const qqqPct = generatePercentChangeData(this.qqqData);
     const msftPct = generatePercentChangeData(this.msftData);
-    // Method 1: Original
-    const msftRs1 = generateTargetRanksData(qqqPct, msftPct, this.heatmapColors);
-    // Method 2: Optimized
-    const msftRs2 = generateTargetRanksDataOptimized(qqqPct, msftPct, this.heatmapColors);
-
-    // Align by date (skip first day, as pct change is undefined)
     const rows = [];
-    for (let i = 1; i < this.msftData.length; i++) {
+    for (let i = 5; i < this.msftData.length; i++) {
       const date = Object.keys(this.msftData[i])[0];
       const msftValue = Object.values(this.msftData[i])[0];
       const qqqValue = Object.values(this.qqqData[i])[0];
+      const msftPctVal = msftPct[i-1]?.value ?? null;
+      const qqqPctVal = qqqPct[i-1]?.value ?? null;
+      // Build rolling window for RS calculation
+      const msftWindow = [];
+      const qqqWindow = [];
+      for (let j = 0; j < 5; j++) {
+        msftWindow.push(msftPct[i - j]?.value ?? 0);
+        qqqWindow.push(qqqPct[i - j]?.value ?? 0);
+      }
+      // Calculate RS using both methods
+      const rs1Val = msftWindow.length === 5 && qqqWindow.length === 5
+        ? calculateRank(msftWindow, qqqWindow)
+        : null;
+      const rs2Val = msftWindow.length === 5 && qqqWindow.length === 5
+        ? calculateRankOptimized(msftWindow, qqqWindow)
+        : null;
+      // Color (optional, can use addColorToRank if needed)
+      const rs1Color = rs1Val != null ? addColorToRank({ value: rs1Val, date }, this.heatmapColors).color : null;
+      const rs2Color = rs2Val != null ? addColorToRank({ value: rs2Val, date }, this.heatmapColors).color : null;
       rows.push({
         date,
-        qqqValue,
-        qqqPct: qqqPct[i - 1]?.value ?? null,
         msftValue,
-        msftPct: msftPct[i - 1]?.value ?? null,
-        msftRs1: msftRs1[i - 1]?.value ?? null,
-        msftRs1Color: msftRs1[i - 1]?.color ?? null,
-        msftRs2: msftRs2[i - 1]?.value ?? null,
-        msftRs2Color: msftRs2[i - 1]?.color ?? null,
-        rsDiff: msftRs1[i - 1]?.value != null && msftRs2[i - 1]?.value != null
-          ? msftRs1[i - 1].value - msftRs2[i - 1].value
-          : null,
+        qqqValue,
+        msftPct: msftPctVal,
+        qqqPct: qqqPctVal,
+        msftRs1: rs1Val,
+        msftRs2: rs2Val,
+        msftRs1Color: rs1Color,
+        msftRs2Color: rs2Color,
+        rsDiff: (rs1Val != null && rs2Val != null) ? (rs1Val - rs2Val) : null
       });
     }
     this.tableData.set(rows);

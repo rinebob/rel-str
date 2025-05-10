@@ -79,6 +79,14 @@ export function generateTargetRanksData(baseline: StringNumberObject[], target: 
         targetRanks.push(targetRank);
         // console.log('targetRank: ', targetRank);
         const targetRankWithColor: BaselineTargetRankDatum = addColorToRank(targetRank, heatmapColors);
+        // Attach rolling window arrays for debugging
+        Object.defineProperty(targetRankWithColor, '__debugWindows', {
+            value: {
+                targetPctChgs: [...targetPctChgs],
+                baselinePctChgs: [...baselinePctChgs],
+            },
+            enumerable: false
+        });
         targetRanksWithColors.push(targetRankWithColor);
         
         
@@ -129,7 +137,7 @@ function calculateRsRank(target: StringNumberObject[], baseline: StringNumberObj
     return rank;
 }
 
-function addColorToRank(targetRank: StringNumberObject, heatmapColors: string[]): BaselineTargetRankDatum {
+export function addColorToRank(targetRank: StringNumberObject, heatmapColors: string[]): BaselineTargetRankDatum {
     const colorIdx = Math.floor(targetRank.value * (heatmapColors.length - 1));
     const color = heatmapColors[colorIdx];
     return { ...targetRank, index: colorIdx, color };
@@ -375,7 +383,7 @@ function calculateRanks(baseline: StockData, subject: StockData): StockData {
     return subject;
 }
 
-function calculateRank(subject: number[], baseline: number[]): number {
+export function calculateRank(subject: number[], baseline: number[]): number {
     // console.log('rSUtil cR input pctChgs subject/baseling: ', subject, baseline);
     let rank = 0;
 
@@ -391,7 +399,7 @@ function calculateRank(subject: number[], baseline: number[]): number {
             changes.push(val);
         }
 
-        const pctChg = Number(changes.reduce((accumulator, currentValue) => accumulator + currentValue, changes[0]).toFixed(4));
+        const pctChg = Number(changes.reduce((accumulator, currentValue) => accumulator + currentValue, 0).toFixed(4));
 
         outcomesByMatrix[matrix] = pctChg;
     }
