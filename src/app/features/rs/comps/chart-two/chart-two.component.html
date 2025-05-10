@@ -26,22 +26,31 @@
   } @else {
     <div class="chart-two-root">
       <div class="chart-two-main-flex-col">
-        <rs-chart-two-rs-pane [rsColors]="visibleRsColors" aria-label="RS Color Pane"></rs-chart-two-rs-pane>
-        <ejs-chart #msftChart id="candlestick-chart-two" [primaryXAxis]="{ valueType: 'DateTime', title: 'Date', zoomFactor: zoomFactor(), zoomPosition: zoomPosition(), plotOffset: 40 }" [primaryYAxis]="{ title: 'Price (USD)', labelFormat: '${value}' }" [tooltip]="{ enable: tooltipEnabled() }" (axisLabelRender)="onAxisLabelRender($event)" (tooltipRender)="onTooltipRender($event)" [zoomSettings]="{ enableSelectionZooming: true, enablePinchZooming: true, mode: 'X' }" (zoomComplete)="onChartZoomComplete($event)">
-          <e-series-collection>
-            <e-series
-              [dataSource]="candleData()"
-              type='Candle'
-              xName='x'
-              high='high'
-              low='low'
-              open='open'
-              close='close'
-              name='MSFT'
-              pointColorMapping='rsColor'>
-            </e-series>
-          </e-series-collection>
-        </ejs-chart>
+        <div class="chart-two-plot-area" style="position: relative;">
+          <rs-chart-two-rs-pane
+            [candleData]="candleData()"
+            [plotAreaLeft]="plotAreaLeft"
+            [plotAreaWidth]="plotAreaWidth"
+            [xAxisTicks]="visibleXAxisTicks"
+            aria-label="RS Color Pane"
+          ></rs-chart-two-rs-pane>
+          <ejs-chart #msftChart id="candlestick-chart-two" [primaryXAxis]="primaryXAxis" [primaryYAxis]="{ title: 'Price (USD)', labelFormat: '${value}' }" [tooltip]="{ enable: tooltipEnabled() }" (axisLabelRender)="onAxisLabelRender($event)" (tooltipRender)="onTooltipRender($event)" [zoomSettings]="{ enableSelectionZooming: true, enablePinchZooming: true, mode: 'X', enableToolbar: false }" (zoomComplete)="onChartZoomComplete($event)" (loaded)="onChartLoaded()">
+
+            <e-series-collection>
+              <e-series
+                [dataSource]="candleData()"
+                type='Candle'
+                xName='x'
+                high='high'
+                low='low'
+                open='open'
+                close='close'
+                name='MSFT'
+                pointColorMapping='rsColor'>
+              </e-series>
+            </e-series-collection>
+          </ejs-chart>
+        </div>
       </div>
       @if (firstVisibleYear() !== null) {
         <div class="x-axis-year-label-row">

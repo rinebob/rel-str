@@ -1,5 +1,19 @@
-<div class="rs-pane">
-  @for (color of rsColors; track $index) {
-    <div class="rs-bar" [ngStyle]="{ 'background': color }"></div>
-  }
+<div class="rs-pane" [style.left.px]="plotAreaLeft" [style.width.px]="plotAreaWidth">
+  <div class="rs-bars-row">
+    @for (candle of candleData; track $index) {
+      <div class="rs-bar" [ngStyle]="{ 'background': candle.rsColor || '#ddd' }"></div>
+    }
+  </div>
+  <div class="rs-x-axis-row">
+    @for (candle of candleData; let i = $index; track $index) {
+      <div class="rs-x-tick">
+        <span class="rs-x-label">{{ candle.x | date:'MM-dd' }}</span>
+      </div>
+    }
+  </div>
+  <div class="rs-x-grid-row">
+    @for (candle of candleData; let i = $index; track $index) {
+      <div class="rs-x-gridline" *ngIf="xAxisTicks.includes(i)"></div>
+    }
+  </div>
 </div>

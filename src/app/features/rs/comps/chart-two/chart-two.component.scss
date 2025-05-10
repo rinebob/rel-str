@@ -1,6 +1,20 @@
 @use '../../../../styles/variables-global' as *;
 @use '../../../../styles/mixins-global' as *;
 
+// Constrain RS pane and chart to same plot area width
+.chart-two-plot-area {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-height: rem(100); // Ensure space for RS pane overlay
+  // Match Syncfusion plotOffset (40px left/right) and allow for axis label width
+  margin-left: rem(40); // 2.5rem
+  margin-right: rem(40); // 2.5rem
+  // Optionally, use a SASS variable if you standardize plot offset
+  // margin-left: $chart-plot-offset;
+  // margin-right: $chart-plot-offset;
+}
+
 .x-axis-year-label-row {
   display: flex;
   align-items: flex-start;

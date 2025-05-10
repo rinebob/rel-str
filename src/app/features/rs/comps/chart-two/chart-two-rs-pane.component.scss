@@ -2,20 +2,70 @@
 @use '../../../../styles/mixins-global' as *;
 
 .rs-pane {
-  display: flex;
-  height: rem(100); // 100px
+  position: relative;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  height: rem(120); // 100px for bars + 20px for axis
   align-items: stretch;
   overflow: hidden;
+  pointer-events: none; // allow chart interaction through pane
 }
 
-.chart-two-main-flex-col > .rs-pane {
+.rs-bars-row {
+  display: flex;
+  flex-direction: row;
   width: 100%;
+  height: rem(100);
+  align-items: stretch;
 }
-
 
 .rs-bar {
   flex: 1 1 0;
   height: 100%;
   transition: background 0.2s;
+}
+
+.rs-x-axis-row {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: rem(20);
+  align-items: flex-start;
+  pointer-events: none;
+}
+
+.rs-x-tick {
+  flex: 1 1 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  position: relative;
+}
+
+.rs-x-label {
+  font-size: rem(10);
+  color: var(--axis-label-color, #333);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.rs-x-grid-row {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: rem(8);
+  position: absolute;
+  left: 0;
+  bottom: rem(20); // align above x-axis labels
+  pointer-events: none;
+}
+
+.rs-x-gridline {
+  flex: 1 1 0;
+  border-left: 1px dashed var(--axis-grid-color, #bbb);
+  height: 100%;
+  min-width: 0;
+  max-width: 0;
+  margin-left: -0.5px; // center line
 }
