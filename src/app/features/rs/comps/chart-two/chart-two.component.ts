@@ -32,6 +32,19 @@ export interface CandleWithRSColor {
  */
 export class ChartTwoComponent {
   /**
+   * Signal for toggling between showing all data and a subset (UI-driven)
+   */
+  public useDataSubset = signal<boolean>(true);
+
+  /**
+   * Handler to toggle data subset usage and reload chart data
+   */
+  public toggleDataSubset(): void {
+    this.useDataSubset.set(!this.useDataSubset());
+    this.loadBothCSVsAndCompare();
+  }
+
+  /**
    * Returns the RS color array for each day (for the RS pane)
    */
   public get rsColorArray(): string[] {
@@ -222,29 +235,7 @@ export class ChartTwoComponent {
         };
       });
       // --- RS Color Mapping ---
-      // 1. Generate percent change arrays for MSFT and QQQ
-      const msftCloses = msftOhlc.map(d => ({ [d.x.toISOString().slice(0,10)]: d.close }));
-      const qqqCloses = [];
-      // We'll fill qqqCloses after parsing QQQ
-
-      const msftPct = generatePercentChangeData(msftCloses);
-      // 2. Generate heatmap colors
-      const heatmapColors = generateColorArray(11);
-      // RS calculation uses a rolling window of 5 (see generateTargetRanksData)
-      const windowSize = 5;
-      // Only keep candles that have a corresponding RS value
-      const msftOhlcRecent = msftOhlc.slice(-100 + windowSize);
-      const msftClosesRecent = msftCloses.slice(-100 + windowSize);
-      const msftPctRecent = msftPct.slice(-100);
-      // Generate RS color data for the most recent 100-windowSize days
-      // If you use a compare function, ensure you generate the RS array for this window
-      const msftRsColors = msftPctRecent.slice(windowSize).map(rsObj => addColorToRank(rsObj, heatmapColors));
-      // Assign RS colors to the sliced MSFT candles by index (guaranteed 1:1)
-      const msftColoredOhlcRecent = msftOhlcRecent.map((candle, i) => ({
-        ...candle,
-        rsColor: msftRsColors[i]?.color
-      }));
-      this.msftData.set(msftColoredOhlcRecent);
+      // (Obsolete RS color assignment block removed; RS color assignment is now handled after slicing both datasets to the subset above.)
       // Parse QQQ
       const qqqLines = qqqCsv.split('\n').filter(Boolean);
       qqqLines.shift();
@@ -259,9 +250,38 @@ export class ChartTwoComponent {
           close: +close
         };
       });
-      const qqqOhlcRecent = qqqOhlc.slice(-100);
-      this.qqqData.set(qqqOhlcRecent);
-      this.candleData.set(msftColoredOhlcRecent);
+
+      /**
+       * Use subset toggle from signal (UI-driven)
+       */
+      const USE_CHART_DATA_SUBSET = this.useDataSubset();
+      const CHART_DATA_SUBSET_SIZE = 100;
+
+      // Slice both MSFT and QQQ to the subset first
+      const msftOhlcToUse = USE_CHART_DATA_SUBSET ? msftOhlc.slice(-CHART_DATA_SUBSET_SIZE) : msftOhlc;
+      const qqqOhlcToUse = USE_CHART_DATA_SUBSET ? qqqOhlc.slice(-CHART_DATA_SUBSET_SIZE) : qqqOhlc;
+
+      // RS color assignment should use only the sliced MSFT data
+      const msftCloses = msftOhlcToUse.map(d => ({ [d.x.toISOString().slice(0,10)]: d.close }));
+      const windowSize = 5;
+      const heatmapColors = generateColorArray(11);
+      const msftPct = generatePercentChangeData(msftCloses);
+      const msftRsColors = msftPct.slice(windowSize).map(rsObj => addColorToRank(rsObj, heatmapColors));
+      const msftColoredOhlcToUse = msftOhlcToUse.map((candle, i) => ({
+        ...candle,
+        rsColor: msftRsColors[i - windowSize] ? msftRsColors[i - windowSize].color : undefined
+      }));
+
+      // Set both msftData and candleData to the colored, sliced MSFT data
+      this.msftData.set(msftColoredOhlcToUse);
+      this.candleData.set(msftColoredOhlcToUse);
+      this.qqqData.set(qqqOhlcToUse);
+
+      // --- Debugging logs ---
+      console.log('[RS][DEBUG] msftOhlcToUse length:', msftOhlcToUse.length, 'First:', msftOhlcToUse[0], 'Last:', msftOhlcToUse[msftOhlcToUse.length - 1]);
+      console.log('[RS][DEBUG] qqqOhlcToUse length:', qqqOhlcToUse.length, 'First:', qqqOhlcToUse[0], 'Last:', qqqOhlcToUse[qqqOhlcToUse.length - 1]);
+      console.log('[RS][DEBUG] this.candleData():', this.candleData());
+      console.log('[RS][DEBUG] this.qqqData():', this.qqqData());
       this.autoscaleYAxis();
       // Run RS comparison
       console.log('[RS] About to run RS comparison...');
@@ -278,14 +298,23 @@ export class ChartTwoComponent {
    */
   private runRsComparison(): void {
     // Defensive: check data
-    if (!this.msftData() || !this.msftData().length || !this.qqqData() || !this.qqqData().length) {
+    const msft = this.msftData();
+    const qqq = this.qqqData();
+    if (!msft || !Array.isArray(msft) || !msft.length || !qqq || !Array.isArray(qqq) || !qqq.length) {
       console.error('[RS] MSFT or QQQ data missing for RS comparison.', {
-        msft: this.msftData(),
-        qqq: this.qqqData()
+        msft,
+        qqq,
+        msftType: typeof msft,
+        qqqType: typeof qqq,
+        msftLength: msft ? msft.length : 'n/a',
+        qqqLength: qqq ? qqq.length : 'n/a'
       });
-      this.rsComparisonSummary.set('Error: MSFT or QQQ data missing');
+      this.rsComparisonSummary.set(`Error: MSFT or QQQ data missing (msft: ${msft ? msft.length : 'n/a'}, qqq: ${qqq ? qqq.length : 'n/a'})`);
       return;
     }
+    // --- Debugging logs ---
+    console.log('[RS][DEBUG] runRsComparison msftData length:', msft.length, 'Sample:', msft.slice(0, 2));
+    console.log('[RS][DEBUG] runRsComparison qqqData length:', qqq.length, 'Sample:', qqq.slice(0, 2));
     // Convert OHLC to close price objects for percent change utility
     const msftCloses = this.msftData().map(d => ({ [d.x.toISOString().slice(0,10)]: d.close }));
     const qqqCloses = this.qqqData().map(d => ({ [d.x.toISOString().slice(0,10)]: d.close }));

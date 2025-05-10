@@ -41,12 +41,13 @@ export function generateTargetRanksDataOptimized(
     target: StringNumberObject[],
     heatmapColors: string[]
 ): BaselineTargetRankDatum[] {
-    // Only use the most recent 100 rows
-    // const N = 100;
-    // if (baseline.length > N && target.length > N) {
-    //     baseline = baseline.slice(-N);
-    //     target = target.slice(-N);
-    // }
+    // Toggle to use only a subset of the most recent N rows for performance/testing
+    const USE_DATA_SUBSET = true; // Set to true to use a subset, false for all data
+    const DATA_SUBSET_SIZE = 100;  // Number of rows to use if subset enabled
+    if (USE_DATA_SUBSET && baseline.length > DATA_SUBSET_SIZE && target.length > DATA_SUBSET_SIZE) {
+        baseline = baseline.slice(-DATA_SUBSET_SIZE);
+        target = target.slice(-DATA_SUBSET_SIZE);
+    }
 
     const targetRanksWithColors: BaselineTargetRankDatum[] = [];
     const n = target.length;
