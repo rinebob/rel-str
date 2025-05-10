@@ -26,7 +26,8 @@ export function calculateRankOptimized(subject: number[], baseline: number[]): n
     const outcomes = Object.entries(outcomesByMatrix);
     outcomes.sort((a, b) => a[1] - b[1]);
     const index = outcomes.findIndex((el) => el[0] === '11111') + 1;
-    return index / COMPARISON_MATRICES.length;
+    const rank = index / COMPARISON_MATRICES.length;
+    return rank;
 }
 
 /**
@@ -55,6 +56,14 @@ export function generateTargetRanksDataOptimized(
         const rank = calculateRankOptimized(targetPctChgs, baselinePctChgs);
         const targetRank: StringNumberObject = { date, value: rank };
         const targetRankWithColor: BaselineTargetRankDatum = addColorToRank(targetRank, heatmapColors);
+        // Attach rolling window arrays for debugging
+        Object.defineProperty(targetRankWithColor, '__debugWindows', {
+            value: {
+                targetPctChgs: [...targetPctChgs],
+                baselinePctChgs: [...baselinePctChgs],
+            },
+            enumerable: false
+        });
         targetRanksWithColors.push(targetRankWithColor);
     }
     return targetRanksWithColors;

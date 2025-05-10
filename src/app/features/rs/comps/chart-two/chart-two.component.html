@@ -16,28 +16,33 @@
     <div class="loading">Loading OHLC data...</div>
 
   } @else {
-
-    <ejs-chart #msftChart id="candlestick-chart-two" [primaryXAxis]="{ valueType: 'DateTime', title: 'Date', zoomFactor: zoomFactor(), zoomPosition: zoomPosition(), plotOffset: 40 }" [primaryYAxis]="{ title: 'Price (USD)', labelFormat: '${value}' }" [tooltip]="{ enable: tooltipEnabled() }" (axisLabelRender)="onAxisLabelRender($event)" (tooltipRender)="onTooltipRender($event)" [zoomSettings]="{ enableSelectionZooming: true, enablePinchZooming: true, mode: 'X' }" (zoomComplete)="onChartZoomComplete($event)">
-      <e-series-collection>
-        <e-series
-          [dataSource]="candleData()"
-          type='Candle'
-          xName='x'
-          high='high'
-          low='low'
-          open='open'
-          close='close'
-          name='MSFT'>
-        </e-series>
-      </e-series-collection>
-    </ejs-chart>
-    @if (firstVisibleYear() !== null) {
-      <div class="x-axis-year-label-row">
-        <span class="x-axis-year-label">{{ firstVisibleYear() }}</span>
+    <div class="chart-two-root">
+      <div class="chart-two-main-flex-col">
+        <rs-chart-two-rs-pane [rsColors]="visibleRsColors" aria-label="RS Color Pane"></rs-chart-two-rs-pane>
+        <ejs-chart #msftChart id="candlestick-chart-two" [primaryXAxis]="{ valueType: 'DateTime', title: 'Date', zoomFactor: zoomFactor(), zoomPosition: zoomPosition(), plotOffset: 40 }" [primaryYAxis]="{ title: 'Price (USD)', labelFormat: '${value}' }" [tooltip]="{ enable: tooltipEnabled() }" (axisLabelRender)="onAxisLabelRender($event)" (tooltipRender)="onTooltipRender($event)" [zoomSettings]="{ enableSelectionZooming: true, enablePinchZooming: true, mode: 'X' }" (zoomComplete)="onChartZoomComplete($event)">
+          <e-series-collection>
+            <e-series
+              [dataSource]="candleData()"
+              type='Candle'
+              xName='x'
+              high='high'
+              low='low'
+              open='open'
+              close='close'
+              name='MSFT'
+              pointColorMapping='rsColor'>
+            </e-series>
+          </e-series-collection>
+        </ejs-chart>
       </div>
-    }
-    <div class="rs-comparison-summary">
-      RS Comparison: {{ rsComparisonSummary() }}
+      @if (firstVisibleYear() !== null) {
+        <div class="x-axis-year-label-row">
+          <span class="x-axis-year-label">{{ firstVisibleYear() }}</span>
+        </div>
+      }
+      <div class="rs-comparison-summary">
+        RS Comparison: {{ rsComparisonSummary() }}
+      </div>
     </div>
   }
 </section>

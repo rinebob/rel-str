@@ -1,16 +1,27 @@
 import { ChangeDetectionStrategy, Component, ViewChild, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ChartModule, CandleSeriesService, DateTimeService, TooltipService, ZoomService, ChartComponent as SfChartComponent } from '@syncfusion/ej2-angular-charts';
+import { ChartModule, CandleSeriesService, DateTimeService, TooltipService, ZoomService, ChartComponent as SfChartComponent, LegendService } from '@syncfusion/ej2-angular-charts';
 import { HttpClient } from '@angular/common/http';
 import { compareRsDatasets } from '../../utils/rs-calc-utils-compare';
-import { generatePercentChangeData } from '../../utils/rs-calc-utils';
+import { generatePercentChangeData, addColorToRank } from '../../utils/rs-calc-utils';
 import { generateColorArray } from '../../utils/color-utils';
+import { ChartTwoRsPaneComponent } from './chart-two-rs-pane.component';
+
+// Extend the candle type to include optional rsColor
+export interface CandleWithRSColor {
+  x: Date;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  rsColor?: string;
+}
 
 @Component({
   selector: 'rs-chart-two',
   standalone: true,
-  imports: [ChartModule, CommonModule],
-  providers: [CandleSeriesService, DateTimeService, TooltipService, ZoomService],
+  imports: [ChartModule, CommonModule, ChartTwoRsPaneComponent],
+  providers: [CandleSeriesService, DateTimeService, TooltipService, ZoomService, LegendService],
   templateUrl: './chart-two.component.html',
   styleUrl: './chart-two.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -20,6 +31,26 @@ import { generateColorArray } from '../../utils/color-utils';
  * Uses Angular's HttpClient and signals for reactive updates.
  */
 export class ChartTwoComponent {
+  /**
+   * Returns the RS color array for each day (for the RS pane)
+   */
+  public get rsColorArray(): string[] {
+    return (this.candleData() as CandleWithRSColor[]).map(d => d.rsColor || '#ddd');
+  }
+
+  /**
+   * Returns only the visible RS colors (for zoom/pan sync)
+   */
+  public get visibleRsColors(): string[] {
+    const data = this.candleData() as CandleWithRSColor[];
+    if (!data.length) return [];
+    const total = data.length;
+    const factor = this.zoomFactor();
+    const position = this.zoomPosition();
+    const startIdx = Math.floor(position * total);
+    const endIdx = Math.min(total, Math.ceil(startIdx + factor * total));
+    return data.slice(startIdx, endIdx).map(d => d.rsColor || '#ddd');
+  }
   /**
    * Signal holding the parsed OHLC data for the candlestick chart.
    */
@@ -190,8 +221,30 @@ export class ChartTwoComponent {
           close: +close
         };
       });
-      this.candleData.set(msftOhlc);
-      this.msftData.set(msftOhlc);
+      // --- RS Color Mapping ---
+      // 1. Generate percent change arrays for MSFT and QQQ
+      const msftCloses = msftOhlc.map(d => ({ [d.x.toISOString().slice(0,10)]: d.close }));
+      const qqqCloses = [];
+      // We'll fill qqqCloses after parsing QQQ
+
+      const msftPct = generatePercentChangeData(msftCloses);
+      // 2. Generate heatmap colors
+      const heatmapColors = generateColorArray(11);
+      // RS calculation uses a rolling window of 5 (see generateTargetRanksData)
+      const windowSize = 5;
+      // Only keep candles that have a corresponding RS value
+      const msftOhlcRecent = msftOhlc.slice(-100 + windowSize);
+      const msftClosesRecent = msftCloses.slice(-100 + windowSize);
+      const msftPctRecent = msftPct.slice(-100);
+      // Generate RS color data for the most recent 100-windowSize days
+      // If you use a compare function, ensure you generate the RS array for this window
+      const msftRsColors = msftPctRecent.slice(windowSize).map(rsObj => addColorToRank(rsObj, heatmapColors));
+      // Assign RS colors to the sliced MSFT candles by index (guaranteed 1:1)
+      const msftColoredOhlcRecent = msftOhlcRecent.map((candle, i) => ({
+        ...candle,
+        rsColor: msftRsColors[i]?.color
+      }));
+      this.msftData.set(msftColoredOhlcRecent);
       // Parse QQQ
       const qqqLines = qqqCsv.split('\n').filter(Boolean);
       qqqLines.shift();
@@ -206,7 +259,9 @@ export class ChartTwoComponent {
           close: +close
         };
       });
-      this.qqqData.set(qqqOhlc);
+      const qqqOhlcRecent = qqqOhlc.slice(-100);
+      this.qqqData.set(qqqOhlcRecent);
+      this.candleData.set(msftColoredOhlcRecent);
       this.autoscaleYAxis();
       // Run RS comparison
       console.log('[RS] About to run RS comparison...');
