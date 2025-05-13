@@ -85,6 +85,22 @@ export interface RelStrListForm {
     baselineControl: FormControl;
 }
 
+/**
+ * Interface for Syncfusion chart axis config (robust, always complete).
+ */
+export interface ChartAxisConfig {
+  valueType: 'DateTime' | 'Category' | 'Double';
+  title: string;
+  zoomFactor: number;
+  zoomPosition: number;
+  plotOffset: number;
+  labelFormat?: string;
+  intervalType?: string;
+  edgeLabelPlacement?: string;
+  majorGridLines?: { width: number };
+}
+
+
 export enum FormMode {
     CREATE = 'create',
     EDIT = 'edit'

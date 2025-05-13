@@ -2,8 +2,8 @@
 
 @use 'sass:math';
 // Global rem() function for px-to-rem conversion
-@function rem($px, $base: 16) {
-  @return math.div($px, $base) * 1rem;
+@function rem($px) {
+  @return math.div($px, 16) * 1rem;
 }
 
 
