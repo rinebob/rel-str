@@ -1,5 +1,6 @@
 @use './app/styles/mixins-global' as global;
 @use './app/styles/variables-global' as globalVar;
+@import '../node_modules/@syncfusion/ej2-angular-base/styles/material.css';
 
 
 body {

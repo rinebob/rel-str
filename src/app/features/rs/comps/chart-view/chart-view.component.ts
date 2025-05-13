@@ -4,11 +4,10 @@ import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { ChartModule, ChartComponent as SfChartComponent, DateTimeService, LegendService } from '@syncfusion/ej2-angular-charts';
-import { Chart, CandleSeries, Tooltip, DateTime, Legend } from '@syncfusion/ej2-charts';
+import { ChartModule, ChartComponent as SfChartComponent, CandleSeriesService, DateTimeService, TooltipService, LegendService, ZoomService } from '@syncfusion/ej2-angular-charts';
+import { Chart, CandleSeries, Tooltip, DateTime, Legend, Zoom } from '@syncfusion/ej2-charts';
 
-// Register required modules for the chart
-Chart.Inject(CandleSeries, Tooltip, DateTime, Legend);
+
 import { RsPaneComponent } from './rs-pane/rs-pane.component';
 import { ChartToolbarComponent } from './chart-toolbar/chart-toolbar.component';
 import type { CandleWithRSColor } from './chart-two/chart-two.component';
@@ -31,9 +30,9 @@ import { compareRsDatasets } from '../../utils/rs-calc-utils-compare';
     RsPaneComponent,
     ChartToolbarComponent
   ],
-  providers: [DateTimeService, LegendService],
+  providers: [CandleSeriesService, DateTimeService, TooltipService, ZoomService],
   templateUrl: './chart-view.component.html',
-  styleUrl: './chart-view.component.scss',
+  styleUrls: ['./chart-view.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 
@@ -98,7 +97,54 @@ export class ChartViewComponent {
   @ViewChild('msftChart', { static: false }) chartComponent?: SfChartComponent;
 
   /**
-   * Getter for the current value of candleData signal.
+   * Signal holding the visible candle data window for the current zoom.
+   */
+  public visibleCandleData = signal<CandleWithRSColor[]>([]);
+
+  /**
+   * Updates the visible candle data window based on zoom and data.
+   */
+  private updateVisibleCandleData(): void {
+    const data = this.candleData();
+    if (!Array.isArray(data) || !data.length) {
+      this.visibleCandleData.set([]);
+      return;
+    }
+    const total = data.length;
+    const factor = this.zoomFactor;
+    const position = this.zoomPosition;
+    const startIdx = Math.floor(position * total);
+    const endIdx = Math.min(total, Math.ceil(startIdx + factor * total));
+    let visible = data.slice(startIdx, endIdx);
+    // Only set real candles for chart
+    this.visibleCandleData.set(visible);
+  }
+
+  /**
+   * Returns visible candles plus a dummy for RS pane alignment.
+   */
+  public visibleCandleDataWithDummy(): CandleWithRSColor[] {
+    const visible = this.visibleCandleData();
+    if (!visible.length) return [];
+    const last = visible[visible.length - 1];
+    const lastDate = last.x instanceof Date ? last.x : new Date(last.x);
+    const nextDate = new Date(lastDate.getTime());
+    nextDate.setDate(lastDate.getDate() + 1);
+    return [
+      ...visible,
+      {
+        x: nextDate,
+        open: 0,
+        high: 0,
+        low: 0,
+        close: 0,
+        rsColor: undefined
+      }
+    ];
+  }
+
+  /**
+   * Getter for the current value of candleData signal (full array).
    */
   public candleDataFn(): CandleWithRSColor[] {
     return this.candleData();
@@ -145,53 +191,82 @@ export class ChartViewComponent {
 
   // Toolbar actions
   public zoomIn(): void {
-    let factor = this.zoomFactor;
-    if (factor > 0.05) {
-      factor = Math.max(0.05, factor / 2);
-      this.setZoom(factor, this.zoomPosition);
-    }
+    this.setZoom(Math.max(0.01, this.zoomFactor * 0.7), this.zoomPosition);
+    // Chart will update and zoomComplete will handle Y autoscale
   }
   public zoomOut(): void {
-    let factor = this.zoomFactor;
-    factor = Math.min(1, factor * 2);
-    this.setZoom(factor, this.zoomPosition);
+    this.setZoom(Math.min(1, this.zoomFactor / 0.7), this.zoomPosition);
+    // Chart will update and zoomComplete will handle Y autoscale
+  }
+
+  /** Go to chart start */
+  public goToStart(): void {
+    this.setZoom(this.zoomFactor, 0);
+  }
+  /** Go to chart end */
+  public goToEnd(): void {
+    this.setZoom(this.zoomFactor, 1 - this.zoomFactor);
   }
   public resetZoom(): void {
+    // Reload the data according to the useDataSubset flag
+    this.loadBothCSVsAndCompare();
+    // Reset zoom to default (full extent)
     this.setZoom(1, 0);
+    // Always update the chart visuals
+    if (this.chartComponent) {
+      this.autoscaleYAxis();
+      this.chartComponent.dataBind();
+      this.setPlotAreaDims();
+    }
   }
   public useSubset(): void {
-    // Implement subset toggle if needed
+    this.toggleDataSubset();
   }
 
   public setZoom(factor: number, position: number): void {
     this.zoomFactor = factor;
     this.zoomPosition = Math.max(0, Math.min(position, 1 - factor));
+    this.updateVisibleCandleData();
     // Always update primaryXAxis config reactively
     if (this.primaryXAxis) {
       this.primaryXAxis.zoomFactor = this.zoomFactor;
       this.primaryXAxis.zoomPosition = this.zoomPosition;
     }
     if (this.chartComponent) {
-      this.autoscaleYAxis();
       this.chartComponent.dataBind();
     }
+    // Do not autoscale here; let zoomComplete event handle it
   }
 
-  public autoscaleYAxis(factor?: number, position?: number): void {
+  public autoscaleYAxis(): void {
     const data = this.candleData();
-    if (!data.length) return;
-    const total = data.length;
-    factor = factor ?? this.zoomFactor;
-    position = position ?? this.zoomPosition;
-    const startIdx = Math.floor(position * total);
-    const endIdx = Math.min(total, Math.ceil(startIdx + factor * total));
-    const visible = data.slice(startIdx, endIdx);
+    if (!data.length || !this.chartComponent || !this.chartComponent.primaryXAxis) return;
+    // Use Syncfusion's visible X range
+    const xAxis = this.chartComponent.primaryXAxis;
+    const xRange = (xAxis as any).visibleRange;
+    if (!xRange) return;
+    const minX = xRange.min;
+    const maxX = xRange.max;
+    // Log the visible X range
+    console.log('[Y-Axis Autoscale] Syncfusion visible X range:', minX, 'to', maxX);
+    // Filter candles within visible X range
+    const visible = data.filter(d => {
+      const xVal = d.x instanceof Date ? d.x.getTime() : d.x;
+      return xVal >= minX && xVal <= maxX;
+    });
+    if (!visible.length) {
+      console.log('[Y-Axis Autoscale] No visible candles in current X range.');
+      return;
+    }
     const min = Math.min(...visible.map(d => d.low));
     const max = Math.max(...visible.map(d => d.high));
-    if (this.chartComponent && this.chartComponent.primaryYAxis) {
-      this.chartComponent.primaryYAxis.minimum = min;
-      this.chartComponent.primaryYAxis.maximum = max;
-    }
+    const firstDate = visible[0]?.x;
+    const lastDate = visible[visible.length - 1]?.x;
+    console.log('[Y-Axis Autoscale] Visible candle date range:', firstDate, 'to', lastDate);
+    console.log('[Y-Axis Autoscale] Highest high in visible candles:', max);
+    this.chartComponent.primaryYAxis.minimum = min;
+    this.chartComponent.primaryYAxis.maximum = max;
+    console.log('[Y-Axis Autoscale] Set chartComponent.primaryYAxis.maximum:', this.chartComponent.primaryYAxis.maximum);
   }
 
   public autoscaleYAxisForRange(minX: number | Date, maxX: number | Date): void {
@@ -203,9 +278,14 @@ export class ChartViewComponent {
     if (!visible.length) return;
     const min = Math.min(...visible.map(d => d.low));
     const max = Math.max(...visible.map(d => d.high));
+    const firstDate = visible[0]?.x;
+    const lastDate = visible[visible.length - 1]?.x;
+    console.log('[Y-Axis Autoscale] Visible data range:', firstDate, 'to', lastDate);
+    console.log('[Y-Axis Autoscale] Highest high in visible data:', max);
     if (this.chartComponent && this.chartComponent.primaryYAxis) {
       this.chartComponent.primaryYAxis.minimum = min;
       this.chartComponent.primaryYAxis.maximum = max;
+      console.log('[Y-Axis Autoscale] Set chartComponent.primaryYAxis.maximum:', this.chartComponent.primaryYAxis.maximum);
     }
   }
 
@@ -223,14 +303,18 @@ export class ChartViewComponent {
     }, 0);
   }
 
+  /** Called when the Syncfusion chart has fully loaded (data and visuals) */
   public onChartLoaded(): void {
     this.setPlotAreaDims();
     this.logRenderedCandlesVsRsBars();
     this.updateVisibleXAxisTicks();
+    this.autoscaleYAxis();
   }
 
   public onAxisLabelRender(args: any): void {
-    if (args.axis.name === 'primaryXAxis' && args.value instanceof Date) {
+    if (args.axis.name === 'primaryYAxis') {
+      args.text = '$' + Math.round(args.value).toLocaleString();
+    } else if (args.axis.name === 'primaryXAxis' && args.value instanceof Date) {
       const min = args.axis.visibleRange?.min;
       if (min !== undefined && args.value.getTime() === min) {
         args.text = `${args.value.getFullYear()} ${args.text}`;
@@ -411,6 +495,7 @@ export class ChartViewComponent {
         // Set both msftData and candleData to the colored, sliced MSFT data
         this.msftData.set(msftColoredOhlcToUse);
         this.candleData.set(msftColoredOhlcToUse);
+        this.updateVisibleCandleData();
         this.qqqData.set(qqqOhlcToUse);
         this.runRsComparison();
       },
@@ -450,4 +535,5 @@ export class ChartViewComponent {
     this.useDataSubset.set(!this.useDataSubset());
     this.loadBothCSVsAndCompare();
   }
+
 }

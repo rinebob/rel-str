@@ -6,10 +6,15 @@ import { CommonModule } from '@angular/common';
   standalone: true,
   imports: [CommonModule],
   templateUrl: './chart-toolbar.component.html',
-  styleUrl: './chart-toolbar.component.scss',
+  styleUrls: ['./chart-toolbar.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ChartToolbarComponent {
+  /**
+   * Indicates whether the subset of data is currently being used.
+   */
+  @Input() useDataSubset = false;
+
   /**
    * Current zoom factor (fraction of chart shown, 0 < zoomFactor <= 1)
    */
@@ -36,6 +41,15 @@ export class ChartToolbarComponent {
    * Emits when the Use Subset button is clicked
    */
   @Output() useSubset = new EventEmitter<void>();
+  /**
+   * Emits when the Go To Start button is clicked
+   */
+  @Output() goToStart = new EventEmitter<void>();
+  /**
+   * Emits when the Go To End button is clicked
+   */
+  @Output() goToEnd = new EventEmitter<void>();
+
 
   /**
    * Handler for Zoom In button
@@ -61,4 +75,17 @@ export class ChartToolbarComponent {
   public onUseSubset(): void {
     this.useSubset.emit();
   }
+  /**
+   * Handler for Go To Start button
+   */
+  public onGoToStart(): void {
+    this.goToStart.emit();
+  }
+  /**
+   * Handler for Go To End button
+   */
+  public onGoToEnd(): void {
+    this.goToEnd.emit();
+  }
 }
+

@@ -20,7 +20,7 @@ export interface CandleWithRSColor {
   imports: [ChartModule, CommonModule, RsPaneComponent, ChartToolbarComponent],
   providers: [CandleSeriesService, DateTimeService, TooltipService, ZoomService, LegendService],
   templateUrl: './chart-two.component.html',
-  styleUrl: './chart-two.component.scss',
+  styleUrls: ['./chart-two.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 /**

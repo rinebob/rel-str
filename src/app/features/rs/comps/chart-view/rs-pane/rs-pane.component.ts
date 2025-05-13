@@ -29,10 +29,10 @@ export class RsPaneComponent implements OnChanges {
 
   ngOnChanges(changes: SimpleChanges) {
     // eslint-disable-next-line no-console
-    console.log('[RS PANE DEBUG] changes:', changes);
-    if (changes['xAxisTicks']) console.log('[RS PANE DEBUG] xAxisTicks received:', changes['xAxisTicks'].currentValue);
-    if (changes['candleData']) console.log('[RS PANE DEBUG] candleData received:', changes['candleData'].currentValue);
-    if (changes['plotAreaLeft']) console.log('[RS PANE DEBUG] plotAreaLeft received:', changes['plotAreaLeft'].currentValue);
-    if (changes['plotAreaWidth']) console.log('[RS PANE DEBUG] plotAreaWidth received:', changes['plotAreaWidth'].currentValue);
+    // console.log('[RS PANE DEBUG] changes:', changes);
+    // if (changes['xAxisTicks']) console.log('[RS PANE DEBUG] xAxisTicks received:', changes['xAxisTicks'].currentValue);
+    // if (changes['candleData']) console.log('[RS PANE DEBUG] candleData received:', changes['candleData'].currentValue);
+    // if (changes['plotAreaLeft']) console.log('[RS PANE DEBUG] plotAreaLeft received:', changes['plotAreaLeft'].currentValue);
+    // if (changes['plotAreaWidth']) console.log('[RS PANE DEBUG] plotAreaWidth received:', changes['plotAreaWidth'].currentValue);
   }
 }
