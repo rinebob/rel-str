@@ -3,26 +3,39 @@
   <rs-chart-toolbar
     [zoomFactor]="zoomFactor"
     [zoomPosition]="zoomPosition"
+    [useDataSubset]="useDataSubset()"
     (zoomIn)="zoomIn()"
     (zoomOut)="zoomOut()"
     (resetZoom)="resetZoom()"
     (useSubset)="useSubset()"
+    (goToStart)="goToStart()"
+    (goToEnd)="goToEnd()"
   ></rs-chart-toolbar>
   <div class="chart-two-root">
     <div class="chart-two-main-flex-col">
       <div class="chart-two-plot-area" style="position: relative;">
+        <!-- [candleData]="visibleCandleDataWithDummy()" -->
         <rs-pane
-          [candleData]="candleData()"
+          [candleData]="visibleCandleData()"
           [plotAreaLeft]="plotAreaLeft"
           [plotAreaWidth]="plotAreaWidth"
           [xAxisTicks]="visibleXAxisTicks()"
           aria-label="RS Color Pane"
         ></rs-pane>
         @if (hasCandleData && chartPrimaryXAxis && candleData().length > 0) {
-          <ejs-chart #msftChart id="candlestick-chart-two" [primaryXAxis]="chartPrimaryXAxis" [primaryYAxis]="{ title: 'Price (USD)', labelFormat: '${value}' }" [tooltip]="{ enable: tooltipEnabled }" (axisLabelRender)="onAxisLabelRender($event)" (tooltipRender)="onTooltipRender($event)" [zoomSettings]="{ enableSelectionZooming: true, enablePinchZooming: true, mode: 'X', enableToolbar: false }" (zoomComplete)="onChartZoomComplete($event)" (loaded)="onChartLoaded()">
+          <!-- Syncfusion built-in chart toolbar restored below -->
+          <ejs-chart #msftChart id="candlestick-chart-two"
+            [primaryXAxis]="{ valueType: 'DateTime', crosshairTooltip: { enable: true }, majorGridLines: { width: 0 } }"
+            [primaryYAxis]="{ title: 'Price (USD)' }"
+            [tooltip]="{ enable: tooltipEnabled }"
+            [zoomSettings]="{ enableSelectionZooming: true, enablePinchZooming: true, mode: 'X' }"
+            (axisLabelRender)="onAxisLabelRender($event)"
+            (tooltipRender)="onTooltipRender($event)"
+            (zoomComplete)="onChartZoomComplete($event)"
+            (loaded)="onChartLoaded()">
             <e-series-collection>
               <e-series
-                [dataSource]="candleData() || []"
+                [dataSource]="visibleCandleData() || []"
                 type='Candle'
                 xName='x'
                 high='high'
