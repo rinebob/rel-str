@@ -1,5 +1,5 @@
-@use '../../../../styles/variables-global' as *;
-@use '../../../../styles/mixins-global' as *;
+@use '../../../../../styles/variables-global' as *;
+@use '../../../../../styles/mixins-global' as *;
 
 // Constrain RS pane and chart to same plot area width
 .chart-two-plot-area {
