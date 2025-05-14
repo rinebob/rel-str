@@ -1,23 +1,13 @@
 import { ChangeDetectionStrategy, Component, ViewChild, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ChartModule, CandleSeriesService, DateTimeService, TooltipService, ZoomService, ChartComponent as SfChartComponent, LegendService } from '@syncfusion/ej2-angular-charts';
-import { RsPaneComponent } from '../rs-pane/rs-pane.component';
 import { ChartToolbarComponent } from '../chart-toolbar/chart-toolbar.component';
-
-// Extend the candle type to include optional rsColor
-export interface CandleWithRSColor {
-  x: Date;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  rsColor?: string;
-}
+import { CandleWithRSColor } from '../../../common/interfaces-rs';
 
 @Component({
   selector: 'rs-chart-two',
   standalone: true,
-  imports: [ChartModule, CommonModule, RsPaneComponent, ChartToolbarComponent],
+  imports: [ChartModule, CommonModule, ChartToolbarComponent],
   providers: [CandleSeriesService, DateTimeService, TooltipService, ZoomService, LegendService],
   templateUrl: './chart-two.component.html',
   styleUrls: ['./chart-two.component.scss'],

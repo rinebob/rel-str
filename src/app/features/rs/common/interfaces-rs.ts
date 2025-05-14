@@ -117,3 +117,19 @@ export enum ListAction {
     ADD = 'add',
     REMOVE = 'remove',
 }
+
+export interface CandleWithRSColor {
+    x: Date;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    rsColor?: string;
+    rank?: number;
+}
+
+export interface RsPaneDatum {
+    date: Date;
+    rank?: number;
+    rsColor: string;
+}

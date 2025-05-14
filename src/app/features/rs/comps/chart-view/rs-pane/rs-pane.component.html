@@ -1,22 +1,23 @@
-<div class="rs-pane" [style.left.px]="plotAreaLeft" [style.width.px]="plotAreaWidth">
-  <div class="rs-bars-row">
-    @for (candle of candleData; track $index) {
-      <div class="rs-bar" [ngStyle]="{
-        'background': candle.rsColor || '#ddd',
-        'opacity': candle.rsColor === undefined ? 0 : 1
-      }"></div>
-    }
-  </div>
-  <div class="rs-x-axis-row">
-    @for (candle of candleData; let i = $index; track $index) {
-      <div class="rs-x-tick">
-        <span class="rs-x-label">{{ candle.x | date:'MM-dd' }}</span>
-      </div>
-    }
-  </div>
-  <div class="rs-x-grid-row">
-    @for (candle of candleData; let i = $index; track $index) {
-      <div class="rs-x-gridline" *ngIf="xAxisTicks.includes(i)"></div>
-    }
-  </div>
+
+
+<div class="rs-pane-container">
+    
+    <ejs-chart #rankChart id="rank-chart"
+        [primaryXAxis]="{ valueType: 'DateTime', crosshairTooltip: { enable: false }, majorGridLines: { width: 0 } }"
+        [primaryYAxis]="{ title: 'RS Rank Color' }"
+        [zoomSettings]="{ enableSelectionZooming: true, enablePinchZooming: true, mode: 'X' }"
+        [crosshair]='crosshair'
+        >
+      <e-series-collection>
+        <e-series
+          [dataSource]="paneData() || []"
+          type='Column'
+          xName='date'
+          yName='rank'
+          name='MSFT'
+          pointColorMapping='rsColor'>
+        </e-series>
+      </e-series-collection>
+    </ejs-chart>
+
 </div>

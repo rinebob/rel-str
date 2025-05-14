@@ -192,8 +192,10 @@ export function calculateRsRank(target: StringNumberObject[], baseline: StringNu
  * @returns {BaselineTargetRankDatum} Rank object with color property
  */
 export function addColorToRank(targetRank: StringNumberObject, heatmapColors: string[]): BaselineTargetRankDatum {
+    // console.log('rSUtil aCTR targetRank/heatmapColors: ', targetRank, heatmapColors);
     const colorIdx = Math.floor(targetRank.value * (heatmapColors.length - 1));
     const color = heatmapColors[colorIdx];
+    // console.log('rsUtil aCTR colorIdx/color: ', colorIdx, color);
     return { ...targetRank, index: colorIdx, color };
 }
 

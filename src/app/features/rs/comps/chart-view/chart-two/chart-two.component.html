@@ -11,17 +11,12 @@
   <div class="chart-two-root">
     <div class="chart-two-main-flex-col">
       <div class="chart-two-plot-area" style="position: relative;">
-        <rs-pane
-          [candleData]="candleData"
-          [plotAreaLeft]="plotAreaLeft"
-          [plotAreaWidth]="plotAreaWidth"
-          [xAxisTicks]="visibleXAxisTicks"
-          aria-label="RS Color Pane"
-        ></rs-pane>
+       
         <ejs-chart #msftChart id="candlestick-chart-two" [primaryXAxis]="primaryXAxis" [primaryYAxis]="{ title: 'Price (USD)', labelFormat: '${value}' }" [tooltip]="{ enable: tooltipEnabled }" (axisLabelRender)="onAxisLabelRender($event)" (tooltipRender)="onTooltipRender($event)" [zoomSettings]="{ enableSelectionZooming: true, enablePinchZooming: true, mode: 'X', enableToolbar: false }" (zoomComplete)="onChartZoomComplete($event)" (loaded)="onChartLoaded()">
           <e-series-collection>
+            <!-- Always provide an array to avoid Syncfusion errors -->
             <e-series
-              [dataSource]="candleData"
+              [dataSource]="candleData || []"
               type='Candle'
               xName='x'
               high='high'

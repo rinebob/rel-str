@@ -1,6 +1,9 @@
 @use '../../../../../styles/variables-global' as *;
 @use '../../../../../styles/mixins-global' as *;
 
+.rs-pane-container {
+    height: 200px;
+}
 .rs-pane {
   position: relative;
   width: 100%;

@@ -1,38 +1,45 @@
-import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, computed, input, Input, OnChanges, OnInit, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import type { CandleWithRSColor } from '../chart-two/chart-two.component';
+import { ChartModule, CategoryService, DateTimeService, ScrollBarService, ColumnSeriesService, LineSeriesService, 
+    ChartAnnotationService, RangeColumnSeriesService, StackingColumnSeriesService,LegendService, TooltipService,
+    CrosshairService
+ } from '@syncfusion/ej2-angular-charts'
+import type { ChartAxisConfig, RsPaneDatum } from '../../../common/interfaces-rs';
 
+/**
+ * RS Pane Component: renders a Syncfusion vertical bar chart to visualize RS values.
+ * The X axis is DateTime and matches the main chart; Y axis is hidden.
+ */
 @Component({
   selector: 'rs-pane',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ChartModule],
+  providers: [ CategoryService, DateTimeService, ScrollBarService, LineSeriesService, ColumnSeriesService, 
+    ChartAnnotationService, RangeColumnSeriesService, StackingColumnSeriesService, LegendService, TooltipService, CrosshairService],
   templateUrl: './rs-pane.component.html',
   styleUrls: ['./rs-pane.component.scss']
 })
-export class RsPaneComponent implements OnChanges {
+export class RsPaneComponent implements OnInit {
   /**
-   * The main candle data array, including rsColor for each candle.
+   * `Data array, with x (Date) y = 1 and rsColor for each candle.
    */
-  @Input() candleData: CandleWithRSColor[] = [];
+  paneData = input.required<RsPaneDatum[]>();
   /**
-   * Indices of candles where x-axis ticks/gridlines should be rendered (from chart).
+   * X axis config for perfect alignment with the main chart.
    */
-  @Input() xAxisTicks: number[] = [];
+  primaryXAxis = input<Partial<ChartAxisConfig>>();
   /**
-   * Left offset (px) for absolute alignment with chart plot area
+   * Left offset (px) for absolute alignment with chart plot area.
    */
-  @Input() plotAreaLeft: number = 0;
+  plotAreaLeft = input<number>(0);
   /**
-   * Width (px) for absolute alignment with chart plot area
+   * Width (px) for absolute alignment with chart plot area.
    */
-  @Input() plotAreaWidth: number = 0;
+  plotAreaWidth = input<number>(0);
 
-  ngOnChanges(changes: SimpleChanges) {
-    // eslint-disable-next-line no-console
-    // console.log('[RS PANE DEBUG] changes:', changes);
-    // if (changes['xAxisTicks']) console.log('[RS PANE DEBUG] xAxisTicks received:', changes['xAxisTicks'].currentValue);
-    // if (changes['candleData']) console.log('[RS PANE DEBUG] candleData received:', changes['candleData'].currentValue);
-    // if (changes['plotAreaLeft']) console.log('[RS PANE DEBUG] plotAreaLeft received:', changes['plotAreaLeft'].currentValue);
-    // if (changes['plotAreaWidth']) console.log('[RS PANE DEBUG] plotAreaWidth received:', changes['plotAreaWidth'].currentValue);
-  }
+  public crosshair?: Object;
+
+    ngOnInit(): void {
+        this.crosshair = { enable: true };
+    }
 }
