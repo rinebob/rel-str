@@ -5,7 +5,7 @@
  * @param csv - CSV string (header + rows)
  * @returns Array of CandleWithRSColor
  */
-import type { CandleWithRSColor } from '../chart-two/chart-two.component';
+import type { CandleWithRSColor } from '../../../common/interfaces-rs';
 
 export function parseOhlcCsv(csv: string): CandleWithRSColor[] {
   const lines = csv.split('\n').filter(Boolean);

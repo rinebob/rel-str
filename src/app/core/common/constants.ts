@@ -66,14 +66,6 @@ export const NAV_MENU_ITEMS: NavItem[] = [
         target: '_self',
     },
     {
-        name: 'chart-two',
-        text: 'chart-two',
-        href: 'chart-two',
-        mobileOnly: false,
-        external: false,
-        target: '_self',
-    },
-    {
         name: 'rs-table',
         text: 'rs-table',
         href: 'rs-table',

@@ -1,5 +1,5 @@
 <section class="candlestick-chart-two">
-  <h2>MSFT Candlestick Chart (Syncfusion Demo)</h2>
+  <h2>Relative Strength Heatmap</h2>
   <rs-chart-toolbar
     [zoomFactor]="zoomFactor"
     [zoomPosition]="zoomPosition"
@@ -14,21 +14,20 @@
   <div class="chart-two-root">
     <div class="chart-two-main-flex-col">
       <div class="chart-two-plot-area" style="position: relative;">
-        <!-- [candleData]="visibleCandleDataWithDummy()" -->
         <rs-pane
-          [candleData]="visibleCandleData()"
+          [paneData]="rsPaneData()"
           [plotAreaLeft]="plotAreaLeft"
           [plotAreaWidth]="plotAreaWidth"
-          [xAxisTicks]="visibleXAxisTicks()"
+          [primaryXAxis]="chartPrimaryXAxis"
           aria-label="RS Color Pane"
         ></rs-pane>
         @if (hasCandleData && chartPrimaryXAxis && candleData().length > 0) {
-          <!-- Syncfusion built-in chart toolbar restored below -->
           <ejs-chart #msftChart id="candlestick-chart-two"
             [primaryXAxis]="{ valueType: 'DateTime', crosshairTooltip: { enable: true }, majorGridLines: { width: 0 } }"
             [primaryYAxis]="{ title: 'Price (USD)' }"
             [tooltip]="{ enable: tooltipEnabled }"
             [zoomSettings]="{ enableSelectionZooming: true, enablePinchZooming: true, mode: 'X' }"
+            [crosshair]='crosshair'
             (axisLabelRender)="onAxisLabelRender($event)"
             (tooltipRender)="onTooltipRender($event)"
             (zoomComplete)="onChartZoomComplete($event)"
