@@ -89,7 +89,7 @@ export interface RelStrListForm {
 /**
  * Interface for Syncfusion chart axis config (robust, always complete).
  */
-export interface RsChartConfig {
+export interface RsSyncfusionChartConfig {
 // tooltip, crosshair, zoomSettings, legend, primaryXAxis, primaryYAxis
     crosshair: CrosshairSettingsModel;
     legend: LegendSettingsModel;
@@ -116,6 +116,27 @@ export interface Company {
 export enum ListAction {
     ADD = 'add',
     REMOVE = 'remove',
+}
+
+export enum Timeframe {
+    DAILY = 'daily',
+    WEEKLY = 'weekly',
+    MONTHLY = 'monthly'
+}
+
+export interface RsChartConfig {
+    id: string;
+    name: string;
+    targetSymbol: string;
+    baselineSymbol: string;
+    timeframe: Timeframe;
+    chartConfig: RsSyncfusionChartConfig;
+    showRS?: boolean;
+    showBaseline?: boolean;
+    showVolume?: boolean;
+    showTechnicalIndicators?: string[];
+    height?: string;
+    width?: string;
 }
 
 export interface OHLCDatum {

@@ -1,5 +1,5 @@
 import { AxisModel, CrosshairSettingsModel, TooltipSettings, TooltipSettingsModel, ZoomSettings, ZoomSettingsModel } from "@syncfusion/ej2-charts";
-import { RelStrStockList, RsChartConfig } from "./interfaces-rs";
+import { RelStrStockList, RsSyncfusionChartConfig, RsChartConfig, Timeframe } from "./interfaces-rs";
 
 export const STOCK_LIST_INITIALIZER: RelStrStockList = {name: '', baseline: '', symbols: [], ranksDataWithColors: {}};
 
@@ -201,8 +201,147 @@ const MAIN_RS_CHART_TOOLTIP_CONFIG: TooltipSettingsModel = {
     enable: true,
 }
 
+// Microsoft (MSFT) Chart Configuration
+export const MSFT_CHART_CONFIG: RsChartConfig = {
+    id: 'chart-msft',
+    name: 'Microsoft (MSFT)',
+    targetSymbol: 'MSFT',
+    baselineSymbol: 'QQQ',
+    timeframe: Timeframe.DAILY,
+    chartConfig: {
+        crosshair: CROSSHAIR_SETTINGS,
+        legend: MAIN_RS_CHART_LEGEND_CONFIG,
+        lineStyle: { width: 0 },
+        primaryXAxis: MAIN_RS_CHART_X_AXIS_CONFIG,
+        primaryYAxis: {
+            ...MAIN_RS_CHART_Y_AXIS_CONFIG,
+            title: 'Price (USD)'
+        },
+        tooltip: {
+            ...MAIN_RS_CHART_TOOLTIP_CONFIG,
+            format: '${series.name}: ${point.y} (${point.percentage}%)',
+            header: '<b>${point.x}</b>'
+        },
+        zoomSettings: MAIN_RS_CHART_ZOOM_SETTINGS
+    },
+    showRS: true,
+    showBaseline: true,
+    showVolume: true,
+    showTechnicalIndicators: ['SMA', 'RSI'],
+    height: '500px'
+};
+
+// NVIDIA (NVDA) Chart Configuration
+export const NVDA_CHART_CONFIG: RsChartConfig = {
+    id: 'chart-nvda',
+    name: 'NVIDIA (NVDA)',
+    targetSymbol: 'NVDA',
+    baselineSymbol: 'QQQ',
+    timeframe: Timeframe.WEEKLY,
+    chartConfig: {
+        crosshair: CROSSHAIR_SETTINGS,
+        legend: {
+            ...MAIN_RS_CHART_LEGEND_CONFIG,
+            position: 'Bottom'
+        },
+        lineStyle: { width: 0 },
+        primaryXAxis: MAIN_RS_CHART_X_AXIS_CONFIG,
+        primaryYAxis: {
+            ...MAIN_RS_CHART_Y_AXIS_CONFIG,
+            title: 'Price (USD)',
+            labelFormat: 'n0'
+        },
+        zoomSettings: MAIN_RS_CHART_ZOOM_SETTINGS,
+        tooltip: MAIN_RS_CHART_TOOLTIP_CONFIG
+    },
+    showRS: true,
+    showBaseline: true,
+    showVolume: true,
+    showTechnicalIndicators: ['EMA', 'MACD'],
+    height: '500px'
+};
+
+// Alphabet (GOOG) Chart Configuration
+export const GOOG_CHART_CONFIG: RsChartConfig = {
+    id: 'chart-goog',
+    name: 'Alphabet (GOOG)',
+    targetSymbol: 'GOOG',
+    baselineSymbol: 'SPY',
+    timeframe: Timeframe.MONTHLY,
+    chartConfig: {
+        crosshair: CROSSHAIR_SETTINGS,
+        legend: MAIN_RS_CHART_LEGEND_CONFIG,
+        lineStyle: { width: 0 },
+        primaryXAxis: {
+            ...MAIN_RS_CHART_X_AXIS_CONFIG,
+            valueType: 'DateTime',
+            intervalType: 'Months',
+            labelFormat: 'MMM yyyy'
+        },
+        primaryYAxis: MAIN_RS_CHART_Y_AXIS_CONFIG,
+        zoomSettings: MAIN_RS_CHART_ZOOM_SETTINGS,
+        tooltip: MAIN_RS_CHART_TOOLTIP_CONFIG
+    },
+    showRS: true,
+    showBaseline: true,
+    showVolume: false,
+    showTechnicalIndicators: ['BB', 'StochRSI'],
+    height: '450px'
+};
+
+// Apple (AAPL) Chart Configuration
+export const AAPL_CHART_CONFIG: RsChartConfig = {
+    id: 'chart-aapl',
+    name: 'Apple (AAPL)',
+    targetSymbol: 'AAPL',
+    baselineSymbol: 'SPY',
+    timeframe: Timeframe.DAILY,
+    chartConfig: {
+        crosshair: {
+            enable: true,
+            lineType: 'Vertical',
+            line: { width: 1, color: '#757575' }
+        },
+        legend: MAIN_RS_CHART_LEGEND_CONFIG,
+        lineStyle: { width: 0 },
+        primaryXAxis: MAIN_RS_CHART_X_AXIS_CONFIG,
+        primaryYAxis: {
+            ...MAIN_RS_CHART_Y_AXIS_CONFIG,
+            title: 'Price (USD)',
+            opposedPosition: true
+        },
+        zoomSettings: MAIN_RS_CHART_ZOOM_SETTINGS,
+        tooltip: {
+            enable: true,
+            shared: true,
+            format: '${series.name}: ${point.y}'
+        }
+    },
+    showRS: true,
+    showBaseline: false,
+    showVolume: true,
+    showTechnicalIndicators: ['SMA', 'Volume'],
+    height: '500px'
+};
+
+// Array of all chart configurations
+export const CHART_CONFIGS: RsChartConfig[] = [
+    MSFT_CHART_CONFIG,
+    NVDA_CHART_CONFIG,
+    GOOG_CHART_CONFIG,
+    AAPL_CHART_CONFIG,
+    // MSFT_CHART_CONFIG,
+    // NVDA_CHART_CONFIG,
+    // GOOG_CHART_CONFIG,
+    // AAPL_CHART_CONFIG,
+    // MSFT_CHART_CONFIG,
+    // NVDA_CHART_CONFIG,
+    // GOOG_CHART_CONFIG,
+    // AAPL_CHART_CONFIG,
+];
+
 // This is for the main candlestick chart
-export const RS_CHART_CONFIG: RsChartConfig = {
+export const RS_CHART_CONFIG: RsSyncfusionChartConfig = {
     crosshair: CROSSHAIR_SETTINGS,
     legend: MAIN_RS_CHART_LEGEND_CONFIG,
     lineStyle: {width: 0},

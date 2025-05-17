@@ -1,50 +1,38 @@
 <section class="sync-chart-view-container">
-
     <div class="charts-container">
+        <!-- First chart (full width) -->
+        @if (chartSignals().length > 0) {
+            <div class="chart-container chart-one-container">
+                @let chart = chartSignals()[0];
+                <rs-chart 
+                    [id]="chart.id"
+                    [name]="chart.config.name"
+                    [config]="chart.config"
+                    [chartData]="chart.chartData()"
+                    [rsData]="chart.rsData()"
+                    [baselineData]="chart.baselineData()"
+                    [zoomEnabled]="true"
+                />
+            </div>
+        }
 
-        <div class="chart-container chart-one-container">
-
-            <rs-sync-chart-one [id]="'chart-one'"
-                               [chartData]="chartData()"
-                               [rsData]="rsData()"
-                               [baselineData]="baselineData()"
-            />
-
-            <rs-chart [id]="'chart-two'"
-                      [name]="'Chart Two'"
-                      [chartData]="chartData()"
-                      [rsData]="rsData()"
-                      [baselineData]="baselineData()"
-            />
-            
-
-        </div>
-
-        <div class="chart-container chart-two-container">
-
-            <rs-chart [id]="'chart-two-b'"
-                      [name]="'Chart TwoB'"
-                      [chartData]="chartData()"
-                      [rsData]="rsData()"
-                      [baselineData]="baselineData()"
-            />
-
-            <rs-chart [id]="'chart-three'"
-                      [name]="'Chart Three'"
-                      [chartData]="chartData()"
-                      [rsData]="rsData()"
-                      [baselineData]="baselineData()"
-            />
-
-            <rs-chart [id]="'chart-four'"
-                      [name]="'Chart Four'"
-                      [chartData]="chartData()"
-                      [rsData]="rsData()"
-                      [baselineData]="baselineData()"
-            />
-
-        </div>
-
+        <!-- Row of smaller charts -->
+        @if (chartSignals().length > 1) {
+            <div class="chart-container chart-row-container">
+                @for (chart of chartSignals().slice(1); track chart.id) {
+                    <div class="chart-item">
+                        <rs-chart 
+                            [id]="chart.id"
+                            [name]="chart.config.name"
+                            [config]="chart.config"
+                            [chartData]="chart.chartData()"
+                            [rsData]="chart.rsData()"
+                            [baselineData]="chart.baselineData()"
+                            [zoomEnabled]="false"
+                        />
+                    </div>
+                }
+            </div>
+        }
     </div>
-
 </section>

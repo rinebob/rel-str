@@ -16,7 +16,7 @@ import {
     IScrollEventArgs
 } from '@syncfusion/ej2-angular-charts';
 
-import { CandleWithRSColor, OHLCDatum, RsPaneDatum } from '../../common/interfaces-rs';
+import { CandleWithRSColor, OHLCDatum, RsChartConfig, RsPaneDatum } from '../../common/interfaces-rs';
 import { autoscaleYAxis, autoscaleYAxisForRange, getXExtents } from '../../comps/chart-view/utils/chart.util';
 import { RS_CHART_CONFIG } from '../../common/constants-rs';
 
@@ -50,11 +50,17 @@ export class RsChartComponent {
     chartData = input.required<CandleWithRSColor[]>();
     baselineData = input.required<OHLCDatum[]>();
     rsData = input.required<RsPaneDatum[]>();
+    zoomEnabled = input(true);
     // baselineData = input<OHLCDatum[]>();
     // rsData = input<RsPaneDatum[]>();
 
     // Chart configuration
-    readonly CHART_CONFIG = RS_CHART_CONFIG;
+    config = input.required<RsChartConfig>();
+    
+    // Default configuration fallback
+    get chartConfig() {
+        return this.config().chartConfig || RS_CHART_CONFIG;
+    }
 
     // title = 'Relative Strength Heatmap';
 
