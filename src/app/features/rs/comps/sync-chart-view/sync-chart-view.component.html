@@ -1,0 +1,23 @@
+<section class="sync-chart-view-container">
+
+    <div class="charts-container">
+
+        <div class="chart-containerchart-one-container">
+
+            <rs-sync-chart-two />
+
+        </div>
+
+        <div class="chart-container chart-two-container">
+
+            <rs-sync-chart-one #chartOne
+                               [chartData]="candleData()"
+                               [rsData]="rsPaneData()"
+                               [compareData]="compareData()"
+            />
+
+        </div>
+
+    </div>
+
+</section>

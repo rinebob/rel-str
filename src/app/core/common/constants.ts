@@ -66,6 +66,14 @@ export const NAV_MENU_ITEMS: NavItem[] = [
         target: '_self',
     },
     {
+        name: 'sync-chart',
+        text: 'sync-chart',
+        href: 'sync-chart',
+        mobileOnly: false,
+        external: false,
+        target: '_self',
+    },
+    {
         name: 'rs-table',
         text: 'rs-table',
         href: 'rs-table',

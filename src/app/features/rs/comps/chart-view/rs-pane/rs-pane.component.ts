@@ -2,9 +2,10 @@ import { Component, computed, input, Input, OnChanges, OnInit, SimpleChanges } f
 import { CommonModule } from '@angular/common';
 import { ChartModule, CategoryService, DateTimeService, ScrollBarService, ColumnSeriesService, LineSeriesService, 
     ChartAnnotationService, RangeColumnSeriesService, StackingColumnSeriesService,LegendService, TooltipService,
-    CrosshairService
+    CrosshairService,
+    AxisModel
  } from '@syncfusion/ej2-angular-charts'
-import type { ChartAxisConfig, RsPaneDatum } from '../../../common/interfaces-rs';
+import type { RsPaneDatum } from '../../../common/interfaces-rs';
 
 /**
  * RS Pane Component: renders a Syncfusion vertical bar chart to visualize RS values.
@@ -27,7 +28,7 @@ export class RsPaneComponent implements OnInit {
   /**
    * X axis config for perfect alignment with the main chart.
    */
-  primaryXAxis = input<Partial<ChartAxisConfig>>();
+  primaryXAxis = input<Partial<AxisModel>>();
   /**
    * Left offset (px) for absolute alignment with chart plot area.
    */

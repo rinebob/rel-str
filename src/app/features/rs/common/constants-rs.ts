@@ -1,4 +1,5 @@
-import { RelStrStockList } from "./interfaces-rs";
+import { AxisModel, CrosshairSettingsModel, TooltipSettings, TooltipSettingsModel, ZoomSettings, ZoomSettingsModel } from "@syncfusion/ej2-charts";
+import { RelStrStockList, RsChartConfig } from "./interfaces-rs";
 
 export const STOCK_LIST_INITIALIZER: RelStrStockList = {name: '', baseline: '', symbols: [], ranksDataWithColors: {}};
 
@@ -112,13 +113,6 @@ export const MOCK_STOCK_LISTS: RelStrStockList[] = [
     ]},
 ];
 
-
-
-
-
-
-
-
 export const CREATE_TEXT = 'create new list';
 export const FORM_MODE_CREATE_TEXT = 'create new stock list';
 export const FORM_MODE_EDIT_TEXT = 'edit stock list';
@@ -157,3 +151,65 @@ export const COMPARISON_MATRICES = [
 ['11110'],
 ['11111'],
 ];
+
+//////////////////// CHART CONFIGS ////////////////////////////////
+// Syncfusion chart config constants
+// https://helpej2.syncfusion.com/angular/documentation/api/chart/
+
+const MAIN_RS_CHART_ZOOM_SETTINGS: ZoomSettingsModel = {
+    enableScrollbar: true,
+    enableSelectionZooming: true,
+    enableMouseWheelZooming: true,
+    enablePinchZooming: true,
+    enablePan: true,
+    // NOTE: enableAnimation disables chart Y axis autoresize on zoom!!! do not enable!!
+    // enableAnimation: true,
+    mode: 'X',
+    showToolbar: true,
+    toolbarItems: ['Zoom','ZoomIn', 'ZoomOut', 'Pan', 'Reset'],
+    toolbarPosition: {
+        draggable: true,
+        horizontalAlignment: 'Near',
+        verticalAlignment: 'Top',
+    }
+}
+
+const CROSSHAIR_SETTINGS: CrosshairSettingsModel = {
+    enable: true,
+    snapToData: true,
+}
+
+const MAIN_RS_CHART_X_AXIS_CONFIG: AxisModel = {
+    
+    lineStyle: {},
+    majorGridLines: {},
+    valueType: 'DateTime',
+    rangePadding: 'Round',
+    crosshairTooltip: { enable: true },
+    title: 'Date',
+}
+
+const MAIN_RS_CHART_Y_AXIS_CONFIG: AxisModel = {
+    title: 'Price (USD)',
+}
+
+const MAIN_RS_CHART_LEGEND_CONFIG: AxisModel = {
+    visible: true,
+}
+
+const MAIN_RS_CHART_TOOLTIP_CONFIG: TooltipSettingsModel = {
+    enable: true,
+}
+
+// This is for the main candlestick chart
+export const RS_CHART_CONFIG: RsChartConfig = {
+    crosshair: CROSSHAIR_SETTINGS,
+    legend: MAIN_RS_CHART_LEGEND_CONFIG,
+    lineStyle: {width: 0},
+    primaryXAxis: MAIN_RS_CHART_X_AXIS_CONFIG,
+    primaryYAxis: MAIN_RS_CHART_Y_AXIS_CONFIG,
+    tooltip: MAIN_RS_CHART_TOOLTIP_CONFIG,
+    zoomSettings: MAIN_RS_CHART_ZOOM_SETTINGS,
+}
+
+//////////////////////////////////////////////////////////////////////////

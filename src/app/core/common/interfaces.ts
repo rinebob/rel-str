@@ -7,6 +7,7 @@ export enum AppRoutes {
 	CONTACT = 'contact',
 	SIGNUP = 'signup',
 	CHART = 'chart',
+    SYNC_CHART = 'sync-chart',
 	HISTORY = 'history',
     CHAT = 'chat',
 	CHART_TWO = 'chart-two',
