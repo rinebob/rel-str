@@ -2,18 +2,45 @@
 
     <div class="charts-container">
 
-        <div class="chart-containerchart-one-container">
+        <div class="chart-container chart-one-container">
 
-            <rs-sync-chart-two />
+            <rs-sync-chart-one [id]="'chart-one'"
+                               [chartData]="chartData()"
+                               [rsData]="rsData()"
+                               [baselineData]="baselineData()"
+            />
+
+            <rs-chart [id]="'chart-two'"
+                      [name]="'Chart Two'"
+                      [chartData]="chartData()"
+                      [rsData]="rsData()"
+                      [baselineData]="baselineData()"
+            />
+            
 
         </div>
 
         <div class="chart-container chart-two-container">
 
-            <rs-sync-chart-one #chartOne
-                               [chartData]="candleData()"
-                               [rsData]="rsPaneData()"
-                               [compareData]="compareData()"
+            <rs-chart [id]="'chart-two-b'"
+                      [name]="'Chart TwoB'"
+                      [chartData]="chartData()"
+                      [rsData]="rsData()"
+                      [baselineData]="baselineData()"
+            />
+
+            <rs-chart [id]="'chart-three'"
+                      [name]="'Chart Three'"
+                      [chartData]="chartData()"
+                      [rsData]="rsData()"
+                      [baselineData]="baselineData()"
+            />
+
+            <rs-chart [id]="'chart-four'"
+                      [name]="'Chart Four'"
+                      [chartData]="chartData()"
+                      [rsData]="rsData()"
+                      [baselineData]="baselineData()"
             />
 
         </div>
