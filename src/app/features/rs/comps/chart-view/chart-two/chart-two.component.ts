@@ -383,17 +383,37 @@ export class ChartTwoComponent {
    * @param maxX Maximum x (timestamp in ms or Date)
    */
   public autoscaleYAxisForRange(minX: number | Date, maxX: number | Date): void {
-    const data = this.candleData;
-    if (!data.length) return;
-    let minVal = typeof minX === 'number' ? minX : minX.getTime();
-    let maxVal = typeof maxX === 'number' ? maxX : maxX.getTime();
-    const visible = data.filter(d => d.x instanceof Date && d.x.getTime() >= minVal && d.x.getTime() <= maxVal);
-    if (!visible.length) return;
-    const min = Math.min(...visible.map(d => d.low));
-    const max = Math.max(...visible.map(d => d.high));
-    if (this.chartComponent && this.chartComponent.primaryYAxis) {
-      this.chartComponent.primaryYAxis.minimum = min;
-      this.chartComponent.primaryYAxis.maximum = max;
+    const chartData = this.candleData;
+    const baselineData = this.qqqData; // Assuming qqqData is the baseline data
+    
+    if (!chartData.length) return;
+    
+    const minVal = typeof minX === 'number' ? minX : minX.getTime();
+    const maxVal = typeof maxX === 'number' ? maxX : maxX.getTime();
+    
+    // Filter both datasets to the specified X range
+    const filterVisible = <T extends { x: Date | number | string; low: number; high: number }>(data: T[]): T[] => {
+        return data.filter((d) => {
+            const xVal = d.x instanceof Date ? d.x.getTime() : typeof d.x === 'number' ? d.x : new Date(d.x).getTime();
+            return xVal >= minVal && xVal <= maxVal;
+        });
+    };
+    
+    const visibleChartData = filterVisible(chartData);
+    const visibleBaselineData = baselineData ? filterVisible(baselineData) : [];
+    
+    if (!visibleChartData.length && !visibleBaselineData.length) {
+        return;
+    }
+    
+    // Find min/max across both datasets
+    const allVisibleData = [...visibleChartData, ...visibleBaselineData];
+    const min = Math.min(...allVisibleData.map(d => d.low));
+    const max = Math.max(...allVisibleData.map(d => d.high));
+    
+    if (this.chartComponent?.primaryYAxis) {
+        this.chartComponent.primaryYAxis.minimum = min;
+        this.chartComponent.primaryYAxis.maximum = max;
     }
   }
 

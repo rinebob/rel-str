@@ -66,17 +66,21 @@ export class RsChartComponent {
         // })
     }
 
+    /**
+     * Automatically rescales the y-axis to fit the visible OHLC data range.
+     * Called after zoom/pan or data load.
+     */
     public autoscaleYAxis(): void {
         // console.log(`------------- RSC AYA ${this.name()} ------------------`);
         if (this.chart && !!this.chart?.primaryXAxis) {
-            this.chart = autoscaleYAxis(this.chartData(), this.chart);
+            this.chart = autoscaleYAxis(this.chartData(), this.baselineData(), this.chart);
         }
     }
 
     public autoscaleYAxisForRange(minX: number | Date, maxX: number | Date): void {
         // console.log(`------------- RSC AYAFR ${this.name()} ------------------`);
         if (!!this.chart && !!this.chart.primaryXAxis) {
-            this.chart = autoscaleYAxisForRange(this.chartData(), this.chart, minX, maxX);
+            this.chart = autoscaleYAxisForRange(this.chartData(), this.baselineData(), this.chart, minX, maxX);
         }
     }
 
