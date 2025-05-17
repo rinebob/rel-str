@@ -5,15 +5,26 @@
     @include flexboxLayout(column, flex-start, center);
     min-height: rem(100);
     padding: rem(16);
+    // Subtract header height (assuming 64px) from viewport height
+    height: calc(100vh - 64px);
+    overflow-y: auto; // Enable vertical scrolling
+    overflow-x: hidden; // Prevent horizontal scrolling
 
     .charts-container {
         // @include flexboxLayout(column, flex-start, center);
         width: 100%;
+        margin: 0 auto; // Center the container
+        padding: 1rem;
 
         .chart-container {
-
+            margin-bottom: 2rem; // Add some space between charts
+            width: 100%;
+            
+            // Ensure charts don't overflow their container
+            ejs-chart {
+                width: 100%;
+                display: block;
+            }
         }
-
-
     }
 }
