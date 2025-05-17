@@ -1,0 +1,19 @@
+@use '../../../../styles/variables-global' as *;
+@use '../../../../styles/mixins-global' as *;
+
+.sync-chart-view-container {
+    @include flexboxLayout(column, flex-start, center);
+    min-height: rem(100);
+    padding: rem(16);
+
+    .charts-container {
+        // @include flexboxLayout(column, flex-start, center);
+        width: 100%;
+
+        .chart-container {
+
+        }
+
+
+    }
+}

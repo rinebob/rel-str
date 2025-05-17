@@ -35,6 +35,10 @@ import { AppRoutes } from "./common/interfaces";
                 loadComponent: () => import('../features/rs/comps/chart-view/chart-view.component')
                 .then(mod => mod.ChartViewComponent),
             },
+            {path: AppRoutes.SYNC_CHART, 
+                loadComponent: () => import('../features/rs/comps/sync-chart-view/sync-chart-view.component')
+                .then(mod => mod.SyncChartViewComponent),
+            },
             {path: AppRoutes.RS_TABLE,
                 loadComponent: () => import('../features/rs/comps/rs-table/rs-table.component')
                 .then(mod => mod.RsTableComponent),

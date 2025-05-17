@@ -1,4 +1,5 @@
 import { FormControl } from "@angular/forms";
+import { AxisModel, CrosshairSettingsModel, LegendSettingsModel, TooltipSettingsModel, ZoomSettingsModel } from "@syncfusion/ej2-charts";
 
 
 export interface StockDatum {
@@ -88,16 +89,15 @@ export interface RelStrListForm {
 /**
  * Interface for Syncfusion chart axis config (robust, always complete).
  */
-export interface ChartAxisConfig {
-  valueType: 'DateTime' | 'Category' | 'Double';
-  title: string;
-  zoomFactor: number;
-  zoomPosition: number;
-  plotOffset: number;
-  labelFormat?: string;
-  intervalType?: string;
-  edgeLabelPlacement?: string;
-  majorGridLines?: { width: number };
+export interface RsChartConfig {
+// tooltip, crosshair, zoomSettings, legend, primaryXAxis, primaryYAxis
+    crosshair: CrosshairSettingsModel;
+    legend: LegendSettingsModel;
+    lineStyle?: Object;
+    primaryXAxis: AxisModel;
+    primaryYAxis: AxisModel;
+    zoomSettings: ZoomSettingsModel;
+    tooltip: TooltipSettingsModel;
 }
 
 
@@ -118,8 +118,23 @@ export enum ListAction {
     REMOVE = 'remove',
 }
 
-export interface CandleWithRSColor {
+export interface OHLCDatum {
     x: Date;
+    date?: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume?: number;
+}
+
+export interface CandleWithRSColor extends OHLCDatum {
+    rsColor?: string;
+    rank?: number;
+}
+
+export interface MockCandleWithRSColor {
+    x: string;
     open: number;
     high: number;
     low: number;

@@ -1,6 +1,6 @@
 <section class="candlestick-chart-two">
   <h2>Relative Strength Heatmap</h2>
-  <rs-chart-toolbar
+  <!-- <rs-chart-toolbar
     [zoomFactor]="zoomFactor"
     [zoomPosition]="zoomPosition"
     [useDataSubset]="useDataSubset()"
@@ -10,7 +10,7 @@
     (useSubset)="useSubset()"
     (goToStart)="goToStart()"
     (goToEnd)="goToEnd()"
-  ></rs-chart-toolbar>
+  ></rs-chart-toolbar> -->
   <div class="chart-two-root">
     <div class="chart-two-main-flex-col">
       <div class="chart-two-plot-area" style="position: relative;">
@@ -18,35 +18,18 @@
           [paneData]="rsPaneData()"
           [plotAreaLeft]="plotAreaLeft"
           [plotAreaWidth]="plotAreaWidth"
-          [primaryXAxis]="chartPrimaryXAxis"
+          [primaryXAxis]="primaryXAxis"
           aria-label="RS Color Pane"
         ></rs-pane>
-        @if (hasCandleData && chartPrimaryXAxis && candleData().length > 0) {
-          <ejs-chart #msftChart id="candlestick-chart-two"
-            [primaryXAxis]="{ valueType: 'DateTime', crosshairTooltip: { enable: true }, majorGridLines: { width: 0 } }"
-            [primaryYAxis]="{ title: 'Price (USD)' }"
-            [tooltip]="{ enable: tooltipEnabled }"
-            [zoomSettings]="{ enableSelectionZooming: true, enablePinchZooming: true, mode: 'X' }"
-            [crosshair]='crosshair'
-            (axisLabelRender)="onAxisLabelRender($event)"
-            (tooltipRender)="onTooltipRender($event)"
-            (zoomComplete)="onChartZoomComplete($event)"
-            (loaded)="onChartLoaded()">
-            <e-series-collection>
-              <e-series
-                [dataSource]="visibleCandleData() || []"
-                type='Candle'
-                xName='x'
-                high='high'
-                low='low'
-                open='open'
-                close='close'
-                name='MSFT'
-                pointColorMapping='rsColor'>
-              </e-series>
-            </e-series-collection>
-          </ejs-chart>
-        }
+
+        <rs-sync-chart-one #chartOne
+                           [chartData]="candleData()"
+        />
+                           <!-- [rsData]="rsPaneData()"
+                           [compareData]="compareData()" -->
+
+       
+
       </div>
       @if (firstVisibleYear() !== null) {
         <div class="x-axis-year-label-row">
