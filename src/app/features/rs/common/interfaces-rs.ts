@@ -169,3 +169,11 @@ export interface RsPaneDatum {
     rank?: number;
     rsColor: string;
 }
+
+export interface ChartSignal {
+    id: string;
+    config: RsChartConfig;
+    chartData: CandleWithRSColor[];
+    rsData: RsPaneDatum[];
+    baselineData: OHLCDatum[];
+}

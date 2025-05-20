@@ -156,6 +156,33 @@ export const COMPARISON_MATRICES = [
 // Syncfusion chart config constants
 // https://helpej2.syncfusion.com/angular/documentation/api/chart/
 
+// Zoom configuration for charts
+export const ZOOM_ENABLED_CONFIG: ZoomSettingsModel = {
+    enableMouseWheelZooming: true,
+    enablePinchZooming: true,
+    enableSelectionZooming: true,
+    enablePan: true,
+    showToolbar: true,
+    enableScrollbar: true,
+    toolbarItems: ['Zoom', 'ZoomIn', 'ZoomOut', 'Pan', 'Reset'],
+    mode: 'X',
+    toolbarPosition: {
+        horizontalAlignment: 'Near',
+        verticalAlignment: 'Top',
+        draggable: true
+    }
+};
+
+export const ZOOM_DISABLED_CONFIG: ZoomSettingsModel = {
+    enableMouseWheelZooming: false,
+    enablePinchZooming: false,
+    enableSelectionZooming: false,
+    enablePan: false,
+    showToolbar: false,
+    enableScrollbar: false,
+    toolbarItems: []
+};
+
 const MAIN_RS_CHART_ZOOM_SETTINGS: ZoomSettingsModel = {
     enableScrollbar: true,
     enableSelectionZooming: true,
@@ -217,11 +244,7 @@ export const MSFT_CHART_CONFIG: RsChartConfig = {
             ...MAIN_RS_CHART_Y_AXIS_CONFIG,
             title: 'Price (USD)'
         },
-        tooltip: {
-            ...MAIN_RS_CHART_TOOLTIP_CONFIG,
-            format: '${series.name}: ${point.y} (${point.percentage}%)',
-            header: '<b>${point.x}</b>'
-        },
+        tooltip: MAIN_RS_CHART_TOOLTIP_CONFIG,
         zoomSettings: MAIN_RS_CHART_ZOOM_SETTINGS
     },
     showRS: true,
@@ -311,11 +334,7 @@ export const AAPL_CHART_CONFIG: RsChartConfig = {
             opposedPosition: true
         },
         zoomSettings: MAIN_RS_CHART_ZOOM_SETTINGS,
-        tooltip: {
-            enable: true,
-            shared: true,
-            format: '${series.name}: ${point.y}'
-        }
+        tooltip: MAIN_RS_CHART_TOOLTIP_CONFIG
     },
     showRS: true,
     showBaseline: false,
