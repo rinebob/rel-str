@@ -214,6 +214,8 @@ const MAIN_RS_CHART_X_AXIS_CONFIG: AxisModel = {
     rangePadding: 'Round',
     crosshairTooltip: { enable: true },
     title: 'Date',
+    intervalType: 'Months',
+    labelFormat: 'MMM yyyy'
 }
 
 const MAIN_RS_CHART_Y_AXIS_CONFIG: AxisModel = {
@@ -297,9 +299,6 @@ export const GOOG_CHART_CONFIG: RsChartConfig = {
         lineStyle: { width: 0 },
         primaryXAxis: {
             ...MAIN_RS_CHART_X_AXIS_CONFIG,
-            valueType: 'DateTime',
-            intervalType: 'Months',
-            labelFormat: 'MMM yyyy'
         },
         primaryYAxis: MAIN_RS_CHART_Y_AXIS_CONFIG,
         zoomSettings: MAIN_RS_CHART_ZOOM_SETTINGS,
@@ -328,11 +327,7 @@ export const AAPL_CHART_CONFIG: RsChartConfig = {
         legend: MAIN_RS_CHART_LEGEND_CONFIG,
         lineStyle: { width: 0 },
         primaryXAxis: MAIN_RS_CHART_X_AXIS_CONFIG,
-        primaryYAxis: {
-            ...MAIN_RS_CHART_Y_AXIS_CONFIG,
-            title: 'Price (USD)',
-            opposedPosition: true
-        },
+        primaryYAxis: MAIN_RS_CHART_Y_AXIS_CONFIG,
         zoomSettings: MAIN_RS_CHART_ZOOM_SETTINGS,
         tooltip: MAIN_RS_CHART_TOOLTIP_CONFIG
     },
@@ -369,5 +364,8 @@ export const RS_CHART_CONFIG: RsSyncfusionChartConfig = {
     tooltip: MAIN_RS_CHART_TOOLTIP_CONFIG,
     zoomSettings: MAIN_RS_CHART_ZOOM_SETTINGS,
 }
+
+export const MAIN_CHART_INITIAL_DAYS = 100;
+export const SMALL_CHART_INITIAL_DAYS = 30;
 
 //////////////////////////////////////////////////////////////////////////
