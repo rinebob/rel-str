@@ -13,6 +13,31 @@
     max-width: 100%;
     position: relative; // For absolute positioning context
 
+    // Loading and error states
+    .loading-state,
+    .error-state {
+        @include flexboxLayout(column, center, center);
+        width: 100%;
+        height: 100%;
+        text-align: center;
+        padding: 2rem;
+        background: var(--background-paper);
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+        p {
+            font-size: 1.2rem;
+            color: var(--text-primary);
+            margin: 0;
+        }
+    }
+
+    .error-state {
+        p {
+            color: var(--error-main);
+        }
+    }
+
     .charts-container {
         width: 100%;
         max-width: 100%;

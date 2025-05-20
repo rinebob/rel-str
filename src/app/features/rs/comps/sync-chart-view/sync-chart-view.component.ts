@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, Signal, signal, computed } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Signal, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { 
     CandleWithRSColor, 
@@ -24,73 +24,72 @@ type RSSignalMap = { [symbol: string]: Signal<RsPaneDatum[]> };
   styleUrls: ['./sync-chart-view.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class SyncChartViewComponent implements OnInit {
+export class SyncChartViewComponent {
     // Configuration for all charts
-    public chartConfigs: RsChartConfig[] = CHART_CONFIGS;
+    public readonly chartConfigs: RsChartConfig[] = CHART_CONFIGS;
     
     // Store mock data
-    private MOCK_DATA: MockCandleWithRSColor[] = MSFT_WITH_COLORS;
-    private MOCK_BASELINE_DATA: OHLCDatum[] = QQQ_DATA;
+    private readonly MOCK_DATA: MockCandleWithRSColor[] = MSFT_WITH_COLORS;
+    private readonly MOCK_BASELINE_DATA: OHLCDatum[] = QQQ_DATA;
     
     // Signal maps for data
-    private targetSignals: TargetSignalMap = {};
-    private baselineSignals: BaselineSignalMap = {};
-    private rsSignals: RSSignalMap = {};
+    private readonly targetSignals: TargetSignalMap = {};
+    private readonly baselineSignals: BaselineSignalMap = {};
+    private readonly rsSignals: RSSignalMap = {};
 
     // Computed chart configurations with their signals
-    public chartSignals = computed(() => 
-        this.chartConfigs.map(config => ({
-            id: config.id,
-            config,
-            chartData: this.getTargetSignal(config.targetSymbol),
-            baselineData: this.getBaselineSignal(config.baselineSymbol),
-            rsData: this.getRSSignal(config.targetSymbol)
-        }))
-    );
+    public readonly chartSignals = computed(() => {
+        if (!this.chartConfigs?.length) return [];
+        
+        return this.chartConfigs.map(config => {
+            const chartData = this.targetSignals[config.targetSymbol]?.() || [];
+            const baselineData = this.baselineSignals[config.baselineSymbol]?.() || [];
+            const rsData = this.rsSignals[config.targetSymbol]?.() || [];
+            
+            return {
+                id: config.id,
+                config,
+                chartData,
+                baselineData,
+                rsData
+            };
+        });
+    });
 
     constructor() {
         this.initializeDataSignals();
     }
 
     private initializeDataSignals(): void {
-        this.chartConfigs.forEach(config => {
-            // Initialize target signal if it doesn't exist
-            if (!this.targetSignals[config.targetSymbol]) {
-                this.targetSignals[config.targetSymbol] = 
-                    signal(this.prepareChartData(this.MOCK_DATA));
-            }
-
-            // Initialize baseline signal if it doesn't exist
+        console.log('sCVI initializeDataSignals called');
+        if (!this.chartConfigs?.length) return;
+        
+        for (const config of this.chartConfigs) {
+            // Skip if already initialized
+            if (this.targetSignals[config.targetSymbol]) continue;
+            
+            // Initialize target signal with mock data
+            const targetData = this.prepareChartData(this.MOCK_DATA);
+            this.targetSignals[config.targetSymbol] = signal<CandleWithRSColor[]>(targetData);
+            
+            // Initialize baseline signal if not already done for this symbol
             if (!this.baselineSignals[config.baselineSymbol]) {
-                this.baselineSignals[config.baselineSymbol] = 
-                    signal([...this.MOCK_BASELINE_DATA]);
+                this.baselineSignals[config.baselineSymbol] = signal<OHLCDatum[]>([...this.MOCK_BASELINE_DATA]);
             }
-
-            // Initialize RS signal if it doesn't exist
-            if (!this.rsSignals[config.targetSymbol]) {
-                const targetData = this.targetSignals[config.targetSymbol]();
-                this.rsSignals[config.targetSymbol] = 
-                    signal(this.prepareRSData(targetData));
-            }
-        });
+            
+            // Initialize RS signal
+            this.rsSignals[config.targetSymbol] = signal<RsPaneDatum[]>(this.prepareRSData(targetData));
+        }
     }
 
-    // Private getters that are only called during initialization
+    // Get signals by symbol - simplified since we're handling null checks in chartSignals
     private getTargetSignal(symbol: string): Signal<CandleWithRSColor[]> {
-        return this.targetSignals[symbol] ?? signal([]);
-    }
-
-    private getBaselineSignal(symbol: string): Signal<OHLCDatum[]> {
-        return this.baselineSignals[symbol] ?? signal([]);
-    }
-
-    private getRSSignal(symbol: string): Signal<RsPaneDatum[]> {
-        return this.rsSignals[symbol] ?? signal([]);
+        return this.targetSignals[symbol] || signal([]);
     }
 
     // For backward compatibility
     getDataForSymbol(symbol: string): CandleWithRSColor[] {
-        return this.getTargetSignal(symbol)();
+        return this.targetSignals[symbol]?.() || [];
     }
 
     /**
@@ -102,12 +101,14 @@ export class SyncChartViewComponent implements OnInit {
 
     ngOnInit(): void {
         // Data is initialized in the constructor
+        // This method is kept for interface implementation
     }
 
     /**
      * Prepare chart data from the mock data
      */
     private prepareChartData(data: MockCandleWithRSColor[]): CandleWithRSColor[] {
+        console.log('sCVI prepareChartData called');
         return data.map(datum => ({
             ...datum,
             x: new Date(datum.x)

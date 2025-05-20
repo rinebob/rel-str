@@ -5,7 +5,7 @@ import { RsChartComponent } from '../../../shared/rs-chart/rs-chart.component';
 
 @Component({
   selector: 'rs-sync-chart-one',
-  imports: [RsChartComponent],
+//   imports: [RsChartComponent],
   templateUrl: './sync-chart-one.component.html',
   styleUrls: ['./sync-chart-one.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -26,9 +26,9 @@ export class SyncChartOneComponent implements OnInit {
 
     
     constructor() {
-        effect(() => {
-            console.log('sCO ctor eff chartData: ', this.chartData());
-        });
+        // effect(() => {
+        //     console.log('sCO ctor eff chartData: ', this.chartData());
+        // });
     }
     
     ngOnInit() {
