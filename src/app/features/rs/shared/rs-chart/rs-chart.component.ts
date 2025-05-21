@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, effect, input, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, input, signal, ViewChild } from '@angular/core';
 import {
     ChartModule,
     ChartComponent as SfChartComponent,
@@ -18,6 +18,8 @@ import {
 
 import { CandleWithRSColor, OHLCDatum, RsChartConfig, RsPaneDatum } from '../../common/interfaces-rs';
 import { autoscaleYAxis, autoscaleYAxisForRange, getXExtents } from '../../comps/chart-view/utils/chart.util';
+import { MAIN_CHART_INITIAL_DAYS, SMALL_CHART_INITIAL_DAYS } from '../../common/constants-rs';
+import { toTimestamp } from '../utils/shared.util';
 
 @Component({
     selector: 'rs-chart',
@@ -53,41 +55,136 @@ export class RsChartComponent {
 
     // Chart configuration
     config = input.required<RsChartConfig>();
+    isMain = input(false);
+
+    isInitialLoad = signal<boolean>(true);
     
     constructor() {
-        effect(() => {
-            // try {
-            //     console.group('Chart Inputs Changed for id/name: ', this.id(), this.name());
-            //     console.log('Chart Data Length:', this.chartData()?.length);
-            //     console.log('Baseline Data Length:', this.baselineData()?.length);
-            //     console.log('RS Data Length:', this.rsData()?.length);
-            //     console.log('Config Available:', !!this.config());
-            //     console.log('Config :', this.config());
-            //     console.log('zoomEnabled :', this.zoomEnabled());
-            //     console.groupEnd();
-            // } catch (e) {
-            //     console.error('Error logging inputs:', e);
-            // }
-        });
+        // effect(() => {
+        //     try {
+        //         console.group('Chart Inputs Changed for id/name: ', this.id(), this.name());
+        //         console.log('Chart Data Length:', this.chartData()?.length);
+        //         console.log('Chart Data:', this.chartData());
+        //         console.log('Baseline Data Length:', this.baselineData()?.length);
+        //         console.log('RS Data Length:', this.rsData()?.length);
+        //         console.log('Config Available:', !!this.config());
+        //         console.log('Config :', this.config());
+        //         console.log('zoomEnabled :', this.zoomEnabled());
+        //         console.groupEnd();
+        //     } catch (e) {
+        //         console.error('Error logging inputs:', e);
+        //     }
+        // });
     }
 
-    onChartLoaded(): void {
+    onChartLoaded2(): void {
         if (this.chart) {
             this.autoscaleYAxis();
         }
     }
 
+    onChartLoaded(): void {
+
+        // console.log(`---------- RSC oCL onChartLoaded ${this.id()} ----------`);
+        if (!this.chart) return;
+        this.chart.dataBind();
+        const data = this.chartData();
+        const daysToShow = this.isMain() ? MAIN_CHART_INITIAL_DAYS : SMALL_CHART_INITIAL_DAYS;
+        if (data.length > daysToShow && this.isInitialLoad()) {
+            const zoomFactor = daysToShow / data.length;
+            const zoomPosition = (data.length - daysToShow) / data.length;
+            
+            // Update the primary X-axis zoom settings
+            this.chart.primaryXAxis.zoomFactor = zoomFactor;
+            this.chart.primaryXAxis.zoomPosition = zoomPosition;
+
+            // if (this.isMain()) {
+            //     console.log('rS oCL t.c.pXA.zF/zP: ', this.chart.primaryXAxis.zoomFactor, this.chart.primaryXAxis.zoomPosition);
+            //     console.log('rS oCL after daysToShow zF/zP: ', zoomFactor, zoomPosition);
+
+            // }
+            
+            // Autoscale Y-axis to the visible range       
+            this.autoscaleYAxis();
+            this.isInitialLoad.set(false);
+        }
+    }
+
     onScrollEnd(event: IScrollEventArgs): void {
+        // console.log(`----- RSC oSE onScrollEnd ${this.id()} ---------`);
+        // console.log('rS oSE event: ', event);
         if (!event.range) {
             return;
         }
-        const { minX, maxX } = getXExtents(event.range);
-        this.autoscaleYAxisForRange(minX, maxX);
+        // Update zoomFactor and zoomPosition to reflect the new visible range
+        if (this.chart && this.chart.primaryXAxis && event.range) {
+            const data = this.chartData();
+            const total = data.length;
+            const min = toTimestamp(event.range.min);
+            const max = toTimestamp(event.range.max);
+            const startIdx = data.findIndex(d => toTimestamp(d.x) >= min);
+            const endIdx = data.findIndex(d => toTimestamp(d.x) >= max);
+            
+            let zoomFactor = 0;
+            let zoomPosition = 0;
+           
+            if (total > 0 && startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+                const visible = endIdx - startIdx + 1;
+                zoomFactor = visible / total;
+                zoomPosition = startIdx / total;
+                this.chart.primaryXAxis.zoomFactor = zoomFactor;
+                this.chart.primaryXAxis.zoomPosition = zoomPosition;
+                
+            } else {
+                // console.log('rs oSE scroll end bypassing axis zoom settings calcs')
+            }
+            const { minX, maxX } = getXExtents(event.range);
+            this.autoscaleYAxisForRange(minX, maxX);
+            // if (this.isMain()) {
+            //     console.log('rS oSE min/max/startIdx/endIdx: ', min, max, startIdx, endIdx);
+            //     console.log('rS oZC t.c.pXA.zF/zP: ', zoomFactor, zoomPosition);
+            //     console.log('rS oZC minX/maxX: ', minX, maxX);
+    
+            // }
+        }
+        
     }
 
     onZoomComplete(event: IZoomCompleteEventArgs): void {
+        // console.log(`----- RSC oZC onZoomComplete ${this.id()} -------`);
+        // console.log('rS oZC event: ', event);
+        // Update zoomFactor and zoomPosition to reflect the new visible range
+        if (this.chart && this.chart.primaryXAxis && event.currentVisibleRange) {
+            const data = this.chartData();
+            const total = data.length;
+            const min = toTimestamp(event.currentVisibleRange.min);
+            const max = toTimestamp(event.currentVisibleRange.max);
+            const startIdx = data.findIndex(d => toTimestamp(d.x) >= min);
+            const endIdx = data.findIndex(d => toTimestamp(d.x) >= max);
+            console.log('rS oZC startIdx/endIdx: ', startIdx, endIdx);
+            console.log('rS oZC min/max: ', min, max);
+            let zoomFactor = 0;
+            let zoomPosition = 0;
+            if (total > 0 && startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+                const visible = endIdx - startIdx + 1;
+                zoomFactor = visible / total;
+                zoomPosition = startIdx / total;
+
+                this.chart.primaryXAxis.zoomFactor = zoomFactor;
+                this.chart.primaryXAxis.zoomPosition = zoomPosition;
+                // console.log('rS oZC t.c.pXA.zF/zP: ', zoomFactor, zoomPosition);
+            }
+            
+            // if (this.isMain()) {
+            //     console.log('rS oSE min/max/startIdx/endIdx: ', min, max, startIdx, endIdx);
+            //     console.log('rS oZC t.c.pXA.zF/zP: ', zoomFactor, zoomPosition);
+            // }
+        }
         if (event?.axis?.name === 'primaryXAxis' && event.currentVisibleRange) {
             const { minX, maxX } = getXExtents(event.currentVisibleRange);
+            // if (this.isMain()) {
+            //     console.log('rS oZC minX/maxX: ', minX, maxX);
+            // }
             this.autoscaleYAxisForRange(minX, maxX);
         }
     }
