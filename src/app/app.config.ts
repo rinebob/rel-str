@@ -13,7 +13,7 @@ import { getFunctions, provideFunctions } from '@angular/fire/functions';
 import { getPerformance, providePerformance } from '@angular/fire/performance';
 import { getStorage, provideStorage } from '@angular/fire/storage';
 
-import { FIREBASE_CONFIG, REL_STR_RECAPTCHA_KEY } from '../secrets/secrets';
+import { environment } from '../environments/environment';
 import { ChatService } from './features/fc/services/chat.service';
 import { provideMessaging } from '@angular/fire/messaging';
 import { getMessaging } from '@angular/fire/messaging';
@@ -44,7 +44,7 @@ export const appConfig: ApplicationConfig = {
         providePerformance(() => getPerformance()),
         provideStorage(() => getStorage()), 
         // provideMessaging(() => getMessaging()), 
-        provideFirebaseApp(() => initializeApp(FIREBASE_CONFIG)),
+        provideFirebaseApp(() => initializeApp(environment.firebase)),
 
 
 	],
