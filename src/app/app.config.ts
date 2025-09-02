@@ -1,8 +1,8 @@
 import { provideClientHydration } from '@angular/platform-browser';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
-import { ApplicationConfig, importProvidersFrom } from '@angular/core';
+import { ApplicationConfig } from '@angular/core';
 import { PreloadAllModules, provideRouter, withPreloading } from '@angular/router';
-import { HttpClientModule, provideHttpClient } from '@angular/common/http';
+import { provideHttpClient } from '@angular/common/http';
 
 import { APP_ROUTES } from './app.routes';
 import { initializeApp, provideFirebaseApp } from '@angular/fire/app';
@@ -12,6 +12,7 @@ import { connectFirestoreEmulator, getFirestore, provideFirestore } from '@angul
 import { getFunctions, provideFunctions } from '@angular/fire/functions';
 import { getPerformance, providePerformance } from '@angular/fire/performance';
 import { getStorage, provideStorage } from '@angular/fire/storage';
+
 
 import { environment } from '../environments/environment';
 import { ChatService } from './features/fc/services/chat.service';
@@ -25,9 +26,7 @@ registerLicense(SYNC_FUSION_LICENSE_KEY);
 
 export const appConfig: ApplicationConfig = {
 	providers: [
-        ChatService,
 		provideRouter(APP_ROUTES, withPreloading(PreloadAllModules)),
-		importProvidersFrom(HttpClientModule),
 		// provideClientHydration(),
 		provideAnimationsAsync(),
 		provideHttpClient(),
@@ -48,6 +47,7 @@ export const appConfig: ApplicationConfig = {
         provideFunctions(() => getFunctions()),
         providePerformance(() => getPerformance()),
         provideStorage(() => getStorage()), 
+
         // provideMessaging(() => getMessaging()), 
         provideFirebaseApp(() => initializeApp(environment.firebase)),
 

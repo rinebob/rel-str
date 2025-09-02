@@ -3,7 +3,16 @@ import { BaselineTargetRankDatum, CalculationData, CalculationResult, Company, D
 
 /////////////////// START 7/10/24 ////////////////////////
 
-// generates an object with date and rank for a baseline/symbol pair
+/**
+ * Generates an array of rank objects (with date and color) for a baseline/target symbol pair.
+ * Calculates percent changes for both baseline and target, then computes rolling RS ranks and applies heatmap colors.
+ *
+ * @export
+ * @param {StockDatum[]} baselineData - Array of baseline symbol OHLC objects (date: value)
+ * @param {StockDatum[]} targetData - Array of target symbol OHLC objects (date: value)
+ * @param {string[]} heatmapColors - Array of color strings for rank coloring
+ * @returns {BaselineTargetRankDatum[]} Array of rank/color objects for each rolling window
+ */
 export function generatePairData(baselineData: StockDatum[], targetData: StockDatum[], heatmapColors: string[] ) {
 
     const baselinePercentChangeData = generatePercentChangeData(baselineData);
@@ -17,7 +26,15 @@ export function generatePairData(baselineData: StockDatum[], targetData: StockDa
 
 }
 
-function generatePercentChangeData(stockData: StockDatum[]): StringNumberObject[] {
+/**
+ * Converts an array of OHLC data objects into an array of percent change objects ({date, value}).
+ * Each value is the percent change from the previous day's close.
+ *
+ * @export
+ * @param {StockDatum[]} stockData - Array of OHLC data objects (date: value)
+ * @returns {StringNumberObject[]} Array of {date, value} objects with percent changes
+ */
+export function generatePercentChangeData(stockData: StockDatum[]): StringNumberObject[] {
     // console.log('rsCU gPCD symbol: ');
 
     const percentChangeData: StringNumberObject[] = [];
@@ -47,9 +64,27 @@ function generatePercentChangeData(stockData: StockDatum[]): StringNumberObject[
 
 }
 
-function generateTargetRanksData(baseline: StringNumberObject[], target: StringNumberObject[], heatmapColors: string[]) {
+/**
+ * For each rolling window, calculates the RS rank of the target vs baseline and applies a heatmap color.
+ * Optionally slices to a subset of most recent rows for performance.
+ *
+ * @export
+ * @param {StringNumberObject[]} baseline - Array of baseline percent change objects
+ * @param {StringNumberObject[]} target - Array of target percent change objects
+ * @param {string[]} heatmapColors - Array of color strings for rank coloring
+ * @returns {BaselineTargetRankDatum[]} Array of rank/color objects for each rolling window
+ */
+export function generateTargetRanksData(baseline: StringNumberObject[], target: StringNumberObject[], heatmapColors: string[]) {
     // console.log(`======== CALCULATE RANKS ================`);
     // console.log('rSUtil cRs input baseline/target: ', baseline, target);
+
+     // Toggle to use only a subset of the most recent N rows for performance/testing
+     const USE_DATA_SUBSET = true; // Set to true to use a subset, false for all data
+     const DATA_SUBSET_SIZE = 100;  // Number of rows to use if subset enabled
+     if (USE_DATA_SUBSET && baseline.length > DATA_SUBSET_SIZE && target.length > DATA_SUBSET_SIZE) {
+         baseline = baseline.slice(-DATA_SUBSET_SIZE);
+         target = target.slice(-DATA_SUBSET_SIZE);
+     }
 
     const targetRanks: StringNumberObject[] = [];
     const targetRanksWithColors: BaselineTargetRankDatum[] = [];
@@ -75,10 +110,21 @@ function generateTargetRanksData(baseline: StringNumberObject[], target: StringN
         }
         // console.log('pctChgs target/baseline: ', targetPctChgs, baselinePctChgs);
         const rank = calculateRsRank(targetPctChgs, baselinePctChgs);
+
+        // console.log(`[ORIG] date=${date} targetPctChgs=${JSON.stringify(targetPctChgs)} baselinePctChgs=${JSON.stringify(baselinePctChgs)} rank=${rank}`);
+
         const targetRank: StringNumberObject = {date, value: rank}
         targetRanks.push(targetRank);
         // console.log('targetRank: ', targetRank);
         const targetRankWithColor: BaselineTargetRankDatum = addColorToRank(targetRank, heatmapColors);
+        // Attach rolling window arrays for debugging
+        Object.defineProperty(targetRankWithColor, '__debugWindows', {
+            value: {
+                targetPctChgs: [...targetPctChgs],
+                baselinePctChgs: [...baselinePctChgs],
+            },
+            enumerable: false
+        });
         targetRanksWithColors.push(targetRankWithColor);
         
         
@@ -93,7 +139,15 @@ function generateTargetRanksData(baseline: StringNumberObject[], target: StringN
 
 }
 
-function calculateRsRank(target: StringNumberObject[], baseline: StringNumberObject[]): number {
+/**
+ * Calculates the RS rank for a rolling window of percent changes between target and baseline.
+ *
+ * @export
+ * @param {StringNumberObject[]} target - Array of target percent change objects (window)
+ * @param {StringNumberObject[]} baseline - Array of baseline percent change objects (window)
+ * @returns {number} Relative strength rank (0-1)
+ */
+export function calculateRsRank(target: StringNumberObject[], baseline: StringNumberObject[]): number {
     // console.log('rSUtil cR input pctChgs target/baseling: ', target, baseline);
     let rank = 0;
 
@@ -109,7 +163,7 @@ function calculateRsRank(target: StringNumberObject[], baseline: StringNumberObj
             changes.push(val);
         }
 
-        const pctChg = Number(changes.reduce((accumulator, currentValue) => accumulator + currentValue, changes[0]).toFixed(4));
+        const pctChg = Number(changes.reduce((accumulator, currentValue) => accumulator + currentValue, 0).toFixed(4));
 
         outcomesByMatrix[matrix] = pctChg;
     }
@@ -129,16 +183,29 @@ function calculateRsRank(target: StringNumberObject[], baseline: StringNumberObj
     return rank;
 }
 
-function addColorToRank(targetRank: StringNumberObject, heatmapColors: string[]): BaselineTargetRankDatum {
-
-    const value = Math.round(targetRank.value * 100);
-    const index = Math.round((Number((value * .10).toFixed(2))));
-    const color = heatmapColors[index];
-    const datum: BaselineTargetRankDatum = {...targetRank, index, color};
-
-    return datum;
+/**
+ * Adds a color property to a rank object based on its value, using the provided heatmap color scale.
+ *
+ * @export
+ * @param {StringNumberObject} targetRank - Rank object with {date, value}
+ * @param {string[]} heatmapColors - Array of color strings for rank coloring
+ * @returns {BaselineTargetRankDatum} Rank object with color property
+ */
+export function addColorToRank(targetRank: StringNumberObject, heatmapColors: string[]): BaselineTargetRankDatum {
+    // console.log('rSUtil aCTR targetRank/heatmapColors: ', targetRank, heatmapColors);
+    const colorIdx = Math.floor(targetRank.value * (heatmapColors.length - 1));
+    const color = heatmapColors[colorIdx];
+    // console.log('rsUtil aCTR colorIdx/color: ', colorIdx, color);
+    return { ...targetRank, index: colorIdx, color };
 }
 
+/**
+ * Returns an array of [baseline, target] symbol pairs from a RelStrStockList object.
+ *
+ * @export
+ * @param {RelStrStockList} list - Object containing baseline and target symbol arrays
+ * @returns {Array<[string, string]>} Array of [baseline, target] symbol pairs
+ */
 export function getPairsForList(list: RelStrStockList) {
     // console.log('sLFeat gHD get pairs for list: ', list);
     const baseline = list.baseline;
@@ -153,6 +220,14 @@ export function getPairsForList(list: RelStrStockList) {
 
 }
 
+/**
+ * Resolves and returns the existing ranks data with colors for a given stock list and set of companies.
+ *
+ * @export
+ * @param {RelStrStockList} list - Object containing baseline and target symbol arrays
+ * @param {Company[]} symbols - Array of company objects
+ * @returns {RanksDataWithColors} Object containing ranks data with color annotations
+ */
 export function resolveExistingRanksData(list: RelStrStockList, symbols: Company[]): RanksDataWithColors {
     // console.log('sLF hSL existing list: ', {...list});
 
@@ -179,7 +254,16 @@ export function resolveExistingRanksData(list: RelStrStockList, symbols: Company
 
 /////////////// INITIAL IMPLEMENTATIONS ///////////////////////////
 
-export function generateRelStrTableDataSet(data: StockData[], baseline: string, heatmapColors: string[]) {
+export /**
+ * Generates a table data set for the RelStr heat map UI.
+ *
+ * @param {StockData[]} data - Array of stock data objects
+ * @param {string} baseline - Baseline symbol
+ * @param {string[]} heatmapColors - Array of color strings for rank coloring
+ * @returns {any} Table data set for UI rendering
+ * @internal
+ */
+function generateRelStrTableDataSet(data: StockData[], baseline: string, heatmapColors: string[]) {
     let allData = createDataObject(data);
     allData = generatePercentChangesAndRanks(baseline, allData);
     allData = generateFinalDataSet(allData);
@@ -192,6 +276,13 @@ export function generateRelStrTableDataSet(data: StockData[], baseline: string, 
 
 // Create an initial data object key = stock symbol value = DataSet object for the symbol
 // only the properties 'symbol' and 'data' are populated
+/**
+ * Creates an initial data object mapping stock symbols to DataSet objects (only symbol and data are populated).
+ *
+ * @param {StockData[]} data - Array of stock data objects
+ * @returns {DataSet} DataSet object with symbol/data only
+ * @internal
+ */
 function createDataObject(data: StockData[]): DataSet {
     // console.log('********** RS CALC UTILS createDataObject ************');
     const allData: DataSet = {};
@@ -212,6 +303,14 @@ function createDataObject(data: StockData[]): DataSet {
 }
 
 // Update the same data object with daily percent change and relative strength ranks
+/**
+ * Updates a DataSet object with daily percent changes and relative strength ranks for all symbols.
+ *
+ * @param {string} baseline - Baseline symbol
+ * @param {DataSet} allData - DataSet object containing all stock data
+ * @returns {DataSet} Updated DataSet with percent changes and ranks
+ * @internal
+ */
 function generatePercentChangesAndRanks(baseline: string, allData: DataSet): DataSet {
     // console.log('********** RS CALC UTILS populateResultsData ************');
     const stockSymbols = Object.keys(allData);
@@ -240,6 +339,13 @@ function generatePercentChangesAndRanks(baseline: string, allData: DataSet): Dat
     return allData;
 }
 
+/**
+ * Finalizes the DataSet object after all calculations are complete.
+ *
+ * @param {DataSet} allData - DataSet object containing all stock data
+ * @returns {DataSet} Finalized DataSet
+ * @internal
+ */
 function generateFinalDataSet(allData: DataSet): DataSet {
     // console.log('********** RS CALC UTILS generateFinalDataSet ************');
 
@@ -271,6 +377,15 @@ function generateFinalDataSet(allData: DataSet): DataSet {
 // for each day for that symbol.  Outer array has elements of the inner array for each symbol
 // 7-2-24 - adding color value to the inner array
 // use interface DatumWithColor {datum: number, color: string} 
+/**
+ * Generates the data set used in the UI to render the RelStr Heat Map.
+ * Output is a RelStrTableData object with symbols, dates, and a 2D color-data array.
+ *
+ * @param {DataSet} allData - DataSet object containing all stock data
+ * @param {string[]} heatmapColors - Array of color strings for rank coloring
+ * @returns {RelStrTableData} Table data for UI heatmap
+ * @internal
+ */
 function generateTableData(allData: DataSet, heatmapColors: string[]): RelStrTableData {
     let symbols: string[] = [];
 
@@ -323,6 +438,13 @@ function generateTableData(allData: DataSet, heatmapColors: string[]): RelStrTab
 
 }
 
+/**
+ * Creates an array of CalculationData objects with default percent change and rank values for each date.
+ *
+ * @param {StockDatum[]} stockData - Array of OHLC data objects (date: value)
+ * @returns {CalculationData[]} Array of CalculationData objects with default values
+ * @internal
+ */
 function generateEmptyResultsObjects(stockData: StockDatum[]): CalculationData[] {
     let emptyPercentChangesAndRanks: CalculationData[] = [];
     for (const datum of Object.values(stockData)) {
@@ -339,6 +461,13 @@ function generateEmptyResultsObjects(stockData: StockDatum[]): CalculationData[]
     return emptyPercentChangesAndRanks;
 }
 
+/**
+ * Calculates percent changes for each day in an array of CalculationData objects.
+ *
+ * @param {CalculationData[]} results - Array of CalculationData objects
+ * @returns {CalculationData[]} Array with percent changes calculated
+ * @internal
+ */
 function calculatePercentChange(results: CalculationData[]): CalculationData[] {
     // console.log('********** RS CALC UTILS calculatePercentChange ************');
     // console.log('rSUtil cPC input results.length/results: ', results.length, results);
@@ -353,6 +482,14 @@ function calculatePercentChange(results: CalculationData[]): CalculationData[] {
     return results;
 }
 
+/**
+ * Calculates and assigns RS ranks for a subject symbol against a baseline symbol over a rolling window.
+ *
+ * @param {StockData} baseline - Baseline stock data
+ * @param {StockData} subject - Subject stock data
+ * @returns {StockData} Updated subject with ranks assigned
+ * @internal
+ */
 function calculateRanks(baseline: StockData, subject: StockData): StockData {
     // console.log(`======== CALCULATE RANKS ================`);
     // console.log('rSUtil cRs input baseline/target: ', baseline/subject);
@@ -379,7 +516,16 @@ function calculateRanks(baseline: StockData, subject: StockData): StockData {
     return subject;
 }
 
-function calculateRank(subject: number[], baseline: number[]): number {
+/**
+ * Calculates the RS rank for a subject vs baseline using all comparison matrices.
+ * Used for both windowed and full-series rank calculations.
+ *
+ * @export
+ * @param {number[]} subject - Array of percent changes for the subject symbol
+ * @param {number[]} baseline - Array of percent changes for the baseline symbol
+ * @returns {number} Relative strength rank (0-1)
+ */
+export function calculateRank(subject: number[], baseline: number[]): number {
     // console.log('rSUtil cR input pctChgs subject/baseling: ', subject, baseline);
     let rank = 0;
 
@@ -395,7 +541,7 @@ function calculateRank(subject: number[], baseline: number[]): number {
             changes.push(val);
         }
 
-        const pctChg = Number(changes.reduce((accumulator, currentValue) => accumulator + currentValue, changes[0]).toFixed(4));
+        const pctChg = Number(changes.reduce((accumulator, currentValue) => accumulator + currentValue, 0).toFixed(4));
 
         outcomesByMatrix[matrix] = pctChg;
     }
@@ -415,6 +561,14 @@ function calculateRank(subject: number[], baseline: number[]): number {
     return rank;
 }
 
+/**
+ * Helper function for sorting [matrix, value] pairs in ascending order by value.
+ *
+ * @param {[string, number]} a - First pair to compare
+ * @param {[string, number]} b - Second pair to compare
+ * @returns {number} Sort order
+ * @internal
+ */
 function compare(a: [string, number], b: [string, number]) {
 	if (a[1] > b[1]) {
 		return 1;

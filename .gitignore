@@ -50,8 +50,12 @@ angular-ssr.json
 
 # windsurf rules
 .windsurfrules
-src/assets/data/BATS_MSFT, 1D_0d494.xlsx
+
 src/secrets/syncfusion-license.ts
 # Local env files
 .env
 .env.*
+
+src/assets/data/~$BATS_MSFT, 1D_0d494.xlsx
+src/assets/data/BATS_MSFT, 1D_0d494.xlsx
+

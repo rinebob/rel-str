@@ -1,0 +1,13 @@
+<div class="zoom-toolbar-center">
+  <div class="zoom-controls">
+    <button type="button" aria-label="Scroll to Start" (click)="onGoToStart()">⏮️</button>
+    <button type="button" aria-label="Zoom Out" (click)="onZoomOut()">➖</button>
+    <button type="button" aria-label="Reset Zoom" (click)="onResetZoom()">Reset</button>
+    <button type="button" aria-label="Zoom In" (click)="onZoomIn()">➕</button>
+    <button type="button" aria-label="Scroll to End" (click)="onGoToEnd()">⏭️</button>
+    <button type="button" aria-label="Use Subset" (click)="onUseSubset()">
+  {{ useDataSubset ? 'Use All Data' : 'Use Subset' }}
+</button>
+    <span class="zoom-status">Zoom: {{ (zoomFactor * 100) | number:'1.0-0' }}%</span>
+  </div>
+</div>

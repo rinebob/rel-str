@@ -16,15 +16,14 @@ import { RelStrBaseComponent } from '../../../rel-str-base/rel-str-base.componen
 import { resolveExistingRanksData } from '../../../../utils/rs-calc-utils';
 
 @Component({
-  selector: 'rs-stock-list-form',
-  standalone: true,
-  imports: [
-    MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, ReactiveFormsModule, UpperCasePipe,
-    SymbolPickerComponent,
-  ],
-  templateUrl: './stock-list-form.component.html',
-  styleUrl: './stock-list-form.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+    selector: 'rs-stock-list-form',
+    imports: [
+        MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, ReactiveFormsModule, UpperCasePipe,
+        SymbolPickerComponent,
+    ],
+    templateUrl: './stock-list-form.component.html',
+    styleUrl: './stock-list-form.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class StockListFormComponent extends RelStrBaseComponent implements OnInit {
 

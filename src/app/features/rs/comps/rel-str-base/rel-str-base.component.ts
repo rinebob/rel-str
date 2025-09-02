@@ -6,12 +6,11 @@ import { RsAppStore } from '../../store/rs-app.store';
 import { Router } from '@angular/router';
 
 @Component({
-	selector: 'rs-rel-str-base',
-	standalone: true,
-	imports: [],
-	template: ` <p>rel-str-base works!</p> `,
-	styles: ``,
-	changeDetection: ChangeDetectionStrategy.OnPush,
+    selector: 'rs-rel-str-base',
+    imports: [],
+    template: ` <p>rel-str-base works!</p> `,
+    styles: ``,
+    changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class RelStrBaseComponent {
     destroyRef = inject(DestroyRef);

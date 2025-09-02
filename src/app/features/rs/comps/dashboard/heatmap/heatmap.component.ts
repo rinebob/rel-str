@@ -12,12 +12,11 @@ type SelectionType = 'chart' | 'history';
 const HEADER_CELL_CORNER_TEXT = 'Symbol/Date';
 
 @Component({
-  selector: 'rs-heatmap',
-  standalone: true,
-  imports: [NgStyle],
-  templateUrl: './heatmap.component.html',
-  styleUrl: './heatmap.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+    selector: 'rs-heatmap',
+    imports: [NgStyle],
+    templateUrl: './heatmap.component.html',
+    styleUrl: './heatmap.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class HeatmapComponent extends RelStrBaseComponent {
     
