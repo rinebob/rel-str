@@ -18,6 +18,11 @@ import { ChatService } from './features/fc/services/chat.service';
 import { provideMessaging } from '@angular/fire/messaging';
 import { getMessaging } from '@angular/fire/messaging';
 
+import { registerLicense } from '@syncfusion/ej2-base';
+import { SYNC_FUSION_LICENSE_KEY } from '../secrets/syncfusion-license';
+
+registerLicense(SYNC_FUSION_LICENSE_KEY);
+
 export const appConfig: ApplicationConfig = {
 	providers: [
         ChatService,
