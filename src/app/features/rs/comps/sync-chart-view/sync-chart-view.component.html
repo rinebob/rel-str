@@ -1,0 +1,45 @@
+<section class="sync-chart-view-container">
+    <div class="charts-container">
+        <!-- First chart (full width) -->
+        @let charts = chartSignals();
+        @if (charts.length > 0) {
+            <div class="chart-container chart-one-container">
+                @let mainChart = charts[0];
+                @if (mainChart.chartData.length && mainChart.baselineData.length) {
+                    <rs-chart 
+                        [id]="mainChart.id"
+                        [name]="mainChart.config.name"
+                        [config]="mainChart.config"
+                        [chartData]="mainChart.chartData"
+                        [rsData]="mainChart.rsData"
+                        [baselineData]="mainChart.baselineData"
+                        [zoomEnabled]="true"
+                        [isMain]="true"
+                    />
+                }
+            </div>
+        }
+
+        <!-- Row of smaller charts -->
+        @if (charts.length > 1) {
+            <div class="chart-container chart-row-container">
+                @for (chart of charts.slice(1); track chart.id) {
+                    @if (chart.chartData.length && chart.baselineData.length) {
+                        <div class="chart-item">
+                            <rs-chart 
+                                [id]="chart.id"
+                                [name]="chart.config.name"
+                                [config]="chart.config"
+                                [chartData]="chart.chartData"
+                                [rsData]="chart.rsData"
+                                [baselineData]="chart.baselineData"
+                                [zoomEnabled]="false"
+                                [isMain]="false"
+                            />
+                        </div>
+                    }
+                }
+            </div>
+        }
+    </div>
+</section>

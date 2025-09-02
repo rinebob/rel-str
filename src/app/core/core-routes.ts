@@ -32,25 +32,21 @@ import { AppRoutes } from "./common/interfaces";
                 .then(mod => mod.DashboardComponent),
             },
             {path: AppRoutes.CHART, 
-                loadComponent: () => import('../features/rs/comps/chart/chart.component')
-                .then(mod => mod.ChartComponent),
+                loadComponent: () => import('../features/rs/comps/chart-view/chart-view.component')
+                .then(mod => mod.ChartViewComponent),
+            },
+            {path: AppRoutes.SYNC_CHART, 
+                loadComponent: () => import('../features/rs/comps/sync-chart-view/sync-chart-view.component')
+                .then(mod => mod.SyncChartViewComponent),
+            },
+            {path: AppRoutes.RS_TABLE,
+                loadComponent: () => import('../features/rs/comps/rs-table/rs-table.component')
+                .then(mod => mod.RsTableComponent),
             },
             {path: AppRoutes.HISTORY, 
                 loadComponent: () => import('../features/rs/comps/history/history.component')
                 .then(mod => mod.HistoryComponent),
             },
-
-
-            // Friendly Chat codelab feature.  Not part of Rel Str app
-            // For development/learning only
-            // code adapted from firebase codelab 
-            // https://firebase.google.com/codelabs/firebase-web#0
-            {path: AppRoutes.CHAT, 
-                loadComponent: () => import('../features/fc/comps/chat/chat.component')
-                .then(mod => mod.ChatComponent),
-            },
-
-
             {path: AppRoutes.LOGOUT, redirectTo: '/', pathMatch: 'full'},
         ]
     },

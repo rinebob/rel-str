@@ -1,4 +1,5 @@
 import { FormControl } from "@angular/forms";
+import { AxisModel, CrosshairSettingsModel, LegendSettingsModel, TooltipSettingsModel, ZoomSettingsModel } from "@syncfusion/ej2-charts";
 
 
 export interface StockDatum {
@@ -85,6 +86,21 @@ export interface RelStrListForm {
     baselineControl: FormControl;
 }
 
+/**
+ * Interface for Syncfusion chart axis config (robust, always complete).
+ */
+export interface RsSyncfusionChartConfig {
+// tooltip, crosshair, zoomSettings, legend, primaryXAxis, primaryYAxis
+    crosshair: CrosshairSettingsModel;
+    legend: LegendSettingsModel;
+    lineStyle?: Object;
+    primaryXAxis: AxisModel;
+    primaryYAxis: AxisModel;
+    zoomSettings: ZoomSettingsModel;
+    tooltip: TooltipSettingsModel;
+}
+
+
 export enum FormMode {
     CREATE = 'create',
     EDIT = 'edit'
@@ -100,4 +116,64 @@ export interface Company {
 export enum ListAction {
     ADD = 'add',
     REMOVE = 'remove',
+}
+
+export enum Timeframe {
+    DAILY = 'daily',
+    WEEKLY = 'weekly',
+    MONTHLY = 'monthly'
+}
+
+export interface RsChartConfig {
+    id: string;
+    name: string;
+    targetSymbol: string;
+    baselineSymbol: string;
+    timeframe: Timeframe;
+    chartConfig: RsSyncfusionChartConfig;
+    showRS?: boolean;
+    showBaseline?: boolean;
+    showVolume?: boolean;
+    showTechnicalIndicators?: string[];
+    height?: string;
+    width?: string;
+}
+
+export interface OHLCDatum {
+    x: Date;
+    date?: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume?: number;
+}
+
+export interface CandleWithRSColor extends OHLCDatum {
+    rsColor?: string;
+    rank?: number;
+}
+
+export interface MockCandleWithRSColor {
+    x: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    rsColor?: string;
+    rank?: number;
+}
+
+export interface RsPaneDatum {
+    date: Date;
+    rank?: number;
+    rsColor: string;
+}
+
+export interface ChartSignal {
+    id: string;
+    config: RsChartConfig;
+    chartData: CandleWithRSColor[];
+    rsData: RsPaneDatum[];
+    baselineData: OHLCDatum[];
 }

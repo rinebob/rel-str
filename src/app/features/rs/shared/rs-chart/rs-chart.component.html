@@ -1,0 +1,80 @@
+<div class="chart-container">
+
+    <ejs-chart #chart
+        [id]="id()"
+        [primaryXAxis]="config().chartConfig.primaryXAxis"
+        [primaryYAxis]="config().chartConfig.primaryYAxis"
+        [tooltip]="config().chartConfig.tooltip"
+        [crosshair]="config().chartConfig.crosshair"
+        [legendSettings]="config().chartConfig.legend"
+        (loaded)="onChartLoaded()"
+        (scrollEnd)="onScrollEnd($event)"
+        (zoomComplete)="onZoomComplete($event)"
+        [zoomSettings]="config().chartConfig.zoomSettings"
+    >
+
+        <e-axes>
+
+            <e-axis 
+                rowIndex="0"
+                name="yAxis1"
+                [opposedPosition]="true"
+                title="RS Rank"
+                [majorGridLines]="{ width: 0 }"
+                [lineStyle]="config().chartConfig.lineStyle"
+                [minimum]="0"
+                [maximum]="1"
+                [interval]="0.2"
+                labelFormat="{value}"
+                rangePadding="Round"
+            >
+            </e-axis>
+
+        </e-axes>
+
+        <e-series-collection>
+
+            <e-series 
+                [dataSource]="chartData()" 
+                type="Candle" 
+                xName="x" 
+                yName="y" 
+                high="high" 
+                low="low" 
+                open="open" 
+                close="close"
+                [name]="config().targetSymbol || 'Target'"
+                pointColorMapping="rsColor"
+            >
+            </e-series>
+            
+            <e-series 
+                [dataSource]="baselineData()" 
+                type="Candle" 
+                xName="x" 
+                yName="y" 
+                high="high" 
+                low="low" 
+                open="open" 
+                close="close"
+                [name]="config().baselineSymbol || 'Baseline'"
+            >
+            </e-series>
+            
+            <e-series 
+                [dataSource]="rsData()" 
+                type="Column" 
+                xName="date" 
+                yName="rank"
+                [name]="'RS Rank'"
+                [visible]="config().showRS ?? true"
+                yAxisName="yAxis1"
+                pointColorMapping="rsColor"
+            >
+            </e-series>
+
+        </e-series-collection>
+
+    </ejs-chart>
+    
+</div>
