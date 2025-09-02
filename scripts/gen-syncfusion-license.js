@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 
-// Load local env vars if present (only affects local builds)
+// Load local env vars if a file exists (local-only). Do not log to stdout.
 try {
   const cwd = process.cwd();
   const candidates = [
@@ -13,13 +13,9 @@ try {
   const chosen = candidates.find((p) => fs.existsSync(p));
   if (chosen) {
     require('dotenv').config({ path: chosen });
-    console.log(`[dotenv] loaded env from ${path.basename(chosen)}`);
-  } else {
-    // fall back to default behavior (may be no-op)
-    require('dotenv').config();
   }
 } catch (_) {
-  // dotenv may not be installed in CI where App Hosting injects envs; ignore
+  // Ignore if dotenv is not installed in CI
 }
 
 const key = process.env.SYNC_FUSION_LICENSE_KEY || '';
@@ -32,4 +28,4 @@ const out = `export const SYNC_FUSION_LICENSE_KEY = '${key.replace(/'/g, "\\'")}
 const outPath = path.resolve(__dirname, '../src/secrets/syncfusion-license.ts');
 fs.mkdirSync(path.dirname(outPath), { recursive: true });
 fs.writeFileSync(outPath, out, 'utf8');
-console.log('Wrote', outPath);
+// Intentionally no console.log to keep build output clean for App Hosting
