@@ -28,23 +28,23 @@ import { AppRoutes } from "./common/interfaces";
             // NOTE: If new features are added in addition to rel-str, these routes will be extracted to an 'rs-routes.ts' file
             // and this will be replaced with a parent route 'rs' which will load these routes as child routes
             {path: AppRoutes.DASHBOARD, 
-                loadComponent: () => import('../features/rs/comps/dashboard/dashboard.component')
+                loadComponent: () => import('../features/dashboard/dashboard.component')
                 .then(mod => mod.DashboardComponent),
             },
             {path: AppRoutes.CHART, 
-                loadComponent: () => import('../features/rs/comps/chart-view/chart-view.component')
+                loadComponent: () => import('../features/chart-view/chart-view.component')
                 .then(mod => mod.ChartViewComponent),
             },
             {path: AppRoutes.SYNC_CHART, 
-                loadComponent: () => import('../features/rs/comps/sync-chart-view/sync-chart-view.component')
+                loadComponent: () => import('../features/sync-chart-view/sync-chart-view.component')
                 .then(mod => mod.SyncChartViewComponent),
             },
             {path: AppRoutes.RS_TABLE,
-                loadComponent: () => import('../features/rs/comps/rs-table/rs-table.component')
+                loadComponent: () => import('../features/rs-table/rs-table.component')
                 .then(mod => mod.RsTableComponent),
             },
             {path: AppRoutes.HISTORY, 
-                loadComponent: () => import('../features/rs/comps/history/history.component')
+                loadComponent: () => import('../features/history/history.component')
                 .then(mod => mod.HistoryComponent),
             },
             {path: AppRoutes.LOGOUT, redirectTo: '/', pathMatch: 'full'},

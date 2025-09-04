@@ -1,8 +1,0 @@
-@use '../../../../../styles/mixins-global' as global;
-@use '../../../../../styles/variables-global';
-
-:host {
-    @include global.flexboxLayout(column, flex-start, flex-start);
-    padding: 20px;
-    min-width: 400px;
-}
