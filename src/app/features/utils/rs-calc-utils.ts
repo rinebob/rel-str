@@ -474,7 +474,9 @@ function calculatePercentChange(results: CalculationData[]): CalculationData[] {
     for (let i = 1; i < results.length; i++) {
         // console.log('results[i]: ', results[i])
         // const date = results[i].date
-        const pctChg = ((results[i].close - results[i - 1].close) / results[i].close) * 100;
+        // Use prior close as denominator to compute standard day-over-day percent change
+        // Aligns with generatePercentChangeData() implementation
+        const pctChg = ((results[i].close - results[i - 1].close) / results[i - 1].close) * 100;
         // console.log('rSUtil CPC date/close/pctChg: ', results[i].date, results[i].close, pctChg)
         results[i].percentChange = Number(pctChg.toFixed(4));
     }
