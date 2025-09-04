@@ -1,8 +1,8 @@
 import { inject, Injectable } from '@angular/core';
 import { BaselineTargetRankDatum, ListAction, RanksByDate, RelStrStockList, StockDatum } from '../common/interfaces-rs';
 import { RANKS_WITH_COLORS_BY_SYMBOL, RAW_STOCK_DATA_BY_SYMBOL } from '../data/stocks';
-import { addDoc, collection, collectionData, doc, DocumentData, Firestore, getDoc, setDoc } from  "@angular/fire/firestore";import { Observable } from 'rxjs';
-;
+import { collection, collectionData, doc, DocumentData, Firestore, setDoc } from  "@angular/fire/firestore";
+import { Observable } from 'rxjs';
 
 interface SymbolMetadata {
     supported: boolean;

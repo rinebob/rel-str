@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, effect, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop'
 
 import { RsCalcsStore } from '../store/rs-calcs.store';

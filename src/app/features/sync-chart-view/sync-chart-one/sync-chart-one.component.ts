@@ -1,7 +1,6 @@
-import { ChangeDetectionStrategy, Component, effect, input, Input, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, OnInit } from '@angular/core';
 
 import { CandleWithRSColor, OHLCDatum, RsPaneDatum } from '../../common/interfaces-rs';
-import { RsChartComponent } from '../../shared/rs-chart/rs-chart.component';
 
 @Component({
   selector: 'rs-sync-chart-one',

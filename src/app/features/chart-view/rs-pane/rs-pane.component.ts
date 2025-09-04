@@ -1,4 +1,4 @@
-import { Component, computed, input, Input, OnChanges, OnInit, SimpleChanges } from '@angular/core';
+import { Component, input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ChartModule, CategoryService, DateTimeService, ScrollBarService, ColumnSeriesService, LineSeriesService, 
     ChartAnnotationService, RangeColumnSeriesService, StackingColumnSeriesService,LegendService, TooltipService,

@@ -1,5 +1,5 @@
-import { ChangeDetectionStrategy, Component, inject, OnInit, ViewChild } from '@angular/core';
-import { Router, ActivatedRoute, RouterOutlet, RouterModule } from '@angular/router';
+import { ChangeDetectionStrategy, Component, inject, ViewChild } from '@angular/core';
+import { Router, RouterOutlet, RouterModule } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSidenav, MatSidenavModule } from '@angular/material/sidenav';
@@ -12,7 +12,7 @@ import { SidenavMenuComponent } from './comps/sidenav-menu/sidenav-menu.componen
     selector: 'rs-core',
     imports: [RouterOutlet, MatButtonModule, MatIconModule, MatSidenavModule, HeaderComponent, SidenavMenuComponent, RouterModule],
     templateUrl: './core.component.html',
-    styleUrl: './core.component.scss',
+    styleUrls: ['./core.component.scss'],
     changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class CoreComponent {
@@ -20,7 +20,6 @@ export class CoreComponent {
 	@ViewChild('sidenav', { static: false }) sidenav!: MatSidenav;
 
     router = inject(Router);
-    private route = inject(ActivatedRoute);
 
     public ngOnInit() {}
 

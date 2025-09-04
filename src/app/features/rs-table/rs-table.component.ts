@@ -2,13 +2,11 @@ import { Component, Input, ChangeDetectionStrategy, signal, inject } from '@angu
 import { CommonModule } from '@angular/common';
 import { MatTableModule } from '@angular/material/table';
 import { HttpClient } from '@angular/common/http';
-import { provideHttpClient } from '@angular/common/http';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { generatePercentChangeData, generateTargetRanksData, calculateRank, addColorToRank } from '../utils/rs-calc-utils';
-import { generateTargetRanksDataOptimized, calculateRankOptimized } from '../utils/rs-calc-utils-optimized';
+import { generatePercentChangeData, calculateRank, addColorToRank } from '../utils/rs-calc-utils';
+import { calculateRankOptimized } from '../utils/rs-calc-utils-optimized';
 import { generateColorArray } from '../utils/color-utils';
-import { StringNumberObject } from '../common/interfaces-rs';
 
 /**
  * Standalone component to display RS comparison table for QQQ and MSFT using Syncfusion DataGrid.

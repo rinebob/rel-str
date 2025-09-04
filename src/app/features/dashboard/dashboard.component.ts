@@ -8,7 +8,7 @@ import { RelStrBaseComponent } from '../rel-str-base/rel-str-base.component';
 import { generateColorArray } from '../utils/color-utils';
 import { NUM_HEATMAP_MIDPOINTS } from '../../core/common/constants';
 import { BaselineTargetRankDatum, ListAction, RelStrStockList } from '../common/interfaces-rs';
-import { RANKS_WITH_COLORS_BY_SYMBOL, RAW_STOCK_DATA_BY_SYMBOL } from '../data/stocks';
+import { RAW_STOCK_DATA_BY_SYMBOL } from '../data/stocks';
 import { RelStrDbService } from '../services/rel-str-db.service';
 
 @Component({
@@ -92,4 +92,3 @@ export class DashboardComponent extends RelStrBaseComponent implements OnInit {
         this.selectStockPanel.close();
     }
 }
-

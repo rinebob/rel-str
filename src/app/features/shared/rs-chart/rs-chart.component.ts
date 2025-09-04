@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, effect, input, signal, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, signal, ViewChild } from '@angular/core';
 import {
     ChartModule,
     ChartComponent as SfChartComponent,

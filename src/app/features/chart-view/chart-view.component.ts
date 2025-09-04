@@ -1,7 +1,7 @@
-import { OnInit, signal } from '@angular/core';
+import { signal } from '@angular/core';
 import { Component, ChangeDetectionStrategy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ChartModule, ChartComponent as SfChartComponent, CandleSeriesService, LineSeriesService, ColumnSeriesService, DateTimeService, TooltipService, LegendService, ZoomService, CrosshairService, IZoomCompleteEventArgs, AxisModel } from '@syncfusion/ej2-angular-charts';
+import { ChartModule, ChartComponent as SfChartComponent, CandleSeriesService, LineSeriesService, ColumnSeriesService, DateTimeService, TooltipService, LegendService, ZoomService, CrosshairService, AxisModel } from '@syncfusion/ej2-angular-charts';
 
 import { RsPaneComponent } from './rs-pane/rs-pane.component';
 // import { ChartToolbarComponent } from './chart-toolbar/chart-toolbar.component';
@@ -22,7 +22,7 @@ import { SyncChartOneComponent } from '../sync-chart-view/sync-chart-one/sync-ch
 	styleUrls: ['./chart-view.component.scss'],
 	changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ChartViewComponent implements OnInit {
+export class ChartViewComponent {
     @ViewChild('msftChart', { static: false }) chartComponent?: SfChartComponent;
     
 	public chartData = signal<CandleWithRSColor[]>((MSFT_WITH_COLORS as any[]).map((item) => ({
@@ -64,8 +64,7 @@ export class ChartViewComponent implements OnInit {
     };
 
 
-	ngOnInit(): void {
-	}
+	ngOnInit(): void {}
 	
 
 	constructor() {

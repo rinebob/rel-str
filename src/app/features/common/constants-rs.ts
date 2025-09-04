@@ -1,4 +1,4 @@
-import { AxisModel, CrosshairSettingsModel, TooltipSettings, TooltipSettingsModel, ZoomSettings, ZoomSettingsModel } from "@syncfusion/ej2-charts";
+import { AxisModel, CrosshairSettingsModel, TooltipSettingsModel, ZoomSettingsModel } from "@syncfusion/ej2-charts";
 import { RelStrStockList, RsSyncfusionChartConfig, RsChartConfig, Timeframe } from "./interfaces-rs";
 
 export const STOCK_LIST_INITIALIZER: RelStrStockList = {name: '', baseline: '', symbols: [], ranksDataWithColors: {}};
