@@ -1,15 +1,19 @@
-import { Component, Input, ChangeDetectionStrategy, signal, inject } from '@angular/core';
+import { Component, Input, ChangeDetectionStrategy, signal, inject, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatTableModule } from '@angular/material/table';
 import { HttpClient } from '@angular/common/http';
-import { forkJoin, of } from 'rxjs';
+import { forkJoin, of, type Observable } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { generatePercentChangeData, addColorToRank, calculateRank } from '../utils/rs';
+import { generatePercentChangeData, addColorToRank, calculateRank, StockDatum, RsTableRow, PercentChangeDatum, getDateAndValue, buildWindow } from '../utils/rs';
 import { generateColorArray } from '../utils/color-utils';
+
+// Column typing to keep TS and template in sync
+export type RsTableColumn = 'date' | 'qqqValue' | 'qqqPct' | 'msftValue' | 'msftPct' | 'msftRs';
+export const RS_TABLE_COLUMNS: ReadonlyArray<RsTableColumn> = ['date','qqqValue','qqqPct','msftValue','msftPct','msftRs'] as const;
 
 /**
  * Standalone component to display RS comparison table for QQQ and MSFT using Syncfusion DataGrid.
- * Columns: date, qqq value, qqq pct change, msft value, msft pct change, msft RS (method 1), msft RS (method 2)
+ * Columns: date, qqq value, qqq pct change, msft value, msft pct change, msft RS (optimized)
  */
 @Component({
   selector: 'rs-table',
@@ -22,13 +26,17 @@ import { generateColorArray } from '../utils/color-utils';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RsTableComponent {
-  @Input() msftData: any[] = [];
-  @Input() qqqData: any[] = [];
+  @Input() msftData: StockDatum[] = [];
+  @Input() qqqData: StockDatum[] = [];
   @Input() heatmapColors: string[] = [];
 
-  tableData = signal<any[]>([]);
+  tableData = signal<RsTableRow[]>([]);
   loading = signal<boolean>(false);
   error = signal<string | null>(null);
+  // Expose typed columns to template
+  readonly displayedColumns = RS_TABLE_COLUMNS;
+  // Avoid getters in templates: expose as computed signal
+  readonly totalRows = computed(() => this.tableData().length);
 
   private http = inject(HttpClient);
 
@@ -53,16 +61,19 @@ export class RsTableComponent {
     const msftUrl = '/assets/data/BATS_MSFT, 1D_0d494.csv';
     const qqqUrl = '/assets/data/BATS_QQQ, 1D_862dd.csv';
     // Use forkJoin to load both CSVs as observables
-    forkJoin([
-      this.http.get(msftUrl, { responseType: 'text' }) as import('rxjs').Observable<string>,
-      this.http.get(qqqUrl, { responseType: 'text' }) as import('rxjs').Observable<string>
+    forkJoin<[
+      string,
+      string
+    ]>([
+      this.http.get(msftUrl, { responseType: 'text' }) as Observable<string>,
+      this.http.get(qqqUrl, { responseType: 'text' }) as Observable<string>
     ]).pipe(
       catchError((err: unknown) => {
         this.error.set('Failed to load CSVs: ' + String(err));
         this.loading.set(false);
-        return of([undefined, undefined]);
+        return of([undefined, undefined] as unknown as [string, string]);
       })
-    ).subscribe((result: (string | undefined)[]) => {
+    ).subscribe((result: [string, string]) => {
       const msftCsv = result[0] ?? '';
       const qqqCsv = result[1] ?? '';
       console.log('[RS Table] HTTP requests complete. msftCsv length:', msftCsv.length, 'qqqCsv length:', qqqCsv.length);
@@ -82,7 +93,7 @@ export class RsTableComponent {
         this.prepareTableData();
         console.log('[RS Table] Table data set:', this.tableData());
       } catch (parseErr) {
-        this.error.set('Error parsing CSV: ' + (parseErr instanceof Error ? parseErr.message : parseErr));
+        this.error.set('Error parsing CSV: ' + (parseErr instanceof Error ? parseErr.message : String(parseErr)));
         console.error('[RS Table] Error parsing CSV:', parseErr);
       }
       this.loading.set(false);
@@ -92,9 +103,9 @@ export class RsTableComponent {
   /**
    * Parses CSV string to array of {date: close} objects.
    */
-  private parseCsvToDailyClose(csv: string): any[] {
+  private parseCsvToDailyClose(csv: string): StockDatum[] {
     const lines = csv.split(/\r?\n/).filter(l => l && !l.startsWith('timestamp'));
-    const parsed = [];
+    const parsed: StockDatum[] = [];
     for (const line of lines) {
       const [timestamp, open, high, low, close] = line.split(',');
       if (!timestamp || isNaN(Number(timestamp))) {
@@ -116,27 +127,22 @@ export class RsTableComponent {
    */
   prepareTableData() {
     if (!this.msftData?.length || !this.qqqData?.length) {
-      this.tableData.set([]);
+      this.tableData.set([] as RsTableRow[]);
       return;
     }
-    const qqqPct = generatePercentChangeData(this.qqqData);
-    const msftPct = generatePercentChangeData(this.msftData);
-    const rows = [];
+    const qqqPct: ReadonlyArray<PercentChangeDatum> = generatePercentChangeData(this.qqqData);
+    const msftPct: ReadonlyArray<PercentChangeDatum> = generatePercentChangeData(this.msftData);
+    const rows: RsTableRow[] = [];
     for (let i = 5; i < this.msftData.length; i++) {
-      const date = Object.keys(this.msftData[i])[0];
-      const msftValue = Object.values(this.msftData[i])[0];
-      const qqqValue = Object.values(this.qqqData[i])[0];
+      const { date, value: msftValue } = getDateAndValue(this.msftData[i]);
+      const { value: qqqValue } = getDateAndValue(this.qqqData[i]);
       const msftPctVal = msftPct[i-1]?.value ?? null;
       const qqqPctVal = qqqPct[i-1]?.value ?? null;
-      // Build rolling window for RS calculation
-      const msftWindow = [];
-      const qqqWindow = [];
-      for (let j = 0; j < 5; j++) {
-        msftWindow.push(msftPct[i - j]?.value ?? 0);
-        qqqWindow.push(qqqPct[i - j]?.value ?? 0);
-      }
+      // Build rolling window for RS calculation (fixed-size tuple)
+      const msftWindow = buildWindow(msftPct, i);
+      const qqqWindow = buildWindow(qqqPct, i);
       // Calculate RS using optimized method only
-      const rsVal = msftWindow.length === 5 && qqqWindow.length === 5
+      const rsVal = (msftWindow && qqqWindow)
         ? calculateRank(msftWindow, qqqWindow)
         : null;
       // Color (optional, can use addColorToRank if needed)
@@ -152,12 +158,5 @@ export class RsTableComponent {
       });
     }
     this.tableData.set(rows);
-  }
-
-  /**
-   * Returns the total number of rows in the table.
-   */
-  public get totalRows(): number {
-    return this.tableData()?.length ?? 0;
   }
 }

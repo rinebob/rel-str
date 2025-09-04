@@ -1,9 +1,46 @@
 import { FormControl } from "@angular/forms";
 import { AxisModel, CrosshairSettingsModel, LegendSettingsModel, TooltipSettingsModel, ZoomSettingsModel } from "@syncfusion/ej2-charts";
 
-
+/**
+ * Interface for stock data with date as key and closing price as value.
+ */
 export interface StockDatum {
     [key: string]: number;      // key = date, value = closing price
+}
+
+// Stronger typing for date keys used across stock data
+export type StockDateKey = string; // could be branded/template-literal later if needed
+
+// Alias for percent-change datum (keeps compatibility with existing code)
+export type PercentChangeDatum = StringNumberObject;
+
+/**
+ * Helper: unwraps a single-key StockDatum into a typed date/value pair.
+ */
+export function getDateAndValue(d: StockDatum): { date: StockDateKey; value: number } {
+    const date = Object.keys(d)[0] as StockDateKey;
+    return { date, value: d[date] };
+}
+
+/**
+ * Tuple type for a fixed-size RS rolling window of 5 numbers.
+ */
+export type RsWindow = [number, number, number, number, number];
+
+/**
+ * Builds a 5-length rolling window ending at endIndex from a series of {date, value}.
+ * Returns null if not enough data.
+ */
+export function buildWindow(series: ReadonlyArray<PercentChangeDatum>, endIndex: number): RsWindow | null {
+    if (endIndex < 4) return null;
+    const w: RsWindow = [
+        series[endIndex]?.value ?? 0,
+        series[endIndex - 1]?.value ?? 0,
+        series[endIndex - 2]?.value ?? 0,
+        series[endIndex - 3]?.value ?? 0,
+        series[endIndex - 4]?.value ?? 0,
+    ];
+    return w;
 }
 
 export interface CalculationData {
@@ -56,7 +93,6 @@ export interface ResultsDataSet {
     [key: string]: StockResults;        // key = symbol
 }
 
-
 export interface StringNumberObject {
     date: string;
     value: number;
@@ -99,7 +135,6 @@ export interface RsSyncfusionChartConfig {
     zoomSettings: ZoomSettingsModel;
     tooltip: TooltipSettingsModel;
 }
-
 
 export enum FormMode {
     CREATE = 'create',
@@ -176,4 +211,15 @@ export interface ChartSignal {
     chartData: CandleWithRSColor[];
     rsData: RsPaneDatum[];
     baselineData: OHLCDatum[];
+}
+
+// Typed interface for RS Table rows
+export interface RsTableRow {
+    date: string;
+    msftValue: number;
+    qqqValue: number;
+    msftPct: number | null;
+    qqqPct: number | null;
+    msftRs: number | null;
+    msftRsColor: string | null;
 }

@@ -31,10 +31,10 @@ export function generatePairData(baselineData: StockDatum[], targetData: StockDa
  * Each value is the percent change from the previous day's close.
  *
  * @export
- * @param {StockDatum[]} stockData - Array of OHLC data objects (date: value)
+ * @param {ReadonlyArray<StockDatum>} stockData - Array of OHLC data objects (date: value)
  * @returns {StringNumberObject[]} Array of {date, value} objects with percent changes
  */
-export function generatePercentChangeData(stockData: StockDatum[]): StringNumberObject[] {
+export function generatePercentChangeData(stockData: ReadonlyArray<StockDatum>): StringNumberObject[] {
     // console.log('rsCU gPCD symbol: ');
 
     const percentChangeData: StringNumberObject[] = [];
@@ -187,11 +187,11 @@ export function calculateRsRank(target: StringNumberObject[], baseline: StringNu
  * Adds a color property to a rank object based on its value, using the provided heatmap color scale.
  *
  * @export
- * @param {StringNumberObject} targetRank - Rank object with {date, value}
- * @param {string[]} heatmapColors - Array of color strings for rank coloring
- * @returns {BaselineTargetRankDatum} Rank object with color property
+ * @param {RankColorInput} targetRank - Rank object with {date, value}
+ * @param {readonly string[]} heatmapColors - Array of color strings for rank coloring
+ * @returns {RankColorOutput} Rank object with color property
  */
-export function addColorToRank(targetRank: StringNumberObject, heatmapColors: string[]): BaselineTargetRankDatum {
+export function addColorToRank(targetRank: RankColorInput, heatmapColors: readonly string[]): RankColorOutput {
     // console.log('rSUtil aCTR targetRank/heatmapColors: ', targetRank, heatmapColors);
     const colorIdx = Math.floor(targetRank.value * (heatmapColors.length - 1));
     const color = heatmapColors[colorIdx];
@@ -250,6 +250,11 @@ export function resolveExistingRanksData(list: RelStrStockList, symbols: Company
     // console.log('sLF hSL pairs to save: ', pairsToSave);
     return pairsToSave;
 }
+
+// Optional named types for clarity when coloring ranks
+export type RankColorInput = StringNumberObject; // { date, value }
+export type RankColorOutput = BaselineTargetRankDatum; // { date, value, index, color }
+
 ////////////////////////////////////////////////////////
 
 /////////////// INITIAL IMPLEMENTATIONS ///////////////////////////
