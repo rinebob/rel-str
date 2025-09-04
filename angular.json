@@ -18,10 +18,7 @@
         "build": {
           "builder": "@angular-devkit/build-angular:application",
           "options": {
-            "outputPath": {
-
-                "base": "dist/rel-str" 
-            },
+            "outputPath": "dist/rel-str",
             "index": "src/index.html",
             "browser": "src/main.ts",
             "polyfills": [
@@ -43,8 +40,7 @@
                 "undici",
                 "@grpc/grpc-js",
                 "@grpc/proto-loader"
-            ],
-            "browser": "src/main.ts"
+            ]
           },
           "configurations": {
             "production": {
