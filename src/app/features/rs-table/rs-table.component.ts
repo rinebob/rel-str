@@ -4,8 +4,7 @@ import { MatTableModule } from '@angular/material/table';
 import { HttpClient } from '@angular/common/http';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { generatePercentChangeData, calculateRank, addColorToRank } from '../utils/rs-calc-utils';
-import { calculateRankOptimized } from '../utils/rs-calc-utils-optimized';
+import { generatePercentChangeData, addColorToRank, calculateRank } from '../utils/rs';
 import { generateColorArray } from '../utils/color-utils';
 
 /**
@@ -136,27 +135,20 @@ export class RsTableComponent {
         msftWindow.push(msftPct[i - j]?.value ?? 0);
         qqqWindow.push(qqqPct[i - j]?.value ?? 0);
       }
-      // Calculate RS using both methods
-      const rs1Val = msftWindow.length === 5 && qqqWindow.length === 5
+      // Calculate RS using optimized method only
+      const rsVal = msftWindow.length === 5 && qqqWindow.length === 5
         ? calculateRank(msftWindow, qqqWindow)
         : null;
-      const rs2Val = msftWindow.length === 5 && qqqWindow.length === 5
-        ? calculateRankOptimized(msftWindow, qqqWindow)
-        : null;
       // Color (optional, can use addColorToRank if needed)
-      const rs1Color = rs1Val != null ? addColorToRank({ value: rs1Val, date }, this.heatmapColors).color : null;
-      const rs2Color = rs2Val != null ? addColorToRank({ value: rs2Val, date }, this.heatmapColors).color : null;
+      const rsColor = rsVal != null ? addColorToRank({ value: rsVal, date }, this.heatmapColors).color : null;
       rows.push({
         date,
         msftValue,
         qqqValue,
         msftPct: msftPctVal,
         qqqPct: qqqPctVal,
-        msftRs1: rs1Val,
-        msftRs2: rs2Val,
-        msftRs1Color: rs1Color,
-        msftRs2Color: rs2Color,
-        rsDiff: (rs1Val != null && rs2Val != null) ? (rs1Val - rs2Val) : null
+        msftRs: rsVal,
+        msftRsColor: rsColor,
       });
     }
     this.tableData.set(rows);
@@ -167,12 +159,5 @@ export class RsTableComponent {
    */
   public get totalRows(): number {
     return this.tableData()?.length ?? 0;
-  }
-
-  /**
-   * Returns the number of rows where rsDiff is not null and not zero.
-   */
-  public get rowsWithDiff(): number {
-    return (this.tableData() ?? []).filter(row => row.rsDiff != null && row.rsDiff !== 0).length;
   }
 }
