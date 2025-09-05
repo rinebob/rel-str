@@ -47,3 +47,14 @@
 
 ## (Optional) Analysis & Correlation
 - [ ] Add a simple UI or export option to help analyze correlation between RS values and buy/sell opportunities
+
+---
+## Discovered During Work
+- 2025-09-04: Deprecate legacy `chart-view` in favor of `sync-chart-view`.
+  - [x] Route `/chart` now redirects to `/sync-chart` in `src/app/core/core-routes.ts`.
+  - [x] Updated internal navigation to prefer `sync-chart` in `src/app/core/common/constants.ts`.
+  - [x] Heatmap navigation now routes to `sync-chart` instead of `chart` in `src/app/features/dashboard/heatmap/heatmap.component.ts`.
+  - [x] Added visible deprecation banner and JSDoc `@deprecated` to `chart-view` component.
+  - [x] After a grace period, remove `src/app/features/chart-view/` once no references remain. (2025-09-04)
+    - Utilities needed by shared components were relocated to `src/app/features/shared/utils/shared.util.ts`.
+  - [ ] Ensure E2E and unit tests target `sync-chart-view` (create/update tests as needed).
