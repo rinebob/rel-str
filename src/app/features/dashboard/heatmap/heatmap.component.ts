@@ -62,7 +62,7 @@ export class HeatmapComponent extends RelStrBaseComponent {
 
     handleSymbolSelection(symbol: string, selectionType: SelectionType) {
         // console.log('h hSS symbol/selection type: ', symbol, selectionType);
-        const route = selectionType === 'chart' ? AppRoutes.CHART : AppRoutes.HISTORY;
+        const route = selectionType === 'chart' ? AppRoutes.SYNC_CHART : AppRoutes.HISTORY;
         this.router.navigate([route])
     }
 

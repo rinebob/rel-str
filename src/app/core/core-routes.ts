@@ -32,8 +32,7 @@ import { AppRoutes } from "./common/interfaces";
                 .then(mod => mod.DashboardComponent),
             },
             {path: AppRoutes.CHART, 
-                loadComponent: () => import('../features/chart-view/chart-view.component')
-                .then(mod => mod.ChartViewComponent),
+                redirectTo: AppRoutes.SYNC_CHART, pathMatch: 'full',
             },
             {path: AppRoutes.SYNC_CHART, 
                 loadComponent: () => import('../features/sync-chart-view/sync-chart-view.component')
