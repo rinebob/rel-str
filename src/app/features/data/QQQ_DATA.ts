@@ -1,4 +1,4 @@
-import { OHLCDatum } from "../common/interfaces-rs";
+import { OHLCDatum } from "../shared/types/rs.interfaces";
 
 export const QQQ_DATA: OHLCDatum[] = [
     // {

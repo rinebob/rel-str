@@ -7,11 +7,11 @@ import {
     RsPaneDatum,
     RsChartConfig,
     ChartSignal
-} from '../common/interfaces-rs';
+} from '../shared/types/rs.interfaces';
 import { MSFT_WITH_COLORS } from '../data/MSFT_WITH_COLORS';
 import { QQQ_DATA } from '../data/QQQ_DATA';
-import { RsChartComponent } from '../shared/rs-chart/rs-chart.component';
-import { CHART_CONFIGS, ZOOM_ENABLED_CONFIG, ZOOM_DISABLED_CONFIG } from '../common/constants-rs';
+import { RsChartComponent } from '../shared/comps/rs-chart/rs-chart.component';
+import { CHART_CONFIGS, ZOOM_ENABLED_CONFIG, ZOOM_DISABLED_CONFIG } from '../shared/constants/rs.constants';
 
 type TargetSignalMap = { [symbol: string]: Signal<CandleWithRSColor[]> };
 type BaselineSignalMap = { [symbol: string]: Signal<OHLCDatum[]> };

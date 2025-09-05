@@ -1,5 +1,5 @@
 import { ChartComponent, VisibleRangeModel } from '@syncfusion/ej2-angular-charts';
-import type { CandleWithRSColor, OHLCDatum } from '../../common/interfaces-rs';
+import type { CandleWithRSColor, OHLCDatum } from '../../shared/types/rs.interfaces';
 
 // Helper to convert Date/number to timestamp for safe comparison
 export function toTimestamp(val: unknown): number {

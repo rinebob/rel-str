@@ -1,5 +1,5 @@
 import { inject, Injectable } from '@angular/core';
-import { BaselineTargetRankDatum, ListAction, RanksByDate, RelStrStockList, StockDatum } from '../common/interfaces-rs';
+import { BaselineTargetRankDatum, ListAction, RanksByDate, RelStrStockList, StockDatum } from '../shared/types/rs.interfaces';
 import { RANKS_WITH_COLORS_BY_SYMBOL, RAW_STOCK_DATA_BY_SYMBOL } from '../data/stocks';
 import { collection, collectionData, doc, DocumentData, Firestore, setDoc } from  "@angular/fire/firestore";
 import { Observable } from 'rxjs';

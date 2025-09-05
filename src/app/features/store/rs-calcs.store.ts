@@ -1,5 +1,5 @@
 import { signalStore, withState, withMethods, withComputed, patchState } from "@ngrx/signals";
-import { DataSet, RelStrTableData } from "../common/interfaces-rs";
+import { DataSet, RelStrTableData } from "../shared/types/rs.interfaces";
 
 type RelStrCalcState = {
     allData: DataSet,

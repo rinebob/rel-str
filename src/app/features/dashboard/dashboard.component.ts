@@ -1,13 +1,13 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit, ViewChild } from '@angular/core';
 import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
 
-import { MOCK_STOCK_LISTS } from '../common/constants-rs';
+import { MOCK_STOCK_LISTS } from '../shared/constants/rs.constants';
 import { HeatmapComponent } from './heatmap/heatmap.component';
 import { SelectStockPanelComponent } from './select-stock-panel/select-stock-panel.component';
 import { RelStrBaseComponent } from '../rel-str-base/rel-str-base.component';
 import { generateColorArray } from '../utils/color-utils';
 import { NUM_HEATMAP_MIDPOINTS } from '../../core/common/constants';
-import { BaselineTargetRankDatum, ListAction, RelStrStockList } from '../common/interfaces-rs';
+import { BaselineTargetRankDatum, ListAction, RelStrStockList } from '../shared/types/rs.interfaces';
 import { RAW_STOCK_DATA_BY_SYMBOL } from '../data/stocks';
 import { RelStrDbService } from '../services/rel-str-db.service';
 

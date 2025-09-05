@@ -1,5 +1,4 @@
-import { StockDatum, StockData, BaselineTargetRankDatum } from "../common/interfaces-rs";
-
+import { StockDatum, StockData, BaselineTargetRankDatum } from "../shared/types/rs.interfaces";
 
 export const NVDA: StockDatum[] = [
     // {"07/05/23": 42.32},

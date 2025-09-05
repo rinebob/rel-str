@@ -1,4 +1,4 @@
-import { StockDatum, StockData } from "../common/interfaces-rs";
+import { StockDatum, StockData } from "../shared/types/rs.interfaces";
 
 export const QQQ: StockDatum[] = [
     // {"07/05/23": 370.28},

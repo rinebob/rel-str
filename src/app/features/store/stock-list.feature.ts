@@ -1,5 +1,5 @@
 import { patchState, signalStoreFeature, withComputed, withMethods, withState } from "@ngrx/signals"
-import { BaselineTargetRankDatum, FormMode, ListAction, RanksByDate, RanksDataWithColors, RelStrStockList, StockDatum, StockListFormMode } from "../common/interfaces-rs"
+import { BaselineTargetRankDatum, FormMode, ListAction, RanksByDate, RanksDataWithColors, RelStrStockList, StockDatum, StockListFormMode } from "../shared/types/rs.interfaces"
 import { StockDataService } from "../services/stock-data.service"
 import { inject } from "@angular/core"
 import { RelStrDbService } from "../services/rel-str-db.service"

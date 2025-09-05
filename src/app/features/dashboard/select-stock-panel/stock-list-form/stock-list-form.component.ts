@@ -9,8 +9,8 @@ import { combineLatest } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
-import { Company, FormMode, RelStrListForm, RelStrStockList } from '../../../common/interfaces-rs';
-import { FORM_MODE_CREATE_TEXT, FORM_MODE_EDIT_TEXT, STOCK_LIST_INITIALIZER } from '../../../common/constants-rs';
+import { Company, FormMode, RelStrListForm, RelStrStockList } from '../../../shared/types/rs.interfaces';
+import { FORM_MODE_CREATE_TEXT, FORM_MODE_EDIT_TEXT, STOCK_LIST_INITIALIZER } from '../../../shared/constants/rs.constants';
 import { SymbolPickerComponent } from '../symbol-picker/symbol-picker.component';
 import { RelStrBaseComponent } from '../../../rel-str-base/rel-str-base.component';
 import { resolveExistingRanksData } from '../../../utils/rs-calc-utils';

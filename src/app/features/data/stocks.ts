@@ -4,7 +4,7 @@ import { MSFT, MSFT_DATA, QQQ_MSFT_TARGET_RANKS_WITH_COLORS } from "./MSFT";
 import { NVDA, NVDA_DATA, QQQ_NVDA_TARGET_RANKS_WITH_COLORS } from "./NVDA";
 import { QQQ, QQQ_DATA } from "./QQQ";
 import { QQQ_TSLA_TARGET_RANKS_WITH_COLORS, TSLA, TSLA_DATA } from "./TSLA";
-import { BaselineTargetRankDatum, StockData, StockDatum } from "../common/interfaces-rs";
+import { BaselineTargetRankDatum, StockData, StockDatum } from "../shared/types/rs.interfaces";
 
 export const ALL_STOCK_DATA: StockData[] = [AMAT_DATA, AAPL_DATA, MSFT_DATA, NVDA_DATA, QQQ_DATA, TSLA_DATA]
 

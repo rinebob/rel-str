@@ -1,4 +1,4 @@
-import { StockDatum, StockData, BaselineTargetRankDatum } from "../common/interfaces-rs";
+import { StockDatum, StockData, BaselineTargetRankDatum } from "../shared/types/rs.interfaces";
 
 export const AMAT: StockDatum[] = [
     // {"07/05/23": 142.26},

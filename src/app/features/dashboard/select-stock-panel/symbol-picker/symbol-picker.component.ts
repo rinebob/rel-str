@@ -3,7 +3,7 @@ import { combineLatest } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { SYMBOL_DATA } from '../../../../../assets/data/picker-table-data';
-import { Company, FormMode } from '../../../common/interfaces-rs';
+import { Company, FormMode } from '../../../shared/types/rs.interfaces';
 import { RelStrBaseComponent } from '../../../rel-str-base/rel-str-base.component';
 
 @Component({

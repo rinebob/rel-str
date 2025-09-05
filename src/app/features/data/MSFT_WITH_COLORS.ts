@@ -1,4 +1,4 @@
-import { MockCandleWithRSColor } from "../common/interfaces-rs";
+import { MockCandleWithRSColor } from "../shared/types/rs.interfaces";
 
 export const MSFT_WITH_COLORS: MockCandleWithRSColor[] = [
         {

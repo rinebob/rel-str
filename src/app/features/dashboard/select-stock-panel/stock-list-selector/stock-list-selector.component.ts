@@ -5,8 +5,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 
-import { FormMode, RelStrStockList } from '../../../common/interfaces-rs';
-import { CREATE_TEXT, FORM_MODE_CREATE_TEXT, FORM_MODE_EDIT_TEXT } from '../../../common/constants-rs';
+import { FormMode, RelStrStockList } from '../../../shared/types/rs.interfaces';
+import { CREATE_TEXT, FORM_MODE_CREATE_TEXT, FORM_MODE_EDIT_TEXT } from '../../../shared/constants/rs.constants';
 import { RelStrBaseComponent } from '../../../rel-str-base/rel-str-base.component';
 
 @Component({

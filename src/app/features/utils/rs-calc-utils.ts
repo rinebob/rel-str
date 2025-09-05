@@ -1,5 +1,5 @@
-import { BASELINE_EQUITY_SYMBOLS, COMPARISON_MATRICES } from "../common/constants-rs";
-import { BaselineTargetRankDatum, CalculationData, CalculationResult, Company, DataSet, DatumWithColor, RanksByDate, RanksDataWithColors, RelStrStockList, RelStrTableData, StockData, StockDatum, StringNumberObject } from "../common/interfaces-rs";
+import { BASELINE_EQUITY_SYMBOLS, COMPARISON_MATRICES } from "../shared/constants/rs.constants";
+import { BaselineTargetRankDatum, CalculationData, CalculationResult, Company, DataSet, DatumWithColor, RanksByDate, RanksDataWithColors, RelStrStockList, RelStrTableData, StockData, StockDatum, StringNumberObject } from "../shared/types/rs.interfaces";
 
 /////////////////// START 7/10/24 ////////////////////////
 

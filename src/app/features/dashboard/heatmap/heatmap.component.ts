@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { NgStyle } from '@angular/common';
 
 import { ALL_STOCK_DATA } from '../../data/stocks';
-import { BaselineTargetRankDatum, StockData } from '../../common/interfaces-rs';
+import { BaselineTargetRankDatum, StockData } from '../../shared/types/rs.interfaces';
 import { generateRelStrTableDataSet } from '../../utils/rs-calc-utils';
 import { RelStrBaseComponent } from '../../rel-str-base/rel-str-base.component';
 import { AppRoutes } from '../../../core/common/interfaces';

@@ -58,3 +58,12 @@
   - [x] After a grace period, remove `src/app/features/chart-view/` once no references remain. (2025-09-04)
     - Utilities needed by shared components were relocated to `src/app/features/shared/utils/shared.util.ts`.
   - [ ] Ensure E2E and unit tests target `sync-chart-view` (create/update tests as needed).
+- 2025-09-04: Refactor legacy imports from `features/common` to `features/shared`.
+  - [x] Created `src/app/features/shared/types/rs.interfaces.ts` (copy of `features/common/interfaces-rs.ts`).
+  - [x] Created `src/app/features/shared/constants/rs.constants.ts` (copy of `features/common/constants-rs.ts`).
+  - [x] Updated imports across app to use `features/shared` paths (components, services, utils, data).
+  - [x] Updated `features/utils/rs.ts` to import/re-export types and helpers from `shared/types`.
+  - [ ] Manually update remaining large data files to shared imports:
+    - `src/app/features/data/QQQ_DATA.ts`: `import { OHLCDatum } from "../shared/types/rs.interfaces";`
+    - `src/app/features/data/MSFT_WITH_COLORS.ts`: `import { MockCandleWithRSColor } from "../shared/types/rs.interfaces";`
+  - [ ] Verify build passes and run tests after refactor.

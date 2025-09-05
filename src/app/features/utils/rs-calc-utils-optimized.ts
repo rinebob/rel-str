@@ -1,5 +1,5 @@
-import { COMPARISON_MATRICES } from "../common/constants-rs";
-import { BaselineTargetRankDatum, StringNumberObject } from "../common/interfaces-rs";
+import { COMPARISON_MATRICES } from "../shared/constants/rs.constants";
+import { BaselineTargetRankDatum, StringNumberObject } from "../shared/types/rs.interfaces";
 
 /**
  * Optimized version of RS calculation functions from rs-calc-utils.ts
