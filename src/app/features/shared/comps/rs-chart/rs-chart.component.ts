@@ -16,9 +16,9 @@ import {
     ZoomService,
 } from '@syncfusion/ej2-angular-charts';
 
-import { CandleWithRSColor, OHLCDatum, RsChartConfig, RsPaneDatum } from '../../common/interfaces-rs';
-import { MAIN_CHART_INITIAL_DAYS, SMALL_CHART_INITIAL_DAYS } from '../../common/constants-rs';
-import { toTimestamp, autoscaleYAxis, autoscaleYAxisForRange, getXExtents } from '../utils/shared.util';
+import { CandleWithRSColor, OHLCDatum, RsChartConfig, RsPaneDatum } from '../../../shared/types/rs.interfaces';
+import { MAIN_CHART_INITIAL_DAYS, SMALL_CHART_INITIAL_DAYS } from '../../../shared/constants/rs.constants';
+import { toTimestamp, autoscaleYAxis, autoscaleYAxisForRange, getXExtents } from '../../utils/shared.util';
 
 @Component({
     selector: 'rs-chart',
