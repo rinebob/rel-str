@@ -30,5 +30,17 @@ module.exports = {
     "import/no-unresolved": 0,
     "indent": ["error", 2],
     "linebreak-style": ["error", "windows"],
+    // Relax overly strict default from google config
+    "max-len": [
+      "error",
+      {
+        code: 120,
+        tabWidth: 2,
+        ignoreUrls: true,
+        ignoreStrings: true,
+        ignoreTemplateLiterals: true,
+        ignoreComments: true,
+      },
+    ],
   },
 };
