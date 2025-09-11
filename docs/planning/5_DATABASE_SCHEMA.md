@@ -69,6 +69,27 @@ Firestore data will be organized into Collections, containing Documents, which c
             * `postCloseRSValue` (number - The calculated RS value for this day using market close data)
             * `postCloseTimestamp` (timestamp - Indicates when the post-close value for this day was calculated)
 
+* **Normalized OHLCV Time Series (Provider-Interval):**
+    * Internal canonical storage for upstream bars to support efficient reads and RS calculations.
+    * Path: `symbol-data/{SYMBOL}/time-series/{provider-interval}/years/{YYYY}`
+    * Provider-interval IDs (initial): `av-daily-adjusted` (MVP). Weekly/monthly to be added later.
+    * Bar document shape (compact): `{ t:number, o:number, h:number, l:number, c:number, v:number, d?:string, ch?:number, cp?:number }`
+    * The top-level `time-series/{provider-interval}` doc stores metadata, e.g., `latestBarTimestamp`.
+
+* **RS Time Series (Separate Pre-Close and Post-Close):**
+    * Store RS values as two distinct series per symbol for historical comparison.
+    * Paths:
+        * Pre-close: `symbol-data/{SYMBOL}/rs-series/rs-preclose/years/{YYYY}`
+        * Post-close: `symbol-data/{SYMBOL}/rs-series/rs-postclose/years/{YYYY}`
+    * Document per day: `{ t:number, rs:number, d?:string, meta?:{ baseline:string, lookback:number, calcAt:string } }`
+    * A small summary map can be mirrored to `symbols/{SYMBOL}.latestData` for fast heatmap reads.
+
+### Seeding Behavior
+* When a symbol is added, seed approximately the last 2 months of data using post-close/EOD only:
+    * Populate OHLCV `av-daily-adjusted` bars for the period.
+    * Compute and write RS to the `rs-postclose` series for those dates.
+    * `rs-preclose` series will begin populating on subsequent trading days during the pre-close window.
+
 * **`appConfig` Collection:**
     * Stores application-wide configuration documents.
     * Document ID: A fixed, predefined ID (e.g., "settings", "config").
@@ -89,6 +110,8 @@ Firestore requires indexes for most queries that involve filtering or ordering d
 * Retrieving a user's payment history by date within the `paymentHistory` subcollection (requires index on `date` field).
 * Retrieving a specific symbol document by its ticker symbol (document ID lookup is indexed automatically).
 * Retrieving historical data for a specific symbol within a date range from the `historicalData` subcollection, ordered by date (requires index on `date` field in the subcollection).
+* Retrieving OHLCV bars from `symbol-data/{SYMBOL}/time-series/{provider-interval}/years/{YYYY}` by `t` in a range (collection group index on `years/*`).
+* Retrieving RS points from `symbol-data/{SYMBOL}/rs-series/{series}/years/{YYYY}` by `t` in a range (collection group index on `years/*`).
 * Querying the top-level `symbols` collection based on fields within the `latestData` map, such as filtering by `latestData.postCloseRSValue` or `latestData.calcTimestamp` (e.g., find all symbols with latest post-close RS > 80, or find symbols with stale data). This is feasible and efficient with proper indexing defined on the specific subfields (`latestData.postCloseRSValue`, `latestData.calcTimestamp`, etc.). Composite indexes might be required for queries combining multiple fields from `latestData`.
 * Filtering the `users` collection by `subscriptionStatus`.
 
@@ -101,7 +124,7 @@ Understanding the primary data access patterns helps optimize the schema and que
     2.  Perform multiple parallel reads to fetch the `latestData` map from the corresponding documents in the top-level `symbols` collection for each ticker in the `selectedTickers` array. The frontend will then use the appropriate RS value (`preCloseRSValue` or `postCloseRSValue`) and timestamp (`preCloseTimestamp` or `postCloseTimestamp`) from the `latestData` map based on the time of day or data availability.
 * **Chart Display:**
     1.  Fetch the specific symbol document from the `symbols` collection to get `latestData` and other symbol info.
-    2.  Query the `historicalData` subcollection for that symbol, filtering by a date range and ordering by date. The frontend chart component will receive documents containing both `preCloseRSValue` and `postCloseRSValue` for each historical day and can render them as needed (e.g., plotting both lines, plotting only post-close, coloring bars based on post-close).
+    2.  Query the normalized OHLCV provider-interval series for bars in range; query RS series (`rs-preclose` and/or `rs-postclose`) for the same range to render overlays. Alternatively, use `historicalData` where maintained, but RS series is the source of truth going forward.
 * **Scheduled Fetch/Calc (Backend):**
     1.  Read the `masterSymbolList` and configuration (`rsLookbackDays`, etc.) from the `appConfig` collection.
     2.  Read necessary historical OHLCV data from `historicalData` subcollections across various symbols for calculations (lookback period).

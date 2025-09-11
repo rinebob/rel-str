@@ -22,3 +22,7 @@ This document lists the key third-party libraries anticipated for use in the Min
 * **SMS Sending Library (Future):** A library for the chosen SMS provider if text notifications are implemented later (e.g., Twilio).
 * **Testing Framework:** Jest (for unit and integration tests).
 * **Data Manipulation (Minimal):** Native JavaScript/TypeScript will be preferred for data manipulation. A library like `lodash` will only be considered if specific, complex utility functions are frequently needed and not easily implementable with native code.
+* **Authentication & Google Cloud**
+  * google-auth-library (Node.js)
+    * Purpose: Obtain Google OIDC ID tokens for server-to-server calls where required (e.g., partner endpoints in cross-project contexts).
+    * Not used by the Angular frontend.

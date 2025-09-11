@@ -27,7 +27,7 @@
 * User Authentication (Email/Password, Google Sign-In, Logout, Password Reset).
 * User Profile and Preferences (basic management).
 * Personalized Stock List Management (Add/Remove tickers) with a seed list of approximately 500 predefined symbols.
-* Daily Scheduled Data Fetching (~500 symbols) from a third-party API (OHLCV).
+* Daily Scheduled Data Fetching (~500 symbols) via backend ingestion pipeline (Alpha Vantage -> normalized Firestore). The frontend never calls external market data providers directly.
 * Daily Relative Strength Calculation (based on a configurable lookback period, defaulting to 1-year for MVP) for fetched symbols against a user-defined baseline.
 * Storage of daily OHLCV summaries and calculated RS values, along with a calculation timestamp, in Firestore.
 * Display of the Relative Strength Heatmap for the user's selected tickers, with color-coding, RS values, symbols, and data freshness indicators.
@@ -163,11 +163,12 @@
 * User retention rates (monthly/quarterly).
 * Positive feedback from early users (qualitative).
 * Reliability of daily data processing (successful fetch and calculation rate).
+* Data freshness SLA adherence (e.g., pre-close RS available by 3:30 PM ET; post-close RS available by 4:30 PM ET ± tracked latency).
 
 ## 7. Assumptions and Risks
 
 * **Assumptions:**
-    * A reliable and cost-effective third-party stock data API is available that provides historical and daily OHLCV data for the target universe of symbols with sufficient accuracy and update frequency.
+    * Primary market data flows through our partner pipeline: Alpha Vantage as upstream provider -> normalized Firestore storage -> app consumption via Firestore and callable functions (no direct frontend calls to third parties).
     * Users understand the basic concept of relative strength as used in the application or are willing to learn from the provided documentation.
     * The chosen technical infrastructure (Firebase, Firestore, Cloud Functions) can support the daily data fetching, calculations, storage, and user load for the MVP scope efficiently and cost-effectively.
     * The chosen payment gateway (Stripe/PayPal) integration is straightforward and reliable.

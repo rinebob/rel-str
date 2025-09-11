@@ -5,7 +5,7 @@
 
 ## UI/UX: Symbol Input & Data Fetch
 - [x] Scaffold `SymbolInputComponent` (CLI-style files, empty class/template/spec/style)
-- [ ] Implement logic/UI/styles for `SymbolInputComponent` (validation, emit, etc)
+- [x] Implement logic/UI/styles for `SymbolInputComponent` (validation, emit, etc)
 - [ ] Add UI to trigger data fetch for entered symbols
 - [ ] Show loading and error states for API requests
 
@@ -53,7 +53,7 @@
 - 2025-09-04: Deprecate legacy `chart-view` in favor of `sync-chart-view`.
   - [x] Route `/chart` now redirects to `/sync-chart` in `src/app/core/core-routes.ts`.
   - [x] Updated internal navigation to prefer `sync-chart` in `src/app/core/common/constants.ts`.
-  - [x] Heatmap navigation now routes to `sync-chart` instead of `chart` in `src/app/features/dashboard/heatmap/heatmap.component.ts`.
+  - [x] Heatmap navigation now routes to `sync-chart` instead of `chart` in `src/app/core/common/heatmap/heatmap.component.ts`.
   - [x] Added visible deprecation banner and JSDoc `@deprecated` to `chart-view` component.
   - [x] After a grace period, remove `src/app/features/chart-view/` once no references remain. (2025-09-04)
     - Utilities needed by shared components were relocated to `src/app/features/shared/utils/shared.util.ts`.
@@ -67,3 +67,7 @@
     - `src/app/features/data/QQQ_DATA.ts`: `import { OHLCDatum } from "../shared/types/rs.interfaces";`
     - `src/app/features/data/MSFT_WITH_COLORS.ts`: `import { MockCandleWithRSColor } from "../shared/types/rs.interfaces";`
   - [ ] Verify build passes and run tests after refactor.
+- 2025-09-10: Transition planning to live partner data pipeline (Alpha Vantage -> normalized Firestore -> app consumption).
+  - [ ] Update planning docs to reflect partner endpoint `partnerTimeSeriesV2` and prod URL.
+  - [ ] Document RS calculation in Cloud Functions with separate pre-close and post-close series; seed last ~2 months (post-close only) on symbol add.
+  - [ ] Clarify frontend uses Firestore + callable functions only (no direct partner endpoint calls).

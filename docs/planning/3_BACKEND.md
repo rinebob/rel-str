@@ -20,7 +20,7 @@ This document outlines the backend architecture, key technologies, and core feat
 * **Secret Management:** Firebase Environment Configuration / Google Cloud Secret Manager
     * *Purpose:* To securely store and manage sensitive information such as third-party API keys and service credentials, keeping them separate from the codebase.
 * **External APIs:**
-    * Third-party Stock Data API (e.g., Alphavantage - specific provider TBD)
+    * Savant Partner Time Series API (`partnerTimeSeriesV2`) as the sole market data source consumed by rel-str (server-to-server, Google OIDC). rel-str does not call Alpha Vantage directly.
     * Payment Gateway APIs (Stripe, PayPal)
     * SMS Gateway API (Future consideration, part of the stack but not MVP core)
 * **File Storage:** Firebase Cloud Storage (Potential, minimal requirement for MVP based on current features)
@@ -32,12 +32,12 @@ The backend will implement the following core features, primarily through orches
 
 * **User Management:** Implement all standard Firebase Authentication flows (signup, login, logout, password reset). Manage user profiles, preferences, and personalized stock lists within Firestore, secured by Firestore Rules and Cloud Function checks.
 * **Scheduled Data Fetching:** A Cloud Function, reliably triggered daily by Google Cloud Scheduler at a specific time relative to market close, will:
-    * Fetch historical (as needed for calculations) and current-day OHLCV data for a predefined universe of approximately 500 ticker symbols from the chosen third-party stock data API.
-    * Store the raw OHLCV data or relevant summaries in Firestore for use in calculations.
+    * Fetch historical (as needed for calculations) and current-day OHLCV bars from savant's Partner Time Series API (`partnerTimeSeriesV2`) for the target symbol universe.
+    * Store the required OHLCV snapshots needed for RS calculations and UI (as needed) in rel-str Firestore, following our normalized series conventions where applicable.
 * **Relative Strength Calculation:** A separate Cloud Function, triggered automatically after the daily data fetch is complete, will:
-    * Retrieve necessary historical OHLCV data and user-defined parameters (baseline ticker, lookback period - defaulting to 1-year) from Firestore.
+    * Retrieve necessary historical OHLCV input (fetched from savant partner endpoint) and user-defined parameters (baseline ticker, lookback period - defaulting to 1-year) from our Firestore.
     * Perform the core Relative Strength calculation logic for each of the ~500 fetched tickers against the specified baseline.
-    * Persist the latest calculated daily RS values, along with updated OHLCV summaries (open, high, low, close, volume), calculation parameters, and a calculation timestamp to Firestore for each ticker.
+    * Persist RS results for both pre-close and post-close as separate time series (see Database Schema) in rel-str Firestore, and update a top-level summary for fast heatmap reads.
 * **User Data Provisioning:** Implement efficient Cloud Functions callable from the frontend to retrieve:
     * The latest daily RS values and OHLCV summaries for a user's currently selected stock list, optimized for rapid display in the heatmap upon user login or list changes.
     * Historical OHLCV and calculated RS data for a specific ticker over a requested date range, necessary for rendering the detailed chart view.
@@ -46,11 +46,15 @@ The backend will implement the following core features, primarily through orches
 * **Payment Processing Integration:** Cloud Functions will handle secure interactions with the chosen payment gateway (Stripe/PayPal), including initiating payment requests, processing webhook notifications for subscription events (e.g., successful payment, subscription status changes), and securely updating user subscription status in Firestore.
 * **Admin Functions (Restricted):** Implement Cloud Functions accessible only to users with an 'admin' role, allowing for administrative tasks such as manually triggering the daily data fetch process (for testing or recovery) and manually updating user subscription statuses.
 * **Providing Schedule Information:** A mechanism (likely a simple Cloud Function or direct Firestore read) to provide the frontend with the timestamp or countdown until the next scheduled daily data fetch, used for the frontend countdown timer.
+* **Partner Endpoint Consumption (rel-str -> savant):** rel-str Cloud Functions consume savant's read-only Partner Time Series API for market data.
+    * Endpoint: `partnerTimeSeriesV2` (prod): https://partnertimeseriesv2-lsluydmucq-uc.a.run.app
+    * Auth: Google OIDC ID tokens with allowlisted service accounts.
+    * Note: The Angular frontend never calls this endpoint; only rel-str Cloud Functions do. rel-str does not call Alpha Vantage or upstream Firestore directly.
 
 ## 4. Architecture & Structure
 
 * **Serverless First:** The architecture is fundamentally serverless, leveraging Cloud Functions for event-driven or on-demand execution, eliminating the need to manage dedicated servers for most backend logic.
-* **Database Interaction:** All data access will go through Firestore, using the Firebase Admin SDK within Cloud Functions for secure read/write operations that bypass standard security rules but require elevated permissions. Firestore Security Rules will be strictly defined for direct frontend access to protect user data (e.g., user can only read/write their own profile/lists).
+* **Database Interaction:** rel-str Cloud Functions use Firebase Admin SDK for secure read/write to our Firestore. Market data inputs come from savant's Partner Time Series API, not directly from Alpha Vantage or upstream Firestore. Firestore Security Rules will be strictly defined for direct frontend access to protect user data (e.g., user can only read/write their own profile/lists).
 * **External API Integration:** Interactions with third-party APIs (stock data, payment gateways) will be encapsulated within Cloud Functions. API keys and secrets will be managed securely using Firebase Environment Configuration or Google Cloud Secret Manager, accessed only by authorized functions. External API calls will include appropriate error handling and retry logic.
 * **Modular Functions:** Cloud Functions will be organized into logical units based on their functionality (e.g., `dataFetcher`, `rsCalculator`, `userDataApi`, `paymentProcessor`, `adminTasks`) to improve maintainability and allow for independent deployment and scaling.
 * **Error Handling & Logging:** Implement robust error handling within Cloud Functions to catch issues during data fetching, calculations, database operations, and external API calls. Critical errors will be logged to Google Cloud Logging. Generic error responses will be sent to the frontend where appropriate to avoid exposing sensitive backend details. Automated retries will be implemented for transient external API errors.
@@ -64,12 +68,13 @@ The backend will implement the following core features, primarily through orches
 * **Performance Optimization:** Optimize Cloud Function execution times, particularly the RS calculation process, which might be computationally intensive for ~500 symbols. This involves optimizing the algorithm, ensuring efficient data reads from Firestore, allocating appropriate memory/CPU, and minimizing cold starts for frequently called functions (e.g., user data provisioning). Design Firestore queries to be efficient and minimize document reads.
 * **Security:** Implement comprehensive security measures including rigorous Firestore Security Rules to restrict direct client access, thorough input validation and sanitization in Cloud Functions, secure management of API keys, and proper authentication/authorization checks within functions for all user-triggered actions and admin tasks.
 * **Scalability:** Rely on Firebase and GCP's built-in automatic scaling for Cloud Functions and Firestore, which is expected to handle the projected user load for the MVP phase without manual intervention.
+* **Refresh Cadence & TTL:** Daily cadence at pre-close and post-close (e.g., 3:30 PM ET and 4:30 PM ET). After refresh, write metadata including `lastUpdated`, `ttlSeconds`, and `nextRefreshAt`. Track end-to-end latency for SLA visibility and future tuning.
 
 ## 6. Third-Party Integrations
 
 This backend relies on integrating with the following external services:
 
-* **Stock Data Service:** Integration via API calls from Cloud Functions to fetch historical and daily stock price and volume data. Specific provider (e.g., Alphavantage) to be confirmed based on data availability, reliability, and cost.
+* **Market Data Service:** Integration via savant's Partner Time Series API (`partnerTimeSeriesV2`) to fetch normalized daily OHLCV time series used for RS calculations and UI.
 * **Payment Processors:** Integration with Stripe and/or PayPal using their respective SDKs/APIs, primarily within secure Cloud Functions, to handle subscription payments, payment intents, and process webhook notifications for subscription status changes.
 * **SMS Gateway (Future):** Potential future integration for features like notifications, which would also be handled via API calls from Cloud Functions.
 

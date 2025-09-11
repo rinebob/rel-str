@@ -34,6 +34,11 @@ The frontend will interact with Firebase Cloud Functions for logic that requires
     16. `GetUserDataForHeatmap`: Callable Cloud Function, triggered efficiently immediately upon user login and potentially when the user's stock list changes, to load the user's selected tickers along with their latest daily RS/OHLCV summary data (`latestData` map) from Firestore for heatmap display. This function is optimized for reading multiple documents efficiently.
     17. `QueryTickersByThreshold`: Callable Cloud Function invoked by the frontend to perform server-side filtering or highlighting of tickers based on user-defined criteria related to their latest RS values (e.g., "show all tickers with RS > 80"). This function reads the relevant latest data from Firestore and applies the filter logic before returning the subset of tickers/data to the frontend. This function will implement explicit backend rate limiting.
     18. `ValidateTickerSymbol`: Callable Cloud Function invoked to validate if a user-entered string (e.g., when adding a ticker to their list) is a recognized and supported ticker symbol within the application's universe, typically by checking against the master symbol list managed on the backend.
+* **Partner Endpoint (Server-to-Server ONLY; not called from the Angular app):**
+    * HTTPS GET `partnerTimeSeriesV2` (prod): https://partnertimeseriesv2-lsluydmucq-uc.a.run.app
+    * Auth: Google OIDC ID token with allowlisted service account emails (env var `ALLOWED_SERVICE_ACCOUNT_EMAILS`).
+    * Query params: `symbol` (required), `interval` (DAILY|WEEKLY|MONTHLY), optional `range|from|to|limit`.
+    * Purpose: External partner access to normalized time series stored in Firestore. Our app backend reads Firestore directly for app features.
 * **Payment Processing:**
     19. `InitiatePayment`: Callable Cloud Function invoked to securely initiate a payment flow (e.g., setting up a subscription via Stripe/PayPal). This function interacts with the payment gateway's SDKs/APIs on the backend to create payment intents or checkout sessions and returns necessary information to the frontend to complete the payment process securely.
     20. `ProcessPaymentWebhook`: HTTPS Cloud Function to receive and process webhooks from the payment gateway to confirm payments and update user subscription status.

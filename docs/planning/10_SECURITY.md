@@ -27,7 +27,14 @@ This document outlines the security strategy and considerations for the Minimum 
 * **Injection Vulnerabilities:** User input will be validated and sanitized in Cloud Functions to mitigate injection risks. Firebase SDK methods should be used correctly for database interactions.
 * **Information Leakage:** Generic error messages will be returned to the frontend, with detailed errors logged securely on the backend.
 
-## 5. Vulnerability Management
+## 5. Partner Endpoint Security (External Integrations)
+
+* Auth method: Google OIDC ID tokens minted for the function URL (audience = exact URL).
+* Allowlist: Environment variable `ALLOWED_SERVICE_ACCOUNT_EMAILS` controls which service account emails are accepted.
+* Header: `Authorization: Bearer <id_token>`; token must include an `email` claim matching the allowlist.
+* Angular app does not call partner endpoints; only backend-to-backend integrations use this flow.
+
+## 6. Vulnerability Management
 
 * **Dependency Management:** Regularly update project dependencies (npm packages) and use tools like `npm audit` to identify and address known security vulnerabilities in libraries.
 * **Staying Informed:** Monitor security advisories and best practices for relevant technologies (Angular, Node.js, Firebase).
