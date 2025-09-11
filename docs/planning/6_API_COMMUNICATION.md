@@ -34,6 +34,32 @@ The frontend will interact with Firebase Cloud Functions for logic that requires
     16. `GetUserDataForHeatmap`: Callable Cloud Function, triggered efficiently immediately upon user login and potentially when the user's stock list changes, to load the user's selected tickers along with their latest daily RS/OHLCV summary data (`latestData` map) from Firestore for heatmap display. This function is optimized for reading multiple documents efficiently.
     17. `QueryTickersByThreshold`: Callable Cloud Function invoked by the frontend to perform server-side filtering or highlighting of tickers based on user-defined criteria related to their latest RS values (e.g., "show all tickers with RS > 80"). This function reads the relevant latest data from Firestore and applies the filter logic before returning the subset of tickers/data to the frontend. This function will implement explicit backend rate limiting.
     18. `ValidateTickerSymbol`: Callable Cloud Function invoked to validate if a user-entered string (e.g., when adding a ticker to their list) is a recognized and supported ticker symbol within the application's universe, typically by checking against the master symbol list managed on the backend.
+* **Pair List Management (Pair Registry):**
+  * `RegisterPairs({ listId:string, baseline:string, symbols:string[] })` → `{ registered:string[] }`
+    * Upserts `pairRegistry/{BASELINE}_{SYMBOL}` for each symbol; may increment `refCount`.
+  * `UnregisterPairs({ listId:string, baseline:string, symbols:string[] })` → `{ unregistered:string[] }`
+    * Decrements `refCount` and deletes entries when zero.
+  * Used by `SelectStockPanel` to keep the registry aligned with user-created lists of pairs. Popular pairs appear in many lists but are computed once.
+* **Signals (Current Run):**
+  * `GetCurrentSignals()`
+    * Returns the full set of canonical signals produced in the most recent completed RS run (across active baselines).
+    * Response:
+      ```json
+      {
+        "runAt": 1736726400000,
+        "items": [
+          { "baseline": "SPY", "symbol": "MSFT", "t": 1736726400000, "type": "buy", "source": "post", "rs": 78.4 },
+          { "baseline": "SPY", "symbol": "NVDA", "t": 1736726400000, "type": "sell", "source": "post", "rs": 62.1 },
+          { "baseline": "XLF", "symbol": "BAC", "t": 1736726400000, "type": "buy", "source": "post", "rs": 70.2 }
+        ]
+      }
+      ```
+    * Notes:
+      - Returns canonical signals (active baselines) written by the scheduler for the latest completed run only; expected list size is small (e.g., <= 50).
+      - Frontend performs all filtering client-side (baseline, type, source).
+      - Uses the latest completed run id/timestamp recorded by the scheduler (e.g., a `runs` record or companion to `appConfig`).
+      - Rate-limited to protect backend and ensure fair usage.
+      - Auth: standard app auth (future); for MVP may be public read if policies allow.
 * **Partner Endpoint (Server-to-Server ONLY; not called from the Angular app):**
     * HTTPS GET `partnerTimeSeriesV2` (prod): https://partnertimeseriesv2-lsluydmucq-uc.a.run.app
     * Auth: Google OIDC ID token with allowlisted service account emails (env var `ALLOWED_SERVICE_ACCOUNT_EMAILS`).
@@ -47,6 +73,59 @@ The frontend will interact with Firebase Cloud Functions for logic that requires
     22. `UpdateUserSubscription`: Callable Cloud Function (admin-only) to manually change a user's subscription status in Firestore.
 * **Application Configuration & Schedule Info:**
     23. `GetAppSchedule`: Callable Cloud Function or a direct read from the `appConfig` Firestore document to provide the frontend with information about the next scheduled daily data fetch time, used for the countdown timer.
+* **Backtest:**
+  * `GetBacktestResults({ baseline:string, symbol:string, interval:'DAILY'|'WEEKLY'|'MONTHLY', from?:number, to?:number, rules:Array<{ id:string, scope:'baseline'|'target'|'both', type:string, params:Record<string, number|string|boolean> }>, thresholds?:{ buy:number, sell:number } })`
+    * Returns inputs and computed summary needed for interactive backtesting in the frontend. TA metrics are fetched server-side from SavantAPI (which sources from AV when available).
+    * Response:
+      ```json
+      {
+        "baseline": "SPY",
+        "symbol": "MSFT",
+        "interval": "DAILY",
+        "from": 1704067200000,
+        "to": 1735603200000,
+        "rsSeries": [ { "t": 1712016000000, "rs": 74.2 } ],
+        "ohlcv": [ { "t": 1712016000000, "o": 1, "h": 2, "l": 0.5, "c": 1.5, "v": 123456 } ],
+        "ta": {
+          "EMA20": [ { "t": 1712016000000, "value": 150.2 } ],
+          "EMA50": [ { "t": 1712016000000, "value": 148.2 } ],
+          "EMA200": [ { "t": 1712016000000, "value": 130.2 } ],
+          "RSI": [ { "t": 1712016000000, "value": 52.1 } ]
+        },
+        "signals": [ { "t": 1712016000000, "type": "buy", "source": "post", "rs": 78.4 } ],
+        "metrics": {
+          "totalSignals": 42,
+          "wins": 24,
+          "losses": 18,
+          "winPct": 57.14
+        }
+      }
+      ```
+    * Notes:
+      - TA coverage MVP: EMA(20/50/200), RSI.
+      - Default: interval Daily, lookback 1 year; user may choose Weekly/Monthly; max lookback TBD.
+      - The callable delivers RS, OHLCV, and TA series so the frontend can apply AND-composed rule combinations interactively without round-trips.
+      - SavantAPI TA endpoints are WIP; this callable surfaces TA once available. Frontend never calls partner endpoints directly.
+      - Rate-limit to protect upstreams and consider caching.
+  * `GetClientSettings({ anonId:string })` → `{ settings: SettingsDTO, updatedAt:number }`
+  * `SaveClientSettings({ anonId:string, settings: SettingsDTO })` → `{ ok:true, updatedAt:number }`
+  * `SettingsDTO` (example payload):
+    ```json
+    {
+      "timeframe": "DAILY",
+      "rsThresholds": { "buy": 70, "sell": 30 },
+      "signalScope": "post",
+      "backtest": { "interval": "DAILY", "lookbackDays": 365, "autoLoadLastPreset": false },
+      "heatmap": { "defaultSort": "latest.post.rs", "baseline": "SPY", "sector": "XLK", "sparklines": true },
+      "chart": { "rsPane": false, "decimalPrecision": 2 },
+      "appearance": { "theme": "dark", "density": "compact" },
+      "performance": { "liveUpdates": true }
+    }
+    ```
+  * Notes:
+    - Until Auth is added, the frontend generates/stores a stable `anonId` locally and passes it to associate settings.
+    - When Auth arrives, a migration path can copy settings to a per-user document.
+    - Input validation enforced server-side; apply rate-limiting/debounce on saves from the frontend.
 
 ## 4. Backend Interactions (Cloud Functions)
 
