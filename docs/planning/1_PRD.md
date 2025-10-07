@@ -14,8 +14,7 @@
 * Visualize RS data intuitively using a color-coded heatmap for quick market scanning.
 * Provide detailed chart views with RS data overlays and simulated threshold points for individual tickers.
 * Ensure data is updated daily and presented with freshness indicators and countdown timers.
-* Implement a secure user authentication, management, and subscription system.
-* Provide a clear, efficient, and performant user experience for managing lists, viewing data, and analyzing charts.
+* Implement core data and analysis features first; full user authentication, management, and subscription are planned (Deferred/TBD) and will be layered later.
 * Launch a functional MVP rapidly to begin marketing and gather user feedback.
 * Establish a user base for future growth and feature expansion.
 * Validate the freemium monetization strategy (specifically via a paid subscription tier).
@@ -24,10 +23,10 @@
 
 ### 2.1 In Scope for MVP
 
-* User Authentication (Email/Password, Google Sign-In, Logout, Password Reset).
-* User Profile and Preferences (basic management).
-* Personalized Stock List Management (Add/Remove tickers) with a seed list of approximately 500 predefined symbols.
-* Daily Scheduled Data Fetching (~500 symbols) via backend ingestion pipeline (Alpha Vantage -> normalized Firestore). The frontend never calls external market data providers directly.
+* Settings (no Auth): Right-side drawer with global app preferences (timeframe Daily/Weekly/Monthly, RS thresholds buy/sell, default signal scope pre/post/both, heatmap defaults incl. baseline/sector and sorting, chart defaults, appearance, performance). Persisted via backend callables using an anonymous client id until Auth is added.
+* Sector Baseline selection: Dashboard sector dropdown (SPDR family + SPY) sets baseline to sector ETF and loads constituents as current list.
+* Sector Strength comparison: Dashboard button sets baseline to SPY and compares sector ETFs as targets in the heatmap.
+* Daily Scheduled Data Fetching (~500 symbols) via backend ingestion pipeline (partner pipeline -> normalized Firestore). The frontend never calls external market data providers directly.
 * Daily Relative Strength Calculation (based on a configurable lookback period, defaulting to 1-year for MVP) for fetched symbols against a user-defined baseline.
 * Storage of daily OHLCV summaries and calculated RS values, along with a calculation timestamp, in Firestore.
 * Display of the Relative Strength Heatmap for the user's selected tickers, with color-coding, RS values, symbols, and data freshness indicators.
@@ -38,11 +37,17 @@
     * Candlestick bars colored by daily RS value.
     * Ability to input buy/sell RS thresholds and visualize simulated trade points on the chart.
     * Alternative RS data visualizations on the chart (e.g., band, separate pane).
-* Dynamic filtering/highlighting of tickers in the heatmap based on user-defined RS thresholds via a backend query.
+    * Zoom/Pan/Scroll controls on the main chart.
+    * Parity with existing `sync-chart` carousel behavior: a bottom mini-chart carousel of current list pairs with click-to-load, replicated in `rs-chart` before deprecating `sync-chart`.
+* Timeframe interval selection: Daily / Weekly / Monthly for heatmap metrics and chart defaults.
+* Signals View: Dedicated `signals` route listing canonical signals from the most recent completed RS run with sorting, client-side filtering (baseline/type/source), pagination, and deep links to `rs-chart`.
+* Current Signals: Dashboard button navigates to the Signals View and loads current-run canonical signals (unfiltered list from backend; client-side filters apply).
+* Signal History (per pair): Accessible from heatmap row action; last 30 signals with filters and link to open in `rs-chart` centered on the event.
+* Backtest View (MVP): Dedicated `backtest` route to evaluate historical performance of signals for a selected pair with TA filters (EMA 20/50/200; RSI with comparator >/< 50) applied to baseline, target, or both; AND-only rule composition; chart overlays; live results table (totals, remaining, filtered, win%). Presets can be saved/loaded to Firestore without Auth via callables.
 * Real-time UI updates (heatmap, chart bar color + notification) when new daily data becomes available.
 * Display of a countdown timer until the next scheduled data fetch.
-* Integration with a payment gateway (Stripe/PayPal) for subscription (part of the signup flow).
-* Basic user roles (paid user, admin).
+* Integration with a payment gateway (Stripe/PayPal) for subscription (part of the signup flow) — Deferred/TBD.
+* Basic user roles (paid user, admin) — Deferred/TBD.
 * Public Pages: Landing page, Documentation/How to Use, Signup/Login.
 * Error handling and display of data state/freshness instead of raw errors where possible.
 * Comprehensive Unit, Integration, and E2E testing.
@@ -52,9 +57,13 @@
 * Hosting on Firebase Hosting.
 * Security measures (Authentication, Authorization via Firestore Rules/Functions, Data Security, API Security, basic Vulnerability Management).
 * Performance Optimizations for both frontend (fast loading, smooth rendering) and backend (efficient calculations, queries, minimal cold start).
-* Use of NgRx for frontend state management.
+* Use of NgRx Signal Store for frontend state management.
 * Preference for native TS/JS over third-party utilities where feasible.
 * Basic Admin capabilities: Monitor data fetch status, potentially force updates, handle errors, view/manage user accounts and subscription levels.
+* Authentication & Subscriptions (Deferred/TBD):
+  * User Authentication (Email/Password, Google Sign-In, Logout, Password Reset) — Deferred
+  * User Profile and Preferences (per-user storage) — Deferred
+  * Subscription/Payments integration (Stripe/PayPal) and basic roles (paid user, admin) — Deferred
 
 ### 2.2 Out of Scope for MVP
 
@@ -63,7 +72,7 @@
 * TradingView integration.
 * Complex social features or community interactions.
 * Advanced charting features *beyond* candlestick, volume, RS overlay/thresholds, and basic trend lines (e.g., other indicators, drawing tools, complex annotations).
-* Backtesting engine (threshold visualization is a simulation, not a full backtest).
+* Full quantitative backtesting engine (we provide an interactive Backtest View with TA filters and summary metrics, not a full engine).
 * Portfolio tracking features.
 * Push notifications (beyond potential future SMS mentioned).
 * Multiple subscription tiers beyond a single 'paid' level for the MVP core features.
@@ -97,43 +106,43 @@
 * As a **logged-in user**, I want to filter or highlight tickers on the heatmap based on specific RS threshold criteria so I can quickly find tickers meeting certain conditions.
 * As a **logged-in user**, I want to click on a ticker from the heatmap to navigate to a detailed price chart with historical RS data overlaid so I can perform deeper analysis.
 * As a **logged-in user viewing a chart**, I want to see the historical price bars colored by the daily RS value so I can visually correlate price movement and strength.
-* As a **logged-in user viewing a chart**, I want to input RS thresholds and see marks on the chart indicating simulated buy/sell points so I can evaluate potential trading strategies.
-* As a **logged-in user viewing the heatmap or a chart**, I want to see a countdown timer showing when the next data update is expected so I know when to look for fresh data.
+* As a **logged-in user viewing a chart**, I want to input RS thresholds and visualize simulated buy/sell trade points on the chart based on these thresholds crossing the RS data.
+* As a **logged-in user viewing the heatmap or a chart**, I want to see a countdown timer showing the time until the next scheduled daily data fetch.
 * As a **logged-in user viewing a chart**, if new data becomes available, I want the chart to update in real-time and be notified so I have the latest information immediately.
 * As a **visitor**, I want to see a landing page that introduces the app and its benefits so I can understand its value proposition.
 * As a **visitor or user**, I want to access documentation that explains relative strength and how to use the application's features.
 * As an **admin user**, I want to be able to manually trigger the daily data fetch process (for testing or recovery).
 * As an **admin user**, I want to be able to update a user's subscription status and view basic account information.
+* As a **logged-in user or visitor**, I want to choose a sector baseline (e.g., XLK) so I can view all sector constituents relative to that sector ETF.
+* As a **user**, I want a Sector Strength comparison to see sector ETFs vs SPY so I can quickly identify leading/lagging sectors.
+* As a **user**, I want a Current Signals view listing the latest canonical signals so I can quickly scan opportunities and jump into charts.
+* As a **user**, I want to view Signal History for a pair so I can see prior buy/sell events and navigate to them in the chart.
+* As a **user**, I want to run a Backtest on a `(baseline, target)` pair, applying TA filters (EMA20/50/200; RSI comparator >/<), and see live-updating results (totals, win/loss, win%) so I can iterate toward higher success rates.
+* As a **user**, I want a Settings drawer (gear icon) to adjust Timeframe (D/W/M), RS thresholds, signal scope, heatmap/chart defaults, appearance and performance, with immediate effect and saved for next time.
+* As a **user viewing a chart**, I want carousel navigation across my current list and zoom/pan/scroll controls in the main chart for efficient exploration.
+* As a **user (future)**, I want to create an account, log in, and manage my subscription so my settings, lists, and presets follow me across devices. (Deferred/TBD)
 
 ## 5. Requirements
 
 ### 5.1 Functional Requirements
 
-* The application must support user registration and authentication via email/password and Google Sign-In.
-* The application must allow authenticated users to manage a list of selected stock ticker symbols, persisted to their profile, chosen from a predefined universe of approx. 500 symbols.
-* Authenticated users must be able to select a baseline security from the available universe for RS calculations.
-* Authenticated users must be able to specify the lookback period for daily RS calculations (defaulting to 1-year).
-* Authenticated users must be able to specify the timeframes for columns displayed in the heatmap (e.g., 1-day, 2-day, 1-week performance).
-* The backend must automatically fetch historical and current-day OHLCV data for approximately 500 predefined symbols from a third-party API on a daily schedule relative to market close.
-* The backend must calculate the daily Relative Strength (RS) for each fetched symbol against the user's specified baseline, based on the user's specified lookback period.
-* The backend must store the latest daily OHLCV summary, calculated RS values, calculation parameters (baseline, lookback), and a calculation timestamp in Firestore for each symbol.
-* The backend must efficiently provide the latest daily RS and OHLCV summary data for a user's selected tickers to the frontend upon login and updates.
-* The backend must efficiently provide historical OHLCV and RS data for a specific ticker and date range to the frontend for charting.
-* The frontend must display a color-coded heatmap of the latest daily RS values for the user's selected tickers and chosen timeframes.
-* The heatmap must display the ticker symbol, RS value, and data freshness indicator for each cell.
-* The heatmap must support client-side sorting (e.g., by RS value, alphabetically) and visual highlighting/sorting based on data freshness.
-* The frontend must allow users to filter or highlight heatmap tickers based on user-defined RS value thresholds via a backend query.
-* The frontend must display a detailed interactive chart for a selected ticker showing candlestick price, volume, and historical RS data.
-* The chart must color candlestick bars based on the daily RS value for that period.
-* The chart must allow users to input RS thresholds and visualize simulated buy/sell trade points on the chart based on these thresholds crossing the RS data.
-* The frontend must display a persistent countdown timer showing the time until the next scheduled daily data fetch.
-* The frontend must update the UI (heatmap, chart bar color, data freshness indicators) in real-time when new daily data is available and provide a notification to the user, especially on the chart page.
-* The application must integrate with a payment gateway (Stripe/PayPal) to handle subscription payments as part of the user signup/account management flow.
-* The application must support basic 'admin' functions accessible via specific interfaces or backend tools (e.g., viewing user accounts, triggering data fetches).
+* The application must provide sector baseline selection and sector strength comparison workflows.
+* The application must allow settings and presets persistence via an anonymous client id until Auth is enabled.
+* The application must automatically fetch historical and current-day OHLCV data for the supported universe from a partner pipeline into Firestore on a schedule; the frontend only accesses Firestore and callable functions (no direct frontend calls to third parties).
+* The application must provide a color-coded heatmap of the latest daily RS values for the user's selected tickers and chosen timeframes.
+* The application must allow users to filter or highlight heatmap tickers based on user-defined RS value thresholds via a backend query, with client-side filtering for additional criteria where appropriate.
+* The application must provide a detailed interactive chart for a selected ticker showing candlestick price, volume, and historical RS data.
+* The chart must provide zoom/pan/scroll controls and a bottom mini-chart carousel for current list navigation (in `rs-chart`, achieving parity with existing `sync-chart`).
+* The application must provide a dedicated Signals View listing current-run canonical signals with sorting, filtering, pagination, and deep links to `rs-chart`.
+* The application must provide a Signal History view per pair (last 30, filters, open-in-chart).
+* The application must provide a Backtest View with TA filters (EMA20/50/200; RSI comparator >/<), AND-only rule composition, overlays, and a results table; presets can be saved/loaded via callables.
+* The application must provide a Settings drawer to adjust timeframe (D/W/M), RS thresholds, signal scope, heatmap/chart defaults, appearance, and performance; settings apply immediately and persist via callables.
 * The application must handle and display errors gracefully, showing relevant status messages or data state/freshness instead of raw technical errors where possible.
 * The application must implement backend rate limiting on user-triggered queries to protect resources.
 * The application must securely store and retrieve sensitive API keys and secrets on the backend (e.g., using environment variables, secret management).
 * The application must validate and sanitize all user input on the backend to prevent security vulnerabilities.
+* The application must support user registration and authentication via email/password and Google Sign-In. (Deferred/TBD)
+* The application must support subscription payments and basic roles once Auth is enabled. (Deferred/TBD)
 
 ### 5.2 Non-Functional Requirements
 
@@ -150,7 +159,7 @@
     * Vulnerabilities in code and dependencies must be managed proactively (regular dependency updates, monitoring for known vulnerabilities, basic response plan for incidents).
     * Cross-Site Scripting (XSS) and Cross-Site Request Forgery (CSRF) protection must be implemented.
 * **Reliability:** The daily data fetch and calculation process must be reliable, with monitoring, logging, and automated retry mechanisms in place for API failures. The application should maintain high uptime (>99.5%) for core user-facing features.
-* **Maintainability:** The codebase should be well-structured (e.g., Angular modules/components, NgRx state management, modular Cloud Functions) and documented (JSDoc for code, architectural diagrams, basic user guide) to facilitate future development, debugging, and onboarding of new developers.
+* **Maintainability:** The codebase should be well-structured (standalone Angular components with Signal Store for state management, modular Cloud Functions) and documented (JSDoc for code, architectural docs, basic user guide) to facilitate future development, debugging, and onboarding of new developers.
 * **Testability:** The application must be testable at unit, integration, and end-to-end levels, with automated tests integrated into the CI/CD pipeline to ensure code quality and prevent regressions. Test coverage targets should be defined (e.g., >80% unit test coverage for critical backend logic).
 * **Usability:** The user interface should be intuitive and easy to navigate for target users, allowing them to quickly manage lists, understand the heatmap visualization, and interact with charts without extensive training (supported by the user guide). Key actions should require minimal clicks.
 
@@ -168,7 +177,7 @@
 ## 7. Assumptions and Risks
 
 * **Assumptions:**
-    * Primary market data flows through our partner pipeline: Alpha Vantage as upstream provider -> normalized Firestore storage -> app consumption via Firestore and callable functions (no direct frontend calls to third parties).
+    * Primary market data flows through a partner pipeline into normalized Firestore storage; the app consumes data via Firestore and callable functions only (no direct frontend calls to third parties).
     * Users understand the basic concept of relative strength as used in the application or are willing to learn from the provided documentation.
     * The chosen technical infrastructure (Firebase, Firestore, Cloud Functions) can support the daily data fetching, calculations, storage, and user load for the MVP scope efficiently and cost-effectively.
     * The chosen payment gateway (Stripe/PayPal) integration is straightforward and reliable.
