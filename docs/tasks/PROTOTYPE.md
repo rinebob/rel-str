@@ -13,6 +13,10 @@
 - [ ] Indexing Plan (no code yet): signals feed (type+t), optional server-side threshold filtering on `pairs.latest.post.rs`
 - [ ] Implement `GetBacktestResults` callable (RS + OHLCV + TA series) for interactive FE filtering; MVP TA: EMA(20/50/200), RSI; defaults: Daily, 1y lookback; cap TBD
 - [ ] Implement Backtest presets callables: `SaveBacktestPreset`, `ListBacktestPresets`, `DeleteBacktestPreset` (persist in Firestore without Auth initially)
+- [ ] Implement Partner Data-Ready Webhook (HTTPS, Gen2): `POST /partner/data-ready` with Google OIDC allowlist (`ALLOWED_SERVICE_ACCOUNT_EMAILS`); validate v1 payload and return `202` on enqueue
+- [ ] Create Pub/Sub topic `rs-data-ready` and publish from webhook handler with attributes (`runId`, `version`, `phase`, `env`)
+- [ ] Implement Pub/Sub subscriber (Gen2) to process runs: compute RS for registry pairs, update `pairs/*/rs`, `pairs/*/latest`, generate canonical signals, update `runs/{runId}` status/counts
+- [ ] Write minimal Firestore log for webhook accepts at `partnerEvents/{runId}` and `runs/{runId}` (status: received/completed)
 
 ## Frontend (RS-only, baseline-aware)
 - [ ] Heatmap reads `pairs/{BASELINE}_{SYMBOL}.latest` (+ optional `latest30`); sorting/highlighting; baseline selector
@@ -47,7 +51,11 @@
 - [ ] rs-chart parity with sync-chart
   - [ ] Bottom mini-chart carousel of current list pairs with click-to-load
   - [ ] Main chart zoom/pan/scroll controls
-- [ ] Keep existing SyncFusion chart view and route for transition; add UI toggle/link
+  - [ ] Keep existing SyncFusion chart view and route for transition; add UI toggle/link
+- [ ] Replace FE static data with BE-sourced dynamic data:
+  - [ ] Wire heatmap and charts to Firestore `pairs/*/latest` and `rs` (listeners for freshness)
+  - [ ] Use callables for OHLCV/TA; remove legacy local data imports
+  - [ ] Add loading/fallbacks while initial RS backfill completes
 
 ## Auth & Lists (Deferred/TBD)
 - [ ] Auth flows (email/password, Google) [Deferred]
@@ -62,6 +70,7 @@
 ## Documentation & Polish
 - [ ] README updates (setup/run/test, env/secrets, emulator usage)
 - [ ] Update `/docs` sections completed (schema RS-only, backend registry, API callables, frontend rs-chart, signal history)
+- [ ] Add link to `docs/partner/savantapi-data-ready-webhook.md` and document webhook/Pub-Sub flow in planning (6_API_COMMUNICATION.md already contains high-level section)
 
 ---
 ## Discovered During Work
@@ -86,3 +95,9 @@
   - [ ] Update planning docs to reflect partner endpoint `partnerTimeSeriesV2` and prod URL.
   - [ ] Document RS calculation in Cloud Functions with separate pre-close and post-close series; seed last ~2 months (post-close only) on symbol add.
   - [ ] Clarify frontend uses Firestore + callable functions only (no direct partner endpoint calls).
+
+## Next Phase Plan (High-level)
+1) Implement Partner Data-Ready Webhook + Pub/Sub subscriber to drive backend RS updates without polling.
+2) Backfill initial RS series for registered pairs and verify `latest` mirrors.
+3) Switch frontend to dynamic reads from Firestore and callable OHLCV/TA; remove static demo data.
+4) Harden logging/alerts; validate end-to-end with staging before enabling in prod.

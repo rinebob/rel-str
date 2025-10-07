@@ -65,6 +65,41 @@ The frontend will interact with Firebase Cloud Functions for logic that requires
     * Auth: Google OIDC ID token with allowlisted service account emails (env var `ALLOWED_SERVICE_ACCOUNT_EMAILS`).
     * Query params: `symbol` (required), `interval` (DAILY|WEEKLY|MONTHLY), optional `range|from|to|limit`.
     * Purpose: External partner access to normalized time series stored in Firestore. Our app backend reads Firestore directly for app features.
+* ### Partner Notifications (Data Ready Webhook)
++
++To avoid polling on our side, SavantAPI will notify us when a data load (e.g., daily post-close) is complete.
++
++* Endpoint (Cloud Run, HTTPS): `POST https://<our-cloud-run-host>/partner/data-ready`
++* Authentication:
++  * Preferred: Google OIDC ID token audience bound to the service URL; verify issuer and the calling service account against an allowlist.
++  * Alternative: HMAC signature header `X-Savant-Signature: sha256=...` over the raw body using a shared secret in Secret Manager; verify in code and reject on mismatch.
++* Request payload (JSON):
++  ```json
++  {
++    "runId": "2025-09-11-post",
++    "phase": "post", // or "pre"
++    "intervals": ["DAILY"],
++    "symbolsUpdated": ["AAPL", "MSFT", "NVDA"],
++    "baselines": ["SPY", "XLF", "XLK"],
++    "time": 1736726400000,
++    "notes": "post-close batch complete"
++  }
++  ```
++* Response:
++  * `202 Accepted` on enqueue; processing continues asynchronously.
++  * Idempotent: repeated notifications for the same `runId` are safe.
++* Processing (high level):
++  1. Verify auth/signature and basic schema.
++  2. Record event to `partnerEvents/{runId}` (append log) and `runs/{runId}` (status: received).
++  3. Publish a message to Pub/Sub `rs-data-ready` with payload.
++  4. Subscriber Cloud Function processes the run: compute RS for registered pairs, update `pairs/*/rs`, `pairs/*/latest`, generate canonical signals, update `runs/{runId}` (status: completed, counts).
++* Retries and Idempotency:
++  * Cloud Run returns 2xx only after enqueuing; any 5xx triggers SavantAPI retry.
++  * Deduplicate by `runId`; all writes should be upserts conditioned on `runId` where applicable.
++* Security:
++  * Enforce allowlist of service accounts for OIDC, or verify HMAC.
++  * Rate limit via Cloud Armor (optional) and request size limits.
++  * Log all verification failures with redaction.
 * **Payment Processing:**
     19. `InitiatePayment`: Callable Cloud Function invoked to securely initiate a payment flow (e.g., setting up a subscription via Stripe/PayPal). This function interacts with the payment gateway's SDKs/APIs on the backend to create payment intents or checkout sessions and returns necessary information to the frontend to complete the payment process securely.
     20. `ProcessPaymentWebhook`: HTTPS Cloud Function to receive and process webhooks from the payment gateway to confirm payments and update user subscription status.
