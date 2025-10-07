@@ -1,1 +1,47 @@
 /* symbol-input styles */
+
+@use '../../styles/_mixins-global.scss' as mixins;
+@use '../../styles/_variables-global.scss' as vars;
+
+.symbol-input {
+  @include mixins.flexboxLayout(row, flex-start, center);
+  gap: mixins.rem(12);
+  padding: mixins.rem(8);
+  background: var(--theme-surface);
+  color: var(--theme-on-surface);
+
+  .row {
+    @include mixins.flexboxLayout(column, flex-start, flex-start);
+    gap: mixins.rem(4);
+  }
+
+  label {
+    font-size: mixins.rem(14);
+  }
+
+  input[type='text'] {
+    min-width: mixins.rem(320);
+    padding: mixins.rem(8) mixins.rem(12);
+    border: 1px solid #ccc;
+    border-radius: mixins.rem(4);
+    background: var(--theme-surface);
+    color: var(--theme-on-surface);
+  }
+
+  .actions {
+    @include mixins.flexboxLayout(row, flex-start, center);
+  }
+
+  button {
+    @include mixins.rsButtonOne();
+  }
+
+  .hint {
+    margin: 0;
+    font-size: mixins.rem(12);
+
+    &.error {
+      color: #b00020;
+    }
+  }
+}

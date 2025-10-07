@@ -1,2 +1,20 @@
-<p>symbol-input works!</p>
+<form class="symbol-input" (submit)="onSubmit()" novalidate>
+  <div class="row">
+    <label for="symbols">Symbols</label>
+    <input id="symbols" type="text" [formControl]="symbolsCtrl" placeholder="e.g. AAPL, MSFT, NVDA" autocomplete="off" />
+  </div>
 
+  @if (symbolsCtrl.touched && symbolsCtrl.invalid) {
+    <p class="hint error">Please enter one or more ticker symbols separated by commas or spaces.</p>
+  }
+
+  @if (error()) {
+    <p class="hint error">{{ error() }}</p>
+  }
+
+  <div class="actions">
+    <button type="submit" [disabled]="loading() || symbolsCtrl.invalid">
+      @if (loading()) { Loading... } @else { Fetch Data }
+    </button>
+  </div>
+</form>
