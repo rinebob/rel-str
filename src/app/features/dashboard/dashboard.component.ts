@@ -7,9 +7,12 @@ import { SelectStockPanelComponent } from './select-stock-panel/select-stock-pan
 import { RelStrBaseComponent } from '../rel-str-base/rel-str-base.component';
 import { generateColorArray } from '../utils/color-utils';
 import { NUM_HEATMAP_MIDPOINTS } from '../../core/common/constants';
-import { BaselineTargetRankDatum, ListAction, RelStrStockList } from '../shared/types/rs.interfaces';
+import { BaselineTargetRankDatum, ListAction, RelStrStockList, Timeframe } from '../shared/types/rs.interfaces';
 import { RAW_STOCK_DATA_BY_SYMBOL } from '../data/stocks';
 import { RelStrDbService } from '../services/rel-str-db.service';
+// import { SymbolInputComponent } from '../symbol-input/symbol-input.component';
+import { RsDataService } from '../services/rs-data.service';
+import { RsDataStore } from '../store/rs-data.store';
 
 @Component({
     selector: 'rs-dashboard',
@@ -23,8 +26,10 @@ export class DashboardComponent extends RelStrBaseComponent implements OnInit {
     @ViewChild('selectStock', { static: false }) selectStockPanel!: MatDrawer;
 
     rSDbSvc = inject(RelStrDbService)
+    private readonly rsDataSvc = inject(RsDataService);
+    private readonly rsDataStore = inject(RsDataStore);
 
-	title = 'rel-str';
+    title = 'rel-str';
 
     ngOnInit() {
         this.rsCalcsStore.setHeatmapColors(generateColorArray(NUM_HEATMAP_MIDPOINTS));
@@ -36,6 +41,27 @@ export class DashboardComponent extends RelStrBaseComponent implements OnInit {
         // this.rsAppStore.addSupportedSymbolsList();
 
         this.rSDbSvc.getSupportedSymbolsList()
+    }
+
+    onSymbolsSubmit = (symbols: string[]) => {
+        // Mark loading in store
+        this.rsDataStore.setLoading(symbols);
+
+        // Fetch daily OHLC for submitted symbols
+        this.rsDataSvc.fetchOhlcForSymbols(symbols, Timeframe.DAILY).subscribe({
+            next: (result) => {
+                for (const s of symbols) {
+                    const data = result[s] ?? [];
+                    this.rsDataStore.setData(s, data);
+                }
+            },
+            error: (err: unknown) => {
+                const message = (err as Error)?.message ?? 'Failed to fetch data';
+                for (const s of symbols) {
+                    this.rsDataStore.setError(s, message);
+                }
+            }
+        });
     }
 
     initializeData() {
