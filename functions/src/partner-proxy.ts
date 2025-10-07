@@ -37,19 +37,27 @@ export const partnerProxyTest = onRequest(
       const params = new URLSearchParams({symbol, interval, range});
       const url = `${PARTNER_AUDIENCE}?${params.toString()}`;
       const resp = await client.request({url, method: "GET"});
+      logger.info("partnerProxyTest upstream success", {status: resp.status});
 
       res.status(200).json(resp.data);
     } catch (err: unknown) {
+      const anyErr = err as any;
+      const upstreamStatus = anyErr?.response?.status as number | undefined;
+      const upstreamData = anyErr?.response?.data as unknown;
       const e = err as {message?: string; code?: string; stack?: string};
       logger.error("partnerProxyTest error", {
         message: e?.message,
         code: e?.code,
         stack: e?.stack,
+        upstreamStatus,
+        upstreamDataSnippet:
+          typeof upstreamData === "string" ? upstreamData.slice(0, 500) : upstreamData,
       });
-      res.status(500).json({
+      res.status(upstreamStatus || 500).json({
         ok: false,
         error: "partnerProxyTest_failed",
         message: e?.message || "Unknown error",
+        upstreamStatus,
       });
     }
   }
