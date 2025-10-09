@@ -59,6 +59,31 @@ This backend runs on Firebase/Google Cloud and focuses on computing and serving 
 * **Native-first:** Prefer native TS/Node for performance/clarity.
 * **Sector Constituents Cache:** An optional Firestore cache (`sectors/{ETF}`) or `appConfig.sectorConfigs` stores canonical constituent lists with `updatedAt`; `GetSectorConstituents` serves clients and may refresh the cache from an upstream source.
 
+* **Directory Structure for functions/src:**
+  * Based on the documented callables, webhooks, admin functions, and utilities:
+    ```
+    functions/src/
+    ├── callables/           # User-facing callable functions (e.g., GetHeatmapData, GetPairRSData, GetBacktestResults, RegisterPairs/UnregisterPairs)
+    │   ├── rs-data.ts       # Heatmap and pair RS data callables
+    │   ├── backtest.ts      # GetBacktestResults and presets
+    │   ├── registry.ts      # RegisterPairs, UnregisterPairs
+    │   └── sectors.ts       # GetSectorConstituents
+    ├── webhooks/            # Webhook handlers (e.g., Partner Data-Ready, payment webhooks)
+    │   ├── partner-webhooks.ts  # Data-ready webhook and Pub/Sub
+    │   └── payment-webhooks.ts  # Payment processing webhooks
+    ├── admin/               # Admin-only callables
+    │   ├── scheduler.ts     # TriggerScheduledRun, UpdateBaselineSet
+    │   └── config.ts        # Admin configuration functions
+    ├── utils/               # Shared utilities
+    │   ├── auth-utils.ts    # OIDC verification, allowlisting
+    │   ├── rs-calc.ts       # RS computation logic
+    │   └── validation.ts    # Input validation helpers
+    └── services/            # Core services and schedulers
+        ├── scheduler.ts     # RS computation scheduler
+        └── registry.ts      # Pair registry management
+    ```
+  * This organization aligns with the RS-only backend focus, grouping by responsibility for maintainability.
+
 ## 5. Key Technical Considerations
 
 * **Data Model:**
