@@ -13,6 +13,7 @@ Use this as a blueprint for additional Subscriber sites. Replace placeholders wi
 ---
 
 ## Table of Contents
+- [Production vs Emulator Quick Reference](#production-vs-emulator-quick-reference)
 - [Architecture](#architecture)
 - [Prerequisites](#prerequisites)
 - [Identities and Roles](#identities-and-roles)
@@ -24,7 +25,28 @@ Use this as a blueprint for additional Subscriber sites. Replace placeholders wi
 - [Least-Privilege Hardening](#least-privilege-hardening)
 - [Multi-Subscriber Pattern](#multi-subscriber-pattern)
 - [Cleanup](#cleanup)
+- [Local Emulator Setup (Pub/Sub + Functions v2 + OIDC)](#local-emulator-setup-pubsub--functions-v2--oidc)
+- [Stabilize IAM Across Deploys (No more post-deploy rebinding)](#stabilize-iam-across-deploys-no-more-post-deploy-rebinding)
 - [Appendix: Useful Commands](#appendix-useful-commands)
+
+---
+
+## Production vs Emulator Quick Reference
+
+| Concern | Production | Emulator |
+|---|---|---|
+| Pub/Sub Topic | `projects/alpha-vantage-proxy-api/topics/partner-data-ready` | `projects/rel-str/topics/partner-data-ready` |
+| Project Namespace | Publisher topic in upstream project; Eventarc trigger in Subscriber project | Single local namespace `rel-str` for topic and subscription |
+| Subscription Creation | Eventarc-managed subscription created in Subscriber project during deploy | Functions emulator creates subscription at startup if the topic exists |
+| Function Trigger Binding | `onMessagePublished({ topic: 'projects/alpha-vantage-proxy-api/topics/partner-data-ready', region: 'us-central1' })` | Guard in code: when `FUNCTIONS_EMULATOR==='true'` bind to `projects/rel-str/topics/partner-data-ready` |
+| Message Publish | `gcloud pubsub topics publish projects/alpha-vantage-proxy-api/topics/partner-data-ready ...` | `npm run pubsub:hb` or `npm run pubsub:run` (or POST to `http://127.0.0.1:8085/v1/projects/rel-str/topics/partner-data-ready:publish`) |
+| Persistence | Real Pub/Sub and Eventarc; persistent | Emulator is in-memory; persist via `npm run emulators:export` and import on start |
+| OIDC Credentials | Cloud Run Invoker granted to runtime SA; identity from Cloud Functions runtime | Set `GOOGLE_APPLICATION_CREDENTIALS` to a JSON key for `rel-str-partner-caller-prod@rel-str.iam.gserviceaccount.com`; `partner-proxy` uses `GoogleAuth().getIdTokenClient(PARTNER_AUDIENCE)` |
+| Firestore Target | Real Firestore in Subscriber project | Firestore emulator (`pairs/*`, `partner-events/*`) |
+| Start/Stop | Deploy via Firebase/GCP; no emulator | `npm run emulators:start` / `npm run emulators:stop` |
+| Topic Creation | Managed upstream; no manual step | `npm run pubsub:topic` (once per fresh emulator session, or rely on import) |
+
+Tip: Ensure the emulator topic exists before Functions emulator starts, so the subscription is created automatically. If you create the topic after starting, restart emulators.
 
 ---
 
@@ -280,13 +302,154 @@ This enables fan-out without code changes in the Publisher.
 
 ## Cleanup
 
-- Remove test/temporary subscriptions in the Publisher project after verification:
+- Remove unused direct subscriber bindings on the topic (e.g., `roles/pubsub.subscriber` for `rel-str@appspot.gserviceaccount.com` if not used).
+- Remove unused Eventarc triggers.
+- Remove unused Cloud Functions and Cloud Run services.
 
-```bash
-gcloud pubsub subscriptions delete temp-verify-sub --project=<PUBLISHER_PROJECT_ID> --quiet
+---
+
+## Local Emulator Setup (Pub/Sub + Functions v2 + OIDC)
+
+This section documents how to reproduce the cross‑project topology locally using the Firebase Emulator Suite while still calling the real Partner Time Series API via Google OIDC.
+
+Key differences when emulating:
+- The Pub/Sub emulator runs under your local project namespace (e.g., `rel-str`).
+- The Functions emulator can subscribe to a different topic name than production. In code, guard with `FUNCTIONS_EMULATOR==='true'` to switch topic strings.
+- Emulator topics/subscriptions are ephemeral unless exported/imported.
+- Functions emulator code must use ADC for OIDC; do not pass OAuth scopes together with `target_audience`.
+
+### 1) Wire the Functions subscriber to the emulator topic
+
+In `functions/src/webhooks/partner-webhooks.ts`:
+```ts
+// Emulator: projects/rel-str/topics/partner-data-ready
+// Prod: projects/alpha-vantage-proxy-api/topics/partner-data-ready
+const PARTNER_DATA_READY_TOPIC =
+  process.env.FUNCTIONS_EMULATOR === 'true'
+    ? 'projects/rel-str/topics/partner-data-ready'
+    : 'projects/alpha-vantage-proxy-api/topics/partner-data-ready';
 ```
 
-- Remove unused IAM bindings (e.g., legacy Subscriber `roles/pubsub.subscriber` on the topic).
+Start emulators after building functions so the subscriber registers:
+```bash
+npm run emulators:start
+```
+
+Create the emulator topic (first session or when import is empty):
+```bash
+npm run pubsub:topic
+```
+
+Verify topic and subscription exist:
+```bash
+npm run pubsub:list:topics
+npm run pubsub:list:subs
+```
+You should see a subscription like `projects/rel-str/subscriptions/emulator-sub-partner-data-ready`.
+
+### 2) Persist emulator state across sessions
+
+- To save topics/subscriptions and Firestore data:
+```bash
+npm run emulators:export
+```
+- `emulators:start` uses `--import=.firebase/emulator-data` so the next session will restore the state.
+- `emulators:stop` is configured to export first, then stop processes.
+
+### 3) Enable OIDC to the Partner API from the emulator
+
+- Create a JSON key for the caller SA (per environment policy). For rel‑str:
+  - `rel-str-partner-caller-prod@rel-str.iam.gserviceaccount.com`
+  - Store under `keys/` in the repo root and ensure it’s git‑ignored.
+- Set ADC before starting emulators so `google-auth-library` can mint ID tokens:
+```powershell
+$env:GOOGLE_APPLICATION_CREDENTIALS="$(Get-Location)\keys\rel-str-partner-caller-prod.json"
+```
+- Ensure the SA has Cloud Run Invoker on the Partner Time Series Cloud Run service.
+- In `functions/src/partner-proxy.ts`, use an ID token client without scopes:
+```ts
+const auth = new GoogleAuth();
+return auth.getIdTokenClient(PARTNER_AUDIENCE);
+```
+Passing OAuth scopes together with `target_audience` causes: `invalid_request: cannot specify both scope and target audience in jwt.`
+
+### 4) Local test commands
+
+- Seed pair registry (HTTP function):
+```bash
+curl -sS -X POST "http://127.0.0.1:5002/rel-str/us-central1/seedPairRegistryManual" -H "Content-Type: application/json" -d '{}'
+```
+- Publish heartbeat to emulator topic:
+```bash
+npm run pubsub:hb
+```
+- Publish data‑ready to emulator topic (auto runId):
+```bash
+npm run pubsub:run
+```
+- Observe in Emulator UI (http://127.0.0.1:4010):
+  - `partner-events/*` status transitions
+  - `pairs/{BASELINE}-{TARGET}` with `series`, `seriesMeta`, and `latest`
+
+### 5) Troubleshooting (emulator)
+
+- 404 Topic not found: Create the topic before publishing and before starting emulators, or create then restart so the subscriber registers.
+- No subscription listed: Ensure the topic existed when the Functions emulator started; restart after creating the topic.
+- 403 from Partner API: Verify SA Run Invoker on the Cloud Run service, ADC env var points to the correct key, and `PARTNER_AUDIENCE` matches the Cloud Run URL.
+- Pub/Sub messages not processed: Confirm the emulator project namespace (`rel-str`) matches both the topic and the subscriber binding when `FUNCTIONS_EMULATOR==='true'`.
+
+---
+
+## Stabilize IAM Across Deploys (No more post-deploy rebinding)
+
+When Functions v2 services are recreated/rotated, per-service IAM on the Cloud Run service can be lost. To avoid repeated 403 “not authenticated” errors after deploys, set these bindings at the project level and configure impersonation once:
+
+1) Project-level Run Invoker for caller identities (Subscriber project)
+
+```bash
+# Partner caller SA (trigger will impersonate this)
+gcloud projects add-iam-policy-binding <SUBSCRIBER_PROJECT_ID> \
+  --member="serviceAccount:<PARTNER_CALLER_SA>" \
+  --role="roles/run.invoker"
+
+# Eventarc service agent
+gcloud projects add-iam-policy-binding <SUBSCRIBER_PROJECT_ID> \
+  --member="serviceAccount:service-<SUBSCRIBER_NUMBER>@gcp-sa-eventarc.iam.gserviceaccount.com" \
+  --role="roles/run.invoker"
+
+# Pub/Sub service agent (used in some delivery paths)
+gcloud projects add-iam-policy-binding <SUBSCRIBER_PROJECT_ID> \
+  --member="serviceAccount:service-<SUBSCRIBER_NUMBER>@gcp-sa-pubsub.iam.gserviceaccount.com" \
+  --role="roles/run.invoker"
+
+# Cloud Functions service agent (CFv2 orchestration)
+gcloud projects add-iam-policy-binding <SUBSCRIBER_PROJECT_ID> \
+  --member="serviceAccount:service-<SUBSCRIBER_NUMBER>@gcf-admin-robot.iam.gserviceaccount.com" \
+  --role="roles/run.invoker"
+```
+
+2) Allow Eventarc to impersonate the partner caller SA (to mint the OIDC token)
+
+```bash
+gcloud iam service-accounts add-iam-policy-binding <PARTNER_CALLER_SA> \
+  --member="serviceAccount:service-<SUBSCRIBER_NUMBER>@gcp-sa-eventarc.iam.gserviceaccount.com" \
+  --role="roles/iam.serviceAccountTokenCreator" \
+  --project=<SUBSCRIBER_PROJECT_ID>
+```
+
+3) Keep (optional) service-level Run Invoker on the Cloud Run service for belt-and-suspenders
+
+```bash
+gcloud run services add-iam-policy-binding <RUN_SERVICE_NAME> \
+  --region=us-central1 \
+  --member="serviceAccount:<PARTNER_CALLER_SA>" \
+  --role="roles/run.invoker" \
+  --project=<SUBSCRIBER_PROJECT_ID>
+```
+
+Notes
+- The Functions v2 auto-managed Eventarc trigger is expected and may be recreated on deploys. Do not delete it. Avoid creating a duplicate manual trigger for the same function.
+- If you do need a manual trigger (advanced scenarios), ensure its `--service-account` matches `<PARTNER_CALLER_SA>` and that steps (1) and (2) above are configured.
 
 ---
 
@@ -322,3 +485,97 @@ gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.serv
   --order=desc \
   --format='value(timestamp, textPayload)'
 ```
+
+---
+
+## Resolved placeholders (rel-str environment)
+
+- SUBSCRIBER_PROJECT_ID: `rel-str`
+- SUBSCRIBER_NUMBER: `145446780542`
+- PUBLISHER_PROJECT_ID: `alpha-vantage-proxy-api`
+- TOPIC: `projects/alpha-vantage-proxy-api/topics/partner-data-ready`
+- RUN_SERVICE_NAME: `processdatareadyrun`
+- FUNCTION_NAME: `processDataReadyRun`
+- PARTNER_CALLER_SA: `rel-str-partner-caller-prod@rel-str.iam.gserviceaccount.com`
+
+Use the ready-to-run commands below for this environment. The original, parameterized commands remain for reuse in other environments.
+
+---
+
+## Grant IAM (Publisher/source)
+
+Ready-to-run (Publisher/source)
+
+```bash
+TOPIC="projects/alpha-vantage-proxy-api/topics/partner-data-ready"
+
+# Cloud Functions service agent (Subscriber number 145446780542)
+gcloud pubsub topics add-iam-policy-binding "$TOPIC" \
+  --member="serviceAccount:service-145446780542@gcf-admin-robot.iam.gserviceaccount.com" \
+  --role="roles/pubsub.editor" \
+  --project=alpha-vantage-proxy-api
+
+# Eventarc service agent
+gcloud pubsub topics add-iam-policy-binding "$TOPIC" \
+  --member="serviceAccount:service-145446780542@gcp-sa-eventarc.iam.gserviceaccount.com" \
+  --role="roles/pubsub.editor" \
+  --project=alpha-vantage-proxy-api
+
+# Cloud Run service agent
+gcloud pubsub topics add-iam-policy-binding "$TOPIC" \
+  --member="serviceAccount:service-145446780542@serverless-robot-prod.iam.gserviceaccount.com" \
+  --role="roles/pubsub.editor" \
+  --project=alpha-vantage-proxy-api
+```
+
+---
+
+## Grant IAM (Subscriber/destination)
+
+```bash
+# Allow CF service agent to manage Eventarc and Cloud Run
+gcloud projects add-iam-policy-binding rel-str \
+  --member="serviceAccount:service-145446780542@gcf-admin-robot.iam.gserviceaccount.com" \
+  --role="roles/eventarc.admin"
+
+gcloud projects add-iam-policy-binding rel-str \
+  --member="serviceAccount:service-145446780542@gcf-admin-robot.iam.gserviceaccount.com" \
+  --role="roles/run.admin"
+
+# Allow Eventarc service agent to invoke your Cloud Run service
+gcloud projects add-iam-policy-binding rel-str \
+  --member="serviceAccount:service-145446780542@gcp-sa-eventarc.iam.gserviceaccount.com" \
+  --role="roles/run.invoker"
+
+# Allow CF service agent to use your runtime SA (if using default compute SA)
+gcloud iam service-accounts add-iam-policy-binding 145446780542-compute@developer.gserviceaccount.com \
+  --member="serviceAccount:service-145446780542@gcf-admin-robot.iam.gserviceaccount.com" \
+  --role="roles/iam.serviceAccountUser" \
+  --project=rel-str
+```
+
+---
+
+## Create/Update the Trigger
+
+```ts
+// Example (Functions v2) - in your code
+onMessagePublished({ topic: "projects/alpha-vantage-proxy-api/topics/partner-data-ready", region: "us-central1" }, handler)
+```
+
+```bash
+firebase deploy --only functions:processDataReadyRun --project=rel-str
+```
+
+```bash
+gcloud eventarc triggers create data-ready-relstr \
+  --location=us-central1 \
+  --event-filters="type=google.cloud.pubsub.topic.v1.messagePublished" \
+  --transport-topic="projects/alpha-vantage-proxy-api/topics/partner-data-ready" \
+  --destination-run-service="processdatareadyrun" \
+  --destination-run-region="us-central1" \
+  --service-account="rel-str-partner-caller-prod@rel-str.iam.gserviceaccount.com" \
+  --project=rel-str
+```
+
+---

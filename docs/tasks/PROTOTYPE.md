@@ -95,6 +95,29 @@
   - [ ] Update planning docs to reflect partner endpoint `partnerTimeSeriesV2` and prod URL.
   - [ ] Document RS calculation in Cloud Functions with separate pre-close and post-close series; seed last ~2 months (post-close only) on symbol add.
   - [ ] Clarify frontend uses Firestore + callable functions only (no direct partner endpoint calls).
+- 2025-10-10: Added root npm scripts `emulators:start`/`emulators:stop` and configured Pub/Sub emulator in `firebase.json` (port 8085). Updated stop script to match project ports (hub 4410, auth 9100, functions 5002, firestore 8086, storage 9200, ui 4010, logging 4510).
+- 2025-10-10: Emulator wiring + Pub/Sub + OIDC for local SavantAPI calls.
+  - [x] Added npm scripts:
+    - `emulators:start` builds functions and imports `.firebase/emulator-data`.
+    - `emulators:stop` now forces an export before stopping, then attempts Hub REST export and kills ports.
+    - `emulators:export` for manual snapshotting.
+    - `pubsub:topic` creates `projects/rel-str/topics/partner-data-ready` in Pub/Sub emulator.
+    - `pubsub:list:topics` and `pubsub:list:subs` to inspect emulator state.
+    - `pubsub:hb` publishes a heartbeat message.
+    - `pubsub:run` publishes a `ts_daily_post` message with an auto-generated runId.
+  - [x] Functions emulator topic switch: when `FUNCTIONS_EMULATOR==='true'`, subscriber binds to `projects/rel-str/topics/partner-data-ready` (real remains `projects/alpha-vantage-proxy-api/topics/partner-data-ready`).
+  - [x] Seed `pair-registry` via `seedPairRegistryManual` HTTP function.
+  - [x] Local OIDC to SavantAPI:
+    - Create a JSON key for `rel-str-partner-caller-prod@rel-str.iam.gserviceaccount.com` and store under `keys/` (gitignored).
+    - Set `GOOGLE_APPLICATION_CREDENTIALS` to `keys/rel-str-partner-caller-prod.json` before `npm run emulators:start`.
+    - Ensure Cloud Run Invoker on the Partner Time Series service for this SA.
+    - Fixed OIDC client init by removing OAuth scopes in `functions/src/partner-proxy.ts#getPartnerIdTokenClient`.
+  - [x] Test flow:
+    1. `npm run emulators:start`
+    2. `npm run pubsub:topic` (once per fresh emulator session, or rely on import)
+    3. Seed pairs: `curl -sS -X POST http://127.0.0.1:5002/rel-str/us-central1/seedPairRegistryManual -H "Content-Type: application/json" -d '{}'`
+    4. Publish data-ready: `npm run pubsub:run`
+    5. Verify Firestore emulator: `partner-events/*` status, `pairs/*` series/latest
 
 ## Next Phase Plan (High-level)
 1) Implement Partner Data-Ready Webhook + Pub/Sub subscriber to drive backend RS updates without polling.
