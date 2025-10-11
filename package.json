@@ -7,9 +7,18 @@
     "prebuild": "node scripts/gen-syncfusion-license.js",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
+    "build:functions": "npm --prefix functions run build",
+    "emulators:start": "npm run build:functions && firebase emulators:start --only auth,functions,firestore,pubsub --import=.firebase/emulator-data --export-on-exit",
+    "emulators:export": "npx firebase emulators:export .firebase/emulator-data --force",
+    "emulators:stop": "npm run emulators:export && powershell -NoProfile -ExecutionPolicy Bypass -Command \"$exportDir='.firebase\\emulator-data'; $hubUp = (Get-NetTCPConnection -LocalPort 4410 -ErrorAction SilentlyContinue); if($hubUp){ Write-Output 'Emulator Hub detected on 4410. Attempting export via Hub REST...'; $exportOk=$false; $attempt=1; $max=2; while(-not $exportOk -and $attempt -le $max){ try { $body = @{ path = $exportDir } | ConvertTo-Json; $resp = Invoke-RestMethod -Uri 'http://127.0.0.1:4410/_admin/export' -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 15; if($resp){ Write-Output 'Export succeeded.'; $exportOk=$true } } catch { Write-Output ('Export attempt ' + $attempt + ' failed via Hub REST; retrying...') } $attempt++ } if(-not $exportOk){ Write-Output 'Export failed after retries; proceeding to stop.' } } else { Write-Output 'Emulator Hub not detected on 4410; skipping export.' } ; $ports=@(5002,8086,8085,9100,4010,4410,4510,9200); foreach($p in $ports){ $conns=Get-NetTCPConnection -LocalPort $p -ErrorAction SilentlyContinue; if($conns){ ($conns | Select-Object -ExpandProperty OwningProcess | Sort-Object -Unique | Where-Object { $_ -gt 0 }) | ForEach-Object { try { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue; Write-Output ('Killed PID ' + $_ + ' on ' + $p) } catch { Write-Output ('Failed to kill PID ' + $_ + ' on ' + $p) } } } else { Write-Output ('No process on ' + $p) } }\"",
     "emulators": "firebase emulators:start --only auth,functions,firestore --import=.firebase/emulator-data --export-on-exit",
     "e2e": "cypress open",
-    "e2e:run": "cypress run"
+    "e2e:run": "cypress run",
+    "pubsub:topic": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"Invoke-RestMethod -Uri 'http://127.0.0.1:8085/v1/projects/rel-str/topics/partner-data-ready' -Method Put | ConvertTo-Json -Depth 5\"",
+    "pubsub:list:topics": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"Invoke-RestMethod -Uri 'http://127.0.0.1:8085/v1/projects/rel-str/topics' -Method Get | ConvertTo-Json -Depth 5\"",
+    "pubsub:list:subs": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"Invoke-RestMethod -Uri 'http://127.0.0.1:8085/v1/projects/rel-str/subscriptions' -Method Get | ConvertTo-Json -Depth 5\"",
+    "pubsub:hb": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$body = @{ messages = @(@{ attributes = @{ runType = 'heartbeat'; heartbeat = 'true' }; data = 'e30=' }) } | ConvertTo-Json -Depth 5; Invoke-RestMethod -Uri 'http://127.0.0.1:8085/v1/projects/rel-str/topics/partner-data-ready:publish' -Method Post -ContentType 'application/json' -Body $body | ConvertTo-Json -Depth 5\"",
+    "pubsub:run": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$runId = 'local-' + (Get-Date -Format 'yyyyMMdd-HHmmss'); $msg = @{ messages = @(@{ attributes = @{ runType = 'ts_daily_post'; runId = $runId }; data = 'e30=' }) } | ConvertTo-Json -Depth 5; Invoke-RestMethod -Uri 'http://127.0.0.1:8085/v1/projects/rel-str/topics/partner-data-ready:publish' -Method Post -ContentType 'application/json' -Body $msg | ConvertTo-Json -Depth 5\""
   },
   "private": true,
   "dependencies": {
