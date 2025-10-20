@@ -15,7 +15,8 @@
 - [ ] Implement Backtest presets callables: `SaveBacktestPreset`, `ListBacktestPresets`, `DeleteBacktestPreset` (persist in Firestore without Auth initially)
 - [ ] Implement Partner Data-Ready Webhook (HTTPS, Gen2): `POST /partner/data-ready` with Google OIDC allowlist (`ALLOWED_SERVICE_ACCOUNT_EMAILS`); validate v1 payload and return `202` on enqueue
 - [ ] Create Pub/Sub topic `rs-data-ready` and publish from webhook handler with attributes (`runId`, `version`, `phase`, `env`)
-- [ ] Implement Pub/Sub subscriber (Gen2) to process runs: compute RS for registry pairs, update `pairs/*/rs`, `pairs/*/latest`, generate canonical signals, update `runs/{runId}` status/counts
+- [ ] Implement Pub/Sub subscriber (Gen2) to process runs: compute RS for registry pairs, update `pairs/*` dual-phase branches (`pre` and `post`), generate canonical signals, update `runs/{runId}` status/counts
+- [ ] TODO: Retire legacy v1 RS subscriber (`processDataReadyRun`) and ratio-based writer once V2 is validated in prod; v1 export disabled in `functions/src/index.ts` so only V2 runs.
 - [ ] Write minimal Firestore log for webhook accepts at `partnerEvents/{runId}` and `runs/{runId}` (status: received/completed)
 
 ## Frontend (RS-only, baseline-aware)
@@ -53,7 +54,7 @@
   - [ ] Main chart zoom/pan/scroll controls
   - [ ] Keep existing SyncFusion chart view and route for transition; add UI toggle/link
 - [ ] Replace FE static data with BE-sourced dynamic data:
-  - [ ] Wire heatmap and charts to Firestore `pairs/*/latest` and `rs` (listeners for freshness)
+  - [ ] Wire heatmap and charts to Firestore `pairs/{PAIR}.post.latest` (after close) and `pairs/{PAIR}.pre.latest` (during market hours) and `post.series` for history
   - [ ] Use callables for OHLCV/TA; remove legacy local data imports
   - [ ] Add loading/fallbacks while initial RS backfill completes
 
@@ -118,6 +119,10 @@
     3. Seed pairs: `curl -sS -X POST http://127.0.0.1:5002/rel-str/us-central1/seedPairRegistryManual -H "Content-Type: application/json" -d '{}'`
     4. Publish data-ready: `npm run pubsub:run`
     5. Verify Firestore emulator: `partner-events/*` status, `pairs/*` series/latest
+- 2025-10-10: Dual-phase RS persistence model finalized
+  - [x] Persist both `pre` (intraday) and `post` (EOD) phases under `pairs/{BASE}_{SYMBOL}` with branches `pre` and `post`
+  - [x] Branch shape: `{ latest, series, seriesMeta, seriesUpdatedAt }` with `seriesMeta = { interval: "DAILY", rsWindow: 5, retention: N, source: "intraday"|"adjustedClose" }`
+  - [x] FE consumption: use `pre.latest` intra-day; use `post.latest` after close; use `post.series` for historical analyses
 
 ## Next Phase Plan (High-level)
 1) Implement Partner Data-Ready Webhook + Pub/Sub subscriber to drive backend RS updates without polling.

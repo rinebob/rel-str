@@ -202,3 +202,51 @@ Real-time data synchronization is utilized where beneficial for the user experie
 * The frontend uses Firebase Firestore **real-time listeners** on the `latestData` map within the `symbols` collection (or potentially on relevant fields within documents) to automatically update the UI when the backend successfully writes new daily data (specifically the post-close values). This enables real-time updates to the heatmap colors and values as soon as the daily calculation is complete.
 * When a user is viewing a detailed chart for a specific ticker, a Firestore listener on that ticker's `latestData` map ensures that the chart display (e.g., the color of the most recent candlestick bar) updates in real-time, and an explicit notification can be shown to the user (e.g., "New data available!") when the daily update for that ticker is received while they are on the page.
 * (Future Feature) Real-time notifications to users (e.g., via text message) based on specific RS signals or data availability will be implemented via a Cloud Function that interacts with Firebase Cloud Messaging (FCM) or a third-party SMS provider.
+
+## 8. SavantAPI Usage
+
+### Overview
+
+SavantAPI is a critical partner API providing normalized time series data. Our application consumes this data to compute Relative Strength (RS) values and other metrics.
+
+### Identity and Authentication
+
+* **Role:** We are the consumer. No inbound partner webhooks required for FE; backend subscribes to Pub/Sub and calls Partner Time Series.
+* **Identity:** Cloud Functions v2 default service account `rel-str-partner-caller-prod@rel-str.iam.gserviceaccount.com`.
+* **Auth:** Google OIDC ID token via `getIdTokenClient(PARTNER_AUDIENCE)` (no OAuth scopes). `PARTNER_AUDIENCE` defaults to prod URL; can be overridden by env.
+
+### Endpoint Parameters
+
+* `symbol: string`
+* `interval: "DAILY" | "WEEKLY" | "MONTHLY"` (we use DAILY for RS)
+* Optional: `range | from | to | limit`
+
+### Field Mapping (bars)
+
+* **Common:**
+  - `d: string` — day key, e.g., "2025-10-09"
+  - `t: number` — epoch ms
+  - `o/h/l/c/v`: raw OHLCV
+  - `ac`: adjusted close
+  - `pc`: prior close
+  - `ch`: absolute change `c - pc`
+  - `cp`: percent change `((c - pc)/pc) * 100`
+* **Intraday (pre-close):**
+  - `ip`: intraday price
+  - `ipc`: intraday percent change vs prior close
+  - `ic`: intraday absolute change vs prior close
+  - `it`: time string, e.g., "15:30"
+
+### RS Phase Mapping
+
+* `post` (canonical EOD):
+  - close = `ac`
+  - percent change = `cp`
+* `pre` (intraday):
+  - close = `ip`
+  - percent change = `ipc` (fallback derive from `ip` & `pc`)
+
+### Alignment
+
+* Align baseline and target strictly by `d`. Drop non-overlaps.
+* Only compute RS for days where both baseline and target have valid entries and a complete 5-day window.

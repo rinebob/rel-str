@@ -75,6 +75,61 @@ The RS-only model is pair-centric. A pair is identified as `${BASELINE}_${SYMBOL
     * Fields: `{ from:number, to:number, post:{ count:number, points:Array<{t:number,rs:number}> }, pre?:{...}, computedAt:number, ttl:number }`
     * Purpose: accelerate repeated on-demand computations without persisting full series long-term.
 
+## Firestore: RS per Pair Document (Dual-Phase)
+
+Document path:
+- `pairs/{BASE}_{SYMBOL}`
+
+Top-level fields:
+- `pair: string` — e.g., "QQQ_MSFT"
+- `baseline: string` — e.g., "QQQ"
+- `target: string` — e.g., "MSFT"
+- `pre: map` — intraday trading snapshot branch
+- `post: map` — canonical end-of-day branch
+
+### Branch: `pre` (intraday)
+- `latest: map`
+  - `day: string` — "YYYY-MM-DD" (Savant `bars[].d`)
+  - `t: number` — epoch ms (Savant `bars[].t`)
+  - `rank: number` — 0..1 (RS rank)
+  - `baseCp: number` — baseline intraday percent change (Savant `ipc` or derived from `ip`/`pc`)
+  - `targetCp: number` — target intraday percent change (Savant `ipc` or derived)
+  - `baseClose: number` — intraday price (`ip`)
+  - `targetClose: number` — intraday price (`ip`)
+  - `it?: string` — intraday time, e.g., "15:30" (Savant `it`)
+- `series: array<map>` — ascending by `day`; each entry mirrors `latest` fields
+- `seriesMeta: map`
+  - `interval: "DAILY"`
+  - `rsWindow: 5`
+  - `retention: number` — e.g., 30 (mirror size kept in the doc)
+  - `source: "intraday"`
+- `seriesUpdatedAt: timestamp` — last write to `pre` branch
+
+### Branch: `post` (end-of-day canonical)
+- `latest: map`
+  - `day: string` — "YYYY-MM-DD" (Savant `bars[].d`)
+  - `t: number` — epoch ms (Savant `bars[].t`)
+  - `rank: number` — 0..1 (RS rank)
+  - `baseCp: number` — baseline EOD percent change (Savant `cp`)
+  - `targetCp: number` — target EOD percent change (Savant `cp`)
+  - `baseClose: number` — adjusted close (`ac`)
+  - `targetClose: number` — adjusted close (`ac`)
+- `series: array<map>` — ascending by `day`; each entry mirrors `latest` fields
+- `seriesMeta: map`
+  - `interval: "DAILY"`
+  - `rsWindow: 5`
+  - `retention: number` — e.g., 90 or 365 (per UX needs)
+  - `source: "adjustedClose"`
+- `seriesUpdatedAt: timestamp` — last write to `post` branch
+
+### Alignment and Idempotency
+- Align baseline and target by `day` (Savant `d`). Drop non-overlaps.
+- Upsert by `day` when writing `series`: replace or append deterministically.
+- `latest` mirrors the most recent `series` entry.
+
+### Growth Strategy
+- For long history, consider sharding into `pairs/{PAIR}/series/{YYYY-MM}` collections. The in-doc `series` is a short mirror controlled by `retention`.
+
 ## 4. Indexing
 
 Define indexes for efficient queries on series and signals:

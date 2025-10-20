@@ -34,6 +34,39 @@ Certain aspects of the application require specific testing strategies:
 * **Third-Party API Mocking:** Interactions with external third-party services, particularly the stock data API and the payment gateway APIs (Stripe/PayPal), will be comprehensively mocked during automated testing. This ensures that tests are fast, deterministic, reliable, and do not depend on the availability or performance of external services or consume external API quotas during development and CI/CD runs.
 * **Firebase Service Mocking:** Core Firebase services such as Firebase Authentication and Firestore will be appropriately mocked or emulated (if using Firebase Emulators locally) in unit and integration tests. This allows for testing application logic that interacts with these services without requiring a live, internet-connected Firebase project instance. NgRx Effects that involve interactions with Firebase services will be specifically tested by mocking the underlying service calls they make.
 
+## RS Pipeline Testing Strategy (Pre/Post)
+
+### Unit Tests (Jest)
+
+- RS calculation correctness
+  - Fixture-based tests verifying rank parity with FE `rs-calc-utils.ts` for known series.
+  - Edge cases: fewer than 5 points; all zeros; large spikes; missing days alignment handled by drop/merge semantics.
+- Mapping and alignment
+  - Mapping Savant bars → percent-change arrays: `cp` for post, `ipc` or derived for pre.
+  - Date alignment by `d` with non-overlapping day removal.
+- Writer logic (pure functions)
+  - Upsert-by-day behavior into `series` arrays.
+  - Retention trimming applied after append/replace.
+
+### Integration Tests (Emulators)
+
+- Pub/Sub → Functions → Firestore flow
+  - Publish a `partner-data-ready` message with `phase=post`.
+  - Mock SavantAPI responses (HTTP stub) returning baseline and target bar sets.
+  - Assert `pairs/{BASE}_{SYMBOL}.post.series` and `.post.latest` written and `seriesUpdatedAt` set.
+- Pre-close path
+  - Publish with `phase=pre` and intraday fields present (`ip`, `ipc`, `it`).
+  - Assert `.pre.series` and `.pre.latest` updated correctly with intraday-derived values.
+- Retention
+  - Configure retention small (e.g., 3) and verify older entries are truncated after write.
+- Idempotency
+  - Re-run for the same day verifies replace-not-duplicate behavior in `series`.
+
+### CI Considerations
+
+- Run unit tests on push/PR.
+- Integration tests can run nightly or on-demand due to emulator spin-up cost.
+
 ## 5. Test Environments & Workflow
 
 Testing will be integrated into the development workflow across different environments:

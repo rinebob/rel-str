@@ -101,18 +101,64 @@ This backend runs on Firebase/Google Cloud and focuses on computing and serving 
   * Registry ensures we compute only valuable pairs. Popular pairs are computed once and shared across many users’ lists.
   * Sector dropdown generates many pairs rapidly (ETF × constituents). Use `RegisterPairs` in bulk only when the user saves the sector list; otherwise operate ad hoc without writes.
 
-## 6. Third-Party Integrations
+## 6. Relative Strength (RS) Pipeline: Pre- and Post-Close Phases
+
+- Two runs per market day:
+  - pre-close: intraday snapshot, used for trading decisions before the bell.
+  - post-close: canonical EOD snapshot, used for historical analysis and backtests.
+- Trigger: Pub/Sub topic `partner-data-ready`, with attribute `phase: "pre" | "post"`.
+- Input Source: SavantAPI Partner Time Series (outbound HTTP GET with Google OIDC).
+- Output Destination: Firestore `pairs/{BASE}_{SYMBOL}` document, with separate branches for each phase (`pre` and `post`).
+
+### Subscriber Flow (Cloud Functions v2)
+
+1) Resolve registered pairs (baseline + targets).
+2) For each pair:
+   - Fetch baseline and target bars from SavantAPI (interval: DAILY).
+   - Align series strictly by date string `bars[].d` (drop non-overlaps).
+   - Build percent-change arrays:
+     - pre: use `ipc` (intraday percent) if available; otherwise derive `(ip - pc) / pc * 100`.
+     - post: use `cp` (EOD percent change).
+   - Compute RS rank with a 5-day rolling window.
+   - Persist to Firestore under the correct phase branch (`pre` or `post`).
+3) Update metrics and `seriesUpdatedAt`.
+
+Notes:
+- Identity: default SA `rel-str-partner-caller-prod@rel-str.iam.gserviceaccount.com`.
+- Audience: `PARTNER_AUDIENCE` (prod URL by default). Use `getIdTokenClient` without OAuth scopes.
+
+### RS Calculation (Canonical)
+
+- Inputs: aligned baseline/target percent-change arrays (units = percent).
+- Window: 5 days.
+- Algorithm:
+  - For each day i ≥ 4, form 5-length windows for baseline and target.
+  - Evaluate all 32 comparison matrices (00000..11111) by summing the appropriate series values per matrix bit.
+  - Sort sums ascending; `rank = (position("11111") + 1) / 32`.
+- Edge cases:
+  - If fewer than 5 aligned points: skip rank emission for that day.
+
+### Backfill
+
+- Separate function to compute post-close RS for the last N days for all registered pairs.
+
+### Error Handling & Idempotency
+
+- Per-pair failure should not fail the run. Log and continue; track success/failure counts per run ID.
+- Upsert by day key. Replace or append the series entry for day D and set `latest` accordingly.
+
+## 7. Third-Party Integrations
 
 * **Savant Partner Time Series API:** On-demand OHLCV reads for RS compute and charting data. Auth via Google OIDC; never called by frontend.
 * **Payment Gateway:** Future subscription handling.
 
-## 7. Testing
+## 8. Testing
 
 * **Unit:** RS calculation utilities, signal detection, callable input validation.
 * **Integration:** Emulators + mocked SavantAPI responses. Registry → scheduler → RS write-path happy path and edge cases.
 * **CI:** GitHub Actions runs tests on each change.
 
-## 8. Assumptions and Risks
+## 9. Assumptions and Risks
 
 * **Assumptions:** A registry-driven approach aligns with product UX (baseline + selected symbols). `activeBaselines` governs canonical signal persistence. Angular consumes RS/signals via callables and Firestore reads only.
 * **Risks:** Registry churn (frequent pair add/removes) increases write ops; ensure idempotent callables and debounce UI submissions. Indexes must support common queries (latest, last-30, signals feeds).

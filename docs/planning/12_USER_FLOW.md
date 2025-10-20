@@ -68,6 +68,22 @@ Below are the main steps a user takes and the expected system responses for each
     14. The user can click a "Current Signals" button to navigate to the dedicated Signals View, which lists the buy/sell signals generated in the most recent completed RS run (canonical signals for active baselines) with filters and links to open items in the chart.
     15. The chart will display real-time updates for the latest RS writes.
 
+## RS Data Consumption (Frontend)
+
+- Heatmap and list views
+  - During market hours: read `pairs/{PAIR}.pre.latest` for rank and quick fields.
+  - After close: read `pairs/{PAIR}.post.latest`.
+- RS Chart view
+  - Historical RS pane uses `pairs/{PAIR}.post.series`.
+  - Optionally overlay intraday current (`pre.latest`) if the user is viewing same-day data.
+- Freshness
+  - Listen to `pairs/{PAIR}.pre.seriesUpdatedAt` and `.post.seriesUpdatedAt` for phase-specific freshness.
+- Baseline switching
+  - When baseline changes, reload relevant pairs under the new baseline namespace and refresh views.
+- Error and fallback
+  - If `pre.latest` is missing (no intraday yet), fall back to `post.latest`.
+  - If `post.series` is short after backfill begins, show loading/placeholder and progressively populate.
+
 * **User Manages Stock List:** Describes how a logged-in user modifies the list of tickers displayed on their heatmap.
     1.  User is on the main heatmap dashboard page, already logged in and viewing their current list.
     2.  User clicks a "Manage List", "Edit Tickers", or similar button/icon.
