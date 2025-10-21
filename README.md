@@ -120,3 +120,14 @@ gcloud secrets versions list --secret=SYNC_FUSION_LICENSE_KEY --project <project
 - Security notes:
   - Do not commit `src/secrets/syncfusion-license.ts` to version control (it is generated).
   - Keep the license in Secret Manager for production; use `.env.rel-str` for local only.
+
+## Local Partner Integration (OIDC)
+To run the rel-str emulators and call PROD SavantAPI endpoints using Google OIDC tokens (via service account impersonation), see the step-by-step guide with a Quickstart block:
+
+- docs/partner/guide-rs-emulators-call-savantapi-prod.md
+
+The guide covers:
+- Required IAM permission (roles/iam.serviceAccountTokenCreator)
+- Environment variables for the emulator session
+- Starting emulators and verifying endpoints
+- How our Functions mint ID tokens with the email claim via IAM Credentials
