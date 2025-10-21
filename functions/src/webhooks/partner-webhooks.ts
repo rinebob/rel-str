@@ -13,7 +13,7 @@
  *   intervals can be added once RS storage and FE consumption are in place.
  */
 import { onMessagePublished } from 'firebase-functions/v2/pubsub';
-import { onRequest } from 'firebase-functions/v2/https';
+import { onRequest, onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 import { db, FieldValue } from '../firebase-admin-init';
 import { callPartnerTimeSeries, PartnerInterval } from '../partner-proxy';
@@ -43,6 +43,16 @@ const EVENTS_COLLECTION = 'partner-events';
 const REGISTRY_COLLECTION = 'pair-registry';
 
 /**
+ * SavantAPI tracked symbols collection name
+ */
+const TRACKED_SYMBOLS_COLLECTION = 'tracked-symbols';
+
+/**
+ * Days to retain a pair-registry entry after last member removes it
+ */
+const REGISTRY_RETENTION_DAYS = 30;
+
+/**
  * Enumerates upstream run types of interest. We still parse non-DAILY run types
  * for telemetry, but the current pipeline is constrained to DAILY processing.
  * Run‑type values that we care about (time‑series data). Messages with any other
@@ -57,6 +67,16 @@ export enum RunType {
   TS_MONTHLY_POST = 'ts_monthly_post',
   HEARTBEAT = 'heartbeat',
   RB_TEST = 'rb-test',
+}
+
+/**
+ * Shared-aligned enum for interval
+ */
+export enum TimeSeriesInterval {
+  INTRADAY = 'intraday',
+  DAILY = 'daily',
+  WEEKLY = 'weekly',
+  MONTHLY = 'monthly',
 }
 
 /**
@@ -682,4 +702,422 @@ export const seedPairRegistryManual = onRequest({ region: 'us-central1', timeout
     logger.error('seedPairRegistryManual failed', { message: e?.message, code: e?.code });
     res.status(500).json({ ok: false, error: e?.message || 'seed_failed' });
   }
+});
+
+/********************
+ * V2 Dual-Phase RS Pipeline (Pre/Post)
+ * - Computes RS rank using 5-day rolling window of percent changes
+ * - Writes to Firestore under pairs/{BASE}_{SYMBOL}.{phase} with { latest, series, seriesMeta, seriesUpdatedAt }
+ * - Phase: "pre" uses intraday (ipc/ip) when available; "post" uses EOD (cp/ac)
+ ********************/
+
+type Phase = 'pre' | 'post';
+
+type PartnerBar = {
+  d?: string;   // YYYY-MM-DD
+  t?: number;   // epoch ms
+  ac?: number;  // adjusted close (EOD)
+  c?: number;   // close
+  pc?: number;  // prior close
+  cp?: number;  // percent change EOD
+  ip?: number;  // intraday price
+  ipc?: number; // intraday percent change
+  it?: string;  // intraday time e.g. "15:30"
+};
+
+type PhaseSeriesEntry = {
+  day: string;
+  dow: string;   // day-of-week label (UTC)
+  t: number;
+  rank: number;
+  baseCp: number;
+  targetCp: number;
+  baseClose: number;
+  targetClose: number;
+  it?: string;
+};
+
+// Generate comparison matrices for a 5-length window: 00000 .. 11111
+function genMatrices5(): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < 32; i++) out.push(i.toString(2).padStart(5, '0'));
+  return out;
+}
+const MATRICES_5 = genMatrices5();
+
+// Calculate rank for a 5-value window of subject vs baseline percent changes.
+function calculateRankWindow(subject: number[], baseline: number[]): number {
+  let outcomes: Array<[string, number]> = [];
+  for (const m of MATRICES_5) {
+    let sum = 0;
+    for (let j = 0; j < 5; j++) sum += (m[j] === '1' ? subject[j] : baseline[j]) || 0;
+    outcomes.push([m, Number(sum.toFixed(4))]);
+  }
+  outcomes.sort((a, b) => a[1] - b[1]);
+  const idx = outcomes.findIndex((e) => e[0] === '11111');
+  return idx >= 0 ? (idx + 1) / outcomes.length : 0;
+}
+
+function dowLabelUTC(dayStr: string): string {
+  const d = new Date(dayStr + 'T00:00:00.000Z');
+  const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+  return labels[d.getUTCDay()];
+}
+
+// Build aligned percent-change arrays and compute rolling 5-day RS rank per-day
+function buildPhaseSeries(
+  baselineBars: PartnerBar[],
+  targetBars: PartnerBar[],
+  phase: Phase
+): PhaseSeriesEntry[] {
+  // Map by day for quick alignment
+  const baseByDay = new Map<string, PartnerBar>();
+  for (const b of baselineBars) if (b?.d) baseByDay.set(b.d!, b);
+  const aligned: Array<{ day: string; base: PartnerBar; target: PartnerBar }> = [];
+  for (const t of targetBars) {
+    if (!t?.d) continue;
+    const base = baseByDay.get(t.d);
+    if (base) aligned.push({ day: t.d, base, target: t });
+  }
+
+  const outDays: string[] = [];
+  const outTimes: (string | undefined)[] = [];
+  const outDows: string[] = [];
+  const baseCp: number[] = [];
+  const targetCp: number[] = [];
+  const baseClose: number[] = [];
+  const targetClose: number[] = [];
+  const outT: number[] = [];
+
+  for (const { day, base, target } of aligned) {
+    // Rely on SavantAPI to filter weekends/holidays; do not skip here.
+
+    // Phase-specific cp and close
+    const bCp = phase === 'post'
+      ? (Number(base.cp) || 0)
+      : (Number(base.ipc) || (Number(base.ip) && Number(base.pc) ? ((Number(base.ip) - Number(base.pc)) / Number(base.pc)) * 100 : 0));
+    const tCp = phase === 'post'
+      ? (Number(target.cp) || 0)
+      : (Number(target.ipc) || (Number(target.ip) && Number(target.pc) ? ((Number(target.ip) - Number(target.pc)) / Number(target.pc)) * 100 : 0));
+
+    const bClose = phase === 'post' ? (Number(base.ac) || Number(base.c) || 0) : (Number(base.ip) || 0);
+    const tClose = phase === 'post' ? (Number(target.ac) || Number(target.c) || 0) : (Number(target.ip) || 0);
+
+    // Sanity guards
+    if (!Number.isFinite(bCp) || !Number.isFinite(tCp)) continue;
+    if (!Number.isFinite(bClose) || !Number.isFinite(tClose)) continue;
+    if (bClose <= 0 || tClose <= 0) continue;
+
+    outDays.push(day);
+    outTimes.push(phase === 'pre' ? (target.it || base.it) : undefined);
+    outDows.push(dowLabelUTC(day));
+    baseCp.push(Number(bCp));
+    targetCp.push(Number(tCp));
+    baseClose.push(bClose);
+    targetClose.push(tClose);
+    outT.push(Number(target.t || base.t || 0));
+  }
+
+  const out: PhaseSeriesEntry[] = [];
+  for (let i = 4; i < outDays.length; i++) {
+    const sub = [targetCp[i], targetCp[i - 1], targetCp[i - 2], targetCp[i - 3], targetCp[i - 4]];
+    const bas = [baseCp[i], baseCp[i - 1], baseCp[i - 2], baseCp[i - 3], baseCp[i - 4]];
+    const rank = calculateRankWindow(sub, bas);
+    out.push({
+      day: outDays[i],
+      dow: outDows[i],
+      t: outT[i],
+      rank,
+      baseCp: baseCp[i],
+      targetCp: targetCp[i],
+      baseClose: baseClose[i],
+      targetClose: targetClose[i],
+      it: outTimes[i],
+    });
+  }
+  return out;
+}
+
+async function fetchDailyBarsRaw(symbol: string, days: number): Promise<PartnerBar[]> {
+  const to = new Date();
+  const from = new Date(to.getTime() - days * 24 * 60 * 60 * 1000);
+  const toIso = to.toISOString().slice(0, 10);
+  const fromIso = from.toISOString().slice(0, 10);
+  const data = (await callPartnerTimeSeries({ symbol, interval: FIXED_INTERVAL, from: fromIso, to: toIso, limit: FIXED_LIMIT })) as any;
+  const bars: any[] = Array.isArray(data?.bars) ? data.bars : [];
+  const norm: PartnerBar[] = bars
+    .map((b: any) => ({
+      d: typeof b?.d === 'string' ? b.d : (typeof b?.t === 'number' ? new Date(b.t).toISOString().slice(0, 10) : undefined),
+      t: Number(b?.t),
+      ac: Number(b?.ac),
+      c: Number(b?.c),
+      pc: Number(b?.pc),
+      cp: Number(b?.cp),
+      ip: Number(b?.ip),
+      ipc: Number(b?.ipc),
+      it: typeof b?.it === 'string' ? b.it : undefined,
+    }))
+    .filter((b: PartnerBar) => !!b.d && Number.isFinite(b.t))
+    .sort((a, b) => (a.t! - b.t!));
+  return norm;
+}
+
+type PhaseEntry = {
+  t: number;
+  rank: number;
+  baseCp: number;
+  targetCp: number;
+  baseClose: number;
+  targetClose: number;
+  it?: string;
+};
+
+type SeriesDay = {
+  day: string;
+  dow: string;
+  pre?: PhaseEntry;
+  post?: PhaseEntry;
+};
+
+type UnifiedLatest = { pre?: PhaseEntry; post?: PhaseEntry };
+
+type UnifiedMeta = {
+  interval: TimeSeriesInterval; // daily/weekly/monthly
+  rsWindow: number; // 5
+  sources: { pre: string; post: string }; // {intraday, adjustedClose}
+  firstIntradayDay?: string; // earliest day we collected pre
+};
+
+// Convert PhaseSeriesEntry -> PhaseEntry
+function toPhaseEntry(e: PhaseSeriesEntry): PhaseEntry {
+  const { t, rank, baseCp, targetCp, baseClose, targetClose, it } = e;
+  return { t, rank, baseCp, targetCp, baseClose, targetClose, it };
+}
+
+async function writeUnifiedSeries(
+  baseline: string,
+  target: string,
+  phase: Phase,
+  entries: PhaseSeriesEntry[]
+): Promise<void> {
+  if (entries.length === 0) return;
+  const pairId = `${baseline}-${target}`;
+  const pairRef = db.collection('pairs').doc(pairId);
+
+  const snap = await pairRef.get();
+  const existing = (snap.exists ? (snap.data() as any) : {}) || {};
+  const series: SeriesDay[] = Array.isArray(existing.series) ? existing.series : [];
+  const latest: UnifiedLatest = (existing.latest as UnifiedLatest) || {};
+  const meta: UnifiedMeta = (existing.meta as UnifiedMeta) || {
+    interval: TimeSeriesInterval.DAILY,
+    rsWindow: 5,
+    sources: { pre: 'intraday', post: 'adjustedClose' },
+  };
+
+  // Upsert per-day
+  const byDay = new Map<string, SeriesDay>();
+  for (const d of series) byDay.set(d.day, d);
+  for (const e of entries) {
+    const pe = toPhaseEntry(e);
+    const existingDay = byDay.get(e.day) || { day: e.day, dow: e.dow };
+    if (phase === 'pre') {
+      // Overwrite same-day pre with the newest pre snapshot (latest intraday)
+      existingDay.pre = pe;
+      // Establish firstIntradayDay if not set
+      if (!meta.firstIntradayDay) meta.firstIntradayDay = e.day;
+      if (meta.firstIntradayDay && e.day < meta.firstIntradayDay) meta.firstIntradayDay = e.day;
+      latest.pre = pe;
+    } else {
+      existingDay.post = pe; // post overwrites prior post for the same day
+      latest.post = pe;
+    }
+    byDay.set(e.day, existingDay);
+  }
+
+  const merged = Array.from(byDay.values()).sort((a, b) => a.day.localeCompare(b.day));
+
+  await pairRef.set(
+    {
+      pair: pairId,
+      baseline,
+      target,
+      series: merged,
+      latest,
+      meta,
+      seriesUpdatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  const last = merged[merged.length - 1];
+  logger.info(`rs_unified_write_done ${pairId} phase=${phase} days=${merged.length} latestDay=${last?.day}`);
+}
+
+export const processDataReadyRunV2 = onMessagePublished(
+  { topic: PARTNER_DATA_READY_TOPIC, region: 'us-central1' },
+  async (event) => {
+    // Resolve phase from attributes or payload, default to 'post' if omitted
+    const message = event.data.message as any;
+    const attrPhase = (message?.attributes?.phase as string | undefined)?.toLowerCase();
+    let payloadPhase: string | undefined;
+    try {
+      const raw = typeof message?.data === 'string' ? Buffer.from(message.data, 'base64').toString('utf8') : '{}';
+      const json = JSON.parse(raw || '{}');
+      payloadPhase = (json?.phase as string | undefined)?.toLowerCase();
+    } catch {
+      // ignore
+    }
+    const phase: Phase = (attrPhase === 'pre' || attrPhase === 'post') ? (attrPhase as Phase)
+      : (payloadPhase === 'pre' || payloadPhase === 'post') ? (payloadPhase as Phase)
+      : 'post';
+
+    // Load registered pairs
+    const pairs = await listRegisteredPairs();
+    if (pairs.length === 0) {
+      logger.info('processDataReadyRunV2 no registered pairs');
+      return;
+    }
+
+    const days = FIXED_DAYS;
+
+    await forEachWithConcurrency(pairs, 3, async ({ baseline, target }) => {
+      const pairId = `${baseline}-${target}`;
+      try {
+        const [baseBars, targetBars] = await Promise.all([
+          fetchDailyBarsRaw(baseline, days),
+          fetchDailyBarsRaw(target, days),
+        ]);
+        const series = buildPhaseSeries(baseBars, targetBars, phase);
+        if (series.length === 0) {
+          logger.info(`processDataReadyRunV2 no aligned series for ${pairId} phase=${phase}`);
+          return;
+        }
+        // Unified writer (no retention trimming)
+        await writeUnifiedSeries(baseline, target, phase, series);
+      } catch (e: any) {
+        logger.error('processDataReadyRunV2 pair failed', { pairId, phase, message: e?.message, code: e?.code, status: e?.response?.status });
+      }
+    });
+  }
+);
+
+/**
+ * UnregisterPairs callable
+ * Deletes entries under `pair-registry/{BASELINE}-{TARGET}` for provided symbols.
+ * Request: { listId: string, baseline: string, symbols: string[] }
+ * Response: { unregistered: string[] }
+ */
+export const unregisterPairs = onCall({ region: 'us-central1' }, async (req) => {
+  const listId = (req.data?.listId || '').trim();
+  const baseline = normalizeSymbol(req.data?.baseline);
+  const symbols = Array.isArray(req.data?.symbols) ? req.data.symbols : [];
+  const uid = req.auth?.uid || 'anon';
+  if (!baseline || !listId) {
+    logger.warn('unregisterPairs missing baseline or listId');
+    return { unregistered: [] };
+  }
+  const retentionMs = REGISTRY_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+  const memberKey = `uid:${uid}/list:${listId}`;
+  const unregistered: string[] = [];
+  for (const s of symbols) {
+    const target = normalizeSymbol(String(s));
+    if (!target) continue;
+    const id = `${baseline}-${target}`;
+    const ref = db.collection(REGISTRY_COLLECTION).doc(id);
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) return;
+      const data = (snap.data() as any) || {};
+      const members: string[] = Array.isArray(data.members) ? data.members : [];
+      const hadMember = members.includes(memberKey);
+      const newMembers = hadMember ? members.filter((m) => m !== memberKey) : members;
+      const oldRefCount: number = Number.isFinite(data.refCount) ? Number(data.refCount) : members.length;
+      const newRefCount = hadMember ? Math.max(0, oldRefCount - 1) : oldRefCount;
+      const update: Record<string, unknown> = {
+        members: newMembers,
+        refCount: newRefCount,
+        updatedAt: FieldValue.serverTimestamp(),
+      };
+      if (newRefCount === 0) update['pendingDeleteAt'] = new Date(Date.now() + retentionMs).toISOString();
+      tx.set(ref, update, { merge: true });
+    });
+    unregistered.push(id);
+  }
+  logger.info('unregisterPairs completed', { count: unregistered.length, baseline, listId });
+  return { unregistered };
+});
+
+/**
+ * validateAndRegisterPairs callable
+ * Validates baseline/targets against tracked-symbols and registers pair-registry membership with refCount.
+ * Request: { listId: string, baseline: string, symbols: string[] }
+ * Response: { registered: string[], rejected: Array<{ symbol: string; reason: string }>, baselineHint?: { nonStandard: boolean } }
+ */
+export const validateAndRegisterPairs = onCall({ region: 'us-central1' }, async (req) => {
+  const listId = (req.data?.listId || '').trim();
+  const baseline = normalizeSymbol(req.data?.baseline);
+  const symbols = Array.isArray(req.data?.symbols) ? req.data.symbols.map((x: any) => String(x)) : [];
+  const uid = req.auth?.uid || 'anon';
+  if (!baseline || !listId) {
+    logger.warn('validateAndRegisterPairs missing baseline or listId');
+    return { registered: [], rejected: [{ symbol: baseline || 'unknown', reason: 'missing_baseline_or_listId' }] };
+  }
+
+  const readTracked = async (sym: string) => {
+    const ref = db.collection(TRACKED_SYMBOLS_COLLECTION).doc(sym);
+    const snap = await ref.get();
+    return snap.exists ? (snap.data() as any) : undefined;
+  };
+
+  // Baseline must be supported (no need for isBaseline === true). Provide a UI hint if not an ETF/index.
+  const baselineDoc = await readTracked(baseline);
+  const baselineSupported = !!baselineDoc?.supported;
+  const baselineHint = { nonStandard: baselineSupported && !baselineDoc?.isBaseline };
+  if (!baselineSupported) {
+    return { registered: [], rejected: [{ symbol: baseline, reason: 'baseline_not_supported' }], baselineHint };
+  }
+
+  const rejected: Array<{ symbol: string; reason: string }> = [];
+  const validTargets: string[] = [];
+  for (const raw of symbols) {
+    const target = normalizeSymbol(raw);
+    if (!target) continue;
+    const doc = await readTracked(target);
+    if (!doc?.supported) {
+      rejected.push({ symbol: target, reason: 'target_not_supported' });
+      continue;
+    }
+    validTargets.push(target);
+  }
+
+  const memberKey = `uid:${uid}/list:${listId}`;
+  const registered: string[] = [];
+  for (const target of validTargets) {
+    const id = `${baseline}-${target}`;
+    const ref = db.collection(REGISTRY_COLLECTION).doc(id);
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const exists = snap.exists;
+      const data = (exists ? (snap.data() as any) : {}) || {};
+      const members: string[] = Array.isArray(data.members) ? data.members : [];
+      const alreadyMember = members.includes(memberKey);
+      const newMembers = alreadyMember ? members : [...members, memberKey];
+      const oldRefCount: number = Number.isFinite(data.refCount) ? Number(data.refCount) : members.length;
+      const newRefCount = alreadyMember ? oldRefCount : oldRefCount + 1;
+      const update: Record<string, unknown> = {
+        baseline,
+        target,
+        members: newMembers,
+        refCount: newRefCount,
+        updatedAt: FieldValue.serverTimestamp(),
+      };
+      if (!exists) update['createdAt'] = FieldValue.serverTimestamp();
+      if (data?.pendingDeleteAt) update['pendingDeleteAt'] = FieldValue.delete();
+      tx.set(ref, update, { merge: true });
+    });
+    registered.push(id);
+  }
+
+  logger.info('validateAndRegisterPairs completed', { baseline, listId, registered: registered.length, rejected: rejected.length });
+  return { registered, rejected, baselineHint };
 });

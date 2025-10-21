@@ -1,9 +1,11 @@
 import './init';
 
-// Re-export partner functions from dedicated module
+export {partnerProxyTest, getTrackedSymbols} from "./partner-proxy";
 
-export {partnerProxyTest} from "./partner-proxy";
-export { processDataReadyRun } from "./webhooks/partner-webhooks";
+export { processDataReadyRunV2 } from "./webhooks/partner-webhooks";
 
 // seeding function for initial pairs document creation
 export { seedPairRegistryManual } from "./webhooks/partner-webhooks";
+
+// pair registry callables
+export { unregisterPairs, validateAndRegisterPairs } from "./webhooks/partner-webhooks";
