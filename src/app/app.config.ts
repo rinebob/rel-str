@@ -7,7 +7,7 @@ import { APP_ROUTES } from './app.routes';
 import { initializeApp, provideFirebaseApp } from '@angular/fire/app';
 import { getAuth, provideAuth } from '@angular/fire/auth';
 import { connectFirestoreEmulator, getFirestore, provideFirestore } from '@angular/fire/firestore';
-import { getFunctions, provideFunctions } from '@angular/fire/functions';
+import { connectFunctionsEmulator, getFunctions, provideFunctions } from '@angular/fire/functions';
 import { getPerformance, providePerformance } from '@angular/fire/performance';
 import { getStorage, provideStorage } from '@angular/fire/storage';
 
@@ -19,22 +19,34 @@ import { SYNC_FUSION_LICENSE_KEY } from '../secrets/syncfusion-license';
 registerLicense(SYNC_FUSION_LICENSE_KEY);
 
 export const appConfig: ApplicationConfig = {
-	providers: [
-		provideRouter(APP_ROUTES, withPreloading(PreloadAllModules)),
-		provideAnimationsAsync(),
-		provideHttpClient(),
-		provideAuth(() => getAuth()),
-		provideFirestore(() => {
-			const firestore = getFirestore();
-			if (location.hostname === 'localhost') {
-				connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
-			}
-			return firestore;
-		}),
-		provideFunctions(() => getFunctions()),
-		providePerformance(() => getPerformance()),
-		provideStorage(() => getStorage()), 
+    providers: [
+        provideRouter(APP_ROUTES, withPreloading(PreloadAllModules)),
+        provideAnimationsAsync(),
+        provideHttpClient(),
 
-		provideFirebaseApp(() => initializeApp(environment.firebase)),
-	],
+        // IMPORTANT: Initialize Firebase app BEFORE other AngularFire providers
+        provideFirebaseApp(() => initializeApp(environment.firebase)),
+
+        provideAuth(() => getAuth()),
+        provideFirestore(() => {
+            const firestore = getFirestore();
+            const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+            if (isLocal) {
+                // Firestore emulator is running on 127.0.0.1:8088 per emulator output
+                connectFirestoreEmulator(firestore, '127.0.0.1', 8088);
+            }
+            return firestore;
+        }),
+        provideFunctions(() => {
+            const functions = getFunctions();
+            const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+            if (isLocal) {
+                // Functions emulator is running on 127.0.0.1:5002 per emulator output
+                connectFunctionsEmulator(functions, '127.0.0.1', 5002);
+            }
+            return functions;
+        }),
+        providePerformance(() => getPerformance()),
+        provideStorage(() => getStorage()),
+    ],
 };
