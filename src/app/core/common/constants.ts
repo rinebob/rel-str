@@ -43,6 +43,14 @@ export const NAV_MENU_ITEMS: NavItem[] = [
         target: '_self',
     },
     {
+        name: 'dashboard-v2',
+        text: 'dashboard-v2',
+        href: 'dashboard-v2',
+        mobileOnly: false,
+        external: false,
+        target: '_self',
+    },
+    {
         name: 'sync-chart',
         text: 'sync-chart',
         href: 'sync-chart',

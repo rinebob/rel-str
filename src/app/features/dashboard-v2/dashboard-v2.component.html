@@ -1,0 +1,56 @@
+<mat-drawer-container [hasBackdrop]="true">
+
+    <mat-drawer #selectStock mode="over" position="end">
+
+        <rs-select-stock-panel />
+
+        <div class="close-button-container">
+
+            <button mat-flat-button class="task-button" (click)="handleCloseSelectStockPanel()">close</button>
+
+        </div>
+
+    </mat-drawer>
+
+    <mat-drawer-content>
+
+            <!-- FOR DEVELOPMENT ONLY -->
+        <!-- <rs-select-stock-panel /> -->
+
+        <div class="dashboard-container">
+
+            <div class="header-container">
+
+                <div class="name-container">
+
+                    <p class="header-text">List: {{rsAppStore.selectedStockListV2().name}}</p>
+                    <p class="header-text">Baseline symbol: {{rsAppStore.selectedStockListV2().baseline}}</p>
+
+                </div>
+                
+                <div class="buttons-container">
+    
+                    <button mat-flat-button class="task-button" (click)="handleSelectStock()">Select stock / list</button>
+                    <button mat-flat-button class="task-button" (click)="handleChangeTimeframe()">Timeframe</button>
+                    <button mat-flat-button class="task-button" (click)="handleSortFilter()">Sort / filter</button>
+            
+                </div>
+
+            </div>
+        
+            <div class="heatmap-container">
+        
+                <rs-heatmap />
+                
+                <!-- Dev-only: show tracked symbols payload -->
+                <pre style="max-height: 20rem; overflow:auto; background:#111; color:#ddd; padding:0.5rem;">
+                    {{ trackedSymbols$ | async | json }}
+                </pre>
+
+            </div>
+
+        </div>
+
+    </mat-drawer-content>
+
+</mat-drawer-container>

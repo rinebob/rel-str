@@ -31,6 +31,10 @@ import { AppRoutes } from "./common/interfaces";
                 loadComponent: () => import('../features/dashboard/dashboard.component')
                 .then(mod => mod.DashboardComponent),
             },
+            {path: AppRoutes.DASHBOARD_V2, 
+                loadComponent: () => import('../features/dashboard-v2/dashboard-v2.component')
+                .then(mod => mod.DashboardV2Component),
+            },
             {path: AppRoutes.CHART, 
                 redirectTo: AppRoutes.SYNC_CHART, pathMatch: 'full',
             },

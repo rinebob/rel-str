@@ -1,0 +1,49 @@
+
+@if(externalSymbolsSource()) {
+
+    <div class="symbol-picker-container">
+
+        <div class="picker-list-container">
+
+            <p>All symbols</p>
+            <p>(click to add)</p>
+    
+            <div class="picker-list left">
+    
+                @for(datum of localSymbolsSource(); track datum.symbol) {
+    
+                    <div class="datum-container" (click)="addSymbolToList(datum)">
+                        <p class="symbol-text">{{datum.symbol}}</p>
+                        <p>{{datum.company}}</p>
+                    </div>
+                    
+                }
+        
+            </div>
+            
+        </div>
+
+        <div class="picker-list-container">
+            
+            <p>Selected symbols</p>
+            <p>(click to remove)</p>
+        
+            <div class="picker-list right">
+
+                @for(datum of localSymbolsSelection(); track datum.symbol) {
+    
+                    <div class="datum-container" (click)="removeSymbolFromList(datum)">
+                        <p class="symbol-text">{{datum.symbol}}</p>
+                        <p>{{datum.company}}</p>
+                    </div>
+                    
+                }
+        
+        
+            </div>
+            
+        </div>
+    
+    </div>
+
+}

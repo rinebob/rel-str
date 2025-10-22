@@ -3,6 +3,7 @@ export enum AppRoutes {
 	LOGOUT = 'logout',
 	BLOG = 'blog',
 	DASHBOARD = 'dashboard',
+	DASHBOARD_V2 = 'dashboard-v2',
 	DOCUMENTATION = 'documentation',
 	CONTACT = 'contact',
 	SIGNUP = 'signup',

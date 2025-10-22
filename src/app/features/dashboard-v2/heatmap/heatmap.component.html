@@ -1,0 +1,197 @@
+
+
+<!-- /////////////// NEW IMPLEMENTATION ////////////////////////// -->
+
+@if(rsAppStore.selectedStockList()) {
+
+    <div class="heatmap-container">
+
+        <div class="heatmap-rows-container">
+
+                <!-- HEADER ROW -->
+
+            <div class="heatmap-row header-row">
+    
+                @for(cell of headerCells(); track cell; let idx = $index) {
+    
+                    <div class="header-cell"
+                        [class.first]="idx === 0"
+                    >
+    
+                        <p class="heatmap-text">{{cell}}</p>
+            
+                    </div>
+                }
+    
+            </div>
+
+            @for(entry of ranksDataWithColorsEntries(); track entry) {
+        
+                <div class="heatmap-row data-row">
+    
+                    <div class="heatmap-cell first">{{entry[0]}}</div>
+    
+                    @for(datum of entry[1]; track datum) {
+    
+                        <div class="heatmap-cell"
+                             [ngStyle]="{'background-color': datum.color}"
+                        >
+    
+                            <p class="heatmap-text">{{datum.value}}</p>
+                            <p class="heatmap-text">{{datum.index}}</p>
+                            <p class="heatmap-text">{{datum.color}}</p>
+    
+                        </div>
+    
+                        
+                    }
+                    <!-- <div class="heatmap-cell">Chart</div>
+                    <div class="heatmap-cell">Signals</div> -->
+    
+                </div>
+        
+            }
+
+        </div>
+
+        <div class="buttons-column-container">
+
+            <div class="buttons-row-container">
+
+                <div class="header-cell"></div>
+                <div class="header-cell"></div>
+                
+            </div>
+
+            @for(entry of ranksDataWithColorsEntries(); track entry) {
+
+                <div class="buttons-row-container">
+
+                    <div class="heatmap-cell button-cell" (click)="handleSymbolSelection(entry[0], 'chart')">Chart</div>
+                    <div class="heatmap-cell button-cell" (click)="handleSymbolSelection(entry[0], 'history')">History</div>
+                    
+                </div>
+
+            }
+
+
+        </div>
+
+
+
+
+    </div>
+
+
+}
+
+
+
+
+
+
+<!-- ///////////////////////////////////////////////// -->
+
+
+<!-- ////////////// LEGACY IMPLEMENTATION //////////////////// -->
+
+<!-- @if(rsCalcsStore.relStrTableData()) {
+
+    <div class="table-container">
+
+        <div class="symbols-column">
+
+            <div class="column-cell">Symbol/Date</div>
+
+            @for(symbol of rsCalcsStore.relStrTableData().symbols; track symbol) {
+
+                <div class="column-cell">{{symbol}}</div>
+
+            }
+
+        </div>
+
+        <div class="rows-container">
+    
+            <div class="row">
+
+                @for(date of rsCalcsStore.relStrTableData().dates; track date) {
+
+                    <div class="cell column-header">{{date}}</div>
+    
+                }
+
+            </div>
+    
+            @for(row of rsCalcsStore.relStrTableData().data; track row) {
+        
+                <div class="row">
+                    
+                    @for(el of row; track el) {
+        
+                        <div class="cell"
+                             [ngStyle]="{'background-color': el.color}"
+                        >
+        
+                            <p class="text">{{el.value}}</p>
+                            <p class="text">{{el.index}}</p>
+                            <p class="text">{{el.color}}</p>
+        
+                        </div>
+            
+                    }
+        
+                </div>
+
+            }
+        
+        </div>
+
+        <div class="row-buttons-container">
+
+            <div class="buttons-column">
+
+                <div class="button-cell"></div>
+
+                @for(symbol of rsCalcsStore.relStrTableData.symbols(); track symbol) {
+
+                    <div class="button-cell" (click)="handleSymbolSelection(symbol, 'chart')">Chart</div>
+
+                }
+
+            </div>
+
+            <div class="buttons-column">
+
+                <div class="button-cell"></div>
+
+                @for(symbol of rsCalcsStore.relStrTableData.symbols(); track symbol) {
+
+                    <div class="button-cell" (click)="handleSymbolSelection(symbol, 'history')">History</div>
+
+                }
+
+
+            </div>
+
+        </div>
+        
+    </div> -->
+
+        <!-- DO NOT DELETE - SHOWS HEATMAP COLOR SWATCHES -->
+    <!-- <div class="color-grid-container">
+
+        @for(color of rsCalcsStore.heatmapColors(); track color) {
+
+            <div class="color-cell" [ngStyle]="{'background-color': color}">
+                
+                <p>{{color}}</p>
+                
+            </div>
+        }
+
+    </div> -->
+
+    <!-- END DO NOT DELETE -->
+
+<!-- } -->

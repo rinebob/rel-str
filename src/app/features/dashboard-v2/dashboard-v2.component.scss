@@ -1,0 +1,57 @@
+@use '../../styles/mixins-global' as global;
+@use '../../styles/variables-global';
+
+:host {
+
+    /////////////////// CONTAINERS ///////////////////
+    
+    .close-button-container {
+        @include global.flexboxLayout(row, flex-end, center);
+        margin: 0 20px;
+    }
+
+    mat-drawer-content {
+        height: 100vh;
+    }
+    
+    
+    .dashboard-container {
+        @include global.flexboxLayout(column, flex-start, center);
+        gap: 20px;
+        margin: 20px;
+        
+        .header-container {
+            @include global.flexboxLayout(row, space-between, center);
+            width: 100%;
+
+            .name-container {
+                @include global.flexboxLayout(column, flex-start, flex-start);
+
+                &:not(:last-of-type) {
+                    p {
+                        margin: 0 40px 0 0;
+                        padding: 0;
+                    }
+                }
+            }
+            
+            .buttons-container {
+                @include global.flexboxLayout(row, space-evenly, center);
+                gap: 20px;
+            }
+        }
+
+        .heatmap-container {
+            width: 100%;
+        }
+    }
+
+    ///////////// ELEMENTS /////////////////
+
+    .task-button {
+        @include global.rsButtonOne();
+    }
+
+    ///////////// TEXT ///////////////////////
+
+}
