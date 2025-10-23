@@ -1,10 +1,11 @@
-import { inject, Injectable, EnvironmentInjector, runInInjectionContext } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { BaselineTargetRankDatum, ListAction, RanksByDate, RelStrStockList, StockDatum, Company } from '../shared/types/rs.interfaces';
-import { RANKS_WITH_COLORS_BY_SYMBOL, RAW_STOCK_DATA_BY_SYMBOL } from '../data/stocks';
-import { collection, collectionData, doc, DocumentData, Firestore, setDoc, query, where, orderBy, limit, deleteDoc, getDocs, getDoc } from  "@angular/fire/firestore";
-import { Observable, map, from, tap, catchError, firstValueFrom, defer } from 'rxjs';
+// V2: no static data imports
+import { collection, collectionData, doc, docData, DocumentData, Firestore, setDoc, query, where, orderBy, limit, deleteDoc, getDocs, getDoc } from  "@angular/fire/firestore";
+import { Observable, map, from, tap, catchError, firstValueFrom } from 'rxjs';
 import { of } from 'rxjs';
 import { Functions, httpsCallable } from '@angular/fire/functions';
+import { concatMap } from 'rxjs/operators';
 
 interface SymbolMetadata {
     supported: boolean;
@@ -26,19 +27,13 @@ export class RelStrDbV2Service {
 
     firestore: Firestore = inject(Firestore)
     functions = inject(Functions);
-    private readonly envInjector = inject(EnvironmentInjector);
 
 	constructor() {}
 
     // New: Fetch tracked symbols via RS backend callable (SavantAPI behind it)
     getTrackedSymbols$(ttlSeconds = 600): Observable<Company[]> {
         console.log('[RelStrDbService] getTrackedSymbols$ start', { ttlSeconds });
-        return defer(() =>
-            runInInjectionContext(this.envInjector, () => {
-                const callable = httpsCallable<{ ttlSeconds?: number }, { items: Array<{ symbol: string; name?: string }>; cached: boolean; updatedAt?: number }>(this.functions, 'getTrackedSymbols');
-                return from(callable({ ttlSeconds }));
-            })
-        ).pipe(
+        return from(httpsCallable<{ ttlSeconds?: number }, { items: Array<{ symbol: string; name?: string }>; cached: boolean; updatedAt?: number }>(this.functions, 'getTrackedSymbols')({ ttlSeconds })).pipe(
             tap(res => console.log('[RelStrDbService] getTrackedSymbols$ response meta', {
                 cached: (res as any)?.data?.cached,
                 updatedAt: (res as any)?.data?.updatedAt,
@@ -66,50 +61,12 @@ export class RelStrDbV2Service {
     // value: StockDatum[]
 
     // get historical data for a symbol
+    // get historical data for a symbol (V2 placeholder – no static mock fallback)
     getDataForSymbol(symbol: string): StockDatum[] {
-
-        /////// ACTUAL IMPLEMENTATION ///////
-        // is the symbol in the list of supported symbols?
-        // if yes 
-
-        // fetch data from source (internal or external) and return it
-
-
-
-        // if no
-
-            // will the symbol be supported?  (how is this determined?)
-
-            // if yes
-
-                // add the symbol to the list of supported symbols
-                // make the call to the db and return the data
-
-            // if no
-
-                // display some sort of error message to user
-
-        ////////// PROTOTYPE SHIM /////////
-
-        if (Object.keys(RAW_STOCK_DATA_BY_SYMBOL).includes(symbol.toUpperCase())) {
-            // console.log('rSdBSvc gSDBS symbol exists. returning data');
-
-
-            // use hard-coded mock data if it exists in the mock data set
-
-
-            return RAW_STOCK_DATA_BY_SYMBOL[symbol];
-        } else {
-            // console.log('rSdBSvc gSDBS symbol doesnt exist. returning empty array');
-
-            // call to stock data service or directly to external api to retrieve price data for one symbol
-
-
-
-            return [];
-        }
+        // V2 must not use hard-coded data. Wire this to RsDataService or backend provider.
+        // Returning an empty array makes any accidental calls obvious in UI/logs.
+        return [];
     }
-
 
     // Only used if we maintain an internal db of historical stock data
     // save historical data for a symbol
@@ -136,15 +93,13 @@ export class RelStrDbV2Service {
     // gets a list of all the symbols currently in the db
     getSupportedSymbolsList$(): Observable<Company[]> {
         // Firestore tracked symbols is the source of truth; only show supported symbols
-        // IMPORTANT: Activate injection context at SUBSCRIBE time
-        return defer(() =>
-            runInInjectionContext(this.envInjector, () => {
-                const colRef = collection(this.firestore, 'tracked-symbols');
-                const q = query(colRef, where('supported', '==', true), orderBy('symbol'));
-                return collectionData(q, { idField: 'id' });
-            })
-        ).pipe(
-            map((rows: any[]) => rows.map(r => ({ symbol: String(r.symbol || r.id || '').toUpperCase(), company: String(r.name || r.company || r.symbol || '').trim() }) as Company)),
+        const colRef = collection(this.firestore, 'tracked-symbols');
+        const q = query(colRef, where('supported', '==', true), orderBy('symbol'));
+        return collectionData(q).pipe(
+            map((rows: any[]) => rows.map((data: any) => ({
+                symbol: String(data?.symbol || '').toUpperCase(),
+                company: String(data?.name || data?.company || data?.symbol || '').trim(),
+            }) as Company)),
             catchError(err => {
                 console.error('[RelStrDbService] getSupportedSymbolsList$ error', err);
                 return of([] as Company[]);
@@ -152,19 +107,20 @@ export class RelStrDbV2Service {
         );
     }
 
-    // gets a list of all the symbols currently in the db
-    getSupportedPairsList(): string[] {
+    // V2 dynamic: supported pairs list comes from Firestore 'pairs' collection (doc IDs hyphenated BASELINE-TARGET)
+    getSupportedPairsList$(): Observable<string[]> {
+        const colRef = collection(this.firestore, 'pairs');
+        return collectionData(colRef, { idField: 'id' }).pipe(
+            map((rows: any[]) => rows.map(r => String(r?.id))),
+            catchError(err => {
+                console.error('[RelStrDbService] getSupportedPairsList$ error', err);
+                return of([] as string[]);
+            })
+        );
+    }
 
-        const pairs = Object.keys(RANKS_WITH_COLORS_BY_SYMBOL);
-        // console.log('rSdBSvc gSSL symbols: ', symbols);
-        return pairs;
-
-        // collection: admin
-        // doc: supported-pairs
-        // data type: array of strings in the form 'BASELINE_TARGET'
-        // ex: 'QQQ_AAPL' or 'SPY_XON'
-
-
+    async getSupportedPairsListDynamic(): Promise<string[]> {
+        try { return await firstValueFrom(this.getSupportedPairsList$()); } catch { return []; }
     }
 
     async createSupportedSymbolsListDoc() {
@@ -288,54 +244,21 @@ export class RelStrDbV2Service {
 
     //////////////////////////////////////////
 
-
-    // STOCK LISTS
-    // collection: stockList
-    // key: userId string
-    // value: RelStrStockList array
-
-    // New Stock List process
-    // this is when a user creates a stock list 
-    // need to:
-    // check whether each symbol is in the list of supported symbols (getSupportedSymbolsList)
-    // or check the 'supported' status for the symbol (getSymbolSupportStatus)
-    // add each symbol to the list of supported symbols
-    // generate a list of baseline/target pairs for the list
-    // get historical stock data for each symbol in the list
-    // generate
-    // 
-
     getListsForUser$(userId: string): Observable<RelStrStockList[]> {
-        // IMPORTANT: Activate injection context at SUBSCRIBE time
-        return defer(() =>
-            runInInjectionContext(this.envInjector, () => {
-                const colRef = collection(this.firestore, `users/${userId}/lists`);
-                const q = query(colRef, orderBy('updatedAt', 'desc'));
-                return collectionData(q, { idField: 'id' });
-            })
-        ).pipe(
-            map((rows: any[]) => rows.map(r => ({
-                name: String(r?.name || r?.id || '').trim(),
-                baseline: String(r?.baseline || '').toUpperCase(),
-                symbols: Array.isArray(r?.symbols) ? r.symbols.map((s: any) => ({ symbol: String(s?.symbol || '').toUpperCase(), company: String(s?.company || s?.symbol || '').trim() })) : [],
-                ranksDataWithColors: r?.ranksDataWithColors ?? undefined,
+        const uid = String(userId || '').trim();
+        const colRef = collection(this.firestore, `users/${uid}/lists`);
+        const qRef = query(colRef, orderBy('updatedAt', 'desc'));
+        // Pure read: do not write in the read path to avoid rules violations
+        return from(getDocs(qRef)).pipe(
+            map(snap => snap.docs.map(d => ({
+                name: String((d.data() as any)?.name || d.id || '').trim(),
+                baseline: String((d.data() as any)?.baseline || '').toUpperCase(),
+                symbols: Array.isArray((d.data() as any)?.symbols) ? (d.data() as any).symbols.map((s: any) => ({ symbol: String(s?.symbol || '').toUpperCase(), company: String(s?.company || s?.symbol || '').trim() })) : [],
+                ranksDataWithColors: (d.data() as any)?.ranksDataWithColors ?? undefined,
             }) as RelStrStockList)),
             catchError(err => {
-                console.warn('[RelStrDbService] getListsForUser$ collectionData failed, falling back to getDocs()', err);
-                return defer(() =>
-                    runInInjectionContext(this.envInjector, () => {
-                        const colRef = collection(this.firestore, `users/${userId}/lists`);
-                        const q = query(colRef, orderBy('updatedAt', 'desc'));
-                        return from(getDocs(q));
-                    })
-                ).pipe(
-                    map(snap => snap.docs.map(d => ({
-                        name: String((d.data() as any)?.name || d.id || '').trim(),
-                        baseline: String((d.data() as any)?.baseline || '').toUpperCase(),
-                        symbols: Array.isArray((d.data() as any)?.symbols) ? (d.data() as any).symbols.map((s: any) => ({ symbol: String(s?.symbol || '').toUpperCase(), company: String(s?.company || s?.symbol || '').trim() })) : [],
-                        ranksDataWithColors: (d.data() as any)?.ranksDataWithColors ?? undefined,
-                    }) as RelStrStockList))
-                );
+                console.error('[RelStrDbService] getListsForUser$ error', err);
+                return of([] as RelStrStockList[]);
             })
         );
     }
@@ -350,10 +273,14 @@ export class RelStrDbV2Service {
     }
 
     async saveStockList(userId: string, list: RelStrStockList): Promise<void> {
-        const colRef = collection(this.firestore, `users/${userId}/lists`);
-        const docRef = doc(colRef, list.name);
+        const uid = String(userId || '').trim();
+        const docId = String(list?.name || '').trim();
+        if (!uid) throw new Error('[RelStrDbV2Service] saveStockList: missing userId');
+        if (!docId) throw new Error('[RelStrDbV2Service] saveStockList: missing list.name');
+        const colRef = collection(this.firestore, `users/${uid}/lists`);
+        const docRef = doc(colRef, docId);
         const payload = {
-            name: list.name,
+            name: docId,
             baseline: String(list.baseline || '').toUpperCase(),
             symbols: Array.isArray(list.symbols) ? list.symbols.map(s => ({ symbol: String(s.symbol || '').toUpperCase(), company: String(s.company || s.symbol || '').trim() })) : [],
             ranksDataWithColors: list.ranksDataWithColors ?? null,
@@ -363,34 +290,37 @@ export class RelStrDbV2Service {
     }
 
     async deleteStockList(userId: string, listName: string): Promise<void> {
-        const colRef = collection(this.firestore, `users/${userId}/lists`);
-        const docRef = doc(colRef, listName);
+        const uid = String(userId || '').trim();
+        const docId = String(listName || '').trim();
+        if (!uid) throw new Error('[RelStrDbV2Service] deleteStockList: missing userId');
+        if (!docId) throw new Error('[RelStrDbV2Service] deleteStockList: missing listName');
+        const colRef = collection(this.firestore, `users/${uid}/lists`);
+        const docRef = doc(colRef, docId);
         await deleteDoc(docRef);
     }
 
     async renameStockList(userId: string, oldName: string, newList: RelStrStockList): Promise<void> {
-        // console.log('[RelStrDbService] renameStockList called', { oldName, newName: newList?.name });
-        if (!oldName || !newList?.name) return;
-        if (oldName === newList.name) {
+        const uid = String(userId || '').trim();
+        const srcId = String(oldName || '').trim();
+        const destId = String(newList?.name || '').trim();
+        if (!uid || !srcId || !destId) return;
+        if (srcId === destId) {
             // No-op rename; just persist any field updates
             await this.saveStockList(userId, newList);
             return;
         }
         // Prevent overwriting if a list with the target name already exists
-        const colRef = collection(this.firestore, `users/${userId}/lists`);
-        const newDocRef = doc(colRef, newList.name);
-        const exists = await runInInjectionContext(this.envInjector, async () => {
-            const snap = await getDoc(newDocRef);
-            return snap.exists();
-        });
+        const colRef = collection(this.firestore, `users/${uid}/lists`);
+        const newDocRef = doc(colRef, destId);
+        const exists = await getDoc(newDocRef).then(snap => snap.exists());
         if (exists) {
-            console.warn('[RelStrDbService] renameStockList aborted: target name already exists', { userId, oldName, newName: newList.name });
+            console.warn('[RelStrDbService] renameStockList aborted: target name already exists', { userId: uid, oldName: srcId, newName: destId });
             return;
         }
         // Write new doc id first
         await this.saveStockList(userId, newList);
         // Then delete the old doc id
-        await this.deleteStockList(userId, oldName);
+        await this.deleteStockList(userId, srcId);
     }
 
     // RANKS DATA FOR SYMBOL/BASELINE PAIR
@@ -402,18 +332,38 @@ export class RelStrDbV2Service {
 
     }
 
+    // Live series for a pair doc (hyphenated ID), unified series entries with { pre?, post? }
+    // Returns simplified { date, value } array where value = post.rank if present else pre.rank
+    getPairSeriesLive$(pairId: string): Observable<Array<{ date: string; value: number }>> {
+        const ref = doc(this.firestore, `pairs/${pairId}`);
+        return docData(ref).pipe(
+            map((doc: any) => {
+                const series: any[] = Array.isArray(doc?.series) ? doc.series : [];
+                const mapped = series.map((row: any) => {
+                    const day = String(row?.day ?? row?.date ?? '');
+                    const postRank = Number(row?.post?.rank ?? NaN);
+                    const preRank = Number(row?.pre?.rank ?? NaN);
+                    const value = Number.isFinite(postRank) ? postRank : (Number.isFinite(preRank) ? preRank : 0);
+                    return { date: day, value };
+                });
+                return mapped;
+            }),
+            catchError(err => {
+                console.error('[RelStrDbV2Service] getPairSeriesLive$ error', { pairId, err });
+                return of([] as Array<{ date: string; value: number }>);
+            })
+        );
+    }
+
     // Pair Registry (backend callables)
     async registerPairs(list: RelStrStockList): Promise<string[]> {
         try {
             // Backend now validates and registers in one step. Execute inside injection context.
             const symbols = Array.isArray(list.symbols) ? list.symbols.map(s => s.symbol) : [];
-            const res = await runInInjectionContext(this.envInjector, async () => {
-                const callable = httpsCallable<
-                    { listId: string; baseline: string; symbols: string[] },
-                    { registered: string[]; rejected?: Array<{ symbol: string; reason: string }>; baselineHint?: { nonStandard?: boolean } }
-                >(this.functions, 'validateAndRegisterPairs');
-                return callable({ listId: list.name, baseline: list.baseline, symbols });
-            });
+            const res = await httpsCallable<
+                { listId: string; baseline: string; symbols: string[] },
+                { registered: string[]; rejected?: Array<{ symbol: string; reason: string }>; baselineHint?: { nonStandard?: boolean } }
+            >(this.functions, 'validateAndRegisterPairs')({ listId: list.name, baseline: list.baseline, symbols });
             const payload = res?.data || {} as any;
             return Array.isArray(payload.registered) ? payload.registered : [];
         } catch (e) {
@@ -425,13 +375,10 @@ export class RelStrDbV2Service {
     async unregisterPairs(list: RelStrStockList): Promise<string[]> {
         try {
             const symbols = Array.isArray(list.symbols) ? list.symbols.map(s => s.symbol) : [];
-            const res = await runInInjectionContext(this.envInjector, async () => {
-                const callable = httpsCallable<
-                    { listId: string; baseline: string; symbols: string[] },
-                    { unregistered: string[] }
-                >(this.functions, 'unregisterPairs');
-                return callable({ listId: list.name, baseline: list.baseline, symbols });
-            });
+            const res = await httpsCallable<
+                { listId: string; baseline: string; symbols: string[] },
+                { unregistered: string[] }
+            >(this.functions, 'unregisterPairs')({ listId: list.name, baseline: list.baseline, symbols });
             const payload = (res?.data as any) || {};
             return Array.isArray(payload.unregistered) ? payload.unregistered : [];
         } catch (e) {

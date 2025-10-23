@@ -4,9 +4,8 @@ import { StockDataService } from "../services/stock-data.service"
 import { inject } from "@angular/core"
 import { RelStrDbV2Service } from "../services/rel-str-db-v2.service"
 import { generatePairData, getPairsForList } from "../utils/rs-calc-utils-v2"
-import { RANKS_WITH_COLORS_BY_SYMBOL } from "../data/stocks"
 import { RsCalcsStore } from "./rs-calcs.store"
-import { firstValueFrom } from 'rxjs'
+import { firstValueFrom, Subscription } from 'rxjs'
 
 export type StockListV2State = {
     allStockListsV2: RelStrStockList[],
@@ -31,11 +30,6 @@ export const initialV2State: StockListV2State = {
 export function withStockListV2Feature() {
     return signalStoreFeature(
         withState<StockListV2State>(initialV2State),
-
-        withComputed((state) => ({
-
-        })),
-
         withMethods((
             store,
             relStrDbService = inject(RelStrDbV2Service),
@@ -91,10 +85,10 @@ export function withStockListV2Feature() {
             },
 
             // BASELINE/TARGET RANKS DATA (PAIRS DATA)
-            getSupportedPairsListV2() {
-                const supportedPairsListV2 = relStrDbService.getSupportedPairsList();
+            async getSupportedPairsListV2() {
+                const supportedPairsListV2 = await firstValueFrom(relStrDbService.getSupportedPairsList$());
                 // console.log('[StockListV2] supportedPairsListV2', supportedPairsListV2);
-                patchState(store, {supportedPairsListV2});
+                patchState(store, { supportedPairsListV2 });
             },
 
             updateSupportedPairsListV2(pair: string, action: ListAction) {
@@ -113,212 +107,173 @@ export function withStockListV2Feature() {
             store,
             rsCalcsStore = inject(RsCalcsStore),
             relStrDbService = inject(RelStrDbV2Service),
-        ) => ({
+        ) => {
+            const liveSubs = new Map<string, Subscription>();
 
-            // LISTS
-            async getListsForUserV2(userId: string) {
-                const allStockListsV2 = await relStrDbService.getListsForUser(userId);
-                patchState(store, { allStockListsV2 });
-            },
-
-            async saveStockListForUserV2(userId: string, list: RelStrStockList) {
-                // Persist to Firestore
-                await relStrDbService.saveStockList(userId, list);
-                // Update local state immediately
-                const existing = store.allStockListsV2().some(l => l.name === list.name);
-                const base = existing ? [...store.allStockListsV2()] : [...store.allStockListsV2(), list];
-                const allStockListsV2 = this.sortListsV2(list, base);
-                patchState(store, { allStockListsV2, selectedStockListV2: list });
-                // Register pairs in backend
-                try { await relStrDbService.registerPairs(list); } catch (e) { console.error('[StockListFeatureV2] registerPairs failed', e); }
-            },
-
-            async deleteStockListForUserV2(userId: string, listName: string) {
-                // Find list object for unregistering pairs
-                const listObj = store.allStockListsV2().find(l => l.name === listName);
-                if (listObj) {
-                    try { await relStrDbService.unregisterPairs(listObj); } catch {}
+            const sortListsV2 = (targetList: RelStrStockList, allStockListsV2: RelStrStockList[]) => {
+                const lists: RelStrStockList[] = [];
+                for (const list of allStockListsV2) {
+                    lists.push(list.name !== targetList.name ? list : targetList);
                 }
-                // Persist deletion
-                await relStrDbService.deleteStockList(userId, listName);
-                // Update local state
-                const stockLists = store.allStockListsV2().filter(l => l.name !== listName);
-                patchState(store, { allStockListsV2: stockLists });
-            },
+                return lists;
+            };
 
-            async renameStockListForUserV2(userId: string, oldName: string, newList: RelStrStockList) {
-                await relStrDbService.renameStockList(userId, oldName, newList);
-                const others = store.allStockListsV2().filter(l => l.name !== oldName);
-                const allStockListsV2 = this.sortListsV2(newList, [...others, newList]);
-                patchState(store, { allStockListsV2, selectedStockListV2: newList });
-                // Update backend pair registry for new list id
-                try { await relStrDbService.registerPairs(newList); } catch (e) { console.error('[StockListFeatureV2] registerPairs (rename) failed', e); }
-            },
-
-            setAllStockListsV2(allStockListsV2: RelStrStockList[]) {
-                // console.log('wSLFeatV2 sASL set all stock lists: ', allStockListsV2);
-                patchState(store, {allStockListsV2});
-            },
-            
-            setSelectedStockListV2(selectedStockListV2: RelStrStockList){
-                // console.log('wSLFeatV2 sASL set selected stock list: ', selectedStockListV2);
-                patchState(store, {selectedStockListV2})
-            },
-
-            updateStockListV2(list: RelStrStockList) {
-                const allStockListsV2 = store.allStockListsV2().filter(l => l.name !== list.name)
-                allStockListsV2.push({...list});
-                patchState(store, {allStockListsV2, selectedStockListV2: {...list}})
-            },
-
-            async generateHeatmapDataV2(pair: string): Promise<BaselineTargetRankDatum[]> {
-                // console.log('sLFeatV2 gHD generate heatmap data for pair: ', pair);
-                const symbols = pair.split('_');
-                const baseline = symbols[0];
-                const target = symbols[1];
-        
-                // console.log('sLFeatV2 gHD pair not in list. creating data set. baseline/target: ', baseline, target);
+            const generateHeatmapDataV2 = async (pair: string): Promise<BaselineTargetRankDatum[]> => {
+                const [baseline, target] = pair.split('-');
                 const baselineData = await store.getHistoricalDataForSymbolV2(baseline);
                 const targetData = await store.getHistoricalDataForSymbolV2(target);
-                
-                const pairData = generatePairData(baselineData, targetData, rsCalcsStore.heatmapColors());
-                // console.log('sLFeatV2 gHD final pairData: ', pairData);
-        
-                return pairData;
-            },
+                return generatePairData(baselineData, targetData, rsCalcsStore.heatmapColors());
+            };
 
-            async getHeatmapDataV2(pairs: string[]): Promise<RanksDataWithColors> {
-                let ranksDataWithColors: RanksDataWithColors = {}
-
+            const getHeatmapDataV2 = async (pairs: string[]): Promise<RanksDataWithColors> => {
+                const out: RanksDataWithColors = {};
                 for (const pair of pairs) {
-                    // console.log('sLFeatV2 gHD pair: ', pair);
-                    let pairData: BaselineTargetRankDatum[] = [];
-                    if (store.supportedPairsListV2().includes(pair)) {
-                        // console.log('sLFeatV2 gHD pair in list.  getting data from firebase db');
-                        pairData = RANKS_WITH_COLORS_BY_SYMBOL[pair];
-                    } else {
-                        // console.log('sLFeatV2 gHD pair not in list.  generating pairData and saving to firebase db');
-                        pairData = await this.generateHeatmapDataV2(pair);
-                        store.savePairDataV2(pair, pairData);
-                    }
-                    ranksDataWithColors[pair] = pairData;
+                    // V2: Always resolve dynamically; no static mocks
+                    const pairData: BaselineTargetRankDatum[] = await generateHeatmapDataV2(pair);
+                    store.savePairDataV2(pair, pairData);
+                    out[pair] = pairData;
                 }
+                return out;
+            };
 
-                // console.log('sLFeatV2 gHD final ranksDataWithColors: ', ranksDataWithColors);
-
-                return ranksDataWithColors;
-            },
-
-            async resolveExistingRanksDataV2(list: RelStrStockList): Promise<RelStrStockList> {
-                // console.log('-----------------');
-                // console.log('sLFeatV2 rERD input list: ', {...list});
+            const resolveExistingRanksDataV2 = async (list: RelStrStockList): Promise<RelStrStockList> => {
                 const pairs = getPairsForList(list);
-                // console.log('sLFeatV2 rERD pairs: ', pairs);
                 const existingPairs = !!list.ranksDataWithColors ? Object.keys(list.ranksDataWithColors) : [];
-                // console.log('sLFeatV2 rERD existingPairs: ', existingPairs);
-                const pairsToFetch = [];
-
-                for (const pair of pairs) {
-                    // console.log('sLFeatV2 rERD pair: ', pair);
-                    if (!existingPairs.includes(pair)) {
-                        pairsToFetch.push(pair);
-                        // console.log('sLFeatV2 rERD existing pairs not include pair');
-                    } else {
-                        // console.log('sLFeatV2 rERD existing pairs includes pair');
-                    }
-                }
-
-                // console.log('sLFeatV2 rERD pairsToFetch: ', pairsToFetch);
+                const pairsToFetch: string[] = [];
+                for (const pair of pairs) if (!existingPairs.includes(pair)) pairsToFetch.push(pair);
                 if (list.ranksDataWithColors === undefined || pairsToFetch.length) {
-                    // console.log('sLFeatV2 rERD no list ranks with colors or pairs to fetch not empty');
-                    const ranksData = await this.getHeatmapDataV2(pairsToFetch);
-                    // console.log('sLFeatV2 rERD ranksData: ', ranksData);
-                    
-                    const updatedRanksData = list.ranksDataWithColors !== undefined ? {...list.ranksDataWithColors, ...ranksData} : {...ranksData};
-                    // console.log('sLFeatV2 rERD updatedRanksData: ', updatedRanksData);
-
-                    list.ranksDataWithColors = {...updatedRanksData};
-                } else {
-                    // console.log('sLFeatV2 rERD no pairs to fetch');
+                    const ranksData = await getHeatmapDataV2(pairsToFetch);
+                    const updatedRanksData = list.ranksDataWithColors !== undefined
+                        ? { ...list.ranksDataWithColors, ...ranksData }
+                        : { ...ranksData };
+                    list.ranksDataWithColors = { ...updatedRanksData };
                 }
-
                 return list;
-            },
+            };
 
-            async initializeListV2(list: RelStrStockList) {
-                // Optimistically select immediately so UI highlights even if data resolution fails
-                patchState(store, { selectedStockListV2: { ...list } });
+            const stopLivePairSubscriptions = () => {
+                for (const sub of liveSubs.values()) { try { sub.unsubscribe(); } catch {} }
+                liveSubs.clear();
+            };
 
-                try {
-                    const resolved = await this.resolveExistingRanksDataV2({ ...list });
-                    const allStockListsV2 = this.sortListsV2(resolved, [...store.allStockListsV2()]);
-                    patchState(store, { allStockListsV2, selectedStockListV2: resolved });
-                } catch (e) {
-                    console.error('[StockListFeatureV2] initializeListV2 resolution failed', e);
-                    // Keep optimistic selection; do not throw to avoid breaking click handling
+            const startLivePairSubscriptionsForList = (list: RelStrStockList) => {
+                stopLivePairSubscriptions();
+                const pairs = getPairsForList(list);
+                for (const pairId of pairs) {
+                    const sub = relStrDbService.getPairSeriesLive$(pairId).subscribe(series => {
+                        const colors = rsCalcsStore.heatmapColors();
+                        const mapped: BaselineTargetRankDatum[] = series.map(d => {
+                            const idx = Math.floor(d.value * (colors.length - 1));
+                            const color = colors[idx];
+                            return { date: d.date, value: d.value, index: idx, color } as BaselineTargetRankDatum;
+                        });
+
+                        const current = store.selectedStockListV2();
+                        const isSameList = current?.name === list.name;
+                        const baseList = isSameList ? { ...current } : { ...list };
+                        const existing = baseList.ranksDataWithColors ?? {} as RanksDataWithColors;
+                        const updated: RanksDataWithColors = { ...existing, [pairId]: mapped };
+                        baseList.ranksDataWithColors = updated;
+
+                        const others = store.allStockListsV2().filter(l => l.name !== baseList.name);
+                        const allStockListsV2 = sortListsV2(baseList, [...others, baseList]);
+                        patchState(store, { selectedStockListV2: baseList, allStockListsV2 });
+                    });
+                    liveSubs.set(pairId, sub);
                 }
-            },
+            };
 
-            async saveListV2(list: RelStrStockList) {
-                console.log('[StockListFeatureV2] saveList called', { mode: store.formModeV2(), list });
-                let allStockListsV2 = [...store.allStockListsV2()];
-                 // console.log('wSLFeatV2 sL save list. input formMode/list: ', store.formModeV2(), {...list});
-                 list = await this.resolveExistingRanksDataV2(list);
-                 if (store.formModeV2() === FormMode.EDIT) {
-                     // console.log('wSLFeatV2 sL allStockListsV2 post filter pre save: ', allStockListsV2);
-                     allStockListsV2 = this.sortListsV2(list, allStockListsV2);
-                 } else {
-                     allStockListsV2 = [...store.allStockListsV2(), list];
-                 }
-                 // console.log('wSLFeatV2 sL list with ranks data: ', {...list});
-                 console.log('[StockListFeatureV2] patching state with new list count', { count: allStockListsV2.length });
-                 patchState(store, {allStockListsV2, selectedStockListV2: list});
-                 // Attempt to register pairs in backend registry (fire-and-forget semantics acceptable)
-                 try {
-                     const registered = await relStrDbService.registerPairs(list);
-                     console.log('[StockListFeatureV2] registerPairs result', { registeredCount: registered?.length });
-                 } catch (e) {
-                     console.error('[StockListFeatureV2] registerPairs failed', e);
-                 }
-             },
+            return {
+                // LISTS
+                async getListsForUserV2(userId: string) {
+                    const allStockListsV2 = await relStrDbService.getListsForUser(userId);
+                    patchState(store, { allStockListsV2 });
+                },
 
-            sortListsV2(targetList: RelStrStockList, allStockListsV2: RelStrStockList[]) {
-                let lists: RelStrStockList[] = [];
-                for (const list of allStockListsV2) {
-                    if (list.name !== targetList.name) {
-                        lists.push(list);
-                    } else {
-                        lists.push(targetList);
+                async saveStockListForUserV2(userId: string, list: RelStrStockList) {
+                    await relStrDbService.saveStockList(userId, list);
+                    const existing = store.allStockListsV2().some(l => l.name === list.name);
+                    const base = existing ? [...store.allStockListsV2()] : [...store.allStockListsV2(), list];
+                    const allStockListsV2 = sortListsV2(list, base);
+                    patchState(store, { allStockListsV2, selectedStockListV2: list });
+                    try { await relStrDbService.registerPairs(list); } catch (e) { console.error('[StockListFeatureV2] registerPairs failed', e); }
+                },
+
+                async deleteStockListForUserV2(userId: string, listName: string) {
+                    const listObj = store.allStockListsV2().find(l => l.name === listName);
+                    if (listObj) { try { await relStrDbService.unregisterPairs(listObj); } catch {} }
+                    await relStrDbService.deleteStockList(userId, listName);
+                    const stockLists = store.allStockListsV2().filter(l => l.name !== listName);
+                    patchState(store, { allStockListsV2: stockLists });
+                },
+
+                async renameStockListForUserV2(userId: string, oldName: string, newList: RelStrStockList) {
+                    await relStrDbService.renameStockList(userId, oldName, newList);
+                    const others = store.allStockListsV2().filter(l => l.name !== oldName);
+                    const allStockListsV2 = sortListsV2(newList, [...others, newList]);
+                    patchState(store, { allStockListsV2, selectedStockListV2: newList });
+                    try { await relStrDbService.registerPairs(newList); } catch (e) { console.error('[StockListFeatureV2] registerPairs (rename) failed', e); }
+                },
+
+                setAllStockListsV2(allStockListsV2: RelStrStockList[]) { patchState(store, { allStockListsV2 }); },
+                setSelectedStockListV2(selectedStockListV2: RelStrStockList){ patchState(store, { selectedStockListV2 }) },
+                updateStockListV2(list: RelStrStockList) {
+                    const allStockListsV2 = store.allStockListsV2().filter(l => l.name !== list.name);
+                    allStockListsV2.push({ ...list });
+                    patchState(store, { allStockListsV2, selectedStockListV2: { ...list } })
+                },
+
+                async generateHeatmapDataV2(pair: string): Promise<BaselineTargetRankDatum[]> { return generateHeatmapDataV2(pair); },
+                async getHeatmapDataV2(pairs: string[]): Promise<RanksDataWithColors> { return getHeatmapDataV2(pairs); },
+                async resolveExistingRanksDataV2(list: RelStrStockList): Promise<RelStrStockList> { return resolveExistingRanksDataV2(list); },
+                sortListsV2(targetList: RelStrStockList, allStockListsV2: RelStrStockList[]) { return sortListsV2(targetList, allStockListsV2); },
+
+                async initializeListV2(list: RelStrStockList) {
+                    patchState(store, { selectedStockListV2: { ...list } });
+                    try {
+                        const resolved = await resolveExistingRanksDataV2({ ...list });
+                        const allStockListsV2 = sortListsV2(resolved, [...store.allStockListsV2()]);
+                        patchState(store, { allStockListsV2, selectedStockListV2: resolved });
+                        // Live subscriptions temporarily disabled during stabilization
+                    } catch (e) {
+                        console.error('[StockListFeatureV2] initializeListV2 resolution failed', e);
                     }
-                }
+                },
 
-                return lists;
-            },
+                async saveListV2(list: RelStrStockList) {
+                    console.log('[StockListFeatureV2] saveList called', { mode: store.formModeV2(), list });
+                    let allStockListsV2 = [...store.allStockListsV2()];
+                    list = await resolveExistingRanksDataV2(list);
+                    if (store.formModeV2() === FormMode.EDIT) {
+                        allStockListsV2 = sortListsV2(list, allStockListsV2);
+                    } else {
+                        allStockListsV2 = [...store.allStockListsV2(), list];
+                    }
+                    console.log('[StockListFeatureV2] patching state with new list count', { count: allStockListsV2.length });
+                    patchState(store, { allStockListsV2, selectedStockListV2: list });
+                    try {
+                        const registered = await relStrDbService.registerPairs(list);
+                        console.log('[StockListFeatureV2] registerPairs result', { registeredCount: registered?.length });
+                    } catch (e) { console.error('[StockListFeatureV2] registerPairs failed', e); }
+                },
 
-            async deleteStockListV2(listOrName: string | RelStrStockList) {
-                const name = typeof listOrName === 'string' ? listOrName : listOrName.name;
-                // console.log('wSLFeatV2 dSL delete stock list: ', name);
-                const stockLists = store.allStockListsV2().filter(l => l.name !== name);
-                patchState(store, { allStockListsV2: stockLists });
+                async deleteStockListV2(listOrName: string | RelStrStockList) {
+                    const name = typeof listOrName === 'string' ? listOrName : listOrName.name;
+                    const stockLists = store.allStockListsV2().filter(l => l.name !== name);
+                    patchState(store, { allStockListsV2: stockLists });
+                    const listObj = typeof listOrName === 'string' ? store.allStockListsV2().find(l => l.name === name) : listOrName;
+                    if (listObj) { try { await relStrDbService.unregisterPairs(listObj); } catch {} }
+                    const selected = store.selectedStockListV2();
+                    if (selected?.name === name) {
+                        // Live subscriptions temporarily disabled during stabilization
+                    }
+                },
 
-                // If we have the full list, unregister pairs. If only a name was provided, try to resolve it.
-                const listObj = typeof listOrName === 'string'
-                    ? store.allStockListsV2().find(l => l.name === name)
-                    : listOrName;
-                if (listObj) {
-                    try { await relStrDbService.unregisterPairs(listObj); } catch {}
-                }
-            },
-
-            // RANKS DATA
-            getRanksDataForPairV2(pair: string) {
-                return relStrDbService.getRanksData(pair);
-            },
-
-            saveRanksDataV2(pair: string, data: RanksByDate) {
-                relStrDbService.setRanksData(pair, data);
-            },
-        })),
+                // RANKS DATA
+                getRanksDataForPairV2(pair: string) { return relStrDbService.getRanksData(pair); },
+                saveRanksDataV2(pair: string, data: RanksByDate) { relStrDbService.setRanksData(pair, data); },
+            };
+        }),
 
         // STOCK LIST FORM STATE
         withMethods((store) => ({
