@@ -5,11 +5,11 @@ import { StockListSelectorComponent } from './stock-list-selector/stock-list-sel
 import { StockListFormComponent } from './stock-list-form/stock-list-form.component';
 
 @Component({
-    selector: 'rs-select-stock-panel',
+    selector: 'rs-select-stock-panel-v2',
     imports: [StockListSelectorComponent, StockListFormComponent],
     template: `
-		<rs-stock-list-selector />
-		<rs-stock-list-form />
+		<rs-stock-list-selector-v2 />
+		<rs-stock-list-form-v2 />
 	`,
     styleUrl: './select-stock-panel.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush

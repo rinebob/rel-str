@@ -6,11 +6,10 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 
 import { FormMode, RelStrStockList } from '../../../shared/types/rs.interfaces';
-import { CREATE_TEXT, FORM_MODE_CREATE_TEXT, FORM_MODE_EDIT_TEXT } from '../../../shared/constants/rs.constants';
 import { RelStrBaseComponent } from '../../../rel-str-base/rel-str-base.component';
 
 @Component({
-    selector: 'rs-stock-list-selector',
+    selector: 'rs-stock-list-selector-v2',
     imports: [MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, ReactiveFormsModule],
     templateUrl: './stock-list-selector.component.html',
     styleUrl: './stock-list-selector.component.scss',
@@ -20,32 +19,27 @@ export class StockListSelectorComponent extends RelStrBaseComponent {
 
     readonly FormMode = FormMode;
 
-    readonly CREATE_TEXT = CREATE_TEXT;
-    readonly FORM_MODE_CREATE_TEXT = FORM_MODE_CREATE_TEXT;
-    readonly FORM_MODE_EDIT_TEXT = FORM_MODE_EDIT_TEXT;
-
     handleCreateNewList() {
-        // console.log('sLS hCNL handle create list');
-        this.rsAppStore.setFormMode(FormMode.CREATE);
-        this.rsAppStore.setShowForm(true);
+        this.rsAppStore.setFormModeV2(FormMode.CREATE);
+        this.rsAppStore.setShowFormV2(true);
     }
 
     handleSelectList(list: RelStrStockList) {
         // console.log('sLS hSL select list called.  list: ', list);
-        this.rsAppStore.initializeList({...list});
+        this.rsAppStore.initializeListV2({...list});
     }
 
     handleEditList(list: RelStrStockList) {
-        // console.log('sLS hEL handle edit list: ', list.name);
-        this.rsAppStore.setSelectedStockList(list);
-        this.rsAppStore.setFormMode(FormMode.EDIT);
-        this.rsAppStore.setShowForm(true);
+        // console.log('sLS hEL edit list: ', list)
+        this.rsAppStore.setSelectedStockListV2(list);
+        this.rsAppStore.setFormModeV2(FormMode.EDIT);
+        this.rsAppStore.setShowFormV2(true);
     }
 
     handleDeleteList(listName: string) {
-        // console.log('sLS hEL handle delete list: ', listName);
-        this.rsAppStore.deleteStockList(listName);
-        this.rsAppStore.setFormMode(FormMode.CREATE);
-        this.rsAppStore.setShowForm(false);
+        console.log('sLS hEL delete listName: ', listName)
+        this.rsAppStore.deleteStockListV2(listName);
+        this.rsAppStore.setFormModeV2(FormMode.CREATE);
+        this.rsAppStore.setShowFormV2(false);
     }
 }

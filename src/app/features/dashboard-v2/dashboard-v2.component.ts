@@ -3,16 +3,13 @@ import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
 import { MatButtonModule } from '@angular/material/button';
 import { AsyncPipe, JsonPipe } from '@angular/common';
 
-import { MOCK_STOCK_LISTS } from '../shared/constants/rs.constants';
 import { HeatmapComponent } from './heatmap/heatmap.component';
 import { SelectStockPanelComponent } from './select-stock-panel/select-stock-panel.component';
 import { RelStrBaseComponent } from '../rel-str-base/rel-str-base.component';
 import { generateColorArray } from '../utils/color-utils';
 import { NUM_HEATMAP_MIDPOINTS } from '../../core/common/constants';
 import { BaselineTargetRankDatum, ListAction, RelStrStockList, Timeframe } from '../shared/types/rs.interfaces';
-import { RAW_STOCK_DATA_BY_SYMBOL } from '../data/stocks';
 import { RelStrDbV2Service } from '../services/rel-str-db-v2.service';
-// import { SymbolInputComponent } from '../symbol-input/symbol-input.component';
 import { RsDataService } from '../services/rs-data.service';
 import { RsDataStore } from '../store/rs-data.store';
 import { Auth, authState } from '@angular/fire/auth';
@@ -44,37 +41,18 @@ export class DashboardV2Component extends RelStrBaseComponent implements OnInit 
         this.rsAppStore.getSupportedSymbolsListV2();
         this.rsAppStore.getSupportedPairsListV2();
 
-        // Initial load with effective UID (auth if available, else stable local dev UID)
-        // TODO(auth): Replace getEffectiveUid() fallback with the real authenticated UID once auth is implemented
-        const initialUid = this.getEffectiveUid();
-        if (initialUid) {
-            this.rsAppStore.getListsForUserV2(initialUid);
-        }
+        // TEMP (no-auth): hardcoded user until auth is wired
+        const HARD_CODED_USER = 'rinebob';
+        this.rsAppStore.getListsForUserV2(HARD_CODED_USER);
 
-        // Also react to auth changes using AngularFire's authState (runs inside injection context)
-        authState(this.auth).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(user => {
-            const uid = user?.uid || this.getEffectiveUid();
-            if (uid) this.rsAppStore.getListsForUserV2(uid);
-        });
-    }
-
-    private getEffectiveUid(): string | null {
-        const liveUid = this.auth?.currentUser?.uid;
-        if (liveUid) return liveUid;
-        // Fallback: stable dev UID stored in localStorage
-        // TODO(auth): Remove this dev fallback and rely solely on Firebase Auth UID in production
-        const key = 'relstr-dev-uid';
-        try {
-            let val = localStorage.getItem(key);
-            if (!val) {
-                val = `dev-${Math.random().toString(36).slice(2)}-${Date.now()}`;
-                localStorage.setItem(key, val);
+        // After lists load, auto-select and initialize the first list if none is selected yet
+        this.allStockListsV2$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(lists => {
+            if (!Array.isArray(lists) || lists.length === 0) return;
+            const selected = this.rsAppStore.selectedStockListV2();
+            if (!selected?.name) {
+                this.rsAppStore.initializeListV2(lists[0]);
             }
-            return val;
-        } catch {
-            // If localStorage unavailable, return a process-stable constant
-            return 'dev-user';
-        }
+        });
     }
 
     onSymbolsSubmit = (symbols: string[]) => {
@@ -98,23 +76,7 @@ export class DashboardV2Component extends RelStrBaseComponent implements OnInit 
         });
     }
 
-    initializeData() {
-        // save symbols
-        for (const symbol of Object.keys(RAW_STOCK_DATA_BY_SYMBOL)) {
-            this.updateSymbol(symbol, ListAction.ADD);
-        }
-
-        // save symbol pairs
-        // for (const symbol of Object.keys(RANKS_WITH_COLORS_BY_SYMBOL)) {
-        //     this.updateSymbolPair(symbol, ListAction.ADD);
-        // }
-
-        // save stock lists
-
-        // save pairs data
-
-        
-    }
+    // initializeData removed: V2 uses dynamic sources only (no hard-coded seed data)
 
     updateSymbol(symbol: string, action: ListAction) {
 

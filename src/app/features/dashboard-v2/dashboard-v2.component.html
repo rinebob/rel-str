@@ -2,7 +2,7 @@
 
     <mat-drawer #selectStock mode="over" position="end">
 
-        <rs-select-stock-panel />
+        <rs-select-stock-panel-v2 />
 
         <div class="close-button-container">
 
@@ -13,9 +13,6 @@
     </mat-drawer>
 
     <mat-drawer-content>
-
-            <!-- FOR DEVELOPMENT ONLY -->
-        <!-- <rs-select-stock-panel /> -->
 
         <div class="dashboard-container">
 
@@ -30,7 +27,7 @@
                 
                 <div class="buttons-container">
     
-                    <button mat-flat-button class="task-button" (click)="handleSelectStock()">Select stock / list</button>
+                    <button mat-flat-button class="task-button" (click)="handleSelectStock()">Select pairs list</button>
                     <button mat-flat-button class="task-button" (click)="handleChangeTimeframe()">Timeframe</button>
                     <button mat-flat-button class="task-button" (click)="handleSortFilter()">Sort / filter</button>
             
@@ -40,7 +37,7 @@
         
             <div class="heatmap-container">
         
-                <rs-heatmap />
+                <rs-heatmap-v2 />
                 
                 <!-- Dev-only: show tracked symbols payload -->
                 <pre style="max-height: 20rem; overflow:auto; background:#111; color:#ddd; padding:0.5rem;">

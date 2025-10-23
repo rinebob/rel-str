@@ -7,7 +7,7 @@ import { RelStrBaseComponent } from '../../../rel-str-base/rel-str-base.componen
 import { RelStrDbV2Service } from '../../../services/rel-str-db-v2.service';
 
 @Component({
-    selector: 'rs-symbol-picker',
+    selector: 'rs-symbol-picker-v2',
     imports: [],
     templateUrl: './symbol-picker.component.html',
     styleUrl: './symbol-picker.component.scss',
@@ -25,13 +25,17 @@ export class SymbolPickerComponent extends RelStrBaseComponent implements OnInit
 
     ngOnInit() {
 
-        // Load tracked symbols once and initialize sources
-        this.db.getTrackedSymbols$().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((items: Company[]) => {
-            const sorted = [...items].sort(compareFn);
-            this.externalSymbolsSource.set(sorted);
-            // initialize local source from full set; will be further filtered by selected list below
-            this.localSymbolsSource.set(sorted);
-        });
+        // Load dynamic tracked symbols (callable) and initialize sources
+        // Service already maps payload to Company[]; just sort and set
+        this.db
+            .getTrackedSymbols$()
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe((companies: Company[]) => {
+                const sorted = [...companies].sort(compareFn);
+                this.externalSymbolsSource.set(sorted);
+                // initialize local source from full set; will be further filtered by selected list below
+                this.localSymbolsSource.set(sorted);
+            });
 
         combineLatest([this.showFormV2$, this.formModeV2$]).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(([showForm, formMode]: [boolean, FormMode]) => {
             if (!!showForm && formMode === FormMode.CREATE) {

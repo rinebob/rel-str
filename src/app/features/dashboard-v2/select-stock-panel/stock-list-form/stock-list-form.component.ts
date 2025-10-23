@@ -17,7 +17,7 @@ import { RelStrBaseComponent } from '../../../rel-str-base/rel-str-base.componen
 import { resolveExistingRanksData } from '../../../utils/rs-calc-utils';
 
 @Component({
-    selector: 'rs-stock-list-form',
+    selector: 'rs-stock-list-form-v2',
     imports: [
         MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, ReactiveFormsModule, UpperCasePipe,
         SymbolPickerComponent,
@@ -97,14 +97,18 @@ export class StockListFormComponent extends RelStrBaseComponent implements OnIni
     }
 
     handleSaveList() {
-        // TODO(auth): Replace fallback with real authenticated UID once auth is implemented
-        const uid = this.auth.currentUser?.uid || this.getEffectiveUid();
-        if (!uid) {
-            console.warn('[StockListFormV2] handleSaveList: no UID available');
+        // TEMP (no-auth): persist under the same user used for reads in DashboardV2
+        const uid = 'rinebob';
+        const newList= this.formDataWithSymbols();
+        // Basic validation for required fields used in Firestore paths/payloads
+        const name = String(newList?.name || '').trim();
+        const baseline = String(newList?.baseline || '').trim();
+        if (!name || !baseline) {
+            console.warn('[StockListFormV2] handleSaveList: missing required fields', { name, baseline });
+            this.nameControl.markAsTouched();
+            this.baselineControl.markAsTouched();
             return;
         }
-
-        const newList= this.formDataWithSymbols();
         if (this.rsAppStore.formModeV2() === FormMode.CREATE) {
             this.rsAppStore.saveStockListForUserV2(uid, newList);
         } else {
@@ -120,22 +124,6 @@ export class StockListFormComponent extends RelStrBaseComponent implements OnIni
         }
         this.reset();
         this.rsAppStore.setShowFormV2(false);
-    }
-
-    private getEffectiveUid(): string | null {
-        const liveUid = this.auth?.currentUser?.uid;
-        if (liveUid) return liveUid;
-        const key = 'relstr-dev-uid';
-        try {
-            let val = localStorage.getItem(key);
-            if (!val) {
-                val = `dev-${Math.random().toString(36).slice(2)}-${Date.now()}`;
-                localStorage.setItem(key, val);
-            }
-            return val;
-        } catch {
-            return 'dev-user';
-        }
     }
 
     handleCancel() {

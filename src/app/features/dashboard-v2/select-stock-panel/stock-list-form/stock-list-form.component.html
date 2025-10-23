@@ -1,7 +1,7 @@
-@if(rsAppStore.showForm() === true) {
+@if(rsAppStore.showFormV2() === true) {
 <!-- @if(true) { -->
 
-    <p class="form-header">{{((rsAppStore.formMode()) === FormMode.CREATE ? FORM_MODE_CREATE_TEXT : FORM_MODE_EDIT_TEXT) | uppercase}}</p>
+    <p class="form-header">{{((rsAppStore.formModeV2()) === FormMode.CREATE ? FORM_MODE_CREATE_TEXT : FORM_MODE_EDIT_TEXT) | uppercase}}</p>
 
     <div class="form-container" [formGroup]="listForm">
 
@@ -31,7 +31,7 @@
 
     </div>
 
-    <rs-symbol-picker (localSymbolsOuput)="handleLocalSymbolsOutput($event)" />
+    <rs-symbol-picker-v2 (localSymbolsOuput)="handleLocalSymbolsOutput($event)" />
 
     <div class="buttons-container">
                 

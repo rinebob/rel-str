@@ -1,8 +1,6 @@
-
-
 <!-- /////////////// NEW IMPLEMENTATION ////////////////////////// -->
 
-@if(rsAppStore.selectedStockList()) {
+@if(rsAppStore.selectedStockListV2()) {
 
     <div class="heatmap-container">
 
@@ -25,7 +23,7 @@
     
             </div>
 
-            @for(entry of ranksDataWithColorsEntries(); track entry) {
+            @for(entry of ranksDataWithColorsEntries(); track $index) {
         
                 <div class="heatmap-row data-row">
     
@@ -63,7 +61,7 @@
                 
             </div>
 
-            @for(entry of ranksDataWithColorsEntries(); track entry) {
+            @for(entry of ranksDataWithColorsEntries(); track $index) {
 
                 <div class="buttons-row-container">
 
