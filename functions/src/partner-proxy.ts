@@ -17,6 +17,11 @@ const PARTNER_TS_URL =
   process.env.PARTNER_TS_URL ||
   `${PARTNER_AUDIENCE.replace(/\/$/, "")}/partnerTimeSeriesV2`;
 
+// Optional separate audience overrides (default to URLs above)
+const PARTNER_TRACKED_SYMBOLS_AUDIENCE =
+  process.env.PARTNER_TRACKED_SYMBOLS_AUDIENCE || PARTNER_TRACKED_SYMBOLS_URL;
+const PARTNER_TS_AUDIENCE = process.env.PARTNER_TS_AUDIENCE || PARTNER_TS_URL;
+
 // Service account email for rel-str prod
 const DEFAULT_CALLER_SA = "rel-str-partner-caller-prod@rel-str.iam.gserviceaccount.com";
 const CALLER_SA = process.env.PARTNER_CALLER_SA || DEFAULT_CALLER_SA;
@@ -73,9 +78,9 @@ export async function callPartnerTimeSeries(params: {
   to?: string | number;
   limit?: string | number;
 }) {
-  // Per SA quickstart, use function URL for both audience and request;
-  // ensure email claim is present in ID token
-  const idToken = await generateIdTokenWithEmail(PARTNER_TS_URL, CALLER_SA);
+  // Per SA quickstart, use function URL for request; audience defaults to URL but is overrideable
+  const audience = PARTNER_TS_AUDIENCE;
+  const idToken = await generateIdTokenWithEmail(audience, CALLER_SA);
   const search = new URLSearchParams();
   search.set("symbol", params.symbol);
   search.set("interval", params.interval);
@@ -84,9 +89,16 @@ export async function callPartnerTimeSeries(params: {
   if (params.to !== undefined) search.set("to", String(params.to));
   if (params.limit !== undefined) search.set("limit", String(params.limit));
   const url = `${PARTNER_TS_URL}?${search.toString()}`;
-  const resp = await fetch(url, { headers: { Authorization: `Bearer ${idToken}` }});
+  const resp = await fetch(url, { headers: { Authorization: `Bearer ${idToken}` } });
   if (!resp.ok) {
     const text = await resp.text();
+    logger.error("partnerTimeSeries upstream error", {
+      status: resp.status,
+      url,
+      audience,
+      callerSa: CALLER_SA,
+      snippet: typeof text === "string" ? text.slice(0, 500) : undefined,
+    });
     throw new Error(`partnerTimeSeries upstream ${resp.status}: ${text}`);
   }
   return (await resp.json()) as unknown;
@@ -94,13 +106,21 @@ export async function callPartnerTimeSeries(params: {
 
 /** Call Savant Partner Tracked Symbols endpoint. */
 export async function callPartnerTrackedSymbols(): Promise<unknown> {
-  // Use function URL for both audience and request; include email in ID token
-  const idToken = await generateIdTokenWithEmail(PARTNER_TRACKED_SYMBOLS_URL, CALLER_SA);
+  // Use function URL for request; audience defaults to URL but is overrideable
+  const audience = PARTNER_TRACKED_SYMBOLS_AUDIENCE;
+  const idToken = await generateIdTokenWithEmail(audience, CALLER_SA);
   // Default to active-only universe with a reasonable cap; SA can ignore or honor
   const url = `${PARTNER_TRACKED_SYMBOLS_URL}?activeOnly=true&limit=1000`;
-  const resp = await fetch(url, { headers: { Authorization: `Bearer ${idToken}` }});
+  const resp = await fetch(url, { headers: { Authorization: `Bearer ${idToken}` } });
   if (!resp.ok) {
     const text = await resp.text();
+    logger.error("partnerTrackedSymbols upstream error", {
+      status: resp.status,
+      url,
+      audience,
+      callerSa: CALLER_SA,
+      snippet: typeof text === "string" ? text.slice(0, 500) : undefined,
+    });
     throw new Error(`partnerTrackedSymbols upstream ${resp.status}: ${text}`);
   }
   return (await resp.json()) as unknown;

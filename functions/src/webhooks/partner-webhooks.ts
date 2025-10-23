@@ -960,10 +960,12 @@ export const processDataReadyRunV2 = onMessagePublished(
     const message = event.data.message as any;
     const attrPhase = (message?.attributes?.phase as string | undefined)?.toLowerCase();
     let payloadPhase: string | undefined;
+    let parsedPayload: Record<string, any> | undefined;
+    let rawString: string | undefined;
     try {
-      const raw = typeof message?.data === 'string' ? Buffer.from(message.data, 'base64').toString('utf8') : '{}';
-      const json = JSON.parse(raw || '{}');
-      payloadPhase = (json?.phase as string | undefined)?.toLowerCase();
+      rawString = typeof message?.data === 'string' ? Buffer.from(message.data, 'base64').toString('utf8') : '{}';
+      parsedPayload = JSON.parse(rawString || '{}');
+      payloadPhase = (parsedPayload?.phase as string | undefined)?.toLowerCase();
     } catch {
       // ignore
     }
@@ -971,33 +973,155 @@ export const processDataReadyRunV2 = onMessagePublished(
       : (payloadPhase === 'pre' || payloadPhase === 'post') ? (payloadPhase as Phase)
       : 'post';
 
-    // Load registered pairs
-    const pairs = await listRegisteredPairs();
-    if (pairs.length === 0) {
-      logger.info('processDataReadyRunV2 no registered pairs');
-      return;
+    // Resolve run context and set up partner-events doc for observability/idempotency
+    const { runType, isHeartbeat, runId } = resolveRunContext(message, parsedPayload || {});
+    const messageId = message?.messageId as string | undefined;
+    const ptSegment = isHeartbeat ? formatPtSegment(message?.publishTime as string | undefined) : undefined;
+    const effectiveRunId = (runId && String(runId).trim()) || (isHeartbeat ? 'hb-no-runid' : undefined);
+    // Persistable trigger source (manual | scheduled | heartbeat), prefer attribute over payload, lowercase
+    const attrTrigger = (message?.attributes?.trigger as string | undefined)?.toLowerCase();
+    const payloadTrigger = (parsedPayload?.trigger as string | undefined)?.toLowerCase();
+    const trigger = attrTrigger || payloadTrigger;
+
+    // Derive a robust runType if not provided by SA.
+    // Priority:
+    // - Heartbeat if flagged
+    // - Weekly/Monthly post if intervals include those
+    // - Daily pre/post based on phase (default Daily)
+    let derivedRunType: string | undefined;
+    if (isHeartbeat || trigger === 'heartbeat') {
+      derivedRunType = RunType.HEARTBEAT;
+    } else {
+      const intervals: Array<string> = Array.isArray(parsedPayload?.intervals)
+        ? (parsedPayload!.intervals as any[]).map((v) => String(v).toUpperCase())
+        : [];
+      const hasWeekly = intervals.includes('WEEKLY');
+      const hasMonthly = intervals.includes('MONTHLY');
+      const hasDaily = intervals.includes('DAILY') || intervals.length === 0; // default to DAILY when unspecified
+      if (hasMonthly && phase === 'post') derivedRunType = RunType.TS_MONTHLY_POST;
+      else if (hasWeekly && phase === 'post') derivedRunType = RunType.TS_WEEKLY_POST;
+      else if (hasDaily && phase === 'pre') derivedRunType = RunType.TS_DAILY_PRE;
+      else if (hasDaily && phase === 'post') derivedRunType = RunType.TS_DAILY_POST;
     }
 
-    const days = FIXED_DAYS;
+    const eventType = isHeartbeat ? RunType.HEARTBEAT : (runType as string | undefined) || derivedRunType || 'unknown';
 
-    await forEachWithConcurrency(pairs, 3, async ({ baseline, target }) => {
-      const pairId = `${baseline}-${target}`;
+    // Receipt log for observability
+    logger.info('V2 Received Data-Ready message', {
+      messageId,
+      attributes: message?.attributes,
+      payloadPreview: typeof rawString === 'string' ? rawString.slice(0, 300) : undefined,
+      runId,
+      phase,
+      trigger,
+      runTypeProvided: runType,
+      runTypeDerived: derivedRunType,
+      eventType,
+    });
+
+    let eventRef: FirebaseFirestore.DocumentReference | undefined;
+    let eventDocId: string | undefined;
+    if (effectiveRunId) {
+      eventDocId = computeEventDocId({
+        messageId,
+        isHeartbeat,
+        ptSegment,
+        eventType,
+        runId: effectiveRunId,
+      });
+      eventRef = db.collection(EVENTS_COLLECTION).doc(eventDocId);
+
+      // Skip if already terminal
       try {
-        const [baseBars, targetBars] = await Promise.all([
-          fetchDailyBarsRaw(baseline, days),
-          fetchDailyBarsRaw(target, days),
-        ]);
-        const series = buildPhaseSeries(baseBars, targetBars, phase);
-        if (series.length === 0) {
-          logger.info(`processDataReadyRunV2 no aligned series for ${pairId} phase=${phase}`);
+        const existing = await eventRef.get();
+        const existingStatus = existing.exists ? (existing.data()?.status as string | undefined) : undefined;
+        if (existingStatus === 'completed' || existingStatus === 'failed' || existingStatus === 'completed_with_errors') {
+          logger.info('processDataReadyRunV2 skipping terminal run', { docId: eventDocId, status: existingStatus });
           return;
         }
-        // Unified writer (no retention trimming)
-        await writeUnifiedSeries(baseline, target, phase, series);
-      } catch (e: any) {
-        logger.error('processDataReadyRunV2 pair failed', { pairId, phase, message: e?.message, code: e?.code, status: e?.response?.status });
+      } catch {}
+
+      await markProcessing(eventRef, {
+        eventType,
+        isHeartbeat,
+        runId: effectiveRunId,
+        messageId,
+        publishTime: (message?.publishTime as string | undefined) ?? undefined,
+        ptSegment,
+      });
+
+      // Persist phase and trigger early for observability
+      try {
+        const update: Record<string, unknown> = { phase };
+        if (trigger) update['trigger'] = trigger;
+        if (eventType) update['runType'] = eventType;
+        await eventRef.set(update, { merge: true });
+      } catch {}
+
+      // Load registered pairs
+      const pairs = await listRegisteredPairs();
+      if (pairs.length === 0) {
+        logger.info('processDataReadyRunV2 no registered pairs');
+        if (eventRef) {
+          await eventRef.set({ status: 'completed', endTime: FieldValue.serverTimestamp(), pairsProcessed: 0, pairsFailed: 0 }, { merge: true });
+        }
+        return;
       }
-    });
+
+      const days = FIXED_DAYS;
+
+      // Track summary
+      let successPairs = 0;
+      let failedPairs = 0;
+      const errorSamples: Array<{ pair: string; message: string; status?: number; code?: string }> = [];
+
+      logger.info('processDataReadyRunV2 starting pair processing', { count: pairs.length, phase, eventType, runId: effectiveRunId });
+      await forEachWithConcurrency(pairs, 3, async ({ baseline, target }) => {
+        const pairId = `${baseline}-${target}`;
+        try {
+          const [baseBars, targetBars] = await Promise.all([
+            fetchDailyBarsRaw(baseline, days),
+            fetchDailyBarsRaw(target, days),
+          ]);
+          const series = buildPhaseSeries(baseBars, targetBars, phase);
+          if (series.length === 0) {
+            logger.info(`processDataReadyRunV2 no aligned series for ${pairId} phase=${phase}`);
+            failedPairs++;
+            if (errorSamples.length < 10) errorSamples.push({ pair: pairId, message: 'no_aligned_series' });
+            return;
+          }
+          // Unified writer (no retention trimming)
+          await writeUnifiedSeries(baseline, target, phase, series);
+          successPairs++;
+        } catch (e: any) {
+          failedPairs++;
+          const status = e?.response?.status as number | undefined;
+          const msg = e?.message || String(e);
+          logger.error('processDataReadyRunV2 pair failed', { pairId, phase, message: msg, code: e?.code, status });
+          if (errorSamples.length < 10) errorSamples.push({ pair: pairId, message: msg, status, code: e?.code });
+        }
+      });
+
+      if (eventRef) {
+        const finalStatus = failedPairs > 0 ? 'completed_with_errors' : 'completed';
+        await eventRef.set({
+          status: finalStatus,
+          endTime: FieldValue.serverTimestamp(),
+          pairsProcessed: successPairs,
+          pairsFailed: failedPairs,
+          intervalUsed: FIXED_INTERVAL,
+          window: FIXED_LIMIT,
+          phase,
+          ...(trigger ? { trigger } : {}),
+          runType: eventType,
+          errorSamples,
+        }, { merge: true });
+      }
+    } else if (!isHeartbeat) {
+      // No runId and not a heartbeat: do not proceed
+      logger.info('processDataReadyRunV2 missing runId and not a heartbeat; skipping');
+      return;
+    }
   }
 );
 
@@ -1080,7 +1204,7 @@ export const validateAndRegisterPairs = onCall({ region: 'us-central1' }, async 
   const rejected: Array<{ symbol: string; reason: string }> = [];
   const validTargets: string[] = [];
   for (const raw of symbols) {
-    const target = normalizeSymbol(raw);
+    const target = normalizeSymbol(String(raw));
     if (!target) continue;
     const doc = await readTracked(target);
     if (!doc?.supported) {
