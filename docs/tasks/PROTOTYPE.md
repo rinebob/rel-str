@@ -13,7 +13,7 @@
 - [ ] Indexing Plan (no code yet): signals feed (type+t), optional server-side threshold filtering on `pairs.latest.post.rs`
 - [ ] Implement `GetBacktestResults` callable (RS + OHLCV + TA series) for interactive FE filtering; MVP TA: EMA(20/50/200), RSI; defaults: Daily, 1y lookback; cap TBD
 - [ ] Implement Backtest presets callables: `SaveBacktestPreset`, `ListBacktestPresets`, `DeleteBacktestPreset` (persist in Firestore without Auth initially)
-- [ ] Implement Partner Data-Ready Webhook (HTTPS, Gen2): `POST /partner/data-ready` with Google OIDC allowlist (`ALLOWED_SERVICE_ACCOUNT_EMAILS`); validate v1 payload and return `202` on enqueue
+- [x] Implement Partner Data-Ready Webhook (HTTPS, Gen2): `POST /partner/data-ready` with Google OIDC allowlist (`ALLOWED_SERVICE_ACCOUNT_EMAILS`); validate v1 payload and return `202` on enqueue. See [docs/partner/partner-webhooks.md](../partner/partner-webhooks.md)
 - [ ] Create Pub/Sub topic `rs-data-ready` and publish from webhook handler with attributes (`runId`, `version`, `phase`, `env`)
 - [ ] Implement Pub/Sub subscriber (Gen2) to process runs: compute RS for registry pairs, update `pairs/*` dual-phase branches (`pre` and `post`), generate canonical signals, update `runs/{runId}` status/counts
 - [ ] TODO: Retire legacy v1 RS subscriber (`processDataReadyRun`) and ratio-based writer once V2 is validated in prod; v1 export disabled in `functions/src/index.ts` so only V2 runs.
@@ -57,6 +57,15 @@
   - [ ] Wire heatmap and charts to Firestore `pairs/{PAIR}.post.latest` (after close) and `pairs/{PAIR}.pre.latest` (during market hours) and `post.series` for history
   - [ ] Use callables for OHLCV/TA; remove legacy local data imports
   - [ ] Add loading/fallbacks while initial RS backfill completes
+
+## Development Identity (No Fallbacks)
+
+- DO NOT use identity fallbacks in client code (no random/localStorage/dev-generated UIDs).
+- In no-auth workflows, always use a single explicit dev user id: `rinebob`.
+  - Reads and writes MUST target `users/rinebob/...` to avoid hidden persistence paths.
+  - This eliminates hard-to-debug mismatches where reads/writes go to different user roots.
+- When authentication is enabled, remove the dev user and use `auth.currentUser.uid` everywhere.
+- Services now ensure a `users/{uid}` document exists with minimal metadata (displayName, dev, timestamps) before list reads/writes to avoid phantom users in the emulator.
 
 ## Auth & Lists (Deferred/TBD)
 - [ ] Auth flows (email/password, Google) [Deferred]
@@ -123,9 +132,15 @@
   - [x] Persist both `pre` (intraday) and `post` (EOD) phases under `pairs/{BASE}_{SYMBOL}` with branches `pre` and `post`
   - [x] Branch shape: `{ latest, series, seriesMeta, seriesUpdatedAt }` with `seriesMeta = { interval: "DAILY", rsWindow: 5, retention: N, source: "intraday"|"adjustedClose" }`
   - [x] FE consumption: use `pre.latest` intra-day; use `post.latest` after close; use `post.series` for historical analyses
+- 2025-10-22: V2 Heatmap wiring fix
+  - [x] Updated `src/app/features/dashboard-v2/heatmap/heatmap.component.html` to guard on `rsAppStore.selectedStockListV2()` (was `selectedStockList()`), ensuring the v2 heatmap renders from the correct store signal.
 
 ## Next Phase Plan (High-level)
-1) Implement Partner Data-Ready Webhook + Pub/Sub subscriber to drive backend RS updates without polling.
-2) Backfill initial RS series for registered pairs and verify `latest` mirrors.
-3) Switch frontend to dynamic reads from Firestore and callable OHLCV/TA; remove static demo data.
-4) Harden logging/alerts; validate end-to-end with staging before enabling in prod.
+- [x] Implement Partner Data-Ready Webhook + Pub/Sub subscriber to drive backend RS updates without polling. See [docs/partner/partner-webhooks.md](../partner/partner-webhooks.md)
+- [ ] Backfill initial RS series for registered pairs and verify `latest` mirrors.
+- [ ] Switch frontend to dynamic reads from Firestore and callable OHLCV/TA; remove static demo data.
+
+### Discovered During Work
+- Centralize all webhooks constants/types into `functions/src/webhooks/webhooks-config.ts`.
+- Move registry callables and seeding into `functions/src/webhooks/registry-actions.ts`.
+- Document full RS pipeline and Firestore schemas in `docs/partner/partner-webhooks.md` and planning docs.

@@ -12,174 +12,264 @@ This document defines an RS-only Firestore schema optimized for fast reads, mini
 
 ## 3. Collections and Documents
 
-The RS-only model is pair-centric. A pair is identified as `${BASELINE}_${SYMBOL}` (e.g., `SPY_NVDA`).
+The RS-only model is pair-centric. A pair is identified as `${BASELINE}-${SYMBOL}` (e.g., `SPY-NVDA`).
 
-* `appConfig` Collection
-  * Document: `settings`
-  * Fields:
-    * `activeBaselines` (string[]): baselines we persist RS/signals for (e.g., `["SPY","QQQ"]`). Others are computed on-demand.
-    * `rsLookbackDays` (number): default lookback (e.g., 252)
-    * `defaultThresholds` (map): `{ buy:number, sell:number }` for canonical signal generation
-    * `nextScheduledFetch` (number, epoch ms)
-    * `cacheTTLSeconds` (number): TTL for optional short-lived RS cache
-    * `sectorConfigs` (map, optional): static metadata for supported sector ETFs (labels, ordering)
-
-* `sectors` Collection (optional cache)
-  * Document ID: `{ETF}` (e.g., `XLF`, `XLK`, `XLY`)
-  * Fields:
-    * `members` (string[]): array of current constituent symbols
-    * `updatedAt` (number, epoch ms)
-    * `source` (string, optional): where the list was derived from
-  * Purpose: cache for sector constituents. `GetSectorConstituents` can read/refresh this cache and return `{ baseline, members, updatedAt }` to the frontend.
-
-* `pairRegistry` Collection
-  * Document ID: `${BASELINE}_${SYMBOL}`
+* `pair-registry` Collection
+  * Document ID: `${BASELINE}-${SYMBOL}`
   * Fields:
     * `baseline` (string)
     * `symbol` (string)
     * `createdAt` (number, epoch ms)
-    * `refCount` (number) — optional; track how many lists/users reference this pair for pruning
-    * `meta` (map, optional): `{ lastRegisteredBy?:string, note?:string }`
+    * `meta` (map, optional): `{ lastRegisteredBy?:string }` (deferred; do not rely on this now)
   * Purpose: The scheduler enumerates this collection to determine which pairs to compute at pre/post-close. UI callables (e.g., from `SelectStockPanel`) add/remove entries.
+* `pairs-data` Collection
+  * Document ID: `${BASELINE}-${SYMBOL}` (e.g., `SPY-NVDA`)
+  * Canonical shape and write semantics are defined below in “Revised Pair Storage (Authoritative WIP) — pairs-data”.
 
-* `pairs` Collection
-  * Document ID: `${BASELINE}_${SYMBOL}` (e.g., `SPY_NVDA`)
-  * Fields:
-    * `latest` (map): fast read for the most recent RS values
-      * `pre` (map?): `{ rs:number, at:number }` (optional if not yet computed today)
-      * `post` (map?): `{ rs:number, at:number }`
-    * `latest30` (map, optional): optional rolling 30-day window mirror for sparkline/UX
-      * `pre` (array?): `Array<{ t:number, rs:number }>`
-      * `post` (array?): `Array<{ t:number, rs:number }>`
-    * `signalsSummary` (array, optional): last N signals for the pair
-      * `Array<{ t:number, type:'buy'|'sell', rs:number, src:'pre'|'post' }>`
-    * `meta` (map): `{ baseline:string, symbol:string, updatedAt:number }`
+## Revised Pair Storage (Authoritative WIP) — pairs-data
 
-  * Subcollections:
-    * `rs`
-      * One document per trading day keyed by time `t` (epoch ms) or a sortable date key (e.g., `YYYYMMDD`).
-      * Document shape:
-        * `{ t:number, pre?:{ rs:number, at:number }, post?:{ rs:number, at:number } }`
-      * Notes:
-        * Combined per-day doc holds both pre and post to minimize reads and simplify daily writes.
-        * Single collection (no year sharding) keeps queries simple (e.g., last 30 days).
-    * `signals` (persisted only for `activeBaselines` pairs)
-      * One document per signal event
-      * Document shape:
-        * `{ t:number, type:'buy'|'sell', src:'pre'|'post', rs:number, thresholds?:{ buy:number, sell:number } }`
-      * Notes:
-        * Designed for easy feeds (order by `t`), filtering by `type`, and collection-group queries if needed.
+This section supersedes earlier drafts for pair storage. We will update the code to match this shape.
 
-* Optional short-lived cache for non-active baselines
-  * `rs-cache/{PAIR_ID}/ranges/{HASH}`
-    * Fields: `{ from:number, to:number, post:{ count:number, points:Array<{t:number,rs:number}> }, pre?:{...}, computedAt:number, ttl:number }`
-    * Purpose: accelerate repeated on-demand computations without persisting full series long-term.
+* Collection name: `pairs-data`
+* Document id: `{BASE}-{SYMBOL}` (e.g., `SPY-AAPL`)
 
-## Firestore: RS per Pair Document (Dual-Phase)
+Top-level fields
 
-Document path:
-- `pairs/{BASE}_{SYMBOL}`
+* `meta: map` — single metadata object (consolidates previous `meta` and `seriesMeta`)
+  * `baseline: string` — e.g., `SPY`
+  * `symbol: string` — e.g., `AAPL`
+  * `interval: "DAILY"`
+  * `window: number` — maximum number of recent days to keep in the `data` array mirror (e.g., 30)
+* `lastUpdatedAt: timestamp` — last write time (either pre or post)
+* `latest: map` — mirrors the most recent element in `data`
+  * `day: string` — YYYY-MM-DD (UTC trading day)
+  * `dow: string` — day-of-week label (UTC)
+  * `pre?: map` — pre-close snapshot for the day
+    * `time?: string` — human-readable, e.g., "15:30"
+    * `t: number` — epoch ms
+    * `base: { price:number, change:number, percentChange:number }`
+    * `target: { price:number, change:number, percentChange:number }`
+    * `rs: number`
+    * `source?: "intraday"` — indicates intraday source
+  * `post?: map` — post-close snapshot for the day
+    * `t: number` — epoch ms
+    * `base: { price:number, change:number, percentChange:number }`
+    * `target: { price:number, change:number, percentChange:number }`
+    * `rs: number`
+    * `source?: "adjustedClose" | "close"`
+* `data: array<map>` — ascending by `day`; the canonical history mirror
+  * Each element mirrors `latest` fields for that `day` and contains `pre?` and `post?` blocks as above
 
-Top-level fields:
-- `pair: string` — e.g., "QQQ_MSFT"
-- `baseline: string` — e.g., "QQQ"
-- `target: string` — e.g., "MSFT"
-- `pre: map` — intraday trading snapshot branch
-- `post: map` — canonical end-of-day branch
+Computation rules and write semantics
 
-### Branch: `pre` (intraday)
-- `latest: map`
-  - `day: string` — "YYYY-MM-DD" (Savant `bars[].d`)
-  - `t: number` — epoch ms (Savant `bars[].t`)
-  - `rank: number` — 0..1 (RS rank)
-  - `baseCp: number` — baseline intraday percent change (Savant `ipc` or derived from `ip`/`pc`)
-  - `targetCp: number` — target intraday percent change (Savant `ipc` or derived)
-  - `baseClose: number` — intraday price (`ip`)
-  - `targetClose: number` — intraday price (`ip`)
-  - `it?: string` — intraday time, e.g., "15:30" (Savant `it`)
-- `series: array<map>` — ascending by `day`; each entry mirrors `latest` fields
-- `seriesMeta: map`
-  - `interval: "DAILY"`
-  - `rsWindow: 5`
-  - `retention: number` — e.g., 30 (mirror size kept in the doc)
-  - `source: "intraday"`
-- `seriesUpdatedAt: timestamp` — last write to `pre` branch
+* __Pre-close run__
+  * Compute pre-close snapshot using intraday prices (`ip`/`ipc`) where available.
+  * Compute `change` and `percentChange` for both baseline and target against the prior day’s post-close prices (not against intraday), so the pre snapshot is anchored to yesterday’s canonical close.
+  * Write a new element for `day` into `data` with only `pre` populated, and set `latest` to that same object.
+* __Post-close run__
+  * Clone the current `latest` (which contains the day’s `pre`) and add/overwrite the `post` block using end-of-day prices (`ac`/`cp`).
+  * Update the most recent `data` element for that `day` to include the `post` block.
+  * Update `latest` to the combined object. After post completes, `latest` === last(`data`).
+* __Alignment & Idempotency__
+  * Align by `day` and update the element for that `day` deterministically (replace or append).
+  * `latest` must always exactly mirror the most recent element in `data`.
 
-### Branch: `post` (end-of-day canonical)
-- `latest: map`
-  - `day: string` — "YYYY-MM-DD" (Savant `bars[].d`)
-  - `t: number` — epoch ms (Savant `bars[].t`)
-  - `rank: number` — 0..1 (RS rank)
-  - `baseCp: number` — baseline EOD percent change (Savant `cp`)
-  - `targetCp: number` — target EOD percent change (Savant `cp`)
-  - `baseClose: number` — adjusted close (`ac`)
-  - `targetClose: number` — adjusted close (`ac`)
-- `series: array<map>` — ascending by `day`; each entry mirrors `latest` fields
-- `seriesMeta: map`
-  - `interval: "DAILY"`
-  - `rsWindow: 5`
-  - `retention: number` — e.g., 90 or 365 (per UX needs)
-  - `source: "adjustedClose"`
-- `seriesUpdatedAt: timestamp` — last write to `post` branch
+Example (abbreviated)
 
-### Alignment and Idempotency
-- Align baseline and target by `day` (Savant `d`). Drop non-overlaps.
-- Upsert by `day` when writing `series`: replace or append deterministically.
-- `latest` mirrors the most recent `series` entry.
+```json
+{
+  "meta": {
+    "baseline": "SPY",
+    "symbol": "AAPL",
+    "interval": "DAILY",
+    "window": 30
+  },
+  "lastUpdatedAt": "<timestamp>",
+  "latest": {
+    "day": "2025-10-23",
+    "dow": "Thu",
+    "pre": {
+      "time": "12:30",
+      "t": 1761241800000,
+      "base": { "price": 500.12, "change": 1.23, "percentChange": 0.25 },
+      "target": { "price": 210.45, "change": 0.85, "percentChange": 0.41 },
+      "rs": 0.4208,
+      "source": "intraday"
+    },
+    "post": {
+      "t": 1761264000000,
+      "base": { "price": 502.01, "change": 2.34, "percentChange": 0.47 },
+      "target": { "price": 211.10, "change": 1.50, "percentChange": 0.72 },
+      "rs": 0.4206,
+      "source": "adjustedClose"
+    }
+  },
+  "data": [
+    { "day": "2025-10-22", "dow": "Wed", "post": { /* ... */ } },
+    { "day": "2025-10-23", "dow": "Thu", "pre": { /* ... */ }, "post": { /* ... */ } }
+  ]
+}
+```
 
-### Growth Strategy
-- For long history, consider sharding into `pairs/{PAIR}/series/{YYYY-MM}` collections. The in-doc `series` is a short mirror controlled by `retention`.
+Notes
+
+* Pre-close `change`/`percentChange` are explicitly measured against the prior day’s post-close prices for both baseline and target.
+* The historical `data` array is a short mirror (length = `meta.window`) for fast reads; full history may live elsewhere or be computed on demand.
+* Future work: optional `signals` subcollection and `signalsSummary` can be layered on top of this structure without changing `latest`/`data`.
+
+## Partner Webhooks Data Model (Backend RS pipeline)
+
+See also: [docs/partner/partner-webhooks.md](../partner/partner-webhooks.md)
+
+### partner-events/*
+Records each Pub/Sub run for observability and idempotency.
+
+- status: `processing | completed | completed_with_errors | failed | heartbeat`
+- runType: string (see `RunType` in `webhooks-config.ts`)
+- runId: string
+- messageId: string
+- publishTime: RFC3339 string
+- ptPublishTime: partitioned publish time segment (optional)
+- pairsProcessed: number
+- pairsFailed: number
+- intervalUsed: `DAILY`
+- window: number (default 30)
+- errorSamples: Array<{ pair: string; message: string; status?: number; code?: string }>
+
+Indexing considerations: typically queried by recent time or runId.
+
+### pair-registry/*
+Registry of baseline–target pairs.
+
+- baseline: string (uppercased)
+- target: string (uppercased)
+- members: string[] (e.g., `uid:123/list:abc`)
+- refCount: number
+- createdAt: Timestamp
+- updatedAt: Timestamp
+- pendingDeleteAt?: ISO string (scheduled removal)
+
+Retention: entries with refCount=0 can be cleaned up after REGISTRY_RETENTION_DAYS.
+
+### pairs-data/{BASELINE}-{TARGET}
+Unified RS storage for FE consumption with phase-aware branches.
+
+Document shape written by writer:
+
+```
+{
+  meta: { baseline: 'SPY', symbol: 'AAPL', interval: 'DAILY', window: 30 },
+  lastUpdatedAt: <Timestamp>,
+  latest: { day: 'YYYY-MM-DD', pre?: { ... }, post?: { ... } },
+  data: [
+    { day: 'YYYY-MM-DD', dow: 'Mon', pre?: { ... }, post?: { ... } },
+    ...
+  ]
+}
+```
+
+Phase entries:
+- pre: based on intraday price (ip) and ipc; change/percentChange vs prior-day post-close (ac preferred, fallback c)
+- post: based on adjusted close (ac) or c; change/percentChange vs prior-day post-close
+
+Retention: capped to `meta.window` most recent days (default 30).
 
 ## 4. Indexing
 
 Define indexes for efficient queries on series and signals:
 
-* `pairs/*/rs` (subcollection): index by `t` for range queries and "last N" reads
-  * Example query: `orderBy('t', 'desc').limit(30)`
-* `pairs/*/signals` (subcollection): index by `t` and composite on `(type, t)` for feeds
-* `pairRegistry` top-level collection: simple listing and optional composite on `(baseline, symbol)` are sufficient; document ID already encodes both.
-* Optional: If server-side threshold scanning is required for heatmaps, composite on fields in `pairs.latest.post.rs` (or `pre`), e.g., `latest.post.rs` + `meta.baseline`
+* `pairs-data/*/data` (subcollection): index by `day` for range queries and "last N" reads
+  * Example query: `orderBy('day', 'desc').limit(30)`
+* `pair-registry` top-level collection: simple listing and optional composite on `(baseline, symbol)` are sufficient; document ID already encodes both.
+* Optional: If server-side threshold scanning is required for heatmaps, composite on fields in `pairs-data.latest.post.rs` (or `pre`); any symbol can act as a baseline.
 
 ## 5. Data Loading & Access Patterns
 
-* Heatmap (baseline-aware)
+* Heatmap (baseline derived from pairs-data ids)
   1. Determine the current baseline (e.g., global default like `SPY`, or user-selected if supported later).
-  2. For each visible symbol, read `pairs/{BASELINE}_{SYMBOL}.latest` to get current RS (pre or post) and timestamp.
-  3. Optionally read `latest30` for quick sparklines; otherwise, query `rs` with `orderBy t desc limit 30` when needed.
-
+  2. For each visible symbol, read `pairs-data/{BASELINE}-{SYMBOL}.latest` to get current RS (pre or post) and timestamp.
+  3. Query `data` with `orderBy day desc limit 30` when needed. (TODO: consider a `latest30` mirror later.)
 * Chart View
   1. Call backend `GetPairRSData(base, symbol, from, to, thresholds?)`.
-  2. If `base` is in `activeBaselines`, read Firestore `pairs/{PAIR}/rs` (and `signals` if thresholds omitted or canonical desired).
+  2. Read Firestore `pairs-data/{PAIR}/data` (and `signals` if/when added). Any symbol can be a baseline.
   3. If `base` is not active, compute RS on-demand (optionally hydrate `rs-cache`) and compute transient signals for provided thresholds; do not persist.
   4. Fetch OHLCV from SavantAPI on-demand to render price/volume; do not store in Firestore.
-
 * Scheduled RS Computation
-  1. For each symbol × `activeBaselines`, compute RS for pre and post windows.
-  2. Write/update per-day doc in `rs`, update `latest`, maintain `latest30` (rolling window) if enabled.
+  1. For each symbol × baselines, compute RS for pre and post windows.
+  2. Write/update per-day doc in `data`, update `latest`. (TODO: consider `latest30` mirror in the future.)
   3. Detect threshold crossings using `defaultThresholds` and append to `signals`; update `signalsSummary`.
-
-* Sector baseline dropdown:
+* Sector baseline dropdown (TODO / not supported now):
   * Frontend requests `GetSectorConstituents({ etf })` to get members.
-  * Frontend sets baseline to `{ etf }` and loads `pairs/{etf}_{symbol}.latest` (and optional `latest30`) for each member.
+  * Frontend sets baseline to `{ etf }` and loads `pairs-data/{etf}-{symbol}.latest` for each member.
   * Optionally, user can save the sector as a list → bulk `RegisterPairs` for scheduler maintenance.
 
-## 6. Security Rules (RS-only)
+## 6. Partner Run Events — partner-events
 
-Security rules should:
+Operational collection that tracks each upstream Data-Ready run and its outcome. This enables idempotency (skip already-terminal runs), observability, and quick diagnostics. It does not store RS values; it references what the pipeline did.
 
-* Allow read of `pairs/*` (latest, latest30, rs, signals) to authenticated users (or public read if desired), but deny client writes. Writes are performed by Cloud Functions using Admin SDK.
-* Allow read of `appConfig/settings` to clients; writes restricted to admins.
-* Optional `rs-cache` readable by clients; writable only by functions (or disabled entirely if not used).
+* Collection: `partner-events`
+* Document id:
+  * For normal runs: `{runType}__{runId}`
+    * Examples: `ts-daily-pre__2025-10-23-pre-y0fnt3`, `ts-daily-post__2025-10-23-post-abc123`
+  * For heartbeats: `heartbeat-{YYMMDD-HHMMSS}-{messageId}`
 
-Example policies (high-level intent):
+Fields (lowerCamelCase)
 
-* `allow read: if true; allow write: if request.auth.token.admin == true;` on `appConfig`.
-* `allow read: if true; allow write: if false;` on `pairs` and subcollections for client SDK; backend uses Admin SDK.
+* `status: 'processing' | 'completed' | 'completed_with_errors' | 'failed' | 'heartbeat'`
+* `runType: string` — e.g., `ts-daily-pre`, `ts-daily-post`
+* `runId: string` — unique per invocation (publisher-provided)
+* `phase?: 'pre' | 'post'` — if present in attributes/payload
+* `isCanary?: boolean` — true for heartbeat/canary messages
+* `messageId?: string` — Pub/Sub message id
+* `publishTime?: string` — Pub/Sub publish time (ISO)
+* `ptPublishTime?: string` — human-friendly `YYMMDD-HHMMSS` (for heartbeats)
+* `intervalUsed: 'DAILY'` — fixed for MVP
+* `window: number` — fixed mirror window (e.g., 30)
+* `startTime?: timestamp` — set when processing begins
+* `endTime?: timestamp` — set on completion or failure
+* `pairsProcessed?: number` — count of successful pair writes
+* `pairsFailed?: number` — count of pairs that failed
+* `errorSamples?: Array<{ pair:string; message:string; status?:number; code?:string }>` — truncated sample for quick triage
+
+Lifecycle
+
+1. On receipt, the subscriber computes the doc id and checks status.
+   * If `status` is terminal (`completed`, `failed`, `completed_with_errors`), the run is skipped for idempotency.
+2. The run is marked `processing` with `startTime`, `intervalUsed`, `window`, and context.
+3. The pipeline loads pairs from `pair-registry` and writes RS to `pairs-data`.
+4. On completion, the doc is updated with `status`, `endTime`, `pairsProcessed`, `pairsFailed`, and `errorSamples` (if any).
+
+Relationship to `pairs-data`
+
+* `partner-events/*` holds execution metadata only. It does not embed RS.
+* Successful runs increment `pairsProcessed` as each pair is written to `pairs-data/{BASE}-{SYMBOL}` (pre then post phases per the rules above).
+* Use `partner-events` to audit which runs affected which pairs and whether any pairs failed during the run.
+
+Example
+
+```json
+{
+  "status": "completed",
+  "runType": "ts-daily-pre",
+  "runId": "2025-10-23-pre-y0fnt3",
+  "phase": "pre",
+  "isCanary": false,
+  "messageId": "16812431447950939",
+  "publishTime": "2025-10-23T19:26:48.155Z",
+  "intervalUsed": "DAILY",
+  "window": 30,
+  "startTime": "<timestamp>",
+  "endTime": "<timestamp>",
+  "pairsProcessed": 7,
+  "pairsFailed": 0,
+  "errorSamples": []
+}
+```
 
 ## 7. Migrations
 
-* Strategy: Update Cloud Functions to write RS-only to the new `pairs/*/rs` shape and optionally mirror `latest30`.
-* If migrating from a prior model, backfill `latest` and (optionally) `latest30` from historical `rs` documents for active baselines only.
+* Strategy: Update Cloud Functions to write RS-only to the new `pairs-data/*/data` shape and optionally mirror `latest30`.
+* If migrating from a prior model, backfill `latest` and (optionally) `latest30` from historical `data` documents for active baselines only.
 
 ## 8. Backups
 
@@ -188,10 +278,24 @@ Example policies (high-level intent):
 
 ---
 
+## 9. TODO / Optional Collections (not supported now)
+
+These collections are not strictly needed for the MVP and are deferred. They are documented here as future options.
+
+* `app-config`
+  * `settings` doc with:
+    * `defaultThresholds` (map): `{ buy:number, sell:number }`
+    * `nextScheduledFetch` (number, epoch ms)
+  * Purpose: centralize global toggles/schedules if needed later.
+
+* `sectors`
+  * Doc id `{ETF}` (e.g., `XLF`). Fields: `members` (string[]), `updatedAt` (number), `source` (string, optional)
+  * Purpose: sector constituents cache. For now, derive baselines by enumerating `pairs-data` doc ids.
+
+* `rs-cache`
+  * Short-lived cache docs to accelerate repeated on-demand computations without persisting long-term. Only functions would write if introduced.
+
 ## Appendix: Rationale for Key Decisions
 
-* Combined per-day RS doc (pre + post) reduces reads/writes and keeps logic simple.
-* Single `rs` collection (no year sharding) enables single-query last-30 reads; daily volume per pair is tiny.
-* Separate `signals` collection provides clean, queryable feeds; `signalsSummary` mirrors small, UI-friendly slices.
-* Pair-centric `pairs/{BASE}_{SYMBOL}` keeps paths, indexes, and rules straightforward, avoiding deep nesting and complex cross-baseline queries.
-* RS-only storage leans on SavantAPI for OHLCV, reducing Firestore storage and write costs while preserving full backtest capability via on-demand computation.
+* The compact `pairs-data` shape (latest + data array) supports last-30 reads without a per-day `rs` subcollection. If server-side signal feeds are needed later, a separate `signals` collection can be introduced, with a small `signalsSummary` mirror on the pair doc.
+* All collection and document ids use kebab-case (e.g., `pairs-data`, `pair-registry`, `SPY-AAPL`).
