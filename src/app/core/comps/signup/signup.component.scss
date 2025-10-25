@@ -1,0 +1,91 @@
+@use '../../../styles/_variables-global.scss' as *;
+@use '../../../styles/_mixins-global.scss' as mixins;
+
+.signup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: mixins.rem(16);
+  padding: mixins.rem(24);
+
+  &__title {
+    font-size: mixins.rem(24);
+    margin: 0;
+    color: var(--theme-on-surface);
+  }
+
+  &__error {
+    color: #c62828;
+    background-color: rgba(198, 40, 40, 0.1);
+    border: 1px solid rgba(198, 40, 40, 0.4);
+    padding: mixins.rem(12);
+    border-radius: mixins.rem(6);
+    width: 100%;
+    max-width: mixins.rem(420);
+  }
+
+  &__form {
+    display: flex;
+    flex-direction: column;
+    gap: mixins.rem(12);
+    width: 100%;
+    max-width: mixins.rem(420);
+  }
+
+  &__label {
+    display: flex;
+    flex-direction: column;
+    gap: mixins.rem(6);
+    color: color-mix(in oklab, var(--theme-on-surface) 70%, transparent);
+  }
+
+  &__input {
+    padding: mixins.rem(10) mixins.rem(12);
+    border: 1px solid color-mix(in oklab, var(--theme-on-surface) 20%, transparent);
+    border-radius: mixins.rem(6);
+    background: var(--theme-surface);
+    color: var(--theme-on-surface);
+    appearance: none;
+    outline: none;
+    box-shadow: none;
+  }
+
+  &__btn,
+  &__google {
+    padding: mixins.rem(10) mixins.rem(14);
+    border-radius: mixins.rem(6);
+    background: color-mix(in oklab, var(--theme-on-surface) 10%, #3f51b5);
+    color: white;
+    text-align: center;
+    cursor: pointer;
+    border: none;
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    display: inline-block;
+    font: inherit;
+    text-decoration: none;
+  }
+
+  &__divider {
+    display: flex;
+    align-items: center;
+    gap: mixins.rem(8);
+    color: color-mix(in oklab, var(--theme-on-surface) 60%, transparent);
+    &::before,
+    &::after {
+      content: '';
+      display: block;
+      height: 1px;
+      background: color-mix(in oklab, var(--theme-on-surface) 20%, transparent);
+      flex: 1;
+    }
+  }
+
+  &__google {
+    background: var(--theme-surface);
+    color: var(--theme-on-surface);
+    border: 1px solid color-mix(in oklab, var(--theme-on-surface) 20%, transparent);
+  }
+}
