@@ -1,6 +1,5 @@
 import { NavItem } from "./interfaces";
 
-
 export const NAV_MENU_ITEMS: NavItem[] = [
     {
         name: 'documentation',
@@ -105,3 +104,30 @@ export const NAV_MENU_ITEMS: NavItem[] = [
 ]
 
 export const NUM_HEATMAP_MIDPOINTS = 11;
+
+// =============================
+// Firebase/Firestore constants
+// =============================
+
+/** Canonical callable function names used by the FE. */
+export enum CallableName {
+  GET_TRACKED_SYMBOLS = 'getTrackedSymbols',
+  VALIDATE_AND_REGISTER_PAIRS = 'validateAndRegisterPairs',
+  UNREGISTER_PAIRS = 'unregisterPairs',
+}
+
+/** Top-level Firestore collections used by the FE. */
+export enum Collection {
+  TRACKED_SYMBOLS = 'tracked-symbols',
+  PAIRS_DATA = 'pairs-data',
+  USERS = 'users',
+  ADMIN = 'admin',
+}
+
+/** Known subcollection names under a user document. */
+export enum Subcollection {
+  LISTS = 'lists',
+}
+
+/** Helper to produce the lists collection path for a user. */
+export const userListsPath = (uid: string) => `${Collection.USERS}/${uid}/${Subcollection.LISTS}`;
