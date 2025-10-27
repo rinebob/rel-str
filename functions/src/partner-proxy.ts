@@ -2,6 +2,8 @@ import {onRequest, onCall} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import {GoogleAuth} from "google-auth-library";
 import {db, FieldValue} from "./firebase-admin-init";
+import { GetTrackedSymbolsResponse, TrackedSymbolDTO, PartnerEndpointPath } from './types/partner';
+import { DEFAULT_PARTNER_CALLER_SA, IAM_CREDENTIALS_BASE_URL, OAUTH_CLOUD_PLATFORM_SCOPE, IAM_SERVICE_ACCOUNTS_PATH, IamCredentialsMethod } from './config/constants';
 
 // Base host retained for compatibility, but audiences should be function URLs per SA quickstart
 export const PARTNER_AUDIENCE =
@@ -11,11 +13,11 @@ export const PARTNER_AUDIENCE =
 // Function URLs (use these for both request URL and ID token audience)
 const PARTNER_TRACKED_SYMBOLS_URL =
   process.env.PARTNER_TRACKED_SYMBOLS_URL ||
-  `${PARTNER_AUDIENCE.replace(/\/$/, "")}/partnerListTrackedSymbolsV2`;
+  `${PARTNER_AUDIENCE.replace(/\/$/, "")}/${PartnerEndpointPath.TRACKED_SYMBOLS}`;
 
 const PARTNER_TS_URL =
   process.env.PARTNER_TS_URL ||
-  `${PARTNER_AUDIENCE.replace(/\/$/, "")}/partnerTimeSeriesV2`;
+  `${PARTNER_AUDIENCE.replace(/\/$/, "")}/${PartnerEndpointPath.TIME_SERIES}`;
 
 // Optional separate audience overrides (default to URLs above)
 const PARTNER_TRACKED_SYMBOLS_AUDIENCE =
@@ -23,18 +25,9 @@ const PARTNER_TRACKED_SYMBOLS_AUDIENCE =
 const PARTNER_TS_AUDIENCE = process.env.PARTNER_TS_AUDIENCE || PARTNER_TS_URL;
 
 // Service account email for rel-str prod
-const DEFAULT_CALLER_SA = "rel-str-partner-caller-prod@rel-str.iam.gserviceaccount.com";
-const CALLER_SA = process.env.PARTNER_CALLER_SA || DEFAULT_CALLER_SA;
+const CALLER_SA = process.env.PARTNER_CALLER_SA || DEFAULT_PARTNER_CALLER_SA;
 
-/** Public DTO for tracked symbols returned to the frontend via getTrackedSymbols */
-export interface TrackedSymbolDTO {
-  symbol: string;
-  name?: string;
-  exchange?: string;
-  sector?: string;
-  supported?: boolean;
-  isBaseline?: boolean;
-}
+/** Public DTO and response interfaces are declared in './types/partner' */
 
 /**
  * Generate a Google ID token with includeEmail=true for the given audience using
@@ -43,10 +36,10 @@ export interface TrackedSymbolDTO {
  * where the function runs under the desired runtime service account.
  */
 async function generateIdTokenWithEmail(audience: string, serviceAccountEmail: string): Promise<string> {
-  const auth = new GoogleAuth({ scopes: ["https://www.googleapis.com/auth/cloud-platform"] });
+  const auth = new GoogleAuth({ scopes: [OAUTH_CLOUD_PLATFORM_SCOPE] });
   // Acquire an access token to call IAM Credentials
   const accessToken = await auth.getAccessToken();
-  const url = `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${encodeURIComponent(serviceAccountEmail)}:generateIdToken`;
+  const url = `${IAM_CREDENTIALS_BASE_URL}/${IAM_SERVICE_ACCOUNTS_PATH}/${encodeURIComponent(serviceAccountEmail)}:${IamCredentialsMethod.GENERATE_ID_TOKEN}`;
   const body = { audience, includeEmail: true };
   const resp = await fetch(url, {
     method: "POST",
@@ -175,7 +168,7 @@ export const partnerProxyTest = onRequest(
 );
 
 /** Callable: getTrackedSymbols */
-export const getTrackedSymbols = onCall({ region: "us-central1" }, async (req) => {
+export const getTrackedSymbols = onCall({ region: "us-central1" }, async (req): Promise<GetTrackedSymbolsResponse> => {
   const ttlSeconds = Math.max(60, Math.min(3600, Number(req.data?.ttlSeconds ?? 600)));
   const now = Date.now();
   const cacheRef = db.collection("app").doc("trackedSymbolsCache");
