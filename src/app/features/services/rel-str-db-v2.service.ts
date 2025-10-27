@@ -18,19 +18,7 @@ import { Observable, map, from, tap, catchError, firstValueFrom, of } from 'rxjs
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { Auth } from '@angular/fire/auth';
 import { CallableName, Collection, userListsPath } from '../../core/common/constants';
-
-interface SymbolMetadata {
-    supported: boolean;
-    baseline: boolean;
-}
-
-interface SymbolSupport {
-    [key: string]: SymbolMetadata       // key is stock symbol in uppercase
-}
-
-interface SupportedSymbolsList {
-    supportedSymbolsList: string[];
-}
+import { GetTrackedSymbolsResponse } from '../../core/models/partner.types';
 
 @Injectable({ providedIn: 'root' })
 export class RelStrDbV2Service {
@@ -52,7 +40,7 @@ export class RelStrDbV2Service {
       this.inCtx(() => {
         const callable = httpsCallable<
           { ttlSeconds?: number },
-          { items: Array<{ symbol: string; name?: string }>; cached: boolean; updatedAt?: number }
+          GetTrackedSymbolsResponse
         >(this.functions, CallableName.GET_TRACKED_SYMBOLS);
         return callable({ ttlSeconds });
       })

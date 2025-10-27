@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, EnvironmentInjector, inject, OnInit, ViewChild, runInInjectionContext } from '@angular/core';
 import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
 import { MatButtonModule } from '@angular/material/button';
-import { AsyncPipe, JsonPipe } from '@angular/common';
 
 import { HeatmapComponent } from './heatmap/heatmap.component';
 import { SelectStockPanelComponent } from './select-stock-panel/select-stock-panel.component';
@@ -17,7 +16,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
     selector: 'rs-dashboard-v2',
-    imports: [HeatmapComponent, MatSidenavModule, MatButtonModule, SelectStockPanelComponent, AsyncPipe, JsonPipe],
+    imports: [HeatmapComponent, MatSidenavModule, MatButtonModule, SelectStockPanelComponent],
     templateUrl: './dashboard-v2.component.html',
     styleUrl: './dashboard-v2.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush
