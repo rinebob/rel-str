@@ -1,115 +1,102 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
-import { Auth, GoogleAuthProvider, User, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, signOut, user as afUser } from '@angular/fire/auth';
-import { Firestore, doc, getDoc, serverTimestamp, setDoc } from '@angular/fire/firestore';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { computed, inject } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
+import { User } from '@angular/fire/auth';
+import { patchState, signalStore, withComputed, withHooks, withMethods, withProps, withState } from '@ngrx/signals';
+
+import { AuthService } from './auth.service';
 import { AppRoutes } from '../common/interfaces';
 
 export type AuthError = { code: string; message: string } | null;
 
-@Injectable({ providedIn: 'root' })
-export class AuthStore {
-  private readonly auth = inject(Auth);
-  private readonly db = inject(Firestore);
-  private readonly router = inject(Router);
+export type AuthState = {
+  user: User | null;
+  loading: boolean;
+  error: AuthError;
+};
 
-  private readonly _loading = signal(false);
-  private readonly _error = signal<AuthError>(null);
+const initialState: AuthState = {
+  user: null,
+  loading: false,
+  error: null,
+};
 
-  // Stream current user and convert to a signal (no extra deps)
-  private readonly user$ = afUser(this.auth);
-  readonly user = toSignal<User | null>(this.user$, { initialValue: null });
+export const AuthStore = signalStore(
+  { providedIn: 'root' },
+  withState<AuthState>(initialState),
+  withComputed((store) => ({
+    isAuthenticated: computed(() => !!store.user()),
+  })),
+  // Expose observables for UI consumption
+  withProps((store) => ({
+    user$: toObservable(store.user),
+    isAuthenticated$: toObservable(store.isAuthenticated),
+  })),
+  withMethods((store, auth = inject(AuthService), router = inject(Router)) => ({
+    async signInWithEmail(email: string, password: string): Promise<User | null> {
+      patchState(store, { loading: true, error: null });
+      try {
+        const u = await auth.signInWithEmail(email, password);
+        patchState(store, { user: u });
+        await router.navigate([`/${AppRoutes.DASHBOARD_V2}`]);
+        return u;
+      } catch (e: any) {
+        patchState(store, { error: { code: e?.code ?? 'auth/unknown', message: e?.message ?? 'Unknown error' } });
+        return null;
+      } finally {
+        patchState(store, { loading: false });
+      }
+    },
 
-  readonly isAuthenticated = computed(() => !!this.user());
-  readonly loading = computed(() => this._loading());
-  readonly error = computed(() => this._error());
+    async signUpWithEmail(email: string, password: string, displayName?: string): Promise<User | null> {
+      patchState(store, { loading: true, error: null });
+      try {
+        const u = await auth.signUpWithEmail(email, password);
+        patchState(store, { user: u });
+        await router.navigate([`/${AppRoutes.DASHBOARD_V2}`]);
+        return u;
+      } catch (e: any) {
+        patchState(store, { error: { code: e?.code ?? 'auth/unknown', message: e?.message ?? 'Unknown error' } });
+        return null;
+      } finally {
+        patchState(store, { loading: false });
+      }
+    },
 
-  // Ensure minimal users/{uid} doc exists
-  private async ensureUserDoc(u: User): Promise<void> {
-    const ref = doc(this.db, `users/${u.uid}`);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) {
-      await setDoc(ref, {
-        displayName: u.displayName ?? null,
-        email: u.email ?? null,
-        photoURL: u.photoURL ?? null,
-        dev: false,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-    } else {
-      // Minimal touch update to track last seen
-      await setDoc(
-        ref,
-        {
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-    }
-  }
+    async signInWithGoogle(): Promise<User | null> {
+      patchState(store, { loading: true, error: null });
+      try {
+        const u = await auth.signInWithGoogle();
+        patchState(store, { user: u });
+        await router.navigate([`/${AppRoutes.DASHBOARD_V2}`]);
+        return u;
+      } catch (e: any) {
+        patchState(store, { error: { code: e?.code ?? 'auth/unknown', message: e?.message ?? 'Unknown error' } });
+        return null;
+      } finally {
+        patchState(store, { loading: false });
+      }
+    },
 
-  async signInWithEmail(email: string, password: string): Promise<User | null> {
-    this._error.set(null);
-    this._loading.set(true);
-    try {
-      const cred = await signInWithEmailAndPassword(this.auth, email, password);
-      await this.ensureUserDoc(cred.user);
-      // Reason: Navigate to the new default view after successful login
-      await this.router.navigate([`/${AppRoutes.DASHBOARD_V2}`]);
-      return cred.user;
-    } catch (e: any) {
-      this._error.set({ code: e.code ?? 'auth/unknown', message: e.message ?? 'Unknown error' });
-      return null;
-    } finally {
-      this._loading.set(false);
-    }
-  }
-
-  async signUpWithEmail(email: string, password: string, displayName?: string): Promise<User | null> {
-    this._error.set(null);
-    this._loading.set(true);
-    try {
-      const cred = await createUserWithEmailAndPassword(this.auth, email, password);
-      // Optionally update profile displayName here if needed.
-      await this.ensureUserDoc(cred.user);
-      await this.router.navigate([`/${AppRoutes.DASHBOARD_V2}`]);
-      return cred.user;
-    } catch (e: any) {
-      this._error.set({ code: e.code ?? 'auth/unknown', message: e.message ?? 'Unknown error' });
-      return null;
-    } finally {
-      this._loading.set(false);
-    }
-  }
-
-  async signInWithGoogle(): Promise<User | null> {
-    this._error.set(null);
-    this._loading.set(true);
-    try {
-      const provider = new GoogleAuthProvider();
-      const cred = await signInWithPopup(this.auth, provider);
-      await this.ensureUserDoc(cred.user);
-      await this.router.navigate([`/${AppRoutes.DASHBOARD_V2}`]);
-      return cred.user;
-    } catch (e: any) {
-      this._error.set({ code: e.code ?? 'auth/unknown', message: e.message ?? 'Unknown error' });
-      return null;
-    } finally {
-      this._loading.set(false);
-    }
-  }
-
-  async signOut(): Promise<void> {
-    this._error.set(null);
-    this._loading.set(true);
-    try {
-      await signOut(this.auth);
-      await this.router.navigate([`/${AppRoutes.LOGIN}`]);
-    } catch (e: any) {
-      this._error.set({ code: e.code ?? 'auth/unknown', message: e.message ?? 'Unknown error' });
-    } finally {
-      this._loading.set(false);
-    }
-  }
-}
+    async signOut(): Promise<void> {
+      patchState(store, { loading: true, error: null });
+      try {
+        await auth.signOut();
+        patchState(store, { user: null });
+        await router.navigate([`/${AppRoutes.LOGIN}`]);
+      } catch (e: any) {
+        patchState(store, { error: { code: e?.code ?? 'auth/unknown', message: e?.message ?? 'Unknown error' } });
+      } finally {
+        patchState(store, { loading: false });
+      }
+    },
+  })),
+  withHooks({
+    onInit(store) {
+      // Keep state.user in sync with Firebase user
+      const auth = inject(AuthService);
+      const sub = auth.user$.subscribe((u) => patchState(store, { user: u }));
+      return () => sub.unsubscribe();
+    },
+  })
+);
