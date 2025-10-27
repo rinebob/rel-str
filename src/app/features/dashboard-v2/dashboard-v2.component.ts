@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, EnvironmentInjector, inject, OnInit, ViewChild, runInInjectionContext } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, OnInit, ViewChild } from '@angular/core';
 import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
 import { MatButtonModule } from '@angular/material/button';
 
@@ -11,7 +11,7 @@ import { RelStrStockList, Timeframe } from '../shared/types/rs.interfaces';
 import { RelStrDbV2Service } from '../services/rel-str-db-v2.service';
 import { RsDataService } from '../services/rs-data.service';
 import { RsDataStore } from '../store/rs-data.store';
-import { Auth, authState } from '@angular/fire/auth';
+import { AuthStore } from '../../core/auth/auth.store';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
@@ -28,23 +28,22 @@ export class DashboardV2Component extends RelStrBaseComponent implements OnInit 
     rSDbSvc = inject(RelStrDbV2Service)
     private readonly rsDataSvc = inject(RsDataService);
     private readonly rsDataStore = inject(RsDataStore);
-    private readonly auth = inject(Auth);
-    private readonly env = inject(EnvironmentInjector);
+    private readonly authStore = inject(AuthStore);
 
     title = 'rel-str';
 
     ngOnInit() {
         this.rsCalcsStore.setHeatmapColors(generateColorArray(NUM_HEATMAP_MIDPOINTS));
         this.rsAppStore.getSupportedSymbolsListV2();
-        this.rsAppStore.getSupportedPairsListV2();
 
-        // Load lists only after a user is authenticated to satisfy rules
-        runInInjectionContext(this.env, () => authState(this.auth))
+        // Load data only after authenticated user is emitted
+        this.authStore.isAuthenticated$
           .pipe(takeUntilDestroyed(this.destroyRef))
           .subscribe(u => {
-            if (u?.uid) {
-              this.rsAppStore.getListsForUserV2(u.uid);
-            }
+            // Now that we're authenticated, load pairs list and user lists
+            this.rsAppStore.getSupportedPairsListV2();
+            const user = this.authStore.user();
+            if (user?.uid) this.rsAppStore.getListsForUserV2(user.uid);
           });
 
         // After lists load, auto-select and initialize the first list if none is selected yet
