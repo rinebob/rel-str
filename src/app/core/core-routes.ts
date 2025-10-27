@@ -2,11 +2,14 @@ import { Route } from "@angular/router";
 import { CoreComponent } from "./core.component";
 import { HomeComponent } from "./comps/home/home.component";
 import { AppRoutes } from "./common/interfaces";
+import { authGuard } from './auth/auth.guard';
 
  export default[
     { path: '', component: CoreComponent,
         children: [
-            {path: '', component: HomeComponent},
+            {path: '', 
+                redirectTo: AppRoutes.DASHBOARD_V2, pathMatch: 'full',
+            },
             {path: AppRoutes.DOCUMENTATION, 
                 loadComponent: () => import('./comps/documentation/documentation.component')
                 .then(mod => mod.DocumentationComponent),
@@ -24,31 +27,35 @@ import { AppRoutes } from "./common/interfaces";
                 .then(mod => mod.LoginComponent),
             },
 
-            // TODO: Add route guards to check login status on each navigation
-            // NOTE: If new features are added in addition to rel-str, these routes will be extracted to an 'rs-routes.ts' file
-            // and this will be replaced with a parent route 'rs' which will load these routes as child routes
+            // NOTE: Protect actual feature routes, not redirect routes
             {path: AppRoutes.DASHBOARD, 
                 loadComponent: () => import('../features/dashboard/dashboard.component')
                 .then(mod => mod.DashboardComponent),
+                canActivate: [authGuard],
             },
             {path: AppRoutes.DASHBOARD_V2, 
                 loadComponent: () => import('../features/dashboard-v2/dashboard-v2.component')
                 .then(mod => mod.DashboardV2Component),
+                canActivate: [authGuard],
             },
             {path: AppRoutes.CHART, 
                 redirectTo: AppRoutes.SYNC_CHART, pathMatch: 'full',
+                // Do not apply canActivate to redirect routes
             },
             {path: AppRoutes.SYNC_CHART, 
                 loadComponent: () => import('../features/sync-chart-view/sync-chart-view.component')
                 .then(mod => mod.SyncChartViewComponent),
+                canActivate: [authGuard],
             },
             {path: AppRoutes.RS_TABLE,
                 loadComponent: () => import('../features/rs-table/rs-table.component')
                 .then(mod => mod.RsTableComponent),
+                canActivate: [authGuard],
             },
             {path: AppRoutes.HISTORY, 
                 loadComponent: () => import('../features/history/history.component')
                 .then(mod => mod.HistoryComponent),
+                canActivate: [authGuard],
             },
             {path: AppRoutes.LOGOUT, redirectTo: '/', pathMatch: 'full'},
         ]
