@@ -1,5 +1,5 @@
 import { patchState, signalStoreFeature, withComputed, withMethods, withState } from "@ngrx/signals"
-import { BaselineTargetRankDatum, FormMode, ListAction, RanksByDate, RanksDataWithColors, RelStrStockList, StockDatum, StockListFormMode } from "../shared/types/rs.interfaces"
+import { BaselineTargetRankDatum, FormMode, RanksByDate, RanksDataWithColors, RelStrStockList, StockDatum, StockListFormMode } from "../shared/types/rs.interfaces"
 import { StockDataService } from "../services/stock-data.service"
 import { inject } from "@angular/core"
 import { RelStrDbV2Service } from "../services/rel-str-db-v2.service"
@@ -37,51 +37,15 @@ export function withStockListV2Feature() {
         ) => ({
 
             // STOCK DATA
-            // Prefer using state-cached supportedSymbolsListV2 to avoid re-opening Firestore on every switch
             async getHistoricalDataForSymbolV2(symbol: string): Promise<StockDatum[]> {
-                let symbols = store.supportedSymbolsListV2();
-                try {
-                    if (!symbols || symbols.length === 0) {
-                        const companies = await firstValueFrom(relStrDbService.getSupportedSymbolsList$());
-                        symbols = companies.map(c => c.symbol);
-                        // console.log('[StockListV2] loaded supported symbols from DB (cold path)', { count: symbols.length });
-                    }
-                } catch {
-                    // If Firestore path fails, continue without it
-                    symbols = symbols ?? [];
-                }
-
-                // if the data already exists in RS db, fetch from there
-                if (symbols.includes(symbol)) {
-                    try { return relStrDbService.getDataForSymbol(symbol); } catch { return []; }
-                } else {
-                    // else make a call to fetch historical data for a new symbol
-                    try { return await stockDataService.getStockDataBySymbol(symbol); } catch { return []; }
-                }
-            },
-
-            saveHistoricalDataV2(symbol: string, data: StockDatum[]) {
-                relStrDbService.saveHistoricalData(symbol, data);
-            },
-
-            updateDataV2(symbol: string, data: StockDatum) {
-                relStrDbService.updateData(symbol, data);
-            },
-
-            addSupportedSymbolsListV2() {
-                // console.log('[StockListV2] addSupportedSymbolsListV2 called');
-                relStrDbService.createSupportedSymbolsListDoc();
+                try { return await stockDataService.getStockDataBySymbol(symbol); } catch { return []; }
             },
 
             async getSupportedSymbolsListV2() {
-                const companies = await firstValueFrom(relStrDbService.getSupportedSymbolsList$());
+                const companies = await firstValueFrom(relStrDbService.getTrackedSymbols$());
                 const supportedSymbolsListV2 = companies.map(c => c.symbol);
                 // console.log('[StockListV2] supportedSymbolsListV2', supportedSymbolsListV2);
                 patchState(store, {supportedSymbolsListV2});
-            },
-
-            updateSupportedSymbolsListV2(symbol: string, action: ListAction) {
-                relStrDbService.updateSupportedSymbolsList(symbol, action);
             },
 
             // BASELINE/TARGET RANKS DATA (PAIRS DATA)
@@ -91,15 +55,6 @@ export function withStockListV2Feature() {
                 patchState(store, { supportedPairsListV2 });
             },
 
-            updateSupportedPairsListV2(pair: string, action: ListAction) {
-                relStrDbService.updateSupportedPairsList(pair, action);
-            },
-
-            savePairDataV2(pair: string, data: BaselineTargetRankDatum[]) {
-                relStrDbService.savePairData(pair, data);
-            }
-
-           
         })),
 
         // STOCK LISTS
@@ -130,7 +85,6 @@ export function withStockListV2Feature() {
                 for (const pair of pairs) {
                     // V2: Always resolve dynamically; no static mocks
                     const pairData: BaselineTargetRankDatum[] = await generateHeatmapDataV2(pair);
-                    store.savePairDataV2(pair, pairData);
                     out[pair] = pairData;
                 }
                 return out;
@@ -251,10 +205,6 @@ export function withStockListV2Feature() {
                     }
                     console.log('[StockListFeatureV2] patching state with new list count', { count: allStockListsV2.length });
                     patchState(store, { allStockListsV2, selectedStockListV2: list });
-                    try {
-                        const registered = await relStrDbService.registerPairs(list);
-                        console.log('[StockListFeatureV2] registerPairs result', { registeredCount: registered?.length });
-                    } catch (e) { console.error('[StockListFeatureV2] registerPairs failed', e); }
                 },
 
                 async deleteStockListV2(listOrName: string | RelStrStockList) {
@@ -263,10 +213,6 @@ export function withStockListV2Feature() {
                     patchState(store, { allStockListsV2: stockLists });
                     const listObj = typeof listOrName === 'string' ? store.allStockListsV2().find(l => l.name === name) : listOrName;
                     if (listObj) { try { await relStrDbService.unregisterPairs(listObj); } catch {} }
-                    const selected = store.selectedStockListV2();
-                    if (selected?.name === name) {
-                        // Live subscriptions temporarily disabled during stabilization
-                    }
                 },
 
                 // RANKS DATA

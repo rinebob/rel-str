@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, OnInit, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EnvironmentInjector, inject, OnInit, ViewChild, runInInjectionContext } from '@angular/core';
 import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
 import { MatButtonModule } from '@angular/material/button';
 import { AsyncPipe, JsonPipe } from '@angular/common';
@@ -8,7 +8,7 @@ import { SelectStockPanelComponent } from './select-stock-panel/select-stock-pan
 import { RelStrBaseComponent } from '../rel-str-base/rel-str-base.component';
 import { generateColorArray } from '../utils/color-utils';
 import { NUM_HEATMAP_MIDPOINTS } from '../../core/common/constants';
-import { BaselineTargetRankDatum, ListAction, RelStrStockList, Timeframe } from '../shared/types/rs.interfaces';
+import { RelStrStockList, Timeframe } from '../shared/types/rs.interfaces';
 import { RelStrDbV2Service } from '../services/rel-str-db-v2.service';
 import { RsDataService } from '../services/rs-data.service';
 import { RsDataStore } from '../store/rs-data.store';
@@ -30,6 +30,7 @@ export class DashboardV2Component extends RelStrBaseComponent implements OnInit 
     private readonly rsDataSvc = inject(RsDataService);
     private readonly rsDataStore = inject(RsDataStore);
     private readonly auth = inject(Auth);
+    private readonly env = inject(EnvironmentInjector);
 
     title = 'rel-str';
 
@@ -41,9 +42,14 @@ export class DashboardV2Component extends RelStrBaseComponent implements OnInit 
         this.rsAppStore.getSupportedSymbolsListV2();
         this.rsAppStore.getSupportedPairsListV2();
 
-        // TEMP (no-auth): hardcoded user until auth is wired
-        const HARD_CODED_USER = 'rinebob';
-        this.rsAppStore.getListsForUserV2(HARD_CODED_USER);
+        // Load lists only after a user is authenticated to satisfy rules
+        runInInjectionContext(this.env, () => authState(this.auth))
+          .pipe(takeUntilDestroyed(this.destroyRef))
+          .subscribe(u => {
+            if (u?.uid) {
+              this.rsAppStore.getListsForUserV2(u.uid);
+            }
+          });
 
         // After lists load, auto-select and initialize the first list if none is selected yet
         this.allStockListsV2$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(lists => {
@@ -78,22 +84,8 @@ export class DashboardV2Component extends RelStrBaseComponent implements OnInit 
 
     // initializeData removed: V2 uses dynamic sources only (no hard-coded seed data)
 
-    updateSymbol(symbol: string, action: ListAction) {
-
-        this.rsAppStore.updateSupportedSymbolsListV2(symbol, action);
-    }
-
-    updateSymbolPair(pair: string, action: ListAction) {
-        this.rsAppStore.updateSupportedPairsListV2(pair, action);
-    }
-
     updateStockList(userId: string, list: RelStrStockList) {
         this.rsAppStore.saveStockListForUserV2(userId, list);
-
-    }
-
-    updatePairsData(pair: string, data: BaselineTargetRankDatum[]) {
-        this.rsAppStore.savePairDataV2(pair, data);
     }
 
     handleSelectStock() {
