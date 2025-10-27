@@ -5,11 +5,12 @@ import { provideHttpClient } from '@angular/common/http';
 
 import { APP_ROUTES } from './app.routes';
 import { initializeApp, provideFirebaseApp } from '@angular/fire/app';
-import { getAuth, provideAuth } from '@angular/fire/auth';
+import { getAuth, provideAuth, connectAuthEmulator } from '@angular/fire/auth';
 import { connectFirestoreEmulator, getFirestore, provideFirestore } from '@angular/fire/firestore';
 import { connectFunctionsEmulator, getFunctions, provideFunctions } from '@angular/fire/functions';
 import { getPerformance, providePerformance } from '@angular/fire/performance';
 import { getStorage, provideStorage } from '@angular/fire/storage';
+import { setPersistence, browserLocalPersistence } from 'firebase/auth';
 
 import { environment } from '../environments/environment';
 
@@ -27,7 +28,19 @@ export const appConfig: ApplicationConfig = {
         // IMPORTANT: Initialize Firebase app BEFORE other AngularFire providers
         provideFirebaseApp(() => initializeApp(environment.firebase)),
 
-        provideAuth(() => getAuth()),
+        provideAuth(() => {
+            const auth = getAuth();
+            const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+            if (isLocal) {
+                // Auth emulator default port is 9100 per emulator config
+                connectAuthEmulator(auth, 'http://127.0.0.1:9100', { disableWarnings: true });
+            }
+            // Persist user across reloads
+            setPersistence(auth, browserLocalPersistence).catch((e) => {
+                console.warn('[Auth] setPersistence failed; falling back to default session persistence', e);
+            });
+            return auth;
+        }),
         provideFirestore(() => {
             const firestore = getFirestore();
             const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
