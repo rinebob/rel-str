@@ -162,3 +162,33 @@ Notes:
 
 * **Assumptions:** A registry-driven approach aligns with product UX (baseline + selected symbols). `activeBaselines` governs canonical signal persistence. Angular consumes RS/signals via callables and Firestore reads only.
 * **Risks:** Registry churn (frequent pair add/removes) increases write ops; ensure idempotent callables and debounce UI submissions. Indexes must support common queries (latest, last-30, signals feeds).
+
+## 10. Recent Changes (2025-10-27)
+
+- Functions v2 init:
+  - `functions/src/init.ts` sets `region: us-central1` for all v2 functions.
+  - `serviceAccount` is applied only in production. In emulator, we omit it to let ADC + impersonation work locally.
+- Partner proxy + callable:
+  - `getTrackedSymbols` (onCall) fetches SavantAPI tracked symbols using a Google OIDC ID token minted via IAM Credentials (`generateIdToken`), audience set to the partner function URL.
+  - Normalizes upstream payload to a simple `{ items: TrackedSymbolDTO[]; cached: boolean; updatedAt }`.
+  - Best-effort cache at `app/trackedSymbolsCache` with `updatedAt` (serverTimestamp) and TTL from client (60–3600s).
+- Minimal env required (in `functions/.env.rel-str`):
+  - `PARTNER_TRACKED_SYMBOLS_URL`, `PARTNER_TS_URL` (full URLs)
+  - `PARTNER_CALLER_SA` (prod SA email)
+  - `GOOGLE_IMPERSONATE_SERVICE_ACCOUNT` (same SA email for emulator impersonation)
+  - Optional: `PARTNER_TRACKED_SYMBOLS_AUDIENCE`, `PARTNER_TS_AUDIENCE` (default to URL if omitted)
+- Emulator workflow (no manual shell exports needed):
+  - `gcloud auth application-default login` and `gcloud config set project rel-str`.
+  - Grant your user `roles/iam.serviceAccountTokenCreator` on `rel-str-partner-caller-prod@rel-str.iam.gserviceaccount.com`.
+  - Start emulators; the runtime impersonates the SA and calls prod partner endpoints.
+- Diagnostics:
+  - Upstream errors log audience and caller SA. ETIMEDOUT indicates local network/proxy issues to `oauth2.googleapis.com` or to the partner URL.
+
+## 11. Constants and Contracts (BE)
+
+- Constants module: `functions/src/config/constants.ts`
+  - `DEFAULT_PARTNER_CALLER_SA`, `OAUTH_CLOUD_PLATFORM_SCOPE`, `IAM_CREDENTIALS_BASE_URL`, `IAM_SERVICE_ACCOUNTS_PATH`, `IamCredentialsMethod`
+- Partner contracts/types: `functions/src/types/partner.ts`
+  - `TrackedSymbolDTO`, `GetTrackedSymbolsResponse`, `PartnerEndpointPath`
+- App Check note:
+  - Firebase callable verification logs include `verifications.app` and `verifications.auth`. `app` may be `MISSING` in dev if App Check isn’t initialized/enforced; this is expected unless enforcement is enabled.

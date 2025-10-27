@@ -295,6 +295,18 @@ These collections are not strictly needed for the MVP and are deferred. They are
 * `rs-cache`
   * Short-lived cache docs to accelerate repeated on-demand computations without persisting long-term. Only functions would write if introduced.
 
+## Recent Changes (2025-10-27)
+
+- Canonical data sources:
+  - `tracked-symbols/*` (partner-managed): FE read-only, used for symbol universe; callable also returns the canonical list.
+  - `pairs-data/*` (backend-managed): FE read-only live series for heatmap.
+  - `users/{uid}/lists/{listId}` (client-owned): FE read/write only for the authenticated owner.
+- Firestore Rules tightened:
+  - `tracked-symbols/*` and `pairs-data/*` now require `request.auth != null` (no public reads).
+  - `users/{uid}/lists/*` remains owner-only read/write.
+  - Default deny for all other collections.
+- Removed: client-admin `admin/supported-symbols-list` doc concept. Any admin/curation lives outside the FE; FE is read-only for partner-owned data.
+
 ## Appendix: Rationale for Key Decisions
 
 * The compact `pairs-data` shape (latest + data array) supports last-30 reads without a per-day `rs` subcollection. If server-side signal feeds are needed later, a separate `signals` collection can be introduced, with a small `signalsSummary` mirror on the pair doc.

@@ -182,3 +182,12 @@ Below are the main steps a user takes and the expected system responses for each
      * MVP: settings are saved to Firestore under an anonymous client id (until Auth).
      * Future: when Auth is enabled, the settings are tied to the user and migrated.
   5. On reopen, the drawer loads stored settings; a global Restore Defaults option resets all sections.
+
+## Recent Changes (2025-10-27)
+
+- Auth-first data loading:
+  - Dashboard V2 defers any Firestore-dependent loads until `authState` yields a user.
+  - This aligns with Firestore rules that require auth for reading `tracked-symbols` and `pairs-data`.
+- Symbol universe sourcing:
+  - Store calls Functions `getTrackedSymbols` via `RelStrDbV2Service.getTrackedSymbols$()` and sets `supportedSymbolsListV2`.
+  - UI no longer issues duplicate callable requests; debug renders read from the store state.

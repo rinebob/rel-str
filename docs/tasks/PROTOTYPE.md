@@ -68,7 +68,7 @@
 - Services now ensure a `users/{uid}` document exists with minimal metadata (displayName, dev, timestamps) before list reads/writes to avoid phantom users in the emulator.
 
 ## Auth & Lists (Deferred/TBD)
-- [ ] Auth flows (email/password, Google) [Deferred]
+- [ ] Auth flows (email/password, Google) [In Progress - 2025-10-24]
 - [ ] Profile & subscription UI [Deferred]
 - [ ] Pair list management via `SelectStockPanel` wired to registry callables
 
@@ -134,6 +134,12 @@
   - [x] FE consumption: use `pre.latest` intra-day; use `post.latest` after close; use `post.series` for historical analyses
 - 2025-10-22: V2 Heatmap wiring fix
   - [x] Updated `src/app/features/dashboard-v2/heatmap/heatmap.component.html` to guard on `rsAppStore.selectedStockListV2()` (was `selectedStockList()`), ensuring the v2 heatmap renders from the correct store signal.
+- 2025-10-24: Authentication implementation started
+  - [x] Added `AuthStore` (`src/app/core/auth/auth.store.ts`) with email/password and Google sign-in, and Firestore bootstrap of `users/{uid}`.
+  - [x] Added `authGuard` and protected feature routes in `src/app/core/core-routes.ts`.
+  - [x] Wired `LoginComponent` and `SignupComponent` with reactive forms, templates, and styles.
+  - [x] Connected Auth emulator in `src/app/app.config.ts` for local dev.
+  - [ ] Add header user menu (profile, sign out) and conditional nav items based on auth state.
 
 ## Next Phase Plan (High-level)
 - [x] Implement Partner Data-Ready Webhook + Pub/Sub subscriber to drive backend RS updates without polling. See [docs/partner/partner-webhooks.md](../partner/partner-webhooks.md)

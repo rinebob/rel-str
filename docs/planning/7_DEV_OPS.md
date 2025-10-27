@@ -51,3 +51,18 @@ This document outlines the DevOps strategy for the Minimum Viable Product (MVP) 
 * **Approach:** Primarily rely on Firebase's built-in automatic scaling for core services.
 * **Details:** Firebase Authentication, Firestore, and Cloud Functions are designed to automatically scale their resources up or down based on the volume of requests and load. This auto-scaling capability is expected to be sufficient to handle the projected user base throughout the MVP phase (estimated 100-1000 users) and potentially accommodate growth up to approximately 10,000 users without requiring explicit manual scaling configurations or infrastructure changes for these services.
 * **Considerations:** While scaling is automatic, continuous monitoring of usage and costs via Firebase/GCP dashboards is essential. As the user base and data volume grow, review resource allocations for Cloud Functions and optimize Firestore queries and data model to ensure efficiency and manage costs. The performance optimizations implemented based on findings (potentially documented separately, e.g., in `performance-optimization.md`) will directly contribute to the application's ability to scale efficiently.
+
+## 6. Emulator to Prod Partner API (2025-10-27)
+
+- Place minimal keys in `functions/.env.rel-str` (auto-loaded by emulators):
+  - `PARTNER_TRACKED_SYMBOLS_URL=https://us-central1-alpha-vantage-proxy-api.cloudfunctions.net/partnerListTrackedSymbolsV2`
+  - `PARTNER_TS_URL=https://us-central1-alpha-vantage-proxy-api.cloudfunctions.net/partnerTimeSeriesV2`
+  - `PARTNER_CALLER_SA=rel-str-partner-caller-prod@rel-str.iam.gserviceaccount.com`
+  - `GOOGLE_IMPERSONATE_SERVICE_ACCOUNT=rel-str-partner-caller-prod@rel-str.iam.gserviceaccount.com`
+- One-time machine setup:
+  - `gcloud auth application-default login`
+  - `gcloud config set project rel-str`
+  - Grant user `roles/iam.serviceAccountTokenCreator` on the caller SA.
+- Start emulators; functions will impersonate the SA and call prod partner endpoints.
+- Troubleshooting:
+  - Ensure outbound HTTPS to `oauth2.googleapis.com`, `iamcredentials.googleapis.com`, and partner URLs.

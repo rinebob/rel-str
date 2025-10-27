@@ -41,3 +41,14 @@ This document outlines the security strategy and considerations for the Minimum 
 * **Leverage Firebase Features:** Ensure correct configuration and utilization of Firebase and Google Cloud security features.
 * **Secure Coding:** Follow secure coding principles, including robust validation and proper output encoding (though Angular provides built-in XSS protection).
 * **Basic Response:** Have a basic plan for assessing and addressing reported or discovered vulnerabilities quickly.
+
+## Recent Changes (2025-10-27)
+
+- Firestore access control:
+  - `tracked-symbols/*` and `pairs-data/*` read access restricted to authenticated users (`request.auth != null`).
+  - `users/{uid}/lists/*` remains owner-only read/write.
+  - Default deny for all others.
+- Service Account usage:
+  - Production Functions v2 run as `rel-str-partner-caller-prod@rel-str.iam.gserviceaccount.com`.
+  - Emulator uses ADC + `GOOGLE_IMPERSONATE_SERVICE_ACCOUNT` to mint short-lived tokens; requires Token Creator on the SA.
+  - Principle of least privilege: FE never writes to partner-managed collections; only backend calls SavantAPI.

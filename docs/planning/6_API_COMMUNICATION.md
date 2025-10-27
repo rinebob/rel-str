@@ -162,6 +162,21 @@ The frontend will interact with Firebase Cloud Functions for logic that requires
     - When Auth arrives, a migration path can copy settings to a per-user document.
     - Input validation enforced server-side; apply rate-limiting/debounce on saves from the frontend.
 
+## Recent Changes (2025-10-27)
+
+- Callable: `getTrackedSymbols`
+  - Request: `{ ttlSeconds?: number }` (60–3600; default 600)
+  - Response: `GetTrackedSymbolsResponse` (see `functions/src/partner-proxy.ts`)
+  - Behavior: reads cache if fresh; otherwise mints an OIDC ID token and calls the partner function URL.
+- Environment variables (Functions):
+  - `PARTNER_TRACKED_SYMBOLS_URL`, `PARTNER_TS_URL` (function URLs)
+  - `PARTNER_CALLER_SA` (prod SA runtime and impersonation target)
+  - `GOOGLE_IMPERSONATE_SERVICE_ACCOUNT` (emulator-only to impersonate SA)
+  - Optional audiences: default to URL if not provided.
+- Authentication model:
+  - Emulator uses ADC + impersonation (no hard-coded service account locally).
+  - Production functions run under the configured service account.
+
 ## 4. Backend Interactions (Cloud Functions)
 
 Firebase Cloud Functions serve as the central point for backend logic and integration with external services. They interact with each other, other Firebase services, and third-party APIs:

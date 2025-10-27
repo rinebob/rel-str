@@ -180,3 +180,35 @@ This document outlines the frontend architecture, key technologies, and core fea
     * **Integration Tests:** Testing interactions between components, services, and NgRx state.
     * **End-to-End (E2E) Tests:** Using Cypress to test key user flows through the application in a browser environment.
 * Automated test execution will be integrated into the CI/CD pipeline using GitHub Actions to ensure that tests run on every code change. Test coverage targets will be defined and monitored.
+
+## 9. Contracts and Constants (FE)
+
+* Partner contracts live at `src/app/core/models/partner.types.ts`.
+  - Keep in sync with Functions contracts at `functions/src/types/partner.ts`.
+  - Policy: do not declare inline types for callable payloads; import interfaces from this module.
+* FE constants live at `src/app/core/common/constants.ts`.
+  - Enums: `CallableName`, `Collection`, `Subcollection` (UPPER_SNAKE_CASE)
+  - Helpers: `userListsPath(uid)`
+* Store-driven calls
+  - Fetch the symbol universe via store (`withStockListV2Feature.getSupportedSymbolsListV2`) which internally calls `RelStrDbV2Service.getTrackedSymbols$()`.
+  - Avoid duplicate callable invocations from components; bind UIs to store state.
+
+## Recent Changes (2025-10-27)
+
+- Frontend now consumes supported symbols via a callable:
+  - Uses `RelStrDbV2Service.getTrackedSymbols$()` which calls Functions v2 `getTrackedSymbols` (SavantAPI-backed).
+  - `withStockListV2Feature.getSupportedSymbolsListV2()` populates `supportedSymbolsListV2` from that callable response.
+- Removed client-admin writes and stubs:
+  - Deleted FE stubs for supported symbols/pairs updates and pair-data persistence.
+  - No FE writes to partner-owned data; FE is read-only for `pairs-data/*` and symbol universe.
+- Centralized constants:
+  - Replaced magic strings with enums in `core/common/constants.ts`:
+    - `CallableName.GET_TRACKED_SYMBOLS`, `VALIDATE_AND_REGISTER_PAIRS`, `UNREGISTER_PAIRS`
+    - `Collection.TRACKED_SYMBOLS`, `PAIRS_DATA`, `USERS`, `ADMIN`
+    - `userListsPath(uid)` helper
+  - Enum members are UPPER_SNAKE_CASE.
+- Angular best practices adopted:
+  - All AngularFire calls created inside an injection context using `runInInjectionContext`.
+  - Standalone components, new control-flow syntax, `inject()` DI.
+- Auth gating in UI:
+  - Data loads requiring Firestore now occur post-auth, aligning with rules requiring authenticated reads.
