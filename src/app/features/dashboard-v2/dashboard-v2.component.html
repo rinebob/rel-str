@@ -39,9 +39,9 @@
         
                 <rs-heatmap-v2 />
                 
-                <!-- Dev-only: show tracked symbols payload -->
+                <!-- Dev-only: show tracked symbols payload from store -->
                 <pre style="max-height: 20rem; overflow:auto; background:#111; color:#ddd; padding:0.5rem;">
-                    {{ trackedSymbols$ | async | json }}
+                    {{ rsAppStore.supportedSymbolsListV2() }}
                 </pre>
 
             </div>

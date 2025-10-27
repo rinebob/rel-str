@@ -34,9 +34,6 @@ export class DashboardV2Component extends RelStrBaseComponent implements OnInit 
 
     title = 'rel-str';
 
-    // Expose tracked symbols for quick debugging in the UI
-    readonly trackedSymbols$ = this.rSDbSvc.getTrackedSymbols$();
-
     ngOnInit() {
         this.rsCalcsStore.setHeatmapColors(generateColorArray(NUM_HEATMAP_MIDPOINTS));
         this.rsAppStore.getSupportedSymbolsListV2();
