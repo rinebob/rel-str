@@ -2,6 +2,30 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Authenticated read of tracked symbols for UI symbol pickers (no writes)
+    match /tracked-symbols/{id} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // Authenticated read of pairs-data written by backend; FE is read-only
+    match /pairs-data/{pairId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // Authenticated user profile root: allow user to read/write only their own doc
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // User lists: restrict to owner as well
+      match /lists/{listId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Default deny for all other collections
     match /{document=**} {
       allow read, write: if false;
     }
