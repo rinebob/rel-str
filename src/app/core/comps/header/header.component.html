@@ -10,18 +10,26 @@
     
     <div class="nav-buttons-container">
 
-        @for(item of NAV_MENU_ITEMS; track item.name) {
-
-            @if (item.external === true) {
-                <button mat-flat-button class="nav-button" (click)="handleNavigation(item.href)">
-
-                    {{item.text | uppercase}}
-
-                </button>
+        @for (item of NAV_MENU_ITEMS; track item.name) {
+          @if (item.external === true) {
+            @if ((item.name === 'login' || item.name === 'signup') && isAuthenticated()) {
+              <!-- hide auth-only entries when authenticated -->
+            } @else {
+              <button mat-flat-button class="nav-button" (click)="handleNavigation(item.href)">
+                {{ item.text | uppercase }}
+              </button>
             }
-
+          }
         }
-        
+
+        <!-- Auth-aware section -->
+        @if (!isAuthenticated()) {
+          <button mat-button (click)="onLogin()" [disabled]="loading()">Login</button>
+          <button mat-raised-button color="primary" (click)="onSignup()" [disabled]="loading()">Sign up</button>
+        } @else {
+          <span class="user-label">{{ user()?.displayName || user()?.email }}</span>
+          <button mat-raised-button color="primary" (click)="onSignOut()" [disabled]="loading()">Logout</button>
+        }
     </div>
     
 </nav>

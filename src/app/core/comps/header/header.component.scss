@@ -17,6 +17,28 @@
             @include global.flexboxLayout(row, flex-end, center);
             margin: 0 20px 0 auto;
 
+            // auth area tweaks
+            .user-label {
+                display: inline-flex;
+                align-items: center;
+                padding: 6px 10px;
+                border-radius: 14px;
+                background: color-mix(in oklab, var(--theme-on-surface, #222) 8%, transparent);
+                color: var(--theme-on-surface, #222);
+                font-size: 0.875rem;
+                line-height: 1;
+                margin-right: 10px;
+                max-width: 280px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            // add a bit of space before the logout button if both are present
+            button[mat-raised-button] + button[mat-raised-button],
+            .user-label + button[mat-raised-button] {
+                margin-left: 8px;
+            }
         }
     }
 
