@@ -40,10 +40,8 @@ export class DashboardV2Component extends RelStrBaseComponent implements OnInit 
         this.authStore.isAuthenticated$
           .pipe(takeUntilDestroyed(this.destroyRef))
           .subscribe(u => {
-            // Now that we're authenticated, load pairs list and user lists
-            this.rsAppStore.getSupportedPairsListV2();
-            const user = this.authStore.user();
-            if (user?.uid) this.rsAppStore.getListsForUserV2(user.uid);
+             const user = this.authStore.user();
+             if (user?.uid) this.rsAppStore.getListsForUserV2(user.uid);
           });
 
         // After lists load, auto-select and initialize the first list if none is selected yet

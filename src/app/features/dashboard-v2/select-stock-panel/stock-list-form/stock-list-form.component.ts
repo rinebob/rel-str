@@ -97,8 +97,12 @@ export class StockListFormComponent extends RelStrBaseComponent implements OnIni
     }
 
     handleSaveList() {
-        // TEMP (no-auth): persist under the same user used for reads in DashboardV2
-        const uid = 'rinebob';
+        // Persist under the authenticated user
+        const uid = this.auth.currentUser?.uid;
+        if (!uid) {
+            console.warn('[StockListFormV2] handleSaveList: no authenticated user; aborting save');
+            return;
+        }
         const newList= this.formDataWithSymbols();
         // Basic validation for required fields used in Firestore paths/payloads
         const name = String(newList?.name || '').trim();
