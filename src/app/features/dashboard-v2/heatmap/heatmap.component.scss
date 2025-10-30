@@ -2,35 +2,137 @@
 @use '../../../styles/variables-global';
 
 :host {
+    /* Shared width for the fixed first column (header + symbol cells) */
+    --heatmap-first-col-width: 100px;
+
+    /* Header styling variables */
+    --heatmap-header-bg: var(--theme-surface, #f5f5f5);
+    --heatmap-header-week-alt-bg: var(--theme-surface-alt, #ececec);
+    --heatmap-header-text: var(--theme-on-surface, #222);
+    --heatmap-week-separator: var(--theme-outline, #000);
+    /* Month band variables */
+    --heatmap-month-bg: var(--theme-surface, #f5f5f5);
+    --heatmap-month-alt-bg: var(--theme-surface-alt, #efefef);
+    --heatmap-month-text: var(--theme-on-surface, #222);
+    /* Heights */
+    --heatmap-month-band-height: calc(var(--heatmap-cell-height) * 0.66);
 
     ////////// NEW IMPLEMENTATION ////////////////////
 
     .heatmap-container {
         @include global.flexboxLayout(row, flex-start, flex-start);
-        // overflow-x: scroll;
-        // overflow-y: hidden;
-        // width: 100%;
+
+        // Two primary columns: fixed first-column + scrollable data columns
+        .first-column-container {
+            @include global.flexboxLayout(column, flex-start, flex-start);
+            width: var(--heatmap-first-col-width);
+
+            // Ensure rows stack vertically with the same height as data rows
+            .heatmap-row {
+                @include global.flexboxLayout(row, flex-start, center);
+            }
+
+            .header-row .header-cell.first {
+                @include global.heatmapCell();
+                border-left: 1px solid black;
+                border-top: 1px solid black;
+                border-bottom: 1px solid black;
+                border-right: 1px solid black; // separator to scrollable section
+                width: var(--heatmap-first-col-width);
+                box-sizing: border-box;
+                /* Make the fixed corner header match month band + header heights */
+                height: calc(var(--heatmap-month-band-height) + var(--heatmap-cell-height));
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                background: var(--heatmap-header-bg);
+                color: var(--heatmap-header-text);
+            }
+        }
 
         .heatmap-rows-container {
             @include global.flexboxLayout(column, flex-start, flex-start);
             overflow-x: scroll;
             overflow-y: hidden;
             width: 100%;
+            @include global.customScrollbar();
 
-            .heatmap-row {
-                @include global.flexboxLayout();
-    
-                
+            // Month band styles
+            .month-band-row {
+                @include global.flexboxLayout(row, flex-start, stretch);
+                // The month band sits above the header row
+                .month-band-cell {
+                    @include global.flexboxLayout(row, center, center);
+                    height: var(--heatmap-month-band-height);
+                    min-width: var(--heatmap-cell-width);
+                    // Width is computed from CSS var set on the element
+                    width: calc(var(--heatmap-cell-width) * var(--span, 1));
+                    border-left: 1px solid black;
+                    border-top: 1px solid black;
+                    border-bottom: 1px solid black; // keep to visually match header seam
+                    box-sizing: border-box;
+                    color: var(--heatmap-month-text);
+                    background: var(--heatmap-month-bg);
+
+                    &.month-alt { background: var(--heatmap-month-alt-bg); }
+
+                    .month-label {
+                        font-size: 12px;
+                        font-weight: 600;
+                        line-height: 1.1;
+                        white-space: nowrap;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        padding: 0 0.25rem;
+                    }
+                }
+                // Avoid double border at very first cell of the scrollable area
+                .month-band-cell:first-child { border-left: none; }
             }
+
+            .heatmap-row { @include global.flexboxLayout(); }
+
+            // Remove left border on first scrollable cell to avoid a double border
+            .heatmap-row .heatmap-cell:first-child { border-left: none; }
+
+            // Remove the extra top border on the date/day row; let month band own the seam
+            .header-row .header-cell {
+                border-top: none;
+            }
+            .header-row .header-cell:first-child { border-left: none; }
         }
 
         .buttons-column-container {
             @include global.flexboxLayout(column, flex-end, center);
             border-right: 1px solid black;
             
-            .buttons-row-container {
-                @include global.flexboxLayout();
+            .buttons-row-container { @include global.flexboxLayout(); }
 
+            /* Right-side header placeholders now split into two rows */
+            .header-month {
+                .header-cell {
+                    @include global.heatmapCell();
+                    height: var(--heatmap-month-band-height);
+                    box-sizing: border-box;
+                    border-top: 1px solid black;
+                    background: var(--heatmap-header-bg);
+                    /* Keep only outer edges; remove internal vertical border */
+                    &:first-child { border-left: 1px solid black; border-right: none; }
+                    &:last-child { border-left: none; border-right: 0; }
+                }
+            }
+            .header-daterow {
+                .header-cell {
+                    @include global.heatmapCell();
+                    height: var(--heatmap-cell-height);
+                    box-sizing: border-box;
+                    background: var(--heatmap-header-bg);
+                    border-bottom: 1px solid black;
+                    border-top: none; // avoid double seam with month row above
+                    /* Keep only outer edges; remove internal vertical border */
+                    &:first-child { border-left: 1px solid black; border-right: none; }
+                    &:last-child { border-left: none; border-right: 0; }
+                }
             }
         }
 
@@ -41,137 +143,39 @@
         border-left: 1px solid black;
         border-top: 1px solid black;
         border-bottom: 1px solid black;
+        box-sizing: border-box;
+        color: var(--heatmap-header-text);
+        background: var(--heatmap-header-bg);
+        // Two-line layout for date and day-of-week
+        @include global.flexboxLayout(column, center, center);
+        padding: 0.125rem; // compact
+
+        &.week-alt { background: var(--heatmap-header-week-alt-bg); }
+        &.week-start { border-left: 2px solid var(--heatmap-week-separator); }
     }
 
     .heatmap-cell {
         @include global.heatmapCell();
-        // border: 1px solid black;
         border-left: 1px solid black;
         border-bottom: 1px solid black;
+        box-sizing: border-box;
 
         &.first {
-            width: 100px;
+            width: var(--heatmap-first-col-width);
+            border-right: 1px solid black; // separator to scrollable section
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
+
+        &.week-start { border-left: 2px solid var(--heatmap-week-separator); }
     }
 
-    .button-cell {
-        @include global.heatmapCell();
-        // border: 1px solid black;
-        cursor: pointer;
-    }
+    .button-cell { @include global.heatmapCell(); cursor: pointer; }
     
-    .heatmap-text {
-        @include global.heatmapCellText();
-        // font-size: 10px;
-        // margin: 0;
-    }
+    .heatmap-text { @include global.heatmapCellText(); }
 
-
-    ////////////////////////////////////////////////
-
-    ////////// LEGACY IMPLEMENTATION ////////////
-
-    // .table-container {
-    //     @include global.flexboxLayout();
-
-    //     .symbols-column {
-    //         @include global.flexboxLayout(column, flex-start, center);
-    //     }
-        
-    //     .rows-container {
-    //         @include global.flexboxLayout(column, flex-start, flex-start);
-    //         overflow-x: scroll;
-    //         overflow-y: hidden;
-    //         width: 100%;
-            
-    //         .row {
-    //             @include global.flexboxLayout(row, flex-end, center);
-    //             border-top: 1px solid black;
-    //             display: flex;
-    //             justify-content: flex-end;
-    //             align-items: center;
-
-    //             &:last-of-type {
-    //                 border-bottom: 1px solid black;
-    //             }
-    //         }
-    //     }
-        
-    //     .row-buttons-container {
-    //         @include global.flexboxLayout(row, flex-start, flex-start);
-    //         border-left: 1px solid black;
-            
-    //         .buttons-column {
-    //             @include global.flexboxLayout(column, space-evenly, center);
-                
-    //         }
-
-    //     }
-    // }
-
-    // .color-grid-container {
-    //     @include global.flexboxLayout();
-    //     flex-wrap: wrap;
-    // }
-
-    // .cell {
-    //     @include global.flexboxLayout(column, center, center);
-    //     cursor: pointer;
-    //     height: 50px;
-    //     width: 50px;
-        
-    //     &:not(:first-of-type) {
-    //         border-left: 1px solid black;
-
-    //     }
-
-    //     &.column-header {
-    //         cursor: default;
-    //         font-size: 10px;
-    //     }
-    // }
-
-    // .column-cell {
-    //     @include global.flexboxLayout(row, center, center);
-    //     height: 50px;
-    //     width: 100px;
-    //     border-top: 1px solid black;
-    //     border-left: 1px solid black;
-    //     border-right: 1px solid black;
-
-    //     &:last-of-type {
-    //         border-bottom: 1px solid black;
-    //     }
-    // }
-
-    // .text {
-    //     font-size: 12px;
-    //     margin: 0;
-    // }
-
-    // .button-cell {
-    //     @include global.flexboxLayout(row, center, center);
-    //     border-top: 1px solid black;
-    //     border-right: 1px solid black;
-    //     cursor: pointer;
-    //     height: 50px;
-    //     width: 50px;
-
-    //     &:last-of-type {
-    //         border-bottom: 1px solid black;
-    //     }
-    // }
-
-    // .color-cell {
-    //     @include global.flexboxLayout(row, center, center);
-    //     border: 1px solid black;
-    //     height: 50px;
-    //     width: 50px;
-    //     text-align: center;
-    //     vertical-align: middle;
-
-    //     p {
-    //         margin: 0;
-    //     }
-    // }
+    // Header-specific text styles
+    .heatmap-date { font-size: 11px; line-height: 1.1; margin: 0; font-weight: 600; }
+    .heatmap-dow { font-size: 10px; line-height: 1.1; margin: 0; opacity: 0.85; }
 }
