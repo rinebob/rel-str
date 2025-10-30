@@ -1,5 +1,6 @@
 import { EnvironmentInjector, inject, Injectable, runInInjectionContext } from '@angular/core';
-import { BaselineTargetRankDatum, ListAction, RanksByDate, RelStrStockList, StockDatum, Company } from '../shared/types/rs.interfaces';
+import type { BaselineTargetRankDatum, ListAction, RanksByDate, RelStrStockList, StockDatum, Company } from '../shared/types/rs.interfaces';
+import { RsPhase } from '../shared/types/rs.interfaces';
 import {
   collection,
   query,

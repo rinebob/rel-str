@@ -98,10 +98,11 @@ export interface StringNumberObject {
     value: number;
 }
 
-export enum RsPhase {
-    PRE = 'pre',
-    POST = 'post',
-}
+export const RsPhase = {
+    PRE: 'pre',
+    POST: 'post',
+} as const;
+export type RsPhase = typeof RsPhase[keyof typeof RsPhase];
 
 export interface BaselineTargetRankDatum {
     date: string;
