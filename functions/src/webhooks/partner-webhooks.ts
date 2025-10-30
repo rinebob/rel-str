@@ -125,10 +125,10 @@ async function processPairLive(
   const pairId = `${baseline}-${target}`;
   try {
     const [baseBars, targetBars] = await Promise.all([
-      fetchDailyBarsRaw(baseline, days),
-      fetchDailyBarsRaw(target, days),
+      fetchDailyBarsRaw(baseline, days, FIXED_LIMIT),
+      fetchDailyBarsRaw(target, days, FIXED_LIMIT),
     ]);
-    const series = buildPhaseSeries(baseBars, targetBars, phase);
+    const series = buildPhaseSeries(baseBars, targetBars, phase, baseline, target, logger);
     if (series.length === 0) {
       accum.failedPairs++;
       if (accum.errorSamples.length < 10) accum.errorSamples.push({ pair: pairId, message: 'no_aligned_series' });

@@ -77,7 +77,10 @@ export function computeRsSeries(baseBars: SeriesBar[], targetBars: SeriesBar[]):
 export function buildPhaseSeries(
   baselineBars: PartnerBar[],
   targetBars: PartnerBar[],
-  phase: Phase
+  phase: Phase,
+  baselineSymbol: string,
+  targetSymbol: string,
+  logger: any
 ): PhaseSeriesPoint[] {
   const baseByDay = new Map<string, PartnerBar>();
   for (const b of baselineBars) if (b?.d) baseByDay.set(b.d!, b);
@@ -85,15 +88,52 @@ export function buildPhaseSeries(
   for (const t of targetBars) {
     if (!t?.d) continue;
     const base = baseByDay.get(t.d);
-    if (!base) continue;
+    if (!base) {
+      logger.info('rs_series_skip_no_alignment', {
+        day: t.d,
+        phase,
+        baseline: baselineSymbol,
+        target: targetSymbol,
+        reason: 'baseline_bar_missing'
+      });
+      continue;
+    }
     const dw = dowLabelUTC(t.d);
     if (dw === 'Sat' || dw === 'Sun') continue;
     if (phase === 'pre') {
-      const hasIntraday = Number(t.ip) > 0 && Number(base?.ip) > 0;
-      if (!hasIntraday) continue;
+      // Intraday must have price and intraday percent-change (ipc) for both sides
+      const missing = [];
+      if (Number(t.ip) <= 0) missing.push('target_ip');
+      if (Number(base?.ip) <= 0) missing.push('baseline_ip');
+      if (!Number.isFinite(Number(t.ipc))) missing.push('target_ipc');
+      if (!Number.isFinite(Number(base.ipc))) missing.push('baseline_ipc');
+      if (missing.length > 0) {
+        logger.info('rs_series_skip_pre_missing_fields', {
+          day: t.d,
+          phase,
+          baseline: baselineSymbol,
+          target: targetSymbol,
+          missing
+        });
+        continue;
+      }
     } else {
-      const hasClose = (Number(t.ac) > 0 || Number(t.c) > 0) && (Number(base?.ac) > 0 || Number(base?.c) > 0);
-      if (!hasClose) continue;
+      // Strict EOD: must have closes and provider EOD percent-change (cp)
+      const missing = [];
+      if (!(Number(t.ac) > 0 || Number(t.c) > 0)) missing.push('target_close');
+      if (!(Number(base?.ac) > 0 || Number(base?.c) > 0)) missing.push('baseline_close');
+      if (!Number.isFinite(Number(t.cp))) missing.push('target_cp');
+      if (!Number.isFinite(Number(base?.cp))) missing.push('baseline_cp');
+      if (missing.length > 0) {
+        logger.info('rs_series_skip_post_missing_fields', {
+          day: t.d,
+          phase,
+          baseline: baselineSymbol,
+          target: targetSymbol,
+          missing
+        });
+        continue;
+      }
     }
     aligned.push({ day: t.d, base, target: t });
   }
@@ -108,19 +148,49 @@ export function buildPhaseSeries(
   const outT: number[] = [];
 
   for (const { day, base, target } of aligned) {
-    const bCp = phase === 'post'
-      ? (Number(base.cp) || 0)
-      : (Number(base.ipc) || (Number(base.ip) && Number(base.pc) ? ((Number(base.ip) - Number(base.pc)) / Number(base.pc)) * 100 : 0));
-    const tCp = phase === 'post'
-      ? (Number(target.cp) || 0)
-      : (Number(target.ipc) || (Number(target.ip) && Number(target.pc) ? ((Number(target.ip) - Number(target.pc)) / Number(target.pc)) * 100 : 0));
+    // Percent change inputs by phase
+    const bCp = phase === 'post' ? Number(base.cp) : Number(base.ipc);
+    const tCp = phase === 'post' ? Number(target.cp) : Number(target.ipc);
 
-    const bClose = phase === 'post' ? (Number(base.ac) || Number(base.c) || 0) : (Number(base.ip) || 0);
-    const tClose = phase === 'post' ? (Number(target.ac) || Number(target.c) || 0) : (Number(target.ip) || 0);
+    // Close inputs by phase (price reference)
+    const bClose = phase === 'post' ? (Number(base.ac) || Number(base.c) || 0) : Number(base.ip);
+    const tClose = phase === 'post' ? (Number(target.ac) || Number(target.c) || 0) : Number(target.ip);
 
-    if (!Number.isFinite(bCp) || !Number.isFinite(tCp)) continue;
-    if (!Number.isFinite(bClose) || !Number.isFinite(tClose)) continue;
-    if (bClose <= 0 || tClose <= 0) continue;
+    if (!Number.isFinite(bCp) || !Number.isFinite(tCp)) {
+      logger.info('rs_series_skip_calc_nonfinite_cp', {
+        day,
+        phase,
+        baseline: baselineSymbol,
+        target: targetSymbol,
+        baseCp: base.cp,
+        targetCp: target.cp,
+        baseIpc: base.ipc,
+        targetIpc: target.ipc
+      });
+      continue;
+    }
+    if (!Number.isFinite(bClose) || !Number.isFinite(tClose)) {
+      logger.info('rs_series_skip_calc_nonfinite_price', {
+        day,
+        phase,
+        baseline: baselineSymbol,
+        target: targetSymbol,
+        baseClose,
+        targetClose
+      });
+      continue;
+    }
+    if (bClose <= 0 || tClose <= 0) {
+      logger.info('rs_series_skip_calc_nonpositive_price', {
+        day,
+        phase,
+        baseline: baselineSymbol,
+        target: targetSymbol,
+        baseClose,
+        targetClose
+      });
+      continue;
+    }
 
     outDays.push(day);
     outTimes.push(phase === 'pre' ? (target.it || base.it) : undefined);

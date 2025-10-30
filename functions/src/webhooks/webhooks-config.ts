@@ -64,16 +64,17 @@ export enum TimeSeriesInterval {
 export const ALLOWED_RUN_TYPES = new Set<string>(Object.values(RunType));
 
 /**
- * Fixed processing constraints used by current pipeline iteration.
+ * Processing constraints (configurable via env for backfills/expansion)
  * - FIXED_INTERVAL: Only DAILY data is fetched.
- * - FIXED_LIMIT: Only the last 30 bars are requested.
- * - FIXED_DAYS: Calendar days requested for the window.
+ * - FIXED_LIMIT: Max bars to request (default 30; override RS_LIMIT)
+ * - FIXED_DAYS: Calendar span to request (default 30; override RS_DAYS)
  *
- * Rationale: Keeping the scope intentionally small simplifies validation and FE integration.
+ * Examples:
+ *   RS_DAYS=365 RS_LIMIT=365 → fetch roughly a full year of DAILY bars.
  */
 export const FIXED_INTERVAL: PartnerInterval = 'DAILY';
-export const FIXED_LIMIT = 30; // last 30 bars only
-export const FIXED_DAYS = 30; // last 30 calendar days
+export const FIXED_LIMIT = Number(process.env.RS_LIMIT || process.env.PARTNER_LIMIT || 30);
+export const FIXED_DAYS = Number(process.env.RS_DAYS || 30);
 
 /**
  * Normalized baseline–target key used through the pipeline.
