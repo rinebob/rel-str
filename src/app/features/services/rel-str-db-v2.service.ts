@@ -57,6 +57,7 @@ export class RelStrDbV2Service {
 
   // Firestore: supported pairs list (doc IDs under pairs-data)
   getSupportedPairsList$(): Observable<string[]> {
+    // Prod-safe: enumerate all pair IDs from pairs-data (no curated baseline reads)
     return from(this.inCtx(() => {
       const colRef = collection(this.firestore, Collection.PAIRS_DATA);
       return getDocs(colRef);
@@ -64,6 +65,22 @@ export class RelStrDbV2Service {
       map(snap => snap.docs.map(d => String(d.id))),
       catchError(err => {
         console.error('[RelStrDbService] getSupportedPairsList$ error', err);
+        return of([] as string[]);
+      })
+    );
+  }
+
+  /** Build pair IDs for a baseline by filtering pairs-data IDs (no curated baseline reads). */
+  getPairsForBaseline$(baseline: string): Observable<string[]> {
+    const base = String(baseline || '').toUpperCase();
+    if (!base) return of([]);
+    return from(this.inCtx(() => {
+      const colRef = collection(this.firestore, Collection.PAIRS_DATA);
+      return getDocs(colRef);
+    })).pipe(
+      map(snap => snap.docs.map(d => String(d.id)).filter(id => id.startsWith(`${base}-`))),
+      catchError(err => {
+        console.error('[RelStrDbService] getPairsForBaseline$ error', { baseline: base, err });
         return of([] as string[]);
       })
     );
