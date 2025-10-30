@@ -74,18 +74,55 @@ export function withStockListV2Feature() {
             };
 
             const generateHeatmapDataV2 = async (pair: string): Promise<BaselineTargetRankDatum[]> => {
-                const [baseline, target] = pair.split('-');
-                const baselineData = await store.getHistoricalDataForSymbolV2(baseline);
-                const targetData = await store.getHistoricalDataForSymbolV2(target);
-                return generatePairData(baselineData, targetData, rsCalcsStore.heatmapColors());
+                // Source of truth: pairs-data/{PAIR}. Map series to colored heatmap rows.
+                const series = await firstValueFrom(relStrDbService.getPairSeriesLive$(pair));
+                // DEBUG: surface what we received from Firestore
+                // eslint-disable-next-line no-console
+                console.debug('[V2] pair series', pair, 'len=', series?.length ?? 0, 'first=', series?.[0]);
+                if (!Array.isArray(series) || series.length === 0) {
+                    // eslint-disable-next-line no-console
+                    console.debug('[V2] no series data for pair; check doc path pairs-data/', pair);
+                    return [];
+                }
+                const colors = rsCalcsStore.heatmapColors();
+                return series.map(d => {
+                    const idx = Math.floor(d.value * (colors.length - 1));
+                    const color = colors[Math.max(0, Math.min(colors.length - 1, idx))];
+                    return { date: d.date, value: d.value, index: idx, color, phase: d.phase, placeholder: false } as BaselineTargetRankDatum;
+                });
             };
 
             const getHeatmapDataV2 = async (pairs: string[]): Promise<RanksDataWithColors> => {
                 const out: RanksDataWithColors = {};
+                // First pass: fetch per-pair arrays and build union of dates
+                const perPair: Record<string, BaselineTargetRankDatum[]> = {};
+                const dateSet = new Set<string>();
                 for (const pair of pairs) {
-                    // V2: Always resolve dynamically; no static mocks
-                    const pairData: BaselineTargetRankDatum[] = await generateHeatmapDataV2(pair);
-                    out[pair] = pairData;
+                    const arr = await generateHeatmapDataV2(pair);
+                    perPair[pair] = arr;
+                    for (const d of arr) dateSet.add(d.date);
+                }
+                const allDates = Array.from(dateSet.values()).sort((a, b) => a.localeCompare(b));
+
+                // Second pass: align each pair to the union-of-dates, inserting placeholders where missing
+                const colors = rsCalcsStore.heatmapColors();
+                const placeholderColor = '#cccccc';
+                for (const pair of pairs) {
+                    const byDate = new Map<string, BaselineTargetRankDatum>();
+                    (perPair[pair] || []).forEach(d => byDate.set(d.date, d));
+                    const aligned: BaselineTargetRankDatum[] = allDates.map(date => {
+                        const hit = byDate.get(date);
+                        if (hit) return hit;
+                        // Placeholder datum for missing cell
+                        return {
+                            date,
+                            value: 0,
+                            index: 0,
+                            color: placeholderColor,
+                            placeholder: true,
+                        } as BaselineTargetRankDatum;
+                    });
+                    out[pair] = aligned;
                 }
                 return out;
             };
@@ -119,7 +156,7 @@ export function withStockListV2Feature() {
                         const mapped: BaselineTargetRankDatum[] = series.map(d => {
                             const idx = Math.floor(d.value * (colors.length - 1));
                             const color = colors[idx];
-                            return { date: d.date, value: d.value, index: idx, color } as BaselineTargetRankDatum;
+                            return { date: d.date, value: d.value, index: idx, color, phase: d.phase, placeholder: false } as BaselineTargetRankDatum;
                         });
 
                         const current = store.selectedStockListV2();

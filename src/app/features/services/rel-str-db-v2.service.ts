@@ -147,23 +147,36 @@ export class RelStrDbV2Service {
   }
 
   // Live series for a pair doc (hyphenated ID), unified series entries with { pre?, post? }
-  // Returns simplified { date, value } array where value = post.rank if present else pre.rank
-  getPairSeriesLive$(pairId: string): Observable<Array<{ date: string; value: number }>> {
-    return this.inCtx(() => {
-      const ref = doc(this.firestore, `${Collection.PAIRS_DATA}/${pairId}`);
-      return docData(ref);
-    }).pipe(
-      map((doc: any) => {
-        const series: any[] = Array.isArray(doc?.data) ? doc.data : [];
-        return series.map((row: any) => {
+  // Returns simplified { date, value } array.
+  // Rules:
+  // - For historical days: use post.rs only (ignore pre)
+  // - For the most recent day (latest.day): use post.rs if present, else allow pre.rs
+  getPairSeriesLive$(pairId: string): Observable<Array<{ date: string; value: number; phase?: RsPhase }>> {
+    return from(this.inCtx(() => getDoc(doc(this.firestore, `${Collection.PAIRS_DATA}/${pairId}`)))).pipe(
+      map(snap => {
+        const data = (snap?.exists() ? (snap.data() as any) : {}) || {};
+        const series: any[] = Array.isArray(data?.data) ? data.data : [];
+        const latestDay: string | undefined = (data?.latest?.day as string | undefined) || (series.length ? String(series[series.length - 1]?.day || '') : undefined);
+        const out: Array<{ date: string; value: number; phase?: RsPhase }> = [];
+        for (const row of series) {
           const day = String(row?.day ?? row?.date ?? '');
-          const postRank = Number(row.post?.rank ?? row.post?.rs ?? NaN);
-          const preRank = Number(row.pre?.rank ?? row.pre?.rs ?? NaN);
-          const value = Number.isFinite(postRank) ? postRank : (Number.isFinite(preRank) ? preRank : 0);
-          return { date: day, value };
-        });
+          if (!day) continue;
+          const postRsVal = row?.post?.rs;
+          const preRsVal = row?.pre?.rs;
+          if (Number.isFinite(postRsVal)) {
+            out.push({ date: day, value: Number(postRsVal), phase: RsPhase.POST });
+          } else if (latestDay && day === latestDay && Number.isFinite(preRsVal)) {
+            // Only allow pre for the latest day when post is not yet available
+            out.push({ date: day, value: Number(preRsVal), phase: RsPhase.PRE });
+          } else {
+            // skip (no valid value per strict rules)
+          }
+        }
+        // ensure chronological order
+        out.sort((a, b) => a.date.localeCompare(b.date));
+        return out;
       }),
-      catchError(err => { console.error('[RelStrDbV2Service] getPairSeriesLive$ error', { pairId, err }); return of([] as Array<{ date: string; value: number }>) })
+      catchError(err => { console.error('[RelStrDbV2Service] getPairSeriesLive$ error', { pairId, err }); return of([] as Array<{ date: string; value: number; phase?: RsPhase }>) })
     );
   }
 
