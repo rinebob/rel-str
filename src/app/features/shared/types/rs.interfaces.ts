@@ -98,11 +98,20 @@ export interface StringNumberObject {
     value: number;
 }
 
+export enum RsPhase {
+    PRE = 'pre',
+    POST = 'post',
+}
+
 export interface BaselineTargetRankDatum {
     date: string;
     value: number;
     index: number;
     color: string;
+    /** Phase that produced this value */
+    phase?: RsPhase;
+    /** True if this datum is a UI placeholder for a missing value */
+    placeholder?: boolean;
 }
 
 export interface RanksDataWithColors {
