@@ -19,6 +19,16 @@ export interface FetchConfig {
   limit?: number;  // API safety cap (default 30)
 }
 
+/** Range-based options for explicit historical windows. */
+export interface FetchRangeOptions {
+  interval?: 'DAILY' | 'WEEKLY' | 'MONTHLY';
+  from?: string;      // YYYY-MM-DD UTC
+  to?: string;        // YYYY-MM-DD UTC
+  yearsBack?: number; // e.g. 1, 2, 5; converts to from = today - years*365
+  days?: number;      // fallback when from/to not provided
+  limit?: number;     // API cap
+}
+
 export async function fetchDailyBarsRaw(symbol: string, days = 30, limit = 30, interval: FetchConfig['interval'] = 'DAILY'): Promise<PartnerBar[]> {
   const to = new Date();
   const from = new Date(to.getTime() - days * 24 * 60 * 60 * 1000);
@@ -40,6 +50,86 @@ export async function fetchDailyBarsRaw(symbol: string, days = 30, limit = 30, i
 
 async function sleep(ms: number): Promise<void> {
   return new Promise((res) => setTimeout(res, ms));
+}
+
+/**
+ * Fetch bars for an explicit window using from/to or yearsBack.
+ * Normalization (cp/ch/pc) is identical to fetchDailyBarsRaw.
+ */
+export async function fetchDailyBarsRange(symbol: string, opts: FetchRangeOptions = {}): Promise<PartnerBar[]> {
+  const interval = opts.interval ?? 'DAILY';
+  // Resolve window
+  let toDate: Date;
+  let fromDate: Date;
+  if (opts.to) {
+    toDate = new Date(`${opts.to}T00:00:00.000Z`);
+  } else {
+    toDate = new Date();
+  }
+  if (opts.from) {
+    fromDate = new Date(`${opts.from}T00:00:00.000Z`);
+  } else if (Number.isFinite(opts.yearsBack as number)) {
+    const years = Number(opts.yearsBack);
+    fromDate = new Date(toDate.getTime() - years * 365 * 24 * 60 * 60 * 1000);
+  } else {
+    const days = Number.isFinite(opts.days as number) ? Number(opts.days) : 30;
+    fromDate = new Date(toDate.getTime() - days * 24 * 60 * 60 * 1000);
+  }
+  const toIso = toDate.toISOString().slice(0, 10);
+  const fromIso = fromDate.toISOString().slice(0, 10);
+  const limit = Number.isFinite(opts.limit as number) ? Number(opts.limit) : (Number(opts.days) || 30);
+
+  const data = (await callPartnerTimeSeries({ symbol, interval, from: fromIso, to: toIso, limit })) as any;
+  const bars = Array.isArray(data?.bars) ? data.bars : [];
+  if (bars.length > 0) {
+    const firstT = Number(bars[0]?.t);
+    const lastT = Number(bars[bars.length - 1]?.t);
+    const firstDay = Number.isFinite(firstT) ? new Date(firstT).toISOString().slice(0, 10) : undefined;
+    const lastDay = Number.isFinite(lastT) ? new Date(lastT).toISOString().slice(0, 10) : undefined;
+    logger.info('partner_timeseries_response', { symbol, interval, from: fromIso, to: toIso, limit, bars: bars.length, firstDay, lastDay });
+  } else {
+    logger.info('partner_timeseries_response_empty', { symbol, interval, from: fromIso, to: toIso, limit, bars: 0 });
+  }
+
+  // Apply the same DAILY normalization as fetchDailyBarsRaw
+  if (interval === 'DAILY' && bars.length > 0) {
+    const isWeekend = (dayStr?: string) => {
+      if (!dayStr) return false;
+      const dow = new Date(dayStr + 'T00:00:00.000Z').getUTCDay();
+      return dow === 0 || dow === 6;
+    };
+    bars.sort((a: any, b: any) => String(a?.d || '').localeCompare(String(b?.d || '')));
+    let derivedCount = 0;
+    for (let i = 0; i < bars.length; i++) {
+      const curr = bars[i] as any;
+      const day = String(curr?.d || '');
+      if (!day || isWeekend(day)) continue;
+      let j = i - 1;
+      let prev: any | undefined;
+      while (j >= 0 && !prev) {
+        const pd = String(bars[j]?.d || '');
+        if (pd && !isWeekend(pd)) prev = bars[j];
+        j--;
+      }
+      const todayClose = Number(curr?.ac ?? curr?.c ?? 0);
+      const prevClose = Number(prev?.ac ?? prev?.c ?? 0);
+      if (Number.isFinite(todayClose) && todayClose > 0 && Number.isFinite(prevClose) && prevClose > 0) {
+        if (!Number.isFinite(Number(curr?.cp))) {
+          curr.cp = Number((((todayClose - prevClose) / prevClose) * 100).toFixed(6));
+          derivedCount++;
+        }
+        if (!Number.isFinite(Number(curr?.ch))) {
+          curr.ch = Number((todayClose - prevClose).toFixed(6));
+        }
+        if (!Number.isFinite(Number(curr?.pc))) {
+          curr.pc = Number(prevClose.toFixed(6));
+        }
+      }
+    }
+    if (derivedCount > 0) logger.info('partner_timeseries_derived_cp', { symbol, interval, derivedCount });
+  }
+
+  return bars as PartnerBar[];
 }
 
 export async function fetchAllSymbols(
