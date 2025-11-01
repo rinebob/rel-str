@@ -82,8 +82,35 @@ export function buildPhaseSeries(
   targetSymbol: string,
   logger: any
 ): PhaseSeriesPoint[] {
+  // Helper: weekend check
+  const isWeekend = (dayStr?: string) => {
+    if (!dayStr) return false;
+    const dow = new Date(dayStr + 'T00:00:00.000Z').getUTCDay();
+    return dow === 0 || dow === 6;
+  };
+
   const baseByDay = new Map<string, PartnerBar>();
   for (const b of baselineBars) if (b?.d) baseByDay.set(b.d!, b);
+  // Build day->index maps to allow looking up previous trading day's close
+  const baseIndexByDay = new Map<string, number>();
+  for (let i = 0; i < baselineBars.length; i++) if (baselineBars[i]?.d) baseIndexByDay.set(baselineBars[i]!.d!, i);
+  const targIndexByDay = new Map<string, number>();
+  for (let i = 0; i < targetBars.length; i++) if (targetBars[i]?.d) targIndexByDay.set(targetBars[i]!.d!, i);
+
+  const findPrevTradingClose = (bars: PartnerBar[], idx: number | undefined): number | undefined => {
+    if (idx === undefined || idx <= 0) return undefined;
+    let j = idx - 1;
+    while (j >= 0) {
+      const d = bars[j]?.d;
+      if (d && !isWeekend(d)) {
+        const c = Number(bars[j]?.ac ?? bars[j]?.c ?? 0);
+        return Number.isFinite(c) && c > 0 ? c : undefined;
+      }
+      j--;
+    }
+    return undefined;
+  };
+
   const aligned: Array<{ day: string; base: PartnerBar; target: PartnerBar }> = [];
   for (const t of targetBars) {
     if (!t?.d) continue;
@@ -101,12 +128,29 @@ export function buildPhaseSeries(
     const dw = dowLabelUTC(t.d);
     if (dw === 'Sat' || dw === 'Sun') continue;
     if (phase === 'pre') {
-      // Intraday must have price and intraday percent-change (ipc) for both sides
-      const missing = [];
-      if (Number(t.ip) <= 0) missing.push('target_ip');
-      if (Number(base?.ip) <= 0) missing.push('baseline_ip');
-      if (!Number.isFinite(Number(t.ipc))) missing.push('target_ipc');
-      if (!Number.isFinite(Number(base.ipc))) missing.push('baseline_ipc');
+      // Require intraday price for both sides; ipc can be derived from ip vs prior-day close if missing.
+      const targetIp = Number(t.ip);
+      const baseIp = Number(base?.ip);
+      const targetIpcRaw = Number(t.ipc);
+      const baseIpcRaw = Number(base?.ipc);
+      const bi = baseIndexByDay.get(t.d);
+      const ti = targIndexByDay.get(t.d);
+      const prevBaseClose = findPrevTradingClose(baselineBars, bi);
+      const prevTargetClose = findPrevTradingClose(targetBars, ti);
+      const canDeriveTargetIpc = Number.isFinite(targetIp) && targetIp > 0 && Number.isFinite(prevTargetClose) && (prevTargetClose as number) > 0;
+      const canDeriveBaseIpc = Number.isFinite(baseIp) && baseIp > 0 && Number.isFinite(prevBaseClose) && (prevBaseClose as number) > 0;
+      const targetIpc = Number.isFinite(targetIpcRaw)
+        ? targetIpcRaw
+        : (canDeriveTargetIpc ? ((targetIp - (prevTargetClose as number)) / (prevTargetClose as number)) * 100 : NaN);
+      const baseIpc = Number.isFinite(baseIpcRaw)
+        ? baseIpcRaw
+        : (canDeriveBaseIpc ? ((baseIp - (prevBaseClose as number)) / (prevBaseClose as number)) * 100 : NaN);
+
+      const missing: string[] = [];
+      if (!(Number.isFinite(targetIp) && targetIp > 0)) missing.push('target_ip');
+      if (!(Number.isFinite(baseIp) && baseIp > 0)) missing.push('baseline_ip');
+      if (!Number.isFinite(targetIpc)) missing.push('target_ipc_derived');
+      if (!Number.isFinite(baseIpc)) missing.push('baseline_ipc_derived');
       if (missing.length > 0) {
         logger.info('rs_series_skip_pre_missing_fields', {
           day: t.d,
@@ -117,13 +161,37 @@ export function buildPhaseSeries(
         });
         continue;
       }
+      // Inject derived values into local copies for downstream calculation
+      (t as any)._ipc_eff = Number(targetIpc.toFixed(6));
+      (base as any)._ipc_eff = Number(baseIpc.toFixed(6));
     } else {
-      // Strict EOD: must have closes and provider EOD percent-change (cp)
-      const missing = [];
-      if (!(Number(t.ac) > 0 || Number(t.c) > 0)) missing.push('target_close');
-      if (!(Number(base?.ac) > 0 || Number(base?.c) > 0)) missing.push('baseline_close');
-      if (!Number.isFinite(Number(t.cp))) missing.push('target_cp');
-      if (!Number.isFinite(Number(base?.cp))) missing.push('baseline_cp');
+      // Strict EOD: must have closes; percent change (cp) can be derived from today vs prior trading day's close if missing
+      const bi = baseIndexByDay.get(t.d);
+      const ti = targIndexByDay.get(t.d);
+      const prevBaseClose = findPrevTradingClose(baselineBars, bi);
+      const prevTargetClose = findPrevTradingClose(targetBars, ti);
+
+      const todayTargetClose = Number(t.ac ?? t.c ?? 0);
+      const todayBaseClose = Number(base?.ac ?? base?.c ?? 0);
+
+      const targetCpRaw = Number(t.cp);
+      const baseCpRaw = Number(base?.cp);
+
+      const canDeriveTargetCp = Number.isFinite(todayTargetClose) && todayTargetClose > 0 && Number.isFinite(prevTargetClose) && (prevTargetClose as number) > 0;
+      const canDeriveBaseCp = Number.isFinite(todayBaseClose) && todayBaseClose > 0 && Number.isFinite(prevBaseClose) && (prevBaseClose as number) > 0;
+
+      const targetCpEff = Number.isFinite(targetCpRaw)
+        ? targetCpRaw
+        : (canDeriveTargetCp ? ((todayTargetClose - (prevTargetClose as number)) / (prevTargetClose as number)) * 100 : NaN);
+      const baseCpEff = Number.isFinite(baseCpRaw)
+        ? baseCpRaw
+        : (canDeriveBaseCp ? ((todayBaseClose - (prevBaseClose as number)) / (prevBaseClose as number)) * 100 : NaN);
+
+      const missing = [] as string[];
+      if (!(todayTargetClose > 0)) missing.push('target_close');
+      if (!(todayBaseClose > 0)) missing.push('baseline_close');
+      if (!Number.isFinite(targetCpEff)) missing.push('target_cp_derived');
+      if (!Number.isFinite(baseCpEff)) missing.push('baseline_cp_derived');
       if (missing.length > 0) {
         logger.info('rs_series_skip_post_missing_fields', {
           day: t.d,
@@ -134,6 +202,9 @@ export function buildPhaseSeries(
         });
         continue;
       }
+      // Inject derived cp for downstream calculation
+      (t as any)._cp_eff = Number(targetCpEff.toFixed(6));
+      (base as any)._cp_eff = Number(baseCpEff.toFixed(6));
     }
     aligned.push({ day: t.d, base, target: t });
   }
@@ -149,8 +220,8 @@ export function buildPhaseSeries(
 
   for (const { day, base, target } of aligned) {
     // Percent change inputs by phase
-    const bCp = phase === 'post' ? Number(base.cp) : Number(base.ipc);
-    const tCp = phase === 'post' ? Number(target.cp) : Number(target.ipc);
+    const bCp = phase === 'post' ? Number((base as any)._cp_eff ?? base.cp) : Number((base as any)._ipc_eff ?? base.ipc);
+    const tCp = phase === 'post' ? Number((target as any)._cp_eff ?? target.cp) : Number((target as any)._ipc_eff ?? target.ipc);
 
     // Close inputs by phase (price reference)
     const bClose = phase === 'post' ? (Number(base.ac) || Number(base.c) || 0) : Number(base.ip);
@@ -162,10 +233,10 @@ export function buildPhaseSeries(
         phase,
         baseline: baselineSymbol,
         target: targetSymbol,
-        baseCp: base.cp,
-        targetCp: target.cp,
-        baseIpc: base.ipc,
-        targetIpc: target.ipc
+        baseCp: (base as any)._cp_eff ?? base.cp,
+        targetCp: (target as any)._cp_eff ?? target.cp,
+        baseIpc: (base as any)._ipc_eff ?? base.ipc,
+        targetIpc: (target as any)._ipc_eff ?? target.ipc
       });
       continue;
     }
