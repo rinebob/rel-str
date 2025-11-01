@@ -117,11 +117,13 @@ export async function writeUnifiedSeries(
   const basePctByDay = pctByDay(baselineBars);
   const targetPctByDay = pctByDay(targetBars);
 
-  // Calculate rank in [0,1] using 5-day window and matrices
-  function calculateRankForDay(day: string): number {
+  // Calculate metrics for a day using 5-day window and matrices
+  // - rsNorm: discrete rank in (0,1] with 1/32 steps (legacy, used for color bins)
+  // - rsRaw:  continuous score in [0,1] via min–max normalization of the target (11111) outcome sum across all matrices
+  function calculateMetricsForDay(day: string): { rsNorm: number; rsRaw: number } {
     const bi = baseIndexByDay.get(day);
     const ti = targetIndexByDay.get(day);
-    if (bi === undefined || ti === undefined) return 0;
+    if (bi === undefined || ti === undefined) return { rsNorm: 0, rsRaw: 0 };
 
     // Collect last 5 trading days including current if available
     const collectLast5 = (bars: PartnerBar[], startIdx: number): number[] => {
@@ -140,7 +142,7 @@ export async function writeUnifiedSeries(
 
     let baseWin = collectLast5(baselineBars, bi);
     let targWin = collectLast5(targetBars, ti);
-    if (baseWin.length < 5 || targWin.length < 5) return 0; // insufficient history
+    if (baseWin.length < 5 || targWin.length < 5) return { rsNorm: 0, rsRaw: 0 }; // insufficient history
 
     // Apply V1 ranking logic
     const outcomes: Array<[string, number]> = [];
@@ -157,9 +159,17 @@ export async function writeUnifiedSeries(
     }
     outcomes.sort((a, b) => (a[1] > b[1] ? 1 : a[1] < b[1] ? -1 : 0));
     const idx = outcomes.findIndex(([m]) => m === '11111');
-    if (idx < 0) return 0;
-    const rank = (idx + 1) / COMPARISON_MATRICES.length; // normalize to (0,1]
-    return Number(rank.toFixed(6));
+    if (idx < 0) return { rsNorm: 0, rsRaw: 0 };
+    // Discrete normalized rank (1..32)/32
+    const rsNorm = Number(((idx + 1) / COMPARISON_MATRICES.length).toFixed(6));
+    // Continuous min–max normalization using the sums domain
+    const minSum = outcomes[0][1];
+    const maxSum = outcomes[outcomes.length - 1][1];
+    const targetSum = outcomes[idx][1];
+    const rsRaw = Number(
+      (maxSum - minSum) !== 0 ? ((targetSum - minSum) / (maxSum - minSum)).toFixed(6) : '0'
+    );
+    return { rsNorm, rsRaw };
   }
 
   // ============ Merge and write ============
@@ -181,8 +191,8 @@ export async function writeUnifiedSeries(
     const basePct = Number.isFinite(prevBaseClose) && prevBaseClose > 0 ? (baseChange / prevBaseClose) * 100 : 0;
     const targetPct = Number.isFinite(prevTargetClose) && prevTargetClose > 0 ? (targetChange / prevTargetClose) * 100 : 0;
 
-    // Calculate RS rank consistent with FE V1 logic
-    const rsRank = calculateRankForDay(e.day);
+    // Calculate RS metrics
+    const { rsNorm, rsRaw } = calculateMetricsForDay(e.day);
 
     if (phase === 'pre') {
       dayObj.pre = {
@@ -190,7 +200,9 @@ export async function writeUnifiedSeries(
         t: e.t,
         base: { price: e.baseClose, change: Number(baseChange.toFixed(6)), percentChange: Number(basePct.toFixed(6)) },
         target: { price: e.targetClose, change: Number(targetChange.toFixed(6)), percentChange: Number(targetPct.toFixed(6)) },
-        rs: rsRank,
+        rs: rsNorm,       // legacy field (kept for compatibility)
+        rsNorm: rsNorm,   // explicit normalized rank for color bins
+        rsRaw: rsRaw,     // continuous value for display
         source: 'intraday',
       };
     } else {
@@ -198,7 +210,9 @@ export async function writeUnifiedSeries(
         t: e.t,
         base: { price: e.baseClose, change: Number(baseChange.toFixed(6)), percentChange: Number(basePct.toFixed(6)) },
         target: { price: e.targetClose, change: Number(targetChange.toFixed(6)), percentChange: Number(targetPct.toFixed(6)) },
-        rs: rsRank,
+        rs: rsNorm,
+        rsNorm: rsNorm,
+        rsRaw: rsRaw,
         source: 'adjustedClose',
       };
     }
