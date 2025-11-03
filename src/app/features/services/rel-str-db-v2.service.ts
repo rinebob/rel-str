@@ -20,7 +20,7 @@ import {
 import { Observable, map, from, tap, catchError, firstValueFrom, of } from 'rxjs';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { Auth } from '@angular/fire/auth';
-import { CallableName, Collection, userListsPath, pairArchiveCollectionPath } from '../../core/common/constants';
+import { CallableName, Collection, userListsPath } from '../../core/common/constants';
 import { GetTrackedSymbolsResponse } from '../../core/models/partner.types';
 
 @Injectable({ providedIn: 'root' })
@@ -218,6 +218,86 @@ export class RelStrDbV2Service {
       }),
       tap(arr => console.log('[RS][Legacy] Series ready', { pair: pairId, len: arr.length, first: arr[0] })),
       catchError(err => { console.error('[RelStrDbV2Service] getPairSeriesLive$ error', { pairId, err }); return of([] as Array<{ date: string; value: number; norm?: number; phase?: RsPhase }>) })
+    );
+  }
+
+  /**
+   * Reads RS series from archive shards under pairs-data/{PAIR}/archive-YYYY/{YYMMDD}.
+   * Selection rules:
+   * - Historical days: use POST only.
+   * - Today (UTC): use POST if present, else PRE if present.
+   * Returns same shape as getPairSeriesLive$.
+   */
+  getPairSeriesFromArchive$(pairId: string): Observable<Array<{ date: string; value: number; norm?: number; phase?: RsPhase }>> {
+    const pair = String(pairId || '').trim();
+    if (!pair) return of([]);
+
+    const fmtYMD = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+    const ymdFromShardId = (yyMMdd: string, year: number) => `${year}-${yyMMdd.substring(2, 4)}-${yyMMdd.substring(4, 6)}`;
+
+    const today = new Date();
+    const todayYMD = fmtYMD(today);
+    const years = [today.getUTCFullYear(), today.getUTCFullYear() - 1];
+
+    return from(this.inCtx(async () => {
+      const results: Array<{ date: string; value: number; norm?: number; phase?: RsPhase }> = [];
+      for (const y of years) {
+        try {
+          const colRef = collection(this.firestore, `${Collection.PAIRS_DATA}/${pair}/archive-${y}`);
+          const qRef = query(colRef, orderBy('day', 'asc'));
+          const snap = await getDocs(qRef);
+          for (const docSnap of snap.docs) {
+            const raw = (docSnap.data() as any) || {};
+            const dateYMD = String(raw?.day || '').trim() || ymdFromShardId(docSnap.id, y);
+            if (!dateYMD) continue;
+            const isToday = dateYMD === todayYMD;
+            const post = raw?.post;
+            const pre = raw?.pre;
+            let phase: RsPhase | undefined;
+            let value: number | undefined;
+            let norm: number | undefined;
+            if (!isToday) {
+              if (Number.isFinite(post?.rs)) {
+                const postRsVal = Number(post.rs);
+                const postRsRaw = Number.isFinite(post?.rsRaw) ? Number(post.rsRaw) : undefined;
+                const postRsNorm = Number.isFinite(post?.rsNorm) ? Number(post.rsNorm) : undefined;
+                value = Number.isFinite(postRsRaw) ? postRsRaw : postRsVal;
+                norm = Number.isFinite(postRsNorm) ? Number(postRsNorm) : postRsVal;
+                phase = RsPhase.POST;
+              } else {
+                continue;
+              }
+            } else {
+              if (Number.isFinite(post?.rs)) {
+                const postRsVal = Number(post.rs);
+                const postRsRaw = Number.isFinite(post?.rsRaw) ? Number(post.rsRaw) : undefined;
+                const postRsNorm = Number.isFinite(post?.rsNorm) ? Number(post.rsNorm) : undefined;
+                value = Number.isFinite(postRsRaw) ? postRsRaw : postRsVal;
+                norm = Number.isFinite(postRsNorm) ? Number(postRsNorm) : postRsVal;
+                phase = RsPhase.POST;
+              } else if (Number.isFinite(pre?.rs)) {
+                const preRsVal = Number(pre.rs);
+                const preRsRaw = Number.isFinite(pre?.rsRaw) ? Number(pre.rsRaw) : undefined;
+                const preRsNorm = Number.isFinite(pre?.rsNorm) ? Number(pre.rsNorm) : undefined;
+                value = Number.isFinite(preRsRaw) ? preRsRaw : preRsVal;
+                norm = Number.isFinite(preRsNorm) ? Number(preRsNorm) : preRsVal;
+                phase = RsPhase.PRE;
+              } else {
+                continue;
+              }
+            }
+            results.push({ date: dateYMD, value: value!, norm, phase });
+          }
+        } catch (e) {
+          console.warn('[RelStrDbV2Service] archive read failed for year', { pair, year: y, e });
+        }
+      }
+      const byDate = new Map<string, { date: string; value: number; norm?: number; phase?: RsPhase }>();
+      for (const row of results) byDate.set(row.date, row);
+      return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
+    })).pipe(
+      tap(arr => console.log('[RS][Archive] Series ready', { pair, len: arr.length, first: arr[0] })),
+      catchError(err => { console.error('[RelStrDbV2Service] getPairSeriesFromArchive$ error', { pair, err }); return of([] as Array<{ date: string; value: number; norm?: number; phase?: RsPhase }>) })
     );
   }
 
