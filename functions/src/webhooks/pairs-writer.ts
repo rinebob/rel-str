@@ -1,6 +1,7 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { db } from '../firebase-admin-init';
 import type { Phase, PhaseSeriesPoint, PartnerBar } from './webhooks-config';
+import { PAIRS_COLLECTION } from './webhooks-config';
 import { logger } from 'firebase-functions/v2';
 
 /**
@@ -31,7 +32,7 @@ export async function writeUnifiedSeries(
 ): Promise<void> {
   if (entries.length === 0) return;
   const pairId = `${baseline}-${target}`;
-  const pairRef = db.collection('pairs-data').doc(pairId);
+  const pairRef = db.collection(PAIRS_COLLECTION).doc(pairId);
 
   const snap = await pairRef.get();
   const existing = (snap.exists ? (snap.data() as any) : {}) || {};

@@ -33,6 +33,9 @@ export const PARTNER_DATA_READY_TOPIC =
  */
 export const EVENTS_COLLECTION = 'partner-events';
 
+/** Pairs data root collection used by writer and readers. */
+export const PAIRS_COLLECTION = 'pairs-data';
+
 /** Registry of baseline–target pairs we own. */
 export const REGISTRY_COLLECTION = 'pair-registry';
 
