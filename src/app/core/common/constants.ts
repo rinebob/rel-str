@@ -119,6 +119,7 @@ export enum CallableName {
 /** Top-level Firestore collections used by the FE. */
 export enum Collection {
   TRACKED_SYMBOLS = 'tracked-symbols',
+  PAIR_REGISTRY = 'pair-registry',
   PAIRS_DATA = 'pairs-data',
   USERS = 'users',
   ADMIN = 'admin',
