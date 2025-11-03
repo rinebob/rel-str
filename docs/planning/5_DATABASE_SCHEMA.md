@@ -62,17 +62,31 @@ Top-level fields
 
 Computation rules and write semantics
 
-* __Pre-close run__
+* __PRE (pre-close) run__
   * Compute pre-close snapshot using intraday prices (`ip`/`ipc`) where available.
-  * Compute `change` and `percentChange` for both baseline and target against the prior day’s post-close prices (not against intraday), so the pre snapshot is anchored to yesterday’s canonical close.
+  * Compute `change` and `percentChange` for both baseline and target against the prior day’s POST-close prices (not against intraday), so the pre snapshot is anchored to yesterday’s canonical close.
   * Write a new element for `day` into `data` with only `pre` populated, and set `latest` to that same object.
-* __Post-close run__
+* __POST (post-close) run__
   * Clone the current `latest` (which contains the day’s `pre`) and add/overwrite the `post` block using end-of-day prices (`ac`/`cp`).
   * Update the most recent `data` element for that `day` to include the `post` block.
   * Update `latest` to the combined object. After post completes, `latest` === last(`data`).
 * __Alignment & Idempotency__
   * Align by `day` and update the element for that `day` deterministically (replace or append).
   * `latest` must always exactly mirror the most recent element in `data`.
+
+### Archive shards and selection rubric
+
+The writer also maintains per-year archive shards under each pair document for long-term history and backfills:
+
+* Path: `pairs-data/{BASE}-{SYMBOL}/archive-YYYY/{YYMMDD}` (e.g., `archive-2025/251023` for 2025-10-23)
+* Each day doc contains a superset of the `data[]` element for that day with optional `pre` and `post` blocks.
+
+Selection rubric for reading archive values (server and FE should align on this):
+
+* Historical days (any day before today, in UTC): return POST only; ignore PRE even if it exists.
+* Today (UTC): return POST if present; otherwise return PRE if present.
+
+This ensures historical RS reflects canonical end-of-day values while still allowing intraday PRE display before POST is available on the current trading day.
 
 Example (abbreviated)
 
@@ -113,9 +127,14 @@ Example (abbreviated)
 
 Notes
 
-* Pre-close `change`/`percentChange` are explicitly measured against the prior day’s post-close prices for both baseline and target.
+* PRE `change`/`percentChange` are explicitly measured against the prior day’s POST-close prices for both baseline and target.
 * The historical `data` array is a short mirror (length = `meta.window`) for fast reads; full history may live elsewhere or be computed on demand.
 * Future work: optional `signals` subcollection and `signalsSummary` can be layered on top of this structure without changing `latest`/`data`.
+
+Phase entries:
+
+* PRE: based on intraday price (ip) and ipc; change/percentChange vs prior-day POST-close (ac preferred, fallback c)
+* POST: based on adjusted close (ac) or c; change/percentChange vs prior-day POST-close
 
 ## Partner Webhooks Data Model (Backend RS pipeline)
 
@@ -306,6 +325,66 @@ These collections are not strictly needed for the MVP and are deferred. They are
   - `users/{uid}/lists/*` remains owner-only read/write.
   - Default deny for all other collections.
 - Removed: client-admin `admin/supported-symbols-list` doc concept. Any admin/curation lives outside the FE; FE is read-only for partner-owned data.
+
+## 10. Curated Baselines, Catalog, and Leaders Cache (2025-10-28)
+
+Purpose: Provide deterministic defaults and fast "Top/Bottom" RS views without FE fan-out or on-the-fly RS computation.
+
+### baselines/{BASE}
+- tickerSymbol: string (e.g., "SPY")
+- name: string (e.g., "SPDR S&P 500 ETF")
+- provider: "StateStreet" | "Nasdaq" | "Custom"
+- holdings: string[] (uppercase tickers)
+- meta: { lastUpdatedAt: timestamp; count: number; sourceUrl?: string; version?: string }
+
+Example
+```json
+{
+  "tickerSymbol": "SPY",
+  "name": "SPDR S&P 500 ETF",
+  "provider": "StateStreet",
+  "holdings": ["AAPL","MSFT","NVDA"],
+  "meta": { "lastUpdatedAt": "<ts>", "count": 503 }
+}
+```
+
+Security: FE read-only with auth; writes by backend only.
+
+### baselines/{BASE}/leaders/latest (optional)
+- top: Array<{ symbol: string; rs: number }>
+- bottom: Array<{ symbol: string; rs: number }>
+- updatedAt: timestamp
+- window?: number; source?: "pre" | "post"
+
+Keeps baseline-related cache localized and simple to fetch.
+
+### catalogs/baselines
+- items: string[] (e.g., ["SPY","QQQ","DIA","XLK","XLF"]) 
+- meta?: { updatedAt: timestamp }
+
+Drives baseline buttons in UI without scanning.
+
+### presets/{presetId} (optional)
+- type: "etf" | "theme" | "curated"
+- baseline: string
+- constituents: string[]
+- displayName: string; description?: string; updatedAt: timestamp
+
+Curated/demo lists users can copy into their lists.
+
+### pairs-data/{BASE}-{SYMBOL}
+Canonical RS store (unchanged). FE reads `latest` for ranking and `data[]` for series.
+
+### Backend APIs (callables)
+- getBaselineLeaders({ baseline, direction: "desc"|"asc", limit }) → { baseline, items: Array<{ symbol, rs }> }
+- getBaselineHoldings({ baseline }) → { baseline, holdings: string[] }
+- getPairsLatest({ pairs }) → Array<{ pair, rs }> (optional)
+
+### Emulator seed sketch
+- baselines/SPY, QQQ, DIA, XLK, XLF with 20–50 holdings each
+- catalogs/baselines with ["SPY","QQQ","DIA","XLK","XLF"]
+- pairs-data for a subset of pairs matching holdings (include `latest` + short `data[]`)
+- baselines/SPY/leaders/latest with small top/bottom arrays
 
 ## Appendix: Rationale for Key Decisions
 
