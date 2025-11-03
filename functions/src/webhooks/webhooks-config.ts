@@ -39,6 +39,9 @@ export const PAIRS_COLLECTION = 'pairs-data';
 /** Registry of baseline–target pairs we own. */
 export const REGISTRY_COLLECTION = 'pair-registry';
 
+/** Archive per-year collection prefix (under each pair doc): archive-YYYY */
+export const ARCHIVE_COLLECTION_PREFIX = 'archive-';
+
 /** Collection holding known/supported symbols and attributes. */
 export const TRACKED_SYMBOLS_COLLECTION = 'tracked-symbols';
 

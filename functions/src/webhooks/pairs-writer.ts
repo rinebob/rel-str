@@ -1,7 +1,7 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { db } from '../firebase-admin-init';
 import type { Phase, PhaseSeriesPoint, PartnerBar } from './webhooks-config';
-import { PAIRS_COLLECTION } from './webhooks-config';
+import { ARCHIVE_COLLECTION_PREFIX, PAIRS_COLLECTION } from './webhooks-config';
 import { logger } from 'firebase-functions/v2';
 
 /**
@@ -236,5 +236,29 @@ export async function writeUnifiedSeries(
     { merge: true }
   );
 
-  logger.info(`pairs-data_write_done ${pairId} phase=${phase} days=${merged.length} latestDay=${latest?.day}`);
+  // ===== Archive upserts: pairs-data/{PAIR}/archive-YYYY/{YYMMDD}
+  const batch = db.batch();
+  for (const e of entries) {
+    const y = String(e.day).slice(0, 4);
+    const yy = y.slice(2);
+    const yymmdd = `${yy}${e.day.slice(5,7)}${e.day.slice(8,10)}`; // YYMMDD
+    const archiveCol = `${ARCHIVE_COLLECTION_PREFIX}${y}`; // e.g., archive-2025
+    const archiveRef = pairRef.collection(archiveCol).doc(yymmdd);
+
+    const existingDay = byDay.get(e.day);
+    const dayDoc: any = { day: existingDay.day, dow: existingDay.dow };
+    if (existingDay.pre) {
+      const { time, base, target, rs, rsNorm, rsRaw, source } = existingDay.pre;
+      dayDoc.pre = { time, base, target, rs, rsNorm, rsRaw, source };
+    }
+    if (existingDay.post) {
+      const { time, base, target, rs, rsNorm, rsRaw, source } = existingDay.post;
+      dayDoc.post = { time, base, target, rs, rsNorm, rsRaw, source };
+    }
+
+    batch.set(archiveRef, dayDoc, { merge: true });
+  }
+  await batch.commit();
+
+  logger.info(`pairs-data_write_done ${pairId} phase=${phase} days=${merged.length} latestDay=${latest?.day} (archive upserts=${entries.length})`);
 }
