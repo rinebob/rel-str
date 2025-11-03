@@ -4,6 +4,38 @@ import { db } from './firebase-admin-init';
 import { PAIRS_COLLECTION, ARCHIVE_COLLECTION_PREFIX } from './webhooks/webhooks-config';
 import { RsPhase } from './types/partner';
 
+
+/**
+ * Choose which phase value to emit for a given day using the fixed rubric:
+ * - Historical days (day !== today): emit POST only; ignore PRE even if present.
+ * - Today (day === today): emit POST if present; else PRE if present; else skip.
+ *
+ * Notes:
+ * - "today" is computed in UTC as new Date().toISOString().slice(0, 10)
+ */
+export function selectRsForDay(
+    row: any,
+    day: string,
+    todayStr: string,
+  ): { value?: number; phase?: RsPhase } {
+    const hasPost = Number.isFinite(row?.post?.rs);
+    const hasPre = Number.isFinite(row?.pre?.rs);
+  
+    const postVal = hasPost ? Number(row.post.rs) : undefined;
+    const preVal = hasPre ? Number(row.pre.rs) : undefined;
+  
+    const isToday = day === todayStr;
+    if (!isToday) {
+      // Historical: strictly POST-only
+      if (hasPost) return { value: postVal, phase: RsPhase.POST };
+      return {}; // ignore PRE
+    }
+    // Today: POST if present, else PRE
+    if (hasPost) return { value: postVal, phase: RsPhase.POST };
+    if (hasPre) return { value: preVal, phase: RsPhase.PRE };
+    return {};
+  }
+
 /**
  * Callable: getPairRSArchive
  * Reads RS history for a pair from archive shards under
