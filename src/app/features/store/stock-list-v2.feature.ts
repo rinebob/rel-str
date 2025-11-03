@@ -32,7 +32,7 @@ export function withStockListV2Feature() {
         withState<StockListV2State>(initialV2State),
         withMethods((
             store,
-            relStrDbService = inject(RelStrDbV2Service),
+            relStrDbV2Service = inject(RelStrDbV2Service),
             stockDataService = inject(StockDataService),
         ) => ({
 
@@ -42,7 +42,7 @@ export function withStockListV2Feature() {
             },
 
             async getSupportedSymbolsListV2() {
-                const companies = await firstValueFrom(relStrDbService.getTrackedSymbols$());
+                const companies = await firstValueFrom(relStrDbV2Service.getTrackedSymbols$());
                 const supportedSymbolsListV2 = companies.map(c => c.symbol);
                 // console.log('[StockListV2] supportedSymbolsListV2', supportedSymbolsListV2);
                 patchState(store, {supportedSymbolsListV2});
@@ -53,7 +53,7 @@ export function withStockListV2Feature() {
                 // Helper for validations/heatmap hints only. Panel UI renders from users/{uid}/lists.
                 const base = String(baseline || store.selectedStockListV2().baseline || '').toUpperCase();
                 if (!base) { patchState(store, { supportedPairsListV2: [] }); return; }
-                const supportedPairsListV2 = await firstValueFrom(relStrDbService.getPairsForBaseline$(base));
+                const supportedPairsListV2 = await firstValueFrom(relStrDbV2Service.getPairsForBaseline$(base));
                 patchState(store, { supportedPairsListV2 });
             },
 
@@ -63,7 +63,7 @@ export function withStockListV2Feature() {
         withMethods((
             store,
             rsCalcsStore = inject(RsCalcsStore),
-            relStrDbService = inject(RelStrDbV2Service),
+            relStrDbV2Service = inject(RelStrDbV2Service),
         ) => {
             const liveSubs = new Map<string, Subscription>();
 
@@ -157,7 +157,7 @@ export function withStockListV2Feature() {
                 stopLivePairSubscriptions();
                 const pairs = getPairsForList(list);
                 for (const pairId of pairs) {
-                    const sub = relStrDbService.getPairSeriesLive$(pairId).subscribe(series => {
+                    const sub = relStrDbV2Service.getPairSeriesLive$(pairId).subscribe(series => {
                         const colors = rsCalcsStore.heatmapColors();
                         const mapped: BaselineTargetRankDatum[] = series.map(d => {
                             const metric = (d as any).norm ?? d.value;
@@ -184,33 +184,33 @@ export function withStockListV2Feature() {
             return {
                 // LISTS
                 async getListsForUserV2(userId: string) {
-                    const allStockListsV2 = await relStrDbService.getListsForUser(userId);
+                    const allStockListsV2 = await relStrDbV2Service.getListsForUser(userId);
                     patchState(store, { allStockListsV2 });
                 },
 
                 async saveStockListForUserV2(userId: string, list: RelStrStockList) {
-                    await relStrDbService.saveStockList(userId, list);
+                    await relStrDbV2Service.saveStockList(userId, list);
                     const existing = store.allStockListsV2().some(l => l.name === list.name);
                     const base = existing ? [...store.allStockListsV2()] : [...store.allStockListsV2(), list];
                     const allStockListsV2 = sortListsV2(list, base);
                     patchState(store, { allStockListsV2, selectedStockListV2: list });
-                    try { await relStrDbService.registerPairs(list); } catch (e) { console.error('[StockListFeatureV2] registerPairs failed', e); }
+                    try { await relStrDbV2Service.registerPairs(list); } catch (e) { console.error('[StockListFeatureV2] registerPairs failed', e); }
                 },
 
                 async deleteStockListForUserV2(userId: string, listName: string) {
                     const listObj = store.allStockListsV2().find(l => l.name === listName);
-                    if (listObj) { try { await relStrDbService.unregisterPairs(listObj); } catch {} }
-                    await relStrDbService.deleteStockList(userId, listName);
+                    if (listObj) { try { await relStrDbV2Service.unregisterPairs(listObj); } catch {} }
+                    await relStrDbV2Service.deleteStockList(userId, listName);
                     const stockLists = store.allStockListsV2().filter(l => l.name !== listName);
                     patchState(store, { allStockListsV2: stockLists });
                 },
 
                 async renameStockListForUserV2(userId: string, oldName: string, newList: RelStrStockList) {
-                    await relStrDbService.renameStockList(userId, oldName, newList);
+                    await relStrDbV2Service.renameStockList(userId, oldName, newList);
                     const others = store.allStockListsV2().filter(l => l.name !== oldName);
                     const allStockListsV2 = sortListsV2(newList, [...others, newList]);
                     patchState(store, { allStockListsV2, selectedStockListV2: newList });
-                    try { await relStrDbService.registerPairs(newList); } catch (e) { console.error('[StockListFeatureV2] registerPairs (rename) failed', e); }
+                    try { await relStrDbV2Service.registerPairs(newList); } catch (e) { console.error('[StockListFeatureV2] registerPairs (rename) failed', e); }
                 },
 
                 /**
@@ -224,11 +224,11 @@ export function withStockListV2Feature() {
                     // Use in-memory lists when available; otherwise fetch
                     let lists = store.allStockListsV2();
                     if (!Array.isArray(lists) || lists.length === 0) {
-                        try { lists = await relStrDbService.getListsForUser(uid); } catch { lists = []; }
+                        try { lists = await relStrDbV2Service.getListsForUser(uid); } catch { lists = []; }
                         if (lists.length) patchState(store, { allStockListsV2: lists });
                     }
                     for (const list of lists) {
-                        try { await relStrDbService.registerPairs(list); } catch (e) {
+                        try { await relStrDbV2Service.registerPairs(list); } catch (e) {
                             console.error('[StockListFeatureV2] backfill registerPairs failed', { list: list?.name, e });
                         }
                     }
@@ -280,7 +280,7 @@ export function withStockListV2Feature() {
                     const stockLists = store.allStockListsV2().filter(l => l.name !== name);
                     patchState(store, { allStockListsV2: stockLists });
                     const listObj = typeof listOrName === 'string' ? store.allStockListsV2().find(l => l.name === name) : listOrName;
-                    if (listObj) { try { await relStrDbService.unregisterPairs(listObj); } catch {} }
+                    if (listObj) { try { await relStrDbV2Service.unregisterPairs(listObj); } catch {} }
                 },
 
                 // RANKS DATA
