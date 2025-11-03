@@ -49,9 +49,11 @@ export function withStockListV2Feature() {
             },
 
             // BASELINE/TARGET RANKS DATA (PAIRS DATA)
-            async getSupportedPairsListV2() {
-                const supportedPairsListV2 = await firstValueFrom(relStrDbService.getSupportedPairsList$());
-                // console.log('[StockListV2] supportedPairsListV2', supportedPairsListV2);
+            async getSupportedPairsListV2(baseline?: string) {
+                // Helper for validations/heatmap hints only. Panel UI renders from users/{uid}/lists.
+                const base = String(baseline || store.selectedStockListV2().baseline || '').toUpperCase();
+                if (!base) { patchState(store, { supportedPairsListV2: [] }); return; }
+                const supportedPairsListV2 = await firstValueFrom(relStrDbService.getPairsForBaseline$(base));
                 patchState(store, { supportedPairsListV2 });
             },
 
@@ -86,7 +88,8 @@ export function withStockListV2Feature() {
                 }
                 const colors = rsCalcsStore.heatmapColors();
                 return series.map(d => {
-                    const idx = Math.floor(d.value * (colors.length - 1));
+                    const metric = (d as any).norm ?? d.value;
+                    const idx = Math.floor(metric * (colors.length - 1));
                     const color = colors[Math.max(0, Math.min(colors.length - 1, idx))];
                     return { date: d.date, value: d.value, index: idx, color, phase: d.phase, placeholder: false } as BaselineTargetRankDatum;
                 });
@@ -148,14 +151,18 @@ export function withStockListV2Feature() {
             };
 
             const startLivePairSubscriptionsForList = (list: RelStrStockList) => {
+                // TODO[realtime]: This wires realtime listeners for pairs-data updates via RelStrDbV2Service.getPairSeriesLive$.
+                // Once getPairSeriesLive$ switches to docData(...), this becomes true realtime.
+                // Ensure stopLivePairSubscriptions() is called before switching lists and on teardown to avoid leaks.
                 stopLivePairSubscriptions();
                 const pairs = getPairsForList(list);
                 for (const pairId of pairs) {
                     const sub = relStrDbService.getPairSeriesLive$(pairId).subscribe(series => {
                         const colors = rsCalcsStore.heatmapColors();
                         const mapped: BaselineTargetRankDatum[] = series.map(d => {
-                            const idx = Math.floor(d.value * (colors.length - 1));
-                            const color = colors[idx];
+                            const metric = (d as any).norm ?? d.value;
+                            const idx = Math.floor(metric * (colors.length - 1));
+                            const color = colors[Math.max(0, Math.min(colors.length - 1, idx))];
                             return { date: d.date, value: d.value, index: idx, color, phase: d.phase, placeholder: false } as BaselineTargetRankDatum;
                         });
 
@@ -206,6 +213,27 @@ export function withStockListV2Feature() {
                     try { await relStrDbService.registerPairs(newList); } catch (e) { console.error('[StockListFeatureV2] registerPairs (rename) failed', e); }
                 },
 
+                /**
+                 * Backfill: Ensure all pairs in existing users/{uid}/lists are registered in pair-registry.
+                 * This calls the validateAndRegisterPairs callable for each list so the backend can
+                 * attach membership (uid/listId) and upsert the pair entries.
+                 */
+                async backfillUserListsToRegistryV2(userId: string) {
+                    const uid = String(userId || '').trim();
+                    if (!uid) return;
+                    // Use in-memory lists when available; otherwise fetch
+                    let lists = store.allStockListsV2();
+                    if (!Array.isArray(lists) || lists.length === 0) {
+                        try { lists = await relStrDbService.getListsForUser(uid); } catch { lists = []; }
+                        if (lists.length) patchState(store, { allStockListsV2: lists });
+                    }
+                    for (const list of lists) {
+                        try { await relStrDbService.registerPairs(list); } catch (e) {
+                            console.error('[StockListFeatureV2] backfill registerPairs failed', { list: list?.name, e });
+                        }
+                    }
+                },
+
                 setAllStockListsV2(allStockListsV2: RelStrStockList[]) { patchState(store, { allStockListsV2 }); },
                 setSelectedStockListV2(selectedStockListV2: RelStrStockList){ patchState(store, { selectedStockListV2 }) },
                 updateStockListV2(list: RelStrStockList) {
@@ -226,6 +254,9 @@ export function withStockListV2Feature() {
                         const allStockListsV2 = sortListsV2(resolved, [...store.allStockListsV2()]);
                         patchState(store, { allStockListsV2, selectedStockListV2: resolved });
                         // Live subscriptions temporarily disabled during stabilization
+                        // TODO[realtime]: Re-enable realtime updates by invoking startLivePairSubscriptionsForList(resolved)
+                        // after initial data is resolved. Also ensure to call stopLivePairSubscriptions() when
+                        // selected list changes or on component teardown to prevent memory leaks.
                     } catch (e) {
                         console.error('[StockListFeatureV2] initializeListV2 resolution failed', e);
                     }

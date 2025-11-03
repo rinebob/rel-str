@@ -56,6 +56,11 @@ export class RelStrDbV2Service {
   }
 
   // Firestore: supported pairs list (doc IDs under pairs-data)
+  /**
+   * DEPRECATED: Use getPairsForBaseline$(base) or getBaselineLeaders$ for sorted/top/bottom queries.
+   * For backward compatibility, this now prefers curated SPY baseline holdings → pair IDs,
+   * and falls back to enumerating all doc IDs under pairs-data if SPY baseline doc is unavailable.
+   */
   getSupportedPairsList$(): Observable<string[]> {
     // Prod-safe: enumerate all pair IDs from pairs-data (no curated baseline reads)
     return from(this.inCtx(() => {
@@ -96,7 +101,7 @@ export class RelStrDbV2Service {
       return of([] as RelStrStockList[]);
     }
     if (!currUid || currUid !== uid) {
-      console.warn('[RelStrDbService] getListsForUser$ skipped: auth uid mismatch or missing', { requested: uid, current: currUid });
+      console.warn('[RelStrDbV2Service] getListsForUser$ skipped: auth uid mismatch or missing', { requested: uid, current: currUid });
       return of([] as RelStrStockList[]);
     }
     return from(this.inCtx(() => {
@@ -169,23 +174,37 @@ export class RelStrDbV2Service {
   // Rules:
   // - For historical days: use post.rs only (ignore pre)
   // - For the most recent day (latest.day): use post.rs if present, else allow pre.rs
-  getPairSeriesLive$(pairId: string): Observable<Array<{ date: string; value: number; phase?: RsPhase }>> {
+  // TODO[realtime]: Switch to docData(...) to enable true realtime listeners. Current implementation uses getDoc(...) (one-shot).
+  // When enabling:
+  // - Replace getDoc(...) with docData(...), keep the mapping to { date, value, norm?, phase? }.
+  // - Ensure callers manage unsubscribe (see withStockListV2Feature.startLivePairSubscriptionsForList).
+  // - Consider debouncing/throttling if write frequency is high.
+  getPairSeriesLive$(pairId: string): Observable<Array<{ date: string; value: number; norm?: number; phase?: RsPhase }>> {
     return from(this.inCtx(() => getDoc(doc(this.firestore, `${Collection.PAIRS_DATA}/${pairId}`)))).pipe(
       map(snap => {
         const data = (snap?.exists() ? (snap.data() as any) : {}) || {};
         const series: any[] = Array.isArray(data?.data) ? data.data : [];
         const latestDay: string | undefined = (data?.latest?.day as string | undefined) || (series.length ? String(series[series.length - 1]?.day || '') : undefined);
-        const out: Array<{ date: string; value: number; phase?: RsPhase }> = [];
+        const out: Array<{ date: string; value: number; norm?: number; phase?: RsPhase }> = [];
         for (const row of series) {
           const day = String(row?.day ?? row?.date ?? '');
           if (!day) continue;
           const postRsVal = row?.post?.rs;
+          const postRsRaw = row?.post?.rsRaw; // optional: backend may write the continuous/raw RS here
+          const postRsNorm = row?.post?.rsNorm; // optional: backend may write a normalized value separately
           const preRsVal = row?.pre?.rs;
+          const preRsRaw = row?.pre?.rsRaw;
           if (Number.isFinite(postRsVal)) {
-            out.push({ date: day, value: Number(postRsVal), phase: RsPhase.POST });
+            // Display prefers raw if present; color prefers normalized if present
+            const value = Number.isFinite(postRsRaw) ? Number(postRsRaw) : Number(postRsVal);
+            const norm = Number.isFinite(postRsNorm) ? Number(postRsNorm) : Number(postRsVal);
+            out.push({ date: day, value, norm, phase: RsPhase.POST });
           } else if (latestDay && day === latestDay && Number.isFinite(preRsVal)) {
             // Only allow pre for the latest day when post is not yet available
-            out.push({ date: day, value: Number(preRsVal), phase: RsPhase.PRE });
+            const preRsNorm = row?.pre?.rsNorm;
+            const value = Number.isFinite(preRsRaw) ? Number(preRsRaw) : Number(preRsVal);
+            const norm = Number.isFinite(preRsNorm) ? Number(preRsNorm) : Number(preRsVal);
+            out.push({ date: day, value, norm, phase: RsPhase.PRE });
           } else {
             // skip (no valid value per strict rules)
           }
@@ -194,7 +213,7 @@ export class RelStrDbV2Service {
         out.sort((a, b) => a.date.localeCompare(b.date));
         return out;
       }),
-      catchError(err => { console.error('[RelStrDbV2Service] getPairSeriesLive$ error', { pairId, err }); return of([] as Array<{ date: string; value: number; phase?: RsPhase }>) })
+      catchError(err => { console.error('[RelStrDbV2Service] getPairSeriesLive$ error', { pairId, err }); return of([] as Array<{ date: string; value: number; norm?: number; phase?: RsPhase }>) })
     );
   }
 
