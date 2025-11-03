@@ -44,6 +44,22 @@
                     {{ rsAppStore.supportedSymbolsListV2() }}
                 </pre>
 
+                <!-- ================================================================ -->
+                <!-- Archive Read Toggle (DEV-only): Legacy vs Archive                 -->
+                <!-- Clearly labeled controls to switch the heatmap data pipeline.     -->
+                <!-- Default is Legacy; Archive delegates to Legacy until implemented. -->
+                <!-- ================================================================ -->
+                <div style="display:flex; gap: 0.5rem; align-items:center; margin-top: 0.5rem;">
+                    <span>Data Source (DEV):</span>
+                    <button mat-stroked-button color="primary" (click)="handleToggleDataSource(DataSourceMode.LEGACY)">
+                        Legacy
+                    </button>
+                    <button mat-stroked-button color="accent" (click)="handleToggleDataSource(DataSourceMode.ARCHIVE)">
+                        Archive
+                    </button>
+                    <span style="opacity:0.7;">Current: {{ rsAppStore.getDataSourceModeV2() }}</span>
+                </div>
+
             </div>
 
         </div>

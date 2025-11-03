@@ -13,6 +13,7 @@ import { RsDataService } from '../services/rs-data.service';
 import { RsDataStore } from '../store/rs-data.store';
 import { AuthStore } from '../../core/auth/auth.store';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { DataSourceMode } from '../store/stock-list-v2.feature';
 
 @Component({
     selector: 'rs-dashboard-v2',
@@ -31,6 +32,8 @@ export class DashboardV2Component extends RelStrBaseComponent implements OnInit 
     private readonly authStore = inject(AuthStore);
 
     title = 'rel-str';
+    /** Expose enum to template for DEV-only data source toggle */
+    readonly DataSourceMode = DataSourceMode;
 
     ngOnInit() {
         this.rsCalcsStore.setHeatmapColors(generateColorArray(NUM_HEATMAP_MIDPOINTS));
@@ -97,5 +100,19 @@ export class DashboardV2Component extends RelStrBaseComponent implements OnInit 
     handleCloseSelectStockPanel() {
         // console.log('d hCSSP close select stock panel');
         this.selectStockPanel.close();
+    }
+
+    // ================================================================
+    // Archive Read Toggle (DEV-only)
+    // ================================================================
+    /**
+     * DEV-only: Toggle between Legacy and Archive data source modes for the heatmap.
+     * After switching, force-refresh the selected list heatmap to ensure new pipeline data is fetched.
+     */
+    handleToggleDataSource(mode: DataSourceMode) {
+        console.log('[V2] Toggle data source', mode);
+        this.rsAppStore.setDataSourceModeV2(mode);
+        // Force refresh to bypass any cached ranks and fetch from the selected pipeline
+        this.rsAppStore.refreshHeatmapForSelectedListV2();
     }
 }
