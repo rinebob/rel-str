@@ -26,3 +26,11 @@ export enum PartnerEndpointPath {
   TRACKED_SYMBOLS = 'partnerListTrackedSymbolsV2',
   TIME_SERIES = 'partnerTimeSeriesV2',
 }
+
+/** RS calculation phase for a day's value. */
+export enum RsPhase {
+  PRE = 'pre',
+  POST = 'post',
+}
+
+// PhasePreference removed: selection is fixed by rubric (historical: POST-only; today: POST else PRE)

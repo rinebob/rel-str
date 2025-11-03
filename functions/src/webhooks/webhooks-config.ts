@@ -99,13 +99,6 @@ export interface ProcessErrorSample {
 }
 
 /**
- * Phase of processing for RS pipeline.
- * - 'pre': intraday (pre-close) using ipc/ip when available
- * - 'post': end-of-day using cp/ac
- */
-export type Phase = 'pre' | 'post';
-
-/**
  * Partner time-series bar shape used across the pipeline. Values may be optional depending on phase.
  */
 export type PartnerBar = {

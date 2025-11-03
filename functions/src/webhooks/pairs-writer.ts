@@ -2,6 +2,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { db } from '../firebase-admin-init';
 import type { Phase, PhaseSeriesPoint, PartnerBar } from './webhooks-config';
 import { ARCHIVE_COLLECTION_PREFIX, PAIRS_COLLECTION } from './webhooks-config';
+import { RsPhase } from '../types/partner';
 import { logger } from 'firebase-functions/v2';
 
 /**
@@ -25,7 +26,7 @@ import { logger } from 'firebase-functions/v2';
 export async function writeUnifiedSeries(
   baseline: string,
   target: string,
-  phase: Phase,
+  phase: RsPhase,
   entries: PhaseSeriesPoint[],
   baselineBars: PartnerBar[],
   targetBars: PartnerBar[]
@@ -195,7 +196,10 @@ export async function writeUnifiedSeries(
     // Calculate RS metrics
     const { rsNorm, rsRaw } = calculateMetricsForDay(e.day);
 
-    if (phase === 'pre') {
+    // Respect upstream times; if missing, omit time and log
+    const preTime = (typeof e.it === 'string' && e.it.length > 0) ? e.it : undefined;
+
+    if (phase === RsPhase.PRE) {
       dayObj.pre = {
         time: e.it,
         t: e.t,

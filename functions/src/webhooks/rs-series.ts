@@ -4,7 +4,8 @@
  * Provides helpers for building phase-aware aligned series used by the writer
  * and a minimal RS series when only close prices are needed.
  */
-import type { Phase, PartnerBar, SeriesBar, RsPoint, PhaseSeriesPoint } from './webhooks-config';
+import type { PartnerBar, SeriesBar, RsPoint, PhaseSeriesPoint } from './webhooks-config';
+import { RsPhase } from '../types/partner';
 
 /** Return day-of-week label (UTC) for a YYYY-MM-DD string. */
 function dowLabelUTC(dayStr: string): string {
@@ -67,9 +68,9 @@ export function computeRsSeries(baseBars: SeriesBar[], targetBars: SeriesBar[]):
 /**
  * Build the phase-aware series for a pair, aligned by YYYY-MM-DD and filtered to trading days.
  *
- * Pre phase:
+ * PRE phase:
  *  - uses ip/ipc (intraday) when available
- * Post phase:
+ * POST phase:
  *  - uses ac/cp (end-of-day/adjusted close)
  *
  * Includes a 5-day rolling window rank based on percent changes.
@@ -77,7 +78,7 @@ export function computeRsSeries(baseBars: SeriesBar[], targetBars: SeriesBar[]):
 export function buildPhaseSeries(
   baselineBars: PartnerBar[],
   targetBars: PartnerBar[],
-  phase: Phase,
+  phase: RsPhase,
   baselineSymbol: string,
   targetSymbol: string,
   logger: any
@@ -127,7 +128,7 @@ export function buildPhaseSeries(
     }
     const dw = dowLabelUTC(t.d);
     if (dw === 'Sat' || dw === 'Sun') continue;
-    if (phase === 'pre') {
+    if (phase === RsPhase.PRE) {
       // Require intraday price for both sides; ipc can be derived from ip vs prior-day close if missing.
       const targetIp = Number(t.ip);
       const baseIp = Number(base?.ip);
@@ -220,12 +221,12 @@ export function buildPhaseSeries(
 
   for (const { day, base, target } of aligned) {
     // Percent change inputs by phase
-    const bCp = phase === 'post' ? Number((base as any)._cp_eff ?? base.cp) : Number((base as any)._ipc_eff ?? base.ipc);
-    const tCp = phase === 'post' ? Number((target as any)._cp_eff ?? target.cp) : Number((target as any)._ipc_eff ?? target.ipc);
+    const bCp = phase === RsPhase.POST ? Number((base as any)._cp_eff ?? base.cp) : Number((base as any)._ipc_eff ?? base.ipc);
+    const tCp = phase === RsPhase.POST ? Number((target as any)._cp_eff ?? target.cp) : Number((target as any)._ipc_eff ?? target.ipc);
 
     // Close inputs by phase (price reference)
-    const bClose = phase === 'post' ? (Number(base.ac) || Number(base.c) || 0) : Number(base.ip);
-    const tClose = phase === 'post' ? (Number(target.ac) || Number(target.c) || 0) : Number(target.ip);
+    const bClose = phase === RsPhase.POST ? (Number(base.ac) || Number(base.c) || 0) : Number(base.ip);
+    const tClose = phase === RsPhase.POST ? (Number(target.ac) || Number(target.c) || 0) : Number(target.ip);
 
     if (!Number.isFinite(bCp) || !Number.isFinite(tCp)) {
       logger.info('rs_series_skip_calc_nonfinite_cp', {
@@ -264,7 +265,7 @@ export function buildPhaseSeries(
     }
 
     outDays.push(day);
-    outTimes.push(phase === 'pre' ? (target.it || base.it) : undefined);
+    outTimes.push(phase === RsPhase.PRE ? (target.it || base.it) : undefined);
     outDows.push(dowLabelUTC(day));
     baseCp.push(Number(bCp));
     targetCp.push(Number(tCp));
