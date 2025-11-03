@@ -1,9 +1,10 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { db } from '../firebase-admin-init';
-import type { Phase, PhaseSeriesPoint, PartnerBar } from './webhooks-config';
+import type { PhaseSeriesPoint, PartnerBar } from './webhooks-config';
 import { ARCHIVE_COLLECTION_PREFIX, PAIRS_COLLECTION } from './webhooks-config';
 import { RsPhase } from '../types/partner';
 import { logger } from 'firebase-functions/v2';
+import { WARNINGS_COLLECTION, RsCloudFunctionName, SILENCE_MISSING_POST_TIME } from './webhooks-config';
 
 /**
  * Write unified RS series for a pair into Firestore (pairs-data schema).
@@ -201,8 +202,7 @@ export async function writeUnifiedSeries(
 
     if (phase === RsPhase.PRE) {
       dayObj.pre = {
-        time: e.it,
-        t: e.t,
+        ...(preTime ? { time: preTime } : {}),
         base: { price: e.baseClose, change: Number(baseChange.toFixed(6)), percentChange: Number(basePct.toFixed(6)) },
         target: { price: e.targetClose, change: Number(targetChange.toFixed(6)), percentChange: Number(targetPct.toFixed(6)) },
         rs: rsNorm,       // legacy field (kept for compatibility)
@@ -210,9 +210,22 @@ export async function writeUnifiedSeries(
         rsRaw: rsRaw,     // continuous value for display
         source: 'intraday',
       };
+      if (!preTime) {
+        logger.warn('missing_intraday_time_it_on_pre', { pairId, day: e.day });
+        try {
+          await db.collection(WARNINGS_COLLECTION).add({
+            type: 'missing_intraday_time_it_on_pre',
+            function: RsCloudFunctionName.WRITE_UNIFIED_SERIES,
+            pairId,
+            phase: RsPhase.PRE,
+            day: e.day,
+            createdAt: FieldValue.serverTimestamp(),
+          });
+        } catch {}
+      }
     } else {
       dayObj.post = {
-        t: e.t,
+        ...(typeof e.it === 'string' && e.it.length > 0 ? { time: e.it } : {}),
         base: { price: e.baseClose, change: Number(baseChange.toFixed(6)), percentChange: Number(basePct.toFixed(6)) },
         target: { price: e.targetClose, change: Number(targetChange.toFixed(6)), percentChange: Number(targetPct.toFixed(6)) },
         rs: rsNorm,
@@ -220,6 +233,21 @@ export async function writeUnifiedSeries(
         rsRaw: rsRaw,
         source: 'adjustedClose',
       };
+      if (!(dayObj.post as any).time) {
+        logger.warn('missing_close_time_on_post', { pairId, day: e.day });
+        if (!SILENCE_MISSING_POST_TIME) {
+          try {
+            await db.collection(WARNINGS_COLLECTION).add({
+              type: 'missing_close_time_on_post',
+              function: RsCloudFunctionName.WRITE_UNIFIED_SERIES,
+              pairId,
+              phase: RsPhase.POST,
+              day: e.day,
+              createdAt: FieldValue.serverTimestamp(),
+            });
+          } catch {}
+        }
+      }
     }
 
     byDay.set(e.day, dayObj);
@@ -264,5 +292,5 @@ export async function writeUnifiedSeries(
   }
   await batch.commit();
 
-  logger.info(`pairs-data_write_done ${pairId} phase=${phase} days=${merged.length} latestDay=${latest?.day} (archive upserts=${entries.length})`);
+  logger.info(`archive_write_done ${pairId} phase=${phase} days=${merged.length} latestDay=${latest?.day} (archive upserts=${entries.length})`);
 }

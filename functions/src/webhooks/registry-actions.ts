@@ -5,13 +5,15 @@
  * seeding helper. Separated from partner-webhooks orchestrator for clarity.
  */
 import { onCall, onRequest } from 'firebase-functions/v2/https';
-import { logger } from 'firebase-functions';
+import { logger } from 'firebase-functions/v2';
 import { db, FieldValue } from '../firebase-admin-init';
 import {
   REGISTRY_COLLECTION,
   TRACKED_SYMBOLS_COLLECTION,
   REGISTRY_RETENTION_DAYS,
+  RsCloudFunctionName,
 } from './webhooks-config';
+import { persistWarning } from '../logging/warn';
 
 function normalizeSymbol(v?: string): string | undefined {
   if (!v || typeof v !== 'string') return undefined;
@@ -32,6 +34,8 @@ export const unregisterPairs = onCall({ region: 'us-central1' }, async (req) => 
   const uid = req.auth?.uid || 'anon';
   if (!baseline || !listId) {
     logger.warn('unregisterPairs missing baseline or listId');
+    // Persist a warning for UI visibility (best-effort)
+    await persistWarning('unregister_pairs_missing_params', { function: RsCloudFunctionName.UNREGISTER_PAIRS, uid, baseline, listId });
     return { unregistered: [] };
   }
   const retentionMs = REGISTRY_RETENTION_DAYS * 24 * 60 * 60 * 1000;
@@ -70,7 +74,7 @@ export const unregisterPairs = onCall({ region: 'us-central1' }, async (req) => 
  * Validates baseline and targets against tracked-symbols and records membership with refCount.
  *
  * Request: { listId: string, baseline: string, symbols: string[] }
- * Response: { registered: string[], rejected: { symbol, reason }[], baselineHint?: { nonStandard: boolean } }
+ * Response: { registered: string[], rejected: { symbol, reason }[] }
  */
 export const validateAndRegisterPairs = onCall({ region: 'us-central1' }, async (req) => {
   const listId = (req.data?.listId || '').trim();
@@ -79,6 +83,7 @@ export const validateAndRegisterPairs = onCall({ region: 'us-central1' }, async 
   const uid = req.auth?.uid || 'anon';
   if (!baseline || !listId) {
     logger.warn('validateAndRegisterPairs missing baseline or listId');
+    await persistWarning('register_pairs_missing_params', { function: RsCloudFunctionName.VALIDATE_AND_REGISTER, uid, baseline, listId });
     return { registered: [], rejected: [{ symbol: baseline || 'unknown', reason: 'missing_baseline_or_listId' }] };
   }
 
@@ -88,23 +93,16 @@ export const validateAndRegisterPairs = onCall({ region: 'us-central1' }, async 
     return snap.exists ? (snap.data() as any) : undefined;
   };
 
-  const baselineDoc = await readTracked(baseline);
-  const baselineSupported = !!baselineDoc?.supported;
-  const baselineHint = { nonStandard: baselineSupported && !baselineDoc?.isBaseline };
-  if (!baselineSupported) {
-    return { registered: [], rejected: [{ symbol: baseline, reason: 'baseline_not_supported' }], baselineHint };
-  }
+  // Start log for observability
+  logger.info('validateAndRegisterPairs start', { listId, baseline, symbolsCount: symbols.length, uid });
 
   const rejected: Array<{ symbol: string; reason: string } > = [];
   const validTargets: string[] = [];
   for (const raw of symbols) {
     const target = normalizeSymbol(String(raw));
     if (!target) continue;
-    const doc = await readTracked(target);
-    if (!doc?.supported) {
-      rejected.push({ symbol: target, reason: 'target_not_supported' });
-      continue;
-    }
+    // Optionally read tracked doc (for future metadata), but do not gate on it
+    try { await readTracked(target); } catch {}
     validTargets.push(target);
   }
 
@@ -134,7 +132,7 @@ export const validateAndRegisterPairs = onCall({ region: 'us-central1' }, async 
   }
 
   logger.info('validateAndRegisterPairs completed', { baseline, listId, registered: registered.length, rejected: rejected.length });
-  return { registered, rejected, baselineHint };
+  return { registered, rejected };
 });
 
 /**

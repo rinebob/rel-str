@@ -32,9 +32,12 @@ import {
   FIXED_LIMIT,
   FIXED_DAYS,
   type ProcessErrorSample,
-  type Phase,
   RunType,
+  RsCloudFunctionName,
 } from './webhooks-config';
+import { persistWarning } from '../logging/warn';
+import { writeWarningsSummary } from '../logging/warn';
+import { RsPhase } from '../types/partner';
 
 // Firebase Admin and Firestore are initialized in ../firebase-admin-init
 // Shared constants and enums have been moved to ./webhooks-config
@@ -48,7 +51,7 @@ import {
  *    and mark the event as `processing` in EVENTS_COLLECTION for observability and idempotency.
  * 3) Pairs: We load registered baseline–target pairs from REGISTRY_COLLECTION.
  * 4) Bars: For each pair, we fetch DAILY bars for the last FIXED_DAYS and compute the phase series.
- *    - Phase 'pre' uses intraday (ip/ipc) when available; 'post' uses EOD (ac/cp).
+ *    - Phase PRE uses intraday (ip/ipc) when available; POST uses EOD (ac/cp).
  * 5) Write: We upsert unified series and latest snapshot for the pair under pairs/* via writeUnifiedSeries.
  * 6) Complete: We record final status (completed or completed_with_errors) and sampled error details.
  *
@@ -111,27 +114,36 @@ function resolveRunContext(message: any, payload: Record<string, any>): {
  *
  * @param baseline Baseline symbol (e.g., SPY)
  * @param target Target symbol (e.g., AAPL)
- * @param phase 'pre' for intraday or 'post' for end-of-day
+ * @param phase PRE for intraday or POST for end-of-day
  * @param days Window (calendar days)
  * @param accum Accumulators for success/failed counters and errorSamples
+ * @param caches Baseline-only cache to avoid duplicate upstream fetches within a run
+ * @param ctx Optional run context (runId, eventType, trigger) for logging
  */
 async function processPairLive(
   baseline: string,
   target: string,
-  phase: Phase,
+  phase: RsPhase,
   days: number,
-  accum: { successPairs: number; failedPairs: number; errorSamples: ProcessErrorSample[] }
+  accum: { successPairs: number; failedPairs: number; errorSamples: ProcessErrorSample[] },
+  caches?: { baselineBars: Map<string, any[]> },
+  ctx?: { runId?: string; eventType?: string; trigger?: string }
 ): Promise<void> {
   const pairId = `${baseline}-${target}`;
   try {
-    const [baseBars, targetBars] = await Promise.all([
-      fetchDailyBarsRaw(baseline, days, FIXED_LIMIT),
-      fetchDailyBarsRaw(target, days, FIXED_LIMIT),
-    ]);
+    // Baseline-only cache to avoid duplicate upstream fetches within a run
+    let baseBars: any[] | undefined = caches?.baselineBars?.get(baseline);
+    if (!baseBars) {
+      baseBars = await fetchDailyBarsRaw(baseline, days, FIXED_LIMIT);
+      if (caches && caches.baselineBars) caches.baselineBars.set(baseline, baseBars);
+    }
+    const targetBars = await fetchDailyBarsRaw(target, days, FIXED_LIMIT);
     const series = buildPhaseSeries(baseBars, targetBars, phase, baseline, target, logger);
     if (series.length === 0) {
       accum.failedPairs++;
       if (accum.errorSamples.length < 10) accum.errorSamples.push({ pair: pairId, message: 'no_aligned_series' });
+      // Persist a warning for UI visibility (best-effort)
+      await persistWarning('no_aligned_series', { function: RsCloudFunctionName.PROCESS_PAIR_LIVE, pairId, baseline, target, phase, runId: ctx?.runId, eventType: ctx?.eventType, trigger: ctx?.trigger });
       return;
     }
     await writeUnifiedSeries(baseline, target, phase, series, baseBars, targetBars);
@@ -171,7 +183,7 @@ export const processDataReadyRunV2 = onMessagePublished(
      * V2 handler for partner data-ready events. This function is idempotent and safe
      * to re-trigger: terminal statuses in EVENTS_COLLECTION are honored to avoid rework.
      */
-    // Resolve phase from attributes or payload, default to 'post' if omitted
+    // Resolve phase from attributes or payload, default to POST if omitted
     const message = event.data.message as any;
     const attrPhase = (message?.attributes?.phase as string | undefined)?.toLowerCase();
     let payloadPhase: string | undefined;
@@ -184,9 +196,9 @@ export const processDataReadyRunV2 = onMessagePublished(
     } catch {
       // ignore
     }
-    const phase: Phase = (attrPhase === 'pre' || attrPhase === 'post') ? (attrPhase as Phase)
-      : (payloadPhase === 'pre' || payloadPhase === 'post') ? (payloadPhase as Phase)
-      : 'post';
+    const phase: RsPhase = (attrPhase === RsPhase.PRE || attrPhase === RsPhase.POST) ? (attrPhase as RsPhase)
+      : (payloadPhase === RsPhase.PRE || payloadPhase === RsPhase.POST) ? (payloadPhase as RsPhase)
+      : RsPhase.POST;
 
     // Resolve run context and set up partner-events doc for observability/idempotency
     const { runType, isHeartbeat, runId } = resolveRunContext(message, parsedPayload || {});
@@ -213,10 +225,10 @@ export const processDataReadyRunV2 = onMessagePublished(
       const hasWeekly = intervals.includes('WEEKLY');
       const hasMonthly = intervals.includes('MONTHLY');
       const hasDaily = intervals.includes('DAILY') || intervals.length === 0; // default to DAILY when unspecified
-      if (hasMonthly && phase === 'post') derivedRunType = RunType.TS_MONTHLY_POST;
-      else if (hasWeekly && phase === 'post') derivedRunType = RunType.TS_WEEKLY_POST;
-      else if (hasDaily && phase === 'pre') derivedRunType = RunType.TS_DAILY_PRE;
-      else if (hasDaily && phase === 'post') derivedRunType = RunType.TS_DAILY_POST;
+      if (hasMonthly && phase === RsPhase.POST) derivedRunType = RunType.TS_MONTHLY_POST;
+      else if (hasWeekly && phase === RsPhase.POST) derivedRunType = RunType.TS_WEEKLY_POST;
+      else if (hasDaily && phase === RsPhase.PRE) derivedRunType = RunType.TS_DAILY_PRE;
+      else if (hasDaily && phase === RsPhase.POST) derivedRunType = RunType.TS_DAILY_POST;
     }
 
     const eventTypeRaw = isHeartbeat ? RunType.HEARTBEAT : (runType as string | undefined) || derivedRunType || 'unknown';
@@ -253,6 +265,7 @@ export const processDataReadyRunV2 = onMessagePublished(
         const existingStatus = existing.exists ? (existing.data()?.status as string | undefined) : undefined;
         if (existingStatus === 'completed' || existingStatus === 'failed' || existingStatus === 'completed_with_errors') {
           logger.info('processDataReadyRunV2 skipping terminal run', { docId: eventDocId, runId: effectiveRunId, status: existingStatus });
+          try { await persistWarning('skipped_terminal_run', { function: RsCloudFunctionName.PROCESS_DATA_READY, docId: eventDocId, runId: effectiveRunId, status: existingStatus }); } catch {}
           return;
         }
       } catch {}
@@ -281,6 +294,7 @@ export const processDataReadyRunV2 = onMessagePublished(
         if (eventRef) {
           await eventRef.set({ status: 'completed', endTime: FieldValue.serverTimestamp(), pairsProcessed: 0, pairsFailed: 0 }, { merge: true });
         }
+        try { await persistWarning('no_registered_pairs', { function: RsCloudFunctionName.PROCESS_DATA_READY, runId: effectiveRunId, eventType }); } catch {}
         return;
       }
 
@@ -292,8 +306,9 @@ export const processDataReadyRunV2 = onMessagePublished(
       const errorSamples: ProcessErrorSample[] = [];
       logger.info('processDataReadyRunV2 starting pair processing', { count: pairs.length, phase, eventType, runId: effectiveRunId });
       const PAIR_CONCURRENCY = Number(process.env.PARTNER_PAIR_CONCURRENCY) || 3;
+      const baselineBarsCache = new Map<string, any[]>();
       await forEachWithConcurrency(pairs, PAIR_CONCURRENCY, async ({ baseline, target }) => {
-        await processPairLive(baseline, target, phase, days, { successPairs, failedPairs, errorSamples });
+        await processPairLive(baseline, target, phase, days, { successPairs, failedPairs, errorSamples }, { baselineBars: baselineBarsCache }, { runId: effectiveRunId, eventType, trigger });
       });
 
       if (eventRef) {
@@ -324,13 +339,14 @@ import { onCall, onRequest } from 'firebase-functions/v2/https';
 /**
  * Callable: recomputePairsRs
  * Recompute RS for specified pairs (or all registered under a baseline) for a configurable window.
- * Params: { baseline: string; symbols?: string[]; phase?: 'pre'|'post'|'both'; days?: number; limit?: number; concurrency?: number; from?: string; to?: string; yearsBack?: number; missingOnly?: boolean }
+ * Params: { baseline: string; symbols?: string[]; phase?: PRE|POST|'both'; days?: number; limit?: number; concurrency?: number; from?: string; to?: string; yearsBack?: number; missingOnly?: boolean }
  */
 export const recomputePairsRs = onCall({ region: 'us-central1', timeoutSeconds: 540 }, async (req) => {
   try {
     const baselineRaw = String(req.data?.baseline || '').trim().toUpperCase();
     const symbolsRaw: string[] = Array.isArray(req.data?.symbols) ? req.data.symbols : [];
-    const phaseRaw = String(req.data?.phase || 'post').toLowerCase();
+    const pairsRaw: Array<{ baseline: string; target: string }> = Array.isArray(req.data?.pairs) ? req.data.pairs : [];
+    const phaseRaw = String(req.data?.phase || RsPhase.POST).toLowerCase();
     const days = Number(req.data?.days ?? FIXED_DAYS);
     const limit = Number(req.data?.limit ?? FIXED_LIMIT);
     const from: string | undefined = req.data?.from ? String(req.data.from) : undefined;
@@ -338,40 +354,55 @@ export const recomputePairsRs = onCall({ region: 'us-central1', timeoutSeconds: 
     const yearsBack: number | undefined = Number.isFinite(req.data?.yearsBack) ? Number(req.data.yearsBack) : undefined;
     const missingOnly: boolean = !!req.data?.missingOnly;
     const concurrency = Number(req.data?.concurrency ?? (Number(process.env.PARTNER_PAIR_CONCURRENCY) || 3));
-    if (!baselineRaw) return { ok: false, error: 'missing_baseline' };
+    const delayMsBetweenPairs = Math.max(0, Number(req.data?.delayMsBetweenPairs ?? 0) || 0);
+    if (!baselineRaw && pairsRaw.length === 0) return { ok: false, error: 'missing_baseline_or_pairs' };
 
-    // Resolve target list
-    let targets: string[] = [];
-    if (symbolsRaw.length) {
-      targets = symbolsRaw.map((s) => String(s).trim().toUpperCase()).filter(Boolean);
+    // Resolve pairs list
+    let pairsList: Array<{ baseline: string; target: string }> = [];
+    if (pairsRaw.length > 0) {
+      pairsList = pairsRaw
+        .map((p: any) => ({
+          baseline: String(p?.baseline || '').trim().toUpperCase(),
+          target: String(p?.target || '').trim().toUpperCase(),
+        }))
+        .filter((p) => p.baseline && p.target);
     } else {
-      const all = await listRegisteredPairs();
-      targets = all.filter(p => p.baseline === baselineRaw).map(p => p.target);
+      // Fallback: baseline + optional symbols subset
+      let targets: string[] = [];
+      if (symbolsRaw.length) {
+        targets = symbolsRaw.map((s) => String(s).trim().toUpperCase()).filter(Boolean);
+      } else {
+        const all = await listRegisteredPairs();
+        targets = all.filter(p => p.baseline === baselineRaw).map(p => p.target);
+      }
+      if (targets.length === 0) return { ok: false, error: 'no_targets' };
+      pairsList = targets.map(t => ({ baseline: baselineRaw, target: t }));
     }
-    if (targets.length === 0) return { ok: false, error: 'no_targets' };
 
-    const doPhase = async (phase: Phase) => {
-      let successPairs = 0;
-      let failedPairs = 0;
-      let skippedExisting = 0;
-      let writtenDays = 0;
-      const errorSamples: ProcessErrorSample[] = [];
-      logger.info('recomputePairsRs starting pair processing', { count: targets.length, phase });
-      const pairs = targets.map(t => ({ baseline: baselineRaw, target: t }));
-      await forEachWithConcurrency(pairs, Math.max(1, concurrency), async ({ baseline, target }) => {
-        await processPairLive(baseline, target, phase, days, { successPairs, failedPairs, errorSamples });
+    const doPhase = async (phase: RsPhase) => {
+      const accum = { successPairs: 0, failedPairs: 0, errorSamples: [] as ProcessErrorSample[] };
+      let skippedExisting = 0; // reserved for future use in callable path
+      let writtenDays = 0;     // reserved for future use in callable path
+      logger.info('recomputePairsRs starting pair processing', { count: pairsList.length, phase, concurrency, delayMsBetweenPairs });
+      const baselineBarsCache = new Map<string, any[]>();
+      await forEachWithConcurrency(pairsList, Math.max(1, concurrency), async ({ baseline, target }) => {
+        await processPairLive(baseline, target, phase, days, accum, { baselineBars: baselineBarsCache });
+        if (delayMsBetweenPairs > 0) {
+          await new Promise((r) => setTimeout(r, delayMsBetweenPairs));
+        }
       });
 
-      return { successPairs, failedPairs, skippedExisting, writtenDays, errorSamples };
+      return { successPairs: accum.successPairs, failedPairs: accum.failedPairs, skippedExisting, writtenDays, errorSamples: accum.errorSamples };
     };
 
-    const phases: Phase[] = phaseRaw === 'both' ? ['pre', 'post'] : (phaseRaw === 'pre' ? ['pre'] : ['post']);
-    const results = [] as Array<{ phase: Phase; successPairs: number; failedPairs: number; skippedExisting: number; writtenDays: number; errorSamples: ProcessErrorSample[] }>;
+    const phases: RsPhase[] = phaseRaw === 'both' ? [RsPhase.PRE, RsPhase.POST] : (phaseRaw === RsPhase.PRE ? [RsPhase.PRE] : [RsPhase.POST]);
+    const results = [] as Array<{ phase: RsPhase; successPairs: number; failedPairs: number; skippedExisting: number; writtenDays: number; errorSamples: ProcessErrorSample[] }>;
     for (const ph of phases) {
       const r = await doPhase(ph);
       results.push({ phase: ph, ...r });
     }
-    return { ok: true, baseline: baselineRaw, targets: targets.length, days, limit, from, to, yearsBack, missingOnly, results };
+    try { await writeWarningsSummary({ function: 'recomputePairsRs', baseline: baselineRaw || null, pairs: pairsList.length }); } catch {}
+    return { ok: true, baseline: baselineRaw || null, pairs: pairsList.length, days, limit, from, to, yearsBack, missingOnly, results };
   } catch (e: any) {
     logger.error('recomputePairsRs_failed', { message: e?.message });
     return { ok: false, error: e?.message || 'internal_error' };
@@ -381,7 +412,7 @@ export const recomputePairsRs = onCall({ region: 'us-central1', timeoutSeconds: 
 /**
  * HTTP (admin): recomputeRegisteredBackfill
  * Backfill all registered pairs across all baselines. Protect with bearer ADMIN_BACKFILL_TOKEN.
- * Query/body: { phase?: 'pre'|'post'|'both', days?: number, limit?: number, concurrency?: number, from?: string, to?: string, yearsBack?: number, missingOnly?: boolean }
+ * Query/body: { phase?: PRE|POST|'both', days?: number, limit?: number, concurrency?: number, from?: string, to?: string, yearsBack?: number, missingOnly?: boolean }
  */
 export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', timeoutSeconds: 540 }, async (req, res) => {
   const token = (req.headers['authorization'] || '').toString().replace(/^Bearer\s+/i, '');
@@ -391,7 +422,7 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
     return;
   }
   try {
-    const phaseRaw = String((req.query.phase || req.body?.phase || 'post')).toLowerCase();
+    const phaseRaw = String((req.query.phase || req.body?.phase || RsPhase.POST)).toLowerCase();
     const days = Number(req.query.days || req.body?.days || FIXED_DAYS);
     const limit = Number(req.query.limit || req.body?.limit || FIXED_LIMIT);
     const from: string | undefined = (req.query.from as string) || req.body?.from;
@@ -401,7 +432,7 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
     const concurrency = Number(req.query.concurrency || req.body?.concurrency || (Number(process.env.PARTNER_PAIR_CONCURRENCY) || 3));
 
     const pairs = await listRegisteredPairs();
-    const phases: Phase[] = phaseRaw === 'both' ? ['pre', 'post'] : (phaseRaw === 'pre' ? ['pre'] : ['post']);
+    const phases: RsPhase[] = phaseRaw === 'both' ? [RsPhase.PRE, RsPhase.POST] : (phaseRaw === RsPhase.PRE ? [RsPhase.PRE] : [RsPhase.POST]);
     const summary: any = { ok: true, totalPairs: pairs.length, days, limit, from, to, yearsBack, missingOnly, phases, results: [] };
 
     for (const ph of phases) {
@@ -410,21 +441,25 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
       let skippedExisting = 0;
       let writtenDays = 0;
       const errorSamples: ProcessErrorSample[] = [];
+      const baselineBarsCache = new Map<string, any[]>();
       await forEachWithConcurrency(pairs, Math.max(1, concurrency), async ({ baseline, target }) => {
         try {
           const useRange = !!(from || to || Number.isFinite(yearsBack as number));
-          const [baseBars, targetBars] = await Promise.all([
-            useRange
-              ? fetchDailyBarsRange(baseline, { from, to, yearsBack, days, limit, interval: FIXED_INTERVAL })
-              : fetchDailyBarsRaw(baseline, days, limit),
-            useRange
-              ? fetchDailyBarsRange(target, { from, to, yearsBack, days, limit, interval: FIXED_INTERVAL })
-              : fetchDailyBarsRaw(target, days, limit),
-          ]);
+          let baseBars: any[] | undefined = baselineBarsCache.get(baseline);
+          if (!baseBars) {
+            baseBars = useRange
+              ? await fetchDailyBarsRange(baseline, { from, to, yearsBack, days, limit, interval: FIXED_INTERVAL })
+              : await fetchDailyBarsRaw(baseline, days, limit);
+            baselineBarsCache.set(baseline, baseBars);
+          }
+          const targetBars = useRange
+            ? await fetchDailyBarsRange(target, { from, to, yearsBack, days, limit, interval: FIXED_INTERVAL })
+            : await fetchDailyBarsRaw(target, days, limit);
           const series = buildPhaseSeries(baseBars, targetBars, ph, baseline, target, logger);
           if (series.length === 0) {
             failedPairs++;
             if (errorSamples.length < 50) errorSamples.push({ pair: `${baseline}-${target}`, message: 'no_aligned_series' });
+            try { await persistWarning('no_aligned_series', { function: RsCloudFunctionName.RECOMPUTE_BACKFILL, pairId: `${baseline}-${target}`, baseline, target, phase: ph }); } catch {}
             return;
           }
           let entries = series;
@@ -436,8 +471,8 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
             for (const row of dataArr) {
               const day = String(row?.day || '');
               if (!day) continue;
-              if (ph === 'post' && row?.post?.rs !== undefined) existingDays.add(day);
-              if (ph === 'pre' && row?.pre?.rs !== undefined) existingDays.add(day);
+              if (ph === RsPhase.POST && row?.post?.rs !== undefined) existingDays.add(day);
+              if (ph === RsPhase.PRE && row?.pre?.rs !== undefined) existingDays.add(day);
             }
             const before = entries.length;
             entries = entries.filter(e => !existingDays.has(e.day));
@@ -470,7 +505,7 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
  * Params:
  *  - baseline: string (required)
  *  - symbols: string[] (required)
- *  - phase?: 'pre'|'post' (default 'post')
+ *  - phase?: RsPhase PRE|POST (default POST)
  *  - from?: 'YYYY-MM-DD', to?: 'YYYY-MM-DD' OR yearsBack?: number OR dates?: string[] (YYYY-MM-DD)
  *  - autoFix?: boolean (default false) → if true, writes only computed-but-missing days
  */
@@ -478,7 +513,7 @@ export const diagnosePairDays = onCall({ region: 'us-central1', timeoutSeconds: 
   try {
     const baseline = String(req.data?.baseline || '').trim().toUpperCase();
     const symbols: string[] = Array.isArray(req.data?.symbols) ? req.data.symbols.map((s: any) => String(s).toUpperCase()) : [];
-    const phase: Phase = (String(req.data?.phase || 'post').toLowerCase() === 'pre') ? 'pre' : 'post';
+    const phase: RsPhase = (String(req.data?.phase || RsPhase.POST).toLowerCase() === RsPhase.PRE) ? RsPhase.PRE : RsPhase.POST;
     const from: string | undefined = req.data?.from ? String(req.data.from) : undefined;
     const to: string | undefined = req.data?.to ? String(req.data.to) : undefined;
     const yearsBack: number | undefined = Number.isFinite(req.data?.yearsBack) ? Number(req.data.yearsBack) : undefined;
@@ -532,8 +567,8 @@ export const diagnosePairDays = onCall({ region: 'us-central1', timeoutSeconds: 
         for (const row of dataArr) {
           const d = String(row?.day || '');
           if (!d) continue;
-          if (phase === 'post' && row?.post?.rs !== undefined) storedDays.add(d);
-          if (phase === 'pre' && row?.pre?.rs !== undefined) storedDays.add(d);
+          if (phase === RsPhase.POST && row?.post?.rs !== undefined) storedDays.add(d);
+          if (phase === RsPhase.PRE && row?.pre?.rs !== undefined) storedDays.add(d);
         }
 
         // Establish candidate days to check
@@ -617,7 +652,7 @@ export const diagnosePairDaysAdmin = onRequest({ region: 'us-central1', timeoutS
     const symbols: string[] = Array.isArray(symbolsRaw)
       ? symbolsRaw.map((s: any) => String(s).toUpperCase())
       : String(symbolsRaw || '').split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
-    const phase: Phase = (String((req.body?.phase ?? req.query.phase) || 'post').toLowerCase() === 'pre') ? 'pre' : 'post';
+    const phase: RsPhase = (String((req.body?.phase ?? req.query.phase) || RsPhase.POST).toLowerCase() === RsPhase.PRE) ? RsPhase.PRE : RsPhase.POST;
     const from: string | undefined = (req.body?.from ?? req.query.from) as string | undefined;
     const to: string | undefined = (req.body?.to ?? req.query.to) as string | undefined;
     const yearsBack: number | undefined = (req.body?.yearsBack ?? req.query.yearsBack) !== undefined ? Number(req.body?.yearsBack ?? req.query.yearsBack) : undefined;

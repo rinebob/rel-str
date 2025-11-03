@@ -19,6 +19,19 @@
 import { PartnerInterval } from '../partner-proxy';
 
 /**
+ * Canonical Cloud Function names for warning events. Keep stable for UI filters.
+ */
+export enum RsCloudFunctionName {
+  PROCESS_DATA_READY = 'processDataReadyRunV2',
+  PROCESS_PAIR_LIVE = 'processPairLive',
+  RECOMPUTE_BACKFILL = 'recomputeRegisteredBackfill',
+  GET_TRACKED_SYMBOLS = 'getTrackedSymbols',
+  VALIDATE_AND_REGISTER = 'validateAndRegisterPairs',
+  UNREGISTER_PAIRS = 'unregisterPairs',
+  WRITE_UNIFIED_SERIES = 'writeUnifiedSeries',
+}
+
+/**
  * Pub/Sub topic for partner data-ready notifications. This is the upstream
  * producer topic; our function subscribes and reacts as a consumer.
  */
@@ -44,6 +57,15 @@ export const ARCHIVE_COLLECTION_PREFIX = 'archive-';
 
 /** Collection holding known/supported symbols and attributes. */
 export const TRACKED_SYMBOLS_COLLECTION = 'tracked-symbols';
+
+/** Warning events emitted by backend for UI visibility. */
+export const WARNINGS_COLLECTION = 'rs-warnings';
+
+/** Max number of warning docs to persist per run/process (default 50). */
+export const WARNINGS_CAP_PER_RUN = Number(process.env.WARNINGS_CAP_PER_RUN || 50);
+
+/** If true, do not persist 'missing_close_time_on_post' warnings (useful in emulator). */
+export const SILENCE_MISSING_POST_TIME = String(process.env.SILENCE_MISSING_POST_TIME || '').toLowerCase() === 'true';
 
 /** Retention days for registry entries after last member removes it. */
 export const REGISTRY_RETENTION_DAYS = 30;
@@ -110,7 +132,7 @@ export type PartnerBar = {
   cp?: number;  // percent change EOD
   ip?: number;  // intraday price
   ipc?: number; // intraday percent change
-  it?: string;  // intraday time e.g. "15:30"
+  it?: string;  // intraday time e.g. "15:30" or "15:30:00"
 };
 
 /** Minimal bar used by RS math when only time and close are needed. */

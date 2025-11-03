@@ -4,6 +4,8 @@ import {GoogleAuth} from "google-auth-library";
 import {db, FieldValue} from "./firebase-admin-init";
 import { GetTrackedSymbolsResponse, TrackedSymbolDTO, PartnerEndpointPath } from './types/partner';
 import { DEFAULT_PARTNER_CALLER_SA, IAM_CREDENTIALS_BASE_URL, OAUTH_CLOUD_PLATFORM_SCOPE, IAM_SERVICE_ACCOUNTS_PATH, IamCredentialsMethod } from './config/constants';
+import { persistWarning } from './logging/warn';
+import { RsCloudFunctionName } from './webhooks/webhooks-config';
 
 // Base host retained for compatibility, but audiences should be function URLs per SA quickstart
 export const PARTNER_AUDIENCE =
@@ -183,6 +185,8 @@ export const getTrackedSymbols = onCall({ region: "us-central1" }, async (req): 
     }
   } catch (e: any) {
     logger.warn("getTrackedSymbols cache read failed", { message: e?.message });
+    // Persist as a warning event for UI visibility (best-effort)
+    await persistWarning('tracked_symbols_cache_read_failed', { function: RsCloudFunctionName.GET_TRACKED_SYMBOLS, message: e?.message });
   }
 
   // Fetch from partner
@@ -231,6 +235,7 @@ export const getTrackedSymbols = onCall({ region: "us-central1" }, async (req): 
     await cacheRef.set({ ...payload, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
   } catch (e: any) {
     logger.warn("getTrackedSymbols cache write failed", { message: e?.message });
+    await persistWarning('tracked_symbols_cache_write_failed', { function: RsCloudFunctionName.GET_TRACKED_SYMBOLS, message: e?.message });
   }
 
   return payload;
