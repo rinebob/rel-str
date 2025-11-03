@@ -7,6 +7,21 @@ import { generatePairData, getPairsForList } from "../utils/rs-calc-utils-v2"
 import { RsCalcsStore } from "./rs-calcs.store"
 import { firstValueFrom, Subscription } from 'rxjs'
 
+/**
+ * Archive Read Toggle (DEV-only)
+ * ---------------------------------
+ * Data source selection for the V2 heatmap read pipeline.
+ * This is a development toggle to compare legacy `pairs-data/{PAIR}.data` vs
+ * archive-based reads under `pairs-data/{PAIR}/archive-YYYY/*`.
+ *
+ * Default: Legacy. When Archive is fully implemented and validated,
+ * we will flip the default to Archive and later remove Legacy.
+ */
+export enum DataSourceMode {
+    LEGACY = 'legacy',
+    ARCHIVE = 'archive',
+}
+
 export type StockListV2State = {
     allStockListsV2: RelStrStockList[],
     selectedStockListV2: RelStrStockList,
@@ -15,6 +30,8 @@ export type StockListV2State = {
     formModeV2: StockListFormMode,
     showFormV2: boolean,
     formDataV2: RelStrStockList,
+    /** DEV-only: heatmap data source mode (see DataSourceMode). Default = legacy */
+    dataSourceMode: DataSourceMode,
 }
 
 export const initialV2State: StockListV2State = {
@@ -24,7 +41,8 @@ export const initialV2State: StockListV2State = {
     supportedPairsListV2: [],
     formModeV2: FormMode.CREATE,
     showFormV2: false,
-    formDataV2: {name: '', baseline: '', symbols: []}
+    formDataV2: {name: '', baseline: '', symbols: []},
+    dataSourceMode: DataSourceMode.LEGACY,
 }
 
 export function withStockListV2Feature() {
@@ -59,6 +77,23 @@ export function withStockListV2Feature() {
 
         })),
 
+        // ================================================================
+        // DEV-only methods block for Archive Read Toggle
+        // Keep separate from other methods to avoid same-block references
+        // ================================================================
+        withMethods((store) => ({
+            /**
+             * DEV-only UI toggle setter: select which pipeline to use for heatmap reads.
+             * - LEGACY: reads from pairs-data/{PAIR}.data (unchanged behavior)
+             * - ARCHIVE: reads from archive shards pairs-data/{PAIR}/archive-YYYY/{YYMMDD}
+             */
+            setDataSourceModeV2(mode: DataSourceMode) {
+                patchState(store, { dataSourceMode: mode ?? DataSourceMode.LEGACY });
+            },
+            /** Getter for current data source mode (DEV-only). */
+            getDataSourceModeV2(): DataSourceMode { return store.dataSourceMode(); },
+        })),
+
         // STOCK LISTS
         withMethods((
             store,
@@ -76,14 +111,26 @@ export function withStockListV2Feature() {
             };
 
             const generateHeatmapDataV2 = async (pair: string): Promise<BaselineTargetRankDatum[]> => {
-                // Source of truth: pairs-data/{PAIR}. Map series to colored heatmap rows.
-                const series = await firstValueFrom(relStrDbService.getPairSeriesLive$(pair));
+                // Source of truth: selectable via DEV toggle (default Legacy)
+                const mode = store.dataSourceMode();
+                console.log('[V2] Heatmap fetch mode', mode, 'for pair', pair);
+                let series: Array<{ date: string; value: number; norm?: number; phase?: any }> = [];
+                if (mode === DataSourceMode.ARCHIVE) {
+                    /**
+                     * Archive Read Pipeline (DEV):
+                     * Uses RelStrDbV2Service.getPairSeriesFromArchive$ to read archive shards.
+                     */
+                    series = await firstValueFrom(relStrDbV2Service.getPairSeriesFromArchive$(pair));
+                } else {
+                    // Legacy pipeline (pairs-data/{PAIR}.data)
+                    series = await firstValueFrom(relStrDbV2Service.getPairSeriesLive$(pair));
+                }
                 // DEBUG: surface what we received from Firestore
                 // eslint-disable-next-line no-console
-                console.debug('[V2] pair series', pair, 'len=', series?.length ?? 0, 'first=', series?.[0]);
+                console.log('[V2] pair series', pair, 'len=', series?.length ?? 0, 'first=', series?.[0]);
                 if (!Array.isArray(series) || series.length === 0) {
                     // eslint-disable-next-line no-console
-                    console.debug('[V2] no series data for pair; check doc path pairs-data/', pair);
+                    console.log('[V2] no series data for pair; check doc path pairs-data/', pair);
                     return [];
                 }
                 const colors = rsCalcsStore.heatmapColors();
@@ -130,11 +177,15 @@ export function withStockListV2Feature() {
                 return out;
             };
 
-            const resolveExistingRanksDataV2 = async (list: RelStrStockList): Promise<RelStrStockList> => {
+            const resolveExistingRanksDataV2 = async (list: RelStrStockList, force = false): Promise<RelStrStockList> => {
                 const pairs = getPairsForList(list);
                 const existingPairs = !!list.ranksDataWithColors ? Object.keys(list.ranksDataWithColors) : [];
                 const pairsToFetch: string[] = [];
-                for (const pair of pairs) if (!existingPairs.includes(pair)) pairsToFetch.push(pair);
+                if (force) {
+                    pairsToFetch.push(...pairs);
+                } else {
+                    for (const pair of pairs) if (!existingPairs.includes(pair)) pairsToFetch.push(pair);
+                }
                 if (list.ranksDataWithColors === undefined || pairsToFetch.length) {
                     const ranksData = await getHeatmapDataV2(pairsToFetch);
                     const updatedRanksData = list.ranksDataWithColors !== undefined
@@ -244,7 +295,7 @@ export function withStockListV2Feature() {
 
                 async generateHeatmapDataV2(pair: string): Promise<BaselineTargetRankDatum[]> { return generateHeatmapDataV2(pair); },
                 async getHeatmapDataV2(pairs: string[]): Promise<RanksDataWithColors> { return getHeatmapDataV2(pairs); },
-                async resolveExistingRanksDataV2(list: RelStrStockList): Promise<RelStrStockList> { return resolveExistingRanksDataV2(list); },
+                async resolveExistingRanksDataV2(list: RelStrStockList, force = false): Promise<RelStrStockList> { return resolveExistingRanksDataV2(list, force); },
                 sortListsV2(targetList: RelStrStockList, allStockListsV2: RelStrStockList[]) { return sortListsV2(targetList, allStockListsV2); },
 
                 async initializeListV2(list: RelStrStockList) {
@@ -284,8 +335,17 @@ export function withStockListV2Feature() {
                 },
 
                 // RANKS DATA
-                getRanksDataForPairV2(pair: string) { return relStrDbService.getRanksData(pair); },
-                saveRanksDataV2(pair: string, data: RanksByDate) { relStrDbService.setRanksData(pair, data); },
+                getRanksDataForPairV2(pair: string) { return relStrDbV2Service.getRanksData(pair); },
+                saveRanksDataV2(pair: string, data: RanksByDate) { relStrDbV2Service.setRanksData(pair, data); },
+
+                /** Force-refresh the current list heatmap under the current data source mode (DEV-only). */
+                async refreshHeatmapForSelectedListV2() {
+                    const current = store.selectedStockListV2();
+                    if (!current?.name) return;
+                    const updated = await resolveExistingRanksDataV2({ ...current }, true /* force */);
+                    const allStockListsV2 = sortListsV2(updated, [...store.allStockListsV2()]);
+                    patchState(store, { allStockListsV2, selectedStockListV2: updated });
+                },
             };
         }),
 

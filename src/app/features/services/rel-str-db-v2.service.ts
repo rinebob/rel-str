@@ -1,5 +1,5 @@
 import { EnvironmentInjector, inject, Injectable, runInInjectionContext } from '@angular/core';
-import type { BaselineTargetRankDatum, ListAction, RanksByDate, RelStrStockList, StockDatum, Company } from '../shared/types/rs.interfaces';
+import type { Company, RanksByDate, RelStrStockList, RsSeriesPoint } from '../shared/types/rs.interfaces';
 import { RsPhase } from '../shared/types/rs.interfaces';
 import {
   collection,
@@ -14,11 +14,13 @@ import {
   docData,
   collectionData,
   Firestore,
+  limit,
+  startAfter,
 } from '@angular/fire/firestore';
 import { Observable, map, from, tap, catchError, firstValueFrom, of } from 'rxjs';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { Auth } from '@angular/fire/auth';
-import { CallableName, Collection, userListsPath } from '../../core/common/constants';
+import { CallableName, Collection, userListsPath, pairArchiveCollectionPath } from '../../core/common/constants';
 import { GetTrackedSymbolsResponse } from '../../core/models/partner.types';
 
 @Injectable({ providedIn: 'root' })
@@ -113,7 +115,7 @@ export class RelStrDbV2Service {
         name: String((d.data() as any)?.name || d.id || '').trim(),
         baseline: String((d.data() as any)?.baseline || '').toUpperCase(),
         symbols: Array.isArray((d.data() as any)?.symbols)
-          ? (d.data() as any).symbols.map((s: any) => ({ symbol: String(s?.symbol || '').toUpperCase(), company: String(s?.company || s?.symbol || '').trim() }))
+          ? (d.data() as any).symbols.map((s: any) => ({ symbol: String(s?.symbol || '').toUpperCase(), company: String(s?.company || s?.symbol || '').trim() }) as Company)
           : [],
         ranksDataWithColors: (d.data() as any)?.ranksDataWithColors ?? undefined,
       }) as RelStrStockList)),
@@ -181,6 +183,7 @@ export class RelStrDbV2Service {
   // - Consider debouncing/throttling if write frequency is high.
   getPairSeriesLive$(pairId: string): Observable<Array<{ date: string; value: number; norm?: number; phase?: RsPhase }>> {
     return from(this.inCtx(() => getDoc(doc(this.firestore, `${Collection.PAIRS_DATA}/${pairId}`)))).pipe(
+      tap(() => console.log('[RS][Legacy] Fetching series for pair', pairId)),
       map(snap => {
         const data = (snap?.exists() ? (snap.data() as any) : {}) || {};
         const series: any[] = Array.isArray(data?.data) ? data.data : [];
@@ -194,6 +197,7 @@ export class RelStrDbV2Service {
           const postRsNorm = row?.post?.rsNorm; // optional: backend may write a normalized value separately
           const preRsVal = row?.pre?.rs;
           const preRsRaw = row?.pre?.rsRaw;
+          const preRsNorm = row?.pre?.rsNorm;
           if (Number.isFinite(postRsVal)) {
             // Display prefers raw if present; color prefers normalized if present
             const value = Number.isFinite(postRsRaw) ? Number(postRsRaw) : Number(postRsVal);
@@ -201,7 +205,6 @@ export class RelStrDbV2Service {
             out.push({ date: day, value, norm, phase: RsPhase.POST });
           } else if (latestDay && day === latestDay && Number.isFinite(preRsVal)) {
             // Only allow pre for the latest day when post is not yet available
-            const preRsNorm = row?.pre?.rsNorm;
             const value = Number.isFinite(preRsRaw) ? Number(preRsRaw) : Number(preRsVal);
             const norm = Number.isFinite(preRsNorm) ? Number(preRsNorm) : Number(preRsVal);
             out.push({ date: day, value, norm, phase: RsPhase.PRE });
@@ -213,6 +216,7 @@ export class RelStrDbV2Service {
         out.sort((a, b) => a.date.localeCompare(b.date));
         return out;
       }),
+      tap(arr => console.log('[RS][Legacy] Series ready', { pair: pairId, len: arr.length, first: arr[0] })),
       catchError(err => { console.error('[RelStrDbV2Service] getPairSeriesLive$ error', { pairId, err }); return of([] as Array<{ date: string; value: number; norm?: number; phase?: RsPhase }>) })
     );
   }

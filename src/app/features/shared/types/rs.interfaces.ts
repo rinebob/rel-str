@@ -104,6 +104,17 @@ export const RsPhase = {
 } as const;
 export type RsPhase = typeof RsPhase[keyof typeof RsPhase];
 
+/**
+ * Canonical FE series point for RS values produced by archive/legacy readers.
+ * UI color/index are applied later in the store; keep this minimal here.
+ */
+export interface RsSeriesPoint {
+    date: string;
+    value: number;
+    norm?: number;
+    phase?: RsPhase;
+}
+
 export interface BaselineTargetRankDatum {
     date: string;
     value: number;
