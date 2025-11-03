@@ -13,6 +13,18 @@ service cloud.firestore {
     match /pairs-data/{pairId} {
       allow read: if request.auth != null;
       allow write: if false;
+
+      // Archive: year-sharded per-day docs under dynamic collections archive-YYYY
+      match /{archiveCol}/{docId} {
+        allow read: if request.auth != null && archiveCol.matches('^archive-\\d{4}$');
+        allow write: if false; // backend-only writes via functions
+      }
+    }
+
+    // RS warning events persisted by backend for UI visibility
+    match /rs-warnings/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false; // backend-only writes via functions
     }
 
     // Authenticated user profile root: allow user to read/write only their own doc
