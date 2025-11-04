@@ -237,10 +237,14 @@ export class RelStrDbV2Service {
 
     const today = new Date();
     const todayYMD = fmtYMD(today);
-    const years = [today.getUTCFullYear(), today.getUTCFullYear() - 1];
+    // Fetch all archive shards from START_ARCHIVE_YEAR through current year
+    const START_ARCHIVE_YEAR = 2019;
+    const currentYear = today.getUTCFullYear();
+    const years = Array.from({ length: currentYear - START_ARCHIVE_YEAR + 1 }, (_, i) => START_ARCHIVE_YEAR + i);
 
     return from(this.inCtx(async () => {
       const results: Array<{ date: string; value: number; norm?: number; phase?: RsPhase }> = [];
+      let hadPermissionError = false;
       for (const y of years) {
         try {
           const colRef = collection(this.firestore, `${Collection.PAIRS_DATA}/${pair}/archive-${y}`);
@@ -279,7 +283,7 @@ export class RelStrDbV2Service {
                 const preRsVal = Number(pre.rs);
                 const preRsRaw = Number.isFinite(pre?.rsRaw) ? Number(pre.rsRaw) : undefined;
                 const preRsNorm = Number.isFinite(pre?.rsNorm) ? Number(pre.rsNorm) : undefined;
-                value = Number.isFinite(preRsRaw) ? preRsRaw : preRsVal;
+                value = Number.isFinite(preRsRaw) ? Number(preRsRaw) : preRsVal;
                 norm = Number.isFinite(preRsNorm) ? Number(preRsNorm) : preRsVal;
                 phase = RsPhase.PRE;
               } else {
@@ -288,16 +292,37 @@ export class RelStrDbV2Service {
             }
             results.push({ date: dateYMD, value: value!, norm, phase });
           }
-        } catch (e) {
+        } catch (e: any) {
+          const code = e?.code || '';
+          const msg = e?.message || '';
+          if (code === 'permission-denied' || /insufficient permissions/i.test(msg)) {
+            hadPermissionError = true;
+          }
           console.warn('[RelStrDbV2Service] archive read failed for year', { pair, year: y, e });
         }
       }
       const byDate = new Map<string, { date: string; value: number; norm?: number; phase?: RsPhase }>();
       for (const row of results) byDate.set(row.date, row);
-      return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
+      const merged = Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
+      if (merged.length === 0 && hadPermissionError) {
+        // Signal outer catchError to fallback to legacy
+        const err: any = new Error('permission-denied');
+        err.code = 'permission-denied';
+        throw err;
+      }
+      return merged;
     })).pipe(
       tap(arr => console.log('[RS][Archive] Series ready', { pair, len: arr.length, first: arr[0] })),
-      catchError(err => { console.error('[RelStrDbV2Service] getPairSeriesFromArchive$ error', { pair, err }); return of([] as Array<{ date: string; value: number; norm?: number; phase?: RsPhase }>) })
+      catchError(err => {
+        const code = (err as any)?.code || '';
+        const msg = (err as any)?.message || '';
+        if (code === 'permission-denied' || /insufficient permissions/i.test(msg)) {
+          console.warn('[RelStrDbV2Service] falling back to legacy series due to archive permission error', { pair });
+          return this.getPairSeriesLive$(pair);
+        }
+        console.error('[RelStrDbV2Service] getPairSeriesFromArchive$ error', { pair, err });
+        return of([] as Array<{ date: string; value: number; norm?: number; phase?: RsPhase }>);
+      })
     );
   }
 
