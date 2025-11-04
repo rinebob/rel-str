@@ -27,7 +27,7 @@ This backend runs on Firebase/Google Cloud and focuses on computing and serving 
   * For each pair in `pairRegistry`, compute pre-close and post-close RS.
   * Write/update combined per-day RS doc under `pairs/{BASE}_{SYMBOL}/rs/{t}` with `{ pre?, post? }`.
   * Update `pairs/{PAIR}.latest` and optionally maintain `latest30` rolling window.
-  * For pairs where canonical signals are desired (e.g., baseline included in `appConfig.activeBaselines`), generate buy/sell signals using `appConfig.defaultThresholds` and write to `pairs/{PAIR}/signals` + update `signalsSummary`.
+  * For pairs where canonical signals are desired (e.g., baseline included in `appConfig.activeBaselines`), generate buy/sell signals using `appConfig.defaultThresholds` and write to `pairs/{PAIR}/signals` (see RsSignalHistory) + update daily summaries.
 
 * **On-demand RS for Non-Registered or Ad-hoc Baselines:**
   * For ad-hoc requests, compute RS transiently (no Firestore writes) and optionally hydrate a short-lived cache `rs-cache` to accelerate repeats.
@@ -122,10 +122,10 @@ This backend runs on Firebase/Google Cloud and focuses on computing and serving 
    - Compute RS rank with a 5-day rolling window.
    - Persist to Firestore under the correct phase branch (`pre` or `post`).
 3) Update metrics and `seriesUpdatedAt`.
-
-Notes:
-- Identity: default SA `rel-str-partner-caller-prod@rel-str.iam.gserviceaccount.com`.
-- Audience: `PARTNER_AUDIENCE` (prod URL by default). Use `getIdTokenClient` without OAuth scopes.
+4) RsSignalHistory processing:
+   - Historical backfill uses POST-only series and emits canonical signals under `pairs-data/{PAIR}/signals/*` with `positionId = {PAIR}_{YYYYMMDD}_{DOW}_{direction}`; idempotent upsert.
+   - Realtime (PRE-only) evaluates close→open→hold in that order, updates the same position document on close, and appends to `pairs-data/{PAIR}/signalsDaily/{YYYY-MM-DD}` with `newOpens`, `holds`, `newCloses`, maintaining `appPnLSummary` and `cumulativePnL`.
+   - App PnL (`appPnl`) is computed from app-derived prices and stored on the position; user Actual PnL is stored under `users/{uid}/trades/{positionId}` and is never written by backend.
 
 ### RS Calculation (Canonical)
 
@@ -192,3 +192,21 @@ Notes:
   - `TrackedSymbolDTO`, `GetTrackedSymbolsResponse`, `PartnerEndpointPath`
 - App Check note:
   - Firebase callable verification logs include `verifications.app` and `verifications.auth`. `app` may be `MISSING` in dev if App Check isn’t initialized/enforced; this is expected unless enforcement is enabled.
+
+## 12. RsSignalHistory Callables
+
+- `GetPairSignals({ baseline, symbol, limit?, source?, type? })`
+  - Returns canonical signals from `pairs-data/{PAIR}/signals/*`.
+- `GetDailySignals({ day?, fromDay?, toDay?, limitDays?, all? })`
+  - Returns aggregated daily lists from `signalsDaily/*` or a root mirror if present.
+- `GetPnLSummary({ from, to, type:'app'|'actual', uid? })`
+  - Returns App PnL (backend summaries) or Actual PnL (per-user overlays).
+- `GetPositionWithActuals({ positionId, uid? })` and `GetPairSignalsWithActuals({ baseline, symbol, uid?, limit?, fromDay?, toDay? })`
+  - Return merged canonical positions with user overlays when provided.
+- `UpdatePositionActuals({ positionId, executed, openedPrice?, closedPrice?, openedTime?, closedTime?, noteOpen?, noteClose? })`
+  - Auth-required; upserts `users/{uid}/trades/{positionId}`.
+
+## 13. Identity & Integration Notes (RsSignalHistory)
+
+- Functions run under `rel-str-partner-caller-prod@rel-str.iam.gserviceaccount.com` (configurable via `PARTNER_CALLER_SA`).
+- We consume SavantAPI; subscribe to `partner-data-ready` Pub/Sub; no inbound partner webhooks in FE.

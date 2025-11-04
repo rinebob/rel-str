@@ -131,3 +131,83 @@ The guide covers:
 - Environment variables for the emulator session
 - Starting emulators and verifying endpoints
 - How our Functions mint ID tokens with the email claim via IAM Credentials
+
+## Prod Backfill (pairs-data archive) — 2019 to Today
+
+Use the admin HTTP endpoint `recomputeRegisteredBackfill` to recompute and write RS POST history for all registered pairs. This writes both the unified `pairs-data/{PAIR}` mirror and yearly archive shards `pairs-data/{PAIR}/archive-YYYY/{YYMMDD}`.
+
+- Endpoint: `https://us-central1-rel-str.cloudfunctions.net/recomputeRegisteredBackfill`
+- Auth: Bearer `ADMIN_BACKFILL_TOKEN` (set as a Functions environment variable)
+- Recommended strategy: Run per-year chunks with a small delay between pairs to avoid throttling.
+
+Parameters
+- `phase`: `post` (historical backfill uses POST-only)
+- `from`, `to`: inclusive date range `YYYY-MM-DD`
+- `concurrency`: number of pairs processed in parallel (start with 3–5)
+- `delayMsBetweenPairs`: millisecond delay between pairs (e.g., 1500–5000ms)
+- `missingOnly`: set `true` for a gap-fill pass; otherwise `false` to rebuild
+
+PowerShell (Windows)
+```powershell
+$BASE_URL = "https://us-central1-rel-str.cloudfunctions.net/recomputeRegisteredBackfill"
+$TOKEN    = "local-admin"   # must match the deployed ADMIN_BACKFILL_TOKEN
+$HEADERS  = @{ "Authorization" = "Bearer $TOKEN"; "Content-Type" = "application/json" }
+
+$startYear = 2019
+$endYear = [int](Get-Date -Format 'yyyy')
+foreach ($y in $startYear..$endYear) {
+  $from = "{0}-01-01" -f $y
+  $to = if ($y -eq $endYear) { (Get-Date -Format 'yyyy-MM-dd') } else { "{0}-12-31" -f $y }
+
+  $body = @{
+    phase = "post"
+    from = $from
+    to = $to
+    concurrency = 3
+    delayMsBetweenPairs = 2000   # 2s delay between pairs
+    limit = 5000                 # ignored when from/to provided
+    days = 0                     # ignored when from/to provided
+    missingOnly = $false
+  } | ConvertTo-Json
+
+  Write-Host "Backfill $from .. $to"
+  Invoke-RestMethod -Uri $BASE_URL -Method Post -Headers $HEADERS -Body $body
+  Start-Sleep -Seconds 5         # brief pause between years
+}
+```
+
+curl (bash)
+```bash
+BASE_URL="https://us-central1-rel-str.cloudfunctions.net/recomputeRegisteredBackfill"
+HDR_AUTH="Authorization: Bearer local-admin"
+HDR_CT="Content-Type: application/json"
+
+for YEAR in 2019 2020 2021 2022 2023 2024 2025; do
+  FROM="${YEAR}-01-01"
+  TO="${YEAR}-12-31"
+  if [ "$YEAR" = "$(date +%Y)" ]; then TO="$(date +%F)"; fi
+
+  DATA=$(cat <<JSON
+{
+  "phase": "post",
+  "from": "$FROM",
+  "to": "$TO",
+  "concurrency": 3,
+  "delayMsBetweenPairs": 2000,
+  "limit": 5000,
+  "days": 0,
+  "missingOnly": false
+}
+JSON
+)
+  echo "Backfill $FROM .. $TO"
+  curl -sS -X POST "$BASE_URL" -H "$HDR_AUTH" -H "$HDR_CT" -d "$DATA"
+  sleep 5
+done
+```
+
+Notes
+- Ensure Functions env var `ADMIN_BACKFILL_TOKEN` is set; calls without the correct bearer token return 401.
+- Backfill writes both mirrors and archive shards. FE Archive mode reads from `archive-YYYY` collections.
+- If you re-run backfill as a gap-fill, set `missingOnly: true`.
+- You can adjust `concurrency` and `delayMsBetweenPairs` to match upstream and Firestore throughput.

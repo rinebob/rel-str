@@ -193,6 +193,50 @@ Phase entries:
 
 Retention: capped to `meta.window` most recent days (default 30).
 
+### pairs-data/{BASELINE}-{TARGET}
+Canonical RS store (unchanged). FE reads `latest` for ranking and `data[]` for series.
+
+#### signals (subcollection) — RsSignalHistory positions
+- Path: `pairs-data/{PAIR}/signals/{positionId}` with `positionId = {PAIR}_{YYYYMMDD}_{DOW}_{direction}`
+- Fields (summary; see `RS_SIGNAL_HISTORY.md` for full spec):
+  - `pair, baseline, symbol, direction, positionId`
+  - `opened { day, t, source, price, basePrice, rsYesterday, rsToday }`
+  - `closed? { day, t, source, price, basePrice, rsYesterday, rsToday, change, pctChange }`
+  - `appPnl? { openedPrice, closedPrice?, change?, pctChange?, sourceOpen, sourceClose? }`
+  - `status, createdAt, updatedAt`
+
+#### signalsDaily (subcollection)
+- Path: `pairs-data/{PAIR}/signalsDaily/{YYYY-MM-DD}`
+- Fields:
+  - `newOpens: Array<{ positionId, direction }>`
+  - `holds: Array<{ positionId, direction }>`
+  - `newCloses: Array<{ positionId, direction, change, pctChange }>`
+  - `pnlSummary? { long:{count,sum,sumPct}, short:{...}, total:{...} }`
+  - `appPnLSummary? { long:{count,sum,sumPct}, short:{...}, total:{...} }`
+  - `cumulativePnL? { long:{count,sum,sumPct}, short:{...}, total:{...} }`
+  - `updatedAt`
+
+#### Per-user overlays (Actuals)
+- Path: `users/{uid}/trades/{positionId}` (matches canonical `positionId`)
+- Fields:
+  - `executed: boolean`
+  - `opened? { price?, day?, dow?, t?, note? }`
+  - `closed? { price?, day?, dow?, t?, note? }`
+  - `actualPnl? { openedPrice?, closedPrice?, openedDay?, closedDay?, change?, pctChange? }`
+  - `appSnapshot? { openedPrice?, closedPrice?, sourceOpen?, sourceClose?, takenAt? }`
+  - `updatedAt`
+
+Optional per-user aggregates:
+- Path: `users/{uid}/pnlDaily/{YYYY-MM-DD}` with `actualPnLSummary?`
+
+#### Indexes
+- Collection group `signals`: by `opened.day desc`, `closed.day desc`, and filters on `status/baseline/symbol/direction`
+- Collection group `signalsDaily`: by `day`, composite `(pair, day)` if needed
+- Per-user overlays: direct doc lookups by `users/{uid}/trades/{positionId}`; optional per-user daily composite `(uid, day)` if building dashboards
+
+#### Deprecation alignment
+- Prefer archive shards for long history; retain `latest` and small mirrors for fast reads. `data[]` may be deprecated over time (see `RS_SIGNAL_HISTORY.md`).
+
 ## 4. Indexing
 
 Define indexes for efficient queries on series and signals:

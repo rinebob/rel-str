@@ -11,7 +11,7 @@ This document outlines the primary user journeys and interaction flows for the M
 3.  Logged-in User Views Heatmap
 4.  User Manages Stock List
 5.  User Views Ticker Chart
-6.  User Views Signal History
+6.  User Views Signal History (with Actuals)
 7.  User Selects Sector Baseline (Dashboard Dropdown)
 8.  User Compares Sector Strength (Dashboard Button)
 9.  User Views Current Signals (Dashboard Button)
@@ -118,19 +118,21 @@ Below are the main steps a user takes and the expected system responses for each
     18. The user can view the last 30 days of data for the ticker by clicking on the ticker symbol.
     19. The chart will display real-time updates for the latest RS writes.
 
-* **User Views Signal History:** Describes how a user reviews buy/sell signals for a baseline–symbol pair.
-    1. From the heatmap row actions (or from the chart view), the user clicks "History" to open the Signal History view/panel for the current baseline–symbol pair.
-    2. The frontend requests recent signals for the pair:
-        * Default: last 30 signals (most recent first) via a Firestore query on `pairs/{BASE}_{SYMBOL}/signals` ordered by `t desc`.
-        * Optional filters: by `type` (`buy`/`sell`), by date range, or by source (`pre`/`post`).
-    3. The Signal History view displays a list/table of signals with:
-        * Timestamp, type (buy/sell), RS value at event, and source (pre/post).
-        * Optional badges indicating canonical (active baseline) vs transient thresholds.
-    4. For each signal, the user can click "Open in Chart" which navigates to `rs-chart` anchored around that signal date (e.g., +/- N days) and highlights the corresponding candle/marker.
-    5. The user can adjust filters (type/date/source) and the list updates accordingly. If no signals are present for the chosen filters, the view shows an empty-state message.
-    6. Performance notes:
-        * Use pagination or infinite scroll if more than 30 signals.
-        * Collection-group queries for broad feeds are possible later, but MVP focuses on the single-pair history.
+* **User Views Signal History (with Actuals):** Describes how a user reviews buy/sell signals for a baseline–symbol pair and optionally records their actual fills.
+   1. From the heatmap row actions (or from the chart view), the user clicks "History" to open the Signal History view/panel for the current baseline–symbol pair.
+   2. The frontend requests recent signals for the pair:
+       * Default: last 30 signals (most recent first) via a Firestore query on `pairs/{BASE}_{SYMBOL}/signals` ordered by `t desc`.
+       * Optional filters: by `type` (`buy`/`sell`), by date range, or by source (`pre`/`post`).
+   3. The Signal History view displays a list/table of signals with:
+       * Timestamp, type (buy/sell), RS value at event, and source (pre/post).
+       * Optional badges indicating canonical (active baseline) vs transient thresholds.
+   4. If authenticated, the panel shows Actuals inputs:
+       * Executed toggle.
+       * Open/Close price inputs; date pickers (YYYY-MM-DD); optional time inputs; notes.
+       * On save, upserts `users/{uid}/trades/{positionId}` and recomputes per-user `actualPnl`.
+       * Toggle between App PnL (from canonical) and Actual PnL (from user overlay). Show hints when Actuals are incomplete.
+   5. For each signal, the user can click "Open in Chart" which navigates to `rs-chart` anchored around that signal date (e.g., +/- N days) and highlights the corresponding candle/marker.
+   6. The user can adjust filters (type/date/source) and the list updates accordingly. If no signals are present for the chosen filters, the view shows an empty-state message.
 
 * **User Selects Sector Baseline (Dashboard Dropdown):** Describes how a user pivots the heatmap to a sector ETF baseline and its constituents.
   1. The dashboard displays a Sector dropdown (SPDR family + SPY). Example options:
