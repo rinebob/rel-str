@@ -81,6 +81,7 @@
 - [ ] README updates (setup/run/test, env/secrets, emulator usage)
 - [ ] Update `/docs` sections completed (schema RS-only, backend registry, API callables, frontend rs-chart, signal history)
 - [ ] Add link to `docs/partner/savantapi-data-ready-webhook.md` and document webhook/Pub-Sub flow in planning (6_API_COMMUNICATION.md already contains high-level section)
+- [x] 2025-11-04: Update planning docs to reflect as-built RsSignalHistory (functions, schema, pairs from pair-registry only; opened.openPrice/closed.closePrice; trades human-readable fields; analytics summary fields; signals-daily naming).
 
 ---
 ## Discovered During Work
@@ -150,3 +151,4 @@
 - Centralize all webhooks constants/types into `functions/src/webhooks/webhooks-config.ts`.
 - Move registry callables and seeding into `functions/src/webhooks/registry-actions.ts`.
 - Document full RS pipeline and Firestore schemas in `docs/partner/partner-webhooks.md` and planning docs.
+- 2025-11-04: Rename fields and collections in planning to match implementation: `opened.price -> opened.openPrice`, `closed.price -> closed.closePrice`, `signalsDaily -> signals-daily`. Backfill pairs enumerated from `pair-registry` only; admin-protected HTTP.

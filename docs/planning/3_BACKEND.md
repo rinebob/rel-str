@@ -19,21 +19,20 @@ This backend runs on Firebase/Google Cloud and focuses on computing and serving 
 ## 3. Core Features (MVP)
 
 * **Pair Registry (Source of Truth):**
-  * `pairRegistry/{BASE}_{SYMBOL}` documents represent the set of pairs to maintain.
+  * `pair-registry/{BASE}-{SYMBOL}` documents represent the set of pairs to maintain.
   * Populated/updated via callables invoked by the UI (e.g., `SelectStockPanel`) when users create or modify pair lists.
   * The scheduler reads the registry to know which pairs to compute each run.
 
 * **RS Computation (Scheduled):**
-  * For each pair in `pairRegistry`, compute pre-close and post-close RS.
-  * Write/update combined per-day RS doc under `pairs/{BASE}_{SYMBOL}/rs/{t}` with `{ pre?, post? }`.
-  * Update `pairs/{PAIR}.latest` and optionally maintain `latest30` rolling window.
-  * For pairs where canonical signals are desired (e.g., baseline included in `appConfig.activeBaselines`), generate buy/sell signals using `appConfig.defaultThresholds` and write to `pairs/{PAIR}/signals` (see RsSignalHistory) + update daily summaries.
+  * For each pair in `pair-registry`, compute pre-close and post-close RS.
+  * Write per-day archive docs under `pairs-data/{BASE}-{SYMBOL}/archive-YYYY/{YYMMDD}` (e.g., `/pairs-data/QQQ-AAPL/archive-2024/241004`) including `pre?` and `post?` blocks.
+  * Update `pairs-data/{PAIR}.latest`.
 
 * **On-demand RS for Non-Registered or Ad-hoc Baselines:**
   * For ad-hoc requests, compute RS transiently (no Firestore writes) and optionally hydrate a short-lived cache `rs-cache` to accelerate repeats.
 
 * **User Data Provisioning (Callables):**
-  * `GetHeatmapData`: Given a baseline and symbol list, batch-read `pairs/{BASE}_{SYMBOL}.latest` (and optionally `latest30`).
+  * `GetHeatmapData`: Given a baseline and symbol list, batch-read `pairs-data/{BASE}-{SYMBOL}.latest`.
   * `GetPairRSData`: Given `(base, symbol, from, to, thresholds?)`, return RS series and transient signals (if thresholds given); fetch OHLCV from SavantAPI on-demand for charting.
   * `QueryPairsByThreshold`: Server-side filter pairs by `latest.post.rs` (or `pre`) with rate limiting.
   * `GetAppSchedule`: Expose `nextScheduledFetch`, `rsLookbackDays`, and `activeBaselines`.
@@ -41,19 +40,20 @@ This backend runs on Firebase/Google Cloud and focuses on computing and serving 
   * `GetSectorConstituents`: Return the latest constituents for a given sector ETF (e.g., XLF, XLK, XLY). Source can be a cached Firestore collection (`sectors`) or partner API; callable normalizes and returns `{ baseline: string, members: string[], updatedAt: number }`.
 
 * **Pair List Management (Callables):**
-  * `RegisterPairs({ listId, baseline, symbols[] })`: Upserts `pairRegistry/{BASE}_{SYMBOL}` for each symbol; increments reference counters if tracked.
+  * `RegisterPairs({ listId, baseline, symbols[] })`: Upserts `pair-registry/{BASE}-{SYMBOL}` for each symbol; increments reference counters if tracked.
   * `UnregisterPairs({ listId, baseline, symbols[] })`: Decrements counters and prunes registry entries with zero references.
   * Notes: This supports a many-users-to-one-pair model. Actual per-user lists can be persisted later; MVP can operate with anonymous list ids if user accounts are deferred.
 
 * **Admin (Restricted):**
   * `TriggerScheduledRun`: Manually trigger RS computation across the current registry.
   * `UpdateBaselineSet`: Update `activeBaselines` in `appConfig`.
+  * `backfillSignalsHistory`: Admin-protected HTTP function to compute post-close RS signals for days in `[from,to]` for all pairs enumerated from `pair-registry`. Auth via `Authorization: Bearer local-admin`.
 
 ## 4. Architecture & Structure
 
 * **Serverless First:** Event-driven/scheduled compute via Cloud Functions.
-* **Pair-Centric Storage:** RS series and signals are stored at `pairs/{BASE}_{SYMBOL}` with subcollections `rs` and `signals`. No OHLCV persisted.
-* **Registry-driven Compute:** Scheduler queries `pairRegistry` to enumerate pairs for the current run; avoids meaningless baseline–symbol combinations.
+* **Pair-Centric Storage:** RS series and signals are stored at `pairs-data/{BASE}-{SYMBOL}` with subcollections including `signals` and `signals-daily`. No OHLCV persisted.
+* **Registry-driven Compute:** Scheduler queries `pair-registry` to enumerate pairs for the current run; avoids meaningless baseline–symbol combinations.
 * **External API Integration:** Only backend calls SavantAPI; Angular never calls partner endpoints directly.
 * **Error Handling & Logging:** Robust error handling with Cloud Logging and retries for transient upstream issues.
 * **Native-first:** Prefer native TS/Node for performance/clarity.
@@ -88,9 +88,8 @@ This backend runs on Firebase/Google Cloud and focuses on computing and serving 
 
 * **Data Model:**
   * Combined per-day RS documents hold both `pre` and `post` values: `{ t, pre?:{rs,at}, post?:{rs,at} }`.
-  * Optional `latest30` mirror for O(1) small reads of rolling window; otherwise query `orderBy t desc limit 30`.
   * Separate `signals` collection for easy feeds (`orderBy t`, filter by `type`).
-  * `pairRegistry` is the single source for which pairs are maintained by the scheduler; include fields like `{ baseline, symbol, createdAt, refCount }`.
+  * `pair-registry` is the single source for which pairs are maintained by the scheduler; include fields like `{ baseline, symbol, createdAt, refCount }`.
 * **Scheduling Reliability:**
   * Pre/post-close cadence. Update `appConfig.nextScheduledFetch` and monitor execution latency.
 * **Performance Optimization:**
@@ -108,7 +107,7 @@ This backend runs on Firebase/Google Cloud and focuses on computing and serving 
   - post-close: canonical EOD snapshot, used for historical analysis and backtests.
 - Trigger: Pub/Sub topic `partner-data-ready`, with attribute `phase: "pre" | "post"`.
 - Input Source: SavantAPI Partner Time Series (outbound HTTP GET with Google OIDC).
-- Output Destination: Firestore `pairs/{BASE}_{SYMBOL}` document, with separate branches for each phase (`pre` and `post`).
+- Output Destination: Firestore `pairs-data/{BASE}-{SYMBOL}` document, with separate branches for each phase (`pre` and `post`).
 
 ### Subscriber Flow (Cloud Functions v2)
 
@@ -124,7 +123,7 @@ This backend runs on Firebase/Google Cloud and focuses on computing and serving 
 3) Update metrics and `seriesUpdatedAt`.
 4) RsSignalHistory processing:
    - Historical backfill uses POST-only series and emits canonical signals under `pairs-data/{PAIR}/signals/*` with `positionId = {PAIR}_{YYYYMMDD}_{DOW}_{direction}`; idempotent upsert.
-   - Realtime (PRE-only) evaluates close→open→hold in that order, updates the same position document on close, and appends to `pairs-data/{PAIR}/signalsDaily/{YYYY-MM-DD}` with `newOpens`, `holds`, `newCloses`, maintaining `appPnLSummary` and `cumulativePnL`.
+   - Realtime (PRE-only) evaluates close→open→hold in that order, updates the same position document on close, and appends to `pairs-data/{PAIR}/signals-daily/{YYYY-MM-DD}` with `newOpens`, `holds`, `newCloses`, maintaining `appPnLSummary` and `cumulativePnL`.
    - App PnL (`appPnl`) is computed from app-derived prices and stored on the position; user Actual PnL is stored under `users/{uid}/trades/{positionId}` and is never written by backend.
 
 ### RS Calculation (Canonical)
@@ -138,9 +137,9 @@ This backend runs on Firebase/Google Cloud and focuses on computing and serving 
 - Edge cases:
   - If fewer than 5 aligned points: skip rank emission for that day.
 
-### Backfill
+### Backfill (admin)
 
-- Separate function to compute post-close RS for the last N days for all registered pairs.
+Admin-protected HTTP function `backfillSignalsHistory` computes post-close RS signals for days in `[from,to]` for all pairs enumerated from `pair-registry`. Auth via `Authorization: Bearer local-admin`.
 
 ### Error Handling & Idempotency
 
@@ -161,7 +160,7 @@ This backend runs on Firebase/Google Cloud and focuses on computing and serving 
 ## 9. Assumptions and Risks
 
 * **Assumptions:** A registry-driven approach aligns with product UX (baseline + selected symbols). `activeBaselines` governs canonical signal persistence. Angular consumes RS/signals via callables and Firestore reads only.
-* **Risks:** Registry churn (frequent pair add/removes) increases write ops; ensure idempotent callables and debounce UI submissions. Indexes must support common queries (latest, last-30, signals feeds).
+* **Risks:** Registry churn (frequent pair add/removes) increases write ops; ensure idempotent callables and debounce UI submissions. Indexes must support common queries (latest, signals feeds).
 
 ## 10. Recent Changes (2025-10-27)
 
@@ -198,7 +197,7 @@ This backend runs on Firebase/Google Cloud and focuses on computing and serving 
 - `GetPairSignals({ baseline, symbol, limit?, source?, type? })`
   - Returns canonical signals from `pairs-data/{PAIR}/signals/*`.
 - `GetDailySignals({ day?, fromDay?, toDay?, limitDays?, all? })`
-  - Returns aggregated daily lists from `signalsDaily/*` or a root mirror if present.
+  - Returns aggregated daily lists from `signals-daily/*` or a root mirror if present.
 - `GetPnLSummary({ from, to, type:'app'|'actual', uid? })`
   - Returns App PnL (backend summaries) or Actual PnL (per-user overlays).
 - `GetPositionWithActuals({ positionId, uid? })` and `GetPairSignalsWithActuals({ baseline, symbol, uid?, limit?, fromDay?, toDay? })`

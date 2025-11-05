@@ -12,6 +12,18 @@ RsSignalHistory is the core value feature of the app. It persists canonical open
 
 This document defines the thresholds, state machine, Firestore schema, processing workflows, APIs, and UI consumption patterns.
 
+## As-built deltas (2025-11-04)
+
+- Pair enumeration is sourced exclusively from `pair-registry/*`. Request-provided `pairs` are ignored for backfill.
+- Position price fields are standardized:
+  - `opened.openPrice` (was `opened.price`)
+  - `closed.closePrice` (was `closed.price`)
+- Daily rollups use kebab-case collection name `signals-daily` under each pair doc and an optional root mirror `signals-daily/` for cross-pair aggregation.
+- Trades and analytics are written at top level collections:
+  - `trades/{positionId}` with entry/exit timestamps and prices, plus human-readable `entryDay/exitDay` and `entryIso/exitIso`.
+  - `analytics/summary` maintains `{ totalNetPnL, totalTrades, totalWinningTrades, totalLosingTrades, avgNetPnL, lastUpdated }`.
+- Backfill is an admin-protected HTTP function, requires `Authorization: Bearer local-admin`, and processes only registry pairs over a requested day range.
+
 ## Thresholds and Semantics
 
 Default thresholds (configurable):
@@ -58,7 +70,7 @@ Pair-centric location (canonical RS lives under `pairs-data/{BASE}-{SYMBOL}`):
           day: string (YYYY-MM-DD, UTC),
           t: number (epoch ms),
           source: 'pre' | 'post',
-          price: number,          // target close (post.ac) or intraday (pre.ip)
+          openPrice: number,      // target close (post.target.price) or intraday (pre)
           basePrice: number,      // baseline corresponding price (for reference)
           rsYesterday: number,
           rsToday: number
@@ -67,12 +79,12 @@ Pair-centric location (canonical RS lives under `pairs-data/{BASE}-{SYMBOL}`):
           day: string,
           t: number,
           source: 'pre' | 'post',
-          price: number,          // closing target price
+          closePrice: number,     // closing target price
           basePrice: number,
           rsYesterday: number,
           rsToday: number,
-          change: number,         // close.price - opened.price (signed)
-          pctChange: number       // change / opened.price * 100 (signed)
+          change: number,         // closePrice - opened.openPrice (signed)
+          pctChange: number       // change / opened.openPrice * 100 (signed)
         }
       - appPnl?: {               // PnL computed from app-derived prices (per source policy)
           openedPrice: number,
@@ -89,7 +101,7 @@ Pair-centric location (canonical RS lives under `pairs-data/{BASE}-{SYMBOL}`):
       - createdAt: Timestamp
       - updatedAt: Timestamp
 
-- pairs-data/{PAIR}/signalsDaily (subcollection)
+- pairs-data/{PAIR}/signals-daily (subcollection)
   - {day} (YYYY-MM-DD)
     - newOpens: Array<{ positionId:string, direction:'long'|'short' }>
     - holds: Array<{ positionId:string, direction:'long'|'short' }>
@@ -109,7 +121,7 @@ Pair-centric location (canonical RS lives under `pairs-data/{BASE}-{SYMBOL}`):
 
 Indexes:
 - Collection group `signals`: `status`, `baseline`, `symbol`, `opened.day desc`, `closed.day desc`
-- Collection group `signalsDaily`: by `day`, and optionally composite `(baseline, day)` via a mirror if a cross-pair dashboard is needed
+- Collection group `signals-daily`: by `day`, and optionally composite `(baseline, day)` via a root mirror if a cross-pair dashboard is needed
 
 ## Data Sources for Prices
 
@@ -119,14 +131,15 @@ Indexes:
 
 ## Processing Workflows
 
-### Historical Backfill
+### Historical Backfill (admin)
 
-Input: existing POST RS series under `pairs-data/{PAIR}.data[]` or yearly archives.
+Input: existing POST RS series from per-year archives under `pairs-data/{PAIR}/archive-YYYY/*`.
 Process:
+- Enumerate pairs from `pair-registry/*` (ignore request `pairs`).
 - Iterate days in ascending order (POST only)
 - Maintain current position state per pair (flat/long/short)
 - For each day, evaluate close-then-open rules vs thresholds and write signals accordingly
-- For open/hold positions with no closing event, add to `signalsDaily/{day}.holds`
+- For open/hold positions with no closing event, add to `signals-daily/{day}.holds`
 - Compute PnL at close and update the same position document
 - Idempotency: re-running backfill should upsert by deterministic `positionId` (e.g., `{PAIR}_{YYYYMMDD}_{DOW}_{direction}`) and overwrite with consistent data
 
@@ -135,14 +148,14 @@ Process:
 Per `partner-data-ready` phase:
 - For each pair updated that day, load yesterday/ today RS (phase-aware selection rubric)
 - Apply close-then-open rules
-- If opening: create new position doc and append to `signalsDaily/{today}.newOpens`
-- If holding: append to `signalsDaily/{today}.holds`
-- If closing: update the existing position doc and append to `signalsDaily/{today}.newCloses`; compute app PnL using current source price (per source policy, PRE for realtime), update `appPnl` and `pnlSummary`
+- If opening: create new position doc and append to `signals-daily/{today}.newOpens`
+- If holding: append to `signals-daily/{today}.holds`
+- If closing: update the existing position doc and append to `signals-daily/{today}.newCloses`; compute app PnL using current source price (per source policy, PRE for realtime), update `appPnl` and `pnlSummary`
 - Update `cumulativePnL` running totals for the pair on the `{today}` document
 - Guarantee at-most-one open position per pair
 
 Notes on App vs Actual PnL
-- App PnL (aka RS PnL) is computed from app-derived prices and stored on the position doc as `appPnl` and summarized under `signalsDaily` (pair-scoped, backend-owned). This is immutable aside from normalizing when POST is used for historical closes.
+- App PnL (aka RS PnL) is computed from app-derived prices and stored on the position doc as `appPnl` and summarized under `signals-daily` (pair-scoped, backend-owned). This is immutable aside from normalizing when POST is used for historical closes.
 - Actual PnL reflects the user's own brokerage execution. We do not mutate app PnL when a user provides actuals; instead, user-confirmed values live under a per-user overlay (see below). UI can toggle between App PnL and Actual PnL views.
 
 ## User Actual Trades Overlay (Per-User)
@@ -203,7 +216,7 @@ Read patterns:
 
 Write patterns:
 - Backend writes only canonical signals and app PnL; never writes into `users/{uid}` overlays.
-- UI writes only the per-user overlay in `users/{uid}/trades/*` and recomputes `actualPnl` client-side; optional callable can persist per-user aggregates.
+- UI writes only the per-user overlay in `users/{uid}/trades/*` and recomputes `actualPnl` client-side; optional callable can persist per-user daily aggregates.
 
 Advantages:
 - No duplication of RS/app prices across users.
@@ -215,8 +228,26 @@ Advantages:
 Callables (sketch):
 - `GetPairSignals({ baseline, symbol, limit?:number, source?:'pre'|'post', type?:'open'|'close' })`
   - Returns recent position documents (flattened into events if requested)
-- `GetDailySignals({ day?:string, fromDay?:string, toDay?:string, limitDays?:number, all?:boolean })`
-  - Returns aggregated `newOpens`, `holds`, `newCloses` for a specific day, a range of days, or all available (bounded by limits); implementation may read per-pair `signalsDaily/{day}` and/or a root mirror for aggregation.
+- `GetDailySignals({ day?: string, fromDay?: string, toDay?: string, limitDays?: number })`
+  - Reads the root mirror 'signals-daily/{YYYY-MM-DD}' (no per-pair fan-out).
+  - Request semantics:
+    - day: return a single day (UTC).
+    - fromDay + toDay: inclusive range (UTC).
+    - limitDays: when no range is provided, return the last N days (UTC; default bounded by server, e.g., 30; UI may use 7).
+  - Response shape:
+    {
+      days: Array<{
+        day: string,
+        items: {
+          newOpens: Array<{ positionId: string; direction: 'long'|'short'; pair: string }>,
+          holds: Array<{ positionId: string; direction: 'long'|'short'; pair: string }>,
+          newCloses: Array<{ positionId: string; direction: 'long'|'short'; pair: string }>,
+        }
+      }>
+    }
+  - Notes:
+    - Day boundaries are UTC.
+    - The root mirror contains 'pair' on each entry when built via rebuildSignalsDailyMirrorImpl; the Decision Board requires 'pair' to group/sort.
 - `GetPnLSummary({ from, to, type:'app'|'actual', uid?:string })`
   - Returns PnL over a range grouped by direction and baseline. For `type:'app'`, reads backend summaries. For `type:'actual'`, requires `uid` and reads from `users/{uid}` overlays.
 - `UpdatePositionActuals({ positionId, executed:boolean, openedPrice?:number, closedPrice?:number, openedTime?:number, closedTime?:number, noteOpen?:string, noteClose?:string })`
@@ -225,6 +256,9 @@ Callables (sketch):
   - Returns a merged view of the canonical position (`pairs-data/{PAIR}/signals/{positionId}`) and, if `uid` provided and authenticated, the user overlay (`users/{uid}/trades/{positionId}`), including appPnl and actualPnl.
 - `GetPairSignalsWithActuals({ baseline, symbol, uid?:string, limit?:number, fromDay?:string, toDay?:string })`
   - Returns a list of merged positions for a pair (within optional range), attaching user overlays when available.
+
+Admin HTTP (secured):
+- `backfillSignalsHistory` — Body: `{ from, to, openLong, closeLong, openShort, closeShort, mirror, verbose, dryRun }`. Auth: `Authorization: Bearer local-admin`. Pairs are sourced from `pair-registry` only.
 
 ## UI Consumption
 

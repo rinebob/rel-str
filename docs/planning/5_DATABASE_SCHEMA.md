@@ -198,15 +198,47 @@ Canonical RS store (unchanged). FE reads `latest` for ranking and `data[]` for s
 
 #### signals (subcollection) — RsSignalHistory positions
 - Path: `pairs-data/{PAIR}/signals/{positionId}` with `positionId = {PAIR}_{YYYYMMDD}_{DOW}_{direction}`
-- Fields (summary; see `RS_SIGNAL_HISTORY.md` for full spec):
-  - `pair, baseline, symbol, direction, positionId`
-  - `opened { day, t, source, price, basePrice, rsYesterday, rsToday }`
-  - `closed? { day, t, source, price, basePrice, rsYesterday, rsToday, change, pctChange }`
-  - `appPnl? { openedPrice, closedPrice?, change?, pctChange?, sourceOpen, sourceClose? }`
-  - `status, createdAt, updatedAt`
+- Fields:
+  - `pair: string` — e.g., `QQQ-AAPL`
+  - `baseline: string` — e.g., `QQQ`
+  - `symbol: string` — e.g., `AAPL`
+  - `direction: 'long' | 'short'`
+  - `positionId: string` — `{PAIR}_{YYYYMMDD}_{DOW}_{direction}` (e.g., `QQQ-AAPL_20241126_Tue_long`)
+  - `opened: {`
+  - `  day: string` — YYYY-MM-DD (UTC)
+  - `  t: number` — epoch ms
+  - `  source: 'pre' | 'post'`
+  - `  openPrice: number` — target security price at open
+  - `  basePrice: number` — baseline price at open (for reference)
+  - `  rsYesterday: number`
+  - `  rsToday: number`
+  - `}`
+  - `closed?: {`
+  - `  day: string` — YYYY-MM-DD (UTC)
+  - `  t: number` — epoch ms
+  - `  source: 'pre' | 'post'`
+  - `  closePrice: number` — target security price at close
+  - `  basePrice: number` — baseline price at close (for reference)
+  - `  rsYesterday: number`
+  - `  rsToday: number`
+  - `  change: number` — `closePrice - opened.openPrice`
+  - `  pctChange: number` — `(change / opened.openPrice) * 100`
+  - `}`
+  - `appPnl?: {`
+  - `  openedPrice: number`
+  - `  closedPrice?: number`
+  - `  change?: number`
+  - `  pctChange?: number`
+  - `  sourceOpen: 'pre' | 'post'`
+  - `  sourceClose?: 'pre' | 'post'`
+  - `}`
+  - `tradeMeta?: { hasUserActuals?: boolean }`
+  - `status: 'open' | 'closed'`
+  - `createdAt: Timestamp`
+  - `updatedAt: Timestamp`
 
-#### signalsDaily (subcollection)
-- Path: `pairs-data/{PAIR}/signalsDaily/{YYYY-MM-DD}`
+#### signals-daily (subcollection)
+- Path: `pairs-data/{PAIR}/signals-daily/{YYYY-MM-DD}`
 - Fields:
   - `newOpens: Array<{ positionId, direction }>`
   - `holds: Array<{ positionId, direction }>`
@@ -215,6 +247,22 @@ Canonical RS store (unchanged). FE reads `latest` for ranking and `data[]` for s
   - `appPnLSummary? { long:{count,sum,sumPct}, short:{...}, total:{...} }`
   - `cumulativePnL? { long:{count,sum,sumPct}, short:{...}, total:{...} }`
   - `updatedAt`
+
+#### trades (root collection)
+- Path: `trades/{positionId}`
+- Fields:
+  - `tradeId, pair, baseline, symbol, side`
+  - `entryTimestamp, exitTimestamp`
+  - `entryPrice, exitPrice`
+  - `entryDay, exitDay` (YYYY-MM-DD)
+  - `entryIso, exitIso` (ISO strings)
+  - `netPnL, percentReturn`
+  - `createdAt, updatedAt`
+
+#### analytics (root collection)
+- Path: `analytics/summary`
+- Fields:
+  - `totalNetPnL, totalTrades, totalWinningTrades, totalLosingTrades, avgNetPnL, lastUpdated`
 
 #### Per-user overlays (Actuals)
 - Path: `users/{uid}/trades/{positionId}` (matches canonical `positionId`)
@@ -251,7 +299,7 @@ Define indexes for efficient queries on series and signals:
 * Heatmap (baseline derived from pairs-data ids)
   1. Determine the current baseline (e.g., global default like `SPY`, or user-selected if supported later).
   2. For each visible symbol, read `pairs-data/{BASELINE}-{SYMBOL}.latest` to get current RS (pre or post) and timestamp.
-  3. Query `data` with `orderBy day desc limit 30` when needed. (TODO: consider a `latest30` mirror later.)
+  3. Query `data` with `orderBy day desc limit 30` when needed.
 * Chart View
   1. Call backend `GetPairRSData(base, symbol, from, to, thresholds?)`.
   2. Read Firestore `pairs-data/{PAIR}/data` (and `signals` if/when added). Any symbol can be a baseline.
@@ -259,7 +307,7 @@ Define indexes for efficient queries on series and signals:
   4. Fetch OHLCV from SavantAPI on-demand to render price/volume; do not store in Firestore.
 * Scheduled RS Computation
   1. For each symbol × baselines, compute RS for pre and post windows.
-  2. Write/update per-day doc in `data`, update `latest`. (TODO: consider `latest30` mirror in the future.)
+  2. Write/update per-day doc in `data`, update `latest`.
   3. Detect threshold crossings using `defaultThresholds` and append to `signals`; update `signalsSummary`.
 * Sector baseline dropdown (TODO / not supported now):
   * Frontend requests `GetSectorConstituents({ etf })` to get members.
@@ -331,8 +379,7 @@ Example
 
 ## 7. Migrations
 
-* Strategy: Update Cloud Functions to write RS-only to the new `pairs-data/*/data` shape and optionally mirror `latest30`.
-* If migrating from a prior model, backfill `latest` and (optionally) `latest30` from historical `data` documents for active baselines only.
+* Strategy: Update Cloud Functions to write RS-only to the new `pairs-data/*/data` shape. Backfill enumerates pairs strictly from `pair-registry/*`.
 
 ## 8. Backups
 
