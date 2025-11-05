@@ -37,7 +37,6 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
     // Resolve pairs list exclusively from pair-registry (backend source of truth)
     const regSnap = await db.collection('pair-registry').get();
     const registryPairs = regSnap.docs
-      .filter(d => (d.data()?.active ?? true))
       .map(d => String(d.id))
       .sort();
     if (verbose) logger.info('using pair-registry pairs', { event: 'pairRegistry', count: registryPairs.length });
@@ -199,8 +198,7 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
               const tradesRef = db.collection(TRADES_COLLECTION).doc(tradeId);
               const summaryRef = db.collection(ANALYTICS_COLLECTION).doc(ANALYTICS_SUMMARY_DOC);
               logger.info('trade upsert begin (long)', { positionId: tradeId, pair, baseline: base, symbol: sym, direction: 'LONG' });
-              const grossPnL = change ?? 0;
-              const netPnL = grossPnL; // no commissions modeled here
+              const netPnL = change ?? 0; // single PnL metric
               const percentReturn = pctChange ?? 0;
               const tradeDoc: any = {
                 tradeId,
@@ -214,9 +212,6 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                 ...(closed?.t ? { exitIso: new Date(closed.t).toISOString() } : {}),
                 ...(opened as any)?.day ? { entryDay: (opened as any).day } : {},
                 ...(t?.day ? { exitDay: t.day } : {}),
-                shares: 1,
-                commission: 0,
-                grossPnL,
                 netPnL,
                 percentReturn,
                 createdAt: FieldValue.serverTimestamp(),
@@ -231,6 +226,12 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                 await tradesRef.create(tradeDoc);
                 logger.info('trade created (long)', { positionId: tradeId });
                 created = true;
+                // Scrub legacy fields on create (idempotent)
+                await tradesRef.set({
+                  shares: FieldValue.delete() as any,
+                  commission: FieldValue.delete() as any,
+                  grossPnL: FieldValue.delete() as any,
+                } as any, { merge: true });
               } catch (err: any) {
                 const code = err?.code || err?.errorInfo?.code || err?.status;
                 if (code === 'already-exists' || code === 6) {
@@ -245,6 +246,12 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                   if (t?.day) patch.exitDay = t.day;
                   if (verbose) logger.info('PATCH (trade long) prices', { event: 'patchTrade', positionId: tradeId, pair, ...patch });
                   await tradesRef.set(patch, { merge: true });
+                  // Scrub legacy fields on patch (idempotent)
+                  await tradesRef.set({
+                    shares: FieldValue.delete() as any,
+                    commission: FieldValue.delete() as any,
+                    grossPnL: FieldValue.delete() as any,
+                  } as any, { merge: true });
                 } else {
                   logger.warn('trade create failed (long)', { positionId: tradeId, code, message: err?.message });
                 }
@@ -338,8 +345,7 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
               const tradesRef = db.collection(TRADES_COLLECTION).doc(tradeId);
               const summaryRef = db.collection(ANALYTICS_COLLECTION).doc(ANALYTICS_SUMMARY_DOC);
               logger.info('trade upsert begin (short)', { positionId: tradeId, pair, baseline: base, symbol: sym, direction: 'SHORT' });
-              const grossPnL = change ?? 0;
-              const netPnL = grossPnL; // no commissions modeled here
+              const netPnL = change ?? 0; // single PnL metric
               const percentReturn = pctChange ?? 0;
               const tradeDoc: any = {
                 tradeId,
@@ -353,9 +359,6 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                 ...(closed?.t ? { exitIso: new Date(closed.t).toISOString() } : {}),
                 ...(opened as any)?.day ? { entryDay: (opened as any).day } : {},
                 ...(t?.day ? { exitDay: t.day } : {}),
-                shares: 1,
-                commission: 0,
-                grossPnL,
                 netPnL,
                 percentReturn,
                 createdAt: FieldValue.serverTimestamp(),
@@ -369,6 +372,12 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                 await tradesRef.create(tradeDoc);
                 logger.info('trade created (short)', { positionId: tradeId });
                 createdS = true;
+                // Scrub legacy fields on create (idempotent)
+                await tradesRef.set({
+                  shares: FieldValue.delete() as any,
+                  commission: FieldValue.delete() as any,
+                  grossPnL: FieldValue.delete() as any,
+                } as any, { merge: true });
               } catch (err: any) {
                 const code = err?.code || err?.errorInfo?.code || err?.status;
                 if (code === 'already-exists' || code === 6) {
@@ -382,6 +391,12 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                   if (t?.day) patchS.exitDay = t.day;
                   if (verbose) logger.info('PATCH (trade short) prices', { event: 'patchTrade', positionId: tradeId, pair, ...patchS });
                   await tradesRef.set(patchS, { merge: true });
+                  // Scrub legacy fields on patch (idempotent)
+                  await tradesRef.set({
+                    shares: FieldValue.delete() as any,
+                    commission: FieldValue.delete() as any,
+                    grossPnL: FieldValue.delete() as any,
+                  } as any, { merge: true });
                 } else {
                   logger.warn('trade create failed (short)', { positionId: tradeId, code, message: err?.message });
                 }
