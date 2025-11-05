@@ -48,6 +48,9 @@ Thumbs.db
 src/secrets/secrets.ts
 angular-ssr.json
 
+# Firebase Emulator exports
+/firebase-export-*/
+
 # windsurf rules
 .windsurfrules
 
