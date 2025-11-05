@@ -271,6 +271,41 @@ Admin HTTP (secured):
 - Daily Signals Dashboard
   - For selected baseline/list: show three lists for the current day — New Opens, Holds, New Closes
   - Provide totals and App PnL summary for the day; when a user is signed in, allow toggling to view per-user Actual PnL (built from `users/{uid}/trades/*`).
+  - Multi-day Decision Board: fetch and display signals for a range of days (e.g., last 7 days) using `GetDailySignals` with `fromDay` and `toDay` parameters.
+
+### Decision Board (Multi-day) — UI Consumption
+
+- Call `GetDailySignals` with one of:
+  - `{ day: 'YYYY-MM-DD' }` for a single day (UTC)
+  - `{ fromDay: 'YYYY-MM-DD', toDay: 'YYYY-MM-DD' }` for an inclusive UTC range
+  - `{ limitDays: 7 }` to fetch the last N UTC days when no range provided (UI default 7)
+- Group results by `day` (descending, UTC). For each day, render three sections: New Closes, Holds, New Buys.
+- Sort items within each section alphabetically by `pair`.
+- Hide day header if a day has no items.
+
+Minimal response example (2 days):
+```json
+{
+  "days": [
+    {
+      "day": "2025-11-05",
+      "items": {
+        "newOpens": [ { "positionId": "SPY-AAPL_20251105_Wed_long", "direction": "long", "pair": "SPY-AAPL" } ],
+        "holds": [ { "positionId": "QQQ-NVDA_20251101_Sat_long", "direction": "long", "pair": "QQQ-NVDA" } ],
+        "newCloses": []
+      }
+    },
+    {
+      "day": "2025-11-04",
+      "items": {
+        "newOpens": [],
+        "holds": [ { "positionId": "SPY-MSFT_20251031_Fri_short", "direction": "short", "pair": "SPY-MSFT" } ],
+        "newCloses": [ { "positionId": "SPY-AAPL_20251028_Tue_long", "direction": "long", "pair": "SPY-AAPL" } ]
+      }
+    }
+  ]
+}
+```
 
 - Signal History Panel – Actuals Input (UI treatment)
   - When authenticated, the panel shows an "Executed" toggle and two input rows:
