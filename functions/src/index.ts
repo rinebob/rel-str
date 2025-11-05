@@ -7,3 +7,19 @@ export { processDataReadyRunV2, recomputePairsRs, recomputeRegisteredBackfill, d
 export * from './webhooks/registry-actions';
 
 export { getPairRSArchive } from './archive';
+
+// RsSignalHistory callable exports
+export {
+  getPairSignals,
+  getDailySignals,
+  getPnLSummary,
+  getPositionWithActuals,
+  getPairSignalsWithActuals,
+  updatePositionActuals,
+  rebuildSignalsDailyMirror,
+  rebuildSignalsDailyMirrorRange,
+  cleanPairDailyPnL,
+} from './rs-signal-history.callables';
+
+// RsSignalHistory backfill (HTTP)
+export { backfillSignalsHistory } from './rs-signal-history.backfill';

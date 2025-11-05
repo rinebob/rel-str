@@ -61,6 +61,15 @@ export const TRACKED_SYMBOLS_COLLECTION = 'tracked-symbols';
 /** Warning events emitted by backend for UI visibility. */
 export const WARNINGS_COLLECTION = 'rs-warnings';
 
+/** Signals subcollection name under each pair doc. */
+export const SIGNALS_COLLECTION = 'signals';
+
+/** Per-pair daily signals collection under each pair doc. */
+export const SIGNALS_DAILY_COLLECTION = 'signals-daily';
+
+/** Root daily mirror collection (aggregated across pairs). */
+export const SIGNALS_DAILY_ROOT_COLLECTION = 'signals-daily';
+
 /** Max number of warning docs to persist per run/process (default 50). */
 export const WARNINGS_CAP_PER_RUN = Number(process.env.WARNINGS_CAP_PER_RUN || 50);
 
@@ -69,6 +78,24 @@ export const SILENCE_MISSING_POST_TIME = String(process.env.SILENCE_MISSING_POST
 
 /** Retention days for registry entries after last member removes it. */
 export const REGISTRY_RETENTION_DAYS = 30;
+
+/** Users root collection. */
+export const USERS_COLLECTION = 'users';
+
+/** Per-user trades (overlays) subcollection name. */
+export const USER_TRADES_COLLECTION = 'trades';
+
+/** Per-user PnL daily aggregates subcollection name. */
+export const USER_PNL_DAILY_COLLECTION = 'pnlDaily';
+
+/** Root collection for app-level analytics (global aggregates). */
+export const ANALYTICS_COLLECTION = 'analytics';
+
+/** Document id of the aggregate summary under the analytics collection. */
+export const ANALYTICS_SUMMARY_DOC = 'summary';
+
+/** Root collection for system-wide trades (per-position trade records, not per-user overlays). */
+export const TRADES_COLLECTION = 'trades';
 
 /** Enumerates upstream run types of interest emitted by the partner. */
 export enum RunType {
