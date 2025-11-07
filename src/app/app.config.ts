@@ -19,6 +19,11 @@ import { SYNC_FUSION_LICENSE_KEY } from '../secrets/syncfusion-license';
 
 registerLicense(SYNC_FUSION_LICENSE_KEY);
 
+function isLocalHost(host: string): boolean {
+    const h = (host || '').toLowerCase();
+    return h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '0.0.0.0' || h.startsWith('192.168.');
+}
+
 export const appConfig: ApplicationConfig = {
     providers: [
         provideRouter(APP_ROUTES, withPreloading(PreloadAllModules)),
@@ -30,10 +35,11 @@ export const appConfig: ApplicationConfig = {
 
         provideAuth(() => {
             const auth = getAuth();
-            const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+            const isLocal = isLocalHost(location.hostname);
             if (isLocal) {
                 // Auth emulator default port is 9100 per emulator config
                 connectAuthEmulator(auth, 'http://127.0.0.1:9100', { disableWarnings: true });
+                (window as any).__EMULATORS__ = { ...(window as any).__EMULATORS__, auth: true };
             }
             // Persist user across reloads
             setPersistence(auth, browserLocalPersistence).catch((e) => {
@@ -43,19 +49,22 @@ export const appConfig: ApplicationConfig = {
         }),
         provideFirestore(() => {
             const firestore = getFirestore();
-            const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+            const isLocal = isLocalHost(location.hostname);
             if (isLocal) {
                 // Firestore emulator is running on 127.0.0.1:8088 per emulator output
                 connectFirestoreEmulator(firestore, '127.0.0.1', 8088);
+                (window as any).__EMULATORS__ = { ...(window as any).__EMULATORS__, firestore: true };
             }
             return firestore;
         }),
         provideFunctions(() => {
             const functions = getFunctions();
-            const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+            const isLocal = isLocalHost(location.hostname);
             if (isLocal) {
                 // Functions emulator is running on 127.0.0.1:5002 per emulator output
                 connectFunctionsEmulator(functions, '127.0.0.1', 5002);
+                (window as any).__EMULATORS__ = { ...(window as any).__EMULATORS__, functions: true };
+                console.debug('[Functions] Connected to emulator at http://127.0.0.1:5002');
             }
             return functions;
         }),
