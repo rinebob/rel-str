@@ -234,8 +234,8 @@ export async function writeUnifiedSeries(
         source: 'adjustedClose',
       };
       if (!(dayObj.post as any).time) {
-        logger.warn('missing_close_time_on_post', { pairId, day: e.day });
         if (!SILENCE_MISSING_POST_TIME) {
+          logger.warn('missing_close_time_on_post', { pairId, day: e.day });
           try {
             await db.collection(WARNINGS_COLLECTION).add({
               type: 'missing_close_time_on_post',

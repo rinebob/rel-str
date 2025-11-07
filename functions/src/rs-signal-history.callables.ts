@@ -19,12 +19,48 @@ import type {
 } from './types/rs-signal-history';
 import { SIGNALS_DAILY_ROOT_COLLECTION, SIGNALS_DAILY_COLLECTION, PAIRS_COLLECTION, SIGNALS_COLLECTION, USERS_COLLECTION, USER_TRADES_COLLECTION, USER_PNL_DAILY_COLLECTION, ANALYTICS_COLLECTION, ANALYTICS_SUMMARY_DOC } from './webhooks/webhooks-config';
 
+/**
+ * Normalize a possibly undefined or non-string value into a trimmed string.
+ *
+ * @param str - Any input value to coerce to string.
+ * @returns Trimmed string representation (empty string if falsy).
+ */
 const norm = (str: unknown): string => { return String(str || '').trim(); }
+
+/**
+ * Upper-case a string after normalization.
+ *
+ * @param str - Any input value to coerce and upper-case.
+ * @returns Upper-cased, trimmed string.
+ */
 const toUpper = (str: unknown): string => { return norm(str).toUpperCase(); }
+
+/**
+ * Build a pair id from baseline and symbol (e.g., "SPY-AAPL").
+ *
+ * @param baseline - Baseline ticker/symbol; case-insensitive.
+ * @param symbol - Asset ticker/symbol; case-insensitive.
+ * @returns Canonical pair id in the format BASELINE-SYMBOL.
+ */
 const pairId = (baseline: string, symbol: string): string => { return `${toUpper(baseline)}-${toUpper(symbol)}`; }
+
+/**
+ * Extract pair id (BASELINE-SYMBOL) from a positionId of the form "PAIR_...".
+ *
+ * @param positionId - Position identifier that begins with the pair id.
+ * @returns Extracted pair id or empty string if not found.
+ */
 const pairFromPositionId = (positionId: string): string => { return norm(positionId).split('_')[0] || ''; }
 
-// getPairSignals — returns canonical signals for a given baseline/symbol
+/**
+ * getPairSignals — Returns canonical signal documents for a given baseline/symbol.
+ *
+ * Security: Public callable. Reads from Firestore pairs-data/{PAIR}/signals.
+ * Limits: caps results to [1, 200].
+ *
+ * @param req - Callable request whose data matches GetPairSignalsRequest.
+ * @returns Promise<GetPairSignalsResponse> containing an array of RsPositionDoc items.
+ */
 export const getPairSignals = onCall(
   { region: 'us-central1' },
   async (req): Promise<GetPairSignalsResponse> => {
@@ -49,7 +85,19 @@ export const getPairSignals = onCall(
   }
 );
 
-// getDailySignals — returns daily signals from mirror collection
+/**
+ * getDailySignals — Returns daily decision-board data from the root mirror collection.
+ *
+ * Strategy:
+ * 1) If a specific day is provided, return that document if present.
+ * 2) Otherwise, iterate a set of days (by range or last N) and aggregate available docs.
+ *
+ * Mirror Source: signals-daily/{YYYY-MM-DD}
+ * Security: Public callable for read-only access.
+ *
+ * @param req - Callable request whose data matches GetDailySignalsRequest.
+ * @returns Promise<GetDailySignalsResponse> with an array of { day, items }.
+ */
 export const getDailySignals = onCall(
   { region: 'us-central1' },
   async (req): Promise<GetDailySignalsResponse> => {
@@ -117,7 +165,16 @@ export const getDailySignals = onCall(
   }
 );
 
-// getPnLSummary — returns PnL summary for a given range
+/**
+ * getPnLSummary — Returns PnL summary for a given range.
+ *
+ * Modes:
+ * - type === 'actual': requires authenticated uid and reads per-user daily aggregates.
+ * - type === 'app' (default): reads global analytics/summary document.
+ *
+ * @param req - Callable request containing GetPnLSummaryRequest.
+ * @returns Promise<GetPnLSummaryResponse> with totals segmented by side and overall.
+ */
 export const getPnLSummary = onCall(
   { region: 'us-central1' },
   async (req): Promise<GetPnLSummaryResponse> => {
@@ -185,7 +242,16 @@ export const getPnLSummary = onCall(
   }
 );
 
-// getPositionWithActuals — read canonical position by positionId and overlay by uid
+/**
+ * getPositionWithActuals — Reads a canonical position by positionId and overlays user data if authorized.
+ *
+ * Auth:
+ * - If a uid is provided in the request, it must match the authenticated user.
+ * - If authenticated and allowed, merges USER_TRADES overlay for the position.
+ *
+ * @param req - Callable request containing GetPositionWithActualsRequest.
+ * @returns Promise<GetPositionWithActualsResponse> with canonical position and optional user overlay.
+ */
 export const getPositionWithActuals = onCall(
   { region: 'us-central1' },
   async (req): Promise<GetPositionWithActualsResponse> => {
@@ -222,7 +288,17 @@ export const getPositionWithActuals = onCall(
   }
 );
 
-// getPairSignalsWithActuals — query canonical positions by baseline/symbol with optional fromDay/toDay range; if authenticated and uid matches, fetch per-user overlays and return merged items
+/**
+ * getPairSignalsWithActuals — Queries canonical positions by baseline/symbol with optional day range.
+ * If authenticated and uid matches auth context, fetches per-user overlays and returns merged items.
+ *
+ * Firestore:
+ * - Canonical: pairs-data/{PAIR}/signals
+ * - Overlays: users/{uid}/trades/{positionId}
+ *
+ * @param req - Callable request containing GetPairSignalsWithActualsRequest.
+ * @returns Promise<GetPairSignalsWithActualsResponse> with items: [{ position, user? }].
+ */
 export const getPairSignalsWithActuals = onCall(
   { region: 'us-central1' },
   async (req): Promise<GetPairSignalsWithActualsResponse> => {
@@ -274,6 +350,16 @@ export const getPairSignalsWithActuals = onCall(
   }
 );
 
+/**
+ * updatePositionActuals — Upserts per-user trade overlay fields for a specific position.
+ *
+ * Auth: Requires authenticated user. Writes to users/{uid}/trades/{positionId}.
+ * Partial updates supported; only provided fields are merged.
+ *
+ * @param req - Callable request containing UpdatePositionActualsRequest.
+ * @throws Error('unauthenticated') if no uid on context.
+ * @returns Promise<UpdatePositionActualsResponse> with ok and positionId.
+ */
 export const updatePositionActuals = onCall(
   { region: 'us-central1' },
   async (req): Promise<UpdatePositionActualsResponse> => {
@@ -311,8 +397,18 @@ export const updatePositionActuals = onCall(
   }
 );
 
-// Internal implementation to rebuild root mirror for a given day.
-// Exported so other functions (e.g., backfill) can invoke without going through onCall plumbing.
+/**
+ * Internal: Rebuild the root daily mirror document signals-daily/{day} from per-pair daily docs.
+ *
+ * Behavior:
+ * - Aggregates newOpens, holds, newCloses across all pairs (or a provided subset).
+ * - If no events, deletes the mirror doc if it exists and returns a skipped flag.
+ * - Clears deprecated aggregate fields in mirror (appPnLSummary, pnlSummary).
+ *
+ * @param params.day - Day string in YYYY-MM-DD (UTC) format.
+ * @param params.pairs - Optional list of pair ids to limit scope.
+ * @returns Object with day, counts, and optional skipped flag.
+ */
 export async function rebuildSignalsDailyMirrorImpl({ day, pairs }: { day: string; pairs?: string[] }) {
   const norm = (s: string) => String(s || '').trim();
   const dstr = norm(day);
@@ -360,7 +456,12 @@ export async function rebuildSignalsDailyMirrorImpl({ day, pairs }: { day: strin
   return { day: dstr, counts: { opens: combined.newOpens.length, holds: combined.holds.length, closes: combined.newCloses.length } };
 }
 
-// Update callable to delegate to the internal implementation (bumped timeout)
+/**
+ * rebuildSignalsDailyMirror — Callable wrapper that delegates to rebuildSignalsDailyMirrorImpl.
+ *
+ * @param req - Contains { day: string; pairs?: string[] }.
+ * @returns { ok: boolean, counts, day, ... } as returned by the internal implementation.
+ */
 export const rebuildSignalsDailyMirror = onCall(
   { region: 'us-central1', timeoutSeconds: 540 },
   async (req): Promise<any> => {
@@ -376,7 +477,13 @@ export const rebuildSignalsDailyMirror = onCall(
   }
 );
 
-// Range variant to process multiple days server-side
+/**
+ * rebuildSignalsDailyMirrorRange — Processes a range of days server-side, invoking rebuild per day.
+ *
+ * @param req - Contains { from: string; to: string; pairs?: string[] }.
+ * @throws Error if from/to are missing or invalid, or if from > to.
+ * @returns { ok: boolean, range: { from, to }, processed, skipped }.
+ */
 export const rebuildSignalsDailyMirrorRange = onCall(
   { region: 'us-central1', timeoutSeconds: 540 },
   async (req): Promise<{ ok: boolean; range: { from: string; to: string }; processed: number; skipped: number }> => {
@@ -409,8 +516,15 @@ export const rebuildSignalsDailyMirrorRange = onCall(
   }
 );
 
-// Admin utility: remove appPnLSummary field from pair-scoped daily docs for a date range (idempotent),
-// and optionally rebuild root mirrors per day. Intended for cleanup/migrations.
+/**
+ * cleanPairDailyPnL — Admin utility to remove appPnLSummary from per-pair daily docs for a date range.
+ * Optionally rebuilds root mirrors per day.
+ *
+ * Access: Intended for admin usage via restricted callable permissions.
+ *
+ * @param req - Contains { from: string; to: string; pairs?: string[]; mirror?: boolean }.
+ * @returns Summary with counts of pairs, days processed, and mirrors rebuilt if requested.
+ */
 export const cleanPairDailyPnL = onCall(
   { region: 'us-central1' },
   async (req): Promise<{ ok: boolean; from: string; to: string; pairs: number; days: number; mirrorsRebuilt?: number }> => {
