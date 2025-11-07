@@ -2,7 +2,8 @@ import './init';
 
 export {partnerProxyTest, getTrackedSymbols} from "./partner-proxy";
 
-export { processDataReadyRunV2, recomputePairsRs, recomputeRegisteredBackfill, diagnosePairDays, diagnosePairDaysAdmin } from "./webhooks/partner-webhooks";
+export { processDataReadyRunV2 } from "./webhooks/partner-webhooks";
+export { recomputePairsRs, recomputeRegisteredBackfill, diagnosePairDays, diagnosePairDaysAdmin, recomputeRegisteredLive } from "./webhooks/admin-tasks";
 
 export * from './webhooks/registry-actions';
 
@@ -22,4 +23,4 @@ export {
 } from './rs-signal-history.callables';
 
 // RsSignalHistory backfill (HTTP)
-export { backfillSignalsHistory } from './rs-signal-history.backfill';
+export { backfillSignalsHistory, migrateTradesToPositions, backfillPositionsStatus, backfillPositionsIds } from './rs-signal-history.backfill';
