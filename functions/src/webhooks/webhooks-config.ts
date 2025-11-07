@@ -94,8 +94,8 @@ export const ANALYTICS_COLLECTION = 'analytics';
 /** Document id of the aggregate summary under the analytics collection. */
 export const ANALYTICS_SUMMARY_DOC = 'summary';
 
-/** Root collection for system-wide trades (per-position trade records, not per-user overlays). */
-export const TRADES_COLLECTION = 'trades';
+/** Root collection for system-wide positions (per-position trade records, not per-user overlays). */
+export const POSITIONS_COLLECTION = 'positions';
 
 /** Enumerates upstream run types of interest emitted by the partner. */
 export enum RunType {
