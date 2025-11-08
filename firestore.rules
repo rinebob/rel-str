@@ -27,6 +27,12 @@ service cloud.firestore {
       allow write: if false; // backend-only writes via functions
     }
 
+    // Decision Board positions snapshot docs (UI read-only)
+    match /positions/{positionId} {
+      allow read: if request.auth != null;
+      allow write: if false; // backend-only writes via functions
+    }
+
     // Authenticated user profile root: allow user to read/write only their own doc
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
