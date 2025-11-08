@@ -34,10 +34,11 @@ import {
   type ProcessErrorSample,
   RunType,
   RsCloudFunctionName,
+  POSITIONS_COLLECTION,
 } from './webhooks-config';
-import { persistWarning } from '../logging/warn';
-import { writeWarningsSummary } from '../logging/warn';
 import { RsPhase } from '../types/partner';
+import { RsPositionStatus } from '../types/rs-signal-history';
+import { persistWarning } from '../logging/warn';
 
 // Firebase Admin and Firestore are initialized in ../firebase-admin-init
 // Shared constants and enums have been moved to ./webhooks-config
@@ -147,6 +148,26 @@ export async function processPairLive(
       return;
     }
     await writeUnifiedSeries(baseline, target, phase, series, baseBars, targetBars);
+
+    // Update OPEN positions' current snapshot using already-fetched targetBars (PRE and POST)
+    try {
+      const latest = series[series.length - 1];
+      const latestDay = latest?.day as string | undefined;
+      // Find the target close for latestDay from targetBars (aligned by day field)
+      let latestTargetClose: number | undefined;
+      if (latestDay) {
+        for (let i = targetBars.length - 1; i >= 0; i--) {
+          const b: any = targetBars[i];
+          const d = (typeof b?.d === 'string' ? b.d : (typeof b?.t === 'number' ? new Date(b.t).toISOString().slice(0,10) : undefined));
+          if (d === latestDay) { latestTargetClose = Number.isFinite(b?.ac) ? Number(b.ac) : (Number.isFinite(b?.cp) ? Number(b.cp) : undefined); break; }
+        }
+      }
+      if (latestDay && Number.isFinite(latestTargetClose as number)) {
+        await updateOpenPositionsForPair(pairId, latestDay, latestTargetClose as number);
+      }
+    } catch (e:any) {
+      logger.warn('updateOpenPositionsForPair failed', { pairId, message: e?.message });
+    }
     accum.successPairs++;
   } catch (e: any) {
     accum.failedPairs++;
@@ -158,6 +179,39 @@ export async function processPairLive(
       accum.errorSamples.push(sample);
     }
   }
+}
+
+/**
+ * Update all OPEN positions for the specified pair with current daily snapshot fields.
+ * Uses target close for latestDay and computes side-aware deltas vs entryPrice.
+ */
+async function updateOpenPositionsForPair(pairId: string, latestDay: string, latestTargetClose: number): Promise<void> {
+  const snap = await db.collection(POSITIONS_COLLECTION)
+    .where('pair', '==', pairId)
+    .where('status', '==', RsPositionStatus.OPEN)
+    .get();
+  if (snap.empty) return;
+  const batch = db.batch();
+  let ops = 0;
+  for (const d of snap.docs) {
+    const v = d.data() as any;
+    const side = String(v?.side || '').toUpperCase(); // 'LONG' | 'SHORT'
+    const entryPx = Number(v?.entryPrice);
+    if (!Number.isFinite(entryPx)) continue;
+    const curPx = Number(latestTargetClose);
+    const change = side === 'SHORT' ? Number(entryPx - curPx) : Number(curPx - entryPx);
+    const pct = entryPx !== 0 ? Number((change / entryPx) * 100) : undefined;
+    batch.set(d.ref, {
+      currentPrice: curPx,
+      currentChange: change,
+      currentPctChange: pct,
+      lastUpdateDay: latestDay,
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    ops++;
+  }
+  if (ops > 0) await batch.commit();
+  logger.info('updateOpenPositionsForPair committed', { pairId, latestDay, docsUpdated: ops });
 }
 
 /**
@@ -301,29 +355,27 @@ export const processDataReadyRunV2 = onMessagePublished(
       const days = FIXED_DAYS;
 
       // Track summary
-      let successPairs = 0;
-      let failedPairs = 0;
-      const errorSamples: ProcessErrorSample[] = [];
+      const counters = { successPairs: 0, failedPairs: 0, errorSamples: [] as ProcessErrorSample[] };
       logger.info('processDataReadyRunV2 starting pair processing', { count: pairs.length, phase, eventType, runId: effectiveRunId });
       const PAIR_CONCURRENCY = Number(process.env.PARTNER_PAIR_CONCURRENCY) || 3;
       const baselineBarsCache = new Map<string, any[]>();
       await forEachWithConcurrency(pairs, PAIR_CONCURRENCY, async ({ baseline, target }) => {
-        await processPairLive(baseline, target, phase, days, { successPairs, failedPairs, errorSamples }, { baselineBars: baselineBarsCache }, { runId: effectiveRunId, eventType, trigger });
+        await processPairLive(baseline, target, phase, days, counters, { baselineBars: baselineBarsCache }, { runId: effectiveRunId, eventType, trigger });
       });
 
       if (eventRef) {
-        const finalStatus = failedPairs > 0 ? 'completed_with_errors' : 'completed';
+        const finalStatus = counters.failedPairs > 0 ? 'completed_with_errors' : 'completed';
         await eventRef.set({
           status: finalStatus,
           endTime: FieldValue.serverTimestamp(),
-          pairsProcessed: successPairs,
-          pairsFailed: failedPairs,
+          pairsProcessed: counters.successPairs,
+          pairsFailed: counters.failedPairs,
           intervalUsed: FIXED_INTERVAL,
           window: FIXED_LIMIT,
           phase,
           ...(trigger ? { trigger } : {}),
           runType: eventType,
-          errorSamples,
+          errorSamples: counters.errorSamples,
         }, { merge: true });
       }
     } else if (!isHeartbeat) {
