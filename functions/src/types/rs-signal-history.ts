@@ -30,14 +30,6 @@ export interface RsPositionClosed extends RsPositionOpened {
   pctChange: number; // (change / opened.openPrice) * 100
 }
 
-export interface AppPnl {
-  openedPrice: number;
-  closedPrice?: number;
-  change?: number;
-  pctChange?: number;
-  sourceOpen: RsSource;
-  sourceClose?: RsSource;
-}
 
 export enum RsPositionStatus { OPEN = 'open', CLOSED = 'closed' }
 
@@ -49,7 +41,6 @@ export interface RsPositionDoc {
   positionId: string;  // {PAIR}_{YYYYMMDD}_{DOW}_{direction}
   opened: RsPositionOpened;
   closed?: RsPositionClosed;
-  appPnl?: AppPnl;
   status: RsPositionStatus;
   createdAt: unknown;  // Firestore Timestamp
   updatedAt: unknown;  // Firestore Timestamp
@@ -70,45 +61,7 @@ export interface SignalsDailyDoc {
 
 export interface PnLTotals { count: number; sum: number; sumPct: number }
 
-// Per-user overlay types
-export interface UserTradeSide {
-  price?: number;
-  day?: string; // YYYY-MM-DD (UTC)
-  dow?: string; // Mon/Tue/...
-  t?: number;   // epoch ms
-  note?: string;
-}
 
-export interface ActualPnl {
-  openedPrice?: number;
-  closedPrice?: number;
-  openedDay?: string;
-  closedDay?: string;
-  change?: number;
-  pctChange?: number;
-}
-
-export interface AppSnapshot {
-  openedPrice?: number;
-  closedPrice?: number;
-  sourceOpen?: RsSource;
-  sourceClose?: RsSource;
-  takenAt?: number; // epoch ms
-}
-
-export interface UserTradeOverlay {
-  positionId: string;
-  executed: boolean;
-  // Preferred field names
-  open?: UserTradeSide;
-  close?: UserTradeSide;
-  // Back-compat aliases (some FE code may use these names)
-  opened?: UserTradeSide;
-  closed?: UserTradeSide;
-  actualPnl?: ActualPnl;
-  appSnapshot?: AppSnapshot;
-  updatedAt: unknown; // Firestore Timestamp
-}
 
 // Callable DTOs
 export interface GetPairSignalsRequest { baseline: string; symbol: string; limit?: number; source?: RsSource; type?: 'open' | 'close' }
@@ -123,8 +76,4 @@ export interface GetPnLSummaryResponse { range: { from: string; to: string }; ty
 export interface UpdatePositionActualsRequest { positionId: string; executed: boolean; openedPrice?: number; closedPrice?: number; openedTime?: number; closedTime?: number; noteOpen?: string; noteClose?: string }
 export interface UpdatePositionActualsResponse { ok: boolean; positionId: string }
 
-export interface GetPositionWithActualsRequest { positionId: string; uid?: string }
-export interface GetPositionWithActualsResponse { position?: RsPositionDoc; user?: UserTradeOverlay }
 
-export interface GetPairSignalsWithActualsRequest { baseline: string; symbol: string; uid?: string; limit?: number; fromDay?: string; toDay?: string }
-export interface GetPairSignalsWithActualsResponse { items: Array<{ position: RsPositionDoc; user?: UserTradeOverlay }> }

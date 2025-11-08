@@ -8,16 +8,11 @@ import type {
   GetPairSignalsResponse,
   GetPnLSummaryRequest,
   GetPnLSummaryResponse,
-  GetPositionWithActualsRequest,
-  GetPositionWithActualsResponse,
-  GetPairSignalsWithActualsRequest,
-  GetPairSignalsWithActualsResponse,
   UpdatePositionActualsRequest,
   UpdatePositionActualsResponse,
   RsPositionDoc,
-  UserTradeOverlay,
 } from './types/rs-signal-history';
-import { SIGNALS_DAILY_ROOT_COLLECTION, SIGNALS_DAILY_COLLECTION, PAIRS_COLLECTION, SIGNALS_COLLECTION, USERS_COLLECTION, USER_TRADES_COLLECTION, USER_PNL_DAILY_COLLECTION, ANALYTICS_COLLECTION, ANALYTICS_SUMMARY_DOC } from './webhooks/webhooks-config';
+import { SIGNALS_DAILY_ROOT_COLLECTION, SIGNALS_DAILY_COLLECTION, PAIRS_COLLECTION, USERS_COLLECTION, USER_TRADES_COLLECTION, USER_PNL_DAILY_COLLECTION, ANALYTICS_COLLECTION, ANALYTICS_SUMMARY_DOC } from './webhooks/webhooks-config';
 
 /**
  * Normalize a possibly undefined or non-string value into a trimmed string.
@@ -44,13 +39,6 @@ const toUpper = (str: unknown): string => { return norm(str).toUpperCase(); }
  */
 const pairId = (baseline: string, symbol: string): string => { return `${toUpper(baseline)}-${toUpper(symbol)}`; }
 
-/**
- * Extract pair id (BASELINE-SYMBOL) from a positionId of the form "PAIR_...".
- *
- * @param positionId - Position identifier that begins with the pair id.
- * @returns Extracted pair id or empty string if not found.
- */
-const pairFromPositionId = (positionId: string): string => { return norm(positionId).split('_')[0] || ''; }
 
 /**
  * getPairSignals — Returns canonical signal documents for a given baseline/symbol.
@@ -238,114 +226,6 @@ export const getPnLSummary = onCall(
     } catch (e: any) {
       logger.error('getPnLSummary error', { message: e?.message });
       return { range: { from, to }, type: (type as any) || 'app', uid, totals };
-    }
-  }
-);
-
-/**
- * getPositionWithActuals — Reads a canonical position by positionId and overlays user data if authorized.
- *
- * Auth:
- * - If a uid is provided in the request, it must match the authenticated user.
- * - If authenticated and allowed, merges USER_TRADES overlay for the position.
- *
- * @param req - Callable request containing GetPositionWithActualsRequest.
- * @returns Promise<GetPositionWithActualsResponse> with canonical position and optional user overlay.
- */
-export const getPositionWithActuals = onCall(
-  { region: 'us-central1' },
-  async (req): Promise<GetPositionWithActualsResponse> => {
-    const data = (req.data || {}) as GetPositionWithActualsRequest;
-    const positionId = norm(data.positionId);
-    if (!positionId) return { position: undefined, user: undefined };
-
-    // Enforce that if uid is provided, it must match auth context
-    const authUid = req.auth?.uid;
-    const requestedUid = norm((data as any)?.uid);
-    const effectiveUid = authUid || '';
-    const allowUser = !!effectiveUid && (!requestedUid || requestedUid === effectiveUid);
-
-    const pair = pairFromPositionId(positionId);
-    if (!pair) return { position: undefined, user: undefined };
-
-    try {
-      const posRef = db.collection(PAIRS_COLLECTION).doc(pair).collection(SIGNALS_COLLECTION).doc(positionId);
-      const posSnap = await posRef.get();
-      const position = posSnap.exists ? ({ id: posSnap.id, ...posSnap.data() } as any as RsPositionDoc) : undefined;
-
-      let user: UserTradeOverlay | undefined = undefined;
-      if (allowUser) {
-        const userRef = db.collection(USERS_COLLECTION).doc(effectiveUid).collection(USER_TRADES_COLLECTION).doc(positionId);
-        const userSnap = await userRef.get();
-        user = userSnap.exists ? ({ id: userSnap.id, ...userSnap.data() } as any as UserTradeOverlay) : undefined;
-      }
-
-      return { position, user };
-    } catch (e: any) {
-      logger.error('getPositionWithActuals error', { message: e?.message, positionId, pair });
-      return { position: undefined, user: undefined };
-    }
-  }
-);
-
-/**
- * getPairSignalsWithActuals — Queries canonical positions by baseline/symbol with optional day range.
- * If authenticated and uid matches auth context, fetches per-user overlays and returns merged items.
- *
- * Firestore:
- * - Canonical: pairs-data/{PAIR}/signals
- * - Overlays: users/{uid}/trades/{positionId}
- *
- * @param req - Callable request containing GetPairSignalsWithActualsRequest.
- * @returns Promise<GetPairSignalsWithActualsResponse> with items: [{ position, user? }].
- */
-export const getPairSignalsWithActuals = onCall(
-  { region: 'us-central1' },
-  async (req): Promise<GetPairSignalsWithActualsResponse> => {
-    const data = (req.data || {}) as GetPairSignalsWithActualsRequest;
-    const baseline = toUpper(data.baseline);
-    const symbol = toUpper(data.symbol);
-    const pair = pairId(baseline, symbol);
-    const limit = Math.max(1, Math.min(200, Number((data as any)?.limit ?? 30)));
-    const fromDay = norm((data as any)?.fromDay);
-    const toDay = norm((data as any)?.toDay);
-
-    // user overlay eligibility
-    const authUid = req.auth?.uid || '';
-    const requestedUid = norm((data as any)?.uid);
-    const useUser = !!authUid && (!requestedUid || requestedUid === authUid);
-
-    if (!baseline || !symbol || !pair) return { items: [] };
-
-    try {
-      // Build query for canonical positions
-      let q = db.collection(PAIRS_COLLECTION).doc(pair).collection(SIGNALS_COLLECTION) as FirebaseFirestore.Query<FirebaseFirestore.DocumentData>;
-      if (fromDay) q = q.where('opened.day', '>=', fromDay);
-      if (toDay) q = q.where('opened.day', '<=', toDay);
-      q = q.orderBy('opened.day', 'desc').limit(limit);
-
-      const snap = await q.get();
-      const positions: RsPositionDoc[] = snap.docs.map(d => ({ id: d.id, ...d.data() } as any)) as unknown as RsPositionDoc[];
-
-      if (!useUser || positions.length === 0) {
-        return { items: positions.map(p => ({ position: p })) };
-      }
-
-      // Fetch overlays per positionId for the authed user
-      const userCol = db.collection(USERS_COLLECTION).doc(authUid).collection(USER_TRADES_COLLECTION);
-      const overlays = await Promise.all(
-        positions.map(async (p) => {
-          const docRef = userCol.doc(p.positionId);
-          const s = await docRef.get();
-          return s.exists ? ({ id: s.id, ...s.data() } as any as UserTradeOverlay) : undefined;
-        })
-      );
-
-      const items = positions.map((p, i) => ({ position: p, user: overlays[i] }));
-      return { items };
-    } catch (e: any) {
-      logger.error('getPairSignalsWithActuals error', { message: e?.message, pair });
-      return { items: [] };
     }
   }
 );

@@ -14,8 +14,6 @@ export {
   getPairSignals,
   getDailySignals,
   getPnLSummary,
-  getPositionWithActuals,
-  getPairSignalsWithActuals,
   updatePositionActuals,
   rebuildSignalsDailyMirror,
   rebuildSignalsDailyMirrorRange,
