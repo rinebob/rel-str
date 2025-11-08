@@ -21,4 +21,4 @@ export {
 } from './rs-signal-history.callables';
 
 // RsSignalHistory backfill (HTTP)
-export { backfillSignalsHistory, migrateTradesToPositions, backfillPositionsStatus, backfillPositionsIds } from './rs-signal-history.backfill';
+export { backfillSignalsHistory, backfillPositionsStatus, backfillPositionsIds } from './rs-signal-history.backfill';

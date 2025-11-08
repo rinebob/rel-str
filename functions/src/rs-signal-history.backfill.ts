@@ -3,7 +3,7 @@ import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from './firebase-admin-init';
 import { RsDirection, RsPositionDoc, RsPositionOpened, RsPositionClosed, RsPositionStatus, RsDirectionEnum, RsSourceEnum, PositionState } from './types/rs-signal-history';
 import { rebuildSignalsDailyMirrorImpl } from './rs-signal-history.callables';
-import { PAIRS_COLLECTION, SIGNALS_COLLECTION, SIGNALS_DAILY_COLLECTION, ANALYTICS_COLLECTION, ANALYTICS_SUMMARY_DOC, TRADES_COLLECTION } from './webhooks/webhooks-config';
+import { PAIRS_COLLECTION, SIGNALS_COLLECTION, SIGNALS_DAILY_COLLECTION, ANALYTICS_COLLECTION, ANALYTICS_SUMMARY_DOC, POSITIONS_COLLECTION, SIGNALS_DAILY_ROOT_COLLECTION } from './webhooks/webhooks-config';
 
 // Admin-protected HTTP endpoint to backfill canonical RsSignalHistory from POST archive
 // Auth: Bearer ADMIN_BACKFILL_TOKEN (env var)
@@ -18,8 +18,8 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
     }
 
     const body = (req.method === 'POST' ? (req.body || {}) : (req.query || {})) as any;
-    const from = String(body.from || '').trim(); // YYYY-MM-DD
-    const to = String(body.to || '').trim();     // YYYY-MM-DD
+    const fromRaw = String(body.from || '').trim(); // YYYY-MM-DD
+    const toRaw = String(body.to || '').trim();     // YYYY-MM-DD
     const dryRun = body.dryRun === true || String(body.dryRun || '').toLowerCase() === 'true';
     const thrOpenLong = Number(body.openLong ?? 0.80);
     const thrCloseLong = Number(body.closeLong ?? 0.80);
@@ -28,9 +28,36 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
     const verbose = body.verbose === true || String(body.verbose || '').toLowerCase() === 'true';
     const verboseCap = Math.max(1, Math.min(200, Number(body.verboseCap ?? 50)));
     const doMirror = body.mirror === true || String(body.mirror || '').toLowerCase() === 'true';
+    const auto = body.auto === true || String(body.auto || '').toLowerCase() === 'true' || (!fromRaw || !toRaw);
+    const autoLookbackDays = Math.max(1, Math.min(1825, Number(body.autoLookbackDays ?? 365))); // up to 5 years max
 
+    // Helper formatters
+    const fmt = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+    const addDays = (d: Date, n: number) => { const x = new Date(d.getTime()); x.setUTCDate(x.getUTCDate() + n); return x; };
+    const todayUtcStr = fmt(new Date());
+
+    // Discover most recent mirror day by scanning backward from today (UTC)
+    const findMostRecentMirrorDay = async (maxDays: number): Promise<string | undefined> => {
+      for (let i = 0; i < maxDays; i++) {
+        const d = fmt(addDays(new Date(), -i));
+        const snap = await db.collection(SIGNALS_DAILY_ROOT_COLLECTION).doc(d).get();
+        if (snap.exists) return d;
+      }
+      return undefined;
+    };
+
+    // Resolve effective range
+    let from = fromRaw;
+    let to = toRaw;
+    if (auto) {
+      const mostRecent = await findMostRecentMirrorDay(autoLookbackDays);
+      const startDate = mostRecent ? addDays(new Date(mostRecent + 'T00:00:00Z'), 1) : addDays(new Date(), -30);
+      from = fmt(startDate);
+      to = todayUtcStr;
+      logger.info('auto-resolved backfill range', { mode: 'auto', mostRecentMirrorDay: mostRecent || null, from, to, autoLookbackDays });
+    }
     if (!from || !to) {
-      res.status(400).json({ ok: false, error: 'missing from/to (YYYY-MM-DD)' });
+      res.status(400).json({ ok: false, error: 'missing from/to (YYYY-MM-DD) and auto resolution failed' });
       return;
     }
 
@@ -131,6 +158,42 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
               newCloses: FieldValue.arrayRemove({ positionId: pid, direction }),
               updatedAt: FieldValue.serverTimestamp(),
             }, { merge: true }); opsInBatch++;
+            // Update running PnL snapshot for open position in positions/{positionId}
+            try {
+              const positionsRef = db.collection(POSITIONS_COLLECTION).doc(pid);
+              const openPx = Number.isFinite((startOpened as any)?.openPrice) ? Number((startOpened as any).openPrice) : undefined;
+              const curPx = Number.isFinite((t as any)?.ac) ? Number((t as any).ac) : undefined;
+              let change: number | undefined;
+              let pctChange: number | undefined;
+              if (openPx != null && curPx != null) {
+                if (direction === RsDirectionEnum.LONG) {
+                  change = Number(curPx - openPx);
+                } else if (direction === RsDirectionEnum.SHORT) {
+                  change = Number(openPx - curPx);
+                }
+                pctChange = change != null && openPx ? Number((change / openPx) * 100) : undefined;
+              }
+              const patch: any = {
+                lastUpdateDay: t.day,
+                currentPrice: curPx,
+                currentChange: change,
+                currentPctChange: pctChange,
+                updatedAt: FieldValue.serverTimestamp(),
+              };
+              await positionsRef.set(patch, { merge: true });
+              logger.info('position snapshot (hold)', {
+                event: 'positionSnapshot',
+                positionId: pid,
+                pair,
+                baseline: base,
+                symbol: sym,
+                side: direction === RsDirectionEnum.LONG ? 'LONG' : 'SHORT',
+                day: t.day,
+                currentPrice: patch.currentPrice ?? null,
+                currentChange: patch.currentChange ?? null,
+                currentPctChange: patch.currentPctChange ?? null,
+              });
+            } catch {}
           }
           if (verbose && holdLogs < verboseCap) {
             const openPx = Number.isFinite((startOpened as any)?.openPrice) ? Number((startOpened as any).openPrice) : undefined;
@@ -191,17 +254,15 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
               newOpens: FieldValue.arrayRemove({ positionId: posId, direction: RsDirectionEnum.LONG }),
               updatedAt: FieldValue.serverTimestamp(),
             }, { merge: true }); opsInBatch++;
-            // Cleanup legacy fields on CLOSE
-            batch.set(posRef, { opened: { price: FieldValue.delete() as any }, closed: { price: FieldValue.delete() as any } } as any, { merge: true }); opsInBatch++;
             try {
               const tradeId = posId;
-              const tradesRef = db.collection(TRADES_COLLECTION).doc(tradeId);
+              const positionsRef = db.collection(POSITIONS_COLLECTION).doc(tradeId);
               const summaryRef = db.collection(ANALYTICS_COLLECTION).doc(ANALYTICS_SUMMARY_DOC);
               logger.info('trade upsert begin (long)', { positionId: tradeId, pair, baseline: base, symbol: sym, direction: 'LONG' });
               const netPnL = change ?? 0; // single PnL metric
               const percentReturn = pctChange ?? 0;
               const tradeDoc: any = {
-                tradeId,
+                positionId: tradeId,
                 pair,
                 baseline: base,
                 symbol: sym,
@@ -214,6 +275,7 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                 ...(t?.day ? { exitDay: t.day } : {}),
                 netPnL,
                 percentReturn,
+                status: RsPositionStatus.CLOSED,
                 createdAt: FieldValue.serverTimestamp(),
                 updatedAt: FieldValue.serverTimestamp(),
               };
@@ -222,21 +284,20 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
               if (verbose) logger.info('WRITE (trade long) prices', { event: 'writeTrade', positionId: tradeId, pair, entryPrice: tradeDoc.entryPrice ?? null, exitPrice: tradeDoc.exitPrice ?? null });
               let created = false;
               try {
-                // create() will throw if the doc already exists — perfect for idempotency
-                await tradesRef.create(tradeDoc);
+                await positionsRef.create(tradeDoc);
                 logger.info('trade created (long)', { positionId: tradeId });
                 created = true;
                 // Scrub legacy fields on create (idempotent)
-                await tradesRef.set({
+                await positionsRef.set({
                   shares: FieldValue.delete() as any,
                   commission: FieldValue.delete() as any,
                   grossPnL: FieldValue.delete() as any,
+                  tradeId: FieldValue.delete() as any,
                 } as any, { merge: true });
               } catch (err: any) {
                 const code = err?.code || err?.errorInfo?.code || err?.status;
                 if (code === 'already-exists' || code === 6) {
                   logger.info('trade exists; skipping create (long)', { positionId: tradeId });
-                  // Patch prices on existing trade without affecting totals
                   const patch: any = { updatedAt: FieldValue.serverTimestamp() };
                   if (openPx != null) patch.entryPrice = openPx;
                   if (closePx != null) patch.exitPrice = closePx;
@@ -244,20 +305,21 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                   if (closed?.t) patch.exitIso = new Date(closed.t).toISOString();
                   if ((opened as any)?.day) patch.entryDay = (opened as any).day;
                   if (t?.day) patch.exitDay = t.day;
+                  patch.status = RsPositionStatus.CLOSED;
                   if (verbose) logger.info('PATCH (trade long) prices', { event: 'patchTrade', positionId: tradeId, pair, ...patch });
-                  await tradesRef.set(patch, { merge: true });
+                  await positionsRef.set(patch, { merge: true });
                   // Scrub legacy fields on patch (idempotent)
-                  await tradesRef.set({
+                  await positionsRef.set({
                     shares: FieldValue.delete() as any,
                     commission: FieldValue.delete() as any,
                     grossPnL: FieldValue.delete() as any,
+                    tradeId: FieldValue.delete() as any,
                   } as any, { merge: true });
                 } else {
                   logger.warn('trade create failed (long)', { positionId: tradeId, code, message: err?.message });
                 }
               }
               if (created) {
-                // Atomic increments for summary (only on first creation)
                 await summaryRef.set({
                   totalNetPnL: FieldValue.increment(netPnL || 0),
                   totalTrades: FieldValue.increment(1),
@@ -266,7 +328,6 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                   lastUpdated: FieldValue.serverTimestamp(),
                 }, { merge: true });
                 logger.info('summary increments applied (long)', { positionId: tradeId, netPnL, percentReturn });
-                // Best-effort avgNetPnL recompute
                 try {
                   const snap = await summaryRef.get();
                   const cur = (snap.exists ? snap.data() : {}) as any;
@@ -276,6 +337,19 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                   await summaryRef.set({ avgNetPnL: avg }, { merge: true });
                 } catch {}
               }
+              logger.info('position finalize (close:long)', {
+                event: 'positionFinalize',
+                positionId: tradeId,
+                pair,
+                baseline: base,
+                symbol: sym,
+                side: 'LONG',
+                exitDay: t?.day ?? null,
+                entryPrice: tradeDoc.entryPrice ?? null,
+                exitPrice: tradeDoc.exitPrice ?? null,
+                netPnL,
+                percentReturn,
+              });
             } catch (e) {
               logger.warn('analytics summary update failed (long)', { positionId: posId, message: (e as any)?.message, stack: (e as any)?.stack });
             }
@@ -342,13 +416,13 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
             batch.set(posRef, { opened: { price: FieldValue.delete() as any }, closed: { price: FieldValue.delete() as any } } as any, { merge: true }); opsInBatch++;
             try {
               const tradeId = posId;
-              const tradesRef = db.collection(TRADES_COLLECTION).doc(tradeId);
+              const positionsRef = db.collection(POSITIONS_COLLECTION).doc(tradeId);
               const summaryRef = db.collection(ANALYTICS_COLLECTION).doc(ANALYTICS_SUMMARY_DOC);
               logger.info('trade upsert begin (short)', { positionId: tradeId, pair, baseline: base, symbol: sym, direction: 'SHORT' });
               const netPnL = change ?? 0; // single PnL metric
               const percentReturn = pctChange ?? 0;
               const tradeDoc: any = {
-                tradeId,
+                positionId: tradeId,
                 pair,
                 baseline: base,
                 symbol: sym,
@@ -361,6 +435,7 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                 ...(t?.day ? { exitDay: t.day } : {}),
                 netPnL,
                 percentReturn,
+                status: RsPositionStatus.CLOSED,
                 createdAt: FieldValue.serverTimestamp(),
                 updatedAt: FieldValue.serverTimestamp(),
               };
@@ -369,14 +444,15 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
               if (verbose) logger.info('WRITE (trade short) prices', { event: 'writeTrade', positionId: tradeId, pair, entryPrice: tradeDoc.entryPrice ?? null, exitPrice: tradeDoc.exitPrice ?? null });
               let createdS = false;
               try {
-                await tradesRef.create(tradeDoc);
+                await positionsRef.create(tradeDoc);
                 logger.info('trade created (short)', { positionId: tradeId });
                 createdS = true;
                 // Scrub legacy fields on create (idempotent)
-                await tradesRef.set({
+                await positionsRef.set({
                   shares: FieldValue.delete() as any,
                   commission: FieldValue.delete() as any,
                   grossPnL: FieldValue.delete() as any,
+                  tradeId: FieldValue.delete() as any,
                 } as any, { merge: true });
               } catch (err: any) {
                 const code = err?.code || err?.errorInfo?.code || err?.status;
@@ -389,13 +465,15 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                   if (closed?.t) patchS.exitIso = new Date(closed.t).toISOString();
                   if ((opened as any)?.day) patchS.entryDay = (opened as any).day;
                   if (t?.day) patchS.exitDay = t.day;
+                  patchS.status = RsPositionStatus.CLOSED;
                   if (verbose) logger.info('PATCH (trade short) prices', { event: 'patchTrade', positionId: tradeId, pair, ...patchS });
-                  await tradesRef.set(patchS, { merge: true });
+                  await positionsRef.set(patchS, { merge: true });
                   // Scrub legacy fields on patch (idempotent)
-                  await tradesRef.set({
+                  await positionsRef.set({
                     shares: FieldValue.delete() as any,
                     commission: FieldValue.delete() as any,
                     grossPnL: FieldValue.delete() as any,
+                    tradeId: FieldValue.delete() as any,
                   } as any, { merge: true });
                 } else {
                   logger.warn('trade create failed (short)', { positionId: tradeId, code, message: err?.message });
@@ -412,13 +490,26 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                 logger.info('summary increments applied (short)', { positionId: tradeId, netPnL, percentReturn });
                 try {
                   const snap = await summaryRef.get();
-                  const cur = (snap.exists ? snap.data() : {}) as any;
-                  const totalNet = Number(cur?.totalNetPnL || 0);
-                  const totalTr = Number(cur?.totalTrades || 0);
+                  const curS = (snap.exists ? snap.data() : {}) as any;
+                  const totalNet = Number(curS?.totalNetPnL || 0);
+                  const totalTr = Number(curS?.totalTrades || 0);
                   const avg = totalTr > 0 ? (totalNet / totalTr) : 0;
                   await summaryRef.set({ avgNetPnL: avg }, { merge: true });
                 } catch {}
               }
+              logger.info('position finalize (close:short)', {
+                event: 'positionFinalize',
+                positionId: tradeId,
+                pair,
+                baseline: base,
+                symbol: sym,
+                side: 'SHORT',
+                exitDay: t?.day ?? null,
+                entryPrice: tradeDoc.entryPrice ?? null,
+                exitPrice: tradeDoc.exitPrice ?? null,
+                netPnL,
+                percentReturn,
+              });
             } catch (e) {
               logger.warn('analytics summary update failed (short)', { positionId: posId, message: (e as any)?.message, stack: (e as any)?.stack });
             }
@@ -464,8 +555,6 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
               updatedAt: FieldValue.serverTimestamp(),
               createdAt: FieldValue.serverTimestamp(),
             } as Partial<RsPositionDoc>, { merge: true }); opsInBatch++;
-            // Cleanup legacy field on OPEN
-            batch.set(posRef, { opened: { price: FieldValue.delete() as any } } as any, { merge: true }); opsInBatch++;
             // Add open; also remove any stale hold/close entries for the same position to enforce mutual exclusivity
             batch.set(dailyRef, {
               newOpens: FieldValue.arrayUnion({ positionId: posId, direction: RsDirectionEnum.LONG }),
@@ -473,6 +562,38 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
               newCloses: FieldValue.arrayRemove({ positionId: posId, direction: RsDirectionEnum.LONG }),
               updatedAt: FieldValue.serverTimestamp(),
             }, { merge: true }); opsInBatch++;
+            // Create a root positions doc on open
+            try {
+              const positionsRef = db.collection(POSITIONS_COLLECTION).doc(posId);
+              const doc: any = {
+                positionId: posId,
+                pair,
+                baseline: base,
+                symbol: sym,
+                side: 'LONG',
+                entryTimestamp: d.getTime(),
+                entryIso: new Date(d.getTime()).toISOString(),
+                entryDay: t.day,
+                status: RsPositionStatus.OPEN,
+                createdAt: FieldValue.serverTimestamp(),
+                updatedAt: FieldValue.serverTimestamp(),
+              };
+              if (openPx != null) doc.entryPrice = openPx;
+              await positionsRef.set(doc, { merge: true });
+              logger.info('position upsert (open:long)', {
+                event: 'positionUpsert',
+                positionId: posId,
+                pair,
+                baseline: base,
+                symbol: sym,
+                side: 'LONG',
+                entryDay: t.day,
+                entryPrice: doc.entryPrice ?? null,
+                status: 'OPEN',
+              });
+              // ensure legacy field removed if present
+              await positionsRef.set({ tradeId: FieldValue.delete() as any }, { merge: true });
+            } catch {}
             if (verbose && openLogs < verboseCap) {
               logger.info(`RS OPEN  long pair=${pair} day=${t.day} rs=${y.rs.toFixed(3)}→${t.rs.toFixed(3)} open=${openPx ?? 'n/a'} posId=${posId}`,
                 { event: 'open', direction: 'long', pair, baseline: base, symbol: sym, positionId: posId, day: t.day, openPrice: openPx, rsYesterday: y.rs, rsToday: t.rs });
@@ -523,6 +644,38 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
               newCloses: FieldValue.arrayRemove({ positionId: posId, direction: RsDirectionEnum.SHORT }),
               updatedAt: FieldValue.serverTimestamp(),
             }, { merge: true }); opsInBatch++;
+            // Create a root positions doc on open
+            try {
+              const positionsRef = db.collection(POSITIONS_COLLECTION).doc(posId);
+              const doc: any = {
+                positionId: posId,
+                pair,
+                baseline: base,
+                symbol: sym,
+                side: 'SHORT',
+                entryTimestamp: d.getTime(),
+                entryIso: new Date(d.getTime()).toISOString(),
+                entryDay: t.day,
+                status: RsPositionStatus.OPEN,
+                createdAt: FieldValue.serverTimestamp(),
+                updatedAt: FieldValue.serverTimestamp(),
+              };
+              if (openPx != null) doc.entryPrice = openPx;
+              await positionsRef.set(doc, { merge: true });
+              logger.info('position upsert (open:short)', {
+                event: 'positionUpsert',
+                positionId: posId,
+                pair,
+                baseline: base,
+                symbol: sym,
+                side: 'SHORT',
+                entryDay: t.day,
+                entryPrice: doc.entryPrice ?? null,
+                status: 'OPEN',
+              });
+              // ensure legacy field removed if present
+              await positionsRef.set({ tradeId: FieldValue.delete() as any }, { merge: true });
+            } catch {}
             if (verbose && openLogs < verboseCap) {
               logger.info(`RS OPEN  short pair=${pair} day=${t.day} rs=${y.rs.toFixed(3)}→${t.rs.toFixed(3)} open=${openPx ?? 'n/a'} posId=${posId}`,
                 { event: 'open', direction: 'short', pair, baseline: base, symbol: sym, positionId: posId, day: t.day, openPrice: openPx, rsYesterday: y.rs, rsToday: t.rs });
@@ -636,3 +789,82 @@ function computeClosePrices(
   const closePx = Number.isFinite(t.ac) ? Number(t.ac) : undefined;
   return { openPx, closePx, usedFallback: false };
 }
+
+// Admin utility: backfill missing status on existing positions/* by inferring from exit fields
+export const backfillPositionsStatus = onRequest({ region: 'us-central1', timeoutSeconds: 540 }, async (req, res) => {
+  try {
+    const auth = req.headers['authorization'] || req.headers['Authorization'];
+    const token = typeof auth === 'string' && auth.startsWith('Bearer ') ? auth.substring(7) : '';
+    const expected = process.env.ADMIN_BACKFILL_TOKEN || '';
+    if (!expected || token !== expected) {
+      res.status(401).json({ ok: false, error: 'unauthorized' });
+      return;
+    }
+
+    const dryRun = String((req.method === 'POST' ? (req.body?.dryRun) : (req.query?.dryRun)) || '').toLowerCase() === 'true';
+    const limit = Math.max(1, Math.min(5000, Number((req.method === 'POST' ? (req.body?.limit) : (req.query?.limit)) || 1000)));
+
+    const snap = await db.collection(POSITIONS_COLLECTION).limit(limit).get();
+    let scanned = 0, updated = 0, skipped = 0;
+    for (const d of snap.docs) {
+      scanned++;
+      const v = d.data() as any;
+      // Skip if status already present
+      if (v && (v.status !== undefined)) { skipped++; continue; }
+      const hasExit = v?.exitTimestamp != null || !!v?.exitDay || !!v?.exitIso || v?.exitPrice != null;
+      const status = hasExit ? RsPositionStatus.CLOSED : RsPositionStatus.OPEN;
+      if (dryRun) { continue; }
+      await d.ref.set({ status, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+      updated++;
+    }
+
+    res.json({ ok: true, scanned, updated, skipped, dryRun, limit });
+  } catch (e: any) {
+    logger.error('backfillPositionsStatus error', { message: e?.message, stack: e?.stack });
+    res.status(500).json({ ok: false, error: e?.message });
+  }
+});
+
+// Admin utility: backfill/normalize positionId on existing positions/* and remove legacy tradeId
+export const backfillPositionsIds = onRequest({ region: 'us-central1', timeoutSeconds: 540 }, async (req, res) => {
+  try {
+    const auth = req.headers['authorization'] || req.headers['Authorization'];
+    const token = typeof auth === 'string' && auth.startsWith('Bearer ') ? auth.substring(7) : '';
+    const expected = process.env.ADMIN_BACKFILL_TOKEN || '';
+    if (!expected || token !== expected) {
+      res.status(401).json({ ok: false, error: 'unauthorized' });
+      return;
+    }
+
+    const dryRun = String((req.method === 'POST' ? (req.body?.dryRun) : (req.query?.dryRun)) || '').toLowerCase() === 'true';
+    const limit = Math.max(1, Math.min(5000, Number((req.method === 'POST' ? (req.body?.limit) : (req.query?.limit)) || 2000)));
+
+    const snap = await db.collection(POSITIONS_COLLECTION).limit(limit).get();
+    let scanned = 0, updated = 0, skipped = 0;
+    for (const doc of snap.docs) {
+      scanned++;
+      const val = doc.data() as any;
+      const currentPid = val?.positionId as string | undefined;
+      const legacyTid = val?.tradeId as string | undefined;
+      const desiredPid = currentPid || legacyTid || doc.id;
+
+      // If already normalized and no legacy field present, skip
+      const hasLegacy = legacyTid !== undefined;
+      if (desiredPid === currentPid && !hasLegacy) { skipped++; continue; }
+
+      if (dryRun) { updated++; continue; }
+
+      const patch: any = { updatedAt: FieldValue.serverTimestamp() };
+      if (!currentPid) patch.positionId = desiredPid;
+      patch.tradeId = FieldValue.delete();
+      await doc.ref.set(patch, { merge: true });
+      updated++;
+    }
+
+    res.json({ ok: true, scanned, updated, skipped, dryRun, limit });
+  } catch (e: any) {
+    logger.error('backfillPositionsIds error', { message: e?.message, stack: e?.stack });
+    res.status(500).json({ ok: false, error: e?.message });
+  }
+});
+
