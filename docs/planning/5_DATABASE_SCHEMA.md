@@ -248,16 +248,28 @@ Canonical RS store (unchanged). FE reads `latest` for ranking and `data[]` for s
   - `cumulativePnL? { long:{count,sum,sumPct}, short:{...}, total:{...} }`
   - `updatedAt`
 
-#### trades (root collection)
-- Path: `trades/{positionId}`
+#### positions (root collection)
+- Path: `positions/{positionId}`
+- Behavior:
+  - A document is created on every new OPEN signal with entry metadata.
+  - While the position remains open, the document is updated daily with running snapshot fields.
+  - When the position is CLOSED, final exit fields are written and `status` becomes `CLOSED`.
 - Fields:
-  - `tradeId, pair, baseline, symbol, side`
-  - `entryTimestamp, exitTimestamp`
-  - `entryPrice, exitPrice`
-  - `entryDay, exitDay` (YYYY-MM-DD)
-  - `entryIso, exitIso` (ISO strings)
-  - `netPnL, percentReturn`
-  - `createdAt, updatedAt`
+  - `positionId`— canonical
+  - `pair, baseline, symbol, side` (strings)
+  - `status: 'OPEN' | 'CLOSED'`
+  - `entryTimestamp, exitTimestamp?` (numbers)
+  - `entryPrice?, exitPrice?` (numbers)
+  - `entryDay, exitDay?` (YYYY-MM-DD)
+  - `entryIso, exitIso?` (ISO strings)
+  - Running snapshot (present/updated while OPEN):
+    - `lastUpdateDay?: string` — YYYY-MM-DD of last daily refresh
+    - `lastPrice?: number` — current day price snapshot (target)
+    - `runningPnL?: number` — change vs entry (side-aware)
+    - `runningPctReturn?: number` — percent change vs entry
+  - Finalized PnL (on close):
+    - `netPnL, percentReturn` (numbers)
+  - `createdAt, updatedAt` (timestamps)
 
 #### analytics (root collection)
 - Path: `analytics/summary`
