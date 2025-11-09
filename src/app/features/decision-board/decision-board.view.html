@@ -1,0 +1,148 @@
+<section class="db-actions">
+  <button type="button" (click)="onPresetToday()">Today</button>
+  <button type="button" (click)="onPreset7d()">Last 7 days</button>
+  <button type="button" (click)="onLoadMore()">Load more</button>
+</section>
+
+<section class="db-status" aria-live="polite">
+  @if (store.loading()) {
+    <div class="loading">Loading…</div>
+  }
+  @if (store.error()) {
+    <div class="error">Error: {{ store.error() }}</div>
+  }
+</section>
+
+<section class="db-empty" aria-live="polite">
+  @if (!store.loading() && !store.error() && !store.hasAnyItems()) {
+    <div class="empty">No signals found for this range. Try Load more.</div>
+  }
+</section>
+
+<section class="db-grid" role="table" aria-label="Decision Board">
+  <div class="db-grid__header" role="row">
+    <div class="col col--date" role="columnheader">Date</div>
+    <div class="col col--sell" role="columnheader">Exit</div>
+    <div class="col col--hold" role="columnheader">Hold</div>
+    <div class="col col--buy" role="columnheader">Enter</div>
+  </div>
+
+  @for (day of daysSorted(); track day.day) {
+    <div class="db-grid__row" role="row">
+      <div class="col col--date" role="cell">
+        <span class="date">{{ day.day }}</span>
+      </div>
+
+      <!-- Exit column -->
+      <div class="col col--sell" role="cell">
+        @if (day.items.newCloses.length === 0) {
+          <span class="muted">—</span>
+        } @else {
+          <ul class="cell-list">
+            @for (it of day.items.newCloses; track $index) {
+              @if (day.day === store.latestDay()) {
+                @let pos = store.positions()[it.positionId];
+                @let rs = store.latestRs()[it.pair];
+                @let price = pos?.exitPrice;
+                @let delta = pos?.netPnL;
+                @let pct = pos?.percentReturn;
+                <li class="chip chip--sell chip--stack">
+                  <div class="chip-row chip-row--top">
+                    <span class="pair">{{ pos?.pair ?? it.pair }}</span>
+                    <span class="dir">{{ it.direction }}</span>
+                  </div>
+                  <div class="chip-row chip-row--meta">
+                    <span class="price">Px: {{ price | trunc:2 }}</span>
+                    <span class="delta" [class.negative]="(delta ?? 0) < 0" [class.positive]="(delta ?? 0) > 0">
+                      Δ: {{ delta | trunc:2 }} ({{ pct | trunc:2 }}%)
+                    </span>
+                    <span class="rs">RS: {{ rs | trunc:2 }}</span>
+                  </div>
+                </li>
+              } @else {
+                <li class="chip chip--sell">
+                  <span class="pair">{{ it.pair }}</span>
+                  <span class="dir">{{ it.direction }}</span>
+                </li>
+              }
+            }
+          </ul>
+        }
+      </div>
+
+      <!-- Hold column -->
+      <div class="col col--hold" role="cell">
+        @if (day.items.holds.length === 0) {
+          <span class="muted">—</span>
+        } @else {
+          <ul class="cell-list">
+            @for (it of day.items.holds; track $index) {
+              @if (day.day === store.latestDay()) {
+                @let pos = store.positions()[it.positionId];
+                @let rs = store.latestRs()[it.pair];
+                @let price = pos?.currentPrice;
+                @let delta = pos?.currentChange;
+                @let pct = pos?.currentPctChange;
+                <li class="chip chip--hold chip--stack">
+                  <div class="chip-row chip-row--top">
+                    <span class="pair">{{ pos?.pair ?? it.pair }}</span>
+                    <span class="dir">{{ it.direction }}</span>
+                  </div>
+                  <div class="chip-row chip-row--meta">
+                    <span class="price">Px: {{ price | trunc:2 }}</span>
+                    <span class="delta" [class.negative]="(delta ?? 0) < 0" [class.positive]="(delta ?? 0) > 0">
+                      Δ: {{ delta | trunc:2 }} ({{ pct | trunc:2 }}%)
+                    </span>
+                    <span class="rs">RS: {{ rs | trunc:2 }}</span>
+                  </div>
+                </li>
+              } @else {
+                <li class="chip chip--hold">
+                  <span class="pair">{{ it.pair }}</span>
+                  <span class="dir">{{ it.direction }}</span>
+                </li>
+              }
+            }
+          </ul>
+        }
+      </div>
+
+      <!-- Enter column -->
+      <div class="col col--buy" role="cell">
+        @if (day.items.newOpens.length === 0) {
+          <span class="muted">—</span>
+        } @else {
+          <ul class="cell-list">
+            @for (it of day.items.newOpens; track $index) {
+              @if (day.day === store.latestDay()) {
+                @let pos = store.positions()[it.positionId];
+                @let rs = store.latestRs()[it.pair];
+                @let price = pos?.currentPrice;
+                @let delta = pos?.currentChange;
+                @let pct = pos?.currentPctChange;
+                <li class="chip chip--buy chip--stack">
+                  <div class="chip-row chip-row--top">
+                    <span class="pair">{{ pos?.pair ?? it.pair }}</span>
+                    <span class="dir">{{ it.direction }}</span>
+                  </div>
+                  <div class="chip-row chip-row--meta">
+                    <span class="price">Px: {{ price | trunc:2 }}</span>
+                    <span class="delta" [class.negative]="(delta ?? 0) < 0" [class.positive]="(delta ?? 0) > 0">
+                      Δ: {{ delta | trunc:2 }} ({{ pct | trunc:2 }}%)
+                    </span>
+                    <span class="rs">RS: {{ rs | trunc:2 }}</span>
+                  </div>
+                </li>
+              } @else {
+                <li class="chip chip--buy">
+                  <span class="pair">{{ it.pair }}</span>
+                  <span class="dir">{{ it.direction }}</span>
+                </li>
+              }
+            }
+          </ul>
+        }
+      </div>
+    </div>
+  }
+</section>
