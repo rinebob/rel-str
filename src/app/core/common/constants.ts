@@ -48,6 +48,14 @@ export const NAV_MENU_ITEMS: NavItem[] = [
         mobileOnly: false,
         external: false,
         target: '_self',
+    },  
+    {
+        name: 'decision-board',
+        text: 'decision board',
+        href: 'decision-board',
+        mobileOnly: false,
+        external: false,
+        target: '_self',
     },
     {
         name: 'sync-chart',
@@ -100,7 +108,8 @@ export const NAV_MENU_ITEMS: NavItem[] = [
     //             href: '',
     //             target: '_self',
     //         },
-
+    //
+    // ]
 ]
 
 export const NUM_HEATMAP_MIDPOINTS = 11;
@@ -114,6 +123,11 @@ export enum CallableName {
   GET_TRACKED_SYMBOLS = 'getTrackedSymbols',
   VALIDATE_AND_REGISTER_PAIRS = 'validateAndRegisterPairs',
   UNREGISTER_PAIRS = 'unregisterPairs',
+  // RsSignalHistory
+  GET_PAIR_SIGNALS = 'getPairSignals',
+  GET_DAILY_SIGNALS = 'getDailySignals',
+  GET_PNL_SUMMARY = 'getPnLSummary',
+  UPDATE_POSITION_ACTUALS = 'updatePositionActuals',
 }
 
 /** Top-level Firestore collections used by the FE. */

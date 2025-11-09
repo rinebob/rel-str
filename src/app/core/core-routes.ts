@@ -38,6 +38,11 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.DashboardV2Component),
                 canActivate: [authGuard],
             },
+            {path: AppRoutes.DECISION_BOARD, 
+                loadComponent: () => import('../features/decision-board/decision-board.view')
+                .then(mod => mod.DecisionBoardViewComponent),
+                canActivate: [authGuard],
+            },
             {path: AppRoutes.CHART, 
                 redirectTo: AppRoutes.SYNC_CHART, pathMatch: 'full',
                 // Do not apply canActivate to redirect routes
