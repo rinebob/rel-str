@@ -305,6 +305,8 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                   if (closed?.t) patch.exitIso = new Date(closed.t).toISOString();
                   if ((opened as any)?.day) patch.entryDay = (opened as any).day;
                   if (t?.day) patch.exitDay = t.day;
+                  patch.netPnL = netPnL ?? 0;
+                  patch.percentReturn = percentReturn ?? 0;
                   patch.status = RsPositionStatus.CLOSED;
                   if (verbose) logger.info('PATCH (trade long) prices', { event: 'patchTrade', positionId: tradeId, pair, ...patch });
                   await positionsRef.set(patch, { merge: true });
@@ -317,8 +319,23 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                   } as any, { merge: true });
                 } else {
                   logger.warn('trade create failed (long)', { positionId: tradeId, code, message: err?.message });
+                  // Fallback: ensure Δ/% and exit fields are merged even on unexpected error codes
+                  const ensurePatch: any = { updatedAt: FieldValue.serverTimestamp(), status: RsPositionStatus.CLOSED };
+                  if (openPx != null) ensurePatch.entryPrice = openPx;
+                  if (closePx != null) ensurePatch.exitPrice = closePx;
+                  if (opened?.t) ensurePatch.entryIso = new Date(opened.t).toISOString();
+                  if (closed?.t) ensurePatch.exitIso = new Date(closed.t).toISOString();
+                  if ((opened as any)?.day) ensurePatch.entryDay = (opened as any).day;
+                  if (t?.day) ensurePatch.exitDay = t.day;
+                  ensurePatch.netPnL = netPnL ?? 0;
+                  ensurePatch.percentReturn = percentReturn ?? 0;
+                  await positionsRef.set(ensurePatch, { merge: true });
                 }
               }
+              // Ensure Δ/% always persisted on positions doc (even after create/patch branches)
+              try {
+                await positionsRef.set({ netPnL: netPnL ?? 0, percentReturn: percentReturn ?? 0, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+              } catch {}
               if (created) {
                 await summaryRef.set({
                   totalNetPnL: FieldValue.increment(netPnL || 0),
@@ -465,6 +482,8 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                   if (closed?.t) patchS.exitIso = new Date(closed.t).toISOString();
                   if ((opened as any)?.day) patchS.entryDay = (opened as any).day;
                   if (t?.day) patchS.exitDay = t.day;
+                  patchS.netPnL = netPnL ?? 0;
+                  patchS.percentReturn = percentReturn ?? 0;
                   patchS.status = RsPositionStatus.CLOSED;
                   if (verbose) logger.info('PATCH (trade short) prices', { event: 'patchTrade', positionId: tradeId, pair, ...patchS });
                   await positionsRef.set(patchS, { merge: true });
@@ -477,8 +496,23 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                   } as any, { merge: true });
                 } else {
                   logger.warn('trade create failed (short)', { positionId: tradeId, code, message: err?.message });
+                  // Fallback: ensure Δ/% and exit fields are merged even on unexpected error codes
+                  const ensurePatchS: any = { updatedAt: FieldValue.serverTimestamp(), status: RsPositionStatus.CLOSED };
+                  if (openPx != null) ensurePatchS.entryPrice = openPx;
+                  if (closePx != null) ensurePatchS.exitPrice = closePx;
+                  if (opened?.t) ensurePatchS.entryIso = new Date(opened.t).toISOString();
+                  if (closed?.t) ensurePatchS.exitIso = new Date(closed.t).toISOString();
+                  if ((opened as any)?.day) ensurePatchS.entryDay = (opened as any).day;
+                  if (t?.day) ensurePatchS.exitDay = t.day;
+                  ensurePatchS.netPnL = netPnL ?? 0;
+                  ensurePatchS.percentReturn = percentReturn ?? 0;
+                  await positionsRef.set(ensurePatchS, { merge: true });
                 }
               }
+              // Ensure Δ/% always persisted on positions doc (even after create/patch branches)
+              try {
+                await positionsRef.set({ netPnL: netPnL ?? 0, percentReturn: percentReturn ?? 0, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+              } catch {}
               if (createdS) {
                 await summaryRef.set({
                   totalNetPnL: FieldValue.increment(netPnL || 0),
@@ -578,7 +612,14 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                 createdAt: FieldValue.serverTimestamp(),
                 updatedAt: FieldValue.serverTimestamp(),
               };
-              if (openPx != null) doc.entryPrice = openPx;
+              if (openPx != null) {
+                doc.entryPrice = openPx;
+                // Initialize current snapshot on open day so UI Enter chips can display Px/Δ/%
+                doc.currentPrice = openPx;
+                doc.currentChange = 0;
+                doc.currentPctChange = 0;
+                doc.lastUpdateDay = t.day;
+              }
               await positionsRef.set(doc, { merge: true });
               logger.info('position upsert (open:long)', {
                 event: 'positionUpsert',
@@ -660,7 +701,14 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                 createdAt: FieldValue.serverTimestamp(),
                 updatedAt: FieldValue.serverTimestamp(),
               };
-              if (openPx != null) doc.entryPrice = openPx;
+              if (openPx != null) {
+                doc.entryPrice = openPx;
+                // Initialize current snapshot on open day so UI Enter chips can display Px/Δ/%
+                doc.currentPrice = openPx;
+                doc.currentChange = 0;
+                doc.currentPctChange = 0;
+                doc.lastUpdateDay = t.day;
+              }
               await positionsRef.set(doc, { merge: true });
               logger.info('position upsert (open:short)', {
                 event: 'positionUpsert',
