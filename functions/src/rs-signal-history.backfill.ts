@@ -149,7 +149,7 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
           || (startState === PositionState.SHORT && crossedCloseShort);
         if (startState !== PositionState.FLAT && startOpened && startOpened.day !== t.day && !willCloseToday) {
           const dailyRef = db.collection(PAIRS_COLLECTION).doc(pair).collection(SIGNALS_DAILY_COLLECTION).doc(t.day);
-          const pid = `${pair}_${startOpened.day.replace(/-/g,'')}_${dow(new Date(startOpened.t))}_${direction}`;
+          const pid = `${String(startOpened.day).replace(/-/g,'')}-${dow(new Date(startOpened.t)).toUpperCase()}-${pair}-${String(direction).toUpperCase()}`;
           if (!dryRun) {
             // Add hold; also remove any stale open/close entries for the same position to enforce mutual exclusivity
             batch.set(dailyRef, {
@@ -208,7 +208,7 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
         // Close first if any
         if (state === PositionState.LONG && crossedCloseLong && opened) {
           const d = new Date(`${t.day}T00:00:00Z`);
-          const posId = `${pair}_${opened.day.replace(/-/g,'')}_${dow(new Date(opened.t))}_${RsDirectionEnum.LONG}`;
+          const posId = `${String((opened as any).day).replace(/-/g,'')}-${dow(new Date((opened as any).t)).toUpperCase()}-${pair}-${String(RsDirectionEnum.LONG).toUpperCase()}`;
           const { openPx, closePx, usedFallback } = computeClosePrices(opened, { day: t.day, ac: t.ac }, allDays);
           const change = (closePx != null && openPx != null) ? Number(closePx - openPx) : undefined;
           const pctChange = (change != null && openPx != null) ? Number((change / openPx) * 100) : undefined;
@@ -366,7 +366,7 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
         }
         if (state === PositionState.SHORT && crossedCloseShort && opened) {
           const d = new Date(`${t.day}T00:00:00Z`);
-          const posId = `${pair}_${opened.day.replace(/-/g,'')}_${dow(new Date(opened.t))}_${RsDirectionEnum.SHORT}`;
+          const posId = `${String((opened as any).day).replace(/-/g,'')}-${dow(new Date((opened as any).t)).toUpperCase()}-${pair}-${String(RsDirectionEnum.SHORT).toUpperCase()}`;
           const { openPx, closePx, usedFallback } = computeClosePrices(opened, { day: t.day, ac: t.ac }, allDays);
           const change = (closePx != null && openPx != null) ? Number(openPx - closePx) : undefined;
           const pctChange = (change != null && openPx != null) ? Number((change / openPx) * 100) : undefined;
@@ -538,7 +538,7 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
             ...(Number.isFinite(t.ac) ? { openPrice: Number(t.ac) } : {}),
           };
           if (verbose) logger.info('OPEN price (long)', { event: 'openPrice', pair, day: t.day, rsYesterday: y.rs, rsToday: t.rs, ac: t.ac, openPx });
-          const posId = `${pair}_${t.day.replace(/-/g,'')}_${dow(d)}_${RsDirectionEnum.LONG}`;
+          const posId = `${t.day.replace(/-/g,'')}-${dow(d).toUpperCase()}-${pair}-${String(RsDirectionEnum.LONG).toUpperCase()}`;
           const posRef = db.collection(PAIRS_COLLECTION).doc(pair).collection(SIGNALS_COLLECTION).doc(posId);
           const dailyRef = db.collection(PAIRS_COLLECTION).doc(pair).collection(SIGNALS_DAILY_COLLECTION).doc(t.day);
           if (!dryRun) {
@@ -618,7 +618,7 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
             ...(Number.isFinite(t.ac) ? { openPrice: Number(t.ac) } : {}),
           };
           if (verbose) logger.info('OPEN price (short)', { event: 'openPrice', pair, day: t.day, rsYesterday: y.rs, rsToday: t.rs, ac: t.ac, openPx });
-          const posId = `${pair}_${t.day.replace(/-/g,'')}_${dow(d)}_${RsDirectionEnum.SHORT}`;
+          const posId = `${t.day.replace(/-/g,'')}-${dow(d).toUpperCase()}-${pair}-${String(RsDirectionEnum.SHORT).toUpperCase()}`;
           const posRef = db.collection(PAIRS_COLLECTION).doc(pair).collection(SIGNALS_COLLECTION).doc(posId);
           const dailyRef = db.collection(PAIRS_COLLECTION).doc(pair).collection(SIGNALS_DAILY_COLLECTION).doc(t.day);
           if (!dryRun) {
