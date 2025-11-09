@@ -35,6 +35,8 @@ import {
   RunType,
   RsCloudFunctionName,
   POSITIONS_COLLECTION,
+  PAIRS_COLLECTION,
+  SIGNALS_DAILY_COLLECTION,
 } from './webhooks-config';
 import { RsPhase } from '../types/partner';
 import { RsPositionStatus } from '../types/rs-signal-history';
@@ -165,6 +167,14 @@ export async function processPairLive(
       if (latestDay && Number.isFinite(latestTargetClose as number)) {
         await updateOpenPositionsForPair(pairId, latestDay, latestTargetClose as number);
       }
+      // On POST, also finalize CLOSED positions for latestDay so positions docs have exit Δ/%
+      if (phase === RsPhase.POST && latestDay) {
+        try {
+          await finalizeClosedPositionsForPair(pairId, latestDay);
+        } catch (e:any) {
+          logger.warn('finalizeClosedPositionsForPair failed', { pairId, latestDay, message: e?.message });
+        }
+      }
     } catch (e:any) {
       logger.warn('updateOpenPositionsForPair failed', { pairId, message: e?.message });
     }
@@ -212,6 +222,58 @@ async function updateOpenPositionsForPair(pairId: string, latestDay: string, lat
   }
   if (ops > 0) await batch.commit();
   logger.info('updateOpenPositionsForPair committed', { pairId, latestDay, docsUpdated: ops });
+}
+
+/**
+ * Finalize CLOSED positions for a pair on a specific day.
+ * Reads pairs-data/{pair}/signals-daily/{day}.newCloses and signals/{positionId} for prices,
+ * then writes exitPrice/exitDay/exitIso and netPnL/percentReturn to positions/{positionId}.
+ */
+async function finalizeClosedPositionsForPair(pairId: string, day: string): Promise<void> {
+  const dailyRef = db.collection(PAIRS_COLLECTION).doc(pairId).collection(SIGNALS_DAILY_COLLECTION).doc(day);
+  const dailySnap = await dailyRef.get();
+  if (!dailySnap.exists) return;
+  const data = (dailySnap.data() as any) || {};
+  const closes: Array<{ positionId: string; direction?: string }> = Array.isArray(data?.newCloses) ? data.newCloses : [];
+  if (!closes.length) return;
+
+  const batch = db.batch();
+  let ops = 0;
+  for (const c of closes) {
+    const id = String((c as any)?.positionId || '').trim();
+    if (!id) continue;
+
+    // Read per-position signals doc for precise open/close prices
+    const sigRef = db.collection(PAIRS_COLLECTION).doc(pairId).collection('signals').doc(id);
+    const sigSnap = await sigRef.get();
+    if (!sigSnap.exists) continue;
+    const s = (sigSnap.data() as any) || {};
+    const opened = (s?.opened || {}) as any;
+    const closed = (s?.closed || {}) as any;
+    const side = String(s?.direction || (c as any)?.direction || '').toUpperCase();
+
+    const entryPx = Number(opened?.openPrice);
+    const exitPx = Number(closed?.closePrice);
+    if (!Number.isFinite(entryPx) || !Number.isFinite(exitPx)) continue;
+
+    const delta = side === 'SHORT' ? Number(entryPx - exitPx) : Number(exitPx - entryPx);
+    const pct = entryPx !== 0 ? Number(((delta / entryPx) * 100).toFixed(6)) : 0;
+
+    const posRef = db.collection(POSITIONS_COLLECTION).doc(id);
+    batch.set(posRef, {
+      exitPrice: exitPx,
+      exitDay: day,
+      exitIso: new Date(day + 'T00:00:00Z').toISOString(),
+      netPnL: delta,
+      percentReturn: pct,
+      status: RsPositionStatus.CLOSED,
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    ops++;
+    if (ops >= 400) { await batch.commit(); ops = 0; }
+  }
+  if (ops > 0) await batch.commit();
+  logger.info('finalizeClosedPositionsForPair committed', { pairId, day, docsUpdated: ops });
 }
 
 /**
