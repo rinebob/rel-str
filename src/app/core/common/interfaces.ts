@@ -28,6 +28,7 @@ export enum AppRoutes {
 	// KANBAN_LOGIN = 'kanban/login',
 	// KANBAN_LOGOUT = 'kanban/logout',
 	// ACME = 'acme',
+	DECISION_BOARD = 'decision-board',
 }
 
 export enum AuthLevel {
