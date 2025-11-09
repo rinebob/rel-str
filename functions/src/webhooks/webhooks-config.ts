@@ -76,6 +76,15 @@ export const WARNINGS_CAP_PER_RUN = Number(process.env.WARNINGS_CAP_PER_RUN || 5
 /** If true, do not persist 'missing_close_time_on_post' warnings (useful in emulator). */
 export const SILENCE_MISSING_POST_TIME = String(process.env.SILENCE_MISSING_POST_TIME || '').toLowerCase() === 'true';
 
+/** If true, suppress verbose rs-series skip/info logs (e.g., missing fields, non-finite checks). */
+export const SILENCE_RS_SERIES_INFO = String(process.env.SILENCE_RS_SERIES_INFO || '').toLowerCase() === 'true';
+
+/** If true, suppress verbose registry listing logs (e.g., pair-registry enumeration). */
+export const SILENCE_REGISTRY_INFO = String(process.env.SILENCE_REGISTRY_INFO || '').toLowerCase() === 'true';
+
+/** If true, suppress admin info logs (e.g., recomputePairsRs starting messages). */
+export const SILENCE_ADMIN_INFO = String(process.env.SILENCE_ADMIN_INFO || '').toLowerCase() === 'true';
+
 /** Retention days for registry entries after last member removes it. */
 export const REGISTRY_RETENTION_DAYS = 30;
 

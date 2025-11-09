@@ -6,6 +6,7 @@
  */
 import type { PartnerBar, SeriesBar, RsPoint, PhaseSeriesPoint } from './webhooks-config';
 import { RsPhase } from '../types/partner';
+import { SILENCE_RS_SERIES_INFO } from './webhooks-config';
 
 /** Return day-of-week label (UTC) for a YYYY-MM-DD string. */
 function dowLabelUTC(dayStr: string): string {
@@ -117,13 +118,15 @@ export function buildPhaseSeries(
     if (!t?.d) continue;
     const base = baseByDay.get(t.d);
     if (!base) {
-      logger.info('rs_series_skip_no_alignment', {
-        day: t.d,
-        phase,
-        baseline: baselineSymbol,
-        target: targetSymbol,
-        reason: 'baseline_bar_missing'
-      });
+      if (!SILENCE_RS_SERIES_INFO) {
+        logger.info('rs_series_skip_no_alignment', {
+          day: t.d,
+          phase,
+          baseline: baselineSymbol,
+          target: targetSymbol,
+          reason: 'baseline_bar_missing'
+        });
+      }
       continue;
     }
     const dw = dowLabelUTC(t.d);
@@ -153,13 +156,15 @@ export function buildPhaseSeries(
       if (!Number.isFinite(targetIpc)) missing.push('target_ipc_derived');
       if (!Number.isFinite(baseIpc)) missing.push('baseline_ipc_derived');
       if (missing.length > 0) {
-        logger.info('rs_series_skip_pre_missing_fields', {
-          day: t.d,
-          phase,
-          baseline: baselineSymbol,
-          target: targetSymbol,
-          missing
-        });
+        if (!SILENCE_RS_SERIES_INFO) {
+          logger.info('rs_series_skip_pre_missing_fields', {
+            day: t.d,
+            phase,
+            baseline: baselineSymbol,
+            target: targetSymbol,
+            missing
+          });
+        }
         continue;
       }
       // Inject derived values into local copies for downstream calculation
@@ -194,13 +199,15 @@ export function buildPhaseSeries(
       if (!Number.isFinite(targetCpEff)) missing.push('target_cp_derived');
       if (!Number.isFinite(baseCpEff)) missing.push('baseline_cp_derived');
       if (missing.length > 0) {
-        logger.info('rs_series_skip_post_missing_fields', {
-          day: t.d,
-          phase,
-          baseline: baselineSymbol,
-          target: targetSymbol,
-          missing
-        });
+        if (!SILENCE_RS_SERIES_INFO) {
+          logger.info('rs_series_skip_post_missing_fields', {
+            day: t.d,
+            phase,
+            baseline: baselineSymbol,
+            target: targetSymbol,
+            missing
+          });
+        }
         continue;
       }
       // Inject derived cp for downstream calculation
@@ -229,38 +236,44 @@ export function buildPhaseSeries(
     const tClose = phase === RsPhase.POST ? (Number(target.ac) || Number(target.c) || 0) : Number(target.ip);
 
     if (!Number.isFinite(bCp) || !Number.isFinite(tCp)) {
-      logger.info('rs_series_skip_calc_nonfinite_cp', {
-        day,
-        phase,
-        baseline: baselineSymbol,
-        target: targetSymbol,
-        baseCp: (base as any)._cp_eff ?? base.cp,
-        targetCp: (target as any)._cp_eff ?? target.cp,
-        baseIpc: (base as any)._ipc_eff ?? base.ipc,
-        targetIpc: (target as any)._ipc_eff ?? target.ipc
-      });
+      if (!SILENCE_RS_SERIES_INFO) {
+        logger.info('rs_series_skip_calc_nonfinite_cp', {
+          day,
+          phase,
+          baseline: baselineSymbol,
+          target: targetSymbol,
+          baseCp: (base as any)._cp_eff ?? base.cp,
+          targetCp: (target as any)._cp_eff ?? target.cp,
+          baseIpc: (base as any)._ipc_eff ?? base.ipc,
+          targetIpc: (target as any)._ipc_eff ?? target.ipc
+        });
+      }
       continue;
     }
     if (!Number.isFinite(bClose) || !Number.isFinite(tClose)) {
-      logger.info('rs_series_skip_calc_nonfinite_price', {
-        day,
-        phase,
-        baseline: baselineSymbol,
-        target: targetSymbol,
-        baseClose,
-        targetClose
-      });
+      if (!SILENCE_RS_SERIES_INFO) {
+        logger.info('rs_series_skip_calc_nonfinite_price', {
+          day,
+          phase,
+          baseline: baselineSymbol,
+          target: targetSymbol,
+          baseClose,
+          targetClose
+        });
+      }
       continue;
     }
     if (bClose <= 0 || tClose <= 0) {
-      logger.info('rs_series_skip_calc_nonpositive_price', {
-        day,
-        phase,
-        baseline: baselineSymbol,
-        target: targetSymbol,
-        baseClose,
-        targetClose
-      });
+      if (!SILENCE_RS_SERIES_INFO) {
+        logger.info('rs_series_skip_calc_nonpositive_price', {
+          day,
+          phase,
+          baseline: baselineSymbol,
+          target: targetSymbol,
+          baseClose,
+          targetClose
+        });
+      }
       continue;
     }
 

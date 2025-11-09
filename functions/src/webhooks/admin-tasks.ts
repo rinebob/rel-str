@@ -9,6 +9,7 @@ import { listRegisteredPairs } from './registry';
 import { buildPhaseSeries } from './rs-series';
 import { fetchDailyBarsRange, fetchDailyBarsRaw } from './symbol-fetch';
 import { FIXED_DAYS, FIXED_LIMIT, ProcessErrorSample, FIXED_INTERVAL, RsCloudFunctionName } from './webhooks-config';
+import { SILENCE_ADMIN_INFO } from './webhooks-config';
 import { forEachWithConcurrency, processPairLive } from './partner-webhooks';
 
 /**
@@ -58,7 +59,7 @@ export const recomputePairsRs = onCall({ region: 'us-central1', timeoutSeconds: 
       const accum = { successPairs: 0, failedPairs: 0, errorSamples: [] as ProcessErrorSample[] };
       let skippedExisting = 0; // reserved for future use in callable path
       let writtenDays = 0;     // reserved for future use in callable path
-      logger.info('recomputePairsRs starting pair processing', { count: pairsList.length, phase, concurrency, delayMsBetweenPairs });
+      if (!SILENCE_ADMIN_INFO) logger.info('recomputePairsRs starting pair processing', { count: pairsList.length, phase, concurrency, delayMsBetweenPairs });
       const baselineBarsCache = new Map<string, any[]>();
       await forEachWithConcurrency(pairsList, Math.max(1, concurrency), async ({ baseline, target }) => {
         await processPairLive(baseline, target, phase, days, accum, { baselineBars: baselineBarsCache });
@@ -98,7 +99,7 @@ export const recomputeRegisteredLive = onCall({ region: 'us-central1', timeoutSe
 
     const pairs = await listRegisteredPairs();
     if (pairs.length === 0) {
-      logger.info('recomputeRegisteredLive no registered pairs');
+      if (!SILENCE_ADMIN_INFO) logger.info('recomputeRegisteredLive no registered pairs');
       return { ok: true, processed: 0, failed: 0, phase, days, concurrency };
     }
 
