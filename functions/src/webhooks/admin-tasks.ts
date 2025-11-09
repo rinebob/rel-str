@@ -11,6 +11,7 @@ import { fetchDailyBarsRange, fetchDailyBarsRaw } from './symbol-fetch';
 import { FIXED_DAYS, FIXED_LIMIT, ProcessErrorSample, FIXED_INTERVAL, RsCloudFunctionName } from './webhooks-config';
 import { SILENCE_ADMIN_INFO } from './webhooks-config';
 import { forEachWithConcurrency, processPairLive } from './partner-webhooks';
+import { rebuildSignalsDailyMirrorRange } from '../rs-signal-history.callables';
 
 /**
  * Callable: recomputePairsRs
@@ -418,6 +419,188 @@ export const diagnosePairDaysAdmin = onRequest({ region: 'us-central1', timeoutS
     res.status(200).json(callRes);
   } catch (e: any) {
     logger.error('diagnosePairDaysAdmin_failed', { message: e?.message });
+    res.status(500).json({ ok: false, error: e?.message || 'internal_error' });
+  }
+});
+
+export const refreshAllRangeAdmin = onRequest({ region: 'us-central1', timeoutSeconds: 540 }, async (req, res) => {
+  const token = (req.headers['authorization'] || '').toString().replace(/^Bearer\s+/i, '');
+  const expected = (process.env.ADMIN_BACKFILL_TOKEN || '').trim();
+  if (!expected || token !== expected) {
+    res.status(401).json({ ok: false, error: 'unauthorized' });
+    return;
+  }
+  try {
+    const fromDayRaw: string | undefined = (req.body?.fromDay ?? req.query.fromDay) as string | undefined;
+    const toDayRaw: string | undefined = (req.body?.toDay ?? req.query.toDay) as string | undefined;
+    const daysParam = req.body?.days ?? req.query.days;
+    const days: number | undefined = daysParam !== undefined ? Number(daysParam) : undefined;
+    const phaseRaw = String((req.body?.phase ?? req.query.phase) || RsPhase.POST).toLowerCase();
+    const concurrency = Number(req.body?.concurrency ?? req.query.concurrency ?? (Number(process.env.PARTNER_PAIR_CONCURRENCY) || 3));
+
+    // Normalize range
+    let fromDay: string | undefined = fromDayRaw?.slice(0, 10);
+    let toDay: string | undefined = toDayRaw?.slice(0, 10);
+    if ((!fromDay || !toDay) && Number.isFinite(days as number)) {
+      const to = new Date();
+      const from = new Date(to.getTime() - (Math.max(1, Number(days)) - 1) * 24 * 60 * 60 * 1000);
+      const ymd = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+      fromDay = ymd(from);
+      toDay = ymd(to);
+    }
+
+    // Phases to run
+    const phases: RsPhase[] = phaseRaw === 'both' ? [RsPhase.PRE, RsPhase.POST] : (phaseRaw === RsPhase.PRE ? [RsPhase.PRE] : [RsPhase.POST]);
+
+    // 1) Recompute RS series and write pairs-data/signals/positions across the range using existing callable recomputePairsRs per baseline
+    const baselinesSet = new Set<string>();
+    try {
+      const pairs = await listRegisteredPairs();
+      for (const p of pairs) baselinesSet.add(String(p.baseline || '').toUpperCase());
+    } catch {}
+
+    const rsResults: Array<{ baseline: string; phase: RsPhase; ok: boolean; error?: string }> = [];
+    if (baselinesSet.size > 0 && fromDay && toDay) {
+      for (const baseline of baselinesSet) {
+        for (const ph of phases) {
+          try {
+            const callRes = await recomputePairsRs.run({
+              data: { baseline, phase: ph, from: fromDay, to: toDay, concurrency },
+              auth: undefined,
+              instanceIdToken: undefined,
+              rawRequest: undefined as any,
+            } as any);
+            const ok = (callRes as any)?.ok !== false;
+            rsResults.push({ baseline, phase: ph, ok, error: ok ? undefined : String((callRes as any)?.error || '') });
+          } catch (e: any) {
+            rsResults.push({ baseline, phase: ph, ok: false, error: e?.message || String(e) });
+          }
+        }
+      }
+    } else {
+      // Fallback: run the live path for last N days (kept for compatibility)
+      for (const ph of phases) {
+        try {
+          const callRes = await recomputeRegisteredLive.run({
+            data: { phase: ph, days: Math.max(1, Number(days) || 7), concurrency },
+            auth: undefined,
+            instanceIdToken: undefined,
+            rawRequest: undefined as any,
+          } as any);
+          const ok = (callRes as any)?.ok !== false;
+          rsResults.push({ baseline: 'ALL_REGISTERED', phase: ph, ok, error: ok ? undefined : String((callRes as any)?.error || '') });
+        } catch (e: any) {
+          rsResults.push({ baseline: 'ALL_REGISTERED', phase: ph, ok: false, error: e?.message || String(e) });
+        }
+      }
+    }
+
+    // 2) Backfill signals (pairs/*/signals, pairs/*/signals-daily) and positions, then rebuild root/signals-daily
+    // mirror
+    // We call the existing admin-protected HTTP endpoint backfillSignalsHistory.
+    // In emulator we hit localhost:5002; in cloud we hit the regional HTTPS endpoint.
+    let backfill: any | undefined;
+    let backfillError: string | undefined;
+    let mirrorCallError: string | undefined;
+
+    if (fromDay && toDay) {
+      try {
+        const project = (process.env.GCLOUD_PROJECT || ((): string | undefined => {
+          try { return JSON.parse(String(process.env.FIREBASE_CONFIG || '{}')).projectId; } catch { return undefined; }
+        })()) || 'rel-str';
+        const isEmu = String(process.env.FUNCTIONS_EMULATOR || '').toLowerCase() === 'true';
+        const baseUrl = isEmu
+          ? `http://127.0.0.1:5002/${project}/us-central1`
+          : `https://us-central1-${project}.cloudfunctions.net`;
+        const adminToken = String(process.env.ADMIN_BACKFILL_TOKEN || '').trim();
+        const resp = await fetch(`${baseUrl}/backfillSignalsHistory`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
+          },
+          body: JSON.stringify({ from: fromDay, to: toDay, mirror: true, dryRun: false, verbose: false }),
+        });
+        const txt = await resp.text();
+        try { backfill = JSON.parse(txt); } catch { backfill = { raw: txt }; }
+        if (!resp.ok) throw new Error(`backfillSignalsHistory HTTP ${resp.status}`);
+      } catch (e: any) {
+        backfillError = e?.message || String(e);
+      }
+
+      // Fallback mirror rebuild (in case backfill mirror=false or backfill skipped it)
+      if (!backfill || backfill?.ok === false || backfill?.mirror === undefined) {
+        try {
+          const mirrorRes = await rebuildSignalsDailyMirrorRange.run({
+            data: { from: fromDay, to: toDay },
+            auth: undefined,
+            instanceIdToken: undefined,
+            rawRequest: undefined as any,
+          } as any);
+          res.status(200).json({ ok: true, phases, range: { fromDay, toDay }, rsResults, backfill, backfillError: backfillError ?? null, mirror: mirrorRes });
+          return;
+        } catch (e: any) {
+          mirrorCallError = e?.message || String(e);
+        }
+      }
+
+      res.status(200).json({ ok: true, phases, range: { fromDay, toDay }, rsResults, backfill, backfillError: backfillError ?? null });
+      return;
+    } else {
+      mirrorCallError = 'fromDay/toDay required for backfill & mirror rebuild';
+    }
+
+    res.status(200).json({ ok: false, phases, range: { fromDay: fromDay ?? null, toDay: toDay ?? null }, rsResults, backfillError: backfillError ?? 'no_range', mirrorError: mirrorCallError });
+  } catch (e: any) {
+    logger.error('refreshAllRangeAdmin_failed', { message: e?.message });
+    res.status(500).json({ ok: false, error: e?.message || 'internal_error' });
+  }
+});
+
+export const purgePairsDataSignalsAdmin = onRequest({ region: 'us-central1', timeoutSeconds: 540 }, async (req, res) => {
+  const token = (req.headers['authorization'] || '').toString().replace(/^Bearer\s+/i, '');
+  const expected = (process.env.ADMIN_BACKFILL_TOKEN || '').trim();
+  if (!expected || token !== expected) {
+    res.status(401).json({ ok: false, error: 'unauthorized' });
+    return;
+  }
+  try {
+    const pairs = await listRegisteredPairs();
+    let pairsScanned = 0;
+    let signalsDeleted = 0;
+    let dailyDeleted = 0;
+
+    const deleteAll = async (colRef: FirebaseFirestore.CollectionReference): Promise<number> => {
+      let total = 0;
+      while (true) {
+        const snap = await colRef.limit(500).get();
+        if (snap.empty) break;
+        const batch = db.batch();
+        for (const d of snap.docs) {
+          batch.delete(d.ref);
+          total++;
+        }
+        await batch.commit();
+      }
+      return total;
+    };
+
+    for (const p of pairs) {
+      const pairId = `${p.baseline}-${p.target}`;
+      const baseRef = db.collection('pairs-data').doc(pairId);
+      pairsScanned++;
+      try {
+        const sRef = baseRef.collection('signals');
+        const dRef = baseRef.collection('signals-daily');
+        const dLegacyRef = baseRef.collection('signalsDaily'); // legacy camelCase
+        signalsDeleted += await deleteAll(sRef);
+        dailyDeleted += await deleteAll(dRef);
+        dailyDeleted += await deleteAll(dLegacyRef);
+      } catch {}
+    }
+
+    res.status(200).json({ ok: true, pairs: pairsScanned, signalsDeleted, signalsDailyDeleted: dailyDeleted });
+  } catch (e: any) {
     res.status(500).json({ ok: false, error: e?.message || 'internal_error' });
   }
 });
