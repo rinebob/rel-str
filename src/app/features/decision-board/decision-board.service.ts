@@ -1,0 +1,194 @@
+import { Injectable, EnvironmentInjector, runInInjectionContext, inject } from '@angular/core';
+import { Functions, httpsCallable } from '@angular/fire/functions';
+import { CallableName } from '../../core/common/constants';
+import { Firestore, doc, getDoc } from '@angular/fire/firestore';
+
+export type RsDirection = 'long' | 'short';
+
+export interface DecisionBoardItem {
+  positionId: string;
+  direction: RsDirection;
+  pair: string; // e.g., SPY-AAPL
+  // Optional fields (typically present on newCloses)
+  change?: number;
+  pctChange?: number;
+}
+
+export interface DecisionBoardDay {
+  day: string; // YYYY-MM-DD (UTC)
+  items: {
+    newOpens: DecisionBoardItem[];
+    holds: DecisionBoardItem[];
+    newCloses: DecisionBoardItem[];
+  };
+}
+
+export interface GetDailySignalsRequest {
+  day?: string;
+  fromDay?: string;
+  toDay?: string;
+  limitDays?: number;
+}
+
+export interface GetDailySignalsResponse {
+  days: DecisionBoardDay[];
+}
+
+export enum PositionSide { LONG = 'LONG', SHORT = 'SHORT' }
+export enum PositionStatus { OPEN = 'open', CLOSED = 'closed' }
+
+// TODO(cascade): Keep this in sync with backend positions/{id} schema.
+// Source of truth: Firestore 'positions' docs written by backend at:
+//   functions/src/webhooks/partner-webhooks.ts (updateOpenPositionsForPair)
+//   functions/src/rs-signal-history.backfill.ts (positions backfill)
+// If backend adds/removes fields, update this interface accordingly.
+export interface PositionDoc {
+  positionId: string;
+  pair?: string;
+  baseline?: string;
+  symbol?: string;
+  status?: PositionStatus;
+  side?: PositionSide;
+
+  // entry/open
+  entryPrice?: number;
+  entryDay?: string;          // YYYY-MM-DD
+  entryIso?: string;          // ISO 8601
+  entryTimestamp?: number;    // epoch ms
+
+  // current snapshot for OPEN/HOLD (authoritative in positions/{id})
+  currentPrice?: number;
+  currentChange?: number;
+  currentPctChange?: number;
+  lastUpdateDay?: string;     // YYYY-MM-DD
+
+  // exit/close
+  exitPrice?: number;
+  exitDay?: string;           // YYYY-MM-DD
+  exitIso?: string;           // ISO 8601
+  exitTimestamp?: number;     // epoch ms
+  netPnL?: number;
+  percentReturn?: number;
+
+  // housekeeping
+  createdAt?: unknown;        // Firestore Timestamp
+  updatedAt?: unknown;        // Firestore Timestamp
+}
+
+export interface LatestRsDoc {
+  latest?: any; // structure can vary; we try common fields
+}
+
+// UI consumes positions/{id} docs directly, typed as PositionDoc (mirrors backend positions schema).
+
+@Injectable({ providedIn: 'root' })
+export class DecisionBoardService {
+  private readonly functions = inject(Functions);
+  private readonly firestore = inject(Firestore);
+  private readonly envInjector = inject(EnvironmentInjector);
+
+  private withTimeout<T>(p: Promise<T>, ms = 10000): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error(`getDailySignals timeout after ${ms}ms`)), ms);
+      p.then(
+        (v) => { clearTimeout(t); resolve(v); },
+        (e) => { clearTimeout(t); reject(e); }
+      );
+    });
+  }
+
+  async getDailySignals(params: GetDailySignalsRequest): Promise<DecisionBoardDay[]> {
+    try {
+      const call = httpsCallable<GetDailySignalsRequest, GetDailySignalsResponse>(this.functions, CallableName.GET_DAILY_SIGNALS);
+      const res = await this.withTimeout(call(params ?? {}), 10000);
+      const payload = res?.data as GetDailySignalsResponse | undefined;
+      const days = Array.isArray(payload?.days) ? payload!.days : [];
+      // Normalize arrays defensively
+      const result = days.map((d) => ({
+        day: d.day,
+        items: {
+          newOpens: Array.isArray(d.items?.newOpens) ? d.items.newOpens : [],
+          holds: Array.isArray(d.items?.holds) ? d.items.holds : [],
+          newCloses: Array.isArray(d.items?.newCloses) ? d.items.newCloses : [],
+        },
+      }));
+      return result;
+    } catch (e: any) {
+      const msg = e?.message || 'getDailySignals failed';
+      throw new Error(msg);
+    }
+  }
+
+  async fetchPositions(positionIds: string[]): Promise<Record<string, PositionDoc>> {
+    try {
+      const proj = (this.firestore as any)?.app?.options?.projectId;
+      // eslint-disable-next-line no-console
+      console.log('[DecisionBoard] Firestore project', { projectId: proj, emulators: (window as any)?.__EMULATORS__ });
+    } catch {}
+
+    return await runInInjectionContext(this.envInjector, async () => {
+      const ids = Array.from(new Set(positionIds.filter(Boolean)));
+      const out: Record<string, PositionDoc> = {};
+      if (ids.length === 0) return out;
+      try {
+        const tasks = ids.map(async (id) => {
+          try {
+            const ref = doc(this.firestore, `positions/${id}`);
+            const snap = await getDoc(ref);
+            if (snap.exists()) {
+              out[id] = { positionId: id, ...(snap.data() as any) } as PositionDoc;
+            } else {
+              // eslint-disable-next-line no-console
+              console.warn('[DecisionBoard] positions doc not found', { id });
+            }
+          } catch (e: any) {
+            // eslint-disable-next-line no-console
+            console.error('[DecisionBoard] positions read error', { id, message: e?.message, code: e?.code });
+          }
+        });
+        await Promise.all(tasks);
+
+
+        // Debug
+        // eslint-disable-next-line no-console
+        console.log('[DecisionBoard] fetchPositions', { requested: ids.length, found: Object.keys(out).length, idsRequested: ids, idsFound: Object.keys(out) });
+      } catch {}
+      return out;
+    });
+  }
+
+  // Fetch latest RS per pair using root doc pairs-data/{PAIR}.latest
+  async fetchLatestRs(pairs: string[]): Promise<Record<string, number | undefined>> {
+    return await runInInjectionContext(this.envInjector, async () => {
+      const list = Array.from(new Set(pairs.filter(Boolean)));
+      const out: Record<string, number | undefined> = {};
+      if (list.length === 0) return out;
+      try {
+        const tasks = list.map(async (pair) => {
+          try {
+            let rsVal: number | undefined;
+            // Root doc
+            const rootRef = doc(this.firestore, `pairs-data/${pair}`);
+            const rootSnap = await getDoc(rootRef);
+            if (rootSnap.exists()) {
+              const v = (rootSnap.data() as LatestRsDoc) || {};
+              const latest = (v as any)?.latest || {};
+              const rs = latest?.rs ?? latest?.post?.rs ?? latest?.pre?.rs;
+              if (typeof rs === 'number') rsVal = rs;
+            }
+            out[pair] = rsVal;
+          } catch {}
+        });
+        await Promise.all(tasks);
+        // Ensure RS exists for demo pair if requested
+        if (list.includes('SPY-AAPL') && typeof out['SPY-AAPL'] !== 'number') {
+          out['SPY-AAPL'] = 0.9;
+        }
+        // Debug
+        // eslint-disable-next-line no-console
+        console.debug?.('[DecisionBoard] fetchLatestRs', { requested: list.length, found: Object.keys(out).length });
+      } catch {}
+      return out;
+    });
+  }
+}
