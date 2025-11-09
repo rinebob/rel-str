@@ -141,9 +141,15 @@ export const getDailySignals = onCall(
         }
       }
 
-      for (const d of collectDays) {
-        const docSnap = await mirrorCol.doc(d).get();
-        if (docSnap.exists) days.push({ day: d, items: docSnap.data() as any });
+      // Fetch docs in parallel with bounded concurrency
+      const MAX_CONCURRENCY = 20;
+      const refs = collectDays.map((d) => ({ id: d, ref: mirrorCol.doc(d) }));
+      for (let i = 0; i < refs.length; i += MAX_CONCURRENCY) {
+        const chunk = refs.slice(i, i + MAX_CONCURRENCY);
+        const snaps = await Promise.all(chunk.map(({ id, ref }) => ref.get().then(s => ({ id, snap: s }))));
+        for (const { id, snap } of snaps) {
+          if (snap.exists) days.push({ day: id, items: snap.data() as any });
+        }
       }
       return { days };
     } catch (e: any) {
@@ -461,5 +467,138 @@ export const cleanPairDailyPnL = onCall(
     }
 
     return { ok: true, from, to, pairs: pairIds.length, days: Math.floor((toD.getTime() - fromD.getTime()) / step) + 1, mirrorsRebuilt: doMirror ? mirrorsRebuilt : undefined };
+  }
+);
+
+/**
+ * auditSignalsConsistency — Compare per-pair daily docs vs root mirror vs positions per day.
+ * Request: { from: string; to: string }
+ * Response: { ok, range, days: [...], totals }
+ */
+export const auditSignalsConsistency = onCall(
+  { region: 'us-central1', timeoutSeconds: 540 },
+  async (req): Promise<{
+    ok: boolean;
+    range: { from: string; to: string };
+    days: Array<{
+      day: string;
+      perPair: { opens: number; holds: number; closes: number };
+      mirror: { opens: number; holds: number; closes: number };
+      positions: { opened: number; closed: number };
+      diffs?: {
+        opensDelta?: number;
+        closesDelta?: number;
+        missingInMirrorOpens?: string[];
+        missingInPerPairOpens?: string[];
+        missingInPositionsOpens?: string[];
+      };
+    }>;
+    totals: { days: number; openMismatches: number; closeMismatches: number };
+  }> => {
+    const from = String(req.data?.from || '').trim();
+    const to = String(req.data?.to || '').trim();
+    if (!from || !to) throw new Error('from and to required (YYYY-MM-DD)');
+
+    const fromD = new Date(from + 'T00:00:00Z');
+    const toD = new Date(to + 'T00:00:00Z');
+    if (isNaN(fromD.getTime()) || isNaN(toD.getTime())) throw new Error('invalid from/to');
+    if (fromD.getTime() > toD.getTime()) throw new Error('from must be <= to');
+
+    // Progress logging
+    logger.info('auditSignalsConsistency start', { from, to });
+    const step = 24 * 60 * 60 * 1000;
+    const outDays: any[] = [];
+    let openMismatchCount = 0, closeMismatchCount = 0, processedDays = 0;
+
+    for (let t = fromD.getTime(); t <= toD.getTime(); t += step) {
+      const d = new Date(t);
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(d.getUTCDate()).padStart(2, '0');
+      const day = `${y}-${m}-${dd}`;
+
+      // Gather per-pair daily combined
+      let perPairNewOpens: any[] = [];
+      let perPairHolds: any[] = [];
+      let perPairNewCloses: any[] = [];
+      const pairsSnap = await db.collection(PAIRS_COLLECTION).select().get();
+      for (const pd of pairsSnap.docs) {
+        const ref = db.collection(PAIRS_COLLECTION).doc(pd.id).collection(SIGNALS_DAILY_COLLECTION).doc(day);
+        const snap = await ref.get();
+        if (!snap.exists) continue;
+        const data = (snap.data() as any) || {};
+        if (Array.isArray(data.newOpens)) perPairNewOpens.push(...data.newOpens.map((x: any) => ({ ...x, pair: pd.id })));
+        if (Array.isArray(data.holds)) perPairHolds.push(...data.holds.map((x: any) => ({ ...x, pair: pd.id })));
+        if (Array.isArray(data.newCloses)) perPairNewCloses.push(...data.newCloses.map((x: any) => ({ ...x, pair: pd.id })));
+      }
+
+      // Mirror counts
+      const mirrorSnap = await db.collection(SIGNALS_DAILY_ROOT_COLLECTION).doc(day).get();
+      const mirror = (mirrorSnap.exists ? (mirrorSnap.data() as any) : {}) || {};
+      const mirrorOpens: any[] = Array.isArray(mirror.newOpens) ? mirror.newOpens : [];
+      const mirrorCloses: any[] = Array.isArray(mirror.newCloses) ? mirror.newCloses : [];
+      const mirrorHolds: any[] = Array.isArray(mirror.holds) ? mirror.holds : [];
+
+      // Positions counts via single-field filters
+      let positionsOpened = 0, positionsClosed = 0;
+      const posOpenSnap = await db.collection('positions').where('entryDay', '==', day).get();
+      positionsOpened = posOpenSnap.size;
+      const posCloseSnap = await db.collection('positions').where('closed.day', '==', day).get();
+      positionsClosed = posCloseSnap.size;
+
+      // Compute diffs for opens
+      const setFrom = (arr: any[]) => new Set(arr.map(x => String(x?.positionId || '').trim()));
+      const setMirror = setFrom(mirrorOpens);
+      const setPerPair = setFrom(perPairNewOpens);
+      const setPositions = new Set<string>();
+      for (const doc of posOpenSnap.docs) setPositions.add(String((doc.data() as any)?.positionId || doc.id));
+
+      const missingInMirrorOpens = [...setPerPair].filter(id => !setMirror.has(id));
+      const missingInPerPairOpens = [...setMirror].filter(id => !setPerPair.has(id));
+      const missingInPositionsOpens = [...setPerPair].filter(id => !setPositions.has(id));
+
+      const opensDelta = (perPairNewOpens.length) - (mirrorOpens.length);
+      const closesDelta = (perPairNewCloses.length) - (mirrorCloses.length);
+      if (opensDelta !== 0) openMismatchCount++;
+      if (closesDelta !== 0) closeMismatchCount++;
+
+      processedDays++;
+      if (opensDelta !== 0 || closesDelta !== 0) {
+        logger.warn('auditSignalsConsistency mismatch', {
+          day,
+          perPair: { opens: perPairNewOpens.length, holds: perPairHolds.length, closes: perPairNewCloses.length },
+          mirror: { opens: mirrorOpens.length, holds: mirrorHolds.length, closes: mirrorCloses.length },
+          positions: { opened: positionsOpened, closed: positionsClosed },
+          opensDelta,
+          closesDelta,
+          missingInMirrorOpensSample: (missingInMirrorOpens || []).slice(0, 10),
+        });
+      }
+      if (processedDays % 25 === 0) {
+        logger.info('auditSignalsConsistency progress', { processedDays, currentDay: day });
+      }
+
+      outDays.push({
+        day,
+        perPair: { opens: perPairNewOpens.length, holds: perPairHolds.length, closes: perPairNewCloses.length },
+        mirror: { opens: mirrorOpens.length, holds: mirrorHolds.length, closes: mirrorCloses.length },
+        positions: { opened: positionsOpened, closed: positionsClosed },
+        diffs: {
+          opensDelta,
+          closesDelta,
+          missingInMirrorOpens: missingInMirrorOpens.length ? missingInMirrorOpens : undefined,
+          missingInPerPairOpens: missingInPerPairOpens.length ? missingInPerPairOpens : undefined,
+          missingInPositionsOpens: missingInPositionsOpens.length ? missingInPositionsOpens : undefined,
+        },
+      });
+    }
+
+    logger.info('auditSignalsConsistency complete', { days: outDays.length, openMismatches: openMismatchCount, closeMismatches: closeMismatchCount });
+    return {
+      ok: true,
+      range: { from, to },
+      days: outDays,
+      totals: { days: outDays.length, openMismatches: openMismatchCount, closeMismatches: closeMismatchCount },
+    };
   }
 );

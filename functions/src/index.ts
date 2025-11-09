@@ -18,6 +18,7 @@ export {
   rebuildSignalsDailyMirror,
   rebuildSignalsDailyMirrorRange,
   cleanPairDailyPnL,
+  auditSignalsConsistency,
 } from './rs-signal-history.callables';
 
 // RsSignalHistory backfill (HTTP)
