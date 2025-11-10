@@ -395,11 +395,13 @@ export const processDataReadyRunV2 = onMessagePublished(
         ptSegment,
       });
 
-      // Persist phase and trigger early for observability
+      // Persist phase, trigger, and payload status early for observability
       try {
         const update: Record<string, unknown> = { phase };
         if (trigger) update['trigger'] = trigger;
         if (eventType) update['runType'] = eventType;
+        // UI hint: SA may send { status: 'begin' | 'end' }
+        if (parsedPayload && typeof parsedPayload.status === 'string') update['payloadStatus'] = String(parsedPayload.status).toLowerCase();
         await eventRef.set(update, { merge: true });
       } catch {}
 
@@ -438,6 +440,8 @@ export const processDataReadyRunV2 = onMessagePublished(
           ...(trigger ? { trigger } : {}),
           runType: eventType,
           errorSamples: counters.errorSamples,
+          // Persist SA-provided nextFetchAt if available so FE can avoid computing
+          ...(parsedPayload && parsedPayload.nextFetchAt ? { nextFetchAt: String(parsedPayload.nextFetchAt) } : {}),
         }, { merge: true });
       }
     } else if (!isHeartbeat) {
