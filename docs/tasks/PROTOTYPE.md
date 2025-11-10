@@ -82,6 +82,7 @@
 - [ ] Update `/docs` sections completed (schema RS-only, backend registry, API callables, frontend rs-chart, signal history)
 - [ ] Add link to `docs/partner/savantapi-data-ready-webhook.md` and document webhook/Pub-Sub flow in planning (6_API_COMMUNICATION.md already contains high-level section)
 - [x] 2025-11-04: Update planning docs to reflect as-built RsSignalHistory (functions, schema, pairs from pair-registry only; opened.openPrice/closed.closePrice; trades human-readable fields; analytics summary fields; signals-daily naming).
+- [ ] 2025-11-10: Archive-first initial-load and route-switching performance plan — see `docs/planning/2025-11-archive-first-initial-load-and-route-switching.md`
 
 ---
 ## Discovered During Work

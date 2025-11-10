@@ -171,16 +171,14 @@ export class RelStrDbV2Service {
     await this.deleteStockList(userId, srcId); // delete old
   }
 
-  // Live series for a pair doc (hyphenated ID), unified series entries with { pre?, post? }
-  // Returns simplified { date, value } array.
-  // Rules:
-  // - For historical days: use post.rs only (ignore pre)
-  // - For the most recent day (latest.day): use post.rs if present, else allow pre.rs
-  // TODO[realtime]: Switch to docData(...) to enable true realtime listeners. Current implementation uses getDoc(...) (one-shot).
-  // When enabling:
-  // - Replace getDoc(...) with docData(...), keep the mapping to { date, value, norm?, phase? }.
-  // - Ensure callers manage unsubscribe (see withStockListV2Feature.startLivePairSubscriptionsForList).
-  // - Consider debouncing/throttling if write frequency is high.
+  /**
+   * Legacy reader for root doc `pairs-data/{PAIR}` (uses `data` array and `latest`).
+   * @deprecated Archive-first is the agreed approach. This legacy path is scheduled for removal after archive stabilization in prod.
+   * TODO[deprecate]: Remove this method and callers when archive pipelines fully replace legacy reads.
+   * Rules:
+   * - Historical days: use post.rs only (ignore pre)
+   * - Latest day: use post.rs if present, else allow pre.rs
+   */
   getPairSeriesLive$(pairId: string): Observable<Array<{ date: string; value: number; norm?: number; phase?: RsPhase }>> {
     return from(this.inCtx(() => getDoc(doc(this.firestore, `${Collection.PAIRS_DATA}/${pairId}`)))).pipe(
       tap(() => console.log('[RS][Legacy] Fetching series for pair', pairId)),

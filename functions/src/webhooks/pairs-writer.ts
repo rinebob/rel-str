@@ -10,12 +10,12 @@ import { WARNINGS_COLLECTION, RsCloudFunctionName, SILENCE_MISSING_POST_TIME } f
  * Write unified RS series for a pair into Firestore (pairs-data schema).
  *
  * Document path: pairs-data/{BASELINE}-{TARGET}
- * Shape:
+ * Shape (legacy root fields):
  * {
  *   meta: { baseline, symbol, interval, window },
  *   lastUpdatedAt: Timestamp,
- *   latest: { day, pre?{}, post?{} },
- *   data: [ { day, dow, pre?{}, post?{} }, ... ]
+ *   latest: { day, pre?{}, post?{} }, // @deprecated FE is moving to archive-first; root "latest" slated for removal.
+ *   data: [ { day, dow, pre?{}, post?{} }, ... ] // @deprecated FE is moving to archive-first; root "data" slated for removal.
  * }
  *
  * Notes:
@@ -23,6 +23,10 @@ import { WARNINGS_COLLECTION, RsCloudFunctionName, SILENCE_MISSING_POST_TIME } f
  * - Post phase also computes versus prior-day post-close (ac, fallback c).
  * - Retention: limited to meta.window elements (default 30) from the tail.
  * - Upsert: per-day entries merged; existing other phase preserved when one phase updates.
+ *
+ * @deprecated Root-doc fields `data` and `latest` are maintained for backward compatibility only. Archive shards under
+ *   `pairs-data/{PAIR}/archive-YYYY/{YYMMDD}` are the authoritative store for FE consumption.
+ * TODO[deprecate]: Remove writes to root `data`/`latest` once FE removes legacy readers and Decision Board no longer needs root `latest`.
  */
 export async function writeUnifiedSeries(
   baseline: string,

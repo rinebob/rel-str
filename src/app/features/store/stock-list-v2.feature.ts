@@ -17,7 +17,12 @@ import { firstValueFrom, Subscription } from 'rxjs'
  * Default: Legacy. When Archive is fully implemented and validated,
  * we will flip the default to Archive and later remove Legacy.
  */
+/**
+ * Data source selector for Dashboard V2 heatmap.
+ * @deprecated LEGACY is deprecated. Archive is the authoritative path. TODO[deprecate]: Remove LEGACY and related branches after archive stabilization in prod.
+ */
 export enum DataSourceMode {
+    /** @deprecated Scheduled for removal with archive-first rollout. */
     LEGACY = 'legacy',
     ARCHIVE = 'archive',
 }
@@ -42,7 +47,7 @@ export const initialV2State: StockListV2State = {
     formModeV2: FormMode.CREATE,
     showFormV2: false,
     formDataV2: {name: '', baseline: '', symbols: []},
-    dataSourceMode: DataSourceMode.LEGACY,
+    dataSourceMode: DataSourceMode.ARCHIVE,
 }
 
 export function withStockListV2Feature() {
@@ -123,6 +128,7 @@ export function withStockListV2Feature() {
                     series = await firstValueFrom(relStrDbV2Service.getPairSeriesFromArchive$(pair));
                 } else {
                     // Legacy pipeline (pairs-data/{PAIR}.data)
+                    // @deprecated TODO[deprecate]: Remove legacy branch and `getPairSeriesLive$` when archive-first is fully rolled out.
                     series = await firstValueFrom(relStrDbV2Service.getPairSeriesLive$(pair));
                 }
                 // DEBUG: surface what we received from Firestore
