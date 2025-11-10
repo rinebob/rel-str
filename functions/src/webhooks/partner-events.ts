@@ -25,12 +25,17 @@ export function computeEventDocId(args: {
   ptSegment?: string;
   eventType: string;
   runId?: string;
+  publishTime?: string;
 }): string {
-  const { isHeartbeat, ptSegment, eventType, runId } = args;
-  if (isHeartbeat) return `heartbeat__${ptSegment || 'unknown'}`;
-  const rt = eventType || 'unknown';
+  const { isHeartbeat, ptSegment, runId, messageId } = args as any;
+  const mid = (messageId && String(messageId).trim()) || 'no-mid';
+  if (isHeartbeat) {
+    // Heartbeats have no runId; keep them distinct and readable.
+    return `heartbeat-${ptSegment || 'unknown'}-${mid}`;
+  }
   const rid = (runId && String(runId).trim()) || 'no-runid';
-  return `${rt}__${rid}`;
+  // Format: runId-messageId (e.g., 2025-11-10-PRE-1200-<messageId> if SA includes time in runId)
+  return `${rid}-${mid}`;
 }
 
 export async function markProcessing(
