@@ -114,6 +114,7 @@ export function buildPhaseSeries(
   };
 
   const aligned: Array<{ day: string; base: PartnerBar; target: PartnerBar }> = [];
+  const candidateDays: string[] = [];
   for (const t of targetBars) {
     if (!t?.d) continue;
     const base = baseByDay.get(t.d);
@@ -131,47 +132,102 @@ export function buildPhaseSeries(
     }
     const dw = dowLabelUTC(t.d);
     if (dw === 'Sat' || dw === 'Sun') continue;
-    if (phase === RsPhase.PRE) {
-      // Require intraday price for both sides; ipc can be derived from ip vs prior-day close if missing.
-      const targetIp = Number(t.ip);
-      const baseIp = Number(base?.ip);
-      const targetIpcRaw = Number(t.ipc);
-      const baseIpcRaw = Number(base?.ipc);
-      const bi = baseIndexByDay.get(t.d);
-      const ti = targIndexByDay.get(t.d);
-      const prevBaseClose = findPrevTradingClose(baselineBars, bi);
-      const prevTargetClose = findPrevTradingClose(targetBars, ti);
-      const canDeriveTargetIpc = Number.isFinite(targetIp) && targetIp > 0 && Number.isFinite(prevTargetClose) && (prevTargetClose as number) > 0;
-      const canDeriveBaseIpc = Number.isFinite(baseIp) && baseIp > 0 && Number.isFinite(prevBaseClose) && (prevBaseClose as number) > 0;
-      const targetIpc = Number.isFinite(targetIpcRaw)
-        ? targetIpcRaw
-        : (canDeriveTargetIpc ? ((targetIp - (prevTargetClose as number)) / (prevTargetClose as number)) * 100 : NaN);
-      const baseIpc = Number.isFinite(baseIpcRaw)
-        ? baseIpcRaw
-        : (canDeriveBaseIpc ? ((baseIp - (prevBaseClose as number)) / (prevBaseClose as number)) * 100 : NaN);
+    candidateDays.push(t.d);
+  }
 
-      const missing: string[] = [];
-      if (!(Number.isFinite(targetIp) && targetIp > 0)) missing.push('target_ip');
-      if (!(Number.isFinite(baseIp) && baseIp > 0)) missing.push('baseline_ip');
-      if (!Number.isFinite(targetIpc)) missing.push('target_ipc_derived');
-      if (!Number.isFinite(baseIpc)) missing.push('baseline_ipc_derived');
-      if (missing.length > 0) {
-        if (!SILENCE_RS_SERIES_INFO) {
-          logger.info('rs_series_skip_pre_missing_fields', {
-            day: t.d,
-            phase,
-            baseline: baselineSymbol,
-            target: targetSymbol,
-            missing
-          });
+  let latestAlignedDay: string | undefined;
+  if (candidateDays.length > 0) {
+    latestAlignedDay = candidateDays.reduce((a, b) => (a > b ? a : b));
+  }
+
+  for (const t of targetBars) {
+    if (!t?.d) continue;
+    const base = baseByDay.get(t.d);
+    if (!base) continue;
+    const dw = dowLabelUTC(t.d);
+    if (dw === 'Sat' || dw === 'Sun') continue;
+    if (phase === RsPhase.PRE) {
+      const isLatest = latestAlignedDay === t.d;
+      if (isLatest) {
+        const targetIp = Number(t.ip);
+        const baseIp = Number(base?.ip);
+        const targetIpcRaw = Number(t.ipc);
+        const baseIpcRaw = Number(base?.ipc);
+        const bi = baseIndexByDay.get(t.d);
+        const ti = targIndexByDay.get(t.d);
+        const prevBaseClose = findPrevTradingClose(baselineBars, bi);
+        const prevTargetClose = findPrevTradingClose(targetBars, ti);
+        const canDeriveTargetIpc = Number.isFinite(targetIp) && targetIp > 0 && Number.isFinite(prevTargetClose) && (prevTargetClose as number) > 0;
+        const canDeriveBaseIpc = Number.isFinite(baseIp) && baseIp > 0 && Number.isFinite(prevBaseClose) && (prevBaseClose as number) > 0;
+        const targetIpc = Number.isFinite(targetIpcRaw)
+          ? targetIpcRaw
+          : (canDeriveTargetIpc ? ((targetIp - (prevTargetClose as number)) / (prevTargetClose as number)) * 100 : NaN);
+        const baseIpc = Number.isFinite(baseIpcRaw)
+          ? baseIpcRaw
+          : (canDeriveBaseIpc ? ((baseIp - (prevBaseClose as number)) / (prevBaseClose as number)) * 100 : NaN);
+
+        const missing: string[] = [];
+        if (!(Number.isFinite(targetIp) && targetIp > 0)) missing.push('target_ip');
+        if (!(Number.isFinite(baseIp) && baseIp > 0)) missing.push('baseline_ip');
+        if (!Number.isFinite(targetIpc)) missing.push('target_ipc_derived');
+        if (!Number.isFinite(baseIpc)) missing.push('baseline_ipc_derived');
+        if (missing.length > 0) {
+          if (!SILENCE_RS_SERIES_INFO) {
+            logger.info('rs_series_skip_pre_missing_fields', {
+              day: t.d,
+              phase,
+              baseline: baselineSymbol,
+              target: targetSymbol,
+              missing
+            });
+          }
+          continue;
         }
-        continue;
+        (t as any)._ipc_eff = Number(targetIpc.toFixed(6));
+        (base as any)._ipc_eff = Number(baseIpc.toFixed(6));
+      } else {
+        const bi = baseIndexByDay.get(t.d);
+        const ti = targIndexByDay.get(t.d);
+        const prevBaseClose = findPrevTradingClose(baselineBars, bi);
+        const prevTargetClose = findPrevTradingClose(targetBars, ti);
+
+        const todayTargetClose = Number(t.ac ?? t.c ?? 0);
+        const todayBaseClose = Number(base?.ac ?? base?.c ?? 0);
+
+        const targetCpRaw = Number(t.cp);
+        const baseCpRaw = Number(base?.cp);
+
+        const canDeriveTargetCp = Number.isFinite(todayTargetClose) && todayTargetClose > 0 && Number.isFinite(prevTargetClose) && (prevTargetClose as number) > 0;
+        const canDeriveBaseCp = Number.isFinite(todayBaseClose) && todayBaseClose > 0 && Number.isFinite(prevBaseClose) && (prevBaseClose as number) > 0;
+
+        const targetCpEff = Number.isFinite(targetCpRaw)
+          ? targetCpRaw
+          : (canDeriveTargetCp ? ((todayTargetClose - (prevTargetClose as number)) / (prevTargetClose as number)) * 100 : NaN);
+        const baseCpEff = Number.isFinite(baseCpRaw)
+          ? baseCpRaw
+          : (canDeriveBaseCp ? ((todayBaseClose - (prevBaseClose as number)) / (prevBaseClose as number)) * 100 : NaN);
+
+        const missing = [] as string[];
+        if (!(todayTargetClose > 0)) missing.push('target_close');
+        if (!(todayBaseClose > 0)) missing.push('baseline_close');
+        if (!Number.isFinite(targetCpEff)) missing.push('target_cp_derived');
+        if (!Number.isFinite(baseCpEff)) missing.push('baseline_cp_derived');
+        if (missing.length > 0) {
+          if (!SILENCE_RS_SERIES_INFO) {
+            logger.info('rs_series_skip_post_missing_fields', {
+              day: t.d,
+              phase,
+              baseline: baselineSymbol,
+              target: targetSymbol,
+              missing
+            });
+          }
+          continue;
+        }
+        (t as any)._cp_eff = Number(targetCpEff.toFixed(6));
+        (base as any)._cp_eff = Number(baseCpEff.toFixed(6));
       }
-      // Inject derived values into local copies for downstream calculation
-      (t as any)._ipc_eff = Number(targetIpc.toFixed(6));
-      (base as any)._ipc_eff = Number(baseIpc.toFixed(6));
     } else {
-      // Strict EOD: must have closes; percent change (cp) can be derived from today vs prior trading day's close if missing
       const bi = baseIndexByDay.get(t.d);
       const ti = targIndexByDay.get(t.d);
       const prevBaseClose = findPrevTradingClose(baselineBars, bi);
@@ -210,7 +266,6 @@ export function buildPhaseSeries(
         }
         continue;
       }
-      // Inject derived cp for downstream calculation
       (t as any)._cp_eff = Number(targetCpEff.toFixed(6));
       (base as any)._cp_eff = Number(baseCpEff.toFixed(6));
     }
@@ -227,13 +282,22 @@ export function buildPhaseSeries(
   const outT: number[] = [];
 
   for (const { day, base, target } of aligned) {
+    const isLatest = phase === RsPhase.PRE ? (candidateDays.length > 0 && day === (candidateDays.reduce((a, b) => (a > b ? a : b)))) : false;
     // Percent change inputs by phase
-    const bCp = phase === RsPhase.POST ? Number((base as any)._cp_eff ?? base.cp) : Number((base as any)._ipc_eff ?? base.ipc);
-    const tCp = phase === RsPhase.POST ? Number((target as any)._cp_eff ?? target.cp) : Number((target as any)._ipc_eff ?? target.ipc);
+    const bCp = phase === RsPhase.POST
+      ? Number((base as any)._cp_eff ?? base.cp)
+      : (isLatest ? Number((base as any)._ipc_eff ?? base.ipc) : Number((base as any)._cp_eff ?? base.cp));
+    const tCp = phase === RsPhase.POST
+      ? Number((target as any)._cp_eff ?? target.cp)
+      : (isLatest ? Number((target as any)._ipc_eff ?? target.ipc) : Number((target as any)._cp_eff ?? target.cp));
 
     // Close inputs by phase (price reference)
-    const bClose = phase === RsPhase.POST ? (Number(base.ac) || Number(base.c) || 0) : Number(base.ip);
-    const tClose = phase === RsPhase.POST ? (Number(target.ac) || Number(target.c) || 0) : Number(target.ip);
+    const bClose = phase === RsPhase.POST
+      ? (Number(base.ac) || Number(base.c) || 0)
+      : (isLatest ? Number(base.ip) : (Number(base.ac) || Number(base.c) || 0));
+    const tClose = phase === RsPhase.POST
+      ? (Number(target.ac) || Number(target.c) || 0)
+      : (isLatest ? Number(target.ip) : (Number(target.ac) || Number(target.c) || 0));
 
     if (!Number.isFinite(bCp) || !Number.isFinite(tCp)) {
       if (!SILENCE_RS_SERIES_INFO) {
