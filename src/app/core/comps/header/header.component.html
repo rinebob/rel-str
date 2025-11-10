@@ -10,6 +10,8 @@
     
     <div class="nav-buttons-container">
 
+        <rs-refresh-time />
+
         @for (item of NAV_MENU_ITEMS; track item.name) {
           @if (item.external === true) {
             @if ((item.name === 'login' || item.name === 'signup') && isAuthenticated()) {

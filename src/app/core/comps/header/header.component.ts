@@ -8,10 +8,11 @@ import { MatButtonModule } from '@angular/material/button';
 import { NAV_MENU_ITEMS } from '../../common/constants';
 import { AuthStore } from '../../auth/auth.store';
 import { AppRoutes } from '../../common/interfaces';
+import { RefreshTimeComponent } from './refresh-time/refresh-time.component';
 
 @Component({
     selector: 'rs-header',
-    imports: [MatIconModule, MatMenuModule, MatButtonModule, RouterModule, UpperCasePipe],
+    imports: [MatIconModule, MatMenuModule, MatButtonModule, RouterModule, UpperCasePipe, RefreshTimeComponent],
     templateUrl: './header.component.html',
     styleUrl: './header.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush
