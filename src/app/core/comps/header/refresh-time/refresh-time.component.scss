@@ -1,0 +1,16 @@
+@use '../../../../styles/mixins-global' as global;
+@use '../../../../styles/variables-global' as globalVar;
+
+:host {
+  display: flex;
+  margin-left: 0;
+  margin-right: 0.75rem; // spacing before the first nav button
+
+  .refresh-root {
+    @include global.flexboxLayout(column, flex-start, center);
+    color: var(--theme-on-surface, #222);
+    font-size: 0.8125rem; // ~13px
+    line-height: 1.2;
+    .line { opacity: 0.9; }
+  }
+}
