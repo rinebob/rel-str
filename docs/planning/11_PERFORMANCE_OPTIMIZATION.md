@@ -42,3 +42,9 @@ The following strategies will be employed to optimize the performance and effici
     * Ensure the data schema (`database-schema.md`) is optimized not just for storage, but crucially for the application's primary data access patterns (reading data for heatmaps and charts).
 * **Reliability of Backend Triggers:**
     * Configure the scheduled trigger for the daily calculation function (e.g., using Google Cloud Scheduler) for maximum reliability and consistency. Ensure it is set to trigger precisely at the required time relative to market close. Implement robust monitoring and alerting to quickly identify and address any failures in the scheduled trigger or the execution of the calculation function.
+
+---
+
+## See Also: Archive-First Initial Load and Route Switching
+- Planning doc: `docs/planning/2025-11-archive-first-initial-load-and-route-switching.md`
+- Covers deprecating legacy, staged loading for archive, bounded parallelism, client caching/reuse, route prefetching, and measurement plan.
