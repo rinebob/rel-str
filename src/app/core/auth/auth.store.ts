@@ -95,7 +95,10 @@ export const AuthStore = signalStore(
     onInit(store) {
       // Keep state.user in sync with Firebase user
       const auth = inject(AuthService);
-      const sub = auth.user$.subscribe((u) => patchState(store, { user: u }));
+      const sub = auth.user$.subscribe((u) => {
+        patchState(store, { user: u });
+        console.debug('[Auth] user changed', u?.email || null);
+      });
       return () => sub.unsubscribe();
     },
   })
