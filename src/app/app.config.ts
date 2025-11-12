@@ -35,8 +35,8 @@ export const appConfig: ApplicationConfig = {
 
         provideAuth(() => {
             const auth = getAuth();
-            const isLocal = isLocalHost(location.hostname);
-            if (isLocal) {
+            const useEmu = (environment as any)?.useEmulators === true || isLocalHost(location.hostname);
+            if (useEmu) {
                 // Auth emulator default port is 9100 per emulator config
                 connectAuthEmulator(auth, 'http://127.0.0.1:9100', { disableWarnings: true });
                 (window as any).__EMULATORS__ = { ...(window as any).__EMULATORS__, auth: true };
@@ -49,8 +49,8 @@ export const appConfig: ApplicationConfig = {
         }),
         provideFirestore(() => {
             const firestore = getFirestore();
-            const isLocal = isLocalHost(location.hostname);
-            if (isLocal) {
+            const useEmu = (environment as any)?.useEmulators === true || isLocalHost(location.hostname);
+            if (useEmu) {
                 // Firestore emulator is running on 127.0.0.1:8088 per emulator output
                 connectFirestoreEmulator(firestore, '127.0.0.1', 8088);
                 (window as any).__EMULATORS__ = { ...(window as any).__EMULATORS__, firestore: true };
@@ -59,8 +59,8 @@ export const appConfig: ApplicationConfig = {
         }),
         provideFunctions(() => {
             const functions = getFunctions(undefined as any, 'us-central1');
-            const isLocal = isLocalHost(location.hostname);
-            if (isLocal) {
+            const useEmu = (environment as any)?.useEmulators === true || isLocalHost(location.hostname);
+            if (useEmu) {
                 // Functions emulator; prefer 'localhost' to avoid CORS preflight issues with 127.0.0.1
                 connectFunctionsEmulator(functions, 'localhost', 5002);
                 (window as any).__EMULATORS__ = { ...(window as any).__EMULATORS__, functions: true };
