@@ -58,13 +58,13 @@ export const appConfig: ApplicationConfig = {
             return firestore;
         }),
         provideFunctions(() => {
-            const functions = getFunctions();
+            const functions = getFunctions(undefined as any, 'us-central1');
             const isLocal = isLocalHost(location.hostname);
             if (isLocal) {
-                // Functions emulator is running on 127.0.0.1:5002 per emulator output
-                connectFunctionsEmulator(functions, '127.0.0.1', 5002);
+                // Functions emulator; prefer 'localhost' to avoid CORS preflight issues with 127.0.0.1
+                connectFunctionsEmulator(functions, 'localhost', 5002);
                 (window as any).__EMULATORS__ = { ...(window as any).__EMULATORS__, functions: true };
-                console.debug('[Functions] Connected to emulator at http://127.0.0.1:5002');
+                console.debug('[Functions] Connected to emulator at http://localhost:5002 (region us-central1)');
             }
             return functions;
         }),
