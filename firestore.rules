@@ -14,6 +14,18 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow write: if false;
 
+      // Per-pair signals-daily single-root hot + year-archive
+      // - pairs-data/{PAIR}/signals-daily/hot/days/{day}
+      // - pairs-data/{PAIR}/signals-daily/{YYYY}/days/{day}
+      match /signals-daily/{bucket} {
+        allow read: if request.auth != null && (bucket == 'hot' || bucket.matches('^\\d{4}$'));
+        allow write: if false;
+        match /days/{day} {
+          allow read: if request.auth != null;
+          allow write: if false;
+        }
+      }
+
       // Archive: year-sharded per-day docs under dynamic collections archive-YYYY
       match /{archiveCol}/{docId} {
         allow read: if request.auth != null && archiveCol.matches('^archive-\\d{4}$');
@@ -25,6 +37,33 @@ service cloud.firestore {
     match /rs-warnings/{docId} {
       allow read: if request.auth != null;
       allow write: if false; // backend-only writes via functions
+    }
+
+    // Positions single-root hot + year-archive + legacy
+    // - positions/hot/items/{id}
+    // - positions/{YYYY}/items/{id}
+    // - positions/{id} (legacy)
+    match /positions/{bucket} {
+      // legacy doc id path: positions/{id}
+      allow read: if request.auth != null;
+      allow write: if false;
+      match /items/{id} {
+        allow read: if request.auth != null;
+        allow write: if false;
+      }
+    }
+
+    // Root signals-daily mirror single-root hot + year-archive + legacy
+    // - signals-daily/hot/days/{day}
+    // - signals-daily/{YYYY}/days/{day}
+    // - signals-daily/{day} (legacy)
+    match /signals-daily/{bucket} {
+      allow read: if request.auth != null;
+      allow write: if false;
+      match /days/{day} {
+        allow read: if request.auth != null;
+        allow write: if false;
+      }
     }
 
     // Decision Board positions snapshot docs (UI read-only)
