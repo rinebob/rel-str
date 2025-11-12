@@ -18,6 +18,7 @@
 - [ ] Implement Pub/Sub subscriber (Gen2) to process runs: compute RS for registry pairs, update `pairs/*` dual-phase branches (`pre` and `post`), generate canonical signals, update `runs/{runId}` status/counts
 - [ ] TODO: Retire legacy v1 RS subscriber (`processDataReadyRun`) and ratio-based writer once V2 is validated in prod; v1 export disabled in `functions/src/index.ts` so only V2 runs.
 - [ ] Write minimal Firestore log for webhook accepts at `partnerEvents/{runId}` and `runs/{runId}` (status: received/completed)
+- [ ] 2025-11-10: Implement year-sharded + hot-archive storage for positions, signals, and signals-daily to improve console navigation and query performance (design, writers, readers, indexes, migration)
 
 ## Frontend (RS-only, baseline-aware)
 - [ ] Heatmap reads `pairs/{BASELINE}_{SYMBOL}.latest` (+ optional `latest30`); sorting/highlighting; baseline selector
