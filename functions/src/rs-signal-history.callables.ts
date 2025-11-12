@@ -1,6 +1,7 @@
 import { onCall } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from './firebase-admin-init';
+import { upsertRootSignalsDaily, deleteRootSignalsDaily } from './webhooks/hot-archive';
 import type {
   GetDailySignalsRequest,
   GetDailySignalsResponse,
@@ -326,18 +327,15 @@ export async function rebuildSignalsDailyMirrorImpl({ day, pairs }: { day: strin
   // If there are no events, avoid creating a mirror doc (and delete any stale empty doc)
   const hasEvents = (combined.newOpens.length + combined.holds.length + combined.newCloses.length) > 0;
   if (!hasEvents) {
-    const mirrorRef = db.collection(SIGNALS_DAILY_ROOT_COLLECTION).doc(dstr);
-    const existing = await mirrorRef.get();
-    if (existing.exists) await mirrorRef.delete();
+    await deleteRootSignalsDaily(dstr);
     return { day: dstr, counts: { opens: 0, holds: 0, closes: 0 }, skipped: true } as any;
   }
 
-  await db.collection(SIGNALS_DAILY_ROOT_COLLECTION).doc(dstr).set({
+  await upsertRootSignalsDaily(dstr, {
     ...combined,
     appPnLSummary: FieldValue.delete(),
     pnlSummary: FieldValue.delete(),
-    updatedAt: FieldValue.serverTimestamp(),
-  }, { merge: true });
+  });
 
   return { day: dstr, counts: { opens: combined.newOpens.length, holds: combined.holds.length, closes: combined.newCloses.length } };
 }

@@ -18,6 +18,7 @@ import { db, FieldValue } from '../firebase-admin-init';
 import { fetchDailyBarsRaw } from './symbol-fetch';
 import { buildPhaseSeries } from './rs-series';
 import { writeUnifiedSeries } from './pairs-writer';
+import { rebuildSignalsDailyMirrorImpl } from '../rs-signal-history.callables';
 import { listRegisteredPairs } from './registry';
 import {
   toKebabRunType,
@@ -38,6 +39,7 @@ import {
   PAIRS_COLLECTION,
   SIGNALS_DAILY_COLLECTION,
 } from './webhooks-config';
+import { upsertPairSignalsDaily, upsertRootPosition } from './hot-archive';
 import { RsPhase } from '../types/partner';
 import { RsPositionStatus } from '../types/rs-signal-history';
 import { persistWarning } from '../logging/warn';
@@ -151,21 +153,15 @@ export async function processPairLive(
     }
     await writeUnifiedSeries(baseline, target, phase, series, baseBars, targetBars);
 
-    // Update OPEN positions' current snapshot using already-fetched targetBars (PRE and POST)
+    // Update OPEN positions' current snapshot using the computed latest series point (PRE and POST)
     try {
       const latest = series[series.length - 1];
       const latestDay = latest?.day as string | undefined;
-      // Find the target close for latestDay from targetBars (aligned by day field)
-      let latestTargetClose: number | undefined;
-      if (latestDay) {
-        for (let i = targetBars.length - 1; i >= 0; i--) {
-          const b: any = targetBars[i];
-          const d = (typeof b?.d === 'string' ? b.d : (typeof b?.t === 'number' ? new Date(b.t).toISOString().slice(0,10) : undefined));
-          if (d === latestDay) { latestTargetClose = Number.isFinite(b?.ac) ? Number(b.ac) : (Number.isFinite(b?.cp) ? Number(b.cp) : undefined); break; }
-        }
-      }
-      if (latestDay && Number.isFinite(latestTargetClose as number)) {
-        await updateOpenPositionsForPair(pairId, latestDay, latestTargetClose as number);
+      const latestTargetClose = Number(latest?.targetClose);
+      if (latestDay && Number.isFinite(latestTargetClose) && latestTargetClose > 0) {
+        await updateOpenPositionsForPair(pairId, latestDay, latestTargetClose);
+        await upsertDailyHoldsForPair(pairId, latestDay);
+        try { await rebuildSignalsDailyMirrorImpl({ day: latestDay, pairs: [pairId] }); } catch {}
       }
       // On POST, also finalize CLOSED positions for latestDay so positions docs have exit Δ/%
       if (phase === RsPhase.POST && latestDay) {
@@ -201,8 +197,6 @@ async function updateOpenPositionsForPair(pairId: string, latestDay: string, lat
     .where('status', '==', RsPositionStatus.OPEN)
     .get();
   if (snap.empty) return;
-  const batch = db.batch();
-  let ops = 0;
   for (const d of snap.docs) {
     const v = d.data() as any;
     const side = String(v?.side || '').toUpperCase(); // 'LONG' | 'SHORT'
@@ -211,17 +205,35 @@ async function updateOpenPositionsForPair(pairId: string, latestDay: string, lat
     const curPx = Number(latestTargetClose);
     const change = side === 'SHORT' ? Number(entryPx - curPx) : Number(curPx - entryPx);
     const pct = entryPx !== 0 ? Number((change / entryPx) * 100) : undefined;
-    batch.set(d.ref, {
+    const patch = {
       currentPrice: curPx,
       currentChange: change,
       currentPctChange: pct,
       lastUpdateDay: latestDay,
-      updatedAt: FieldValue.serverTimestamp(),
-    }, { merge: true });
-    ops++;
+    } as any;
+    await upsertRootPosition(d.id, latestDay, RsPositionStatus.OPEN, patch);
   }
-  if (ops > 0) await batch.commit();
-  logger.info('updateOpenPositionsForPair committed', { pairId, latestDay, docsUpdated: ops });
+  logger.info('updateOpenPositionsForPair committed', { pairId, latestDay, docsUpdated: snap.size });
+}
+
+/**
+ * Upsert daily holds for a pair for the given day based on currently OPEN positions.
+ * Writes pairs-data/{pair}/signals-daily/{day}.holds = [{ positionId, direction }, ...]
+ */
+async function upsertDailyHoldsForPair(pairId: string, day: string): Promise<void> {
+  const snap = await db.collection(POSITIONS_COLLECTION)
+    .where('pair', '==', pairId)
+    .where('status', '==', RsPositionStatus.OPEN)
+    .get();
+  const holds: Array<{ positionId: string; direction?: string }> = [];
+  for (const d of snap.docs) {
+    const v = d.data() as any;
+    const id = String(d.id);
+    const dir = String(v?.side || '').toUpperCase(); // 'LONG' | 'SHORT'
+    if (!id) continue;
+    holds.push({ positionId: id, direction: dir });
+  }
+  await upsertPairSignalsDaily(pairId, day, { holds });
 }
 
 /**
@@ -237,7 +249,6 @@ async function finalizeClosedPositionsForPair(pairId: string, day: string): Prom
   const closes: Array<{ positionId: string; direction?: string }> = Array.isArray(data?.newCloses) ? data.newCloses : [];
   if (!closes.length) return;
 
-  const batch = db.batch();
   let ops = 0;
   for (const c of closes) {
     const id = String((c as any)?.positionId || '').trim();
@@ -259,20 +270,17 @@ async function finalizeClosedPositionsForPair(pairId: string, day: string): Prom
     const delta = side === 'SHORT' ? Number(entryPx - exitPx) : Number(exitPx - entryPx);
     const pct = entryPx !== 0 ? Number(((delta / entryPx) * 100).toFixed(6)) : 0;
 
-    const posRef = db.collection(POSITIONS_COLLECTION).doc(id);
-    batch.set(posRef, {
+    const patch = {
       exitPrice: exitPx,
       exitDay: day,
       exitIso: new Date(day + 'T00:00:00Z').toISOString(),
       netPnL: delta,
       percentReturn: pct,
       status: RsPositionStatus.CLOSED,
-      updatedAt: FieldValue.serverTimestamp(),
-    }, { merge: true });
+    } as any;
+    await upsertRootPosition(id, day, RsPositionStatus.CLOSED, patch);
     ops++;
-    if (ops >= 400) { await batch.commit(); ops = 0; }
   }
-  if (ops > 0) await batch.commit();
   logger.info('finalizeClosedPositionsForPair committed', { pairId, day, docsUpdated: ops });
 }
 

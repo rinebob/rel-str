@@ -274,6 +274,7 @@ export async function writeUnifiedSeries(
 
   // ===== Archive upserts: pairs-data/{PAIR}/archive-YYYY/{YYMMDD}
   const batch = db.batch();
+  const previewItems: Array<{ archiveCol: string; docId: string; dayDoc: any }> = [];
   for (const e of entries) {
     const y = String(e.day).slice(0, 4);
     const yy = y.slice(2);
@@ -293,8 +294,18 @@ export async function writeUnifiedSeries(
     }
 
     batch.set(archiveRef, dayDoc, { merge: true });
+    if (previewItems.length < 3) {
+      try { previewItems.push({ archiveCol, docId: yymmdd, dayDoc }); } catch {}
+    }
   }
+  try {
+    logger.info('archive_upsert_preview', { pairId, phase, count: entries.length, items: previewItems });
+    logger.info('archive_upsert_preview data: ' + JSON.stringify({ pairId, phase, count: entries.length, items: previewItems }).slice(0, 2000));
+  } catch {}
   await batch.commit();
+  try {
+    logger.info('archive_upsert_committed', { pairId, phase, count: entries.length, daysFirst10: entries.map(e => e.day).slice(0,10) });
+  } catch {}
 
   logger.info(`archive_write_done ${pairId} phase=${phase} days=${merged.length} latestDay=${latest?.day} (archive upserts=${entries.length})`);
 }

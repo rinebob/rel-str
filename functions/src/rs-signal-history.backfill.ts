@@ -1,6 +1,7 @@
 import { onRequest } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from './firebase-admin-init';
+import { upsertRootPosition, upsertPairSignalsDaily } from './webhooks/hot-archive';
 import { RsDirection, RsPositionDoc, RsPositionOpened, RsPositionClosed, RsPositionStatus, RsDirectionEnum, RsSourceEnum, PositionState } from './types/rs-signal-history';
 import { rebuildSignalsDailyMirrorImpl } from './rs-signal-history.callables';
 import { PAIRS_COLLECTION, SIGNALS_COLLECTION, SIGNALS_DAILY_COLLECTION, ANALYTICS_COLLECTION, ANALYTICS_SUMMARY_DOC, POSITIONS_COLLECTION, SIGNALS_DAILY_ROOT_COLLECTION } from './webhooks/webhooks-config';
@@ -152,15 +153,17 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
           const pid = `${String(startOpened.day).replace(/-/g,'')}-${dow(new Date(startOpened.t)).toUpperCase()}-${pair}-${String(direction).toUpperCase()}`;
           if (!dryRun) {
             // Add hold; also remove any stale open/close entries for the same position to enforce mutual exclusivity
-            batch.set(dailyRef, {
+            const dailyHoldPatch = {
               holds: FieldValue.arrayUnion({ positionId: pid, direction }),
               newOpens: FieldValue.arrayRemove({ positionId: pid, direction }),
               newCloses: FieldValue.arrayRemove({ positionId: pid, direction }),
               updatedAt: FieldValue.serverTimestamp(),
-            }, { merge: true }); opsInBatch++;
-            // Update running PnL snapshot for open position in positions/{positionId}
+            } as any;
+            batch.set(dailyRef, dailyHoldPatch, { merge: true }); opsInBatch++;
+            // Mirror per-pair daily to hot/year shards
+            try { await upsertPairSignalsDaily(pair, t.day, dailyHoldPatch); } catch {}
+            // Update running PnL snapshot for open position (root positions hot/archive)
             try {
-              const positionsRef = db.collection(POSITIONS_COLLECTION).doc(pid);
               const openPx = Number.isFinite((startOpened as any)?.openPrice) ? Number((startOpened as any).openPrice) : undefined;
               const curPx = Number.isFinite((t as any)?.ac) ? Number((t as any).ac) : undefined;
               let change: number | undefined;
@@ -178,9 +181,8 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                 currentPrice: curPx,
                 currentChange: change,
                 currentPctChange: pctChange,
-                updatedAt: FieldValue.serverTimestamp(),
               };
-              await positionsRef.set(patch, { merge: true });
+              await upsertRootPosition(pid, t.day, RsPositionStatus.OPEN, patch);
               logger.info('position snapshot (hold)', {
                 event: 'positionSnapshot',
                 positionId: pid,
@@ -248,12 +250,15 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
             posUpdateLong.appPnl = FieldValue.delete();
             batch.set(posRef, posUpdateLong, { merge: true }); opsInBatch++;
             // Add close; also remove any stale hold/open entries for the same position to enforce mutual exclusivity
-            batch.set(dailyRef, {
+            const dailyClosePatchLong = {
               newCloses: FieldValue.arrayUnion({ positionId: posId, direction: RsDirectionEnum.LONG }),
               holds: FieldValue.arrayRemove({ positionId: posId, direction: RsDirectionEnum.LONG }),
               newOpens: FieldValue.arrayRemove({ positionId: posId, direction: RsDirectionEnum.LONG }),
               updatedAt: FieldValue.serverTimestamp(),
-            }, { merge: true }); opsInBatch++;
+            } as any;
+            batch.set(dailyRef, dailyClosePatchLong, { merge: true }); opsInBatch++;
+            // Mirror per-pair daily to hot/year shards
+            try { await upsertPairSignalsDaily(pair, t.day, dailyClosePatchLong); } catch {}
             try {
               const tradeId = posId;
               const positionsRef = db.collection(POSITIONS_COLLECTION).doc(tradeId);
@@ -354,6 +359,19 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                   await summaryRef.set({ avgNetPnL: avg }, { merge: true });
                 } catch {}
               }
+              // Ensure hot/archive mirror
+              try {
+                const mirrorPatch: any = {
+                  entryPrice: openPx,
+                  exitPrice: closePx,
+                  entryDay: (opened as any)?.day,
+                  exitDay: t.day,
+                  netPnL,
+                  percentReturn,
+                  status: RsPositionStatus.CLOSED,
+                };
+                await upsertRootPosition(tradeId, t.day, RsPositionStatus.CLOSED, mirrorPatch);
+              } catch {}
               logger.info('position finalize (close:long)', {
                 event: 'positionFinalize',
                 positionId: tradeId,
@@ -423,12 +441,15 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
             posUpdateShort.appPnl = FieldValue.delete();
             batch.set(posRef, posUpdateShort, { merge: true }); opsInBatch++;
             // Add close; also remove any stale hold/open entries for the same position to enforce mutual exclusivity
-            batch.set(dailyRef, {
+            const dailyClosePatchShort = {
               newCloses: FieldValue.arrayUnion({ positionId: posId, direction: RsDirectionEnum.SHORT }),
               holds: FieldValue.arrayRemove({ positionId: posId, direction: RsDirectionEnum.SHORT }),
               newOpens: FieldValue.arrayRemove({ positionId: posId, direction: RsDirectionEnum.SHORT }),
               updatedAt: FieldValue.serverTimestamp(),
-            }, { merge: true }); opsInBatch++;
+            } as any;
+            batch.set(dailyRef, dailyClosePatchShort, { merge: true }); opsInBatch++;
+            // Mirror per-pair daily to hot/year shards
+            try { await upsertPairSignalsDaily(pair, t.day, dailyClosePatchShort); } catch {}
             // Cleanup legacy fields on CLOSE
             batch.set(posRef, { opened: { price: FieldValue.delete() as any }, closed: { price: FieldValue.delete() as any } } as any, { merge: true }); opsInBatch++;
             try {
@@ -531,6 +552,19 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                   await summaryRef.set({ avgNetPnL: avg }, { merge: true });
                 } catch {}
               }
+              // Ensure hot/archive mirror
+              try {
+                const mirrorPatchS: any = {
+                  entryPrice: openPx,
+                  exitPrice: closePx,
+                  entryDay: (opened as any)?.day,
+                  exitDay: t.day,
+                  netPnL,
+                  percentReturn,
+                  status: RsPositionStatus.CLOSED,
+                };
+                await upsertRootPosition(tradeId, t.day, RsPositionStatus.CLOSED, mirrorPatchS);
+              } catch {}
               logger.info('position finalize (close:short)', {
                 event: 'positionFinalize',
                 positionId: tradeId,
@@ -590,12 +624,15 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
               createdAt: FieldValue.serverTimestamp(),
             } as Partial<RsPositionDoc>, { merge: true }); opsInBatch++;
             // Add open; also remove any stale hold/close entries for the same position to enforce mutual exclusivity
-            batch.set(dailyRef, {
+            const dailyOpenPatchLong = {
               newOpens: FieldValue.arrayUnion({ positionId: posId, direction: RsDirectionEnum.LONG }),
               holds: FieldValue.arrayRemove({ positionId: posId, direction: RsDirectionEnum.LONG }),
               newCloses: FieldValue.arrayRemove({ positionId: posId, direction: RsDirectionEnum.LONG }),
               updatedAt: FieldValue.serverTimestamp(),
-            }, { merge: true }); opsInBatch++;
+            } as any;
+            batch.set(dailyRef, dailyOpenPatchLong, { merge: true }); opsInBatch++;
+            // Mirror per-pair daily to hot/year shards
+            try { await upsertPairSignalsDaily(pair, t.day, dailyOpenPatchLong, { ensureHotIf: true }); } catch {}
             // Create a root positions doc on open
             try {
               const positionsRef = db.collection(POSITIONS_COLLECTION).doc(posId);
@@ -634,6 +671,21 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
               });
               // ensure legacy field removed if present
               await positionsRef.set({ tradeId: FieldValue.delete() as any }, { merge: true });
+              // Mirror to hot/year shards and ensure bucket metadata
+              try {
+                const mirrorPatch: any = {
+                  entryDay: t.day,
+                  status: RsPositionStatus.OPEN,
+                };
+                if (openPx != null) {
+                  mirrorPatch.entryPrice = openPx;
+                  mirrorPatch.currentPrice = openPx;
+                  mirrorPatch.currentChange = 0;
+                  mirrorPatch.currentPctChange = 0;
+                  mirrorPatch.lastUpdateDay = t.day;
+                }
+                await upsertRootPosition(posId, t.day, RsPositionStatus.OPEN, mirrorPatch);
+              } catch {}
             } catch {}
             if (verbose && openLogs < verboseCap) {
               logger.info(`RS OPEN  long pair=${pair} day=${t.day} rs=${y.rs.toFixed(3)}→${t.rs.toFixed(3)} open=${openPx ?? 'n/a'} posId=${posId}`,
@@ -679,12 +731,15 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
             // Cleanup legacy field on OPEN
             batch.set(posRef, { opened: { price: FieldValue.delete() as any } } as any, { merge: true }); opsInBatch++;
             // Add open; also remove any stale hold/close entries for the same position to enforce mutual exclusivity
-            batch.set(dailyRef, {
+            const dailyOpenPatchShort = {
               newOpens: FieldValue.arrayUnion({ positionId: posId, direction: RsDirectionEnum.SHORT }),
               holds: FieldValue.arrayRemove({ positionId: posId, direction: RsDirectionEnum.SHORT }),
               newCloses: FieldValue.arrayRemove({ positionId: posId, direction: RsDirectionEnum.SHORT }),
               updatedAt: FieldValue.serverTimestamp(),
-            }, { merge: true }); opsInBatch++;
+            } as any;
+            batch.set(dailyRef, dailyOpenPatchShort, { merge: true }); opsInBatch++;
+            // Mirror per-pair daily to hot/year shards
+            try { await upsertPairSignalsDaily(pair, t.day, dailyOpenPatchShort, { ensureHotIf: true }); } catch {}
             // Create a root positions doc on open
             try {
               const positionsRef = db.collection(POSITIONS_COLLECTION).doc(posId);
@@ -723,6 +778,21 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
               });
               // ensure legacy field removed if present
               await positionsRef.set({ tradeId: FieldValue.delete() as any }, { merge: true });
+              // Mirror to hot/year shards and ensure bucket metadata
+              try {
+                const mirrorPatchS: any = {
+                  entryDay: t.day,
+                  status: RsPositionStatus.OPEN,
+                };
+                if (openPx != null) {
+                  mirrorPatchS.entryPrice = openPx;
+                  mirrorPatchS.currentPrice = openPx;
+                  mirrorPatchS.currentChange = 0;
+                  mirrorPatchS.currentPctChange = 0;
+                  mirrorPatchS.lastUpdateDay = t.day;
+                }
+                await upsertRootPosition(posId, t.day, RsPositionStatus.OPEN, mirrorPatchS);
+              } catch {}
             } catch {}
             if (verbose && openLogs < verboseCap) {
               logger.info(`RS OPEN  short pair=${pair} day=${t.day} rs=${y.rs.toFixed(3)}→${t.rs.toFixed(3)} open=${openPx ?? 'n/a'} posId=${posId}`,

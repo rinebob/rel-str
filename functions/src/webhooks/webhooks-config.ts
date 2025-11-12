@@ -70,6 +70,19 @@ export const SIGNALS_DAILY_COLLECTION = 'signals-daily';
 /** Root daily mirror collection (aggregated across pairs). */
 export const SIGNALS_DAILY_ROOT_COLLECTION = 'signals-daily';
 
+/** Hot window for hot/archive sharding (days). */
+export const HOT_DAYS = Number(process.env.HOT_DAYS || 90);
+
+/** Bucket document id for hot shards. */
+export const HOT_BUCKET_ID = 'hot';
+
+/** Label for year bucket kind metadata. */
+export const YEAR_BUCKET_KIND = 'year';
+
+/** Kind labels for metadata documents (console visibility). */
+export const COLLECTION_KIND_SIGNALS_DAILY = 'signals-daily';
+export const COLLECTION_KIND_POSITIONS = 'positions';
+
 /** Max number of warning docs to persist per run/process (default 50). */
 export const WARNINGS_CAP_PER_RUN = Number(process.env.WARNINGS_CAP_PER_RUN || 50);
 

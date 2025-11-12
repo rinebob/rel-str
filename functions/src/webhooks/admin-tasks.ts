@@ -261,6 +261,8 @@ export const diagnosePairDays = onCall({ region: 'us-central1', timeoutSeconds: 
     const yearsBack: number | undefined = Number.isFinite(req.data?.yearsBack) ? Number(req.data.yearsBack) : undefined;
     const datesArg: string[] = Array.isArray(req.data?.dates) ? req.data.dates.map((d: any) => String(d)) : [];
     const autoFix: boolean = !!req.data?.autoFix;
+    const forceWrite: boolean = !!req.data?.forceWrite;
+    logger.info('diagnosePairDays start', { baseline, symbols, phase, from: from ?? null, to: to ?? null, yearsBack: yearsBack ?? null, dates: datesArg, autoFix, forceWrite });
 
     if (!baseline || symbols.length === 0) {
       return { ok: false, error: 'missing_baseline_or_symbols' };
@@ -290,6 +292,41 @@ export const diagnosePairDays = onCall({ region: 'us-central1', timeoutSeconds: 
           fetchDailyBarsRange(baseline, rangeOpts),
           fetchDailyBarsRange(target, rangeOpts),
         ]);
+        logger.info('diagnosePairDays bars fetched', { pair: `${baseline}-${target}`, phase, baseBars: baseBars?.length ?? 0, targetBars: targetBars?.length ?? 0, from: from ?? null, to: to ?? null });
+        // If focusing a single day, surface the raw bars at and before that day for both series
+        const focusDatesRaw: string[] = Array.isArray(datesArg) && datesArg.length ? datesArg : ((from && to && from === to) ? [String(from)] : []);
+        const focusDay: string | undefined = focusDatesRaw.length ? String(focusDatesRaw[0]).slice(0,10) : undefined;
+        if (focusDay) {
+          const toIndex = (bars: any[], day: string): number | undefined => {
+            for (let i = 0; i < bars.length; i++) { const d = (bars[i]?.d || bars[i]?.t)?.toString?.().slice(0,10); if (d === day) return i; }
+            return undefined;
+          };
+          const bi = toIndex(baseBars as any[], focusDay);
+          const ti = toIndex(targetBars as any[], focusDay);
+          const prev = (bars: any[], idx?: number) => (idx !== undefined && idx > 0) ? bars[idx-1] : undefined;
+          const preview = (b: any) => b ? { d: b?.d ?? b?.t ?? null, ac: b?.ac ?? null, c: b?.c ?? null } : null;
+          logger.info('diagnosePairDays focus bars', {
+            pair: `${baseline}-${target}`,
+            phase,
+            focusDay,
+            baseAt: preview(bi !== undefined ? (baseBars as any[])[bi] : undefined),
+            basePrev: preview(prev(baseBars as any[], bi)),
+            targetAt: preview(ti !== undefined ? (targetBars as any[])[ti] : undefined),
+            targetPrev: preview(prev(targetBars as any[], ti)),
+          });
+          try {
+            const payload = {
+              pair: `${baseline}-${target}`,
+              phase,
+              focusDay,
+              baseAt: preview(bi !== undefined ? (baseBars as any[])[bi] : undefined),
+              basePrev: preview(prev(baseBars as any[], bi)),
+              targetAt: preview(ti !== undefined ? (targetBars as any[])[ti] : undefined),
+              targetPrev: preview(prev(targetBars as any[], ti)),
+            };
+            logger.info('diagnosePairDays focus bars data: ' + JSON.stringify(payload).slice(0, 1200));
+          } catch {}
+        }
 
         // Build quick lookup of bars by day
         const baseDays = new Set<string>();
@@ -299,6 +336,21 @@ export const diagnosePairDays = onCall({ region: 'us-central1', timeoutSeconds: 
 
         // Compute series for the window, then index by day
         const series = buildPhaseSeries(baseBars, targetBars, phase, baseline, target, logger);
+        const seriesDays = series.map(p => p.day);
+        logger.info('diagnosePairDays series built', { pair: `${baseline}-${target}`, phase, series: series.length, first5: seriesDays.slice(0,5), last5: seriesDays.slice(Math.max(0, seriesDays.length-5)) });
+        if (focusDay) {
+          const focusPt = series.find(p => p.day === focusDay);
+          const previewPt = focusPt ? {
+            day: focusPt.day,
+            baseClose: (focusPt as any).baseClose,
+            targetClose: (focusPt as any).targetClose,
+            it: (focusPt as any).it,
+          } : null;
+          logger.info('diagnosePairDays series focus', { pair: `${baseline}-${target}`, phase, focusDay, present: !!focusPt, point: previewPt });
+          try {
+            logger.info('diagnosePairDays series focus data: ' + JSON.stringify({ pair: `${baseline}-${target}`, phase, focusDay, point: previewPt }).slice(0, 1200));
+          } catch {}
+        }
         const computedDays = new Set<string>(series.map((p) => p.day));
 
         // Read existing stored phase days
@@ -312,6 +364,17 @@ export const diagnosePairDays = onCall({ region: 'us-central1', timeoutSeconds: 
           if (phase === RsPhase.POST && row?.post?.rs !== undefined) storedDays.add(d);
           if (phase === RsPhase.PRE && row?.pre?.rs !== undefined) storedDays.add(d);
         }
+        const focusDates: string[] = datesArg.length ? datesArg.map(d => String(d).slice(0,10)) : ((from && to && from === to) ? [String(from).slice(0,10)] : []);
+        const focus = focusDates.length ? focusDates[0] : undefined;
+        logger.info('diagnosePairDays stored vs computed', {
+          pair: pairId,
+          phase,
+          computedCount: computedDays.size,
+          storedCount: storedDays.size,
+          focus,
+          focusInComputed: focus ? computedDays.has(focus) : null,
+          focusInStored: focus ? storedDays.has(focus) : null,
+        });
 
         // Establish candidate days to check
         const candidateDays = new Set<string>();
@@ -343,11 +406,36 @@ export const diagnosePairDays = onCall({ region: 'us-central1', timeoutSeconds: 
 
         // Optionally repair: write only missing computed days
         let writtenDays = 0;
-        if (autoFix && computedNotStored.length > 0) {
-          const entries = series.filter((p) => computedNotStored.includes(p.day));
+        if (autoFix) {
+          // Force write path: ignore storedDays and write all computed entries restricted to the requested dates
+          let entries: typeof series = [];
+          if (forceWrite) {
+            if (datesArg.length > 0) {
+              const datesSet = new Set(datesArg.map(d => String(d).slice(0,10)));
+              entries = series.filter(e => datesSet.has(e.day));
+            } else if (from || to) {
+              const lower = from ? String(from).slice(0,10) : '0000-01-01';
+              const upper = to ? String(to).slice(0,10) : '9999-12-31';
+              entries = series.filter(e => e.day >= lower && e.day <= upper);
+            } else {
+              entries = series;
+            }
+          } else if (computedNotStored.length > 0) {
+            entries = series.filter((p) => computedNotStored.includes(p.day));
+          }
+
           if (entries.length > 0) {
+            const entryDays = entries.map(e => e.day);
+            const focusEntry = focusDay ? entries.find(e => e.day === focusDay) : undefined;
+            const entriesPreview = entries.slice(0, 3).map(e => ({ day: e.day, baseClose: (e as any).baseClose, targetClose: (e as any).targetClose, it: (e as any).it }));
+            logger.info('diagnosePairDays autoFix writing', { pair: pairId, phase, forceWrite, from: from ?? null, to: to ?? null, dates: datesArg, count: entries.length, daysFirst10: entryDays.slice(0,10), focusEntry: focusEntry ? { day: focusEntry.day, baseClose: (focusEntry as any).baseClose, targetClose: (focusEntry as any).targetClose, it: (focusEntry as any).it } : null, entriesPreview });
+            try {
+              logger.info('diagnosePairDays autoFix writing data: ' + JSON.stringify({ pair: pairId, phase, forceWrite, from, to, dates: datesArg, count: entries.length, days: entryDays.slice(0,20), entriesPreview, focusEntry: focusEntry ? { day: (focusEntry as any).day, baseClose: (focusEntry as any).baseClose, targetClose: (focusEntry as any).targetClose, it: (focusEntry as any).it } : null }).slice(0, 1500));
+            } catch {}
             await writeUnifiedSeries(baseline, target, phase, entries, baseBars, targetBars);
             writtenDays = entries.length;
+            logger.info('diagnosePairDays autoFix wrote', { pair: pairId, phase, writtenDays, daysFirst10: entryDays.slice(0,10) });
+            try { logger.info('diagnosePairDays autoFix wrote data: ' + JSON.stringify({ pair: pairId, phase, writtenDays, days: entryDays.slice(0,20) }).slice(0, 1200)); } catch {}
           }
         }
 
@@ -365,6 +453,7 @@ export const diagnosePairDays = onCall({ region: 'us-central1', timeoutSeconds: 
           },
           problems,
         });
+        logger.info('diagnosePairDays result', { pair: pairId, phase, candidateDays: candidateDays.size, storedDays: storedDays.size, computedDays: computedDays.size, present, problems: problems.length, writtenDays, problemsSample: problems.slice(0,10) });
       } catch (e: any) {
         results.push({ pair: `${baseline}-${target}`, error: e?.message || String(e) });
       }
