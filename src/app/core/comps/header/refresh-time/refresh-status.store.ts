@@ -1,12 +1,13 @@
-import { inject, computed } from '@angular/core';
+import { inject, computed, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import { signalStore, withState, withMethods, withComputed, patchState } from '@ngrx/signals';
-import { Firestore, collection, collectionData, query, where, orderBy, limit } from '@angular/fire/firestore';
-import { Subscription, interval, map } from 'rxjs';
+import { Subscription, interval } from 'rxjs';
+import { Firestore, doc, docSnapshots } from '@angular/fire/firestore';
+import { Collection, Subcollection } from '../../../common/constants';
 
 export type RefreshStatusState = {
   inProgress: boolean;
   lastCompletedAt: Date | null;
-  nextFetchAt: Date | null;
+  nextRefreshAt: Date | null;
   now: Date;
   lastAbs: string;
   lastAgo: string;
@@ -17,7 +18,7 @@ export type RefreshStatusState = {
 const initialState: RefreshStatusState = {
   inProgress: false,
   lastCompletedAt: null,
-  nextFetchAt: null,
+  nextRefreshAt: null,
   now: new Date(),
   lastAbs: '—',
   lastAgo: '—',
@@ -32,78 +33,88 @@ let _tickerSub: Subscription | undefined;
 export const RefreshStatusStore = signalStore(
   { providedIn: 'root' },
   withState<RefreshStatusState>(initialState),
-  withMethods((store, firestore = inject(Firestore)) => ({
-    recalc(): void {
-      const now = new Date();
-      patchState(store, { now });
-      const last = store.lastCompletedAt();
-      const updates: Partial<RefreshStatusState> = {};
-      if (last instanceof Date) {
-        updates.lastAbs = formatAbsET(last);
-        updates.lastAgo = formatHms(now.getTime() - last.getTime());
-      }
-      const inProg = store.inProgress();
-      const next = store.nextFetchAt();
-      if (!inProg && next instanceof Date) {
-        updates.nextAbs = formatAbsET(next);
-        const ms = next.getTime() - now.getTime();
-        updates.nextIn = ms > 0 ? formatHms(ms) : '00:00:00';
-      } else if (inProg) {
-        updates.nextAbs = '—';
-        updates.nextIn = '—';
-      }
-      patchState(store, updates as RefreshStatusState);
-    },
-    start(): void {
-      const completedQ = query(
-        collection(firestore, 'partner-events'),
-        where('status', 'in', ['completed', 'completed_with_errors']),
-        orderBy('endTime', 'desc'),
-        limit(1)
-      );
-      _subs.push(
-        collectionData(completedQ, { idField: 'id' }).pipe(map((rows: any[]) => rows?.[0]))
-          .subscribe((doc: any) => {
-            if (!doc) return;
-            const endTime = extractDate(doc?.endTime) || extractDate(doc?.publishTime) || undefined;
-            const nextFetchRaw = typeof doc?.nextFetchAt === 'string' ? doc.nextFetchAt : undefined;
-            patchState(store, {
-              lastCompletedAt: endTime || null,
-              nextFetchAt: nextFetchRaw ? parseEtLocalDateString(nextFetchRaw) : null,
+  withMethods((store) => {
+    const envInj: EnvironmentInjector = inject(EnvironmentInjector);
+    return ({
+      recalc(): void {
+        const now = new Date();
+        patchState(store, { now });
+        const last = store.lastCompletedAt();
+        const updates: Partial<RefreshStatusState> = {};
+        if (last instanceof Date) {
+          updates.lastAbs = formatAbsET(last);
+          updates.lastAgo = formatHms(now.getTime() - last.getTime());
+        }
+        const inProg = store.inProgress();
+        const next = store.nextRefreshAt();
+        if (!inProg && next instanceof Date) {
+          updates.nextAbs = formatAbsET(next);
+          const ms = next.getTime() - now.getTime();
+          updates.nextIn = ms > 0 ? formatHms(ms) : '00:00:00';
+        } else if (inProg) {
+          updates.nextAbs = '—';
+          updates.nextIn = '—';
+        }
+        patchState(store, updates as RefreshStatusState);
+        const dbg = {
+          inProgress: store.inProgress(),
+          lastCompletedAtISO: store.lastCompletedAt() instanceof Date ? (store.lastCompletedAt() as Date).toISOString() : null,
+          nextRefreshAtISO: store.nextRefreshAt() instanceof Date ? (store.nextRefreshAt() as Date).toISOString() : null,
+          lastAbs: store.lastAbs(),
+          lastAgo: store.lastAgo(),
+          nextAbs: store.nextAbs(),
+          nextIn: store.nextIn(),
+        };
+        console.debug('[RefreshStatus] recalc -> header values', dbg);
+      },
+      start(): void {
+        console.debug('[RefreshStatus] start() called');
+        try {
+          runInInjectionContext(envInj, () => {
+            const fs = inject(Firestore);
+            const ref = doc(fs, Collection.APP, Subcollection.REFRESH_STATUS);
+            const sub = (docSnapshots(ref) as any).subscribe({
+              next: (snap: any) => {
+                const data = typeof snap?.data === 'function' ? snap.data() : snap;
+                if (!data) return;
+                const status = (data?.runStatus) as string | undefined;
+                const last = extractDate(data?.endTimeUTC);
+                const next = extractDate(data?.nextRefreshAtUTC);
+                patchState(store, {
+                  inProgress: status === 'processing',
+                  lastCompletedAt: last || null,
+                  nextRefreshAt: next || null,
+                });
+                this.startTickerIfNeeded();
+                (this as any).recalc();
+              },
+              error: (err: any) => {
+                console.error('[RefreshStatus] status doc subscribe error', { code: err?.code, message: err?.message, details: err });
+              }
             });
-            this.recalc();
-          })
-      );
-      const processingQ = query(
-        collection(firestore, 'partner-events'),
-        where('status', '==', 'processing'),
-        orderBy('startTime', 'desc'),
-        limit(1)
-      );
-      _subs.push(
-        collectionData(processingQ, { idField: 'id' }).pipe(map((rows: any[]) => rows?.[0]))
-          .subscribe((doc: any) => { patchState(store, { inProgress: !!doc }); this.recalc(); })
-      );
-      _tickerSub = interval(1000).subscribe(() => this.recalc());
-    },
-    startMock(): void {
-      const now = new Date();
-      const last = new Date(now.getTime() - 2 * 60_000);
-      const next = new Date(now.getTime() + 13 * 60_000);
-      patchState(store, {
-        inProgress: false,
-        lastCompletedAt: last,
-        nextFetchAt: next,
-      });
-      this.recalc();
-      _tickerSub = interval(1000).subscribe(() => this.recalc());
-    },
-    stop(): void {
-      _tickerSub?.unsubscribe();
-      _subs.forEach((s: Subscription) => s.unsubscribe());
-      _subs = [];
-    },
-  })),
+            _subs.push(sub as Subscription);
+          });
+        } catch (e) {
+          console.error('[RefreshStatus] start() failed before subscriptions', e);
+        }
+      },
+      startTickerIfNeeded(): void {
+        const shouldTick = !!store.nextRefreshAt() || !!store.inProgress();
+        if (shouldTick && !_tickerSub) {
+          _tickerSub = interval(1000).subscribe(() => (this as any).recalc());
+        }
+        if (!shouldTick && _tickerSub) {
+          _tickerSub.unsubscribe();
+          _tickerSub = undefined;
+        }
+      },
+      stop(): void {
+        _tickerSub?.unsubscribe();
+        _subs.forEach((s: Subscription) => s.unsubscribe());
+        _subs = [];
+      },
+    });
+  } ),
   withComputed(({ inProgress, lastAbs, lastAgo, nextAbs, nextIn }) => ({
     vm: computed(() => ({ inProgress: inProgress(), lastAbs: lastAbs(), lastAgo: lastAgo(), nextAbs: nextAbs(), nextIn: nextIn() }))
   }))

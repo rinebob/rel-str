@@ -137,11 +137,13 @@ export enum Collection {
   PAIRS_DATA = 'pairs-data',
   USERS = 'users',
   ADMIN = 'admin',
+  APP = 'app',
 }
 
 /** Known subcollection names under a user document. */
 export enum Subcollection {
   LISTS = 'lists',
+  REFRESH_STATUS = 'refresh-status',
 }
 
 /** Helper to produce the lists collection path for a user. */
