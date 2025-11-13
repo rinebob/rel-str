@@ -1,8 +1,10 @@
-import { Component, OnInit, computed, inject } from '@angular/core';
+import { Component, OnInit, computed, inject, isDevMode } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DecisionBoardStore } from './decision-board.store';
 import { DecisionBoardItem, PositionDoc } from './decision-board.service';
 import { TruncPipe } from './truncate.pipe';
+import { Firestore, doc, setDoc } from '@angular/fire/firestore';
+import { Collection, Subcollection } from '../../core/common/constants';
 
 @Component({
   selector: 'app-decision-board-view',
@@ -13,6 +15,7 @@ import { TruncPipe } from './truncate.pipe';
 })
 export class DecisionBoardViewComponent implements OnInit {
   readonly store = inject(DecisionBoardStore);
+  private readonly fs = inject(Firestore);
 
   // Sort items within each section alphabetically by pair for display
   readonly daysSorted = computed(() =>
@@ -29,6 +32,23 @@ export class DecisionBoardViewComponent implements OnInit {
   ngOnInit(): void {
     // Default to last 7 days WITH signals (expands range until 7 non-empty days)
     this.store.loadLastNWithSignals(7);
+    if (isDevMode()) {
+      // Dev-only seeding of refresh status doc
+      void (async () => {
+        try {
+          const ref = doc(this.fs, Collection.APP, Subcollection.REFRESH_STATUS);
+          await setDoc(ref as any, { runStatus: 'processing' }, { merge: true } as any);
+          await setDoc(ref as any, {
+            runStatus: 'completed',
+            endTimeUTC: new Date(),
+            nextRefreshAtUTC: new Date(Date.now() + 60 * 60 * 1000)
+          }, { merge: true } as any);
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.warn('[DecisionBoard] dev seeding failed', e);
+        }
+      })();
+    }
   }
 
   onPresetToday(): void {
