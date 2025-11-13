@@ -66,3 +66,38 @@
 ## Security notes
 - This pattern keeps the license key out of Git, but when used in a client-only Angular app, it becomes part of the built JavaScript. This is expected for Syncfusion browser licensing.
 - For true secrecy, move licensing to a server/SSR context and never ship the key to the browser.
+
+## seed-partner-events.js
+
+- **Purpose**: Seed the Firestore emulator with example documents under the `partner-events` collection to mimic partner Pub/Sub event history.
+- **Current status**: This script is not wired into any npm script and there are no backend listeners that react to `partner-events` to update other docs (e.g., `app/refresh-status`). Running it only creates `partner-events/*` docs in the emulator.
+
+### When to use
+- Local testing that specifically needs `partner-events` documents present, or if you later add a function/process that reads from `partner-events`.
+
+### Prerequisites
+- Firestore emulator running on `127.0.0.1:8088`.
+- Set `FIRESTORE_EMULATOR_HOST=127.0.0.1:8088` before running the script.
+
+### Usage examples
+Windows PowerShell:
+```powershell
+$env:FIRESTORE_EMULATOR_HOST='127.0.0.1:8088'; node scripts/seed-partner-events.js
+```
+Windows CMD:
+```cmd
+set FIRESTORE_EMULATOR_HOST=127.0.0.1:8088 && node scripts/seed-partner-events.js
+```
+
+### Optional npm script wiring
+Add to the root `package.json` if you want a shortcut:
+```json
+{
+  "scripts": {
+    "seed:partner-events": "set FIRESTORE_EMULATOR_HOST=127.0.0.1:8088 && node scripts/seed-partner-events.js"
+  }
+}
+```
+
+### Notes
+- Emulator data persists across runs if you export on exit or use `emulators:export` per the project setup. Otherwise, re-run the seeder as needed.
