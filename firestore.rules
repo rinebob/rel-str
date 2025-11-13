@@ -2,6 +2,19 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Helper functions
+    function partnerCallerEmail() {
+      return "rel-str-partner-caller-prod@rel-str.iam.gserviceaccount.com";
+    }
+    function isPartnerCaller() {
+      return request.auth != null && request.auth.token.email == partnerCallerEmail();
+    }
+    // DEV-ONLY: whitelist a local developer account to seed data in emulator/dev
+    function isDevUser() {
+      return request.auth != null && request.auth.token.email in [
+        "test@user.com"
+      ];
+    }
 
     // Authenticated read of tracked symbols for UI symbol pickers (no writes)
     match /tracked-symbols/{id} {
@@ -31,6 +44,19 @@ service cloud.firestore {
         allow read: if request.auth != null && archiveCol.matches('^archive-\\d{4}$');
         allow write: if false; // backend-only writes via functions
       }
+    }
+
+    // Partner events (backend refresh runs) for header status
+    match /partner-events/{eventId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    match /app/refresh-status {
+      allow read: if request.auth != null;
+      // Allow writes from Functions SA in prod, and a dev user in local dev only
+      allow create, update: if isPartnerCaller() || isDevUser();
+      allow delete: if false;
     }
 
     // RS warning events persisted by backend for UI visibility
