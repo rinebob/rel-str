@@ -61,6 +61,23 @@ async function generateIdTokenWithEmail(audience: string, serviceAccountEmail: s
 
 export type PartnerInterval = "DAILY" | "WEEKLY" | "MONTHLY";
 
+/** Simple bounded retry with exponential backoff + jitter for transient upstream errors. */
+async function fetchWithRetry(url: string, headers: Record<string, string>, maxAttempts = 3): Promise<Response> {
+  let lastResp: Response | undefined;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const resp = await fetch(url, { headers });
+    if (resp.ok) return resp;
+    lastResp = resp;
+    const retriable = [429, 500, 502, 503, 504].includes(resp.status);
+    if (!retriable || attempt === maxAttempts) return resp;
+    const base = 200 * Math.pow(2, attempt - 1);
+    const jitter = Math.floor(Math.random() * 150);
+    await new Promise((r) => setTimeout(r, base + jitter));
+  }
+  // Fallback, should not reach here
+  return lastResp as Response;
+}
+
 /**
  * Call Savant Partner Time Series API.
  * Params mirror partner docs: symbol, interval, optional range/from/to/limit.
@@ -84,7 +101,7 @@ export async function callPartnerTimeSeries(params: {
   if (params.to !== undefined) search.set("to", String(params.to));
   if (params.limit !== undefined) search.set("limit", String(params.limit));
   const url = `${PARTNER_TS_URL}?${search.toString()}`;
-  const resp = await fetch(url, { headers: { Authorization: `Bearer ${idToken}` } });
+  const resp = await fetchWithRetry(url, { Authorization: `Bearer ${idToken}` });
   if (!resp.ok) {
     const text = await resp.text();
     logger.error("partnerTimeSeries upstream error", {
