@@ -421,7 +421,8 @@ export const processDataReadyRunV2 = onMessagePublished(
       });
 
       if (!isHeartbeat) {
-        await upsertRefreshStatus({ runStatus: 'processing' });
+        // On BEGIN, mark processing and clear next update time so UI shows 'in progress' and hides next
+        await upsertRefreshStatus({ runStatus: 'processing', nextRefreshAtUTC: null });
       }
 
       // Persist phase, trigger, and payload status early for observability
@@ -468,8 +469,8 @@ export const processDataReadyRunV2 = onMessagePublished(
               if (eventRef) {
                 await eventRef.set({ status: 'skipped_due_to_checkpoint', marketDate: payloadMarketDate, runId: effectiveRunId, phase, trigger, eventType, endTime: FieldValue.serverTimestamp() }, { merge: true });
               }
-              // Maintain header consistency: mark as completed with no nextRefresh update
-              await upsertRefreshStatus({ runStatus: 'completed', endTimeUTC: FieldValue.serverTimestamp() });
+              // Maintain header consistency: mark as completed and clear nextRefreshAtUTC (avoid stale value)
+              await upsertRefreshStatus({ runStatus: 'completed', endTimeUTC: FieldValue.serverTimestamp(), nextRefreshAtUTC: null });
               return;
             }
           }
@@ -487,7 +488,7 @@ export const processDataReadyRunV2 = onMessagePublished(
         if (!isHeartbeat) {
           const nextSrc: any = (parsedPayload as any)?.nextRefreshAt;
           const nextTs = toTimestampOrUndefined(nextSrc);
-          await upsertRefreshStatus({ runStatus: 'completed', endTimeUTC: FieldValue.serverTimestamp(), ...(nextTs ? { nextRefreshAtUTC: nextTs } : {}) });
+          await upsertRefreshStatus({ runStatus: 'completed', endTimeUTC: FieldValue.serverTimestamp(), ...(nextTs ? { nextRefreshAtUTC: nextTs } : { nextRefreshAtUTC: null }) });
         }
         return;
       }
@@ -540,7 +541,7 @@ export const processDataReadyRunV2 = onMessagePublished(
       if (!isHeartbeat) {
         const nextSrc: any = (parsedPayload as any)?.nextRefreshAt;
         const nextTs = toTimestampOrUndefined(nextSrc);
-        await upsertRefreshStatus({ runStatus: 'completed', endTimeUTC: FieldValue.serverTimestamp(), ...(nextTs ? { nextRefreshAtUTC: nextTs } : {}) });
+        await upsertRefreshStatus({ runStatus: 'completed', endTimeUTC: FieldValue.serverTimestamp(), ...(nextTs ? { nextRefreshAtUTC: nextTs } : { nextRefreshAtUTC: null }) });
       }
 
       // Conservative checkpoint write for POST only when partner indicates full finalization and our run had no failures

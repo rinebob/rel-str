@@ -42,17 +42,30 @@ export const RefreshStatusStore = signalStore(
         patchState(store, { now });
         const last = store.lastCompletedAt();
         const updates: Partial<RefreshStatusState> = {};
-        if (last instanceof Date) {
+        const inProg = store.inProgress();
+        if (inProg) {
+          updates.lastAbs = 'Update in progress';
+          updates.lastAgo = '—';
+        } else if (last instanceof Date) {
           updates.lastAbs = formatAbsET(last);
           updates.lastAgo = formatHm(now.getTime() - last.getTime());
         }
-        const inProg = store.inProgress();
         const next = store.nextRefreshAt();
-        if (!inProg && next instanceof Date) {
-          updates.nextAbs = formatAbsET(next);
+        if (inProg) {
+          updates.nextAbs = '—';
+          updates.nextIn = '—';
+        } else if (next instanceof Date) {
           const ms = next.getTime() - now.getTime();
-          updates.nextIn = ms > 0 ? formatNextCountdown(ms) : '00h 00m';
-        } else if (inProg) {
+          if (ms > 0) {
+            updates.nextAbs = formatAbsET(next);
+            updates.nextIn = formatNextCountdown(ms);
+          } else {
+            // Past or equal: suppress stale absolute time
+            updates.nextAbs = '—';
+            updates.nextIn = '00h 00m';
+          }
+        } else {
+          // Unknown next
           updates.nextAbs = '—';
           updates.nextIn = '—';
         }

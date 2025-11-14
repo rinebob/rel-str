@@ -1,8 +1,6 @@
 <div class="refresh-root">
   <div class="line">Last update time: {{ vm().lastAbs }} ({{ vm().lastAgo }} ago)</div>
-  @if (vm().inProgress) {
-    <div class="line">Refresh in progress</div>
-  } @else {
-    <div class="line">Next refresh begins: {{ vm().nextAbs }} (in {{ vm().nextIn }})</div>
+  @if (!vm().inProgress) {
+    <div class="line">Next update begins: {{ vm().nextAbs }} (in {{ vm().nextIn }})</div>
   }
 </div>
