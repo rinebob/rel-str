@@ -19,6 +19,32 @@ export function formatPtSegment(iso?: string): string | undefined {
   }
 }
 
+/**
+ * Format an ISO timestamp into yyyy-mm-dd-hhmm in ET (America/New_York).
+ */
+function formatDayTimeET(iso?: string): string | undefined {
+  if (!iso) return undefined;
+  try {
+    const d = new Date(iso);
+    const fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    } as any);
+    const parts = fmt.formatToParts(d);
+    const val = (t: string) => String(parts.find(p => p.type === t)?.value || '');
+    const y = val('year');
+    const m = val('month');
+    const day = val('day');
+    const hh = val('hour');
+    const mm = val('minute');
+    if (!y || !m || !day || !hh || !mm) return undefined;
+    return `${y}-${m}-${day}-${hh}${mm}`;
+  } catch {
+    return undefined;
+  }
+}
+
 export function computeEventDocId(args: {
   messageId?: string;
   isHeartbeat: boolean;
@@ -27,15 +53,26 @@ export function computeEventDocId(args: {
   runId?: string;
   publishTime?: string;
 }): string {
-  const { isHeartbeat, ptSegment, runId, messageId } = args as any;
-  const mid = (messageId && String(messageId).trim()) || 'no-mid';
+  const { isHeartbeat, ptSegment, runId, messageId: _messageId, publishTime, eventType } = args as any;
   if (isHeartbeat) {
-    // Heartbeats have no runId; keep them distinct and readable.
-    return `heartbeat-${ptSegment || 'unknown'}-${mid}`;
+    // Always start with date/time in ET; if time unknown, use '-xxxx'; then suffix with '-heartbeat'.
+    const dtHb = formatDayTimeET(publishTime) || (ptSegment ? `${ptSegment}-xxxx` : undefined) || 'unknown-xxxx';
+    return `${dtHb}-heartbeat`;
   }
+
+  // Preferred non-heartbeat format (ET): yyyy-mm-dd-hhmm-phase[-optional]. If time unknown, use 'yyyy-mm-dd-xxxx'.
+  const dt = formatDayTimeET(publishTime) || (ptSegment ? `${ptSegment}-xxxx` : undefined);
+  if (dt) {
+    const et = typeof eventType === 'string' ? eventType.toLowerCase() : '';
+    const phase = et.endsWith('-pre') ? 'pre' : et.endsWith('-post') ? 'post' : 'unknown';
+    const suffix = toKebabRunType(runId || undefined);
+    return suffix ? `${dt}-${phase}-${suffix}` : `${dt}-${phase}`;
+  }
+
+  // Fallback (legacy) when publishTime/ptSegment is unavailable: use runId only.
   const rid = (runId && String(runId).trim()) || 'no-runid';
-  // Format: runId-messageId (e.g., 2025-11-10-PRE-1200-<messageId> if SA includes time in runId)
-  return `${rid}-${mid}`;
+  // Legacy format (updated): runId (messageId is stored on the doc, not in the ID)
+  return `${rid}`;
 }
 
 export async function markProcessing(

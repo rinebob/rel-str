@@ -14,7 +14,7 @@
  */
 import { onMessagePublished } from 'firebase-functions/v2/pubsub';
 import { logger } from 'firebase-functions';
-import { db, FieldValue } from '../firebase-admin-init';
+import { admin, db, FieldValue } from '../firebase-admin-init';
 import { fetchDailyBarsRaw } from './symbol-fetch';
 import { buildPhaseSeries } from './rs-series';
 import { writeUnifiedSeries } from './pairs-writer';
@@ -38,6 +38,8 @@ import {
   POSITIONS_COLLECTION,
   PAIRS_COLLECTION,
   SIGNALS_DAILY_COLLECTION,
+  APP_COLLECTION,
+  REFRESH_STATUS_DOC,
 } from './webhooks-config';
 import { upsertPairSignalsDaily, upsertRootPosition } from './hot-archive';
 import { RsPhase } from '../types/partner';
@@ -88,6 +90,20 @@ export async function forEachWithConcurrency<T>(items: T[], limit: number, worke
       }
     })
   );
+}
+
+function toTimestampOrUndefined(v: any): admin.firestore.Timestamp | undefined {
+  try {
+    if (!v) return undefined;
+    if (typeof v?.toDate === 'function') return v as admin.firestore.Timestamp;
+    const d = new Date(v);
+    if (!isNaN(d.getTime())) return admin.firestore.Timestamp.fromDate(d);
+  } catch {}
+  return undefined;
+}
+
+async function upsertRefreshStatus(patch: { runStatus?: string; endTimeUTC?: any; nextRefreshAtUTC?: any }): Promise<void> {
+  await db.collection(APP_COLLECTION).doc(REFRESH_STATUS_DOC).set(patch as Record<string, any>, { merge: true });
 }
 
 /**
@@ -380,6 +396,7 @@ export const processDataReadyRunV2 = onMessagePublished(
         ptSegment,
         eventType,
         runId: effectiveRunId,
+        publishTime: message?.publishTime as string | undefined,
       });
       eventRef = db.collection(EVENTS_COLLECTION).doc(eventDocId);
 
@@ -403,6 +420,10 @@ export const processDataReadyRunV2 = onMessagePublished(
         ptSegment,
       });
 
+      if (!isHeartbeat) {
+        await upsertRefreshStatus({ runStatus: 'processing' });
+      }
+
       // Persist phase, trigger, and payload status early for observability
       try {
         const update: Record<string, unknown> = { phase };
@@ -410,7 +431,49 @@ export const processDataReadyRunV2 = onMessagePublished(
         if (eventType) update['runType'] = eventType;
         // UI hint: SA may send { status: 'begin' | 'end' }
         if (parsedPayload && typeof parsedPayload.status === 'string') update['payloadStatus'] = String(parsedPayload.status).toLowerCase();
+        // Record provided next refresh hint on the event doc for observability (canonical: nextRefreshAt)
+        const nr = (parsedPayload as any)?.nextRefreshAt;
+        if (nr) update['nextRefreshAt'] = String(nr);
+        else if ((parsedPayload as any)?.nextFetchAt) {
+          // Temporary advisory: legacy field seen but ignored for canonical write
+          logger.warn('nextFetchAt provided without nextRefreshAt; ignoring legacy field');
+        }
         await eventRef.set(update, { merge: true });
+      } catch {}
+
+      // Manual runId handling: ignore any run whose id contains 'manual'
+      try {
+        const isManual = !isHeartbeat && typeof effectiveRunId === 'string' && effectiveRunId.toLowerCase().includes('manual');
+        if (isManual) {
+          logger.info('processDataReadyRunV2 skipped manual run', { runId: effectiveRunId });
+          try { await persistWarning('skipped_manual_run', { function: RsCloudFunctionName.PROCESS_DATA_READY, runId: effectiveRunId, eventType }); } catch {}
+          if (eventRef) {
+            await eventRef.set({ status: 'skipped_manual_run', runId: effectiveRunId, phase, trigger, eventType, endTime: FieldValue.serverTimestamp() }, { merge: true });
+          }
+          return;
+        }
+      } catch {}
+
+      // Checkpoint early-exit for POST only: if day already completed, record a report and skip work
+      try {
+        if (!isHeartbeat && phase === RsPhase.POST) {
+          // Prefer payload-provided marketDate; fallback left for later derivation if needed
+          const payloadMarketDate = (parsedPayload as any)?.marketDate as string | undefined;
+          if (payloadMarketDate) {
+            const cpRef = db.collection(APP_COLLECTION).doc('rs-checkpoints').collection('days').doc(payloadMarketDate);
+            const cpSnap = await cpRef.get();
+            if (cpSnap.exists && (cpSnap.data() as any)?.completed === true) {
+              logger.info('processDataReadyRunV2 skipped due to checkpoint', { marketDate: payloadMarketDate, runId: effectiveRunId });
+              try { await persistWarning('skipped_due_to_checkpoint', { function: RsCloudFunctionName.PROCESS_DATA_READY, runId: effectiveRunId, marketDate: payloadMarketDate, eventType }); } catch {}
+              if (eventRef) {
+                await eventRef.set({ status: 'skipped_due_to_checkpoint', marketDate: payloadMarketDate, runId: effectiveRunId, phase, trigger, eventType, endTime: FieldValue.serverTimestamp() }, { merge: true });
+              }
+              // Maintain header consistency: mark as completed with no nextRefresh update
+              await upsertRefreshStatus({ runStatus: 'completed', endTimeUTC: FieldValue.serverTimestamp() });
+              return;
+            }
+          }
+        }
       } catch {}
 
       // Load registered pairs
@@ -421,6 +484,11 @@ export const processDataReadyRunV2 = onMessagePublished(
           await eventRef.set({ status: 'completed', endTime: FieldValue.serverTimestamp(), pairsProcessed: 0, pairsFailed: 0 }, { merge: true });
         }
         try { await persistWarning('no_registered_pairs', { function: RsCloudFunctionName.PROCESS_DATA_READY, runId: effectiveRunId, eventType }); } catch {}
+        if (!isHeartbeat) {
+          const nextSrc: any = (parsedPayload as any)?.nextRefreshAt;
+          const nextTs = toTimestampOrUndefined(nextSrc);
+          await upsertRefreshStatus({ runStatus: 'completed', endTimeUTC: FieldValue.serverTimestamp(), ...(nextTs ? { nextRefreshAtUTC: nextTs } : {}) });
+        }
         return;
       }
 
@@ -448,10 +516,51 @@ export const processDataReadyRunV2 = onMessagePublished(
           ...(trigger ? { trigger } : {}),
           runType: eventType,
           errorSamples: counters.errorSamples,
-          // Persist SA-provided nextFetchAt if available so FE can avoid computing
-          ...(parsedPayload && parsedPayload.nextFetchAt ? { nextFetchAt: String(parsedPayload.nextFetchAt) } : {}),
+          // Persist SA-provided nextRefreshAt if available so FE can avoid computing
+          ...(() => {
+            const nr = (parsedPayload as any)?.nextRefreshAt;
+            return nr ? { nextRefreshAt: String(nr) } : {};
+          })(),
+          // Persist optional marketDate/counts/timing/remainingSymbols for observability when provided
+          ...(() => {
+            const md = (parsedPayload as any)?.marketDate as string | undefined;
+            const counts = (parsedPayload as any)?.counts as any | undefined;
+            const timing = (parsedPayload as any)?.timing as any | undefined;
+            const rem = (parsedPayload as any)?.remainingSymbols as any[] | undefined;
+            const sample = Array.isArray(rem) ? rem.slice(0, 20) : undefined;
+            const patch: Record<string, any> = {};
+            if (md) patch.marketDate = md;
+            if (counts) patch.counts = counts;
+            if (timing && timing.finalizedAtUTC) patch['timing'] = { finalizedAtUTC: timing.finalizedAtUTC };
+            if (sample) patch.remainingSymbols = sample;
+            return patch;
+          })(),
         }, { merge: true });
       }
+      if (!isHeartbeat) {
+        const nextSrc: any = (parsedPayload as any)?.nextRefreshAt;
+        const nextTs = toTimestampOrUndefined(nextSrc);
+        await upsertRefreshStatus({ runStatus: 'completed', endTimeUTC: FieldValue.serverTimestamp(), ...(nextTs ? { nextRefreshAtUTC: nextTs } : {}) });
+      }
+
+      // Conservative checkpoint write for POST only when partner indicates full finalization and our run had no failures
+      try {
+        if (!isHeartbeat && phase === RsPhase.POST) {
+          const md = (parsedPayload as any)?.marketDate as string | undefined;
+          const counts = (parsedPayload as any)?.counts as any | undefined;
+          const timing = (parsedPayload as any)?.timing as any | undefined;
+          const pendingZero = typeof counts?.pendingCount === 'number' ? counts.pendingCount === 0 : false;
+          const finalizedSeen = !!timing?.finalizedAtUTC;
+          const allOk = counters.failedPairs === 0 && pairs.length === (counters.successPairs + counters.failedPairs);
+          if (md && finalizedSeen && pendingZero && allOk) {
+            const cpRef = db.collection(APP_COLLECTION).doc('rs-checkpoints').collection('days').doc(md);
+            await cpRef.set({ completed: true, runId: effectiveRunId, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+            logger.info('processDataReadyRunV2 checkpoint written', { marketDate: md, runId: effectiveRunId });
+          } else {
+            logger.info('processDataReadyRunV2 checkpoint not written (criteria not met)', { marketDate: md, finalizedSeen, pendingZero, failedPairs: counters.failedPairs });
+          }
+        }
+      } catch {}
     } else if (!isHeartbeat) {
       // No runId and not a heartbeat: do not proceed
       logger.info('processDataReadyRunV2 missing runId and not a heartbeat; skipping');

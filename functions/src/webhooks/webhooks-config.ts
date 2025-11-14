@@ -61,6 +61,11 @@ export const TRACKED_SYMBOLS_COLLECTION = 'tracked-symbols';
 /** Warning events emitted by backend for UI visibility. */
 export const WARNINGS_COLLECTION = 'rs-warnings';
 
+/** Root collection for app-level singletons and status docs. */
+export const APP_COLLECTION = 'app';
+/** Document id for the global refresh status consumed by FE header. */
+export const REFRESH_STATUS_DOC = 'refresh-status';
+
 /** Signals subcollection name under each pair doc. */
 export const SIGNALS_COLLECTION = 'signals';
 
