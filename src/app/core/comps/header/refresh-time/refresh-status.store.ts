@@ -65,7 +65,6 @@ export const RefreshStatusStore = signalStore(
           nextAbs: store.nextAbs(),
           nextIn: store.nextIn(),
         };
-        console.debug('[RefreshStatus] recalc -> header values', dbg);
       },
       start(): void {
         console.debug('[RefreshStatus] start() called');
