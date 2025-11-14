@@ -29,6 +29,7 @@ const initialState: RefreshStatusState = {
 // Subscriptions bag (singleton widget in app header)
 let _subs: Subscription[] = [];
 let _tickerSub: Subscription | undefined;
+let _tickerIntervalMs: number | undefined;
 
 export const RefreshStatusStore = signalStore(
   { providedIn: 'root' },
@@ -43,14 +44,14 @@ export const RefreshStatusStore = signalStore(
         const updates: Partial<RefreshStatusState> = {};
         if (last instanceof Date) {
           updates.lastAbs = formatAbsET(last);
-          updates.lastAgo = formatHms(now.getTime() - last.getTime());
+          updates.lastAgo = formatHm(now.getTime() - last.getTime());
         }
         const inProg = store.inProgress();
         const next = store.nextRefreshAt();
         if (!inProg && next instanceof Date) {
           updates.nextAbs = formatAbsET(next);
           const ms = next.getTime() - now.getTime();
-          updates.nextIn = ms > 0 ? formatHms(ms) : '00:00:00';
+          updates.nextIn = ms > 0 ? formatNextCountdown(ms) : '00h 00m';
         } else if (inProg) {
           updates.nextAbs = '—';
           updates.nextIn = '—';
@@ -65,6 +66,7 @@ export const RefreshStatusStore = signalStore(
           nextAbs: store.nextAbs(),
           nextIn: store.nextIn(),
         };
+        (this as any).startTickerIfNeeded();
       },
       start(): void {
         console.debug('[RefreshStatus] start() called');
@@ -98,14 +100,28 @@ export const RefreshStatusStore = signalStore(
         }
       },
       startTickerIfNeeded(): void {
-        const shouldTick = !!store.nextRefreshAt() || !!store.inProgress();
-        if (shouldTick && !_tickerSub) {
-          _tickerSub = interval(1000).subscribe(() => (this as any).recalc());
-        }
-        if (!shouldTick && _tickerSub) {
-          _tickerSub.unsubscribe();
+        const inProg = store.inProgress();
+        const next = store.nextRefreshAt();
+        const shouldTick = !!next || !!inProg;
+
+        if (!shouldTick) {
+          _tickerSub?.unsubscribe();
           _tickerSub = undefined;
+          _tickerIntervalMs = undefined;
+          return;
         }
+
+        let desired = 1000; // default to 1s
+        if (!inProg && next instanceof Date) {
+          const ms = next.getTime() - new Date().getTime();
+          desired = ms >= 60000 ? 60000 : 1000;
+        }
+
+        if (_tickerSub && _tickerIntervalMs === desired) return;
+
+        _tickerSub?.unsubscribe();
+        _tickerIntervalMs = desired;
+        _tickerSub = interval(desired).subscribe(() => (this as any).recalc());
       },
       stop(): void {
         _tickerSub?.unsubscribe();
@@ -147,13 +163,26 @@ function formatAbsET(date: Date): string {
   }
 }
 
-function formatHms(ms: number): string {
+function formatHm(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const hh = Math.floor(total / 3600);
+  const mm = Math.floor((total % 3600) / 60);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(hh)}h ${pad(mm)}m`;
+}
+
+function formatHmsVerbose(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
   const hh = Math.floor(total / 3600);
   const mm = Math.floor((total % 3600) / 60);
   const ss = total % 60;
   const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(hh)}:${pad(mm)}:${pad(ss)}`;
+  return `${pad(hh)}h ${pad(mm)}m ${pad(ss)}s`;
+}
+
+function formatNextCountdown(ms: number): string {
+  if (ms >= 60000) return formatHm(ms);
+  return formatHmsVerbose(ms);
 }
 
 function getTzOffsetMinutesAt(utcDate: Date, timeZone: string): number {
