@@ -116,21 +116,8 @@ export function withStockListV2Feature() {
             };
 
             const generateHeatmapDataV2 = async (pair: string): Promise<BaselineTargetRankDatum[]> => {
-                // Source of truth: selectable via DEV toggle (default Legacy)
-                const mode = store.dataSourceMode();
-                console.log('[V2] Heatmap fetch mode', mode, 'for pair', pair);
                 let series: Array<{ date: string; value: number; norm?: number; phase?: any }> = [];
-                if (mode === DataSourceMode.ARCHIVE) {
-                    /**
-                     * Archive Read Pipeline (DEV):
-                     * Uses RelStrDbV2Service.getPairSeriesFromArchive$ to read archive shards.
-                     */
-                    series = await firstValueFrom(relStrDbV2Service.getPairSeriesFromArchive$(pair));
-                } else {
-                    // Legacy pipeline (pairs-data/{PAIR}.data)
-                    // @deprecated TODO[deprecate]: Remove legacy branch and `getPairSeriesLive$` when archive-first is fully rolled out.
-                    series = await firstValueFrom(relStrDbV2Service.getPairSeriesLive$(pair));
-                }
+                series = await firstValueFrom(relStrDbV2Service.getPairSeriesFromArchive$(pair));
                 // DEBUG: surface what we received from Firestore
                 // eslint-disable-next-line no-console
                 console.log('[V2] pair series', pair, 'len=', series?.length ?? 0, 'first=', series?.[0]);

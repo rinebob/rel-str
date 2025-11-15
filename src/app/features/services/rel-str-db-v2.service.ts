@@ -310,14 +310,9 @@ export class RelStrDbV2Service {
       }
       return merged;
     })).pipe(
+      retry({ count: 3, delay: (e, i) => timer(Math.min(2000, 300 * Math.pow(2, i))) }),
       tap(arr => console.log('[RS][Archive] Series ready', { pair, len: arr.length, first: arr[0] })),
       catchError(err => {
-        const code = (err as any)?.code || '';
-        const msg = (err as any)?.message || '';
-        if (code === 'permission-denied' || /insufficient permissions/i.test(msg)) {
-          console.warn('[RelStrDbV2Service] falling back to legacy series due to archive permission error', { pair });
-          return this.getPairSeriesLive$(pair);
-        }
         console.error('[RelStrDbV2Service] getPairSeriesFromArchive$ error', { pair, err });
         return of([] as Array<{ date: string; value: number; norm?: number; phase?: RsPhase }>);
       })
