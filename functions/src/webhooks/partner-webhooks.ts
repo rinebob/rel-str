@@ -451,6 +451,8 @@ export const processDataReadyRunV2 = onMessagePublished(
           if (eventRef) {
             await eventRef.set({ status: 'skipped_manual_run', runId: effectiveRunId, phase, trigger, eventType, endTime: FieldValue.serverTimestamp() }, { merge: true });
           }
+          // Ensure header reflects a completed state and does not stay stuck in 'processing'
+          await upsertRefreshStatus({ runStatus: 'completed', endTimeUTC: FieldValue.serverTimestamp(), nextRefreshAtUTC: null });
           return;
         }
       } catch {}
