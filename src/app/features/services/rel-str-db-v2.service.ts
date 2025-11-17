@@ -1,4 +1,4 @@
-import { EnvironmentInjector, inject, Injectable, runInInjectionContext } from '@angular/core';
+import { EnvironmentInjector, NgZone, inject, Injectable, runInInjectionContext } from '@angular/core';
 import type { Company, RanksByDate, RelStrStockList, RsSeriesPoint } from '../shared/types/rs.interfaces';
 import { RsPhase } from '../shared/types/rs.interfaces';
 import {
@@ -17,7 +17,7 @@ import {
   limit,
   startAfter,
 } from '@angular/fire/firestore';
-import { Observable, map, from, tap, catchError, firstValueFrom, of } from 'rxjs';
+import { Observable, map, from, tap, catchError, firstValueFrom, of, retry, defer } from 'rxjs';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { Auth } from '@angular/fire/auth';
 import { CallableName, Collection, userListsPath } from '../../core/common/constants';
@@ -29,6 +29,7 @@ export class RelStrDbV2Service {
   readonly firestore: Firestore = inject(Firestore);
   readonly functions = inject(Functions);
   private readonly auth = inject(Auth);
+  private readonly zone = inject(NgZone);
 
   constructor() {}
 
@@ -65,10 +66,10 @@ export class RelStrDbV2Service {
    */
   getSupportedPairsList$(): Observable<string[]> {
     // Prod-safe: enumerate all pair IDs from pairs-data (no curated baseline reads)
-    return from(this.inCtx(() => {
+    return defer(() => from(this.inCtx(() => {
       const colRef = collection(this.firestore, Collection.PAIRS_DATA);
-      return getDocs(colRef);
-    })).pipe(
+      return this.zone.run(() => getDocs(colRef));
+    }))).pipe(
       map(snap => snap.docs.map(d => String(d.id))),
       catchError(err => {
         console.error('[RelStrDbService] getSupportedPairsList$ error', err);
@@ -81,10 +82,10 @@ export class RelStrDbV2Service {
   getPairsForBaseline$(baseline: string): Observable<string[]> {
     const base = String(baseline || '').toUpperCase();
     if (!base) return of([]);
-    return from(this.inCtx(() => {
+    return defer(() => from(this.inCtx(() => {
       const colRef = collection(this.firestore, Collection.PAIRS_DATA);
-      return getDocs(colRef);
-    })).pipe(
+      return this.zone.run(() => getDocs(colRef));
+    }))).pipe(
       map(snap => snap.docs.map(d => String(d.id)).filter(id => id.startsWith(`${base}-`))),
       catchError(err => {
         console.error('[RelStrDbService] getPairsForBaseline$ error', { baseline: base, err });
@@ -106,11 +107,11 @@ export class RelStrDbV2Service {
       console.warn('[RelStrDbV2Service] getListsForUser$ skipped: auth uid mismatch or missing', { requested: uid, current: currUid });
       return of([] as RelStrStockList[]);
     }
-    return from(this.inCtx(() => {
+    return defer(() => from(this.inCtx(() => {
       const colRef = collection(this.firestore, userListsPath(uid));
       const qRef = query(colRef, orderBy('updatedAt', 'desc'));
-      return getDocs(qRef);
-    })).pipe(
+      return this.zone.run(() => getDocs(qRef));
+    }))).pipe(
       map(snap => snap.docs.map(d => ({
         name: String((d.data() as any)?.name || d.id || '').trim(),
         baseline: String((d.data() as any)?.baseline || '').toUpperCase(),
@@ -165,7 +166,7 @@ export class RelStrDbV2Service {
     if (srcId === destId) { await this.saveStockList(userId, newList); return; }
     const colRef = collection(this.firestore, userListsPath(uid));
     const newDocRef = doc(colRef, destId);
-    const exists = await getDoc(newDocRef).then(snap => snap.exists());
+    const exists = await this.zone.run(() => getDoc(newDocRef)).then(snap => snap.exists());
     if (exists) { console.warn('[RelStrDbService] renameStockList aborted: target name already exists', { userId: uid, oldName: srcId, newName: destId }); return; }
     await this.saveStockList(userId, newList); // write new
     await this.deleteStockList(userId, srcId); // delete old
@@ -180,7 +181,7 @@ export class RelStrDbV2Service {
    * - Latest day: use post.rs if present, else allow pre.rs
    */
   getPairSeriesLive$(pairId: string): Observable<Array<{ date: string; value: number; norm?: number; phase?: RsPhase }>> {
-    return from(this.inCtx(() => getDoc(doc(this.firestore, `${Collection.PAIRS_DATA}/${pairId}`)))).pipe(
+    return defer(() => from(this.inCtx(() => this.zone.run(() => getDoc(doc(this.firestore, `${Collection.PAIRS_DATA}/${pairId}`)))))).pipe(
       tap(() => console.log('[RS][Legacy] Fetching series for pair', pairId)),
       map(snap => {
         const data = (snap?.exists() ? (snap.data() as any) : {}) || {};
@@ -240,14 +241,14 @@ export class RelStrDbV2Service {
     const currentYear = today.getUTCFullYear();
     const years = Array.from({ length: currentYear - START_ARCHIVE_YEAR + 1 }, (_, i) => START_ARCHIVE_YEAR + i);
 
-    return from(this.inCtx(async () => {
+    return defer(() => from(this.inCtx(async () => {
       const results: Array<{ date: string; value: number; norm?: number; phase?: RsPhase }> = [];
       let hadPermissionError = false;
       for (const y of years) {
         try {
           const colRef = collection(this.firestore, `${Collection.PAIRS_DATA}/${pair}/archive-${y}`);
           const qRef = query(colRef, orderBy('day', 'asc'));
-          const snap = await getDocs(qRef);
+          const snap = await this.inCtx(() => this.zone.run(() => getDocs(qRef)));
           for (const docSnap of snap.docs) {
             const raw = (docSnap.data() as any) || {};
             const dateYMD = String(raw?.day || '').trim() || ymdFromShardId(docSnap.id, y);
@@ -309,7 +310,7 @@ export class RelStrDbV2Service {
         throw err;
       }
       return merged;
-    })).pipe(
+    }))).pipe(
       retry({ count: 3, delay: (e, i) => timer(Math.min(2000, 300 * Math.pow(2, i))) }),
       tap(arr => console.log('[RS][Archive] Series ready', { pair, len: arr.length, first: arr[0] })),
       catchError(err => {

@@ -1,7 +1,7 @@
 import { patchState, signalStoreFeature, withComputed, withMethods, withState } from "@ngrx/signals"
 import { BaselineTargetRankDatum, FormMode, RanksByDate, RanksDataWithColors, RelStrStockList, StockDatum, StockListFormMode } from "../shared/types/rs.interfaces"
 import { StockDataService } from "../services/stock-data.service"
-import { inject } from "@angular/core"
+import { inject, EnvironmentInjector, NgZone, runInInjectionContext } from "@angular/core"
 import { RelStrDbV2Service } from "../services/rel-str-db-v2.service"
 import { generatePairData, getPairsForList } from "../utils/rs-calc-utils-v2"
 import { RsCalcsStore } from "./rs-calcs.store"
@@ -104,8 +104,10 @@ export function withStockListV2Feature() {
             store,
             rsCalcsStore = inject(RsCalcsStore),
             relStrDbV2Service = inject(RelStrDbV2Service),
+            env = inject(EnvironmentInjector),
         ) => {
             const liveSubs = new Map<string, Subscription>();
+            const zone = inject(NgZone);
 
             const sortListsV2 = (targetList: RelStrStockList, allStockListsV2: RelStrStockList[]) => {
                 const lists: RelStrStockList[] = [];
