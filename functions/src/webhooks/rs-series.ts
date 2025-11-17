@@ -6,7 +6,8 @@
  */
 import type { PartnerBar, SeriesBar, RsPoint, PhaseSeriesPoint } from './webhooks-config';
 import { RsPhase } from '../types/partner';
-import { SILENCE_RS_SERIES_INFO } from './webhooks-config';
+import { SILENCE_RS_SERIES_INFO, RsCloudFunctionName } from './webhooks-config';
+import { persistWarning } from '../logging/warn';
 
 /** Return day-of-week label (UTC) for a YYYY-MM-DD string. */
 function dowLabelUTC(dayStr: string): string {
@@ -128,6 +129,7 @@ export function buildPhaseSeries(
           reason: 'baseline_bar_missing'
         });
       }
+      try { void persistWarning('rs_series_no_alignment', { function: RsCloudFunctionName.WRITE_UNIFIED_SERIES, pairId: `${baselineSymbol}-${targetSymbol}`, baseline: baselineSymbol, target: targetSymbol, phase, day: t.d, reason: 'baseline_bar_missing' }); } catch {}
       continue;
     }
     const dw = dowLabelUTC(t.d);
@@ -181,6 +183,7 @@ export function buildPhaseSeries(
               missing
             });
           }
+          try { void persistWarning('rs_series_pre_missing_fields', { function: RsCloudFunctionName.WRITE_UNIFIED_SERIES, pairId: `${baselineSymbol}-${targetSymbol}`, baseline: baselineSymbol, target: targetSymbol, phase, day: t.d, missing }); } catch {}
           continue;
         }
         (t as any)._ipc_eff = Number(targetIpc.toFixed(6));
@@ -222,6 +225,7 @@ export function buildPhaseSeries(
               missing
             });
           }
+          try { void persistWarning('rs_series_post_missing_fields', { function: RsCloudFunctionName.WRITE_UNIFIED_SERIES, pairId: `${baselineSymbol}-${targetSymbol}`, baseline: baselineSymbol, target: targetSymbol, phase, day: t.d, missing }); } catch {}
           continue;
         }
         (t as any)._cp_eff = Number(targetCpEff.toFixed(6));
@@ -264,6 +268,7 @@ export function buildPhaseSeries(
             missing
           });
         }
+        try { persistWarning('rs_series_post_missing_fields', { function: RsCloudFunctionName.WRITE_UNIFIED_SERIES, pairId: `${baselineSymbol}-${targetSymbol}`, baseline: baselineSymbol, target: targetSymbol, phase, day: t.d, missing }); } catch {}
         continue;
       }
       (t as any)._cp_eff = Number(targetCpEff.toFixed(6));
@@ -312,6 +317,7 @@ export function buildPhaseSeries(
           targetIpc: (target as any)._ipc_eff ?? target.ipc
         });
       }
+      try { void persistWarning('rs_series_calc_nonfinite_cp', { function: RsCloudFunctionName.WRITE_UNIFIED_SERIES, pairId: `${baselineSymbol}-${targetSymbol}`, baseline: baselineSymbol, target: targetSymbol, phase, day, baseCp: (base as any)._cp_eff ?? base.cp, targetCp: (target as any)._cp_eff ?? target.cp }); } catch {}
       continue;
     }
     if (!Number.isFinite(bClose) || !Number.isFinite(tClose)) {
@@ -325,6 +331,7 @@ export function buildPhaseSeries(
           targetClose
         });
       }
+      try { void persistWarning('rs_series_calc_nonfinite_price', { function: RsCloudFunctionName.WRITE_UNIFIED_SERIES, pairId: `${baselineSymbol}-${targetSymbol}`, baseline: baselineSymbol, target: targetSymbol, phase, day, baseClose, targetClose }); } catch {}
       continue;
     }
     if (bClose <= 0 || tClose <= 0) {
@@ -338,6 +345,7 @@ export function buildPhaseSeries(
           targetClose
         });
       }
+      try { void persistWarning('rs_series_calc_nonpositive_price', { function: RsCloudFunctionName.WRITE_UNIFIED_SERIES, pairId: `${baselineSymbol}-${targetSymbol}`, baseline: baselineSymbol, target: targetSymbol, phase, day, baseClose, targetClose }); } catch {}
       continue;
     }
 

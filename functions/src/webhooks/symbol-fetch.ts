@@ -1,5 +1,7 @@
 import { logger } from 'firebase-functions/v2';
 import { callPartnerTimeSeries } from '../partner-proxy';
+import { persistWarning } from '../logging/warn';
+import { RsCloudFunctionName } from './webhooks-config';
 
 export type PartnerBar = {
   d?: string;
@@ -42,6 +44,23 @@ export async function fetchDailyBarsRaw(symbol: string, days = 30, limit = 30, i
     const firstDay = Number.isFinite(firstT) ? new Date(firstT).toISOString().slice(0, 10) : undefined;
     const lastDay = Number.isFinite(lastT) ? new Date(lastT).toISOString().slice(0, 10) : undefined;
     logger.info('partner_timeseries_response', { symbol, interval, from: fromIso, to: toIso, limit, bars: bars.length, firstDay, lastDay });
+    try {
+      let anomalies = 0;
+      for (const b of bars as any[]) {
+        const day = String(b?.d || '');
+        if (!day) continue;
+        const todayClose = Number(b?.ac ?? b?.c ?? 0);
+        const cp = Number(b?.cp);
+        const issues: string[] = [];
+        if (!(Number.isFinite(todayClose) && todayClose > 0)) issues.push('close_nonpositive_or_nonfinite');
+        if (!Number.isFinite(cp) && Number.isFinite(todayClose) && todayClose > 0) issues.push('cp_nonfinite');
+        if (issues.length) {
+          anomalies++;
+          try { await persistWarning('sa_bar_anomaly', { function: RsCloudFunctionName.PROCESS_DATA_READY, symbol, day, issues, window: { from: fromIso, to: toIso, limit } }); } catch {}
+        }
+      }
+      if (anomalies > 0) logger.info('partner_timeseries_bar_anomalies', { symbol, anomalies });
+    } catch {}
   } else {
     logger.info('partner_timeseries_response_empty', { symbol, interval, from: fromIso, to: toIso, limit, bars: 0 });
   }
@@ -87,6 +106,23 @@ export async function fetchDailyBarsRange(symbol: string, opts: FetchRangeOption
     const firstDay = Number.isFinite(firstT) ? new Date(firstT).toISOString().slice(0, 10) : undefined;
     const lastDay = Number.isFinite(lastT) ? new Date(lastT).toISOString().slice(0, 10) : undefined;
     logger.info('partner_timeseries_response', { symbol, interval, from: fromIso, to: toIso, limit, bars: bars.length, firstDay, lastDay });
+    try {
+      let anomalies = 0;
+      for (const b of bars as any[]) {
+        const day = String(b?.d || '');
+        if (!day) continue;
+        const todayClose = Number(b?.ac ?? b?.c ?? 0);
+        const cp = Number(b?.cp);
+        const issues: string[] = [];
+        if (!(Number.isFinite(todayClose) && todayClose > 0)) issues.push('close_nonpositive_or_nonfinite');
+        if (!Number.isFinite(cp) && Number.isFinite(todayClose) && todayClose > 0) issues.push('cp_nonfinite');
+        if (issues.length) {
+          anomalies++;
+          try { await persistWarning('sa_bar_anomaly', { function: RsCloudFunctionName.PROCESS_DATA_READY, symbol, day, issues, window: { from: fromIso, to: toIso, limit } }); } catch {}
+        }
+      }
+      if (anomalies > 0) logger.info('partner_timeseries_bar_anomalies', { symbol, anomalies });
+    } catch {}
   } else {
     logger.info('partner_timeseries_response_empty', { symbol, interval, from: fromIso, to: toIso, limit, bars: 0 });
   }

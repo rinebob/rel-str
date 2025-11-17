@@ -1,5 +1,6 @@
 
 import { onCall, onRequest } from 'firebase-functions/v2/https';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { RsPhase } from '../types/partner';
 import { logger } from 'firebase-functions/v2';
 import { db } from '../firebase-admin-init';
@@ -68,7 +69,6 @@ export const recomputePairsRs = onCall({ region: 'us-central1', timeoutSeconds: 
           await new Promise((r) => setTimeout(r, delayMsBetweenPairs));
         }
       });
-
       return { successPairs: accum.successPairs, failedPairs: accum.failedPairs, skippedExisting, writtenDays, errorSamples: accum.errorSamples };
     };
 
@@ -83,6 +83,82 @@ export const recomputePairsRs = onCall({ region: 'us-central1', timeoutSeconds: 
   } catch (e: any) {
     logger.error('recomputePairsRs_failed', { message: e?.message });
     return { ok: false, error: e?.message || 'internal_error' };
+  }
+});
+
+/**
+ * HTTP (admin): diagnoseRegisteredRangeAdmin
+ * Run diagnose (and optional auto-fix) across all registered pairs, grouped by baseline, over a window.
+ * Protect with bearer ADMIN_BACKFILL_TOKEN.
+ * Query/body: { phase?: PRE|POST, from?: string, to?: string, yearsBack?: number, days?: number, dates?: string[]|comma, autoFix?: boolean }
+ */
+export const diagnoseRegisteredRangeAdmin = onRequest({ region: 'us-central1', timeoutSeconds: 540 }, async (req, res) => {
+  const token = (req.headers['authorization'] || '').toString().replace(/^Bearer\s+/i, '');
+  const expected = (process.env.ADMIN_BACKFILL_TOKEN || '').trim();
+  if (!expected || token !== expected) {
+    res.status(401).json({ ok: false, error: 'unauthorized' });
+    return;
+  }
+  try {
+    const phase: RsPhase = (String((req.body?.phase ?? req.query.phase) || RsPhase.POST).toLowerCase() === RsPhase.PRE) ? RsPhase.PRE : RsPhase.POST;
+    const from: string | undefined = (req.body?.from ?? req.query.from) as string | undefined;
+    const to: string | undefined = (req.body?.to ?? req.query.to) as string | undefined;
+    const yearsBack: number | undefined = (req.body?.yearsBack ?? req.query.yearsBack) !== undefined ? Number(req.body?.yearsBack ?? req.query.yearsBack) : undefined;
+    const daysParam = req.body?.days ?? req.query.days;
+    const days: number | undefined = daysParam !== undefined ? Number(daysParam) : undefined;
+    const datesArgRaw = (req.body?.dates ?? req.query.dates) as any;
+    const dates: string[] = Array.isArray(datesArgRaw)
+      ? datesArgRaw.map((d: any) => String(d))
+      : String(datesArgRaw || '').split(',').map((d) => d.trim()).filter(Boolean);
+    const autoFix: boolean = String((req.body?.autoFix ?? req.query.autoFix ?? '')).toLowerCase() === 'true';
+
+    // Group registered pairs by baseline
+    const pairs = await listRegisteredPairs();
+    const byBaseline = new Map<string, Set<string>>();
+    for (const p of pairs) {
+      const base = String(p.baseline || '').toUpperCase();
+      const targ = String(p.target || '').toUpperCase();
+      if (!base || !targ) continue;
+      const set = byBaseline.get(base) ?? new Set<string>();
+      set.add(targ);
+      byBaseline.set(base, set);
+    }
+
+    const summary: any = { ok: true, baselines: byBaseline.size, totalPairs: pairs.length, phase, window: { from: from ?? null, to: to ?? null, yearsBack: yearsBack ?? null, days: days ?? null, dates }, autoFix, results: [] };
+
+    for (const [baseline, set] of byBaseline.entries()) {
+      try {
+        const symbols = Array.from(set.values());
+        const callRes = await diagnosePairDays.run({
+          data: { baseline, symbols, phase, from, to, yearsBack, dates, autoFix },
+          auth: undefined,
+          instanceIdToken: undefined,
+          rawRequest: undefined as any,
+        } as any);
+        const ok = (callRes as any)?.ok !== false;
+        const results = Array.isArray((callRes as any)?.results) ? (callRes as any).results : [];
+        // Aggregate counts of problems remaining
+        const agg: Record<string, number> = {};
+        let remainingPairs = 0;
+        for (const r of results) {
+          const probs = Array.isArray((r as any)?.problems) ? (r as any).problems as Array<{ day: string; reason: string }> : [];
+          const unresolved = probs.filter(p => p.reason !== 'computed_but_not_stored');
+          if (unresolved.length > 0) remainingPairs++;
+          for (const p of unresolved) {
+            agg[p.reason] = (agg[p.reason] || 0) + 1;
+          }
+        }
+        summary.results.push({ baseline, ok, pairs: symbols.length, remainingPairs, reasons: agg, raw: results.slice(0, 5) });
+      } catch (e: any) {
+        summary.results.push({ baseline, ok: false, error: e?.message || String(e) });
+      }
+    }
+
+    try { await writeWarningsSummary({ function: 'diagnoseRegisteredRangeAdmin', baselines: byBaseline.size, totalPairs: pairs.length }); } catch {}
+    res.status(200).json(summary);
+  } catch (e: any) {
+    logger.error('diagnoseRegisteredRangeAdmin_failed', { message: e?.message });
+    res.status(500).json({ ok: false, error: e?.message || 'internal_error' });
   }
 });
 
@@ -691,5 +767,60 @@ export const purgePairsDataSignalsAdmin = onRequest({ region: 'us-central1', tim
     res.status(200).json({ ok: true, pairs: pairsScanned, signalsDeleted, signalsDailyDeleted: dailyDeleted });
   } catch (e: any) {
     res.status(500).json({ ok: false, error: e?.message || 'internal_error' });
+  }
+});
+
+/**
+ * Scheduled: autoDiagnoseAndFixDaily
+ * Runs daily to detect and auto-fix missing pair-day RS entries across all registered pairs.
+ * Window: last 3 UTC days to be resilient to delayed partner updates.
+ */
+export const autoDiagnoseAndFixDaily = onSchedule({ region: 'us-central1', schedule: 'every day 03:30', timeZone: 'Etc/UTC' }, async () => {
+  try {
+    // Gate the daily safety net behind an env flag to avoid redundancy with the post-close verifier loop.
+    const safetyNetEnabled = String(process.env.SAFETY_NET_ENABLED || '').toLowerCase() === 'true';
+    if (!safetyNetEnabled) {
+      if (!SILENCE_ADMIN_INFO) logger.info('autoDiagnoseAndFixDaily skipped (SAFETY_NET_ENABLED!=true)');
+      return;
+    }
+
+    const pairs = await listRegisteredPairs();
+    if (!pairs || pairs.length === 0) {
+      if (!SILENCE_ADMIN_INFO) logger.info('autoDiagnoseAndFixDaily no registered pairs');
+      return;
+    }
+    const byBaseline = new Map<string, Set<string>>();
+    for (const p of pairs) {
+      const base = String(p.baseline || '').toUpperCase();
+      const targ = String(p.target || '').toUpperCase();
+      if (!base || !targ) continue;
+      const set = byBaseline.get(base) ?? new Set<string>();
+      set.add(targ);
+      byBaseline.set(base, set);
+    }
+
+    const ymd = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+    const today = new Date();
+    const to = ymd(today);
+    const fromDate = new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000);
+    const from = ymd(fromDate);
+
+    for (const [baseline, set] of byBaseline.entries()) {
+      const symbols = Array.from(set.values());
+      try {
+        const callRes = await diagnosePairDays.run({
+          data: { baseline, symbols, phase: RsPhase.POST, from, to, autoFix: true },
+          auth: undefined,
+          instanceIdToken: undefined,
+          rawRequest: undefined as any,
+        } as any);
+        const ok = (callRes as any)?.ok !== false;
+        if (!SILENCE_ADMIN_INFO) logger.info('autoDiagnoseAndFixDaily baseline result', { baseline, ok, from, to });
+      } catch (e: any) {
+        logger.warn('autoDiagnoseAndFixDaily diagnose failed', { baseline, from, to, message: e?.message });
+      }
+    }
+  } catch (e: any) {
+    logger.error('autoDiagnoseAndFixDaily_failed', { message: e?.message });
   }
 });

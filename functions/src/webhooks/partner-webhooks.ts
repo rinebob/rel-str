@@ -546,6 +546,90 @@ export const processDataReadyRunV2 = onMessagePublished(
         await upsertRefreshStatus({ runStatus: 'completed', endTimeUTC: FieldValue.serverTimestamp(), ...(nextTs ? { nextRefreshAtUTC: nextTs } : { nextRefreshAtUTC: null }) });
       }
 
+      // Immediate post-close verification: diagnose+auto-fix across all registered pairs for last 3 days
+      // Orchestrated loop with limited retries/backoff, to converge without a separate daily safety net.
+      try {
+        if (!isHeartbeat && phase === RsPhase.POST) {
+          const md = (parsedPayload as any)?.marketDate as string | undefined;
+          // Determine window [fromDay, toDay] covering md and prior 2 days (UTC calendar)
+          const toDate = md ? new Date(md + 'T00:00:00Z') : new Date();
+          const fromDate = new Date(toDate.getTime() - 2 * 24 * 60 * 60 * 1000);
+          const ymd = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+          const fromDay = ymd(fromDate);
+          const toDay = ymd(toDate);
+
+          const project = (process.env.GCLOUD_PROJECT || ((): string | undefined => {
+            try { return JSON.parse(String(process.env.FIREBASE_CONFIG || '{}')).projectId; } catch { return undefined; }
+          })()) || 'rel-str';
+          const isEmu = String(process.env.FUNCTIONS_EMULATOR || '').toLowerCase() === 'true';
+          const baseUrl = isEmu
+            ? `http://127.0.0.1:5002/${project}/us-central1`
+            : `https://us-central1-${project}.cloudfunctions.net`;
+          const adminToken = String(process.env.ADMIN_BACKFILL_TOKEN || '').trim();
+
+          const maxAttempts = Math.max(1, Number(process.env.POST_VERIFY_ATTEMPTS || 2));
+          const backoffSecs = Math.max(0, Number(process.env.POST_VERIFY_BACKOFF_SECS || 60));
+
+          let attempt = 0;
+          let remaining = Number.POSITIVE_INFINITY;
+          let lastDiag: any = undefined;
+          let okResp = false;
+          for (; attempt < maxAttempts; attempt++) {
+            const resp = await fetch(`${baseUrl}/diagnoseRegisteredRangeAdmin`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
+              },
+              body: JSON.stringify({ phase: RsPhase.POST, from: fromDay, to: toDay, autoFix: true }),
+            });
+            const txt = await resp.text();
+            let diag: any = undefined;
+            try { diag = JSON.parse(txt); } catch { diag = { raw: txt }; }
+            okResp = resp.ok && diag?.ok !== false;
+            lastDiag = diag;
+
+            const results = Array.isArray(diag?.results) ? diag.results : [];
+            remaining = results.reduce((acc: number, r: any) => acc + (Number(r?.remainingPairs) || 0), 0);
+
+            logger.info('post_close_verifier_attempt', { attempt: attempt + 1, maxAttempts, fromDay, toDay, remaining });
+            if (remaining <= 0) break;
+            if (attempt < maxAttempts - 1 && backoffSecs > 0) {
+              await new Promise((r) => setTimeout(r, backoffSecs * 1000));
+            }
+          }
+
+          // Persist explicit warning if unresolved issues remain
+          if (remaining > 0) {
+            const results = Array.isArray(lastDiag?.results) ? lastDiag.results : [];
+            await persistWarning('post_close_verifier_remaining_problems', {
+              function: RsCloudFunctionName.PROCESS_DATA_READY,
+              marketDate: md || toDay,
+              from: fromDay,
+              to: toDay,
+              baselines: results.length,
+              remainingPairs: remaining,
+              reasons: results.slice(0, 10).map((r: any) => ({ baseline: r?.baseline, reasons: r?.reasons }))
+            });
+          }
+
+          // Annotate the partner-event doc with verification summary
+          if (eventRef) {
+            await eventRef.set({
+              postCloseVerify: {
+                window: { from: fromDay, to: toDay },
+                ok: okResp && remaining <= 0,
+                remainingPairs: Math.max(0, remaining || 0),
+                attempts: attempt,
+              }
+            }, { merge: true });
+          }
+        }
+      } catch (e:any) {
+        logger.warn('post_close_verifier_failed', { message: e?.message });
+        try { await persistWarning('post_close_verifier_failed', { function: RsCloudFunctionName.PROCESS_DATA_READY, message: e?.message }); } catch {}
+      }
+
       // Conservative checkpoint write for POST only when partner indicates full finalization and our run had no failures
       try {
         if (!isHeartbeat && phase === RsPhase.POST) {
