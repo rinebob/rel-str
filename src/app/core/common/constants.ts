@@ -128,6 +128,8 @@ export enum CallableName {
   GET_DAILY_SIGNALS = 'getDailySignals',
   GET_PNL_SUMMARY = 'getPnLSummary',
   UPDATE_POSITION_ACTUALS = 'updatePositionActuals',
+  /** Diagnose and optionally auto-fix missing pair-day RS entries */
+  DIAGNOSE_PAIR_DAYS = 'diagnosePairDays',
 }
 
 /** Top-level Firestore collections used by the FE. */

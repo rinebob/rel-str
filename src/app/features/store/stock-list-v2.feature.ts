@@ -225,6 +225,50 @@ export function withStockListV2Feature() {
                 }
             };
 
+            const parsePair = (pairId: string): { baseline: string; target: string } | undefined => {
+                const parts = String(pairId || '').split('-');
+                if (parts.length < 2) return undefined;
+                const baseline = String(parts[0]).toUpperCase();
+                const target = String(parts.slice(1).join('-')).toUpperCase();
+                if (!baseline || !target) return undefined;
+                return { baseline, target };
+            };
+
+            const refreshPairs = async (pairs: string[], list: RelStrStockList) => {
+                const ranksData = await getHeatmapDataV2(pairs);
+                const updated = { ...(list.ranksDataWithColors || {}), ...ranksData } as RanksDataWithColors;
+                list.ranksDataWithColors = updated;
+            };
+
+            const autoFixMissingCellsInternalV2 = async (list: RelStrStockList, fixes: Array<{ pair: string; dates: string[] }>) => {
+                const baseline = String(list?.baseline || '').toUpperCase();
+                const targetsByPair = new Map<string, { pair: string; dates: string[] }>();
+                for (const f of fixes) {
+                    const id = String(f.pair || '').toUpperCase();
+                    if (!id) continue;
+                    const existing = targetsByPair.get(id);
+                    if (existing) {
+                        existing.dates.push(...f.dates.map(d => String(d).slice(0,10)));
+                    } else {
+                        targetsByPair.set(id, { pair: id, dates: f.dates.map(d => String(d).slice(0,10)) });
+                    }
+                }
+                const symbols: string[] = [];
+                const bySymbolDates = new Map<string, Set<string>>();
+                for (const [pairId, f] of targetsByPair) {
+                    const parsed = parsePair(pairId);
+                    if (!parsed) continue;
+                    symbols.push(parsed.target);
+                    const set = bySymbolDates.get(parsed.target) ?? new Set<string>();
+                    for (const d of f.dates) set.add(String(d).slice(0,10));
+                    bySymbolDates.set(parsed.target, set);
+                }
+                if (!baseline || symbols.length === 0) return;
+                const dates = Array.from(new Set(Array.from(bySymbolDates.values()).flatMap(s => Array.from(s.values()))));
+                try { await relStrDbV2Service.diagnosePairDaysAutoFix(baseline, symbols, { phase: 'post' as any, dates, forceWrite: false }); } catch {}
+                await refreshPairs(Array.from(targetsByPair.keys()), list);
+            };
+
             return {
                 // LISTS
                 async getListsForUserV2(userId: string) {
@@ -290,6 +334,14 @@ export function withStockListV2Feature() {
                 async getHeatmapDataV2(pairs: string[]): Promise<RanksDataWithColors> { return getHeatmapDataV2(pairs); },
                 async resolveExistingRanksDataV2(list: RelStrStockList, force = false): Promise<RelStrStockList> { return resolveExistingRanksDataV2(list, force); },
                 sortListsV2(targetList: RelStrStockList, allStockListsV2: RelStrStockList[]) { return sortListsV2(targetList, allStockListsV2); },
+                async autoFixMissingCellsV2(fixes: Array<{ pair: string; dates: string[] }>) {
+                    const current = store.selectedStockListV2();
+                    if (!current?.name) return;
+                    const updated = { ...current } as RelStrStockList;
+                    await autoFixMissingCellsInternalV2(updated, fixes);
+                    const allStockListsV2 = sortListsV2(updated, [...store.allStockListsV2()]);
+                    patchState(store, { allStockListsV2, selectedStockListV2: updated });
+                },
 
                 async initializeListV2(list: RelStrStockList) {
                     patchState(store, { selectedStockListV2: { ...list } });
