@@ -137,6 +137,21 @@ export function withStockListV2Feature() {
                 });
             };
 
+            const generateHeatmapDataWindowV2 = async (pair: string, daysBack = 60): Promise<BaselineTargetRankDatum[]> => {
+                let series: Array<{ date: string; value: number; norm?: number; phase?: any }> = [];
+                series = await firstValueFrom(relStrDbV2Service.getPairSeriesFromArchiveWindow$(pair, daysBack));
+                // eslint-disable-next-line no-console
+                console.log('[V2][window] pair series', pair, 'len=', series?.length ?? 0, 'first=', series?.[0]);
+                if (!Array.isArray(series) || series.length === 0) return [];
+                const colors = rsCalcsStore.heatmapColors();
+                return series.map(d => {
+                    const metric = (d as any).norm ?? d.value;
+                    const idx = Math.floor(metric * (colors.length - 1));
+                    const color = colors[Math.max(0, Math.min(colors.length - 1, idx))];
+                    return { date: d.date, value: d.value, index: idx, color, phase: d.phase, placeholder: false } as BaselineTargetRankDatum;
+                });
+            };
+
             const getHeatmapDataV2 = async (pairs: string[]): Promise<RanksDataWithColors> => {
                 const out: RanksDataWithColors = {};
                 // First pass: fetch per-pair arrays and build union of dates
@@ -172,6 +187,42 @@ export function withStockListV2Feature() {
                 return out;
             };
 
+            const getHeatmapDataWindowV2 = async (pairs: string[], daysBack = 60): Promise<RanksDataWithColors> => {
+                const out: RanksDataWithColors = {};
+                const perPair: Record<string, BaselineTargetRankDatum[]> = {};
+                const dateSet = new Set<string>();
+
+                const concurrency = 10;
+                for (let i = 0; i < pairs.length; i += concurrency) {
+                    const batch = pairs.slice(i, i + concurrency);
+                    const results = await Promise.allSettled(batch.map(p => generateHeatmapDataWindowV2(p, daysBack)));
+                    results.forEach((res, idx) => {
+                        const pair = batch[idx];
+                        if (res.status === 'fulfilled') {
+                            const arr = res.value || [];
+                            perPair[pair] = arr;
+                            for (const d of arr) dateSet.add(d.date);
+                        } else {
+                            perPair[pair] = [];
+                        }
+                    });
+                }
+
+                const allDates = Array.from(dateSet.values()).sort((a, b) => a.localeCompare(b));
+                const placeholderColor = '#cccccc';
+                for (const pair of pairs) {
+                    const byDate = new Map<string, BaselineTargetRankDatum>();
+                    (perPair[pair] || []).forEach(d => byDate.set(d.date, d));
+                    const aligned: BaselineTargetRankDatum[] = allDates.map(date => {
+                        const hit = byDate.get(date);
+                        if (hit) return hit;
+                        return { date, value: 0, index: 0, color: placeholderColor, placeholder: true } as BaselineTargetRankDatum;
+                    });
+                    out[pair] = aligned;
+                }
+                return out;
+            };
+
             const resolveExistingRanksDataV2 = async (list: RelStrStockList, force = false): Promise<RelStrStockList> => {
                 const pairs = getPairsForList(list);
                 const existingPairs = !!list.ranksDataWithColors ? Object.keys(list.ranksDataWithColors) : [];
@@ -182,11 +233,47 @@ export function withStockListV2Feature() {
                     for (const pair of pairs) if (!existingPairs.includes(pair)) pairsToFetch.push(pair);
                 }
                 if (list.ranksDataWithColors === undefined || pairsToFetch.length) {
-                    const ranksData = await getHeatmapDataV2(pairsToFetch);
-                    const updatedRanksData = list.ranksDataWithColors !== undefined
-                        ? { ...list.ranksDataWithColors, ...ranksData }
-                        : { ...ranksData };
-                    list.ranksDataWithColors = { ...updatedRanksData };
+                    console.log('sLV2 rERDV2. list/num pairs: ', list.name, pairsToFetch.length);
+                    const tLabel = `[heatmap initial ${list.name || 'list'}]`;
+                    console.time(tLabel);
+                    // Phase 1: windowed initial fetch for faster first paint
+                    const initial = await getHeatmapDataWindowV2(pairsToFetch, 60);
+                    const phase1 = list.ranksDataWithColors !== undefined
+                        ? { ...list.ranksDataWithColors, ...initial }
+                        : { ...initial };
+                    list.ranksDataWithColors = { ...phase1 };
+
+                    // Patch immediately for visual feedback if this list is selected
+                    const current = store.selectedStockListV2();
+                    const isSameList = current?.name === list.name;
+                    if (isSameList) {
+                        const baseList = { ...current, ranksDataWithColors: { ...phase1 } } as RelStrStockList;
+                        const others = store.allStockListsV2().filter(l => l.name !== baseList.name);
+                        const allStockListsV2 = sortListsV2(baseList, [...others, baseList]);
+                        patchState(store, { selectedStockListV2: baseList, allStockListsV2 });
+                    }
+                    console.log('sLV2 rERDV2. end');
+                    console.timeEnd(tLabel);
+
+                    // Phase 2 (background): full history, then merge and patch
+                    zone.run(() => {
+                        runInInjectionContext(env, () => {
+                            void (async () => {
+                                try {
+                                    const full = await getHeatmapDataV2(pairsToFetch);
+                                    const merged = { ...(list.ranksDataWithColors || {}), ...full } as RanksDataWithColors;
+                                    const selected = store.selectedStockListV2();
+                                    const baseList = (selected?.name === list.name ? { ...selected } : { ...list }) as RelStrStockList;
+                                    baseList.ranksDataWithColors = merged;
+                                    const others = store.allStockListsV2().filter(l => l.name !== baseList.name);
+                                    const allStockListsV2 = sortListsV2(baseList, [...others, baseList]);
+                                    patchState(store, { selectedStockListV2: baseList, allStockListsV2 });
+                                } catch (e) {
+                                    console.error('[StockListFeatureV2] background full history load failed', e);
+                                }
+                            })();
+                        });
+                    });
                 }
                 return list;
             };

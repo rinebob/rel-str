@@ -19,6 +19,7 @@ import {
 } from '@angular/fire/firestore';
 import { Observable, map, from, tap, catchError, firstValueFrom, of, retry, defer } from 'rxjs';
 import { Functions, httpsCallable } from '@angular/fire/functions';
+import { timer } from 'rxjs';
 import { Auth } from '@angular/fire/auth';
 import { CallableName, Collection, userListsPath } from '../../core/common/constants';
 import { GetTrackedSymbolsResponse } from '../../core/models/partner.types';
@@ -36,6 +37,114 @@ export class RelStrDbV2Service {
   private inCtx<T>(fn: () => T): T {
     // Ensures AngularFire helper calls execute inside an injection context
     return runInInjectionContext(this.env, fn);
+  }
+
+  /**
+   * Windowed archive read: fetch only the most recent `daysBack` days for a pair.
+   * This minimizes initial payload for faster first render.
+   * Rules mirror getPairSeriesFromArchive$ (POST for historical; POST then PRE for today).
+   */
+  getPairSeriesFromArchiveWindow$(pairId: string, daysBack = 60): Observable<Array<{ date: string; value: number; norm?: number; phase?: RsPhase }>> {
+    const pair = String(pairId || '').trim();
+    if (!pair || !Number.isFinite(daysBack) || daysBack <= 0) return of([]);
+
+    const fmtYMD = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+
+    const today = new Date();
+    const todayYMD = fmtYMD(today);
+    const START_ARCHIVE_YEAR = 2019;
+    const currentYear = today.getUTCFullYear();
+
+    return defer(() => from(this.inCtx(async () => {
+      const resultsDesc: Array<{ date: string; value: number; norm?: number; phase?: RsPhase }> = [];
+      let remaining = Math.max(1, Math.floor(daysBack));
+      for (let y = currentYear; y >= START_ARCHIVE_YEAR && remaining > 0; y--) {
+        try {
+          const colRef = collection(this.firestore, `${Collection.PAIRS_DATA}/${pair}/archive-${y}`);
+          // Fetch newest first
+          const qRef = query(colRef, orderBy('day', 'desc'), limit(remaining));
+          const snap = await this.inCtx(() => this.zone.run(() => getDocs(qRef)));
+          for (const docSnap of snap.docs) {
+            const raw = (docSnap.data() as any) || {};
+            const dateYMD = String(raw?.day || '').trim();
+            if (!dateYMD) continue;
+            const isToday = dateYMD === todayYMD;
+            const post = raw?.post;
+            const pre = raw?.pre;
+            let phase: RsPhase | undefined;
+            let value: number | undefined;
+            let norm: number | undefined;
+            if (!isToday) {
+              if (Number.isFinite(post?.rs)) {
+                const postRsVal = Number(post.rs);
+                const postRsRaw = Number.isFinite(post?.rsRaw) ? Number(post.rsRaw) : undefined;
+                const postRsNorm = Number.isFinite(post?.rsNorm) ? Number(post.rsNorm) : undefined;
+                value = Number.isFinite(postRsRaw) ? postRsRaw : postRsVal;
+                norm = Number.isFinite(postRsNorm) ? Number(postRsNorm) : postRsVal;
+                phase = RsPhase.POST;
+              } else {
+                continue;
+              }
+            } else {
+              if (Number.isFinite(post?.rs)) {
+                const postRsVal = Number(post.rs);
+                const postRsRaw = Number.isFinite(post?.rsRaw) ? Number(post.rsRaw) : undefined;
+                const postRsNorm = Number.isFinite(post?.rsNorm) ? Number(post.rsNorm) : undefined;
+                value = Number.isFinite(postRsRaw) ? postRsRaw : postRsVal;
+                norm = Number.isFinite(postRsNorm) ? Number(postRsNorm) : postRsVal;
+                phase = RsPhase.POST;
+              } else if (Number.isFinite(pre?.rs)) {
+                const preRsVal = Number(pre.rs);
+                const preRsRaw = Number.isFinite(pre?.rsRaw) ? Number(pre.rsRaw) : undefined;
+                const preRsNorm = Number.isFinite(pre?.rsNorm) ? Number(pre?.rsNorm) : undefined;
+                value = Number.isFinite(preRsRaw) ? Number(preRsRaw) : preRsVal;
+                norm = Number.isFinite(preRsNorm) ? Number(preRsNorm) : preRsVal;
+                phase = RsPhase.PRE;
+              } else {
+                continue;
+              }
+            }
+            resultsDesc.push({ date: dateYMD, value: value!, norm, phase });
+          }
+          remaining = Math.max(0, daysBack - resultsDesc.length);
+        } catch (e) {
+          console.warn('[RelStrDbV2Service] windowed archive read failed for year', { pair, year: y, e });
+        }
+      }
+      // We accumulated newest-first; return ascending by date
+      return resultsDesc.sort((a, b) => a.date.localeCompare(b.date));
+    }))).pipe(
+      retry({ count: 2, delay: (e, i) => timer(Math.min(1500, 300 * Math.pow(2, i))) }),
+      tap(arr => console.log('[RS][Archive][Window] Series ready', { pair, len: arr.length, first: arr[0] })),
+      catchError(err => {
+        console.error('[RelStrDbV2Service] getPairSeriesFromArchiveWindow$ error', { pair, err });
+        return of([] as Array<{ date: string; value: number; norm?: number; phase?: RsPhase }>);
+      })
+    );
+  }
+
+  async diagnosePairDaysAutoFix(baseline: string, symbols: string[], options?: { phase?: RsPhase; dates?: string[]; from?: string; to?: string; yearsBack?: number; forceWrite?: boolean }): Promise<any> {
+    try {
+      return await this.inCtx(async () => {
+        const callable = httpsCallable<any, any>(this.functions, CallableName.DIAGNOSE_PAIR_DAYS);
+        const payload: any = {
+          baseline: String(baseline || '').toUpperCase(),
+          symbols: Array.isArray(symbols) ? symbols.map(s => String(s).toUpperCase()) : [],
+          autoFix: true,
+        };
+        if (options?.phase) payload.phase = options.phase;
+        if (options?.dates) payload.dates = options.dates.map(d => String(d).slice(0,10));
+        if (options?.from) payload.from = String(options.from).slice(0,10);
+        if (options?.to) payload.to = String(options.to).slice(0,10);
+        if (Number.isFinite(options?.yearsBack as number)) payload.yearsBack = Number(options?.yearsBack);
+        if (options?.forceWrite) payload.forceWrite = true;
+        const res = await callable(payload);
+        return res?.data ?? res;
+      });
+    } catch (e) {
+      console.error('diagnosePairDaysAutoFix failed', e);
+      return { ok: false };
+    }
   }
 
   // New: Fetch tracked symbols via RS backend callable (SavantAPI behind it)
