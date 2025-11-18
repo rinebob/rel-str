@@ -4,10 +4,11 @@ import {
   POSITIONS_COLLECTION,
   OPEN_BUCKET_ID,
   PAIRS_COLLECTION,
+  SIGNALS_COLLECTION,
   SIGNALS_DAILY_COLLECTION,
   SIGNALS_DAILY_ROOT_COLLECTION,
   ITEMS_SUBCOLLECTION,
-  HOT_DAYS,
+  DAYS_SUBCOLLECTION,
   YEAR_BUCKET_KIND,
   COLLECTION_KIND_SIGNALS_DAILY,
   COLLECTION_KIND_POSITIONS,
@@ -62,8 +63,7 @@ export async function upsertDailyHoldsForPair(pairId: string, day: string): Prom
   await upsertPairSignalsDaily(
     pairId,
     day,
-    { holds },
-    { ensureHotIf: true, hotActions: { add: holds as Array<{ positionId: string; direction?: string }> } }
+    { holds }
   );
 }
 
@@ -73,7 +73,8 @@ export async function upsertDailyHoldsForPair(pairId: string, day: string): Prom
  * then writes exitPrice/exitDay/exitIso and netPnL/percentReturn to positions/{positionId}.
  */
 export async function finalizeClosedPositionsForPair(pairId: string, day: string): Promise<void> {
-  const dailyRef = db.collection(PAIRS_COLLECTION).doc(pairId).collection(SIGNALS_DAILY_COLLECTION).doc(day);
+  const yr = yearOf(day);
+  const dailyRef = db.collection(PAIRS_COLLECTION).doc(pairId).collection(SIGNALS_DAILY_COLLECTION).doc(yr).collection(DAYS_SUBCOLLECTION).doc(day);
   const dailySnap = await dailyRef.get();
   if (!dailySnap.exists) return;
   const data = (dailySnap.data() as any) || {};
@@ -85,9 +86,15 @@ export async function finalizeClosedPositionsForPair(pairId: string, day: string
     const id = String((c as any)?.positionId || '').trim();
     if (!id) continue;
 
-    // Read per-position signals doc for precise open/close prices
-    const sigRef = db.collection(PAIRS_COLLECTION).doc(pairId).collection('signals').doc(id);
-    const sigSnap = await sigRef.get();
+    // Read per-position signals doc for precise open/close prices from correct shard
+    const sigBase = db.collection(PAIRS_COLLECTION).doc(pairId).collection(SIGNALS_COLLECTION);
+    const openRef = sigBase.doc(OPEN_BUCKET_ID).collection(ITEMS_SUBCOLLECTION).doc(id);
+    let sigSnap = await openRef.get();
+    if (!sigSnap.exists) {
+      const yb = yearClosedOf(day);
+      const closedRef = sigBase.doc(yb).collection(ITEMS_SUBCOLLECTION).doc(id);
+      sigSnap = await closedRef.get();
+    }
     if (!sigSnap.exists) continue;
     const s = (sigSnap.data() as any) || {};
     const opened = (s?.opened || {}) as any;
@@ -124,15 +131,6 @@ export function yearOf(day: string): string {
   return String(day || '').slice(0, 4);
 }
 
-export function isDayInHot(day: string, hotDays: number = HOT_DAYS): boolean {
-  const d = new Date(`${day}T00:00:00Z`);
-  if (isNaN(d.getTime())) return false;
-  const now = new Date();
-  const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const msPerDay = 24 * 60 * 60 * 1000;
-  const deltaDays = Math.floor((todayUtc.getTime() - d.getTime()) / msPerDay);
-  return deltaDays >= 0 && deltaDays <= hotDays;
-}
 
 function ensureUpperSide(side: any): 'LONG' | 'SHORT' | undefined {
   const s = String(side || '').toUpperCase();
@@ -193,8 +191,8 @@ export async function writePairSignalOpen(
 
   // Per-pair signals: open/items
   const sigOpenRef = db
-    .collection('pairs-data').doc(pair)
-    .collection('signals').doc(OPEN_BUCKET_ID)
+    .collection(PAIRS_COLLECTION).doc(pair)
+    .collection(SIGNALS_COLLECTION).doc(OPEN_BUCKET_ID)
     .collection(ITEMS_SUBCOLLECTION).doc(positionId);
   const perPairDoc = {
     pair,
@@ -210,7 +208,7 @@ export async function writePairSignalOpen(
       rsYesterday: entry?.opened?.rsYesterday,
       rsToday: entry?.opened?.rsToday,
     },
-    status: 'open',
+    status: RsPositionStatus.OPEN,
     ...timestampPatch,
   } as any;
   await sigOpenRef.set(perPairDoc, { merge: true });
@@ -227,7 +225,7 @@ export async function writePairSignalOpen(
     entryIso,
     entryTimestamp,
     entryPrice,
-    status: 'open',
+    status: RsPositionStatus.OPEN,
     currentPrice: entryPrice,
     currentChange: 0,
     currentPctChange: 0,
@@ -244,7 +242,7 @@ export async function finalizePairSignalClose(
   exit: Record<string, any>
 ): Promise<void> {
   const yb = yearClosedOf(day);
-  const base = db.collection('pairs-data').doc(pair).collection('signals');
+  const base = db.collection(PAIRS_COLLECTION).doc(pair).collection(SIGNALS_COLLECTION);
   const openRef = base.doc(OPEN_BUCKET_ID).collection(ITEMS_SUBCOLLECTION).doc(positionId);
   const closedRef = base.doc(yb).collection(ITEMS_SUBCOLLECTION).doc(positionId);
   const patch = {
@@ -253,7 +251,7 @@ export async function finalizePairSignalClose(
     exitIso: String(exit?.exitIso ?? (exit?.closed?.day ? new Date(`${exit?.closed?.day}T00:00:00Z`).toISOString() : new Date(`${day}T00:00:00Z`).toISOString())),
     netPnL: Number(exit?.netPnL ?? exit?.closed?.change),
     percentReturn: Number(exit?.percentReturn ?? exit?.closed?.pctChange),
-    status: 'closed',
+    status: RsPositionStatus.CLOSED,
     updatedAt: FieldValue.serverTimestamp(),
   } as any;
   await openRef.set(patch, { merge: true });
@@ -285,7 +283,7 @@ export async function upsertRootPositionOpen(
     entryIso,
     entryTimestamp,
     entryPrice,
-    status: 'open',
+    status: RsPositionStatus.OPEN,
     currentPrice: entryPrice,
     currentChange: 0,
     currentPctChange: 0,
@@ -310,7 +308,7 @@ export async function finalizeRootPositionClose(
     exitIso: String(exit?.exitIso ?? (exit?.closed?.day ? new Date(`${exit?.closed?.day}T00:00:00Z`).toISOString() : new Date(`${day}T00:00:00Z`).toISOString())),
     netPnL: Number(exit?.netPnL ?? exit?.closed?.change),
     percentReturn: Number(exit?.percentReturn ?? exit?.closed?.pctChange),
-    status: 'closed',
+    status: RsPositionStatus.CLOSED,
     updatedAt: FieldValue.serverTimestamp(),
   } as any;
   await openRef.set(patch, { merge: true });
@@ -321,61 +319,25 @@ export async function finalizeRootPositionClose(
 export async function upsertPairSignalsDaily(
   pair: string,
   day: string,
-  patch: Record<string, any>,
-  opts?: {
-    ensureHotIf?: boolean;
-    hotActions?: {
-      add?: Array<{ positionId: string; direction?: string }>;
-      remove?: Array<{ positionId: string; direction?: string }>;
-    };
-  }
+  patch: Record<string, any>
 ): Promise<void> {
+  const base = db.collection(PAIRS_COLLECTION).doc(pair).collection(SIGNALS_DAILY_COLLECTION);
   const yr = yearOf(day);
-  const base = db.collection('pairs-data').doc(pair).collection(SIGNALS_DAILY_COLLECTION);
   try { await base.doc(yr).set({ bucket: YEAR_BUCKET_KIND, year: yr, kind: COLLECTION_KIND_SIGNALS_DAILY, updatedAt: FieldValue.serverTimestamp() }, { merge: true }); } catch {}
-  const arcRef = base.doc(yr).collection('days').doc(day);
+  const dayRef = base.doc(yr).collection(DAYS_SUBCOLLECTION).doc(day);
   const data = { ...patch, updatedAt: FieldValue.serverTimestamp() };
-  await arcRef.set(data, { merge: true });
-  const hotBase = base.doc('hot').collection(ITEMS_SUBCOLLECTION);
-  const doHot = opts?.ensureHotIf || isDayInHot(day);
-  if (doHot && opts?.hotActions) {
-    const add = Array.isArray(opts.hotActions.add) ? opts.hotActions.add : [];
-    const remove = Array.isArray(opts.hotActions.remove) ? opts.hotActions.remove : [];
-    for (const it of add) {
-      const id = String((it as any)?.positionId || '').trim();
-      if (!id) continue;
-      const dir = (it as any)?.direction ? String((it as any).direction).toUpperCase() : undefined;
-      const hotDoc = { positionId: id, ...(dir ? { direction: dir } : {}), lastDay: day, updatedAt: FieldValue.serverTimestamp() } as any;
-      try { await hotBase.doc(id).set(hotDoc, { merge: true }); } catch {}
-    }
-    for (const it of remove) {
-      const id = String((it as any)?.positionId || '').trim();
-      if (!id) continue;
-      try { await hotBase.doc(id).delete(); } catch {}
-    }
-  }
+  await dayRef.set(data, { merge: true });
 }
 
 export async function upsertRootSignalsDaily(
   day: string,
   patch: Record<string, any>
 ): Promise<void> {
-  const yr = yearOf(day);
   const base = db.collection(SIGNALS_DAILY_ROOT_COLLECTION);
-  try { await base.doc('hot').set({ bucket: 'hot', kind: COLLECTION_KIND_SIGNALS_DAILY, updatedAt: FieldValue.serverTimestamp() }, { merge: true }); } catch {}
-  try { await base.doc(yr).set({ bucket: YEAR_BUCKET_KIND, year: yr, kind: COLLECTION_KIND_SIGNALS_DAILY, updatedAt: FieldValue.serverTimestamp() }, { merge: true }); } catch {}
-  const legacyRef = base.doc(day);
-  const hotRef = base.doc('hot').collection('days').doc(day);
-  const arcRef = base.doc(yr).collection('days').doc(day);
-  const inHot = isDayInHot(day);
+  const yr = yearOf(day);
+  const ref = base.doc(yr).collection(DAYS_SUBCOLLECTION).doc(day);
   const data = { ...patch, updatedAt: FieldValue.serverTimestamp() };
-  await arcRef.set(data, { merge: true });
-  await legacyRef.set(data, { merge: true });
-  if (inHot) {
-    await hotRef.set(data, { merge: true });
-  } else {
-    try { await hotRef.delete(); } catch {}
-  }
+  await ref.set(data, { merge: true });
 }
 
 export async function upsertPairSignalDoc(
@@ -385,28 +347,22 @@ export async function upsertPairSignalDoc(
   patch: Record<string, any>
 ): Promise<void> {
   const yr = yearOf(day);
-  const base = db.collection('pairs-data').doc(pair).collection('signals');
+  const base = db.collection(PAIRS_COLLECTION).doc(pair).collection(SIGNALS_COLLECTION);
   try { await base.doc(yr).set({ bucket: YEAR_BUCKET_KIND, year: yr, kind: 'signals', updatedAt: FieldValue.serverTimestamp() }, { merge: true }); } catch {}
-  const legacyRef = base.doc(positionId);
   const shardRef = base.doc(yr).collection(ITEMS_SUBCOLLECTION).doc(positionId);
   const data = { ...patch, updatedAt: FieldValue.serverTimestamp() };
-  await legacyRef.set(data, { merge: true });
   await shardRef.set(data, { merge: true });
 }
 
 export async function deleteRootSignalsDaily(day: string): Promise<void> {
-  const yr = yearOf(day);
   const base = db.collection(SIGNALS_DAILY_ROOT_COLLECTION);
-  const legacyRef = base.doc(day);
-  const hotRef = base.doc('hot').collection('days').doc(day);
-  const arcRef = base.doc(yr).collection('days').doc(day);
-  try { await hotRef.delete(); } catch {}
-  try { await arcRef.delete(); } catch {}
-  try { await legacyRef.delete(); } catch {}
+  const yr = yearOf(day);
+  const ref = base.doc(yr).collection(DAYS_SUBCOLLECTION).doc(day);
+  try { await ref.delete(); } catch {}
 }
 
-function shouldKeepPositionInHot(status: RsPositionStatus | string | undefined, day: string): boolean {
-  return isDayInHot(day);
+function shouldKeepPositionInOpen(status: RsPositionStatus | string | undefined): boolean {
+  return status === RsPositionStatus.OPEN || String(status).toLowerCase() === 'open';
 }
 
 export async function upsertRootPosition(
@@ -415,20 +371,21 @@ export async function upsertRootPosition(
   status: RsPositionStatus | string | undefined,
   patch: Record<string, any>
 ): Promise<void> {
-  const yr = yearOf(day);
+  const yrClosed = yearClosedOf(day);
   const base = db.collection(POSITIONS_COLLECTION);
-  try { await base.doc('hot').set({ bucket: 'hot', kind: COLLECTION_KIND_POSITIONS, updatedAt: FieldValue.serverTimestamp() }, { merge: true }); } catch {}
-  try { await base.doc(yr).set({ bucket: YEAR_BUCKET_KIND, year: yr, kind: COLLECTION_KIND_POSITIONS, updatedAt: FieldValue.serverTimestamp() }, { merge: true }); } catch {}
-  const legacyRef = base.doc(positionId);
-  const hotRef = base.doc('hot').collection(ITEMS_SUBCOLLECTION).doc(positionId);
-  const arcRef = base.doc(yr).collection(ITEMS_SUBCOLLECTION).doc(positionId);
-  const keepHot = shouldKeepPositionInHot(status, day);
+  // Ensure bucket metadata docs exist for visibility
+  try { await base.doc(OPEN_BUCKET_ID).set({ bucket: OPEN_BUCKET_ID, kind: COLLECTION_KIND_POSITIONS, updatedAt: FieldValue.serverTimestamp() }, { merge: true }); } catch {}
+  try { await base.doc(yrClosed).set({ bucket: YEAR_BUCKET_KIND, year: yrClosed, kind: COLLECTION_KIND_POSITIONS, updatedAt: FieldValue.serverTimestamp() }, { merge: true }); } catch {}
+
+  const openRef = base.doc(OPEN_BUCKET_ID).collection(ITEMS_SUBCOLLECTION).doc(positionId);
+  const closedRef = base.doc(yrClosed).collection(ITEMS_SUBCOLLECTION).doc(positionId);
+  const isOpen = shouldKeepPositionInOpen(status);
   const data = { ...patch, updatedAt: FieldValue.serverTimestamp() };
-  await legacyRef.set(data, { merge: true });
-  await arcRef.set(data, { merge: true });
-  if (keepHot) {
-    await hotRef.set(data, { merge: true });
+  if (isOpen) {
+    await openRef.set(data, { merge: true });
+    try { await closedRef.delete(); } catch {}
   } else {
-    try { await hotRef.delete(); } catch {}
+    await closedRef.set(data, { merge: true });
+    try { await openRef.delete(); } catch {}
   }
 }

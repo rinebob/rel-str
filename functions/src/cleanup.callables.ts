@@ -1,7 +1,7 @@
 import { onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { db, FieldValue } from './firebase-admin-init';
-import { PAIRS_COLLECTION, POSITIONS_COLLECTION, SIGNALS_DAILY_ROOT_COLLECTION, SILENCE_ADMIN_INFO, SIGNALS_DAILY_COLLECTION } from './webhooks/webhooks-config';
+import { PAIRS_COLLECTION, POSITIONS_COLLECTION, SIGNALS_DAILY_ROOT_COLLECTION, SILENCE_ADMIN_INFO, SIGNALS_DAILY_COLLECTION, OPEN_BUCKET_ID, DAYS_SUBCOLLECTION, SIGNALS_COLLECTION, ITEMS_SUBCOLLECTION } from './webhooks/webhooks-config';
 import { upsertPairSignalsDaily } from './webhooks/positions-manager';
 
 /**
@@ -47,7 +47,7 @@ export const purgeNonYearShardRootDocs = onCall(
       let ops = 0;
       for (const d of snap.docs) {
         const id = String(d.id);
-        const keep = allowYears.includes(id) || id === 'hot';
+        const keep = allowYears.includes(id) || id === OPEN_BUCKET_ID;
         if (!keep) {
           batch.delete(col.doc(id));
           ops++; deleted++;
@@ -100,7 +100,7 @@ export const purgePairSignalsDailyAll = onCall(
       if (ops > 0) { await batch.commit(); }
       // Delete all year-sharded days for the range
       for (let y = fromYear; y <= toYear; y++) {
-        const daysCol = base.doc(String(y)).collection('days');
+        const daysCol = base.doc(String(y)).collection(DAYS_SUBCOLLECTION);
         const ysnap = await daysCol.select().get();
         let ybatch = db.batch(); let yops = 0;
         for (const dd of ysnap.docs) {
@@ -109,8 +109,8 @@ export const purgePairSignalsDailyAll = onCall(
         }
         if (yops > 0) { await ybatch.commit(); }
       }
-      // Best-effort delete hot container entirely (we will rebuild items)
-      try { await base.doc('hot').delete(); } catch {}
+      // Best-effort delete open container entirely (we will rebuild items)
+      try { await base.doc(OPEN_BUCKET_ID).delete(); } catch {}
     }
     if (!SILENCE_ADMIN_INFO) logger.info('purgePairSignalsDailyAll done', { pairs: pairs.length, deletedLegacyDays, deletedYearDays, fromYear, toYear });
     return { ok: true, pairs: pairs.length, deletedLegacyDays, deletedYearDays, years: { from: fromYear, to: toYear } };
@@ -137,7 +137,7 @@ export const purgePairSignalsAll = onCall(
     let deletedLegacy = 0;
     let deletedYearItems = 0;
     for (const pair of pairs) {
-      const base = db.collection(PAIRS_COLLECTION).doc(pair).collection('signals');
+      const base = db.collection(PAIRS_COLLECTION).doc(pair).collection(SIGNALS_COLLECTION);
       // Delete legacy flat signals (non-YYYY doc ids)
       const snap = await base.select().get();
       let batch = db.batch(); let ops = 0;
@@ -167,42 +167,6 @@ export const purgePairSignalsAll = onCall(
 );
 
 /**
- * Admin: cleanupPairSignalsDailyHot
- * Deletes per-pair `signals-daily/hot/days/*` docs (and the hot container) for all or specified pairs.
- * Params: { pairs?: string[] }
- */
-export const cleanupPairSignalsDailyHot = onCall(
-  { region: 'us-central1', timeoutSeconds: 540 },
-  async (req): Promise<{ ok: boolean; pairs: number; deletedDays: number; deletedHotDocs: number }> => {
-    let pairs: string[] = Array.isArray(req?.data?.pairs) ? (req.data.pairs as any[]).map(x => String(x)).filter(Boolean) : [];
-    if (pairs.length === 0) {
-      const reg = await db.collection('pair-registry').select().get();
-      pairs = reg.docs.map(d => d.id);
-    }
-    let deletedDays = 0;
-    let deletedHotDocs = 0;
-    for (const pair of pairs) {
-      const base = db.collection(PAIRS_COLLECTION).doc(pair).collection(SIGNALS_DAILY_COLLECTION);
-      const hotDaysCol = base.doc('hot').collection('days');
-      const snap = await hotDaysCol.select().get();
-      let batch = db.batch();
-      let ops = 0;
-      for (const d of snap.docs) {
-        batch.delete(hotDaysCol.doc(d.id));
-        ops++; deletedDays++;
-        if (ops >= 400) { await batch.commit(); batch = db.batch(); ops = 0; }
-      }
-      if (ops > 0) { await batch.commit(); }
-      // Best-effort delete the hot container doc
-      try { await base.doc('hot').delete(); deletedHotDocs++; } catch {}
-      if (!SILENCE_ADMIN_INFO) logger.info('cleanupPairSignalsDailyHot pass', { pair, deletedDaysForPair: snap.size });
-    }
-    if (!SILENCE_ADMIN_INFO) logger.info('cleanupPairSignalsDailyHot done', { pairs: pairs.length, deletedDays, deletedHotDocs });
-    return { ok: true, pairs: pairs.length, deletedDays, deletedHotDocs };
-  }
-);
-
-/**
  * Admin: purgeMisShardedPositionItems
  * For a given bucket year (e.g., '2025'), scans positions/{year}/items and deletes any item
  * whose document id indicates a different year (based on the first 4 digits YYYY of the id).
@@ -217,7 +181,7 @@ export const purgeMisShardedPositionItems = onCall(
     }
     const dryRun = String(req?.data?.dryRun || '').toLowerCase() === 'true' || req?.data?.dryRun === true;
     const limit = Number(req?.data?.limit || 0);
-    const col = db.collection('positions').doc(year).collection('items');
+    const col = db.collection(POSITIONS_COLLECTION).doc(year).collection(ITEMS_SUBCOLLECTION);
     const snap = await col.select().get();
     let deleted = 0;
     let scanned = 0;

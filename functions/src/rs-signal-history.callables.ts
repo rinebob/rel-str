@@ -13,7 +13,7 @@ import type {
   UpdatePositionActualsResponse,
   RsPositionDoc,
 } from './types/rs-signal-history';
-import { SIGNALS_DAILY_ROOT_COLLECTION, SIGNALS_DAILY_COLLECTION, PAIRS_COLLECTION, USERS_COLLECTION, USER_TRADES_COLLECTION, USER_PNL_DAILY_COLLECTION, ANALYTICS_COLLECTION, ANALYTICS_SUMMARY_DOC } from './webhooks/webhooks-config';
+import { SIGNALS_DAILY_ROOT_COLLECTION, SIGNALS_DAILY_COLLECTION, PAIRS_COLLECTION, USERS_COLLECTION, USER_TRADES_COLLECTION, USER_PNL_DAILY_COLLECTION, ANALYTICS_COLLECTION, ANALYTICS_SUMMARY_DOC, SIGNALS_COLLECTION, DAYS_SUBCOLLECTION, ITEMS_SUBCOLLECTION } from './webhooks/webhooks-config';
 
 /**
  * Normalize a possibly undefined or non-string value into a trimmed string.
@@ -63,7 +63,7 @@ export const getPairSignals = onCall(
     logger.info('getPairSignals', { pair, limit });
 
     try {
-      const snap = await db.collection('pairs-data').doc(pair).collection('signals')
+      const snap = await db.collection(PAIRS_COLLECTION).doc(pair).collection(SIGNALS_COLLECTION)
         .orderBy('opened.day', 'desc').limit(limit).get();
       const items: RsPositionDoc[] = snap.docs.map(d => ({ id: d.id, ...d.data() } as any)) as unknown as RsPositionDoc[];
       return { items };
@@ -81,7 +81,7 @@ export const getPairSignals = onCall(
  * 1) If a specific day is provided, return that document if present.
  * 2) Otherwise, iterate a set of days (by range or last N) and aggregate available docs.
  *
- * Mirror Source: signals-daily/{YYYY-MM-DD}
+ * Mirror Source: signals-daily/{YYYY}/days/{YYYY-MM-DD}
  * Security: Public callable for read-only access.
  *
  * @param req - Callable request whose data matches GetDailySignalsRequest.
@@ -94,7 +94,7 @@ export const getDailySignals = onCall(
     logger.info('getDailySignals called', { day, fromDay, toDay, limitDays, all });
 
     // Strategy:
-    // 1) Prefer a root mirror collection `signals-daily/{YYYY-MM-DD}` if present.
+    // 1) Read root mirror collection by year/day: `signals-daily/{YYYY}/days/{YYYY-MM-DD}` if present.
     // 2) If mirror missing, return empty. Pair-scoped fan-out is intentionally not implemented here.
 
     const days: Array<{ day: string; items: any }>= [];
@@ -102,7 +102,8 @@ export const getDailySignals = onCall(
 
     try {
       if (day) {
-        const docSnap = await mirrorCol.doc(day).get();
+        const yr = String(day).slice(0, 4);
+        const docSnap = await mirrorCol.doc(yr).collection(DAYS_SUBCOLLECTION).doc(day).get();
         if (docSnap.exists) days.push({ day, items: docSnap.data() as any });
         return { days };
       }
@@ -144,7 +145,7 @@ export const getDailySignals = onCall(
 
       // Fetch docs in parallel with bounded concurrency
       const MAX_CONCURRENCY = 20;
-      const refs = collectDays.map((d) => ({ id: d, ref: mirrorCol.doc(d) }));
+      const refs = collectDays.map((d) => ({ id: d, yr: String(d).slice(0,4), ref: mirrorCol.doc(String(d).slice(0,4)).collection(DAYS_SUBCOLLECTION).doc(d) }));
       for (let i = 0; i < refs.length; i += MAX_CONCURRENCY) {
         const chunk = refs.slice(i, i + MAX_CONCURRENCY);
         const snaps = await Promise.all(chunk.map(({ id, ref }) => ref.get().then(s => ({ id, snap: s }))));
@@ -285,7 +286,7 @@ export const updatePositionActuals = onCall(
 );
 
 /**
- * Internal: Rebuild the root daily mirror document signals-daily/{day} from per-pair daily docs.
+ * Internal: Rebuild the root daily mirror document signals-daily/{YYYY}/days/{day} from per-pair daily docs.
  *
  * Behavior:
  * - Aggregates newOpens, holds, newCloses across all pairs (or a provided subset).
@@ -314,8 +315,9 @@ export async function rebuildSignalsDailyMirrorImpl({ day, pairs }: { day: strin
     newCloses: [] as any[],
   };
 
+  const yr = dstr.slice(0, 4);
   for (const pair of pairIds) {
-    const docRef = db.collection(PAIRS_COLLECTION).doc(pair).collection(SIGNALS_DAILY_COLLECTION).doc(dstr);
+    const docRef = db.collection(PAIRS_COLLECTION).doc(pair).collection(SIGNALS_DAILY_COLLECTION).doc(yr).collection(DAYS_SUBCOLLECTION).doc(dstr);
     const snap = await docRef.get();
     if (!snap.exists) continue;
     const d = snap.data() as any;
@@ -444,8 +446,9 @@ export const cleanPairDailyPnL = onCall(
       // Batch delete of appPnLSummary for all pairs for this day
       const batch = db.batch();
       let ops = 0;
+      const yr = String(day).slice(0,4);
       for (const pair of pairIds) {
-        const ref = db.collection(PAIRS_COLLECTION).doc(pair).collection(SIGNALS_DAILY_COLLECTION).doc(day);
+        const ref = db.collection(PAIRS_COLLECTION).doc(pair).collection(SIGNALS_DAILY_COLLECTION).doc(yr).collection(DAYS_SUBCOLLECTION).doc(day);
         const snap = await ref.get();
         if (!snap.exists) continue;
         batch.set(ref, { appPnLSummary: FieldValue.delete() }, { merge: true });
@@ -521,7 +524,8 @@ export const auditSignalsConsistency = onCall(
       let perPairNewCloses: any[] = [];
       const pairsSnap = await db.collection(PAIRS_COLLECTION).select().get();
       for (const pd of pairsSnap.docs) {
-        const ref = db.collection(PAIRS_COLLECTION).doc(pd.id).collection(SIGNALS_DAILY_COLLECTION).doc(day);
+        const yr = String(day).slice(0,4);
+        const ref = db.collection(PAIRS_COLLECTION).doc(pd.id).collection(SIGNALS_DAILY_COLLECTION).doc(yr).collection(DAYS_SUBCOLLECTION).doc(day);
         const snap = await ref.get();
         if (!snap.exists) continue;
         const data = (snap.data() as any) || {};
@@ -530,26 +534,32 @@ export const auditSignalsConsistency = onCall(
         if (Array.isArray(data.newCloses)) perPairNewCloses.push(...data.newCloses.map((x: any) => ({ ...x, pair: pd.id })));
       }
 
-      // Mirror counts
-      const mirrorSnap = await db.collection(SIGNALS_DAILY_ROOT_COLLECTION).doc(day).get();
+      // Mirror counts (root year/day shard)
+      const mirrorSnap = await db.collection(SIGNALS_DAILY_ROOT_COLLECTION).doc(String(day).slice(0,4)).collection(DAYS_SUBCOLLECTION).doc(day).get();
       const mirror = (mirrorSnap.exists ? (mirrorSnap.data() as any) : {}) || {};
       const mirrorOpens: any[] = Array.isArray(mirror.newOpens) ? mirror.newOpens : [];
       const mirrorCloses: any[] = Array.isArray(mirror.newCloses) ? mirror.newCloses : [];
       const mirrorHolds: any[] = Array.isArray(mirror.holds) ? mirror.holds : [];
 
-      // Positions counts via single-field filters
+      // Positions counts across shards using collectionGroup on 'items'
       let positionsOpened = 0, positionsClosed = 0;
-      const posOpenSnap = await db.collection('positions').where('entryDay', '==', day).get();
-      positionsOpened = posOpenSnap.size;
-      const posCloseSnap = await db.collection('positions').where('closed.day', '==', day).get();
-      positionsClosed = posCloseSnap.size;
+      let posOpenDocs: FirebaseFirestore.QueryDocumentSnapshot[] = [];
+      try {
+        const posOpenSnap = await db.collectionGroup(ITEMS_SUBCOLLECTION).where('entryDay', '==', day).get();
+        positionsOpened = posOpenSnap.size;
+        posOpenDocs = posOpenSnap.docs;
+      } catch {}
+      try {
+        const posCloseSnap = await db.collectionGroup(ITEMS_SUBCOLLECTION).where('exitDay', '==', day).get();
+        positionsClosed = posCloseSnap.size;
+      } catch {}
 
       // Compute diffs for opens
       const setFrom = (arr: any[]) => new Set(arr.map(x => String(x?.positionId || '').trim()));
       const setMirror = setFrom(mirrorOpens);
       const setPerPair = setFrom(perPairNewOpens);
       const setPositions = new Set<string>();
-      for (const doc of posOpenSnap.docs) setPositions.add(String((doc.data() as any)?.positionId || doc.id));
+      for (const doc of posOpenDocs) setPositions.add(String((doc.data() as any)?.positionId || doc.id));
 
       const missingInMirrorOpens = [...setPerPair].filter(id => !setMirror.has(id));
       const missingInPerPairOpens = [...setMirror].filter(id => !setPerPair.has(id));

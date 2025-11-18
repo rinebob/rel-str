@@ -10,6 +10,7 @@ import { listRegisteredPairs } from './registry';
 import { buildPhaseSeries } from './rs-series';
 import { fetchDailyBarsRange, fetchDailyBarsRaw } from './symbol-fetch';
 import { FIXED_DAYS, FIXED_LIMIT, ProcessErrorSample, FIXED_INTERVAL, RsCloudFunctionName } from './webhooks-config';
+import { PAIRS_COLLECTION, SIGNALS_COLLECTION, SIGNALS_DAILY_COLLECTION } from './webhooks-config';
 import { SILENCE_ADMIN_INFO } from './webhooks-config';
 import { forEachWithConcurrency, processPairLive } from './partner-webhooks';
 import { rebuildSignalsDailyMirrorRange } from '../rs-signal-history.callables';
@@ -283,7 +284,7 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
           let entries = series;
           if (missingOnly) {
             const pairId = `${baseline}-${target}`;
-            const snap = await db.collection('pairs-data').doc(pairId).get();
+            const snap = await db.collection(PAIRS_COLLECTION).doc(pairId).get();
             const dataArr: any[] = snap.exists && Array.isArray((snap.data() as any)?.data) ? (snap.data() as any).data : [];
             const existingDays = new Set<string>();
             for (const row of dataArr) {
@@ -752,15 +753,13 @@ export const purgePairsDataSignalsAdmin = onRequest({ region: 'us-central1', tim
 
     for (const p of pairs) {
       const pairId = `${p.baseline}-${p.target}`;
-      const baseRef = db.collection('pairs-data').doc(pairId);
+      const baseRef = db.collection(PAIRS_COLLECTION).doc(pairId);
       pairsScanned++;
       try {
-        const sRef = baseRef.collection('signals');
-        const dRef = baseRef.collection('signals-daily');
-        const dLegacyRef = baseRef.collection('signalsDaily'); // legacy camelCase
+        const sRef = baseRef.collection(SIGNALS_COLLECTION);
+        const dRef = baseRef.collection(SIGNALS_DAILY_COLLECTION);
         signalsDeleted += await deleteAll(sRef);
         dailyDeleted += await deleteAll(dRef);
-        dailyDeleted += await deleteAll(dLegacyRef);
       } catch {}
     }
 

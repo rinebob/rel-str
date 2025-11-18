@@ -78,9 +78,6 @@ export const SIGNALS_DAILY_ROOT_COLLECTION = 'signals-daily';
 /** Hot window for hot/archive sharding (days). */
 export const HOT_DAYS = Number(process.env.HOT_DAYS || 90);
 
-/** Bucket document id for hot shards. */
-export const HOT_BUCKET_ID = 'hot';
-
 /** Label for year bucket kind metadata. */
 export const YEAR_BUCKET_KIND = 'year';
 
@@ -129,6 +126,9 @@ export const OPEN_BUCKET_ID = 'open';
 
 /** Standard name for subcollections that hold item documents under bucket docs. */
 export const ITEMS_SUBCOLLECTION = 'items';
+
+/** Standard name for subcollections that hold day documents under bucket docs. */
+export const DAYS_SUBCOLLECTION = 'days';
 
 /** Suffix for year shards that hold closed items. */
 export const CLOSED_YEAR_SUFFIX = '-closed';
