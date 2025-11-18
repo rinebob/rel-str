@@ -1,7 +1,7 @@
 import { onCall } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from './firebase-admin-init';
-import { upsertRootSignalsDaily, deleteRootSignalsDaily } from './webhooks/hot-archive';
+import { upsertRootSignalsDaily, deleteRootSignalsDaily } from './webhooks/positions-manager';
 import type {
   GetDailySignalsRequest,
   GetDailySignalsResponse,
