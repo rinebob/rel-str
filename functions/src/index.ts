@@ -23,3 +23,6 @@ export {
 
 // RsSignalHistory backfill (HTTP)
 export { backfillSignalsHistory, backfillPositionsStatus, backfillPositionsIds } from './rs-signal-history.backfill';
+
+// Admin cleanup callables
+export { purgePairsDataRootDataField, purgeNonYearShardRootDocs, purgeMisShardedPositionItems, backfillPairSignalsDailyShards, cleanupPairSignalsDailyHot, purgePairSignalsDailyAll, purgePairSignalsAll } from './cleanup.callables';
