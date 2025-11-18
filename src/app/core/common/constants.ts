@@ -140,12 +140,19 @@ export enum Collection {
   USERS = 'users',
   ADMIN = 'admin',
   APP = 'app',
+  POSITIONS = 'positions',
 }
 
 /** Known subcollection names under a user document. */
 export enum Subcollection {
   LISTS = 'lists',
   REFRESH_STATUS = 'refresh-status',
+  ITEMS = 'items',
+}
+
+/** Bucket document ids used under certain root collections (e.g., positions/open). */
+export enum BucketDocId {
+  OPEN = 'open',
 }
 
 /** Helper to produce the lists collection path for a user. */

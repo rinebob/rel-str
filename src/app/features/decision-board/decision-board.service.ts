@@ -1,6 +1,6 @@
 import { Injectable, EnvironmentInjector, runInInjectionContext, inject } from '@angular/core';
 import { Functions, httpsCallable } from '@angular/fire/functions';
-import { CallableName } from '../../core/common/constants';
+import { BucketDocId, CallableName, Collection, Subcollection } from '../../core/common/constants';
 import { Firestore, doc, getDoc } from '@angular/fire/firestore';
 
 export type RsDirection = 'long' | 'short';
@@ -87,6 +87,13 @@ export class DecisionBoardService {
   private readonly firestore = inject(Firestore);
   private readonly envInjector = inject(EnvironmentInjector);
 
+  private yearClosedOf(day: string | undefined | null): string | undefined {
+    const d = String(day || '').trim();
+    if (!/\d{4}-\d{2}-\d{2}/.test(d)) return undefined;
+    const y = d.slice(0, 4);
+    return `${y}-closed`;
+  }
+
   private withTimeout<T>(p: Promise<T>, ms = 10000): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       const t = setTimeout(() => reject(new Error(`getDailySignals timeout after ${ms}ms`)), ms);
@@ -119,7 +126,7 @@ export class DecisionBoardService {
     }
   }
 
-  async fetchPositions(positionIds: string[]): Promise<Record<string, PositionDoc>> {
+  async fetchPositions(positionIds: string[], latestDay?: string): Promise<Record<string, PositionDoc>> {
     try {
       const proj = (this.firestore as any)?.app?.options?.projectId;
       // eslint-disable-next-line no-console
@@ -133,13 +140,21 @@ export class DecisionBoardService {
       try {
         const tasks = ids.map(async (id) => {
           try {
-            const ref = doc(this.firestore, `positions/${id}`);
-            const snap = await getDoc(ref);
+            // Prefer OPEN shard; falls back to year-closed shard derived from latestDay when not found.
+            const openRef = doc(this.firestore, `${Collection.POSITIONS}/${BucketDocId.OPEN}/${Subcollection.ITEMS}/${id}`);
+            let snap = await getDoc(openRef);
+            if (!snap.exists()) {
+              const yrClosed = this.yearClosedOf(latestDay);
+              if (yrClosed) {
+                const closedRef = doc(this.firestore, `${Collection.POSITIONS}/${yrClosed}/${Subcollection.ITEMS}/${id}`);
+                snap = await getDoc(closedRef);
+              }
+            }
             if (snap.exists()) {
               out[id] = { positionId: id, ...(snap.data() as any) } as PositionDoc;
             } else {
               // eslint-disable-next-line no-console
-              console.warn('[DecisionBoard] positions doc not found', { id });
+              console.warn('[DecisionBoard] positions doc not found in open/closed shards', { id, latestDay });
             }
           } catch (e: any) {
             // eslint-disable-next-line no-console

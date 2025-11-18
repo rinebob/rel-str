@@ -65,7 +65,7 @@ export const DecisionBoardStore = signalStore(
                 // eslint-disable-next-line no-console
                 console.log('[DecisionBoard] enrichLatestDay:start', { day: latest.day, positionIds: positionIds.length, pairs: pairs.length });
                 let [posMap, rsMap] = await Promise.all([
-                    svc.fetchPositions(positionIds),
+                    svc.fetchPositions(positionIds, latest.day),
                     svc.fetchLatestRs(pairs),
                 ]);
 
