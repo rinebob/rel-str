@@ -132,6 +132,23 @@ The guide covers:
 - Starting emulators and verifying endpoints
 - How our Functions mint ID tokens with the email claim via IAM Credentials
 
+## Backend Position Management (Functions)
+
+- All position and per-pair position helpers are centralized in:
+  - `functions/src/webhooks/positions-manager.ts`
+    - Live flow: `updateOpenPositionsForPair`, `upsertDailyHoldsForPair`, `finalizeClosedPositionsForPair`
+    - Open/close helpers: `writePairSignalOpen`, `finalizePairSignalClose`, `upsertRootPositionOpen`, `finalizeRootPositionClose`
+    - Daily signals utilities: `upsertPairSignalsDaily`, `upsertRootSignalsDaily`, `deleteRootSignalsDaily`, `upsertPairSignalDoc`
+
+- Sharding and naming constants (in `functions/src/webhooks/webhooks-config.ts`):
+  - `OPEN_BUCKET_ID = 'open'`
+  - `CLOSED_YEAR_SUFFIX = '-closed'` and `yearClosedOf(day)`
+  - `ITEMS_SUBCOLLECTION = 'items'`
+
+- Notes:
+  - Live opens write to `positions/open/items/{positionId}`; closes move docs to `positions/{YYYY}-closed/items/{positionId}`.
+  - `entryPrice` is strictly required on creation; no derivation is performed.
+
 ## Prod Backfill (pairs-data archive) — 2019 to Today
 
 Use the admin HTTP endpoint `recomputeRegisteredBackfill` to recompute and write RS POST history for all registered pairs. This writes both the unified `pairs-data/{PAIR}` mirror and yearly archive shards `pairs-data/{PAIR}/archive-YYYY/{YYMMDD}`.
