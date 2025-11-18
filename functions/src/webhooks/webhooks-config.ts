@@ -124,6 +124,21 @@ export const ANALYTICS_SUMMARY_DOC = 'summary';
 /** Root collection for system-wide positions (per-position trade records, not per-user overlays). */
 export const POSITIONS_COLLECTION = 'positions';
 
+/** Bucket document id for open shards (replaces historical 'hot' for positions/signals). */
+export const OPEN_BUCKET_ID = 'open';
+
+/** Standard name for subcollections that hold item documents under bucket docs. */
+export const ITEMS_SUBCOLLECTION = 'items';
+
+/** Suffix for year shards that hold closed items. */
+export const CLOSED_YEAR_SUFFIX = '-closed';
+
+/** Compute the closed-year bucket id (e.g., '2025-closed') for a given day. */
+export function yearClosedOf(day: string): string {
+  const y = String(day || '').slice(0, 4);
+  return `${y}${CLOSED_YEAR_SUFFIX}`;
+}
+
 /** Enumerates upstream run types of interest emitted by the partner. */
 export enum RunType {
   TS_DAILY_PRE = 'ts-daily-pre',
