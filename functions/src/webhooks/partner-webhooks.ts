@@ -35,15 +35,11 @@ import {
   type ProcessErrorSample,
   RunType,
   RsCloudFunctionName,
-  POSITIONS_COLLECTION,
-  PAIRS_COLLECTION,
-  SIGNALS_DAILY_COLLECTION,
   APP_COLLECTION,
   REFRESH_STATUS_DOC,
 } from './webhooks-config';
-import { upsertPairSignalsDaily, upsertRootPosition } from './hot-archive';
+import { updateOpenPositionsForPair, upsertDailyHoldsForPair, finalizeClosedPositionsForPair } from './positions-manager';
 import { RsPhase } from '../types/partner';
-import { RsPositionStatus } from '../types/rs-signal-history';
 import { persistWarning } from '../logging/warn';
 
 // Firebase Admin and Firestore are initialized in ../firebase-admin-init
@@ -203,102 +199,7 @@ export async function processPairLive(
   }
 }
 
-/**
- * Update all OPEN positions for the specified pair with current daily snapshot fields.
- * Uses target close for latestDay and computes side-aware deltas vs entryPrice.
- */
-async function updateOpenPositionsForPair(pairId: string, latestDay: string, latestTargetClose: number): Promise<void> {
-  const snap = await db.collection(POSITIONS_COLLECTION)
-    .where('pair', '==', pairId)
-    .where('status', '==', RsPositionStatus.OPEN)
-    .get();
-  if (snap.empty) return;
-  for (const d of snap.docs) {
-    const v = d.data() as any;
-    const side = String(v?.side || '').toUpperCase(); // 'LONG' | 'SHORT'
-    const entryPx = Number(v?.entryPrice);
-    if (!Number.isFinite(entryPx)) continue;
-    const curPx = Number(latestTargetClose);
-    const change = side === 'SHORT' ? Number(entryPx - curPx) : Number(curPx - entryPx);
-    const pct = entryPx !== 0 ? Number((change / entryPx) * 100) : undefined;
-    const patch = {
-      currentPrice: curPx,
-      currentChange: change,
-      currentPctChange: pct,
-      lastUpdateDay: latestDay,
-    } as any;
-    await upsertRootPosition(d.id, latestDay, RsPositionStatus.OPEN, patch);
-  }
-  logger.info('updateOpenPositionsForPair committed', { pairId, latestDay, docsUpdated: snap.size });
-}
-
-/**
- * Upsert daily holds for a pair for the given day based on currently OPEN positions.
- * Writes pairs-data/{pair}/signals-daily/{day}.holds = [{ positionId, direction }, ...]
- */
-async function upsertDailyHoldsForPair(pairId: string, day: string): Promise<void> {
-  const snap = await db.collection(POSITIONS_COLLECTION)
-    .where('pair', '==', pairId)
-    .where('status', '==', RsPositionStatus.OPEN)
-    .get();
-  const holds: Array<{ positionId: string; direction?: string }> = [];
-  for (const d of snap.docs) {
-    const v = d.data() as any;
-    const id = String(d.id);
-    const dir = String(v?.side || '').toUpperCase(); // 'LONG' | 'SHORT'
-    if (!id) continue;
-    holds.push({ positionId: id, direction: dir });
-  }
-  await upsertPairSignalsDaily(pairId, day, { holds });
-}
-
-/**
- * Finalize CLOSED positions for a pair on a specific day.
- * Reads pairs-data/{pair}/signals-daily/{day}.newCloses and signals/{positionId} for prices,
- * then writes exitPrice/exitDay/exitIso and netPnL/percentReturn to positions/{positionId}.
- */
-async function finalizeClosedPositionsForPair(pairId: string, day: string): Promise<void> {
-  const dailyRef = db.collection(PAIRS_COLLECTION).doc(pairId).collection(SIGNALS_DAILY_COLLECTION).doc(day);
-  const dailySnap = await dailyRef.get();
-  if (!dailySnap.exists) return;
-  const data = (dailySnap.data() as any) || {};
-  const closes: Array<{ positionId: string; direction?: string }> = Array.isArray(data?.newCloses) ? data.newCloses : [];
-  if (!closes.length) return;
-
-  let ops = 0;
-  for (const c of closes) {
-    const id = String((c as any)?.positionId || '').trim();
-    if (!id) continue;
-
-    // Read per-position signals doc for precise open/close prices
-    const sigRef = db.collection(PAIRS_COLLECTION).doc(pairId).collection('signals').doc(id);
-    const sigSnap = await sigRef.get();
-    if (!sigSnap.exists) continue;
-    const s = (sigSnap.data() as any) || {};
-    const opened = (s?.opened || {}) as any;
-    const closed = (s?.closed || {}) as any;
-    const side = String(s?.direction || (c as any)?.direction || '').toUpperCase();
-
-    const entryPx = Number(opened?.openPrice);
-    const exitPx = Number(closed?.closePrice);
-    if (!Number.isFinite(entryPx) || !Number.isFinite(exitPx)) continue;
-
-    const delta = side === 'SHORT' ? Number(entryPx - exitPx) : Number(exitPx - entryPx);
-    const pct = entryPx !== 0 ? Number(((delta / entryPx) * 100).toFixed(6)) : 0;
-
-    const patch = {
-      exitPrice: exitPx,
-      exitDay: day,
-      exitIso: new Date(day + 'T00:00:00Z').toISOString(),
-      netPnL: delta,
-      percentReturn: pct,
-      status: RsPositionStatus.CLOSED,
-    } as any;
-    await upsertRootPosition(id, day, RsPositionStatus.CLOSED, patch);
-    ops++;
-  }
-  logger.info('finalizeClosedPositionsForPair committed', { pairId, day, docsUpdated: ops });
-}
+// Moved: updateOpenPositionsForPair, upsertDailyHoldsForPair, finalizeClosedPositionsForPair
 
 /**
  * Pub/Sub subscriber for partner data-ready messages.
