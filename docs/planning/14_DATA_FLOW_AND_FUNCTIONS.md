@@ -15,8 +15,8 @@
     - Fetch: `fetchDailyBarsRaw(baseline|target, days, limit)`.
     - Compute: `buildPhaseSeries(baseBars, targetBars, phase, baseline, target)`.
     - Persist: `writeUnifiedSeries(baseline, target, phase, series, baseBars, targetBars)`.
-    - PRE & POST: `updateOpenPositionsForPair(pairId, latestDay, latestTargetClose)` updates `positions/{id}` snapshot fields for open positions to keep `currentPrice`, `currentChange`, `currentPctChange` fresh.
-    - POST: `finalizeClosedPositionsForPair(pairId, latestDay)` persists close data into `positions/{id}` for that day’s new closes: `exitPrice`, `exitDay`, `exitIso`, `netPnL`, `percentReturn`, and sets status `closed`.
+    - PRE & POST: calls `positions-manager.updateOpenPositionsForPair(pairId, latestDay, latestTargetClose)` to update `positions/open/items/*` snapshot fields (`currentPrice`, `currentChange`, `currentPctChange`).
+    - POST: calls `positions-manager.finalizeClosedPositionsForPair(pairId, latestDay)` to persist close data into per-pair signals and root positions (`exitPrice`, `exitDay`, `exitIso`, `netPnL`, `percentReturn`, and `status: closed`).
   - Helpers: `forEachWithConcurrency`, `resolveRunContext`.
 
 - File: `functions/src/webhooks/pairs-writer.ts`
@@ -108,7 +108,11 @@ References for deeper context:
 
 ## Function Index by File
 - partner-webhooks.ts
-  - `processDataReadyRunV2`, `processPairLive`, `updateOpenPositionsForPair`, `forEachWithConcurrency`, `resolveRunContext`
+  - `processDataReadyRunV2`, `processPairLive`, `forEachWithConcurrency`, `resolveRunContext`
+- positions-manager.ts
+  - `updateOpenPositionsForPair`, `upsertDailyHoldsForPair`, `finalizeClosedPositionsForPair`,
+  - `writePairSignalOpen`, `finalizePairSignalClose`, `upsertRootPositionOpen`, `finalizeRootPositionClose`,
+  - `upsertPairSignalsDaily`, `upsertRootSignalsDaily`, `deleteRootSignalsDaily`, `upsertPairSignalDoc`
 - pairs-writer.ts
   - `writeUnifiedSeries`
 - rs-series.ts

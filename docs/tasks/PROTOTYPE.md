@@ -18,7 +18,7 @@
 - [ ] Implement Pub/Sub subscriber (Gen2) to process runs: compute RS for registry pairs, update `pairs/*` dual-phase branches (`pre` and `post`), generate canonical signals, update `runs/{runId}` status/counts
 - [ ] TODO: Retire legacy v1 RS subscriber (`processDataReadyRun`) and ratio-based writer once V2 is validated in prod; v1 export disabled in `functions/src/index.ts` so only V2 runs.
 - [ ] Write minimal Firestore log for webhook accepts at `partnerEvents/{runId}` and `runs/{runId}` (status: received/completed)
-- [ ] 2025-11-10: Implement year-sharded + hot-archive storage for positions, signals, and signals-daily to improve console navigation and query performance (design, writers, readers, indexes, migration)
+- [x] 2025-11-10: Implement year-sharded storage for positions/signals with `open` bucket and `{YYYY}-closed` shards (design, writers, readers, indexes, migration). Replaced magic string 'items' with `ITEMS_SUBCOLLECTION`.
 
 ## Frontend (RS-only, baseline-aware)
 - [ ] Heatmap reads `pairs/{BASELINE}_{SYMBOL}.latest` (+ optional `latest30`); sorting/highlighting; baseline selector
@@ -80,7 +80,7 @@
 
 ## Documentation & Polish
 - [ ] README updates (setup/run/test, env/secrets, emulator usage)
-- [ ] Update `/docs` sections completed (schema RS-only, backend registry, API callables, frontend rs-chart, signal history)
+- [x] Update `/docs` sections completed (schema RS-only, backend registry, API callables, frontend rs-chart, signal history)
 - [ ] Add link to `docs/partner/savantapi-data-ready-webhook.md` and document webhook/Pub-Sub flow in planning (6_API_COMMUNICATION.md already contains high-level section)
 - [x] 2025-11-04: Update planning docs to reflect as-built RsSignalHistory (functions, schema, pairs from pair-registry only; opened.openPrice/closed.closePrice; trades human-readable fields; analytics summary fields; signals-daily naming).
 - [ ] 2025-11-10: Archive-first initial-load and route-switching performance plan — see `docs/planning/2025-11-archive-first-initial-load-and-route-switching.md`
@@ -150,6 +150,7 @@
 - [ ] Switch frontend to dynamic reads from Firestore and callable OHLCV/TA; remove static demo data.
 
 ### Discovered During Work
+- 2025-11-17: Consolidated position management into `functions/src/webhooks/positions-manager.ts` (moved helpers from `partner-webhooks.ts` and removed `hot-archive.ts`). Updated imports across callables/backfill/cleanup. Added `ITEMS_SUBCOLLECTION` constant and replaced magic strings. Updated planning docs `5_DATABASE_SCHEMA.md` and `14_DATA_FLOW_AND_FUNCTIONS.md` accordingly.
 - Centralize all webhooks constants/types into `functions/src/webhooks/webhooks-config.ts`.
 - Move registry callables and seeding into `functions/src/webhooks/registry-actions.ts`.
 - Document full RS pipeline and Firestore schemas in `docs/partner/partner-webhooks.md` and planning docs.
