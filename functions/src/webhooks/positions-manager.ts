@@ -335,6 +335,8 @@ export async function upsertRootSignalsDaily(
 ): Promise<void> {
   const base = db.collection(SIGNALS_DAILY_ROOT_COLLECTION);
   const yr = yearOf(day);
+  // Ensure year container doc exists with metadata for visibility
+  try { await base.doc(yr).set({ bucket: YEAR_BUCKET_KIND, year: yr, kind: COLLECTION_KIND_SIGNALS_DAILY, updatedAt: FieldValue.serverTimestamp() }, { merge: true }); } catch {}
   const ref = base.doc(yr).collection(DAYS_SUBCOLLECTION).doc(day);
   const data = { ...patch, updatedAt: FieldValue.serverTimestamp() };
   await ref.set(data, { merge: true });

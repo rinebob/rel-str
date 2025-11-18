@@ -79,6 +79,7 @@ export const purgePairSignalsDailyAll = onCall(
     const curYear = now.getUTCFullYear();
     const fromYear = Math.max(2000, Number(req?.data?.fromYear || 2019));
     const toYear = Math.min(curYear, Number(req?.data?.toYear || curYear));
+    const removeContainers = req?.data?.removeContainers === true;
     if (pairs.length === 0) {
       const reg = await db.collection('pair-registry').select().get();
       pairs = reg.docs.map(d => d.id);
@@ -108,9 +109,10 @@ export const purgePairSignalsDailyAll = onCall(
           if (yops >= 400) { await ybatch.commit(); ybatch = db.batch(); yops = 0; }
         }
         if (yops > 0) { await ybatch.commit(); }
+        if (removeContainers) {
+          try { await base.doc(String(y)).delete(); } catch {}
+        }
       }
-      // Best-effort delete open container entirely (we will rebuild items)
-      try { await base.doc(OPEN_BUCKET_ID).delete(); } catch {}
     }
     if (!SILENCE_ADMIN_INFO) logger.info('purgePairSignalsDailyAll done', { pairs: pairs.length, deletedLegacyDays, deletedYearDays, fromYear, toYear });
     return { ok: true, pairs: pairs.length, deletedLegacyDays, deletedYearDays, years: { from: fromYear, to: toYear } };
@@ -130,6 +132,8 @@ export const purgePairSignalsAll = onCall(
     const curYear = now.getUTCFullYear();
     const fromYear = Math.max(2000, Number(req?.data?.fromYear || 2019));
     const toYear = Math.min(curYear, Number(req?.data?.toYear || curYear));
+    const removeContainers = req?.data?.removeContainers === true;
+    const removeOpenBucket = req?.data?.removeOpenBucket === true;
     if (pairs.length === 0) {
       const reg = await db.collection('pair-registry').select().get();
       pairs = reg.docs.map(d => d.id);
@@ -149,6 +153,20 @@ export const purgePairSignalsAll = onCall(
         }
       }
       if (ops > 0) { await batch.commit(); }
+      // Optionally delete open bucket items and container
+      if (removeOpenBucket) {
+        try {
+          const openItems = base.doc(OPEN_BUCKET_ID).collection(ITEMS_SUBCOLLECTION);
+          const osnap = await openItems.select().get();
+          let obatch = db.batch(); let oops = 0;
+          for (const it of osnap.docs) {
+            obatch.delete(openItems.doc(it.id)); oops++;
+            if (oops >= 400) { await obatch.commit(); obatch = db.batch(); oops = 0; }
+          }
+          if (oops > 0) { await obatch.commit(); }
+          try { await base.doc(OPEN_BUCKET_ID).delete(); } catch {}
+        } catch {}
+      }
       // Delete all year-sharded items for the range
       for (let y = fromYear; y <= toYear; y++) {
         const items = base.doc(String(y)).collection('items');
@@ -159,6 +177,9 @@ export const purgePairSignalsAll = onCall(
           if (yops >= 400) { await ybatch.commit(); ybatch = db.batch(); yops = 0; }
         }
         if (yops > 0) { await ybatch.commit(); }
+        if (removeContainers) {
+          try { await base.doc(String(y)).delete(); } catch {}
+        }
       }
     }
     if (!SILENCE_ADMIN_INFO) logger.info('purgePairSignalsAll done', { pairs: pairs.length, deletedLegacy, deletedYearItems, fromYear, toYear });
