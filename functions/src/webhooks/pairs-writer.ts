@@ -42,7 +42,6 @@ export async function writeUnifiedSeries(
 
   const snap = await pairRef.get();
   const existing = (snap.exists ? (snap.data() as any) : {}) || {};
-  const existingData: Array<any> = Array.isArray(existing.data) ? existing.data : [];
   const existingMeta: any = (existing.meta as any) || {};
 
   // Resolve desired storage window
@@ -181,7 +180,6 @@ export async function writeUnifiedSeries(
 
   // ============ Merge and write ============
   const byDay = new Map<string, any>();
-  for (const d of existingData) if (d?.day) byDay.set(d.day, { ...d });
 
   for (const e of entries) {
     const dayObj = byDay.get(e.day) || { day: e.day, dow: e.dow };
@@ -257,9 +255,7 @@ export async function writeUnifiedSeries(
     byDay.set(e.day, dayObj);
   }
 
-  let merged = Array.from(byDay.values()).sort((a, b) => String(a.day).localeCompare(String(b.day)));
-  if (merged.length > meta.window) merged = merged.slice(merged.length - meta.window);
-
+  const merged = Array.from(byDay.values()).sort((a, b) => String(a.day).localeCompare(String(b.day)));
   const latest = merged[merged.length - 1];
 
   await pairRef.set(
@@ -267,7 +263,6 @@ export async function writeUnifiedSeries(
       meta,
       lastUpdatedAt: FieldValue.serverTimestamp(),
       latest,
-      data: merged,
     },
     { merge: true }
   );
