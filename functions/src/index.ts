@@ -25,4 +25,12 @@ export {
 export { backfillSignalsHistory, backfillPositionsStatus, backfillPositionsIds } from './rs-signal-history.backfill';
 
 // Admin cleanup callables
-export { purgePairsDataRootDataField, purgeNonYearShardRootDocs, purgeMisShardedPositionItems, backfillPairSignalsDailyShards, purgePairSignalsDailyAll, purgePairSignalsAll } from './cleanup.callables';
+export {
+  purgePairsDataRootDataField,
+  purgeNonYearShardRootDocs,
+  purgeMisShardedPositionItems,
+  backfillPairSignalsDailyShards,
+  purgePairSignalsDailyAll,
+  purgePairSignalsAll,
+  backfillPositionsBucketMetadata,
+} from './cleanup.callables';

@@ -1,7 +1,7 @@
 import { onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { db, FieldValue } from './firebase-admin-init';
-import { PAIRS_COLLECTION, POSITIONS_COLLECTION, SIGNALS_DAILY_ROOT_COLLECTION, SILENCE_ADMIN_INFO, SIGNALS_DAILY_COLLECTION, OPEN_BUCKET_ID, DAYS_SUBCOLLECTION, SIGNALS_COLLECTION, ITEMS_SUBCOLLECTION } from './webhooks/webhooks-config';
+import { PAIRS_COLLECTION, POSITIONS_COLLECTION, SIGNALS_DAILY_ROOT_COLLECTION, SILENCE_ADMIN_INFO, SIGNALS_DAILY_COLLECTION, OPEN_BUCKET_ID, DAYS_SUBCOLLECTION, SIGNALS_COLLECTION, ITEMS_SUBCOLLECTION, YEAR_BUCKET_KIND, COLLECTION_KIND_POSITIONS } from './webhooks/webhooks-config';
 import { upsertPairSignalsDaily } from './webhooks/positions-manager';
 
 /**
@@ -63,6 +63,77 @@ export const purgeNonYearShardRootDocs = onCall(
     await purgeCollection(SIGNALS_DAILY_ROOT_COLLECTION);
 
     return { ok: true, collections: results };
+  }
+);
+
+/**
+ * Admin: backfillPositionsBucketMetadata
+ * Ensures all root-level bucket docs under `positions` have metadata matching the
+ * shape written in upsertRootPosition (open + year-closed buckets).
+ *
+ * For each doc under positions/{id}:
+ * - If id === OPEN_BUCKET_ID, upserts: { bucket: OPEN_BUCKET_ID, kind: COLLECTION_KIND_POSITIONS, updatedAt }
+ * - If id looks like a year or year-closed (e.g. '2025' or '2025-closed'), upserts:
+ *   { bucket: YEAR_BUCKET_KIND, year: <YYYY-closed>, kind: COLLECTION_KIND_POSITIONS, updatedAt }
+ */
+export const backfillPositionsBucketMetadata = onCall(
+  { region: 'us-central1', timeoutSeconds: 540 },
+  async (req): Promise<{ ok: boolean; buckets: string[] }> => {
+    const base = db.collection(POSITIONS_COLLECTION);
+    const bucketIds: string[] = Array.isArray(req?.data?.bucketIds)
+      ? (req.data.bucketIds as any[]).map((x) => String(x)).filter(Boolean)
+      : [];
+
+    if (bucketIds.length === 0) {
+      throw new Error('bucketIds required: e.g. ["open", "2024-closed", "2025-closed"]');
+    }
+
+    const buckets: string[] = [];
+    let batch = db.batch();
+    let ops = 0;
+
+    for (const idRaw of bucketIds) {
+      const id = String(idRaw);
+      const ref = base.doc(id);
+
+      if (id === OPEN_BUCKET_ID) {
+        const patch: any = {
+          bucket: OPEN_BUCKET_ID,
+          kind: COLLECTION_KIND_POSITIONS,
+          updatedAt: FieldValue.serverTimestamp(),
+        };
+        batch.set(ref, patch, { merge: true });
+        buckets.push(id);
+        ops++;
+      } else if (/^\d{4}-closed$/.test(id)) {
+        const year = id.slice(0, 4);
+        const patch: any = {
+          bucket: YEAR_BUCKET_KIND,
+          year,
+          kind: COLLECTION_KIND_POSITIONS,
+          updatedAt: FieldValue.serverTimestamp(),
+        };
+        batch.set(ref, patch, { merge: true });
+        buckets.push(id);
+        ops++;
+      }
+
+      if (ops >= 400) {
+        await batch.commit();
+        batch = db.batch();
+        ops = 0;
+      }
+    }
+
+    if (ops > 0) {
+      await batch.commit();
+    }
+
+    if (!SILENCE_ADMIN_INFO) {
+      logger.info('backfillPositionsBucketMetadata done', { buckets });
+    }
+
+    return { ok: true, buckets };
   }
 );
 
