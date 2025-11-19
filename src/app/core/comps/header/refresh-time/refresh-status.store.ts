@@ -79,6 +79,8 @@ export const RefreshStatusStore = signalStore(
           nextAbs: store.nextAbs(),
           nextIn: store.nextIn(),
         };
+        // eslint-disable-next-line no-console
+        // console.debug('[RefreshStatus] recalc', dbg);
         (this as any).startTickerIfNeeded();
       },
       start(): void {
@@ -124,11 +126,7 @@ export const RefreshStatusStore = signalStore(
           return;
         }
 
-        let desired = 1000; // default to 1s
-        if (!inProg && next instanceof Date) {
-          const ms = next.getTime() - new Date().getTime();
-          desired = ms >= 60000 ? 60000 : 1000;
-        }
+        let desired = 60000; // 1 minute
 
         if (_tickerSub && _tickerIntervalMs === desired) return;
 
