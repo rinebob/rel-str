@@ -88,10 +88,55 @@ export async function forEachWithConcurrency<T>(items: T[], limit: number, worke
   );
 }
 
+// Compute the timezone offset (in minutes) between UTC and a given IANA zone at a specific UTC date.
+function getTzOffsetMinutesAt(utcDate: Date, timeZone: string): number {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  } as any);
+  const parts = fmt.formatToParts(utcDate);
+  const val = (t: string) => Number(parts.find((p) => p.type === t)?.value || '0');
+  const y = val('year');
+  const m = val('month');
+  const d = val('day');
+  const hh = val('hour');
+  const mm = val('minute');
+  const ss = val('second');
+  const localAsUTC = Date.UTC(y, m - 1, d, hh, mm, ss);
+  const diffMs = localAsUTC - utcDate.getTime();
+  return Math.round(diffMs / 60000);
+}
+
+// Parse partner-provided local ET strings like '2025-11-19T16:30 ET' into a Firestore Timestamp.
+function parseEtLocalStringToTimestamp(s: string): admin.firestore.Timestamp | undefined {
+  try {
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})\s*ET$/i);
+    if (!m) return undefined;
+    const y = Number(m[1]);
+    const mon = Number(m[2]);
+    const d = Number(m[3]);
+    const hh = Number(m[4]);
+    const mm = Number(m[5]);
+    const utcGuess = new Date(Date.UTC(y, mon - 1, d, hh, mm, 0));
+    const etOffsetMin = getTzOffsetMinutesAt(utcGuess, 'America/New_York');
+    const etAsUtc = new Date(utcGuess.getTime() + etOffsetMin * 60_000);
+    return admin.firestore.Timestamp.fromDate(etAsUtc);
+  } catch {
+    return undefined;
+  }
+}
+
 function toTimestampOrUndefined(v: any): admin.firestore.Timestamp | undefined {
   try {
     if (!v) return undefined;
     if (typeof v?.toDate === 'function') return v as admin.firestore.Timestamp;
+
+    if (typeof v === 'string') {
+      const etTs = parseEtLocalStringToTimestamp(v);
+      if (etTs) return etTs;
+    }
+
     const d = new Date(v);
     if (!isNaN(d.getTime())) return admin.firestore.Timestamp.fromDate(d);
   } catch {}
