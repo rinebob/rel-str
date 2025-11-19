@@ -42,6 +42,9 @@ export interface RsPositionDoc {
   opened: RsPositionOpened;
   closed?: RsPositionClosed;
   status: RsPositionStatus;
+  // RS projections for UI/read models
+  currentRs?: number;  // latest RS while position is OPEN
+  exitRs?: number;     // RS on the close day while CLOSED
   createdAt: unknown;  // Firestore Timestamp
   updatedAt: unknown;  // Firestore Timestamp
 }

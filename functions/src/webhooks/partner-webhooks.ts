@@ -213,13 +213,23 @@ export async function processPairLive(
     // Update OPEN positions' current snapshot using the computed latest series point (PRE and POST)
     try {
       const latest = series[series.length - 1];
-      const latestDay = latest?.day as string | undefined;
+      const latestDay = String(latest?.day || '').trim();
       const latestTargetClose = Number(latest?.targetClose);
-      if (latestDay && Number.isFinite(latestTargetClose) && latestTargetClose > 0) {
-        await updateOpenPositionsForPair(pairId, latestDay, latestTargetClose);
-        await upsertDailyHoldsForPair(pairId, latestDay);
-        try { await rebuildSignalsDailyMirrorImpl({ day: latestDay, pairs: [pairId] }); } catch {}
+      const latestRs = Number((latest as any)?.rs);
+
+      if (!latestDay || !/\d{4}-\d{2}-\d{2}/.test(latestDay)) {
+        throw new Error(`latestDay missing/invalid for pair=${pairId}`);
       }
+      if (!Number.isFinite(latestTargetClose) || latestTargetClose <= 0) {
+        throw new Error(`latestTargetClose missing/invalid for pair=${pairId} day=${latestDay}`);
+      }
+      if (!Number.isFinite(latestRs)) {
+        throw new Error(`latest RS missing/invalid for pair=${pairId} day=${latestDay}`);
+      }
+
+      await updateOpenPositionsForPair(pairId, latestDay, latestTargetClose, latestRs);
+      await upsertDailyHoldsForPair(pairId, latestDay);
+      try { await rebuildSignalsDailyMirrorImpl({ day: latestDay, pairs: [pairId] }); } catch {}
       // On POST, also finalize CLOSED positions for latestDay so positions docs have exit Δ/%
       if (phase === RsPhase.POST && latestDay) {
         try {
@@ -436,7 +446,11 @@ export const processDataReadyRunV2 = onMessagePublished(
         if (!isHeartbeat) {
           const nextSrc: any = (parsedPayload as any)?.nextRefreshAt;
           const nextTs = toTimestampOrUndefined(nextSrc);
-          await upsertRefreshStatus({ runStatus: 'completed', endTimeUTC: FieldValue.serverTimestamp(), ...(nextTs ? { nextRefreshAtUTC: nextTs } : { nextRefreshAtUTC: null }) });
+          await upsertRefreshStatus({
+            runStatus: 'completed',
+            endTimeUTC: FieldValue.serverTimestamp(),
+            ...(nextTs ? { nextRefreshAtUTC: nextTs } : { nextRefreshAtUTC: null }),
+          });
         }
         return;
       }
@@ -489,7 +503,11 @@ export const processDataReadyRunV2 = onMessagePublished(
       if (!isHeartbeat) {
         const nextSrc: any = (parsedPayload as any)?.nextRefreshAt;
         const nextTs = toTimestampOrUndefined(nextSrc);
-        await upsertRefreshStatus({ runStatus: 'completed', endTimeUTC: FieldValue.serverTimestamp(), ...(nextTs ? { nextRefreshAtUTC: nextTs } : { nextRefreshAtUTC: null }) });
+        await upsertRefreshStatus({
+          runStatus: 'completed',
+          endTimeUTC: FieldValue.serverTimestamp(),
+          ...(nextTs ? { nextRefreshAtUTC: nextTs } : { nextRefreshAtUTC: null }),
+        });
       }
 
       // Immediate post-close verification: diagnose+auto-fix across all registered pairs for last 3 days

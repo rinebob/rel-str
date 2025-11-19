@@ -185,6 +185,7 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                 currentPrice: curPx,
                 currentChange: change,
                 currentPctChange: pctChange,
+                currentRs: t.rs,
               };
               await upsertRootPosition(pid, t.day, RsPositionStatus.OPEN, patch);
               logger.info('position snapshot (hold)', {
@@ -273,6 +274,7 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                 netPnL,
                 percentReturn,
                 status: RsPositionStatus.CLOSED,
+                exitRs: t.rs,
               };
               await upsertRootPosition(posId, t.day, RsPositionStatus.CLOSED, mirrorPatch);
               logger.info('position finalize (close:long)', {
@@ -287,6 +289,7 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                 exitPrice: mirrorPatch.exitPrice ?? null,
                 netPnL,
                 percentReturn,
+                exitRs: mirrorPatch.exitRs ?? null,
               });
               // Update global analytics summary (analytics/summary) without touching legacy flat positions docs
               try {
@@ -381,6 +384,7 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                 netPnL: change ?? 0,
                 percentReturn: pctChange ?? 0,
                 status: RsPositionStatus.CLOSED,
+                exitRs: t.rs,
               };
               await upsertRootPosition(posId, t.day, RsPositionStatus.CLOSED, mirrorPatchS);
             } catch {}
@@ -452,6 +456,7 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                 mirrorPatch.currentChange = 0;
                 mirrorPatch.currentPctChange = 0;
                 mirrorPatch.lastUpdateDay = t.day;
+                mirrorPatch.currentRs = t.rs;
               }
               await upsertRootPosition(posId, t.day, RsPositionStatus.OPEN, mirrorPatch);
             } catch {}
@@ -521,6 +526,7 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                 mirrorPatchS.currentChange = 0;
                 mirrorPatchS.currentPctChange = 0;
                 mirrorPatchS.lastUpdateDay = t.day;
+                mirrorPatchS.currentRs = t.rs;
               }
               await upsertRootPosition(posId, t.day, RsPositionStatus.OPEN, mirrorPatchS);
             } catch {}

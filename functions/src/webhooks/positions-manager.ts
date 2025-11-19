@@ -19,8 +19,9 @@ import { RsPositionStatus, RsDirectionEnum } from '../types/rs-signal-history';
 /**
  * Update all OPEN positions for the specified pair with current daily snapshot fields.
  * Uses target close for latestDay and computes side-aware deltas vs entryPrice.
+ * RS must be provided and is written as currentRs to keep RS and PnL in sync.
  */
-export async function updateOpenPositionsForPair(pairId: string, latestDay: string, latestTargetClose: number): Promise<void> {
+export async function updateOpenPositionsForPair(pairId: string, latestDay: string, latestTargetClose: number, latestRs: number): Promise<void> {
   const col = db.collection(POSITIONS_COLLECTION).doc(OPEN_BUCKET_ID).collection(ITEMS_SUBCOLLECTION);
   const snap = await col.where('pair', '==', pairId).get();
   if (snap.empty) return;
@@ -38,6 +39,7 @@ export async function updateOpenPositionsForPair(pairId: string, latestDay: stri
       ...(change != null ? { currentChange: change } : {}),
       ...(pct != null ? { currentPctChange: pct } : {}),
       lastUpdateDay: latestDay,
+      currentRs: latestRs,
       updatedAt: FieldValue.serverTimestamp(),
     };
     await col.doc(d.id).set(patch, { merge: true });
