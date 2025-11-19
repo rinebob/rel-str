@@ -58,6 +58,14 @@ export const NAV_MENU_ITEMS: NavItem[] = [
         target: '_self',
     },
     {
+        name: 'positions',
+        text: 'positions',
+        href: 'positions-view',
+        mobileOnly: false,
+        external: false,
+        target: '_self',
+    },
+    {
         name: 'sync-chart',
         text: 'sync-chart',
         href: 'sync-chart',

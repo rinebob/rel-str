@@ -8,7 +8,7 @@ import { authGuard } from './auth/auth.guard';
     { path: '', component: CoreComponent,
         children: [
             {path: '', 
-                redirectTo: AppRoutes.DASHBOARD_V2, pathMatch: 'full',
+                redirectTo: AppRoutes.POSITIONS_VIEW, pathMatch: 'full',
             },
             {path: AppRoutes.DOCUMENTATION, 
                 loadComponent: () => import('./comps/documentation/documentation.component')
@@ -55,6 +55,11 @@ import { authGuard } from './auth/auth.guard';
             {path: AppRoutes.RS_TABLE,
                 loadComponent: () => import('../features/rs-table/rs-table.component')
                 .then(mod => mod.RsTableComponent),
+                canActivate: [authGuard],
+            },
+            {path: AppRoutes.POSITIONS_VIEW,
+                loadComponent: () => import('../features/positions-view/positions-view.component')
+                .then(mod => mod.PositionsViewComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.HISTORY, 

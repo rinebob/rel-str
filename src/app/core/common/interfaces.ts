@@ -13,6 +13,7 @@ export enum AppRoutes {
     CHAT = 'chat',
 	CHART_TWO = 'chart-two',
 	RS_TABLE = 'rs-table',
+	POSITIONS_VIEW = 'positions-view',
 	// ROBERT = 'robert',
 	// KANBAN = 'kanban',
 	// AUDIO = 'audio',
