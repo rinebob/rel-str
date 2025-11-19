@@ -261,89 +261,36 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
             batch.set(dailyRef, dailyClosePatchLong, { merge: true }); opsInBatch++;
             // Mirror per-pair daily to year shard
             try { await upsertPairSignalsDaily(pair, t.day, dailyClosePatchLong); } catch {}
+            // Ensure hot/archive mirror only via sharded positions buckets (no legacy flat doc)
             try {
-              const tradeId = posId;
-              const positionsRef = db.collection(POSITIONS_COLLECTION).doc(tradeId);
-              const summaryRef = db.collection(ANALYTICS_COLLECTION).doc(ANALYTICS_SUMMARY_DOC);
-              logger.info('trade upsert begin (long)', { positionId: tradeId, pair, baseline: base, symbol: sym, direction: 'LONG' });
-              const netPnL = change ?? 0; // single PnL metric
+              const netPnL = change ?? 0;
               const percentReturn = pctChange ?? 0;
-              const tradeDoc: any = {
-                positionId: tradeId,
+              const mirrorPatch: any = {
+                entryPrice: openPx,
+                exitPrice: closePx,
+                entryDay: (opened as any)?.day,
+                exitDay: t.day,
+                netPnL,
+                percentReturn,
+                status: RsPositionStatus.CLOSED,
+              };
+              await upsertRootPosition(posId, t.day, RsPositionStatus.CLOSED, mirrorPatch);
+              logger.info('position finalize (close:long)', {
+                event: 'positionFinalize',
+                positionId: posId,
                 pair,
                 baseline: base,
                 symbol: sym,
                 side: 'LONG',
-                entryTimestamp: opened?.t,
-                exitTimestamp: closed?.t,
-                ...(opened?.t ? { entryIso: new Date(opened.t).toISOString() } : {}),
-                ...(closed?.t ? { exitIso: new Date(closed.t).toISOString() } : {}),
-                ...(opened as any)?.day ? { entryDay: (opened as any).day } : {},
-                ...(t?.day ? { exitDay: t.day } : {}),
+                exitDay: t?.day ?? null,
+                entryPrice: mirrorPatch.entryPrice ?? null,
+                exitPrice: mirrorPatch.exitPrice ?? null,
                 netPnL,
                 percentReturn,
-                status: RsPositionStatus.CLOSED,
-                createdAt: FieldValue.serverTimestamp(),
-                updatedAt: FieldValue.serverTimestamp(),
-              };
-              if (openPx != null) tradeDoc.entryPrice = openPx;
-              if (closePx != null) tradeDoc.exitPrice = closePx;
-              if (verbose) logger.info('WRITE (trade long) prices', { event: 'writeTrade', positionId: tradeId, pair, entryPrice: tradeDoc.entryPrice ?? null, exitPrice: tradeDoc.exitPrice ?? null });
-              let created = false;
+              });
+              // Update global analytics summary (analytics/summary) without touching legacy flat positions docs
               try {
-                await positionsRef.create(tradeDoc);
-                logger.info('trade created (long)', { positionId: tradeId });
-                created = true;
-                // Scrub legacy fields on create (idempotent)
-                await positionsRef.set({
-                  shares: FieldValue.delete() as any,
-                  commission: FieldValue.delete() as any,
-                  grossPnL: FieldValue.delete() as any,
-                  tradeId: FieldValue.delete() as any,
-                } as any, { merge: true });
-              } catch (err: any) {
-                const code = err?.code || err?.errorInfo?.code || err?.status;
-                if (code === 'already-exists' || code === 6) {
-                  logger.info('trade exists; skipping create (long)', { positionId: tradeId });
-                  const patch: any = { updatedAt: FieldValue.serverTimestamp() };
-                  if (openPx != null) patch.entryPrice = openPx;
-                  if (closePx != null) patch.exitPrice = closePx;
-                  if (opened?.t) patch.entryIso = new Date(opened.t).toISOString();
-                  if (closed?.t) patch.exitIso = new Date(closed.t).toISOString();
-                  if ((opened as any)?.day) patch.entryDay = (opened as any).day;
-                  if (t?.day) patch.exitDay = t.day;
-                  patch.netPnL = netPnL ?? 0;
-                  patch.percentReturn = percentReturn ?? 0;
-                  patch.status = RsPositionStatus.CLOSED;
-                  if (verbose) logger.info('PATCH (trade long) prices', { event: 'patchTrade', positionId: tradeId, pair, ...patch });
-                  await positionsRef.set(patch, { merge: true });
-                  // Scrub legacy fields on patch (idempotent)
-                  await positionsRef.set({
-                    shares: FieldValue.delete() as any,
-                    commission: FieldValue.delete() as any,
-                    grossPnL: FieldValue.delete() as any,
-                    tradeId: FieldValue.delete() as any,
-                  } as any, { merge: true });
-                } else {
-                  logger.warn('trade create failed (long)', { positionId: tradeId, code, message: err?.message });
-                  // Fallback: ensure Δ/% and exit fields are merged even on unexpected error codes
-                  const ensurePatch: any = { updatedAt: FieldValue.serverTimestamp(), status: RsPositionStatus.CLOSED };
-                  if (openPx != null) ensurePatch.entryPrice = openPx;
-                  if (closePx != null) ensurePatch.exitPrice = closePx;
-                  if (opened?.t) ensurePatch.entryIso = new Date(opened.t).toISOString();
-                  if (closed?.t) ensurePatch.exitIso = new Date(closed.t).toISOString();
-                  if ((opened as any)?.day) ensurePatch.entryDay = (opened as any).day;
-                  if (t?.day) ensurePatch.exitDay = t.day;
-                  ensurePatch.netPnL = netPnL ?? 0;
-                  ensurePatch.percentReturn = percentReturn ?? 0;
-                  await positionsRef.set(ensurePatch, { merge: true });
-                }
-              }
-              // Ensure Δ/% always persisted on positions doc (even after create/patch branches)
-              try {
-                await positionsRef.set({ netPnL: netPnL ?? 0, percentReturn: percentReturn ?? 0, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-              } catch {}
-              if (created) {
+                const summaryRef = db.collection(ANALYTICS_COLLECTION).doc(ANALYTICS_SUMMARY_DOC);
                 await summaryRef.set({
                   totalNetPnL: FieldValue.increment(netPnL || 0),
                   totalTrades: FieldValue.increment(1),
@@ -351,7 +298,7 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                   totalLosingTrades: FieldValue.increment((netPnL || 0) <= 0 ? 1 : 0),
                   lastUpdated: FieldValue.serverTimestamp(),
                 }, { merge: true });
-                logger.info('summary increments applied (long)', { positionId: tradeId, netPnL, percentReturn });
+                logger.info('summary increments applied (long)', { positionId: posId, netPnL, percentReturn });
                 try {
                   const snap = await summaryRef.get();
                   const cur = (snap.exists ? snap.data() : {}) as any;
@@ -360,35 +307,11 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                   const avg = totalTr > 0 ? (totalNet / totalTr) : 0;
                   await summaryRef.set({ avgNetPnL: avg }, { merge: true });
                 } catch {}
+              } catch (e) {
+                logger.warn('analytics summary update failed (long)', { positionId: posId, message: (e as any)?.message, stack: (e as any)?.stack });
               }
-              // Ensure hot/archive mirror
-              try {
-                const mirrorPatch: any = {
-                  entryPrice: openPx,
-                  exitPrice: closePx,
-                  entryDay: (opened as any)?.day,
-                  exitDay: t.day,
-                  netPnL,
-                  percentReturn,
-                  status: RsPositionStatus.CLOSED,
-                };
-                await upsertRootPosition(tradeId, t.day, RsPositionStatus.CLOSED, mirrorPatch);
-              } catch {}
-              logger.info('position finalize (close:long)', {
-                event: 'positionFinalize',
-                positionId: tradeId,
-                pair,
-                baseline: base,
-                symbol: sym,
-                side: 'LONG',
-                exitDay: t?.day ?? null,
-                entryPrice: tradeDoc.entryPrice ?? null,
-                exitPrice: tradeDoc.exitPrice ?? null,
-                netPnL,
-                percentReturn,
-              });
             } catch (e) {
-              logger.warn('analytics summary update failed (long)', { positionId: posId, message: (e as any)?.message, stack: (e as any)?.stack });
+              logger.warn('analytics summary update failed (close:long)', { positionId: posId, message: (e as any)?.message, stack: (e as any)?.stack });
             }
             if (verbose && closeLogs < verboseCap) {
               logger.info(`RS CLOSE long pair=${pair} day=${t.day} rs=${y.rs.toFixed(3)}→${t.rs.toFixed(3)} open=${openPx ?? 'n/a'} close=${closePx ?? 'n/a'} Δ=${change ?? 'n/a'} (${pctChange ?? 'n/a'}%) posId=${posId}`,
