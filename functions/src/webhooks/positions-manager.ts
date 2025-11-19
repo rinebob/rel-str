@@ -243,6 +243,8 @@ export async function finalizePairSignalClose(
 ): Promise<void> {
   const yb = yearClosedOf(day);
   const base = db.collection(PAIRS_COLLECTION).doc(pair).collection(SIGNALS_COLLECTION);
+  // Ensure year shard container doc exists with metadata for visibility
+  try { await base.doc(yb).set({ bucket: YEAR_BUCKET_KIND, year: yb, kind: 'signals', updatedAt: FieldValue.serverTimestamp() }, { merge: true }); } catch {}
   const openRef = base.doc(OPEN_BUCKET_ID).collection(ITEMS_SUBCOLLECTION).doc(positionId);
   const closedRef = base.doc(yb).collection(ITEMS_SUBCOLLECTION).doc(positionId);
   const patch = {
