@@ -1,0 +1,90 @@
+@if (position(); as pos) {
+  @let isOpen = mode() === 'open';
+  @let openChange = (pos.currentChange ?? ((pos.currentPrice ?? 0) - (pos.entryPrice ?? 0)));
+  @let closedPnl = pos.netPnL ?? 0;
+  @let cardPnl = isOpen ? openChange : closedPnl;
+
+  <mat-card
+    class="pv-open-card"
+    [class.pv-open-card--profit]="cardPnl > 0"
+    [class.pv-open-card--loss]="cardPnl < 0"
+  >
+    <header class="pv-open-card__header">
+      <div class="pv-open-card__pair">{{ pos.pair }}</div>
+      <div class="pv-open-card__badges">
+        <span class="pv-open-card__badge pv-open-card__badge--side">{{ pos.side }}</span>
+        <span class="pv-open-card__badge pv-open-card__badge--status">
+          @if (isOpen) { OPEN } @else { CLOSED }
+        </span>
+      </div>
+    </header>
+
+    <div class="pv-open-card__metrics">
+      <div class="metric">
+        <div class="metric__label">Entry</div>
+        <div class="metric__value">{{ pos.entryPrice | trunc:2 }}</div>
+      </div>
+
+      @if (isOpen) {
+        <div class="metric">
+          <div class="metric__label">Last</div>
+          <div class="metric__value">{{ pos.currentPrice | trunc:2 }}</div>
+        </div>
+        <div class="metric">
+          <div class="metric__label">Change</div>
+          <div class="metric__value">
+            {{ openChange | trunc:2 }} ({{ pos.currentPctChange | trunc:2 }}%)
+          </div>
+        </div>
+        <div class="metric">
+          <div class="metric__label">RS</div>
+          <div class="metric__value">{{ pos.currentRs | trunc:2 }}</div>
+        </div>
+      } @else {
+        <div class="metric">
+          <div class="metric__label">Exit</div>
+          <div class="metric__value">{{ pos.exitPrice | trunc:2 }}</div>
+        </div>
+        <div class="metric">
+          <div class="metric__label">Change</div>
+          <div class="metric__value">
+            {{ ((pos.exitPrice ?? 0) - (pos.entryPrice ?? 0)) | trunc:2 }}
+          </div>
+        </div>
+        <div class="metric">
+          <div class="metric__label">PnL</div>
+          <div class="metric__value">
+            {{ closedPnl | trunc:2 }} ({{ (pos.percentReturn ?? 0) | trunc:2 }}%)
+          </div>
+        </div>
+        <div class="metric">
+          <div class="metric__label">RS (exit)</div>
+          <div class="metric__value">{{ pos.exitRs | trunc:2 }}</div>
+        </div>
+      }
+    </div>
+
+    <div class="pv-open-card__pnl-bar">
+      <div class="pv-open-card__pnl-track">
+        <div class="pv-open-card__pnl-marker"></div>
+      </div>
+      <div class="pv-open-card__pnl-labels">
+        <span>-10%</span>
+        <span>0%</span>
+        <span>+10%</span>
+      </div>
+    </div>
+
+    <footer class="pv-open-card__footer">
+      <div class="pv-open-card__dates">
+        @if (isOpen) {
+          <span>Opened: {{ pos.entryDay }}</span>
+        } @else {
+          <span>Opened: {{ pos.entryDay }}</span>
+          <span>Closed: {{ pos.exitDay }}</span>
+        }
+      </div>
+      <button type="button" mat-stroked-button class="pv-open-card__details">View Details</button>
+    </footer>
+  </mat-card>
+}

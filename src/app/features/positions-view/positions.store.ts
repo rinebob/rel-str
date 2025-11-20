@@ -3,6 +3,7 @@ import { signalStore, withState, withComputed, withMethods, withHooks, patchStat
 import { Collection, BucketDocId, Subcollection } from '../../core/common/constants';
 import { Firestore, collection, collectionData } from '@angular/fire/firestore';
 import { PositionDoc, PositionSide } from '../../core/models/position.types';
+import { MOCK_OPEN_POSITIONS } from './positions-mock-data';
 import { Observable } from 'rxjs';
 import { computed } from '@angular/core';
 
@@ -82,6 +83,23 @@ export const PositionsStore = signalStore(
     const closedShorts = computed<PositionDoc[]>(() =>
       closedList().filter((p) => (p.side ?? PositionSide.SHORT) === PositionSide.SHORT),
     );
+
+    const totalOpenPnl = computed<number>(() =>
+      openList().reduce((sum, p) => sum + (p.netPnL ?? 0), 0),
+    );
+
+    const openCount = computed<number>(() => openList().length);
+
+    const longOpenPnl = computed<number>(() =>
+      openLongs().reduce((sum, p) => sum + (p.netPnL ?? 0), 0),
+    );
+
+    const shortOpenPnl = computed<number>(() =>
+      openShorts().reduce((sum, p) => sum + (p.netPnL ?? 0), 0),
+    );
+
+    const longOpenCount = computed<number>(() => openLongs().length);
+    const shortOpenCount = computed<number>(() => openShorts().length);
     return {
       openList,
       closedList,
@@ -89,6 +107,12 @@ export const PositionsStore = signalStore(
       openShorts,
       closedLongs,
       closedShorts,
+      totalOpenPnl,
+      openCount,
+      longOpenPnl,
+      shortOpenPnl,
+      longOpenCount,
+      shortOpenCount,
     };
   }),
   withMethods((store) => {
@@ -131,7 +155,16 @@ export const PositionsStore = signalStore(
 
         listenToBucket(BucketDocId.OPEN).subscribe({
           next: (items) => {
+            // Start with mock open positions so we can see a richer UI during development.
+            // Backend data for a given positionId will always win over the mock entry.
             const map: Record<string, PositionDoc> = {};
+
+            for (const mock of MOCK_OPEN_POSITIONS) {
+              if (mock.positionId) {
+                map[mock.positionId] = mock;
+              }
+            }
+
             for (const p of items) {
               if (p.positionId) {
                 map[p.positionId] = p;
@@ -141,7 +174,7 @@ export const PositionsStore = signalStore(
             // eslint-disable-next-line no-console
             console.log('[PositionsStore] OPEN bucket snapshot', {
               bucketId: BucketDocId.OPEN,
-              count: items.length,
+              count: Object.keys(map).length,
               items,
               ids: Object.keys(map),
             });

@@ -1,0 +1,58 @@
+<section class="pv-open-grid" aria-label="Open positions">
+  <div class="pv-open-grid__toolbar">
+    <div class="pv-open-grid__filters">
+      <mat-chip-listbox class="chip-group" aria-label="Direction filter">
+        <mat-chip-option
+          [selected]="sideFilter() === SideFilter.ALL"
+          (click)="setSideFilter(SideFilter.ALL)"
+          class="chip"
+        >
+          All
+        </mat-chip-option>
+        <mat-chip-option
+          [selected]="sideFilter() === SideFilter.LONG"
+          (click)="setSideFilter(SideFilter.LONG)"
+          class="chip"
+        >
+          Long
+        </mat-chip-option>
+        <mat-chip-option
+          [selected]="sideFilter() === SideFilter.SHORT"
+          (click)="setSideFilter(SideFilter.SHORT)"
+          class="chip"
+        >
+          Short
+        </mat-chip-option>
+      </mat-chip-listbox>
+      <mat-chip-listbox class="chip-group" aria-label="Result filter">
+        <mat-chip-option
+          [selected]="resultFilter() === ResultFilter.ALL"
+          (click)="setResultFilter(ResultFilter.ALL)"
+          class="chip"
+        >
+          All
+        </mat-chip-option>
+        <mat-chip-option
+          [selected]="resultFilter() === ResultFilter.WINNERS"
+          (click)="setResultFilter(ResultFilter.WINNERS)"
+          class="chip"
+        >
+          Winners
+        </mat-chip-option>
+        <mat-chip-option
+          [selected]="resultFilter() === ResultFilter.LOSERS"
+          (click)="setResultFilter(ResultFilter.LOSERS)"
+          class="chip"
+        >
+          Losers
+        </mat-chip-option>
+      </mat-chip-listbox>
+    </div>
+  </div>
+
+  <div class="pv-open-grid__cards">
+    @for (pos of filtered(); track pos.positionId) {
+      <app-pv-open-card [position]="pos" />
+    }
+  </div>
+</section>

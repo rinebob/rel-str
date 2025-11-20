@@ -1,0 +1,7 @@
+<section class="pv-closed-grid" aria-label="Closed positions">
+  <div class="pv-closed-grid__cards">
+    @for (pos of positions(); track pos.positionId) {
+      <app-pv-open-card [position]="pos" mode="closed" />
+    }
+  </div>
+</section>

@@ -1,0 +1,28 @@
+<section class="pv-open-summary" aria-label="Open positions summary">
+  <div class="pv-open-summary__panel">
+    <app-pv-open-summary-card
+      label="Total Open PnL"
+      [value]="store.totalOpenPnl() | trunc:2"
+      [sign]="store.totalOpenPnl()"
+    />
+
+    <app-pv-open-summary-card
+      label="Open Positions"
+      [value]="store.openCount()"
+    />
+
+    <app-pv-open-summary-card
+      label="Long Positions"
+      [value]="store.longOpenCount()"
+      [subValue]="store.longOpenPnl() | trunc:2"
+      [sign]="store.longOpenPnl()"
+    />
+
+    <app-pv-open-summary-card
+      label="Short Positions"
+      [value]="store.shortOpenCount()"
+      [subValue]="store.shortOpenPnl() | trunc:2"
+      [sign]="store.shortOpenPnl()"
+    />
+  </div>
+</section>

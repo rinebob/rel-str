@@ -1,0 +1,52 @@
+@use '../../../styles/_mixins-global' as mixins;
+
+.pv-open-grid {
+  display: flex;
+  flex-direction: column;
+  gap: mixins.rem(12);
+  width: 100%;
+}
+
+.pv-open-grid__toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pv-open-grid__filters {
+  display: flex;
+  gap: mixins.rem(16);
+}
+
+.chip-group {
+  display: flex;
+  gap: mixins.rem(8);
+}
+
+.chip {
+  padding: mixins.rem(6) mixins.rem(14);
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: transparent;
+  color: #4b5563;
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.chip--active {
+  background: #111827;
+  color: #ffffff;
+  border-color: #111827;
+}
+
+.chip:not(.chip--active):hover {
+  background: #f3f4f6;
+}
+
+.pv-open-grid__cards {
+  @include mixins.flexboxLayout(row, flex-start, stretch);
+  flex-wrap: wrap;
+  gap: mixins.rem(16);
+}

@@ -1,0 +1,14 @@
+@use '../../../styles/_mixins-global' as mixins;
+
+.pv-closed-grid {
+  display: flex;
+  flex-direction: column;
+  gap: mixins.rem(12);
+  width: 100%;
+}
+
+.pv-closed-grid__cards {
+  @include mixins.flexboxLayout(row, flex-start, stretch);
+  flex-wrap: wrap;
+  gap: mixins.rem(16);
+}

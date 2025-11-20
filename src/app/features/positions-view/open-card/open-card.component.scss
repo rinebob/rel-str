@@ -1,0 +1,104 @@
+@use '../../../styles/_mixins-global' as mixins;
+
+:host {
+    display: flex
+}
+.pv-open-card {
+  @include mixins.flexboxLayout(column, space-between, stretch);
+  flex: 1 0 auto;
+  padding: mixins.rem(16);
+  border-radius: mixins.rem(12);
+  border: 1px solid #e0e0e0;
+  background: var(--theme-surface);
+  gap: mixins.rem(12);
+}
+
+.pv-open-card--profit {
+  border-color: #1c6a3a;
+  background: linear-gradient(90deg, #c7f3dd, #e5fbf0);
+}
+
+.pv-open-card--loss {
+  border-color: #c22323;
+  background: linear-gradient(90deg, #ffd5d5, #ffe9e9);
+}
+
+.pv-open-card__header {
+  @include mixins.flexboxLayout(row, space-between, center);
+}
+
+.pv-open-card__pair {
+  font-weight: 600;
+}
+
+.pv-open-card__badges {
+  @include mixins.flexboxLayout(row, flex-end, center);
+  gap: mixins.rem(4);
+}
+
+.pv-open-card__badge {
+  padding: mixins.rem(2) mixins.rem(8);
+  border-radius: 999px;
+  font-size: 0.75rem;
+}
+
+.pv-open-card__badge--side {
+  background-color: #eef2ff;
+}
+
+.pv-open-card__badge--status {
+  background-color: #e0f7ea;
+}
+
+.pv-open-card__metrics {
+  @include mixins.flexboxLayout(row, space-between, flex-start);
+  gap: mixins.rem(12);
+}
+
+.metric__label {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.metric__value {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.pv-open-card__pnl-bar {
+  display: flex;
+  flex-direction: column;
+  gap: mixins.rem(4);
+}
+
+.pv-open-card__pnl-track {
+  position: relative;
+  height: mixins.rem(6);
+  border-radius: mixins.rem(999);
+  background: #f0f0f0;
+}
+
+.pv-open-card__pnl-marker {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: mixins.rem(2);
+  border-radius: mixins.rem(2);
+  background: #333;
+}
+
+.pv-open-card__pnl-labels {
+  @include mixins.flexboxLayout(row, space-between, center);
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.pv-open-card__footer {
+  @include mixins.flexboxLayout(row, space-between, center);
+  font-size: 0.75rem;
+}
+
+.pv-open-card__details {
+  @include mixins.rsButtonOne();
+}

@@ -1,0 +1,19 @@
+<div class="pv-open-summary__card">
+  <div class="pv-open-summary__label">{{ label() }}</div>
+  <div
+    class="pv-open-summary__value"
+    [class.profit]="(sign() ?? 0) > 0"
+    [class.loss]="(sign() ?? 0) < 0"
+  >
+    {{ value() }}
+  </div>
+  @if (subValue() !== undefined) {
+    <div
+      class="pv-open-summary__sub"
+      [class.profit]="(sign() ?? 0) > 0"
+      [class.loss]="(sign() ?? 0) < 0"
+    >
+      {{ subValue() }}
+    </div>
+  }
+</div>

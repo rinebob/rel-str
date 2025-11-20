@@ -1,156 +1,37 @@
 <div class="positions-view-root">
-<section class="pv-status" aria-live="polite">
-  @if (store.loading()) {
-    <div class="loading">Loading…</div>
-  }
-  @if (store.error()) {
-    <div class="error">Error: {{ store.error() }}</div>
-  }
-</section>
 
-<section class="pv-grid" aria-label="Positions View">
-  <header class="pv-header">
-    <h2 class="pv-title">Open positions</h2>
-  </header>
-
-  @if (store.openList().length === 0 && !store.loading() && !store.error()) {
-    <div class="pv-empty" aria-live="polite">
-      <div class="empty">No open positions.</div>
-    </div>
-  } @else {
-    @if (store.openLongs().length > 0) {
-      <h3 class="pv-subtitle">Long</h3>
-      <ul class="pv-list">
-        @for (pos of visibleOpenLongs(); track pos.positionId) {
-          @let delta = pos.currentChange ?? 0;
-          @let pct = pos.currentPctChange ?? 0;
-          <li class="pv-position-row" [class.pv-position-row--profit]="delta > 0" [class.pv-position-row--loss]="delta < 0">
-            <div class="pv-position-main">
-              <div class="pv-position-title">
-                <span class="pv-position-pair">{{ pos.pair }}</span>
-                <span class="pv-position-side">{{ pos.side }}</span>
-              </div>
-              <div class="pv-position-meta">
-                <span class="pv-field">Opened: {{ pos.entryDay }} ({{ dow(pos.entryDay) }})</span>
-                <span class="pv-field">Entry: {{ pos.entryPrice | trunc:2 }}</span>
-                <span class="pv-field">Current: {{ pos.currentPrice | trunc:2 }}</span>
-                <span class="pv-field">Δ: {{ delta | trunc:2 }} ({{ pct | trunc:2 }}%)</span>
-                <span class="pv-field">RS: {{ pos.currentRs | trunc:2 }}</span>
-              </div>
-            </div>
-          </li>
+        <!-- STATUS -->
+    <section class="pv-status" aria-live="polite">
+        @if (store.loading()) {
+            <div class="loading">Loading…</div>
         }
-      </ul>
-    }
-
-    @if (store.openShorts().length > 0) {
-      <h3 class="pv-subtitle">Short</h3>
-      <ul class="pv-list">
-        @for (pos of visibleOpenShorts(); track pos.positionId) {
-          @let delta = pos.currentChange ?? 0;
-          @let pct = pos.currentPctChange ?? 0;
-          <li class="pv-position-row" [class.pv-position-row--profit]="delta > 0" [class.pv-position-row--loss]="delta < 0">
-            <div class="pv-position-main">
-              <div class="pv-position-title">
-                <span class="pv-position-pair">{{ pos.pair }}</span>
-                <span class="pv-position-side">{{ pos.side }}</span>
-              </div>
-              <div class="pv-position-meta">
-                <span class="pv-field">Opened: {{ pos.entryDay }} ({{ dow(pos.entryDay) }})</span>
-                <span class="pv-field">Entry: {{ pos.entryPrice | trunc:2 }}</span>
-                <span class="pv-field">Current: {{ pos.currentPrice | trunc:2 }}</span>
-                <span class="pv-field">Δ: {{ delta | trunc:2 }} ({{ pct | trunc:2 }}%)</span>
-                <span class="pv-field">RS: {{ pos.currentRs | trunc:2 }}</span>
-              </div>
-            </div>
-          </li>
+        @if (store.error()) {
+            <div class="error">Error: {{ store.error() }}</div>
         }
-      </ul>
-    }
+    </section>
+    
+        <!-- OPEN POSITIONS -->
+    <section class="pv-grid" aria-label="Open Positions View">
+        <header class="pv-header">
+            <h2 class="pv-title">Open positions</h2>
+        </header>
 
-    @if ((store.openLongs().length + store.openShorts().length) > openLimit()) {
-      <button type="button" class="pv-more" (click)="showMoreOpen()">Show more open positions</button>
-    }
-  }
-</section>
+        <app-pv-open-summary></app-pv-open-summary>
+        <app-pv-open-grid></app-pv-open-grid>
+    </section>
 
-<section class="pv-grid pv-grid--closed" aria-label="Closed Positions View">
-  <header class="pv-header">
-    <h2 class="pv-title">Closed positions</h2>
-  </header>
+        <!-- CLOSED POSITIONS -->
+    <section class="pv-grid pv-grid--closed" aria-label="Closed Positions View">
+        <header class="pv-header">
+            <h2 class="pv-title">Closed positions</h2>
+        </header>
 
-  @if (store.closedList().length === 0 && !store.loading() && !store.error()) {
-    <div class="pv-empty" aria-live="polite">
-      <div class="empty">No closed positions.</div>
-    </div>
-  } @else {
-    @if ((store.closedLongs().length + store.closedShorts().length) > closedLimit()) {
-      <button type="button" class="pv-more" (click)="showMoreClosed()">Show more closed positions</button>
-    }
-
-    <div class="pv-closed-scroll">
-    @if (store.closedLongs().length > 0) {
-      <h3 class="pv-subtitle">Long</h3>
-      <ul class="pv-list">
-        @for (pos of visibleClosedLongs(); track pos.positionId) {
-          @let pnl = pos.netPnL ?? 0;
-          @let pct = pos.percentReturn ?? 0;
-          @let isGain = pnl > 0;
-          <li class="pv-position-row" [class.pv-position-row--profit]="pnl > 0" [class.pv-position-row--loss]="pnl < 0">
-            <div class="pv-position-main">
-              <div class="pv-position-title">
-                <span class="pv-position-pair">{{ pos.pair }}</span>
-                <span class="pv-position-side">{{ pos.side }}</span>
-              </div>
-              <div class="pv-position-meta">
-                <span class="pv-field">Opened: {{ pos.entryDay }} ({{ dow(pos.entryDay) }})</span>
-                <span class="pv-field">Closed: {{ pos.exitDay }} ({{ dow(pos.exitDay) }})</span>
-                <span class="pv-field">Entry: {{ pos.entryPrice | trunc:2 }}</span>
-                <span class="pv-field">Exit: {{ pos.exitPrice | trunc:2 }}</span>
-                <span class="pv-field">Change: {{ ((pos.exitPrice ?? 0) - (pos.entryPrice ?? 0)) | trunc:2 }}</span>
-                <span class="pv-field">PnL: {{ pnl | trunc:2 }} ({{ pct | trunc:2 }}%)</span>
-                <span class="pv-field pv-tag" [class.pv-tag--gain]="isGain" [class.pv-tag--loss]="!isGain && pnl < 0">
-                  {{ isGain ? 'Gain' : (pnl < 0 ? 'Loss' : 'Flat') }}
-                </span>
-                <span class="pv-field">RS (exit): {{ pos.exitRs | trunc:2 }}</span>
-              </div>
+        @if (store.closedList().length === 0 && !store.loading() && !store.error()) {
+            <div class="pv-empty" aria-live="polite">
+            <div class="empty">No closed positions.</div>
             </div>
-          </li>
+        } @else {
+            <!-- <app-pv-closed-grid></app-pv-closed-grid> -->
         }
-      </ul>
-    }
-
-    @if (store.closedShorts().length > 0) {
-      <h3 class="pv-subtitle">Short</h3>
-      <ul class="pv-list">
-        @for (pos of visibleClosedShorts(); track pos.positionId) {
-          @let pnl = pos.netPnL ?? 0;
-          @let pct = pos.percentReturn ?? 0;
-          @let isGain = pnl > 0;
-          <li class="pv-position-row" [class.pv-position-row--profit]="pnl > 0" [class.pv-position-row--loss]="pnl < 0">
-            <div class="pv-position-main">
-              <div class="pv-position-title">
-                <span class="pv-position-pair">{{ pos.pair }}</span>
-                <span class="pv-position-side">{{ pos.side }}</span>
-              </div>
-              <div class="pv-position-meta">
-                <span class="pv-field">Pair: {{ pos.pair || (pos.baseline + ' / ' + pos.symbol) }}</span>
-                <span class="pv-field">Opened: {{ pos.entryDay }} ({{ dow(pos.entryDay) }})</span>
-                <span class="pv-field">Closed: {{ pos.exitDay }} ({{ dow(pos.exitDay) }})</span>
-                <span class="pv-field">Entry: {{ pos.entryPrice | trunc:2 }}</span>
-                <span class="pv-field">Exit: {{ pos.exitPrice | trunc:2 }}</span>
-                <span class="pv-field">Change: {{ ((pos.exitPrice ?? 0) - (pos.entryPrice ?? 0)) | trunc:2 }}</span>
-                <span class="pv-field">PnL: {{ pnl | trunc:2 }} ({{ pct | trunc:2 }}%)</span>
-                <span class="pv-field pv-tag" [class.pv-tag--gain]="isGain" [class.pv-tag--loss]="!isGain && pnl < 0">
-                  {{ isGain ? 'Gain' : (pnl < 0 ? 'Loss' : 'Flat') }}
-                </span>
-                <span class="pv-field">RS (exit): {{ pos.exitRs | trunc:2 }}</span>
-              </div>
-            </div>
-          </li>
-        }
-      </ul>
-    }
-    </div>
-  }
-</section>
+    </section>
+</div>

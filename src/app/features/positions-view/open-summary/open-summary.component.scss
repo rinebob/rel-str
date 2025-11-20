@@ -1,0 +1,38 @@
+@use '../../../styles/_mixins-global' as mixins;
+
+.pv-open-summary {
+  margin-bottom: mixins.rem(16);
+}
+
+.pv-open-summary__panel {
+  @include mixins.flexboxLayout(row, space-between, stretch);
+  gap: mixins.rem(24);
+  padding: mixins.rem(16) mixins.rem(24);
+  border-radius: mixins.rem(12);
+  border: 1px solid #e5e7eb;
+  background: var(--theme-surface);
+}
+
+.pv-open-summary__label {
+  font-size: 0.75rem;
+  opacity: 0.7;
+  margin-bottom: mixins.rem(4);
+}
+
+.pv-open-summary__value {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.pv-open-summary__sub {
+  margin-top: mixins.rem(4);
+  font-size: 0.875rem;
+}
+
+.profit {
+  color: #1c6a3a;
+}
+
+.loss {
+  color: #8a1f1f;
+}

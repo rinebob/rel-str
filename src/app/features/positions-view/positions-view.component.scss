@@ -1,28 +1,53 @@
+@use '../../styles/_mixins-global' as mixins;
+
+
+///////////////// CONTAINERS //////////////////////////
 .positions-view-root {
+    @include mixins.border1();
   height: calc(100vh - 4rem);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   min-height: 0;
-}
-
-.pv-status {
-  margin-bottom: 1rem;
-}
-
-.pv-empty {
-  margin-bottom: 1rem;
+  row-gap: 1rem;
+  max-width: mixins.rem(1440);
+  margin: 0 auto;
 }
 
 .pv-grid {
+    @include mixins.border1(blue);
+
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  max-width: mixins.rem(1440);
+//   margin: 0 auto;
+  padding: 0 mixins.rem(24);
+
+  &--closed {
+    @include mixins.border1(red);
+
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+.pv-status,
+.pv-empty {
+  max-width: mixins.rem(1440);
+//   margin: 0 auto 1rem;
+  padding: 0 mixins.rem(24);
 }
 
 .pv-header {
+    @include mixins.border1();
   margin-bottom: 0.5rem;
 }
+
+///////////////// ELEMENTS //////////////////////////
+
+///////////////// TEXT //////////////////////////
 
 .pv-title {
   font-weight: 600;
@@ -38,21 +63,24 @@
 }
 
 .pv-row {
+    @include mixins.border1();
+
   display: flex;
   align-items: flex-start;
   gap: 1rem;
-}
 
-.pv-row__label {
-  min-width: 5rem;
-  font-weight: 600;
-}
+  &__label {
+    min-width: 5rem;
+    font-weight: 600;
+  }
 
-.pv-row__content {
-  flex: 1;
+  &__content {
+    flex: 1;
+  }
 }
 
 .pv-list {
+    @include mixins.border1();
   list-style: none;
   padding: 0;
   margin: 0;
@@ -62,20 +90,12 @@
   /* lists themselves can grow; scrolling is handled by the closed grid */
 }
 
-.pv-grid--closed {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
 .pv-closed-scroll {
-  flex: 1;
-  overflow-y: auto;
-  min-height: 0;
+  overflow-y: visible;
 }
 
 .pv-position-row {
+    @include mixins.border1();
   display: flex;
   flex-direction: row;
   align-items: flex-start;
@@ -83,21 +103,22 @@
   padding: 0.5rem 0.75rem;
   border-radius: 0.5rem;
   border: 1px solid #e0e0e0;
-}
 
-.pv-position-row--profit {
-  background-image: linear-gradient(90deg, #c7f3dd, #e5fbf0);
-  border-color: #1e8f4b;
-  color: #0e3820;
-}
+  &--profit {
+    background-image: linear-gradient(90deg, #c7f3dd, #e5fbf0);
+    border-color: #1e8f4b;
+    color: #0e3820;
+  }
 
-.pv-position-row--loss {
-  background-image: linear-gradient(90deg, #ffd5d5, #ffe9e9);
-  border-color: #c22323;
-  color: #5b1111;
+  &--loss {
+    background-image: linear-gradient(90deg, #ffd5d5, #ffe9e9);
+    border-color: #c22323;
+    color: #5b1111;
+  }
 }
 
 .pv-position-main {
+    @include mixins.border1();
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -122,16 +143,16 @@
   padding: 0.1rem 0.5rem;
   border-radius: 999px;
   text-transform: uppercase;
-}
 
-.pv-position-side--long {
-  background-color: #e0f7ea;
-  color: #1f6b3a;
-}
+  &--long {
+    background-color: #e0f7ea;
+    color: #1f6b3a;
+  }
 
-.pv-position-side--short {
-  background-color: #ffe1e1;
-  color: #8a1f1f;
+  &--short {
+    background-color: #ffe1e1;
+    color: #8a1f1f;
+  }
 }
 
 .pv-tag {
@@ -140,16 +161,16 @@
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-}
 
-.pv-tag--gain {
-  background-color: #def8e7;
-  color: #1c6a3a;
-}
+  &--gain {
+    background-color: #def8e7;
+    color: #1c6a3a;
+  }
 
-.pv-tag--loss {
-  background-color: #ffe0e0;
-  color: #8a1f1f;
+  &--loss {
+    background-color: #ffe0e0;
+    color: #8a1f1f;
+  }
 }
 
 .pv-position-meta {
@@ -173,10 +194,10 @@
   background: #fafafa;
   font-size: 0.8125rem;
   cursor: pointer;
-}
 
-.pv-more:hover {
-  background: #f0f0f0;
+  &:hover {
+    background: #f0f0f0;
+  }
 }
 
 .muted {
