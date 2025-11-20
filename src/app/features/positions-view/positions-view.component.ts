@@ -1,6 +1,6 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { DecisionBoardStore } from '../decision-board/decision-board.store';
+import { PositionsStore } from './positions.store';
 import { TruncPipe } from '../decision-board/truncate.pipe';
 
 @Component({
@@ -11,35 +11,29 @@ import { TruncPipe } from '../decision-board/truncate.pipe';
   styleUrls: ['./positions-view.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PositionsViewComponent implements OnInit {
-  readonly store = inject(DecisionBoardStore);
+export class PositionsViewComponent {
+  readonly store = inject(PositionsStore);
 
-  readonly latestDayVm = computed(() => {
-    const days = this.store.daysDesc();
-    const latest = days[0];
-    if (!latest) {
-      return undefined;
-    }
-    return latest;
-  });
+  readonly openLimit = signal(10);
+  readonly closedLimit = signal(10);
 
-  readonly hasAnyPositionsToday = computed(() => {
-    const latest = this.latestDayVm();
-    if (!latest) {
-      return false;
-    }
-    const items = latest.items;
-    return (
-      (items.newCloses?.length || 0) +
-      (items.holds?.length || 0) +
-      (items.newOpens?.length || 0)
-    ) > 0;
-  });
+  readonly visibleOpenLongs = computed(() => this.store.openLongs().slice(0, this.openLimit()));
+  readonly visibleOpenShorts = computed(() => this.store.openShorts().slice(0, this.openLimit()));
+  readonly visibleClosedLongs = computed(() => this.store.closedLongs().slice(0, this.closedLimit()));
+  readonly visibleClosedShorts = computed(() => this.store.closedShorts().slice(0, this.closedLimit()));
 
-  ngOnInit(): void {
-    // Load only the current day's positions
-    this.store.loadLastNDays(1);
+  showMoreOpen(): void {
+    this.openLimit.update((n) => n + 10);
   }
 
-  trackByPositionId = (_: number, it: { positionId: string }) => it.positionId;
+  showMoreClosed(): void {
+    this.closedLimit.update((n) => n + 10);
+  }
+
+  dow(day?: string | null): string {
+    if (!day) return '';
+    const d = new Date(day);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-US', { weekday: 'short' });
+  }
 }

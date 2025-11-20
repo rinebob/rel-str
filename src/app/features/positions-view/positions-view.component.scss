@@ -1,3 +1,11 @@
+.positions-view-root {
+  height: calc(100vh - 4rem);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
 .pv-status {
   margin-bottom: 1rem;
 }
@@ -20,6 +28,15 @@
   font-weight: 600;
 }
 
+.pv-subtitle {
+  margin: 0.5rem 0 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #555;
+}
+
 .pv-row {
   display: flex;
   align-items: flex-start;
@@ -35,35 +52,132 @@
   flex: 1;
 }
 
-.chip-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+.pv-list {
   list-style: none;
   padding: 0;
   margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  /* lists themselves can grow; scrolling is handled by the closed grid */
 }
 
-// Chip styles aligned with DecisionBoard
-.chip {
-  display: inline-flex;
+.pv-grid--closed {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.pv-closed-scroll {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.pv-position-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e0e0e0;
+}
+
+.pv-position-row--profit {
+  background-image: linear-gradient(90deg, #c7f3dd, #e5fbf0);
+  border-color: #1e8f4b;
+  color: #0e3820;
+}
+
+.pv-position-row--loss {
+  background-image: linear-gradient(90deg, #ffd5d5, #ffe9e9);
+  border-color: #c22323;
+  color: #5b1111;
+}
+
+.pv-position-main {
+  display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 0.375rem;
-  padding: 0.125rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.8125rem; // ~13px
-  line-height: 1.4;
-  border: 1px solid transparent;
-  background: #f2f2f2;
-  color: #222;
+  gap: 0.75rem;
+  width: 100%;
 }
 
-.chip--sell { background: #fdecec; color: #8a1f1f; border-color: #f5c2c2; }
-.chip--hold { background: #eef4ff; color: #294fa3; border-color: #c9d8ff; }
-.chip--buy  { background: #e8f7ee; color: #1c6a3a; border-color: #bfe8cc; }
+.pv-position-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
 
-.pair { font-weight: 600; }
-.dir { text-transform: uppercase; font-size: 0.75rem; opacity: 0.8; }
+.pv-position-pair {
+  text-transform: uppercase;
+}
+
+.pv-position-side {
+  font-size: 0.75rem;
+  opacity: 0.8;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.pv-position-side--long {
+  background-color: #e0f7ea;
+  color: #1f6b3a;
+}
+
+.pv-position-side--short {
+  background-color: #ffe1e1;
+  color: #8a1f1f;
+}
+
+.pv-tag {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pv-tag--gain {
+  background-color: #def8e7;
+  color: #1c6a3a;
+}
+
+.pv-tag--loss {
+  background-color: #ffe0e0;
+  color: #8a1f1f;
+}
+
+.pv-position-meta {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.75rem;
+  font-size: 0.8125rem;
+  overflow-x: auto;
+}
+
+.pv-field {
+  white-space: nowrap;
+}
+
+.pv-more {
+  margin-top: 0.75rem;
+  align-self: flex-start;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid #ccc;
+  background: #fafafa;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.pv-more:hover {
+  background: #f0f0f0;
+}
 
 .muted {
   color: #999;
