@@ -1,7 +1,8 @@
 import { Component, OnInit, computed, inject, isDevMode } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DecisionBoardStore } from './decision-board.store';
-import { DecisionBoardItem, PositionDoc } from './decision-board.service';
+import { DecisionBoardItem } from './decision-board.service';
+import { PositionDoc } from '../../core/models/position.types';
 import { TruncPipe } from './truncate.pipe';
 import { Firestore, doc, setDoc } from '@angular/fire/firestore';
 import { Collection, Subcollection } from '../../core/common/constants';

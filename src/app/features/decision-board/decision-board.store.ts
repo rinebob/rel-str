@@ -1,7 +1,8 @@
 import { inject } from '@angular/core';
 import { signalStore, withState, withComputed, withMethods, patchState } from '@ngrx/signals';
 import { computed } from '@angular/core';
-import { DecisionBoardDay, DecisionBoardService, PositionDoc } from './decision-board.service';
+import { DecisionBoardDay, DecisionBoardService } from './decision-board.service';
+import { PositionDoc } from '../../core/models/position.types';
 
 export interface DecisionBoardRange {
     fromDay?: string;

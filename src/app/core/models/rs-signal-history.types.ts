@@ -1,8 +1,7 @@
 // Frontend models for RsSignalHistory
-export type RsDirection = 'long' | 'short';
-export type RsSource = 'pre' | 'post';
+import { PositionDoc, PositionSide } from './position.types';
 
-export enum RsPositionStatus { OPEN = 'open', CLOSED = 'closed' }
+export type RsSource = 'pre' | 'post';
 
 export interface RsPositionOpened {
   day: string; // YYYY-MM-DD (UTC)
@@ -31,16 +30,13 @@ export interface AppPnl {
   sourceClose?: RsSource;
 }
 
-export interface RsPositionDoc {
-  pair: string;
-  baseline: string;
-  symbol: string;
-  direction: RsDirection;
-  positionId: string; // {PAIR}_{YYYYMMDD}_{DOW}_{direction}
+type RsSignalIdentity = Pick<PositionDoc, 'positionId' | 'pair' | 'baseline' | 'symbol' | 'status' | 'currentRs' | 'exitRs'>;
+
+export interface RsSignalDoc extends RsSignalIdentity {
+  direction: PositionSide;
   opened: RsPositionOpened;
   closed?: RsPositionClosed;
   appPnl?: AppPnl;
-  status: RsPositionStatus;
 }
 
 export interface UserTradeSide {
@@ -82,5 +78,5 @@ export interface UserTradeOverlay {
 }
 
 // Callable DTOs (FE-facing)
-export interface GetPositionWithActualsResponse { position?: RsPositionDoc; user?: UserTradeOverlay }
-export interface GetPairSignalsWithActualsResponse { items: Array<{ position: RsPositionDoc; user?: UserTradeOverlay }> }
+export interface GetPositionWithActualsResponse { position?: RsSignalDoc; user?: UserTradeOverlay }
+export interface GetPairSignalsWithActualsResponse { items: Array<{ position: RsSignalDoc; user?: UserTradeOverlay }> }

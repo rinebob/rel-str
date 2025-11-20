@@ -2,12 +2,11 @@ import { Injectable, EnvironmentInjector, runInInjectionContext, inject } from '
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { BucketDocId, CallableName, Collection, Subcollection } from '../../core/common/constants';
 import { Firestore, doc, getDoc } from '@angular/fire/firestore';
-
-export type RsDirection = 'long' | 'short';
+import { PositionDoc, PositionSide } from '../../core/models/position.types';
 
 export interface DecisionBoardItem {
   positionId: string;
-  direction: RsDirection;
+  direction: PositionSide;
   pair: string; // e.g., SPY-AAPL
   // Optional fields (typically present on newCloses)
   change?: number;
@@ -32,47 +31,6 @@ export interface GetDailySignalsRequest {
 
 export interface GetDailySignalsResponse {
   days: DecisionBoardDay[];
-}
-
-export enum PositionSide { LONG = 'LONG', SHORT = 'SHORT' }
-export enum PositionStatus { OPEN = 'open', CLOSED = 'closed' }
-
-// TODO(cascade): Keep this in sync with backend positions/{id} schema.
-// Source of truth: Firestore 'positions' docs written by backend at:
-//   functions/src/webhooks/partner-webhooks.ts (updateOpenPositionsForPair)
-//   functions/src/rs-signal-history.backfill.ts (positions backfill)
-// If backend adds/removes fields, update this interface accordingly.
-export interface PositionDoc {
-  positionId: string;
-  pair?: string;
-  baseline?: string;
-  symbol?: string;
-  status?: PositionStatus;
-  side?: PositionSide;
-
-  // entry/open
-  entryPrice?: number;
-  entryDay?: string;          // YYYY-MM-DD
-  entryIso?: string;          // ISO 8601
-  entryTimestamp?: number;    // epoch ms
-
-  // current snapshot for OPEN/HOLD (authoritative in positions/{id})
-  currentPrice?: number;
-  currentChange?: number;
-  currentPctChange?: number;
-  lastUpdateDay?: string;     // YYYY-MM-DD
-
-  // exit/close
-  exitPrice?: number;
-  exitDay?: string;           // YYYY-MM-DD
-  exitIso?: string;           // ISO 8601
-  exitTimestamp?: number;     // epoch ms
-  netPnL?: number;
-  percentReturn?: number;
-
-  // housekeeping
-  createdAt?: unknown;        // Firestore Timestamp
-  updatedAt?: unknown;        // Firestore Timestamp
 }
 
 export interface LatestRsDoc {
