@@ -2,7 +2,7 @@ import { onRequest } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from './firebase-admin-init';
 import { upsertRootPosition, upsertPairSignalsDaily, writePairSignalOpen, finalizePairSignalClose } from './webhooks/positions-manager';
-import { RsDirection, RsPositionOpened, RsPositionClosed, RsPositionStatus, RsDirectionEnum, RsSourceEnum, PositionState } from './types/rs-signal-history';
+import { RsDirection, RsPositionOpened, RsPositionClosed, RsPositionStatus, RsDirectionEnum, RsSourceEnum, PositionState } from './types/signal.types';
 import { rebuildSignalsDailyMirrorImpl } from './rs-signal-history.callables';
 import { PAIRS_COLLECTION, SIGNALS_DAILY_COLLECTION, ANALYTICS_COLLECTION, ANALYTICS_SUMMARY_DOC, POSITIONS_COLLECTION, SIGNALS_DAILY_ROOT_COLLECTION, DAYS_SUBCOLLECTION } from './webhooks/webhooks-config';
 

@@ -1,5 +1,5 @@
-// types/rs-signal-history.ts
-// Canonical types for RsSignalHistory backend contracts
+// types/rs-signal.types.ts
+// Canonical types for RS signals and related backend contracts
 
 export type RsDirection = 'long' | 'short';
 export type RsSource = 'pre' | 'post';
@@ -10,6 +10,29 @@ export enum RsSourceEnum { PRE = 'pre', POST = 'post' }
 
 // Internal processing state for generators/readers that implement a simple FSM.
 export enum PositionState { FLAT = 'flat', LONG = 'long', SHORT = 'short' }
+
+// Shared price snapshot for positions/signals over time.
+export enum PriceDatumRole { ENTRY = 'entry', UPDATE = 'update', EXIT = 'exit' }
+
+export interface PriceDatum {
+  // Role within the position lifecycle
+  role: PriceDatumRole;
+
+  // Time
+  day: string;        // YYYY-MM-DD (ET-aligned trading day)
+  timestamp: number;  // epoch ms
+
+  // Price + RS at this moment
+  price: number;
+  rs?: number;
+
+  // Source of this sample (PRE covers intraday / pre-close; POST for EOD)
+  source?: RsSourceEnum;
+
+  // PnL metrics vs the original entry at this moment
+  pnl: number;        // absolute PnL
+  pct: number;        // percentage return
+}
 
 export interface RsPositionOpened {
   day: string; // YYYY-MM-DD (UTC)
@@ -48,6 +71,45 @@ export interface RsPositionDoc {
   createdAt: unknown;  // Firestore Timestamp
   updatedAt: unknown;  // Firestore Timestamp
 }
+
+// Canonical RS signal event contracts.
+// These will back the /pairs-data/{PAIR}/signals/{YEAR}/opens|closes collections.
+
+export interface BeSignalBase {
+
+  // Identity
+  signalId: string;          // Firestore doc id, e.g. 20250106-MON-QQQ-AAPL-SHORT
+
+  // Pair routing
+  baseline: string;          // e.g. QQQ
+  symbol: string;            // e.g. AAPL
+
+  // Classification
+  direction: RsDirectionEnum; // LONG | SHORT
+
+  // Time of the signal (decision time, ET-aligned)
+  day: string;               // YYYY-MM-DD
+  timestamp: number;         // epoch ms
+
+  // RS / price context at signal time
+  price: number;             // target price at signal
+  rs: number;               // RS at signal
+  prevRs: number;
+  source: RsSourceEnum;      // POST for canonical signals (per docs)
+}
+
+export interface BeOpenSignalDoc extends BeSignalBase {
+  // Foreign key to the position this open creates/updates
+  positionId: string;
+}
+
+export interface BeCloseSignalDoc extends BeSignalBase {
+  // Linkage to state and paired event
+  positionId: string;        // the position being closed
+  openSignalId: string;      // the corresponding opening signal id
+}
+
+export type BeSignalDoc = BeOpenSignalDoc | BeCloseSignalDoc;
 
 export interface DailyOpenEntry { positionId: string; direction: RsDirection }
 export interface DailyCloseEntry extends DailyOpenEntry { change: number; pctChange: number }

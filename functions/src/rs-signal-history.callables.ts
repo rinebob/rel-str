@@ -12,7 +12,7 @@ import type {
   UpdatePositionActualsRequest,
   UpdatePositionActualsResponse,
   RsPositionDoc,
-} from './types/rs-signal-history';
+} from './types/signal.types';
 import { SIGNALS_DAILY_ROOT_COLLECTION, SIGNALS_DAILY_COLLECTION, PAIRS_COLLECTION, USERS_COLLECTION, USER_TRADES_COLLECTION, USER_PNL_DAILY_COLLECTION, ANALYTICS_COLLECTION, ANALYTICS_SUMMARY_DOC, SIGNALS_COLLECTION, DAYS_SUBCOLLECTION, ITEMS_SUBCOLLECTION } from './webhooks/webhooks-config';
 
 /**
