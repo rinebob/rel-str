@@ -107,6 +107,38 @@ This backend runs on Firebase/Google Cloud and focuses on computing and serving 
   * Combined per-day RS documents hold both `pre` and `post` values: `{ t, pre?:{rs,at}, post?:{rs,at} }`.
   * Separate `signals` collection for easy feeds (`orderBy t`, filter by `type`).
   * `pair-registry` is the single source for which pairs are maintained by the scheduler; include fields like `{ baseline, symbol, createdAt, refCount }`.
+  * **Canonical vs Intraday signals:**
+    * Canonical trading decisions (signals and positions) are based **only on post-close (daily adjusted) RS** for all days, including both historical backfill and live runs.
+    * Intraday RS series may be persisted for UX and inspection, but **intraday signal decisions are not currently persisted** as `opens`/`closes` and are not used when computing canonical position history or PnL.
+    * In the future, if we persist intraday signals, they must live in a clearly separate structure (e.g. `intradaySignals`) and remain excluded from canonical analytics.
+  * **Positions & Price Timeline (canonical backend model):**
+    * Positions are modeled as a **timeline of price/RS samples**, not three ad-hoc buckets of `entry*`, `current*`, and `exit*` fields.
+    * A shared `PriceDatum` interface represents a single price snapshot at a point in time:
+      * `role: 'entry' | 'update' | 'exit'` — implemented as a `PriceDatumRole` enum in `functions/src/types/signal.types.ts`.
+      * `day: string` — trading day in `YYYY-MM-DD` (ET-aligned).
+      * `timestamp: number` — epoch ms for the sample (canonical time primitive; ISO strings can always be derived when needed).
+      * `price: number` — target price at this sample.
+      * `rs?: number` — RS value at this sample.
+      * `source?: RsSourceEnum` — reuses the existing `RsSourceEnum` (`PRE` and `POST`); **`PRE` covers all intraday/pre-close samples**.
+      * `pnl: number` — absolute PnL vs the original entry at this moment.
+      * `pct: number` — percentage return vs the original entry at this moment.
+    * **Entry samples** must always have `pnl = 0` and `pct = 0` so downstream code can rely on a consistent contract (no special cases for missing values).
+    * `BePositionDoc` (declared in `functions/src/types/position.types.ts`) is the canonical root positions contract and is defined in terms of this price timeline:
+      * Identity & routing:
+        * `positionId: string` — canonical id used across FE/BE.
+        * `pair: string`, `baseline: string`, `symbol: string` — routing metadata.
+        * `direction: RsDirectionEnum` — LONG/SHORT enum reused from RS contracts.
+        * `status: RsPositionStatus` — `'open' | 'closed'` (enum).
+      * **Price timeline:**
+        * `entry: PriceDatum` — role `ENTRY`; the canonical opening sample.
+        * `updates: PriceDatum[]` — zero or more role `UPDATE` samples (intraday/pre-close or intermediate snapshots).
+        * `exit?: PriceDatum` — optional role `EXIT` sample when the position is closed.
+      * **Aggregated PnL (position-level):**
+        * `netPnL?: number` — final realized PnL at close (usually mirrors `exit.pnl`).
+        * `netPercentReturn?: number` — final realized percent return (usually mirrors `exit.pct`).
+      * We **do not** duplicate `lastPrice`/`lastRs`/`lastTimestamp` fields; the most recent state is always the last element of `updates` or the `exit` sample if present.
+      * We intentionally **omit `createdAt`/`updatedAt` from the contract**; lifecycle timing is derived from `entry.timestamp` and `exit.timestamp`, and Firestore system timestamps can be inspected separately when needed.
+
 * **Scheduling Reliability:**
   * Pre/post-close cadence. Update `appConfig.nextScheduledFetch` and monitor execution latency.
 * **Performance Optimization:**
@@ -139,9 +171,14 @@ This backend runs on Firebase/Google Cloud and focuses on computing and serving 
    - Persist to Firestore under the correct phase branch (`pre` or `post`).
 3) Update metrics and `seriesUpdatedAt`.
 4) RsSignalHistory processing:
-   - Historical backfill uses POST-only series and emits canonical signals under `pairs-data/{PAIR}/signals/*` with `positionId = {PAIR}_{YYYYMMDD}_{DOW}_{direction}`; idempotent upsert.
-   - Realtime (PRE-only) evaluates close→open→hold in that order, updates the same position document on close, and appends to `pairs-data/{PAIR}/signals-daily/{YYYY-MM-DD}` with `newOpens`, `holds`, `newCloses`, maintaining `appPnLSummary` and `cumulativePnL`.
-   - App PnL (`appPnl`) is computed from app-derived prices and stored on the position; user Actual PnL is stored under `users/{uid}/trades/{positionId}` and is never written by backend.
+   - Historical backfill uses POST-only series and emits canonical **open/close signal events** under `pairs-data/{PAIR}/signals/{YYYY}/opens|closes/{signalId}`; each event is immutable and contains only RS/price context plus foreign keys into positions.
+   - Realtime (PRE-only) evaluates **close → open → hold** in that order for each pair and trading day:
+     - If a closing condition is met for an existing open position, the pipeline writes a **close signal** into `.../closes/{signalId}` and updates the corresponding `positions/{open|YYYY-closed}/items/{positionId}` document's `exit` and aggregated PnL fields.
+     - If no close condition is met and an opening condition is met, the pipeline writes an **open signal** into `.../opens/{signalId}` and creates/updates the corresponding position `entry` in `positions/open/items/{positionId}`.
+     - If neither open nor close conditions are met and a position remains open, the pipeline records **non-signal holds** as `PriceDatum` updates in the position document's `updates[]` timeline (and mirrors per-pair daily holds into `signals-daily`). No additional signal docs are written for holds.
+   - App PnL (`appPnl`) and user Actual PnL remain decoupled:
+     - App-level position PnL is derived from canonical RS-driven prices and stored on the position as `netPnL` / `netPercentReturn` based on the `exit` price datum.
+     - User Actual PnL is stored under `users/{uid}/trades/{positionId}` and is never written by the backend.
 
 ### RS Calculation (Canonical)
 

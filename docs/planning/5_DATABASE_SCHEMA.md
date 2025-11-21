@@ -196,46 +196,35 @@ Retention: capped to `meta.window` most recent days (default 30).
 ### pairs-data/{BASELINE}-{TARGET}
 Canonical RS store (unchanged). FE reads `latest` for ranking and `data[]` for series.
 
-#### signals (subcollection) — RsSignalHistory positions
-- Path: `pairs-data/{PAIR}/signals/{positionId}` with `positionId = {PAIR}_{YYYYMMDD}_{DOW}_{direction}`
-- Fields:
-  - `pair: string` — e.g., `QQQ-AAPL`
-  - `baseline: string` — e.g., `QQQ`
-  - `symbol: string` — e.g., `AAPL`
-  - `direction: 'long' | 'short'`
-  - `positionId: string` — `{PAIR}_{YYYYMMDD}_{DOW}_{direction}` (e.g., `QQQ-AAPL_20241126_Tue_long`)
-  - `opened: {`
-  - `  day: string` — YYYY-MM-DD (UTC)
-  - `  t: number` — epoch ms
-  - `  source: 'pre' | 'post'`
-  - `  openPrice: number` — target security price at open
-  - `  basePrice: number` — baseline price at open (for reference)
-  - `  rsYesterday: number`
-  - `  rsToday: number`
-  - `}`
-  - `closed?: {`
-  - `  day: string` — YYYY-MM-DD (UTC)
-  - `  t: number` — epoch ms
-  - `  source: 'pre' | 'post'`
-  - `  closePrice: number` — target security price at close
-  - `  basePrice: number` — baseline price at close (for reference)
-  - `  rsYesterday: number`
-  - `  rsToday: number`
-  - `  change: number` — `closePrice - opened.openPrice`
-  - `  pctChange: number` — `(change / opened.openPrice) * 100`
-  - `}`
-  - `appPnl?: {`
-  - `  openedPrice: number`
-  - `  closedPrice?: number`
-  - `  change?: number`
-  - `  pctChange?: number`
-  - `  sourceOpen: 'pre' | 'post'`
-  - `  sourceClose?: 'pre' | 'post'`
-  - `}`
-  - `tradeMeta?: { hasUserActuals?: boolean }`
-  - `status: 'open' | 'closed'`
-  - `createdAt: Timestamp`
-  - `updatedAt: Timestamp`
+#### signals (subcollections) — decoupled RS events
+- Path (per pair):
+  - `pairs-data/{PAIR}/signals/{YYYY}/opens/{signalId}`
+  - `pairs-data/{PAIR}/signals/{YYYY}/closes/{signalId}`
+- Identity:
+  - `signalId` is the primary key for signals (e.g., `20250106-MON-QQQ-AAPL-SHORT`).
+  - `positionId` is a **separate** concept, used only as a foreign key from signals into positions.
+- Open signals (`opens` collection) — `BeOpenSignalDoc`:
+  - `signalId: string` — document id; canonical signal identifier.
+  - `baseline: string` — e.g., `QQQ`.
+  - `symbol: string` — e.g., `AAPL`.
+  - `direction: 'long' | 'short'` — implemented as `RsDirectionEnum`.
+  - `day: string` — `YYYY-MM-DD` (ET-aligned trading day).
+  - `timestamp: number` — epoch ms when the open signal fired.
+  - `price: number` — target price at the signal.
+  - `rs?: number` — RS at the signal.
+  - `source: 'pre' | 'post'` — implemented via `RsSourceEnum`; **`pre` covers intraday/pre-close**.
+  - `positionId: string` — the position this open signal creates/updates.
+- Close signals (`closes` collection) — `BeCloseSignalDoc`:
+  - Same identity + price/RS fields as `BeOpenSignalDoc` (`signalId`, `baseline`, `symbol`, `direction`, `day`, `timestamp`, `price`, `rs?`, `source`).
+  - Linkage:
+    - `positionId: string` — which position this close signal affects.
+    - `openSignalId: string` — the `signalId` of the corresponding opening signal.
+- Invariants and behavior:
+  - Signal docs are **immutable** facts: written exactly once when the decision occurs; no `updatedAt` field on the contract.
+  - Signals carry **RS and price context only** plus foreign keys; they do **not** embed position state, PnL, or running snapshots.
+  - For an open position on a day where a signal fires, that signal is always a **closing signal** and is written to the `closes` collection, not as an update on the position.
+  - Intraday/pre-close **updates** for open positions (days without signals) are represented in the `positions` documents as `PriceDatum` entries in the `updates[]` array, not as separate signal docs.
+  - Canonical `BeOpenSignalDoc` / `BeCloseSignalDoc` documents are derived **only from post-close (daily adjusted) RS** so that the entire historical dataset (backfill and live) shares a single, consistent contract. Intraday RS is persisted only in the RS time series under `pairs-data/{PAIR}` and is used for realtime UX, not for canonical signals or PnL.
 
 #### signals-daily (subcollection)
 - Path: `pairs-data/{PAIR}/signals-daily/{YYYY-MM-DD}`
@@ -249,27 +238,38 @@ Canonical RS store (unchanged). FE reads `latest` for ranking and `data[]` for s
   - `updatedAt`
 
 #### positions (root collection)
-- Path: `positions/{positionId}`
+- Path: `positions/{open|YYYY-closed}/items/{positionId}`
 - Behavior:
-  - A document is created on every new OPEN signal with entry metadata.
-  - While the position remains open, the document is updated daily with running snapshot fields.
-  - When the position is CLOSED, final exit fields are written and `status` becomes `CLOSED`.
-- Fields:
-  - `positionId`— canonical
-  - `pair, baseline, symbol, side` (strings)
-  - `status: 'OPEN' | 'CLOSED'`
-  - `entryTimestamp, exitTimestamp?` (numbers)
-  - `entryPrice?, exitPrice?` (numbers)
-  - `entryDay, exitDay?` (YYYY-MM-DD)
-  - `entryIso, exitIso?` (ISO strings)
-  - Running snapshot (present/updated while OPEN):
-    - `lastUpdateDay?: string` — YYYY-MM-DD of last daily refresh
-    - `lastPrice?: number` — current day price snapshot (target)
-    - `runningPnL?: number` — change vs entry (side-aware)
-    - `runningPctReturn?: number` — percent change vs entry
-  - Finalized PnL (on close):
-    - `netPnL, percentReturn` (numbers)
-  - `createdAt, updatedAt` (timestamps)
+  - A document is created on every new OPEN signal with an **entry price datum** and initialized position metadata.
+  - While the position remains open, intraday/pre-close updates append new **update price data** snapshots (no in-place mutation of historical samples).
+  - When the position is CLOSED, a final **exit price datum** is written, and `status` becomes `'closed'`.
+- Canonical contract (`BePositionDoc`, see `functions/src/types/position.types.ts`):
+  - Identity & routing:
+    - `positionId: string` — canonical id shared across FE/BE.
+    - `pair: string` — e.g., `QQQ-AAPL`.
+    - `baseline: string` — e.g., `QQQ`.
+    - `symbol: string` — e.g., `AAPL`.
+    - `direction: 'long' | 'short'` (implemented as `RsDirectionEnum` in code).
+    - `status: 'open' | 'closed'` (implemented as `RsPositionStatus` in code).
+  - Price timeline (all samples share a single `PriceDatum` shape):
+    - Shared `PriceDatum` fields:
+      - `role: 'entry' | 'update' | 'exit'` — implemented as a `PriceDatumRole` enum in code.
+      - `day: string` — `YYYY-MM-DD` trading day (ET-aligned).
+      - `timestamp: number` — epoch ms of the sample (canonical time field; ISO strings can be derived where needed).
+      - `price: number` — target price at this sample.
+      - `rs?: number` — RS at this sample.
+      - `source?: 'pre' | 'post'` — implemented via the existing `RsSourceEnum`; `pre` covers intraday/pre-close updates, `post` closes.
+      - `pnl: number` — absolute PnL vs the **entry** at this moment.
+      - `pct: number` — percentage return vs the **entry** at this moment.
+    - Position fields:
+      - `entry: PriceDatum` — the canonical opening sample; **must always** have `pnl = 0` and `pct = 0`.
+      - `updates: PriceDatum[]` — zero or more intraday/pre-close samples (role `update`), each with its own `price`, `rs?`, `pnl`, and `pct` relative to the original entry.
+      - `exit?: PriceDatum` — optional final sample (role `exit`) recorded when the position is closed; its `pnl`/`pct` typically become the realized net values.
+  - Aggregated PnL (position-level):
+    - `netPnL?: number` — final realized PnL for the position; usually equals `exit.pnl` when present.
+    - `netPercentReturn?: number` — final realized percent return; usually equals `exit.pct` when present.
+  - We do **not** store redundant `lastPrice`/`lastRs`/`lastTimestamp` fields; callers derive the latest state from `exit` (if present) or from the last element in `updates`.
+  - The canonical contract intentionally omits `createdAt`/`updatedAt` user-facing fields; lifecycle timing is inferred from the price timeline itself. Firestore system timestamps may still exist for operational/debugging use but are not part of the schema contract.
 
 #### Live Production Sharding Update (Closed vs Currently-Open)
 
