@@ -196,46 +196,46 @@ Retention: capped to `meta.window` most recent days (default 30).
 ### pairs-data/{BASELINE}-{TARGET}
 Canonical RS store (unchanged). FE reads `latest` for ranking and `data[]` for series.
 
-#### signals (subcollections) — decoupled RS events
-- Path (per pair):
+#### signals (subcollections) — canonical RS signal events
+
+- Path (per pair, year-sharded):
   - `pairs-data/{PAIR}/signals/{YYYY}/opens/{signalId}`
   - `pairs-data/{PAIR}/signals/{YYYY}/closes/{signalId}`
-- Identity:
-  - `signalId` is the primary key for signals (e.g., `20250106-MON-QQQ-AAPL-SHORT`).
-  - `positionId` is a **separate** concept, used only as a foreign key from signals into positions.
-- Open signals (`opens` collection) — `BeOpenSignalDoc`:
-  - `signalId: string` — document id; canonical signal identifier.
-  - `baseline: string` — e.g., `QQQ`.
-  - `symbol: string` — e.g., `AAPL`.
-  - `direction: 'long' | 'short'` — implemented as `RsDirectionEnum`.
-  - `day: string` — `YYYY-MM-DD` (ET-aligned trading day).
-  - `timestamp: number` — epoch ms when the open signal fired.
-  - `price: number` — target price at the signal.
-  - `rs?: number` — RS at the signal.
-  - `source: 'pre' | 'post'` — implemented via `RsSourceEnum`; **`pre` covers intraday/pre-close**.
-  - `positionId: string` — the position this open signal creates/updates.
-- Close signals (`closes` collection) — `BeCloseSignalDoc`:
-  - Same identity + price/RS fields as `BeOpenSignalDoc` (`signalId`, `baseline`, `symbol`, `direction`, `day`, `timestamp`, `price`, `rs?`, `source`).
-  - Linkage:
-    - `positionId: string` — which position this close signal affects.
-    - `openSignalId: string` — the `signalId` of the corresponding opening signal.
-- Invariants and behavior:
-  - Signal docs are **immutable** facts: written exactly once when the decision occurs; no `updatedAt` field on the contract.
-  - Signals carry **RS and price context only** plus foreign keys; they do **not** embed position state, PnL, or running snapshots.
-  - For an open position on a day where a signal fires, that signal is always a **closing signal** and is written to the `closes` collection, not as an update on the position.
-  - Intraday/pre-close **updates** for open positions (days without signals) are represented in the `positions` documents as `PriceDatum` entries in the `updates[]` array, not as separate signal docs.
-  - Canonical `BeOpenSignalDoc` / `BeCloseSignalDoc` documents are derived **only from post-close (daily adjusted) RS** so that the entire historical dataset (backfill and live) shares a single, consistent contract. Intraday RS is persisted only in the RS time series under `pairs-data/{PAIR}` and is used for realtime UX, not for canonical signals or PnL.
 
-#### signals-daily (subcollection)
-- Path: `pairs-data/{PAIR}/signals-daily/{YYYY-MM-DD}`
-- Fields:
-  - `newOpens: Array<{ positionId, direction }>`
-  - `holds: Array<{ positionId, direction }>`
-  - `newCloses: Array<{ positionId, direction, change, pctChange }>`
-  - `pnlSummary? { long:{count,sum,sumPct}, short:{...}, total:{...} }`
-  - `appPnLSummary? { long:{count,sum,sumPct}, short:{...}, total:{...} }`
-  - `cumulativePnL? { long:{count,sum,sumPct}, short:{...}, total:{...} }`
-  - `updatedAt`
+- Identity:
+  - `signalId` is the primary key for **signal events** (e.g., `20250106-MON-QQQ-AAPL-SHORT-O` / `...-C`).
+  - `positionId` is a separate id, used as a foreign key from signals into positions.
+
+- Open signals (`opens` collection) — `BeOpenSignalDoc`:
+  - Derived from `BeSignalBase` plus `positionId`.
+  - Captures event-time RS/price context at the opening decision.
+
+- Close signals (`closes` collection) — `BeCloseSignalDoc`:
+  - Mirrors the open fields and adds `positionId` and `openSignalId` linkage.
+
+- Behavior:
+  - Signal docs are immutable, POST-only, and do not embed PnL or position snapshots.
+  - Intraday/pre-close updates for open positions are represented as `PriceDatum` entries in `BePositionDoc.updates[]`, not as additional signal docs.
+
+#### signals-daily (per-pair and root mirrors)
+
+- Per-pair path (year-sharded):
+  - `pairs-data/{PAIR}/signals-daily/{YYYY}/days/{YYYY-MM-DD}`
+
+- Root mirror path (year-sharded):
+  - `signals-daily/{YYYY}/days/{YYYY-MM-DD}`
+
+- Shared shape (`SignalsDailyDoc`):
+  - `date: string` — `YYYY-MM-DD` trading day.
+  - `newOpens: DailySignal[]`
+  - `holds: DailySignal[]`
+  - `newCloses: DailySignal[]`
+
+- `DailySignal` fields:
+  - `signalId: string`
+  - `positionId: string`
+  - `type: DailySignalType` (`OPEN` or `CLOSE`)
+  - `pair?: string` — present in the root mirror, omitted in per-pair docs.
 
 #### positions (root collection)
 - Path: `positions/{open|YYYY-closed}/items/{positionId}`

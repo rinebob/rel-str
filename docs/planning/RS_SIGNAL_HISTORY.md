@@ -55,73 +55,125 @@ Edge cases:
 
 ## Firestore Schema
 
-Pair-centric location (canonical RS lives under `pairs-data/{BASE}-{SYMBOL}`):
+All canonical RS signals and positions are pair-centric. Canonical RS series still live under `pairs-data/{BASE}-{SYMBOL}`; signals and positions are maintained in separate collections.
 
-- pairs-data/{PAIR}
-  - latest, data[] (see schema doc)
-  - signals (subcollection) — canonical position documents. Primary storage is per-pair; optionally maintain a root-level mirror (e.g., `signals-index`) for cross-pair dashboards.
-    - {positionId}
-      - pair: string ("BASE-SYMBOL")
-      - baseline: string
-      - symbol: string
-      - direction: 'long' | 'short'
-      - positionId: string — human-readable id `{PAIR}_{YYYYMMDD}_{DOW}_{direction}` (e.g., `SPY-NVDA_20251103_Mon_long`); the close is written to the same document
-      - opened: {
-          day: string (YYYY-MM-DD, UTC),
-          t: number (epoch ms),
-          source: 'pre' | 'post',
-          openPrice: number,      // target close (post.target.price) or intraday (pre)
-          basePrice: number,      // baseline corresponding price (for reference)
-          rsYesterday: number,
-          rsToday: number
-        }
-      - closed?: {
-          day: string,
-          t: number,
-          source: 'pre' | 'post',
-          closePrice: number,     // closing target price
-          basePrice: number,
-          rsYesterday: number,
-          rsToday: number,
-          change: number,         // closePrice - opened.openPrice (signed)
-          pctChange: number       // change / opened.openPrice * 100 (signed)
-        }
-      - appPnl?: {               // PnL computed from app-derived prices (per source policy)
-          openedPrice: number,
-          closedPrice?: number,
-          change?: number,
-          pctChange?: number,
-          sourceOpen: 'pre'|'post',
-          sourceClose?: 'pre'|'post'
-        }
-      - tradeMeta?: {            // FE-owned overlay lives under users/{uid}/trades; see below for schema
-          hasUserActuals?: boolean
-        }
-      - status: 'open' | 'closed'
-      - createdAt: Timestamp
-      - updatedAt: Timestamp
+### Per-pair canonical signals (opens / closes)
 
-- pairs-data/{PAIR}/signals-daily (subcollection)
-  - {day} (YYYY-MM-DD)
-    - newOpens: Array<{ positionId:string, direction:'long'|'short' }>
-    - holds: Array<{ positionId:string, direction:'long'|'short' }>
-    - newCloses: Array<{ positionId:string, direction:'long'|'short', change:number, pctChange:number }>
-    - pnlSummary?: {
-        long: { count:number, sum:number, sumPct:number },
-        short: { count:number, sum:number, sumPct:number },
-        total: { count:number, sum:number, sumPct:number }
-      }
-    - appPnLSummary?: { long:{ count:number, sum:number, sumPct:number }, short:{ count:number, sum:number, sumPct:number }, total:{ count:number, sum:number, sumPct:number } }
-    - cumulativePnL?: {  // running totals up to and including this day (pair-scoped)
-        long: { count:number, sum:number, sumPct:number },
-        short: { count:number, sum:number, sumPct:number },
-        total: { count:number, sum:number, sumPct:number }
-      }
-    - updatedAt: Timestamp
+- Path (per pair, year-sharded):
 
-Indexes:
-- Collection group `signals`: `status`, `baseline`, `symbol`, `opened.day desc`, `closed.day desc`
-- Collection group `signals-daily`: by `day`, and optionally composite `(baseline, day)` via a root mirror if a cross-pair dashboard is needed
+  - `pairs-data/{PAIR}/signals/{YYYY}/opens/{signalId}`
+  - `pairs-data/{PAIR}/signals/{YYYY}/closes/{signalId}`
+
+- Identity and ids:
+
+  - `signalId` is the primary key for individual signal events.
+    - Format: `{YYYYMMDD}-{DOW}-{PAIR}-{DIRECTION}-{KIND}`, e.g.
+      - Open: `20250106-MON-QQQ-AAPL-SHORT-O`
+      - Close: `20250106-MON-QQQ-AAPL-SHORT-C`
+    - The trailing `-O` vs `-C` distinguishes open vs close events.
+  - `positionId` is a separate id representing the lifecycle of a trade:
+    - Format (no `-O`/`-C` suffix): `20250106-MON-QQQ-AAPL-SHORT`
+    - A single `positionId` may have one open signal and one close signal.
+
+- Open signals (`opens` collection) — `BeOpenSignalDoc`:
+
+  - Extends `BeSignalBase`:
+    - `signalId: string` — Firestore doc id (see above).
+    - `baseline: string`
+    - `symbol: string`
+    - `direction: 'long' | 'short'` (`RsDirectionEnum`).
+    - `day: string` — `YYYY-MM-DD` (ET trading day).
+    - `timestamp: number` — epoch ms at decision time.
+    - `price: number` — target price at the signal.
+    - `rs: number` — RS at signal.
+    - `prevRs: number` — prior day's RS for crossing detection.
+    - `source: 'post'` (`RsSourceEnum`).
+
+  - Open-specific:
+    - `positionId: string` — position this open creates.
+
+- Close signals (`closes` collection) — `BeCloseSignalDoc`:
+
+  - Same base fields as `BeOpenSignalDoc`.
+  - Close-specific linkage:
+    - `positionId: string` — position being closed.
+    - `openSignalId: string` — `signalId` of the corresponding open.
+
+- Invariants:
+
+  - Signal docs are immutable facts; we do not use `updatedAt` on the schema contract.
+  - Signals contain only event-time RS/price context and foreign keys; they do not embed PnL or position snapshots.
+  - All canonical signals (backfill and live) are derived from **POST (adjusted close)** data.
+
+### Root positions (canonical lifecycle + PnL)
+
+- Path:
+
+  - Open positions: `positions/open/items/{positionId}`
+  - Closed positions: `positions/{YYYY}-closed/items/{positionId}`
+
+- Contract (`BePositionDoc`, see `functions/src/types/position.types.ts`):
+
+  - Identity / routing:
+    - `positionId`, `pair`, `baseline`, `symbol`, `direction`, `status`.
+
+  - Price timeline (`PriceDatum`):
+    - `role: 'entry' | 'update' | 'exit'`
+    - `day: string` — `YYYY-MM-DD` trading day.
+    - `timestamp: number` — epoch ms.
+    - `price: number`
+    - `rs?: number`
+    - `source: 'pre' | 'post'`
+    - `pnl: number`, `pct: number` — vs entry.
+
+  - Timeline fields:
+    - `entry: PriceDatum` — always `pnl=0`, `pct=0`.
+    - `updates: PriceDatum[]` — intraday/pre-close and post-close updates while open.
+    - `exit?: PriceDatum` — final close sample when the position is closed.
+
+  - Aggregated PnL:
+    - `netPnL?: number`
+    - `netPercentReturn?: number`
+
+  - No redundant last-* fields; callers derive these from `exit` or the last `update`.
+
+### Per-pair daily signals (`signals-daily` under pairs-data)
+
+- Path (per pair, year-sharded):
+
+  - `pairs-data/{PAIR}/signals-daily/{YYYY}/days/{YYYY-MM-DD}`
+
+- Shape (pair-scoped):
+
+  - `date: string` — `YYYY-MM-DD` trading day (doc id mirror).
+  - `newOpens: DailySignal[]`
+  - `holds: DailySignal[]`
+  - `newCloses: DailySignal[]`
+
+- `DailySignal` (pair-scoped):
+
+  - `signalId: string`
+  - `positionId: string`
+  - `type: DailySignalType` (`OPEN` or `CLOSE`).
+
+  Direction and detailed PnL are derived from the corresponding `BePositionDoc`.
+
+### Root daily signals mirror (`signals-daily` root)
+
+- Path (root, year-sharded):
+
+  - `signals-daily/{YYYY}/days/{YYYY-MM-DD}`
+
+- Shape:
+
+  - `date: string`
+  - `newOpens: DailySignal[]`
+  - `holds: DailySignal[]`
+  - `newCloses: DailySignal[]`
+
+  For the root mirror, each `DailySignal` also includes:
+
+  - `pair: string` — `BASE-SYMBOL` for grouping/sorting in the Decision Board.
 
 ## Data Sources for Prices
 
@@ -145,14 +197,64 @@ Process:
 
 ### Daily Realtime (PRE/POST)
 
-Per `partner-data-ready` phase:
-- For each pair updated that day, load yesterday/ today RS (phase-aware selection rubric)
-- Apply close-then-open rules
-- If opening: create new position doc and append to `signals-daily/{today}.newOpens`
-- If holding: append to `signals-daily/{today}.holds`
-- If closing: update the existing position doc and append to `signals-daily/{today}.newCloses`; compute app PnL using current source price (per source policy, PRE for realtime), update `appPnl` and `pnlSummary`
-- Update `cumulativePnL` running totals for the pair on the `{today}` document
-- Guarantee at-most-one open position per pair
+Realtime processing runs twice per trading day (PRE and POST) with distinct responsibilities:
+
+- PRE: position updates only (no canonical signals).
+- POST: signal evaluation, position finalization, daily rollups.
+
+Per pair, per phase:
+
+#### PRE (intraday / pre-close)
+
+1. Read RS/price from intraday sources for today plus canonical POST for prior days.
+2. For every currently open position in `positions/open/items`:
+   - Append a new `PriceDatum` to `updates[]` with:
+     - `role: 'update'`
+     - `source: 'pre'`
+     - `day` = today, `timestamp`, `price`, `rs`
+     - `pnl` / `pct` vs the entry.
+3. PRE never creates or closes positions and never writes canonical signal docs.
+
+#### POST (canonical signals + EOD updates)
+
+1. Read canonical POST (adjusted close) RS/price for today and prior days.
+2. Evaluate thresholds using yesterday vs today RS.
+3. For each pair, process in this order:
+
+   1. **Closes:**
+      - If an open position exists and a close condition is met:
+        - Write a `BeCloseSignalDoc` to `pairs-data/{PAIR}/signals/{YYYY}/closes/{signalId}`.
+        - Write `exit: PriceDatum` (`role: 'exit'`, `source: 'post'`) on the corresponding `BePositionDoc`.
+        - Set `netPnL` / `netPercentReturn` and move the doc from `positions/open/items` to `positions/{YYYY}-closed/items`.
+
+   2. **Holds:**
+      - For positions that remain open after close processing:
+        - Append one additional POST/EOD `PriceDatum` update:
+          - `role: 'update'`, `source: 'post'`.
+        - This marks the end-of-day snapshot distinct from any PRE updates for the same day.
+
+   3. **Opens:**
+      - For pairs that are flat after closes:
+        - If an open condition is met:
+          - Write a `BeOpenSignalDoc` to `pairs-data/{PAIR}/signals/{YYYY}/opens/{signalId}`.
+          - Create a new `BePositionDoc` in `positions/open/items` with:
+            - `entry` = POST `PriceDatum` (`role: 'entry'`, `source: 'post'`).
+            - `updates: []`.
+          - No same-day `updates` are written for that position; PRE updates begin the next trading day.
+
+4. Update per-pair `signals-daily/{year}/days/{day}`:
+
+   - `newCloses`: `DailySignal[]` for positions closed today.
+   - `holds`: `DailySignal[]` for positions that remained open after close processing.
+   - `newOpens`: `DailySignal[]` for newly opened positions.
+
+5. Rebuild or incrementally update the root mirror `signals-daily/{year}/days/{day}` with the same buckets, ensuring each entry includes `pair`.
+
+The processing order is always:
+
+1. `newCloses`
+2. `holds`
+3. `newOpens`
 
 Notes on App vs Actual PnL
 - App PnL (aka RS PnL) is computed from app-derived prices and stored on the position doc as `appPnl` and summarized under `signals-daily` (pair-scoped, backend-owned). This is immutable aside from normalizing when POST is used for historical closes.
@@ -226,28 +328,22 @@ Advantages:
 ## APIs (Backend)
 
 Callables (sketch):
-- `GetPairSignals({ baseline, symbol, limit?:number, source?:'pre'|'post', type?:'open'|'close' })`
-  - Returns recent position documents (flattened into events if requested)
-- `GetDailySignals({ day?: string, fromDay?: string, toDay?: string, limitDays?: number })`
-  - Reads the root mirror 'signals-daily/{YYYY-MM-DD}' (no per-pair fan-out).
+-- `GetPairSignals({ baseline, symbol, fromDay?:string, toDay?:string, limitDays?:number })`
+  - Returns canonical signal documents for a pair.
+  - Response:
+    - `{ opens: BeOpenSignalDoc[]; closes: BeCloseSignalDoc[] }`.
+  - Time window:
+    - If `fromDay`/`toDay` provided: inclusive range, still capped by a server-side max lookback.
+    - If omitted: defaults to last `N` days (server default, e.g. 30).
+-- `GetDailySignals({ day?: string, fromDay?: string, toDay?: string, limitDays?: number })`
+  - Reads the root mirror `signals-daily/{YYYY}/days/{YYYY-MM-DD}`.
   - Request semantics:
-    - day: return a single day (UTC).
-    - fromDay + toDay: inclusive range (UTC).
-    - limitDays: when no range is provided, return the last N days (UTC; default bounded by server, e.g., 30; UI may use 7).
-  - Response shape:
-    {
-      days: Array<{
-        day: string,
-        items: {
-          newOpens: Array<{ positionId: string; direction: 'long'|'short'; pair: string }>,
-          holds: Array<{ positionId: string; direction: 'long'|'short'; pair: string }>,
-          newCloses: Array<{ positionId: string; direction: 'long'|'short'; pair: string }>,
-        }
-      }>
-    }
-  - Notes:
-    - Day boundaries are UTC.
-    - The root mirror contains 'pair' on each entry when built via rebuildSignalsDailyMirrorImpl; the Decision Board requires 'pair' to group/sort.
+    - `day`: single UTC trading day.
+    - `fromDay` + `toDay`: inclusive UTC range.
+    - `limitDays`: last N UTC days when no explicit range is provided.
+  - Response shape (using `SignalsDailyDoc`):
+    - `{ days: SignalsDailyDoc[] }`
+    - Where each `SignalsDailyDoc` contains `date`, `newOpens`, `holds`, `newCloses` of `DailySignal` entries (including `pair` for root mirror docs).
 - `GetPnLSummary({ from, to, type:'app'|'actual', uid?:string })`
   - Returns PnL over a range grouped by direction and baseline. For `type:'app'`, reads backend summaries. For `type:'actual'`, requires `uid` and reads from `users/{uid}` overlays.
 - `UpdatePositionActuals({ positionId, executed:boolean, openedPrice?:number, closedPrice?:number, openedTime?:number, closedTime?:number, noteOpen?:string, noteClose?:string })`
