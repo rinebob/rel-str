@@ -86,6 +86,23 @@ This backend runs on Firebase/Google Cloud and focuses on computing and serving 
 
 ## 5. Key Technical Considerations
 
+* **TypeScript Contracts & Strong Typing (Functions):**
+  * All shared schemas (Firestore docs such as `pairs-data`, `signals`, `signals-daily`, `positions`, and all callable inputs/outputs) **must** be represented by exported `interface`/`type` declarations under `functions/src/types/*`.
+  * **Prohibited patterns (BE):**
+    * `const v = d.data() as any;` or `const doc = { ... } as any;` for anything written to or read from Firestore.
+    * Inline object literals used as de-facto schemas for Firestore documents or callable payloads.
+    * Using plain `Record<string, any>` where a concrete interface can be declared.
+  * Root writers/readers (e.g., `positions-manager.ts`, RS writers, signal history callables) must:
+    * Import and use the canonical interfaces from `functions/src/types/*`.
+    * Keep those interfaces in sync with `docs/planning/5_DATABASE_SCHEMA.md` and update the schema docs whenever the contract changes.
+  * Backend contracts and frontend contracts must be explicitly aligned:
+    * Functions expose TS types in `functions/src/types/*`.
+    * Frontend imports or mirrors these contracts in `src/app/core/models/*.types.ts` using `Pick`/`Omit`/`extends` rather than redefining shapes.
+  * Any new collection or callable added to the backend **must** include:
+    * A documented schema in `5_DATABASE_SCHEMA.md`.
+    * A matching interface in `functions/src/types/*`.
+    * No usage of implicit `any` in the corresponding function implementation.
+
 * **Data Model:**
   * Combined per-day RS documents hold both `pre` and `post` values: `{ t, pre?:{rs,at}, post?:{rs,at} }`.
   * Separate `signals` collection for easy feeds (`orderBy t`, filter by `type`).

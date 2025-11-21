@@ -124,6 +124,16 @@ This document outlines the frontend architecture, key technologies, and core fea
 
 ## 5. Key Technical Considerations
 
+* **TypeScript Contracts & Strong Typing:**
+  * All shared data shapes (positions, signals, pair docs, callables, settings, etc.) **must** be defined as exported `interface`/`type` declarations in `src/app/core/models/*.types.ts` (or the appropriate shared types module).
+  * **Never** rely on implicit typing or anonymous object literals for any contract that crosses a module boundary (Firestore docs, callable inputs/outputs, store state, component inputs).
+  * **Prohibited patterns (FE):**
+    * `const v = snap.data();` without a generic or explicit interface.
+    * `as any` or `as { [key:string]: any }` on shared data.
+    * Inline `{ ... }` shapes for Firestore documents or callable payloads instead of using a named interface.
+  * Firestore converters **must** use strongly-typed models (e.g., `withConverter<BackendPositionDoc>`), and the converter implementation must not introduce looser shapes than the declared contract.
+  * Frontend `PositionDoc` / `RsSignalDoc` / similar view models should be explicitly related to backend contracts via `extends`, `Pick`, or `Omit` rather than re-declaring fields.
+  * When backend contracts change, update the shared `*.types.ts` files first, then adjust usages; **do not** introduce temporary "ad hoc" fields in components or stores.
 * **Data Visualization:** Implement the heatmap and chart components efficiently to handle potentially large lists of tickers and historical data, ensuring smooth rendering and interactivity. Leverage the chosen charting library effectively. Use Angular's `Renderer2` when necessary for safe and Angular-aware manual DOM manipulation, particularly within charting or heatmap components.
 * **Performance:** Apply a range of Angular performance optimization techniques throughout development, including lazy loading of modules, production build optimizations, strategic use of `OnPush` change detection, optimizing data display (e.g., virtual scrolling for long lists), prerendering public pages, optimizing image and CSS delivery, leveraging browser caching, performing regular performance audits, and optimizing initial bundle size.
 * **Real-time Updates:** Implement robust Firestore listeners to efficiently update relevant parts of the UI (heatmap cell colors, data freshness indicators, chart bar colors) automatically when underlying data in the database changes, providing users with near real-time information regarding newly available daily data. Implement clear visual notifications, especially when viewing a chart, that new data has loaded. No direct polling of external providers from the frontend.
