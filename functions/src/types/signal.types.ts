@@ -94,7 +94,7 @@ export interface BeSignalBase {
   // RS / price context at signal time
   price: number;             // target price at signal
   rs: number;               // RS at signal
-  prevRs: number;
+  prevRs: number;           // yesterday's RS value.  will need to do a lookup
   source: RsSourceEnum;      // POST for canonical signals (per docs)
 }
 
@@ -111,29 +111,33 @@ export interface BeCloseSignalDoc extends BeSignalBase {
 
 export type BeSignalDoc = BeOpenSignalDoc | BeCloseSignalDoc;
 
-export interface DailyOpenEntry { positionId: string; direction: RsDirection }
-export interface DailyCloseEntry extends DailyOpenEntry { change: number; pctChange: number }
+export enum DailySignalType { OPEN = 'open', CLOSE = 'close' }
+
+export interface DailySignal {
+  signalId: string;
+  positionId: string;
+  type: DailySignalType;
+  // For root signals-daily mirror entries this will be populated; per-pair docs may omit it.
+  pair?: string;
+}
 
 export interface SignalsDailyDoc {
-  newOpens: DailyOpenEntry[];
-  holds: DailyOpenEntry[];
-  newCloses: DailyCloseEntry[];
-  pnlSummary?: { long: PnLTotals; short: PnLTotals; total: PnLTotals };
-  appPnLSummary?: { long: PnLTotals; short: PnLTotals; total: PnLTotals };
-  cumulativePnL?: { long: PnLTotals; short: PnLTotals; total: PnLTotals };
-  updatedAt: unknown; // Firestore Timestamp
+  // Canonical trading day for this document (YYYY-MM-DD, ET-aligned)
+  date: string;
+
+  newOpens: DailySignal[];
+  holds: DailySignal[];
+  newCloses: DailySignal[];
 }
 
 export interface PnLTotals { count: number; sum: number; sumPct: number }
 
-
-
 // Callable DTOs
 export interface GetPairSignalsRequest { baseline: string; symbol: string; limit?: number; source?: RsSource; type?: 'open' | 'close' }
-export interface GetPairSignalsResponse { items: RsPositionDoc[] }
+export interface GetPairSignalsResponse { opens: BeOpenSignalDoc[]; closes: BeCloseSignalDoc[] }
 
 export interface GetDailySignalsRequest { day?: string; fromDay?: string; toDay?: string; limitDays?: number; all?: boolean }
-export interface GetDailySignalsResponse { days: Array<{ day: string; items: SignalsDailyDoc }> }
+export interface GetDailySignalsResponse { days: SignalsDailyDoc[] }
 
 export interface GetPnLSummaryRequest { from: string; to: string; type: 'app' | 'actual'; uid?: string }
 export interface GetPnLSummaryResponse { range: { from: string; to: string }; type: 'app' | 'actual'; uid?: string; totals: { long: PnLTotals; short: PnLTotals; total: PnLTotals } }
