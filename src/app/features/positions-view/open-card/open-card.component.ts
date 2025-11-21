@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
-import { PositionDoc } from '../../../core/models/position.types';
+import { PositionDoc } from '../../../core/models/fe-position.types';
 import { TruncPipe } from '../../decision-board/truncate.pipe';
 
 @Component({

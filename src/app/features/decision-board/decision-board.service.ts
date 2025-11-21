@@ -2,11 +2,11 @@ import { Injectable, EnvironmentInjector, runInInjectionContext, inject } from '
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { BucketDocId, CallableName, Collection, Subcollection } from '../../core/common/constants';
 import { Firestore, doc, getDoc } from '@angular/fire/firestore';
-import { PositionDoc, PositionSide } from '../../core/models/position.types';
+import { PositionDoc, PositionDirection } from '../../core/models/fe-position.types';
 
 export interface DecisionBoardItem {
   positionId: string;
-  direction: PositionSide;
+  direction: PositionDirection;
   pair: string; // e.g., SPY-AAPL
   // Optional fields (typically present on newCloses)
   change?: number;

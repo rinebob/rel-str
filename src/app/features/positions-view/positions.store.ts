@@ -2,7 +2,7 @@ import { inject } from '@angular/core';
 import { signalStore, withState, withComputed, withMethods, withHooks, patchState } from '@ngrx/signals';
 import { Collection, BucketDocId, Subcollection } from '../../core/common/constants';
 import { Firestore, collection, collectionData } from '@angular/fire/firestore';
-import { PositionDoc, PositionSide } from '../../core/models/position.types';
+import { PositionDoc, PositionDirection, BackendPositionDoc } from '../../core/models/fe-position.types';
 import { MOCK_OPEN_POSITIONS } from './positions-mock-data';
 import { Observable } from 'rxjs';
 import { computed } from '@angular/core';
@@ -72,16 +72,16 @@ export const PositionsStore = signalStore(
       }),
     );
     const openLongs = computed<PositionDoc[]>(() =>
-      openList().filter((p) => (p.side ?? PositionSide.LONG) === PositionSide.LONG),
+      openList().filter((p) => (p.direction ?? PositionDirection.LONG) === PositionDirection.LONG),
     );
     const openShorts = computed<PositionDoc[]>(() =>
-      openList().filter((p) => (p.side ?? PositionSide.SHORT) === PositionSide.SHORT),
+      openList().filter((p) => (p.direction ?? PositionDirection.SHORT) === PositionDirection.SHORT),
     );
     const closedLongs = computed<PositionDoc[]>(() =>
-      closedList().filter((p) => (p.side ?? PositionSide.LONG) === PositionSide.LONG),
+      closedList().filter((p) => (p.direction ?? PositionDirection.LONG) === PositionDirection.LONG),
     );
     const closedShorts = computed<PositionDoc[]>(() =>
-      closedList().filter((p) => (p.side ?? PositionSide.SHORT) === PositionSide.SHORT),
+      closedList().filter((p) => (p.direction ?? PositionDirection.SHORT) === PositionDirection.SHORT),
     );
 
     const totalOpenPnl = computed<number>(() =>

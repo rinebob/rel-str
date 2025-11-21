@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { MatChipsModule } from '@angular/material/chips';
 import { PositionsStore } from '../positions.store';
 import { PvOpenCardComponent } from '../open-card/open-card.component';
-import { PositionSide } from '../../../core/models/position.types';
+import { PositionDirection } from '../../../core/models/fe-position.types';
 
 export enum OpenSideFilter {
   ALL = 'all',

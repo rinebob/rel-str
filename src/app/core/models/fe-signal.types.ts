@@ -1,5 +1,5 @@
 // Frontend models for RsSignalHistory
-import { PositionDoc, PositionSide } from './position.types';
+import { PositionDoc, PositionDirection } from './fe-position.types';
 
 export type RsSource = 'pre' | 'post';
 
@@ -33,7 +33,7 @@ export interface AppPnl {
 type RsSignalIdentity = Pick<PositionDoc, 'positionId' | 'pair' | 'baseline' | 'symbol' | 'status' | 'currentRs' | 'exitRs'>;
 
 export interface RsSignalDoc extends RsSignalIdentity {
-  direction: PositionSide;
+  direction: PositionDirection;
   opened: RsPositionOpened;
   closed?: RsPositionClosed;
   appPnl?: AppPnl;
