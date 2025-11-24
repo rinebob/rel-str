@@ -1,10 +1,45 @@
 import { onRequest } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import { db, FieldValue } from './firebase-admin-init';
-import { upsertRootPosition, upsertPairSignalsDaily, writePairSignalOpen, finalizePairSignalClose } from './webhooks/positions-manager';
-import { RsDirection, RsPositionOpened, RsPositionClosed, RsPositionStatus, RsDirectionEnum, RsSourceEnum, PositionState } from './types/signal.types';
+import { upsertPairSignalsDaily, appendRootPositionTimelineUpdate } from './webhooks/positions-manager';
+import { RsDirection, RsPositionOpened, RsPositionClosed, RsPositionStatus, RsSource, PositionState } from './types/signal.types';
+import { detectRsEvents } from './webhooks/rs-signals-engine';
+import { applyRsEventsForPair, type RsWriteEvent } from './webhooks/rs-events-consumer';
 import { rebuildSignalsDailyMirrorImpl } from './rs-signal-history.callables';
-import { PAIRS_COLLECTION, SIGNALS_DAILY_COLLECTION, ANALYTICS_COLLECTION, ANALYTICS_SUMMARY_DOC, POSITIONS_COLLECTION, SIGNALS_DAILY_ROOT_COLLECTION, DAYS_SUBCOLLECTION } from './webhooks/webhooks-config';
+import { PAIRS_COLLECTION, SIGNALS_DAILY_COLLECTION, ANALYTICS_COLLECTION, ANALYTICS_SUMMARY_DOC, POSITIONS_COLLECTION, SIGNALS_DAILY_ROOT_COLLECTION, DAYS_SUBCOLLECTION, RsEventKind, type RsSample, type RsThresholds, type RsEvent } from './webhooks/webhooks-config';
+
+interface BackfillPairSummary {
+  pair: string;
+  opens: number;
+  closes: number;
+}
+
+interface ArchiveDaySample {
+  day: string;
+  rsNorm: number;
+  rsRaw?: number;
+  ac?: number;
+  baseAc?: number;
+}
+
+interface ResolvePostValuesResult {
+  rsNorm?: number;
+  rsRaw?: number;
+  ac?: number;
+  baseAc?: number;
+  postKeys: string[];
+}
+
+interface ClosePriceSample {
+  day: string;
+  ac?: number;
+}
+
+interface ClosePriceComputation {
+  openPx?: number;
+  closePx?: number;
+  usedFallback: boolean;
+}
 
 // Admin-protected HTTP endpoint to backfill canonical RsSignalHistory from POST archive
 // Auth: Bearer ADMIN_BACKFILL_TOKEN (env var)
@@ -69,13 +104,13 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
       .sort();
     if (verbose) logger.info('using pair-registry pairs', { event: 'pairRegistry', count: registryPairs.length });
 
-    const resSummary: Array<{ pair: string; opens: number; closes: number }> = [];
+    const resSummary: BackfillPairSummary[] = [];
     const daysTouched = new Set<string>();
 
     for (const pair of registryPairs) {
       const [base, sym] = pair.split('-', 2);
-      // Load archive rows for range (POST-only); each archive-{YYYY} holds docs keyed by YYMMDD with fields including { day, post.{rs, rsRaw, rsNorm, ac?}, pre? }
-      const allDays: Array<{ day: string; rs: number; ac?: number; baseAc?: number }> = [];
+      // Load archive rows for range (POST-only); each archive-{YYYY} holds docs keyed by YYMMDD with fields including { day, post.{rsNorm, rsRaw, ac?, baseAc?}, pre? }
+      const allDays: ArchiveDaySample[] = [];
       const fromYear = Number(from.substring(0, 4));
       const toYear = Number(to.substring(0, 4));
       for (let y = fromYear; y <= toYear; y++) {
@@ -97,7 +132,7 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
               hasPost: !!raw?.post,
             });
           }
-          const { rs, ac, baseAc } = resolvePostValues(raw, verbose, pair, day, logger);
+          const { rsNorm, rsRaw, ac, baseAc } = resolvePostValues(raw, verbose, pair, day, logger);
           if (verbose) {
             if (ac == null || baseAc == null) {
               logger.info('price source missing for day', { event: 'priceSource', phase: 'collect', pair, day, ac, baseAc });
@@ -105,7 +140,7 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
               logger.info('price source collected for day', { event: 'priceSource', phase: 'collect', pair, day, ac, baseAc });
             }
           }
-          if (Number.isFinite(rs)) allDays.push({ day, rs: Number(rs), ac, baseAc });
+          if (Number.isFinite(rsNorm)) allDays.push({ day, rsNorm: Number(rsNorm), rsRaw, ac, baseAc });
         }
       }
 
@@ -131,16 +166,37 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
           opsInBatch = 0;
         }
       };
+      // Precompute RS events for the full series so OPEN/CLOSE state can carry across days
+      const thresholds: RsThresholds = {
+        openLong: thrOpenLong,
+        closeLong: thrCloseLong,
+        openShort: thrOpenShort,
+        closeShort: thrCloseShort,
+      };
+
+      const samples: RsSample[] = allDays.map((d) => ({
+        day: d.day,
+        rsNorm: d.rsNorm,
+        rsRaw: Number(d.rsRaw ?? d.rsNorm),
+      }));
+
+      const allEvents: RsEvent[] = detectRsEvents(samples, thresholds);
+      const eventsByDay = new Map<string, RsEvent[]>();
+      for (const ev of allEvents) {
+        const list = eventsByDay.get(ev.day) ?? [];
+        list.push(ev);
+        eventsByDay.set(ev.day, list);
+      }
 
       for (let i = 1; i < allDays.length; i++) {
         const y = allDays[i-1];
         const t = allDays[i];
-        // Crossing detection using POST-only values (yesterday vs today)
-        const crossedOpenLong = y.rs < thrOpenLong && t.rs >= thrOpenLong;
-        const crossedCloseLong = y.rs >= thrCloseLong && t.rs < thrCloseLong;
-        const crossedOpenShort = y.rs > thrOpenShort && t.rs <= thrOpenShort;
-        // Close SHORT when RS rises back above the short CLOSE threshold (compare to thrCloseShort)
-        const crossedCloseShort = y.rs <= thrCloseShort && t.rs > thrCloseShort;
+
+        const todaysEvents = eventsByDay.get(t.day) ?? [];
+        const crossedOpenLong = todaysEvents.some((e) => e.kind === RsEventKind.OPEN && e.direction === RsDirection.LONG);
+        const crossedOpenShort = todaysEvents.some((e) => e.kind === RsEventKind.OPEN && e.direction === RsDirection.SHORT);
+        const crossedCloseLong = todaysEvents.some((e) => e.kind === RsEventKind.CLOSE && e.direction === RsDirection.LONG);
+        const crossedCloseShort = todaysEvents.some((e) => e.kind === RsEventKind.CLOSE && e.direction === RsDirection.SHORT);
 
         // HOLD-FIRST: snapshot state at the start of the day and record hold carryover
         // Prevent a same-day newOpen or a same-day close from also being recorded as a hold.
@@ -166,46 +222,25 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
             batch.set(dailyRef, dailyHoldPatch, { merge: true }); opsInBatch++;
             // Mirror per-pair daily to year shard
             try { await upsertPairSignalsDaily(pair, t.day, dailyHoldPatch); } catch {}
-            // Update running PnL snapshot for open position (root positions hot/archive)
+            // Append timeline update for open position (root positions timeline)
             try {
-              const openPx = Number.isFinite((startOpened as any)?.openPrice) ? Number((startOpened as any).openPrice) : undefined;
               const curPx = Number.isFinite((t as any)?.ac) ? Number((t as any).ac) : undefined;
-              let change: number | undefined;
-              let pctChange: number | undefined;
-              if (openPx != null && curPx != null) {
-                if (direction === RsDirectionEnum.LONG) {
-                  change = Number(curPx - openPx);
-                } else if (direction === RsDirectionEnum.SHORT) {
-                  change = Number(openPx - curPx);
-                }
-                pctChange = change != null && openPx ? Number((change / openPx) * 100) : undefined;
+              if (curPx != null) {
+                await appendRootPositionTimelineUpdate({
+                  positionId: pid,
+                  day: t.day,
+                  timestamp: new Date(`${t.day}T00:00:00Z`).getTime(),
+                  price: curPx,
+                  rs: t.rsRaw,
+                  source: 'post',
+                });
               }
-              const patch: any = {
-                lastUpdateDay: t.day,
-                currentPrice: curPx,
-                currentChange: change,
-                currentPctChange: pctChange,
-                currentRs: t.rs,
-              };
-              await upsertRootPosition(pid, t.day, RsPositionStatus.OPEN, patch);
-              logger.info('position snapshot (hold)', {
-                event: 'positionSnapshot',
-                positionId: pid,
-                pair,
-                baseline: base,
-                symbol: sym,
-                side: direction === RsDirectionEnum.LONG ? 'LONG' : 'SHORT',
-                day: t.day,
-                currentPrice: patch.currentPrice ?? null,
-                currentChange: patch.currentChange ?? null,
-                currentPctChange: patch.currentPctChange ?? null,
-              });
             } catch {}
           }
           if (verbose && holdLogs < verboseCap) {
             const openPx = Number.isFinite((startOpened as any)?.openPrice) ? Number((startOpened as any).openPrice) : undefined;
             logger.info(`RS HOLD(start) ${direction ?? 'n/a'} pair=${pair} day=${t.day} posId=${pid} open=${openPx ?? 'n/a'}`,
-              { event: 'hold', phase: 'start', direction, pair, baseline: base, symbol: sym, positionId: pid, day: t.day, openPrice: openPx, rsYesterday: y.rs, rsToday: t.rs });
+              { event: 'hold', phase: 'start', direction, pair, baseline: base, symbol: sym, positionId: pid, day: t.day, openPrice: openPx, rsYesterday: y.rsNorm, rsToday: t.rsNorm });
             holdLogs++;
           }
           daysTouched.add(t.day);
@@ -215,7 +250,7 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
         // Close first if any
         if (state === PositionState.LONG && crossedCloseLong && opened) {
           const d = new Date(`${t.day}T00:00:00Z`);
-          const posId = `${String((opened as any).day).replace(/-/g,'')}-${dow(new Date((opened as any).t)).toUpperCase()}-${pair}-${String(RsDirectionEnum.LONG).toUpperCase()}`;
+          const posId = `${String((opened as any).day).replace(/-/g,'')}-${dow(new Date((opened as any).t)).toUpperCase()}-${pair}-${String(RsDirection.LONG).toUpperCase()}`;
           const { openPx, closePx, usedFallback } = computeClosePrices(opened, { day: t.day, ac: t.ac }, allDays);
           const change = (closePx != null && openPx != null) ? Number(closePx - openPx) : undefined;
           const pctChange = (change != null && openPx != null) ? Number((change / openPx) * 100) : undefined;
@@ -227,9 +262,9 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
           const closed: Partial<RsPositionClosed> = {
             day: t.day,
             t: d.getTime(),
-            source: RsSourceEnum.POST,
-            rsYesterday: y.rs,
-            rsToday: t.rs,
+            source: RsSource.POST,
+            rsYesterday: y.rsNorm,
+            rsToday: t.rsNorm,
             ...(closePx != null ? { closePrice: closePx } : {}),
             ...(change != null ? { change } : {}),
             ...(pctChange != null ? { pctChange } : {}),
@@ -243,55 +278,39 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
             const openedWithPx = { ...opened, ...(openPx != null ? { openPrice: openPx } : {}) } as Partial<RsPositionOpened>;
             const closedWithPx = { ...closed } as Partial<RsPositionClosed>;
             if (verbose) logger.info('WRITE (close long) openedWithPx/closedWithPx', { event: 'writePositionClose', pair, positionId: posId, openedWithPx, closedWithPx });
-            // Move canonical per-pair signal from open bucket to year-sharded closed bucket
-            try {
-              await finalizePairSignalClose(pair, posId, t.day, {
-                exitPrice: closePx,
-                netPnL: change ?? 0,
-                percentReturn: pctChange ?? 0,
-                closed: closedWithPx,
-              } as any);
-            } catch {}
+
+            // Canonical close signal + root position close via shared helper
+            const closeWrite: RsWriteEvent = {
+              kind: 'CLOSE',
+              pair,
+              baseline: base,
+              symbol: sym,
+              day: t.day,
+              timestamp: d.getTime(),
+              direction: RsDirection.LONG,
+              rsYesterday: y.rsNorm,
+              rsToday: t.rsNorm,
+              price: closePx!,
+              positionId: posId,
+            };
+            try { await applyRsEventsForPair([closeWrite]); } catch {}
+
             // Add close; also remove any stale hold/open entries for the same position to enforce mutual exclusivity
             const dailyClosePatchLong = {
-              newCloses: FieldValue.arrayUnion({ positionId: posId, direction: RsDirectionEnum.LONG }),
-              holds: FieldValue.arrayRemove({ positionId: posId, direction: RsDirectionEnum.LONG }),
-              newOpens: FieldValue.arrayRemove({ positionId: posId, direction: RsDirectionEnum.LONG }),
+              newCloses: FieldValue.arrayUnion({ positionId: posId, direction: RsDirection.LONG }),
+              holds: FieldValue.arrayRemove({ positionId: posId, direction: RsDirection.LONG }),
+              newOpens: FieldValue.arrayRemove({ positionId: posId, direction: RsDirection.LONG }),
               updatedAt: FieldValue.serverTimestamp(),
             } as any;
             batch.set(dailyRef, dailyClosePatchLong, { merge: true }); opsInBatch++;
             // Mirror per-pair daily to year shard
             try { await upsertPairSignalsDaily(pair, t.day, dailyClosePatchLong); } catch {}
-            // Ensure hot/archive mirror only via sharded positions buckets (no legacy flat doc)
+            // Close root position timeline and update analytics summary (no legacy flat mirror)
             try {
+
               const netPnL = change ?? 0;
               const percentReturn = pctChange ?? 0;
-              const mirrorPatch: any = {
-                entryPrice: openPx,
-                exitPrice: closePx,
-                entryDay: (opened as any)?.day,
-                exitDay: t.day,
-                netPnL,
-                percentReturn,
-                status: RsPositionStatus.CLOSED,
-                exitRs: t.rs,
-              };
-              await upsertRootPosition(posId, t.day, RsPositionStatus.CLOSED, mirrorPatch);
-              logger.info('position finalize (close:long)', {
-                event: 'positionFinalize',
-                positionId: posId,
-                pair,
-                baseline: base,
-                symbol: sym,
-                side: 'LONG',
-                exitDay: t?.day ?? null,
-                entryPrice: mirrorPatch.entryPrice ?? null,
-                exitPrice: mirrorPatch.exitPrice ?? null,
-                netPnL,
-                percentReturn,
-                exitRs: mirrorPatch.exitRs ?? null,
-              });
-              // Update global analytics summary (analytics/summary) without touching legacy flat positions docs
+
               try {
                 const summaryRef = db.collection(ANALYTICS_COLLECTION).doc(ANALYTICS_SUMMARY_DOC);
                 await summaryRef.set({
@@ -314,11 +333,11 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
                 logger.warn('analytics summary update failed (long)', { positionId: posId, message: (e as any)?.message, stack: (e as any)?.stack });
               }
             } catch (e) {
-              logger.warn('analytics summary update failed (close:long)', { positionId: posId, message: (e as any)?.message, stack: (e as any)?.stack });
+              logger.warn('position timeline close failed (long)', { positionId: posId, message: (e as any)?.message, stack: (e as any)?.stack });
             }
             if (verbose && closeLogs < verboseCap) {
-              logger.info(`RS CLOSE long pair=${pair} day=${t.day} rs=${y.rs.toFixed(3)}→${t.rs.toFixed(3)} open=${openPx ?? 'n/a'} close=${closePx ?? 'n/a'} Δ=${change ?? 'n/a'} (${pctChange ?? 'n/a'}%) posId=${posId}`,
-                { event: 'close', direction: 'long', pair, baseline: base, symbol: sym, positionId: posId, day: t.day, openPrice: openPx, closePrice: closePx, change, pctChange, rsYesterday: y.rs, rsToday: t.rs });
+              logger.info(`RS CLOSE long pair=${pair} day=${t.day} rs=${y.rsNorm.toFixed(3)}→${t.rsNorm.toFixed(3)} open=${openPx ?? 'n/a'} close=${closePx ?? 'n/a'} Δ=${change ?? 'n/a'} (${pctChange ?? 'n/a'}%) posId=${posId}`,
+                { event: 'close', direction: 'long', pair, baseline: base, symbol: sym, positionId: posId, day: t.day, openPrice: openPx, closePrice: closePx, change, pctChange, rsYesterday: y.rsNorm, rsToday: t.rsNorm });
               closeLogs++;
             }
           }
@@ -329,7 +348,7 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
         }
         if (state === PositionState.SHORT && crossedCloseShort && opened) {
           const d = new Date(`${t.day}T00:00:00Z`);
-          const posId = `${String((opened as any).day).replace(/-/g,'')}-${dow(new Date((opened as any).t)).toUpperCase()}-${pair}-${String(RsDirectionEnum.SHORT).toUpperCase()}`;
+          const posId = `${String((opened as any).day).replace(/-/g,'')}-${dow(new Date((opened as any).t)).toUpperCase()}-${pair}-${String(RsDirection.SHORT).toUpperCase()}`;
           const { openPx, closePx, usedFallback } = computeClosePrices(opened, { day: t.day, ac: t.ac }, allDays);
           const change = (closePx != null && openPx != null) ? Number(openPx - closePx) : undefined;
           const pctChange = (change != null && openPx != null) ? Number((change / openPx) * 100) : undefined;
@@ -341,9 +360,9 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
           const closed: Partial<RsPositionClosed> = {
             day: t.day,
             t: d.getTime(),
-            source: RsSourceEnum.POST,
-            rsYesterday: y.rs,
-            rsToday: t.rs,
+            source: RsSource.POST,
+            rsYesterday: y.rsNorm,
+            rsToday: t.rsNorm,
             ...(closePx != null ? { closePrice: closePx } : {}),
             ...(change != null ? { change } : {}),
             ...(pctChange != null ? { pctChange } : {}),
@@ -357,40 +376,54 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
             const openedWithPxS = { ...opened, ...(openPx != null ? { openPrice: openPx } : {}) } as Partial<RsPositionOpened>;
             const closedWithPxS = { ...closed } as Partial<RsPositionClosed>;
             if (verbose) logger.info('WRITE (close short) openedWithPx/closedWithPx', { event: 'writePositionClose', pair, positionId: posId, openedWithPx: openedWithPxS, closedWithPx: closedWithPxS });
-            // Move canonical per-pair signal from open bucket to year-sharded closed bucket
-            try {
-              await finalizePairSignalClose(pair, posId, t.day, {
-                exitPrice: closePx,
-                netPnL: change ?? 0,
-                percentReturn: pctChange ?? 0,
-                closed: closedWithPxS,
-              } as any);
-            } catch {}
+
+            // Canonical close signal + root position close via shared helper
+            const closeWriteS: RsWriteEvent = {
+              kind: 'CLOSE',
+              pair,
+              baseline: base,
+              symbol: sym,
+              day: t.day,
+              timestamp: d.getTime(),
+              direction: RsDirection.SHORT,
+              rsYesterday: y.rsNorm,
+              rsToday: t.rsNorm,
+              price: closePx!,
+              positionId: posId,
+            };
+            try { await applyRsEventsForPair([closeWriteS]); } catch {}
+
             // Add close; also remove any stale hold/open entries for the same position to enforce mutual exclusivity
             const dailyClosePatchShort = {
-              newCloses: FieldValue.arrayUnion({ positionId: posId, direction: RsDirectionEnum.SHORT }),
-              holds: FieldValue.arrayRemove({ positionId: posId, direction: RsDirectionEnum.SHORT }),
-              newOpens: FieldValue.arrayRemove({ positionId: posId, direction: RsDirectionEnum.SHORT }),
+              newCloses: FieldValue.arrayUnion({ positionId: posId, direction: RsDirection.SHORT }),
+              holds: FieldValue.arrayRemove({ positionId: posId, direction: RsDirection.SHORT }),
+              newOpens: FieldValue.arrayRemove({ positionId: posId, direction: RsDirection.SHORT }),
               updatedAt: FieldValue.serverTimestamp(),
             } as any;
             batch.set(dailyRef, dailyClosePatchShort, { merge: true }); opsInBatch++;
-            // Mirror to sharded root positions only (no legacy flat doc)
+            // Close root position timeline and update analytics summary (no legacy flat doc)
             try {
-              const mirrorPatchS: any = {
-                entryPrice: openPx,
-                exitPrice: closePx,
-                entryDay: (opened as any)?.day,
-                exitDay: t.day,
-                netPnL: change ?? 0,
-                percentReturn: pctChange ?? 0,
-                status: RsPositionStatus.CLOSED,
-                exitRs: t.rs,
-              };
-              await upsertRootPosition(posId, t.day, RsPositionStatus.CLOSED, mirrorPatchS);
-            } catch {}
+
+              const netPnL = change ?? 0;
+
+              try {
+                const summaryRef = db.collection(ANALYTICS_COLLECTION).doc(ANALYTICS_SUMMARY_DOC);
+                await summaryRef.set({
+                  totalNetPnL: FieldValue.increment(netPnL || 0),
+                  totalTrades: FieldValue.increment(1),
+                  totalWinningTrades: FieldValue.increment((netPnL || 0) > 0 ? 1 : 0),
+                  totalLosingTrades: FieldValue.increment((netPnL || 0) <= 0 ? 1 : 0),
+                  lastUpdated: FieldValue.serverTimestamp(),
+                }, { merge: true });
+              } catch (e) {
+                logger.warn('analytics summary update failed (short)', { positionId: posId, message: (e as any)?.message, stack: (e as any)?.stack });
+              }
+            } catch (e) {
+              logger.warn('position timeline close failed (short)', { positionId: posId, message: (e as any)?.message, stack: (e as any)?.stack });
+            }
             if (verbose && closeLogs < verboseCap) {
-              logger.info(`RS CLOSE short pair=${pair} day=${t.day} rs=${y.rs.toFixed(3)}→${t.rs.toFixed(3)} open=${openPx ?? 'n/a'} close=${closePx ?? 'n/a'} Δ=${change ?? 'n/a'} (${pctChange ?? 'n/a'}%) posId=${posId}`,
-                { event: 'close', direction: 'short', pair, baseline: base, symbol: sym, positionId: posId, day: t.day, openPrice: openPx, closePrice: closePx, change, pctChange, rsYesterday: y.rs, rsToday: t.rs });
+              logger.info(`RS CLOSE short pair=${pair} day=${t.day} rs=${y.rsNorm.toFixed(3)}→${t.rsNorm.toFixed(3)} open=${openPx ?? 'n/a'} close=${closePx ?? 'n/a'} Δ=${change ?? 'n/a'} (${pctChange ?? 'n/a'}%) posId=${posId}`,
+                { event: 'close', direction: 'short', pair, baseline: base, symbol: sym, positionId: posId, day: t.day, openPrice: openPx, closePrice: closePx, change, pctChange, rsYesterday: y.rsNorm, rsToday: t.rsNorm });
               closeLogs++;
             }
           }
@@ -407,68 +440,77 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
           const openedPartial: Partial<RsPositionOpened> = {
             day: t.day,
             t: d.getTime(),
-            source: RsSourceEnum.POST,
-            rsYesterday: y.rs,
-            rsToday: t.rs,
+            source: RsSource.POST,
+            rsYesterday: y.rsNorm,
+            rsToday: t.rsNorm,
             ...(Number.isFinite(t.ac) ? { openPrice: Number(t.ac) } : {}),
           };
-          if (verbose) logger.info('OPEN price (long)', { event: 'openPrice', pair, day: t.day, rsYesterday: y.rs, rsToday: t.rs, ac: t.ac, openPx });
-          const posId = `${t.day.replace(/-/g,'')}-${dow(d).toUpperCase()}-${pair}-${String(RsDirectionEnum.LONG).toUpperCase()}`;
+          if (verbose) logger.info('OPEN price (long)', { event: 'openPrice', pair, day: t.day, rsYesterday: y.rsNorm, rsToday: t.rsNorm, ac: t.ac, openPx });
+          const posId = `${t.day.replace(/-/g,'')}-${dow(d).toUpperCase()}-${pair}-${String(RsDirection.LONG).toUpperCase()}`;
           const yr = String(t.day).slice(0, 4);
           const dailyRef = db
             .collection(PAIRS_COLLECTION).doc(pair)
             .collection(SIGNALS_DAILY_COLLECTION).doc(yr)
             .collection(DAYS_SUBCOLLECTION).doc(t.day);
           if (!dryRun) {
+            if (!Number.isFinite(openPx) || (openPx as number) <= 0) {
+              if (verbose) {
+                logger.warn('OPEN skipped due to invalid price (long backfill)', {
+                  event: 'openSkip',
+                  direction: 'long',
+                  pair,
+                  day: t.day,
+                  ac: t.ac,
+                  openPx,
+                });
+              }
+            } else {
             const openedWithPx = { ...openedPartial, ...(openPx != null ? { openPrice: openPx } : {}) } as Partial<RsPositionOpened>;
             if (verbose) logger.info('WRITE (open long) openedWithPx', { event: 'writePositionOpen', pair, positionId: posId, openedWithPx });
-            // Canonical per-pair signal open: write to signals/open/items and mirror to root positions
-            try {
-              await writePairSignalOpen(pair, posId, t.day, {
-                baseline: base,
-                symbol: sym,
-                direction: RsDirectionEnum.LONG,
-                entryDay: t.day,
-                entryTimestamp: d.getTime(),
-                entryPrice: openPx,
-                opened: openedWithPx,
-              } as any);
-            } catch {}
+
+            // Canonical per-pair signal open + root position open via shared helper
+            const openWrite: RsWriteEvent = {
+              kind: 'OPEN',
+              pair,
+              baseline: base,
+              symbol: sym,
+              day: t.day,
+              timestamp: d.getTime(),
+              direction: RsDirection.LONG,
+              rsYesterday: y.rsNorm,
+              rsToday: t.rsNorm,
+              price: openPx!,
+              positionId: posId,
+            };
+            try { await applyRsEventsForPair([openWrite]); } catch (e:any) {
+              logger.warn('writePairSignalOpen failed (long backfill)', {
+                event: 'openError',
+                pair,
+                positionId: posId,
+                day: t.day,
+                message: e?.message,
+              });
+            }
             // Add open; also remove any stale hold/close entries for the same position to enforce mutual exclusivity
             const dailyOpenPatchLong = {
-              newOpens: FieldValue.arrayUnion({ positionId: posId, direction: RsDirectionEnum.LONG }),
-              holds: FieldValue.arrayRemove({ positionId: posId, direction: RsDirectionEnum.LONG }),
-              newCloses: FieldValue.arrayRemove({ positionId: posId, direction: RsDirectionEnum.LONG }),
+              newOpens: FieldValue.arrayUnion({ positionId: posId, direction: RsDirection.LONG }),
+              holds: FieldValue.arrayRemove({ positionId: posId, direction: RsDirection.LONG }),
+              newCloses: FieldValue.arrayRemove({ positionId: posId, direction: RsDirection.LONG }),
               updatedAt: FieldValue.serverTimestamp(),
             } as any;
             batch.set(dailyRef, dailyOpenPatchLong, { merge: true }); opsInBatch++;
             // Mirror per-pair daily to year shard
             try { await upsertPairSignalsDaily(pair, t.day, dailyOpenPatchLong); } catch {}
-            // Mirror to sharded root positions only (no legacy flat doc)
-            try {
-              const mirrorPatch: any = {
-                entryDay: t.day,
-                status: RsPositionStatus.OPEN,
-              };
-              if (openPx != null) {
-                mirrorPatch.entryPrice = openPx;
-                mirrorPatch.currentPrice = openPx;
-                mirrorPatch.currentChange = 0;
-                mirrorPatch.currentPctChange = 0;
-                mirrorPatch.lastUpdateDay = t.day;
-                mirrorPatch.currentRs = t.rs;
-              }
-              await upsertRootPosition(posId, t.day, RsPositionStatus.OPEN, mirrorPatch);
-            } catch {}
             if (verbose && openLogs < verboseCap) {
-              logger.info(`RS OPEN  long pair=${pair} day=${t.day} rs=${y.rs.toFixed(3)}→${t.rs.toFixed(3)} open=${openPx ?? 'n/a'} posId=${posId}`,
-                { event: 'open', direction: 'long', pair, baseline: base, symbol: sym, positionId: posId, day: t.day, openPrice: openPx, rsYesterday: y.rs, rsToday: t.rs });
+              logger.info(`RS OPEN  long pair=${pair} day=${t.day} rs=${y.rsNorm.toFixed(3)}→${t.rsNorm.toFixed(3)} open=${openPx ?? 'n/a'} posId=${posId}`,
+                { event: 'open', direction: RsDirection.LONG, pair, baseline: base, symbol: sym, positionId: posId, day: t.day, openPrice: openPx, rsYesterday: y.rsNorm, rsToday: t.rsNorm });
               openLogs++;
+            }
             }
           }
           daysTouched.add(t.day);
           const openedFullLong = openedPartial as RsPositionOpened;
-          state = PositionState.LONG; direction = RsDirectionEnum.LONG as unknown as RsDirection; opened = openedFullLong; opens += 1;
+          state = PositionState.LONG; direction = RsDirection.LONG as unknown as RsDirection; opened = openedFullLong; opens += 1;
           await commitIfNeeded();
         }
 
@@ -478,67 +520,76 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
           const openedPartial: Partial<RsPositionOpened> = {
             day: t.day,
             t: d.getTime(),
-            source: RsSourceEnum.POST,
-            rsYesterday: y.rs,
-            rsToday: t.rs,
+            source: RsSource.POST,
+            rsYesterday: y.rsNorm,
+            rsToday: t.rsNorm,
             ...(Number.isFinite(t.ac) ? { openPrice: Number(t.ac) } : {}),
           };
-          if (verbose) logger.info('OPEN price (short)', { event: 'openPrice', pair, day: t.day, rsYesterday: y.rs, rsToday: t.rs, ac: t.ac, openPx });
-          const posId = `${t.day.replace(/-/g,'')}-${dow(d).toUpperCase()}-${pair}-${String(RsDirectionEnum.SHORT).toUpperCase()}`;
+          if (verbose) logger.info('OPEN price (short)', { event: 'openPrice', pair, day: t.day, rsYesterday: y.rsNorm, rsToday: t.rsNorm, ac: t.ac, openPx });
+          const posId = `${t.day.replace(/-/g,'')}-${dow(d).toUpperCase()}-${pair}-${String(RsDirection.SHORT).toUpperCase()}`;
           const yr = String(t.day).slice(0, 4);
           const dailyRef = db
             .collection(PAIRS_COLLECTION).doc(pair)
             .collection(SIGNALS_DAILY_COLLECTION).doc(yr)
             .collection(DAYS_SUBCOLLECTION).doc(t.day);
           if (!dryRun) {
+            if (!Number.isFinite(openPx) || (openPx as number) <= 0) {
+              if (verbose) {
+                logger.warn('OPEN skipped due to invalid price (short backfill)', {
+                  event: 'openSkip',
+                  direction: RsDirection.SHORT,
+                  pair,
+                  day: t.day,
+                  ac: t.ac,
+                  openPx,
+                });
+              }
+            } else {
             const openedWithPxS = { ...openedPartial, ...(openPx != null ? { openPrice: openPx } : {}) } as Partial<RsPositionOpened>;
             if (verbose) logger.info('WRITE (open short) openedWithPxS', { event: 'writePositionOpen', pair, positionId: posId, openedWithPx: openedWithPxS });
-            // Canonical per-pair signal open: write to signals/open/items and mirror to root positions
-            try {
-              await writePairSignalOpen(pair, posId, t.day, {
-                baseline: base,
-                symbol: sym,
-                direction: RsDirectionEnum.SHORT,
-                entryDay: t.day,
-                entryTimestamp: d.getTime(),
-                entryPrice: openPx,
-                opened: openedWithPxS,
-              } as any);
-            } catch {}
+
+            // Canonical per-pair signal open + root position open via shared helper
+            const openWriteS: RsWriteEvent = {
+              kind: 'OPEN',
+              pair,
+              baseline: base,
+              symbol: sym,
+              day: t.day,
+              timestamp: d.getTime(),
+              direction: RsDirection.SHORT,
+              rsYesterday: y.rsNorm,
+              rsToday: t.rsNorm,
+              price: openPx!,
+              positionId: posId,
+            };
+            try { await applyRsEventsForPair([openWriteS]); } catch (e:any) {
+              logger.warn('writePairSignalOpen failed (short backfill)', {
+                event: 'openError',
+                pair,
+                positionId: posId,
+                day: t.day,
+                message: e?.message,
+              });
+            }
             const dailyOpenPatchShort = {
-              newOpens: FieldValue.arrayUnion({ positionId: posId, direction: RsDirectionEnum.SHORT }),
-              holds: FieldValue.arrayRemove({ positionId: posId, direction: RsDirectionEnum.SHORT }),
-              newCloses: FieldValue.arrayRemove({ positionId: posId, direction: RsDirectionEnum.SHORT }),
+              newOpens: FieldValue.arrayUnion({ positionId: posId, direction: RsDirection.SHORT }),
+              holds: FieldValue.arrayRemove({ positionId: posId, direction: RsDirection.SHORT }),
+              newCloses: FieldValue.arrayRemove({ positionId: posId, direction: RsDirection.SHORT }),
               updatedAt: FieldValue.serverTimestamp(),
             } as any;
             batch.set(dailyRef, dailyOpenPatchShort, { merge: true }); opsInBatch++;
             // Mirror per-pair daily to year shard
             try { await upsertPairSignalsDaily(pair, t.day, dailyOpenPatchShort); } catch {}
-            // Mirror to sharded root positions only (no legacy flat doc)
-            try {
-              const mirrorPatchS: any = {
-                entryDay: t.day,
-                status: RsPositionStatus.OPEN,
-              };
-              if (openPx != null) {
-                mirrorPatchS.entryPrice = openPx;
-                mirrorPatchS.currentPrice = openPx;
-                mirrorPatchS.currentChange = 0;
-                mirrorPatchS.currentPctChange = 0;
-                mirrorPatchS.lastUpdateDay = t.day;
-                mirrorPatchS.currentRs = t.rs;
-              }
-              await upsertRootPosition(posId, t.day, RsPositionStatus.OPEN, mirrorPatchS);
-            } catch {}
             if (verbose && openLogs < verboseCap) {
-              logger.info(`RS OPEN  short pair=${pair} day=${t.day} rs=${y.rs.toFixed(3)}→${t.rs.toFixed(3)} open=${openPx ?? 'n/a'} posId=${posId}`,
-                { event: 'open', direction: 'short', pair, baseline: base, symbol: sym, positionId: posId, day: t.day, openPrice: openPx, rsYesterday: y.rs, rsToday: t.rs });
+              logger.info(`RS OPEN  short pair=${pair} day=${t.day} rs=${y.rsNorm.toFixed(3)}→${t.rsNorm.toFixed(3)} open=${openPx ?? 'n/a'} posId=${posId}`,
+                { event: 'open', direction: RsDirection.SHORT, pair, baseline: base, symbol: sym, positionId: posId, day: t.day, openPrice: openPx, rsYesterday: y.rsNorm, rsToday: t.rsNorm });
               openLogs++;
+            }
             }
           }
           daysTouched.add(t.day);
           const openedFullShort = openedPartial as RsPositionOpened;
-          state = PositionState.SHORT; direction = RsDirectionEnum.SHORT as unknown as RsDirection; opened = openedFullShort; opens += 1;
+          state = PositionState.SHORT; direction = RsDirection.SHORT as unknown as RsDirection; opened = openedFullShort; opens += 1;
           await commitIfNeeded();
         }
 
@@ -575,9 +626,21 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
   }
 });
 
-function resolvePostValues(raw: any, verbose: boolean, pair: string, day: string, logger: any): { rs?: number; ac?: number; baseAc?: number; postKeys: string[] } {
+function resolvePostValues(
+  raw: any,
+  verbose: boolean,
+  pair: string,
+  day: string,
+  logger: any,
+): ResolvePostValuesResult {
   const post: any = raw?.post ?? {};
-  const rs = Number.isFinite(post?.rs) ? Number(post.rs) : undefined;
+  const rsNorm = Number.isFinite(post?.rsNorm)
+    ? Number(post.rsNorm)
+    : (Number.isFinite(post?.rs) ? Number(post.rs) : undefined);
+
+  const rsRaw = Number.isFinite(post?.rsRaw)
+    ? Number(post.rsRaw)
+    : undefined;
   const postKeys = Object.keys(post || {});
 
   // When verbose, log the shape of raw.post and a tiny preview of values to surface upstream mapping issues.
@@ -625,19 +688,21 @@ function resolvePostValues(raw: any, verbose: boolean, pair: string, day: string
     });
   }
 
-  // STRICT: fail fast if either field is missing; include chosen keys and available keys for quick wiring.
-  if (ac == null || baseAc == null) {
-    throw new Error(`Missing price fields in raw.post for ${pair} day=${day}; expected post.${PRICE_PATH} and post.${BASE_PRICE_PATH}. postKeys=${JSON.stringify(postKeys)}`);
+  // STRICT: fail fast if RS fields are missing; include available keys for quick wiring.
+  if (!Number.isFinite(rsNorm) || !Number.isFinite(rsRaw)) {
+    throw new Error(
+      `Missing RS fields in raw.post for ${pair} day=${day}; expected post.rsNorm/post.rs and post.rsRaw. postKeys=${JSON.stringify(postKeys)}`,
+    );
   }
 
-  return { rs, ac, baseAc, postKeys };
+  return { rsNorm: Number(rsNorm), rsRaw: Number(rsRaw), ac, baseAc, postKeys };
 }
 
 function computeClosePrices(
   opened: Partial<RsPositionOpened> | undefined,
-  t: { day: string; ac?: number },
-  _allDays: Array<{ day: string; ac?: number }>,
-): { openPx?: number; closePx?: number; usedFallback: boolean } {
+  t: ClosePriceSample,
+  _allDays: ClosePriceSample[],
+): ClosePriceComputation {
   // STRICT: No fallback. Only use captured opened.openPrice and today's t.ac
   const openPx = Number.isFinite((opened as any)?.openPrice) ? Number((opened as any).openPrice) : undefined;
   const closePx = Number.isFinite(t.ac) ? Number(t.ac) : undefined;

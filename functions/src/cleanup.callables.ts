@@ -1,7 +1,7 @@
 import { onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { db, FieldValue } from './firebase-admin-init';
-import { PAIRS_COLLECTION, POSITIONS_COLLECTION, SIGNALS_DAILY_ROOT_COLLECTION, SILENCE_ADMIN_INFO, SIGNALS_DAILY_COLLECTION, OPEN_BUCKET_ID, DAYS_SUBCOLLECTION, SIGNALS_COLLECTION, ITEMS_SUBCOLLECTION, YEAR_BUCKET_KIND, COLLECTION_KIND_POSITIONS } from './webhooks/webhooks-config';
+import { PAIRS_COLLECTION, POSITIONS_COLLECTION, SIGNALS_DAILY_ROOT_COLLECTION, SILENCE_ADMIN_INFO, SIGNALS_DAILY_COLLECTION, OPEN_BUCKET_ID, DAYS_SUBCOLLECTION, SIGNALS_COLLECTION, ITEMS_SUBCOLLECTION, YEAR_BUCKET_KIND, COLLECTION_KIND_POSITIONS, SIGNALS_OPENS_SUBCOLLECTION, SIGNALS_CLOSES_SUBCOLLECTION } from './webhooks/webhooks-config';
 import { upsertPairSignalsDaily } from './webhooks/positions-manager';
 
 /**
@@ -238,16 +238,29 @@ export const purgePairSignalsAll = onCall(
           try { await base.doc(OPEN_BUCKET_ID).delete(); } catch {}
         } catch {}
       }
-      // Delete all year-sharded items for the range
+      // Delete all year-sharded signal subcollections (opens/closes) for the range
       for (let y = fromYear; y <= toYear; y++) {
-        const items = base.doc(String(y)).collection('items');
-        const ysnap = await items.select().get();
-        let ybatch = db.batch(); let yops = 0;
-        for (const it of ysnap.docs) {
-          ybatch.delete(items.doc(it.id)); yops++; deletedYearItems++;
-          if (yops >= 400) { await ybatch.commit(); ybatch = db.batch(); yops = 0; }
+        const yearDoc = base.doc(String(y));
+        
+        // Delete year-sharded opens
+        const opensCol = yearDoc.collection(SIGNALS_OPENS_SUBCOLLECTION);
+        const osnap = await opensCol.select().get();
+        let obatch = db.batch(); let oops = 0;
+        for (const it of osnap.docs) {
+          obatch.delete(opensCol.doc(it.id)); oops++; deletedYearItems++;
+          if (oops >= 400) { await obatch.commit(); obatch = db.batch(); oops = 0; }
         }
-        if (yops > 0) { await ybatch.commit(); }
+        if (oops > 0) { await obatch.commit(); }
+
+        // Delete year-sharded closes
+        const closesCol = yearDoc.collection(SIGNALS_CLOSES_SUBCOLLECTION);
+        const csnap = await closesCol.select().get();
+        let cbatch = db.batch(); let cops = 0;
+        for (const it of csnap.docs) {
+          cbatch.delete(closesCol.doc(it.id)); cops++; deletedYearItems++;
+          if (cops >= 400) { await cbatch.commit(); cbatch = db.batch(); cops = 0; }
+        }
+        if (cops > 0) { await cbatch.commit(); }
         if (removeContainers) {
           try { await base.doc(String(y)).delete(); } catch {}
         }
@@ -307,7 +320,7 @@ export const purgeMisShardedPositionItems = onCall(
 /**
  * Admin: backfillPairSignalsDailyShards
  * For each pair and day in range, if legacy flat per-pair `signals-daily/{day}` exists, mirror it
- * into year shard `signals-daily/{YYYY}/days/{day}` and (if in hot horizon) `signals-daily/hot/days/{day}`.
+ * into year shard `signals-daily/{YYYY}/days/{day}`.
  * Params: { from: 'YYYY-MM-DD', to: 'YYYY-MM-DD', pairs?: string[] }
  */
 export const backfillPairSignalsDailyShards = onCall(
