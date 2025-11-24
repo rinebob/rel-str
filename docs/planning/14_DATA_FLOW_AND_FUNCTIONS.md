@@ -16,6 +16,8 @@
     - Fetch: `fetchDailyBarsRaw(baseline|target, days, limit)`.
     - Compute: `buildPhaseSeries(baseBars, targetBars, phase, baseline, target)`.
     - Persist: `writeUnifiedSeries(baseline, target, phase, series, baseBars, targetBars)`.
+    - Detect RS events: build `RsSample[]` and run `rs-signals-engine.detectRsEvents(samples, thresholds)`.
+    - Map events to writes: build `RsWriteEvent[]` and call `rs-events-consumer.applyRsEventsForPair(events)` to write canonical signals and positions.
     - PRE & POST: calls `positions-manager.updateOpenPositionsForPair(pairId, latestDay, latestTargetClose)` to update `positions/open/items/*` snapshot fields (`currentPrice`, `currentChange`, `currentPctChange`).
     - POST: calls `positions-manager.finalizeClosedPositionsForPair(pairId, latestDay)` to persist close data into per-pair signals and root positions (`exitPrice`, `exitDay`, `exitIso`, `netPnL`, `percentReturn`, and `status: closed`).
   - Helpers: `forEachWithConcurrency`, `resolveRunContext`.
@@ -44,6 +46,18 @@
 
 - File: `functions/src/webhooks/registry.ts`
   - `listRegisteredPairs`
+  
+- File: `functions/src/webhooks/rs-signal-detector.ts`
+  - `detectDailySignalsForPairDay(rsYesterday, rsToday, thresholds)`
+    - Pure helper that decides, for a single day step, whether RS crossed thresholds to trigger an OPEN and/or CLOSE, and in which direction.
+
+- File: `functions/src/webhooks/rs-signals-engine.ts`
+  - `detectRsEvents(samples, thresholds)`
+    - Walks ordered RS samples with a small FSM and emits logical OPEN / HOLD / CLOSE events over time.
+
+- File: `functions/src/webhooks/rs-events-consumer.ts`
+  - `applyRsEventsForPair(events)`
+    - Consumes OPEN/CLOSE events and performs Firestore writes for canonical signals (`pairs-data/{PAIR}/signals`) and root positions/timelines (`positions/{open|YYYY-closed}/items/{positionId}`).
     - Source of truth for which pairs are active; feeds `processDataReadyRunV2` and admin recomputes.
 
 ## Backend: Admin/Backfill Utilities (Manual)

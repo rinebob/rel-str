@@ -216,6 +216,7 @@ Canonical RS store (unchanged). FE reads `latest` for ranking and `data[]` for s
 - Behavior:
   - Signal docs are immutable, POST-only, and do not embed PnL or position snapshots.
   - Intraday/pre-close updates for open positions are represented as `PriceDatum` entries in `BePositionDoc.updates[]`, not as additional signal docs.
+  - All canonical open/close signals are produced by the shared RS engine (`functions/src/webhooks/rs-signals-engine.ts#detectRsEvents`) and written via the events consumer (`functions/src/webhooks/rs-events-consumer.ts#applyRsEventsForPair`).
 
 #### signals-daily (per-pair and root mirrors)
 
@@ -270,6 +271,7 @@ Canonical RS store (unchanged). FE reads `latest` for ranking and `data[]` for s
     - `netPercentReturn?: number` — final realized percent return; usually equals `exit.pct` when present.
   - We do **not** store redundant `lastPrice`/`lastRs`/`lastTimestamp` fields; callers derive the latest state from `exit` (if present) or from the last element in `updates`.
   - The canonical contract intentionally omits `createdAt`/`updatedAt` user-facing fields; lifecycle timing is inferred from the price timeline itself. Firestore system timestamps may still exist for operational/debugging use but are not part of the schema contract.
+  - Root position docs and their timelines are written from RS events by `rs-events-consumer.applyRsEventsForPair`, which keeps live and backfill paths in sync.
 
 #### Live Production Sharding Update (Closed vs Currently-Open)
 To ensure clear separation between historical (closed) positions and currently open ones, and to prevent accidental pollution of currently open positions with historical data, we are adopting the following naming and write semantics for live production runs:

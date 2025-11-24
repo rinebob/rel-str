@@ -61,6 +61,7 @@ Related docs:
 ### 3) Signals History View
 - Collection group `signals` with facets: baseline, symbol, direction, status, source, day range.
 - Timeline or compact table mode, open Pair Detail on click.
+ - Data source: canonical open/close signals emitted by the RS engine (`rs-signals-engine.detectRsEvents`) and written by the events consumer (`rs-events-consumer.applyRsEventsForPair`).
 
 ### 4) Trades Analytics View
 - KPIs: total/win rate/avg PnL/total PnL; breakdowns by baseline, direction, regime.
