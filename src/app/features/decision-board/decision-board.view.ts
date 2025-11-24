@@ -23,9 +23,9 @@ export class DecisionBoardViewComponent implements OnInit {
     this.store.daysDesc().map((d) => ({
       day: d.day,
       items: {
-        newOpens: [...d.items.newOpens].sort((a, b) => a.pair.localeCompare(b.pair)),
-        holds: [...d.items.holds].sort((a, b) => a.pair.localeCompare(b.pair)),
-        newCloses: [...d.items.newCloses].sort((a, b) => a.pair.localeCompare(b.pair)),
+        newOpens: [...d.items.newOpens].sort((a, b) => (a?.pair ?? '').localeCompare(b?.pair ?? '')),
+        holds: [...d.items.holds].sort((a, b) => (a?.pair ?? '').localeCompare(b?.pair ?? '')),
+        newCloses: [...d.items.newCloses].sort((a, b) => (a?.pair ?? '').localeCompare(b?.pair ?? '')),
       },
     }))
   );

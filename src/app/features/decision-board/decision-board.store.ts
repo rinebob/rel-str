@@ -33,7 +33,15 @@ export const DecisionBoardStore = signalStore(
     withState(initialState),
     withComputed((store) => {
         // Define local computeds and return them, avoiding referencing them via store inside this block
-        const daysDesc = computed<DecisionBoardDay[]>(() => [...store.days()].sort((a, b) => b.day.localeCompare(a.day)));
+        const daysDesc = computed<DecisionBoardDay[]>(() => {
+            const list = [...store.days()];
+            return list.sort((a, b) => {
+                const ad = a?.day ?? '';
+                const bd = b?.day ?? '';
+                return bd.localeCompare(ad);
+            });
+        });
+
         const latestDay = computed<string | undefined>(() => daysDesc().at(0)?.day);
         const hasAnyItems = computed<boolean>(() => {
             const days = store.days();
@@ -56,7 +64,13 @@ export const DecisionBoardStore = signalStore(
         const svc = inject(DecisionBoardService);
 
         async function enrichLatestDay(days: DecisionBoardDay[]) {
-            const latest = [...days].sort((a, b) => b.day.localeCompare(a.day))[0];
+            const latest = [...days]
+                .sort((a, b) => {
+                    const ad = a?.day ?? '';
+                    const bd = b?.day ?? '';
+                    return bd.localeCompare(ad);
+                })[0];
+
             if (!latest) { patchState(store, { positions: {}, latestRs: {} }); return; }
             const items = [...latest.items.newCloses, ...latest.items.holds, ...latest.items.newOpens];
             const positionIds = items.map((i) => i.positionId).filter(Boolean);
