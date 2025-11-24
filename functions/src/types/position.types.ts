@@ -1,7 +1,7 @@
 // types/position.types.ts
 // Canonical types for root positions documents in Firestore.
 
-import type { RsDirectionEnum, RsPositionStatus, PriceDatum } from './signal.types';
+import type { RsDirection, RsPositionStatus, PriceDatum } from './signal.types';
 
 export interface BePositionDoc {
   // Identity & routing
@@ -9,7 +9,7 @@ export interface BePositionDoc {
   pair: string;
   baseline: string;
   symbol: string;
-  direction: RsDirectionEnum; // LONG | SHORT
+  direction: RsDirection; // LONG | SHORT
   status: RsPositionStatus;   // 'open' | 'closed'
 
   // Price timeline

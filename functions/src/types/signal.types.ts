@@ -1,12 +1,9 @@
 // types/rs-signal.types.ts
 // Canonical types for RS signals and related backend contracts
 
-export type RsDirection = 'long' | 'short';
-export type RsSource = 'pre' | 'post';
-
 // Prefer importing these enums for value safety instead of scattering string literals.
-export enum RsDirectionEnum { LONG = 'long', SHORT = 'short' }
-export enum RsSourceEnum { PRE = 'pre', POST = 'post' }
+export enum RsDirection { LONG = 'long', SHORT = 'short' }
+export enum RsSource { PRE = 'pre', POST = 'post' }
 
 // Internal processing state for generators/readers that implement a simple FSM.
 export enum PositionState { FLAT = 'flat', LONG = 'long', SHORT = 'short' }
@@ -27,7 +24,7 @@ export interface PriceDatum {
   rs?: number;
 
   // Source of this sample (PRE covers intraday / pre-close; POST for EOD)
-  source?: RsSourceEnum;
+  source?: RsSource;
 
   // PnL metrics vs the original entry at this moment
   pnl: number;        // absolute PnL
@@ -85,7 +82,7 @@ export interface BeSignalBase {
   symbol: string;            // e.g. AAPL
 
   // Classification
-  direction: RsDirectionEnum; // LONG | SHORT
+  direction: RsDirection; // LONG | SHORT
 
   // Time of the signal (decision time, ET-aligned)
   day: string;               // YYYY-MM-DD
@@ -95,7 +92,7 @@ export interface BeSignalBase {
   price: number;             // target price at signal
   rs: number;               // RS at signal
   prevRs: number;           // yesterday's RS value.  will need to do a lookup
-  source: RsSourceEnum;      // POST for canonical signals (per docs)
+  source: RsSource;      // POST for canonical signals (per docs)
 }
 
 export interface BeOpenSignalDoc extends BeSignalBase {
@@ -111,7 +108,11 @@ export interface BeCloseSignalDoc extends BeSignalBase {
 
 export type BeSignalDoc = BeOpenSignalDoc | BeCloseSignalDoc;
 
-export enum DailySignalType { OPEN = 'open', CLOSE = 'close' }
+export enum DailySignalType {
+  OPEN = 'open',   // canonical open signal event for the position
+  CLOSE = 'close', // canonical close signal event for the position
+  HOLD = 'hold',   // no new signal today; position remained open on this day
+}
 
 export interface DailySignal {
   signalId: string;

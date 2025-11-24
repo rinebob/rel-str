@@ -14,7 +14,9 @@ import {
   COLLECTION_KIND_POSITIONS,
   yearClosedOf,
 } from './webhooks-config';
-import { RsPositionStatus, RsDirectionEnum } from '../types/signal.types';
+import { RsPositionStatus, RsDirection, DailySignalType, BeOpenSignalDoc, BeCloseSignalDoc, RsSource, PriceDatumRole } from '../types/signal.types';
+import type { BePositionDoc } from '../types/position.types';
+import type { PriceDatum } from '../types/signal.types';
 
 /**
  * Update all OPEN positions for the specified pair with current daily snapshot fields.

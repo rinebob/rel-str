@@ -17,6 +17,7 @@
  * and shared type definitions used across modules.
  */
 import { PartnerInterval } from '../partner-proxy';
+import { RsDirection } from '../types/signal.types';
 
 /**
  * Canonical Cloud Function names for warning events. Keep stable for UI filters.
