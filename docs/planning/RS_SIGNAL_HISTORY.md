@@ -18,10 +18,10 @@ This document defines the thresholds, state machine, Firestore schema, processin
 - Position price fields are standardized:
   - `opened.openPrice` (was `opened.price`)
   - `closed.closePrice` (was `closed.price`)
-- Daily rollups use kebab-case collection name `signals-daily` under each pair doc and an optional root mirror `signals-daily/` for cross-pair aggregation.
-- Trades and analytics are written at top level collections:
-  - `trades/{positionId}` with entry/exit timestamps and prices, plus human-readable `entryDay/exitDay` and `entryIso/exitIso`.
-  - `analytics/summary` maintains `{ totalNetPnL, totalTrades, totalWinningTrades, totalLosingTrades, avgNetPnL, lastUpdated }`.
+- Daily rollups use kebab-case collection name `signals-daily` under each pair doc and a year-sharded root mirror `signals-daily/{YYYY}/days/{YYYY-MM-DD}` for cross-pair aggregation.
+- Canonical lifecycle and aggregates are written to:
+  - `positions/{open|YYYY-closed}/items/{positionId}` for position timelines and PnL (`BePositionDoc`).
+  - `analytics/summary` for global aggregates `{ totalNetPnL, totalTrades, totalWinningTrades, totalLosingTrades, avgNetPnL, lastUpdated }`.
 - Backfill is an admin-protected HTTP function, requires `Authorization: Bearer local-admin`, and processes only registry pairs over a requested day range.
 
 ## Thresholds and Semantics
@@ -186,14 +186,16 @@ All canonical RS signals and positions are pair-centric. Canonical RS series sti
 ### Historical Backfill (admin)
 
 Input: existing POST RS series from per-year archives under `pairs-data/{PAIR}/archive-YYYY/*`.
-Process:
+Process (as built):
 - Enumerate pairs from `pair-registry/*` (ignore request `pairs`).
-- Iterate days in ascending order (POST only)
-- Maintain current position state per pair (flat/long/short)
-- For each day, evaluate close-then-open rules vs thresholds and write signals accordingly
-- For open/hold positions with no closing event, add to `signals-daily/{day}.holds`
-- Compute PnL at close and update the same position document
-- Idempotency: re-running backfill should upsert by deterministic `positionId` (e.g., `{PAIR}_{YYYYMMDD}_{DOW}_{direction}`) and overwrite with consistent data
+- Load all archive docs for the range and build a single `RsSample[]` per pair.
+- Run the shared RS engine `detectRsEvents(samples, thresholds)` once per pair to emit `RsEvent` OPEN/CLOSE/HOLD events.
+- For each OPEN/CLOSE, build `RsWriteEvent` records and call `applyRsEventsForPair` so that backfill and live share one canonical writer for:
+  - per-pair signal docs under `pairs-data/{PAIR}/signals/{YYYY}/opens|closes/*`
+  - root positions under `positions/{open|YYYY-closed}/items/{positionId}`
+- For open/hold positions with no closing event on a day, update `pairs-data/{PAIR}/signals-daily/{YYYY}/days/{day}.holds`.
+- Compute PnL at close and persist it on the same `BePositionDoc` (and analytics summary).
+- Idempotency: re-running backfill upserts by deterministic `positionId` (`{YYYYMMDD}-{DOW}-{PAIR}-{DIRECTION}`) and overwrites with consistent data.
 
 ### Daily Realtime (PRE/POST)
 

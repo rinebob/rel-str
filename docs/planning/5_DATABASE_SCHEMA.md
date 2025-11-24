@@ -272,21 +272,20 @@ Canonical RS store (unchanged). FE reads `latest` for ranking and `data[]` for s
   - The canonical contract intentionally omits `createdAt`/`updatedAt` user-facing fields; lifecycle timing is inferred from the price timeline itself. Firestore system timestamps may still exist for operational/debugging use but are not part of the schema contract.
 
 #### Live Production Sharding Update (Closed vs Currently-Open)
-
 To ensure clear separation between historical (closed) positions and currently open ones, and to prevent accidental pollution of currently open positions with historical data, we are adopting the following naming and write semantics for live production runs:
 
-- Terminology update (positions and per-pair signals only; signals-daily not part of this change):
-  - Year shard document ids will be suffixed with `-closed`.
+- Terminology update (positions only; per-pair signals remain year-sharded with explicit `opens`/`closes` subcollections):
+  - Open positions will be stored under `positions/open/items/{positionId}`.
+    - Example: `positions/open/items/{positionId}` (only open positions).
+  - Closed position year shard document ids will be suffixed with `-closed`.
     - Example: `positions/{YYYY}-closed/items/{positionId}` instead of `positions/{YYYY}/items/*`.
-    - Example: `pairs-data/{PAIR}/signals/{YYYY}-closed/items/{positionId}` instead of `.../signals/{YYYY}/items/*`.
-  - The former `hot` buckets are renamed to `open`.
-  - Example: `positions/open/items/{positionId}` (only open positions).
-  - Example: `pairs-data/{PAIR}/signals/open/items/{positionId}` (only open per-pair signals/positions).
-
-Constants (shared in code under `webhooks-config.ts`):
-- `OPEN_BUCKET_ID = 'open'`
-- `CLOSED_YEAR_SUFFIX = '-closed'`
-- `ITEMS_SUBCOLLECTION = 'items'`
+  - Per-pair signals are written under year docs with explicit opens/closes subcollections:
+    - `pairs-data/{PAIR}/signals/{YYYY}/opens/{signalId}`
+    - `pairs-data/{PAIR}/signals/{YYYY}/closes/{signalId}`
+- Constants (shared in code under `webhooks-config.ts`):
+  - `OPEN_BUCKET_ID = 'open'`
+  - `CLOSED_YEAR_SUFFIX = '-closed'`
+  - `ITEMS_SUBCOLLECTION = 'items'`
 
 Implementation notes:
 - Position management helpers are centralized in `functions/src/webhooks/positions-manager.ts`.
@@ -294,12 +293,11 @@ Implementation notes:
 
 - Live-run write semantics (per-pair signals → positions):
   - Opening signal (LONG or SHORT):
-    - Create a new doc in `pairs-data/{PAIR}/signals/open/items/{positionId}` with entry fields.
-    - Create/merge `positions/open/items/{positionId}` with the same entry snapshot.
+    - Write a `BeOpenSignalDoc` to `pairs-data/{PAIR}/signals/{YYYY}/opens/{signalId}` (with `positionId`).
+    - Create/merge the corresponding `BePositionDoc` under `positions/open/items/{positionId}`.
   - Closing signal:
-    - Update the corresponding `.../signals/open/items/{positionId}` doc with exit fields and PnL.
-    - Copy that final doc to `pairs-data/{PAIR}/signals/{YYYY}-closed/items/{positionId}` and then delete it from `.../open/items`.
-    - Mirror the same move at root: update `positions/open/items/{positionId}`, then write to `positions/{YYYY}-closed/items/{positionId}` and delete from `.../open/items`.
+    - Write a `BeCloseSignalDoc` to `pairs-data/{PAIR}/signals/{YYYY}/closes/{signalId}`.
+    - Update the corresponding root position in `positions/open/items/{positionId}` with `exit` and net PnL, then move it to `positions/{YYYY}-closed/items/{positionId}` and delete the open copy.
 
 - Migration considerations:
   - Use existing purge callables to delete legacy/non-conforming roots, and run backfill to rebuild per-pair signals and root positions into `open` and `{YYYY}-closed` structures. No rename callables are required.

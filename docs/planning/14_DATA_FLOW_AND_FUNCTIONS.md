@@ -3,8 +3,9 @@
 ## Overview
 - Trigger: Partner publishes "data-ready" to Pub/Sub.
 - Orchestrator: `processDataReadyRunV2` consumes event, iterates registered pairs, fetches bars, computes RS, writes per-pair data, and updates open positions' snapshots on PRE and POST phases (target state; currently implemented on POST only).
-- Aggregation: Automatic step in the pipeline rebuilds the root `signals-daily/{day}` mirror during `processDataReadyRunV2` (target state). Admin/backfill jobs can also rebuild or repair mirrors on demand.
-  - Note: If code has not yet been updated, mirror rebuild may currently occur only via admin utilities; this doc reflects the intended end state.
+- Aggregation:
+  - **Live/POST:** `processPairLive` performs a best-effort same-day rebuild of the root mirror `signals-daily/{YYYY}/days/{YYYY-MM-DD}` for `latestDay` via `rebuildSignalsDailyMirrorImpl`, scoped to the processed pair.
+  - **Admin/backfill:** `rs-signal-history.backfill.ts`, `rs-signal-history.callables.ts`, and `admin-tasks.ts` provide range-based rebuild/repair utilities (e.g., `rebuildSignalsDailyMirror*`, `cleanPairDailyPnL`, composed flows).
 
 ## Backend: Automatic Pipeline (Real-time)
 - File: `functions/src/webhooks/partner-webhooks.ts`
@@ -69,28 +70,30 @@ References for deeper context:
 ## RsSignalHistory: Aggregation & UI Feed
 - File: `functions/src/rs-signal-history.callables.ts`
   - `rebuildSignalsDailyMirror` / `rebuildSignalsDailyMirrorRange`
-    - Reads per-pair `pairs-data/{PAIR}/signals-daily/{day}`
-    - Writes root `signals-daily/{day}` mirror with `{ newOpens, holds, newCloses }`.
+    - Read per-pair `pairs-data/{PAIR}/signals-daily/{YYYY}/days/{YYYY-MM-DD}`.
+    - Write root mirror `signals-daily/{YYYY}/days/{YYYY-MM-DD}` with `{ newOpens, holds, newCloses }` (each entry includes `pair`).
   - `getDailySignals`
-    - Reads root `signals-daily/{day}` mirror → payload for Decision Board.
+    - Reads the year-sharded root mirror `signals-daily/{YYYY}/days/{YYYY-MM-DD}` → payload for the Decision Board.
   - `getPairSignalsWithActuals`, `getPositionWithActuals`, `getPnLSummary`, `updatePositionActuals` (aux flows).
 
 ## Firestore Touchpoints
 - `partner-events/{id}`: run status/metrics.
 - `pair-registry/{BASELINE}-{TARGET}`: registry membership.
 - `pairs-data/{PAIR}`: RS unified series and latest.
-- `pairs-data/{PAIR}/signals/{positionId}`: canonical positions.
-- `pairs-data/{PAIR}/signals-daily/{day}`: per-pair daily events.
-- `signals-daily/{day}`: root mirror (Decision Board feed).
-- `positions/{positionId}`: authoritative position snapshots.
-  - OPEN/HOLD: `currentPrice`, `currentChange`, `currentPctChange`, `lastUpdateDay`.
-  - CLOSED: `exitPrice`, `exitDay`, `exitIso`, `netPnL`, `percentReturn`, `status: closed`.
+- `pairs-data/{PAIR}/signals/{YYYY}/opens|closes/{signalId}`: canonical OPEN/CLOSE signal docs.
+- `pairs-data/{PAIR}/signals-daily/{YYYY}/days/{YYYY-MM-DD}`: per-pair daily events (`newOpens`, `holds`, `newCloses`).
+- `signals-daily/{YYYY}/days/{YYYY-MM-DD}`: root daily mirror (Decision Board feed) aggregated across pairs.
+- `positions/{open|YYYY-closed}/items/{positionId}`: authoritative position snapshots and timelines (`BePositionDoc`).
+  - OPEN: positions currently open under `positions/open/items/*`.
+  - CLOSED: immutable historical positions under `positions/{YYYY}-closed/items/*` with `exit`, `netPnL`, and `netPercentReturn`.
 - `rs-warnings/*`: warning events.
 - `/pairs-data/{PAIR}/archive-{YYYY}/{YYMMDD}`: archival shards for RS history (e.g., `/pairs-data/QQQ-AAPL/archive-2025/250108`).
 
 ### Firestore Write Map (who writes where)
 - `partner-events/{id}`: written by `partner-events.markProcessing` lifecycle calls in `processDataReadyRunV2`.
 - `pairs-data/{PAIR}`: written by `pairs-writer.writeUnifiedSeries` during `processPairLive`.
+- `positions/{open|YYYY-closed}/items/{positionId}`:
+  - OPEN: written by `updateOpenPositionsForPair` (PRE and POST) with `currentPrice/currentChange/currentPctChange`.
 - `positions/{positionId}`:
   - OPEN/HOLD: written by `updateOpenPositionsForPair` (PRE and POST) with `currentPrice/currentChange/currentPctChange`.
   - CLOSED: written by `finalizeClosedPositionsForPair` (POST) with `exitPrice`, `exitDay/exitIso`, `netPnL`, `percentReturn`, `status: closed`.
