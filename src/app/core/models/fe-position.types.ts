@@ -63,6 +63,8 @@ export interface PositionDoc extends BackendPositionDoc {
   currentPrice?: number;
   currentChange?: number;
   currentPctChange?: number;
+  rawChange?: number;
+  rawPctChange?: number;
   lastUpdateDay?: string;   // YYYY-MM-DD
   currentRs?: number;       // canonical RS while OPEN
 

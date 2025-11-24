@@ -34,14 +34,25 @@ export async function updateOpenPositionsForPair(pairId: string, latestDay: stri
     const side = v?.side as RsDirection; // LONG | SHORT
     const entryPx = Number(v?.entryPrice);
     const curPx = Number(latestTargetClose);
-    const change = Number.isFinite(entryPx)
+
+    const rawChange = Number.isFinite(entryPx) ? Number(curPx - entryPx) : undefined;
+    const rawPct = Number.isFinite(entryPx) && entryPx !== 0 && rawChange != null
+      ? Number((rawChange / entryPx) * 100)
+      : undefined;
+
+    const pnlChange = Number.isFinite(entryPx)
       ? (side === RsDirection.SHORT ? Number(entryPx - curPx) : Number(curPx - entryPx))
       : undefined;
-    const pct = Number.isFinite(entryPx) && entryPx !== 0 && change != null ? Number((change / entryPx) * 100) : undefined;
+    const pnlPct = Number.isFinite(entryPx) && entryPx !== 0 && pnlChange != null
+      ? Number((pnlChange / entryPx) * 100)
+      : undefined;
+
     const patch: any = {
       currentPrice: curPx,
-      ...(change != null ? { currentChange: change } : {}),
-      ...(pct != null ? { currentPctChange: pct } : {}),
+      ...(pnlChange != null ? { currentChange: pnlChange } : {}),
+      ...(pnlPct != null ? { currentPctChange: pnlPct } : {}),
+      ...(rawChange != null ? { rawChange } : {}),
+      ...(rawPct != null ? { rawPctChange: rawPct } : {}),
       lastUpdateDay: latestDay,
       currentRs: latestRs,
       updatedAt: FieldValue.serverTimestamp(),
