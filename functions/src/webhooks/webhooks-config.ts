@@ -69,15 +69,49 @@ export const REFRESH_STATUS_DOC = 'refresh-status';
 
 /** Signals subcollection name under each pair doc. */
 export const SIGNALS_COLLECTION = 'signals';
+export const SIGNALS_OPENS_SUBCOLLECTION = 'opens';
+export const SIGNALS_CLOSES_SUBCOLLECTION = 'closes';
+
+// RS signal thresholds for live/open-close detection
+export const RS_OPEN_LONG_THRESHOLD = 0.8;
+export const RS_CLOSE_LONG_THRESHOLD = 0.8;
+export const RS_OPEN_SHORT_THRESHOLD = 0.2;
+export const RS_CLOSE_SHORT_THRESHOLD = 0.2;
+
+/** Minimal RS sample used by the RS engine (normalized + raw RS per day). */
+export interface RsSample {
+  day: string;      // YYYY-MM-DD
+  rsNorm: number;   // normalized RS used for thresholds
+  rsRaw: number;    // raw RS (e.g., post.rsRaw)
+}
+
+/** Logical RS event kinds emitted by the engine. */
+export enum RsEventKind {
+  HOLD = 'HOLD',
+  OPEN = 'OPEN',
+  CLOSE = 'CLOSE',
+}
+
+/** Logical RS event over time as positions move between FLAT/LONG/SHORT. */
+export interface RsEvent {
+  kind: RsEventKind;
+  day: string;
+  direction?: RsDirection;
+}
+
+/** Thresholds for the RS engine (matching RS_* constants above). */
+export interface RsThresholds {
+  openLong: number;
+  closeLong: number;
+  openShort: number;
+  closeShort: number;
+}
 
 /** Per-pair daily signals collection under each pair doc. */
 export const SIGNALS_DAILY_COLLECTION = 'signals-daily';
 
 /** Root daily mirror collection (aggregated across pairs). */
 export const SIGNALS_DAILY_ROOT_COLLECTION = 'signals-daily';
-
-/** Hot window for hot/archive sharding (days). */
-export const HOT_DAYS = Number(process.env.HOT_DAYS || 90);
 
 /** Label for year bucket kind metadata. */
 export const YEAR_BUCKET_KIND = 'year';
