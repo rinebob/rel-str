@@ -11,9 +11,12 @@ import type {
   GetPnLSummaryResponse,
   UpdatePositionActualsRequest,
   UpdatePositionActualsResponse,
-  RsPositionDoc,
+  BeOpenSignalDoc,
+  BeCloseSignalDoc,
+  SignalsDailyDoc,
 } from './types/signal.types';
-import { SIGNALS_DAILY_ROOT_COLLECTION, SIGNALS_DAILY_COLLECTION, PAIRS_COLLECTION, USERS_COLLECTION, USER_TRADES_COLLECTION, USER_PNL_DAILY_COLLECTION, ANALYTICS_COLLECTION, ANALYTICS_SUMMARY_DOC, SIGNALS_COLLECTION, DAYS_SUBCOLLECTION, ITEMS_SUBCOLLECTION } from './webhooks/webhooks-config';
+import { DailySignalType } from './types/signal.types';
+import { SIGNALS_DAILY_ROOT_COLLECTION, SIGNALS_DAILY_COLLECTION, PAIRS_COLLECTION, USERS_COLLECTION, USER_TRADES_COLLECTION, USER_PNL_DAILY_COLLECTION, ANALYTICS_COLLECTION, ANALYTICS_SUMMARY_DOC, DAYS_SUBCOLLECTION, ITEMS_SUBCOLLECTION, SIGNALS_OPENS_SUBCOLLECTION, SIGNALS_CLOSES_SUBCOLLECTION } from './webhooks/webhooks-config';
 
 /**
  * Normalize a possibly undefined or non-string value into a trimmed string.
@@ -57,19 +60,35 @@ export const getPairSignals = onCall(
     const baseline = toUpper(data.baseline);
     const symbol = toUpper(data.symbol);
     const limit = Math.max(1, Math.min(200, Number((data as any)?.limit ?? 30)));
-    if (!baseline || !symbol) return { items: [] };
+    if (!baseline || !symbol) {
+      return { opens: [], closes: [] };
+    }
 
     const pair = pairId(baseline, symbol);
     logger.info('getPairSignals', { pair, limit });
 
     try {
-      const snap = await db.collection(PAIRS_COLLECTION).doc(pair).collection(SIGNALS_COLLECTION)
-        .orderBy('opened.day', 'desc').limit(limit).get();
-      const items: RsPositionDoc[] = snap.docs.map(d => ({ id: d.id, ...d.data() } as any)) as unknown as RsPositionDoc[];
-      return { items };
+      const opensSnap = await db.collectionGroup(SIGNALS_OPENS_SUBCOLLECTION)
+        .where('baseline', '==', baseline)
+        .where('symbol', '==', symbol)
+        .orderBy('day', 'desc')
+        .limit(limit)
+        .get();
+
+      const closesSnap = await db.collectionGroup(SIGNALS_CLOSES_SUBCOLLECTION)
+        .where('baseline', '==', baseline)
+        .where('symbol', '==', symbol)
+        .orderBy('day', 'desc')
+        .limit(limit)
+        .get();
+
+      const opens: BeOpenSignalDoc[] = opensSnap.docs.map(d => ({ ...(d.data() as any) })) as BeOpenSignalDoc[];
+      const closes: BeCloseSignalDoc[] = closesSnap.docs.map(d => ({ ...(d.data() as any) })) as BeCloseSignalDoc[];
+
+      return { opens, closes };
     } catch (e: any) {
-      logger.error('getPairSignals error', { message: e?.message, pair });
-      return { items: [] };
+      logger.error('getPairSignals error', { message: e?.message, pair, baseline, symbol });
+      return { opens: [], closes: [] };
     }
   }
 );
@@ -97,14 +116,37 @@ export const getDailySignals = onCall(
     // 1) Read root mirror collection by year/day: `signals-daily/{YYYY}/days/{YYYY-MM-DD}` if present.
     // 2) If mirror missing, return empty. Pair-scoped fan-out is intentionally not implemented here.
 
-    const days: Array<{ day: string; items: any }>= [];
+    const days: SignalsDailyDoc[] = [];
     const mirrorCol = db.collection(SIGNALS_DAILY_ROOT_COLLECTION);
 
     try {
+      const coerceDaily = (id: string, raw: any): SignalsDailyDoc => {
+        const ensureArray = (val: any): any[] => (Array.isArray(val) ? val : []);
+        const mapSignals = (arr: any[], type: DailySignalType) => ensureArray(arr).map((x) => ({
+          signalId: String(x?.signalId || ''),
+          positionId: String(x?.positionId || ''),
+          pair: x?.pair ? String(x.pair) : undefined,
+          type,
+        }));
+
+        const newOpens = mapSignals(raw?.newOpens, DailySignalType.OPEN);
+        const holds = mapSignals(raw?.holds, DailySignalType.HOLD);
+        const newCloses = mapSignals(raw?.newCloses, DailySignalType.CLOSE);
+
+        return {
+          date: id,
+          newOpens,
+          holds,
+          newCloses,
+        };
+      };
+
       if (day) {
         const yr = String(day).slice(0, 4);
         const docSnap = await mirrorCol.doc(yr).collection(DAYS_SUBCOLLECTION).doc(day).get();
-        if (docSnap.exists) days.push({ day, items: docSnap.data() as any });
+        if (docSnap.exists) {
+          days.push(coerceDaily(day, docSnap.data() as any));
+        }
         return { days };
       }
 
@@ -150,7 +192,9 @@ export const getDailySignals = onCall(
         const chunk = refs.slice(i, i + MAX_CONCURRENCY);
         const snaps = await Promise.all(chunk.map(({ id, ref }) => ref.get().then(s => ({ id, snap: s }))));
         for (const { id, snap } of snaps) {
-          if (snap.exists) days.push({ day: id, items: snap.data() as any });
+          if (snap.exists) {
+            days.push(coerceDaily(id, snap.data() as any));
+          }
         }
       }
       return { days };

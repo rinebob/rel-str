@@ -20,6 +20,8 @@ import { buildPhaseSeries } from './rs-series';
 import { writeUnifiedSeries } from './pairs-writer';
 import { rebuildSignalsDailyMirrorImpl } from '../rs-signal-history.callables';
 import { listRegisteredPairs } from './registry';
+import { detectRsEvents } from './rs-signals-engine';
+import { applyRsEventsForPair, type RsWriteEvent } from './rs-events-consumer';
 import {
   toKebabRunType,
   formatPtSegment,
@@ -37,8 +39,19 @@ import {
   RsCloudFunctionName,
   APP_COLLECTION,
   REFRESH_STATUS_DOC,
+  RS_OPEN_LONG_THRESHOLD,
+  RS_CLOSE_LONG_THRESHOLD,
+  RS_OPEN_SHORT_THRESHOLD,
+  RS_CLOSE_SHORT_THRESHOLD,
+  POSITIONS_COLLECTION,
+  OPEN_BUCKET_ID,
+  ITEMS_SUBCOLLECTION,
+  RsEventKind,
+  type RsSample,
+  type RsThresholds,
 } from './webhooks-config';
-import { updateOpenPositionsForPair, upsertDailyHoldsForPair, finalizeClosedPositionsForPair } from './positions-manager';
+import { updateOpenPositionsForPair, upsertDailyHoldsForPair, finalizeClosedPositionsForPair, appendOpenPositionsTimelineForPair } from './positions-manager';
+import { RsDirection } from '../types/signal.types';
 import { RsPhase } from '../types/partner';
 import { persistWarning } from '../logging/warn';
 
@@ -228,6 +241,116 @@ export async function processPairLive(
       }
 
       await updateOpenPositionsForPair(pairId, latestDay, latestTargetClose, latestRs);
+      // On POST, detect OPEN/CLOSE signals using RS engine and write canonical opens + positions
+      if (phase === RsPhase.POST && series.length >= 2) {
+        const prev = series[series.length - 2] as any;
+        const rsYesterday = Number(prev?.rs);
+        if (Number.isFinite(rsYesterday) && Number.isFinite(latestRs)) {
+          const samples: RsSample[] = [
+            {
+              day: String(prev?.day || '').trim(),
+              rsNorm: rsYesterday,
+              rsRaw: Number((prev as any)?.rsRaw ?? rsYesterday),
+            },
+            {
+              day: latestDay,
+              rsNorm: latestRs,
+              rsRaw: Number((latest as any)?.rsRaw ?? latestRs),
+            },
+          ];
+
+          const thresholds: RsThresholds = {
+            openLong: RS_OPEN_LONG_THRESHOLD,
+            closeLong: RS_CLOSE_LONG_THRESHOLD,
+            openShort: RS_OPEN_SHORT_THRESHOLD,
+            closeShort: RS_CLOSE_SHORT_THRESHOLD,
+          };
+
+          const events = detectRsEvents(samples, thresholds);
+          const latestEvents = events.filter((e) => e.day === latestDay);
+          const openEvent = latestEvents.find((e) => e.kind === RsEventKind.OPEN);
+          const closeEvent = latestEvents.find((e) => e.kind === RsEventKind.CLOSE);
+
+          const openDir = openEvent?.direction;
+          if (openDir === RsDirection.LONG || openDir === RsDirection.SHORT) {
+            const d = new Date(`${latestDay}T00:00:00Z`);
+            const openWrite: RsWriteEvent = {
+              kind: 'OPEN',
+              pair: pairId,
+              baseline,
+              symbol: target,
+              day: latestDay,
+              timestamp: d.getTime(),
+              direction: openDir,
+              rsYesterday,
+              rsToday: latestRs,
+              price: latestTargetClose,
+            };
+            try {
+              await applyRsEventsForPair([openWrite]);
+            } catch (e: any) {
+              logger.warn('live_open_signal_failed', { pairId, baseline, target, latestDay, message: e?.message });
+            }
+          }
+
+          // Detect CLOSE signals and finalize existing positions
+          const closeDir = closeEvent?.direction;
+          if (closeDir === RsDirection.LONG || closeDir === RsDirection.SHORT) {
+            try {
+              // Find the currently open position for this pair/direction
+              const openSnap = await db
+                .collection(POSITIONS_COLLECTION).doc(OPEN_BUCKET_ID)
+                .collection(ITEMS_SUBCOLLECTION)
+                .where('pair', '==', pairId)
+                .where('direction', '==', closeDir)
+                .limit(1)
+                .get();
+
+              if (!openSnap.empty) {
+                const doc = openSnap.docs[0];
+                const positionId = doc.id;
+                const d = new Date(`${latestDay}T00:00:00Z`);
+
+                const closeWrite: RsWriteEvent = {
+                  kind: 'CLOSE',
+                  pair: pairId,
+                  baseline,
+                  symbol: target,
+                  day: latestDay,
+                  timestamp: d.getTime(),
+                  direction: closeDir,
+                  rsYesterday,
+                  rsToday: latestRs,
+                  price: latestTargetClose,
+                  positionId,
+                };
+
+                try {
+                  await applyRsEventsForPair([closeWrite]);
+                } catch (e: any) {
+                  logger.warn('live_close_signal_write_failed', { pairId, positionId, latestDay, message: e?.message });
+                }
+              } else {
+                logger.warn('live_close_signal_no_open_position', { pairId, direction: closeDir, latestDay });
+              }
+            } catch (e: any) {
+              logger.warn('live_close_signal_lookup_failed', { pairId, latestDay, message: e?.message });
+            }
+          }
+        }
+      }
+      // Append timeline updates for all open positions for this pair
+      try {
+        await appendOpenPositionsTimelineForPair(
+          pairId,
+          latestDay,
+          latestTargetClose,
+          latestRs,
+          phase === RsPhase.PRE ? 'pre' : 'post',
+        );
+      } catch {
+        // best-effort only; do not fail the run on timeline append issues
+      }
       await upsertDailyHoldsForPair(pairId, latestDay);
       try { await rebuildSignalsDailyMirrorImpl({ day: latestDay, pairs: [pairId] }); } catch {}
       // On POST, also finalize CLOSED positions for latestDay so positions docs have exit Δ/%

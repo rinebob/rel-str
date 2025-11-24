@@ -13,6 +13,8 @@ import {
   COLLECTION_KIND_SIGNALS_DAILY,
   COLLECTION_KIND_POSITIONS,
   yearClosedOf,
+  SIGNALS_OPENS_SUBCOLLECTION,
+  SIGNALS_CLOSES_SUBCOLLECTION,
 } from './webhooks-config';
 import { RsPositionStatus, RsDirection, DailySignalType, BeOpenSignalDoc, BeCloseSignalDoc, RsSource, PriceDatumRole } from '../types/signal.types';
 import type { BePositionDoc } from '../types/position.types';
@@ -29,11 +31,11 @@ export async function updateOpenPositionsForPair(pairId: string, latestDay: stri
   if (snap.empty) return;
   for (const d of snap.docs) {
     const v = d.data() as any;
-    const side = v?.side as RsDirectionEnum; // LONG | SHORT
+    const side = v?.side as RsDirection; // LONG | SHORT
     const entryPx = Number(v?.entryPrice);
     const curPx = Number(latestTargetClose);
     const change = Number.isFinite(entryPx)
-      ? (side === RsDirectionEnum.SHORT ? Number(entryPx - curPx) : Number(curPx - entryPx))
+      ? (side === RsDirection.SHORT ? Number(entryPx - curPx) : Number(curPx - entryPx))
       : undefined;
     const pct = Number.isFinite(entryPx) && entryPx !== 0 && change != null ? Number((change / entryPx) * 100) : undefined;
     const patch: any = {
@@ -50,19 +52,50 @@ export async function updateOpenPositionsForPair(pairId: string, latestDay: stri
 }
 
 /**
+ * Append timeline updates for all OPEN positions for the specified pair.
+ * This is additive: it does not change legacy flat fields, only appends PriceDatum updates.
+ */
+export async function appendOpenPositionsTimelineForPair(
+  pairId: string,
+  day: string,
+  price: number,
+  rs: number,
+  source: 'pre' | 'post',
+): Promise<void> {
+  const col = db.collection(POSITIONS_COLLECTION).doc(OPEN_BUCKET_ID).collection(ITEMS_SUBCOLLECTION);
+  const snap = await col.where('pair', '==', pairId).get();
+  if (snap.empty) return;
+  const ts = Date.now();
+  for (const d of snap.docs) {
+    const positionId = String(d.id || '').trim();
+    if (!positionId) continue;
+    try {
+      await appendRootPositionTimelineUpdate({
+        positionId,
+        day,
+        timestamp: ts,
+        price,
+        rs,
+        source,
+      });
+    } catch {
+      // best-effort; keep going for other positions
+    }
+  }
+}
+
+/**
  * Upsert daily holds for a pair for the given day based on currently OPEN positions.
- * Writes pairs-data/{pair}/signals-daily/{day}.holds = [{ positionId, direction }, ...]
+ * Writes pairs-data/{pair}/signals-daily/{day}.holds = DailySignalType.HOLD entries keyed by positionId.
  */
 export async function upsertDailyHoldsForPair(pairId: string, day: string): Promise<void> {
   const col = db.collection(POSITIONS_COLLECTION).doc(OPEN_BUCKET_ID).collection(ITEMS_SUBCOLLECTION);
   const snap = await col.where('pair', '==', pairId).get();
-  const holds: Array<{ positionId: string; direction?: string }> = [];
+  const holds: Array<{ signalId: string; positionId: string; type: DailySignalType }> = [];
   for (const d of snap.docs) {
-    const v = d.data() as any;
     const id = String(d.id);
-    const dir = v?.side as RsDirectionEnum; // LONG | SHORT
     if (!id) continue;
-    holds.push({ positionId: id, direction: dir });
+    holds.push({ signalId: id, positionId: id, type: DailySignalType.HOLD });
   }
   await upsertPairSignalsDaily(
     pairId,
@@ -135,6 +168,46 @@ export function yearOf(day: string): string {
   return String(day || '').slice(0, 4);
 }
 
+function buildSignalId(day: string, pair: string, direction: RsDirection, kind: 'O' | 'C'): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  const dow = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getUTCDay()];
+  const ymd = day.replace(/-/g, '');
+  return `${ymd}-${dow}-${pair}-${direction.toUpperCase()}-${kind}`;
+}
+
+function buildPriceDatum(args: {
+  role: PriceDatumRole;
+  day: string;
+  timestamp: number;
+  price: number;
+  rs?: number;
+  source: 'pre' | 'post';
+  entryPrice: number;
+  direction: RsDirection;
+}): PriceDatum {
+  const { role, day, timestamp, price, rs, source, entryPrice, direction } = args;
+
+  let pnl = 0;
+  if (role !== PriceDatumRole.ENTRY) {
+    const raw = direction === RsDirection.SHORT
+      ? entryPrice - price
+      : price - entryPrice;
+    pnl = Number(raw);
+  }
+  const pct = entryPrice !== 0 ? Number((pnl / entryPrice) * 100) : 0;
+
+  return {
+    role,
+    day,
+    timestamp,
+    price,
+    rs,
+    source: source as any,
+    pnl,
+    pct,
+  };
+}
+
 
 function ensureUpperSide(side: any): 'LONG' | 'SHORT' | undefined {
   const s = String(side || '').toUpperCase();
@@ -161,8 +234,6 @@ function validateOpenSignalInput(input: {
   if (!input?.positionId) reasons.push('positionId missing');
   const day = String(input?.entryDay || '');
   if (!/\d{4}-\d{2}-\d{2}/.test(day)) reasons.push('entryDay invalid');
-  if (!input?.entryIso) reasons.push('entryIso missing');
-  if (!(Number.isFinite(input?.entryTimestamp))) reasons.push('entryTimestamp invalid');
   if (!(Number.isFinite(input?.entryPrice))) reasons.push('entryPrice missing');
   return { ok: reasons.length === 0, reasons: reasons.length ? reasons : undefined };
 }
@@ -191,52 +262,47 @@ export async function writePairSignalOpen(
   const entryTimestamp = Number(entry?.entryTimestamp || entry?.opened?.t || new Date(entryIso).getTime());
   const entryPrice = Number(entry?.entryPrice || entry?.opened?.openPrice);
   if (!Number.isFinite(entryPrice) || entryPrice <= 0) throw new Error('entryPrice is required for open creation');
-  const timestampPatch = { createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() } as any;
 
-  // Per-pair signals: open/items
-  const sigOpenRef = db
+  const baseline = String(entry?.baseline || '').toUpperCase();
+  const symbol = String(entry?.symbol || '').toUpperCase();
+  const rsToday = Number(entry?.opened?.rsToday ?? Number.NaN);
+  const rsYesterday = Number(entry?.opened?.rsYesterday ?? Number.NaN);
+
+  const yr = yearOf(entryDay);
+  const dirEnum = side === 'LONG' ? RsDirection.LONG : RsDirection.SHORT;
+  const signalId = buildSignalId(entryDay, pair, dirEnum, 'O');
+
+  const signalDoc: BeOpenSignalDoc = {
+    signalId,
+    baseline,
+    symbol,
+    direction: dirEnum,
+    day: entryDay,
+    timestamp: entryTimestamp,
+    price: entryPrice,
+    rs: rsToday,
+    prevRs: rsYesterday,
+    source: RsSource.POST,
+    positionId,
+  };
+
+  const sigBase = db
     .collection(PAIRS_COLLECTION).doc(pair)
-    .collection(SIGNALS_COLLECTION).doc(OPEN_BUCKET_ID)
-    .collection(ITEMS_SUBCOLLECTION).doc(positionId);
-  const perPairDoc = {
-    pair,
-    baseline: String(entry?.baseline || ''),
-    symbol: String(entry?.symbol || ''),
-    direction: side,
-    positionId,
-    opened: {
-      day: entryDay,
-      t: entryTimestamp,
-      ...(entry?.opened?.source ? { source: entry?.opened?.source } : {}),
-      openPrice: entryPrice,
-      rsYesterday: entry?.opened?.rsYesterday,
-      rsToday: entry?.opened?.rsToday,
-    },
-    status: RsPositionStatus.OPEN,
-    ...timestampPatch,
-  } as any;
-  await sigOpenRef.set(perPairDoc, { merge: true });
+    .collection(SIGNALS_COLLECTION);
 
-  // Root positions: open/items mirror
-  const posOpenRef = db.collection(POSITIONS_COLLECTION).doc(OPEN_BUCKET_ID).collection(ITEMS_SUBCOLLECTION).doc(positionId);
-  const rootDoc = {
-    positionId,
-    pair,
-    baseline: String(entry?.baseline || ''),
-    symbol: String(entry?.symbol || ''),
-    side,
-    entryDay,
-    entryIso,
-    entryTimestamp,
-    entryPrice,
-    status: RsPositionStatus.OPEN,
-    currentPrice: entryPrice,
-    currentChange: 0,
-    currentPctChange: 0,
-    lastUpdateDay: entryDay,
-    ...timestampPatch,
-  } as any;
-  await posOpenRef.set(rootDoc, { merge: true });
+  try {
+    await sigBase.doc(yr).set(
+      { bucket: YEAR_BUCKET_KIND, year: yr, kind: 'signals', updatedAt: FieldValue.serverTimestamp() },
+      { merge: true },
+    );
+  } catch {}
+
+  const sigOpenRef = sigBase
+    .doc(yr)
+    .collection(SIGNALS_OPENS_SUBCOLLECTION)
+    .doc(signalId);
+
+  await sigOpenRef.set({ ...signalDoc, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() } as any, { merge: true });
 }
 
 export async function finalizePairSignalClose(
@@ -245,24 +311,54 @@ export async function finalizePairSignalClose(
   day: string,
   exit: Record<string, any>
 ): Promise<void> {
-  const yb = yearClosedOf(day);
-  const base = db.collection(PAIRS_COLLECTION).doc(pair).collection(SIGNALS_COLLECTION);
-  // Ensure year shard container doc exists with metadata for visibility
-  try { await base.doc(yb).set({ bucket: YEAR_BUCKET_KIND, year: yb, kind: 'signals', updatedAt: FieldValue.serverTimestamp() }, { merge: true }); } catch {}
-  const openRef = base.doc(OPEN_BUCKET_ID).collection(ITEMS_SUBCOLLECTION).doc(positionId);
-  const closedRef = base.doc(yb).collection(ITEMS_SUBCOLLECTION).doc(positionId);
-  const patch = {
-    exitPrice: Number(exit?.exitPrice ?? exit?.closed?.closePrice),
-    exitDay: day,
-    exitIso: String(exit?.exitIso ?? (exit?.closed?.day ? new Date(`${exit?.closed?.day}T00:00:00Z`).toISOString() : new Date(`${day}T00:00:00Z`).toISOString())),
-    netPnL: Number(exit?.netPnL ?? exit?.closed?.change),
-    percentReturn: Number(exit?.percentReturn ?? exit?.closed?.pctChange),
-    status: RsPositionStatus.CLOSED,
-    updatedAt: FieldValue.serverTimestamp(),
-  } as any;
-  await openRef.set(patch, { merge: true });
-  try { const snap = await openRef.get(); if (snap.exists) await closedRef.set(snap.data() as any, { merge: true }); } catch {}
-  try { await openRef.delete(); } catch {}
+  const closePrice = Number(exit?.exitPrice ?? exit?.closed?.closePrice);
+  const rsToday = Number(exit?.closed?.rsToday ?? Number.NaN);
+  const rsYesterday = Number(exit?.closed?.rsYesterday ?? Number.NaN);
+
+  const yr = yearOf(day);
+  const directionRaw = String(exit?.closed?.direction || exit?.direction || '').toUpperCase();
+  const direction = directionRaw === 'SHORT' ? RsDirection.SHORT : RsDirection.LONG;
+  const baseline = String(exit?.baseline || '').toUpperCase();
+  const symbol = String(exit?.symbol || '').toUpperCase();
+
+  const d = new Date(`${day}T00:00:00Z`);
+  const timestamp = Number(exit?.closed?.t ?? d.getTime());
+
+  const openSignalId = String(exit?.openSignalId || buildSignalId(String(exit?.closed?.day || day), pair, direction, 'O'));
+  const signalId = buildSignalId(day, pair, direction, 'C');
+
+  const closeDoc: BeCloseSignalDoc = {
+    signalId,
+    baseline,
+    symbol,
+    direction,
+    day,
+    timestamp,
+    price: closePrice,
+    rs: rsToday,
+    prevRs: rsYesterday,
+    source: RsSource.POST,
+    positionId,
+    openSignalId,
+  };
+
+  const sigBase = db
+    .collection(PAIRS_COLLECTION).doc(pair)
+    .collection(SIGNALS_COLLECTION);
+
+  try {
+    await sigBase.doc(yr).set(
+      { bucket: YEAR_BUCKET_KIND, year: yr, kind: 'signals', updatedAt: FieldValue.serverTimestamp() },
+      { merge: true },
+    );
+  } catch {}
+
+  const closesRef = sigBase
+    .doc(yr)
+    .collection(SIGNALS_CLOSES_SUBCOLLECTION)
+    .doc(signalId);
+
+  await closesRef.set({ ...closeDoc, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() } as any, { merge: true });
 }
 
 export async function upsertRootPositionOpen(
@@ -305,21 +401,24 @@ export async function finalizeRootPositionClose(
   day: string,
   exit: Record<string, any>
 ): Promise<void> {
-  const openRef = db.collection(POSITIONS_COLLECTION).doc(OPEN_BUCKET_ID).collection(ITEMS_SUBCOLLECTION).doc(positionId);
-  const yb = yearClosedOf(day);
-  const closedRef = db.collection(POSITIONS_COLLECTION).doc(yb).collection(ITEMS_SUBCOLLECTION).doc(positionId);
-  const patch = {
-    exitPrice: Number(exit?.exitPrice ?? exit?.closed?.closePrice),
-    exitDay: day,
-    exitIso: String(exit?.exitIso ?? (exit?.closed?.day ? new Date(`${exit?.closed?.day}T00:00:00Z`).toISOString() : new Date(`${day}T00:00:00Z`).toISOString())),
-    netPnL: Number(exit?.netPnL ?? exit?.closed?.change),
-    percentReturn: Number(exit?.percentReturn ?? exit?.closed?.pctChange),
-    status: RsPositionStatus.CLOSED,
-    updatedAt: FieldValue.serverTimestamp(),
-  } as any;
-  await openRef.set(patch, { merge: true });
-  try { const snap = await openRef.get(); if (snap.exists) await closedRef.set(snap.data() as any, { merge: true }); } catch {}
-  try { await openRef.delete(); } catch {}
+  const price = Number(exit?.exitPrice ?? exit?.closed?.closePrice);
+  const rawRs = Number(exit?.closed?.rsToday ?? Number.NaN);
+  const rs = Number.isFinite(rawRs) ? rawRs : undefined;
+  const ts = Number(
+    exit?.closed?.t ??
+    (() => {
+      const d = new Date(`${day}T00:00:00Z`);
+      return d.getTime();
+    })(),
+  );
+
+  await closeRootPositionTimeline({
+    positionId,
+    day,
+    timestamp: ts,
+    price,
+    rs,
+  });
 }
 
 export async function upsertPairSignalsDaily(
@@ -331,7 +430,7 @@ export async function upsertPairSignalsDaily(
   const yr = yearOf(day);
   try { await base.doc(yr).set({ bucket: YEAR_BUCKET_KIND, year: yr, kind: COLLECTION_KIND_SIGNALS_DAILY, updatedAt: FieldValue.serverTimestamp() }, { merge: true }); } catch {}
   const dayRef = base.doc(yr).collection(DAYS_SUBCOLLECTION).doc(day);
-  const data = { ...patch, updatedAt: FieldValue.serverTimestamp() };
+  const data = { ...patch, date: day, updatedAt: FieldValue.serverTimestamp() };
   await dayRef.set(data, { merge: true });
 }
 
@@ -344,7 +443,7 @@ export async function upsertRootSignalsDaily(
   // Ensure year container doc exists with metadata for visibility
   try { await base.doc(yr).set({ bucket: YEAR_BUCKET_KIND, year: yr, kind: COLLECTION_KIND_SIGNALS_DAILY, updatedAt: FieldValue.serverTimestamp() }, { merge: true }); } catch {}
   const ref = base.doc(yr).collection(DAYS_SUBCOLLECTION).doc(day);
-  const data = { ...patch, updatedAt: FieldValue.serverTimestamp() };
+  const data = { ...patch, date: day, updatedAt: FieldValue.serverTimestamp() };
   await ref.set(data, { merge: true });
 }
 
@@ -396,4 +495,163 @@ export async function upsertRootPosition(
     await closedRef.set(data, { merge: true });
     try { await openRef.delete(); } catch {}
   }
+}
+
+// ========================
+// New helpers: BePositionDoc timeline (entry/updates/exit)
+// These are additive and do not change existing behavior.
+// ========================
+
+export async function openRootPositionTimeline(args: {
+  positionId: string;
+  pair: string;
+  baseline: string;
+  symbol: string;
+  direction: RsDirection;
+  day: string;
+  timestamp: number;
+  price: number;
+  rs?: number;
+}): Promise<void> {
+  const { positionId, pair, baseline, symbol, direction, day, timestamp, price, rs } = args;
+  if (!pair || !baseline || !symbol) throw new Error('openRootPositionTimeline: missing identity fields');
+  if (!Object.values(RsDirection).includes(direction)) throw new Error('openRootPositionTimeline: invalid direction');
+  if (!Number.isFinite(price) || price <= 0) throw new Error('openRootPositionTimeline: price required');
+
+  const entryDatum = buildPriceDatum({
+    role: PriceDatumRole.ENTRY,
+    day,
+    timestamp,
+    price,
+    rs,
+    source: 'post',
+    entryPrice: price,
+    direction,
+  });
+
+  const doc: BePositionDoc = {
+    positionId,
+    pair,
+    baseline: baseline.toUpperCase(),
+    symbol: symbol.toUpperCase(),
+    direction,
+    status: RsPositionStatus.OPEN,
+    entry: entryDatum,
+    updates: [],
+  };
+
+  const ref = db
+    .collection(POSITIONS_COLLECTION)
+    .doc(OPEN_BUCKET_ID)
+    .collection(ITEMS_SUBCOLLECTION)
+    .doc(positionId);
+
+  await ref.set({ ...doc, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() } as any, {
+    merge: true,
+  });
+}
+
+export async function appendRootPositionTimelineUpdate(args: {
+  positionId: string;
+  day: string;
+  timestamp: number;
+  price: number;
+  rs?: number;
+  source: 'pre' | 'post';
+}): Promise<void> {
+  const { positionId, day, timestamp, price, rs, source } = args;
+  const openRef = db
+    .collection(POSITIONS_COLLECTION)
+    .doc(OPEN_BUCKET_ID)
+    .collection(ITEMS_SUBCOLLECTION)
+    .doc(positionId);
+
+  const snap = await openRef.get();
+  if (!snap.exists) return;
+  const cur = snap.data() as any as BePositionDoc;
+
+  const entryPrice = cur.entry.price;
+  const direction = cur.direction;
+
+  const updateDatum = buildPriceDatum({
+    role: PriceDatumRole.UPDATE,
+    day,
+    timestamp,
+    price,
+    rs,
+    source,
+    entryPrice,
+    direction,
+  });
+
+  const updates = Array.isArray(cur.updates) ? [...cur.updates, updateDatum] : [updateDatum];
+
+  await openRef.set(
+    {
+      updates,
+      updatedAt: FieldValue.serverTimestamp(),
+    } as any,
+    { merge: true },
+  );
+}
+
+export async function closeRootPositionTimeline(args: {
+  positionId: string;
+  day: string;
+  timestamp: number;
+  price: number;
+  rs?: number;
+}): Promise<void> {
+  const { positionId, day, timestamp, price, rs } = args;
+
+  const openRef = db
+    .collection(POSITIONS_COLLECTION)
+    .doc(OPEN_BUCKET_ID)
+    .collection(ITEMS_SUBCOLLECTION)
+    .doc(positionId);
+
+  const snap = await openRef.get();
+  if (!snap.exists) return;
+
+  const cur = snap.data() as any as BePositionDoc;
+  const entryPrice = cur.entry.price;
+  const direction = cur.direction;
+
+  const exitDatum = buildPriceDatum({
+    role: PriceDatumRole.EXIT,
+    day,
+    timestamp,
+    price,
+    rs,
+    source: 'post',
+    entryPrice,
+    direction,
+  });
+
+  const netPnL = exitDatum.pnl;
+  const netPercentReturn = exitDatum.pct;
+
+  const yb = yearClosedOf(day);
+  const base = db.collection(POSITIONS_COLLECTION);
+  const closedRef = base.doc(yb).collection(ITEMS_SUBCOLLECTION).doc(positionId);
+
+  const patch: Partial<BePositionDoc> = {
+    status: RsPositionStatus.CLOSED,
+    exit: exitDatum,
+    netPnL,
+    netPercentReturn,
+  };
+
+  await openRef.set({ ...patch, updatedAt: FieldValue.serverTimestamp() } as any, { merge: true });
+
+  try {
+    const latest = await openRef.get();
+    if (latest.exists) {
+      await closedRef.set(latest.data() as any, { merge: true });
+    }
+  } catch {}
+
+  try {
+    await openRef.delete();
+  } catch {}
 }
