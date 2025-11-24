@@ -50,46 +50,27 @@ export interface BackendPositionDoc {
   // Aggregated PnL
   netPnL?: number;
   netPercentReturn?: number;
-  percentReturn?: number;
-  exitRs?: number;          // canonical RS on close
-
-  // Housekeeping (Firestore timestamps)
-  createdAt?: unknown;
-  updatedAt?: unknown;
 }
 
-export interface PositionDoc {
-  // Identity / routing (more permissive FE view)
-  positionId: string;
-  pair?: string;       // e.g. SPY-AAPL
-  baseline?: string;
-  symbol?: string;
-  status?: PositionStatus;
-  direction?: PositionDirection;
-
-  // Entry / open
+export interface PositionDoc extends BackendPositionDoc {
+  // Entry / open (flattened view for UI)
   entryPrice?: number;
   entryDay?: string;        // YYYY-MM-DD (ET-aligned)
   entryIso?: string;        // ISO 8601
   entryTimestamp?: number;  // epoch ms (ET)
 
-  // Current snapshot for OPEN/HOLD
+  // Current snapshot for OPEN/HOLD (flattened)
   currentPrice?: number;
   currentChange?: number;
   currentPctChange?: number;
   lastUpdateDay?: string;   // YYYY-MM-DD
   currentRs?: number;       // canonical RS while OPEN
 
-  // Exit / close
+  // Exit / close (flattened)
   exitPrice?: number;
   exitDay?: string;         // YYYY-MM-DD
   exitIso?: string;         // ISO 8601
   exitTimestamp?: number;   // epoch ms (ET)
-  netPnL?: number;
   percentReturn?: number;
   exitRs?: number;          // canonical RS on close
-
-  // Housekeeping (Firestore timestamps)
-  createdAt?: unknown;
-  updatedAt?: unknown;
 }
