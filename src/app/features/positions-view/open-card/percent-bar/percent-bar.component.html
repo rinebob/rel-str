@@ -1,0 +1,16 @@
+<div class="pv-percent-bar">
+  <div class="pv-percent-bar__track">
+    <div class="pv-percent-bar__zero-marker"></div>
+    <div
+      class="pv-percent-bar__fill"
+      [class.pv-percent-bar__fill--positive]="isPositive()"
+      [class.pv-percent-bar__fill--negative]="!isPositive() && clampedMagnitude() > 0"
+      [style.transform]="barTransform()"
+    ></div>
+  </div>
+  <div class="pv-percent-bar__labels">
+    <span>-10%</span>
+    <span>0%</span>
+    <span>+10%</span>
+  </div>
+</div>

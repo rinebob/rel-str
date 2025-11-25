@@ -7,8 +7,102 @@
   width: 100%;
 }
 
-.pv-closed-grid__cards {
-  @include mixins.flexboxLayout(row, flex-start, stretch);
-  flex-wrap: wrap;
-  gap: mixins.rem(16);
+.pv-closed-grid__filters {
+  @include mixins.flexboxLayout(row, flex-start, center);
+  gap: mixins.rem(8);
+  font-size: mixins.rem(12);
+  width: 100%;
+}
+
+.pv-closed-grid__filters-label {
+  font-weight: 600;
+}
+
+.pv-closed-grid__filters-toggle {
+  font-size: mixins.rem(11);
+  margin-left: mixins.rem(4);
+  display: flex;
+  flex-wrap: nowrap;
+  gap: mixins.rem(4);
+  min-width: mixins.rem(480);
+  padding: mixins.rem(4);
+  border: 1px solid #999999;
+  border-radius: mixins.rem(20);
+  overflow: visible;
+}
+
+.pv-closed-grid__filters-toggle .mat-button-toggle,
+.pv-closed-grid__filters-toggle .mat-mdc-button-toggle {
+  flex: 0 0 auto;
+  border-radius: mixins.rem(16);
+  padding-inline: mixins.rem(10);
+  margin-right: mixins.rem(8);
+  border: 1px solid #666666;
+  background-color: #f7f7f7;
+  color: #444444;
+  opacity: 0.7;
+}
+
+.pv-closed-grid__filters-toggle .mat-button-toggle-checked,
+.pv-closed-grid__filters-toggle .mat-mdc-button-toggle-checked {
+  background-color: #1976d2;
+  color: #ffffff;
+  opacity: 1;
+}
+
+.pv-closed-grid__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: mixins.rem(12);
+}
+
+.pv-closed-grid__table th,
+.pv-closed-grid__table td {
+  padding: mixins.rem(6) mixins.rem(8);
+  border-bottom: 1px solid #e0e0e0;
+  vertical-align: middle;
+}
+
+.pv-closed-grid__table th {
+  text-align: left;
+  font-weight: 600;
+}
+
+// Always show sort arrows, but make inactive ones subtle
+:host ::ng-deep .pv-closed-grid__table th .mat-sort-header-arrow {
+  opacity: 0.5 !important; // ensure arrow is visible even when not sorted
+}
+
+:host ::ng-deep .pv-closed-grid__table th.mat-sort-header-sorted .mat-sort-header-arrow {
+  opacity: 1 !important;
+}
+
+.pv-closed-grid__table td:nth-child(4),
+.pv-closed-grid__table td:nth-child(5),
+.pv-closed-grid__table td:nth-child(6),
+.pv-closed-grid__table td:nth-child(7) {
+  text-align: center;
+}
+
+.pv-closed-grid__table th:nth-child(4),
+.pv-closed-grid__table th:nth-child(5),
+.pv-closed-grid__table th:nth-child(6),
+.pv-closed-grid__table th:nth-child(7) {
+  text-align: center;
+}
+
+.pv-closed-grid__cell-num {
+  text-align: center;
+}
+
+.pv-closed-grid__cell-pnl--positive {
+  color: #2e7d32;
+}
+
+.pv-closed-grid__cell-pnl--negative {
+  color: #c62828;
+}
+
+.pv-closed-grid__pagination {
+  margin-top: mixins.rem(8);
 }

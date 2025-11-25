@@ -6,6 +6,8 @@
 .pv-open-card {
   @include mixins.flexboxLayout(column, space-between, stretch);
   flex: 1 0 auto;
+  width: 100%;
+  box-sizing: border-box;
   padding: mixins.rem(16);
   border-radius: mixins.rem(12);
   border: 1px solid #e0e0e0;
@@ -13,14 +15,22 @@
   gap: mixins.rem(12);
 }
 
-.pv-open-card--profit {
+.pv-open-card--long {
   border-color: #1c6a3a;
   background: linear-gradient(90deg, #c7f3dd, #e5fbf0);
 }
 
-.pv-open-card--loss {
+.pv-open-card--short {
   border-color: #c22323;
   background: linear-gradient(90deg, #ffd5d5, #ffe9e9);
+}
+
+.pv-open-card--profit {
+  border-width: 2px;
+}
+
+.pv-open-card--loss {
+  border-width: 2px;
 }
 
 .pv-open-card__header {
@@ -97,8 +107,17 @@
 .pv-open-card__footer {
   @include mixins.flexboxLayout(row, space-between, center);
   font-size: 0.75rem;
+  margin-top: mixins.rem(8);
+  gap: mixins.rem(8);
 }
 
 .pv-open-card__details {
   @include mixins.rsButtonOne();
+  border-radius: mixins.rem(8);
+  padding: mixins.rem(4) mixins.rem(10);
+  font-size: 0.75rem;
+  background-color: #f5f5f5;
+  color: #333;
+  border-color: #d0d0d0;
+  white-space: nowrap;
 }

@@ -44,7 +44,7 @@ export class RelStrDbV2Service {
    * This minimizes initial payload for faster first render.
    * Rules mirror getPairSeriesFromArchive$ (POST for historical; POST then PRE for today).
    */
-  getPairSeriesFromArchiveWindow$(pairId: string, daysBack = 60): Observable<Array<{ date: string; value: number; norm?: number; phase?: RsPhase }>> {
+  getPairSeriesFromArchiveWindow$(pairId: string, daysBack = 60): Observable<RsSeriesPoint[]> {
     const pair = String(pairId || '').trim();
     if (!pair || !Number.isFinite(daysBack) || daysBack <= 0) return of([]);
 
@@ -56,7 +56,7 @@ export class RelStrDbV2Service {
     const currentYear = today.getUTCFullYear();
 
     return defer(() => from(this.inCtx(async () => {
-      const resultsDesc: Array<{ date: string; value: number; norm?: number; phase?: RsPhase }> = [];
+      const resultsDesc: RsSeriesPoint[] = [];
       let remaining = Math.max(1, Math.floor(daysBack));
       for (let y = currentYear; y >= START_ARCHIVE_YEAR && remaining > 0; y--) {
         try {
@@ -122,7 +122,7 @@ export class RelStrDbV2Service {
       tap(arr => console.log('[RS][Archive][Window] Series ready', { pair, len: arr.length, first: arr[0] })),
       catchError(err => {
         console.error('[RelStrDbV2Service] getPairSeriesFromArchiveWindow$ error', { pair, err });
-        return of([] as Array<{ date: string; value: number; norm?: number; phase?: RsPhase }>);
+        return of([] as RsSeriesPoint[]);
       })
     );
   }
@@ -293,14 +293,14 @@ export class RelStrDbV2Service {
    * - Historical days: use post.rs only (ignore pre)
    * - Latest day: use post.rs if present, else allow pre.rs
    */
-  getPairSeriesLive$(pairId: string): Observable<Array<{ date: string; value: number; norm?: number; phase?: RsPhase }>> {
+  getPairSeriesLive$(pairId: string): Observable<RsSeriesPoint[]> {
     return defer(() => from(this.inCtx(() => this.zone.run(() => getDoc(doc(this.firestore, `${Collection.PAIRS_DATA}/${pairId}`)))))).pipe(
       tap(() => console.log('[RS][Legacy] Fetching series for pair', pairId)),
       map(snap => {
         const data = (snap?.exists() ? (snap.data() as any) : {}) || {};
         const series: any[] = Array.isArray(data?.data) ? data.data : [];
         const latestDay: string | undefined = (data?.latest?.day as string | undefined) || (series.length ? String(series[series.length - 1]?.day || '') : undefined);
-        const out: Array<{ date: string; value: number; norm?: number; phase?: RsPhase }> = [];
+        const out: RsSeriesPoint[] = [];
         for (const row of series) {
           const day = String(row?.day ?? row?.date ?? '');
           if (!day) continue;
@@ -333,7 +333,7 @@ export class RelStrDbV2Service {
         return out;
       }),
       tap(arr => console.log('[RS][Legacy] Series ready', { pair: pairId, len: arr.length, first: arr[0] })),
-      catchError(err => { console.error('[RelStrDbV2Service] getPairSeriesLive$ error', { pairId, err }); return of([] as Array<{ date: string; value: number; norm?: number; phase?: RsPhase }>) })
+      catchError(err => { console.error('[RelStrDbV2Service] getPairSeriesLive$ error', { pairId, err }); return of([] as RsSeriesPoint[]) })
     );
   }
 
@@ -344,7 +344,7 @@ export class RelStrDbV2Service {
    * - Today (UTC): use POST if present, else PRE if present.
    * Returns same shape as getPairSeriesLive$.
    */
-  getPairSeriesFromArchive$(pairId: string): Observable<Array<{ date: string; value: number; norm?: number; phase?: RsPhase }>> {
+  getPairSeriesFromArchive$(pairId: string): Observable<RsSeriesPoint[]> {
     const pair = String(pairId || '').trim();
     if (!pair) return of([]);
 
@@ -359,7 +359,7 @@ export class RelStrDbV2Service {
     const years = Array.from({ length: currentYear - START_ARCHIVE_YEAR + 1 }, (_, i) => START_ARCHIVE_YEAR + i);
 
     return defer(() => from(this.inCtx(async () => {
-      const results: Array<{ date: string; value: number; norm?: number; phase?: RsPhase }> = [];
+      const results: RsSeriesPoint[] = [];
       let hadPermissionError = false;
       for (const y of years) {
         try {
