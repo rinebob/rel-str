@@ -99,9 +99,8 @@
   color: #222;
 }
 
-.chip--sell { background: #fdecec; color: #8a1f1f; border-color: #f5c2c2; }
-.chip--hold { background: #eef4ff; color: #294fa3; border-color: #c9d8ff; }
-.chip--buy  { background: #e8f7ee; color: #1c6a3a; border-color: #bfe8cc; }
+.chip--short { background: #fdecec; color: #8a1f1f; border-color: #f5c2c2; }
+.chip--long  { background: #e8f7ee; color: #1c6a3a; border-color: #bfe8cc; }
 
 .pair { font-weight: 600; }
 .dir { text-transform: uppercase; font-size: 0.75rem; opacity: 0.8; }

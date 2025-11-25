@@ -2,21 +2,21 @@ import { Component, OnInit, computed, inject, isDevMode } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DecisionBoardStore } from './decision-board.store';
 import { DecisionBoardItem } from './decision-board.service';
-import { PositionDoc } from '../../core/models/fe-position.types';
-import { TruncPipe } from './truncate.pipe';
+import { PositionDirection, PositionDoc } from '../../core/models/fe-position.types';
 import { Firestore, doc, setDoc } from '@angular/fire/firestore';
 import { Collection, Subcollection } from '../../core/common/constants';
 
 @Component({
   selector: 'app-decision-board-view',
   standalone: true,
-  imports: [CommonModule, TruncPipe],
+  imports: [CommonModule],
   templateUrl: './decision-board.view.html',
   styleUrls: ['./decision-board.view.scss'],
 })
 export class DecisionBoardViewComponent implements OnInit {
   readonly store = inject(DecisionBoardStore);
   private readonly fs = inject(Firestore);
+  readonly PositionDirection = PositionDirection;
 
   // Sort items within each section alphabetically by pair for display
   readonly daysSorted = computed(() =>

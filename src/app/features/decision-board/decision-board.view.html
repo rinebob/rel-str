@@ -41,17 +41,24 @@
           <ul class="cell-list">
             @for (it of day.items.newCloses; track $index) {
               @if (day.day === store.latestDay()) {
-                <li class="chip chip--sell chip--stack">
+                @let pos = store.positions()[it.positionId];
+                <li
+                  class="chip chip--stack"
+                  [class.chip--long]="(pos?.direction ?? it.direction)?.toUpperCase() === PositionDirection.LONG"
+                  [class.chip--short]="(pos?.direction ?? it.direction)?.toUpperCase() === PositionDirection.SHORT"
+                >
                   <div class="chip-row chip-row--top">
                     <span class="pair">{{ it.positionId }}</span>
-                    <span class="dir">{{ it.direction }}</span>
                   </div>
                   <div class="chip-row chip-row--meta"></div>
                 </li>
               } @else {
-                <li class="chip chip--sell">
+                <li
+                  class="chip"
+                  [class.chip--long]="it.direction?.toUpperCase() === PositionDirection.LONG"
+                  [class.chip--short]="it.direction?.toUpperCase() === PositionDirection.SHORT"
+                >
                   <span class="pair">{{ it.positionId }}</span>
-                  <span class="dir">{{ it.direction }}</span>
                 </li>
               }
             }
@@ -67,17 +74,24 @@
           <ul class="cell-list">
             @for (it of day.items.holds; track $index) {
               @if (day.day === store.latestDay()) {
-                <li class="chip chip--hold chip--stack">
+                @let pos = store.positions()[it.positionId];
+                <li
+                  class="chip chip--stack"
+                  [class.chip--long]="(pos?.direction ?? it.direction)?.toUpperCase() === PositionDirection.LONG"
+                  [class.chip--short]="(pos?.direction ?? it.direction)?.toUpperCase() === PositionDirection.SHORT"
+                >
                   <div class="chip-row chip-row--top">
                     <span class="pair">{{ it.positionId }}</span>
-                    <span class="dir">{{ it.direction }}</span>
                   </div>
                   <div class="chip-row chip-row--meta"></div>
                 </li>
               } @else {
-                <li class="chip chip--hold">
+                <li
+                  class="chip"
+                  [class.chip--long]="it.direction?.toUpperCase() === PositionDirection.LONG"
+                  [class.chip--short]="it.direction?.toUpperCase() === PositionDirection.SHORT"
+                >
                   <span class="pair">{{ it.positionId }}</span>
-                  <span class="dir">{{ it.direction }}</span>
                 </li>
               }
             }
@@ -93,17 +107,24 @@
           <ul class="cell-list">
             @for (it of day.items.newOpens; track $index) {
               @if (day.day === store.latestDay()) {
-                <li class="chip chip--buy chip--stack">
+                @let pos = store.positions()[it.positionId];
+                <li
+                  class="chip chip--stack"
+                  [class.chip--long]="(pos?.direction ?? it.direction)?.toUpperCase() === PositionDirection.LONG"
+                  [class.chip--short]="(pos?.direction ?? it.direction)?.toUpperCase() === PositionDirection.SHORT"
+                >
                   <div class="chip-row chip-row--top">
                     <span class="pair">{{ it.positionId }}</span>
-                    <span class="dir">{{ it.direction }}</span>
                   </div>
                   <div class="chip-row chip-row--meta"></div>
                 </li>
               } @else {
-                <li class="chip chip--buy">
+                <li
+                  class="chip"
+                  [class.chip--long]="it.direction?.toUpperCase() === PositionDirection.LONG"
+                  [class.chip--short]="it.direction?.toUpperCase() === PositionDirection.SHORT"
+                >
                   <span class="pair">{{ it.positionId }}</span>
-                  <span class="dir">{{ it.direction }}</span>
                 </li>
               }
             }

@@ -101,13 +101,29 @@ export class DecisionBoardService {
       const payload = res?.data as GetDailySignalsResponse | undefined;
       const days = Array.isArray(payload?.days) ? payload!.days : [];
 
-      const mapSignal = (s: DailySignalDto): DecisionBoardItem => ({
-        positionId: String(s.positionId || ''),
-        pair: s.pair ? String(s.pair) : '',
-        signalId: s.signalId ? String(s.signalId) : undefined,
-        direction: s.direction,
-        type: s.type,
-      });
+      const mapSignal = (s: DailySignalDto): DecisionBoardItem => {
+        const positionId = String(s.positionId || '');
+        const rawDir = (s as any)?.direction as PositionDirection | string | undefined;
+        let direction: PositionDirection | undefined;
+
+        if (rawDir) {
+          const up = String(rawDir).toUpperCase();
+          if (up === PositionDirection.LONG) direction = PositionDirection.LONG;
+          else if (up === PositionDirection.SHORT) direction = PositionDirection.SHORT;
+        } else {
+          const upId = positionId.toUpperCase();
+          if (upId.endsWith(`-${PositionDirection.LONG}`)) direction = PositionDirection.LONG;
+          else if (upId.endsWith(`-${PositionDirection.SHORT}`)) direction = PositionDirection.SHORT;
+        }
+
+        return {
+          positionId,
+          pair: s.pair ? String(s.pair) : '',
+          signalId: s.signalId ? String(s.signalId) : undefined,
+          direction,
+          type: s.type,
+        };
+      };
 
       const result: DecisionBoardDay[] = days.map((d) => ({
         day: d.date,
