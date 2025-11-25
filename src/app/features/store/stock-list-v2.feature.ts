@@ -212,7 +212,11 @@ export function withStockListV2Feature() {
                     });
                 }
 
-                const allDates = Array.from(dateSet.values()).sort((a, b) => a.localeCompare(b));
+                const allDates = Array.from(dateSet.values()).sort((a, b) => {
+                    const sa = a !== undefined ? String(a) : '';
+                    const sb = b !== undefined ? String(b) : '';
+                    return sa.localeCompare(sb);
+                });
                 const placeholderColor = '#cccccc';
                 for (const pair of pairs) {
                     const byDate = new Map<string, BaselineTargetRankDatum>();
