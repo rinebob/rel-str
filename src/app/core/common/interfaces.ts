@@ -9,6 +9,7 @@ export enum AppRoutes {
 	SIGNUP = 'signup',
 	CHART = 'chart',
     SYNC_CHART = 'sync-chart',
+    RS_CHART = 'rs-chart',
 	HISTORY = 'history',
     CHAT = 'chat',
 	CHART_TWO = 'chart-two',

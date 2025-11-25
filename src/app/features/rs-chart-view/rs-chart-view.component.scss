@@ -1,0 +1,23 @@
+.rs-chart-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.rs-chart-view__main {
+  flex: 1 1 auto;
+}
+
+.rs-chart-view__filmstrip {
+  display: flex;
+  flex-direction: row;
+  gap: 1rem;
+  overflow-x: auto;
+}
+
+.rs-chart-view__filmstrip-item {
+  flex: 0 0 auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+}

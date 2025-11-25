@@ -1,0 +1,35 @@
+<div class="rs-chart-view">
+    @if (mainChart(); as main) {
+        <section class="rs-chart-view__main">
+            <rs-chart
+                [id]="main.id"
+                [name]="main.config.name"
+                [config]="main.config"
+                [chartData]="main.chartData"
+                [baselineData]="main.baselineData"
+                [rsData]="main.rsData"
+                [isMain]="true"
+                [zoomEnabled]="true"
+            />
+        </section>
+    }
+
+    @if (smallCharts().length) {
+        <section class="rs-chart-view__filmstrip">
+            @for (chart of smallCharts(); track chart.id) {
+                <button class="rs-chart-view__filmstrip-item" type="button">
+                    <rs-chart
+                        [id]="chart.id"
+                        [name]="chart.config.name"
+                        [config]="chart.config"
+                        [chartData]="chart.chartData"
+                        [baselineData]="chart.baselineData"
+                        [rsData]="chart.rsData"
+                        [isMain]="false"
+                        [zoomEnabled]="false"
+                    />
+                </button>
+            }
+        </section>
+    }
+</div>
