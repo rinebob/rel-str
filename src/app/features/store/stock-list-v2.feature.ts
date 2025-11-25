@@ -162,7 +162,11 @@ export function withStockListV2Feature() {
                     perPair[pair] = arr;
                     for (const d of arr) dateSet.add(d.date);
                 }
-                const allDates = Array.from(dateSet.values()).sort((a, b) => a.localeCompare(b));
+                const allDates = Array.from(dateSet.values()).sort((a, b) => {
+                    const sa = String(a ?? '');
+                    const sb = String(b ?? '');
+                    return sa.localeCompare(sb);
+                });
 
                 // Second pass: align each pair to the union-of-dates, inserting placeholders where missing
                 const colors = rsCalcsStore.heatmapColors();

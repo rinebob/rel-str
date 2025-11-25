@@ -112,7 +112,11 @@ export class RelStrDbV2Service {
         }
       }
       // We accumulated newest-first; return ascending by date
-      return resultsDesc.sort((a, b) => a.date.localeCompare(b.date));
+      return resultsDesc.sort((a, b) => {
+        const ad = String(a?.date ?? '');
+        const bd = String(b?.date ?? '');
+        return ad.localeCompare(bd);
+      });
     }))).pipe(
       retry({ count: 2, delay: (e, i) => timer(Math.min(1500, 300 * Math.pow(2, i))) }),
       tap(arr => console.log('[RS][Archive][Window] Series ready', { pair, len: arr.length, first: arr[0] })),
@@ -321,7 +325,11 @@ export class RelStrDbV2Service {
           }
         }
         // ensure chronological order
-        out.sort((a, b) => a.date.localeCompare(b.date));
+        out.sort((a, b) => {
+          const ad = String(a?.date ?? '');
+          const bd = String(b?.date ?? '');
+          return ad.localeCompare(bd);
+        });
         return out;
       }),
       tap(arr => console.log('[RS][Legacy] Series ready', { pair: pairId, len: arr.length, first: arr[0] })),
@@ -411,7 +419,11 @@ export class RelStrDbV2Service {
       }
       const byDate = new Map<string, { date: string; value: number; norm?: number; phase?: RsPhase }>();
       for (const row of results) byDate.set(row.date, row);
-      const merged = Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
+      const merged = Array.from(byDate.values()).sort((a, b) => {
+        const ad = String(a?.date ?? '');
+        const bd = String(b?.date ?? '');
+        return ad.localeCompare(bd);
+      });
       if (merged.length === 0 && hadPermissionError) {
         // Signal outer catchError to fallback to legacy
         const err: any = new Error('permission-denied');
