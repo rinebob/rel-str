@@ -1,18 +1,20 @@
 @if (position(); as pos) {
   @let isOpen = mode() === 'open';
-  @let openChange = (pos.currentChange ?? ((pos.currentPrice ?? 0) - (pos.entryPrice ?? 0)));
+  @let openPnl = pos.currentChange ?? 0;
   @let closedPnl = pos.netPnL ?? 0;
-  @let cardPnl = isOpen ? openChange : closedPnl;
+  @let cardPnl = isOpen ? openPnl : closedPnl;
 
   <mat-card
     class="pv-open-card"
     [class.pv-open-card--profit]="cardPnl > 0"
     [class.pv-open-card--loss]="cardPnl < 0"
+    [class.pv-open-card--long]="pos.direction === Direction.LONG"
+    [class.pv-open-card--short]="pos.direction === Direction.SHORT"
   >
     <header class="pv-open-card__header">
       <div class="pv-open-card__pair">{{ pos.pair }}</div>
       <div class="pv-open-card__badges">
-        <span class="pv-open-card__badge pv-open-card__badge--side">{{ pos.side }}</span>
+        <span class="pv-open-card__badge pv-open-card__badge--side">{{ pos.direction }}</span>
         <span class="pv-open-card__badge pv-open-card__badge--status">
           @if (isOpen) { OPEN } @else { CLOSED }
         </span>
@@ -33,7 +35,10 @@
         <div class="metric">
           <div class="metric__label">Change</div>
           <div class="metric__value">
-            {{ openChange | trunc:2 }} ({{ pos.currentPctChange | trunc:2 }}%)
+            {{ (pos.rawChange ?? ((pos.currentPrice ?? 0) - (pos.entryPrice ?? 0))) | trunc:2 }}
+            ({{ (pos.rawPctChange ?? (((pos.entryPrice ?? 0) !== 0)
+              ? (((pos.currentPrice ?? 0) - (pos.entryPrice ?? 0)) / (pos.entryPrice ?? 0) * 100)
+              : 0)) | trunc:2 }}%)
           </div>
         </div>
         <div class="metric">
@@ -64,24 +69,16 @@
       }
     </div>
 
-    <div class="pv-open-card__pnl-bar">
-      <div class="pv-open-card__pnl-track">
-        <div class="pv-open-card__pnl-marker"></div>
-      </div>
-      <div class="pv-open-card__pnl-labels">
-        <span>-10%</span>
-        <span>0%</span>
-        <span>+10%</span>
-      </div>
-    </div>
+    <app-pv-percent-bar
+      [direction]="pos.direction"
+      [percent]="percentForBar()"
+    ></app-pv-percent-bar>
 
     <footer class="pv-open-card__footer">
       <div class="pv-open-card__dates">
-        @if (isOpen) {
-          <span>Opened: {{ pos.entryDay }}</span>
-        } @else {
-          <span>Opened: {{ pos.entryDay }}</span>
-          <span>Closed: {{ pos.exitDay }}</span>
+        <div>Opened: {{ pos.entryDay }}</div>
+        @if (!isOpen) {
+          <div>Closed: {{ pos.exitDay }}</div>
         }
       </div>
       <button type="button" mat-stroked-button class="pv-open-card__details">View Details</button>

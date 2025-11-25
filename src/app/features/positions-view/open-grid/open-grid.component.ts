@@ -1,21 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatChipsModule } from '@angular/material/chips';
-import { PositionsStore } from '../positions.store';
+import { PositionsStore, PositionsResultFilter, PositionsSideFilter } from '../positions.store';
 import { PvOpenCardComponent } from '../open-card/open-card.component';
 import { PositionDirection } from '../../../core/models/fe-position.types';
-
-export enum OpenSideFilter {
-  ALL = 'all',
-  LONG = 'long',
-  SHORT = 'short',
-}
-
-export enum OpenResultFilter {
-  ALL = 'all',
-  WINNERS = 'winners',
-  LOSERS = 'losers',
-}
 
 @Component({
   selector: 'app-pv-open-grid',
@@ -29,40 +17,19 @@ export class PvOpenGridComponent {
   private readonly store = inject(PositionsStore);
 
   // Expose enums for template bindings
-  readonly SideFilter = OpenSideFilter;
-  readonly ResultFilter = OpenResultFilter;
+  readonly SideFilter = PositionsSideFilter;
+  readonly ResultFilter = PositionsResultFilter;
 
-  readonly sideFilter = signal<OpenSideFilter>(OpenSideFilter.ALL);
-  readonly resultFilter = signal<OpenResultFilter>(OpenResultFilter.ALL);
+  readonly sideFilter = computed(() => this.store.sideFilter());
+  readonly resultFilter = computed(() => this.store.resultFilter());
 
-  readonly filtered = computed(() => {
-    return this.store.openList().filter((p) => {
-      const isLong = p.side === PositionSide.LONG;
-      const side = this.sideFilter();
-      const res = this.resultFilter();
+  readonly filtered = computed(() => this.store.openFiltered());
 
-      const currentChange = p.currentChange;
-      const inferredChange =
-        p.currentPrice != null && p.entryPrice != null
-          ? p.currentPrice - p.entryPrice
-          : 0;
-      const change = currentChange ?? inferredChange;
-
-      if (side === OpenSideFilter.LONG && !isLong) return false;
-      if (side === OpenSideFilter.SHORT && isLong) return false;
-
-      if (res === OpenResultFilter.WINNERS && change <= 0) return false;
-      if (res === OpenResultFilter.LOSERS && change >= 0) return false;
-
-      return true;
-    });
-  });
-
-  setSideFilter(value: OpenSideFilter): void {
-    this.sideFilter.set(value);
+  setSideFilter(value: PositionsSideFilter): void {
+    this.store.setSideFilter(value);
   }
 
-  setResultFilter(value: OpenResultFilter): void {
-    this.resultFilter.set(value);
+  setResultFilter(value: PositionsResultFilter): void {
+    this.store.setResultFilter(value);
   }
 }
