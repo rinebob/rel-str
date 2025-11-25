@@ -41,27 +41,16 @@
           <ul class="cell-list">
             @for (it of day.items.newCloses; track $index) {
               @if (day.day === store.latestDay()) {
-                @let pos = store.positions()[it.positionId];
-                @let rs = store.latestRs()[it.pair];
-                @let price = pos?.exitPrice;
-                @let delta = pos?.netPnL;
-                @let pct = pos?.percentReturn;
                 <li class="chip chip--sell chip--stack">
                   <div class="chip-row chip-row--top">
-                    <span class="pair">{{ pos?.pair ?? it.pair }}</span>
+                    <span class="pair">{{ it.positionId }}</span>
                     <span class="dir">{{ it.direction }}</span>
                   </div>
-                  <div class="chip-row chip-row--meta">
-                    <span class="price">Px: {{ price | trunc:2 }}</span>
-                    <span class="delta" [class.negative]="(delta ?? 0) < 0" [class.positive]="(delta ?? 0) > 0">
-                      Δ: {{ delta | trunc:2 }} ({{ pct | trunc:2 }}%)
-                    </span>
-                    <span class="rs">RS: {{ rs | trunc:2 }}</span>
-                  </div>
+                  <div class="chip-row chip-row--meta"></div>
                 </li>
               } @else {
                 <li class="chip chip--sell">
-                  <span class="pair">{{ it.pair }}</span>
+                  <span class="pair">{{ it.positionId }}</span>
                   <span class="dir">{{ it.direction }}</span>
                 </li>
               }
@@ -78,27 +67,16 @@
           <ul class="cell-list">
             @for (it of day.items.holds; track $index) {
               @if (day.day === store.latestDay()) {
-                @let pos = store.positions()[it.positionId];
-                @let rs = store.latestRs()[it.pair];
-                @let price = pos?.currentPrice;
-                @let delta = pos?.currentChange;
-                @let pct = pos?.currentPctChange;
                 <li class="chip chip--hold chip--stack">
                   <div class="chip-row chip-row--top">
-                    <span class="pair">{{ pos?.pair ?? it.pair }}</span>
+                    <span class="pair">{{ it.positionId }}</span>
                     <span class="dir">{{ it.direction }}</span>
                   </div>
-                  <div class="chip-row chip-row--meta">
-                    <span class="price">Px: {{ price | trunc:2 }}</span>
-                    <span class="delta" [class.negative]="(delta ?? 0) < 0" [class.positive]="(delta ?? 0) > 0">
-                      Δ: {{ delta | trunc:2 }} ({{ pct | trunc:2 }}%)
-                    </span>
-                    <span class="rs">RS: {{ rs | trunc:2 }}</span>
-                  </div>
+                  <div class="chip-row chip-row--meta"></div>
                 </li>
               } @else {
                 <li class="chip chip--hold">
-                  <span class="pair">{{ it.pair }}</span>
+                  <span class="pair">{{ it.positionId }}</span>
                   <span class="dir">{{ it.direction }}</span>
                 </li>
               }
@@ -115,27 +93,16 @@
           <ul class="cell-list">
             @for (it of day.items.newOpens; track $index) {
               @if (day.day === store.latestDay()) {
-                @let pos = store.positions()[it.positionId];
-                @let rs = store.latestRs()[it.pair];
-                @let price = pos?.currentPrice;
-                @let delta = pos?.currentChange;
-                @let pct = pos?.currentPctChange;
                 <li class="chip chip--buy chip--stack">
                   <div class="chip-row chip-row--top">
-                    <span class="pair">{{ pos?.pair ?? it.pair }}</span>
+                    <span class="pair">{{ it.positionId }}</span>
                     <span class="dir">{{ it.direction }}</span>
                   </div>
-                  <div class="chip-row chip-row--meta">
-                    <span class="price">Px: {{ price | trunc:2 }}</span>
-                    <span class="delta" [class.negative]="(delta ?? 0) < 0" [class.positive]="(delta ?? 0) > 0">
-                      Δ: {{ delta | trunc:2 }} ({{ pct | trunc:2 }}%)
-                    </span>
-                    <span class="rs">RS: {{ rs | trunc:2 }}</span>
-                  </div>
+                  <div class="chip-row chip-row--meta"></div>
                 </li>
               } @else {
                 <li class="chip chip--buy">
-                  <span class="pair">{{ it.pair }}</span>
+                  <span class="pair">{{ it.positionId }}</span>
                   <span class="dir">{{ it.direction }}</span>
                 </li>
               }

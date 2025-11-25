@@ -6,9 +6,15 @@ import { PositionDoc, PositionDirection } from '../../core/models/fe-position.ty
 
 export interface DecisionBoardItem {
   positionId: string;
-  direction: PositionDirection;
-  pair: string; // e.g., SPY-AAPL
-  // Optional fields (typically present on newCloses)
+  /** Canonical pair id, e.g., SPY-AAPL. Empty string if mirror omitted it. */
+  pair: string;
+  /** Backend signal id for this daily signal, when present. */
+  signalId?: string;
+  /** Optional direction; populated when available on the backend payload. */
+  direction?: PositionDirection;
+  /** Optional daily signal type (open/close/hold) as emitted by backend. */
+  type?: string;
+  // Optional fields (typically present on newCloses when enriched from positions)
   change?: number;
   pctChange?: number;
 }
@@ -22,15 +28,31 @@ export interface DecisionBoardDay {
   };
 }
 
+export interface DailySignalDto {
+  signalId: string;
+  positionId: string;
+  pair?: string;
+  type: string;
+  direction?: PositionDirection;
+}
+
+export interface SignalsDailyDocDto {
+  date: string;
+  newOpens: DailySignalDto[];
+  holds: DailySignalDto[];
+  newCloses: DailySignalDto[];
+}
+
 export interface GetDailySignalsRequest {
   day?: string;
   fromDay?: string;
   toDay?: string;
   limitDays?: number;
+  all?: boolean;
 }
 
 export interface GetDailySignalsResponse {
-  days: DecisionBoardDay[];
+  days: SignalsDailyDocDto[];
 }
 
 export interface LatestRsDoc {
@@ -52,12 +74,22 @@ export class DecisionBoardService {
     return `${y}-closed`;
   }
 
-  private withTimeout<T>(p: Promise<T>, ms = 10000): Promise<T> {
+  private withTimeout<T>(p: Promise<T>, ms = 30000): Promise<T> {
     return new Promise<T>((resolve, reject) => {
-      const t = setTimeout(() => reject(new Error(`getDailySignals timeout after ${ms}ms`)), ms);
+      const t = setTimeout(() => {
+        // eslint-disable-next-line no-console
+        console.error('[DecisionBoard] getDailySignals timeout', { ms });
+        reject(new Error(`getDailySignals timeout after ${ms}ms`));
+      }, ms);
       p.then(
-        (v) => { clearTimeout(t); resolve(v); },
-        (e) => { clearTimeout(t); reject(e); }
+        (v) => {
+          clearTimeout(t);
+          resolve(v);
+        },
+        (e) => {
+          clearTimeout(t);
+          reject(e);
+        }
       );
     });
   }
@@ -65,22 +97,33 @@ export class DecisionBoardService {
   async getDailySignals(params: GetDailySignalsRequest): Promise<DecisionBoardDay[]> {
     try {
       const call = httpsCallable<GetDailySignalsRequest, GetDailySignalsResponse>(this.functions, CallableName.GET_DAILY_SIGNALS);
-      const res = await this.withTimeout(call(params ?? {}), 10000);
+      const res = await this.withTimeout(call(params ?? {}));
       const payload = res?.data as GetDailySignalsResponse | undefined;
       const days = Array.isArray(payload?.days) ? payload!.days : [];
-      // Normalize arrays defensively
-      const result = days.map((d) => ({
-        day: d.day,
+
+      const mapSignal = (s: DailySignalDto): DecisionBoardItem => ({
+        positionId: String(s.positionId || ''),
+        pair: s.pair ? String(s.pair) : '',
+        signalId: s.signalId ? String(s.signalId) : undefined,
+        direction: s.direction,
+        type: s.type,
+      });
+
+      const result: DecisionBoardDay[] = days.map((d) => ({
+        day: d.date,
         items: {
-          newOpens: Array.isArray(d.items?.newOpens) ? d.items.newOpens : [],
-          holds: Array.isArray(d.items?.holds) ? d.items.holds : [],
-          newCloses: Array.isArray(d.items?.newCloses) ? d.items.newCloses : [],
+          newOpens: Array.isArray(d.newOpens) ? d.newOpens.map(mapSignal) : [],
+          holds: Array.isArray(d.holds) ? d.holds.map(mapSignal) : [],
+          newCloses: Array.isArray(d.newCloses) ? d.newCloses.map(mapSignal) : [],
         },
       }));
+
       return result;
     } catch (e: any) {
       const msg = e?.message || 'getDailySignals failed';
-      throw new Error(msg);
+      // eslint-disable-next-line no-console
+      console.error('[DecisionBoard] getDailySignals error', { message: msg });
+      return [];
     }
   }
 
