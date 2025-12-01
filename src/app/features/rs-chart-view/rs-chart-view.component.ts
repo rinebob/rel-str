@@ -37,6 +37,9 @@ export class RsChartViewComponent {
         if (!chartId) {
             return;
         }
+        // TEMP DEBUG: verify carousel click wiring
+        // eslint-disable-next-line no-console
+        // console.log('[RsChartView] selectChart', { chartId });
         this.chartStore.setSelectedChartId(chartId);
     }
 }

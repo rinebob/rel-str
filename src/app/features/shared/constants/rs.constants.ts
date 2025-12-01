@@ -183,7 +183,7 @@ export const ZOOM_DISABLED_CONFIG: ZoomSettingsModel = {
     toolbarItems: []
 };
 
-const MAIN_RS_CHART_ZOOM_SETTINGS: ZoomSettingsModel = {
+export const MAIN_RS_CHART_ZOOM_SETTINGS: ZoomSettingsModel = {
     enableScrollbar: true,
     enableSelectionZooming: false,
     enableMouseWheelZooming: false,

@@ -5,7 +5,7 @@ import { firstValueFrom } from 'rxjs';
 
 import type { CandleWithRSColor, ChartSignal, OHLCDatum, RelStrStockList, RsPaneDatum, RsSeriesPoint, RsChartConfig } from '../shared/types/rs.interfaces';
 import { Timeframe } from '../shared/types/rs.interfaces';
-import { RS_CHART_CONFIG, RS_OPEN_LONG_THRESHOLD, RS_OPEN_SHORT_THRESHOLD, ZOOM_DISABLED_CONFIG } from '../shared/constants/rs.constants';
+import { RS_CHART_CONFIG, RS_OPEN_LONG_THRESHOLD, RS_OPEN_SHORT_THRESHOLD, ZOOM_DISABLED_CONFIG, MAIN_RS_CHART_ZOOM_SETTINGS } from '../shared/constants/rs.constants';
 import { RelStrDbV2Service } from '../services/rel-str-db-v2.service';
 import { RsBarsService } from '../services/rs-bars.service';
 
@@ -103,7 +103,8 @@ export const RsChartStore = signalStore(
 
     /**
      * Main chart for the view, defaulting to the first chart when no explicit
-     * selection exists. Zoom is disabled to avoid Syncfusion toolkit issues.
+     * selection exists. Main chart uses interactive zoom/pan, filmstrip charts
+     * keep zoom disabled.
      */
     const mainChart = computed<ChartSignal | undefined>(() => {
       const all = chartSignals();
@@ -116,11 +117,23 @@ export const RsChartStore = signalStore(
         return undefined;
       }
 
+      // TEMP DEBUG: observe selection vs available chart ids
+    //   try {
+    //     // eslint-disable-next-line no-console
+    //     console.log('[RsChartStore] mainChart', {
+    //       selectedId: id,
+    //       available: all.map((c) => c.id),
+    //       chosenId: base.id,
+    //     });
+    //   } catch {
+    //     // ignore logging errors
+    //   }
+
       const config = {
         ...base.config,
         chartConfig: {
           ...base.config.chartConfig,
-          zoomSettings: ZOOM_DISABLED_CONFIG,
+          zoomSettings: MAIN_RS_CHART_ZOOM_SETTINGS,
         },
       };
 
@@ -145,7 +158,14 @@ export const RsChartStore = signalStore(
           ...c.config,
           chartConfig: {
             ...c.config.chartConfig,
+            // Disable zoom and crosshair for filmstrip charts to keep them
+            // lightweight and avoid Syncfusion crosshair.js null childNodes
+            // errors when hovering over frequently recreated tiny charts.
             zoomSettings: ZOOM_DISABLED_CONFIG,
+            crosshair: {
+              ...(c.config.chartConfig.crosshair ?? {}),
+              enable: false,
+            },
           },
         },
       }));
@@ -303,12 +323,17 @@ function sliceForFilmstrip(charts: ChartSignal[]): ChartSignal[] {
     if (len <= MAX_DAYS) {
       return c;
     }
-    const start = Math.max(0, len - MAX_DAYS);
+    const startIndex = Math.max(0, len - MAX_DAYS);
+
+    // Keep slicing simple and index-based for the target price series only.
+    // Leave baseline and RS data untouched to avoid issues where their
+    // arrays are shorter or differently aligned (e.g. TSLA), which could
+    // otherwise result in empty series after slicing.
     return {
       ...c,
-      chartData: c.chartData.slice(start),
-      baselineData: c.baselineData.slice(start),
-      rsData: c.rsData.slice(start),
+      chartData: c.chartData.slice(startIndex),
+      baselineData: c.baselineData,
+      rsData: c.rsData,
     };
   });
 }

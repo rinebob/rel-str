@@ -60,19 +60,21 @@ export class RsChartComponent {
     isInitialLoad = signal<boolean>(true);
     
     constructor() {
+        // Lightweight debug logging to understand data presence when charts
+        // move between main and filmstrip. Remove once RS rendering is stable.
+        // eslint-disable-next-line no-console
         // effect(() => {
         //     try {
-        //         console.group('Chart Inputs Changed for id/name: ', this.id(), this.name());
-        //         console.log('Chart Data Length:', this.chartData()?.length);
-        //         console.log('Chart Data:', this.chartData());
-        //         console.log('Baseline Data Length:', this.baselineData()?.length);
-        //         console.log('RS Data Length:', this.rsData()?.length);
-        //         console.log('Config Available:', !!this.config());
-        //         console.log('Config :', this.config());
-        //         console.log('zoomEnabled :', this.zoomEnabled());
-        //         console.groupEnd();
+        //         console.log('[RsChartComponent] inputs', {
+        //             id: this.id(),
+        //             name: this.name(),
+        //             isMain: this.isMain(),
+        //             chartLen: this.chartData()?.length,
+        //             baselineLen: this.baselineData()?.length,
+        //             rsLen: this.rsData()?.length,
+        //         });
         //     } catch (e) {
-        //         console.error('Error logging inputs:', e);
+        //         console.error('[RsChartComponent] log error', e);
         //     }
         // });
     }
@@ -84,30 +86,37 @@ export class RsChartComponent {
     }
 
     onChartLoaded(): void {
-
         // console.log(`---------- RSC oCL onChartLoaded ${this.id()} ----------`);
-        if (!this.chart) return;
-        this.chart.dataBind();
+        const chart = this.chart;
+        if (!chart) {
+            return;
+        }
+
         const data = this.chartData();
+        if (!data || !data.length) {
+            return;
+        }
+
         const daysToShow = this.isMain() ? MAIN_CHART_INITIAL_DAYS : SMALL_CHART_INITIAL_DAYS;
-        if (data.length > daysToShow && this.isInitialLoad()) {
+
+        // Initial zoom window for newly created chart instances
+        if (this.isInitialLoad() && data.length > daysToShow) {
             const zoomFactor = daysToShow / data.length;
             const zoomPosition = (data.length - daysToShow) / data.length;
-            
-            // Update the primary X-axis zoom settings
-            this.chart.primaryXAxis.zoomFactor = zoomFactor;
-            this.chart.primaryXAxis.zoomPosition = zoomPosition;
 
-            // if (this.isMain()) {
-            //     console.log('rS oCL t.c.pXA.zF/zP: ', this.chart.primaryXAxis.zoomFactor, this.chart.primaryXAxis.zoomPosition);
-            //     console.log('rS oCL after daysToShow zF/zP: ', zoomFactor, zoomPosition);
+            if (chart.primaryXAxis) {
+                chart.primaryXAxis.zoomFactor = zoomFactor;
+                chart.primaryXAxis.zoomPosition = zoomPosition;
+            }
 
-            // }
-            
-            // Autoscale Y-axis to the visible range       
             this.autoscaleYAxis();
             this.isInitialLoad.set(false);
+            return;
         }
+
+        // For reused chart instances (e.g. moving between main and filmstrip),
+        // still autoscale once when data is present.
+        this.autoscaleYAxis();
     }
 
     onScrollEnd(event: IScrollEventArgs): void {

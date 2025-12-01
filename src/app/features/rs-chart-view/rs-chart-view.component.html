@@ -1,25 +1,27 @@
 <div class="rs-chart-view">
     @if (mainChart(); as main) {
         <section class="rs-chart-view__main">
-            <rs-chart
-                [id]="main.id"
-                [name]="main.config.name"
-                [config]="main.config"
-                [chartData]="main.chartData"
-                [baselineData]="main.baselineData"
-                [rsData]="main.rsData"
-                [isMain]="true"
-                [zoomEnabled]="true"
-            />
+            @for (mc of [main]; track mc.id) {
+                <rs-chart
+                    [id]="'main-' + mc.id"
+                    [name]="mc.config.name"
+                    [config]="mc.config"
+                    [chartData]="mc.chartData"
+                    [baselineData]="mc.baselineData"
+                    [rsData]="mc.rsData"
+                    [isMain]="true"
+                    [zoomEnabled]="true"
+                />
+            }
         </section>
     }
 
     @if (smallCharts().length) {
         <section class="rs-chart-view__filmstrip">
-            @for (chart of smallCharts(); track chart.id) {
-                <button class="rs-chart-view__filmstrip-item" type="button">
+            @for (chart of smallCharts(); track $index) {
+                <button class="rs-chart-view__filmstrip-item" type="button" (click)="selectChart(chart.id)">
                     <rs-chart
-                        [id]="chart.id"
+                        [id]="'small-' + chart.id"
                         [name]="chart.config.name"
                         [config]="chart.config"
                         [chartData]="chart.chartData"
