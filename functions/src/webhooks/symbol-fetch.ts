@@ -43,7 +43,16 @@ export async function fetchDailyBarsRaw(symbol: string, days = 30, limit = 30, i
     const lastT = Number(bars[bars.length - 1]?.t);
     const firstDay = Number.isFinite(firstT) ? new Date(firstT).toISOString().slice(0, 10) : undefined;
     const lastDay = Number.isFinite(lastT) ? new Date(lastT).toISOString().slice(0, 10) : undefined;
-    logger.info('partner_timeseries_response', { symbol, interval, from: fromIso, to: toIso, limit, bars: bars.length, firstDay, lastDay });
+    logger.info('partner_timeseries_response', {
+      symbol,
+      interval,
+      from: fromIso,
+      to: toIso,
+      limit,
+      bars: bars.length,
+      firstDay,
+      lastDay,
+    });
     try {
       let anomalies = 0;
       for (const b of bars as any[]) {
@@ -56,13 +65,28 @@ export async function fetchDailyBarsRaw(symbol: string, days = 30, limit = 30, i
         if (!Number.isFinite(cp) && Number.isFinite(todayClose) && todayClose > 0) issues.push('cp_nonfinite');
         if (issues.length) {
           anomalies++;
-          try { await persistWarning('sa_bar_anomaly', { function: RsCloudFunctionName.PROCESS_DATA_READY, symbol, day, issues, window: { from: fromIso, to: toIso, limit } }); } catch {}
+          try {
+            await persistWarning('sa_bar_anomaly', {
+              function: RsCloudFunctionName.PROCESS_DATA_READY,
+              symbol,
+              day,
+              issues,
+              window: { from: fromIso, to: toIso, limit },
+            });
+          } catch {}
         }
       }
       if (anomalies > 0) logger.info('partner_timeseries_bar_anomalies', { symbol, anomalies });
     } catch {}
   } else {
-    logger.info('partner_timeseries_response_empty', { symbol, interval, from: fromIso, to: toIso, limit, bars: 0 });
+    logger.info('partner_timeseries_response_empty', {
+      symbol,
+      interval,
+      from: fromIso,
+      to: toIso,
+      limit,
+      bars: 0,
+    });
   }
   return bars as PartnerBar[];
 }
@@ -96,16 +120,44 @@ export async function fetchDailyBarsRange(symbol: string, opts: FetchRangeOption
   }
   const toIso = toDate.toISOString().slice(0, 10);
   const fromIso = fromDate.toISOString().slice(0, 10);
-  const limit = Number.isFinite(opts.limit as number) ? Number(opts.limit) : (Number(opts.days) || 30);
+  // Partner DAILY endpoint effectively caps the number of bars it will return
+  // when using from/to+limit (FIXED_LIMIT ~ 30). For multi-year windows driven
+  // by yearsBack we instead prefer the partner-provided range parameter so we
+  // can request e.g. '2y' of history in a single call.
 
-  const data = (await callPartnerTimeSeries({ symbol, interval, from: fromIso, to: toIso, limit })) as any;
+  let data: any;
+  let effectiveLimit: number | undefined;
+  if (!opts.from && !opts.to && Number.isFinite(opts.yearsBack as number)) {
+    const years = Math.max(1, Math.round(Number(opts.yearsBack)));
+    const range = `${years}y`;
+    data = await callPartnerTimeSeries({ symbol, interval, range });
+  } else {
+    // Derive a sensible default limit for explicit from/to or days windows:
+    // - If caller provided an explicit limit, honor it.
+    // - Otherwise fall back to days/30 as before.
+    const explicitLimit = Number.isFinite(opts.limit as number) ? Number(opts.limit) : undefined;
+    const fallbackLimitFromDays = Number.isFinite(opts.days as number) ? Number(opts.days) : 30;
+    const limit = explicitLimit ?? fallbackLimitFromDays;
+    effectiveLimit = limit;
+    data = await callPartnerTimeSeries({ symbol, interval, from: fromIso, to: toIso, limit });
+  }
+
   const bars = Array.isArray(data?.bars) ? data.bars : [];
   if (bars.length > 0) {
     const firstT = Number(bars[0]?.t);
     const lastT = Number(bars[bars.length - 1]?.t);
     const firstDay = Number.isFinite(firstT) ? new Date(firstT).toISOString().slice(0, 10) : undefined;
     const lastDay = Number.isFinite(lastT) ? new Date(lastT).toISOString().slice(0, 10) : undefined;
-    logger.info('partner_timeseries_response', { symbol, interval, from: fromIso, to: toIso, limit, bars: bars.length, firstDay, lastDay });
+    logger.info('partner_timeseries_response', {
+      symbol,
+      interval,
+      from: fromIso,
+      to: toIso,
+      limit: effectiveLimit,
+      bars: bars.length,
+      firstDay,
+      lastDay,
+    });
     try {
       let anomalies = 0;
       for (const b of bars as any[]) {
@@ -118,13 +170,28 @@ export async function fetchDailyBarsRange(symbol: string, opts: FetchRangeOption
         if (!Number.isFinite(cp) && Number.isFinite(todayClose) && todayClose > 0) issues.push('cp_nonfinite');
         if (issues.length) {
           anomalies++;
-          try { await persistWarning('sa_bar_anomaly', { function: RsCloudFunctionName.PROCESS_DATA_READY, symbol, day, issues, window: { from: fromIso, to: toIso, limit } }); } catch {}
+          try {
+            await persistWarning('sa_bar_anomaly', {
+              function: RsCloudFunctionName.PROCESS_DATA_READY,
+              symbol,
+              day,
+              issues,
+              window: { from: fromIso, to: toIso, limit: effectiveLimit },
+            });
+          } catch {}
         }
       }
       if (anomalies > 0) logger.info('partner_timeseries_bar_anomalies', { symbol, anomalies });
     } catch {}
   } else {
-    logger.info('partner_timeseries_response_empty', { symbol, interval, from: fromIso, to: toIso, limit, bars: 0 });
+    logger.info('partner_timeseries_response_empty', {
+      symbol,
+      interval,
+      from: fromIso,
+      to: toIso,
+      limit: effectiveLimit,
+      bars: 0,
+    });
   }
 
   // Apply the same DAILY normalization as fetchDailyBarsRaw

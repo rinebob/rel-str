@@ -9,6 +9,9 @@ export * from './webhooks/registry-actions';
 
 export { getPairRSArchive } from './archive';
 
+// RS chart / OHLC bars callable
+export { getPairDailyBars } from './rs-chart-bars.callables';
+
 // RsSignalHistory callable exports
 export {
   getPairSignals,
