@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 import { ChartSignal } from '../shared/types/rs.interfaces';
@@ -26,6 +26,11 @@ export class RsChartViewComponent {
     // Expose live store signals so the template can react via signal syntax.
     public readonly mainChart = this.chartStore.mainChart;
     public readonly smallCharts = this.chartStore.smallCharts;
+    public readonly mainMaConfigs = this.chartStore.mainMaConfigs;
+
+    public readonly ma1Config = computed(() => this.mainMaConfigs().find((c) => c.id === 'ma1'));
+    public readonly ma2Config = computed(() => this.mainMaConfigs().find((c) => c.id === 'ma2'));
+    public readonly ma3Config = computed(() => this.mainMaConfigs().find((c) => c.id === 'ma3'));
 
     constructor() {
         // Kick off load for the hard-coded dev list; will later be driven by router/list selection.

@@ -1,9 +1,15 @@
 import { AxisModel, CrosshairSettingsModel, TooltipSettingsModel, ZoomSettingsModel } from "@syncfusion/ej2-charts";
-import { RelStrStockList, RsSyncfusionChartConfig, RsChartConfig, Timeframe } from "../types/rs.interfaces";
+import { RelStrStockList, RsSyncfusionChartConfig, RsChartConfig, Timeframe, MaConfig, MaType } from "../types/rs.interfaces";
 
 export const STOCK_LIST_INITIALIZER: RelStrStockList = {name: '', baseline: '', symbols: [], ranksDataWithColors: {}};
 
 export const BASELINE_EQUITY_SYMBOLS = ['SPY', 'QQQ'];
+
+export const DEFAULT_MAIN_MA_CONFIGS: MaConfig[] = [
+    { id: 'ma1', enabled: true, type: MaType.EMA, length: 10, color: '#ffb300' },
+    { id: 'ma2', enabled: true, type: MaType.EMA, length: 20, color: '#1e88e5' },
+    { id: 'ma3', enabled: true, type: MaType.EMA, length: 50, color: '#8e24aa' },
+];
 
 export const MOCK_STOCK_LISTS: RelStrStockList[] = [
     {name: 'list one with a long list name', baseline: 'QQQ', symbols: [

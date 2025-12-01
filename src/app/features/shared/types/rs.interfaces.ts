@@ -180,6 +180,26 @@ export enum Timeframe {
     MONTHLY = 'monthly'
 }
 
+export enum MaType {
+    EMA = 'ema',
+    SMA = 'sma',
+    WMA = 'wma',
+}
+
+export interface MaConfig {
+    id: string;
+    enabled: boolean;
+    type: MaType;
+    length: number;
+    color: string;
+    width?: number;
+}
+
+export interface MaSeriesPoint {
+    x: Date;
+    y: number | null;
+}
+
 export interface RsChartConfig {
     id: string;
     name: string;
@@ -232,6 +252,8 @@ export interface ChartSignal {
     chartData: CandleWithRSColor[];
     rsData: RsPaneDatum[];
     baselineData: OHLCDatum[];
+    mainMaSeries?: Record<string, MaSeriesPoint[]>;
+    carMaSeries?: Record<string, MaSeriesPoint[]>;
 }
 
 // Typed interface for RS Table rows

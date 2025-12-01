@@ -3,9 +3,10 @@ import { signalStore, withState, withMethods, withComputed, patchState } from '@
 import { Auth } from '@angular/fire/auth';
 import { firstValueFrom } from 'rxjs';
 
-import type { CandleWithRSColor, ChartSignal, OHLCDatum, RelStrStockList, RsPaneDatum, RsSeriesPoint, RsChartConfig } from '../shared/types/rs.interfaces';
+import type { CandleWithRSColor, ChartSignal, MaConfig, MaSeriesPoint, OHLCDatum, RelStrStockList, RsPaneDatum, RsSeriesPoint, RsChartConfig } from '../shared/types/rs.interfaces';
 import { Timeframe } from '../shared/types/rs.interfaces';
-import { RS_CHART_CONFIG, RS_OPEN_LONG_THRESHOLD, RS_OPEN_SHORT_THRESHOLD, ZOOM_DISABLED_CONFIG, MAIN_RS_CHART_ZOOM_SETTINGS } from '../shared/constants/rs.constants';
+import { DEFAULT_MAIN_MA_CONFIGS, RS_CHART_CONFIG, RS_OPEN_LONG_THRESHOLD, RS_OPEN_SHORT_THRESHOLD, ZOOM_DISABLED_CONFIG, MAIN_RS_CHART_ZOOM_SETTINGS } from '../shared/constants/rs.constants';
+import { calculateMaSeriesForPrice } from '../shared/utils/ma.util';
 import { RelStrDbV2Service } from '../services/rel-str-db-v2.service';
 import { RsBarsService } from '../services/rs-bars.service';
 
@@ -42,6 +43,8 @@ interface RsChartState {
   loading: boolean;
   /** Last error message, if any */
   error: string | null;
+  /** Moving-average configs for the main price chart */
+  mainMaConfigs: MaConfig[];
 }
 
 const initialState: RsChartState = {
@@ -55,6 +58,7 @@ const initialState: RsChartState = {
   selectedChartId: null,
   loading: false,
   error: null,
+  mainMaConfigs: DEFAULT_MAIN_MA_CONFIGS,
 };
 
 export const RsChartStore = signalStore(
@@ -138,12 +142,22 @@ export const RsChartStore = signalStore(
         const baselineData = filteredBaseline;
         const rsData = prepareThresholdFilteredRsFromSeries(filteredRs);
 
+        const mainMaSeries: Record<string, MaSeriesPoint[]> = {};
+        const maConfigs = store.mainMaConfigs();
+        for (const ma of maConfigs) {
+          if (!ma.enabled) {
+            continue;
+          }
+          mainMaSeries[ma.id] = calculateMaSeriesForPrice(ma, chartData);
+        }
+
         result.push({
           id: config.id,
           config,
           chartData,
           baselineData,
           rsData,
+          mainMaSeries,
         });
       }
 

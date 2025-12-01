@@ -76,6 +76,23 @@
   opacity: 0.9;
 }
 
+.rs-chart-view__legend-row {
+  @include mixins.flexboxLayout(row, space-between, center);
+  width: 100%;
+  gap: mixins.rem(16);
+  flex-wrap: wrap;
+}
+
+.rs-chart-view__legend-group {
+  @include mixins.flexboxLayout(row, flex-start, center);
+  gap: mixins.rem(16);
+  flex-wrap: wrap;
+}
+
+.rs-chart-view__legend-group--ma {
+  margin-left: auto;
+}
+
 .rs-chart-view__legend-item {
   @include mixins.flexboxLayout(row, flex-start, center);
   gap: mixins.rem(6);
@@ -97,6 +114,18 @@
 
 .rs-chart-view__legend-swatch--rs-short {
   background-color: #c62828;
+}
+
+.rs-chart-view__legend-swatch--ma1 {
+  background-color: #ffb300;
+}
+
+.rs-chart-view__legend-swatch--ma2 {
+  background-color: #1e88e5;
+}
+
+.rs-chart-view__legend-swatch--ma3 {
+  background-color: #8e24aa;
 }
 
 .rs-chart-view__legend-label {
