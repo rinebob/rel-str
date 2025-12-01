@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input, signal, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, input, signal, ViewChild } from '@angular/core';
 import {
     ChartModule,
     ChartComponent as SfChartComponent,
@@ -18,7 +18,7 @@ import {
 
 import { CandleWithRSColor, OHLCDatum, RsChartConfig, RsPaneDatum } from '../../../shared/types/rs.interfaces';
 import { MAIN_CHART_INITIAL_DAYS, SMALL_CHART_INITIAL_DAYS } from '../../../shared/constants/rs.constants';
-import { autoscaleYAxis, autoscaleYAxisForRange, getXExtents } from '../../utils/chart.util';
+import { autoscaleYAxis } from '../../utils/chart.util';
 import { toTimestamp } from '../../utils/date.util';
 
 @Component({
@@ -63,20 +63,20 @@ export class RsChartComponent {
         // Lightweight debug logging to understand data presence when charts
         // move between main and filmstrip. Remove once RS rendering is stable.
         // eslint-disable-next-line no-console
-        // effect(() => {
-        //     try {
-        //         console.log('[RsChartComponent] inputs', {
-        //             id: this.id(),
-        //             name: this.name(),
-        //             isMain: this.isMain(),
-        //             chartLen: this.chartData()?.length,
-        //             baselineLen: this.baselineData()?.length,
-        //             rsLen: this.rsData()?.length,
-        //         });
-        //     } catch (e) {
-        //         console.error('[RsChartComponent] log error', e);
-        //     }
-        // });
+        effect(() => {
+            try {
+                console.log('[RsChartComponent] inputs', {
+                    id: this.id(),
+                    name: this.name(),
+                    isMain: this.isMain(),
+                    chartLen: this.chartData()?.length,
+                    baselineLen: this.baselineData()?.length,
+                    rsLen: this.rsData()?.length,
+                });
+            } catch (e) {
+                console.error('[RsChartComponent] log error', e);
+            }
+        });
     }
 
     onChartLoaded2(): void {
@@ -97,6 +97,15 @@ export class RsChartComponent {
             return;
         }
 
+        // Clamp the X-axis domain to the actual data window so the
+        // scrollbar/zoom cannot move into regions without price+RS data.
+        const firstX = data[0].x;
+        const lastX = data[data.length - 1].x;
+        if (chart.primaryXAxis) {
+            chart.primaryXAxis.minimum = firstX as any;
+            chart.primaryXAxis.maximum = lastX as any;
+        }
+
         const daysToShow = this.isMain() ? MAIN_CHART_INITIAL_DAYS : SMALL_CHART_INITIAL_DAYS;
 
         // Initial zoom window for newly created chart instances
@@ -111,12 +120,34 @@ export class RsChartComponent {
 
             this.autoscaleYAxis();
             this.isInitialLoad.set(false);
-            return;
         }
 
         // For reused chart instances (e.g. moving between main and filmstrip),
         // still autoscale once when data is present.
         this.autoscaleYAxis();
+
+        // When the zoom toolbar is visible on the main chart, disable
+        // tooltips while hovering the toolbar so RS tooltips don't obscure
+        // the zoom/pan controls.
+        if (this.isMain() && chart.element) {
+            const root = chart.element as HTMLElement & { __rsToolbarHandlersAttached?: boolean };
+            if (!root.__rsToolbarHandlersAttached) {
+                const toolbar = root.querySelector('.e-zoomingtool') as HTMLElement | null;
+                if (toolbar) {
+                    const handleEnter = () => {
+                        chart.tooltip.enable = false;
+                        chart.dataBind();
+                    };
+                    const handleLeave = () => {
+                        chart.tooltip.enable = true;
+                        chart.dataBind();
+                    };
+                    toolbar.addEventListener('mouseenter', handleEnter);
+                    toolbar.addEventListener('mouseleave', handleLeave);
+                    root.__rsToolbarHandlersAttached = true;
+                }
+            }
+        }
     }
 
     onScrollEnd(event: IScrollEventArgs): void {
@@ -147,14 +178,10 @@ export class RsChartComponent {
             } else {
                 // console.log('rs oSE scroll end bypassing axis zoom settings calcs')
             }
-            const { minX, maxX } = getXExtents(event.range);
-            this.autoscaleYAxisForRange(minX, maxX);
-            // if (this.isMain()) {
-            //     console.log('rS oSE min/max/startIdx/endIdx: ', min, max, startIdx, endIdx);
-            //     console.log('rS oZC t.c.pXA.zF/zP: ', zoomFactor, zoomPosition);
-            //     console.log('rS oZC minX/maxX: ', minX, maxX);
-    
-            // }
+            // NOTE: we no longer force our own Y-axis autoscaling here and
+            // let Syncfusion handle vertical scaling based on its internal
+            // zoom/scroll state. The helpers autoscaleYAxis* remain
+            // available if we decide to re-enable custom behavior later.
         }
         
     }
@@ -189,13 +216,9 @@ export class RsChartComponent {
             //     console.log('rS oZC t.c.pXA.zF/zP: ', zoomFactor, zoomPosition);
             // }
         }
-        if (event?.axis?.name === 'primaryXAxis' && event.currentVisibleRange) {
-            const { minX, maxX } = getXExtents(event.currentVisibleRange);
-            // if (this.isMain()) {
-            //     console.log('rS oZC minX/maxX: ', minX, maxX);
-            // }
-            this.autoscaleYAxisForRange(minX, maxX);
-        }
+        // After zoom/pan/Reset we now rely on Syncfusion's native Y-axis
+        // behavior instead of forcing our own autoscale. The helper
+        // autoscaleYAxis remains for initial-load fitting only.
     }
 
     public autoscaleYAxis(): void {
@@ -203,14 +226,6 @@ export class RsChartComponent {
         if (this.chart && !!this.chart?.primaryXAxis) {
             const baseline = this.config().showBaseline ? this.baselineData() : [];
             this.chart = autoscaleYAxis(this.chartData(), baseline, this.chart);
-        }
-    }
-
-    public autoscaleYAxisForRange(minX: number | Date, maxX: number | Date): void {
-        // console.log(`------------- RSC AYAFR ${this.name()} ------------------`);
-        if (!!this.chart && !!this.chart.primaryXAxis) {
-            const baseline = this.config().showBaseline ? this.baselineData() : [];
-            this.chart = autoscaleYAxisForRange(this.chartData(), baseline, this.chart, minX, maxX);
         }
     }
 }

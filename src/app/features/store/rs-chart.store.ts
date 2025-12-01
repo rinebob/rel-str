@@ -84,10 +84,59 @@ export const RsChartStore = signalStore(
         const targetOhlc: OHLCDatum[] = ohlcBySymbol[target] ?? [];
         const baselineOhlc: OHLCDatum[] = ohlcBySymbol[base] ?? [];
 
+        if (!rsSeries.length || !targetOhlc.length) {
+          // Require at least some RS and price data to render this pair.
+          continue;
+        }
+
+        // Compute intersection window where both price and RS are present so
+        // we don't render ranges that only have RS or only price.
+        const rsDates = rsSeries
+          .map((r) => r.date)
+          .filter((d): d is string => !!d)
+          .sort();
+        const rsMin = rsDates[0];
+        const rsMax = rsDates[rsDates.length - 1];
+
+        const priceDates = targetOhlc
+          .map((b) => b.date)
+          .filter((d): d is string => !!d)
+          .sort();
+        const priceMin = priceDates[0];
+        const priceMax = priceDates[priceDates.length - 1];
+
+        if (!rsMin || !rsMax || !priceMin || !priceMax) {
+          continue;
+        }
+
+        const windowMin = rsMin > priceMin ? rsMin : priceMin;
+        const windowMax = rsMax < priceMax ? rsMax : priceMax;
+
+        if (windowMin >= windowMax) {
+          // No overlapping window where both price and RS exist.
+          continue;
+        }
+
+        const filteredOhlc = targetOhlc.filter((bar) => {
+          const d = String(bar.date ?? '');
+          return d >= windowMin && d <= windowMax;
+        });
+
+        const filteredBaseline = baselineOhlc.filter((bar) => {
+          const d = String(bar.date ?? '');
+          return d >= windowMin && d <= windowMax;
+        });
+
+        const filteredRs = rsSeries.filter((r) => r.date >= windowMin && r.date <= windowMax);
+
+        if (!filteredOhlc.length || !filteredRs.length) {
+          continue;
+        }
+
         const config = buildChartConfig(base, target);
-        const chartData = prepareChartDataFromLive(targetOhlc, rsSeries);
-        const baselineData = baselineOhlc;
-        const rsData = prepareThresholdFilteredRsFromSeries(rsSeries);
+        const chartData = prepareChartDataFromLive(filteredOhlc, filteredRs);
+        const baselineData = filteredBaseline;
+        const rsData = prepareThresholdFilteredRsFromSeries(filteredRs);
 
         result.push({
           id: config.id,
@@ -134,6 +183,12 @@ export const RsChartStore = signalStore(
         chartConfig: {
           ...base.config.chartConfig,
           zoomSettings: MAIN_RS_CHART_ZOOM_SETTINGS,
+          // Disable tooltips on the main chart so RS tooltips do not
+          // interfere with the zoom/pan toolbar controls.
+          tooltip: {
+            ...(base.config.chartConfig.tooltip ?? {}),
+            enable: false,
+          },
         },
       };
 

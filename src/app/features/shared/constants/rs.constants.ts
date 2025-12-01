@@ -185,16 +185,17 @@ export const ZOOM_DISABLED_CONFIG: ZoomSettingsModel = {
 
 export const MAIN_RS_CHART_ZOOM_SETTINGS: ZoomSettingsModel = {
     enableScrollbar: true,
-    enableSelectionZooming: false,
+    enableSelectionZooming: true,
+    // Keep wheel/pinch zoom disabled for stability; rely on toolbar + drag.
     enableMouseWheelZooming: false,
     enablePinchZooming: false,
-    enablePan: false,
+    enablePan: true,
     // NOTE: enableAnimation disables chart Y axis autoresize on zoom!!! do not enable!!
     // enableAnimation: true,
     mode: 'X',
     // Disable the zoom toolbar to avoid Syncfusion Toolkit runtime errors.
-    showToolbar: false,
-    toolbarItems: [],
+    showToolbar: true,
+    toolbarItems: ['Zoom', 'ZoomIn', 'ZoomOut', 'Pan', 'Reset'],
     toolbarPosition: {
         draggable: true,
         horizontalAlignment: 'Near',
