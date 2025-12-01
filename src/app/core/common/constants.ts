@@ -66,6 +66,14 @@ export const NAV_MENU_ITEMS: NavItem[] = [
         target: '_self',
     },
     {
+        name: 'rs-chart',
+        text: 'rs-chart',
+        href: 'rs-chart',
+        mobileOnly: false,
+        external: false,
+        target: '_self',
+    },
+    {
         name: 'sync-chart',
         text: 'sync-chart',
         href: 'sync-chart',
@@ -138,6 +146,8 @@ export enum CallableName {
   UPDATE_POSITION_ACTUALS = 'updatePositionActuals',
   /** Diagnose and optionally auto-fix missing pair-day RS entries */
   DIAGNOSE_PAIR_DAYS = 'diagnosePairDays',
+  /** RS chart: daily OHLCV bars via SavantAPI */
+  GET_PAIR_DAILY_BARS = 'getPairDailyBars',
 }
 
 /** Top-level Firestore collections used by the FE. */

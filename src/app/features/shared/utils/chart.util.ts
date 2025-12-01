@@ -34,12 +34,19 @@ export function autoscaleYAxis(
   if (!visibleChartData.length && !visibleBaselineData.length) return;
 
   const allVisibleData = [...visibleChartData, ...visibleBaselineData];
-  const min = Math.min(...allVisibleData.map((d) => d.low));
-  const max = Math.max(...allVisibleData.map((d) => d.high));
+  const lows = allVisibleData.map((d) => d.low).filter((v) => Number.isFinite(v));
+  const highs = allVisibleData.map((d) => d.high).filter((v) => Number.isFinite(v));
+  if (!lows.length || !highs.length) return;
 
-  chartComponent.primaryYAxis.minimum = min;
-  chartComponent.primaryYAxis.maximum = max;
-  chartComponent.dataBind();
+  const min = Math.min(...lows);
+  const max = Math.max(...highs);
+
+  if (chartComponent.primaryYAxis) {
+    chartComponent.primaryYAxis.minimum = min;
+    chartComponent.primaryYAxis.maximum = max;
+  }
+  // Intentionally avoid chartComponent.dataBind() here to prevent re-triggering
+  // loaded/scroll events and causing recursive call stacks.
   return chartComponent;
 }
 

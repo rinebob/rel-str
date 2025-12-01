@@ -1,11 +1,13 @@
 .rs-chart-view {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.5rem;
+  height: 100%;
 }
 
 .rs-chart-view__main {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
+  min-height: 28rem;
 }
 
 .rs-chart-view__filmstrip {
@@ -13,10 +15,11 @@
   flex-direction: row;
   gap: 1rem;
   overflow-x: auto;
+  padding-bottom: 0.5rem;
 }
 
 .rs-chart-view__filmstrip-item {
-  flex: 0 0 auto;
+  flex: 0 0 24rem;
   padding: 0;
   border: none;
   background: transparent;

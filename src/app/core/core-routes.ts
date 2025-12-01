@@ -52,6 +52,11 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.SyncChartViewComponent),
                 canActivate: [authGuard],
             },
+            {path: AppRoutes.RS_CHART,
+                loadComponent: () => import('../features/rs-chart-view/rs-chart-view.component')
+                .then(mod => mod.RsChartViewComponent),
+                canActivate: [authGuard],
+            },
             {path: AppRoutes.RS_TABLE,
                 loadComponent: () => import('../features/rs-table/rs-table.component')
                 .then(mod => mod.RsTableComponent),

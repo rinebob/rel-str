@@ -192,14 +192,16 @@ export class RsChartComponent {
     public autoscaleYAxis(): void {
         // console.log(`------------- RSC AYA ${this.name()} ------------------`);
         if (this.chart && !!this.chart?.primaryXAxis) {
-            this.chart = autoscaleYAxis(this.chartData(), this.baselineData(), this.chart);
+            const baseline = this.config().showBaseline ? this.baselineData() : [];
+            this.chart = autoscaleYAxis(this.chartData(), baseline, this.chart);
         }
     }
 
     public autoscaleYAxisForRange(minX: number | Date, maxX: number | Date): void {
         // console.log(`------------- RSC AYAFR ${this.name()} ------------------`);
         if (!!this.chart && !!this.chart.primaryXAxis) {
-            this.chart = autoscaleYAxisForRange(this.chartData(), this.baselineData(), this.chart, minX, maxX);
+            const baseline = this.config().showBaseline ? this.baselineData() : [];
+            this.chart = autoscaleYAxisForRange(this.chartData(), baseline, this.chart, minX, maxX);
         }
     }
 }

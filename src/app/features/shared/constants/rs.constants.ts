@@ -185,15 +185,16 @@ export const ZOOM_DISABLED_CONFIG: ZoomSettingsModel = {
 
 const MAIN_RS_CHART_ZOOM_SETTINGS: ZoomSettingsModel = {
     enableScrollbar: true,
-    enableSelectionZooming: true,
-    enableMouseWheelZooming: true,
-    enablePinchZooming: true,
-    enablePan: true,
+    enableSelectionZooming: false,
+    enableMouseWheelZooming: false,
+    enablePinchZooming: false,
+    enablePan: false,
     // NOTE: enableAnimation disables chart Y axis autoresize on zoom!!! do not enable!!
     // enableAnimation: true,
     mode: 'X',
-    showToolbar: true,
-    toolbarItems: ['Zoom','ZoomIn', 'ZoomOut', 'Pan', 'Reset'],
+    // Disable the zoom toolbar to avoid Syncfusion Toolkit runtime errors.
+    showToolbar: false,
+    toolbarItems: [],
     toolbarPosition: {
         draggable: true,
         horizontalAlignment: 'Near',
@@ -365,7 +366,13 @@ export const RS_CHART_CONFIG: RsSyncfusionChartConfig = {
     zoomSettings: MAIN_RS_CHART_ZOOM_SETTINGS,
 }
 
-export const MAIN_CHART_INITIAL_DAYS = 100;
-export const SMALL_CHART_INITIAL_DAYS = 30;
+export const MAIN_CHART_INITIAL_DAYS = 252;
+export const SMALL_CHART_INITIAL_DAYS = 60;
+
+// RS thresholds (keep in sync with backend webhooks-config defaults)
+export const RS_OPEN_LONG_THRESHOLD = 0.8;
+export const RS_CLOSE_LONG_THRESHOLD = 0.8;
+export const RS_OPEN_SHORT_THRESHOLD = 0.2;
+export const RS_CLOSE_SHORT_THRESHOLD = 0.2;
 
 //////////////////////////////////////////////////////////////////////////
