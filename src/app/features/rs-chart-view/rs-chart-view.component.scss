@@ -1,26 +1,120 @@
+@use '../../styles/mixins-global' as mixins;
+
 .rs-chart-view {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+  @include mixins.flexboxLayout(column, flex-start, stretch);
+  gap: mixins.rem(24);
   height: 100%;
 }
 
 .rs-chart-view__main {
+  @include mixins.flexboxLayout(column, flex-start, stretch);
+  gap: mixins.rem(12);
   flex: 0 0 auto;
-  min-height: 28rem;
+  min-height: mixins.rem(448);
+}
+
+.rs-chart-view__header {
+  @include mixins.flexboxLayout(row, space-between, flex-end);
+  padding-inline: mixins.rem(8);
+}
+
+.rs-chart-view__title-group {
+  @include mixins.flexboxLayout(column, flex-start, flex-start);
+  gap: mixins.rem(4);
+}
+
+.rs-chart-view__pair-label {
+  @include mixins.flexboxLayout(row, flex-start, baseline);
+  gap: mixins.rem(8);
+  color: var(--theme-on-surface);
+}
+
+.rs-chart-view__symbol {
+  font-weight: 600;
+  font-size: mixins.rem(24);
+  letter-spacing: 0.04em;
+}
+
+.rs-chart-view__vs {
+  font-weight: 500;
+  font-size: mixins.rem(16);
+  opacity: 0.72;
+}
+
+.rs-chart-view__baseline {
+  font-weight: 500;
+  font-size: mixins.rem(18);
+  opacity: 0.9;
+}
+
+.rs-chart-view__subtitle {
+  @include mixins.flexboxLayout(row, flex-start, center);
+  gap: mixins.rem(6);
+  font-size: mixins.rem(12);
+  opacity: 0.8;
+}
+
+.rs-chart-view__subtitle-item {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.rs-chart-view__subtitle-separator {
+  opacity: 0.6;
+}
+
+.rs-chart-view__main-chart {
+  flex: 1 1 auto;
+}
+
+.rs-chart-view__legend {
+  @include mixins.flexboxLayout(row, flex-start, center);
+  gap: mixins.rem(16);
+  padding: mixins.rem(4) mixins.rem(8) 0;
+  font-size: mixins.rem(12);
+  color: var(--theme-on-surface);
+  opacity: 0.9;
+}
+
+.rs-chart-view__legend-item {
+  @include mixins.flexboxLayout(row, flex-start, center);
+  gap: mixins.rem(6);
+}
+
+.rs-chart-view__legend-swatch {
+  width: mixins.rem(12);
+  height: mixins.rem(12);
+  border-radius: 9999px;
+}
+
+.rs-chart-view__legend-swatch--price {
+  background: linear-gradient(135deg, #2e7d32, #1565c0);
+}
+
+.rs-chart-view__legend-swatch--rs-long {
+  background-color: #2e7d32;
+}
+
+.rs-chart-view__legend-swatch--rs-short {
+  background-color: #c62828;
+}
+
+.rs-chart-view__legend-label {
+  white-space: nowrap;
 }
 
 .rs-chart-view__filmstrip {
-  display: flex;
-  flex-direction: row;
-  gap: 1rem;
+  @include mixins.flexboxLayout(row, flex-start, stretch);
+  gap: mixins.rem(12);
   overflow-x: auto;
-  padding-bottom: 0.5rem;
+  padding-bottom: mixins.rem(8);
+  @include mixins.customScrollbar();
 }
 
 .rs-chart-view__filmstrip-item {
-  flex: 0 0 24rem;
+  flex: 0 0 mixins.rem(384);
   padding: 0;
   border: none;
   background: transparent;
+  cursor: pointer;
 }

@@ -1,18 +1,50 @@
 <div class="rs-chart-view">
     @if (mainChart(); as main) {
         <section class="rs-chart-view__main">
-            @for (mc of [main]; track mc.id) {
-                <rs-chart
-                    [id]="'main-' + mc.id"
-                    [name]="mc.config.name"
-                    [config]="mc.config"
-                    [chartData]="mc.chartData"
-                    [baselineData]="mc.baselineData"
-                    [rsData]="mc.rsData"
-                    [isMain]="true"
-                    [zoomEnabled]="true"
-                />
-            }
+            <header class="rs-chart-view__header">
+                <div class="rs-chart-view__title-group">
+                    <div class="rs-chart-view__pair-label">
+                        <span class="rs-chart-view__symbol">{{ main.config.targetSymbol }}</span>
+                        <span class="rs-chart-view__vs">vs</span>
+                        <span class="rs-chart-view__baseline">{{ main.config.baselineSymbol }}</span>
+                    </div>
+                    <div class="rs-chart-view__subtitle">
+                        <span class="rs-chart-view__subtitle-item">5-day relative strength</span>
+                        <span class="rs-chart-view__subtitle-separator">•</span>
+                        <span class="rs-chart-view__subtitle-item">{{ main.config.targetSymbol }} vs {{ main.config.baselineSymbol }}</span>
+                    </div>
+                </div>
+            </header>
+
+            <div class="rs-chart-view__main-chart">
+                @for (mc of [main]; track mc.id) {
+                    <rs-chart
+                        [id]="'main-' + mc.id"
+                        [name]="mc.config.name"
+                        [config]="mc.config"
+                        [chartData]="mc.chartData"
+                        [baselineData]="mc.baselineData"
+                        [rsData]="mc.rsData"
+                        [isMain]="true"
+                        [zoomEnabled]="true"
+                    />
+                }
+            </div>
+
+            <footer class="rs-chart-view__legend">
+                <div class="rs-chart-view__legend-item">
+                    <span class="rs-chart-view__legend-swatch rs-chart-view__legend-swatch--price"></span>
+                    <span class="rs-chart-view__legend-label">Price candles ({{ main.config.targetSymbol }})</span>
+                </div>
+                <div class="rs-chart-view__legend-item">
+                    <span class="rs-chart-view__legend-swatch rs-chart-view__legend-swatch--rs-long"></span>
+                    <span class="rs-chart-view__legend-label">RS long-zone bars</span>
+                </div>
+                <div class="rs-chart-view__legend-item">
+                    <span class="rs-chart-view__legend-swatch rs-chart-view__legend-swatch--rs-short"></span>
+                    <span class="rs-chart-view__legend-label">RS short-zone bars</span>
+                </div>
+            </footer>
         </section>
     }
 

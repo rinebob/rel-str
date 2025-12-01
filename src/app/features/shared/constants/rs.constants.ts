@@ -222,6 +222,7 @@ const MAIN_RS_CHART_X_AXIS_CONFIG: AxisModel = {
 
 const MAIN_RS_CHART_Y_AXIS_CONFIG: AxisModel = {
     title: 'Price (USD)',
+    opposedPosition: true,
 }
 
 const MAIN_RS_CHART_LEGEND_CONFIG: AxisModel = {

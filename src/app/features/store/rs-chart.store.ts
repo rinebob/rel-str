@@ -361,7 +361,15 @@ function buildChartConfig(base: string, target: string): RsChartConfig {
     targetSymbol: target,
     baselineSymbol: base,
     timeframe: Timeframe.DAILY,
-    chartConfig: RS_CHART_CONFIG,
+    chartConfig: {
+      ...RS_CHART_CONFIG,
+      // RsChartView renders its own focused header/legend, so suppress the
+      // built-in Syncfusion legend for these RS charts.
+      legend: {
+        ...(RS_CHART_CONFIG.legend ?? {}),
+        visible: false,
+      },
+    },
     showRS: true,
     showBaseline: false,
     showVolume: true,
