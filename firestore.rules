@@ -27,6 +27,14 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow write: if false;
 
+      // Per-pair canonical signals (year shards with opens/closes subcollections)
+      // - pairs-data/{PAIR}/signals/{YYYY}/opens/{signalId}
+      // - pairs-data/{PAIR}/signals/{YYYY}/closes/{signalId}
+      match /signals/{year}/{subcol}/{docId} {
+        allow read: if request.auth != null && year.matches('^\\d{4}$');
+        allow write: if false;
+      }
+
       // Per-pair signals-daily (year-closed shards only)
       // - pairs-data/{PAIR}/signals-daily/{YYYY}/days/{day}
       match /signals-daily/{bucket} {
@@ -86,12 +94,6 @@ service cloud.firestore {
         allow read: if request.auth != null;
         allow write: if false;
       }
-    }
-
-    // Decision Board positions snapshot docs (UI read-only)
-    match /positions/{positionId} {
-      allow read: if request.auth != null;
-      allow write: if false; // backend-only writes via functions
     }
 
     // Authenticated user profile root: allow user to read/write only their own doc
