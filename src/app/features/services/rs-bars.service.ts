@@ -34,7 +34,7 @@ export class RsBarsService {
     // We always ask the backend for up to this many years, but Savant may
     // still return full history. We clamp to this window client-side so the
     // chart only works with a bounded range.
-    const yearsBack = params.yearsBack ?? 2;
+    const yearsBack = params.yearsBack ?? 5;
 
     return defer(() => from(this.inCtx(() => {
       const callable = httpsCallable<GetPairDailyBarsRequest, GetPairDailyBarsResponse>(
@@ -44,7 +44,7 @@ export class RsBarsService {
       const req: GetPairDailyBarsRequest = {
         symbol: sym,
         interval: params.interval ?? BarsInterval.DAILY,
-        yearsBack: params.yearsBack ?? 2,
+        yearsBack,
         days: params.days,
         limit: params.limit,
       };
