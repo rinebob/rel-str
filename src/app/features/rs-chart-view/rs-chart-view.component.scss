@@ -14,12 +14,12 @@
 }
 
 .rs-chart-view__header {
-  @include mixins.flexboxLayout(row, space-between, flex-end);
+  @include mixins.flexboxLayout(column, center, center);
   padding-inline: mixins.rem(8);
 }
 
 .rs-chart-view__title-group {
-  @include mixins.flexboxLayout(column, flex-start, flex-start);
+  @include mixins.flexboxLayout(column, center, center);
   gap: mixins.rem(4);
 }
 
@@ -146,4 +146,13 @@
   border: none;
   background: transparent;
   cursor: pointer;
+}
+
+.rs-chart-view__filmstrip-label {
+  @include mixins.flexboxLayout(row, center, baseline);
+  gap: mixins.rem(6);
+  padding: mixins.rem(4) 0;
+  color: var(--theme-on-surface);
+  font-size: mixins.rem(12);
+  text-align: center;
 }

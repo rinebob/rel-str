@@ -81,6 +81,11 @@
         <section class="rs-chart-view__filmstrip">
             @for (chart of smallCharts(); track $index) {
                 <button class="rs-chart-view__filmstrip-item" type="button" (click)="selectChart(chart.id)">
+                    <div class="rs-chart-view__filmstrip-label">
+                        <span class="rs-chart-view__symbol">{{ chart.config.targetSymbol }}</span>
+                        <span class="rs-chart-view__vs">vs</span>
+                        <span class="rs-chart-view__baseline">{{ chart.config.baselineSymbol }}</span>
+                    </div>
                     <rs-chart
                         [id]="'small-' + chart.id"
                         [name]="chart.config.name"
