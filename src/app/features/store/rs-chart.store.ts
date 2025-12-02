@@ -4,7 +4,7 @@ import { Auth } from '@angular/fire/auth';
 import { firstValueFrom } from 'rxjs';
 
 import type { CandleWithRSColor, ChartSignal, MaConfig, MaSeriesPoint, OHLCDatum, RelStrStockList, RsPaneDatum, RsSeriesPoint, RsChartConfig } from '../shared/types/rs.interfaces';
-import { Timeframe } from '../shared/types/rs.interfaces';
+import { MaType, Timeframe } from '../shared/types/rs.interfaces';
 import { DEFAULT_MAIN_MA_CONFIGS, RS_CHART_CONFIG, RS_OPEN_LONG_THRESHOLD, RS_OPEN_SHORT_THRESHOLD, ZOOM_DISABLED_CONFIG, MAIN_RS_CHART_ZOOM_SETTINGS } from '../shared/constants/rs.constants';
 import { calculateMaSeriesForPrice } from '../shared/utils/ma.util';
 import { RelStrDbV2Service } from '../services/rel-str-db-v2.service';
@@ -363,6 +363,36 @@ export const RsChartStore = signalStore(
      */
     setSelectedChartId(chartId: string | null): void {
       patchState(store, { selectedChartId: chartId });
+    },
+
+    /**
+     * Update the moving-average type (EMA/SMA/WMA) for all main MAs.
+     * Keeps lengths/colors as-is and triggers recomputation via computed chartSignals.
+     */
+    setMainMaType(type: MaType): void {
+      const current = store.mainMaConfigs();
+      const next = current.map((ma) => ({
+        ...ma,
+        type,
+      }));
+      patchState(store, { mainMaConfigs: next });
+    },
+
+    /**
+     * Update the length of a single main MA (ma1/ma2/ma3).
+     */
+    setMainMaLength(id: string, length: number): void {
+      const safeLength = Number.isFinite(length) && length > 0 ? Math.floor(length) : 1;
+      const current = store.mainMaConfigs();
+      const next = current.map((ma) =>
+        ma.id === id
+          ? {
+              ...ma,
+              length: safeLength,
+            }
+          : ma,
+      );
+      patchState(store, { mainMaConfigs: next });
     },
   })),
 );

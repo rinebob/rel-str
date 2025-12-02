@@ -49,27 +49,80 @@
                         </div>
                     </div>
 
-                    <div class="rs-chart-view__legend-group rs-chart-view__legend-group--ma">
-                        <div class="rs-chart-view__legend-item">
-                            <span class="rs-chart-view__legend-swatch rs-chart-view__legend-swatch--ma1"></span>
-                            <span class="rs-chart-view__legend-label">
-                                {{ (ma1Config()?.type || 'ema') | uppercase }}
-                                {{ ma1Config()?.length }}
-                            </span>
+                    <div class="rs-chart-view__legend-group rs-chart-view__legend-group--ma-controls">
+                        <div class="rs-chart-view__ma-type-group" role="radiogroup" aria-label="Moving average type">
+                            <label class="rs-chart-view__ma-type-option">
+                                <input
+                                    type="radio"
+                                    name="ma-type"
+                                    [value]="MaType.EMA"
+                                    [checked]="currentMaType() === MaType.EMA"
+                                    (change)="onMaTypeChange(MaType.EMA)"
+                                />
+                                <span>EMA</span>
+                            </label>
+                            <label class="rs-chart-view__ma-type-option">
+                                <input
+                                    type="radio"
+                                    name="ma-type"
+                                    [value]="MaType.WMA"
+                                    [checked]="currentMaType() === MaType.WMA"
+                                    (change)="onMaTypeChange(MaType.WMA)"
+                                />
+                                <span>WMA</span>
+                            </label>
+                            <label class="rs-chart-view__ma-type-option">
+                                <input
+                                    type="radio"
+                                    name="ma-type"
+                                    [value]="MaType.SMA"
+                                    [checked]="currentMaType() === MaType.SMA"
+                                    (change)="onMaTypeChange(MaType.SMA)"
+                                />
+                                <span>SMA</span>
+                            </label>
                         </div>
-                        <div class="rs-chart-view__legend-item">
-                            <span class="rs-chart-view__legend-swatch rs-chart-view__legend-swatch--ma2"></span>
-                            <span class="rs-chart-view__legend-label">
-                                {{ (ma2Config()?.type || 'ema') | uppercase }}
-                                {{ ma2Config()?.length }}
-                            </span>
-                        </div>
-                        <div class="rs-chart-view__legend-item">
-                            <span class="rs-chart-view__legend-swatch rs-chart-view__legend-swatch--ma3"></span>
-                            <span class="rs-chart-view__legend-label">
-                                {{ (ma3Config()?.type || 'ema') | uppercase }}
-                                {{ ma3Config()?.length }}
-                            </span>
+
+                        <div class="rs-chart-view__ma-length-group" aria-label="Moving average lengths">
+                            <div class="rs-chart-view__ma-length-item">
+                                <span class="rs-chart-view__legend-swatch rs-chart-view__legend-swatch--ma1"></span>
+                                <label class="rs-chart-view__ma-length-label">
+                                    <span>MA1</span>
+                                    <input
+                                        class="rs-chart-view__ma-length-input"
+                                        type="number"
+                                        min="1"
+                                        [value]="ma1Config()?.length ?? 10"
+                                        (change)="onMaLengthChange('ma1', $any($event.target).value)"
+                                    />
+                                </label>
+                            </div>
+                            <div class="rs-chart-view__ma-length-item">
+                                <span class="rs-chart-view__legend-swatch rs-chart-view__legend-swatch--ma2"></span>
+                                <label class="rs-chart-view__ma-length-label">
+                                    <span>MA2</span>
+                                    <input
+                                        class="rs-chart-view__ma-length-input"
+                                        type="number"
+                                        min="1"
+                                        [value]="ma2Config()?.length ?? 20"
+                                        (change)="onMaLengthChange('ma2', $any($event.target).value)"
+                                    />
+                                </label>
+                            </div>
+                            <div class="rs-chart-view__ma-length-item">
+                                <span class="rs-chart-view__legend-swatch rs-chart-view__legend-swatch--ma3"></span>
+                                <label class="rs-chart-view__ma-length-label">
+                                    <span>MA3</span>
+                                    <input
+                                        class="rs-chart-view__ma-length-input"
+                                        type="number"
+                                        min="1"
+                                        [value]="ma3Config()?.length ?? 50"
+                                        (change)="onMaLengthChange('ma3', $any($event.target).value)"
+                                    />
+                                </label>
+                            </div>
                         </div>
                     </div>
                 </div>

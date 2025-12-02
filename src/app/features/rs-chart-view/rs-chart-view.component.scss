@@ -89,8 +89,11 @@
   flex-wrap: wrap;
 }
 
-.rs-chart-view__legend-group--ma {
+.rs-chart-view__legend-group--ma-controls {
   margin-left: auto;
+  @include mixins.flexboxLayout(row, flex-end, center);
+  gap: mixins.rem(16);
+  flex-wrap: nowrap;
 }
 
 .rs-chart-view__legend-item {
@@ -130,6 +133,38 @@
 
 .rs-chart-view__legend-label {
   white-space: nowrap;
+}
+
+.rs-chart-view__ma-type-group {
+  @include mixins.flexboxLayout(row, flex-start, center);
+  gap: mixins.rem(8);
+}
+
+.rs-chart-view__ma-type-option {
+  @include mixins.flexboxLayout(row, flex-start, center);
+  gap: mixins.rem(4);
+  font-size: mixins.rem(12);
+}
+
+.rs-chart-view__ma-length-group {
+  @include mixins.flexboxLayout(row, flex-start, center);
+  gap: mixins.rem(12);
+}
+
+.rs-chart-view__ma-length-item {
+  @include mixins.flexboxLayout(row, flex-start, center);
+  gap: mixins.rem(4);
+}
+
+.rs-chart-view__ma-length-label {
+  @include mixins.flexboxLayout(row, flex-start, center);
+  gap: mixins.rem(4);
+}
+
+.rs-chart-view__ma-length-input {
+  width: mixins.rem(40);
+  padding: mixins.rem(2) mixins.rem(4);
+  font-size: mixins.rem(12);
 }
 
 .rs-chart-view__filmstrip {
