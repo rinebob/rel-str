@@ -517,9 +517,9 @@ function prepareThresholdFilteredRsFromSeries(rsSeries: RsSeriesPoint[]): RsPane
       let rsColor = '#dddddd';
       if (typeof rank === 'number') {
         if (rank >= RS_OPEN_LONG_THRESHOLD) {
-          rsColor = '#2e7d32';
+          rsColor = '#00ff00';
         } else if (rank <= RS_OPEN_SHORT_THRESHOLD) {
-          rsColor = '#c62828';
+          rsColor = '#ff0000';
         }
       }
 
