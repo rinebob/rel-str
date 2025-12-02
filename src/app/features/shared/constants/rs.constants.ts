@@ -375,7 +375,9 @@ export const RS_CHART_CONFIG: RsSyncfusionChartConfig = {
 }
 
 export const MAIN_CHART_INITIAL_DAYS = 252;
-export const SMALL_CHART_INITIAL_DAYS = 60;
+// Use ~6 months of trading days for filmstrip charts so car charts show a
+// more informative medium-term window than the previous ~3-month view.
+export const SMALL_CHART_INITIAL_DAYS = 126;
 
 // RS thresholds (keep in sync with backend webhooks-config defaults)
 export const RS_OPEN_LONG_THRESHOLD = 0.8;
