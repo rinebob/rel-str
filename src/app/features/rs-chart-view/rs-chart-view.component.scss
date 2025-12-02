@@ -144,6 +144,10 @@
   @include mixins.flexboxLayout(row, flex-start, center);
   gap: mixins.rem(4);
   font-size: mixins.rem(12);
+
+  input[type='radio'] {
+    margin: 0;
+  }
 }
 
 .rs-chart-view__ma-length-group {
