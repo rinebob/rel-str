@@ -146,6 +146,7 @@
   border: none;
   background: transparent;
   cursor: pointer;
+  height: mixins.rem(320);
 }
 
 .rs-chart-view__filmstrip-label {
@@ -155,4 +156,8 @@
   color: var(--theme-on-surface);
   font-size: mixins.rem(12);
   text-align: center;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
