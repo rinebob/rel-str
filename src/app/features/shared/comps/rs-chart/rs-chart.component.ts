@@ -59,26 +59,8 @@ export class RsChartComponent {
     isMain = input(false);
 
     isInitialLoad = signal<boolean>(true);
-    
-    constructor() {
-        // Lightweight debug logging to understand data presence when charts
-        // move between main and filmstrip. Remove once RS rendering is stable.
-        // eslint-disable-next-line no-console
-        effect(() => {
-            try {
-                console.log('[RsChartComponent] inputs', {
-                    id: this.id(),
-                    name: this.name(),
-                    isMain: this.isMain(),
-                    chartLen: this.chartData()?.length,
-                    baselineLen: this.baselineData()?.length,
-                    rsLen: this.rsData()?.length,
-                });
-            } catch (e) {
-                console.error('[RsChartComponent] log error', e);
-            }
-        });
-    }
+
+    constructor() {}
 
     onChartLoaded2(): void {
         if (this.chart) {
@@ -137,28 +119,12 @@ export class RsChartComponent {
         // still autoscale once when data is present.
         this.autoscaleYAxis();
 
-        // When the zoom toolbar is visible on the main chart, disable
-        // tooltips while hovering the toolbar so RS tooltips don't obscure
-        // the zoom/pan controls.
-        if (this.isMain() && chart.element) {
-            const root = chart.element as HTMLElement & { __rsToolbarHandlersAttached?: boolean };
-            if (!root.__rsToolbarHandlersAttached) {
-                const toolbar = root.querySelector('.e-zoomingtool') as HTMLElement | null;
-                if (toolbar) {
-                    const handleEnter = () => {
-                        chart.tooltip.enable = false;
-                        chart.dataBind();
-                    };
-                    const handleLeave = () => {
-                        chart.tooltip.enable = true;
-                        chart.dataBind();
-                    };
-                    toolbar.addEventListener('mouseenter', handleEnter);
-                    toolbar.addEventListener('mouseleave', handleLeave);
-                    root.__rsToolbarHandlersAttached = true;
-                }
-            }
-        }
+        // Note: we previously attached custom mouseenter/mouseleave handlers
+        // to the Syncfusion zoom toolbar here to toggle tooltip.enable and
+        // call chart.dataBind(). That extra data binding could race with
+        // Syncfusion's own async DOM updates and surface internal
+        // querySelector null errors in their helper.js. We now rely on the
+        // default Syncfusion behavior instead.
     }
 
     onScrollEnd(event: IScrollEventArgs): void {
@@ -198,8 +164,6 @@ export class RsChartComponent {
     }
 
     onZoomComplete(event: IZoomCompleteEventArgs): void {
-        // console.log(`----- RSC oZC onZoomComplete ${this.id()} -------`);
-        // console.log('rS oZC event: ', event);
         // Update zoomFactor and zoomPosition to reflect the new visible range
         if (this.chart && this.chart.primaryXAxis && event.currentVisibleRange) {
             const data = this.chartData();
@@ -208,8 +172,6 @@ export class RsChartComponent {
             const max = toTimestamp(event.currentVisibleRange.max);
             const startIdx = data.findIndex(d => toTimestamp(d.x) >= min);
             const endIdx = data.findIndex(d => toTimestamp(d.x) >= max);
-            console.log('rS oZC startIdx/endIdx: ', startIdx, endIdx);
-            console.log('rS oZC min/max: ', min, max);
             let zoomFactor = 0;
             let zoomPosition = 0;
             if (total > 0 && startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {

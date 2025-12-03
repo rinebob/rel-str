@@ -45,6 +45,7 @@
                 close="close"
                 [name]="config().targetSymbol || 'Target'"
                 pointColorMapping="rsColor"
+                [animation]="{ enable: false }"
             >
             </e-series>
             
@@ -59,6 +60,7 @@
                 close="close"
                 [name]="config().baselineSymbol || 'Baseline'"
                 [visible]="config().showBaseline ?? false"
+                [animation]="{ enable: false }"
             >
             </e-series>
             
@@ -70,6 +72,7 @@
                 name="MA 1"
                 [visible]="!!mainMaSeries()['ma1'].length"
                 [fill]="maColors['ma1']"
+                [animation]="{ enable: false }"
             >
             </e-series>
 
@@ -81,6 +84,7 @@
                 name="MA 2"
                 [visible]="!!mainMaSeries()['ma2'].length"
                 [fill]="maColors['ma2']"
+                [animation]="{ enable: false }"
             >
             </e-series>
 
@@ -92,6 +96,7 @@
                 name="MA 3"
                 [visible]="!!mainMaSeries()['ma3'].length"
                 [fill]="maColors['ma3']"
+                [animation]="{ enable: false }"
             >
             </e-series>
 
@@ -104,6 +109,7 @@
                 [visible]="config().showRS ?? true"
                 yAxisName="yAxis1"
                 pointColorMapping="rsColor"
+                [animation]="{ enable: false }"
             >
             </e-series>
 

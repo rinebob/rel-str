@@ -152,7 +152,12 @@
     @if (smallCharts().length) {
         <section class="rs-chart-view__filmstrip">
             @for (chart of smallCharts(); track $index) {
-                <button class="rs-chart-view__filmstrip-item" type="button" (click)="selectChart(chart.id)">
+                <button
+                    class="rs-chart-view__filmstrip-item"
+                    type="button"
+                    (mousedown)="selectChart(chart.id)"
+                    (click)="$event.preventDefault()"
+                    >
                     <div class="rs-chart-view__filmstrip-label">
                         <span class="rs-chart-view__symbol">{{ chart.config.targetSymbol }}</span>
                         <span class="rs-chart-view__vs">vs</span>

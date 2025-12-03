@@ -215,6 +215,10 @@
   height: 90%;
 }
 
+.rs-chart-view__filmstrip-item rs-chart {
+  pointer-events: none;
+}
+
 .rs-chart-view__filmstrip-label {
   @include mixins.flexboxLayout(row, center, baseline);
   gap: mixins.rem(6);
