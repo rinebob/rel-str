@@ -9,6 +9,7 @@ import { DEFAULT_MAIN_MA_CONFIGS, RS_CHART_CONFIG, RS_OPEN_LONG_THRESHOLD, RS_OP
 import { calculateMaSeriesForPrice } from '../shared/utils/ma.util';
 import { RelStrDbV2Service } from '../services/rel-str-db-v2.service';
 import { RsBarsService } from '../services/rs-bars.service';
+import { compressDailyTo2DayBars } from '../shared/utils/rs-bars.util';
 
 /**
  * RsChartStore
@@ -45,6 +46,8 @@ interface RsChartState {
   error: string | null;
   /** Moving-average configs for the main price chart */
   mainMaConfigs: MaConfig[];
+  /** Selected timeframe for price/RS visualization */
+  timeframe: Timeframe;
 }
 
 const initialState: RsChartState = {
@@ -59,6 +62,7 @@ const initialState: RsChartState = {
   loading: false,
   error: null,
   mainMaConfigs: DEFAULT_MAIN_MA_CONFIGS,
+  timeframe: Timeframe.DAILY,
 };
 
 export const RsChartStore = signalStore(
@@ -74,6 +78,7 @@ export const RsChartStore = signalStore(
       const symbols = store.symbols();
       const rsByPair = store.rsSeriesByPair();
       const ohlcBySymbol = store.ohlcBySymbol();
+      const timeframe = store.timeframe();
 
       if (!baseline || !symbols?.length) {
         return [];
@@ -82,14 +87,33 @@ export const RsChartStore = signalStore(
       const pairs = symbols.map((sym) => `${baseline}-${sym}`);
       const result: ChartSignal[] = [];
 
+      const effectiveOhlcBySymbol: Record<string, OHLCDatum[]> = {};
+      for (const [sym, series] of Object.entries(ohlcBySymbol)) {
+        effectiveOhlcBySymbol[sym] = timeframe === Timeframe.TWO_DAY
+          ? compressDailyTo2DayBars(series)
+          : series;
+      }
+
       for (const pairId of pairs) {
         const [base, target] = pairId.split('-');
         const rsSeries: RsSeriesPoint[] = rsByPair[pairId] ?? [];
-        const targetOhlc: OHLCDatum[] = ohlcBySymbol[target] ?? [];
-        const baselineOhlc: OHLCDatum[] = ohlcBySymbol[base] ?? [];
+        const targetOhlc: OHLCDatum[] = effectiveOhlcBySymbol[target] ?? [];
+        const baselineOhlc: OHLCDatum[] = effectiveOhlcBySymbol[base] ?? [];
+        const targetDailyAll: OHLCDatum[] = ohlcBySymbol[target] ?? [];
 
         if (!rsSeries.length || !targetOhlc.length) {
           // Require at least some RS and price data to render this pair.
+          try {
+            // eslint-disable-next-line no-console
+            console.log('[RsChartStore] skip pair (no data)', {
+              pairId,
+              rsLen: rsSeries.length,
+              targetOhlcLen: targetOhlc.length,
+              baselineOhlcLen: baselineOhlc.length,
+            });
+          } catch {
+            // ignore debug logging errors
+          }
           continue;
         }
 
@@ -110,6 +134,18 @@ export const RsChartStore = signalStore(
         const priceMax = priceDates[priceDates.length - 1];
 
         if (!rsMin || !rsMax || !priceMin || !priceMax) {
+          try {
+            // eslint-disable-next-line no-console
+            console.log('[RsChartStore] skip pair (missing min/max)', {
+              pairId,
+              rsMin,
+              rsMax,
+              priceMin,
+              priceMax,
+            });
+          } catch {
+            // ignore debug logging errors
+          }
           continue;
         }
 
@@ -118,6 +154,16 @@ export const RsChartStore = signalStore(
 
         if (windowMin >= windowMax) {
           // No overlapping window where both price and RS exist.
+          try {
+            // eslint-disable-next-line no-console
+            console.log('[RsChartStore] skip pair (no overlap window)', {
+              pairId,
+              windowMin,
+              windowMax,
+            });
+          } catch {
+            // ignore debug logging errors
+          }
           continue;
         }
 
@@ -131,13 +177,28 @@ export const RsChartStore = signalStore(
           return d >= windowMin && d <= windowMax;
         });
 
-        const filteredRs = rsSeries.filter((r) => r.date >= windowMin && r.date <= windowMax);
+        const baseRsSeries = rsSeries.filter((r) => r.date >= windowMin && r.date <= windowMax);
+
+        const filteredRs = timeframe === Timeframe.TWO_DAY
+          ? compressRsTo2DaySeries(baseRsSeries)
+          : baseRsSeries;
 
         if (!filteredOhlc.length || !filteredRs.length) {
+          try {
+            // eslint-disable-next-line no-console
+            console.log('[RsChartStore] skip pair (empty filtered series)', {
+              pairId,
+              filteredOhlcLen: filteredOhlc.length,
+              filteredRsLen: filteredRs.length,
+              timeframe,
+            });
+          } catch {
+            // ignore debug logging errors
+          }
           continue;
         }
 
-        const config = buildChartConfig(base, target);
+        const config = buildChartConfig(base, target, timeframe);
         const chartData = prepareChartDataFromLive(filteredOhlc, filteredRs);
         const baselineData = filteredBaseline;
         const rsData = prepareThresholdFilteredRsFromSeries(filteredRs);
@@ -151,6 +212,10 @@ export const RsChartStore = signalStore(
           mainMaSeries[ma.id] = calculateMaSeriesForPrice(ma, chartData);
         }
 
+        const isTwoDayDay2 = timeframe === Timeframe.TWO_DAY
+          ? ((targetDailyAll.length - 1) % 2 === 1)
+          : false;
+
         result.push({
           id: config.id,
           config,
@@ -158,6 +223,7 @@ export const RsChartStore = signalStore(
           baselineData,
           rsData,
           mainMaSeries,
+          isTwoDayDay2,
         });
       }
 
@@ -315,7 +381,8 @@ export const RsChartStore = signalStore(
 
         const ohlcBySymbol: Record<string, OHLCDatum[]> = {};
         for (const { symbol, series } of ohlcResults) {
-          ohlcBySymbol[symbol] = series;
+          const sorted = [...series].sort((a, b) => String(a.date ?? '').localeCompare(String(b.date ?? '')));
+          ohlcBySymbol[symbol] = sorted;
         }
 
         // TEMP DEBUG: log OHLC coverage for baseline + first symbol
@@ -394,17 +461,21 @@ export const RsChartStore = signalStore(
       );
       patchState(store, { mainMaConfigs: next });
     },
+
+    setTimeframe(timeframe: Timeframe): void {
+      patchState(store, { timeframe });
+    },
   })),
 );
 
 /** Build a base chart configuration for a baseline/target pair. */
-function buildChartConfig(base: string, target: string): RsChartConfig {
+function buildChartConfig(base: string, target: string, timeframe: Timeframe): RsChartConfig {
   return {
     id: `pair-${base}-${target}`,
-    name: `${target} vs ${base}`,
+    name: timeframe === Timeframe.TWO_DAY ? `${target} vs ${base} (2D)` : `${target} vs ${base}`,
     targetSymbol: target,
     baselineSymbol: base,
-    timeframe: Timeframe.DAILY,
+    timeframe,
     chartConfig: {
       ...RS_CHART_CONFIG,
       // RsChartView renders its own focused header/legend, so suppress the
@@ -529,4 +600,27 @@ function prepareThresholdFilteredRsFromSeries(rsSeries: RsSeriesPoint[]): RsPane
         rsColor,
       };
     });
+}
+
+function compressRsTo2DaySeries(rsSeries: RsSeriesPoint[]): RsSeriesPoint[] {
+  if (!rsSeries?.length) {
+    return [];
+  }
+
+  const sorted = [...rsSeries].sort((a, b) => a.date.localeCompare(b.date));
+  const result: RsSeriesPoint[] = [];
+
+  for (let i = 0; i < sorted.length; i += 2) {
+    const a = sorted[i];
+    const b = sorted[i + 1];
+
+    if (!b) {
+      result.push({ ...a });
+      break;
+    }
+
+    result.push({ ...b });
+  }
+
+  return result;
 }

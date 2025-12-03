@@ -177,7 +177,8 @@ export enum ListAction {
 export enum Timeframe {
     DAILY = 'daily',
     WEEKLY = 'weekly',
-    MONTHLY = 'monthly'
+    MONTHLY = 'monthly',
+    TWO_DAY = 'two-day'
 }
 
 export enum MaType {
@@ -254,6 +255,7 @@ export interface ChartSignal {
     baselineData: OHLCDatum[];
     mainMaSeries?: Record<string, MaSeriesPoint[]>;
     carMaSeries?: Record<string, MaSeriesPoint[]>;
+    isTwoDayDay2?: boolean;
 }
 
 // Typed interface for RS Table rows
