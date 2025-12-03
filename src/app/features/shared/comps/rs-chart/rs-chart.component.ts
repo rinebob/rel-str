@@ -17,7 +17,7 @@ import {
 } from '@syncfusion/ej2-angular-charts';
 
 import { CandleWithRSColor, MaSeriesPoint, OHLCDatum, RsChartConfig, RsPaneDatum } from '../../../shared/types/rs.interfaces';
-import { MAIN_CHART_INITIAL_DAYS, SMALL_CHART_INITIAL_DAYS } from '../../../shared/constants/rs.constants';
+import { DEFAULT_MAIN_MA_CONFIGS, MAIN_CHART_INITIAL_DAYS, SMALL_CHART_INITIAL_DAYS } from '../../../shared/constants/rs.constants';
 import { autoscaleYAxis } from '../../utils/chart.util';
 import { toTimestamp } from '../../utils/date.util';
 
@@ -86,6 +86,14 @@ export class RsChartComponent {
         }
     }
 
+    public readonly maColors: Record<string, string> = DEFAULT_MAIN_MA_CONFIGS
+        .reduce<Record<string, string>>((acc, cfg) => {
+            if (cfg?.id && cfg?.color) {
+                acc[cfg.id] = cfg.color;
+            }
+            return acc;
+        }, {});
+
     onChartLoaded(): void {
         // console.log(`---------- RSC oCL onChartLoaded ${this.id()} ----------`);
         const chart = this.chart;
@@ -103,8 +111,10 @@ export class RsChartComponent {
         const firstX = data[0].x;
         const lastX = data[data.length - 1].x;
         if (chart.primaryXAxis) {
+            const paddingMs = 3 * 24 * 60 * 60 * 1000;
+            const paddedMax = new Date((lastX as Date).getTime() + paddingMs);
             chart.primaryXAxis.minimum = firstX as any;
-            chart.primaryXAxis.maximum = lastX as any;
+            chart.primaryXAxis.maximum = paddedMax as any;
         }
 
         const daysToShow = this.isMain() ? MAIN_CHART_INITIAL_DAYS : SMALL_CHART_INITIAL_DAYS;
