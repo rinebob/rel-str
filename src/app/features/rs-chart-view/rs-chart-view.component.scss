@@ -2,25 +2,30 @@
 
 .rs-chart-view {
   @include mixins.flexboxLayout(column, flex-start, stretch);
-  gap: mixins.rem(24);
-  height: 100%;
+  gap: mixins.rem(10);
+  height: calc(100vh - 64px);
 }
 
 .rs-chart-view__main {
   @include mixins.flexboxLayout(column, flex-start, stretch);
-  gap: mixins.rem(12);
+  gap: mixins.rem(2);
   flex: 0 0 auto;
-  min-height: mixins.rem(448);
+  min-height: mixins.rem(486);
 }
 
 .rs-chart-view__header {
-  @include mixins.flexboxLayout(column, center, center);
+  @include mixins.flexboxLayout(row, space-between, center);
   padding-inline: mixins.rem(8);
 }
 
-.rs-chart-view__title-group {
-  @include mixins.flexboxLayout(column, center, center);
-  gap: mixins.rem(4);
+.rs-chart-view__header-left {
+  @include mixins.flexboxLayout(row, flex-start, center);
+  gap: mixins.rem(12);
+}
+
+.rs-chart-view__header-right {
+  @include mixins.flexboxLayout(row, flex-end, center);
+  gap: mixins.rem(12);
 }
 
 .rs-chart-view__pair-label {
@@ -70,7 +75,7 @@
 .rs-chart-view__legend {
   @include mixins.flexboxLayout(row, flex-start, center);
   gap: mixins.rem(16);
-  padding: mixins.rem(4) mixins.rem(8) 0;
+  padding: mixins.rem(2) mixins.rem(8) 0;
   font-size: mixins.rem(12);
   color: var(--theme-on-surface);
   opacity: 0.9;
@@ -131,6 +136,26 @@
   background-color: #8e24aa;
 }
 
+.rs-chart-view__timeframe-toggle {
+  @include mixins.flexboxLayout(row, flex-start, center);
+  font-size: mixins.rem(12);
+
+  ::ng-deep .mat-button-toggle-button {
+    padding: mixins.rem(1) mixins.rem(8);
+    line-height: 1;
+  }
+
+  ::ng-deep .mat-button-toggle-label-content {
+    padding: 0 mixins.rem(6);
+    line-height: 1.1;
+  }
+}
+
+.rs-chart-view__two-day-status {
+  font-size: mixins.rem(12);
+  opacity: 0.8;
+}
+
 .rs-chart-view__legend-label {
   white-space: nowrap;
 }
@@ -175,7 +200,9 @@
   @include mixins.flexboxLayout(row, flex-start, stretch);
   gap: mixins.rem(12);
   overflow-x: auto;
-  padding-bottom: mixins.rem(8);
+  overflow-y: hidden;
+  padding-bottom: mixins.rem(4);
+  flex: 1 1 auto;
   @include mixins.customScrollbar();
 }
 
@@ -185,7 +212,7 @@
   border: none;
   background: transparent;
   cursor: pointer;
-  height: mixins.rem(320);
+  height: 90%;
 }
 
 .rs-chart-view__filmstrip-label {

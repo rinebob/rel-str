@@ -2,7 +2,7 @@
     @if (mainChart(); as main) {
         <section class="rs-chart-view__main">
             <header class="rs-chart-view__header">
-                <div class="rs-chart-view__title-group">
+                <div class="rs-chart-view__header-left">
                     <div class="rs-chart-view__pair-label">
                         <span class="rs-chart-view__symbol">{{ main.config.targetSymbol }}</span>
                         <span class="rs-chart-view__vs">vs</span>
@@ -13,6 +13,29 @@
                         <span class="rs-chart-view__subtitle-separator">•</span>
                         <span class="rs-chart-view__subtitle-item">{{ main.config.targetSymbol }} vs {{ main.config.baselineSymbol }}</span>
                     </div>
+                </div>
+                <div class="rs-chart-view__header-right">
+                    <mat-button-toggle-group
+                        class="rs-chart-view__timeframe-toggle"
+                        [value]="timeframe()"
+                        (change)="onTimeframeChange($event.value)"
+                        aria-label="Timeframe">
+                        <mat-button-toggle [value]="Timeframe.DAILY">
+                            Daily
+                        </mat-button-toggle>
+                        <mat-button-toggle [value]="Timeframe.TWO_DAY">
+                            2-Day
+                        </mat-button-toggle>
+                    </mat-button-toggle-group>
+                    @if (timeframe() === Timeframe.TWO_DAY && mainChart()) {
+                        <div class="rs-chart-view__two-day-status">
+                            @if (mainChart()?.isTwoDayDay2) {
+                                <span>2-Day bar: Day 2 (signals active)</span>
+                            } @else {
+                                <span>2-Day bar: Day 1 (signals pending)</span>
+                            }
+                        </div>
+                    }
                 </div>
             </header>
 
