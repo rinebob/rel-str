@@ -131,6 +131,17 @@ export async function fetchDailyBarsRange(symbol: string, opts: FetchRangeOption
     const years = Math.max(1, Math.round(Number(opts.yearsBack)));
     const range = `${years}y`;
     data = await callPartnerTimeSeries({ symbol, interval, range });
+
+    const rawBars = Array.isArray((data as any)?.bars) ? (data as any).bars : [];
+    logger.info('partner_timeseries_raw_payload', {
+      symbol,
+      interval,
+      from: fromIso,
+      to: toIso,
+      range,
+      barsCount: rawBars.length,
+    //   bars: rawBars,
+    });
   } else {
     // Derive a sensible default limit for explicit from/to or days windows:
     // - If caller provided an explicit limit, honor it.
@@ -140,6 +151,17 @@ export async function fetchDailyBarsRange(symbol: string, opts: FetchRangeOption
     const limit = explicitLimit ?? fallbackLimitFromDays;
     effectiveLimit = limit;
     data = await callPartnerTimeSeries({ symbol, interval, from: fromIso, to: toIso, limit });
+
+    const rawBars = Array.isArray((data as any)?.bars) ? (data as any).bars : [];
+    logger.info('partner_timeseries_raw_payload', {
+      symbol,
+      interval,
+      from: fromIso,
+      to: toIso,
+      limit,
+      barsCount: rawBars.length,
+    //   bars: rawBars,
+    });
   }
 
   const bars = Array.isArray(data?.bars) ? data.bars : [];
