@@ -4,7 +4,8 @@ import type { PhaseSeriesPoint, PartnerBar } from './webhooks-config';
 import { ARCHIVE_COLLECTION_PREFIX, PAIRS_COLLECTION } from './webhooks-config';
 import { RsPhase } from '../types/partner';
 import { logger } from 'firebase-functions/v2';
-import { WARNINGS_COLLECTION, RsCloudFunctionName, SILENCE_MISSING_POST_TIME } from './webhooks-config';
+import { RsCloudFunctionName, SILENCE_MISSING_POST_TIME } from './webhooks-config';
+import { persistWarning } from '../logging/warn';
 
 /**
  * Write unified RS series for a pair into Firestore (pairs-data schema).
@@ -214,16 +215,12 @@ export async function writeUnifiedSeries(
       };
       if (!preTime) {
         logger.warn('missing_intraday_time_it_on_pre', { pairId, day: e.day });
-        try {
-          await db.collection(WARNINGS_COLLECTION).add({
-            type: 'missing_intraday_time_it_on_pre',
-            function: RsCloudFunctionName.WRITE_UNIFIED_SERIES,
-            pairId,
-            phase: RsPhase.PRE,
-            day: e.day,
-            createdAt: FieldValue.serverTimestamp(),
-          });
-        } catch {}
+        await persistWarning('missing_intraday_time_it_on_pre', {
+          function: RsCloudFunctionName.WRITE_UNIFIED_SERIES,
+          pairId,
+          phase: RsPhase.PRE,
+          day: e.day,
+        });
       }
     } else {
       dayObj.post = {
@@ -238,16 +235,12 @@ export async function writeUnifiedSeries(
       if (!(dayObj.post as any).time) {
         if (!SILENCE_MISSING_POST_TIME) {
           logger.warn('missing_close_time_on_post', { pairId, day: e.day });
-          try {
-            await db.collection(WARNINGS_COLLECTION).add({
-              type: 'missing_close_time_on_post',
-              function: RsCloudFunctionName.WRITE_UNIFIED_SERIES,
-              pairId,
-              phase: RsPhase.POST,
-              day: e.day,
-              createdAt: FieldValue.serverTimestamp(),
-            });
-          } catch {}
+          await persistWarning('missing_close_time_on_post', {
+            function: RsCloudFunctionName.WRITE_UNIFIED_SERIES,
+            pairId,
+            phase: RsPhase.POST,
+            day: e.day,
+          });
         }
       }
     }
