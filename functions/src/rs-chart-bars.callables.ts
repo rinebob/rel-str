@@ -38,6 +38,31 @@ export interface GetPairDailyBarsResponse {
   bars: PartnerDailyBarDTO[];
 }
 
+export function normalizePartnerDailyBar(b: PartnerBar): PartnerDailyBarDTO {
+  const date = String((b as any)?.d || '').trim();
+  const open = Number((b as any)?.o);
+  const high = Number((b as any)?.h);
+  const low = Number((b as any)?.l);
+  const close = Number((b as any)?.c);
+  const volume = Number((b as any)?.v);
+
+  const issues: string[] = [];
+  if (!date) issues.push('missing_date');
+  if (!Number.isFinite(open)) issues.push('open_nonfinite');
+  if (!Number.isFinite(high)) issues.push('high_nonfinite');
+  if (!Number.isFinite(low)) issues.push('low_nonfinite');
+  if (!Number.isFinite(close)) issues.push('close_nonfinite');
+
+  const base: PartnerDailyBarDTO = { date };
+  if (Number.isFinite(open)) base.open = open;
+  if (Number.isFinite(high)) base.high = high;
+  if (Number.isFinite(low)) base.low = low;
+  if (Number.isFinite(close)) base.close = close;
+  if (Number.isFinite(volume) && volume > 0) base.volume = volume;
+  if (issues.length) base.issues = issues;
+  return base;
+}
+
 /**
  * getPairDailyBars — Fetch normalized daily OHLCV bars for a symbol via SavantAPI.
  *
@@ -66,30 +91,7 @@ export const getPairDailyBars = onCall(
         limit,
       });
 
-      const dto: PartnerDailyBarDTO[] = (Array.isArray(bars) ? bars : []).map((b: PartnerBar) => {
-        const date = String((b as any)?.d || '').trim();
-        const open = Number((b as any)?.o);
-        const high = Number((b as any)?.h);
-        const low = Number((b as any)?.l);
-        const close = Number((b as any)?.ac ?? (b as any)?.c);
-        const volume = Number((b as any)?.v);
-
-        const issues: string[] = [];
-        if (!date) issues.push('missing_date');
-        if (!Number.isFinite(open)) issues.push('open_nonfinite');
-        if (!Number.isFinite(high)) issues.push('high_nonfinite');
-        if (!Number.isFinite(low)) issues.push('low_nonfinite');
-        if (!Number.isFinite(close)) issues.push('close_nonfinite');
-
-        const base: PartnerDailyBarDTO = { date };
-        if (Number.isFinite(open)) base.open = open;
-        if (Number.isFinite(high)) base.high = high;
-        if (Number.isFinite(low)) base.low = low;
-        if (Number.isFinite(close)) base.close = close;
-        if (Number.isFinite(volume) && volume > 0) base.volume = volume;
-        if (issues.length) base.issues = issues;
-        return base;
-      });
+      const dto: PartnerDailyBarDTO[] = (Array.isArray(bars) ? bars : []).map((b: PartnerBar) => normalizePartnerDailyBar(b));
 
       logger.info('getPairDailyBars', { symbol: sym, count: dto.length });
       return { bars: dto };
