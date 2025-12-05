@@ -232,7 +232,7 @@
         </div>
       }
     } @else if (chartStore.smallCharts().length) {
-      @for (chart of chartStore.smallCharts(); track $index) {
+      @for (chart of chartStore.smallCharts(); track chart.id) {
         <button
           class="rs-chart-view__filmstrip-item"
           type="button"

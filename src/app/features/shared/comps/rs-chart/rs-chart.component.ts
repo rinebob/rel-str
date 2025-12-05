@@ -64,12 +64,6 @@ export class RsChartComponent {
 
     constructor() {}
 
-    onChartLoaded2(): void {
-        if (this.chart) {
-            this.autoscaleYAxis();
-        }
-    }
-
     public readonly maColors: Record<string, string> = DEFAULT_MAIN_MA_CONFIGS
         .reduce<Record<string, string>>((acc, cfg) => {
             if (cfg?.id && cfg?.color) {
@@ -80,13 +74,26 @@ export class RsChartComponent {
 
     onChartLoaded(): void {
         // console.log(`---------- RSC oCL onChartLoaded ${this.id()} ----------`);
+        // Syncfusion may fire loaded multiple times; only act on the first.
+        if (!this.isInitialLoad()) {
+            return;
+        }
+
         const chart = this.chart;
         if (!chart) {
             return;
         }
 
+        // For non-main charts, rely entirely on Syncfusion's defaults and
+        // avoid any extra work on load for performance.
+        if (!this.isMain()) {
+            // this.isInitialLoad.set(false);
+            return;
+        }
+
         const data = this.chartData();
         if (!data || !data.length) {
+            // this.isInitialLoad.set(false);
             return;
         }
 
@@ -95,7 +102,7 @@ export class RsChartComponent {
         const firstX = data[0].x;
         const lastX = data[data.length - 1].x;
         if (chart.primaryXAxis) {
-            const paddingMs = 3 * 24 * 60 * 60 * 1000;
+            const paddingMs = 3 * 24 * 60 * 60 * 1000; //3 days
             const paddedMax = new Date((lastX as Date).getTime() + paddingMs);
             chart.primaryXAxis.minimum = firstX as any;
             chart.primaryXAxis.maximum = paddedMax as any;
@@ -104,29 +111,16 @@ export class RsChartComponent {
         const daysToShow = this.isMain() ? MAIN_CHART_INITIAL_DAYS : SMALL_CHART_INITIAL_DAYS;
 
         // Initial zoom window for newly created chart instances
-        if (this.isInitialLoad() && data.length > daysToShow) {
+        if (data.length > daysToShow && chart.primaryXAxis) {
             const zoomFactor = daysToShow / data.length;
             const zoomPosition = (data.length - daysToShow) / data.length;
 
-            if (chart.primaryXAxis) {
-                chart.primaryXAxis.zoomFactor = zoomFactor;
-                chart.primaryXAxis.zoomPosition = zoomPosition;
-            }
-
-            this.autoscaleYAxis();
-            this.isInitialLoad.set(false);
+            chart.primaryXAxis.zoomFactor = zoomFactor;
+            chart.primaryXAxis.zoomPosition = zoomPosition;
         }
 
-        // For reused chart instances (e.g. moving between main and filmstrip),
-        // still autoscale once when data is present.
         this.autoscaleYAxis();
-
-        // Note: we previously attached custom mouseenter/mouseleave handlers
-        // to the Syncfusion zoom toolbar here to toggle tooltip.enable and
-        // call chart.dataBind(). That extra data binding could race with
-        // Syncfusion's own async DOM updates and surface internal
-        // querySelector null errors in their helper.js. We now rely on the
-        // default Syncfusion behavior instead.
+        this.isInitialLoad.set(false);
     }
 
     onScrollEnd(event: IScrollEventArgs): void {
