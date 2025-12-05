@@ -1,181 +1,266 @@
 <div class="rs-chart-view">
-    @if (mainChart(); as main) {
-        <section class="rs-chart-view__main">
-            <header class="rs-chart-view__header">
-                <div class="rs-chart-view__header-left">
-                    <div class="rs-chart-view__pair-label">
-                        <span class="rs-chart-view__symbol">{{ main.config.targetSymbol }}</span>
-                        <span class="rs-chart-view__vs">vs</span>
-                        <span class="rs-chart-view__baseline">{{ main.config.baselineSymbol }}</span>
-                    </div>
-                    <div class="rs-chart-view__subtitle">
-                        <span class="rs-chart-view__subtitle-item">5-day relative strength</span>
-                        <span class="rs-chart-view__subtitle-separator">•</span>
-                        <span class="rs-chart-view__subtitle-item">{{ main.config.targetSymbol }} vs {{ main.config.baselineSymbol }}</span>
-                    </div>
-                </div>
-                <div class="rs-chart-view__header-right">
-                    <mat-button-toggle-group
-                        class="rs-chart-view__timeframe-toggle"
-                        [value]="timeframe()"
-                        (change)="onTimeframeChange($event.value)"
-                        aria-label="Timeframe">
-                        <mat-button-toggle [value]="Timeframe.DAILY">
-                            Daily
-                        </mat-button-toggle>
-                        <mat-button-toggle [value]="Timeframe.TWO_DAY">
-                            2-Day
-                        </mat-button-toggle>
-                    </mat-button-toggle-group>
-                    @if (timeframe() === Timeframe.TWO_DAY && mainChart()) {
-                        <div class="rs-chart-view__two-day-status">
-                            @if (mainChart()?.isTwoDayDay2) {
-                                <span>2-Day bar: Day 2 (signals active)</span>
-                            } @else {
-                                <span>2-Day bar: Day 1 (signals pending)</span>
-                            }
-                        </div>
-                    }
-                </div>
-            </header>
+  <section class="rs-chart-view__main">
+    @if (chartStore.mainChart(); as main) {
+      <header class="rs-chart-view__header">
+        <div class="rs-chart-view__header-left">
+          <div class="rs-chart-view__pair-label">
+            <span class="rs-chart-view__symbol">
+              {{ main.config.targetSymbol }}
+            </span>
+            <span class="rs-chart-view__vs">vs</span>
+            <span class="rs-chart-view__baseline">
+              {{ main.config.baselineSymbol }}
+            </span>
+          </div>
+          <div class="rs-chart-view__subtitle">
+            <span class="rs-chart-view__subtitle-item">
+              5-day relative strength
+            </span>
+            <span class="rs-chart-view__subtitle-separator">•</span>
+            <span class="rs-chart-view__subtitle-item">
+              {{ main.config.targetSymbol }} vs {{ main.config.baselineSymbol }}
+            </span>
+          </div>
+        </div>
 
-            <div class="rs-chart-view__main-chart">
-                @for (mc of [main]; track mc.id) {
-                    <rs-chart
-                        [id]="'main-' + mc.id"
-                        [name]="mc.config.name"
-                        [config]="mc.config"
-                        [chartData]="mc.chartData"
-                        [baselineData]="mc.baselineData"
-                        [rsData]="mc.rsData"
-                        [mainMaSeries]="mc.mainMaSeries || {}"
-                        [isMain]="true"
-                        [zoomEnabled]="true"
-                    />
-                }
+        <div class="rs-chart-view__header-right">
+          <mat-button-toggle-group
+            class="rs-chart-view__timeframe-toggle"
+            [value]="chartStore.timeframe()"
+            (change)="onTimeframeChange($event.value)"
+            aria-label="Timeframe"
+          >
+            <mat-button-toggle [value]="Timeframe.DAILY">
+              Daily
+            </mat-button-toggle>
+            <mat-button-toggle [value]="Timeframe.TWO_DAY">
+              2-Day
+            </mat-button-toggle>
+          </mat-button-toggle-group>
+
+          @if (chartStore.timeframe() === Timeframe.TWO_DAY && chartStore.mainChart()) {
+            <div class="rs-chart-view__two-day-status">
+              @if (chartStore.mainChart()?.isTwoDayDay2) {
+                <span>2-Day bar: Day 2 (signals active)</span>
+              } @else {
+                <span>2-Day bar: Day 1 (signals pending)</span>
+              }
+            </div>
+          }
+        </div>
+      </header>
+
+      <div class="rs-chart-view__main-chart">
+        @if (chartStore.loading()) {
+          <div class="rs-chart-view__chart-loading">
+            <mat-progress-spinner
+              mode="indeterminate"
+              [diameter]="32"
+              color="primary"
+            ></mat-progress-spinner>
+            <span class="rs-chart-view__chart-loading-text">
+              Loading main chart · RS data · OHLC
+            </span>
+          </div>
+        } @else {
+          @for (mc of [main]; track mc.id) {
+            <rs-chart
+              [id]="'main-' + mc.id"
+              [name]="mc.config.name"
+              [config]="mc.config"
+              [chartData]="mc.chartData"
+              [baselineData]="mc.baselineData"
+              [rsData]="mc.rsData"
+              [mainMaSeries]="mc.mainMaSeries || {}"
+              [isMain]="true"
+              [zoomEnabled]="true"
+            />
+          }
+        }
+      </div>
+
+      <footer class="rs-chart-view__legend">
+        <div class="rs-chart-view__legend-row">
+          <div class="rs-chart-view__legend-group">
+            <div class="rs-chart-view__legend-item">
+              <span
+                class="rs-chart-view__legend-swatch rs-chart-view__legend-swatch--rs-long"
+              ></span>
+              <span class="rs-chart-view__legend-label">
+                RS long-zone bars
+              </span>
+            </div>
+            <div class="rs-chart-view__legend-item">
+              <span
+                class="rs-chart-view__legend-swatch rs-chart-view__legend-swatch--rs-short"
+              ></span>
+              <span class="rs-chart-view__legend-label">
+                RS short-zone bars
+              </span>
+            </div>
+          </div>
+
+          <div
+            class="rs-chart-view__legend-group rs-chart-view__legend-group--ma-controls"
+          >
+            <div
+              class="rs-chart-view__ma-type-group"
+              role="radiogroup"
+              aria-label="Moving average type"
+            >
+              <label class="rs-chart-view__ma-type-option">
+                <input
+                  type="radio"
+                  name="ma-type"
+                  [value]="MaType.EMA"
+                  [checked]="currentMaType() === MaType.EMA"
+                  (change)="onMaTypeChange(MaType.EMA)"
+                />
+                <span>EMA</span>
+              </label>
+              <label class="rs-chart-view__ma-type-option">
+                <input
+                  type="radio"
+                  name="ma-type"
+                  [value]="MaType.WMA"
+                  [checked]="currentMaType() === MaType.WMA"
+                  (change)="onMaTypeChange(MaType.WMA)"
+                />
+                <span>WMA</span>
+              </label>
+              <label class="rs-chart-view__ma-type-option">
+                <input
+                  type="radio"
+                  name="ma-type"
+                  [value]="MaType.SMA"
+                  [checked]="currentMaType() === MaType.SMA"
+                  (change)="onMaTypeChange(MaType.SMA)"
+                />
+                <span>SMA</span>
+              </label>
             </div>
 
-            <footer class="rs-chart-view__legend">
-                <div class="rs-chart-view__legend-row">
-                    <div class="rs-chart-view__legend-group">
-                        <div class="rs-chart-view__legend-item">
-                            <span class="rs-chart-view__legend-swatch rs-chart-view__legend-swatch--rs-long"></span>
-                            <span class="rs-chart-view__legend-label">RS long-zone bars</span>
-                        </div>
-                        <div class="rs-chart-view__legend-item">
-                            <span class="rs-chart-view__legend-swatch rs-chart-view__legend-swatch--rs-short"></span>
-                            <span class="rs-chart-view__legend-label">RS short-zone bars</span>
-                        </div>
-                    </div>
-
-                    <div class="rs-chart-view__legend-group rs-chart-view__legend-group--ma-controls">
-                        <div class="rs-chart-view__ma-type-group" role="radiogroup" aria-label="Moving average type">
-                            <label class="rs-chart-view__ma-type-option">
-                                <input
-                                    type="radio"
-                                    name="ma-type"
-                                    [value]="MaType.EMA"
-                                    [checked]="currentMaType() === MaType.EMA"
-                                    (change)="onMaTypeChange(MaType.EMA)"
-                                />
-                                <span>EMA</span>
-                            </label>
-                            <label class="rs-chart-view__ma-type-option">
-                                <input
-                                    type="radio"
-                                    name="ma-type"
-                                    [value]="MaType.WMA"
-                                    [checked]="currentMaType() === MaType.WMA"
-                                    (change)="onMaTypeChange(MaType.WMA)"
-                                />
-                                <span>WMA</span>
-                            </label>
-                            <label class="rs-chart-view__ma-type-option">
-                                <input
-                                    type="radio"
-                                    name="ma-type"
-                                    [value]="MaType.SMA"
-                                    [checked]="currentMaType() === MaType.SMA"
-                                    (change)="onMaTypeChange(MaType.SMA)"
-                                />
-                                <span>SMA</span>
-                            </label>
-                        </div>
-
-                        <div class="rs-chart-view__ma-length-group" aria-label="Moving average lengths">
-                            <div class="rs-chart-view__ma-length-item">
-                                <span class="rs-chart-view__legend-swatch rs-chart-view__legend-swatch--ma1"></span>
-                                <label class="rs-chart-view__ma-length-label">
-                                    <span>MA1</span>
-                                    <input
-                                        class="rs-chart-view__ma-length-input"
-                                        type="number"
-                                        min="1"
-                                        [value]="ma1Config()?.length ?? 10"
-                                        (change)="onMaLengthChange('ma1', $any($event.target).value)"
-                                    />
-                                </label>
-                            </div>
-                            <div class="rs-chart-view__ma-length-item">
-                                <span class="rs-chart-view__legend-swatch rs-chart-view__legend-swatch--ma2"></span>
-                                <label class="rs-chart-view__ma-length-label">
-                                    <span>MA2</span>
-                                    <input
-                                        class="rs-chart-view__ma-length-input"
-                                        type="number"
-                                        min="1"
-                                        [value]="ma2Config()?.length ?? 20"
-                                        (change)="onMaLengthChange('ma2', $any($event.target).value)"
-                                    />
-                                </label>
-                            </div>
-                            <div class="rs-chart-view__ma-length-item">
-                                <span class="rs-chart-view__legend-swatch rs-chart-view__legend-swatch--ma3"></span>
-                                <label class="rs-chart-view__ma-length-label">
-                                    <span>MA3</span>
-                                    <input
-                                        class="rs-chart-view__ma-length-input"
-                                        type="number"
-                                        min="1"
-                                        [value]="ma3Config()?.length ?? 50"
-                                        (change)="onMaLengthChange('ma3', $any($event.target).value)"
-                                    />
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </footer>
-        </section>
+            <div
+              class="rs-chart-view__ma-length-group"
+              aria-label="Moving average lengths"
+            >
+              <div class="rs-chart-view__ma-length-item">
+                <span
+                  class="rs-chart-view__legend-swatch rs-chart-view__legend-swatch--ma1"
+                ></span>
+                <label class="rs-chart-view__ma-length-label">
+                  <span>MA1</span>
+                  <input
+                    class="rs-chart-view__ma-length-input"
+                    type="number"
+                    min="1"
+                    [value]="ma1Config()?.length ?? 10"
+                    (change)="onMaLengthChange('ma1', $any($event.target).value)"
+                  />
+                </label>
+              </div>
+              <div class="rs-chart-view__ma-length-item">
+                <span
+                  class="rs-chart-view__legend-swatch rs-chart-view__legend-swatch--ma2"
+                ></span>
+                <label class="rs-chart-view__ma-length-label">
+                  <span>MA2</span>
+                  <input
+                    class="rs-chart-view__ma-length-input"
+                    type="number"
+                    min="1"
+                    [value]="ma2Config()?.length ?? 20"
+                    (change)="onMaLengthChange('ma2', $any($event.target).value)"
+                  />
+                </label>
+              </div>
+              <div class="rs-chart-view__ma-length-item">
+                <span
+                  class="rs-chart-view__legend-swatch rs-chart-view__legend-swatch--ma3"
+                ></span>
+                <label class="rs-chart-view__ma-length-label">
+                  <span>MA3</span>
+                  <input
+                    class="rs-chart-view__ma-length-input"
+                    type="number"
+                    min="1"
+                    [value]="ma3Config()?.length ?? 50"
+                    (change)="onMaLengthChange('ma3', $any($event.target).value)"
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </footer>
+    } @else {
+      <div class="rs-chart-view__main-chart">
+        <div class="rs-chart-view__chart-loading">
+          <mat-progress-spinner
+            mode="indeterminate"
+            [diameter]="64"
+            color="primary"
+          ></mat-progress-spinner>
+          <span class="rs-chart-view__chart-loading-text">
+            Loading charts · RS data · OHLC
+          </span>
+        </div>
+      </div>
     }
+  </section>
 
-    @if (smallCharts().length) {
-        <section class="rs-chart-view__filmstrip">
-            @for (chart of smallCharts(); track $index) {
-                <button
-                    class="rs-chart-view__filmstrip-item"
-                    type="button"
-                    (mousedown)="selectChart(chart.id)"
-                    (click)="$event.preventDefault()"
-                    >
-                    <div class="rs-chart-view__filmstrip-label">
-                        <span class="rs-chart-view__symbol">{{ chart.config.targetSymbol }}</span>
-                        <span class="rs-chart-view__vs">vs</span>
-                        <span class="rs-chart-view__baseline">{{ chart.config.baselineSymbol }}</span>
-                    </div>
-                    <rs-chart
-                        [id]="'small-' + chart.id"
-                        [name]="chart.config.name"
-                        [config]="chart.config"
-                        [chartData]="chart.chartData"
-                        [baselineData]="chart.baselineData"
-                        [rsData]="chart.rsData"
-                        [mainMaSeries]="chart.mainMaSeries || {}"
-                        [isMain]="false"
-                        [zoomEnabled]="false"
-                    />
-                </button>
-            }
-        </section>
+  <section class="rs-chart-view__filmstrip">
+    @if (chartStore.loading()) {
+      @for (i of [0, 1, 2, 3]; track i) {
+        <div
+          class="rs-chart-view__filmstrip-item rs-chart-view__filmstrip-item--loading"
+        >
+          <div
+            class="rs-chart-view__filmstrip-label rs-chart-view__filmstrip-label--loading"
+          >
+            <span class="rs-chart-view__skeleton-pill"></span>
+          </div>
+          <div
+            class="rs-chart-view__chart-loading rs-chart-view__chart-loading--small"
+          >
+            <mat-progress-spinner
+              mode="indeterminate"
+              [diameter]="40"
+              color="primary"
+            ></mat-progress-spinner>
+          </div>
+        </div>
+      }
+    } @else if (chartStore.smallCharts().length) {
+      @for (chart of chartStore.smallCharts(); track $index) {
+        <button
+          class="rs-chart-view__filmstrip-item"
+          type="button"
+          (mousedown)="selectChart(chart.id)"
+          (click)="$event.preventDefault()"
+        >
+          <div class="rs-chart-view__filmstrip-label">
+            <span class="rs-chart-view__symbol">
+              {{ chart.config.targetSymbol }}
+            </span>
+            <span class="rs-chart-view__vs">vs</span>
+            <span class="rs-chart-view__baseline">
+              {{ chart.config.baselineSymbol }}
+            </span>
+          </div>
+          <rs-chart
+            [id]="'small-' + chart.id"
+            [name]="chart.config.name"
+            [config]="chart.config"
+            [chartData]="chart.chartData"
+            [baselineData]="chart.baselineData"
+            [rsData]="chart.rsData"
+            [mainMaSeries]="chart.mainMaSeries || {}"
+            [isMain]="false"
+            [zoomEnabled]="false"
+          />
+        </button>
+      }
     }
+  </section>
 </div>
