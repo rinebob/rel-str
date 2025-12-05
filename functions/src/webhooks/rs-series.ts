@@ -83,7 +83,8 @@ export function buildPhaseSeries(
   phase: RsPhase,
   baselineSymbol: string,
   targetSymbol: string,
-  logger: any
+  logger: any,
+  opts?: { from?: string; to?: string }
 ): PhaseSeriesPoint[] {
   // Helper: weekend check
   const isWeekend = (dayStr?: string) => {
@@ -114,6 +115,17 @@ export function buildPhaseSeries(
     return undefined;
   };
 
+  const rangeFrom = opts?.from ? String(opts.from).slice(0, 10) : undefined;
+  const rangeTo = opts?.to ? String(opts.to).slice(0, 10) : undefined;
+
+  const inRequestedRange = (day: string | undefined): boolean => {
+    if (!day) return true;
+    const d = day.slice(0, 10);
+    if (rangeFrom && d < rangeFrom) return false;
+    if (rangeTo && d > rangeTo) return false;
+    return true;
+  };
+
   const aligned: Array<{ day: string; base: PartnerBar; target: PartnerBar }> = [];
   const candidateDays: string[] = [];
   for (const t of targetBars) {
@@ -129,7 +141,19 @@ export function buildPhaseSeries(
           reason: 'baseline_bar_missing'
         });
       }
-      try { void persistWarning('rs_series_no_alignment', { function: RsCloudFunctionName.WRITE_UNIFIED_SERIES, pairId: `${baselineSymbol}-${targetSymbol}`, baseline: baselineSymbol, target: targetSymbol, phase, day: t.d, reason: 'baseline_bar_missing' }); } catch {}
+      if (inRequestedRange(t.d)) {
+        try {
+          void persistWarning('rs_series_no_alignment', {
+            function: RsCloudFunctionName.WRITE_UNIFIED_SERIES,
+            pairId: `${baselineSymbol}-${targetSymbol}`,
+            baseline: baselineSymbol,
+            target: targetSymbol,
+            phase,
+            day: t.d,
+            reason: 'baseline_bar_missing',
+          });
+        } catch {}
+      }
       continue;
     }
     const dw = dowLabelUTC(t.d);
@@ -183,7 +207,19 @@ export function buildPhaseSeries(
               missing
             });
           }
-          try { void persistWarning('rs_series_pre_missing_fields', { function: RsCloudFunctionName.WRITE_UNIFIED_SERIES, pairId: `${baselineSymbol}-${targetSymbol}`, baseline: baselineSymbol, target: targetSymbol, phase, day: t.d, missing }); } catch {}
+          if (inRequestedRange(t.d)) {
+            try {
+              void persistWarning('rs_series_pre_missing_fields', {
+                function: RsCloudFunctionName.WRITE_UNIFIED_SERIES,
+                pairId: `${baselineSymbol}-${targetSymbol}`,
+                baseline: baselineSymbol,
+                target: targetSymbol,
+                phase,
+                day: t.d,
+                missing,
+              });
+            } catch {}
+          }
           continue;
         }
         (t as any)._ipc_eff = Number(targetIpc.toFixed(6));
@@ -225,7 +261,19 @@ export function buildPhaseSeries(
               missing
             });
           }
-          try { void persistWarning('rs_series_post_missing_fields', { function: RsCloudFunctionName.WRITE_UNIFIED_SERIES, pairId: `${baselineSymbol}-${targetSymbol}`, baseline: baselineSymbol, target: targetSymbol, phase, day: t.d, missing }); } catch {}
+          if (inRequestedRange(t.d)) {
+            try {
+              void persistWarning('rs_series_post_missing_fields', {
+                function: RsCloudFunctionName.WRITE_UNIFIED_SERIES,
+                pairId: `${baselineSymbol}-${targetSymbol}`,
+                baseline: baselineSymbol,
+                target: targetSymbol,
+                phase,
+                day: t.d,
+                missing,
+              });
+            } catch {}
+          }
           continue;
         }
         (t as any)._cp_eff = Number(targetCpEff.toFixed(6));
@@ -268,7 +316,19 @@ export function buildPhaseSeries(
             missing
           });
         }
-        try { persistWarning('rs_series_post_missing_fields', { function: RsCloudFunctionName.WRITE_UNIFIED_SERIES, pairId: `${baselineSymbol}-${targetSymbol}`, baseline: baselineSymbol, target: targetSymbol, phase, day: t.d, missing }); } catch {}
+        if (inRequestedRange(t.d)) {
+          try {
+            persistWarning('rs_series_post_missing_fields', {
+              function: RsCloudFunctionName.WRITE_UNIFIED_SERIES,
+              pairId: `${baselineSymbol}-${targetSymbol}`,
+              baseline: baselineSymbol,
+              target: targetSymbol,
+              phase,
+              day: t.d,
+              missing,
+            });
+          } catch {}
+        }
         continue;
       }
       (t as any)._cp_eff = Number(targetCpEff.toFixed(6));
@@ -317,7 +377,20 @@ export function buildPhaseSeries(
           targetIpc: (target as any)._ipc_eff ?? target.ipc
         });
       }
-      try { void persistWarning('rs_series_calc_nonfinite_cp', { function: RsCloudFunctionName.WRITE_UNIFIED_SERIES, pairId: `${baselineSymbol}-${targetSymbol}`, baseline: baselineSymbol, target: targetSymbol, phase, day, baseCp: (base as any)._cp_eff ?? base.cp, targetCp: (target as any)._cp_eff ?? target.cp }); } catch {}
+      if (inRequestedRange(day)) {
+        try {
+          void persistWarning('rs_series_calc_nonfinite_cp', {
+            function: RsCloudFunctionName.WRITE_UNIFIED_SERIES,
+            pairId: `${baselineSymbol}-${targetSymbol}`,
+            baseline: baselineSymbol,
+            target: targetSymbol,
+            phase,
+            day,
+            baseCp: (base as any)._cp_eff ?? base.cp,
+            targetCp: (target as any)._cp_eff ?? target.cp,
+          });
+        } catch {}
+      }
       continue;
     }
     if (!Number.isFinite(bClose) || !Number.isFinite(tClose)) {
@@ -331,7 +404,20 @@ export function buildPhaseSeries(
           targetClose
         });
       }
-      try { void persistWarning('rs_series_calc_nonfinite_price', { function: RsCloudFunctionName.WRITE_UNIFIED_SERIES, pairId: `${baselineSymbol}-${targetSymbol}`, baseline: baselineSymbol, target: targetSymbol, phase, day, baseClose, targetClose }); } catch {}
+      if (inRequestedRange(day)) {
+        try {
+          void persistWarning('rs_series_calc_nonfinite_price', {
+            function: RsCloudFunctionName.WRITE_UNIFIED_SERIES,
+            pairId: `${baselineSymbol}-${targetSymbol}`,
+            baseline: baselineSymbol,
+            target: targetSymbol,
+            phase,
+            day,
+            baseClose,
+            targetClose,
+          });
+        } catch {}
+      }
       continue;
     }
     if (bClose <= 0 || tClose <= 0) {
@@ -345,7 +431,20 @@ export function buildPhaseSeries(
           targetClose
         });
       }
-      try { void persistWarning('rs_series_calc_nonpositive_price', { function: RsCloudFunctionName.WRITE_UNIFIED_SERIES, pairId: `${baselineSymbol}-${targetSymbol}`, baseline: baselineSymbol, target: targetSymbol, phase, day, baseClose, targetClose }); } catch {}
+      if (inRequestedRange(day)) {
+        try {
+          void persistWarning('rs_series_calc_nonpositive_price', {
+            function: RsCloudFunctionName.WRITE_UNIFIED_SERIES,
+            pairId: `${baselineSymbol}-${targetSymbol}`,
+            baseline: baselineSymbol,
+            target: targetSymbol,
+            phase,
+            day,
+            baseClose,
+            targetClose,
+          });
+        } catch {}
+      }
       continue;
     }
 
@@ -360,10 +459,31 @@ export function buildPhaseSeries(
   }
 
   const out: PhaseSeriesPoint[] = [];
-  for (let i = 4; i < outDays.length; i++) {
-    const sub = [targetCp[i], targetCp[i - 1], targetCp[i - 2], targetCp[i - 3], targetCp[i - 4]];
-    const bas = [baseCp[i], baseCp[i - 1], baseCp[i - 2], baseCp[i - 3], baseCp[i - 4]];
+
+  // Emit RS for every aligned trading day, using up to 5 most recent days.
+  for (let i = 0; i < outDays.length; i++) {
+    // Use as many past days as we have, up to 5
+    const windowSize = Math.min(5, i + 1);
+
+    const sub: number[] = [];
+    const bas: number[] = [];
+
+    // Collect most recent windowSize days: i, i-1, ..., i-(windowSize-1)
+    for (let k = 0; k < windowSize; k++) {
+      const idx = i - k;
+      sub.push(targetCp[idx]);
+      bas.push(baseCp[idx]);
+    }
+    // Reverse so they are oldest → newest
+    sub.reverse();
+    bas.reverse();
+
+    // If windowSize < 5, pad by repeating the earliest day so calculateRankWindow still sees 5 points
+    while (sub.length < 5) sub.unshift(sub[0]);
+    while (bas.length < 5) bas.unshift(bas[0]);
+
     const rank = calculateRankWindow(sub, bas);
+
     out.push({
       day: outDays[i],
       dow: outDows[i],
@@ -376,5 +496,6 @@ export function buildPhaseSeries(
       it: outTimes[i],
     });
   }
+
   return out;
 }
