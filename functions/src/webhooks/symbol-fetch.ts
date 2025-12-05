@@ -133,6 +133,14 @@ export async function fetchDailyBarsRange(symbol: string, opts: FetchRangeOption
     data = await callPartnerTimeSeries({ symbol, interval, range });
 
     const rawBars = Array.isArray((data as any)?.bars) ? (data as any).bars : [];
+    let firstDay: string | undefined;
+    let lastDay: string | undefined;
+    if (rawBars.length > 0) {
+      const firstT = Number(rawBars[0]?.t);
+      const lastT = Number(rawBars[rawBars.length - 1]?.t);
+      firstDay = Number.isFinite(firstT) ? new Date(firstT).toISOString().slice(0, 10) : undefined;
+      lastDay = Number.isFinite(lastT) ? new Date(lastT).toISOString().slice(0, 10) : undefined;
+    }
     logger.info('partner_timeseries_raw_payload', {
       symbol,
       interval,
@@ -140,17 +148,40 @@ export async function fetchDailyBarsRange(symbol: string, opts: FetchRangeOption
       to: toIso,
       range,
       barsCount: rawBars.length,
+      firstDay,
+      lastDay,
     //   bars: rawBars,
     });
   } else {
-    // Derive a sensible default limit for explicit from/to or days windows:
+    // Derive limit behavior for explicit from/to or days windows:
     // - If caller provided an explicit limit, honor it.
-    // - Otherwise fall back to days/30 as before.
+    // - If caller did NOT provide from/to, allow days/fallback to drive a safety cap.
+    // - If caller provided from/to with no explicit limit, OMIT limit so the partner API
+    //   returns the full requested range instead of a truncated slice.
     const explicitLimit = Number.isFinite(opts.limit as number) ? Number(opts.limit) : undefined;
-    const fallbackLimitFromDays = Number.isFinite(opts.days as number) ? Number(opts.days) : 30;
-    const limit = explicitLimit ?? fallbackLimitFromDays;
-    effectiveLimit = limit;
-    data = await callPartnerTimeSeries({ symbol, interval, from: fromIso, to: toIso, limit });
+    let limit: number | undefined;
+
+    if (explicitLimit !== undefined) {
+      // Always honor an explicit limit from the caller.
+      limit = explicitLimit;
+    } else if (!opts.from && !opts.to) {
+      // No explicit calendar window: use days (or a small default) as an API safety cap.
+      if (Number.isFinite(opts.days as number)) {
+        limit = Number(opts.days);
+      } else {
+        limit = 30;
+      }
+    } else {
+      // Explicit from/to with no explicit limit: do not send limit at all.
+      limit = undefined;
+    }
+
+    const req: any = { symbol, interval, from: fromIso, to: toIso };
+    if (limit !== undefined) {
+      effectiveLimit = limit;
+      req.limit = limit;
+    }
+    data = await callPartnerTimeSeries(req);
 
     const rawBars = Array.isArray((data as any)?.bars) ? (data as any).bars : [];
     logger.info('partner_timeseries_raw_payload', {
@@ -158,7 +189,7 @@ export async function fetchDailyBarsRange(symbol: string, opts: FetchRangeOption
       interval,
       from: fromIso,
       to: toIso,
-      limit,
+      limit: limit,
       barsCount: rawBars.length,
     //   bars: rawBars,
     });
