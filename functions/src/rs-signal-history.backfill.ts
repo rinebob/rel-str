@@ -97,12 +97,32 @@ export const backfillSignalsHistory = onRequest({ region: 'us-central1', timeout
       return;
     }
 
-    // Resolve pairs list exclusively from pair-registry (backend source of truth)
-    const regSnap = await db.collection('pair-registry').get();
-    const registryPairs = regSnap.docs
-      .map(d => String(d.id))
-      .sort();
-    if (verbose) logger.info('using pair-registry pairs', { event: 'pairRegistry', count: registryPairs.length });
+    // Resolve pairs list: explicit pairs param (if provided) takes precedence over pair-registry.
+    let registryPairs: string[] = [];
+    const pairsArg = (body.pairs ?? body.pair ?? body.pairId) as any;
+    if (Array.isArray(pairsArg)) {
+      registryPairs = pairsArg
+        .map((p: any) => String(p || '').trim())
+        .filter(Boolean)
+        .sort();
+      if (verbose) logger.info('using explicit pairs list', { event: 'pairsParam', count: registryPairs.length, pairs: registryPairs });
+    } else if (typeof pairsArg === 'string' && pairsArg.trim().length > 0) {
+      registryPairs = pairsArg
+        .split(',')
+        .map((p: string) => p.trim())
+        .filter(Boolean)
+        .sort();
+      if (verbose) logger.info('using explicit pairs string', { event: 'pairsParam', count: registryPairs.length, pairs: registryPairs });
+    }
+
+    // Fallback to pair-registry when no explicit pairs were provided
+    if (registryPairs.length === 0) {
+      const regSnap = await db.collection('pair-registry').get();
+      registryPairs = regSnap.docs
+        .map(d => String(d.id))
+        .sort();
+      if (verbose) logger.info('using pair-registry pairs', { event: 'pairRegistry', count: registryPairs.length });
+    }
 
     const resSummary: BackfillPairSummary[] = [];
     const daysTouched = new Set<string>();
