@@ -61,13 +61,64 @@ export const recomputePairsRs = onCall({ region: 'us-central1', timeoutSeconds: 
     const doPhase = async (phase: RsPhase) => {
       const accum = { successPairs: 0, failedPairs: 0, errorSamples: [] as ProcessErrorSample[] };
       let skippedExisting = 0; // reserved for future use in callable path
-      let writtenDays = 0;     // reserved for future use in callable path
-      if (!SILENCE_ADMIN_INFO) logger.info('recomputePairsRs starting pair processing', { count: pairsList.length, phase, concurrency, delayMsBetweenPairs });
+      let writtenDays = 0;
+      const useRange = !!(from || to || Number.isFinite(yearsBack as number));
+      if (!SILENCE_ADMIN_INFO) logger.info('recomputePairsRs starting pair processing', { count: pairsList.length, phase, concurrency, delayMsBetweenPairs, useRange, from: from ?? null, to: to ?? null, yearsBack: yearsBack ?? null });
       const baselineBarsCache = new Map<string, any[]>();
+
       await forEachWithConcurrency(pairsList, Math.max(1, concurrency), async ({ baseline, target }) => {
-        await processPairLive(baseline, target, phase, days, accum, { baselineBars: baselineBarsCache });
-        if (delayMsBetweenPairs > 0) {
-          await new Promise((r) => setTimeout(r, delayMsBetweenPairs));
+        const pairId = `${baseline}-${target}`;
+        try {
+          if (useRange) {
+            // Range-based path: honor explicit from/to/yearsBack and avoid implicit window caps.
+            // To account for the 5-day RS window, when a caller provides `from`, we pad the
+            // fetch window backwards by a few calendar days so that RS points exist starting
+            // at the requested `from` rather than several trading days later.
+            let paddedFrom: string | undefined = from;
+            if (from) {
+              try {
+                const base = new Date(from + 'T00:00:00.000Z');
+                const padDays = 10; // enough to cover 5 trading days across weekends/holidays
+                const padded = new Date(base.getTime() - padDays * 24 * 60 * 60 * 1000);
+                const y = padded.getUTCFullYear();
+                const m = String(padded.getUTCMonth() + 1).padStart(2, '0');
+                const d = String(padded.getUTCDate()).padStart(2, '0');
+                paddedFrom = `${y}-${m}-${d}`;
+              } catch {}
+            }
+
+            const rangeOpts = { from: paddedFrom, to, yearsBack, interval: FIXED_INTERVAL } as const;
+
+            let baseBars: any[] | undefined = baselineBarsCache.get(baseline);
+            if (!baseBars) {
+              baseBars = await fetchDailyBarsRange(baseline, rangeOpts);
+              baselineBarsCache.set(baseline, baseBars);
+            }
+            const targetBars = await fetchDailyBarsRange(target, rangeOpts);
+            let series = buildPhaseSeries(baseBars, targetBars, phase, baseline, target, logger, { from, to });
+            // After computing RS, clamp the series to the original requested [from,to] window
+            // so we do not leak padded days into Firestore.
+            if (from || to) {
+              const lower = from ? String(from).slice(0, 10) : '0000-01-01';
+              const upper = to ? String(to).slice(0, 10) : '9999-12-31';
+              series = series.filter((p) => p.day >= lower && p.day <= upper);
+            }
+            if (series.length === 0) {
+              accum.failedPairs++;
+              if (accum.errorSamples.length < 10) accum.errorSamples.push({ pair: pairId, message: 'no_aligned_series' });
+              return;
+            }
+            await writeUnifiedSeries(baseline, target, phase, series, baseBars, targetBars);
+            writtenDays += series.length;
+            accum.successPairs++;
+          } else {
+            // Legacy path: last `days` window driven by FIXED_DAYS / RS_DAYS
+            await processPairLive(baseline, target, phase, days, accum, { baselineBars: baselineBarsCache });
+          }
+        } finally {
+          if (delayMsBetweenPairs > 0) {
+            await new Promise((r) => setTimeout(r, delayMsBetweenPairs));
+          }
         }
       });
       return { successPairs: accum.successPairs, failedPairs: accum.failedPairs, skippedExisting, writtenDays, errorSamples: accum.errorSamples };
@@ -75,12 +126,31 @@ export const recomputePairsRs = onCall({ region: 'us-central1', timeoutSeconds: 
 
     const phases: RsPhase[] = phaseRaw === 'both' ? [RsPhase.PRE, RsPhase.POST] : (phaseRaw === RsPhase.PRE ? [RsPhase.PRE] : [RsPhase.POST]);
     const results = [] as Array<{ phase: RsPhase; successPairs: number; failedPairs: number; skippedExisting: number; writtenDays: number; errorSamples: ProcessErrorSample[] }>;
+    let writtenDaysTotal = 0;
     for (const ph of phases) {
       const r = await doPhase(ph);
+      writtenDaysTotal += r.writtenDays;
       results.push({ phase: ph, ...r });
     }
     try { await writeWarningsSummary({ function: 'recomputePairsRs', baseline: baselineRaw || null, pairs: pairsList.length }); } catch {}
-    return { ok: true, baseline: baselineRaw || null, pairs: pairsList.length, days, limit, from, to, yearsBack, missingOnly, results };
+
+    const useRangeTop = !!(from || to || Number.isFinite(yearsBack as number));
+    const daysOut = useRangeTop ? null : days;
+    const limitOut = useRangeTop ? null : limit;
+
+    return {
+      ok: true,
+      baseline: baselineRaw || null,
+      pairs: pairsList.length,
+      days: daysOut,
+      limit: limitOut,
+      from,
+      to,
+      yearsBack,
+      missingOnly,
+      writtenDaysTotal,
+      results,
+    };
   } catch (e: any) {
     logger.error('recomputePairsRs_failed', { message: e?.message });
     return { ok: false, error: e?.message || 'internal_error' };
@@ -260,21 +330,82 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
       let skippedExisting = 0;
       let writtenDays = 0;
       const errorSamples: ProcessErrorSample[] = [];
-      const baselineBarsCache = new Map<string, any[]>();
+      // Cache upstream partner bars per symbol so each symbol is fetched at most once per
+      // backfill run (per phase), regardless of whether it appears as a baseline or target.
+      const symbolBarsCache = new Map<string, any[]>();
+
+      // Helper: fetch DAILY bars for backfill windows.
+      // - If caller provided from/to, use an explicit (padded) date range.
+      // - If caller provided yearsBack only, use range mode.
+      // - Otherwise fall back to the legacy fixed-days window.
+      const fetchBackfillBars = async (symbol: string): Promise<any[]> => {
+        const hasFromOrTo = !!(from || to);
+        const hasYearsBack = Number.isFinite(yearsBack as number);
+        const useRange = hasFromOrTo || hasYearsBack;
+
+        if (!useRange) {
+          // Legacy fixed-window path (last N days)
+          return await fetchDailyBarsRaw(symbol, days, limit);
+        }
+
+        if (hasFromOrTo) {
+          // Explicit calendar window: use from/to directly, with padding for RS 5-day window.
+          let paddedFrom: string | undefined = from;
+          if (from) {
+            try {
+              const base = new Date(`${from}T00:00:00.000Z`);
+              const padDays = 10; // enough to cover 5 trading days across weekends/holidays
+              const padded = new Date(base.getTime() - padDays * 24 * 60 * 60 * 1000);
+              const y = padded.getUTCFullYear();
+              const m = String(padded.getUTCMonth() + 1).padStart(2, '0');
+              const d = String(padded.getUTCDate()).padStart(2, '0');
+              paddedFrom = `${y}-${m}-${d}`;
+            } catch {
+              // If padding fails for any reason, fall back to original from
+              paddedFrom = from;
+            }
+          }
+
+          return await fetchDailyBarsRange(symbol, {
+            from: paddedFrom,
+            to,
+            interval: FIXED_INTERVAL,
+          });
+        }
+
+        // No explicit window, but yearsBack was provided: use range mode (true "N years back").
+        return await fetchDailyBarsRange(symbol, {
+          yearsBack,
+          interval: FIXED_INTERVAL,
+        });
+      };
+
       await forEachWithConcurrency(pairs, Math.max(1, concurrency), async ({ baseline, target }) => {
         try {
           const useRange = !!(from || to || Number.isFinite(yearsBack as number));
-          let baseBars: any[] | undefined = baselineBarsCache.get(baseline);
+
+          // Fetch/cached baseline bars
+          let baseBars: any[] | undefined = symbolBarsCache.get(baseline);
           if (!baseBars) {
-            baseBars = useRange
-              ? await fetchDailyBarsRange(baseline, { from, to, yearsBack, days, limit, interval: FIXED_INTERVAL })
-              : await fetchDailyBarsRaw(baseline, days, limit);
-            baselineBarsCache.set(baseline, baseBars);
+            baseBars = await fetchBackfillBars(baseline);
+            symbolBarsCache.set(baseline, baseBars);
           }
-          const targetBars = useRange
-            ? await fetchDailyBarsRange(target, { from, to, yearsBack, days, limit, interval: FIXED_INTERVAL })
-            : await fetchDailyBarsRaw(target, days, limit);
-          const series = buildPhaseSeries(baseBars, targetBars, ph, baseline, target, logger);
+
+          // Fetch/cached target bars
+          let targetBars: any[] | undefined = symbolBarsCache.get(target);
+          if (!targetBars) {
+            targetBars = useRange
+              ? await fetchBackfillBars(target)
+              : await fetchDailyBarsRaw(target, days, limit);
+            symbolBarsCache.set(target, targetBars);
+          }
+          let series = buildPhaseSeries(baseBars, targetBars, ph, baseline, target, logger, { from, to });
+          // Clamp computed RS points back to the requested [from,to] window
+          if (useRange && (from || to)) {
+            const lower = from ? String(from).slice(0, 10) : '0000-01-01';
+            const upper = to ? String(to).slice(0, 10) : '9999-12-31';
+            series = series.filter((p) => p.day >= lower && p.day <= upper);
+          }
           if (series.length === 0) {
             failedPairs++;
             if (errorSamples.length < 50) errorSamples.push({ pair: `${baseline}-${target}`, message: 'no_aligned_series' });
@@ -412,7 +543,7 @@ export const diagnosePairDays = onCall({ region: 'us-central1', timeoutSeconds: 
         for (const b of targetBars) { const d = dayStr((b as any).d || (b as any).t); if (d) targDays.add(d); }
 
         // Compute series for the window, then index by day
-        const series = buildPhaseSeries(baseBars, targetBars, phase, baseline, target, logger);
+        const series = buildPhaseSeries(baseBars, targetBars, phase, baseline, target, logger, { from, to });
         const seriesDays = series.map(p => p.day);
         logger.info('diagnosePairDays series built', { pair: `${baseline}-${target}`, phase, series: series.length, first5: seriesDays.slice(0,5), last5: seriesDays.slice(Math.max(0, seriesDays.length-5)) });
         if (focusDay) {
