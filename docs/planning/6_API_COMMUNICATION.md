@@ -65,6 +65,11 @@ The frontend will interact with Firebase Cloud Functions for logic that requires
     * Auth: Google OIDC ID token with allowlisted service account emails (env var `ALLOWED_SERVICE_ACCOUNT_EMAILS`).
     * Query params: `symbol` (required), `interval` (DAILY|WEEKLY|MONTHLY), optional `range|from|to|limit`.
     * Purpose: External partner access to normalized time series stored in Firestore. Our app backend reads Firestore directly for app features.
+    * **RS pipeline note (2025-12):** although the partner endpoint supports
+      `range` and `limit`, the RS backend now **always** calls it with explicit
+      `from`/`to` windows only. Legacy sugar parameters such as
+      `yearsBack`/`days`/`limit` are deprecated for RS bar fetching and are no
+      longer used to determine time ranges anywhere in the RS code path.
 * ### Partner Notifications (Data Ready Webhook)
 +
 +To avoid polling on our side, SavantAPI will notify us when a data load (e.g., daily post-close) is complete.

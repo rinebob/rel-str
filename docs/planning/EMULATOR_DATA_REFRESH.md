@@ -147,16 +147,22 @@ Use `recomputeRegisteredBackfill` (HTTP admin function) against the **functions 
 
 ### 3.1 Focused archive repair for a specific range
 
-Example: repair a recent window around a known gap (POST phase only):
+Example: repair a recent window around a known gap (POST phase only).
+
+> **Note (2025-12)**
+>
+> The `recomputeRegisteredBackfill` admin function now requires an explicit
+> `from`/`to` **calendar window**. Legacy `yearsBack`/`days`/`limit` parameters
+> are **deprecated** and ignored by the RS pipeline; all partner bar fetches
+> are driven only by `from`/`to`.
 
 ```powershell
 $TOKEN = "local-admin"
 
 $body = @{
   phase       = "post"           # or "both" for PRE+POST
-  from        = "2025-11-10"
+  from        = "2025-11-10"     # explicit window is now required
   to          = "2025-11-25"     # include several trading days before/after
-  yearsBack   = 0
   missingOnly = $false
   concurrency = 3
 } | ConvertTo-Json
@@ -282,11 +288,18 @@ Example script `scripts/refresh-emulator-rs.ps1`:
 $TOKEN = "local-admin"
 
 # 1) Refresh archives for recent days
+ # NOTE (2025-12): recomputeRegisteredBackfill now requires explicit
+ # `from`/`to` dates. The legacy `days`/`limit`/`yearsBack` fields are
+ # deprecated for RS/backfill and must not be used to drive the fetch
+ # window.
+
+$today = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd')
+$from  = (Get-Date).ToUniversalTime().AddDays(-20).ToString('yyyy-MM-dd')
+
 $bodyArchive = @{
   phase       = "post"
-  days        = 20
-  limit       = 40
-  yearsBack   = 0
+  from        = $from
+  to          = $today
   missingOnly = $false
   concurrency = 3
 } | ConvertTo-Json
@@ -299,8 +312,6 @@ Invoke-RestMethod `
   -Body $bodyArchive
 
 # 2) Backfill signals/positions for same window
-$today = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd')
-$from  = (Get-Date).ToUniversalTime().AddDays(-20).ToString('yyyy-MM-dd')
 
 $bodyBackfill = @{
   from   = $from
