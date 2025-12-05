@@ -1,7 +1,7 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { db } from '../firebase-admin-init';
 import type { PhaseSeriesPoint, PartnerBar } from './webhooks-config';
-import { ARCHIVE_COLLECTION_PREFIX, PAIRS_COLLECTION } from './webhooks-config';
+import { ARCHIVE_COLLECTION_PREFIX, PAIRS_COLLECTION, SILENCE_RS_SERIES_INFO } from './webhooks-config';
 import { RsPhase } from '../types/partner';
 import { logger } from 'firebase-functions/v2';
 import { RsCloudFunctionName, SILENCE_MISSING_POST_TIME } from './webhooks-config';
@@ -127,10 +127,12 @@ export async function writeUnifiedSeries(
   // Calculate metrics for a day using 5-day window and matrices
   // - rsNorm: discrete rank in (0,1] with 1/32 steps (legacy, used for color bins)
   // - rsRaw:  continuous score in [0,1] via min–max normalization of the target (11111) outcome sum across all matrices
-  function calculateMetricsForDay(day: string): { rsNorm: number; rsRaw: number } {
+  // If metrics cannot be computed (insufficient history, alignment issues, etc.),
+  // return an empty object so callers can treat RS as "missing" instead of 0.
+  function calculateMetricsForDay(day: string): { rsNorm?: number; rsRaw?: number } {
     const bi = baseIndexByDay.get(day);
     const ti = targetIndexByDay.get(day);
-    if (bi === undefined || ti === undefined) return { rsNorm: 0, rsRaw: 0 };
+    if (bi === undefined || ti === undefined) return {};
 
     // Collect last 5 trading days including current if available
     const collectLast5 = (bars: PartnerBar[], startIdx: number): number[] => {
@@ -149,7 +151,7 @@ export async function writeUnifiedSeries(
 
     let baseWin = collectLast5(baselineBars, bi);
     let targWin = collectLast5(targetBars, ti);
-    if (baseWin.length < 5 || targWin.length < 5) return { rsNorm: 0, rsRaw: 0 }; // insufficient history
+    if (baseWin.length < 5 || targWin.length < 5) return {}; // insufficient history
 
     // Apply V1 ranking logic
     const outcomes: Array<[string, number]> = [];
@@ -166,7 +168,7 @@ export async function writeUnifiedSeries(
     }
     outcomes.sort((a, b) => (a[1] > b[1] ? 1 : a[1] < b[1] ? -1 : 0));
     const idx = outcomes.findIndex(([m]) => m === '11111');
-    if (idx < 0) return { rsNorm: 0, rsRaw: 0 };
+    if (idx < 0) return {};
     // Discrete normalized rank (1..32)/32
     const rsNorm = Number(((idx + 1) / COMPARISON_MATRICES.length).toFixed(6));
     // Continuous min–max normalization using the sums domain
@@ -198,7 +200,30 @@ export async function writeUnifiedSeries(
     const targetPct = Number.isFinite(prevTargetClose) && prevTargetClose > 0 ? (targetChange / prevTargetClose) * 100 : 0;
 
     // Calculate RS metrics
-    const { rsNorm, rsRaw } = calculateMetricsForDay(e.day);
+    const metrics = calculateMetricsForDay(e.day);
+    const hasRs = Number.isFinite(metrics?.rsNorm) && Number.isFinite(metrics?.rsRaw);
+
+    if (hasRs && ((metrics!.rsNorm ?? 0) === 0 || (metrics!.rsRaw ?? 0) === 0)) {
+      if (!SILENCE_RS_SERIES_INFO) {
+        logger.warn('rs_series_zero_value', {
+          pairId,
+          phase,
+          day: e.day,
+          rsNorm: metrics!.rsNorm,
+          rsRaw: metrics!.rsRaw,
+        });
+      }
+      try {
+        void persistWarning('rs_series_zero_value', {
+          function: RsCloudFunctionName.WRITE_UNIFIED_SERIES,
+          pairId,
+          phase,
+          day: e.day,
+          rsNorm: metrics!.rsNorm,
+          rsRaw: metrics!.rsRaw,
+        });
+      } catch {}
+    }
 
     // Respect upstream times; if missing, omit time and log
     const preTime = (typeof e.it === 'string' && e.it.length > 0) ? e.it : undefined;
@@ -208,9 +233,11 @@ export async function writeUnifiedSeries(
         ...(preTime ? { time: preTime } : {}),
         base: { price: e.baseClose, change: Number(baseChange.toFixed(6)), percentChange: Number(basePct.toFixed(6)) },
         target: { price: e.targetClose, change: Number(targetChange.toFixed(6)), percentChange: Number(targetPct.toFixed(6)) },
-        rs: rsNorm,       // legacy field (kept for compatibility)
-        rsNorm: rsNorm,   // explicit normalized rank for color bins
-        rsRaw: rsRaw,     // continuous value for display
+        ...(hasRs ? {
+          rs: metrics!.rsNorm,       // legacy field (kept for compatibility)
+          rsNorm: metrics!.rsNorm,   // explicit normalized rank for color bins
+          rsRaw: metrics!.rsRaw,     // continuous value for display
+        } : {}),
         source: 'intraday',
       };
       if (!preTime) {
@@ -227,10 +254,12 @@ export async function writeUnifiedSeries(
         ...(typeof e.it === 'string' && e.it.length > 0 ? { time: e.it } : {}),
         base: { price: e.baseClose, change: Number(baseChange.toFixed(6)), percentChange: Number(basePct.toFixed(6)) },
         target: { price: e.targetClose, change: Number(targetChange.toFixed(6)), percentChange: Number(targetPct.toFixed(6)) },
-        rs: rsNorm,
-        rsNorm: rsNorm,
-        rsRaw: rsRaw,
-        source: 'adjustedClose',
+        ...(hasRs ? {
+          rs: metrics!.rsNorm,
+          rsNorm: metrics!.rsNorm,
+          rsRaw: metrics!.rsRaw,
+        } : {}),
+        source: 'raw close',
       };
       if (!(dayObj.post as any).time) {
         if (!SILENCE_MISSING_POST_TIME) {
