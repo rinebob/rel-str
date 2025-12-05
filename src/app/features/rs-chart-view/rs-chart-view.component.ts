@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-import { ChartSignal, MaType, Timeframe } from '../shared/types/rs.interfaces';
+import { ChartSignal, MainMaId, MaType, Timeframe } from '../shared/types/rs.interfaces';
 import { RsChartComponent } from '../shared/comps/rs-chart/rs-chart.component';
 import { RsChartStore } from '../store/rs-chart.store';
 
@@ -27,12 +27,13 @@ export class RsChartViewComponent {
 
     public readonly MaType = MaType;
     public readonly Timeframe = Timeframe;
+    public readonly MainMaId = MainMaId;
 
     // Expose live store signals so the template can react via signal syntax.
 
-    public readonly ma1Config = computed(() => this.chartStore.mainMaConfigs().find((c) => c.id === 'ma1'));
-    public readonly ma2Config = computed(() => this.chartStore.mainMaConfigs().find((c) => c.id === 'ma2'));
-    public readonly ma3Config = computed(() => this.chartStore.mainMaConfigs().find((c) => c.id === 'ma3'));
+    public readonly ma1Config = computed(() => this.chartStore.mainMaConfigs().find((c) => c.id === MainMaId.MA1));
+    public readonly ma2Config = computed(() => this.chartStore.mainMaConfigs().find((c) => c.id === MainMaId.MA2));
+    public readonly ma3Config = computed(() => this.chartStore.mainMaConfigs().find((c) => c.id === MainMaId.MA3));
 
     // Derive a shared MA type for the controls (assumes all main MAs share the same type).
     public readonly currentMaType = computed<MaType>(() => {
@@ -60,7 +61,7 @@ export class RsChartViewComponent {
         this.chartStore.setMainMaType(type);
     }
 
-    public onMaLengthChange(id: 'ma1' | 'ma2' | 'ma3', value: string | number): void {
+    public onMaLengthChange(id: MainMaId, value: string | number): void {
         const numeric = typeof value === 'number' ? value : Number(value);
         this.chartStore.setMainMaLength(id, numeric);
     }

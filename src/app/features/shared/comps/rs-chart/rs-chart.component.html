@@ -65,37 +65,37 @@
             </e-series>
             
             <e-series 
-                [dataSource]="mainMaSeries()['ma1']" 
+                [dataSource]="mainMaSeries()[MainMaId.MA1]" 
                 type="Line" 
                 xName="x" 
                 yName="y"
                 name="MA 1"
-                [visible]="!!mainMaSeries()['ma1'].length"
-                [fill]="maColors['ma1']"
+                [visible]="!!mainMaSeries()[MainMaId.MA1]?.length"
+                [fill]="maColors[MainMaId.MA1]"
                 [animation]="{ enable: false }"
             >
             </e-series>
 
             <e-series 
-                [dataSource]="mainMaSeries()['ma2']" 
+                [dataSource]="mainMaSeries()[MainMaId.MA2]" 
                 type="Line" 
                 xName="x" 
                 yName="y"
                 name="MA 2"
-                [visible]="!!mainMaSeries()['ma2'].length"
-                [fill]="maColors['ma2']"
+                [visible]="!!mainMaSeries()[MainMaId.MA2]?.length"
+                [fill]="maColors[MainMaId.MA2]"
                 [animation]="{ enable: false }"
             >
             </e-series>
 
             <e-series 
-                [dataSource]="mainMaSeries()['ma3']" 
+                [dataSource]="mainMaSeries()[MainMaId.MA3]" 
                 type="Line" 
                 xName="x" 
                 yName="y"
                 name="MA 3"
-                [visible]="!!mainMaSeries()['ma3'].length"
-                [fill]="maColors['ma3']"
+                [visible]="!!mainMaSeries()[MainMaId.MA3]?.length"
+                [fill]="maColors[MainMaId.MA3]"
                 [animation]="{ enable: false }"
             >
             </e-series>

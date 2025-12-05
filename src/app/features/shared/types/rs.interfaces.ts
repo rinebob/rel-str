@@ -196,6 +196,12 @@ export interface MaConfig {
     width?: number;
 }
 
+export enum MainMaId {
+    MA1 = 'ma1',
+    MA2 = 'ma2',
+    MA3 = 'ma3',
+}
+
 export interface MaSeriesPoint {
     x: Date;
     y: number | null;

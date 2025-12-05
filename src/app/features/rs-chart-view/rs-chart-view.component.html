@@ -155,7 +155,7 @@
                     type="number"
                     min="1"
                     [value]="ma1Config()?.length ?? 10"
-                    (change)="onMaLengthChange('ma1', $any($event.target).value)"
+                    (change)="onMaLengthChange(MainMaId.MA1, $any($event.target).value)"
                   />
                 </label>
               </div>
@@ -170,7 +170,7 @@
                     type="number"
                     min="1"
                     [value]="ma2Config()?.length ?? 20"
-                    (change)="onMaLengthChange('ma2', $any($event.target).value)"
+                    (change)="onMaLengthChange(MainMaId.MA2, $any($event.target).value)"
                   />
                 </label>
               </div>
@@ -185,7 +185,7 @@
                     type="number"
                     min="1"
                     [value]="ma3Config()?.length ?? 50"
-                    (change)="onMaLengthChange('ma3', $any($event.target).value)"
+                    (change)="onMaLengthChange(MainMaId.MA3, $any($event.target).value)"
                   />
                 </label>
               </div>
