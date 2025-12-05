@@ -50,6 +50,8 @@ interface RsChartState {
   timeframe: Timeframe;
 }
 
+const RS_ARCHIVE_WINDOW_TRADING_DAYS = 6 * 252; // ~6 years of trading days
+
 const initialState: RsChartState = {
   currentListId: null,
   lists: [],
@@ -354,11 +356,14 @@ export const RsChartStore = signalStore(
           ? symbols.map((sym) => `${baseline}-${sym}`)
           : [];
 
-        // Fetch RS archive series for each pair (approx 2 years for dev work).
+        // Fetch RS archive series for each pair (multi-year window for charts).
         const rsResults = await Promise.all(
           pairs.map(async (pairId) => {
-            // Use a ~2-year window (trading days) for RS to align with OHLC window.
-            const series = await firstValueFrom(relStrDbV2Service.getPairSeriesFromArchiveWindow$(pairId, 730));
+            // Use a multi-year window (trading days) so charts can reach back to
+            // earlier history (e.g. 2019+) when RS archives are available.
+            const series = await firstValueFrom(
+              relStrDbV2Service.getPairSeriesFromArchiveWindow$(pairId, RS_ARCHIVE_WINDOW_TRADING_DAYS),
+            );
             return { pairId, series } as { pairId: string; series: RsSeriesPoint[] };
           }),
         );
