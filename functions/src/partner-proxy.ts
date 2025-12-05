@@ -101,6 +101,19 @@ export async function callPartnerTimeSeries(params: {
   if (params.to !== undefined) search.set("to", String(params.to));
   if (params.limit !== undefined) search.set("limit", String(params.limit));
   const url = `${PARTNER_TS_URL}?${search.toString()}`;
+
+  // Log the exact upstream request parameters for diagnostics, especially for long windows.
+  logger.info("partnerTimeSeries_request", {
+    symbol: params.symbol,
+    interval: params.interval,
+    range: params.range ?? null,
+    from: params.from ?? null,
+    to: params.to ?? null,
+    limit: params.limit ?? null,
+    url,
+    audience,
+  });
+
   const resp = await fetchWithRetry(url, { Authorization: `Bearer ${idToken}` });
   if (!resp.ok) {
     const text = await resp.text();
