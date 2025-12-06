@@ -84,13 +84,6 @@ export class RsChartComponent {
             return;
         }
 
-        // For non-main charts, rely entirely on Syncfusion's defaults and
-        // avoid any extra work on load for performance.
-        if (!this.isMain()) {
-            // this.isInitialLoad.set(false);
-            return;
-        }
-
         const data = this.chartData();
         if (!data || !data.length) {
             // this.isInitialLoad.set(false);
@@ -119,7 +112,12 @@ export class RsChartComponent {
             chart.primaryXAxis.zoomPosition = zoomPosition;
         }
 
+        // Perform a one-time Y-axis autoscale for the initial visible
+        // window on both main and small/car charts so price action fits
+        // the clamped/zoomed X-range. Follow‑up scroll/zoom interactions
+        // continue to rely on Syncfusion's native behavior.
         this.autoscaleYAxis();
+
         this.isInitialLoad.set(false);
     }
 
