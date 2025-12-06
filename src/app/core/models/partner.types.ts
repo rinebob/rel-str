@@ -34,9 +34,8 @@ export enum BarsInterval {
 export interface GetPairDailyBarsRequest {
   symbol: string;
   interval?: BarsInterval;
-  yearsBack?: number;
-  days?: number;
-  limit?: number;
+  from: string; // YYYY-MM-DD
+  to: string;   // YYYY-MM-DD
 }
 
 export interface PartnerDailyBarDTO {

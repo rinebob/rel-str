@@ -3,9 +3,17 @@ import { Functions, httpsCallable } from '@angular/fire/functions';
 import { defer, from, map, catchError, of, Observable } from 'rxjs';
 
 import { CallableName } from '../../core/common/constants';
-import type { GetPairDailyBarsRequest, GetPairDailyBarsResponse, PartnerDailyBarDTO } from '../../core/models/partner.types';
 import { BarsInterval } from '../../core/models/partner.types';
+import type { GetPairDailyBarsRequest, GetPairDailyBarsResponse, PartnerDailyBarDTO } from '../../core/models/partner.types';
+// Local params type is strictly from/to-based. Any duration presets must be
+// converted into explicit calendar windows before calling this service.
+type GetDailyBarsParams = {
+  interval?: BarsInterval;
+  from?: string; // YYYY-MM-DD
+  to?: string;   // YYYY-MM-DD
+};
 import type { OHLCDatum } from '../shared/types/rs.interfaces';
+import { environment } from '../../../environments/environment';
 
 /**
  * RsBarsService
@@ -15,6 +23,9 @@ import type { OHLCDatum } from '../shared/types/rs.interfaces';
  * for SyncFusion charts. Bars with issues are excluded from the plotted series
  * but can be surfaced separately for diagnostics if needed.
  */
+const EMULATOR_YEARS_BACK = 2;
+const PROD_YEARS_BACK = 7;
+
 @Injectable({ providedIn: 'root' })
 export class RsBarsService {
   private readonly env = inject(EnvironmentInjector);
@@ -25,16 +36,27 @@ export class RsBarsService {
   }
 
   /** Fetch daily OHLCV bars for a symbol from the backend callable. */
-  getDailyBars$(symbol: string, params: Partial<GetPairDailyBarsRequest> = {}): Observable<OHLCDatum[]> {
+  getDailyBars$(symbol: string, params: GetDailyBarsParams = {}): Observable<OHLCDatum[]> {
     const sym = String(symbol || '').trim().toUpperCase();
     if (!sym) {
       return of([] as OHLCDatum[]);
     }
 
-    // We always ask the backend for up to this many years, but Savant may
-    // still return full history. We clamp to this window client-side so the
-    // chart only works with a bounded range.
-    const yearsBack = params.yearsBack ?? 7;
+    // Default history window depends on environment: emulators use a
+    // smaller 2-year window to match seeded data; prod uses 7 years to
+    // support longer backtests and visual context. This is converted into
+    // an explicit [from,to] calendar window; callers may override either
+    // bound by passing from/to directly in params.
+    const defaultYearsWindow = (environment as any)?.useEmulators
+      ? EMULATOR_YEARS_BACK
+      : PROD_YEARS_BACK;
+    const now = new Date();
+    const defaultToIso = now.toISOString().slice(0, 10);
+    const defaultFromDate = new Date(now.getTime() - defaultYearsWindow * 365 * 24 * 60 * 60 * 1000);
+    const defaultFromIso = defaultFromDate.toISOString().slice(0, 10);
+
+    const fromIso = params.from ?? defaultFromIso;
+    const toIso = params.to ?? defaultToIso;
 
     return defer(() => from(this.inCtx(() => {
       const callable = httpsCallable<GetPairDailyBarsRequest, GetPairDailyBarsResponse>(
@@ -44,9 +66,8 @@ export class RsBarsService {
       const req: GetPairDailyBarsRequest = {
         symbol: sym,
         interval: params.interval ?? BarsInterval.DAILY,
-        yearsBack,
-        days: params.days,
-        limit: params.limit,
+        from: fromIso,
+        to: toIso,
       };
       return callable(req);
     }))).pipe(
@@ -73,17 +94,6 @@ export class RsBarsService {
             };
           }),
       ),
-      map((bars) => {
-        if (!(Number.isFinite(yearsBack) && yearsBack > 0)) {
-          return bars;
-        }
-        const cutoff = new Date();
-        cutoff.setUTCDate(cutoff.getUTCDate() - yearsBack * 365);
-        return bars.filter((b) => {
-          const d = new Date(`${b.date}T00:00:00.000Z`);
-          return d >= cutoff;
-        });
-      }),
       catchError((err) => {
         // eslint-disable-next-line no-console
         console.error('[RsBarsService] getDailyBars$ error', { symbol: sym, err });
