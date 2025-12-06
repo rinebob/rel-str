@@ -8,7 +8,8 @@ import { writeWarningsSummary, persistWarning } from '../logging/warn';
 import { writeUnifiedSeries } from './pairs-writer';
 import { listRegisteredPairs } from './registry';
 import { buildPhaseSeries } from './rs-series';
-import { fetchDailyBarsRange, fetchDailyBarsRaw } from './symbol-fetch';
+import { fetchDailyBarsRange } from './symbol-fetch';
+
 import { FIXED_DAYS, FIXED_LIMIT, ProcessErrorSample, FIXED_INTERVAL, RsCloudFunctionName } from './webhooks-config';
 import { PAIRS_COLLECTION, SIGNALS_COLLECTION, SIGNALS_DAILY_COLLECTION } from './webhooks-config';
 import { SILENCE_ADMIN_INFO } from './webhooks-config';
@@ -18,7 +19,7 @@ import { rebuildSignalsDailyMirrorRange } from '../rs-signal-history.callables';
 /**
  * Callable: recomputePairsRs
  * Recompute RS for specified pairs (or all registered under a baseline) for a configurable window.
- * Params: { baseline: string; symbols?: string[]; phase?: PRE|POST|'both'; days?: number; limit?: number; concurrency?: number; from?: string; to?: string; yearsBack?: number; missingOnly?: boolean }
+ * Params: { baseline: string; symbols?: string[]; phase?: PRE|POST|'both'; days?: number; limit?: number; concurrency?: number; from?: string; to?: string; missingOnly?: boolean }
  */
 export const recomputePairsRs = onCall({ region: 'us-central1', timeoutSeconds: 540 }, async (req) => {
   try {
@@ -30,7 +31,7 @@ export const recomputePairsRs = onCall({ region: 'us-central1', timeoutSeconds: 
     const limit = Number(req.data?.limit ?? FIXED_LIMIT);
     const from: string | undefined = req.data?.from ? String(req.data.from) : undefined;
     const to: string | undefined = req.data?.to ? String(req.data.to) : undefined;
-    const yearsBack: number | undefined = Number.isFinite(req.data?.yearsBack) ? Number(req.data.yearsBack) : undefined;
+
     const missingOnly: boolean = !!req.data?.missingOnly;
     const concurrency = Number(req.data?.concurrency ?? (Number(process.env.PARTNER_PAIR_CONCURRENCY) || 3));
     const delayMsBetweenPairs = Math.max(0, Number(req.data?.delayMsBetweenPairs ?? 0) || 0);
@@ -62,32 +63,44 @@ export const recomputePairsRs = onCall({ region: 'us-central1', timeoutSeconds: 
       const accum = { successPairs: 0, failedPairs: 0, errorSamples: [] as ProcessErrorSample[] };
       let skippedExisting = 0; // reserved for future use in callable path
       let writtenDays = 0;
-      const useRange = !!(from || to || Number.isFinite(yearsBack as number));
-      if (!SILENCE_ADMIN_INFO) logger.info('recomputePairsRs starting pair processing', { count: pairsList.length, phase, concurrency, delayMsBetweenPairs, useRange, from: from ?? null, to: to ?? null, yearsBack: yearsBack ?? null });
+      // Range mode is enabled only when the caller provides an explicit `from`.
+      // `to` defaults to "today" when omitted.
+      const useRange = !!from;
+      if (!SILENCE_ADMIN_INFO) logger.info('recomputePairsRs starting pair processing', { count: pairsList.length, phase, concurrency, delayMsBetweenPairs, useRange, from: from ?? null, to: to ?? null });
+
       const baselineBarsCache = new Map<string, any[]>();
 
       await forEachWithConcurrency(pairsList, Math.max(1, concurrency), async ({ baseline, target }) => {
         const pairId = `${baseline}-${target}`;
         try {
           if (useRange) {
-            // Range-based path: honor explicit from/to/yearsBack and avoid implicit window caps.
-            // To account for the 5-day RS window, when a caller provides `from`, we pad the
-            // fetch window backwards by a few calendar days so that RS points exist starting
-            // at the requested `from` rather than several trading days later.
+            // Range-based path: explicit calendar window with local padding for RS.
+            // We pad the fetch window backwards from `from` so RS points exist
+            // starting at the requested `from` day.
             let paddedFrom: string | undefined = from;
             if (from) {
               try {
-                const base = new Date(from + 'T00:00:00.000Z');
+                const base = new Date(`${from}T00:00:00.000Z`);
                 const padDays = 10; // enough to cover 5 trading days across weekends/holidays
                 const padded = new Date(base.getTime() - padDays * 24 * 60 * 60 * 1000);
                 const y = padded.getUTCFullYear();
                 const m = String(padded.getUTCMonth() + 1).padStart(2, '0');
                 const d = String(padded.getUTCDate()).padStart(2, '0');
                 paddedFrom = `${y}-${m}-${d}`;
-              } catch {}
+              } catch {
+                paddedFrom = from;
+              }
             }
 
-            const rangeOpts = { from: paddedFrom, to, yearsBack, interval: FIXED_INTERVAL } as const;
+            let effectiveTo: string;
+            if (to) {
+              effectiveTo = String(to).slice(0, 10);
+            } else {
+              const today = new Date();
+              effectiveTo = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(today.getUTCDate()).padStart(2, '0')}`;
+            }
+
+            const rangeOpts = { from: paddedFrom, to: effectiveTo, interval: FIXED_INTERVAL } as const;
 
             let baseBars: any[] | undefined = baselineBarsCache.get(baseline);
             if (!baseBars) {
@@ -95,14 +108,15 @@ export const recomputePairsRs = onCall({ region: 'us-central1', timeoutSeconds: 
               baselineBarsCache.set(baseline, baseBars);
             }
             const targetBars = await fetchDailyBarsRange(target, rangeOpts);
-            let series = buildPhaseSeries(baseBars, targetBars, phase, baseline, target, logger, { from, to });
+            let series = buildPhaseSeries(baseBars, targetBars, phase, baseline, target, logger, { from, to: effectiveTo });
             // After computing RS, clamp the series to the original requested [from,to] window
             // so we do not leak padded days into Firestore.
-            if (from || to) {
-              const lower = from ? String(from).slice(0, 10) : '0000-01-01';
-              const upper = to ? String(to).slice(0, 10) : '9999-12-31';
+            if (from) {
+              const lower = String(from).slice(0, 10);
+              const upper = String(effectiveTo).slice(0, 10);
               series = series.filter((p) => p.day >= lower && p.day <= upper);
             }
+
             if (series.length === 0) {
               accum.failedPairs++;
               if (accum.errorSamples.length < 10) accum.errorSamples.push({ pair: pairId, message: 'no_aligned_series' });
@@ -134,7 +148,8 @@ export const recomputePairsRs = onCall({ region: 'us-central1', timeoutSeconds: 
     }
     try { await writeWarningsSummary({ function: 'recomputePairsRs', baseline: baselineRaw || null, pairs: pairsList.length }); } catch {}
 
-    const useRangeTop = !!(from || to || Number.isFinite(yearsBack as number));
+    const useRangeTop = !!(from || to);
+
     const daysOut = useRangeTop ? null : days;
     const limitOut = useRangeTop ? null : limit;
 
@@ -146,7 +161,6 @@ export const recomputePairsRs = onCall({ region: 'us-central1', timeoutSeconds: 
       limit: limitOut,
       from,
       to,
-      yearsBack,
       missingOnly,
       writtenDaysTotal,
       results,
@@ -161,7 +175,7 @@ export const recomputePairsRs = onCall({ region: 'us-central1', timeoutSeconds: 
  * HTTP (admin): diagnoseRegisteredRangeAdmin
  * Run diagnose (and optional auto-fix) across all registered pairs, grouped by baseline, over a window.
  * Protect with bearer ADMIN_BACKFILL_TOKEN.
- * Query/body: { phase?: PRE|POST, from?: string, to?: string, yearsBack?: number, days?: number, dates?: string[]|comma, autoFix?: boolean }
+ * Query/body: { phase?: PRE|POST, from?: string, to?: string, days?: number, autoFix?: boolean }
  */
 export const diagnoseRegisteredRangeAdmin = onRequest({ region: 'us-central1', timeoutSeconds: 540 }, async (req, res) => {
   const token = (req.headers['authorization'] || '').toString().replace(/^Bearer\s+/i, '');
@@ -174,13 +188,8 @@ export const diagnoseRegisteredRangeAdmin = onRequest({ region: 'us-central1', t
     const phase: RsPhase = (String((req.body?.phase ?? req.query.phase) || RsPhase.POST).toLowerCase() === RsPhase.PRE) ? RsPhase.PRE : RsPhase.POST;
     const from: string | undefined = (req.body?.from ?? req.query.from) as string | undefined;
     const to: string | undefined = (req.body?.to ?? req.query.to) as string | undefined;
-    const yearsBack: number | undefined = (req.body?.yearsBack ?? req.query.yearsBack) !== undefined ? Number(req.body?.yearsBack ?? req.query.yearsBack) : undefined;
     const daysParam = req.body?.days ?? req.query.days;
     const days: number | undefined = daysParam !== undefined ? Number(daysParam) : undefined;
-    const datesArgRaw = (req.body?.dates ?? req.query.dates) as any;
-    const dates: string[] = Array.isArray(datesArgRaw)
-      ? datesArgRaw.map((d: any) => String(d))
-      : String(datesArgRaw || '').split(',').map((d) => d.trim()).filter(Boolean);
     const autoFix: boolean = String((req.body?.autoFix ?? req.query.autoFix ?? '')).toLowerCase() === 'true';
 
     // Group registered pairs by baseline
@@ -195,13 +204,13 @@ export const diagnoseRegisteredRangeAdmin = onRequest({ region: 'us-central1', t
       byBaseline.set(base, set);
     }
 
-    const summary: any = { ok: true, baselines: byBaseline.size, totalPairs: pairs.length, phase, window: { from: from ?? null, to: to ?? null, yearsBack: yearsBack ?? null, days: days ?? null, dates }, autoFix, results: [] };
+    const summary: any = { ok: true, baselines: byBaseline.size, totalPairs: pairs.length, phase, window: { from: from ?? null, to: to ?? null, days: days ?? null }, autoFix, results: [] };
 
     for (const [baseline, set] of byBaseline.entries()) {
       try {
         const symbols = Array.from(set.values());
         const callRes = await diagnosePairDays.run({
-          data: { baseline, symbols, phase, from, to, yearsBack, dates, autoFix },
+          data: { baseline, symbols, phase, from, to, autoFix },
           auth: undefined,
           instanceIdToken: undefined,
           rawRequest: undefined as any,
@@ -301,7 +310,7 @@ export const recomputeRegisteredLive = onCall({ region: 'us-central1', timeoutSe
 /**
  * HTTP (admin): recomputeRegisteredBackfill
  * Backfill all registered pairs across all baselines. Protect with bearer ADMIN_BACKFILL_TOKEN.
- * Query/body: { phase?: PRE|POST|'both', days?: number, limit?: number, concurrency?: number, from?: string, to?: string, yearsBack?: number, missingOnly?: boolean }
+ * Query/body: { phase?: PRE|POST|'both', days?: number, limit?: number, concurrency?: number, from?: string, to?: string, missingOnly?: boolean }
  */
 export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', timeoutSeconds: 540 }, async (req, res) => {
   const token = (req.headers['authorization'] || '').toString().replace(/^Bearer\s+/i, '');
@@ -316,13 +325,17 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
     const limit = Number(req.query.limit || req.body?.limit || FIXED_LIMIT);
     const from: string | undefined = (req.query.from as string) || req.body?.from;
     const to: string | undefined = (req.query.to as string) || req.body?.to;
-    const yearsBack: number | undefined = req.query.yearsBack ? Number(req.query.yearsBack) : (Number.isFinite(req.body?.yearsBack) ? Number(req.body.yearsBack) : undefined);
     const missingOnly: boolean = String((req.query.missingOnly ?? req.body?.missingOnly ?? '')).toLowerCase() === 'true';
     const concurrency = Number(req.query.concurrency || req.body?.concurrency || (Number(process.env.PARTNER_PAIR_CONCURRENCY) || 3));
 
+    if (!from || !to) {
+      res.status(400).json({ ok: false, error: 'missing_from_or_to' });
+      return;
+    }
+
     const pairs = await listRegisteredPairs();
     const phases: RsPhase[] = phaseRaw === 'both' ? [RsPhase.PRE, RsPhase.POST] : (phaseRaw === RsPhase.PRE ? [RsPhase.PRE] : [RsPhase.POST]);
-    const summary: any = { ok: true, totalPairs: pairs.length, days, limit, from, to, yearsBack, missingOnly, phases, results: [] };
+    const summary: any = { ok: true, totalPairs: pairs.length, days, limit, from, to, missingOnly, phases, results: [] };
 
     for (const ph of phases) {
       let successPairs = 0;
@@ -335,75 +348,58 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
       const symbolBarsCache = new Map<string, any[]>();
 
       // Helper: fetch DAILY bars for backfill windows.
-      // - If caller provided from/to, use an explicit (padded) date range.
-      // - If caller provided yearsBack only, use range mode.
-      // - Otherwise fall back to the legacy fixed-days window.
+      // Always resolve to a concrete [from,to] window before calling the
+      // partner API.
       const fetchBackfillBars = async (symbol: string): Promise<any[]> => {
-        const hasFromOrTo = !!(from || to);
-        const hasYearsBack = Number.isFinite(yearsBack as number);
-        const useRange = hasFromOrTo || hasYearsBack;
+        const ymd = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
 
-        if (!useRange) {
-          // Legacy fixed-window path (last N days)
-          return await fetchDailyBarsRaw(symbol, days, limit);
+        const baseFrom = from;
+        const baseTo = to;
+
+        let paddedFrom = baseFrom;
+        try {
+          const baseDate = new Date(`${baseFrom}T00:00:00.000Z`);
+          const padDays = 10; // enough to cover 5 trading days across weekends/holidays
+          const padded = new Date(baseDate.getTime() - padDays * 24 * 60 * 60 * 1000);
+          paddedFrom = ymd(padded);
+        } catch {
+          paddedFrom = baseFrom;
         }
 
-        if (hasFromOrTo) {
-          // Explicit calendar window: use from/to directly, with padding for RS 5-day window.
-          let paddedFrom: string | undefined = from;
-          if (from) {
-            try {
-              const base = new Date(`${from}T00:00:00.000Z`);
-              const padDays = 10; // enough to cover 5 trading days across weekends/holidays
-              const padded = new Date(base.getTime() - padDays * 24 * 60 * 60 * 1000);
-              const y = padded.getUTCFullYear();
-              const m = String(padded.getUTCMonth() + 1).padStart(2, '0');
-              const d = String(padded.getUTCDate()).padStart(2, '0');
-              paddedFrom = `${y}-${m}-${d}`;
-            } catch {
-              // If padding fails for any reason, fall back to original from
-              paddedFrom = from;
-            }
-          }
+        const effectiveTo = baseTo;
 
-          return await fetchDailyBarsRange(symbol, {
-            from: paddedFrom,
-            to,
-            interval: FIXED_INTERVAL,
-          });
-        }
-
-        // No explicit window, but yearsBack was provided: use range mode (true "N years back").
         return await fetchDailyBarsRange(symbol, {
-          yearsBack,
+          from: paddedFrom,
+          to: effectiveTo,
           interval: FIXED_INTERVAL,
         });
       };
 
       await forEachWithConcurrency(pairs, Math.max(1, concurrency), async ({ baseline, target }) => {
         try {
-          const useRange = !!(from || to || Number.isFinite(yearsBack as number));
-
           // Fetch/cached baseline bars
-          let baseBars: any[] | undefined = symbolBarsCache.get(baseline);
+          let baseBars = symbolBarsCache.get(baseline);
           if (!baseBars) {
             baseBars = await fetchBackfillBars(baseline);
             symbolBarsCache.set(baseline, baseBars);
           }
 
           // Fetch/cached target bars
-          let targetBars: any[] | undefined = symbolBarsCache.get(target);
+          let targetBars = symbolBarsCache.get(target);
           if (!targetBars) {
-            targetBars = useRange
-              ? await fetchBackfillBars(target)
-              : await fetchDailyBarsRaw(target, days, limit);
+            targetBars = await fetchBackfillBars(target);
             symbolBarsCache.set(target, targetBars);
           }
           let series = buildPhaseSeries(baseBars, targetBars, ph, baseline, target, logger, { from, to });
           // Clamp computed RS points back to the requested [from,to] window
-          if (useRange && (from || to)) {
+          if (from || to) {
             const lower = from ? String(from).slice(0, 10) : '0000-01-01';
-            const upper = to ? String(to).slice(0, 10) : '9999-12-31';
+            const upper = to
+              ? String(to).slice(0, 10)
+              : (() => {
+                  const today = new Date();
+                  return `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(today.getUTCDate()).padStart(2, '0')}`;
+                })();
             series = series.filter((p) => p.day >= lower && p.day <= upper);
           }
           if (series.length === 0) {
@@ -456,7 +452,7 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
  *  - baseline: string (required)
  *  - symbols: string[] (required)
  *  - phase?: RsPhase PRE|POST (default POST)
- *  - from?: 'YYYY-MM-DD', to?: 'YYYY-MM-DD' OR yearsBack?: number OR dates?: string[] (YYYY-MM-DD)
+ *  - from?: 'YYYY-MM-DD', to?: 'YYYY-MM-DD'
  *  - autoFix?: boolean (default false) → if true, writes only computed-but-missing days
  */
 export const diagnosePairDays = onCall({ region: 'us-central1', timeoutSeconds: 540 }, async (req) => {
@@ -466,11 +462,9 @@ export const diagnosePairDays = onCall({ region: 'us-central1', timeoutSeconds: 
     const phase: RsPhase = (String(req.data?.phase || RsPhase.POST).toLowerCase() === RsPhase.PRE) ? RsPhase.PRE : RsPhase.POST;
     const from: string | undefined = req.data?.from ? String(req.data.from) : undefined;
     const to: string | undefined = req.data?.to ? String(req.data.to) : undefined;
-    const yearsBack: number | undefined = Number.isFinite(req.data?.yearsBack) ? Number(req.data.yearsBack) : undefined;
-    const datesArg: string[] = Array.isArray(req.data?.dates) ? req.data.dates.map((d: any) => String(d)) : [];
     const autoFix: boolean = !!req.data?.autoFix;
     const forceWrite: boolean = !!req.data?.forceWrite;
-    logger.info('diagnosePairDays start', { baseline, symbols, phase, from: from ?? null, to: to ?? null, yearsBack: yearsBack ?? null, dates: datesArg, autoFix, forceWrite });
+    logger.info('diagnosePairDays start', { baseline, symbols, phase, from: from ?? null, to: to ?? null, autoFix, forceWrite });
 
     if (!baseline || symbols.length === 0) {
       return { ok: false, error: 'missing_baseline_or_symbols' };
@@ -485,25 +479,33 @@ export const diagnosePairDays = onCall({ region: 'us-central1', timeoutSeconds: 
       return undefined;
     };
 
+    // Resolve an effective [from,to] window for diagnostics.
+    const today = new Date();
+    const ymd = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+    const effectiveTo: string = to ? String(to).slice(0, 10) : ymd(today);
+    const effectiveFrom: string = from
+      ? String(from).slice(0, 10)
+      : (() => {
+          const d = new Date(today.getTime() - 40 * 24 * 60 * 60 * 1000);
+          return ymd(d);
+        })();
+
     for (const target of symbols) {
       try {
-        // Fetch bars for explicit window (or a modest default if none provided)
+        // Fetch bars for the resolved explicit window.
         const rangeOpts = {
-          from,
-          to,
-          yearsBack,
-          days: (!from && !to && !yearsBack && datesArg.length === 0) ? 40 : undefined,
-          limit: (!from && !to && !yearsBack && datesArg.length === 0) ? 60 : undefined,
+          from: effectiveFrom,
+          to: effectiveTo,
           interval: FIXED_INTERVAL,
         } as const;
         const [baseBars, targetBars] = await Promise.all([
           fetchDailyBarsRange(baseline, rangeOpts),
           fetchDailyBarsRange(target, rangeOpts),
         ]);
-        logger.info('diagnosePairDays bars fetched', { pair: `${baseline}-${target}`, phase, baseBars: baseBars?.length ?? 0, targetBars: targetBars?.length ?? 0, from: from ?? null, to: to ?? null });
-        // If focusing a single day, surface the raw bars at and before that day for both series
-        const focusDatesRaw: string[] = Array.isArray(datesArg) && datesArg.length ? datesArg : ((from && to && from === to) ? [String(from)] : []);
-        const focusDay: string | undefined = focusDatesRaw.length ? String(focusDatesRaw[0]).slice(0,10) : undefined;
+        logger.info('diagnosePairDays bars fetched', { pair: `${baseline}-${target}`, phase, baseBars: baseBars?.length ?? 0, targetBars: targetBars?.length ?? 0, from: effectiveFrom, to: effectiveTo });
+        // If focusing a single day, surface the raw bars at and before that day for both series.
+        const focusDay: string | undefined = (from && to && from === to) ? String(from).slice(0, 10) : undefined;
+
         if (focusDay) {
           const toIndex = (bars: any[], day: string): number | undefined => {
             for (let i = 0; i < bars.length; i++) { const d = (bars[i]?.d || bars[i]?.t)?.toString?.().slice(0,10); if (d === day) return i; }
@@ -543,7 +545,8 @@ export const diagnosePairDays = onCall({ region: 'us-central1', timeoutSeconds: 
         for (const b of targetBars) { const d = dayStr((b as any).d || (b as any).t); if (d) targDays.add(d); }
 
         // Compute series for the window, then index by day
-        const series = buildPhaseSeries(baseBars, targetBars, phase, baseline, target, logger, { from, to });
+        const series = buildPhaseSeries(baseBars, targetBars, phase, baseline, target, logger, { from: effectiveFrom, to: effectiveTo });
+
         const seriesDays = series.map(p => p.day);
         logger.info('diagnosePairDays series built', { pair: `${baseline}-${target}`, phase, series: series.length, first5: seriesDays.slice(0,5), last5: seriesDays.slice(Math.max(0, seriesDays.length-5)) });
         if (focusDay) {
@@ -572,8 +575,8 @@ export const diagnosePairDays = onCall({ region: 'us-central1', timeoutSeconds: 
           if (phase === RsPhase.POST && row?.post?.rs !== undefined) storedDays.add(d);
           if (phase === RsPhase.PRE && row?.pre?.rs !== undefined) storedDays.add(d);
         }
-        const focusDates: string[] = datesArg.length ? datesArg.map(d => String(d).slice(0,10)) : ((from && to && from === to) ? [String(from).slice(0,10)] : []);
-        const focus = focusDates.length ? focusDates[0] : undefined;
+        const focus = focusDay ?? undefined;
+
         logger.info('diagnosePairDays stored vs computed', {
           pair: pairId,
           phase,
@@ -586,13 +589,9 @@ export const diagnosePairDays = onCall({ region: 'us-central1', timeoutSeconds: 
 
         // Establish candidate days to check
         const candidateDays = new Set<string>();
-        if (datesArg.length > 0) {
-          for (const d of datesArg) candidateDays.add(String(d).slice(0, 10));
-        } else {
-          // union of base and target bar days for the window
-          for (const d of baseDays) candidateDays.add(d);
-          for (const d of targDays) candidateDays.add(d);
-        }
+        // union of base and target bar days for the window
+        for (const d of baseDays) candidateDays.add(d);
+        for (const d of targDays) candidateDays.add(d);
 
         // Classify per day
         const problems: Array<{ day: string; reason: string } > = [];
@@ -615,19 +614,12 @@ export const diagnosePairDays = onCall({ region: 'us-central1', timeoutSeconds: 
         // Optionally repair: write only missing computed days
         let writtenDays = 0;
         if (autoFix) {
-          // Force write path: ignore storedDays and write all computed entries restricted to the requested dates
+          // Force write path: ignore storedDays and write all computed entries restricted to the effective window
           let entries: typeof series = [];
           if (forceWrite) {
-            if (datesArg.length > 0) {
-              const datesSet = new Set(datesArg.map(d => String(d).slice(0,10)));
-              entries = series.filter(e => datesSet.has(e.day));
-            } else if (from || to) {
-              const lower = from ? String(from).slice(0,10) : '0000-01-01';
-              const upper = to ? String(to).slice(0,10) : '9999-12-31';
-              entries = series.filter(e => e.day >= lower && e.day <= upper);
-            } else {
-              entries = series;
-            }
+            const lower = String(effectiveFrom).slice(0, 10);
+            const upper = String(effectiveTo).slice(0, 10);
+            entries = series.filter(e => e.day >= lower && e.day <= upper);
           } else if (computedNotStored.length > 0) {
             entries = series.filter((p) => computedNotStored.includes(p.day));
           }
@@ -636,9 +628,10 @@ export const diagnosePairDays = onCall({ region: 'us-central1', timeoutSeconds: 
             const entryDays = entries.map(e => e.day);
             const focusEntry = focusDay ? entries.find(e => e.day === focusDay) : undefined;
             const entriesPreview = entries.slice(0, 3).map(e => ({ day: e.day, baseClose: (e as any).baseClose, targetClose: (e as any).targetClose, it: (e as any).it }));
-            logger.info('diagnosePairDays autoFix writing', { pair: pairId, phase, forceWrite, from: from ?? null, to: to ?? null, dates: datesArg, count: entries.length, daysFirst10: entryDays.slice(0,10), focusEntry: focusEntry ? { day: focusEntry.day, baseClose: (focusEntry as any).baseClose, targetClose: (focusEntry as any).targetClose, it: (focusEntry as any).it } : null, entriesPreview });
+            logger.info('diagnosePairDays autoFix writing', { pair: pairId, phase, forceWrite, from: effectiveFrom, to: effectiveTo, count: entries.length, daysFirst10: entryDays.slice(0,10), focusEntry: focusEntry ? { day: focusEntry.day, baseClose: (focusEntry as any).baseClose, targetClose: (focusEntry as any).targetClose, it: (focusEntry as any).it } : null, entriesPreview });
+
             try {
-              logger.info('diagnosePairDays autoFix writing data: ' + JSON.stringify({ pair: pairId, phase, forceWrite, from, to, dates: datesArg, count: entries.length, days: entryDays.slice(0,20), entriesPreview, focusEntry: focusEntry ? { day: (focusEntry as any).day, baseClose: (focusEntry as any).baseClose, targetClose: (focusEntry as any).targetClose, it: (focusEntry as any).it } : null }).slice(0, 1500));
+              logger.info('diagnosePairDays autoFix writing data: ' + JSON.stringify({ pair: pairId, phase, forceWrite, from, to, dates: [], count: entries.length, days: entryDays.slice(0,20), entriesPreview, focusEntry: focusEntry ? { day: (focusEntry as any).day, baseClose: (focusEntry as any).baseClose, targetClose: (focusEntry as any).targetClose, it: (focusEntry as any).it } : null }).slice(0, 1500));
             } catch {}
             await writeUnifiedSeries(baseline, target, phase, entries, baseBars, targetBars);
             writtenDays = entries.length;
@@ -650,7 +643,8 @@ export const diagnosePairDays = onCall({ region: 'us-central1', timeoutSeconds: 
         results.push({
           pair: pairId,
           phase,
-          window: { from: from ?? null, to: to ?? null, yearsBack: yearsBack ?? null },
+          window: { from: effectiveFrom, to: effectiveTo, yearsBack: null },
+
           counts: {
             candidateDays: candidateDays.size,
             storedDays: storedDays.size,
@@ -694,11 +688,8 @@ export const diagnosePairDaysAdmin = onRequest({ region: 'us-central1', timeoutS
     const phase: RsPhase = (String((req.body?.phase ?? req.query.phase) || RsPhase.POST).toLowerCase() === RsPhase.PRE) ? RsPhase.PRE : RsPhase.POST;
     const from: string | undefined = (req.body?.from ?? req.query.from) as string | undefined;
     const to: string | undefined = (req.body?.to ?? req.query.to) as string | undefined;
-    const yearsBack: number | undefined = (req.body?.yearsBack ?? req.query.yearsBack) !== undefined ? Number(req.body?.yearsBack ?? req.query.yearsBack) : undefined;
-    const datesArgRaw = (req.body?.dates ?? req.query.dates) as any;
-    const datesArg: string[] = Array.isArray(datesArgRaw)
-      ? datesArgRaw.map((d: any) => String(d))
-      : String(datesArgRaw || '').split(',').map((d) => d.trim()).filter(Boolean);
+    // yearsBack/dates are accepted at the surface for compatibility but ignored by the callable.
+
     const autoFix: boolean = String((req.body?.autoFix ?? req.query.autoFix ?? '')).toLowerCase() === 'true';
 
     if (!baseline || symbols.length === 0) {
@@ -707,7 +698,7 @@ export const diagnosePairDaysAdmin = onRequest({ region: 'us-central1', timeoutS
     }
 
     const callRes = await diagnosePairDays.run({
-      data: { baseline, symbols, phase, from, to, yearsBack, dates: datesArg, autoFix },
+      data: { baseline, symbols, phase, from, to, autoFix },
       auth: undefined,
       instanceIdToken: undefined,
       rawRequest: undefined as any,

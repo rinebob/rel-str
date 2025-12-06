@@ -1,5 +1,5 @@
 import { logger } from 'firebase-functions/v2';
-import { callPartnerTimeSeries } from '../partner-proxy';
+import { callPartnerTimeSeries, type PartnerInterval } from '../partner-proxy';
 import { persistWarning } from '../logging/warn';
 import { RsCloudFunctionName } from './webhooks-config';
 
@@ -15,185 +15,44 @@ export type PartnerBar = {
   it?: string;
 };
 
-export interface FetchConfig {
-  interval?: 'DAILY' | 'WEEKLY' | 'MONTHLY';
-  days?: number;   // last N calendar days (default 30)
-  limit?: number;  // API safety cap (default 30)
-}
-
-/** Range-based options for explicit historical windows. */
+/** Range-based options for historical windows.
+ *
+ *  New call sites should prefer explicit `from`/`to` only.
+ *
+ *  All callers must resolve any duration presets (e.g. "last N days" or
+ *  "N years back") into explicit calendar windows before constructing this
+ *  options object.
+ */
 export interface FetchRangeOptions {
-  interval?: 'DAILY' | 'WEEKLY' | 'MONTHLY';
-  from?: string;      // YYYY-MM-DD UTC
-  to?: string;        // YYYY-MM-DD UTC
-  yearsBack?: number; // e.g. 1, 2, 5; converts to from = today - years*365
-  days?: number;      // fallback when from/to not provided
-  limit?: number;     // API cap
-}
-
-export async function fetchDailyBarsRaw(symbol: string, days = 30, limit = 30, interval: FetchConfig['interval'] = 'DAILY'): Promise<PartnerBar[]> {
-  const to = new Date();
-  const from = new Date(to.getTime() - days * 24 * 60 * 60 * 1000);
-  const toIso = to.toISOString().slice(0, 10);
-  const fromIso = from.toISOString().slice(0, 10);
-  const data = (await callPartnerTimeSeries({ symbol, interval, from: fromIso, to: toIso, limit })) as any;
-  const bars = Array.isArray(data?.bars) ? data.bars : [];
-  if (bars.length > 0) {
-    const firstT = Number(bars[0]?.t);
-    const lastT = Number(bars[bars.length - 1]?.t);
-    const firstDay = Number.isFinite(firstT) ? new Date(firstT).toISOString().slice(0, 10) : undefined;
-    const lastDay = Number.isFinite(lastT) ? new Date(lastT).toISOString().slice(0, 10) : undefined;
-    logger.info('partner_timeseries_response', {
-      symbol,
-      interval,
-      from: fromIso,
-      to: toIso,
-      limit,
-      bars: bars.length,
-      firstDay,
-      lastDay,
-    });
-    try {
-      let anomalies = 0;
-      for (const b of bars as any[]) {
-        const day = String(b?.d || '');
-        if (!day) continue;
-        const todayClose = Number(b?.ac ?? b?.c ?? 0);
-        const cp = Number(b?.cp);
-        const issues: string[] = [];
-        if (!(Number.isFinite(todayClose) && todayClose > 0)) issues.push('close_nonpositive_or_nonfinite');
-        if (!Number.isFinite(cp) && Number.isFinite(todayClose) && todayClose > 0) issues.push('cp_nonfinite');
-        if (issues.length) {
-          anomalies++;
-          try {
-            await persistWarning('sa_bar_anomaly', {
-              function: RsCloudFunctionName.PROCESS_DATA_READY,
-              symbol,
-              day,
-              issues,
-              window: { from: fromIso, to: toIso, limit },
-            });
-          } catch {}
-        }
-      }
-      if (anomalies > 0) logger.info('partner_timeseries_bar_anomalies', { symbol, anomalies });
-    } catch {}
-  } else {
-    logger.info('partner_timeseries_response_empty', {
-      symbol,
-      interval,
-      from: fromIso,
-      to: toIso,
-      limit,
-      bars: 0,
-    });
-  }
-  return bars as PartnerBar[];
+  interval?: PartnerInterval;
+  from: string;      // YYYY-MM-DD UTC
+  to: string;        // YYYY-MM-DD UTC
 }
 
 async function sleep(ms: number): Promise<void> {
   return new Promise((res) => setTimeout(res, ms));
 }
 
-/**
- * Fetch bars for an explicit window using from/to or yearsBack.
- * Normalization (cp/ch/pc) is identical to fetchDailyBarsRaw.
- */
-export async function fetchDailyBarsRange(symbol: string, opts: FetchRangeOptions = {}): Promise<PartnerBar[]> {
-  const interval = opts.interval ?? 'DAILY';
-  // Resolve window
-  let toDate: Date;
-  let fromDate: Date;
-  if (opts.to) {
-    toDate = new Date(`${opts.to}T00:00:00.000Z`);
-  } else {
-    toDate = new Date();
-  }
-  if (opts.from) {
-    fromDate = new Date(`${opts.from}T00:00:00.000Z`);
-  } else if (Number.isFinite(opts.yearsBack as number)) {
-    const years = Number(opts.yearsBack);
-    fromDate = new Date(toDate.getTime() - years * 365 * 24 * 60 * 60 * 1000);
-  } else {
-    const days = Number.isFinite(opts.days as number) ? Number(opts.days) : 30;
-    fromDate = new Date(toDate.getTime() - days * 24 * 60 * 60 * 1000);
-  }
-  const toIso = toDate.toISOString().slice(0, 10);
-  const fromIso = fromDate.toISOString().slice(0, 10);
-  // Partner DAILY endpoint effectively caps the number of bars it will return
-  // when using from/to+limit (FIXED_LIMIT ~ 30). For multi-year windows driven
-  // by yearsBack we instead prefer the partner-provided range parameter so we
-  // can request e.g. '2y' of history in a single call.
+export async function fetchDailyBarsRange(symbol: string, opts: FetchRangeOptions): Promise<PartnerBar[]> {
+  const interval: PartnerInterval = opts.interval ?? 'DAILY';
 
-  let data: any;
-  let effectiveLimit: number | undefined;
-  if (!opts.from && !opts.to && Number.isFinite(opts.yearsBack as number)) {
-    const years = Math.max(1, Math.round(Number(opts.yearsBack)));
-    const range = `${years}y`;
-    data = await callPartnerTimeSeries({ symbol, interval, range });
+  // Call partner API for the explicit [from,to] window provided by the caller.
+  const fromIso = String(opts.from).slice(0, 10);
+  const toIso = String(opts.to).slice(0, 10);
 
-    const rawBars = Array.isArray((data as any)?.bars) ? (data as any).bars : [];
-    let firstDay: string | undefined;
-    let lastDay: string | undefined;
-    if (rawBars.length > 0) {
-      const firstT = Number(rawBars[0]?.t);
-      const lastT = Number(rawBars[rawBars.length - 1]?.t);
-      firstDay = Number.isFinite(firstT) ? new Date(firstT).toISOString().slice(0, 10) : undefined;
-      lastDay = Number.isFinite(lastT) ? new Date(lastT).toISOString().slice(0, 10) : undefined;
-    }
-    logger.info('partner_timeseries_raw_payload', {
-      symbol,
-      interval,
-      from: fromIso,
-      to: toIso,
-      range,
-      barsCount: rawBars.length,
-      firstDay,
-      lastDay,
-    //   bars: rawBars,
-    });
-  } else {
-    // Derive limit behavior for explicit from/to or days windows:
-    // - If caller provided an explicit limit, honor it.
-    // - If caller did NOT provide from/to, allow days/fallback to drive a safety cap.
-    // - If caller provided from/to with no explicit limit, OMIT limit so the partner API
-    //   returns the full requested range instead of a truncated slice.
-    const explicitLimit = Number.isFinite(opts.limit as number) ? Number(opts.limit) : undefined;
-    let limit: number | undefined;
+  const req: any = { symbol, interval, from: fromIso, to: toIso };
+  const data: any = await callPartnerTimeSeries(req);
 
-    if (explicitLimit !== undefined) {
-      // Always honor an explicit limit from the caller.
-      limit = explicitLimit;
-    } else if (!opts.from && !opts.to) {
-      // No explicit calendar window: use days (or a small default) as an API safety cap.
-      if (Number.isFinite(opts.days as number)) {
-        limit = Number(opts.days);
-      } else {
-        limit = 30;
-      }
-    } else {
-      // Explicit from/to with no explicit limit: do not send limit at all.
-      limit = undefined;
-    }
-
-    const req: any = { symbol, interval, from: fromIso, to: toIso };
-    if (limit !== undefined) {
-      effectiveLimit = limit;
-      req.limit = limit;
-    }
-    data = await callPartnerTimeSeries(req);
-
-    const rawBars = Array.isArray((data as any)?.bars) ? (data as any).bars : [];
-    logger.info('partner_timeseries_raw_payload', {
-      symbol,
-      interval,
-      from: fromIso,
-      to: toIso,
-      limit: limit,
-      barsCount: rawBars.length,
-    //   bars: rawBars,
-    });
-  }
+  const rawBars = Array.isArray(data?.bars) ? data.bars : [];
+  logger.info('partner_timeseries_raw_payload', {
+    symbol,
+    interval,
+    from: fromIso,
+    to: toIso,
+    limit: req.limit,
+    barsCount: rawBars.length,
+  //   bars: rawBars,
+  });
 
   const bars = Array.isArray(data?.bars) ? data.bars : [];
   if (bars.length > 0) {
@@ -206,7 +65,6 @@ export async function fetchDailyBarsRange(symbol: string, opts: FetchRangeOption
       interval,
       from: fromIso,
       to: toIso,
-      limit: effectiveLimit,
       bars: bars.length,
       firstDay,
       lastDay,
@@ -229,7 +87,7 @@ export async function fetchDailyBarsRange(symbol: string, opts: FetchRangeOption
               symbol,
               day,
               issues,
-              window: { from: fromIso, to: toIso, limit: effectiveLimit },
+              window: { from: fromIso, to: toIso },
             });
           } catch {}
         }
@@ -242,12 +100,11 @@ export async function fetchDailyBarsRange(symbol: string, opts: FetchRangeOption
       interval,
       from: fromIso,
       to: toIso,
-      limit: effectiveLimit,
       bars: 0,
     });
   }
 
-  // Apply the same DAILY normalization as fetchDailyBarsRaw
+  // Apply DAILY normalization 
   if (interval === 'DAILY' && bars.length > 0) {
     const isWeekend = (dayStr?: string) => {
       if (!dayStr) return false;
@@ -291,7 +148,7 @@ export async function fetchDailyBarsRange(symbol: string, opts: FetchRangeOption
 export async function fetchAllSymbols(
   symbols: string[],
   concurrency = Number(process.env.PARTNER_SYMBOL_CONCURRENCY) || 8,
-  opts: FetchConfig = { interval: 'DAILY', days: 30, limit: 30 },
+  opts: FetchRangeOptions,
   minMsBetweenCalls = Number(process.env.PARTNER_SYMBOL_MIN_MS_BETWEEN_CALLS) || 0
 ): Promise<Map<string, PartnerBar[]>> {
   const out = new Map<string, PartnerBar[]>();
@@ -301,7 +158,11 @@ export async function fetchAllSymbols(
     while (queue.length) {
       const sym = queue.shift()!;
       try {
-        const bars = await fetchDailyBarsRaw(sym, opts.days ?? 30, opts.limit ?? 30, opts.interval ?? 'DAILY');
+        const bars = await fetchDailyBarsRange(sym, {
+          from: opts.from,
+          to: opts.to,
+          interval: opts.interval,
+        });
         out.set(sym, bars);
       } catch (e: any) {
         logger.error('symbol_fetch_failed', { symbol: sym, message: e?.message, status: e?.response?.status });

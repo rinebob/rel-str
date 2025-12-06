@@ -15,7 +15,7 @@
 import { onMessagePublished } from 'firebase-functions/v2/pubsub';
 import { logger } from 'firebase-functions';
 import { admin, db, FieldValue } from '../firebase-admin-init';
-import { fetchDailyBarsRaw } from './symbol-fetch';
+import { fetchDailyBarsRange } from './symbol-fetch';
 import { buildPhaseSeries } from './rs-series';
 import { writeUnifiedSeries } from './pairs-writer';
 import { rebuildSignalsDailyMirrorImpl } from '../rs-signal-history.callables';
@@ -206,13 +206,19 @@ export async function processPairLive(
 ): Promise<void> {
   const pairId = `${baseline}-${target}`;
   try {
+    const toDate = new Date();
+    const fromDate = new Date(toDate.getTime() - (Math.max(1, days) - 1) * 24 * 60 * 60 * 1000);
+    const ymd = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+    const from = ymd(fromDate);
+    const to = ymd(toDate);
+
     // Baseline-only cache to avoid duplicate upstream fetches within a run
-    let baseBars: any[] | undefined = caches?.baselineBars?.get(baseline);
+    let baseBars = caches?.baselineBars?.get(baseline);
     if (!baseBars) {
-      baseBars = await fetchDailyBarsRaw(baseline, days, FIXED_LIMIT);
+      baseBars = await fetchDailyBarsRange(baseline, { from, to, interval: FIXED_INTERVAL });
       if (caches && caches.baselineBars) caches.baselineBars.set(baseline, baseBars);
     }
-    const targetBars = await fetchDailyBarsRaw(target, days, FIXED_LIMIT);
+    const targetBars = await fetchDailyBarsRange(target, { from, to, interval: FIXED_INTERVAL });
     const series = buildPhaseSeries(baseBars, targetBars, phase, baseline, target, logger);
     if (series.length === 0) {
       accum.failedPairs++;

@@ -13,13 +13,15 @@ export enum BarsInterval {
   MONTHLY = 'MONTHLY',
 }
 
-/** Public DTO for OHLCV bars exposed to the FE. */
+/** Public DTO for OHLCV bars exposed to the FE.
+ * The caller must provide an explicit [from,to] calendar window; any
+ * yearsBack-style sugar is resolved on the caller side.
+ */
 export interface GetPairDailyBarsRequest {
   symbol: string;
   interval?: BarsInterval;
-  yearsBack?: number;
-  days?: number;
-  limit?: number;
+  from: string; // YYYY-MM-DD
+  to: string;   // YYYY-MM-DD
 }
 
 export interface PartnerDailyBarDTO {
@@ -76,7 +78,7 @@ export function normalizePartnerDailyBar(b: PartnerBar): PartnerDailyBarDTO {
 export const getPairDailyBars = onCall(
   { region: 'us-central1' },
   async (req): Promise<GetPairDailyBarsResponse> => {
-    const { symbol, interval, yearsBack, days, limit } = (req.data || {}) as GetPairDailyBarsRequest;
+    const { symbol, interval, from, to } = (req.data || {}) as GetPairDailyBarsRequest;
     const sym = String(symbol || '').trim().toUpperCase();
 
     if (!sym) {
@@ -86,9 +88,8 @@ export const getPairDailyBars = onCall(
     try {
       const bars = await fetchDailyBarsRange(sym, {
         interval: interval ?? 'DAILY',
-        yearsBack,
-        days,
-        limit,
+        from,
+        to,
       });
 
       const dto: PartnerDailyBarDTO[] = (Array.isArray(bars) ? bars : []).map((b: PartnerBar) => normalizePartnerDailyBar(b));
