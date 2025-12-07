@@ -333,7 +333,25 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
       return;
     }
 
-    const pairs = await listRegisteredPairs();
+    let pairs = await listRegisteredPairs();
+
+    // Optional filter: pair (string) or pairs (array)
+    const pairParam = (req.query.pair || req.body?.pair) as string | undefined;
+    const pairsParam = (req.query.pairs || req.body?.pairs) as any; // array or string[]
+
+    if (pairParam && typeof pairParam === 'string' && pairParam.trim().length > 0) {
+      const p = pairParam.trim().toUpperCase();
+      pairs = pairs.filter(r => `${r.baseline}-${r.target}` === p);
+    } else if (pairsParam && Array.isArray(pairsParam) && pairsParam.length > 0) {
+      const set = new Set(pairsParam.map((p: any) => String(p).trim().toUpperCase()));
+      pairs = pairs.filter(r => set.has(`${r.baseline}-${r.target}`));
+    }
+
+    if (pairs.length === 0) {
+      res.status(200).json({ ok: true, message: 'no pairs matched filter', totalPairs: 0 });
+      return;
+    }
+
     const phases: RsPhase[] = phaseRaw === 'both' ? [RsPhase.PRE, RsPhase.POST] : (phaseRaw === RsPhase.PRE ? [RsPhase.PRE] : [RsPhase.POST]);
     const summary: any = { ok: true, totalPairs: pairs.length, days, limit, from, to, missingOnly, phases, results: [] };
 
