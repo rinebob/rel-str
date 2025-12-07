@@ -54,7 +54,7 @@ const pairId = (baseline: string, symbol: string): string => { return `${toUpper
  * @returns Promise<GetPairSignalsResponse> containing an array of RsPositionDoc items.
  */
 export const getPairSignals = onCall(
-  { region: 'us-central1' },
+  { region: 'us-central1', cors: true },
   async (req): Promise<GetPairSignalsResponse> => {
     const data = (req.data || {}) as GetPairSignalsRequest;
     const baseline = toUpper(data.baseline);
@@ -107,7 +107,7 @@ export const getPairSignals = onCall(
  * @returns Promise<GetDailySignalsResponse> with an array of { day, items }.
  */
 export const getDailySignals = onCall(
-  { region: 'us-central1' },
+  { region: 'us-central1', cors: true },
   async (req): Promise<GetDailySignalsResponse> => {
     const { day, fromDay, toDay, limitDays, all } = (req.data || {}) as GetDailySignalsRequest;
     logger.info('getDailySignals called', { day, fromDay, toDay, limitDays, all });
@@ -216,7 +216,7 @@ export const getDailySignals = onCall(
  * @returns Promise<GetPnLSummaryResponse> with totals segmented by side and overall.
  */
 export const getPnLSummary = onCall(
-  { region: 'us-central1' },
+  { region: 'us-central1', cors: true },
   async (req): Promise<GetPnLSummaryResponse> => {
     const { from, to } = (req.data || {}) as GetPnLSummaryRequest;
     const type = ((req.data || {}) as any)?.type as 'app' | 'actual' | undefined;
@@ -293,7 +293,7 @@ export const getPnLSummary = onCall(
  * @returns Promise<UpdatePositionActualsResponse> with ok and positionId.
  */
 export const updatePositionActuals = onCall(
-  { region: 'us-central1' },
+  { region: 'us-central1', cors: true },
   async (req): Promise<UpdatePositionActualsResponse> => {
     const uid = req.auth?.uid;
     if (!uid) {
@@ -393,7 +393,7 @@ export async function rebuildSignalsDailyMirrorImpl({ day, pairs }: { day: strin
  * @returns { ok: boolean, counts, day, ... } as returned by the internal implementation.
  */
 export const rebuildSignalsDailyMirror = onCall(
-  { region: 'us-central1', timeoutSeconds: 540 },
+  { region: 'us-central1', timeoutSeconds: 540, cors: true },
   async (req): Promise<any> => {
     const day = String(req.data?.day || '').trim();
     const pairs = Array.isArray(req.data?.pairs) ? req.data.pairs : undefined;
@@ -415,7 +415,7 @@ export const rebuildSignalsDailyMirror = onCall(
  * @returns { ok: boolean, range: { from, to }, processed, skipped }.
  */
 export const rebuildSignalsDailyMirrorRange = onCall(
-  { region: 'us-central1', timeoutSeconds: 540 },
+  { region: 'us-central1', timeoutSeconds: 540, cors: true },
   async (req): Promise<{ ok: boolean; range: { from: string; to: string }; processed: number; skipped: number }> => {
     const from = String(req.data?.from || '').trim();
     const to = String(req.data?.to || '').trim();
@@ -456,7 +456,7 @@ export const rebuildSignalsDailyMirrorRange = onCall(
  * @returns Summary with counts of pairs, days processed, and mirrors rebuilt if requested.
  */
 export const cleanPairDailyPnL = onCall(
-  { region: 'us-central1' },
+  { region: 'us-central1', cors: true },
   async (req): Promise<{ ok: boolean; from: string; to: string; pairs: number; days: number; mirrorsRebuilt?: number }> => {
     const from = String(req.data?.from || '').trim();
     const to = String(req.data?.to || '').trim();
@@ -521,7 +521,7 @@ export const cleanPairDailyPnL = onCall(
  * Response: { ok, range, days: [...], totals }
  */
 export const auditSignalsConsistency = onCall(
-  { region: 'us-central1', timeoutSeconds: 540 },
+  { region: 'us-central1', timeoutSeconds: 540, cors: true },
   async (req): Promise<{
     ok: boolean;
     range: { from: string; to: string };

@@ -76,7 +76,7 @@ export function normalizePartnerDailyBar(b: PartnerBar): PartnerDailyBarDTO {
  * time series; they are not considered "missing" and are not flagged.
  */
 export const getPairDailyBars = onCall(
-  { region: 'us-central1' },
+  { region: 'us-central1', cors: true },
   async (req): Promise<GetPairDailyBarsResponse> => {
     const { symbol, interval, from, to } = (req.data || {}) as GetPairDailyBarsRequest;
     const sym = String(symbol || '').trim().toUpperCase();
