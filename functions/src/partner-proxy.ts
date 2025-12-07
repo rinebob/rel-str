@@ -89,6 +89,7 @@ export async function callPartnerTimeSeries(params: {
   from?: string | number;
   to?: string | number;
   limit?: string | number;
+  adjusted?: boolean;
 }) {
   // Per SA quickstart, use function URL for request; audience defaults to URL but is overrideable
   const audience = PARTNER_TS_AUDIENCE;
@@ -100,6 +101,7 @@ export async function callPartnerTimeSeries(params: {
   if (params.from !== undefined) search.set("from", String(params.from));
   if (params.to !== undefined) search.set("to", String(params.to));
   if (params.limit !== undefined) search.set("limit", String(params.limit));
+  if (params.adjusted !== undefined) search.set("adjusted", String(params.adjusted));
   const url = `${PARTNER_TS_URL}?${search.toString()}`;
 
   // Log the exact upstream request parameters for diagnostics, especially for long windows.
@@ -110,6 +112,7 @@ export async function callPartnerTimeSeries(params: {
     from: params.from ?? null,
     to: params.to ?? null,
     limit: params.limit ?? null,
+    adjusted: params.adjusted ?? null,
     url,
     audience,
   });
@@ -167,11 +170,13 @@ export const partnerProxyTest = onRequest(
       const symbol = (req.query.symbol as string) || "AAPL";
       const interval = (req.query.interval as string) || "DAILY";
       const range = (req.query.range as string) || "1y";
+      const adjusted = req.query.adjusted === 'true';
 
       const data = await callPartnerTimeSeries({
         symbol,
         interval: interval as PartnerInterval,
         range,
+        adjusted,
       });
       logger.info("partnerProxyTest upstream success");
 

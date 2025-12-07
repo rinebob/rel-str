@@ -22,6 +22,7 @@ export interface GetPairDailyBarsRequest {
   interval?: BarsInterval;
   from: string; // YYYY-MM-DD
   to: string;   // YYYY-MM-DD
+  adjusted?: boolean;
 }
 
 export interface PartnerDailyBarDTO {
@@ -78,7 +79,7 @@ export function normalizePartnerDailyBar(b: PartnerBar): PartnerDailyBarDTO {
 export const getPairDailyBars = onCall(
   { region: 'us-central1', cors: true },
   async (req): Promise<GetPairDailyBarsResponse> => {
-    const { symbol, interval, from, to } = (req.data || {}) as GetPairDailyBarsRequest;
+    const { symbol, interval, from, to, adjusted } = (req.data || {}) as GetPairDailyBarsRequest;
     const sym = String(symbol || '').trim().toUpperCase();
 
     if (!sym) {
@@ -90,6 +91,7 @@ export const getPairDailyBars = onCall(
         interval: interval ?? 'DAILY',
         from,
         to,
+        adjusted,
       });
 
       const dto: PartnerDailyBarDTO[] = (Array.isArray(bars) ? bars : []).map((b: PartnerBar) => normalizePartnerDailyBar(b));

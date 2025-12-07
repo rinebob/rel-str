@@ -27,6 +27,7 @@ export interface FetchRangeOptions {
   interval?: PartnerInterval;
   from: string;      // YYYY-MM-DD UTC
   to: string;        // YYYY-MM-DD UTC
+  adjusted?: boolean;
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -40,7 +41,13 @@ export async function fetchDailyBarsRange(symbol: string, opts: FetchRangeOption
   const fromIso = String(opts.from).slice(0, 10);
   const toIso = String(opts.to).slice(0, 10);
 
-  const req: any = { symbol, interval, from: fromIso, to: toIso };
+  const req: any = { 
+    symbol, 
+    interval, 
+    from: fromIso, 
+    to: toIso, 
+    adjusted: opts.adjusted ?? true 
+  };
   const data: any = await callPartnerTimeSeries(req);
 
   const rawBars = Array.isArray(data?.bars) ? data.bars : [];
