@@ -178,6 +178,7 @@
 
 * **Assumptions:**
     * Primary market data flows through a partner pipeline into normalized Firestore storage; the app consumes data via Firestore and callable functions only (no direct frontend calls to third parties).
+    * **Strict usage of split-adjusted price data:** The application will strictly use the **split-adjusted** close price (`c`) provided by the partner API for all Relative Strength calculations and visualizations. This ensures a continuous data series without gaps from stock splits. The dividend-adjusted close (`ac`) field will be ignored to preserve technical fidelity for candlesticks.
     * Users understand the basic concept of relative strength as used in the application or are willing to learn from the provided documentation.
     * The chosen technical infrastructure (Firebase, Firestore, Cloud Functions) can support the daily data fetching, calculations, storage, and user load for the MVP scope efficiently and cost-effectively.
     * The chosen payment gateway (Stripe/PayPal) integration is straightforward and reliable.

@@ -156,3 +156,9 @@
 - Move registry callables and seeding into `functions/src/webhooks/registry-actions.ts`.
 - Document full RS pipeline and Firestore schemas in `docs/partner/partner-webhooks.md` and planning docs.
 - 2025-11-04: Rename fields and collections in planning to match implementation: `opened.price -> opened.openPrice`, `closed.price -> closed.closePrice`, `signalsDaily -> signals-daily`. Backfill pairs enumerated from `pair-registry` only; admin-protected HTTP.
+- 2025-12-05: Manual backfill of archive and signals for QQQ-AAPL, SPY-GOOGL, and key SPY pairs (2019-2025).
+  - [x] Refactored `recomputeRegisteredBackfill` to support `pair`/`pairs` parameters for targeted backfills.
+  - [x] Restored missing archive data for QQQ-AAPL using `recomputeRegisteredBackfill` (via `fetchBackfillBars` padding).
+  - [x] Regenerated signals and positions for SPY-GOOGL (deep history) and other key pairs using `backfillSignalsHistory`.
+- 2025-12-07: Data Normalization Strategy Documentation
+  - [x] Updated `docs/planning/3_BACKEND.md` and `docs/planning/14_DATA_FLOW_AND_FUNCTIONS.md` with extensive discussion on the decision to strictly use **split-adjusted** close prices (`c`) from the partner API (ignoring dividend-adjusted `ac`). This ensures continuous price series without gaps from splits while preserving technical candle fidelity.

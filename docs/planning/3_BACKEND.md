@@ -263,3 +263,21 @@ Admin-protected HTTP function `backfillSignalsHistory` computes post-close RS si
 
 - Functions run under `rel-str-partner-caller-prod@rel-str.iam.gserviceaccount.com` (configurable via `PARTNER_CALLER_SA`).
 - We consume SavantAPI; subscribe to `partner-data-ready` Pub/Sub; no inbound partner webhooks in FE.
+
+## 14. Data Normalization & Split Handling Strategy
+
+This section documents our policy on consuming market data from the Partner Time Series API.
+
+### 14.1 Philosophy: Split-Adjusted, Dividend-Excluded
+We prioritize **split-adjusted** historical values for the Close (`c`) price. This ensures that the price series is continuous and free of artificial gaps caused by stock splits (e.g., a 4:1 split does *not* show a 75% drop). This continuity is essential for accurate Relative Strength calculations and long-term trend analysis.
+
+### 14.2 Partner Field Usage
+- **`c` (Close):** STRICTLY USED. We request data such that this field represents the **split-adjusted** close price. It serves as the source of truth for all RS calculations, signal generation, and chart visualizations.
+- **`ac` (Adjusted Close):** STRICTLY IGNORED.
+  - **Reasoning:** The `ac` field typically includes adjustments for both splits *and dividends*. While useful for Total Return analysis, dividend adjustments distort technical price levels (candles) and do not have corresponding adjusted Open/High/Low values provided by the API. Using `ac` would result in distorted candle shapes.
+  - **Conclusion:** By using the split-adjusted `c` (and corresponding O/H/L), we maintain correct candle proportions while avoiding split-induced discontinuities.
+
+### 14.3 Implications
+- **No Price Gaps:** Long-term charts will be smooth across split events.
+- **Technical Accuracy:** Candles remain proportional because we avoid the dividend-adjustment scaling that is present in `ac`.
+- **Request Parameters:** We explicitly request split-adjusted data (e.g., via `adjusted=true` or equivalent provider defaults) to ensure the `c` field is back-adjusted for splits.

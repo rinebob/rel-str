@@ -190,3 +190,19 @@ sequenceDiagram
   - OPEN/HOLD: backend writes `currentPrice/currentChange/currentPctChange`.
   - CLOSED: backend writes `exitPrice/netPnL/percentReturn` at close finalization.
 - Admin purge also removes legacy per-pair `signalsDaily/` collections to keep schema consistent.
+- **Partner Data Handling**: We strictly use the split-adjusted close value (`c`) from the partner time series API. This ensures that our price series are continuous and free from gaps caused by stock splits, which is critical for accurate Relative Strength calculations and technical analysis.
+
+## Appendix: Data Normalization & Split Handling Strategy
+
+### A.1 Core Principle: Split-Adjusted Continuity
+We strictly adhere to using the **split-adjusted** close price (`c`) provided by the Partner Time Series API. This ensures that our price series are continuous and free from gaps caused by stock splits, which is critical for accurate Relative Strength calculations and technical analysis.
+
+### A.2 Implementation Details
+- **Ingestion:** We explicitly request split-adjusted data (e.g., `adjusted=true`) from the partner API.
+- **Normalization:** The `normalizePartnerDailyBar` function maps the partner's split-adjusted `c` field directly to our internal `close` field.
+- **Ignored Field (`ac`):** The `ac` (Adjusted Close) field is intentionally ignored. This field includes adjustments for **dividends** (Total Return) in addition to splits. Since the partner API does not provide corresponding dividend-adjusted Open/High/Low values, using `ac` would distort candlestick shapes.
+- **Visualizations:** Charts render the split-adjusted `c` values, ensuring smooth long-term trends without split gaps while maintaining correct candlestick proportions.
+
+### A.3 Handling of Corporate Actions
+- **Stock Splits:** The `c` field is back-adjusted for splits by the provider. Therefore, there are **no price gaps** due to splits in our time series.
+- **Dividends:** The `c` field is **not** adjusted for dividends. This preserves the "technical" price action, where the stock price naturally drops on the ex-dividend date. This is the desired behavior for technical analysis and signal generation.
