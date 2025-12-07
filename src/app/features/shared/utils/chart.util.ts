@@ -12,7 +12,8 @@ export function getXExtents(range: VisibleRangeModel): { minX: number; maxX: num
 export function autoscaleYAxis(
   chartData: CandleWithRSColor[],
   baselineData: OHLCDatum[],
-  chartComponent: ChartComponent
+  chartComponent: ChartComponent,
+  refresh = false
 ): ChartComponent | undefined {
   if (!chartData.length || !chartComponent || !chartComponent.primaryXAxis) return;
 
@@ -45,8 +46,11 @@ export function autoscaleYAxis(
     chartComponent.primaryYAxis.minimum = min;
     chartComponent.primaryYAxis.maximum = max;
   }
-  // Intentionally avoid chartComponent.dataBind() here to prevent re-triggering
-  // loaded/scroll events and causing recursive call stacks.
+  
+  if (refresh) {
+      chartComponent.dataBind();
+  }
+
   return chartComponent;
 }
 
@@ -56,7 +60,8 @@ export function autoscaleYAxisForRange(
   baselineData: OHLCDatum[],
   chartComponent: ChartComponent,
   minX: number | Date,
-  maxX: number | Date
+  maxX: number | Date,
+  refresh = false
 ): ChartComponent | undefined {
   if (!chartData.length) return;
 
@@ -77,9 +82,24 @@ export function autoscaleYAxisForRange(
   const min = Math.min(...allVisibleData.map((d) => d.low));
   const max = Math.max(...allVisibleData.map((d) => d.high));
 
+  // Find the items responsible for the min/max to log their dates
+  const minItem = allVisibleData.find(d => d.low === min);
+  const maxItem = allVisibleData.find(d => d.high === max);
+
+  console.log('--- Autoscale Y Axis Debug ---');
+  console.log('Visible Range (X):', new Date(minVal).toISOString(), 'to', new Date(maxVal).toISOString());
+  console.log(`Visible Points: ${allVisibleData.length}`);
+  console.log(`Calculated Min Y: ${min} (Date: ${minItem?.x instanceof Date ? minItem.x.toISOString() : minItem?.x})`);
+  console.log(`Calculated Max Y: ${max} (Date: ${maxItem?.x instanceof Date ? maxItem.x.toISOString() : maxItem?.x})`);
+
   if (chartComponent?.primaryYAxis) {
     chartComponent.primaryYAxis.minimum = min;
     chartComponent.primaryYAxis.maximum = max;
   }
+  
+  if (refresh) {
+      chartComponent.dataBind();
+  }
+
   return chartComponent;
 }

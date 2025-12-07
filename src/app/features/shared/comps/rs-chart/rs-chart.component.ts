@@ -18,7 +18,7 @@ import {
 
 import { CandleWithRSColor, MaSeriesPoint, MainMaId, OHLCDatum, RsChartConfig, RsPaneDatum } from '../../../shared/types/rs.interfaces';
 import { DEFAULT_MAIN_MA_CONFIGS, MAIN_CHART_INITIAL_DAYS, SMALL_CHART_INITIAL_DAYS } from '../../../shared/constants/rs.constants';
-import { autoscaleYAxis } from '../../utils/chart.util';
+import { autoscaleYAxis, autoscaleYAxisForRange } from '../../utils/chart.util';
 import { toTimestamp } from '../../utils/date.util';
 
 @Component({
@@ -149,10 +149,10 @@ export class RsChartComponent {
             } else {
                 // console.log('rs oSE scroll end bypassing axis zoom settings calcs')
             }
-            // NOTE: we no longer force our own Y-axis autoscaling here and
-            // let Syncfusion handle vertical scaling based on its internal
-            // zoom/scroll state. The helpers autoscaleYAxis* remain
-            // available if we decide to re-enable custom behavior later.
+            const baseline = this.config().showBaseline ? this.baselineData() : [];
+            // Syncfusion's native behavior with ZoomMode='X' scales Y based on the entire dataset.
+            // We manually rescale here to fit the Y-axis to the currently visible data points.
+            this.chart = autoscaleYAxisForRange(this.chartData(), baseline, this.chart, min, max, true);
         }
         
     }
@@ -178,14 +178,9 @@ export class RsChartComponent {
                 // console.log('rS oZC t.c.pXA.zF/zP: ', zoomFactor, zoomPosition);
             }
             
-            // if (this.isMain()) {
-            //     console.log('rS oSE min/max/startIdx/endIdx: ', min, max, startIdx, endIdx);
-            //     console.log('rS oZC t.c.pXA.zF/zP: ', zoomFactor, zoomPosition);
-            // }
+            const baseline = this.config().showBaseline ? this.baselineData() : [];
+            this.chart = autoscaleYAxisForRange(this.chartData(), baseline, this.chart, min, max, true);
         }
-        // After zoom/pan/Reset we now rely on Syncfusion's native Y-axis
-        // behavior instead of forcing our own autoscale. The helper
-        // autoscaleYAxis remains for initial-load fitting only.
     }
 
     public autoscaleYAxis(): void {
