@@ -233,12 +233,19 @@ export function withStockListV2Feature() {
 
             const resolveExistingRanksDataV2 = async (list: RelStrStockList, force = false): Promise<RelStrStockList> => {
                 const pairs = getPairsForList(list);
-                const existingPairs = !!list.ranksDataWithColors ? Object.keys(list.ranksDataWithColors) : [];
+                const existingData = list.ranksDataWithColors || {};
                 const pairsToFetch: string[] = [];
+
                 if (force) {
                     pairsToFetch.push(...pairs);
                 } else {
-                    for (const pair of pairs) if (!existingPairs.includes(pair)) pairsToFetch.push(pair);
+                    for (const pair of pairs) {
+                        // Fetch if key missing OR if data is empty (retry mechanism for backfills)
+                        const series = existingData[pair];
+                        if (!series || series.length === 0) {
+                            pairsToFetch.push(pair);
+                        }
+                    }
                 }
                 if (list.ranksDataWithColors === undefined || pairsToFetch.length) {
                     console.log('sLV2 rERDV2. list/num pairs: ', list.name, pairsToFetch.length);
