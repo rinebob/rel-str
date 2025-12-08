@@ -99,7 +99,12 @@ export const getPairDailyBars = onCall(
       logger.info('getPairDailyBars', { symbol: sym, count: dto.length });
       return { bars: dto };
     } catch (e: any) {
-      logger.error('getPairDailyBars_error', { symbol: sym, message: e?.message });
+      logger.error('getPairDailyBars_error', { 
+        symbol: sym, 
+        message: e?.message,
+        stack: e?.stack,
+        error: e 
+      });
       return { bars: [] };
     }
   },

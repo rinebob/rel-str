@@ -104,19 +104,30 @@ export class RsChartComponent {
         const daysToShow = this.isMain() ? MAIN_CHART_INITIAL_DAYS : SMALL_CHART_INITIAL_DAYS;
 
         // Initial zoom window for newly created chart instances
+        let minX: Date;
+        let maxX: Date;
+
         if (data.length > daysToShow && chart.primaryXAxis) {
             const zoomFactor = daysToShow / data.length;
             const zoomPosition = (data.length - daysToShow) / data.length;
 
             chart.primaryXAxis.zoomFactor = zoomFactor;
             chart.primaryXAxis.zoomPosition = zoomPosition;
+
+            // Calculate explicit range for Y-axis scaling
+            minX = data[data.length - daysToShow].x as Date;
+            maxX = data[data.length - 1].x as Date;
+        } else {
+            minX = data[0].x as Date;
+            maxX = data[data.length - 1].x as Date;
         }
 
         // Perform a one-time Y-axis autoscale for the initial visible
         // window on both main and small/car charts so price action fits
         // the clamped/zoomed X-range. Follow‑up scroll/zoom interactions
         // continue to rely on Syncfusion's native behavior.
-        this.autoscaleYAxis();
+        // Pass empty array for baseline so Y-axis scales only to the target symbol's price
+        autoscaleYAxisForRange(this.chartData(), [], chart, minX, maxX, true);
 
         this.isInitialLoad.set(false);
     }
@@ -127,8 +138,14 @@ export class RsChartComponent {
         if (!event.range) {
             return;
         }
+        
+        const chart = this.chart;
+        if (!chart || !chart.primaryXAxis) {
+            return;
+        }
+
         // Update zoomFactor and zoomPosition to reflect the new visible range
-        if (this.chart && this.chart.primaryXAxis && event.range) {
+        if (event.range) {
             const data = this.chartData();
             const total = data.length;
             const min = toTimestamp(event.range.min);
@@ -143,23 +160,28 @@ export class RsChartComponent {
                 const visible = endIdx - startIdx + 1;
                 zoomFactor = visible / total;
                 zoomPosition = startIdx / total;
-                this.chart.primaryXAxis.zoomFactor = zoomFactor;
-                this.chart.primaryXAxis.zoomPosition = zoomPosition;
+                chart.primaryXAxis.zoomFactor = zoomFactor;
+                chart.primaryXAxis.zoomPosition = zoomPosition;
                 
             } else {
                 // console.log('rs oSE scroll end bypassing axis zoom settings calcs')
             }
-            const baseline = this.config().showBaseline ? this.baselineData() : [];
             // Syncfusion's native behavior with ZoomMode='X' scales Y based on the entire dataset.
             // We manually rescale here to fit the Y-axis to the currently visible data points.
-            this.chart = autoscaleYAxisForRange(this.chartData(), baseline, this.chart, min, max, true);
+            // Pass empty array for baseline so Y-axis scales only to the target symbol's price
+            autoscaleYAxisForRange(this.chartData(), [], chart, min, max, true);
         }
         
     }
 
     onZoomComplete(event: IZoomCompleteEventArgs): void {
+        const chart = this.chart;
+        if (!chart || !chart.primaryXAxis) {
+            return;
+        }
+
         // Update zoomFactor and zoomPosition to reflect the new visible range
-        if (this.chart && this.chart.primaryXAxis && event.currentVisibleRange) {
+        if (event.currentVisibleRange) {
             const data = this.chartData();
             const total = data.length;
             const min = toTimestamp(event.currentVisibleRange.min);
@@ -173,21 +195,21 @@ export class RsChartComponent {
                 zoomFactor = visible / total;
                 zoomPosition = startIdx / total;
 
-                this.chart.primaryXAxis.zoomFactor = zoomFactor;
-                this.chart.primaryXAxis.zoomPosition = zoomPosition;
+                chart.primaryXAxis.zoomFactor = zoomFactor;
+                chart.primaryXAxis.zoomPosition = zoomPosition;
                 // console.log('rS oZC t.c.pXA.zF/zP: ', zoomFactor, zoomPosition);
             }
             
-            const baseline = this.config().showBaseline ? this.baselineData() : [];
-            this.chart = autoscaleYAxisForRange(this.chartData(), baseline, this.chart, min, max, true);
+            // Pass empty array for baseline so Y-axis scales only to the target symbol's price
+            autoscaleYAxisForRange(this.chartData(), [], chart, min, max, true);
         }
     }
 
     public autoscaleYAxis(): void {
         // console.log(`------------- RSC AYA ${this.name()} ------------------`);
         if (this.chart && !!this.chart?.primaryXAxis) {
-            const baseline = this.config().showBaseline ? this.baselineData() : [];
-            this.chart = autoscaleYAxis(this.chartData(), baseline, this.chart);
+            // Pass empty array for baseline so Y-axis scales only to the target symbol's price
+            this.chart = autoscaleYAxis(this.chartData(), [], this.chart);
         }
     }
 }

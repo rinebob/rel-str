@@ -82,17 +82,13 @@ export function autoscaleYAxisForRange(
   const min = Math.min(...allVisibleData.map((d) => d.low));
   const max = Math.max(...allVisibleData.map((d) => d.high));
 
-  // Find the items responsible for the min/max to log their dates
-  const minItem = allVisibleData.find(d => d.low === min);
-  const maxItem = allVisibleData.find(d => d.high === max);
-
-  console.log('--- Autoscale Y Axis Debug ---');
-  console.log('Visible Range (X):', new Date(minVal).toISOString(), 'to', new Date(maxVal).toISOString());
-  console.log(`Visible Points: ${allVisibleData.length}`);
-  console.log(`Calculated Min Y: ${min} (Date: ${minItem?.x instanceof Date ? minItem.x.toISOString() : minItem?.x})`);
-  console.log(`Calculated Max Y: ${max} (Date: ${maxItem?.x instanceof Date ? maxItem.x.toISOString() : maxItem?.x})`);
-
   if (chartComponent?.primaryYAxis) {
+    // Prevent infinite loops and unnecessary re-renders:
+    // If the axis range is already set to these values, do nothing.
+    if (chartComponent.primaryYAxis.minimum === min && chartComponent.primaryYAxis.maximum === max) {
+        return chartComponent;
+    }
+
     chartComponent.primaryYAxis.minimum = min;
     chartComponent.primaryYAxis.maximum = max;
   }
