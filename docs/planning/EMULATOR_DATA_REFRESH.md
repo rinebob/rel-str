@@ -1,3 +1,5 @@
+> **Transition Note (Multi-Interval RS):** This document assumes a daily-only RS model with `signals-daily` and/or `pairs-data.data[]`. A multi-interval RS transition is now planned; see `docs/planning/MULTI_INTERVAL_RS_TRANSITION.md` for the up-to-date design. This file will be updated once implementation is complete.
+
 # Emulator RS Data Refresh Playbook
 
 This doc describes how to fully rebuild the Firestore **emulator** database for RS signals/positions using existing Cloud Functions. It is meant for local dev only and never for prod.

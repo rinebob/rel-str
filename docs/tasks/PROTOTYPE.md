@@ -162,3 +162,12 @@
   - [x] Regenerated signals and positions for SPY-GOOGL (deep history) and other key pairs using `backfillSignalsHistory`.
 - 2025-12-07: Data Normalization Strategy Documentation
   - [x] Updated `docs/planning/3_BACKEND.md` and `docs/planning/14_DATA_FLOW_AND_FUNCTIONS.md` with extensive discussion on the decision to strictly use **split-adjusted** close prices (`c`) from the partner API (ignoring dividend-adjusted `ac`). This ensures continuous price series without gaps from splits while preserving technical candle fidelity.
+- 2025-12-07: Fix Syncfusion Chart Y-axis autoscaling on initial load.
+  - [x] Updated `RsChartComponent.onChartLoaded` to explicitly calculate the visible date range and call `autoscaleYAxisForRange`, fixing the issue where the Y-axis scaled to the entire dataset instead of the initial zoom window.
+- 2025-12-07: Implement Weekly and Monthly RS data storage.
+  - [ ] Add `pairs-data-weekly` and `pairs-data-monthly` collections.
+  - [ ] Update webhook subscriber to route `TS_WEEKLY_POST` and `TS_MONTHLY_POST` to respective collections.
+  - [ ] Configure `WriteUnifiedSeries` to support full history (no archive) for weekly/monthly intervals.
+- 2025-12-08: Multi-Interval RS planning and docs alignment.
+  - [x] Drafted `MULTI_INTERVAL_RS_TRANSITION.md` describing D/W/M RS, signals-activity, and positions model.
+  - [ ] After implementation, update legacy planning docs (RS_BACKFILL_SIGNALS, RS_SIGNAL_HISTORY, 3_BACKEND, 13_TRADER_UI_PLAN, 14_DATA_FLOW_AND_FUNCTIONS, EMULATOR_DATA_REFRESH, 2025-11-archive-first-initial-load-and-route-switching, dashboard-v2-rs-rendering) to match the multi-interval RS design (signals-activity, archives + latest*, no pairs-data.data[]).

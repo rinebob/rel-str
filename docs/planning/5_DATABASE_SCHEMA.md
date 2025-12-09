@@ -28,20 +28,21 @@ The RS-only model is pair-centric. A pair is identified as `${BASELINE}-${SYMBOL
 
 ## Revised Pair Storage (Authoritative WIP) — pairs-data
 
-This section supersedes earlier drafts for pair storage. We will update the code to match this shape.
+This section supersedes earlier drafts for pair storage. The code will be updated to match this shape. The model is **pair-centric and multi-interval** across `DAILY | WEEKLY | MONTHLY`, with a single parent document per pair and per-interval archive shards.
 
 * Collection name: `pairs-data`
 * Document id: `{BASE}-{SYMBOL}` (e.g., `SPY-AAPL`)
 
-Top-level fields
+### Top-level fields
 
-* `meta: map` — single metadata object (consolidates previous `meta` and `seriesMeta`)
+Each `pairs-data/{PAIR}` document acts as the canonical parent for all RS intervals:
+
+* `meta: map` — single metadata object
   * `baseline: string` — e.g., `SPY`
   * `symbol: string` — e.g., `AAPL`
-  * `interval: "DAILY"`
-  * `window: number` — maximum number of recent days to keep in the `data` array mirror (e.g., 30)
-* `lastUpdatedAt: timestamp` — last write time (either pre or post)
-* `latest: map` — mirrors the most recent element in `data`
+  * (No `interval` or `window` here; intervals are modeled via archives and latest mirrors.)
+* `lastUpdatedAt: timestamp` — last write time across any interval.
+* `latestDaily?: map` — latest finalized **daily** RS snapshot
   * `day: string` — YYYY-MM-DD (UTC trading day)
   * `dow: string` — day-of-week label (UTC)
   * `pre?: map` — pre-close snapshot for the day
@@ -56,37 +57,75 @@ Top-level fields
     * `base: { price:number, change:number, percentChange:number }`
     * `target: { price:number, change:number, percentChange:number }`
     * `rs: number`
-    * `source?: "adjustedClose" | "close"`
-* `data: array<map>` — ascending by `day`; the canonical history mirror
-  * Each element mirrors `latest` fields for that `day` and contains `pre?` and `post?` blocks as above
+    * `source?: "close"`
+* `latestWeekly?: map` — latest **weekly** RS snapshot (may be intraperiod)
+  * `day: string` — `YYYY-MM-DD` calendar trading day corresponding to the weekly bar
+  * `dow: string`
+  * `post: { ... }` — RS + prices for the current weekly bar
+* `latestMonthly?: map` — latest **monthly** RS snapshot (may be intraperiod)
+  * `day: string` — `YYYY-MM-DD` calendar trading day corresponding to the monthly bar
+  * `dow: string`
+  * `post: { ... }` — RS + prices for the current monthly bar
 
-Computation rules and write semantics
-
-* __PRE (pre-close) run__
-  * Compute pre-close snapshot using intraday prices (`ip`/`ipc`) where available.
-  * Compute `change` and `percentChange` for both baseline and target against the prior day’s POST-close prices (not against intraday), so the pre snapshot is anchored to yesterday’s canonical close.
-  * Write a new element for `day` into `data` with only `pre` populated, and set `latest` to that same object.
-* __POST (post-close) run__
-  * Clone the current `latest` (which contains the day’s `pre`) and add/overwrite the `post` block using end-of-day prices (`ac`/`cp`).
-  * Update the most recent `data` element for that `day` to include the `post` block.
-  * Update `latest` to the combined object. After post completes, `latest` === last(`data`).
-* __Alignment & Idempotency__
-  * Align by `day` and update the element for that `day` deterministically (replace or append).
-  * `latest` must always exactly mirror the most recent element in `data`.
+`latestDaily` is the primary source for heatmaps and dashboards; `latestWeekly` and `latestMonthly` are mirrors for fast access to current higher-interval RS.
 
 ### Archive shards and selection rubric
 
-The writer also maintains per-year archive shards under each pair document for long-term history and backfills:
+Longer history is stored under **per-interval, per-year** archive collections beneath each pair:
 
-* Path: `pairs-data/{BASE}-{SYMBOL}/archive-YYYY/{YYMMDD}` (e.g., `archive-2025/251023` for 2025-10-23)
-* Each day doc contains a superset of the `data[]` element for that day with optional `pre` and `post` blocks.
+* **Daily (existing)**
 
-Selection rubric for reading archive values (server and FE should align on this):
+  * Path: `pairs-data/{BASE}-{SYMBOL}/archive-YYYY/{YYMMDD}` (e.g., `archive-2025/251023` for 2025-10-23)
+  * Each day doc contains:
+    * `day: string` — `YYYY-MM-DD`
+    * `dow: string`
+    * `pre?: map` — intraday/pre-close snapshot (uses intraday price fields `ip`/`ipc` when available)
+    * `post?: map` — end-of-day snapshot (uses normalized daily close per data-normalization docs)
 
-* Historical days (any day before today, in UTC): return POST only; ignore PRE even if it exists.
-* Today (UTC): return POST if present; otherwise return PRE if present.
+  **Daily computation rules (PRE/POST):**
 
-This ensures historical RS reflects canonical end-of-day values while still allowing intraday PRE display before POST is available on the current trading day.
+  * PRE (pre-close run)
+    * Compute pre-close snapshot using intraday prices (`ip`/`ipc`) where available.
+    * Compute `change` and `percentChange` for both baseline and target **vs the prior day’s POST-close prices** (not vs intraday), so the PRE snapshot is anchored to yesterday’s canonical close.
+    * Write/merge `pre` into `archive-YYYY/{YYMMDD}` and `latestDaily.pre`.
+  * POST (post-close run)
+    * Compute end-of-day snapshot using the chosen normalized close (`c`), per data-normalization planning docs.
+    * Compute `change` and `percentChange` vs the prior day’s POST-close prices.
+    * Write/merge `post` into `archive-YYYY/{YYMMDD}` and `latestDaily.post`.
+  * Historical read rubric:
+    * For historical days (before today, UTC): return POST only; ignore PRE even if it exists.
+    * For today (UTC): return POST if present; otherwise return PRE if present.
+
+* **Weekly**
+
+  * Path: `pairs-data/{BASE}-{SYMBOL}/archive-weekly-YYYY/{YYMMDD}`
+  * Each doc reuses the same `pre` / `post` structure as daily archives, but values are computed from **weekly** bars:
+    * `day: string` — `YYYY-MM-DD`
+    * `dow: string`
+    * `pre?: map` — optional intraperiod weekly snapshot (if written)
+    * `post?: map` — weekly end-of-interval snapshot (RS + prices)
+    * `isIntervalClose: boolean` — `true` if this sample is the final value for that weekly bar (derived from partner bar sequence)
+
+* **Monthly**
+
+  * Path: `pairs-data/{BASE}-{SYMBOL}/archive-monthly-YYYY/{YYMMDD}`
+  * Same shape as weekly archives, computed from **monthly** bars:
+    * `day: string`
+    * `dow: string`
+    * `pre?: map`
+    * `post?: map`
+    * `isIntervalClose: boolean`
+
+Selection rubric for reading archive values (server and FE should align):
+
+* **Daily charts**: read from `archive-YYYY` ordered by `day`.
+* **Weekly charts**: read from `archive-weekly-YYYY`, using all samples (intraperiod and final).
+* **Monthly charts**: read from `archive-monthly-YYYY`, using all samples.
+
+Final vs preview semantics:
+
+* Daily samples are effectively always final per trading day.
+* Weekly/monthly samples update each run; `isIntervalClose === true` marks that this sample represents the **final** value for that interval. All other samples are intraperiod previews.
 
 Example (abbreviated)
 
@@ -194,7 +233,7 @@ Phase entries:
 Retention: capped to `meta.window` most recent days (default 30).
 
 ### pairs-data/{BASELINE}-{TARGET}
-Canonical RS store (unchanged). FE reads `latest` for ranking and `data[]` for series.
+Canonical RS store (unchanged at the collection level). FE reads `latestDaily` (and, where needed, `latestWeekly` / `latestMonthly`) for rankings, and uses per-interval archives (`archive-*`) for RS series.
 
 #### signals (subcollections) — canonical RS signal events
 
@@ -218,25 +257,58 @@ Canonical RS store (unchanged). FE reads `latest` for ranking and `data[]` for s
   - Intraday/pre-close updates for open positions are represented as `PriceDatum` entries in `BePositionDoc.updates[]`, not as additional signal docs.
   - All canonical open/close signals are produced by the shared RS engine (`functions/src/webhooks/rs-signals-engine.ts#detectRsEvents`) and written via the events consumer (`functions/src/webhooks/rs-events-consumer.ts#applyRsEventsForPair`).
 
-#### signals-daily (per-pair and root mirrors)
+#### signals-activity (per-pair and root mirrors) — Signals Activity / Whipsaw
+
+These mirrors provide a **transaction-centric activity log** per calendar day, across all intervals. Collection names remain `signals-daily` for backward compatibility, but conceptually this is a “Signals Activity” / whipsaw view rather than “daily-only” signals.
 
 - Per-pair path (year-sharded):
-  - `pairs-data/{PAIR}/signals-daily/{YYYY}/days/{YYYY-MM-DD}`
+  - `pairs-data/{PAIR}/signals-activity/{YYYY}/days/{YYYY-MM-DD}`
 
 - Root mirror path (year-sharded):
-  - `signals-daily/{YYYY}/days/{YYYY-MM-DD}`
+  - `signals-activity/{YYYY}/days/{YYYY-MM-DD}`
 
-- Shared shape (`SignalsDailyDoc`):
-  - `date: string` — `YYYY-MM-DD` trading day.
-  - `newOpens: DailySignal[]`
-  - `holds: DailySignal[]`
-  - `newCloses: DailySignal[]`
+- Shared shape (`SignalsActivityDoc`):
 
-- `DailySignal` fields:
-  - `signalId: string`
-  - `positionId: string`
-  - `type: DailySignalType` (`OPEN` or `CLOSE`)
-  - `pair?: string` — present in the root mirror, omitted in per-pair docs.
+```ts
+// Conceptual; see functions/src/types/signal.types.ts for the concrete contract.
+enum ActivityEventKind { OPEN = 'OPEN', HOLD = 'HOLD', CLOSE = 'CLOSE' }
+enum ActivityEventState { PREVIEW = 'PREVIEW', FINAL = 'FINAL', ABANDONED = 'ABANDONED' }
+// FINAL = matched to canonical signal; ABANDONED = preview that never printed.
+enum Interval { DAILY = 'DAILY', WEEKLY = 'WEEKLY', MONTHLY = 'MONTHLY' }
+
+interface ActivityEvent {
+  kind: ActivityEventKind;
+  interval: Interval;
+  positionId: string;
+  pair?: string;         // present in the root mirror, implicit in per-pair docs
+  direction: RsDirection; // enum; see signal.types.ts
+  rsRaw: number;         // raw RS at this point
+  rsNorm: number;        // normalized RS on [0,1] internal scale
+  state: ActivityEventState;
+  signalId?: string;     // populated when state === FINAL
+}
+
+interface SignalsActivityDoc {
+  date: string;          // YYYY-MM-DD trading day
+  events: ActivityEvent[];
+}
+```
+
+Behavior:
+
+- On **every run**, for each interval (Daily/Weekly/Monthly), the RS engine computes **preview** events:
+  - “If this interval closed now, would we OPEN / HOLD / CLOSE?”
+  - These are written to the per-pair and root `signals-activity` docs as `ActivityEvent` entries with `state: PREVIEW`.
+- When an RS sample is recognized as a **final** interval close (e.g., weekly/monthly with `isIntervalClose === true`, daily by construction) and a canonical signal is written under `pairs-data/{PAIR}/signals/{YYYY}/opens|closes/{signalId}`:
+  - The corresponding `ActivityEvent` is updated to `state: FINAL` and `signalId` is attached.
+- Over time, preview events that never become canonical (because the interval evolved and the crossing disappeared) may be marked `state: ABANDONED` to support whipsaw analysis.
+
+Consumers:
+
+- FE dashboards can query `signals-activity` and:
+  - Filter by `interval` (D/W/M).
+  - Highlight `PREVIEW` vs `FINAL` events.
+  - Use `ABANDONED` entries to compute whipsaw and “false alarm” statistics.
 
 #### positions (root collection)
 - Path: `positions/{open|YYYY-closed}/items/{positionId}`
@@ -529,5 +601,5 @@ Canonical RS store (unchanged). FE reads `latest` for ranking and `data[]` for s
 
 ## Appendix: Rationale for Key Decisions
 
-* The compact `pairs-data` shape (latest + data array) supports last-30 reads without a per-day `rs` subcollection. If server-side signal feeds are needed later, a separate `signals` collection can be introduced, with a small `signalsSummary` mirror on the pair doc.
+* The compact `pairs-data` shape (latest* mirrors + archive shards) supports fast reads without a per-day `rs` subcollection. Canonical signals live under `pairs-data/{PAIR}/signals/*`, and Signals Activity / whipsaw views live under the existing `signals-daily` mirrors.
 * All collection and document ids use kebab-case (e.g., `pairs-data`, `pair-registry`, `SPY-AAPL`).
