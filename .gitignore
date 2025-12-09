@@ -64,3 +64,12 @@ src/assets/data/BATS_MSFT, 1D_0d494.xlsx
 
 keys/*
 keys/rel-str-partner-caller-prod.json
+.vscode/settings.json
+docs/planning/rel-str-data-flow-seq-diagram_25-1106.png
+emu-export-20251205-101810/firebase-export-metadata.json
+emu-export-20251205-101810/auth_export/accounts.json
+emu-export-20251205-101810/auth_export/config.json
+emu-export-20251205-101810/firestore_export/firestore_export.overall_export_metadata
+emu-export-20251205-101810/firestore_export/all_namespaces/all_kinds/all_namespaces_all_kinds.export_metadata
+emu-export-20251205-101810/firestore_export/all_namespaces/all_kinds/output-0
+emu-export-20251205-101810/firestore_export/all_namespaces/all_kinds/output-1
