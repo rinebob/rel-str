@@ -5,6 +5,27 @@
 export enum RsDirection { LONG = 'long', SHORT = 'short' }
 export enum RsSource { PRE = 'pre', POST = 'post' }
 
+// Standardized intervals for RS processing and signals.
+export enum Interval {
+  DAILY = 'DAILY',
+  WEEKLY = 'WEEKLY',
+  MONTHLY = 'MONTHLY',
+}
+
+// Logical activity kinds for Signals Activity docs.
+export enum ActivityEventKind {
+  OPEN = 'OPEN',
+  HOLD = 'HOLD',
+  CLOSE = 'CLOSE',
+}
+
+// Lifecycle state of an activity event.
+export enum ActivityEventState {
+  PREVIEW = 'PREVIEW',
+  FINAL = 'FINAL',
+  ABANDONED = 'ABANDONED',
+}
+
 // Internal processing state for generators/readers that implement a simple FSM.
 export enum PositionState { FLAT = 'flat', LONG = 'long', SHORT = 'short' }
 
@@ -84,6 +105,9 @@ export interface BeSignalBase {
   // Classification
   direction: RsDirection; // LONG | SHORT
 
+  // Interval for this signal (DAILY | WEEKLY | MONTHLY).
+  interval: Interval;
+
   // Time of the signal (decision time, ET-aligned)
   day: string;               // YYYY-MM-DD
   timestamp: number;         // epoch ms
@@ -129,6 +153,38 @@ export interface SignalsDailyDoc {
   newOpens: DailySignal[];
   holds: DailySignal[];
   newCloses: DailySignal[];
+}
+
+// Signals Activity model (multi-interval, preview/final/abandoned states).
+
+export interface ActivityEvent {
+  // Classification
+  kind: ActivityEventKind;
+  interval: Interval;
+
+  // Routing
+  positionId: string;
+  baseline: string;
+  symbol: string;
+
+  // Direction and RS snapshot at the event moment
+  direction: RsDirection;
+  rsRaw: number;
+  rsNorm: number;
+
+  // Lifecycle state within the activity stream
+  state: ActivityEventState;
+
+  // Optional linkage to canonical signal docs (once finalized)
+  signalId?: string;
+}
+
+export interface SignalsActivityDoc {
+  // Canonical trading day for this document (YYYY-MM-DD, ET-aligned)
+  date: string;
+
+  // Flat array of events for this day (per-pair or root-aggregated, depending on collection).
+  events: ActivityEvent[];
 }
 
 export interface PnLTotals { count: number; sum: number; sumPct: number }
