@@ -173,6 +173,20 @@
   opacity: 0.8;
 }
 
+.rs-chart-view__zoom-button {
+  padding: mixins.rem(2) mixins.rem(8);
+  font-size: mixins.rem(12);
+  border-radius: mixins.rem(4);
+  border: 1px solid var(--theme-border-subtle, rgba(255, 255, 255, 0.12));
+  background-color: transparent;
+  color: var(--theme-on-surface);
+  cursor: pointer;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+  }
+}
+
 .rs-chart-view__legend-label {
   white-space: nowrap;
 }

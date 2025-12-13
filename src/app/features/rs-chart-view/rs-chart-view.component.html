@@ -33,10 +33,32 @@
             <mat-button-toggle [value]="Timeframe.DAILY">
               Daily
             </mat-button-toggle>
+            <mat-button-toggle [value]="Timeframe.WEEKLY">
+              Weekly
+            </mat-button-toggle>
+            <mat-button-toggle [value]="Timeframe.MONTHLY">
+              Monthly
+            </mat-button-toggle>
             <mat-button-toggle [value]="Timeframe.TWO_DAY">
               2-Day
             </mat-button-toggle>
           </mat-button-toggle-group>
+
+          <button
+            type="button"
+            class="rs-chart-view__zoom-button"
+            (click)="showAllData()"
+          >
+            Show all
+          </button>
+
+          <button
+            type="button"
+            class="rs-chart-view__zoom-button"
+            (click)="goToEnd()"
+          >
+            Go to end
+          </button>
 
           @if (chartStore.timeframe() === Timeframe.TWO_DAY && chartStore.mainChart()) {
             <div class="rs-chart-view__two-day-status">
@@ -65,6 +87,7 @@
         } @else {
           @for (mc of [main]; track mc.id) {
             <rs-chart
+              #mainChart
               [id]="'main-' + mc.id"
               [name]="mc.config.name"
               [config]="mc.config"

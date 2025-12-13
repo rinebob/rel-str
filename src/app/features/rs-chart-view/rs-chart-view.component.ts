@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -28,6 +28,8 @@ export class RsChartViewComponent {
     public readonly MaType = MaType;
     public readonly Timeframe = Timeframe;
     public readonly MainMaId = MainMaId;
+
+    @ViewChild('mainChart') mainChart?: RsChartComponent;
 
     // Expose live store signals so the template can react via signal syntax.
 
@@ -68,5 +70,13 @@ export class RsChartViewComponent {
 
     public onTimeframeChange(tf: Timeframe): void {
         this.chartStore.setTimeframe(tf);
+    }
+
+    public showAllData(): void {
+        this.mainChart?.zoomShowAll();
+    }
+
+    public goToEnd(): void {
+        this.mainChart?.zoomToEnd();
     }
 }
