@@ -38,11 +38,13 @@ export interface PriceDatum {
 
   // Time
   day: string;        // YYYY-MM-DD (ET-aligned trading day)
+  dow?: string;       // 3-letter UTC weekday code (e.g. MON)
   timestamp: number;  // epoch ms
 
   // Price + RS at this moment
   price: number;
-  rs?: number;
+  rsRaw: number;
+  rsNorm: number;
 
   // Source of this sample (PRE covers intraday / pre-close; POST for EOD)
   source?: RsSource;
@@ -50,6 +52,14 @@ export interface PriceDatum {
   // PnL metrics vs the original entry at this moment
   pnl: number;        // absolute PnL
   pct: number;        // percentage return
+
+  // Day-over-day change metrics vs the previous price datum in the timeline
+  ch: number;   // absolute change in price vs previous datum
+  cp: number;   // percent change vs previous datum
+
+  // Previous RS values
+  prevRsRaw?: number;
+  prevRsNorm?: number;
 }
 
 export interface RsPositionOpened {
@@ -110,11 +120,13 @@ export interface BeSignalBase {
 
   // Time of the signal (decision time, ET-aligned)
   day: string;               // YYYY-MM-DD
+  dow?: string;              // 3-letter UTC weekday code (e.g. MON)
   timestamp: number;         // epoch ms
 
   // RS / price context at signal time
   price: number;             // target price at signal
-  rs: number;               // RS at signal
+  rsRaw: number;               // RS at signal (raw or normalized depending on pipeline)
+  rsNorm: number;           // normalized RS used for thresholds/visuals
   prevRs: number;           // yesterday's RS value.  will need to do a lookup
   source: RsSource;      // POST for canonical signals (per docs)
 }
@@ -132,35 +144,16 @@ export interface BeCloseSignalDoc extends BeSignalBase {
 
 export type BeSignalDoc = BeOpenSignalDoc | BeCloseSignalDoc;
 
-export enum DailySignalType {
-  OPEN = 'open',   // canonical open signal event for the position
-  CLOSE = 'close', // canonical close signal event for the position
-  HOLD = 'hold',   // no new signal today; position remained open on this day
-}
-
-export interface DailySignal {
-  signalId: string;
-  positionId: string;
-  type: DailySignalType;
-  // For root signals-daily mirror entries this will be populated; per-pair docs may omit it.
-  pair?: string;
-}
-
-export interface SignalsDailyDoc {
-  // Canonical trading day for this document (YYYY-MM-DD, ET-aligned)
-  date: string;
-
-  newOpens: DailySignal[];
-  holds: DailySignal[];
-  newCloses: DailySignal[];
-}
-
 // Signals Activity model (multi-interval, preview/final/abandoned states).
 
 export interface ActivityEvent {
   // Classification
   kind: ActivityEventKind;
   interval: Interval;
+
+  // Canonical trading day for this event (YYYY-MM-DD, ET-aligned)
+  day: string;
+  dow: string; // 3-letter UTC weekday code (e.g. MON)
 
   // Routing
   positionId: string;
@@ -171,6 +164,8 @@ export interface ActivityEvent {
   direction: RsDirection;
   rsRaw: number;
   rsNorm: number;
+  prevRsRaw?: number;
+  prevRsNorm?: number;
 
   // Lifecycle state within the activity stream
   state: ActivityEventState;
@@ -192,9 +187,6 @@ export interface PnLTotals { count: number; sum: number; sumPct: number }
 // Callable DTOs
 export interface GetPairSignalsRequest { baseline: string; symbol: string; limit?: number; source?: RsSource; type?: 'open' | 'close' }
 export interface GetPairSignalsResponse { opens: BeOpenSignalDoc[]; closes: BeCloseSignalDoc[] }
-
-export interface GetDailySignalsRequest { day?: string; fromDay?: string; toDay?: string; limitDays?: number; all?: boolean }
-export interface GetDailySignalsResponse { days: SignalsDailyDoc[] }
 
 export interface GetPnLSummaryRequest { from: string; to: string; type: 'app' | 'actual'; uid?: string }
 export interface GetPnLSummaryResponse { range: { from: string; to: string }; type: 'app' | 'actual'; uid?: string; totals: { long: PnLTotals; short: PnLTotals; total: PnLTotals } }
