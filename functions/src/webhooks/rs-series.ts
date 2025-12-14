@@ -4,7 +4,7 @@
  * Provides helpers for building phase-aware aligned series used by the writer
  * and a minimal RS series when only close prices are needed.
  */
-import type { PartnerBar, SeriesBar, RsPoint, PhaseSeriesPoint } from './webhooks-config';
+import type { PartnerBar, PhaseSeriesPoint } from './webhooks-config';
 import { RsPhase } from '../types/partner';
 import { SILENCE_RS_SERIES_INFO, RsCloudFunctionName } from './webhooks-config';
 import { persistWarning } from '../logging/warn';
@@ -38,33 +38,6 @@ function calculateRankWindow(subject: number[], baseline: number[]): number {
   outcomes.sort((a, b) => a[1] - b[1]);
   const idx = outcomes.findIndex((e) => e[0] === '11111');
   return idx >= 0 ? (idx + 1) / outcomes.length : 0;
-}
-
-/** Normalize a timestamp in ms to YYYY-MM-DD (UTC). */
-function dayKeyUTC(ts: number): string {
-  const d = new Date(ts);
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())).toISOString().slice(0, 10);
-}
-
-/**
- * Compute a minimal RS series aligned by day with only time and close values.
- * Useful for diagnostics and lightweight comparisons.
- */
-export function computeRsSeries(baseBars: SeriesBar[], targetBars: SeriesBar[]): RsPoint[] {
-  const baseByDay = new Map<string, SeriesBar>();
-  for (const b of baseBars) baseByDay.set(dayKeyUTC(b.t), b);
-  const out: RsPoint[] = [];
-  for (const t of targetBars) {
-    const key = dayKeyUTC(t.t);
-    const base = baseByDay.get(key);
-    if (base && base.c > 0) {
-      const rs = t.c / base.c;
-      const tEff = Math.max(t.t, base.t);
-      out.push({ t: tEff, rs, baseClose: base.c, targetClose: t.c });
-    }
-  }
-  out.sort((a, b) => a.t - b.t);
-  return out;
 }
 
 /**
