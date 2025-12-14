@@ -2,10 +2,13 @@
  * Partner Data-Ready Subscriber and RS Writer
  *
  * Listens to partner "data-ready" Pub/Sub notifications and, for each registered
- * baseline–target pair, fetches the latest DAILY OHLCV bars (last 30), computes
- * Relative Strength (RS = targetClose / baseClose) on aligned timestamps, and
- * persists both a short RS series and a latest snapshot into Firestore under
- * `pairs/{BASELINE}-{TARGET}`.
+ * baseline–target pair, fetches recent OHLCV bars and builds phase-aware series
+ * (PRE using intraday, POST using EOD). Canonical RS (rsNorm, rsRaw) is computed
+ * centrally in writeUnifiedSeries using the 5-day/32-matrix window logic and
+ * persisted into pairs-data archives (archive-YYYY, archive-weekly-YYYY,
+ * archive-monthly-YYYY). Live readers must treat those archive rsRaw/rsNorm
+ * values as the single source of truth for RS, not recompute RS from price
+ * ratios.
  *
  * Why fixed DAILY/30 for now?
  * - We intentionally constrain the scope to keep the storage model and pipeline
@@ -18,10 +21,8 @@ import { admin, db, FieldValue } from '../firebase-admin-init';
 import { fetchDailyBarsRange } from './symbol-fetch';
 import { buildPhaseSeries } from './rs-series';
 import { writeUnifiedSeries } from './pairs-writer';
-import { rebuildSignalsDailyMirrorImpl } from '../rs-signal-history.callables';
 import { listRegisteredPairs } from './registry';
-import { detectRsEvents } from './rs-signals-engine';
-import { applyRsEventsForPair, type RsWriteEvent } from './rs-events-consumer';
+import { applyRsEventsForPair } from './rs-events-consumer';
 import {
   toKebabRunType,
   formatPtSegment,
@@ -43,15 +44,15 @@ import {
   RS_CLOSE_LONG_THRESHOLD,
   RS_OPEN_SHORT_THRESHOLD,
   RS_CLOSE_SHORT_THRESHOLD,
-  POSITIONS_COLLECTION,
-  OPEN_BUCKET_ID,
-  ITEMS_SUBCOLLECTION,
-  RsEventKind,
-  type RsSample,
-  type RsThresholds,
+  type PhaseSeriesPoint,
+  ARCHIVE_COLLECTION_PREFIX,
+  PAIRS_COLLECTION,
 } from './webhooks-config';
-import { updateOpenPositionsForPair, upsertDailyHoldsForPair, finalizeClosedPositionsForPair, appendOpenPositionsTimelineForPair } from './positions-manager';
-import { RsDirection } from '../types/signal.types';
+import { updateOpenPositionsForPair, appendOpenPositionsTimelineForPair } from './positions-manager';
+import { Interval, RsSource } from '../types/signal.types';
+import { upsertSignalsActivityForPair, upsertSignalsActivityRoot } from './signals-activity-writer';
+import { runCanonicalRsEngineForPair, type PhaseSeriesPointWithMetrics } from './rs-canonical-engine';
+import type { ActivityEvent } from '../types/signal.types';
 import { RsPhase } from '../types/partner';
 import { persistWarning } from '../logging/warn';
 
@@ -160,6 +161,47 @@ async function upsertRefreshStatus(patch: { runStatus?: string; endTimeUTC?: any
   await db.collection(APP_COLLECTION).doc(REFRESH_STATUS_DOC).set(patch as Record<string, any>, { merge: true });
 }
 
+async function loadArchiveRsForDay(
+  pairId: string,
+  day: string,
+  phase: RsPhase,
+): Promise<{ rsRaw: number; rsNorm: number; prevRsRaw: number; prevRsNorm: number } | undefined> {
+  const y = String(day).slice(0, 4);
+  const yy = y.slice(2);
+  const yymmdd = `${yy}${day.slice(5, 7)}${day.slice(8, 10)}`;
+
+  const archiveCol = `${ARCHIVE_COLLECTION_PREFIX}${y}`;
+  const pairRef = db.collection(PAIRS_COLLECTION).doc(pairId).collection(archiveCol);
+
+  // Today
+  const todaySnap = await pairRef.doc(yymmdd).get();
+  if (!todaySnap.exists) return undefined;
+  const todayData = todaySnap.data() as any;
+  const todayBranch = phase === RsPhase.PRE ? todayData?.pre : todayData?.post;
+  if (!todayBranch) return undefined;
+  const rsRaw = Number(todayBranch.rsRaw);
+  const rsNorm = Number(todayBranch.rsNorm);
+  if (!Number.isFinite(rsRaw) || !Number.isFinite(rsNorm)) return undefined;
+
+  // Previous trading day in the same archive-{YYYY} shard
+  const prevQuery = await pairRef
+    .where('day', '<', day)
+    .orderBy('day', 'desc')
+    .limit(1)
+    .get();
+
+  if (prevQuery.empty) return undefined;
+  const prevData = prevQuery.docs[0].data() as any;
+  const prevBranch = phase === RsPhase.PRE ? prevData?.pre : prevData?.post;
+  if (!prevBranch) return undefined;
+
+  const prevRsRaw = Number(prevBranch.rsRaw);
+  const prevRsNorm = Number(prevBranch.rsNorm);
+  if (!Number.isFinite(prevRsRaw) || !Number.isFinite(prevRsNorm)) return undefined;
+
+  return { rsRaw, rsNorm, prevRsRaw, prevRsNorm };
+}
+
 /**
  * Resolve runType, isHeartbeat, and runId from message and payload.
  */
@@ -227,145 +269,142 @@ export async function processPairLive(
       await persistWarning('no_aligned_series', { function: RsCloudFunctionName.PROCESS_PAIR_LIVE, pairId, baseline, target, phase, runId: ctx?.runId, eventType: ctx?.eventType, trigger: ctx?.trigger });
       return;
     }
-    await writeUnifiedSeries(baseline, target, phase, series, baseBars, targetBars);
+    await writeUnifiedSeries(baseline, target, phase, series, baseBars, targetBars, Interval.DAILY);
 
-    // Update OPEN positions' current snapshot using the computed latest series point (PRE and POST)
+    // Weekly and Monthly series: fetch from partner using corresponding intervals.
+    // We do this for both PRE and POST to keep intraday updates flowing for all intervals.
+    let weeklySeries: PhaseSeriesPoint[] = [];
+    let monthlySeries: PhaseSeriesPoint[] = [];
+
     try {
-      const latest = series[series.length - 1];
-      const latestDay = String(latest?.day || '').trim();
-      const latestTargetClose = Number(latest?.targetClose);
-      const latestRs = Number((latest as any)?.rs);
-
-      if (!latestDay || !/\d{4}-\d{2}-\d{2}/.test(latestDay)) {
-        throw new Error(`latestDay missing/invalid for pair=${pairId}`);
+      const baseWeekly = await fetchDailyBarsRange(baseline, { from, to, interval: Interval.WEEKLY });
+      const targetWeekly = await fetchDailyBarsRange(target, { from, to, interval: Interval.WEEKLY });
+      weeklySeries = buildPhaseSeries(baseWeekly, targetWeekly, phase, baseline, target, logger);
+      if (weeklySeries.length > 0) {
+        await writeUnifiedSeries(baseline, target, phase, weeklySeries, baseWeekly, targetWeekly, Interval.WEEKLY);
       }
-      if (!Number.isFinite(latestTargetClose) || latestTargetClose <= 0) {
-        throw new Error(`latestTargetClose missing/invalid for pair=${pairId} day=${latestDay}`);
-      }
-      if (!Number.isFinite(latestRs)) {
-        throw new Error(`latest RS missing/invalid for pair=${pairId} day=${latestDay}`);
-      }
+    } catch (e: any) {
+      logger.warn('weekly_series_write_failed', { pairId, baseline, target, phase, message: e?.message });
+    }
 
-      await updateOpenPositionsForPair(pairId, latestDay, latestTargetClose, latestRs);
-      // On POST, detect OPEN/CLOSE signals using RS engine and write canonical opens + positions
-      if (phase === RsPhase.POST && series.length >= 2) {
-        const prev = series[series.length - 2] as any;
-        const rsYesterday = Number(prev?.rs);
-        if (Number.isFinite(rsYesterday) && Number.isFinite(latestRs)) {
-          const samples: RsSample[] = [
-            {
-              day: String(prev?.day || '').trim(),
-              rsNorm: rsYesterday,
-              rsRaw: Number((prev as any)?.rsRaw ?? rsYesterday),
-            },
-            {
-              day: latestDay,
-              rsNorm: latestRs,
-              rsRaw: Number((latest as any)?.rsRaw ?? latestRs),
-            },
-          ];
+    try {
+      const baseMonthly = await fetchDailyBarsRange(baseline, { from, to, interval: Interval.MONTHLY });
+      const targetMonthly = await fetchDailyBarsRange(target, { from, to, interval: Interval.MONTHLY });
+      monthlySeries = buildPhaseSeries(baseMonthly, targetMonthly, phase, baseline, target, logger);
+      if (monthlySeries.length > 0) {
+        await writeUnifiedSeries(baseline, target, phase, monthlySeries, baseMonthly, targetMonthly, Interval.MONTHLY);
+      }
+    } catch (e: any) {
+      logger.warn('monthly_series_write_failed', { pairId, baseline, target, phase, message: e?.message });
+    }
 
-          const thresholds: RsThresholds = {
+    let engineActivity: ActivityEvent[] = [];
+    if (phase === RsPhase.POST) {
+      try {
+        const dailyDecorated = series as unknown as PhaseSeriesPointWithMetrics[];
+        const weeklyDecorated = weeklySeries.length > 0
+          ? (weeklySeries as unknown as PhaseSeriesPointWithMetrics[])
+          : [];
+        const monthlyDecorated = monthlySeries.length > 0
+          ? (monthlySeries as unknown as PhaseSeriesPointWithMetrics[])
+          : [];
+        const engineThresholds = {
+          daily: {
             openLong: RS_OPEN_LONG_THRESHOLD,
             closeLong: RS_CLOSE_LONG_THRESHOLD,
             openShort: RS_OPEN_SHORT_THRESHOLD,
             closeShort: RS_CLOSE_SHORT_THRESHOLD,
-          };
+          },
+          weekly: {
+            openLong: RS_OPEN_LONG_THRESHOLD,
+            closeLong: RS_CLOSE_LONG_THRESHOLD,
+            openShort: RS_OPEN_SHORT_THRESHOLD,
+            closeShort: RS_CLOSE_SHORT_THRESHOLD,
+          },
+          monthly: {
+            openLong: RS_OPEN_LONG_THRESHOLD,
+            closeLong: RS_CLOSE_LONG_THRESHOLD,
+            openShort: RS_OPEN_SHORT_THRESHOLD,
+            closeShort: RS_CLOSE_SHORT_THRESHOLD,
+          },
+        };
 
-          const events = detectRsEvents(samples, thresholds);
-          const latestEvents = events.filter((e) => e.day === latestDay);
-          const openEvent = latestEvents.find((e) => e.kind === RsEventKind.OPEN);
-          const closeEvent = latestEvents.find((e) => e.kind === RsEventKind.CLOSE);
+        const { writes, activity } = await runCanonicalRsEngineForPair(
+          pairId,
+          baseline,
+          target,
+          logger,
+          {
+            daily: dailyDecorated,
+            weekly: weeklyDecorated,
+            monthly: monthlyDecorated,
+          },
+          engineThresholds,
+        );
 
-          const openDir = openEvent?.direction;
-          if (openDir === RsDirection.LONG || openDir === RsDirection.SHORT) {
-            const d = new Date(`${latestDay}T00:00:00Z`);
-            const openWrite: RsWriteEvent = {
-              kind: 'OPEN',
-              pair: pairId,
-              baseline,
-              symbol: target,
-              day: latestDay,
-              timestamp: d.getTime(),
-              direction: openDir,
-              rsYesterday,
-              rsToday: latestRs,
-              price: latestTargetClose,
-            };
-            try {
-              await applyRsEventsForPair([openWrite]);
-            } catch (e: any) {
-              logger.warn('live_open_signal_failed', { pairId, baseline, target, latestDay, message: e?.message });
-            }
-          }
+        if (writes.length > 0) {
+          await applyRsEventsForPair(writes);
+        }
 
-          // Detect CLOSE signals and finalize existing positions
-          const closeDir = closeEvent?.direction;
-          if (closeDir === RsDirection.LONG || closeDir === RsDirection.SHORT) {
-            try {
-              // Find the currently open position for this pair/direction
-              const openSnap = await db
-                .collection(POSITIONS_COLLECTION).doc(OPEN_BUCKET_ID)
-                .collection(ITEMS_SUBCOLLECTION)
-                .where('pair', '==', pairId)
-                .where('direction', '==', closeDir)
-                .limit(1)
-                .get();
+        engineActivity = activity;
+      } catch (e: any) {
+        logger.warn('canonical_engine_daily_failed', { pairId, baseline, target, phase, message: e?.message });
+      }
+    }
 
-              if (!openSnap.empty) {
-                const doc = openSnap.docs[0];
-                const positionId = doc.id;
-                const d = new Date(`${latestDay}T00:00:00Z`);
+    // Signals Activity (preview, multi-interval) sourced from the canonical engine.
+    try {
+      const allEvents = phase === RsPhase.POST ? engineActivity : [];
 
-                const closeWrite: RsWriteEvent = {
-                  kind: 'CLOSE',
-                  pair: pairId,
-                  baseline,
-                  symbol: target,
-                  day: latestDay,
-                  timestamp: d.getTime(),
-                  direction: closeDir,
-                  rsYesterday,
-                  rsToday: latestRs,
-                  price: latestTargetClose,
-                  positionId,
-                };
+      if (allEvents.length > 0) {
+        const latest = series[series.length - 1];
+        const latestDay = String(latest?.day || '').trim();
 
-                try {
-                  await applyRsEventsForPair([closeWrite]);
-                } catch (e: any) {
-                  logger.warn('live_close_signal_write_failed', { pairId, positionId, latestDay, message: e?.message });
-                }
-              } else {
-                logger.warn('live_close_signal_no_open_position', { pairId, direction: closeDir, latestDay });
-              }
-            } catch (e: any) {
-              logger.warn('live_close_signal_lookup_failed', { pairId, latestDay, message: e?.message });
-            }
-          }
+        if (latestDay) {
+          await upsertSignalsActivityForPair(pairId, latestDay, allEvents);
+          await upsertSignalsActivityRoot(latestDay, allEvents);
         }
       }
-      // Append timeline updates for all open positions for this pair
+    } catch (e: any) {
+      logger.warn('signals_activity_write_failed', { pairId, baseline, target, phase, message: e?.message });
+    }
+
+    // Update OPEN positions' current snapshot using canonical RS from archive (PRE and POST)
+    try {
+      const latest = series[series.length - 1];
+      const latestDay = String(latest?.day || '').trim();
+      const latestTargetClose = Number(latest?.targetClose);
+
+      if (!Number.isFinite(latestTargetClose) || latestTargetClose <= 0) {
+        throw new Error(`latest target price missing/invalid for pair=${pairId} day=${latestDay}`);
+      }
+
+      if (!latestDay || !/\d{4}-\d{2}-\d{2}/.test(latestDay)) {
+        throw new Error(`latestDay missing/invalid for pair=${pairId}`);
+      }
+      const metrics = await loadArchiveRsForDay(pairId, latestDay, phase);
+      if (!metrics || !Number.isFinite(metrics.rsRaw)) {
+        throw new Error(`latest canonical RS missing/invalid for pair=${pairId} day=${latestDay} phase=${phase}`);
+      }
+
+      await updateOpenPositionsForPair(pairId, latestDay, latestTargetClose, metrics.rsRaw);
+
+      // Realtime timeline update for all open positions in this pair, using canonical
+      // rsRaw/rsNorm and previous-day rsRaw/rsNorm from archives so that per-position
+      // timelines match canonical/backfill.
       try {
         await appendOpenPositionsTimelineForPair(
           pairId,
           latestDay,
           latestTargetClose,
-          latestRs,
-          phase === RsPhase.PRE ? 'pre' : 'post',
+          metrics.rsRaw,
+          metrics.rsNorm,
+          metrics.prevRsRaw,
+          metrics.prevRsNorm,
+          phase === RsPhase.PRE ? RsSource.PRE : RsSource.POST,
         );
       } catch {
         // best-effort only; do not fail the run on timeline append issues
-      }
-      await upsertDailyHoldsForPair(pairId, latestDay);
-      try { await rebuildSignalsDailyMirrorImpl({ day: latestDay, pairs: [pairId] }); } catch {}
-      // On POST, also finalize CLOSED positions for latestDay so positions docs have exit Δ/%
-      if (phase === RsPhase.POST && latestDay) {
-        try {
-          await finalizeClosedPositionsForPair(pairId, latestDay);
-        } catch (e:any) {
-          logger.warn('finalizeClosedPositionsForPair failed', { pairId, latestDay, message: e?.message });
-        }
       }
     } catch (e:any) {
       logger.warn('updateOpenPositionsForPair failed', { pairId, message: e?.message });
@@ -382,8 +421,6 @@ export async function processPairLive(
     }
   }
 }
-
-// Moved: updateOpenPositionsForPair, upsertDailyHoldsForPair, finalizeClosedPositionsForPair
 
 /**
  * Pub/Sub subscriber for partner data-ready messages.
@@ -584,14 +621,23 @@ export const processDataReadyRunV2 = onMessagePublished(
         return;
       }
 
+      // Optional debug filter: when DEBUG_PAIR_ID is set, restrict processing to that pair only.
+      const debugPairIdRaw = String(process.env.DEBUG_PAIR_ID || '').trim().toUpperCase();
+      const effectivePairs = debugPairIdRaw
+        ? (() => {
+            const filtered = pairs.filter((p) => `${p.baseline}-${p.target}`.toUpperCase() === debugPairIdRaw);
+            return filtered.length > 0 ? filtered : pairs;
+          })()
+        : pairs;
+
       const days = FIXED_DAYS;
 
       // Track summary
       const counters = { successPairs: 0, failedPairs: 0, errorSamples: [] as ProcessErrorSample[] };
-      logger.info('processDataReadyRunV2 starting pair processing', { count: pairs.length, phase, eventType, runId: effectiveRunId });
+      logger.info('processDataReadyRunV2 starting pair processing', { count: effectivePairs.length, totalRegistered: pairs.length, phase, eventType, runId: effectiveRunId, debugPairId: debugPairIdRaw || null });
       const PAIR_CONCURRENCY = Number(process.env.PARTNER_PAIR_CONCURRENCY) || 3;
       const baselineBarsCache = new Map<string, any[]>();
-      await forEachWithConcurrency(pairs, PAIR_CONCURRENCY, async ({ baseline, target }) => {
+      await forEachWithConcurrency(effectivePairs, PAIR_CONCURRENCY, async ({ baseline, target }) => {
         await processPairLive(baseline, target, phase, days, counters, { baselineBars: baselineBarsCache }, { runId: effectiveRunId, eventType, trigger });
       });
 
@@ -651,46 +697,10 @@ export const processDataReadyRunV2 = onMessagePublished(
           const fromDay = ymd(fromDate);
           const toDay = ymd(toDate);
 
-          const project = (process.env.GCLOUD_PROJECT || ((): string | undefined => {
-            try { return JSON.parse(String(process.env.FIREBASE_CONFIG || '{}')).projectId; } catch { return undefined; }
-          })()) || 'rel-str';
-          const isEmu = String(process.env.FUNCTIONS_EMULATOR || '').toLowerCase() === 'true';
-          const baseUrl = isEmu
-            ? `http://127.0.0.1:5002/${project}/us-central1`
-            : `https://us-central1-${project}.cloudfunctions.net`;
-          const adminToken = String(process.env.ADMIN_BACKFILL_TOKEN || '').trim();
-
-          const maxAttempts = Math.max(1, Number(process.env.POST_VERIFY_ATTEMPTS || 2));
-          const backoffSecs = Math.max(0, Number(process.env.POST_VERIFY_BACKOFF_SECS || 60));
-
           let attempt = 0;
           let remaining = Number.POSITIVE_INFINITY;
           let lastDiag: any = undefined;
           let okResp = false;
-          for (; attempt < maxAttempts; attempt++) {
-            const resp = await fetch(`${baseUrl}/diagnoseRegisteredRangeAdmin`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
-              },
-              body: JSON.stringify({ phase: RsPhase.POST, from: fromDay, to: toDay, autoFix: true }),
-            });
-            const txt = await resp.text();
-            let diag: any = undefined;
-            try { diag = JSON.parse(txt); } catch { diag = { raw: txt }; }
-            okResp = resp.ok && diag?.ok !== false;
-            lastDiag = diag;
-
-            const results = Array.isArray(diag?.results) ? diag.results : [];
-            remaining = results.reduce((acc: number, r: any) => acc + (Number(r?.remainingPairs) || 0), 0);
-
-            logger.info('post_close_verifier_attempt', { attempt: attempt + 1, maxAttempts, fromDay, toDay, remaining });
-            if (remaining <= 0) break;
-            if (attempt < maxAttempts - 1 && backoffSecs > 0) {
-              await new Promise((r) => setTimeout(r, backoffSecs * 1000));
-            }
-          }
 
           // Persist explicit warning if unresolved issues remain
           if (remaining > 0) {
