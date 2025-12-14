@@ -51,7 +51,7 @@ interface RsChartState {
   timeframe: Timeframe;
 }
 
-const RS_ARCHIVE_WINDOW_TRADING_DAYS = 6 * 252; // ~6 years of trading days
+const RS_ARCHIVE_WINDOW_TRADING_DAYS = 6 * 252; // ~6 years of trading days (legacy default)
 
 const initialState: RsChartState = {
   currentListId: null,
@@ -273,6 +273,13 @@ export const RsChartStore = signalStore(
           tooltip: {
             ...(base.config.chartConfig.tooltip ?? {}),
             enable: false,
+          },
+          primaryXAxis: {
+            ...(base.config.chartConfig.primaryXAxis ?? {}),
+            crosshairTooltip: {
+              ...(base.config.chartConfig.primaryXAxis?.crosshairTooltip ?? {}),
+              enable: false,
+            },
           },
         },
       };

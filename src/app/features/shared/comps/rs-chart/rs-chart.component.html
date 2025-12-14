@@ -1,4 +1,20 @@
-<div class="chart-container">
+<div #container class="chart-container">
+
+    <!-- Anchor element for custom main-chart tooltip. Positioned near the
+         cursor using screen coordinates from chartMouseMove. Only active when
+         this instance is the main chart. -->
+    @if (isMain()) {
+        <div
+            #mainTooltip="matTooltip"
+            matTooltip
+            matTooltipPosition="right"
+            [matTooltipDisabled]="!mainTooltipText()"
+            [matTooltipClass]="'rs-chart-main-tooltip'"
+            class="chart-tooltip-anchor"
+            [style.left.px]="mainTooltipX() ?? 0"
+            [style.top.px]="mainTooltipY() ?? 0"
+        ></div>
+    }
 
     <ejs-chart #chart
         [id]="id()"
@@ -10,6 +26,9 @@
         (loaded)="onChartLoaded()"
         (scrollEnd)="onScrollEnd($event)"
         (zoomComplete)="onZoomComplete($event)"
+        (tooltipRender)="onTooltipRender($event)"
+        (chartMouseMove)="onChartMouseMove($event)"
+        (chartMouseLeave)="onChartMouseLeave()"
         [zoomSettings]="config().chartConfig.zoomSettings"
     >
 

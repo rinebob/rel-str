@@ -76,3 +76,20 @@
         -ms-touch-action: none;
     }
 }
+
+// Anchor element used for the custom main-chart Material tooltip. This is an
+// invisible point inside the chart container that tracks the mouse position.
+.chart-tooltip-anchor {
+    position: absolute;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+// Ensure the tooltip respects newlines so the content matches the
+// multi-line Syncfusion tooltip format, and left-align text like the
+// original Syncfusion tooltip.
+::ng-deep .rs-chart-main-tooltip {
+    white-space: pre;
+    text-align: left;
+}

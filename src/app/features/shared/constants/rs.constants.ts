@@ -237,6 +237,7 @@ const MAIN_RS_CHART_LEGEND_CONFIG: AxisModel = {
 
 const MAIN_RS_CHART_TOOLTIP_CONFIG: TooltipSettingsModel = {
     enable: true,
+    shared: true,
 }
 
 // Microsoft (MSFT) Chart Configuration

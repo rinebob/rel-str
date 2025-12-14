@@ -7,6 +7,7 @@ import {
     CrosshairService,
     DateTimeService,
     IScrollEventArgs,
+    ITooltipRenderEventArgs,
     IZoomCompleteEventArgs,
     LegendService,
     LineSeriesService,
@@ -15,6 +16,7 @@ import {
     TooltipService,
     ZoomService,
 } from '@syncfusion/ej2-angular-charts';
+import { MatTooltip, MatTooltipModule } from '@angular/material/tooltip';
 
 import { CandleWithRSColor, MaSeriesPoint, MainMaId, OHLCDatum, RsChartConfig, RsPaneDatum, Timeframe } from '../../../shared/types/rs.interfaces';
 import { DEFAULT_MAIN_MA_CONFIGS, MAIN_CHART_INITIAL_DAYS, SMALL_CHART_INITIAL_DAYS } from '../../../shared/constants/rs.constants';
@@ -23,7 +25,7 @@ import { isSameDay, toDate, toTimestamp } from '../../utils/date.util';
 
 @Component({
     selector: 'rs-chart',
-    imports: [ChartModule],
+    imports: [ChartModule, MatTooltipModule],
     providers: [
         CandleSeriesService,
         ColumnSeriesService,
@@ -61,6 +63,11 @@ export class RsChartComponent {
     isMain = input(false);
 
     public readonly MainMaId = MainMaId;
+    
+    // Custom main-chart tooltip state
+    mainTooltipText = signal<string | null>(null);
+    mainTooltipX = signal<number | null>(null);
+    mainTooltipY = signal<number | null>(null);
 
     isInitialLoad = signal<boolean>(true);
 
