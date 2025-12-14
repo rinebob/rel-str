@@ -1,11 +1,12 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { db } from '../firebase-admin-init';
 import type { PhaseSeriesPoint, PartnerBar } from './webhooks-config';
-import { ARCHIVE_COLLECTION_PREFIX, PAIRS_COLLECTION, SILENCE_RS_SERIES_INFO } from './webhooks-config';
+import { ARCHIVE_COLLECTION_PREFIX, MONTHLY_ARCHIVE_COLLECTION_PREFIX, PAIRS_COLLECTION, SILENCE_RS_SERIES_INFO, WEEKLY_ARCHIVE_COLLECTION_PREFIX } from './webhooks-config';
 import { RsPhase } from '../types/partner';
 import { logger } from 'firebase-functions/v2';
 import { RsCloudFunctionName, SILENCE_MISSING_POST_TIME } from './webhooks-config';
 import { persistWarning } from '../logging/warn';
+import { Interval } from '../types/signal.types';
 
 /**
  * Write unified RS series for a pair into Firestore (pairs-data schema).
@@ -35,7 +36,8 @@ export async function writeUnifiedSeries(
   phase: RsPhase,
   entries: PhaseSeriesPoint[],
   baselineBars: PartnerBar[],
-  targetBars: PartnerBar[]
+  targetBars: PartnerBar[],
+  interval: Interval = Interval.DAILY,
 ): Promise<void> {
   if (entries.length === 0) return;
   const pairId = `${baseline}-${target}`;
@@ -55,7 +57,8 @@ export async function writeUnifiedSeries(
   const meta = {
     baseline,
     symbol: target,
-    interval: existingMeta?.interval ?? 'DAILY',
+    // Interval is now multi-interval; keep existing value if present but do not rely on it for writes.
+    interval: existingMeta?.interval ?? Interval.DAILY,
     // Use the larger of existing window and RS_WINDOW so backfills can expand retention
     window: desiredWindow,
   };
@@ -169,8 +172,7 @@ export async function writeUnifiedSeries(
     outcomes.sort((a, b) => (a[1] > b[1] ? 1 : a[1] < b[1] ? -1 : 0));
     const idx = outcomes.findIndex(([m]) => m === '11111');
     if (idx < 0) return {};
-    // Discrete normalized rank (1..32)/32
-    const rsNorm = Number(((idx + 1) / COMPARISON_MATRICES.length).toFixed(6));
+
     // Continuous min–max normalization using the sums domain
     const minSum = outcomes[0][1];
     const maxSum = outcomes[outcomes.length - 1][1];
@@ -178,6 +180,13 @@ export async function writeUnifiedSeries(
     const rsRaw = Number(
       (maxSum - minSum) !== 0 ? ((targetSum - minSum) / (maxSum - minSum)).toFixed(6) : '0'
     );
+
+    // Discrete bucket: nearest 1/32 step to rsRaw in (0,1]
+    const step = 1 / COMPARISON_MATRICES.length; // 1/32 = 0.03125
+    const rawIndex = Math.round(rsRaw / step) - 1;
+    const bucketIndex = Math.min(COMPARISON_MATRICES.length - 1, Math.max(0, rawIndex));
+    const rsNorm = Number(((bucketIndex + 1) * step).toFixed(6));
+
     return { rsNorm, rsRaw };
   }
 
@@ -280,34 +289,78 @@ export async function writeUnifiedSeries(
   const merged = Array.from(byDay.values()).sort((a, b) => String(a.day).localeCompare(String(b.day)));
   const latest = merged[merged.length - 1];
 
-  await pairRef.set(
-    {
-      meta,
-      lastUpdatedAt: FieldValue.serverTimestamp(),
-      latest,
-    },
-    { merge: true }
-  );
+  // Build latest payload for this interval
+  const latestPayload: any = {
+    day: latest?.day,
+    dow: latest?.dow,
+  };
+  if (latest?.pre) latestPayload.pre = latest.pre;
+  if (latest?.post) latestPayload.post = latest.post;
 
-  // ===== Archive upserts: pairs-data/{PAIR}/archive-YYYY/{YYMMDD}
+  const rootPatch: any = {
+    meta,
+    lastUpdatedAt: FieldValue.serverTimestamp(),
+  };
+
+  if (interval === Interval.DAILY) {
+    // Keep legacy latest in sync with latestDaily until FE is fully migrated.
+    rootPatch.latestDaily = latestPayload;
+    rootPatch.latest = latestPayload;
+  } else if (interval === Interval.WEEKLY) {
+    rootPatch.latestWeekly = latestPayload;
+  } else if (interval === Interval.MONTHLY) {
+    rootPatch.latestMonthly = latestPayload;
+  }
+
+  await pairRef.set(rootPatch, { merge: true });
+
+  // ===== Archive upserts: pairs-data/{PAIR}/archive-YYYY/{YYMMDD} and interval variants
   const batch = db.batch();
   const previewItems: Array<{ archiveCol: string; docId: string; dayDoc: any }> = [];
   for (const e of entries) {
     const y = String(e.day).slice(0, 4);
     const yy = y.slice(2);
     const yymmdd = `${yy}${e.day.slice(5,7)}${e.day.slice(8,10)}`; // YYMMDD
-    const archiveCol = `${ARCHIVE_COLLECTION_PREFIX}${y}`; // e.g., archive-2025
+
+    let archiveCol: string;
+    if (interval === Interval.DAILY) {
+      archiveCol = `${ARCHIVE_COLLECTION_PREFIX}${y}`; // e.g., archive-2025
+    } else if (interval === Interval.WEEKLY) {
+      archiveCol = `${WEEKLY_ARCHIVE_COLLECTION_PREFIX}${y}`; // e.g., archive-weekly-2025
+    } else {
+      archiveCol = `${MONTHLY_ARCHIVE_COLLECTION_PREFIX}${y}`; // e.g., archive-monthly-2025
+    }
     const archiveRef = pairRef.collection(archiveCol).doc(yymmdd);
 
     const existingDay = byDay.get(e.day);
     const dayDoc: any = { day: existingDay.day, dow: existingDay.dow };
     if (existingDay.pre) {
-      const { time, base, target, rs, rsNorm, rsRaw, source } = existingDay.pre;
-      dayDoc.pre = { time, base, target, rs, rsNorm, rsRaw, source };
+      const { time, base, target, rsNorm, rsRaw, source } = existingDay.pre;
+      dayDoc.pre = { time, base, target, rsNorm, rsRaw, source };
     }
     if (existingDay.post) {
-      const { time, base, target, rs, rsNorm, rsRaw, source } = existingDay.post;
-      dayDoc.post = { time, base, target, rs, rsNorm, rsRaw, source };
+      const { time, base, target, rsNorm, rsRaw, source } = existingDay.post;
+      dayDoc.post = { time, base, target, rsNorm, rsRaw, source };
+    }
+
+    // Weekly/monthly interval close flags are set only on POST when the interval is complete.
+    if (interval !== Interval.DAILY && phase === RsPhase.POST) {
+      const dayStr = String(existingDay.day || '');
+      if (dayStr) {
+        const dt = new Date(dayStr + 'T00:00:00.000Z');
+        if (interval === Interval.WEEKLY) {
+          const dow = dt.getUTCDay();
+          // Weekly bar considered complete at end of Friday POST run.
+          dayDoc.isIntervalClose = dow === 5;
+        } else if (interval === Interval.MONTHLY) {
+          const year = dt.getUTCFullYear();
+          const month = dt.getUTCMonth(); // 0-based
+          const dom = dt.getUTCDate();
+          const lastDom = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+          // Monthly bar complete on the last calendar day of the month (POST).
+          dayDoc.isIntervalClose = dom === lastDom;
+        }
+      }
     }
 
     batch.set(archiveRef, dayDoc, { merge: true });
