@@ -15,9 +15,9 @@ import { RsEventKind, type RsEvent, type RsSample, type RsThresholds } from './w
 /**
  * Walk an ordered list of RS samples and emit HOLD/OPEN/CLOSE events.
  *
- * This mirrors the state machine used in backfillSignalsHistory, but without
+ * This mirrors the state machine used in the canonical backfill, but without
  * any Firestore writes. Callers are responsible for mapping the resulting
- * events into concrete writes (signals, positions, signals-daily, etc.).
+ * events into concrete writes (signals, positions, activity, etc.).
  */
 export function detectRsEvents(samples: RsSample[], thresholds: RsThresholds): RsEvent[] {
   const events: RsEvent[] = [];
@@ -31,7 +31,7 @@ export function detectRsEvents(samples: RsSample[], thresholds: RsThresholds): R
     const y = samples[i - 1];
     const t = samples[i];
 
-    const detection = detectDailySignalsForPairDay(y.rsNorm, t.rsNorm, {
+    const detection = detectDailySignalsForPairDay(y.rsRaw, t.rsRaw, {
       openLong: thresholds.openLong,
       closeLong: thresholds.closeLong,
       openShort: thresholds.openShort,
