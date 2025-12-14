@@ -41,14 +41,30 @@ export async function fetchDailyBarsRange(symbol: string, opts: FetchRangeOption
   const fromIso = String(opts.from).slice(0, 10);
   const toIso = String(opts.to).slice(0, 10);
 
-  const req: any = { 
-    symbol, 
-    interval, 
-    from: fromIso, 
-    to: toIso, 
-    adjusted: opts.adjusted ?? true 
+  const req: any = {
+    symbol,
+    interval,
+    from: fromIso,
+    to: toIso,
+    adjusted: opts.adjusted ?? true,
   };
-  const data: any = await callPartnerTimeSeries(req);
+
+  let data: any;
+  try {
+    data = await callPartnerTimeSeries(req);
+  } catch (e: any) {
+    logger.error('callPartnerTimeSeries_failed', {
+      symbol,
+      interval,
+      from: fromIso,
+      to: toIso,
+      message: e?.message,
+      status: e?.response?.status,
+      statusText: e?.response?.statusText,
+      url: e?.response?.url,
+    });
+    throw e;
+  }
 
   const rawBars = Array.isArray(data?.bars) ? data.bars : [];
   logger.info('partner_timeseries_raw_payload', {
