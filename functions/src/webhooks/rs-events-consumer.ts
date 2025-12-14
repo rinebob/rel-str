@@ -1,8 +1,9 @@
-import { RsDirection, RsSource } from '../types/signal.types';
+import { RsDirection, Interval } from '../types/signal.types';
+import { RsEventKind } from './webhooks-config';
 import { writePairSignalOpen, finalizePairSignalClose, openRootPositionTimeline, closeRootPositionTimeline } from './positions-manager';
 
 export interface RsOpenWriteEvent {
-  kind: 'OPEN';
+  kind: RsEventKind.OPEN;
   pair: string;        // BASE-SYMBOL
   baseline: string;
   symbol: string;
@@ -11,12 +12,15 @@ export interface RsOpenWriteEvent {
   direction: RsDirection;
   rsYesterday: number;
   rsToday: number;
+  rsNormYesterday: number;
+  rsNormToday: number;
   price: number;       // entry/exit price at this event
+  interval?: Interval; // DAILY | WEEKLY | MONTHLY (defaults to DAILY)
   positionId?: string; // optional explicit positionId (used by backfill/live when precomputed)
 }
 
 export interface RsCloseWriteEvent {
-  kind: 'CLOSE';
+  kind: RsEventKind.CLOSE;
   pair: string;        // BASE-SYMBOL
   baseline: string;
   symbol: string;
@@ -25,7 +29,10 @@ export interface RsCloseWriteEvent {
   direction: RsDirection;
   rsYesterday: number;
   rsToday: number;
+   rsNormYesterday: number;
+   rsNormToday: number;
   price: number;       // entry/exit price at this event
+  interval?: Interval; // DAILY | WEEKLY | MONTHLY (defaults to DAILY)
   positionId: string;  // existing open position id to be closed
 }
 
@@ -38,12 +45,12 @@ export type RsWriteEvent = RsOpenWriteEvent | RsCloseWriteEvent;
  */
 export async function applyRsEventsForPair(events: RsWriteEvent[]): Promise<void> {
   for (const ev of events) {
-    if (ev.kind === 'OPEN') {
-      const d = new Date(ev.timestamp);
-      const dow = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getUTCDay()];
-      const positionId = (ev.positionId && ev.positionId.trim().length > 0)
-        ? ev.positionId
-        : `${ev.day.replace(/-/g, '')}-${dow.toUpperCase()}-${ev.pair}-${ev.direction}`;
+    if (ev.kind === RsEventKind.OPEN) {
+      const interval = ev.interval ?? Interval.DAILY;
+      const positionId = ev.positionId;
+      if (!positionId || positionId.trim().length === 0) {
+        throw new Error('applyRsEventsForPair: positionId is required for OPEN events');
+      }
 
       await writePairSignalOpen(ev.pair, positionId, ev.day, {
         baseline: ev.baseline,
@@ -55,12 +62,13 @@ export async function applyRsEventsForPair(events: RsWriteEvent[]): Promise<void
         opened: {
           day: ev.day,
           t: ev.timestamp,
-          source: RsSource.POST,
           rsYesterday: ev.rsYesterday,
           rsToday: ev.rsToday,
+          rsNormYesterday: ev.rsNormYesterday,
+          rsNormToday: ev.rsNormToday,
           openPrice: ev.price,
         },
-      } as any);
+      }, interval);
 
       await openRootPositionTimeline({
         positionId,
@@ -71,9 +79,18 @@ export async function applyRsEventsForPair(events: RsWriteEvent[]): Promise<void
         day: ev.day,
         timestamp: ev.timestamp,
         price: ev.price,
-        rs: ev.rsToday,
+        rsRaw: ev.rsToday,
+        rsNorm: ev.rsNormToday,
+        prevRsRaw: ev.rsYesterday,
+        prevRsNorm: ev.rsNormYesterday,
+        interval,
       });
-    } else if (ev.kind === 'CLOSE') {
+    } else if (ev.kind === RsEventKind.CLOSE) {
+      const interval = ev.interval ?? Interval.DAILY;
+      if (!ev.positionId || ev.positionId.trim().length === 0) {
+        throw new Error('applyRsEventsForPair: positionId is required for CLOSE events');
+      }
+
       await finalizePairSignalClose(ev.pair, ev.positionId, ev.day, {
         baseline: ev.baseline,
         symbol: ev.symbol,
@@ -82,19 +99,23 @@ export async function applyRsEventsForPair(events: RsWriteEvent[]): Promise<void
         closed: {
           day: ev.day,
           t: ev.timestamp,
-          source: RsSource.POST,
           rsYesterday: ev.rsYesterday,
           rsToday: ev.rsToday,
+          rsNormYesterday: ev.rsNormYesterday,
+          rsNormToday: ev.rsNormToday,
           closePrice: ev.price,
         },
-      } as any);
+      }, interval);
 
       await closeRootPositionTimeline({
         positionId: ev.positionId,
         day: ev.day,
         timestamp: ev.timestamp,
         price: ev.price,
-        rs: ev.rsToday,
+        rsRaw: ev.rsToday,
+        rsNorm: ev.rsNormToday,
+        prevRsRaw: ev.rsYesterday,
+        prevRsNorm: ev.rsNormYesterday,
       });
     }
   }
