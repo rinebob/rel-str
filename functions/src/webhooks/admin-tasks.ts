@@ -1,25 +1,47 @@
-
 import { onCall, onRequest } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { RsPhase } from '../types/partner';
 import { logger } from 'firebase-functions/v2';
 import { db } from '../firebase-admin-init';
-import { writeWarningsSummary, persistWarning } from '../logging/warn';
+import { writeWarningsSummary } from '../logging/warn';
+
 import { writeUnifiedSeries } from './pairs-writer';
 import { listRegisteredPairs } from './registry';
 import { buildPhaseSeries } from './rs-series';
 import { fetchDailyBarsRange } from './symbol-fetch';
 
-import { FIXED_DAYS, FIXED_LIMIT, ProcessErrorSample, FIXED_INTERVAL, RsCloudFunctionName } from './webhooks-config';
-import { PAIRS_COLLECTION, SIGNALS_COLLECTION, SIGNALS_DAILY_COLLECTION } from './webhooks-config';
+import { FIXED_DAYS, FIXED_LIMIT, ProcessErrorSample, FIXED_INTERVAL } from './webhooks-config';
+
+import { PAIRS_COLLECTION, SIGNALS_COLLECTION } from './webhooks-config';
+
 import { SILENCE_ADMIN_INFO } from './webhooks-config';
 import { forEachWithConcurrency, processPairLive } from './partner-webhooks';
-import { rebuildSignalsDailyMirrorRange } from '../rs-signal-history.callables';
+import { ActivityEventKind, ActivityEventState, Interval, RsSource, type ActivityEvent } from '../types/signal.types';
+import { upsertSignalsActivityForPair, upsertSignalsActivityRoot } from './signals-activity-writer';
+
+import { runCanonicalRsEngineForPair, type PhaseSeriesPointWithMetrics } from './rs-canonical-engine';
+import { applyRsEventsForPair } from './rs-events-consumer';
+
+import { appendRootPositionTimelineUpdate } from './positions-manager';
+
+import {
+  RS_OPEN_LONG_THRESHOLD,
+  RS_CLOSE_LONG_THRESHOLD,
+  RS_OPEN_SHORT_THRESHOLD,
+  RS_CLOSE_SHORT_THRESHOLD,
+} from './webhooks-config';
+
+interface BackfillSignalsPipelinePairResult {
+  pair: string;
+  opens: number;
+  closes: number;
+  activityDays: number;
+}
 
 /**
  * Callable: recomputePairsRs
  * Recompute RS for specified pairs (or all registered under a baseline) for a configurable window.
- * Params: { baseline: string; symbols?: string[]; phase?: PRE|POST|'both'; days?: number; limit?: number; concurrency?: number; from?: string; to?: string; missingOnly?: boolean }
+ * Params: { baseline: string; symbols?: string[]; phase?: PRE|POST|'both'; days?: number; limit?: number; concurrency?: number; from?: string; to?: string }
  */
 export const recomputePairsRs = onCall({ region: 'us-central1', timeoutSeconds: 540 }, async (req) => {
   try {
@@ -32,7 +54,6 @@ export const recomputePairsRs = onCall({ region: 'us-central1', timeoutSeconds: 
     const from: string | undefined = req.data?.from ? String(req.data.from) : undefined;
     const to: string | undefined = req.data?.to ? String(req.data.to) : undefined;
 
-    const missingOnly: boolean = !!req.data?.missingOnly;
     const concurrency = Number(req.data?.concurrency ?? (Number(process.env.PARTNER_PAIR_CONCURRENCY) || 3));
     const delayMsBetweenPairs = Math.max(0, Number(req.data?.delayMsBetweenPairs ?? 0) || 0);
     if (!baselineRaw && pairsRaw.length === 0) return { ok: false, error: 'missing_baseline_or_pairs' };
@@ -161,7 +182,6 @@ export const recomputePairsRs = onCall({ region: 'us-central1', timeoutSeconds: 
       limit: limitOut,
       from,
       to,
-      missingOnly,
       writtenDaysTotal,
       results,
     };
@@ -175,7 +195,7 @@ export const recomputePairsRs = onCall({ region: 'us-central1', timeoutSeconds: 
  * HTTP (admin): diagnoseRegisteredRangeAdmin
  * Run diagnose (and optional auto-fix) across all registered pairs, grouped by baseline, over a window.
  * Protect with bearer ADMIN_BACKFILL_TOKEN.
- * Query/body: { phase?: PRE|POST, from?: string, to?: string, days?: number, autoFix?: boolean }
+ * Query/body: { phase?: PRE|POST, from?: string, to?: string, days?: number }
  */
 export const diagnoseRegisteredRangeAdmin = onRequest({ region: 'us-central1', timeoutSeconds: 540 }, async (req, res) => {
   const token = (req.headers['authorization'] || '').toString().replace(/^Bearer\s+/i, '');
@@ -190,7 +210,6 @@ export const diagnoseRegisteredRangeAdmin = onRequest({ region: 'us-central1', t
     const to: string | undefined = (req.body?.to ?? req.query.to) as string | undefined;
     const daysParam = req.body?.days ?? req.query.days;
     const days: number | undefined = daysParam !== undefined ? Number(daysParam) : undefined;
-    const autoFix: boolean = String((req.body?.autoFix ?? req.query.autoFix ?? '')).toLowerCase() === 'true';
 
     // Group registered pairs by baseline
     const pairs = await listRegisteredPairs();
@@ -204,16 +223,16 @@ export const diagnoseRegisteredRangeAdmin = onRequest({ region: 'us-central1', t
       byBaseline.set(base, set);
     }
 
-    const summary: any = { ok: true, baselines: byBaseline.size, totalPairs: pairs.length, phase, window: { from: from ?? null, to: to ?? null, days: days ?? null }, autoFix, results: [] };
+    const summary: any = { ok: true, baselines: byBaseline.size, totalPairs: pairs.length, phase, window: { from: from ?? null, to: to ?? null, days: days ?? null }, results: [] };
 
-    for (const [baseline, set] of byBaseline.entries()) {
-      try {
+    try {
+      for (const [baseline, set] of byBaseline.entries()) {
         const symbols = Array.from(set.values());
         const callRes = await diagnosePairDays.run({
-          data: { baseline, symbols, phase, from, to, autoFix },
+          data: { baseline, symbols, phase, from, to },
           auth: undefined,
           instanceIdToken: undefined,
-          rawRequest: undefined as any,
+          rawRequest: undefined,
         } as any);
         const ok = (callRes as any)?.ok !== false;
         const results = Array.isArray((callRes as any)?.results) ? (callRes as any).results : [];
@@ -229,15 +248,279 @@ export const diagnoseRegisteredRangeAdmin = onRequest({ region: 'us-central1', t
           }
         }
         summary.results.push({ baseline, ok, pairs: symbols.length, remainingPairs, reasons: agg, raw: results.slice(0, 5) });
-      } catch (e: any) {
-        summary.results.push({ baseline, ok: false, error: e?.message || String(e) });
       }
+      await writeWarningsSummary({ function: 'diagnoseRegisteredRangeAdmin', baselines: byBaseline.size, totalPairs: pairs.length });
+    } catch (e: any) {
+      summary.results.push({ baseline: null, ok: false, error: e?.message || String(e) });
     }
 
-    try { await writeWarningsSummary({ function: 'diagnoseRegisteredRangeAdmin', baselines: byBaseline.size, totalPairs: pairs.length }); } catch {}
     res.status(200).json(summary);
   } catch (e: any) {
     logger.error('diagnoseRegisteredRangeAdmin_failed', { message: e?.message });
+    res.status(500).json({ ok: false, error: e?.message || 'internal_error' });
+  }
+});
+
+/**
+ * HTTP (admin): backfillSignalsPipelineAdmin
+ * Unified pipeline that, for the given range/pairs/intervals:
+ * - Rebuilds canonical DAILY/WEEKLY/MONTHLY signals + positions from archive via the canonical RS engine
+ * - Builds Signals Activity (DAILY/WEEKLY/MONTHLY) from the same engine output.
+ * Protect with bearer ADMIN_BACKFILL_TOKEN.
+ */
+export const backfillSignalsPipelineAdmin = onRequest({ region: 'us-central1', timeoutSeconds: 540 }, async (req, res) => {
+  const token = (req.headers['authorization'] || '').toString().replace(/^Bearer\s+/i, '');
+  const expected = (process.env.ADMIN_BACKFILL_TOKEN || '').trim();
+  if (!expected || token !== expected) {
+    res.status(401).json({ ok: false, error: 'unauthorized' });
+    return;
+  }
+
+  try {
+    const body = (req.method === 'POST' ? (req.body || {}) : (req.query || {})) as any;
+    const from: string = String(body.from || '').slice(0, 10);
+    const to: string = String(body.to || '').slice(0, 10);
+    if (!from || !to) {
+      res.status(400).json({ ok: false, error: 'missing_from_or_to' });
+      return;
+    }
+
+    const phaseRaw = String(body.phase || RsPhase.POST).toLowerCase();
+    const phase: RsPhase = phaseRaw === RsPhase.PRE ? RsPhase.PRE : RsPhase.POST;
+
+    const intervalsRaw = body.intervals as string | string[];
+    const normalizeInterval = (v: string): Interval | undefined => {
+      const s = String(v || '').toUpperCase();
+      if (s === Interval.DAILY || s === Interval.WEEKLY || s === Interval.MONTHLY) {
+        return s as Interval;
+      }
+      return undefined;
+    };
+    let intervals: Interval[];
+    if (Array.isArray(intervalsRaw)) {
+      intervals = (intervalsRaw as string[])
+        .map((v) => normalizeInterval(v))
+        .filter((v): v is Interval => v !== undefined);
+    } else if (intervalsRaw !== undefined) {
+      const single = normalizeInterval(intervalsRaw);
+      intervals = single ? [single] : [];
+    } else {
+      intervals = [Interval.DAILY, Interval.WEEKLY, Interval.MONTHLY];
+    }
+    if (intervals.length === 0) {
+      intervals = [Interval.DAILY, Interval.WEEKLY, Interval.MONTHLY];
+    }
+
+    let pairs: string[] = [];
+    if (Array.isArray(body.pairs)) {
+      pairs = (body.pairs as any[]).map((p) => String(p || '').trim()).filter(Boolean);
+    } else if (typeof body.pair === 'string' && body.pair.trim().length > 0) {
+      pairs = [String(body.pair).trim()];
+    }
+    if (pairs.length === 0) {
+      const reg = await listRegisteredPairs();
+      pairs = reg.map((p) => `${p.baseline}-${p.target}`);
+    }
+    if (pairs.length === 0) {
+      res.status(200).json({ ok: true, message: 'no pairs to process', from, to, pairs: 0 });
+      return;
+    }
+
+    const includeDaily = intervals.includes(Interval.DAILY);
+    const includeWeekly = intervals.includes(Interval.WEEKLY);
+    const includeMonthly = intervals.includes(Interval.MONTHLY);
+
+    const results: BackfillSignalsPipelinePairResult[] = [];
+
+    const fromDay = from;
+    const toDay = to;
+
+    const padFromForInterval = (fromVal: string, interval: Interval): string => {
+      const base = new Date(`${fromVal}T00:00:00.000Z`);
+      if (Number.isNaN(base.getTime())) return fromVal;
+
+      if (interval === Interval.WEEKLY) {
+        const padDays = 35;
+        const padded = new Date(base.getTime() - padDays * 24 * 60 * 60 * 1000);
+        const y = padded.getUTCFullYear();
+        const m = String(padded.getUTCMonth() + 1).padStart(2, '0');
+        const d = String(padded.getUTCDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      }
+
+      if (interval === Interval.MONTHLY) {
+        const padMonths = 5;
+        const year = base.getUTCFullYear();
+        const month = base.getUTCMonth() - padMonths;
+        const padded = new Date(Date.UTC(year, month, 1));
+        const y = padded.getUTCFullYear();
+        const m = String(padded.getUTCMonth() + 1).padStart(2, '0');
+        const d = String(padded.getUTCDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      }
+
+      // DAILY and any other intervals use the requested from date without padding.
+      return fromVal;
+    };
+
+    const buildArchivePhaseSeriesForInterval = async (
+      baseline: string,
+      target: string,
+      interval: Interval,
+      phaseForSeries: RsPhase,
+      fromVal: string,
+      toVal: string,
+    ): Promise<PhaseSeriesPointWithMetrics[]> => {
+      const paddedFrom = padFromForInterval(fromVal, interval);
+      const baseBars = await fetchDailyBarsRange(baseline, { from: paddedFrom, to: toVal, interval });
+      const targetBars = await fetchDailyBarsRange(target, { from: paddedFrom, to: toVal, interval });
+      let series = buildPhaseSeries(baseBars, targetBars, phaseForSeries, baseline, target, logger, { from: fromVal, to: toVal });
+      // Clamp to the exact [from,to] window to avoid leaking padded days.
+      series = series.filter((p) => p.day >= fromVal && p.day <= toVal);
+      return series as unknown as PhaseSeriesPointWithMetrics[];
+    };
+
+    for (const pair of pairs) {
+      const [baseline, target] = pair.split('-', 2);
+      if (!baseline || !target) continue;
+
+      const engineActivityByDay = new Map<string, ActivityEvent[]>();
+      const openActivityPositionIds = new Set<string>();
+
+      let dailySeriesForEngine: PhaseSeriesPointWithMetrics[] | undefined;
+      let weeklySeriesForEngine: PhaseSeriesPointWithMetrics[] | undefined;
+      let monthlySeriesForEngine: PhaseSeriesPointWithMetrics[] | undefined;
+
+      if (includeDaily) {
+        dailySeriesForEngine = await buildArchivePhaseSeriesForInterval(baseline, target, Interval.DAILY, phase, fromDay, toDay);
+      }
+
+      if (includeWeekly) {
+        weeklySeriesForEngine = await buildArchivePhaseSeriesForInterval(baseline, target, Interval.WEEKLY, phase, fromDay, toDay);
+      }
+
+      if (includeMonthly) {
+        monthlySeriesForEngine = await buildArchivePhaseSeriesForInterval(baseline, target, Interval.MONTHLY, phase, fromDay, toDay);
+      }
+
+      // Canonical DAILY / WEEKLY / MONTHLY backfill via canonical RS engine using archive RS series.
+      let opens = 0;
+      let closes = 0;
+
+      try {
+        const engineThresholds = {
+          daily: {
+            openLong: RS_OPEN_LONG_THRESHOLD,
+            closeLong: RS_CLOSE_LONG_THRESHOLD,
+            openShort: RS_OPEN_SHORT_THRESHOLD,
+            closeShort: RS_CLOSE_SHORT_THRESHOLD,
+          },
+          weekly: {
+            openLong: RS_OPEN_LONG_THRESHOLD,
+            closeLong: RS_CLOSE_LONG_THRESHOLD,
+            openShort: RS_OPEN_SHORT_THRESHOLD,
+            closeShort: RS_CLOSE_SHORT_THRESHOLD,
+          },
+          monthly: {
+            openLong: RS_OPEN_LONG_THRESHOLD,
+            closeLong: RS_CLOSE_LONG_THRESHOLD,
+            openShort: RS_OPEN_SHORT_THRESHOLD,
+            closeShort: RS_CLOSE_SHORT_THRESHOLD,
+          },
+        };
+
+        const seriesContext = {
+          // Engine expects an array for `daily`; pass empty when DAILY is not requested.
+          daily: includeDaily && dailySeriesForEngine ? dailySeriesForEngine : [],
+          weekly: includeWeekly ? weeklySeriesForEngine : undefined,
+          monthly: includeMonthly ? monthlySeriesForEngine : undefined,
+        };
+
+        const { writes, activity } = await runCanonicalRsEngineForPair(
+          pair,
+          baseline,
+          target,
+          logger,
+          seriesContext,
+          engineThresholds,
+        );
+
+        if (writes.length > 0) {
+          await applyRsEventsForPair(writes);
+          // Derive simple open/close counts for summary from write kinds when available.
+          for (const w of writes as any[]) {
+            const kind = String((w?.kind ?? w?.type ?? '').toString().toLowerCase());
+            if (kind.includes('open')) opens++;
+            if (kind.includes('close')) closes++;
+          }
+        }
+
+        const dailyPriceByDay = new Map<string, number>();
+        if (dailySeriesForEngine) {
+          for (const p of dailySeriesForEngine) {
+            const dayKey = String(p.day).slice(0, 10);
+            dailyPriceByDay.set(dayKey, p.targetClose);
+          }
+        }
+
+        for (const ev of activity) {
+          const rawDay = (ev as any).day as string | undefined;
+          const day = String(rawDay || '').slice(0, 10);
+          if (!day) continue;
+          const promoted: ActivityEvent = {
+            ...ev,
+            day,
+            state: ActivityEventState.FINAL,
+          };
+
+          if (promoted.kind === ActivityEventKind.OPEN) {
+            openActivityPositionIds.add(promoted.positionId);
+          } else if (promoted.kind === ActivityEventKind.HOLD && !openActivityPositionIds.has(promoted.positionId)) {
+            // Skip early HOLDs for positions that have not emitted an OPEN in this backfill window.
+            continue;
+          }
+
+          const list = engineActivityByDay.get(day) ?? [];
+          list.push(promoted);
+          engineActivityByDay.set(day, list);
+
+          if (promoted.kind === ActivityEventKind.HOLD && promoted.interval === Interval.DAILY) {
+            const price = dailyPriceByDay.get(day);
+            if (Number.isFinite(price)) {
+              const ts = new Date(`${day}T00:00:00Z`).getTime();
+              try {
+                await appendRootPositionTimelineUpdate({
+                  positionId: promoted.positionId,
+                  day,
+                  timestamp: ts,
+                  price: price as number,
+                  rsRaw: promoted.rsRaw,
+                  rsNorm: promoted.rsNorm,
+                  prevRsRaw: promoted.prevRsRaw ?? promoted.rsRaw,
+                  prevRsNorm: promoted.prevRsNorm ?? promoted.rsNorm,
+                  source: RsSource.POST,
+                });
+              } catch {
+                // best-effort; do not fail the entire pair on timeline update issues
+              }
+            }
+          }
+        }
+
+        for (const [day, evs] of engineActivityByDay.entries()) {
+          await upsertSignalsActivityForPair(pair, day, evs);
+          await upsertSignalsActivityRoot(day, evs);
+        }
+      } catch (e: any) {
+        logger.warn('backfill_canonical_engine_failed', { pair, baseline, target, message: e?.message });
+      }
+
+      results.push({ pair, opens, closes, activityDays: engineActivityByDay.size });
+    }
+
+    res.status(200).json({ ok: true, from, to, intervals, pairs: results.length, results });
+  } catch (e: any) {
+    logger.error('backfillSignalsPipelineAdmin_failed', { message: e?.message });
     res.status(500).json({ ok: false, error: e?.message || 'internal_error' });
   }
 });
@@ -310,7 +593,7 @@ export const recomputeRegisteredLive = onCall({ region: 'us-central1', timeoutSe
 /**
  * HTTP (admin): recomputeRegisteredBackfill
  * Backfill all registered pairs across all baselines. Protect with bearer ADMIN_BACKFILL_TOKEN.
- * Query/body: { phase?: PRE|POST|'both', days?: number, limit?: number, concurrency?: number, from?: string, to?: string, missingOnly?: boolean }
+ * Query/body: { phase?: PRE|POST|'both', days?: number, limit?: number, concurrency?: number, from?: string, to?: string, intervals?: Interval[] }
  */
 export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', timeoutSeconds: 540 }, async (req, res) => {
   const token = (req.headers['authorization'] || '').toString().replace(/^Bearer\s+/i, '');
@@ -325,8 +608,30 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
     const limit = Number(req.query.limit || req.body?.limit || FIXED_LIMIT);
     const from: string | undefined = (req.query.from as string) || req.body?.from;
     const to: string | undefined = (req.query.to as string) || req.body?.to;
-    const missingOnly: boolean = String((req.query.missingOnly ?? req.body?.missingOnly ?? '')).toLowerCase() === 'true';
     const concurrency = Number(req.query.concurrency || req.body?.concurrency || (Number(process.env.PARTNER_PAIR_CONCURRENCY) || 3));
+
+    const intervalsRaw = (req.query.intervals ?? req.body?.intervals) as unknown;
+    const normalizeInterval = (v: unknown): Interval | undefined => {
+      const s = String(v || '').toUpperCase();
+      if (s === Interval.DAILY || s === Interval.WEEKLY || s === Interval.MONTHLY) {
+        return s as Interval;
+      }
+      return undefined;
+    };
+    let intervals: Interval[];
+    if (Array.isArray(intervalsRaw)) {
+      intervals = (intervalsRaw as unknown[])
+        .map((v) => normalizeInterval(v))
+        .filter((v): v is Interval => v !== undefined);
+    } else if (intervalsRaw !== undefined) {
+      const single = normalizeInterval(intervalsRaw);
+      intervals = single ? [single] : [];
+    } else {
+      intervals = [Interval.DAILY, Interval.WEEKLY, Interval.MONTHLY];
+    }
+    if (intervals.length === 0) {
+      intervals = [Interval.DAILY, Interval.WEEKLY, Interval.MONTHLY];
+    }
 
     if (!from || !to) {
       res.status(400).json({ ok: false, error: 'missing_from_or_to' });
@@ -353,33 +658,69 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
     }
 
     const phases: RsPhase[] = phaseRaw === 'both' ? [RsPhase.PRE, RsPhase.POST] : (phaseRaw === RsPhase.PRE ? [RsPhase.PRE] : [RsPhase.POST]);
-    const summary: any = { ok: true, totalPairs: pairs.length, days, limit, from, to, missingOnly, phases, results: [] };
+    const summary: any = { ok: true, totalPairs: pairs.length, days, limit, from, to, phases, intervals, results: [] };
 
     for (const ph of phases) {
       let successPairs = 0;
       let failedPairs = 0;
-      let skippedExisting = 0;
       let writtenDays = 0;
       const errorSamples: ProcessErrorSample[] = [];
       // Cache upstream partner bars per symbol so each symbol is fetched at most once per
       // backfill run (per phase), regardless of whether it appears as a baseline or target.
       const symbolBarsCache = new Map<string, any[]>();
+      const includeDaily = intervals.includes(Interval.DAILY);
+      const includeWeekly = intervals.includes(Interval.WEEKLY);
+      const includeMonthly = intervals.includes(Interval.MONTHLY);
+
+      // Helper: compute a padded-from date for an interval so RS has enough history.
+      const padFromForInterval = (fromVal: string | undefined, interval: Interval): string | undefined => {
+        if (!fromVal) return fromVal;
+        const base = new Date(`${fromVal}T00:00:00.000Z`);
+        if (Number.isNaN(base.getTime())) return fromVal;
+
+        if (interval === Interval.DAILY) {
+          const padDays = 10; // enough to cover 5 trading days across weekends/holidays
+          const padded = new Date(base.getTime() - padDays * 24 * 60 * 60 * 1000);
+          const y = padded.getUTCFullYear();
+          const m = String(padded.getUTCMonth() + 1).padStart(2, '0');
+          const d = String(padded.getUTCDate()).padStart(2, '0');
+          return `${y}-${m}-${d}`;
+        }
+
+        if (interval === Interval.WEEKLY) {
+          const padDays = 35; // approx 5 weeks
+          const padded = new Date(base.getTime() - padDays * 24 * 60 * 60 * 1000);
+          const y = padded.getUTCFullYear();
+          const m = String(padded.getUTCMonth() + 1).padStart(2, '0');
+          const d = String(padded.getUTCDate()).padStart(2, '0');
+          return `${y}-${m}-${d}`;
+        }
+
+        if (interval === Interval.MONTHLY) {
+          const padMonths = 5; // 5 prior months for RS warmup
+          const year = base.getUTCFullYear();
+          const month = base.getUTCMonth() - padMonths;
+          const padded = new Date(Date.UTC(year, month, 1));
+          const y = padded.getUTCFullYear();
+          const m = String(padded.getUTCMonth() + 1).padStart(2, '0');
+          const d = String(padded.getUTCDate()).padStart(2, '0');
+          return `${y}-${m}-${d}`;
+        }
+
+        return fromVal;
+      };
 
       // Helper: fetch DAILY bars for backfill windows.
       // Always resolve to a concrete [from,to] window before calling the
       // partner API.
       const fetchBackfillBars = async (symbol: string): Promise<any[]> => {
-        const ymd = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
 
         const baseFrom = from;
         const baseTo = to;
 
-        let paddedFrom = baseFrom;
+        let paddedFrom = padFromForInterval(baseFrom, Interval.DAILY);
         try {
-          const baseDate = new Date(`${baseFrom}T00:00:00.000Z`);
-          const padDays = 10; // enough to cover 5 trading days across weekends/holidays
-          const padded = new Date(baseDate.getTime() - padDays * 24 * 60 * 60 * 1000);
-          paddedFrom = ymd(padded);
+          if (!paddedFrom) paddedFrom = baseFrom;
         } catch {
           paddedFrom = baseFrom;
         }
@@ -395,6 +736,9 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
 
       await forEachWithConcurrency(pairs, Math.max(1, concurrency), async ({ baseline, target }) => {
         try {
+          const pairId = `${baseline}-${target}`;
+          let pairWrittenDays = 0;
+
           // Fetch/cached baseline bars
           let baseBars = symbolBarsCache.get(baseline);
           if (!baseBars) {
@@ -420,38 +764,83 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
                 })();
             series = series.filter((p) => p.day >= lower && p.day <= upper);
           }
-          if (series.length === 0) {
-            failedPairs++;
-            if (errorSamples.length < 50) errorSamples.push({ pair: `${baseline}-${target}`, message: 'no_aligned_series' });
-            try { await persistWarning('no_aligned_series', { function: RsCloudFunctionName.RECOMPUTE_BACKFILL, pairId: `${baseline}-${target}`, baseline, target, phase: ph }); } catch {}
-            return;
-          }
           let entries = series;
-          if (missingOnly) {
-            const pairId = `${baseline}-${target}`;
-            const snap = await db.collection(PAIRS_COLLECTION).doc(pairId).get();
-            const dataArr: any[] = snap.exists && Array.isArray((snap.data() as any)?.data) ? (snap.data() as any).data : [];
-            const existingDays = new Set<string>();
-            for (const row of dataArr) {
-              const day = String(row?.day || '');
-              if (!day) continue;
-              if (ph === RsPhase.POST && row?.post?.rs !== undefined) existingDays.add(day);
-              if (ph === RsPhase.PRE && row?.pre?.rs !== undefined) existingDays.add(day);
-            }
-            const before = entries.length;
-            entries = entries.filter(e => !existingDays.has(e.day));
-            skippedExisting += (before - entries.length);
-            if (entries.length === 0) { successPairs++; return; }
+
+          // DAILY backfill
+          if (includeDaily && entries.length > 0) {
+            await writeUnifiedSeries(baseline, target, ph, entries, baseBars, targetBars, Interval.DAILY);
+            writtenDays += entries.length;
+            pairWrittenDays += entries.length;
           }
-          await writeUnifiedSeries(baseline, target, ph, entries, baseBars, targetBars);
-          writtenDays += entries.length;
-          successPairs++;
+
+          // WEEKLY backfill
+          if (includeWeekly) {
+            try {
+              const lower = from ? String(from).slice(0, 10) : '0000-01-01';
+              const upper = to
+                ? String(to).slice(0, 10)
+                : (() => {
+                    const today = new Date();
+                    return `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(today.getUTCDate()).padStart(2, '0')}`;
+                  })();
+
+              const paddedFromWeekly = padFromForInterval(from, Interval.WEEKLY) ?? from ?? lower;
+              const baseWeekly = await fetchDailyBarsRange(baseline, { from: paddedFromWeekly, to, interval: Interval.WEEKLY });
+              const targetWeekly = await fetchDailyBarsRange(target, { from: paddedFromWeekly, to, interval: Interval.WEEKLY });
+              let weeklySeries = buildPhaseSeries(baseWeekly, targetWeekly, ph, baseline, target, logger, { from, to });
+              weeklySeries = weeklySeries.filter((p) => p.day >= lower && p.day <= upper);
+              if (weeklySeries.length > 0) {
+                await writeUnifiedSeries(baseline, target, ph, weeklySeries, baseWeekly, targetWeekly, Interval.WEEKLY);
+                pairWrittenDays += weeklySeries.length;
+              }
+
+            } catch (e: any) {
+              if (errorSamples.length < 50) errorSamples.push({ pair: `${baseline}-${target}`, status: e?.response?.status, message: e?.message || String(e) });
+            }
+          }
+
+          // MONTHLY backfill
+          if (includeMonthly) {
+            try {
+              const lower = from ? String(from).slice(0, 10) : '0000-01-01';
+              const upper = to
+                ? String(to).slice(0, 10)
+                : (() => {
+                    const today = new Date();
+                    return `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(today.getUTCDate()).padStart(2, '0')}`;
+                  })();
+
+              const paddedFromMonthly = padFromForInterval(from, Interval.MONTHLY) ?? from ?? lower;
+              const baseMonthly = await fetchDailyBarsRange(baseline, { from: paddedFromMonthly, to, interval: Interval.MONTHLY });
+              const targetMonthly = await fetchDailyBarsRange(target, { from: paddedFromMonthly, to, interval: Interval.MONTHLY });
+              let monthlySeries = buildPhaseSeries(baseMonthly, targetMonthly, ph, baseline, target, logger, { from, to });
+              monthlySeries = monthlySeries.filter((p) => p.day >= lower && p.day <= upper);
+              if (monthlySeries.length > 0) {
+                await writeUnifiedSeries(baseline, target, ph, monthlySeries, baseMonthly, targetMonthly, Interval.MONTHLY);
+                pairWrittenDays += monthlySeries.length;
+              }
+
+            } catch (e: any) {
+              if (errorSamples.length < 50) errorSamples.push({ pair: `${baseline}-${target}`, status: e?.response?.status, message: e?.message || String(e) });
+            }
+          }
+
+          if (pairWrittenDays > 0) {
+            successPairs++;
+          } else if (errorSamples.length < 50) {
+            errorSamples.push({
+              pair: pairId,
+              status: 0,
+              message: 'no archive writes for pair in requested window',
+            });
+          }
         } catch (e: any) {
           failedPairs++;
           if (errorSamples.length < 50) errorSamples.push({ pair: `${baseline}-${target}`, status: e?.response?.status, message: e?.message || String(e) });
+
         }
       });
-      summary.results.push({ phase: ph, successPairs, failedPairs, skippedExisting, writtenDays, errorSamples });
+      summary.results.push({ phase: ph, successPairs, failedPairs, writtenDays, errorSamples });
     }
 
     res.status(200).json(summary);
@@ -582,98 +971,52 @@ export const diagnosePairDays = onCall({ region: 'us-central1', timeoutSeconds: 
         }
         const computedDays = new Set<string>(series.map((p) => p.day));
 
-        // Read existing stored phase days
-        const pairId = `${baseline}-${target}`;
-        const snap = await db.collection('pairs-data').doc(pairId).get();
-        const dataArr: any[] = snap.exists && Array.isArray((snap.data() as any)?.data) ? (snap.data() as any).data : [];
-        const storedDays = new Set<string>();
-        for (const row of dataArr) {
-          const d = String(row?.day || '');
-          if (!d) continue;
-          if (phase === RsPhase.POST && row?.post?.rs !== undefined) storedDays.add(d);
-          if (phase === RsPhase.PRE && row?.pre?.rs !== undefined) storedDays.add(d);
-        }
-        const focus = focusDay ?? undefined;
-
-        logger.info('diagnosePairDays stored vs computed', {
-          pair: pairId,
-          phase,
-          computedCount: computedDays.size,
-          storedCount: storedDays.size,
-          focus,
-          focusInComputed: focus ? computedDays.has(focus) : null,
-          focusInStored: focus ? storedDays.has(focus) : null,
-        });
-
-        // Establish candidate days to check
+        // Establish candidate days to check (union of base and target bar days)
         const candidateDays = new Set<string>();
-        // union of base and target bar days for the window
         for (const d of baseDays) candidateDays.add(d);
         for (const d of targDays) candidateDays.add(d);
 
-        // Classify per day
-        const problems: Array<{ day: string; reason: string } > = [];
-        const computedNotStored: string[] = [];
+        const problems: Array<{ day: string; reason: string }> = [];
         let present = 0;
         for (const d of Array.from(candidateDays).sort()) {
           const hasBase = baseDays.has(d);
           const hasTarg = targDays.has(d);
           const isComputed = computedDays.has(d);
-          const isStored = storedDays.has(d);
 
-          if (isStored) { present++; continue; }
-          if (!hasBase && !hasTarg) { problems.push({ day: d, reason: 'no_bars_both' }); continue; }
-          if (!hasBase) { problems.push({ day: d, reason: 'missing_base_bar' }); continue; }
-          if (!hasTarg) { problems.push({ day: d, reason: 'missing_target_bar' }); continue; }
-          if (hasBase && hasTarg && !isComputed) { problems.push({ day: d, reason: 'compute_skipped' }); continue; }
-          if (isComputed && !isStored) { problems.push({ day: d, reason: 'computed_but_not_stored' }); computedNotStored.push(d); continue; }
-        }
-
-        // Optionally repair: write only missing computed days
-        let writtenDays = 0;
-        if (autoFix) {
-          // Force write path: ignore storedDays and write all computed entries restricted to the effective window
-          let entries: typeof series = [];
-          if (forceWrite) {
-            const lower = String(effectiveFrom).slice(0, 10);
-            const upper = String(effectiveTo).slice(0, 10);
-            entries = series.filter(e => e.day >= lower && e.day <= upper);
-          } else if (computedNotStored.length > 0) {
-            entries = series.filter((p) => computedNotStored.includes(p.day));
+          if (hasBase && hasTarg && isComputed) {
+            present++;
+            continue;
           }
-
-          if (entries.length > 0) {
-            const entryDays = entries.map(e => e.day);
-            const focusEntry = focusDay ? entries.find(e => e.day === focusDay) : undefined;
-            const entriesPreview = entries.slice(0, 3).map(e => ({ day: e.day, baseClose: (e as any).baseClose, targetClose: (e as any).targetClose, it: (e as any).it }));
-            logger.info('diagnosePairDays autoFix writing', { pair: pairId, phase, forceWrite, from: effectiveFrom, to: effectiveTo, count: entries.length, daysFirst10: entryDays.slice(0,10), focusEntry: focusEntry ? { day: focusEntry.day, baseClose: (focusEntry as any).baseClose, targetClose: (focusEntry as any).targetClose, it: (focusEntry as any).it } : null, entriesPreview });
-
-            try {
-              logger.info('diagnosePairDays autoFix writing data: ' + JSON.stringify({ pair: pairId, phase, forceWrite, from, to, dates: [], count: entries.length, days: entryDays.slice(0,20), entriesPreview, focusEntry: focusEntry ? { day: (focusEntry as any).day, baseClose: (focusEntry as any).baseClose, targetClose: (focusEntry as any).targetClose, it: (focusEntry as any).it } : null }).slice(0, 1500));
-            } catch {}
-            await writeUnifiedSeries(baseline, target, phase, entries, baseBars, targetBars);
-            writtenDays = entries.length;
-            logger.info('diagnosePairDays autoFix wrote', { pair: pairId, phase, writtenDays, daysFirst10: entryDays.slice(0,10) });
-            try { logger.info('diagnosePairDays autoFix wrote data: ' + JSON.stringify({ pair: pairId, phase, writtenDays, days: entryDays.slice(0,20) }).slice(0, 1200)); } catch {}
+          if (!hasBase && !hasTarg) {
+            problems.push({ day: d, reason: 'no_bars_both' });
+            continue;
+          }
+          if (!hasBase) {
+            problems.push({ day: d, reason: 'missing_base_bar' });
+            continue;
+          }
+          if (!hasTarg) {
+            problems.push({ day: d, reason: 'missing_target_bar' });
+            continue;
+          }
+          if (hasBase && hasTarg && !isComputed) {
+            problems.push({ day: d, reason: 'compute_skipped' });
+            continue;
           }
         }
 
         results.push({
-          pair: pairId,
+          pair: `${baseline}-${target}`,
           phase,
           window: { from: effectiveFrom, to: effectiveTo, yearsBack: null },
-
-          counts: {
-            candidateDays: candidateDays.size,
-            storedDays: storedDays.size,
-            computedDays: computedDays.size,
+          summary: {
+            problems,
             present,
-            problems: problems.length,
-            writtenDays,
+            computedCount: computedDays.size,
+            baseDays: Array.from(baseDays.values()).sort(),
+            targDays: Array.from(targDays.values()).sort(),
           },
-          problems,
         });
-        logger.info('diagnosePairDays result', { pair: pairId, phase, candidateDays: candidateDays.size, storedDays: storedDays.size, computedDays: computedDays.size, present, problems: problems.length, writtenDays, problemsSample: problems.slice(0,10) });
       } catch (e: any) {
         results.push({ pair: `${baseline}-${target}`, error: e?.message || String(e) });
       }
@@ -784,79 +1127,30 @@ export const refreshAllRangeAdmin = onRequest({ region: 'us-central1', timeoutSe
         }
       }
     } else {
-      // Fallback: run the live path for last N days (kept for compatibility)
-      for (const ph of phases) {
-        try {
-          const callRes = await recomputeRegisteredLive.run({
-            data: { phase: ph, days: Math.max(1, Number(days) || 7), concurrency },
-            auth: undefined,
-            instanceIdToken: undefined,
-            rawRequest: undefined as any,
-          } as any);
-          const ok = (callRes as any)?.ok !== false;
-          rsResults.push({ baseline: 'ALL_REGISTERED', phase: ph, ok, error: ok ? undefined : String((callRes as any)?.error || '') });
-        } catch (e: any) {
-          rsResults.push({ baseline: 'ALL_REGISTERED', phase: ph, ok: false, error: e?.message || String(e) });
+      if (baselinesSet.size > 0 && fromDay && toDay) {
+        for (const baseline of baselinesSet) {
+          for (const ph of phases) {
+            try {
+              const callRes = await recomputePairsRs.run({
+                data: { baseline, phase: ph, from: fromDay, to: toDay, concurrency },
+                auth: undefined,
+                instanceIdToken: undefined,
+                rawRequest: undefined as any,
+              } as any);
+              const ok = (callRes as any)?.ok !== false;
+              rsResults.push({ baseline, phase: ph, ok, error: ok ? undefined : String((callRes as any)?.error || '') });
+            } catch (e: any) {
+              rsResults.push({ baseline, phase: ph, ok: false, error: e?.message || String(e) });
+            }
+          }
         }
+        res.status(200).json({ ok: true, phases, range: { fromDay, toDay }, rsResults });
+        return;
       }
+
+      res.status(200).json({ ok: true, phases, range: { fromDay: fromDay ?? null, toDay: toDay ?? null }, rsResults });
     }
 
-    // 2) Backfill signals (pairs/*/signals, pairs/*/signals-daily) and positions, then rebuild root/signals-daily
-    // mirror
-    // We call the existing admin-protected HTTP endpoint backfillSignalsHistory.
-    // In emulator we hit localhost:5002; in cloud we hit the regional HTTPS endpoint.
-    let backfill: any | undefined;
-    let backfillError: string | undefined;
-    let mirrorCallError: string | undefined;
-
-    if (fromDay && toDay) {
-      try {
-        const project = (process.env.GCLOUD_PROJECT || ((): string | undefined => {
-          try { return JSON.parse(String(process.env.FIREBASE_CONFIG || '{}')).projectId; } catch { return undefined; }
-        })()) || 'rel-str';
-        const isEmu = String(process.env.FUNCTIONS_EMULATOR || '').toLowerCase() === 'true';
-        const baseUrl = isEmu
-          ? `http://127.0.0.1:5002/${project}/us-central1`
-          : `https://us-central1-${project}.cloudfunctions.net`;
-        const adminToken = String(process.env.ADMIN_BACKFILL_TOKEN || '').trim();
-        const resp = await fetch(`${baseUrl}/backfillSignalsHistory`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
-          },
-          body: JSON.stringify({ from: fromDay, to: toDay, mirror: true, dryRun: false, verbose: false }),
-        });
-        const txt = await resp.text();
-        try { backfill = JSON.parse(txt); } catch { backfill = { raw: txt }; }
-        if (!resp.ok) throw new Error(`backfillSignalsHistory HTTP ${resp.status}`);
-      } catch (e: any) {
-        backfillError = e?.message || String(e);
-      }
-
-      // Fallback mirror rebuild (in case backfill mirror=false or backfill skipped it)
-      if (!backfill || backfill?.ok === false || backfill?.mirror === undefined) {
-        try {
-          const mirrorRes = await rebuildSignalsDailyMirrorRange.run({
-            data: { from: fromDay, to: toDay },
-            auth: undefined,
-            instanceIdToken: undefined,
-            rawRequest: undefined as any,
-          } as any);
-          res.status(200).json({ ok: true, phases, range: { fromDay, toDay }, rsResults, backfill, backfillError: backfillError ?? null, mirror: mirrorRes });
-          return;
-        } catch (e: any) {
-          mirrorCallError = e?.message || String(e);
-        }
-      }
-
-      res.status(200).json({ ok: true, phases, range: { fromDay, toDay }, rsResults, backfill, backfillError: backfillError ?? null });
-      return;
-    } else {
-      mirrorCallError = 'fromDay/toDay required for backfill & mirror rebuild';
-    }
-
-    res.status(200).json({ ok: false, phases, range: { fromDay: fromDay ?? null, toDay: toDay ?? null }, rsResults, backfillError: backfillError ?? 'no_range', mirrorError: mirrorCallError });
   } catch (e: any) {
     logger.error('refreshAllRangeAdmin_failed', { message: e?.message });
     res.status(500).json({ ok: false, error: e?.message || 'internal_error' });
@@ -874,7 +1168,6 @@ export const purgePairsDataSignalsAdmin = onRequest({ region: 'us-central1', tim
     const pairs = await listRegisteredPairs();
     let pairsScanned = 0;
     let signalsDeleted = 0;
-    let dailyDeleted = 0;
 
     const deleteAll = async (colRef: FirebaseFirestore.CollectionReference): Promise<number> => {
       let total = 0;
@@ -897,13 +1190,11 @@ export const purgePairsDataSignalsAdmin = onRequest({ region: 'us-central1', tim
       pairsScanned++;
       try {
         const sRef = baseRef.collection(SIGNALS_COLLECTION);
-        const dRef = baseRef.collection(SIGNALS_DAILY_COLLECTION);
         signalsDeleted += await deleteAll(sRef);
-        dailyDeleted += await deleteAll(dRef);
       } catch {}
     }
 
-    res.status(200).json({ ok: true, pairs: pairsScanned, signalsDeleted, signalsDailyDeleted: dailyDeleted });
+    res.status(200).json({ ok: true, pairs: pairsScanned, signalsDeleted });
   } catch (e: any) {
     res.status(500).json({ ok: false, error: e?.message || 'internal_error' });
   }
