@@ -46,9 +46,13 @@ service cloud.firestore {
         }
       }
 
-      // Archive: year-sharded per-day docs under dynamic collections archive-YYYY
+      // Archive: year-sharded per-day docs under dynamic collections
+      // - archive-YYYY (daily)
+      // - archive-weekly-YYYY (weekly)
+      // - archive-monthly-YYYY (monthly)
       match /{archiveCol}/{docId} {
-        allow read: if request.auth != null && archiveCol.matches('^archive-\\d{4}$');
+        allow read: if request.auth != null
+          && archiveCol.matches('^(archive|archive-weekly|archive-monthly)-\\d{4}$');
         allow write: if false; // backend-only writes via functions
       }
     }
