@@ -5,18 +5,16 @@ import {
   OPEN_BUCKET_ID,
   PAIRS_COLLECTION,
   SIGNALS_COLLECTION,
-  SIGNALS_DAILY_COLLECTION,
-  SIGNALS_DAILY_ROOT_COLLECTION,
   ITEMS_SUBCOLLECTION,
-  DAYS_SUBCOLLECTION,
   YEAR_BUCKET_KIND,
-  COLLECTION_KIND_SIGNALS_DAILY,
   COLLECTION_KIND_POSITIONS,
   yearClosedOf,
   SIGNALS_OPENS_SUBCOLLECTION,
   SIGNALS_CLOSES_SUBCOLLECTION,
+  RsEventKind,
 } from './webhooks-config';
-import { RsPositionStatus, RsDirection, DailySignalType, BeOpenSignalDoc, BeCloseSignalDoc, RsSource, PriceDatumRole } from '../types/signal.types';
+import { RsPositionStatus, RsDirection, BeOpenSignalDoc, BeCloseSignalDoc, RsSource, PriceDatumRole, Interval } from '../types/signal.types';
+import { yearOf, getDowCodeFromDate, getIntervalCode } from './id-utils';
 import type { BePositionDoc } from '../types/position.types';
 import type { PriceDatum } from '../types/signal.types';
 
@@ -70,8 +68,11 @@ export async function appendOpenPositionsTimelineForPair(
   pairId: string,
   day: string,
   price: number,
-  rs: number,
-  source: 'pre' | 'post',
+  rsRaw: number,
+  rsNorm: number,
+  prevRsRaw: number,
+  prevRsNorm: number,
+  source: RsSource,
 ): Promise<void> {
   const col = db.collection(POSITIONS_COLLECTION).doc(OPEN_BUCKET_ID).collection(ITEMS_SUBCOLLECTION);
   const snap = await col.where('pair', '==', pairId).get();
@@ -86,7 +87,10 @@ export async function appendOpenPositionsTimelineForPair(
         day,
         timestamp: ts,
         price,
-        rs,
+        rsRaw,
+        rsNorm,
+        prevRsRaw,
+        prevRsNorm,
         source,
       });
     } catch {
@@ -95,95 +99,19 @@ export async function appendOpenPositionsTimelineForPair(
   }
 }
 
-/**
- * Upsert daily holds for a pair for the given day based on currently OPEN positions.
- * Writes pairs-data/{pair}/signals-daily/{day}.holds = DailySignalType.HOLD entries keyed by positionId.
- */
-export async function upsertDailyHoldsForPair(pairId: string, day: string): Promise<void> {
-  const col = db.collection(POSITIONS_COLLECTION).doc(OPEN_BUCKET_ID).collection(ITEMS_SUBCOLLECTION);
-  const snap = await col.where('pair', '==', pairId).get();
-  const holds: Array<{ signalId: string; positionId: string; type: DailySignalType }> = [];
-  for (const d of snap.docs) {
-    const id = String(d.id);
-    if (!id) continue;
-    holds.push({ signalId: id, positionId: id, type: DailySignalType.HOLD });
-  }
-  await upsertPairSignalsDaily(
-    pairId,
-    day,
-    { holds }
-  );
-}
-
-/**
- * Finalize CLOSED positions for a pair on a specific day.
- * Reads pairs-data/{pair}/signals-daily/{day}.newCloses and signals/{positionId} for prices,
- * then writes exitPrice/exitDay/exitIso and netPnL/percentReturn to positions/{positionId}.
- */
-export async function finalizeClosedPositionsForPair(pairId: string, day: string): Promise<void> {
-  const yr = yearOf(day);
-  const dailyRef = db.collection(PAIRS_COLLECTION).doc(pairId).collection(SIGNALS_DAILY_COLLECTION).doc(yr).collection(DAYS_SUBCOLLECTION).doc(day);
-  const dailySnap = await dailyRef.get();
-  if (!dailySnap.exists) return;
-  const data = (dailySnap.data() as any) || {};
-  const closes: Array<{ positionId: string; direction?: string }> = Array.isArray(data?.newCloses) ? data.newCloses : [];
-  if (!closes.length) return;
-
-  let ops = 0;
-  for (const c of closes) {
-    const id = String((c as any)?.positionId || '').trim();
-    if (!id) continue;
-
-    // Read per-position signals doc for precise open/close prices from correct shard
-    const sigBase = db.collection(PAIRS_COLLECTION).doc(pairId).collection(SIGNALS_COLLECTION);
-    const openRef = sigBase.doc(OPEN_BUCKET_ID).collection(ITEMS_SUBCOLLECTION).doc(id);
-    let sigSnap = await openRef.get();
-    if (!sigSnap.exists) {
-      const yb = yearClosedOf(day);
-      const closedRef = sigBase.doc(yb).collection(ITEMS_SUBCOLLECTION).doc(id);
-      sigSnap = await closedRef.get();
-    }
-    if (!sigSnap.exists) continue;
-    const s = (sigSnap.data() as any) || {};
-    const opened = (s?.opened || {}) as any;
-    const closed = (s?.closed || {}) as any;
-    const side = String(s?.direction || (c as any)?.direction || '').toUpperCase();
-
-    const entryPx = Number(opened?.openPrice);
-    const exitPx = Number(closed?.closePrice);
-    if (!Number.isFinite(entryPx) || !Number.isFinite(exitPx)) continue;
-
-    const delta = side === 'SHORT' ? Number(entryPx - exitPx) : Number(exitPx - entryPx);
-    const pct = entryPx !== 0 ? Number(((delta / entryPx) * 100).toFixed(6)) : 0;
-
-    const patch = {
-      exitPrice: exitPx,
-      exitDay: day,
-      exitIso: new Date(day + 'T00:00:00Z').toISOString(),
-      netPnL: delta,
-      percentReturn: pct,
-      status: RsPositionStatus.CLOSED,
-    } as any;
-    await finalizePairSignalClose(pairId, id, day, patch);
-    await finalizeRootPositionClose(id, day, patch);
-    ops++;
-  }
-  logger.info('finalizeClosedPositionsForPair committed', { pairId, day, docsUpdated: ops });
-}
 
 // ========================
 // Utilities and Live Open/Close helpers migrated from hot-archive.ts
 // ========================
 
-export function yearOf(day: string): string {
-  return String(day || '').slice(0, 4);
-}
-
-function buildSignalId(day: string, pair: string, direction: RsDirection, kind: 'O' | 'C'): string {
+function buildSignalId(day: string, pair: string, interval: Interval, direction: RsDirection, kind: RsEventKind): string {
   const d = new Date(`${day}T00:00:00Z`);
-  const dow = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getUTCDay()];
+  const dow = getDowCodeFromDate(d);
   const ymd = day.replace(/-/g, '');
-  return `${ymd}-${dow}-${pair}-${direction.toUpperCase()}-${kind}`;
+  const intervalCode = getIntervalCode(interval);
+  const dirCode = String(direction).toUpperCase();
+  const kindLabel = kind;
+  return `${ymd}-${dow}-${intervalCode}-${pair}-${dirCode}-${kindLabel}`;
 }
 
 function buildPriceDatum(args: {
@@ -191,12 +119,17 @@ function buildPriceDatum(args: {
   day: string;
   timestamp: number;
   price: number;
-  rs?: number;
-  source: 'pre' | 'post';
+  rsRaw: number;
+  rsNorm: number;
+  source: RsSource;
   entryPrice: number;
   direction: RsDirection;
+  ch: number;
+  cp: number;
+  prevRsRaw?: number;
+  prevRsNorm?: number;
 }): PriceDatum {
-  const { role, day, timestamp, price, rs, source, entryPrice, direction } = args;
+  const { role, day, timestamp, price, rsRaw, rsNorm, source, entryPrice, direction, ch, cp, prevRsRaw, prevRsNorm } = args;
 
   let pnl = 0;
   if (role !== PriceDatumRole.ENTRY) {
@@ -207,29 +140,36 @@ function buildPriceDatum(args: {
   }
   const pct = entryPrice !== 0 ? Number((pnl / entryPrice) * 100) : 0;
 
-  return {
+  const base: PriceDatum = {
     role,
     day,
+    dow: getDowCodeFromDate(new Date(`${day}T00:00:00Z`)),
     timestamp,
     price,
-    rs,
-    source: source as any,
+    rsRaw,
+    rsNorm,
+    source,
     pnl,
     pct,
+    ch,
+    cp,
   };
-}
 
+  if (prevRsRaw !== undefined) {
+    base.prevRsRaw = prevRsRaw;
+  }
+  if (prevRsNorm !== undefined) {
+    base.prevRsNorm = prevRsNorm;
+  }
 
-function ensureUpperSide(side: any): 'LONG' | 'SHORT' | undefined {
-  const s = String(side || '').toUpperCase();
-  return s === 'LONG' || s === 'SHORT' ? (s as 'LONG' | 'SHORT') : undefined;
+  return base;
 }
 
 function validateOpenSignalInput(input: {
   pair?: string;
   baseline?: string;
   symbol?: string;
-  side?: string;
+  direction?: RsDirection;
   positionId?: string;
   entryDay?: string;
   entryIso?: string;
@@ -240,8 +180,7 @@ function validateOpenSignalInput(input: {
   if (!input?.pair) reasons.push('pair missing');
   if (!input?.baseline) reasons.push('baseline missing');
   if (!input?.symbol) reasons.push('symbol missing');
-  const side = ensureUpperSide(input?.side);
-  if (!side) reasons.push('side invalid');
+  if (!input?.direction) reasons.push('direction missing');
   if (!input?.positionId) reasons.push('positionId missing');
   const day = String(input?.entryDay || '');
   if (!/\d{4}-\d{2}-\d{2}/.test(day)) reasons.push('entryDay invalid');
@@ -249,39 +188,80 @@ function validateOpenSignalInput(input: {
   return { ok: reasons.length === 0, reasons: reasons.length ? reasons : undefined };
 }
 
+interface RootOpenInput {
+  pair: string;
+  baseline: string;
+  symbol: string;
+  direction: RsDirection;
+  entryDay?: string;
+  entryIso?: string;
+  entryTimestamp?: number;
+  entryPrice: number;
+}
+
+interface OpenSignalEntryPayload {
+  baseline: string;
+  symbol: string;
+  direction: RsDirection;
+
+  entryDay?: string;
+  entryIso?: string;
+  entryTimestamp?: number;
+  entryPrice?: number;
+
+  opened?: {
+    day?: string;
+    t?: number;
+    rsYesterday?: number;
+    rsToday?: number;
+    rsNormYesterday?: number;
+    rsNormToday?: number;
+    openPrice?: number;
+    source?: RsSource;
+  };
+}
+
 export async function writePairSignalOpen(
   pair: string,
   positionId: string,
   day: string,
-  entry: Record<string, any>
+  entry: OpenSignalEntryPayload,
+  interval: Interval,
 ): Promise<void> {
   const v = validateOpenSignalInput({
     pair,
-    baseline: entry?.baseline,
-    symbol: entry?.symbol,
-    side: entry?.direction || entry?.side,
+    baseline: entry.baseline,
+    symbol: entry.symbol,
+    direction: entry.direction,
     positionId,
-    entryDay: entry?.entryDay || day || entry?.opened?.day,
-    entryIso: entry?.entryIso || entry?.opened?.iso,
-    entryTimestamp: entry?.entryTimestamp || entry?.opened?.t,
-    entryPrice: entry?.entryPrice || entry?.opened?.openPrice,
+    entryDay: entry.entryDay || day || entry.opened?.day,
+    entryIso: entry.entryIso,
+    entryTimestamp: entry.entryTimestamp || entry.opened?.t,
+    entryPrice: entry.entryPrice || entry.opened?.openPrice,
   });
   if (!v.ok) throw new Error(`invalid open input: ${JSON.stringify(v.reasons)}`);
-  const side = ensureUpperSide(entry?.direction || entry?.side)!;
-  const entryDay = String(entry?.entryDay || day || entry?.opened?.day);
-  const entryIso = String(entry?.entryIso || entry?.opened?.iso || new Date(`${entryDay}T00:00:00Z`).toISOString());
-  const entryTimestamp = Number(entry?.entryTimestamp || entry?.opened?.t || new Date(entryIso).getTime());
-  const entryPrice = Number(entry?.entryPrice || entry?.opened?.openPrice);
+  const direction = entry.direction;
+  const entryDay = String(entry.entryDay || day || entry.opened?.day);
+  const entryIso = String(entry.entryIso || new Date(`${entryDay}T00:00:00Z`).toISOString());
+  const entryTimestamp = Number(entry.entryTimestamp || entry.opened?.t || new Date(entryIso).getTime());
+  const entryPrice = Number(entry.entryPrice || entry.opened?.openPrice);
   if (!Number.isFinite(entryPrice) || entryPrice <= 0) throw new Error('entryPrice is required for open creation');
 
-  const baseline = String(entry?.baseline || '').toUpperCase();
-  const symbol = String(entry?.symbol || '').toUpperCase();
-  const rsToday = Number(entry?.opened?.rsToday ?? Number.NaN);
-  const rsYesterday = Number(entry?.opened?.rsYesterday ?? Number.NaN);
+  const baseline = String(entry.baseline || '').toUpperCase();
+  const symbol = String(entry.symbol || '').toUpperCase();
+  const rsTodayRaw = Number(entry.opened?.rsToday ?? Number.NaN);
+  const rsYesterdayRaw = Number(entry.opened?.rsYesterday ?? Number.NaN);
+  const rsNormToday = Number(entry.opened?.rsNormToday ?? Number.NaN);
+  const rsNormYesterday = Number(entry.opened?.rsNormYesterday ?? Number.NaN);
+
+  if (!Number.isFinite(rsTodayRaw) || !Number.isFinite(rsYesterdayRaw) || !Number.isFinite(rsNormToday) || !Number.isFinite(rsNormYesterday)) {
+    throw new Error('writePairSignalOpen: rsToday/rsYesterday and rsNormToday/rsNormYesterday are required and must be finite');
+  }
 
   const yr = yearOf(entryDay);
-  const dirEnum = side === 'LONG' ? RsDirection.LONG : RsDirection.SHORT;
-  const signalId = buildSignalId(entryDay, pair, dirEnum, 'O');
+  const dirEnum = direction;
+  const signalId = buildSignalId(entryDay, pair, interval, dirEnum, RsEventKind.OPEN);
+  const entryDow = getDowCodeFromDate(new Date(`${entryDay}T00:00:00Z`));
 
   const signalDoc: BeOpenSignalDoc = {
     signalId,
@@ -289,12 +269,15 @@ export async function writePairSignalOpen(
     symbol,
     direction: dirEnum,
     day: entryDay,
+    dow: entryDow,
     timestamp: entryTimestamp,
     price: entryPrice,
-    rs: rsToday,
-    prevRs: rsYesterday,
+    rsRaw: rsTodayRaw,
+    rsNorm: rsNormToday,
+    prevRs: rsYesterdayRaw,
     source: RsSource.POST,
     positionId,
+    interval,
   };
 
   const sigBase = db
@@ -316,27 +299,62 @@ export async function writePairSignalOpen(
   await sigOpenRef.set({ ...signalDoc, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() } as any, { merge: true });
 }
 
+interface CloseSignalExitPayload {
+  baseline?: string;
+  symbol?: string;
+  direction?: RsDirection | string;
+  exitPrice?: number;
+  openSignalId?: string;
+  closed?: {
+    day?: string;
+    t?: number;
+    rsYesterday?: number;
+    rsToday?: number;
+    rsNormYesterday?: number;
+    rsNormToday?: number;
+    closePrice?: number;
+    direction?: RsDirection | string;
+  };
+}
+
 export async function finalizePairSignalClose(
   pair: string,
   positionId: string,
   day: string,
-  exit: Record<string, any>
+  exit: CloseSignalExitPayload,
+  interval: Interval,
 ): Promise<void> {
-  const closePrice = Number(exit?.exitPrice ?? exit?.closed?.closePrice);
-  const rsToday = Number(exit?.closed?.rsToday ?? Number.NaN);
-  const rsYesterday = Number(exit?.closed?.rsYesterday ?? Number.NaN);
+  const closePrice = Number(exit.exitPrice ?? exit.closed?.closePrice);
+  const rsTodayRaw = Number(exit.closed?.rsToday ?? Number.NaN);
+  const rsYesterdayRaw = Number(exit.closed?.rsYesterday ?? Number.NaN);
+  const rsNormToday = Number(exit.closed?.rsNormToday ?? Number.NaN);
+  const rsNormYesterday = Number(exit.closed?.rsNormYesterday ?? Number.NaN);
+
+  if (!Number.isFinite(rsTodayRaw) || !Number.isFinite(rsYesterdayRaw) || !Number.isFinite(rsNormToday) || !Number.isFinite(rsNormYesterday)) {
+    throw new Error('finalizePairSignalClose: rsToday/rsYesterday and rsNormToday/rsNormYesterday are required and must be finite');
+  }
 
   const yr = yearOf(day);
-  const directionRaw = String(exit?.closed?.direction || exit?.direction || '').toUpperCase();
+  const directionRaw = String(exit.closed?.direction || exit.direction || '').toUpperCase();
   const direction = directionRaw === 'SHORT' ? RsDirection.SHORT : RsDirection.LONG;
-  const baseline = String(exit?.baseline || '').toUpperCase();
-  const symbol = String(exit?.symbol || '').toUpperCase();
+  const baseline = String(exit.baseline || '').toUpperCase();
+  const symbol = String(exit.symbol || '').toUpperCase();
 
   const d = new Date(`${day}T00:00:00Z`);
-  const timestamp = Number(exit?.closed?.t ?? d.getTime());
+  const dow = getDowCodeFromDate(d);
+  const timestamp = Number(exit.closed?.t ?? d.getTime());
 
-  const openSignalId = String(exit?.openSignalId || buildSignalId(String(exit?.closed?.day || day), pair, direction, 'O'));
-  const signalId = buildSignalId(day, pair, direction, 'C');
+  const m = /^([0-9]{8})-/.exec(positionId);
+  if (!m) {
+    throw new Error(`finalizePairSignalClose: invalid positionId format: ${positionId}`);
+  }
+  const ymd = m[1];
+  const openSignalDay = `${ymd.slice(0, 4)}-${ymd.slice(4, 6)}-${ymd.slice(6, 8)}`;
+
+  const openSignalId = String(
+    exit.openSignalId || buildSignalId(openSignalDay, pair, interval, direction, RsEventKind.OPEN),
+  );
+  const signalId = buildSignalId(day, pair, interval, direction, RsEventKind.CLOSE);
 
   const closeDoc: BeCloseSignalDoc = {
     signalId,
@@ -344,13 +362,16 @@ export async function finalizePairSignalClose(
     symbol,
     direction,
     day,
+    dow,
     timestamp,
     price: closePrice,
-    rs: rsToday,
-    prevRs: rsYesterday,
+    rsRaw: rsTodayRaw,
+    rsNorm: rsNormToday,
+    prevRs: rsYesterdayRaw,
     source: RsSource.POST,
     positionId,
     openSignalId,
+    interval,
   };
 
   const sigBase = db
@@ -375,11 +396,11 @@ export async function finalizePairSignalClose(
 export async function upsertRootPositionOpen(
   positionId: string,
   day: string,
-  entry: Record<string, any>
+  entry: RootOpenInput,
 ): Promise<void> {
   const pair = String(entry?.pair || '');
-  const side = ensureUpperSide(entry?.side);
-  if (!pair || !side) throw new Error('invalid root open input');
+  const direction = entry.direction;
+  if (!pair || !direction) throw new Error('invalid root open input');
   const entryDay = String(entry?.entryDay || day);
   const entryIso = String(entry?.entryIso || new Date(`${entryDay}T00:00:00Z`).toISOString());
   const entryTimestamp = Number(entry?.entryTimestamp || new Date(entryIso).getTime());
@@ -391,7 +412,7 @@ export async function upsertRootPositionOpen(
     pair,
     baseline: String(entry?.baseline || ''),
     symbol: String(entry?.symbol || ''),
-    side,
+    direction,
     entryDay,
     entryIso,
     entryTimestamp,
@@ -414,7 +435,7 @@ export async function finalizeRootPositionClose(
 ): Promise<void> {
   const price = Number(exit?.exitPrice ?? exit?.closed?.closePrice);
   const rawRs = Number(exit?.closed?.rsToday ?? Number.NaN);
-  const rs = Number.isFinite(rawRs) ? rawRs : undefined;
+  const rsNorm = Number(exit?.closed?.rsNormToday ?? Number.NaN);
   const ts = Number(
     exit?.closed?.t ??
     (() => {
@@ -428,35 +449,13 @@ export async function finalizeRootPositionClose(
     day,
     timestamp: ts,
     price,
-    rs,
+    rsRaw: rawRs,
+    rsNorm,
+    prevRsRaw: rawRs,
+    prevRsNorm: rsNorm,
   });
 }
 
-export async function upsertPairSignalsDaily(
-  pair: string,
-  day: string,
-  patch: Record<string, any>
-): Promise<void> {
-  const base = db.collection(PAIRS_COLLECTION).doc(pair).collection(SIGNALS_DAILY_COLLECTION);
-  const yr = yearOf(day);
-  try { await base.doc(yr).set({ bucket: YEAR_BUCKET_KIND, year: yr, kind: COLLECTION_KIND_SIGNALS_DAILY, updatedAt: FieldValue.serverTimestamp() }, { merge: true }); } catch {}
-  const dayRef = base.doc(yr).collection(DAYS_SUBCOLLECTION).doc(day);
-  const data = { ...patch, date: day, updatedAt: FieldValue.serverTimestamp() };
-  await dayRef.set(data, { merge: true });
-}
-
-export async function upsertRootSignalsDaily(
-  day: string,
-  patch: Record<string, any>
-): Promise<void> {
-  const base = db.collection(SIGNALS_DAILY_ROOT_COLLECTION);
-  const yr = yearOf(day);
-  // Ensure year container doc exists with metadata for visibility
-  try { await base.doc(yr).set({ bucket: YEAR_BUCKET_KIND, year: yr, kind: COLLECTION_KIND_SIGNALS_DAILY, updatedAt: FieldValue.serverTimestamp() }, { merge: true }); } catch {}
-  const ref = base.doc(yr).collection(DAYS_SUBCOLLECTION).doc(day);
-  const data = { ...patch, date: day, updatedAt: FieldValue.serverTimestamp() };
-  await ref.set(data, { merge: true });
-}
 
 export async function upsertPairSignalDoc(
   pair: string,
@@ -470,13 +469,6 @@ export async function upsertPairSignalDoc(
   const shardRef = base.doc(yr).collection(ITEMS_SUBCOLLECTION).doc(positionId);
   const data = { ...patch, updatedAt: FieldValue.serverTimestamp() };
   await shardRef.set(data, { merge: true });
-}
-
-export async function deleteRootSignalsDaily(day: string): Promise<void> {
-  const base = db.collection(SIGNALS_DAILY_ROOT_COLLECTION);
-  const yr = yearOf(day);
-  const ref = base.doc(yr).collection(DAYS_SUBCOLLECTION).doc(day);
-  try { await ref.delete(); } catch {}
 }
 
 function shouldKeepPositionInOpen(status: RsPositionStatus | string | undefined): boolean {
@@ -522,22 +514,32 @@ export async function openRootPositionTimeline(args: {
   day: string;
   timestamp: number;
   price: number;
-  rs?: number;
+  rsRaw: number;
+  rsNorm: number;
+  prevRsRaw: number;
+  prevRsNorm: number;
+  interval: Interval;
 }): Promise<void> {
-  const { positionId, pair, baseline, symbol, direction, day, timestamp, price, rs } = args;
+  const { positionId, pair, baseline, symbol, direction, day, timestamp, price, rsRaw, rsNorm, prevRsRaw, prevRsNorm, interval } = args;
   if (!pair || !baseline || !symbol) throw new Error('openRootPositionTimeline: missing identity fields');
   if (!Object.values(RsDirection).includes(direction)) throw new Error('openRootPositionTimeline: invalid direction');
   if (!Number.isFinite(price) || price <= 0) throw new Error('openRootPositionTimeline: price required');
+  if (!Number.isFinite(rsRaw) || !Number.isFinite(rsNorm)) throw new Error('openRootPositionTimeline: rsRaw and rsNorm are required');
 
   const entryDatum = buildPriceDatum({
     role: PriceDatumRole.ENTRY,
     day,
     timestamp,
     price,
-    rs,
-    source: 'post',
+    rsRaw,
+    rsNorm,
+    source: RsSource.POST,
     entryPrice: price,
     direction,
+    ch: 0,
+    cp: 0,
+    prevRsRaw,
+    prevRsNorm,
   });
 
   const doc: BePositionDoc = {
@@ -546,6 +548,7 @@ export async function openRootPositionTimeline(args: {
     baseline: baseline.toUpperCase(),
     symbol: symbol.toUpperCase(),
     direction,
+    interval,
     status: RsPositionStatus.OPEN,
     entry: entryDatum,
     updates: [],
@@ -567,37 +570,66 @@ export async function appendRootPositionTimelineUpdate(args: {
   day: string;
   timestamp: number;
   price: number;
-  rs?: number;
-  source: 'pre' | 'post';
+  rsRaw: number;
+  rsNorm: number;
+  prevRsRaw: number;
+  prevRsNorm: number;
+  source: RsSource;
 }): Promise<void> {
-  const { positionId, day, timestamp, price, rs, source } = args;
-  const openRef = db
-    .collection(POSITIONS_COLLECTION)
-    .doc(OPEN_BUCKET_ID)
-    .collection(ITEMS_SUBCOLLECTION)
-    .doc(positionId);
+  const { positionId, day, timestamp, price, rsRaw, rsNorm, prevRsRaw, prevRsNorm, source } = args;
+  const base = db.collection(POSITIONS_COLLECTION);
+  const openRef = base.doc(OPEN_BUCKET_ID).collection(ITEMS_SUBCOLLECTION).doc(positionId);
 
-  const snap = await openRef.get();
-  if (!snap.exists) return;
+  let snap = await openRef.get();
+  let targetRef = openRef;
+
+  if (!snap.exists) {
+    // Fallback: position already closed; append updates on the closed doc.
+    const closedBucketId = yearClosedOf(day);
+    const closedRef = base.doc(closedBucketId).collection(ITEMS_SUBCOLLECTION).doc(positionId);
+    const closedSnap = await closedRef.get();
+    if (!closedSnap.exists) return;
+    snap = closedSnap;
+    targetRef = closedRef;
+  }
+
   const cur = snap.data() as any as BePositionDoc;
 
   const entryPrice = cur.entry.price;
   const direction = cur.direction;
+
+  let prevPrice = entryPrice;
+  if (Array.isArray(cur.updates) && cur.updates.length > 0) {
+    const last = cur.updates[cur.updates.length - 1] as PriceDatum;
+    if (typeof last.price === 'number') {
+      prevPrice = last.price;
+    }
+  }
+
+  const ch = price - prevPrice;
+  const cp = prevPrice !== 0 ? Number((ch / prevPrice) * 100) : 0;
+
+  if (!Number.isFinite(rsRaw) || !Number.isFinite(rsNorm)) throw new Error('appendRootPositionTimelineUpdate: rsRaw and rsNorm are required');
 
   const updateDatum = buildPriceDatum({
     role: PriceDatumRole.UPDATE,
     day,
     timestamp,
     price,
-    rs,
+    rsRaw,
+    rsNorm,
     source,
     entryPrice,
     direction,
+    ch,
+    cp,
+    prevRsRaw,
+    prevRsNorm,
   });
 
   const updates = Array.isArray(cur.updates) ? [...cur.updates, updateDatum] : [updateDatum];
 
-  await openRef.set(
+  await targetRef.set(
     {
       updates,
       updatedAt: FieldValue.serverTimestamp(),
@@ -611,9 +643,12 @@ export async function closeRootPositionTimeline(args: {
   day: string;
   timestamp: number;
   price: number;
-  rs?: number;
+  rsRaw: number;
+  rsNorm: number;
+  prevRsRaw: number;
+  prevRsNorm: number;
 }): Promise<void> {
-  const { positionId, day, timestamp, price, rs } = args;
+  const { positionId, day, timestamp, price, rsRaw, rsNorm, prevRsRaw, prevRsNorm } = args;
 
   const openRef = db
     .collection(POSITIONS_COLLECTION)
@@ -628,15 +663,31 @@ export async function closeRootPositionTimeline(args: {
   const entryPrice = cur.entry.price;
   const direction = cur.direction;
 
+  let prevPrice = entryPrice;
+  if (Array.isArray(cur.updates) && cur.updates.length > 0) {
+    const last = cur.updates[cur.updates.length - 1] as PriceDatum;
+    if (typeof last.price === 'number') {
+      prevPrice = last.price;
+    }
+  }
+
+  const ch = price - prevPrice;
+  const cp = prevPrice !== 0 ? Number((ch / prevPrice) * 100) : 0;
+
   const exitDatum = buildPriceDatum({
     role: PriceDatumRole.EXIT,
     day,
     timestamp,
     price,
-    rs,
-    source: 'post',
+    rsRaw,
+    rsNorm,
+    source: RsSource.POST,
     entryPrice,
     direction,
+    ch,
+    cp,
+    prevRsRaw,
+    prevRsNorm,
   });
 
   const netPnL = exitDatum.pnl;
