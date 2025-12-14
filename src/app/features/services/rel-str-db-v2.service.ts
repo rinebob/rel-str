@@ -1,6 +1,6 @@
 import { EnvironmentInjector, NgZone, inject, Injectable, runInInjectionContext } from '@angular/core';
 import type { Company, RanksByDate, RelStrStockList, RsSeriesPoint } from '../shared/types/rs.interfaces';
-import { RsPhase } from '../shared/types/rs.interfaces';
+import { RsPhase, Timeframe } from '../shared/types/rs.interfaces';
 import {
   collection,
   query,
@@ -119,6 +119,115 @@ export class RelStrDbV2Service {
       tap(arr => console.log('[RS][Archive][Window] Series ready', { pair, len: arr.length, first: arr[0] })),
       catchError(err => {
         console.error('[RelStrDbV2Service] getPairSeriesFromArchiveWindow$ error', { pair, err });
+        return of([] as RsSeriesPoint[]);
+      })
+    );
+  }
+
+  getPairSeriesFromArchiveWindowByInterval$(pairId: string, daysBack = 60, timeframe: Timeframe = Timeframe.DAILY): Observable<RsSeriesPoint[]> {
+    const pair = String(pairId || '').trim();
+    if (!pair || !Number.isFinite(daysBack) || daysBack <= 0) return of([] as RsSeriesPoint[]);
+
+    const fmtYMD = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+
+    const today = new Date();
+    const todayYMD = fmtYMD(today);
+    const START_ARCHIVE_YEAR = 2019;
+    const currentYear = today.getUTCFullYear();
+
+    const prefix = timeframe === Timeframe.WEEKLY
+      ? 'archive-weekly'
+      : timeframe === Timeframe.MONTHLY
+        ? 'archive-monthly'
+        : 'archive';
+
+    return defer(() => from(this.inCtx(async () => {
+      const resultsDesc: RsSeriesPoint[] = [];
+      let remaining = Math.max(1, Math.floor(daysBack));
+      let hadPermissionError = false;
+
+      const isWindowed = timeframe === Timeframe.DAILY || timeframe === Timeframe.TWO_DAY;
+
+      for (let y = currentYear; y >= START_ARCHIVE_YEAR && (isWindowed ? remaining > 0 : true); y--) {
+        try {
+          const colRef = collection(this.firestore, `${Collection.PAIRS_DATA}/${pair}/${prefix}-${y}`);
+          const qRef = isWindowed
+            ? query(colRef, orderBy('day', 'desc'), limit(remaining))
+            : query(colRef, orderBy('day', 'desc'));
+          const snap = await this.inCtx(() => this.zone.run(() => getDocs(qRef)));
+          for (const docSnap of snap.docs) {
+            const raw = (docSnap.data() as any) || {};
+            const dateYMD = String(raw?.day || '').trim();
+            if (!dateYMD) continue;
+            const isToday = dateYMD === todayYMD;
+            const post = raw?.post;
+            const pre = raw?.pre;
+            let phase: RsPhase | undefined;
+            let value: number | undefined;
+            let norm: number | undefined;
+            if (!isToday) {
+              const postRsRaw = Number.isFinite(post?.rsRaw) ? Number(post.rsRaw) : undefined;
+              const postRsNorm = Number.isFinite(post?.rsNorm) ? Number(post.rsNorm) : undefined;
+              if (!Number.isFinite(postRsRaw) && !Number.isFinite(postRsNorm)) {
+                continue;
+              }
+              value = Number(postRsRaw ?? postRsNorm);
+              norm = Number(postRsNorm ?? postRsRaw);
+              phase = RsPhase.POST;
+            } else {
+              const postRsRaw = Number.isFinite(post?.rsRaw) ? Number(post.rsRaw) : undefined;
+              const postRsNorm = Number.isFinite(post?.rsNorm) ? Number(post.rsNorm) : undefined;
+              const preRsRaw = Number.isFinite(pre?.rsRaw) ? Number(pre?.rsRaw) : undefined;
+              const preRsNorm = Number.isFinite(pre?.rsNorm) ? Number(pre.rsNorm) : undefined;
+
+              if (Number.isFinite(postRsRaw) || Number.isFinite(postRsNorm)) {
+                value = Number(postRsRaw ?? postRsNorm);
+                norm = Number(postRsNorm ?? postRsRaw);
+                phase = RsPhase.POST;
+              } else if (Number.isFinite(preRsRaw) || Number.isFinite(preRsNorm)) {
+                value = Number(preRsRaw ?? preRsNorm);
+                norm = Number(preRsNorm ?? preRsRaw);
+                phase = RsPhase.PRE;
+              } else {
+                continue;
+              }
+            }
+            resultsDesc.push({ date: dateYMD, value: value!, norm, phase });
+          }
+          if (isWindowed) {
+            remaining = Math.max(0, daysBack - resultsDesc.length);
+          }
+        } catch (e: any) {
+          const code = e?.code || '';
+          const msg = e?.message || '';
+          if (code === 'permission-denied' || /insufficient permissions/i.test(msg)) {
+            hadPermissionError = true;
+            // Stop iterating years; FE is not allowed to read these archives.
+            break;
+          }
+        }
+      }
+      const sorted = resultsDesc.sort((a, b) => {
+        const ad = String(a?.date ?? '');
+        const bd = String(b?.date ?? '');
+        return ad.localeCompare(bd);
+      });
+      if (sorted.length === 0 && hadPermissionError) {
+        // Surface a single aggregated error so outer catchError can decide how to log.
+        const err: any = new Error('permission-denied');
+        err.code = 'permission-denied';
+        throw err;
+      }
+      return sorted;
+    }))).pipe(
+      retry({ count: 2, delay: (e, i) => timer(Math.min(1500, 300 * Math.pow(2, i))) }),
+      tap(arr => console.log('[RS][Archive][Window][Interval] Series ready', { pair, timeframe, len: arr.length, first: arr[0] })),
+      catchError(err => {
+        const code = (err as any)?.code || '';
+        const msg = (err as any)?.message || '';
+        if (code !== 'permission-denied' && !/insufficient permissions/i.test(msg)) {
+          console.error('[RelStrDbV2Service] getPairSeriesFromArchiveWindowByInterval$ error', { pair, timeframe, err });
+        }
         return of([] as RsSeriesPoint[]);
       })
     );

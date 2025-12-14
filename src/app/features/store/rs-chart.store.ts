@@ -10,6 +10,7 @@ import { calculateMaSeriesForPrice } from '../shared/utils/ma.util';
 import { RelStrDbV2Service } from '../services/rel-str-db-v2.service';
 import { RsBarsService } from '../services/rs-bars.service';
 import { compressDailyTo2DayBars } from '../shared/utils/rs-bars.util';
+import { BarsInterval } from '../../core/models/partner.types';
 
 /**
  * RsChartStore
@@ -264,9 +265,11 @@ export const RsChartStore = signalStore(
         ...base.config,
         chartConfig: {
           ...base.config.chartConfig,
+          // Use the same zoom settings as other main RS charts.
           zoomSettings: MAIN_RS_CHART_ZOOM_SETTINGS,
-          // Disable tooltips on the main chart so RS tooltips do not
-          // interfere with the zoom/pan toolbar controls.
+          // Disable Syncfusion's built-in tooltip and X-axis crosshair tooltip
+          // for the main chart so we can render a custom Material tooltip
+          // driven by chartMouseMove in RsChartComponent.
           tooltip: {
             ...(base.config.chartConfig.tooltip ?? {}),
             enable: false,
@@ -356,20 +359,27 @@ export const RsChartStore = signalStore(
           ? symbols.map((sym) => `${baseline}-${sym}`)
           : [];
 
-        // Fetch RS archive series for each pair (multi-year window for charts).
-        const rsResults = await Promise.all(
+        const timeframe = store.timeframe();
+        const initialWindow = getInitialRsWindowForTimeframe(timeframe);
+        const fullWindow = getFullRsWindowForTimeframe(timeframe);
+
+        // Fetch RS archive series for each pair using an initial window so the
+        // first render is fast.
+        const initialRsResults = await Promise.all(
           pairs.map(async (pairId) => {
-            // Use a multi-year window (trading days) so charts can reach back to
-            // earlier history (e.g. 2019+) when RS archives are available.
             const series = await firstValueFrom(
-              relStrDbV2Service.getPairSeriesFromArchiveWindow$(pairId, RS_ARCHIVE_WINDOW_TRADING_DAYS),
+              relStrDbV2Service.getPairSeriesFromArchiveWindowByInterval$(
+                pairId,
+                initialWindow,
+                timeframe,
+              ),
             );
             return { pairId, series } as { pairId: string; series: RsSeriesPoint[] };
           }),
         );
 
         const rsSeriesByPair: Record<string, RsSeriesPoint[]> = {};
-        for (const { pairId, series } of rsResults) {
+        for (const { pairId, series } of initialRsResults) {
           rsSeriesByPair[pairId] = series;
         }
 
@@ -377,9 +387,11 @@ export const RsChartStore = signalStore(
         const allSymbols = baseline ? [baseline, ...symbols] : symbols;
         const uniqueSymbols = Array.from(new Set(allSymbols.filter((s) => !!s)));
 
+        const interval = mapTimeframeToBarsInterval(timeframe);
+
         const ohlcResults = await Promise.all(
           uniqueSymbols.map(async (sym) => {
-            const series = await firstValueFrom(rsBarsService.getDailyBars$(sym));
+            const series = await firstValueFrom(rsBarsService.getDailyBars$(sym, { interval }));
             return { symbol: sym, series } as { symbol: string; series: OHLCDatum[] };
           }),
         );
@@ -423,6 +435,40 @@ export const RsChartStore = signalStore(
           loading: false,
           error: null,
         });
+
+        // Background: expand RS series to the full window for this timeframe
+        // without blocking first render.
+        if (fullWindow > initialWindow && pairs.length) {
+          void (async () => {
+            try {
+              const fullRsResults = await Promise.all(
+                pairs.map(async (pairId) => {
+                  const series = await firstValueFrom(
+                    relStrDbV2Service.getPairSeriesFromArchiveWindowByInterval$(
+                      pairId,
+                      fullWindow,
+                      timeframe,
+                    ),
+                  );
+                  return { pairId, series } as { pairId: string; series: RsSeriesPoint[] };
+                }),
+              );
+
+              const current = store.rsSeriesByPair();
+              const next: Record<string, RsSeriesPoint[]> = { ...current };
+              for (const { pairId, series } of fullRsResults) {
+                const currLen = next[pairId]?.length ?? 0;
+                if (series?.length && series.length > currLen) {
+                  next[pairId] = series;
+                }
+              }
+
+              patchState(store, { rsSeriesByPair: next });
+            } catch {
+              // Background expansion is best-effort; ignore errors here.
+            }
+          })();
+        }
       } catch (e: any) {
         // eslint-disable-next-line no-console
         console.error('[RsChartStore] loadListForCurrentUser error', e);
@@ -467,11 +513,158 @@ export const RsChartStore = signalStore(
       patchState(store, { mainMaConfigs: next });
     },
 
-    setTimeframe(timeframe: Timeframe): void {
-      patchState(store, { timeframe });
+    async setTimeframe(timeframe: Timeframe): Promise<void> {
+      const currentTimeframe = store.timeframe();
+      if (currentTimeframe === timeframe) {
+        return;
+      }
+
+      const baseline = store.baseline();
+      const symbols = store.symbols();
+      const pairs = store.pairs();
+
+      if (!baseline || !symbols?.length) {
+        patchState(store, { timeframe });
+        return;
+      }
+
+      patchState(store, { timeframe, loading: true, error: null });
+
+      try {
+        const allSymbols = baseline ? [baseline, ...symbols] : symbols;
+        const uniqueSymbols = Array.from(new Set(allSymbols.filter((s) => !!s)));
+        const interval = mapTimeframeToBarsInterval(timeframe);
+
+        const initialWindow = getInitialRsWindowForTimeframe(timeframe);
+        const fullWindow = getFullRsWindowForTimeframe(timeframe);
+
+        // Initial RS window for fast timeframe switches.
+        const initialRsResults = await Promise.all(
+          pairs.map(async (pairId) => {
+            const series = await firstValueFrom(
+              relStrDbV2Service.getPairSeriesFromArchiveWindowByInterval$(
+                pairId,
+                initialWindow,
+                timeframe,
+              ),
+            );
+            return { pairId, series } as { pairId: string; series: RsSeriesPoint[] };
+          }),
+        );
+
+        const rsSeriesByPair: Record<string, RsSeriesPoint[]> = {};
+        for (const { pairId, series } of initialRsResults) {
+          rsSeriesByPair[pairId] = series;
+        }
+
+        const ohlcResults = await Promise.all(
+          uniqueSymbols.map(async (sym) => {
+            const series = await firstValueFrom(rsBarsService.getDailyBars$(sym, { interval }));
+            return { symbol: sym, series } as { symbol: string; series: OHLCDatum[] };
+          }),
+        );
+
+        const ohlcBySymbol: Record<string, OHLCDatum[]> = {};
+        for (const { symbol, series } of ohlcResults) {
+          const sorted = [...series].sort((a, b) => String(a.date ?? '').localeCompare(String(b.date ?? '')));
+          ohlcBySymbol[symbol] = sorted;
+        }
+
+        patchState(store, {
+          ohlcBySymbol,
+          rsSeriesByPair,
+          loading: false,
+          error: null,
+        });
+
+        // Background: expand RS series for this timeframe to full history.
+        if (fullWindow > initialWindow && pairs.length) {
+          void (async () => {
+            try {
+              const fullRsResults = await Promise.all(
+                pairs.map(async (pairId) => {
+                  const series = await firstValueFrom(
+                    relStrDbV2Service.getPairSeriesFromArchiveWindowByInterval$(
+                      pairId,
+                      fullWindow,
+                      timeframe,
+                    ),
+                  );
+                  return { pairId, series } as { pairId: string; series: RsSeriesPoint[] };
+                }),
+              );
+
+              const current = store.rsSeriesByPair();
+              const next: Record<string, RsSeriesPoint[]> = { ...current };
+              for (const { pairId, series } of fullRsResults) {
+                const currLen = next[pairId]?.length ?? 0;
+                if (series?.length && series.length > currLen) {
+                  next[pairId] = series;
+                }
+              }
+
+              patchState(store, { rsSeriesByPair: next });
+            } catch {
+              // Background expansion is best-effort; ignore errors here.
+            }
+          })();
+        }
+      } catch (e: any) {
+        patchState(store, { loading: false, error: String(e?.message || e || 'Unknown error') });
+      }
     },
   })),
 );
+
+function mapTimeframeToBarsInterval(timeframe: Timeframe): BarsInterval {
+  switch (timeframe) {
+    case Timeframe.WEEKLY:
+      return BarsInterval.WEEKLY;
+    case Timeframe.MONTHLY:
+      return BarsInterval.MONTHLY;
+    case Timeframe.TWO_DAY:
+      return BarsInterval.DAILY;
+    case Timeframe.DAILY:
+    default:
+      return BarsInterval.DAILY;
+  }
+}
+
+function getInitialRsWindowForTimeframe(timeframe: Timeframe): number {
+  switch (timeframe) {
+    case Timeframe.WEEKLY:
+      // ~5 years of weekly points
+      return 5 * 52;
+    case Timeframe.MONTHLY:
+      // Monthly is relatively light; load full history on first pass.
+      return 50 * 12; // effectively all months since 2019 and beyond
+    case Timeframe.TWO_DAY:
+      // Backed by daily RS; use same initial window as daily.
+      return 2 * 252;
+    case Timeframe.DAILY:
+    default:
+      // ~2 years of trading days for fast first render.
+      return 2 * 252;
+  }
+}
+
+function getFullRsWindowForTimeframe(timeframe: Timeframe): number {
+  switch (timeframe) {
+    case Timeframe.WEEKLY:
+      // ~10 years of weekly points (~all history for current RS DB).
+      return 10 * 52;
+    case Timeframe.MONTHLY:
+      // Monthly: treat as effectively unbounded within reasonable limits.
+      return 1000;
+    case Timeframe.TWO_DAY:
+      // Backed by daily RS; use full daily window.
+      return RS_ARCHIVE_WINDOW_TRADING_DAYS;
+    case Timeframe.DAILY:
+    default:
+      // Full daily history window.
+      return RS_ARCHIVE_WINDOW_TRADING_DAYS;
+  }
+}
 
 /** Build a base chart configuration for a baseline/target pair. */
 function buildChartConfig(base: string, target: string, timeframe: Timeframe): RsChartConfig {
