@@ -47,7 +47,7 @@ export const PARTNER_DATA_READY_TOPIC =
  */
 export const EVENTS_COLLECTION = 'partner-events';
 
-/** Pairs data root collection used by writer and readers. */
+/** Pairs data root collection used by writer and readers (all intervals live under this). */
 export const PAIRS_COLLECTION = 'pairs-data';
 
 /** Registry of baseline–target pairs we own. */
@@ -55,6 +55,12 @@ export const REGISTRY_COLLECTION = 'pair-registry';
 
 /** Archive per-year collection prefix (under each pair doc): archive-YYYY */
 export const ARCHIVE_COLLECTION_PREFIX = 'archive-';
+
+/** Weekly archive per-year collection prefix: archive-weekly-YYYY */
+export const WEEKLY_ARCHIVE_COLLECTION_PREFIX = 'archive-weekly-';
+
+/** Monthly archive per-year collection prefix: archive-monthly-YYYY */
+export const MONTHLY_ARCHIVE_COLLECTION_PREFIX = 'archive-monthly-';
 
 /** Collection holding known/supported symbols and attributes. */
 export const TRACKED_SYMBOLS_COLLECTION = 'tracked-symbols';
