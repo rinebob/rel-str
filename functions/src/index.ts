@@ -13,6 +13,7 @@ export {
   refreshAllRangeAdmin,
   purgePairsDataSignalsAdmin,
   autoDiagnoseAndFixDaily,
+  backfillSignalsPipelineAdmin,
 } from "./webhooks/admin-tasks";
 
 export * from './webhooks/registry-actions';
@@ -25,25 +26,16 @@ export { getPairDailyBars } from './rs-chart-bars.callables';
 // RsSignalHistory callable exports
 export {
   getPairSignals,
-  getDailySignals,
   getPnLSummary,
   updatePositionActuals,
-  rebuildSignalsDailyMirror,
-  rebuildSignalsDailyMirrorRange,
-  cleanPairDailyPnL,
-  auditSignalsConsistency,
 } from './rs-signal-history.callables';
-
-// RsSignalHistory backfill (HTTP)
-export { backfillSignalsHistory, backfillPositionsStatus, backfillPositionsIds } from './rs-signal-history.backfill';
 
 // Admin cleanup callables
 export {
   purgePairsDataRootDataField,
   purgeNonYearShardRootDocs,
   purgeMisShardedPositionItems,
-  backfillPairSignalsDailyShards,
-  purgePairSignalsDailyAll,
   purgePairSignalsAll,
   backfillPositionsBucketMetadata,
+  purgeAllPositions,
 } from './cleanup.callables';
