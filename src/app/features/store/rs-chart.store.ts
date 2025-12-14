@@ -564,10 +564,15 @@ function prepareChartDataFromLive(ohlc: OHLCDatum[], rsSeries: RsSeriesPoint[]):
     const isUp = typeof close === 'number' && typeof prevClose === 'number' && close >= prevClose;
     const rsColor = isUp ? '#2e7d32' : '#c62828';
 
+    const dateKey = bar.date || toYmd(x);
+    const rsPoint = rsByDate.get(String(dateKey));
+    const rsRaw = typeof rsPoint?.value === 'number' ? rsPoint.value : undefined;
+
     return {
       ...bar,
       x,
       rsColor,
+      rsRaw,
     };
   });
 }
@@ -580,27 +585,29 @@ function prepareThresholdFilteredRsFromSeries(rsSeries: RsSeriesPoint[]): RsPane
 
   return rsSeries
     .filter((r) => {
-      const rank = r.norm ?? r.value;
-      if (typeof rank !== 'number') {
+      const rsRaw = r.value;
+      if (typeof rsRaw !== 'number') {
         return false;
       }
-      const isLongZone = rank >= RS_OPEN_LONG_THRESHOLD;
-      const isShortZone = rank <= RS_OPEN_SHORT_THRESHOLD;
+      const isLongZone = rsRaw >= RS_OPEN_LONG_THRESHOLD;
+      const isShortZone = rsRaw <= RS_OPEN_SHORT_THRESHOLD;
       return isLongZone || isShortZone;
     })
     .map((r) => {
-      const rank = r.norm ?? r.value;
+      const rsRaw = r.value;
+      const rank = typeof r.norm === 'number' ? r.norm : undefined;
       let rsColor = '#dddddd';
-      if (typeof rank === 'number') {
-        if (rank >= RS_OPEN_LONG_THRESHOLD) {
+      if (typeof rsRaw === 'number') {
+        if (rsRaw >= RS_OPEN_LONG_THRESHOLD) {
           rsColor = '#00ff00';
-        } else if (rank <= RS_OPEN_SHORT_THRESHOLD) {
+        } else if (rsRaw <= RS_OPEN_SHORT_THRESHOLD) {
           rsColor = '#ff0000';
         }
       }
 
       return {
         date: new Date(`${r.date}T00:00:00.000Z`),
+        rsRaw,
         rank,
         rsColor,
       };

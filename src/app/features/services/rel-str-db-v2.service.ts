@@ -75,30 +75,27 @@ export class RelStrDbV2Service {
             let value: number | undefined;
             let norm: number | undefined;
             if (!isToday) {
-              if (Number.isFinite(post?.rs)) {
-                const postRsVal = Number(post.rs);
-                const postRsRaw = Number.isFinite(post?.rsRaw) ? Number(post.rsRaw) : undefined;
-                const postRsNorm = Number.isFinite(post?.rsNorm) ? Number(post.rsNorm) : undefined;
-                value = Number.isFinite(postRsRaw) ? postRsRaw : postRsVal;
-                norm = Number.isFinite(postRsNorm) ? Number(postRsNorm) : postRsVal;
-                phase = RsPhase.POST;
-              } else {
+              const postRsRaw = Number.isFinite(post?.rsRaw) ? Number(post.rsRaw) : undefined;
+              const postRsNorm = Number.isFinite(post?.rsNorm) ? Number(post.rsNorm) : undefined;
+              if (!Number.isFinite(postRsRaw) && !Number.isFinite(postRsNorm)) {
                 continue;
               }
+              value = Number(postRsRaw ?? postRsNorm);
+              norm = Number(postRsNorm ?? postRsRaw);
+              phase = RsPhase.POST;
             } else {
-              if (Number.isFinite(post?.rs)) {
-                const postRsVal = Number(post.rs);
-                const postRsRaw = Number.isFinite(post?.rsRaw) ? Number(post.rsRaw) : undefined;
-                const postRsNorm = Number.isFinite(post?.rsNorm) ? Number(post.rsNorm) : undefined;
-                value = Number.isFinite(postRsRaw) ? postRsRaw : postRsVal;
-                norm = Number.isFinite(postRsNorm) ? Number(postRsNorm) : postRsVal;
+              const postRsRaw = Number.isFinite(post?.rsRaw) ? Number(post.rsRaw) : undefined;
+              const postRsNorm = Number.isFinite(post?.rsNorm) ? Number(post.rsNorm) : undefined;
+              const preRsRaw = Number.isFinite(pre?.rsRaw) ? Number(pre?.rsRaw) : undefined;
+              const preRsNorm = Number.isFinite(pre?.rsNorm) ? Number(pre.rsNorm) : undefined;
+
+              if (Number.isFinite(postRsRaw) || Number.isFinite(postRsNorm)) {
+                value = Number(postRsRaw ?? postRsNorm);
+                norm = Number(postRsNorm ?? postRsRaw);
                 phase = RsPhase.POST;
-              } else if (Number.isFinite(pre?.rs)) {
-                const preRsVal = Number(pre.rs);
-                const preRsRaw = Number.isFinite(pre?.rsRaw) ? Number(pre.rsRaw) : undefined;
-                const preRsNorm = Number.isFinite(pre?.rsNorm) ? Number(pre?.rsNorm) : undefined;
-                value = Number.isFinite(preRsRaw) ? Number(preRsRaw) : preRsVal;
-                norm = Number.isFinite(preRsNorm) ? Number(preRsNorm) : preRsVal;
+              } else if (Number.isFinite(preRsRaw) || Number.isFinite(preRsNorm)) {
+                value = Number(preRsRaw ?? preRsNorm);
+                norm = Number(preRsNorm ?? preRsRaw);
                 phase = RsPhase.PRE;
               } else {
                 continue;

@@ -235,6 +235,8 @@ export interface OHLCDatum {
 export interface CandleWithRSColor extends OHLCDatum {
     rsColor?: string;
     rank?: number;
+    /** Raw RS value for this bar, used for tooltip only (not for plotting). */
+    rsRaw?: number;
 }
 
 export interface MockCandleWithRSColor {
@@ -249,6 +251,9 @@ export interface MockCandleWithRSColor {
 
 export interface RsPaneDatum {
     date: Date;
+    /** Raw RS value (0-1) used for threshold logic/plotting/tooltip */
+    rsRaw?: number;
+    /** Normalized rank value used for coloring */
     rank?: number;
     rsColor: string;
 }
