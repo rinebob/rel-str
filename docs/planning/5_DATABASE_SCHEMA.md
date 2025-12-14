@@ -253,9 +253,11 @@ Canonical RS store (unchanged at the collection level). FE reads `latestDaily` (
   - Mirrors the open fields and adds `positionId` and `openSignalId` linkage.
 
 - Behavior:
-  - Signal docs are immutable, POST-only, and do not embed PnL or position snapshots.
+  - Signal docs are immutable, POST-only, and carry event-time RS context:
+    - `rsRaw` / `rsNorm` for today, and `prevRs` for yesterday, all sourced from the canonical archives.
+    - No PnL or position snapshots are embedded; those live on root positions.
   - Intraday/pre-close updates for open positions are represented as `PriceDatum` entries in `BePositionDoc.updates[]`, not as additional signal docs.
-  - All canonical open/close signals are produced by the shared RS engine (`functions/src/webhooks/rs-signals-engine.ts#detectRsEvents`) and written via the events consumer (`functions/src/webhooks/rs-events-consumer.ts#applyRsEventsForPair`).
+  - All canonical open/close signals (backfill and live POST) are produced by the shared RS engine (`functions/src/webhooks/rs-signals-engine.ts#detectRsEvents`) and written via the shared consumer (`functions/src/webhooks/rs-events-consumer.ts#applyRsEventsForPair`). This is the single writer for per-pair signals and root positions.
 
 #### signals-activity (per-pair and root mirrors) — Signals Activity / Whipsaw
 
@@ -296,12 +298,19 @@ interface SignalsActivityDoc {
 
 Behavior:
 
-- On **every run**, for each interval (Daily/Weekly/Monthly), the RS engine computes **preview** events:
-  - “If this interval closed now, would we OPEN / HOLD / CLOSE?”
-  - These are written to the per-pair and root `signals-activity` docs as `ActivityEvent` entries with `state: PREVIEW`.
-- When an RS sample is recognized as a **final** interval close (e.g., weekly/monthly with `isIntervalClose === true`, daily by construction) and a canonical signal is written under `pairs-data/{PAIR}/signals/{YYYY}/opens|closes/{signalId}`:
-  - The corresponding `ActivityEvent` is updated to `state: FINAL` and `signalId` is attached.
-- Over time, preview events that never become canonical (because the interval evolved and the crossing disappeared) may be marked `state: ABANDONED` to support whipsaw analysis.
+- On every POST run (realtime or backfill), for each interval (DAILY/WEEKLY/MONTHLY), the canonical engine:
+  - Loads archive RS samples for that interval.
+  - Uses `detectRsEvents` + thresholds to derive OPEN/CLOSE events.
+  - Maps these to canonical `RsWriteEvent[]` and applies them via `applyRsEventsForPair` (signals + positions).
+  - Calls the shared helper `generateActivityFromWrites` to derive `ActivityEvent[]`:
+    - Groups writes by `(interval, positionId)`.
+    - Derives `openDay`/`closeDay` for each position.
+    - Walks RS samples between those days and emits:
+      - `OPEN` on the open day.
+      - `HOLD` on intermediate days where the interval has a sample.
+      - `CLOSE` on the close day (if closed).
+  - The same helper and rubric are used by both admin backfill and realtime POST, so Signals Activity is consistent across historical and live data.
+  - All events are initially written with `state: PREVIEW`; later workflows may promote matching events to `FINAL` and attach `signalId` once linked to concrete signal docs.
 
 Consumers:
 
@@ -330,20 +339,22 @@ Consumers:
       - `day: string` — `YYYY-MM-DD` trading day (ET-aligned).
       - `timestamp: number` — epoch ms of the sample (canonical time field; ISO strings can be derived where needed).
       - `price: number` — target price at this sample.
-      - `rs?: number` — RS at this sample.
-      - `source?: 'pre' | 'post'` — implemented via the existing `RsSourceEnum`; `pre` covers intraday/pre-close updates, `post` closes.
+      - `rsRaw: number` — raw RS at this sample.
+      - `rsNorm: number` — normalized RS at this sample.
+      - `source?: 'pre' | 'post'` — implemented via `RsSourceEnum`; `pre` covers intraday/pre-close updates, `post` covers canonical EOD samples.
       - `pnl: number` — absolute PnL vs the **entry** at this moment.
       - `pct: number` — percentage return vs the **entry** at this moment.
+      - `prevRsRaw?: number`, `prevRsNorm?: number` — previous-day RS values at the time of this sample.
     - Position fields:
       - `entry: PriceDatum` — the canonical opening sample; **must always** have `pnl = 0` and `pct = 0`.
-      - `updates: PriceDatum[]` — zero or more intraday/pre-close samples (role `update`), each with its own `price`, `rs?`, `pnl`, and `pct` relative to the original entry.
+      - `updates: PriceDatum[]` — zero or more intraday/pre-close or end-of-day samples (role `update`), each with its own `price`, `rsRaw`/`rsNorm`, `pnl`, and `pct` relative to the original entry.
       - `exit?: PriceDatum` — optional final sample (role `exit`) recorded when the position is closed; its `pnl`/`pct` typically become the realized net values.
   - Aggregated PnL (position-level):
     - `netPnL?: number` — final realized PnL for the position; usually equals `exit.pnl` when present.
     - `netPercentReturn?: number` — final realized percent return; usually equals `exit.pct` when present.
   - We do **not** store redundant `lastPrice`/`lastRs`/`lastTimestamp` fields; callers derive the latest state from `exit` (if present) or from the last element in `updates`.
   - The canonical contract intentionally omits `createdAt`/`updatedAt` user-facing fields; lifecycle timing is inferred from the price timeline itself. Firestore system timestamps may still exist for operational/debugging use but are not part of the schema contract.
-  - Root position docs and their timelines are written from RS events by `rs-events-consumer.applyRsEventsForPair`, which keeps live and backfill paths in sync.
+  - Root position docs and their timelines are written from RS events by `rs-events-consumer.applyRsEventsForPair` (entry/exit) and updated over time via `positions-manager.appendOpenPositionsTimelineForPair` / `appendRootPositionTimelineUpdate` (PRE/POST `updates[]`), which keeps live and backfill paths in sync.
 
 #### Live Production Sharding Update (Closed vs Currently-Open)
 To ensure clear separation between historical (closed) positions and currently open ones, and to prevent accidental pollution of currently open positions with historical data, we are adopting the following naming and write semantics for live production runs:

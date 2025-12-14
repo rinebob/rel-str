@@ -154,33 +154,58 @@ This backend runs on Firebase/Google Cloud and focuses on computing and serving 
 ## 6. Relative Strength (RS) Pipeline: Pre- and Post-Close Phases
 
 - Two runs per market day:
-  - pre-close: intraday snapshot, used for trading decisions before the bell.
-  - post-close: canonical EOD snapshot, used for historical analysis and backtests.
+  - **PRE** (pre-close): intraday snapshot, used for trading decisions before the bell.
+  - **POST** (post-close): canonical EOD snapshot, used for historical analysis, backtests, and canonical signals.
 - Trigger: Pub/Sub topic `partner-data-ready`, with attribute `phase: "pre" | "post"`.
 - Input Source: SavantAPI Partner Time Series (outbound HTTP GET with Google OIDC).
-- Output Destination: Firestore `pairs-data/{BASE}-{SYMBOL}` document, with separate branches for each phase (`pre` and `post`).
+- Output Destination: Firestore `pairs-data/{BASE}-{SYMBOL}` document plus per-interval archives:
+  - `pairs-data/{PAIR}/archive-YYYY/{YYMMDD}` (DAILY, `pre`/`post` branches).
+  - `pairs-data/{PAIR}/archive-weekly-YYYY/{YYMMDD}` (WEEKLY RS).
+  - `pairs-data/{PAIR}/archive-monthly-YYYY/{YYMMDD}` (MONTHLY RS).
+  - All downstream consumers (signals, positions, activity, timelines) treat these archive `rsRaw`/`rsNorm` values as the single source of truth for RS.
 
 ### Subscriber Flow (Cloud Functions v2)
 
-1) Resolve registered pairs (baseline + targets).
+1) Resolve registered pairs (baseline + targets) from `pair-registry/*`.
 2) For each pair:
-   - Fetch baseline and target bars from SavantAPI (interval: DAILY).
+   - Fetch baseline and target bars from SavantAPI for DAILY/WEEKLY/MONTHLY intervals.
    - Align series strictly by date string `bars[].d` (drop non-overlaps).
-   - Build percent-change arrays:
-     - pre: use `ipc` (intraday percent) if available; otherwise derive `(ip - pc) / pc * 100`.
-     - post: use `cp` (EOD percent change).
-   - Compute RS rank with a 5-day rolling window.
-   - Persist to Firestore under the correct phase branch (`pre` or `post`).
-3) Update metrics and `seriesUpdatedAt`.
-4) RsSignalHistory processing:
-   - Historical backfill uses POST-only series and emits canonical **open/close signal events** under `pairs-data/{PAIR}/signals/{YYYY}/opens|closes/{signalId}`; each event is immutable and contains only RS/price context plus foreign keys into positions.
-   - Realtime (PRE-only) evaluates **close → open → hold** in that order for each pair and trading day:
-     - If a closing condition is met for an existing open position, the pipeline writes a **close signal** into `.../closes/{signalId}` and updates the corresponding `positions/{open|YYYY-closed}/items/{positionId}` document's `exit` and aggregated PnL fields.
-     - If no close condition is met and an opening condition is met, the pipeline writes an **open signal** into `.../opens/{signalId}` and creates/updates the corresponding position `entry` in `positions/open/items/{positionId}`.
-     - If neither open nor close conditions are met and a position remains open, the pipeline records **non-signal holds** as `PriceDatum` updates in the position document's `updates[]` timeline (and mirrors per-pair daily holds into `signals-daily`). No additional signal docs are written for holds.
-   - App PnL (`appPnl`) and user Actual PnL remain decoupled:
-     - App-level position PnL is derived from canonical RS-driven prices and stored on the position as `netPnL` / `netPercentReturn` based on the `exit` price datum.
-     - User Actual PnL is stored under `users/{uid}/trades/{positionId}` and is never written by the backend.
+   - Build percent-change arrays per phase:
+     - PRE: use intraday fields (`ip`/`ipc`) when available, otherwise derive from open/prev-close.
+     - POST: use EOD percent change (`cp`) on split-adjusted `c` (see data-normalization docs).
+   - Compute RS rank with the canonical 5-day rolling-window algorithm.
+   - Persist RS into the appropriate archive collections and `latest*` mirrors via `writeUnifiedSeries`.
+3) Update metrics and `seriesUpdatedAt` on the pair doc.
+4) RsSignalHistory + Activity processing:
+   - **Canonical engine (multi-interval, shared by backfill and realtime POST):**
+     - `runCanonicalRsEngineForPair` loads archive RS samples (DAILY/WEEKLY/MONTHLY) and runs the shared RS engine `detectRsEvents(samples, thresholds)` per interval.
+     - Threshold crossings are turned into `RsWriteEvent[]` (OPEN/CLOSE events with `rsRawYesterday/rsRawToday`, `rsNormYesterday/rsNormToday`, `price`, `positionId`, `interval`, `direction`).
+     - All `RsWriteEvent`s are consumed by `applyRsEventsForPair`, which is the **single canonical writer** for:
+       - Per-pair signal docs under `pairs-data/{PAIR}/signals/{YYYY}/opens|closes/{signalId}`.
+       - Root positions under `positions/{open|YYYY-closed}/items/{positionId}` (including entry/exit timeline updates).
+     - Multi-interval Signals Activity (D/W/M) is derived from these same writes via the shared helper `generateActivityFromWrites`:
+       - Groups writes by `(interval, positionId)`.
+       - Derives `openDay`/`closeDay` for each position.
+       - Walks archive RS samples between those days and emits `ActivityEvent` rows per day:
+         - `OPEN` on the open day.
+         - `HOLD` on intermediate days where the interval has a sample.
+         - `CLOSE` on the close day (if the position is closed).
+       - These events are written to per-pair and root mirrors under `signals-activity/*`.
+   - **PRE vs POST responsibilities:**
+     - PRE (intraday / pre-close):
+       - No canonical signals or new positions are created/closed.
+       - Uses archive `pre` RS for today plus canonical history to:
+         - Update open-position snapshot fields via `updateOpenPositionsForPair` (`currentPrice`, `currentChange`, `currentPctChange`, `currentRs`, `lastUpdateDay`).
+         - Append `PriceDatum{ role: 'update', source: 'pre' }` to each open position’s `updates[]` timeline via `appendOpenPositionsTimelineForPair` / `appendRootPositionTimelineUpdate`.
+     - POST (canonical signals + EOD updates):
+       - Uses canonical POST RS from archives for today and prior days.
+       - Runs the multi-interval canonical engine as described above to produce:
+         - `RsWriteEvent[]` → `applyRsEventsForPair` → canonical per-pair signals and root positions (entry/exit).
+         - Multi-interval `ActivityEvent[]` (DAILY/WEEKLY/MONTHLY) via `generateActivityFromWrites`.
+       - Updates open-position snapshots for today (price + RS) and appends a POST `PriceDatum{ role: 'update', source: 'post' }` for positions that remain open.
+   - App PnL (`netPnL` / `netPercentReturn` on positions) and user Actual PnL remain decoupled:
+     - App-level PnL is derived from canonical RS-driven prices and stored only on the position documents.
+     - User Actual PnL is stored under `users/{uid}/trades/{positionId}` and is never written by the backend into `pairs-data/*` or `positions/*`.
 
 ### RS Calculation (Canonical)
 

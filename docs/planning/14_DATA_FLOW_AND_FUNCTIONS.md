@@ -15,13 +15,21 @@
     - Input: message attributes/payload (`phase`, `runType`, `runId`, `trigger`, `heartbeat`).
     - Steps: mark event → load pairs → for each pair run `processPairLive` → write summary.
   - `processPairLive`
-    - Fetch: `fetchDailyBarsRaw(baseline|target, days, limit)`.
-    - Compute: `buildPhaseSeries(baseBars, targetBars, phase, baseline, target)`.
-    - Persist: `writeUnifiedSeries(baseline, target, phase, series, baseBars, targetBars)`.
-    - Detect RS events: build `RsSample[]` and run `rs-signals-engine.detectRsEvents(samples, thresholds)`.
-    - Map events to writes: build `RsWriteEvent[]` and call `rs-events-consumer.applyRsEventsForPair(events)` to write canonical signals and positions.
-    - PRE & POST: calls `positions-manager.updateOpenPositionsForPair(pairId, latestDay, latestTargetClose)` to update `positions/open/items/*` snapshot fields (`currentPrice`, `currentChange`, `currentPctChange`).
-    - POST: calls `positions-manager.finalizeClosedPositionsForPair(pairId, latestDay)` to persist close data into per-pair signals and root positions (`exitPrice`, `exitDay`, `exitIso`, `netPnL`, `percentReturn`, and `status: closed`).
+    - Fetch:
+      - DAILY bars via `fetchDailyBarsRange(baseline|target, { from, to, interval: FIXED_INTERVAL })`.
+      - WEEKLY/MONTHLY bars via `fetchDailyBarsRange(..., interval: Interval.WEEKLY|Interval.MONTHLY)`.
+    - Compute: `buildPhaseSeries(baseBars, targetBars, phase, baseline, target, logger)` for each interval (PRE uses intraday fields, POST uses EOD fields).
+    - Persist: `writeUnifiedSeries(baseline, target, phase, series, baseBars, targetBars, interval)` writes RS into per-interval archives (`archive-YYYY`, `archive-weekly-YYYY`, `archive-monthly-YYYY`) and latest mirrors on `pairs-data/{PAIR}`.
+    - POST canonical engine:
+      - Calls `runCanonicalRsEngineForPair(pairId, baseline, target, logger, series, thresholds)` which:
+        - Loads archive RS samples (DAILY/WEEKLY/MONTHLY).
+        - Runs `rs-signals-engine.detectRsEvents(samples, thresholds)` per interval to get OPEN/CLOSE events.
+        - Builds `RsWriteEvent[]` and calls `rs-events-consumer.applyRsEventsForPair(writes)` to write canonical signals (`pairs-data/{PAIR}/signals/*`) and root positions/timelines (`positions/{open|YYYY-closed}/items/{positionId}`).
+        - Uses `generateActivityFromWrites` to derive multi-interval `ActivityEvent[]` from the same writes + RS samples.
+      - Writes Signals Activity via `upsertSignalsActivityForPair` and `upsertSignalsActivityRoot` for the latest day.
+    - PRE & POST position updates:
+      - Calls `positions-manager.updateOpenPositionsForPair(pairId, latestDay, latestTargetClose, latestRsRaw)` to update `positions/open/items/*` snapshot fields (`currentPrice`, `currentChange`, `currentPctChange`, `currentRs`, `lastUpdateDay`).
+      - Calls `positions-manager.appendOpenPositionsTimelineForPair(pairId, latestDay, latestTargetClose, rsRaw, rsNorm, prevRsRaw, prevRsNorm, source)` to append `PriceDatum` updates into each open position’s `updates[]` timeline with `source: PRE` (PRE phase) or `source: POST` (POST phase).
   - Helpers: `forEachWithConcurrency`, `resolveRunContext`.
 
 - File: `functions/src/webhooks/pairs-writer.ts`
@@ -85,12 +93,10 @@ References for deeper context:
 
 ## RsSignalHistory: Aggregation & UI Feed
 - File: `functions/src/rs-signal-history.callables.ts`
-  - `rebuildSignalsDailyMirror` / `rebuildSignalsDailyMirrorRange`
-    - Read per-pair `pairs-data/{PAIR}/signals-daily/{YYYY}/days/{YYYY-MM-DD}`.
-    - Write root mirror `signals-daily/{YYYY}/days/{YYYY-MM-DD}` with `{ newOpens, holds, newCloses }` (each entry includes `pair`).
-  - `getDailySignals`
-    - Reads the year-sharded root mirror `signals-daily/{YYYY}/days/{YYYY-MM-DD}` → payload for the Decision Board.
-  - `getPairSignalsWithActuals`, `getPositionWithActuals`, `getPnLSummary`, `updatePositionActuals` (aux flows).
+  - `GetPairSignals*`, `GetPositionWithActuals`, `GetPnLSummary`, `UpdatePositionActuals` provide read/overlay flows over the canonical signals and positions.
+  - Legacy `signals-daily` root mirrors and rebuild callables are deprecated in favor of the new multi-interval Signals Activity mirrors:
+    - Per-pair: `pairs-data/{PAIR}/signals-activity/{YYYY}/days/{YYYY-MM-DD}`.
+    - Root: `signals-activity/{YYYY}/days/{YYYY-MM-DD}`.
 
 ## Firestore Touchpoints
 - `partner-events/{id}`: run status/metrics.

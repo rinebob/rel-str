@@ -11,6 +11,27 @@ This document describes how we will integrate **weekly** and **monthly** RS data
 
 Implementation and doc rewrites will happen in later steps. This file is the single source of truth for the transition.
 
+### 1.1 Implementation Status (Canonical Engine)
+
+Since this plan was drafted, the core backend engine for multi-interval RS has been implemented:
+
+- **Canonical multi-interval engine** — `functions/src/webhooks/rs-canonical-engine.ts`:
+  - Loads archive RS samples from `archive-YYYY`, `archive-weekly-YYYY`, and `archive-monthly-YYYY`.
+  - Uses `rs-signals-engine.detectRsEvents` per interval (DAILY/WEEKLY/MONTHLY) to derive OPEN/CLOSE events.
+  - Maps these to `RsWriteEvent[]` (with `rsRawYesterday/rsRawToday`, `rsNormYesterday/rsNormToday`, `price`, `positionId`, `direction`, `interval`).
+  - Calls `rs-events-consumer.applyRsEventsForPair(writes)` as the single writer for:
+    - Per-pair canonical signals under `pairs-data/{PAIR}/signals/{YYYY}/opens|closes/{signalId}`.
+    - Root positions and timelines under `positions/{open|YYYY-closed}/items/{positionId}`.
+- **Signals Activity helper** — `functions/src/webhooks/activity-from-writes.ts`:
+  - `generateActivityFromWrites` groups canonical writes by `(interval, positionId)`.
+  - Derives `openDay`/`closeDay` per position and walks archive RS samples in that interval.
+  - Emits `ActivityEvent` rows (OPEN/HOLD/CLOSE) for DAILY/WEEKLY/MONTHLY, written as PREVIEW entries under per-pair and root `signals-activity` mirrors.
+- **Shared across backfill and realtime POST**:
+  - Historical backfill and realtime POST both call `runCanonicalRsEngineForPair` and `applyRsEventsForPair`.
+  - Both derive multi-interval Signals Activity via `generateActivityFromWrites`.
+
+The remaining sections in this document describe the broader transition (FE integration, cleanup) and should be read in light of this now-implemented backend core.
+
 ---
 
 ## 2. Current State (Daily-Only Summary)
@@ -116,11 +137,18 @@ We separate **canonical signals** from **activity/preview** signals.
       - `rsRaw`, `rsNorm` (normalized to [0,1]).
       - `state: ActivityEventState` — enum: `PREVIEW | FINAL | ABANDONED`.
       - `signalId?`.
-  - Behavior per run:
-    - Compute **preview** events for all intervals (“if this interval closed now…”).
-    - Write/update `ActivityEvent` entries with `state: PREVIEW`.
-    - When canonical signals are written (from finalized bars), mark the matching events as `state: FINAL` and attach `signalId`.
-    - Optionally mark never-printed previews as `ABANDONED` for whipsaw analysis.
+  - Behavior per POST run (backfill or realtime):
+    - Use the canonical `RsWriteEvent[]` produced by `runCanonicalRsEngineForPair` as the source of truth for which positions exist and when they open/close at each interval.
+    - Call the shared helper `generateActivityFromWrites` to:
+      - Group writes by `(interval, positionId)`.
+      - Derive `openDay`/`closeDay` for each position.
+      - Walk RS archive samples between those days and emit:
+        - `OPEN` on the open day.
+        - `HOLD` on intermediate days where the interval has a sample.
+        - `CLOSE` on the close day (if the position is closed).
+    - All emitted events are initially `state: PREVIEW`. Later workflows may:
+      - Promote matching events to `state: FINAL` and attach `signalId` when linked to canonical `opens`/`closes`.
+      - Optionally mark never-printed previews as `ABANDONED` for whipsaw analysis.
 
 
 ### 3.3 Positions (All Intervals Dynamic)

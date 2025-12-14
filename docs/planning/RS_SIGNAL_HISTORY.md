@@ -185,78 +185,66 @@ All canonical RS signals and positions are pair-centric. Canonical RS series sti
 
 ### Historical Backfill (admin)
 
-Input: existing POST RS series from per-year archives under `pairs-data/{PAIR}/archive-YYYY/*`.
+Input: existing POST RS series from per-interval archives under:
+- `pairs-data/{PAIR}/archive-YYYY/*` (DAILY)
+- `pairs-data/{PAIR}/archive-weekly-YYYY/*` (WEEKLY)
+- `pairs-data/{PAIR}/archive-monthly-YYYY/*` (MONTHLY)
+
 Process (as built):
 - Enumerate pairs from `pair-registry/*` (ignore request `pairs`).
-- Load all archive docs for the range and build a single `RsSample[]` per pair.
-- Run the shared RS engine `detectRsEvents(samples, thresholds)` once per pair to emit `RsEvent` OPEN/CLOSE/HOLD events.
-- For each OPEN/CLOSE, build `RsWriteEvent` records and call `applyRsEventsForPair` so that backfill and live share one canonical writer for:
-  - per-pair signal docs under `pairs-data/{PAIR}/signals/{YYYY}/opens|closes/*`
-  - root positions under `positions/{open|YYYY-closed}/items/{positionId}`
-- For open/hold positions with no closing event on a day, update `pairs-data/{PAIR}/signals-daily/{YYYY}/days/{day}.holds`.
+- Load archive docs for the requested range and build `RsSample[]` per interval for each pair.
+- Run the canonical engine `runCanonicalRsEngineForPair(pairId, baseline, symbol, series, thresholds)`:
+  - Per interval, call `detectRsEvents(samples, thresholds)` to emit logical OPEN/CLOSE events.
+  - Map these to `RsWriteEvent[]` (per interval) carrying `rsRawYesterday/rsRawToday`, `rsNormYesterday/rsNormToday`, `price`, `positionId`, `direction`, and `interval`.
+  - Call `applyRsEventsForPair(writes)` so that backfill and live share one canonical writer for:
+    - Per-pair signal docs under `pairs-data/{PAIR}/signals/{YYYY}/opens|closes/*`.
+    - Root positions under `positions/{open|YYYY-closed}/items/{positionId}` (including entry/exit timeline updates).
+  - Call `generateActivityFromWrites` to derive multi-interval `ActivityEvent[]` (DAILY/WEEKLY/MONTHLY) from the same writes + archive RS samples.
 - Compute PnL at close and persist it on the same `BePositionDoc` (and analytics summary).
-- Idempotency: re-running backfill upserts by deterministic `positionId` (`{YYYYMMDD}-{DOW}-{PAIR}-{DIRECTION}`) and overwrites with consistent data.
+- Idempotency: re-running backfill upserts by deterministic `positionId` (`{YYYYMMDD}-{DOW}-{PAIR}-{DIRECTION}`) and overwrites with consistent data, since writes and activity are derived purely from archive RS.
 
 ### Daily Realtime (PRE/POST)
 
 Realtime processing runs twice per trading day (PRE and POST) with distinct responsibilities:
 
-- PRE: position updates only (no canonical signals).
-- POST: signal evaluation, position finalization, daily rollups.
+- PRE: position updates only (no canonical signals or new positions).
+- POST: canonical multi-interval signal evaluation, position finalization, and Signals Activity for the current day.
 
 Per pair, per phase:
 
 #### PRE (intraday / pre-close)
 
-1. Read RS/price from intraday sources for today plus canonical POST for prior days.
+1. Read RS/price for today from the DAILY `pre` branch of the archives plus canonical POST for prior days.
 2. For every currently open position in `positions/open/items`:
-   - Append a new `PriceDatum` to `updates[]` with:
+   - Update snapshot fields (`currentPrice`, `currentChange`, `currentPctChange`, `currentRs`, `lastUpdateDay`) via `updateOpenPositionsForPair`.
+   - Append a new `PriceDatum` to `updates[]` via `appendOpenPositionsTimelineForPair` / `appendRootPositionTimelineUpdate` with:
      - `role: 'update'`
      - `source: 'pre'`
-     - `day` = today, `timestamp`, `price`, `rs`
+     - `day` = today, `timestamp`, `price`, `rsRaw`, `rsNorm`, `prevRsRaw`, `prevRsNorm`
      - `pnl` / `pct` vs the entry.
 3. PRE never creates or closes positions and never writes canonical signal docs.
 
-#### POST (canonical signals + EOD updates)
+#### POST (canonical signals + EOD updates + Signals Activity)
 
-1. Read canonical POST (adjusted close) RS/price for today and prior days.
-2. Evaluate thresholds using yesterday vs today RS.
-3. For each pair, process in this order:
+1. Read canonical POST RS/price for today and prior days from the DAILY/WEEKLY/MONTHLY archives.
+2. For each pair, call the canonical engine `runCanonicalRsEngineForPair`:
+   - Per interval, evaluate thresholds using yesterday vs today RS via `detectRsEvents`.
+   - Build `RsWriteEvent[]` and call `applyRsEventsForPair(writes)` so that realtime POST uses the same writer as backfill for:
+     - `pairs-data/{PAIR}/signals/{YYYY}/opens|closes/{signalId}`.
+     - `positions/{open|YYYY-closed}/items/{positionId}`.
+   - Generate multi-interval `ActivityEvent[]` via `generateActivityFromWrites` and write them to `signals-activity` per-pair and root mirrors (PREVIEW state).
+3. For positions that remain open after CLOSE processing:
+   - Update snapshot fields again for today via `updateOpenPositionsForPair`.
+   - Append one additional POST/EOD `PriceDatum` update into `updates[]`:
+     - `role: 'update'`, `source: 'post'`.
+     - Distinct from any PRE updates for the same day; marks the canonical end-of-day sample.
+4. When a position is closed (CLOSE write present):
+   - `applyRsEventsForPair` writes a `BeCloseSignalDoc` under `signals/{YYYY}/closes/{signalId}`.
+   - `positions-manager.closeRootPositionTimeline` writes an `exit: PriceDatum` (`role: 'exit'`, `source: 'post'`) and updates `netPnL` / `netPercentReturn`, moving the position from `positions/open/items` to `positions/{YYYY}-closed/items`.
 
-   1. **Closes:**
-      - If an open position exists and a close condition is met:
-        - Write a `BeCloseSignalDoc` to `pairs-data/{PAIR}/signals/{YYYY}/closes/{signalId}`.
-        - Write `exit: PriceDatum` (`role: 'exit'`, `source: 'post'`) on the corresponding `BePositionDoc`.
-        - Set `netPnL` / `netPercentReturn` and move the doc from `positions/open/items` to `positions/{YYYY}-closed/items`.
-
-   2. **Holds:**
-      - For positions that remain open after close processing:
-        - Append one additional POST/EOD `PriceDatum` update:
-          - `role: 'update'`, `source: 'post'`.
-        - This marks the end-of-day snapshot distinct from any PRE updates for the same day.
-
-   3. **Opens:**
-      - For pairs that are flat after closes:
-        - If an open condition is met:
-          - Write a `BeOpenSignalDoc` to `pairs-data/{PAIR}/signals/{YYYY}/opens/{signalId}`.
-          - Create a new `BePositionDoc` in `positions/open/items` with:
-            - `entry` = POST `PriceDatum` (`role: 'entry'`, `source: 'post'`).
-            - `updates: []`.
-          - No same-day `updates` are written for that position; PRE updates begin the next trading day.
-
-4. Update per-pair `signals-daily/{year}/days/{day}`:
-
-   - `newCloses`: `DailySignal[]` for positions closed today.
-   - `holds`: `DailySignal[]` for positions that remained open after close processing.
-   - `newOpens`: `DailySignal[]` for newly opened positions.
-
-5. Rebuild or incrementally update the root mirror `signals-daily/{year}/days/{day}` with the same buckets, ensuring each entry includes `pair`.
-
-The processing order is always:
-
-1. `newCloses`
-2. `holds`
-3. `newOpens`
+Notes on App vs Actual PnL
+- App PnL (aka RS PnL) is computed from RS-driven prices and stored on the position doc as `netPnL` / `netPercentReturn` based on the `exit` price datum.
+- Actual PnL reflects the user's own brokerage execution. We do not mutate app PnL when a user provides actuals; instead, user-confirmed values live under a per-user overlay (see below). UI can toggle between App PnL and Actual PnL views.
 
 Notes on App vs Actual PnL
 - App PnL (aka RS PnL) is computed from app-derived prices and stored on the position doc as `appPnl` and summarized under `signals-daily` (pair-scoped, backend-owned). This is immutable aside from normalizing when POST is used for historical closes.
