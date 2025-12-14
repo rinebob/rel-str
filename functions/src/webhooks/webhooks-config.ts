@@ -78,6 +78,11 @@ export const SIGNALS_COLLECTION = 'signals';
 export const SIGNALS_OPENS_SUBCOLLECTION = 'opens';
 export const SIGNALS_CLOSES_SUBCOLLECTION = 'closes';
 
+/** Per-pair signals-activity collection under each pair doc. */
+export const SIGNALS_ACTIVITY_COLLECTION = 'signals-activity';
+
+/** Root signals-activity mirror collection (aggregated across pairs). */
+export const SIGNALS_ACTIVITY_ROOT_COLLECTION = 'signals-activity';
 // RS signal thresholds for live/open-close detection
 export const RS_OPEN_LONG_THRESHOLD = 0.8;
 export const RS_CLOSE_LONG_THRESHOLD = 0.8;
@@ -113,17 +118,10 @@ export interface RsThresholds {
   closeShort: number;
 }
 
-/** Per-pair daily signals collection under each pair doc. */
-export const SIGNALS_DAILY_COLLECTION = 'signals-daily';
-
-/** Root daily mirror collection (aggregated across pairs). */
-export const SIGNALS_DAILY_ROOT_COLLECTION = 'signals-daily';
-
 /** Label for year bucket kind metadata. */
 export const YEAR_BUCKET_KIND = 'year';
 
 /** Kind labels for metadata documents (console visibility). */
-export const COLLECTION_KIND_SIGNALS_DAILY = 'signals-daily';
 export const COLLECTION_KIND_POSITIONS = 'positions';
 
 /** Max number of warning docs to persist per run/process (default 50). */
