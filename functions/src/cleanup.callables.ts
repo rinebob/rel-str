@@ -1,7 +1,7 @@
 import { onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { db, FieldValue } from './firebase-admin-init';
-import { PAIRS_COLLECTION, POSITIONS_COLLECTION, SILENCE_ADMIN_INFO, OPEN_BUCKET_ID, SIGNALS_COLLECTION, ITEMS_SUBCOLLECTION, YEAR_BUCKET_KIND, COLLECTION_KIND_POSITIONS, SIGNALS_OPENS_SUBCOLLECTION, SIGNALS_CLOSES_SUBCOLLECTION } from './webhooks/webhooks-config';
+import { PAIRS_COLLECTION, POSITIONS_COLLECTION, SILENCE_ADMIN_INFO, OPEN_BUCKET_ID, SIGNALS_COLLECTION, ITEMS_SUBCOLLECTION, YEAR_BUCKET_KIND, COLLECTION_KIND_POSITIONS, SIGNALS_OPENS_SUBCOLLECTION, SIGNALS_CLOSES_SUBCOLLECTION, SIGNALS_ACTIVITY_COLLECTION, DAYS_SUBCOLLECTION } from './webhooks/webhooks-config';
 
 /**
  * Admin: purgePairsDataRootDataField
@@ -214,6 +214,48 @@ export const purgePairSignalsAll = onCall(
     }
     if (!SILENCE_ADMIN_INFO) logger.info('purgePairSignalsAll done', { pairs: pairs.length, deletedLegacy, deletedYearItems, fromYear, toYear });
     return { ok: true, pairs: pairs.length, deletedLegacy, deletedYearItems, years: { from: fromYear, to: toYear } };
+  }
+);
+
+/**
+ * Admin: purgePairSignalsActivityAll
+ * Deletes per-pair `signals-activity` year-sharded docs and their day subcollections
+ * for a given year range.
+ * Params: { pairs?: string[], fromYear?: number, toYear?: number, removeContainers?: boolean }
+ */
+export const purgePairSignalsActivityAll = onCall(
+  { region: 'us-central1', timeoutSeconds: 540 },
+  async (req): Promise<{ ok: boolean; pairs: number; deletedYearItems: number; years: { from: number; to: number } }> => {
+    let pairs: string[] = Array.isArray(req?.data?.pairs) ? (req.data.pairs as any[]).map(x => String(x)).filter(Boolean) : [];
+    const now = new Date();
+    const curYear = now.getUTCFullYear();
+    const fromYear = Math.max(2000, Number(req?.data?.fromYear || 2019));
+    const toYear = Math.min(curYear, Number(req?.data?.toYear || curYear));
+    const removeContainers = req?.data?.removeContainers === true;
+    if (pairs.length === 0) {
+      const reg = await db.collection('pair-registry').select().get();
+      pairs = reg.docs.map(d => d.id);
+    }
+    let deletedYearItems = 0;
+    for (const pair of pairs) {
+      const base = db.collection(PAIRS_COLLECTION).doc(pair).collection(SIGNALS_ACTIVITY_COLLECTION);
+      for (let y = fromYear; y <= toYear; y++) {
+        const yearDoc = base.doc(String(y));
+        const daysCol = yearDoc.collection(DAYS_SUBCOLLECTION);
+        const dsnap = await daysCol.select().get();
+        let dbatch = db.batch(); let dops = 0;
+        for (const it of dsnap.docs) {
+          dbatch.delete(daysCol.doc(it.id)); dops++; deletedYearItems++;
+          if (dops >= 400) { await dbatch.commit(); dbatch = db.batch(); dops = 0; }
+        }
+        if (dops > 0) { await dbatch.commit(); }
+        if (removeContainers) {
+          try { await base.doc(String(y)).delete(); } catch {}
+        }
+      }
+    }
+    if (!SILENCE_ADMIN_INFO) logger.info('purgePairSignalsActivityAll done', { pairs: pairs.length, deletedYearItems, fromYear, toYear });
+    return { ok: true, pairs: pairs.length, deletedYearItems, years: { from: fromYear, to: toYear } };
   }
 );
 

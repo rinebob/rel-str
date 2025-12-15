@@ -32,6 +32,7 @@ export {
   purgeNonYearShardRootDocs,
   purgeMisShardedPositionItems,
   purgePairSignalsAll,
+  purgePairSignalsActivityAll,
   backfillPositionsBucketMetadata,
   purgeAllPositions,
 } from './cleanup.callables';
