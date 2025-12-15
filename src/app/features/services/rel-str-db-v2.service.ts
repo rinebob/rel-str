@@ -435,24 +435,24 @@ export class RelStrDbV2Service {
           totalDocs += docsForYear;
           yearsScanned.push(y);
 
-          const sampleRaw = docsForYear > 0 ? (snap.docs[0].data() as any) || {} : undefined;
-          if (docsForYear > 0) {
-            // eslint-disable-next-line no-console
-            console.log('[RS][Archive][Debug] Year snapshot', {
-              pair,
-              year: y,
-              docs: docsForYear,
-              sample: sampleRaw
-                ? {
-                    day: String(sampleRaw?.day || ''),
-                    postRsRaw: sampleRaw?.post?.rsRaw,
-                    postRsNorm: sampleRaw?.post?.rsNorm,
-                    preRsRaw: sampleRaw?.pre?.rsRaw,
-                    preRsNorm: sampleRaw?.pre?.rsNorm,
-                  }
-                : null,
-            });
-          }
+          // const sampleRaw = docsForYear > 0 ? (snap.docs[0].data() as any) || {} : undefined;
+          // if (docsForYear > 0) {
+          //   // eslint-disable-next-line no-console
+          //   console.log('[RS][Archive][Debug] Year snapshot', {
+          //     pair,
+          //     year: y,
+          //     docs: docsForYear,
+          //     sample: sampleRaw
+          //       ? {
+          //           day: String(sampleRaw?.day || ''),
+          //           postRsRaw: sampleRaw?.post?.rsRaw,
+          //           postRsNorm: sampleRaw?.post?.rsNorm,
+          //           preRsRaw: sampleRaw?.pre?.rsRaw,
+          //           preRsNorm: sampleRaw?.pre?.rsNorm,
+          //         }
+          //       : null,
+          //   });
+          // }
 
           for (const docSnap of snap.docs) {
             const raw = (docSnap.data() as any) || {};

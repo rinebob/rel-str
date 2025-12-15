@@ -90,7 +90,7 @@ export class RsChartComponent {
             const data = this.chartData();
             const chart = this.chart();
 
-            console.log('rC eff chartData: ', data);
+            // console.log('rC eff chartData: ', data);
             // console.log('rC eff rsData: ', this.rsData());
             if (!shouldInit || !chart || !data || !data.length) {
                 return;
