@@ -187,9 +187,9 @@ Expected result (example):
 
 - `buildPhaseSeries` uses a **5‑day rolling window** for RS rank. You must provide at least 5 aligned trading days in the window for the latest days to be computed; otherwise `diagnosePairDays` will report `compute_skipped`.
 
-## 4. Backfill Signals, Positions, and Root Mirrors in Emulator
+## 4. Backfill Signals, Positions, and Activity in Emulator
 
-Once archives are correct, use `backfillSignalsHistory` (HTTP admin endpoint) to rebuild per‑pair signals, per‑pair `signals-daily`, root positions, and root `signals-daily` for a date range.
+Once archives are correct, use `backfillSignalsPipelineAdmin` (HTTP admin endpoint) to rebuild canonical per‑pair signals/positions **and** Signals Activity (per‑pair + root) for a date range.
 
 Example: backfill a wide window for emulator testing:
 
@@ -199,13 +199,13 @@ $TOKEN = "local-admin"
 $body = @{
   from   = "2024-01-01"
   to     = "2025-12-31"
-  dryRun = $false
-  mirror = $true      # rebuild root signals-daily mirror per touched day
+  phase  = "post"                # canonical engine phase (POST is default)
+  # intervals = @("DAILY","WEEKLY","MONTHLY")  # optional; defaults to all three
 } | ConvertTo-Json
 
 Invoke-RestMethod `
   -Method Post `
-  -Uri "http://127.0.0.1:5002/rel-str/us-central1/backfillSignalsHistory" `
+  -Uri "http://127.0.0.1:5002/rel-str/us-central1/backfillSignalsPipelineAdmin" `
   -Headers @{ Authorization = "Bearer $TOKEN" } `
   -ContentType "application/json" `
   -Body $body
@@ -219,30 +219,32 @@ $TOKEN = "local-admin"
 $body = @{
   from   = "2025-11-10"
   to     = "2025-11-25"
-  dryRun = $false
-  mirror = $true
+  phase  = "post"
 } | ConvertTo-Json
 
 Invoke-RestMethod `
   -Method Post `
-  -Uri "http://127.0.0.1:5002/rel-str/us-central1/backfillSignalsHistory" `
+  -Uri "http://127.0.0.1:5002/rel-str/us-central1/backfillSignalsPipelineAdmin" `
   -Headers @{ Authorization = "Bearer $TOKEN" } `
   -ContentType "application/json" `
   -Body $body
 ```
 
-Backfill responsibilities (per docs):
+Backfill responsibilities (current pipeline):
 
-- Reads `pairs-data/{PAIR}/archive-YYYY/*` and reconstructs RS series.
+- Reads `pairs-data/{PAIR}/archive-YYYY/*` and reconstructs RS series for DAILY/WEEKLY/MONTHLY via the canonical RS engine.
 - Writes canonical per‑pair signals:
   - `pairs-data/{PAIR}/signals/{YYYY}/opens/{signalId}`
   - `pairs-data/{PAIR}/signals/{YYYY}/closes/{signalId}`
-- Writes per‑pair `signals-daily`:
-  - `pairs-data/{PAIR}/signals-daily/{YYYY}/days/{YYYY-MM-DD}`
 - Writes/updates root positions:
   - `positions/open/items/{positionId}`
   - `positions/{YYYY}-closed/items/{positionId}`
-- Optionally (when `mirror: true`) rebuilds root `signals-daily/{YYYY}/days/{YYYY-MM-DD}` via `rebuildSignalsDailyMirrorImpl` for all touched days.
+- Writes Signals Activity per pair:
+  - `pairs-data/{PAIR}/signals-activity/{YYYY}/days/{YYYY-MM-DD}`
+- Writes root Signals Activity mirror:
+  - `signals-activity/{YYYY}/days/{YYYY-MM-DD}`
+
+Legacy `signals-daily` mirrors are deprecated and are **not** rebuilt by this pipeline.
 
 ## 5. Diagnosing Missing Days (compute_skipped)
 
@@ -313,18 +315,17 @@ Invoke-RestMethod `
   -ContentType "application/json" `
   -Body $bodyArchive
 
-# 2) Backfill signals/positions for same window
+# 2) Backfill signals/positions/activity for same window
 
 $bodyBackfill = @{
   from   = $from
   to     = $today
-  dryRun = $false
-  mirror = $true
+  phase  = "post"
 } | ConvertTo-Json
 
 Invoke-RestMethod `
   -Method Post `
-  -Uri "http://127.0.0.1:5002/rel-str/us-central1/backfillSignalsHistory" `
+  -Uri "http://127.0.0.1:5002/rel-str/us-central1/backfillSignalsPipelineAdmin" `
   -Headers @{ Authorization = "Bearer $TOKEN" } `
   -ContentType "application/json" `
   -Body $bodyBackfill
