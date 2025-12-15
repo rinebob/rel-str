@@ -387,6 +387,14 @@ export async function runCanonicalRsEngineForPair(
         );
 
         if (weeklySamples.length >= 2) {
+          logger.info('canonical_weekly_samples', {
+            pairId,
+            from: firstWeekDay,
+            to: lastWeekDay,
+            count: weeklySamples.length,
+            head: weeklySamples.slice(0, 3),
+            tail: weeklySamples.slice(-3),
+          });
           const weeklyEvents = detectRsEvents(weeklySamples, thresholds.weekly);
           const weeklyEventsByDay = new Map<string, typeof weeklyEvents>();
           for (const ev of weeklyEvents) {
@@ -479,6 +487,14 @@ export async function runCanonicalRsEngineForPair(
         );
 
         if (monthlySamples.length >= 2) {
+          logger.info('canonical_monthly_samples', {
+            pairId,
+            from: firstMonthDay,
+            to: lastMonthDay,
+            count: monthlySamples.length,
+            head: monthlySamples.slice(0, 3),
+            tail: monthlySamples.slice(-3),
+          });
           // Precompute the last archive sample day per (year,month) so we
           // treat that as the canonical monthly close. This matches the
           // monthly archive series used by the UI instead of requiring the

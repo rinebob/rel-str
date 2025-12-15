@@ -389,7 +389,12 @@ export const backfillSignalsPipelineAdmin = onRequest({ region: 'us-central1', t
       }
     }
 
-    res.status(200).json({ ok: true, from, to, intervals, pairs: results.length, results });
+    const summary = { ok: true, from, to, intervals, pairs: results.length, results };
+    if (!SILENCE_ADMIN_INFO) {
+      logger.info('backfillSignalsPipelineAdmin_done', summary);
+      logger.info('backfillSignalsPipelineAdmin_done results', results);
+    }
+    res.status(200).json(summary);
   } catch (e: any) {
     logger.error('backfillSignalsPipelineAdmin_failed', { message: e?.message });
     res.status(500).json({ ok: false, error: e?.message || 'internal_error' });
