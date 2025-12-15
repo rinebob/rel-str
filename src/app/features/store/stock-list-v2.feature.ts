@@ -276,7 +276,25 @@ export function withStockListV2Feature() {
                             void (async () => {
                                 try {
                                     const full = await getHeatmapDataV2(pairsToFetch);
-                                    const merged = { ...(list.ranksDataWithColors || {}), ...full } as RanksDataWithColors;
+
+                                    const existing = (list.ranksDataWithColors || {}) as RanksDataWithColors;
+                                    const merged: RanksDataWithColors = { ...existing };
+
+                                    for (const pairId of Object.keys(full || {})) {
+                                        const nextSeries = full[pairId];
+                                        const currSeries = existing[pairId];
+
+                                        if (!Array.isArray(nextSeries) || nextSeries.length === 0) {
+                                            continue;
+                                        }
+
+                                        if (Array.isArray(currSeries) && currSeries.length >= nextSeries.length) {
+                                            continue;
+                                        }
+
+                                        merged[pairId] = nextSeries;
+                                    }
+
                                     const selected = store.selectedStockListV2();
                                     const baseList = (selected?.name === list.name ? { ...selected } : { ...list }) as RelStrStockList;
                                     baseList.ranksDataWithColors = merged;
@@ -298,35 +316,11 @@ export function withStockListV2Feature() {
                 liveSubs.clear();
             };
 
-            const startLivePairSubscriptionsForList = (list: RelStrStockList) => {
-                // TODO[realtime]: This wires realtime listeners for pairs-data updates via RelStrDbV2Service.getPairSeriesLive$.
-                // Once getPairSeriesLive$ switches to docData(...), this becomes true realtime.
-                // Ensure stopLivePairSubscriptions() is called before switching lists and on teardown to avoid leaks.
+            const startLivePairSubscriptionsForList = (_list: RelStrStockList) => {
+                // TODO[realtime]: Reintroduce realtime archive listeners when we have a docData-based
+                // archive reader. For now, archive reads are snapshot-only and live subscriptions
+                // are intentionally disabled.
                 stopLivePairSubscriptions();
-                const pairs = getPairsForList(list);
-                for (const pairId of pairs) {
-                    const sub = relStrDbV2Service.getPairSeriesLive$(pairId).subscribe(series => {
-                        const colors = rsCalcsStore.heatmapColors();
-                        const mapped: BaselineTargetRankDatum[] = series.map(d => {
-                            const metric = (d as any).norm ?? d.value;
-                            const idx = Math.floor(metric * (colors.length - 1));
-                            const color = colors[Math.max(0, Math.min(colors.length - 1, idx))];
-                            return { date: d.date, value: d.value, index: idx, color, phase: d.phase, placeholder: false } as BaselineTargetRankDatum;
-                        });
-
-                        const current = store.selectedStockListV2();
-                        const isSameList = current?.name === list.name;
-                        const baseList = isSameList ? { ...current } : { ...list };
-                        const existing = baseList.ranksDataWithColors ?? {} as RanksDataWithColors;
-                        const updated: RanksDataWithColors = { ...existing, [pairId]: mapped };
-                        baseList.ranksDataWithColors = updated;
-
-                        const others = store.allStockListsV2().filter(l => l.name !== baseList.name);
-                        const allStockListsV2 = sortListsV2(baseList, [...others, baseList]);
-                        patchState(store, { selectedStockListV2: baseList, allStockListsV2 });
-                    });
-                    liveSubs.set(pairId, sub);
-                }
             };
 
             const parsePair = (pairId: string): { baseline: string; target: string } | undefined => {
