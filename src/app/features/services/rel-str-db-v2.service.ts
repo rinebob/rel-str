@@ -501,12 +501,12 @@ export class RelStrDbV2Service {
 
           totalAccepted += acceptedForYear;
           // eslint-disable-next-line no-console
-          console.log('[RS][Archive][Debug] Year filter summary', {
-            pair,
-            year: y,
-            docs: docsForYear,
-            accepted: acceptedForYear,
-          });
+        //   console.log('[RS][Archive][Debug] Year filter summary', {
+        //     pair,
+        //     year: y,
+        //     docs: docsForYear,
+        //     accepted: acceptedForYear,
+        //   });
         } catch (e: any) {
           const code = e?.code || '';
           const msg = e?.message || '';
