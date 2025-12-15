@@ -2,7 +2,6 @@ import { onCall, onRequest } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { RsPhase } from '../types/partner';
 import { logger } from 'firebase-functions/v2';
-import { db } from '../firebase-admin-init';
 import { writeWarningsSummary } from '../logging/warn';
 
 import { writeUnifiedSeries } from './pairs-writer';
@@ -12,10 +11,9 @@ import { fetchDailyBarsRange } from './symbol-fetch';
 
 import { FIXED_DAYS, FIXED_LIMIT, ProcessErrorSample, FIXED_INTERVAL } from './webhooks-config';
 
-import { PAIRS_COLLECTION, SIGNALS_COLLECTION } from './webhooks-config';
-
 import { SILENCE_ADMIN_INFO } from './webhooks-config';
-import { forEachWithConcurrency, processPairLive } from './partner-webhooks';
+import { forEachWithConcurrency } from './partner-webhooks';
+
 import { ActivityEventKind, ActivityEventState, Interval, RsSource, type ActivityEvent } from '../types/signal.types';
 import { upsertSignalsActivityForPair, upsertSignalsActivityRoot } from './signals-activity-writer';
 
@@ -37,159 +35,6 @@ interface BackfillSignalsPipelinePairResult {
   closes: number;
   activityDays: number;
 }
-
-/**
- * Callable: recomputePairsRs
- * Recompute RS for specified pairs (or all registered under a baseline) for a configurable window.
- * Params: { baseline: string; symbols?: string[]; phase?: PRE|POST|'both'; days?: number; limit?: number; concurrency?: number; from?: string; to?: string }
- */
-export const recomputePairsRs = onCall({ region: 'us-central1', timeoutSeconds: 540 }, async (req) => {
-  try {
-    const baselineRaw = String(req.data?.baseline || '').trim().toUpperCase();
-    const symbolsRaw: string[] = Array.isArray(req.data?.symbols) ? req.data.symbols : [];
-    const pairsRaw: Array<{ baseline: string; target: string }> = Array.isArray(req.data?.pairs) ? req.data.pairs : [];
-    const phaseRaw = String(req.data?.phase || RsPhase.POST).toLowerCase();
-    const days = Number(req.data?.days ?? FIXED_DAYS);
-    const limit = Number(req.data?.limit ?? FIXED_LIMIT);
-    const from: string | undefined = req.data?.from ? String(req.data.from) : undefined;
-    const to: string | undefined = req.data?.to ? String(req.data.to) : undefined;
-
-    const concurrency = Number(req.data?.concurrency ?? (Number(process.env.PARTNER_PAIR_CONCURRENCY) || 3));
-    const delayMsBetweenPairs = Math.max(0, Number(req.data?.delayMsBetweenPairs ?? 0) || 0);
-    if (!baselineRaw && pairsRaw.length === 0) return { ok: false, error: 'missing_baseline_or_pairs' };
-
-    // Resolve pairs list
-    let pairsList: Array<{ baseline: string; target: string }> = [];
-    if (pairsRaw.length > 0) {
-      pairsList = pairsRaw
-        .map((p: any) => ({
-          baseline: String(p?.baseline || '').trim().toUpperCase(),
-          target: String(p?.target || '').trim().toUpperCase(),
-        }))
-        .filter((p) => p.baseline && p.target);
-    } else {
-      // Fallback: baseline + optional symbols subset
-      let targets: string[] = [];
-      if (symbolsRaw.length) {
-        targets = symbolsRaw.map((s) => String(s).trim().toUpperCase()).filter(Boolean);
-      } else {
-        const all = await listRegisteredPairs();
-        targets = all.filter(p => p.baseline === baselineRaw).map(p => p.target);
-      }
-      if (targets.length === 0) return { ok: false, error: 'no_targets' };
-      pairsList = targets.map(t => ({ baseline: baselineRaw, target: t }));
-    }
-
-    const doPhase = async (phase: RsPhase) => {
-      const accum = { successPairs: 0, failedPairs: 0, errorSamples: [] as ProcessErrorSample[] };
-      let skippedExisting = 0; // reserved for future use in callable path
-      let writtenDays = 0;
-      // Range mode is enabled only when the caller provides an explicit `from`.
-      // `to` defaults to "today" when omitted.
-      const useRange = !!from;
-      if (!SILENCE_ADMIN_INFO) logger.info('recomputePairsRs starting pair processing', { count: pairsList.length, phase, concurrency, delayMsBetweenPairs, useRange, from: from ?? null, to: to ?? null });
-
-      const baselineBarsCache = new Map<string, any[]>();
-
-      await forEachWithConcurrency(pairsList, Math.max(1, concurrency), async ({ baseline, target }) => {
-        const pairId = `${baseline}-${target}`;
-        try {
-          if (useRange) {
-            // Range-based path: explicit calendar window with local padding for RS.
-            // We pad the fetch window backwards from `from` so RS points exist
-            // starting at the requested `from` day.
-            let paddedFrom: string | undefined = from;
-            if (from) {
-              try {
-                const base = new Date(`${from}T00:00:00.000Z`);
-                const padDays = 10; // enough to cover 5 trading days across weekends/holidays
-                const padded = new Date(base.getTime() - padDays * 24 * 60 * 60 * 1000);
-                const y = padded.getUTCFullYear();
-                const m = String(padded.getUTCMonth() + 1).padStart(2, '0');
-                const d = String(padded.getUTCDate()).padStart(2, '0');
-                paddedFrom = `${y}-${m}-${d}`;
-              } catch {
-                paddedFrom = from;
-              }
-            }
-
-            let effectiveTo: string;
-            if (to) {
-              effectiveTo = String(to).slice(0, 10);
-            } else {
-              const today = new Date();
-              effectiveTo = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(today.getUTCDate()).padStart(2, '0')}`;
-            }
-
-            const rangeOpts = { from: paddedFrom, to: effectiveTo, interval: FIXED_INTERVAL } as const;
-
-            let baseBars: any[] | undefined = baselineBarsCache.get(baseline);
-            if (!baseBars) {
-              baseBars = await fetchDailyBarsRange(baseline, rangeOpts);
-              baselineBarsCache.set(baseline, baseBars);
-            }
-            const targetBars = await fetchDailyBarsRange(target, rangeOpts);
-            let series = buildPhaseSeries(baseBars, targetBars, phase, baseline, target, logger, { from, to: effectiveTo });
-            // After computing RS, clamp the series to the original requested [from,to] window
-            // so we do not leak padded days into Firestore.
-            if (from) {
-              const lower = String(from).slice(0, 10);
-              const upper = String(effectiveTo).slice(0, 10);
-              series = series.filter((p) => p.day >= lower && p.day <= upper);
-            }
-
-            if (series.length === 0) {
-              accum.failedPairs++;
-              if (accum.errorSamples.length < 10) accum.errorSamples.push({ pair: pairId, message: 'no_aligned_series' });
-              return;
-            }
-            await writeUnifiedSeries(baseline, target, phase, series, baseBars, targetBars);
-            writtenDays += series.length;
-            accum.successPairs++;
-          } else {
-            // Legacy path: last `days` window driven by FIXED_DAYS / RS_DAYS
-            await processPairLive(baseline, target, phase, days, accum, { baselineBars: baselineBarsCache });
-          }
-        } finally {
-          if (delayMsBetweenPairs > 0) {
-            await new Promise((r) => setTimeout(r, delayMsBetweenPairs));
-          }
-        }
-      });
-      return { successPairs: accum.successPairs, failedPairs: accum.failedPairs, skippedExisting, writtenDays, errorSamples: accum.errorSamples };
-    };
-
-    const phases: RsPhase[] = phaseRaw === 'both' ? [RsPhase.PRE, RsPhase.POST] : (phaseRaw === RsPhase.PRE ? [RsPhase.PRE] : [RsPhase.POST]);
-    const results = [] as Array<{ phase: RsPhase; successPairs: number; failedPairs: number; skippedExisting: number; writtenDays: number; errorSamples: ProcessErrorSample[] }>;
-    let writtenDaysTotal = 0;
-    for (const ph of phases) {
-      const r = await doPhase(ph);
-      writtenDaysTotal += r.writtenDays;
-      results.push({ phase: ph, ...r });
-    }
-    try { await writeWarningsSummary({ function: 'recomputePairsRs', baseline: baselineRaw || null, pairs: pairsList.length }); } catch {}
-
-    const useRangeTop = !!(from || to);
-
-    const daysOut = useRangeTop ? null : days;
-    const limitOut = useRangeTop ? null : limit;
-
-    return {
-      ok: true,
-      baseline: baselineRaw || null,
-      pairs: pairsList.length,
-      days: daysOut,
-      limit: limitOut,
-      from,
-      to,
-      writtenDaysTotal,
-      results,
-    };
-  } catch (e: any) {
-    logger.error('recomputePairsRs_failed', { message: e?.message });
-    return { ok: false, error: e?.message || 'internal_error' };
-  }
-});
 
 /**
  * HTTP (admin): diagnoseRegisteredRangeAdmin
@@ -330,6 +175,16 @@ export const backfillSignalsPipelineAdmin = onRequest({ region: 'us-central1', t
     const includeWeekly = intervals.includes(Interval.WEEKLY);
     const includeMonthly = intervals.includes(Interval.MONTHLY);
 
+    if (!SILENCE_ADMIN_INFO) {
+      logger.info('backfillSignalsPipelineAdmin_start', {
+        from,
+        to,
+        phase,
+        intervals,
+        totalPairs: pairs.length,
+      });
+    }
+
     const results: BackfillSignalsPipelinePairResult[] = [];
 
     const fromDay = from;
@@ -379,6 +234,10 @@ export const backfillSignalsPipelineAdmin = onRequest({ region: 'us-central1', t
       series = series.filter((p) => p.day >= fromVal && p.day <= toVal);
       return series as unknown as PhaseSeriesPointWithMetrics[];
     };
+
+    let processedPairs = 0;
+    const totalPairs = pairs.length;
+    const logEvery = Math.max(1, Math.min(10, Math.floor(totalPairs / 5) || 1));
 
     for (const pair of pairs) {
       const [baseline, target] = pair.split('-', 2);
@@ -516,77 +375,24 @@ export const backfillSignalsPipelineAdmin = onRequest({ region: 'us-central1', t
       }
 
       results.push({ pair, opens, closes, activityDays: engineActivityByDay.size });
+
+      processedPairs++;
+      if (!SILENCE_ADMIN_INFO && (processedPairs % logEvery === 0 || processedPairs === totalPairs)) {
+        logger.info('backfillSignalsPipelineAdmin_progress', {
+          from,
+          to,
+          phase,
+          intervals,
+          processedPairs,
+          totalPairs,
+        });
+      }
     }
 
     res.status(200).json({ ok: true, from, to, intervals, pairs: results.length, results });
   } catch (e: any) {
     logger.error('backfillSignalsPipelineAdmin_failed', { message: e?.message });
     res.status(500).json({ ok: false, error: e?.message || 'internal_error' });
-  }
-});
-
-/**
- * Callable: recomputeRegisteredLive
- * Iterate all registered pairs and run the live writer for the specified phase (default POST),
- * which updates pairs-data/archive and, on POST, writes positions/{id}.current* via updateOpenPositionsForPair().
- * Params: { phase?: PRE|POST, days?: number, concurrency?: number }
- */
-export const recomputeRegisteredLive = onCall({ region: 'us-central1', timeoutSeconds: 540 }, async (req) => {
-  try {
-    const phase: RsPhase = (String(req.data?.phase || RsPhase.POST).toLowerCase() === RsPhase.PRE) ? RsPhase.PRE : RsPhase.POST;
-    const days = Number(req.data?.days ?? FIXED_DAYS);
-    const concurrency = Number(req.data?.concurrency ?? (Number(process.env.PARTNER_PAIR_CONCURRENCY) || 3));
-
-    const pairs = await listRegisteredPairs();
-    if (pairs.length === 0) {
-      if (!SILENCE_ADMIN_INFO) logger.info('recomputeRegisteredLive no registered pairs');
-      return { ok: true, processed: 0, failed: 0, phase, days, concurrency };
-    }
-
-    const counters = {
-      successPairs: 0,
-      failedPairs: 0,
-      errorSamples: [] as ProcessErrorSample[]
-    };
-    const baselineBarsCache = new Map<string, any[]>();
-
-    await forEachWithConcurrency(pairs, Math.max(1, concurrency), async ({ baseline, target }) => {
-      try {
-        await processPairLive(
-          baseline, 
-          target, 
-          phase, 
-          days, 
-          counters, 
-          { baselineBars: baselineBarsCache }, 
-          { runId: 'manual', eventType: 'recompute-registered-live', trigger: 'manual' }
-        );
-        counters.successPairs++;
-      } catch (e: any) {
-        counters.failedPairs++;
-        const msg = (e?.message !== undefined) ? String(e.message) : String(e);
-        if (counters.errorSamples.length < 50) {
-          counters.errorSamples.push({ 
-            pair: `${baseline}-${target}`, 
-            status: e?.response?.status as number | undefined, 
-            message: msg 
-          });
-        }
-      }
-    });
-
-    return { 
-      ok: true, 
-      processed: counters.successPairs, 
-      failed: counters.failedPairs, 
-      phase, 
-      days, 
-      concurrency, 
-      errorSamples: counters.errorSamples 
-    };
-  } catch (e: any) {
-    logger.error('recomputeRegisteredLive_failed', { message: e?.message });
-    return { ok: false, error: e?.message || 'internal_error' };
   }
 });
 
@@ -659,6 +465,18 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
 
     const phases: RsPhase[] = phaseRaw === 'both' ? [RsPhase.PRE, RsPhase.POST] : (phaseRaw === RsPhase.PRE ? [RsPhase.PRE] : [RsPhase.POST]);
     const summary: any = { ok: true, totalPairs: pairs.length, days, limit, from, to, phases, intervals, results: [] };
+
+    if (!SILENCE_ADMIN_INFO) {
+      logger.info('recomputeRegisteredBackfill_start', {
+        from,
+        to,
+        days,
+        limit,
+        phases,
+        intervals,
+        totalPairs: pairs.length,
+      });
+    }
 
     for (const ph of phases) {
       let successPairs = 0;
@@ -733,6 +551,10 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
           interval: FIXED_INTERVAL,
         });
       };
+
+      let processedPairsForPhase = 0;
+      const totalPairsForPhase = pairs.length;
+      const logEveryPhase = Math.max(1, Math.min(10, Math.floor(totalPairsForPhase / 5) || 1));
 
       await forEachWithConcurrency(pairs, Math.max(1, concurrency), async ({ baseline, target }) => {
         try {
@@ -840,6 +662,20 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
 
         }
       });
+
+      processedPairsForPhase++;
+      if (!SILENCE_ADMIN_INFO && (processedPairsForPhase % logEveryPhase === 0 || processedPairsForPhase === totalPairsForPhase)) {
+        logger.info('recomputeRegisteredBackfill_progress', {
+          phase: ph,
+          from,
+          to,
+          intervals,
+          processedPairs: processedPairsForPhase,
+          totalPairs: totalPairsForPhase,
+          writtenDays,
+        });
+      }
+
       summary.results.push({ phase: ph, successPairs, failedPairs, writtenDays, errorSamples });
     }
 
@@ -863,6 +699,7 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
  *  - autoFix?: boolean (default false) → if true, writes only computed-but-missing days
  */
 export const diagnosePairDays = onCall({ region: 'us-central1', timeoutSeconds: 540 }, async (req) => {
+
   try {
     const baseline = String(req.data?.baseline || '').trim().toUpperCase();
     const symbols: string[] = Array.isArray(req.data?.symbols) ? req.data.symbols.map((s: any) => String(s).toUpperCase()) : [];
@@ -1068,134 +905,6 @@ export const diagnosePairDaysAdmin = onRequest({ region: 'us-central1', timeoutS
     res.status(200).json(callRes);
   } catch (e: any) {
     logger.error('diagnosePairDaysAdmin_failed', { message: e?.message });
-    res.status(500).json({ ok: false, error: e?.message || 'internal_error' });
-  }
-});
-
-export const refreshAllRangeAdmin = onRequest({ region: 'us-central1', timeoutSeconds: 540 }, async (req, res) => {
-  const token = (req.headers['authorization'] || '').toString().replace(/^Bearer\s+/i, '');
-  const expected = (process.env.ADMIN_BACKFILL_TOKEN || '').trim();
-  if (!expected || token !== expected) {
-    res.status(401).json({ ok: false, error: 'unauthorized' });
-    return;
-  }
-  try {
-    const fromDayRaw: string | undefined = (req.body?.fromDay ?? req.query.fromDay) as string | undefined;
-    const toDayRaw: string | undefined = (req.body?.toDay ?? req.query.toDay) as string | undefined;
-    const daysParam = req.body?.days ?? req.query.days;
-    const days: number | undefined = daysParam !== undefined ? Number(daysParam) : undefined;
-    const phaseRaw = String((req.body?.phase ?? req.query.phase) || RsPhase.POST).toLowerCase();
-    const concurrency = Number(req.body?.concurrency ?? req.query.concurrency ?? (Number(process.env.PARTNER_PAIR_CONCURRENCY) || 3));
-
-    // Normalize range
-    let fromDay: string | undefined = fromDayRaw?.slice(0, 10);
-    let toDay: string | undefined = toDayRaw?.slice(0, 10);
-    if ((!fromDay || !toDay) && Number.isFinite(days as number)) {
-      const to = new Date();
-      const from = new Date(to.getTime() - (Math.max(1, Number(days)) - 1) * 24 * 60 * 60 * 1000);
-      const ymd = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
-      fromDay = ymd(from);
-      toDay = ymd(to);
-    }
-
-    // Phases to run
-    const phases: RsPhase[] = phaseRaw === 'both' ? [RsPhase.PRE, RsPhase.POST] : (phaseRaw === RsPhase.PRE ? [RsPhase.PRE] : [RsPhase.POST]);
-
-    // 1) Recompute RS series and write pairs-data/signals/positions across the range using existing callable recomputePairsRs per baseline
-    const baselinesSet = new Set<string>();
-    try {
-      const pairs = await listRegisteredPairs();
-      for (const p of pairs) baselinesSet.add(String(p.baseline || '').toUpperCase());
-    } catch {}
-
-    const rsResults: Array<{ baseline: string; phase: RsPhase; ok: boolean; error?: string }> = [];
-    if (baselinesSet.size > 0 && fromDay && toDay) {
-      for (const baseline of baselinesSet) {
-        for (const ph of phases) {
-          try {
-            const callRes = await recomputePairsRs.run({
-              data: { baseline, phase: ph, from: fromDay, to: toDay, concurrency },
-              auth: undefined,
-              instanceIdToken: undefined,
-              rawRequest: undefined as any,
-            } as any);
-            const ok = (callRes as any)?.ok !== false;
-            rsResults.push({ baseline, phase: ph, ok, error: ok ? undefined : String((callRes as any)?.error || '') });
-          } catch (e: any) {
-            rsResults.push({ baseline, phase: ph, ok: false, error: e?.message || String(e) });
-          }
-        }
-      }
-    } else {
-      if (baselinesSet.size > 0 && fromDay && toDay) {
-        for (const baseline of baselinesSet) {
-          for (const ph of phases) {
-            try {
-              const callRes = await recomputePairsRs.run({
-                data: { baseline, phase: ph, from: fromDay, to: toDay, concurrency },
-                auth: undefined,
-                instanceIdToken: undefined,
-                rawRequest: undefined as any,
-              } as any);
-              const ok = (callRes as any)?.ok !== false;
-              rsResults.push({ baseline, phase: ph, ok, error: ok ? undefined : String((callRes as any)?.error || '') });
-            } catch (e: any) {
-              rsResults.push({ baseline, phase: ph, ok: false, error: e?.message || String(e) });
-            }
-          }
-        }
-        res.status(200).json({ ok: true, phases, range: { fromDay, toDay }, rsResults });
-        return;
-      }
-
-      res.status(200).json({ ok: true, phases, range: { fromDay: fromDay ?? null, toDay: toDay ?? null }, rsResults });
-    }
-
-  } catch (e: any) {
-    logger.error('refreshAllRangeAdmin_failed', { message: e?.message });
-    res.status(500).json({ ok: false, error: e?.message || 'internal_error' });
-  }
-});
-
-export const purgePairsDataSignalsAdmin = onRequest({ region: 'us-central1', timeoutSeconds: 540 }, async (req, res) => {
-  const token = (req.headers['authorization'] || '').toString().replace(/^Bearer\s+/i, '');
-  const expected = (process.env.ADMIN_BACKFILL_TOKEN || '').trim();
-  if (!expected || token !== expected) {
-    res.status(401).json({ ok: false, error: 'unauthorized' });
-    return;
-  }
-  try {
-    const pairs = await listRegisteredPairs();
-    let pairsScanned = 0;
-    let signalsDeleted = 0;
-
-    const deleteAll = async (colRef: FirebaseFirestore.CollectionReference): Promise<number> => {
-      let total = 0;
-      while (true) {
-        const snap = await colRef.limit(500).get();
-        if (snap.empty) break;
-        const batch = db.batch();
-        for (const d of snap.docs) {
-          batch.delete(d.ref);
-          total++;
-        }
-        await batch.commit();
-      }
-      return total;
-    };
-
-    for (const p of pairs) {
-      const pairId = `${p.baseline}-${p.target}`;
-      const baseRef = db.collection(PAIRS_COLLECTION).doc(pairId);
-      pairsScanned++;
-      try {
-        const sRef = baseRef.collection(SIGNALS_COLLECTION);
-        signalsDeleted += await deleteAll(sRef);
-      } catch {}
-    }
-
-    res.status(200).json({ ok: true, pairs: pairsScanned, signalsDeleted });
-  } catch (e: any) {
     res.status(500).json({ ok: false, error: e?.message || 'internal_error' });
   }
 });

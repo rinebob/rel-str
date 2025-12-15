@@ -4,14 +4,10 @@ export {partnerProxyTest, getTrackedSymbols} from "./partner-proxy";
 
 export { processDataReadyRunV2 } from "./webhooks/partner-webhooks";
 export {
-  recomputePairsRs,
   recomputeRegisteredBackfill,
   diagnosePairDays,
   diagnosePairDaysAdmin,
   diagnoseRegisteredRangeAdmin,
-  recomputeRegisteredLive,
-  refreshAllRangeAdmin,
-  purgePairsDataSignalsAdmin,
   autoDiagnoseAndFixDaily,
   backfillSignalsPipelineAdmin,
 } from "./webhooks/admin-tasks";
