@@ -420,11 +420,40 @@ export class RelStrDbV2Service {
     return defer(() => from(this.inCtx(async () => {
       const results: RsSeriesPoint[] = [];
       let hadPermissionError = false;
+      let totalDocs = 0;
+      let totalAccepted = 0;
+      const yearsScanned: number[] = [];
+
       for (const y of years) {
         try {
           const colRef = collection(this.firestore, `${Collection.PAIRS_DATA}/${pair}/archive-${y}`);
           const qRef = query(colRef, orderBy('day', 'asc'));
           const snap = await this.inCtx(() => this.zone.run(() => getDocs(qRef)));
+
+          const docsForYear = snap.docs.length;
+          let acceptedForYear = 0;
+          totalDocs += docsForYear;
+          yearsScanned.push(y);
+
+          const sampleRaw = docsForYear > 0 ? (snap.docs[0].data() as any) || {} : undefined;
+          if (docsForYear > 0) {
+            // eslint-disable-next-line no-console
+            console.log('[RS][Archive][Debug] Year snapshot', {
+              pair,
+              year: y,
+              docs: docsForYear,
+              sample: sampleRaw
+                ? {
+                    day: String(sampleRaw?.day || ''),
+                    postRsRaw: sampleRaw?.post?.rsRaw,
+                    postRsNorm: sampleRaw?.post?.rsNorm,
+                    preRsRaw: sampleRaw?.pre?.rsRaw,
+                    preRsNorm: sampleRaw?.pre?.rsNorm,
+                  }
+                : null,
+            });
+          }
+
           for (const docSnap of snap.docs) {
             const raw = (docSnap.data() as any) || {};
             const dateYMD = String(raw?.day || '').trim() || ymdFromShardId(docSnap.id, y);
@@ -451,7 +480,7 @@ export class RelStrDbV2Service {
               const postRsRaw = Number.isFinite(post?.rsRaw) ? Number(post.rsRaw) : undefined;
               const postRsNorm = Number.isFinite(post?.rsNorm) ? Number(post.rsNorm) : undefined;
               const preRsRaw = Number.isFinite(pre?.rsRaw) ? Number(pre.rsRaw) : undefined;
-              const preRsNorm = Number.isFinite(pre?.rsNorm) ? Number(pre.rsNorm) : undefined;
+              const preRsNorm = Number.isFinite(pre?.rsNorm) ? Number(pre?.rsNorm) : undefined;
 
               if (Number.isFinite(postRsRaw) && Number.isFinite(postRsNorm)) {
                 value = postRsRaw;
@@ -467,14 +496,24 @@ export class RelStrDbV2Service {
             }
 
             results.push({ date: dateYMD, value: value!, norm, phase });
+            acceptedForYear += 1;
           }
+
+          totalAccepted += acceptedForYear;
+          // eslint-disable-next-line no-console
+          console.log('[RS][Archive][Debug] Year filter summary', {
+            pair,
+            year: y,
+            docs: docsForYear,
+            accepted: acceptedForYear,
+          });
         } catch (e: any) {
           const code = e?.code || '';
           const msg = e?.message || '';
           if (code === 'permission-denied' || /insufficient permissions/i.test(msg)) {
             hadPermissionError = true;
           }
-          console.warn('[RelStrDbV2Service] archive read failed for year', { pair, year: y, e });
+          console.warn('[RelStrDbV2Service] archive read failed for year', { pair, year: y, e, code, msg });
         }
       }
       const byDate = new Map<string, { date: string; value: number; norm?: number; phase?: RsPhase }>();
@@ -489,6 +528,18 @@ export class RelStrDbV2Service {
         const err: any = new Error('permission-denied');
         err.code = 'permission-denied';
         throw err;
+      }
+      try {
+        // eslint-disable-next-line no-console
+        console.log('[RS][Archive][Debug] Aggregate summary', {
+          pair,
+          yearsScanned,
+          totalDocs,
+          totalAccepted,
+          mergedLen: merged.length,
+        });
+      } catch {
+        // ignore debug logging errors
       }
       return merged;
     }))).pipe(
