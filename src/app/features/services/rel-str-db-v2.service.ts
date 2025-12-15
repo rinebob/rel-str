@@ -75,27 +75,29 @@ export class RelStrDbV2Service {
             let value: number | undefined;
             let norm: number | undefined;
             if (!isToday) {
+              // Historical days: require canonical POST rsRaw/rsNorm
               const postRsRaw = Number.isFinite(post?.rsRaw) ? Number(post.rsRaw) : undefined;
               const postRsNorm = Number.isFinite(post?.rsNorm) ? Number(post.rsNorm) : undefined;
-              if (!Number.isFinite(postRsRaw) && !Number.isFinite(postRsNorm)) {
+              if (!Number.isFinite(postRsRaw) || !Number.isFinite(postRsNorm)) {
                 continue;
               }
-              value = Number(postRsRaw ?? postRsNorm);
-              norm = Number(postRsNorm ?? postRsRaw);
+              value = postRsRaw;
+              norm = postRsNorm;
               phase = RsPhase.POST;
             } else {
+              // Today (UTC): prefer POST rsRaw/rsNorm, else PRE rsRaw/rsNorm
               const postRsRaw = Number.isFinite(post?.rsRaw) ? Number(post.rsRaw) : undefined;
               const postRsNorm = Number.isFinite(post?.rsNorm) ? Number(post.rsNorm) : undefined;
-              const preRsRaw = Number.isFinite(pre?.rsRaw) ? Number(pre?.rsRaw) : undefined;
+              const preRsRaw = Number.isFinite(pre?.rsRaw) ? Number(pre.rsRaw) : undefined;
               const preRsNorm = Number.isFinite(pre?.rsNorm) ? Number(pre.rsNorm) : undefined;
 
-              if (Number.isFinite(postRsRaw) || Number.isFinite(postRsNorm)) {
-                value = Number(postRsRaw ?? postRsNorm);
-                norm = Number(postRsNorm ?? postRsRaw);
+              if (Number.isFinite(postRsRaw) && Number.isFinite(postRsNorm)) {
+                value = postRsRaw;
+                norm = postRsNorm;
                 phase = RsPhase.POST;
-              } else if (Number.isFinite(preRsRaw) || Number.isFinite(preRsNorm)) {
-                value = Number(preRsRaw ?? preRsNorm);
-                norm = Number(preRsNorm ?? preRsRaw);
+              } else if (Number.isFinite(preRsRaw) && Number.isFinite(preRsNorm)) {
+                value = preRsRaw;
+                norm = preRsNorm;
                 phase = RsPhase.PRE;
               } else {
                 continue;
@@ -392,63 +394,14 @@ export class RelStrDbV2Service {
   }
 
   /**
-   * Legacy reader for root doc `pairs-data/{PAIR}` (uses `data` array and `latest`).
-   * @deprecated Archive-first is the agreed approach. This legacy path is scheduled for removal after archive stabilization in prod.
-   * TODO[deprecate]: Remove this method and callers when archive pipelines fully replace legacy reads.
-   * Rules:
-   * - Historical days: use post.rs only (ignore pre)
-   * - Latest day: use post.rs if present, else allow pre.rs
-   */
-  getPairSeriesLive$(pairId: string): Observable<RsSeriesPoint[]> {
-    return defer(() => from(this.inCtx(() => this.zone.run(() => getDoc(doc(this.firestore, `${Collection.PAIRS_DATA}/${pairId}`)))))).pipe(
-      tap(() => console.log('[RS][Legacy] Fetching series for pair', pairId)),
-      map(snap => {
-        const data = (snap?.exists() ? (snap.data() as any) : {}) || {};
-        const series: any[] = Array.isArray(data?.data) ? data.data : [];
-        const latestDay: string | undefined = (data?.latest?.day as string | undefined) || (series.length ? String(series[series.length - 1]?.day || '') : undefined);
-        const out: RsSeriesPoint[] = [];
-        for (const row of series) {
-          const day = String(row?.day ?? row?.date ?? '');
-          if (!day) continue;
-          const postRsVal = row?.post?.rs;
-          const postRsRaw = row?.post?.rsRaw; // optional: backend may write the continuous/raw RS here
-          const postRsNorm = row?.post?.rsNorm; // optional: backend may write a normalized value separately
-          const preRsVal = row?.pre?.rs;
-          const preRsRaw = row?.pre?.rsRaw;
-          const preRsNorm = row?.pre?.rsNorm;
-          if (Number.isFinite(postRsVal)) {
-            // Display prefers raw if present; color prefers normalized if present
-            const value = Number.isFinite(postRsRaw) ? Number(postRsRaw) : Number(postRsVal);
-            const norm = Number.isFinite(postRsNorm) ? Number(postRsNorm) : Number(postRsVal);
-            out.push({ date: day, value, norm, phase: RsPhase.POST });
-          } else if (latestDay && day === latestDay && Number.isFinite(preRsVal)) {
-            // Only allow pre for the latest day when post is not yet available
-            const value = Number.isFinite(preRsRaw) ? Number(preRsRaw) : Number(preRsVal);
-            const norm = Number.isFinite(preRsNorm) ? Number(preRsNorm) : Number(preRsVal);
-            out.push({ date: day, value, norm, phase: RsPhase.PRE });
-          } else {
-            // skip (no valid value per strict rules)
-          }
-        }
-        // ensure chronological order
-        out.sort((a, b) => {
-          const ad = String(a?.date ?? '');
-          const bd = String(b?.date ?? '');
-          return ad.localeCompare(bd);
-        });
-        return out;
-      }),
-      tap(arr => console.log('[RS][Legacy] Series ready', { pair: pairId, len: arr.length, first: arr[0] })),
-      catchError(err => { console.error('[RelStrDbV2Service] getPairSeriesLive$ error', { pairId, err }); return of([] as RsSeriesPoint[]) })
-    );
-  }
-
-  /**
    * Reads RS series from archive shards under pairs-data/{PAIR}/archive-YYYY/{YYMMDD}.
    * Selection rules:
    * - Historical days: use POST only.
    * - Today (UTC): use POST if present, else PRE if present.
-   * Returns same shape as getPairSeriesLive$.
+   * Value selection:
+   * - Use canonical rsRaw for the numeric value.
+   * - Use canonical rsNorm for the normalized rank used by heatmaps.
+   * - Do not fall back to legacy `rs` fields or cross-fallback between raw/norm.
    */
   getPairSeriesFromArchive$(pairId: string): Observable<RsSeriesPoint[]> {
     const pair = String(pairId || '').trim();
@@ -482,36 +435,37 @@ export class RelStrDbV2Service {
             let phase: RsPhase | undefined;
             let value: number | undefined;
             let norm: number | undefined;
+
             if (!isToday) {
-              if (Number.isFinite(post?.rs)) {
-                const postRsVal = Number(post.rs);
-                const postRsRaw = Number.isFinite(post?.rsRaw) ? Number(post.rsRaw) : undefined;
-                const postRsNorm = Number.isFinite(post?.rsNorm) ? Number(post.rsNorm) : undefined;
-                value = Number.isFinite(postRsRaw) ? postRsRaw : postRsVal;
-                norm = Number.isFinite(postRsNorm) ? Number(postRsNorm) : postRsVal;
-                phase = RsPhase.POST;
-              } else {
+              // Historical days: require canonical POST rsRaw/rsNorm
+              const postRsRaw = Number.isFinite(post?.rsRaw) ? Number(post.rsRaw) : undefined;
+              const postRsNorm = Number.isFinite(post?.rsNorm) ? Number(post.rsNorm) : undefined;
+              if (!Number.isFinite(postRsRaw) || !Number.isFinite(postRsNorm)) {
                 continue;
               }
+              value = postRsRaw;
+              norm = postRsNorm;
+              phase = RsPhase.POST;
             } else {
-              if (Number.isFinite(post?.rs)) {
-                const postRsVal = Number(post.rs);
-                const postRsRaw = Number.isFinite(post?.rsRaw) ? Number(post.rsRaw) : undefined;
-                const postRsNorm = Number.isFinite(post?.rsNorm) ? Number(post.rsNorm) : undefined;
-                value = Number.isFinite(postRsRaw) ? postRsRaw : postRsVal;
-                norm = Number.isFinite(postRsNorm) ? Number(postRsNorm) : postRsVal;
+              // Today (UTC): prefer POST rsRaw/rsNorm, else PRE rsRaw/rsNorm
+              const postRsRaw = Number.isFinite(post?.rsRaw) ? Number(post.rsRaw) : undefined;
+              const postRsNorm = Number.isFinite(post?.rsNorm) ? Number(post.rsNorm) : undefined;
+              const preRsRaw = Number.isFinite(pre?.rsRaw) ? Number(pre.rsRaw) : undefined;
+              const preRsNorm = Number.isFinite(pre?.rsNorm) ? Number(pre.rsNorm) : undefined;
+
+              if (Number.isFinite(postRsRaw) && Number.isFinite(postRsNorm)) {
+                value = postRsRaw;
+                norm = postRsNorm;
                 phase = RsPhase.POST;
-              } else if (Number.isFinite(pre?.rs)) {
-                const preRsVal = Number(pre.rs);
-                const preRsRaw = Number.isFinite(pre?.rsRaw) ? Number(pre.rsRaw) : undefined;
-                const preRsNorm = Number.isFinite(pre?.rsNorm) ? Number(pre.rsNorm) : undefined;
-                value = Number.isFinite(preRsRaw) ? Number(preRsRaw) : preRsVal;
-                norm = Number.isFinite(preRsNorm) ? Number(preRsNorm) : preRsVal;
+              } else if (Number.isFinite(preRsRaw) && Number.isFinite(preRsNorm)) {
+                value = preRsRaw;
+                norm = preRsNorm;
                 phase = RsPhase.PRE;
               } else {
                 continue;
               }
             }
+
             results.push({ date: dateYMD, value: value!, norm, phase });
           }
         } catch (e: any) {
