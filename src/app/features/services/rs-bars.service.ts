@@ -26,6 +26,16 @@ import { environment } from '../../../environments/environment';
 const EMULATOR_YEARS_BACK = 2;
 const PROD_YEARS_BACK = 7;
 
+/**
+ * Default lower bound for OHLC history requested by RsBarsService.
+ *
+ * This is intentionally anchored to the start of the RS archive era so
+ * frontend charts can "show all" back through 2019 without relying on
+ * deprecated yearsBack settings in downstream services. Callers can still
+ * override this by passing an explicit from date in params.
+ */
+const DEFAULT_HISTORY_START_ISO = '2019-01-01';
+
 @Injectable({ providedIn: 'root' })
 export class RsBarsService {
   private readonly env = inject(EnvironmentInjector);
@@ -42,18 +52,14 @@ export class RsBarsService {
       return of([] as OHLCDatum[]);
     }
 
-    // Default history window depends on environment: emulators use a
-    // smaller 2-year window to match seeded data; prod uses 7 years to
-    // support longer backtests and visual context. This is converted into
-    // an explicit [from,to] calendar window; callers may override either
-    // bound by passing from/to directly in params.
-    const defaultYearsWindow = (environment as any)?.useEmulators
-      ? EMULATOR_YEARS_BACK
-      : PROD_YEARS_BACK;
+    // Default history window is now explicitly anchored to a fixed
+    // historical start so charts can "show all" back through the RS
+    // archive era without relying on deprecated yearsBack semantics in
+    // downstream services. Callers may still override either bound via
+    // params.from/params.to.
     const now = new Date();
     const defaultToIso = now.toISOString().slice(0, 10);
-    const defaultFromDate = new Date(now.getTime() - defaultYearsWindow * 365 * 24 * 60 * 60 * 1000);
-    const defaultFromIso = defaultFromDate.toISOString().slice(0, 10);
+    const defaultFromIso = DEFAULT_HISTORY_START_ISO;
 
     const fromIso = params.from ?? defaultFromIso;
     const toIso = params.to ?? defaultToIso;
