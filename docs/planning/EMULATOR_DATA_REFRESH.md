@@ -105,6 +105,38 @@ Effect per pair (`pair-registry` driven):
 - Deletes the `signals/{YYYY}` docs themselves.
 - Deletes any `signals/open/items/*` and the `signals/open` doc.
 
+#### 2.4.1 (2025-12) Combined purge for canonical signals + signals-activity
+
+As of the multi-interval RS refactor, there is a single callable that can purge both
+canonical per-pair `signals` **and** per-pair `signals-activity` in one pass, driven
+by `pair-registry`:
+
+```powershell
+$body = @{
+  data = @{
+    fromYear         = 2000
+    toYear           = 2030
+    removeContainers = $true   # delete year docs under signals + signals-activity
+    removeOpenBucket = $true   # delete any signals/open bucket + items
+    # pairs = @("QQQ-AAPL", "SPY-QQQ")  # optional: restrict to specific pairs
+  }
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:5002/rel-str/us-central1/purgePairSignalsAndActivityAll" `
+  -ContentType "application/json" `
+  -Body $body
+```
+
+Effect per pair (`pair-registry` driven):
+
+- Deletes legacy flat `pairs-data/{PAIR}/signals/*` docs with non‑year ids.
+- Deletes all items under `signals/{YYYY}/opens` and `signals/{YYYY}/closes` for `fromYear..toYear`.
+- Deletes any `signals/open/items/*` and the `signals/open` doc when `removeOpenBucket = true`.
+- Deletes all `pairs-data/{PAIR}/signals-activity/{YYYY}/days/*` docs for `fromYear..toYear`.
+- Deletes `signals/{YYYY}` and `signals-activity/{YYYY}` container docs when `removeContainers = true`.
+
 ### 2.5 Hard delete signals and signals-daily subcollections (per pair)
 
 After the callables above, use the **Firestore CLI** against the emulator to ensure *all* `signals` and `signals-daily` subcollections are removed for the registered pairs.
@@ -189,18 +221,25 @@ Expected result (example):
 
 ## 4. Backfill Signals, Positions, and Activity in Emulator
 
-Once archives are correct, use `backfillSignalsPipelineAdmin` (HTTP admin endpoint) to rebuild canonical per‑pair signals/positions **and** Signals Activity (per‑pair + root) for a date range.
+Once archives are correct, use `backfillSignalsPipelineAdmin` (HTTP admin endpoint) to rebuild canonical per‑pair signals/positions **and** Signals Activity (per‑pair + root).
 
-Example: backfill a wide window for emulator testing:
+### 4.1 Recommended: full‑history backfill per pair (single contiguous window)
+
+To keep DAILY/WEEKLY/MONTHLY open/close state consistent across year boundaries, always run backfill over a **single contiguous `[from,to]` window per environment**, rather than year‑sharded or disjoint windows.
+
+Typical full‑history run for all registered pairs:
 
 ```powershell
 $TOKEN = "local-admin"
 
+$from = "2019-01-01"                        # earliest archive date to include
+$to   = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd')
+
 $body = @{
-  from   = "2024-01-01"
-  to     = "2025-12-31"
-  phase  = "post"                # canonical engine phase (POST is default)
-  # intervals = @("DAILY","WEEKLY","MONTHLY")  # optional; defaults to all three
+  from      = $from
+  to        = $to
+  phase     = "post"                         # canonical engine phase (POST is default)
+  intervals = @("DAILY","WEEKLY","MONTHLY")  # explicit for clarity; defaults to all three
 } | ConvertTo-Json
 
 Invoke-RestMethod `
@@ -211,7 +250,16 @@ Invoke-RestMethod `
   -Body $body
 ```
 
-For a smaller patch window (e.g. after repairing recent archive days):
+**Important:**
+
+- The canonical RS engine tracks open/close state in‑memory per run. Running multiple backfills on disjoint windows (e.g. `2019–2020`, then `2021–2025`) can leave positions that opened in an earlier window and should close in a later window permanently open.
+- For subsequent backfills (e.g. after repairing archive gaps), either:
+  - reuse the same `$from` date (e.g. `2019-01-01`) and rerun the full window, or
+  - choose a `$from` that predates any potential open positions you care about closing.
+
+### 4.2 Smaller patch window (rare)
+
+Only use a narrow `[from,to]` window when you are certain that **all** opens and closes affected by the change fall inside that window (for example, after a very recent archive repair).
 
 ```powershell
 $TOKEN = "local-admin"

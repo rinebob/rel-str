@@ -171,3 +171,6 @@
 - 2025-12-08: Multi-Interval RS planning and docs alignment.
   - [x] Drafted `MULTI_INTERVAL_RS_TRANSITION.md` describing D/W/M RS, signals-activity, and positions model.
   - [ ] After implementation, update legacy planning docs (RS_BACKFILL_SIGNALS, RS_SIGNAL_HISTORY, 3_BACKEND, 13_TRADER_UI_PLAN, 14_DATA_FLOW_AND_FUNCTIONS, EMULATOR_DATA_REFRESH, 2025-11-archive-first-initial-load-and-route-switching, dashboard-v2-rs-rendering) to match the multi-interval RS design (signals-activity, archives + latest*, no pairs-data.data[]).
+ - 2025-12-15: Combined cleanup callable for canonical signals + signals-activity.
+   - [x] Added `purgePairSignalsAndActivityAll` (functions/src/cleanup.callables.ts, exported from functions/src/index.ts) to delete per-pair canonical `signals` (legacy docs + year-sharded opens/closes + open bucket) and per-pair `signals-activity` (year-sharded days + containers) for a `[fromYear,toYear]` range, driven by `pair-registry` or explicit `pairs` list.
+   - [x] Recommended production workflow: run `purgePairSignalsAndActivityAll` for the full history window (e.g., 2019–2025) with `removeContainers=true` and `removeOpenBucket=true`, then rerun `backfillSignalsPipelineAdmin` in smaller per-pair batches for DAILY and WEEKLY/MONTHLY intervals to avoid Cloud Run timeouts and half-done shards.
