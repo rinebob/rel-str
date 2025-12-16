@@ -92,22 +92,26 @@ For each pair `{PAIR}`:
 
 - **Weekly** (new):
   - `pairs-data/{PAIR}`:
-    - `latestWeekly` (current weekly snapshot, intraperiod or final).
+    - `latestWeekly` (preview or final for the current weekly bar).
   - `pairs-data/{PAIR}/archive-weekly-YYYY/{YYMMDD}`:
-    - Same `pre`/`post` shape as daily, but computed from **weekly bars**.
-    - `isIntervalClose: boolean` to mark final weekly bars.
+    - **Only end-of-interval weekly bars are stored.**
+    - `pre` and `post` weekly snapshots computed from **weekly bars**.
+    - `isIntervalClose: boolean` — always `true` for stored weekly archive docs.
 
 - **Monthly** (new):
   - `pairs-data/{PAIR}`:
-    - `latestMonthly` (current monthly snapshot, intraperiod or final).
+    - `latestMonthly` (preview or final for the current monthly bar).
   - `pairs-data/{PAIR}/archive-monthly-YYYY/{YYMMDD}`:
-    - Same `pre`/`post` shape, computed from **monthly bars**.
-    - `isIntervalClose: boolean` to mark final monthly bars.
+    - **Only end-of-interval monthly bars are stored.**
+    - `pre` and `post` monthly snapshots computed from **monthly bars**.
+    - `isIntervalClose: boolean` — always `true` for stored monthly archive docs.
 
 **Key rules**:
 
 - All three intervals (D/W/M) are updated on **every backend run** using the latest AV bars.
-- For Weekly/Monthly, we treat intraperiod bars as **previews**; `isIntervalClose === true` marks final values.
+- **Daily archives** store one doc per trading day.
+- **Weekly/Monthly archives** store **only end-of-interval bars**; no intra-period preview bars are persisted in the archives.
+- Intra-period previews for Weekly/Monthly live exclusively in **signals-activity** (per-pair + root), not in the archive collections.
 
 
 ### 3.2 Signals: Canonical vs Activity (Preview / Final / Whipsaw)

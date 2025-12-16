@@ -99,12 +99,12 @@ Longer history is stored under **per-interval, per-year** archive collections be
 * **Weekly**
 
   * Path: `pairs-data/{BASE}-{SYMBOL}/archive-weekly-YYYY/{YYMMDD}`
-  * Each doc reuses the same `pre` / `post` structure as daily archives, but values are computed from **weekly** bars:
+  * Each doc reuses the same `post` structure as daily archives, but values are computed from **weekly** bars:
     * `day: string` — `YYYY-MM-DD`
     * `dow: string`
-    * `pre?: map` — optional intraperiod weekly snapshot (if written)
-    * `post?: map` — weekly end-of-interval snapshot (RS + prices)
-    * `isIntervalClose: boolean` — `true` if this sample is the final value for that weekly bar (derived from partner bar sequence)
+    * `post: map` — weekly end-of-interval snapshot (RS + prices)
+    * `isIntervalClose: boolean` — `true` for all stored weekly archive docs.
+  * **Only end-of-interval weekly bars are written to `archive-weekly-*`.** Intra-period weekly previews are modeled via `signals-activity`, not extra archive docs.
 
 * **Monthly**
 
@@ -112,20 +112,20 @@ Longer history is stored under **per-interval, per-year** archive collections be
   * Same shape as weekly archives, computed from **monthly** bars:
     * `day: string`
     * `dow: string`
-    * `pre?: map`
-    * `post?: map`
-    * `isIntervalClose: boolean`
+    * `post: map` — monthly end-of-interval snapshot (RS + prices)
+    * `isIntervalClose: boolean` — `true` for all stored monthly archive docs.
+  * **Only end-of-interval monthly bars are written to `archive-monthly-*`.** Intra-period monthly previews are modeled via `signals-activity`, not extra archive docs.
 
-Selection rubric for reading archive values (server and FE should align):
+* **Selection rubric for reading archive values** (server and FE should align):
 
 * **Daily charts**: read from `archive-YYYY` ordered by `day`.
-* **Weekly charts**: read from `archive-weekly-YYYY`, using all samples (intraperiod and final).
-* **Monthly charts**: read from `archive-monthly-YYYY`, using all samples.
+* **Weekly charts**: read from `archive-weekly-YYYY`, using the stored end-of-interval samples.
+* **Monthly charts**: read from `archive-monthly-YYYY`, using the stored end-of-interval samples.
 
-Final vs preview semantics:
+* **Final vs preview semantics**:
 
 * Daily samples are effectively always final per trading day.
-* Weekly/monthly samples update each run; `isIntervalClose === true` marks that this sample represents the **final** value for that interval. All other samples are intraperiod previews.
+* Weekly/monthly archive samples represent only final interval-end values; intra-period previews live exclusively in `signals-activity`.
 
 Example (abbreviated)
 
