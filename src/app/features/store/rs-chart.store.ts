@@ -51,7 +51,7 @@ interface RsChartState {
   timeframe: Timeframe;
 }
 
-const RS_ARCHIVE_WINDOW_TRADING_DAYS = 6 * 252; // ~6 years of trading days (legacy default)
+const RS_ARCHIVE_WINDOW_TRADING_DAYS = 8 * 252; // ~8 years of trading days (covers 2019+ history)
 
 const initialState: RsChartState = {
   currentListId: null,
@@ -646,12 +646,12 @@ function getInitialRsWindowForTimeframe(timeframe: Timeframe): number {
       // Monthly is relatively light; load full history on first pass.
       return 50 * 12; // effectively all months since 2019 and beyond
     case Timeframe.TWO_DAY:
-      // Backed by daily RS; use same initial window as daily.
-      return 2 * 252;
+      // Backed by daily RS; use full daily window.
+      return RS_ARCHIVE_WINDOW_TRADING_DAYS;
     case Timeframe.DAILY:
     default:
-      // ~2 years of trading days for fast first render.
-      return 2 * 252;
+      // Full daily history window.
+      return RS_ARCHIVE_WINDOW_TRADING_DAYS;
   }
 }
 
