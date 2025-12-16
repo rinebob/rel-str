@@ -350,3 +350,204 @@ export const purgeAllPositions = onCall(
 );
 
 /** End of deprecated signals cleanup utilities. */
+
+/**
+ * Admin: purgePairSignalsAndActivityAll
+ * Deletes per-pair `signals` legacy docs + year-sharded opens/closes and
+ * per-pair `signals-activity` year-sharded docs in a single operation.
+ *
+ * Params: {
+ *   pairs?: string[],
+ *   fromYear?: number,
+ *   toYear?: number,
+ *   removeContainers?: boolean,
+ *   removeOpenBucket?: boolean,
+ * }
+ */
+export const purgePairSignalsAndActivityAll = onCall(
+  { region: 'us-central1', timeoutSeconds: 540 },
+  async (req): Promise<{
+    ok: boolean;
+    pairs: number;
+    years: { from: number; to: number };
+    signals: { deletedLegacy: number; deletedYearItems: number };
+    activity: { deletedYearItems: number };
+  }> => {
+    let pairs: string[] = Array.isArray(req?.data?.pairs)
+      ? (req.data.pairs as any[]).map((x) => String(x)).filter(Boolean)
+      : [];
+
+    const now = new Date();
+    const curYear = now.getUTCFullYear();
+    const fromYear = Math.max(2000, Number(req?.data?.fromYear || 2019));
+    const toYear = Math.min(curYear, Number(req?.data?.toYear || curYear));
+    const removeContainers = req?.data?.removeContainers === true;
+    const removeOpenBucket = req?.data?.removeOpenBucket === true;
+
+    if (pairs.length === 0) {
+      const reg = await db.collection('pair-registry').select().get();
+      pairs = reg.docs.map((d) => d.id);
+    }
+
+    let deletedLegacySignals = 0;
+    let deletedSignalsYearItems = 0;
+    let deletedActivityYearItems = 0;
+
+    for (const pair of pairs) {
+      // Signals base collection
+      const signalsBase = db.collection(PAIRS_COLLECTION).doc(pair).collection(SIGNALS_COLLECTION);
+
+      // Delete legacy flat signals (non-YYYY doc ids)
+      const legacySnap = await signalsBase.select().get();
+      let batch = db.batch();
+      let ops = 0;
+      for (const d of legacySnap.docs) {
+        const id = String(d.id);
+        if (!/^\d{4}$/.test(id)) {
+          batch.delete(signalsBase.doc(id));
+          ops++;
+          deletedLegacySignals++;
+          if (ops >= 400) {
+            await batch.commit();
+            batch = db.batch();
+            ops = 0;
+          }
+        }
+      }
+      if (ops > 0) {
+        await batch.commit();
+      }
+
+      // Optionally delete open bucket items and container for signals
+      if (removeOpenBucket) {
+        try {
+          const openItems = signalsBase.doc(OPEN_BUCKET_ID).collection(ITEMS_SUBCOLLECTION);
+          const osnap = await openItems.select().get();
+          let obatch = db.batch();
+          let oops = 0;
+          for (const it of osnap.docs) {
+            obatch.delete(openItems.doc(it.id));
+            oops++;
+            if (oops >= 400) {
+              await obatch.commit();
+              obatch = db.batch();
+              oops = 0;
+            }
+          }
+          if (oops > 0) {
+            await obatch.commit();
+          }
+          try {
+            await signalsBase.doc(OPEN_BUCKET_ID).delete();
+          } catch {}
+        } catch {}
+      }
+
+      // Activity base collection
+      const activityBase = db
+        .collection(PAIRS_COLLECTION)
+        .doc(pair)
+        .collection(SIGNALS_ACTIVITY_COLLECTION);
+
+      // Delete all year-sharded docs for both signals and activity
+      for (let y = fromYear; y <= toYear; y++) {
+        const yearId = String(y);
+
+        // Signals: opens + closes under signals/{YYYY}
+        const yearSignalsDoc = signalsBase.doc(yearId);
+
+        const opensCol = yearSignalsDoc.collection(SIGNALS_OPENS_SUBCOLLECTION);
+        const osnap = await opensCol.select().get();
+        let obatch = db.batch();
+        let oops = 0;
+        for (const it of osnap.docs) {
+          obatch.delete(opensCol.doc(it.id));
+          oops++;
+          deletedSignalsYearItems++;
+          if (oops >= 400) {
+            await obatch.commit();
+            obatch = db.batch();
+            oops = 0;
+          }
+        }
+        if (oops > 0) {
+          await obatch.commit();
+        }
+
+        const closesCol = yearSignalsDoc.collection(SIGNALS_CLOSES_SUBCOLLECTION);
+        const csnap = await closesCol.select().get();
+        let cbatch = db.batch();
+        let cops = 0;
+        for (const it of csnap.docs) {
+          cbatch.delete(closesCol.doc(it.id));
+          cops++;
+          deletedSignalsYearItems++;
+          if (cops >= 400) {
+            await cbatch.commit();
+            cbatch = db.batch();
+            cops = 0;
+          }
+        }
+        if (cops > 0) {
+          await cbatch.commit();
+        }
+
+        if (removeContainers) {
+          try {
+            await signalsBase.doc(yearId).delete();
+          } catch {}
+        }
+
+        // Activity: days subcollection under signals-activity/{YYYY}
+        const yearActivityDoc = activityBase.doc(yearId);
+        const daysCol = yearActivityDoc.collection(DAYS_SUBCOLLECTION);
+        const dsnap = await daysCol.select().get();
+        let dbatch = db.batch();
+        let dops = 0;
+        for (const it of dsnap.docs) {
+          dbatch.delete(daysCol.doc(it.id));
+          dops++;
+          deletedActivityYearItems++;
+          if (dops >= 400) {
+            await dbatch.commit();
+            dbatch = db.batch();
+            dops = 0;
+          }
+        }
+        if (dops > 0) {
+          await dbatch.commit();
+        }
+
+        if (removeContainers) {
+          try {
+            await activityBase.doc(yearId).delete();
+          } catch {}
+        }
+      }
+    }
+
+    if (!SILENCE_ADMIN_INFO) {
+      logger.info('purgePairSignalsAndActivityAll done', {
+        pairs: pairs.length,
+        fromYear,
+        toYear,
+        deletedLegacySignals,
+        deletedSignalsYearItems,
+        deletedActivityYearItems,
+      });
+    }
+
+    return {
+      ok: true,
+      pairs: pairs.length,
+      years: { from: fromYear, to: toYear },
+      signals: {
+        deletedLegacy: deletedLegacySignals,
+        deletedYearItems: deletedSignalsYearItems,
+      },
+      activity: {
+        deletedYearItems: deletedActivityYearItems,
+      },
+    };
+  }
+);

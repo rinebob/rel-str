@@ -33,6 +33,7 @@ export {
   purgeMisShardedPositionItems,
   purgePairSignalsAll,
   purgePairSignalsActivityAll,
+  purgePairSignalsAndActivityAll,
   backfillPositionsBucketMetadata,
   purgeAllPositions,
 } from './cleanup.callables';
