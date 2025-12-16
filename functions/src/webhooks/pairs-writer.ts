@@ -191,9 +191,36 @@ export async function writeUnifiedSeries(
   }
 
   // ============ Merge and write ============
+  // For MONTHLY archives we only persist end-of-interval (last trading bar per month)
+  // entries to avoid intra-period monthly archive docs. Compute an effectiveEntries
+  // subset that contains at most one entry per (year, month), taking the max day.
+  let effectiveEntries: PhaseSeriesPoint[] = entries;
+  if (interval === Interval.MONTHLY) {
+    const latestByMonth = new Map<string, string>();
+    for (const e of entries) {
+      const dayStr = String(e.day || '').slice(0, 10);
+      if (!dayStr) continue;
+      const ym = dayStr.slice(0, 7); // YYYY-MM
+      const prev = latestByMonth.get(ym);
+      if (!prev || dayStr > prev) {
+        latestByMonth.set(ym, dayStr);
+      }
+    }
+    effectiveEntries = entries.filter((e) => {
+      const dayStr = String(e.day || '').slice(0, 10);
+      if (!dayStr) return false;
+      const ym = dayStr.slice(0, 7);
+      return latestByMonth.get(ym) === dayStr;
+    });
+  }
+
+  if (effectiveEntries.length === 0) {
+    return;
+  }
+
   const byDay = new Map<string, any>();
 
-  for (const e of entries) {
+  for (const e of effectiveEntries) {
     const dayObj = byDay.get(e.day) || { day: e.day, dow: e.dow };
 
     // Price-based deltas vs prior-day post-close (for display/debug)
@@ -353,12 +380,9 @@ export async function writeUnifiedSeries(
           // Weekly bar considered complete at end of Friday POST run.
           dayDoc.isIntervalClose = dow === 5;
         } else if (interval === Interval.MONTHLY) {
-          const year = dt.getUTCFullYear();
-          const month = dt.getUTCMonth(); // 0-based
-          const dom = dt.getUTCDate();
-          const lastDom = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-          // Monthly bar complete on the last calendar day of the month (POST).
-          dayDoc.isIntervalClose = dom === lastDom;
+          // Only end-of-interval monthly bars are written to archive-monthly, so
+          // all stored monthly docs are interval closes.
+          dayDoc.isIntervalClose = true;
         }
       }
     }
