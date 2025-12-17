@@ -323,6 +323,22 @@ export const backfillSignalsPipelineAdmin = onRequest({ region: 'us-central1', t
           }
         }
 
+        const weeklyPriceByDay = new Map<string, number>();
+        if (weeklySeriesForEngine) {
+          for (const p of weeklySeriesForEngine) {
+            const dayKey = String(p.day).slice(0, 10);
+            weeklyPriceByDay.set(dayKey, p.targetClose);
+          }
+        }
+
+        const monthlyPriceByDay = new Map<string, number>();
+        if (monthlySeriesForEngine) {
+          for (const p of monthlySeriesForEngine) {
+            const dayKey = String(p.day).slice(0, 10);
+            monthlyPriceByDay.set(dayKey, p.targetClose);
+          }
+        }
+
         for (const ev of activity) {
           const rawDay = (ev as any).day as string | undefined;
           const day = String(rawDay || '').slice(0, 10);
@@ -344,8 +360,17 @@ export const backfillSignalsPipelineAdmin = onRequest({ region: 'us-central1', t
           list.push(promoted);
           engineActivityByDay.set(day, list);
 
-          if (promoted.kind === ActivityEventKind.HOLD && promoted.interval === Interval.DAILY) {
-            const price = dailyPriceByDay.get(day);
+          if (promoted.kind === ActivityEventKind.HOLD) {
+            let price: number | undefined;
+
+            if (promoted.interval === Interval.DAILY) {
+              price = dailyPriceByDay.get(day);
+            } else if (promoted.interval === Interval.WEEKLY) {
+              price = weeklyPriceByDay.get(day);
+            } else if (promoted.interval === Interval.MONTHLY) {
+              price = monthlyPriceByDay.get(day);
+            }
+
             if (Number.isFinite(price)) {
               const ts = new Date(`${day}T00:00:00Z`).getTime();
               try {
