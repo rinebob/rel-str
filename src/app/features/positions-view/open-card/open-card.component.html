@@ -12,7 +12,12 @@
     [class.pv-open-card--short]="pos.direction === Direction.SHORT"
   >
     <header class="pv-open-card__header">
-      <div class="pv-open-card__pair">{{ pos.pair }}</div>
+      <div class="pv-open-card__pair">
+        {{ pos.pair }}
+        @if (pos.interval) {
+          <span class="pv-open-card__interval">· {{ pos.interval }}</span>
+        }
+      </div>
       <div class="pv-open-card__badges">
         <span class="pv-open-card__badge pv-open-card__badge--side">{{ pos.direction }}</span>
         <span class="pv-open-card__badge pv-open-card__badge--status">

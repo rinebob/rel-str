@@ -3,7 +3,7 @@ import { signalStore, withState, withComputed, withMethods, withHooks, patchStat
 import { Collection, BucketDocId, Subcollection } from '../../core/common/constants';
 import { Firestore, collection, collectionData } from '@angular/fire/firestore';
 import { PositionDoc, PositionDirection, BackendPositionDoc, PositionStatus } from '../../core/models/fe-position.types';
-import { MOCK_OPEN_POSITIONS } from './positions-mock-data';
+import { BarsInterval } from '../../core/models/partner.types';
 import { Observable } from 'rxjs';
 import { computed } from '@angular/core';
 
@@ -11,6 +11,13 @@ export enum PositionsSideFilter {
   ALL = 'all',
   LONG = 'long',
   SHORT = 'short',
+}
+
+export enum PositionsIntervalFilter {
+  ALL = 'ALL',
+  DAILY = BarsInterval.DAILY,
+  WEEKLY = BarsInterval.WEEKLY,
+  MONTHLY = BarsInterval.MONTHLY,
 }
 
 export enum PositionsResultFilter {
@@ -24,6 +31,7 @@ export interface PositionsStoreState {
   error: string;
   open: Record<string, PositionDoc>;
   closed: Record<string, PositionDoc>;
+  intervalFilter: PositionsIntervalFilter;
   sideFilter: PositionsSideFilter;
   resultFilter: PositionsResultFilter;
   closedFromTimestamp: number | null;
@@ -37,6 +45,7 @@ const initialState: PositionsStoreState = {
   error: '',
   open: {},
   closed: {},
+  intervalFilter: PositionsIntervalFilter.ALL,
   sideFilter: PositionsSideFilter.ALL,
   resultFilter: PositionsResultFilter.ALL,
   closedFromTimestamp: null,
@@ -68,20 +77,54 @@ function projectBackendPosition(raw: BackendPositionDoc, id: string): PositionDo
 
   if (latestSample) {
     if (isOpen) {
-      projected.currentPrice = latestSample.price;
-      projected.currentChange = latestSample.pnl;
-      projected.currentPctChange = latestSample.pct;
-      projected.lastUpdateDay = latestSample.day;
-      projected.currentRs = latestSample.rs;
+      // Prefer live flat fields written by updateOpenPositionsForPair when present.
+      const flatCurrentPrice = raw.currentPrice;
+      const flatCurrentChange = raw.currentChange;
+      const flatCurrentPct = raw.currentPctChange;
+      const flatRawChange = raw.rawChange;
+      const flatRawPct = raw.rawPctChange;
+      const flatLastDay = raw.lastUpdateDay;
+      const flatCurrentRs = raw.currentRs;
 
-      projected.netPnL = latestSample.pnl;
-      projected.percentReturn = latestSample.pct;
+      projected.currentPrice =
+        typeof flatCurrentPrice === 'number' && Number.isFinite(flatCurrentPrice)
+          ? flatCurrentPrice
+          : latestSample.price;
+
+      projected.currentChange =
+        typeof flatCurrentChange === 'number' && Number.isFinite(flatCurrentChange)
+          ? flatCurrentChange
+          : latestSample.pnl;
+
+      projected.currentPctChange =
+        typeof flatCurrentPct === 'number' && Number.isFinite(flatCurrentPct)
+          ? flatCurrentPct
+          : latestSample.pct;
+
+      projected.rawChange =
+        typeof flatRawChange === 'number' && Number.isFinite(flatRawChange)
+          ? flatRawChange
+          : projected.currentChange;
+
+      projected.rawPctChange =
+        typeof flatRawPct === 'number' && Number.isFinite(flatRawPct)
+          ? flatRawPct
+          : projected.currentPctChange;
+
+      projected.lastUpdateDay = flatLastDay || latestSample.day;
+      projected.currentRs =
+        typeof flatCurrentRs === 'number' && Number.isFinite(flatCurrentRs)
+          ? flatCurrentRs
+          : (latestSample.rsNorm ?? latestSample.rsRaw ?? undefined);
+
+      projected.netPnL = projected.currentChange;
+      projected.percentReturn = projected.currentPctChange;
     } else {
       if (raw.exit) {
         projected.exitPrice = raw.exit.price;
         projected.exitDay = raw.exit.day;
         projected.exitTimestamp = raw.exit.timestamp;
-        projected.exitRs = raw.exit.rs;
+        projected.exitRs = raw.exit.rsNorm ?? raw.exit.rsRaw ?? undefined;
       }
 
       projected.netPnL = raw.netPnL ?? raw.exit?.pnl;
@@ -155,6 +198,12 @@ export const PositionsStore = signalStore(
     const openFiltered = computed<PositionDoc[]>(() => {
       const side = store.sideFilter();
       const res = store.resultFilter();
+      const intervalFilter = store.intervalFilter();
+
+      const intervalValue: BarsInterval | null =
+        intervalFilter === PositionsIntervalFilter.ALL
+          ? null
+          : (intervalFilter as unknown as BarsInterval);
 
       return openList().filter((p) => {
         const isLong = (p.direction ?? PositionDirection.LONG) === PositionDirection.LONG;
@@ -168,6 +217,8 @@ export const PositionsStore = signalStore(
 
         if (side === PositionsSideFilter.LONG && !isLong) return false;
         if (side === PositionsSideFilter.SHORT && isLong) return false;
+
+        if (intervalValue && p.interval !== intervalValue) return false;
 
         if (res === PositionsResultFilter.WINNERS && change <= 0) return false;
         if (res === PositionsResultFilter.LOSERS && change >= 0) return false;
@@ -241,6 +292,10 @@ export const PositionsStore = signalStore(
 
     setSideFilter(value: PositionsSideFilter): void {
       patchState(store, { sideFilter: value });
+    },
+
+    setIntervalFilter(value: PositionsIntervalFilter): void {
+      patchState(store, { intervalFilter: value });
     },
 
     setResultFilter(value: PositionsResultFilter): void {

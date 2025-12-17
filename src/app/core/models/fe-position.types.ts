@@ -1,5 +1,7 @@
 // Shared frontend model for Firestore `positions` projection
 
+import { BarsInterval } from '../models/partner.types';
+
 export enum PositionDirection {
   LONG = 'LONG',
   SHORT = 'SHORT',
@@ -23,7 +25,10 @@ export interface PriceDatum {
   timestamp: number;     // epoch ms
 
   price: number;
-  rs?: number;
+
+  // RS values from backend timeline
+  rsRaw?: number;
+  rsNorm?: number;
 
   // PRE covers intraday/pre-close; POST for EOD
   source?: 'pre' | 'post';
@@ -40,6 +45,8 @@ export interface BackendPositionDoc {
   baseline: string;
   symbol: string;
   status: PositionStatus;
+
+  interval: BarsInterval;
   direction: PositionDirection;
 
   // Price timeline
@@ -50,6 +57,15 @@ export interface BackendPositionDoc {
   // Aggregated PnL
   netPnL?: number;
   netPercentReturn?: number;
+
+  // Live flat snapshot fields for OPEN positions (written by backend helpers)
+  currentPrice?: number;
+  currentChange?: number;
+  currentPctChange?: number;
+  rawChange?: number;
+  rawPctChange?: number;
+  lastUpdateDay?: string;
+  currentRs?: number;
 }
 
 export interface PositionDoc extends BackendPositionDoc {

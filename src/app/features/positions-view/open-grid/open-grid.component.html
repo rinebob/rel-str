@@ -2,6 +2,39 @@
   <div class="pv-open-grid__toolbar">
     <div class="pv-open-grid__filters">
       <div class="pv-open-grid__filter-group">
+        <span class="pv-open-grid__filter-label">Interval</span>
+        <mat-chip-listbox class="chip-group" aria-label="Interval filter">
+          <mat-chip-option
+            [selected]="intervalFilter() === IntervalFilter.ALL"
+            (click)="setIntervalFilter(IntervalFilter.ALL)"
+            class="chip"
+          >
+            All
+          </mat-chip-option>
+          <mat-chip-option
+            [selected]="intervalFilter() === IntervalFilter.DAILY"
+            (click)="setIntervalFilter(IntervalFilter.DAILY)"
+            class="chip"
+          >
+            Daily
+          </mat-chip-option>
+          <mat-chip-option
+            [selected]="intervalFilter() === IntervalFilter.WEEKLY"
+            (click)="setIntervalFilter(IntervalFilter.WEEKLY)"
+            class="chip"
+          >
+            Weekly
+          </mat-chip-option>
+          <mat-chip-option
+            [selected]="intervalFilter() === IntervalFilter.MONTHLY"
+            (click)="setIntervalFilter(IntervalFilter.MONTHLY)"
+            class="chip"
+          >
+            Monthly
+          </mat-chip-option>
+        </mat-chip-listbox>
+      </div>
+      <div class="pv-open-grid__filter-group">
         <span class="pv-open-grid__filter-label">Direction</span>
         <mat-chip-listbox class="chip-group" aria-label="Direction filter">
           <mat-chip-option
@@ -56,9 +89,47 @@
     </div>
   </div>
 
-  <div class="pv-open-grid__cards">
-    @for (pos of filtered(); track pos.positionId) {
-      <app-pv-open-card [position]="pos" />
+  <mat-accordion class="pv-open-grid__accordion">
+    @if (monthlyOpen().length > 0) {
+      <mat-expansion-panel [expanded]="true">
+        <mat-expansion-panel-header>
+          <span>Monthly ({{ monthlyOpen().length }})</span>
+        </mat-expansion-panel-header>
+
+        <div class="pv-open-grid__cards">
+          @for (pos of monthlyOpen(); track pos.positionId) {
+            <app-pv-open-card [position]="pos"></app-pv-open-card>
+          }
+        </div>
+      </mat-expansion-panel>
     }
-  </div>
+
+    @if (weeklyOpen().length > 0) {
+      <mat-expansion-panel [expanded]="true">
+        <mat-expansion-panel-header>
+          <span>Weekly ({{ weeklyOpen().length }})</span>
+        </mat-expansion-panel-header>
+
+        <div class="pv-open-grid__cards">
+          @for (pos of weeklyOpen(); track pos.positionId) {
+            <app-pv-open-card [position]="pos"></app-pv-open-card>
+          }
+        </div>
+      </mat-expansion-panel>
+    }
+
+    @if (dailyOpen().length > 0) {
+      <mat-expansion-panel [expanded]="true">
+        <mat-expansion-panel-header>
+          <span>Daily ({{ dailyOpen().length }})</span>
+        </mat-expansion-panel-header>
+
+        <div class="pv-open-grid__cards">
+          @for (pos of dailyOpen(); track pos.positionId) {
+            <app-pv-open-card [position]="pos"></app-pv-open-card>
+          }
+        </div>
+      </mat-expansion-panel>
+    }
+  </mat-accordion>
 </section>
