@@ -38,6 +38,37 @@
             .buttons-container {
                 @include global.flexboxLayout(row, space-evenly, center);
                 gap: 20px;
+                
+                .interval-buttons {
+                    @include global.flexboxLayout(row, center, center);
+                    gap: 8px;
+                    
+                    .interval-button {
+                        min-width: 40px;
+                        height: 36px;
+                        border-radius: 8px;
+                        border: 1px solid #ccc;
+                        background-color: var(--theme-surface);
+                        color: var(--theme-on-surface);
+                        font-weight: 500;
+                        
+                        &:hover {
+                            background-color: #f5f5f5;
+                            border-color: #999;
+                        }
+                        
+                        &.active {
+                            background-color: #1976d2;
+                            color: white;
+                            border-color: #1976d2;
+                        }
+                        
+                        &:focus {
+                            outline: none;
+                            box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.3);
+                        }
+                    }
+                }
             }
         }
 

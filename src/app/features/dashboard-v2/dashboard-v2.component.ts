@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component, inject, OnInit, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, OnInit, ViewChild, computed } from '@angular/core';
 import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
 import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 
 import { HeatmapComponent } from './heatmap/heatmap.component';
 import { SelectStockPanelComponent } from './select-stock-panel/select-stock-panel.component';
@@ -13,15 +14,19 @@ import { RsDataService } from '../services/rs-data.service';
 import { RsDataStore } from '../store/rs-data.store';
 import { AuthStore } from '../../core/auth/auth.store';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { MatButtonToggleChange } from '@angular/material/button-toggle';
 
 @Component({
     selector: 'rs-dashboard-v2',
-    imports: [HeatmapComponent, MatSidenavModule, MatButtonModule, SelectStockPanelComponent],
+    imports: [HeatmapComponent, MatSidenavModule, MatButtonModule, MatButtonToggleModule, SelectStockPanelComponent],
     templateUrl: './dashboard-v2.component.html',
     styleUrl: './dashboard-v2.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class DashboardV2Component extends RelStrBaseComponent implements OnInit {
+
+    // Expose Timeframe enum to template
+    readonly timeframe = Timeframe;
 
     @ViewChild('selectStock', { static: false }) selectStockPanel!: MatDrawer;
 
@@ -31,6 +36,9 @@ export class DashboardV2Component extends RelStrBaseComponent implements OnInit 
     private readonly authStore = inject(AuthStore);
 
     title = 'rel-str';
+
+    // Computed signal for selected interval
+    selectedInterval = computed(() => this.rsDataStore.selectedTimeframe());
 
     ngOnInit() {
         this.rsCalcsStore.setHeatmapColors(generateColorArray(NUM_HEATMAP_MIDPOINTS));
@@ -58,13 +66,28 @@ export class DashboardV2Component extends RelStrBaseComponent implements OnInit 
         // Mark loading in store
         this.rsDataStore.setLoading(symbols);
 
-        // Fetch daily OHLC for submitted symbols
-        this.rsDataSvc.fetchOhlcForSymbols(symbols, Timeframe.DAILY).subscribe({
+        // Get the selected list to process RS calculations
+        const selectedList = this.rsAppStore.selectedStockListV2();
+        if (!selectedList?.baseline) {
+            console.error('No baseline selected for RS calculations');
+            return;
+        }
+
+        const baseline = selectedList.baseline;
+        const selectedTimeframe = this.selectedInterval();
+        
+        // Fetch OHLC for baseline and all symbols using selected timeframe
+        const allSymbols = [baseline, ...symbols];
+        this.rsDataSvc.fetchOhlcForSymbols(allSymbols, selectedTimeframe).subscribe({
             next: (result) => {
-                for (const s of symbols) {
+                // Store raw OHLC data
+                for (const s of allSymbols) {
                     const data = result[s] ?? [];
                     this.rsDataStore.setData(s, data);
                 }
+                
+                // Process RS calculations and update the list with ranksDataWithColors
+                this.processRsCalculations(baseline, symbols, result, selectedTimeframe);
             },
             error: (err: unknown) => {
                 const message = (err as Error)?.message ?? 'Failed to fetch data';
@@ -73,6 +96,16 @@ export class DashboardV2Component extends RelStrBaseComponent implements OnInit 
                 }
             }
         });
+    }
+
+    private processRsCalculations(baseline: string, symbols: string[], ohlcData: Record<string, any[]>, timeframe: Timeframe) {
+        // This would integrate with the existing RS calculation pipeline
+        // For now, we'll trigger a reload of the list data which should include RS calculations
+        const user = this.authStore.user();
+        if (user?.uid) {
+            // Reload the list which should trigger RS calculations with the new timeframe
+            this.rsAppStore.getListsForUserV2(user.uid);
+        }
     }
 
     // initializeData removed: V2 uses dynamic sources only (no hard-coded seed data)
@@ -84,6 +117,34 @@ export class DashboardV2Component extends RelStrBaseComponent implements OnInit 
     handleSelectStock() {
         // console.log('d hSS open select stock panel: ', this.selectStockPanel);
         this.selectStockPanel.open();
+    }
+    
+    setInterval(timeframe: Timeframe) {
+        const newTimeframe = timeframe as Timeframe;
+        this.rsDataStore.setTimeframe(newTimeframe);
+        
+        // Clear existing data when switching intervals
+        this.rsDataStore.clearAllData();
+        
+        // Force refresh the selected list to get new interval data
+        const selectedList = this.rsAppStore.selectedStockListV2();
+        if (selectedList?.symbols?.length) {
+            // Trigger a full refresh of the list data with new timeframe
+            this.refreshListData(selectedList);
+        }
+    }
+    
+    handleIntervalChange(event: MatButtonToggleChange) {
+        // Keep this for backward compatibility, but use setInterval instead
+        this.setInterval(event.value as Timeframe);
+    }
+    
+    private refreshListData(list: RelStrStockList) {
+        const user = this.authStore.user();
+        if (user?.uid) {
+            // This will trigger the RS calculation pipeline with the new timeframe
+            this.rsAppStore.resolveExistingRanksDataV2(list, true);
+        }
     }
     
     handleChangeTimeframe() {

@@ -1,8 +1,10 @@
-import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, ViewChild, computed, effect, signal } from '@angular/core';
-import { DecimalPipe, NgStyle } from '@angular/common';
-
-import { BaselineTargetRankDatum, StockData } from '../../shared/types/rs.interfaces';
+import { AfterViewInit, ChangeDetectionStrategy, Component, effect, ElementRef, inject, OnInit, ViewChild, computed, signal, viewChild } from '@angular/core';
+import { NgStyle } from '@angular/common';
+import { DecimalPipe } from '@angular/common';
+import { BaselineTargetRankDatum, StockData, Timeframe } from '../../shared/types/rs.interfaces';
 import { RelStrBaseComponent } from '../../rel-str-base/rel-str-base.component';
+import { RsDataStore } from '../../store/rs-data.store';
+import { MONTHS, DAYS } from '../../shared/utils/date.util';
 import { AppRoutes } from '../../../core/common/interfaces';
 
 type SelectionType = 'chart' | 'history';
@@ -17,17 +19,26 @@ const HEADER_CELL_CORNER_TEXT = 'Symbol/Date';
     changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class HeatmapComponent extends RelStrBaseComponent implements AfterViewInit {
-    
+    dataScroller = viewChild.required<ElementRef<HTMLDivElement>>('dataScroller');
+
     headerCells = signal<string[]>([]);
     ranksDataWithColorsEntries = signal<[string, BaselineTargetRankDatum[]][]>([]);
     monthGroups = signal<Array<{ label: string; span: number; alt: boolean }>>([]);
+    
+    // Inject RsDataStore to access selected timeframe
+    private readonly rsDataStore = inject(RsDataStore);
+    
+    // Computed signal for selected timeframe
+    selectedTimeframe = computed(() => this.rsDataStore.selectedTimeframe());
+    
     headerDateParts = computed(() => {
         const headers = this.headerCells();
         const dates = headers.length > 1 ? headers.slice(1) : [];
+        const timeframe = this.selectedTimeframe();
         return dates.map(d => ({
             raw: d,
-            date: this.formatHeaderDate(d),
-            dow: this.formatHeaderDow(d),
+            date: this.formatHeaderDate(d, timeframe),
+            dow: this.formatHeaderDow(d, timeframe),
             weekAlt: this.isAltWeek(d),
             weekStart: this.isWeekStart(d)
         }));
@@ -37,8 +48,7 @@ export class HeatmapComponent extends RelStrBaseComponent implements AfterViewIn
         for (const h of this.headerDateParts()) map[h.raw] = h.weekStart;
         return map;
     });
-    @ViewChild('dataScroller', { static: false }) private dataScroller?: ElementRef<HTMLDivElement>;
-
+    
     constructor() {
         super();
         // Auto-scroll when entries change (e.g., after data load)
@@ -54,7 +64,8 @@ export class HeatmapComponent extends RelStrBaseComponent implements AfterViewIn
             const headers = this.headerCells();
             // First cell is the corner label; skip it
             const dateStrs = headers.slice(1);
-            this.monthGroups.set(this.computeMonthGroups(dateStrs));
+            const timeframe = this.selectedTimeframe();
+            this.monthGroups.set(this.computeMonthGroups(dateStrs, timeframe));
         });
     }
 
@@ -107,30 +118,50 @@ export class HeatmapComponent extends RelStrBaseComponent implements AfterViewIn
     private scrollToRight(): void {
         // Defer to allow view to render before measuring scrollWidth
         setTimeout(() => {
-            const el = this.dataScroller?.nativeElement;
+            const el = this.dataScroller()?.nativeElement;
             if (!el) return;
             el.scrollLeft = el.scrollWidth;
         }, 0);
     }
 
     /**
-     * Format a header date string (ISO 'YYYY-MM-DD') as 'MM-DD'.
-     * Year is intentionally omitted for compactness.
+     * Format a header date string based on timeframe.
+     * Daily: 'MM-DD', Weekly: 'MM-DD', Monthly: 'MMM YYYY'
      */
-    private formatHeaderDate(dateStr: string): string {
+    private formatHeaderDate(dateStr: string, timeframe: Timeframe): string {
         const d = this.parseISODate(dateStr);
-        const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
-        const dd = String(d.getUTCDate()).padStart(2, '0');
-        return `${mm}-${dd}`;
+        
+        switch (timeframe) {
+            case Timeframe.MONTHLY:
+                // For monthly data, show month and year
+                return `${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+            case Timeframe.WEEKLY:
+            case Timeframe.DAILY:
+            default:
+                // For daily/weekly data, show month-day
+                const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+                const dd = String(d.getUTCDate()).padStart(2, '0');
+                return `${mm}-${dd}`;
+        }
     }
 
     /**
-     * Format day-of-week as a short label like 'Mon'.
+     * Format day-of-week based on timeframe.
+     * Monthly: show 'M' for month, Weekly: show week number, Daily: show day name
      */
-    private formatHeaderDow(dateStr: string): string {
+    private formatHeaderDow(dateStr: string, timeframe: Timeframe): string {
         const d = this.parseISODate(dateStr);
-        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        return days[d.getUTCDay()];
+        
+        switch (timeframe) {
+            case Timeframe.MONTHLY:
+                return 'M'; // Indicate month
+            case Timeframe.WEEKLY:
+                const week = this.getISOWeek(d);
+                return `W${week}`; // Show week number
+            case Timeframe.DAILY:
+            default:
+                return DAYS[d.getUTCDay()];
+        }
     }
 
     /**
@@ -172,33 +203,57 @@ export class HeatmapComponent extends RelStrBaseComponent implements AfterViewIn
     }
 
     /**
-     * Compute contiguous month groups from a list of ISO date strings.
-     * Each group carries a label like 'Oct 2025', span (number of days), and alt flag for styling.
+     * Compute contiguous month groups from a list of ISO date strings based on timeframe.
+     * For monthly: group by year, for weekly/daily: group by month.
      */
-    private computeMonthGroups(dateStrs: string[]): Array<{ label: string; span: number; alt: boolean }> {
+    private computeMonthGroups(dateStrs: string[], timeframe: Timeframe): Array<{ label: string; span: number; alt: boolean }> {
         if (!dateStrs.length) return [];
         const groups: Array<{ label: string; span: number; alt: boolean }> = [];
-        let currentLabel = this.monthLabel(this.parseISODate(dateStrs[0]));
-        let span = 0;
-        for (const ds of dateStrs) {
-            const d = this.parseISODate(ds);
-            const lbl = this.monthLabel(d);
-            if (lbl !== currentLabel) {
-                groups.push({ label: currentLabel, span, alt: groups.length % 2 === 1 });
-                currentLabel = lbl;
-                span = 1;
-            } else {
-                span += 1;
+        
+        if (timeframe === Timeframe.MONTHLY) {
+            // For monthly data, group by year
+            let currentLabel = this.yearLabel(this.parseISODate(dateStrs[0]));
+            let span = 0;
+            for (const ds of dateStrs) {
+                const d = this.parseISODate(ds);
+                const lbl = this.yearLabel(d);
+                if (lbl !== currentLabel) {
+                    groups.push({ label: currentLabel, span, alt: groups.length % 2 === 1 });
+                    currentLabel = lbl;
+                    span = 1;
+                } else {
+                    span += 1;
+                }
             }
+            groups.push({ label: currentLabel, span, alt: groups.length % 2 === 1 });
+        } else {
+            // For daily/weekly data, group by month (existing logic)
+            let currentLabel = this.monthLabel(this.parseISODate(dateStrs[0]));
+            let span = 0;
+            for (const ds of dateStrs) {
+                const d = this.parseISODate(ds);
+                const lbl = this.monthLabel(d);
+                if (lbl !== currentLabel) {
+                    groups.push({ label: currentLabel, span, alt: groups.length % 2 === 1 });
+                    currentLabel = lbl;
+                    span = 1;
+                } else {
+                    span += 1;
+                }
+            }
+            groups.push({ label: currentLabel, span, alt: groups.length % 2 === 1 });
         }
-        // push final group
-        groups.push({ label: currentLabel, span, alt: groups.length % 2 === 1 });
+        
         return groups;
+    }
+
+    /** Year label like '2025' (UTC) */
+    private yearLabel(d: Date): string {
+        return d.getUTCFullYear().toString();
     }
 
     /** Month label like 'Oct 2025' (UTC) */
     private monthLabel(d: Date): string {
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        return `${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+        return `${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
     }
 }
