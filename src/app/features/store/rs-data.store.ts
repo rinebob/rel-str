@@ -1,5 +1,6 @@
 import { signalStore, withState, withMethods, patchState } from '@ngrx/signals';
 import type { OHLCDatum } from '../shared/types/rs.interfaces';
+import { Timeframe } from '../shared/types/rs.interfaces';
 
 /** Status for a single symbol fetch */
 export interface FetchStatus {
@@ -9,6 +10,8 @@ export interface FetchStatus {
 
 /** Shape of RS data cached client-side */
 interface RsDataState {
+  /** Currently selected timeframe */
+  selectedTimeframe: Timeframe;
   /** OHLC data keyed by symbol */
   dataBySymbol: Record<string, OHLCDatum[]>;
   /** Loading/error status keyed by symbol */
@@ -18,6 +21,7 @@ interface RsDataState {
 }
 
 const initialState: RsDataState = {
+  selectedTimeframe: Timeframe.DAILY,
   dataBySymbol: {},
   statusBySymbol: {},
   lastUpdatedIso: null,
@@ -61,6 +65,20 @@ export const RsDataStore = signalStore(
         delete statusNext[s];
       }
       patchState(store, { dataBySymbol: dataNext, statusBySymbol: statusNext });
+    },
+
+    /** Clear all data (used when switching timeframes) */
+    clearAllData() {
+      patchState(store, {
+        dataBySymbol: {},
+        statusBySymbol: {},
+        lastUpdatedIso: null,
+      });
+    },
+
+    /** Set the selected timeframe */
+    setTimeframe(timeframe: Timeframe) {
+      patchState(store, { selectedTimeframe: timeframe });
     },
   }))
 );

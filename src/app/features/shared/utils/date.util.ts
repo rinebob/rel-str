@@ -1,6 +1,12 @@
 // Date-related utilities. Keep lightweight and typed.
 
 /**
+ * Date formatting constants
+ */
+export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+export const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/**
  * Converts Date | number to a numeric timestamp (ms since epoch).
  * Returns NaN for unsupported types.
  */

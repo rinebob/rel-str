@@ -1,10 +1,11 @@
 import { patchState, signalStoreFeature, withComputed, withMethods, withState } from "@ngrx/signals"
-import { BaselineTargetRankDatum, FormMode, RanksByDate, RanksDataWithColors, RelStrStockList, StockDatum, StockListFormMode } from "../shared/types/rs.interfaces"
+import { BaselineTargetRankDatum, FormMode, RanksByDate, RanksDataWithColors, RelStrStockList, StockDatum, StockListFormMode, Timeframe } from "../shared/types/rs.interfaces"
 import { StockDataService } from "../services/stock-data.service"
 import { inject, EnvironmentInjector, NgZone, runInInjectionContext } from "@angular/core"
 import { RelStrDbV2Service } from "../services/rel-str-db-v2.service"
 import { generatePairData, getPairsForList } from "../utils/rs-calc-utils-v2"
 import { RsCalcsStore } from "./rs-calcs.store"
+import { RsDataStore } from "./rs-data.store"
 import { firstValueFrom, Subscription } from 'rxjs'
 
 /**
@@ -104,6 +105,7 @@ export function withStockListV2Feature() {
             store,
             rsCalcsStore = inject(RsCalcsStore),
             relStrDbV2Service = inject(RelStrDbV2Service),
+            rsDataStore = inject(RsDataStore),
             env = inject(EnvironmentInjector),
         ) => {
             const liveSubs = new Map<string, Subscription>();
@@ -117,15 +119,15 @@ export function withStockListV2Feature() {
                 return lists;
             };
 
-            const generateHeatmapDataV2 = async (pair: string): Promise<BaselineTargetRankDatum[]> => {
+            const generateHeatmapDataV2 = async (pair: string, timeframe: Timeframe = Timeframe.DAILY): Promise<BaselineTargetRankDatum[]> => {
                 let series: Array<{ date: string; value: number; norm?: number; phase?: any }> = [];
-                series = await firstValueFrom(relStrDbV2Service.getPairSeriesFromArchive$(pair));
+                series = await firstValueFrom(relStrDbV2Service.getPairSeriesFromArchiveWindowByInterval$(pair, 60, timeframe));
                 // DEBUG: surface what we received from Firestore
                 // eslint-disable-next-line no-console
-                console.log('[V2] pair series', pair, 'len=', series?.length ?? 0, 'first=', series?.[0]);
+                console.log('[V2] pair series', pair, 'timeframe=', timeframe, 'len=', series?.length ?? 0, 'first=', series?.[0]);
                 if (!Array.isArray(series) || series.length === 0) {
                     // eslint-disable-next-line no-console
-                    console.log('[V2] no series data for pair; check doc path pairs-data/', pair);
+                    console.log('[V2] no series data for pair; check doc path pairs-data/', pair, 'timeframe=', timeframe);
                     return [];
                 }
                 const colors = rsCalcsStore.heatmapColors();
@@ -152,13 +154,13 @@ export function withStockListV2Feature() {
                 });
             };
 
-            const getHeatmapDataV2 = async (pairs: string[]): Promise<RanksDataWithColors> => {
+            const getHeatmapDataV2 = async (pairs: string[], timeframe: Timeframe = Timeframe.DAILY): Promise<RanksDataWithColors> => {
                 const out: RanksDataWithColors = {};
                 // First pass: fetch per-pair arrays and build union of dates
                 const perPair: Record<string, BaselineTargetRankDatum[]> = {};
                 const dateSet = new Set<string>();
                 for (const pair of pairs) {
-                    const arr = await generateHeatmapDataV2(pair);
+                    const arr = await generateHeatmapDataV2(pair, timeframe);
                     perPair[pair] = arr;
                     for (const d of arr) dateSet.add(d.date);
                 }
@@ -275,7 +277,8 @@ export function withStockListV2Feature() {
                         runInInjectionContext(env, () => {
                             void (async () => {
                                 try {
-                                    const full = await getHeatmapDataV2(pairsToFetch);
+                                    const timeframe = rsDataStore.selectedTimeframe();
+                                    const full = await getHeatmapDataV2(pairsToFetch, timeframe);
 
                                     const existing = (list.ranksDataWithColors || {}) as RanksDataWithColors;
                                     const merged: RanksDataWithColors = { ...existing };
@@ -333,7 +336,8 @@ export function withStockListV2Feature() {
             };
 
             const refreshPairs = async (pairs: string[], list: RelStrStockList) => {
-                const ranksData = await getHeatmapDataV2(pairs);
+                const timeframe = rsDataStore.selectedTimeframe();
+                const ranksData = await getHeatmapDataV2(pairs, timeframe);
                 const updated = { ...(list.ranksDataWithColors || {}), ...ranksData } as RanksDataWithColors;
                 list.ranksDataWithColors = updated;
             };
@@ -428,8 +432,14 @@ export function withStockListV2Feature() {
                     patchState(store, { allStockListsV2, selectedStockListV2: { ...list } })
                 },
 
-                async generateHeatmapDataV2(pair: string): Promise<BaselineTargetRankDatum[]> { return generateHeatmapDataV2(pair); },
-                async getHeatmapDataV2(pairs: string[]): Promise<RanksDataWithColors> { return getHeatmapDataV2(pairs); },
+                async generateHeatmapDataV2(pair: string): Promise<BaselineTargetRankDatum[]> { 
+                    const timeframe = rsDataStore.selectedTimeframe();
+                    return generateHeatmapDataV2(pair, timeframe); 
+                },
+                async getHeatmapDataV2(pairs: string[]): Promise<RanksDataWithColors> { 
+                    const timeframe = rsDataStore.selectedTimeframe();
+                    return getHeatmapDataV2(pairs, timeframe); 
+                },
                 async resolveExistingRanksDataV2(list: RelStrStockList, force = false): Promise<RelStrStockList> { return resolveExistingRanksDataV2(list, force); },
                 sortListsV2(targetList: RelStrStockList, allStockListsV2: RelStrStockList[]) { return sortListsV2(targetList, allStockListsV2); },
                 async autoFixMissingCellsV2(fixes: Array<{ pair: string; dates: string[] }>) {
