@@ -10,6 +10,7 @@ export {
   diagnoseRegisteredRangeAdmin,
   autoDiagnoseAndFixDaily,
   backfillSignalsPipelineAdmin,
+  cleanupIntraperiodBar,
 } from "./webhooks/admin-tasks";
 
 export * from './webhooks/registry-actions';

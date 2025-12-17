@@ -8,6 +8,7 @@ import { writeUnifiedSeries } from './pairs-writer';
 import { listRegisteredPairs } from './registry';
 import { buildPhaseSeries } from './rs-series';
 import { fetchDailyBarsRange } from './symbol-fetch';
+import { db } from '../firebase-admin-init';
 
 import { FIXED_DAYS, FIXED_LIMIT, ProcessErrorSample, FIXED_INTERVAL } from './webhooks-config';
 
@@ -687,6 +688,86 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
     res.status(200).json(summary);
   } catch (e: any) {
     logger.error('recomputeRegisteredBackfill_failed', { message: e?.message });
+    res.status(500).json({ ok: false, error: e?.message || 'internal_error' });
+  }
+});
+
+/**
+ * HTTP (admin): cleanupIntraperiodBar
+ * One-off cleanup to remove an incorrect archive doc for all registered pairs.
+ * Year, interval and docId (YYMMDD) are provided via query/body. Protect with bearer ADMIN_BACKFILL_TOKEN.
+ */
+export const cleanupIntraperiodBar = onRequest({ region: 'us-central1', timeoutSeconds: 540 }, async (req, res) => {
+  const token = (req.headers['authorization'] || '').toString().replace(/^Bearer\s+/i, '');
+  const expected = (process.env.ADMIN_BACKFILL_TOKEN || '').trim();
+  if (!expected || token !== expected) {
+    res.status(401).json({ ok: false, error: 'unauthorized' });
+    return;
+  }
+
+  try {
+    const body = (req.method === 'POST' ? (req.body || {}) : (req.query || {})) as any;
+    const year = String(body.year || '').trim();
+    const docId = String(body.docId || '').trim(); // expected format YYMMDD
+    const intervalRaw = String(body.interval || '').toUpperCase();
+
+    const interval: Interval =
+      intervalRaw === Interval.DAILY || intervalRaw === Interval.WEEKLY || intervalRaw === Interval.MONTHLY
+        ? (intervalRaw as Interval)
+        : Interval.MONTHLY;
+
+    if (!year || !/^[0-9]{4}$/.test(year)) {
+      res.status(400).json({ ok: false, error: 'missing_or_invalid_year' });
+      return;
+    }
+
+    if (!docId || !/^[0-9]{6}$/.test(docId)) {
+      res.status(400).json({ ok: false, error: 'missing_or_invalid_docId' });
+      return;
+    }
+
+    let pairs = await listRegisteredPairs();
+
+    // Optional pair filters, mirroring recomputeRegisteredBackfill
+    const pairParam = (body.pair ?? req.query.pair) as string | undefined;
+    const pairsParam = (body.pairs ?? req.query.pairs) as any;
+
+    if (pairParam && typeof pairParam === 'string' && pairParam.trim().length > 0) {
+      const p = pairParam.trim().toUpperCase();
+      pairs = pairs.filter(r => `${r.baseline}-${r.target}` === p);
+    } else if (pairsParam && Array.isArray(pairsParam) && pairsParam.length > 0) {
+      const set = new Set(pairsParam.map((p: any) => String(p).trim().toUpperCase()));
+      pairs = pairs.filter(r => set.has(`${r.baseline}-${r.target}`));
+    }
+
+    if (!pairs || pairs.length === 0) {
+      res.status(200).json({ ok: true, totalPairs: 0, deletedDocs: 0, year, docId, interval });
+      return;
+    }
+
+    let col: string;
+    if (interval === Interval.DAILY) {
+      col = `archive-${year}`;
+    } else if (interval === Interval.WEEKLY) {
+      col = `archive-weekly-${year}`;
+    } else {
+      col = `archive-monthly-${year}`;
+    }
+    let deleted = 0;
+
+    for (const p of pairs) {
+      const pairId = `${p.baseline}-${p.target}`;
+      const ref = db.collection('pairs-data').doc(pairId).collection(col).doc(docId);
+      const snap = await ref.get();
+      if (snap.exists) {
+        await ref.delete();
+        deleted++;
+      }
+    }
+
+    res.status(200).json({ ok: true, totalPairs: pairs.length, deletedDocs: deleted, col, docId, year, interval });
+  } catch (e: any) {
+    logger.error('cleanupIntraperiodBar_failed', { message: e?.message });
     res.status(500).json({ ok: false, error: e?.message || 'internal_error' });
   }
 });
