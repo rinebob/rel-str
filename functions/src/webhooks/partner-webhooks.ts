@@ -547,19 +547,24 @@ export const processDataReadyRunV2 = onMessagePublished(
         await upsertRefreshStatus({ runStatus: 'processing', nextRefreshAtUTC: null });
       }
 
-      // Persist phase, trigger, and payload status early for observability
+      // Persist phase, trigger, payload status, and any next-refresh hint for observability
       try {
         const update: Record<string, unknown> = { phase };
         if (trigger) update['trigger'] = trigger;
         if (eventType) update['runType'] = eventType;
         // UI hint: SA may send { status: 'begin' | 'end' }
         if (parsedPayload && typeof parsedPayload.status === 'string') update['payloadStatus'] = String(parsedPayload.status).toLowerCase();
-        // Record provided next refresh hint on the event doc for observability (canonical: nextRefreshAt)
-        const nr = (parsedPayload as any)?.nextRefreshAt;
-        if (nr) update['nextRefreshAt'] = String(nr);
-        else if ((parsedPayload as any)?.nextFetchAt) {
-          // Temporary advisory: legacy field seen but ignored for canonical write
-          logger.warn('nextFetchAt provided without nextRefreshAt; ignoring legacy field');
+        // Record provided next refresh hint on the event doc for observability.
+        const rawPayload: any = parsedPayload as any;
+        const attrs: any = (message?.attributes as any) || {};
+        const nr = rawPayload?.nextRefreshAt
+          ?? rawPayload?.nextRefreshAtUTC
+          ?? rawPayload?.NextRefreshAt
+          ?? attrs?.NextRefreshAt
+          ?? attrs?.nextRefreshAtUTC
+          ?? attrs?.nextRefreshAt;
+        if (nr) {
+          update['nextRefreshAt'] = String(nr);
         }
         await eventRef.set(update, { merge: true });
       } catch {}
@@ -610,7 +615,14 @@ export const processDataReadyRunV2 = onMessagePublished(
         }
         try { await persistWarning('no_registered_pairs', { function: RsCloudFunctionName.PROCESS_DATA_READY, runId: effectiveRunId, eventType }); } catch {}
         if (!isHeartbeat) {
-          const nextSrc: any = (parsedPayload as any)?.nextRefreshAt;
+          const rawPayload: any = parsedPayload as any;
+          const attrs: any = (message?.attributes as any) || {};
+          const nextSrc: any = rawPayload?.nextRefreshAt
+            ?? rawPayload?.nextRefreshAtUTC
+            ?? rawPayload?.NextRefreshAt
+            ?? attrs?.NextRefreshAt
+            ?? attrs?.nextRefreshAtUTC
+            ?? attrs?.nextRefreshAt;
           const nextTs = toTimestampOrUndefined(nextSrc);
           await upsertRefreshStatus({
             runStatus: 'completed',
@@ -676,7 +688,14 @@ export const processDataReadyRunV2 = onMessagePublished(
         }, { merge: true });
       }
       if (!isHeartbeat) {
-        const nextSrc: any = (parsedPayload as any)?.nextRefreshAt;
+        const rawPayload: any = parsedPayload as any;
+        const attrs: any = (message?.attributes as any) || {};
+        const nextSrc: any = rawPayload?.nextRefreshAt
+          ?? rawPayload?.nextRefreshAtUTC
+          ?? rawPayload?.NextRefreshAt
+          ?? attrs?.NextRefreshAt
+          ?? attrs?.nextRefreshAtUTC
+          ?? attrs?.nextRefreshAt;
         const nextTs = toTimestampOrUndefined(nextSrc);
         await upsertRefreshStatus({
           runStatus: 'completed',
