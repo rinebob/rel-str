@@ -53,26 +53,19 @@ export function computeEventDocId(args: {
   runId?: string;
   publishTime?: string;
 }): string {
-  const { isHeartbeat, ptSegment, runId, messageId: _messageId, publishTime, eventType } = args as any;
+  const { isHeartbeat, ptSegment, runId, publishTime } = args as any;
+
   if (isHeartbeat) {
     // Always start with date/time in ET; if time unknown, use '-xxxx'; then suffix with '-heartbeat'.
     const dtHb = formatDayTimeET(publishTime) || (ptSegment ? `${ptSegment}-xxxx` : undefined) || 'unknown-xxxx';
     return `${dtHb}-heartbeat`;
   }
 
-  // Preferred non-heartbeat format (ET): yyyy-mm-dd-hhmm-phase[-optional]. If time unknown, use 'yyyy-mm-dd-xxxx'.
-  const dt = formatDayTimeET(publishTime) || (ptSegment ? `${ptSegment}-xxxx` : undefined);
-  if (dt) {
-    const et = typeof eventType === 'string' ? eventType.toLowerCase() : '';
-    const phase = et.endsWith('-pre') ? 'pre' : et.endsWith('-post') ? 'post' : 'unknown';
-    const suffix = toKebabRunType(runId || undefined);
-    return suffix ? `${dt}-${phase}-${suffix}` : `${dt}-${phase}`;
-  }
-
-  // Fallback (legacy) when publishTime/ptSegment is unavailable: use runId only.
+  // For non-heartbeat runs, use runId directly as the stable doc id.
+  // runId already encodes date, time, and phase (e.g. 2025-12-04-1345-pre),
+  // so we avoid duplicated segments and any synthetic 'unknown' phase.
   const rid = (runId && String(runId).trim()) || 'no-runid';
-  // Legacy format (updated): runId (messageId is stored on the doc, not in the ID)
-  return `${rid}`;
+  return rid;
 }
 
 export async function markProcessing(
