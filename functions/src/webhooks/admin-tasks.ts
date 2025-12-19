@@ -400,7 +400,27 @@ export const backfillSignalsPipelineAdmin = onRequest({ region: 'us-central1', t
         logger.warn('backfill_canonical_engine_failed', { pair, baseline, target, message: e?.message });
       }
 
-      results.push({ pair, opens, closes, activityDays: engineActivityByDay.size });
+      const pairSummary: BackfillSignalsPipelinePairResult = {
+        pair,
+        opens,
+        closes,
+        activityDays: engineActivityByDay.size,
+      };
+
+      logger.info('backfillSignalsPipelineAdmin_pair_done', {
+        pair,
+        baseline,
+        target,
+        from: fromDay,
+        to: toDay,
+        phase,
+        intervals,
+        opens: pairSummary.opens,
+        closes: pairSummary.closes,
+        activityDays: pairSummary.activityDays,
+      });
+
+      results.push(pairSummary);
 
       processedPairs++;
       if (!SILENCE_ADMIN_INFO && (processedPairs % logEvery === 0 || processedPairs === totalPairs)) {
@@ -591,6 +611,9 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
         try {
           const pairId = `${baseline}-${target}`;
           let pairWrittenDays = 0;
+          let pairDailyDays = 0;
+          let pairWeeklyDays = 0;
+          let pairMonthlyDays = 0;
 
           // Fetch/cached baseline bars
           let baseBars = symbolBarsCache.get(baseline);
@@ -624,6 +647,7 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
             await writeUnifiedSeries(baseline, target, ph, entries, baseBars, targetBars, Interval.DAILY);
             writtenDays += entries.length;
             pairWrittenDays += entries.length;
+            pairDailyDays += entries.length;
           }
 
           // WEEKLY backfill
@@ -642,13 +666,55 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
               const targetWeekly = await fetchDailyBarsRange(target, { from: paddedFromWeekly, to, interval: Interval.WEEKLY });
               let weeklySeries = buildPhaseSeries(baseWeekly, targetWeekly, ph, baseline, target, logger, { from, to });
               weeklySeries = weeklySeries.filter((p) => p.day >= lower && p.day <= upper);
-              if (weeklySeries.length > 0) {
+
+              if (weeklySeries.length === 0) {
+                // No weekly archive points produced for this pair in the requested window.
+                logger.warn('recomputeRegisteredBackfill_weekly_no_series', {
+                  pair: pairId,
+                  phase: ph,
+                  from,
+                  to,
+                  paddedFromWeekly,
+                  lower,
+                  upper,
+                  baseWeeklyBars: baseWeekly?.length ?? 0,
+                  targetWeeklyBars: targetWeekly?.length ?? 0,
+                });
+              } else {
+                // Preview which weekly archive docs will be written (collection + docId).
+                const firstDays = weeklySeries.slice(0, 5).map((p) => p.day);
+                const lastDays = weeklySeries.slice(Math.max(0, weeklySeries.length - 5)).map((p) => p.day);
+                const sampleDays = [...firstDays, ...lastDays];
+
+                const docPreview = sampleDays.map((d) => {
+                  const day = String(d).slice(0, 10);
+                  const year = day.slice(0, 4);
+                  // weekly archive docs are stored under archive-weekly-{year} with YYMMDD ids
+                  const docId = day.replace(/-/g, '').slice(2);
+                  return { day, year, col: `archive-weekly-${year}`, docId };
+                });
+
+                logger.info('recomputeRegisteredBackfill_weekly_series_preview', {
+                  pair: pairId,
+                  phase: ph,
+                  from,
+                  to,
+                  paddedFromWeekly,
+                  lower,
+                  upper,
+                  seriesCount: weeklySeries.length,
+                  docs: docPreview,
+                });
+
                 await writeUnifiedSeries(baseline, target, ph, weeklySeries, baseWeekly, targetWeekly, Interval.WEEKLY);
+                writtenDays += weeklySeries.length;
                 pairWrittenDays += weeklySeries.length;
+                pairWeeklyDays += weeklySeries.length;
               }
 
             } catch (e: any) {
               if (errorSamples.length < 50) errorSamples.push({ pair: `${baseline}-${target}`, status: e?.response?.status, message: e?.message || String(e) });
+
             }
           }
 
@@ -670,12 +736,28 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
               monthlySeries = monthlySeries.filter((p) => p.day >= lower && p.day <= upper);
               if (monthlySeries.length > 0) {
                 await writeUnifiedSeries(baseline, target, ph, monthlySeries, baseMonthly, targetMonthly, Interval.MONTHLY);
+                writtenDays += monthlySeries.length;
                 pairWrittenDays += monthlySeries.length;
+                pairMonthlyDays += monthlySeries.length;
               }
 
             } catch (e: any) {
               if (errorSamples.length < 50) errorSamples.push({ pair: `${baseline}-${target}`, status: e?.response?.status, message: e?.message || String(e) });
             }
+          }
+
+          if (!SILENCE_ADMIN_INFO) {
+            logger.info('recomputeRegisteredBackfill_pair_summary', {
+              pair: pairId,
+              phase: ph,
+              from,
+              to,
+              intervals,
+              dailyDays: pairDailyDays,
+              weeklyDays: pairWeeklyDays,
+              monthlyDays: pairMonthlyDays,
+              totalDays: pairWrittenDays,
+            });
           }
 
           if (pairWrittenDays > 0) {
@@ -703,6 +785,29 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
           intervals,
           processedPairs: processedPairsForPhase,
           totalPairs: totalPairsForPhase,
+          writtenDays,
+        });
+      }
+
+      if (!SILENCE_ADMIN_INFO && writtenDays === 0) {
+        logger.warn('recomputeRegisteredBackfill_phase_no_written_days', {
+          phase: ph,
+          from,
+          to,
+          intervals,
+          totalPairs: pairs.length,
+        });
+      }
+
+      if (!SILENCE_ADMIN_INFO) {
+        logger.info('recomputeRegisteredBackfill_phase_summary', {
+          phase: ph,
+          from,
+          to,
+          intervals,
+          totalPairs: pairs.length,
+          successPairs,
+          failedPairs,
           writtenDays,
         });
       }
@@ -793,6 +898,227 @@ export const cleanupIntraperiodBar = onRequest({ region: 'us-central1', timeoutS
     res.status(200).json({ ok: true, totalPairs: pairs.length, deletedDocs: deleted, col, docId, year, interval });
   } catch (e: any) {
     logger.error('cleanupIntraperiodBar_failed', { message: e?.message });
+    res.status(500).json({ ok: false, error: e?.message || 'internal_error' });
+  }
+});
+
+/**
+ * HTTP (admin): purgePairSignalsAndActivityAllHttp
+ * HTTP version of purgePairSignalsAndActivityAll with detailed logging.
+ * Protect with bearer ADMIN_BACKFILL_TOKEN.
+ */
+export const purgePairSignalsAndActivityAllHttp = onRequest({ region: 'us-central1', timeoutSeconds: 540 }, async (req, res) => {
+  const token = (req.headers['authorization'] || '').toString().replace(/^Bearer\s+/i, '');
+  const expected = (process.env.ADMIN_BACKFILL_TOKEN || '').trim();
+  if (!expected || token !== expected) {
+    res.status(401).json({ ok: false, error: 'unauthorized' });
+    return;
+  }
+
+  try {
+    const body = (req.method === 'POST' ? (req.body || {}) : (req.query || {})) as any;
+    
+    // Log incoming request details for debugging
+    logger.info('purgePairSignalsAndActivityAllHttp_request', {
+      method: req.method,
+      bodyKeys: Object.keys(body),
+      body: body,
+      queryKeys: Object.keys(req.query || {}),
+      query: req.query
+    });
+
+    let pairs: string[] = [];
+    if (Array.isArray(body.pairs)) {
+      pairs = (body.pairs as any[]).map((p) => String(p || '').trim()).filter(Boolean);
+      logger.info('purgePairSignalsAndActivityAllHttp_pairs_from_body', { count: pairs.length, pairs: pairs.slice(0, 5) });
+    } else if (body.pairs) {
+      logger.warn('purgePairSignalsAndActivityAllHttp_pairs_not_array', { pairs: body.pairs, type: typeof body.pairs });
+    }
+
+    const fromYear = Number(body.fromYear);
+    const toYear = Number(body.toYear);
+    const removeContainers = body.removeContainers === true;
+    const removeOpenBucket = body.removeOpenBucket === true;
+
+    // Validate parameters
+    if (!Number.isInteger(fromYear) || fromYear < 2000 || fromYear > 2030) {
+      logger.error('purgePairSignalsAndActivityAllHttp_invalid_fromYear', { fromYear, body });
+      res.status(400).json({ ok: false, error: 'invalid_from_year', fromYear });
+      return;
+    }
+
+    if (!Number.isInteger(toYear) || toYear < 2000 || toYear > 2030) {
+      logger.error('purgePairSignalsAndActivityAllHttp_invalid_toYear', { toYear, body });
+      res.status(400).json({ ok: false, error: 'invalid_to_year', toYear });
+      return;
+    }
+
+    if (fromYear > toYear) {
+      logger.error('purgePairSignalsAndActivityAllHttp_invalid_range', { fromYear, toYear });
+      res.status(400).json({ ok: false, error: 'from_year_greater_than_to_year', fromYear, toYear });
+      return;
+    }
+
+    if (pairs.length === 0) {
+      logger.info('purgePairSignalsAndActivityAllHttp_using_registry_pairs');
+      const reg = await listRegisteredPairs();
+      pairs = reg.map((p) => `${p.baseline}-${p.target}`);
+    }
+
+    logger.info('purgePairSignalsAndActivityAllHttp_start', {
+      pairsCount: pairs.length,
+      fromYear,
+      toYear,
+      removeContainers,
+      removeOpenBucket,
+    });
+
+    const { PAIRS_COLLECTION, SIGNALS_COLLECTION, ITEMS_SUBCOLLECTION, OPEN_BUCKET_ID, SIGNALS_OPENS_SUBCOLLECTION, SIGNALS_CLOSES_SUBCOLLECTION, SIGNALS_ACTIVITY_COLLECTION, DAYS_SUBCOLLECTION } = await import('./webhooks-config');
+    
+    let deletedLegacySignals = 0;
+    let deletedSignalsYearItems = 0;
+    let deletedActivityYearItems = 0;
+
+    for (const pair of pairs) {
+      const signalsBase = db.collection(PAIRS_COLLECTION).doc(pair).collection(SIGNALS_COLLECTION);
+
+      const legacySnap = await signalsBase.select().get();
+      let batch = db.batch();
+      let ops = 0;
+      for (const d of legacySnap.docs) {
+        const id = String(d.id);
+        if (!/^\d{4}$/.test(id)) {
+          batch.delete(signalsBase.doc(id));
+          ops++;
+          deletedLegacySignals++;
+          if (ops >= 400) {
+            await batch.commit();
+            batch = db.batch();
+            ops = 0;
+          }
+        }
+      }
+      if (ops > 0) {
+        await batch.commit();
+      }
+
+      if (removeOpenBucket) {
+        try {
+          const openItems = signalsBase.doc(OPEN_BUCKET_ID).collection(ITEMS_SUBCOLLECTION);
+          const osnap = await openItems.select().get();
+          let obatch = db.batch();
+          let oops = 0;
+          for (const it of osnap.docs) {
+            obatch.delete(openItems.doc(it.id));
+            oops++;
+            if (oops >= 400) {
+              await obatch.commit();
+              obatch = db.batch();
+              oops = 0;
+            }
+          }
+          if (oops > 0) {
+            await obatch.commit();
+          }
+          try {
+            await signalsBase.doc(OPEN_BUCKET_ID).delete();
+          } catch {}
+        } catch {}
+      }
+
+      const activityBase = db.collection(PAIRS_COLLECTION).doc(pair).collection(SIGNALS_ACTIVITY_COLLECTION);
+
+      for (let y = fromYear; y <= toYear; y++) {
+        const yearId = String(y);
+
+        const yearSignalsDoc = signalsBase.doc(yearId);
+
+        const opensCol = yearSignalsDoc.collection(SIGNALS_OPENS_SUBCOLLECTION);
+        const osnap = await opensCol.select().get();
+        let obatch = db.batch();
+        let oops = 0;
+        for (const it of osnap.docs) {
+          obatch.delete(opensCol.doc(it.id));
+          oops++;
+          deletedSignalsYearItems++;
+          if (oops >= 400) {
+            await obatch.commit();
+            obatch = db.batch();
+            oops = 0;
+          }
+        }
+        if (oops > 0) {
+          await obatch.commit();
+        }
+
+        const closesCol = yearSignalsDoc.collection(SIGNALS_CLOSES_SUBCOLLECTION);
+        const csnap = await closesCol.select().get();
+        let cbatch = db.batch();
+        let cops = 0;
+        for (const it of csnap.docs) {
+          cbatch.delete(closesCol.doc(it.id));
+          cops++;
+          deletedSignalsYearItems++;
+          if (cops >= 400) {
+            await cbatch.commit();
+            cbatch = db.batch();
+            cops = 0;
+          }
+        }
+        if (cops > 0) {
+          await cbatch.commit();
+        }
+
+        if (removeContainers) {
+          try {
+            await signalsBase.doc(yearId).delete();
+          } catch {}
+        }
+
+        const yearActivityDoc = activityBase.doc(yearId);
+        const daysCol = yearActivityDoc.collection(DAYS_SUBCOLLECTION);
+        const dsnap = await daysCol.select().get();
+        let dbatch = db.batch();
+        let dops = 0;
+        for (const it of dsnap.docs) {
+          dbatch.delete(daysCol.doc(it.id));
+          dops++;
+          deletedActivityYearItems++;
+          if (dops >= 400) {
+            await dbatch.commit();
+            dbatch = db.batch();
+            dops = 0;
+          }
+        }
+        if (dops > 0) {
+          await dbatch.commit();
+        }
+
+        if (removeContainers) {
+          try {
+            await activityBase.doc(yearId).delete();
+          } catch {}
+        }
+      }
+    }
+
+    const result = {
+      ok: true,
+      pairs: pairs.length,
+      years: { from: fromYear, to: toYear },
+      signals: {
+        deletedLegacy: deletedLegacySignals,
+        deletedYearItems: deletedSignalsYearItems,
+      },
+      activity: {
+        deletedYearItems: deletedActivityYearItems,
+      },
+    };
+    
+    logger.info('purgePairSignalsAndActivityAllHttp_done', result);
+    res.status(200).json(result);
+  } catch (e: any) {
+    logger.error('purgePairSignalsAndActivityAllHttp_failed', { message: e?.message, stack: e?.stack });
     res.status(500).json({ ok: false, error: e?.message || 'internal_error' });
   }
 });

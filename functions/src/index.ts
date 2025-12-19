@@ -11,6 +11,7 @@ export {
   autoDiagnoseAndFixDaily,
   backfillSignalsPipelineAdmin,
   cleanupIntraperiodBar,
+  purgePairSignalsAndActivityAllHttp,
 } from "./webhooks/admin-tasks";
 
 export * from './webhooks/registry-actions';
