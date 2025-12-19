@@ -158,13 +158,65 @@ export function withStockListV2Feature() {
                 const out: RanksDataWithColors = {};
                 // First pass: fetch per-pair arrays and build union of dates
                 const perPair: Record<string, BaselineTargetRankDatum[]> = {};
-                const dateSet = new Set<string>();
+                const bucketSet = new Set<string>();
+
+                const bucketKey = (date: string): string => {
+                    const ymd = String(date || '').slice(0, 10);
+                    if (!ymd) return '';
+                    if (timeframe === Timeframe.MONTHLY) {
+                        // Bucket by calendar month: YYYY-MM
+                        return ymd.slice(0, 7);
+                    }
+                    if (timeframe === Timeframe.WEEKLY) {
+                        // Bucket by ISO week so weeks crossing months stay grouped.
+                        const [yy, mm, dd] = ymd.split('-').map(Number);
+                        if (!yy || !mm || !dd) return ymd;
+                        const d = new Date(Date.UTC(yy, mm - 1, dd));
+                        const tmp = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+                        const dayNum = tmp.getUTCDay() || 7; // Sun=0 -> 7
+                        tmp.setUTCDate(tmp.getUTCDate() + 4 - dayNum); // nearest Thursday
+                        const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
+                        const diffDays = Math.floor((tmp.getTime() - yearStart.getTime()) / 86400000) + 1;
+                        const week = Math.ceil(diffDays / 7);
+                        const wk = String(week).padStart(2, '0');
+                        return `${tmp.getUTCFullYear()}-W${wk}`;
+                    }
+                    // DAILY / TWO_DAY: bucket by exact day
+                    return ymd;
+                };
+
+                const canonicalDateFromBucket = (bucket: string): string => {
+                    if (!bucket) return '';
+                    if (timeframe === Timeframe.MONTHLY) {
+                        // Represent month buckets as first of month; header uses only month/year.
+                        const [y, m] = bucket.split('-');
+                        if (!y || !m) return '';
+                        return `${y}-${m.padStart(2, '0')}-01`;
+                    }
+                    if (timeframe === Timeframe.WEEKLY && bucket.includes('-W')) {
+                        const [yStr, wStr] = bucket.split('-W');
+                        const year = Number(yStr);
+                        const week = Number(wStr);
+                        if (!year || !week) return '';
+                        // ISO week -> Monday of that week
+                        const simple = new Date(Date.UTC(year, 0, 4));
+                        const dayNum = simple.getUTCDay() || 7; // Sun=0 -> 7
+                        simple.setUTCDate(simple.getUTCDate() - (dayNum - 1) + (week - 1) * 7);
+                        const mm = String(simple.getUTCMonth() + 1).padStart(2, '0');
+                        const dd = String(simple.getUTCDate()).padStart(2, '0');
+                        return `${year}-${mm}-${dd}`;
+                    }
+                    return bucket;
+                };
                 for (const pair of pairs) {
                     const arr = await generateHeatmapDataV2(pair, timeframe);
                     perPair[pair] = arr;
-                    for (const d of arr) dateSet.add(d.date);
+                    for (const d of arr) {
+                        const key = bucketKey(d.date);
+                        if (key) bucketSet.add(key);
+                    }
                 }
-                const allDates = Array.from(dateSet.values()).sort((a, b) => {
+                const allBuckets = Array.from(bucketSet.values()).sort((a, b) => {
                     const sa = String(a ?? '');
                     const sb = String(b ?? '');
                     return sa.localeCompare(sb);
@@ -174,11 +226,17 @@ export function withStockListV2Feature() {
                 const colors = rsCalcsStore.heatmapColors();
                 const placeholderColor = '#cccccc';
                 for (const pair of pairs) {
-                    const byDate = new Map<string, BaselineTargetRankDatum>();
-                    (perPair[pair] || []).forEach(d => byDate.set(d.date, d));
-                    const aligned: BaselineTargetRankDatum[] = allDates.map(date => {
-                        const hit = byDate.get(date);
+                    const byBucket = new Map<string, BaselineTargetRankDatum>();
+                    for (const d of perPair[pair] || []) {
+                        const key = bucketKey(d.date);
+                        if (!key) continue;
+                        // Overwrite so the latest datum for the bucket wins.
+                        byBucket.set(key, d);
+                    }
+                    const aligned: BaselineTargetRankDatum[] = allBuckets.map(bucket => {
+                        const hit = byBucket.get(bucket);
                         if (hit) return hit;
+                        const date = canonicalDateFromBucket(bucket);
                         // Placeholder datum for missing cell
                         return {
                             date,

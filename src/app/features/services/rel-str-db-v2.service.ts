@@ -145,10 +145,12 @@ export class RelStrDbV2Service {
 
     return defer(() => from(this.inCtx(async () => {
       const resultsDesc: RsSeriesPoint[] = [];
+      const archiveRows: Array<{ raw: any; dateYMD: string }> = [];
       let remaining = Math.max(1, Math.floor(daysBack));
       let hadPermissionError = false;
 
       const isWindowed = timeframe === Timeframe.DAILY || timeframe === Timeframe.TWO_DAY;
+      const isIntervalArchive = timeframe === Timeframe.WEEKLY || timeframe === Timeframe.MONTHLY;
 
       for (let y = currentYear; y >= START_ARCHIVE_YEAR && (isWindowed ? remaining > 0 : true); y--) {
         try {
@@ -161,42 +163,61 @@ export class RelStrDbV2Service {
             const raw = (docSnap.data() as any) || {};
             const dateYMD = String(raw?.day || '').trim();
             if (!dateYMD) continue;
+
+            // For WEEKLY/MONTHLY, defer selection until after we know the last doc.
+            if (isIntervalArchive) {
+              archiveRows.push({ raw, dateYMD });
+              continue;
+            }
+
             const isToday = dateYMD === todayYMD;
             const post = raw?.post;
             const pre = raw?.pre;
             let phase: RsPhase | undefined;
             let value: number | undefined;
             let norm: number | undefined;
+
             if (!isToday) {
+              // DAILY/TWO_DAY historical: prefer PRE rsRaw when present; else POST rsRaw. Never fall back to rsNorm as value.
+              const preRsRaw = Number.isFinite(pre?.rsRaw) ? Number(pre.rsRaw) : undefined;
+              const preRsNorm = Number.isFinite(pre?.rsNorm) ? Number(pre.rsNorm) : undefined;
               const postRsRaw = Number.isFinite(post?.rsRaw) ? Number(post.rsRaw) : undefined;
               const postRsNorm = Number.isFinite(post?.rsNorm) ? Number(post.rsNorm) : undefined;
-              if (!Number.isFinite(postRsRaw) && !Number.isFinite(postRsNorm)) {
+
+              if (Number.isFinite(preRsRaw)) {
+                value = preRsRaw;
+                norm = Number.isFinite(preRsNorm) ? preRsNorm : undefined;
+                phase = RsPhase.PRE;
+              } else if (Number.isFinite(postRsRaw)) {
+                value = postRsRaw;
+                norm = Number.isFinite(postRsNorm) ? postRsNorm : undefined;
+                phase = RsPhase.POST;
+              } else {
                 continue;
               }
-              value = Number(postRsRaw ?? postRsNorm);
-              norm = Number(postRsNorm ?? postRsRaw);
-              phase = RsPhase.POST;
             } else {
+              // Today (UTC): same preference order, but still never use rsNorm as numeric fallback.
+              const preRsRaw = Number.isFinite(pre?.rsRaw) ? Number(pre.rsRaw) : undefined;
+              const preRsNorm = Number.isFinite(pre?.rsNorm) ? Number(pre.rsNorm) : undefined;
               const postRsRaw = Number.isFinite(post?.rsRaw) ? Number(post.rsRaw) : undefined;
               const postRsNorm = Number.isFinite(post?.rsNorm) ? Number(post.rsNorm) : undefined;
-              const preRsRaw = Number.isFinite(pre?.rsRaw) ? Number(pre?.rsRaw) : undefined;
-              const preRsNorm = Number.isFinite(pre?.rsNorm) ? Number(pre.rsNorm) : undefined;
 
-              if (Number.isFinite(postRsRaw) || Number.isFinite(postRsNorm)) {
-                value = Number(postRsRaw ?? postRsNorm);
-                norm = Number(postRsNorm ?? postRsRaw);
-                phase = RsPhase.POST;
-              } else if (Number.isFinite(preRsRaw) || Number.isFinite(preRsNorm)) {
-                value = Number(preRsRaw ?? preRsNorm);
-                norm = Number(preRsNorm ?? preRsRaw);
+              if (Number.isFinite(preRsRaw)) {
+                value = preRsRaw;
+                norm = Number.isFinite(preRsNorm) ? preRsNorm : undefined;
                 phase = RsPhase.PRE;
+              } else if (Number.isFinite(postRsRaw)) {
+                value = postRsRaw;
+                norm = Number.isFinite(postRsNorm) ? postRsNorm : undefined;
+                phase = RsPhase.POST;
               } else {
                 continue;
               }
             }
+
             resultsDesc.push({ date: dateYMD, value: value!, norm, phase });
           }
-          if (isWindowed) {
+          if (isWindowed && !isIntervalArchive) {
             remaining = Math.max(0, daysBack - resultsDesc.length);
           }
         } catch (e: any) {
@@ -209,6 +230,100 @@ export class RelStrDbV2Service {
           }
         }
       }
+
+      // Post-process WEEKLY/MONTHLY archives to honor latestWeekly/latestMonthly semantics.
+      if (isIntervalArchive && archiveRows.length > 0) {
+        // Oldest-first for easier reasoning about historical vs tail.
+        const byDateAsc = archiveRows.slice().sort((a, b) => a.dateYMD.localeCompare(b.dateYMD));
+        const historical = byDateAsc.slice(0, Math.max(0, byDateAsc.length - 1));
+        const last = byDateAsc[byDateAsc.length - 1];
+
+        const selectPostOnly = (row: { raw: any; dateYMD: string }): RsSeriesPoint | undefined => {
+          const post = row.raw?.post;
+          const postRsRaw = Number.isFinite(post?.rsRaw) ? Number(post.rsRaw) : undefined;
+          const postRsNorm = Number.isFinite(post?.rsNorm) ? Number(post.rsNorm) : undefined;
+          if (!Number.isFinite(postRsRaw)) return undefined;
+          const value = postRsRaw as number;
+          const norm = Number.isFinite(postRsNorm) ? (postRsNorm as number) : undefined;
+          return { date: row.dateYMD, value, norm, phase: RsPhase.POST };
+        };
+
+        const histPoints: RsSeriesPoint[] = [];
+        for (const row of historical) {
+          const p = selectPostOnly(row);
+          if (p) histPoints.push(p);
+        }
+
+        const isTruePeriodEnd = (row: { raw: any; dateYMD: string }): boolean => {
+          if (row?.raw?.isIntervalClose === true) return true;
+
+          const [yy, mm, dd] = row.dateYMD.split('-').map(Number);
+          if (!yy || !mm || !dd) return false;
+          const d = new Date(Date.UTC(yy, mm - 1, dd));
+
+          // Compare against "today" in UTC. If the archive day falls in the same
+          // calendar month (for MONTHLY) or ISO week (for WEEKLY) as today, then
+          // the period is still in-flight and we should treat this as the
+          // current-period doc, to be substituted by latest*.
+          const now = new Date();
+
+          if (timeframe === Timeframe.MONTHLY) {
+            const sameMonth = d.getUTCFullYear() === now.getUTCFullYear() && d.getUTCMonth() === now.getUTCMonth();
+            return !sameMonth;
+          }
+
+          if (timeframe === Timeframe.WEEKLY) {
+            const isoWeek = (dt: Date): { year: number; week: number } => {
+              const tmp = new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate()));
+              const dayNum = tmp.getUTCDay() || 7; // Sun=0 -> 7
+              tmp.setUTCDate(tmp.getUTCDate() + 4 - dayNum); // nearest Thursday
+              const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
+              const diffDays = Math.floor((tmp.getTime() - yearStart.getTime()) / 86400000) + 1;
+              const week = Math.ceil(diffDays / 7);
+              return { year: tmp.getUTCFullYear(), week };
+            };
+
+            const a = isoWeek(d);
+            const b = isoWeek(now);
+            const sameIsoWeek = a.year === b.year && a.week === b.week;
+            return !sameIsoWeek;
+          }
+
+          return false;
+        };
+
+        let tailPoint: RsSeriesPoint | undefined;
+        if (isTruePeriodEnd(last)) {
+          tailPoint = selectPostOnly(last);
+        } else {
+          // Substitute latestWeekly/latestMonthly for the tail when last is not period-end.
+          try {
+            const pairDocRef = doc(this.firestore, `${Collection.PAIRS_DATA}/${pair}`);
+            const pairSnap = await this.zone.run(() => getDoc(pairDocRef));
+            const pairData = (pairSnap.data() as any) || {};
+            const latest = timeframe === Timeframe.WEEKLY ? pairData?.latestWeekly : pairData?.latestMonthly;
+            const latestDay = String(latest?.day || latest?.date || '').slice(0, 10);
+            const post = latest?.post as any;
+            const rsRaw = Number.isFinite(post?.rsRaw) ? Number(post.rsRaw) : undefined;
+            const rsNorm = Number.isFinite(post?.rsNorm) ? Number(post.rsNorm) : undefined;
+            if (latestDay && Number.isFinite(rsRaw)) {
+              tailPoint = {
+                date: latestDay,
+                value: rsRaw!,
+                norm: Number.isFinite(rsNorm) ? rsNorm : undefined,
+                phase: RsPhase.POST,
+              };
+            }
+          } catch {
+            // Best-effort latest* read; fall through without tail if unavailable.
+          }
+        }
+
+        resultsDesc.length = 0;
+        resultsDesc.push(...histPoints);
+        if (tailPoint) resultsDesc.push(tailPoint);
+      }
+
       const sorted = resultsDesc.sort((a, b) => {
         const ad = String(a?.date ?? '');
         const bd = String(b?.date ?? '');
