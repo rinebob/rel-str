@@ -66,6 +66,14 @@ export const NAV_MENU_ITEMS: NavItem[] = [
         target: '_self',
     },
     {
+        name: 'trade-journal',
+        text: 'trade journal',
+        href: 'trade-journal',
+        mobileOnly: false,
+        external: false,
+        target: '_self',
+    },
+    {
         name: 'rs-chart',
         text: 'rs-chart',
         href: 'rs-chart',

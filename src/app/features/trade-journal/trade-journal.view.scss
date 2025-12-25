@@ -1,0 +1,71 @@
+@use '../../styles/_mixins-global' as mixins;
+
+.tj-root {
+  @include mixins.border1();
+  height: calc(100vh - 4rem);
+}
+
+.tj-list {
+  @include mixins.border1(blue);
+  width: mixins.rem(420);
+  min-width: mixins.rem(320);
+}
+
+.tj-detail {
+  @include mixins.border1(red);
+  display: flex;
+  flex-direction: column;
+}
+
+.tj-toolbar,
+.tj-detail-toolbar {
+  display: flex;
+  align-items: center;
+}
+
+.tj-spacer {
+  flex: 1;
+}
+
+.tj-filters {
+  display: flex;
+  flex-direction: column;
+  gap: mixins.rem(8);
+  padding: mixins.rem(16);
+}
+
+.tj-filter-field {
+  width: 100%;
+}
+
+.tj-table {
+  padding: 0 mixins.rem(16) mixins.rem(16);
+}
+
+.tj-row {
+  cursor: pointer;
+}
+
+.tj-row:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.tj-empty {
+  text-align: center;
+}
+
+.tj-detail-body {
+  padding: mixins.rem(16);
+  flex: 1;
+  display: flex;
+}
+
+.tj-detail-placeholder {
+  margin: auto;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.tj-detail-placeholder--empty {
+  font-style: italic;
+}

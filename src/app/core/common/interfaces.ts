@@ -15,6 +15,7 @@ export enum AppRoutes {
 	CHART_TWO = 'chart-two',
 	RS_TABLE = 'rs-table',
 	POSITIONS_VIEW = 'positions-view',
+	TRADE_JOURNAL = 'trade-journal',
 	// ROBERT = 'robert',
 	// KANBAN = 'kanban',
 	// AUDIO = 'audio',

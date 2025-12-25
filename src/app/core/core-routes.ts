@@ -67,6 +67,11 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.PositionsViewComponent),
                 canActivate: [authGuard],
             },
+            {path: AppRoutes.TRADE_JOURNAL,
+                loadComponent: () => import('../features/trade-journal/trade-journal.view')
+                .then(mod => mod.TradeJournalViewComponent),
+                canActivate: [authGuard],
+            },
             {path: AppRoutes.HISTORY, 
                 loadComponent: () => import('../features/history/history.component')
                 .then(mod => mod.HistoryComponent),
