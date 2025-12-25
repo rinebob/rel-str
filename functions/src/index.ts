@@ -12,6 +12,7 @@ export {
   backfillSignalsPipelineAdmin,
   cleanupIntraperiodBar,
   purgePairSignalsAndActivityAllHttp,
+  refreshMarketHolidaysAdmin,
 } from "./webhooks/admin-tasks";
 
 export * from './webhooks/registry-actions';

@@ -2,7 +2,7 @@ import {onRequest, onCall} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import {GoogleAuth} from "google-auth-library";
 import {db, FieldValue} from "./firebase-admin-init";
-import { GetTrackedSymbolsResponse, TrackedSymbolDTO, PartnerEndpointPath } from './types/partner';
+import { GetTrackedSymbolsResponse, TrackedSymbolDTO, PartnerEndpointPath, PartnerMarketHolidaysResponse } from './types/partner';
 import { DEFAULT_PARTNER_CALLER_SA, IAM_CREDENTIALS_BASE_URL, OAUTH_CLOUD_PLATFORM_SCOPE, IAM_SERVICE_ACCOUNTS_PATH, IamCredentialsMethod } from './config/constants';
 import { persistWarning } from './logging/warn';
 import { RsCloudFunctionName } from './webhooks/webhooks-config';
@@ -21,10 +21,16 @@ const PARTNER_TS_URL =
   process.env.PARTNER_TS_URL ||
   `${PARTNER_AUDIENCE.replace(/\/$/, "")}/${PartnerEndpointPath.TIME_SERIES}`;
 
+const PARTNER_MARKET_HOLIDAYS_URL =
+  process.env.PARTNER_MARKET_HOLIDAYS_URL ||
+  `${PARTNER_AUDIENCE.replace(/\/$/, "")}/${PartnerEndpointPath.MARKET_HOLIDAYS}`;
+
 // Optional separate audience overrides (default to URLs above)
 const PARTNER_TRACKED_SYMBOLS_AUDIENCE =
   process.env.PARTNER_TRACKED_SYMBOLS_AUDIENCE || PARTNER_TRACKED_SYMBOLS_URL;
 const PARTNER_TS_AUDIENCE = process.env.PARTNER_TS_AUDIENCE || PARTNER_TS_URL;
+const PARTNER_MARKET_HOLIDAYS_AUDIENCE =
+  process.env.PARTNER_MARKET_HOLIDAYS_AUDIENCE || PARTNER_MARKET_HOLIDAYS_URL;
 
 // Service account email for rel-str prod
 const CALLER_SA = process.env.PARTNER_CALLER_SA || DEFAULT_PARTNER_CALLER_SA;
@@ -130,6 +136,47 @@ export async function callPartnerTimeSeries(params: {
     throw new Error(`partnerTimeSeries upstream ${resp.status}: ${text}`);
   }
   return (await resp.json()) as unknown;
+}
+
+/** Call Savant Partner Market Holidays endpoint for a given year. */
+export async function callPartnerMarketHolidays(params: { year: number | string }): Promise<PartnerMarketHolidaysResponse> {
+  const yearStr = String(params.year).slice(0, 4);
+  const audience = PARTNER_MARKET_HOLIDAYS_AUDIENCE;
+  const idToken = await generateIdTokenWithEmail(audience, CALLER_SA);
+  const search = new URLSearchParams();
+  search.set('year', yearStr);
+  const url = `${PARTNER_MARKET_HOLIDAYS_URL}?${search.toString()}`;
+
+  logger.info('partnerMarketHolidays_request', { year: yearStr, url, audience });
+
+  const resp = await fetchWithRetry(url, { Authorization: `Bearer ${idToken}` });
+  const text = await resp.text();
+  if (!resp.ok) {
+    logger.error('partnerMarketHolidays_upstream_error', {
+      status: resp.status,
+      url,
+      audience,
+      callerSa: CALLER_SA,
+      snippet: typeof text === 'string' ? text.slice(0, 500) : undefined,
+    });
+    throw new Error(`partnerMarketHolidays upstream ${resp.status}: ${text}`);
+  }
+
+  let parsed: PartnerMarketHolidaysResponse;
+  try {
+    parsed = JSON.parse(text) as PartnerMarketHolidaysResponse;
+  } catch (e: any) {
+    logger.error('partnerMarketHolidays_parse_error', { year: yearStr, message: e?.message, snippet: text.slice(0, 500) });
+    throw e;
+  }
+
+  logger.info('partnerMarketHolidays_response', {
+    year: parsed.year,
+    holidays: Array.isArray(parsed.holidays) ? parsed.holidays.length : 0,
+    processingTimeMs: parsed.processingTimeMs ?? null,
+  });
+
+  return parsed;
 }
 
 /** Call Savant Partner Tracked Symbols endpoint. */

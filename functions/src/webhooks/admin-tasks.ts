@@ -6,11 +6,13 @@ import { writeWarningsSummary } from '../logging/warn';
 
 import { writeUnifiedSeries } from './pairs-writer';
 import { listRegisteredPairs } from './registry';
+import { buildCanonicalCalendarForYear } from './calendar';
+
 import { buildPhaseSeries } from './rs-series';
 import { fetchDailyBarsRange } from './symbol-fetch';
-import { db } from '../firebase-admin-init';
+import { db, FieldValue } from '../firebase-admin-init';
 
-import { FIXED_DAYS, FIXED_LIMIT, ProcessErrorSample, FIXED_INTERVAL } from './webhooks-config';
+import { FIXED_DAYS, FIXED_LIMIT, ProcessErrorSample, FIXED_INTERVAL, APP_COLLECTION } from './webhooks-config';
 
 import { SILENCE_ADMIN_INFO } from './webhooks-config';
 import { forEachWithConcurrency } from './partner-webhooks';
@@ -22,6 +24,7 @@ import { runCanonicalRsEngineForPair, type PhaseSeriesPointWithMetrics } from '.
 import { applyRsEventsForPair } from './rs-events-consumer';
 
 import { appendRootPositionTimelineUpdate } from './positions-manager';
+import { callPartnerMarketHolidays } from '../partner-proxy';
 
 import {
   RS_OPEN_LONG_THRESHOLD,
@@ -443,6 +446,67 @@ export const backfillSignalsPipelineAdmin = onRequest({ region: 'us-central1', t
     res.status(200).json(summary);
   } catch (e: any) {
     logger.error('backfillSignalsPipelineAdmin_failed', { message: e?.message });
+    res.status(500).json({ ok: false, error: e?.message || 'internal_error' });
+  }
+});
+
+/**
+ * HTTP (admin): refreshMarketHolidaysAdmin
+ * Fetch US market holidays for a given year from SavantAPI and mirror them into
+ * app/market-holidays-US-<year>. Protect with bearer ADMIN_BACKFILL_TOKEN.
+ * Query/body: { year: string|number }
+ */
+export const refreshMarketHolidaysAdmin = onRequest({ region: 'us-central1', timeoutSeconds: 120 }, async (req, res) => {
+  const token = (req.headers['authorization'] || '').toString().replace(/^Bearer\s+/i, '');
+  const expected = (process.env.ADMIN_BACKFILL_TOKEN || '').trim();
+  if (!expected || token !== expected) {
+    res.status(401).json({ ok: false, error: 'unauthorized' });
+    return;
+  }
+
+  try {
+    const rawYear = (req.query.year as string) ?? (req.body?.year as string | number | undefined);
+    const yearStr = String(rawYear || '').trim();
+    const yearNum = Number(yearStr);
+    if (!yearStr || !Number.isInteger(yearNum) || yearNum < 1900 || yearNum > 2100) {
+      res.status(400).json({ ok: false, error: 'invalid_year', message: 'Expected year=YYYY between 1900 and 2100.' });
+      return;
+    }
+
+    logger.info('refreshMarketHolidaysAdmin_start', { year: yearNum });
+
+    const upstream = await callPartnerMarketHolidays({ year: yearNum });
+    const holidays = Array.isArray(upstream.holidays) ? upstream.holidays : [];
+
+    const docId = `market-holidays-US-${yearNum}`;
+    const docRef = db.collection(APP_COLLECTION).doc(docId);
+
+    const canonical = buildCanonicalCalendarForYear(yearNum, holidays);
+
+    await docRef.set(
+      {
+        year: yearNum,
+        region: 'US',
+        holidays,
+        source: 'SA',
+        weeklyLastTradingDays: canonical.weeklyLastTradingDays,
+        monthlyLastTradingDays: canonical.monthlyLastTradingDays,
+        lastUpdatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    const payload = {
+      ok: true,
+      year: upstream.year ?? String(yearNum),
+      count: holidays.length,
+      docPath: `${APP_COLLECTION}/${docId}`,
+    };
+
+    logger.info('refreshMarketHolidaysAdmin_done', payload);
+    res.status(200).json(payload);
+  } catch (e: any) {
+    logger.error('refreshMarketHolidaysAdmin_failed', { message: e?.message });
     res.status(500).json({ ok: false, error: e?.message || 'internal_error' });
   }
 });

@@ -25,12 +25,34 @@ export interface GetTrackedSymbolsResponse {
 export enum PartnerEndpointPath {
   TRACKED_SYMBOLS = 'partnerListTrackedSymbolsV2',
   TIME_SERIES = 'partnerTimeSeriesV2',
+  MARKET_HOLIDAYS = 'partnerMarketHolidays',
 }
 
 /** RS calculation phase for a day's value. */
 export enum RsPhase {
   PRE = 'pre',
   POST = 'post',
+}
+
+export enum MarketHolidayStatus {
+  CLOSED = 'closed',
+  EARLY_CLOSE = 'early_close',
+}
+
+export interface MarketHolidayItem {
+  name: string;
+  date: string; // YYYY-MM-DD
+  status: MarketHolidayStatus;
+  earlyCloseEt?: string;
+  notes?: string;
+}
+
+export interface PartnerMarketHolidaysResponse {
+  ok: boolean;
+  year: string;
+  holidays: MarketHolidayItem[];
+  processingTimeMs?: number;
+  timestamp?: string;
 }
 
 // PhasePreference removed: selection is fixed by rubric (historical: POST-only; today: POST else PRE)
