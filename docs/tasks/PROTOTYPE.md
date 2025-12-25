@@ -59,6 +59,29 @@
   - [ ] Use callables for OHLCV/TA; remove legacy local data imports
   - [ ] Add loading/fallbacks while initial RS backfill completes
 
+## Trade Journal & Newsletter (View-Level)
+
+- [ ] Trade Journal Views
+  - [ ] Trade List view for discretionary trades (filters by date/symbol/status/direction; entry to detail)
+  - [ ] Trade Detail view with multi-timeframe snapshot (M/W/D), triggers panel, and indicator event history placeholder
+  - [ ] Notes timeline UI (open/update/close notes) with screenshot attachments
+- [ ] CSV-based Indicator Events UI Integration
+  - [ ] Frontend services/types to read normalized Indicator Events (after backend is available)
+  - [ ] Event history panel with timeframe + window controls; promote events to trade triggers
+- [ ] Newsletter Builder (Phase 4)
+  - [ ] Newsletter draft view (select trades, choose primary screenshots, ordering, summaries)
+  - [ ] PDF export trigger and basic status/feedback in UI
+
+## Trade Journal & Newsletter (Backend Support)
+
+- [ ] TradingView CSV Ingestion
+  - [ ] Callable / endpoint to accept D/W/M CSV uploads and parse filename for exchange/symbol/timeframe
+  - [ ] Event detectors for Trend Bands zones and Trend Meter histogram crossings
+  - [ ] Incremental ingestion (skip rows up to last ingested date per symbol+timeframe)
+- [ ] Broker Trade CSV Import
+  - [ ] Parser for broker export format (e.g. Robinhood) to normalized trade records
+  - [ ] Import pipeline to persist parsed trades into trade-journal schema
+
 ## Development Identity (No Fallbacks)
 
 - DO NOT use identity fallbacks in client code (no random/localStorage/dev-generated UIDs).
