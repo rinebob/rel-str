@@ -281,7 +281,8 @@ export async function processPairLive(
       const targetWeekly = await fetchDailyBarsRange(target, { from, to, interval: Interval.WEEKLY });
       weeklySeries = buildPhaseSeries(baseWeekly, targetWeekly, phase, baseline, target, logger);
       if (weeklySeries.length > 0) {
-        await writeUnifiedSeries(baseline, target, phase, weeklySeries, baseWeekly, targetWeekly, Interval.WEEKLY);
+        const windowToDay = series.length > 0 ? String(series[series.length - 1].day).slice(0, 10) : undefined;
+        await writeUnifiedSeries(baseline, target, phase, weeklySeries, baseWeekly, targetWeekly, Interval.WEEKLY, windowToDay);
       }
     } catch (e: any) {
       logger.warn('weekly_series_write_failed', { pairId, baseline, target, phase, message: e?.message });
@@ -292,7 +293,8 @@ export async function processPairLive(
       const targetMonthly = await fetchDailyBarsRange(target, { from, to, interval: Interval.MONTHLY });
       monthlySeries = buildPhaseSeries(baseMonthly, targetMonthly, phase, baseline, target, logger);
       if (monthlySeries.length > 0) {
-        await writeUnifiedSeries(baseline, target, phase, monthlySeries, baseMonthly, targetMonthly, Interval.MONTHLY);
+        const windowToDay = series.length > 0 ? String(series[series.length - 1].day).slice(0, 10) : undefined;
+        await writeUnifiedSeries(baseline, target, phase, monthlySeries, baseMonthly, targetMonthly, Interval.MONTHLY, windowToDay);
       }
     } catch (e: any) {
       logger.warn('monthly_series_write_failed', { pairId, baseline, target, phase, message: e?.message });

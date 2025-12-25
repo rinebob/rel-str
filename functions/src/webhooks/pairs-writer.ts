@@ -7,6 +7,7 @@ import { logger } from 'firebase-functions/v2';
 import { RsCloudFunctionName, SILENCE_MISSING_POST_TIME } from './webhooks-config';
 import { persistWarning } from '../logging/warn';
 import { Interval } from '../types/signal.types';
+import { CanonicalCalendarYear, loadCanonicalCalendarYear, weekKeyFromYmd } from './calendar';
 
 /**
  * Write unified RS series for a pair into Firestore (pairs-data schema).
@@ -38,6 +39,7 @@ export async function writeUnifiedSeries(
   baselineBars: PartnerBar[],
   targetBars: PartnerBar[],
   interval: Interval = Interval.DAILY,
+  windowToDay?: string,
 ): Promise<void> {
   if (entries.length === 0) return;
   const pairId = `${baseline}-${target}`;
@@ -191,36 +193,16 @@ export async function writeUnifiedSeries(
   }
 
   // ============ Merge and write ============
-  // For MONTHLY archives we only persist end-of-interval (last trading bar per month)
-  // entries to avoid intra-period monthly archive docs. Compute an effectiveEntries
-  // subset that contains at most one entry per (year, month), taking the max day.
-  let effectiveEntries: PhaseSeriesPoint[] = entries;
-  if (interval === Interval.MONTHLY) {
-    const latestByMonth = new Map<string, string>();
-    for (const e of entries) {
-      const dayStr = String(e.day || '').slice(0, 10);
-      if (!dayStr) continue;
-      const ym = dayStr.slice(0, 7); // YYYY-MM
-      const prev = latestByMonth.get(ym);
-      if (!prev || dayStr > prev) {
-        latestByMonth.set(ym, dayStr);
-      }
-    }
-    effectiveEntries = entries.filter((e) => {
-      const dayStr = String(e.day || '').slice(0, 10);
-      if (!dayStr) return false;
-      const ym = dayStr.slice(0, 7);
-      return latestByMonth.get(ym) === dayStr;
-    });
-  }
-
-  if (effectiveEntries.length === 0) {
+  // If there are no entries for this interval, nothing to write.
+  if (entries.length === 0) {
     return;
   }
 
   const byDay = new Map<string, any>();
 
-  for (const e of effectiveEntries) {
+  // Build the per-day map from the full series so that latestDaily/latestWeekly/latestMonthly
+  // reflect the most recent bar (including intra-period runs).
+  for (const e of entries) {
     const dayObj = byDay.get(e.day) || { day: e.day, dow: e.dow };
 
     // Price-based deltas vs prior-day post-close (for display/debug)
@@ -344,7 +326,93 @@ export async function writeUnifiedSeries(
   // ===== Archive upserts: pairs-data/{PAIR}/archive-YYYY/{YYMMDD} and interval variants
   const batch = db.batch();
   const previewItems: Array<{ archiveCol: string; docId: string; dayDoc: any }> = [];
-  for (const e of entries) {
+
+  // SA monthly/weekly bars are already end-of-interval (one bar per month/week),
+  // so we can write all entries directly to the appropriate archive collection.
+  const archiveEntries: PhaseSeriesPoint[] = entries;
+
+  try {
+    logger.info('rs_series_archive_plan', {
+      pairId,
+      interval,
+      phase,
+      latestDay: latest?.day,
+      archiveEntryDays: archiveEntries.map(e => e.day).slice(0, 12),
+      totalArchiveEntries: archiveEntries.length,
+    });
+  } catch {}
+
+  // For WEEKLY/MONTHLY runs, emit an explicit log of all days being written so
+  // diagnostics and manual checks can confirm whether specific closes are
+  // present in the write set.
+  try {
+    if (interval === Interval.WEEKLY) {
+      logger.info('archive_weekly_upsert_days', {
+        pairId,
+        phase,
+        count: archiveEntries.length,
+        days: archiveEntries.map(e => e.day),
+      });
+    } else if (interval === Interval.MONTHLY) {
+      logger.info('archive_monthly_upsert_days', {
+        pairId,
+        phase,
+        count: archiveEntries.length,
+        days: archiveEntries.map(e => e.day),
+      });
+    }
+  } catch {}
+
+  // Resolve canonical calendar context for the current run based on windowToDay.
+  let canonicalCalendar: CanonicalCalendarYear | undefined;
+  let runToDay: string | undefined;
+  let runToYear: number | undefined;
+  let runToWeekKey: string | undefined;
+  let runToMonth: string | undefined;
+
+  if (interval !== Interval.DAILY && phase === RsPhase.POST && windowToDay) {
+    // Always clamp the effective run date to "today" so we never treat a
+    // future week/month (beyond the current trading day) as the "current"
+    // period for archive writes.
+    const today = new Date();
+    const todayY = today.getUTCFullYear();
+    const todayM = String(today.getUTCMonth() + 1).padStart(2, '0');
+    const todayD = String(today.getUTCDate()).padStart(2, '0');
+    const todayYmd = `${todayY}-${todayM}-${todayD}`;
+
+    const requested = String(windowToDay).slice(0, 10);
+    runToDay = requested > todayYmd ? todayYmd : requested;
+
+    const yr = Number(runToDay.slice(0, 4));
+    if (Number.isFinite(yr)) {
+      runToYear = yr;
+      // Week and month keys are pure date math; always compute them so we can
+      // distinguish past vs current week/month even if the canonical calendar
+      // cannot be loaded.
+      runToWeekKey = weekKeyFromYmd(runToDay);
+      runToMonth = runToDay.slice(0, 7);
+
+      if (yr >= 2025) {
+        try {
+          canonicalCalendar = await loadCanonicalCalendarYear(runToYear);
+        } catch (e: any) {
+          try {
+            logger.warn('writeUnifiedSeries_load_canonical_calendar_failed', {
+              pairId,
+              interval,
+              phase,
+              year: runToYear,
+              message: e?.message,
+            });
+          } catch {
+            // ignore logging failures
+          }
+        }
+      }
+    }
+  }
+
+  for (const e of archiveEntries) {
     const y = String(e.day).slice(0, 4);
     const yy = y.slice(2);
     const yymmdd = `${yy}${e.day.slice(5,7)}${e.day.slice(8,10)}`; // YYMMDD
@@ -374,15 +442,112 @@ export async function writeUnifiedSeries(
     if (interval !== Interval.DAILY && phase === RsPhase.POST) {
       const dayStr = String(existingDay.day || '');
       if (dayStr) {
-        const dt = new Date(dayStr + 'T00:00:00.000Z');
         if (interval === Interval.WEEKLY) {
-          const dow = dt.getUTCDay();
-          // Weekly bar considered complete at end of Friday POST run.
-          dayDoc.isIntervalClose = dow === 5;
+          const thisDay = dayStr.slice(0, 10);
+          const thisYear = Number(thisDay.slice(0, 4));
+          const thisWeekKey = weekKeyFromYmd(thisDay);
+
+          // Never write weekly archives at or after the run's windowToDay; treat
+          // those as in-progress.
+          if (runToDay && thisDay >= runToDay) {
+            continue;
+          }
+
+          // If we do not have a concrete runToDay or year, fall back to legacy
+          // behavior and treat all writes as completed closes.
+          if (!runToDay || !runToYear || !runToWeekKey) {
+            dayDoc.isIntervalClose = true;
+          } else {
+            const thisYearNum = Number.isFinite(thisYear) ? thisYear : undefined;
+
+            // Weeks in years strictly before the run's year are always past
+            // weeks; trust SA.
+            if (thisYearNum !== undefined && thisYearNum < runToYear) {
+              dayDoc.isIntervalClose = true;
+            } else if (thisYearNum !== undefined && thisYearNum > runToYear) {
+              // Future year relative to run; should not happen for a bounded
+              // window, but do not write an archive doc.
+              continue;
+            } else {
+              // Same year as the run. Use week keys to distinguish past vs
+              // current week.
+              if (thisWeekKey < runToWeekKey) {
+                // Past weeks relative to the current week: trust SA.
+                dayDoc.isIntervalClose = true;
+              } else if (thisWeekKey > runToWeekKey) {
+                // Future weeks relative to the current week: do not write.
+                continue;
+              } else {
+                // Current week: only write if we have canonical calendar data
+                // and this day is the canonical last trading day. If the
+                // calendar is unavailable, we *do not* trust SA for the current
+                // week and skip writing entirely.
+                const canonicalWeekEnd = canonicalCalendar?.weeklyLastTradingDays?.[runToWeekKey];
+                if (canonicalWeekEnd && thisDay === canonicalWeekEnd && thisDay <= runToDay) {
+                  dayDoc.isIntervalClose = true;
+                } else {
+                  continue;
+                }
+              }
+            }
+          }
         } else if (interval === Interval.MONTHLY) {
-          // Only end-of-interval monthly bars are written to archive-monthly, so
-          // all stored monthly docs are interval closes.
-          dayDoc.isIntervalClose = true;
+          const thisDay = dayStr.slice(0, 10);
+          const thisYear = Number(thisDay.slice(0, 4));
+          const thisMonth = dayStr.slice(0, 7);
+
+          if (runToDay) {
+            const toMonth = runToDay.slice(0, 7);
+            // Never write monthly archives at or after the run's toDay within
+            // the same month; treat those as in-progress.
+            if (thisMonth === toMonth && thisDay >= runToDay) {
+              continue;
+            }
+            // For months strictly before the run's month, we can trust SA
+            // unconditionally when calendar is unavailable or cross-year.
+            if (thisMonth < toMonth && (!canonicalCalendar || !runToMonth || thisYear !== runToYear)) {
+              dayDoc.isIntervalClose = true;
+              continue;
+            }
+          }
+
+          // If we do not have a usable canonical calendar context, fall back
+          // to trusting SA for all months before the run's month.
+          if (!canonicalCalendar || !runToDay || !runToMonth || thisYear !== runToYear) {
+            // Legacy behavior: any month strictly before the run's month is a
+            // completed interval.
+            if (!runToDay) {
+              dayDoc.isIntervalClose = true;
+            } else {
+              const toMonth = runToDay.slice(0, 7);
+              if (thisMonth < toMonth) {
+                dayDoc.isIntervalClose = true;
+              } else {
+                // Same or later month without calendar context: treat as
+                // in-progress/non-final.
+                continue;
+              }
+            }
+          } else {
+            const toMonth = runToMonth;
+            if (thisMonth < toMonth) {
+              // Past months relative to the run's current month: trust SA.
+              dayDoc.isIntervalClose = true;
+            } else if (thisMonth > toMonth) {
+              // Future month relative to run window; should not occur but do
+              // not write an archive doc.
+              continue;
+            } else {
+              const canonicalMonthEnd = canonicalCalendar.monthlyLastTradingDays[thisMonth];
+              if (canonicalMonthEnd && thisDay === canonicalMonthEnd && thisDay <= runToDay) {
+                dayDoc.isIntervalClose = true;
+              } else {
+                // Current month but not the canonical last trading day: treat
+                // as in-progress; no monthly archive doc.
+                continue;
+              }
+            }
+          }
         }
       }
     }

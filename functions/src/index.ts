@@ -15,6 +15,11 @@ export {
   refreshMarketHolidaysAdmin,
 } from "./webhooks/admin-tasks";
 
+export {
+  diagnosePairArchives,
+  diagnosePairArchivesAdmin,
+} from './webhooks/diagnostics';
+
 export * from './webhooks/registry-actions';
 
 export { getPairRSArchive } from './archive';

@@ -513,8 +513,8 @@ export const refreshMarketHolidaysAdmin = onRequest({ region: 'us-central1', tim
 
 /**
  * HTTP (admin): recomputeRegisteredBackfill
- * Backfill all registered pairs across all baselines. Protect with bearer ADMIN_BACKFILL_TOKEN.
- * Query/body: { phase?: PRE|POST|'both', days?: number, limit?: number, concurrency?: number, from?: string, to?: string, intervals?: Interval[] }
+ * Recompute RS for registered pairs in the given date range.
+ * Query/body: { from: string, to: string, phase: string, intervals: string|string[], days: number, limit: number }
  */
 export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', timeoutSeconds: 540 }, async (req, res) => {
   const token = (req.headers['authorization'] || '').toString().replace(/^Bearer\s+/i, '');
@@ -770,7 +770,18 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
                   docs: docPreview,
                 });
 
-                await writeUnifiedSeries(baseline, target, ph, weeklySeries, baseWeekly, targetWeekly, Interval.WEEKLY);
+                const windowToDay = (() => {
+                  if (to) {
+                    return String(to).slice(0, 10);
+                  }
+                  const today = new Date();
+                  const y = today.getUTCFullYear();
+                  const m = String(today.getUTCMonth() + 1).padStart(2, '0');
+                  const d = String(today.getUTCDate()).padStart(2, '0');
+                  return `${y}-${m}-${d}`;
+                })();
+
+                await writeUnifiedSeries(baseline, target, ph, weeklySeries, baseWeekly, targetWeekly, Interval.WEEKLY, windowToDay);
                 writtenDays += weeklySeries.length;
                 pairWrittenDays += weeklySeries.length;
                 pairWeeklyDays += weeklySeries.length;
@@ -799,7 +810,18 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
               let monthlySeries = buildPhaseSeries(baseMonthly, targetMonthly, ph, baseline, target, logger, { from, to });
               monthlySeries = monthlySeries.filter((p) => p.day >= lower && p.day <= upper);
               if (monthlySeries.length > 0) {
-                await writeUnifiedSeries(baseline, target, ph, monthlySeries, baseMonthly, targetMonthly, Interval.MONTHLY);
+                const windowToDay = (() => {
+                  if (to) {
+                    return String(to).slice(0, 10);
+                  }
+                  const today = new Date();
+                  const y = today.getUTCFullYear();
+                  const m = String(today.getUTCMonth() + 1).padStart(2, '0');
+                  const d = String(today.getUTCDate()).padStart(2, '0');
+                  return `${y}-${m}-${d}`;
+                })();
+
+                await writeUnifiedSeries(baseline, target, ph, monthlySeries, baseMonthly, targetMonthly, Interval.MONTHLY, windowToDay);
                 writtenDays += monthlySeries.length;
                 pairWrittenDays += monthlySeries.length;
                 pairMonthlyDays += monthlySeries.length;
