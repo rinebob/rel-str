@@ -1,0 +1,75 @@
+<h2 mat-dialog-title>New Trade</h2>
+
+<mat-dialog-content class="nt-content" [formGroup]="form">
+  <section class="nt-section nt-section--core" aria-label="Core trade details">
+    <div class="nt-row">
+      <mat-form-field appearance="outline" class="nt-field nt-field--symbol">
+        <mat-label>Symbol</mat-label>
+        <input matInput formControlName="symbol" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="nt-field nt-field--direction">
+        <mat-label>Direction</mat-label>
+        <mat-select formControlName="direction">
+          <mat-option value="LONG">Long</mat-option>
+          <mat-option value="SHORT">Short</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="nt-field nt-field--status">
+        <mat-label>Status</mat-label>
+        <mat-select formControlName="status">
+          <mat-option value="OPEN">Open</mat-option>
+        </mat-select>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="nt-field nt-field--price">
+        <mat-label>Entry price</mat-label>
+        <input matInput type="number" formControlName="entryPrice" />
+      </mat-form-field>
+    </div>
+
+    <div class="nt-row">
+      <mat-form-field appearance="outline" class="nt-field nt-field--datetime">
+        <mat-label>Entry date</mat-label>
+        <input matInput type="date" formControlName="entryDate" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="nt-field nt-field--datetime">
+        <mat-label>Entry time</mat-label>
+        <input matInput type="time" formControlName="entryTime" />
+      </mat-form-field>
+    </div>
+  </section>
+
+  <section class="nt-section" aria-label="CSV uploads">
+    <div class="nt-dropzone-row">
+      <div class="nt-dropzone nt-dropzone--narrow" aria-label="Broker trade CSV">
+        <h3 class="nt-section-title">Broker trade CSV</h3>
+        <mat-icon>upload_file</mat-icon>
+        <span>Drag broker CSV here or click to select…</span>
+      </div>
+
+      <div class="nt-dropzone nt-dropzone--narrow" aria-label="Indicator CSVs">
+        <h3 class="nt-section-title">Indicator CSVs (TradingView)</h3>
+        <p class="nt-help-text">
+          Drop your Daily (1D), Weekly (1W), and Monthly (1M) CSV files together.
+        </p>
+        <mat-icon>upload_file</mat-icon>
+        <span>Drag TradingView indicator CSVs here or click to select…</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="nt-section" aria-label="Screenshots">
+    <h3 class="nt-section-title">Screenshots</h3>
+    <div class="nt-dropzone nt-dropzone--narrow" aria-label="Screenshot upload">
+      <mat-icon>image</mat-icon>
+      <span>Drag chart screenshots here or click to select…</span>
+    </div>
+  </section>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="close()">Cancel</button>
+  <button mat-raised-button color="primary" (click)="save()">Save trade</button>
+</mat-dialog-actions>

@@ -1,0 +1,101 @@
+@use '../../styles/_mixins-global' as mixins;
+
+.nt-content {
+  display: flex;
+  flex-direction: column;
+  gap: mixins.rem(12);
+  min-width: mixins.rem(480);
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.nt-section {
+  display: flex;
+  flex-direction: column;
+  gap: mixins.rem(12);
+}
+
+.nt-section--core {
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: mixins.rem(12);
+}
+
+.nt-section-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.nt-row {
+  display: flex;
+  flex-direction: row;
+  gap: mixins.rem(8);
+  justify-content: flex-start;
+}
+
+.nt-field {
+  flex: 0 0 auto;
+}
+
+.nt-field--symbol {
+  width: mixins.rem(128); // 8rem
+}
+
+.nt-field--direction,
+.nt-field--status {
+  width: mixins.rem(128); // 8rem
+}
+
+.nt-field--price {
+  width: mixins.rem(128); // 8rem
+}
+
+// Compact Material form fields within this dialog
+.nt-content {
+  .mat-mdc-form-field {
+    // Reduce vertical padding
+    .mat-mdc-text-field-wrapper {
+      padding-top: mixins.rem(4);
+      padding-bottom: mixins.rem(4);
+    }
+
+    .mat-mdc-form-field-infix {
+      padding-top: mixins.rem(2);
+      padding-bottom: mixins.rem(2);
+    }
+  }
+}
+
+.nt-dropzone-row {
+  display: flex;
+  flex-direction: row;
+  gap: mixins.rem(8);
+}
+
+.nt-dropzone {
+  @include mixins.border1();
+  flex: 1;
+  min-height: mixins.rem(60);
+  padding: mixins.rem(8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: mixins.rem(4);
+  border-radius: mixins.rem(4);
+  background-color: #fafafa;
+}
+
+.nt-dropzone--wide {
+  max-height: mixins.rem(80);
+  max-width: 100%;
+}
+
+.nt-dropzone--narrow {
+  max-width: 50%;
+}
+
+.nt-screenshot-meta {
+  display: flex;
+  flex-direction: column;
+  gap: mixins.rem(8);
+}
