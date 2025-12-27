@@ -24,6 +24,8 @@ export * from './webhooks/registry-actions';
 
 export { getPairRSArchive } from './archive';
 
+export { importTrade } from './trade-journal-import';
+
 // RS chart / OHLC bars callable
 export { getPairDailyBars } from './rs-chart-bars.callables';
 
