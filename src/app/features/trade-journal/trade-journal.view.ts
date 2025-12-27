@@ -10,8 +10,11 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
-import { TRADE_JOURNAL_MOCK_TRADES, TradeDirection, TradeJournalListItem, TradeStatus } from './trade-journal.mocks';
-import { NewTradeDialogComponent } from './new-trade.dialog';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
+import { TradeJournalListItem } from './trade-journal.mocks';
+import { NewTradeDialogComponent, NewTradeDialogResult } from './new-trade.dialog';
+import { TradeJournalStore } from './trade-journal.store';
 
 @Component({
   selector: 'app-trade-journal-view',
@@ -28,6 +31,8 @@ import { NewTradeDialogComponent } from './new-trade.dialog';
     MatSelectModule,
     MatCheckboxModule,
     MatDialogModule,
+    MatDatepickerModule,
+    MatNativeDateModule,
   ],
   templateUrl: './trade-journal.view.html',
   styleUrls: ['./trade-journal.view.scss'],
@@ -35,56 +40,24 @@ import { NewTradeDialogComponent } from './new-trade.dialog';
 })
 export class TradeJournalViewComponent {
   private readonly dialog = inject(MatDialog);
+  private readonly store = inject(TradeJournalStore);
   readonly displayedColumns = ['symbol', 'direction', 'status', 'entryDate', 'exitDate', 'pnl', 'context'];
 
-  // Placeholder data; will be replaced by store-backed data in a later phase.
-  readonly trades = signal<TradeJournalListItem[]>(TRADE_JOURNAL_MOCK_TRADES);
+  readonly trades = signal<TradeJournalListItem[]>(this.store.trades());
 
   readonly selectedTradeId = signal<string | null>(null);
-
-  // Shape returned from NewTradeDialogComponent
-  private buildTradeFromDialog(result: {
-    symbol: string;
-    direction: string;
-    status: string;
-    entryPrice: number;
-    entryDate: string;
-    entryTime: string;
-  }): TradeJournalListItem {
-    const id = `t-${result.symbol.toLowerCase()}-${Date.now()}`;
-
-    const safeDirection =
-      result.direction === TradeDirection.SHORT ? TradeDirection.SHORT : TradeDirection.LONG;
-
-    const safeStatus =
-      result.status === TradeStatus.CLOSED
-        ? TradeStatus.CLOSED
-        : result.status === TradeStatus.CANCELED
-        ? TradeStatus.CANCELED
-        : TradeStatus.OPEN;
-
-    return {
-      id,
-      symbol: result.symbol.toUpperCase(),
-      direction: safeDirection,
-      status: safeStatus,
-      entryDate: result.entryDate,
-      exitDate: null,
-      pnlPct: null,
-    };
-  }
 
   selectTrade(id: string): void {
     this.selectedTradeId.set(id);
   }
 
   openNewTrade(): void {
-    const ref = this.dialog.open(NewTradeDialogComponent, {
+    const ref = this.dialog.open<NewTradeDialogComponent, unknown, NewTradeDialogResult | undefined>(NewTradeDialogComponent, {
       width: 'auto',
       maxWidth: '90vw',
     });
 
-    ref.afterClosed().subscribe((result) => {
+    ref.afterClosed().subscribe(async (result) => {
       // Allow cancel
       if (!result) {
         // eslint-disable-next-line no-console
@@ -93,11 +66,21 @@ export class TradeJournalViewComponent {
       }
 
       // eslint-disable-next-line no-console
-      console.log('NewTradeDialog result', result);
+      console.log('NewTradeDialog result', {
+        symbol: result.symbol,
+        direction: result.direction,
+        status: result.status,
+        entryPrice: result.entryPrice,
+        entryDate: result.entryDate,
+        entryTime: result.entryTime,
+        brokerCsvFiles: result.brokerCsvFiles?.map((f) => f.name) ?? [],
+        indicatorCsvFiles: result.indicatorCsvFiles?.map((f) => f.name) ?? [],
+        screenshotFiles: result.screenshotFiles?.map((f) => f.name) ?? [],
+      });
 
-      const newTrade = this.buildTradeFromDialog(result);
-      this.trades.update((current) => [newTrade, ...current]);
-      this.selectedTradeId.set(newTrade.id);
+      const newId = await this.store.addTradeFromDialog(result);
+      this.trades.set(this.store.trades());
+      this.selectedTradeId.set(newId);
     });
   }
 }
