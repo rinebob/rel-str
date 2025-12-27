@@ -1,44 +1,43 @@
-<mat-drawer-container class="tj-root">
-  <mat-drawer class="tj-list" mode="side" opened>
-    <mat-toolbar color="primary" class="tj-toolbar">
-      <span>Trade Journal</span>
-      <span class="tj-spacer"></span>
-      <button mat-stroked-button color="accent" (click)="openNewTrade()">
-        <mat-icon>add</mat-icon>
-        <span>New trade</span>
-      </button>
-    </mat-toolbar>
+<div class="tj-root">
+  <mat-toolbar color="primary" class="tj-toolbar">
+    <span>Trade Journal</span>
+    <span class="tj-spacer"></span>
+    <button mat-stroked-button color="accent" (click)="openNewTrade()">
+      <mat-icon>add</mat-icon>
+      <span>New trade</span>
+    </button>
+  </mat-toolbar>
 
-    <section class="tj-filters" aria-label="Trade filters">
-      <mat-form-field appearance="outline" class="tj-filter-field">
-        <mat-label>Symbol</mat-label>
-        <input matInput placeholder="Search symbol" />
-      </mat-form-field>
+  <section class="tj-filters" aria-label="Trade filters">
+    <mat-form-field appearance="outline" class="tj-filter-field tj-filter-field--symbol">
+      <mat-label>Symbol</mat-label>
+      <input matInput placeholder="Search symbol" />
+    </mat-form-field>
 
-      <mat-form-field appearance="outline" class="tj-filter-field">
-        <mat-label>Status</mat-label>
-        <mat-select>
-          <mat-option value="">All</mat-option>
-          <mat-option value="PLANNED">Planned</mat-option>
-          <mat-option value="OPEN">Open</mat-option>
-          <mat-option value="CLOSED">Closed</mat-option>
-          <mat-option value="CANCELED">Canceled</mat-option>
-        </mat-select>
-      </mat-form-field>
+    <mat-form-field appearance="outline" class="tj-filter-field tj-filter-field--status">
+      <mat-label>Status</mat-label>
+      <mat-select>
+        <mat-option value="">All</mat-option>
+        <mat-option value="OPEN">Open</mat-option>
+        <mat-option value="CLOSED">Closed</mat-option>
+        <mat-option value="CANCELED">Canceled</mat-option>
+      </mat-select>
+    </mat-form-field>
 
-      <mat-form-field appearance="outline" class="tj-filter-field">
-        <mat-label>Direction</mat-label>
-        <mat-select>
-          <mat-option value="">Any</mat-option>
-          <mat-option value="LONG">Long</mat-option>
-          <mat-option value="SHORT">Short</mat-option>
-        </mat-select>
-      </mat-form-field>
+    <mat-form-field appearance="outline" class="tj-filter-field tj-filter-field--direction">
+      <mat-label>Direction</mat-label>
+      <mat-select>
+        <mat-option value="">Any</mat-option>
+        <mat-option value="LONG">Long</mat-option>
+        <mat-option value="SHORT">Short</mat-option>
+      </mat-select>
+    </mat-form-field>
 
-      <mat-checkbox>Include newsletter candidates only</mat-checkbox>
-    </section>
+    <mat-checkbox class="tj-filter-checkbox">Include newsletter candidates only</mat-checkbox>
+  </section>
 
-    <section class="tj-table" aria-label="Trade list">
+  <section class="tj-main" aria-label="Trade list and details">
+    <div class="tj-table" aria-label="Trade list">
       <table mat-table [dataSource]="trades()" class="mat-elevation-z1">
         <ng-container matColumnDef="symbol">
           <th mat-header-cell *matHeaderCellDef>Symbol</th>
@@ -87,33 +86,36 @@
           <td [attr.colspan]="displayedColumns.length">No trades yet.</td>
         </tr>
       </table>
-    </section>
-  </mat-drawer>
+    </div>
 
-  <mat-drawer-content class="tj-detail">
-    <mat-toolbar color="primary" class="tj-detail-toolbar">
-      <span *ngIf="selectedTradeId(); else emptyState">Trade details</span>
-      <ng-template #emptyState>
-        <span>Select a trade to see details</span>
-      </ng-template>
-      <span class="tj-spacer"></span>
-      <button mat-stroked-button color="accent" (click)="openNewTrade()">
-        <mat-icon>add</mat-icon>
-        <span>New trade</span>
-      </button>
-    </mat-toolbar>
-
-    <section class="tj-detail-body" *ngIf="selectedTradeId(); else noSelection">
-      <!-- Placeholder for detailed trade view; will be implemented later. -->
-      <div class="tj-detail-placeholder">
-        Detailed trade view coming soon.
+    <aside class="tj-detail" *ngIf="selectedTradeId(); else noSelection">
+      <mat-toolbar color="primary" class="tj-detail-toolbar">
+        <span>Trade details</span>
+        <span class="tj-spacer"></span>
+        <button mat-stroked-button color="accent" (click)="openNewTrade()">
+          <mat-icon>add</mat-icon>
+          <span>New trade</span>
+        </button>
+      </mat-toolbar>
+      <div class="tj-detail-body">
+        <!-- Placeholder for detailed trade view; will be implemented later. -->
+        <div class="tj-detail-placeholder">
+          Detailed trade view coming soon.
+        </div>
       </div>
-    </section>
+    </aside>
 
     <ng-template #noSelection>
-      <div class="tj-detail-placeholder tj-detail-placeholder--empty">
-        Select a trade from the list to view details.
-      </div>
+      <aside class="tj-detail tj-detail--empty">
+        <mat-toolbar color="primary" class="tj-detail-toolbar">
+          <span>Trade details</span>
+        </mat-toolbar>
+        <div class="tj-detail-body">
+          <div class="tj-detail-placeholder tj-detail-placeholder--empty">
+            Select a trade from the table to view details.
+          </div>
+        </div>
+      </aside>
     </ng-template>
-  </mat-drawer-content>
-</mat-drawer-container>
+  </section>
+</div>

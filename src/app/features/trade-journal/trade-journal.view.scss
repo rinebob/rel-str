@@ -29,13 +29,29 @@
 
 .tj-filters {
   display: flex;
-  flex-direction: column;
-  gap: mixins.rem(8);
-  padding: mixins.rem(16);
+  flex-direction: row;
+  align-items: center;
+  gap: mixins.rem(12);
+  padding: mixins.rem(12) mixins.rem(16);
 }
 
 .tj-filter-field {
-  width: 100%;
+  width: auto;
+}
+
+.tj-filter-field--symbol {
+  min-width: mixins.rem(120);
+  max-width: mixins.rem(200);
+}
+
+.tj-filter-field--status,
+.tj-filter-field--direction {
+  min-width: mixins.rem(120);
+  max-width: mixins.rem(160);
+}
+
+.tj-filter-checkbox {
+  margin-left: auto;
 }
 
 .tj-table {
