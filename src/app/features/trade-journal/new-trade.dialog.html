@@ -5,7 +5,7 @@
     <div class="nt-row">
       <mat-form-field appearance="outline" class="nt-field nt-field--symbol">
         <mat-label>Symbol</mat-label>
-        <input matInput formControlName="symbol" />
+        <input matInput formControlName="symbol" (input)="onSymbolInput($event)" />
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="nt-field nt-field--direction">
@@ -31,7 +31,9 @@
     <div class="nt-row">
       <mat-form-field appearance="outline" class="nt-field nt-field--datetime">
         <mat-label>Entry date</mat-label>
-        <input matInput type="date" formControlName="entryDate" />
+        <input matInput [matDatepicker]="entryDatePicker" formControlName="entryDate" />
+        <mat-datepicker-toggle matSuffix [for]="entryDatePicker"></mat-datepicker-toggle>
+        <mat-datepicker #entryDatePicker></mat-datepicker>
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="nt-field nt-field--datetime">
@@ -43,28 +45,91 @@
 
   <section class="nt-section" aria-label="CSV uploads">
     <div class="nt-dropzone-row">
-      <div class="nt-dropzone nt-dropzone--narrow" aria-label="Broker trade CSV">
+      <div
+        class="nt-dropzone nt-dropzone--narrow"
+        aria-label="Broker trade CSV"
+        (click)="brokerFileInput.click()"
+        (dragover)="onDropzoneDragOver($event)"
+        (drop)="onBrokerCsvDrop($event)"
+      >
         <h3 class="nt-section-title">Broker trade CSV</h3>
         <mat-icon>upload_file</mat-icon>
         <span>Drag broker CSV here or click to select…</span>
+        <input
+          #brokerFileInput
+          type="file"
+          accept=".csv,text/csv"
+          multiple
+          hidden
+          (change)="onBrokerCsvChange($event)"
+        />
+        @if (brokerCsvFiles.length) {
+          <ul class="nt-file-list">
+            @for (file of brokerCsvFiles; track file.name) {
+              <li class="nt-file-list__item">{{ file.name }}</li>
+            }
+          </ul>
+        }
       </div>
 
-      <div class="nt-dropzone nt-dropzone--narrow" aria-label="Indicator CSVs">
+      <div
+        class="nt-dropzone nt-dropzone--narrow"
+        aria-label="Indicator CSVs"
+        (click)="indicatorFileInput.click()"
+        (dragover)="onDropzoneDragOver($event)"
+        (drop)="onIndicatorCsvDrop($event)"
+      >
         <h3 class="nt-section-title">Indicator CSVs (TradingView)</h3>
         <p class="nt-help-text">
           Drop your Daily (1D), Weekly (1W), and Monthly (1M) CSV files together.
         </p>
         <mat-icon>upload_file</mat-icon>
         <span>Drag TradingView indicator CSVs here or click to select…</span>
+        <input
+          #indicatorFileInput
+          type="file"
+          accept=".csv,text/csv"
+          multiple
+          hidden
+          (change)="onIndicatorCsvChange($event)"
+        />
+        @if (indicatorCsvFiles.length) {
+          <ul class="nt-file-list">
+            @for (file of indicatorCsvFiles; track file.name) {
+              <li class="nt-file-list__item">{{ file.name }}</li>
+            }
+          </ul>
+        }
       </div>
     </div>
   </section>
 
   <section class="nt-section" aria-label="Screenshots">
     <h3 class="nt-section-title">Screenshots</h3>
-    <div class="nt-dropzone nt-dropzone--narrow" aria-label="Screenshot upload">
+    <div
+      class="nt-dropzone nt-dropzone--narrow"
+      aria-label="Screenshot upload"
+      (click)="screenshotFileInput.click()"
+      (dragover)="onDropzoneDragOver($event)"
+      (drop)="onScreenshotsDrop($event)"
+    >
       <mat-icon>image</mat-icon>
       <span>Drag chart screenshots here or click to select…</span>
+      <input
+        #screenshotFileInput
+        type="file"
+        accept="image/*"
+        multiple
+        hidden
+        (change)="onScreenshotsChange($event)"
+      />
+      @if (screenshotFiles.length) {
+        <ul class="nt-file-list">
+          @for (file of screenshotFiles; track file.name) {
+            <li class="nt-file-list__item">{{ file.name }}</li>
+          }
+        </ul>
+      }
     </div>
   </section>
 </mat-dialog-content>

@@ -99,3 +99,16 @@
   flex-direction: column;
   gap: mixins.rem(8);
 }
+
+.nt-file-list {
+  margin: mixins.rem(4) 0 0;
+  padding: 0;
+  list-style: none;
+  width: 100%;
+  font-size: 0.8rem;
+  word-break: break-all;
+}
+
+.nt-file-list__item {
+  text-align: center;
+}
