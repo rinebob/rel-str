@@ -10,7 +10,8 @@ function getTradeImportUrl(): string {
     return 'http://127.0.0.1:5002/rel-str/us-central1/importTrade';
   }
 
-  return '/api/importTrade';
+  // Prod: call the deployed Cloud Function directly
+  return 'https://us-central1-rel-str.cloudfunctions.net/importTrade';
 }
 
 @Injectable({ providedIn: 'root' })
