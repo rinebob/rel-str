@@ -1,0 +1,105 @@
+@if (trade(); as t) {
+  <mat-card class="tj-card">
+    <mat-card-header class="tj-card-header">
+      <div class="tj-card-header-main">
+        <div class="tj-card-symbol">
+          {{ t.symbol }}
+        </div>
+
+        <div class="tj-card-subtitle">
+          <span class="tj-card-direction">{{ t.direction }}</span>
+          <span class="tj-card-separator">&bull;</span>
+          <span class="tj-card-entry-datetime">
+            {{ t.entryDate }}
+          </span>
+        </div>
+      </div>
+
+      <div class="tj-card-header-meta">
+        <div class="tj-meta-row">
+          <span class="tj-meta-label">Entry</span>
+          <span class="tj-meta-value">
+          {{ t.entryPrice != null ? t.entryPrice : 'd' }}
+          </span>
+        </div>
+        <div class="tj-meta-row">
+          <span class="tj-meta-label">Status</span>
+          <span class="tj-meta-value tj-meta-status">
+            {{ t.status }}
+          </span>
+        </div>
+      </div>
+
+      <button
+        mat-icon-button
+        type="button"
+        aria-label="Edit trade"
+        (click)="onEditClick()"
+      >
+        <mat-icon>edit</mat-icon>
+      </button>
+    </mat-card-header>
+
+    <mat-card-content class="tj-card-body">
+      <div class="tj-card-body-left">
+        <div class="tj-screenshot">
+          @if (t.screenshotUrl) {
+            <img
+              [src]="t.screenshotUrl"
+              alt="Trade screenshot"
+              class="tj-screenshot-img"
+            />
+          } @else {
+            <div class="tj-screenshot-placeholder">
+              Screenshot preview
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="tj-card-body-right">
+        <div class="tj-meta-row">
+          <span class="tj-meta-label">Trade ID</span>
+          <span class="tj-meta-value">{{ t.id }}</span>
+        </div>
+
+        <div class="tj-meta-row">
+          <span class="tj-meta-label">Direction</span>
+          <span class="tj-meta-value">{{ t.direction }}</span>
+        </div>
+
+        <div class="tj-meta-row">
+          <span class="tj-meta-label">Status</span>
+          <span class="tj-meta-value tj-meta-status">
+            {{ t.status }}
+          </span>
+        </div>
+
+        <div class="tj-meta-row">
+          <span class="tj-meta-label">Entry</span>
+          <span class="tj-meta-value">
+          {{ t.entryPrice != null ? t.entryPrice : 'd' }}
+          </span>
+        </div>
+
+        <div class="tj-meta-row">
+          <span class="tj-meta-label">Exit date</span>
+          <span class="tj-meta-value">
+            {{ t.exitDate || 'd' }}
+          </span>
+        </div>
+
+        <div class="tj-meta-row">
+          <span class="tj-meta-label">P/L %</span>
+          <span
+            class="tj-meta-value"
+            [class.tj-meta-positive]="(t.pnlPct ?? 0) > 0"
+            [class.tj-meta-negative]="(t.pnlPct ?? 0) < 0"
+          >
+            {{ t.pnlPct != null ? (t.pnlPct | number : '1.1-2') + '%' : 'd' }}
+          </span>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+}

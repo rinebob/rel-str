@@ -1,0 +1,127 @@
+@use '../../styles/_mixins-global' as mixins;
+
+.tj-card {
+  @include mixins.border1();
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.tj-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: mixins.rem(12);
+  padding: mixins.rem(12) mixins.rem(16);
+}
+
+.tj-card-header-main {
+  display: flex;
+  flex-direction: column;
+  gap: mixins.rem(4);
+}
+
+.tj-card-symbol {
+  font-size: mixins.rem(20);
+  font-weight: 600;
+}
+
+.tj-card-subtitle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: mixins.rem(4);
+  font-size: mixins.rem(12);
+  opacity: 0.8;
+}
+
+.tj-card-direction {
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.tj-card-separator {
+  opacity: 0.6;
+}
+
+.tj-card-entry-datetime {
+  font-family: monospace;
+}
+
+.tj-card-header-meta {
+  display: flex;
+  flex-direction: column;
+  gap: mixins.rem(4);
+  align-items: flex-end;
+}
+
+.tj-card-body {
+  display: flex;
+  flex: 1;
+  gap: mixins.rem(16);
+  padding: mixins.rem(12) mixins.rem(16) mixins.rem(16);
+}
+
+.tj-card-body-left {
+  flex: 0 0 mixins.rem(260);
+  display: flex;
+}
+
+.tj-card-body-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: mixins.rem(8);
+}
+
+.tj-screenshot {
+  @include mixins.border1();
+  border-style: dashed;
+  border-color: rgba(0, 0, 0, 0.2);
+  border-radius: mixins.rem(4);
+  flex: 1;
+  min-height: mixins.rem(160);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.tj-screenshot-placeholder {
+  font-size: mixins.rem(12);
+  opacity: 0.7;
+}
+
+.tj-screenshot-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.tj-meta-row {
+  display: flex;
+  justify-content: space-between;
+  gap: mixins.rem(8);
+  font-size: mixins.rem(13);
+}
+
+.tj-meta-label {
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+.tj-meta-value {
+  font-family: monospace;
+}
+
+.tj-meta-status {
+  text-transform: uppercase;
+}
+
+.tj-meta-positive {
+  color: #2e7d32;
+}
+
+.tj-meta-negative {
+  color: #c62828;
+}
