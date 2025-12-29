@@ -98,10 +98,16 @@
         </button>
       </mat-toolbar>
       <div class="tj-detail-body">
-        <!-- Placeholder for detailed trade view; will be implemented later. -->
-        <div class="tj-detail-placeholder">
-          Detailed trade view coming soon.
-        </div>
+        @if (selectedTrade(); as trade) {
+          <app-trade-journal-detail-card
+            [trade]="trade"
+            (edit)="openEditTrade($event)"
+          ></app-trade-journal-detail-card>
+        } @else {
+          <div class="tj-detail-placeholder">
+            Trade not found.
+          </div>
+        }
       </div>
     </aside>
 
