@@ -9,7 +9,7 @@ import { getAuth, provideAuth, connectAuthEmulator } from '@angular/fire/auth';
 import { connectFirestoreEmulator, getFirestore, provideFirestore } from '@angular/fire/firestore';
 import { connectFunctionsEmulator, getFunctions, provideFunctions } from '@angular/fire/functions';
 import { getPerformance, providePerformance } from '@angular/fire/performance';
-import { getStorage, provideStorage } from '@angular/fire/storage';
+import { connectStorageEmulator, getStorage, provideStorage } from '@angular/fire/storage';
 import { setPersistence, browserLocalPersistence } from 'firebase/auth';
 
 import { environment } from '../environments/environment';
@@ -69,6 +69,15 @@ export const appConfig: ApplicationConfig = {
             return functions;
         }),
         providePerformance(() => getPerformance()),
-        provideStorage(() => getStorage()),
+        provideStorage(() => {
+            const storage = getStorage();
+            const useEmu = (environment as any)?.useEmulators === true || isLocalHost(location.hostname);
+            if (useEmu) {
+                // Storage emulator is running on 127.0.0.1:9200 per emulator output
+                connectStorageEmulator(storage, '127.0.0.1', 9200);
+                (window as any).__EMULATORS__ = { ...(window as any).__EMULATORS__, storage: true };
+            }
+            return storage;
+        }),
     ],
 };
