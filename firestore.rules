@@ -108,6 +108,11 @@ service cloud.firestore {
       match /lists/{listId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
+
+      // Trade journal entries for this user
+      match /trades/{tradeId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
 
     // Default deny for all other collections
