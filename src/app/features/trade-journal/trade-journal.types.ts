@@ -18,25 +18,6 @@ export interface TradeJournalListItem {
 }
 
 /**
- * Legacy multipart/form-data payload used by the Busboy-based importTrade endpoint.
- *
- * @deprecated Use TradeUpsertDto with JSON + client-side Storage uploads instead.
- */
-export interface TradeImportPayload {
-  trade: TradeJournalListItem;
-  /** Raw entry date string from the dialog (YYYY-MM-DD). */
-  entryDate: string;
-  /** Raw entry time string from the dialog (HH:mm). */
-  entryTime: string;
-  brokerCsvFiles: File[];
-  indicatorCsvFiles: File[];
-  screenshotFiles: File[];
-  deletedBrokerCsvPaths?: string[];
-  deletedIndicatorCsvPaths?: string[];
-  deletedScreenshotPaths?: string[];
-}
-
-/**
  * Operation mode for the JSON-based trade upsert pipeline.
  */
 export enum TradeUpsertOperation {

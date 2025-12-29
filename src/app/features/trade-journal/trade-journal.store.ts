@@ -8,7 +8,6 @@ import {
   TRADE_BUCKET_BROKER_CSVS,
   TRADE_BUCKET_INDICATOR_CSVS,
   TRADE_BUCKET_SCREENSHOTS,
-  TradeImportPayload,
   TradeJournalListItem,
   TradeUpsertDto,
   TradeUpsertOperation,
@@ -21,26 +20,6 @@ export interface TradeJournalStoreState {
   trades: TradeJournalListItem[];
   loading: boolean;
   error: string | null;
-}
-
-function buildImportPayloadFromDialog(
-  result: NewTradeDialogResult,
-  trade: TradeJournalListItem,
-): TradeImportPayload {
-  const rawEntryDate = String(result.entryDate ?? '').slice(0, 10);
-  const rawEntryTime = String(result.entryTime ?? '');
-
-  return {
-    trade,
-    entryDate: rawEntryDate,
-    entryTime: rawEntryTime,
-    brokerCsvFiles: result.brokerCsvFiles ?? [],
-    indicatorCsvFiles: result.indicatorCsvFiles ?? [],
-    screenshotFiles: result.screenshotFiles ?? [],
-    deletedBrokerCsvPaths: result.deletedBrokerCsvPaths,
-    deletedIndicatorCsvPaths: result.deletedIndicatorCsvPaths,
-    deletedScreenshotPaths: result.deletedScreenshotPaths,
-  };
 }
 
 const initialState: TradeJournalStoreState = {
@@ -140,7 +119,7 @@ export const TradeJournalStore = signalStore(
     };
 
     return {
-    async loadTrades(): Promise<void> {
+      async loadTrades(): Promise<void> {
         console.log('[TradeJournalService] loadTrades called');
       patchState(store, { loading: true, error: null });
 
@@ -154,90 +133,6 @@ export const TradeJournalStore = signalStore(
           loading: false,
           error: String(e?.message || 'failed to load trades'),
         });
-      }
-    },
-
-    async addTradeFromDialogDeprecated(result: NewTradeDialogResult): Promise<string> {
-      const current = store.trades();
-      const rawDate = String(result.entryDate ?? '').slice(0, 10);
-      const compactDate = rawDate.replace(/-/g, '');
-      const upperSymbol = String(result.symbol ?? '').trim().toUpperCase();
-      const upperDirection = String(result.direction ?? '').trim().toUpperCase();
-      const action = result.status === TradeStatus.CLOSED ? 'CLOSE' : 'OPEN';
-
-      const newId = `${compactDate}-${upperSymbol}-${upperDirection}-${action}`;
-      const newTrade = buildTradeFromDialog(
-        {
-          ...result,
-          symbol: upperSymbol,
-          direction: upperDirection,
-        },
-        newId,
-      );
-
-      const importPayload = buildImportPayloadFromDialog(result, newTrade);
-
-      patchState(store, {
-        trades: [...current, newTrade],
-        loading: true,
-        error: null,
-      });
-
-      try {
-        await service.importTradeDeprecated(importPayload);
-        try {
-          const screenshotUrl = await service.loadPrimaryScreenshotUrl(newTrade.id);
-          if (screenshotUrl) {
-            const updated = store.trades().map((t) =>
-              t.id === newTrade.id ? { ...t, screenshotUrl } : t,
-            );
-            patchState(store, { trades: updated });
-          }
-        } catch (innerErr: any) {
-          // eslint-disable-next-line no-console
-          console.error('[TradeJournalStore] loadPrimaryScreenshotUrl failed', innerErr);
-        }
-      } catch (e: any) {
-        // eslint-disable-next-line no-console
-        console.error('[TradeJournalStore] importTrade failed', e);
-        patchState(store, { error: String(e?.message || 'import failed') });
-      } finally {
-        patchState(store, { loading: false });
-      }
-
-      return newTrade.id;
-    },
-
-    async editTradeFromDialogDeprecated(tradeId: string, result: NewTradeDialogResult): Promise<void> {
-      patchState(store, { loading: true, error: null });
-
-      try {
-        const existing = store.trades().find((t) => t.id === tradeId);
-        if (!existing) {
-          throw new Error(`Trade with id ${tradeId} not found in store`);
-        }
-
-        const updatedTrade: TradeJournalListItem = {
-          ...existing,
-          ...buildTradeFromDialog(result, tradeId),
-          brokerCsvPaths: existing.brokerCsvPaths ?? null,
-          indicatorCsvPaths: existing.indicatorCsvPaths ?? null,
-          screenshotPaths: existing.screenshotPaths ?? null,
-        };
-
-        const payload = buildImportPayloadFromDialog(result, updatedTrade);
-
-        await service.editTradeDeprecated(payload);
-
-        // Reload trades from Firestore so paths and screenshotUrl stay in sync
-        const refreshed = await service.loadTrades();
-        patchState(store, { trades: refreshed });
-      } catch (e: any) {
-        // eslint-disable-next-line no-console
-        console.error('[TradeJournalStore] editTradeFromDialog failed', e);
-        patchState(store, { error: String(e?.message || 'edit failed') });
-      } finally {
-        patchState(store, { loading: false });
       }
     },
 
