@@ -174,11 +174,29 @@ export enum Subcollection {
   LISTS = 'lists',
   REFRESH_STATUS = 'refresh-status',
   ITEMS = 'items',
+  TRADES = 'trades',
 }
 
 /** Bucket document ids used under certain root collections (e.g., positions/open). */
 export enum BucketDocId {
   OPEN = 'open',
+}
+
+// =============================
+// Trade journal enums
+// =============================
+
+export enum TradeDirection {
+  LONG = 'LONG',
+  SHORT = 'SHORT',
+}
+
+export enum TradeStatus {
+  OPEN = 'OPEN',
+  CLOSED = 'CLOSED',
+  CANCELED = 'CANCELED',
+  QUEUED = 'QUEUED',
+  SETUP = 'SETUP',
 }
 
 /** Helper to produce the lists collection path for a user. */
