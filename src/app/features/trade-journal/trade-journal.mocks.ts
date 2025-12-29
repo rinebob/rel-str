@@ -1,23 +1,5 @@
-export enum TradeDirection {
-  LONG = 'LONG',
-  SHORT = 'SHORT',
-}
-
-export enum TradeStatus {
-  OPEN = 'OPEN',
-  CLOSED = 'CLOSED',
-  CANCELED = 'CANCELED',
-}
-
-export interface TradeJournalListItem {
-  id: string;
-  symbol: string;
-  direction: TradeDirection;
-  status: TradeStatus;
-  entryDate: string;
-  exitDate?: string | null;
-  pnlPct?: number | null;
-}
+import { TradeDirection, TradeStatus } from '../../core/common/constants';
+import { TradeJournalListItem } from './trade-journal.types';
 
 export const TRADE_JOURNAL_MOCK_TRADES: TradeJournalListItem[] = [
   {
@@ -26,6 +8,7 @@ export const TRADE_JOURNAL_MOCK_TRADES: TradeJournalListItem[] = [
     direction: TradeDirection.LONG,
     status: TradeStatus.OPEN,
     entryDate: '2025-12-18',
+    entryPrice: 190.88,
     exitDate: null,
     pnlPct: 5.4,
   },
