@@ -5,6 +5,14 @@ import type { Request, Response } from 'express';
 import { admin, db, FieldValue } from './firebase-admin-init';
 import { USERS_COLLECTION, USER_TRADES_COLLECTION } from './webhooks/webhooks-config';
 
+/**
+ * Legacy Busboy-based multipart/form-data trade import endpoint.
+ *
+ * @deprecated Use tradeJournalManager with JSON DTOs and client-side Storage
+ * uploads instead. This function is retained temporarily for rollback
+ * of the old import pipeline and will be removed in a future cleanup.
+ */
+
 interface ParsedFileMeta {
   filename: string;
   mimeType: string;
@@ -73,6 +81,13 @@ function parseMultipartForm(req: Request): Promise<ParsedForm> {
   });
 }
 
+/**
+ * Legacy HTTP handler for trade imports.
+ *
+ * @deprecated Prefer tradeJournalManager; new callers should not depend on
+ * this endpoint. It is kept only so existing clients can be rolled back
+ * during the transition.
+ */
 export const importTrade = onRequest({ maxInstances: 10 }, async (req: Request, res: Response): Promise<void> => {
   const origin = req.headers.origin as string | undefined;
   const allowedOrigin = origin || '*';

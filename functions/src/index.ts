@@ -24,7 +24,12 @@ export * from './webhooks/registry-actions';
 
 export { getPairRSArchive } from './archive';
 
+/**
+ * @deprecated Legacy Busboy-based trade import. Prefer tradeJournalManager
+ * with JSON DTOs and client-side Storage uploads instead.
+ */
 export { importTrade } from './trade-journal-import';
+export { tradeJournalManager } from './trade-journal-manager';
 
 // RS chart / OHLC bars callable
 export { getPairDailyBars } from './rs-chart-bars.callables';
