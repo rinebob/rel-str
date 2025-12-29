@@ -5,9 +5,15 @@ rules_version = '2';
 //    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin;
 service firebase.storage {
   match /b/{bucket}/o {
+    // Trade journal artifacts: allow an authenticated user to manage
+    // their own files under trades/users/{uid}/**.
+    match /trades/users/{uid}/{rest=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Fallback rule: other paths remain read-only to authenticated clients,
+    // and writes are restricted to backend Functions (service account).
     match /{allPaths=**} {
-      // Allow authenticated clients to read files (e.g., trade screenshots),
-      // but keep writes restricted to backend Functions only.
       allow read: if request.auth != null;
       allow write: if false;
     }
