@@ -3,16 +3,30 @@ import * as logger from 'firebase-functions/logger';
 import * as Busboy from 'busboy';
 import type { Request, Response } from 'express';
 import { admin, db, FieldValue } from './firebase-admin-init';
+import { USERS_COLLECTION, USER_TRADES_COLLECTION } from './webhooks/webhooks-config';
 
 interface ParsedFileMeta {
   filename: string;
   mimeType: string;
   size: number;
+  buffer: Buffer;
 }
 
 interface ParsedForm {
   fields: Record<string, string>;
   files: Record<string, ParsedFileMeta[]>;
+}
+
+function parseJsonStringArray(raw: string | undefined): string[] {
+  if (!raw) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed.filter((v) => typeof v === 'string') as string[]) : [];
+  } catch {
+    return [];
+  }
 }
 
 function parseMultipartForm(req: Request): Promise<ParsedForm> {
@@ -35,11 +49,12 @@ function parseMultipartForm(req: Request): Promise<ParsedForm> {
       });
 
       file.on('end', () => {
-        const size = Buffer.concat(chunks).length;
+        const buffer = Buffer.concat(chunks);
+        const size = buffer.length;
         if (!files[name]) {
           files[name] = [];
         }
-        files[name].push({ filename, mimeType, size });
+        files[name].push({ filename, mimeType, size, buffer });
       });
     });
 
@@ -59,6 +74,19 @@ function parseMultipartForm(req: Request): Promise<ParsedForm> {
 }
 
 export const importTrade = onRequest({ maxInstances: 10 }, async (req: Request, res: Response): Promise<void> => {
+  const origin = req.headers.origin as string | undefined;
+  const allowedOrigin = origin || '*';
+
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).end();
+    return;
+  }
+
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
@@ -81,7 +109,18 @@ export const importTrade = onRequest({ maxInstances: 10 }, async (req: Request, 
 
     const { fields, files } = await parseMultipartForm(req);
 
-    const { localTradeId, symbol, direction, status, entryPrice, entryDate, entryTime } = fields;
+    const {
+      localTradeId,
+      symbol,
+      direction,
+      status,
+      entryPrice,
+      entryDate,
+      entryTime,
+      deletedBrokerCsvPaths: deletedBrokerCsvPathsRaw,
+      deletedIndicatorCsvPaths: deletedIndicatorCsvPathsRaw,
+      deletedScreenshotPaths: deletedScreenshotPathsRaw,
+    } = fields;
 
     const brokerCsvs = files['brokerCsvs'] ?? [];
     const indicatorCsvs = files['indicatorCsvs'] ?? [];
@@ -100,8 +139,7 @@ export const importTrade = onRequest({ maxInstances: 10 }, async (req: Request, 
       for (const meta of metas) {
         const storagePath = `${basePath}/${groupName}/${meta.filename}`;
         const fileRef = bucket.file(storagePath);
-        // For now we only persisted metadata via busboy; future iteration can stream contents.
-        await fileRef.save(Buffer.alloc(0), { contentType: meta.mimeType });
+        await fileRef.save(meta.buffer, { contentType: meta.mimeType });
         paths.push(storagePath);
       }
       return paths;
@@ -113,7 +151,59 @@ export const importTrade = onRequest({ maxInstances: 10 }, async (req: Request, 
       uploadGroup('screenshots', screenshots),
     ]);
 
-    const tradeDocRef = db.collection('users').doc(uid).collection('trades').doc(tradeId);
+    const tradeDocRef = db
+      .collection(USERS_COLLECTION)
+      .doc(uid)
+      .collection(USER_TRADES_COLLECTION)
+      .doc(tradeId);
+
+    // Existing paths for edit scenarios
+    const existingSnap = await tradeDocRef.get();
+    const existingData = existingSnap.exists
+      ? (existingSnap.data() as {
+          brokerCsvPaths?: string[];
+          indicatorCsvPaths?: string[];
+          screenshotPaths?: string[];
+        })
+      : {};
+
+    const existingBrokerCsvPaths: string[] = existingData.brokerCsvPaths ?? [];
+    const existingIndicatorCsvPaths: string[] = existingData.indicatorCsvPaths ?? [];
+    const existingScreenshotPaths: string[] = existingData.screenshotPaths ?? [];
+
+    const deletedBrokerCsvPaths = parseJsonStringArray(deletedBrokerCsvPathsRaw);
+    const deletedIndicatorCsvPaths = parseJsonStringArray(deletedIndicatorCsvPathsRaw);
+    const deletedScreenshotPaths = parseJsonStringArray(deletedScreenshotPathsRaw);
+
+    // Delete any Storage objects explicitly marked for deletion
+    const deletePaths: string[] = [
+      ...deletedBrokerCsvPaths,
+      ...deletedIndicatorCsvPaths,
+      ...deletedScreenshotPaths,
+    ];
+    await Promise.all(
+      deletePaths
+        .filter((p) => !!p)
+        .map(async (p) => {
+          try {
+            await bucket.file(p).delete({ ignoreNotFound: true } as any);
+          } catch (err) {
+            logger.warn('[TradeImport] failed to delete storage object', { path: p, err });
+          }
+        }),
+    );
+
+    const keptBrokerCsvPaths = existingBrokerCsvPaths.filter((p) => !deletedBrokerCsvPaths.includes(p));
+    const keptIndicatorCsvPaths = existingIndicatorCsvPaths.filter(
+      (p) => !deletedIndicatorCsvPaths.includes(p),
+    );
+    const keptScreenshotPaths = existingScreenshotPaths.filter(
+      (p) => !deletedScreenshotPaths.includes(p),
+    );
+
+    const finalBrokerCsvPaths = [...keptBrokerCsvPaths, ...brokerCsvPaths];
+    const finalIndicatorCsvPaths = [...keptIndicatorCsvPaths, ...indicatorCsvPaths];
+    const finalScreenshotPaths = [...keptScreenshotPaths, ...screenshotPaths];
 
     await tradeDocRef.set(
       {
@@ -127,9 +217,9 @@ export const importTrade = onRequest({ maxInstances: 10 }, async (req: Request, 
           date: entryDate || null,
           time: entryTime || null,
         },
-        brokerCsvPaths,
-        indicatorCsvPaths,
-        screenshotPaths,
+        brokerCsvPaths: finalBrokerCsvPaths,
+        indicatorCsvPaths: finalIndicatorCsvPaths,
+        screenshotPaths: finalScreenshotPaths,
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       },
@@ -146,9 +236,9 @@ export const importTrade = onRequest({ maxInstances: 10 }, async (req: Request, 
       entryPrice,
       entryDate,
       entryTime,
-      brokerCsvPaths,
-      indicatorCsvPaths,
-      screenshotPaths,
+      brokerCsvPaths: finalBrokerCsvPaths,
+      indicatorCsvPaths: finalIndicatorCsvPaths,
+      screenshotPaths: finalScreenshotPaths,
     });
 
     res.status(200).json({ ok: true, tradeId });
