@@ -108,6 +108,11 @@ export const TradeJournalStore = signalStore(
         storageService.uploadFiles({ uid, pathPrefix: screenshotPrefix, files: newScreenshotFiles }),
       ]);
 
+      const allDeletedPaths = [...deletedBroker, ...deletedIndicator, ...deletedScreenshots];
+      if (allDeletedPaths.length) {
+        await storageService.deleteFiles({ paths: allDeletedPaths });
+      }
+
       return {
         brokerCsvPaths: [...keptBroker, ...newBrokerPaths],
         indicatorCsvPaths: [...keptIndicator, ...newIndicatorPaths],
