@@ -73,3 +73,5 @@ emu-export-20251205-101810/firestore_export/firestore_export.overall_export_meta
 emu-export-20251205-101810/firestore_export/all_namespaces/all_kinds/all_namespaces_all_kinds.export_metadata
 emu-export-20251205-101810/firestore_export/all_namespaces/all_kinds/output-0
 emu-export-20251205-101810/firestore_export/all_namespaces/all_kinds/output-1
+src/assets/trade-data/*
+src/assets/tv/*
