@@ -1,7 +1,7 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Inject, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -10,6 +10,11 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
+
+export enum DialogMode {
+  CREATE = 'create',
+  EDIT = 'edit',
+}
 
 export interface NewTradeDialogResult {
   symbol: string;
@@ -21,6 +26,34 @@ export interface NewTradeDialogResult {
   brokerCsvFiles: File[];
   indicatorCsvFiles: File[];
   screenshotFiles: File[];
+  /**
+   * Dialog mode. If omitted, callers may treat this as a create operation
+   * for backwards compatibility.
+   */
+  mode?: DialogMode;
+  /** Trade identifier being edited (edit mode only). */
+  tradeId?: string;
+  /** Storage paths to delete on save (edit mode only). */
+  deletedBrokerCsvPaths?: string[];
+  deletedIndicatorCsvPaths?: string[];
+  deletedScreenshotPaths?: string[];
+}
+
+export interface ExistingTradeFilePaths {
+  brokerCsvPaths?: string[];
+  indicatorCsvPaths?: string[];
+  screenshotPaths?: string[];
+}
+
+export interface NewTradeDialogData extends ExistingTradeFilePaths {
+  mode: DialogMode;
+  tradeId?: string;
+  symbol?: string;
+  direction?: string;
+  status?: string;
+  entryPrice?: number | null;
+  entryDate?: string | Date | null;
+  entryTime?: string | null;
 }
 
 @Component({
@@ -46,19 +79,30 @@ export interface NewTradeDialogResult {
 export class NewTradeDialogComponent {
   private readonly dialogRef = inject(MatDialogRef<NewTradeDialogComponent, NewTradeDialogResult | undefined>);
   private readonly fb = inject(FormBuilder);
+  constructor(@Inject(MAT_DIALOG_DATA) public readonly data: NewTradeDialogData | null) {}
+
+  readonly DialogMode = DialogMode;
 
   readonly form: FormGroup = this.fb.group({
-    symbol: ['', [Validators.required]],
-    direction: ['LONG', [Validators.required]],
-    status: ['OPEN', [Validators.required]],
-    entryPrice: [null, [Validators.required]],
-    entryDate: ['', [Validators.required]],
-    entryTime: ['', [Validators.required]],
+    symbol: [this.data?.symbol ?? '', [Validators.required]],
+    direction: [this.data?.direction ?? 'LONG', [Validators.required]],
+    status: [this.data?.status ?? 'OPEN', [Validators.required]],
+    entryPrice: [this.data?.entryPrice ?? null, [Validators.required]],
+    entryDate: [this.data?.entryDate ?? '', [Validators.required]],
+    entryTime: [this.data?.entryTime ?? '', [Validators.required]],
   });
 
   brokerCsvFiles: File[] = [];
   indicatorCsvFiles: File[] = [];
   screenshotFiles: File[] = [];
+
+  existingBrokerCsvPaths: string[] = this.data?.brokerCsvPaths ? [...this.data.brokerCsvPaths] : [];
+  existingIndicatorCsvPaths: string[] = this.data?.indicatorCsvPaths ? [...this.data.indicatorCsvPaths] : [];
+  existingScreenshotPaths: string[] = this.data?.screenshotPaths ? [...this.data.screenshotPaths] : [];
+
+  deletedBrokerCsvPaths: string[] = [];
+  deletedIndicatorCsvPaths: string[] = [];
+  deletedScreenshotPaths: string[] = [];
 
   close(): void {
     this.dialogRef.close();
@@ -86,6 +130,8 @@ export class NewTradeDialogComponent {
       normalizedDate = entryDate;
     }
 
+    const mode: DialogMode = this.data?.mode ?? DialogMode.CREATE;
+
     this.dialogRef.close({
       symbol: upperSymbol,
       direction,
@@ -96,6 +142,11 @@ export class NewTradeDialogComponent {
       brokerCsvFiles: this.brokerCsvFiles,
       indicatorCsvFiles: this.indicatorCsvFiles,
       screenshotFiles: this.screenshotFiles,
+      mode,
+      tradeId: this.data?.tradeId,
+      deletedBrokerCsvPaths: this.deletedBrokerCsvPaths,
+      deletedIndicatorCsvPaths: this.deletedIndicatorCsvPaths,
+      deletedScreenshotPaths: this.deletedScreenshotPaths,
     });
   }
 
@@ -180,5 +231,31 @@ export class NewTradeDialogComponent {
     event.preventDefault();
     const files = event.dataTransfer?.files ?? null;
     this.onScreenshotsSelected(files);
+  }
+
+  removeExistingBrokerPath(path: string): void {
+    this.existingBrokerCsvPaths = this.existingBrokerCsvPaths.filter((p) => p !== path);
+    if (!this.deletedBrokerCsvPaths.includes(path)) {
+      this.deletedBrokerCsvPaths.push(path);
+    }
+  }
+
+  removeExistingIndicatorPath(path: string): void {
+    this.existingIndicatorCsvPaths = this.existingIndicatorCsvPaths.filter((p) => p !== path);
+    if (!this.deletedIndicatorCsvPaths.includes(path)) {
+      this.deletedIndicatorCsvPaths.push(path);
+    }
+  }
+
+  removeExistingScreenshotPath(path: string): void {
+    this.existingScreenshotPaths = this.existingScreenshotPaths.filter((p) => p !== path);
+    if (!this.deletedScreenshotPaths.includes(path)) {
+      this.deletedScreenshotPaths.push(path);
+    }
+  }
+
+  fileNameFromPath(path: string): string {
+    const idx = path.lastIndexOf('/');
+    return idx >= 0 ? path.substring(idx + 1) : path;
   }
 }

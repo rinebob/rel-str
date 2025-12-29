@@ -1,4 +1,10 @@
-<h2 mat-dialog-title>New Trade</h2>
+<h2 mat-dialog-title>
+  @if (data?.mode === DialogMode.EDIT) {
+    Edit Trade
+  } @else {
+    New Trade
+  }
+</h2>
 
 <mat-dialog-content class="nt-content" [formGroup]="form">
   <section class="nt-section nt-section--core" aria-label="Core trade details">
@@ -43,8 +49,10 @@
     </div>
   </section>
 
-  <section class="nt-section" aria-label="CSV uploads">
+  <section class="nt-section" aria-label="File uploads">
+    <p class="nt-dropzone-hint">Drag files here to upload, or click a box to select.</p>
     <div class="nt-dropzone-row">
+      <!-- Broker CSVs -->
       <div
         class="nt-dropzone nt-dropzone--narrow"
         aria-label="Broker trade CSV"
@@ -54,7 +62,6 @@
       >
         <h3 class="nt-section-title">Broker trade CSV</h3>
         <mat-icon>upload_file</mat-icon>
-        <span>Drag broker CSV here or click to select…</span>
         <input
           #brokerFileInput
           type="file"
@@ -63,15 +70,9 @@
           hidden
           (change)="onBrokerCsvChange($event)"
         />
-        @if (brokerCsvFiles.length) {
-          <ul class="nt-file-list">
-            @for (file of brokerCsvFiles; track file.name) {
-              <li class="nt-file-list__item">{{ file.name }}</li>
-            }
-          </ul>
-        }
       </div>
 
+      <!-- Indicator CSVs -->
       <div
         class="nt-dropzone nt-dropzone--narrow"
         aria-label="Indicator CSVs"
@@ -79,12 +80,8 @@
         (dragover)="onDropzoneDragOver($event)"
         (drop)="onIndicatorCsvDrop($event)"
       >
-        <h3 class="nt-section-title">Indicator CSVs (TradingView)</h3>
-        <p class="nt-help-text">
-          Drop your Daily (1D), Weekly (1W), and Monthly (1M) CSV files together.
-        </p>
+        <h3 class="nt-section-title">Indicator CSVs</h3>
         <mat-icon>upload_file</mat-icon>
-        <span>Drag TradingView indicator CSVs here or click to select…</span>
         <input
           #indicatorFileInput
           type="file"
@@ -93,43 +90,96 @@
           hidden
           (change)="onIndicatorCsvChange($event)"
         />
-        @if (indicatorCsvFiles.length) {
+      </div>
+
+      <!-- Screenshots -->
+      <div
+        class="nt-dropzone nt-dropzone--narrow"
+        aria-label="Screenshot upload"
+        (click)="screenshotFileInput.click()"
+        (dragover)="onDropzoneDragOver($event)"
+        (drop)="onScreenshotsDrop($event)"
+      >
+        <h3 class="nt-section-title">Screenshots</h3>
+        <mat-icon>image</mat-icon>
+        <input
+          #screenshotFileInput
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          (change)="onScreenshotsChange($event)"
+        />
+      </div>
+    </div>
+
+    <!-- Existing + new file lists -->
+    <div class="nt-file-row">
+      <!-- Broker list -->
+      <div class="nt-file-column">
+        @if (existingBrokerCsvPaths.length || brokerCsvFiles.length) {
+          <h3 class="nt-file-title">Broker CSVs</h3>
           <ul class="nt-file-list">
-            @for (file of indicatorCsvFiles; track file.name) {
-              <li class="nt-file-list__item">{{ file.name }}</li>
+            @for (path of existingBrokerCsvPaths; track path) {
+              <li class="nt-file-list__item">
+                <span>{{ fileNameFromPath(path) }}</span>
+                <button mat-icon-button type="button" (click)="removeExistingBrokerPath(path)">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </li>
+            }
+            @for (file of brokerCsvFiles; track file.name) {
+              <li class="nt-file-list__item">
+                <span>{{ file.name }}</span>
+              </li>
             }
           </ul>
         }
       </div>
-    </div>
-  </section>
 
-  <section class="nt-section" aria-label="Screenshots">
-    <h3 class="nt-section-title">Screenshots</h3>
-    <div
-      class="nt-dropzone nt-dropzone--narrow"
-      aria-label="Screenshot upload"
-      (click)="screenshotFileInput.click()"
-      (dragover)="onDropzoneDragOver($event)"
-      (drop)="onScreenshotsDrop($event)"
-    >
-      <mat-icon>image</mat-icon>
-      <span>Drag chart screenshots here or click to select…</span>
-      <input
-        #screenshotFileInput
-        type="file"
-        accept="image/*"
-        multiple
-        hidden
-        (change)="onScreenshotsChange($event)"
-      />
-      @if (screenshotFiles.length) {
-        <ul class="nt-file-list">
-          @for (file of screenshotFiles; track file.name) {
-            <li class="nt-file-list__item">{{ file.name }}</li>
-          }
-        </ul>
-      }
+      <!-- Indicator list -->
+      <div class="nt-file-column">
+        @if (existingIndicatorCsvPaths.length || indicatorCsvFiles.length) {
+          <h3 class="nt-file-title">Indicator CSVs</h3>
+          <ul class="nt-file-list">
+            @for (path of existingIndicatorCsvPaths; track path) {
+              <li class="nt-file-list__item">
+                <span>{{ fileNameFromPath(path) }}</span>
+                <button mat-icon-button type="button" (click)="removeExistingIndicatorPath(path)">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </li>
+            }
+            @for (file of indicatorCsvFiles; track file.name) {
+              <li class="nt-file-list__item">
+                <span>{{ file.name }}</span>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+
+      <!-- Screenshot list -->
+      <div class="nt-file-column">
+        @if (existingScreenshotPaths.length || screenshotFiles.length) {
+          <h3 class="nt-file-title">Screenshots</h3>
+          <ul class="nt-file-list">
+            @for (path of existingScreenshotPaths; track path) {
+              <li class="nt-file-list__item">
+                <span>{{ fileNameFromPath(path) }}</span>
+                <button mat-icon-button type="button" (click)="removeExistingScreenshotPath(path)">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </li>
+            }
+            @for (file of screenshotFiles; track file.name) {
+              <li class="nt-file-list__item">
+                <span>{{ file.name }}</span>
+              </li>
+            }
+          </ul>
+        }
+      </div>
     </div>
   </section>
 </mat-dialog-content>

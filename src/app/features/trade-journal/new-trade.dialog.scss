@@ -20,6 +20,11 @@
   padding-bottom: mixins.rem(12);
 }
 
+.nt-dropzone-hint {
+  font-size: 0.85rem;
+  margin: 0 0 mixins.rem(4);
+}
+
 .nt-section-title {
   font-size: 0.9rem;
   font-weight: 600;
@@ -91,7 +96,7 @@
 }
 
 .nt-dropzone--narrow {
-  max-width: 50%;
+  max-width: 25%;
 }
 
 .nt-screenshot-meta {
@@ -110,5 +115,25 @@
 }
 
 .nt-file-list__item {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: mixins.rem(4);
+}
+
+.nt-file-row {
+  display: flex;
+  flex-direction: row;
+  gap: mixins.rem(12);
+  margin-top: mixins.rem(8);
+}
+
+.nt-file-column {
+  flex: 1 1 0;
+}
+
+.nt-file-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin: 0 0 mixins.rem(4);
 }
