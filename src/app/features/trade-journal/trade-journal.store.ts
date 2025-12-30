@@ -238,5 +238,37 @@ export const TradeJournalStore = signalStore(
         throw e;
       }
     },
+
+    async deleteTrade(tradeId: string): Promise<void> {
+      const current = store.trades();
+      const target = current.find((t) => t.id === tradeId) ?? null;
+      if (!target) {
+        return;
+      }
+
+      patchState(store, { loading: true, error: null });
+
+      const allPaths: string[] = [
+        ...(target.brokerCsvPaths ?? []),
+        ...(target.indicatorCsvPaths ?? []),
+        ...(target.screenshotPaths ?? []),
+      ].filter((p) => !!p);
+
+      try {
+        if (allPaths.length) {
+          await storageService.deleteFiles({ paths: allPaths });
+        }
+
+        await service.deleteTrade(tradeId);
+
+        const refreshed = await service.loadTrades();
+        patchState(store, { trades: refreshed, loading: false });
+      } catch (e: any) {
+        // eslint-disable-next-line no-console
+        console.error('[TradeJournalStore] deleteTrade failed', e);
+        patchState(store, { loading: false, error: String(e?.message || 'delete failed') });
+        throw e;
+      }
+    },
   }; }),
 );
