@@ -112,11 +112,9 @@ export function withStockListV2Feature() {
             const zone = inject(NgZone);
 
             const sortListsV2 = (targetList: RelStrStockList, allStockListsV2: RelStrStockList[]) => {
-                const lists: RelStrStockList[] = [];
-                for (const list of allStockListsV2) {
-                    lists.push(list.name !== targetList.name ? list : targetList);
-                }
-                return lists;
+                // Replace any existing instance of targetList by name, then sort alphabetically by name
+                const replaced = allStockListsV2.map(list => list.name === targetList.name ? targetList : list);
+                return [...replaced].sort((a, b) => a.name.localeCompare(b.name));
             };
 
             const generateHeatmapDataV2 = async (pair: string, timeframe: Timeframe = Timeframe.DAILY): Promise<BaselineTargetRankDatum[]> => {
@@ -433,7 +431,8 @@ export function withStockListV2Feature() {
             return {
                 // LISTS
                 async getListsForUserV2(userId: string) {
-                    const allStockListsV2 = await relStrDbV2Service.getListsForUser(userId);
+                    const lists = await relStrDbV2Service.getListsForUser(userId);
+                    const allStockListsV2 = [...lists].sort((a, b) => a.name.localeCompare(b.name));
                     patchState(store, { allStockListsV2 });
                 },
 
