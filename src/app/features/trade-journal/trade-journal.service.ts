@@ -98,8 +98,29 @@ export class TradeJournalService {
         } satisfies TradeJournalListItem;
       }),
     );
+    const pricesBySymbol = await this.loadSymbolPrices(items.map((t) => t.symbol));
 
-    return items;
+    const enriched = items.map((t) => {
+      const symbolKey = t.symbol.trim().toUpperCase();
+      const currentPrice = pricesBySymbol[symbolKey]?.price ?? null;
+
+      // Use exitPrice once trade is closed; otherwise use current live price.
+      const effectivePrice =
+        t.status === TradeStatus.CLOSED && t.exitPrice != null ? t.exitPrice : currentPrice;
+
+      let pnlPct: number | null = t.pnlPct ?? null;
+
+      if (pnlPct == null && t.entryPrice != null && effectivePrice != null) {
+        const diff = effectivePrice - t.entryPrice;
+        const raw = (diff / t.entryPrice) * 100;
+        // For SHORT trades, invert the sign so falling price is positive PnL
+        pnlPct = t.direction === TradeDirection.SHORT ? -raw : raw;
+      }
+
+      return { ...t, currentPrice, pnlPct } satisfies TradeJournalListItem;
+    });
+
+    return enriched;
   }
 
   async loadPrimaryScreenshotUrl(tradeId: string): Promise<string | null> {
