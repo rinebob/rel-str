@@ -37,56 +37,13 @@
   </section>
 
   <section class="tj-main" aria-label="Trade list and details">
-    <div class="tj-table" aria-label="Trade list">
-      <table mat-table [dataSource]="trades()" class="mat-elevation-z1">
-        <ng-container matColumnDef="symbol">
-          <th mat-header-cell *matHeaderCellDef>Symbol</th>
-          <td mat-cell *matCellDef="let row">{{ row.symbol }}</td>
-        </ng-container>
-
-        <ng-container matColumnDef="direction">
-          <th mat-header-cell *matHeaderCellDef>Dir</th>
-          <td mat-cell *matCellDef="let row">{{ row.direction }}</td>
-        </ng-container>
-
-        <ng-container matColumnDef="status">
-          <th mat-header-cell *matHeaderCellDef>Status</th>
-          <td mat-cell *matCellDef="let row">{{ row.status }}</td>
-        </ng-container>
-
-        <ng-container matColumnDef="entryDate">
-          <th mat-header-cell *matHeaderCellDef>Entry</th>
-          <td mat-cell *matCellDef="let row">{{ row.entryDate }}</td>
-        </ng-container>
-
-        <ng-container matColumnDef="exitDate">
-          <th mat-header-cell *matHeaderCellDef>Exit</th>
-          <td mat-cell *matCellDef="let row">{{ row.exitDate || '—' }}</td>
-        </ng-container>
-
-        <ng-container matColumnDef="pnl">
-          <th mat-header-cell *matHeaderCellDef>P/L %</th>
-          <td mat-cell *matCellDef="let row">{{ row.pnlPct ?? '—' }}</td>
-        </ng-container>
-
-        <ng-container matColumnDef="context">
-          <th mat-header-cell *matHeaderCellDef>Context</th>
-          <td mat-cell *matCellDef="let row">D/W/M</td>
-        </ng-container>
-
-        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr
-          mat-row
-          *matRowDef="let row; columns: displayedColumns"
-          (click)="selectTrade(row.id)"
-          class="tj-row"
-        ></tr>
-
-        <tr class="tj-empty" *ngIf="trades().length === 0">
-          <td [attr.colspan]="displayedColumns.length">No trades yet.</td>
-        </tr>
-      </table>
-    </div>
+    <app-trade-journal-table
+      [trades]="trades()"
+      [selectedTradeId]="selectedTradeId()"
+      (select)="selectTrade($event)"
+      (edit)="openEditTrade($event)"
+      (delete)="onDeleteTrade($event)"
+    ></app-trade-journal-table>
 
     <aside class="tj-detail" *ngIf="selectedTradeId(); else noSelection">
       <mat-toolbar color="primary" class="tj-detail-toolbar">

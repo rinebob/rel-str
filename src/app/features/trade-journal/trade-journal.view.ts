@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, inject, signal, computed } from '@a
 import { CommonModule } from '@angular/common';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
-import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -14,6 +13,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { TradeJournalListItem } from './trade-journal.types';
 import { TradeJournalDetailCardComponent } from './trade-journal-detail-card.component';
+import { TradeJournalTableComponent } from './trade-journal-table.component';
 import { DialogMode, NewTradeDialogComponent, NewTradeDialogData, NewTradeDialogResult } from './new-trade.dialog';
 import { TradeJournalStore } from './trade-journal.store';
 
@@ -24,7 +24,6 @@ import { TradeJournalStore } from './trade-journal.store';
     CommonModule,
     MatSidenavModule,
     MatToolbarModule,
-    MatTableModule,
     MatButtonModule,
     MatIconModule,
     MatFormFieldModule,
@@ -35,6 +34,7 @@ import { TradeJournalStore } from './trade-journal.store';
     MatDatepickerModule,
     MatNativeDateModule,
     TradeJournalDetailCardComponent,
+    TradeJournalTableComponent,
   ],
   templateUrl: './trade-journal.view.html',
   styleUrls: ['./trade-journal.view.scss'],
@@ -43,8 +43,6 @@ import { TradeJournalStore } from './trade-journal.store';
 export class TradeJournalViewComponent {
   private readonly dialog = inject(MatDialog);
   private readonly store = inject(TradeJournalStore);
-  readonly displayedColumns = ['symbol', 'direction', 'status', 'entryDate', 'exitDate', 'pnl', 'context'];
-
   readonly trades = signal<TradeJournalListItem[]>(this.store.trades());
 
   readonly selectedTradeId = signal<string | null>(null);
@@ -112,8 +110,12 @@ export class TradeJournalViewComponent {
 
   openEditTrade(trade: TradeJournalListItem): void {
     const rawEntry = trade.entryDate ?? '';
-    const [datePart, timePart] = rawEntry.split(' ');
-    const parsedDate = datePart ? new Date(datePart) : null;
+    const [entryDatePart, entryTimePart] = rawEntry.split(' ');
+    const parsedEntryDate = entryDatePart ? new Date(entryDatePart) : null;
+
+    const rawExit = trade.exitDate ?? '';
+    const [exitDatePart, exitTimePart] = rawExit.split(' ');
+    const parsedExitDate = exitDatePart ? new Date(exitDatePart) : null;
 
     const data: NewTradeDialogData = {
       mode: DialogMode.EDIT,
@@ -122,8 +124,11 @@ export class TradeJournalViewComponent {
       direction: trade.direction,
       status: trade.status,
       entryPrice: trade.entryPrice ?? null,
-      entryDate: parsedDate ?? trade.entryDate,
-      entryTime: timePart || '',
+      entryDate: parsedEntryDate ?? trade.entryDate,
+      entryTime: entryTimePart || '',
+      exitPrice: trade.exitPrice ?? null,
+      exitDate: parsedExitDate ?? trade.exitDate,
+      exitTime: exitTimePart || '',
       brokerCsvPaths: trade.brokerCsvPaths ?? undefined,
       indicatorCsvPaths: trade.indicatorCsvPaths ?? undefined,
       screenshotPaths: trade.screenshotPaths ?? undefined,
@@ -147,5 +152,26 @@ export class TradeJournalViewComponent {
       this.trades.set(this.store.trades());
       this.selectedTradeId.set(result.tradeId);
     });
+  }
+
+  async onDeleteTrade(trade: TradeJournalListItem): Promise<void> {
+    const current = this.trades();
+    const index = current.findIndex((t) => t.id === trade.id);
+    if (index === -1) {
+      return;
+    }
+
+    await this.store.deleteTrade(trade.id);
+
+    const refreshed = this.store.trades();
+    this.trades.set(refreshed);
+
+    if (!refreshed.length) {
+      this.selectedTradeId.set(null);
+      return;
+    }
+
+    const nextIndex = Math.min(index, refreshed.length - 1);
+    this.selectedTradeId.set(refreshed[nextIndex].id);
   }
 }
