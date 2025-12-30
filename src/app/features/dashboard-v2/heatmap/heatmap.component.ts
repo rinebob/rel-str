@@ -71,8 +71,10 @@ export class HeatmapComponent extends RelStrBaseComponent implements AfterViewIn
 
     ngOnInit() {
          this.selectedStockListV2$.pipe().subscribe(list => {
-             // Guard: no list or no ranks data
              const ranks = list?.ranksDataWithColors;
+             // eslint-disable-next-line no-console
+             console.log('[HeatmapV2] ngOnInit(): selected list change', list?.name, 'rankKeys=', ranks ? Object.keys(ranks).length : 0);
+             // Guard: no list or no ranks data
              if (!ranks || Object.keys(ranks).length === 0) {
                  this.ranksDataWithColorsEntries.set([]);
                  this.headerCells.set([HEADER_CELL_CORNER_TEXT]);

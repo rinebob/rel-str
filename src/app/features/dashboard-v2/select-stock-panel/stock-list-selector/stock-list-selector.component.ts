@@ -25,19 +25,22 @@ export class StockListSelectorComponent extends RelStrBaseComponent {
     }
 
     handleSelectList(list: RelStrStockList) {
-        // console.log('sLS hSL select list called.  list: ', list);
+        // eslint-disable-next-line no-console
+        console.log('[StockListSelectorV2] handleSelectList(): selecting list', list?.name);
         this.rsAppStore.initializeListV2({...list});
     }
 
     handleEditList(list: RelStrStockList) {
-        // console.log('sLS hEL edit list: ', list)
+        // eslint-disable-next-line no-console
+        console.log('[StockListSelectorV2] handleEditList(): editing list', list?.name);
         this.rsAppStore.setSelectedStockListV2(list);
         this.rsAppStore.setFormModeV2(FormMode.EDIT);
         this.rsAppStore.setShowFormV2(true);
     }
 
     handleDeleteList(listName: string) {
-        console.log('sLS hEL delete listName: ', listName)
+        // eslint-disable-next-line no-console
+        console.log('[StockListSelectorV2] handleDeleteList(): deleting list', listName);
         this.rsAppStore.deleteStockListV2(listName);
         this.rsAppStore.setFormModeV2(FormMode.CREATE);
         this.rsAppStore.setShowFormV2(false);

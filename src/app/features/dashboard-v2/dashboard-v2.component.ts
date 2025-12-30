@@ -115,7 +115,8 @@ export class DashboardV2Component extends RelStrBaseComponent implements OnInit 
     }
 
     handleSelectStock() {
-        // console.log('d hSS open select stock panel: ', this.selectStockPanel);
+        // eslint-disable-next-line no-console
+        console.log('[DashboardV2] handleSelectStock(): opening sidenav select-stock drawer', this.selectStockPanel);
         this.selectStockPanel.open();
     }
     
@@ -156,7 +157,8 @@ export class DashboardV2Component extends RelStrBaseComponent implements OnInit 
     }
     
     handleCloseSelectStockPanel() {
-        // console.log('d hCSSP close select stock panel');
+        // eslint-disable-next-line no-console
+        console.log('[DashboardV2] handleCloseSelectStockPanel(): closing sidenav select-stock drawer');
         this.selectStockPanel.close();
     }
 

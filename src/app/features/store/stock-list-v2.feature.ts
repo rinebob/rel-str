@@ -308,7 +308,8 @@ export function withStockListV2Feature() {
                     }
                 }
                 if (list.ranksDataWithColors === undefined || pairsToFetch.length) {
-                    console.log('sLV2 rERDV2. list/num pairs: ', list.name, pairsToFetch.length);
+                    // eslint-disable-next-line no-console
+                    console.log('[StockListFeatureV2] resolveExistingRanksDataV2(): list/num pairsToFetch', list.name, pairsToFetch.length, 'force=', force);
                     const tLabel = `[heatmap initial ${list.name || 'list'}]`;
                     console.time(tLabel);
                     // Phase 1: windowed initial fetch for faster first paint
@@ -510,9 +511,13 @@ export function withStockListV2Feature() {
                 },
 
                 async initializeListV2(list: RelStrStockList) {
+                    // eslint-disable-next-line no-console
+                    console.log('[StockListFeatureV2] initializeListV2(): incoming list', list?.name);
                     patchState(store, { selectedStockListV2: { ...list } });
                     try {
                         const resolved = await resolveExistingRanksDataV2({ ...list });
+                        // eslint-disable-next-line no-console
+                        console.log('[StockListFeatureV2] initializeListV2(): resolved ranks keys', Object.keys(resolved?.ranksDataWithColors ?? {}));
                         const allStockListsV2 = sortListsV2(resolved, [...store.allStockListsV2()]);
                         patchState(store, { allStockListsV2, selectedStockListV2: resolved });
                         // Live subscriptions temporarily disabled during stabilization
