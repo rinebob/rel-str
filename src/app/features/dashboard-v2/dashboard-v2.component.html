@@ -1,20 +1,4 @@
-<mat-drawer-container [hasBackdrop]="true">
-
-    <mat-drawer #selectStock mode="over" position="end">
-
-        <rs-select-stock-panel-v2 />
-
-        <div class="close-button-container">
-
-            <button mat-flat-button class="task-button" (click)="handleCloseSelectStockPanel()">close</button>
-
-        </div>
-
-    </mat-drawer>
-
-    <mat-drawer-content>
-
-        <div class="dashboard-container">
+<div class="dashboard-container">
 
             <div class="header-container">
 
@@ -26,7 +10,6 @@
                 </div>
                 
                 <div class="buttons-container">
-    
                     <div class="interval-buttons">
                         <button mat-button 
                                 class="interval-button" 
@@ -41,22 +24,13 @@
                                 [class.active]="selectedInterval() === timeframe.MONTHLY"
                                 (click)="setInterval(timeframe.MONTHLY)">M</button>
                     </div>
-                    <button mat-button class="task-button" (click)="handleSelectStock()">Select Pairs List</button>
-                    <button mat-button class="task-button" (click)="handleChangeTimeframe()">Timeframe</button>
                     <button mat-button class="task-button" (click)="handleSortFilter()">Sort/Filter</button>
-            
                 </div>
 
             </div>
         
             <div class="heatmap-container">
-        
                 <rs-heatmap-v2 />
-
             </div>
 
         </div>
-
-    </mat-drawer-content>
-
-</mat-drawer-container>

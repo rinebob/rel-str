@@ -1,10 +1,8 @@
-import { ChangeDetectionStrategy, Component, inject, OnInit, ViewChild, computed } from '@angular/core';
-import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
+import { ChangeDetectionStrategy, Component, inject, OnInit, computed } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 
 import { HeatmapComponent } from './heatmap/heatmap.component';
-import { SelectStockPanelComponent } from './select-stock-panel/select-stock-panel.component';
 import { RelStrBaseComponent } from '../rel-str-base/rel-str-base.component';
 import { generateColorArray } from '../utils/color-utils';
 import { NUM_HEATMAP_MIDPOINTS } from '../../core/common/constants';
@@ -18,7 +16,7 @@ import { MatButtonToggleChange } from '@angular/material/button-toggle';
 
 @Component({
     selector: 'rs-dashboard-v2',
-    imports: [HeatmapComponent, MatSidenavModule, MatButtonModule, MatButtonToggleModule, SelectStockPanelComponent],
+    imports: [HeatmapComponent, MatButtonModule, MatButtonToggleModule],
     templateUrl: './dashboard-v2.component.html',
     styleUrl: './dashboard-v2.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush
@@ -27,8 +25,6 @@ export class DashboardV2Component extends RelStrBaseComponent implements OnInit 
 
     // Expose Timeframe enum to template
     readonly timeframe = Timeframe;
-
-    @ViewChild('selectStock', { static: false }) selectStockPanel!: MatDrawer;
 
     rSDbSvc = inject(RelStrDbV2Service)
     private readonly rsDataSvc = inject(RsDataService);
@@ -114,12 +110,6 @@ export class DashboardV2Component extends RelStrBaseComponent implements OnInit 
         this.rsAppStore.saveStockListForUserV2(userId, list);
     }
 
-    handleSelectStock() {
-        // eslint-disable-next-line no-console
-        console.log('[DashboardV2] handleSelectStock(): opening sidenav select-stock drawer', this.selectStockPanel);
-        this.selectStockPanel.open();
-    }
-    
     setInterval(timeframe: Timeframe) {
         const newTimeframe = timeframe as Timeframe;
         this.rsDataStore.setTimeframe(newTimeframe);
@@ -148,18 +138,8 @@ export class DashboardV2Component extends RelStrBaseComponent implements OnInit 
         }
     }
     
-    handleChangeTimeframe() {
-        
-    }
-    
     handleSortFilter() {
         
     }
     
-    handleCloseSelectStockPanel() {
-        // eslint-disable-next-line no-console
-        console.log('[DashboardV2] handleCloseSelectStockPanel(): closing sidenav select-stock drawer');
-        this.selectStockPanel.close();
-    }
-
 }
