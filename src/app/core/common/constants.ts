@@ -167,6 +167,7 @@ export enum Collection {
   ADMIN = 'admin',
   APP = 'app',
   POSITIONS = 'positions',
+  SYMBOL_DATA = 'symbol-data',
 }
 
 /** Known subcollection names under a user document. */
