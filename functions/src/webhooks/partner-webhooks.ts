@@ -23,12 +23,7 @@ import { buildPhaseSeries } from './rs-series';
 import { writeUnifiedSeries } from './pairs-writer';
 import { listRegisteredPairs } from './registry';
 import { applyRsEventsForPair } from './rs-events-consumer';
-import {
-  toKebabRunType,
-  formatPtSegment,
-  computeEventDocId,
-  markProcessing,
-} from './partner-events';
+import { toKebabRunType, formatPtSegment, computeEventDocId, markProcessing } from './partner-events';
 import {
   PARTNER_DATA_READY_TOPIC,
   EVENTS_COLLECTION,
@@ -47,6 +42,7 @@ import {
   type PhaseSeriesPoint,
   ARCHIVE_COLLECTION_PREFIX,
   PAIRS_COLLECTION,
+  SYMBOL_DATA_COLLECTION,
 } from './webhooks-config';
 import { updateOpenPositionsForPair, appendOpenPositionsTimelineForPair } from './positions-manager';
 import { Interval, RsSource } from '../types/signal.types';
@@ -58,6 +54,28 @@ import { persistWarning } from '../logging/warn';
 
 // Firebase Admin and Firestore are initialized in ../firebase-admin-init
 // Shared constants and enums have been moved to ./webhooks-config
+
+interface CurrentPricePayload {
+  price: number;
+  date: string; // 'YYYY-MM-DD'
+  time: string; // 'HH:mm'
+}
+
+async function upsertSymbolCurrentPrice(symbol: string, payload: CurrentPricePayload): Promise<void> {
+  const symbolId = symbol.trim().toUpperCase();
+  const symbolDocRef = db.collection(SYMBOL_DATA_COLLECTION).doc(symbolId);
+
+  await symbolDocRef.set(
+    {
+      currentPrice: {
+        price: payload.price,
+        date: payload.date,
+        time: payload.time,
+      },
+    },
+    { merge: true },
+  );
+}
 
 /**
  * Partner Data-Ready Subscriber (V2) — Orchestrator
@@ -270,6 +288,33 @@ export async function processPairLive(
       return;
     }
     await writeUnifiedSeries(baseline, target, phase, series, baseBars, targetBars, Interval.DAILY);
+
+    // Best-effort: upsert latest target price into symbol-data/{TARGET}.currentPrice
+    try {
+      if (Array.isArray(targetBars) && targetBars.length > 0) {
+        const lastBar = targetBars[targetBars.length - 1] as any;
+        const day = String(lastBar?.d || '');
+        const ts = Number(lastBar?.t);
+        const close = Number(lastBar?.ac ?? lastBar?.c ?? 0);
+
+        if (day && Number.isFinite(ts) && Number.isFinite(close) && close > 0) {
+          const iso = new Date(ts).toISOString();
+          const date = iso.slice(0, 10); // 'YYYY-MM-DD'
+          const time = iso.slice(11, 16); // 'HH:mm'
+
+          await upsertSymbolCurrentPrice(target, {
+            price: close,
+            date,
+            time,
+          });
+        }
+      }
+    } catch (e: any) {
+      logger.warn('symbol_data_current_price_upsert_failed', {
+        target,
+        message: e?.message,
+      });
+    }
 
     // Weekly and Monthly series: fetch from partner using corresponding intervals.
     // We do this for both PRE and POST to keep intraday updates flowing for all intervals.

@@ -65,6 +65,9 @@ export const MONTHLY_ARCHIVE_COLLECTION_PREFIX = 'archive-monthly-';
 /** Collection holding known/supported symbols and attributes. */
 export const TRACKED_SYMBOLS_COLLECTION = 'tracked-symbols';
 
+/** Root collection for current symbol price snapshots consumed by the frontend. */
+export const SYMBOL_DATA_COLLECTION = 'symbol-data';
+
 /** Warning events emitted by backend for UI visibility. */
 export const WARNINGS_COLLECTION = 'rs-warnings';
 
