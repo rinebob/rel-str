@@ -47,3 +47,6 @@ export {
   backfillPositionsBucketMetadata,
   purgeAllPositions,
 } from './cleanup.callables';
+
+export { backfillSymbolDataFromPairsAdmin } from './admin/backfill-symbol-data-from-pairs';
+export { backfillSymbolDataFromTradesAdmin, backfillSymbolDataForTradesDaily } from './admin/backfill-symbol-data-from-trades';
