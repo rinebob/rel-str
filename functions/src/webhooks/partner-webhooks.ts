@@ -61,7 +61,7 @@ interface CurrentPricePayload {
   time: string; // 'HH:mm'
 }
 
-async function upsertSymbolCurrentPrice(symbol: string, payload: CurrentPricePayload): Promise<void> {
+export async function upsertSymbolCurrentPrice(symbol: string, payload: CurrentPricePayload): Promise<void> {
   const symbolId = symbol.trim().toUpperCase();
   const symbolDocRef = db.collection(SYMBOL_DATA_COLLECTION).doc(symbolId);
 
