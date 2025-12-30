@@ -29,12 +29,18 @@ const initialState: TradeJournalStoreState = {
 };
 
 function buildTradeFromDialog(result: NewTradeDialogResult, id: string): TradeJournalListItem {
-  const { symbol, direction, status, entryPrice, entryDate, entryTime } = result;
+  const { symbol, direction, status, entryPrice, entryDate, entryTime, exitPrice, exitDate, exitTime } = result;
 
   const parsedPrice = Number(entryPrice);
   const safePrice = Number.isFinite(parsedPrice) ? parsedPrice : 0;
 
   const entryDateTime = `${entryDate || ''} ${entryTime || ''}`.trim();
+
+  const parsedExitPrice = exitPrice != null ? Number(exitPrice) : NaN;
+  const safeExitPrice = Number.isFinite(parsedExitPrice) ? parsedExitPrice : null;
+
+  const exitDateTimeRaw = `${exitDate || ''} ${exitTime || ''}`.trim();
+  const exitDateTime = exitDateTimeRaw.length > 0 ? exitDateTimeRaw : null;
 
   const mappedDirection = direction === TradeDirection.SHORT ? TradeDirection.SHORT : TradeDirection.LONG;
 
@@ -57,6 +63,8 @@ function buildTradeFromDialog(result: NewTradeDialogResult, id: string): TradeJo
     status: mappedStatus,
     entryDate: entryDateTime,
     entryPrice: safePrice,
+    exitDate: exitDateTime,
+    exitPrice: safeExitPrice,
   };
 }
 

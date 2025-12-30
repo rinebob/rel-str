@@ -26,6 +26,7 @@
         <mat-label>Status</mat-label>
         <mat-select formControlName="status">
           <mat-option value="OPEN">Open</mat-option>
+          <mat-option value="CLOSED">Closed</mat-option>
         </mat-select>
       </mat-form-field>
       <mat-form-field appearance="outline" class="nt-field nt-field--price">
@@ -45,6 +46,25 @@
       <mat-form-field appearance="outline" class="nt-field nt-field--datetime">
         <mat-label>Entry time</mat-label>
         <input matInput type="time" formControlName="entryTime" />
+      </mat-form-field>
+    </div>
+
+    <div class="nt-row">
+      <mat-form-field appearance="outline" class="nt-field nt-field--datetime">
+        <mat-label>Exit date</mat-label>
+        <input matInput [matDatepicker]="exitDatePicker" formControlName="exitDate" />
+        <mat-datepicker-toggle matSuffix [for]="exitDatePicker"></mat-datepicker-toggle>
+        <mat-datepicker #exitDatePicker></mat-datepicker>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="nt-field nt-field--datetime">
+        <mat-label>Exit time</mat-label>
+        <input matInput type="time" formControlName="exitTime" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="nt-field nt-field--price">
+        <mat-label>Exit price</mat-label>
+        <input matInput type="number" formControlName="exitPrice" />
       </mat-form-field>
     </div>
   </section>

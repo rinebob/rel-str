@@ -23,6 +23,9 @@ export interface NewTradeDialogResult {
   entryPrice: number;
   entryDate: string;
   entryTime: string;
+  exitPrice?: number | null;
+  exitDate?: string | null;
+  exitTime?: string | null;
   brokerCsvFiles: File[];
   indicatorCsvFiles: File[];
   screenshotFiles: File[];
@@ -54,6 +57,9 @@ export interface NewTradeDialogData extends ExistingTradeFilePaths {
   entryPrice?: number | null;
   entryDate?: string | Date | null;
   entryTime?: string | null;
+  exitPrice?: number | null;
+  exitDate?: string | Date | null;
+  exitTime?: string | null;
 }
 
 @Component({
@@ -90,6 +96,9 @@ export class NewTradeDialogComponent {
     entryPrice: [this.data?.entryPrice ?? null, [Validators.required]],
     entryDate: [this.data?.entryDate ?? '', [Validators.required]],
     entryTime: [this.data?.entryTime ?? '', [Validators.required]],
+    exitPrice: [this.data?.exitPrice ?? null],
+    exitDate: [this.data?.exitDate ?? ''],
+    exitTime: [this.data?.exitTime ?? ''],
   });
 
   brokerCsvFiles: File[] = [];
@@ -114,7 +123,8 @@ export class NewTradeDialogComponent {
       return;
     }
 
-    const { symbol, direction, status, entryPrice, entryDate, entryTime } = this.form.value;
+    const { symbol, direction, status, entryPrice, entryDate, entryTime, exitPrice, exitDate, exitTime } =
+      this.form.value;
 
     const upperSymbol = String(symbol ?? '')
       .trim()
@@ -130,6 +140,16 @@ export class NewTradeDialogComponent {
       normalizedDate = entryDate;
     }
 
+    let normalizedExitDate: string | null = null;
+    if (exitDate instanceof Date) {
+      const year = exitDate.getFullYear();
+      const month = String(exitDate.getMonth() + 1).padStart(2, '0');
+      const day = String(exitDate.getDate()).padStart(2, '0');
+      normalizedExitDate = `${year}-${month}-${day}`;
+    } else if (typeof exitDate === 'string' && exitDate.trim().length > 0) {
+      normalizedExitDate = exitDate;
+    }
+
     const mode: DialogMode = this.data?.mode ?? DialogMode.CREATE;
 
     this.dialogRef.close({
@@ -139,6 +159,9 @@ export class NewTradeDialogComponent {
       entryPrice,
       entryDate: normalizedDate,
       entryTime,
+      exitPrice,
+      exitDate: normalizedExitDate,
+      exitTime,
       brokerCsvFiles: this.brokerCsvFiles,
       indicatorCsvFiles: this.indicatorCsvFiles,
       screenshotFiles: this.screenshotFiles,

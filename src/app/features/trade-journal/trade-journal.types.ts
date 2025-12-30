@@ -8,6 +8,8 @@ export interface TradeJournalListItem {
   entryDate: string;
   entryPrice?: number | null;
   exitDate?: string | null;
+  exitPrice?: number | null;
+  currentPrice?: number | null;
   pnlPct?: number | null;
   /** Optional URL for the primary screenshot associated with this trade. */
   screenshotUrl?: string | null;
