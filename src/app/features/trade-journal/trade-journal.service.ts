@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { Firestore, collection, doc, getDoc, getDocs } from '@angular/fire/firestore';
+import { Firestore, collection, deleteDoc, doc, getDoc, getDocs } from '@angular/fire/firestore';
 import { Storage, getDownloadURL, ref } from '@angular/fire/storage';
 import { NewTradeDialogResult } from './new-trade.dialog';
 import { environment } from '../../../environments/environment';
@@ -24,6 +24,28 @@ export class TradeJournalService {
   private readonly firestore = inject(Firestore);
   private readonly storage = inject(Storage);
 
+  private async loadSymbolPrices(symbols: string[]): Promise<Record<string, { price: number | null }>> {
+    const unique = Array.from(new Set(symbols.map((s) => s.trim().toUpperCase())));
+    const result: Record<string, { price: number | null }> = {};
+
+    await Promise.all(
+      unique.map(async (symbol) => {
+        const ref = doc(this.firestore, `${Collection.SYMBOL_DATA}/${symbol}`);
+        const snap = await getDoc(ref);
+        if (!snap.exists()) {
+          result[symbol] = { price: null };
+          return;
+        }
+
+        const data = snap.data() as { currentPrice?: { price?: number } };
+        const price = typeof data.currentPrice?.price === 'number' ? data.currentPrice.price : null;
+        result[symbol] = { price };
+      }),
+    );
+
+    return result;
+  }
+
   async loadTrades(): Promise<TradeJournalListItem[]> {
     const user = await firstValueFrom(this.authService.user$);
     if (!user) {
@@ -45,10 +67,11 @@ export class TradeJournalService {
       throw err;
     }
 
-    const items = await Promise.all(
+    const items: TradeJournalListItem[] = await Promise.all(
       snap.docs.map(async (docSnap) => {
         const data = docSnap.data() as any;
         const entry = data.entry || {};
+        const exit = data.exit || {};
 
         const rawDirection = String(data.direction || '').toUpperCase();
         const direction = rawDirection === TradeDirection.SHORT ? TradeDirection.SHORT : TradeDirection.LONG;
@@ -71,6 +94,8 @@ export class TradeJournalService {
 
         const price = typeof entry.price === 'number' ? entry.price : null;
 
+        const exitPrice = typeof exit.price === 'number' ? exit.price : null;
+
         let screenshotUrl: string | null = null;
         const screenshotPaths: string[] | undefined = data.screenshotPaths;
         const firstPath = screenshotPaths && screenshotPaths[0];
@@ -84,18 +109,22 @@ export class TradeJournalService {
           }
         }
 
-        return {
+        const item: TradeJournalListItem = {
           id: data.tradeId || docSnap.id,
           symbol: String(data.symbol || '').trim().toUpperCase(),
           direction,
           status,
           entryDate: entryDateTime || datePart,
           entryPrice: price,
+          exitDate: exit.date || null,
+          exitPrice,
           screenshotUrl,
           brokerCsvPaths: (data.brokerCsvPaths as string[] | undefined) ?? null,
           indicatorCsvPaths: (data.indicatorCsvPaths as string[] | undefined) ?? null,
           screenshotPaths: screenshotPaths ?? null,
         } satisfies TradeJournalListItem;
+
+        return item;
       }),
     );
     const pricesBySymbol = await this.loadSymbolPrices(items.map((t) => t.symbol));
@@ -147,6 +176,20 @@ export class TradeJournalService {
     const storageRef = ref(this.storage, firstPath);
     const url = await getDownloadURL(storageRef);
     return url;
+  }
+
+  async deleteTrade(tradeId: string): Promise<void> {
+    const user = await firstValueFrom(this.authService.user$);
+    if (!user) {
+      throw new Error('[TradeJournalService] deleteTrade called without authenticated user');
+    }
+
+    const tradeDocRef = doc(
+      this.firestore,
+      `${Collection.USERS}/${user.uid}/${Subcollection.TRADES}/${tradeId}`,
+    );
+
+    await deleteDoc(tradeDocRef);
   }
 
   /**
