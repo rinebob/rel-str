@@ -1,22 +1,31 @@
 import { NavItem } from "./interfaces";
 
 export const NAV_MENU_ITEMS: NavItem[] = [
+    // {
+    //     name: 'documentation',
+    //     text: 'documentation',
+    //     href: 'documentation',
+    //     mobileOnly: false,
+    //     external: true,
+    //     target: '_self',
+    // },
+    // {
+    //     name: 'contact',
+    //     text: 'contact',
+    //     href: 'contact',
+    //     mobileOnly: false,
+    //     external: true,
+    //     target: '_self',
+    // },
     {
-        name: 'documentation',
-        text: 'documentation',
-        href: 'documentation',
+        name: 'symbols',
+        text: 'symbols',
+        href: '',
         mobileOnly: false,
         external: true,
         target: '_self',
     },
-    {
-        name: 'contact',
-        text: 'contact',
-        href: 'contact',
-        mobileOnly: false,
-        external: true,
-        target: '_self',
-    },
+    
     {
         name: 'signup',
         text: 'signup',

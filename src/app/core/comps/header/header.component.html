@@ -14,7 +14,13 @@
 
         @for (item of NAV_MENU_ITEMS; track item.name) {
           @if (item.external === true) {
-            @if ((item.name === 'login' || item.name === 'signup') && isAuthenticated()) {
+            @if (item.name === 'documentation') {
+              <!-- hide documentation button -->
+            } @else if (item.name === 'symbols') {
+              <button mat-flat-button class="nav-button" (click)="handleOpenSymbols()">
+                {{ item.text | uppercase }}
+              </button>
+            } @else if ((item.name === 'login' || item.name === 'signup') && isAuthenticated()) {
               <!-- hide auth-only entries when authenticated -->
             } @else {
               <button mat-flat-button class="nav-button" (click)="handleNavigation(item.href)">

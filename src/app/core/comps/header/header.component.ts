@@ -9,6 +9,7 @@ import { NAV_MENU_ITEMS } from '../../common/constants';
 import { AuthStore } from '../../auth/auth.store';
 import { AppRoutes } from '../../common/interfaces';
 import { RefreshTimeComponent } from './refresh-time/refresh-time.component';
+import { SelectStockDialogService } from '../../../features/select-stock/select-stock-dialog.service';
 
 @Component({
     selector: 'rs-header',
@@ -22,6 +23,7 @@ export class HeaderComponent {
     openSidenav = output<boolean>();
 
     private readonly auth = inject(AuthStore);
+    private readonly selectStockDialog = inject(SelectStockDialogService);
     router = inject(Router);
 
     readonly NAV_MENU_ITEMS = NAV_MENU_ITEMS;
@@ -42,6 +44,10 @@ export class HeaderComponent {
         this.openSidenav.emit(true);
     }
     
+    handleOpenSymbols() {
+        this.selectStockDialog.open();
+    }
+
     handleNavigation(href: string) {
         // console.log('nH hN handle navigation called. href: ', href);
         this.router.navigate([href]);
