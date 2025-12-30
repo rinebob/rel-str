@@ -126,6 +126,29 @@ export class RelStrDbV2Service {
     );
   }
 
+  /**
+   * Available symbols for list creation/editing, backed by symbol-data collection.
+   * Mirrors SA tracked-symbols via backend daily sync and preserves currentPrice map.
+   */
+  getAvailableSymbolsFromSymbolData$(): Observable<Company[]> {
+    return defer(() => from(this.inCtx(() => {
+      const colRef = collection(this.firestore, Collection.SYMBOL_DATA);
+      const qRef = query(colRef, orderBy('symbol'));
+      return this.zone.run(() => getDocs(qRef));
+    }))).pipe(
+      map(snap => snap.docs.map(d => {
+        const data = d.data() as any;
+        const symbol = String(d.id || data.symbol || '').toUpperCase();
+        const company = String(data.name || data.company || symbol).trim();
+        return { symbol, company } as Company;
+      })),
+      catchError(err => {
+        console.error('[RelStrDbV2Service] getAvailableSymbolsFromSymbolData$ error', err);
+        return of([] as Company[]);
+      }),
+    );
+  }
+
   getPairSeriesFromArchiveWindowByInterval$(pairId: string, daysBack = 60, timeframe: Timeframe = Timeframe.DAILY): Observable<RsSeriesPoint[]> {
     const pair = String(pairId || '').trim();
     if (!pair || !Number.isFinite(daysBack) || daysBack <= 0) return of([] as RsSeriesPoint[]);

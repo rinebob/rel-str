@@ -25,10 +25,10 @@ export class SymbolPickerComponent extends RelStrBaseComponent implements OnInit
 
     ngOnInit() {
 
-        // Load dynamic tracked symbols (callable) and initialize sources
-        // Service already maps payload to Company[]; just sort and set
+        // Load available symbols from symbol-data (mirrored daily from SA)
+        // Service already maps docs to Company[]; just sort and set
         this.db
-            .getTrackedSymbols$()
+            .getAvailableSymbolsFromSymbolData$()
             .pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe((companies: Company[]) => {
                 const sorted = [...companies].sort(compareFn);
