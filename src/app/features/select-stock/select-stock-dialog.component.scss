@@ -1,0 +1,33 @@
+@use '../../styles/mixins-global' as global;
+@use '../../styles/variables-global' as globalVar;
+
+.select-stock-dialog-container {
+  @include global.flexboxLayout(column, center, center);
+  padding: global.rem(24);
+
+  .select-stock-dialog-body {
+    width: 100%;
+    max-width: global.rem(900);
+    margin-inline: auto;
+    // Tighten inner layout: override default padding on the embedded panel
+    rs-select-stock-panel-v2 {
+      padding: 0;
+    }
+  }
+
+  .select-stock-dialog-footer {
+    @include global.flexboxLayout(row, flex-end, center);
+    width: 100%;
+    max-width: global.rem(900);
+    margin-inline: auto;
+    margin-top: 0;
+
+    .close-button {
+      @include global.rsButtonOne();
+      padding-inline: global.rem(20);
+      text-transform: uppercase;
+      min-width: global.rem(96);
+      justify-content: center;
+    }
+  }
+}
