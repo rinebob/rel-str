@@ -29,6 +29,8 @@ export interface TradeJournalListItemDto {
   status: string;
   entryDate: string;
   entryPrice?: number | null;
+  exitDate?: string | null;
+  exitPrice?: number | null;
 }
 
 export interface TradeUpsertDto {
@@ -168,6 +170,10 @@ export const tradeJournalManager = onRequest({ maxInstances: 10 }, async (req: R
     const datePart = datePartRaw || null;
     const timePart = timePartRaw || null;
 
+    const [exitDateRaw, exitTimeRaw] = String(trade.exitDate || '').split(' ');
+    const exitDate = exitDateRaw || null;
+    const exitTime = exitTimeRaw || null;
+
     const tradeDocRef = db
       .collection(USERS_COLLECTION)
       .doc(uid)
@@ -183,6 +189,11 @@ export const tradeJournalManager = onRequest({ maxInstances: 10 }, async (req: R
         price: typeof trade.entryPrice === 'number' ? trade.entryPrice : null,
         date: datePart,
         time: timePart,
+      },
+      exit: {
+        price: typeof trade.exitPrice === 'number' ? trade.exitPrice : null,
+        date: exitDate,
+        time: exitTime,
       },
       brokerCsvPaths,
       indicatorCsvPaths,
