@@ -15,6 +15,8 @@ import { FORM_MODE_CREATE_TEXT, FORM_MODE_EDIT_TEXT, STOCK_LIST_INITIALIZER } fr
 import { SymbolPickerComponent } from '../symbol-picker/symbol-picker.component';
 import { RelStrBaseComponent } from '../../../rel-str-base/rel-str-base.component';
 import { resolveExistingRanksData } from '../../../utils/rs-calc-utils';
+import { MatDialogRef } from '@angular/material/dialog';
+import { SelectStockDialogComponent } from '../../../select-stock/select-stock-dialog.component';
 
 @Component({
     selector: 'rs-stock-list-form-v2',
@@ -32,6 +34,7 @@ export class StockListFormComponent extends RelStrBaseComponent implements OnIni
     localSymbolsSelection = signal<Company[]>([]);
     formDataWithSymbols = signal<RelStrStockList>(STOCK_LIST_INITIALIZER);
     private readonly auth = inject(Auth);
+    private readonly dialogRef = inject(MatDialogRef<SelectStockDialogComponent>, { optional: true });
     
     nameControl = new FormControl('');
     baselineControl = new FormControl('');
@@ -56,6 +59,16 @@ export class StockListFormComponent extends RelStrBaseComponent implements OnIni
             this.formModeV2$,
             this.showFormV2$
         ]).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(([stockList, formMode, showForm]) => {
+            // If we're hosted in the global select-stock dialog, control its width
+            // so it jumps once to a wider layout for the form and then stays stable.
+            if (this.dialogRef) {
+                if (showForm) {
+                    this.dialogRef.updateSize('900px');
+                } else {
+                    this.dialogRef.updateSize('640px');
+                }
+            }
+
             if (!!showForm) {
                 if (formMode === FormMode.CREATE) {
                     this.reset();
@@ -126,11 +139,21 @@ export class StockListFormComponent extends RelStrBaseComponent implements OnIni
                 this.rsAppStore.saveStockListForUserV2(uid, { ...newList });
             }
         }
+
+        // After save/rename, immediately re-initialize this list so heatmap data resolves
+        // and the dashboard updates without requiring a second list click.
+        void this.rsAppStore.initializeListV2({ ...newList });
+
+        // If hosted inside the global select-stock dialog, close the dialog on save
+        this.dialogRef?.close();
+
         this.reset();
         this.rsAppStore.setShowFormV2(false);
     }
 
     handleCancel() {
+        // Close dialog if present; otherwise just hide the form in sidenav mode
+        this.dialogRef?.close();
         this.rsAppStore.setShowFormV2(false);
     }
 }
