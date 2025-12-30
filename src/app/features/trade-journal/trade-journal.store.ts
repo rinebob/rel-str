@@ -134,14 +134,14 @@ export const TradeJournalStore = signalStore(
     return {
       async loadTrades(): Promise<void> {
         console.log('[TradeJournalService] loadTrades called');
-      patchState(store, { loading: true, error: null });
+        patchState(store, { loading: true, error: null });
 
       try {
         const trades = await service.loadTrades();
         console.log('[TradeJournalService] loadTrades: ', trades, trades.length);
         patchState(store, { trades, loading: false });
       } catch (e: any) {
-        console.log('[TradeJournalService] loadTrades failed');
+        console.log('[TradeJournalService] loadTrades failed. error: ', e);
         patchState(store, {
           loading: false,
           error: String(e?.message || 'failed to load trades'),
