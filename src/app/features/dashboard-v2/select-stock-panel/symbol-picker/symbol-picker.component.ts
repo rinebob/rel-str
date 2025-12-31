@@ -104,6 +104,10 @@ export class SymbolPickerComponent extends RelStrBaseComponent implements OnInit
         this.localSymbolsSource.set(source);
     }
 
+    getAvailableSymbolsForAutocomplete(): Company[] {
+        return this.localSymbolsSource();
+    }
+
 }
 
 function compareFn(a: Company, b: Company) {

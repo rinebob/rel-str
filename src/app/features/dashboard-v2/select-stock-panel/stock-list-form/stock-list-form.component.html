@@ -5,33 +5,58 @@
 
     <div class="form-container" [formGroup]="listForm">
 
-        <mat-form-field>
-            <mat-label>List name</mat-label>
-            
-            <input matInput
-                   type="text"
-                   class="list-form-control"
-                   placeholder="Enter name of list"
-                   formControlName="nameControl"
-            >
+        <div class="baseline-row name-row">
+            <mat-form-field class="list-name-field">
+                <mat-label>List name</mat-label>
+                
+                <input matInput
+                       type="text"
+                       class="list-form-control"
+                       placeholder="Enter name of list"
+                       formControlName="nameControl"
+                >
 
-        </mat-form-field>
+            </mat-form-field>
+        </div>
 
-        <mat-form-field>
-            <mat-label>Baseline ticker</mat-label>
-            
-            <input matInput
-                   type="text"
-                   class="list-form-control"
-                   placeholder="Enter baseline ticker symbol"
-                   formControlName="baselineControl"
-            >
+        <div class="baseline-row">
+            <mat-form-field class="baseline-field">
+                <mat-label>Baseline ticker</mat-label>
+                
+                <input matInput
+                       type="text"
+                       class="list-form-control"
+                       placeholder="Enter baseline ticker symbol"
+                       formControlName="baselineControl"
+                >
 
-        </mat-form-field>
+            </mat-form-field>
+
+            <mat-form-field class="symbol-autocomplete-field">
+                <mat-label>Add symbol</mat-label>
+                
+                <input matInput
+                       type="text"
+                       [matAutocomplete]="symbolAuto"
+                       [formControl]="symbolSearchControl"
+                       placeholder="Search symbols to add"
+                >
+
+                <mat-autocomplete #symbolAuto="matAutocomplete" (optionSelected)="handleSymbolSelectedFromAutocomplete($event.option.value)">
+                    @for (symbol of filteredSymbols(); track symbol.symbol) {
+                        <mat-option [value]="symbol">
+                            {{ symbol.symbol }}  {{ symbol.company }}
+                        </mat-option>
+                    }
+                </mat-autocomplete>
+
+            </mat-form-field>
+        </div>
 
     </div>
 
-    <rs-symbol-picker-v2 (localSymbolsOuput)="handleLocalSymbolsOutput($event)" />
+    <rs-symbol-picker-v2
+        (localSymbolsOuput)="handleLocalSymbolsOutput($event)" />
 
     <div class="buttons-container">
                 

@@ -6,25 +6,37 @@
     // width: 50%;
 
     .form-container {
-        @include global.flexboxLayout(column, center, flex-start);
-        padding: 20px 0;
+        @include global.flexboxLayout(column, flex-start, flex-start);
+        padding: global.rem(20) 0;
         width: 100%;
 
-        .mat-mdc-form-field {
+        .baseline-row {
+            @include global.flexboxLayout(row, flex-start, flex-start);
+            width: 100%;
+            gap: global.rem(16);
 
-            width: 90%;
+            .baseline-field,
+            .symbol-autocomplete-field,
+            &.name-row .list-name-field {
+                flex: 1 1 0;
+                max-width: 45%;
+            }
+        }
+
+        .mat-mdc-form-field {
+            // width: 70%;
         }
     }
 
     .buttons-container {
-        margin: 16px 0;
+        margin: global.rem(16) 0;
     }
 
     .crud-button {
         @include global.rsButtonOne();
         
         &:not(:last-of-type) {
-            margin: 0 12px;
+            margin: 0 global.rem(12);
         }
 
         p {

@@ -1,7 +1,8 @@
 import { UpperCasePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, OnInit, signal, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, signal, inject, viewChild } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -21,7 +22,7 @@ import { SelectStockDialogComponent } from '../../../select-stock/select-stock-d
 @Component({
     selector: 'rs-stock-list-form-v2',
     imports: [
-        MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, ReactiveFormsModule, UpperCasePipe,
+        MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatAutocompleteModule, ReactiveFormsModule, UpperCasePipe,
         SymbolPickerComponent,
     ],
     templateUrl: './stock-list-form.component.html',
@@ -33,11 +34,14 @@ export class StockListFormComponent extends RelStrBaseComponent implements OnIni
     localStockList = signal<RelStrStockList>(STOCK_LIST_INITIALIZER);
     localSymbolsSelection = signal<Company[]>([]);
     formDataWithSymbols = signal<RelStrStockList>(STOCK_LIST_INITIALIZER);
+    filteredSymbols = signal<Company[]>([]);
     private readonly auth = inject(Auth);
     private readonly dialogRef = inject(MatDialogRef<SelectStockDialogComponent>, { optional: true });
+    readonly symbolPicker = viewChild(SymbolPickerComponent);
     
     nameControl = new FormControl('');
     baselineControl = new FormControl('');
+    symbolSearchControl = new FormControl('');
 
     listForm = new FormGroup<RelStrListForm>({
         nameControl: this.nameControl,
@@ -55,7 +59,7 @@ export class StockListFormComponent extends RelStrBaseComponent implements OnIni
 
     ngOnInit() {
         combineLatest([
-            this.selectedStockListV2$,
+            this.editingStockListV2$,
             this.formModeV2$,
             this.showFormV2$
         ]).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(([stockList, formMode, showForm]) => {
@@ -69,12 +73,12 @@ export class StockListFormComponent extends RelStrBaseComponent implements OnIni
                 }
             }
 
-            if (!!showForm) {
+            if (!!showForm && stockList) {
+                this.localStockList.set(stockList);
                 if (formMode === FormMode.CREATE) {
                     this.reset();
                 } else if (formMode === FormMode.EDIT) {
                     this.populateForm(stockList);
-                    this.localStockList.set(stockList);
                 }
             }
         });
@@ -82,6 +86,18 @@ export class StockListFormComponent extends RelStrBaseComponent implements OnIni
         this.listForm.valueChanges.pipe(debounceTime(300), takeUntilDestroyed(this.destroyRef)).subscribe(() => {
             this.setFormData()
         });
+
+        this.symbolSearchControl.valueChanges
+            .pipe(debounceTime(200), takeUntilDestroyed(this.destroyRef))
+            .subscribe(() => {
+                this.updateFilteredSymbols();
+            });
+
+        this.baselineControl.valueChanges
+            .pipe(debounceTime(200), takeUntilDestroyed(this.destroyRef))
+            .subscribe(() => {
+                this.updateFilteredSymbols();
+            });
     }
 
     setFormData() {
@@ -107,6 +123,17 @@ export class StockListFormComponent extends RelStrBaseComponent implements OnIni
     handleLocalSymbolsOutput(symbols: Company[]) {
         this.localSymbolsSelection.set([...symbols]);
         this.setFormData();
+        this.updateFilteredSymbols();
+    }
+
+    handleSymbolSelectedFromAutocomplete(company: Company) {
+        if (!company) {
+            return;
+        }
+
+        this.symbolPicker()?.addSymbolToList(company);
+        this.symbolSearchControl.setValue('');
+        this.updateFilteredSymbols();
     }
 
     handleSaveList() {
@@ -148,12 +175,54 @@ export class StockListFormComponent extends RelStrBaseComponent implements OnIni
         this.dialogRef?.close();
 
         this.reset();
-        this.rsAppStore.setShowFormV2(false);
+        this.rsAppStore.cancelEditListV2();
     }
 
     handleCancel() {
-        // Close dialog if present; otherwise just hide the form in sidenav mode
+        // Close dialog if present and clear the editing draft without touching the active list/heatmap
         this.dialogRef?.close();
-        this.rsAppStore.setShowFormV2(false);
+        this.rsAppStore.cancelEditListV2();
     }
+
+    private updateFilteredSymbols() {
+        const picker = this.symbolPicker();
+        const allSymbols = picker ? picker.getAvailableSymbolsForAutocomplete() : [];
+        if (!allSymbols.length) {
+            this.filteredSymbols.set([]);
+            return;
+        }
+
+        const termRaw = this.symbolSearchControl.value ?? '';
+        const term = String(termRaw).trim().toUpperCase();
+        const baselineRaw = this.baselineControl.value ?? '';
+        const baseline = String(baselineRaw).trim().toUpperCase();
+        const selectedSymbols = new Set<string>(this.localSymbolsSelection().map(sym => sym.symbol));
+
+        const filtered = allSymbols.filter((company: Company) => {
+            const symbol = company.symbol.toUpperCase();
+            if (selectedSymbols.has(symbol)) {
+                return false;
+            }
+            if (baseline && symbol === baseline) {
+                return false;
+            }
+            if (!term) {
+                return true;
+            }
+            const name = (company.company ?? '').toUpperCase();
+            return symbol.includes(term) || name.includes(term);
+        });
+
+        this.filteredSymbols.set(filtered);
+    }
+}
+
+function compareFn(a: Company, b: Company) {
+    if (a.symbol < b.symbol) {
+        return -1;
+    }
+    if (a.symbol > b.symbol) {
+        return 1;
+    }
+    return 0;
 }
