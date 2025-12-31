@@ -267,3 +267,5 @@ export interface PhaseSeriesPoint {
   targetClose: number;
   it?: string;
 }
+
+export const BACKFILL_START_DATE = '2019-01-01';

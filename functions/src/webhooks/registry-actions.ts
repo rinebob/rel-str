@@ -12,8 +12,10 @@ import {
   TRACKED_SYMBOLS_COLLECTION,
   REGISTRY_RETENTION_DAYS,
   RsCloudFunctionName,
+  BACKFILL_START_DATE,
 } from './webhooks-config';
 import { persistWarning } from '../logging/warn';
+import { runFullBackfillForPairs } from './hydrate-new-pair';
 
 function normalizeSymbol(v?: string): string | undefined {
   if (!v || typeof v !== 'string') return undefined;
@@ -109,6 +111,7 @@ export const validateAndRegisterPairs = onCall({ region: 'us-central1' }, async 
   // Write refCount/membership
   const memberKey = `uid:${uid}/list:${listId}`;
   const registered: string[] = [];
+  const newlyRegistered: string[] = [];
   for (const target of validTargets) {
     const id = `${baseline}-${target}`;
     const ref = db.collection(REGISTRY_COLLECTION).doc(id);
@@ -127,11 +130,31 @@ export const validateAndRegisterPairs = onCall({ region: 'us-central1' }, async 
         refCount: newRefCount,
         updatedAt: FieldValue.serverTimestamp(),
       }, { merge: true });
+
+      if (!hadMember) {
+        newlyRegistered.push(id);
+      }
     });
     registered.push(id);
   }
 
-  logger.info('validateAndRegisterPairs completed', { baseline, listId, registered: registered.length, rejected: rejected.length });
+  logger.info('validateAndRegisterPairs completed', { baseline, listId, registered: registered.length, rejected: rejected.length, newlyRegistered: newlyRegistered.length });
+
+  // Fire-and-forget full backfill (archive D/W/M, then signals/activity/positions)
+  if (newlyRegistered.length > 0) {
+    const from = BACKFILL_START_DATE;
+    const to = new Date().toISOString().slice(0, 10);
+
+    void runFullBackfillForPairs(newlyRegistered, from, to).catch((e: any) => {
+      logger.warn('validateAndRegisterPairs_backfill_failed', {
+        pairs: newlyRegistered,
+        from,
+        to,
+        message: e?.message,
+      });
+    });
+  }
+
   return { registered, rejected };
 });
 
