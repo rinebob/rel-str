@@ -503,12 +503,6 @@ export async function writeUnifiedSeries(
             if (thisMonth === toMonth && thisDay >= runToDay) {
               continue;
             }
-            // For months strictly before the run's month, we can trust SA
-            // unconditionally when calendar is unavailable or cross-year.
-            if (thisMonth < toMonth && (!canonicalCalendar || !runToMonth || thisYear !== runToYear)) {
-              dayDoc.isIntervalClose = true;
-              continue;
-            }
           }
 
           // If we do not have a usable canonical calendar context, fall back
@@ -522,8 +516,16 @@ export async function writeUnifiedSeries(
               const toMonth = runToDay.slice(0, 7);
               if (thisMonth < toMonth) {
                 dayDoc.isIntervalClose = true;
+              } else if (thisMonth === toMonth) {
+                // Same month as run without calendar context: treat days
+                // before runToDay as completed, others as in-progress.
+                if (thisDay < runToDay) {
+                  dayDoc.isIntervalClose = true;
+                } else {
+                  continue;
+                }
               } else {
-                // Same or later month without calendar context: treat as
+                // Later month without calendar context: treat as
                 // in-progress/non-final.
                 continue;
               }
@@ -541,9 +543,14 @@ export async function writeUnifiedSeries(
               const canonicalMonthEnd = canonicalCalendar.monthlyLastTradingDays[thisMonth];
               if (canonicalMonthEnd && thisDay === canonicalMonthEnd && thisDay <= runToDay) {
                 dayDoc.isIntervalClose = true;
+              } else if (thisDay < runToDay) {
+                // Same month but before the effective run day and without a
+                // canonical match: still treat as completed.
+                dayDoc.isIntervalClose = true;
               } else {
-                // Current month but not the canonical last trading day: treat
-                // as in-progress; no monthly archive doc.
+                // Current month but not the canonical last trading day and not
+                // before the run window: treat as in-progress; no monthly
+                // archive doc.
                 continue;
               }
             }
