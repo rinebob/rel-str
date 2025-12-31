@@ -20,8 +20,7 @@ export class StockListSelectorComponent extends RelStrBaseComponent {
     readonly FormMode = FormMode;
 
     handleCreateNewList() {
-        this.rsAppStore.setFormModeV2(FormMode.CREATE);
-        this.rsAppStore.setShowFormV2(true);
+        this.rsAppStore.beginCreateListV2();
     }
 
     handleSelectList(list: RelStrStockList) {
@@ -33,9 +32,7 @@ export class StockListSelectorComponent extends RelStrBaseComponent {
     handleEditList(list: RelStrStockList) {
         // eslint-disable-next-line no-console
         console.log('[StockListSelectorV2] handleEditList(): editing list', list?.name);
-        this.rsAppStore.setSelectedStockListV2(list);
-        this.rsAppStore.setFormModeV2(FormMode.EDIT);
-        this.rsAppStore.setShowFormV2(true);
+        this.rsAppStore.beginEditListV2({ ...list });
     }
 
     handleDeleteList(listName: string) {

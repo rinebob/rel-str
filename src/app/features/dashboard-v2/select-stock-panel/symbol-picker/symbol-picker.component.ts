@@ -26,14 +26,14 @@ export class SymbolPickerComponent extends RelStrBaseComponent implements OnInit
 
     ngOnInit() {
 
-        // Combine backend symbol universe with the currently selected list and
-        // the current form mode so that:
-        // - In EDIT mode, we exclude the existing list's symbols and baseline.
-        // - In CREATE mode, the selected list starts empty and no baseline
-        //   from the previous list leaks in.
+        // Combine backend symbol universe with the list currently being edited
+        // (editingStockListV2) and the current form mode so that:
+        // - In EDIT mode, we exclude the edited list's symbols and baseline.
+        // - In CREATE mode, the draft list starts empty and no baseline from
+        //   any previously active list leaks in.
         combineLatest([
             this.db.getAvailableSymbolsFromSymbolData$(),
-            this.selectedStockListV2$,
+            this.editingStockListV2$,
             this.formModeV2$,
         ])
             .pipe(takeUntilDestroyed(this.destroyRef))
@@ -41,9 +41,18 @@ export class SymbolPickerComponent extends RelStrBaseComponent implements OnInit
                 const sorted = [...companies].sort(compareFn);
                 this.externalSymbolsSource.set(sorted);
 
+                // If there is no active editing draft yet, expose the full
+                // universe and an empty selection.
+                if (!list) {
+                    this.localSymbolsSelection.set([]);
+                    this.currentBaseline.set('');
+                    this.localSymbolsSource.set(sorted);
+                    return;
+                }
+
                 const isCreate = formMode === FormMode.CREATE;
                 const baseline = isCreate ? '' : String(list.baseline || '').toUpperCase();
-                const selection = isCreate ? [] : [...list.symbols];
+                const selection = isCreate ? [] : [...(list.symbols || [])];
 
                 this.localSymbolsSelection.set(selection);
                 this.currentBaseline.set(baseline);
@@ -51,6 +60,18 @@ export class SymbolPickerComponent extends RelStrBaseComponent implements OnInit
                 const alreadySelected = new Set<string>(selection.map((s: Company) => s.symbol));
                 const symbolsSource = sorted.filter(sym => !alreadySelected.has(sym.symbol) && sym.symbol !== baseline);
                 this.localSymbolsSource.set(symbolsSource);
+
+                console.log('[SymbolPickerV2]', {
+                    listName: list?.name,
+                    formMode,
+                    baseline,
+                    companiesLen: companies.length,
+                    companies: companies.map((c: Company) => c.symbol),
+                    selectionLen: selection.length,
+                    selection: selection.map((s: Company) => s.symbol),
+                    symbolsSourceLen: symbolsSource.length,
+                    symbolsSource: symbolsSource.map((s: Company) => s.symbol),
+                });
             });
 
         combineLatest([this.showFormV2$, this.formModeV2$]).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(([showForm, formMode]: [boolean, FormMode]) => {

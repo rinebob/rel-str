@@ -31,6 +31,7 @@ export enum DataSourceMode {
 export type StockListV2State = {
     allStockListsV2: RelStrStockList[],
     selectedStockListV2: RelStrStockList,
+    editingStockListV2: RelStrStockList | null,
     supportedSymbolsListV2: string[],
     supportedPairsListV2: string[],
     formModeV2: StockListFormMode,
@@ -43,6 +44,7 @@ export type StockListV2State = {
 export const initialV2State: StockListV2State = {
     allStockListsV2: [],
     selectedStockListV2: {name: '', baseline: '', symbols: []},
+    editingStockListV2: null,
     supportedSymbolsListV2: [],
     supportedPairsListV2: [],
     formModeV2: FormMode.CREATE,
@@ -434,6 +436,23 @@ export function withStockListV2Feature() {
                     const lists = await relStrDbV2Service.getListsForUser(userId);
                     const allStockListsV2 = [...lists].sort((a, b) => a.name.localeCompare(b.name));
                     patchState(store, { allStockListsV2 });
+                },
+
+                /** Begin creating a new list in a dialog: initialize an empty editing draft without touching the active heatmap list. */
+                beginCreateListV2() {
+                    const draft: RelStrStockList = { name: '', baseline: '', symbols: [] };
+                    patchState(store, { editingStockListV2: draft, formModeV2: FormMode.CREATE, showFormV2: true });
+                },
+
+                /** Begin editing an existing list in a dialog: clone the target into editingStockListV2 while leaving the active list unchanged. */
+                beginEditListV2(list: RelStrStockList) {
+                    const draft = { ...list } as RelStrStockList;
+                    patchState(store, { editingStockListV2: draft, formModeV2: FormMode.EDIT, showFormV2: true });
+                },
+
+                /** Cancel the current dialog edit/create session without modifying the active list or heatmap. */
+                cancelEditListV2() {
+                    patchState(store, { editingStockListV2: null, showFormV2: false });
                 },
 
                 async saveStockListForUserV2(userId: string, list: RelStrStockList) {

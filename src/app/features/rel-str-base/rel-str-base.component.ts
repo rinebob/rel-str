@@ -29,6 +29,7 @@ export class RelStrBaseComponent {
     // V2 selectors
     allStockListsV2$ = toObservable(this.rsAppStore.allStockListsV2);
     selectedStockListV2$ = toObservable(this.rsAppStore.selectedStockListV2);
+    editingStockListV2$ = toObservable(this.rsAppStore.editingStockListV2);
 
     formModeV2$ = toObservable(this.rsAppStore.formModeV2);
     showFormV2$ = toObservable(this.rsAppStore.showFormV2);
