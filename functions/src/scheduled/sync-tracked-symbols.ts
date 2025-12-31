@@ -39,10 +39,15 @@ export const syncTrackedSymbolsDaily = onSchedule({
     items = rawItems.map((r: any) => ({
       symbol: String(r?.symbol || r?.id || '').toUpperCase(),
       name: r?.name ?? r?.company ?? undefined,
-      exchange: r?.exchange ?? undefined,
-      sector: r?.sector ?? undefined,
       supported: r?.supported !== false,
       isBaseline: r?.isBaseline === true,
+      currency: r?.currency ?? undefined,
+      region: r?.region ?? undefined,
+      timezone: r?.timezone ?? undefined,
+      type: r?.type ?? undefined,
+      marketOpen: r?.marketOpen ?? undefined,
+      marketClose: r?.marketClose ?? undefined,
+      matchScore: r?.matchScore ?? undefined,
     }));
   } catch (e: any) {
     logger.error('syncTrackedSymbolsDaily_upstream_failed', { message: e?.message, status: e?.response?.status });
@@ -67,8 +72,13 @@ export const syncTrackedSymbolsDaily = onSchedule({
         {
           symbol: item.symbol,
           name: item.name ?? null,
-          exchange: item.exchange ?? null,
-          sector: item.sector ?? null,
+          currency: item.currency ?? null,
+          region: item.region ?? null,
+          timezone: item.timezone ?? null,
+          type: item.type ?? null,
+          marketOpen: item.marketOpen ?? null,
+          marketClose: item.marketClose ?? null,
+          matchScore: item.matchScore ?? null,
         },
         { merge: true },
       );

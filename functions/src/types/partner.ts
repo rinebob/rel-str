@@ -4,14 +4,22 @@
  * If you change fields here, reflect the same shape there. # TODO(sync): FE/BE contract
  */
 
-/** Public DTO for tracked symbols returned by partner-backed callable. */
+/** Public DTO for tracked symbols returned by partner-backed callable.
+ *  Mirrors the upstream/tracked-symbols document shape so we can persist
+ *  consistent docs into `symbol-data`.
+ */
 export interface TrackedSymbolDTO {
   symbol: string;
   name?: string;
-  exchange?: string;
-  sector?: string;
   supported?: boolean;
   isBaseline?: boolean;
+  currency?: string;
+  region?: string;
+  timezone?: string;
+  type?: string;
+  marketOpen?: string;
+  marketClose?: string;
+  matchScore?: string;
 }
 
 /** Response shape for getTrackedSymbols callable. */
