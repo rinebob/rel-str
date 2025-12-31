@@ -21,20 +21,36 @@ export class SymbolPickerComponent extends RelStrBaseComponent implements OnInit
     externalSymbolsSource = signal<Company[]>([]);
     localSymbolsSource = signal<Company[]>([]);
     localSymbolsSelection = signal<Company[]>([]);
+    currentBaseline = signal<string>('');
     localSymbolsOuput = output<Company[]>();
 
     ngOnInit() {
 
-        // Load available symbols from symbol-data (mirrored daily from SA)
-        // Service already maps docs to Company[]; just sort and set
-        this.db
-            .getAvailableSymbolsFromSymbolData$()
+        // Combine backend symbol universe with the currently selected list and
+        // the current form mode so that:
+        // - In EDIT mode, we exclude the existing list's symbols and baseline.
+        // - In CREATE mode, the selected list starts empty and no baseline
+        //   from the previous list leaks in.
+        combineLatest([
+            this.db.getAvailableSymbolsFromSymbolData$(),
+            this.selectedStockListV2$,
+            this.formModeV2$,
+        ])
             .pipe(takeUntilDestroyed(this.destroyRef))
-            .subscribe((companies: Company[]) => {
+            .subscribe(([companies, list, formMode]: [Company[], any, FormMode]) => {
                 const sorted = [...companies].sort(compareFn);
                 this.externalSymbolsSource.set(sorted);
-                // initialize local source from full set; will be further filtered by selected list below
-                this.localSymbolsSource.set(sorted);
+
+                const isCreate = formMode === FormMode.CREATE;
+                const baseline = isCreate ? '' : String(list.baseline || '').toUpperCase();
+                const selection = isCreate ? [] : [...list.symbols];
+
+                this.localSymbolsSelection.set(selection);
+                this.currentBaseline.set(baseline);
+
+                const alreadySelected = new Set<string>(selection.map((s: Company) => s.symbol));
+                const symbolsSource = sorted.filter(sym => !alreadySelected.has(sym.symbol) && sym.symbol !== baseline);
+                this.localSymbolsSource.set(symbolsSource);
             });
 
         combineLatest([this.showFormV2$, this.formModeV2$]).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(([showForm, formMode]: [boolean, FormMode]) => {
@@ -43,17 +59,6 @@ export class SymbolPickerComponent extends RelStrBaseComponent implements OnInit
             }
         });
 
-        this.selectedStockListV2$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(list => {
-            // console.log('sP ngOI selected stock list sub: ', list);
-            // console.log('sP ngOI list symbols: ', list.symbols);
-            this.localSymbolsSelection.set([...list.symbols]);
-            const alreadySelected = new Set<string>(list.symbols.map(s => s.symbol));
-            const baseline = String(list.baseline || '').toUpperCase();
-            const symbolsSource = this.externalSymbolsSource().filter(sym => !alreadySelected.has(sym.symbol) && sym.symbol !== baseline);
-            // console.log('sP ngOI final symbolsSource: ', symbolsSource);
-            this.localSymbolsSource.set(symbolsSource);
-        });
-        
     }
     
     addSymbolToList(datum: Company) {
@@ -91,9 +96,12 @@ export class SymbolPickerComponent extends RelStrBaseComponent implements OnInit
     }
 
     resetSelections() {
-        // Reset to full external source (already sorted), selection cleared
-        this.localSymbolsSource.set([...this.externalSymbolsSource()])
+        // Reset selection and recompute available list from external source,
+        // excluding baseline symbol.
         this.localSymbolsSelection.set([]);
+        const baseline = this.currentBaseline();
+        const source = this.externalSymbolsSource().filter(sym => sym.symbol !== baseline);
+        this.localSymbolsSource.set(source);
     }
 
 }
