@@ -109,6 +109,7 @@ export const syncTrackedSymbolsDaily = onSchedule({
     const time = iso.slice(11, 16); // HH:mm
 
     try {
+      logger.info('syncTrackedSymbolsDaily_price_upsert', { symbol: sym, close, date, time });
       await upsertSymbolCurrentPrice(sym, { price: close, date, time });
       updatedPrices += 1;
     } catch (e: any) {
