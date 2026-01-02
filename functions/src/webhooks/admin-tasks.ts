@@ -12,7 +12,7 @@ import { buildPhaseSeries } from './rs-series';
 import { fetchDailyBarsRange } from './symbol-fetch';
 import { db, FieldValue } from '../firebase-admin-init';
 
-import { FIXED_DAYS, FIXED_LIMIT, ProcessErrorSample, FIXED_INTERVAL, APP_COLLECTION } from './webhooks-config';
+import { FIXED_DAYS, FIXED_LIMIT, ProcessErrorSample, FIXED_INTERVAL, APP_COLLECTION, PAIRS_COLLECTION, WEEKLY_ARCHIVE_COLLECTION_PREFIX, MONTHLY_ARCHIVE_COLLECTION_PREFIX } from './webhooks-config';
 
 import { SILENCE_ADMIN_INFO } from './webhooks-config';
 import { forEachWithConcurrency } from './partner-webhooks';
@@ -725,6 +725,38 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
                     return `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(today.getUTCDate()).padStart(2, '0')}`;
                   })();
 
+              // Purge existing weekly archive docs for this pair in the requested window so only
+              // the current SA-derived weekly series is present after backfill.
+              try {
+                const fromYear = Number(lower.slice(0, 4));
+                const toYear = Number(upper.slice(0, 4));
+                for (let y = fromYear; y <= toYear; y++) {
+                  const yearStr = String(y);
+                  const col = `${WEEKLY_ARCHIVE_COLLECTION_PREFIX}${yearStr}`;
+                  const yearFrom = `${yearStr}-01-01`;
+                  const yearTo = `${yearStr}-12-31`;
+                  const yearLower = lower > yearFrom ? lower : yearFrom;
+                  const yearUpper = upper < yearTo ? upper : yearTo;
+                  const collRef = db
+                    .collection(PAIRS_COLLECTION)
+                    .doc(pairId)
+                    .collection(col);
+                  const snap = await collRef
+                    .where('day', '>=', yearLower)
+                    .where('day', '<=', yearUpper)
+                    .get();
+                  if (!snap.empty) {
+                    const batch = db.batch();
+                    for (const doc of snap.docs) {
+                      batch.delete(doc.ref);
+                    }
+                    await batch.commit();
+                  }
+                }
+              } catch (e: any) {
+                logger.warn('recomputeRegisteredBackfill_weekly_purge_failed', { pair: pairId, phase: ph, message: e?.message });
+              }
+
               const paddedFromWeekly = padFromForInterval(from, Interval.WEEKLY) ?? from ?? lower;
               const baseWeekly = await fetchDailyBarsRange(baseline, { from: paddedFromWeekly, to, interval: Interval.WEEKLY });
               const targetWeekly = await fetchDailyBarsRange(target, { from: paddedFromWeekly, to, interval: Interval.WEEKLY });
@@ -803,6 +835,34 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
                     const today = new Date();
                     return `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(today.getUTCDate()).padStart(2, '0')}`;
                   })();
+
+              // Purge existing monthly archive docs for this pair in the requested window
+              try {
+                const fromYear = Number(lower.slice(0, 4));
+                const toYear = Number(upper.slice(0, 4));
+                for (let y = fromYear; y <= toYear; y++) {
+                  const yearStr = String(y);
+                  const col = `${MONTHLY_ARCHIVE_COLLECTION_PREFIX}${yearStr}`;
+                  const yearFrom = `${yearStr}-01-01`;
+                  const yearTo = `${yearStr}-12-31`;
+                  const yearLower = lower > yearFrom ? lower : yearFrom;
+                  const yearUpper = upper < yearTo ? upper : yearTo;
+                  const collRef = db.collection(PAIRS_COLLECTION).doc(pairId).collection(col);
+                  const snap = await collRef
+                    .where('day', '>=', yearLower)
+                    .where('day', '<=', yearUpper)
+                    .get();
+                  if (!snap.empty) {
+                    const batch = db.batch();
+                    for (const doc of snap.docs) {
+                      batch.delete(doc.ref);
+                    }
+                    await batch.commit();
+                  }
+                }
+              } catch (e: any) {
+                logger.warn('recomputeRegisteredBackfill_monthly_purge_failed', { pairId, phase: ph, message: e?.message });
+              }
 
               const paddedFromMonthly = padFromForInterval(from, Interval.MONTHLY) ?? from ?? lower;
               const baseMonthly = await fetchDailyBarsRange(baseline, { from: paddedFromMonthly, to, interval: Interval.MONTHLY });
