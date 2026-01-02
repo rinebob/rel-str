@@ -7,7 +7,6 @@ import { logger } from 'firebase-functions/v2';
 import { RsCloudFunctionName, SILENCE_MISSING_POST_TIME } from './webhooks-config';
 import { persistWarning } from '../logging/warn';
 import { Interval } from '../types/signal.types';
-import { CanonicalCalendarYear, loadCanonicalCalendarYear, weekKeyFromYmd } from './calendar';
 
 /**
  * Write unified RS series for a pair into Firestore (pairs-data schema).
@@ -363,55 +362,6 @@ export async function writeUnifiedSeries(
     }
   } catch {}
 
-  // Resolve canonical calendar context for the current run based on windowToDay.
-  let canonicalCalendar: CanonicalCalendarYear | undefined;
-  let runToDay: string | undefined;
-  let runToYear: number | undefined;
-  let runToWeekKey: string | undefined;
-  let runToMonth: string | undefined;
-
-  if (interval !== Interval.DAILY && phase === RsPhase.POST && windowToDay) {
-    // Always clamp the effective run date to "today" so we never treat a
-    // future week/month (beyond the current trading day) as the "current"
-    // period for archive writes.
-    const today = new Date();
-    const todayY = today.getUTCFullYear();
-    const todayM = String(today.getUTCMonth() + 1).padStart(2, '0');
-    const todayD = String(today.getUTCDate()).padStart(2, '0');
-    const todayYmd = `${todayY}-${todayM}-${todayD}`;
-
-    const requested = String(windowToDay).slice(0, 10);
-    runToDay = requested > todayYmd ? todayYmd : requested;
-
-    const yr = Number(runToDay.slice(0, 4));
-    if (Number.isFinite(yr)) {
-      runToYear = yr;
-      // Week and month keys are pure date math; always compute them so we can
-      // distinguish past vs current week/month even if the canonical calendar
-      // cannot be loaded.
-      runToWeekKey = weekKeyFromYmd(runToDay);
-      runToMonth = runToDay.slice(0, 7);
-
-      if (yr >= 2025) {
-        try {
-          canonicalCalendar = await loadCanonicalCalendarYear(runToYear);
-        } catch (e: any) {
-          try {
-            logger.warn('writeUnifiedSeries_load_canonical_calendar_failed', {
-              pairId,
-              interval,
-              phase,
-              year: runToYear,
-              message: e?.message,
-            });
-          } catch {
-            // ignore logging failures
-          }
-        }
-      }
-    }
-  }
-
   for (const e of archiveEntries) {
     const y = String(e.day).slice(0, 4);
     const yy = y.slice(2);
@@ -438,128 +388,14 @@ export async function writeUnifiedSeries(
       dayDoc.post = { time, base, target, rsNorm, rsRaw, source };
     }
 
-    // Weekly/monthly interval close flags are set only on POST when the interval is complete.
+    // Weekly/monthly interval close flags are set only on POST. We always
+    // write archive docs for all SA bars and rely on overwrites to keep
+    // the latest state rather than skipping in-progress intervals.
     if (interval !== Interval.DAILY && phase === RsPhase.POST) {
-      const dayStr = String(existingDay.day || '');
-      if (dayStr) {
-        if (interval === Interval.WEEKLY) {
-          const thisDay = dayStr.slice(0, 10);
-          const thisYear = Number(thisDay.slice(0, 4));
-          const thisWeekKey = weekKeyFromYmd(thisDay);
-
-          // Never write weekly archives at or after the run's windowToDay; treat
-          // those as in-progress.
-          if (runToDay && thisDay >= runToDay) {
-            continue;
-          }
-
-          // If we do not have a concrete runToDay or year, fall back to legacy
-          // behavior and treat all writes as completed closes.
-          if (!runToDay || !runToYear || !runToWeekKey) {
-            dayDoc.isIntervalClose = true;
-          } else {
-            const thisYearNum = Number.isFinite(thisYear) ? thisYear : undefined;
-
-            // Weeks in years strictly before the run's year are always past
-            // weeks; trust SA.
-            if (thisYearNum !== undefined && thisYearNum < runToYear) {
-              dayDoc.isIntervalClose = true;
-            } else if (thisYearNum !== undefined && thisYearNum > runToYear) {
-              // Future year relative to run; should not happen for a bounded
-              // window, but do not write an archive doc.
-              continue;
-            } else {
-              // Same year as the run. Use week keys to distinguish past vs
-              // current week.
-              if (thisWeekKey < runToWeekKey) {
-                // Past weeks relative to the current week: trust SA.
-                dayDoc.isIntervalClose = true;
-              } else if (thisWeekKey > runToWeekKey) {
-                // Future weeks relative to the current week: do not write.
-                continue;
-              } else {
-                // Current week: only write if we have canonical calendar data
-                // and this day is the canonical last trading day. If the
-                // calendar is unavailable, we *do not* trust SA for the current
-                // week and skip writing entirely.
-                const canonicalWeekEnd = canonicalCalendar?.weeklyLastTradingDays?.[runToWeekKey];
-                if (canonicalWeekEnd && thisDay === canonicalWeekEnd && thisDay <= runToDay) {
-                  dayDoc.isIntervalClose = true;
-                } else {
-                  continue;
-                }
-              }
-            }
-          }
-        } else if (interval === Interval.MONTHLY) {
-          const thisDay = dayStr.slice(0, 10);
-          const thisYear = Number(thisDay.slice(0, 4));
-          const thisMonth = dayStr.slice(0, 7);
-
-          if (runToDay) {
-            const toMonth = runToDay.slice(0, 7);
-            // Never write monthly archives at or after the run's toDay within
-            // the same month; treat those as in-progress.
-            if (thisMonth === toMonth && thisDay >= runToDay) {
-              continue;
-            }
-          }
-
-          // If we do not have a usable canonical calendar context, fall back
-          // to trusting SA for all months before the run's month.
-          if (!canonicalCalendar || !runToDay || !runToMonth || thisYear !== runToYear) {
-            // Legacy behavior: any month strictly before the run's month is a
-            // completed interval.
-            if (!runToDay) {
-              dayDoc.isIntervalClose = true;
-            } else {
-              const toMonth = runToDay.slice(0, 7);
-              if (thisMonth < toMonth) {
-                dayDoc.isIntervalClose = true;
-              } else if (thisMonth === toMonth) {
-                // Same month as run without calendar context: treat days
-                // before runToDay as completed, others as in-progress.
-                if (thisDay < runToDay) {
-                  dayDoc.isIntervalClose = true;
-                } else {
-                  continue;
-                }
-              } else {
-                // Later month without calendar context: treat as
-                // in-progress/non-final.
-                continue;
-              }
-            }
-          } else {
-            const toMonth = runToMonth;
-            if (thisMonth < toMonth) {
-              // Past months relative to the run's current month: trust SA.
-              dayDoc.isIntervalClose = true;
-            } else if (thisMonth > toMonth) {
-              // Future month relative to run window; should not occur but do
-              // not write an archive doc.
-              continue;
-            } else {
-              const canonicalMonthEnd = canonicalCalendar.monthlyLastTradingDays[thisMonth];
-              if (canonicalMonthEnd && thisDay === canonicalMonthEnd && thisDay <= runToDay) {
-                dayDoc.isIntervalClose = true;
-              } else if (thisDay < runToDay) {
-                // Same month but before the effective run day and without a
-                // canonical match: still treat as completed.
-                dayDoc.isIntervalClose = true;
-              } else {
-                // Current month but not the canonical last trading day and not
-                // before the run window: treat as in-progress; no monthly
-                // archive doc.
-                continue;
-              }
-            }
-          }
-        }
-      }
+      dayDoc.isIntervalClose = true;
     }
 
-    batch.set(archiveRef, dayDoc, { merge: true });
+    batch.set(archiveRef, dayDoc, { merge: false });
     if (previewItems.length < 3) {
       try { previewItems.push({ archiveCol, docId: yymmdd, dayDoc }); } catch {}
     }
