@@ -39,3 +39,18 @@ This document outlines the strategy for managing various types of state within t
     * Potentially theme settings (if applicable).
     * (Other user-specific settings identified later).
 * **Integration:** This persisted state will be loaded when the application starts and can be initially used to populate the relevant parts of the NgRx Signal Store or component signals. Changes to these settings will update both the in-memory state and the local persisted storage.
+
+## 6. Async & Streams (RxJS-First)
+
+* **Canonical async type:** For all stateful flows (server state, derived UI state, and cross-component coordination), **RxJS `Observable` is the primary async primitive**.
+* **NgRx Signal Store + RxJS:**
+  * Signal Store slices may expose derived `signal()` values, but IO and multi-step workflows should be implemented with RxJS streams composed in services or dedicated orchestration helpers.
+  * Where Firebase/Angular APIs already expose observables (Firestore, HttpClient), consume them directly; do **not** convert to promises in store code.
+* **Prohibited patterns in new state code:**
+  * Introducing new `async`–`await` chains in Signal Store methods for data fetching, fan-out, or coordination when an observable-based API exists.
+  * Using `firstValueFrom` / `lastValueFrom` in store code as the primary mechanism for reads.
+* **Cancellation & staleness:**
+  * Prefer `switchMap` for user-driven selectors (selected list, timeframe, filters) so that previous requests are canceled and cannot update state after newer selections.
+  * Use `takeUntil` / `takeUntilDestroyed` where appropriate to tie subscriptions to component or store lifecycles.
+* **Loading/Error modeling:**
+  * Represent loading and error state as part of the same observable pipelines (e.g., `startWith({ loading:true })`, `catchError`) instead of imperative flags around Promise chains.

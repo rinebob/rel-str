@@ -6,6 +6,8 @@ This document outlines the frontend architecture, key technologies, and core fea
 
 ## 2. Technology Stack
 
+> **Async Rule (FE):** In the Angular frontend and NgRx Signal Store, **RxJS `Observable` is the canonical async type**. New features must not introduce raw `Promise` / `async`–`await` chains where an observable-based integration is available.
+
 * **Framework:** Angular
     * *Description:* Angular has been selected as the primary frontend framework due to its structured approach, component-based architecture, and comprehensive ecosystem, which are well-suited for building a feature-rich, single-page application like the RSH.
 * **Language:** TypeScript
@@ -16,7 +18,9 @@ This document outlines the frontend architecture, key technologies, and core fea
 * **State Management:** NgRx Signal Store for shared state; local component signals for UI
     * *Description:* Application state will be managed using the NgRx library, specifically utilizing NgRx Signal Store for global and complex state. This reactive state management approach provides efficient state updates and management, particularly useful for handling complex data flows like the heatmap state, user settings, and fetched data. Local component state will primarily use Angular's built-in signal capabilities for simplicity and performance.
 * **Communication:** Firebase SDK (Firestore reads), Callable Functions for multi-read aggregates, RS ranges, and OHLCV (backend-only to SavantAPI)
-    * *Approach:* The frontend will interact with the backend using Firebase SDKs for direct interactions (e.g., Firestore reads) and Angular's `HttpClient` (via NgRx signal store and dedicated service) for calling Firebase Cloud Functions that read from Firestore. The Angular app will not call partner endpoints directly; partner endpoints are server-to-server only.
+    * *Approach:* The frontend will interact with the backend using Firebase SDKs for direct interactions (e.g., Firestore reads) and Angular's `HttpClient` (via NgRx signal store and dedicated service) for calling Firebase Cloud Functions that read from Firestore. All such calls are surfaced to the rest of the app as **RxJS observables**, not raw promises. The Angular app will not call partner endpoints directly; partner endpoints are server-to-server only.
+* **Async & Streams:** RxJS
+    * *Description:* **RxJS observables are the default abstraction for async work in the frontend.** Component and store code should compose streams with RxJS operators (`map`, `switchMap`, `mergeMap`, `combineLatest`, `catchError`, etc.) rather than chaining `async`–`await`. Promise-based APIs should be wrapped at the boundary and immediately converted to observables.
 
 ## 3. Core Features (MVP)
 
@@ -89,39 +93,6 @@ This document outlines the frontend architecture, key technologies, and core fea
     * Appearance: theme (light/dark), density (compact/comfortable)
     * Performance: enable/disable live updates (auto-refresh latest), cache duration hints (frontend)
 
-## 4. Architecture & Structure
-
-* **Component-Based:** Adhere strictly to Angular's component-based architecture for modularity and reusability.
-* **Module Structure:** Organize features into distinct Angular modules, utilizing lazy loading for routing where appropriate to optimize initial load times.
-* **State Management:** Utilize NgRx Signal Store slices for auth (future), settings (baseline selection), heatmap data (latest + optional latest30), and chart data (RS series + OHLCV fetched via callable).
-* **Service Layer:** Implement Angular services to encapsulate business logic, orchestrate data fetching by interacting with NgRx effects/actions, and handle cross-cutting concerns (e.g., logging, error handling details).
-* **Data Handling:**
-    * Always display the most recent data successfully fetched and processed for each ticker.
-    * Clearly indicate the freshness/state of data per ticker in the UI.
-    * Handle real-time updates for the heatmap and chart data by implementing Firestore listeners where data changes occur, including automatic chart bar color updates and user notifications for newly available data.
-* **Routing:** Angular Router to manage navigation. During the charting migration, we will keep the existing SyncFusion-based chart view and introduce a new Renderer2/SVG-based chart view under a separate route.
-  * Existing view route: `sync-chart` (unchanged)
-  * New view route: `rs-chart` (component: `RsChartView`)
-  * New view route: `signals` (component: `SignalsView`)
-  * New view route: `backtest` (component: `BacktestView`)
-* **Navigation Structure:** Implement a combination of a collapsible sidebar and a top navigation bar using Angular Material components (Sidenav and Toolbar).
-    * **Collapsible Sidebar:** The primary navigation for accessing different application sections (Heatmap, Charts, Account Settings) will be in a sidebar, designed to be collapsible to maximize space for the heatmap.
-    * **Top Navigation Bar:** A top bar will contain essential elements like the app logo/title, potentially quick action icons, and user authentication/account status indicators (Login/Signup links when logged out, User Profile link/Logout button when logged in).
-* **Sector Baseline Selector:** Lives in the dashboard header/toolbar. On change:
-  * Updates baseline in the settings store.
-  * Fetches sector constituents (via callable or cached config) and replaces the current list with the members.
-  * Triggers heatmap data refresh and preserves existing sort/filter/interval selections.
-* **Sector Strength Button:** Lives alongside the sector selector. On click:
-  * Sets baseline to `SPY` in the settings store.
-  * Loads the SPDR sector ETF symbols as targets (from sector config/callable) and refreshes the heatmap, preserving sort/filter/interval.
-* **Current Signals Button:** Lives near sector controls. On click:
-  * Navigates to the `signals` route and loads canonical signals from the most recent completed run via `GetCurrentSignals`.
-  * The Signals View provides client-side filters (baseline/type/source), sorting, and pagination; rows link to `rs-chart` centered on the signal date.
-* **Settings Drawer:**
-  * Triggered by a gear icon in the dashboard header; implemented as a right-side sidenav drawer (non-blocking) for quick access.
-  * Settings stored in a Signal Store slice and persisted via callables (anonymous client id until Auth is added).
-  * Provide Reset to Defaults and per-section reset; optimistic UI with debounce-save.
-
 ## 5. Key Technical Considerations
 
 * **TypeScript Contracts & Strong Typing:**
@@ -134,6 +105,13 @@ This document outlines the frontend architecture, key technologies, and core fea
   * Firestore converters **must** use strongly-typed models (e.g., `withConverter<BackendPositionDoc>`), and the converter implementation must not introduce looser shapes than the declared contract.
   * Frontend `PositionDoc` / `RsSignalDoc` / similar view models should be explicitly related to backend contracts via `extends`, `Pick`, or `Omit` rather than re-declaring fields.
   * When backend contracts change, update the shared `*.types.ts` files first, then adjust usages; **do not** introduce temporary "ad hoc" fields in components or stores.
+* **Async & Data Flow (RxJS-first):**
+  * **Canonical async type:** Use `Observable` throughout services, stores, and components. Treat promises as an implementation detail only at unavoidable boundaries.
+  * **Prohibited patterns (new FE code):**
+    * Chaining `async`–`await` in components or stores for data fetching or orchestration when an observable is available.
+    * Converting an observable to a promise (`firstValueFrom`, `toPromise`, etc.) and then re-wrapping it into an observable for UI/state.
+  * **Selection-driven flows:** Use `switchMap` (or equivalent) to handle user-driven selections (baseline, list, timeframe) so prior requests are **canceled** and cannot emit after newer selections.
+  * **Error and loading:** Model loading/error state in the same observable pipelines using operators (`startWith`, `catchError`, `finalize`) rather than imperative flags around `await` blocks.
 * **Data Visualization:** Implement the heatmap and chart components efficiently to handle potentially large lists of tickers and historical data, ensuring smooth rendering and interactivity. Leverage the chosen charting library effectively. Use Angular's `Renderer2` when necessary for safe and Angular-aware manual DOM manipulation, particularly within charting or heatmap components.
 * **Performance:** Apply a range of Angular performance optimization techniques throughout development, including lazy loading of modules, production build optimizations, strategic use of `OnPush` change detection, optimizing data display (e.g., virtual scrolling for long lists), prerendering public pages, optimizing image and CSS delivery, leveraging browser caching, performing regular performance audits, and optimizing initial bundle size.
 * **Real-time Updates:** Implement robust Firestore listeners to efficiently update relevant parts of the UI (heatmap cell colors, data freshness indicators, chart bar colors) automatically when underlying data in the database changes, providing users with near real-time information regarding newly available daily data. Implement clear visual notifications, especially when viewing a chart, that new data has loaded. No direct polling of external providers from the frontend.
@@ -160,6 +138,12 @@ This document outlines the frontend architecture, key technologies, and core fea
   * Validation: enforce numeric ranges (e.g., 0–100 for RS thresholds) and safe defaults.
   * Immediate application: changes should propagate to heatmap, chart, signals, and backtest views in real time.
   * Offline-first: keep last settings locally; sync to backend when available.
+
+## 5.5 Heatmap View vNext
+
+The legacy heatmap in `dashboardV2` is considered deprecated and will not be extended. All new work on heatmap rendering, RS matrix behavior, and pre-/post-close handling must follow the dedicated vNext design described in:
+
+- `2.5_HEATMAP_VIEW.md` – **Heatmap View (vNext)**: defines `HeatmapQuery`, `HeatmapSlice`, and `HeatmapViewModel` contracts, the directional responsibilities between stock-list v2, Firebase, and the heatmap store, and the phased implementation plan for a new RxJS-first heatmap.
 
 ## 6. Data Flow (Chart)
 

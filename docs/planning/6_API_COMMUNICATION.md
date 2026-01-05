@@ -6,7 +6,7 @@ This document describes the key communication points and data flow between the A
 
 ## 2. Frontend Interactions via Firebase SDKs (Firestore & Authentication)
 
-The frontend will interact directly with Firebase services for user management and personal data storage using the respective Firebase SDKs. These interactions are subject to Firestore Security Rules and Firebase Authentication state.
+The frontend will interact directly with Firebase services for user management and personal data storage using the respective Firebase SDKs. These interactions are subject to Firestore Security Rules and Firebase Authentication state. **All such interactions are surfaced to the rest of the app as RxJS observables** (e.g., via AngularFire or explicit `from(...)` wrappers), not as raw promises.
 
 * **User Authentication & Management:**
     1.  `Signup`: Create a new user account via the Firebase Auth SDK.
@@ -27,7 +27,7 @@ The frontend will interact directly with Firebase services for user management a
 
 ## 3. Frontend Interactions via Firebase Cloud Functions
 
-The frontend will interact with Firebase Cloud Functions for logic that requires secure server-side execution, accessing external APIs, or performing complex data operations that are inefficient for direct client-side Firestore queries. These are typically invoked as Callable Cloud Functions.
+The frontend will interact with Firebase Cloud Functions for logic that requires secure server-side execution, accessing external APIs, or performing complex data operations that are inefficient for direct client-side Firestore queries. These are typically invoked as Callable Cloud Functions. **Callable invocations should be wrapped and composed as observables in services/stores; new Promise-based chains (`async`–`await`) are discouraged in frontend API communication code.**
 
 * **Relative Strength Data & Queries:**
     15. `GetSecurityRSData`: Callable Cloud Function invoked to fetch historical OHLCV data and corresponding calculated RS values for a specific ticker over a defined date range, primarily used for populating the detailed chart view. This function reads data from Firestore.
