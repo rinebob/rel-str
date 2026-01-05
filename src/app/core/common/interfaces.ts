@@ -16,6 +16,7 @@ export enum AppRoutes {
 	RS_TABLE = 'rs-table',
 	POSITIONS_VIEW = 'positions-view',
 	TRADE_JOURNAL = 'trade-journal',
+	HEATMAP_VIEW = 'heatmap-view',
 	// ROBERT = 'robert',
 	// KANBAN = 'kanban',
 	// AUDIO = 'audio',

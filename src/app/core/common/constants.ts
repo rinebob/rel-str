@@ -83,6 +83,14 @@ export const NAV_MENU_ITEMS: NavItem[] = [
         target: '_self',
     },
     {
+        name: 'heatmap',
+        text: 'heatmap',
+        href: 'heatmap-view',
+        mobileOnly: false,
+        external: false,
+        target: '_self',
+    },
+    {
         name: 'rs-chart',
         text: 'rs-chart',
         href: 'rs-chart',

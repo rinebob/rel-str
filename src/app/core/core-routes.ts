@@ -72,6 +72,11 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.TradeJournalViewComponent),
                 canActivate: [authGuard],
             },
+            {path: AppRoutes.HEATMAP_VIEW,
+                loadComponent: () => import('../features/heatmap-view/heatmap-view.component')
+                .then(mod => mod.HeatmapViewComponent),
+                canActivate: [authGuard],
+            },
             {path: AppRoutes.HISTORY, 
                 loadComponent: () => import('../features/history/history.component')
                 .then(mod => mod.HistoryComponent),
