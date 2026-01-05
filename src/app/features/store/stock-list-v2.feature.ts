@@ -39,6 +39,8 @@ export type StockListV2State = {
     formDataV2: RelStrStockList,
     /** DEV-only: heatmap data source mode (see DataSourceMode). Default = legacy */
     dataSourceMode: DataSourceMode,
+    heatmapLoadingV2: boolean,
+    heatmapRenderedTimeframeV2: Timeframe | null,
 }
 
 export const initialV2State: StockListV2State = {
@@ -51,6 +53,8 @@ export const initialV2State: StockListV2State = {
     showFormV2: false,
     formDataV2: {name: '', baseline: '', symbols: []},
     dataSourceMode: DataSourceMode.ARCHIVE,
+    heatmapLoadingV2: false,
+    heatmapRenderedTimeframeV2: null,
 }
 
 export function withStockListV2Feature() {
@@ -119,9 +123,22 @@ export function withStockListV2Feature() {
                 return [...replaced].sort((a, b) => a.name.localeCompare(b.name));
             };
 
+            const buildHeatmapCacheKey = (list: RelStrStockList, timeframe: Timeframe): string => {
+                const name = String(list?.name ?? '').trim();
+                const baseline = String(list?.baseline ?? '').trim().toUpperCase();
+                return `${name}::${baseline}::${timeframe}`;
+            };
+
             const generateHeatmapDataV2 = async (pair: string, timeframe: Timeframe = Timeframe.DAILY): Promise<BaselineTargetRankDatum[]> => {
                 let series: Array<{ date: string; value: number; norm?: number; phase?: any }> = [];
-                series = await firstValueFrom(relStrDbV2Service.getPairSeriesFromArchiveWindowByInterval$(pair, 60, timeframe));
+                // For DAILY/TWO_DAY, use the full archive reader so background phase loads
+                // the complete history instead of another 60-day window. For WEEKLY/MONTHLY
+                // keep using the interval-specific reader.
+                if (timeframe === Timeframe.DAILY || timeframe === Timeframe.TWO_DAY) {
+                    series = await firstValueFrom(relStrDbV2Service.getPairSeriesFromArchive$(pair));
+                } else {
+                    series = await firstValueFrom(relStrDbV2Service.getPairSeriesFromArchiveWindowByInterval$(pair, 60, timeframe));
+                }
                 // DEBUG: surface what we received from Firestore
                 // eslint-disable-next-line no-console
                 console.log('[V2] pair series', pair, 'timeframe=', timeframe, 'len=', series?.length ?? 0, 'first=', series?.[0]);
@@ -292,51 +309,67 @@ export function withStockListV2Feature() {
             };
 
             const resolveExistingRanksDataV2 = async (list: RelStrStockList, force = false): Promise<RelStrStockList> => {
-                const pairs = getPairsForList(list);
-                const existingData = list.ranksDataWithColors || {};
-                const pairsToFetch: string[] = [];
+                const timeframe = rsDataStore.selectedTimeframe();
+                const cacheKey = buildHeatmapCacheKey(list, timeframe);
+                const cached = rsCalcsStore.getHeatmapCacheEntry(cacheKey);
 
-                if (force) {
-                    pairsToFetch.push(...pairs);
-                } else {
-                    for (const pair of pairs) {
-                        // Fetch if key missing OR if data is empty (retry mechanism for backfills)
-                        const series = existingData[pair];
-                        if (!series || series.length === 0) {
-                            pairsToFetch.push(pair);
-                        }
+                if (cached && !force) {
+                    // Use cached full-history data for this list/timeframe
+                    const hydrated = { ...list, ranksDataWithColors: { ...cached } } as RelStrStockList;
+                    const selected = store.selectedStockListV2();
+                    const isSameList = selected?.name === hydrated.name;
+                    const others = store.allStockListsV2().filter(l => l.name !== hydrated.name);
+                    const allStockListsV2 = sortListsV2(hydrated, [...others, hydrated]);
+                    if (isSameList) {
+                        patchState(store, { selectedStockListV2: hydrated, allStockListsV2, heatmapRenderedTimeframeV2: timeframe, heatmapLoadingV2: false });
+                    } else {
+                        patchState(store, { allStockListsV2, heatmapRenderedTimeframeV2: timeframe, heatmapLoadingV2: false });
                     }
+                    return hydrated;
                 }
+
+                const pairs = getPairsForList(list);
+                // For timeframe-specific heatmap data, rely on the cache for reuse.
+                // If there is no cache entry (or force is true), always refetch all pairs
+                // for the current timeframe so we don't accidentally reuse data from a
+                // different interval (e.g., monthly data when switching back to daily).
+                const pairsToFetch: string[] = [...pairs];
+
                 if (list.ranksDataWithColors === undefined || pairsToFetch.length) {
                     // eslint-disable-next-line no-console
-                    console.log('[StockListFeatureV2] resolveExistingRanksDataV2(): list/num pairsToFetch', list.name, pairsToFetch.length, 'force=', force);
+                    console.log('[StockListFeatureV2] resolveExistingRanksDataV2(): list/num pairsToFetch', list.name, pairsToFetch.length, 'force=', force, 'timeframe=', timeframe);
                     const tLabel = `[heatmap initial ${list.name || 'list'}]`;
                     console.time(tLabel);
-                    // Phase 1: windowed initial fetch for faster first paint
-                    const initial = await getHeatmapDataWindowV2(pairsToFetch, 60);
-                    const phase1 = list.ranksDataWithColors !== undefined
-                        ? { ...list.ranksDataWithColors, ...initial }
-                        : { ...initial };
-                    list.ranksDataWithColors = { ...phase1 };
+                    patchState(store, { heatmapLoadingV2: true });
+                    // Phase 1: windowed initial fetch for faster first paint.
+                    // Only used for DAILY/TWO_DAY. For WEEKLY/MONTHLY we skip the
+                    // intermediate snapshot to avoid flashing a daily window while
+                    // interval data is still loading.
+                    if (timeframe === Timeframe.DAILY || timeframe === Timeframe.TWO_DAY) {
+                        const initial = await getHeatmapDataWindowV2(pairsToFetch, 60);
+                        const phase1 = list.ranksDataWithColors !== undefined
+                            ? { ...list.ranksDataWithColors, ...initial }
+                            : { ...initial };
+                        list.ranksDataWithColors = { ...phase1 };
 
-                    // Patch immediately for visual feedback if this list is selected
-                    const current = store.selectedStockListV2();
-                    const isSameList = current?.name === list.name;
-                    if (isSameList) {
-                        const baseList = { ...current, ranksDataWithColors: { ...phase1 } } as RelStrStockList;
-                        const others = store.allStockListsV2().filter(l => l.name !== baseList.name);
-                        const allStockListsV2 = sortListsV2(baseList, [...others, baseList]);
-                        patchState(store, { selectedStockListV2: baseList, allStockListsV2 });
+                        // Patch immediately for visual feedback if this list is selected
+                        const current = store.selectedStockListV2();
+                        const isSameList = current?.name === list.name;
+                        if (isSameList) {
+                            const baseList = { ...current, ranksDataWithColors: { ...phase1 } } as RelStrStockList;
+                            const others = store.allStockListsV2().filter(l => l.name !== baseList.name);
+                            const allStockListsV2 = sortListsV2(baseList, [...others, baseList]);
+                            patchState(store, { selectedStockListV2: baseList, allStockListsV2, heatmapRenderedTimeframeV2: timeframe, heatmapLoadingV2: false });
+                        }
+                        console.log('sLV2 rERDV2. end');
+                        console.timeEnd(tLabel);
                     }
-                    console.log('sLV2 rERDV2. end');
-                    console.timeEnd(tLabel);
 
-                    // Phase 2 (background): full history, then merge and patch
+                    // Phase 2 (background): full history, then merge, patch, and cache
                     zone.run(() => {
                         runInInjectionContext(env, () => {
                             void (async () => {
                                 try {
-                                    const timeframe = rsDataStore.selectedTimeframe();
                                     const full = await getHeatmapDataV2(pairsToFetch, timeframe);
 
                                     const existing = (list.ranksDataWithColors || {}) as RanksDataWithColors;
@@ -344,16 +377,13 @@ export function withStockListV2Feature() {
 
                                     for (const pairId of Object.keys(full || {})) {
                                         const nextSeries = full[pairId];
-                                        const currSeries = existing[pairId];
-
                                         if (!Array.isArray(nextSeries) || nextSeries.length === 0) {
                                             continue;
                                         }
-
-                                        if (Array.isArray(currSeries) && currSeries.length >= nextSeries.length) {
-                                            continue;
-                                        }
-
+                                        // Always replace with the newly fetched series for the
+                                        // current timeframe. Length comparison is not valid once
+                                        // different timeframes (daily/weekly/monthly) share the
+                                        // same ranksDataWithColors field.
                                         merged[pairId] = nextSeries;
                                     }
 
@@ -362,7 +392,10 @@ export function withStockListV2Feature() {
                                     baseList.ranksDataWithColors = merged;
                                     const others = store.allStockListsV2().filter(l => l.name !== baseList.name);
                                     const allStockListsV2 = sortListsV2(baseList, [...others, baseList]);
-                                    patchState(store, { selectedStockListV2: baseList, allStockListsV2 });
+                                    patchState(store, { selectedStockListV2: baseList, allStockListsV2, heatmapRenderedTimeframeV2: timeframe, heatmapLoadingV2: false });
+
+                                    // Write merged full-history result into cache for this list/timeframe
+                                    rsCalcsStore.setHeatmapCacheEntry(cacheKey, merged);
                                 } catch (e) {
                                     console.error('[StockListFeatureV2] background full history load failed', e);
                                 }
