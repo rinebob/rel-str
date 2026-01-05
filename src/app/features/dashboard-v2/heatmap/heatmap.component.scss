@@ -152,6 +152,10 @@
 
         &.week-alt { background: var(--heatmap-header-week-alt-bg); }
         &.week-start { border-left: 2px solid var(--heatmap-week-separator); }
+        &.sorted {
+            border-bottom: 2px solid var(--theme-primary, #007bff);
+            box-shadow: 0 2px 0 var(--theme-primary, #007bff);
+        }
     }
 
     .heatmap-cell {
@@ -169,6 +173,10 @@
         }
 
         &.week-start { border-left: 2px solid var(--heatmap-week-separator); }
+        &.sorted-col {
+            outline: 2px solid var(--theme-primary, #007bff);
+            outline-offset: -1px;
+        }
     }
 
     .button-cell { @include global.heatmapCell(); cursor: pointer; }
@@ -178,4 +186,8 @@
     // Header-specific text styles
     .heatmap-date { font-size: 11px; line-height: 1.1; margin: 0; font-weight: 600; }
     .heatmap-dow { font-size: 10px; line-height: 1.1; margin: 0; opacity: 0.85; }
+    .sort-indicator {
+        font-size: 10px;
+        margin-left: 0.125rem;
+    }
 }

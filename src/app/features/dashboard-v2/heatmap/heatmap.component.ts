@@ -23,18 +23,63 @@ export class HeatmapComponent extends RelStrBaseComponent implements AfterViewIn
 
     headerCells = signal<string[]>([]);
     ranksDataWithColorsEntries = signal<[string, BaselineTargetRankDatum[]][]>([]);
+    sortDateIndex = signal<number | null>(null);
+    sortDirection = signal<'asc' | 'desc'>('desc');
+    sortedRanksDataWithColorsEntries = computed<[string, BaselineTargetRankDatum[]][]>(() => {
+        const entries = this.ranksDataWithColorsEntries();
+        const sortIndex = this.sortDateIndex();
+        const direction = this.sortDirection();
+
+        if (sortIndex === null || sortIndex < 0) {
+            return entries;
+        }
+
+        const getSortMeta = (row: [string, BaselineTargetRankDatum[]]) => {
+            const cells = row[1] || [];
+            const cell = cells[sortIndex];
+            if (!cell || cell.placeholder === true) {
+                return { missing: true, value: 0 };
+            }
+            const v = Number(cell.value ?? 0);
+            if (!Number.isFinite(v) || v === 0) {
+                return { missing: true, value: 0 };
+            }
+            return { missing: false, value: v };
+        };
+
+        const sorted = [...entries].sort((a, b) => {
+            const av = getSortMeta(a);
+            const bv = getSortMeta(b);
+
+            if (av.missing && bv.missing) return 0;
+            if (av.missing) return 1;
+            if (bv.missing) return -1;
+
+            const diff = av.value - bv.value;
+            return direction === 'asc' ? diff : -diff;
+        });
+
+        return sorted;
+    });
     monthGroups = signal<Array<{ label: string; span: number; alt: boolean }>>([]);
     
     // Inject RsDataStore to access selected timeframe
     private readonly rsDataStore = inject(RsDataStore);
     
-    // Computed signal for selected timeframe
+    // Computed signal for selected timeframe (user selection)
     selectedTimeframe = computed(() => this.rsDataStore.selectedTimeframe());
+
+    // Rendered timeframe: uses heatmapRenderedTimeframeV2 when available so that
+    // headers and month bands update only when data for the interval is ready.
+    renderedTimeframe = computed<Timeframe>(() => {
+        const rendered = this.rsAppStore.heatmapRenderedTimeframeV2?.();
+        return (rendered ?? this.selectedTimeframe()) as Timeframe;
+    });
     
     headerDateParts = computed(() => {
         const headers = this.headerCells();
         const dates = headers.length > 1 ? headers.slice(1) : [];
-        const timeframe = this.selectedTimeframe();
+        const timeframe = this.renderedTimeframe();
         return dates.map(d => ({
             raw: d,
             date: this.formatHeaderDate(d, timeframe),
@@ -47,6 +92,14 @@ export class HeatmapComponent extends RelStrBaseComponent implements AfterViewIn
         const map: Record<string, boolean> = {};
         for (const h of this.headerDateParts()) map[h.raw] = h.weekStart;
         return map;
+    });
+    sortedDateKey = computed<string | null>(() => {
+        const parts = this.headerDateParts();
+        const idx = this.sortDateIndex();
+        if (idx === null || idx < 0 || idx >= parts.length) {
+            return null;
+        }
+        return parts[idx]?.raw ?? null;
     });
     
     constructor() {
@@ -64,7 +117,7 @@ export class HeatmapComponent extends RelStrBaseComponent implements AfterViewIn
             const headers = this.headerCells();
             // First cell is the corner label; skip it
             const dateStrs = headers.slice(1);
-            const timeframe = this.selectedTimeframe();
+            const timeframe = this.renderedTimeframe();
             this.monthGroups.set(this.computeMonthGroups(dateStrs, timeframe));
         });
     }
@@ -115,6 +168,35 @@ export class HeatmapComponent extends RelStrBaseComponent implements AfterViewIn
         // console.log('h hSS symbol/selection type: ', symbol, selectionType);
         const route = selectionType === 'chart' ? AppRoutes.SYNC_CHART : AppRoutes.HISTORY;
         this.router.navigate([route])
+    }
+
+    onHeaderDateClick(rawDate: string): void {
+        // eslint-disable-next-line no-console
+        console.log('[HeatmapV2] header click', rawDate);
+        const parts = this.headerDateParts();
+        const idx = parts.findIndex(p => p.raw === rawDate);
+        if (idx < 0) {
+            return;
+        }
+
+        const currentIndex = this.sortDateIndex();
+        const currentDirection = this.sortDirection();
+
+        if (currentIndex === idx) {
+            this.sortDirection.set(currentDirection === 'asc' ? 'desc' : 'asc');
+        } else {
+            this.sortDateIndex.set(idx);
+            this.sortDirection.set('desc');
+        }
+    }
+
+    isHeaderSorted(rawDate: string): boolean {
+        const parts = this.headerDateParts();
+        const idx = this.sortDateIndex();
+        if (idx === null || idx < 0 || idx >= parts.length) {
+            return false;
+        }
+        return parts[idx]?.raw === rawDate;
     }
 
     private scrollToRight(): void {

@@ -133,8 +133,10 @@ export class DashboardV2Component extends RelStrBaseComponent implements OnInit 
     private refreshListData(list: RelStrStockList) {
         const user = this.authStore.user();
         if (user?.uid) {
-            // This will trigger the RS calculation pipeline with the new timeframe
-            this.rsAppStore.resolveExistingRanksDataV2(list, true);
+            // This will trigger the RS calculation pipeline with the new timeframe.
+            // Cache-aware: allow resolveExistingRanksDataV2 to reuse cached full-history
+            // heatmap data for this list/timeframe when available.
+            this.rsAppStore.resolveExistingRanksDataV2(list, false);
         }
     }
     

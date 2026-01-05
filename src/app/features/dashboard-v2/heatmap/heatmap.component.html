@@ -4,6 +4,12 @@
 
     <div class="heatmap-container">
 
+        @if(rsAppStore.heatmapLoadingV2()) {
+            <div class="heatmap-loading-overlay">
+                <div class="heatmap-loading-spinner">Loading…</div>
+            </div>
+        }
+
         <!-- Fixed first column: corner header + pair names -->
         <div class="first-column-container">
 
@@ -14,7 +20,7 @@
                 </div>
             </div>
 
-            @for(entry of ranksDataWithColorsEntries(); track $index) {
+            @for(entry of sortedRanksDataWithColorsEntries(); track $index) {
                 <div class="heatmap-row data-row">
                     <div class="heatmap-cell first">{{ entry[0] }}</div>
                 </div>
@@ -38,23 +44,28 @@
 
                 <!-- HEADER ROW: skip idx 0 so only data date columns render -->
             <div class="heatmap-row header-row">
-    
+
                 @for(h of headerDateParts(); track h.raw) {
-                    <div class="header-cell" [class.week-alt]="h.weekAlt" [class.week-start]="h.weekStart" [attr.title]="h.raw">
-                        <p class="heatmap-date">{{ h.date }}</p>
+                    <div class="header-cell" [class.week-alt]="h.weekAlt" [class.week-start]="h.weekStart" [class.sorted]="isHeaderSorted(h.raw)" [attr.title]="h.raw" (click)="onHeaderDateClick(h.raw)">
+                        <p class="heatmap-date">
+                            {{ h.date }}
+                            @if(isHeaderSorted(h.raw)) {
+                                <span class="sort-indicator">{{ sortDirection() === 'asc' ? '▲' : '▼' }}</span>
+                            }
+                        </p>
                         <p class="heatmap-dow">{{ h.dow }}</p>
                     </div>
                 }
-    
+
             </div>
 
-            @for(entry of ranksDataWithColorsEntries(); track $index) {
+            @for(entry of sortedRanksDataWithColorsEntries(); track $index) {
         
                 <div class="heatmap-row data-row">
 
                     @for(datum of entry[1]; track datum.date) {
     
-                        <div class="heatmap-cell" [class.week-start]="weekStartMap()[datum.date] === true"
+                        <div class="heatmap-cell" [class.week-start]="weekStartMap()[datum.date] === true" [class.sorted-col]="sortedDateKey() === datum.date"
                              [ngStyle]="{'background-color': datum.color}"
                              [class.placeholder]="datum.placeholder === true"
                              [attr.title]="'date: ' + datum.date + (datum.phase ? (' | phase: ' + datum.phase) : (datum.placeholder ? ' | phase: missing' : ''))"
