@@ -2,7 +2,7 @@
 
 Audience: External partner engineering/admin teams integrating with Savant partner endpoints. This document explains partner-facing surfaces, authentication, data schemas, and operational expectations.
 
-Last updated: 2025-10-08
+Last updated: 2025-11-13
 
 > Start here: Read this discovery guide first to understand the surface area, data shapes, and auth model. When ready to make requests, proceed to `docs/partner-integration.md` for step-by-step integration examples.
 
@@ -12,7 +12,7 @@ Last updated: 2025-10-08
 
 SavantApi.com maintains a centralized, Firestore-backed market data service. Partner applications consume data through secure HTTPS endpoints operated on Firebase/Cloud Run. The current partner-exposed surface focuses on normalized time series data aggregated from Alpha Vantage (AV) and stored in a sharded Firestore schema.
 
-For server-to-server integrations, partners should use Google OIDC (service account identity tokens) with allowlisting. See `docs/partner-integration.md` for end-to-end examples.
+For server-to-server integrations, partners should use Google OIDC (service account identity tokens) with allowlisting. See `docs/partner-integration.md` for end-to-end examples. For discovery and event-driven processing, see `docs/rel-str_partner-data-ready-pubsub-integration.md`.
 
 ### Operational Checklist (Quick Start)
 - Ensure Cloud Run requires authentication; remove `allUsers` from invokers
@@ -47,13 +47,15 @@ For server-to-server integrations, partners should use Google OIDC (service acco
 
 ## Data Provider & Storage Model (Overview)
 
+> **Note (2026-01):** AV OHLCV time-series for partner reads are now stored under the split-adjusted collection `sa-time-series` as described in `docs/backend-functions-overview.md` and `docs/partner-dataset-announcement.md`. The `time-series` paths referenced below reflect the earlier internal storage model and are kept for historical/internal context only. Partner-facing APIs and response shapes remain the same.
+
 - Provider (current primary): Alpha Vantage (AV)
   - We persist adjusted series by default for `DAILY`, `WEEKLY`, and `MONTHLY`.
 
 - Canonical Firestore paths (non-intraday):
   - Top-level provider/interval doc (metadata only):
     - `symbol-data/{SYMBOL}/time-series/{av-daily-adjusted|av-weekly-adjusted|av-monthly-adjusted}`
-    - Fields: `metadata{ symbol, interval, histStartTs, histEndTs, lastUpdated, nextRefreshAt, ttlSeconds, vendor, endpoint }`, and `latestBarTimestamp` (Firestore Timestamp for the latest bar)
+    - Fields: `metadata{ symbol, interval, histStartTs, histEndTs, lastUpdated, ttlSeconds, vendor, endpoint }`, and `latestBarTimestamp` (Firestore Timestamp for the latest bar)
   - Year‑sharded docs for `DAILY`/`WEEKLY`:
     - `symbol-data/{SYMBOL}/time-series/{docId}/years/{YYYY}` → `{ bars: CompactBar[], count, firstBarTs, lastBarTs, updatedAt }`
   - Single ‘all’ doc for `MONTHLY`:
@@ -96,6 +98,28 @@ Partner endpoints are protected by both IAM (Cloud Run invoker) and application-
 - Partner must send OIDC ID token with `aud` = exact service URL and include the `email` claim
 
 For full CLI and Console steps, see “IAM Lockdown and Allowlisting (Required)” in `docs/partner-integration.md`.
+
+---
+
+## Discovery via Pub/Sub (Recommended)
+
+Partners should consume Data‑Ready notifications to know when new data is available and when daily bars are finalized.
+
+- Topic: `partner-data-ready`
+- Payload v1 highlights:
+  - `runId`: `YYYY-MM-DD-(pre|post)[-suffix]`
+  - `phase`: `pre` | `post`
+  - `timing.finalizedAtUTC?`: when the first finalized bar for the day was detected (POST)
+  - `timing.nextRefreshAtUTC`: schedule-driven next refresh
+  - Attributes include `runType` to target phases/intervals (`ts_daily_pre`, `ts_daily_post`, `ts_weekly_post`, `ts_monthly_post`, `non_time_series`)
+- Use subscription filters to select only what you need (e.g., only finalized `post` runs).
+- See: `docs/rel-str_partner-data-ready-pubsub-integration.md` for the full schema and filter examples.
+
+Notes:
+- Root system docs for transparency (internal reference):
+  - `system/time-series-status` and `system/time-series-finalization`
+  - Leaf per‑date docs intentionally omit metadata to avoid phantom docs
+  - Partners generally do not need to read these; prefer Pub/Sub notifications
 
 ---
 
@@ -191,7 +215,6 @@ We normalize upstream data into a sharded Firestore schema to support high-volum
 
 - Canonical collection: `symbol-data/{SYMBOL}/time-series/{provider-interval}`
   - Non-intraday sharding: `years/{YYYY}` (bar documents grouped under the year)
-  - Intraday sharding (optional): `days/{YYYY-MM-DD}/bars/{ISO_TIMESTAMP}`
   - Top-level doc stores metadata fields such as `latestBarTimestamp`
   - Provider-interval IDs:
     - `av-daily-adjusted`
@@ -221,11 +244,11 @@ Notes:
 
 ## Freshness and TTL Strategy (Reference)
 
-A background refresher keeps Firestore current by reloading data from upstream according to endpoint TTLs. The scheduler triggers refresh runs and only rewrites documents when `metadata.nextRefreshAt` is missing or due.
+A background refresher keeps Firestore current by reloading data from upstream according to endpoint TTLs. Refreshers run strictly on schedules; there is no doc‑level nextRefreshAt gate.
 
 - AV time-series:
   - Daily cadence at pre-close and post-close (3:30PM and 4:30PM Eastern) 
-  - After a successful refresh: set `metadata.lastUpdated`, `metadata.ttlSeconds`, `metadata.nextRefreshAt`
+  - After a successful refresh: set `metadata.lastUpdated`, `metadata.ttlSeconds`
   - TTLs are defined per endpoint in `shared/alpha-vantage/av-endpoint-configs.ts` and `AV_TIME_SERIES_ENDPOINT_CONFIGS`
   - Cron schedules live in `functions/src/v2/common/function-schedules.ts` (source of cron truth only)
 
