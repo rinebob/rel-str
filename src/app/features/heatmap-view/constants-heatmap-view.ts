@@ -128,4 +128,5 @@ export interface HeatmapViewModel {
   headerCells: HeatmapHeaderCellVM[];
   rows: HeatmapRowVM[];
   sort: HeatmapSortSpec;
+  monthBands: Array<{ label: string; span: number; alt: boolean }>;
 }

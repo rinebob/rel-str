@@ -4,6 +4,8 @@ import { rxMethod } from '@ngrx/signals/rxjs-interop';
 import { distinctUntilChanged, EMPTY, switchMap, tap } from 'rxjs';
 import { HeatmapSlice, HeatmapQuery, HeatmapStatus, HeatmapSortSpec, HeatmapState, HeatmapViewModel, HeatmapCellVM, HeatmapHeaderCellVM, HeatmapRowVM } from './constants-heatmap-view';
 import { HeatmapViewDataService } from './heatmap-view-data.service';
+import { RsCalcsStore } from '../store/rs-calcs.store';
+import { generateColorArray } from '../utils/color-utils';
 
 
 /**
@@ -90,7 +92,10 @@ export function withHeatmapViewStore() {
       };
     }),
 
-    withComputed((store) => ({
+    withComputed((store) => {
+      const rsCalcsStore = inject(RsCalcsStore);
+
+      return {
       /**
        * Derived view model exposed to the component tree.
        */
@@ -99,6 +104,11 @@ export function withHeatmapViewStore() {
         const status = store.status();
         const slice = store.slice();
         const sort = store.sort();
+        const storeColors = rsCalcsStore.heatmapColors();
+        const fallbackColors = generateColorArray(11);
+        const heatmapColors = Array.isArray(storeColors) && storeColors.length > 0
+          ? storeColors
+          : fallbackColors;
 
         if (!slice) {
           return {
@@ -107,26 +117,111 @@ export function withHeatmapViewStore() {
             headerCells: [],
             rows: [],
             sort,
+            monthBands: [],
           };
         }
+        const formatHeaderDate = (dateStr: string): string => {
+          const [yy, mm, dd] = dateStr.split('-').map((part) => Number(part));
+          const m = Number.isFinite(mm) ? String(mm).padStart(2, '0') : '--';
+          const d = Number.isFinite(dd) ? String(dd).padStart(2, '0') : '--';
+          return `${m}-${d}`;
+        };
 
-        const headerCells: HeatmapHeaderCellVM[] = slice.columns.map((column: typeof slice.columns[number], index: number) => ({
-          label: column.date,
-          subLabel: column.phase,
-          tooltip: column.lastUpdateTime
-            ? `${column.date} · ${new Date(column.lastUpdateTime).toLocaleString()}`
-            : column.date,
-          isToday: column.isToday,
-          isLastColumn: index === slice.columns.length - 1,
-        }));
+        const formatHeaderDow = (dateStr: string): string => {
+          const [yy, mm, dd] = dateStr.split('-').map((part) => Number(part));
+          if (!Number.isFinite(yy) || !Number.isFinite(mm) || !Number.isFinite(dd)) {
+            return '';
+          }
+          const d = new Date(Date.UTC(yy, (mm as number) - 1, dd as number));
+          const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+          return days[d.getUTCDay()] ?? '';
+        };
+
+        const lastIndex = slice.columns.length - 1;
+
+        const monthBands: Array<{ label: string; span: number; alt: boolean }> = (() => {
+          if (slice.columns.length === 0) {
+            return [];
+          }
+
+          const bands: Array<{ label: string; span: number; alt: boolean }> = [];
+          const toMonthLabel = (dateStr: string): string => {
+            const [yy, mm] = dateStr.split('-');
+            return `${yy}-${mm}`;
+          };
+
+          let currentLabel = toMonthLabel(slice.columns[0]?.date ?? '');
+          let span = 0;
+
+          for (const col of slice.columns) {
+            const label = toMonthLabel(col.date);
+            if (label === currentLabel) {
+              span += 1;
+            } else {
+              if (span > 0) {
+                bands.push({ label: currentLabel, span, alt: bands.length % 2 === 1 });
+              }
+              currentLabel = label;
+              span = 1;
+            }
+          }
+
+          if (span > 0) {
+            bands.push({ label: currentLabel, span, alt: bands.length % 2 === 1 });
+          }
+
+          return bands;
+        })();
+
+        const headerCells: HeatmapHeaderCellVM[] = slice.columns.map((column: typeof slice.columns[number], index: number) => {
+          const baseSub = formatHeaderDow(column.date);
+          const phaseSuffix = index === lastIndex && column.phase ? ` ${column.phase}` : '';
+
+          return {
+            label: formatHeaderDate(column.date),
+            subLabel: `${baseSub}${phaseSuffix}`.trim() || undefined,
+            tooltip: column.lastUpdateTime
+              ? `${column.date} · ${new Date(column.lastUpdateTime).toLocaleString()}`
+              : column.date,
+            isToday: column.isToday,
+            isLastColumn: index === lastIndex,
+          } satisfies HeatmapHeaderCellVM;
+        });
 
         const rows: HeatmapRowVM[] = slice.rows.map((row, rowIndex: number) => {
           const values = slice.rsValues[rowIndex] ?? [];
 
-          const cells: HeatmapCellVM[] = values.map((value: number | null) => ({
-            value,
-            color: value == null ? 'transparent' : value >= 0.8 ? '#00a000' : value >= 0.5 ? '#80c000' : '#c08000',
-          }));
+          const cells: HeatmapCellVM[] = values.map((value: number | null) => {
+            if (value == null) {
+              return {
+                value,
+                color: 'transparent',
+              } satisfies HeatmapCellVM;
+            }
+
+            const v = Number(value);
+            if (!Number.isFinite(v)) {
+              return {
+                value: null,
+                color: 'transparent',
+              } satisfies HeatmapCellVM;
+            }
+
+            let color = '#ffffff';
+            if (Array.isArray(heatmapColors) && heatmapColors.length > 0) {
+              const clamped = Math.max(0, Math.min(1, v));
+              const idx = Math.min(
+                heatmapColors.length - 1,
+                Math.max(0, Math.floor(clamped * (heatmapColors.length - 1))),
+              );
+              color = heatmapColors[idx] ?? color;
+            }
+
+            return {
+              value: v,
+              color,
+            } satisfies HeatmapCellVM;
+          });
 
           return {
             symbol: row.symbol,
@@ -141,8 +236,9 @@ export function withHeatmapViewStore() {
           headerCells,
           rows,
           sort,
+          monthBands,
         };
       }),
-    })),
+    }; }),
   );
 }
