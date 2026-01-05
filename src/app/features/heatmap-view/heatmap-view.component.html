@@ -1,0 +1,48 @@
+<section class="heatmap-view">
+  <header class="heatmap-view__header">
+    <h2 class="heatmap-view__title">Heatmap View</h2>
+    <div class="heatmap-view__status">
+      <span>Status: {{ vm().status.state }}</span>
+      <button type="button" (click)="setDemoQuery()">Load Demo</button>
+    </div>
+  </header>
+
+  @if (vm().headerCells.length === 0) {
+    <div class="heatmap-view__empty">No data loaded.</div>
+  } @else {
+    <div class="heatmap-view__table-wrapper">
+      <table class="heatmap-view__table">
+        <thead>
+          <tr>
+            <th class="heatmap-view__symbol-header">Symbol</th>
+            @for (header of vm().headerCells; track header.label; let i = $index) {
+              <th
+                class="heatmap-view__column-header"
+                [class.heatmap-view__column-header--today]="header.isToday"
+                [class.heatmap-view__column-header--last]="header.isLastColumn"
+                (click)="onHeaderClick(i)"
+              >
+                <span class="heatmap-view__column-label">{{ header.label }}</span>
+                @if (header.subLabel) {
+                  <span class="heatmap-view__column-sublabel">{{ header.subLabel }}</span>
+                }
+              </th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of vm().rows; track row.symbol) {
+            <tr>
+              <td class="heatmap-view__symbol-cell">{{ row.symbol }}</td>
+              @for (cell of row.cells; track $index) {
+                <td class="heatmap-view__cell" [style.background-color]="cell.color">
+                  <span class="heatmap-view__cell-value">{{ cell.value }}</span>
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>
