@@ -10,8 +10,27 @@
 
   &__header {
     display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.75rem 1.5rem;
+  }
+
+  &__header-top {
+    display: flex;
     justify-content: space-between;
     align-items: center;
+  }
+
+  &__header-left {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+  }
+
+  &__header-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
   }
 
   // Matrix preview (new div-based layout) shown above the mat-table
