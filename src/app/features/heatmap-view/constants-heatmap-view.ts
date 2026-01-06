@@ -91,32 +91,23 @@ export interface HeatmapStatus {
 }
 
 /**
- * View-model cell representation used by the Angular components.
+ * Matrix-oriented cell view model including the date key for header/tooltips.
  */
-export interface HeatmapCellVM {
+export interface HeatmapMatrixCellVM {
   value: number | null;
   color: string;
-  tooltip?: string;
+  date: string | null;
 }
 
 /**
- * View-model row representation used by the Angular components.
+ * Row in the matrix representation used by the heatmap layout.
+ * The first row is typically kind='header' with label 'Symbol/Date',
+ * followed by kind='data' rows for each pair.
  */
-export interface HeatmapRowVM {
-  symbol: string;
-  baseline: string;
-  cells: HeatmapCellVM[];
-}
-
-/**
- * View-model header cell representation used by the Angular components.
- */
-export interface HeatmapHeaderCellVM {
+export interface HeatmapMatrixRowVM {
+  kind: 'header' | 'data';
   label: string;
-  subLabel?: string;
-  tooltip?: string;
-  isToday: boolean;
-  isLastColumn: boolean;
+  cells: HeatmapMatrixCellVM[];
 }
 
 /**
@@ -125,8 +116,7 @@ export interface HeatmapHeaderCellVM {
 export interface HeatmapViewModel {
   query: HeatmapQuery | null;
   status: HeatmapStatus;
-  headerCells: HeatmapHeaderCellVM[];
-  rows: HeatmapRowVM[];
   sort: HeatmapSortSpec;
   monthBands: Array<{ label: string; span: number; alt: boolean }>;
+  matrix: HeatmapMatrixRowVM[];
 }

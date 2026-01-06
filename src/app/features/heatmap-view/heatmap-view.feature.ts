@@ -2,7 +2,7 @@ import { computed, inject } from '@angular/core';
 import { patchState, signalStoreFeature, withComputed, withMethods, withState } from '@ngrx/signals';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
 import { distinctUntilChanged, EMPTY, switchMap, tap } from 'rxjs';
-import { HeatmapSlice, HeatmapQuery, HeatmapStatus, HeatmapSortSpec, HeatmapState, HeatmapViewModel, HeatmapCellVM, HeatmapHeaderCellVM, HeatmapRowVM } from './constants-heatmap-view';
+import { HeatmapSlice, HeatmapQuery, HeatmapStatus, HeatmapSortSpec, HeatmapState, HeatmapViewModel, HeatmapMatrixCellVM, HeatmapMatrixRowVM } from './constants-heatmap-view';
 import { HeatmapViewDataService } from './heatmap-view-data.service';
 import { RsCalcsStore } from '../store/rs-calcs.store';
 import { generateColorArray } from '../utils/color-utils';
@@ -114,11 +114,10 @@ export function withHeatmapViewStore() {
           return {
             query,
             status,
-            headerCells: [],
-            rows: [],
             sort,
             monthBands: [],
-          };
+            matrix: [],
+          } satisfies HeatmapViewModel;
         }
         const formatHeaderDate = (dateStr: string): string => {
           const [yy, mm, dd] = dateStr.split('-').map((part) => Number(part));
@@ -173,70 +172,77 @@ export function withHeatmapViewStore() {
           return bands;
         })();
 
-        const headerCells: HeatmapHeaderCellVM[] = slice.columns.map((column: typeof slice.columns[number], index: number) => {
-          const baseSub = formatHeaderDow(column.date);
-          const phaseSuffix = index === lastIndex && column.phase ? ` ${column.phase}` : '';
+        const matrix: HeatmapMatrixRowVM[] = (() => {
+          if (!slice) {
+            return [];
+          }
 
-          return {
-            label: formatHeaderDate(column.date),
-            subLabel: `${baseSub}${phaseSuffix}`.trim() || undefined,
-            tooltip: column.lastUpdateTime
-              ? `${column.date} · ${new Date(column.lastUpdateTime).toLocaleString()}`
-              : column.date,
-            isToday: column.isToday,
-            isLastColumn: index === lastIndex,
-          } satisfies HeatmapHeaderCellVM;
-        });
+          const dates = slice.columns.map(col => col.date);
 
-        const rows: HeatmapRowVM[] = slice.rows.map((row, rowIndex: number) => {
-          const values = slice.rsValues[rowIndex] ?? [];
+          const headerRow: HeatmapMatrixRowVM = {
+            kind: 'header',
+            label: 'Symbol/Date',
+            cells: dates.map(date => ({
+              value: null,
+              color: 'transparent',
+              date,
+            } satisfies HeatmapMatrixCellVM)),
+          };
 
-          const cells: HeatmapCellVM[] = values.map((value: number | null) => {
-            if (value == null) {
+          const dataRows: HeatmapMatrixRowVM[] = slice.rows.map((row, rowIndex) => {
+            const values = slice.rsValues[rowIndex] ?? [];
+            const cells: HeatmapMatrixCellVM[] = dates.map((date, colIndex) => {
+              const raw = values[colIndex] ?? null;
+              if (raw == null) {
+                return {
+                  value: null,
+                  color: 'transparent',
+                  date,
+                } satisfies HeatmapMatrixCellVM;
+              }
+
+              const v = Number(raw);
+              if (!Number.isFinite(v)) {
+                return {
+                  value: null,
+                  color: 'transparent',
+                  date,
+                } satisfies HeatmapMatrixCellVM;
+              }
+
+              let color = '#ffffff';
+              if (Array.isArray(heatmapColors) && heatmapColors.length > 0) {
+                const clamped = Math.max(0, Math.min(1, v));
+                const idx = Math.min(
+                  heatmapColors.length - 1,
+                  Math.max(0, Math.floor(clamped * (heatmapColors.length - 1))),
+                );
+                color = heatmapColors[idx] ?? color;
+              }
+
               return {
-                value,
-                color: 'transparent',
-              } satisfies HeatmapCellVM;
-            }
-
-            const v = Number(value);
-            if (!Number.isFinite(v)) {
-              return {
-                value: null,
-                color: 'transparent',
-              } satisfies HeatmapCellVM;
-            }
-
-            let color = '#ffffff';
-            if (Array.isArray(heatmapColors) && heatmapColors.length > 0) {
-              const clamped = Math.max(0, Math.min(1, v));
-              const idx = Math.min(
-                heatmapColors.length - 1,
-                Math.max(0, Math.floor(clamped * (heatmapColors.length - 1))),
-              );
-              color = heatmapColors[idx] ?? color;
-            }
+                value: v,
+                color,
+                date,
+              } satisfies HeatmapMatrixCellVM;
+            });
 
             return {
-              value: v,
-              color,
-            } satisfies HeatmapCellVM;
+              kind: 'data',
+              label: `${row.baseline}-${row.symbol}`,
+              cells,
+            } satisfies HeatmapMatrixRowVM;
           });
 
-          return {
-            symbol: row.symbol,
-            baseline: row.baseline,
-            cells,
-          };
-        });
+          return [headerRow, ...dataRows];
+        })();
 
         return {
           query,
           status,
-          headerCells,
-          rows,
           sort,
           monthBands,
+          matrix,
         };
       }),
     }; }),
