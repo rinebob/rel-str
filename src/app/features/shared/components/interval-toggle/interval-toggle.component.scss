@@ -1,0 +1,24 @@
+.interval-toggle {
+  display: flex;
+  gap: 0.25rem;
+}
+
+button[mat-button] {
+  min-width: 40px;
+  width: 40px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  background-color: var(--theme-surface);
+  color: var(--theme-on-surface);
+  font-weight: 500;
+  padding: 0;
+  line-height: 1;
+  box-shadow: none;
+}
+
+button[mat-button].interval-toggle__button--active {
+  background-color: #3f51b5 !important;
+  border-color: #3f51b5 !important;
+  color: #ffffff !important;
+}
