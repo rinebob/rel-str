@@ -3,6 +3,7 @@ import { patchState, signalStoreFeature, withComputed, withMethods, withState } 
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
 import { distinctUntilChanged, EMPTY, switchMap, tap } from 'rxjs';
 import { HeatmapSlice, HeatmapQuery, HeatmapStatus, HeatmapSortSpec, HeatmapState, HeatmapViewModel, HeatmapMatrixCellVM, HeatmapMatrixRowVM } from './constants-heatmap-view';
+import { Timeframe } from '../shared/types/rs.interfaces';
 import { HeatmapViewDataService } from './heatmap-view-data.service';
 import { RsCalcsStore } from '../store/rs-calcs.store';
 import { generateColorArray } from '../utils/color-utils';
@@ -144,16 +145,33 @@ export function withHeatmapViewStore() {
           }
 
           const bands: Array<{ label: string; span: number; alt: boolean }> = [];
-          const toMonthLabel = (dateStr: string): string => {
+          const toBandLabel = (dateStr: string): string => {
             const [yy, mm] = dateStr.split('-');
-            return `${yy}-${mm}`;
+
+            if (!yy || !mm) {
+              return '';
+            }
+
+            // For monthly interval, group by year only.
+            if (query?.interval === Timeframe.MONTHLY) {
+              return yy;
+            }
+
+            // For daily/weekly, show 'Mon YYYY' style labels.
+            const monthIndex = Number(mm) - 1;
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
+            const monthName = Number.isFinite(monthIndex) && monthIndex >= 0 && monthIndex < monthNames.length
+              ? monthNames[monthIndex]
+              : mm;
+
+            return `${monthName} ${yy}`;
           };
 
-          let currentLabel = toMonthLabel(slice.columns[0]?.date ?? '');
+          let currentLabel = toBandLabel(slice.columns[0]?.date ?? '');
           let span = 0;
 
           for (const col of slice.columns) {
-            const label = toMonthLabel(col.date);
+            const label = toBandLabel(col.date);
             if (label === currentLabel) {
               span += 1;
             } else {

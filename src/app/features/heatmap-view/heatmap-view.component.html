@@ -24,7 +24,11 @@
         <div class="heatmap-view__matrix-preview">
             <div class="heatmap-view__matrix-left">
                 @for (row of vm().matrix; track row.label; let rowIndex = $index) {
-                <div class="heatmap-view__matrix-label" [class.heatmap-view__matrix-label--header]="row.kind === 'header'">
+                <div
+                    class="heatmap-view__matrix-label"
+                    [class.heatmap-view__matrix-label--header]="row.kind === 'header'"
+                    [class.heatmap-view__matrix-label--corner]="row.kind === 'header' && rowIndex === 0"
+                >
                     {{ row.label }}
                 </div>
                 }
@@ -32,12 +36,31 @@
 
             <div class="heatmap-view__matrix-middle">
                 <div class="heatmap-view__matrix-scroll" #scrollContainer>
+                    @if (vm().monthBands.length > 0) {
+                    <div class="heatmap-view__month-band-row">
+                        @for (band of vm().monthBands; track band.label + '-' + band.span) {
+                        <div
+                            class="heatmap-view__month-band-cell"
+                            [style.--span]="band.span"
+                            [class.heatmap-view__month-band-cell--alt]="band.alt"
+                        >
+                            <span class="heatmap-view__month-band-label">{{ band.label }}</span>
+                        </div>
+                        }
+                    </div>
+                    }
+
                     @for (row of vm().matrix; track row.label; let rowIndex = $index) {
                     <div class="heatmap-view__matrix-row" [class.heatmap-view__matrix-row--header]="row.kind === 'header'">
                         @for (cell of row.cells; track $index; let colIndex = $index) {
                         <div class="heatmap-view__matrix-cell" [style.background-color]="cell.color">
                             <span class="heatmap-view__matrix-value">
                                 @if (row.kind === 'header') {
+                                @if (vm().query?.interval === Interval.MONTHLY) {
+                                <span class="heatmap-view__matrix-header-line">
+                                    {{ cell.date ? (cell.date | date:'MMM') : '' }}
+                                </span>
+                                }
                                 <span class="heatmap-view__matrix-header-line">{{ cell.date?.slice(5) }}</span>
                                 <span class="heatmap-view__matrix-header-line">{{ (cell.date ? (cell.date | date:'EEE') : '') }}</span>
                                 } @else if (cell.value !== null) {

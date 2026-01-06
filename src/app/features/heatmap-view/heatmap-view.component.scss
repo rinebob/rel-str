@@ -4,6 +4,7 @@
   --heatmap-cell-height: 4rem;
   --heatmap-left-col-width: 7rem;
   --heatmap-actions-width: 9rem;
+  --heatmap-month-band-height: calc(var(--heatmap-cell-height) * 0.66);
 
   display: flex;
   flex-direction: column;
@@ -67,6 +68,11 @@
     background-color: #f5f5f5;
   }
 
+  &__matrix-label--corner {
+    height: calc(var(--heatmap-month-band-height) + var(--heatmap-cell-height));
+    align-items: flex-end;
+  }
+
   // Match bottom border of left band with last data row
   &__matrix-label:last-child {
     border-bottom: 1px solid #000;
@@ -82,6 +88,40 @@
     overflow-x: auto;
     overflow-y: hidden;
     padding: 0; // ensure grid touches adjacent bands with no gap
+  }
+
+  &__month-band-row {
+    display: flex;
+  }
+
+  &__month-band-cell {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: var(--heatmap-month-band-height);
+    // Match width behavior of the underlying heatmap cells
+    flex: 0 0 calc(var(--heatmap-cell-width) * var(--span, 1));
+    width: calc(var(--heatmap-cell-width) * var(--span, 1));
+    border-top: 1px solid #000;
+    border-left: 1px solid #000;
+    border-bottom: 1px solid #000;
+    box-sizing: border-box;
+    background-color: #f5f5f5;
+  }
+
+  &__month-band-cell--alt {
+    background-color: #e0e0e0;
+  }
+
+  &__month-band-cell:first-child {
+    border-left: 0;
+  }
+
+  &__month-band-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.1;
+    white-space: nowrap;
   }
 
   &__matrix-row {
@@ -112,6 +152,16 @@
 
   // For the first heatmap column, let the left band own the seam border
   &__matrix-row .heatmap-view__matrix-cell:first-child {
+    border-left: 0;
+  }
+
+  // Header row should sit directly under the month band without a double border
+  &__matrix-row--header .heatmap-view__matrix-cell {
+    border-top: 0;
+  }
+
+  // Ensure no double border between left column and first data/header cell
+  &__matrix-row--header .heatmap-view__matrix-cell:first-child {
     border-left: 0;
   }
 
@@ -152,6 +202,7 @@
 
   &__matrix-actions--header {
     background-color: #f5f5f5;
+    height: calc(var(--heatmap-month-band-height) + var(--heatmap-cell-height));
   }
 
   &__matrix-action-button {
