@@ -193,10 +193,12 @@ export function withHeatmapViewStore() {
             const values = slice.rsValues[rowIndex] ?? [];
             const cells: HeatmapMatrixCellVM[] = dates.map((date, colIndex) => {
               const raw = values[colIndex] ?? null;
+
+              // No data for this pair/date: show 0.0 with a neutral gray background
               if (raw == null) {
                 return {
-                  value: null,
-                  color: 'transparent',
+                  value: 0,
+                  color: '#e0e0e0',
                   date,
                 } satisfies HeatmapMatrixCellVM;
               }
@@ -204,8 +206,8 @@ export function withHeatmapViewStore() {
               const v = Number(raw);
               if (!Number.isFinite(v)) {
                 return {
-                  value: null,
-                  color: 'transparent',
+                  value: 0,
+                  color: '#e0e0e0',
                   date,
                 } satisfies HeatmapMatrixCellVM;
               }
