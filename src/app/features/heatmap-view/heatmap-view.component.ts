@@ -1,11 +1,14 @@
 import { ChangeDetectionStrategy, Component, ElementRef, ViewChild, computed, effect, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+
+import { IntervalToggleComponent } from '../shared/components/interval-toggle/interval-toggle.component';
+import { Timeframe } from '../shared/types/rs.interfaces';
 import { HeatmapViewStore } from './heatmap-view.store';
 
 @Component({
   selector: 'app-heatmap-view',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, IntervalToggleComponent],
   templateUrl: './heatmap-view.component.html',
   styleUrls: ['./heatmap-view.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -65,5 +68,17 @@ export class HeatmapViewComponent {
 
   onHistoryClick(symbol: string): void {
     console.log('[HeatmapView] History click', symbol);
+  }
+
+  onIntervalChange(interval: Timeframe): void {
+    const current = this.vm().query;
+    if (!current || current.interval === interval) {
+      return;
+    }
+
+    this.store.setQuery({
+      ...current,
+      interval,
+    });
   }
 }

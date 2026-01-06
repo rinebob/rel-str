@@ -1,8 +1,19 @@
 <section class="heatmap-view">
     <header class="heatmap-view__header">
-        <h2 class="heatmap-view__title">Heatmap View</h2>
-        <div class="heatmap-view__status">
-            <span>Status: {{ vm().status.state }}</span>
+        <div class="heatmap-view__header-top">
+            <div class="heatmap-view__header-left">
+                <h2 class="heatmap-view__title">Heatmap View</h2>
+                <div class="heatmap-view__status">
+                    <span>Status: {{ vm().status.state }}</span>
+                </div>
+            </div>
+
+            <div class="heatmap-view__header-right">
+                <app-interval-toggle
+                    [value]="vm().query?.interval ?? Interval.DAILY"
+                    (valueChange)="onIntervalChange($event)"
+                ></app-interval-toggle>
+            </div>
         </div>
     </header>
 
