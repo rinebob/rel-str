@@ -1,5 +1,6 @@
 
 import { Observable } from "rxjs";
+import { Timeframe } from '../shared/types/rs.interfaces';
 
 
 // Service
@@ -11,7 +12,7 @@ export interface HeatmapQuery {
   listId: string;
   baseline: string;
   symbols: string[];
-  interval: 'DAILY' | 'WEEKLY' | 'MONTHLY';
+  interval: Timeframe;
   phaseMode: 'canonicalOnly' | 'preAndPost' | 'intradayZoom';
   rangeDays?: number;
 }

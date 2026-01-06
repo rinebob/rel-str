@@ -80,13 +80,13 @@ export class HeatmapViewDataService implements HeatmapDataService {
     return concat(windowSlice$, fullSlice$);
   }
 
-  private mapIntervalToTimeframe(interval: HeatmapQuery['interval']): Timeframe {
+  private mapIntervalToTimeframe(interval: Timeframe): Timeframe {
     switch (interval) {
-      case 'WEEKLY':
+      case Timeframe.WEEKLY:
         return Timeframe.WEEKLY;
-      case 'MONTHLY':
+      case Timeframe.MONTHLY:
         return Timeframe.MONTHLY;
-      case 'DAILY':
+      case Timeframe.DAILY:
       default:
         return Timeframe.DAILY;
     }
