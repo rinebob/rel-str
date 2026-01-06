@@ -1,77 +1,68 @@
 <section class="heatmap-view">
-  <header class="heatmap-view__header">
-    <h2 class="heatmap-view__title">Heatmap View</h2>
-    <div class="heatmap-view__status">
-      <span>Status: {{ vm().status.state }}</span>
-    </div>
-  </header>
+    <header class="heatmap-view__header">
+        <h2 class="heatmap-view__title">Heatmap View</h2>
+        <div class="heatmap-view__status">
+            <span>Status: {{ vm().status.state }}</span>
+        </div>
+    </header>
 
-  @if (vm().headerCells.length === 0) {
+    @if (vm().matrix.length === 0) {
     <div class="heatmap-view__empty">No data loaded.</div>
-  } @else {
-    <div class="heatmap-view__table-wrapper">
-      <table mat-table [dataSource]="rows()" class="heatmap-view__table" matSort>
-
-        <!-- Symbol / Date column -->
-        <ng-container matColumnDef="symbolDate">
-          <th mat-header-cell *matHeaderCellDef class="heatmap-view__symbol-header">
-            Symbol/Date
-          </th>
-          <td mat-cell *matCellDef="let row" class="heatmap-view__symbol-cell">
-            {{ row.baseline }}-{{ row.symbol }}
-          </td>
-        </ng-container>
-
-        <!-- Dynamic date columns -->
-        @for (header of vm().headerCells; track header.label; let i = $index) {
-          <ng-container [matColumnDef]="'d_' + i">
-            <th mat-header-cell *matHeaderCellDef class="heatmap-view__column-header">
-              <div class="heatmap-view__column-header-inner" [attr.title]="header.tooltip" (click)="onHeaderClick(i)">
-                <span class="heatmap-view__column-label">{{ header.label }}</span>
-                @if (header.subLabel) {
-                  <span class="heatmap-view__column-sublabel">{{ header.subLabel }}</span>
+    } @else {
+        <!-- Matrix-based preview driven by vm().matrix; existing mat-table kept below unchanged. -->
+        <div class="heatmap-view__matrix-preview">
+            <div class="heatmap-view__matrix-left">
+                @for (row of vm().matrix; track row.label; let rowIndex = $index) {
+                <div class="heatmap-view__matrix-label" [class.heatmap-view__matrix-label--header]="row.kind === 'header'">
+                    {{ row.label }}
+                </div>
                 }
-              </div>
-            </th>
-            <td
-              mat-cell
-              *matCellDef="let row"
-              class="heatmap-view__cell"
-              [style.background-color]="row.cells[i]?.color"
-            >
-              @let cell = row.cells[i];
-              <span class="heatmap-view__cell-value">
-                @if (cell?.value !== null) {
-                  {{ cell.value | number:'1.3-3' }}
+            </div>
+
+            <div class="heatmap-view__matrix-middle">
+                <div class="heatmap-view__matrix-scroll" #scrollContainer>
+                    @for (row of vm().matrix; track row.label; let rowIndex = $index) {
+                    <div class="heatmap-view__matrix-row" [class.heatmap-view__matrix-row--header]="row.kind === 'header'">
+                        @for (cell of row.cells; track $index; let colIndex = $index) {
+                        <div class="heatmap-view__matrix-cell" [style.background-color]="cell.color">
+                            <span class="heatmap-view__matrix-value">
+                                @if (row.kind === 'header') {
+                                <span class="heatmap-view__matrix-header-line">{{ cell.date?.slice(5) }}</span>
+                                <span class="heatmap-view__matrix-header-line">{{ (cell.date ? (cell.date | date:'EEE') : '') }}</span>
+                                } @else if (cell.value !== null) {
+                                {{ cell.value | number:'1.3-3' }}
+                                }
+                            </span>
+                        </div>
+                        }
+                    </div>
+                    }
+                </div>
+            </div>
+
+            <div class="heatmap-view__matrix-right">
+                @for (row of vm().matrix; track row.label; let rowIndex = $index) {
+                <div class="heatmap-view__matrix-actions" [class.heatmap-view__matrix-actions--header]="row.kind === 'header'">
+                    @if (row.kind === 'data') {
+                    <button
+                        type="button"
+                        class="heatmap-view__matrix-action-button"
+                        (click)="onChartClick((row.label.split('-')[1]).trim())"
+                    >
+                        Chart
+                    </button>
+                    <button
+                        type="button"
+                        class="heatmap-view__matrix-action-button"
+                        (click)="onHistoryClick((row.label.split('-')[1]).trim())"
+                    >
+                        History
+                    </button>
+                    }
+                </div>
                 }
-              </span>
-            </td>
-          </ng-container>
-        }
+            </div>
+        </div>
 
-        <!-- Chart column -->
-        <ng-container matColumnDef="chart">
-          <th mat-header-cell *matHeaderCellDef class="heatmap-view__action-header"></th>
-          <td mat-cell *matCellDef="let row" class="heatmap-view__action-cell">
-            <button type="button" class="heatmap-view__action-button" (click)="onChartClick(row.symbol)">
-              Chart
-            </button>
-          </td>
-        </ng-container>
-
-        <!-- History column -->
-        <ng-container matColumnDef="history">
-          <th mat-header-cell *matHeaderCellDef class="heatmap-view__action-header"></th>
-          <td mat-cell *matCellDef="let row" class="heatmap-view__action-cell">
-            <button type="button" class="heatmap-view__action-button" (click)="onHistoryClick(row.symbol)">
-              History
-            </button>
-          </td>
-        </ng-container>
-
-        <tr mat-header-row *matHeaderRowDef="displayedColumns()"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns()"></tr>
-      </table>
-    </div>
-  }
+    }
 </section>

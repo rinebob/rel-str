@@ -1,12 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { CommonModule, DecimalPipe } from '@angular/common';
-import { MatTableModule } from '@angular/material/table';
+import { ChangeDetectionStrategy, Component, ElementRef, ViewChild, computed, effect, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { HeatmapViewStore } from './heatmap-view.store';
 
 @Component({
   selector: 'app-heatmap-view',
   standalone: true,
-  imports: [CommonModule, DecimalPipe, MatTableModule],
+  imports: [CommonModule],
   templateUrl: './heatmap-view.component.html',
   styleUrls: ['./heatmap-view.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -14,22 +13,30 @@ import { HeatmapViewStore } from './heatmap-view.store';
 export class HeatmapViewComponent {
   private readonly store = inject(HeatmapViewStore);
 
+  @ViewChild('scrollContainer', { static: false })
+  private scrollContainer?: ElementRef<HTMLDivElement>;
+
   readonly vm = computed(() => this.store.vm());
-
-  readonly dateColumnIds = computed(() => this.vm().headerCells.map((_, idx) => `d_${idx}`));
-
-  readonly displayedColumns = computed(() => [
-    'symbolDate',
-    ...this.dateColumnIds(),
-    'chart',
-    'history',
-  ]);
-
-  readonly rows = computed(() => this.vm().rows);
 
   constructor() {
     // Temporary: auto-load a demo query until we wire this to real navigation/list selection.
     this.setDemoQuery();
+
+    effect(() => {
+      const vm = this.vm();
+      if (vm.status.state !== 'ready') {
+        return;
+      }
+
+      const el = this.scrollContainer?.nativeElement;
+      if (!el) {
+        return;
+      }
+
+      queueMicrotask(() => {
+        el.scrollLeft = el.scrollWidth;
+      });
+    });
   }
 
   // Temporary helper; real integration will supply a HeatmapQuery from higher-level navigation or list selection.
@@ -40,7 +47,7 @@ export class HeatmapViewComponent {
       symbols: ['AAPL', 'NVDA'],
       interval: 'DAILY',
       phaseMode: 'canonicalOnly',
-      rangeDays: 20,
+      rangeDays: 365,
     });
   }
 

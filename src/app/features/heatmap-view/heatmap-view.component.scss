@@ -1,7 +1,12 @@
 .heatmap-view {
+  // Shared dimensions for all heatmap cells (matrix preview + mat-table)
+  --heatmap-cell-width: 4rem;
+  --heatmap-cell-height: 4rem;
+  --heatmap-left-col-width: 7rem;
+  --heatmap-actions-width: 9rem;
+
   display: flex;
   flex-direction: column;
-  gap: 1rem;
 
   &__header {
     display: flex;
@@ -9,118 +14,127 @@
     align-items: center;
   }
 
-  &__table-wrapper {
-    overflow-x: auto;
+  // Matrix preview (new div-based layout) shown above the mat-table
+  &__matrix-preview {
+    display: flex;
+    align-items: flex-start;
+    width: 100%;
+    box-sizing: border-box;
   }
 
-  &__table {
-    border-collapse: collapse;
-    border: 2px solid #000; // emphasized outer border
-  }
-
-  // Ensure mat-table draws strong black band-style separators.
-  // Use ::ng-deep to reach into MatTable's MDC header/body cell classes.
-
-  // Strong bottom border under the header row (override .mat-mdc-header-cell)
-  ::ng-deep .heatmap-view__table .mat-mdc-header-cell {
-    border-bottom: 1px solid #000 !important;
-  }
-
-  // Strong bottom border under the first data row (override .mat-mdc-cell in first .mat-mdc-row)
-  ::ng-deep .heatmap-view__table .mat-mdc-row:first-child .mat-mdc-cell {
-    border-bottom: 1px solid #000 !important;
-  }
-
-  &__column-header {
-    padding: 0.25rem 0.5rem;
-    text-align: center;
-    background-color: #f5f5f5;
-    border-top: 1px solid #000;
-    border-left: 1px solid #000;
-  }
-
-  &__symbol-header {
-    padding: 0.25rem 0.5rem;
-    text-align: left;
-    background-color: #f5f5f5;
-    border-top: 1px solid #000;
-    border-left: 1px solid #000;
-  }
-
-  &__column-header-inner {
+  &__matrix-left {
     display: flex;
     flex-direction: column;
+    flex: 0 0 var(--heatmap-left-col-width);
+  }
+
+  &__matrix-label {
+    width: var(--heatmap-left-col-width);
+    height: var(--heatmap-cell-height);
+    padding: 0 0.5rem;
+    font-size: 0.75rem;
+    border-top: 1px solid #000;
+    border-left: 1px solid #000;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
+  &__matrix-label--header {
+    font-weight: 600;
+    background-color: #f5f5f5;
+  }
+
+  // Match bottom border of left band with last data row
+  &__matrix-label:last-child {
+    border-bottom: 1px solid #000;
+  }
+
+  &__matrix-middle {
+    flex: 1 1 auto;
+    overflow: hidden;
+    max-width: calc(100% - var(--heatmap-left-col-width) - var(--heatmap-actions-width));
+  }
+
+  &__matrix-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0; // ensure grid touches adjacent bands with no gap
+  }
+
+  &__matrix-row {
+    display: flex;
+    white-space: nowrap;
+  }
+
+  &__matrix-row--header {
+    font-weight: 600;
+  }
+
+  // Add bottom border only on the last row of center matrix cells
+  &__matrix-row:last-child .heatmap-view__matrix-cell {
+    border-bottom: 1px solid #000;
+  }
+
+  &__matrix-cell {
+    width: var(--heatmap-cell-width);
+    height: var(--heatmap-cell-height);
+    flex: 0 0 var(--heatmap-cell-width); // prevent flexbox from shrinking the width
+    border-top: 1px solid #000;
+    border-left: 1px solid #000;
+    box-sizing: border-box;
+    display: flex;
     align-items: center;
     justify-content: center;
   }
 
-  &__column-label {
-    font-size: 0.75rem;
-    font-weight: 600;
-    line-height: 1.1;
-  }
-
-  &__column-sublabel {
+  &__matrix-value {
     font-size: 0.65rem;
-    line-height: 1.1;
-    opacity: 0.85;
+    line-height: 1;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
   }
 
-  &__cell {
-    text-align: center;
-    padding: 0.2rem 0.4rem;
-    border-top: 1px solid #000;
-    border-left: 1px solid #000;
+  &__matrix-header-line {
+    display: block;
   }
 
-  // Right edge: add right border on last heatmap column (before Chart/History)
-  ::ng-deep .heatmap-view__table .mat-mdc-header-row th.heatmap-view__column-header:last-of-type,
-  ::ng-deep .heatmap-view__table .mat-mdc-row td.heatmap-view__cell:last-of-type {
-    border-right: 1px solid #000 !important;
-  }
-
-  &__symbol-cell {
-    padding: 0.2rem 0.5rem;
-    border-top: 1px solid #000;
-    border-left: 1px solid #000;
-  }
-
-  &__cell-value {
-    display: inline-block;
-    min-width: 2.5rem;
-    font-size: 0.65rem;
-  }
-
-  &__actions-column {
+  // Right-hand Chart/History band
+  &__matrix-right {
     display: flex;
     flex-direction: column;
+    flex: 0 0 var(--heatmap-actions-width);
   }
 
-  &__actions-header {
-    height: 1.5rem;
-  }
-
-  // Visual separation between heatmap and action columns
-  &__action-header {
-    padding: 0.25rem 0.5rem;
-    border-top: 1px solid #000;
-    border-left: 1px solid #000;
-  }
-
-  &__action-cell {
-    padding: 0.2rem 0.4rem;
-    border-top: 1px solid #000;
-    border-left: 1px solid #000;
-  }
-
-  &__actions-row {
+  &__matrix-actions {
     display: flex;
-    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    height: var(--heatmap-cell-height);
+    border-top: 1px solid #000;
+    border-left: 1px solid #000;
+    box-sizing: border-box;
   }
 
-  &__action-button {
-    border: 1px solid black;
-    padding: 0.25rem 0.5rem;
+  // Match bottom border of right band with last data row
+  &__matrix-actions:last-child {
+    border-bottom: 1px solid #000;
+  }
+
+  &__matrix-actions--header {
     background-color: #f5f5f5;
   }
+
+  &__matrix-action-button {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    border: 1px solid #000;
+    background-color: #fff;
+    cursor: pointer;
+  }
+
 }
