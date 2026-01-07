@@ -63,11 +63,18 @@ export function withHeatmapViewStore() {
                   ? HeatmapState.READY
                   : HeatmapState.LOADING_TODAY;
 
+                const currentSort = store.sort();
+                const hasSort = currentSort.columnIndex !== null && currentSort.columnIndex >= 0;
+                const lastColIndex = slice.columns.length > 0 ? slice.columns.length - 1 : null;
+
                 patchState(store, {
                   slice,
                   status: {
                     state: nextState,
                   },
+                  sort: hasSort || lastColIndex === null
+                    ? currentSort
+                    : { columnIndex: lastColIndex, direction: 'desc' },
                 });
               }),
             );
@@ -254,7 +261,30 @@ export function withHeatmapViewStore() {
             } satisfies HeatmapMatrixRowVM;
           });
 
-          return [headerRow, ...dataRows];
+          const { columnIndex, direction } = sort;
+          let sortedDataRows = dataRows;
+          if (columnIndex !== null && columnIndex >= 0) {
+            sortedDataRows = [...dataRows].sort((a, b) => {
+              const av = a.cells[columnIndex]?.value ?? null;
+              const bv = b.cells[columnIndex]?.value ?? null;
+
+              const missingA = av == null || av === 0;
+              const missingB = bv == null || bv === 0;
+
+              if (missingA && missingB) return 0;
+              if (missingA) return 1;
+              if (missingB) return -1;
+
+              const diff = (av as number) - (bv as number);
+              if (diff === 0) {
+                return a.label.localeCompare(b.label);
+              }
+
+              return direction === 'asc' ? diff : -diff;
+            });
+          }
+
+          return [headerRow, ...sortedDataRows];
         })();
 
         return {

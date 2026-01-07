@@ -53,7 +53,13 @@
                     @for (row of vm().matrix; track row.label; let rowIndex = $index) {
                     <div class="heatmap-view__matrix-row" [class.heatmap-view__matrix-row--header]="row.kind === 'header'">
                         @for (cell of row.cells; track $index; let colIndex = $index) {
-                        <div class="heatmap-view__matrix-cell" [style.background-color]="cell.color">
+                        <div
+                            class="heatmap-view__matrix-cell"
+                            [class.heatmap-view__matrix-cell--sorted]="row.kind === 'header' && vm().sort.columnIndex === colIndex"
+                            [class.heatmap-view__matrix-cell--sorted-col]="row.kind === 'data' && vm().sort.columnIndex === colIndex"
+                            [style.background-color]="row.kind === 'data' ? cell.color : null"
+                            (click)="row.kind === 'header' ? onHeaderClick(colIndex) : null"
+                        >
                             <span class="heatmap-view__matrix-value">
                                 @if (row.kind === 'header') {
                                 @if (vm().query?.interval === Interval.MONTHLY) {
@@ -61,7 +67,14 @@
                                     {{ cell.date ? (cell.date | date:'MMM') : '' }}
                                 </span>
                                 }
-                                <span class="heatmap-view__matrix-header-line">{{ cell.date?.slice(5) }}</span>
+                                <span class="heatmap-view__matrix-header-line">
+                                    {{ cell.date?.slice(5) }}
+                                    @if (vm().sort.columnIndex === colIndex) {
+                                        <span class="heatmap-view__matrix-sort-indicator">
+                                            {{ vm().sort.direction === 'asc' ? '▲' : '▼' }}
+                                        </span>
+                                    }
+                                </span>
                                 <span class="heatmap-view__matrix-header-line">{{ (cell.date ? (cell.date | date:'EEE') : '') }}</span>
                                 } @else if (cell.value !== null) {
                                 {{ cell.value | number:'1.3-3' }}

@@ -158,6 +158,10 @@
   // Header row should sit directly under the month band without a double border
   &__matrix-row--header .heatmap-view__matrix-cell {
     border-top: 0;
+    cursor: pointer; // make it obvious headers are clickable for sorting
+    &:hover {
+      background-color: #d3d3d3;
+    }
   }
 
   // Ensure no double border between left column and first data/header cell
@@ -175,6 +179,17 @@
 
   &__matrix-header-line {
     display: block;
+  }
+
+  // Sorted column highlighting
+  &__matrix-cell--sorted {
+    // Emphasize the active header cell only with background shading
+    background-color: #d0d0ff; // slightly stronger highlight
+  }
+
+  &__matrix-sort-indicator {
+    font-size: 0.7rem;
+    margin-left: 0.15rem;
   }
 
   // Right-hand Chart/History band
