@@ -39,23 +39,7 @@ In the **Firestore emulator UI** (`http://127.0.0.1:4010/firestore`):
 
 These will be recreated by backfill.
 
-### 2.2 Remove legacy root `data` field from pairs-data
-
-```powershell
-$body = @{ data = @{} } | ConvertTo-Json
-
-Invoke-RestMethod `
-  -Method Post `
-  -Uri "http://127.0.0.1:5002/rel-str/us-central1/purgePairsDataRootDataField" `
-  -ContentType "application/json" `
-  -Body $body
-```
-
-Effect:
-
-- Iterates all `pairs-data/{PAIR}` docs and deletes the legacy `data` array field.
-
-### 2.3 Purge per‑pair signals-daily for all pairs
+### 2.2 Purge per‑pair signals-daily for all pairs
 
 ```powershell
 $body = @{
@@ -79,7 +63,7 @@ Effect per pair (`pair-registry` driven):
 - Deletes all `signals-daily/{YYYY}/days/*` docs for `fromYear..toYear`.
 - Deletes `signals-daily/{YYYY}` container docs when `removeContainers = true`.
 
-### 2.4 Purge per‑pair signals for all pairs
+### 2.3 Purge per‑pair signals for all pairs
 
 ```powershell
 $body = @{
@@ -105,7 +89,7 @@ Effect per pair (`pair-registry` driven):
 - Deletes the `signals/{YYYY}` docs themselves.
 - Deletes any `signals/open/items/*` and the `signals/open` doc.
 
-#### 2.4.1 (2025-12) Combined purge for canonical signals + signals-activity
+#### 2.3.1 (2025-12) Combined purge for canonical signals + signals-activity
 
 As of the multi-interval RS refactor, there is a single callable that can purge both
 canonical per-pair `signals` **and** per-pair `signals-activity` in one pass, driven
@@ -137,7 +121,7 @@ Effect per pair (`pair-registry` driven):
 - Deletes all `pairs-data/{PAIR}/signals-activity/{YYYY}/days/*` docs for `fromYear..toYear`.
 - Deletes `signals/{YYYY}` and `signals-activity/{YYYY}` container docs when `removeContainers = true`.
 
-### 2.5 Hard delete signals and signals-daily subcollections (per pair)
+### 2.4 Hard delete signals and signals-daily subcollections (per pair)
 
 After the callables above, use the **Firestore CLI** against the emulator to ensure *all* `signals` and `signals-daily` subcollections are removed for the registered pairs.
 
@@ -325,26 +309,36 @@ $resDiag.result.results |
 $resDiag.result.results[0].problems | Format-List *
 ```
 
-Key reasons:
-
-- `missing_base_bar` / `missing_target_bar` → bars absent from Savant for that day.
-- `compute_skipped` → both bars exist, but `buildPhaseSeries` did not emit a point (e.g. fewer than 5 aligned days in window, or non‑finite derived `cp`/prices).
-
 ## 6. Optional: Local Daily Refresh Script for Emulator
 
 Since emulators do not support Cloud Scheduler, use a local PowerShell script + Windows Task Scheduler to keep emulator data fresh.
 
-Example script `scripts/refresh-emulator-rs.ps1`:
+### 6.1 Running the refresh script
+
+- Location: `scripts/refresh-emulator-rs.ps1` in the repo root.
+- Preconditions:
+  - Firebase emulators are running for **functions + firestore** (see section 1).
+  - Functions emulator is listening on `http://127.0.0.1:5002/rel-str/us-central1`.
+  - Admin backfill token is `local-admin` (script uses `$TOKEN = "local-admin"`).
+
+From the project root (`C:\aa\projects\rel-str`):
+
+```powershell
+PS C:\aa\projects\rel-str> .\scripts\refresh-emulator-rs.ps1
+```
+
+This will:
+- Refresh archives for the last ~20 days via `recomputeRegisteredBackfill`.
+- Backfill signals/positions/signals-activity for the same `[from,to]` window via `backfillSignalsPipelineAdmin`.
+
+You can optionally schedule this script via Windows Task Scheduler to run once per day while emulators are running. This keeps the emulator’s archives + signals/positions approximately current using the existing production backfill paths.
+
+### 6.2 Script Example
 
 ```powershell
 $TOKEN = "local-admin"
 
 # 1) Refresh archives for recent days
- # NOTE (2025-12): recomputeRegisteredBackfill now requires explicit
- # `from`/`to` dates. The legacy `days`/`limit`/`yearsBack` fields are
- # deprecated for RS/backfill and must not be used to drive the fetch
- # window.
-
 $today = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd')
 $from  = (Get-Date).ToUniversalTime().AddDays(-20).ToString('yyyy-MM-dd')
 
@@ -377,6 +371,3 @@ Invoke-RestMethod `
   -Headers @{ Authorization = "Bearer $TOKEN" } `
   -ContentType "application/json" `
   -Body $bodyBackfill
-```
-
-Schedule this via Windows Task Scheduler to run once per day while emulators are running. This keeps the emulator’s archives + signals/positions approximately current using the existing production backfill paths.
