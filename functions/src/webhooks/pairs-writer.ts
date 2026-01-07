@@ -12,12 +12,13 @@ import { Interval } from '../types/signal.types';
  * Write unified RS series for a pair into Firestore (pairs-data schema).
  *
  * Document path: pairs-data/{BASELINE}-{TARGET}
- * Shape (legacy root fields):
+ * Canonical root shape:
  * {
  *   meta: { baseline, symbol, interval, window },
  *   lastUpdatedAt: Timestamp,
- *   latest: { day, pre?{}, post?{} }, // @deprecated FE is moving to archive-first; root "latest" slated for removal.
- *   data: [ { day, dow, pre?{}, post?{} }, ... ] // @deprecated FE is moving to archive-first; root "data" slated for removal.
+ *   latestDaily?: { day, dow, pre?{}, post?{} },
+ *   latestWeekly?: { day, dow, post?{} },
+ *   latestMonthly?: { day, dow, post?{} },
  * }
  *
  * Notes:
@@ -25,10 +26,9 @@ import { Interval } from '../types/signal.types';
  * - Post phase also computes versus prior-day post-close (ac, fallback c).
  * - Retention: limited to meta.window elements (default 30) from the tail.
  * - Upsert: per-day entries merged; existing other phase preserved when one phase updates.
- *
- * @deprecated Root-doc fields `data` and `latest` are maintained for backward compatibility only. Archive shards under
- *   `pairs-data/{PAIR}/archive-YYYY/{YYMMDD}` are the authoritative store for FE consumption.
- * TODO[deprecate]: Remove writes to root `data`/`latest` once FE removes legacy readers and Decision Board no longer needs root `latest`.
+ * - Archive shards under `pairs-data/{PAIR}/archive-YYYY/{YYMMDD}` and interval variants
+ *   (`archive-weekly-YYYY`, `archive-monthly-YYYY`) are the authoritative store for FE
+ *   consumption and for the canonical RS engine.
  */
 export async function writeUnifiedSeries(
   baseline: string,
@@ -311,9 +311,7 @@ export async function writeUnifiedSeries(
   };
 
   if (interval === Interval.DAILY) {
-    // Keep legacy latest in sync with latestDaily until FE is fully migrated.
     rootPatch.latestDaily = latestPayload;
-    rootPatch.latest = latestPayload;
   } else if (interval === Interval.WEEKLY) {
     rootPatch.latestWeekly = latestPayload;
   } else if (interval === Interval.MONTHLY) {
