@@ -6,6 +6,7 @@ import {
   ARCHIVE_COLLECTION_PREFIX,
   WEEKLY_ARCHIVE_COLLECTION_PREFIX,
   MONTHLY_ARCHIVE_COLLECTION_PREFIX,
+  DISABLE_SIGNALS_ACTIVITY_POSITIONS,
 } from './webhooks-config';
 import { db } from '../firebase-admin-init';
 import { detectRsEvents } from './rs-signals-engine';
@@ -160,6 +161,11 @@ export async function runCanonicalRsEngineForPair(
   series: IntervalSeriesContext,
   thresholds: CanonicalEngineThresholds,
 ): Promise<CanonicalEngineResult> {
+  if (DISABLE_SIGNALS_ACTIVITY_POSITIONS) {
+    logger.info('runCanonicalRsEngineForPair_disabled', { pairId });
+    return { writes: [], activity: [] };
+  }
+
   const writes: RsWriteEvent[] = [];
   const activity: ActivityEvent[] = [];
 

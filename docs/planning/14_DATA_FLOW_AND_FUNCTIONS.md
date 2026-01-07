@@ -21,7 +21,7 @@
     - Compute: `buildPhaseSeries(baseBars, targetBars, phase, baseline, target, logger)` for each interval (PRE uses intraday fields, POST uses EOD fields).
     - Persist: `writeUnifiedSeries(baseline, target, phase, series, baseBars, targetBars, interval)` writes RS into per-interval archives (`archive-YYYY`, `archive-weekly-YYYY`, `archive-monthly-YYYY`) and latest mirrors on `pairs-data/{PAIR}`.
     - POST canonical engine:
-      - Calls `runCanonicalRsEngineForPair(pairId, baseline, target, logger, series, thresholds)` which:
+      - Calls `runCanonicalRsEngineForPair(pairId, baseline, target, logger, series, thresholds)` which (when enabled):
         - Loads archive RS samples (DAILY/WEEKLY/MONTHLY).
         - Runs `rs-signals-engine.detectRsEvents(samples, thresholds)` per interval to get OPEN/CLOSE events.
         - Builds `RsWriteEvent[]` and calls `rs-events-consumer.applyRsEventsForPair(writes)` to write canonical signals (`pairs-data/{PAIR}/signals/*`) and root positions/timelines (`positions/{open|YYYY-closed}/items/{positionId}`).
@@ -69,6 +69,25 @@
   - `applyRsEventsForPair(events)`
     - Consumes OPEN/CLOSE events and performs Firestore writes for canonical signals (`pairs-data/{PAIR}/signals`) and root positions/timelines (`positions/{open|YYYY-closed}/items/{positionId}`).
     - Source of truth for which pairs are active; feeds `processDataReadyRunV2` and admin recomputes.
+
+### Canonical Engine Kill Switch (DISABLE_SIGNALS_ACTIVITY_POSITIONS)
+
+- File: `functions/src/webhooks/webhooks-config.ts`
+  - Defines `DISABLE_SIGNALS_ACTIVITY_POSITIONS` from the environment:
+    - `DISABLE_SIGNALS_ACTIVITY_POSITIONS = String(process.env.DISABLE_SIGNALS_ACTIVITY_POSITIONS || '').toLowerCase() === 'true'`.
+- File: `functions/src/webhooks/rs-canonical-engine.ts`
+  - `runCanonicalRsEngineForPair(...)` begins with:
+    - If `DISABLE_SIGNALS_ACTIVITY_POSITIONS === true`, log `runCanonicalRsEngineForPair_disabled` and return `{ writes: [], activity: [] }` immediately.
+    - Otherwise, run the full engine as described above.
+- Effect when the flag is **true**:
+  - Realtime (`processDataReadyRunV2` / `processPairLive`) and admin/backfill callers still run `writeUnifiedSeries` and update archive / latest RS data.
+  - The canonical engine produces no writes/activity, so:
+    - No new canonical `signals` docs are written.
+    - No new `signals-activity` docs are written (per-pair or root).
+    - No new positions or timeline updates are created from RS events.
+- How to set the flag:
+  - **Local/emulator:** add `DISABLE_SIGNALS_ACTIVITY_POSITIONS=true` to `functions/.env.rel-str` and restart the emulators.
+  - **Deployed functions (prod/stage):** set `DISABLE_SIGNALS_ACTIVITY_POSITIONS=true` in the Cloud Functions / Cloud Run service env for project `rel-str`, then redeploy.
 
 ## Backend: Admin/Backfill Utilities (Manual)
 - File: `functions/src/webhooks/admin-tasks.ts`

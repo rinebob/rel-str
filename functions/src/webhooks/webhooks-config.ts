@@ -86,6 +86,11 @@ export const SIGNALS_ACTIVITY_COLLECTION = 'signals-activity';
 
 /** Root signals-activity mirror collection (aggregated across pairs). */
 export const SIGNALS_ACTIVITY_ROOT_COLLECTION = 'signals-activity';
+
+/** If true, disable canonical RS engine outputs (signals/activity/positions) for all pipelines. */
+export const DISABLE_SIGNALS_ACTIVITY_POSITIONS =
+  String(process.env.DISABLE_SIGNALS_ACTIVITY_POSITIONS || '').toLowerCase() === 'true';
+
 // RS signal thresholds for live/open-close detection
 export const RS_OPEN_LONG_THRESHOLD = 0.8;
 export const RS_CLOSE_LONG_THRESHOLD = 0.8;

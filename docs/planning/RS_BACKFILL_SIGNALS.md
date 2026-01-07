@@ -139,6 +139,71 @@ Backfill-specific responsibilities:
 
 Live pipeline does not do these bulk/historical tasks; it processes one run/day at a time using live partner data and Firestore state.
 
+## Temporarily Disabling Signals / Activity / Positions
+
+In some phases (e.g. when onboarding a large number of new pairs), we may want to continue ingesting and archiving RS data but **skip** all signals/activity/positions writes for both live and backfill flows.
+
+This is controlled by a shared environment flag consumed by the canonical engine:
+
+- `DISABLE_SIGNALS_ACTIVITY_POSITIONS` (boolean, default `false`)
+  - Defined in `functions/src/webhooks/webhooks-config.ts` as:
+
+    ```ts
+    export const DISABLE_SIGNALS_ACTIVITY_POSITIONS =
+      String(process.env.DISABLE_SIGNALS_ACTIVITY_POSITIONS || '').toLowerCase() === 'true';
+    ```
+
+### How the flag works
+
+- `functions/src/webhooks/rs-canonical-engine.ts`
+  - `runCanonicalRsEngineForPair(pairId, baseline, symbol, logger, series, thresholds)` starts with:
+
+    ```ts
+    if (DISABLE_SIGNALS_ACTIVITY_POSITIONS) {
+      logger.info('runCanonicalRsEngineForPair_disabled', { pairId });
+      return { writes: [], activity: [] };
+    }
+    ```
+
+  - When the flag is **true**, the engine:
+    - Skips loading archive RS samples and scanning threshold crossings.
+    - Skips building `RsWriteEvent[]` and `ActivityEvent[]`.
+    - Returns immediately with empty `writes` and `activity`.
+
+- All callers that normally use the engine output then see `writes.length === 0` and `activity.length === 0`:
+  - **Live pipeline** (`processPairLive` in `partner-webhooks.ts`):
+    - Still runs `writeUnifiedSeries` and archive/latest RS writes.
+    - Effectively performs **no** signals, activity, or positions writes for that run.
+  - **Backfill pipelines** (e.g. `backfillSignalsPipelineAdmin`, `runSignalsBackfillForPairs`):
+    - Still reconstruct RS series from archives.
+    - Receive empty engine results and therefore do **no** canonical signals, signals-activity, or position/timeline writes.
+
+### How to set the flag
+
+- **Local / emulators**
+  - Edit `functions/.env.rel-str` and add:
+
+    ```text
+    DISABLE_SIGNALS_ACTIVITY_POSITIONS=true
+    ```
+
+  - Restart emulators (`npm run emulators:start`) so the new env is loaded.
+
+- **Prod / staging (`rel-str` project)**
+  - Set an environment variable `DISABLE_SIGNALS_ACTIVITY_POSITIONS=true` for the Functions/Cloud Run services (same place other RS_* / SILENCE_* flags are configured).
+  - Redeploy functions so `process.env.DISABLE_SIGNALS_ACTIVITY_POSITIONS` is populated.
+
+### Operational Notes
+
+- With the flag enabled:
+  - Archive RS data (`archive-YYYY`, `archive-weekly-YYYY`, `archive-monthly-YYYY` and `pairs-data/{PAIR}.latest`) continues to update as normal.
+  - No new canonical signals, Signals Activity docs, or positions are created or updated.
+  - Existing data in those collections is left intact and becomes effectively read-only until the flag is turned off.
+- When you are ready to re-enable signals/activity/positions:
+  - Clear or adjust the env var (`DISABLE_SIGNALS_ACTIVITY_POSITIONS=false` or unset).
+  - Redeploy functions.
+  - Optionally run targeted backfill (e.g. `backfillSignalsPipelineAdmin`) to reconstruct canonical signals and positions for selected ranges/pairs.
+
 ## How to Run Backfill
 
 ### 1. Build & Deploy
