@@ -8,26 +8,6 @@ import { RsCalcsStore } from "./rs-calcs.store"
 import { RsDataStore } from "./rs-data.store"
 import { firstValueFrom, Subscription } from 'rxjs'
 
-/**
- * Archive Read Toggle (DEV-only)
- * ---------------------------------
- * Data source selection for the V2 heatmap read pipeline.
- * This is a development toggle to compare legacy `pairs-data/{PAIR}.data` vs
- * archive-based reads under `pairs-data/{PAIR}/archive-YYYY/*`.
- *
- * Default: Legacy. When Archive is fully implemented and validated,
- * we will flip the default to Archive and later remove Legacy.
- */
-/**
- * Data source selector for Dashboard V2 heatmap.
- * @deprecated LEGACY is deprecated. Archive is the authoritative path. TODO[deprecate]: Remove LEGACY and related branches after archive stabilization in prod.
- */
-export enum DataSourceMode {
-    /** @deprecated Scheduled for removal with archive-first rollout. */
-    LEGACY = 'legacy',
-    ARCHIVE = 'archive',
-}
-
 export type StockListV2State = {
     allStockListsV2: RelStrStockList[],
     selectedStockListV2: RelStrStockList,
@@ -37,8 +17,6 @@ export type StockListV2State = {
     formModeV2: StockListFormMode,
     showFormV2: boolean,
     formDataV2: RelStrStockList,
-    /** DEV-only: heatmap data source mode (see DataSourceMode). Default = legacy */
-    dataSourceMode: DataSourceMode,
     heatmapLoadingV2: boolean,
     heatmapRenderedTimeframeV2: Timeframe | null,
 }
@@ -52,7 +30,6 @@ export const initialV2State: StockListV2State = {
     formModeV2: FormMode.CREATE,
     showFormV2: false,
     formDataV2: {name: '', baseline: '', symbols: []},
-    dataSourceMode: DataSourceMode.ARCHIVE,
     heatmapLoadingV2: false,
     heatmapRenderedTimeframeV2: null,
 }
@@ -87,23 +64,6 @@ export function withStockListV2Feature() {
                 patchState(store, { supportedPairsListV2 });
             },
 
-        })),
-
-        // ================================================================
-        // DEV-only methods block for Archive Read Toggle
-        // Keep separate from other methods to avoid same-block references
-        // ================================================================
-        withMethods((store) => ({
-            /**
-             * DEV-only UI toggle setter: select which pipeline to use for heatmap reads.
-             * - LEGACY: reads from pairs-data/{PAIR}.data (unchanged behavior)
-             * - ARCHIVE: reads from archive shards pairs-data/{PAIR}/archive-YYYY/{YYMMDD}
-             */
-            setDataSourceModeV2(mode: DataSourceMode) {
-                patchState(store, { dataSourceMode: mode ?? DataSourceMode.LEGACY });
-            },
-            /** Getter for current data source mode (DEV-only). */
-            getDataSourceModeV2(): DataSourceMode { return store.dataSourceMode(); },
         })),
 
         // STOCK LISTS
