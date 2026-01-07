@@ -111,6 +111,14 @@ export class HeatmapViewComponent {
     this.store.setSort({ columnIndex, direction });
   }
 
+  onLabelHeaderClick(): void {
+    const current = this.vm().sort;
+    const isLabelSorted = current.columnIndex === -1;
+    const direction = isLabelSorted && current.direction === 'desc' ? 'asc' : 'desc';
+
+    this.store.setSort({ columnIndex: -1, direction });
+  }
+
   onChartClick(symbol: string): void {
     console.log('[HeatmapView] Chart click', symbol);
   }

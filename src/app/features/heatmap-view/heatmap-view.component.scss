@@ -66,6 +66,11 @@
   &__matrix-label--header {
     font-weight: 600;
     background-color: #f5f5f5;
+    cursor: pointer;
+
+    &:hover {
+      background-color: #d3d3d3;
+    }
   }
 
   &__matrix-label--corner {
@@ -185,6 +190,11 @@
   &__matrix-cell--sorted {
     // Emphasize the active header cell only with background shading
     background-color: #d0d0ff; // slightly stronger highlight
+  }
+
+  // Sorted state for the left label header (pair label column).
+  &__matrix-label--sorted {
+    background-color: #d0d0ff;
   }
 
   &__matrix-sort-indicator {

@@ -64,7 +64,7 @@ export function withHeatmapViewStore() {
                   : HeatmapState.LOADING_TODAY;
 
                 const currentSort = store.sort();
-                const hasSort = currentSort.columnIndex !== null && currentSort.columnIndex >= 0;
+                const hasSort = currentSort.columnIndex !== null;
                 const lastColIndex = slice.columns.length > 0 ? slice.columns.length - 1 : null;
 
                 patchState(store, {
@@ -263,7 +263,9 @@ export function withHeatmapViewStore() {
 
           const { columnIndex, direction } = sort;
           let sortedDataRows = dataRows;
-          if (columnIndex !== null && columnIndex >= 0) {
+          if (columnIndex === null) {
+            // leave in original order
+          } else if (columnIndex >= 0) {
             sortedDataRows = [...dataRows].sort((a, b) => {
               const av = a.cells[columnIndex]?.value ?? null;
               const bv = b.cells[columnIndex]?.value ?? null;
@@ -281,6 +283,12 @@ export function withHeatmapViewStore() {
               }
 
               return direction === 'asc' ? diff : -diff;
+            });
+          } else if (columnIndex === -1) {
+            // Sort alphabetically by pair label (baseline-symbol)
+            sortedDataRows = [...dataRows].sort((a, b) => {
+              const cmp = a.label.localeCompare(b.label);
+              return direction === 'asc' ? cmp : -cmp;
             });
           }
 

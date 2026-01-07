@@ -28,8 +28,17 @@
                     class="heatmap-view__matrix-label"
                     [class.heatmap-view__matrix-label--header]="row.kind === 'header'"
                     [class.heatmap-view__matrix-label--corner]="row.kind === 'header' && rowIndex === 0"
+                    [class.heatmap-view__matrix-label--sorted]="row.kind === 'header' && rowIndex === 0 && vm().sort.columnIndex === -1"
+                    (click)="row.kind === 'header' && rowIndex === 0 ? onLabelHeaderClick() : null"
                 >
-                    {{ row.label }}
+                    <span class="heatmap-view__matrix-header-line">
+                        {{ row.label }}
+                        @if (row.kind === 'header' && rowIndex === 0 && vm().sort.columnIndex === -1) {
+                            <span class="heatmap-view__matrix-sort-indicator">
+                                {{ vm().sort.direction === 'asc' ? '▲' : '▼' }}
+                            </span>
+                        }
+                    </span>
                 </div>
                 }
             </div>
