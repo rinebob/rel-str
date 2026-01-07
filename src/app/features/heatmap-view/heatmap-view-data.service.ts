@@ -154,9 +154,9 @@ export class HeatmapViewDataService implements HeatmapDataService {
       return sortedDates.map(date => {
         const point = byDate.get(date);
         if (!point) return null;
-        const v = Number.isFinite(point.norm as number)
-          ? (point.norm as number)
-          : point.value;
+        // Use rsRaw (value) as the primary metric for the heatmap.
+        const raw = Number(point.value);
+        const v = Number.isFinite(raw) ? raw : null;
         return Number.isFinite(v) ? v : null;
       });
     });
