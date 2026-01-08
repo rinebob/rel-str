@@ -1,7 +1,7 @@
 .heatmap-view {
   // Shared dimensions for all heatmap cells (matrix preview + mat-table)
   --heatmap-cell-width: 4rem;
-  --heatmap-cell-height: 4rem;
+  --heatmap-cell-height: 2rem;
   --heatmap-left-col-width: 7rem;
   --heatmap-actions-width: 9rem;
   --heatmap-month-band-height: calc(var(--heatmap-cell-height) * 0.66);
@@ -40,6 +40,8 @@
     align-items: flex-start;
     width: 100%;
     box-sizing: border-box;
+    max-height: calc(100vh - 10rem);
+    overflow-y: auto; // vertical scroll wraps labels, grid, and actions together
   }
 
   &__matrix-left {
@@ -67,6 +69,9 @@
     font-weight: 600;
     background-color: #f5f5f5;
     cursor: pointer;
+    position: sticky;
+    top: 0;
+    z-index: 3;
 
     &:hover {
       background-color: #d3d3d3;
@@ -85,18 +90,20 @@
 
   &__matrix-middle {
     flex: 1 1 auto;
-    overflow: hidden;
     max-width: calc(100% - var(--heatmap-left-col-width) - var(--heatmap-actions-width));
+    overflow: hidden; // vertical scroll handled by __matrix-preview; horizontal by __matrix-scroll
   }
 
   &__matrix-scroll {
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: hidden; // hide native scrollbar; proxy scrollbar handles horizontal scroll
     padding: 0; // ensure grid touches adjacent bands with no gap
   }
 
   &__month-band-row {
     display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 2;
   }
 
   &__month-band-cell {
@@ -136,6 +143,9 @@
 
   &__matrix-row--header {
     font-weight: 600;
+    position: sticky;
+    top: var(--heatmap-month-band-height);
+    z-index: 2;
   }
 
   // Add bottom border only on the last row of center matrix cells
@@ -228,6 +238,9 @@
   &__matrix-actions--header {
     background-color: #f5f5f5;
     height: calc(var(--heatmap-month-band-height) + var(--heatmap-cell-height));
+    position: sticky;
+    top: 0;
+    z-index: 3;
   }
 
   &__matrix-action-button {
@@ -236,6 +249,22 @@
     border: 1px solid #000;
     background-color: #fff;
     cursor: pointer;
+  }
+
+  // Fixed horizontal scrollbar proxy at bottom of viewport
+  &__hscroll {
+    position: sticky;
+    bottom: 0;
+    margin-left: var(--heatmap-left-col-width);
+    margin-right: var(--heatmap-actions-width);
+    width: calc(100% - var(--heatmap-left-col-width) - var(--heatmap-actions-width));
+    overflow-x: auto;
+    overflow-y: hidden;
+    box-sizing: border-box;
+  }
+
+  &__hscroll-inner {
+    height: 0.75rem;
   }
 
 }

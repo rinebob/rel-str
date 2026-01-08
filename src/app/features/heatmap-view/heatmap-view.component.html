@@ -44,7 +44,7 @@
             </div>
 
             <div class="heatmap-view__matrix-middle">
-                <div class="heatmap-view__matrix-scroll" #scrollContainer>
+                <div class="heatmap-view__matrix-scroll" #scrollContainer (scroll)="onMainScroll()">
                     @if (vm().monthBands.length > 0) {
                     <div class="heatmap-view__month-band-row">
                         @for (band of vm().monthBands; track band.label + '-' + band.span) {
@@ -118,6 +118,10 @@
                 </div>
                 }
             </div>
+        </div>
+
+        <div class="heatmap-view__hscroll" #hScroll (scroll)="onHScroll()">
+            <div class="heatmap-view__hscroll-inner" [style.width.px]="hScrollWidth"></div>
         </div>
 
     }

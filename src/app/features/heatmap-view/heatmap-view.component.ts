@@ -28,7 +28,16 @@ export class HeatmapViewComponent {
   @ViewChild('scrollContainer', { static: false })
   private scrollContainer?: ElementRef<HTMLDivElement>;
 
+  @ViewChild('hScroll', { static: false })
+  private hScroll?: ElementRef<HTMLDivElement>;
+
   readonly vm = computed(() => this.store.vm());
+
+  // Width for proxy horizontal scrollbar, kept in sync with main scroll container width
+  hScrollWidth = 0;
+
+  // Guard to avoid recursive scroll event feedback between main grid and proxy scrollbar
+  private syncingScroll = false;
 
   constructor() {
     // Load lists for the authenticated user, mirroring dashboard v2 behavior.
@@ -55,6 +64,12 @@ export class HeatmapViewComponent {
 
       queueMicrotask(() => {
         el.scrollLeft = el.scrollWidth;
+        this.hScrollWidth = el.scrollWidth;
+
+        const proxy = this.hScroll?.nativeElement;
+        if (proxy) {
+          proxy.scrollLeft = el.scrollLeft;
+        }
       });
     });
 
@@ -101,6 +116,26 @@ export class HeatmapViewComponent {
       lastQueryKey = key;
       this.store.setQuery(query);
     });
+  }
+
+  onMainScroll(): void {
+    if (this.syncingScroll) return;
+    const main = this.scrollContainer?.nativeElement;
+    const proxy = this.hScroll?.nativeElement;
+    if (!main || !proxy) return;
+    this.syncingScroll = true;
+    proxy.scrollLeft = main.scrollLeft;
+    this.syncingScroll = false;
+  }
+
+  onHScroll(): void {
+    if (this.syncingScroll) return;
+    const main = this.scrollContainer?.nativeElement;
+    const proxy = this.hScroll?.nativeElement;
+    if (!main || !proxy) return;
+    this.syncingScroll = true;
+    main.scrollLeft = proxy.scrollLeft;
+    this.syncingScroll = false;
   }
 
   onHeaderClick(columnIndex: number): void {
