@@ -1,0 +1,4273 @@
+[
+  {
+    "symbol": "A",
+    "name": "Agilent Technologies",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "AAPL",
+    "name": "Apple Inc.",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "ABBV",
+    "name": "AbbVie",
+    "etfs": [
+      "SPY",
+      "XBI",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "ABNB",
+    "name": "Airbnb",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "ABT",
+    "name": "Abbott Laboratories",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "ACGL",
+    "name": "Arch Capital Group",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "ACN",
+    "name": "Accenture",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "ADBE",
+    "name": "Adobe Inc.",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "ADI",
+    "name": "Analog Devices",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK",
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "ADM",
+    "name": "Archer Daniels Midland",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "ADP",
+    "name": "Automatic Data Processing",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "ADSK",
+    "name": "Autodesk",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "AEE",
+    "name": "Ameren",
+    "etfs": [
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "AEP",
+    "name": "American Electric Power",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "AES",
+    "name": "AES Corporation",
+    "etfs": [
+      "SPY",
+      "XLE",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "AFL",
+    "name": "Aflac",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "AIG",
+    "name": "American International Group",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "AIZ",
+    "name": "Assurant",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "AJG",
+    "name": "Arthur J. Gallagher & Co.",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "AKAM",
+    "name": "Akamai Technologies",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "ALB",
+    "name": "Albemarle Corporation",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "ALGN",
+    "name": "Align Technology",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "ALL",
+    "name": "Allstate",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "ALLE",
+    "name": "Allegion",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "ALNY",
+    "name": "Alnylam Pharmaceuticals",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "AMAT",
+    "name": "Applied Materials",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLB",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "AMCR",
+    "name": "Amcor",
+    "etfs": [
+      "SPY",
+      "XLB"
+    ]
+  },
+  {
+    "symbol": "AMD",
+    "name": "Advanced Micro Devices",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK",
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "AME",
+    "name": "Ametek",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "AMGN",
+    "name": "Amgen",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XBI",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "AMP",
+    "name": "Ameriprise Financial",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "AMT",
+    "name": "American Tower",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "AMZN",
+    "name": "Amazon",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "ANET",
+    "name": "Arista Networks",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "AON",
+    "name": "Aon plc",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "AOS",
+    "name": "A. O. Smith",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "APA",
+    "name": "APA Corporation",
+    "etfs": [
+      "SPY",
+      "XLE"
+    ]
+  },
+  {
+    "symbol": "APD",
+    "name": "Air Products",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "APH",
+    "name": "Amphenol",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "APO",
+    "name": "Apollo Global Management",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "APP",
+    "name": "AppLovin",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "APTV",
+    "name": "Aptiv",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "ARE",
+    "name": "Alexandria Real Estate Equities",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "ARES",
+    "name": "Ares Management",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "ARM",
+    "name": "Arm Holdings",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ"
+    ]
+  },
+  {
+    "symbol": "ASML",
+    "name": "ASML Holding",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ"
+    ]
+  },
+  {
+    "symbol": "ATO",
+    "name": "Atmos Energy",
+    "etfs": [
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "AVB",
+    "name": "AvalonBay Communities",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "AVGO",
+    "name": "Broadcom",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK",
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "AVY",
+    "name": "Avery Dennison",
+    "etfs": [
+      "SPY",
+      "XLB"
+    ]
+  },
+  {
+    "symbol": "AWK",
+    "name": "American Water Works",
+    "etfs": [
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "AXON",
+    "name": "Axon Enterprise",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "AXP",
+    "name": "American Express",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "AZN",
+    "name": "AstraZeneca",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ"
+    ]
+  },
+  {
+    "symbol": "AZO",
+    "name": "AutoZone",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "BA",
+    "name": "Boeing",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "BAC",
+    "name": "Bank of America",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "BALL",
+    "name": "Ball Corporation",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "BAX",
+    "name": "Baxter International",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "BBY",
+    "name": "Best Buy",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "BDX",
+    "name": "Becton Dickinson",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "BEN",
+    "name": "Franklin Resources",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "BF-B",
+    "name": "Brown–Forman",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "BG",
+    "name": "Bunge Global",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "BIIB",
+    "name": "Biogen",
+    "etfs": [
+      "SPY",
+      "XBI",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "BK",
+    "name": "BNY Mellon",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "BKNG",
+    "name": "Booking Holdings",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "BKR",
+    "name": "Baker Hughes",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLE"
+    ]
+  },
+  {
+    "symbol": "BLDR",
+    "name": "Builders FirstSource",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "BLK",
+    "name": "BlackRock",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "BMY",
+    "name": "Bristol Myers Squibb",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "BR",
+    "name": "Broadridge Financial Solutions",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "BRK-B",
+    "name": "Berkshire Hathaway",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "BRO",
+    "name": "Brown & Brown",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "BSX",
+    "name": "Boston Scientific",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "BX",
+    "name": "Blackstone Inc.",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "BXP",
+    "name": "BXP, Inc.",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "C",
+    "name": "Citigroup",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "CAG",
+    "name": "Conagra Brands",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "CAH",
+    "name": "Cardinal Health",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "CARR",
+    "name": "Carrier Global",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "CAT",
+    "name": "Caterpillar Inc.",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "CB",
+    "name": "Chubb Limited",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "CBOE",
+    "name": "Cboe Global Markets",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "CBRE",
+    "name": "CBRE Group",
+    "etfs": [
+      "SPY",
+      "XLRE"
+    ]
+  },
+  {
+    "symbol": "CCEP",
+    "name": "Coca-Cola Europacific Partners",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ"
+    ]
+  },
+  {
+    "symbol": "CCI",
+    "name": "Crown Castle",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "CCL",
+    "name": "Carnival",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "CDNS",
+    "name": "Cadence Design Systems",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "CDW",
+    "name": "CDW Corporation",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "CEG",
+    "name": "Constellation Energy",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "CF",
+    "name": "CF Industries",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "CFG",
+    "name": "Citizens Financial Group",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "CHD",
+    "name": "Church & Dwight",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "CHRW",
+    "name": "C.H. Robinson",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "CHTR",
+    "name": "Charter Communications",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLC"
+    ]
+  },
+  {
+    "symbol": "CI",
+    "name": "Cigna",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "CINF",
+    "name": "Cincinnati Financial",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "CL",
+    "name": "Colgate-Palmolive",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "CLX",
+    "name": "Clorox",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "CMCSA",
+    "name": "Comcast",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLC"
+    ]
+  },
+  {
+    "symbol": "CME",
+    "name": "CME Group",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "CMG",
+    "name": "Chipotle Mexican Grill",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "CMI",
+    "name": "Cummins",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "CMS",
+    "name": "CMS Energy",
+    "etfs": [
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "CNC",
+    "name": "Centene Corporation",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "CNP",
+    "name": "CenterPoint Energy",
+    "etfs": [
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "COF",
+    "name": "Capital One",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "COIN",
+    "name": "Coinbase",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "COO",
+    "name": "Cooper Companies (The)",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "COP",
+    "name": "ConocoPhillips",
+    "etfs": [
+      "SPY",
+      "XLE"
+    ]
+  },
+  {
+    "symbol": "COR",
+    "name": "Cencora",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "COST",
+    "name": "Costco",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLP"
+    ]
+  },
+  {
+    "symbol": "CPAY",
+    "name": "Corpay",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "CPB",
+    "name": "Campbell's Company (The)",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "CPRT",
+    "name": "Copart",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "CPT",
+    "name": "Camden Property Trust",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "CRH",
+    "name": "CRH plc",
+    "etfs": [
+      "SPY",
+      "XLB"
+    ]
+  },
+  {
+    "symbol": "CRL",
+    "name": "Charles River Laboratories",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "CRM",
+    "name": "Salesforce",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "CRWD",
+    "name": "CrowdStrike",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "CSCO",
+    "name": "Cisco",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "CSGP",
+    "name": "CoStar Group",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLRE"
+    ]
+  },
+  {
+    "symbol": "CSX",
+    "name": "CSX Corporation",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "CTAS",
+    "name": "Cintas",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "CTRA",
+    "name": "Coterra",
+    "etfs": [
+      "SPY",
+      "XLE"
+    ]
+  },
+  {
+    "symbol": "CTSH",
+    "name": "Cognizant",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "CTVA",
+    "name": "Corteva",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "CVNA",
+    "name": "Carvana",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "CVS",
+    "name": "CVS Health",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "CVX",
+    "name": "Chevron Corporation",
+    "etfs": [
+      "SPY",
+      "XLE"
+    ]
+  },
+  {
+    "symbol": "D",
+    "name": "Dominion Energy",
+    "etfs": [
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "DAL",
+    "name": "Delta Air Lines",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "DASH",
+    "name": "DoorDash",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "DAY",
+    "name": "Dayforce",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "DD",
+    "name": "DuPont",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "DDOG",
+    "name": "Datadog",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "DE",
+    "name": "Deere & Company",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "DECK",
+    "name": "Deckers Brands",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "DELL",
+    "name": "Dell Technologies",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "DG",
+    "name": "Dollar General",
+    "etfs": [
+      "SPY",
+      "XLP"
+    ]
+  },
+  {
+    "symbol": "DGX",
+    "name": "Quest Diagnostics",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "DHI",
+    "name": "D. R. Horton",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "DHR",
+    "name": "Danaher Corporation",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "DIS",
+    "name": "Walt Disney Company (The)",
+    "etfs": [
+      "SPY",
+      "XLC"
+    ]
+  },
+  {
+    "symbol": "DLR",
+    "name": "Digital Realty",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "DLTR",
+    "name": "Dollar Tree",
+    "etfs": [
+      "SPY",
+      "XLP"
+    ]
+  },
+  {
+    "symbol": "DOC",
+    "name": "Healthpeak Properties",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "DOV",
+    "name": "Dover Corporation",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "DOW",
+    "name": "Dow Inc.",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "DPZ",
+    "name": "Domino's",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "DRI",
+    "name": "Darden Restaurants",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "DTE",
+    "name": "DTE Energy",
+    "etfs": [
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "DUK",
+    "name": "Duke Energy",
+    "etfs": [
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "DVA",
+    "name": "DaVita",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "DVN",
+    "name": "Devon Energy",
+    "etfs": [
+      "SPY",
+      "XLE"
+    ]
+  },
+  {
+    "symbol": "DXCM",
+    "name": "Dexcom",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "EA",
+    "name": "Electronic Arts",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLC"
+    ]
+  },
+  {
+    "symbol": "EBAY",
+    "name": "eBay Inc.",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "ECL",
+    "name": "Ecolab",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "ED",
+    "name": "Consolidated Edison",
+    "etfs": [
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "EFX",
+    "name": "Equifax",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "EG",
+    "name": "Everest Group",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "EIX",
+    "name": "Edison International",
+    "etfs": [
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "EL",
+    "name": "Estée Lauder Companies (The)",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "ELV",
+    "name": "Elevance Health",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "EME",
+    "name": "Emcor",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "EMR",
+    "name": "Emerson Electric",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "EOG",
+    "name": "EOG Resources",
+    "etfs": [
+      "SPY",
+      "XLE"
+    ]
+  },
+  {
+    "symbol": "EPAM",
+    "name": "EPAM Systems",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "EQIX",
+    "name": "Equinix",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "EQR",
+    "name": "Equity Residential",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "EQT",
+    "name": "EQT Corporation",
+    "etfs": [
+      "SPY",
+      "XLE"
+    ]
+  },
+  {
+    "symbol": "ERIE",
+    "name": "Erie Indemnity",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "ES",
+    "name": "Eversource Energy",
+    "etfs": [
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "ESS",
+    "name": "Essex Property Trust",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "ETN",
+    "name": "Eaton Corporation",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "ETR",
+    "name": "Entergy",
+    "etfs": [
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "EVRG",
+    "name": "Evergy",
+    "etfs": [
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "EW",
+    "name": "Edwards Lifesciences",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "EXC",
+    "name": "Exelon",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "EXE",
+    "name": "Expand Energy",
+    "etfs": [
+      "SPY",
+      "XLE"
+    ]
+  },
+  {
+    "symbol": "EXPD",
+    "name": "Expeditors International",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "EXPE",
+    "name": "Expedia Group",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "EXR",
+    "name": "Extra Space Storage",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "F",
+    "name": "Ford Motor Company",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "FANG",
+    "name": "Diamondback Energy",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLE"
+    ]
+  },
+  {
+    "symbol": "FAST",
+    "name": "Fastenal",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "FCX",
+    "name": "Freeport-McMoRan",
+    "etfs": [
+      "SPY",
+      "XME"
+    ]
+  },
+  {
+    "symbol": "FDS",
+    "name": "FactSet",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "FDX",
+    "name": "FedEx",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "FE",
+    "name": "FirstEnergy",
+    "etfs": [
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "FER",
+    "name": "Ferrovial",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ"
+    ]
+  },
+  {
+    "symbol": "FFIV",
+    "name": "F5, Inc.",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "FICO",
+    "name": "Fair Isaac",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "FIS",
+    "name": "Fidelity National Information Services",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "FISV",
+    "name": "Fiserv",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "FITB",
+    "name": "Fifth Third Bancorp",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "FIX",
+    "name": "Comfort Systems USA",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "FOX",
+    "name": "Fox Corporation (Class B)",
+    "etfs": [
+      "SPY",
+      "XLC"
+    ]
+  },
+  {
+    "symbol": "FOXA",
+    "name": "Fox Corporation (Class A)",
+    "etfs": [
+      "SPY",
+      "XLC"
+    ]
+  },
+  {
+    "symbol": "FRT",
+    "name": "Federal Realty Investment Trust",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "FSLR",
+    "name": "First Solar",
+    "etfs": [
+      "SPY",
+      "XLK",
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "FTNT",
+    "name": "Fortinet",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "FTV",
+    "name": "Fortive",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "GD",
+    "name": "General Dynamics",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "GDDY",
+    "name": "GoDaddy",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "GE",
+    "name": "GE Aerospace",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "GEHC",
+    "name": "GE HealthCare",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "GEN",
+    "name": "Gen Digital",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "GEV",
+    "name": "GE Vernova",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "GILD",
+    "name": "Gilead Sciences",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XBI",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "GIS",
+    "name": "General Mills",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "GL",
+    "name": "Globe Life",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "GLW",
+    "name": "Corning Inc.",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "GM",
+    "name": "General Motors",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "GNRC",
+    "name": "Generac",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "GOOG",
+    "name": "Alphabet Inc. (Class C)",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLC"
+    ]
+  },
+  {
+    "symbol": "GOOGL",
+    "name": "Alphabet Inc. (Class A)",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLC"
+    ]
+  },
+  {
+    "symbol": "GPC",
+    "name": "Genuine Parts Company",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "GPN",
+    "name": "Global Payments",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "GRMN",
+    "name": "Garmin",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "GS",
+    "name": "Goldman Sachs",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "GWW",
+    "name": "W. W. Grainger",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "HAL",
+    "name": "Halliburton",
+    "etfs": [
+      "SPY",
+      "XLE"
+    ]
+  },
+  {
+    "symbol": "HAS",
+    "name": "Hasbro",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "HBAN",
+    "name": "Huntington Bancshares",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "HCA",
+    "name": "HCA Healthcare",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "HD",
+    "name": "Home Depot (The)",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "HIG",
+    "name": "Hartford (The)",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "HII",
+    "name": "Huntington Ingalls Industries",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "HLT",
+    "name": "Hilton Worldwide",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "HOLX",
+    "name": "Hologic",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "HON",
+    "name": "Honeywell",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "HOOD",
+    "name": "Robinhood Markets",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "HPE",
+    "name": "Hewlett Packard Enterprise",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "HPQ",
+    "name": "HP Inc.",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "HRL",
+    "name": "Hormel Foods",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "HSIC",
+    "name": "Henry Schein",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "HST",
+    "name": "Host Hotels & Resorts",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "HSY",
+    "name": "Hershey Company (The)",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "HUBB",
+    "name": "Hubbell Incorporated",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "HUM",
+    "name": "Humana",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "HWM",
+    "name": "Howmet Aerospace",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "IBKR",
+    "name": "Interactive Brokers",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "IBM",
+    "name": "IBM",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "ICE",
+    "name": "Intercontinental Exchange",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "IDXX",
+    "name": "Idexx Laboratories",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "IEX",
+    "name": "IDEX Corporation",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "IFF",
+    "name": "International Flavors & Fragrances",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "INCY",
+    "name": "Incyte",
+    "etfs": [
+      "SPY",
+      "XBI",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "INSM",
+    "name": "Insmed Incorporated",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "INTC",
+    "name": "Intel",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK",
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "INTU",
+    "name": "Intuit",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "INVH",
+    "name": "Invitation Homes",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "IP",
+    "name": "International Paper",
+    "etfs": [
+      "SPY",
+      "XLB"
+    ]
+  },
+  {
+    "symbol": "IQV",
+    "name": "IQVIA",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "IR",
+    "name": "Ingersoll Rand",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "IRM",
+    "name": "Iron Mountain",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "ISRG",
+    "name": "Intuitive Surgical",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "IT",
+    "name": "Gartner",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "ITW",
+    "name": "Illinois Tool Works",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "IVZ",
+    "name": "Invesco",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "J",
+    "name": "Jacobs Solutions",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "JBHT",
+    "name": "J.B. Hunt",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "JBL",
+    "name": "Jabil",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "JCI",
+    "name": "Johnson Controls",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "JKHY",
+    "name": "Jack Henry & Associates",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "JNJ",
+    "name": "Johnson & Johnson",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "JPM",
+    "name": "JPMorgan Chase",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "KDP",
+    "name": "Keurig Dr Pepper",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "KEY",
+    "name": "KeyCorp",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "KEYS",
+    "name": "Keysight Technologies",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "KHC",
+    "name": "Kraft Heinz",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "KIM",
+    "name": "Kimco Realty",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "KKR",
+    "name": "KKR & Co.",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "KLAC",
+    "name": "KLA Corporation",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLB",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "KMB",
+    "name": "Kimberly-Clark",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "KMI",
+    "name": "Kinder Morgan",
+    "etfs": [
+      "SPY",
+      "XLE"
+    ]
+  },
+  {
+    "symbol": "KO",
+    "name": "Coca-Cola Company (The)",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "KR",
+    "name": "Kroger",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "KVUE",
+    "name": "Kenvue",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "L",
+    "name": "Loews Corporation",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "LDOS",
+    "name": "Leidos",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "LEN",
+    "name": "Lennar",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "LH",
+    "name": "Labcorp",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "LHX",
+    "name": "L3Harris",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "LII",
+    "name": "Lennox International",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "LIN",
+    "name": "Linde plc",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "LLY",
+    "name": "Lilly (Eli)",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "LMT",
+    "name": "Lockheed Martin",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "LNT",
+    "name": "Alliant Energy",
+    "etfs": [
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "LOW",
+    "name": "Lowe's",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "LRCX",
+    "name": "Lam Research",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLB",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "LULU",
+    "name": "Lululemon Athletica",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "LUV",
+    "name": "Southwest Airlines",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "LVS",
+    "name": "Las Vegas Sands",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "LW",
+    "name": "Lamb Weston",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "LYB",
+    "name": "LyondellBasell",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "LYV",
+    "name": "Live Nation Entertainment",
+    "etfs": [
+      "SPY",
+      "XLC"
+    ]
+  },
+  {
+    "symbol": "MA",
+    "name": "Mastercard",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "MAA",
+    "name": "Mid-America Apartment Communities",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "MAR",
+    "name": "Marriott International",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "MAS",
+    "name": "Masco",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "MCD",
+    "name": "McDonald's",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "MCHP",
+    "name": "Microchip Technology",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK",
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "MCK",
+    "name": "McKesson Corporation",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "MCO",
+    "name": "Moody's Corporation",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "MDLZ",
+    "name": "Mondelez International",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "MDT",
+    "name": "Medtronic",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "MELI",
+    "name": "Mercado Libre",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ"
+    ]
+  },
+  {
+    "symbol": "MET",
+    "name": "MetLife",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "META",
+    "name": "Meta Platforms",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLC"
+    ]
+  },
+  {
+    "symbol": "MGM",
+    "name": "MGM Resorts",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "MKC",
+    "name": "McCormick & Company",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "MLM",
+    "name": "Martin Marietta Materials",
+    "etfs": [
+      "SPY",
+      "XLB"
+    ]
+  },
+  {
+    "symbol": "MMC",
+    "name": "Marsh McLennan",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "MMM",
+    "name": "3M",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "MNST",
+    "name": "Monster Beverage",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "MO",
+    "name": "Altria",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "MOH",
+    "name": "Molina Healthcare",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "MOS",
+    "name": "Mosaic Company (The)",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "MPC",
+    "name": "Marathon Petroleum",
+    "etfs": [
+      "SPY",
+      "XLE"
+    ]
+  },
+  {
+    "symbol": "MPWR",
+    "name": "Monolithic Power Systems",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK",
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "MRK",
+    "name": "Merck & Co.",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "MRNA",
+    "name": "Moderna",
+    "etfs": [
+      "SPY",
+      "XBI",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "MRVL",
+    "name": "Marvell Technology",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "MS",
+    "name": "Morgan Stanley",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "MSCI",
+    "name": "MSCI Inc.",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "MSFT",
+    "name": "Microsoft",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "MSI",
+    "name": "Motorola Solutions",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "MSTR",
+    "name": "MicroStrategy",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ"
+    ]
+  },
+  {
+    "symbol": "MTB",
+    "name": "M&T Bank",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "MTCH",
+    "name": "Match Group",
+    "etfs": [
+      "SPY",
+      "XLC"
+    ]
+  },
+  {
+    "symbol": "MTD",
+    "name": "Mettler Toledo",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "MU",
+    "name": "Micron Technology",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK",
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "NCLH",
+    "name": "Norwegian Cruise Line Holdings",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "NDAQ",
+    "name": "Nasdaq, Inc.",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "NDSN",
+    "name": "Nordson Corporation",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "NEE",
+    "name": "NextEra Energy",
+    "etfs": [
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "NEM",
+    "name": "Newmont",
+    "etfs": [
+      "SPY",
+      "XME"
+    ]
+  },
+  {
+    "symbol": "NFLX",
+    "name": "Netflix",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLC"
+    ]
+  },
+  {
+    "symbol": "NI",
+    "name": "NiSource",
+    "etfs": [
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "NKE",
+    "name": "Nike, Inc.",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "NOC",
+    "name": "Northrop Grumman",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "NOW",
+    "name": "ServiceNow",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "NRG",
+    "name": "NRG Energy",
+    "etfs": [
+      "SPY",
+      "XLE",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "NSC",
+    "name": "Norfolk Southern",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "NTAP",
+    "name": "NetApp",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "NTRS",
+    "name": "Northern Trust",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "NUE",
+    "name": "Nucor",
+    "etfs": [
+      "SPY",
+      "XME"
+    ]
+  },
+  {
+    "symbol": "NVDA",
+    "name": "Nvidia",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK",
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "NVR",
+    "name": "NVR, Inc.",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "NWS",
+    "name": "News Corp (Class B)",
+    "etfs": [
+      "SPY",
+      "XLC"
+    ]
+  },
+  {
+    "symbol": "NWSA",
+    "name": "News Corp (Class A)",
+    "etfs": [
+      "SPY",
+      "XLC"
+    ]
+  },
+  {
+    "symbol": "NXPI",
+    "name": "NXP Semiconductors",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK",
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "O",
+    "name": "Realty Income",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "ODFL",
+    "name": "Old Dominion",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "OKE",
+    "name": "Oneok",
+    "etfs": [
+      "SPY",
+      "XLE"
+    ]
+  },
+  {
+    "symbol": "OMC",
+    "name": "Omnicom Group",
+    "etfs": [
+      "SPY",
+      "XLC"
+    ]
+  },
+  {
+    "symbol": "ON",
+    "name": "ON Semiconductor",
+    "etfs": [
+      "SPY",
+      "XLK",
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "ORCL",
+    "name": "Oracle Corporation",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "ORLY",
+    "name": "O’Reilly Automotive",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "OTIS",
+    "name": "Otis Worldwide",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "OXY",
+    "name": "Occidental Petroleum",
+    "etfs": [
+      "SPY",
+      "XLE"
+    ]
+  },
+  {
+    "symbol": "PANW",
+    "name": "Palo Alto Networks",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "PAYC",
+    "name": "Paycom",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "PAYX",
+    "name": "Paychex",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "PCAR",
+    "name": "Paccar",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "PCG",
+    "name": "PG&E Corporation",
+    "etfs": [
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "PDD",
+    "name": "PDD Holdings",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ"
+    ]
+  },
+  {
+    "symbol": "PEG",
+    "name": "Public Service Enterprise Group",
+    "etfs": [
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "PEP",
+    "name": "PepsiCo",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "PFE",
+    "name": "Pfizer",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "PFG",
+    "name": "Principal Financial Group",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "PG",
+    "name": "Procter & Gamble",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "PGR",
+    "name": "Progressive Corporation",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "PH",
+    "name": "Parker Hannifin",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "PHM",
+    "name": "PulteGroup",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "PKG",
+    "name": "Packaging Corporation of America",
+    "etfs": [
+      "SPY",
+      "XLB"
+    ]
+  },
+  {
+    "symbol": "PLD",
+    "name": "Prologis",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "PLTR",
+    "name": "Palantir Technologies",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "PM",
+    "name": "Philip Morris International",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "PNC",
+    "name": "PNC Financial Services",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "PNR",
+    "name": "Pentair",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "PNW",
+    "name": "Pinnacle West Capital",
+    "etfs": [
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "PODD",
+    "name": "Insulet Corporation",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "POOL",
+    "name": "Pool Corporation",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "PPG",
+    "name": "PPG Industries",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "PPL",
+    "name": "PPL Corporation",
+    "etfs": [
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "PRU",
+    "name": "Prudential Financial",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "PSA",
+    "name": "Public Storage",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "PSKY",
+    "name": "Paramount Skydance Corporation",
+    "etfs": [
+      "SPY",
+      "XLC"
+    ]
+  },
+  {
+    "symbol": "PSX",
+    "name": "Phillips 66",
+    "etfs": [
+      "SPY",
+      "XLE"
+    ]
+  },
+  {
+    "symbol": "PTC",
+    "name": "PTC Inc.",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "PWR",
+    "name": "Quanta Services",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "PYPL",
+    "name": "PayPal",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "Q",
+    "name": "Qnity Electronics",
+    "etfs": [
+      "SPY",
+      "XLB"
+    ]
+  },
+  {
+    "symbol": "QCOM",
+    "name": "Qualcomm",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK",
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "RCL",
+    "name": "Royal Caribbean Group",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "REG",
+    "name": "Regency Centers",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "REGN",
+    "name": "Regeneron Pharmaceuticals",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XBI",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "RF",
+    "name": "Regions Financial Corporation",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "RJF",
+    "name": "Raymond James Financial",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "RL",
+    "name": "Ralph Lauren Corporation",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "RMD",
+    "name": "ResMed",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "ROK",
+    "name": "Rockwell Automation",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "ROL",
+    "name": "Rollins, Inc.",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "ROP",
+    "name": "Roper Technologies",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "ROST",
+    "name": "Ross Stores",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "RSG",
+    "name": "Republic Services",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "RTX",
+    "name": "RTX Corporation",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "RVTY",
+    "name": "Revvity",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "SBAC",
+    "name": "SBA Communications",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "SBUX",
+    "name": "Starbucks",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "SCHW",
+    "name": "Charles Schwab Corporation",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "SHOP",
+    "name": "Shopify",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ"
+    ]
+  },
+  {
+    "symbol": "SHW",
+    "name": "Sherwin-Williams",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "SJM",
+    "name": "J.M. Smucker Company (The)",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "SLB",
+    "name": "Schlumberger",
+    "etfs": [
+      "SPY",
+      "XLE"
+    ]
+  },
+  {
+    "symbol": "SMCI",
+    "name": "Supermicro",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "SNA",
+    "name": "Snap-on",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "SNDK",
+    "name": "Sandisk",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "SNPS",
+    "name": "Synopsys",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "SO",
+    "name": "Southern Company",
+    "etfs": [
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "SOLV",
+    "name": "Solventum",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "SPG",
+    "name": "Simon Property Group",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "SPGI",
+    "name": "S&P Global",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "SRE",
+    "name": "Sempra",
+    "etfs": [
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "STE",
+    "name": "Steris",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "STLD",
+    "name": "Steel Dynamics",
+    "etfs": [
+      "SPY",
+      "XME"
+    ]
+  },
+  {
+    "symbol": "STT",
+    "name": "State Street Corporation",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "STX",
+    "name": "Seagate Technology",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "STZ",
+    "name": "Constellation Brands",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "SW",
+    "name": "Smurfit Westrock",
+    "etfs": [
+      "SPY",
+      "XLB"
+    ]
+  },
+  {
+    "symbol": "SWK",
+    "name": "Stanley Black & Decker",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "SWKS",
+    "name": "Skyworks Solutions",
+    "etfs": [
+      "SPY",
+      "XLK",
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "SYF",
+    "name": "Synchrony Financial",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "SYK",
+    "name": "Stryker Corporation",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "SYY",
+    "name": "Sysco",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "T",
+    "name": "AT&T",
+    "etfs": [
+      "SPY",
+      "XLC"
+    ]
+  },
+  {
+    "symbol": "TAP",
+    "name": "Molson Coors Beverage Company",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "TDG",
+    "name": "TransDigm Group",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "TDY",
+    "name": "Teledyne Technologies",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "TEAM",
+    "name": "Atlassian",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ"
+    ]
+  },
+  {
+    "symbol": "TECH",
+    "name": "Bio-Techne",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "TEL",
+    "name": "TE Connectivity",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "TER",
+    "name": "Teradyne",
+    "etfs": [
+      "SPY",
+      "XLB",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "TFC",
+    "name": "Truist Financial",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "TGT",
+    "name": "Target Corporation",
+    "etfs": [
+      "SPY",
+      "XLP"
+    ]
+  },
+  {
+    "symbol": "TJX",
+    "name": "TJX Companies",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "TKO",
+    "name": "TKO Group Holdings",
+    "etfs": [
+      "SPY",
+      "XLC"
+    ]
+  },
+  {
+    "symbol": "TMO",
+    "name": "Thermo Fisher Scientific",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "TMUS",
+    "name": "T-Mobile US",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLC"
+    ]
+  },
+  {
+    "symbol": "TPL",
+    "name": "Texas Pacific Land Corporation",
+    "etfs": [
+      "SPY",
+      "XLE"
+    ]
+  },
+  {
+    "symbol": "TPR",
+    "name": "Tapestry, Inc.",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "TRGP",
+    "name": "Targa Resources",
+    "etfs": [
+      "SPY",
+      "XLE"
+    ]
+  },
+  {
+    "symbol": "TRI",
+    "name": "Thomson Reuters",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ"
+    ]
+  },
+  {
+    "symbol": "TRMB",
+    "name": "Trimble Inc.",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "TROW",
+    "name": "T. Rowe Price",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "TRV",
+    "name": "Travelers Companies (The)",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "TSCO",
+    "name": "Tractor Supply",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "TSLA",
+    "name": "Tesla, Inc.",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "TSN",
+    "name": "Tyson Foods",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "TT",
+    "name": "Trane Technologies",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "TTD",
+    "name": "Trade Desk (The)",
+    "etfs": [
+      "SPY",
+      "XLC"
+    ]
+  },
+  {
+    "symbol": "TTWO",
+    "name": "Take-Two Interactive",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLC"
+    ]
+  },
+  {
+    "symbol": "TXN",
+    "name": "Texas Instruments",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK",
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "TXT",
+    "name": "Textron",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "TYL",
+    "name": "Tyler Technologies",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "UAL",
+    "name": "United Airlines Holdings",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "UBER",
+    "name": "Uber",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "UDR",
+    "name": "UDR, Inc.",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "UHS",
+    "name": "Universal Health Services",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "ULTA",
+    "name": "Ulta Beauty",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "UNH",
+    "name": "UnitedHealth Group",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "UNP",
+    "name": "Union Pacific Corporation",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "UPS",
+    "name": "United Parcel Service",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "URI",
+    "name": "United Rentals",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "USB",
+    "name": "U.S. Bancorp",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "V",
+    "name": "Visa Inc.",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "VICI",
+    "name": "Vici Properties",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "VLO",
+    "name": "Valero Energy",
+    "etfs": [
+      "SPY",
+      "XLE"
+    ]
+  },
+  {
+    "symbol": "VLTO",
+    "name": "Veralto",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "VMC",
+    "name": "Vulcan Materials Company",
+    "etfs": [
+      "SPY",
+      "XLB"
+    ]
+  },
+  {
+    "symbol": "VRSK",
+    "name": "Verisk Analytics",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "VRSN",
+    "name": "Verisign",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "VRTX",
+    "name": "Vertex Pharmaceuticals",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XBI",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "VST",
+    "name": "Vistra Corp.",
+    "etfs": [
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "VTR",
+    "name": "Ventas",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "VTRS",
+    "name": "Viatris",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "VZ",
+    "name": "Verizon",
+    "etfs": [
+      "SPY",
+      "XLC"
+    ]
+  },
+  {
+    "symbol": "WAB",
+    "name": "Wabtec",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "WAT",
+    "name": "Waters Corporation",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "WBD",
+    "name": "Warner Bros. Discovery",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLC"
+    ]
+  },
+  {
+    "symbol": "WDAY",
+    "name": "Workday, Inc.",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "WDC",
+    "name": "Western Digital",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "WEC",
+    "name": "WEC Energy Group",
+    "etfs": [
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "WELL",
+    "name": "Welltower",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "WFC",
+    "name": "Wells Fargo",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "WM",
+    "name": "Waste Management",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "WMB",
+    "name": "Williams Companies",
+    "etfs": [
+      "SPY",
+      "XLE"
+    ]
+  },
+  {
+    "symbol": "WMT",
+    "name": "Walmart",
+    "etfs": [
+      "SPY",
+      "XLP"
+    ]
+  },
+  {
+    "symbol": "WRB",
+    "name": "W. R. Berkley Corporation",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "WSM",
+    "name": "Williams-Sonoma, Inc.",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "WST",
+    "name": "West Pharmaceutical Services",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "WTW",
+    "name": "Willis Towers Watson",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "WY",
+    "name": "Weyerhaeuser",
+    "etfs": [
+      "SPY"
+    ]
+  },
+  {
+    "symbol": "WYNN",
+    "name": "Wynn Resorts",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "XEL",
+    "name": "Xcel Energy",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ",
+      "SPY",
+      "XLU"
+    ]
+  },
+  {
+    "symbol": "XOM",
+    "name": "ExxonMobil",
+    "etfs": [
+      "SPY",
+      "XLE"
+    ]
+  },
+  {
+    "symbol": "XYL",
+    "name": "Xylem Inc.",
+    "etfs": [
+      "SPY",
+      "XLI"
+    ]
+  },
+  {
+    "symbol": "XYZ",
+    "name": "Block, Inc.",
+    "etfs": [
+      "SPY",
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "YUM",
+    "name": "Yum! Brands",
+    "etfs": [
+      "SPY",
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "ZBH",
+    "name": "Zimmer Biomet",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  },
+  {
+    "symbol": "ZBRA",
+    "name": "Zebra Technologies",
+    "etfs": [
+      "SPY",
+      "XLK"
+    ]
+  },
+  {
+    "symbol": "ZS",
+    "name": "Zscaler",
+    "exchange": "NASDAQ",
+    "etfs": [
+      "QQQ"
+    ]
+  },
+  {
+    "symbol": "ZTS",
+    "name": "Zoetis",
+    "etfs": [
+      "SPY",
+      "XLV"
+    ]
+  }
+]

@@ -1,0 +1,4577 @@
+{
+  "version": "2026-01-07",
+  "baselines": [
+    "QQQ",
+    "SPY",
+    "XLB",
+    "XLC",
+    "XLE",
+    "XLF",
+    "XLI",
+    "XLK",
+    "XLP",
+    "XLU",
+    "XLV",
+    "XLY",
+    "XME",
+    "XSD"
+  ],
+  "pairs": [
+    {
+      "baseline": "QQQ",
+      "target": "AAPL"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "ABNB"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "ADBE"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "ADI"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "ADP"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "ADSK"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "AEP"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "ALNY"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "AMAT"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "AMD"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "AMGN"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "AMZN"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "APP"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "ARM"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "ASML"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "AVGO"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "AXON"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "AZN"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "BKNG"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "BKR"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "CCEP"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "CDNS"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "CEG"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "CHTR"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "CMCSA"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "COST"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "CPRT"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "CRWD"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "CSCO"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "CSGP"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "CSX"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "CTAS"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "CTSH"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "DASH"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "DDOG"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "DXCM"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "EA"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "EXC"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "FANG"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "FAST"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "FER"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "FTNT"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "GEHC"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "GILD"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "GOOG"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "GOOGL"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "HON"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "IDXX"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "INSM"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "INTC"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "INTU"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "ISRG"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "KDP"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "KHC"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "KLAC"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "LIN"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "LRCX"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "MAR"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "MCHP"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "MDLZ"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "MELI"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "META"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "MNST"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "MPWR"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "MRVL"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "MSFT"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "MSTR"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "MU"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "NFLX"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "NVDA"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "NXPI"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "ODFL"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "ORLY"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "PANW"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "PAYX"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "PCAR"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "PDD"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "PEP"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "PLTR"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "PYPL"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "QCOM"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "REGN"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "ROP"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "ROST"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "SBUX"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "SHOP"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "SNPS"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "STX"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "TEAM"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "TMUS"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "TRI"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "TSLA"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "TTWO"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "TXN"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "VRSK"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "VRTX"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "WBD"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "WDAY"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "WDC"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "XEL"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "XLB"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "XLC"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "XLE"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "XLF"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "XLI"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "XLK"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "XLP"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "XLU"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "XLV"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "XLY"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "XME"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "XSD"
+    },
+    {
+      "baseline": "QQQ",
+      "target": "ZS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "A"
+    },
+    {
+      "baseline": "SPY",
+      "target": "AAPL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ABBV"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ABNB"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ABT"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ACGL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ACN"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ADBE"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ADI"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ADM"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ADP"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ADSK"
+    },
+    {
+      "baseline": "SPY",
+      "target": "AEE"
+    },
+    {
+      "baseline": "SPY",
+      "target": "AEP"
+    },
+    {
+      "baseline": "SPY",
+      "target": "AES"
+    },
+    {
+      "baseline": "SPY",
+      "target": "AFL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "AIG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "AIZ"
+    },
+    {
+      "baseline": "SPY",
+      "target": "AJG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "AKAM"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ALB"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ALGN"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ALL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ALLE"
+    },
+    {
+      "baseline": "SPY",
+      "target": "AMAT"
+    },
+    {
+      "baseline": "SPY",
+      "target": "AMCR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "AMD"
+    },
+    {
+      "baseline": "SPY",
+      "target": "AME"
+    },
+    {
+      "baseline": "SPY",
+      "target": "AMGN"
+    },
+    {
+      "baseline": "SPY",
+      "target": "AMP"
+    },
+    {
+      "baseline": "SPY",
+      "target": "AMT"
+    },
+    {
+      "baseline": "SPY",
+      "target": "AMZN"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ANET"
+    },
+    {
+      "baseline": "SPY",
+      "target": "AON"
+    },
+    {
+      "baseline": "SPY",
+      "target": "AOS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "APA"
+    },
+    {
+      "baseline": "SPY",
+      "target": "APD"
+    },
+    {
+      "baseline": "SPY",
+      "target": "APH"
+    },
+    {
+      "baseline": "SPY",
+      "target": "APO"
+    },
+    {
+      "baseline": "SPY",
+      "target": "APP"
+    },
+    {
+      "baseline": "SPY",
+      "target": "APTV"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ARE"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ARES"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ATO"
+    },
+    {
+      "baseline": "SPY",
+      "target": "AVB"
+    },
+    {
+      "baseline": "SPY",
+      "target": "AVGO"
+    },
+    {
+      "baseline": "SPY",
+      "target": "AVY"
+    },
+    {
+      "baseline": "SPY",
+      "target": "AWK"
+    },
+    {
+      "baseline": "SPY",
+      "target": "AXON"
+    },
+    {
+      "baseline": "SPY",
+      "target": "AXP"
+    },
+    {
+      "baseline": "SPY",
+      "target": "AZO"
+    },
+    {
+      "baseline": "SPY",
+      "target": "BA"
+    },
+    {
+      "baseline": "SPY",
+      "target": "BAC"
+    },
+    {
+      "baseline": "SPY",
+      "target": "BALL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "BAX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "BBY"
+    },
+    {
+      "baseline": "SPY",
+      "target": "BDX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "BEN"
+    },
+    {
+      "baseline": "SPY",
+      "target": "BF-B"
+    },
+    {
+      "baseline": "SPY",
+      "target": "BG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "BIIB"
+    },
+    {
+      "baseline": "SPY",
+      "target": "BK"
+    },
+    {
+      "baseline": "SPY",
+      "target": "BKNG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "BKR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "BLDR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "BLK"
+    },
+    {
+      "baseline": "SPY",
+      "target": "BMY"
+    },
+    {
+      "baseline": "SPY",
+      "target": "BR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "BRK-B"
+    },
+    {
+      "baseline": "SPY",
+      "target": "BRO"
+    },
+    {
+      "baseline": "SPY",
+      "target": "BSX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "BX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "BXP"
+    },
+    {
+      "baseline": "SPY",
+      "target": "C"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CAG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CAH"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CARR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CAT"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CB"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CBOE"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CBRE"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CCI"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CCL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CDNS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CDW"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CEG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CF"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CFG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CHD"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CHRW"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CHTR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CI"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CINF"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CLX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CMCSA"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CME"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CMG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CMI"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CMS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CNC"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CNP"
+    },
+    {
+      "baseline": "SPY",
+      "target": "COF"
+    },
+    {
+      "baseline": "SPY",
+      "target": "COIN"
+    },
+    {
+      "baseline": "SPY",
+      "target": "COO"
+    },
+    {
+      "baseline": "SPY",
+      "target": "COP"
+    },
+    {
+      "baseline": "SPY",
+      "target": "COR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "COST"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CPAY"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CPB"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CPRT"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CPT"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CRH"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CRL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CRM"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CRWD"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CSCO"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CSGP"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CSX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CTAS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CTRA"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CTSH"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CTVA"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CVNA"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CVS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "CVX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "D"
+    },
+    {
+      "baseline": "SPY",
+      "target": "DAL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "DASH"
+    },
+    {
+      "baseline": "SPY",
+      "target": "DAY"
+    },
+    {
+      "baseline": "SPY",
+      "target": "DD"
+    },
+    {
+      "baseline": "SPY",
+      "target": "DDOG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "DE"
+    },
+    {
+      "baseline": "SPY",
+      "target": "DECK"
+    },
+    {
+      "baseline": "SPY",
+      "target": "DELL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "DG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "DGX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "DHI"
+    },
+    {
+      "baseline": "SPY",
+      "target": "DHR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "DIS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "DLR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "DLTR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "DOC"
+    },
+    {
+      "baseline": "SPY",
+      "target": "DOV"
+    },
+    {
+      "baseline": "SPY",
+      "target": "DOW"
+    },
+    {
+      "baseline": "SPY",
+      "target": "DPZ"
+    },
+    {
+      "baseline": "SPY",
+      "target": "DRI"
+    },
+    {
+      "baseline": "SPY",
+      "target": "DTE"
+    },
+    {
+      "baseline": "SPY",
+      "target": "DUK"
+    },
+    {
+      "baseline": "SPY",
+      "target": "DVA"
+    },
+    {
+      "baseline": "SPY",
+      "target": "DVN"
+    },
+    {
+      "baseline": "SPY",
+      "target": "DXCM"
+    },
+    {
+      "baseline": "SPY",
+      "target": "EA"
+    },
+    {
+      "baseline": "SPY",
+      "target": "EBAY"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ECL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ED"
+    },
+    {
+      "baseline": "SPY",
+      "target": "EFX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "EG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "EIX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "EL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ELV"
+    },
+    {
+      "baseline": "SPY",
+      "target": "EME"
+    },
+    {
+      "baseline": "SPY",
+      "target": "EMR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "EOG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "EPAM"
+    },
+    {
+      "baseline": "SPY",
+      "target": "EQIX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "EQR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "EQT"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ERIE"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ES"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ESS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ETN"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ETR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "EVRG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "EW"
+    },
+    {
+      "baseline": "SPY",
+      "target": "EXC"
+    },
+    {
+      "baseline": "SPY",
+      "target": "EXE"
+    },
+    {
+      "baseline": "SPY",
+      "target": "EXPD"
+    },
+    {
+      "baseline": "SPY",
+      "target": "EXPE"
+    },
+    {
+      "baseline": "SPY",
+      "target": "EXR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "F"
+    },
+    {
+      "baseline": "SPY",
+      "target": "FANG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "FAST"
+    },
+    {
+      "baseline": "SPY",
+      "target": "FCX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "FDS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "FDX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "FE"
+    },
+    {
+      "baseline": "SPY",
+      "target": "FFIV"
+    },
+    {
+      "baseline": "SPY",
+      "target": "FICO"
+    },
+    {
+      "baseline": "SPY",
+      "target": "FIS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "FISV"
+    },
+    {
+      "baseline": "SPY",
+      "target": "FITB"
+    },
+    {
+      "baseline": "SPY",
+      "target": "FIX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "FOX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "FOXA"
+    },
+    {
+      "baseline": "SPY",
+      "target": "FRT"
+    },
+    {
+      "baseline": "SPY",
+      "target": "FSLR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "FTNT"
+    },
+    {
+      "baseline": "SPY",
+      "target": "FTV"
+    },
+    {
+      "baseline": "SPY",
+      "target": "GD"
+    },
+    {
+      "baseline": "SPY",
+      "target": "GDDY"
+    },
+    {
+      "baseline": "SPY",
+      "target": "GE"
+    },
+    {
+      "baseline": "SPY",
+      "target": "GEHC"
+    },
+    {
+      "baseline": "SPY",
+      "target": "GEN"
+    },
+    {
+      "baseline": "SPY",
+      "target": "GEV"
+    },
+    {
+      "baseline": "SPY",
+      "target": "GILD"
+    },
+    {
+      "baseline": "SPY",
+      "target": "GIS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "GL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "GLW"
+    },
+    {
+      "baseline": "SPY",
+      "target": "GM"
+    },
+    {
+      "baseline": "SPY",
+      "target": "GNRC"
+    },
+    {
+      "baseline": "SPY",
+      "target": "GOOG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "GOOGL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "GPC"
+    },
+    {
+      "baseline": "SPY",
+      "target": "GPN"
+    },
+    {
+      "baseline": "SPY",
+      "target": "GRMN"
+    },
+    {
+      "baseline": "SPY",
+      "target": "GS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "GWW"
+    },
+    {
+      "baseline": "SPY",
+      "target": "HAL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "HAS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "HBAN"
+    },
+    {
+      "baseline": "SPY",
+      "target": "HCA"
+    },
+    {
+      "baseline": "SPY",
+      "target": "HD"
+    },
+    {
+      "baseline": "SPY",
+      "target": "HIG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "HII"
+    },
+    {
+      "baseline": "SPY",
+      "target": "HLT"
+    },
+    {
+      "baseline": "SPY",
+      "target": "HOLX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "HON"
+    },
+    {
+      "baseline": "SPY",
+      "target": "HOOD"
+    },
+    {
+      "baseline": "SPY",
+      "target": "HPE"
+    },
+    {
+      "baseline": "SPY",
+      "target": "HPQ"
+    },
+    {
+      "baseline": "SPY",
+      "target": "HRL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "HSIC"
+    },
+    {
+      "baseline": "SPY",
+      "target": "HST"
+    },
+    {
+      "baseline": "SPY",
+      "target": "HSY"
+    },
+    {
+      "baseline": "SPY",
+      "target": "HUBB"
+    },
+    {
+      "baseline": "SPY",
+      "target": "HUM"
+    },
+    {
+      "baseline": "SPY",
+      "target": "HWM"
+    },
+    {
+      "baseline": "SPY",
+      "target": "IBKR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "IBM"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ICE"
+    },
+    {
+      "baseline": "SPY",
+      "target": "IDXX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "IEX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "IFF"
+    },
+    {
+      "baseline": "SPY",
+      "target": "INCY"
+    },
+    {
+      "baseline": "SPY",
+      "target": "INTC"
+    },
+    {
+      "baseline": "SPY",
+      "target": "INTU"
+    },
+    {
+      "baseline": "SPY",
+      "target": "INVH"
+    },
+    {
+      "baseline": "SPY",
+      "target": "IP"
+    },
+    {
+      "baseline": "SPY",
+      "target": "IQV"
+    },
+    {
+      "baseline": "SPY",
+      "target": "IR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "IRM"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ISRG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "IT"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ITW"
+    },
+    {
+      "baseline": "SPY",
+      "target": "IVZ"
+    },
+    {
+      "baseline": "SPY",
+      "target": "J"
+    },
+    {
+      "baseline": "SPY",
+      "target": "JBHT"
+    },
+    {
+      "baseline": "SPY",
+      "target": "JBL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "JCI"
+    },
+    {
+      "baseline": "SPY",
+      "target": "JKHY"
+    },
+    {
+      "baseline": "SPY",
+      "target": "JNJ"
+    },
+    {
+      "baseline": "SPY",
+      "target": "JPM"
+    },
+    {
+      "baseline": "SPY",
+      "target": "KDP"
+    },
+    {
+      "baseline": "SPY",
+      "target": "KEY"
+    },
+    {
+      "baseline": "SPY",
+      "target": "KEYS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "KHC"
+    },
+    {
+      "baseline": "SPY",
+      "target": "KIM"
+    },
+    {
+      "baseline": "SPY",
+      "target": "KKR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "KLAC"
+    },
+    {
+      "baseline": "SPY",
+      "target": "KMB"
+    },
+    {
+      "baseline": "SPY",
+      "target": "KMI"
+    },
+    {
+      "baseline": "SPY",
+      "target": "KO"
+    },
+    {
+      "baseline": "SPY",
+      "target": "KR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "KVUE"
+    },
+    {
+      "baseline": "SPY",
+      "target": "L"
+    },
+    {
+      "baseline": "SPY",
+      "target": "LDOS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "LEN"
+    },
+    {
+      "baseline": "SPY",
+      "target": "LH"
+    },
+    {
+      "baseline": "SPY",
+      "target": "LHX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "LII"
+    },
+    {
+      "baseline": "SPY",
+      "target": "LIN"
+    },
+    {
+      "baseline": "SPY",
+      "target": "LLY"
+    },
+    {
+      "baseline": "SPY",
+      "target": "LMT"
+    },
+    {
+      "baseline": "SPY",
+      "target": "LNT"
+    },
+    {
+      "baseline": "SPY",
+      "target": "LOW"
+    },
+    {
+      "baseline": "SPY",
+      "target": "LRCX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "LULU"
+    },
+    {
+      "baseline": "SPY",
+      "target": "LUV"
+    },
+    {
+      "baseline": "SPY",
+      "target": "LVS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "LW"
+    },
+    {
+      "baseline": "SPY",
+      "target": "LYB"
+    },
+    {
+      "baseline": "SPY",
+      "target": "LYV"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MA"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MAA"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MAR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MAS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MCD"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MCHP"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MCK"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MCO"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MDLZ"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MDT"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MET"
+    },
+    {
+      "baseline": "SPY",
+      "target": "META"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MGM"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MKC"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MLM"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MMC"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MMM"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MNST"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MO"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MOH"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MOS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MPC"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MPWR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MRK"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MRNA"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MSCI"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MSFT"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MSI"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MTB"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MTCH"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MTD"
+    },
+    {
+      "baseline": "SPY",
+      "target": "MU"
+    },
+    {
+      "baseline": "SPY",
+      "target": "NCLH"
+    },
+    {
+      "baseline": "SPY",
+      "target": "NDAQ"
+    },
+    {
+      "baseline": "SPY",
+      "target": "NDSN"
+    },
+    {
+      "baseline": "SPY",
+      "target": "NEE"
+    },
+    {
+      "baseline": "SPY",
+      "target": "NEM"
+    },
+    {
+      "baseline": "SPY",
+      "target": "NFLX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "NI"
+    },
+    {
+      "baseline": "SPY",
+      "target": "NKE"
+    },
+    {
+      "baseline": "SPY",
+      "target": "NOC"
+    },
+    {
+      "baseline": "SPY",
+      "target": "NOW"
+    },
+    {
+      "baseline": "SPY",
+      "target": "NRG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "NSC"
+    },
+    {
+      "baseline": "SPY",
+      "target": "NTAP"
+    },
+    {
+      "baseline": "SPY",
+      "target": "NTRS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "NUE"
+    },
+    {
+      "baseline": "SPY",
+      "target": "NVDA"
+    },
+    {
+      "baseline": "SPY",
+      "target": "NVR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "NWS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "NWSA"
+    },
+    {
+      "baseline": "SPY",
+      "target": "NXPI"
+    },
+    {
+      "baseline": "SPY",
+      "target": "O"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ODFL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "OKE"
+    },
+    {
+      "baseline": "SPY",
+      "target": "OMC"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ON"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ORCL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ORLY"
+    },
+    {
+      "baseline": "SPY",
+      "target": "OTIS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "OXY"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PANW"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PAYC"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PAYX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PCAR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PCG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PEG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PEP"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PFE"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PFG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PGR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PH"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PHM"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PKG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PLD"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PLTR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PM"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PNC"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PNR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PNW"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PODD"
+    },
+    {
+      "baseline": "SPY",
+      "target": "POOL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PPG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PPL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PRU"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PSA"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PSKY"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PSX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PTC"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PWR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "PYPL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "Q"
+    },
+    {
+      "baseline": "SPY",
+      "target": "QCOM"
+    },
+    {
+      "baseline": "SPY",
+      "target": "RCL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "REG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "REGN"
+    },
+    {
+      "baseline": "SPY",
+      "target": "RF"
+    },
+    {
+      "baseline": "SPY",
+      "target": "RJF"
+    },
+    {
+      "baseline": "SPY",
+      "target": "RL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "RMD"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ROK"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ROL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ROP"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ROST"
+    },
+    {
+      "baseline": "SPY",
+      "target": "RSG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "RTX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "RVTY"
+    },
+    {
+      "baseline": "SPY",
+      "target": "SBAC"
+    },
+    {
+      "baseline": "SPY",
+      "target": "SBUX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "SCHW"
+    },
+    {
+      "baseline": "SPY",
+      "target": "SHW"
+    },
+    {
+      "baseline": "SPY",
+      "target": "SJM"
+    },
+    {
+      "baseline": "SPY",
+      "target": "SLB"
+    },
+    {
+      "baseline": "SPY",
+      "target": "SMCI"
+    },
+    {
+      "baseline": "SPY",
+      "target": "SNA"
+    },
+    {
+      "baseline": "SPY",
+      "target": "SNDK"
+    },
+    {
+      "baseline": "SPY",
+      "target": "SNPS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "SO"
+    },
+    {
+      "baseline": "SPY",
+      "target": "SOLV"
+    },
+    {
+      "baseline": "SPY",
+      "target": "SPG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "SPGI"
+    },
+    {
+      "baseline": "SPY",
+      "target": "SRE"
+    },
+    {
+      "baseline": "SPY",
+      "target": "STE"
+    },
+    {
+      "baseline": "SPY",
+      "target": "STLD"
+    },
+    {
+      "baseline": "SPY",
+      "target": "STT"
+    },
+    {
+      "baseline": "SPY",
+      "target": "STX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "STZ"
+    },
+    {
+      "baseline": "SPY",
+      "target": "SW"
+    },
+    {
+      "baseline": "SPY",
+      "target": "SWK"
+    },
+    {
+      "baseline": "SPY",
+      "target": "SWKS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "SYF"
+    },
+    {
+      "baseline": "SPY",
+      "target": "SYK"
+    },
+    {
+      "baseline": "SPY",
+      "target": "SYY"
+    },
+    {
+      "baseline": "SPY",
+      "target": "T"
+    },
+    {
+      "baseline": "SPY",
+      "target": "TAP"
+    },
+    {
+      "baseline": "SPY",
+      "target": "TDG"
+    },
+    {
+      "baseline": "SPY",
+      "target": "TDY"
+    },
+    {
+      "baseline": "SPY",
+      "target": "TECH"
+    },
+    {
+      "baseline": "SPY",
+      "target": "TEL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "TER"
+    },
+    {
+      "baseline": "SPY",
+      "target": "TFC"
+    },
+    {
+      "baseline": "SPY",
+      "target": "TGT"
+    },
+    {
+      "baseline": "SPY",
+      "target": "TJX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "TKO"
+    },
+    {
+      "baseline": "SPY",
+      "target": "TMO"
+    },
+    {
+      "baseline": "SPY",
+      "target": "TMUS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "TPL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "TPR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "TRGP"
+    },
+    {
+      "baseline": "SPY",
+      "target": "TRMB"
+    },
+    {
+      "baseline": "SPY",
+      "target": "TROW"
+    },
+    {
+      "baseline": "SPY",
+      "target": "TRV"
+    },
+    {
+      "baseline": "SPY",
+      "target": "TSCO"
+    },
+    {
+      "baseline": "SPY",
+      "target": "TSLA"
+    },
+    {
+      "baseline": "SPY",
+      "target": "TSN"
+    },
+    {
+      "baseline": "SPY",
+      "target": "TT"
+    },
+    {
+      "baseline": "SPY",
+      "target": "TTD"
+    },
+    {
+      "baseline": "SPY",
+      "target": "TTWO"
+    },
+    {
+      "baseline": "SPY",
+      "target": "TXN"
+    },
+    {
+      "baseline": "SPY",
+      "target": "TXT"
+    },
+    {
+      "baseline": "SPY",
+      "target": "TYL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "UAL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "UBER"
+    },
+    {
+      "baseline": "SPY",
+      "target": "UDR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "UHS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ULTA"
+    },
+    {
+      "baseline": "SPY",
+      "target": "UNH"
+    },
+    {
+      "baseline": "SPY",
+      "target": "UNP"
+    },
+    {
+      "baseline": "SPY",
+      "target": "UPS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "URI"
+    },
+    {
+      "baseline": "SPY",
+      "target": "USB"
+    },
+    {
+      "baseline": "SPY",
+      "target": "V"
+    },
+    {
+      "baseline": "SPY",
+      "target": "VICI"
+    },
+    {
+      "baseline": "SPY",
+      "target": "VLO"
+    },
+    {
+      "baseline": "SPY",
+      "target": "VLTO"
+    },
+    {
+      "baseline": "SPY",
+      "target": "VMC"
+    },
+    {
+      "baseline": "SPY",
+      "target": "VRSK"
+    },
+    {
+      "baseline": "SPY",
+      "target": "VRSN"
+    },
+    {
+      "baseline": "SPY",
+      "target": "VRTX"
+    },
+    {
+      "baseline": "SPY",
+      "target": "VST"
+    },
+    {
+      "baseline": "SPY",
+      "target": "VTR"
+    },
+    {
+      "baseline": "SPY",
+      "target": "VTRS"
+    },
+    {
+      "baseline": "SPY",
+      "target": "VZ"
+    },
+    {
+      "baseline": "SPY",
+      "target": "WAB"
+    },
+    {
+      "baseline": "SPY",
+      "target": "WAT"
+    },
+    {
+      "baseline": "SPY",
+      "target": "WBD"
+    },
+    {
+      "baseline": "SPY",
+      "target": "WDAY"
+    },
+    {
+      "baseline": "SPY",
+      "target": "WDC"
+    },
+    {
+      "baseline": "SPY",
+      "target": "WEC"
+    },
+    {
+      "baseline": "SPY",
+      "target": "WELL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "WFC"
+    },
+    {
+      "baseline": "SPY",
+      "target": "WM"
+    },
+    {
+      "baseline": "SPY",
+      "target": "WMB"
+    },
+    {
+      "baseline": "SPY",
+      "target": "WMT"
+    },
+    {
+      "baseline": "SPY",
+      "target": "WRB"
+    },
+    {
+      "baseline": "SPY",
+      "target": "WSM"
+    },
+    {
+      "baseline": "SPY",
+      "target": "WST"
+    },
+    {
+      "baseline": "SPY",
+      "target": "WTW"
+    },
+    {
+      "baseline": "SPY",
+      "target": "WY"
+    },
+    {
+      "baseline": "SPY",
+      "target": "WYNN"
+    },
+    {
+      "baseline": "SPY",
+      "target": "XEL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "XLB"
+    },
+    {
+      "baseline": "SPY",
+      "target": "XLC"
+    },
+    {
+      "baseline": "SPY",
+      "target": "XLE"
+    },
+    {
+      "baseline": "SPY",
+      "target": "XLF"
+    },
+    {
+      "baseline": "SPY",
+      "target": "XLI"
+    },
+    {
+      "baseline": "SPY",
+      "target": "XLK"
+    },
+    {
+      "baseline": "SPY",
+      "target": "XLP"
+    },
+    {
+      "baseline": "SPY",
+      "target": "XLU"
+    },
+    {
+      "baseline": "SPY",
+      "target": "XLV"
+    },
+    {
+      "baseline": "SPY",
+      "target": "XLY"
+    },
+    {
+      "baseline": "SPY",
+      "target": "XME"
+    },
+    {
+      "baseline": "SPY",
+      "target": "XOM"
+    },
+    {
+      "baseline": "SPY",
+      "target": "XSD"
+    },
+    {
+      "baseline": "SPY",
+      "target": "XYL"
+    },
+    {
+      "baseline": "SPY",
+      "target": "XYZ"
+    },
+    {
+      "baseline": "SPY",
+      "target": "YUM"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ZBH"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ZBRA"
+    },
+    {
+      "baseline": "SPY",
+      "target": "ZTS"
+    },
+    {
+      "baseline": "XLB",
+      "target": "AMAT"
+    },
+    {
+      "baseline": "XLB",
+      "target": "AMCR"
+    },
+    {
+      "baseline": "XLB",
+      "target": "AVY"
+    },
+    {
+      "baseline": "XLB",
+      "target": "CRH"
+    },
+    {
+      "baseline": "XLB",
+      "target": "IP"
+    },
+    {
+      "baseline": "XLB",
+      "target": "KLAC"
+    },
+    {
+      "baseline": "XLB",
+      "target": "LRCX"
+    },
+    {
+      "baseline": "XLB",
+      "target": "MLM"
+    },
+    {
+      "baseline": "XLB",
+      "target": "PKG"
+    },
+    {
+      "baseline": "XLB",
+      "target": "Q"
+    },
+    {
+      "baseline": "XLB",
+      "target": "SW"
+    },
+    {
+      "baseline": "XLB",
+      "target": "TER"
+    },
+    {
+      "baseline": "XLB",
+      "target": "VMC"
+    },
+    {
+      "baseline": "XLC",
+      "target": "CHTR"
+    },
+    {
+      "baseline": "XLC",
+      "target": "CMCSA"
+    },
+    {
+      "baseline": "XLC",
+      "target": "DIS"
+    },
+    {
+      "baseline": "XLC",
+      "target": "EA"
+    },
+    {
+      "baseline": "XLC",
+      "target": "FOX"
+    },
+    {
+      "baseline": "XLC",
+      "target": "FOXA"
+    },
+    {
+      "baseline": "XLC",
+      "target": "GOOG"
+    },
+    {
+      "baseline": "XLC",
+      "target": "GOOGL"
+    },
+    {
+      "baseline": "XLC",
+      "target": "IPG"
+    },
+    {
+      "baseline": "XLC",
+      "target": "LYV"
+    },
+    {
+      "baseline": "XLC",
+      "target": "META"
+    },
+    {
+      "baseline": "XLC",
+      "target": "MTCH"
+    },
+    {
+      "baseline": "XLC",
+      "target": "NFLX"
+    },
+    {
+      "baseline": "XLC",
+      "target": "NWS"
+    },
+    {
+      "baseline": "XLC",
+      "target": "NWSA"
+    },
+    {
+      "baseline": "XLC",
+      "target": "OMC"
+    },
+    {
+      "baseline": "XLC",
+      "target": "PSKY"
+    },
+    {
+      "baseline": "XLC",
+      "target": "T"
+    },
+    {
+      "baseline": "XLC",
+      "target": "TKO"
+    },
+    {
+      "baseline": "XLC",
+      "target": "TMUS"
+    },
+    {
+      "baseline": "XLC",
+      "target": "TTD"
+    },
+    {
+      "baseline": "XLC",
+      "target": "TTWO"
+    },
+    {
+      "baseline": "XLC",
+      "target": "VZ"
+    },
+    {
+      "baseline": "XLC",
+      "target": "WBD"
+    },
+    {
+      "baseline": "XLE",
+      "target": "AES"
+    },
+    {
+      "baseline": "XLE",
+      "target": "APA"
+    },
+    {
+      "baseline": "XLE",
+      "target": "BKR"
+    },
+    {
+      "baseline": "XLE",
+      "target": "COP"
+    },
+    {
+      "baseline": "XLE",
+      "target": "CTRA"
+    },
+    {
+      "baseline": "XLE",
+      "target": "CVX"
+    },
+    {
+      "baseline": "XLE",
+      "target": "DVN"
+    },
+    {
+      "baseline": "XLE",
+      "target": "EOG"
+    },
+    {
+      "baseline": "XLE",
+      "target": "EQT"
+    },
+    {
+      "baseline": "XLE",
+      "target": "EXE"
+    },
+    {
+      "baseline": "XLE",
+      "target": "FANG"
+    },
+    {
+      "baseline": "XLE",
+      "target": "HAL"
+    },
+    {
+      "baseline": "XLE",
+      "target": "IXPZ5"
+    },
+    {
+      "baseline": "XLE",
+      "target": "KMI"
+    },
+    {
+      "baseline": "XLE",
+      "target": "MPC"
+    },
+    {
+      "baseline": "XLE",
+      "target": "NRG"
+    },
+    {
+      "baseline": "XLE",
+      "target": "OKE"
+    },
+    {
+      "baseline": "XLE",
+      "target": "OXY"
+    },
+    {
+      "baseline": "XLE",
+      "target": "PSX"
+    },
+    {
+      "baseline": "XLE",
+      "target": "SLB"
+    },
+    {
+      "baseline": "XLE",
+      "target": "TPL"
+    },
+    {
+      "baseline": "XLE",
+      "target": "TRGP"
+    },
+    {
+      "baseline": "XLE",
+      "target": "VLO"
+    },
+    {
+      "baseline": "XLE",
+      "target": "WMB"
+    },
+    {
+      "baseline": "XLE",
+      "target": "XOM"
+    },
+    {
+      "baseline": "XLF",
+      "target": "ACGL"
+    },
+    {
+      "baseline": "XLF",
+      "target": "AFL"
+    },
+    {
+      "baseline": "XLF",
+      "target": "AIG"
+    },
+    {
+      "baseline": "XLF",
+      "target": "AIZ"
+    },
+    {
+      "baseline": "XLF",
+      "target": "AJG"
+    },
+    {
+      "baseline": "XLF",
+      "target": "ALL"
+    },
+    {
+      "baseline": "XLF",
+      "target": "AMP"
+    },
+    {
+      "baseline": "XLF",
+      "target": "AON"
+    },
+    {
+      "baseline": "XLF",
+      "target": "APO"
+    },
+    {
+      "baseline": "XLF",
+      "target": "AXP"
+    },
+    {
+      "baseline": "XLF",
+      "target": "BAC"
+    },
+    {
+      "baseline": "XLF",
+      "target": "BEN"
+    },
+    {
+      "baseline": "XLF",
+      "target": "BK"
+    },
+    {
+      "baseline": "XLF",
+      "target": "BLK"
+    },
+    {
+      "baseline": "XLF",
+      "target": "BRK-B"
+    },
+    {
+      "baseline": "XLF",
+      "target": "BRO"
+    },
+    {
+      "baseline": "XLF",
+      "target": "BX"
+    },
+    {
+      "baseline": "XLF",
+      "target": "C"
+    },
+    {
+      "baseline": "XLF",
+      "target": "CB"
+    },
+    {
+      "baseline": "XLF",
+      "target": "CBOE"
+    },
+    {
+      "baseline": "XLF",
+      "target": "CFG"
+    },
+    {
+      "baseline": "XLF",
+      "target": "CINF"
+    },
+    {
+      "baseline": "XLF",
+      "target": "CME"
+    },
+    {
+      "baseline": "XLF",
+      "target": "COF"
+    },
+    {
+      "baseline": "XLF",
+      "target": "COIN"
+    },
+    {
+      "baseline": "XLF",
+      "target": "CPAY"
+    },
+    {
+      "baseline": "XLF",
+      "target": "EG"
+    },
+    {
+      "baseline": "XLF",
+      "target": "ERIE"
+    },
+    {
+      "baseline": "XLF",
+      "target": "FDS"
+    },
+    {
+      "baseline": "XLF",
+      "target": "FI"
+    },
+    {
+      "baseline": "XLF",
+      "target": "FIS"
+    },
+    {
+      "baseline": "XLF",
+      "target": "FITB"
+    },
+    {
+      "baseline": "XLF",
+      "target": "GL"
+    },
+    {
+      "baseline": "XLF",
+      "target": "GPN"
+    },
+    {
+      "baseline": "XLF",
+      "target": "GS"
+    },
+    {
+      "baseline": "XLF",
+      "target": "HBAN"
+    },
+    {
+      "baseline": "XLF",
+      "target": "HIG"
+    },
+    {
+      "baseline": "XLF",
+      "target": "HOOD"
+    },
+    {
+      "baseline": "XLF",
+      "target": "IBKR"
+    },
+    {
+      "baseline": "XLF",
+      "target": "ICE"
+    },
+    {
+      "baseline": "XLF",
+      "target": "IVZ"
+    },
+    {
+      "baseline": "XLF",
+      "target": "IXAZ5"
+    },
+    {
+      "baseline": "XLF",
+      "target": "JKHY"
+    },
+    {
+      "baseline": "XLF",
+      "target": "JPM"
+    },
+    {
+      "baseline": "XLF",
+      "target": "KEY"
+    },
+    {
+      "baseline": "XLF",
+      "target": "KKR"
+    },
+    {
+      "baseline": "XLF",
+      "target": "L"
+    },
+    {
+      "baseline": "XLF",
+      "target": "MA"
+    },
+    {
+      "baseline": "XLF",
+      "target": "MCO"
+    },
+    {
+      "baseline": "XLF",
+      "target": "MET"
+    },
+    {
+      "baseline": "XLF",
+      "target": "MMC"
+    },
+    {
+      "baseline": "XLF",
+      "target": "MS"
+    },
+    {
+      "baseline": "XLF",
+      "target": "MSCI"
+    },
+    {
+      "baseline": "XLF",
+      "target": "MTB"
+    },
+    {
+      "baseline": "XLF",
+      "target": "NDAQ"
+    },
+    {
+      "baseline": "XLF",
+      "target": "NTRS"
+    },
+    {
+      "baseline": "XLF",
+      "target": "PFG"
+    },
+    {
+      "baseline": "XLF",
+      "target": "PGR"
+    },
+    {
+      "baseline": "XLF",
+      "target": "PNC"
+    },
+    {
+      "baseline": "XLF",
+      "target": "PRU"
+    },
+    {
+      "baseline": "XLF",
+      "target": "PYPL"
+    },
+    {
+      "baseline": "XLF",
+      "target": "RF"
+    },
+    {
+      "baseline": "XLF",
+      "target": "RJF"
+    },
+    {
+      "baseline": "XLF",
+      "target": "SCHW"
+    },
+    {
+      "baseline": "XLF",
+      "target": "SPGI"
+    },
+    {
+      "baseline": "XLF",
+      "target": "STT"
+    },
+    {
+      "baseline": "XLF",
+      "target": "SYF"
+    },
+    {
+      "baseline": "XLF",
+      "target": "TFC"
+    },
+    {
+      "baseline": "XLF",
+      "target": "TROW"
+    },
+    {
+      "baseline": "XLF",
+      "target": "TRV"
+    },
+    {
+      "baseline": "XLF",
+      "target": "USB"
+    },
+    {
+      "baseline": "XLF",
+      "target": "V"
+    },
+    {
+      "baseline": "XLF",
+      "target": "WFC"
+    },
+    {
+      "baseline": "XLF",
+      "target": "WRB"
+    },
+    {
+      "baseline": "XLF",
+      "target": "WTW"
+    },
+    {
+      "baseline": "XLF",
+      "target": "XYZ"
+    },
+    {
+      "baseline": "XLI",
+      "target": "ADP"
+    },
+    {
+      "baseline": "XLI",
+      "target": "ALLE"
+    },
+    {
+      "baseline": "XLI",
+      "target": "AME"
+    },
+    {
+      "baseline": "XLI",
+      "target": "AOS"
+    },
+    {
+      "baseline": "XLI",
+      "target": "AXON"
+    },
+    {
+      "baseline": "XLI",
+      "target": "BA"
+    },
+    {
+      "baseline": "XLI",
+      "target": "BLDR"
+    },
+    {
+      "baseline": "XLI",
+      "target": "BR"
+    },
+    {
+      "baseline": "XLI",
+      "target": "CARR"
+    },
+    {
+      "baseline": "XLI",
+      "target": "CAT"
+    },
+    {
+      "baseline": "XLI",
+      "target": "CHRW"
+    },
+    {
+      "baseline": "XLI",
+      "target": "CMI"
+    },
+    {
+      "baseline": "XLI",
+      "target": "CPRT"
+    },
+    {
+      "baseline": "XLI",
+      "target": "CSX"
+    },
+    {
+      "baseline": "XLI",
+      "target": "CTAS"
+    },
+    {
+      "baseline": "XLI",
+      "target": "DAL"
+    },
+    {
+      "baseline": "XLI",
+      "target": "DAY"
+    },
+    {
+      "baseline": "XLI",
+      "target": "DE"
+    },
+    {
+      "baseline": "XLI",
+      "target": "DOV"
+    },
+    {
+      "baseline": "XLI",
+      "target": "EFX"
+    },
+    {
+      "baseline": "XLI",
+      "target": "EME"
+    },
+    {
+      "baseline": "XLI",
+      "target": "EMR"
+    },
+    {
+      "baseline": "XLI",
+      "target": "ETN"
+    },
+    {
+      "baseline": "XLI",
+      "target": "EXPD"
+    },
+    {
+      "baseline": "XLI",
+      "target": "FAST"
+    },
+    {
+      "baseline": "XLI",
+      "target": "FDX"
+    },
+    {
+      "baseline": "XLI",
+      "target": "FTV"
+    },
+    {
+      "baseline": "XLI",
+      "target": "GD"
+    },
+    {
+      "baseline": "XLI",
+      "target": "GE"
+    },
+    {
+      "baseline": "XLI",
+      "target": "GEV"
+    },
+    {
+      "baseline": "XLI",
+      "target": "GNRC"
+    },
+    {
+      "baseline": "XLI",
+      "target": "GWW"
+    },
+    {
+      "baseline": "XLI",
+      "target": "HII"
+    },
+    {
+      "baseline": "XLI",
+      "target": "HON"
+    },
+    {
+      "baseline": "XLI",
+      "target": "HUBB"
+    },
+    {
+      "baseline": "XLI",
+      "target": "HWM"
+    },
+    {
+      "baseline": "XLI",
+      "target": "IEX"
+    },
+    {
+      "baseline": "XLI",
+      "target": "IR"
+    },
+    {
+      "baseline": "XLI",
+      "target": "ITW"
+    },
+    {
+      "baseline": "XLI",
+      "target": "IXIZ5"
+    },
+    {
+      "baseline": "XLI",
+      "target": "J"
+    },
+    {
+      "baseline": "XLI",
+      "target": "JBHT"
+    },
+    {
+      "baseline": "XLI",
+      "target": "JCI"
+    },
+    {
+      "baseline": "XLI",
+      "target": "LDOS"
+    },
+    {
+      "baseline": "XLI",
+      "target": "LHX"
+    },
+    {
+      "baseline": "XLI",
+      "target": "LII"
+    },
+    {
+      "baseline": "XLI",
+      "target": "LMT"
+    },
+    {
+      "baseline": "XLI",
+      "target": "LUV"
+    },
+    {
+      "baseline": "XLI",
+      "target": "MAS"
+    },
+    {
+      "baseline": "XLI",
+      "target": "MMM"
+    },
+    {
+      "baseline": "XLI",
+      "target": "NDSN"
+    },
+    {
+      "baseline": "XLI",
+      "target": "NOC"
+    },
+    {
+      "baseline": "XLI",
+      "target": "NSC"
+    },
+    {
+      "baseline": "XLI",
+      "target": "ODFL"
+    },
+    {
+      "baseline": "XLI",
+      "target": "OTIS"
+    },
+    {
+      "baseline": "XLI",
+      "target": "PAYC"
+    },
+    {
+      "baseline": "XLI",
+      "target": "PAYX"
+    },
+    {
+      "baseline": "XLI",
+      "target": "PCAR"
+    },
+    {
+      "baseline": "XLI",
+      "target": "PH"
+    },
+    {
+      "baseline": "XLI",
+      "target": "PNR"
+    },
+    {
+      "baseline": "XLI",
+      "target": "PWR"
+    },
+    {
+      "baseline": "XLI",
+      "target": "ROK"
+    },
+    {
+      "baseline": "XLI",
+      "target": "ROL"
+    },
+    {
+      "baseline": "XLI",
+      "target": "RSG"
+    },
+    {
+      "baseline": "XLI",
+      "target": "RTX"
+    },
+    {
+      "baseline": "XLI",
+      "target": "SNA"
+    },
+    {
+      "baseline": "XLI",
+      "target": "SWK"
+    },
+    {
+      "baseline": "XLI",
+      "target": "TDG"
+    },
+    {
+      "baseline": "XLI",
+      "target": "TT"
+    },
+    {
+      "baseline": "XLI",
+      "target": "TXT"
+    },
+    {
+      "baseline": "XLI",
+      "target": "UAL"
+    },
+    {
+      "baseline": "XLI",
+      "target": "UBER"
+    },
+    {
+      "baseline": "XLI",
+      "target": "UNP"
+    },
+    {
+      "baseline": "XLI",
+      "target": "UPS"
+    },
+    {
+      "baseline": "XLI",
+      "target": "URI"
+    },
+    {
+      "baseline": "XLI",
+      "target": "VLTO"
+    },
+    {
+      "baseline": "XLI",
+      "target": "VRSK"
+    },
+    {
+      "baseline": "XLI",
+      "target": "WAB"
+    },
+    {
+      "baseline": "XLI",
+      "target": "WM"
+    },
+    {
+      "baseline": "XLI",
+      "target": "XYL"
+    },
+    {
+      "baseline": "XLK",
+      "target": "AAPL"
+    },
+    {
+      "baseline": "XLK",
+      "target": "ACN"
+    },
+    {
+      "baseline": "XLK",
+      "target": "ADBE"
+    },
+    {
+      "baseline": "XLK",
+      "target": "ADI"
+    },
+    {
+      "baseline": "XLK",
+      "target": "ADSK"
+    },
+    {
+      "baseline": "XLK",
+      "target": "AKAM"
+    },
+    {
+      "baseline": "XLK",
+      "target": "AMAT"
+    },
+    {
+      "baseline": "XLK",
+      "target": "AMD"
+    },
+    {
+      "baseline": "XLK",
+      "target": "ANET"
+    },
+    {
+      "baseline": "XLK",
+      "target": "APH"
+    },
+    {
+      "baseline": "XLK",
+      "target": "APP"
+    },
+    {
+      "baseline": "XLK",
+      "target": "AVGO"
+    },
+    {
+      "baseline": "XLK",
+      "target": "CDNS"
+    },
+    {
+      "baseline": "XLK",
+      "target": "CDW"
+    },
+    {
+      "baseline": "XLK",
+      "target": "CRM"
+    },
+    {
+      "baseline": "XLK",
+      "target": "CRWD"
+    },
+    {
+      "baseline": "XLK",
+      "target": "CSCO"
+    },
+    {
+      "baseline": "XLK",
+      "target": "CTSH"
+    },
+    {
+      "baseline": "XLK",
+      "target": "DDOG"
+    },
+    {
+      "baseline": "XLK",
+      "target": "DELL"
+    },
+    {
+      "baseline": "XLK",
+      "target": "EPAM"
+    },
+    {
+      "baseline": "XLK",
+      "target": "FFIV"
+    },
+    {
+      "baseline": "XLK",
+      "target": "FICO"
+    },
+    {
+      "baseline": "XLK",
+      "target": "FSLR"
+    },
+    {
+      "baseline": "XLK",
+      "target": "FTNT"
+    },
+    {
+      "baseline": "XLK",
+      "target": "GDDY"
+    },
+    {
+      "baseline": "XLK",
+      "target": "GEN"
+    },
+    {
+      "baseline": "XLK",
+      "target": "GLW"
+    },
+    {
+      "baseline": "XLK",
+      "target": "HPE"
+    },
+    {
+      "baseline": "XLK",
+      "target": "HPQ"
+    },
+    {
+      "baseline": "XLK",
+      "target": "IBM"
+    },
+    {
+      "baseline": "XLK",
+      "target": "INTC"
+    },
+    {
+      "baseline": "XLK",
+      "target": "INTU"
+    },
+    {
+      "baseline": "XLK",
+      "target": "IT"
+    },
+    {
+      "baseline": "XLK",
+      "target": "IXTZ5"
+    },
+    {
+      "baseline": "XLK",
+      "target": "JBL"
+    },
+    {
+      "baseline": "XLK",
+      "target": "KEYS"
+    },
+    {
+      "baseline": "XLK",
+      "target": "KLAC"
+    },
+    {
+      "baseline": "XLK",
+      "target": "LRCX"
+    },
+    {
+      "baseline": "XLK",
+      "target": "MCHP"
+    },
+    {
+      "baseline": "XLK",
+      "target": "MPWR"
+    },
+    {
+      "baseline": "XLK",
+      "target": "MSFT"
+    },
+    {
+      "baseline": "XLK",
+      "target": "MSI"
+    },
+    {
+      "baseline": "XLK",
+      "target": "MU"
+    },
+    {
+      "baseline": "XLK",
+      "target": "NOW"
+    },
+    {
+      "baseline": "XLK",
+      "target": "NTAP"
+    },
+    {
+      "baseline": "XLK",
+      "target": "NVDA"
+    },
+    {
+      "baseline": "XLK",
+      "target": "NXPI"
+    },
+    {
+      "baseline": "XLK",
+      "target": "ON"
+    },
+    {
+      "baseline": "XLK",
+      "target": "ORCL"
+    },
+    {
+      "baseline": "XLK",
+      "target": "PANW"
+    },
+    {
+      "baseline": "XLK",
+      "target": "PLTR"
+    },
+    {
+      "baseline": "XLK",
+      "target": "PTC"
+    },
+    {
+      "baseline": "XLK",
+      "target": "QCOM"
+    },
+    {
+      "baseline": "XLK",
+      "target": "ROP"
+    },
+    {
+      "baseline": "XLK",
+      "target": "SMCI"
+    },
+    {
+      "baseline": "XLK",
+      "target": "SNPS"
+    },
+    {
+      "baseline": "XLK",
+      "target": "STX"
+    },
+    {
+      "baseline": "XLK",
+      "target": "SWKS"
+    },
+    {
+      "baseline": "XLK",
+      "target": "TDY"
+    },
+    {
+      "baseline": "XLK",
+      "target": "TEL"
+    },
+    {
+      "baseline": "XLK",
+      "target": "TER"
+    },
+    {
+      "baseline": "XLK",
+      "target": "TRMB"
+    },
+    {
+      "baseline": "XLK",
+      "target": "TXN"
+    },
+    {
+      "baseline": "XLK",
+      "target": "TYL"
+    },
+    {
+      "baseline": "XLK",
+      "target": "VRSN"
+    },
+    {
+      "baseline": "XLK",
+      "target": "WDAY"
+    },
+    {
+      "baseline": "XLK",
+      "target": "WDC"
+    },
+    {
+      "baseline": "XLK",
+      "target": "ZBRA"
+    },
+    {
+      "baseline": "XLP",
+      "target": "COST"
+    },
+    {
+      "baseline": "XLP",
+      "target": "DG"
+    },
+    {
+      "baseline": "XLP",
+      "target": "DLTR"
+    },
+    {
+      "baseline": "XLP",
+      "target": "TGT"
+    },
+    {
+      "baseline": "XLP",
+      "target": "WMT"
+    },
+    {
+      "baseline": "XLU",
+      "target": "AEE"
+    },
+    {
+      "baseline": "XLU",
+      "target": "AEP"
+    },
+    {
+      "baseline": "XLU",
+      "target": "AES"
+    },
+    {
+      "baseline": "XLU",
+      "target": "ATO"
+    },
+    {
+      "baseline": "XLU",
+      "target": "AWK"
+    },
+    {
+      "baseline": "XLU",
+      "target": "CEG"
+    },
+    {
+      "baseline": "XLU",
+      "target": "CMS"
+    },
+    {
+      "baseline": "XLU",
+      "target": "CNP"
+    },
+    {
+      "baseline": "XLU",
+      "target": "D"
+    },
+    {
+      "baseline": "XLU",
+      "target": "DTE"
+    },
+    {
+      "baseline": "XLU",
+      "target": "DUK"
+    },
+    {
+      "baseline": "XLU",
+      "target": "ED"
+    },
+    {
+      "baseline": "XLU",
+      "target": "EIX"
+    },
+    {
+      "baseline": "XLU",
+      "target": "ES"
+    },
+    {
+      "baseline": "XLU",
+      "target": "ETR"
+    },
+    {
+      "baseline": "XLU",
+      "target": "EVRG"
+    },
+    {
+      "baseline": "XLU",
+      "target": "EXC"
+    },
+    {
+      "baseline": "XLU",
+      "target": "FE"
+    },
+    {
+      "baseline": "XLU",
+      "target": "IXSZ5"
+    },
+    {
+      "baseline": "XLU",
+      "target": "LNT"
+    },
+    {
+      "baseline": "XLU",
+      "target": "NEE"
+    },
+    {
+      "baseline": "XLU",
+      "target": "NI"
+    },
+    {
+      "baseline": "XLU",
+      "target": "NRG"
+    },
+    {
+      "baseline": "XLU",
+      "target": "PCG"
+    },
+    {
+      "baseline": "XLU",
+      "target": "PEG"
+    },
+    {
+      "baseline": "XLU",
+      "target": "PNW"
+    },
+    {
+      "baseline": "XLU",
+      "target": "PPL"
+    },
+    {
+      "baseline": "XLU",
+      "target": "SO"
+    },
+    {
+      "baseline": "XLU",
+      "target": "SRE"
+    },
+    {
+      "baseline": "XLU",
+      "target": "VST"
+    },
+    {
+      "baseline": "XLU",
+      "target": "WEC"
+    },
+    {
+      "baseline": "XLU",
+      "target": "XEL"
+    },
+    {
+      "baseline": "XLV",
+      "target": "A"
+    },
+    {
+      "baseline": "XLV",
+      "target": "ABBV"
+    },
+    {
+      "baseline": "XLV",
+      "target": "ABT"
+    },
+    {
+      "baseline": "XLV",
+      "target": "ALGN"
+    },
+    {
+      "baseline": "XLV",
+      "target": "AMGN"
+    },
+    {
+      "baseline": "XLV",
+      "target": "BAX"
+    },
+    {
+      "baseline": "XLV",
+      "target": "BDX"
+    },
+    {
+      "baseline": "XLV",
+      "target": "BIIB"
+    },
+    {
+      "baseline": "XLV",
+      "target": "BMY"
+    },
+    {
+      "baseline": "XLV",
+      "target": "BSX"
+    },
+    {
+      "baseline": "XLV",
+      "target": "CAH"
+    },
+    {
+      "baseline": "XLV",
+      "target": "CI"
+    },
+    {
+      "baseline": "XLV",
+      "target": "CNC"
+    },
+    {
+      "baseline": "XLV",
+      "target": "COO"
+    },
+    {
+      "baseline": "XLV",
+      "target": "COR"
+    },
+    {
+      "baseline": "XLV",
+      "target": "CRL"
+    },
+    {
+      "baseline": "XLV",
+      "target": "CVS"
+    },
+    {
+      "baseline": "XLV",
+      "target": "DGX"
+    },
+    {
+      "baseline": "XLV",
+      "target": "DHR"
+    },
+    {
+      "baseline": "XLV",
+      "target": "DOC"
+    },
+    {
+      "baseline": "XLV",
+      "target": "DVA"
+    },
+    {
+      "baseline": "XLV",
+      "target": "DXCM"
+    },
+    {
+      "baseline": "XLV",
+      "target": "ELV"
+    },
+    {
+      "baseline": "XLV",
+      "target": "EW"
+    },
+    {
+      "baseline": "XLV",
+      "target": "GEHC"
+    },
+    {
+      "baseline": "XLV",
+      "target": "GILD"
+    },
+    {
+      "baseline": "XLV",
+      "target": "HCA"
+    },
+    {
+      "baseline": "XLV",
+      "target": "HOLX"
+    },
+    {
+      "baseline": "XLV",
+      "target": "HSIC"
+    },
+    {
+      "baseline": "XLV",
+      "target": "HUM"
+    },
+    {
+      "baseline": "XLV",
+      "target": "IDXX"
+    },
+    {
+      "baseline": "XLV",
+      "target": "INCY"
+    },
+    {
+      "baseline": "XLV",
+      "target": "IQV"
+    },
+    {
+      "baseline": "XLV",
+      "target": "ISRG"
+    },
+    {
+      "baseline": "XLV",
+      "target": "IXCZ5"
+    },
+    {
+      "baseline": "XLV",
+      "target": "JNJ"
+    },
+    {
+      "baseline": "XLV",
+      "target": "LH"
+    },
+    {
+      "baseline": "XLV",
+      "target": "LLY"
+    },
+    {
+      "baseline": "XLV",
+      "target": "MCK"
+    },
+    {
+      "baseline": "XLV",
+      "target": "MDT"
+    },
+    {
+      "baseline": "XLV",
+      "target": "MOH"
+    },
+    {
+      "baseline": "XLV",
+      "target": "MRK"
+    },
+    {
+      "baseline": "XLV",
+      "target": "MRNA"
+    },
+    {
+      "baseline": "XLV",
+      "target": "MTD"
+    },
+    {
+      "baseline": "XLV",
+      "target": "PFE"
+    },
+    {
+      "baseline": "XLV",
+      "target": "PODD"
+    },
+    {
+      "baseline": "XLV",
+      "target": "REGN"
+    },
+    {
+      "baseline": "XLV",
+      "target": "RMD"
+    },
+    {
+      "baseline": "XLV",
+      "target": "RVTY"
+    },
+    {
+      "baseline": "XLV",
+      "target": "SOLV"
+    },
+    {
+      "baseline": "XLV",
+      "target": "STE"
+    },
+    {
+      "baseline": "XLV",
+      "target": "SYK"
+    },
+    {
+      "baseline": "XLV",
+      "target": "TECH"
+    },
+    {
+      "baseline": "XLV",
+      "target": "TMO"
+    },
+    {
+      "baseline": "XLV",
+      "target": "UHS"
+    },
+    {
+      "baseline": "XLV",
+      "target": "UNH"
+    },
+    {
+      "baseline": "XLV",
+      "target": "VRTX"
+    },
+    {
+      "baseline": "XLV",
+      "target": "VTR"
+    },
+    {
+      "baseline": "XLV",
+      "target": "VTRS"
+    },
+    {
+      "baseline": "XLV",
+      "target": "WAT"
+    },
+    {
+      "baseline": "XLV",
+      "target": "WELL"
+    },
+    {
+      "baseline": "XLV",
+      "target": "WST"
+    },
+    {
+      "baseline": "XLV",
+      "target": "ZBH"
+    },
+    {
+      "baseline": "XLV",
+      "target": "ZTS"
+    },
+    {
+      "baseline": "XLY",
+      "target": "ABNB"
+    },
+    {
+      "baseline": "XLY",
+      "target": "AMZN"
+    },
+    {
+      "baseline": "XLY",
+      "target": "APTV"
+    },
+    {
+      "baseline": "XLY",
+      "target": "AZO"
+    },
+    {
+      "baseline": "XLY",
+      "target": "BBY"
+    },
+    {
+      "baseline": "XLY",
+      "target": "BKNG"
+    },
+    {
+      "baseline": "XLY",
+      "target": "CCL"
+    },
+    {
+      "baseline": "XLY",
+      "target": "CMG"
+    },
+    {
+      "baseline": "XLY",
+      "target": "DASH"
+    },
+    {
+      "baseline": "XLY",
+      "target": "DECK"
+    },
+    {
+      "baseline": "XLY",
+      "target": "DHI"
+    },
+    {
+      "baseline": "XLY",
+      "target": "DPZ"
+    },
+    {
+      "baseline": "XLY",
+      "target": "DRI"
+    },
+    {
+      "baseline": "XLY",
+      "target": "EBAY"
+    },
+    {
+      "baseline": "XLY",
+      "target": "EXPE"
+    },
+    {
+      "baseline": "XLY",
+      "target": "F"
+    },
+    {
+      "baseline": "XLY",
+      "target": "GM"
+    },
+    {
+      "baseline": "XLY",
+      "target": "GPC"
+    },
+    {
+      "baseline": "XLY",
+      "target": "GRMN"
+    },
+    {
+      "baseline": "XLY",
+      "target": "HAS"
+    },
+    {
+      "baseline": "XLY",
+      "target": "HD"
+    },
+    {
+      "baseline": "XLY",
+      "target": "HLT"
+    },
+    {
+      "baseline": "XLY",
+      "target": "IXYZ5"
+    },
+    {
+      "baseline": "XLY",
+      "target": "KMX"
+    },
+    {
+      "baseline": "XLY",
+      "target": "LEN"
+    },
+    {
+      "baseline": "XLY",
+      "target": "LKQ"
+    },
+    {
+      "baseline": "XLY",
+      "target": "LOW"
+    },
+    {
+      "baseline": "XLY",
+      "target": "LULU"
+    },
+    {
+      "baseline": "XLY",
+      "target": "LVS"
+    },
+    {
+      "baseline": "XLY",
+      "target": "MAR"
+    },
+    {
+      "baseline": "XLY",
+      "target": "MCD"
+    },
+    {
+      "baseline": "XLY",
+      "target": "MGM"
+    },
+    {
+      "baseline": "XLY",
+      "target": "MHK"
+    },
+    {
+      "baseline": "XLY",
+      "target": "NCLH"
+    },
+    {
+      "baseline": "XLY",
+      "target": "NKE"
+    },
+    {
+      "baseline": "XLY",
+      "target": "NVR"
+    },
+    {
+      "baseline": "XLY",
+      "target": "ORLY"
+    },
+    {
+      "baseline": "XLY",
+      "target": "PHM"
+    },
+    {
+      "baseline": "XLY",
+      "target": "POOL"
+    },
+    {
+      "baseline": "XLY",
+      "target": "RCL"
+    },
+    {
+      "baseline": "XLY",
+      "target": "RL"
+    },
+    {
+      "baseline": "XLY",
+      "target": "ROST"
+    },
+    {
+      "baseline": "XLY",
+      "target": "SBUX"
+    },
+    {
+      "baseline": "XLY",
+      "target": "TJX"
+    },
+    {
+      "baseline": "XLY",
+      "target": "TPR"
+    },
+    {
+      "baseline": "XLY",
+      "target": "TSCO"
+    },
+    {
+      "baseline": "XLY",
+      "target": "TSLA"
+    },
+    {
+      "baseline": "XLY",
+      "target": "ULTA"
+    },
+    {
+      "baseline": "XLY",
+      "target": "WSM"
+    },
+    {
+      "baseline": "XLY",
+      "target": "WYNN"
+    },
+    {
+      "baseline": "XLY",
+      "target": "YUM"
+    },
+    {
+      "baseline": "XME",
+      "target": "AA"
+    },
+    {
+      "baseline": "XME",
+      "target": "AMR"
+    },
+    {
+      "baseline": "XME",
+      "target": "BTU"
+    },
+    {
+      "baseline": "XME",
+      "target": "CDE"
+    },
+    {
+      "baseline": "XME",
+      "target": "CENX"
+    },
+    {
+      "baseline": "XME",
+      "target": "CLF"
+    },
+    {
+      "baseline": "XME",
+      "target": "CMC"
+    },
+    {
+      "baseline": "XME",
+      "target": "CMP"
+    },
+    {
+      "baseline": "XME",
+      "target": "CNR"
+    },
+    {
+      "baseline": "XME",
+      "target": "FCX"
+    },
+    {
+      "baseline": "XME",
+      "target": "HCC"
+    },
+    {
+      "baseline": "XME",
+      "target": "HL"
+    },
+    {
+      "baseline": "XME",
+      "target": "IE"
+    },
+    {
+      "baseline": "XME",
+      "target": "KALU"
+    },
+    {
+      "baseline": "XME",
+      "target": "LEU"
+    },
+    {
+      "baseline": "XME",
+      "target": "METC"
+    },
+    {
+      "baseline": "XME",
+      "target": "MP"
+    },
+    {
+      "baseline": "XME",
+      "target": "MTRN"
+    },
+    {
+      "baseline": "XME",
+      "target": "MTUS"
+    },
+    {
+      "baseline": "XME",
+      "target": "MUX"
+    },
+    {
+      "baseline": "XME",
+      "target": "NEM"
+    },
+    {
+      "baseline": "XME",
+      "target": "NUE"
+    },
+    {
+      "baseline": "XME",
+      "target": "RGLD"
+    },
+    {
+      "baseline": "XME",
+      "target": "RS"
+    },
+    {
+      "baseline": "XME",
+      "target": "RYI"
+    },
+    {
+      "baseline": "XME",
+      "target": "STLD"
+    },
+    {
+      "baseline": "XME",
+      "target": "SXC"
+    },
+    {
+      "baseline": "XME",
+      "target": "UAMY"
+    },
+    {
+      "baseline": "XME",
+      "target": "UEC"
+    },
+    {
+      "baseline": "XME",
+      "target": "URG"
+    },
+    {
+      "baseline": "XME",
+      "target": "USAR"
+    },
+    {
+      "baseline": "XME",
+      "target": "WS"
+    },
+    {
+      "baseline": "XSD",
+      "target": "ADI"
+    },
+    {
+      "baseline": "XSD",
+      "target": "ALAB"
+    },
+    {
+      "baseline": "XSD",
+      "target": "ALGM"
+    },
+    {
+      "baseline": "XSD",
+      "target": "AMBA"
+    },
+    {
+      "baseline": "XSD",
+      "target": "AMD"
+    },
+    {
+      "baseline": "XSD",
+      "target": "AOSL"
+    },
+    {
+      "baseline": "XSD",
+      "target": "AVGO"
+    },
+    {
+      "baseline": "XSD",
+      "target": "CEVA"
+    },
+    {
+      "baseline": "XSD",
+      "target": "CRDO"
+    },
+    {
+      "baseline": "XSD",
+      "target": "CRUS"
+    },
+    {
+      "baseline": "XSD",
+      "target": "DIOD"
+    },
+    {
+      "baseline": "XSD",
+      "target": "FSLR"
+    },
+    {
+      "baseline": "XSD",
+      "target": "INDI"
+    },
+    {
+      "baseline": "XSD",
+      "target": "INTC"
+    },
+    {
+      "baseline": "XSD",
+      "target": "LSCC"
+    },
+    {
+      "baseline": "XSD",
+      "target": "MCHP"
+    },
+    {
+      "baseline": "XSD",
+      "target": "MPWR"
+    },
+    {
+      "baseline": "XSD",
+      "target": "MRVL"
+    },
+    {
+      "baseline": "XSD",
+      "target": "MTSI"
+    },
+    {
+      "baseline": "XSD",
+      "target": "MU"
+    },
+    {
+      "baseline": "XSD",
+      "target": "MXL"
+    },
+    {
+      "baseline": "XSD",
+      "target": "NVDA"
+    },
+    {
+      "baseline": "XSD",
+      "target": "NVEC"
+    },
+    {
+      "baseline": "XSD",
+      "target": "NVTS"
+    },
+    {
+      "baseline": "XSD",
+      "target": "NXPI"
+    },
+    {
+      "baseline": "XSD",
+      "target": "OLED"
+    },
+    {
+      "baseline": "XSD",
+      "target": "ON"
+    },
+    {
+      "baseline": "XSD",
+      "target": "PENG"
+    },
+    {
+      "baseline": "XSD",
+      "target": "PI"
+    },
+    {
+      "baseline": "XSD",
+      "target": "POWI"
+    },
+    {
+      "baseline": "XSD",
+      "target": "QCOM"
+    },
+    {
+      "baseline": "XSD",
+      "target": "QRVO"
+    },
+    {
+      "baseline": "XSD",
+      "target": "RGTI"
+    },
+    {
+      "baseline": "XSD",
+      "target": "RMBS"
+    },
+    {
+      "baseline": "XSD",
+      "target": "SITM"
+    },
+    {
+      "baseline": "XSD",
+      "target": "SLAB"
+    },
+    {
+      "baseline": "XSD",
+      "target": "SMTC"
+    },
+    {
+      "baseline": "XSD",
+      "target": "SWKS"
+    },
+    {
+      "baseline": "XSD",
+      "target": "SYNA"
+    },
+    {
+      "baseline": "XSD",
+      "target": "TXN"
+    }
+  ]
+}

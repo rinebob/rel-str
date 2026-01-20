@@ -1,0 +1,1234 @@
+[
+  {
+    "symbol": "AA",
+    "name": "ALCOA CORP",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "ABUS",
+    "name": "ARBUTUS BIOPHARMA CORP",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "ACAD",
+    "name": "ACADIA PHARMACEUTICALS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "ACLX",
+    "name": "ARCELLX INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "ADMA",
+    "name": "ADMA BIOLOGICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "AGIO",
+    "name": "AGIOS PHARMACEUTICALS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "AKBA",
+    "name": "AKEBIA THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "AKRO",
+    "name": "AKERO THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "ALAB",
+    "name": "ASTERA LABS INC",
+    "etfs": [
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "ALGM",
+    "name": "ALLEGRO MICROSYSTEMS INC",
+    "etfs": [
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "ALKS",
+    "name": "ALKERMES PLC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "ALT",
+    "name": "ALTIMMUNE INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "AMBA",
+    "name": "AMBARELLA INC",
+    "etfs": [
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "AMR",
+    "name": "ALPHA METALLURGICAL RESOURCE",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "ANAB",
+    "name": "ANAPTYSBIO INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "AOSL",
+    "name": "ALPHA + OMEGA SEMICONDUCTOR",
+    "etfs": [
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "APGE",
+    "name": "APOGEE THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "APLS",
+    "name": "APELLIS PHARMACEUTICALS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "ARCT",
+    "name": "ARCTURUS THERAPEUTICS HOLDIN",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "ARDX",
+    "name": "ARDELYX INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "ARQT",
+    "name": "ARCUTIS BIOTHERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "ARWR",
+    "name": "ARROWHEAD PHARMACEUTICALS IN",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "ATYR",
+    "name": "ATYR PHARMA INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "AVBP",
+    "name": "ARRIVENT BIOPHARMA INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "AVXL",
+    "name": "ANAVEX LIFE SCIENCES CORP",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "BBIO",
+    "name": "BRIDGEBIO PHARMA INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "BCRX",
+    "name": "BIOCRYST PHARMACEUTICALS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "BEAM",
+    "name": "BEAM THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "BHVN",
+    "name": "BIOHAVEN LTD",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "BMRN",
+    "name": "BIOMARIN PHARMACEUTICAL INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "BTU",
+    "name": "PEABODY ENERGY CORP",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "CDE",
+    "name": "COEUR MINING INC",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "CDNA",
+    "name": "CAREDX INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "CDTX",
+    "name": "CIDARA THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "CELC",
+    "name": "CELCUITY INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "CENX",
+    "name": "CENTURY ALUMINUM COMPANY",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "CEVA",
+    "name": "CEVA INC",
+    "etfs": [
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "CGEM",
+    "name": "CULLINAN THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "CGON",
+    "name": "CG ONCOLOGY INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "CLDX",
+    "name": "CELLDEX THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "CLF",
+    "name": "CLEVELAND CLIFFS INC",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "CMC",
+    "name": "COMMERCIAL METALS CO",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "CMP",
+    "name": "COMPASS MINERALS INTERNATION",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "CMPX",
+    "name": "COMPASS THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "CNR",
+    "name": "CORE NATURAL RESOURCES INC",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "COGT",
+    "name": "COGENT BIOSCIENCES INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "CPRX",
+    "name": "CATALYST PHARMACEUTICALS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "CRDO",
+    "name": "CREDO TECHNOLOGY GROUP HOLDI",
+    "etfs": [
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "CRSP",
+    "name": "CRISPR THERAPEUTICS AG",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "CRUS",
+    "name": "CIRRUS LOGIC INC",
+    "etfs": [
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "CYTK",
+    "name": "CYTOKINETICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "DAWN",
+    "name": "DAY ONE BIOPHARMACEUTICALS I",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "DIOD",
+    "name": "DIODES INC",
+    "etfs": [
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "DNLI",
+    "name": "DENALI THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "DNTH",
+    "name": "DIANTHUS THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "DVAX",
+    "name": "DYNAVAX TECHNOLOGIES CORP",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "DYN",
+    "name": "DYNE THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "EBS",
+    "name": "EMERGENT BIOSOLUTIONS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "ETNB",
+    "name": "89BIO INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "EXAS",
+    "name": "EXACT SCIENCES CORP",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "EXEL",
+    "name": "EXELIXIS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "FI",
+    "name": "FISERV INC",
+    "etfs": [
+      "XLF"
+    ]
+  },
+  {
+    "symbol": "FOLD",
+    "name": "AMICUS THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "GERN",
+    "name": "GERON CORP",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "GRAL",
+    "name": "GRAIL INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "HALO",
+    "name": "HALOZYME THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "HCC",
+    "name": "WARRIOR MET COAL INC",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "HL",
+    "name": "HECLA MINING CO",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "IBRX",
+    "name": "IMMUNITYBIO INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "IDYA",
+    "name": "IDEAYA BIOSCIENCES INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "IE",
+    "name": "IVANHOE ELECTRIC INC / US",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "IMNM",
+    "name": "IMMUNOME INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "IMVT",
+    "name": "IMMUNOVANT INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "INDI",
+    "name": "INDIE SEMICONDUCTOR INC A",
+    "etfs": [
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "IONS",
+    "name": "IONIS PHARMACEUTICALS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "IOVA",
+    "name": "IOVANCE BIOTHERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "IPG",
+    "name": "INTERPUBLIC GROUP OF COS INC",
+    "etfs": [
+      "XLC"
+    ]
+  },
+  {
+    "symbol": "IRON",
+    "name": "DISC MEDICINE INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "JANX",
+    "name": "JANUX THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "KALU",
+    "name": "KAISER ALUMINUM CORP",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "KALV",
+    "name": "KALVISTA PHARMACEUTICALS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "KMX",
+    "name": "CARMAX INC",
+    "etfs": [
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "KROS",
+    "name": "KEROS THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "KRYS",
+    "name": "KRYSTAL BIOTECH INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "KURA",
+    "name": "KURA ONCOLOGY INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "KYMR",
+    "name": "KYMERA THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "LEU",
+    "name": "CENTRUS ENERGY CORP CLASS A",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "LKQ",
+    "name": "LKQ CORP",
+    "etfs": [
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "LSCC",
+    "name": "LATTICE SEMICONDUCTOR CORP",
+    "etfs": [
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "MDGL",
+    "name": "MADRIGAL PHARMACEUTICALS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "MDXG",
+    "name": "MIMEDX GROUP INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "METC",
+    "name": "RAMACO RESOURCES INC A",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "MHK",
+    "name": "MOHAWK INDUSTRIES INC",
+    "etfs": [
+      "XLY"
+    ]
+  },
+  {
+    "symbol": "MIRM",
+    "name": "MIRUM PHARMACEUTICALS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "MLYS",
+    "name": "MINERALYS THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "MNKD",
+    "name": "MANNKIND CORP",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "MP",
+    "name": "MP MATERIALS CORP",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "MTRN",
+    "name": "MATERION CORP",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "MTSI",
+    "name": "MACOM TECHNOLOGY SOLUTIONS H",
+    "etfs": [
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "MTSR",
+    "name": "METSERA INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "MTUS",
+    "name": "METALLUS INC",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "MUX",
+    "name": "MCEWEN INC",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "MXL",
+    "name": "MAXLINEAR INC",
+    "etfs": [
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "MYGN",
+    "name": "MYRIAD GENETICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "NBIX",
+    "name": "NEUROCRINE BIOSCIENCES INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "NRIX",
+    "name": "NURIX THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "NTLA",
+    "name": "INTELLIA THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "NTRA",
+    "name": "NATERA INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "NUVL",
+    "name": "NUVALENT INC A",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "NVAX",
+    "name": "NOVAVAX INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "NVEC",
+    "name": "NVE CORP",
+    "etfs": [
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "NVTS",
+    "name": "NAVITAS SEMICONDUCTOR CORP",
+    "etfs": [
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "OLED",
+    "name": "UNIVERSAL DISPLAY CORP",
+    "etfs": [
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "ORIC",
+    "name": "ORIC PHARMACEUTICALS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "ORKA",
+    "name": "ORUKA THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "PCVX",
+    "name": "VAXCYTE INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "PENG",
+    "name": "PENGUIN SOLUTIONS INC",
+    "etfs": [
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "PGEN",
+    "name": "PRECIGEN INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "PI",
+    "name": "IMPINJ INC",
+    "etfs": [
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "POWI",
+    "name": "POWER INTEGRATIONS INC",
+    "etfs": [
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "PRAX",
+    "name": "PRAXIS PRECISION MEDICINES I",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "PTCT",
+    "name": "PTC THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "PTGX",
+    "name": "PROTAGONIST THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "QRVO",
+    "name": "QORVO INC",
+    "etfs": [
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "QURE",
+    "name": "UNIQURE NV",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "RARE",
+    "name": "ULTRAGENYX PHARMACEUTICAL IN",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "RCUS",
+    "name": "ARCUS BIOSCIENCES INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "REPL",
+    "name": "REPLIMUNE GROUP INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "RGLD",
+    "name": "ROYAL GOLD INC",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "RGNX",
+    "name": "REGENXBIO INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "RGTI",
+    "name": "RIGETTI COMPUTING INC",
+    "etfs": [
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "RIGL",
+    "name": "RIGEL PHARMACEUTICALS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "RLAY",
+    "name": "RELAY THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "RMBS",
+    "name": "RAMBUS INC",
+    "etfs": [
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "RNA",
+    "name": "AVIDITY BIOSCIENCES INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "ROIV",
+    "name": "ROIVANT SCIENCES LTD",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "RS",
+    "name": "RELIANCE INC",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "RVMD",
+    "name": "REVOLUTION MEDICINES INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "RXRX",
+    "name": "RECURSION PHARMACEUTICALS A",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "RYI",
+    "name": "RYERSON HOLDING CORP",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "RYTM",
+    "name": "RHYTHM PHARMACEUTICALS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "RZLT",
+    "name": "REZOLUTE INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "SANA",
+    "name": "SANA BIOTECHNOLOGY INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "SITM",
+    "name": "SITIME CORP",
+    "etfs": [
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "SLAB",
+    "name": "SILICON LABORATORIES INC",
+    "etfs": [
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "SLNO",
+    "name": "SOLENO THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "SMMT",
+    "name": "SUMMIT THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "SMTC",
+    "name": "SEMTECH CORP",
+    "etfs": [
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "SNDX",
+    "name": "SYNDAX PHARMACEUTICALS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "SPRY",
+    "name": "ARS PHARMACEUTICALS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "SRPT",
+    "name": "SAREPTA THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "SRRK",
+    "name": "SCHOLAR ROCK HOLDING CORP",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "STOK",
+    "name": "STOKE THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "SXC",
+    "name": "SUNCOKE ENERGY INC",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "SYNA",
+    "name": "SYNAPTICS INC",
+    "etfs": [
+      "XSD"
+    ]
+  },
+  {
+    "symbol": "SYRE",
+    "name": "SPYRE THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "TGTX",
+    "name": "TG THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "TNGX",
+    "name": "TANGO THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "TSHA",
+    "name": "TAYSHA GENE THERAPIES INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "TVTX",
+    "name": "TRAVERE THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "TWST",
+    "name": "TWIST BIOSCIENCE CORP",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "UAMY",
+    "name": "UNITED STATES ANTIMONY CORP",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "UEC",
+    "name": "URANIUM ENERGY CORP",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "UPB",
+    "name": "UPSTREAM BIO INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "URG",
+    "name": "UR ENERGY INC",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "USAR",
+    "name": "USA RARE EARTH INC",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "UTHR",
+    "name": "UNITED THERAPEUTICS CORP",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "VCEL",
+    "name": "VERICEL CORP",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "VCYT",
+    "name": "VERACYTE INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "VERA",
+    "name": "VERA THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "VIR",
+    "name": "VIR BIOTECHNOLOGY INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "VKTX",
+    "name": "VIKING THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "VRDN",
+    "name": "VIRIDIAN THERAPEUTICS INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "VSTM",
+    "name": "VERASTEM INC",
+    "etfs": [
+      "XBI"
+    ]
+  },
+  {
+    "symbol": "WS",
+    "name": "WORTHINGTON STEEL INC",
+    "etfs": [
+      "XME"
+    ]
+  },
+  {
+    "symbol": "XNCR",
+    "name": "XENCOR INC",
+    "etfs": [
+      "XBI"
+    ]
+  }
+]
