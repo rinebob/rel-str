@@ -33,13 +33,54 @@ export enum RsCloudFunctionName {
 }
 
 /**
+ * Ingestion status for a pair in the registry/catalog. Used to track
+ * backfill/ingestion health across the static universe of pairs.
+ */
+export enum PairIngestionStatus {
+  PENDING = 'PENDING',
+  RUNNING = 'RUNNING',
+  SUCCESS = 'SUCCESS',
+  PARTIAL = 'PARTIAL',
+  FAILED = 'FAILED',
+}
+
+/**
+ * Source of a pair in the registry/catalog.
+ */
+export enum PairSource {
+  MVP_CONFIG = 'MVP_CONFIG',
+  LIST = 'LIST',
+  BULK_IMPORT_2026_0115_NEW = '2026-01-15-bulk-pairs-import-new',
+  BULK_IMPORT_2026_0115_EXISTING = '2026-01-15-bulk-pairs-import-existing',
+}
+
+/**
  * Pub/Sub topic for partner data-ready notifications. This is the upstream
  * producer topic; our function subscribes and reacts as a consumer.
+ *
+ * In the emulator we mirror the full resource name (projects/rel-str/topics/*)
+ * so that it matches the topics created via gcloud and listed by the
+ * Pub/Sub emulator. In production we use the cross-project topic name in
+ * alpha-vantage-proxy-api.
  */
 export const PARTNER_DATA_READY_TOPIC =
   process.env.FUNCTIONS_EMULATOR === 'true'
     ? 'projects/rel-str/topics/partner-data-ready'
     : 'projects/alpha-vantage-proxy-api/topics/partner-data-ready';
+
+/**
+ * Pub/Sub topic for partner symbol-level readiness notifications. This is a
+ * low-latency stream that emits batches of symbols whose
+ * DAILY/WEEKLY/MONTHLY time-series data are ready for a given marketDate.
+ *
+ * In the emulator we mirror the full resource name (projects/rel-str/topics/*)
+ * so that it matches the topics created via gcloud and listed by the
+ * Pub/Sub emulator. In production we use the cross-project topic name.
+ */
+export const PARTNER_SYMBOLS_READY_TOPIC =
+  process.env.FUNCTIONS_EMULATOR === 'true'
+    ? 'projects/rel-str/topics/partner-symbols-ready'
+    : 'projects/alpha-vantage-proxy-api/topics/partner-symbols-ready';
 
 /**
  * Root collection for recording per-run status, metrics, and error samples
@@ -219,6 +260,15 @@ export const ALLOWED_RUN_TYPES = new Set<string>(Object.values(RunType));
 export const FIXED_INTERVAL: PartnerInterval = 'DAILY';
 export const FIXED_LIMIT = Number(process.env.RS_LIMIT || process.env.PARTNER_LIMIT || 30);
 export const FIXED_DAYS = Number(process.env.RS_DAYS || 30);
+
+/**
+ * When true, treat partner-data-ready as a lightweight finalizer and rely on
+ * the symbol-driven pipeline (partner-symbols-ready + rs-symbol-cache) for
+ * fetching bars and computing RS. When false, run the legacy pair-centric
+ * fetch + RS loop inside processDataReadyRunV2.
+ */
+export const USE_SYMBOL_DRIVEN_PIPELINE =
+  String(process.env.USE_SYMBOL_DRIVEN_PIPELINE || '').toLowerCase() === 'true';
 
 /**
  * Normalized baseline–target key used through the pipeline.
