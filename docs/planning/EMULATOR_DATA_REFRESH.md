@@ -1,4 +1,4 @@
-> **Transition Note (Multi-Interval RS):** This document assumes a daily-only RS model with `signals-daily` and/or `pairs-data.data[]`. A multi-interval RS transition is now planned; see `docs/planning/MULTI_INTERVAL_RS_TRANSITION.md` for the up-to-date design. This file will be updated once implementation is complete.
+> **Transition Note (Multi-Interval RS & Signals Activity):** This document was originally authored for a **daily-only RS model**. The current canonical model is multi-interval RS with **Signals Activity** mirrors and positions driven by the canonical RS engine. See `docs/planning/MULTI_INTERVAL_RS_TRANSITION.md`, `RS_SIGNAL_HISTORY.md`, and `UNIFIED_INGESTION_ENGINE.md` for the up-to-date design. Emulator rebuilds should focus on archives, canonical signals, Signals Activity, and positions.
 
 # Emulator RS Data Refresh Playbook
 
@@ -28,40 +28,38 @@ This doc describes how to fully rebuild the Firestore **emulator** database for 
 
 ## 2. One-time Hard Reset of Emulator RS Data
 
-Use this when you want to completely rebuild per‑pair signals, per‑pair `signals-daily`, root positions, and root `signals-daily` from archive.
+Use this when you want to completely rebuild per‑pair canonical signals, per‑pair **Signals Activity**, and root positions from archive.
 
-### 2.1 Clean root collections (positions + signals-daily)
+### 2.1 Clean root collections (positions)
 
 In the **Firestore emulator UI** (`http://127.0.0.1:4010/firestore`):
 
 - Delete root collection `positions`.
-- Delete root collection `signals-daily`.
+  
+These will be recreated by backfill as positions and Signals Activity.
 
-These will be recreated by backfill.
-
-### 2.2 Purge per‑pair signals-daily for all pairs
+### 2.2 Purge per‑pair Signals Activity for all pairs (when needed)
 
 ```powershell
 $body = @{
   data = @{
     fromYear         = 2000
     toYear           = 2030
-    removeContainers = $true   # delete year docs under signals-daily
+    removeContainers = $true   # delete year docs under signals-activity
   }
 } | ConvertTo-Json
 
 Invoke-RestMethod `
   -Method Post `
-  -Uri "http://127.0.0.1:5002/rel-str/us-central1/purgePairSignalsDailyAll" `
+  -Uri "http://127.0.0.1:5002/rel-str/us-central1/purgePairSignalsActivityAll" `
   -ContentType "application/json" `
   -Body $body
 ```
 
 Effect per pair (`pair-registry` driven):
 
-- Deletes legacy `pairs-data/{PAIR}/signals-daily/{YYYY-MM-DD}` docs.
-- Deletes all `signals-daily/{YYYY}/days/*` docs for `fromYear..toYear`.
-- Deletes `signals-daily/{YYYY}` container docs when `removeContainers = true`.
+- Deletes per-pair `signals-activity/{YYYY}/days/*` docs for `fromYear..toYear`.
+- Deletes `signals-activity/{YYYY}` container docs when `removeContainers = true`.
 
 ### 2.3 Purge per‑pair signals for all pairs
 
@@ -120,44 +118,6 @@ Effect per pair (`pair-registry` driven):
 - Deletes any `signals/open/items/*` and the `signals/open` doc when `removeOpenBucket = true`.
 - Deletes all `pairs-data/{PAIR}/signals-activity/{YYYY}/days/*` docs for `fromYear..toYear`.
 - Deletes `signals/{YYYY}` and `signals-activity/{YYYY}` container docs when `removeContainers = true`.
-
-### 2.4 Hard delete signals and signals-daily subcollections (per pair)
-
-After the callables above, use the **Firestore CLI** against the emulator to ensure *all* `signals` and `signals-daily` subcollections are removed for the registered pairs.
-
-```powershell
-$env:FIRESTORE_EMULATOR_HOST = "127.0.0.1:8088"
-$PROJECT = "rel-str"
-
-# Keep in sync with pair-registry/* in the emulator
-$pairs = @(
-  "QQQ-AAPL",
-  "QQQ-GOOGL",
-  "QQQ-TSLA",
-  "SPY-AAPL",
-  "SPY-GOOGL",
-  "SPY-PFE",
-  "SPY-QQQ",
-  "SPY-TSLA",
-  "SPY-WMT",
-  "SPY-XOM",
-  "SPY-XPH",
-  "XPH-PFE"
-)
-
-foreach ($pair in $pairs) {
-  Write-Host "Purging $pair ..."
-  firebase firestore:delete "pairs-data/$pair/signals" `
-    --project $PROJECT --recursive --force
-  firebase firestore:delete "pairs-data/$pair/signals-daily" `
-    --project $PROJECT --recursive --force
-}
-```
-
-After this, per pair you should see:
-
-- `pairs-data/{PAIR}` with archives (`archive-YYYY`) and meta, but **no** `signals` or `signals-daily` subcollections.
-- Root `positions` and `signals-daily` absent (to be rebuilt).
 
 ## 3. Rehydrate Archive Data from SavantAPI into Emulator
 
@@ -276,7 +236,7 @@ Backfill responsibilities (current pipeline):
 - Writes root Signals Activity mirror:
   - `signals-activity/{YYYY}/days/{YYYY-MM-DD}`
 
-Legacy `signals-daily` mirrors are deprecated and are **not** rebuilt by this pipeline.
+Legacy daily-only mirror collections are deprecated and are **not** rebuilt by this pipeline.
 
 ## 5. Diagnosing Missing Days (compute_skipped)
 

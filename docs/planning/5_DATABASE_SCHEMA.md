@@ -127,54 +127,6 @@ Longer history is stored under **per-interval, per-year** archive collections be
 * Daily samples are effectively always final per trading day.
 * Weekly/monthly archive samples represent only final interval-end values; intra-period previews live exclusively in `signals-activity`.
 
-Example (abbreviated)
-
-```json
-{
-  "meta": {
-    "baseline": "SPY",
-    "symbol": "AAPL",
-    "interval": "DAILY",
-    "window": 30
-  },
-  "lastUpdatedAt": "<timestamp>",
-  "latest": {
-    "day": "2025-10-23",
-    "dow": "Thu",
-    "pre": {
-      "time": "12:30",
-      "t": 1761241800000,
-      "base": { "price": 500.12, "change": 1.23, "percentChange": 0.25 },
-      "target": { "price": 210.45, "change": 0.85, "percentChange": 0.41 },
-      "rs": 0.4208,
-      "source": "intraday"
-    },
-    "post": {
-      "t": 1761264000000,
-      "base": { "price": 502.01, "change": 2.34, "percentChange": 0.47 },
-      "target": { "price": 211.10, "change": 1.50, "percentChange": 0.72 },
-      "rs": 0.4206,
-      "source": "adjustedClose"
-    }
-  },
-  "data": [
-    { "day": "2025-10-22", "dow": "Wed", "post": { /* ... */ } },
-    { "day": "2025-10-23", "dow": "Thu", "pre": { /* ... */ }, "post": { /* ... */ } }
-  ]
-}
-```
-
-Notes
-
-* PRE `change`/`percentChange` are explicitly measured against the prior day’s POST-close prices for both baseline and target.
-* The historical `data` array is a short mirror (length = `meta.window`) for fast reads; full history may live elsewhere or be computed on demand.
-* Future work: optional `signals` subcollection and `signalsSummary` can be layered on top of this structure without changing `latest`/`data`.
-
-Phase entries:
-
-* PRE: based on intraday price (ip) and ipc; change/percentChange vs prior-day POST-close (ac preferred, fallback c)
-* POST: based on adjusted close (ac) or c; change/percentChange vs prior-day POST-close
-
 ## Partner Webhooks Data Model (Backend RS pipeline)
 
 See also: [docs/partner/partner-webhooks.md](../partner/partner-webhooks.md)
@@ -261,7 +213,7 @@ Canonical RS store (unchanged at the collection level). FE reads `latestDaily` (
 
 #### signals-activity (per-pair and root mirrors) — Signals Activity / Whipsaw
 
-These mirrors provide a **transaction-centric activity log** per calendar day, across all intervals. Collection names remain `signals-daily` for backward compatibility, but conceptually this is a “Signals Activity” / whipsaw view rather than “daily-only” signals.
+These mirrors provide a **transaction-centric activity log** per calendar day, across all intervals.
 
 - Per-pair path (year-sharded):
   - `pairs-data/{PAIR}/signals-activity/{YYYY}/days/{YYYY-MM-DD}`
@@ -411,12 +363,11 @@ Optional per-user aggregates:
 - Path: `users/{uid}/pnlDaily/{YYYY-MM-DD}` with `actualPnLSummary?`
 
 #### Indexes
-- Collection group `signals`: by `opened.day desc`, `closed.day desc`, and filters on `status/baseline/symbol/direction`
-- Collection group `signalsDaily`: by `day`, composite `(pair, day)` if needed
+- Collection group `signals`: by `opened.day desc`, `closed.day desc`, and filters on `status/baseline/symbol/direction`.
 - Per-user overlays: direct doc lookups by `users/{uid}/trades/{positionId}`; optional per-user daily composite `(uid, day)` if building dashboards
 
 #### Deprecation alignment
-- Prefer archive shards for long history; retain `latest` and small mirrors for fast reads. `data[]` may be deprecated over time (see `RS_SIGNAL_HISTORY.md`).
+- Prefer archive shards for long history; retain `latestDaily` / `latestWeekly` / `latestMonthly` mirrors for fast reads.
 
 ## 4. Indexing
 
@@ -597,7 +548,8 @@ Drives baseline buttons in UI without scanning.
 Curated/demo lists users can copy into their lists.
 
 ### pairs-data/{BASE}-{SYMBOL}
-Canonical RS store (unchanged). FE reads `latest` for ranking and `data[]` for series.
+
+Canonical RS store (multi-interval). FE reads `latestDaily` / `latestWeekly` / `latestMonthly` for rankings and uses per-interval archives (`archive-*`) for series.
 
 ### Backend APIs (callables)
 - getBaselineLeaders({ baseline, direction: "desc"|"asc", limit }) → { baseline, items: Array<{ symbol, rs }> }
@@ -612,5 +564,5 @@ Canonical RS store (unchanged). FE reads `latest` for ranking and `data[]` for s
 
 ## Appendix: Rationale for Key Decisions
 
-* The compact `pairs-data` shape (latest* mirrors + archive shards) supports fast reads without a per-day `rs` subcollection. Canonical signals live under `pairs-data/{PAIR}/signals/*`, and Signals Activity / whipsaw views live under the existing `signals-daily` mirrors.
+* The compact `pairs-data` shape (latest* mirrors + archive shards) supports fast reads without a per-day `rs` subcollection. Canonical signals live under `pairs-data/{PAIR}/signals/*`, and Signals Activity / whipsaw views live under `signals-activity` per-pair and root mirrors.
 * All collection and document ids use kebab-case (e.g., `pairs-data`, `pair-registry`, `SPY-AAPL`).
