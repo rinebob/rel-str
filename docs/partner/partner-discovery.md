@@ -52,14 +52,16 @@ For server-to-server integrations, partners should use Google OIDC (service acco
 - Provider (current primary): Alpha Vantage (AV)
   - We persist adjusted series by default for `DAILY`, `WEEKLY`, and `MONTHLY`.
 
-- Canonical Firestore paths (non-intraday):
+- Canonical Firestore paths (non-intraday, **current split-adjusted model**):
   - Top-level provider/interval doc (metadata only):
-    - `symbol-data/{SYMBOL}/time-series/{av-daily-adjusted|av-weekly-adjusted|av-monthly-adjusted}`
+    - `symbol-data/{SYMBOL}/sa-time-series/{av-daily-adjusted|av-weekly-adjusted|av-monthly-adjusted}`
     - Fields: `metadata{ symbol, interval, histStartTs, histEndTs, lastUpdated, ttlSeconds, vendor, endpoint }`, and `latestBarTimestamp` (Firestore Timestamp for the latest bar)
   - Year‑sharded docs for `DAILY`/`WEEKLY`:
-    - `symbol-data/{SYMBOL}/time-series/{docId}/years/{YYYY}` → `{ bars: CompactBar[], count, firstBarTs, lastBarTs, updatedAt }`
+    - `symbol-data/{SYMBOL}/sa-time-series/{docId}/years/{YYYY}` → `{ bars: CompactBar[], count, firstBarTs, lastBarTs, updatedAt }`
   - Single ‘all’ doc for `MONTHLY`:
-    - `symbol-data/{SYMBOL}/time-series/{docId}/all/data` → `{ bars: CompactBar[], count, firstBarTs, lastBarTs, updatedAt }`
+    - `symbol-data/{SYMBOL}/sa-time-series/{docId}/all/data` → `{ bars: CompactBar[], count, firstBarTs, lastBarTs, updatedAt }`
+
+> **Legacy note:** The older `time-series` collection and paths referenced in earlier internal docs have been fully removed. All partner-facing time-series reads now come exclusively from `sa-time-series`.
 
 - Compact bar schema (subset):
   - `t` (epoch ms, UTC day)
@@ -69,8 +71,10 @@ For server-to-server integrations, partners should use Google OIDC (service acco
   - Derived: `ch` (change), `cp` (percent change)
   - Intraday snapshot fields may be present on the latest bar: `ip, io, it, ic, ipc`
 
-- Reader behavior (what partners receive):
-  - The partner reader clamps requested windows using numeric `histStartTs`/`histEndTs` from metadata, loads relevant year docs, filters bars by `from`/`to` (or presets like `1y`), sorts ascending, and returns `availableYears`, `count`, and `bars`.
+ - Reader behavior (what partners receive):
+  - The partner reader treats explicit `from`/`to` from the caller as authoritative and does **not** use internal metadata (`histStartTs`/`histEndTs`) for clamping. When `range/from/to` are omitted, it returns the full available dataset for that symbol/interval. When a `range` preset (e.g., `1y`/`5y`/`ytd`) is provided, it applies only that preset window. In all cases it loads the relevant year docs, filters bars by the effective `from`/`to` window (or returns all bars), sorts ascending, and returns `availableYears`, `count`, and `bars`.
+
+> **Operational note (2026‑01):** A previous version of the reader incorrectly used `histEndTs` as a hard upper bound for DAILY/WEEKLY partner reads, which could hide valid bars when metadata lagged behind the underlying shards (e.g., SPY 2026‑01‑02..09). This has been fixed; the reader no longer consults `histStartTs`/`histEndTs` for clamping, and explicit `from`/`to` or `range` presets fully control the window.
 
 ---
 
