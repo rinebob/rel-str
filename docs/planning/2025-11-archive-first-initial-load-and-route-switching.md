@@ -1,4 +1,6 @@
-> **Transition Note (Multi-Interval RS):** This document assumes a daily-only RS model with `signals-daily` and/or `pairs-data.data[]`. A multi-interval RS transition is now planned; see `docs/planning/MULTI_INTERVAL_RS_TRANSITION.md` for the up-to-date design. This file will be updated once implementation is complete.
+> **Transition Note:** This doc assumes a daily-only RS model with `pairs-data/{PAIR}/archive-YYYY` as the primary source for the Decision Board. Multi-interval RS and Signals Activity are now in flight; see `MULTI_INTERVAL_RS_TRANSITION.md` and `RS_SIGNAL_HISTORY.md` for updated backend semantics. This file is still useful for frontend routing and UX ideas, but some data assumptions will change.
+>
+> The archive-first strategy described here also predates the **TS_UNIVERSE-triggered unified ingestion engine** and associated archive/backfill semantics in `RS_ARCHIVE_BACKFILL.md`. When wiring new frontend routes or loaders, prefer to align with the unified ingestion/archives model and treat this document as a UX/flow reference rather than a source of truth for backend data timing.
 
 # Archive-First Strategy: Initial Load Latency and Fast Route Switching (Nov 2025)
 
