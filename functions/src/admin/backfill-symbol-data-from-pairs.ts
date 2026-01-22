@@ -97,13 +97,28 @@ export const backfillSymbolDataFromPairsAdmin = onRequest(
     }
 
     try {
+      const rawBaselineFilter = (req.body?.baselineFilter ?? req.query?.baselineFilter ?? '').toString();
+      const baselineFilter = rawBaselineFilter.trim().toUpperCase() || undefined;
+
       const pairsSnap = await db.collection('pairs-data').get();
       let updated = 0;
       const errors: Array<{ pairId: string; error: string }> = [];
 
+      logger.info('backfillSymbolDataFromPairsAdmin_start', {
+        baselineFilter: baselineFilter || null,
+        totalPairs: pairsSnap.size,
+      });
+
       for (const docSnap of pairsSnap.docs) {
         const pairId = docSnap.id;
         const data = docSnap.data() as PairLatestSnapshot;
+
+        if (baselineFilter) {
+          const split = splitPairId(pairId);
+          if (!split || split.baseline !== baselineFilter) {
+            continue;
+          }
+        }
 
         const symbol = resolveTargetSymbol(pairId, data);
         if (!symbol) {

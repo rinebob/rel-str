@@ -3,6 +3,7 @@ import './init';
 export {partnerProxyTest, getTrackedSymbols} from "./partner-proxy";
 
 export { processDataReadyRunV2 } from "./webhooks/partner-webhooks";
+
 export {
   recomputeRegisteredBackfill,
   diagnosePairDays,
@@ -13,6 +14,8 @@ export {
   cleanupIntraperiodBar,
   purgePairSignalsAndActivityAllHttp,
   refreshMarketHolidaysAdmin,
+  ingestStaticPairsAdmin,
+  normalizePairRegistryAdmin,
 } from "./webhooks/admin-tasks";
 
 export {

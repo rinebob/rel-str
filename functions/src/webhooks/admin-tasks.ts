@@ -12,7 +12,7 @@ import { buildPhaseSeries } from './rs-series';
 import { fetchDailyBarsRange } from './symbol-fetch';
 import { db, FieldValue } from '../firebase-admin-init';
 
-import { FIXED_DAYS, FIXED_LIMIT, ProcessErrorSample, FIXED_INTERVAL, APP_COLLECTION, PAIRS_COLLECTION, WEEKLY_ARCHIVE_COLLECTION_PREFIX, MONTHLY_ARCHIVE_COLLECTION_PREFIX } from './webhooks-config';
+import { FIXED_DAYS, FIXED_LIMIT, ProcessErrorSample, FIXED_INTERVAL, APP_COLLECTION, PAIRS_COLLECTION, WEEKLY_ARCHIVE_COLLECTION_PREFIX, MONTHLY_ARCHIVE_COLLECTION_PREFIX, REGISTRY_COLLECTION, PairIngestionStatus, ARCHIVE_COLLECTION_PREFIX, BACKFILL_START_DATE, PairSource } from './webhooks-config';
 
 import { SILENCE_ADMIN_INFO } from './webhooks-config';
 import { forEachWithConcurrency } from './partner-webhooks';
@@ -25,6 +25,7 @@ import { applyRsEventsForPair } from './rs-events-consumer';
 
 import { appendRootPositionTimelineUpdate } from './positions-manager';
 import { callPartnerMarketHolidays } from '../partner-proxy';
+import { runFullBackfillForPairs } from './hydrate-new-pair';
 
 import {
   RS_OPEN_LONG_THRESHOLD,
@@ -32,6 +33,9 @@ import {
   RS_OPEN_SHORT_THRESHOLD,
   RS_CLOSE_SHORT_THRESHOLD,
 } from './webhooks-config';
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const pairsRegistryConfig: { baselines: string[]; pairs: Array<{ baseline: string; target: string }> } = require('../../src/config/pairs-registry.mvp.json');
 
 interface BackfillSignalsPipelinePairResult {
   pair: string;
@@ -451,6 +455,280 @@ export const backfillSignalsPipelineAdmin = onRequest({ region: 'us-central1', t
 });
 
 /**
+ * HTTP (admin): ingestStaticPairsAdmin
+ * Pair-first ingestion for the static MVP universe. Reads all active
+ * pair-registry docs (seeded from pairs-registry.mvp.json), runs full
+ * archive + signals backfill for each pair, and updates ingestion
+ * readiness flags on the registry docs.
+ *
+ * Protect with bearer ADMIN_BACKFILL_TOKEN.
+ */
+export const ingestStaticPairsAdmin = onRequest({ region: 'us-central1', timeoutSeconds: 540 }, async (req, res) => {
+  const token = (req.headers['authorization'] || '').toString().replace(/^Bearer\s+/i, '');
+  const expected = (process.env.ADMIN_BACKFILL_TOKEN || '').trim();
+  if (!expected || token !== expected) {
+    res.status(401).json({ ok: false, error: 'unauthorized' });
+    return;
+  }
+
+  try {
+    const from = BACKFILL_START_DATE;
+    const to = new Date().toISOString().slice(0, 10);
+
+    const rawLimit = (req.query.limitPairs as string | undefined) ?? (req.body as any)?.limitPairs;
+    const limitPairs = rawLimit !== undefined ? Number(rawLimit) : undefined;
+
+    const snap = await db.collection(REGISTRY_COLLECTION).get();
+    if (snap.empty) {
+      res.status(200).json({ ok: true, message: 'no_pairs_in_registry' });
+      return;
+    }
+
+    const pairIds: string[] = [];
+
+    for (const doc of snap.docs) {
+      const data = doc.data() as any;
+      const baseline = String(data.baseline || '').trim().toUpperCase();
+      const target = String(data.target || '').trim().toUpperCase();
+      if (!baseline || !target) continue;
+      pairIds.push(`${baseline}-${target}`);
+    }
+
+    const effectivePairIds =
+      typeof limitPairs === 'number' && Number.isFinite(limitPairs) && limitPairs > 0
+        ? pairIds.slice(0, limitPairs)
+        : pairIds;
+
+    if (!SILENCE_ADMIN_INFO) {
+      logger.info(
+        `ingestStaticPairsAdmin_start from=${from} to=${to} totalPairs=${pairIds.length} processingPairs=${effectivePairIds.length} limitPairs=${limitPairs ?? 'none'}`,
+        { from, to, totalPairs: pairIds.length, processingPairs: effectivePairIds.length, limitPairs: limitPairs ?? null },
+      );
+    }
+
+    const fromYear = Number(from.slice(0, 4));
+    const toYear = Number(to.slice(0, 4));
+
+    const results: Array<{ pairId: string; status: PairIngestionStatus; dailyReady: boolean; weeklyReady: boolean; monthlyReady: boolean; error?: string }> = [];
+
+    for (const pairId of effectivePairIds) {
+      const [baseline, target] = pairId.split('-', 2);
+      if (!baseline || !target) continue;
+
+      const regRef = db.collection(REGISTRY_COLLECTION).doc(pairId);
+
+      await regRef.set(
+        {
+          ingestionStatus: PairIngestionStatus.RUNNING,
+          lastIngestionAt: FieldValue.serverTimestamp(),
+          lastIngestionError: null,
+        },
+        { merge: true },
+      );
+
+      let status = PairIngestionStatus.SUCCESS;
+      let dailyReady = false;
+      let weeklyReady = false;
+      let monthlyReady = false;
+      let error: string | undefined;
+
+      try {
+        await runFullBackfillForPairs([pairId], from, to);
+
+        const pairRef = db.collection(PAIRS_COLLECTION).doc(pairId);
+
+        // Check for at least one DAILY archive doc in range
+        for (let y = fromYear; y <= toYear; y++) {
+          const col = `${ARCHIVE_COLLECTION_PREFIX}${y}`;
+          const snapDaily = await pairRef.collection(col).limit(1).get();
+          if (!snapDaily.empty) {
+            dailyReady = true;
+            break;
+          }
+        }
+
+        // WEEKLY
+        for (let y = fromYear; y <= toYear; y++) {
+          const col = `${WEEKLY_ARCHIVE_COLLECTION_PREFIX}${y}`;
+          const snapWeekly = await pairRef.collection(col).limit(1).get();
+          if (!snapWeekly.empty) {
+            weeklyReady = true;
+            break;
+          }
+        }
+
+        // MONTHLY
+        for (let y = fromYear; y <= toYear; y++) {
+          const col = `${MONTHLY_ARCHIVE_COLLECTION_PREFIX}${y}`;
+          const snapMonthly = await pairRef.collection(col).limit(1).get();
+          if (!snapMonthly.empty) {
+            monthlyReady = true;
+            break;
+          }
+        }
+
+        if (!dailyReady || !weeklyReady || !monthlyReady) {
+          status = (dailyReady || weeklyReady || monthlyReady) ? PairIngestionStatus.PARTIAL : PairIngestionStatus.FAILED;
+          error = 'missing_one_or_more_intervals';
+        }
+      } catch (e: any) {
+        status = PairIngestionStatus.FAILED;
+        error = e?.message || String(e);
+      }
+
+      await regRef.set(
+        {
+          ingestionStatus: status,
+          dailyReady,
+          weeklyReady,
+          monthlyReady,
+          lastIngestionAt: FieldValue.serverTimestamp(),
+          ...(error ? { lastIngestionError: error } : {}),
+        },
+        { merge: true },
+      );
+
+      if (!SILENCE_ADMIN_INFO) {
+        logger.info(`ingestStaticPairsAdmin_pair_done pairId=${pairId} status=${status} dailyReady=${dailyReady} weeklyReady=${weeklyReady} monthlyReady=${monthlyReady} error=${error ?? 'none'}`, {
+          pairId,
+          status,
+          dailyReady,
+          weeklyReady,
+          monthlyReady,
+          error: error ?? null,
+        });
+      }
+
+      results.push({ pairId, status, dailyReady, weeklyReady, monthlyReady, error });
+    }
+
+    const successCount = results.filter(r => r.status === PairIngestionStatus.SUCCESS).length;
+    const partialCount = results.filter(r => r.status === PairIngestionStatus.PARTIAL).length;
+    const failedCount = results.filter(r => r.status === PairIngestionStatus.FAILED).length;
+
+    const summary = {
+      ok: true,
+      from,
+      to,
+      totalPairs: pairIds.length,
+      successPairs: successCount,
+      partialPairs: partialCount,
+      failedPairs: failedCount,
+      results,
+    };
+
+    if (!SILENCE_ADMIN_INFO) {
+      logger.info(`ingestStaticPairsAdmin_done from=${from} to=${to} totalPairs=${pairIds.length} processedPairs=${effectivePairIds.length} success=${successCount} partial=${partialCount} failed=${failedCount}`, summary);
+    }
+
+    res.status(200).json(summary);
+  } catch (e: any) {
+    logger.error('ingestStaticPairsAdmin_failed', { message: e?.message });
+    res.status(500).json({ ok: false, error: e?.message || 'internal_error' });
+  }
+});
+
+/**
+ * HTTP (admin): normalizePairRegistryAdmin
+ * Normalize all pair-registry docs to the new catalog shape. This is a
+ * one-time (but repeatable) repair action to ensure every doc has
+ * baseline/target uppercased, a source flag, and ingestion fields, and to
+ * strip the legacy `active` flag from behavior.
+ *
+ * Protect with bearer ADMIN_BACKFILL_TOKEN.
+ */
+export const normalizePairRegistryAdmin = onRequest({ region: 'us-central1', timeoutSeconds: 540 }, async (req, res) => {
+  const token = (req.headers['authorization'] || '').toString().replace(/^Bearer\s+/i, '');
+  const expected = (process.env.ADMIN_BACKFILL_TOKEN || '').trim();
+  if (!expected || token !== expected) {
+    res.status(401).json({ ok: false, error: 'unauthorized' });
+    return;
+  }
+
+  try {
+    const snap = await db.collection(REGISTRY_COLLECTION).get();
+    if (snap.empty) {
+      res.status(200).json({ ok: true, message: 'no_registry_docs' });
+      return;
+    }
+
+    const results: Array<{ id: string; baseline: string; target: string; source: string; ingestionStatus: PairIngestionStatus }> = [];
+
+    for (const doc of snap.docs) {
+      const raw = doc.data() as any;
+      const rawBaseline = String(raw.baseline || '').trim().toUpperCase();
+      const rawTarget = String(raw.target || '').trim().toUpperCase();
+      if (!rawBaseline || !rawTarget) {
+        continue;
+      }
+
+      // Derive source: MVP_CONFIG if present in static config, else LIST.
+      let source: PairSource = PairSource.LIST;
+      try {
+        const inConfig = Array.isArray((pairsRegistryConfig as any).pairs)
+          ? (pairsRegistryConfig as any).pairs.some(
+              (p: any) => String(p.baseline || '').trim().toUpperCase() === rawBaseline && String(p.target || '').trim().toUpperCase() === rawTarget,
+            )
+          : false;
+        if (inConfig) {
+          source = PairSource.MVP_CONFIG;
+        }
+      } catch {
+        // best-effort; keep default source
+      }
+
+      const existingStatus = raw.ingestionStatus as PairIngestionStatus | undefined;
+      const validStatuses = new Set<string>(Object.values(PairIngestionStatus));
+      const ingestionStatus: PairIngestionStatus =
+        existingStatus && validStatuses.has(existingStatus as unknown as string)
+          ? existingStatus
+          : PairIngestionStatus.PENDING;
+
+      const patch: Record<string, unknown> = {
+        baseline: rawBaseline,
+        target: rawTarget,
+        source,
+        ingestionStatus,
+        dailyReady: !!raw.dailyReady,
+        weeklyReady: !!raw.weeklyReady,
+        monthlyReady: !!raw.monthlyReady,
+      };
+
+      if (raw.lastIngestionError === undefined) {
+        patch['lastIngestionError'] = null;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(raw, 'active')) {
+        patch['active'] = FieldValue.delete();
+      }
+
+      await doc.ref.set(patch, { merge: true });
+
+      results.push({ id: doc.id, baseline: rawBaseline, target: rawTarget, source, ingestionStatus });
+    }
+
+    const summary = {
+      ok: true,
+      totalDocs: snap.size,
+      normalizedDocs: results.length,
+      results: results.slice(0, 50),
+    };
+
+    if (!SILENCE_ADMIN_INFO) {
+      logger.info(
+        `normalizePairRegistryAdmin_done totalDocs=${snap.size} normalizedDocs=${results.length}`,
+        summary,
+      );
+    }
+
+    res.status(200).json(summary);
+  } catch (e: any) {
+    logger.error('normalizePairRegistryAdmin_failed', { message: e?.message });
+    res.status(500).json({ ok: false, error: e?.message || 'internal_error' });
+  }
+});
+
+/**
  * HTTP (admin): refreshMarketHolidaysAdmin
  * Fetch US market holidays for a given year from SavantAPI and mirror them into
  * app/market-holidays-US-<year>. Protect with bearer ADMIN_BACKFILL_TOKEN.
@@ -530,6 +808,10 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
     const from: string | undefined = (req.query.from as string) || req.body?.from;
     const to: string | undefined = (req.query.to as string) || req.body?.to;
     const concurrency = Number(req.query.concurrency || req.body?.concurrency || (Number(process.env.PARTNER_PAIR_CONCURRENCY) || 3));
+    const dryRunRaw = (req.query.dryRun ?? req.body?.dryRun) as unknown;
+    const dryRun = typeof dryRunRaw === 'string'
+      ? dryRunRaw.toLowerCase() === 'true'
+      : dryRunRaw === true;
 
     const intervalsRaw = (req.query.intervals ?? req.body?.intervals) as unknown;
     const normalizeInterval = (v: unknown): Interval | undefined => {
@@ -574,12 +856,12 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
     }
 
     if (pairs.length === 0) {
-      res.status(200).json({ ok: true, message: 'no pairs matched filter', totalPairs: 0 });
+      res.status(200).json({ ok: true, message: 'no pairs matched filter', totalPairs: 0, dryRun });
       return;
     }
 
     const phases: RsPhase[] = phaseRaw === 'both' ? [RsPhase.PRE, RsPhase.POST] : (phaseRaw === RsPhase.PRE ? [RsPhase.PRE] : [RsPhase.POST]);
-    const summary: any = { ok: true, totalPairs: pairs.length, days, limit, from, to, phases, intervals, results: [] };
+    const summary: any = { ok: true, totalPairs: pairs.length, days, limit, from, to, phases, intervals, dryRun, results: [] };
 
     if (!SILENCE_ADMIN_INFO) {
       logger.info('recomputeRegisteredBackfill_start', {
@@ -589,6 +871,7 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
         limit,
         phases,
         intervals,
+        dryRun,
         totalPairs: pairs.length,
       });
     }
@@ -598,6 +881,8 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
       let failedPairs = 0;
       let writtenDays = 0;
       const errorSamples: ProcessErrorSample[] = [];
+      const dryRunPairsForPhase: string[] = [];
+
       // Cache upstream partner bars per symbol so each symbol is fetched at most once per
       // backfill run (per phase), regardless of whether it appears as a baseline or target.
       const symbolBarsCache = new Map<string, any[]>();
@@ -678,6 +963,7 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
           let pairDailyDays = 0;
           let pairWeeklyDays = 0;
           let pairMonthlyDays = 0;
+          let wouldWriteForPair = false;
 
           // Fetch/cached baseline bars
           let baseBars = symbolBarsCache.get(baseline);
@@ -708,10 +994,14 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
 
           // DAILY backfill
           if (includeDaily && entries.length > 0) {
-            await writeUnifiedSeries(baseline, target, ph, entries, baseBars, targetBars, Interval.DAILY);
-            writtenDays += entries.length;
-            pairWrittenDays += entries.length;
-            pairDailyDays += entries.length;
+            if (dryRun) {
+              wouldWriteForPair = true;
+            } else {
+              await writeUnifiedSeries(baseline, target, ph, entries, baseBars, targetBars, Interval.DAILY);
+              writtenDays += entries.length;
+              pairWrittenDays += entries.length;
+              pairDailyDays += entries.length;
+            }
           }
 
           // WEEKLY backfill
@@ -724,38 +1014,6 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
                     const today = new Date();
                     return `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(today.getUTCDate()).padStart(2, '0')}`;
                   })();
-
-              // Purge existing weekly archive docs for this pair in the requested window so only
-              // the current SA-derived weekly series is present after backfill.
-              try {
-                const fromYear = Number(lower.slice(0, 4));
-                const toYear = Number(upper.slice(0, 4));
-                for (let y = fromYear; y <= toYear; y++) {
-                  const yearStr = String(y);
-                  const col = `${WEEKLY_ARCHIVE_COLLECTION_PREFIX}${yearStr}`;
-                  const yearFrom = `${yearStr}-01-01`;
-                  const yearTo = `${yearStr}-12-31`;
-                  const yearLower = lower > yearFrom ? lower : yearFrom;
-                  const yearUpper = upper < yearTo ? upper : yearTo;
-                  const collRef = db
-                    .collection(PAIRS_COLLECTION)
-                    .doc(pairId)
-                    .collection(col);
-                  const snap = await collRef
-                    .where('day', '>=', yearLower)
-                    .where('day', '<=', yearUpper)
-                    .get();
-                  if (!snap.empty) {
-                    const batch = db.batch();
-                    for (const doc of snap.docs) {
-                      batch.delete(doc.ref);
-                    }
-                    await batch.commit();
-                  }
-                }
-              } catch (e: any) {
-                logger.warn('recomputeRegisteredBackfill_weekly_purge_failed', { pair: pairId, phase: ph, message: e?.message });
-              }
 
               const paddedFromWeekly = padFromForInterval(from, Interval.WEEKLY) ?? from ?? lower;
               const baseWeekly = await fetchDailyBarsRange(baseline, { from: paddedFromWeekly, to, interval: Interval.WEEKLY });
@@ -800,25 +1058,61 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
                   upper,
                   seriesCount: weeklySeries.length,
                   docs: docPreview,
+                  dryRun,
                 });
 
-                const windowToDay = (() => {
-                  if (to) {
-                    return String(to).slice(0, 10);
+                if (dryRun) {
+                  wouldWriteForPair = true;
+                } else {
+                  // Purge existing weekly archive docs for this pair in the requested window so only
+                  // the current SA-derived weekly series is present after backfill.
+                  try {
+                    const fromYear = Number(lower.slice(0, 4));
+                    const toYear = Number(upper.slice(0, 4));
+                    for (let y = fromYear; y <= toYear; y++) {
+                      const yearStr = String(y);
+                      const col = `${WEEKLY_ARCHIVE_COLLECTION_PREFIX}${yearStr}`;
+                      const yearFrom = `${yearStr}-01-01`;
+                      const yearTo = `${yearStr}-12-31`;
+                      const yearLower = lower > yearFrom ? lower : yearFrom;
+                      const yearUpper = upper < yearTo ? upper : yearTo;
+                      const collRef = db
+                        .collection(PAIRS_COLLECTION)
+                        .doc(pairId)
+                        .collection(col);
+                      const snap = await collRef
+                        .where('day', '>=', yearLower)
+                        .where('day', '<=', yearUpper)
+                        .get();
+                      if (!snap.empty) {
+                        const batch = db.batch();
+                        for (const doc of snap.docs) {
+                          batch.delete(doc.ref);
+                        }
+                        await batch.commit();
+                      }
+                    }
+                  } catch (e: any) {
+                    logger.warn('recomputeRegisteredBackfill_weekly_purge_failed', { pair: pairId, phase: ph, message: e?.message });
                   }
-                  const today = new Date();
-                  const y = today.getUTCFullYear();
-                  const m = String(today.getUTCMonth() + 1).padStart(2, '0');
-                  const d = String(today.getUTCDate()).padStart(2, '0');
-                  return `${y}-${m}-${d}`;
-                })();
 
-                await writeUnifiedSeries(baseline, target, ph, weeklySeries, baseWeekly, targetWeekly, Interval.WEEKLY, windowToDay);
-                writtenDays += weeklySeries.length;
-                pairWrittenDays += weeklySeries.length;
-                pairWeeklyDays += weeklySeries.length;
+                  const windowToDay = (() => {
+                    if (to) {
+                      return String(to).slice(0, 10);
+                    }
+                    const today = new Date();
+                    const y = today.getUTCFullYear();
+                    const m = String(today.getUTCMonth() + 1).padStart(2, '0');
+                    const d = String(today.getUTCDate()).padStart(2, '0');
+                    return `${y}-${m}-${d}`;
+                  })();
+
+                  await writeUnifiedSeries(baseline, target, ph, weeklySeries, baseWeekly, targetWeekly, Interval.WEEKLY, windowToDay);
+                  writtenDays += weeklySeries.length;
+                  pairWrittenDays += weeklySeries.length;
+                  pairWeeklyDays += weeklySeries.length;
+                }
               }
-
             } catch (e: any) {
               if (errorSamples.length < 50) errorSamples.push({ pair: `${baseline}-${target}`, status: e?.response?.status, message: e?.message || String(e) });
 
@@ -836,57 +1130,60 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
                     return `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(today.getUTCDate()).padStart(2, '0')}`;
                   })();
 
-              // Purge existing monthly archive docs for this pair in the requested window
-              try {
-                const fromYear = Number(lower.slice(0, 4));
-                const toYear = Number(upper.slice(0, 4));
-                for (let y = fromYear; y <= toYear; y++) {
-                  const yearStr = String(y);
-                  const col = `${MONTHLY_ARCHIVE_COLLECTION_PREFIX}${yearStr}`;
-                  const yearFrom = `${yearStr}-01-01`;
-                  const yearTo = `${yearStr}-12-31`;
-                  const yearLower = lower > yearFrom ? lower : yearFrom;
-                  const yearUpper = upper < yearTo ? upper : yearTo;
-                  const collRef = db.collection(PAIRS_COLLECTION).doc(pairId).collection(col);
-                  const snap = await collRef
-                    .where('day', '>=', yearLower)
-                    .where('day', '<=', yearUpper)
-                    .get();
-                  if (!snap.empty) {
-                    const batch = db.batch();
-                    for (const doc of snap.docs) {
-                      batch.delete(doc.ref);
-                    }
-                    await batch.commit();
-                  }
-                }
-              } catch (e: any) {
-                logger.warn('recomputeRegisteredBackfill_monthly_purge_failed', { pairId, phase: ph, message: e?.message });
-              }
-
               const paddedFromMonthly = padFromForInterval(from, Interval.MONTHLY) ?? from ?? lower;
               const baseMonthly = await fetchDailyBarsRange(baseline, { from: paddedFromMonthly, to, interval: Interval.MONTHLY });
               const targetMonthly = await fetchDailyBarsRange(target, { from: paddedFromMonthly, to, interval: Interval.MONTHLY });
               let monthlySeries = buildPhaseSeries(baseMonthly, targetMonthly, ph, baseline, target, logger, { from, to });
               monthlySeries = monthlySeries.filter((p) => p.day >= lower && p.day <= upper);
               if (monthlySeries.length > 0) {
-                const windowToDay = (() => {
-                  if (to) {
-                    return String(to).slice(0, 10);
+                if (dryRun) {
+                  wouldWriteForPair = true;
+                } else {
+                  // Purge existing monthly archive docs for this pair in the requested window
+                  try {
+                    const fromYear = Number(lower.slice(0, 4));
+                    const toYear = Number(upper.slice(0, 4));
+                    for (let y = fromYear; y <= toYear; y++) {
+                      const yearStr = String(y);
+                      const col = `${MONTHLY_ARCHIVE_COLLECTION_PREFIX}${yearStr}`;
+                      const yearFrom = `${yearStr}-01-01`;
+                      const yearTo = `${yearStr}-12-31`;
+                      const yearLower = lower > yearFrom ? lower : yearFrom;
+                      const yearUpper = upper < yearTo ? upper : yearTo;
+                      const collRef = db.collection(PAIRS_COLLECTION).doc(pairId).collection(col);
+                      const snap = await collRef
+                        .where('day', '>=', yearLower)
+                        .where('day', '<=', yearUpper)
+                        .get();
+                      if (!snap.empty) {
+                        const batch = db.batch();
+                        for (const doc of snap.docs) {
+                          batch.delete(doc.ref);
+                        }
+                        await batch.commit();
+                      }
+                    }
+                  } catch (e: any) {
+                    logger.warn('recomputeRegisteredBackfill_monthly_purge_failed', { pairId, phase: ph, message: e?.message });
                   }
-                  const today = new Date();
-                  const y = today.getUTCFullYear();
-                  const m = String(today.getUTCMonth() + 1).padStart(2, '0');
-                  const d = String(today.getUTCDate()).padStart(2, '0');
-                  return `${y}-${m}-${d}`;
-                })();
 
-                await writeUnifiedSeries(baseline, target, ph, monthlySeries, baseMonthly, targetMonthly, Interval.MONTHLY, windowToDay);
-                writtenDays += monthlySeries.length;
-                pairWrittenDays += monthlySeries.length;
-                pairMonthlyDays += monthlySeries.length;
+                  const windowToDay = (() => {
+                    if (to) {
+                      return String(to).slice(0, 10);
+                    }
+                    const today = new Date();
+                    const y = today.getUTCFullYear();
+                    const m = String(today.getUTCMonth() + 1).padStart(2, '0');
+                    const d = String(today.getUTCDate()).padStart(2, '0');
+                    return `${y}-${m}-${d}`;
+                  })();
+
+                  await writeUnifiedSeries(baseline, target, ph, monthlySeries, baseMonthly, targetMonthly, Interval.MONTHLY, windowToDay);
+                  writtenDays += monthlySeries.length;
+                  pairWrittenDays += monthlySeries.length;
+                  pairMonthlyDays += monthlySeries.length;
+                }
               }
-
             } catch (e: any) {
               if (errorSamples.length < 50) errorSamples.push({ pair: `${baseline}-${target}`, status: e?.response?.status, message: e?.message || String(e) });
             }
@@ -903,17 +1200,24 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
               weeklyDays: pairWeeklyDays,
               monthlyDays: pairMonthlyDays,
               totalDays: pairWrittenDays,
+              dryRun,
             });
           }
 
-          if (pairWrittenDays > 0) {
-            successPairs++;
-          } else if (errorSamples.length < 50) {
-            errorSamples.push({
-              pair: pairId,
-              status: 0,
-              message: 'no archive writes for pair in requested window',
-            });
+          if (dryRun) {
+            if (wouldWriteForPair) {
+              dryRunPairsForPhase.push(pairId);
+            }
+          } else {
+            if (pairWrittenDays > 0) {
+              successPairs++;
+            } else if (errorSamples.length < 50) {
+              errorSamples.push({
+                pair: pairId,
+                status: 0,
+                message: 'no archive writes for pair in requested window',
+              });
+            }
           }
         } catch (e: any) {
           failedPairs++;
@@ -935,16 +1239,6 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
         });
       }
 
-      if (!SILENCE_ADMIN_INFO && writtenDays === 0) {
-        logger.warn('recomputeRegisteredBackfill_phase_no_written_days', {
-          phase: ph,
-          from,
-          to,
-          intervals,
-          totalPairs: pairs.length,
-        });
-      }
-
       if (!SILENCE_ADMIN_INFO) {
         logger.info('recomputeRegisteredBackfill_phase_summary', {
           phase: ph,
@@ -955,10 +1249,12 @@ export const recomputeRegisteredBackfill = onRequest({ region: 'us-central1', ti
           successPairs,
           failedPairs,
           writtenDays,
+          dryRun,
+          dryRunPairs: dryRun ? dryRunPairsForPhase : undefined,
         });
       }
 
-      summary.results.push({ phase: ph, successPairs, failedPairs, writtenDays, errorSamples });
+      summary.results.push({ phase: ph, successPairs, failedPairs, writtenDays, dryRunPairs: dryRun ? dryRunPairsForPhase : undefined, errorSamples });
     }
 
     res.status(200).json(summary);
