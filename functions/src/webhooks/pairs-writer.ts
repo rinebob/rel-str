@@ -1,7 +1,7 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { db } from '../firebase-admin-init';
 import type { PhaseSeriesPoint, PartnerBar } from './webhooks-config';
-import { ARCHIVE_COLLECTION_PREFIX, MONTHLY_ARCHIVE_COLLECTION_PREFIX, PAIRS_COLLECTION, SILENCE_RS_SERIES_INFO, WEEKLY_ARCHIVE_COLLECTION_PREFIX } from './webhooks-config';
+import { ARCHIVE_COLLECTION_PREFIX, MONTHLY_ARCHIVE_COLLECTION_PREFIX, PAIRS_COLLECTION, WEEKLY_ARCHIVE_COLLECTION_PREFIX } from './webhooks-config';
 import { RsPhase } from '../types/partner';
 import { logger } from 'firebase-functions/v2';
 import { RsCloudFunctionName, SILENCE_MISSING_POST_TIME } from './webhooks-config';
@@ -178,9 +178,8 @@ export async function writeUnifiedSeries(
     const minSum = outcomes[0][1];
     const maxSum = outcomes[outcomes.length - 1][1];
     const targetSum = outcomes[idx][1];
-    const rsRaw = Number(
-      (maxSum - minSum) !== 0 ? ((targetSum - minSum) / (maxSum - minSum)).toFixed(6) : '0'
-    );
+    const denom = maxSum - minSum;
+    const rsRaw = denom !== 0 ? (targetSum - minSum) / denom : 0;
 
     // Discrete bucket: nearest 1/32 step to rsRaw in (0,1]
     const step = 1 / COMPARISON_MATRICES.length; // 1/32 = 0.03125
@@ -219,28 +218,6 @@ export async function writeUnifiedSeries(
     // Calculate RS metrics
     const metrics = calculateMetricsForDay(e.day);
     const hasRs = Number.isFinite(metrics?.rsNorm) && Number.isFinite(metrics?.rsRaw);
-
-    if (hasRs && ((metrics!.rsNorm ?? 0) === 0 || (metrics!.rsRaw ?? 0) === 0)) {
-      if (!SILENCE_RS_SERIES_INFO) {
-        logger.warn('rs_series_zero_value', {
-          pairId,
-          phase,
-          day: e.day,
-          rsNorm: metrics!.rsNorm,
-          rsRaw: metrics!.rsRaw,
-        });
-      }
-      try {
-        void persistWarning('rs_series_zero_value', {
-          function: RsCloudFunctionName.WRITE_UNIFIED_SERIES,
-          pairId,
-          phase,
-          day: e.day,
-          rsNorm: metrics!.rsNorm,
-          rsRaw: metrics!.rsRaw,
-        });
-      } catch {}
-    }
 
     // Respect upstream times; if missing, omit time and log
     const preTime = (typeof e.it === 'string' && e.it.length > 0) ? e.it : undefined;
@@ -329,14 +306,17 @@ export async function writeUnifiedSeries(
   const archiveEntries: PhaseSeriesPoint[] = entries;
 
   try {
-    logger.info('rs_series_archive_plan', {
-      pairId,
-      interval,
-      phase,
-      latestDay: latest?.day,
-      archiveEntryDays: archiveEntries.map(e => e.day).slice(0, 12),
-      totalArchiveEntries: archiveEntries.length,
-    });
+    logger.info(
+      `rs_series_archive_plan pairId=${pairId} interval=${interval} phase=${phase} latestDay=${latest?.day} totalArchiveEntries=${archiveEntries.length}`,
+      {
+        pairId,
+        interval,
+        phase,
+        latestDay: latest?.day,
+        archiveEntryDays: archiveEntries.map(e => e.day).slice(0, 12),
+        totalArchiveEntries: archiveEntries.length,
+      },
+    );
   } catch {}
 
   // For WEEKLY/MONTHLY runs, emit an explicit log of all days being written so
