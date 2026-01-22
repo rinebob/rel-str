@@ -1,4 +1,4 @@
-> **Transition Note (Multi-Interval RS):** This document assumes a daily-only RS model with `signals-daily` and/or `pairs-data.data[]`. A multi-interval RS transition is now planned; see `docs/planning/MULTI_INTERVAL_RS_TRANSITION.md` for the up-to-date design. This file will be updated once implementation is complete.
+> **Transition Note (Multi-Interval RS & Signals Activity):** This document describes a **daily-only** trader UI plan. The current canonical model is multi-interval RS with **Signals Activity** (per-pair + root) and archives (`archive-*`) plus `latestDaily/latestWeekly/latestMonthly` for RS series. Treat this file as a **legacy UI plan** and a source of UX ideas; new implementations should wire to `signals-activity` and archives/latest*.
 
 # Trader UI Plan (Phaseable) — Decision Board, History, Analytics
 
@@ -8,24 +8,24 @@ Last updated: 2025-11-04
 
 Goal: Convert the existing RsSignalHistory backend (canonical signals, daily rollups, trades, analytics) into a practical trader UI that enables rapid pre-close decisions and evidence-based refinement of rules.
 
-We will:
-- Use the root `signals-daily/{YYYY-MM-DD}` mirror for cross-pair daily dashboards.
+We will (legacy daily-only plan):
+- Use a root activity mirror for cross-pair daily dashboards (in the current model, boards should read from `signals-activity/{YYYY}/days/{YYYY-MM-DD}`).
 - Start with EMA(50) as the single external indicator, fetched via a backend-only callable (Alpha Vantage source).
 - Introduce a server-computed confidence score to rank opens/holds/closes; begin with RS-only + EMA50 alignment and iterate.
 - Deliver in phases, minimizing FE fan-out and keeping UX keyboard-first for speed.
 
 Related docs:
-- `docs/planning/RS_SIGNAL_HISTORY.md` — canonical schema, workflows, and APIs
-- `docs/planning/5_DATABASE_SCHEMA.md` — pairs-data, signals, signals-daily, trades, analytics
+- `docs/planning/RS_SIGNAL_HISTORY.md` — canonical schema, workflows, and APIs (see Signals Activity sections).
+- `docs/planning/5_DATABASE_SCHEMA.md` — pairs-data, signals, signals-activity, positions, analytics.
 - `docs/planning/12_USER_FLOW.md` — will be updated to reflect the flows in this plan
 
 ---
 
 ## Phases
 
-### Phase 1 — Daily Decision Board + Pair Detail (Firestore-only)
-- Daily board sections: New Opens, Holds, New Closes (sourced from root `signals-daily/{today}`; fallback to per-pair `pairs-data/{PAIR}/signals-daily/{today}` if root mirror unavailable).
-- Pair Detail panel: RS latest + short `data[]` mirror sparkline, recent positions, threshold bands.
+### Phase 1 — Daily Decision Board + Pair Detail (Firestore-only, legacy)
+- Daily board sections: New Opens, Holds, New Closes (in the current model, equivalent views should source from `signals-activity/{YYYY}/days/{YYYY-MM-DD}` plus positions).
+- Pair Detail panel: RS latest sparkline, recent positions, threshold bands (for new work, prefer `latestDaily` + archives).
 - Confidence score v0 (server-derived in callable):
   - Inputs available without external OHLCV: RS level, RS slope (N=3–5 days), proximity to thresholds.
   - Output: 0–3 badge (Low/Med/High).
@@ -42,7 +42,7 @@ Related docs:
 - Optional caching/mirroring strategy if repeated indicator calls become a bottleneck.
 
 ### Phase 4 — Root Mirror Scale & Retention
-- Keep root `signals-daily/{day}` on by default.
+- Keep the root daily dashboard mirror on by default (in the current model, this is the root Signals Activity view for the selected interval).
 - Add retention policy (TTL or scheduled cleanup) for old days (e.g., > 90 days) if cost grows.
 
 ---
@@ -53,10 +53,10 @@ Related docs:
 - Sections: New Opens, Holds, New Closes.
 - Columns: Pair, Direction, RS y→t (delta), Price snapshot (per PRE/POST policy), Confidence badge, Quick link to Pair Detail.
 - Actions: bulk select, mark-as-acted (local UX state), filter drawer, keyboard nav.
-- Data: `signals-daily/{today}` + `pairs-data/{PAIR}.latest` for freshness during PRE.
+- Data: daily root mirror plus `pairs-data/{PAIR}` latest snapshot for freshness during PRE.
 
 ### 2) Pair Detail Panel
-- RS sparkline (from short `data[]`) with threshold overlays.
+- RS sparkline from daily RS series (e.g., `archive-YYYY` + `latestDaily`) with threshold overlays.
 - Latest snapshot (PRE/POST) and recent positions table (limit N from `signals`).
 - Later: EMA50 alignment indicator, distance%.
 
@@ -72,12 +72,12 @@ Related docs:
 
 ---
 
-## Data & Read Patterns
+## Data & Read Patterns (legacy)
 
 - Canonical positions: `pairs-data/{PAIR}/signals/{positionId}` (one doc per position lifecycle).
-- Daily rollup (pair): `pairs-data/{PAIR}/signals-daily/{YYYY-MM-DD}`.
-- Daily rollup (root): `signals-daily/{YYYY-MM-DD}` (enabled; preferred for cross-pair board).
-- Latest RS + short mirror: `pairs-data/{PAIR}.latest` + `data[]` (window-capped).
+- Activity rollup (pair): `pairs-data/{PAIR}/signals-activity/{YYYY}/days/{YYYY-MM-DD}`.
+- Activity rollup (root): `signals-activity/{YYYY}/days/{YYYY-MM-DD}`.
+- Latest RS for UI: `pairs-data/{PAIR}.latest` (or `latestDaily` in the multi-interval design) plus archives.
 - Trades: `trades/{positionId}`; summary: `analytics/summary`.
 
 Selection rubric (RS):
@@ -170,7 +170,7 @@ Execution
 
 Implementation goals:
 - Show multiple days of transactions (New Closes, Holds, New Buys) grouped by day (UTC), most-recent first.
-- Avoid per-pair fan-out; use the root mirror only.
+- Avoid per-pair fan-out; use Signals Activity.
 - Keep implementation lean (no indicators, no scoring in v1).
 
 Backend callable (existing): `getDailySignals`
@@ -181,8 +181,8 @@ Backend callable (existing): `getDailySignals`
   - `limitDays?: number` — number of recent days to return when range is not specified (default 30; v1 UI uses 7)
 - Response shape:
   - `{ days: Array<{ day: string; items: { newOpens: Item[]; holds: Item[]; newCloses: Item[] } }> }`
-  - `Item = { positionId: string; direction: 'long'|'short'; /* may include pair in mirror or we attach it during mirror build */ }`
-  - Note: Root mirror entries include `pair` when built via `rebuildSignalsDailyMirrorImpl`; UI requires `pair`.
+  - `Item = { positionId: string; direction: 'long'|'short'; /* may include pair in Signals Activity */ }`
+  - Note: Signals Activity entries include `pair` so the Decision Board can render per-pair items without additional lookups; UI requires `pair`.
 
 UI behavior (DecisionBoardView):
 - Date presets: Today, 7d, 14d, 30d, Custom (v1: Today & 7d).

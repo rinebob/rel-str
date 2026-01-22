@@ -1,20 +1,20 @@
-# RS> **Transition Note (Multi-Interval RS):** This document assumes a daily-only RS model with `signals-daily` and/or `pairs-data.data[]`. A multi-interval RS transition is now planned; see `docs/planning/MULTI_INTERVAL_RS_TRANSITION.md` for the up-to-date design. This file will be updated once implementation is complete.
+# RS> **Transition Note (Multi-Interval RS & unified ingestion):** This document was originally authored for a **daily-only RS model** and describes a **symbol-driven** ingestion pipeline wired to `partner-data-ready` / `partner-symbols-ready`. Multi-interval RS support and a **unified, run-driven ingestion engine** triggered by the universe-ready `partner-data-ready` v1 message (attributes `runType = "ts-post-all-intervals"`, `phase = "post"`) are now the target/current design; see `docs/planning/MULTI_INTERVAL_RS_TRANSITION.md`, `docs/planning/UNIFIED_INGESTION_ENGINE.md`, and `docs/partner/rs-partner-integration.md` for the up-to-date contracts. This file should be treated as **legacy background** for the symbol-driven design and daily-only assumptions. In the current deployment, the symbol-driven subscriber for `partner-symbols-ready` (`processSymbolsReady`) is **not exported** from `functions/src/index.ts` and the `.env` flag `USE_SYMBOL_DRIVEN_PIPELINE` is set to `false`, so only the pair-centric, `partner-data-ready` driven path is active. To intentionally re-enable the symbol-driven pipeline, uncomment the `processSymbolsReady` exports in `functions/src/index.ts` and set `USE_SYMBOL_DRIVEN_PIPELINE=true` in `functions/.env.rel-str` before redeploying.
 
 # RS Data Flow and Function Grouping (High-Level)
 
 ## Overview
-- Trigger: Partner publishes "data-ready" to Pub/Sub.
-- Orchestrator: `processDataReadyRunV2` consumes event, iterates registered pairs, fetches bars, computes RS, writes per-pair data, and updates open positions' snapshots on PRE and POST phases (target state; currently implemented on POST only).
-- Aggregation:
-  - **Live/POST:** `processPairLive` performs a best-effort same-day rebuild of the root mirror `signals-daily/{YYYY}/days/{YYYY-MM-DD}` for `latestDay` via `rebuildSignalsDailyMirrorImpl`, scoped to the processed pair.
-  - **Admin/backfill:** `rs-signal-history.backfill.ts`, `rs-signal-history.callables.ts`, and `admin-tasks.ts` provide range-based rebuild/repair utilities (e.g., `rebuildSignalsDailyMirror*`, `cleanPairDailyPnL`, composed flows).
+- Trigger (legacy): Partner publishes "data-ready" to Pub/Sub.
+- Orchestrator (legacy): `processDataReadyRunV2` consumes the event, iterates registered pairs, fetches bars, computes RS, and writes per-pair archives/latest for PRE and POST phases.
+- Canonical engine & activity:
+  - **Live/POST:** `processPairLive` computes DAILY/WEEKLY/MONTHLY RS from Savant time series, writes archives and latest mirrors via `writeUnifiedSeries`, then runs the canonical RS engine (`runCanonicalRsEngineForPair`) to produce multi-interval canonical signals, positions, and `signals-activity` docs.
+  - **Admin/backfill:** `RS_ARCHIVE_BACKFILL.md` and `RS_BACKFILL_SIGNALS.md` describe archive repair and signals/positions backfill flows that share the same canonical engine and writer helpers.
 
-## Backend: Automatic Pipeline (Real-time)
-- File: `functions/src/webhooks/partner-webhooks.ts`
-  - `processDataReadyRunV2` (Pub/Sub subscriber)
+## Backend: Automatic Pipeline (Real-time) – Legacy Symbol-Driven Path
+- File: `functions/src/webhooks/partner-webhooks.ts` (legacy symbol-driven orchestrator)
+  - `processDataReadyRunV2` (Pub/Sub subscriber; **legacy**)
     - Input: message attributes/payload (`phase`, `runType`, `runId`, `trigger`, `heartbeat`).
     - Steps: mark event → load pairs → for each pair run `processPairLive` → write summary.
-  - `processPairLive`
+  - `processPairLive` (worker used by both legacy pipeline and admin utilities)
     - Fetch:
       - DAILY bars via `fetchDailyBarsRange(baseline|target, { from, to, interval: FIXED_INTERVAL })`.
       - WEEKLY/MONTHLY bars via `fetchDailyBarsRange(..., interval: Interval.WEEKLY|Interval.MONTHLY)`.
@@ -96,7 +96,7 @@
   - `recomputeRegisteredBackfill` (HTTP): backfill ranges; token-protected. Invokes series writes, open-position snapshots, POST close finalization, and optionally mirror rebuild for a range.
   - `diagnosePairDays` (callable): diagnose/optionally repair missing per-pair days.
   - `diagnosePairDaysAdmin` (HTTP): token-protected wrapper.
-  - `purgePairsDataSignalsAdmin` (HTTP): deletes per-pair `signals/` and `signals-daily/` subcollections, and also removes legacy `signalsDaily/` if present.
+  - `purgePairsDataSignalsAdmin` (HTTP): deletes per-pair `signals/` subcollections and also removes any remaining legacy signal mirror docs if present.
 
 References for deeper context:
 - See `docs/planning/RS_SIGNAL_HISTORY.md` for aggregation details and mirror semantics.
@@ -113,7 +113,7 @@ References for deeper context:
 ## RsSignalHistory: Aggregation & UI Feed
 - File: `functions/src/rs-signal-history.callables.ts`
   - `GetPairSignals*`, `GetPositionWithActuals`, `GetPnLSummary`, `UpdatePositionActuals` provide read/overlay flows over the canonical signals and positions.
-  - Legacy `signals-daily` root mirrors and rebuild callables are deprecated in favor of the new multi-interval Signals Activity mirrors:
+  - Signals Activity mirrors provide the multi-interval activity/feed surface:
     - Per-pair: `pairs-data/{PAIR}/signals-activity/{YYYY}/days/{YYYY-MM-DD}`.
     - Root: `signals-activity/{YYYY}/days/{YYYY-MM-DD}`.
 
@@ -122,8 +122,6 @@ References for deeper context:
 - `pair-registry/{BASELINE}-{TARGET}`: registry membership.
 - `pairs-data/{PAIR}`: RS unified series and latest.
 - `pairs-data/{PAIR}/signals/{YYYY}/opens|closes/{signalId}`: canonical OPEN/CLOSE signal docs.
-- `pairs-data/{PAIR}/signals-daily/{YYYY}/days/{YYYY-MM-DD}`: per-pair daily events (`newOpens`, `holds`, `newCloses`).
-- `signals-daily/{YYYY}/days/{YYYY-MM-DD}`: root daily mirror (Decision Board feed) aggregated across pairs.
 - `positions/{open|YYYY-closed}/items/{positionId}`: authoritative position snapshots and timelines (`BePositionDoc`).
   - OPEN: positions currently open under `positions/open/items/*`.
   - CLOSED: immutable historical positions under `positions/{YYYY}-closed/items/*` with `exit`, `netPnL`, and `netPercentReturn`.
@@ -139,16 +137,9 @@ References for deeper context:
   - OPEN/HOLD: written by `updateOpenPositionsForPair` (PRE and POST) with `currentPrice/currentChange/currentPctChange`.
   - CLOSED: written by `finalizeClosedPositionsForPair` (POST) with `exitPrice`, `exitDay/exitIso`, `netPnL`, `percentReturn`, `status: closed`.
 - `pairs-data/{PAIR}/signals/{positionId}`: written by the RS signal generation pipeline when opens/closes occur for a pair (during series persistence path).
-- `pairs-data/{PAIR}/signals-daily/{day}`: written during per-pair daily event generation within the series persistence path.
-- `signals-daily/{day}`: written by `rs-signal-history.rebuildSignalsDailyMirror*` (admin today; orchestrator planned as automatic step).
 - `/pairs-data/{PAIR}/archive-{YYYY}/{YYMMDD}`: written by the persistence path when archiving per-day RS slices.
 - `rs-warnings/*`: written by `logging/warn.persistWarning` from various stages on best-effort basis.
 - `pair-registry/{BASELINE}-{TARGET}`: written by `registry-actions` functions on register/unregister/seed.
-
-## Frontend Consumption (Decision Board)
-- Reads: `getDailySignals` callable → `{ day, items { newOpens, holds, newCloses } }`.
-- For each item, loads/enriches positions from `positions/{id}`. Today, the UI may compute `currentChange/currentPctChange` for display if missing; the target state is to rely solely on backend-provided deltas to avoid duplication.
-- Holds rely on backend `updateOpenPositionsForPair` updates on PRE and POST to keep `currentPrice`, `currentChange`, `currentPctChange` fresh.
 
 ## Function Index by File
 - partner-webhooks.ts
