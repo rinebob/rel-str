@@ -105,7 +105,7 @@
 - [ ] README updates (setup/run/test, env/secrets, emulator usage)
 - [x] Update `/docs` sections completed (schema RS-only, backend registry, API callables, frontend rs-chart, signal history)
 - [ ] Add link to `docs/partner/savantapi-data-ready-webhook.md` and document webhook/Pub-Sub flow in planning (6_API_COMMUNICATION.md already contains high-level section)
-- [x] 2025-11-04: Update planning docs to reflect as-built RsSignalHistory (functions, schema, pairs from pair-registry only; opened.openPrice/closed.closePrice; trades human-readable fields; analytics summary fields; signals-daily naming).
+- [x] 2025-11-04: Update planning docs to reflect as-built RsSignalHistory (functions, schema, pairs from pair-registry only; opened.openPrice/closed.closePrice; trades human-readable fields; analytics summary fields).
 - [ ] 2025-11-10: Archive-first initial-load and route-switching performance plan — see `docs/planning/2025-11-archive-first-initial-load-and-route-switching.md`
  - [ ] 2025-11-22: RS backfill for signals & positions — see `docs/planning/RS_BACKFILL_SIGNALS.md` (engine/writer sharing, how to run backfill, auth/Cloud Run Invoker setup)
 
@@ -178,7 +178,7 @@
 - Centralize all webhooks constants/types into `functions/src/webhooks/webhooks-config.ts`.
 - Move registry callables and seeding into `functions/src/webhooks/registry-actions.ts`.
 - Document full RS pipeline and Firestore schemas in `docs/partner/partner-webhooks.md` and planning docs.
-- 2025-11-04: Rename fields and collections in planning to match implementation: `opened.price -> opened.openPrice`, `closed.price -> closed.closePrice`, `signalsDaily -> signals-daily`. Backfill pairs enumerated from `pair-registry` only; admin-protected HTTP.
+-- 2025-11-04: Rename fields and collections in planning to match implementation: `opened.price -> opened.openPrice`, `closed.price -> closed.closePrice`. Backfill pairs enumerated from `pair-registry` only; admin-protected HTTP.
 - 2025-12-05: Manual backfill of archive and signals for QQQ-AAPL, SPY-GOOGL, and key SPY pairs (2019-2025).
   - [x] Refactored `recomputeRegisteredBackfill` to support `pair`/`pairs` parameters for targeted backfills.
   - [x] Restored missing archive data for QQQ-AAPL using `recomputeRegisteredBackfill` (via `fetchBackfillBars` padding).
@@ -193,7 +193,6 @@
   - [ ] Configure `WriteUnifiedSeries` to support full history (no archive) for weekly/monthly intervals.
 - 2025-12-08: Multi-Interval RS planning and docs alignment.
   - [x] Drafted `MULTI_INTERVAL_RS_TRANSITION.md` describing D/W/M RS, signals-activity, and positions model.
-  - [ ] After implementation, update legacy planning docs (RS_BACKFILL_SIGNALS, RS_SIGNAL_HISTORY, 3_BACKEND, 13_TRADER_UI_PLAN, 14_DATA_FLOW_AND_FUNCTIONS, EMULATOR_DATA_REFRESH, 2025-11-archive-first-initial-load-and-route-switching, dashboard-v2-rs-rendering) to match the multi-interval RS design (signals-activity, archives + latest*, no pairs-data.data[]).
  - 2025-12-15: Combined cleanup callable for canonical signals + signals-activity.
    - [x] Added `purgePairSignalsAndActivityAll` (functions/src/cleanup.callables.ts, exported from functions/src/index.ts) to delete per-pair canonical `signals` (legacy docs + year-sharded opens/closes + open bucket) and per-pair `signals-activity` (year-sharded days + containers) for a `[fromYear,toYear]` range, driven by `pair-registry` or explicit `pairs` list.
    - [x] Recommended production workflow: run `purgePairSignalsAndActivityAll` for the full history window (e.g., 2019–2025) with `removeContainers=true` and `removeOpenBucket=true`, then rerun `backfillSignalsPipelineAdmin` in smaller per-pair batches for DAILY and WEEKLY/MONTHLY intervals to avoid Cloud Run timeouts and half-done shards.
