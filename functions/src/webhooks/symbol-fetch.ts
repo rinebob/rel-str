@@ -1,7 +1,9 @@
 import { logger } from 'firebase-functions/v2';
+import { FieldValue } from 'firebase-admin/firestore';
 import { callPartnerTimeSeries, type PartnerInterval } from '../partner-proxy';
 import { persistWarning } from '../logging/warn';
 import { RsCloudFunctionName } from './webhooks-config';
+import { db } from '../firebase-admin-init';
 
 export type PartnerBar = {
   d?: string;
@@ -14,6 +16,14 @@ export type PartnerBar = {
   ipc?: number;
   it?: string;
 };
+
+export interface RsSymbolCacheDoc {
+  dailyBars: PartnerBar[] | null;
+  weeklyBars: PartnerBar[] | null;
+  monthlyBars: PartnerBar[] | null;
+  fetchedAt: FirebaseFirestore.Timestamp;
+  runId?: string;
+}
 
 /** Range-based options for historical windows.
  *
@@ -67,15 +77,18 @@ export async function fetchDailyBarsRange(symbol: string, opts: FetchRangeOption
   }
 
   const rawBars = Array.isArray(data?.bars) ? data.bars : [];
-  logger.info('partner_timeseries_raw_payload', {
-    symbol,
-    interval,
-    from: fromIso,
-    to: toIso,
-    limit: req.limit,
-    barsCount: rawBars.length,
-  //   bars: rawBars,
-  });
+  logger.info(
+    `partner_timeseries_raw_payload symbol=${symbol} interval=${interval} from=${fromIso} to=${toIso} bars=${rawBars.length}`,
+    {
+      symbol,
+      interval,
+      from: fromIso,
+      to: toIso,
+      limit: req.limit,
+      barsCount: rawBars.length,
+      //   bars: rawBars,
+    },
+  );
 
   const bars = Array.isArray(data?.bars) ? data.bars : [];
   if (bars.length > 0) {
@@ -83,15 +96,18 @@ export async function fetchDailyBarsRange(symbol: string, opts: FetchRangeOption
     const lastT = Number(bars[bars.length - 1]?.t);
     const firstDay = Number.isFinite(firstT) ? new Date(firstT).toISOString().slice(0, 10) : undefined;
     const lastDay = Number.isFinite(lastT) ? new Date(lastT).toISOString().slice(0, 10) : undefined;
-    logger.info('partner_timeseries_response', {
-      symbol,
-      interval,
-      from: fromIso,
-      to: toIso,
-      bars: bars.length,
-      firstDay,
-      lastDay,
-    });
+    logger.info(
+      `partner_timeseries_response symbol=${symbol} interval=${interval} from=${fromIso} to=${toIso} bars=${bars.length} firstDay=${firstDay || 'n/a'} lastDay=${lastDay || 'n/a'}`,
+      {
+        symbol,
+        interval,
+        from: fromIso,
+        to: toIso,
+        bars: bars.length,
+        firstDay,
+        lastDay,
+      },
+    );
     try {
       let anomalies = 0;
       for (const b of bars as any[]) {
@@ -116,6 +132,22 @@ export async function fetchDailyBarsRange(symbol: string, opts: FetchRangeOption
         }
       }
       if (anomalies > 0) logger.info('partner_timeseries_bar_anomalies', { symbol, anomalies });
+    } catch {}
+
+    try {
+      const cutoff = '2025-12-26';
+      const tailBars = (bars as any[]).filter((b) => typeof b?.d === 'string' && b.d >= cutoff);
+      if (tailBars.length > 0) {
+        logger.info('partner_timeseries_tail_bars_from_cutoff', {
+          symbol,
+          interval,
+          from: fromIso,
+          to: toIso,
+          cutoff,
+          tailCount: tailBars.length,
+          tailBars,
+        });
+      }
     } catch {}
   } else {
     logger.info('partner_timeseries_response_empty', {
@@ -166,6 +198,61 @@ export async function fetchDailyBarsRange(symbol: string, opts: FetchRangeOption
   }
 
   return bars as PartnerBar[];
+}
+
+/**
+ * Fetch bars for a single interval (DAILY/WEEKLY/MONTHLY) for a symbol over a
+ * fixed lookback window anchored on `marketDate` and cache the normalized
+ * PartnerBar array into Firestore under
+ * `rs-symbol-cache/{marketDate}/symbols/{symbol}`.
+ *
+ * Other cached intervals for the same `{marketDate, symbol}` are preserved by
+ * reading any existing cache doc and only overwriting the bars field for the
+ * requested interval.
+ */
+export async function fetchAndCacheSymbolSeries(
+  marketDate: string,
+  symbol: string,
+  days: number,
+  runId: string | undefined,
+  interval: PartnerInterval,
+): Promise<RsSymbolCacheDoc> {
+  const clampedDays = Math.max(1, days);
+
+  // Anchor the window on marketDate (UTC calendar days).
+  const baseDate = new Date(`${marketDate}T00:00:00.000Z`);
+  if (Number.isNaN(baseDate.getTime())) {
+    throw new Error(`fetchAndCacheSymbolSeries_invalid_marketDate: ${marketDate}`);
+  }
+
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const fromDate = new Date(baseDate.getTime() - (clampedDays - 1) * msPerDay);
+
+  const ymd = (d: Date): string => d.toISOString().slice(0, 10);
+  const from = ymd(fromDate);
+  const to = ymd(baseDate);
+
+  const bars = await fetchDailyBarsRange(symbol, { from, to, interval });
+
+  const cacheRef = db
+    .collection('rs-symbol-cache')
+    .doc(marketDate)
+    .collection('symbols')
+    .doc(symbol);
+
+  const existingSnap = await cacheRef.get();
+  const existing = (existingSnap.exists ? (existingSnap.data() as Partial<RsSymbolCacheDoc>) : {}) || {};
+
+  const cacheDoc: RsSymbolCacheDoc = {
+    dailyBars: interval === 'DAILY' ? (bars ?? null) : (existing.dailyBars ?? null),
+    weeklyBars: interval === 'WEEKLY' ? (bars ?? null) : (existing.weeklyBars ?? null),
+    monthlyBars: interval === 'MONTHLY' ? (bars ?? null) : (existing.monthlyBars ?? null),
+    fetchedAt: FieldValue.serverTimestamp() as FirebaseFirestore.Timestamp,
+    runId,
+  };
+
+  await cacheRef.set(cacheDoc, { merge: false });
+  return cacheDoc;
 }
 
 export async function fetchAllSymbols(
