@@ -18,7 +18,6 @@ This document defines the thresholds, state machine, Firestore schema, processin
 - Position price fields are standardized:
   - `opened.openPrice` (was `opened.price`)
   - `closed.closePrice` (was `closed.price`)
-- Daily rollups use kebab-case collection name `signals-daily` under each pair doc and a year-sharded root mirror `signals-daily/{YYYY}/days/{YYYY-MM-DD}` for cross-pair aggregation.
 - Canonical lifecycle and aggregates are written to:
   - `positions/{open|YYYY-closed}/items/{positionId}` for position timelines and PnL (`BePositionDoc`).
   - `analytics/summary` for global aggregates `{ totalNetPnL, totalTrades, totalWinningTrades, totalLosingTrades, avgNetPnL, lastUpdated }`.
@@ -137,39 +136,7 @@ All canonical RS signals and positions are pair-centric. Canonical RS series sti
 
   - No redundant last-* fields; callers derive these from `exit` or the last `update`.
 
-### Per-pair daily signals (`signals-daily` under pairs-data)
-
-- Path (per pair, year-sharded):
-
-  - `pairs-data/{PAIR}/signals-daily/{YYYY}/days/{YYYY-MM-DD}`
-
-- Shape (pair-scoped):
-
-  - `date: string` — `YYYY-MM-DD` trading day (doc id mirror).
-  - `newOpens: DailySignal[]`
-  - `holds: DailySignal[]`
-  - `newCloses: DailySignal[]`
-
-- `DailySignal` (pair-scoped):
-
-  - `signalId: string`
-  - `positionId: string`
-  - `type: DailySignalType` (`OPEN` or `CLOSE`).
-
-  Direction and detailed PnL are derived from the corresponding `BePositionDoc`.
-
-### Root daily signals mirror (`signals-daily` root)
-
-- Path (root, year-sharded):
-
-  - `signals-daily/{YYYY}/days/{YYYY-MM-DD}`
-
-- Shape:
-
-  - `date: string`
-  - `newOpens: DailySignal[]`
-  - `holds: DailySignal[]`
-  - `newCloses: DailySignal[]`
+<!-- Removed legacy daily mirror sections; multi-interval boards should consume Signals Activity and positions exclusively. -->
 
   For the root mirror, each `DailySignal` also includes:
 
@@ -244,10 +211,6 @@ Per pair, per phase:
 
 Notes on App vs Actual PnL
 - App PnL (aka RS PnL) is computed from RS-driven prices and stored on the position doc as `netPnL` / `netPercentReturn` based on the `exit` price datum.
-- Actual PnL reflects the user's own brokerage execution. We do not mutate app PnL when a user provides actuals; instead, user-confirmed values live under a per-user overlay (see below). UI can toggle between App PnL and Actual PnL views.
-
-Notes on App vs Actual PnL
-- App PnL (aka RS PnL) is computed from app-derived prices and stored on the position doc as `appPnl` and summarized under `signals-daily` (pair-scoped, backend-owned). This is immutable aside from normalizing when POST is used for historical closes.
 - Actual PnL reflects the user's own brokerage execution. We do not mutate app PnL when a user provides actuals; instead, user-confirmed values live under a per-user overlay (see below). UI can toggle between App PnL and Actual PnL views.
 
 ## User Actual Trades Overlay (Per-User)
@@ -325,15 +288,7 @@ Callables (sketch):
   - Time window:
     - If `fromDay`/`toDay` provided: inclusive range, still capped by a server-side max lookback.
     - If omitted: defaults to last `N` days (server default, e.g. 30).
--- `GetDailySignals({ day?: string, fromDay?: string, toDay?: string, limitDays?: number })`
-  - Reads the root mirror `signals-daily/{YYYY}/days/{YYYY-MM-DD}`.
-  - Request semantics:
-    - `day`: single UTC trading day.
-    - `fromDay` + `toDay`: inclusive UTC range.
-    - `limitDays`: last N UTC days when no explicit range is provided.
-  - Response shape (using `SignalsDailyDoc`):
-    - `{ days: SignalsDailyDoc[] }`
-    - Where each `SignalsDailyDoc` contains `date`, `newOpens`, `holds`, `newCloses` of `DailySignal` entries (including `pair` for root mirror docs).
+-- (Reserved) Board/Activity callables should read from Signals Activity (`signals-activity/{YYYY}/days/{YYYY-MM-DD}` and `pairs-data/{PAIR}/signals-activity/{YYYY}/days/{YYYY-MM-DD}`), filtered by interval/state, rather than any legacy daily mirror.
 - `GetPnLSummary({ from, to, type:'app'|'actual', uid?:string })`
   - Returns PnL over a range grouped by direction and baseline. For `type:'app'`, reads backend summaries. For `type:'actual'`, requires `uid` and reads from `users/{uid}` overlays.
 - `UpdatePositionActuals({ positionId, executed:boolean, openedPrice?:number, closedPrice?:number, openedTime?:number, closedTime?:number, noteOpen?:string, noteClose?:string })`

@@ -1,4 +1,4 @@
-> **Transition Note (Multi-Interval RS):** This document assumes a daily-only RS model with `signals-daily` and/or `pairs-data.data[]`. A multi-interval RS transition is now planned; see `docs/planning/MULTI_INTERVAL_RS_TRANSITION.md` for the up-to-date design. This file will be updated once implementation is complete.
+> **Transition Note (Multi-Interval RS & Signals Activity):** This document was originally authored for a **daily-only RS model**. The current canonical model is multi-interval RS with **Signals Activity** mirrors and positions built from the canonical RS engine. See `docs/planning/MULTI_INTERVAL_RS_TRANSITION.md`, `RS_SIGNAL_HISTORY.md`, and `UNIFIED_INGESTION_ENGINE.md` for the up-to-date design. This file should be read as a **backfill/cleanup playbook** for canonical signals, Signals Activity, and positions.
 
 # RS Backfill for Signals & Positions
 
@@ -7,9 +7,8 @@
 This doc explains how to backfill:
 
 - Canonical per-pair RS signals (`pairs-data/{PAIR}/signals`)
-- Per-pair `signals-daily` shards
 - Root positions and per-position timelines (`positions/*`)
-- Root `signals-daily` mirror
+- Per-pair and root **Signals Activity** mirrors (`pairs-data/{PAIR}/signals-activity/*`, `signals-activity/*`).
 
 Backfill now uses the same RS engine and writer helper as live so that historical repair and daily pipeline share one code path for:
 
@@ -17,40 +16,38 @@ Backfill now uses the same RS engine and writer helper as live so that historica
 - Canonical OPEN/CLOSE signal writes
 - Root positions timeline writes
 
+> **Archive dependency:** Signals/positions backfill assumes that DAILY/WEEKLY/MONTHLY RS archives under `pairs-data/{PAIR}/archive-*` have already been populated by the **unified ingestion engine** (triggered by the universe-ready `partner-data-ready` v1 message; see `UNIFIED_INGESTION_ENGINE.md` and `rs-partner-integration.md`) and/or repaired via `recomputeRegisteredBackfill` as described in `RS_ARCHIVE_BACKFILL.md`. This doc focuses on rebuilding canonical signals, **Signals Activity**, and positions **on top of that archive history**.
+
 ## Cleaning Existing Data Before Backfill
 
 Backfill assumes it is writing the **source of truth** for the ranges you target. If you already have partial or incorrect data in the target collections, you should clear it first.
 
 There are two primary tasks:
 
-1. Delete root `positions` and `signals-daily` collections in the Firebase console (when you want a full reset of positions + root mirror).
-2. Delete per-pair `pairs-data` signals and per-pair `signals-daily` collections using the cleanup callables in `cleanup.callables.ts`.
+1. Delete root `positions` (and, if present, any legacy mirrors) in the Firebase console when you want a full reset of positions + activity.
+2. Delete per-pair `pairs-data` signals and per-pair `signals-activity` collections using the cleanup callables in `cleanup.callables.ts`.
 
-### 1. Delete Root `positions` and `signals-daily` in Console
+### 1. Delete Root `positions` in Console
 
 From the Firestore console (project `rel-str`), you can:
 
 - Delete root collection **`positions`**
   - This removes all root position buckets and per-position timelines.
-- Delete root collection **`signals-daily`**
-  - This removes the year-sharded root mirror docs at `signals-daily/{YYYY}/days/{YYYY-MM-DD}`.
 
-Only do this when you intend to fully rebuild positions and root
-`signals-daily` from archive. This is destructive and cannot be undone.
+Only do this when you intend to fully rebuild positions and activity from archive. This is destructive and cannot be undone.
 
-### 2. Use Cleanup Callables for Per-Pair Signals & Signals-Daily (Recommended)
+### 2. Use Cleanup Callables for Per-Pair Signals & Signals-Activity (Recommended)
 
 Do **not** delete the `pairs-data` root collection. That would also remove the
 archive year collections we rely on (e.g. `pairs-data/{PAIR}/archive-2025`).
 
 Instead, use the existing admin cleanup callables in `functions/src/cleanup.callables.ts` to
-clear only the per-pair signals and signals-daily:
+clear only the per-pair signals and Signals Activity:
 - `purgePairSignalsAll` — cleans canonical per-pair signals under
-  `pairs-data/{PAIR}/signals` (year-sharded opens/closes + legacy docs)
-- `purgePairSignalsDailyAll` — cleans per-pair `signals-daily` under
-  `pairs/{PAIR}/signals-daily` (year-sharded days + legacy flat docs)
+  `pairs-data/{PAIR}/signals` (year-sharded opens/closes + legacy docs).
+- `purgePairSignalsAndActivityAll` — cleans per-pair canonical `signals` **and** per-pair `signals-activity` for a given year range.
 
-Example: purge signals and per-pair signals-daily for a date range across all
+Example: purge signals and per-pair Signals Activity for a date range across all
 registered pairs (prod project `rel-str`) using direct HTTPS calls:
 
 ```bash
@@ -60,17 +57,17 @@ curl -X POST \
   -H "Content-Type: application/json" \
   -d '{"data":{"fromYear":2019,"toYear":2025,"removeContainers":true,"removeOpenBucket":true}}'
 
-# Purge per-pair signals-daily for all registered pairs between 2019 and current year
+# Purge per-pair signals and Signals Activity for all registered pairs between 2019 and current year
 curl -X POST \
-  "https://us-central1-rel-str.cloudfunctions.net/purgePairSignalsDailyAll" \
+  "https://us-central1-rel-str.cloudfunctions.net/purgePairSignalsAndActivityAll" \
   -H "Content-Type: application/json" \
-  -d '{"data":{"fromYear":2019,"toYear":2025,"removeContainers":true}}'
+  -d '{"data":{"fromYear":2019,"toYear":2025,"removeContainers":true,"removeOpenBucket":true}}'
 ```
 
 You can also pass an explicit `pairs` array inside the `data` object to either
 callable if you only want to clean a subset of pairs.
 
-### 3. Deleting Per-Pair Signals & Signals-Daily via CLI (Fallback)
+### 3. Deleting Per-Pair Signals & Signals-Activity via CLI (Fallback)
 
 If you **really** want to bypass the callables and directly delete data for
 specific pairs, you can still use the Firebase CLI. This should be limited to
@@ -86,8 +83,8 @@ PAIR="QQQ-AAPL"   # BASELINE-SYMBOL
 firebase firestore:delete "pairs-data/${PAIR}/signals" \
   --project "${PROJECT}" --recursive --force
 
-# Delete per-pair signals-daily shards for this pair
-firebase firestore:delete "pairs/${PAIR}/signals-daily" \
+# Delete per-pair Signals Activity shards for this pair
+firebase firestore:delete "pairs-data/${PAIR}/signals-activity" \
   --project "${PROJECT}" --recursive --force
 ```
 
@@ -120,10 +117,7 @@ Be careful not to delete any `archive-YYYY` subcollections under `pairs-data`.
     - Runs `detectRsEvents` over historical `RsSample[]`
     - Builds `RsWriteEvent` for each historical OPEN/CLOSE
     - Calls `applyRsEventsForPair` for those events
-    - Also:
-      - Writes/repairs `signals-daily` per pair
-      - Updates analytics summary
-      - Optionally rebuilds root `signals-daily` for all `daysTouched`
+    - Updates analytics summary
 
 ## What Backfill Does Beyond Live
 
@@ -133,9 +127,8 @@ Backfill-specific responsibilities:
 - Walk all registered pairs from `pair-registry`
 - Reconstruct prices and RS from `archive-{YEAR}` documents
 - Maintain long-running `PositionState` + `opened` across the full range
-- Repair `signals-daily` per pair and update `holds` for historical days
 - Update `analytics/summary` with net PnL and aggregates
-- Batch Firestore writes and optionally rebuild `signals-daily` root for `daysTouched`
+- Batch Firestore writes for canonical signals, Signals Activity (when enabled), and positions
 
 Live pipeline does not do these bulk/historical tasks; it processes one run/day at a time using live partner data and Firestore state.
 
@@ -343,10 +336,8 @@ For a sample pair and day:
 
 - `pairs-data/{PAIR}/signals/{YEAR}/opens|closes`:
   - OPEN/CLOSE docs match expected RS + price context.
-- `pairs/{PAIR}/signals-daily/{YEAR}/days/{DAY}`:
-  - `newOpens`, `holds`, `newCloses` consistent with positions.
-- `signals-daily/{YEAR}/days/{DAY}` (root mirror, year-sharded):
-  - Shows correct opens/holds/closes counts.
+- `pairs-data/{PAIR}/signals-activity/{YEAR}/days/{DAY}` and `signals-activity/{YEAR}/days/{DAY}` (if enabled):
+  - `newOpens`, `holds`, `newCloses` consistent with canonical signals and positions.
 - `positions/*`:
   - Root position documents and timelines match the backfilled opens/closes.
 - `analytics/summary`:
