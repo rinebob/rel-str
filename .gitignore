@@ -76,3 +76,7 @@ emu-export-20251205-101810/firestore_export/all_namespaces/all_kinds/output-1
 src/assets/trade-data/*
 src/assets/tv/*
 src/assets/state-street/*
+src/assets/holdings/*
+bulk-import.enriched_spy-qqq.json
+bulk-import.enriched_XL-non-spy-qqq.json
+.vscode/settings.json
