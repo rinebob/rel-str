@@ -1,5 +1,9 @@
 # Calendar‑Aware Weekly/Monthly Archives & Diagnostics
 
+> **Transition Note:** This document describes a more complex, calendar-gated writing strategy for WEEKLY/MONTHLY archives (e.g., only write weekly/monthly docs on specific last-trading-day dates) that was **never implemented in production** and was ultimately abandoned as unworkable. It is retained only as historical background. For current behavior, see `RS_ARCHIVE_BACKFILL.md` and the code; do **not** treat this file as a specification for how archives are written today.
+
+> In the current architecture, archives are written primarily by a **unified ingestion engine** that runs once per trading day in response to a TS_UNIVERSE‑style universe-ready signal from Savant (see `docs/partner/rs-partner-integration.md`). This file may still be useful to reason about potential calendar invariants, but the specific calendar-gated write strategies described below should generally be disregarded.
+
 ## Purpose
 
 This document explains how rel-str implements calendar-aware weekly and monthly archive writing and diagnostics, so an equivalent capability can be ported to SavantAPI (SA). It focuses on:

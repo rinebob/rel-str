@@ -1,4 +1,6 @@
-> **Transition Note (Multi-Interval RS):** This document assumes a daily-only RS model with `signals-daily` and/or `pairs-data.data[]`. A multi-interval RS transition is now planned; see `docs/planning/MULTI_INTERVAL_RS_TRANSITION.md` for the up-to-date design. This file will be updated once implementation is complete.
+> **Transition Note:** This document was originally authored for a **daily-only RS model** and predates multi-interval RS, Signals Activity, and the unified ingestion engine. See `MULTI_INTERVAL_RS_TRANSITION.md`, `UNIFIED_INGESTION_ENGINE.md`, and `RS_SIGNAL_HISTORY.md` for the current multi-interval design. This file is still useful for high-level architecture, but many implementation details are **legacy**.
+
+> In addition, live/backfill ingestion has moved away from symbol-driven or Alpha Vantage-based pipelines toward a **unified, run-driven ingestion engine** that runs once per trading day in response to the **universe-ready `partner-data-ready` v1 message** from Savant (attributes `runType = "ts-post-all-intervals"`, `phase = "post"`). See `docs/partner/rs-partner-integration.md` and `RS_ARCHIVE_BACKFILL.md` for the current ingestion and archive/backfill model.
 
 # Backend Documentation - Relative Strength Heatmap (MVP) - RS-Only
 
@@ -25,10 +27,14 @@ This backend runs on Firebase/Google Cloud and focuses on computing and serving 
   * Populated/updated via callables invoked by the UI (e.g., `SelectStockPanel`) when users create or modify pair lists.
   * The scheduler reads the registry to know which pairs to compute each run.
 
-* **RS Computation (Scheduled):**
-  * For each pair in `pair-registry`, compute pre-close and post-close RS.
-  * Write per-day archive docs under `pairs-data/{BASE}-{SYMBOL}/archive-YYYY/{YYMMDD}` (e.g., `/pairs-data/QQQ-AAPL/archive-2024/241004`) including `pre?` and `post?` blocks.
-  * Update `pairs-data/{PAIR}.latest`.
+* **RS Computation (Scheduled / Ingestion Engine):**
+* For each pair in `pair-registry`, compute pre-close and post-close RS across **multiple intervals**.
+* Persist RS history into per-interval archives:
+  * DAILY: `pairs-data/{BASE}-{SYMBOL}/archive-YYYY/{YYMMDD}` (e.g., `/pairs-data/QQQ-AAPL/archive-2024/241004`) including `pre?` and `post?` blocks.
+  * WEEKLY: `pairs-data/{BASE}-{SYMBOL}/archive-weekly-YYYY/{YYMMDD}`.
+  * MONTHLY: `pairs-data/{BASE}-{SYMBOL}/archive-monthly-YYYY/{YYMMDD}`.
+* Maintain per-pair latest mirrors (e.g. `latestDaily`, `latestWeekly`, `latestMonthly`) on `pairs-data/{PAIR}` sourced from these archives.
+* In the current design, this work is owned by a **unified, run-driven ingestion engine** that runs once per trading day in response to the universe-ready `partner-data-ready` v1 message (see `UNIFIED_INGESTION_ENGINE.md` and `docs/partner/rs-partner-integration.md`).
 
 * **On-demand RS for Non-Registered or Ad-hoc Baselines:**
   * For ad-hoc requests, compute RS transiently (no Firestore writes) and optionally hydrate a short-lived cache `rs-cache` to accelerate repeats.
@@ -54,7 +60,7 @@ This backend runs on Firebase/Google Cloud and focuses on computing and serving 
 ## 4. Architecture & Structure
 
 * **Serverless First:** Event-driven/scheduled compute via Cloud Functions.
-* **Pair-Centric Storage:** RS series and signals are stored at `pairs-data/{BASE}-{SYMBOL}` with subcollections including `signals` and `signals-daily`. No OHLCV persisted.
+* **Pair-Centric Storage:** RS series and canonical signals are stored at `pairs-data/{BASE}-{SYMBOL}` with subcollections including `signals` and multi-interval **Signals Activity** mirrors; positions live under `positions/*`. No OHLCV is persisted in Firestore; price/volume come from SavantAPI.
 * **Registry-driven Compute:** Scheduler queries `pair-registry` to enumerate pairs for the current run; avoids meaningless baseline–symbol combinations.
 * **External API Integration:** Only backend calls SavantAPI; Angular never calls partner endpoints directly.
 * **Error Handling & Logging:** Robust error handling with Cloud Logging and retries for transient upstream issues.
@@ -89,7 +95,7 @@ This backend runs on Firebase/Google Cloud and focuses on computing and serving 
 ## 5. Key Technical Considerations
 
 * **TypeScript Contracts & Strong Typing (Functions):**
-  * All shared schemas (Firestore docs such as `pairs-data`, `signals`, `signals-daily`, `positions`, and all callable inputs/outputs) **must** be represented by exported `interface`/`type` declarations under `functions/src/types/*`.
+  * All shared schemas (Firestore docs such as `pairs-data`, `signals`, `positions`, and all callable inputs/outputs) **must** be represented by exported `interface`/`type` declarations under `functions/src/types/*`.
   * **Prohibited patterns (BE):**
     * `const v = d.data() as any;` or `const doc = { ... } as any;` for anything written to or read from Firestore.
     * Inline object literals used as de-facto schemas for Firestore documents or callable payloads.
@@ -277,8 +283,8 @@ Admin-protected HTTP function `backfillSignalsHistory` computes post-close RS si
 
 - `GetPairSignals({ baseline, symbol, limit?, source?, type? })`
   - Returns canonical signals from `pairs-data/{PAIR}/signals/*`.
-- `GetDailySignals({ day?, fromDay?, toDay?, limitDays?, all? })`
-  - Returns aggregated daily lists from `signals-daily/*` or a root mirror if present.
+- `GetDailySignals({ day?, fromDay?, toDay?, limitDays?, all? })` (legacy)
+  - Historical daily board helper; new Decision Board–style UIs should instead consume **Signals Activity** from `signals-activity/{YYYY}/days/{YYYY-MM-DD}` (root) and `pairs-data/{PAIR}/signals-activity/{YYYY}/days/{YYYY-MM-DD}` (per pair), filtered by interval/state as needed.
 - `GetPnLSummary({ from, to, type:'app'|'actual', uid? })`
   - Returns App PnL (backend summaries) or Actual PnL (per-user overlays).
 - `GetPositionWithActuals({ positionId, uid? })` and `GetPairSignalsWithActuals({ baseline, symbol, uid?, limit?, fromDay?, toDay? })`
