@@ -18,6 +18,15 @@ Signals / activity / positions backfill remains documented separately in `RS_BAC
 
 > **Ingestion alignment:** In the target architecture, DAILY/WEEKLY/MONTHLY RS archives are populated **primarily by a unified ingestion engine** that runs once per trading day in response to the **universe-ready `partner-data-ready` v1 message** from Savant (attributes `runType = "ts-post-all-intervals"`, `phase = "post"`; see `docs/partner/rs-partner-integration.md`). `recomputeRegisteredBackfill` should be treated as the **backfill/repair entrypoint** over that same archive model, not as a separate ingestion path with different semantics.
 
+## Implementation Efforts (PDR – Partner Data Ready RS pipeline)
+
+- **Code**: `PDR` – Partner Data Ready → RS archive ingestion and backfill path
+- **Efforts**:
+  - `RS-BE-FEAT-PDR-2601-01` – Partner data ingestion & initial prod RS archive backfill
+    - Scope: implement bulk pair registry import, RS archive backfill entrypoints, and tie them to the `partner-data-ready` universe-ready pipeline for prod go-live (see `docs/tasks/PROTOTYPE.md` Next Phase Plan).
+
+See also `IMPLEMENTATION_EFFORTS_AND_JOURNALING.md` for the global Effort ID, implementation docs, and journaling workflow.
+
 ---
 
 ## 2. Archive Data Model (As Used by RS)

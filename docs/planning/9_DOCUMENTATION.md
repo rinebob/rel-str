@@ -28,6 +28,7 @@ The project will maintain the following types of documentation, categorized for 
         * `performance-optimization.md`
         * `user-flow.md`
         * `third-party-libraries.md`
+        * `IMPLEMENTATION_EFFORTS_AND_JOURNALING.md` (implementation efforts, ID scheme, and time journaling workflow)
     * **Project README:** A comprehensive `README.md` file located in the root of the code repository. This serves as the primary entry point for anyone interacting with the codebase, containing essential information such as project overview, setup instructions (installation, dependencies), how to run the application locally, how to run the test suite, and contribution guidelines.
 * **User Guide:**
     * Documentation specifically for the end-users of the Relative Strength Heatmap application. This explains how to navigate the application, use core features like the heatmap and charts, manage stock lists, interpret the data visualizations (including relative strength concepts as applied in the app), and understand account settings. It will be written in clear, non-technical language.
