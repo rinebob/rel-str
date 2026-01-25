@@ -37,7 +37,7 @@ Example:
 
 ### 2.2 Effort IDs (Backend)
 
-Pattern:
+Preferred pattern for **time-bounded efforts** (typical feature or backfill work):
 
 ```text
 <APP>-BE-<SCOPE>-<CODE>-<YYMM>-<NN>
@@ -52,6 +52,19 @@ Pattern:
 Example:
 
 - `RS-BE-FEAT-PDR-2601-01` – RS, backend feature work for Partner Data Ready → RS archive ingestion (PDR), Jan 2026.
+
+For **long-lived or ongoing implementation lines** (e.g. documentation upkeep, docs site implementation), we may use a stable 4-segment form without the date/sequence suffix and treat it as the umbrella implementation ID:
+
+```text
+<APP>-BE-<SCOPE>-<CODE>
+```
+
+Examples:
+
+- `RS-BE-DOCS-UPKEEP` – ongoing documentation review and upkeep.
+- `RS-BE-DOCS-SITEIMPL` – implementation of the docs website (planning/implementation lane).
+
+In these cases, **timing and sequence** are primarily captured at the **task level** (`-Txx` tasks within the implementation doc and their dated timeline entries), while the 4-segment ID remains constant over time.
 
 ### 2.3 Task IDs (within an Effort)
 
@@ -278,3 +291,18 @@ Structure:
 - **Journal**: `docs/journal/2026-01_January.md` lists `RS-BE-FEAT-PDR-2601-01` under Current Implementation Efforts and includes dated entries.
 
 This example is the first full application of this workflow and can be used as a reference pattern for future efforts (both backend and frontend).
+
+---
+
+## 7. Current Backend DOCS Efforts (Examples)
+
+These long-lived documentation-focused efforts use the 4-segment backend Effort ID form described above:
+
+- `RS-BE-DOCS-UPKEEP` – Documentation upkeep and changelog system.
+- `RS-BE-DOCS-SITEIMPL` – Docs site Angular implementation (planning/implementation lane).
+
+---
+
+## Changelog
+
+- 2026-01-25 – Documented 4-segment backend Effort IDs for long-lived DOCS work and added RS-BE-DOCS-UPKEEP / RS-BE-DOCS-SITEIMPL examples.
