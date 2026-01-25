@@ -25,6 +25,13 @@ Signals / activity / positions backfill remains documented separately in `RS_BAC
   - `RS-BE-FEAT-PDR-2601-01` – Partner data ingestion & initial prod RS archive backfill
     - Scope: implement bulk pair registry import, RS archive backfill entrypoints, and tie them to the `partner-data-ready` universe-ready pipeline for prod go-live (see `docs/tasks/PROTOTYPE.md` Next Phase Plan).
 
+## Implementation Efforts (FRBARR – Full RS Backfill and Realtime Refresh)
+
+- **Code**: `FRBARR` – Full RS Backfill and Realtime Refresh over archives
+- **Efforts**:
+  - `RS-BE-FEAT-FRBARR-2601-02` – RS queue-based pair backfill & realtime refresh (Cloud Tasks + Firestore)
+    - Scope: introduce a Cloud Tasks + Firestore job pipeline for RS pair archive recompute and compact realtime refresh, mirroring Savant's time-series job model. Refactor `recomputeRegisteredBackfill` into a run/job enqueuer, add RS-specific job/run schemas and workers, and reuse shared helpers across both full-history backfill and realtime refresh paths.
+
 See also `IMPLEMENTATION_EFFORTS_AND_JOURNALING.md` for the global Effort ID, implementation docs, and journaling workflow.
 
 ---
