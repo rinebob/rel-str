@@ -67,8 +67,10 @@ This backend runs on Firebase/Google Cloud and focuses on computing and serving 
 * **Native-first:** Prefer native TS/Node for performance/clarity.
 * **Sector Constituents Cache:** An optional Firestore cache (`sectors/{ETF}`) or `appConfig.sectorConfigs` stores canonical constituent lists with `updatedAt`; `GetSectorConstituents` serves clients and may refresh the cache from an upstream source.
 
-* **Directory Structure for functions/src:**
-  * Based on the documented callables, webhooks, admin functions, and utilities:
+* **Directory Structure for functions/src (legacy sketch – superseded by CFSTR):**
+  * This was an early high-level proposal kept for historical context. For the **current target Cloud Functions structure**, see the **CFSTR** effort below and `docs/implementations/RS-BE-MAINT-CFSTR-2601-01_cloud-functions-structure-and-refactor.md`.
+  * Original sketch (no longer authoritative):
+
     ```
     functions/src/
     ├── callables/           # User-facing callable functions (e.g., GetHeatmapData, GetPairRSData, GetBacktestResults, RegisterPairs/UnregisterPairs)
@@ -91,6 +93,13 @@ This backend runs on Firebase/Google Cloud and focuses on computing and serving 
         └── registry.ts      # Pair registry management
     ```
   * This organization aligns with the RS-only backend focus, grouping by responsibility for maintainability.
+
+### 4.1 Implementation Efforts (Cloud Functions Structure – CFSTR)
+
+- **Code**: `CFSTR` – Cloud Functions directory structure & organization
+- **Efforts**:
+  - `RS-BE-MAINT-CFSTR-2601-01` – Cloud Functions filesystem refactor and RS/partner separation
+    - Scope: document the current `functions/src` layout, design a target structure that separates partner integration, RS domain logic, jobs, and admin entrypoints, and define a migration plan. New RS job-pipeline code (e.g., FRBARR) should adopt the target structure immediately, while existing `webhooks`-centric code is migrated incrementally in a follow-up MAINT effort.
 
 ## 5. Key Technical Considerations
 
