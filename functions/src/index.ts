@@ -36,6 +36,8 @@ export {
   normalizePairRegistryAdmin,
 } from "./webhooks/admin-tasks";
 
+export { recomputeRsBackfillAdmin } from './rs/time-series/rs-backfill-admin';
+
 export {
   diagnosePairArchives,
   diagnosePairArchivesAdmin,
