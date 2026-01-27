@@ -16,7 +16,7 @@ This document is the **authoritative guide** for backfilling RS archives only:
 
 Signals / activity / positions backfill remains documented separately in `RS_BACKFILL_SIGNALS.md` and is not part of this archive-only plan.
 
-> **Ingestion alignment:** In the target architecture, DAILY/WEEKLY/MONTHLY RS archives are populated **primarily by a unified ingestion engine** that runs once per trading day in response to the **universe-ready `partner-data-ready` v1 message** from Savant (attributes `runType = "ts-post-all-intervals"`, `phase = "post"`; see `docs/partner/rs-partner-integration.md`). `recomputeRegisteredBackfill` should be treated as the **backfill/repair entrypoint** over that same archive model, not as a separate ingestion path with different semantics.
+> **Ingestion alignment:** In the target architecture, DAILY/WEEKLY/MONTHLY RS archives are populated **primarily by a unified ingestion engine** that runs once per trading day in response to the **universe-ready `partner-data-ready` v1 message** from Savant (attributes `runType = "ts-post-all-intervals"`, `phase = "post"`; see `docs/partner/rs-partner-integration.md`). Historically, `recomputeRegisteredBackfill` was the **admin backfill/repair entrypoint** over that same archive model; it is now considered a **legacy** endpoint in favor of the RS-native backfill function `recomputeRsBackfillAdmin` (see §10) but its semantics remain documented here for reference.
 
 ## Implementation Efforts (PDR – Partner Data Ready RS pipeline)
 
@@ -178,13 +178,15 @@ This ensures we never end up with multiple conflicting bars for the same cross-y
 
 ---
 
-## 6. `recomputeRegisteredBackfill` (Admin HTTP Backfill)
+## 6. `recomputeRegisteredBackfill` (Legacy Admin HTTP Backfill)
 
 ### 6.1 Overview
 
-`recomputeRegisteredBackfill` is the **primary admin backfill entrypoint** for RS archives.
+> **Deprecation note:** New RS archive backfill workflows (full-history or targeted) should use `recomputeRsBackfillAdmin` as described above. `recomputeRegisteredBackfill` remains available for legacy scripts and the emulator playbook but should be treated as a compatibility surface only.
 
-- Location: `functions/src/webhooks/admin-tasks.ts`.
+`recomputeRegisteredBackfill` is the **legacy admin backfill entrypoint** for RS archives.
+
+- Location: `functions/src/webhooks/admin-tasks.ts` (legacy path; new work should prefer `functions/src/rs/time-series/rs-backfill-admin.ts` → `recomputeRsBackfillAdmin`).
 - Export:
 
   ```ts
@@ -251,7 +253,7 @@ Check `admin-tasks.ts` and `EMULATOR_DATA_REFRESH.md` for the current project-sp
 
 > **Note:** There is **no** `dryRun` or `fullHistory` flag today. Every call that passes validation writes archives for the requested window. The "full" vs "partial" semantics described earlier are about how you choose `[from, to]` and which pairs/intervals you include, not about a separate mode switch in this function.
 
-### 6.4 Example: Full 2019+ Backfill (Archives Only)
+### 6.4 Example: Full 2019+ Backfill (Archives Only, Legacy Endpoint)
 
 **Goal:** Rebuild DAILY/WEEKLY/MONTHLY RS archives for all registered pairs from 2019-01-01 through today.
 
@@ -303,7 +305,7 @@ Check `admin-tasks.ts` and `EMULATOR_DATA_REFRESH.md` for the current project-sp
    - Any per-pair errors.
    - Resulting archives under `pairs-data/{PAIR}/archive-*`.
 
-### 6.5 Example: Partial Window Repair
+### 6.5 Example: Partial Window Repair (Legacy Endpoint)
 
 **Goal:** Repair a bad DAILY/WEEKLY window for a small set of pairs over a known range.
 
@@ -477,3 +479,17 @@ After any backfill run (especially the full 2019+ run), validate:
    - If a monitoring dashboard exists, confirm no obvious gaps in RS coverage after the run.
 
 This checklist is intentionally archives-only; when signals/activity/positions backfill is re-enabled, their own validation steps should be run in addition to the above.
+
+---
+
+## 10. Added Work (2026-01-26)
+
+- **RS-native backfill admin entrypoint**
+  - `recomputeRsBackfillAdmin` under `functions/src/rs/time-series/rs-backfill-admin.ts` is now the preferred admin HTTP entrypoint for RS archive backfill.
+  - It mirrors the shard/window semantics documented for `recomputeRegisteredBackfill` but delegates work to the RS job/run + Cloud Tasks pipeline by creating `rs-backfill-runs` docs and per-`{pair, interval, phase}` jobs.
+  - When called without `pairs`, it enumerates the full `pair-registry` universe, enabling full-universe 2019+ backfills over DAILY/WEEKLY/MONTHLY intervals.
+
+- **Backfill run/job metadata cleanup**
+  - A scheduled v2 function `cleanupRsBackfillRuns` has been added under `functions/src/scheduled/cleanup-rs-backfill-runs.ts`.
+  - It runs periodically (every 30 days by default) and deletes `system/rs-backfill-runs/runs/{runId}` docs older than `RS_BACKFILL_MAX_AGE_DAYS` (default 30 days), along with their `jobs` subcollections.
+  - This keeps historical backfill metadata bounded while leaving RS archive data under `pairs-data/*` untouched.
