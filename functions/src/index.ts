@@ -37,6 +37,8 @@ export {
 } from "./webhooks/admin-tasks";
 
 export { recomputeRsBackfillAdmin } from './rs/time-series/rs-backfill-admin';
+export { drainRsBackfillRunAdmin } from './rs/time-series/rs-time-series-jobs.drain-admin';
+export { processRsJobTask } from './rs/time-series/rs-time-series-jobs.worker';
 
 export {
   diagnosePairArchives,
