@@ -1,6 +1,6 @@
 # RS-BE-FEAT-FRBARR-2601-02 Full RS Backfill and Realtime Refresh (Job Pipeline)
 
-- **Status**: planned
+- **Status**: in-progress
 - **Planning doc(s)**:
   - RS_ARCHIVE_BACKFILL.md (code `FRBARR`)
   - sa-time-series-job-pipeline-deep-dive.md (reference, SA internals)
@@ -9,7 +9,7 @@
 - **Scope**: FEAT
 - **Code**: FRBARR
 - **Created**: 2026-01-25
-- **Last updated**: 2026-01-25
+- **Last updated**: 2026-01-26
 
 ## Intent
 
@@ -24,19 +24,19 @@ This effort is specifically for **archive-focused RS backfill and refresh**; sig
 
 ## Tasks
 
-- [ ] RS-BE-FEAT-FRBARR-2601-02-T01 – Design RS job and run schemas for pair-level work
+- [x] RS-BE-FEAT-FRBARR-2601-02-T01 – Design RS job and run schemas for pair-level work
   - Define Firestore layouts for:
     - `system/rs-backfill-runs/{runId}` and `system/rs-backfill-runs/{runId}/jobs/{pair-interval-phase}`.
     - `system/rs-time-series-jobs/{marketDate}` and `system/rs-time-series-jobs/{marketDate}/jobs/{pair-interval-phase}` (realtime path).
   - Mirror SA's `TimeSeriesJobStatus`, `TimeSeriesJobType`, and `TimeSeriesJobMode` concepts with RS-specific enums.
 
-- [ ] RS-BE-FEAT-FRBARR-2601-02-T02 – Implement shared RS job creation + enqueue helper
+- [x] RS-BE-FEAT-FRBARR-2601-02-T02 – Implement shared RS job creation + enqueue helper
   - Create a helper similar to `createOrUpdateTimeSeriesJobAndMaybeEnqueueTask` that:
     - Creates/updates job docs transactionally for both realtime and backfill.
     - Updates aggregate run/date docs (expectedJobs/totalJobs, etc.).
     - Enqueues Cloud Tasks with a unified payload shape (`ProcessRsJobPayload`).
 
-- [ ] RS-BE-FEAT-FRBARR-2601-02-T03 – Implement RS Cloud Tasks worker and core job handler
+- [x] RS-BE-FEAT-FRBARR-2601-02-T03 – Implement RS Cloud Tasks worker and core job handler (initial lifecycle wiring; RS compute still TODO)
   - Add a `processRsJobTask` Cloud Tasks function with rate limits and retry config.
   - Implement `processRsJobInternal` that:
     - Resolves the correct job doc path from `jobType` (realtime vs backfill).
@@ -45,20 +45,27 @@ This effort is specifically for **archive-focused RS backfill and refresh**; sig
     - Updates job status (SUCCESS / TRANSIENT_FAILURE / PERMANENT_FAILURE).
     - Calls small aggregators for realtime and backfill run progress.
 
-- [ ] RS-BE-FEAT-FRBARR-2601-02-T04 – Extract shared pair-level RS job helper (`runRsPairIntervalJob`)
-  - Lift the pair/interval RS fetch + compute + write flow out of `recomputeRegisteredBackfill` / `partner-webhooks` into a reusable helper that:
-    - Calls `fetchDailyBarsRange` for baseline and target with the correct `[from, to]` window and interval-specific padding.
+- [x] RS-BE-FEAT-FRBARR-2601-02-T04 – Extract shared pair-level RS job helper (`runRsPairIntervalJob`)
+  - Implement `runRsPairIntervalJob` as the shared pair/interval RS fetch + compute + write helper used by `processRsJobInternal` for backfill (and future realtime) jobs, which:
+    - Calls `fetchDailyBarsRange` (and interval-specific variants) for baseline and target with the correct `[from, to]` window and padding.
     - Builds RS series using `buildPhaseSeries` + RS engine where appropriate.
-    - Writes archives via `writeUnifiedSeries` and updates latest mirrors.
-    - Returns a normalized result object used by job status and aggregators.
+    - Writes archives via `writeUnifiedSeries`, including weekly/monthly purge behavior, and updates latest mirrors on the pair root doc.
+    - Returns control to the worker, which then updates job status and backfill run aggregates.
 
-- [ ] RS-BE-FEAT-FRBARR-2601-02-T05 – Refactor `recomputeRegisteredBackfill` into a run/job enqueuer
-  - Change `recomputeRegisteredBackfill` to:
-    - Normalize `from`, `to`, `phase`, `intervals`, `limit`, `dryRun`.
-    - Enumerate the pair registry and apply `limit`.
-    - Create a backfill run doc (`rs-backfill-runs/{runId}`).
-    - Use the shared helper to create/enqueue one job per `{pair, interval, phase}`.
-    - Return a 202-style JSON summary with `runId`, counts, and parameters (no long-running work in the HTTP handler).
+- [x] RS-BE-FEAT-FRBARR-2601-02-T05 – Introduce RS-native backfill admin entrypoint and deprecate `recomputeRegisteredBackfill`
+  - Implement and document a new RS backfill admin HTTP function under `rs/time-series` (`recomputeRsBackfillAdmin`) that:
+    - Normalizes `from`, `to`, `phase`, `intervals`, and optional `pair` / `pairs` filters.
+    - Enumerates the RS pair registry by default and applies any pair filters when present.
+    - Creates a backfill run doc (`system/rs-backfill-runs/runs/{runId}`).
+    - Uses the shared helper to create/enqueue one job per `{pair, interval, phase}` via Cloud Tasks.
+    - Returns a 202-style JSON summary with `runId`, counts, and parameters (no long-running work in the HTTP handler).
+  - Mark the legacy `recomputeRegisteredBackfill` under `webhooks/admin-tasks.ts` as deprecated and avoid further refactors beyond minimal enqueue-only support.
+
+- [x] RS-BE-FEAT-FRBARR-2601-02-T08 – Add scheduled cleanup for RS backfill runs and jobs
+  - Add a scheduled v2 function (`cleanupRsBackfillRuns`) that runs periodically and:
+    - Scans `system/rs-backfill-runs/runs` for runs older than `RS_BACKFILL_MAX_AGE_DAYS` (default 30 days).
+    - Deletes each matching run's `jobs` subcollection in batches.
+    - Deletes the run doc itself and logs aggregated counts.
 
 - [ ] RS-BE-FEAT-FRBARR-2601-02-T06 – Add realtime refresh job creation path
   - Design and (optionally in a later slice) implement a scheduler- or `partner-data-ready`-driven path that:
@@ -66,7 +73,7 @@ This effort is specifically for **archive-focused RS backfill and refresh**; sig
     - Uses the same job schema, worker, and helper, with `jobType=REALTIME` and `mode=COMPACT`.
 
 - [ ] RS-BE-FEAT-FRBARR-2601-02-T07 – Tests, validation, and observability
-  - Add unit tests for job helpers, worker, and `recomputeRegisteredBackfill` refactor.
+  - Add unit tests for job helpers, worker, and the `recomputeRsBackfillAdmin` backfill path (including any remaining legacy `recomputeRegisteredBackfill` compatibility surface, if still used).
   - Add or update Jest tests under `tests/functions` to cover error cases and aggregation behavior.
   - Validate behavior in emulator/prod for a small set of pairs and windows.
   - Ensure logging and (where appropriate) `persistWarning` events provide clear visibility into job failures.
@@ -85,11 +92,43 @@ This effort is specifically for **archive-focused RS backfill and refresh**; sig
 - **Deviations from planning**:
   - None yet; this is the initial implementation plan for the FRBARR effort.
 
+### 2026-01-26
+
+- **Status**:
+  - T01 (schemas): `rs-time-series-jobs.model.ts` defines `RsJobType`, `RsJobMode`, `RsJobStatus`, `RsBackfillRunStatus`, `RsPairJobDoc`, `RsBackfillRunDoc`, and Firestore path helpers for:
+    - Backfill runs: `system/rs-backfill-runs/runs/{runId}` and `.../jobs/{pair-interval-phase}`.
+    - Realtime jobs: `system/rs-time-series-jobs/dates/{marketDate}` and `.../jobs/{pair-interval-phase}`.
+  - T02 (helper): `rs-time-series-jobs.helper.ts` implements `ProcessRsJobPayload`, `createOrUpdateBackfillJob`, and `createOrUpdateRealtimeJob` which:
+    - Create/merge `PENDING` job docs with attempts/error/timestamp fields.
+    - Enqueue Cloud Tasks via `getFunctions().taskQueue('processRsJobTask')` through `enqueueRsJobTask`, gated by `RS_TIME_SERIES_TASKS_ENABLED`.
+  - T03 (worker): `rs-time-series-jobs.worker.ts` defines `processRsJobTask` using `onTaskDispatched<ProcessRsJobPayload>` and `processRsJobInternal` which:
+    - Resolves the job doc path based on `jobType` and payload (`runId` vs `marketDate`).
+    - Marks jobs `IN_PROGRESS`, increments `attempts`, and sets `lastAttemptAt`/`updatedAt`.
+    - Invokes `runRsPairIntervalJob` (wired to RS compute) to fetch bars, build RS series, and write archives.
+    - Sets terminal status (`SUCCESS` or `PERMANENT_FAILURE`) and `lastError`.
+    - For backfill jobs, updates the parent run doc via `updateBackfillRunForJobTerminal`, incrementing `successJobs` / `permanentFailureJobs` and marking the run `COMPLETE` when `success + permanentFailure >= expectedJobs`.
+  - T05 (RS-native backfill entrypoint): `recomputeRsBackfillAdmin` is live under `rs/time-series/rs-backfill-admin.ts` and:
+    - Accepts `from`, `to`, `phase`, `intervals`, and optional `pair` / `pairs` filters.
+    - Enumerates the RS pair registry when `pairs` is omitted, enabling full-universe backfills.
+    - Creates a single `rs-backfill-runs` doc per invocation and enqueues `{pair, interval, phase}` jobs to `processRsJobTask`.
+    - Returns a 202-style JSON summary with `runId`, `expectedJobs`, and `enqueuedJobs`.
+  - T08 (scheduled cleanup): `cleanupRsBackfillRuns` is implemented as a scheduled v2 function that periodically deletes old `rs-backfill-runs` docs and their `jobs` subcollections beyond `RS_BACKFILL_MAX_AGE_DAYS`.
+  - A full-universe backfill (2019-01-01 → today, DAILY/WEEKLY/MONTHLY, POST phase) has been kicked off in prod via `recomputeRsBackfillAdmin` over the entire pair registry; jobs are flowing through `processRsJobTask` and the run is expected to reach `COMPLETE` once the queue drains.
+- **Decisions**:
+  - Use Firebase Functions v2 task APIs (`onTaskDispatched`, `getFunctions().taskQueue`) instead of the raw `@google-cloud/tasks` client, mirroring SA's implementation.
+  - Introduce `RS_TIME_SERIES_TASKS_ENABLED` env flag to gate enqueue behavior so RS can shadow-create job docs without executing tasks during early rollout.
+  - Keep `runRsPairIntervalJob` as the single, pair-level RS compute entrypoint used by both backfill and (future) realtime jobs.
+  - Manage long-term storage of backfill metadata via a scheduled cleanup job (`cleanupRsBackfillRuns`) instead of ad-hoc manual deletion.
+- **Deviations from planning**:
+  - T03 is implemented with `runRsPairIntervalJob` wired to the RS compute path; remaining refinements to RS compute internals and extraction from older admin paths are tracked under T04.
+
 ## Implementation References
 
 - **Key code** (planned targets):
-  - `functions/src/webhooks/admin-tasks.ts` – `recomputeRegisteredBackfill` refactor into run/job enqueuer.
-  - `functions/src/` (new files, TBD) – RS job model, job creation helper, Cloud Tasks worker, and `runRsPairIntervalJob` helper.
+  - `functions/src/webhooks/admin-tasks.ts` – legacy `recomputeRegisteredBackfill` compatibility surface; primary RS backfill orchestration now lives under `rs/time-series` via `recomputeRsBackfillAdmin`.
+  - `functions/src/rs/time-series/rs-time-series-jobs.model.ts` – RS job/run enums and Firestore paths (FRBARR T01).
+  - `functions/src/rs/time-series/rs-time-series-jobs.helper.ts` – Shared job creation/enqueue helper (FRBARR T02).
+  - `functions/src/rs/time-series/rs-time-series-jobs.worker.ts` – Cloud Tasks worker entrypoint and `processRsJobInternal` (FRBARR T03).
   - `functions/src/webhooks/symbol-fetch.ts` – existing `fetchDailyBarsRange` helper reused inside jobs.
   - `functions/src/webhooks/rs-series.ts`, `functions/src/webhooks/rs-canonical-engine.ts`, `functions/src/webhooks/pairs-writer.ts` – RS series computation and archive writers reused by the worker.
 
