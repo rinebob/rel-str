@@ -74,3 +74,4 @@ export {
 export { backfillSymbolDataFromPairsAdmin } from './admin/backfill-symbol-data-from-pairs';
 export { backfillSymbolDataFromTradesAdmin, backfillSymbolDataForTradesDaily } from './admin/backfill-symbol-data-from-trades';
 export { syncTrackedSymbolsDaily } from './scheduled/sync-tracked-symbols';
+export { cleanupRsBackfillRuns } from './scheduled/cleanup-rs-backfill-runs';
