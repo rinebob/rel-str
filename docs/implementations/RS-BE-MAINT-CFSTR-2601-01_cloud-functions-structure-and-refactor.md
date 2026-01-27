@@ -119,10 +119,19 @@ functions/src/
       partner.ts
 
   rs/                      # RS domain (archives, signals, positions, activity)
-    ingestion/             # Entry points driven by partner-data-ready (Pub/Sub/HTTP)
-    backfill/              # Admin/backfill HTTP entrypoints
-    jobs/                  # RS job model + worker + helpers (FRBARR)
-    core/                  # RS engine, series, positions, signals, activity, etc.
+    time-series/           # RS time-series ingestion, backfill, and jobs for archives
+      rs-time-series-jobs.model.ts    # Job/run enums + Firestore paths (created by FRBARR T01)
+      rs-time-series-jobs.helper.ts   # Shared job creation/enqueue helper (FRBARR T02)
+      rs-time-series-jobs.worker.ts   # Cloud Tasks worker (FRBARR T03)
+      rs-time-series-run.ts           # Backfill run orchestration helpers (optional)
+      rs-time-series-realtime.ts      # Realtime compact refresh helpers/entrypoints (optional)
+    core/                  # Core RS computation engine and write paths
+      rs-series.ts
+      rs-canonical-engine.ts
+      rs-write-events.ts
+      rs-events-consumer.ts
+      signals-activity-writer.ts
+      positions-manager.ts
 
   admin/                   # Cross-domain admin utilities (cleanup, maintenance)
 
@@ -139,9 +148,8 @@ functions/src/
 
 Notes:
 
-- `rs/ingestion` and `rs/backfill` host **entrypoint functions** (HTTP, Pub/Sub, schedulers) that orchestrate RS-domain work.
-- `rs/core` hosts RS-domain **pure logic and services**, importable from both ingestion and jobs.
-- `rs/jobs` contains RS job model, job creation/enqueue helpers, and Cloud Tasks workers.
+- `rs/time-series` hosts **time-series specific entrypoints and helpers** (ingestion, backfill, and job orchestration for RS archives).
+- `rs/core` hosts RS-domain **pure logic and services**, importable from both ingestion-style entrypoints and jobs.
 - `partner/` isolates Savant integration and partner contracts so they can be reasoned about independently.
 
 ## Mapping: `webhooks` Directory → Target Structure
@@ -157,7 +165,7 @@ This section proposes where each `functions/src/webhooks` file would live in the
 - **admin-tasks.ts**
   - Current role: admin HTTP endpoints (backfill, diagnostics, market holidays, etc.).
   - Target split:
-    - RS archive/backfill-specific endpoints (e.g., `recomputeRegisteredBackfill`, `backfillSignalsPipelineAdmin`, `ingestStaticPairsAdmin`) → `functions/src/rs/backfill/admin-tasks.ts` (or separate smaller files per concern).
+    - RS archive/backfill-specific endpoints (e.g., legacy `recomputeRegisteredBackfill`, RS-native `recomputeRsBackfillAdmin`, `backfillSignalsPipelineAdmin`, `ingestStaticPairsAdmin`) → `functions/src/rs/backfill/admin-tasks.ts` (or separate smaller files per concern).
     - Cross-domain admin utilities (if any) → `functions/src/admin/*`.
 
 - **calendar.ts**
