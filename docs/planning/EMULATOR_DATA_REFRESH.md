@@ -121,7 +121,10 @@ Effect per pair (`pair-registry` driven):
 
 ## 3. Rehydrate Archive Data from SavantAPI into Emulator
 
-Use `recomputeRegisteredBackfill` (HTTP admin function) against the **functions emulator** to fetch bars from SavantAPI and write/repair `pairs-data` roots + `archive-YYYY`.
+Use legacy `recomputeRegisteredBackfill` (HTTP admin function) against the **functions emulator** to fetch bars from SavantAPI and write/repair `pairs-data` roots + `archive-YYYY`.
+
+> **Note (2026-01)**
+> For **production** RS archive backfill, prefer the RS-native backfill endpoint `recomputeRsBackfillAdmin` (see `RS_ARCHIVE_BACKFILL.md §10`). `recomputeRegisteredBackfill` is retained as a legacy endpoint and is the recommended choice for emulator rebuilds and other local workflows.
 
 ### 3.1 Focused archive repair for a specific range
 

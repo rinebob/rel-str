@@ -549,7 +549,7 @@ To build a similar capability on SA side:
 
 - `functions/src/webhooks/admin-tasks.ts`
   - `refreshMarketHolidaysAdmin`
-  - `recomputeRegisteredBackfill` (backfill orchestrator that passes `windowToDay` into `writeUnifiedSeries`)
+  - `recomputeRegisteredBackfill` (legacy archive backfill orchestrator that passes `windowToDay` into `writeUnifiedSeries`; superseded for new work by `recomputeRsBackfillAdmin` under `rs/time-series`)
 
 - `functions/src/webhooks/pairs-writer.ts`
   - `writeUnifiedSeries` (uses `windowToDay`, loads canonical calendar, and gates weekly/monthly writes)

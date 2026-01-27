@@ -16,7 +16,7 @@ Backfill now uses the same RS engine and writer helper as live so that historica
 - Canonical OPEN/CLOSE signal writes
 - Root positions timeline writes
 
-> **Archive dependency:** Signals/positions backfill assumes that DAILY/WEEKLY/MONTHLY RS archives under `pairs-data/{PAIR}/archive-*` have already been populated by the **unified ingestion engine** (triggered by the universe-ready `partner-data-ready` v1 message; see `UNIFIED_INGESTION_ENGINE.md` and `rs-partner-integration.md`) and/or repaired via `recomputeRegisteredBackfill` as described in `RS_ARCHIVE_BACKFILL.md`. This doc focuses on rebuilding canonical signals, **Signals Activity**, and positions **on top of that archive history**.
+> **Archive dependency:** Signals/positions backfill assumes that DAILY/WEEKLY/MONTHLY RS archives under `pairs-data/{PAIR}/archive-*` have already been populated by the **unified ingestion engine** (triggered by the universe-ready `partner-data-ready` v1 message; see `UNIFIED_INGESTION_ENGINE.md` and `rs-partner-integration.md`) and/or repaired via the RS backfill entrypoints (`recomputeRsBackfillAdmin` preferred, legacy `recomputeRegisteredBackfill`) as described in `RS_ARCHIVE_BACKFILL.md`. This doc focuses on rebuilding canonical signals, **Signals Activity**, and positions **on top of that archive history**.
 
 ## Cleaning Existing Data Before Backfill
 

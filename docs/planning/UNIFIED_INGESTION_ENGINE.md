@@ -25,7 +25,7 @@ For partner contract details, see:
 
 For archive semantics and backfill:
 
-- `docs/planning/RS_ARCHIVE_BACKFILL.md` – Archive model and recomputeRegisteredBackfill.
+- `docs/planning/RS_ARCHIVE_BACKFILL.md` – Archive model and backfill entrypoints (`recomputeRsBackfillAdmin` as primary, `recomputeRegisteredBackfill` as legacy).
 
 ---
 
@@ -107,17 +107,19 @@ Live ingestion is driven by a Pub/Sub subscriber for the **universe-ready `partn
 
 ### 3.2 Backfill / Repair – Admin HTTP
 
-Backfill and repair are routed through an admin HTTP entry point that **wraps** the same engine:
+Backfill and repair are routed through admin HTTP entry points that **wrap** the same engine or delegate to the RS job pipeline:
 
-- Entrypoint: `recomputeRegisteredBackfill` in `admin-tasks.ts`.
-- Inputs (see `RS_ARCHIVE_BACKFILL.md` for full details):
+- Primary entrypoint: `recomputeRsBackfillAdmin` in `rs/time-series/rs-backfill-admin.ts` (RS-native backfill over `rs-backfill-runs` + Cloud Tasks jobs).
+- Legacy entrypoint: `recomputeRegisteredBackfill` in `webhooks/admin-tasks.ts` (kept for compatibility; semantics documented in `RS_ARCHIVE_BACKFILL.md`).
+
+- Inputs (for the backfill window; see `RS_ARCHIVE_BACKFILL.md` for full details):
   - `from`, `to`: `YYYY-MM-DD` (required window).
   - `intervals`: subset of `['DAILY', 'WEEKLY', 'MONTHLY']`.
   - `phase`: `'pre' | 'post' | 'both'`.
   - `pair` / `pairs`: optional filters.
   - `concurrency`, `days`, `limit`: tuning hints.
 
-Conceptually, `recomputeRegisteredBackfill` maps its request into a call to the engine, for example:
+Conceptually, a backfill request maps into a call to the unified engine or equivalent RS job helpers, for example:
 
 ```ts
 await runUnifiedIngestion({

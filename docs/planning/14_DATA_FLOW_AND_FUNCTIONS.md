@@ -93,10 +93,12 @@
 - File: `functions/src/webhooks/admin-tasks.ts`
   - `recomputePairsRs` (callable): manual recompute for specific pairs/phases.
   - `recomputeRegisteredLive` (callable): manual recompute across registry.
-  - `recomputeRegisteredBackfill` (HTTP): backfill ranges; token-protected. Invokes series writes, open-position snapshots, POST close finalization, and optionally mirror rebuild for a range.
+  - `recomputeRegisteredBackfill` (HTTP, legacy): backfill ranges; token-protected. Historical admin backfill endpoint retained for compatibility and emulator flows; superseded for new RS archive backfill work by `recomputeRsBackfillAdmin`.
   - `diagnosePairDays` (callable): diagnose/optionally repair missing per-pair days.
   - `diagnosePairDaysAdmin` (HTTP): token-protected wrapper.
   - `purgePairsDataSignalsAdmin` (HTTP): deletes per-pair `signals/` subcollections and also removes any remaining legacy signal mirror docs if present.
+
+- RS-native backfill admin entrypoint: `recomputeRsBackfillAdmin` in `functions/src/rs/time-series/rs-backfill-admin.ts` (see `RS_ARCHIVE_BACKFILL.md §10`).
 
 References for deeper context:
 - See `docs/planning/RS_SIGNAL_HISTORY.md` for aggregation details and mirror semantics.
