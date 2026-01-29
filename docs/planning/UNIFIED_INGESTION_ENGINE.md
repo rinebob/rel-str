@@ -64,23 +64,28 @@ The engine is **idempotent** for a given `{marketDate, intervals, window, pairsF
 Live ingestion is driven by a Pub/Sub subscriber for the **universe-ready `partner-data-ready` v1 message**.
 
 - Trigger (Savant side): `partner-data-ready` message with:
-  - Attributes:
+- Attributes (minimum contract):
 
     ```text
-    attributes.runType = "ts-post-all-intervals" AND attributes.phase = "post"
+    phase=post
+    runType=ts-post-all-intervals    # or equivalent upstream enum
+    runId=<opaque-run-id>            # used as Firestore doc id
     ```
 
-  - Payload (conceptual example):
+- Payload (conceptual example):
 
     ```jsonc
     {
       "version": "v1",
-      "runId": "2026-01-16-post-all-intervals-v1",
-      "marketDate": "2026-01-16",
+      "runId": "2026-01-28-WED-POST-LIVE-A-1635", // opaque, not parsed
+      "marketDate": "2026-01-28",
       "phase": "post",
-      "intervals": ["DAILY", "WEEKLY", "MONTHLY"],
-      "universeVersion": "v1",
-      "status": "completed"  // or "completed_with_errors"
+      "intervals": ["DAILY", "WEEKLY", "MONTHLY"], // case-insensitive
+      "trigger": "scheduled",                       // e.g. scheduled | manual | test
+      "runType": "ts-post-all-intervals",           // optional; treated as opaque label
+      "status": "end",                              // optional, used for observability
+      "finalizedCountTotal": 1234,                   // optional
+      "pendingCount": 0                              // optional
     }
     ```
 
@@ -103,7 +108,7 @@ Live ingestion is driven by a Pub/Sub subscriber for the **universe-ready `partn
 
   - Record run-level status in `runs/{runId}` or similar operational docs.
 
-> Internally, RS may still treat these all-intervals POST runs as `TS_UNIVERSE`-style runs in its own TypeScript types or operational docs, but on the wire the only distinguishing fields are `runType = "ts-post-all-intervals"`, `phase = "post"`, and `intervals` including `DAILY`, `WEEKLY`, `MONTHLY`.
+> Internally, RS may still treat these all-intervals POST runs as `TS_UNIVERSE`-style runs in its own TypeScript types or operational docs, but on the wire the only distinguishing fields are: an opaque `runId`, a `phase` of `post`, a `runType` label such as `ts-post-all-intervals`, and `intervals` including `DAILY`, `WEEKLY`, `MONTHLY`.
 
 ### 3.2 Backfill / Repair – Admin HTTP
 
@@ -211,9 +216,9 @@ For each pair `pairId = {BASELINE}-{TARGET}` in scope:
 
 5. **Write archives and latest mirrors**:
    - Call `writeUnifiedSeries` for each interval to:
-     - Upsert DAILY archives in `pairs-data/{PAIR}/archive-YYYY/{YYMMDD}`.
-     - Delete+rewrite WEEKLY/MONTHLY archives in-window as needed.
-     - Update `latestDaily` / `latestWeekly` / `latestMonthly` on `pairs-data/{PAIR}`.
+   - Upsert DAILY archives in `pairs-data/{PAIR}/archive-YYYY/{YYMMDD}`.
+   - For WEEKLY and MONTHLY, delete any **stale in-progress bars** within the same logical week/month and write exactly one archive doc per period (the latest/in-progress bar) under `archive-weekly-YYYY/{YYMMDD}` and `archive-monthly-YYYY/{YYMMDD}`.
+   - Update `latestDaily` / `latestWeekly` / `latestMonthly` on `pairs-data/{PAIR}`.
 
 6. **Update ingestion state** on `pair-registry/{pairId}`:
    - On success:
