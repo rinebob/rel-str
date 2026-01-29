@@ -233,13 +233,39 @@ function resolveRunContext(message: any, payload: Record<string, any>): {
   isHeartbeat: boolean;
   runId?: string;
 } {
-  const attrRunType = message?.attributes?.runType as string | undefined;
+  const attrs: any = (message?.attributes as any) || {};
+
+  const parseInlineAttrs = (raw: string | undefined): { runType?: string; runId?: string; trigger?: string; heartbeat?: string } => {
+    if (!raw || typeof raw !== 'string') return {};
+    const out: { runType?: string; runId?: string; trigger?: string; heartbeat?: string } = {};
+    const parts = raw.split(/\s+/).filter(Boolean);
+    for (const part of parts) {
+      const idx = part.indexOf('=');
+      if (idx <= 0) continue;
+      const key = part.slice(0, idx);
+      const value = part.slice(idx + 1);
+      if (!value) continue;
+      if (key === 'runType') out.runType = value;
+      else if (key === 'runId') out.runId = value;
+      else if (key === 'trigger') out.trigger = value;
+      else if (key === 'heartbeat') out.heartbeat = value;
+    }
+    return out;
+  };
+
+  const inlineFromPhase = parseInlineAttrs(attrs.phase as string | undefined);
+
+  const attrRunType = (attrs.runType as string | undefined) ?? inlineFromPhase.runType;
   const payloadRunType = (payload.runType as string | undefined) ?? (payload.run_type as string | undefined);
   const runType = attrRunType ?? payloadRunType;
-  const isHeartbeatAttr = (message?.attributes?.heartbeat as string | undefined)?.toLowerCase() === 'true';
+
+  const heartbeatRaw = (attrs.heartbeat as string | undefined) ?? inlineFromPhase.heartbeat;
+  const isHeartbeatAttr = (heartbeatRaw || '').toLowerCase() === 'true';
   const isHeartbeat = isHeartbeatAttr || runType === RunType.HEARTBEAT;
-  const attrRunId = message?.attributes?.runId as string | undefined;
+
+  const attrRunId = (attrs.runId as string | undefined) ?? inlineFromPhase.runId;
   const runId = attrRunId ?? (payload.runId as string | undefined) ?? (payload.run_id as string | undefined);
+
   return { runType, isHeartbeat, runId };
 }
 
@@ -957,32 +983,71 @@ export const processDataReadyRunV2 = onMessagePublished(
           try { await persistWarning('skipped_terminal_run', { function: RsCloudFunctionName.PROCESS_DATA_READY, docId: eventDocId, runId: effectiveRunId, status: existingStatus }); } catch {}
           return;
         }
-      } catch {}
+      } catch (e: any) {
+        logger.error('processDataReadyRunV2_eventDoc_read_failed', { docId: eventDocId, runId: effectiveRunId, message: e?.message });
+      }
 
-      await markProcessing(eventRef, {
-        eventType,
-        isHeartbeat,
-        runId: effectiveRunId,
-        messageId,
-        publishTime: (message?.publishTime as string | undefined) ?? undefined,
-        ptSegment,
-      });
+      try {
+        await markProcessing(eventRef, {
+          eventType,
+          isHeartbeat,
+          runId: effectiveRunId,
+          messageId,
+          publishTime: (message?.publishTime as string | undefined) ?? undefined,
+          ptSegment,
+        });
+        logger.info('processDataReadyRunV2_event_marked_processing', { docId: eventDocId, runId: effectiveRunId });
+      } catch (e: any) {
+        logger.error('processDataReadyRunV2_markProcessing_failed', { docId: eventDocId, runId: effectiveRunId, message: e?.message });
+      }
 
       if (!isHeartbeat) {
         // On BEGIN, mark processing and clear next update time so UI shows 'in progress' and hides next
         await upsertRefreshStatus({ runStatus: 'processing', nextRefreshAtUTC: null });
       }
 
-      // Persist phase, trigger, payload status, and any next-refresh hint for observability
+      // Persist phase, trigger, payload status, SA-provided counts, and any
+      // next-refresh hint for observability. This keeps the partner-events doc
+      // aligned with the partner's canonical data-ready contract (runType in
+      // attributes; marketDate, status, finalizedCountTotal, pendingCount in
+      // the JSON body; optional successes/failures attributes).
       try {
         const update: Record<string, unknown> = { phase };
         if (trigger) update['trigger'] = trigger;
         if (eventType) update['runType'] = eventType;
         // UI hint: SA may send { status: 'begin' | 'end' }
         if (parsedPayload && typeof parsedPayload.status === 'string') update['payloadStatus'] = String(parsedPayload.status).toLowerCase();
-        // Record provided next refresh hint on the event doc for observability.
+        // Mirror marketDate from payload or attributes when present.
         const rawPayload: any = parsedPayload as any;
         const attrs: any = (message?.attributes as any) || {};
+        const mdPayload = rawPayload?.marketDate as string | undefined;
+        const mdAttr = attrs?.marketDate as string | undefined;
+        if (mdPayload || mdAttr) {
+          update['marketDate'] = mdPayload || mdAttr;
+        }
+
+        // Persist upstream counts when provided. These are informational and
+        // do not affect RS logic.
+        const finalizedCountTotal = typeof rawPayload?.finalizedCountTotal === 'number'
+          ? rawPayload.finalizedCountTotal
+          : undefined;
+        const pendingCount = typeof rawPayload?.pendingCount === 'number'
+          ? rawPayload.pendingCount
+          : undefined;
+        const successesAttr = attrs?.successes as string | undefined;
+        const failuresAttr = attrs?.failures as string | undefined;
+        if (typeof finalizedCountTotal === 'number') update['finalizedCountTotal'] = finalizedCountTotal;
+        if (typeof pendingCount === 'number') update['pendingCount'] = pendingCount;
+        if (successesAttr !== undefined) {
+          const n = Number(successesAttr);
+          if (Number.isFinite(n)) update['upstreamSuccesses'] = n;
+        }
+        if (failuresAttr !== undefined) {
+          const n = Number(failuresAttr);
+          if (Number.isFinite(n)) update['upstreamFailures'] = n;
+        }
+
+        // Record provided next refresh hint on the event doc for observability.
         const nr = rawPayload?.nextRefreshAt
           ?? rawPayload?.nextRefreshAtUTC
           ?? rawPayload?.NextRefreshAt
@@ -995,14 +1060,38 @@ export const processDataReadyRunV2 = onMessagePublished(
         await eventRef.set(update, { merge: true });
       } catch {}
 
-      // Manual runId handling: ignore any run whose id contains 'manual'
+      // Explicit test run handling: ignore runs whose trigger is 'test' (case-insensitive).
+      // This replaces the older heuristic that skipped any runId containing
+      // 'manual', so that legitimate manual runs are fully processed while
+      // dedicated plumbing tests can still be sent without triggering RS work.
       try {
-        const isManual = !isHeartbeat && typeof effectiveRunId === 'string' && effectiveRunId.toLowerCase().includes('manual');
-        if (isManual) {
-          logger.info('processDataReadyRunV2 skipped manual run', { runId: effectiveRunId });
-          try { await persistWarning('skipped_manual_run', { function: RsCloudFunctionName.PROCESS_DATA_READY, runId: effectiveRunId, eventType }); } catch {}
+        const isTestRun = !isHeartbeat && typeof trigger === 'string' && trigger.toLowerCase() === 'test';
+        if (isTestRun) {
+          logger.info('processDataReadyRunV2 skipped test run', { runId: effectiveRunId, trigger, eventType: eventTypeRaw });
+          try {
+            await persistWarning('skipped_test_run', {
+              function: RsCloudFunctionName.PROCESS_DATA_READY,
+              runId: effectiveRunId,
+              eventType: eventTypeRaw,
+              trigger,
+            });
+          } catch {}
           if (eventRef) {
-            await eventRef.set({ status: 'skipped_manual_run', runId: effectiveRunId, phase, trigger, eventType, endTime: FieldValue.serverTimestamp() }, { merge: true });
+            try {
+              await eventRef.set({
+                status: 'skipped_test_run',
+                runId: effectiveRunId,
+                phase,
+                trigger,
+                eventType,
+                endTime: FieldValue.serverTimestamp(),
+              }, { merge: true });
+              logger.info('processDataReadyRunV2_event_marked_skipped_test_run', { docId: eventDocId, runId: effectiveRunId, trigger });
+            } catch (e: any) {
+              logger.error('processDataReadyRunV2_event_set_skipped_test_run_failed', { docId: eventDocId, runId: effectiveRunId, message: e?.message });
+            }
+          } else {
+            logger.error('processDataReadyRunV2_eventRef_missing_for_test_run', { runId: effectiveRunId, trigger });
           }
           // Ensure header reflects a completed state and does not stay stuck in 'processing'
           await upsertRefreshStatus({ runStatus: 'completed', endTimeUTC: FieldValue.serverTimestamp(), nextRefreshAtUTC: null });
@@ -1117,18 +1206,70 @@ export const processDataReadyRunV2 = onMessagePublished(
 
       // Track summary
       const counters = { successPairs: 0, failedPairs: 0, errorSamples: [] as ProcessErrorSample[] };
+
+      // Persist high-level run metadata on the partner-events doc so that
+      // realtime runs mirror the backfill run summary shape (pairCount,
+      // intervals, expectedJobs, etc.). We always process DAILY/WEEKLY/MONTHLY
+      // via processPairLive in this path, so intervals is fixed here.
+      const runIntervals: string[] = ['DAILY', 'WEEKLY', 'MONTHLY'];
+      if (eventRef && effectiveRunId) {
+        try {
+          await eventRef.set({
+            runId: effectiveRunId,
+            phase,
+            pairCount: pairs.length,
+            intervals: runIntervals,
+            expectedJobs: pairs.length * runIntervals.length,
+            updatedAt: FieldValue.serverTimestamp(),
+          } as Record<string, unknown>, { merge: true });
+        } catch {}
+      }
       logger.info('processDataReadyRunV2 starting pair processing', { count: effectivePairs.length, totalRegistered: pairs.length, phase, eventType, runId: effectiveRunId, debugPairId: debugPairIdRaw || null });
       const PAIR_CONCURRENCY = Number(process.env.PARTNER_PAIR_CONCURRENCY) || 3;
       const baselineBarsCache = new Map<string, any[]>();
       await forEachWithConcurrency(effectivePairs, PAIR_CONCURRENCY, async ({ baseline, target }) => {
+        const beforeSuccess = counters.successPairs;
+        const beforeFailed = counters.failedPairs;
+
         await processPairLive(baseline, target, phase, days, counters, { baselineBars: baselineBarsCache }, { runId: effectiveRunId, eventType, trigger });
+
+        // Best-effort live progress update on the partner-events doc so that
+        // successJobs/permanentFailureJobs reflect incremental processing.
+        if (eventRef) {
+          try {
+            const deltaSuccess = counters.successPairs - beforeSuccess;
+            const deltaFailed = counters.failedPairs - beforeFailed;
+            const patch: Record<string, any> = { updatedAt: FieldValue.serverTimestamp() };
+            if (deltaSuccess > 0) patch.successJobs = FieldValue.increment(deltaSuccess);
+            if (deltaFailed > 0) patch.permanentFailureJobs = FieldValue.increment(deltaFailed);
+            if (deltaSuccess > 0 || deltaFailed > 0) {
+              await eventRef.update(patch);
+            }
+          } catch (e: any) {
+            logger.warn('processDataReadyRunV2_event_progress_update_failed', { runId: effectiveRunId, message: e?.message });
+          }
+        }
       });
 
       if (eventRef) {
         const finalStatus = counters.failedPairs > 0 ? 'completed_with_errors' : 'completed';
+
+        // Backfill-style aggregate status for dashboards
+        const backfillStyleStatus = counters.failedPairs === 0
+          ? 'COMPLETE'
+          : (counters.successPairs > 0 ? 'PARTIAL' : 'FAILED');
+
         await eventRef.set({
           status: finalStatus,
-          endTime: FieldValue.serverTimestamp(),
+          runStatus: backfillStyleStatus,
+          runCompletedAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+          runId: effectiveRunId,
+          pairCount: pairs.length,
+          intervals: runIntervals,
+          expectedJobs: pairs.length * runIntervals.length,
+          successJobs: counters.successPairs,
+          permanentFailureJobs: counters.failedPairs,
           pairsProcessed: counters.successPairs,
           pairsFailed: counters.failedPairs,
           intervalUsed: FIXED_INTERVAL,

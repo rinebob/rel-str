@@ -17,7 +17,7 @@ Introduce a queue-based job pipeline for Relative Strength (RS) archives that mi
 
 - Replace the current "do all pair work in one HTTP loop" behavior of `recomputeRegisteredBackfill` with a **Cloud Tasks + Firestore run/job model** over the RS pair registry.
 - Support both **full-history backfill** and **realtime compact refresh** using the same core worker and job schema, differentiated by `jobType` and `mode` (similar to SA's `REALTIME` vs `BACKFILL`, `COMPACT` vs `FULL_BACKFILL`).
-- Keep RS's external contract unchanged (continue to consume Savant `partner-data-ready` and `partnerTimeSeries` HTTPS), but make RS's own RS-archive backfill and repair pipeline more robust, observable, and scalable.
+- Keep RS's external contract unchanged (continue to consume Savant `partner-data-ready` and `partnerTimeSeries` HTTPS), but make RS's own RS-archive backfill and repair pipeline more robust, observable, and scalable. Realtime runs now rely on a universe-ready `partner-data-ready` v1 message with an opaque `runId`, `phase=post`, and `intervals` including `DAILY`, `WEEKLY`, `MONTHLY`. The `writeUnifiedSeries` function enforces one bar per week/month by deleting stale in-progress bars. Additionally, the partner-events run summary shape mirrors the `rs-backfill-runs` structure.
 - Reuse existing helpers (`fetchDailyBarsRange`, `buildPhaseSeries`, RS engine, `writeUnifiedSeries`) inside a new pair-level job worker instead of duplicating logic per endpoint.
 
 This effort is specifically for **archive-focused RS backfill and refresh**; signals/activity/positions behavior is documented separately.
@@ -49,7 +49,7 @@ This effort is specifically for **archive-focused RS backfill and refresh**; sig
   - Implement `runRsPairIntervalJob` as the shared pair/interval RS fetch + compute + write helper used by `processRsJobInternal` for backfill (and future realtime) jobs, which:
     - Calls `fetchDailyBarsRange` (and interval-specific variants) for baseline and target with the correct `[from, to]` window and padding.
     - Builds RS series using `buildPhaseSeries` + RS engine where appropriate.
-    - Writes archives via `writeUnifiedSeries`, including weekly/monthly purge behavior, and updates latest mirrors on the pair root doc.
+    - Writes archives via `writeUnifiedSeries`, including weekly/monthly purge behavior so that only the latest bar per week/month remains (stale in-progress bars for the same period are deleted), and updates latest mirrors on the pair root doc.
     - Returns control to the worker, which then updates job status and backfill run aggregates.
 
 - [x] RS-BE-FEAT-FRBARR-2601-02-T05 – Introduce RS-native backfill admin entrypoint and deprecate `recomputeRegisteredBackfill`

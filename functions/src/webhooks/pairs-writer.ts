@@ -301,9 +301,47 @@ export async function writeUnifiedSeries(
   const batch = db.batch();
   const previewItems: Array<{ archiveCol: string; docId: string; dayDoc: any }> = [];
 
-  // SA monthly/weekly bars are already end-of-interval (one bar per month/week),
-  // so we can write all entries directly to the appropriate archive collection.
-  const archiveEntries: PhaseSeriesPoint[] = entries;
+  const weekKeyOf = (day: string): string | undefined => {
+    if (!day) return undefined;
+    const d = new Date(day + 'T00:00:00.000Z');
+    if (Number.isNaN(d.getTime())) return undefined;
+    const tmp = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+    const dayNr = (tmp.getUTCDay() + 6) % 7;
+    tmp.setUTCDate(tmp.getUTCDate() - dayNr + 3);
+    const firstThursday = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 4));
+    const diff = (tmp.getTime() - firstThursday.getTime()) / 86400000;
+    const week = 1 + Math.round((diff - 3) / 7);
+    const year = tmp.getUTCFullYear();
+    return `${year}-W${String(week).padStart(2, '0')}`;
+  };
+
+  let archiveEntries: PhaseSeriesPoint[] = entries;
+  if (interval === Interval.WEEKLY && entries.length > 0) {
+    const byWeek = new Map<string, PhaseSeriesPoint>();
+    for (const e of entries) {
+      const day = String(e.day || '');
+      if (!day) continue;
+      const wk = weekKeyOf(day);
+      if (!wk) continue;
+      const existingForWeek = byWeek.get(wk);
+      if (!existingForWeek || day > existingForWeek.day) {
+        byWeek.set(wk, e);
+      }
+    }
+    archiveEntries = Array.from(byWeek.values()).sort((a, b) => String(a.day).localeCompare(String(b.day)));
+  } else if (interval === Interval.MONTHLY && entries.length > 0) {
+    const byMonth = new Map<string, PhaseSeriesPoint>();
+    for (const e of entries) {
+      const day = String(e.day || '');
+      if (!day) continue;
+      const monthKey = day.slice(0, 7); // YYYY-MM
+      const existingForMonth = byMonth.get(monthKey);
+      if (!existingForMonth || day > existingForMonth.day) {
+        byMonth.set(monthKey, e);
+      }
+    }
+    archiveEntries = Array.from(byMonth.values()).sort((a, b) => String(a.day).localeCompare(String(b.day)));
+  }
 
   try {
     logger.info(
@@ -321,7 +359,9 @@ export async function writeUnifiedSeries(
 
   // For WEEKLY/MONTHLY runs, emit an explicit log of all days being written so
   // diagnostics and manual checks can confirm whether specific closes are
-  // present in the write set.
+  // present in the write set, and proactively delete any stale in-progress
+  // bars within the same logical period so that exactly one bar per week/month
+  // remains.
   try {
     if (interval === Interval.WEEKLY) {
       logger.info('archive_weekly_upsert_days', {
@@ -340,10 +380,76 @@ export async function writeUnifiedSeries(
     }
   } catch {}
 
+  // ===== Stale in-progress cleanup for WEEKLY/MONTHLY =====
+  const deleteTargets = new Set<string>();
+
+  if (interval === Interval.WEEKLY) {
+    for (const e of archiveEntries) {
+      const day = String(e.day || '');
+      if (!day) continue;
+      const y = day.slice(0, 4);
+      const archiveCol = `${WEEKLY_ARCHIVE_COLLECTION_PREFIX}${y}`;
+
+      // Compute calendar week (Mon-Sun) containing this day and delete all
+      // other docs in that week, leaving only the latest bar (this day).
+      const baseDate = new Date(day + 'T00:00:00.000Z');
+      if (Number.isNaN(baseDate.getTime())) continue;
+      const dayOfWeek = baseDate.getUTCDay(); // 0=Sun..6=Sat
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // move to Monday
+      const monday = new Date(Date.UTC(baseDate.getUTCFullYear(), baseDate.getUTCMonth(), baseDate.getUTCDate() + mondayOffset));
+
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(Date.UTC(monday.getUTCFullYear(), monday.getUTCMonth(), monday.getUTCDate() + i));
+        const dStr = d.toISOString().slice(0, 10);
+        if (dStr === day) continue; // keep the latest bar for this week
+        const dy = dStr.slice(0, 4);
+        if (dy !== y) continue; // stay within same year shard
+        const dyy = dy.slice(2);
+        const yymmdd = `${dyy}${dStr.slice(5,7)}${dStr.slice(8,10)}`;
+        deleteTargets.add(`${archiveCol}/${yymmdd}`);
+      }
+    }
+  } else if (interval === Interval.MONTHLY) {
+    for (const e of archiveEntries) {
+      const day = String(e.day || '');
+      if (!day) continue;
+      const y = day.slice(0, 4);
+      const archiveCol = `${MONTHLY_ARCHIVE_COLLECTION_PREFIX}${y}`;
+
+      const baseDate = new Date(day + 'T00:00:00.000Z');
+      if (Number.isNaN(baseDate.getTime())) continue;
+      const year = baseDate.getUTCFullYear();
+      const month = baseDate.getUTCMonth();
+      const firstOfMonth = new Date(Date.UTC(year, month, 1));
+      const nextMonth = new Date(Date.UTC(year, month + 1, 1));
+      const daysInMonth = Math.round((nextMonth.getTime() - firstOfMonth.getTime()) / 86400000);
+
+      for (let i = 0; i < daysInMonth; i++) {
+        const d = new Date(Date.UTC(year, month, 1 + i));
+        const dStr = d.toISOString().slice(0, 10);
+        if (dStr === day) continue; // keep the latest bar for this month
+        const dy = dStr.slice(0, 4);
+        if (dy !== y) continue; // stay within same year shard
+        const dyy = dy.slice(2);
+        const yymmdd = `${dyy}${dStr.slice(5,7)}${dStr.slice(8,10)}`;
+        deleteTargets.add(`${archiveCol}/${yymmdd}`);
+      }
+    }
+  }
+
+  // Enqueue deletes for any stale in-progress docs identified above, ensuring
+  // exactly one bar per week/month remains.
+  if (deleteTargets.size > 0) {
+    for (const path of deleteTargets) {
+      const [archiveCol, docId] = path.split('/');
+      const ref = pairRef.collection(archiveCol).doc(docId);
+      batch.delete(ref);
+    }
+  }
+
   for (const e of archiveEntries) {
     const y = String(e.day).slice(0, 4);
-    const yy = y.slice(2);
-    const yymmdd = `${yy}${e.day.slice(5,7)}${e.day.slice(8,10)}`; // YYMMDD
+    const yymmdd = `${y.slice(2)}${e.day.slice(5,7)}${e.day.slice(8,10)}`; // YYMMDD
 
     let archiveCol: string;
     if (interval === Interval.DAILY) {
