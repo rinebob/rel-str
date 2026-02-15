@@ -23,7 +23,9 @@ import { logger } from 'firebase-functions';
 import { admin, db, FieldValue } from '../firebase-admin-init';
 import { fetchDailyBarsRange, fetchAndCacheSymbolSeries } from './symbol-fetch';
 import { buildPhaseSeries } from './rs-series';
+import { createOrUpdateRealtimeJobForRun } from '../rs/time-series/rs-time-series-jobs.helper';
 import { writeUnifiedSeries } from './pairs-writer';
+import { RS_REALTIME_PAIR_FILTERS } from '../config/rs-realtime-pair-filters';
 import { listRegisteredPairs } from './registry';
 import { applyRsEventsForPair } from './rs-events-consumer';
 import { toKebabRunType, formatPtSegment, computeEventDocId, markProcessing } from './partner-events';
@@ -49,6 +51,7 @@ import {
   PAIRS_COLLECTION,
   SYMBOL_DATA_COLLECTION,
 } from './webhooks-config';
+import { RsRealtimeRunStatus, rsRealtimeRunDocPath } from '../rs/time-series/rs-time-series-jobs.model';
 import { updateOpenPositionsForPair, appendOpenPositionsTimelineForPair } from './positions-manager';
 import { Interval, RsSource } from '../types/signal.types';
 import { upsertSignalsActivityForPair, upsertSignalsActivityRoot } from './signals-activity-writer';
@@ -65,6 +68,8 @@ interface CurrentPricePayload {
   date: string; // 'YYYY-MM-DD'
   time: string; // 'HH:mm'
 }
+
+const REALTIME_TASKS_ENABLED = process.env.RS_REALTIME_TASKS_ENABLED === 'true';
 
 export async function upsertSymbolCurrentPrice(symbol: string, payload: CurrentPricePayload): Promise<void> {
   const symbolId = symbol.trim().toUpperCase();
@@ -1047,6 +1052,15 @@ export const processDataReadyRunV2 = onMessagePublished(
           if (Number.isFinite(n)) update['upstreamFailures'] = n;
         }
 
+        // Mirror SA's retrySymbols (union of stale + permanentFailure symbols
+        // for this run/interval) onto the partner-events doc for debugging.
+        const retrySymbolsRaw = rawPayload?.retrySymbols as unknown;
+        if (Array.isArray(retrySymbolsRaw)) {
+          const retrySymbols = (retrySymbolsRaw as unknown[]).map((s) => String(s));
+          update['retrySymbols'] = retrySymbols;
+          update['retrySymbolsCount'] = retrySymbols.length;
+        }
+
         // Record provided next refresh hint on the event doc for observability.
         const nr = rawPayload?.nextRefreshAt
           ?? rawPayload?.nextRefreshAtUTC
@@ -1076,7 +1090,7 @@ export const processDataReadyRunV2 = onMessagePublished(
               trigger,
             });
           } catch {}
-          if (eventRef) {
+          if (eventRef && !REALTIME_TASKS_ENABLED) {
             try {
               await eventRef.set({
                 status: 'skipped_test_run',
@@ -1110,7 +1124,7 @@ export const processDataReadyRunV2 = onMessagePublished(
             if (cpSnap.exists && (cpSnap.data() as any)?.completed === true) {
               logger.info('processDataReadyRunV2 skipped due to checkpoint', { marketDate: payloadMarketDate, runId: effectiveRunId });
               try { await persistWarning('skipped_due_to_checkpoint', { function: RsCloudFunctionName.PROCESS_DATA_READY, runId: effectiveRunId, marketDate: payloadMarketDate, eventType }); } catch {}
-              if (eventRef) {
+              if (eventRef && !REALTIME_TASKS_ENABLED) {
                 await eventRef.set({ status: 'skipped_due_to_checkpoint', marketDate: payloadMarketDate, runId: effectiveRunId, phase, trigger, eventType, endTime: FieldValue.serverTimestamp() }, { merge: true });
               }
               // Maintain header consistency: mark as completed and clear nextRefreshAtUTC (avoid stale value)
@@ -1167,7 +1181,7 @@ export const processDataReadyRunV2 = onMessagePublished(
       }
 
       // Load registered pairs
-      const pairs = await listRegisteredPairs();
+      let pairs = await listRegisteredPairs();
       if (pairs.length === 0) {
         logger.info('processDataReadyRunV2 no registered pairs');
         if (eventRef) {
@@ -1193,25 +1207,167 @@ export const processDataReadyRunV2 = onMessagePublished(
         return;
       }
 
-      // Optional debug filter: when DEBUG_PAIR_ID is set, restrict processing to that pair only.
-      const debugPairIdRaw = String(process.env.DEBUG_PAIR_ID || '').trim().toUpperCase();
-      const effectivePairs = debugPairIdRaw
-        ? (() => {
-            const filtered = pairs.filter((p) => `${p.baseline}-${p.target}`.toUpperCase() === debugPairIdRaw);
-            return filtered.length > 0 ? filtered : pairs;
-          })()
-        : pairs;
+      // Optional RS-side pair filter: when RS_REALTIME_PAIR_FILTER_ENABLED/NAME are set,
+      // restrict the registered universe to a predefined subset (for debugging / staged rollout).
+      try {
+        if (process.env.RS_REALTIME_PAIR_FILTER_ENABLED === 'true') {
+          const filterName = String(process.env.RS_REALTIME_PAIR_FILTER_NAME || '').trim();
+          const list = filterName ? RS_REALTIME_PAIR_FILTERS[filterName] : undefined;
+          if (Array.isArray(list) && list.length > 0) {
+            const allow = new Set(list.map((p) => p.toUpperCase()));
+            const before = pairs.length;
+            pairs = pairs.filter((p) => allow.has(`${p.baseline}-${p.target}`.toUpperCase()));
+            logger.info('processDataReadyRunV2_pair_filter_applied', {
+              filterName,
+              before,
+              after: pairs.length,
+            });
+          } else if (filterName) {
+            logger.warn('processDataReadyRunV2_pair_filter_name_not_found', { filterName });
+          }
+        }
+      } catch (e: any) {
+        logger.warn('processDataReadyRunV2_pair_filter_failed', { message: e?.message });
+      }
 
-      const days = FIXED_DAYS;
+      // After applying the optional RS_REALTIME_PAIR_FILTER_* above, the
+      // remaining `pairs` array is the effective universe for this run.
+      const effectivePairs = pairs;
+
+      // SA PDRs now use explicit symbol filters depending on runType:
+      // - ts-post-all-intervals-initial: excludeSymbols (full-universe minus these)
+      // - ts-post-all-intervals-retry:  includeSymbols (only these)
+      let effectivePairsForProcessing = effectivePairs;
+      try {
+        const rawPayloadAny: any = parsedPayload as any;
+        const excludeSymbolsRaw = rawPayloadAny?.excludeSymbols as unknown;
+        const includeSymbolsRaw = rawPayloadAny?.includeSymbols as unknown;
+
+        const normalizeList = (v: unknown): string[] =>
+          Array.isArray(v)
+            ? (v as unknown[]).map((s) => String(s).toUpperCase()).filter(Boolean)
+            : [];
+
+        const excludeSet = new Set(normalizeList(excludeSymbolsRaw));
+        const includeSet = new Set(normalizeList(includeSymbolsRaw));
+
+        const isInitialRun = runType === 'ts-post-all-intervals-initial';
+        const isRetryRun = runType === 'ts-post-all-intervals-retry';
+
+        if (isInitialRun) {
+          // Initial full-universe run: start from effectivePairs and subtract excludeSymbols when provided.
+          if (excludeSet.size > 0) {
+            const before = effectivePairs.length;
+            effectivePairsForProcessing = effectivePairs.filter(({ baseline, target }) => {
+              const b = String(baseline).toUpperCase();
+              const t = String(target).toUpperCase();
+              return !excludeSet.has(b) && !excludeSet.has(t);
+            });
+            logger.info('processDataReadyRunV2_initial_exclude_symbols_applied', {
+              runId: effectiveRunId,
+              before,
+              after: effectivePairsForProcessing.length,
+              excludeSymbolsCount: excludeSet.size,
+            });
+          }
+        } else if (isRetryRun) {
+          // Retry runs: only process pairs whose baseline or target is in includeSymbols.
+          if (includeSet.size > 0) {
+            const before = effectivePairs.length;
+            effectivePairsForProcessing = effectivePairs.filter(({ baseline, target }) => {
+              const b = String(baseline).toUpperCase();
+              const t = String(target).toUpperCase();
+              return includeSet.has(b) || includeSet.has(t);
+            });
+            logger.info('processDataReadyRunV2_retry_include_symbols_applied', {
+              runId: effectiveRunId,
+              before,
+              after: effectivePairsForProcessing.length,
+              includeSymbolsCount: includeSet.size,
+            });
+          } else {
+            // Contract: retry run with no includeSymbols means no newly good symbols to fetch.
+            effectivePairsForProcessing = [];
+            logger.info('processDataReadyRunV2_retry_no_include_symbols', {
+              runId: effectiveRunId,
+            });
+          }
+        } else {
+          // Unknown/legacy runType: ignore include/exclude for selection and
+          // process the full effectivePairs universe.
+          if (excludeSet.size > 0 || includeSet.size > 0) {
+            logger.warn('processDataReadyRunV2_symbol_filters_ignored_for_unknown_runType', {
+              runId: effectiveRunId,
+              runType,
+              excludeSymbolsCount: excludeSet.size,
+              includeSymbolsCount: includeSet.size,
+            });
+          }
+        }
+      } catch (e: any) {
+        logger.warn('processDataReadyRunV2_symbol_filter_failed', {
+          runId: effectiveRunId,
+          message: e?.message,
+        });
+      }
 
       // Track summary
       const counters = { successPairs: 0, failedPairs: 0, errorSamples: [] as ProcessErrorSample[] };
 
       // Persist high-level run metadata on the partner-events doc so that
       // realtime runs mirror the backfill run summary shape (pairCount,
-      // intervals, expectedJobs, etc.). We always process DAILY/WEEKLY/MONTHLY
-      // via processPairLive in this path, so intervals is fixed here.
-      const runIntervals: string[] = ['DAILY', 'WEEKLY', 'MONTHLY'];
+      // intervals, expectedJobs, etc.). With SA's per-interval PDRs, each
+      // runId now corresponds to one or more specific intervals. When the
+      // payload specifies `intervals` (array) or `interval` (scalar), prefer
+      // those; otherwise fall back to the legacy all-intervals view for
+      // compatibility.
+      const rawPayloadAnyForInterval: any = parsedPayload as any;
+      const attrsForInterval: any = (message?.attributes as any) || {};
+
+      // New contract: prefer explicit intervals array when present.
+      const intervalsArrayRaw = rawPayloadAnyForInterval?.intervals as string[] | undefined;
+      const mappedFromArray: Interval[] = [];
+      if (Array.isArray(intervalsArrayRaw)) {
+        for (const raw of intervalsArrayRaw) {
+          if (!raw || typeof raw !== 'string') continue;
+          const v = raw.toUpperCase();
+          if (v.includes('DAILY') && !mappedFromArray.includes(Interval.DAILY)) {
+            mappedFromArray.push(Interval.DAILY);
+          } else if (v.includes('WEEKLY') && !mappedFromArray.includes(Interval.WEEKLY)) {
+            mappedFromArray.push(Interval.WEEKLY);
+          } else if (v.includes('MONTHLY') && !mappedFromArray.includes(Interval.MONTHLY)) {
+            mappedFromArray.push(Interval.MONTHLY);
+          }
+        }
+      }
+
+      // Legacy scalar interval (payload or attributes) as a fallback.
+      const intervalRawPayload = rawPayloadAnyForInterval?.interval as string | undefined;
+      const intervalRawAttr = attrsForInterval?.interval as string | undefined;
+      let intervalForRun: Interval | undefined;
+      const intervalRaw = intervalRawPayload || intervalRawAttr;
+      if (intervalRaw && typeof intervalRaw === 'string') {
+        const v = intervalRaw.toUpperCase();
+        if (v.includes('DAILY')) intervalForRun = Interval.DAILY;
+        else if (v.includes('WEEKLY')) intervalForRun = Interval.WEEKLY;
+        else if (v.includes('MONTHLY')) intervalForRun = Interval.MONTHLY;
+      }
+
+      let runIntervals: Interval[];
+      if (mappedFromArray.length > 0) {
+        runIntervals = mappedFromArray;
+      } else if (intervalForRun) {
+        runIntervals = [intervalForRun];
+      } else {
+        logger.error('processDataReadyRunV2_missing_interval_contract', {
+          runId: effectiveRunId || null,
+          phase,
+          hasIntervalsArray: Array.isArray(intervalsArrayRaw),
+          rawIntervals: intervalsArrayRaw || null,
+          rawIntervalScalar: intervalRaw || null,
+        });
+        throw new Error('processDataReadyRunV2: missing intervals/interval; all-intervals fallback is no longer supported');
+      }
       if (eventRef && effectiveRunId) {
         try {
           await eventRef.set({
@@ -1224,34 +1380,108 @@ export const processDataReadyRunV2 = onMessagePublished(
           } as Record<string, unknown>, { merge: true });
         } catch {}
       }
-      logger.info('processDataReadyRunV2 starting pair processing', { count: effectivePairs.length, totalRegistered: pairs.length, phase, eventType, runId: effectiveRunId, debugPairId: debugPairIdRaw || null });
-      const PAIR_CONCURRENCY = Number(process.env.PARTNER_PAIR_CONCURRENCY) || 3;
-      const baselineBarsCache = new Map<string, any[]>();
-      await forEachWithConcurrency(effectivePairs, PAIR_CONCURRENCY, async ({ baseline, target }) => {
-        const beforeSuccess = counters.successPairs;
-        const beforeFailed = counters.failedPairs;
 
-        await processPairLive(baseline, target, phase, days, counters, { baselineBars: baselineBarsCache }, { runId: effectiveRunId, eventType, trigger });
-
-        // Best-effort live progress update on the partner-events doc so that
-        // successJobs/permanentFailureJobs reflect incremental processing.
-        if (eventRef) {
-          try {
-            const deltaSuccess = counters.successPairs - beforeSuccess;
-            const deltaFailed = counters.failedPairs - beforeFailed;
-            const patch: Record<string, any> = { updatedAt: FieldValue.serverTimestamp() };
-            if (deltaSuccess > 0) patch.successJobs = FieldValue.increment(deltaSuccess);
-            if (deltaFailed > 0) patch.permanentFailureJobs = FieldValue.increment(deltaFailed);
-            if (deltaSuccess > 0 || deltaFailed > 0) {
-              await eventRef.update(patch);
-            }
-          } catch (e: any) {
-            logger.warn('processDataReadyRunV2_event_progress_update_failed', { runId: effectiveRunId, message: e?.message });
-          }
-        }
+      logger.info('processDataReadyRunV2 starting pair processing', {
+        count: effectivePairsForProcessing.length,
+        totalRegistered: pairs.length,
+        phase,
+        eventType,
+        runId: effectiveRunId,
+        realtimeTasksEnabled: REALTIME_TASKS_ENABLED,
       });
 
-      if (eventRef) {
+      if (REALTIME_TASKS_ENABLED) {
+        if (!effectiveRunId) {
+          logger.error('processDataReadyRunV2_missing_effective_run_id_with_realtime_tasks_enabled', {
+            phase,
+            eventType,
+          });
+          throw new Error('processDataReadyRunV2: effectiveRunId is required when RS_REALTIME_TASKS_ENABLED=true');
+        }
+        // Create/merge realtime run doc(s) under system/rs-realtime-runs. With
+        // SA's per-interval PDRs, when we can resolve a specific interval we
+        // limit work to that interval; otherwise we fall back to the legacy
+        // all-intervals behavior.
+        const payloadMarketDate = (parsedPayload as any)?.marketDate as string | undefined;
+
+        for (const iv of runIntervals) {
+          const intervalRunId = (effectiveRunId || '').toUpperCase();
+          try {
+            const runRef = db.doc(rsRealtimeRunDocPath(intervalRunId));
+            await runRef.set({
+              runId: intervalRunId,
+              marketDate: payloadMarketDate || null,
+              interval: iv,
+              phase,
+              pairCount: effectivePairsForProcessing.length,
+              expectedJobs: effectivePairsForProcessing.length,
+              successJobs: 0,
+              permanentFailureJobs: 0,
+              runStatus: RsRealtimeRunStatus.IN_PROGRESS,
+              trigger: trigger ?? null,
+              runType: eventType ?? null,
+              runDocCreatedAt: FieldValue.serverTimestamp(),
+              runDocUpdatedAt: FieldValue.serverTimestamp(),
+            } as any, { merge: true });
+          } catch (e: any) {
+            logger.warn('processDataReadyRunV2_realtime_run_doc_set_failed', { runId: effectiveRunId, interval: iv, message: e?.message });
+          }
+        }
+
+        // Enqueue per-pair, per-interval jobs under system/rs-realtime-runs/{intervalRunId}/jobs.
+        for (const { baseline, target } of effectivePairsForProcessing) {
+          const pairId = `${baseline}-${target}`;
+          for (const iv of runIntervals) {
+            const intervalRunId = (effectiveRunId || '').toUpperCase();
+            try {
+              await createOrUpdateRealtimeJobForRun(intervalRunId, {
+                pairId,
+                baseline,
+                target,
+                interval: iv,
+                phase,
+              });
+            } catch (e: any) {
+              logger.error('processDataReadyRunV2_realtime_job_create_failed', { runId: intervalRunId, pairId, interval: iv, message: e?.message });
+              counters.failedPairs++;
+            }
+          }
+        }
+      } else {
+        const days = FIXED_DAYS;
+        const PAIR_CONCURRENCY = Number(process.env.PARTNER_PAIR_CONCURRENCY) || 3;
+        const baselineBarsCache = new Map<string, any[]>();
+        await forEachWithConcurrency(effectivePairsForProcessing, PAIR_CONCURRENCY, async ({ baseline, target }) => {
+          const beforeSuccess = counters.successPairs;
+          const beforeFailed = counters.failedPairs;
+
+          await processPairLive(baseline, target, phase, days, counters, { baselineBars: baselineBarsCache }, { runId: effectiveRunId, eventType, trigger });
+
+          // Best-effort live progress update on the partner-events doc so that
+          // successJobs/permanentFailureJobs reflect incremental processing.
+          if (eventRef) {
+            try {
+              const deltaSuccess = counters.successPairs - beforeSuccess;
+              const deltaFailed = counters.failedPairs - beforeFailed;
+              const patch: Record<string, any> = { updatedAt: FieldValue.serverTimestamp() };
+              if (deltaSuccess > 0) patch.successJobs = FieldValue.increment(deltaSuccess);
+              if (deltaFailed > 0) patch.permanentFailureJobs = FieldValue.increment(deltaFailed);
+              if (deltaSuccess > 0 || deltaFailed > 0) {
+                await eventRef.update(patch);
+              }
+            } catch (e: any) {
+              logger.warn('processDataReadyRunV2_event_progress_update_failed', { runId: effectiveRunId, message: e?.message });
+            }
+          }
+        });
+      }
+
+      // For the legacy inline path (no Cloud Tasks), compute and persist the
+      // final aggregate status directly on the partner-events doc. When
+      // REALTIME_TASKS_ENABLED is true, we defer terminal status/counts to the
+      // Cloud Tasks worker, which mirrors aggregates from the realtime run
+      // document back into EVENTS_COLLECTION on run completion.
+      if (eventRef && !REALTIME_TASKS_ENABLED) {
         const finalStatus = counters.failedPairs > 0 ? 'completed_with_errors' : 'completed';
 
         // Backfill-style aggregate status for dashboards
