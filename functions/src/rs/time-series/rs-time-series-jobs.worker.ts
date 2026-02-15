@@ -3,16 +3,22 @@ import { logger } from 'firebase-functions/v2';
 
 import type { UpdateData } from 'firebase-admin/firestore';
 import { db, FieldValue } from '../../firebase-admin-init';
+
 import { Interval } from '../../types/signal.types';
 import { RsPhase } from '../../types/partner';
 import { writeUnifiedSeries } from '../../webhooks/pairs-writer';
 import { buildPhaseSeries } from '../../webhooks/rs-series';
-import { fetchDailyBarsRange } from '../../webhooks/symbol-fetch';
+import { fetchDailyBarsRange, type PartnerBar, type FetchRangeOptions, type RsSymbolCacheDoc } from '../../webhooks/symbol-fetch';
+
 import {
   PAIRS_COLLECTION,
   WEEKLY_ARCHIVE_COLLECTION_PREFIX,
   MONTHLY_ARCHIVE_COLLECTION_PREFIX,
+  EVENTS_COLLECTION,
+  RS_SYMBOL_CACHE_COLLECTION,
+  RS_SYMBOL_CACHE_SYMBOLS_SUBCOL,
 } from '../../webhooks/webhooks-config';
+
 import {
   RsBackfillRunStatus,
   type RsBackfillRunDoc,
@@ -20,9 +26,144 @@ import {
   RsJobType,
   rsBackfillJobDocPath,
   rsBackfillRunDocPath,
-  rsRealtimeJobDocPath,
+  RsRealtimeRunStatus,
+  type RsRealtimeRunDoc,
+  rsRealtimeRunDocPath,
+  rsRealtimeRunJobDocPath,
 } from './rs-time-series-jobs.model';
 import type { ProcessRsJobPayload } from './rs-time-series-jobs.helper';
+
+type BarsCache = Map<string, PartnerBar[]>;
+
+function buildBarsCacheKey(symbol: string, opts: FetchRangeOptions): string {
+  const interval = opts.interval ?? Interval.DAILY;
+  const fromIso = String(opts.from).slice(0, 10);
+  const toIso = String(opts.to).slice(0, 10);
+  return `${symbol}|${interval}|${fromIso}|${toIso}`;
+}
+
+async function getOrFetchBars(
+  marketDate: string | undefined,
+  symbol: string,
+  opts: FetchRangeOptions,
+  cache: BarsCache,
+): Promise<PartnerBar[]> {
+  const key = buildBarsCacheKey(symbol, opts);
+  const cached = cache.get(key);
+  if (cached) {
+    logger.info('rsBarsCache_hit', {
+      symbol,
+      interval: opts.interval ?? Interval.DAILY,
+      from: String(opts.from).slice(0, 10),
+      to: String(opts.to).slice(0, 10),
+    });
+    return cached;
+  }
+
+  const interval: Interval = (opts.interval as Interval) ?? Interval.DAILY;
+  const fromIso = String(opts.from).slice(0, 10);
+  const toIso = String(opts.to).slice(0, 10);
+
+  // Cross-job cache: reuse symbol bars for the same marketDate+interval when available.
+  if (marketDate) {
+    try {
+      const cacheDocRef = db
+        .collection(RS_SYMBOL_CACHE_COLLECTION)
+        .doc(marketDate)
+        .collection(RS_SYMBOL_CACHE_SYMBOLS_SUBCOL)
+        .doc(symbol);
+
+      const snap = await cacheDocRef.get();
+      if (snap.exists) {
+        const doc = snap.data() as Partial<RsSymbolCacheDoc> | undefined;
+        let cachedBarsForInterval: PartnerBar[] | null | undefined;
+        if (interval === Interval.DAILY) {
+          cachedBarsForInterval = doc?.dailyBars ?? null;
+        } else if (interval === Interval.WEEKLY) {
+          cachedBarsForInterval = doc?.weeklyBars ?? null;
+        } else if (interval === Interval.MONTHLY) {
+          cachedBarsForInterval = doc?.monthlyBars ?? null;
+        }
+
+        if (Array.isArray(cachedBarsForInterval) && cachedBarsForInterval.length > 0) {
+          logger.info('rsBarsCache_firestore_hit', {
+            symbol,
+            marketDate,
+            interval,
+            from: fromIso,
+            to: toIso,
+            cachedCount: cachedBarsForInterval.length,
+          });
+          cache.set(key, cachedBarsForInterval as PartnerBar[]);
+          return cachedBarsForInterval as PartnerBar[];
+        }
+      }
+    } catch (e: any) {
+      logger.warn('rsBarsCache_firestore_lookup_failed', {
+        symbol,
+        marketDate,
+        interval,
+        from: fromIso,
+        to: toIso,
+        message: e?.message,
+      });
+    }
+  }
+
+  logger.info('rsBarsCache_miss', {
+    symbol,
+    marketDate: marketDate || null,
+    interval,
+    from: fromIso,
+    to: toIso,
+  });
+
+  const bars = await fetchDailyBarsRange(symbol, opts);
+  cache.set(key, bars);
+
+  // Persist into rs-symbol-cache for reuse across jobs sharing this marketDate+interval.
+  if (marketDate) {
+    try {
+      const cacheDocRef = db
+        .collection(RS_SYMBOL_CACHE_COLLECTION)
+        .doc(marketDate)
+        .collection(RS_SYMBOL_CACHE_SYMBOLS_SUBCOL)
+        .doc(symbol);
+
+      const snap = await cacheDocRef.get();
+      const existing = (snap.exists ? (snap.data() as Partial<RsSymbolCacheDoc>) : {}) || {};
+
+      const next: RsSymbolCacheDoc = {
+        dailyBars: interval === Interval.DAILY ? (bars ?? null) : (existing.dailyBars ?? null),
+        weeklyBars: interval === Interval.WEEKLY ? (bars ?? null) : (existing.weeklyBars ?? null),
+        monthlyBars: interval === Interval.MONTHLY ? (bars ?? null) : (existing.monthlyBars ?? null),
+        fetchedAt: FieldValue.serverTimestamp() as FirebaseFirestore.Timestamp,
+        runId: existing.runId,
+      };
+
+      await cacheDocRef.set(next, { merge: false });
+      logger.info('rsBarsCache_firestore_write', {
+        symbol,
+        marketDate,
+        interval,
+        from: fromIso,
+        to: toIso,
+        bars: bars.length,
+      });
+    } catch (e: any) {
+      logger.warn('rsBarsCache_firestore_write_failed', {
+        symbol,
+        marketDate,
+        interval,
+        from: fromIso,
+        to: toIso,
+        message: e?.message,
+      });
+    }
+  }
+
+  return bars;
+}
 
 /**
  * Cloud Tasks worker entrypoint for RS jobs.
@@ -90,8 +231,8 @@ export const processRsJobTask = onTaskDispatched<ProcessRsJobPayload>(
  * @param payload Full RS job payload describing pair, interval, phase,
  *   window, and job type context.
  */
-async function runRsPairIntervalJob(payload: ProcessRsJobPayload): Promise<void> {
-  const { pairId, baseline, target, interval, phase, from, to } = payload;
+async function runRsPairIntervalJob(payload: ProcessRsJobPayload, cache: BarsCache): Promise<void> {
+  const { pairId, baseline, target, interval, phase, from, to, marketDate } = payload;
 
   const effectivePairId = pairId || `${baseline}-${target}`;
   if (!baseline || !target) {
@@ -148,20 +289,20 @@ async function runRsPairIntervalJob(payload: ProcessRsJobPayload): Promise<void>
   // DAILY
   if (interval === Interval.DAILY) {
     const paddedFrom = padFromForInterval(from, Interval.DAILY) ?? from ?? lower;
-    const baseBars = await fetchDailyBarsRange(baseline, {
+    const baseDaily = await getOrFetchBars(marketDate, baseline, {
       from: paddedFrom,
-      to,
+      to: to!,
       interval: Interval.DAILY,
-    });
-    const targetBars = await fetchDailyBarsRange(target, {
+    }, cache);
+    const targetDaily = await getOrFetchBars(marketDate, target, {
       from: paddedFrom,
-      to,
+      to: to!,
       interval: Interval.DAILY,
-    });
+    }, cache);
 
     let series = buildPhaseSeries(
-      baseBars,
-      targetBars,
+      baseDaily,
+      targetDaily,
       (phase as RsPhase) ?? RsPhase.POST,
       baseline,
       target,
@@ -185,8 +326,8 @@ async function runRsPairIntervalJob(payload: ProcessRsJobPayload): Promise<void>
       target,
       (phase as RsPhase) ?? RsPhase.POST,
       series,
-      baseBars,
-      targetBars,
+      baseDaily,
+      targetDaily,
       Interval.DAILY,
     );
     logger.info('runRsPairIntervalJob_daily_done', {
@@ -202,16 +343,16 @@ async function runRsPairIntervalJob(payload: ProcessRsJobPayload): Promise<void>
   // WEEKLY
   if (interval === Interval.WEEKLY) {
     const paddedFromWeekly = padFromForInterval(from, Interval.WEEKLY) ?? from ?? lower;
-    const baseWeekly = await fetchDailyBarsRange(baseline, {
+    const baseWeekly = await getOrFetchBars(marketDate, baseline, {
       from: paddedFromWeekly,
-      to,
+      to: to!,
       interval: Interval.WEEKLY,
-    });
-    const targetWeekly = await fetchDailyBarsRange(target, {
+    }, cache);
+    const targetWeekly = await getOrFetchBars(marketDate, target, {
       from: paddedFromWeekly,
-      to,
+      to: to!,
       interval: Interval.WEEKLY,
-    });
+    }, cache);
 
     let weeklySeries = buildPhaseSeries(
       baseWeekly,
@@ -308,16 +449,16 @@ async function runRsPairIntervalJob(payload: ProcessRsJobPayload): Promise<void>
   // MONTHLY
   if (interval === Interval.MONTHLY) {
     const paddedFromMonthly = padFromForInterval(from, Interval.MONTHLY) ?? from ?? lower;
-    const baseMonthly = await fetchDailyBarsRange(baseline, {
+    const baseMonthly = await getOrFetchBars(marketDate, baseline, {
       from: paddedFromMonthly,
-      to,
+      to: to!,
       interval: Interval.MONTHLY,
-    });
-    const targetMonthly = await fetchDailyBarsRange(target, {
+    }, cache);
+    const targetMonthly = await getOrFetchBars(marketDate, target, {
       from: paddedFromMonthly,
-      to,
+      to: to!,
       interval: Interval.MONTHLY,
-    });
+    }, cache);
 
     let monthlySeries = buildPhaseSeries(
       baseMonthly,
@@ -486,12 +627,138 @@ async function updateBackfillRunForJobTerminal(
 }
 
 /**
+ * Updates aggregate counters on a realtime run (keyed by runId) when a job
+ * reaches a terminal state. Mirrors backfill behavior but stores aggregates
+ * under `system/rs-realtime-runs/{runId}` and uses RsRealtimeRunStatus.
+ *
+ * @param runId Identifier of the realtime run under `system/rs-realtime-runs/{runId}`.
+ * @param pairId Identifier of the pair for which the job was executed.
+ * @param isSuccess Whether the job finished in `SUCCESS` state.
+ * @param isPermanentFailure Whether the job finished in `PERMANENT_FAILURE`
+ *   state.
+ */
+async function updateRealtimeRunForJobTerminal(
+  runId: string,
+  pairId: string,
+  isSuccess: boolean,
+  isPermanentFailure: boolean,
+): Promise<void> {
+  const runRef = db.doc(rsRealtimeRunDocPath(runId));
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(runRef);
+    if (!snap.exists) {
+      return;
+    }
+    const existing = snap.data() as RsRealtimeRunDoc;
+    const updates: UpdateData<RsRealtimeRunDoc> = {
+      runDocUpdatedAt: FieldValue.serverTimestamp(),
+    };
+
+    if (isSuccess) {
+      updates['successJobs'] = FieldValue.increment(1);
+    }
+    if (isPermanentFailure) {
+      updates['permanentFailureJobs'] = FieldValue.increment(1);
+      updates['permanentFailurePairs'] = FieldValue.arrayUnion(pairId);
+    }
+
+    // Set runStartedAt the first time any job reaches a terminal
+    // state for this run.
+    if (!existing.runStartedAt) {
+      (updates as any)['runStartedAt'] = FieldValue.serverTimestamp();
+    }
+    tx.update(runRef, updates);
+  });
+
+  const latestSnap = await runRef.get();
+  if (!latestSnap.exists) {
+    return;
+  }
+  const data = latestSnap.data() as RsRealtimeRunDoc;
+  const expected = data.expectedJobs ?? 0;
+  const success = data.successJobs ?? 0;
+  const failure = data.permanentFailureJobs ?? 0;
+  if (success + failure >= expected && data.runStatus === RsRealtimeRunStatus.IN_PROGRESS) {
+
+    const finalStatus: RsRealtimeRunStatus =
+      failure === 0 ? RsRealtimeRunStatus.COMPLETE
+      : success > 0 ? RsRealtimeRunStatus.PARTIAL
+      : RsRealtimeRunStatus.FAILED;
+
+    let totalDuration: string | undefined;
+    if (data.runStartedAt && typeof (data.runStartedAt as any).toMillis === 'function') {
+      try {
+        const startMs = (data.runStartedAt as any).toMillis();
+        const endMs = Date.now();
+        const diffSec = Math.max(0, Math.round((endMs - startMs) / 1000));
+        const mm = String(Math.floor(diffSec / 60)).padStart(2, '0');
+        const ss = String(diffSec % 60).padStart(2, '0');
+        totalDuration = `${mm}:${ss}`;
+      } catch {
+        totalDuration = undefined;
+      }
+    }
+
+    const finalUpdate: UpdateData<RsRealtimeRunDoc> = {
+      runStatus: finalStatus,
+      runCompletedAt: FieldValue.serverTimestamp(),
+      runDocUpdatedAt: FieldValue.serverTimestamp(),
+    } as any;
+
+    if (totalDuration) {
+      (finalUpdate as any).totalDuration = totalDuration;
+    }
+
+    await runRef.update(finalUpdate);
+
+    // Mirror aggregate metrics back to the partner-events doc for this run so
+    // that dashboards relying on EVENTS_COLLECTION remain accurate when
+    // realtime Cloud Tasks are used instead of the legacy inline loop.
+    try {
+      const eventId = runId;
+      const eventRef = db.collection(EVENTS_COLLECTION).doc(eventId);
+      const windowFrom = (data as any).from as string | undefined;
+      const windowTo = (data as any).to as string | undefined;
+
+      const backfillStyleStatus: 'COMPLETE' | 'PARTIAL' | 'FAILED' =
+        failure === 0 ? 'COMPLETE' : success > 0 ? 'PARTIAL' : 'FAILED';
+
+      const eventPatch: Record<string, any> = {
+        runStatus: backfillStyleStatus,
+        successJobs: success,
+        permanentFailureJobs: failure,
+        pairsProcessed: success,
+        pairsFailed: failure,
+        runCompletedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      };
+
+      if (windowFrom || windowTo) {
+        eventPatch.window = {
+          from: windowFrom || null,
+          to: windowTo || null,
+        };
+      }
+
+      await eventRef.set(eventPatch, { merge: true });
+    } catch (e: any) {
+      logger.warn('updateRealtimeRunForJobTerminal_event_mirror_failed', {
+        runId,
+        message: e?.message,
+      });
+    }
+  }
+}
+
+/**
  * Core RS job processor used by `processRsJobTask`.
  *
  * Responsibilities:
  * - Resolve the Firestore job document path from the payload:
  *   - BACKFILL jobs → `rsBackfillJobDocPath(runId, pairId, interval, phase)`.
- *   - REALTIME jobs → `rsRealtimeJobDocPath(marketDate, pairId, interval, phase)`.
+ *   - REALTIME jobs → `rsRealtimeRunJobDocPath(runId, pairId, interval, phase)` (runId-keyed).
+ *
  * - Verify that the job document exists; if missing, log and return
  *   without attempting compute.
  * - Transition the job to `IN_PROGRESS`, increment `attempts`, and set
@@ -502,6 +769,9 @@ async function updateBackfillRunForJobTerminal(
  * - On error, set job status to `PERMANENT_FAILURE`, record `lastError`,
  *   and log a structured `processRsJobInternal_error` entry.
  * - For BACKFILL jobs, call `updateBackfillRunForJobTerminal` so the
+ *   parent run aggregates (`successJobs`, `permanentFailureJobs`,
+ *   `status`, `runCompletedAt`) remain consistent.
+ * - For REALTIME jobs, call `updateRealtimeRunForJobTerminal` so the
  *   parent run aggregates (`successJobs`, `permanentFailureJobs`,
  *   `status`, `runCompletedAt`) remain consistent.
  *
@@ -516,7 +786,9 @@ async function updateBackfillRunForJobTerminal(
  *   window.
  */
 export async function processRsJobInternal(payload: ProcessRsJobPayload): Promise<void> {
-  const { jobType, runId, marketDate, pairId, interval, phase } = payload;
+  const { jobType, runId, pairId, baseline, target, interval, phase } = payload;
+
+  const pairLabel = pairId || `${baseline}-${target}`;
 
   let jobPath: string;
   if (jobType === RsJobType.BACKFILL) {
@@ -526,11 +798,11 @@ export async function processRsJobInternal(payload: ProcessRsJobPayload): Promis
     }
     jobPath = rsBackfillJobDocPath(runId, pairId, interval, phase);
   } else {
-    if (!marketDate) {
-      logger.warn('processRsJobInternal_missing_marketDate', { payload });
+    if (!runId) {
+      logger.warn('processRsJobInternal_missing_runId_for_realtime', { payload });
       return;
     }
-    jobPath = rsRealtimeJobDocPath(marketDate, pairId, interval, phase);
+    jobPath = rsRealtimeRunJobDocPath(runId, pairId, interval, phase);
   }
 
   const docRef = db.doc(jobPath);
@@ -553,13 +825,17 @@ export async function processRsJobInternal(payload: ProcessRsJobPayload): Promis
   let finalStatus: RsJobStatus = RsJobStatus.SUCCESS;
   let lastError: string | undefined;
   try {
-    await runRsPairIntervalJob(payload);
+    const cache: BarsCache = new Map<string, PartnerBar[]>();
+    await runRsPairIntervalJob(payload, cache);
     finalStatus = RsJobStatus.SUCCESS;
   } catch (e: any) {
     const message = e?.message ? String(e.message) : String(e);
     lastError = message;
     finalStatus = RsJobStatus.PERMANENT_FAILURE;
-    logger.error('processRsJobInternal_error', { jobPath, jobType, message });
+    logger.error(
+      `processRsJobInternal_error pair=${pairLabel} interval=${interval} jobType=${jobType}`,
+      { jobPath, jobType, pairId: pairLabel, interval, phase, message },
+    );
   }
 
   const update: Record<string, unknown> = {
@@ -579,5 +855,17 @@ export async function processRsJobInternal(payload: ProcessRsJobPayload): Promis
     );
   }
 
-  logger.info('processRsJobInternal_done', { jobPath, jobType, status: finalStatus });
+  if (jobType === RsJobType.REALTIME && runId) {
+    await updateRealtimeRunForJobTerminal(
+      runId,
+      pairId,
+      finalStatus === RsJobStatus.SUCCESS,
+      finalStatus === RsJobStatus.PERMANENT_FAILURE,
+    );
+  }
+
+  logger.info(
+    `processRsJobInternal_done pair=${pairLabel} interval=${interval} jobType=${jobType} status=${finalStatus}`,
+    { jobPath, jobType, pairId: pairLabel, interval, phase, status: finalStatus },
+  );
 }

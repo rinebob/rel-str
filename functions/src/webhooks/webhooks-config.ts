@@ -109,6 +109,12 @@ export const TRACKED_SYMBOLS_COLLECTION = 'tracked-symbols';
 /** Root collection for current symbol price snapshots consumed by the frontend. */
 export const SYMBOL_DATA_COLLECTION = 'symbol-data';
 
+/** Root collection for rs-symbol-cache (time-series bars by marketDate+symbol). */
+export const RS_SYMBOL_CACHE_COLLECTION = 'rs-symbol-cache';
+
+/** Subcollection name under rs-symbol-cache/{marketDate} holding per-symbol docs. */
+export const RS_SYMBOL_CACHE_SYMBOLS_SUBCOL = 'symbols';
+
 /** Warning events emitted by backend for UI visibility. */
 export const WARNINGS_COLLECTION = 'rs-warnings';
 

@@ -2,7 +2,7 @@ import { logger } from 'firebase-functions/v2';
 import { FieldValue } from 'firebase-admin/firestore';
 import { callPartnerTimeSeries, type PartnerInterval } from '../partner-proxy';
 import { persistWarning } from '../logging/warn';
-import { RsCloudFunctionName } from './webhooks-config';
+import { RsCloudFunctionName, RS_SYMBOL_CACHE_COLLECTION, RS_SYMBOL_CACHE_SYMBOLS_SUBCOL } from './webhooks-config';
 import { db } from '../firebase-admin-init';
 
 export type PartnerBar = {
@@ -235,9 +235,9 @@ export async function fetchAndCacheSymbolSeries(
   const bars = await fetchDailyBarsRange(symbol, { from, to, interval });
 
   const cacheRef = db
-    .collection('rs-symbol-cache')
+    .collection(RS_SYMBOL_CACHE_COLLECTION)
     .doc(marketDate)
-    .collection('symbols')
+    .collection(RS_SYMBOL_CACHE_SYMBOLS_SUBCOL)
     .doc(symbol);
 
   const existingSnap = await cacheRef.get();
