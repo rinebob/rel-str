@@ -131,6 +131,7 @@ This effort is specifically for **archive-focused RS backfill and refresh**; sig
   - `functions/src/rs/time-series/rs-time-series-jobs.worker.ts` – Cloud Tasks worker entrypoint and `processRsJobInternal` (FRBARR T03).
   - `functions/src/webhooks/symbol-fetch.ts` – existing `fetchDailyBarsRange` helper reused inside jobs.
   - `functions/src/webhooks/rs-series.ts`, `functions/src/webhooks/rs-canonical-engine.ts`, `functions/src/webhooks/pairs-writer.ts` – RS series computation and archive writers reused by the worker.
+  - `docs/partner/rs-pdr-to-rs-jobs-sequence.md` – sequence diagrams for PDR → RS realtime jobs → Cloud Tasks → Firestore.
 
 - **Tests / validation** (planned):
   - `tests/functions/` – new Jest suites covering job creation/enqueue, worker behavior, and `recomputeRegisteredBackfill` integration.
