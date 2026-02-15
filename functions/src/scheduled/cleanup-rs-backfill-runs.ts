@@ -90,7 +90,9 @@ async function deleteRunAndJobs(runId: string): Promise<{ jobsDeleted: number }>
  */
 export const cleanupRsBackfillRuns = onSchedule(
   {
-    schedule: 'every 30 days',
+    // Run once per day at 03:00 UTC; retention window is controlled by
+    // RS_BACKFILL_MAX_AGE_DAYS, so we do not need a 30-day schedule here.
+    schedule: '0 3 * * *',
     timeZone: 'Etc/UTC',
     region: 'us-central1',
   },
