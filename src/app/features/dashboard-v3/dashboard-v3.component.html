@@ -1,5 +1,17 @@
 <div class="dashboard-container">
 
+    <div class="baseline-chip-row">
+        <mat-chip-listbox class="baseline-chip-list" [multiple]="false">
+            @for (b of dashboardV3Store.baselines(); track b.id) {
+                <mat-chip-option
+                    class="baseline-chip"
+                    [selected]="selectedBaseline()?.id === b.id">
+                    {{ b.label }}
+                </mat-chip-option>
+            }
+        </mat-chip-listbox>
+    </div>
+
     <div class="header-container">
 
         <div class="name-container">

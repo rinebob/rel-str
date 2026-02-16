@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit, computed } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatChipsModule } from '@angular/material/chips';
 
 import { HeatmapComponent } from '../dashboard-v2/heatmap/heatmap.component';
 import { RelStrBaseComponent } from '../rel-str-base/rel-str-base.component';
@@ -13,11 +14,12 @@ import { RsDataStore } from '../store/rs-data.store';
 import { AuthStore } from '../../core/auth/auth.store';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatButtonToggleChange } from '@angular/material/button-toggle';
+import { DashboardV3Store } from './store/dashboard-v3.store';
 
 @Component({
     selector: 'rs-dashboard-v3',
     standalone: true,
-    imports: [HeatmapComponent, MatButtonModule, MatButtonToggleModule],
+    imports: [HeatmapComponent, MatButtonModule, MatButtonToggleModule, MatChipsModule],
     templateUrl: './dashboard-v3.component.html',
     styleUrl: './dashboard-v3.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush
@@ -31,11 +33,15 @@ export class DashboardV3Component extends RelStrBaseComponent implements OnInit 
     private readonly rsDataSvc = inject(RsDataService);
     private readonly rsDataStore = inject(RsDataStore);
     private readonly authStore = inject(AuthStore);
+    readonly dashboardV3Store = inject(DashboardV3Store);
 
     title = 'rel-str';
 
     // Computed signal for selected interval
     selectedInterval = computed(() => this.rsDataStore.selectedTimeframe());
+
+    // Baseline selection (v3-specific)
+    selectedBaseline = computed(() => this.dashboardV3Store.selectedBaseline());
 
     ngOnInit() {
         this.rsCalcsStore.setHeatmapColors(generateColorArray(NUM_HEATMAP_MIDPOINTS));
