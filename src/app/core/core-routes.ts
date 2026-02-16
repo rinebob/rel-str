@@ -38,6 +38,11 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.DashboardV2Component),
                 canActivate: [authGuard],
             },
+            {path: AppRoutes.DASHBOARD_V3, 
+                loadComponent: () => import('../features/dashboard-v3/dashboard-v3.component')
+                .then(mod => mod.DashboardV3Component),
+                canActivate: [authGuard],
+            },
             {path: AppRoutes.DECISION_BOARD, 
                 loadComponent: () => import('../features/decision-board/decision-board.view')
                 .then(mod => mod.DecisionBoardViewComponent),

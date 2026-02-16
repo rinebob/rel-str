@@ -57,6 +57,14 @@ export const NAV_MENU_ITEMS: NavItem[] = [
         mobileOnly: false,
         external: false,
         target: '_self',
+    },
+    {
+        name: 'dashboard-v3',
+        text: 'dashboard-v3',
+        href: 'dashboard-v3',
+        mobileOnly: false,
+        external: false,
+        target: '_self',
     },  
     {
         name: 'decision-board',

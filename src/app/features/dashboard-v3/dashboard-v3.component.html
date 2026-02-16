@@ -1,0 +1,36 @@
+<div class="dashboard-container">
+
+    <div class="header-container">
+
+        <div class="name-container">
+
+            <p class="header-text">List: {{rsAppStore.selectedStockListV2().name}}</p>
+            <p class="header-text">Baseline symbol: {{rsAppStore.selectedStockListV2().baseline}}</p>
+
+        </div>
+        
+        <div class="buttons-container">
+            <div class="interval-buttons">
+                <button mat-button 
+                        class="interval-button" 
+                        [class.active]="selectedInterval() === timeframe.DAILY"
+                        (click)="setInterval(timeframe.DAILY)">D</button>
+                <button mat-button 
+                        class="interval-button" 
+                        [class.active]="selectedInterval() === timeframe.WEEKLY"
+                        (click)="setInterval(timeframe.WEEKLY)">W</button>
+                <button mat-button 
+                        class="interval-button" 
+                        [class.active]="selectedInterval() === timeframe.MONTHLY"
+                        (click)="setInterval(timeframe.MONTHLY)">M</button>
+            </div>
+            <button mat-button class="task-button" (click)="handleSortFilter()">Sort/Filter</button>
+        </div>
+
+    </div>
+
+    <div class="heatmap-container">
+        <rs-heatmap-v2 />
+    </div>
+
+</div>
