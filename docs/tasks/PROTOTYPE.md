@@ -59,6 +59,8 @@
   - [ ] Use callables for OHLCV/TA; remove legacy local data imports
   - [ ] Add loading/fallbacks while initial RS backfill completes
 
+- [ ] RS-FE-FEAT-HMUI-2602 – Implement `dashboard-v3` heatmap (baseline chips from pair-registry/appMeta, symmetric top/middle/bottom RS percentile slices, time-range chips, vertical virtual scroll with future horizontal windowing, and new `/dashboard-v3` route + nav entry). See `docs/implementations/RS-FE-FEAT-HMUI-2602_dashboardv3-heatmap-ui-sort-filter-render-treatments.md`.
+
 ## Trade Journal & Newsletter (View-Level)
 
 - [ ] Trade Journal Views

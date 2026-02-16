@@ -18,12 +18,22 @@
   - Last change: 2026-01-25
   - Notes: new maintenance effort defined to document the current `functions/src` layout, propose a target structure (rs/partner/jobs/admin), and map existing `webhooks` files to their future locations.
 
+- RS-FE-FEAT-HMUI-2602 – Dashboard v3 Heatmap UI: Sort, Filter, and Render Treatments
+  - Status: planned
+  - Last change: 2026-02-15
+  - Notes: frontend effort to build a new `dashboard-v3` heatmap UI capable of handling full prod universes with baseline chips, symmetric top/middle/bottom RS filters, time-range controls, and virtual scrolling. Implementation plan captured in `docs/implementations/RS-FE-FEAT-HMUI-2602_dashboardv3-heatmap-ui-sort-filter-render-treatments.md`. v2 remains operational while v3 is developed.
+
 ## Entries
 
 ### 2026-01-22
 
 - RS-BE-FEAT-PDR-2601-01
   - Created initial implementation effort doc and linked it from RS_ARCHIVE_BACKFILL.md (code `PDR`).
+
+### 2026-02-15
+
+- RS-FE-FEAT-HMUI-2602
+  - Created v3 heatmap UI implementation doc `RS-FE-FEAT-HMUI-2602_dashboardv3-heatmap-ui-sort-filter-render-treatments.md` describing baseline chips, symmetric RS percentile slices, time-range chips, virtual scroll, and routing/nav strategy. Work will be implemented as `dashboard-v3` based on v2, with v2 left unchanged during the transition.
   - Captured current status: bulk pair registry import implemented and documented; waiting on SavantAPI for full-history prod backfill and first prod `partner-data-ready` message to trigger initial RS archive backfill.
   - Defined go-live criteria for RS prod readiness (initial prod backfill run + ongoing realtime maintenance).
 
