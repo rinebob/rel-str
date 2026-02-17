@@ -17,9 +17,9 @@
 
 ### 2.1 Collection & Document Keys
 
-- **Collection**: `heatmapSnapshots`
+- **Collection**: `heatmap-snapshots`
 - **Viewport document ID convention (v1)**:
-  - `{baselineId}_{timeframe}_viewport` (e.g., `SPY_DAILY_viewport`, `QQQ_WEEKLY_viewport`, `XLF_MONTHLY_viewport`).
+  - `{baselineId}-{timeframe}-viewport` (e.g., `SPY-DAILY-viewport`, `QQQ-WEEKLY-viewport`, `XLF-MONTHLY-viewport`).
 - **Baseline IDs**
   - Must match FE `DashboardV3Store` baseline ids (`SPY`, `QQQ`, `XPH`, and later `X*` sector ETFs).
 - **Timeframe values**
@@ -42,8 +42,12 @@ interface HeatmapSnapshotViewportV1 {
   // Column order (dates) – viewport window only
   dates: string[];                    // canonical Y-M-D keys in ascending order
 
-  // RS metric values, aligned to [pairIndex][dateIndex]
-  values: number[][];                 // primary metric (e.g. post/normalized RS) for the viewport range
+  // RS metric values per pair. Firestore does not allow nested arrays, so
+  // each row is wrapped in an object instead of using number[][] directly.
+  rows: Array<{
+    pair: string;                      // should match an entry in `pairs`
+    values: number[];                  // aligned to `dates` by index
+  }>;
 
   version: 1;
 }
@@ -110,7 +114,7 @@ For a given `(baseline, timeframe)` pair, v1 focuses only on the **viewport wind
      - Choose the RS value for that bucket (latest available in the bucket, or some aggregation).
      - Optionally include `normValues` and/or `phases` if available.
 5. **Write viewport snapshot doc**
-   - Write to `heatmapSnapshots/{baseline}_{timeframe}_viewport` with the schema above.
+   - Write to `heatmap-snapshots/{baseline}-{timeframe}-viewport` with the schema above.
    - Overwrite in place; FE expects latest snapshot.
 
 ### 4.2 Bucketing & Canonical Dates
@@ -148,8 +152,81 @@ interface RebuildHeatmapSnapshotRequest {
 - **Behavior**
   - Validate baseline/timeframe.
   - Run the snapshot computation pipeline (Section 4).
-  - Write `heatmapSnapshots/{baseline}_{timeframe}_viewport` as the authoritative viewport snapshot doc for FE.
+  - Write `heatmap-snapshots/{baseline}-{timeframe}-viewport` as the authoritative viewport snapshot doc for FE.
   - Return status + summary (`pairs.length`, `dates.length`, duration, any warnings).
+- **Implementation (v1)**
+  - Implemented as `rebuildHeatmapSnapshotAdmin` in
+    `functions/src/rs/heatmap/heatmap-snapshots.ts`.
+
+#### 5.1.1 Invocation (emulator and production)
+
+- **Emulator URL**
+  - `http://127.0.0.1:5002/rel-str/us-central1/rebuildHeatmapSnapshotAdmin`
+  - Method: `POST`
+  - Body envelope (standard callable): `{ "data": { ... } }`
+
+Example (PowerShell, SPY/DAILY viewport):
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:5002/rel-str/us-central1/rebuildHeatmapSnapshotAdmin" `
+  -ContentType "application/json" `
+  -Body (@{ data = @{ baseline = 'SPY'; timeframe = 'DAILY' } } | ConvertTo-Json)
+```
+
+- **Production URL**
+  - `https://us-central1-rel-str.cloudfunctions.net/rebuildHeatmapSnapshotAdmin`
+  - Method: `POST`
+  - Auth: same callable auth posture as other admin tools (Firebase Auth bearer or callable-compatible client SDK).
+  - Body: same `{ "data": { "baseline": "SPY", "timeframe": "DAILY" } }` envelope as emulator.
+
+Example (bash/curl, SPY/DAILY viewport):
+
+```bash
+curl \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <FIREBASE_ID_TOKEN>" \
+  -d '{
+    "data": {
+      "baseline": "SPY",
+      "timeframe": "DAILY"
+    }
+  }' \
+  "https://us-central1-rel-str.cloudfunctions.net/rebuildHeatmapSnapshotAdmin"
+```
+
+##### 5.1.1.1 Obtaining an ID token from the CLI
+
+For quick manual tests against prod, you can obtain a Google identity token via `gcloud` and reuse it in the `curl` command:
+
+```bash
+# Authenticate your CLI session (once per machine or when cred expires)
+gcloud auth login
+
+# Print an identity token for Cloud Functions HTTPS endpoint
+gcloud auth print-identity-token
+
+# Optionally, export it for reuse
+export FIREBASE_ID_TOKEN="$(gcloud auth print-identity-token)"
+
+curl \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ${FIREBASE_ID_TOKEN}" \
+  -d '{
+    "data": {
+      "baseline": "SPY",
+      "timeframe": "DAILY"
+    }
+  }' \
+  "https://us-central1-rel-str.cloudfunctions.net/rebuildHeatmapSnapshotAdmin"
+```
+
+> Note: This uses a Google-issued identity token for your gcloud account or service account. It assumes the function allows that principal to invoke it. For Firebase Auth–protected callables, prefer calling from a client or admin script that signs in a Firebase user and passes its ID token.
+
+The callable is idempotent at the document level: re-running it for the same `{baseline, timeframe}` overwrites the existing `*-viewport` snapshot with a fresh viewport.
 
 ### 5.2 Baseline History Function (scroll-back support)
 
