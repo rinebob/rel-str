@@ -6,6 +6,9 @@ import { RsPhase } from './types/partner';
 
 
 /**
+ * @deprecated Legacy pre/post selection helper for getPairRSArchive.
+ * Prefer using canonical RS loaders and rsRaw/rsNorm semantics in rs-canonical-engine.ts.
+ *
  * Choose which phase value to emit for a given day using the fixed rubric:
  * - Historical days (day !== today): emit POST only; ignore PRE even if present.
  * - Today (day === today): emit POST if present; else PRE if present; else skip.
@@ -37,6 +40,10 @@ export function selectRsForDay(
   }
 
 /**
+ * @deprecated Legacy callable: getPairRSArchive.
+ * Kept temporarily for backwards compatibility; new code should use
+ * the canonical RS loaders and frontend RelStrDbV2Service instead.
+ *
  * Callable: getPairRSArchive
  * Reads RS history for a pair from archive shards under
  *   pairs-data/{BASE}-{SYMBOL}/archive-YYYY/{YYMMDD}

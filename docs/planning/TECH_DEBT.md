@@ -7,6 +7,7 @@
 - [ ] CFSTR follow-on: actual Cloud Functions filesystem migration from `webhooks/*` into the new partner/rs/admin structure (implementation efforts after RS-BE-MAINT-CFSTR-2601-01).
 - [ ] Tests: expand Jest unit test coverage for core RS pipelines (PDR/FRBARR) and critical callables; ensure new work ships with tests by default.
 - [ ] Centralize all Firestore collection/path constants (including `system/rs-backfill-runs/runs` and `system/rs-time-series-jobs/dates`) into a shared enum instead of scattering string constants across RS/time-series and webhooks code.
+- [ ] Deprecate and remove legacy `archive.ts` + `getPairRSArchive` callable once all external callers are migrated to canonical RS loaders and FE `RelStrDbV2Service`. The canonical RS engine lives in `functions/src/webhooks/rs-canonical-engine.ts` and is the single source of truth for archive-derived RS samples (`RsSample { day, rsNorm, rsRaw }`), threshold crossings (`detectRsEvents`), and mapping into `RsWriteEvent`/`ActivityEvent` via `rs-events-consumer` / `activity-from-writes`.
 
 ### Nice-to-have
 
