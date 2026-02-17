@@ -182,6 +182,7 @@
 
 - Filters (Top/Middle/Bottom slices) and time range are applied **before** giving data to the virtual scroll viewport.
 - Virtual scroll consumes the final filtered/sliced array; windowing is handled internally by CDK.
+- For deep scroll-back beyond the viewport snapshot range (e.g., back to 2019), the FE must **not** issue per-pair Firestore reads. Instead, it will use a dedicated **baseline history function** (see BE doc `RS-BE-FEAT-HMSNAP-2602`) that returns a baseline-level matrix (`pairs[]`, `dates[]`, `values[][]`) for the requested time segment, which the v3 heatmap data service merges into its in-memory matrix.
 
 ---
 
@@ -205,14 +206,61 @@
 
 1. User selects a different baseline chip in the v3 baseline bar.
 2. `DashboardV3Store` updates `selectedBaselineId` and recomputes `currentUniversePairs()`.
-3. A v3-only loader fetches heatmap data for `currentUniversePairs()` via canonical pair IDs and shared RS calc/Firestore services.
-4. Derived selectors recompute `sortedPairsByRsV3()` and `slicedPairsV3()`.
-5. The v3 heatmap component re-renders from v3 store state.
+3. `DashboardV3Store` triggers `HeatmapV3DataService.loadViewportSnapshot()` for the selected baseline + timeframe; the data service reads the corresponding viewport snapshot doc and exposes a bounded matrix via signals.
+4. Derived selectors recompute `sortedPairsByRsV3()` and `slicedPairsV3()` over the set of visible pairs, using the data service’s viewport matrix as the underlying data source.
+5. The v3 heatmap component re-renders from v3 store state and the viewport matrix exposed by the data service.
 
 ### 7.3 Filter / Time-Range Change Flow (v3)
 
 - Universe slice change updates `selectedUniverseSlice` and recomputes `slicedPairsV3()`.
 - Time-range change updates `selectedTimeRange` and affects only history-dependent views in the v3 heatmap and linked charts.
+
+### 7.4 Heatmap Data Loading & Viewport Snapshot Integration (v3)
+
+To keep the v3 store focused on **selection state** and avoid turning it into a bulk data cache, heatmap data loading for large universes is mediated through a dedicated data loader/service that wraps Firestore access and exposes a compact, view-ready matrix to the v3 heatmap.
+
+#### 7.4.1 HeatmapV3DataService interface (conceptual)
+
+```ts
+interface HeatmapV3ViewportMatrix {
+  pairs: string[];
+  dates: string[];
+  values: number[][];
+}
+
+interface HeatmapV3DataService {
+  loadViewportSnapshot(baselineId: string, timeframe: Timeframe): void;
+  viewportMatrix(): Signal<HeatmapV3ViewportMatrix | null>;
+  loading(): Signal<boolean>;
+  error(): Signal<string | null>;
+}
+```
+
+- **Responsibilities**
+  - Resolve the Firestore path for the current baseline + timeframe viewport snapshot:
+    - `heatmapSnapshots/{baselineId}_{timeframe}_viewport` as defined in the BE doc.
+  - Use AngularFire/Firestore SDK + RxJS (e.g., `switchMap`, `shareReplay`) to read a single snapshot doc on the happy path.
+  - Expose the latest loaded viewport matrix and loading/error state via Angular **signals** for consumption by v3 components.
+  - Provide a clean abstraction so that archive shards or alternative data sources can be added later without changing `DashboardV3Store` or the heatmap component’s contract.
+
+#### 7.4.2 DashboardV3Store responsibilities and constraints
+
+- `DashboardV3Store` owns **selection and UI state only**:
+  - `selectedBaselineId`, `baselineUniverses`, `currentUniversePairs()`.
+  - `selectedUniverseSlice` (Top/Middle/Bottom band selection).
+  - `selectedTimeRange` (6M/1Y/2Y/5Y/All) and any pagination/virtual-scroll density preferences.
+- `DashboardV3Store` **must not** own or cache raw viewport matrices (`values: number[][]`) or archive data; it only:
+  - Decides *what* baseline/timeframe/slice/time-range the user wants.
+  - Triggers `HeatmapV3DataService.loadViewportSnapshot()` when baseline or timeframe changes.
+- Heatmap components (`HeatmapV3Component` and related view-model helpers) read from:
+  - `HeatmapV3DataService.viewportMatrix()` for raw (bounded) numeric data.
+  - `DashboardV3Store` for current selection/slice/time-range.
+  - `RsCalcsStore.heatmapColors()` to map RS values into `RanksDataWithColors`.
+
+This separation ensures that:
+- v3 store remains small and composable.
+- Bulk data loading and caching concerns are isolated in the data service.
+- Heatmap rendering logic operates on a **bounded viewport matrix**, regardless of how deep the backend’s RS history extends.
 
 ---
 
@@ -242,9 +290,12 @@ Use the following subtasks under epic **RS-FE-FEAT-HMUI-2602**. Check them off a
     - Reuse shared read-only infrastructure where appropriate (e.g., Firestore services, RS calc engine) but do not call v2 feature/store methods.
     - Normalize loaded RS series into row view models / `RanksDataWithColors` consumed exclusively by the v3 heatmap.
   - **Production (500+ pairs) – backend snapshots required**
-    - Introduce backend precomputation of per-baseline, per-timeframe heatmap snapshots (e.g., `heatmapSnapshots/{baseline}_{timeframe}`) that contain a ready-to-render `RanksDataWithColors` matrix and associated header metadata.
-    - The FE v3 loader should, in production, fetch a single snapshot document (or a very small number of docs) for the selected baseline + timeframe instead of issuing one read per pair.
-    - FE-side `currentUniversePairs()` and slice options will operate over the snapshot matrix (and/or snapshot-provided sorted pair lists), not by directly walking the raw pair archive at runtime.
+    - The **authoritative backend design** for per-baseline, per-timeframe **viewport snapshots** (e.g., `heatmapSnapshots/{baseline}_{timeframe}_viewport`) lives in:
+      - `RS-BE-FEAT-HMSNAP-2602_backend-heatmap-snapshots-for-dashboard-v3.md`.
+    - In production, the FE v3 loader should prefer **viewport snapshot documents** for the selected baseline + timeframe (single-doc read on the happy path) via a dedicated heatmap data loader/service.
+    - Deep scroll-back (e.g., back to 2019) must use the **baseline history function** (`getBaselineHeatmapHistory`) to obtain additional baseline-level matrices, which the data service merges into its in-memory model. Symbol-sharded history and per-pair Firestore reads are explicitly not part of the v3 execution path.
+    - FE-only loaders are allowed for development/prototyping but **must not** be used as a silent fallback in production. When snapshots/history calls fail in prod, the UI should surface an explicit error state (e.g., listing failed baselines/pairs) rather than silently reintroducing per-pair archive reads.
+    - FE-side `currentUniversePairs()` and slice options operate over the matrix derived from the snapshot viewport document (plus any merged history matrices); this FE doc remains focused on how that matrix is interpreted, sliced, and rendered in v3, not on long-term archival storage.
 
 - [ ] **RS-FE-FEAT-HMUI-2602-T06 – Sorting & symmetric percentile slicing (v3)**
   - Define `UniverseSliceOption` enum and constants for all top/bottom/middle slices in the v3 store.
