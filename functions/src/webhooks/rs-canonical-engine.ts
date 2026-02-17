@@ -162,7 +162,6 @@ export async function runCanonicalRsEngineForPair(
   thresholds: CanonicalEngineThresholds,
 ): Promise<CanonicalEngineResult> {
   if (DISABLE_SIGNALS_ACTIVITY_POSITIONS) {
-    logger.info('runCanonicalRsEngineForPair_disabled', { pairId });
     return { writes: [], activity: [] };
   }
 

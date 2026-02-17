@@ -48,7 +48,7 @@ The unified ingestion engine is responsible for **one logical run context**:
     - Fetch normalized Savant time-series bars over the required lookback/window.
     - Build phase-aware RS series (PRE/POST) for each interval.
     - Write RS archives and latest mirrors via `writeUnifiedSeries`.
-    - Optionally run the canonical RS engine and downstream signals/positions, depending on flags.
+    - Optionally run the canonical RS engine and downstream signals/positions, depending on flags (currently gated).
   - Update per-pair ingestion state in `pair-registry`:
     - `ingestionStatus`, `lastIngestionAt`, `lastIngestionError`, per-interval readiness flags.
   - Emit summary logs/metrics and, for LIVE mode, link back to the `partner-data-ready` universe-ready run context.
@@ -186,7 +186,40 @@ export interface UnifiedIngestionResult {
   processedPairs: number;
   errors: Array<{ pairId: string; interval?: string; error: string }>;
 }
-```
+
+## 4.1 Canonical RS Engine
+
+The canonical RS engine is responsible for:
+
+- Loading archive-derived RS samples for a pair (DAILY, WEEKLY, MONTHLY) using `RsSample { day, rsNorm, rsRaw }`.
+- Scanning for threshold crossings using the minimal RS engine (`detectRsEvents`).
+- Mapping logical events into concrete `RsWriteEvent` structures that drive signals/positions/activity writes.
+
+Implementation details:
+
+- **File**: `functions/src/webhooks/rs-canonical-engine.ts`
+- **Core entrypoint**: `runCanonicalRsEngineForPair(pairId, baseline, symbol, logger, series, thresholds)`
+  - `series: IntervalSeriesContext` provides decorated phase series for `daily`, `weekly`, and `monthly` intervals.
+  - Loads archive samples via `loadDailyRsSamplesFromArchive` / `loadIntervalRsSamplesFromArchive` in the same file.
+  - Uses `detectRsEvents` from `rs-signals-engine.ts` to derive logical OPEN/CLOSE/HOLD events.
+  - Produces `RsWriteEvent[]` consumed by `applyRsEventsForPair` in `rs-events-consumer.ts` to write canonical signals and root positions.
+  - Derives multi-interval `ActivityEvent[]` via `generateActivityFromWrites`.
+
+The canonical engine is therefore the **single source of truth** for:
+
+- How RS threshold crossings translate into OPEN/CLOSE/HOLD events.
+- How those events become persistent Firestore writes (signals, positions, activity).
+- Keeping backfill and live processing aligned via the same underlying logic.
+
+> **Current gating (2026)**
+>
+> All canonical engine work (archive RS loads, `detectRsEvents`, `RsWriteEvent` generation,
+> `applyRsEventsForPair`, and `generateActivityFromWrites`) is **gated by** the
+> `DISABLE_SIGNALS_ACTIVITY_POSITIONS` flag in `webhooks-config.ts`. When this flag is `true`,
+> `runCanonicalRsEngineForPair` returns immediately with empty `writes` and `activity`, and no
+> downstream signals/positions/activity writes are executed. This allows the ingestion engine to
+> keep archives and latest mirrors up to date while deferring canonical signals/positions work
+> without further code changes.
 
 ---
 

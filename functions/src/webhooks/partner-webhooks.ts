@@ -50,6 +50,7 @@ import {
   ARCHIVE_COLLECTION_PREFIX,
   PAIRS_COLLECTION,
   SYMBOL_DATA_COLLECTION,
+  DISABLE_SIGNALS_ACTIVITY_POSITIONS,
 } from './webhooks-config';
 import { RsRealtimeRunStatus, rsRealtimeRunDocPath } from '../rs/time-series/rs-time-series-jobs.model';
 import { updateOpenPositionsForPair, appendOpenPositionsTimelineForPair } from './positions-manager';
@@ -756,7 +757,7 @@ export async function processPairLive(
     }
 
     let engineActivity: ActivityEvent[] = [];
-    if (phase === RsPhase.POST) {
+    if (!DISABLE_SIGNALS_ACTIVITY_POSITIONS && phase === RsPhase.POST) {
       try {
         const dailyDecorated = series as unknown as PhaseSeriesPointWithMetrics[];
         const weeklyDecorated = weeklySeries.length > 0
