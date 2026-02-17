@@ -5,7 +5,8 @@
             @for (b of dashboardV3Store.baselines(); track b.id) {
                 <mat-chip-option
                     class="baseline-chip"
-                    [selected]="selectedBaseline()?.id === b.id">
+                    [selected]="selectedBaseline()?.id === b.id"
+                    (click)="onBaselineChipClick(b.id)">
                     {{ b.label }}
                 </mat-chip-option>
             }
@@ -42,7 +43,7 @@
     </div>
 
     <div class="heatmap-container">
-        <rs-heatmap-v2 />
+        <rs-heatmap-v3 />
     </div>
 
 </div>
