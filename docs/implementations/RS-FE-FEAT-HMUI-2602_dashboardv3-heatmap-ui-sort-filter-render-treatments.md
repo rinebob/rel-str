@@ -37,10 +37,10 @@
 - **Population strategy**
   - Provide a script (e.g. under `scripts/`) that reads `pair-registry`/`symbol-data` and (optionally) any bulk-import holdings files, then writes/updates the `appMeta/baselines` and symbol meta docs in Firestore in the shape needed by v3.
 
-### 2.2 UI Component
+### 2.2 UI Component (Dashboard v3)
 
-- **Baseline Chip Bar**
-  - Standalone component rendered **above the heatmap** in Dashboard v2.
+- **Baseline Chip Bar (v3)**
+  - Standalone component rendered **above the v3 heatmap** in `dashboard-v3`.
   - Angular Material chip list used for selection.
 - **Options**
   - `SPY` (default selected).
@@ -48,8 +48,9 @@
   - All X* sector ETFs found in holdings assets (e.g., `XLB`, `XLE`, `XLF`, ...).
 - **Behavior**
   - Single-select chip list.
-  - Selecting a chip updates a `selectedBaselineV2` signal in the RS app/dashboard store.
-  - Baseline change resets pagination and triggers a data load (or uses cached data) for the new universe.
+  - Selecting a chip updates a `selectedBaselineId` signal on `DashboardV3Store`.
+  - The v3 store maintains `baselineUniverses: Record<string, string[]>` where values are canonical `BASE-TARG` pair IDs (e.g., `SPY-AAPL`).
+  - Baseline change updates the **baseline-driven universe** via a derived `currentUniversePairs` computed signal and triggers a v3-only heatmap data load.
 
 ---
 
@@ -97,17 +98,17 @@
 
 > Implementation detail: the middle ranges above are **fixed** and must be implemented deterministically. Tests should explicitly cover the 25%/37.5%/62.5%/75% boundaries so behavior remains stable over time.
 
-### 4.3 Slice Chip Bar
+### 4.3 Slice Chip Bar (v3)
 
 - **Component**
-  - Secondary chip bar rendered **below baseline chips** and **above the heatmap**.
+  - Secondary chip bar rendered **below baseline chips** and **above the v3 heatmap**.
 - **State**
-  - `selectedUniverseSliceV2` signal in store (enum-like), e.g. internal values such as:
+  - `selectedUniverseSlice` signal in the v3 store (enum-like), e.g. internal values such as:
     - `'ALL' | 'TOP_10' | 'TOP_25' | 'TOP_50' | 'BOTTOM_10' | 'BOTTOM_25' | 'BOTTOM_50' | 'MIDDLE_25' | 'MIDDLE_50'`.
   - UI labels should be **human-friendly** (e.g., `Top 10%`, `Bottom 25%`, `Middle 50%`) and must not expose the raw enum keys directly.
 - **Behavior**
-  - Slices are applied to the **sorted** RS list and combined with pagination / virtual scroll.
-  - Changing slice resets pagination to first page.
+  - Slices are applied to the **sorted** RS list and combined with virtual scroll / density controls.
+  - Changing slice resets the v3 viewport to the top of the universe.
 
 ### 4.4 Slice Computation Strategy
 
@@ -135,10 +136,10 @@
 
 ### 5.2 Behavior
 
-- `selectedTimeRangeV2` signal in store, mapping to a duration window (e.g., number of trading days or date range).
+- `selectedTimeRange` signal in the v3 store, mapping to a duration window (e.g., number of trading days or date range).
 - Affects:
-  - Any **sparklines** or per-row historical summaries displayed in the heatmap.
-  - Default date range when navigating to the RS chart from a heatmap row.
+  - Any **sparklines** or per-row historical summaries displayed in the v3 heatmap.
+  - Default date range when navigating to the RS chart from a v3 heatmap row.
 - Implementation can use:
   - Either **client-side filtering** of a longer local series.
   - Or **bounded server requests** (e.g., load only last N days) once backend contracts support it.
@@ -184,91 +185,94 @@
 
 ---
 
-## 7. State Model (Store) – Dashboard v2 Heatmap
+## 7. State Model (Store) – Dashboard v3 Heatmap
 
-### 7.1 Key Signals
+### 7.1 Key Signals (v3)
 
-- `selectedBaselineV2` – current baseline (SPY, QQQ, X*)
-- `selectedUniverseSliceV2` – current percentile slice option.
-- `selectedTimeRangeV2` – current time-range option.
-- `pageSizeV2` – current page size (25/50/100/All) for UI controls (may be secondary when virtual scroll is primary).
-- `sortedPairsByRsV2()` – derived list of pairs for the selected baseline, sorted by **latest post RS**.
-- `slicedPairsV2()` – derived from `sortedPairsByRsV2()` + slice option.
-- `displayPairsV2()` – final list fed into the heatmap’s virtual scroll viewport.
+- `selectedBaselineId` – current baseline (SPY, QQQ, X*), stored in `DashboardV3Store`.
+- `baselineUniverses` – `Record<string, string[]>` mapping baseline → array of canonical pair IDs (`BASE-TARG`).
+- `currentUniversePairs()` – computed from `selectedBaselineId` + `baselineUniverses`; drives which pairs are considered for the v3 universe.
+- `selectedUniverseSlice` – current percentile slice option for v3.
+- `selectedTimeRange` – current time-range option for v3.
+- `pageSize` – current page size (25/50/100/All) for v3 UI density controls (may be secondary when virtual scroll is primary).
+- `sortedPairsByRsV3()` – derived list of **pair IDs** for the selected baseline, sorted by **latest post RS**.
+- `slicedPairsV3()` – derived from `sortedPairsByRsV3()` + slice option.
+- `displayPairsV3()` – final list of pair IDs fed into the v3 heatmap’s virtual scroll viewport.
 
-### 7.2 Baseline Change Flow
+> **Design Constraint:** Dashboard v3 must not depend on or mutate any v2 feature/store state. It may reuse shared read-only infrastructure (e.g., Firestore services, RS calc engine) but all v3 UI state and selectors live in `DashboardV3Store` and v3-only helpers.
 
-1. User selects a different baseline chip.
-2. Store updates `selectedBaselineV2`.
-3. Store triggers load or returns cached pairs for that baseline.
-4. Derived selectors recompute `sortedPairsByRsV2()` and `slicedPairsV2()`.
-5. Virtualized heatmap re-renders.
+### 7.2 Baseline Change Flow (v3)
 
-### 7.3 Filter / Time-Range Change Flow
+1. User selects a different baseline chip in the v3 baseline bar.
+2. `DashboardV3Store` updates `selectedBaselineId` and recomputes `currentUniversePairs()`.
+3. A v3-only loader fetches heatmap data for `currentUniversePairs()` via canonical pair IDs and shared RS calc/Firestore services.
+4. Derived selectors recompute `sortedPairsByRsV3()` and `slicedPairsV3()`.
+5. The v3 heatmap component re-renders from v3 store state.
 
-- Universe slice change updates `selectedUniverseSliceV2` and recomputes `slicedPairsV2()`.
-- Time-range change updates `selectedTimeRangeV2` and affects only history-dependent views.
+### 7.3 Filter / Time-Range Change Flow (v3)
+
+- Universe slice change updates `selectedUniverseSlice` and recomputes `slicedPairsV3()`.
+- Time-range change updates `selectedTimeRange` and affects only history-dependent views in the v3 heatmap and linked charts.
 
 ---
 
 ## 8. Implementation Tasks (FE)
 
-### 8.1 Baseline & Assets Wiring
+Use the following subtasks under epic **RS-FE-FEAT-HMUI-2602**. Check them off as they are completed and record commits / key filenames next to each item as you go.
 
-- [ ] Read baseline lists from `src/assets/holdings` and map them into normalized baseline metadata.
-- [ ] Extend RS/dashboard store with `selectedBaselineV2` and actions.
-- [ ] Implement `BaselineChipBarComponent` in **dashboard v3** (see 9.1 below).
-- After completion, record in this doc:
-  - Commits and key filenames that implemented this task.
+- [ ] **RS-FE-FEAT-HMUI-2602-T01 – Dashboard v3 scaffold & routing**
+  - Copy dashboard v2 to a dashboard v3 feature folder, add `/dashboard-v3` route and sidenav entry, and ensure guards match v2.
 
-### 8.2 Universe Slice Filters
+- [ ] **RS-FE-FEAT-HMUI-2602-T02 – Baseline metadata & appMeta wiring**
+  - Read baseline lists from `src/assets/holdings` and/or `pair-registry` / `symbol-data` and map into normalized baseline metadata.
+  - Implement `appMeta/baselines` (and related symbol meta docs) in Firestore in the shape needed by v3.
 
-- [ ] Define `UniverseSliceOption` enum and constants for all top/bottom/middle slices.
-- [ ] Add `selectedUniverseSliceV2` to store and implement slice computation over sorted RS data.
-- [ ] Implement `UniverseSliceChipBarComponent` to drive this state.
-- [ ] Add unit tests for slice calculations, including edge cases (very small universes).
-- After completion, record in this doc:
-  - Commits and key filenames that implemented this task.
+- [ ] **RS-FE-FEAT-HMUI-2602-T03 – Baseline chip bar UI (v3)**
+  - Implement `BaselineChipBarComponent` in **dashboard v3**, using Angular Material chips and normalized baseline metadata.
+  - Extend `DashboardV3Store` with baseline metadata and `selectedBaselineId` / `selectedBaseline` signals.
 
-### 8.3 Time-Range Selector
+- [ ] **RS-FE-FEAT-HMUI-2602-T04 – Baseline-driven universe selection (v3, pair-centric)**
+  - Define `baselineUniverses: Record<string, string[]>` in `DashboardV3Store`, where each value is a list of canonical `BASE-TARG` pair IDs for that baseline.
+  - Seed `baselineUniverses` initially from static/stubbed data (e.g., emulator `pair-registry` export), then later from FE-facing backend APIs once available.
+  - Implement `currentUniversePairs()` as a computed signal and a v3-only loader that uses `currentUniversePairs()` as the canonical universe for the v3 heatmap (no dependency on v2 lists).
 
-- [ ] Define `TimeRangeOption` enum and mapping to specific durations (6M, 1Y, 2Y, 5Y, All).
-- [ ] Add `selectedTimeRangeV2` to store with default `6M`.
-- [ ] Implement `TimeRangeChipBarComponent`.
-- [ ] Wire time-range through to RS history rendering and chart navigation defaults.
-- After completion, record in this doc:
-  - Commits and key filenames that implemented this task.
+- [ ] **RS-FE-FEAT-HMUI-2602-T05 – Heatmap data loading for large universes (v3-only)**
+  - **Prototype (FE-only, small universes)**
+    - Implement a **v3-only** data loading pipeline for RS metrics over small baseline universes (e.g., stubbed 10–25 pair sets), driven by canonical pair IDs from `currentUniversePairs()`.
+    - Reuse shared read-only infrastructure where appropriate (e.g., Firestore services, RS calc engine) but do not call v2 feature/store methods.
+    - Normalize loaded RS series into row view models / `RanksDataWithColors` consumed exclusively by the v3 heatmap.
+  - **Production (500+ pairs) – backend snapshots required**
+    - Introduce backend precomputation of per-baseline, per-timeframe heatmap snapshots (e.g., `heatmapSnapshots/{baseline}_{timeframe}`) that contain a ready-to-render `RanksDataWithColors` matrix and associated header metadata.
+    - The FE v3 loader should, in production, fetch a single snapshot document (or a very small number of docs) for the selected baseline + timeframe instead of issuing one read per pair.
+    - FE-side `currentUniversePairs()` and slice options will operate over the snapshot matrix (and/or snapshot-provided sorted pair lists), not by directly walking the raw pair archive at runtime.
 
-### 8.4 Virtualized Heatmap Rendering
+- [ ] **RS-FE-FEAT-HMUI-2602-T06 – Sorting & symmetric percentile slicing (v3)**
+  - Define `UniverseSliceOption` enum and constants for all top/bottom/middle slices in the v3 store.
+  - Implement canonical RS-based sorting by latest `post` RS and slice calculations for All/Top/Bottom/Middle percentiles over the v3 baseline universe.
 
-- [ ] Create/extend a heatmap rows component to use `cdk-virtual-scroll-viewport` for vertical scrolling.
-- [ ] Implement horizontal windowing/virtualization of the RS history axis so we can safely handle data back to 2019.
-- [ ] Integrate the virtualized component into **dashboard v3** heatmap, consuming `displayPairsV2()`.
-- [ ] Verify performance at:
-  - ~500 rows (SPY universe) with 6 months of visible history.
-  - Smaller universes (QQQ, X* ETFs).
-- After completion, record in this doc:
-  - Commits and key filenames that implemented this task.
+- [ ] **RS-FE-FEAT-HMUI-2602-T07 – Universe slice chip bar UI**
+  - Implement `UniverseSliceChipBarComponent` to drive universe slice selection.
+  - Wire it to store state (e.g., `selectedUniverseSlice`) and derived selectors over the sorted RS list.
 
-### 8.5 Paginator & UX Polish
+- [ ] **RS-FE-FEAT-HMUI-2602-T08 – Time-range selector**
+  - Define `TimeRangeOption` enum and mapping to specific durations (6M, 1Y, 2Y, 5Y, All), with default 6M.
+  - Implement `TimeRangeChipBarComponent` and propagate the selected time range into RS history rendering and chart navigation defaults.
 
-- [ ] Provide page-size selector (25/50/100/All) even when virtual scroll is in use, as a UX “density” control.
-- [ ] Default to 100 rows; adjust styling and height to ensure comfortable browsing.
-- [ ] Ensure controls remain usable on smaller screens.
-- After completion, record in this doc:
-  - Commits and key filenames that implemented this task.
+- [ ] **RS-FE-FEAT-HMUI-2602-T09 – Vertical virtual scroll for heatmap rows**
+  - Create/extend a heatmap rows component that uses `cdk-virtual-scroll-viewport` for vertical scrolling.
+  - Integrate this component into **dashboard v3** heatmap, consuming the final filtered/sliced `displayPairs` array.
 
-### 8.6 Testing
+- [ ] **RS-FE-FEAT-HMUI-2602-T10 – Horizontal windowing / virtual scroll for RS history**
+  - Implement horizontal windowing or virtualization of the RS history axis so we can safely handle historical data back to 2019.
+  - Ensure it interacts correctly with time-range selection.
 
-- [ ] Jest unit tests:
-  - Sorting by latest post RS.
-  - Slice calculations for all top/bottom/middle variants.
-  - Time-range option mapping.
-- [ ] Cypress E2E:
-  - Baseline switch + slice filters + time-range + scroll behavior.
-  - Confirm that top/bottom filters produce expected extremes visually.
-- After completion, record in this doc:
-  - Commits and key filenames that implemented this task.
+- [ ] **RS-FE-FEAT-HMUI-2602-T11 – Paginator and UX density controls**
+  - Provide a page-size selector (25/50/100/All) as a UX "density" control alongside virtual scroll, defaulting to 100 rows.
+  - Adjust styling/height for comfortable browsing and ensure controls remain usable on smaller screens.
+
+- [ ] **RS-FE-FEAT-HMUI-2602-T12 – Testing & verification**
+  - Jest unit tests for: sorting by latest post RS, slice calculations for all top/bottom/middle variants, and time-range option mapping.
+  - Cypress E2E tests for: baseline switch + slice filters + time-range + scroll behavior; confirm top/bottom filters produce expected extremes visually.
 
 ---
 
@@ -297,3 +301,4 @@
   - Do **not** remove or repoint the v2 menu item until v3 is fully validated and we explicitly decide to migrate.
 - **Access Control / Guards**
   - Ensure the v3 route uses the same auth guard and access rules as v2 so behavior is consistent for signed-in users.
+
