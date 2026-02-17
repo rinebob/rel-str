@@ -94,6 +94,9 @@ export const PAIRS_COLLECTION = 'pairs-data';
 /** Registry of baseline–target pairs we own. */
 export const REGISTRY_COLLECTION = 'pair-registry';
 
+/** Root collection for precomputed heatmap snapshots consumed by dashboard v3. */
+export const HEATMAP_SNAPSHOTS_COLLECTION = 'heatmap-snapshots';
+
 /** Archive per-year collection prefix (under each pair doc): archive-YYYY */
 export const ARCHIVE_COLLECTION_PREFIX = 'archive-';
 

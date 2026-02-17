@@ -49,6 +49,8 @@ export * from './webhooks/registry-actions';
 
 export { getPairRSArchive } from './archive';
 
+export { rebuildHeatmapSnapshotAdmin } from './rs/heatmap/heatmap-snapshots';
+
 export { tradeJournalManager } from './trade-journal-manager';
 
 // RS chart / OHLC bars callable
