@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectionStrategy, Component, effect, ElementRef, inject, computed, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, ElementRef, inject, computed, signal, viewChild } from '@angular/core';
 import { NgStyle, DecimalPipe } from '@angular/common';
 import { BaselineTargetRankDatum, Timeframe } from '../../shared/types/rs.interfaces';
 import { RelStrBaseComponent } from '../../rel-str-base/rel-str-base.component';
@@ -14,13 +14,13 @@ const HEADER_CELL_CORNER_TEXT = 'Symbol/Date';
 @Component({
     selector: 'rs-heatmap-v3',
     standalone: true,
-    imports: [NgStyle, DecimalPipe],
+    imports: [DecimalPipe],
     templateUrl: './heatmap-v3.component.html',
     styleUrl: './heatmap-v3.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class HeatmapV3Component extends RelStrBaseComponent implements AfterViewInit {
-    dataScroller = viewChild.required<ElementRef<HTMLDivElement>>('dataScroller');
+export class HeatmapV3Component extends RelStrBaseComponent {
+    dataScroller = viewChild<ElementRef<HTMLDivElement>>('dataScroller' as any);
 
     headerCells = signal<string[]>([]);
     ranksDataWithColorsEntries = signal<[string, BaselineTargetRankDatum[]][]>([]);
@@ -138,10 +138,6 @@ export class HeatmapV3Component extends RelStrBaseComponent implements AfterView
             }
             this.headerCells.set(dates);
         });
-    }
-
-    ngAfterViewInit(): void {
-        this.scrollToRight();
     }
 
     handleCellSelection() {

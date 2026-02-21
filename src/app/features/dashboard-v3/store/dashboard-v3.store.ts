@@ -6,6 +6,7 @@ import { RelStrDbV2Service } from '../../services/rel-str-db-v2.service';
 import { RsCalcsStore } from '../../store/rs-calcs.store';
 import { RsDataStore } from '../../store/rs-data.store';
 import { firstValueFrom } from 'rxjs';
+import { HeatmapV3DataService } from '../services/heatmap-v3-data.service';
 
 export type UniverseSliceOption =
   | 'ALL'
@@ -112,6 +113,7 @@ export const DashboardV3Store = signalStore(
     rsDataStore = inject(RsDataStore),
     env = inject(EnvironmentInjector),
     zone = inject(NgZone),
+    heatmapV3DataService = inject(HeatmapV3DataService),
   ) => {
 
     const generateHeatmapDataV3 = async (pair: string, timeframe: Timeframe): Promise<BaselineTargetRankDatum[]> => {
@@ -142,6 +144,11 @@ export const DashboardV3Store = signalStore(
       });
     };
 
+    /**
+     * DEPRECATED for dashboard v3: archive-based FE loader kept for backward compatibility
+     * and potential reuse in v2 paths. Dashboard v3 now prefers backend viewport snapshots
+     * via HeatmapV3DataService instead of per-pair archive reads.
+     */
     const getHeatmapDataV3 = async (pairs: string[], timeframe: Timeframe): Promise<RanksDataWithColors> => {
       const out: RanksDataWithColors = {};
       const perPair: Record<string, BaselineTargetRankDatum[]> = {};
@@ -249,8 +256,8 @@ export const DashboardV3Store = signalStore(
       },
 
       async loadHeatmapForCurrentBaseline(force = false): Promise<void> {
-        const pairs = store.currentUniversePairs();
-        if (!pairs.length) {
+        const baselineId = store.selectedBaselineId();
+        if (!baselineId) {
           patchState(store, { heatmapRanksData: {}, heatmapLoading: false });
           return;
         }
@@ -267,11 +274,69 @@ export const DashboardV3Store = signalStore(
           runInInjectionContext(env, () => {
             void (async () => {
               try {
-                const ranks = await getHeatmapDataV3(pairs, timeframe);
+                // DEBUG: log snapshot request context
+                // eslint-disable-next-line no-console
+                console.log('[DashboardV3Store] loadHeatmapForCurrentBaseline snapshot request', {
+                  baselineId,
+                  timeframe,
+                });
+
+                const matrix = await heatmapV3DataService.getViewportSnapshotOnce(baselineId, timeframe);
+
+                if (!matrix || !Array.isArray(matrix.pairs) || !Array.isArray(matrix.dates)) {
+                  // eslint-disable-next-line no-console
+                  console.log('[DashboardV3Store] snapshot load failed or invalid', { matrix });
+                  patchState(store, {
+                    heatmapRanksData: {},
+                    heatmapError: 'Missing or invalid heatmap snapshot',
+                    heatmapLoading: false,
+                  });
+                  return;
+                }
+
+                // eslint-disable-next-line no-console
+                console.log('[DashboardV3Store] snapshot loaded', {
+                  pairs: matrix.pairs.length,
+                  dates: matrix.dates.length,
+                });
+
+                const colors = rsCalcsStore.heatmapColors();
+                const ranks: RanksDataWithColors = {};
+                const fallbackColor = '#000000';
+
+                matrix.pairs.forEach((pairId, rowIndex) => {
+                  const rowValues = matrix.values[rowIndex] ?? [];
+                  const row: BaselineTargetRankDatum[] = matrix.dates.map((date, colIndex) => {
+                    const rawValue = Number(rowValues[colIndex] ?? 0);
+                    const value = Number.isFinite(rawValue) ? rawValue : 0;
+                    const metric = value;
+
+                    let index = 0;
+                    let color = fallbackColor;
+                    const palette = colors || [];
+                    if (palette.length > 0) {
+                      const scaled = Math.floor(metric * (palette.length - 1));
+                      const clamped = Math.max(0, Math.min(palette.length - 1, scaled));
+                      index = clamped;
+                      color = palette[clamped] ?? fallbackColor;
+                    }
+
+                    return {
+                      date,
+                      value,
+                      index,
+                      color,
+                      placeholder: false,
+                    } as BaselineTargetRankDatum;
+                  });
+
+                  ranks[pairId] = row;
+                });
+
                 patchState(store, { heatmapRanksData: ranks, heatmapLoading: false });
               } catch (e: unknown) {
                 patchState(store, {
-                  heatmapError: (e as Error)?.message ?? 'Failed to load v3 heatmap data',
+                  heatmapError: (e as Error)?.message ?? 'Failed to load v3 heatmap snapshot',
                   heatmapLoading: false,
                 });
               }
