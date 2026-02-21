@@ -14,7 +14,7 @@
 
     .heatmap-viewport {
         @include global.flexboxLayout(row, flex-start, flex-start);
-        max-height: calc(var(--heatmap-cell-height) * 20); // viewport height for ~20 rows
+        max-height: 100%;
         overflow-y: auto;
         overflow-x: visible; // allow inner rows container horizontal scrollbar to show
         @include global.customScrollbar();

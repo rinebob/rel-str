@@ -2,6 +2,9 @@
 @use '../../styles/variables-global';
 
 :host {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 64px);
 
     /////////////////// CONTAINERS ///////////////////
     
@@ -17,8 +20,9 @@
     
     .dashboard-container {
         @include global.flexboxLayout(column, flex-start, center);
+        height: 100%;
         gap: 20px;
-        margin: 20px;
+        box-sizing: border-box;
         
         .baseline-chip-row {
             @include global.flexboxLayout(row, flex-start, center);
@@ -91,6 +95,8 @@
 
         .heatmap-container {
             width: 100%;
+            flex: 1;
+            min-height: 0;
         }
     }
 
