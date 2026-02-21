@@ -1,103 +1,91 @@
 @if (ranksDataWithColorsEntries().length) {
 
-  <div class="heatmap-container">
+<div class="heatmap-viewport" #dataScroller>
+    <div class="heatmap-container">
 
-    <!-- Fixed first column: corner header + pair names -->
-    <div class="first-column-container">
+        <!-- Fixed first column: corner header + pair names -->
+        <div class="first-column-container">
 
-      <!-- HEADER ROW (corner cell only) -->
-      <div class="heatmap-row header-row">
-        <div class="header-cell first">
-          <p class="heatmap-text">{{ headerCells()[0] }}</p>
-        </div>
-      </div>
-
-      @for (entry of sortedRanksDataWithColorsEntries(); track $index) {
-        <div class="heatmap-row data-row">
-          <div class="heatmap-cell first">{{ entry[0] }}</div>
-        </div>
-      }
-    </div>
-
-    <!-- Scrollable data columns (excludes first column) -->
-    <div class="heatmap-rows-container" #dataScroller>
-
-      <!-- MONTH BAND ROW: groups days by month -->
-      <div class="month-band-row">
-        @for (group of monthGroups(); track group.label + '-' + group.span) {
-          <div
-            class="month-band-cell"
-            [style.--span]="group.span"
-            [class.month-alt]="group.alt"
-            [attr.title]="group.label"
-          >
-            <span class="month-label">{{ group.label }}</span>
-          </div>
-        }
-      </div>
-
-      <!-- HEADER ROW: skip idx 0 so only data date columns render -->
-      <div class="heatmap-row header-row">
-        @for (h of headerDateParts(); track h.raw) {
-          <div
-            class="header-cell"
-            [class.week-alt]="h.weekAlt"
-            [class.week-start]="h.weekStart"
-            [class.sorted]="isHeaderSorted(h.raw)"
-            [attr.title]="h.raw"
-            (click)="onHeaderDateClick(h.raw)"
-          >
-            <p class="heatmap-date">
-              {{ h.date }}
-              @if (isHeaderSorted(h.raw)) {
-                <span class="sort-indicator">{{ sortDirection() === 'asc' ? '▲' : '▼' }}</span>
-              }
-            </p>
-            <p class="heatmap-dow">{{ h.dow }}</p>
-          </div>
-        }
-      </div>
-
-      @for (entry of sortedRanksDataWithColorsEntries(); track $index) {
-        <div class="heatmap-row data-row">
-          @for (datum of entry[1]; track datum.date) {
-            <div
-              class="heatmap-cell"
-              [class.week-start]="weekStartMap()[datum.date] === true"
-              [class.sorted-col]="sortedDateKey() === datum.date"
-              [style.background-color]="datum.color"
-              [class.placeholder]="datum.placeholder === true"
-              [attr.title]="'date: ' + datum.date + (datum.phase ? (' | phase: ' + datum.phase) : (datum.placeholder ? ' | phase: missing' : ''))"
-            >
-              <p class="heatmap-text">{{ datum.value | number: '1.3-3' }}</p>
+            <!-- HEADER ROW (corner cell only) -->
+            <div class="heatmap-row header-row">
+                <div class="header-cell first">
+                    <p class="heatmap-text">{{ headerCells()[0] }}</p>
+                </div>
             </div>
-          }
-        </div>
-      }
-    </div>
 
-    <!-- Right-side buttons column -->
-    <div class="buttons-column-container">
-      <!-- Right-side header: two stacked rows to match left header total height -->
-      <div class="buttons-row-container header-month">
-        <div class="header-cell"></div>
-        <div class="header-cell"></div>
-      </div>
-      <div class="buttons-row-container header-daterow">
-        <div class="header-cell"></div>
-        <div class="header-cell"></div>
-      </div>
-
-      @for (entry of ranksDataWithColorsEntries(); track $index) {
-        <div class="buttons-row-container">
-          <div class="heatmap-cell button-cell" (click)="handleSymbolSelection(entry[0], 'chart')">
-            Chart
-          </div>
-          <div class="heatmap-cell button-cell" (click)="handleSymbolSelection(entry[0], 'history')">
-            History
-          </div>
+            @for (entry of sortedRanksDataWithColorsEntries(); track $index) {
+            <div class="heatmap-row data-row">
+                <div class="heatmap-cell first">{{ entry[0] }}</div>
+            </div>
+            }
         </div>
-      }
+
+        <!-- Scrollable data columns (excludes first column) -->
+        <div class="heatmap-rows-container">
+
+            <!-- MONTH BAND ROW: groups days by month -->
+            <div class="month-band-row">
+                @for (group of monthGroups(); track group.label + '-' + group.span) {
+                <div class="month-band-cell" [style.--span]="group.span" [class.month-alt]="group.alt"
+                    [attr.title]="group.label">
+                    <span class="month-label">{{ group.label }}</span>
+                </div>
+                }
+            </div>
+
+            <!-- HEADER ROW: skip idx 0 so only data date columns render -->
+            <div class="heatmap-row header-row">
+                @for (h of headerDateParts(); track h.raw) {
+                <div class="header-cell" [class.week-alt]="h.weekAlt" [class.week-start]="h.weekStart"
+                    [class.sorted]="isHeaderSorted(h.raw)" [attr.title]="h.raw" (click)="onHeaderDateClick(h.raw)">
+                    <p class="heatmap-date">
+                        {{ h.date }}
+                        @if (isHeaderSorted(h.raw)) {
+                        <span class="sort-indicator">{{ sortDirection() === 'asc' ? '▲' : '▼' }}</span>
+                        }
+                    </p>
+                    <p class="heatmap-dow">{{ h.dow }}</p>
+                </div>
+                }
+            </div>
+
+            @for (entry of sortedRanksDataWithColorsEntries(); track $index) {
+            <div class="heatmap-row data-row">
+                @for (datum of entry[1]; track datum.date) {
+                <div class="heatmap-cell" [class.week-start]="weekStartMap()[datum.date] === true"
+                    [class.sorted-col]="sortedDateKey() === datum.date" [style.background-color]="datum.color"
+                    [class.placeholder]="datum.placeholder === true"
+                    [attr.title]="'date: ' + datum.date + (datum.phase ? (' | phase: ' + datum.phase) : (datum.placeholder ? ' | phase: missing' : ''))">
+                    <p class="heatmap-text">{{ datum.value | number: '1.3-3' }}</p>
+                </div>
+                }
+            </div>
+            }
+        </div>
+
+        <!-- Right-side buttons column -->
+        <div class="buttons-column-container">
+            <!-- Right-side header: two stacked rows to match left header total height -->
+            <div class="buttons-row-container header-month">
+                <div class="header-cell"></div>
+                <div class="header-cell"></div>
+            </div>
+            <div class="buttons-row-container header-daterow">
+                <div class="header-cell"></div>
+                <div class="header-cell"></div>
+            </div>
+
+            @for (entry of ranksDataWithColorsEntries(); track $index) {
+            <div class="buttons-row-container">
+                <div class="heatmap-cell button-cell" (click)="handleSymbolSelection(entry[0], 'chart')">
+                    Chart
+                </div>
+                <div class="heatmap-cell button-cell" (click)="handleSymbolSelection(entry[0], 'history')">
+                    History
+                </div>
+            </div>
+            }
+        </div>
     </div>
-  </div>
+</div>
 }

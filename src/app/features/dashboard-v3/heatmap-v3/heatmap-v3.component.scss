@@ -12,6 +12,14 @@
     --heatmap-month-text: var(--theme-on-surface, #222);
     --heatmap-month-band-height: calc(var(--heatmap-cell-height) * 0.66);
 
+    .heatmap-viewport {
+        @include global.flexboxLayout(row, flex-start, flex-start);
+        max-height: calc(var(--heatmap-cell-height) * 20); // viewport height for ~20 rows
+        overflow-y: auto;
+        overflow-x: visible; // allow inner rows container horizontal scrollbar to show
+        @include global.customScrollbar();
+    }
+
     .heatmap-container {
         @include global.flexboxLayout(row, flex-start, flex-start);
 

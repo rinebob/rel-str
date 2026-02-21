@@ -189,9 +189,30 @@ export class HeatmapV3Component extends RelStrBaseComponent {
     private scrollToRight(): void {
         setTimeout(() => {
             const el = this.dataScroller()?.nativeElement;
-            if (!el) return;
+            if (!el) {
+                // eslint-disable-next-line no-console
+                console.warn('[HeatmapV3] scrollToRight: dataScroller element not found');
+                return;
+            }
+            // eslint-disable-next-line no-console
+            console.log('[HeatmapV3] scrollToRight:', {
+                scrollWidth: el.scrollWidth,
+                clientWidth: el.clientWidth,
+                scrollLeft_before: el.scrollLeft,
+            });
             el.scrollLeft = el.scrollWidth;
-        }, 0);
+            // eslint-disable-next-line no-console
+            console.log('[HeatmapV3] scrollToRight after:', { scrollLeft: el.scrollLeft });
+            
+            // Retry after layout settles if scroll didn't happen
+            setTimeout(() => {
+                if (el.scrollLeft === 0 && el.scrollWidth > el.clientWidth) {
+                    // eslint-disable-next-line no-console
+                    console.log('[HeatmapV3] scrollToRight retry:', { scrollWidth: el.scrollWidth, clientWidth: el.clientWidth });
+                    el.scrollLeft = el.scrollWidth;
+                }
+            }, 200);
+        }, 300);
     }
 
     private formatHeaderDate(dateStr: string, timeframe: Timeframe): string {
