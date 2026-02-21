@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectionStrategy, Component, effect, ElementRef, inject, computed, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, ElementRef, inject, computed, signal, viewChild } from '@angular/core';
 import { NgStyle, DecimalPipe } from '@angular/common';
 import { BaselineTargetRankDatum, Timeframe } from '../../shared/types/rs.interfaces';
 import { RelStrBaseComponent } from '../../rel-str-base/rel-str-base.component';
@@ -14,13 +14,13 @@ const HEADER_CELL_CORNER_TEXT = 'Symbol/Date';
 @Component({
     selector: 'rs-heatmap-v3',
     standalone: true,
-    imports: [NgStyle, DecimalPipe],
+    imports: [DecimalPipe],
     templateUrl: './heatmap-v3.component.html',
     styleUrl: './heatmap-v3.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class HeatmapV3Component extends RelStrBaseComponent implements AfterViewInit {
-    dataScroller = viewChild.required<ElementRef<HTMLDivElement>>('dataScroller');
+export class HeatmapV3Component extends RelStrBaseComponent {
+    dataScroller = viewChild<ElementRef<HTMLDivElement>>('dataScroller' as any);
 
     headerCells = signal<string[]>([]);
     ranksDataWithColorsEntries = signal<[string, BaselineTargetRankDatum[]][]>([]);
@@ -120,6 +120,7 @@ export class HeatmapV3Component extends RelStrBaseComponent implements AfterView
                 this.ranksDataWithColorsEntries.set([]);
                 this.headerCells.set([HEADER_CELL_CORNER_TEXT]);
                 this.monthGroups.set([]);
+                this.sortDateIndex.set(null);
                 return;
             }
             const entries = Object.entries(ranks) as [string, BaselineTargetRankDatum[]][];
@@ -129,6 +130,7 @@ export class HeatmapV3Component extends RelStrBaseComponent implements AfterView
             if (!Array.isArray(first) || first.length === 0) {
                 this.headerCells.set([HEADER_CELL_CORNER_TEXT]);
                 this.monthGroups.set([]);
+                this.sortDateIndex.set(null);
                 return;
             }
 
@@ -137,11 +139,16 @@ export class HeatmapV3Component extends RelStrBaseComponent implements AfterView
                 dates.push(datum.date);
             }
             this.headerCells.set(dates);
-        });
-    }
 
-    ngAfterViewInit(): void {
-        this.scrollToRight();
+            // Default sort: latest date column, descending (highest RS first)
+            const lastIndex = first.length - 1;
+            if (lastIndex >= 0) {
+                this.sortDateIndex.set(lastIndex);
+                this.sortDirection.set('desc');
+            } else {
+                this.sortDateIndex.set(null);
+            }
+        });
     }
 
     handleCellSelection() {
