@@ -225,6 +225,14 @@ To keep the v3 store focused on **selection state** and avoid turning it into a 
 interface HeatmapV3ViewportMatrix {
   pairs: string[];
   dates: string[];
+  /**
+   * In-memory matrix derived from the backend viewport snapshot.
+   * Firestore does not allow nested arrays, so the stored document
+   * uses `rows: Array<{ pair: string; values: number[] }>` instead
+   * of a raw number[][]. HeatmapV3DataService maps that shape into
+   * this `values: number[][]` matrix in memory, aligning rows to
+   * `pairs` and columns to `dates` by index.
+   */
   values: number[][];
 }
 
@@ -238,7 +246,7 @@ interface HeatmapV3DataService {
 
 - **Responsibilities**
   - Resolve the Firestore path for the current baseline + timeframe viewport snapshot:
-    - `heatmapSnapshots/{baselineId}_{timeframe}_viewport` as defined in the BE doc.
+    - `heatmap-snapshots/{baselineId}-{timeframe}-viewport` as defined in the BE doc and implemented in Cloud Functions.
   - Use AngularFire/Firestore SDK + RxJS (e.g., `switchMap`, `shareReplay`) to read a single snapshot doc on the happy path.
   - Expose the latest loaded viewport matrix and loading/error state via Angular **signals** for consumption by v3 components.
   - Provide a clean abstraction so that archive shards or alternative data sources can be added later without changing `DashboardV3Store` or the heatmap component’s contract.
@@ -261,6 +269,106 @@ This separation ensures that:
 - v3 store remains small and composable.
 - Bulk data loading and caching concerns are isolated in the data service.
 - Heatmap rendering logic operates on a **bounded viewport matrix**, regardless of how deep the backend’s RS history extends.
+
+### 7.5 Heatmap Color Palette Selection (Extensible)
+
+Dashboard v3 needs a robust, extensible mechanism for choosing and switching between different heatmap color treatments (e.g., classic red/green gradient, multi-stop warm/cool, strict two-color schemes).
+
+#### 7.5.1 Palette Registry (FE-only)
+
+- Define a **palette registry** in a shared FE utility (e.g., `color-utils.ts` or a small `heatmap-color-registry.ts`).
+- Registry concept:
+
+  ```ts
+  type HeatmapPaletteId = 'classicRedGreen' | 'warmCoolDiverging' | 'twoColorRedBlue' | 'customX';
+
+  interface HeatmapPaletteMeta {
+    id: HeatmapPaletteId;
+    /** Human-readable label for UI (e.g., "Classic (Red/Green)") */
+    label: string;
+    /** Short description for tooltips / docs */
+    description: string;
+    /** Whether this palette is primarily gradient-based or binary */
+    kind: 'gradient' | 'binary';
+    /** Factory that returns the concrete string[] palette for the current config */
+    createColors: () => string[];
+  }
+  ```
+
+- Maintain a single `HEATMAP_PALETTES: HeatmapPaletteMeta[]` array that is the **source of truth** for:
+  - Which palettes are available in the UI.
+  - How to generate their underlying color arrays.
+- Existing generators map cleanly into this registry:
+  - `classicRedGreen` → `generateColorArray(NUM_HEATMAP_MIDPOINTS)`.
+  - `warmCoolDiverging` → `generateWarmColdColorArray(NUM_HEATMAP_MIDPOINTS)`.
+  - `twoColorRedBlue` → `generateTwoColorWarmCoolArray()` (current v3 default).
+
+Adding a new palette becomes **data-only**: add a new `HeatmapPaletteMeta` entry; no changes to store or heatmap component contracts.
+
+#### 7.5.2 Store Wiring for Palette Selection
+
+- Extend `RsCalcsStore` or `DashboardV3Store` with a small piece of state for the currently selected palette:
+  - Option A (global RS-level):
+    - `RsCalcsStore` holds `selectedHeatmapPaletteId: HeatmapPaletteId`.
+    - This applies across any view that consumes `heatmapColors`.
+  - Option B (v3-only):
+    - `DashboardV3Store` holds `selectedHeatmapPaletteIdV3: HeatmapPaletteId`.
+    - Only dashboard v3 uses this; v2 or other views can keep their own choices.
+
+- Expose a method to change the palette:
+
+  ```ts
+  setHeatmapPalette(id: HeatmapPaletteId): void;
+  ```
+
+  which:
+  - Looks up the `HeatmapPaletteMeta` in the registry.
+  - Calls `meta.createColors()`.
+  - Updates `heatmapColors` in `RsCalcsStore` (and persists `selectedHeatmapPaletteId` in store state).
+
+- Heatmap rendering code **does not change**; it continues to:
+  - Read `heatmapColors()` from `RsCalcsStore`.
+  - Map normalized RS metrics into palette indices.
+
+#### 7.5.3 UI Control – Palette Selector
+
+- Introduce a small palette selector UI in `dashboard-v3`:
+  - **Form factor options**:
+    - Compact **radio-group** with labeled options when there are only a few palettes.
+    - **Dropdown / select** if the registry grows beyond 3–4 options.
+  - Sourced directly from `HEATMAP_PALETTES`:
+    - The component iterates over the registry array and renders one option per `HeatmapPaletteMeta`.
+    - This ensures any palette added in code is automatically available to the user.
+
+- Behavior:
+  - On selection change, the component calls `setHeatmapPalette(id)` on the chosen store (global or v3-specific).
+  - Changing palettes **does not** require a new backend fetch; it simply:
+    - Recomputes `heatmapColors` locally.
+    - Causes the heatmap to re-render with the new color mapping.
+
+- UX affordances:
+  - Show short labels such as:
+    - "Classic (Red/Green)".
+    - "Warm/Cool Gradient".
+    - "Binary (Red/Blue 0.5 Split)".
+  - Optionally include a small inline legend or swatch preview using the first few colors of each palette.
+
+#### 7.5.4 Extensibility & Testing
+
+- Extensibility:
+  - To add a new palette, implement a new generator or direct color array, then register it in `HEATMAP_PALETTES` with an `id`, `label`, and `createColors` function.
+  - No changes are required in:
+    - `DashboardV3Store` heatmap snapshot mapping.
+    - `HeatmapV3Component` row mapping logic.
+
+- Testing Considerations:
+  - Unit tests should verify that:
+    - `setHeatmapPalette(id)` correctly updates `heatmapColors` and `selectedHeatmapPaletteId`.
+    - Binary palettes (length === 2) still use the special threshold logic in `DashboardV3Store` mapping.
+    - Gradient palettes (length > 2) use the existing index math (scaled and clamped by palette length).
+  - E2E tests should at least cover:
+    - Switching between two palettes and observing a visual change in cell colors for the same underlying RS values.
+    - Confirming that palette switches do not trigger additional Firestore reads (only FE re-render).
 
 ---
 
@@ -340,6 +448,39 @@ Use the following subtasks under epic **RS-FE-FEAT-HMUI-2602**. Check them off a
   - Copy the current dashboard v2 implementation to a v3 directory/route.
   - Apply new baseline chips, universe slice filters, time-range selector, and virtualized heatmap to v3 only.
   - Once v3 is validated, we can decide whether to deprecate or migrate v2.
+
+### 9.1.1 Heatmap Color Treatment – Warm/Cool vs. Red/Green
+
+- **Background (v2)**
+  - Dashboard v2 heatmap used a classic **red → yellow → green** gradient.
+  - In dense grids, the green/yellow side tended to visually blend, while reds dominated attention.
+  - Red/green also has accessibility drawbacks (common color vision issues).
+
+- **v3 Color Strategy**
+  - v3 switches the primary mental model from **red/green** to **warm/cool**:
+    - "Warm" corresponds to **stronger / better** relative strength.
+    - "Cold" corresponds to **weaker / worse** relative strength.
+  - We use a **strict two-color palette** for the initial v3 rollout:
+    - **Index 0** – `#d7191c` (red): *cold / down* bucket.
+    - **Index 1** – `#2c7bb6` (blue): *warm / up* bucket.
+  - Mapping rule (for normalized RS metrics in `[0, 1]`):
+    - `value < 0.5` → index `0` → **red**.
+    - `value >= 0.5` → index `1` → **blue**.
+  - This yields a very clear, binary view of the universe: everything is either in the "red half" or the "blue half" of relative strength.
+
+- **Implementation Notes**
+  - Palette is generated in `color-utils.ts` via `generateTwoColorWarmCoolArray()` and stored in `RsCalcsStore.heatmapColors`.
+  - `DashboardV3Component.ngOnInit()` selects the palette for v3 by calling `setHeatmapColors(generateTwoColorWarmCoolArray())`.
+  - The dashboard v3 store’s snapshot mapper detects the two-color palette (`palette.length === 2`) and applies the explicit threshold logic instead of treating it as a multi-stop gradient.
+  - Existing gradient generators (classic red/yellow/green and multi-stop warm/cool) are preserved for future toggles or A/B tests; v3 simply chooses the two-color palette by default.
+
+- **Spidey Colors (Blue/Red Choice)**
+  - The specific red/blue anchors are intentionally close to well-known diverging palettes (e.g., ColorBrewer `RdBu`) and happen to land near **"Spider‑Man" red/blue**.
+  - This is acceptable and even helpful:
+    - Highly legible against the existing light theme.
+    - Strong contrast between warm and cool halves.
+    - Easy to describe verbally ("Spidey red vs. Spidey blue"), which aids debugging and collaboration.
+  - If future UX feedback prefers a softer treatment (e.g., teal + amber, or muted navy + rust), the only change required is to swap the two hex values in `generateTwoColorWarmCoolArray()`; the thresholding and store plumbing remain the same.
 
 ### 9.2 Routing & Navigation for Dashboard v3
 
