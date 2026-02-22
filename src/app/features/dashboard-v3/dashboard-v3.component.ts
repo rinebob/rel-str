@@ -5,7 +5,7 @@ import { MatChipsModule } from '@angular/material/chips';
 
 import { HeatmapV3Component } from './heatmap-v3/heatmap-v3.component';
 import { RelStrBaseComponent } from '../rel-str-base/rel-str-base.component';
-import { generateColorArray } from '../utils/color-utils';
+import { generateColorArray, generateWarmColdColorArray, generateHalfWarmHalfCoolColorArray, generateTwoColorWarmCoolArray } from '../utils/color-utils';
 import { NUM_HEATMAP_MIDPOINTS } from '../../core/common/constants';
 import { Timeframe } from '../shared/types/rs.interfaces';
 import { RsDataStore } from '../store/rs-data.store';
@@ -39,7 +39,10 @@ export class DashboardV3Component extends RelStrBaseComponent implements OnInit 
     currentUniversePairs = computed(() => this.dashboardV3Store.currentUniversePairs());
 
     ngOnInit() {
-        this.rsCalcsStore.setHeatmapColors(generateColorArray(NUM_HEATMAP_MIDPOINTS));
+        // Use strict two-color warm/cool palette for dashboard v3 heatmap.
+        // Other generators remain available (generateColorArray, generateWarmColdColorArray,
+        // generateHalfWarmHalfCoolColorArray) for future toggles.
+        this.rsCalcsStore.setHeatmapColors(generateTwoColorWarmCoolArray());
         void this.dashboardV3Store.loadHeatmapForCurrentBaseline();
     }
 

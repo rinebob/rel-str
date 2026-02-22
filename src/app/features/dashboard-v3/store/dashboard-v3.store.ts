@@ -314,7 +314,12 @@ export const DashboardV3Store = signalStore(
                     let index = 0;
                     let color = fallbackColor;
                     const palette = colors || [];
-                    if (palette.length > 0) {
+                    if (palette.length === 2) {
+                      // Strict two-color warm/cool palette: values < 0.5 use index 0 (cool),
+                      // values >= 0.5 use index 1 (warm).
+                      index = metric >= 0.5 ? 1 : 0;
+                      color = palette[index] ?? fallbackColor;
+                    } else if (palette.length > 0) {
                       const scaled = Math.floor(metric * (palette.length - 1));
                       const clamped = Math.max(0, Math.min(palette.length - 1, scaled));
                       index = clamped;
