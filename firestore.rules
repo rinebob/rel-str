@@ -63,6 +63,12 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Heatmap snapshots for dashboard v3 (viewport docs), backend-written, FE read-only
+    match /heatmap-snapshots/{snapshotId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
     // Partner events (backend refresh runs) for header status
     match /partner-events/{eventId} {
       allow read: if request.auth != null;
