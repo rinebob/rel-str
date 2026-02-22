@@ -5,11 +5,11 @@ import { MatChipsModule } from '@angular/material/chips';
 
 import { HeatmapV3Component } from './heatmap-v3/heatmap-v3.component';
 import { RelStrBaseComponent } from '../rel-str-base/rel-str-base.component';
-import { generateColorArray, generateWarmColdColorArray, generateHalfWarmHalfCoolColorArray, generateTwoColorWarmCoolArray } from '../utils/color-utils';
-import { NUM_HEATMAP_MIDPOINTS } from '../../core/common/constants';
 import { Timeframe } from '../shared/types/rs.interfaces';
 import { RsDataStore } from '../store/rs-data.store';
 import { DashboardV3Store } from './store/dashboard-v3.store';
+import { HeatmapPaletteStore } from '../store/heatmap-palette.store';
+import type { HeatmapPaletteId } from '../utils/heatmap-color-registry';
 
 @Component({
     selector: 'rs-dashboard-v3',
@@ -26,6 +26,7 @@ export class DashboardV3Component extends RelStrBaseComponent implements OnInit 
 
     private readonly rsDataStore = inject(RsDataStore);
     readonly dashboardV3Store = inject(DashboardV3Store);
+    readonly heatmapPaletteStore = inject(HeatmapPaletteStore);
 
     title = 'rel-str';
 
@@ -38,11 +39,11 @@ export class DashboardV3Component extends RelStrBaseComponent implements OnInit 
     // Baseline-driven universe (pairs) for the selected baseline
     currentUniversePairs = computed(() => this.dashboardV3Store.currentUniversePairs());
 
+    // Available heatmap palettes (for selector UI)
+    palettes = computed(() => this.heatmapPaletteStore.getPalettes());
+    selectedPaletteId = computed(() => this.heatmapPaletteStore.selectedPaletteId());
+
     ngOnInit() {
-        // Use strict two-color warm/cool palette for dashboard v3 heatmap.
-        // Other generators remain available (generateColorArray, generateWarmColdColorArray,
-        // generateHalfWarmHalfCoolColorArray) for future toggles.
-        this.rsCalcsStore.setHeatmapColors(generateTwoColorWarmCoolArray());
         void this.dashboardV3Store.loadHeatmapForCurrentBaseline();
     }
 
@@ -55,6 +56,14 @@ export class DashboardV3Component extends RelStrBaseComponent implements OnInit 
 
     handleSortFilter() {
         // v3-specific sort/filter UI will be implemented here later
+    }
+
+    onPaletteChange(paletteId: HeatmapPaletteId) {
+        this.heatmapPaletteStore.setPalette(paletteId);
+        // Recompute heatmap rows using the new palette.
+        // For now we simply reload the snapshot for the current baseline/timeframe
+        // so DashboardV3Store rebuilds ranks with the updated colors.
+        void this.dashboardV3Store.loadHeatmapForCurrentBaseline(true);
     }
 
     onBaselineChipClick(baselineId: string) {

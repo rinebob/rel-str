@@ -3,10 +3,10 @@ import { patchState, signalStore, withComputed, withMethods, withState } from '@
 import type { RanksDataWithColors, BaselineTargetRankDatum } from '../../shared/types/rs.interfaces';
 import { Timeframe } from '../../shared/types/rs.interfaces';
 import { RelStrDbV2Service } from '../../services/rel-str-db-v2.service';
-import { RsCalcsStore } from '../../store/rs-calcs.store';
 import { RsDataStore } from '../../store/rs-data.store';
 import { firstValueFrom } from 'rxjs';
 import { HeatmapV3DataService } from '../services/heatmap-v3-data.service';
+import { HeatmapPaletteStore } from '../../store/heatmap-palette.store';
 
 export type UniverseSliceOption =
   | 'ALL'
@@ -109,11 +109,11 @@ export const DashboardV3Store = signalStore(
   })),
   withMethods((store,
     relStrDbV2Service = inject(RelStrDbV2Service),
-    rsCalcsStore = inject(RsCalcsStore),
     rsDataStore = inject(RsDataStore),
     env = inject(EnvironmentInjector),
     zone = inject(NgZone),
     heatmapV3DataService = inject(HeatmapV3DataService),
+    heatmapPaletteStore = inject(HeatmapPaletteStore),
   ) => {
 
     const generateHeatmapDataV3 = async (pair: string, timeframe: Timeframe): Promise<BaselineTargetRankDatum[]> => {
@@ -128,7 +128,7 @@ export const DashboardV3Store = signalStore(
       if (!Array.isArray(series) || series.length === 0) {
         return [];
       }
-      const colors = rsCalcsStore.heatmapColors();
+      const colors = heatmapPaletteStore.getSelectedPaletteColors();
       return series.map(d => {
         const metric = (d as any).norm ?? d.value;
         const idx = Math.floor(metric * (colors.length - 1));
@@ -219,7 +219,7 @@ export const DashboardV3Store = signalStore(
       }
 
       const allBuckets = Array.from(bucketSet.values()).sort((a, b) => String(a ?? '').localeCompare(String(b ?? '')));
-      const colors = rsCalcsStore.heatmapColors();
+      const colors = heatmapPaletteStore.getSelectedPaletteColors();
       const placeholderColor = '#cccccc';
 
       for (const pair of pairs) {
@@ -300,7 +300,7 @@ export const DashboardV3Store = signalStore(
                   dates: matrix.dates.length,
                 });
 
-                const colors = rsCalcsStore.heatmapColors();
+                const colors = heatmapPaletteStore.getSelectedPaletteColors();
                 const ranks: RanksDataWithColors = {};
                 const fallbackColor = '#000000';
 

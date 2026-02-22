@@ -37,11 +37,24 @@
                         [class.active]="selectedInterval() === timeframe.MONTHLY"
                         (click)="setInterval(timeframe.MONTHLY)">M</button>
             </div>
+
+            <div class="palette-selector">
+                <mat-button-toggle-group
+                    class="palette-toggle-group"
+                    [value]="selectedPaletteId()"
+                    (change)="onPaletteChange($event.value)">
+                    @for (p of palettes(); track p.id) {
+                        <mat-button-toggle class="palette-toggle" [value]="p.id">
+                            {{ p.label }}
+                        </mat-button-toggle>
+                    }
+                </mat-button-toggle-group>
+            </div>
+
             <button mat-button class="task-button" (click)="handleSortFilter()">Sort/Filter</button>
         </div>
 
     </div>
-
     <div class="heatmap-container">
         <rs-heatmap-v3 />
     </div>
