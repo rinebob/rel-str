@@ -197,6 +197,9 @@ export const SILENCE_REGISTRY_INFO = String(process.env.SILENCE_REGISTRY_INFO ||
 /** If true, suppress admin info logs (e.g., recomputePairsRs starting messages). */
 export const SILENCE_ADMIN_INFO = String(process.env.SILENCE_ADMIN_INFO || '').toLowerCase() === 'true';
 
+/** If true, enable verbose console logging for selected partner/proxy diagnostics. */
+export const ENABLE_CONSOLE_LOGGING = String(process.env.ENABLE_CONSOLE_LOGGING || '').toLowerCase() === 'true';
+
 /** Retention days for registry entries after last member removes it. */
 export const REGISTRY_RETENTION_DAYS = 30;
 

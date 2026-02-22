@@ -2,7 +2,7 @@ import { logger } from 'firebase-functions/v2';
 import { FieldValue } from 'firebase-admin/firestore';
 import { callPartnerTimeSeries, type PartnerInterval } from '../partner-proxy';
 import { persistWarning } from '../logging/warn';
-import { RsCloudFunctionName, RS_SYMBOL_CACHE_COLLECTION, RS_SYMBOL_CACHE_SYMBOLS_SUBCOL } from './webhooks-config';
+import { ENABLE_CONSOLE_LOGGING, RsCloudFunctionName, RS_SYMBOL_CACHE_COLLECTION, RS_SYMBOL_CACHE_SYMBOLS_SUBCOL } from './webhooks-config';
 import { db } from '../firebase-admin-init';
 
 export type PartnerBar = {
@@ -76,40 +76,44 @@ export async function fetchDailyBarsRange(symbol: string, opts: FetchRangeOption
     throw e;
   }
 
-  const rawBars = Array.isArray(data?.bars) ? data.bars : [];
-  logger.info(
-    `partner_timeseries_raw_payload symbol=${symbol} interval=${interval} from=${fromIso} to=${toIso} bars=${rawBars.length}`,
-    {
-      symbol,
-      interval,
-      from: fromIso,
-      to: toIso,
-      limit: req.limit,
-      barsCount: rawBars.length,
-      //   bars: rawBars,
-    },
-  );
-
-  const bars = Array.isArray(data?.bars) ? data.bars : [];
-  if (bars.length > 0) {
-    const firstT = Number(bars[0]?.t);
-    const lastT = Number(bars[bars.length - 1]?.t);
-    const firstDay = Number.isFinite(firstT) ? new Date(firstT).toISOString().slice(0, 10) : undefined;
-    const lastDay = Number.isFinite(lastT) ? new Date(lastT).toISOString().slice(0, 10) : undefined;
+  if (ENABLE_CONSOLE_LOGGING) {
+    const rawBars = Array.isArray(data?.bars) ? data.bars : [];
     logger.info(
-      `partner_timeseries_response symbol=${symbol} interval=${interval} from=${fromIso} to=${toIso} bars=${bars.length} firstDay=${firstDay || 'n/a'} lastDay=${lastDay || 'n/a'}`,
+      `partner_timeseries_raw_payload symbol=${symbol} interval=${interval} from=${fromIso} to=${toIso} bars=${rawBars.length}`,
       {
         symbol,
         interval,
         from: fromIso,
         to: toIso,
-        bars: bars.length,
-        firstDay,
-        lastDay,
+        limit: (req as any).limit,
+        barsCount: rawBars.length,
+        // bars: rawBars,
       },
     );
+  }
+
+  const bars = Array.isArray(data?.bars) ? data.bars : [];
+  if (bars.length > 0) {
+    if (ENABLE_CONSOLE_LOGGING) {
+      const firstT = Number((bars as any[])[0]?.t);
+      const lastT = Number((bars as any[])[(bars as any[]).length - 1]?.t);
+      const firstDay = Number.isFinite(firstT) ? new Date(firstT).toISOString().slice(0, 10) : undefined;
+      const lastDay = Number.isFinite(lastT) ? new Date(lastT).toISOString().slice(0, 10) : undefined;
+      logger.info(
+        `partner_timeseries_response symbol=${symbol} interval=${interval} from=${fromIso} to=${toIso} bars=${(bars as any[]).length} firstDay=${firstDay || 'n/a'} lastDay=${lastDay || 'n/a'}`,
+        {
+          symbol,
+          interval,
+          from: fromIso,
+          to: toIso,
+          bars: (bars as any[]).length,
+          firstDay,
+          lastDay,
+        },
+      );
+    }
     try {
-      let anomalies = 0;
+    //   let anomalies = 0;
       for (const b of bars as any[]) {
         const day = String(b?.d || '');
         if (!day) continue;
@@ -119,7 +123,7 @@ export async function fetchDailyBarsRange(symbol: string, opts: FetchRangeOption
         if (!(Number.isFinite(todayClose) && todayClose > 0)) issues.push('close_nonpositive_or_nonfinite');
         if (!Number.isFinite(cp) && Number.isFinite(todayClose) && todayClose > 0) issues.push('cp_nonfinite');
         if (issues.length) {
-          anomalies++;
+        //   anomalies++;
           try {
             await persistWarning('sa_bar_anomaly', {
               function: RsCloudFunctionName.PROCESS_DATA_READY,
@@ -131,13 +135,13 @@ export async function fetchDailyBarsRange(symbol: string, opts: FetchRangeOption
           } catch {}
         }
       }
-      if (anomalies > 0) logger.info('partner_timeseries_bar_anomalies', { symbol, anomalies });
+      // if (anomalies > 0) logger.info('partner_timeseries_bar_anomalies', { symbol, anomalies });
     } catch {}
 
     try {
       const cutoff = '2025-12-26';
       const tailBars = (bars as any[]).filter((b) => typeof b?.d === 'string' && b.d >= cutoff);
-      if (tailBars.length > 0) {
+      if (tailBars.length > 0 && ENABLE_CONSOLE_LOGGING) {
         logger.info('partner_timeseries_tail_bars_from_cutoff', {
           symbol,
           interval,
@@ -145,7 +149,7 @@ export async function fetchDailyBarsRange(symbol: string, opts: FetchRangeOption
           to: toIso,
           cutoff,
           tailCount: tailBars.length,
-          tailBars,
+          // tailBars,
         });
       }
     } catch {}

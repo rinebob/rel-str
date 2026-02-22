@@ -5,7 +5,7 @@ import {db, FieldValue} from "./firebase-admin-init";
 import { GetTrackedSymbolsResponse, TrackedSymbolDTO, PartnerEndpointPath, PartnerMarketHolidaysResponse } from './types/partner';
 import { DEFAULT_PARTNER_CALLER_SA, IAM_CREDENTIALS_BASE_URL, OAUTH_CLOUD_PLATFORM_SCOPE, IAM_SERVICE_ACCOUNTS_PATH, IamCredentialsMethod } from './config/constants';
 import { persistWarning } from './logging/warn';
-import { RsCloudFunctionName } from './webhooks/webhooks-config';
+import { ENABLE_CONSOLE_LOGGING, RsCloudFunctionName } from './webhooks/webhooks-config';
 
 // Base host retained for compatibility, but audiences should be function URLs per SA quickstart
 export const PARTNER_AUDIENCE =
@@ -110,18 +110,20 @@ export async function callPartnerTimeSeries(params: {
   if (params.adjusted !== undefined) search.set("adjusted", String(params.adjusted));
   const url = `${PARTNER_TS_URL}?${search.toString()}`;
 
-  // Log the exact upstream request parameters for diagnostics, especially for long windows.
-  logger.info("partnerTimeSeries_request", {
-    symbol: params.symbol,
-    interval: params.interval,
-    range: params.range ?? null,
-    from: params.from ?? null,
-    to: params.to ?? null,
-    limit: params.limit ?? null,
-    adjusted: params.adjusted ?? null,
-    url,
-    audience,
-  });
+  // NOTE: Controlled via ENABLE_CONSOLE_LOGGING to avoid excessive emulator/prod noise.
+  if (ENABLE_CONSOLE_LOGGING) {
+    logger.info("partnerTimeSeries_request", {
+      symbol: params.symbol,
+      interval: params.interval,
+      range: params.range ?? null,
+      from: params.from ?? null,
+      to: params.to ?? null,
+      limit: params.limit ?? null,
+      adjusted: params.adjusted ?? null,
+      url,
+      audience,
+    });
+  }
 
   const resp = await fetchWithRetry(url, { Authorization: `Bearer ${idToken}` });
   if (!resp.ok) {
