@@ -405,27 +405,32 @@ Use the following subtasks under epic **RS-FE-FEAT-HMUI-2602**. Check them off a
     - FE-only loaders are allowed for development/prototyping but **must not** be used as a silent fallback in production. When snapshots/history calls fail in prod, the UI should surface an explicit error state (e.g., listing failed baselines/pairs) rather than silently reintroducing per-pair archive reads.
     - FE-side `currentUniversePairs()` and slice options operate over the matrix derived from the snapshot viewport document (plus any merged history matrices); this FE doc remains focused on how that matrix is interpreted, sliced, and rendered in v3, not on long-term archival storage.
 
-- [ ] **RS-FE-FEAT-HMUI-2602-T06 – Sorting & symmetric percentile slicing (v3)**
+- [x] **RS-FE-FEAT-HMUI-2602-T06 – Heatmap palette selector (v3)**
+  - Introduce a global `HeatmapPaletteStore` backed by a registry (`HEATMAP_PALETTES`) describing all supported palettes.
+  - Wire `DashboardV3Store` to consume `HeatmapPaletteStore.getSelectedPaletteColors()` when computing `heatmapRanksData` for both archive and snapshot paths.
+  - Add a compact palette selector control (button-toggle group) to the v3 header row alongside the D/W/M interval buttons, and ensure palette switches only recolor existing data without triggering additional backend fetches beyond the snapshot reload.
+
+- [ ] **RS-FE-FEAT-HMUI-2602-T07 – Sorting & symmetric percentile slicing (v3)**
   - Define `UniverseSliceOption` enum and constants for all top/bottom/middle slices in the v3 store.
   - Implement canonical RS-based sorting by latest `post` RS and slice calculations for All/Top/Bottom/Middle percentiles over the v3 baseline universe.
 
-- [ ] **RS-FE-FEAT-HMUI-2602-T07 – Universe slice chip bar UI**
+- [ ] **RS-FE-FEAT-HMUI-2602-T08 – Universe slice chip bar UI**
   - Implement `UniverseSliceChipBarComponent` to drive universe slice selection.
   - Wire it to store state (e.g., `selectedUniverseSlice`) and derived selectors over the sorted RS list.
 
-- [ ] **RS-FE-FEAT-HMUI-2602-T08 – Time-range selector**
+- [ ] **RS-FE-FEAT-HMUI-2602-T09 – Time-range selector**
   - Define `TimeRangeOption` enum and mapping to specific durations (6M, 1Y, 2Y, 5Y, All), with default 6M.
   - Implement `TimeRangeChipBarComponent` and propagate the selected time range into RS history rendering and chart navigation defaults.
 
-- [ ] **RS-FE-FEAT-HMUI-2602-T09 – Vertical virtual scroll for heatmap rows**
+- [ ] **RS-FE-FEAT-HMUI-2602-T10 – Vertical virtual scroll for heatmap rows**
   - Create/extend a heatmap rows component that uses `cdk-virtual-scroll-viewport` for vertical scrolling.
   - Integrate this component into **dashboard v3** heatmap, consuming the final filtered/sliced `displayPairs` array.
 
-- [ ] **RS-FE-FEAT-HMUI-2602-T10 – Horizontal windowing / virtual scroll for RS history**
+- [ ] **RS-FE-FEAT-HMUI-2602-T11 – Horizontal windowing / virtual scroll for RS history**
   - Implement horizontal windowing or virtualization of the RS history axis so we can safely handle historical data back to 2019.
   - Ensure it interacts correctly with time-range selection.
 
-- [ ] **RS-FE-FEAT-HMUI-2602-T11 – Paginator and UX density controls**
+- [ ] **RS-FE-FEAT-HMUI-2602-T12 – Paginator and UX density controls**
   - Provide a page-size selector (25/50/100/All) as a UX "density" control alongside virtual scroll, defaulting to 100 rows.
   - Adjust styling/height for comfortable browsing and ensure controls remain usable on smaller screens.
 
