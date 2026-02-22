@@ -160,71 +160,54 @@ interface RebuildHeatmapSnapshotRequest {
 
 #### 5.1.1 Invocation (emulator and production)
 
+> **Auth posture (current state)**
+>
+> As currently deployed, `rebuildHeatmapSnapshotAdmin` is an unauthenticated callable used as an internal admin tool. There is **no `Authorization` header required**; callers must simply POST the standard callable envelope `{ "data": { ... } }`.
+>
+> This is acceptable for short‑term internal usage but should be tightened (e.g., Firebase Auth + custom admin claims or a dedicated admin token check) before broader exposure.
+
 - **Emulator URL**
   - `http://127.0.0.1:5002/rel-str/us-central1/rebuildHeatmapSnapshotAdmin`
   - Method: `POST`
   - Body envelope (standard callable): `{ "data": { ... } }`
 
-Example (PowerShell, SPY/DAILY viewport):
+  Example (PowerShell, SPY/DAILY viewport):
 
-```powershell
-Invoke-RestMethod `
-  -Method Post `
-  -Uri "http://127.0.0.1:5002/rel-str/us-central1/rebuildHeatmapSnapshotAdmin" `
-  -ContentType "application/json" `
-  -Body (@{ data = @{ baseline = 'SPY'; timeframe = 'DAILY' } } | ConvertTo-Json)
-```
+  ```powershell
+  Invoke-RestMethod `
+    -Method Post `
+    -Uri "http://127.0.0.1:5002/rel-str/us-central1/rebuildHeatmapSnapshotAdmin" `
+    -ContentType "application/json" `
+    -Body (@{ data = @{ baseline = 'SPY'; timeframe = 'DAILY' } } | ConvertTo-Json)
+  ```
 
 - **Production URL**
   - `https://us-central1-rel-str.cloudfunctions.net/rebuildHeatmapSnapshotAdmin`
   - Method: `POST`
-  - Auth: same callable auth posture as other admin tools (Firebase Auth bearer or callable-compatible client SDK).
+  - Auth: **currently unauthenticated callable** (no `Authorization` header required). This may change in a future hardening pass.
   - Body: same `{ "data": { "baseline": "SPY", "timeframe": "DAILY" } }` envelope as emulator.
 
-Example (bash/curl, SPY/DAILY viewport):
+  Example (bash/curl, SPY/DAILY viewport – current behavior):
 
-```bash
-curl \
-  -X POST \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <FIREBASE_ID_TOKEN>" \
-  -d '{
-    "data": {
-      "baseline": "SPY",
-      "timeframe": "DAILY"
-    }
-  }' \
-  "https://us-central1-rel-str.cloudfunctions.net/rebuildHeatmapSnapshotAdmin"
-```
+  ```bash
+  curl \
+    -X POST \
+    -H "Content-Type: application/json" \
+    -d '{
+      "data": {
+        "baseline": "SPY",
+        "timeframe": "DAILY"
+      }
+    }' \
+    "https://us-central1-rel-str.cloudfunctions.net/rebuildHeatmapSnapshotAdmin"
+  ```
 
-##### 5.1.1.1 Obtaining an ID token from the CLI
+- **Future hardening (planned)**
+  - When we tighten security, this section should be updated to describe the chosen auth mechanism (e.g., Firebase Auth admin user ID tokens, or a dedicated admin bearer token similar to other `*Admin` HTTP endpoints).
 
-For quick manual tests against prod, you can obtain a Google identity token via `gcloud` and reuse it in the `curl` command:
-
-```bash
-# Authenticate your CLI session (once per machine or when cred expires)
-gcloud auth login
-
-# Print an identity token for Cloud Functions HTTPS endpoint
-gcloud auth print-identity-token
-
-# Optionally, export it for reuse
-export FIREBASE_ID_TOKEN="$(gcloud auth print-identity-token)"
-
-curl \
-  -X POST \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer ${FIREBASE_ID_TOKEN}" \
-  -d '{
-    "data": {
-      "baseline": "SPY",
-      "timeframe": "DAILY"
-    }
-  }' \
-  "https://us-central1-rel-str.cloudfunctions.net/rebuildHeatmapSnapshotAdmin"
-```
-
-> Note: This uses a Google-issued identity token for your gcloud account or service account. It assumes the function allows that principal to invoke it. For Firebase Auth–protected callables, prefer calling from a client or admin script that signs in a Firebase user and passes its ID token.
+> **Implementation status**
+>
+> `DAILY`, `WEEKLY`, and `MONTHLY` timeframes are implemented for viewport snapshots. Additional timeframes may be added in future iterations.
 
 The callable is idempotent at the document level: re-running it for the same `{baseline, timeframe}` overwrites the existing `*-viewport` snapshot with a fresh viewport.
 
