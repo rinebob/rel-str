@@ -127,6 +127,16 @@ async function generateDailyViewportSnapshotForBaseline(baseline: string): Promi
     rows.push({ pair: pairId, values: row });
   }
 
+  // Invariant: every row must have exactly one value per date in the viewport.
+  for (const r of rows) {
+    if (r.values.length !== viewportDays.length) {
+      throw new Error(
+        `heatmap viewport invariant violated for baseline=${baseline} pair=${r.pair}: ` +
+          `values.length=${r.values.length} dates.length=${viewportDays.length}`,
+      );
+    }
+  }
+
   return {
     baseline,
     timeframe: upperTimeframe,
@@ -138,10 +148,106 @@ async function generateDailyViewportSnapshotForBaseline(baseline: string): Promi
   };
 }
 
+function getWeekBucketKey(dayStr: string): string {
+  const d = new Date(dayStr + 'T00:00:00Z');
+  const dayOfWeek = d.getUTCDay();
+  const offset = (dayOfWeek + 6) % 7;
+  const monday = new Date(d.getTime() - offset * 24 * 60 * 60 * 1000);
+  return monday.toISOString().slice(0, 10);
+}
+
+function getMonthBucketKey(dayStr: string): string {
+  const year = Number(dayStr.slice(0, 4));
+  const month = Number(dayStr.slice(5, 7)) - 1;
+  const firstOfMonth = new Date(Date.UTC(year, month, 1));
+  return firstOfMonth.toISOString().slice(0, 10);
+}
+
+async function generateWeeklyOrMonthlyViewportSnapshotForBaseline(
+  baseline: string,
+  timeframe: 'WEEKLY' | 'MONTHLY',
+): Promise<HeatmapSnapshotViewportV1> {
+  const today = new Date();
+  const toStr = today.toISOString().slice(0, 10);
+  const lookbackDays = timeframe === 'WEEKLY' ? 365 : 730;
+  const fromDate = new Date(today.getTime() - lookbackDays * 24 * 60 * 60 * 1000);
+  const fromStr = fromDate.toISOString().slice(0, 10);
+
+  const registrySnap = await db.collection(REGISTRY_COLLECTION).get();
+  const pairs: string[] = [];
+  registrySnap.forEach((doc) => {
+    const id = doc.id || '';
+    if (id.startsWith(`${baseline}-`)) {
+      pairs.push(id);
+    }
+  });
+
+  pairs.sort();
+
+  const perPair: Record<string, Array<{ day: string; rsRaw: number }>> = {};
+  const bucketSet = new Set<string>();
+
+  for (const pairId of pairs) {
+    try {
+      const series = await loadDailyRsRawSeriesForPair(pairId, fromStr, toStr);
+      perPair[pairId] = series;
+      for (const s of series) {
+        const bucketKey = timeframe === 'WEEKLY' ? getWeekBucketKey(s.day) : getMonthBucketKey(s.day);
+        bucketSet.add(bucketKey);
+      }
+    } catch (e: any) {
+      logger.warn('viewport_snapshot_pair_failed', { pairId, message: e?.message });
+      perPair[pairId] = [];
+    }
+  }
+
+  const allBuckets = Array.from(bucketSet.values()).sort((a, b) => a.localeCompare(b));
+  const maxBuckets = timeframe === 'WEEKLY' ? 26 : 24;
+  const viewportBuckets = allBuckets.slice(Math.max(0, allBuckets.length - maxBuckets));
+
+  const rows: Array<{ pair: string; values: number[] }> = [];
+  for (const pairId of pairs) {
+    const series = perPair[pairId] || [];
+    const byBucket = new Map<string, { day: string; value: number }>();
+    for (const s of series) {
+      const bucketKey = timeframe === 'WEEKLY' ? getWeekBucketKey(s.day) : getMonthBucketKey(s.day);
+      const existing = byBucket.get(bucketKey);
+      if (!existing || s.day > existing.day) {
+        byBucket.set(bucketKey, { day: s.day, value: s.rsRaw });
+      }
+    }
+    const row: number[] = [];
+    for (const b of viewportBuckets) {
+      const entry = byBucket.get(b);
+      row.push(entry && Number.isFinite(entry.value) ? entry.value : 0);
+    }
+    rows.push({ pair: pairId, values: row });
+  }
+
+  for (const r of rows) {
+    if (r.values.length !== viewportBuckets.length) {
+      throw new Error(
+        `heatmap viewport invariant violated for baseline=${baseline} pair=${r.pair}: ` +
+          `values.length=${r.values.length} dates.length=${viewportBuckets.length}`,
+      );
+    }
+  }
+
+  return {
+    baseline,
+    timeframe,
+    updatedAt: Timestamp.now(),
+    pairs,
+    dates: viewportBuckets,
+    rows,
+    version: 1,
+  };
+}
+
 /**
  * Admin-only callable to rebuild a viewport snapshot for a given baseline/timeframe.
  *
- * - Currently supports DAILY timeframe only.
+ * - Supports DAILY, WEEKLY, and MONTHLY timeframes.
  * - Writes `heatmap-snapshots/{baseline}-{timeframe}-viewport` with a
  *   HeatmapSnapshotViewportV1 document.
  */
@@ -154,13 +260,16 @@ export const rebuildHeatmapSnapshotAdmin = onCall({ region: 'us-central1', timeo
     return { ok: false, message: 'Missing baseline' };
   }
 
-  if (timeframe !== 'DAILY') {
+  if (!['DAILY', 'WEEKLY', 'MONTHLY'].includes(timeframe)) {
     logger.warn('rebuildHeatmapSnapshotAdmin_unsupported_timeframe', { timeframe });
-    return { ok: false, message: 'Only DAILY timeframe supported for viewport snapshot v1' };
+    return { ok: false, message: 'Only DAILY, WEEKLY, and MONTHLY timeframes are supported for viewport snapshot v1' };
   }
 
   try {
-    const snapshot = await generateDailyViewportSnapshotForBaseline(baseline);
+    const snapshot =
+      timeframe === 'DAILY'
+        ? await generateDailyViewportSnapshotForBaseline(baseline)
+        : await generateWeeklyOrMonthlyViewportSnapshotForBaseline(baseline, timeframe as 'WEEKLY' | 'MONTHLY');
     const docId = `${baseline}-${timeframe}-viewport`;
     await db.collection(HEATMAP_SNAPSHOTS_COLLECTION).doc(docId).set(snapshot, { merge: false });
     logger.info('rebuildHeatmapSnapshotAdmin_success', {
