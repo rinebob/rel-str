@@ -1,9 +1,14 @@
-import Gradient from "javascript-color-gradient";
+import Gradient from 'javascript-color-gradient';
+import {
+    CLASSIC_RED_YELLOW_GREEN_STOPS,
+    WARM_COLD_DIVERGING_STOPS,
+    HALF_WARM_HALF_COOL_STOPS,
+} from './heatmap-base-palettes';
 
 export function generateColorArray(midpoints: number) {
     const colors = new Gradient()
-        // red, yellow, green
-        .setColorGradient('#ff0000', '#ffff00', '#00ff00')
+        // classic red -> yellow -> green
+        .setColorGradient(...CLASSIC_RED_YELLOW_GREEN_STOPS.stops)
         .setMidpoint(midpoints)
         .getColors();
 
@@ -22,7 +27,7 @@ export function generateColorArray(midpoints: number) {
 export function generateWarmColdColorArray(midpoints: number) {
     const colors = new Gradient()
         // cool blue -> cyan -> light neutral -> warm orange -> red
-        .setColorGradient('#2c7bb6', '#a6cee3', '#f7f7f7', '#fdae61', '#d7191c')
+        .setColorGradient(...WARM_COLD_DIVERGING_STOPS.stops)
         .setMidpoint(midpoints)
         .getColors();
 
@@ -32,7 +37,7 @@ export function generateWarmColdColorArray(midpoints: number) {
 export function generateHalfWarmHalfCoolColorArray(midpoints: number) {
     const colors = new Gradient()
         // strong cool blue at 0, light neutral around 0.5, warm orange/red toward 1
-        .setColorGradient('#2166ac', '#a6cee3', '#f7f7f7', '#fdae61', '#b2182b')
+        .setColorGradient(...HALF_WARM_HALF_COOL_STOPS.stops)
         .setMidpoint(midpoints)
         .getColors();
 

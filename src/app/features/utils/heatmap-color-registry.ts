@@ -5,18 +5,20 @@ import {
     generateTwoColorWarmCoolArray,
     generateWarmColdColorArray,
 } from './color-utils';
+import { LNS_LONG_BLUE_SHORT_RED } from './heatmap-base-palettes';
 
 export type HeatmapPaletteId =
     | 'classicRedGreen'
     | 'warmCoolDiverging'
     | 'halfWarmHalfCool'
-    | 'twoColorRedBlue';
+    | 'twoColorRedBlue'
+    | 'threeZoneLns';
 
 export interface HeatmapPaletteMeta {
     readonly id: HeatmapPaletteId;
     readonly label: string;
     readonly description: string;
-    readonly kind: 'gradient' | 'binary';
+    readonly kind: 'gradient' | 'binary' | 'discreteLns';
     readonly createColors: () => string[];
 }
 
@@ -48,6 +50,13 @@ const PALETTES_INTERNAL: HeatmapPaletteMeta[] = [
         description: 'Two-color scheme: red below 0.5, blue at or above 0.5.',
         kind: 'binary',
         createColors: () => generateTwoColorWarmCoolArray(),
+    },
+    {
+        id: 'threeZoneLns',
+        label: '3-Zone (Short / Neutral / Long)',
+        description: 'Discrete three-band palette for short / neutral / long zones.',
+        kind: 'discreteLns',
+        createColors: () => [...LNS_LONG_BLUE_SHORT_RED.colors],
     },
 ];
 
