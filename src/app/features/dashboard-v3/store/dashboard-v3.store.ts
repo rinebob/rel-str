@@ -7,6 +7,9 @@ import { RsDataStore } from '../../store/rs-data.store';
 import { firstValueFrom } from 'rxjs';
 import { HeatmapV3DataService } from '../services/heatmap-v3-data.service';
 import { HeatmapPaletteStore } from '../../store/heatmap-palette.store';
+import { ThresholdsStore } from '../../store/thresholds.store';
+import type { LnsState } from '../../store/thresholds.store';
+import { classifyWithHysteresis, stateToDiscreteIndex } from '../../utils/lns-thresholds';
 
 export type UniverseSliceOption =
   | 'ALL'
@@ -33,6 +36,7 @@ export interface DashboardV3State {
   heatmapRanksData: RanksDataWithColors | null;
   heatmapLoading: boolean;
   heatmapError: string | null;
+  heatmapMode: 'gradient' | 'lns3';
 }
 
 const initialState: DashboardV3State = {
@@ -81,6 +85,7 @@ const initialState: DashboardV3State = {
   heatmapRanksData: null,
   heatmapLoading: false,
   heatmapError: null,
+  heatmapMode: 'gradient',
 };
 
 export const DashboardV3Store = signalStore(
@@ -114,6 +119,7 @@ export const DashboardV3Store = signalStore(
     zone = inject(NgZone),
     heatmapV3DataService = inject(HeatmapV3DataService),
     heatmapPaletteStore = inject(HeatmapPaletteStore),
+    thresholdsStore = inject(ThresholdsStore),
   ) => {
 
     const generateHeatmapDataV3 = async (pair: string, timeframe: Timeframe): Promise<BaselineTargetRankDatum[]> => {
@@ -255,6 +261,14 @@ export const DashboardV3Store = signalStore(
         });
       },
 
+      getHeatmapMode(): 'gradient' | 'lns3' {
+        return store.heatmapMode();
+      },
+
+      setHeatmapMode(mode: 'gradient' | 'lns3'): void {
+        patchState(store, { heatmapMode: mode });
+      },
+
       async loadHeatmapForCurrentBaseline(force = false): Promise<void> {
         const baselineId = store.selectedBaselineId();
         if (!baselineId) {
@@ -300,11 +314,15 @@ export const DashboardV3Store = signalStore(
                   dates: matrix.dates.length,
                 });
 
+                const selectedMeta = heatmapPaletteStore.getSelectedPaletteMeta();
                 const colors = heatmapPaletteStore.getSelectedPaletteColors();
                 const ranks: RanksDataWithColors = {};
                 const fallbackColor = '#000000';
+                const thresholds = thresholdsStore.getConfig();
+                const mode = store.heatmapMode();
 
                 matrix.pairs.forEach((pairId, rowIndex) => {
+                  let prevMetric: number | null = null;
                   const rowValues = matrix.values[rowIndex] ?? [];
                   const row: BaselineTargetRankDatum[] = matrix.dates.map((date, colIndex) => {
                     const rawValue = Number(rowValues[colIndex] ?? 0);
@@ -314,7 +332,40 @@ export const DashboardV3Store = signalStore(
                     let index = 0;
                     let color = fallbackColor;
                     const palette = colors || [];
-                    if (palette.length === 2) {
+                    if (mode === 'lns3' && palette.length > 0) {
+                      const decision = classifyWithHysteresis(prevMetric, metric, thresholds);
+                      // TEMP DEBUG: inspect crossover behavior for all pairs, first few dates
+                      if (colIndex <= 5) {
+                        // eslint-disable-next-line no-console
+                        console.log('[LNS DEBUG]', {
+                          pairId,
+                          date,
+                          colIndex,
+                          prevMetric,
+                          metric,
+                          thresholds,
+                          decision,
+                        });
+                      }
+                      prevMetric = metric;
+
+                      // Derive L/N/S colors from the selected palette.
+                      // Default convention: [0] = SHORT, middle = NEUTRAL, last = LONG.
+                      // For the warm/cool diverging palette, the gradient is blue→red,
+                      // so we flip the ends so SHORT = warm/red and LONG = cool/blue.
+                      let shortColor = palette[0];
+                      let longColor = palette[palette.length - 1];
+                      if (selectedMeta?.id === 'warmCoolDiverging') {
+                        shortColor = palette[palette.length - 1];
+                        longColor = palette[0];
+                      }
+                      const neutralColor = palette[Math.floor(palette.length / 2)];
+                      const lnsColors = [shortColor, neutralColor, longColor];
+
+                      const stateIndex = stateToDiscreteIndex(decision.state);
+                      index = stateIndex;
+                      color = lnsColors[stateIndex] ?? fallbackColor;
+                    } else if (palette.length === 2) {
                       // Strict two-color warm/cool palette: values < 0.5 use index 0 (cool),
                       // values >= 0.5 use index 1 (warm).
                       index = metric >= 0.5 ? 1 : 0;
