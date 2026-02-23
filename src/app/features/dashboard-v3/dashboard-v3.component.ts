@@ -10,6 +10,8 @@ import { RsDataStore } from '../store/rs-data.store';
 import { DashboardV3Store } from './store/dashboard-v3.store';
 import { HeatmapPaletteStore } from '../store/heatmap-palette.store';
 import type { HeatmapPaletteId } from '../utils/heatmap-color-registry';
+import { ThresholdsStore } from '../store/thresholds.store';
+import type { ThresholdConfig } from '../store/thresholds.store';
 
 @Component({
     selector: 'rs-dashboard-v3',
@@ -27,6 +29,7 @@ export class DashboardV3Component extends RelStrBaseComponent implements OnInit 
     private readonly rsDataStore = inject(RsDataStore);
     readonly dashboardV3Store = inject(DashboardV3Store);
     readonly heatmapPaletteStore = inject(HeatmapPaletteStore);
+    readonly thresholdsStore = inject(ThresholdsStore);
 
     title = 'rel-str';
 
@@ -42,6 +45,12 @@ export class DashboardV3Component extends RelStrBaseComponent implements OnInit 
     // Available heatmap palettes (for selector UI)
     palettes = computed(() => this.heatmapPaletteStore.getPalettes());
     selectedPaletteId = computed(() => this.heatmapPaletteStore.selectedPaletteId());
+
+    // Current L/N/S threshold configuration
+    thresholdConfig = computed(() => this.thresholdsStore.getConfig());
+
+    // Current heatmap mode (gradient vs 3-zone L/N/S)
+    heatmapMode = computed(() => this.dashboardV3Store.getHeatmapMode());
 
     ngOnInit() {
         void this.dashboardV3Store.loadHeatmapForCurrentBaseline();
@@ -68,6 +77,20 @@ export class DashboardV3Component extends RelStrBaseComponent implements OnInit 
 
     onBaselineChipClick(baselineId: string) {
         this.dashboardV3Store.selectBaseline(baselineId);
+        void this.dashboardV3Store.loadHeatmapForCurrentBaseline(true);
+    }
+
+    onThresholdChange(key: keyof ThresholdConfig, raw: string) {
+        const value = Number(raw);
+        if (!Number.isFinite(value)) {
+            return;
+        }
+        this.thresholdsStore.patchConfig({ [key]: value });
+        void this.dashboardV3Store.loadHeatmapForCurrentBaseline(true);
+    }
+
+    onModeChange(mode: 'gradient' | 'lns3') {
+        this.dashboardV3Store.setHeatmapMode(mode);
         void this.dashboardV3Store.loadHeatmapForCurrentBaseline(true);
     }
 }

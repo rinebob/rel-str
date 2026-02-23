@@ -44,21 +44,43 @@
         .header-container {
             @include global.flexboxLayout(row, space-between, center);
             width: 100%;
+            flex-wrap: wrap;
 
-            .name-container {
-                @include global.flexboxLayout(column, flex-start, flex-start);
+            .thresholds-container {
+                @include global.flexboxLayout(row, flex-start, center);
+                gap: 0.5rem;
 
-                &:not(:last-of-type) {
-                    p {
-                        margin: 0 40px 0 0;
-                        padding: 0;
+                .thresholds-label {
+                    font-size: 0.8rem;
+                    font-weight: 500;
+                    margin-right: 0.25rem;
+                }
+
+                .thresholds-inputs {
+                    @include global.flexboxLayout(row, flex-start, center);
+                    gap: 0.5rem;
+                }
+
+                .threshold-field {
+                    @include global.flexboxLayout(row, center, center);
+                    gap: 0.25rem;
+                    font-size: 0.75rem;
+
+                    input[type='number'] {
+                        width: 3rem;
+                        padding: 0.1rem 0.25rem;
+                        font-size: 0.75rem;
+                        border-radius: 4px;
+                        border: 1px solid #ccc;
+                        text-align: center;
                     }
                 }
             }
             
             .buttons-container {
-                @include global.flexboxLayout(row, flex-end, center);
-                gap: 1rem;
+                @include global.flexboxLayout(row, flex-start, center);
+                flex-wrap: wrap;
+                gap: 0.75rem;
                 
                 .interval-buttons {
                     @include global.flexboxLayout(row, center, center);
@@ -89,6 +111,17 @@
                             box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.3);
                         }
                     }
+                }
+
+                .mode-selector {
+                    @include global.flexboxLayout(row, center, center);
+
+                    mat-button-toggle-group {
+                        @include global.flexboxLayout(row, center, center);
+                        height: 36px !important;
+                        align-items: center !important;
+                    }
+
                 }
 
                 .palette-selector {

@@ -15,13 +15,52 @@
 
     <div class="header-container">
 
-        <div class="name-container">
-
-            <p class="header-text">List: {{rsAppStore.selectedStockListV2().name}}</p>
-            <p class="header-text">Baseline symbol: {{rsAppStore.selectedStockListV2().baseline}}</p>
-
+        <div class="thresholds-container">
+            <span class="thresholds-label">Thresholds</span>
+            <div class="thresholds-inputs">
+                <label class="threshold-field">
+                    N→L
+                    <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="1"
+                        [value]="thresholdConfig().neutralToLong"
+                        (change)="onThresholdChange('neutralToLong', $any($event.target).value)" />
+                </label>
+                <label class="threshold-field">
+                    L→N
+                    <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="1"
+                        [value]="thresholdConfig().longToNeutral"
+                        (change)="onThresholdChange('longToNeutral', $any($event.target).value)" />
+                </label>
+                <label class="threshold-field">
+                    N→S
+                    <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="1"
+                        [value]="thresholdConfig().neutralToShort"
+                        (change)="onThresholdChange('neutralToShort', $any($event.target).value)" />
+                </label>
+                <label class="threshold-field">
+                    S→N
+                    <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="1"
+                        [value]="thresholdConfig().shortToNeutral"
+                        (change)="onThresholdChange('shortToNeutral', $any($event.target).value)" />
+                </label>
+            </div>
         </div>
-        
+
         <div class="buttons-container">
             <div class="interval-buttons">
                 <button mat-button 
@@ -36,6 +75,15 @@
                         class="interval-button" 
                         [class.active]="selectedInterval() === timeframe.MONTHLY"
                         (click)="setInterval(timeframe.MONTHLY)">M</button>
+            </div>
+
+            <div class="mode-selector">
+                <mat-button-toggle-group
+                    [value]="heatmapMode()"
+                    (change)="onModeChange($event.value)">
+                    <mat-button-toggle value="gradient">Gradient</mat-button-toggle>
+                    <mat-button-toggle value="lns3">3-Zone</mat-button-toggle>
+                </mat-button-toggle-group>
             </div>
 
             <div class="palette-selector">
