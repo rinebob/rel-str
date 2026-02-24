@@ -57,6 +57,53 @@ function calculateSma(values: number[], length: number): Array<number | null> {
     return result;
 }
 
+/**
+ * calculateEmaSeriesForValues
+ *
+ * Generic EMA helper over a numeric series that may contain nulls. Leading
+ * positions where insufficient non-null samples exist remain null; subsequent
+ * values are aligned 1:1 with the input array length.
+ */
+export function calculateEmaSeriesForValues(values: Array<number | null>, length: number): Array<number | null> {
+    if (!Array.isArray(values) || values.length === 0 || length <= 0) {
+        return new Array(values?.length ?? 0).fill(null);
+    }
+
+    // Replace nulls with the last seen non-null value for EMA math while keeping
+    // nulls in the output for callers that want to treat missing samples
+    // distinctly (e.g., for sorting).
+    const numeric: number[] = [];
+    let lastValue: number | null = null;
+    for (let i = 0; i < values.length; i += 1) {
+        const v = values[i];
+        if (v == null || !Number.isFinite(v)) {
+            if (lastValue == null) {
+                // Seed with zero until we see a real value; output will still be null
+                // for these leading positions.
+                numeric.push(0);
+            } else {
+                numeric.push(lastValue);
+            }
+        } else {
+            numeric.push(v);
+            lastValue = v;
+        }
+    }
+
+    const emaCore = calculateEma(numeric, length);
+    const out: Array<number | null> = new Array(values.length).fill(null);
+
+    for (let i = 0; i < values.length; i += 1) {
+        if (values[i] == null) {
+            out[i] = null;
+        } else {
+            out[i] = emaCore[i];
+        }
+    }
+
+    return out;
+}
+
 function calculateEma(values: number[], length: number): Array<number | null> {
     const result: Array<number | null> = new Array(values.length).fill(null);
     if (length <= 0 || values.length < length) {

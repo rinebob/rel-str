@@ -20,6 +20,8 @@ export type UniverseSliceOption =
 
 export type TimeRangeOption = '6M' | '1Y' | '2Y' | '5Y' | 'ALL';
 
+export type RsmaWindow = 5 | 10 | 30;
+
 export interface BaselineMeta {
   id: string;
   label: string;
@@ -38,6 +40,7 @@ export interface DashboardV3State {
   heatmapLoading: boolean;
   heatmapError: string | null;
   heatmapMode: 'gradient' | 'lns3';
+  rsmaWindow: RsmaWindow;
 }
 
 const initialState: DashboardV3State = {
@@ -52,6 +55,7 @@ const initialState: DashboardV3State = {
   heatmapLoading: false,
   heatmapError: null,
   heatmapMode: 'gradient',
+  rsmaWindow: 10,
 };
 
 export const DashboardV3Store = signalStore(
@@ -261,6 +265,10 @@ export const DashboardV3Store = signalStore(
 
       setHeatmapMode(mode: 'gradient' | 'lns3'): void {
         patchState(store, { heatmapMode: mode });
+      },
+
+      setRsmaWindow(window: RsmaWindow): void {
+        patchState(store, { rsmaWindow: window });
       },
 
       async loadHeatmapForCurrentBaseline(force = false): Promise<void> {
