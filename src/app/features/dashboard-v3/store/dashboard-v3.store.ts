@@ -302,6 +302,22 @@ export const DashboardV3Store = signalStore(
                   return;
                 }
 
+                if (matrix.pairs.length === 0 || matrix.dates.length === 0) {
+                  // eslint-disable-next-line no-console
+                  console.log('[DashboardV3Store] snapshot has no pairs/dates for baseline', {
+                    baselineId,
+                    timeframe,
+                    pairs: matrix.pairs?.length ?? 0,
+                    dates: matrix.dates?.length ?? 0,
+                  });
+                  patchState(store, {
+                    heatmapRanksData: {},
+                    heatmapError: `No symbols found for baseline ${baselineId} in snapshot`,
+                    heatmapLoading: false,
+                  });
+                  return;
+                }
+
                 // eslint-disable-next-line no-console
                 console.log('[DashboardV3Store] snapshot loaded', {
                   pairs: matrix.pairs.length,
