@@ -52,6 +52,9 @@ export class DashboardV3Component extends RelStrBaseComponent implements OnInit 
     // Current heatmap mode (gradient vs 3-zone L/N/S)
     heatmapMode = computed(() => this.dashboardV3Store.getHeatmapMode());
 
+    // RSMA window (5/10/30) used for RS-based sorting
+    rsmaWindow = computed(() => this.dashboardV3Store.rsmaWindow());
+
     async ngOnInit(): Promise<void> {
     await this.dashboardV3Store.initFromBaselineRegistry();
     await this.dashboardV3Store.loadHeatmapForCurrentBaseline();
@@ -93,5 +96,9 @@ export class DashboardV3Component extends RelStrBaseComponent implements OnInit 
     onModeChange(mode: 'gradient' | 'lns3') {
         this.dashboardV3Store.setHeatmapMode(mode);
         void this.dashboardV3Store.loadHeatmapForCurrentBaseline(true);
+    }
+
+    onRsmaWindowChange(window: 5 | 10 | 30) {
+        this.dashboardV3Store.setRsmaWindow(window);
     }
 }

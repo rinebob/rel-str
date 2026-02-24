@@ -86,6 +86,16 @@
                 </mat-button-toggle-group>
             </div>
 
+            <div class="rsma-selector">
+                <mat-button-toggle-group
+                    [value]="rsmaWindow()"
+                    (change)="onRsmaWindowChange($event.value)">
+                    <mat-button-toggle [value]="5">RSMA 5</mat-button-toggle>
+                    <mat-button-toggle [value]="10">RSMA 10</mat-button-toggle>
+                    <mat-button-toggle [value]="30">RSMA 30</mat-button-toggle>
+                </mat-button-toggle-group>
+            </div>
+
             <div class="palette-selector">
                 <mat-button-toggle-group
                     class="palette-toggle-group"

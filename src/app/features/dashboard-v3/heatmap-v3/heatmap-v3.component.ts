@@ -6,6 +6,7 @@ import { RsDataStore } from '../../store/rs-data.store';
 import { MONTHS, DAYS } from '../../shared/utils/date.util';
 import { AppRoutes } from '../../../core/common/interfaces';
 import { DashboardV3Store } from '../store/dashboard-v3.store';
+import { calculateEmaSeriesForValues } from '../../shared/utils/ma.util';
 
 type SelectionType = 'chart' | 'history';
 
@@ -30,22 +31,42 @@ export class HeatmapV3Component extends RelStrBaseComponent {
         const entries = this.ranksDataWithColorsEntries();
         const sortIndex = this.sortDateIndex();
         const direction = this.sortDirection();
+        const rsmaWindow = this.dashboardV3Store.rsmaWindow();
 
         if (sortIndex === null || sortIndex < 0) {
             return entries;
         }
 
+        const rsmaCache = new Map<string, { missing: boolean; value: number }>();
+
         const getSortMeta = (row: [string, BaselineTargetRankDatum[]]) => {
-            const cells = row[1] || [];
-            const cell = cells[sortIndex];
-            if (!cell || cell.placeholder === true) {
-                return { missing: true, value: 0 };
+            const [pairId, cells] = row;
+            const key = `${pairId}:${sortIndex}:${rsmaWindow}`;
+            const cached = rsmaCache.get(key);
+            if (cached) {
+                return cached;
             }
-            const v = Number(cell.value ?? 0);
-            if (!Number.isFinite(v) || v === 0) {
-                return { missing: true, value: 0 };
+
+            const series: Array<number | null> = cells.map((cell) => {
+                if (!cell || cell.placeholder === true) {
+                    return null;
+                }
+                const v = Number(cell.value ?? 0);
+                return Number.isFinite(v) ? v : null;
+            });
+
+            const ema = calculateEmaSeriesForValues(series, rsmaWindow);
+            const score = ema[sortIndex];
+
+            if (score == null || !Number.isFinite(score)) {
+                const meta = { missing: true, value: 0 };
+                rsmaCache.set(key, meta);
+                return meta;
             }
-            return { missing: false, value: v };
+
+            const meta = { missing: false, value: score };
+            rsmaCache.set(key, meta);
+            return meta;
         };
 
         const sorted = [...entries].sort((a, b) => {

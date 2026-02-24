@@ -139,6 +139,16 @@
 
                 }
 
+                .rsma-selector {
+                    @include global.flexboxLayout(row, center, center);
+
+                    mat-button-toggle-group {
+                        @include global.flexboxLayout(row, center, center);
+                        height: 36px !important;
+                        align-items: center !important;
+                    }
+                }
+
                 .palette-selector {
                     @include global.flexboxLayout(row, center, center);
                     gap: 0.5rem;
