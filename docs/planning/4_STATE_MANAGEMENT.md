@@ -15,6 +15,7 @@ This document outlines the strategy for managing various types of state within t
 * **Description:** State that needs to be shared between multiple components or is considered central to the application's functionality will be managed using NgRx Signal Store. This includes:
     * User authentication status and profile information.
     * User-defined stock lists and settings (baseline security, timeframe, thresholds).
+    * Heatmap vNext query and **RSMA/EMA-based scoring configuration** (selected interval, RSMA window such as 5/10/30, and future coloring mode).
     * Application-wide settings (e.g., theme if implemented).
     * Potentially state related to the overall application flow or notifications.
 
@@ -22,6 +23,7 @@ This document outlines the strategy for managing various types of state within t
 
 * **Storage:** NgRx Signal Store
 * **Approach:** Data fetched from the backend (Firebase Firestore or Cloud Functions), such as the calculated Relative Strength data for the heatmap and charts, will be stored within designated slices of the NgRx Signal Store.
+* **Derived scoring (RSMA):** The same Signal Store slice that caches RS series for the heatmap will also compute EMA-based RS moving averages (RSMA) client-side for Daily/Weekly/Monthly intervals, exposing these as derived signals used for heatmap sorting.
 * **Caching Strategy:** The Signal Store will act as a local cache for server data. A specific logic will be implemented:
     * Upon loading the heatmap/chart view, the app will first check if today's relevant data (pre-close or post-close) is available in the store.
     * If today's data is not yet available, **yesterday's post-close data** (if cached or fetched) will be displayed as a fallback.

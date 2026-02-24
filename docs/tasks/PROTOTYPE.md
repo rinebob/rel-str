@@ -60,6 +60,7 @@
   - [ ] Add loading/fallbacks while initial RS backfill completes
 
 - [ ] RS-FE-FEAT-HMUI-2602 – Implement `dashboard-v3` heatmap (baseline chips from pair-registry/appMeta, symmetric top/middle/bottom RS percentile slices, time-range chips, vertical virtual scroll with future horizontal windowing, and new `/dashboard-v3` route + nav entry). See `docs/implementations/RS-FE-FEAT-HMUI-2602_dashboardv3-heatmap-ui-sort-filter-render-treatments.md`.
+ - [ ] RS-FE-FEAT-RSMA – Implement EMA-based RS scoring (RSMA) for `dashboard-v3` heatmap sorting across Daily/Weekly/Monthly intervals using ngrx Signal Store. RSMA = EMA over RS for 5/10/30-period windows; sort uses RSMA while cell color remains based on current-period RS.
 
 ## Trade Journal & Newsletter (View-Level)
 
