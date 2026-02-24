@@ -52,9 +52,10 @@ export class DashboardV3Component extends RelStrBaseComponent implements OnInit 
     // Current heatmap mode (gradient vs 3-zone L/N/S)
     heatmapMode = computed(() => this.dashboardV3Store.getHeatmapMode());
 
-    ngOnInit() {
-        void this.dashboardV3Store.loadHeatmapForCurrentBaseline();
-    }
+    async ngOnInit(): Promise<void> {
+    await this.dashboardV3Store.initFromBaselineRegistry();
+    await this.dashboardV3Store.loadHeatmapForCurrentBaseline();
+}
 
     setInterval(timeframe: Timeframe) {
         const newTimeframe = timeframe as Timeframe;

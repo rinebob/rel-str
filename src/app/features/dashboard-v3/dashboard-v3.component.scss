@@ -38,6 +38,21 @@
 
             .baseline-chip {
                 font-size: 0.875rem;
+                padding-inline: 0.5rem;
+                min-width: auto;
+
+                // Selected state: blue background, white text, keep checkmark.
+                // Target via aria-selected so it works regardless of internal
+                // Material classes and stays consistent on hover.
+                &[aria-selected='true'] {
+                    background-color: var(--theme-primary) !important;
+                    color: var(--theme-on-primary) !important;
+
+                    &:hover {
+                        background-color: var(--theme-primary) !important;
+                        color: var(--theme-on-primary) !important;
+                    }
+                }
             }
         }
 
