@@ -10,6 +10,7 @@ import { HeatmapPaletteStore } from '../../store/heatmap-palette.store';
 import { ThresholdsStore } from '../../store/thresholds.store';
 import type { LnsState } from '../../store/thresholds.store';
 import { classifyWithHysteresis, stateToDiscreteIndex } from '../../utils/lns-thresholds';
+import { BaselineRegistryService } from '../../services/baseline-registry.service';
 
 export type UniverseSliceOption =
   | 'ALL'
@@ -40,46 +41,11 @@ export interface DashboardV3State {
 }
 
 const initialState: DashboardV3State = {
-  baselines: [
-    { id: 'SPY', label: 'SPY – S&P 500', type: 'index' },
-    { id: 'QQQ', label: 'QQQ – Nasdaq 100', type: 'index' },
-    { id: 'XLF', label: 'XLF – Financials', type: 'sector' },
-    { id: 'XLK', label: 'XLK – Technology', type: 'sector' },
-  ],
-  selectedBaselineId: 'SPY',
+  baselines: [],
+  selectedBaselineId: null,
   selectedSlice: 'ALL',
   selectedTimeRange: '6M',
-  baselineUniverses: {
-    SPY: [
-      'SPY-AAPL',
-      'SPY-GOOGL',
-      'SPY-ISRG',
-      'SPY-NVDA',
-      'SPY-PFE',
-      'SPY-PLTR',
-      'SPY-QQQ',
-      'SPY-TSLA',
-      'SPY-WDC',
-      'SPY-WMT',
-      'SPY-XOM',
-      'SPY-XPH',
-    ],
-    QQQ: [
-      'QQQ-AAPL',
-      'QQQ-GOOGL',
-      'QQQ-LRCX',
-      'QQQ-NFLX',
-      'QQQ-NVDA',
-      'QQQ-PLTR',
-      'QQQ-SOXL',
-      'QQQ-STX',
-      'QQQ-TSLA',
-    ],
-    XPH: [
-        'XPH-ISRG',
-        'XPH-PFE',
-    ],
-  },
+  baselineUniverses: {},
   universeLoading: false,
   universeError: null,
   heatmapRanksData: null,
@@ -120,6 +86,7 @@ export const DashboardV3Store = signalStore(
     heatmapV3DataService = inject(HeatmapV3DataService),
     heatmapPaletteStore = inject(HeatmapPaletteStore),
     thresholdsStore = inject(ThresholdsStore),
+    baselineRegistryService = inject(BaselineRegistryService),
   ) => {
 
     const generateHeatmapDataV3 = async (pair: string, timeframe: Timeframe): Promise<BaselineTargetRankDatum[]> => {
@@ -254,6 +221,33 @@ export const DashboardV3Store = signalStore(
     };
 
     return {
+      async initFromBaselineRegistry(): Promise<void> {
+        if (store.baselines().length > 0) {
+          return;
+        }
+
+        try {
+          const [baselines, universes] = await Promise.all([
+            firstValueFrom(baselineRegistryService.getBaselines$()),
+            firstValueFrom(baselineRegistryService.getBaselineUniverses$()),
+          ]);
+
+          const defaultBaselineId = baselines.find(b => b.id === 'SPY')?.id
+            ?? baselines[0]?.id
+            ?? null;
+
+          patchState(store, {
+            baselines,
+            baselineUniverses: universes,
+            selectedBaselineId: defaultBaselineId,
+          });
+        } catch (e) {
+          patchState(store, {
+            universeError: (e as Error)?.message ?? 'Failed to load baselines from registry',
+          });
+        }
+      },
+
       selectBaseline(baselineId: string): void {
         patchState(store, {
           selectedBaselineId: baselineId,
@@ -335,7 +329,7 @@ export const DashboardV3Store = signalStore(
                     if (mode === 'lns3' && palette.length > 0) {
                       const decision = classifyWithHysteresis(prevMetric, metric, thresholds);
                       // TEMP DEBUG: inspect crossover behavior for all pairs, first few dates
-                      if (colIndex <= 5) {
+                      if (colIndex <= 50) {
                         // eslint-disable-next-line no-console
                         console.log('[LNS DEBUG]', {
                           pairId,
