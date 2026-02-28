@@ -1,13 +1,16 @@
 import { onCall } from 'firebase-functions/v2/https';
+import { onTaskDispatched } from 'firebase-functions/v2/tasks';
 import { logger } from 'firebase-functions';
 import { Timestamp } from 'firebase-admin/firestore';
 import { db } from '../../firebase-admin-init';
+import { getFunctions } from 'firebase-admin/functions';
 import {
   PAIRS_COLLECTION,
   ARCHIVE_COLLECTION_PREFIX,
   REGISTRY_COLLECTION,
   HEATMAP_SNAPSHOTS_COLLECTION,
 } from '../../webhooks/webhooks-config';
+import { Interval } from '../../types/signal.types';
 
 /**
  * @deprecated V1 viewport schema - use HeatmapSnapshotV2 for new implementations.
@@ -289,9 +292,19 @@ async function generateHistoricalShard(
   shardType: 'historical' | 'current',
   shardId: string,
 ): Promise<HeatmapSnapshotV2> {
+  const startTime = Date.now();
   const { from, to } = dateRange;
 
+  logger.info('generateHistoricalShard_start', {
+    baseline,
+    timeframe,
+    shardType,
+    shardId,
+    dateRange: { from, to },
+  });
+
   // Get pairs for this baseline from registry
+  const registryStartTime = Date.now();
   const registrySnap = await db.collection(REGISTRY_COLLECTION).get();
   const pairs: string[] = [];
   registrySnap.forEach((doc) => {
@@ -302,14 +315,25 @@ async function generateHistoricalShard(
   });
   pairs.sort();
 
+  const registryDuration = Date.now() - registryStartTime;
+  logger.info('generateHistoricalShard_registry_loaded', {
+    baseline,
+    pairCount: pairs.length,
+    durationMs: registryDuration,
+  });
+
   // Load RS data for all pairs in the date range
+  const dataLoadStartTime = Date.now();
   const perPair: Record<string, Array<{ day: string; rsRaw: number }>> = {};
   const dateSet = new Set<string>();
+  let failedPairs = 0;
+  let totalDataPoints = 0;
 
   for (const pairId of pairs) {
     try {
       const series = await loadDailyRsRawSeriesForPair(pairId, from, to);
       perPair[pairId] = series;
+      totalDataPoints += series.length;
       for (const s of series) {
         if (timeframe === 'DAILY') {
           dateSet.add(s.day);
@@ -320,10 +344,27 @@ async function generateHistoricalShard(
         }
       }
     } catch (e: any) {
-      logger.warn('historical_shard_pair_failed', { pairId, from, to, message: e?.message });
+      failedPairs++;
+      logger.warn('generateHistoricalShard_pair_load_failed', { 
+        baseline,
+        pairId, 
+        from, 
+        to, 
+        message: e?.message 
+      });
       perPair[pairId] = [];
     }
   }
+
+  const dataLoadDuration = Date.now() - dataLoadStartTime;
+  logger.info('generateHistoricalShard_data_loaded', {
+    baseline,
+    timeframe,
+    pairCount: pairs.length,
+    failedPairs,
+    totalDataPoints,
+    durationMs: dataLoadDuration,
+  });
 
   // Get all dates/buckets in sorted order
   const allDates = Array.from(dateSet.values()).sort((a, b) => a.localeCompare(b));
@@ -377,8 +418,9 @@ async function generateHistoricalShard(
   // Estimate document size (rough approximation)
   const estimatedSize = JSON.stringify({ pairs, dates: allDates, rows }).length;
   const estimatedSizeKB = Math.round(estimatedSize / 1024);
+  const totalDuration = Date.now() - startTime;
   
-  logger.info('historical_shard_generated', {
+  logger.info('generateHistoricalShard_complete', {
     baseline,
     timeframe,
     shardId,
@@ -387,6 +429,9 @@ async function generateHistoricalShard(
     pairs: pairs.length,
     dates: allDates.length,
     estimatedSizeKB,
+    totalDurationMs: totalDuration,
+    failedPairs,
+    totalDataPoints,
   });
 
   // Warn if approaching Firestore limit
@@ -493,6 +538,100 @@ function getShardDateRange(
 }
 
 /**
+ * Trigger heatmap snapshot updates for affected baselines after RS pipeline completion.
+ * 
+ * This function is called by the RS pipeline when a realtime run completes successfully.
+ * It enqueues Cloud Tasks to update current shards for all affected baselines.
+ * 
+ * @param interval The interval that was updated (DAILY, WEEKLY, or MONTHLY)
+ * @param baselines Array of baseline symbols that were updated (e.g., ['SPY', 'QQQ'])
+ */
+export async function triggerHeatmapUpdatesForBaselines(
+  interval: Interval,
+  baselines: string[],
+): Promise<void> {
+  const triggerStartTime = Date.now();
+
+  if (!baselines || baselines.length === 0) {
+    logger.info('triggerHeatmapUpdatesForBaselines_no_baselines', { interval });
+    return;
+  }
+
+  const timeframe = interval === Interval.DAILY ? 'DAILY' 
+    : interval === Interval.WEEKLY ? 'WEEKLY' 
+    : interval === Interval.MONTHLY ? 'MONTHLY' 
+    : null;
+
+  if (!timeframe) {
+    logger.warn('triggerHeatmapUpdatesForBaselines_unsupported_interval', { interval });
+    return;
+  }
+
+  logger.info('triggerHeatmapUpdatesForBaselines_start', {
+    interval,
+    timeframe,
+    baselineCount: baselines.length,
+    baselines: baselines.join(', '),
+  });
+
+  const queue = getFunctions().taskQueue('updateHeatmapSnapshotTask');
+  const today = new Date();
+  const year = today.getFullYear();
+  const half = today.getMonth() < 6 ? 1 : 2;
+
+  let enqueuedCount = 0;
+  let failedCount = 0;
+  const failedBaselines: string[] = [];
+
+  for (const baseline of baselines) {
+    try {
+      let params: any = { baseline, timeframe, snapshotType: 'current' };
+
+      if (timeframe === 'DAILY') {
+        params.year = year;
+        params.half = half;
+      } else if (timeframe === 'WEEKLY') {
+        params.yearStart = year;
+        params.yearEnd = year + 1;
+      } else if (timeframe === 'MONTHLY') {
+        params.yearStart = year - 3;
+        params.yearEnd = year;
+      }
+
+      await queue.enqueue(params);
+      enqueuedCount++;
+      logger.info('triggerHeatmapUpdatesForBaselines_enqueued', {
+        baseline,
+        timeframe,
+        shardType: 'current',
+        params,
+      });
+    } catch (e: any) {
+      failedCount++;
+      failedBaselines.push(baseline);
+      logger.error('triggerHeatmapUpdatesForBaselines_enqueue_failed', {
+        baseline,
+        timeframe,
+        message: e?.message,
+        stack: e?.stack,
+      });
+    }
+  }
+
+  const totalDuration = Date.now() - triggerStartTime;
+
+  logger.info('triggerHeatmapUpdatesForBaselines_complete', {
+    interval,
+    timeframe,
+    totalBaselines: baselines.length,
+    enqueuedCount,
+    failedCount,
+    failedBaselines: failedBaselines.length > 0 ? failedBaselines.join(', ') : 'none',
+    durationMs: totalDuration,
+  });
+}
+
+/**
  * Admin-only callable to rebuild heatmap snapshots.
  *
  * - Supports DAILY, WEEKLY, and MONTHLY timeframes.
@@ -591,3 +730,98 @@ export const rebuildHeatmapSnapshotAdmin = onCall({ region: 'us-central1', timeo
     return { ok: false, baseline, timeframe, snapshotType, message: e?.message };
   }
 });
+
+/**
+ * Cloud Task worker to update heatmap snapshots.
+ * 
+ * This task is enqueued by the RS pipeline after realtime runs complete.
+ * It rebuilds the current shard for a specific baseline and timeframe.
+ */
+export const updateHeatmapSnapshotTask = onTaskDispatched(
+  {
+    retryConfig: {
+      maxAttempts: 3,
+      minBackoffSeconds: 60,
+      maxBackoffSeconds: 300,
+    },
+    rateLimits: {
+      maxConcurrentDispatches: 5,
+      maxDispatchesPerSecond: 0.5,
+    },
+    memory: '512MiB',
+    timeoutSeconds: 540,
+  },
+  async (req) => {
+    const taskStartTime = Date.now();
+    const { baseline, timeframe, snapshotType, year, half, yearStart, yearEnd } = req.data as any;
+
+    logger.info('updateHeatmapSnapshotTask_start', {
+      baseline,
+      timeframe,
+      snapshotType,
+      year,
+      half,
+      yearStart,
+      yearEnd,
+      attemptNumber: req.retryCount ?? 0,
+    });
+
+    try {
+      // Determine shard parameters
+      const params = { year, half, yearStart, yearEnd };
+      const docId = getShardDocId(baseline, timeframe, snapshotType, params);
+      const shardId = getShardId(timeframe, params);
+      const dateRange = getShardDateRange(timeframe, snapshotType, params);
+
+      logger.info('updateHeatmapSnapshotTask_generating', {
+        baseline,
+        timeframe,
+        docId,
+        shardId,
+        dateRange,
+      });
+
+      // Generate the snapshot
+      const generateStartTime = Date.now();
+      const snapshot = await generateHistoricalShard(baseline, timeframe as 'DAILY' | 'WEEKLY' | 'MONTHLY', dateRange, snapshotType, shardId);
+      const generateDuration = Date.now() - generateStartTime;
+
+      // Write to Firestore
+      const writeStartTime = Date.now();
+      await db.collection(HEATMAP_SNAPSHOTS_COLLECTION).doc(docId).set(snapshot, { merge: false });
+      const writeDuration = Date.now() - writeStartTime;
+
+      const totalDuration = Date.now() - taskStartTime;
+
+      logger.info('updateHeatmapSnapshotTask_success', {
+        baseline,
+        timeframe,
+        snapshotType,
+        docId,
+        pairs: snapshot.pairs.length,
+        dates: snapshot.dates.length,
+        generateDurationMs: generateDuration,
+        writeDurationMs: writeDuration,
+        totalDurationMs: totalDuration,
+        attemptNumber: req.retryCount ?? 0,
+      });
+    } catch (e: any) {
+      const totalDuration = Date.now() - taskStartTime;
+      logger.error('updateHeatmapSnapshotTask_failed', {
+        baseline,
+        timeframe,
+        snapshotType,
+        year,
+        half,
+        yearStart,
+        yearEnd,
+        message: e?.message,
+        stack: e?.stack,
+        durationMs: totalDuration,
+        attemptNumber: req.retryCount ?? 0,
+        willRetry: (req.retryCount ?? 0) < 2,
+      });
+      throw e; // Re-throw to trigger Cloud Tasks retry
+    }
+  },
+);

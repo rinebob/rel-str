@@ -9,6 +9,7 @@ import { RsPhase } from '../../types/partner';
 import { writeUnifiedSeries } from '../../webhooks/pairs-writer';
 import { buildPhaseSeries } from '../../webhooks/rs-series';
 import { fetchDailyBarsRange, type PartnerBar, type FetchRangeOptions, type RsSymbolCacheDoc } from '../../webhooks/symbol-fetch';
+import { triggerHeatmapUpdatesForBaselines } from '../heatmap/heatmap-snapshots';
 
 import {
   PAIRS_COLLECTION,
@@ -747,6 +748,40 @@ async function updateRealtimeRunForJobTerminal(
         runId,
         message: e?.message,
       });
+    }
+
+    // Trigger heatmap snapshot updates for affected baselines after successful realtime run completion
+    if (finalStatus === RsRealtimeRunStatus.COMPLETE || finalStatus === RsRealtimeRunStatus.PARTIAL) {
+      try {
+        // Extract unique baselines from the run's jobs
+        const interval = data.interval;
+        const jobsRef = db.doc(rsRealtimeRunDocPath(runId)).collection('jobs');
+        const jobsSnap = await jobsRef.get();
+        const baselinesSet = new Set<string>();
+        
+        jobsSnap.forEach((doc) => {
+          const jobData = doc.data();
+          if (jobData?.baseline) {
+            baselinesSet.add(String(jobData.baseline).toUpperCase());
+          }
+        });
+
+        const baselines = Array.from(baselinesSet);
+        
+        if (baselines.length > 0) {
+          await triggerHeatmapUpdatesForBaselines(interval, baselines);
+          logger.info('updateRealtimeRunForJobTerminal_heatmap_triggered', {
+            runId,
+            interval,
+            baselines: baselines.length,
+          });
+        }
+      } catch (e: any) {
+        logger.error('updateRealtimeRunForJobTerminal_heatmap_trigger_failed', {
+          runId,
+          message: e?.message,
+        });
+      }
     }
   }
 }
