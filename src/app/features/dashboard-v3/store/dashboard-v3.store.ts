@@ -5,7 +5,7 @@ import { Timeframe } from '../../shared/types/rs.interfaces';
 import { RelStrDbV2Service } from '../../services/rel-str-db-v2.service';
 import { RsDataStore } from '../../store/rs-data.store';
 import { firstValueFrom } from 'rxjs';
-import { HeatmapV3DataService } from '../services/heatmap-v3-data.service';
+import { HeatmapV3DataService, type HeatmapV3ViewportMatrix } from '../services/heatmap-v3-data.service';
 import { HeatmapPaletteStore } from '../../store/heatmap-palette.store';
 import { ThresholdsStore } from '../../store/thresholds.store';
 import type { LnsState } from '../../store/thresholds.store';
@@ -297,7 +297,8 @@ export const DashboardV3Store = signalStore(
                   timeframe,
                 });
 
-                const matrix = await heatmapV3DataService.getViewportSnapshotOnce(baselineId, timeframe);
+                // Load all shards at once
+                const matrix = await heatmapV3DataService.getAllShardsOnce(baselineId, timeframe);
 
                 if (!matrix || !Array.isArray(matrix.pairs) || !Array.isArray(matrix.dates)) {
                   // eslint-disable-next-line no-console
@@ -320,29 +321,29 @@ export const DashboardV3Store = signalStore(
                   });
                   patchState(store, {
                     heatmapRanksData: {},
-                    heatmapError: `No symbols found for baseline ${baselineId} in snapshot`,
+                    heatmapError: 'No data available for this baseline/timeframe',
                     heatmapLoading: false,
                   });
                   return;
                 }
 
                 // eslint-disable-next-line no-console
-                console.log('[DashboardV3Store] snapshot loaded', {
+                console.log('[DashboardV3Store] all shards loaded, computing ranks', {
                   pairs: matrix.pairs.length,
                   dates: matrix.dates.length,
                 });
 
                 const selectedMeta = heatmapPaletteStore.getSelectedPaletteMeta();
                 const colors = heatmapPaletteStore.getSelectedPaletteColors();
-                const ranks: RanksDataWithColors = {};
-                const fallbackColor = '#000000';
                 const thresholds = thresholdsStore.getConfig();
                 const mode = store.heatmapMode();
+                const fallbackColor = '#cccccc';
+                const ranks: Record<string, BaselineTargetRankDatum[]> = {};
 
-                matrix.pairs.forEach((pairId, rowIndex) => {
+                matrix.pairs.forEach((pairId: string, rowIndex: number) => {
                   let prevMetric: number | null = null;
                   const rowValues = matrix.values[rowIndex] ?? [];
-                  const row: BaselineTargetRankDatum[] = matrix.dates.map((date, colIndex) => {
+                  const row: BaselineTargetRankDatum[] = matrix.dates.map((date: string, colIndex: number) => {
                     const rawValue = Number(rowValues[colIndex] ?? 0);
                     const value = Number.isFinite(rawValue) ? rawValue : 0;
                     const metric = value;
@@ -352,25 +353,8 @@ export const DashboardV3Store = signalStore(
                     const palette = colors || [];
                     if (mode === 'lns3' && palette.length > 0) {
                       const decision = classifyWithHysteresis(prevMetric, metric, thresholds);
-                      // TEMP DEBUG: inspect crossover behavior for all pairs, first few dates
-                      if (colIndex <= 50) {
-                        // eslint-disable-next-line no-console
-                        console.log('[LNS DEBUG]', {
-                          pairId,
-                          date,
-                          colIndex,
-                          prevMetric,
-                          metric,
-                          thresholds,
-                          decision,
-                        });
-                      }
                       prevMetric = metric;
 
-                      // Derive L/N/S colors from the selected palette.
-                      // Default convention: [0] = SHORT, middle = NEUTRAL, last = LONG.
-                      // For the warm/cool diverging palette, the gradient is blue→red,
-                      // so we flip the ends so SHORT = warm/red and LONG = cool/blue.
                       let shortColor = palette[0];
                       let longColor = palette[palette.length - 1];
                       if (selectedMeta?.id === 'warmCoolDiverging') {
@@ -384,8 +368,6 @@ export const DashboardV3Store = signalStore(
                       index = stateIndex;
                       color = lnsColors[stateIndex] ?? fallbackColor;
                     } else if (palette.length === 2) {
-                      // Strict two-color warm/cool palette: values < 0.5 use index 0 (cool),
-                      // values >= 0.5 use index 1 (warm).
                       index = metric >= 0.5 ? 1 : 0;
                       color = palette[index] ?? fallbackColor;
                     } else if (palette.length > 0) {
@@ -407,7 +389,11 @@ export const DashboardV3Store = signalStore(
                   ranks[pairId] = row;
                 });
 
-                patchState(store, { heatmapRanksData: ranks, heatmapLoading: false });
+                patchState(store, {
+                  heatmapRanksData: ranks,
+                  heatmapError: null,
+                  heatmapLoading: false,
+                });
               } catch (e: unknown) {
                 patchState(store, {
                   heatmapError: (e as Error)?.message ?? 'Failed to load v3 heatmap snapshot',

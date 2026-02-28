@@ -50,10 +50,15 @@ export const appConfig: ApplicationConfig = {
         provideFirestore(() => {
             const firestore = getFirestore();
             const useEmu = (environment as any)?.useEmulators === true || isLocalHost(location.hostname);
+            console.log('[Firestore] useEmulators:', useEmu, 'environment.useEmulators:', (environment as any)?.useEmulators, 'isLocalHost:', isLocalHost(location.hostname));
             if (useEmu) {
                 // Firestore emulator is running on 127.0.0.1:8088 per emulator output
+                console.log('[Firestore] Connecting to emulator at 127.0.0.1:8088');
                 connectFirestoreEmulator(firestore, '127.0.0.1', 8088);
                 (window as any).__EMULATORS__ = { ...(window as any).__EMULATORS__, firestore: true };
+                console.log('[Firestore] Connected to emulator, __EMULATORS__:', (window as any).__EMULATORS__);
+            } else {
+                console.log('[Firestore] Using production Firestore');
             }
             return firestore;
         }),
