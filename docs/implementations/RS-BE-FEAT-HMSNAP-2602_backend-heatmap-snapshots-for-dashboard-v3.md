@@ -495,7 +495,180 @@ async function onRsJobComplete(jobId: string, affectedBaselines: string[]) {
 
 ---
 
-## 10. Shard Finalization (Semi-Annual/Annual)
+## 10. Monitoring & Logging
+
+### Cloud Functions
+
+Heatmap snapshot logs are emitted from the following Cloud Functions:
+
+1. **`updateHeatmapSnapshotTask`** (Cloud Tasks worker)
+   - Processes individual heatmap snapshot update tasks
+   - Triggered by RS pipeline after realtime runs complete
+   - Logs generation and write performance metrics
+
+2. **`rebuildHeatmapSnapshotAdmin`** (Callable)
+   - Manual/admin-triggered snapshot rebuilds
+   - Used for backfills and emergency rebuilds
+   - Not used for automated daily updates
+
+3. **RS Pipeline Functions** (in `rs-time-series-jobs.worker.ts`)
+   - `processRsJobTask` - Logs when heatmap updates are triggered
+   - `updateRealtimeRunForJobTerminal` - Triggers heatmap updates after RS run completion
+
+### Log Queries for Cloud Logs Explorer
+
+#### 1. View All Heatmap Snapshot Updates (Last 24 Hours)
+
+```
+resource.type="cloud_function"
+(resource.labels.function_name="updateHeatmapSnapshotTask" OR 
+ resource.labels.function_name="rebuildHeatmapSnapshotAdmin")
+severity>=INFO
+timestamp>="2026-02-27T00:00:00Z"
+```
+
+#### 2. Monitor Heatmap Update Performance
+
+```
+resource.type="cloud_function"
+resource.labels.function_name="updateHeatmapSnapshotTask"
+jsonPayload.message="updateHeatmapSnapshotTask_success"
+```
+
+**Key metrics in logs:**
+- `totalDurationMs` - End-to-end task duration
+- `generateDurationMs` - Snapshot generation time
+- `writeDurationMs` - Firestore write time
+- `pairs` - Number of pairs in snapshot
+- `dates` - Number of dates in snapshot
+
+#### 3. Track RS Pipeline Heatmap Triggers
+
+```
+resource.type="cloud_function"
+resource.labels.function_name="processRsJobTask"
+jsonPayload.message=~"updateRealtimeRunForJobTerminal_heatmap"
+```
+
+**Shows:**
+- `updateRealtimeRunForJobTerminal_heatmap_triggered` - When heatmap updates are enqueued
+- `updateRealtimeRunForJobTerminal_heatmap_trigger_failed` - Enqueue failures
+
+#### 4. Monitor Specific Baseline Updates
+
+```
+resource.type="cloud_function"
+resource.labels.function_name="updateHeatmapSnapshotTask"
+jsonPayload.baseline="SPY"
+severity>=INFO
+```
+
+#### 5. Track Failed Heatmap Updates
+
+```
+resource.type="cloud_function"
+resource.labels.function_name="updateHeatmapSnapshotTask"
+(jsonPayload.message="updateHeatmapSnapshotTask_failed" OR severity>=ERROR)
+```
+
+**Error details include:**
+- `message` - Error message
+- `stack` - Stack trace
+- `attemptNumber` - Retry attempt number
+- `willRetry` - Whether Cloud Tasks will retry
+
+#### 6. Monitor Document Size Warnings
+
+```
+resource.type="cloud_function"
+jsonPayload.message="historical_shard_size_warning"
+```
+
+**Shows shards approaching 1MB Firestore limit**
+
+#### 7. View Complete Heatmap Generation Flow
+
+```
+resource.type="cloud_function"
+resource.labels.function_name="updateHeatmapSnapshotTask"
+jsonPayload.baseline="SPY"
+jsonPayload.timeframe="DAILY"
+(jsonPayload.message=~"updateHeatmapSnapshotTask_start" OR
+ jsonPayload.message=~"generateHistoricalShard" OR
+ jsonPayload.message=~"updateHeatmapSnapshotTask_success")
+```
+
+**Trace complete flow:**
+1. `updateHeatmapSnapshotTask_start` - Task begins
+2. `generateHistoricalShard_start` - Generation starts
+3. `generateHistoricalShard_registry_loaded` - Pairs loaded
+4. `generateHistoricalShard_data_loaded` - RS data loaded
+5. `generateHistoricalShard_complete` - Snapshot generated
+6. `updateHeatmapSnapshotTask_success` - Written to Firestore
+
+#### 8. Monitor Daily Update Batches
+
+```
+resource.type="cloud_function"
+jsonPayload.message="triggerHeatmapUpdatesForBaselines_complete"
+timestamp>="2026-02-27T00:00:00Z"
+```
+
+**Shows batch update summaries:**
+- `totalBaselines` - Number of baselines updated
+- `enqueuedCount` - Successfully enqueued tasks
+- `failedCount` - Failed enqueues
+- `durationMs` - Batch enqueue duration
+
+#### 9. Track Retry Attempts
+
+```
+resource.type="cloud_function"
+resource.labels.function_name="updateHeatmapSnapshotTask"
+jsonPayload.attemptNumber>0
+```
+
+**Shows tasks that required retries**
+
+#### 10. Performance Analysis Query
+
+```
+resource.type="cloud_function"
+resource.labels.function_name="updateHeatmapSnapshotTask"
+jsonPayload.message="updateHeatmapSnapshotTask_success"
+jsonPayload.totalDurationMs>30000
+```
+
+**Identifies slow updates (>30 seconds)**
+
+### Monitoring Best Practices
+
+1. **Set up Log-Based Metrics** in Cloud Monitoring:
+   - Counter for successful updates per baseline
+   - Distribution for `totalDurationMs`
+   - Counter for failed updates
+
+2. **Create Alerts**:
+   - Alert if `failedCount > 0` in `triggerHeatmapUpdatesForBaselines_complete`
+   - Alert if any shard size warning appears
+   - Alert if update duration exceeds threshold (e.g., 60 seconds)
+
+3. **Dashboard Widgets**:
+   - Heatmap updates per hour (by baseline)
+   - Average generation time by timeframe
+   - Error rate over time
+   - Document size trends
+
+### Expected Log Volume
+
+- **Daily updates**: ~45 task executions per day (15 baselines × 3 daily RS runs)
+- **Weekly updates**: ~15 task executions per week
+- **Monthly updates**: ~15 task executions per month
+- **Total**: ~50-60 heatmap snapshot updates per day
+
+---
+
+## 11. Shard Finalization (Semi-Annual/Annual)
 
 At the end of each time period, finalize the current shard and create a new one:
 
