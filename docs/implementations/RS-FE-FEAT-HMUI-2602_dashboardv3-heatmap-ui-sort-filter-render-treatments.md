@@ -452,9 +452,13 @@ Use the following subtasks under epic **RS-FE-FEAT-HMUI-2602**. Check them off a
   - Define `TimeRangeOption` enum and mapping to specific durations (6M, 1Y, 2Y, 5Y, All), with default 6M.
   - Implement `TimeRangeChipBarComponent` and propagate the selected time range into RS history rendering and chart navigation defaults.
 
-- [ ] **RS-FE-FEAT-HMUI-2602-T10 – Vertical virtual scroll for heatmap rows**
-  - Create/extend a heatmap rows component that uses `cdk-virtual-scroll-viewport` for vertical scrolling.
-  - Integrate this component into **dashboard v3** heatmap, consuming the final filtered/sliced `displayPairs` array.
+- [x] **RS-FE-FEAT-HMUI-2602-T10 – Vertical virtual scroll for heatmap rows**
+  - **COMPLETED**: Implemented Angular CDK virtual scrolling for all three heatmap columns (pair names, data cells, buttons).
+  - Three synchronized `cdk-virtual-scroll-viewport` instances with 28px item size.
+  - Only ~21 rows rendered at a time (600px viewport ÷ 28px row height).
+  - Middle viewport controls scrolling, syncs to first column and buttons via `scrolledIndexChange` event.
+  - DOM size stays constant (~31,500 cells) regardless of dataset size (12 or 500+ pairs).
+  - Performance: Smooth scrolling with large datasets, no browser lag.
 
 - [ ] **RS-FE-FEAT-HMUI-2602-T11 – Horizontal windowing / virtual scroll for RS history**
   - Implement horizontal windowing or virtualization of the RS history axis so we can safely handle historical data back to 2019.
