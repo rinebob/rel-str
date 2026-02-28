@@ -398,12 +398,42 @@ Use the following subtasks under epic **RS-FE-FEAT-HMUI-2602**. Check them off a
     - Reuse shared read-only infrastructure where appropriate (e.g., Firestore services, RS calc engine) but do not call v2 feature/store methods.
     - Normalize loaded RS series into row view models / `RanksDataWithColors` consumed exclusively by the v3 heatmap.
   - **Production (500+ pairs) – backend snapshots required**
-    - The **authoritative backend design** for per-baseline, per-timeframe **viewport snapshots** (e.g., `heatmapSnapshots/{baseline}_{timeframe}_viewport`) lives in:
+    - ⚠️ **ARCHITECTURE UPDATE (Feb 2026)**: Viewport documents are **deprecated**. The system now uses **historical/current shard** architecture.
+    - The **authoritative backend design** for per-baseline, per-timeframe **time-sharded snapshots** lives in:
       - `RS-BE-FEAT-HMSNAP-2602_backend-heatmap-snapshots-for-dashboard-v3.md`.
-    - In production, the FE v3 loader should prefer **viewport snapshot documents** for the selected baseline + timeframe (single-doc read on the happy path) via a dedicated heatmap data loader/service.
-    - Deep scroll-back (e.g., back to 2019) must use the **baseline history function** (`getBaselineHeatmapHistory`) to obtain additional baseline-level matrices, which the data service merges into its in-memory model. Symbol-sharded history and per-pair Firestore reads are explicitly not part of the v3 execution path.
+    - **All shards use `hist` naming** (e.g., `SPY-DAILY-hist-2026-H1`). The "current" shard is determined by date logic, not document naming.
+    - **Implementation tasks for shard migration**:
+      - **[DONE] FE-HMUI-T05a**: Create shard detection utilities (`getCurrentShardId()`, `getAllShardDocIds()`, etc.)
+        - Implemented in `src/app/core/utils/heatmap-shard.utils.ts`
+        - Supports DAILY (6-month), WEEKLY (2-year), MONTHLY (4-year) shards
+      - **[DONE] FE-HMUI-T05b**: Update heatmap data service with shard loading methods
+        - Added `getCurrentShardOnce()` for single shard loading
+        - Added `getAllShardsOnce()` for full timeline loading
+      - **[DONE] FE-HMUI-T05c**: Load all shards in parallel with caching
+        - **REVISED**: Progressive loading removed due to layout shift issues
+        - All shards loaded in parallel (~500ms for 15 shards)
+        - Single render cycle avoids jarring UI updates
+        - Implemented `HeatmapCacheService` for in-memory caching (5-min TTL)
+        - First load: ~500ms, subsequent loads: instant (0ms)
+      - **[DONE] FE-HMUI-T05d**: Update data models for `HeatmapSnapshotV2` interface
+        - Added interfaces and conversion methods in data service
+        - Store updated to consume merged shard matrices
+      - **[PENDING] FE-HMUI-T05e**: Remove all viewport document references and silent fallbacks
+      - **[PENDING] FE-HMUI-T05f**: Add explicit error handling for missing shards
+      - **[PENDING] FE-HMUI-T05g**: Test with production data and validate performance
+    - **Loading strategy** (revised Feb 2026):
+      1. Check cache for instant return (0ms)
+      2. Load all shards in parallel (current + historical)
+      3. Merge shards chronologically
+      4. Cache merged result
+      5. Single render with complete timeline
+      - **Rationale**: Progressive loading caused layout shift when historical data arrived. With <1s total load time and caching, single-load approach provides better UX.
+    - **Shard naming examples**:
+      - DAILY current: `SPY-DAILY-hist-2026-H1` (6-month shard)
+      - WEEKLY current: `SPY-WEEKLY-hist-2025-2026` (2-year shard)
+      - MONTHLY current: `SPY-MONTHLY-hist-2023-2026` (4-year shard)
     - FE-only loaders are allowed for development/prototyping but **must not** be used as a silent fallback in production. When snapshots/history calls fail in prod, the UI should surface an explicit error state (e.g., listing failed baselines/pairs) rather than silently reintroducing per-pair archive reads.
-    - FE-side `currentUniversePairs()` and slice options operate over the matrix derived from the snapshot viewport document (plus any merged history matrices); this FE doc remains focused on how that matrix is interpreted, sliced, and rendered in v3, not on long-term archival storage.
+    - FE-side `currentUniversePairs()` and slice options operate over the matrix derived from merged shard data; this FE doc remains focused on how that matrix is interpreted, sliced, and rendered in v3, not on long-term archival storage.
 
 - [x] **RS-FE-FEAT-HMUI-2602-T06 – Heatmap palette selector (v3)**
   - Introduce a global `HeatmapPaletteStore` backed by a registry (`HEATMAP_PALETTES`) describing all supported palettes.
