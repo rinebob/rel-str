@@ -9,6 +9,10 @@ import {
   HEATMAP_SNAPSHOTS_COLLECTION,
 } from '../../webhooks/webhooks-config';
 
+/**
+ * @deprecated V1 viewport schema - use HeatmapSnapshotV2 for new implementations.
+ * Retained for backward compatibility only.
+ */
 interface HeatmapSnapshotViewportV1 {
   baseline: string;
   timeframe: string;
@@ -25,6 +29,29 @@ interface HeatmapSnapshotViewportV1 {
     values: number[];
   }>;
   version: 1;
+}
+
+/**
+ * V2 schema for historical/current shards.
+ * Replaces the viewport concept with time-sharded documents.
+ */
+interface HeatmapSnapshotV2 {
+  baseline: string;
+  timeframe: 'DAILY' | 'WEEKLY' | 'MONTHLY';
+  updatedAt: FirebaseFirestore.Timestamp;
+  dateRange: {
+    from: string; // ISO date, inclusive
+    to: string;   // ISO date, inclusive
+  };
+  pairs: string[];
+  dates: string[];
+  rows: Array<{
+    pair: string;
+    values: number[];
+  }>;
+  version: 2;
+  shardType: 'historical' | 'current';
+  shardId: string; // e.g., '2026-H1', '2025-2026', '2023-2026'
 }
 
 async function loadDailyRsRawSeriesForPair(
@@ -71,6 +98,9 @@ async function loadDailyRsRawSeriesForPair(
 
 /**
  * Build a DAILY viewport snapshot matrix for a given baseline using RS archive data.
+ *
+ * @deprecated Use generateHistoricalShard() for v2 shards instead.
+ * This function is retained for backward compatibility with existing viewport docs.
  *
  * - Universe: all pair-registry docs whose id starts with `${baseline}-`.
  * - Date window: last ~120 calendar days from today, then compressed to the
@@ -163,6 +193,10 @@ function getMonthBucketKey(dayStr: string): string {
   return firstOfMonth.toISOString().slice(0, 10);
 }
 
+/**
+ * @deprecated Use generateHistoricalShard() for v2 shards instead.
+ * This function is retained for backward compatibility with existing viewport docs.
+ */
 async function generateWeeklyOrMonthlyViewportSnapshotForBaseline(
   baseline: string,
   timeframe: 'WEEKLY' | 'MONTHLY',
@@ -245,15 +279,236 @@ async function generateWeeklyOrMonthlyViewportSnapshotForBaseline(
 }
 
 /**
- * Admin-only callable to rebuild a viewport snapshot for a given baseline/timeframe.
+ * Generate a v2 historical or current shard for a given baseline and date range.
+ * Supports DAILY, WEEKLY, and MONTHLY timeframes.
+ */
+async function generateHistoricalShard(
+  baseline: string,
+  timeframe: 'DAILY' | 'WEEKLY' | 'MONTHLY',
+  dateRange: { from: string; to: string },
+  shardType: 'historical' | 'current',
+  shardId: string,
+): Promise<HeatmapSnapshotV2> {
+  const { from, to } = dateRange;
+
+  // Get pairs for this baseline from registry
+  const registrySnap = await db.collection(REGISTRY_COLLECTION).get();
+  const pairs: string[] = [];
+  registrySnap.forEach((doc) => {
+    const id = doc.id || '';
+    if (id.startsWith(`${baseline}-`)) {
+      pairs.push(id);
+    }
+  });
+  pairs.sort();
+
+  // Load RS data for all pairs in the date range
+  const perPair: Record<string, Array<{ day: string; rsRaw: number }>> = {};
+  const dateSet = new Set<string>();
+
+  for (const pairId of pairs) {
+    try {
+      const series = await loadDailyRsRawSeriesForPair(pairId, from, to);
+      perPair[pairId] = series;
+      for (const s of series) {
+        if (timeframe === 'DAILY') {
+          dateSet.add(s.day);
+        } else if (timeframe === 'WEEKLY') {
+          dateSet.add(getWeekBucketKey(s.day));
+        } else {
+          dateSet.add(getMonthBucketKey(s.day));
+        }
+      }
+    } catch (e: any) {
+      logger.warn('historical_shard_pair_failed', { pairId, from, to, message: e?.message });
+      perPair[pairId] = [];
+    }
+  }
+
+  // Get all dates/buckets in sorted order
+  const allDates = Array.from(dateSet.values()).sort((a, b) => a.localeCompare(b));
+
+  // Build rows for each pair
+  const rows: Array<{ pair: string; values: number[] }> = [];
+  
+  if (timeframe === 'DAILY') {
+    for (const pairId of pairs) {
+      const series = perPair[pairId] || [];
+      const byDay = new Map<string, number>();
+      for (const s of series) byDay.set(s.day, s.rsRaw);
+      const row: number[] = [];
+      for (const d of allDates) {
+        const v = byDay.get(d);
+        row.push(Number.isFinite(v as number) ? (v as number) : 0);
+      }
+      rows.push({ pair: pairId, values: row });
+    }
+  } else {
+    // WEEKLY or MONTHLY - aggregate by bucket
+    for (const pairId of pairs) {
+      const series = perPair[pairId] || [];
+      const byBucket = new Map<string, { day: string; value: number }>();
+      for (const s of series) {
+        const bucketKey = timeframe === 'WEEKLY' ? getWeekBucketKey(s.day) : getMonthBucketKey(s.day);
+        const existing = byBucket.get(bucketKey);
+        if (!existing || s.day > existing.day) {
+          byBucket.set(bucketKey, { day: s.day, value: s.rsRaw });
+        }
+      }
+      const row: number[] = [];
+      for (const b of allDates) {
+        const entry = byBucket.get(b);
+        row.push(entry && Number.isFinite(entry.value) ? entry.value : 0);
+      }
+      rows.push({ pair: pairId, values: row });
+    }
+  }
+
+  // Validate row lengths
+  for (const r of rows) {
+    if (r.values.length !== allDates.length) {
+      throw new Error(
+        `Historical shard invariant violated for baseline=${baseline} pair=${r.pair}: ` +
+          `values.length=${r.values.length} dates.length=${allDates.length}`,
+      );
+    }
+  }
+
+  // Estimate document size (rough approximation)
+  const estimatedSize = JSON.stringify({ pairs, dates: allDates, rows }).length;
+  const estimatedSizeKB = Math.round(estimatedSize / 1024);
+  
+  logger.info('historical_shard_generated', {
+    baseline,
+    timeframe,
+    shardId,
+    shardType,
+    dateRange,
+    pairs: pairs.length,
+    dates: allDates.length,
+    estimatedSizeKB,
+  });
+
+  // Warn if approaching Firestore limit
+  if (estimatedSize > 900000) {
+    logger.warn('historical_shard_size_warning', {
+      baseline,
+      timeframe,
+      shardId,
+      estimatedSizeKB,
+      message: 'Shard size approaching 1MB Firestore limit',
+    });
+  }
+
+  return {
+    baseline,
+    timeframe,
+    updatedAt: Timestamp.now(),
+    dateRange,
+    pairs,
+    dates: allDates,
+    rows,
+    version: 2,
+    shardType,
+    shardId,
+  };
+}
+
+/**
+ * Generate document ID for historical/current shards.
+ */
+function getShardDocId(
+  baseline: string,
+  timeframe: string,
+  snapshotType: 'historical' | 'current' | 'viewport',
+  params: { year?: number; half?: number; yearStart?: number; yearEnd?: number },
+): string {
+  if (snapshotType === 'viewport') {
+    return `${baseline}-${timeframe}-viewport`;
+  }
+
+  if (timeframe === 'DAILY') {
+    const { year, half } = params;
+    if (!year || !half) {
+      throw new Error('DAILY shards require year and half parameters');
+    }
+    return `${baseline}-DAILY-hist-${year}-H${half}`;
+  }
+
+  const { yearStart, yearEnd } = params;
+  if (!yearStart || !yearEnd) {
+    throw new Error(`${timeframe} shards require yearStart and yearEnd parameters`);
+  }
+  return `${baseline}-${timeframe}-hist-${yearStart}-${yearEnd}`;
+}
+
+/**
+ * Generate shard ID for metadata.
+ */
+function getShardId(
+  timeframe: string,
+  params: { year?: number; half?: number; yearStart?: number; yearEnd?: number },
+): string {
+  if (timeframe === 'DAILY') {
+    const { year, half } = params;
+    return `${year}-H${half}`;
+  }
+  const { yearStart, yearEnd } = params;
+  return `${yearStart}-${yearEnd}`;
+}
+
+/**
+ * Calculate date range for a historical shard.
+ */
+function getShardDateRange(
+  timeframe: string,
+  snapshotType: 'historical' | 'current',
+  params: { year?: number; half?: number; yearStart?: number; yearEnd?: number },
+): { from: string; to: string } {
+  if (timeframe === 'DAILY') {
+    const { year, half } = params;
+    if (!year || !half) {
+      throw new Error('DAILY shards require year and half parameters');
+    }
+
+    if (half === 1) {
+      const from = `${year}-01-01`;
+      const to = snapshotType === 'current' ? new Date().toISOString().slice(0, 10) : `${year}-06-30`;
+      return { from, to };
+    } else {
+      const from = `${year}-07-01`;
+      const to = snapshotType === 'current' ? new Date().toISOString().slice(0, 10) : `${year}-12-31`;
+      return { from, to };
+    }
+  }
+
+  const { yearStart, yearEnd } = params;
+  if (!yearStart || !yearEnd) {
+    throw new Error(`${timeframe} shards require yearStart and yearEnd parameters`);
+  }
+
+  const from = `${yearStart}-01-01`;
+  const to = snapshotType === 'current' ? new Date().toISOString().slice(0, 10) : `${yearEnd}-12-31`;
+  return { from, to };
+}
+
+/**
+ * Admin-only callable to rebuild heatmap snapshots.
  *
  * - Supports DAILY, WEEKLY, and MONTHLY timeframes.
- * - Writes `heatmap-snapshots/{baseline}-{timeframe}-viewport` with a
- *   HeatmapSnapshotViewportV1 document.
+ * - Supports both viewport (v1, deprecated) and historical/current shards (v2).
+ * - For v2 shards, writes `heatmap-snapshots/{baseline}-{timeframe}-hist-{shardId}`.
  */
 export const rebuildHeatmapSnapshotAdmin = onCall({ region: 'us-central1', timeoutSeconds: 540 }, async (req) => {
   const baseline = String(req.data?.baseline || '').trim().toUpperCase();
   const timeframe = String(req.data?.timeframe || 'DAILY').trim().toUpperCase();
+  const snapshotType = (req.data?.snapshotType || 'viewport') as 'historical' | 'current' | 'viewport';
+  
+  // V2 shard parameters
+  const year = req.data?.year ? Number(req.data.year) : undefined;
+  const half = req.data?.half ? Number(req.data.half) : undefined;
+  const yearStart = req.data?.yearStart ? Number(req.data.yearStart) : undefined;
+  const yearEnd = req.data?.yearEnd ? Number(req.data.yearEnd) : undefined;
 
   if (!baseline) {
     logger.warn('rebuildHeatmapSnapshotAdmin_missing_baseline');
@@ -262,25 +517,77 @@ export const rebuildHeatmapSnapshotAdmin = onCall({ region: 'us-central1', timeo
 
   if (!['DAILY', 'WEEKLY', 'MONTHLY'].includes(timeframe)) {
     logger.warn('rebuildHeatmapSnapshotAdmin_unsupported_timeframe', { timeframe });
-    return { ok: false, message: 'Only DAILY, WEEKLY, and MONTHLY timeframes are supported for viewport snapshot v1' };
+    return { ok: false, message: 'Only DAILY, WEEKLY, and MONTHLY timeframes are supported' };
   }
 
   try {
-    const snapshot =
-      timeframe === 'DAILY'
-        ? await generateDailyViewportSnapshotForBaseline(baseline)
-        : await generateWeeklyOrMonthlyViewportSnapshotForBaseline(baseline, timeframe as 'WEEKLY' | 'MONTHLY');
-    const docId = `${baseline}-${timeframe}-viewport`;
-    await db.collection(HEATMAP_SNAPSHOTS_COLLECTION).doc(docId).set(snapshot, { merge: false });
-    logger.info('rebuildHeatmapSnapshotAdmin_success', {
+    // Handle v1 viewport (deprecated) for backward compatibility
+    if (snapshotType === 'viewport') {
+      const snapshot =
+        timeframe === 'DAILY'
+          ? await generateDailyViewportSnapshotForBaseline(baseline)
+          : await generateWeeklyOrMonthlyViewportSnapshotForBaseline(baseline, timeframe as 'WEEKLY' | 'MONTHLY');
+      const docId = `${baseline}-${timeframe}-viewport`;
+      await db.collection(HEATMAP_SNAPSHOTS_COLLECTION).doc(docId).set(snapshot, { merge: false });
+      logger.info('rebuildHeatmapSnapshotAdmin_success_v1', {
+        baseline,
+        timeframe,
+        pairs: snapshot.pairs.length,
+        dates: snapshot.dates.length,
+      });
+      return { ok: true, baseline, timeframe, pairs: snapshot.pairs.length, dates: snapshot.dates.length };
+    }
+
+    // Handle v2 historical/current shards
+    const params = { year, half, yearStart, yearEnd };
+    const docId = getShardDocId(baseline, timeframe, snapshotType, params);
+    const shardId = getShardId(timeframe, params);
+    const dateRange = getShardDateRange(timeframe, snapshotType, params);
+
+    logger.info('rebuildHeatmapSnapshotAdmin_generating_v2', {
       baseline,
       timeframe,
+      snapshotType,
+      shardId,
+      dateRange,
+    });
+
+    // Generate the v2 shard
+    const snapshot = await generateHistoricalShard(
+      baseline,
+      timeframe as 'DAILY' | 'WEEKLY' | 'MONTHLY',
+      dateRange,
+      snapshotType,
+      shardId,
+    );
+
+    // Write to Firestore
+    await db.collection(HEATMAP_SNAPSHOTS_COLLECTION).doc(docId).set(snapshot, { merge: false });
+
+    logger.info('rebuildHeatmapSnapshotAdmin_success_v2', {
+      baseline,
+      timeframe,
+      snapshotType,
+      shardId,
+      docId,
       pairs: snapshot.pairs.length,
       dates: snapshot.dates.length,
+      estimatedSizeKB: Math.round(JSON.stringify(snapshot).length / 1024),
     });
-    return { ok: true, baseline, timeframe, pairs: snapshot.pairs.length, dates: snapshot.dates.length };
+
+    return {
+      ok: true,
+      baseline,
+      timeframe,
+      snapshotType,
+      shardId,
+      docId,
+      pairs: snapshot.pairs.length,
+      dates: snapshot.dates.length,
+      dateRange: snapshot.dateRange,
+    };
   } catch (e: any) {
-    logger.error('rebuildHeatmapSnapshotAdmin_failed', { baseline, timeframe, message: e?.message });
-    return { ok: false, baseline, timeframe, message: e?.message };
+    logger.error('rebuildHeatmapSnapshotAdmin_failed', { baseline, timeframe, snapshotType, message: e?.message });
+    return { ok: false, baseline, timeframe, snapshotType, message: e?.message };
   }
 });
