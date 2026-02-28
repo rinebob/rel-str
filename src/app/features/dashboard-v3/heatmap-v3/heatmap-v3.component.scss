@@ -27,6 +27,12 @@
             @include global.flexboxLayout(column, flex-start, flex-start);
             width: var(--heatmap-first-col-width);
 
+            .first-column-viewport {
+                height: 600px;
+                width: 100%;
+                overflow-y: hidden !important; // Scrolling controlled by middle viewport
+            }
+
             .heatmap-row {
                 @include global.flexboxLayout(row, flex-start, center);
             }
@@ -54,6 +60,11 @@
             overflow-y: hidden;
             width: 100%;
             @include global.customScrollbar();
+
+            .data-rows-viewport {
+                height: 600px;
+                width: 100%;
+            }
 
             .month-band-row {
                 @include global.flexboxLayout(row, flex-start, stretch);
@@ -95,15 +106,27 @@
         }
 
         .buttons-column-container {
-            @include global.flexboxLayout(column, flex-end, center);
+            @include global.flexboxLayout(column, flex-start, center);
             border-right: 1px solid black;
 
-            .buttons-row-container { @include global.flexboxLayout(); }
+            .buttons-column-viewport {
+                height: 600px;
+                width: 100%;
+                overflow-y: hidden !important; // Scrolling controlled by middle viewport
+            }
+
+            .buttons-row-container { 
+                @include global.flexboxLayout(); 
+                height: var(--heatmap-cell-height);
+                min-height: var(--heatmap-cell-height);
+            }
 
             .header-month {
+                height: var(--heatmap-month-band-height);
+                min-height: var(--heatmap-month-band-height);
                 .header-cell {
                     @include global.heatmapCell();
-                    height: var(--heatmap-month-band-height);
+                    height: 100%;
                     box-sizing: border-box;
                     border-top: 1px solid black;
                     background: var(--heatmap-header-bg);
@@ -112,9 +135,11 @@
                 }
             }
             .header-daterow {
+                height: var(--heatmap-cell-height);
+                min-height: var(--heatmap-cell-height);
                 .header-cell {
                     @include global.heatmapCell();
-                    height: var(--heatmap-cell-height);
+                    height: 100%;
                     box-sizing: border-box;
                     background: var(--heatmap-header-bg);
                     border-bottom: 1px solid black;

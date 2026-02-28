@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, effect, ElementRef, inject, computed, signal, viewChild } from '@angular/core';
 import { NgStyle, DecimalPipe } from '@angular/common';
+import { CdkVirtualScrollViewport, CdkFixedSizeVirtualScroll, CdkVirtualForOf } from '@angular/cdk/scrolling';
 import { BaselineTargetRankDatum, Timeframe } from '../../shared/types/rs.interfaces';
 import { RelStrBaseComponent } from '../../rel-str-base/rel-str-base.component';
 import { RsDataStore } from '../../store/rs-data.store';
@@ -15,13 +16,16 @@ const HEADER_CELL_CORNER_TEXT = 'Symbol/Date';
 @Component({
     selector: 'rs-heatmap-v3',
     standalone: true,
-    imports: [DecimalPipe],
+    imports: [DecimalPipe, CdkVirtualScrollViewport, CdkFixedSizeVirtualScroll, CdkVirtualForOf],
     templateUrl: './heatmap-v3.component.html',
     styleUrl: './heatmap-v3.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HeatmapV3Component extends RelStrBaseComponent {
     dataScroller = viewChild<ElementRef<HTMLDivElement>>('dataScroller' as any);
+    firstColumnViewport = viewChild<CdkVirtualScrollViewport>('firstColumnViewport' as any);
+    dataRowsViewport = viewChild<CdkVirtualScrollViewport>('dataRowsViewport' as any);
+    buttonsViewport = viewChild<CdkVirtualScrollViewport>('buttonsViewport' as any);
 
     headerCells = signal<string[]>([]);
     ranksDataWithColorsEntries = signal<[string, BaselineTargetRankDatum[]][]>([]);
@@ -337,5 +341,19 @@ export class HeatmapV3Component extends RelStrBaseComponent {
 
     private monthLabel(d: Date): string {
         return `${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+    }
+
+    onDataRowsScroll(): void {
+        const dataViewport = this.dataRowsViewport();
+        const firstColViewport = this.firstColumnViewport();
+        const buttonsViewport = this.buttonsViewport();
+
+        if (!dataViewport || !firstColViewport || !buttonsViewport) {
+            return;
+        }
+
+        const scrollOffset = dataViewport.measureScrollOffset();
+        firstColViewport.scrollToOffset(scrollOffset);
+        buttonsViewport.scrollToOffset(scrollOffset);
     }
 }
