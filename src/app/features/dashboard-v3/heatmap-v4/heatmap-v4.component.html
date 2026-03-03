@@ -1,0 +1,76 @@
+@if (ranksDataWithColorsEntries().length) {
+
+<div class="heatmap-wrapper">
+    <!-- Fixed Header Container -->
+    <div class="heatmap-header-container" #headerContainer (scroll)="onHeaderScroll($event)">
+        
+        <!-- Month Band Row -->
+        <div class="month-band-row">
+            <!-- Empty corner cell for symbol column -->
+            <div class="month-band-cell corner-cell sticky-left"></div>
+            
+            <!-- Scrollable data months -->
+            <div class="month-band-data">
+                @for (group of monthGroups(); track group.label + '-' + group.span) {
+                <div class="month-band-cell data-month" [style.--span]="group.span" [class.month-alt]="group.alt"
+                    [attr.title]="group.label">
+                    <span class="month-label">{{ group.label }}</span>
+                </div>
+                }
+                <div class="month-scrollbar-spacer"></div>
+            </div>
+        </div>
+
+        <!-- Date Header Row -->
+        <div class="heatmap-row header-row">
+            <!-- Fixed Left Corner: Symbol Header -->
+            <div class="header-cell sticky-left">
+                <p class="heatmap-text">{{ headerCells()[0] }}</p>
+            </div>
+
+            <!-- Scrollable Data Headers -->
+            <div class="header-data" #centerHeader>
+                @for (h of headerDateParts(); track h.raw) {
+                <div class="header-cell data-header" [class.week-alt]="h.weekAlt" [class.week-start]="h.weekStart"
+                    [class.month-start]="monthStartMap()[h.raw] === true" [class.year-start]="yearStartMap()[h.raw] === true"
+                    [class.sorted]="isHeaderSorted(h.raw)" [attr.title]="h.raw" (click)="onHeaderDateClick(h.raw)">
+                    <p class="heatmap-date">
+                        {{ h.date }}
+                        @if (isHeaderSorted(h.raw)) {
+                        <span class="sort-indicator">{{ sortDirection() === 'asc' ? '▲' : '▼' }}</span>
+                        }
+                    </p>
+                    <p class="heatmap-dow">{{ h.dow }}</p>
+                </div>
+                }
+                <div class="header-scrollbar-spacer"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Virtual Scroll Body (Handles all scrolling) -->
+    <cdk-virtual-scroll-viewport #bodyViewport [itemSize]="30" class="heatmap-body-viewport" (scroll)="onBodyScroll($event)">
+        <div *cdkVirtualFor="let entry of sortedRanksDataWithColorsEntries()" class="heatmap-row data-row">
+            
+            <!-- Fixed Left Column: Pair Name -->
+            <div class="heatmap-cell sticky-left pair-name-cell">
+                {{ entry[0] }}
+            </div>
+
+            <!-- Scrollable Data Cells -->
+            <div class="data-cells-container">
+                @for (datum of entry[1]; track datum.date) {
+                <div class="heatmap-cell data-cell" [class.week-start]="weekStartMap()[datum.date] === true"
+                    [class.month-start]="monthStartMap()[datum.date] === true" [class.year-start]="yearStartMap()[datum.date] === true"
+                    [class.sorted-col]="sortedDateKey() === datum.date" [style.background-color]="datum.color"
+                    [class.placeholder]="datum.placeholder === true"
+                    [attr.title]="'date: ' + datum.date + (datum.phase ? (' | phase: ' + datum.phase) : (datum.placeholder ? ' | phase: missing' : ''))">
+                    <p class="heatmap-text">{{ datum.value | number: '1.3-3' }}</p>
+                </div>
+                }
+            </div>
+        </div>
+    </cdk-virtual-scroll-viewport>
+</div>
+
+}

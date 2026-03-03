@@ -12,11 +12,17 @@ import { HeatmapPaletteStore } from '../store/heatmap-palette.store';
 import type { HeatmapPaletteId } from '../utils/heatmap-color-registry';
 import { ThresholdsStore } from '../store/thresholds.store';
 import type { ThresholdConfig } from '../store/thresholds.store';
+import { HeatmapV4Component } from './heatmap-v4/heatmap-v4.component';
 
 @Component({
     selector: 'rs-dashboard-v3',
     standalone: true,
-    imports: [HeatmapV3Component, MatButtonModule, MatButtonToggleModule, MatChipsModule],
+    imports: [
+        MatButtonToggleModule,
+        HeatmapV4Component,
+        MatButtonModule,
+        MatChipsModule,
+    ],
     templateUrl: './dashboard-v3.component.html',
     styleUrl: './dashboard-v3.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush
