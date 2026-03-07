@@ -1,7 +1,7 @@
 /**
  * Utility functions for working with heatmap snapshot shards.
  * 
- * All shards use the 'hist' naming convention (e.g., SPY-DAILY-hist-2026-H1).
+ * All shards use canonical naming (e.g., SPY-DAILY-2026-H1).
  * The "current" shard is determined by which shard contains today's date in its range.
  */
 
@@ -44,13 +44,13 @@ export function getCurrentShardId(timeframe: 'DAILY' | 'WEEKLY' | 'MONTHLY'): st
  * @returns The Firestore document ID for the current shard
  * 
  * @example
- * getCurrentShardDocId('SPY', 'DAILY') // Returns 'SPY-DAILY-hist-2026-H1'
- * getCurrentShardDocId('QQQ', 'WEEKLY') // Returns 'QQQ-WEEKLY-hist-2025-2026'
- * getCurrentShardDocId('XLB', 'MONTHLY') // Returns 'XLB-MONTHLY-hist-2023-2026'
+ * getCurrentShardDocId('SPY', 'DAILY') // Returns 'SPY-DAILY-2026-H1'
+ * getCurrentShardDocId('QQQ', 'WEEKLY') // Returns 'QQQ-WEEKLY-2025-2026'
+ * getCurrentShardDocId('XLB', 'MONTHLY') // Returns 'XLB-MONTHLY-2023-2026'
  */
 export function getCurrentShardDocId(baseline: string, timeframe: 'DAILY' | 'WEEKLY' | 'MONTHLY'): string {
   const shardId = getCurrentShardId(timeframe);
-  return `${baseline}-${timeframe}-hist-${shardId}`;
+  return `${baseline}-${timeframe}-${shardId}`;
 }
 
 /**
@@ -112,12 +112,12 @@ export function getHistoricalShardIds(timeframe: 'DAILY' | 'WEEKLY' | 'MONTHLY')
  * getAllShardDocIds('SPY', 'DAILY')
  * // Returns:
  * // {
- * //   current: 'SPY-DAILY-hist-2026-H1',
+ * //   current: 'SPY-DAILY-2026-H1',
  * //   historical: [
- * //     'SPY-DAILY-hist-2019-H1',
- * //     'SPY-DAILY-hist-2019-H2',
+ * //     'SPY-DAILY-2019-H1',
+ * //     'SPY-DAILY-2019-H2',
  * //     ...
- * //     'SPY-DAILY-hist-2025-H2'
+ * //     'SPY-DAILY-2025-H2'
  * //   ]
  * // }
  */
@@ -132,8 +132,8 @@ export function getAllShardDocIds(
   const historicalShardIds = getHistoricalShardIds(timeframe);
 
   return {
-    current: `${baseline}-${timeframe}-hist-${currentShardId}`,
-    historical: historicalShardIds.map(id => `${baseline}-${timeframe}-hist-${id}`),
+    current: `${baseline}-${timeframe}-${currentShardId}`,
+    historical: historicalShardIds.map(id => `${baseline}-${timeframe}-${id}`),
   };
 }
 
@@ -144,7 +144,7 @@ export function getAllShardDocIds(
  * @returns Object containing baseline, timeframe, and shardId, or null if invalid
  * 
  * @example
- * parseShardDocId('SPY-DAILY-hist-2026-H1')
+ * parseShardDocId('SPY-DAILY-2026-H1')
  * // Returns: { baseline: 'SPY', timeframe: 'DAILY', shardId: '2026-H1' }
  */
 export function parseShardDocId(docId: string): {
@@ -152,7 +152,7 @@ export function parseShardDocId(docId: string): {
   timeframe: 'DAILY' | 'WEEKLY' | 'MONTHLY';
   shardId: string;
 } | null {
-  const match = docId.match(/^([A-Z]+)-(DAILY|WEEKLY|MONTHLY)-hist-(.+)$/);
+  const match = docId.match(/^([A-Z]+)-(DAILY|WEEKLY|MONTHLY)-(.+)$/);
   if (!match) {
     return null;
   }
