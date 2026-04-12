@@ -122,6 +122,29 @@ This effort is specifically for **archive-focused RS backfill and refresh**; sig
 - **Deviations from planning**:
   - T03 is implemented with `runRsPairIntervalJob` wired to the RS compute path; remaining refinements to RS compute internals and extraction from older admin paths are tracked under T04.
 
+### 2026-03-09
+
+- **Status**:
+  - Critical bug fix deployed for realtime run status tracking in `updateRealtimeRunForJobTerminal`.
+  - **Issue**: `partner-events` documents stuck in `"processing"` status indefinitely; heatmap snapshots not updating despite successful job completion.
+  - **Root cause**: Two missing fields in the final update logic:
+    1. `runFinishedAt` not set on `rs-realtime-runs` final update (line 706)
+    2. `status` field not set on `partner-events` mirror (line 730)
+  - **Impact**: 
+    - Dashboards showed runs as perpetually in-progress
+    - Heatmap update trigger never fired (depends on `runFinishedAt` being set)
+    - Archive data was written correctly to `archive-{year}` collections, but not reflected in heatmap snapshots
+  - **Fix**: Added missing fields to `rs-time-series-jobs.worker.ts`:
+    - Line 706: `runFinishedAt: FieldValue.serverTimestamp()` in `finalUpdate`
+    - Line 730: `status: failure > 0 ? 'completed_with_errors' : 'completed'` in `eventPatch`
+  - **Verification**: After deployment, next run (2026-03-10) should properly set terminal status and trigger heatmap updates that backfill missing dates from 2026-03-09.
+- **Decisions**:
+  - Heatmap rebuild logic uses dynamic date ranges (`to: today`), so missed updates are automatically backfilled on next successful run.
+  - Created comprehensive documentation in `RS-BE-FEAT-RTRUN-2603_realtime-run-pipeline-and-status-tracking.md` to prevent similar issues.
+- **Related documentation**:
+  - See `RS-BE-FEAT-RTRUN-2603_realtime-run-pipeline-and-status-tracking.md` for detailed realtime run flow and status tracking lifecycle.
+  - See `partner-data-ready-troubleshooting.md` for operational troubleshooting procedures.
+
 ## Implementation References
 
 - **Key code** (planned targets):

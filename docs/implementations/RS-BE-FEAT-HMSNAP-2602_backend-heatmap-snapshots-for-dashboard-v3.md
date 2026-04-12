@@ -4,7 +4,9 @@
 >
 > The original "viewport" concept (60-period rolling window docs) has been **superseded** by a simpler **historical/current shard** approach. This eliminates the complexity of maintaining separate viewport and historical documents with daily boundary alignment.
 >
-> **Current approach**: Time-sharded historical documents extending to the current trading day, with progressive loading on the frontend (current shard first, then historical shards in background).
+> **Current approach**: Time-sharded historical documents extending to the current trading day. Frontend loads all shards in parallel for fast complete timeline rendering.
+>
+> **Production Data Set (Mar 2026)**: The current heatmap snapshot collection represents the live production data set, fully integrated with the realtime RS pipeline. No backfilling should be needed for either `archive-*` or `heatmap-snapshots` collections going forward.
 
 ---
 
@@ -29,8 +31,9 @@ The heatmap snapshot system uses **time-sharded historical documents** that exte
 - ✅ No viewport/historical boundary alignment complexity
 - ✅ Simpler FE logic (single doc type, continuous timeline)
 - ✅ Simpler BE maintenance (just extend current shard daily)
-- ✅ Progressive loading (current shard first, historical in background)
-- ✅ Fast first paint (~150ms for current data)
+- ✅ Parallel loading (all shards loaded simultaneously)
+- ✅ Fast first load (~500-650ms for complete history)
+- ✅ Instant cached loads (~0ms)
 
 ---
 
@@ -72,30 +75,32 @@ interface HeatmapSnapshotV2 {
 
 #### DAILY Timeframe
 - **Shard size**: **6 calendar months per doc** (safe margin under 1MB Firestore limit)
-- **Naming convention**: `{baseline}-DAILY-hist-{year}-H{1|2}`
+- **Naming convention**: `{baseline}-DAILY-{year}-H{1|2}`
   - `H1` = January–June
   - `H2` = July–December
-- **Example shards (as of Feb 2026)**:
-  - Immutable: `SPY-DAILY-hist-2019-H1`, `SPY-DAILY-hist-2019-H2`, ..., `SPY-DAILY-hist-2025-H2`
-  - Current: `SPY-DAILY-hist-2026-H1` (Jan 1, 2026 → current trading day, updated nightly)
+- **Example shards (as of Mar 2026)**:
+  - Immutable: `SPY-DAILY-2019-H1`, `SPY-DAILY-2019-H2`, ..., `SPY-DAILY-2025-H2`
+  - Current: `SPY-DAILY-2026-H1` (Jan 1, 2026 → current trading day, updated nightly)
 - **Size estimate**: ~500 KB per shard (500 pairs × 126 dates)
 - **Total per baseline**: 15 shards (14 immutable + 1 current)
 
 #### WEEKLY Timeframe
 - **Shard size**: **2 calendar years per doc**
-- **Naming convention**: `{baseline}-WEEKLY-hist-{yearStart}-{yearEnd}`
-- **Example shards (as of Feb 2026)**:
-  - Immutable: `SPY-WEEKLY-hist-2019-2020`, `SPY-WEEKLY-hist-2021-2022`, `SPY-WEEKLY-hist-2023-2024`
-  - Current: `SPY-WEEKLY-hist-2025-2026` (Jan 2025 → current week, updated weekly)
+- **Naming convention**: `{baseline}-WEEKLY-{yearStart}-{yearEnd}`
+- **Bucket logic**: Groups trading days by ISO week, uses **latest trading day** in each week as the bucket label (no calculated Fridays)
+- **Example shards (as of Mar 2026)**:
+  - Immutable: `SPY-WEEKLY-2019-2020`, `SPY-WEEKLY-2021-2022`, `SPY-WEEKLY-2023-2024`, `SPY-WEEKLY-2025-2026`
+  - Current: None (2025-2026 covers current data through 2026)
 - **Size estimate**: ~350 KB per shard (500 pairs × 104 weeks)
-- **Total per baseline**: 4 shards (3 immutable + 1 current)
+- **Total per baseline**: 4 shards (all historical, 2025-2026 extends to current week)
 
 #### MONTHLY Timeframe
 - **Shard size**: **4 calendar years per doc**
-- **Naming convention**: `{baseline}-MONTHLY-hist-{yearStart}-{yearEnd}`
-- **Example shards (as of Feb 2026)**:
-  - Immutable: `SPY-MONTHLY-hist-2019-2022`
-  - Current: `SPY-MONTHLY-hist-2023-2026` (Jan 2023 → current month, updated monthly)
+- **Naming convention**: `{baseline}-MONTHLY-{yearStart}-{yearEnd}`
+- **Bucket logic**: Groups trading days by month (YYYY-MM), uses **latest trading day** in each month as the bucket label (no calculated month-end dates)
+- **Example shards (as of Mar 2026)**:
+  - Immutable: `SPY-MONTHLY-2019-2022`
+  - Current: `SPY-MONTHLY-2023-2026` (Jan 2023 → current month, updated monthly)
 - **Size estimate**: ~160 KB per shard (500 pairs × 48 months)
 - **Total per baseline**: 2 shards (1 immutable + 1 current)
 
@@ -128,54 +133,76 @@ When a time period ends (e.g., June 30, 2026 for H1):
 
 ## 6. Frontend Integration
 
-#### Progressive Loading Strategy
+#### Loading Strategy
 
-The FE uses a **two-phase loading** approach for optimal UX:
+The FE uses a **single-phase parallel loading** approach:
 
-**Phase 1: Fast First Paint (~150ms)**
-1. Fetch **current shard** (e.g., `SPY-DAILY-hist-2026-H1`)
-2. If current shard has < 60 periods, also fetch **previous shard** (e.g., `SPY-DAILY-hist-2025-H2`)
-3. Merge and render immediately (user sees current data)
+**All Shards Loaded in Parallel**
+1. Fetch **all shard doc IDs** for the baseline and timeframe (current + historical)
+2. Load all shards in parallel using `Promise.all`
+3. Merge shards chronologically into continuous timeline (2019 → current day)
+4. Cache merged result for instant subsequent loads
+5. Render complete heatmap
 
-**Phase 2: Background Historical Load (~500ms)**
-4. Fetch all **historical shards** in parallel (e.g., `hist-2019-H1` through `hist-2025-H2`)
-5. Merge into continuous timeline (2019 → current day)
-6. Update UI (scrollbar extends, historical data available)
-
-**Total time to full history**: ~650ms (fast first paint + background load)
+**Performance**:
+- **First load**: ~500-650ms (all shards in parallel)
+- **Cached load**: ~0ms (instant from cache)
+- **Cache invalidation**: Per baseline/timeframe on data updates
 
 #### Example FE Flow (TypeScript)
 
 ```typescript
 async function loadHeatmapData(baseline: string, timeframe: string) {
-  // Phase 1: Current data (blocking)
-  const currentShardId = getCurrentShardId(baseline, timeframe, new Date());
-  const currentShard = await fetchShard(currentShardId);
-  
-  let recentShards = [currentShard];
-  if (currentShard.dates.length < 60) {
-    const prevShardId = getPreviousShardId(currentShardId);
-    const prevShard = await fetchShard(prevShardId);
-    recentShards = [prevShard, currentShard];
+  // Check cache first
+  const cached = cacheService.get(baseline, timeframe);
+  if (cached) {
+    renderHeatmap(cached);
+    return cached;
   }
   
-  // Render with current data (fast first paint)
-  const recentTimeline = mergeShards(recentShards);
-  renderHeatmap(recentTimeline);
+  // Get all shard doc IDs (current + historical)
+  const shardIds = getAllShardDocIds(baseline, timeframe);
+  const allDocIds = [shardIds.current, ...shardIds.historical];
   
-  // Phase 2: Historical data (non-blocking)
-  const historicalShardIds = getHistoricalShardIds(baseline, timeframe, currentShardId);
-  const historicalShards = await Promise.all(historicalShardIds.map(fetchShard));
+  // Load all shards in parallel
+  const shardPromises = allDocIds.map(docId => loadShard(docId));
+  const shards = (await Promise.all(shardPromises)).filter(s => s !== null);
   
-  // Merge and update (seamless transition)
-  const fullTimeline = mergeShards([...historicalShards, ...recentShards]);
-  updateHeatmap(fullTimeline);
+  // Merge shards chronologically
+  const timeline = mergeShards(shards);
+  
+  // Cache for instant subsequent loads
+  cacheService.set(baseline, timeframe, timeline);
+  
+  // Render complete heatmap
+  renderHeatmap(timeline);
+  return timeline;
 }
 ```
 
 ---
 
-## 7. Backend Implementation
+## 7. Pipeline Integration
+
+**Realtime Updates**: Heatmap snapshots are automatically updated after each realtime RS run completes. The integration flow:
+
+1. **RS Job Worker** (`rs-time-series-jobs.worker.ts`) completes processing all pairs for a given interval
+2. **Trigger Function** (`triggerHeatmapUpdatesForBaselines`) is called with the interval and affected baselines
+3. **Cloud Tasks Enqueued**: One task per baseline is enqueued to `updateHeatmapSnapshotTask` queue
+4. **Snapshot Generation**: Each task rebuilds the current shard for that baseline/timeframe
+5. **Firestore Write**: Updated shard document is written to `heatmap-snapshots/{docId}`
+
+**Data Source**: All heatmap snapshots read from `archive-{year}` subcollections under `pair-registry/{baseline}-{target}`. No separate data pipeline needed.
+
+**Frequency**:
+- **All timeframes (DAILY, WEEKLY, MONTHLY)**: Updated nightly after market close
+- Each `partner-data-ready` POST phase message includes all intervals (DAILY, WEEKLY, MONTHLY)
+- Heatmap updates are triggered for each interval after the RS job worker completes processing
+- This ensures WEEKLY and MONTHLY shards always reflect the latest trading day, not just period-end
+
+---
+
+## 8. Backend Implementation
 
 #### Request Schema (Extended)
 
@@ -201,17 +228,17 @@ interface RebuildHeatmapSnapshotRequest {
 function getDocId(baseline: string, timeframe: string, params: any): string {
   if (timeframe === 'DAILY') {
     const { year, half } = params;
-    return `${baseline}-DAILY-hist-${year}-H${half}`;
+    return `${baseline}-DAILY-${year}-H${half}`;
   }
   
   const { yearStart, yearEnd } = params;
-  return `${baseline}-${timeframe}-hist-${yearStart}-${yearEnd}`;
+  return `${baseline}-${timeframe}-${yearStart}-${yearEnd}`;
 }
 
 // Examples:
-// DAILY: 'SPY-DAILY-hist-2026-H1'
-// WEEKLY: 'SPY-WEEKLY-hist-2025-2026'
-// MONTHLY: 'SPY-MONTHLY-hist-2023-2026'
+// DAILY: 'SPY-DAILY-2026-H1'
+// WEEKLY: 'SPY-WEEKLY-2025-2026'
+// MONTHLY: 'SPY-MONTHLY-2023-2026'
 ```
 
 ---
@@ -271,13 +298,13 @@ foreach ($baseline in $baselines) {
           } 
         } | ConvertTo-Json)
       
-      Write-Host "Generated $baseline-DAILY-hist-$year-H$half"
+      Write-Host "Generated $baseline-DAILY-$year-H$half"
     }
   }
 }
 ```
 
-### WEEKLY Backfill (3 immutable shards per baseline)
+### WEEKLY Backfill (4 shards per baseline)
 
 Run in **PowerShell**:
 
@@ -287,7 +314,8 @@ $baselines = @('SPY', 'QQQ', 'XLB', 'XLC', 'XLE', 'XLF', 'XLI', 'XLK', 'XLP', 'X
 $periods = @(
   @{ start = 2019; end = 2020 },
   @{ start = 2021; end = 2022 },
-  @{ start = 2023; end = 2024 }
+  @{ start = 2023; end = 2024 },
+  @{ start = 2025; end = 2026 }
 )
 
 foreach ($baseline in $baselines) {
@@ -300,13 +328,12 @@ foreach ($baseline in $baselines) {
         data = @{ 
           baseline = $baseline
           timeframe = 'WEEKLY'
-          snapshotType = 'historical'
           yearStart = $period.start
           yearEnd = $period.end
         } 
       } | ConvertTo-Json)
     
-    Write-Host "Generated $baseline-WEEKLY-hist-$($period.start)-$($period.end)"
+    Write-Host "Generated $baseline-WEEKLY-$($period.start)-$($period.end)"
   }
 }
 ```
@@ -334,7 +361,7 @@ foreach ($baseline in $baselines) {
       } 
     } | ConvertTo-Json)
   
-  Write-Host "Generated $baseline-MONTHLY-hist-2019-2022"
+  Write-Host "Generated $baseline-MONTHLY-2019-2022"
 }
 ```
 
@@ -812,7 +839,94 @@ Invoke-RestMethod -Method Post `
 
 ---
 
-## 13. Migration from Viewport Docs (if applicable)
+## 13. Bulk Deletion of Heatmap Snapshots
+
+For cleanup, troubleshooting, or migration scenarios, the `deleteHeatmapSnapshotsAdmin` callable provides efficient server-side batch deletion of heatmap snapshot documents.
+
+### Function Overview
+
+**Cloud Function**: `deleteHeatmapSnapshotsAdmin`  
+**Type**: Callable (admin-protected)  
+**Region**: us-central1  
+**Timeout**: 540 seconds  
+**Memory**: 512 MiB
+
+### Parameters
+
+```typescript
+interface DeleteHeatmapSnapshotsRequest {
+  adminToken: string;      // Required: 'local-admin' for dev/prod
+  baseline?: string;       // Optional: Filter by baseline (e.g., 'QQQ', 'SPY')
+  dryRun?: boolean;       // Optional: Preview deletions without executing (default: false)
+}
+```
+
+### Usage Examples
+
+**Delete all QQQ snapshots (dry run)**:
+```powershell
+Invoke-RestMethod -Method Post -Uri "$base/deleteHeatmapSnapshotsAdmin" -Headers $headers -Body (@{
+    data = @{
+        adminToken = 'local-admin'
+        baseline = 'QQQ'
+        dryRun = $true
+    }
+} | ConvertTo-Json -Depth 5)
+```
+
+**Delete all QQQ snapshots (live)**:
+```powershell
+Invoke-RestMethod -Method Post -Uri "$base/deleteHeatmapSnapshotsAdmin" -Headers $headers -Body (@{
+    data = @{
+        adminToken = 'local-admin'
+        baseline = 'QQQ'
+        dryRun = $false
+    }
+} | ConvertTo-Json -Depth 5)
+```
+
+**Delete ALL heatmap snapshots (use with extreme caution)**:
+```powershell
+Invoke-RestMethod -Method Post -Uri "$base/deleteHeatmapSnapshotsAdmin" -Headers $headers -Body (@{
+    data = @{
+        adminToken = 'local-admin'
+        dryRun = $false
+    }
+} | ConvertTo-Json -Depth 5)
+```
+
+### Response Format
+
+```typescript
+{
+  ok: true,
+  scanned: 335,           // Total docs examined
+  deleted: 21,            // Docs deleted (or would be deleted in dry run)
+  skipped: 314,           // Docs not matching filter
+  dryRun: false,          // Whether this was a dry run
+  durationMs: 8367,       // Execution time
+  baselineFilter: 'QQQ'   // Applied filter (or 'ALL')
+}
+```
+
+### Performance
+
+- **Batch size**: 500 docs per Firestore batch write
+- **Typical performance**: ~8-10 seconds for 300+ docs
+- **Memory**: 512 MiB to handle full collection scan
+
+### Common Use Cases
+
+1. **Rebuild after schema changes**: Delete all docs for a baseline, then rebuild with updated logic
+2. **Fix corrupted data**: Remove malformed docs before regenerating
+3. **Baseline removal**: Clean up all snapshots when removing a baseline from the system
+4. **Testing**: Clear test data between development iterations
+
+> **See also**: Detailed usage documentation in `RS-BE-ADMIN-DELHM_delete-heatmap-snapshots-admin.md`
+
+---
+
+## 14. Migration from Viewport Docs (if applicable)
 
 If viewport docs exist from the deprecated architecture:
 
