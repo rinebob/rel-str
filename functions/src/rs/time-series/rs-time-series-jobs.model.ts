@@ -131,6 +131,9 @@ export interface RsRealtimeRunDoc {
   successJobs: number;
   permanentFailureJobs: number;
 
+  /** Counter tracking completed archive writes (incremented after each writeUnifiedSeries). */
+  archiveWritesComplete?: number;
+
   /** High-level status mirroring partner-events runStatus. */
   runStatus: RsRealtimeRunStatus;
 
