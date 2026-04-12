@@ -13,6 +13,23 @@ type SelectionType = 'chart' | 'history';
 
 const HEADER_CELL_CORNER_TEXT = 'Symbol/Date';
 
+/**
+ * Debug toggle for heatmap row expansion.
+ *
+ * When `true`, the v3 heatmap will deliberately **triple** the effective
+ * row count by repeating the full symbol list three times. This is used to
+ * stress‑test vertical scrolling and rendering performance without requiring
+ * a larger backend universe.
+ *
+ * When `false`, the heatmap renders exactly one row per pair as provided by
+ * `DashboardV3Store.heatmapRanksData`.
+ *
+ * Flip this flag locally during development instead of commenting blocks of
+ * code in and out. This keeps the production behavior explicit while
+ * preserving the shim logic for future diagnostics.
+ */
+const DEBUG_TRIPLE_ROWS = false;
+
 @Component({
     selector: 'rs-heatmap-v3',
     standalone: true,
@@ -149,7 +166,38 @@ export class HeatmapV3Component extends RelStrBaseComponent {
                 return;
             }
             const entries = Object.entries(ranks) as [string, BaselineTargetRankDatum[]][];
-            this.ranksDataWithColorsEntries.set(entries);
+
+            /**
+             * Optional development shim: triple the effective row count.
+             *
+             * When `DEBUG_TRIPLE_ROWS` is enabled, we construct a new `expanded`
+             * collection that repeats the **entire** symbol list three times,
+             * with suffixed keys (`SYMBOL#1`, `SYMBOL#2`, `SYMBOL#3`). This keeps
+             * rows visually grouped as `[list, list, list]` while significantly
+             * increasing vertical scroll height for performance testing.
+             *
+             * In normal production runs (`DEBUG_TRIPLE_ROWS === false`), we
+             * bypass this shim and render the canonical `entries` one‑for‑one so
+             * that each pair appears exactly once in the heatmap.
+             */
+            if (DEBUG_TRIPLE_ROWS) {
+                const expanded: [string, BaselineTargetRankDatum[]][] = [];
+                const multiply = 3;
+                for (let i = 0; i < multiply; i += 1) {
+                    for (const [key, value] of entries) {
+                        expanded.push([`${key}#${i + 1}`, value]);
+                    }
+                }
+                this.ranksDataWithColorsEntries.set(expanded);
+                // When expanding, keep natural insertion order instead of
+                // initializing a default sort column. This preserves the visual
+                // grouping of the three repeated lists.
+                this.sortDateIndex.set(null);
+            } else {
+                // Standard behavior: use the canonical ranks as provided by the
+                // store, one row per pair with no artificial replication.
+                this.ranksDataWithColorsEntries.set(entries);
+            }
 
             const first = entries[0]?.[1];
             if (!Array.isArray(first) || first.length === 0) {
@@ -165,13 +213,19 @@ export class HeatmapV3Component extends RelStrBaseComponent {
             }
             this.headerCells.set(dates);
 
-            // Default sort: latest date column, descending (highest RS first)
-            const lastIndex = first.length - 1;
-            if (lastIndex >= 0) {
-                this.sortDateIndex.set(lastIndex);
-                this.sortDirection.set('desc');
-            } else {
-                this.sortDateIndex.set(null);
+            // Default sort (non-debug): latest date column, descending (highest RS first).
+            // When DEBUG_TRIPLE_ROWS is enabled, we intentionally skip sort
+            // initialization above to preserve insertion order for the expanded
+            // lists; here we only apply default sorting when the canonical
+            // one-row-per-pair path is active.
+            if (!DEBUG_TRIPLE_ROWS) {
+                const lastIndex = first.length - 1;
+                if (lastIndex >= 0) {
+                    this.sortDateIndex.set(lastIndex);
+                    this.sortDirection.set('desc');
+                } else {
+                    this.sortDateIndex.set(null);
+                }
             }
         });
     }
