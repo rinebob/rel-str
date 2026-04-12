@@ -338,6 +338,14 @@ async function runRsPairIntervalJob(payload: ProcessRsJobPayload, cache: BarsCac
       to,
       writtenDays: series.length,
     });
+
+    // Increment archiveWritesComplete counter for REALTIME jobs
+    if (payload.jobType === RsJobType.REALTIME && payload.runId) {
+      const runRef = db.doc(rsRealtimeRunDocPath(payload.runId));
+      await runRef.update({
+        archiveWritesComplete: FieldValue.increment(1),
+      });
+    }
     return;
   }
 
@@ -444,6 +452,14 @@ async function runRsPairIntervalJob(payload: ProcessRsJobPayload, cache: BarsCac
       to,
       writtenDays: weeklySeries.length,
     });
+
+    // Increment archiveWritesComplete counter for REALTIME jobs
+    if (payload.jobType === RsJobType.REALTIME && payload.runId) {
+      const runRef = db.doc(rsRealtimeRunDocPath(payload.runId));
+      await runRef.update({
+        archiveWritesComplete: FieldValue.increment(1),
+      });
+    }
     return;
   }
 
@@ -550,6 +566,14 @@ async function runRsPairIntervalJob(payload: ProcessRsJobPayload, cache: BarsCac
       to,
       writtenDays: monthlySeries.length,
     });
+
+    // Increment archiveWritesComplete counter for REALTIME jobs
+    if (payload.jobType === RsJobType.REALTIME && payload.runId) {
+      const runRef = db.doc(rsRealtimeRunDocPath(payload.runId));
+      await runRef.update({
+        archiveWritesComplete: FieldValue.increment(1),
+      });
+    }
     return;
   }
 
@@ -703,6 +727,7 @@ async function updateRealtimeRunForJobTerminal(
 
     const finalUpdate: UpdateData<RsRealtimeRunDoc> = {
       runStatus: finalStatus,
+      runFinishedAt: FieldValue.serverTimestamp(),
       runCompletedAt: FieldValue.serverTimestamp(),
       runDocUpdatedAt: FieldValue.serverTimestamp(),
     } as any;
@@ -726,6 +751,7 @@ async function updateRealtimeRunForJobTerminal(
         failure === 0 ? 'COMPLETE' : success > 0 ? 'PARTIAL' : 'FAILED';
 
       const eventPatch: Record<string, any> = {
+        status: failure > 0 ? 'completed_with_errors' : 'completed',
         runStatus: backfillStyleStatus,
         successJobs: success,
         permanentFailureJobs: failure,
@@ -751,36 +777,48 @@ async function updateRealtimeRunForJobTerminal(
     }
 
     // Trigger heatmap snapshot updates for affected baselines after successful realtime run completion
+    // Only trigger if all archive writes are confirmed complete to avoid Firestore eventual consistency issues
     if (finalStatus === RsRealtimeRunStatus.COMPLETE || finalStatus === RsRealtimeRunStatus.PARTIAL) {
-      try {
-        // Extract unique baselines from the run's jobs
-        const interval = data.interval;
-        const jobsRef = db.doc(rsRealtimeRunDocPath(runId)).collection('jobs');
-        const jobsSnap = await jobsRef.get();
-        const baselinesSet = new Set<string>();
-        
-        jobsSnap.forEach((doc) => {
-          const jobData = doc.data();
-          if (jobData?.baseline) {
-            baselinesSet.add(String(jobData.baseline).toUpperCase());
-          }
+      const archiveWritesComplete = data.archiveWritesComplete ?? 0;
+      
+      if (archiveWritesComplete < expected) {
+        logger.warn('updateRealtimeRunForJobTerminal_heatmap_skipped_incomplete_writes', {
+          runId,
+          archiveWritesComplete,
+          expectedJobs: expected,
         });
+      } else {
+        try {
+          // Extract unique baselines from the run's jobs
+          const interval = data.interval;
+          const jobsRef = db.doc(rsRealtimeRunDocPath(runId)).collection('jobs');
+          const jobsSnap = await jobsRef.get();
+          const baselinesSet = new Set<string>();
+          
+          jobsSnap.forEach((doc) => {
+            const jobData = doc.data();
+            if (jobData?.baseline) {
+              baselinesSet.add(String(jobData.baseline).toUpperCase());
+            }
+          });
 
-        const baselines = Array.from(baselinesSet);
-        
-        if (baselines.length > 0) {
-          await triggerHeatmapUpdatesForBaselines(interval, baselines);
-          logger.info('updateRealtimeRunForJobTerminal_heatmap_triggered', {
+          const baselines = Array.from(baselinesSet);
+          
+          if (baselines.length > 0) {
+            await triggerHeatmapUpdatesForBaselines(interval, baselines);
+            logger.info('updateRealtimeRunForJobTerminal_heatmap_triggered', {
+              runId,
+              interval,
+              baselines: baselines.length,
+              archiveWritesComplete,
+            });
+          }
+        } catch (e: any) {
+          logger.error('updateRealtimeRunForJobTerminal_heatmap_trigger_failed', {
             runId,
-            interval,
-            baselines: baselines.length,
+            message: e?.message,
           });
         }
-      } catch (e: any) {
-        logger.error('updateRealtimeRunForJobTerminal_heatmap_trigger_failed', {
-          runId,
-          message: e?.message,
-        });
       }
     }
   }

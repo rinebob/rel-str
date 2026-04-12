@@ -1445,6 +1445,16 @@ export const processDataReadyRunV2 = onMessagePublished(
             } catch (e: any) {
               logger.error('processDataReadyRunV2_realtime_job_create_failed', { runId: intervalRunId, pairId, interval: iv, message: e?.message });
               counters.failedPairs++;
+              
+              // Decrement expectedJobs so that success + failure counters can reach expected
+              try {
+                const runRef = db.doc(rsRealtimeRunDocPath(intervalRunId));
+                await runRef.update({
+                  expectedJobs: FieldValue.increment(-1),
+                });
+              } catch (decrementErr: any) {
+                logger.warn('processDataReadyRunV2_expectedJobs_decrement_failed', { runId: intervalRunId, message: decrementErr?.message });
+              }
             }
           }
         }
