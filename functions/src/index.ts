@@ -50,6 +50,10 @@ export * from './webhooks/registry-actions';
 export { getPairRSArchive } from './archive';
 
 export { rebuildHeatmapSnapshotAdmin } from './rs/heatmap/heatmap-snapshots';
+export { updateHeatmapSnapshotTask } from './rs/heatmap/heatmap-snapshots';
+export { migrateHeatmapDocIdsAdmin } from './rs/heatmap/heatmap-snapshots';
+export { bulkRebuildShardsAdmin } from './rs/heatmap/heatmap-snapshots';
+export { deleteHeatmapSnapshotsAdmin } from './rs/heatmap/heatmap-snapshots';
 
 export { tradeJournalManager } from './trade-journal-manager';
 
