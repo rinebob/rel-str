@@ -61,14 +61,42 @@ async function loadDailyRsRawSeriesForPair(
       .orderBy('day', 'asc');
 
     const snap = await q.get();
+    let skippedDates = 0;
+    let skippedNoRsRaw = 0;
     for (const doc of snap.docs) {
       const d = (doc.data() as any) || {};
       const day: string = String(d?.day || '');
-      if (!day || day < fromStr || day > toStr) continue;
+      if (!day || day < fromStr || day > toStr) {
+        if (day) {
+          skippedDates++;
+          logger.debug('loadDailyRsRawSeriesForPair_skipped_date', {
+            pairId,
+            day,
+            fromStr,
+            toStr,
+            reason: !day ? 'no_day' : day < fromStr ? 'before_from' : 'after_to',
+          });
+        }
+        continue;
+      }
       const post = d.post as any;
       const rsRaw = Number(post?.rsRaw);
-      if (!Number.isFinite(rsRaw)) continue;
+      if (!Number.isFinite(rsRaw)) {
+        skippedNoRsRaw++;
+        continue;
+      }
       out.push({ day: day.slice(0, 10), rsRaw });
+    }
+    if (skippedDates > 0 || skippedNoRsRaw > 0) {
+      logger.info('loadDailyRsRawSeriesForPair_year_summary', {
+        pairId,
+        year: y,
+        fromStr,
+        toStr,
+        loaded: out.length,
+        skippedDates,
+        skippedNoRsRaw,
+      });
     }
   }
 
@@ -172,12 +200,20 @@ async function generateShardSnapshot(
   }
 
   const dataLoadDuration = Date.now() - dataLoadStartTime;
+  
+  // Log the actual dates collected
+  const collectedDates = Array.from(dateSet.values()).sort((a, b) => a.localeCompare(b));
+  const latestDate = collectedDates.length > 0 ? collectedDates[collectedDates.length - 1] : 'none';
+  
   logger.info('generateShardSnapshot_data_loaded', {
     baseline,
     timeframe,
     pairCount: pairs.length,
     failedPairs,
     totalDataPoints,
+    uniqueDates: dateSet.size,
+    latestDate,
+    dateRange: { from, to },
     durationMs: dataLoadDuration,
   });
 
