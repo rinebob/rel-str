@@ -50,7 +50,8 @@ export class RelStrDbV2Service {
 
     const fmtYMD = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
 
-    const today = new Date();
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
     const todayYMD = fmtYMD(today);
     const START_ARCHIVE_YEAR = 2019;
     const currentYear = today.getUTCFullYear();
@@ -155,7 +156,8 @@ export class RelStrDbV2Service {
 
     const fmtYMD = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
 
-    const today = new Date();
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
     const todayYMD = fmtYMD(today);
     const START_ARCHIVE_YEAR = 2019;
     const currentYear = today.getUTCFullYear();
@@ -548,7 +550,8 @@ export class RelStrDbV2Service {
     const fmtYMD = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
     const ymdFromShardId = (yyMMdd: string, year: number) => `${year}-${yyMMdd.substring(2, 4)}-${yyMMdd.substring(4, 6)}`;
 
-    const today = new Date();
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
     const todayYMD = fmtYMD(today);
     // Fetch all archive shards from START_ARCHIVE_YEAR through current year
     const START_ARCHIVE_YEAR = 2019;
