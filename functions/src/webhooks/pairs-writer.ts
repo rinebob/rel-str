@@ -462,7 +462,11 @@ export async function writeUnifiedSeries(
     const archiveRef = pairRef.collection(archiveCol).doc(yymmdd);
 
     const existingDay = byDay.get(e.day);
-    const dayDoc: any = { day: existingDay.day, dow: existingDay.dow };
+    const dayDoc: any = { 
+      day: existingDay.day, 
+      dow: existingDay.dow,
+      writtenAt: FieldValue.serverTimestamp()
+    };
     if (existingDay.pre) {
       const { time, base, target, rsNorm, rsRaw, source } = existingDay.pre;
       dayDoc.pre = { time, base, target, rsNorm, rsRaw, source };
