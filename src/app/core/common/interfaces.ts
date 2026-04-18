@@ -18,6 +18,7 @@ export enum AppRoutes {
 	POSITIONS_VIEW = 'positions-view',
 	TRADE_JOURNAL = 'trade-journal',
 	HEATMAP_VIEW = 'heatmap-view',
+	HEATMAP_CHART = 'heatmap-chart/:baseline/:symbol',
 	// ROBERT = 'robert',
 	// KANBAN = 'kanban',
 	// AUDIO = 'audio',
