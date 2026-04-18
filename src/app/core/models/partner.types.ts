@@ -36,6 +36,7 @@ export interface GetPairDailyBarsRequest {
   interval?: BarsInterval;
   from: string; // YYYY-MM-DD
   to: string;   // YYYY-MM-DD
+  adjusted?: boolean; // Default true for split-adjusted data
 }
 
 export interface PartnerDailyBarDTO {

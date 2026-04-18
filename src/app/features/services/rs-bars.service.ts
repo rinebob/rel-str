@@ -74,7 +74,9 @@ export class RsBarsService {
         interval: params.interval ?? BarsInterval.DAILY,
         from: fromIso,
         to: toIso,
+        adjusted: true, // Always use split-adjusted data
       };
+      console.log('[RsBarsService] Requesting bars:', req);
       return callable(req);
     }))).pipe(
       map((res) => Array.isArray(res?.data?.bars) ? res.data.bars : []),

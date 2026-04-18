@@ -8,6 +8,7 @@ import { RsBarsService } from '../services/rs-bars.service';
 import type { RsSeriesPoint } from '../shared/types/rs.interfaces';
 import { Timeframe } from '../shared/types/rs.interfaces';
 import type { ChartDataset, HeatmapDataset, HeatmapRow, HeatmapCell, PriceBar } from './heatmap-chart.types';
+import { aggregateDailyToWeekly, aggregateDailyToMonthly } from './heatmap-chart-aggregation.util';
 
 @Injectable({ providedIn: 'root' })
 export class HeatmapChartDataService {
@@ -27,16 +28,28 @@ export class HeatmapChartDataService {
     const from = dateRange?.from;
     const to = dateRange?.to;
 
-    return this.barsService.getDailyBars$(symbol, { from, to, interval }).pipe(
+    console.log('[HeatmapChartDataService] fetchChartData$', { symbol, interval, from, to });
+
+    // Always fetch Daily adjusted data, then aggregate to Weekly/Monthly if needed
+    // This ensures split-adjusted data for all intervals
+    return this.barsService.getDailyBars$(symbol, { from, to, interval: BarsInterval.DAILY }).pipe(
       map((bars) => {
-        const priceBars: PriceBar[] = bars.map((b) => ({
+        let priceBars: PriceBar[] = bars.map((b) => ({
           date: b.date!,
+          x: new Date(`${b.date}T00:00:00.000Z`),
           open: b.open,
           high: b.high,
           low: b.low,
           close: b.close,
           volume: b.volume,
         }));
+
+        // Aggregate to Weekly or Monthly if needed
+        if (interval === BarsInterval.WEEKLY) {
+          priceBars = aggregateDailyToWeekly(priceBars);
+        } else if (interval === BarsInterval.MONTHLY) {
+          priceBars = aggregateDailyToMonthly(priceBars);
+        }
 
         const actualFrom = priceBars.length > 0 ? priceBars[0].date : from || '';
         const actualTo = priceBars.length > 0 ? priceBars[priceBars.length - 1].date : to || '';

@@ -32,6 +32,7 @@ export interface ChartDataset {
 
 export interface PriceBar {
   date: string;
+  x: Date;
   open: number;
   high: number;
   low: number;

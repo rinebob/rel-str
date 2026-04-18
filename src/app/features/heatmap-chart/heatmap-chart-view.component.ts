@@ -6,11 +6,13 @@ import { Subject, takeUntil } from 'rxjs';
 import { BarsInterval } from '../../core/models/partner.types';
 import { HeatmapChartStore } from './heatmap-chart.store';
 import type { HeatmapChartQuery } from './heatmap-chart.types';
+import { HeatmapChartChartComponent } from './components/heatmap-chart-chart.component';
+import { HeatmapChartHeatmapComponent } from './components/heatmap-chart-heatmap.component';
 
 @Component({
   selector: 'app-heatmap-chart-view',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, HeatmapChartChartComponent, HeatmapChartHeatmapComponent],
   template: `
     <div class="heatmap-chart-view">
       @if (store.loading()) {
@@ -74,20 +76,18 @@ import type { HeatmapChartQuery } from './heatmap-chart.types';
         </div>
         
         <div class="chart-container">
-          <!-- Chart component will go here -->
-          <div class="chart-placeholder">
-            <p>Chart: {{ vm.chartData?.bars?.length || 0 }} bars</p>
-          </div>
+          <app-heatmap-chart-chart
+            [chartData]="vm.chartData"
+            [height]="'100%'">
+          </app-heatmap-chart-chart>
         </div>
         
         <div class="heatmap-container">
-          <!-- Heatmap component will go here -->
-          <div class="heatmap-placeholder">
-            <p>Heatmap rows:</p>
-            <p>Daily: {{ vm.heatmapData?.daily?.cells?.length || 0 }} cells</p>
-            <p>Weekly: {{ vm.heatmapData?.weekly?.cells?.length || 0 }} cells</p>
-            <p>Monthly: {{ vm.heatmapData?.monthly?.cells?.length || 0 }} cells</p>
-          </div>
+          <app-heatmap-chart-heatmap
+            [heatmapData]="vm.heatmapData"
+            [chartBarCount]="vm.chartData?.bars?.length || 0"
+            [colorScheme]="vm.colorScheme">
+          </app-heatmap-chart-heatmap>
         </div>
       }
     </div>
@@ -96,8 +96,9 @@ import type { HeatmapChartQuery } from './heatmap-chart.types';
     .heatmap-chart-view {
       display: flex;
       flex-direction: column;
-      height: 100%;
+      height: 100vh;
       padding: 1rem;
+      box-sizing: border-box;
     }
     
     .loading-indicator,
@@ -117,6 +118,7 @@ import type { HeatmapChartQuery } from './heatmap-chart.types';
       margin-bottom: 1rem;
       padding-bottom: 1rem;
       border-bottom: 1px solid #ccc;
+      flex-shrink: 0;
     }
     
     .pair-info {
@@ -186,23 +188,20 @@ import type { HeatmapChartQuery } from './heatmap-chart.types';
     }
     
     .chart-container {
-      flex: 2;
-      min-height: 400px;
-      border: 1px solid #ccc;
+      flex: 1 1 auto;
+      min-height: 300px;
       margin-bottom: 1rem;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
     }
     
     .heatmap-container {
-      flex: 1;
-      min-height: 200px;
-      border: 1px solid #ccc;
-    }
-    
-    .chart-placeholder,
-    .heatmap-placeholder {
-      padding: 2rem;
-      text-align: center;
-      color: #666;
+      flex: 0 0 200px;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      overflow-y: auto;
+      overflow-x: hidden;
     }
   `]
 })
