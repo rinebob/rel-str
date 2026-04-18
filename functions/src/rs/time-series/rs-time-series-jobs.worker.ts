@@ -36,6 +36,12 @@ import type { ProcessRsJobPayload } from './rs-time-series-jobs.helper';
 
 type BarsCache = Map<string, PartnerBar[]>;
 
+/**
+ * Minimum completion rate required to trigger heatmap snapshot updates.
+ * Allows for a small number of permanent failures while still updating heatmaps.
+ */
+const HEATMAP_TRIGGER_COMPLETION_RATE = 0.98; // 98%
+
 function buildBarsCacheKey(symbol: string, opts: FetchRangeOptions): string {
   const interval = opts.interval ?? Interval.DAILY;
   const fromIso = String(opts.from).slice(0, 10);
@@ -777,20 +783,22 @@ async function updateRealtimeRunForJobTerminal(
     }
 
     // Trigger heatmap snapshot updates for affected baselines after successful realtime run completion
-    // Only trigger if all archive writes are confirmed complete to avoid Firestore eventual consistency issues
+    // Require 98% completion rate to allow for a small number of permanent failures
     if (finalStatus === RsRealtimeRunStatus.COMPLETE || finalStatus === RsRealtimeRunStatus.PARTIAL) {
       const archiveWritesComplete = data.archiveWritesComplete ?? 0;
+      const completionRate = expected > 0 ? archiveWritesComplete / expected : 0;
       
-      if (archiveWritesComplete < expected) {
+      if (completionRate < HEATMAP_TRIGGER_COMPLETION_RATE) {
         logger.warn('updateRealtimeRunForJobTerminal_heatmap_skipped_incomplete_writes', {
           runId,
           archiveWritesComplete,
           expectedJobs: expected,
+          completionRate: Number(completionRate.toFixed(4)),
+          requiredRate: HEATMAP_TRIGGER_COMPLETION_RATE,
         });
       } else {
         try {
           // Extract unique baselines from the run's jobs
-          const interval = data.interval;
           const jobsRef = db.doc(rsRealtimeRunDocPath(runId)).collection('jobs');
           const jobsSnap = await jobsRef.get();
           const baselinesSet = new Set<string>();
@@ -805,11 +813,16 @@ async function updateRealtimeRunForJobTerminal(
           const baselines = Array.from(baselinesSet);
           
           if (baselines.length > 0) {
-            await triggerHeatmapUpdatesForBaselines(interval, baselines);
+            // Trigger updates for ALL three timeframes (DAILY, WEEKLY, MONTHLY)
+            // regardless of which interval was run
+            await triggerHeatmapUpdatesForBaselines(Interval.DAILY, baselines);
+            await triggerHeatmapUpdatesForBaselines(Interval.WEEKLY, baselines);
+            await triggerHeatmapUpdatesForBaselines(Interval.MONTHLY, baselines);
+            
             logger.info('updateRealtimeRunForJobTerminal_heatmap_triggered', {
               runId,
-              interval,
               baselines: baselines.length,
+              timeframes: ['DAILY', 'WEEKLY', 'MONTHLY'],
               archiveWritesComplete,
             });
           }
