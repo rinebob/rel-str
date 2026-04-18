@@ -54,6 +54,7 @@ export { updateHeatmapSnapshotTask } from './rs/heatmap/heatmap-snapshots';
 export { migrateHeatmapDocIdsAdmin } from './rs/heatmap/heatmap-snapshots';
 export { bulkRebuildShardsAdmin } from './rs/heatmap/heatmap-snapshots';
 export { deleteHeatmapSnapshotsAdmin } from './rs/heatmap/heatmap-snapshots';
+export { rebuildHeatmapSnapshotsHttpAdmin } from './rs/heatmap/rebuild-heatmap-http-admin';
 
 export { tradeJournalManager } from './trade-journal-manager';
 

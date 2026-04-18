@@ -134,7 +134,7 @@ function getMonthKey(dayStr: string): string {
  * Generate a v2 shard for a given baseline and date range.
  * Supports DAILY, WEEKLY, and MONTHLY timeframes.
  */
-async function generateShardSnapshot(
+export async function generateShardSnapshot(
   baseline: string,
   timeframe: 'DAILY' | 'WEEKLY' | 'MONTHLY',
   dateRange: { from: string; to: string },
@@ -352,7 +352,7 @@ async function generateShardSnapshot(
 /**
  * Generate document ID for shards.
  */
-function getShardDocId(
+export function getShardDocId(
   baseline: string,
   timeframe: string,
   params: { year?: number; half?: number; yearStart?: number; yearEnd?: number },
@@ -375,7 +375,7 @@ function getShardDocId(
 /**
  * Generate shard ID for metadata.
  */
-function getShardId(
+export function getShardId(
   timeframe: string,
   params: { year?: number; half?: number; yearStart?: number; yearEnd?: number },
 ): string {
@@ -390,7 +390,7 @@ function getShardId(
 /**
  * Calculate date range for a shard.
  */
-function getShardDateRange(
+export function getShardDateRange(
   timeframe: string,
   params: { year?: number; half?: number; yearStart?: number; yearEnd?: number },
 ): { from: string; to: string } {
