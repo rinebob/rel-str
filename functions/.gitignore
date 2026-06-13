@@ -8,3 +8,9 @@ typings/
 # Node.js dependency directory
 node_modules/
 *.local
+
+# Robinhood agent
+.rh-tokens.json
+auth-url.txt
+scheduler.log
+.env
