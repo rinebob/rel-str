@@ -13,8 +13,16 @@ import { getFunctions, provideFunctions } from '@angular/fire/functions';
 import { getPerformance, providePerformance } from '@angular/fire/performance';
 import { getStorage, provideStorage } from '@angular/fire/storage';
 
-import { FIREBASE_CONFIG, REL_STR_RECAPTCHA_KEY } from '../secrets/secrets';
 
+import { environment } from '../environments/environment';
+import { ChatService } from './features/fc/services/chat.service';
+import { provideMessaging } from '@angular/fire/messaging';
+import { getMessaging } from '@angular/fire/messaging';
+
+import { registerLicense } from '@syncfusion/ej2-base';
+import { SYNC_FUSION_LICENSE_KEY } from '../secrets/syncfusion-license';
+
+registerLicense(SYNC_FUSION_LICENSE_KEY);
 
 export const appConfig: ApplicationConfig = {
 	providers: [
@@ -39,7 +47,9 @@ export const appConfig: ApplicationConfig = {
         provideFunctions(() => getFunctions()),
         providePerformance(() => getPerformance()),
         provideStorage(() => getStorage()), 
-        provideFirebaseApp(() => initializeApp(FIREBASE_CONFIG)),
+
+        // provideMessaging(() => getMessaging()), 
+        provideFirebaseApp(() => initializeApp(environment.firebase)),
 
 
 	],

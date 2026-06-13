@@ -1,0 +1,3 @@
+env:
+  - variable: SYNC_FUSION_LICENSE_KEY
+    secret: SYNC_FUSION_LICENSE_KEY
