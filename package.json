@@ -45,7 +45,6 @@
     "@syncfusion/ej2-angular-charts": "^30.2.7",
     "@syncfusion/ej2-base": "^30.2.6",
     "@syncfusion/ej2-charts": "^30.2.7",
-    
     "javascript-color-gradient": "^2.5.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
