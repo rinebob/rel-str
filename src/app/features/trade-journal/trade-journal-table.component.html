@@ -68,8 +68,10 @@
       class="tj-row"
     ></tr>
 
-    <tr class="tj-empty" *ngIf="trades().length === 0">
-      <td [attr.colspan]="displayedColumns.length">No trades yet.</td>
-    </tr>
+    @if (trades().length === 0) {
+      <tr class="tj-empty">
+        <td [attr.colspan]="displayedColumns.length">No trades yet.</td>
+      </tr>
+    }
   </table>
 </div>

@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, inject, effect } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 
@@ -12,7 +12,7 @@ import { HeatmapChartHeatmapComponent } from './components/heatmap-chart-heatmap
 @Component({
   selector: 'app-heatmap-chart-view',
   standalone: true,
-  imports: [CommonModule, HeatmapChartChartComponent, HeatmapChartHeatmapComponent],
+  imports: [HeatmapChartChartComponent, HeatmapChartHeatmapComponent],
   template: `
     <div class="heatmap-chart-view">
       @if (store.loading()) {

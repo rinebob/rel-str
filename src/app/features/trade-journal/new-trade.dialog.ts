@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, Inject, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -66,7 +66,6 @@ export interface NewTradeDialogData extends ExistingTradeFilePaths {
   selector: 'app-new-trade-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
     MatDialogModule,
     MatFormFieldModule,
@@ -76,8 +75,8 @@ export interface NewTradeDialogData extends ExistingTradeFilePaths {
     MatCheckboxModule,
     MatIconModule,
     MatDatepickerModule,
-    MatNativeDateModule,
-  ],
+    MatNativeDateModule
+],
   templateUrl: './new-trade.dialog.html',
   styleUrls: ['./new-trade.dialog.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

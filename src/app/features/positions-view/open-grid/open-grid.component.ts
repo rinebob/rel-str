@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { MatChipsModule } from '@angular/material/chips';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { PositionsStore, PositionsResultFilter, PositionsSideFilter, PositionsIntervalFilter } from '../positions.store';
@@ -10,7 +10,7 @@ import { BarsInterval } from '../../../core/models/partner.types';
 @Component({
   selector: 'app-pv-open-grid',
   standalone: true,
-  imports: [CommonModule, MatChipsModule, MatExpansionModule, PvOpenCardComponent],
+  imports: [MatChipsModule, MatExpansionModule, PvOpenCardComponent],
   templateUrl: './open-grid.component.html',
   styleUrls: ['./open-grid.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

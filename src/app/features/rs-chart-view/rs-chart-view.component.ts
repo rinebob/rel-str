@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, ViewChild } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
@@ -17,7 +17,7 @@ import { RsChartStore } from '../store/rs-chart.store';
 @Component({
     selector: 'rs-rs-chart-view',
     standalone: true,
-    imports: [CommonModule, MatButtonToggleModule, MatProgressSpinnerModule, RsChartComponent],
+    imports: [MatButtonToggleModule, MatProgressSpinnerModule, RsChartComponent],
     templateUrl: './rs-chart-view.component.html',
     styleUrls: ['./rs-chart-view.component.scss'],
     changeDetection: ChangeDetectionStrategy.OnPush,

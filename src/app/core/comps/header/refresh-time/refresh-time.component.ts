@@ -1,11 +1,11 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, EnvironmentInjector, runInInjectionContext, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { RefreshStatusStore } from './refresh-status.store';
 
 @Component({
   selector: 'rs-refresh-time',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   templateUrl: './refresh-time.component.html',
   styleUrl: './refresh-time.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

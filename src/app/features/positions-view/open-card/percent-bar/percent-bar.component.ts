@@ -1,11 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { PositionDirection } from '../../../../core/models/fe-position.types';
 
 @Component({
   selector: 'app-pv-percent-bar',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   templateUrl: './percent-bar.component.html',
   styleUrls: ['./percent-bar.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

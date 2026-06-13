@@ -1,5 +1,5 @@
 import { Component, input, computed, ChangeDetectionStrategy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 
 import type { HeatmapDataset, HeatmapRow, HeatmapCell, HeatmapColorScheme, AlignmentMetrics, CellAlignment } from '../heatmap-chart.types';
 import { calculateAlignmentMetrics, calculateRowAlignments } from '../heatmap-chart-alignment.util';
@@ -7,7 +7,7 @@ import { calculateAlignmentMetrics, calculateRowAlignments } from '../heatmap-ch
 @Component({
   selector: 'app-heatmap-chart-heatmap',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   template: `
     <div class="heatmap-wrapper">
       @if (heatmapData(); as data) {

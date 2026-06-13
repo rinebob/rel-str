@@ -1,5 +1,5 @@
 import { Component, OnInit, computed, inject, isDevMode } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { DecisionBoardStore } from './decision-board.store';
 import { DecisionBoardItem } from './decision-board.service';
 import { PositionDirection, PositionDoc } from '../../core/models/fe-position.types';
@@ -9,7 +9,7 @@ import { Collection, Subcollection } from '../../core/common/constants';
 @Component({
   selector: 'app-decision-board-view',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   templateUrl: './decision-board.view.html',
   styleUrls: ['./decision-board.view.scss'],
 })

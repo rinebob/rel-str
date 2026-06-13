@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { PositionsStore } from './positions.store';
 import { PvOpenSummaryComponent } from './open-summary/open-summary.component';
 import { PvOpenGridComponent } from './open-grid/open-grid.component';
@@ -8,7 +8,7 @@ import { PvClosedGridComponent } from './closed-grid/closed-grid.component';
 @Component({
   selector: 'app-positions-view',
   standalone: true,
-  imports: [CommonModule, PvOpenSummaryComponent, PvOpenGridComponent, PvClosedGridComponent],
+  imports: [PvOpenSummaryComponent, PvOpenGridComponent, PvClosedGridComponent],
   templateUrl: './positions-view.component.html',
   styleUrls: ['./positions-view.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

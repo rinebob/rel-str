@@ -45,30 +45,30 @@
       (delete)="onDeleteTrade($event)"
     ></app-trade-journal-table>
 
-    <aside class="tj-detail" *ngIf="selectedTradeId(); else noSelection">
-      <mat-toolbar color="primary" class="tj-detail-toolbar">
-        <span>Trade details</span>
-        <span class="tj-spacer"></span>
-        <button mat-stroked-button color="accent" (click)="openNewTrade()">
-          <mat-icon>add</mat-icon>
-          <span>New trade</span>
-        </button>
-      </mat-toolbar>
-      <div class="tj-detail-body">
-        @if (selectedTrade(); as trade) {
-          <app-trade-journal-detail-card
-            [trade]="trade"
-            (edit)="openEditTrade($event)"
-          ></app-trade-journal-detail-card>
-        } @else {
-          <div class="tj-detail-placeholder">
-            Trade not found.
-          </div>
-        }
-      </div>
-    </aside>
-
-    <ng-template #noSelection>
+    @if (selectedTradeId()) {
+      <aside class="tj-detail">
+        <mat-toolbar color="primary" class="tj-detail-toolbar">
+          <span>Trade details</span>
+          <span class="tj-spacer"></span>
+          <button mat-stroked-button color="accent" (click)="openNewTrade()">
+            <mat-icon>add</mat-icon>
+            <span>New trade</span>
+          </button>
+        </mat-toolbar>
+        <div class="tj-detail-body">
+          @if (selectedTrade(); as trade) {
+            <app-trade-journal-detail-card
+              [trade]="trade"
+              (edit)="openEditTrade($event)"
+            ></app-trade-journal-detail-card>
+          } @else {
+            <div class="tj-detail-placeholder">
+              Trade not found.
+            </div>
+          }
+        </div>
+      </aside>
+    } @else {
       <aside class="tj-detail tj-detail--empty">
         <mat-toolbar color="primary" class="tj-detail-toolbar">
           <span>Trade details</span>
@@ -79,6 +79,7 @@
           </div>
         </div>
       </aside>
-    </ng-template>
+    }
+
   </section>
 </div>

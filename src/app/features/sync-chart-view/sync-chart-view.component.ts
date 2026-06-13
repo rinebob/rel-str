@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, Signal, signal, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { 
     CandleWithRSColor, 
     MockCandleWithRSColor, 
@@ -20,7 +20,7 @@ type RSSignalMap = { [symbol: string]: Signal<RsPaneDatum[]> };
 @Component({
     selector: 'rs-sync-chart-view',
     standalone: true,
-    imports: [CommonModule, RsChartComponent],
+    imports: [RsChartComponent],
     templateUrl: './sync-chart-view.component.html',
     styleUrls: ['./sync-chart-view.component.scss'],
     changeDetection: ChangeDetectionStrategy.OnPush

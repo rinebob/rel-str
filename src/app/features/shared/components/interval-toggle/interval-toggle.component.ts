@@ -1,12 +1,12 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { MatButtonModule } from '@angular/material/button';
 import { Timeframe } from '../../types/rs.interfaces';
 
 @Component({
   selector: 'app-interval-toggle',
   standalone: true,
-  imports: [CommonModule, MatButtonModule],
+  imports: [MatButtonModule],
   templateUrl: './interval-toggle.component.html',
   styleUrls: ['./interval-toggle.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, signal, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
@@ -21,7 +21,6 @@ import { TradeJournalStore } from './trade-journal.store';
   selector: 'app-trade-journal-view',
   standalone: true,
   imports: [
-    CommonModule,
     MatSidenavModule,
     MatToolbarModule,
     MatButtonModule,
@@ -34,8 +33,8 @@ import { TradeJournalStore } from './trade-journal.store';
     MatDatepickerModule,
     MatNativeDateModule,
     TradeJournalDetailCardComponent,
-    TradeJournalTableComponent,
-  ],
+    TradeJournalTableComponent
+],
   templateUrl: './trade-journal.view.html',
   styleUrls: ['./trade-journal.view.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

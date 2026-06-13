@@ -1,11 +1,11 @@
 import { Component, EventEmitter, Output, input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 
 @Component({
   selector: 'rs-symbol-input',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [ReactiveFormsModule],
   templateUrl: './symbol-input.component.html',
   styleUrls: ['./symbol-input.component.scss']
 })

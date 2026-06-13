@@ -1,10 +1,10 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 
 @Component({
   selector: 'app-pv-open-summary-card',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   templateUrl: './open-summary-card.component.html',
   styleUrls: ['./open-summary-card.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
