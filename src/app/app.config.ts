@@ -15,7 +15,7 @@ import { setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { environment } from '../environments/environment';
 
 import { registerLicense } from '@syncfusion/ej2-base';
-import { SYNC_FUSION_LICENSE_KEY } from '../secrets/secrets';
+import { SYNC_FUSION_LICENSE_KEY } from '../secrets/syncfusion-license';
 
 registerLicense(SYNC_FUSION_LICENSE_KEY);
 
