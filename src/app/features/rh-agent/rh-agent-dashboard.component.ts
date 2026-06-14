@@ -22,6 +22,8 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 
 import { RhAgentStore } from './rh-agent.store';
 import { RhAgentDashboardStore } from './rh-agent-dashboard.store';
@@ -43,6 +45,8 @@ import { RhAgentDashboardStore } from './rh-agent-dashboard.store';
     MatSnackBarModule,
     MatTooltipModule,
     MatSlideToggleModule,
+    MatFormFieldModule,
+    MatInputModule,
   ],
   templateUrl: './rh-agent-dashboard.component.html',
   styleUrl: './rh-agent-dashboard.component.scss',

@@ -3,7 +3,7 @@
  *
  * Manages agent state, runs, and signals using NgRx Signals.
  */
-import { inject, computed, Injectable } from '@angular/core';
+import { inject, computed, Injectable, DestroyRef } from '@angular/core';
 import {
   signalStore,
   withState,
@@ -65,7 +65,7 @@ export const RhAgentStore = signalStore(
   })),
 
   // Methods
-  withMethods((state, service = inject(RhAgentService), snackBar = inject(MatSnackBar)) => ({
+  withMethods((state, service = inject(RhAgentService), snackBar = inject(MatSnackBar), destroyRef = inject(DestroyRef)) => ({
     /**
      * Load all dashboard data (status, runs, signals)
      */
@@ -94,7 +94,7 @@ export const RhAgentStore = signalStore(
       // Load status
       service
         .getStatus()
-        .pipe(takeUntilDestroyed(), finalize(checkComplete))
+        .pipe(takeUntilDestroyed(destroyRef), finalize(checkComplete))
         .subscribe({
           next: (status) => {
             console.log('[RH Agent Store] Status received:', status);
@@ -109,7 +109,7 @@ export const RhAgentStore = signalStore(
       // Load runs
       service
         .getRunHistory(20)
-        .pipe(takeUntilDestroyed(), finalize(checkComplete))
+        .pipe(takeUntilDestroyed(destroyRef), finalize(checkComplete))
         .subscribe({
           next: (runs) => {
             console.log('[RH Agent Store] Runs received:', runs.length, runs);
@@ -124,7 +124,7 @@ export const RhAgentStore = signalStore(
       // Load signals
       service
         .getSignalHistory(50)
-        .pipe(takeUntilDestroyed(), finalize(checkComplete))
+        .pipe(takeUntilDestroyed(destroyRef), finalize(checkComplete))
         .subscribe({
           next: (signals) => {
             console.log('[RH Agent Store] Signals received:', signals.length, signals);
@@ -174,6 +174,8 @@ export const RhAgentStore = signalStore(
           const priceChange = (Math.random() * 6 - 3).toFixed(2); // -3% to +3%
           const price = (50 + Math.random() * 450).toFixed(2); // $50-$500
 
+          const tradeDirection = typeConfig.action === 'SELL' || typeConfig.type === 'REVERSAL' ? 'SHORT' : 'LONG';
+
           const shimSignal: RhTradeSignal = {
             id: `shim-${symbol}-${signalCounter++}`,
             runId: runId,
@@ -187,6 +189,7 @@ export const RhAgentStore = signalStore(
             createdAt: new Date(Date.now() - Math.random() * 3600000).toISOString(), // Within last hour
             confidence: Math.floor(Math.random() * 30) + 70, // 70-100%
             signalType: typeConfig.type,
+            tradeDirection,
             indicators: {
               rsi: rsi,
               priceChange: parseFloat(priceChange) / 100,
@@ -215,7 +218,7 @@ export const RhAgentStore = signalStore(
 
       service
         .triggerManualRun({ dryRun: true })
-        .pipe(takeUntilDestroyed())
+        .pipe(takeUntilDestroyed(destroyRef))
         .subscribe({
           next: (result) => {
             console.log('[RH Agent Store] Manual run triggered:', result);

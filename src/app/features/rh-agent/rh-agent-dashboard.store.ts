@@ -9,6 +9,8 @@ import { signalStore, withState, withComputed, withMethods, patchState } from '@
 import { RhAgentStore } from './rh-agent.store';
 import { RhTradeSignal } from './rh-agent.service';
 
+type SignalStatus = 'PENDING' | 'ACCEPTED' | 'CONSIDERED' | 'REJECTED';
+
 // State interface
 export interface DashboardUiState {
   selectedSymbol: string | null;
@@ -16,6 +18,8 @@ export interface DashboardUiState {
   symbolsPanelOpen: boolean;
   signalTypesPanelOpen: boolean;
   showAllRuns: boolean;
+  symbolSearch: string;
+  signalStatuses: Map<string, SignalStatus>; // signalId -> status
 }
 
 // Initial state
@@ -25,6 +29,8 @@ const initialState: DashboardUiState = {
   symbolsPanelOpen: false,
   signalTypesPanelOpen: false,
   showAllRuns: false,
+  symbolSearch: '',
+  signalStatuses: new Map(),
 };
 
 export const RhAgentDashboardStore = signalStore(
@@ -71,6 +77,71 @@ export const RhAgentDashboardStore = signalStore(
     },
 
     /**
+     * Set symbol search filter
+     */
+    setSymbolSearch(search: string): void {
+      patchState(state, { symbolSearch: search });
+    },
+
+    /**
+     * Get filtered symbols based on search
+     */
+    getFilteredSymbols(): string[] {
+      const symbols = dataStore.status()?.symbolsMonitored || [];
+      const search = state.symbolSearch().toLowerCase();
+      if (!search) return symbols;
+      return symbols.filter(s => s.toLowerCase().includes(search));
+    },
+
+    /**
+     * Sort signals by direction, type, then symbol
+     */
+    sortSignals(signals: RhTradeSignal[]): RhTradeSignal[] {
+      return [...signals].sort((a, b) => {
+        // First: trade direction (LONG before SHORT)
+        const dirA = a.tradeDirection || 'LONG';
+        const dirB = b.tradeDirection || 'LONG';
+        if (dirA !== dirB) return dirA === 'LONG' ? -1 : 1;
+
+        // Second: signal type
+        const typeA = a.signalType || '';
+        const typeB = b.signalType || '';
+        if (typeA !== typeB) return typeA.localeCompare(typeB);
+
+        // Third: symbol ticker
+        return a.symbol.localeCompare(b.symbol);
+      });
+    },
+
+    /**
+     * Get signal status (defaults to PENDING)
+     */
+    getSignalStatus(signalId: string): SignalStatus {
+      return state.signalStatuses().get(signalId) || 'PENDING';
+    },
+
+    /**
+     * Set signal status and move to appropriate bucket
+     */
+    setSignalStatus(signalId: string, status: SignalStatus): void {
+      const currentStatuses = new Map(state.signalStatuses());
+      if (status === 'PENDING') {
+        currentStatuses.delete(signalId);
+      } else {
+        currentStatuses.set(signalId, status);
+      }
+      patchState(state, { signalStatuses: currentStatuses });
+    },
+
+    /**
+     * Get signals by status for a run
+     */
+    getSignalsByStatus(runId: string, status: SignalStatus): RhTradeSignal[] {
+      const allSignals = this.getFilteredSignals(runId);
+      return this.sortSignals(allSignals.filter(s => this.getSignalStatus(s.id) === status));
+    },
+
+    /**
      * Toggle signal type filter selection
      */
     toggleSignalTypeFilter(type: string): void {
@@ -89,12 +160,15 @@ export const RhAgentDashboardStore = signalStore(
     },
 
     /**
-     * Get filtered signals for a run based on selected filters
+     * Get filtered signals for a run based on selected filters (PENDING only)
      */
     getFilteredSignals(runId: string): RhTradeSignal[] {
       let signals = dataStore.getSignalsForRun(runId);
       const symbolFilter = state.selectedSymbol();
       const typeFilter = state.selectedSignalType();
+
+      // Filter to only PENDING signals
+      signals = signals.filter(s => this.getSignalStatus(s.id) === 'PENDING');
 
       if (symbolFilter) {
         signals = signals.filter(s => s.symbol === symbolFilter);
@@ -102,7 +176,7 @@ export const RhAgentDashboardStore = signalStore(
       if (typeFilter) {
         signals = signals.filter(s => s.signalType === typeFilter);
       }
-      return signals;
+      return this.sortSignals(signals);
     },
 
     /**
@@ -201,27 +275,35 @@ export const RhAgentDashboardStore = signalStore(
     },
 
     /**
-     * Accept a signal (dummy handler)
+     * Move signal to ACCEPTED bucket
      */
     acceptSignal(signalId: string): void {
       console.log('[RH Agent Dashboard] Signal accepted:', signalId);
-      // TODO: Implement actual accept logic
+      this.setSignalStatus(signalId, 'ACCEPTED');
     },
 
     /**
-     * Consider a signal (dummy handler)
+     * Move signal to CONSIDERED bucket
      */
     considerSignal(signalId: string): void {
       console.log('[RH Agent Dashboard] Signal considered:', signalId);
-      // TODO: Implement actual consider logic
+      this.setSignalStatus(signalId, 'CONSIDERED');
     },
 
     /**
-     * Reject a signal (dummy handler)
+     * Move signal to REJECTED bucket
      */
     rejectSignal(signalId: string): void {
       console.log('[RH Agent Dashboard] Signal rejected:', signalId);
-      // TODO: Implement actual reject logic
+      this.setSignalStatus(signalId, 'REJECTED');
+    },
+
+    /**
+     * Send order for an accepted signal (placeholder)
+     */
+    sendOrder(signalId: string): void {
+      console.log('[RH Agent Dashboard] Send order for signal:', signalId);
+      // TODO: Implement actual order sending
     },
   }))
 );

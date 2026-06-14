@@ -45,6 +45,7 @@ export interface RhTradeSignal {
   dryRun?: boolean;
   confidence?: number;
   signalType?: string;
+  tradeDirection?: 'LONG' | 'SHORT';
   indicators?: {
     rsi?: number;
     priceChange?: number;

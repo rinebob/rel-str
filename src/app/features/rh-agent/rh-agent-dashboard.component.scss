@@ -493,3 +493,144 @@ mat-chip-listbox {
   gap: 6px;
 }
 
+// Symbol search input
+.symbol-search {
+  width: 100%;
+  margin-bottom: 12px;
+
+  ::ng-deep .mat-mdc-form-field-subscript-wrapper {
+    display: none;
+  }
+
+  ::ng-deep .mat-mdc-text-field-wrapper {
+    padding: 0 12px;
+    height: 40px;
+  }
+}
+
+// Compact chips styling
+.compact-chips {
+  gap: 4px;
+
+  .compact-chip {
+    height: 24px;
+    font-size: 11px;
+
+    ::ng-deep .mat-mdc-chip-action-label {
+      padding: 0 8px;
+    }
+
+    ::ng-deep mat-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+    }
+  }
+}
+
+// Two-column signals layout
+.signals-two-column {
+  display: flex;
+  gap: 16px;
+  margin-top: 16px;
+
+  .signals-column {
+    flex: 1 1 50%;
+    min-width: 0;
+
+    h4 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 12px 0;
+      font-size: 14px;
+      font-weight: 500;
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+    }
+  }
+
+  .pending-signals {
+    border-right: 1px solid var(--mat-sys-outline-variant);
+    padding-right: 16px;
+  }
+
+  .decision-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .decision-row {
+    h4 {
+      color: var(--mat-sys-on-surface-variant);
+    }
+
+    &.accepted-row h4 {
+      color: var(--mat-sys-primary);
+    }
+
+    &.considered-row h4 {
+      color: var(--mat-sys-tertiary);
+    }
+
+    &.rejected-row h4 {
+      color: var(--mat-sys-on-surface-variant);
+    }
+  }
+}
+
+// Compact signal items in decision list
+.signal-item.compact {
+  min-height: 48px;
+  padding: 4px 0;
+
+  .signal-title {
+    gap: 6px;
+  }
+
+  .signal-actions {
+    margin-top: 4px;
+
+    button {
+      height: 24px;
+      padding: 0 8px;
+      font-size: 10px;
+    }
+  }
+}
+
+// Decision signals list (compact)
+.decision-signals-list {
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+// Trade direction badge
+.signal-direction {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  font-weight: 600;
+
+  &.dir-long {
+    background: var(--mat-sys-success-container);
+    color: var(--mat-sys-success);
+  }
+
+  &.dir-short {
+    background: var(--mat-sys-error-container);
+    color: var(--mat-sys-error);
+  }
+}
+
+// Panel title spacing to prevent wrapping
+.panel-title-text {
+  margin-left: 8px;
+  white-space: nowrap;
+}
