@@ -22,12 +22,12 @@ export interface DashboardUiState {
   signalStatuses: Map<string, SignalStatus>; // signalId -> status
 }
 
-// Initial state
+// Initial state - both panels open by default
 const initialState: DashboardUiState = {
   selectedSymbol: null,
   selectedSignalType: null,
-  symbolsPanelOpen: false,
-  signalTypesPanelOpen: false,
+  symbolsPanelOpen: true,
+  signalTypesPanelOpen: true,
   showAllRuns: false,
   symbolSearch: '',
   signalStatuses: new Map(),
@@ -137,7 +137,7 @@ export const RhAgentDashboardStore = signalStore(
      * Get signals by status for a run
      */
     getSignalsByStatus(runId: string, status: SignalStatus): RhTradeSignal[] {
-      const allSignals = this.getFilteredSignals(runId);
+      const allSignals = dataStore.signals().filter(s => s.runId === runId);
       return this.sortSignals(allSignals.filter(s => this.getSignalStatus(s.id) === status));
     },
 

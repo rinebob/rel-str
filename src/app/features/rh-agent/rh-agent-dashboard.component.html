@@ -82,13 +82,23 @@
         <mat-expansion-panel-header>
           <mat-panel-title>
             <mat-icon class="panel-icon">visibility</mat-icon>
-            Symbols
-            @if (uiStore.selectedSymbol()) {
-              <span class="filter-badge">{{ uiStore.selectedSymbol() }}</span>
-            }
+            <span>Symbols</span>
+            <mat-form-field appearance="outline" class="symbol-search-header">
+              <input matInput 
+                     type="text" 
+                     [value]="uiStore.symbolSearch()"
+                     (input)="uiStore.setSymbolSearch($any($event).target.value)"
+                     (click)="$event.stopPropagation()"
+                     placeholder="Search...">
+              @if (uiStore.symbolSearch()) {
+                <button matSuffix mat-icon-button (click)="$event.stopPropagation(); uiStore.setSymbolSearch('')">
+                  <mat-icon>close</mat-icon>
+                </button>
+              }
+            </mat-form-field>
           </mat-panel-title>
           <mat-panel-description>
-            {{ uiStore.getFilteredSymbols().length }} / {{ store.status()?.symbolsMonitored?.length }} shown
+            {{ uiStore.getFilteredSymbols().length }} / {{ store.status()?.symbolsMonitored?.length }}
             @if (uiStore.selectedSymbol()) {
               <button mat-icon-button size="small" (click)="$event.stopPropagation(); uiStore.clearFilters()" matTooltip="Clear filter">
                 <mat-icon>clear</mat-icon>
@@ -96,21 +106,8 @@
             }
           </mat-panel-description>
         </mat-expansion-panel-header>
-        <div class="filter-hint">Click a symbol to filter signals</div>
-        <mat-form-field appearance="outline" class="symbol-search">
-          <mat-label>Search symbols</mat-label>
-          <input matInput 
-                 type="text" 
-                 [value]="uiStore.symbolSearch()"
-                 (input)="uiStore.setSymbolSearch($any($event).target.value)"
-                 placeholder="Type to filter...">
-          @if (uiStore.symbolSearch()) {
-            <button matSuffix mat-icon-button (click)="uiStore.setSymbolSearch('')">
-              <mat-icon>close</mat-icon>
-            </button>
-          }
-        </mat-form-field>
-        <mat-chip-listbox class="compact-chips">
+        <div class="symbols-scroll-container">
+          <mat-chip-listbox class="compact-chips">
           @for (symbol of uiStore.getFilteredSymbols(); track symbol) {
             <mat-chip-option 
               color="primary"
@@ -121,6 +118,7 @@
             </mat-chip-option>
           }
         </mat-chip-listbox>
+        </div>
       </mat-expansion-panel>
     }
 

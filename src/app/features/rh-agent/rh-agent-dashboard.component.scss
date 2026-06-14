@@ -493,18 +493,46 @@ mat-chip-listbox {
   gap: 6px;
 }
 
-// Symbol search input
-.symbol-search {
-  width: 100%;
-  margin-bottom: 12px;
+// Symbol search in header (compact)
+.symbol-search-header {
+  width: 120px;
+  margin-left: 12px;
 
   ::ng-deep .mat-mdc-form-field-subscript-wrapper {
     display: none;
   }
 
   ::ng-deep .mat-mdc-text-field-wrapper {
-    padding: 0 12px;
-    height: 40px;
+    padding: 0 8px;
+    height: 32px;
+  }
+
+  ::ng-deep .mat-mdc-form-field-flex {
+    align-items: center;
+  }
+
+  input {
+    font-size: 12px;
+  }
+}
+
+// Symbols scroll container with max height
+.symbols-scroll-container {
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 4px;
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--mat-sys-outline);
+    border-radius: 2px;
   }
 }
 
