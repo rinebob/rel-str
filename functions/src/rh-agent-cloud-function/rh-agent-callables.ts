@@ -131,13 +131,23 @@ async function createMcpClient(accessToken: string): Promise<Client> {
   return client;
 }
 
+const ALLOWED_ORIGINS = [
+  'https://rel-str--rel-str.web.app',
+  'https://rel-str--rel-str.us-central1.hosted.app',
+  'https://rel-str.web.app',
+  'https://savanttrader.com',
+  'https://www.savanttrader.com',
+  'http://localhost:4200',
+  'http://localhost:5000',
+];
+
 /**
  * Manual trigger callable - run the agent on demand.
  */
 export const rhAgentManualRun = onCall<ManualRunRequest, Promise<ManualRunResponse>>(
   {
     secrets: rhAgentSecrets,
-    cors: true, // Allow from the Angular frontend
+    cors: ALLOWED_ORIGINS,
   },
   async (request) => {
     logger.info('rh_agent_manual_run_called', { auth: request.auth?.uid });
