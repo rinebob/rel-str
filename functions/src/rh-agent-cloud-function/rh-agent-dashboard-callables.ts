@@ -10,9 +10,9 @@ import { db } from '../firebase-admin-init';
 
 import {
   RH_AGENT_RUNS_COLLECTION,
-  RH_AGENT_SIGNALS_COLLECTION,
   RH_AGENT_STATUS_COLLECTION,
   RH_AGENT_OPPORTUNITIES_COLLECTION,
+  RH_AGENT_SYMBOLS_COLLECTION,
   AGENT_STATUS_DOC,
   RhAgentRunStatus,
 } from './rh-agent-config';
@@ -79,14 +79,23 @@ export const rhAgentGetStatus = onCall<void, Promise<AgentStatusResponse>>(
   },
   async () => {
     try {
+      // Get status doc
       const doc = await db.collection(RH_AGENT_STATUS_COLLECTION).doc(AGENT_STATUS_DOC).get();
+
+      // Get actual enabled symbols from rh-agent-symbols collection
+      const symbolsSnapshot = await db
+        .collection(RH_AGENT_SYMBOLS_COLLECTION)
+        .where('enabled', '==', true)
+        .orderBy('priority', 'asc')
+        .get();
+      const symbolsMonitored = symbolsSnapshot.docs.map((d) => d.data().symbol as string);
 
       if (!doc.exists) {
         return {
           isEnabled: true,
           totalRuns: 0,
           totalSignalsGenerated: 0,
-          symbolsMonitored: [],
+          symbolsMonitored,
           schedule: '0 20 * * 1-5',
         };
       }
@@ -102,7 +111,7 @@ export const rhAgentGetStatus = onCall<void, Promise<AgentStatusResponse>>(
         lastRunStatus: data.lastRunStatus,
         totalRuns: data.totalRuns ?? 0,
         totalSignalsGenerated: data.totalSignalsGenerated ?? 0,
-        symbolsMonitored: data.symbolsMonitored ?? [],
+        symbolsMonitored,
         schedule: data.schedule || '0 20 * * 1-5',
       };
     } catch (error: any) {
@@ -168,7 +177,7 @@ export const rhAgentGetSignalHistory = onCall<{ limit?: number; runId?: string }
     try {
       const { limit = 50, runId } = request.data;
 
-      let query = db.collection(RH_AGENT_SIGNALS_COLLECTION).orderBy('createdAt', 'desc');
+      let query = db.collection(RH_AGENT_OPPORTUNITIES_COLLECTION).orderBy('createdAt', 'desc');
 
       if (runId) {
         query = query.where('runId', '==', runId);
@@ -182,10 +191,13 @@ export const rhAgentGetSignalHistory = onCall<{ limit?: number; runId?: string }
           id: doc.id,
           runId: data.runId || '',
           symbol: data.symbol || '',
-          action: data.action || '',
-          status: data.status || '',
-          reason: data.reason || '',
+          action: data.action || 'BUY',
+          status: data.status || 'PENDING',
+          reason: data.reason || data.signalType || 'RSI oversold signal',
           createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+          confidence: data.confidence || 0,
+          signalType: data.signalType || 'RSI_OVERSOLD',
+          indicators: data.indicators || {},
         };
       });
 
