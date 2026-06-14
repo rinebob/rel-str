@@ -445,7 +445,9 @@ export class RhAgentDashboardComponent implements OnInit, OnDestroy {
   isLoading = false;
 
   ngOnInit(): void {
+    console.log('[RH Agent] ngOnInit called');
     this.refreshData();
+    console.log('[RH Agent] refreshData() called from ngOnInit');
 
     // NOTE: Realtime subscriptions disabled - they query different collections than our API
     // and were overwriting valid data with empty arrays. Using API calls only for now.
@@ -463,10 +465,15 @@ export class RhAgentDashboardComponent implements OnInit, OnDestroy {
 
     const checkComplete = () => {
       completedCalls++;
+      console.log(`[RH Agent] API call completed (${completedCalls}/${totalCalls})`);
       if (completedCalls >= totalCalls) {
         this.isLoading = false;
+        console.log('[RH Agent] All API calls complete, isLoading = false');
+        console.log('[RH Agent] Final state - runs:', this.runs.length, 'signals:', this.signals.length, 'status:', this.status);
       }
     };
+
+    console.log('[RH Agent] Starting data refresh...');
 
     // Get status
     this.rhAgentService
@@ -474,6 +481,7 @@ export class RhAgentDashboardComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (status) => {
+          console.log('[RH Agent] Status received:', status);
           this.status = status;
         },
         error: (err) => {
@@ -489,9 +497,11 @@ export class RhAgentDashboardComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (runs) => {
+          console.log('[RH Agent] Runs received:', runs.length, runs);
           this.runs = runs;
           // Generate shim signals if no signals exist (for UI testing)
           if (this.signals.length === 0 && this.runs.length > 0) {
+            console.log('[RH Agent] No signals, generating shim signals...');
             this.generateShimSignals();
           }
         },
@@ -508,9 +518,11 @@ export class RhAgentDashboardComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (signals) => {
+          console.log('[RH Agent] Signals received:', signals.length, signals);
           this.signals = signals;
           // If no real signals, generate shim ones for testing
           if (this.signals.length === 0 && this.runs.length > 0) {
+            console.log('[RH Agent] No real signals, generating shim...');
             this.generateShimSignals();
           }
         },
@@ -526,7 +538,11 @@ export class RhAgentDashboardComponent implements OnInit, OnDestroy {
    * Creates a BUY signal for every 3rd symbol from the monitored symbols list.
    */
   private generateShimSignals(): void {
-    if (!this.status?.symbolsMonitored?.length) return;
+    console.log('[RH Agent] generateShimSignals called, symbolsMonitored:', this.status?.symbolsMonitored?.length);
+    if (!this.status?.symbolsMonitored?.length) {
+      console.log('[RH Agent] No symbols to generate shims for');
+      return;
+    }
 
     const shimSignals: RhTradeSignal[] = [];
     const symbols = this.status.symbolsMonitored;
@@ -558,6 +574,7 @@ export class RhAgentDashboardComponent implements OnInit, OnDestroy {
     }
 
     this.signals = shimSignals;
+    console.log('[RH Agent] Shim signals set:', this.signals.length, this.signals);
 
     // Group by run
     this.signalsByRun.clear();
@@ -566,6 +583,7 @@ export class RhAgentDashboardComponent implements OnInit, OnDestroy {
       existing.push(signal);
       this.signalsByRun.set(signal.runId, existing);
     }
+    console.log('[RH Agent] signalsByRun map:', this.signalsByRun);
 
     this.snackBar.open(
       `Generated ${shimSignals.length} shim signals for UI testing`,
