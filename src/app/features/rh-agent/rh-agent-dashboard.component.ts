@@ -51,10 +51,46 @@ export class RhAgentDashboardComponent {
   // Inject the SignalStore - all state and methods available via this.store
   readonly store = inject(RhAgentStore);
 
+  // UI state for expandable sections
+  showAllRuns = false;
+  symbolsPanelOpen = false;
+
   constructor() {
     console.log('[RH Agent Dashboard] Component initialized');
     // Load data on init - store handles all the logic
     this.store.loadData();
+  }
+
+  /**
+   * Translate cron expression to Pacific Time human-readable format
+   */
+  getScheduleDescription(cron: string | undefined): string {
+    if (!cron) return 'Not scheduled';
+    
+    // Parse cron: "0 20 * * 1-5" -> 8:00 PM PT, Monday-Friday
+    const parts = cron.split(' ');
+    if (parts.length !== 5) return cron;
+    
+    const [minute, hour, , , dayOfWeek] = parts;
+    
+    // Convert 24h to 12h format
+    const hourNum = parseInt(hour, 10);
+    const minNum = parseInt(minute, 10);
+    const ampm = hourNum >= 12 ? 'PM' : 'AM';
+    const hour12 = hourNum % 12 || 12;
+    const minStr = minNum === 0 ? '' : `:${minNum.toString().padStart(2, '0')}`;
+    const time = `${hour12}${minStr} ${ampm}`;
+    
+    // Day of week
+    let days = '';
+    if (dayOfWeek === '*') days = 'daily';
+    else if (dayOfWeek === '1-5') days = 'Monday-Friday';
+    else if (dayOfWeek === '0-6') days = 'daily';
+    else if (dayOfWeek === '1') days = 'Mondays';
+    else if (dayOfWeek === '5') days = 'Fridays';
+    else days = dayOfWeek;
+    
+    return `${time} PT, ${days}`;
   }
 
   /**
