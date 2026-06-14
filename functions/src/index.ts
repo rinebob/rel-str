@@ -84,3 +84,7 @@ export { backfillSymbolDataFromPairsAdmin } from './admin/backfill-symbol-data-f
 export { backfillSymbolDataFromTradesAdmin, backfillSymbolDataForTradesDaily } from './admin/backfill-symbol-data-from-trades';
 export { syncTrackedSymbolsDaily } from './scheduled/sync-tracked-symbols';
 export { cleanupRsBackfillRuns } from './scheduled/cleanup-rs-backfill-runs';
+
+// RH Agent (Robinhood Trading Agent) exports - New daily scan architecture
+export { rhAgentDailyScheduler } from './rh-agent-cloud-function/rh-agent-scheduler';
+export { rhAgentProcessSymbol } from './rh-agent-cloud-function/rh-agent-worker';
