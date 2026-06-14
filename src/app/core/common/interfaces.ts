@@ -35,6 +35,7 @@ export enum AppRoutes {
 	// KANBAN_LOGOUT = 'kanban/logout',
 	// ACME = 'acme',
 	DECISION_BOARD = 'decision-board',
+	RH_AGENT = 'rh-agent',
 }
 
 export enum AuthLevel {

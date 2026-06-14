@@ -92,6 +92,11 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.HistoryComponent),
                 canActivate: [authGuard],
             },
+            {path: AppRoutes.RH_AGENT, 
+                loadComponent: () => import('../features/rh-agent/rh-agent-dashboard.component')
+                .then(mod => mod.RhAgentDashboardComponent),
+                canActivate: [authGuard],
+            },
             {path: AppRoutes.LOGOUT, redirectTo: '/', pathMatch: 'full'},
         ]
     },
