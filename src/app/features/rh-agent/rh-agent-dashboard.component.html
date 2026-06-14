@@ -1,0 +1,235 @@
+<div class="rh-agent-dashboard">
+  <!-- Header -->
+  <div class="dashboard-header">
+    <h1>
+      <mat-icon>smart_toy</mat-icon>
+      RH Agent Dashboard
+      <mat-chip-option
+        [selected]="store.status()?.isEnabled"
+        [color]="store.status()?.isEnabled ? 'accent' : 'warn'">
+        {{ store.status()?.isEnabled ? 'Enabled' : 'Disabled' }}
+      </mat-chip-option>
+    </h1>
+    <div class="actions">
+      <button
+        mat-raised-button
+        color="primary"
+        (click)="triggerManualRun()"
+        [disabled]="store.isLoading()"
+        matTooltip="Trigger a manual agent run">
+        <mat-icon>play_arrow</mat-icon>
+        Run Now
+      </button>
+      <button
+        mat-stroked-button
+        (click)="refreshData()"
+        [disabled]="store.isLoading()">
+        <mat-icon>refresh</mat-icon>
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  @if (store.isLoading()) {
+    <div class="loading-overlay">
+      <mat-spinner diameter="40"></mat-spinner>
+      <span>Processing...</span>
+    </div>
+  }
+
+  <!-- Status Cards -->
+  @if (store.status()) {
+    <div class="status-grid">
+      <mat-card class="status-card">
+        <mat-card-header>
+          <mat-icon mat-card-avatar>schedule</mat-icon>
+          <mat-card-title>Last Run</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <p class="status-value">
+            {{ store.status()?.lastRunAt ? (store.status()!.lastRunAt | date: 'short') : 'Never' }}
+          </p>
+          @if (store.status()?.lastRunStatus) {
+            <p class="status-label">
+              Status:
+              <span [class]="'status-' + store.status()!.lastRunStatus!.toLowerCase()">
+                {{ store.status()?.lastRunStatus }}
+              </span>
+            </p>
+          }
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="status-card">
+        <mat-card-header>
+          <mat-icon mat-card-avatar>analytics</mat-icon>
+          <mat-card-title>Total Runs</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <p class="status-value">{{ store.status()?.totalRuns }}</p>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="status-card">
+        <mat-card-header>
+          <mat-icon mat-card-avatar>notifications</mat-icon>
+          <mat-card-title>Total Signals</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <p class="status-value">{{ store.status()?.totalSignalsGenerated }}</p>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="status-card">
+        <mat-card-header>
+          <mat-icon mat-card-avatar>repeat</mat-icon>
+          <mat-card-title>Schedule</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <p class="status-value">{{ store.status()?.schedule || 'Not set' }}</p>
+          <p class="status-label">
+            Symbols: {{ store.status()?.symbolsMonitored?.length || 0 }}
+          </p>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  }
+
+  <!-- Monitored Symbols -->
+  @if (store.status()?.symbolsMonitored?.length) {
+    <mat-card class="symbols-card">
+      <mat-card-header>
+        <mat-icon mat-card-avatar>visibility</mat-icon>
+        <mat-card-title>Monitored Symbols</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <mat-chip-listbox>
+          @for (symbol of store.status()?.symbolsMonitored; track symbol) {
+            <mat-chip-option color="primary">
+              {{ symbol }}
+            </mat-chip-option>
+          }
+        </mat-chip-listbox>
+      </mat-card-content>
+    </mat-card>
+  }
+
+  <!-- Recent Runs -->
+  <mat-card class="runs-card">
+    <mat-card-header>
+      <mat-icon mat-card-avatar>history</mat-icon>
+      <mat-card-title>Recent Runs</mat-card-title>
+      <span mat-card-subtitle>{{ store.runs().length }} runs</span>
+    </mat-card-header>
+    <mat-card-content>
+      @if (store.runs().length > 0) {
+        <mat-accordion>
+          @for (run of store.runs(); track run.id) {
+            <mat-expansion-panel hideToggle>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <mat-icon
+                    [color]="getRunStatusColor(run.status)"
+                    class="run-status-icon">
+                    {{ getRunStatusIcon(run.status) }}
+                  </mat-icon>
+                  {{ run.strategy || run.marketDate || 'Daily Run' }}
+                </mat-panel-title>
+                <mat-panel-description>
+                  {{ run.startedAt | date: 'short' }}
+                  <span class="run-stats">
+                    {{ run.symbolsProcessed || run.processedCount || 0 }} / {{ run.totalSymbols || 0 }} symbols,
+                    {{ run.signalsGenerated || run.opportunitiesFound || 0 }} signals
+                  </span>
+                </mat-panel-description>
+              </mat-expansion-panel-header>
+
+              <div class="run-details">
+                <p><strong>Run ID:</strong> {{ run.id }}</p>
+                <p><strong>Status:</strong> {{ run.status }}</p>
+                <p><strong>Started:</strong> {{ run.startedAt | date: 'medium' }}</p>
+                @if (run.completedAt) {
+                  <p><strong>Completed:</strong> {{ run.completedAt | date: 'medium' }}</p>
+                }
+                @if (run.summary) {
+                  <p><strong>Summary:</strong> {{ run.summary }}</p>
+                }
+
+                <!-- Signals for this run -->
+                @if (getSignalsForRun(run.id).length > 0) {
+                  <div class="run-signals">
+                    <h4>Signals Generated</h4>
+                    <mat-list>
+                      @for (signal of getSignalsForRun(run.id); track signal.id) {
+                        <mat-list-item>
+                          <mat-icon matListItemIcon [class]="'action-' + signal.action.toLowerCase()">
+                            {{ getActionIcon(signal.action) }}
+                          </mat-icon>
+                          <div matListItemTitle>{{ signal.symbol }} - {{ signal.action }}</div>
+                          <div matListItemLine>{{ signal.reason }}</div>
+                          <div matListItemMeta>
+                            @if (signal.dryRun) {
+                              <mat-chip-option size="small" color="warn">DRY RUN</mat-chip-option>
+                            }
+                          </div>
+                        </mat-list-item>
+                      }
+                    </mat-list>
+                  </div>
+                }
+              </div>
+            </mat-expansion-panel>
+          }
+        </mat-accordion>
+      } @else {
+        <div class="empty-state">
+          <mat-icon>inbox</mat-icon>
+          <p>No runs yet</p>
+        </div>
+      }
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Recent Signals -->
+  <mat-card class="signals-card">
+    <mat-card-header>
+      <mat-icon mat-card-avatar>notifications_active</mat-icon>
+      <mat-card-title>Recent Trade Signals</mat-card-title>
+      <span mat-card-subtitle>{{ store.signals().length }} signals</span>
+    </mat-card-header>
+    <mat-card-content>
+      @if (store.signals().length > 0) {
+        <mat-list>
+          @for (signal of store.signals().slice(0, 10); track signal.id) {
+            <mat-list-item>
+              <mat-icon
+                matListItemIcon
+                [class]="'action-' + signal.action.toLowerCase()">
+                {{ getActionIcon(signal.action) }}
+              </mat-icon>
+              <div matListItemTitle>
+                {{ signal.symbol }} - {{ signal.action }}
+                <span class="signal-status" [class]="'status-' + signal.status.toLowerCase()">
+                  {{ signal.status }}
+                </span>
+              </div>
+              <div matListItemLine>{{ signal.reason }}</div>
+              <div matListItemMeta>
+                <small>{{ signal.createdAt | date: 'short' }}</small>
+                @if (signal.dryRun) {
+                  <mat-chip-option size="small" color="warn">DRY</mat-chip-option>
+                }
+              </div>
+            </mat-list-item>
+          }
+        </mat-list>
+      } @else {
+        <div class="empty-state">
+          <mat-icon>inbox</mat-icon>
+          <p>No signals yet</p>
+        </div>
+      }
+    </mat-card-content>
+  </mat-card>
+</div>

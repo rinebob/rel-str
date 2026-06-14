@@ -1,0 +1,165 @@
+.rh-agent-dashboard {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+
+  h1 {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+
+    mat-icon {
+      font-size: 32px;
+      width: 32px;
+      height: 32px;
+    }
+  }
+
+  .actions {
+    display: flex;
+    gap: 12px;
+  }
+}
+
+.loading-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 48px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  margin-bottom: 24px;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.status-card {
+  mat-card-content {
+    padding-top: 16px;
+  }
+
+  .status-value {
+    font-size: 24px;
+    font-weight: 500;
+    margin: 0 0 8px 0;
+  }
+
+  .status-label {
+    color: var(--mat-sys-on-surface-variant);
+    margin: 0;
+    font-size: 14px;
+  }
+}
+
+.symbols-card,
+.runs-card,
+.signals-card {
+  margin-bottom: 24px;
+}
+
+.run-status-icon {
+  margin-right: 8px;
+}
+
+.run-stats {
+  margin-left: auto;
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 12px;
+}
+
+.run-details {
+  padding: 16px;
+  background: var(--mat-sys-surface-container);
+  border-radius: 8px;
+
+  p {
+    margin: 8px 0;
+  }
+}
+
+.run-signals {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--mat-sys-outline-variant);
+
+  h4 {
+    margin: 0 0 12px 0;
+  }
+}
+
+.signal-status {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  margin-left: 8px;
+  font-weight: 500;
+}
+
+.action-buy {
+  color: var(--mat-sys-success);
+}
+
+.action-sell {
+  color: var(--mat-sys-error);
+}
+
+.action-hold {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.status-success {
+  color: var(--mat-sys-success);
+}
+
+.status-failed {
+  color: var(--mat-sys-error);
+}
+
+.status-running {
+  color: var(--mat-sys-primary);
+}
+
+.status-pending {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.status-partial {
+  color: var(--mat-sys-tertiary);
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px;
+  color: var(--mat-sys-on-surface-variant);
+
+  mat-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    margin-bottom: 16px;
+  }
+}
+
+mat-chip-listbox {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
