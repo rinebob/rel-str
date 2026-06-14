@@ -1,9 +1,9 @@
 import * as fs from "fs";
 import * as path from "path";
-import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { runRsiOversold, runMacdCrossover, getStrategy } from "./strategies.js";
-import { runAgent } from "./agent.js";
-import type { WatchedSymbol } from "./watchlist.js";
+import type { Client } from "@modelcontextprotocol/sdk/client/index";
+import { runRsiOversold, runMacdCrossover, getStrategy } from "./strategies";
+import { runAgent } from "./agent";
+import type { WatchedSymbol } from "./watchlist";
 
 const LOG_FILE = path.join(process.cwd(), "scheduler.log");
 

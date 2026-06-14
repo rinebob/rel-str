@@ -1,26 +1,26 @@
 import "dotenv/config";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { Client } from "@modelcontextprotocol/sdk/client/index";
 import {
   StreamableHTTPClientTransport,
-} from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+} from "@modelcontextprotocol/sdk/client/streamableHttp";
 import {
   auth,
   type OAuthClientProvider,
   type AuthResult,
-} from "@modelcontextprotocol/sdk/client/auth.js";
+} from "@modelcontextprotocol/sdk/client/auth";
 import type {
   OAuthClientMetadata,
   OAuthClientInformationMixed,
   OAuthTokens,
-} from "@modelcontextprotocol/sdk/shared/auth.js";
+} from "@modelcontextprotocol/sdk/shared/auth";
 import * as http from "http";
 import * as fs from "fs";
 import * as path from "path";
 import { exec } from "child_process";
-import { runAgent } from "./agent.js";
-import { listStrategies, getStrategy, runRsiOversold, runMacdCrossover } from "./strategies.js";
-import { startScheduler } from "./scheduler.js";
-import { watchlist } from "./watchlist.js";
+import { runAgent } from "./agent";
+import { listStrategies, getStrategy, runRsiOversold, runMacdCrossover } from "./strategies";
+import { startScheduler } from "./scheduler";
+import { watchlist } from "./watchlist";
 
 const MCP_SERVER_URL = "https://agent.robinhood.com/mcp/trading";
 const REDIRECT_PORT = 3456;

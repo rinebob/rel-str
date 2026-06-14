@@ -1,6 +1,6 @@
-import { buildIndicatorSummary } from "./indicators.js";
-import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { runAgent } from "./agent.js";
+import { buildIndicatorSummary } from "./indicators";
+import type { Client } from "@modelcontextprotocol/sdk/client/index";
+import { runAgent } from "./agent";
 
 export interface Strategy {
   name: string;

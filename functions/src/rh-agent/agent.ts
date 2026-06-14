@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import type { Tool } from "@anthropic-ai/sdk/resources/messages.js";
+import { Client } from "@modelcontextprotocol/sdk/client/index";
+import type { Tool } from "@anthropic-ai/sdk/resources/messages";
 
 const MODEL = "claude-sonnet-4-5";
 const MAX_ITERATIONS = 10;
