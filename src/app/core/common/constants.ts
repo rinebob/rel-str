@@ -131,6 +131,14 @@ export const NAV_MENU_ITEMS: NavItem[] = [
         target: '_self',
     },
     {
+        name: 'rh-agent',
+        text: 'RH Agent',
+        href: 'rh-agent',
+        mobileOnly: false,
+        external: false,
+        target: '_self',
+    },
+    {
         name: 'history',
         text: 'history',
         href: 'history',

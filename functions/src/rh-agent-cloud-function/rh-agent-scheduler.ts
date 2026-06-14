@@ -43,30 +43,49 @@ export const rhAgentDailyScheduler = onSchedule(
     try {
       // 1. Get today's market date (YYYY-MM-DD)
       const marketDate = getMarketDate();
-      logger.info('rh_agent_scheduler_market_date', { marketDate });
+      logger.info('rh_agent_scheduler_market_date', { marketDate, isoDate: new Date().toISOString() });
 
       // 2. Load enabled symbols from Firestore (should be ~700 symbols)
       const symbols = await loadEnabledSymbols();
+      logger.info('rh_agent_scheduler_symbols_loaded', {
+        count: symbols.length,
+        firstFew: symbols.slice(0, 5),
+        lastFew: symbols.slice(-5),
+      });
+
       if (symbols.length === 0) {
         logger.warn('rh_agent_scheduler_no_symbols');
         return;
       }
-      logger.info('rh_agent_scheduler_symbols_loaded', { count: symbols.length });
 
       // 3. Calculate deadline (12:30 PM PT = 8:30 PM UTC)
       const deadlineAt = getDeadlineISO();
+      logger.info('rh_agent_scheduler_deadline', { deadlineAt, minutesToDeadline: 30 });
 
       // 4. Create daily run document
       const runId = await createDailyRun(marketDate, symbols.length, deadlineAt);
-      logger.info('rh_agent_scheduler_run_created', { runId, symbolCount: symbols.length });
+      logger.info('rh_agent_scheduler_run_created', {
+        runId,
+        marketDate,
+        symbolCount: symbols.length,
+        deadlineAt,
+        runPath: `rh-agent-runs/${runId}`,
+      });
 
       // 5. Create job documents and enqueue Cloud Tasks
       let enqueuedCount = 0;
+      let failedCount = 0;
+      logger.info('rh_agent_scheduler_enqueue_start', { runId, totalSymbols: symbols.length });
+
       for (const symbol of symbols) {
         try {
           await createJobAndEnqueue(runId, symbol, marketDate);
           enqueuedCount++;
+          if (enqueuedCount % 5 === 0) {
+            logger.info('rh_agent_scheduler_enqueue_progress', { runId, enqueued: enqueuedCount, total: symbols.length });
+          }
         } catch (error: any) {
+          failedCount++;
           logger.error('rh_agent_scheduler_enqueue_failed', {
             symbol,
             runId,
@@ -78,9 +97,13 @@ export const rhAgentDailyScheduler = onSchedule(
       const duration = Date.now() - startTime;
       logger.info('rh_agent_scheduler_complete', {
         runId,
+        marketDate,
         symbolsLoaded: symbols.length,
         enqueued: enqueuedCount,
+        failed: failedCount,
         durationMs: duration,
+        runPath: `rh-agent-runs/${runId}`,
+        jobsPath: `rh-agent-runs/${runId}/jobs`,
       });
     } catch (error: any) {
       logger.error('rh_agent_scheduler_fatal_error', {
@@ -142,8 +165,9 @@ async function createDailyRun(
   totalSymbols: number,
   deadlineAt: string
 ): Promise<string> {
-  const runRef = db.collection(RH_AGENT_RUNS_COLLECTION).doc();
-  const runId = runRef.id;
+  // Use market date as run ID - ensures one run per day
+  const runId = marketDate;
+  const runRef = db.collection(RH_AGENT_RUNS_COLLECTION).doc(runId);
   const now = FieldValue.serverTimestamp();
 
   const runData: Omit<RhAgentDailyRun, 'id'> & { id: string } = {

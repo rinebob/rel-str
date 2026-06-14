@@ -198,8 +198,10 @@ export interface RhAgentJob {
 export interface RhTradeOpportunity {
   id: string;
   runId: string;
+  marketDate: string;  // YYYY-MM-DD for easy grouping
   symbol: string;
   action: RhOpportunityAction;
+  signalType: string;  // e.g., 'RSI_OVERSOLD', 'MACD_CROSSOVER'
   strategy: 'rsi-oversold' | 'macd-crossover' | 'simple-breakout' | string;
   confidence: number;  // 0-100
   reason: string;
