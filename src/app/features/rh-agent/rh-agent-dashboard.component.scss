@@ -678,10 +678,46 @@ mat-chip-listbox {
   }
 }
 
-// Decision signals list (compact)
-.decision-signals-list {
-  max-height: 150px;
+// Decision list scroll container (single scrollbar for all panels)
+.decision-list-scroll {
+  max-height: 500px;
   overflow-y: auto;
+  padding-right: 4px;
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--mat-sys-outline);
+    border-radius: 2px;
+  }
+}
+
+// Decision panel styling
+.decision-panel {
+  margin-bottom: 8px;
+
+  &.accepted-panel {
+    mat-icon { color: var(--mat-sys-primary); }
+  }
+
+  &.considered-panel {
+    mat-icon { color: var(--mat-sys-tertiary); }
+  }
+
+  &.rejected-panel {
+    mat-icon { color: var(--mat-sys-on-surface-variant); }
+  }
+}
+
+// Decision signals list (no individual scroll)
+.decision-signals-list {
+  padding: 0;
 }
 
 // Trade direction badge
@@ -720,17 +756,17 @@ mat-chip-listbox {
 
 // Outlined signal item
 .signal-item.outlined {
-  border: 1px solid var(--mat-sys-outline-variant);
+  border: 2px solid var(--mat-sys-outline);
   border-radius: 8px;
-  margin-bottom: 8px;
-  padding: 12px;
+  margin-bottom: 6px;
+  padding: 8px;
   height: auto !important;
   min-height: unset !important;
 
   .mdc-list-item__content {
     display: flex;
-    align-items: flex-start;
-    gap: 12px;
+    align-items: center;
+    gap: 8px;
     overflow: visible;
   }
 
@@ -746,36 +782,36 @@ mat-chip-listbox {
   .signal-row-top {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 4px;
+    gap: 6px;
+    margin-bottom: 2px;
 
     .signal-symbol {
       font-weight: 600;
-      font-size: 14px;
+      font-size: 13px;
     }
   }
 
   .signal-row-bottom {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--mat-sys-on-surface-variant);
-    line-height: 1.4;
+    line-height: 1.3;
     white-space: normal;
     word-wrap: break-word;
   }
 
   .signal-actions.compact-actions {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: 4px;
     margin-left: auto;
     flex-shrink: 0;
 
     button {
-      height: 24px;
-      padding: 0 8px;
-      font-size: 11px;
-      min-width: 60px;
-      line-height: 24px;
+      height: 22px;
+      padding: 0 6px;
+      font-size: 10px;
+      min-width: 50px;
+      line-height: 22px;
     }
   }
 }

@@ -15,22 +15,26 @@ type SignalStatus = 'PENDING' | 'ACCEPTED' | 'CONSIDERED' | 'REJECTED';
 export interface DashboardUiState {
   selectedSymbol: string | null;
   selectedSignalType: string | null;
-  symbolsPanelOpen: boolean;
-  signalTypesPanelOpen: boolean;
+  filterPanelsOpen: boolean; // Single toggle for both symbols and signal types
   showAllRuns: boolean;
   symbolSearch: string;
   signalStatuses: Map<string, SignalStatus>; // signalId -> status
+  acceptedPanelOpen: boolean;
+  consideredPanelOpen: boolean;
+  rejectedPanelOpen: boolean;
 }
 
-// Initial state - both panels open by default
+// Initial state - panels open by default
 const initialState: DashboardUiState = {
   selectedSymbol: null,
   selectedSignalType: null,
-  symbolsPanelOpen: true,
-  signalTypesPanelOpen: true,
+  filterPanelsOpen: true,
   showAllRuns: false,
   symbolSearch: '',
   signalStatuses: new Map(),
+  acceptedPanelOpen: true,
+  consideredPanelOpen: true,
+  rejectedPanelOpen: true,
 };
 
 export const RhAgentDashboardStore = signalStore(
@@ -180,17 +184,24 @@ export const RhAgentDashboardStore = signalStore(
     },
 
     /**
-     * Toggle symbols panel expansion
+     * Open filter panels (both symbols and signal types)
      */
-    toggleSymbolsPanel(): void {
-      patchState(state, { symbolsPanelOpen: !state.symbolsPanelOpen() });
+    openFilterPanels(): void {
+      patchState(state, { filterPanelsOpen: true });
     },
 
     /**
-     * Toggle signal types panel expansion
+     * Close filter panels (both symbols and signal types)
      */
-    toggleSignalTypesPanel(): void {
-      patchState(state, { signalTypesPanelOpen: !state.signalTypesPanelOpen() });
+    closeFilterPanels(): void {
+      patchState(state, { filterPanelsOpen: false });
+    },
+
+    /**
+     * Toggle filter panels (both symbols and signal types)
+     */
+    toggleFilterPanels(): void {
+      patchState(state, { filterPanelsOpen: !state.filterPanelsOpen() });
     },
 
     /**
@@ -198,6 +209,69 @@ export const RhAgentDashboardStore = signalStore(
      */
     toggleShowAllRuns(): void {
       patchState(state, { showAllRuns: !state.showAllRuns() });
+    },
+
+    /**
+     * Open accepted panel
+     */
+    openAcceptedPanel(): void {
+      patchState(state, { acceptedPanelOpen: true });
+    },
+
+    /**
+     * Close accepted panel
+     */
+    closeAcceptedPanel(): void {
+      patchState(state, { acceptedPanelOpen: false });
+    },
+
+    /**
+     * Open considered panel
+     */
+    openConsideredPanel(): void {
+      patchState(state, { consideredPanelOpen: true });
+    },
+
+    /**
+     * Close considered panel
+     */
+    closeConsideredPanel(): void {
+      patchState(state, { consideredPanelOpen: false });
+    },
+
+    /**
+     * Open rejected panel
+     */
+    openRejectedPanel(): void {
+      patchState(state, { rejectedPanelOpen: true });
+    },
+
+    /**
+     * Close rejected panel
+     */
+    closeRejectedPanel(): void {
+      patchState(state, { rejectedPanelOpen: false });
+    },
+
+    /**
+     * Toggle accepted panel
+     */
+    toggleAcceptedPanel(): void {
+      patchState(state, { acceptedPanelOpen: !state.acceptedPanelOpen() });
+    },
+
+    /**
+     * Toggle considered panel
+     */
+    toggleConsideredPanel(): void {
+      patchState(state, { consideredPanelOpen: !state.consideredPanelOpen() });
+    },
+
+    /**
+     * Toggle rejected panel
+     */
+    toggleRejectedPanel(): void {
+      patchState(state, { rejectedPanelOpen: !state.rejectedPanelOpen() });
     },
 
     /**

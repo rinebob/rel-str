@@ -78,7 +78,7 @@
   <div class="filter-panels-row">
     <!-- Monitored Symbols Filter -->
     @if (store.status()?.symbolsMonitored?.length) {
-      <mat-expansion-panel class="filter-panel symbols-panel" [expanded]="uiStore.symbolsPanelOpen()" (expandedChange)="uiStore.toggleSymbolsPanel()">
+      <mat-expansion-panel class="filter-panel symbols-panel" [expanded]="uiStore.filterPanelsOpen()">
         <mat-expansion-panel-header>
           <mat-panel-title>
             <mat-icon class="panel-icon">visibility</mat-icon>
@@ -111,6 +111,9 @@
                 <mat-icon>clear</mat-icon>
               </button>
             }
+            <button mat-icon-button size="small" (click)="$event.stopPropagation(); uiStore.toggleFilterPanels()" matTooltip="Toggle panels">
+              <mat-icon>{{ uiStore.filterPanelsOpen() ? 'expand_less' : 'expand_more' }}</mat-icon>
+            </button>
           </mat-panel-description>
         </mat-expansion-panel-header>
         <div class="symbols-scroll-container">
@@ -131,7 +134,7 @@
 
     <!-- Signal Types Filter -->
     @if (uiStore.signalTypes().length > 0) {
-      <mat-expansion-panel class="filter-panel signal-types-panel" [expanded]="uiStore.signalTypesPanelOpen()" (expandedChange)="uiStore.toggleSignalTypesPanel()">
+      <mat-expansion-panel class="filter-panel signal-types-panel" [expanded]="uiStore.filterPanelsOpen()">
         <mat-expansion-panel-header>
           <mat-panel-title>
             <mat-icon class="panel-icon">category</mat-icon>
@@ -144,6 +147,9 @@
                 <mat-icon>clear</mat-icon>
               </button>
             }
+            <button mat-icon-button size="small" (click)="$event.stopPropagation(); uiStore.toggleFilterPanels()" matTooltip="Toggle panels">
+              <mat-icon>{{ uiStore.filterPanelsOpen() ? 'expand_less' : 'expand_more' }}</mat-icon>
+            </button>
           </mat-panel-description>
         </mat-expansion-panel-header>
         <div class="filter-hint">Click a type to filter signals</div>
@@ -269,13 +275,18 @@
 
                   <!-- Right Column: Decision List -->
                   <div class="signals-column decision-list">
-                    <!-- Accepted Row -->
-                    <div class="decision-row accepted-row">
-                      <h4>
-                        <mat-icon color="primary">check_circle</mat-icon>
-                        Accepted ({{ uiStore.getSignalsByStatus(run.id, 'ACCEPTED').length }})
-                      </h4>
-                      @if (uiStore.getSignalsByStatus(run.id, 'ACCEPTED').length > 0) {
+                    <div class="decision-list-scroll">
+                      <!-- Accepted Panel -->
+                      <mat-expansion-panel class="decision-panel accepted-panel" [expanded]="uiStore.acceptedPanelOpen()" #acceptedPanel>
+                        <mat-expansion-panel-header (click)="uiStore.toggleAcceptedPanel()">
+                          <mat-panel-title>
+                            <mat-icon color="primary">check_circle</mat-icon>
+                            <span>Accepted</span>
+                          </mat-panel-title>
+                          <mat-panel-description>
+                            {{ uiStore.getSignalsByStatus(run.id, 'ACCEPTED').length }}
+                          </mat-panel-description>
+                        </mat-expansion-panel-header>
                         <mat-list class="decision-signals-list">
                           @for (signal of uiStore.getSignalsByStatus(run.id, 'ACCEPTED'); track signal.id) {
                             <mat-list-item class="signal-item outlined">
@@ -300,16 +311,19 @@
                             </mat-list-item>
                           }
                         </mat-list>
-                      }
-                    </div>
+                      </mat-expansion-panel>
 
-                    <!-- Considered Row -->
-                    <div class="decision-row considered-row">
-                      <h4>
-                        <mat-icon color="accent">help</mat-icon>
-                        Consider ({{ uiStore.getSignalsByStatus(run.id, 'CONSIDERED').length }})
-                      </h4>
-                      @if (uiStore.getSignalsByStatus(run.id, 'CONSIDERED').length > 0) {
+                      <!-- Considered Panel -->
+                      <mat-expansion-panel class="decision-panel considered-panel" [expanded]="uiStore.consideredPanelOpen()" #consideredPanel>
+                        <mat-expansion-panel-header (click)="uiStore.toggleConsideredPanel()">
+                          <mat-panel-title>
+                            <mat-icon color="accent">help</mat-icon>
+                            <span>Consider</span>
+                          </mat-panel-title>
+                          <mat-panel-description>
+                            {{ uiStore.getSignalsByStatus(run.id, 'CONSIDERED').length }}
+                          </mat-panel-description>
+                        </mat-expansion-panel-header>
                         <mat-list class="decision-signals-list">
                           @for (signal of uiStore.getSignalsByStatus(run.id, 'CONSIDERED'); track signal.id) {
                             <mat-list-item class="signal-item outlined">
@@ -333,16 +347,19 @@
                             </mat-list-item>
                           }
                         </mat-list>
-                      }
-                    </div>
+                      </mat-expansion-panel>
 
-                    <!-- Rejected Row -->
-                    <div class="decision-row rejected-row">
-                      <h4>
-                        <mat-icon>cancel</mat-icon>
-                        Rejected ({{ uiStore.getSignalsByStatus(run.id, 'REJECTED').length }})
-                      </h4>
-                      @if (uiStore.getSignalsByStatus(run.id, 'REJECTED').length > 0) {
+                      <!-- Rejected Panel -->
+                      <mat-expansion-panel class="decision-panel rejected-panel" [expanded]="uiStore.rejectedPanelOpen()" #rejectedPanel>
+                        <mat-expansion-panel-header (click)="uiStore.toggleRejectedPanel()">
+                          <mat-panel-title>
+                            <mat-icon>cancel</mat-icon>
+                            <span>Rejected</span>
+                          </mat-panel-title>
+                          <mat-panel-description>
+                            {{ uiStore.getSignalsByStatus(run.id, 'REJECTED').length }}
+                          </mat-panel-description>
+                        </mat-expansion-panel-header>
                         <mat-list class="decision-signals-list">
                           @for (signal of uiStore.getSignalsByStatus(run.id, 'REJECTED'); track signal.id) {
                             <mat-list-item class="signal-item outlined">
@@ -366,7 +383,7 @@
                             </mat-list-item>
                           }
                         </mat-list>
-                      }
+                      </mat-expansion-panel>
                     </div>
                   </div>
                 </div>
