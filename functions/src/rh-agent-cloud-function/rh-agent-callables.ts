@@ -230,7 +230,13 @@ export const rhAgentManualRun = onCall<ManualRunRequest, Promise<ManualRunRespon
       };
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      logger.error('rh_agent_manual_run_error', { error: errorMsg });
+      const errorStack = err instanceof Error ? err.stack : undefined;
+      logger.error('rh_agent_manual_run_error', { 
+        error: errorMsg, 
+        stack: errorStack,
+        runId,
+        watchlistCount: watchlist.length 
+      });
 
       await recordRunError(runId, `Fatal error: ${errorMsg}`);
       await completeRun(
@@ -240,7 +246,7 @@ export const rhAgentManualRun = onCall<ManualRunRequest, Promise<ManualRunRespon
         [`[${new Date().toISOString()}] Run failed: ${errorMsg}`]
       );
 
-      throw new HttpsError('internal', errorMsg);
+      throw new HttpsError('internal', `Manual run failed: ${errorMsg}`);
     } finally {
       await client?.close();
     }

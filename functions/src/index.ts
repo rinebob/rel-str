@@ -103,3 +103,6 @@ export {
   rhAgentGetSignalHistory,
   rhAgentGetOpportunities,
 } from './rh-agent-cloud-function/rh-agent-dashboard-callables';
+
+// RH Agent Manual Run callable
+export { rhAgentManualRun } from './rh-agent-cloud-function/rh-agent-callables';
