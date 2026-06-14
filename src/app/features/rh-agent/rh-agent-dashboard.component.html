@@ -69,31 +69,100 @@
       <div class="status-chip" matTooltip="Cron: {{ store.status()?.schedule }}">
         <mat-icon>repeat</mat-icon>
         <span class="status-label">Schedule:</span>
-        <span class="status-value">{{ getScheduleDescription(store.status()?.schedule) }}</span>
+        <span class="status-value">{{ uiStore.getScheduleDescription(store.status()?.schedule) }}</span>
       </div>
     </div>
   }
 
-  <!-- Monitored Symbols - Expansion Panel -->
-  @if (store.status()?.symbolsMonitored?.length) {
-    <mat-expansion-panel class="symbols-panel" [(expanded)]="symbolsPanelOpen">
-      <mat-expansion-panel-header>
-        <mat-panel-title>
-          <mat-icon class="panel-icon">visibility</mat-icon>
-          Monitored Symbols
-        </mat-panel-title>
-        <mat-panel-description>
-          {{ store.status()?.symbolsMonitored?.length }} symbols
-        </mat-panel-description>
-      </mat-expansion-panel-header>
-      <mat-chip-listbox>
-        @for (symbol of store.status()?.symbolsMonitored; track symbol) {
-          <mat-chip-option color="primary" size="small">
-            {{ symbol }}
-          </mat-chip-option>
-        }
-      </mat-chip-listbox>
-    </mat-expansion-panel>
+  <!-- Filter Panels - Side by Side -->
+  <div class="filter-panels-row">
+    <!-- Monitored Symbols Filter -->
+    @if (store.status()?.symbolsMonitored?.length) {
+      <mat-expansion-panel class="filter-panel symbols-panel" [(expanded)]="uiStore.symbolsPanelOpen">
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            <mat-icon class="panel-icon">visibility</mat-icon>
+            Symbols
+            @if (uiStore.selectedSymbol()) {
+              <span class="filter-badge">{{ uiStore.selectedSymbol() }}</span>
+            }
+          </mat-panel-title>
+          <mat-panel-description>
+            {{ store.status()?.symbolsMonitored?.length }} total
+            @if (uiStore.selectedSymbol()) {
+              <button mat-icon-button size="small" (click)="$event.stopPropagation(); uiStore.clearFilters()" matTooltip="Clear filter">
+                <mat-icon>clear</mat-icon>
+              </button>
+            }
+          </mat-panel-description>
+        </mat-expansion-panel-header>
+        <div class="filter-hint">Click a symbol to filter signals</div>
+        <mat-chip-listbox>
+          @for (symbol of store.status()?.symbolsMonitored; track symbol) {
+            <mat-chip-option 
+              color="primary" 
+              size="small"
+              [selected]="uiStore.selectedSymbol() === symbol"
+              (click)="uiStore.toggleSymbolFilter(symbol)">
+              {{ symbol }}
+            </mat-chip-option>
+          }
+        </mat-chip-listbox>
+      </mat-expansion-panel>
+    }
+
+    <!-- Signal Types Filter -->
+    @if (uiStore.signalTypes().length > 0) {
+      <mat-expansion-panel class="filter-panel signal-types-panel" [(expanded)]="uiStore.signalTypesPanelOpen">
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            <mat-icon class="panel-icon">category</mat-icon>
+            Signal Types
+            @if (uiStore.selectedSignalType()) {
+              <span class="filter-badge">{{ uiStore.selectedSignalType() }}</span>
+            }
+          </mat-panel-title>
+          <mat-panel-description>
+            {{ uiStore.signalTypes().length }} types
+            @if (uiStore.selectedSignalType()) {
+              <button mat-icon-button size="small" (click)="$event.stopPropagation(); uiStore.clearFilters()" matTooltip="Clear filter">
+                <mat-icon>clear</mat-icon>
+              </button>
+            }
+          </mat-panel-description>
+        </mat-expansion-panel-header>
+        <div class="filter-hint">Click a type to filter signals</div>
+        <mat-chip-listbox>
+          @for (type of uiStore.signalTypes(); track type) {
+            <mat-chip-option 
+              color="accent" 
+              size="small"
+              [selected]="uiStore.selectedSignalType() === type"
+              (click)="uiStore.toggleSignalTypeFilter(type)">
+              {{ type }}
+            </mat-chip-option>
+          }
+        </mat-chip-listbox>
+      </mat-expansion-panel>
+    }
+  </div>
+
+  <!-- Active Filter Display -->
+  @if (uiStore.selectedSymbol() || uiStore.selectedSignalType()) {
+    <div class="active-filters">
+      <span class="filter-label">Active Filters:</span>
+      @if (uiStore.selectedSymbol()) {
+        <mat-chip-option color="primary" size="small" (click)="uiStore.toggleSymbolFilter(uiStore.selectedSymbol()!)">
+          Symbol: {{ uiStore.selectedSymbol() }} <mat-icon>close</mat-icon>
+        </mat-chip-option>
+      }
+      @if (uiStore.selectedSignalType()) {
+        <mat-chip-option color="accent" size="small" (click)="uiStore.toggleSignalTypeFilter(uiStore.selectedSignalType()!)">
+          Type: {{ uiStore.selectedSignalType() }} <mat-icon>close</mat-icon>
+        </mat-chip-option>
+      }
+      <button mat-button (click)="uiStore.clearFilters()">Clear All</button>
+    </div>
   }
 
   <!-- Runs Section -->
@@ -107,15 +176,15 @@
       @if (store.runs().length > 0) {
         <mat-accordion>
           <!-- Current Run -->
-          @if (currentRun; as run) {
+          @if (uiStore.currentRun(); as run) {
             <mat-expansion-panel hideToggle [expanded]="true" class="current-run">
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <mat-chip-option color="accent" selected>CURRENT</mat-chip-option>
                   <mat-icon
-                    [color]="getRunStatusColor(run.status)"
+                    [color]="uiStore.getRunStatusColor(run.status)"
                     class="run-status-icon">
-                    {{ getRunStatusIcon(run.status) }}
+                    {{ uiStore.getRunStatusIcon(run.status) }}
                   </mat-icon>
                   {{ run.strategy || run.marketDate || 'Daily Run' }}
                 </mat-panel-title>
@@ -142,14 +211,19 @@
                 }
 
                 <!-- Signals for current run -->
-                @if (getSignalsForRun(run.id).length > 0) {
+                @if (uiStore.getFilteredSignals(run.id).length > 0) {
                   <div class="run-signals">
-                    <h4>Signals Generated ({{ getSignalsForRun(run.id).length }})</h4>
+                    <h4>
+                      Signals Generated ({{ uiStore.getFilteredSignals(run.id).length }})
+                      @if (uiStore.selectedSymbol() || uiStore.selectedSignalType()) {
+                        <span class="filter-applied">- filtered</span>
+                      }
+                    </h4>
                     <mat-list class="signals-scroll-list">
-                      @for (signal of getSignalsForRun(run.id); track signal.id) {
+                      @for (signal of uiStore.getFilteredSignals(run.id); track signal.id) {
                         <mat-list-item>
                           <mat-icon matListItemIcon [class]="'action-' + signal.action.toLowerCase()">
-                            {{ getActionIcon(signal.action) }}
+                            {{ uiStore.getActionIcon(signal.action) }}
                           </mat-icon>
                           <div matListItemTitle>
                             {{ signal.symbol }} - {{ signal.action }}
@@ -169,31 +243,37 @@
                     </mat-list>
                   </div>
                 } @else {
-                  <p class="no-signals">No signals generated for this run</p>
+                  <p class="no-signals">
+                    @if (uiStore.selectedSymbol() || uiStore.selectedSignalType()) {
+                      No signals match the selected filters
+                    } @else {
+                      No signals generated for this run
+                    }
+                  </p>
                 }
               </div>
             </mat-expansion-panel>
           }
 
           <!-- Previous Runs -->
-          @if (previousRuns.length > 0) {
+          @if (uiStore.previousRuns().length > 0) {
             <mat-expansion-panel hideToggle class="previous-runs-section">
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <mat-icon>history</mat-icon>
-                  Previous Runs ({{ previousRuns.length }})
+                  Previous Runs ({{ uiStore.previousRuns().length }})
                 </mat-panel-title>
               </mat-expansion-panel-header>
 
               <mat-accordion class="nested-accordion">
-                @for (run of previousRuns.slice(0, showAllRuns ? undefined : 5); track run.id) {
+                @for (run of uiStore.previousRuns().slice(0, uiStore.showAllRuns() ? undefined : 5); track run.id) {
                   <mat-expansion-panel hideToggle class="previous-run">
                     <mat-expansion-panel-header>
                       <mat-panel-title>
                         <mat-icon
-                          [color]="getRunStatusColor(run.status)"
+                          [color]="uiStore.getRunStatusColor(run.status)"
                           class="run-status-icon">
-                          {{ getRunStatusIcon(run.status) }}
+                          {{ uiStore.getRunStatusIcon(run.status) }}
                         </mat-icon>
                         {{ run.strategy || run.marketDate || 'Daily Run' }}
                       </mat-panel-title>
@@ -213,31 +293,36 @@
                       </div>
 
                       <!-- Signals for previous run -->
-                      @if (getSignalsForRun(run.id).length > 0) {
+                      @if (uiStore.getFilteredSignals(run.id).length > 0) {
                         <div class="run-signals">
-                          <h4>Signals ({{ getSignalsForRun(run.id).length }})</h4>
+                          <h4>
+                            Signals ({{ uiStore.getFilteredSignals(run.id).length }})
+                            @if (uiStore.selectedSymbol() || uiStore.selectedSignalType()) {
+                              <span class="filter-applied">- filtered</span>
+                            }
+                          </h4>
                           <mat-list>
-                            @for (signal of getSignalsForRun(run.id).slice(0, 5); track signal.id) {
+                            @for (signal of uiStore.getFilteredSignals(run.id).slice(0, 5); track signal.id) {
                               <mat-list-item>
                                 <mat-icon matListItemIcon [class]="'action-' + signal.action.toLowerCase()">
-                                  {{ getActionIcon(signal.action) }}
+                                  {{ uiStore.getActionIcon(signal.action) }}
                                 </mat-icon>
                                 <div matListItemTitle>{{ signal.symbol }} - {{ signal.action }}</div>
                                 <div matListItemLine>{{ signal.reason }}</div>
                               </mat-list-item>
                             }
                           </mat-list>
-                          @if (getSignalsForRun(run.id).length > 5) {
-                            <p class="more-signals">+ {{ getSignalsForRun(run.id).length - 5 }} more signals</p>
+                          @if (uiStore.getFilteredSignals(run.id).length > 5) {
+                            <p class="more-signals">+ {{ uiStore.getFilteredSignals(run.id).length - 5 }} more signals</p>
                           }
                         </div>
                       }
                     </div>
                   </mat-expansion-panel>
                 }
-                @if (previousRuns.length > 5) {
-                  <button mat-button (click)="showAllRuns = !showAllRuns" class="show-more-btn">
-                    {{ showAllRuns ? 'Show Less' : 'Show All (' + (previousRuns.length - 5) + ' more)' }}
+                @if (uiStore.previousRuns().length > 5) {
+                  <button mat-button (click)="uiStore.toggleShowAllRuns()" class="show-more-btn">
+                    {{ uiStore.showAllRuns() ? 'Show Less' : 'Show All (' + (uiStore.previousRuns().length - 5) + ' more)' }}
                   </button>
                 }
               </mat-accordion>
