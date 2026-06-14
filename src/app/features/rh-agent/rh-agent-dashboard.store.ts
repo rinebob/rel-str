@@ -199,5 +199,29 @@ export const RhAgentDashboardStore = signalStore(
         default: return 'help';
       }
     },
+
+    /**
+     * Accept a signal (dummy handler)
+     */
+    acceptSignal(signalId: string): void {
+      console.log('[RH Agent Dashboard] Signal accepted:', signalId);
+      // TODO: Implement actual accept logic
+    },
+
+    /**
+     * Consider a signal (dummy handler)
+     */
+    considerSignal(signalId: string): void {
+      console.log('[RH Agent Dashboard] Signal considered:', signalId);
+      // TODO: Implement actual consider logic
+    },
+
+    /**
+     * Reject a signal (dummy handler)
+     */
+    rejectSignal(signalId: string): void {
+      console.log('[RH Agent Dashboard] Signal rejected:', signalId);
+      // TODO: Implement actual reject logic
+    },
   }))
 );

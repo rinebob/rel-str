@@ -180,15 +180,9 @@
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <mat-chip-option color="accent" selected>CURRENT</mat-chip-option>
-                  <mat-icon
-                    [color]="uiStore.getRunStatusColor(run.status)"
-                    class="run-status-icon">
-                    {{ uiStore.getRunStatusIcon(run.status) }}
-                  </mat-icon>
-                  {{ run.strategy || run.marketDate || 'Daily Run' }}
+                  <span class="run-date">{{ run.startedAt | date: 'short' }}</span>
                 </mat-panel-title>
                 <mat-panel-description>
-                  {{ run.startedAt | date: 'short' }}
                   <span class="run-stats">
                     {{ run.symbolsProcessed || run.processedCount || 0 }} / {{ run.totalSymbols || 0 }} symbols,
                     {{ run.signalsGenerated || run.opportunitiesFound || 0 }} signals
@@ -220,22 +214,40 @@
                     </h4>
                     <mat-list class="signals-scroll-list">
                       @for (signal of uiStore.getFilteredSignals(run.id); track signal.id) {
-                        <mat-list-item>
+                        <mat-list-item class="signal-item">
                           <mat-icon matListItemIcon [class]="'action-' + signal.action.toLowerCase()">
                             {{ uiStore.getActionIcon(signal.action) }}
                           </mat-icon>
-                          <div matListItemTitle>
-                            {{ signal.symbol }} - {{ signal.action }}
+                          <div matListItemTitle class="signal-title">
+                            <span class="signal-symbol">{{ signal.symbol }}</span>
+                            <span class="signal-action">{{ signal.action }}</span>
+                            <span class="signal-type-badge">{{ signal.signalType }}</span>
                             <span class="signal-status" [class]="'status-' + signal.status.toLowerCase()">
                               {{ signal.status }}
                             </span>
                           </div>
-                          <div matListItemLine>{{ signal.reason }}</div>
-                          <div matListItemMeta>
-                            <small>{{ signal.createdAt | date: 'short' }}</small>
-                            @if (signal.dryRun) {
-                              <mat-chip-option size="small" color="warn">DRY</mat-chip-option>
-                            }
+                          <div matListItemLine class="signal-reason">{{ signal.reason }}</div>
+                          <div matListItemMeta class="signal-actions">
+                            <button
+                              mat-stroked-button
+                              size="small"
+                              color="primary"
+                              (click)="uiStore.acceptSignal(signal.id)">
+                              Accept
+                            </button>
+                            <button
+                              mat-stroked-button
+                              size="small"
+                              color="accent"
+                              (click)="uiStore.considerSignal(signal.id)">
+                              Consider
+                            </button>
+                            <button
+                              mat-stroked-button
+                              size="small"
+                              (click)="uiStore.rejectSignal(signal.id)">
+                              Reject
+                            </button>
                           </div>
                         </mat-list-item>
                       }
