@@ -1,6 +1,5 @@
-import { getApp, App } from 'firebase-admin/app';
+import { getApp, getApps, initializeApp, App } from 'firebase-admin/app';
 import { getFirestore, Firestore, FieldValue } from 'firebase-admin/firestore';
-import * as admin from 'firebase-admin';
 
 // Centralized Firebase Admin SDK initialization for Functions v2
 // - Avoids duplicate init blocks across files
@@ -13,10 +12,10 @@ let db: Firestore;
 const isRunningOnCloudRun = !!process.env.K_SERVICE; // Present on Cloud Run/Gen2 Functions
 const useEmulators = process.env.FUNCTIONS_EMULATOR === 'true' && !isRunningOnCloudRun;
 
-if (!admin.apps.length) {
+if (getApps().length === 0) {
   // In both emulator and production, a parameterless initializeApp() will
   // pick up Application Default Credentials appropriately.
-  admin.initializeApp();
+  initializeApp();
 }
 
 app = getApp();
@@ -35,4 +34,4 @@ if (useEmulators) {
   }
 }
 
-export { admin, db, FieldValue };
+export { db, FieldValue };

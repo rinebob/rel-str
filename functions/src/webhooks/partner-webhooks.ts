@@ -20,7 +20,8 @@
 import { onMessagePublished } from 'firebase-functions/v2/pubsub';
 import { onRequest } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
-import { admin, db, FieldValue } from '../firebase-admin-init';
+import { Timestamp } from 'firebase-admin/firestore';
+import { db, FieldValue } from '../firebase-admin-init';
 import { fetchDailyBarsRange, fetchAndCacheSymbolSeries } from './symbol-fetch';
 import { buildPhaseSeries } from './rs-series';
 import { createOrUpdateRealtimeJobForRun } from '../rs/time-series/rs-time-series-jobs.helper';
@@ -152,7 +153,7 @@ function getTzOffsetMinutesAt(utcDate: Date, timeZone: string): number {
 }
 
 // Parse partner-provided local ET strings like '2025-11-19T16:30 ET' into a Firestore Timestamp.
-function parseEtLocalStringToTimestamp(s: string): admin.firestore.Timestamp | undefined {
+function parseEtLocalStringToTimestamp(s: string): Timestamp | undefined {
   try {
     const m = s.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})\s*ET$/i);
     if (!m) return undefined;
@@ -164,16 +165,16 @@ function parseEtLocalStringToTimestamp(s: string): admin.firestore.Timestamp | u
     const utcGuess = new Date(Date.UTC(y, mon - 1, d, hh, mm, 0));
     const etOffsetMin = getTzOffsetMinutesAt(utcGuess, 'America/New_York');
     const etAsUtc = new Date(utcGuess.getTime() + etOffsetMin * 60_000);
-    return admin.firestore.Timestamp.fromDate(etAsUtc);
+    return Timestamp.fromDate(etAsUtc);
   } catch {
     return undefined;
   }
 }
 
-function toTimestampOrUndefined(v: any): admin.firestore.Timestamp | undefined {
+function toTimestampOrUndefined(v: any): Timestamp | undefined {
   try {
     if (!v) return undefined;
-    if (typeof v?.toDate === 'function') return v as admin.firestore.Timestamp;
+    if (typeof v?.toDate === 'function') return v as Timestamp;
 
     if (typeof v === 'string') {
       const etTs = parseEtLocalStringToTimestamp(v);
@@ -181,7 +182,7 @@ function toTimestampOrUndefined(v: any): admin.firestore.Timestamp | undefined {
     }
 
     const d = new Date(v);
-    if (!isNaN(d.getTime())) return admin.firestore.Timestamp.fromDate(d);
+    if (!isNaN(d.getTime())) return Timestamp.fromDate(d);
   } catch {}
   return undefined;
 }

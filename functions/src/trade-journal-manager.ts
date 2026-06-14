@@ -1,7 +1,8 @@
 import { onRequest } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import type { Request, Response } from 'express';
-import { admin, db, FieldValue } from './firebase-admin-init';
+import { getAuth } from 'firebase-admin/auth';
+import { db, FieldValue } from './firebase-admin-init';
 import { USERS_COLLECTION, USER_TRADES_COLLECTION } from './webhooks/webhooks-config';
 
 // These must mirror the frontend enums/constants used in trade-journal.types.ts
@@ -122,7 +123,7 @@ export const tradeJournalManager = onRequest({ maxInstances: 10 }, async (req: R
       return;
     }
 
-    const decoded = await admin.auth().verifyIdToken(tokenMatch);
+    const decoded = await getAuth().verifyIdToken(tokenMatch);
     const uid = decoded.uid;
 
     const body = (req.body || {}) as Partial<TradeUpsertDto>;
