@@ -89,7 +89,7 @@
                      [value]="uiStore.symbolSearch()"
                      (input)="uiStore.setSymbolSearch($any($event).target.value)"
                      (click)="$event.stopPropagation()"
-                     placeholder="Search...">
+                     placeholder="Filter">
               @if (uiStore.symbolSearch()) {
                 <button matSuffix mat-icon-button (click)="$event.stopPropagation(); uiStore.setSymbolSearch('')">
                   <mat-icon>close</mat-icon>
@@ -97,8 +97,15 @@
               }
             </mat-form-field>
           </mat-panel-title>
-          <mat-panel-description>
-            {{ uiStore.getFilteredSymbols().length }} / {{ store.status()?.symbolsMonitored?.length }}
+          <mat-panel-description class="symbol-counts">
+            <span class="count-item">
+              <span class="count-label">selected</span>
+              <span class="count-value">{{ uiStore.selectedSymbol() ? 1 : 0 }}</span>
+            </span>
+            <span class="count-item">
+              <span class="count-label">total</span>
+              <span class="count-value">{{ store.status()?.symbolsMonitored?.length || 0 }}</span>
+            </span>
             @if (uiStore.selectedSymbol()) {
               <button mat-icon-button size="small" (click)="$event.stopPropagation(); uiStore.clearFilters()" matTooltip="Clear filter">
                 <mat-icon>clear</mat-icon>
@@ -227,40 +234,24 @@
                     @if (uiStore.getFilteredSignals(run.id).length > 0) {
                       <mat-list class="signals-scroll-list">
                         @for (signal of uiStore.getFilteredSignals(run.id); track signal.id) {
-                          <mat-list-item class="signal-item">
-                            <mat-icon matListItemIcon [class]="'action-' + signal.action.toLowerCase()">
-                              {{ uiStore.getActionIcon(signal.action) }}
+                          <mat-list-item class="signal-item outlined">
+                            <mat-icon matListItemIcon class="direction-icon" [class]="'dir-' + (signal.tradeDirection || 'LONG').toLowerCase()">
+                              {{ signal.tradeDirection === 'SHORT' ? 'arrow_downward' : 'arrow_upward' }}
                             </mat-icon>
-                            <div matListItemTitle class="signal-title">
-                              <span class="signal-symbol">{{ signal.symbol }}</span>
-                              <span class="signal-action">{{ signal.action }}</span>
-                              <span class="signal-type-badge">{{ signal.signalType }}</span>
-                              <span class="signal-direction" [class]="'dir-' + (signal.tradeDirection || 'LONG').toLowerCase()">
-                                {{ signal.tradeDirection || 'LONG' }}
-                              </span>
+                            <div class="signal-content">
+                              <div class="signal-row-top">
+                                <span class="signal-symbol">{{ signal.symbol }}</span>
+                                <span class="signal-direction" [class]="'dir-' + (signal.tradeDirection || 'LONG').toLowerCase()">
+                                  {{ signal.tradeDirection || 'LONG' }}
+                                </span>
+                                <span class="signal-type-badge">{{ signal.signalType }}</span>
+                              </div>
+                              <div class="signal-row-bottom">{{ signal.reason }}</div>
                             </div>
-                            <div matListItemLine class="signal-reason">{{ signal.reason }}</div>
-                            <div matListItemMeta class="signal-actions">
-                              <button
-                                mat-stroked-button
-                                size="small"
-                                color="primary"
-                                (click)="uiStore.acceptSignal(signal.id)">
-                                Accept
-                              </button>
-                              <button
-                                mat-stroked-button
-                                size="small"
-                                color="accent"
-                                (click)="uiStore.considerSignal(signal.id)">
-                                Consider
-                              </button>
-                              <button
-                                mat-stroked-button
-                                size="small"
-                                (click)="uiStore.rejectSignal(signal.id)">
-                                Reject
-                              </button>
+                            <div matListItemMeta class="signal-actions compact-actions">
+                              <button mat-stroked-button size="small" color="primary" (click)="uiStore.acceptSignal(signal.id)">Accept</button>
+                              <button mat-stroked-button size="small" color="accent" (click)="uiStore.considerSignal(signal.id)">Consider</button>
+                              <button mat-stroked-button size="small" (click)="uiStore.rejectSignal(signal.id)">Reject</button>
                             </div>
                           </mat-list-item>
                         }
@@ -287,12 +278,21 @@
                       @if (uiStore.getSignalsByStatus(run.id, 'ACCEPTED').length > 0) {
                         <mat-list class="decision-signals-list">
                           @for (signal of uiStore.getSignalsByStatus(run.id, 'ACCEPTED'); track signal.id) {
-                            <mat-list-item class="signal-item compact">
-                              <div matListItemTitle class="signal-title">
-                                <span class="signal-symbol">{{ signal.symbol }}</span>
-                                <span class="signal-type-badge">{{ signal.signalType }}</span>
+                            <mat-list-item class="signal-item outlined">
+                              <mat-icon matListItemIcon class="direction-icon" [class]="'dir-' + (signal.tradeDirection || 'LONG').toLowerCase()">
+                                {{ signal.tradeDirection === 'SHORT' ? 'arrow_downward' : 'arrow_upward' }}
+                              </mat-icon>
+                              <div class="signal-content">
+                                <div class="signal-row-top">
+                                  <span class="signal-symbol">{{ signal.symbol }}</span>
+                                  <span class="signal-direction" [class]="'dir-' + (signal.tradeDirection || 'LONG').toLowerCase()">
+                                    {{ signal.tradeDirection || 'LONG' }}
+                                  </span>
+                                  <span class="signal-type-badge">{{ signal.signalType }}</span>
+                                </div>
+                                <div class="signal-row-bottom">{{ signal.reason }}</div>
                               </div>
-                              <div matListItemMeta class="signal-actions">
+                              <div matListItemMeta class="signal-actions compact-actions">
                                 <button mat-stroked-button size="small" color="primary" (click)="uiStore.sendOrder(signal.id)">Send Order</button>
                                 <button mat-stroked-button size="small" color="accent" (click)="uiStore.considerSignal(signal.id)">Consider</button>
                                 <button mat-stroked-button size="small" (click)="uiStore.rejectSignal(signal.id)">Reject</button>
@@ -312,12 +312,21 @@
                       @if (uiStore.getSignalsByStatus(run.id, 'CONSIDERED').length > 0) {
                         <mat-list class="decision-signals-list">
                           @for (signal of uiStore.getSignalsByStatus(run.id, 'CONSIDERED'); track signal.id) {
-                            <mat-list-item class="signal-item compact">
-                              <div matListItemTitle class="signal-title">
-                                <span class="signal-symbol">{{ signal.symbol }}</span>
-                                <span class="signal-type-badge">{{ signal.signalType }}</span>
+                            <mat-list-item class="signal-item outlined">
+                              <mat-icon matListItemIcon class="direction-icon" [class]="'dir-' + (signal.tradeDirection || 'LONG').toLowerCase()">
+                                {{ signal.tradeDirection === 'SHORT' ? 'arrow_downward' : 'arrow_upward' }}
+                              </mat-icon>
+                              <div class="signal-content">
+                                <div class="signal-row-top">
+                                  <span class="signal-symbol">{{ signal.symbol }}</span>
+                                  <span class="signal-direction" [class]="'dir-' + (signal.tradeDirection || 'LONG').toLowerCase()">
+                                    {{ signal.tradeDirection || 'LONG' }}
+                                  </span>
+                                  <span class="signal-type-badge">{{ signal.signalType }}</span>
+                                </div>
+                                <div class="signal-row-bottom">{{ signal.reason }}</div>
                               </div>
-                              <div matListItemMeta class="signal-actions">
+                              <div matListItemMeta class="signal-actions compact-actions">
                                 <button mat-stroked-button size="small" color="primary" (click)="uiStore.acceptSignal(signal.id)">Accept</button>
                                 <button mat-stroked-button size="small" (click)="uiStore.rejectSignal(signal.id)">Reject</button>
                               </div>
@@ -336,12 +345,21 @@
                       @if (uiStore.getSignalsByStatus(run.id, 'REJECTED').length > 0) {
                         <mat-list class="decision-signals-list">
                           @for (signal of uiStore.getSignalsByStatus(run.id, 'REJECTED'); track signal.id) {
-                            <mat-list-item class="signal-item compact">
-                              <div matListItemTitle class="signal-title">
-                                <span class="signal-symbol">{{ signal.symbol }}</span>
-                                <span class="signal-type-badge">{{ signal.signalType }}</span>
+                            <mat-list-item class="signal-item outlined">
+                              <mat-icon matListItemIcon class="direction-icon" [class]="'dir-' + (signal.tradeDirection || 'LONG').toLowerCase()">
+                                {{ signal.tradeDirection === 'SHORT' ? 'arrow_downward' : 'arrow_upward' }}
+                              </mat-icon>
+                              <div class="signal-content">
+                                <div class="signal-row-top">
+                                  <span class="signal-symbol">{{ signal.symbol }}</span>
+                                  <span class="signal-direction" [class]="'dir-' + (signal.tradeDirection || 'LONG').toLowerCase()">
+                                    {{ signal.tradeDirection || 'LONG' }}
+                                  </span>
+                                  <span class="signal-type-badge">{{ signal.signalType }}</span>
+                                </div>
+                                <div class="signal-row-bottom">{{ signal.reason }}</div>
                               </div>
-                              <div matListItemMeta class="signal-actions">
+                              <div matListItemMeta class="signal-actions compact-actions">
                                 <button mat-stroked-button size="small" color="primary" (click)="uiStore.acceptSignal(signal.id)">Accept</button>
                                 <button mat-stroked-button size="small" color="accent" (click)="uiStore.considerSignal(signal.id)">Consider</button>
                               </div>
