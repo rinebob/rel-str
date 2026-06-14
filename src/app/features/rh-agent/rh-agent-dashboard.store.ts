@@ -127,20 +127,23 @@ export const RhAgentDashboardStore = signalStore(
     },
 
     /**
-     * Translate cron expression to Pacific Time human-readable format
-     * Schedule is 12:00 PM PT Monday-Friday (0 12 * * 1-5)
+     * Translate cron expression (UTC) to Pacific Time human-readable format
+     * Schedule is 12:00 PM PT Monday-Friday (0 20 * * 1-5 UTC)
      */
     getScheduleDescription(cron: string | undefined): string {
       if (!cron) return 'Not scheduled';
       
-      // Parse cron: "0 12 * * 1-5" -> 12:00 PM PT, Monday-Friday
+      // Parse cron: "0 20 * * 1-5" (8 PM UTC = 12 PM PT)
       const parts = cron.split(' ');
       if (parts.length !== 5) return cron;
       
       const [minute, hour, , , dayOfWeek] = parts;
       
-      // Convert 24h to 12h format
-      const hourNum = parseInt(hour, 10);
+      // Convert UTC to Pacific Time (UTC-8, or UTC-7 during DST)
+      // For simplicity, assume standard offset (8 hours behind)
+      let hourNum = parseInt(hour, 10);
+      hourNum = (hourNum - 8 + 24) % 24; // Convert UTC to PT (PST)
+      
       const minNum = parseInt(minute, 10);
       const ampm = hourNum >= 12 ? 'PM' : 'AM';
       const hour12 = hourNum % 12 || 12;

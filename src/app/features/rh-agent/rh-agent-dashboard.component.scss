@@ -1,5 +1,5 @@
 .rh-agent-dashboard {
-  padding: 24px;
+  padding: 16px;
   max-width: 1200px;
   margin: 0 auto;
 }
@@ -8,26 +8,27 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 12px;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 12px;
 
   h1 {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     margin: 0;
+    font-size: 20px;
 
     mat-icon {
-      font-size: 32px;
-      width: 32px;
-      height: 32px;
+      font-size: 24px;
+      width: 24px;
+      height: 24px;
     }
   }
 
   .actions {
     display: flex;
-    gap: 12px;
+    gap: 8px;
   }
 }
 
@@ -35,20 +36,20 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 48px;
+  gap: 8px;
+  padding: 24px;
   background: rgba(255, 255, 255, 0.9);
   border-radius: 8px;
-  margin-bottom: 24px;
+  margin-bottom: 12px;
 }
 
 // Single-line status row
 .status-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 16px;
-  padding: 12px;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
   background: var(--mat-sys-surface-container);
   border-radius: 8px;
 }
@@ -56,8 +57,9 @@
 .status-chip {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 13px;
   background: var(--mat-sys-surface);
   border-radius: 16px;
   font-size: 13px;
@@ -92,26 +94,53 @@
   }
 }
 
-.runs-card {
-  margin-bottom: 16px;
+// Runs section header (inline, no card)
+.runs-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+
+  mat-icon {
+    color: var(--mat-sys-primary);
+  }
+
+  .runs-title {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--mat-sys-on-surface);
+  }
+
+  .runs-count {
+    font-size: 13px;
+    color: var(--mat-sys-on-surface-variant);
+  }
 }
 
 // Filter panels row - side by side
 .filter-panels-row {
   display: flex;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 12px;
+  margin-bottom: 12px;
 
   .filter-panel {
     flex: 1 1 50%;
     min-width: 0; // Prevent overflow
+
+    // Ensure headers are same height
+    mat-expansion-panel-header {
+      height: 48px;
+      min-height: 48px;
+    }
   }
 }
 
 .filter-hint {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--mat-sys-on-surface-variant);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   font-style: italic;
 }
 
@@ -130,10 +159,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 6px 10px;
   background: var(--mat-sys-primary-container);
   border-radius: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 
   .filter-label {
     font-size: 13px;
@@ -186,15 +215,15 @@
   background: var(--mat-sys-surface);
 }
 
-// Run info row
+// Run info row - compact
 .run-info-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
-  margin-bottom: 12px;
+  gap: 12px;
+  margin-bottom: 8px;
   
   span {
-    font-size: 13px;
+    font-size: 12px;
   }
 }
 

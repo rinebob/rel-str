@@ -166,15 +166,14 @@
   }
 
   <!-- Runs Section -->
-  <mat-card class="runs-card">
-    <mat-card-header>
-      <mat-icon mat-card-avatar>history</mat-icon>
-      <mat-card-title>Runs</mat-card-title>
-      <span mat-card-subtitle>{{ store.runs().length }} total</span>
-    </mat-card-header>
-    <mat-card-content>
-      @if (store.runs().length > 0) {
-        <mat-accordion>
+  <div class="runs-header">
+    <mat-icon>history</mat-icon>
+    <span class="runs-title">Runs</span>
+    <span class="runs-count">({{ store.runs().length }} total)</span>
+  </div>
+
+  @if (store.runs().length > 0) {
+    <mat-accordion>
           <!-- Current Run -->
           @if (uiStore.currentRun(); as run) {
             <mat-expansion-panel hideToggle [expanded]="true" class="current-run">
@@ -334,8 +333,6 @@
           <mat-icon>inbox</mat-icon>
           <p>No runs yet</p>
         </div>
-      }
-    </mat-card-content>
-  </mat-card>
+  }
 
 </div>
