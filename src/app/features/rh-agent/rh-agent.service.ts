@@ -24,9 +24,13 @@ export interface RhAgentRun {
   status: string;
   startedAt: string;
   completedAt?: string;
-  strategy: string;
-  symbolsProcessed: number;
-  signalsGenerated: number;
+  strategy?: string;
+  marketDate?: string;
+  symbolsProcessed?: number;
+  totalSymbols?: number;
+  processedCount?: number;
+  signalsGenerated?: number;
+  opportunitiesFound?: number;
   summary?: string;
 }
 
@@ -38,7 +42,14 @@ export interface RhTradeSignal {
   status: string;
   reason: string;
   createdAt: string;
-  dryRun: boolean;
+  dryRun?: boolean;
+  confidence?: number;
+  signalType?: string;
+  indicators?: {
+    rsi?: number;
+    priceChange?: number;
+    currentPrice?: number;
+  };
 }
 
 export interface ManualRunRequest {

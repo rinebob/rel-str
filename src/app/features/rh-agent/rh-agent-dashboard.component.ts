@@ -176,13 +176,13 @@ import {
                   >
                     {{ getRunStatusIcon(run.status) }}
                   </mat-icon>
-                  {{ run.strategy }}
+                  {{ run.strategy || run.marketDate || 'Daily Run' }}
                 </mat-panel-title>
                 <mat-panel-description>
                   {{ run.startedAt | date : 'short' }}
                   <span class="run-stats">
-                    {{ run.symbolsProcessed }} symbols,
-                    {{ run.signalsGenerated }} signals
+                    {{ run.symbolsProcessed || run.processedCount || 0 }} / {{ run.totalSymbols || 0 }} symbols,
+                    {{ run.signalsGenerated || run.opportunitiesFound || 0 }} signals
                   </span>
                 </mat-panel-description>
               </mat-expansion-panel-header>
@@ -447,27 +447,8 @@ export class RhAgentDashboardComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.refreshData();
 
-    // Subscribe to realtime updates
-    this.rhAgentService
-      .watchRecentRunsRealtime(20)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((runs) => {
-        this.runs = runs;
-      });
-
-    this.rhAgentService
-      .watchRecentSignalsRealtime(50)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((signals) => {
-        this.signals = signals;
-        // Group signals by run
-        this.signalsByRun.clear();
-        for (const signal of signals) {
-          const existing = this.signalsByRun.get(signal.runId) || [];
-          existing.push(signal);
-          this.signalsByRun.set(signal.runId, existing);
-        }
-      });
+    // NOTE: Realtime subscriptions disabled - they query different collections than our API
+    // and were overwriting valid data with empty arrays. Using API calls only for now.
   }
 
   ngOnDestroy(): void {
@@ -477,6 +458,15 @@ export class RhAgentDashboardComponent implements OnInit, OnDestroy {
 
   refreshData(): void {
     this.isLoading = true;
+    let completedCalls = 0;
+    const totalCalls = 3;
+
+    const checkComplete = () => {
+      completedCalls++;
+      if (completedCalls >= totalCalls) {
+        this.isLoading = false;
+      }
+    };
 
     // Get status
     this.rhAgentService
@@ -490,6 +480,7 @@ export class RhAgentDashboardComponent implements OnInit, OnDestroy {
           this.snackBar.open('Failed to load status', 'Dismiss', { duration: 5000 });
           console.error(err);
         },
+        complete: checkComplete,
       });
 
     // Get run history
@@ -499,13 +490,16 @@ export class RhAgentDashboardComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (runs) => {
           this.runs = runs;
-          this.isLoading = false;
+          // Generate shim signals if no signals exist (for UI testing)
+          if (this.signals.length === 0 && this.runs.length > 0) {
+            this.generateShimSignals();
+          }
         },
         error: (err) => {
           this.snackBar.open('Failed to load runs', 'Dismiss', { duration: 5000 });
           console.error(err);
-          this.isLoading = false;
         },
+        complete: checkComplete,
       });
 
     // Get signal history
@@ -515,11 +509,69 @@ export class RhAgentDashboardComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (signals) => {
           this.signals = signals;
+          // If no real signals, generate shim ones for testing
+          if (this.signals.length === 0 && this.runs.length > 0) {
+            this.generateShimSignals();
+          }
         },
         error: (err) => {
           console.error('Failed to load signals', err);
         },
+        complete: checkComplete,
       });
+  }
+
+  /**
+   * Generate fake/shim signals for UI testing.
+   * Creates a BUY signal for every 3rd symbol from the monitored symbols list.
+   */
+  private generateShimSignals(): void {
+    if (!this.status?.symbolsMonitored?.length) return;
+
+    const shimSignals: RhTradeSignal[] = [];
+    const symbols = this.status.symbolsMonitored;
+    const now = new Date().toISOString();
+
+    // Get the most recent run ID or use a placeholder
+    const runId = this.runs.length > 0 ? this.runs[0].id : 'shim-run';
+
+    // Create a signal for every 3rd symbol
+    for (let i = 2; i < symbols.length; i += 3) {
+      const symbol = symbols[i];
+      const shimSignal: RhTradeSignal = {
+        id: `shim-${symbol}-${Date.now()}`,
+        runId: runId,
+        symbol: symbol,
+        action: 'BUY',
+        status: 'PENDING',
+        reason: `[SHIM] RSI oversold (28.5) with -2.3% price drop. Potential bounce opportunity.`,
+        createdAt: now,
+        confidence: 85,
+        signalType: 'RSI_OVERSOLD',
+        indicators: {
+          rsi: 28.5,
+          priceChange: -0.023,
+          currentPrice: 150.0 + Math.random() * 100,
+        },
+      };
+      shimSignals.push(shimSignal);
+    }
+
+    this.signals = shimSignals;
+
+    // Group by run
+    this.signalsByRun.clear();
+    for (const signal of this.signals) {
+      const existing = this.signalsByRun.get(signal.runId) || [];
+      existing.push(signal);
+      this.signalsByRun.set(signal.runId, existing);
+    }
+
+    this.snackBar.open(
+      `Generated ${shimSignals.length} shim signals for UI testing`,
+      'Dismiss',
+      { duration: 3000 }
+    );
   }
 
   triggerManualRun(): void {
