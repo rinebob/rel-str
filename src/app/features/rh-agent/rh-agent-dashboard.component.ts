@@ -63,11 +63,12 @@ export class RhAgentDashboardComponent {
 
   /**
    * Translate cron expression to Pacific Time human-readable format
+   * Schedule is 12:00 PM PT Monday-Friday (0 12 * * 1-5)
    */
   getScheduleDescription(cron: string | undefined): string {
     if (!cron) return 'Not scheduled';
     
-    // Parse cron: "0 20 * * 1-5" -> 8:00 PM PT, Monday-Friday
+    // Parse cron: "0 12 * * 1-5" -> 12:00 PM PT, Monday-Friday
     const parts = cron.split(' ');
     if (parts.length !== 5) return cron;
     
@@ -91,6 +92,20 @@ export class RhAgentDashboardComponent {
     else days = dayOfWeek;
     
     return `${time} PT, ${days}`;
+  }
+
+  /**
+   * Get the most recent run (current)
+   */
+  get currentRun() {
+    return this.store.runs().length > 0 ? this.store.runs()[0] : null;
+  }
+
+  /**
+   * Get previous runs (all except current)
+   */
+  get previousRuns() {
+    return this.store.runs().slice(1);
   }
 
   /**

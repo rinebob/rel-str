@@ -42,44 +42,131 @@
   margin-bottom: 24px;
 }
 
-.status-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
+// Single-line status row
+.status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: var(--mat-sys-surface-container);
+  border-radius: 8px;
 }
 
-.status-card {
-  mat-card-content {
-    padding-top: 12px;
-  }
+.status-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--mat-sys-surface);
+  border-radius: 16px;
+  font-size: 13px;
+  white-space: nowrap;
 
-  .status-value {
-    font-size: 20px;
-    font-weight: 500;
-    margin: 0 0 4px 0;
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: var(--mat-sys-primary);
   }
 
   .status-label {
     color: var(--mat-sys-on-surface-variant);
-    margin: 0;
-    font-size: 12px;
   }
 
-  // Compact cards - reduce padding
-  &.compact {
-    mat-card-header {
-      padding: 12px 16px 0;
-    }
-    mat-card-content {
-      padding: 8px 16px 12px;
-    }
+  .status-value {
+    font-weight: 500;
+  }
+
+  .status-badge {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    margin-left: 4px;
+    text-transform: uppercase;
+
+    &.status-success { background: var(--mat-sys-success-container); color: var(--mat-sys-success); }
+    &.status-failed { background: var(--mat-sys-error-container); color: var(--mat-sys-error); }
+    &.status-running { background: var(--mat-sys-primary-container); color: var(--mat-sys-primary); }
+    &.status-pending { background: var(--mat-sys-surface-container-highest); color: var(--mat-sys-on-surface-variant); }
   }
 }
 
-.runs-card,
-.signals-card {
+.runs-card {
   margin-bottom: 16px;
+}
+
+// Current run styling
+.current-run {
+  background: var(--mat-sys-primary-container);
+  
+  mat-expansion-panel-header {
+    background: var(--mat-sys-primary-container);
+  }
+}
+
+// Previous runs section
+.previous-runs-section {
+  mat-expansion-panel-header {
+    background: var(--mat-sys-surface-container);
+  }
+}
+
+.nested-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.previous-run {
+  background: var(--mat-sys-surface);
+}
+
+// Run info row
+.run-info-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 12px;
+  
+  span {
+    font-size: 13px;
+  }
+}
+
+// Signals scroll list
+.signals-scroll-list {
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 8px;
+  
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: var(--mat-sys-surface-container);
+    border-radius: 3px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--mat-sys-outline);
+    border-radius: 3px;
+  }
+}
+
+.no-signals {
+  color: var(--mat-sys-on-surface-variant);
+  font-style: italic;
+  font-size: 13px;
+  padding: 12px;
+  background: var(--mat-sys-surface-container);
+  border-radius: 4px;
+}
+
+.more-signals {
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 12px;
+  text-align: center;
+  margin-top: 8px;
 }
 
 // Symbols expansion panel
@@ -120,6 +207,21 @@
 .show-more-btn {
   width: 100%;
   margin-top: 8px;
+}
+
+// Signal status badge
+.signal-status {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: 8px;
+  text-transform: uppercase;
+  font-weight: 500;
+
+  &.status-success { background: var(--mat-sys-success-container); color: var(--mat-sys-success); }
+  &.status-failed { background: var(--mat-sys-error-container); color: var(--mat-sys-error); }
+  &.status-pending { background: var(--mat-sys-surface-container-highest); color: var(--mat-sys-on-surface-variant); }
+  &.status-executed { background: var(--mat-sys-primary-container); color: var(--mat-sys-primary); }
 }
 
 .run-signals {
@@ -193,29 +295,3 @@ mat-chip-listbox {
   gap: 6px;
 }
 
-// Signals scrollable container
-.signals-scroll-container {
-  max-height: 400px;
-  overflow-y: auto;
-  padding-right: 8px;
-  
-  // Custom scrollbar
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-  &::-webkit-scrollbar-track {
-    background: var(--mat-sys-surface-container);
-    border-radius: 3px;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: var(--mat-sys-outline);
-    border-radius: 3px;
-  }
-  &::-webkit-scrollbar-thumb:hover {
-    background: var(--mat-sys-on-surface-variant);
-  }
-}
-
-.signals-list {
-  padding: 0;
-}
