@@ -82,7 +82,12 @@ export const RhAgentStore = signalStore(
         if (completedCalls >= totalCalls) {
           patchState(state, { isLoading: false });
           console.log('[RH Agent Store] All API calls complete');
-          console.log('[RH Agent Store] Final state - runs:', state.runs().length, 'signals:', state.signals().length);
+          console.log('[RH Agent Store] Final state - runs:', state.runs().length, 'signals:', state.signals().length, 'status:', state.status());
+          // Generate shim signals if no real signals and we have runs + symbols
+          if (state.signals().length === 0 && state.runs().length > 0) {
+            console.log('[RH Agent Store] No signals after all data loaded, generating shims...');
+            this.generateShimSignals();
+          }
         }
       };
 
