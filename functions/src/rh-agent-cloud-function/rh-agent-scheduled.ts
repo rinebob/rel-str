@@ -9,7 +9,7 @@ import { logger } from 'firebase-functions';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
-import { rhAgentSecrets, validateSecrets, getRhAgentSecrets } from './rh-agent-secrets';
+import { rhAgentSecrets, validateSecrets } from './rh-agent-secrets';
 import {
   RhWatchedSymbol,
   RhAgentRunStatus,
@@ -358,21 +358,17 @@ export const rhAgentScheduled = onSchedule(
       throw new Error(`Missing secrets: ${secretsCheck.missing.join(', ')}`);
     }
 
-    const { robinhoodAccessToken } = getRhAgentSecrets();
-
     // Create run record
     const watchlist = DEFAULT_WATCHLIST.filter((w) => w.enabled);
     const runId = await createRun('scheduled-batch', true, watchlist);
 
-    let client: Client | undefined;
-    try {
-      // Connect to MCP
-      client = await createMcpClient(robinhoodAccessToken);
-      await logRunMessage(runId, 'Connected to Robinhood MCP');
+    // MCP connection disabled - dry-run mode only
+    await logRunMessage(runId, 'Scheduled run started - Dry-run mode (no MCP connection)');
 
+    try {
       // Process each enabled symbol
       for (const watched of watchlist) {
-        await executeStrategy(client, runId, watched, true); // Always dry-run in scheduled mode
+        await logRunMessage(runId, `Processing ${watched.symbol} - dry-run mode`);
       }
 
       // Complete successfully
@@ -402,8 +398,6 @@ export const rhAgentScheduled = onSchedule(
       );
 
       throw err;
-    } finally {
-      await client?.close();
     }
   }
 );

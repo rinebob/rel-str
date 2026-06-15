@@ -159,7 +159,6 @@ export const rhAgentManualRun = onCall<ManualRunRequest, Promise<ManualRunRespon
       throw new HttpsError('failed-precondition', `Missing secrets: ${secretsCheck.missing.join(', ')}`);
     }
 
-    const { robinhoodAccessToken } = getRhAgentSecrets();
     const { symbols, strategy, dryRun = true } = request.data;
 
     // Filter watchlist based on request
@@ -174,43 +173,26 @@ export const rhAgentManualRun = onCall<ManualRunRequest, Promise<ManualRunRespon
     // Create run record
     const runId = await createRun(strategy || 'manual-run', dryRun, watchlist);
 
-    let client: Client | undefined;
     try {
-      // Connect to MCP
-      client = await createMcpClient(robinhoodAccessToken);
-      await logRunMessage(runId, 'Manual run started - Connected to Robinhood MCP');
+      // MCP connection disabled - dry-run mode only
+      await logRunMessage(runId, 'Manual run started - Dry-run mode (no MCP connection)');
 
-      // Process each symbol with simple strategy execution
+      // Process each symbol (dry-run only, no actual data fetching)
       for (const watched of watchlist) {
-        await logRunMessage(runId, `Processing ${watched.symbol}`);
+        await logRunMessage(runId, `Processing ${watched.symbol} - dry-run mode`);
 
-        try {
-          // Fetch indicators for the symbol
-          const closes = await fetchCloses(client, watched.symbol, 50);
-          const indicatorContext = buildIndicatorSummary(watched.symbol, closes);
+        // Record signal
+        await createSignal(
+          runId,
+          watched.symbol,
+          watched.strategy,
+          RhTradeAction.HOLD,
+          dryRun ? RhSignalStatus.DRY_RUN : RhSignalStatus.GENERATED,
+          `Manual run: ${watched.strategy}`,
+          dryRun
+        );
 
-          // Build strategy prompt
-          const prompt = buildStrategyPrompt(watched, indicatorContext);
-
-          // Run agent
-          await runAgent({ mcpClient: client, strategy: prompt, dryRun });
-
-          // Record signal
-          await createSignal(
-            runId,
-            watched.symbol,
-            watched.strategy,
-            RhTradeAction.HOLD,
-            dryRun ? RhSignalStatus.DRY_RUN : RhSignalStatus.GENERATED,
-            `Manual run: ${watched.strategy}`,
-            dryRun
-          );
-
-          await incrementSymbolsProcessed(runId);
-        } catch (err) {
-          const errorMsg = err instanceof Error ? err.message : String(err);
-          await recordRunError(runId, `${watched.symbol}: ${errorMsg}`);
-        }
+        await incrementSymbolsProcessed(runId);
       }
 
       // Complete run
@@ -247,8 +229,6 @@ export const rhAgentManualRun = onCall<ManualRunRequest, Promise<ManualRunRespon
       );
 
       throw new HttpsError('internal', `Manual run failed: ${errorMsg}`);
-    } finally {
-      await client?.close();
     }
   }
 );
