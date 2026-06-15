@@ -106,6 +106,9 @@
               <span class="count-label">TOTAL</span>
               <span class="count-value">{{ store.status()?.symbolsMonitored?.length || 0 }}</span>
             </span>
+            @if (uiStore.selectedSymbols().size > 0) {
+              <button mat-button size="small" (click)="$event.stopPropagation(); uiStore.clearSymbolFilters()" class="clear-btn">Clear All</button>
+            }
             <mat-icon class="panel-toggle-icon">{{ uiStore.filterPanelsOpen() ? 'expand_less' : 'expand_more' }}</mat-icon>
           </mat-panel-description>
         </mat-expansion-panel-header>
@@ -160,24 +163,6 @@
     }
   </div>
 
-  <!-- Active Filter Display -->
-  @if (uiStore.selectedSymbols().size > 0 || uiStore.selectedSignalTypes().size > 0) {
-    <div class="active-filters">
-      <span class="filter-label">Active Filters:</span>
-      @for (sym of uiStore.selectedSymbols(); track sym) {
-        <mat-chip-option color="primary" size="small" (click)="uiStore.deselectSymbol(sym)">
-          {{ sym }} <mat-icon>close</mat-icon>
-        </mat-chip-option>
-      }
-      @for (type of uiStore.selectedSignalTypes(); track type) {
-        <mat-chip-option color="accent" size="small" (click)="uiStore.deselectSignalType(type)">
-          {{ type }} <mat-icon>close</mat-icon>
-        </mat-chip-option>
-      }
-      <button mat-button (click)="uiStore.clearFilters()">Clear All</button>
-    </div>
-  }
-
   <!-- Runs Section -->
   <div class="runs-header">
     <mat-icon>history</mat-icon>
@@ -189,21 +174,22 @@
     <mat-accordion>
           <!-- Current Run -->
           @if (uiStore.currentRun(); as run) {
-            <mat-expansion-panel hideToggle [expanded]="uiStore.currentRunOpen()" class="current-run">
-              <mat-expansion-panel-header (click)="uiStore.toggleCurrentRun()">
-                <mat-panel-title>
+            <div class="current-run">
+              <div class="current-run-header" (click)="uiStore.toggleCurrentRun()">
+                <div class="current-run-title">
                   <mat-chip-option color="accent" selected>CURRENT</mat-chip-option>
                   <span class="run-date">{{ run.startedAt | date: 'short' }}</span>
-                </mat-panel-title>
-                <mat-panel-description>
+                </div>
+                <div class="current-run-meta">
                   <span class="run-stats">
-                    {{ run.symbolsProcessed || run.processedCount || 0 }} / {{ run.totalSymbols || 0 }} symbols,
-                    {{ run.signalsGenerated || run.opportunitiesFound || 0 }} signals
+                    {{ uiStore.getRunSignalStats(run.id).symbols }} symbols,
+                    {{ uiStore.getRunSignalStats(run.id).signals }} signals
                   </span>
                   <mat-icon class="panel-toggle-icon">{{ uiStore.currentRunOpen() ? 'expand_less' : 'expand_more' }}</mat-icon>
-                </mat-panel-description>
-              </mat-expansion-panel-header>
+                </div>
+              </div>
 
+              @if (uiStore.currentRunOpen()) {
               <div class="run-details">
                 <div class="run-info-row">
                   <span><strong>Run ID:</strong> {{ run.id }}</span>
@@ -378,7 +364,8 @@
                   </div>
                 </div>
               </div>
-            </mat-expansion-panel>
+              }
+            </div>
           }
 
           <!-- Previous Runs -->

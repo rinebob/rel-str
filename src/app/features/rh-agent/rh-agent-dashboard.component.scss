@@ -143,8 +143,11 @@ mat-accordion {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  border-radius: 4px;
+  background: var(--mat-sys-primary-container);
+  margin-bottom: 4px;
 
-  ::ng-deep .mat-expansion-panel-content {
+  .run-details {
     overflow-y: auto;
   }
 }
@@ -165,6 +168,21 @@ mat-accordion {
       height: 40px !important;
       min-height: 40px !important;
       padding: 0 16px;
+    }
+
+    // Panel description acts as right side — push chevron to far end
+    ::ng-deep .mat-expansion-panel-header-description {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      justify-content: flex-end;
+      flex-grow: 0;
+      margin-left: auto;
+    }
+
+    // Remove checkmark from chips
+    ::ng-deep .mat-mdc-chip .mat-pseudo-checkbox {
+      display: none !important;
     }
   }
 }
@@ -221,12 +239,27 @@ mat-accordion {
   margin-left: 8px;
 }
 
-// Current run styling
-.current-run {
-  background: var(--mat-sys-primary-container);
-  
-  mat-expansion-panel-header {
-    background: var(--mat-sys-primary-container);
+.current-run-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  height: 40px;
+  cursor: pointer;
+  user-select: none;
+
+  .current-run-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .current-run-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--mat-sys-on-surface-variant);
   }
 }
 
@@ -372,6 +405,14 @@ mat-accordion {
   color: var(--mat-sys-on-surface-variant);
   margin-left: 4px;
   flex-shrink: 0;
+}
+
+.clear-btn {
+  font-size: 11px;
+  height: 24px;
+  line-height: 24px;
+  padding: 0 8px;
+  min-width: 0;
 }
 
 .run-status-icon {

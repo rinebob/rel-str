@@ -72,6 +72,14 @@ export const RhAgentDashboardStore = signalStore(
     }),
   })),
 
+  withMethods((state, dataStore = inject(RhAgentStore)) => ({
+    getRunSignalStats(runId: string): { symbols: number; signals: number } {
+      const signals = dataStore.signals().filter(s => s.runId === runId);
+      const uniqueSymbols = new Set(signals.map(s => s.symbol));
+      return { symbols: uniqueSymbols.size, signals: signals.length };
+    },
+  })),
+
   // Methods
   withMethods((state, dataStore = inject(RhAgentStore)) => ({
     /**
@@ -177,6 +185,10 @@ export const RhAgentDashboardStore = signalStore(
         selectedSymbols: new Set<string>(),
         selectedSignalTypes: new Set<string>()
       });
+    },
+
+    clearSymbolFilters(): void {
+      patchState(state, { selectedSymbols: new Set<string>() });
     },
 
     /**
