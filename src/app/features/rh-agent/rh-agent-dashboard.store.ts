@@ -7,7 +7,7 @@
 import { inject, computed } from '@angular/core';
 import { signalStore, withState, withComputed, withMethods, patchState } from '@ngrx/signals';
 import { RhAgentStore } from './rh-agent.store';
-import { RhTradeSignal } from './rh-agent.service';
+import { RhTradeSignal, RH_AGENT_SCHEDULE_CRON } from './rh-agent.service';
 
 type SignalStatus = 'PENDING' | 'ACCEPTED' | 'CONSIDERED' | 'REJECTED';
 
@@ -69,6 +69,16 @@ export const RhAgentDashboardStore = signalStore(
     // Previous runs (all except current)
     previousRuns: computed(() => {
       return dataStore.runs().slice(1);
+    }),
+
+    // Live total runs count from loaded data
+    totalRunsLive: computed(() => dataStore.runs().length),
+
+    // Live signal count for the current (most recent) run
+    currentRunSignalCount: computed(() => {
+      const runs = dataStore.runs();
+      if (runs.length === 0) return 0;
+      return dataStore.signals().filter(s => s.runId === runs[0].id).length;
     }),
   })),
 
@@ -310,7 +320,8 @@ export const RhAgentDashboardStore = signalStore(
      * Translate cron expression (UTC) to Pacific Time human-readable format
      * Schedule is 12:00 PM PT Monday-Friday (0 20 * * 1-5 UTC)
      */
-    getScheduleDescription(cron: string | undefined): string {
+    getScheduleDescription(_cron: string | undefined): string {
+      const cron = RH_AGENT_SCHEDULE_CRON;
       if (!cron) return 'Not scheduled';
       
       // Parse cron: "0 20 * * 1-5" (8 PM UTC = 12 PM PT)

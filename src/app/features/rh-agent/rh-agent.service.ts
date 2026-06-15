@@ -9,6 +9,13 @@ import { Functions, httpsCallable } from '@angular/fire/functions';
 import { Firestore, collection, collectionData, query, orderBy, limit } from '@angular/fire/firestore';
 import { Observable, from, map } from 'rxjs';
 
+/**
+ * Cron expression for the RH Agent daily scheduler (UTC).
+ * ⚠️ Must stay in sync with the `schedule` field in:
+ *    functions/src/rh-agent-cloud-function/rh-agent-scheduler.ts → rhAgentDailyScheduler
+ */
+export const RH_AGENT_SCHEDULE_CRON = '0 20 * * 1-5'; // 8 PM UTC = 12 PM PT, Mon-Fri
+
 export interface RhAgentStatus {
   isEnabled: boolean;
   lastRunAt?: string;
@@ -32,6 +39,7 @@ export interface RhAgentRun {
   signalsGenerated?: number;
   opportunitiesFound?: number;
   summary?: string;
+  triggeredBy?: 'manual' | 'schedule';
 }
 
 export interface RhTradeSignal {

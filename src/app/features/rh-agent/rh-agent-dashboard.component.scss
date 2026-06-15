@@ -137,10 +137,9 @@ mat-accordion {
   }
 }
 
-// Current run panel takes available space
+// Current run panel
 .current-run {
-  flex: 1 1 auto;
-  overflow: hidden;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   border-radius: 4px;
@@ -149,6 +148,7 @@ mat-accordion {
 
   .run-details {
     overflow-y: auto;
+    max-height: 60vh;
   }
 }
 
@@ -170,21 +170,52 @@ mat-accordion {
       padding: 0 16px;
     }
 
-    // Panel description acts as right side — push chevron to far end
-    ::ng-deep .mat-expansion-panel-header-description {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      justify-content: flex-end;
-      flex-grow: 0;
-      margin-left: auto;
+    // Panel title takes all space, items laid out inline
+    ::ng-deep .mat-expansion-panel-header-title {
+      flex-grow: 1;
+      overflow: visible;
     }
 
-    // Remove checkmark from chips
-    ::ng-deep .mat-mdc-chip .mat-pseudo-checkbox {
-      display: none !important;
+    // Chevron-only description: fixed width, no grow
+    ::ng-deep .mat-expansion-panel-header-description {
+      flex-grow: 0;
+      flex-shrink: 0;
+      margin-left: 0;
+      width: auto;
     }
+
   }
+}
+
+.symbols-header-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  overflow: visible;
+
+  .panel-label {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .symbol-search-header {
+    flex-shrink: 1;
+  }
+
+  .count-item {
+    flex-shrink: 0;
+  }
+
+  .clear-btn {
+    flex-shrink: 0;
+  }
+}
+
+// Remove checkmark from ALL chips globally
+::ng-deep .mat-mdc-chip .mat-pseudo-checkbox,
+::ng-deep .mat-mdc-chip-option .mat-pseudo-checkbox {
+  display: none !important;
 }
 
 .filter-hint {

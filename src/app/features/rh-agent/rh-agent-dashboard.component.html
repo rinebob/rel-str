@@ -55,21 +55,21 @@
       </div>
 
       <div class="status-chip">
-        <mat-icon>analytics</mat-icon>
-        <span class="status-label">Total Runs:</span>
-        <span class="status-value">{{ store.status()?.totalRuns }}</span>
+        <mat-icon>{{ uiStore.currentRun()?.triggeredBy === 'manual' ? 'touch_app' : 'schedule' }}</mat-icon>
+        <span class="status-label">Triggered By:</span>
+        <span class="status-value">{{ uiStore.currentRun()?.triggeredBy ?? '—' }}</span>
       </div>
 
       <div class="status-chip">
         <mat-icon>notifications</mat-icon>
-        <span class="status-label">Signals:</span>
-        <span class="status-value">{{ store.status()?.totalSignalsGenerated }}</span>
+        <span class="status-label">Current Signals:</span>
+        <span class="status-value">{{ uiStore.currentRunSignalCount() }}</span>
       </div>
 
-      <div class="status-chip" matTooltip="Cron: {{ store.status()?.schedule }}">
+      <div class="status-chip">
         <mat-icon>repeat</mat-icon>
         <span class="status-label">Schedule:</span>
-        <span class="status-value">{{ uiStore.getScheduleDescription(store.status()?.schedule) }}</span>
+        <span class="status-value">{{ uiStore.getScheduleDescription(undefined) }}</span>
       </div>
     </div>
   }
@@ -80,9 +80,9 @@
     @if (store.status()?.symbolsMonitored?.length) {
       <mat-expansion-panel class="filter-panel symbols-panel" hideToggle [expanded]="uiStore.filterPanelsOpen()">
         <mat-expansion-panel-header (click)="uiStore.toggleFilterPanels()">
-          <mat-panel-title>
+          <mat-panel-title class="symbols-header-title">
             <mat-icon class="panel-icon">visibility</mat-icon>
-            <span>Symbols</span>
+            <span class="panel-label">Symbols</span>
             <mat-form-field appearance="outline" class="symbol-search-header">
               <input matInput 
                      type="text" 
@@ -96,8 +96,6 @@
                 </button>
               }
             </mat-form-field>
-          </mat-panel-title>
-          <mat-panel-description class="symbol-counts">
             <span class="count-item">
               <span class="count-label">SELECTED</span>
               <span class="count-value">{{ uiStore.selectedSymbols().size > 0 ? uiStore.selectedSymbols().size : (store.status()?.symbolsMonitored?.length || 0) }}</span>
@@ -107,8 +105,10 @@
               <span class="count-value">{{ store.status()?.symbolsMonitored?.length || 0 }}</span>
             </span>
             @if (uiStore.selectedSymbols().size > 0) {
-              <button mat-button size="small" (click)="$event.stopPropagation(); uiStore.clearSymbolFilters()" class="clear-btn">Clear All</button>
+              <button mat-button (click)="$event.stopPropagation(); uiStore.clearSymbolFilters()" class="clear-btn">Clear All</button>
             }
+          </mat-panel-title>
+          <mat-panel-description class="chevron-only">
             <mat-icon class="panel-toggle-icon">{{ uiStore.filterPanelsOpen() ? 'expand_less' : 'expand_more' }}</mat-icon>
           </mat-panel-description>
         </mat-expansion-panel-header>
