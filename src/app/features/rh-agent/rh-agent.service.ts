@@ -62,16 +62,16 @@ export interface RhTradeSignal {
 }
 
 export interface ManualRunRequest {
-  symbols?: string[];
-  strategy?: string;
-  dryRun?: boolean;
+  symbols?: string[]; // Optional: specific symbols to run, or all enabled
+  strategy?: string; // Optional: specific strategy to run
 }
 
 export interface ManualRunResponse {
   runId: string;
   status: string;
-  symbolsProcessed: number;
-  signalsGenerated: number;
+  totalSymbols: number;
+  enqueued: number;
+  failed: number;
   message: string;
 }
 

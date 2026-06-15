@@ -211,20 +211,28 @@ export const RhAgentStore = signalStore(
 
     /**
      * Trigger a manual agent run
+     * Now enqueues Cloud Tasks like the scheduler - async processing
      */
     triggerManualRun(): void {
       console.log('[RH Agent Store] triggerManualRun called');
       patchState(state, { isLoading: true });
 
       service
-        .triggerManualRun({ dryRun: true })
+        .triggerManualRun({})
         .pipe(takeUntilDestroyed(destroyRef))
         .subscribe({
           next: (result) => {
-            console.log('[RH Agent Store] Manual run triggered:', result);
-            snackBar.open(`Run completed: ${result.message}`, 'Dismiss', { duration: 5000 });
-            // Reload data after run
-            this.loadData();
+            console.log('[RH Agent Store] Manual run enqueued:', result);
+            snackBar.open(
+              `Run ${result.runId} started: ${result.enqueued} symbols enqueued`,
+              'Dismiss',
+              { duration: 5000 }
+            );
+            // Keep loading state active - workers are processing asynchronously
+            // Reload data after a short delay to show initial progress
+            setTimeout(() => {
+              this.loadData();
+            }, 2000);
           },
           error: (err) => {
             console.error('[RH Agent Store] Manual run failed:', err);
