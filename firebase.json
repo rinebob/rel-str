@@ -35,11 +35,11 @@
     },
     "headers": [
       {
-        "source": "/index.html",
+        "source": "/**",
         "headers": [
           {
             "key": "Cache-Control",
-            "value": "no-cache, no-store, must-revalidate, proxy-revalidate"
+            "value": "no-cache, no-store, must-revalidate, proxy-revalidate, s-maxage=0"
           },
           {
             "key": "Pragma",
