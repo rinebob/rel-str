@@ -78,8 +78,8 @@
   <div class="filter-panels-row">
     <!-- Monitored Symbols Filter -->
     @if (store.status()?.symbolsMonitored?.length) {
-      <mat-expansion-panel class="filter-panel symbols-panel" [expanded]="uiStore.filterPanelsOpen()">
-        <mat-expansion-panel-header>
+      <mat-expansion-panel class="filter-panel symbols-panel" hideToggle [expanded]="uiStore.filterPanelsOpen()">
+        <mat-expansion-panel-header (click)="uiStore.toggleFilterPanels()">
           <mat-panel-title>
             <mat-icon class="panel-icon">visibility</mat-icon>
             <span>Symbols</span>
@@ -99,32 +99,28 @@
           </mat-panel-title>
           <mat-panel-description class="symbol-counts">
             <span class="count-item">
-              <span class="count-label">selected</span>
-              <span class="count-value">{{ uiStore.selectedSymbol() ? 1 : 0 }}</span>
+              <span class="count-label">SELECTED</span>
+              <span class="count-value">{{ uiStore.selectedSymbols().size > 0 ? uiStore.selectedSymbols().size : (store.status()?.symbolsMonitored?.length || 0) }}</span>
             </span>
             <span class="count-item">
-              <span class="count-label">total</span>
+              <span class="count-label">TOTAL</span>
               <span class="count-value">{{ store.status()?.symbolsMonitored?.length || 0 }}</span>
             </span>
-            @if (uiStore.selectedSymbol()) {
-              <button mat-icon-button size="small" (click)="$event.stopPropagation(); uiStore.clearFilters()" matTooltip="Clear filter">
-                <mat-icon>clear</mat-icon>
-              </button>
-            }
-            <button mat-icon-button size="small" (click)="$event.stopPropagation(); uiStore.toggleFilterPanels()" matTooltip="Toggle panels">
-              <mat-icon>{{ uiStore.filterPanelsOpen() ? 'expand_less' : 'expand_more' }}</mat-icon>
-            </button>
+            <mat-icon class="panel-toggle-icon">{{ uiStore.filterPanelsOpen() ? 'expand_less' : 'expand_more' }}</mat-icon>
           </mat-panel-description>
         </mat-expansion-panel-header>
         <div class="symbols-scroll-container">
-          <mat-chip-listbox class="compact-chips">
+          <mat-chip-listbox class="compact-chips" multiple>
           @for (symbol of uiStore.getFilteredSymbols(); track symbol) {
             <mat-chip-option 
               color="primary"
               class="compact-chip"
-              [selected]="uiStore.selectedSymbol() === symbol"
+              [selected]="uiStore.selectedSymbols().has(symbol)"
               (click)="uiStore.toggleSymbolFilter(symbol)">
               {{ symbol }}
+              @if (uiStore.selectedSymbols().has(symbol)) {
+                <mat-icon matChipRemove (click)="$event.stopPropagation(); uiStore.deselectSymbol(symbol)">close</mat-icon>
+              }
             </mat-chip-option>
           }
         </mat-chip-listbox>
@@ -134,35 +130,28 @@
 
     <!-- Signal Types Filter -->
     @if (uiStore.signalTypes().length > 0) {
-      <mat-expansion-panel class="filter-panel signal-types-panel" [expanded]="uiStore.filterPanelsOpen()">
-        <mat-expansion-panel-header>
+      <mat-expansion-panel class="filter-panel signal-types-panel" hideToggle [expanded]="uiStore.filterPanelsOpen()">
+        <mat-expansion-panel-header (click)="uiStore.toggleFilterPanels()">
           <mat-panel-title>
             <mat-icon class="panel-icon">category</mat-icon>
             <span class="panel-title-text">Signal Types</span>
           </mat-panel-title>
           <mat-panel-description>
             {{ uiStore.signalTypes().length }} types
-            @if (uiStore.selectedSignalType()) {
-              <button mat-icon-button size="small" (click)="$event.stopPropagation(); uiStore.clearFilters()" matTooltip="Clear filter">
-                <mat-icon>clear</mat-icon>
-              </button>
-            }
-            <button mat-icon-button size="small" (click)="$event.stopPropagation(); uiStore.toggleFilterPanels()" matTooltip="Toggle panels">
-              <mat-icon>{{ uiStore.filterPanelsOpen() ? 'expand_less' : 'expand_more' }}</mat-icon>
-            </button>
+            <mat-icon class="panel-toggle-icon">{{ uiStore.filterPanelsOpen() ? 'expand_less' : 'expand_more' }}</mat-icon>
           </mat-panel-description>
         </mat-expansion-panel-header>
         <div class="filter-hint">Click a type to filter signals</div>
-        <mat-chip-listbox class="compact-chips">
+        <mat-chip-listbox class="compact-chips" multiple>
           @for (type of uiStore.signalTypes(); track type) {
             <mat-chip-option 
               color="accent"
               class="compact-chip"
-              [selected]="uiStore.selectedSignalType() === type"
+              [selected]="uiStore.selectedSignalTypes().has(type)"
               (click)="uiStore.toggleSignalTypeFilter(type)">
               {{ type }}
-              @if (uiStore.selectedSignalType() === type) {
-                <mat-icon matChipRemove>close</mat-icon>
+              @if (uiStore.selectedSignalTypes().has(type)) {
+                <mat-icon matChipRemove (click)="$event.stopPropagation(); uiStore.deselectSignalType(type)">close</mat-icon>
               }
             </mat-chip-option>
           }
@@ -172,17 +161,17 @@
   </div>
 
   <!-- Active Filter Display -->
-  @if (uiStore.selectedSymbol() || uiStore.selectedSignalType()) {
+  @if (uiStore.selectedSymbols().size > 0 || uiStore.selectedSignalTypes().size > 0) {
     <div class="active-filters">
       <span class="filter-label">Active Filters:</span>
-      @if (uiStore.selectedSymbol()) {
-        <mat-chip-option color="primary" size="small" (click)="uiStore.toggleSymbolFilter(uiStore.selectedSymbol()!)">
-          Symbol: {{ uiStore.selectedSymbol() }} <mat-icon>close</mat-icon>
+      @for (sym of uiStore.selectedSymbols(); track sym) {
+        <mat-chip-option color="primary" size="small" (click)="uiStore.deselectSymbol(sym)">
+          {{ sym }} <mat-icon>close</mat-icon>
         </mat-chip-option>
       }
-      @if (uiStore.selectedSignalType()) {
-        <mat-chip-option color="accent" size="small" (click)="uiStore.toggleSignalTypeFilter(uiStore.selectedSignalType()!)">
-          Type: {{ uiStore.selectedSignalType() }} <mat-icon>close</mat-icon>
+      @for (type of uiStore.selectedSignalTypes(); track type) {
+        <mat-chip-option color="accent" size="small" (click)="uiStore.deselectSignalType(type)">
+          {{ type }} <mat-icon>close</mat-icon>
         </mat-chip-option>
       }
       <button mat-button (click)="uiStore.clearFilters()">Clear All</button>
@@ -200,8 +189,8 @@
     <mat-accordion>
           <!-- Current Run -->
           @if (uiStore.currentRun(); as run) {
-            <mat-expansion-panel hideToggle [expanded]="true" class="current-run">
-              <mat-expansion-panel-header>
+            <mat-expansion-panel hideToggle [expanded]="uiStore.currentRunOpen()" class="current-run">
+              <mat-expansion-panel-header (click)="uiStore.toggleCurrentRun()">
                 <mat-panel-title>
                   <mat-chip-option color="accent" selected>CURRENT</mat-chip-option>
                   <span class="run-date">{{ run.startedAt | date: 'short' }}</span>
@@ -211,6 +200,7 @@
                     {{ run.symbolsProcessed || run.processedCount || 0 }} / {{ run.totalSymbols || 0 }} symbols,
                     {{ run.signalsGenerated || run.opportunitiesFound || 0 }} signals
                   </span>
+                  <mat-icon class="panel-toggle-icon">{{ uiStore.currentRunOpen() ? 'expand_less' : 'expand_more' }}</mat-icon>
                 </mat-panel-description>
               </mat-expansion-panel-header>
 
@@ -233,7 +223,7 @@
                   <div class="signals-column pending-signals">
                     <h4>
                       Pending Signals ({{ uiStore.getFilteredSignals(run.id).length }})
-                      @if (uiStore.selectedSymbol() || uiStore.selectedSignalType()) {
+                      @if (uiStore.selectedSymbols().size > 0 || uiStore.selectedSignalTypes().size > 0) {
                         <span class="filter-applied">- filtered</span>
                       }
                     </h4>
@@ -264,7 +254,7 @@
                       </mat-list>
                     } @else {
                       <p class="no-signals">
-                        @if (uiStore.selectedSymbol() || uiStore.selectedSignalType()) {
+                        @if (uiStore.selectedSymbols().size > 0 || uiStore.selectedSignalTypes().size > 0) {
                           No pending signals match the selected filters
                         } @else {
                           No pending signals
@@ -433,7 +423,7 @@
                         <div class="run-signals">
                           <h4>
                             Signals ({{ uiStore.getFilteredSignals(run.id).length }})
-                            @if (uiStore.selectedSymbol() || uiStore.selectedSignalType()) {
+                            @if (uiStore.selectedSymbols().size > 0 || uiStore.selectedSignalTypes().size > 0) {
                               <span class="filter-applied">- filtered</span>
                             }
                           </h4>

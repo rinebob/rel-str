@@ -13,8 +13,8 @@ type SignalStatus = 'PENDING' | 'ACCEPTED' | 'CONSIDERED' | 'REJECTED';
 
 // State interface
 export interface DashboardUiState {
-  selectedSymbol: string | null;
-  selectedSignalType: string | null;
+  selectedSymbols: Set<string>;
+  selectedSignalTypes: Set<string>;
   filterPanelsOpen: boolean; // Single toggle for both symbols and signal types
   showAllRuns: boolean;
   symbolSearch: string;
@@ -22,12 +22,13 @@ export interface DashboardUiState {
   acceptedPanelOpen: boolean;
   consideredPanelOpen: boolean;
   rejectedPanelOpen: boolean;
+  currentRunOpen: boolean;
 }
 
 // Initial state - panels open by default
 const initialState: DashboardUiState = {
-  selectedSymbol: null,
-  selectedSignalType: null,
+  selectedSymbols: new Set<string>(),
+  selectedSignalTypes: new Set<string>(),
   filterPanelsOpen: true,
   showAllRuns: false,
   symbolSearch: '',
@@ -35,6 +36,7 @@ const initialState: DashboardUiState = {
   acceptedPanelOpen: true,
   consideredPanelOpen: true,
   rejectedPanelOpen: true,
+  currentRunOpen: true,
 };
 
 export const RhAgentDashboardStore = signalStore(
@@ -55,7 +57,7 @@ export const RhAgentDashboardStore = signalStore(
 
     // Check if any filter is active
     hasActiveFilters: computed(() => 
-      state.selectedSymbol() !== null || state.selectedSignalType() !== null
+      state.selectedSymbols().size > 0 || state.selectedSignalTypes().size > 0
     ),
 
     // Current run (most recent)
@@ -76,8 +78,15 @@ export const RhAgentDashboardStore = signalStore(
      * Toggle symbol filter selection
      */
     toggleSymbolFilter(symbol: string): void {
-      const current = state.selectedSymbol();
-      patchState(state, { selectedSymbol: current === symbol ? null : symbol });
+      const current = new Set(state.selectedSymbols());
+      if (current.has(symbol)) current.delete(symbol); else current.add(symbol);
+      patchState(state, { selectedSymbols: current });
+    },
+
+    deselectSymbol(symbol: string): void {
+      const current = new Set(state.selectedSymbols());
+      current.delete(symbol);
+      patchState(state, { selectedSymbols: current });
     },
 
     /**
@@ -149,8 +158,15 @@ export const RhAgentDashboardStore = signalStore(
      * Toggle signal type filter selection
      */
     toggleSignalTypeFilter(type: string): void {
-      const current = state.selectedSignalType();
-      patchState(state, { selectedSignalType: current === type ? null : type });
+      const current = new Set(state.selectedSignalTypes());
+      if (current.has(type)) current.delete(type); else current.add(type);
+      patchState(state, { selectedSignalTypes: current });
+    },
+
+    deselectSignalType(type: string): void {
+      const current = new Set(state.selectedSignalTypes());
+      current.delete(type);
+      patchState(state, { selectedSignalTypes: current });
     },
 
     /**
@@ -158,8 +174,8 @@ export const RhAgentDashboardStore = signalStore(
      */
     clearFilters(): void {
       patchState(state, { 
-        selectedSymbol: null, 
-        selectedSignalType: null 
+        selectedSymbols: new Set<string>(),
+        selectedSignalTypes: new Set<string>()
       });
     },
 
@@ -168,17 +184,17 @@ export const RhAgentDashboardStore = signalStore(
      */
     getFilteredSignals(runId: string): RhTradeSignal[] {
       let signals = dataStore.getSignalsForRun(runId);
-      const symbolFilter = state.selectedSymbol();
-      const typeFilter = state.selectedSignalType();
+      const symbolFilters = state.selectedSymbols();
+      const typeFilters = state.selectedSignalTypes();
 
       // Filter to only PENDING signals
       signals = signals.filter(s => this.getSignalStatus(s.id) === 'PENDING');
 
-      if (symbolFilter) {
-        signals = signals.filter(s => s.symbol === symbolFilter);
+      if (symbolFilters.size > 0) {
+        signals = signals.filter(s => symbolFilters.has(s.symbol));
       }
-      if (typeFilter) {
-        signals = signals.filter(s => s.signalType === typeFilter);
+      if (typeFilters.size > 0) {
+        signals = signals.filter(s => !!s.signalType && typeFilters.has(s.signalType));
       }
       return this.sortSignals(signals);
     },
@@ -272,6 +288,10 @@ export const RhAgentDashboardStore = signalStore(
      */
     toggleRejectedPanel(): void {
       patchState(state, { rejectedPanelOpen: !state.rejectedPanelOpen() });
+    },
+
+    toggleCurrentRun(): void {
+      patchState(state, { currentRunOpen: !state.currentRunOpen() });
     },
 
     /**

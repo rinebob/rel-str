@@ -367,6 +367,13 @@ mat-accordion {
   }
 }
 
+.panel-toggle-icon {
+  font-size: 20px;
+  color: var(--mat-sys-on-surface-variant);
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
 .run-status-icon {
   margin-right: 8px;
 }
