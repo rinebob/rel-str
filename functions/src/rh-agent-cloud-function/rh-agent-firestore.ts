@@ -25,7 +25,8 @@ import {
 export async function createRun(
   strategy: string,
   dryRun: boolean,
-  symbols: RhWatchedSymbol[]
+  symbols: RhWatchedSymbol[],
+  triggeredBy: 'manual' | 'schedule' = 'manual'
 ): Promise<string> {
   const runId = db.collection(RH_AGENT_RUNS_COLLECTION).doc().id;
   const now = FieldValue.serverTimestamp();
@@ -40,6 +41,7 @@ export async function createRun(
     startedAt: now,
     strategy,
     dryRun,
+    triggeredBy,
     symbolsProcessed: 0,
     signalsGenerated: 0,
     errors: [],

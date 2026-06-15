@@ -28,6 +28,8 @@ import {
  */
 export const rhAgentDailyScheduler = onSchedule(
   {
+    // ⚠️ If you change this cron, also update RH_AGENT_SCHEDULE_CRON in:
+    //    src/app/features/rh-agent/rh-agent.service.ts
     schedule: '0 20 * * 1-5', // 8:00 PM UTC = 12:00 PM PT (no DST issues), Mon-Fri
     timeZone: 'Etc/UTC',
     // secrets: [ANTHROPIC_API_KEY], // Temporarily disabled for testing
@@ -175,6 +177,7 @@ async function createDailyRun(
     type: 'daily-scan',
     marketDate,
     status: RhAgentRunStatus.RUNNING,
+    triggeredBy: 'schedule',
     totalSymbols,
     processedCount: 0,
     successCount: 0,
