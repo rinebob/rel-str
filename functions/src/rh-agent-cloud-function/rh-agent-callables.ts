@@ -5,32 +5,19 @@
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-
-import { rhAgentSecrets, validateSecrets, getRhAgentSecrets } from './rh-agent-secrets';
 import {
-  RhWatchedSymbol,
-  RhAgentRunStatus,
-  RhSignalStatus,
-  RhTradeAction,
-} from './rh-agent-config';
-import {
-  createRun,
-  logRunMessage,
-  recordRunError,
-  incrementSymbolsProcessed,
-  completeRun,
-  createSignal,
   getStatus,
   getRecentRuns,
   getRecentSignals,
   getSignalsForRun,
 } from './rh-agent-firestore';
-import { runAgent } from '../rh-agent/agent.js';
-import { buildIndicatorSummary } from '../rh-agent/indicators.js';
-
-const MCP_SERVER_URL = 'https://agent.robinhood.com/mcp/trading';
+import {
+  getMarketDate,
+  getDeadlineISO,
+  loadEnabledSymbols,
+  createDailyRun,
+  createJobAndEnqueue,
+} from './rh-agent-shared';
 
 /**
  * Request/response types for callables.
@@ -38,14 +25,14 @@ const MCP_SERVER_URL = 'https://agent.robinhood.com/mcp/trading';
 interface ManualRunRequest {
   symbols?: string[]; // Optional: specific symbols to run, or all enabled
   strategy?: string; // Optional: specific strategy to run
-  dryRun?: boolean; // Default: true
 }
 
 interface ManualRunResponse {
   runId: string;
   status: string;
-  symbolsProcessed: number;
-  signalsGenerated: number;
+  totalSymbols: number;
+  enqueued: number;
+  failed: number;
   message: string;
 }
 
@@ -84,53 +71,6 @@ interface SignalHistoryResponse {
   }>;
 }
 
-// Default watchlist (same as scheduled function)
-const DEFAULT_WATCHLIST: RhWatchedSymbol[] = [
-  {
-    symbol: 'AAPL',
-    strategy: 'rsi-oversold',
-    amount: 100,
-    enabled: true,
-    intervalMinutes: 15,
-  },
-  {
-    symbol: 'NVDA',
-    strategy: 'macd-crossover',
-    amount: 200,
-    enabled: true,
-    intervalMinutes: 15,
-  },
-  {
-    symbol: 'TSLA',
-    strategy: 'dip-buy',
-    amount: 150,
-    enabled: false,
-    intervalMinutes: 15,
-  },
-];
-
-/**
- * Create MCP client using Firebase Secrets for OAuth.
- */
-async function createMcpClient(accessToken: string): Promise<Client> {
-  const transport = new StreamableHTTPClientTransport(
-    new URL(MCP_SERVER_URL),
-    {
-      requestInit: {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      },
-    }
-  );
-
-  const client = new Client(
-    { name: 'rh-agent-callable', version: '1.0.0' },
-    { capabilities: {} }
-  );
-
-  await client.connect(transport);
-  return client;
-}
-
 const ALLOWED_ORIGINS = [
   'https://rel-str--rel-str.web.app',
   'https://rel-str--rel-str.us-central1.hosted.app',
@@ -142,93 +82,91 @@ const ALLOWED_ORIGINS = [
 ];
 
 /**
- * Manual trigger callable - run the agent on demand.
+ * Manual trigger callable - enqueues Cloud Tasks for symbol analysis.
+ * Identical processing to scheduled run, just triggered manually.
  */
 export const rhAgentManualRun = onCall<ManualRunRequest, Promise<ManualRunResponse>>(
   {
-    secrets: rhAgentSecrets,
     cors: ALLOWED_ORIGINS,
   },
   async (request) => {
+    const startTime = Date.now();
     logger.info('rh_agent_manual_run_called', { auth: request.auth?.uid });
 
-    // Validate secrets
-    const secretsCheck = validateSecrets();
-    if (!secretsCheck.valid) {
-      logger.error('rh_agent_missing_secrets', { missing: secretsCheck.missing });
-      throw new HttpsError('failed-precondition', `Missing secrets: ${secretsCheck.missing.join(', ')}`);
-    }
-
-    const { symbols, strategy, dryRun = true } = request.data;
-
-    // Filter watchlist based on request
-    let watchlist = DEFAULT_WATCHLIST.filter((w) => w.enabled);
-    if (symbols && symbols.length > 0) {
-      watchlist = watchlist.filter((w) => symbols.includes(w.symbol));
-    }
-    if (watchlist.length === 0) {
-      throw new HttpsError('invalid-argument', 'No symbols to process');
-    }
-
-    // Create run record
-    const runId = await createRun(strategy || 'manual-run', dryRun, watchlist);
-
     try {
-      // MCP connection disabled - dry-run mode only
-      await logRunMessage(runId, 'Manual run started - Dry-run mode (no MCP connection)');
+      // 1. Get today's market date
+      const marketDate = getMarketDate();
 
-      // Process each symbol (dry-run only, no actual data fetching)
-      for (const watched of watchlist) {
-        await logRunMessage(runId, `Processing ${watched.symbol} - dry-run mode`);
+      // 2. Load enabled symbols (filter if specific symbols requested)
+      const symbols = await loadEnabledSymbols(request.data.symbols);
+      logger.info('rh_agent_manual_symbols_loaded', {
+        count: symbols.length,
+        firstFew: symbols.slice(0, 5),
+        requested: request.data.symbols,
+      });
 
-        // Record signal
-        await createSignal(
-          runId,
-          watched.symbol,
-          watched.strategy,
-          RhTradeAction.HOLD,
-          dryRun ? RhSignalStatus.DRY_RUN : RhSignalStatus.GENERATED,
-          `Manual run: ${watched.strategy}`,
-          dryRun
-        );
-
-        await incrementSymbolsProcessed(runId);
+      if (symbols.length === 0) {
+        throw new HttpsError('invalid-argument', 'No symbols to process');
       }
 
-      // Complete run
-      await completeRun(
+      // 3. Create run document with 30-minute deadline
+      const deadlineAt = getDeadlineISO(30);
+      const runId = await createDailyRun(marketDate, symbols.length, deadlineAt, 'manual');
+      logger.info('rh_agent_manual_run_created', {
         runId,
-        RhAgentRunStatus.SUCCESS,
-        `Manual run completed: ${watchlist.length} symbols`,
-        [`[${new Date().toISOString()}] Manual run completed`]
-      );
+        marketDate,
+        symbolCount: symbols.length,
+      });
+
+      // 4. Create job documents and enqueue Cloud Tasks
+      let enqueuedCount = 0;
+      let failedCount = 0;
+
+      for (const symbol of symbols) {
+        try {
+          await createJobAndEnqueue(runId, symbol, marketDate, 'manual');
+          enqueuedCount++;
+          if (enqueuedCount % 10 === 0) {
+            logger.info('rh_agent_manual_enqueue_progress', {
+              runId,
+              enqueued: enqueuedCount,
+              total: symbols.length,
+            });
+          }
+        } catch (error: any) {
+          failedCount++;
+          logger.error('rh_agent_manual_enqueue_failed', {
+            symbol,
+            runId,
+            error: error?.message,
+          });
+        }
+      }
+
+      const duration = Date.now() - startTime;
+      logger.info('rh_agent_manual_run_enqueued', {
+        runId,
+        marketDate,
+        symbolsLoaded: symbols.length,
+        enqueued: enqueuedCount,
+        failed: failedCount,
+        durationMs: duration,
+      });
 
       return {
         runId,
-        status: 'SUCCESS',
-        symbolsProcessed: watchlist.length,
-        signalsGenerated: watchlist.length,
-        message: `Successfully processed ${watchlist.length} symbols`,
+        status: 'RUNNING',
+        totalSymbols: symbols.length,
+        enqueued: enqueuedCount,
+        failed: failedCount,
+        message: `Manual run started: ${enqueuedCount} symbols enqueued for analysis`,
       };
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      const errorStack = err instanceof Error ? err.stack : undefined;
-      logger.error('rh_agent_manual_run_error', { 
-        error: errorMsg, 
-        stack: errorStack,
-        runId,
-        watchlistCount: watchlist.length 
+    } catch (error: any) {
+      logger.error('rh_agent_manual_run_fatal_error', {
+        error: error?.message,
+        stack: error?.stack,
       });
-
-      await recordRunError(runId, `Fatal error: ${errorMsg}`);
-      await completeRun(
-        runId,
-        RhAgentRunStatus.FAILED,
-        `Failed: ${errorMsg}`,
-        [`[${new Date().toISOString()}] Run failed: ${errorMsg}`]
-      );
-
-      throw new HttpsError('internal', `Manual run failed: ${errorMsg}`);
+      throw new HttpsError('internal', `Manual run failed: ${error?.message}`);
     }
   }
 );
@@ -340,71 +278,3 @@ export const rhAgentGetSignalHistory = onCall<{ limit?: number; runId?: string }
     };
   }
 );
-
-/**
- * Helper: Fetch historical closes from Robinhood MCP.
- */
-async function fetchCloses(
-  mcpClient: Client,
-  symbol: string,
-  days = 50
-): Promise<number[]> {
-  const result = await mcpClient.callTool({
-    name: 'get_price_history',
-    arguments: { symbol, interval: 'day', span: `${days}d` },
-  });
-  const content = result.content as Array<{ type: string; text?: string }>;
-  const raw = JSON.parse(content.map((c) => c.text ?? '').join(''));
-  const historicals: Array<{ close_price: string }> =
-    raw.historicals ?? raw.results ?? raw;
-  return historicals.map((h) => parseFloat(h.close_price));
-}
-
-/**
- * Helper: Build strategy prompt from watched symbol config.
- */
-function buildStrategyPrompt(watched: RhWatchedSymbol, indicatorContext: string): string {
-  const { symbol, strategy, amount } = watched;
-
-  switch (strategy) {
-    case 'rsi-oversold':
-      return `
-Based on the indicators below:
-${indicatorContext}
-
-- If RSI(14) is below 30 (oversold), place a market buy order for $${amount} of ${symbol}.
-- If RSI(14) is between 30 and 40, place a limit order 1% below current price for $${amount} of ${symbol}.
-- If RSI(14) is above 40, do not place any order. Explain why.
-Always check current quote before placing any order.
-      `.trim();
-
-    case 'macd-crossover':
-      return `
-Based on the indicators below:
-${indicatorContext}
-
-- If the MACD histogram is positive (bullish crossover), buy $${amount} of ${symbol} at market.
-- If the MACD histogram is negative (bearish crossover), check if I hold ${symbol}. If I do, sell $${amount} worth at market.
-- If the signal is ambiguous (histogram near zero, abs value < 0.01), do nothing and explain.
-Always confirm current price before acting.
-      `.trim();
-
-    case 'dip-buy':
-      return `Check if ${symbol} has dropped 2% or more today. If it has, buy $${amount} worth at market price. Report the current price, the daily change percentage, and what action you took.`;
-
-    case 'portfolio-summary':
-      return 'Check my portfolio: get my account balances, current positions, and buying power. Summarize what I hold and the current value.';
-
-    case 'rebalance':
-      return 'Look at my current portfolio. Suggest (but do not execute) trades to rebalance to a 60/40 split between my two largest positions.';
-
-    case 'watchlist-check':
-      return 'Get my watchlist and fetch the current quote for each ticker. Show me which ones are up and which are down today.';
-
-    case 'earnings-play':
-      return 'Look at my current positions and check if any have earnings announcements in the next 7 days. Report which ones and their current P&L.';
-
-    default:
-      return `Execute strategy for ${symbol} with amount $${amount}: ${strategy}`;
-  }
-}

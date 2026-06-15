@@ -8,19 +8,13 @@
  */
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions/v2';
-import { getFunctions } from 'firebase-admin/functions';
-import { db, FieldValue } from '../firebase-admin-init';
 
 import {
-  RH_AGENT_RUNS_COLLECTION,
-  RH_AGENT_JOBS_SUBCOLLECTION,
-  RH_AGENT_SYMBOLS_COLLECTION,
-  RhAgentRunStatus,
-  RhAgentJobStatus,
-  RhAgentDailyRun,
-  RhAgentJob,
-  SymbolJobPayload,
-} from './rh-agent-config';
+  getMarketDate,
+  loadEnabledSymbols,
+  createDailyRun,
+  createJobAndEnqueue,
+} from './rh-agent-shared';
 
 /**
  * Daily scheduler - runs at 12:00 PM PT (8:00 PM UTC)
@@ -118,20 +112,9 @@ export const rhAgentDailyScheduler = onSchedule(
 );
 
 /**
- * Get market date in YYYY-MM-DD format (UTC).
- * Uses today's date since scheduler runs at 12:00 PM PT.
- */
-function getMarketDate(): string {
-  const now = new Date();
-  const year = now.getUTCFullYear();
-  const month = String(now.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(now.getUTCDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-/**
  * Get deadline ISO string (12:30 PM PT = 8:30 PM UTC).
  * Stored as string to avoid Timestamp serialization issues.
+ * Scheduler-specific: fixed time of day, not relative.
  */
 function getDeadlineISO(): string {
   const now = new Date();
@@ -144,103 +127,3 @@ function getDeadlineISO(): string {
   ));
   return deadline.toISOString();
 }
-
-/**
- * Load enabled symbols from Firestore.
- * Returns array of symbol strings (e.g., ['AAPL', 'NVDA', ...]).
- */
-async function loadEnabledSymbols(): Promise<string[]> {
-  const snapshot = await db
-    .collection(RH_AGENT_SYMBOLS_COLLECTION)
-    .where('enabled', '==', true)
-    .orderBy('priority', 'asc')
-    .get();
-
-  return snapshot.docs.map((doc) => doc.data().symbol as string);
-}
-
-/**
- * Create a new daily run document in Firestore.
- */
-async function createDailyRun(
-  marketDate: string,
-  totalSymbols: number,
-  deadlineAt: string
-): Promise<string> {
-  // Use market date as run ID - ensures one run per day
-  const runId = marketDate;
-  const runRef = db.collection(RH_AGENT_RUNS_COLLECTION).doc(runId);
-  const now = FieldValue.serverTimestamp();
-
-  const runData: Omit<RhAgentDailyRun, 'id'> & { id: string } = {
-    id: runId,
-    type: 'daily-scan',
-    marketDate,
-    status: RhAgentRunStatus.RUNNING,
-    triggeredBy: 'schedule',
-    totalSymbols,
-    processedCount: 0,
-    successCount: 0,
-    failureCount: 0,
-    opportunitiesFound: 0,
-    opportunitiesApproved: 0,
-    opportunitiesRejected: 0,
-    opportunitiesExecuted: 0,
-    startedAt: now,
-    deadlineAt,
-    errors: [],
-    logs: [`[${new Date().toISOString()}] Run started: ${totalSymbols} symbols`],
-  };
-
-  await runRef.set(runData);
-  return runId;
-}
-
-/**
- * Create a job document and enqueue a Cloud Task.
- */
-async function createJobAndEnqueue(
-  runId: string,
-  symbol: string,
-  marketDate: string
-): Promise<void> {
-  // 1. Create job document
-  const jobRef = db
-    .collection(RH_AGENT_RUNS_COLLECTION)
-    .doc(runId)
-    .collection(RH_AGENT_JOBS_SUBCOLLECTION)
-    .doc(symbol);
-
-  const jobData: RhAgentJob = {
-    id: symbol,
-    symbol,
-    status: RhAgentJobStatus.PENDING,
-    attempts: 0,
-    createdAt: FieldValue.serverTimestamp(),
-  };
-
-  await jobRef.set(jobData);
-
-  // 2. Enqueue Cloud Task (skip in emulator if tasks not available)
-  const payload: SymbolJobPayload = {
-    runId,
-    symbol,
-    marketDate,
-  };
-
-  try {
-    const queue = getFunctions().taskQueue('rhAgentProcessSymbol');
-    await queue.enqueue(payload);
-  } catch (error: any) {
-    logger.warn('rh_agent_scheduler_task_queue_failed', {
-      symbol,
-      runId,
-      error: error?.message,
-    });
-    // In emulator, task queue might not be available - continue without it
-    if (process.env.FUNCTIONS_EMULATOR !== 'true') {
-      throw error;
-    }
-  }
-}
-
