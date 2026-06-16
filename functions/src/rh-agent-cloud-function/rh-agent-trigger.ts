@@ -66,19 +66,6 @@ export const rhAgentPdrTrigger = onMessagePublished(
     });
 
     try {
-      // Idempotency check: ensure we haven't already triggered for this market date
-      const existingRunQuery = await db
-        .collection(RH_AGENT_RUNS_COLLECTION)
-        .where('marketDate', '==', marketDate)
-        .where('triggeredBy', '==', 'pdr')
-        .limit(1)
-        .get();
-
-      if (!existingRunQuery.empty) {
-        logger.info('rh_agent_pdr_already_exists', { marketDate, existingRunId: existingRunQuery.docs[0].id });
-        return;
-      }
-
       // 1. Load enabled symbols
       const symbols = await loadEnabledSymbols();
       if (symbols.length === 0) {
