@@ -85,8 +85,8 @@ export { backfillSymbolDataFromTradesAdmin, backfillSymbolDataForTradesDaily } f
 export { syncTrackedSymbolsDaily } from './scheduled/sync-tracked-symbols';
 export { cleanupRsBackfillRuns } from './scheduled/cleanup-rs-backfill-runs';
 
-// RH Agent (Robinhood Trading Agent) exports - New daily scan architecture
-export { rhAgentDailyScheduler } from './rh-agent-cloud-function/rh-agent-scheduler';
+// RH Agent (Robinhood Trading Agent) exports - Event-driven daily scan architecture
+export { rhAgentPdrTrigger, rhAgentTriggerDaily } from './rh-agent-cloud-function/rh-agent-trigger';
 export { rhAgentProcessSymbol } from './rh-agent-cloud-function/rh-agent-worker';
 
 // RH Agent Admin utilities
@@ -94,7 +94,6 @@ export {
   seedRhAgentSymbolsAdmin,
   clearRhAgentSymbolsAdmin,
 } from './rh-agent-cloud-function/rh-agent-seed-admin';
-export { rhAgentTriggerDaily } from './rh-agent-cloud-function/rh-agent-trigger';
 
 // RH Agent Callables (for frontend dashboard)
 export {

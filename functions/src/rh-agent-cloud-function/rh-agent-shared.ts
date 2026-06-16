@@ -65,11 +65,11 @@ export async function createDailyRun(
   marketDate: string,
   totalSymbols: number,
   deadlineAt: string,
-  triggeredBy: 'manual' | 'schedule' = 'schedule'
+  triggeredBy: 'manual' | 'pdr' = 'pdr'
 ): Promise<string> {
-  // Use market date as run ID for scheduled runs (one per day)
+  // Use market date as run ID (one per day)
   // For manual runs, add timestamp suffix to allow multiple per day
-  const runId = triggeredBy === 'schedule'
+  const runId = triggeredBy === 'pdr'
     ? marketDate
     : `${marketDate}_manual_${Date.now()}`;
 
@@ -109,7 +109,7 @@ export async function createJobAndEnqueue(
   runId: string,
   symbol: string,
   marketDate: string,
-  context: 'scheduler' | 'manual' = 'scheduler'
+  context: 'pdr' | 'manual' = 'pdr'
 ): Promise<void> {
   // Create job document
   const jobRef = db
@@ -139,7 +139,7 @@ export async function createJobAndEnqueue(
     const queue = getFunctions().taskQueue('rhAgentProcessSymbol');
     await queue.enqueue(payload);
   } catch (error: any) {
-    logger.warn(`rh_agent_${context}_task_queue_failed`, {
+    logger.warn(`rh_agent_${context}_enqueue_failed`, {
       symbol,
       runId,
       error: error?.message,

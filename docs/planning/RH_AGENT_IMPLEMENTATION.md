@@ -13,7 +13,7 @@ This document has two sections:
 ### Overview
 
 Daily trading agent that:
-1. Runs once per day around **12:00 PM Pacific** (time TBD based on processing duration)
+1. **Automatically triggers when SavantAPI intraday data arrives** (via partner-data-ready Pub/Sub message)
 2. Scans ~700 symbols from internal rel-str database
 3. Generates trade opportunities based on simple technical indicators
 4. Shows opportunities in UI for your approval/rejection
@@ -23,28 +23,39 @@ Daily trading agent that:
 ### Data Flow
 
 ```
-Daily Scheduler (12:00 PM PT)
+SavantAPI hourly intraday pipeline runs (7am-12pm PT)
     │
     ▼
-Queue 700 symbol-analysis tasks
+PDR message sent (runType: "intraday-snapshot")
+    │
+    ▼
+RH Agent trigger:
+  1. Receive PDR with runStatus: "completed"
+  2. Call partnerIntradaySnapshotV2 (POST all 700 symbols)
+  3. Receive intraday data: {snapshots: [{symbol, ip, ipc, io, it, ic}, ...]}
+    │
+    ▼
+Queue 700 symbol-analysis tasks (intraday data passed in job payload)
     │
     ▼
 Cloud Tasks workers (parallel, ~20 concurrent)
     │
     ▼
-Analyze each symbol using internal rel-str data
+For each symbol:
+  1. Read historical closes from rs-symbol-cache (days 1-14)
+  2. Use intraday price from job payload (today's ip)
+  3. Create close array: [historical..., intraday.ip]
+  4. Calculate indicators (RSI, MACD), check for signals
+  5. Store opportunity if signal triggered
     │
     ▼
-Store trade opportunities in Firestore
-    │
-    ▼
-UI shows opportunities for approval
+All jobs complete → UI shows opportunities for review
     │
     ▼
 You approve/reject each opportunity
     │
     ▼
-Approved trades → Robinhood API (OAuth - TBD, mechanism unconfirmed)
+Approved trades → Manual execution (HIL step)
 ```
 
 ### Prerequisites
@@ -73,16 +84,15 @@ firebase functions:secrets:set ANTHROPIC_API_KEY
 ```bash
 cd functions
 npm run build
-firebase deploy --only functions:rhAgentDailyScheduler,functions:rhAgentProcessSymbol,functions:rhAgentGetOpportunities,functions:rhAgentApproveTrade
+firebase deploy --only functions:rhAgentPdrTrigger,functions:rhAgentProcessSymbol,functions:rhAgentGetOpportunities,functions:rhAgentApproveTrade
 ```
 
 ### Daily Workflow
 
-1. **12:00 PM PT** - Agent starts automatically
-2. **~12:05-12:15 PM PT** - Analysis completes, opportunities appear in UI
-3. **12:15-12:30 PM PT** - You review and approve/reject opportunities
-4. **12:30 PM PT** - Approved trades sent to Robinhood
-5. **12:45 PM PT** - Deadline for trade entry
+1. **~7:00 AM - 1:00 PM PT** - SavantAPI fetches hourly intraday data, sends PDR messages
+2. **~5 minutes after each PDR** - RH Agent triggers, analysis completes, opportunities appear in UI
+3. **Review window** - You review and approve/reject opportunities
+4. **Trade deadline** - Approved trades executed (manual for now)
 
 ### UI Access
 
@@ -115,9 +125,12 @@ Shows:
 │                            FIREBASE                                      │
 │                                                                          │
 │  ┌─────────────────┐    ┌──────────────────────┐    ┌─────────────────┐  │
-│  │  Daily Scheduler│───▶│  Cloud Tasks Queue   │───▶│  Symbol Workers │  │
-│  │  (12:00 PM PT)  │    │  (maxConcurrent: 20) │    │  (parallel)     │  │
-│  └─────────────────┘    └──────────────────────┘    └─────────────────┘  │
+│  │  RS Complete    │───▶│  Cloud Tasks Queue   │───▶│  Symbol Workers │  │
+│  │  Firestore Trigger│   │  (maxConcurrent: 20) │    │  ├─ Firestore   │  │
+│  └─────────────────┘    └──────────────────────┘    │  │  (daily bars) │  │
+│                                                     │  ├─ SavantAPI    │  │
+│                                                     │  │  (intraday)   │  │
+│                                                     │  └─────────────────┘  │
 │                              │                          │              │
 │                              ▼                          ▼              │
 │                       ┌──────────────┐          ┌──────────────┐      │
@@ -135,6 +148,7 @@ Shows:
 │                                                                          │
 │  ┌─────────────────────────────────────────────────────────────────────┐  │
 │  │                     External APIs                                    │  │
+│  │  ├─ SavantAPI (intraday price snapshots per symbol)                 │  │
 │  │  ├─ Anthropic Claude (signal generation)                            │  │
 │  │  └─ Robinhood OAuth (trade execution - approved only)               │  │
 │  └─────────────────────────────────────────────────────────────────────┘  │
@@ -144,18 +158,45 @@ Shows:
 
 ### Data Source
 
-**IMPORTANT:** We use internal rel-str Firestore data, NOT Robinhood API for price data.
+**IMPORTANT:** We use internal rel-str Firestore data + SavantAPI intraday snapshot, NOT Robinhood API for price data.
 
-**Source:** `rs-symbol-cache/{marketDate}/symbols/{symbol}`
+> **📋 SA LLM Guidance:** SavantAPI provides a bulk endpoint `partnerIntradaySnapshotV2` that reads from their pre-populated intraday cache (fetched hourly from Alpha Vantage). This avoids 700 individual API calls and rate limits.
 
-Fields used:
-- `dailyBars` - OHLCV data for indicator calculation
-- `fetchedAt` - Data freshness check
+**Historical Source:** `rs-symbol-cache/{marketDate}/symbols/{symbol}`
+- `dailyBars` - Historical OHLCV data from previous days (already cached)
 
-**Why:** 
-- RH API has rate limits and latency
-- Our data is already processed and cached
-- Consistent with rest of rel-str app
+**Live Source:** SavantAPI `partnerIntradaySnapshotV2` endpoint
+- **Auth:** Google OIDC ID token (service-account-to-service-account)
+- **Request:** POST `{"symbols": ["AAPL", "MSFT", ...]}` (up to 1000 symbols)
+- **Response:** `{"marketDate": "2026-06-15", "count": 700, "snapshots": [{"symbol": "AAPL", "ip": 225.50, "ipc": 1.25, "io": 1757892000000, "it": "10:30", "ic": 2.78}, ...]}`
+- **Fields:** `ip` (price), `ipc` (change %), `io` (timestamp), `it` (time), `ic` (change $)
+
+**Trigger fetches once, workers receive in payload:**
+```typescript
+// Trigger (one call for all symbols)
+const intradayData = await callPartnerIntradaySnapshotV2(allSymbols);
+
+// Pass to workers via job payload
+for (const symbol of symbols) {
+  await createJobAndEnqueue(runId, symbol, marketDate, 'pdr', intradayData[symbol]);
+}
+
+// Worker creates close array for indicators
+const dailyBars = await getCachedBars(symbol, marketDate);  // Historical from rs-symbol-cache
+const intraday = jobPayload.intraday;                         // From trigger's fetch
+
+// Simple array of closes: historical + today's intraday price
+const closes = [
+  ...dailyBars.map(bar => bar.c),  // Historical closes (days 1-14)
+  intraday.ip                       // Today's intraday close
+];
+```
+
+**Why:**
+- Single bulk API call (not 700 individual calls)
+- No Alpha Vantage rate limits (SavantAPI handles caching)
+- Service account auth (secure, auditable)
+- Workers get intraday data in payload (no per-worker API calls)
 
 ### File Structure
 
@@ -166,7 +207,7 @@ functions/src/
 │   ├── rh-agent-config.ts                     # Types, enums, interfaces
 │   ├── rh-agent-secrets.ts                    # Secrets config
 │   ├── rh-agent-firestore.ts                  # Firestore persistence
-│   ├── rh-agent-scheduler.ts                  # NEW: Daily scheduler + queue
+│   ├── rh-agent-trigger.ts                    # NEW: Pub/Sub trigger on partner-data-ready
 │   ├── rh-agent-worker.ts                     # NEW: Symbol analysis worker
 │   └── rh-agent-approval.ts                   # NEW: Approval workflow
 └── rh-agent/                                  # Reused from CLI
@@ -181,35 +222,88 @@ src/app/features/rh-agent/
 
 ### Functions
 
-#### 1. rhAgentDailyScheduler (Scheduled)
+#### 1. rhAgentPdrTrigger (Pub/Sub Trigger)
 
-**Trigger:** Once daily at 12:00 PM Pacific
+**Trigger:** `partner-data-ready` Pub/Sub message with `runType = "intraday-snapshot"`
+
+> **📋 SA LLM Guidance:** After consulting with SavantAPI team, we determined:
+> - SavantAPI already runs an hourly intraday snapshot pipeline (7am-12pm PT)
+> - New endpoint `partnerIntradaySnapshotV2` will read from this pre-populated cache
+> - PDR messages include `runType: "intraday-snapshot"` to distinguish from RS pipeline triggers
+> - Service account auth (OIDC ID tokens) like existing `partnerTimeSeriesV2`
+
+**Why PDR-based?**
+- RH Agent runs immediately when intraday data is ready (no waiting for RS pipeline)
+- Historical bars already in `rs-symbol-cache` from previous days
+- Intraday snapshot provides today's live price from SavantAPI cache
+- Decouples RH Agent from RS pipeline timing
+
+**PDR Payload (Intraday):**
+```json
+{
+  "version": "v1",
+  "runId": "2026-06-15-MON-INTRADAY-1000",
+  "marketDate": "2026-06-15",
+  "phase": "intraday",
+  "intervals": ["INTRADAY"],
+  "status": "end",
+  "runStatus": "completed"
+}
+```
 
 **Config:**
 ```typescript
-export const rhAgentDailyScheduler = onSchedule({
-  schedule: '0 20 * * 1-5',  // 8:00 PM UTC = 12:00 PM PT (no DST issues)
-  timeZone: 'Etc/UTC',
-  secrets: [ANTHROPIC_API_KEY],
+export const rhAgentPdrTrigger = onMessagePublished({
+  topic: 'partner-data-ready',
+}, async (event) => {
+  const attributes = event.data.message.attributes;
+  const payload = JSON.parse(Buffer.from(event.data.message.data, 'base64').toString());
+  
+  // Only process intraday-snapshot PDR messages when completed
+  if (attributes.runType !== 'intraday-snapshot') return;
+  if (payload.status !== 'end') return;
+  if (payload.runStatus !== 'completed' && payload.runStatus !== 'completed_with_errors') return;
+  
+  const marketDate = payload.marketDate;
+  
+  // Idempotency check
+  const existingRun = await db.collection('rh-agent-runs').doc(marketDate).get();
+  if (existingRun.exists) return;
+  
+  // Fetch intraday snapshot for all symbols (one POST call)
+  const intradayData = await callPartnerIntradaySnapshotV2(symbols);
+  
+  // Start RH Agent run
+  await startRhAgentRun(marketDate, 'pdr', intradayData);
 });
 ```
 
 **Flow:**
 ```typescript
-async function dailySchedulerHandler() {
+async function startRhAgentRun(
+  marketDate: string, 
+  triggeredBy: string,
+  intradaySnapshots: IntradaySnapshot[]  // From partnerIntradaySnapshotV2
+) {
   // 1. Load symbol list (~700 symbols from Firestore)
-  const symbols = await loadSymbolList();
+  const symbols = await loadEnabledSymbols();
   
   // 2. Create "run" document
-  const runId = await createRun('daily-scan', symbols.length);
+  const runId = await createDailyRun(marketDate, symbols.length, getDeadlineISO(30), 'pdr');
   
   // 3. Create job docs and enqueue tasks (one per symbol)
+  // Pass intraday data in job payload so workers don't need to fetch
   for (const symbol of symbols) {
-    await createJobAndEnqueue(runId, symbol);
+    const intraday = intradaySnapshots.find(s => s.symbol === symbol);
+    await createJobAndEnqueue(runId, symbol, marketDate, 'pdr', intraday);
   }
   
-  // 4. Update run status
-  await updateRunStatus(runId, 'QUEUED', symbols.length);
+  logger.info('rh_agent_triggered_by_pdr', { 
+    runId, 
+    marketDate, 
+    symbolCount: symbols.length,
+    intradayCount: intradaySnapshots.length 
+  });
 }
 ```
 
@@ -233,33 +327,48 @@ interface SymbolJobPayload {
   runId: string;
   symbol: string;
   marketDate: string;  // YYYY-MM-DD
+  intraday: {
+    symbol: string;
+    ip: number;      // Latest intraday price
+    ipc: number;     // Intraday change %
+    io: number;      // Epoch ms timestamp
+    it: string;      // Time string (e.g., "10:30")
+    ic: number;      // Intraday change $
+  };
 }
 ```
 
 **Flow:**
 ```typescript
 async function processSymbolHandler(payload) {
-  const { runId, symbol, marketDate } = payload;
+  const { runId, symbol, marketDate, intraday } = payload;
   
   try {
-    // 1. Fetch cached bars from Firestore (NOT from RH)
-    const bars = await getCachedBars(symbol, marketDate);
+    // 1. Read cached daily bars from Firestore (historical, days 1-14)
+    const dailyBars = await getCachedBars(symbol, marketDate);
     
-    // 2. Calculate simple indicators (RSI, MACD)
-    const indicators = calculateIndicators(bars);
+    // 2. Create close array: historical + today's intraday price
+    // Most indicators (RSI, MACD) only need close prices
+    const closes = [
+      ...dailyBars.map(bar => bar.c),  // Historical closes
+      intraday.ip                       // Today's intraday price
+    ];
     
-    // 3. Check if signal triggered
+    // 3. Calculate indicators on close array
+    const indicators = calculateIndicators(closes);
+    
+    // 4. Check if signal triggered
     const signal = checkSignal(symbol, indicators);
     
     if (signal) {
-      // 4. Generate opportunity using Claude
+      // 5. Generate opportunity using Claude
       const opportunity = await generateOpportunity(symbol, indicators, signal);
       
-      // 5. Store opportunity (pending approval)
+      // 6. Store opportunity (pending approval)
       await storeOpportunity(runId, opportunity);
     }
     
-    // 6. Mark job complete
+    // 7. Mark job complete
     await markJobComplete(runId, symbol, 'SUCCESS');
     
   } catch (error) {
@@ -267,6 +376,12 @@ async function processSymbolHandler(payload) {
   }
 }
 ```
+
+**Why intraday in job payload?**
+- Trigger makes ONE bulk API call to `partnerIntradaySnapshotV2` (all 700 symbols)
+- Workers receive intraday data in payload (no per-worker API calls)
+- Efficient: single API call, no coordination needed
+- Workers are simple: just read historical bars + use payload intraday
 
 #### 3. rhAgentGetOpportunities (Callable)
 
@@ -496,7 +611,10 @@ firebase functions:secrets:set ROBINHOOD_ACCESS_TOKEN
 ### Data Flow (Detailed)
 
 ```
-Daily Run Start
+RS Processing Complete
+    │
+    ▼
+Firestore trigger fires (runStatus = COMPLETE)
     │
     ▼
 Load 700 symbols from symbol-list collection
@@ -544,9 +662,9 @@ User reviews opportunities:
 | With 20 workers | ~3 minutes |
 | Buffer for variance | +2 minutes |
 | **Total runtime** | **~5 minutes** |
-| UI ready by | ~12:05 PM PT |
-| User review window | ~25 minutes |
-| Trade deadline | 12:30 PM PT |
+| UI ready by | ~5 min after RS completes |
+| User review window | Configurable |
+| Trade deadline | Configurable |
 
 ### Error Handling
 
@@ -634,7 +752,8 @@ class RhAgentDashboardComponent {
 - [ ] Deploy Cloud Functions
 - [ ] Verify UI route `/rh-agent` works
 - [ ] Test manual run in emulator
-- [ ] Set daily scheduler (12:00 PM PT)
+- [ ] Deploy Pub/Sub trigger function (`rhAgentPdrTrigger`)
+- [ ] Test PDR intraday-snapshot trigger in emulator
 - [ ] Test approval workflow end-to-end
 
 ### Future Enhancements (Post-MVP)
@@ -653,13 +772,14 @@ class RhAgentDashboardComponent {
 
 | Aspect | Original | Revised |
 |--------|----------|---------|
-| Frequency | Every 15 min (intraday) | Once daily at 12:00 PM PT |
+| Trigger | Cron schedule (12:00 PM PT) | Event-based (PDR intraday-snapshot) |
 | Symbols | 3 (AAPL, NVDA, TSLA) | ~700 symbols |
 | Architecture | Single long-running function | Cloud Tasks queue with workers |
-| Data Source | Robinhood API | Internal rel-str Firestore |
+| Data Source | Robinhood API | Internal Firestore + SavantAPI intraday |
 | Execution | Dry-run only | User approval required |
-| Deadline | N/A | Must complete by 12:45 PM PT |
+| Deadline | N/A | Manual execution (no auto-deadline) |
 | RH Auth | API key (incorrect) | OAuth2 (TBD - unconfirmed) |
+| Intraday Fetch | Per-worker | Bulk via `partnerIntradaySnapshotV2` |
 | Complexity | Multiple strategies | One simple strategy (MVP) |
 
 ---
@@ -670,3 +790,55 @@ class RhAgentDashboardComponent {
 2. **Claude rate limits:** ~5-10 approved opportunities/day → ~150-300 requests/month. Well within limits. (Only approved opportunities go to Claude, not all 700 symbols)
 3. **Cost estimate:** Cloud Tasks (700 tasks/day) + Claude API (minimal) + Firestore reads. Need budget calculation.
 4. **OAuth mechanism:** Verify Robinhood OAuth2 flow, token expiration, refresh strategy.
+
+---
+
+## Appendix: SavantAPI Integration Details
+
+### SA LLM Interaction Summary
+
+The RH Agent intraday data architecture was designed in collaboration with the SavantAPI (SA) team. Below is the interaction log for reference:
+
+#### Initial Question to SA
+> We need intraday data fetching specs for ~700 symbols, 6x/day (7am-12pm PT). Looking for:
+> 1. Bulk endpoint for intraday snapshots
+> 2. Partner benefits (rate limits, etc.)
+> 3. Recommended orchestration approach
+
+#### SA Response
+**Endpoint:** `POST /partnerIntradaySnapshotV2` (to be implemented)
+- Accepts up to 1000 symbols in single request
+- Returns array format: `{marketDate, count, snapshots: [{symbol, ip, ipc, io, it, ic}]}`
+- Reads from SA's pre-populated intraday cache (not live AV calls)
+
+**Auth:** Google OIDC ID tokens (service-account-to-service-account)
+- Same as existing `partnerTimeSeriesV2`
+- Dedicated SA: `rs-partner-caller@rel-str.iam.gserviceaccount.com`
+
+**PDR Messages:** New `runType: "intraday-snapshot"`
+- 6 messages/day (hourly 7am-12pm PT)
+- Payload includes `status: "end"`, `runStatus: "completed"`
+- Subscribe with: `attributes.runType === "intraday-snapshot"`
+
+#### Key Design Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| Bulk fetch in trigger | One API call vs 700 individual calls |
+| Pass intraday in job payload | Workers don't need API client, simpler code |
+| Service account auth | Secure, auditable, same pattern as other endpoints |
+| No local intraday cache | SA already caches, we just read |
+
+#### Implementation Checklist (SA Side)
+- [ ] Build `partnerIntradaySnapshotV2` endpoint
+- [ ] Add intraday PDR messages with `runType: "intraday-snapshot"`
+- [ ] Allowlist `rs-partner-caller@rel-str.iam.gserviceaccount.com`
+- [ ] Deploy and notify RSH team
+
+#### Implementation Checklist (RSH Side)
+- [ ] Create `rs-partner-caller` service account
+- [ ] Implement `rhAgentPdrTrigger` with intraday-snapshot filter
+- [ ] Add `callPartnerIntradaySnapshotV2` client function
+- [ ] Update `createJobAndEnqueue` to accept intraday data
+- [ ] Update worker payload type to include intraday fields
+- [ ] Test end-to-end with SA staging environment

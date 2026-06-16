@@ -97,7 +97,7 @@ export interface RhAgentRun {
   strategy: string;
   symbol?: string;
   dryRun: boolean;
-  triggeredBy?: 'manual' | 'schedule';
+  triggeredBy?: 'manual' | 'pdr';
   symbolsProcessed: number;
   signalsGenerated: number;
   errors: string[];
@@ -164,7 +164,7 @@ export interface RhAgentDailyRun {
   type: 'daily-scan';
   marketDate: string;  // YYYY-MM-DD
   status: RhAgentRunStatus;
-  triggeredBy?: 'manual' | 'schedule';
+  triggeredBy?: 'manual' | 'pdr';
   totalSymbols: number;
   processedCount: number;
   successCount: number;
@@ -248,4 +248,17 @@ export interface SymbolJobPayload {
   runId: string;
   symbol: string;
   marketDate: string;  // YYYY-MM-DD
+  intraday?: IntradaySnapshot;  // Intraday data from trigger's bulk fetch
+}
+
+/**
+ * Intraday snapshot data from SavantAPI partnerIntradaySnapshotV2 endpoint.
+ */
+export interface IntradaySnapshot {
+  symbol: string;
+  ip: number;      // Latest intraday price
+  ipc: number;     // Intraday change %
+  io: number;      // Epoch ms timestamp
+  it: string;      // Time string (e.g., "10:30")
+  ic: number;      // Intraday change $
 }
