@@ -51,7 +51,7 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
     // secrets: [ANTHROPIC_API_KEY], // Temporarily disabled for testing
   },
   async (req) => {
-    const { runId, symbol, marketDate } = req.data;
+    const { runId, symbol, marketDate, intraday } = req.data;
     const startTime = Date.now();
 
     logger.info('rh_agent_worker_start', { runId, symbol, marketDate });
@@ -61,11 +61,13 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
       await markJobInProgress(runId, symbol);
 
       // 2. Fetch cached bars from internal rel-str Firestore (NOT from RH)
-      logger.info('rh_agent_worker_fetching_data', { runId, symbol, marketDate, cachePath: `rs-symbol-cache/${marketDate}/symbols/${symbol}` });
+      logger.info('rh_agent_worker_fetching_data', { runId, symbol, marketDate, cachePath: `rs-symbol-cache/${marketDate}/symbols/${symbol}`, hasIntraday: !!intraday });
       const bars = await getCachedBars(symbol, marketDate);
 
-      if (!bars || bars.length < 15) {
-        logger.warn('rh_agent_worker_insufficient_data', { runId, symbol, barCount: bars?.length || 0, required: 15 });
+      // Need at least 14 historical bars + intraday = 15 for RSI(14)
+      const minRequiredBars = 14;
+      if (!bars || bars.length < minRequiredBars) {
+        logger.warn('rh_agent_worker_insufficient_data', { runId, symbol, barCount: bars?.length || 0, required: minRequiredBars, hasIntraday: !!intraday });
         await markJobComplete(runId, symbol, 'SUCCESS', false); // No opportunity
         return;
       }
@@ -88,11 +90,17 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
       }
 
       // 3. Calculate indicators
-      // Extract closing prices from bars (handle different field names: close, c)
-      const closes = bars.map((b: any) => b.close || b.c || 0).filter((c: number) => c > 0);
-      const currentPrice = closes[closes.length - 1];
-      const previousPrice = closes[closes.length - 2] || currentPrice;
+      // Extract historical closing prices from bars (handle different field names: close, c)
+      // For intraday: use historical bars (days 1-14) + intraday price (today)
+      const historicalCloses = bars.slice(0, 14).map((b: any) => b.close || b.c || 0).filter((c: number) => c > 0);
+      
+      // Use intraday price from payload if available, otherwise fall back to last historical bar
+      const currentPrice = intraday?.ip ?? historicalCloses[historicalCloses.length - 1];
+      const previousPrice = historicalCloses[historicalCloses.length - 1] || currentPrice;
       const priceChange = (currentPrice - previousPrice) / previousPrice;
+      
+      // Full close array for indicators: historical + current
+      const closes = [...historicalCloses, currentPrice];
 
       // Calculate RSI using last 14 periods (standard RSI lookback)
       const rsiValue = rsi(closes);
@@ -101,6 +109,8 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
         runId,
         symbol,
         closesCount: closes.length,
+        historicalCount: historicalCloses.length,
+        usingIntraday: !!intraday,
         currentPrice,
         previousPrice,
         priceChangePct: (priceChange * 100).toFixed(2) + '%',

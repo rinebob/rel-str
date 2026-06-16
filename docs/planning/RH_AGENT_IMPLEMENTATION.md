@@ -813,7 +813,7 @@ The RH Agent intraday data architecture was designed in collaboration with the S
 
 **Auth:** Google OIDC ID tokens (service-account-to-service-account)
 - Same as existing `partnerTimeSeriesV2`
-- Dedicated SA: `rs-partner-caller@rel-str.iam.gserviceaccount.com`
+- Using existing SA: `rel-str-partner-caller-prod@rel-str.iam.gserviceaccount.com` (already allowlisted)
 
 **PDR Messages:** New `runType: "intraday-snapshot"`
 - 6 messages/day (hourly 7am-12pm PT)
@@ -832,13 +832,13 @@ The RH Agent intraday data architecture was designed in collaboration with the S
 #### Implementation Checklist (SA Side)
 - [ ] Build `partnerIntradaySnapshotV2` endpoint
 - [ ] Add intraday PDR messages with `runType: "intraday-snapshot"`
-- [ ] Allowlist `rs-partner-caller@rel-str.iam.gserviceaccount.com`
+- [x] ~~Allowlist service account~~ Using existing: `rel-str-partner-caller-prod@rel-str.iam.gserviceaccount.com` (already allowlisted ✓)
 - [ ] Deploy and notify RSH team
 
 #### Implementation Checklist (RSH Side)
-- [ ] Create `rs-partner-caller` service account
-- [ ] Implement `rhAgentPdrTrigger` with intraday-snapshot filter
-- [ ] Add `callPartnerIntradaySnapshotV2` client function
-- [ ] Update `createJobAndEnqueue` to accept intraday data
-- [ ] Update worker payload type to include intraday fields
+- [x] ~~Create `rs-partner-caller` service account~~ Using existing: `rel-str-partner-caller-prod@rel-str.iam.gserviceaccount.com` ✓
+- [x] Implement `rhAgentPdrTrigger` with intraday-snapshot filter ✓
+- [x] Add `callPartnerIntradaySnapshotV2` client function ✓
+- [x] Update `createJobAndEnqueue` to accept intraday data ✓
+- [x] Update worker payload type to include intraday fields ✓
 - [ ] Test end-to-end with SA staging environment

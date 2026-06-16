@@ -2,7 +2,7 @@ import {onRequest, onCall} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import {GoogleAuth} from "google-auth-library";
 import {db, FieldValue} from "./firebase-admin-init";
-import { GetTrackedSymbolsResponse, TrackedSymbolDTO, PartnerEndpointPath, PartnerMarketHolidaysResponse } from './types/partner';
+import { GetTrackedSymbolsResponse, TrackedSymbolDTO, PartnerEndpointPath, PartnerMarketHolidaysResponse, PartnerIntradaySnapshotResponse } from './types/partner';
 import { DEFAULT_PARTNER_CALLER_SA, IAM_CREDENTIALS_BASE_URL, OAUTH_CLOUD_PLATFORM_SCOPE, IAM_SERVICE_ACCOUNTS_PATH, IamCredentialsMethod } from './config/constants';
 import { persistWarning } from './logging/warn';
 import { ENABLE_CONSOLE_LOGGING, RsCloudFunctionName } from './webhooks/webhooks-config';
@@ -25,12 +25,19 @@ const PARTNER_MARKET_HOLIDAYS_URL =
   process.env.PARTNER_MARKET_HOLIDAYS_URL ||
   `${PARTNER_AUDIENCE.replace(/\/$/, "")}/${PartnerEndpointPath.MARKET_HOLIDAYS}`;
 
+const PARTNER_INTRADAY_SNAPSHOT_URL =
+  process.env.PARTNER_INTRADAY_SNAPSHOT_URL ||
+  `${PARTNER_AUDIENCE.replace(/\/$/, "")}/${PartnerEndpointPath.INTRADAY_SNAPSHOT}`;
+
 // Optional separate audience overrides (default to URLs above)
 const PARTNER_TRACKED_SYMBOLS_AUDIENCE =
   process.env.PARTNER_TRACKED_SYMBOLS_AUDIENCE || PARTNER_TRACKED_SYMBOLS_URL;
 const PARTNER_TS_AUDIENCE = process.env.PARTNER_TS_AUDIENCE || PARTNER_TS_URL;
 const PARTNER_MARKET_HOLIDAYS_AUDIENCE =
   process.env.PARTNER_MARKET_HOLIDAYS_AUDIENCE || PARTNER_MARKET_HOLIDAYS_URL;
+
+const PARTNER_INTRADAY_SNAPSHOT_AUDIENCE =
+  process.env.PARTNER_INTRADAY_SNAPSHOT_AUDIENCE || PARTNER_INTRADAY_SNAPSHOT_URL;
 
 // Service account email for rel-str prod
 const CALLER_SA = process.env.PARTNER_CALLER_SA || DEFAULT_PARTNER_CALLER_SA;
@@ -176,6 +183,57 @@ export async function callPartnerMarketHolidays(params: { year: number | string 
     year: parsed.year,
     holidays: Array.isArray(parsed.holidays) ? parsed.holidays.length : 0,
     processingTimeMs: parsed.processingTimeMs ?? null,
+  });
+
+  return parsed;
+}
+
+/**
+ * Call Savant Partner Intraday Snapshot API.
+ * Bulk endpoint for fetching current intraday prices for all symbols.
+ */
+export async function callPartnerIntradaySnapshotV2(symbols: string[]): Promise<PartnerIntradaySnapshotResponse> {
+  const audience = PARTNER_INTRADAY_SNAPSHOT_AUDIENCE;
+  const idToken = await generateIdTokenWithEmail(audience, CALLER_SA);
+  const url = PARTNER_INTRADAY_SNAPSHOT_URL;
+
+  const body = { symbols };
+
+  logger.info('partnerIntradaySnapshot_request', { symbolCount: symbols.length, url, audience });
+
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  const text = await resp.text();
+  if (!resp.ok) {
+    logger.error('partnerIntradaySnapshot_upstream_error', {
+      status: resp.status,
+      url,
+      audience,
+      callerSa: CALLER_SA,
+      symbolCount: symbols.length,
+      snippet: typeof text === 'string' ? text.slice(0, 500) : undefined,
+    });
+    throw new Error(`partnerIntradaySnapshot upstream ${resp.status}: ${text}`);
+  }
+
+  let parsed: PartnerIntradaySnapshotResponse;
+  try {
+    parsed = JSON.parse(text) as PartnerIntradaySnapshotResponse;
+  } catch (e: any) {
+    logger.error('partnerIntradaySnapshot_parse_error', { message: e?.message, snippet: text.slice(0, 500) });
+    throw e;
+  }
+
+  logger.info('partnerIntradaySnapshot_response', {
+    marketDate: parsed.marketDate,
+    count: parsed.count,
   });
 
   return parsed;

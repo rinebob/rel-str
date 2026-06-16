@@ -21,6 +21,8 @@ import {
   type IntradaySnapshot,
 } from './rh-agent-config';
 
+import { callPartnerIntradaySnapshotV2 } from '../partner-proxy';
+
 /**
  * Pub/Sub trigger: Automatically starts RH Agent when PDR intraday-snapshot message arrives.
  *
@@ -85,10 +87,18 @@ export const rhAgentPdrTrigger = onMessagePublished(
       }
 
       // 2. Fetch intraday snapshot for all symbols (one POST call to partnerIntradaySnapshotV2)
-      // NOTE: This will be implemented when SavantAPI deploys the endpoint
-      // For now, we'll skip the intraday fetch and pass empty data
+      // NOTE: This will work when SavantAPI deploys the endpoint
       logger.info('rh_agent_pdr_fetching_intraday', { marketDate, symbolCount: symbols.length });
-      const intradaySnapshots: IntradaySnapshot[] = []; // TODO: callPartnerIntradaySnapshotV2(symbols)
+      let intradaySnapshots: IntradaySnapshot[] = [];
+      try {
+        const response = await callPartnerIntradaySnapshotV2(symbols);
+        intradaySnapshots = response.snapshots;
+        logger.info('rh_agent_pdr_intraday_fetched', { marketDate, count: response.count });
+      } catch (error: any) {
+        // If intraday fetch fails, continue without intraday data
+        // Workers will handle missing intraday gracefully
+        logger.warn('rh_agent_pdr_intraday_fetch_failed', { marketDate, error: error?.message });
+      }
 
       // 3. Start the RH Agent run with intraday data
       await startRhAgentRun(marketDate, 'pdr', intradaySnapshots);

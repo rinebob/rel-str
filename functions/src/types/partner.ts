@@ -34,6 +34,7 @@ export enum PartnerEndpointPath {
   TRACKED_SYMBOLS = 'partnerListTrackedSymbolsV2',
   TIME_SERIES = 'partnerTimeSeriesV2',
   MARKET_HOLIDAYS = 'partnerMarketHolidays',
+  INTRADAY_SNAPSHOT = 'partnerIntradaySnapshotV2',
 }
 
 /** RS calculation phase for a day's value. */
@@ -61,6 +62,24 @@ export interface PartnerMarketHolidaysResponse {
   holidays: MarketHolidayItem[];
   processingTimeMs?: number;
   timestamp?: string;
+}
+
+/** Intraday snapshot item from partnerIntradaySnapshotV2 endpoint. */
+export interface IntradaySnapshotItem {
+  symbol: string;
+  ip: number;      // Latest intraday price
+  ipc: number;     // Intraday change %
+  io: number;      // Epoch ms timestamp
+  it: string;      // Time string (e.g., "10:30")
+  ic: number;      // Intraday change $
+}
+
+/** Response shape for partnerIntradaySnapshotV2 endpoint. */
+export interface PartnerIntradaySnapshotResponse {
+  ok: true;
+  marketDate: string;
+  count: number;
+  snapshots: IntradaySnapshotItem[];
 }
 
 // PhasePreference removed: selection is fixed by rubric (historical: POST-only; today: POST else PRE)
