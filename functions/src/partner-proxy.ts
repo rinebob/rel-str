@@ -2,7 +2,7 @@ import {onRequest, onCall} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import {GoogleAuth} from "google-auth-library";
 import {db, FieldValue} from "./firebase-admin-init";
-import { GetTrackedSymbolsResponse, TrackedSymbolDTO, PartnerEndpointPath, PartnerMarketHolidaysResponse, PartnerIntradaySnapshotResponse } from './types/partner';
+import { GetTrackedSymbolsResponse, TrackedSymbolDTO, PartnerEndpointPath, PartnerMarketHolidaysResponse, PartnerIntradaySnapshotResponse, PartnerListTrackedSymbolsResponse } from './types/partner';
 import { DEFAULT_PARTNER_CALLER_SA, IAM_CREDENTIALS_BASE_URL, OAUTH_CLOUD_PLATFORM_SCOPE, IAM_SERVICE_ACCOUNTS_PATH, IamCredentialsMethod } from './config/constants';
 import { persistWarning } from './logging/warn';
 import { ENABLE_CONSOLE_LOGGING, RsCloudFunctionName } from './webhooks/webhooks-config';
@@ -239,13 +239,12 @@ export async function callPartnerIntradaySnapshotV2(symbols: string[]): Promise<
   return parsed;
 }
 
-/** Call Savant Partner Tracked Symbols endpoint. */
-export async function callPartnerTrackedSymbols(): Promise<unknown> {
-  // Use function URL for request; audience defaults to URL but is overrideable
+/** Call Savant Partner Tracked Symbols endpoint. Returns full universe. */
+export async function callPartnerTrackedSymbols(): Promise<PartnerListTrackedSymbolsResponse> {
   const audience = PARTNER_TRACKED_SYMBOLS_AUDIENCE;
   const idToken = await generateIdTokenWithEmail(audience, CALLER_SA);
-  // Default to active-only universe with a reasonable cap; SA can ignore or honor
-  const url = `${PARTNER_TRACKED_SYMBOLS_URL}?activeOnly=true&limit=1000`;
+  // Fetch all symbols (no limit) - activeOnly=true for tradeable symbols only
+  const url = `${PARTNER_TRACKED_SYMBOLS_URL}?activeOnly=true`;
   const resp = await fetch(url, { headers: { Authorization: `Bearer ${idToken}` } });
   if (!resp.ok) {
     const text = await resp.text();
@@ -258,7 +257,7 @@ export async function callPartnerTrackedSymbols(): Promise<unknown> {
     });
     throw new Error(`partnerTrackedSymbols upstream ${resp.status}: ${text}`);
   }
-  return (await resp.json()) as unknown;
+  return (await resp.json()) as PartnerListTrackedSymbolsResponse;
 }
 
 /**

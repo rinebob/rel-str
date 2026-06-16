@@ -82,4 +82,12 @@ export interface PartnerIntradaySnapshotResponse {
   snapshots: IntradaySnapshotItem[];
 }
 
+/** Response shape for partnerListTrackedSymbolsV2 endpoint. */
+export interface PartnerListTrackedSymbolsResponse {
+  ok: true;
+  count: number;
+  symbols: string[];  // Just the symbol strings
+  timestamp?: string;
+}
+
 // PhasePreference removed: selection is fixed by rubric (historical: POST-only; today: POST else PRE)

@@ -93,6 +93,7 @@ export { rhAgentProcessSymbol } from './rh-agent-cloud-function/rh-agent-worker'
 export {
   seedRhAgentSymbolsAdmin,
   clearRhAgentSymbolsAdmin,
+  seedAllSymbolsFromPartner,
 } from './rh-agent-cloud-function/rh-agent-seed-admin';
 
 // RH Agent Callables (for frontend dashboard)
