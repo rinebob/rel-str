@@ -5,12 +5,7 @@
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
-import {
-  getStatus,
-  getRecentRuns,
-  getRecentSignals,
-  getSignalsForRun,
-} from './rh-agent-firestore';
+import { db } from '../firebase-admin-init';
 import {
   getMarketDate,
   getDeadlineISO,
@@ -18,6 +13,15 @@ import {
   createDailyRun,
   createJobAndEnqueue,
 } from './rh-agent-shared';
+import {
+  RH_AGENT_RUNS_COLLECTION,
+  RH_AGENT_OPPORTUNITIES_COLLECTION,
+  RH_AGENT_STATUS_COLLECTION,
+  AGENT_STATUS_DOC,
+  RhAgentRun,
+  RhTradeOpportunity,
+  RhAgentStatus,
+} from './rh-agent-config';
 
 /**
  * Request/response types for callables.
@@ -179,17 +183,27 @@ export const rhAgentGetStatus = onCall<void, Promise<AgentStatusResponse>>(
     cors: true,
   },
   async () => {
-    const status = await getStatus();
+    // Get actual enabled symbols from rh-agent-symbols collection
+    const symbolsSnapshot = await db
+      .collection('rh-agent-symbols')
+      .where('enabled', '==', true)
+      .orderBy('priority', 'asc')
+      .get();
+    const symbolsMonitored = symbolsSnapshot.docs.map((d) => d.data().symbol as string);
 
-    if (!status) {
+    const doc = await db.collection(RH_AGENT_STATUS_COLLECTION).doc(AGENT_STATUS_DOC).get();
+
+    if (!doc.exists) {
       return {
-        isEnabled: false,
+        isEnabled: true,
         totalRuns: 0,
         totalSignalsGenerated: 0,
-        symbolsMonitored: [],
-        schedule: '*/15 13-20 * * 1-5',
+        symbolsMonitored,
+        schedule: '0 20 * * 1-5',
       };
     }
+
+    const status = doc.data() as RhAgentStatus;
 
     // Convert timestamps to ISO strings for JSON serialization
     const lastRunAt = status.lastRunAt
@@ -204,8 +218,8 @@ export const rhAgentGetStatus = onCall<void, Promise<AgentStatusResponse>>(
       lastRunStatus: status.lastRunStatus,
       totalRuns: status.totalRuns,
       totalSignalsGenerated: status.totalSignalsGenerated,
-      symbolsMonitored: status.symbolsMonitored,
-      schedule: status.schedule || '*/15 13-20 * * 1-5',
+      symbolsMonitored,
+      schedule: status.schedule || '0 20 * * 1-5',
     };
   }
 );
@@ -219,7 +233,14 @@ export const rhAgentGetRunHistory = onCall<{ limit?: number }, Promise<RunHistor
   },
   async (request) => {
     const limit = request.data.limit ?? 20;
-    const runs = await getRecentRuns(limit);
+
+    const snapshot = await db
+      .collection(RH_AGENT_RUNS_COLLECTION)
+      .orderBy('startedAt', 'desc')
+      .limit(limit)
+      .get();
+
+    const runs = snapshot.docs.map((d) => d.data() as RhAgentRun);
 
     return {
       runs: runs.map((run) => ({
@@ -245,7 +266,7 @@ export const rhAgentGetRunHistory = onCall<{ limit?: number }, Promise<RunHistor
 );
 
 /**
- * Get signal history callable.
+ * Get signal history callable (reads from rh-agent-opportunities).
  */
 export const rhAgentGetSignalHistory = onCall<{ limit?: number; runId?: string }, Promise<SignalHistoryResponse>>(
   {
@@ -254,26 +275,28 @@ export const rhAgentGetSignalHistory = onCall<{ limit?: number; runId?: string }
   async (request) => {
     const { limit, runId } = request.data;
 
-    let signals;
+    let query = db.collection(RH_AGENT_OPPORTUNITIES_COLLECTION).orderBy('createdAt', 'desc');
+
     if (runId) {
-      signals = await getSignalsForRun(runId);
-    } else {
-      signals = await getRecentSignals(limit ?? 50);
+      query = query.where('runId', '==', runId);
     }
 
+    const snapshot = await query.limit(limit ?? 50).get();
+    const opportunities = snapshot.docs.map((d) => d.data() as RhTradeOpportunity);
+
     return {
-      signals: signals.map((s) => ({
-        id: s.id,
-        symbol: s.symbol,
-        action: s.action,
-        status: s.status,
-        reason: s.reason,
-        createdAt: s.createdAt
-          ? typeof s.createdAt === 'object' && 'toDate' in s.createdAt
-            ? (s.createdAt as { toDate(): Date }).toDate().toISOString()
+      signals: opportunities.map((o) => ({
+        id: o.id,
+        symbol: o.symbol,
+        action: o.action,
+        status: o.status,
+        reason: o.reason,
+        createdAt: o.createdAt
+          ? typeof o.createdAt === 'object' && 'toDate' in o.createdAt
+            ? (o.createdAt as { toDate(): Date }).toDate().toISOString()
             : new Date().toISOString()
           : new Date().toISOString(),
-        dryRun: s.dryRun,
+        dryRun: false, // Opportunities are always live
       })),
     };
   }
