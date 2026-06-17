@@ -84,7 +84,7 @@ export class RhAgentService {
 
   // Collection references for realtime data
   private readonly runsCollection = 'rh-agent-runs';
-  private readonly signalsCollection = 'rh-agent-signals';
+  private readonly opportunitiesCollection = 'rh-agent-opportunities';
   private readonly statusDoc = 'rh-agent-status/current';
 
   /**
@@ -154,16 +154,16 @@ export class RhAgentService {
   }
 
   /**
-   * Subscribe to recent signals from Firestore (realtime updates).
+   * Subscribe to recent opportunities from Firestore (realtime updates).
    */
-  watchRecentSignalsRealtime(count = 50): Observable<RhTradeSignal[]> {
-    const signalsRef = collection(this.firestore, this.signalsCollection);
-    const signalsQuery = query(
-      signalsRef,
+  watchRecentOpportunitiesRealtime(count = 50): Observable<RhTradeSignal[]> {
+    const opportunitiesRef = collection(this.firestore, this.opportunitiesCollection);
+    const opportunitiesQuery = query(
+      opportunitiesRef,
       orderBy('createdAt', 'desc'),
       limit(count)
     );
-    return collectionData(signalsQuery, { idField: 'id' }) as Observable<
+    return collectionData(opportunitiesQuery, { idField: 'id' }) as Observable<
       RhTradeSignal[]
     >;
   }
