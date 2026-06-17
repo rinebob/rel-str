@@ -83,11 +83,6 @@ export const RhAgentStore = signalStore(
           patchState(state, { isLoading: false });
           console.log('[RH Agent Store] All API calls complete');
           console.log('[RH Agent Store] Final state - runs:', state.runs().length, 'signals:', state.signals().length, 'status:', state.status());
-          // Generate shim signals if no real signals and we have runs + symbols
-          if (state.signals().length === 0 && state.runs().length > 0) {
-            console.log('[RH Agent Store] No signals after all data loaded, generating shims...');
-            this.generateShimSignals();
-          }
         }
       };
 
@@ -135,78 +130,6 @@ export const RhAgentStore = signalStore(
           snackBar.open('Failed to load signals', 'Dismiss', { duration: 5000 });
         },
         });
-    },
-
-    /**
-     * Generate shim signals for UI testing
-     * Creates multiple signals per symbol with varied signal types
-     */
-    generateShimSignals(): void {
-      console.log('[RH Agent Store] generateShimSignals called');
-      const symbols = state.status()?.symbolsMonitored;
-      if (!symbols?.length) {
-        console.log('[RH Agent Store] No symbols to generate shims for');
-        return;
-      }
-
-      const shimSignals: RhTradeSignal[] = [];
-      const now = new Date().toISOString();
-      const runId = state.runs().length > 0 ? state.runs()[0].id : 'shim-run';
-
-      // Signal type configurations for variety
-      const signalTypes = [
-        { type: 'RSI_OVERSOLD', action: 'BUY', reason: 'RSI oversold ({rsi}) with {priceChange}% price drop. Potential bounce opportunity.' },
-        { type: 'BREAKOUT', action: 'BUY', reason: 'Volume breakout detected at {price}. Breaking above resistance level.' },
-        { type: 'MOMENTUM', action: 'BUY', reason: 'Strong upward momentum with {rsi} RSI and positive MACD crossover.' },
-        { type: 'REVERSAL', action: 'SELL', reason: 'Bearish reversal pattern forming. RSI at {rsi}, considering exit.' },
-        { type: 'SUPPORT_BOUNCE', action: 'BUY', reason: 'Bounced off key support level at ${price}. Expecting continuation.' },
-      ];
-
-      // Create 3-5 signals for each symbol to generate plenty of data
-      let signalCounter = 0;
-      for (let i = 0; i < symbols.length && i < 50; i++) { // Limit to first 50 symbols
-        const symbol = symbols[i];
-        const numSignals = 3 + Math.floor(Math.random() * 3); // 3-5 signals per symbol
-
-        for (let j = 0; j < numSignals; j++) {
-          const typeConfig = signalTypes[Math.floor(Math.random() * signalTypes.length)];
-          const rsi = Math.floor(Math.random() * 40) + 20; // 20-60 RSI
-          const priceChange = (Math.random() * 6 - 3).toFixed(2); // -3% to +3%
-          const price = (50 + Math.random() * 450).toFixed(2); // $50-$500
-
-          const tradeDirection = typeConfig.action === 'SELL' || typeConfig.type === 'REVERSAL' ? 'SHORT' : 'LONG';
-
-          const shimSignal: RhTradeSignal = {
-            id: `shim-${symbol}-${signalCounter++}`,
-            runId: runId,
-            symbol: symbol,
-            action: typeConfig.action as 'BUY' | 'SELL' | 'HOLD',
-            status: 'PENDING',
-            reason: typeConfig.reason
-              .replace('{rsi}', rsi.toString())
-              .replace('{priceChange}', priceChange)
-              .replace('{price}', price),
-            createdAt: new Date(Date.now() - Math.random() * 3600000).toISOString(), // Within last hour
-            confidence: Math.floor(Math.random() * 30) + 70, // 70-100%
-            signalType: typeConfig.type,
-            tradeDirection,
-            indicators: {
-              rsi: rsi,
-              priceChange: parseFloat(priceChange) / 100,
-              currentPrice: parseFloat(price),
-            },
-          };
-          shimSignals.push(shimSignal);
-        }
-      }
-
-      console.log('[RH Agent Store] Shim signals generated:', shimSignals.length);
-      patchState(state, { signals: shimSignals });
-      snackBar.open(
-        `Generated ${shimSignals.length} shim signals for UI testing`,
-        'Dismiss',
-        { duration: 3000 }
-      );
     },
 
     /**
