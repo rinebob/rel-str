@@ -3,12 +3,13 @@
 ## What It Does
 
 A daily automated trading signal system that:
-1. Runs at **12:00 PM PT, Monday–Friday** via a Firebase scheduled Cloud Function
-2. Loads ~700 monitored symbols from Firestore (`rh-agent-symbols`)
-3. Enqueues a Cloud Tasks job per symbol for parallel analysis
-4. Each worker reads **pre-cached daily OHLCV bars** from `rs-symbol-cache/{marketDate}/symbols/{symbol}` (internal Firestore cache populated separately — see Data Source below), computes RSI and price change, and writes trade opportunities to Firestore if signals trigger
-5. An Angular dashboard lets the user view signals, filter by symbol/type, and approve or reject trade opportunities
-6. The user can also trigger a **manual run** via the dashboard's "Run Now" button — uses the same Cloud Tasks processing as the scheduled run, just with `triggeredBy: 'manual'`
+1. Triggers automatically when SavantAPI publishes a `partner-data-ready` Pub/Sub message with `runType = "intraday-snapshot"` (typically 7 AM–12 PM PT, Mon–Fri)
+2. Fetches a bulk intraday snapshot from `callPartnerIntradaySnapshotV2` (one POST call for all symbols)
+3. Loads monitored symbols from Firestore (`rh-agent-symbols`; currently 20 test symbols, full ~700-symbol universe available via `seedAllSymbolsFromPartner`)
+4. Enqueues a Cloud Tasks job per symbol for parallel analysis, embedding the intraday snapshot in each job payload
+5. Each worker reads **pre-cached daily OHLCV bars** from `rs-symbol-cache/{marketDate}/symbols/{symbol}` (internal Firestore cache populated separately — see Data Source below), appends the intraday price, computes RSI(14) and price change, and writes trade opportunities to Firestore if signals trigger
+6. An Angular dashboard lets the user view signals, filter by symbol/type, and approve or reject trade opportunities
+7. The user can also trigger a **manual run** via the dashboard's "Run Now" button — uses the same Cloud Tasks processing as the PDR-triggered run, just with `triggeredBy: 'manual'`
 
 ---
 
@@ -28,21 +29,23 @@ All backend code lives in `functions/src/rh-agent-cloud-function/`.
 
 | Function | Type | Purpose |
 |----------|------|---------|
-| `rhAgentDailyScheduler` | Scheduled | Runs at `0 20 * * 1-5` (8 PM UTC = 12 PM PT, Mon–Fri). Loads symbols, creates a run doc, enqueues Cloud Tasks jobs. |
-| `rhAgentProcessSymbol` | Cloud Tasks worker | Processes a single symbol. Reads cached OHLCV bars from `rs-symbol-cache`, computes RSI(14) + price change, writes a trade opportunity to `rh-agent-opportunities` if signal triggers. Used by both scheduler and manual run. |
-| `rhAgentManualRun` | HTTPS Callable | Triggered by the dashboard "Run Now" button. Loads symbols, creates run doc with `triggeredBy: 'manual'`, enqueues Cloud Tasks to `rhAgentProcessSymbol`. Same processing as scheduled run. |
+| `rhAgentPdrTrigger` | Pub/Sub | Listens to `partner-data-ready` topic. Fires when `runType = "intraday-snapshot"` and `runStatus = "completed"`/`"completed_with_errors"`. Fetches intraday snapshot, loads symbols, creates run doc, enqueues Cloud Tasks. |
+| `rhAgentProcessSymbol` | Cloud Tasks worker | Processes a single symbol. Reads cached OHLCV bars from `rs-symbol-cache`, appends intraday price from payload, computes RSI(14) + price change, writes a trade opportunity to `rh-agent-opportunities` if signal triggers. Used by all trigger types. |
+| `rhAgentManualRun` | HTTPS Callable | Triggered by the dashboard "Run Now" button. Loads symbols, creates run doc with `triggeredBy: 'manual'` (run ID: `{marketDate}_manual_{timestamp}`), enqueues Cloud Tasks to `rhAgentProcessSymbol`. Same processing as PDR-triggered run. |
 | `rhAgentGetStatus` | HTTPS Callable | Returns agent status doc from Firestore. |
 | `rhAgentGetRunHistory` | HTTPS Callable | Returns recent run documents. |
 | `rhAgentGetSignalHistory` | HTTPS Callable | Returns recent signal documents. |
 | `rhAgentGetOpportunities` | HTTPS Callable | Returns trade opportunities pending user approval. |
-| `rhAgentTriggerDaily` | HTTP Admin | Manual trigger for the daily scheduler (admin use). |
-| `seedRhAgentSymbolsAdmin` | HTTP Admin | Seeds the `rh-agent-symbols` collection. |
-| `clearRhAgentSymbolsAdmin` | HTTP Admin | Clears the `rh-agent-symbols` collection. |
+| `rhAgentTriggerDaily` | HTTP Admin | Manual HTTP trigger for testing. Accepts `?date=YYYY-MM-DD` override. |
+| `seedRhAgentSymbolsAdmin` | HTTP Admin | Seeds `rh-agent-symbols` with top-20 market cap symbols. |
+| `clearRhAgentSymbolsAdmin` | HTTP Admin | Clears all docs from `rh-agent-symbols`. |
+| `seedAllSymbolsFromPartner` | HTTP Admin | Fetches full active symbol universe from SavantAPI (`callPartnerTrackedSymbols`) and seeds `rh-agent-symbols`. |
 
-### Schedule
-- Cron: `0 20 * * 1-5` (UTC), `timeZone: 'Etc/UTC'`
-- Equivalent: **12:00 PM Pacific Time, Monday–Friday**
-- ⚠️ If this changes, also update `RH_AGENT_SCHEDULE_CRON` in `src/app/features/rh-agent/rh-agent.service.ts`
+### Trigger
+- **Primary:** Pub/Sub `partner-data-ready` topic, `runType = "intraday-snapshot"`
+- **Manual (dashboard):** `rhAgentManualRun` HTTPS callable → uses today's `marketDate`, `triggeredBy: 'manual'`
+- **Manual (HTTP admin):** `rhAgentTriggerDaily` → `?date=YYYY-MM-DD` override supported
+- ⚠️ If the scheduled cron ever replaces the PDR trigger, also update `RH_AGENT_SCHEDULE_CRON` in `src/app/features/rh-agent/rh-agent.service.ts`
 
 ### Secrets
 - `ANTHROPIC_API_KEY` — stored in Firebase Secret Manager, used by worker and manual run functions
@@ -51,28 +54,29 @@ All backend code lives in `functions/src/rh-agent-cloud-function/`.
 
 | File | Purpose |
 |------|---------|
-| `rh-agent-config.ts` | All shared interfaces (`RhAgentRun`, `RhAgentDailyRun`, `RhTradeSignal`, `RhAgentStatus`, etc.) and enums (`RhAgentRunStatus`, `RhSignalStatus`, `RhTradeAction`). Single source of truth for Firestore data shapes. |
-| `rh-agent-scheduler.ts` | `rhAgentDailyScheduler` — creates run doc, loads symbols, enqueues Cloud Tasks. Writes `triggeredBy: 'schedule'` on the run. |
-| `rh-agent-worker.ts` | `rhAgentProcessSymbol` — Cloud Tasks handler. Reads `rs-symbol-cache/{marketDate}/symbols/{symbol}` for daily bars. Computes RSI(14) and 1-day price change. Writes to `rh-agent-opportunities` if RSI < 30 AND price drop > 2%. No Claude during scanning — Claude is reserved for post-scan approval flow. Used by both scheduler and manual run. |
-| `rh-agent-callables.ts` | `rhAgentManualRun` — HTTPS callable for manual runs. Loads symbols, creates run doc with `triggeredBy: 'manual'`, enqueues Cloud Tasks to `rhAgentProcessSymbol`. Same processing as scheduled run, just triggered manually. Also contains status/history callables. |
+| `rh-agent-config.ts` | All shared interfaces (`RhAgentRun`, `RhAgentDailyRun`, `RhTradeSignal`, `RhAgentStatus`, `RhTradeOpportunity`, `IntradaySnapshot`, `SymbolJobPayload`, etc.) and enums (`RhAgentRunStatus`, `RhAgentJobStatus`, `RhOpportunityStatus`, `RhOpportunityAction`). Single source of truth for Firestore data shapes. |
+| `rh-agent-shared.ts` | Shared helpers used by both the PDR trigger and the manual callable: `getMarketDate()`, `getDeadlineISO()`, `loadEnabledSymbols()`, `createDailyRun()`, `createJobAndEnqueue()`. Run IDs: PDR runs use `marketDate` (e.g., `"2026-06-16"`); manual runs use `"{marketDate}_manual_{timestamp}"`. |
+| `rh-agent-trigger.ts` | `rhAgentPdrTrigger` — Pub/Sub trigger on `partner-data-ready`. Filters to `runType="intraday-snapshot"`, `status="end"`, `runStatus="completed"`/`"completed_with_errors"`. Fetches bulk intraday snapshot via `callPartnerIntradaySnapshotV2`, then calls `startRhAgentRun`. Also exports `rhAgentTriggerDaily` (HTTP admin trigger with `?date` override). |
+| `rh-agent-worker.ts` | `rhAgentProcessSymbol` — Cloud Tasks handler. Reads `rs-symbol-cache/{marketDate}/symbols/{symbol}` for historical daily bars. Appends intraday price from job payload (`intraday?.ip`). Computes RSI(14) and 1-day price change. Writes to `rh-agent-opportunities` if RSI < 30 AND price drop > 2%. No Claude during scanning — Claude is reserved for post-scan approval flow. |
+| `rh-agent-callables.ts` | `rhAgentManualRun` — HTTPS callable for manual runs. Uses shared helpers from `rh-agent-shared.ts`. Creates run doc with `triggeredBy: 'manual'`, enqueues Cloud Tasks to `rhAgentProcessSymbol`. |
 | `rh-agent-dashboard-callables.ts` | Status, run history, signal history, and opportunities callables used by the Angular dashboard. |
-| `rh-agent-firestore.ts` | All Firestore write helpers for the dashboard callables. |
-| `rh-agent-trigger.ts` | `rhAgentTriggerDaily` — HTTP endpoint to manually trigger the scheduler. |
-| `rh-agent-seed-admin.ts` | Admin utilities to seed/clear the symbols collection. |
+| `rh-agent-firestore.ts` | Firestore write helpers for the legacy `rh-agent-signals` path. |
+| `rh-agent-seed-admin.ts` | Admin HTTP functions: `seedRhAgentSymbolsAdmin` (top-20 hardcoded symbols), `clearRhAgentSymbolsAdmin`, `seedAllSymbolsFromPartner` (fetches full universe via `callPartnerTrackedSymbols`). |
 | `rh-agent-secrets.ts` | Secret bindings for Cloud Functions. |
+| `rh-agent-scheduled.ts` | Legacy MCP-based scheduled function (`rhAgentScheduled`). **Not exported from `index.ts`** — superseded by the PDR-triggered architecture. Kept for reference. |
 
 ---
 
 ## Firestore Collections
 
 | Collection | Purpose |
-|-----------|---------|
-| `rh-agent-runs` | One doc per run. Fields: `id`, `status`, `startedAt`, `completedAt`, `triggeredBy`, `type`, `marketDate`, `totalSymbols`, `processedCount`, `signalsGenerated`, `errors`, `logs`. |
-| `rh-agent-runs/{runId}/jobs` | One doc per symbol job within a run. |
-| `rh-agent-signals` | One doc per trade signal (legacy/manual runs). Fields: `id`, `runId`, `symbol`, `action`, `status`, `signalType`, `tradeDirection`, `reason`, `indicators`, `confidence`, `dryRun`, `createdAt`. |
+|-----------|----------|
+| `rh-agent-runs` | One doc per run. PDR runs: doc ID = `marketDate` (e.g., `"2026-06-16"`). Manual runs: doc ID = `"{marketDate}_manual_{timestamp}"`. Fields: `id`, `type`, `status`, `marketDate`, `triggeredBy`, `totalSymbols`, `processedCount`, `successCount`, `failureCount`, `opportunitiesFound`, `opportunitiesApproved`, `opportunitiesRejected`, `opportunitiesExecuted`, `startedAt`, `completedAt`, `deadlineAt`, `errors`, `logs`. |
+| `rh-agent-runs/{runId}/jobs` | One doc per symbol job within a run. Doc ID = symbol. Fields: `id`, `symbol`, `status` (`PENDING`/`IN_PROGRESS`/`SUCCESS`/`FAILED`), `attempts`, `lastError`, `createdAt`, `startedAt`, `completedAt`, `createdOpportunity`. |
+| `rh-agent-opportunities` | One doc per trade opportunity. Doc ID format: `"{marketDate}_{dayOfWeek}_{symbol}_{action}_{signalType}"` (e.g., `"2026-06-16_mon_AAPL_BUY_RSI_OVERSOLD"`). Fields: `id`, `runId`, `marketDate`, `symbol`, `action`, `signalType`, `strategy`, `confidence`, `reason`, `indicators` (`rsi`, `priceChange`, `currentPrice`), `suggestedAmount`, `orderType`, `status` (`PENDING`/`APPROVED`/`REJECTED`/`EXECUTED`/`FAILED`), `createdAt`, `updatedAt`, plus optional approval/rejection/execution fields. |
+| `rh-agent-signals` | Legacy trade signals from MCP-based runs. Not written by the current PDR architecture. |
 | `rh-agent-status/current` | Singleton status doc. Fields: `isEnabled`, `lastRunAt`, `lastRunStatus`, `totalRuns`, `totalSignalsGenerated`, `symbolsMonitored`, `schedule`. Note: `totalRuns` and `totalSignalsGenerated` may be stale — the dashboard derives these live from loaded data instead. |
-| `rh-agent-symbols` | One doc per monitored symbol with `enabled` flag. Loaded by the scheduler. |
-| `rh-agent-opportunities` | Trade opportunities pending user approval. |
+| `rh-agent-symbols` | One doc per monitored symbol. Doc ID = symbol. Fields: `symbol`, `enabled`, `priority`, `createdAt`, optionally `source` (`"partner-universe"` when seeded via `seedAllSymbolsFromPartner`). |
 
 ---
 
@@ -158,27 +162,28 @@ export const RH_AGENT_SCHEDULE_CRON = '0 20 * * 1-5'; // 8 PM UTC = 12 PM PT, Mo
 
 1. User clicks **Run Now**
 2. Angular calls `rhAgentManualRun` HTTPS callable
-3. Function loads all enabled symbols from `rh-agent-symbols` (or filters to requested symbols)
-4. Creates run doc in `rh-agent-runs` with `triggeredBy: 'manual'`, `status: RUNNING`, `type: 'daily-scan'`
-5. For each symbol: creates job doc in `rh-agent-runs/{runId}/jobs/{symbol}` and enqueues Cloud Task to `rhAgentProcessSymbol`
+3. Function uses `loadEnabledSymbols()` from `rh-agent-shared.ts` to get all enabled symbols (or filters to requested symbols)
+4. Creates run doc via `createDailyRun()` with `triggeredBy: 'manual'`, run ID = `"{marketDate}_manual_{timestamp}"`
+5. For each symbol: creates job doc in `rh-agent-runs/{runId}/jobs/{symbol}` and enqueues Cloud Task to `rhAgentProcessSymbol` via `createJobAndEnqueue()`
 6. Returns immediately with `{ runId, status: 'RUNNING', enqueued: N, totalSymbols: N }` — processing happens asynchronously
-7. Workers process in parallel (max 20 concurrent, 10/sec) just like scheduled runs
+7. Workers process in parallel (max 20 concurrent, 10/sec)
 8. Dashboard reloads after 2 seconds to show the run and job progress
 
-## Run Flow (Scheduled)
+## Run Flow (PDR-Triggered)
 
-1. `rhAgentDailyScheduler` fires at 12 PM PT
-2. Loads all enabled symbols from `rh-agent-symbols`
-3. Creates run doc with `triggeredBy: 'schedule'`
-4. Enqueues one Cloud Tasks job per symbol → `rhAgentProcessSymbol` (max 20 concurrent, 10/sec)
-5. Each worker:
-   - Reads `rs-symbol-cache/{marketDate}/symbols/{symbol}` for cached daily OHLCV bars
-   - If < 15 bars found → skips (no opportunity)
-   - Computes RSI(14) from closing prices
-   - Computes 1-day price change
+1. SavantAPI publishes Pub/Sub message on `partner-data-ready` with `runType: "intraday-snapshot"`, `status: "end"`, `runStatus: "completed"`
+2. `rhAgentPdrTrigger` receives the message and validates fields
+3. Calls `callPartnerIntradaySnapshotV2(symbols)` — one bulk POST to SavantAPI for all enabled symbols
+4. Calls `startRhAgentRun(marketDate, 'pdr', intradaySnapshots)`
+5. `startRhAgentRun` loads symbols, creates run doc via `createDailyRun()` (run ID = `marketDate`), enqueues one Cloud Task per symbol with intraday snapshot in payload
+6. Each worker (`rhAgentProcessSymbol`):
+   - Reads `rs-symbol-cache/{marketDate}/symbols/{symbol}` for cached daily OHLCV bars (requires ≥ 14 bars)
+   - Uses `intraday?.ip` from payload as today's price (falls back to last historical close if missing)
+   - Computes RSI(14) from `[...historicalCloses.slice(0, 14), currentPrice]`
+   - Computes 1-day price change: `(currentPrice - previousClose) / previousClose`
    - If RSI < 30 AND price drop > 2% → creates a `PENDING` opportunity in `rh-agent-opportunities`
    - Increments run `processedCount`, `successCount`/`failureCount`, `opportunitiesFound`
-6. When all jobs complete → run status set to `SUCCESS` or `PARTIAL`
+7. When all jobs complete → run status set to `SUCCESS` or `PARTIAL`
 
 ---
 
@@ -186,9 +191,10 @@ export const RH_AGENT_SCHEDULE_CRON = '0 20 * * 1-5'; // 8 PM UTC = 12 PM PT, Mo
 
 The worker reads from `rs-symbol-cache/{marketDate}/symbols/{symbol}` — an internal Firestore collection populated by a **separate process** (`rs-time-series-jobs.worker.ts`). Each document contains a `dailyBars` array of OHLCV objects (fields: `close`/`c`, `date`/`t`).
 
-- This cache must be populated before 12 PM PT on each market day for the run to find data
-- `REQUIRE_FRESH_DATA` flag in `rh-agent-worker.ts` (currently `false`) can be set to `true` in production to enforce that bars are from today
-- The Robinhood API / MCP server is **not used** for price data — only the internal cache
+- This cache must be populated before the PDR intraday-snapshot trigger fires for the run to find historical data
+- Today's intraday price comes from the **job payload** (`intraday.ip`), which was fetched in bulk by `rhAgentPdrTrigger` via `callPartnerIntradaySnapshotV2` — workers do not make any external API calls for price data
+- `REQUIRE_FRESH_DATA` flag in `rh-agent-worker.ts` (currently `false`) can be set to `true` in production to enforce that the most recent cached bar matches `marketDate`
+- The Robinhood API / MCP server is **not used** for price data — only the internal cache and SavantAPI intraday snapshot
 
 ---
 

@@ -1,70 +1,92 @@
 # RH Agent Cloud Function
 
-Firebase Cloud Function wrapper for the Robinhood AI Trading Agent.
+Firebase Cloud Functions for the Robinhood AI Trading Agent.
 
 ## Overview
 
-The RH Agent is an autonomous trading agent that uses Claude (Anthropic) and Robinhood MCP (Model Context Protocol) to:
-- Monitor stock prices and technical indicators (RSI, MACD)
-- Generate trade signals based on configured strategies
-- Place orders via Robinhood (optional - currently dry-run mode)
-- Persist all signals and results to Firestore
+Event-driven daily scan that:
+1. Triggers on `partner-data-ready` Pub/Sub (`runType: "intraday-snapshot"`)
+2. Fetches a bulk intraday snapshot from SavantAPI for all monitored symbols
+3. Enqueues one Cloud Tasks job per symbol for parallel analysis
+4. Each worker reads historical OHLCV bars from `rs-symbol-cache`, computes RSI(14) + price change, and writes a trade opportunity to Firestore if RSI < 30 AND price drop > 2%
+5. Opportunities appear in the Angular dashboard for user review and approval
+
+All runs are **dry-run only** — no real trades are placed until the Robinhood OAuth integration is complete.
 
 ## Architecture
 
 ```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│   Cloud Schedule │────▶│  rhAgentScheduled │────▶│   Firestore    │
-│  (15 min cron)   │     │    (v2 Function)  │     │  (runs/signals)│
-└─────────────────┘     └──────────────────┘     └─────────────────┘
-                               │
-                               ▼
-                        ┌──────────────────┐
-                        │  Robinhood MCP   │
-                        │  (OAuth2)        │
-                        └──────────────────┘
-                               │
-                               ▼
-                        ┌──────────────────┐
-                        │   Anthropic      │
-                        │   Claude API     │
-                        └──────────────────┘
+partner-data-ready Pub/Sub (runType: intraday-snapshot)
+    │
+    ▼
+rhAgentPdrTrigger
+    ├─ callPartnerIntradaySnapshotV2(symbols)  [one bulk POST]
+    ├─ createDailyRun(marketDate, 'pdr')
+    └─ createJobAndEnqueue(symbol, intraday)   [× N symbols]
+            │
+            ▼
+    Cloud Tasks Queue (max 20 concurrent)
+            │
+            ▼
+    rhAgentProcessSymbol (per symbol)
+            ├─ getCachedBars(symbol, marketDate)  [rs-symbol-cache]
+            ├─ compute RSI(14) + priceChange
+            └─ storeOpportunity()  [if RSI < 30 AND drop > 2%]
+                        │
+                        ▼
+                rh-agent-opportunities (Firestore)
+                        │
+                        ▼
+                Angular Dashboard (review/approve)
 ```
 
 ## Files
 
-- `rh-agent-config.ts` - Collection names, enums, and interfaces
-- `rh-agent-secrets.ts` - Firebase Secrets configuration
-- `rh-agent-firestore.ts` - Firestore persistence layer
-- `rh-agent-scheduled.ts` - Scheduled Cloud Function
-- `rh-agent-callables.ts` - HTTP callable functions (manual trigger, status, history)
+| File | Exports | Purpose |
+|------|---------|---------|
+| `rh-agent-config.ts` | interfaces, enums, constants | All Firestore data shapes and collection names |
+| `rh-agent-shared.ts` | `getMarketDate`, `getDeadlineISO`, `loadEnabledSymbols`, `createDailyRun`, `createJobAndEnqueue` | Shared helpers used by PDR trigger and manual callable |
+| `rh-agent-trigger.ts` | `rhAgentPdrTrigger`, `rhAgentTriggerDaily` | PDR Pub/Sub trigger; HTTP admin trigger with `?date` override |
+| `rh-agent-worker.ts` | `rhAgentProcessSymbol` | Cloud Tasks worker: reads cache, computes indicators, writes opportunities |
+| `rh-agent-callables.ts` | `rhAgentManualRun` | HTTPS callable for dashboard "Run Now" button |
+| `rh-agent-dashboard-callables.ts` | `rhAgentGetStatus`, `rhAgentGetRunHistory`, `rhAgentGetSignalHistory`, `rhAgentGetOpportunities` | Dashboard data callables |
+| `rh-agent-seed-admin.ts` | `seedRhAgentSymbolsAdmin`, `clearRhAgentSymbolsAdmin`, `seedAllSymbolsFromPartner` | Symbol list management |
+| `rh-agent-firestore.ts` | Firestore write helpers | Legacy `rh-agent-signals` path helpers |
+| `rh-agent-secrets.ts` | `rhAgentSecrets` | Firebase Secret Manager bindings |
+| `rh-agent-scheduled.ts` | `rhAgentScheduled` | Legacy MCP-based scheduled function — **not exported**, kept for reference |
+
+## Firestore Collections
+
+| Collection | Doc ID | Purpose |
+|-----------|--------|---------|
+| `rh-agent-symbols` | `{symbol}` | Monitored symbols with `enabled` flag and `priority` |
+| `rh-agent-runs` | PDR: `marketDate`; manual: `{marketDate}_manual_{ts}` | Run metadata and counters |
+| `rh-agent-runs/{runId}/jobs` | `{symbol}` | Per-symbol job status |
+| `rh-agent-opportunities` | `{date}_{dow}_{symbol}_{action}_{signalType}` | Trade opportunities pending approval |
+| `rh-agent-status/current` | `current` | Agent status singleton |
+| `rh-agent-signals` | auto | Legacy signal records (not written by current architecture) |
 
 ## Setup
 
 ### 1. Configure Firebase Secrets
 
 ```bash
-# Set the Anthropic API key
 firebase functions:secrets:set ANTHROPIC_API_KEY
-# Enter your Anthropic API key when prompted
-
-# Set the Robinhood OAuth tokens
-firebase functions:secrets:set ROBINHOOD_ACCESS_TOKEN
-# Enter your Robinhood access token (from .rh-tokens.json after CLI auth)
-
-firebase functions:secrets:set ROBINHOOD_REFRESH_TOKEN
-# Enter your Robinhood refresh token (optional, for token refresh)
 ```
 
-### 2. Get Robinhood OAuth Token
+### 2. Seed Symbol List
 
-Use the CLI version first to authenticate:
-
+**Option A — 20 test symbols:**
 ```bash
-cd functions
-npm run dev
-# Follow the OAuth flow, authenticate with Robinhood
-# Copy the access_token from .rh-tokens.json
+# Call the admin HTTP endpoint (once deployed)
+curl -X POST https://<region>-rel-str.cloudfunctions.net/seedRhAgentSymbolsAdmin
+```
+
+**Option B — Full ~700-symbol universe from SavantAPI:**
+```bash
+# Clear existing, then seed from partner
+curl -X POST https://<region>-rel-str.cloudfunctions.net/clearRhAgentSymbolsAdmin
+curl -X POST https://<region>-rel-str.cloudfunctions.net/seedAllSymbolsFromPartner
 ```
 
 ### 3. Deploy Functions
@@ -72,200 +94,47 @@ npm run dev
 ```bash
 cd functions
 npm run build
-firebase deploy --only functions:rhAgentScheduled,functions:rhAgentManualRun,functions:rhAgentGetStatus,functions:rhAgentGetRunHistory,functions:rhAgentGetSignalHistory
+firebase deploy --only functions:rhAgentPdrTrigger,functions:rhAgentProcessSymbol,functions:rhAgentManualRun,functions:rhAgentGetStatus,functions:rhAgentGetRunHistory,functions:rhAgentGetOpportunities,functions:rhAgentTriggerDaily,functions:seedRhAgentSymbolsAdmin,functions:clearRhAgentSymbolsAdmin,functions:seedAllSymbolsFromPartner
 ```
 
-## Cloud Functions
+## Manual Testing
 
-### Scheduled Function
+Trigger a run with a historical date to test against cached data:
 
-**Name:** `rhAgentScheduled`
-
-**Schedule:** Every 15 minutes, 1PM-8PM UTC (9AM-4PM ET), Monday-Friday
-
-**Config:**
-- Dry-run mode (no real orders placed)
-- Processes enabled symbols from DEFAULT_WATCHLIST
-- Requires `ANTHROPIC_API_KEY` and `ROBINHOOD_ACCESS_TOKEN` secrets
-
-### Callable Functions
-
-All callable functions support CORS for the Angular frontend.
-
-#### `rhAgentManualRun`
-
-Trigger a manual agent run on demand.
-
-**Request:**
-```typescript
-{
-  symbols?: string[];    // Optional: specific symbols to run
-  strategy?: string;     // Optional: specific strategy
-  dryRun?: boolean;      // Default: true
-}
+```bash
+curl "https://rhagenttriggerdaily-<hash>-uc.a.run.app?date=2026-06-13"
 ```
 
-**Response:**
-```typescript
-{
-  runId: string;
-  status: string;
-  symbolsProcessed: number;
-  signalsGenerated: number;
-  message: string;
-}
-```
+## Signal Strategy (MVP)
 
-#### `rhAgentGetStatus`
+**RSI Oversold Bounce** — fires when both conditions are true:
+- RSI(14) < 30 (oversold)
+- 1-day price change < −2%
 
-Get current agent status.
+Confidence = `round((30 − rsi) / 30 * 100)`, capped at 95.
 
-**Response:**
-```typescript
-{
-  isEnabled: boolean;
-  lastRunAt?: string;
-  lastRunStatus?: string;
-  totalRuns: number;
-  totalSignalsGenerated: number;
-  symbolsMonitored: string[];
-  schedule: string;
-}
-```
-
-#### `rhAgentGetRunHistory`
-
-Get recent run history.
-
-**Request:** `{ limit?: number }` (default: 20)
-
-**Response:** Array of run records
-
-#### `rhAgentGetSignalHistory`
-
-Get recent trade signals.
-
-**Request:** `{ limit?: number, runId?: string }` (default: 50)
-
-**Response:** Array of signal records
-
-## Firestore Collections
-
-### `rh-agent-runs`
-
-Stores agent run metadata.
-
-**Document Fields:**
-- `id` - Run ID
-- `status` - PENDING, RUNNING, SUCCESS, PARTIAL, FAILED
-- `startedAt` - Timestamp
-- `completedAt` - Timestamp (optional)
-- `strategy` - Strategy name
-- `dryRun` - Boolean
-- `symbolsProcessed` - Count
-- `signalsGenerated` - Count
-- `errors` - Error messages array
-- `logs` - Log messages array
-- `summary` - Run summary
-
-### `rh-agent-signals`
-
-Stores individual trade signals.
-
-**Document Fields:**
-- `id` - Signal ID
-- `runId` - Parent run ID
-- `symbol` - Stock symbol
-- `strategy` - Strategy used
-- `action` - BUY, SELL, HOLD
-- `status` - GENERATED, PENDING_EXECUTION, EXECUTED, REJECTED, FAILED, DRY_RUN
-- `amount` - Trade amount (optional)
-- `reason` - Signal reason
-- `indicators` - Technical indicators (optional)
-- `createdAt` - Timestamp
-- `executedAt` - Execution timestamp (optional)
-- `orderId` - Order ID (optional)
-- `error` - Error message (optional)
-- `dryRun` - Boolean
-
-### `rh-agent-status`
-
-Singleton document with agent state.
-
-**Document ID:** `current`
-
-**Fields:**
-- `isEnabled` - Boolean
-- `lastRunAt` - Timestamp
-- `lastRunId` - Last run ID
-- `lastRunStatus` - Status of last run
-- `totalRuns` - Total run count
-- `totalSignalsGenerated` - Total signals count
-- `symbolsMonitored` - Array of symbols
-- `schedule` - Cron schedule string
-- `updatedAt` - Last update timestamp
-
-## Strategies
-
-### RSI Oversold
-- Triggers when RSI(14) < 30 (oversold)
-- Places market buy order
-- Also considers RSI 30-40 for limit orders
-
-### MACD Crossover
-- Triggers on MACD histogram crossover
-- Positive histogram = Buy
-- Negative histogram = Sell (if holding position)
-
-### Dip Buy
-- Triggers when stock drops 2% or more today
-- Places market buy order
-
-### Portfolio Summary
-- Reports current portfolio value, positions, buying power
-
-### Rebalance
-- Suggests trades to rebalance portfolio
-
-### Watchlist Check
-- Reports prices for all watchlist symbols
-
-### Earnings Play
-- Checks for upcoming earnings announcements
+Opportunity ID format: `2026-06-16_mon_AAPL_BUY_RSI_OVERSOLD`
 
 ## Local Development
 
 ```bash
-# Terminal 1 - Start emulators
+# Terminal 1
 npm run emulators:start
 
-# Terminal 2 - Build functions
- cd functions
-npm run build:watch
+# Terminal 2
+cd functions && npm run build:watch
 
-# Terminal 3 - Serve frontend
+# Terminal 3
 ng serve
 ```
 
-Note: In emulator mode, secrets must be set in `.env.local`:
-
+Emulator `.env.local`:
 ```
 ANTHROPIC_API_KEY=your_key_here
-ROBINHOOD_ACCESS_TOKEN=your_token_here
 ```
 
-## Security Considerations
+## Status
 
-1. **Secrets never committed** - Use Firebase Secret Manager
-2. **Dry-run by default** - Scheduled runs always use dryRun=true
-3. **Auth required** - Callable functions require authenticated users
-4. **CORS enabled** - Only for savanttrader.com domain
-
-## Future Enhancements
-
-1. Token refresh for Robinhood OAuth
-2. Live trading mode (with additional confirmation steps)
-3. Email notifications for signals
-4. More technical indicators and strategies
-5. Backtesting framework
-6. Portfolio performance analytics
+- **Robinhood MCP** — disabled; no real orders placed
+- **Claude** — reserved for post-scan approval flow (not used during scanning)
+- **Live trading** — pending Robinhood OAuth2 integration (mechanism TBD)
