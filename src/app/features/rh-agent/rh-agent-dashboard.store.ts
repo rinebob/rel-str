@@ -8,6 +8,7 @@ import { inject, computed } from '@angular/core';
 import { signalStore, withState, withComputed, withMethods, patchState } from '@ngrx/signals';
 import { RhAgentStore } from './rh-agent.store';
 import { RhTradeSignal, RH_AGENT_SCHEDULE_CRON } from './rh-agent.service';
+import { RobinhoodTradeService, TradePrompt, TradeBatch } from '../rs/services/robinhood-trade.service';
 
 type SignalStatus = 'PENDING' | 'ACCEPTED' | 'CONSIDERED' | 'REJECTED';
 
@@ -416,11 +417,78 @@ export const RhAgentDashboardStore = signalStore(
     },
 
     /**
-     * Send order for an accepted signal (placeholder)
+     * Get accepted signals ready for trade execution
+     */
+    getAcceptedSignalsForTrade(runId: string): RhTradeSignal[] {
+      return this.getSignalsByStatus(runId, 'ACCEPTED');
+    },
+
+    /**
+     * Generate trade batch from accepted signals
+     */
+    generateTradeBatchFromAccepted(runId: string, portfolioValue: number = 5000): TradeBatch | null {
+      const acceptedSignals = this.getAcceptedSignalsForTrade(runId);
+      if (acceptedSignals.length === 0) return null;
+
+      const tradeService = new RobinhoodTradeService();
+      
+      // Convert signals to trade inputs (equal allocation for now)
+      const allocationPerTrade = Math.floor(portfolioValue / acceptedSignals.length);
+      
+      const trades = acceptedSignals.map(signal => ({
+        symbol: signal.symbol,
+        side: (signal.action?.toLowerCase() === 'sell' ? 'sell' : 'buy') as 'buy' | 'sell',
+        amount: allocationPerTrade,
+        orderType: 'market' as const,
+      }));
+
+      return tradeService.generateBatchPrompt(trades);
+    },
+
+    /**
+     * Generate single trade prompt from a signal
+     */
+    generateTradeFromSignal(signal: RhTradeSignal, amount: number): TradePrompt {
+      const tradeService = new RobinhoodTradeService();
+      return tradeService.generateTradePrompt(
+        signal.symbol,
+        (signal.action?.toLowerCase() === 'sell' ? 'sell' : 'buy') as 'buy' | 'sell',
+        amount,
+        'market'
+      );
+    },
+
+    /**
+     * Send order for an accepted signal - now generates trade prompt
      */
     sendOrder(signalId: string): void {
-      console.log('[RH Agent Dashboard] Send order for signal:', signalId);
-      // TODO: Implement actual order sending
+      console.log('[RH Agent Dashboard] Generate trade prompt for signal:', signalId);
+      // Find the signal - get current run from dataStore
+      const runs = dataStore.runs();
+      const currentRun = runs.length > 0 ? runs[0] : null;
+      if (!currentRun) return;
+      
+      const signal = this.getSignalsByStatus(currentRun.id, 'ACCEPTED')
+        .find(s => s.id === signalId);
+      if (!signal) return;
+
+      // Generate single trade (default $100 per signal)
+      const trade = this.generateTradeFromSignal(signal, 100);
+      
+      // Copy to clipboard
+      const tradeService = new RobinhoodTradeService();
+      tradeService.copyToClipboard(trade.promptText).then(success => {
+        if (success) {
+          console.log('[RH Agent Dashboard] Trade prompt copied for:', signal.symbol);
+        }
+      });
+    },
+
+    /**
+     * Generate batch trade for all accepted signals
+     */
+    generateBatchTrade(runId: string): TradeBatch | null {
+      return this.generateTradeBatchFromAccepted(runId);
     },
   }))
 );

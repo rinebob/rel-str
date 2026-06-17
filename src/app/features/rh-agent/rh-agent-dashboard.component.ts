@@ -26,6 +26,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 
 import { RhAgentStore } from './rh-agent.store';
+import { RobinhoodTradePanelComponent } from '../rs/components/robinhood-trade-panel.component';
 import { RhAgentDashboardStore } from './rh-agent-dashboard.store';
 
 @Component({
@@ -47,6 +48,7 @@ import { RhAgentDashboardStore } from './rh-agent-dashboard.store';
     MatSlideToggleModule,
     MatFormFieldModule,
     MatInputModule,
+    RobinhoodTradePanelComponent,
   ],
   templateUrl: './rh-agent-dashboard.component.html',
   styleUrl: './rh-agent-dashboard.component.scss',
@@ -59,10 +61,20 @@ export class RhAgentDashboardComponent {
   // Inject the UI state store - manages all UI state (filters, selections, etc.)
   readonly uiStore = inject(RhAgentDashboardStore);
 
+  // Trade panel visibility
+  showTradePanel = false;
+
   constructor() {
     console.log('[RH Agent Dashboard] Component initialized');
     // Load data on init - data store handles all the business logic
     this.store.loadData();
+  }
+
+  /**
+   * Toggle trade panel visibility
+   */
+  toggleTradePanel(): void {
+    this.showTradePanel = !this.showTradePanel;
   }
 
   /**
@@ -77,5 +89,23 @@ export class RhAgentDashboardComponent {
    */
   triggerManualRun(): void {
     this.store.triggerManualRun();
+  }
+
+  /**
+   * Get the current trade batch for accepted signals
+   */
+  getTradeBatch() {
+    const currentRun = this.uiStore.currentRun();
+    if (!currentRun) return null;
+    return this.uiStore.generateBatchTrade(currentRun.id);
+  }
+
+  /**
+   * Check if there are accepted signals ready to trade
+   */
+  hasAcceptedSignals(): boolean {
+    const currentRun = this.uiStore.currentRun();
+    if (!currentRun) return false;
+    return this.uiStore.getAcceptedSignalsForTrade(currentRun.id).length > 0;
   }
 }

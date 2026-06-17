@@ -263,6 +263,12 @@
                             {{ uiStore.getSignalsByStatus(run.id, 'ACCEPTED').length }}
                           </mat-panel-description>
                         </mat-expansion-panel-header>
+                        
+                        <!-- Trade Panel for Accepted Signals -->
+                        @if (hasAcceptedSignals()) {
+                          <app-robinhood-trade-panel [batch]="getTradeBatch()"></app-robinhood-trade-panel>
+                        }
+                        
                         <mat-list class="decision-signals-list">
                           @for (signal of uiStore.getSignalsByStatus(run.id, 'ACCEPTED'); track signal.id) {
                             <mat-list-item class="signal-item outlined">
@@ -280,7 +286,7 @@
                                 <div class="signal-row-bottom">{{ signal.reason }}</div>
                               </div>
                               <div matListItemMeta class="signal-actions compact-actions">
-                                <button mat-stroked-button size="small" color="primary" (click)="uiStore.sendOrder(signal.id)">Send Order</button>
+                                <button mat-stroked-button size="small" color="primary" (click)="uiStore.sendOrder(signal.id)">Copy Trade</button>
                                 <button mat-stroked-button size="small" color="accent" (click)="uiStore.considerSignal(signal.id)">Consider</button>
                                 <button mat-stroked-button size="small" (click)="uiStore.rejectSignal(signal.id)">Reject</button>
                               </div>
