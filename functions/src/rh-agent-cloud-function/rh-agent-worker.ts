@@ -91,12 +91,13 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
 
       // 3. Calculate indicators
       // Extract historical closing prices from bars (handle different field names: close, c)
-      // For intraday: use historical bars (days 1-14) + intraday price (today)
-      const historicalCloses = bars.slice(0, 14).map((b: any) => b.close || b.c || 0).filter((c: number) => c > 0);
-      
+      // Get the most recent 14 bars (not the oldest) for RSI calculation
+      const historicalCloses = bars.slice(-14).map((b: any) => b.close || b.c || 0).filter((c: number) => c > 0);
+
       // Use intraday price from payload if available, otherwise fall back to last historical bar
       const currentPrice = intraday?.ip ?? historicalCloses[historicalCloses.length - 1];
-      const previousPrice = historicalCloses[historicalCloses.length - 1] || currentPrice;
+      // previousPrice is yesterday's close (second to last historical bar, or last if no intraday)
+      const previousPrice = historicalCloses[historicalCloses.length - 2] || historicalCloses[historicalCloses.length - 1] || currentPrice;
       const priceChange = (currentPrice - previousPrice) / previousPrice;
       
       // Full close array for indicators: historical + current

@@ -207,14 +207,26 @@ async function loadEnabledSymbols(): Promise<string[]> {
   return snapshot.docs.map((doc) => doc.data().symbol as string);
 }
 
+/**
+ * Generate run ID in format: DATE_DOW_TIME (e.g., 2026-06-16_tue_153145)
+ */
+function generateRunId(marketDate: string): string {
+  const now = new Date();
+  const dow = now.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  return `${marketDate}_${dow}_${hours}${minutes}${seconds}`;
+}
+
 async function createDailyRun(
   marketDate: string,
   totalSymbols: number,
   deadlineAt: string,
   triggeredBy: 'manual' | 'pdr' = 'manual'
 ): Promise<string> {
-  const runRef = db.collection(RH_AGENT_RUNS_COLLECTION).doc();
-  const runId = runRef.id;
+  const runId = generateRunId(marketDate);
+  const runRef = db.collection(RH_AGENT_RUNS_COLLECTION).doc(runId);
   const now = FieldValue.serverTimestamp();
 
   const runData = {

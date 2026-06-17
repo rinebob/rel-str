@@ -59,6 +59,18 @@ export async function loadEnabledSymbols(requestedSymbols?: string[]): Promise<s
 }
 
 /**
+ * Generate run ID in format: DATE_DOW_TIME (e.g., 2026-06-16_tue_153145)
+ */
+function generateRunId(marketDate: string): string {
+  const now = new Date();
+  const dow = now.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  return `${marketDate}_${dow}_${hours}${minutes}${seconds}`;
+}
+
+/**
  * Create a new daily run document in Firestore.
  */
 export async function createDailyRun(
@@ -67,11 +79,8 @@ export async function createDailyRun(
   deadlineAt: string,
   triggeredBy: 'manual' | 'pdr' = 'pdr'
 ): Promise<string> {
-  // Use market date as run ID (one per day)
-  // For manual runs, add timestamp suffix to allow multiple per day
-  const runId = triggeredBy === 'pdr'
-    ? marketDate
-    : `${marketDate}_manual_${Date.now()}`;
+  // Generate run ID in DATE_DOW_TIME format (e.g., 2026-06-16_tue_153145)
+  const runId = generateRunId(marketDate);
 
   const runRef = db.collection(RH_AGENT_RUNS_COLLECTION).doc(runId);
   const now = FieldValue.serverTimestamp();
