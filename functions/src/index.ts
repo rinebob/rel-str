@@ -106,3 +106,9 @@ export {
 
 // RH Agent Manual Run callable
 export { rhAgentManualRun } from './rh-agent-cloud-function/rh-agent-callables';
+
+// RH Agent Trade Executor (MCP direct integration)
+export {
+  rhExecuteTrade,
+  rhGetAccountSummary,
+} from './rh-agent-cloud-function/rh-agent-executor';
