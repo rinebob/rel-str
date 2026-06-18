@@ -8,13 +8,14 @@ import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { RhAgentDashboardStore } from '../../rh-agent-dashboard.store';
 
 @Component({
   selector: 'app-signal-detail',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatCardModule, MatButtonModule, MatIconModule],
+  imports: [CommonModule, MatCardModule, MatButtonModule, MatIconModule, MatTooltipModule],
   templateUrl: './signal-detail.component.html',
   styleUrl: './signal-detail.component.scss',
 })

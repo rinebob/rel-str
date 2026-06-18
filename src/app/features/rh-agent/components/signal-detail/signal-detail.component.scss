@@ -3,7 +3,6 @@
   flex-direction: column;
   height: 100%;
   background: var(--mat-sys-surface-container);
-  border-radius: 8px;
   overflow: hidden;
 }
 
@@ -11,14 +10,15 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 16px;
-  gap: 16px;
-  overflow-y: auto;
+  padding: 8px;
+  gap: 8px;
+  overflow: hidden;
 }
 
 .chart-area {
   flex: 1;
-  min-height: 400px;
+  min-height: 0;
+  overflow: hidden;
 
   .chart-placeholder {
     height: 100%;
@@ -27,148 +27,30 @@
     align-items: center;
     justify-content: center;
     background: var(--mat-sys-surface);
-    border: 2px dashed var(--mat-sys-outline);
-    border-radius: 8px;
-    gap: 8px;
+    border: 1px dashed var(--mat-sys-outline);
+    border-radius: 4px;
+    gap: 4px;
 
     mat-icon {
-      font-size: 64px;
-      width: 64px;
-      height: 64px;
+      font-size: 48px;
+      width: 48px;
+      height: 48px;
       color: var(--mat-sys-on-surface-variant);
     }
 
     span {
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 500;
     }
 
     small {
-      font-size: 13px;
+      font-size: 11px;
       color: var(--mat-sys-on-surface-variant);
     }
 
     .chart-dims {
-      font-size: 11px;
+      font-size: 10px;
       color: var(--mat-sys-outline);
-      margin-top: 8px;
-    }
-  }
-}
-
-.info-section {
-  background: var(--mat-sys-surface);
-  border-radius: 8px;
-  padding: 16px;
-
-  .info-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 12px;
-
-    h2 {
-      margin: 0;
-      font-size: 24px;
-      font-weight: 600;
-    }
-
-    .badges {
-      display: flex;
-      gap: 8px;
-
-      .badge {
-        font-size: 11px;
-        padding: 4px 10px;
-        border-radius: 4px;
-        text-transform: uppercase;
-        font-weight: 600;
-
-        &.direction {
-          &.dir-long {
-            background: var(--mat-sys-success-container);
-            color: var(--mat-sys-success);
-          }
-
-          &.dir-short {
-            background: var(--mat-sys-error-container);
-            color: var(--mat-sys-error);
-          }
-        }
-
-        &.type {
-          background: var(--mat-sys-primary-container);
-          color: var(--mat-sys-primary);
-        }
-
-        &.status {
-          &.status-pending {
-            background: var(--mat-sys-surface-container-highest);
-            color: var(--mat-sys-on-surface-variant);
-          }
-
-          &.status-accepted {
-            background: var(--mat-sys-success-container);
-            color: var(--mat-sys-success);
-          }
-
-          &.status-considered {
-            background: var(--mat-sys-tertiary-container);
-            color: var(--mat-sys-tertiary);
-          }
-
-          &.status-rejected {
-            background: var(--mat-sys-error-container);
-            color: var(--mat-sys-error);
-          }
-        }
-      }
-    }
-  }
-
-  .reason {
-    font-size: 14px;
-    line-height: 1.5;
-    margin-bottom: 16px;
-  }
-
-  .indicators {
-    display: flex;
-    gap: 24px;
-    flex-wrap: wrap;
-
-    .indicator {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-
-      .label {
-        font-size: 11px;
-        color: var(--mat-sys-on-surface-variant);
-        text-transform: uppercase;
-      }
-
-      .value {
-        font-size: 16px;
-        font-weight: 600;
-      }
-    }
-  }
-}
-
-.acr-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  padding: 12px 16px;
-  background: var(--mat-sys-surface-container-high);
-  border-radius: 8px;
-
-  button {
-    min-width: 120px;
-
-    mat-icon {
-      margin-right: 4px;
     }
   }
 }
