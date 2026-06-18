@@ -6,8 +6,8 @@
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
-import { Client } from '@modelcontextprotocol/sdk/client/index';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
 const MCP_SERVER_URL = 'https://agent.robinhood.com/mcp/trading';
 const AGENTIC_ACCOUNT_NUMBER = '6245'; // Last 4 digits of Agentic account
