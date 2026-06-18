@@ -1,12 +1,19 @@
-@if (hasSignal()) {
+@if (hasSignal(); as signal) {
   <div class="signal-detail">
     <!-- Chart Area - Full height since info moved to header -->
     <div class="chart-area">
-      <div class="chart-placeholder">
-        <mat-icon>show_chart</mat-icon>
-        <span>{{ signal()?.symbol }}</span>
-        <small>Chart Placeholder</small>
-      </div>
+      @if (chartLoading()) {
+        <div class="chart-loading">
+          <mat-icon>show_chart</mat-icon>
+          <span>Loading chart...</span>
+        </div>
+      } @else {
+        <app-flex-chart 
+          [chartData]="chartData()" 
+          [config]="chartConfig()"
+          height="100%">
+        </app-flex-chart>
+      }
     </div>
   </div>
 } @else {
