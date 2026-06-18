@@ -221,9 +221,15 @@ export const RhAgentDashboardStore = signalStore(
       let signals = dataStore.getSignalsForRun(runId);
       const symbolFilters = state.selectedSymbols();
       const typeFilters = state.selectedSignalTypes();
+      const symbolSearch = state.symbolSearch().toLowerCase().trim();
 
       // Filter to only PENDING signals
       signals = signals.filter(s => this.getSignalStatus(s.id) === 'PENDING');
+
+      // Apply symbol search filter
+      if (symbolSearch) {
+        signals = signals.filter(s => s.symbol.toLowerCase().includes(symbolSearch));
+      }
 
       if (symbolFilters.size > 0) {
         signals = signals.filter(s => symbolFilters.has(s.symbol));

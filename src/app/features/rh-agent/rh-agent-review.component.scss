@@ -1,47 +1,290 @@
 .rh-agent-review {
-  padding: 16px 24px;
-  max-width: 1600px;
-  margin: 0 auto;
+  padding: 0;
+  max-width: none;
+  margin: 0;
   display: flex;
   flex-direction: column;
   height: calc(100vh - 64px);
-  min-height: 600px;
+  min-height: 400px;
+  overflow: hidden;
 }
 
 // ========================================
-// HEADER
+// COMPACT HEADER - All controls in one row
 // ========================================
 .review-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 4px 8px;
+  background: var(--mat-sys-surface-container);
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
   flex-shrink: 0;
+  min-height: 40px;
 
-  .header-left {
+  // Left column: Filter + Strategy Chips stacked
+  .header-left-column {
     display: flex;
     flex-direction: column;
     gap: 4px;
+    flex-shrink: 0;
+
+    // Filter - 32px height with border
+    .header-filter {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      width: 140px;
+      height: 32px;
+      padding: 0 8px;
+      border: 1px solid var(--mat-sys-outline);
+      border-radius: 4px;
+      background: var(--mat-sys-surface);
+      position: relative;
+
+      .filter-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+        color: var(--mat-sys-on-surface-variant);
+        flex-shrink: 0;
+      }
+
+      input {
+        flex: 1;
+        border: none;
+        background: transparent;
+        font-size: 12px;
+        outline: none;
+        padding: 0;
+        min-width: 0;
+
+        &::placeholder {
+          color: var(--mat-sys-on-surface-variant);
+        }
+      }
+
+      .clear-btn {
+        width: 18px;
+        height: 18px;
+        line-height: 18px;
+        flex-shrink: 0;
+
+        mat-icon {
+          font-size: 12px;
+          width: 12px;
+          height: 12px;
+        }
+      }
+    }
+
+    // Strategy Chips - compact row
+    .strategy-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+
+      ::ng-deep .mat-mdc-chip-listbox {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+
+      ::ng-deep .mat-mdc-chip {
+        height: 20px;
+        font-size: 10px;
+        padding: 0 8px;
+      }
+    }
+  }
+
+  // Title section when no signal selected
+  .header-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
 
     h1 {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 4px;
       margin: 0;
-      font-size: 20px;
+      font-size: 14px;
       font-weight: 500;
 
       mat-icon {
         color: var(--mat-sys-primary);
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
       }
     }
 
-    .data-timestamp {
+    .data-time {
+      font-size: 11px;
+      color: var(--mat-sys-on-surface-variant);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .signal-badge {
+      background: var(--mat-sys-primary-container);
+      color: var(--mat-sys-primary);
+      padding: 1px 6px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 500;
+      min-width: 20px;
+      text-align: center;
+    }
+  }
+
+  // ACR Buttons - Left side, fully colored
+  .header-acr {
+    display: flex !important;
+    gap: 4px;
+    flex-shrink: 0;
+    visibility: visible !important;
+
+    .acr-btn {
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex !important;
+      align-items: center;
+      justify-content: center;
+      visibility: visible !important;
+      opacity: 1 !important;
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: white;
+        display: flex;
+      }
+
+      // Accept - Green
+      &.accept {
+        background-color: #4caf50;
+        &:hover { filter: brightness(1.1); }
+        &.selected { opacity: 0.5; }
+      }
+
+      // Consider - Yellow/Gold
+      &.consider {
+        background-color: #ff9800;
+        &:hover { filter: brightness(1.1); }
+        &.selected { opacity: 0.5; }
+      }
+
+      // Reject - Red
+      &.reject {
+        background-color: #f44336;
+        &:hover { filter: brightness(1.1); }
+        &.selected { opacity: 0.5; }
+      }
+    }
+  }
+
+  // Signal Info - Compact inline display
+  .header-signal-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+    font-size: 11px;
+
+    .symbol {
+      font-size: 13px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .badge {
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 9px;
+      text-transform: uppercase;
+      font-weight: 500;
+      flex-shrink: 0;
+
+      &.dir {
+        &.dir-long { background: var(--mat-sys-success-container); color: var(--mat-sys-success); }
+        &.dir-short { background: var(--mat-sys-error-container); color: var(--mat-sys-error); }
+      }
+      &.type { background: var(--mat-sys-primary-container); color: var(--mat-sys-primary); }
+      &.status {
+        &.status-pending { background: var(--mat-sys-surface-container-highest); color: var(--mat-sys-on-surface-variant); }
+        &.status-accepted { background: var(--mat-sys-success-container); color: var(--mat-sys-success); }
+        &.status-considered { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-tertiary); }
+        &.status-rejected { background: var(--mat-sys-error-container); color: var(--mat-sys-error); }
+      }
+    }
+
+    .reason {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--mat-sys-on-surface-variant);
+      min-width: 0;
+    }
+
+    .metric {
+      color: var(--mat-sys-on-surface-variant);
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+  }
+
+  // Decision counts - compact icons
+  .header-decisions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+
+    .decision {
       display: flex;
       align-items: center;
-      gap: 6px;
-      font-size: 13px;
+      gap: 2px;
+      font-size: 11px;
       color: var(--mat-sys-on-surface-variant);
+      opacity: 0.5;
+
+      mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+      }
+
+      &.has-items {
+        opacity: 1;
+        font-weight: 500;
+      }
+
+      &.accepted.has-items { color: var(--mat-sys-success); }
+      &.considered.has-items { color: var(--mat-sys-tertiary); }
+      &.rejected.has-items { color: var(--mat-sys-error); }
+    }
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+    align-items: center;
+
+    button {
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      line-height: 28px;
 
       mat-icon {
         font-size: 16px;
@@ -49,20 +292,21 @@
         height: 16px;
       }
 
-      .signal-count {
-        background: var(--mat-sys-primary-container);
-        color: var(--mat-sys-primary);
-        padding: 2px 8px;
-        border-radius: 12px;
-        font-weight: 500;
+      &[mat-raised-button] {
+        width: auto;
+        height: 28px;
+        padding: 0 10px;
         font-size: 12px;
+        line-height: 28px;
+
+        mat-icon {
+          margin-right: 4px;
+          font-size: 14px;
+          width: 14px;
+          height: 14px;
+        }
       }
     }
-  }
-
-  .header-actions {
-    display: flex;
-    gap: 8px;
   }
 }
 
@@ -71,69 +315,29 @@
 // ========================================
 .loading-overlay {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 48px;
+  justify-content: center;
+  flex: 1;
   color: var(--mat-sys-on-surface-variant);
 }
 
 // ========================================
-// FILTER TOOLBAR
-// ========================================
-.filter-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 12px 16px;
-  background: var(--mat-sys-surface-container);
-  border-radius: 8px;
-  margin-bottom: 16px;
-  flex-shrink: 0;
-  flex-wrap: wrap;
-
-  .filter-section {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-
-    mat-icon {
-      color: var(--mat-sys-on-surface-variant);
-      font-size: 20px;
-    }
-
-    &.signal-types {
-      flex: 1;
-      flex-wrap: wrap;
-    }
-  }
-
-  .symbol-filter {
-    width: 200px;
-
-    ::ng-deep .mat-mdc-form-field-subscript-wrapper {
-      display: none;
-    }
-  }
-}
-
-// ========================================
-// MASTER-DETAIL LAYOUT
+// MASTER-DETAIL LAYOUT - Maximized
 // ========================================
 .master-detail-container {
   display: grid;
-  grid-template-columns: 25% 75%;
-  gap: 16px;
+  grid-template-columns: 320px 1fr;
+  gap: 1px;
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  background: var(--mat-sys-outline-variant);
 
   @media (max-width: 1200px) {
-    grid-template-columns: 30% 70%;
+    grid-template-columns: 280px 1fr;
   }
 }
 
-// Sub-component wrappers
 .signal-list-wrapper,
 .detail-wrapper {
   display: flex;
@@ -141,409 +345,7 @@
   height: 100%;
   min-height: 0;
   overflow: hidden;
-}
-
-// Left Panel: Signal List
-.signal-list-panel {
-  display: flex;
-  flex-direction: column;
   background: var(--mat-sys-surface-container);
-  border-radius: 8px;
-  overflow: hidden;
-
-  .panel-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 16px;
-    background: var(--mat-sys-surface-container-high);
-    border-bottom: 1px solid var(--mat-sys-outline-variant);
-    flex-shrink: 0;
-
-    .panel-title {
-      font-size: 14px;
-      font-weight: 500;
-    }
-
-    .panel-count {
-      background: var(--mat-sys-primary-container);
-      color: var(--mat-sys-primary);
-      padding: 2px 10px;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: 500;
-    }
-  }
-
-  .signal-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: 8px;
-
-    .signal-item {
-      cursor: pointer;
-      border-radius: 8px;
-      margin-bottom: 4px;
-      height: auto !important;
-      min-height: 64px;
-      transition: background-color 0.15s ease;
-
-      &:hover {
-        background: var(--mat-sys-surface-container-high);
-      }
-
-      &.selected {
-        background: var(--mat-sys-primary-container);
-
-        ::ng-deep .mdc-list-item__content {
-          color: var(--mat-sys-on-primary-container);
-        }
-      }
-
-      mat-icon {
-        font-size: 20px;
-        width: 20px;
-        height: 20px;
-
-        &.dir-long {
-          color: var(--mat-sys-success);
-        }
-
-        &.dir-short {
-          color: var(--mat-sys-error);
-        }
-      }
-
-      .signal-main {
-        flex: 1;
-        min-width: 0;
-
-        .signal-line-1 {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin-bottom: 4px;
-
-          .symbol {
-            font-weight: 600;
-            font-size: 14px;
-          }
-
-          .badge.type {
-            font-size: 10px;
-            padding: 2px 6px;
-            border-radius: 4px;
-            background: var(--mat-sys-primary-container);
-            color: var(--mat-sys-primary);
-          }
-        }
-
-        .signal-line-2 {
-          font-size: 12px;
-          color: var(--mat-sys-on-surface-variant);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-      }
-
-      .status-badge {
-        font-size: 10px;
-        padding: 2px 8px;
-        border-radius: 4px;
-        text-transform: uppercase;
-        font-weight: 500;
-
-        &.status-pending {
-          background: var(--mat-sys-surface-container-highest);
-          color: var(--mat-sys-on-surface-variant);
-        }
-
-        &.status-accepted {
-          background: var(--mat-sys-success-container);
-          color: var(--mat-sys-success);
-        }
-
-        &.status-considered {
-          background: var(--mat-sys-tertiary-container);
-          color: var(--mat-sys-tertiary);
-        }
-
-        &.status-rejected {
-          background: var(--mat-sys-error-container);
-          color: var(--mat-sys-error);
-        }
-      }
-    }
-
-    .empty-list {
-      padding: 32px 16px;
-      text-align: center;
-      color: var(--mat-sys-on-surface-variant);
-
-      p {
-        margin: 0 0 12px;
-        font-size: 14px;
-      }
-    }
-  }
-}
-
-// Right Panel: Detail View
-.detail-panel {
-  display: flex;
-  flex-direction: column;
-  background: var(--mat-sys-surface-container);
-  border-radius: 8px;
-  overflow: hidden;
-
-  .signal-detail {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    padding: 16px;
-    gap: 16px;
-    overflow-y: auto;
-  }
-
-  .chart-area {
-    flex: 1;
-    min-height: 400px;
-
-    .chart-placeholder {
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      background: var(--mat-sys-surface);
-      border: 2px dashed var(--mat-sys-outline);
-      border-radius: 8px;
-      gap: 8px;
-
-      mat-icon {
-        font-size: 64px;
-        width: 64px;
-        height: 64px;
-        color: var(--mat-sys-on-surface-variant);
-      }
-
-      span {
-        font-size: 18px;
-        font-weight: 500;
-      }
-
-      small {
-        font-size: 13px;
-        color: var(--mat-sys-on-surface-variant);
-      }
-
-      .chart-dims {
-        font-size: 11px;
-        color: var(--mat-sys-outline);
-        margin-top: 8px;
-      }
-    }
-  }
-
-  .info-section {
-    background: var(--mat-sys-surface);
-    border-radius: 8px;
-    padding: 16px;
-
-    .info-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 12px;
-
-      h2 {
-        margin: 0;
-        font-size: 24px;
-        font-weight: 600;
-      }
-
-      .badges {
-        display: flex;
-        gap: 8px;
-
-        .badge {
-          font-size: 11px;
-          padding: 4px 10px;
-          border-radius: 4px;
-          text-transform: uppercase;
-          font-weight: 600;
-
-          &.direction {
-            &.dir-long {
-              background: var(--mat-sys-success-container);
-              color: var(--mat-sys-success);
-            }
-
-            &.dir-short {
-              background: var(--mat-sys-error-container);
-              color: var(--mat-sys-error);
-            }
-          }
-
-          &.type {
-            background: var(--mat-sys-primary-container);
-            color: var(--mat-sys-primary);
-          }
-
-          &.status {
-            &.status-pending {
-              background: var(--mat-sys-surface-container-highest);
-              color: var(--mat-sys-on-surface-variant);
-            }
-
-            &.status-accepted {
-              background: var(--mat-sys-success-container);
-              color: var(--mat-sys-success);
-            }
-
-            &.status-considered {
-              background: var(--mat-sys-tertiary-container);
-              color: var(--mat-sys-tertiary);
-            }
-
-            &.status-rejected {
-              background: var(--mat-sys-error-container);
-              color: var(--mat-sys-error);
-            }
-          }
-        }
-      }
-    }
-
-    .reason {
-      font-size: 14px;
-      line-height: 1.5;
-      margin-bottom: 16px;
-    }
-
-    .indicators {
-      display: flex;
-      gap: 24px;
-      flex-wrap: wrap;
-
-      .indicator {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-
-        .label {
-          font-size: 11px;
-          color: var(--mat-sys-on-surface-variant);
-          text-transform: uppercase;
-        }
-
-        .value {
-          font-size: 16px;
-          font-weight: 600;
-        }
-      }
-    }
-  }
-
-  .acr-actions {
-    display: flex;
-    gap: 12px;
-    justify-content: center;
-    padding: 12px 16px;
-    background: var(--mat-sys-surface-container-high);
-    border-radius: 8px;
-
-    button {
-      min-width: 120px;
-
-      mat-icon {
-        margin-right: 4px;
-      }
-    }
-  }
-
-  .detail-empty {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-    color: var(--mat-sys-on-surface-variant);
-
-    mat-icon {
-      font-size: 48px;
-      width: 48px;
-      height: 48px;
-    }
-
-    p {
-      margin: 0;
-      font-size: 14px;
-    }
-  }
-}
-
-// ========================================
-// EXECUTION SECTION
-// ========================================
-.execution-section {
-  margin-top: 16px;
-  background: var(--mat-sys-surface-container);
-  border-radius: 8px;
-  padding: 16px;
-  flex-shrink: 0;
-
-  .execution-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 12px;
-
-    h3 {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin: 0;
-      font-size: 14px;
-      font-weight: 500;
-
-      mat-icon {
-        color: var(--mat-sys-primary);
-      }
-    }
-
-    .decision-counts {
-      display: flex;
-      gap: 20px;
-
-      .count {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        font-size: 13px;
-
-        mat-icon {
-          font-size: 18px;
-          width: 18px;
-          height: 18px;
-        }
-
-        &.accepted {
-          color: var(--mat-sys-success);
-        }
-
-        &.considered {
-          color: var(--mat-sys-tertiary);
-        }
-
-        &.rejected {
-          color: var(--mat-sys-error);
-        }
-      }
-    }
-  }
 }
 
 // ========================================
@@ -555,20 +357,22 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: 12px;
   color: var(--mat-sys-on-surface-variant);
 
   mat-icon {
-    font-size: 64px;
-    width: 64px;
-    height: 64px;
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
   }
 
   p {
     margin: 0;
+    font-size: 14px;
 
     &.hint {
-      font-size: 13px;
+      font-size: 12px;
+      opacity: 0.7;
     }
   }
 }

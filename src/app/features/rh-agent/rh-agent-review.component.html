@@ -1,35 +1,124 @@
 <div class="rh-agent-review">
-  <!-- Header: Current Opportunities -->
+  <!-- Unified Header: Filter + Strategies row, ACR + Info + Actions row -->
   <div class="review-header">
-    <div class="header-left">
-      <h1>
-        <mat-icon>psychology</mat-icon>
-        Review Opportunities
-      </h1>
-      @if (store.status(); as status) {
-        <div class="data-timestamp">
-          <mat-icon>schedule</mat-icon>
-          <span>Data: {{ status.lastRunAt ? (status.lastRunAt | date: 'short') : 'Never' }}</span>
-          @if (uiStore.currentRunSignalCount() > 0) {
-            <span class="signal-count">{{ uiStore.currentRunSignalCount() }} signals</span>
-          }
-        </div>
-      }
+    <!-- Left Column: Filter + Strategy Chips -->
+    <div class="header-left-column">
+      <!-- Filter (32px height, bordered) -->
+      <div class="header-filter">
+        <mat-icon class="filter-icon">search</mat-icon>
+        <input
+          type="text"
+          [value]="uiStore.symbolSearch()"
+          (input)="uiStore.setSymbolSearch($any($event).target.value)"
+          placeholder="Filter symbols...">
+        @if (uiStore.symbolSearch()) {
+          <button mat-icon-button class="clear-btn" (click)="uiStore.setSymbolSearch('')">
+            <mat-icon>close</mat-icon>
+          </button>
+        }
+      </div>
+
+      <!-- Strategy Chips -->
+      <mat-chip-listbox class="strategy-chips" [multiple]="true">
+        @for (type of uiStore.signalTypes(); track type) {
+          <mat-chip-option
+            [selected]="uiStore.selectedSignalTypes().has(type)"
+            (selectionChange)="uiStore.toggleSignalTypeFilter(type)">
+            {{ type }}
+          </mat-chip-option>
+        }
+      </mat-chip-listbox>
     </div>
+
+    <!-- ACR Buttons (when signal selected) -->
+    @if (uiStore.hasSelectedSignal()) {
+      <div class="header-acr">
+        <button
+          type="button"
+          class="acr-btn accept"
+          [class.selected]="getSelectedSignalStatus() === 'ACCEPTED'"
+          (click)="onAcceptSelected()"
+          title="Accept">
+          <mat-icon>check</mat-icon>
+        </button>
+        <button
+          type="button"
+          class="acr-btn consider"
+          [class.selected]="getSelectedSignalStatus() === 'CONSIDERED'"
+          (click)="onConsiderSelected()"
+          title="Consider">
+          <mat-icon>help</mat-icon>
+        </button>
+        <button
+          type="button"
+          class="acr-btn reject"
+          [class.selected]="getSelectedSignalStatus() === 'REJECTED'"
+          (click)="onRejectSelected()"
+          title="Reject">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <!-- Signal Info -->
+      <div class="header-signal-info">
+        <span class="symbol">{{ uiStore.selectedSignal()?.symbol }}</span>
+        <span class="badge dir" [class]="'dir-' + (uiStore.selectedSignal()?.tradeDirection || 'LONG').toLowerCase()">
+          {{ uiStore.selectedSignal()?.tradeDirection || 'LONG' }}
+        </span>
+        <span class="badge type">{{ uiStore.selectedSignal()?.signalType }}</span>
+        <span class="badge status" [class]="'status-' + (getSelectedSignalStatus() | lowercase)">{{ getSelectedSignalStatus() }}</span>
+        <span class="reason" [title]="uiStore.selectedSignal()?.reason">{{ uiStore.selectedSignal()?.reason }}</span>
+        @if (uiStore.selectedSignal()?.indicators?.rsi) {
+          <span class="metric">RSI {{ uiStore.selectedSignal()?.indicators?.rsi | number: '1.0-0' }}</span>
+        }
+        @if (uiStore.selectedSignal()?.indicators?.currentPrice) {
+          <span class="metric">${{ uiStore.selectedSignal()?.indicators?.currentPrice | number: '1.2-2' }}</span>
+        }
+      </div>
+    } @else {
+      <!-- Default header title when no signal selected -->
+      <div class="header-title">
+        <h1>
+          <mat-icon>psychology</mat-icon>
+          Review
+        </h1>
+        @if (store.status(); as status) {
+          <span class="data-time" [title]="status.lastRunAt ? (status.lastRunAt | date: 'medium') : 'Never'">
+            {{ status.lastRunAt ? (status.lastRunAt | date: 'shortTime') : '--:--' }}
+          </span>
+        }
+        <span class="signal-badge">{{ uiStore.currentRunSignalCount() }}</span>
+      </div>
+    }
+
+    <!-- Decision counts -->
+    <div class="header-decisions">
+      <span class="decision accepted" [class.has-items]="acceptedCount() > 0">
+        <mat-icon>check_circle</mat-icon>{{ acceptedCount() }}
+      </span>
+      <span class="decision considered" [class.has-items]="consideredCount() > 0">
+        <mat-icon>help</mat-icon>{{ consideredCount() }}
+      </span>
+      <span class="decision rejected" [class.has-items]="rejectedCount() > 0">
+        <mat-icon>cancel</mat-icon>{{ rejectedCount() }}
+      </span>
+    </div>
+
     <div class="header-actions">
       <button
         mat-raised-button
-        color="primary"
-        (click)="triggerManualRun()"
-        [disabled]="store.isLoading()"
-        matTooltip="Calculate signals on most recent data">
-        <mat-icon>play_arrow</mat-icon>
-        Calculate Now
+        color="accent"
+        (click)="openTradeDialog()"
+        [disabled]="acceptedCount() === 0"
+        matTooltip="{{ acceptedCount() > 0 ? 'Execute trades' : 'No accepted signals to trade' }}">
+        <mat-icon>account_balance</mat-icon>
+        Trade {{ acceptedCount() }}
       </button>
       <button
-        mat-stroked-button
+        mat-icon-button
         (click)="refreshData()"
-        [disabled]="store.isLoading()">
+        [disabled]="store.isLoading()"
+        matTooltip="Refresh">
         <mat-icon>refresh</mat-icon>
       </button>
     </div>
@@ -38,26 +127,16 @@
   <!-- Loading State -->
   @if (store.isLoading()) {
     <div class="loading-overlay">
-      <mat-spinner diameter="40"></mat-spinner>
-      <span>Loading opportunities...</span>
+      <mat-spinner diameter="32"></mat-spinner>
     </div>
   }
 
-  <!-- Master-Detail Layout using sub-components -->
+  <!-- Master-Detail Layout -->
   @if (uiStore.currentRun()) {
     <div class="master-detail-container">
-      <!-- Left Panel: Signal List (25%) -->
       <app-signal-list class="signal-list-wrapper" (signalSelected)="onSignalSelected($event)"></app-signal-list>
-
-      <!-- Right Panel: Detail View (75%) -->
       <app-signal-detail class="detail-wrapper"></app-signal-detail>
     </div>
-
-    <!-- Execution Section -->
-    <app-execution-panel
-      [tradeBatch]="getTradeBatch()"
-      [hasAcceptedSignals]="hasAcceptedSignals()">
-    </app-execution-panel>
   } @else {
     <div class="empty-state">
       <mat-icon>inbox</mat-icon>
