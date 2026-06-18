@@ -1,0 +1,55 @@
+.execution-panel {
+  background: var(--mat-sys-surface-container);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.execution-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+
+  h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 14px;
+    font-weight: 500;
+
+    mat-icon {
+      color: var(--mat-sys-primary);
+    }
+  }
+}
+
+.decision-counts {
+  display: flex;
+  gap: 20px;
+
+  .count {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+
+    &.accepted {
+      color: var(--mat-sys-success);
+    }
+
+    &.considered {
+      color: var(--mat-sys-tertiary);
+    }
+
+    &.rejected {
+      color: var(--mat-sys-error);
+    }
+  }
+}

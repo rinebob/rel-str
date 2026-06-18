@@ -1,0 +1,86 @@
+@if (hasSignal()) {
+  <div class="signal-detail">
+    <!-- Chart Placeholder (80% of panel) -->
+    <div class="chart-area">
+      <div class="chart-placeholder">
+        <mat-icon>show_chart</mat-icon>
+        <span>{{ signal()?.symbol }}</span>
+        <small>Technical Chart Placeholder</small>
+        <div class="chart-dims">700 x 450px</div>
+      </div>
+    </div>
+
+    <!-- Signal Info (15% of panel) -->
+    <div class="info-section">
+      <div class="info-header">
+        <h2>{{ signal()?.symbol }}</h2>
+        <div class="badges">
+          <span class="badge direction" [class]="'dir-' + (signal()?.tradeDirection || 'LONG').toLowerCase()">
+            {{ signal()?.tradeDirection || 'LONG' }}
+          </span>
+          <span class="badge type">{{ signal()?.signalType }}</span>
+          <span class="badge status" [class]="'status-' + (getStatus() | lowercase)">
+            {{ getStatus() }}
+          </span>
+        </div>
+      </div>
+
+      <div class="reason">{{ signal()?.reason }}</div>
+
+      @if (signal()?.indicators) {
+        <div class="indicators">
+          @if (signal()?.indicators?.rsi) {
+            <div class="indicator">
+              <span class="label">RSI</span>
+              <span class="value">{{ signal()?.indicators?.rsi | number: '1.1-1' }}</span>
+            </div>
+          }
+          @if (signal()?.indicators?.currentPrice) {
+            <div class="indicator">
+              <span class="label">Price</span>
+              <span class="value">${{ signal()?.indicators?.currentPrice | number: '1.2-2' }}</span>
+            </div>
+          }
+          @if (signal()?.indicators?.priceChange) {
+            <div class="indicator">
+              <span class="label">Change</span>
+              <span class="value">{{ signal()?.indicators?.priceChange | number: '1.2-2' }}%</span>
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- ACR Action Controls (5% of panel) -->
+    <div class="acr-actions">
+      <button
+        mat-raised-button
+        color="primary"
+        (click)="onAccept(signal()!.id)"
+        [disabled]="getStatus() === 'ACCEPTED'">
+        <mat-icon>check</mat-icon>
+        Accept
+      </button>
+      <button
+        mat-raised-button
+        color="accent"
+        (click)="onConsider(signal()!.id)"
+        [disabled]="getStatus() === 'CONSIDERED'">
+        <mat-icon>help</mat-icon>
+        Consider
+      </button>
+      <button
+        mat-stroked-button
+        (click)="onReject(signal()!.id)"
+        [disabled]="getStatus() === 'REJECTED'">
+        <mat-icon>close</mat-icon>
+        Reject
+      </button>
+    </div>
+  </div>
+} @else {
+  <div class="detail-empty">
+    <mat-icon>touch_app</mat-icon>
+    <p>Select a signal to review</p>
+  </div>
+}

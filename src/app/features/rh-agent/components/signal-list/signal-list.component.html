@@ -1,0 +1,67 @@
+<div class="signal-list-container">
+  <div class="panel-header">
+    <span class="panel-title">Signals</span>
+    <span class="panel-count">{{ filteredCount() }}</span>
+  </div>
+
+  <div class="filter-bar">
+    <mat-icon>search</mat-icon>
+    <mat-form-field appearance="outline" class="symbol-filter">
+      <input
+        matInput
+        type="text"
+        [value]="uiStore.symbolSearch()"
+        (input)="uiStore.setSymbolSearch($any($event).target.value)"
+        placeholder="Filter symbols...">
+      @if (uiStore.symbolSearch()) {
+        <button matSuffix mat-icon-button (click)="uiStore.setSymbolSearch('')">
+          <mat-icon>close</mat-icon>
+        </button>
+      }
+    </mat-form-field>
+  </div>
+
+  <div class="signal-types-filter">
+    @for (type of uiStore.signalTypes(); track type) {
+      <mat-chip-option
+        [selected]="uiStore.selectedSignalTypes().has(type)"
+        (click)="uiStore.toggleSignalTypeFilter(type)"
+        color="accent"
+        class="type-chip">
+        {{ type }}
+      </mat-chip-option>
+    }
+  </div>
+
+  <mat-list class="signal-list">
+    @for (signal of signals(); track signal.id) {
+      <mat-list-item
+        class="signal-item"
+        [class.selected]="uiStore.isSignalSelected(signal.id)"
+        (click)="onSelect(signal)">
+        <mat-icon matListItemIcon [class]="'dir-' + (signal.tradeDirection || 'LONG').toLowerCase()">
+          {{ signal.tradeDirection === 'SHORT' ? 'arrow_downward' : 'arrow_upward' }}
+        </mat-icon>
+        <div class="signal-main">
+          <div class="signal-line-1">
+            <span class="symbol">{{ signal.symbol }}</span>
+            <span class="badge type">{{ signal.signalType }}</span>
+          </div>
+          <div class="signal-line-2">{{ signal.reason }}</div>
+        </div>
+        <div matListItemMeta class="status-badge" [class]="'status-' + (uiStore.getSignalStatus(signal.id) | lowercase)">
+          {{ uiStore.getSignalStatus(signal.id) }}
+        </div>
+      </mat-list-item>
+    } @empty {
+      <div class="empty-list">
+        @if (uiStore.hasActiveFilters()) {
+          <p>No signals match your filters</p>
+          <button mat-button (click)="uiStore.clearFilters()">Clear Filters</button>
+        } @else {
+          <p>No opportunities available</p>
+        }
+      </div>
+    }
+  </mat-list>
+</div>
