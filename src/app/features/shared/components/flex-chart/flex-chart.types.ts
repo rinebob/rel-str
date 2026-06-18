@@ -1,0 +1,148 @@
+/**
+ * Flex Chart Types
+ *
+ * Type definitions for the flexible multi-pane chart component.
+ */
+
+import type { BarsInterval } from '../../../../core/models/partner.types';
+
+/** Price bar data point */
+export interface PriceBar {
+  date: string;
+  x: Date;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume?: number;
+}
+
+/** Chart dataset */
+export interface FlexChartDataset {
+  symbol: string;
+  interval: BarsInterval;
+  bars: PriceBar[];
+}
+
+/** Indicator types supported */
+export type IndicatorType =
+  | 'sma'      // Simple Moving Average
+  | 'ema'      // Exponential Moving Average
+  | 'bollinger' // Bollinger Bands
+  | 'rsi'      // Relative Strength Index
+  | 'macd'     // MACD
+  | 'adx'      // Average Directional Index
+  | 'volume'   // Volume bars
+  | 'custom';  // Custom indicator (data provided externally)
+
+/** Pane assignment for indicators */
+export type IndicatorPane = 'main' | 'lower-1' | 'lower-2' | 'lower-3';
+
+/** Series type for rendering */
+export type SeriesType = 'line' | 'area' | 'column' | 'band' | 'candle';
+
+/** Individual indicator configuration */
+export interface IndicatorConfig {
+  /** Unique ID for this indicator instance */
+  id: string;
+
+  /** Indicator type */
+  type: IndicatorType;
+
+  /** Which pane to render in */
+  pane: IndicatorPane;
+
+  /** Series type for rendering */
+  seriesType: SeriesType;
+
+  /** Indicator parameters (period, etc.) */
+  params: Record<string, number | string | boolean>;
+
+  /** Visual styling options */
+  options: {
+    /** Display name in legend */
+    name?: string;
+
+    /** Primary color */
+    color?: string;
+
+    /** Secondary color (for bands, fills) */
+    color2?: string;
+
+    /** Line width */
+    lineWidth?: number;
+
+    /** Show filled area under line */
+    fillArea?: boolean;
+
+    /** Opacity for fills */
+    opacity?: number;
+
+    /** Dash array for dashed lines */
+    dashArray?: string;
+
+    /** Visibility toggle */
+    visible?: boolean;
+  };
+
+  /** Pre-calculated indicator data (optional - if not provided, will be calculated from price bars) */
+  data?: { x: Date; y: number; y2?: number }[];
+}
+
+/** Pane configuration */
+export interface PaneConfig {
+  /** Pane ID (matches IndicatorPane) */
+  id: IndicatorPane;
+
+  /** Height ratio relative to total chart height */
+  heightRatio: number;
+
+  /** Y-axis configuration */
+  yAxis: {
+    /** Axis label */
+    label?: string;
+
+    /** Format string for values */
+    format?: string;
+
+    /** Min value (auto if not specified) */
+    min?: number;
+
+    /** Max value (auto if not specified) */
+    max?: number;
+  };
+}
+
+/** Complete chart configuration */
+export interface FlexChartConfig {
+  /** Array of indicators to display */
+  indicators: IndicatorConfig[];
+
+  /** Pane configurations (optional - defaults will be created based on indicators) */
+  panes?: PaneConfig[];
+
+  /** Show/hide crosshair */
+  showCrosshair?: boolean;
+
+  /** Show/hide zoom toolbar */
+  showZoomToolbar?: boolean;
+
+  /** Enable/disable scrollbar */
+  enableScrollbar?: boolean;
+
+  /** Initial zoom days */
+  initialZoomDays?: number;
+}
+
+/** Computed indicator series - supports both Date (DateTime) and index (Category) x values */
+export interface ComputedIndicatorSeries {
+  id: string;
+  config: IndicatorConfig;
+  data: { x?: Date; index?: number; y: number; y2?: number }[];
+}
+
+/** Indicator calculation function signature */
+export type IndicatorCalculator = (
+  bars: PriceBar[],
+  params: Record<string, number | string | boolean>
+) => { x: Date; y: number; y2?: number }[];
