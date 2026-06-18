@@ -1,0 +1,83 @@
+<mat-card class="trade-panel">
+  <mat-card-header>
+    <mat-card-title>
+      <mat-icon>account_balance</mat-icon>
+      Robinhood Trades (Agentic Account)
+    </mat-card-title>
+    <mat-card-subtitle>Copy-paste into Claude Code</mat-card-subtitle>
+    
+    <!-- Copy Button in Header -->
+    <button
+      mat-raised-button
+      color="primary"
+      class="header-copy-btn"
+      (click)="singleTrade ? copyTrade(singleTrade) : copyBatch()"
+      matTooltip="Copy to clipboard">
+      <mat-icon>content_copy</mat-icon>
+      Copy
+    </button>
+    
+    <button
+      mat-icon-button
+      class="close-btn"
+      (click)="closeDialog()"
+      matTooltip="Close">
+      <mat-icon>close</mat-icon>
+    </button>
+  </mat-card-header>
+
+  <mat-card-content>
+    <!-- Scrollable Container -->
+    <div class="scrollable-content">
+      <!-- Single Trade Mode -->
+      @if (singleTrade) {
+        <div class="trade-section">
+          <h3>Single Trade</h3>
+          <div class="prompt-box">
+            <pre>{{ singleTrade.promptText }}</pre>
+          </div>
+        </div>
+      }
+      <!-- Batch Trade Mode -->
+      @if (effectiveBatch) {
+        <div class="trade-section">
+          <h3>Batch Trade ({{ visibleTrades().length }} orders, ${{ computedTotalAmount() }})</h3>
+          
+          <div class="individual-trades">
+            @for (trade of visibleTrades(); track $index) {
+              <div class="trade-item">
+                <span class="trade-number">{{ $index + 1 }}.</span>
+                <span class="trade-details">
+                  {{ trade.side.toUpperCase() }} ${{ trade.amount }} {{ trade.symbol }}
+                </span>
+                <button
+                  mat-icon-button
+                  class="remove-btn"
+                  (click)="removeTrade(trade.symbol)"
+                  matTooltip="Remove from batch (move to Considered)">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+            }
+          </div>
+
+          <div class="prompt-box batch">
+            <pre>{{ computedBatchPrompt() }}</pre>
+          </div>
+        </div>
+      }
+
+      <!-- Instructions -->
+      <div class="instructions">
+        <h4>Next Steps:</h4>
+        <ol>
+          <li>Click "Copy" button in the header</li>
+          <li>Open Claude Code (should already have robinhood-trading MCP connected)</li>
+          <li>Paste and press Enter</li>
+          <li>Claude will review and place the order(s)</li>
+          <li>Check your Robinhood Agentic account for confirmation</li>
+        </ol>
+      </div>
+    </div>
+  </mat-card-content>
+</mat-card>

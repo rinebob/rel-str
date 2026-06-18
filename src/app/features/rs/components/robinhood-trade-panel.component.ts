@@ -3,7 +3,8 @@
  *
  * Displays trade prompts ready to copy-paste into Claude Code.
  */
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, Optional, Inject, signal, computed } from '@angular/core';
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -19,158 +20,59 @@ import { RobinhoodTradeService, TradePrompt, TradeBatch } from '../services/robi
     MatCardModule,
     MatButtonModule,
     MatIconModule,
-    MatSnackBarModule
+    MatSnackBarModule,
   ],
-  template: `
-    <mat-card class="trade-panel">
-      <mat-card-header>
-        <mat-card-title>
-          <mat-icon>account_balance</mat-icon>
-          Robinhood Trades (Agentic Account)
-        </mat-card-title>
-        <mat-card-subtitle>Copy-paste into Claude Code</mat-card-subtitle>
-      </mat-card-header>
-
-      <mat-card-content>
-        <!-- Single Trade Mode -->
-        @if (singleTrade) {
-          <div class="trade-section">
-            <h3>Single Trade</h3>
-            <div class="prompt-box">
-              <pre>{{ singleTrade.promptText }}</pre>
-            </div>
-            <button mat-raised-button color="primary" (click)="copyTrade(singleTrade)">
-              <mat-icon>content_copy</mat-icon>
-              Copy to Clipboard
-            </button>
-          </div>
-        }
-
-        <!-- Batch Trade Mode -->
-        @if (batch) {
-          <div class="trade-section">
-            <h3>Batch Trade ({{ batch.trades.length }} orders, $ {{ batch.totalAmount }})</h3>
-            
-            <div class="individual-trades">
-              @for (trade of batch.trades; track trade.symbol; let i = $index) {
-                <div class="trade-item">
-                  <span class="trade-number">{{ i + 1 }}.</span>
-                  <span class="trade-details">
-                    {{ trade.side.toUpperCase() }} $ {{ trade.amount }} {{ trade.symbol }}
-                  </span>
-                </div>
-              }
-            </div>
-
-            <div class="prompt-box batch">
-              <pre>{{ batch.batchPrompt }}</pre>
-            </div>
-            
-            <button mat-raised-button color="primary" (click)="copyBatch()">
-              <mat-icon>content_copy</mat-icon>
-              Copy Batch Prompt
-            </button>
-          </div>
-        }
-
-        <!-- Instructions -->
-        <div class="instructions">
-          <h4>Next Steps:</h4>
-          <ol>
-            <li>Click "Copy to Clipboard" above</li>
-            <li>Open Claude Code (should already have robinhood-trading MCP connected)</li>
-            <li>Paste and press Enter</li>
-            <li>Claude will review and place the order(s)</li>
-            <li>Check your Robinhood Agentic account for confirmation</li>
-          </ol>
-        </div>
-      </mat-card-content>
-    </mat-card>
-  `,
-  styles: [`
-    .trade-panel {
-      max-width: 600px;
-      margin: 20px auto;
-    }
-
-    mat-card-title {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .trade-section {
-      margin: 20px 0;
-    }
-
-    .prompt-box {
-      background: #f5f5f5;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      padding: 16px;
-      margin: 12px 0;
-    }
-
-    .prompt-box pre {
-      margin: 0;
-      white-space: pre-wrap;
-      font-family: 'Courier New', monospace;
-      font-size: 14px;
-    }
-
-    .individual-trades {
-      margin: 12px 0;
-      padding: 12px;
-      background: #fafafa;
-      border-radius: 4px;
-    }
-
-    .trade-item {
-      display: flex;
-      gap: 8px;
-      padding: 4px 0;
-    }
-
-    .trade-number {
-      font-weight: bold;
-      color: #666;
-      min-width: 24px;
-    }
-
-    .instructions {
-      margin-top: 24px;
-      padding: 16px;
-      background: #e3f2fd;
-      border-radius: 4px;
-    }
-
-    .instructions h4 {
-      margin-top: 0;
-    }
-
-    .instructions ol {
-      margin: 0;
-      padding-left: 20px;
-    }
-
-    .instructions li {
-      margin: 8px 0;
-    }
-
-    button {
-      margin-top: 12px;
-    }
-  `]
+  templateUrl: './robinhood-trade-panel.component.html',
+  styleUrl: './robinhood-trade-panel.component.scss',
 })
 export class RobinhoodTradePanelComponent {
   @Input() singleTrade?: TradePrompt;
   @Input() batch?: TradeBatch | null;
   @Output() copied = new EventEmitter<void>();
+  @Output() tradeRemoved = new EventEmitter<string>(); // Emits symbol to remove
+
+  // Mutable list of trades for dynamic removal
+  private removedSymbols = signal<Set<string>>(new Set());
+
+  // Computed visible trades (excluding removed)
+  visibleTrades = computed(() => {
+    const batch = this.batch || this.dialogData?.batch;
+    if (!batch) return [];
+    const removed = this.removedSymbols();
+    return batch.trades.filter(t => !removed.has(t.symbol));
+  });
+
+  // Computed batch prompt with only visible trades
+  computedBatchPrompt = computed(() => {
+    const trades = this.visibleTrades();
+    if (trades.length === 0) return '';
+    const total = trades.reduce((sum, t) => sum + t.amount, 0);
+    const tradeList = trades.map((t, i) => 
+      `${i + 1}. Place a market buy order for $${t.amount.toFixed(2)} of ${t.symbol}\nAccount: Agentic (••••6245)\nOrder Type: MARKET\nTime in Force: GFD (Good for Day)`
+    ).join('\n\n');
+    return `Execute these trades in my Agentic account (••••6245):\n\n${tradeList}\n\nTotal: $${total.toFixed(2)} for ${trades.length} orders`;
+  });
+
+  // Computed total amount
+  computedTotalAmount = computed(() => {
+    return this.visibleTrades().reduce((sum, t) => sum + t.amount, 0);
+  });
 
   constructor(
     private tradeService: RobinhoodTradeService,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    @Optional() @Inject(MAT_DIALOG_DATA) private dialogData?: { batch?: TradeBatch },
+    @Optional() private dialogRef?: MatDialogRef<RobinhoodTradePanelComponent>
   ) {}
+
+  closeDialog(): void {
+    this.dialogRef?.close();
+  }
+
+  // Get original batch from either @Input or dialog data
+  get effectiveBatch(): TradeBatch | null | undefined {
+    return this.batch || this.dialogData?.batch;
+  }
 
   async copyTrade(trade: TradePrompt): Promise<void> {
     const success = await this.tradeService.copyToClipboard(trade.promptText);
@@ -178,9 +80,22 @@ export class RobinhoodTradePanelComponent {
   }
 
   async copyBatch(): Promise<void> {
-    if (!this.batch) return;
-    const success = await this.tradeService.copyToClipboard(this.batch.batchPrompt);
-    this.showResult(success, `Copied batch of ${this.batch.trades.length} trades`);
+    const prompt = this.computedBatchPrompt();
+    if (!prompt) return;
+    const trades = this.visibleTrades();
+    const success = await this.tradeService.copyToClipboard(prompt);
+    this.showResult(success, `Copied batch of ${trades.length} trades`);
+  }
+
+  removeTrade(symbol: string): void {
+    // Add to removed set (updates computed signals)
+    this.removedSymbols.update(set => {
+      const newSet = new Set(set);
+      newSet.add(symbol);
+      return newSet;
+    });
+    this.tradeRemoved.emit(symbol);
+    this.snackBar.open(`Removed ${symbol} from batch (moved to Considered)`, 'Dismiss', { duration: 2000 });
   }
 
   private showResult(success: boolean, message: string): void {
