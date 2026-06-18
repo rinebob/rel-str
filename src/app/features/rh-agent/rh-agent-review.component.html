@@ -1,0 +1,68 @@
+<div class="rh-agent-review">
+  <!-- Header: Current Opportunities -->
+  <div class="review-header">
+    <div class="header-left">
+      <h1>
+        <mat-icon>psychology</mat-icon>
+        Review Opportunities
+      </h1>
+      @if (store.status(); as status) {
+        <div class="data-timestamp">
+          <mat-icon>schedule</mat-icon>
+          <span>Data: {{ status.lastRunAt ? (status.lastRunAt | date: 'short') : 'Never' }}</span>
+          @if (uiStore.currentRunSignalCount() > 0) {
+            <span class="signal-count">{{ uiStore.currentRunSignalCount() }} signals</span>
+          }
+        </div>
+      }
+    </div>
+    <div class="header-actions">
+      <button
+        mat-raised-button
+        color="primary"
+        (click)="triggerManualRun()"
+        [disabled]="store.isLoading()"
+        matTooltip="Calculate signals on most recent data">
+        <mat-icon>play_arrow</mat-icon>
+        Calculate Now
+      </button>
+      <button
+        mat-stroked-button
+        (click)="refreshData()"
+        [disabled]="store.isLoading()">
+        <mat-icon>refresh</mat-icon>
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  @if (store.isLoading()) {
+    <div class="loading-overlay">
+      <mat-spinner diameter="40"></mat-spinner>
+      <span>Loading opportunities...</span>
+    </div>
+  }
+
+  <!-- Master-Detail Layout using sub-components -->
+  @if (uiStore.currentRun()) {
+    <div class="master-detail-container">
+      <!-- Left Panel: Signal List (25%) -->
+      <app-signal-list class="signal-list-wrapper" (signalSelected)="onSignalSelected($event)"></app-signal-list>
+
+      <!-- Right Panel: Detail View (75%) -->
+      <app-signal-detail class="detail-wrapper"></app-signal-detail>
+    </div>
+
+    <!-- Execution Section -->
+    <app-execution-panel
+      [tradeBatch]="getTradeBatch()"
+      [hasAcceptedSignals]="hasAcceptedSignals()">
+    </app-execution-panel>
+  } @else {
+    <div class="empty-state">
+      <mat-icon>inbox</mat-icon>
+      <p>No runs available</p>
+      <p class="hint">Run a calculation to generate opportunities</p>
+    </div>
+  }
+</div>
