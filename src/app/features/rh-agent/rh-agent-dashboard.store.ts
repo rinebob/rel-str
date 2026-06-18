@@ -24,6 +24,7 @@ export interface DashboardUiState {
   consideredPanelOpen: boolean;
   rejectedPanelOpen: boolean;
   currentRunOpen: boolean;
+  selectedSignalId: string | null; // Currently selected signal for detail view
 }
 
 // Initial state - panels open by default
@@ -38,6 +39,7 @@ const initialState: DashboardUiState = {
   consideredPanelOpen: true,
   rejectedPanelOpen: true,
   currentRunOpen: true,
+  selectedSignalId: null,
 };
 
 export const RhAgentDashboardStore = signalStore(
@@ -81,6 +83,16 @@ export const RhAgentDashboardStore = signalStore(
       if (runs.length === 0) return 0;
       return dataStore.signals().filter(s => s.runId === runs[0].id).length;
     }),
+
+    // Currently selected signal for detail view
+    selectedSignal: computed(() => {
+      const signalId = state.selectedSignalId();
+      if (!signalId) return null;
+      return dataStore.signals().find(s => s.id === signalId) || null;
+    }),
+
+    // Check if a signal is selected
+    hasSelectedSignal: computed(() => state.selectedSignalId() !== null),
   })),
 
   withMethods((state, dataStore = inject(RhAgentStore)) => ({
@@ -490,6 +502,27 @@ export const RhAgentDashboardStore = signalStore(
      */
     generateBatchTrade(runId: string): TradeBatch | null {
       return this.generateTradeBatchFromAccepted(runId);
+    },
+
+    /**
+     * Select a signal for detail view
+     */
+    selectSignal(signalId: string): void {
+      patchState(state, { selectedSignalId: signalId });
+    },
+
+    /**
+     * Clear the selected signal
+     */
+    clearSelectedSignal(): void {
+      patchState(state, { selectedSignalId: null });
+    },
+
+    /**
+     * Check if a signal is currently selected
+     */
+    isSignalSelected(signalId: string): boolean {
+      return state.selectedSignalId() === signalId;
     },
   }))
 );
