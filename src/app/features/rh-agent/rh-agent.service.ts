@@ -16,6 +16,12 @@ import { Observable, from, map } from 'rxjs';
  */
 export const RH_AGENT_SCHEDULE_CRON = '0 20 * * 1-5'; // 8 PM UTC = 12 PM PT, Mon-Fri
 
+/**
+ * Maximum dollar amount per trade to prevent oversized positions.
+ * Applies to both single trades and batch allocation calculations.
+ */
+export const RH_AGENT_MAX_TRADE_AMOUNT = 100;
+
 export interface RhAgentStatus {
   isEnabled: boolean;
   lastRunAt?: string;

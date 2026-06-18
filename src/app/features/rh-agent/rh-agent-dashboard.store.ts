@@ -7,7 +7,7 @@
 import { inject, computed } from '@angular/core';
 import { signalStore, withState, withComputed, withMethods, patchState } from '@ngrx/signals';
 import { RhAgentStore } from './rh-agent.store';
-import { RhTradeSignal, RH_AGENT_SCHEDULE_CRON } from './rh-agent.service';
+import { RhTradeSignal, RH_AGENT_SCHEDULE_CRON, RH_AGENT_MAX_TRADE_AMOUNT } from './rh-agent.service';
 import { RobinhoodTradeService, TradePrompt, TradeBatch } from '../rs/services/robinhood-trade.service';
 
 type SignalStatus = 'PENDING' | 'ACCEPTED' | 'CONSIDERED' | 'REJECTED';
@@ -432,8 +432,9 @@ export const RhAgentDashboardStore = signalStore(
 
       const tradeService = new RobinhoodTradeService();
       
-      // Convert signals to trade inputs (equal allocation for now)
-      const allocationPerTrade = Math.floor(portfolioValue / acceptedSignals.length);
+      // Convert signals to trade inputs (equal allocation, capped at max)
+      const rawAllocation = Math.floor(portfolioValue / acceptedSignals.length);
+      const allocationPerTrade = Math.min(rawAllocation, RH_AGENT_MAX_TRADE_AMOUNT);
       
       const trades = acceptedSignals.map(signal => ({
         symbol: signal.symbol,
@@ -472,8 +473,8 @@ export const RhAgentDashboardStore = signalStore(
         .find(s => s.id === signalId);
       if (!signal) return;
 
-      // Generate single trade (default $100 per signal)
-      const trade = this.generateTradeFromSignal(signal, 100);
+      // Generate single trade (capped at max amount)
+      const trade = this.generateTradeFromSignal(signal, RH_AGENT_MAX_TRADE_AMOUNT);
       
       // Copy to clipboard
       const tradeService = new RobinhoodTradeService();
