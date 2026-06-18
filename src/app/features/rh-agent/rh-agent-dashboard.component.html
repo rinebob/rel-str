@@ -11,6 +11,16 @@
       </mat-chip-option>
     </h1>
     <div class="actions">
+      @if (uiStore.currentRunSignalCount() > 0) {
+        <button
+          mat-raised-button
+          color="accent"
+          (click)="goToReview()"
+          matTooltip="Review current opportunities">
+          <mat-icon>psychology</mat-icon>
+          Review {{ uiStore.currentRunSignalCount() }} Opportunities
+        </button>
+      }
       <button
         mat-raised-button
         color="primary"
@@ -263,12 +273,12 @@
                             {{ uiStore.getSignalsByStatus(run.id, 'ACCEPTED').length }}
                           </mat-panel-description>
                         </mat-expansion-panel-header>
-                        
+
                         <!-- Trade Panel for Accepted Signals -->
                         @if (hasAcceptedSignals()) {
                           <app-robinhood-trade-panel [batch]="getTradeBatch()"></app-robinhood-trade-panel>
                         }
-                        
+
                         <mat-list class="decision-signals-list">
                           @for (signal of uiStore.getSignalsByStatus(run.id, 'ACCEPTED'); track signal.id) {
                             <mat-list-item class="signal-item outlined">

@@ -900,3 +900,346 @@ mat-chip-listbox {
   margin-left: 8px;
   white-space: nowrap;
 }
+
+// ========================================
+// MASTER-DETAIL LAYOUT (Phase 1)
+// ========================================
+
+// Main layout container: 25/75 split
+.master-detail-layout {
+  display: grid;
+  grid-template-columns: 25% 75%;
+  gap: 16px;
+  min-height: 500px;
+  margin-top: 16px;
+
+  // Responsive: stack on smaller screens
+  @media (max-width: 1200px) {
+    grid-template-columns: 30% 70%;
+  }
+}
+
+// Left panel: Signal list
+.signal-list-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--mat-sys-surface-container);
+  border-radius: 8px;
+  overflow: hidden;
+
+  .panel-header {
+    padding: 12px 16px;
+    background: var(--mat-sys-surface-container-high);
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+
+    h4 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 500;
+
+      .filter-applied {
+        font-weight: 400;
+        color: var(--mat-sys-primary);
+        font-size: 12px;
+      }
+    }
+  }
+
+  .signals-scroll-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+    max-height: 600px;
+
+    .signal-item {
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+
+      &:hover {
+        background: var(--mat-sys-surface-container-high);
+      }
+
+      &.selected {
+        background: var(--mat-sys-primary-container);
+        border-color: var(--mat-sys-primary);
+      }
+
+      .signal-status-indicator {
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        text-transform: uppercase;
+        font-weight: 500;
+
+        &.status-pending {
+          background: var(--mat-sys-surface-container-highest);
+          color: var(--mat-sys-on-surface-variant);
+        }
+
+        &.status-accepted {
+          background: var(--mat-sys-success-container);
+          color: var(--mat-sys-success);
+        }
+
+        &.status-considered {
+          background: var(--mat-sys-tertiary-container);
+          color: var(--mat-sys-tertiary);
+        }
+
+        &.status-rejected {
+          background: var(--mat-sys-error-container);
+          color: var(--mat-sys-error);
+        }
+      }
+    }
+  }
+}
+
+// Right panel: Detail view
+.detail-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--mat-sys-surface-container);
+  border-radius: 8px;
+  overflow: hidden;
+  min-height: 500px;
+}
+
+// Signal detail view
+.signal-detail {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+  gap: 16px;
+}
+
+// Chart placeholder (80% of detail area conceptually)
+.chart-placeholder {
+  flex: 1;
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--mat-sys-surface);
+  border: 2px dashed var(--mat-sys-outline);
+  border-radius: 8px;
+  gap: 8px;
+
+  mat-icon {
+    font-size: 64px;
+    width: 64px;
+    height: 64px;
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  span {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--mat-sys-on-surface);
+  }
+
+  small {
+    font-size: 13px;
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  .chart-dimensions {
+    font-size: 11px;
+    color: var(--mat-sys-outline);
+    margin-top: 8px;
+  }
+}
+
+// Signal info section (15% conceptually)
+.signal-info-section {
+  background: var(--mat-sys-surface);
+  border-radius: 8px;
+  padding: 16px;
+
+  .signal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+
+    h2 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 600;
+    }
+
+    .signal-badges {
+      display: flex;
+      gap: 8px;
+
+      .badge {
+        font-size: 11px;
+        padding: 4px 10px;
+        border-radius: 4px;
+        text-transform: uppercase;
+        font-weight: 600;
+
+        &.direction {
+          &.dir-long {
+            background: var(--mat-sys-success-container);
+            color: var(--mat-sys-success);
+          }
+
+          &.dir-short {
+            background: var(--mat-sys-error-container);
+            color: var(--mat-sys-error);
+          }
+        }
+
+        &.type {
+          background: var(--mat-sys-primary-container);
+          color: var(--mat-sys-primary);
+        }
+
+        &.status {
+          &.status-pending {
+            background: var(--mat-sys-surface-container-highest);
+            color: var(--mat-sys-on-surface-variant);
+          }
+
+          &.status-accepted {
+            background: var(--mat-sys-success-container);
+            color: var(--mat-sys-success);
+          }
+
+          &.status-considered {
+            background: var(--mat-sys-tertiary-container);
+            color: var(--mat-sys-tertiary);
+          }
+
+          &.status-rejected {
+            background: var(--mat-sys-error-container);
+            color: var(--mat-sys-error);
+          }
+        }
+      }
+    }
+  }
+
+  .signal-reason {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--mat-sys-on-surface);
+    margin-bottom: 12px;
+  }
+
+  .signal-indicators {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+
+    .indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+
+      .label {
+        color: var(--mat-sys-on-surface-variant);
+      }
+
+      .value {
+        font-weight: 600;
+        color: var(--mat-sys-on-surface);
+      }
+    }
+  }
+}
+
+// Action controls section (5% conceptually)
+.signal-actions-section {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  padding: 12px 16px;
+  background: var(--mat-sys-surface-container-high);
+  border-radius: 8px;
+
+  button {
+    min-width: 120px;
+
+    mat-icon {
+      margin-right: 4px;
+    }
+  }
+}
+
+// Empty state for detail panel
+.detail-empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: var(--mat-sys-on-surface-variant);
+
+  mat-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+  }
+
+  p {
+    margin: 0;
+    font-size: 14px;
+  }
+}
+
+// Decision summary panel below master-detail
+.decision-summary {
+  margin-top: 16px;
+  background: var(--mat-sys-surface-container);
+  border-radius: 8px;
+  padding: 16px;
+
+  .summary-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+
+    h4 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .summary-counts {
+      display: flex;
+      gap: 16px;
+
+      .count {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 13px;
+
+        mat-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+        }
+
+        &.accepted {
+          color: var(--mat-sys-success);
+        }
+
+        &.considered {
+          color: var(--mat-sys-tertiary);
+        }
+
+        &.rejected {
+          color: var(--mat-sys-error);
+        }
+      }
+    }
+  }
+}

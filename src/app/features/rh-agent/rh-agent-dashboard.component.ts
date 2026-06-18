@@ -24,10 +24,12 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { RouterModule } from '@angular/router';
 
 import { RhAgentStore } from './rh-agent.store';
 import { RobinhoodTradePanelComponent } from '../rs/components/robinhood-trade-panel.component';
 import { RhAgentDashboardStore } from './rh-agent-dashboard.store';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-rh-agent-dashboard',
@@ -49,6 +51,7 @@ import { RhAgentDashboardStore } from './rh-agent-dashboard.store';
     MatFormFieldModule,
     MatInputModule,
     RobinhoodTradePanelComponent,
+    RouterModule,
   ],
   templateUrl: './rh-agent-dashboard.component.html',
   styleUrl: './rh-agent-dashboard.component.scss',
@@ -60,6 +63,7 @@ export class RhAgentDashboardComponent {
   
   // Inject the UI state store - manages all UI state (filters, selections, etc.)
   readonly uiStore = inject(RhAgentDashboardStore);
+  private readonly router = inject(Router);
 
   // Trade panel visibility
   showTradePanel = false;
@@ -107,5 +111,12 @@ export class RhAgentDashboardComponent {
     const currentRun = this.uiStore.currentRun();
     if (!currentRun) return false;
     return this.uiStore.getAcceptedSignalsForTrade(currentRun.id).length > 0;
+  }
+
+  /**
+   * Navigate to the review page for current opportunities
+   */
+  goToReview(): void {
+    this.router.navigate(['/rh-agent-review']);
   }
 }
