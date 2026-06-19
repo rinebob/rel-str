@@ -28,6 +28,7 @@ import {
   TooltipService,
   CrosshairService,
   LegendService,
+  StripLineService,
   IZoomCompleteEventArgs,
   IScrollEventArgs,
 } from '@syncfusion/ej2-angular-charts';
@@ -35,7 +36,6 @@ import {
 import type {
   FlexChartDataset,
   FlexChartConfig,
-  IndicatorConfig,
   IndicatorPane,
   ComputedIndicatorSeries,
 } from './flex-chart.types';
@@ -60,6 +60,7 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
     TooltipService,
     CrosshairService,
     LegendService,
+    StripLineService,
   ],
   template: `
     <div class="flex-chart-wrapper">
@@ -68,14 +69,16 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
           <div class="no-data">No price data available</div>
         } @else {
         <ejs-chart
+          [enableAnimation]="false"
           #chart
           [primaryXAxis]="primaryXAxis"
-          [primaryYAxis]="primaryYAxis"
+          [primaryYAxis]="primaryYAxis()"
           [zoomSettings]="zoomSettings"
           [tooltip]="tooltip"
           [crosshair]="crosshair"
           [legendSettings]="{ visible: false }"
-          [axes]="chartAxes"
+          [axes]="chartAxes()"
+          [rows]="chartRows()"
           [height]="height()"
           width="100%"
           background="transparent"
@@ -115,52 +118,52 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
               }
             }
 
-            <!-- Lower pane 1: RSI (0-100 scale) -->
-            @for (indicator of lowerPane1Series(); track indicator.id) {
-              @if (indicator.config.seriesType === 'line') {
-                <e-series
-                  [dataSource]="indicator.data"
-                  type="Line"
-                  xName="index"
-                  yName="y"
-                  yAxisName="lowerYAxis1"
-                  [name]="indicator.config.options.name || indicator.config.type.toUpperCase()"
-                  [fill]="indicator.config.options.color || '#2196f3'"
-                  width="{{ indicator.config.options.lineWidth || 2 }}"
-                  [enableTooltip]="true">
-                </e-series>
-              }
-            }
-
-            <!-- Lower pane 2: MACD (auto-scale) -->
-            @for (indicator of lowerPane2Series(); track indicator.id) {
-              @if (indicator.config.seriesType === 'line') {
-                <!-- MACD line -->
-                <e-series
-                  [dataSource]="indicator.data"
-                  type="Line"
-                  xName="index"
-                  yName="y"
-                  yAxisName="lowerYAxis2"
-                  [name]="indicator.config.options.name || indicator.config.type.toUpperCase()"
-                  [fill]="indicator.config.options.color || '#ff9800'"
-                  width="{{ indicator.config.options.lineWidth || 2 }}"
-                  [enableTooltip]="true">
-                </e-series>
-                <!-- MACD signal line (y2) -->
-                @if (indicator.data.length > 0 && indicator.data[0].y2 !== undefined) {
+            <!-- Dynamic lower panes -->
+            @for (pane of lowerPanes(); track pane.id) {
+              @for (indicator of pane.series; track indicator.id) {
+                @if (indicator.config.seriesType === 'line') {
+                  <!-- Histogram (column) behind line series -->
+                  @if (indicator.config.options.showHistogram && indicator.data.length > 0 && indicator.data[0].y3 !== undefined) {
+                    <e-series
+                      [dataSource]="indicator.data"
+                      type="Column"
+                      xName="index"
+                      yName="y3"
+                      [yAxisName]="pane.axisName"
+                      name="Histogram"
+                      [fill]="'#26a69a'"
+                      opacity="0.5"
+                      [columnWidth]="0.6"
+                      [enableTooltip]="true">
+                    </e-series>
+                  }
+                  <!-- Primary line -->
                   <e-series
                     [dataSource]="indicator.data"
                     type="Line"
                     xName="index"
-                    yName="y2"
-                    yAxisName="lowerYAxis2"
-                    [name]="(indicator.config.options.name || 'MACD') + ' Signal'"
-                    [fill]="indicator.config.options.color2 || '#e91e63'"
-                    width="1"
-                    [dashArray]="'4,3'"
+                    yName="y"
+                    [yAxisName]="pane.axisName"
+                    [name]="indicator.config.options.name || indicator.config.type.toUpperCase()"
+                    [fill]="indicator.config.options.color || '#2196f3'"
+                    width="{{ indicator.config.options.lineWidth || 2 }}"
                     [enableTooltip]="true">
                   </e-series>
+                  <!-- Secondary line (signal) -->
+                  @if (indicator.data.length > 0 && indicator.data[0].y2 !== undefined) {
+                    <e-series
+                      [dataSource]="indicator.data"
+                      type="Line"
+                      xName="index"
+                      yName="y2"
+                      [yAxisName]="pane.axisName"
+                      [name]="(indicator.config.options.name || indicator.config.type.toUpperCase()) + ' Signal'"
+                      [fill]="indicator.config.options.color2 || '#e91e63'"
+                      width="1"
+                      [dashArray]="'4,3'"
+                      [enableTooltip]="true">
+                    </e-series>
+                  }
                 }
               }
             }
@@ -243,12 +246,13 @@ export class FlexChartComponent {
     return originalSeries.map(series => ({
       ...series,
       data: series.data.map((point) => {
-        if (!point.x) return { index: -1, y: point.y, y2: point.y2 };
+        if (!point.x) return { index: -1, y: point.y, y2: point.y2, y3: point.y3 };
         const index = dateToIndex.get(point.x.getTime());
         return {
           index: index ?? -1, // -1 if not found (shouldn't happen)
           y: point.y,
           y2: point.y2,
+          y3: point.y3,
         };
       }).filter(p => p.index >= 0), // Remove any unmatched points
     }));
@@ -258,45 +262,83 @@ export class FlexChartComponent {
   private groupedSeries = computed(() => groupIndicatorsByPane(this.computedSeries()));
 
   mainPaneSeries = computed(() => this.groupedSeries()['main'] || []);
-  lowerPane1Series = computed(() => this.groupedSeries()['lower-1'] || []);
-  lowerPane2Series = computed(() => this.groupedSeries()['lower-2'] || []);
-  lowerPane3Series = computed(() => this.groupedSeries()['lower-3'] || []);
 
-  lowerPane1Title = computed(() => {
-    const series = this.lowerPane1Series();
-    if (series.length === 0) return '';
-    return series[0].config.options.name || series[0].config.type.toUpperCase();
+  /** Active lower panes derived from current indicators — sorted by pane ID */
+  lowerPanes = computed(() => {
+    const grouped = this.groupedSeries();
+    const paneIds = Object.keys(grouped)
+      .filter(id => id.startsWith('lower-'))
+      .sort() as IndicatorPane[];
+
+    return paneIds.map(paneId => {
+      const series = grouped[paneId];
+      const axisName = `lowerYAxis${paneId.replace('lower-', '')}`;
+      // Use fixed-0-100 if ANY indicator on this pane requests it
+      const useFixedScale = series.some(s => s.config.options.axisScale === 'fixed-0-100');
+      return {
+        id: paneId,
+        axisName,
+        series,
+        useFixedScale,
+      };
+    });
   });
 
-  lowerPane2Title = computed(() => {
-    const series = this.lowerPane2Series();
-    if (series.length === 0) return '';
-    return series[0].config.options.name || series[0].config.type.toUpperCase();
+  /** Dynamic Y-axes for lower panes. All series share the primary X-axis for zoom sync. */
+  chartAxes = computed(() => {
+    return this.lowerPanes().map((pane, index) => {
+      // Collect stripLines from all indicators on this pane
+      const stripLines = pane.series
+        .flatMap(s => s.config.options.referenceLines || [])
+        .map(ref => ({
+          start: ref.value,
+          size: 0,
+          sizeType: 'Pixel' as const,
+          dashArray: ref.dashArray || '',
+          color: ref.color,
+          visible: true,
+          opacity: 0.7,
+          text: ref.label || '',
+          textStyle: { color: ref.color, size: '10px' },
+          horizontalAlignment: 'End' as const,
+          verticalAlignment: 'Middle' as const,
+        }));
+
+      return {
+        name: pane.axisName,
+        valueType: 'Double' as const,
+        opposedPosition: true,
+        title: '',
+        rowIndex: index,
+        minimum: pane.useFixedScale ? 0 : undefined,
+        maximum: pane.useFixedScale ? 100 : undefined,
+        labelFormat: '{value}',
+        majorGridLines: { width: 0.5, color: 'rgba(158,158,158,0.3)' },
+        lineStyle: { width: 1, color: '#9e9e9e' },
+        crosshairTooltip: { enable: false },
+        stripLines,
+      };
+    });
   });
 
-  // Secondary Y-axes for lower pane indicators (opposed on right side)
-  chartAxes = [
-    {
-      name: 'lowerYAxis1',
-      opposedPosition: true,
-      title: '',
-      minimum: 0,
-      maximum: 100,
-      majorGridLines: { width: 0 },
-      lineStyle: { width: 1, color: '#9e9e9e' },
-      crosshairTooltip: { enable: false },
-    },
-    {
-      name: 'lowerYAxis2',
-      opposedPosition: true,
-      title: '',
-      majorGridLines: { width: 0 },
-      lineStyle: { width: 1, color: '#9e9e9e' },
-      crosshairTooltip: { enable: false },
-    },
-  ];
+  /** Dynamic row definitions: bottom-to-top (index 0 = bottom row) */
+  chartRows = computed(() => {
+    const lowerCount = this.lowerPanes().length;
+    if (lowerCount === 0) return [{ height: '100%' }];
+
+    // Lower panes at bottom, main pane on top
+    // Row order in array: [lower-1, lower-2, ..., main]
+    const lowerPct = Math.floor(40 / lowerCount);
+    const rows: { height: string }[] = [];
+    for (let i = 0; i < lowerCount; i++) {
+      rows.push({ height: `${lowerPct}%` });
+    }
+    rows.push({ height: `${100 - lowerCount * lowerPct}%` }); // Main pane (top)
+    return rows;
+  });
 
   // Chart configuration - Category axis removes gaps (like TradingView)
+  // Note: primaryXAxis needs a dynamic rowIndex but Syncfusion takes it from primaryYAxis row
   primaryXAxis = {
     valueType: 'Category',
     majorGridLines: { width: 0 },
@@ -304,6 +346,9 @@ export class FlexChartComponent {
     edgeLabelPlacement: 'Shift',
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     axisLabelRender: (args: any) => {
+      // Only format labels for the primary X-axis — skip Y-axes and secondary axes
+      if (args.axis.name !== 'primaryXAxis') return;
+
       // args.value is the index - look up the actual date
       const data = this.chartData();
       if (!data || !data.bars[args.value]) return;
@@ -328,11 +373,14 @@ export class FlexChartComponent {
     },
   };
 
-  primaryYAxis = {
+  // primaryYAxis rowIndex is dynamic — set via computed
+  primaryYAxis = computed(() => ({
     labelFormat: '${value}',
+    opposedPosition: true, // Y-axis on the right side
+    rowIndex: this.lowerPanes().length, // Main pane = topmost row
     majorGridLines: { width: 1 },
     crosshairTooltip: { enable: false },
-  };
+  }));
 
   zoomSettings = {
     enableSelectionZooming: true,
@@ -356,7 +404,6 @@ export class FlexChartComponent {
   constructor() {
     effect(() => {
       const data = this.chartData();
-      console.log('[FlexChart] Data received:', data ? `${data.bars.length} bars for ${data.symbol}` : 'null');
       if (data && data.bars.length > 0) {
         this.isInitialLoad.set(true);
       }
