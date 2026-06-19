@@ -115,7 +115,7 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
               }
             }
 
-            <!-- Lower pane indicators (rendered on right Y-axis) -->
+            <!-- Lower pane 1: RSI (0-100 scale) -->
             @for (indicator of lowerPane1Series(); track indicator.id) {
               @if (indicator.config.seriesType === 'line') {
                 <e-series
@@ -129,6 +129,39 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
                   width="{{ indicator.config.options.lineWidth || 2 }}"
                   [enableTooltip]="true">
                 </e-series>
+              }
+            }
+
+            <!-- Lower pane 2: MACD (auto-scale) -->
+            @for (indicator of lowerPane2Series(); track indicator.id) {
+              @if (indicator.config.seriesType === 'line') {
+                <!-- MACD line -->
+                <e-series
+                  [dataSource]="indicator.data"
+                  type="Line"
+                  xName="index"
+                  yName="y"
+                  yAxisName="lowerYAxis2"
+                  [name]="indicator.config.options.name || indicator.config.type.toUpperCase()"
+                  [fill]="indicator.config.options.color || '#ff9800'"
+                  width="{{ indicator.config.options.lineWidth || 2 }}"
+                  [enableTooltip]="true">
+                </e-series>
+                <!-- MACD signal line (y2) -->
+                @if (indicator.data.length > 0 && indicator.data[0].y2 !== undefined) {
+                  <e-series
+                    [dataSource]="indicator.data"
+                    type="Line"
+                    xName="index"
+                    yName="y2"
+                    yAxisName="lowerYAxis2"
+                    [name]="(indicator.config.options.name || 'MACD') + ' Signal'"
+                    [fill]="indicator.config.options.color2 || '#e91e63'"
+                    width="1"
+                    [dashArray]="'4,3'"
+                    [enableTooltip]="true">
+                  </e-series>
+                }
               }
             }
           </e-series-collection>
@@ -241,17 +274,27 @@ export class FlexChartComponent {
     return series[0].config.options.name || series[0].config.type.toUpperCase();
   });
 
-  // Secondary Y-axis for lower pane indicators (opposed on right side)
-  chartAxes = [{
-    name: 'lowerYAxis1',
-    opposedPosition: true, // Right side of chart
-    title: '',
-    minimum: 0,
-    maximum: 100,
-    majorGridLines: { width: 0 },
-    lineStyle: { width: 1, color: '#9e9e9e' },
-    crosshairTooltip: { enable: false },
-  }];
+  // Secondary Y-axes for lower pane indicators (opposed on right side)
+  chartAxes = [
+    {
+      name: 'lowerYAxis1',
+      opposedPosition: true,
+      title: '',
+      minimum: 0,
+      maximum: 100,
+      majorGridLines: { width: 0 },
+      lineStyle: { width: 1, color: '#9e9e9e' },
+      crosshairTooltip: { enable: false },
+    },
+    {
+      name: 'lowerYAxis2',
+      opposedPosition: true,
+      title: '',
+      majorGridLines: { width: 0 },
+      lineStyle: { width: 1, color: '#9e9e9e' },
+      crosshairTooltip: { enable: false },
+    },
+  ];
 
   // Chart configuration - Category axis removes gaps (like TradingView)
   primaryXAxis = {

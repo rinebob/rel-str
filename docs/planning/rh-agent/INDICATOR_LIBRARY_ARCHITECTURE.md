@@ -1,585 +1,528 @@
-# Indicator Library Architecture
+# Indicator & Strategy Architecture
 
 ## Overview
 
-The Indicator Library provides a **uniform interface** for all technical indicators, enabling infinite indicator implementations while maintaining a single, consistent consumption pattern. Indicators are **encapsulated calculation engines** that implement a common contract, allowing polymorphic usage across strategies.
+This document defines the architecture for **two fundamentally separate systems** that work together:
 
-## Core Design Principles
+- **Indicators** — Pure math. Take price/volume data, return computed values. No trading logic.
+- **Strategies** — Pure rules. Take pre-computed indicator values, return buy/sell/hold decisions. No indicator math.
 
-1. **Single Interface Contract** - All indicators implement `IIndicator<TConfig, TOutput>`
-2. **Encapsulation** - Each indicator owns its configuration, state, and calculation logic
-3. **Polymorphic Registry** - Strategies consume indicators through the interface, not concrete types
-4. **Calculation Engine Documentation** - Each indicator's "secret sauce" is documented as a first-class concern
-5. **Composable Building Blocks** - Indicators can be combined to create complex signals
+An **orchestrator** bridges the two: it reads what indicators a strategy needs, computes them, and passes the results to the strategy.
 
 ---
 
-## The Indicator Port (Interface Contract)
+## Core Principles
 
-Every indicator must implement the `IIndicator` interface:
+1. **Indicators and strategies are fundamentally different** — never mix calculation with trading logic
+2. **One indicator per file** (MA variants grouped since they share the same interface)
+3. **One strategy per file** (related rules like oversold/overbought can coexist)
+4. **Strategies never see raw bars** — they receive a flat snapshot of pre-computed indicator values
+5. **Indicators never return buy/sell** — they return numbers, arrays, and structured math results
+6. **Registries drive the UI** — dropdowns, config dialogs, and chart pane assignments all come from registry metadata
+
+---
+
+## Layer 1: Indicators (Pure Math)
+
+### What an Indicator Is
+
+A function that takes price/volume arrays and parameters, returns computed numeric values. No concept of signals, thresholds, or actions.
+
+### Indicator Contract
 
 ```typescript
-/**
- * Core interface for all technical indicators.
- * Provides a uniform contract for calculation, configuration, and metadata.
- */
-export interface IIndicator<TConfig, TOutput> {
-  /** Indicator metadata for discovery and documentation */
-  readonly metadata: IndicatorMetadata;
-  
-  /** Current configuration state */
-  readonly config: TConfig;
-  
-  /** 
-   * Apply configuration changes.
-   * Validates and merges partial config with defaults.
-   */
-  configure(config: Partial<TConfig>): void;
-  
-  /**
-   * Execute the indicator calculation.
-   * @param bars - OHLCV price data
-   * @returns Typed indicator output
-   */
-  calculate(bars: OHLCV[]): TOutput;
-  
-  /** 
-   * Get minimum bars required for accurate calculation.
-   * Used for validation before execution.
-   */
-  getRequiredBars(): number;
-  
-  /**
-   * Validate current configuration.
-   * @returns Validation result with errors if invalid
-   */
-  validateConfig(): ValidationResult;
+/** Unique identifier for each indicator type */
+enum IndicatorId {
+  SMA   = 'SMA',
+  EMA   = 'EMA',
+  WMA   = 'WMA',
+  TEMA  = 'TEMA',
+  RSI   = 'RSI',
+  MACD  = 'MACD',
+  BOLLINGER = 'BOLLINGER',
+  ATR   = 'ATR',
+  ADX   = 'ADX',
+  STOCHASTIC = 'STOCHASTIC',
+  VWAP  = 'VWAP',
 }
 
-export interface IndicatorMetadata {
-  id: string;                    // Unique identifier (e.g., "rsi")
-  name: string;                  // Display name (e.g., "Relative Strength Index")
-  description: string;           // Human-readable description
-  category: 'momentum' | 'trend' | 'volatility' | 'volume' | 'custom';
-  version: string;               // Semantic version
-  author: string;                // Creator attribution
-  
-  /** 
-   * Links to calculation engine documentation.
-   * Critical for understanding the indicator's logic.
-   */
-  documentation: {
-    overview: string;            // High-level explanation
-    calculation: string;         // Mathematical formula / algorithm
-    parameters: string;          // Parameter descriptions
-    interpretation: string;      // How to read the output
-    references: string[];        // Academic/technical references
-  };
+/** Moving average sub-types (used by ma.indicator.ts) */
+enum MaType {
+  SMA  = 'SMA',
+  EMA  = 'EMA',
+  WMA  = 'WMA',
+  TEMA = 'TEMA',
+  DEMA = 'DEMA',
+  KAMA = 'KAMA',
 }
+
+/** What every indicator file must export */
+interface IndicatorDefinition {
+  id: IndicatorId;
+  name: string;                                     // "RSI", "Simple Moving Average"
+  category: 'momentum' | 'trend' | 'volatility' | 'volume';
+  paramSchema: ParamField[];                        // Drives config dialog UI
+  defaultParams: Record<string, number | string>;   // e.g. { period: 14 }
+  minBarsRequired: (params: Record<string, number | string>) => number;
+  compute: IndicatorComputeFn;
+}
+
+/** Pure compute function — bars + params in, numbers out */
+type IndicatorComputeFn = (
+  bars: OHLCV[],
+  params: Record<string, number | string>
+) => IndicatorResult;
+
+/** What an indicator returns — just numbers */
+interface IndicatorResult {
+  /** One value per bar (aligned to bar index, NaN for insufficient lookback) */
+  values: number[];
+  /** Named secondary series (e.g., MACD signal line, Bollinger upper/lower) */
+  series?: Record<string, number[]>;
+}
+
+/** Describes one configurable parameter — drives the UI config dialog */
+interface ParamField {
+  key: string;
+  label: string;
+  type: 'integer' | 'number' | 'select';
+  default: number | string;
+  min?: number;
+  max?: number;
+  options?: { label: string; value: string }[];   // For 'select' type (e.g., MA type)
+  description?: string;
+}
+```
+
+### Key Rules for Indicators
+
+- **No `if (rsi < 30)`** — that's a strategy rule, not an indicator concern
+- **No `return { action: 'BUY' }`** — indicators return numbers only
+- **Output is per-bar** — `values[]` is aligned to the input bars array
+- **Secondary series** — MACD needs `signal` and `histogram`, Bollinger needs `upper` and `lower`
+- **Parameters are validated by the registry** using `paramSchema`
+
+### Example: RSI Indicator File
+
+```typescript
+// rsi.indicator.ts — Pure RSI calculation. No trading rules.
+
+export const rsiIndicator: IndicatorDefinition = {
+  id: IndicatorId.RSI,
+  name: 'Relative Strength Index',
+  category: 'momentum',
+
+  paramSchema: [
+    { key: 'period', label: 'Period', type: 'integer', default: 14, min: 2, max: 100 },
+  ],
+  defaultParams: { period: 14 },
+
+  minBarsRequired: (params) => Number(params.period) + 1,
+
+  compute(bars: OHLCV[], params): IndicatorResult {
+    const period = Number(params.period);
+    // ... Wilder's smoothed RSI calculation ...
+    // Returns: { values: [NaN, NaN, ..., 72.3, 68.1, 45.2, ...] }
+  },
+};
+```
+
+### Example: MA Indicator File (Grouped Variants)
+
+```typescript
+// ma.indicator.ts — All moving average variants. Same interface, different smoothing.
+
+// One IndicatorDefinition per MA type, all in this file.
+// SMA, EMA, WMA, TEMA share the same paramSchema shape.
+
+export const smaIndicator: IndicatorDefinition = {
+  id: IndicatorId.SMA,
+  name: 'Simple Moving Average',
+  category: 'trend',
+  paramSchema: [
+    { key: 'period', label: 'Period', type: 'integer', default: 20, min: 2, max: 500 },
+  ],
+  defaultParams: { period: 20 },
+  minBarsRequired: (params) => Number(params.period),
+  compute(bars, params) { /* SMA math */ },
+};
+
+export const emaIndicator: IndicatorDefinition = {
+  id: IndicatorId.EMA,
+  name: 'Exponential Moving Average',
+  category: 'trend',
+  paramSchema: [
+    { key: 'period', label: 'Period', type: 'integer', default: 20, min: 2, max: 500 },
+  ],
+  defaultParams: { period: 20 },
+  minBarsRequired: (params) => Number(params.period),
+  compute(bars, params) { /* EMA math */ },
+};
+
+// ... WMA, TEMA, etc.
 ```
 
 ---
 
-## Calculation Engine Surface
+## Layer 2: Strategies (Pure Rules)
 
-### Input Surface (What the Indicator Accepts)
+### What a Strategy Is
+
+A rubric that takes **pre-computed indicator values** and applies deterministic rules to produce buy/sell/hold decisions. A strategy never calls an indicator function or touches raw bars.
+
+### Strategy Contract
 
 ```typescript
-/**
- * Standard OHLCV bar structure.
- * All indicators consume this uniform format.
- */
-export interface OHLCV {
-  timestamp: number;           // Unix timestamp (ms)
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
+/** Unique identifier for each strategy */
+enum StrategyId {
+  RSI_REVERSAL    = 'RSI_REVERSAL',
+  MA_CROSSOVER    = 'MA_CROSSOVER',
+  MACD_CROSSOVER  = 'MACD_CROSSOVER',
 }
 
-/**
- * Extended context for advanced indicators.
- * Optional market context (sector, regime, etc.)
- */
-export interface IndicatorContext {
+/** What every strategy file must export */
+interface StrategyDefinition {
+  id: StrategyId;
+  name: string;
+  description: string;
+  requiredIndicators: IndicatorSpec[];            // Declares dependencies
+  paramSchema: ParamField[];                      // Strategy-specific thresholds
+  defaultParams: Record<string, number | string>;
+  evaluate: StrategyEvaluateFn;
+}
+
+/** What the strategy declares it needs */
+interface IndicatorSpec {
+  id: IndicatorId;
+  params: Record<string, number | string>;
+  /** Key used to look up this indicator's result in the snapshot */
+  snapshotKey: string;                            // e.g., "RSI:14", "SMA:20", "SMA:50"
+}
+
+/** Pre-computed indicator values passed to the strategy */
+interface IndicatorSnapshot {
+  [snapshotKey: string]: IndicatorResult;         // e.g., { "RSI:14": { values: [...] } }
+}
+
+/** Pure evaluate function — snapshot + params in, signals out */
+type StrategyEvaluateFn = (
+  snapshot: IndicatorSnapshot,
+  params: Record<string, number | string>,
+  barCount: number
+) => StrategySignal[];
+
+/** What a strategy returns — per-bar signals */
+interface StrategySignal {
+  barIndex: number;
+  action: 'BUY' | 'SELL' | 'HOLD';
+  confidence: number;                             // 0-100
+  reason: string;
+}
+```
+
+### Key Rules for Strategies
+
+- **No `rsi(closes, 14)`** — the indicator engine already computed this
+- **No bar slicing or close extraction** — strategies see `IndicatorSnapshot`, not bars
+- **Declare dependencies** — `requiredIndicators` tells the orchestrator what to compute
+- **Output is per-bar** — for historical backtesting, a strategy produces a signal for every bar
+- **Related rules can share a file** — RSI oversold + RSI overbought = one `rsi-reversal.strategy.ts`
+
+### Example: RSI Reversal Strategy File
+
+```typescript
+// rsi-reversal.strategy.ts — Oversold bounce + overbought fade. No indicator math.
+
+export const rsiReversalStrategy: StrategyDefinition = {
+  id: StrategyId.RSI_REVERSAL,
+  name: 'RSI Reversal',
+  description: 'BUY when RSI oversold, SELL when RSI overbought',
+
+  requiredIndicators: [
+    { id: IndicatorId.RSI, params: { period: 14 }, snapshotKey: 'RSI:14' },
+  ],
+
+  paramSchema: [
+    { key: 'oversoldThreshold', label: 'Oversold Level', type: 'integer', default: 30, min: 10, max: 50 },
+    { key: 'overboughtThreshold', label: 'Overbought Level', type: 'integer', default: 70, min: 50, max: 90 },
+  ],
+  defaultParams: { oversoldThreshold: 30, overboughtThreshold: 70 },
+
+  evaluate(snapshot, params, barCount): StrategySignal[] {
+    const rsi = snapshot['RSI:14'];
+    const oversold = Number(params.oversoldThreshold);
+    const overbought = Number(params.overboughtThreshold);
+    const signals: StrategySignal[] = [];
+
+    for (let i = 0; i < barCount; i++) {
+      const val = rsi.values[i];
+      if (isNaN(val)) continue;
+
+      if (val < oversold) {
+        signals.push({ barIndex: i, action: 'BUY', confidence: /*...*/, reason: `RSI ${val.toFixed(1)} < ${oversold}` });
+      } else if (val > overbought) {
+        signals.push({ barIndex: i, action: 'SELL', confidence: /*...*/, reason: `RSI ${val.toFixed(1)} > ${overbought}` });
+      }
+    }
+    return signals;
+  },
+};
+```
+
+### Example: MA Crossover Strategy File
+
+```typescript
+// ma-crossover.strategy.ts — Two-MA crossover. No indicator math.
+
+export const maCrossoverStrategy: StrategyDefinition = {
+  id: StrategyId.MA_CROSSOVER,
+  name: 'MA Crossover',
+  description: 'BUY when fast MA crosses above slow MA, SELL on cross below',
+
+  requiredIndicators: [
+    { id: IndicatorId.SMA, params: { period: 10 }, snapshotKey: 'SMA:10' },
+    { id: IndicatorId.SMA, params: { period: 20 }, snapshotKey: 'SMA:20' },
+  ],
+
+  paramSchema: [
+    { key: 'fastPeriod', label: 'Fast MA Period', type: 'integer', default: 10, min: 2, max: 50 },
+    { key: 'slowPeriod', label: 'Slow MA Period', type: 'integer', default: 20, min: 5, max: 200 },
+    { key: 'maType', label: 'MA Type', type: 'select', default: 'SMA',
+      options: [
+        { label: 'Simple', value: 'SMA' },
+        { label: 'Exponential', value: 'EMA' },
+      ] },
+  ],
+  defaultParams: { fastPeriod: 10, slowPeriod: 20, maType: 'SMA' },
+
+  evaluate(snapshot, params, barCount): StrategySignal[] {
+    const fast = snapshot[`${params.maType}:${params.fastPeriod}`];
+    const slow = snapshot[`${params.maType}:${params.slowPeriod}`];
+    const signals: StrategySignal[] = [];
+
+    for (let i = 1; i < barCount; i++) {
+      const prevFast = fast.values[i - 1], prevSlow = slow.values[i - 1];
+      const currFast = fast.values[i], currSlow = slow.values[i];
+      if (isNaN(prevFast) || isNaN(currFast)) continue;
+
+      if (prevFast <= prevSlow && currFast > currSlow) {
+        signals.push({ barIndex: i, action: 'BUY', confidence: /*...*/, reason: 'Bullish MA crossover' });
+      } else if (prevFast >= prevSlow && currFast < currSlow) {
+        signals.push({ barIndex: i, action: 'SELL', confidence: /*...*/, reason: 'Bearish MA crossover' });
+      }
+    }
+    return signals;
+  },
+};
+```
+
+---
+
+## Layer 3: Orchestrator (Glue)
+
+The orchestrator bridges indicators and strategies. It operates in two modes.
+
+---
+
+## Execution Modes
+
+### Execution Context
+
+```typescript
+interface ExecutionContext {
+  mode: 'current' | 'historical';
+
+  /**
+   * Current mode: 'all' scans the full universe (watchlist or configured symbol set).
+   * Historical mode: explicit symbol list (typically one at a time).
+   */
+  symbols: 'all' | string[];
+
+  /** Strategy + user params */
+  strategyId: StrategyId;
+  strategyParams: Record<string, number | string>;
+
+  /** Bar depth override. Defaults: current=50, historical=252 */
+  barCount?: number;
+
+  /** Historical range (historical mode only) */
+  startDate?: Date;
+  endDate?: Date;
+}
+```
+
+### Current Mode — "What should I trade today?"
+
+| Aspect | Detail |
+|--------|--------|
+| **Intent** | Scan full universe for actionable signals now |
+| **Symbols** | `'all'` — resolved from watchlist/universe config |
+| **Bar depth** | Minimum needed (e.g., 50 bars for RSI 14) |
+| **Signals kept** | Only the latest actionable signal per symbol |
+| **Trigger** | Scheduled Cloud Function or "Scan Now" button |
+| **Output** | Trade opportunity list → left panel |
+
+```
+Scheduled trigger → resolve 'all' symbols from universe
+  → For each symbol:
+      → Fetch last 50 bars (minimal data)
+      → indicatorEngine.computeAll(bars, strategy.requiredIndicators)
+      → strategy.evaluate(snapshot, params, barCount)
+      → Take ONLY the last actionable signal: signals.filter(s => s.action !== 'HOLD').pop()
+      → If signal exists → store as opportunity in Firestore
+  → Result: list of trade opportunities
+```
+
+### Historical Mode — "How did this strategy perform?"
+
+| Aspect | Detail |
+|--------|--------|
+| **Intent** | Evaluate strategy quality on past data |
+| **Symbols** | Explicit list, typically one at a time |
+| **Bar depth** | Full range (252 for 1yr, 1260 for 5yr, or date-bounded) |
+| **Signals kept** | All signals across all bars |
+| **Trigger** | User picks symbol + date range + strategy, clicks "Backtest" |
+| **Output** | All signals → chart markers + stats panel |
+
+```
+User selects AAPL + "RSI Reversal" + 1 year
+  → Fetch 252 bars
+  → indicatorEngine.computeAll(bars, strategy.requiredIndicators)
+  → strategy.evaluate(snapshot, params, 252)
+  → Return ALL signals (e.g., 15 BUY + 12 SELL over the year)
+  → statsCalculator.pairTrades(signals, bars) → TradeResult[]
+  → statsCalculator.computeStats(trades) → HistoricalStats
+  → Chart: render every signal as a marker
+  → Stats panel: win rate, profit factor, expectancy, etc.
+```
+
+---
+
+## Execution Output
+
+### Result Structure
+
+```typescript
+interface ExecutionResult {
+  mode: 'current' | 'historical';
+  results: SymbolResult[];
+  /** Aggregate stats — populated in historical mode */
+  stats?: HistoricalStats;
+}
+
+interface SymbolResult {
   symbol: string;
-  marketRegime?: 'bull' | 'bear' | 'neutral' | 'volatile';
-  sector?: string;
-  timeframe: '1m' | '5m' | '15m' | '1h' | '4h' | '1d' | '1w';
+  signals: StrategySignal[];
+  /** Per-symbol stats (historical mode) */
+  stats?: SymbolStats;
 }
 ```
 
-### Output Surface (What the Indicator Returns)
+### Per-Symbol Stats (Historical)
 
 ```typescript
-/**
- * Base output - all indicator outputs extend this.
- */
-export interface BaseIndicatorOutput {
-  /** Primary value(s) - the indicator's main reading */
-  values: number | number[] | Record<string, number>;
-  
-  /** Whether the calculation succeeded */
-  valid: boolean;
-  
-  /** Error message if calculation failed */
-  error?: string;
-  
-  /** Metadata about the calculation */
-  meta: {
-    barsUsed: number;
-    calculationTime: number;   // ms
-    timestamp: number;
-  };
+interface SymbolStats {
+  totalSignals: number;
+  buys: number;
+  sells: number;
+  trades: TradeResult[];          // Paired BUY→SELL as completed round-trips
 }
 
-/**
- * Example: RSI Output
- */
-export interface RSIOutput extends BaseIndicatorOutput {
-  values: {
-    rsi: number;                 // 0-100
-  };
-  
-  /** Signal conditions */
-  conditions: {
-    oversold: boolean;           // RSI < oversoldThreshold
-    overbought: boolean;         // RSI > overboughtThreshold
-    neutral: boolean;
-  };
-  
-  /** Additional insights */
-  insights?: {
-    divergence?: 'bullish' | 'bearish' | null;
-    strength: 'weak' | 'moderate' | 'strong';
-    trend: 'rising' | 'falling' | 'flat';
-  };
+/** A completed round-trip trade (BUY entry → SELL exit) */
+interface TradeResult {
+  entryBarIndex: number;
+  exitBarIndex: number;
+  entryPrice: number;
+  exitPrice: number;
+  returnPct: number;              // (exit - entry) / entry
+  holdingBars: number;
+  result: 'win' | 'loss';
 }
+```
 
-/**
- * Example: MACD Output
- */
-export interface MACDOutput extends BaseIndicatorOutput {
-  values: {
-    macdLine: number;
-    signalLine: number;
-    histogram: number;
-  };
-  
-  conditions: {
-    bullishCross: boolean;       // MACD crosses above signal
-    bearishCross: boolean;       // MACD crosses below signal
-    positiveHistogram: boolean;
-    histogramGrowing: boolean;
-  };
+### Aggregate Stats (Historical)
+
+```typescript
+interface HistoricalStats {
+  totalTrades: number;
+  wins: number;
+  losses: number;
+  winRate: number;                // wins / totalTrades
+  avgWinPct: number;
+  avgLossPct: number;
+  profitFactor: number;           // gross gains / gross losses
+  avgHoldingBars: number;
+  maxConsecutiveLosses: number;
+  maxDrawdownPct: number;
+  expectancy: number;             // (winRate × avgWin) - (lossRate × avgLoss)
+  sharpeRatio?: number;
+}
+```
+
+### Stats Calculator (Separate Module)
+
+The strategy only produces signals. Trade pairing and performance stats are a separate concern:
+
+```
+strategy.evaluate() → StrategySignal[]
+  → statsCalculator.pairTrades(signals, bars) → TradeResult[]
+  → statsCalculator.computeStats(trades) → HistoricalStats
+```
+
+This keeps strategies pure and stats logic reusable across any strategy.
+
+---
+
+## Orchestrator Implementation
+
+```typescript
+// strategy-engine.ts
+
+function runStrategy(context: ExecutionContext): ExecutionResult {
+  const strategy = strategyRegistry.get(context.strategyId);
+  const symbols = context.symbols === 'all'
+    ? resolveUniverse()           // Fetch from watchlist/universe config
+    : context.symbols;
+  const barCount = context.barCount ?? (context.mode === 'current' ? 50 : 252);
+  const results: SymbolResult[] = [];
+
+  for (const symbol of symbols) {
+    const bars = fetchBars(symbol, barCount, context.startDate, context.endDate);
+    const specs = resolveIndicatorSpecs(strategy, context.strategyParams);
+    const snapshot = indicatorEngine.computeAll(bars, specs);
+    const signals = strategy.evaluate(snapshot, context.strategyParams, bars.length);
+
+    if (context.mode === 'current') {
+      const latest = signals.filter(s => s.action !== 'HOLD').pop();
+      if (latest) results.push({ symbol, signals: [latest] });
+    } else {
+      const trades = statsCalculator.pairTrades(signals, bars);
+      results.push({ symbol, signals, stats: { totalSignals: signals.length, buys: signals.filter(s => s.action === 'BUY').length, sells: signals.filter(s => s.action === 'SELL').length, trades } });
+    }
+  }
+
+  const stats = context.mode === 'historical'
+    ? statsCalculator.computeStats(results.flatMap(r => r.stats?.trades ?? []))
+    : undefined;
+
+  return { mode: context.mode, results, stats };
 }
 ```
 
 ---
 
-## Indicator Implementation Pattern
+## Frontend Chart Integration
 
-### RSI Calculation Engine (Example)
-
-```typescript
-/**
- * RSI Indicator - Relative Strength Index
- * 
- * Calculation Engine: Wilder's Smoothed Moving Average
- * 
- * Formula:
- *   RS = Average Gain / Average Loss
- *   RSI = 100 - (100 / (1 + RS))
- * 
- * Where Average Gain/Loss uses Wilder's smoothing:
- *   First Average Gain = Sum of gains over first n periods / n
- *   Subsequent Avg Gain = (Prev Avg Gain × (n-1) + Current Gain) / n
- */
-export class RSIIndicator implements IIndicator<RSIConfig, RSIOutput> {
-  // Default configuration
-  private _config: RSIConfig = {
-    period: 14,
-    source: 'close',
-    oversoldThreshold: 30,
-    overboughtThreshold: 70,
-    smoothing: 'wilder'
-  };
-  
-  // Internal state (optional - for stateful indicators)
-  private previousGains: number[] = [];
-  private previousLosses: number[] = [];
-  
-  public readonly metadata: IndicatorMetadata = {
-    id: 'rsi',
-    name: 'Relative Strength Index',
-    description: 'Momentum oscillator measuring speed/change of price movements',
-    category: 'momentum',
-    version: '1.0.0',
-    author: 'rel-str',
-    documentation: {
-      overview: 'RSI compares magnitude of recent gains to recent losses',
-      calculation: `
-        1. Calculate price changes: change = price[t] - price[t-1]
-        2. Separate gains (positive changes) and losses (absolute negative)
-        3. Apply Wilder's smoothing to get Average Gain and Average Loss
-        4. RS = Average Gain / Average Loss
-        5. RSI = 100 - (100 / (1 + RS))
-      `,
-      parameters: `
-        - period: Lookback window (default: 14)
-        - source: Price source - open, high, low, close (default: close)
-        - oversold: Threshold for oversold condition (default: 30)
-        - overbought: Threshold for overbought (default: 70)
-      `,
-      interpretation: `
-        - RSI > 70: Overbought (potential sell)
-        - RSI < 30: Oversold (potential buy)
-        - Divergence: Price makes new low, RSI doesn't = bullish reversal signal
-      `,
-      references: [
-        'Wilder, J. Welles (1978). New Concepts in Technical Trading Systems'
-      ]
-    }
-  };
-  
-  get config(): RSIConfig {
-    return { ...this._config };
-  }
-  
-  configure(config: Partial<RSIConfig>): void {
-    this._config = { ...this._config, ...config };
-    
-    const validation = this.validateConfig();
-    if (!validation.valid) {
-      throw new Error(`Invalid RSI config: ${validation.errors.join(', ')}`);
-    }
-  }
-  
-  validateConfig(): ValidationResult {
-    const errors: string[] = [];
-    
-    if (this._config.period < 2 || this._config.period > 100) {
-      errors.push('Period must be between 2 and 100');
-    }
-    if (this._config.oversoldThreshold >= this._config.overboughtThreshold) {
-      errors.push('Oversold must be less than overbought');
-    }
-    
-    return {
-      valid: errors.length === 0,
-      errors
-    };
-  }
-  
-  getRequiredBars(): number {
-    // Need at least period + 1 bars for first calculation
-    return this._config.period + 1;
-  }
-  
-  /**
-   * PRIMARY CALCULATION ENGINE
-   * 
-   * This is the "secret sauce" - the actual RSI algorithm.
-   * All indicator complexity lives here.
-   */
-  calculate(bars: OHLCV[]): RSIOutput {
-    const startTime = Date.now();
-    
-    // 1. Validate input
-    if (bars.length < this.getRequiredBars()) {
-      return {
-        values: { rsi: 0 },
-        valid: false,
-        error: `Need ${this.getRequiredBars()} bars, got ${bars.length}`,
-        conditions: { oversold: false, overbought: false, neutral: true },
-        meta: { barsUsed: bars.length, calculationTime: 0, timestamp: Date.now() }
-      };
-    }
-    
-    // 2. Extract price series from source
-    const prices = this.extractPrices(bars);
-    
-    // 3. Calculate price changes
-    const changes = this.calculateChanges(prices);
-    
-    // 4. Separate gains and losses
-    const gains = changes.map(c => c > 0 ? c : 0);
-    const losses = changes.map(c => c < 0 ? Math.abs(c) : 0);
-    
-    // 5. Apply Wilder's smoothing (THE CORE ALGORITHM)
-    const avgGains = this.wilderSmoothing(gains, this._config.period);
-    const avgLosses = this.wilderSmoothing(losses, this._config.period);
-    
-    // 6. Calculate final RSI values
-    const rsiValues = this.calculateRSI(avgGains, avgLosses);
-    const currentRSI = rsiValues[rsiValues.length - 1];
-    
-    // 7. Detect divergences and trends
-    const insights = this.analyzeRSI(prices, rsiValues);
-    
-    // 8. Build output
-    return {
-      values: { rsi: currentRSI },
-      valid: true,
-      conditions: {
-        oversold: currentRSI < this._config.oversoldThreshold,
-        overbought: currentRSI > this._config.overboughtThreshold,
-        neutral: currentRSI >= this._config.oversoldThreshold && 
-                 currentRSI <= this._config.overboughtThreshold
-      },
-      insights,
-      meta: {
-        barsUsed: bars.length,
-        calculationTime: Date.now() - startTime,
-        timestamp: Date.now()
-      }
-    };
-  }
-  
-  // ==========================================================================
-  // PRIVATE CALCULATION METHODS (Internal to the engine)
-  // ==========================================================================
-  
-  private extractPrices(bars: OHLCV[]): number[] {
-    const source = this._config.source;
-    return bars.map(bar => {
-      switch (source) {
-        case 'open': return bar.open;
-        case 'high': return bar.high;
-        case 'low': return bar.low;
-        case 'close': return bar.close;
-        default: return bar.close;
-      }
-    });
-  }
-  
-  private calculateChanges(prices: number[]): number[] {
-    return prices.slice(1).map((price, i) => price - prices[i]);
-  }
-  
-  /**
-   * WILDER'S SMOOTHING ALGORITHM
-   * 
-   * The heart of RSI calculation. Unlike simple moving average,
-   * Wilder's method applies exponential weighting to recent data.
-   */
-  private wilderSmoothing(values: number[], period: number): number[] {
-    const smoothed: number[] = [];
-    
-    // First value: simple average of first n periods
-    let avg = values.slice(0, period).reduce((a, b) => a + b, 0) / period;
-    smoothed.push(avg);
-    
-    // Subsequent values: Wilder's smoothing formula
-    for (let i = period; i < values.length; i++) {
-      avg = (avg * (period - 1) + values[i]) / period;
-      smoothed.push(avg);
-    }
-    
-    return smoothed;
-  }
-  
-  private calculateRSI(avgGains: number[], avgLosses: number[]): number[] {
-    return avgGains.map((gain, i) => {
-      const loss = avgLosses[i];
-      if (loss === 0) return 100;  // No losses = pure bullish
-      const rs = gain / loss;
-      return 100 - (100 / (1 + rs));
-    });
-  }
-  
-  private analyzeRSI(prices: number[], rsiValues: number[]): RSIOutput['insights'] {
-    const currentRSI = rsiValues[rsiValues.length - 1];
-    const previousRSI = rsiValues[rsiValues.length - 2];
-    
-    // Calculate trend
-    let trend: 'rising' | 'falling' | 'flat' = 'flat';
-    if (currentRSI > previousRSI + 1) trend = 'rising';
-    else if (currentRSI < previousRSI - 1) trend = 'falling';
-    
-    // Calculate strength
-    let strength: 'weak' | 'moderate' | 'strong' = 'weak';
-    const distanceFrom50 = Math.abs(currentRSI - 50);
-    if (distanceFrom50 > 30) strength = 'strong';
-    else if (distanceFrom50 > 15) strength = 'moderate';
-    
-    // Detect divergence (simplified)
-    const divergence = this.detectDivergence(prices, rsiValues);
-    
-    return {
-      divergence,
-      trend,
-      strength
-    };
-  }
-  
-  private detectDivergence(
-    prices: number[], 
-    rsiValues: number[]
-  ): 'bullish' | 'bearish' | null {
-    // Simplified: check last 5 bars
-    const priceLow1 = Math.min(...prices.slice(-10, -5));
-    const priceLow2 = Math.min(...prices.slice(-5));
-    const rsiLow1 = Math.min(...rsiValues.slice(-10, -5));
-    const rsiLow2 = Math.min(...rsiValues.slice(-5));
-    
-    // Bullish divergence: price lower low, RSI higher low
-    if (priceLow2 < priceLow1 && rsiLow2 > rsiLow1) {
-      return 'bullish';
-    }
-    
-    // Bearish divergence: price higher high, RSI lower high
-    const priceHigh1 = Math.max(...prices.slice(-10, -5));
-    const priceHigh2 = Math.max(...prices.slice(-5));
-    const rsiHigh1 = Math.max(...rsiValues.slice(-10, -5));
-    const rsiHigh2 = Math.max(...rsiValues.slice(-5));
-    
-    if (priceHigh2 > priceHigh1 && rsiHigh2 < rsiHigh1) {
-      return 'bearish';
-    }
-    
-    return null;
-  }
-}
 ```
+User picks indicators from dropdown
+  → indicatorRegistry.list() populates the dropdown
+  → User configures params via dialog (driven by paramSchema)
+  → flex-chart computes indicator values from bars
+  → Renders on appropriate pane (main overlay or lower pane)
 
----
-
-## Indicator Registry
-
-The registry provides polymorphic access to all indicators:
-
-```typescript
-/**
- * Central registry for indicator discovery and instantiation.
- * Strategies consume indicators through the registry, not concrete types.
- */
-export class IndicatorRegistry {
-  private indicators = new Map<string, new () => IIndicator<any, any>>();
-  private instances = new Map<string, IIndicator<any, any>>();
-  
-  /**
-   * Register an indicator class.
-   * Called at module initialization.
-   */
-  register<TConfig, TOutput>(
-    id: string, 
-    IndicatorClass: new () => IIndicator<TConfig, TOutput>
-  ): void {
-    this.indicators.set(id, IndicatorClass);
-    
-    // Pre-instantiate for performance
-    this.instances.set(id, new IndicatorClass());
-  }
-  
-  /**
-   * Get an indicator instance by ID.
-   * Returns the polymorphic interface, not concrete type.
-   */
-  get<TConfig, TOutput>(id: string): IIndicator<TConfig, TOutput> {
-    const indicator = this.instances.get(id);
-    if (!indicator) {
-      throw new Error(`Indicator '${id}' not registered`);
-    }
-    return indicator;
-  }
-  
-  /**
-   * Get multiple indicators for batch processing.
-   */
-  getMany(ids: string[]): IIndicator<any, any>[] {
-    return ids.map(id => this.get(id));
-  }
-  
-  /**
-   * List all registered indicators (for UI discovery).
-   */
-  list(): IndicatorMetadata[] {
-    return Array.from(this.instances.values()).map(i => i.metadata);
-  }
-  
-  /**
-   * Calculate with any registered indicator (polymorphic usage).
-   * This is the primary consumption method for strategies.
-   */
-  calculate(
-    indicatorId: string, 
-    bars: OHLCV[], 
-    config?: Record<string, any>
-  ): BaseIndicatorOutput {
-    const indicator = this.get(indicatorId);
-    
-    if (config) {
-      indicator.configure(config);
-    }
-    
-    return indicator.calculate(bars);
-  }
-}
-
-// Singleton registry instance
-export const indicatorRegistry = new IndicatorRegistry();
-
-// Auto-registration at module load
-indicatorRegistry.register('rsi', RSIIndicator);
-indicatorRegistry.register('macd', MACDIndicator);
-indicatorRegistry.register('bollinger', BollingerBandsIndicator);
-// ... etc
-```
-
----
-
-## Strategy Consumption Pattern
-
-Strategies consume indicators through the registry polymorphically:
-
-```typescript
-/**
- * Example: Multi-Indicator Strategy
- * 
- * Uses RSI, MACD, and Volume Profile together.
- * Each indicator calculated independently, results combined.
- */
-export class MultiSignalStrategy {
-  private indicators: IIndicator<any, any>[];
-  
-  constructor(indicatorIds: string[]) {
-    // Get indicators polymorphically - don't care about concrete types
-    this.indicators = indicatorRegistry.getMany(indicatorIds);
-  }
-  
-  analyze(bars: OHLCV[]): TradingSignal | null {
-    // Calculate ALL indicators using same interface
-    const results = this.indicators.map(ind => ind.calculate(bars));
-    
-    // Combine signals (e.g., all must agree)
-    const buySignals = results.filter(r => 
-      r.conditions.oversold || 
-      r.conditions.bullishCross
-    );
-    
-    if (buySignals.length >= this.indicators.length * 0.7) {
-      return {
-        action: 'BUY',
-        confidence: this.calculateConfidence(results),
-        indicators: results
-      };
-    }
-    
-    return null;
-  }
-  
-  private calculateConfidence(results: BaseIndicatorOutput[]): number {
-    // Weight confidence by indicator type
-    // Implementation details...
-    return Math.round(average(results.map(r => r.values.confidence || 50)));
-  }
-}
-
-// Usage
-const strategy = new MultiSignalStrategy(['rsi', 'macd', 'volume-profile']);
-const signal = strategy.analyze(priceData);
+User applies a strategy overlay
+  → Strategy's requiredIndicators auto-added to chart if not already present
+  → Strategy signals rendered as dot/arrow markers on price pane
 ```
 
 ---
@@ -587,73 +530,122 @@ const signal = strategy.analyze(priceData);
 ## File Structure
 
 ```
-libs/indicators/                    # Standalone TypeScript library
-  src/
-    core/
-      types.ts                      # IIndicator, BaseIndicatorOutput, OHLCV
-      registry.ts                   # IndicatorRegistry singleton
-      
-    indicators/
-      rsi/
-        index.ts                    # RSIIndicator class + config
-        types.ts                    # RSIConfig, RSIOutput
-        test.spec.ts                # Unit tests
-        README.md                   # Calculation documentation
-      
-      macd/
-        index.ts
-        types.ts
-        test.spec.ts
-        README.md
-      
-      bollinger-bands/
-        ...
-    
-    index.ts                        # Public API exports
-  
-  package.json                      # Library config
-  tsconfig.json                     # Strict TypeScript settings
+functions/src/rh-agent-cloud-function/
+  indicators/
+    indicator.types.ts              ← IndicatorId, IndicatorDefinition, IndicatorResult, ParamField
+    indicator-registry.ts           ← Registry: maps IndicatorId → definition, list(), compute()
+    ma.indicator.ts                 ← SMA, EMA, WMA, TEMA (grouped — same concept, different smoothing)
+    rsi.indicator.ts                ← RSI only
+    macd.indicator.ts               ← MACD only
+    bollinger.indicator.ts          ← Bollinger Bands only
+    atr.indicator.ts                ← ATR only
+
+  strategies/
+    strategy.types.ts               ← StrategyId, StrategyDefinition, StrategySignal, IndicatorSnapshot
+    strategy-registry.ts            ← Registry: maps StrategyId → definition, list(), evaluate()
+    rsi-reversal.strategy.ts        ← RSI oversold bounce + overbought fade
+    ma-crossover.strategy.ts        ← Two-MA crossover (configurable MA type + periods)
+    macd-crossover.strategy.ts      ← MACD histogram flip / line crossover
+
+  stats/
+    stats-calculator.ts             ← pairTrades(), computeStats()
+    stats.types.ts                  ← TradeResult, SymbolStats, HistoricalStats
+
+  indicator-engine.ts               ← computeAll(bars, IndicatorSpec[]) → IndicatorSnapshot
+  strategy-engine.ts                ← runStrategy(context: ExecutionContext) → ExecutionResult
+
+src/app/features/shared/components/flex-chart/
+  flex-chart-calculations.ts        ← Frontend indicator compute (same math, browser context)
+  flex-chart.types.ts               ← Chart-specific types (IndicatorConfig, FlexChartConfig)
+  flex-chart.component.ts           ← Syncfusion chart rendering
 ```
 
 ---
 
-## Key Benefits
+## Grouping Rules
 
-| Benefit | Description |
-|---------|-------------|
-| **Encapsulation** | Each indicator owns its config, state, calculations |
-| **Polymorphism** | Strategies call `calculate()` on any indicator uniformly |
-| **Discoverability** | Registry enables UI to list all available indicators |
-| **Documentation** | Calculation engines documented as first-class citizens |
-| **Testability** | Each indicator tested in isolation with clear inputs/outputs |
-| **Extensibility** | New indicator = new file implementing IIndicator |
-| **Composition** | Multiple indicators combined for complex signals |
-| **Type Safety** | Generic TConfig/TOutput ensures compile-time correctness |
+| Question | Answer |
+|----------|--------|
+| SMA + EMA + WMA + TEMA in same file? | **Yes** — all MA variants, same interface, one `ma.indicator.ts` with MaType param |
+| RSI + MACD in same file? | **No** — fundamentally different calculations |
+| RSI oversold + RSI overbought in same file? | **Yes** — same indicator, mirrored rules, one `rsi-reversal.strategy.ts` |
+| MA crossover + MACD crossover in same file? | **No** — different indicators, different logic |
+| Composite (RSI + MA + MACD) strategy? | **Own file** — declares all three as requiredIndicators |
 
 ---
 
-## Migration from Current Code
+## Data Flow Summary
 
-**Current (hard-coded):**
-```typescript
-// In rh-agent-worker.ts
-const rsiValue = rsi(closes);  // Function call, no encapsulation
-if (rsiValue < 30 && priceChange < -0.02) { ... }
+```
+                    ┌─────────────────┐
+                    │   Raw OHLCV     │
+                    │     Bars        │
+                    └────────┬────────┘
+                             │
+                    ┌────────▼────────┐
+                    │   Indicator     │    Reads strategy.requiredIndicators
+                    │    Engine       │    Computes each indicator once
+                    └────────┬────────┘
+                             │
+                    ┌────────▼────────┐
+                    │   Indicator     │    Flat map: { "RSI:14": {...}, "SMA:20": {...} }
+                    │   Snapshot      │    Just numbers — no trading logic
+                    └────────┬────────┘
+                             │
+              ┌──────────────┼──────────────┐
+              │              │              │
+     ┌────────▼──────┐  ┌───▼────┐  ┌──────▼───────┐
+     │  Strategy      │  │ Chart  │  │  Stats       │
+     │  evaluate()    │  │ render │  │  Calculator  │
+     │  → signals     │  │ panes  │  │  → trades    │
+     └───────┬───────┘  └────────┘  └──────┬───────┘
+             │                              │
+             └──────────────┬───────────────┘
+                            │
+                   ┌────────▼────────┐
+                   │  ExecutionResult │
+                   │  signals + stats │
+                   └─────────────────┘
 ```
 
-**New (indicator lib):**
-```typescript
-// Strategy imports from lib
-import { indicatorRegistry } from '@rel-str/indicators';
+---
 
-// Get indicator polymorphically
-const rsi = indicatorRegistry.get('rsi');
-rsi.configure({ period: 14, oversoldThreshold: 30 });
+## User Workflow
 
-// Calculate using standard interface
-const result = rsi.calculate(bars);
+### Adding Indicators to Chart
 
-if (result.conditions.oversold && result.insights?.divergence === 'bullish') {
-  // Act on structured output
-}
-```
+1. User clicks "Add Indicator" → dropdown populated from `indicatorRegistry.list()`
+2. Selects "RSI" → config dialog shows `paramSchema`: Period (default 14)
+3. User adjusts period to 10, clicks Apply
+4. Chart adds RSI(10) to lower pane
+5. Repeat for more indicators — each gets its own pane or overlays on main
+
+### Current Mode — Scanning for Trades
+
+1. Scheduled run or "Scan Now" → executes with `{ mode: 'current', symbols: 'all' }`
+2. Scans full universe with minimal bar depth
+3. Latest actionable signal per symbol stored as opportunity
+4. Signal list panel shows today's trade candidates
+
+### Historical Mode — Evaluating a Strategy
+
+1. User selects symbol (AAPL), strategy (RSI Reversal), date range (1 year)
+2. Executes with `{ mode: 'historical', symbols: ['AAPL'] }`
+3. All signals returned + trades paired + stats computed
+4. Chart shows signal markers at each bar where rules fired
+5. Stats panel shows: win rate, profit factor, expectancy, max drawdown, etc.
+
+---
+
+## Benefits
+
+| Benefit | How |
+|---------|-----|
+| **Clarity** | Reading a strategy file shows only business logic. Reading an indicator file shows only math. |
+| **Testability** | Strategies tested with mock `IndicatorSnapshot`. No bar fixtures needed. |
+| **Composability** | One indicator computed once, reused by multiple strategies and the chart. |
+| **Pluggability** | Swap custom RSI implementation → every strategy and chart using RSI gets it automatically. |
+| **UI-driven** | `paramSchema` arrays auto-generate config dialogs. Registries auto-populate dropdowns. |
+| **Extensibility** | New indicator = one file + register. New strategy = one file + register. Zero changes elsewhere. |
+| **Dual-mode** | Same strategy code works for real-time scanning and historical backtesting. |
+| **Stats separation** | Trade pairing and performance metrics are independent of strategy logic. |

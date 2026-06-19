@@ -43,66 +43,8 @@ export class SignalDetailComponent {
       return { indicators: [] };
     }
 
+    // No auto-loaded indicators — will be driven by workspace/template config
     const indicators: IndicatorConfig[] = [];
-    const signalIndicators = signal['indicators'] as Record<string, number> | undefined;
-    const signalType = signal['signalType'] as string | undefined;
-
-    // Add RSI to lower pane if relevant
-    if (signalType?.includes('RSI') || signalIndicators?.['rsi'] !== undefined) {
-      indicators.push({
-        id: 'rsi',
-        type: 'rsi',
-        pane: 'lower-1',
-        seriesType: 'line',
-        params: { period: 14 },
-        options: {
-          name: 'RSI(14)',
-          color: '#2196f3',
-          lineWidth: 2,
-        },
-      });
-    }
-
-    // Add MACD to lower pane if relevant
-    if (signalType?.includes('MACD') || signalIndicators?.['macd'] !== undefined) {
-      indicators.push({
-        id: 'macd',
-        type: 'macd',
-        pane: 'lower-1',
-        seriesType: 'line',
-        params: { fastPeriod: 12, slowPeriod: 26, signalPeriod: 9 },
-        options: {
-          name: 'MACD',
-          color: '#ff9800',
-          lineWidth: 2,
-        },
-      });
-    }
-
-    // If signal has custom indicators, add them as display-only markers
-    // (pane assignment will be configurable in future)
-    if (signalIndicators) {
-      for (const [key, value] of Object.entries(signalIndicators)) {
-        // Skip standard indicators we already added
-        if (['rsi', 'macd'].includes(key)) continue;
-
-        // Add as custom indicator (pane assignment TBD via config system)
-        indicators.push({
-          id: `custom-${key}`,
-          type: 'custom',
-          pane: 'lower-2', // Default placement for now - will be configurable
-          seriesType: 'line',
-          params: {
-            note: `Value: ${value.toFixed(2)}`,
-          },
-          options: {
-            name: `${key.toUpperCase()}: ${value.toFixed(2)}`,
-            color: '#607d8b',
-            lineWidth: 2,
-          },
-        });
-      }
-    }
 
     return {
       indicators,
