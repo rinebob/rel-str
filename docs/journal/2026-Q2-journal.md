@@ -4,8 +4,8 @@
 
 - RS-BE-FEAT-RHAGENT-2606 – RH Agent: PDR-triggered daily scan architecture
   - Status: in-progress
-  - Last change: 2026-06-16
-  - Notes: Core PDR-triggered architecture implemented and deployed. PDR Pub/Sub trigger (`rhAgentPdrTrigger`), shared helpers (`rh-agent-shared.ts`), Cloud Tasks worker (`rhAgentProcessSymbol`), manual run callable (`rhAgentManualRun`), and full-universe symbol seeding (`seedAllSymbolsFromPartner`) are all live. Currently running 20 test symbols. Next: seed full ~700-symbol universe, verify end-to-end PDR flow, implement historical backtest, and add opportunity approval UI.
+  - Last change: 2026-06-18
+  - Notes: Core PDR-triggered architecture implemented and deployed. PDR Pub/Sub trigger (`rhAgentPdrTrigger`), shared helpers (`rh-agent-shared.ts`), Cloud Tasks worker (`rhAgentProcessSymbol`), manual run callable (`rhAgentManualRun`), and full-universe symbol seeding (`seedAllSymbolsFromPartner`) are all live. Full ~760-symbol universe seeded to `rh-agent-symbols` collection. Next: verify end-to-end PDR flow, implement historical backtest, and add opportunity approval UI.
 
 ## Entries
 
@@ -24,7 +24,13 @@
   - Updated `callPartnerIntradaySnapshotV2` and `callPartnerTrackedSymbols` in `partner-proxy.ts`.
   - Updated `functions/src/index.ts` exports: `rhAgentPdrTrigger`, `seedAllSymbolsFromPartner` added.
   - Updated docs: `RH-AGENT-ARCH.md`, `RH_AGENT_PROGRESS.md`, `rh-agent-cloud-function/README.md` all reflect current architecture.
-  - **Status**: in-progress (PDR trigger and shared helpers deployed; awaiting first live PDR intraday-snapshot message and full-universe symbol switch).
+  - **Status**: in-progress (PDR trigger and shared helpers deployed; awaiting first live PDR intraday-snapshot message).
+
+### 2026-06-18
+
+- RS-BE-FEAT-RHAGENT-2606
+  - Completed full symbol universe seed. Called `seedAllSymbolsFromPartner` to populate `rh-agent-symbols` collection with ~760 symbols from SavantAPI partner. Verified in Firestore: all symbols present with `enabled: true`, `source: 'partner-universe'`.
+  - **Status**: full universe seeded, ready for end-to-end PDR flow verification.
 
 ## End-of-Quarter Summary
 
@@ -32,4 +38,4 @@
 
 ## Upcoming / New Efforts
 
-- RS-BE-FEAT-RHAGENT-2606 (continued): full-universe symbol switch, PDR end-to-end verification, historical backtest (`rhAgentBacktestRange`), opportunity approval UI, Robinhood OAuth integration.
+- RS-BE-FEAT-RHAGENT-2606 (continued): PDR end-to-end verification, historical backtest (`rhAgentBacktestRange`), opportunity approval UI, Robinhood OAuth integration.
