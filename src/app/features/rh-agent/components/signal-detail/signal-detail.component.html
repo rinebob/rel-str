@@ -1,11 +1,37 @@
 @if (hasSignal(); as signal) {
   <div class="signal-detail">
-    <!-- Chart Area - Full height since info moved to header -->
+    <!-- Indicator toolbar -->
+    <div class="indicator-toolbar">
+      <button mat-stroked-button [matMenuTriggerFor]="indicatorMenu">
+        <mat-icon>add_chart</mat-icon>
+        Add Indicator
+      </button>
+      <mat-menu #indicatorMenu="matMenu">
+        @for (option of indicatorOptions; track option.id) {
+          <button mat-menu-item (click)="onAddIndicator(option)">
+            {{ option.label }}
+          </button>
+        }
+      </mat-menu>
+
+      <!-- Active indicator chips -->
+      @for (ind of activeIndicators(); track ind.id) {
+        <span class="indicator-chip">
+          <span class="chip-dot" [style.background]="ind.options.color"></span>
+          {{ ind.options.name }}
+          <button mat-icon-button class="chip-remove" (click)="onRemoveIndicator(ind.id)">
+            <mat-icon>close</mat-icon>
+          </button>
+        </span>
+      }
+    </div>
+
+    <!-- Chart Area -->
     <div class="chart-area">
       @if (chartLoading()) {
         <div class="chart-loading">
-          <mat-icon>show_chart</mat-icon>
-          <span>Loading chart...</span>
+          <mat-spinner diameter="32"></mat-spinner>
+          <span>Loading chart data...</span>
         </div>
       } @else {
         <app-flex-chart 

@@ -15,10 +15,63 @@
   overflow: hidden;
 }
 
+.indicator-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+
+  .indicator-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 16px;
+    background: var(--mat-sys-surface-container-high);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--mat-sys-on-surface);
+
+    .chip-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .chip-remove {
+      width: 18px;
+      height: 18px;
+      font-size: 14px;
+      line-height: 18px;
+
+      mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+      }
+    }
+  }
+}
+
 .chart-area {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+
+  .chart-loading {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--mat-sys-on-surface-variant);
+
+    span {
+      font-size: 13px;
+    }
+  }
 
   .chart-placeholder {
     height: 100%;

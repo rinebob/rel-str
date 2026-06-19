@@ -8,6 +8,7 @@
 import {
   Component,
   inject,
+  effect,
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -60,8 +61,19 @@ export class RhAgentReviewComponent {
   readonly dialog = inject(MatDialog);
 
   constructor() {
-    console.log('[RH Agent Review] Component initialized');
     this.store.loadData();
+
+    // Auto-select first signal once data loads
+    effect(() => {
+      const currentRun = this.uiStore.currentRun();
+      const selectedSignal = this.uiStore.selectedSignal();
+      if (currentRun && !selectedSignal) {
+        const signals = this.uiStore.getFilteredSignals(currentRun.id);
+        if (signals.length > 0) {
+          this.uiStore.selectSignal(signals[0].id);
+        }
+      }
+    });
   }
 
   refreshData(): void {
