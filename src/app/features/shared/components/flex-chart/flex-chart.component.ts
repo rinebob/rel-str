@@ -95,7 +95,8 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
               open="open"
               close="close"
               bearFillColor="#ef5350"
-              bullFillColor="#26a69a">
+              bullFillColor="#26a69a"
+              [enableTooltip]="true">
             </e-series>
 
             <!-- Main pane indicators (overlay on price) -->
@@ -106,8 +107,10 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
                   type="Line"
                   xName="index"
                   yName="y"
+                  [name]="indicator.config.options.name || indicator.config.type.toUpperCase()"
                   [fill]="indicator.config.options.color || '#2196f3'"
-                  width="{{ indicator.config.options.lineWidth || 2 }}">
+                  width="{{ indicator.config.options.lineWidth || 2 }}"
+                  [enableTooltip]="true">
                 </e-series>
               }
             }
@@ -121,8 +124,10 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
                   xName="index"
                   yName="y"
                   yAxisName="lowerYAxis1"
+                  [name]="indicator.config.options.name || indicator.config.type.toUpperCase()"
                   [fill]="indicator.config.options.color || '#2196f3'"
-                  width="{{ indicator.config.options.lineWidth || 2 }}">
+                  width="{{ indicator.config.options.lineWidth || 2 }}"
+                  [enableTooltip]="true">
                 </e-series>
               }
             }
@@ -296,10 +301,8 @@ export class FlexChartComponent {
   };
 
   tooltip = {
-    enable: true,
-    shared: true,
-    format: '<b>$\\{point.x}</b><br/>Open: <b>$\\{point.open}</b><br/>High: <b>$\\{point.high}</b><br/>Low: <b>$\\{point.low}</b><br/>Close: <b>$\\{point.close}</b>',
-    header: '<b>$\\{point.x}</b>',
+    enable: false,
+    shared: false,
   };
 
   crosshair = {
