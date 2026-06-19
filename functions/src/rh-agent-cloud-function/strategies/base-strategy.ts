@@ -1,0 +1,148 @@
+/**
+ * Strategy Adapter Base Types
+ *
+ * Core interface contract that all strategies must implement.
+ * Provides standardized I/O so the worker can execute any registered strategy.
+ */
+
+import { IntradaySnapshot } from '../rh-agent-config';
+
+// =============================================================================
+// STRATEGY INPUT (What the worker provides to every strategy)
+// =============================================================================
+
+export interface StrategyInput {
+  symbol: string;
+  marketDate: string;
+  bars: OHLCV[];
+  intraday?: IntradaySnapshot;
+  context?: StrategyContext;
+}
+
+export interface OHLCV {
+  date?: string;
+  t?: string;
+  timestamp?: number;
+  open?: number;
+  high?: number;
+  low?: number;
+  close?: number;
+  c?: number;
+  volume?: number;
+  [key: string]: any;
+}
+
+export interface StrategyContext {
+  marketRegime?: 'bull' | 'bear' | 'neutral' | 'volatile';
+  sector?: string;
+  timeframe?: string;
+}
+
+// =============================================================================
+// STRATEGY OUTPUT (What every strategy must return)
+// =============================================================================
+
+export interface StrategyOutput {
+  action: 'BUY' | 'SELL' | null;
+  confidence: number;           // 0-100
+  reason: string;               // Human-readable explanation
+  signalType: string;           // Strategy identifier (e.g., 'RSI_OVERSOLD')
+  indicators?: Record<string, number | string | null>;
+  metadata?: Record<string, any>;
+  suggestedAmount?: number;
+}
+
+// =============================================================================
+// STRATEGY ENUMS
+// =============================================================================
+
+/** All registered strategy identifiers. */
+export enum StrategyId {
+  RSI_OVERSOLD_BOUNCE = 'rsi-oversold-bounce',
+  MACD_CROSSOVER = 'macd-crossover',
+}
+
+// =============================================================================
+// INDICATOR ENUMS (No magic strings for indicator names or MA types)
+// =============================================================================
+
+/** All supported technical indicators. */
+export enum IndicatorId {
+  RSI = 'RSI',
+  SMA = 'SMA',
+  EMA = 'EMA',
+  WMA = 'WMA',
+  TEMA = 'TEMA',
+  MACD = 'MACD',
+  BOLLINGER = 'BOLLINGER',
+  ATR = 'ATR',
+  ADX = 'ADX',
+  STOCHASTIC = 'STOCHASTIC',
+  VWAP = 'VWAP',
+}
+
+/** Moving average variants — used when a strategy needs a configurable MA type. */
+export enum MaType {
+  SMA = 'SMA',
+  EMA = 'EMA',
+  WMA = 'WMA',
+  TEMA = 'TEMA',
+  DEMA = 'DEMA',
+  KAMA = 'KAMA',
+}
+
+/**
+ * Describes a single indicator usage within a strategy config.
+ * Allows the same indicator (e.g., SMA) to be used with different periods.
+ *
+ * Example: { id: IndicatorId.SMA, period: 10 } and { id: IndicatorId.SMA, period: 20 }
+ * Example: { id: IndicatorId.EMA, period: 50, maType: MaType.EMA }
+ */
+export interface IndicatorSpec {
+  id: IndicatorId;
+  period?: number;
+  maType?: MaType;
+  params?: Record<string, number | string>;
+}
+
+// =============================================================================
+// STRATEGY CONFIG (Parameterization - stored in Firestore or defaults)
+// =============================================================================
+
+export interface StrategyConfig {
+  [key: string]: any;
+}
+
+export interface ConfigSchemaField {
+  type: 'integer' | 'number' | 'string' | 'boolean';
+  min?: number;
+  max?: number;
+  enum?: any[];
+  description?: string;
+}
+
+// =============================================================================
+// STRATEGY METADATA (Registry uses this for discovery and documentation)
+// =============================================================================
+
+export interface StrategyMetadata {
+  id: string;
+  name: string;
+  description: string;
+  category: 'momentum' | 'mean-reversion' | 'breakout' | 'trend' | 'volatility' | 'composite';
+  defaultConfig: StrategyConfig;
+  minBarsRequired: number;
+  supportedTimeframes: string[];
+  version: string;
+  author: string;
+  configSchema?: Record<string, ConfigSchemaField>;
+}
+
+// =============================================================================
+// STRATEGY ADAPTER (The contract every strategy file must export)
+// =============================================================================
+
+export interface StrategyAdapter {
+  metadata: StrategyMetadata;
+  execute(input: StrategyInput, config: StrategyConfig): StrategyOutput;
+}

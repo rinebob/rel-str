@@ -10,7 +10,6 @@ import { onTaskDispatched } from 'firebase-functions/v2/tasks';
 import { logger } from 'firebase-functions/v2';
 
 import { db, FieldValue } from '../firebase-admin-init';
-import { rsi } from '../rh-agent/indicators';
 
 import {
   RH_AGENT_RUNS_COLLECTION,
@@ -24,9 +23,12 @@ import {
   RhTradeOpportunity,
 } from './rh-agent-config';
 
-// Constants
-const RSI_OVERSOLD_THRESHOLD = 30;
-const PRICE_DROP_THRESHOLD = -0.02; // 2% drop
+import { strategyRegistry } from './strategies/strategy-registry';
+import type { StrategyInput, StrategyOutput } from './strategies/strategy-registry';
+import { StrategyId } from './strategies/base-strategy';
+
+// Default strategy if none specified on the run document
+const DEFAULT_STRATEGY = StrategyId.RSI_OVERSOLD_BOUNCE;
 
 // Feature flags
 const REQUIRE_FRESH_DATA = false; // Set to true for production - checks that data is from today
@@ -89,90 +91,62 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
         }
       }
 
-      // 3. Calculate indicators
-      // Extract historical closing prices from bars (handle different field names: close, c)
-      // Get the most recent 14 bars (not the oldest) for RSI calculation
-      const historicalCloses = bars.slice(-14).map((b: any) => b.close || b.c || 0).filter((c: number) => c > 0);
+      // 3. Load strategy from registry
+      // TODO: Read strategy name from run document or per-symbol assignment
+      const strategyName = DEFAULT_STRATEGY;
+      const strategy = strategyRegistry.get(strategyName);
+      const strategyConfig = strategy.metadata.defaultConfig;
 
-      // Use intraday price from payload if available, otherwise fall back to last historical bar
-      const currentPrice = intraday?.ip ?? historicalCloses[historicalCloses.length - 1];
-      // previousPrice is yesterday's close (second to last historical bar, or last if no intraday)
-      const previousPrice = historicalCloses[historicalCloses.length - 2] || historicalCloses[historicalCloses.length - 1] || currentPrice;
-      const priceChange = (currentPrice - previousPrice) / previousPrice;
-      
-      // Full close array for indicators: historical + current
-      const closes = [...historicalCloses, currentPrice];
+      // 4. Validate minimum data requirements
+      if (bars.length < strategy.metadata.minBarsRequired) {
+        logger.warn('rh_agent_worker_insufficient_bars_for_strategy', {
+          runId, symbol, barCount: bars.length,
+          required: strategy.metadata.minBarsRequired, strategy: strategyName,
+        });
+        await markJobComplete(runId, symbol, 'SUCCESS', false);
+        return;
+      }
 
-      // Calculate RSI using last 14 periods (standard RSI lookback)
-      const rsiValue = rsi(closes);
+      // 5. Execute strategy
+      const strategyInput: StrategyInput = { symbol, marketDate, bars, intraday };
 
-      logger.info('rh_agent_worker_calculation_details', {
-        runId,
-        symbol,
-        closesCount: closes.length,
-        historicalCount: historicalCloses.length,
-        usingIntraday: !!intraday,
-        currentPrice,
-        previousPrice,
-        priceChangePct: (priceChange * 100).toFixed(2) + '%',
-        rsi: rsiValue !== null ? rsiValue.toFixed(2) : 'null',
-        rsiPeriod: 14,
-        rsiOversoldThreshold: RSI_OVERSOLD_THRESHOLD,
+      logger.info('rh_agent_worker_executing_strategy', {
+        runId, symbol, strategy: strategyName, barCount: bars.length,
+        hasIntraday: !!intraday,
       });
 
-      // 4. Check for signal (simple RSI oversold strategy for MVP)
-      logger.info('rh_agent_worker_checking_signal', {
-        runId,
-        symbol,
-        rsiValue,
-        priceChangePct: (priceChange * 100).toFixed(2) + '%',
-        rsiThreshold: `< ${RSI_OVERSOLD_THRESHOLD}`,
-        priceDropThreshold: `< ${(PRICE_DROP_THRESHOLD * 100).toFixed(0)}%`,
-        rsiConditionMet: rsiValue !== null && rsiValue < RSI_OVERSOLD_THRESHOLD,
-        priceDropConditionMet: priceChange < PRICE_DROP_THRESHOLD,
+      const result: StrategyOutput = strategy.execute(strategyInput, strategyConfig);
+
+      logger.info('rh_agent_worker_strategy_result', {
+        runId, symbol, strategy: strategyName,
+        action: result.action, confidence: result.confidence,
+        signalType: result.signalType, reason: result.reason,
       });
 
-      const signal = checkRsiOversold(symbol, rsiValue, priceChange, currentPrice);
+      // 6. If signal detected, create and store opportunity
+      if (result.action) {
+        const opportunity = createOpportunityFromSignal(
+          symbol, marketDate, strategyName, result
+        );
 
-      if (signal) {
-        logger.info('rh_agent_worker_signal_detected', {
-          runId,
-          symbol,
-          action: signal.action,
-          confidence: signal.confidence,
-          signalType: signal.signalType,
-          reason: signal.reason,
-        });
-        // 5. Generate basic opportunity (NO Claude during scanning)
-        // NOTE: Claude is only used for approved opportunities post-scan
-        const opportunity = createBasicOpportunity(symbol, marketDate, signal, {
-          rsi: rsiValue,
-          priceChange,
-          currentPrice,
-        });
-
-        // 6. Store opportunity in Firestore with custom ID: DATE_SYMBOL_DIRECTION_SIGNALTYPE
         await storeOpportunity(runId, marketDate, opportunity);
         logger.info('rh_agent_worker_opportunity_created', {
-          runId,
-          symbol,
-          opportunityId: opportunity.id,
+          runId, symbol, opportunityId: opportunity.id,
           confidence: opportunity.confidence,
         });
 
-        // 7. Update run stats
         await incrementOpportunitiesFound(runId);
       }
 
-      // 8. Mark job complete
-      await markJobComplete(runId, symbol, 'SUCCESS', !!signal);
+      // 7. Mark job complete
+      await markJobComplete(runId, symbol, 'SUCCESS', !!result.action);
 
       const duration = Date.now() - startTime;
       logger.info('rh_agent_worker_complete', {
         runId,
         symbol,
         durationMs: duration,
-        opportunityCreated: !!signal,
+        opportunityCreated: !!result.action,
       });
     } catch (error: any) {
       logger.error('rh_agent_worker_error', {
@@ -396,60 +370,27 @@ async function getCachedBars(symbol: string, marketDate: string): Promise<any[] 
 }
 
 /**
- * Simple RSI oversold strategy for MVP.
- * Returns signal if RSI < 30 AND price dropped > 2%.
+ * Create opportunity from strategy output.
+ * Converts the standardized StrategyOutput into a Firestore RhTradeOpportunity.
  */
-function checkRsiOversold(
-  symbol: string,
-  rsiValue: number | null,
-  priceChange: number,
-  currentPrice: number
-): { action: RhOpportunityAction; confidence: number; reason: string; suggestedAmount: number; signalType: string } | null {
-  if (rsiValue === null) return null;
-
-  // RSI oversold (< 30) AND price drop > 2%
-  if (rsiValue < RSI_OVERSOLD_THRESHOLD && priceChange < PRICE_DROP_THRESHOLD) {
-    // Confidence increases as RSI drops lower
-    const confidence = Math.round(((RSI_OVERSOLD_THRESHOLD - rsiValue) / RSI_OVERSOLD_THRESHOLD) * 100);
-
-    return {
-      action: RhOpportunityAction.BUY,
-      confidence: Math.min(confidence, 95), // Cap at 95%
-      reason: `RSI oversold (${rsiValue.toFixed(1)}) with ${(priceChange * 100).toFixed(1)}% price drop. Potential bounce opportunity.`,
-      suggestedAmount: 1000, // Fixed $1000 for MVP
-      signalType: 'RSI_OVERSOLD',
-    };
-  }
-
-  return null;
-}
-
-/**
- * Create basic opportunity (no Claude during scanning).
- * NOTE: Claude may be used later for approved opportunities only.
- */
-function createBasicOpportunity(
+function createOpportunityFromSignal(
   symbol: string,
   marketDate: string,
-  signal: { action: RhOpportunityAction; confidence: number; reason: string; suggestedAmount: number; signalType: string },
-  indicators: { rsi: number | null; priceChange: number; currentPrice: number }
+  strategyName: string,
+  result: StrategyOutput
 ): RhTradeOpportunity {
   return {
     id: '',
     runId: '',
     marketDate,
     symbol,
-    action: signal.action,
-    signalType: signal.signalType,
-    strategy: 'rsi-oversold',
-    confidence: signal.confidence,
-    reason: signal.reason,
-    indicators: {
-      rsi: indicators.rsi || 0,
-      priceChange: indicators.priceChange,
-      currentPrice: indicators.currentPrice,
-    },
-    suggestedAmount: signal.suggestedAmount,
+    action: result.action === 'BUY' ? RhOpportunityAction.BUY : RhOpportunityAction.SELL,
+    signalType: result.signalType,
+    strategy: strategyName,
+    confidence: result.confidence,
+    reason: result.reason,
+    indicators: (result.indicators || {}) as Record<string, number>,
+    suggestedAmount: result.suggestedAmount || 1000,
     orderType: 'MARKET',
     status: RhOpportunityStatus.PENDING,
     createdAt: FieldValue.serverTimestamp() as any,
