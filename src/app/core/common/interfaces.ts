@@ -37,6 +37,7 @@ export enum AppRoutes {
 	DECISION_BOARD = 'decision-board',
 	RH_AGENT = 'rh-agent',
 	RH_AGENT_REVIEW = 'rh-agent-review',
+	SIGNAL_HISTORY = 'signal-history',
 }
 
 export enum AuthLevel {

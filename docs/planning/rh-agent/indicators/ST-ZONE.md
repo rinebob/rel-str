@@ -90,6 +90,28 @@ In TradingView, zone renders as colored cross markers at each level:
 
 ---
 
+## Signal Rules
+
+Zone transitions generate actionable trade signals. No trend filtering — pure zone value changes.
+
+### Long Entry
+Zone value **increases** from one bar to the next. Every upward step fires:
+- -3 → -2, -2 → -1, -1 → 0, 0 → +1, +1 → +2, +2 → +3
+- Multi-step jumps also fire (e.g., -2 → +1)
+
+### Short Entry
+Zone value **decreases** from one bar to the next. Every downward step fires:
+- +3 → +2, +2 → +1, +1 → 0, 0 → -1, -1 → -2, -2 → -3
+- Multi-step drops also fire (e.g., +2 → -1)
+
+### Implementation
+- Signal detector: `src/app/features/shared/components/flex-chart/signals/st-zone.signals.ts`
+- Function: `detectZoneSignals(indicatorData, bars) → SignalMarker[]`
+- Marker placement: bar low for longs, bar high for shorts
+- Applied to all timeframes: Daily, Weekly, Monthly
+
+---
+
 ## Conversion Notes
 
 - Zone computation depends on all 3 bands being valid (not NaN) — first ~30 bars return null

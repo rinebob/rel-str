@@ -78,6 +78,54 @@ In TradingView, renders as a histogram with:
 
 ---
 
+## Signal Rules
+
+Two categories of signals derived from diHist values.
+
+### 1. Threshold Crossovers
+
+Three threshold levels: **-10**, **0**, **+10**
+
+**Long entry** — diHist crosses from below to above a threshold:
+- Below -10 → above -10 (bearish pressure easing)
+- Below 0 → above 0 (bulls take control)
+- Below +10 → above +10 (strong bullish momentum)
+
+**Short entry** — diHist crosses from above to below a threshold:
+- Above +10 → below +10 (bullish momentum fading)
+- Above 0 → below 0 (bears take control)
+- Above -10 → below -10 (strong bearish momentum)
+
+### 2. Pullback Breakout
+
+**Long** (diHist > 0):
+- Track swing highs (bar higher than both neighbors)
+- Value pulls back below the swing high
+- Value breaks back above the swing high → **long signal**
+- Example: 15 → 12 → 18 → signal fires on the 18 bar
+- Resets swing high after each breakout for chaining
+
+**Short** (diHist < 0):
+- Track swing lows (bar lower than both neighbors)
+- Value pulls back above the swing low (toward zero)
+- Value breaks back below the swing low → **short signal**
+- Example: -12 → -9 → -14 → signal fires on the -14 bar
+- Resets swing low after each breakout for chaining
+
+### Implementation
+- Signal detector: `src/app/features/shared/components/flex-chart/signals/st-trend-strength.signals.ts`
+- Function: `detectTrendStrengthSignals(indicatorData, bars) → SignalMarker[]`
+- Internally combines `detectThresholdCrossovers()` + `detectPullbackBreakouts()`
+- Marker placement: bar low for longs, bar high for shorts
+- Applied to all timeframes: Daily, Weekly, Monthly
+
+### Future Signal Types (TBD)
+- Additional pullback/breakout patterns
+- Divergence detection
+- Rate-of-change acceleration
+
+---
+
 ## Conversion Notes
 
 - All lookbacks in the DI formula use `mult=3` (compare to bar 3 periods back, not 1)

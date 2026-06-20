@@ -102,6 +102,11 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.RhAgentReviewComponent),
                 canActivate: [authGuard],
             },
+            {path: AppRoutes.SIGNAL_HISTORY, 
+                loadComponent: () => import('../features/rh-agent/signal-history/signal-history.component')
+                .then(mod => mod.SignalHistoryComponent),
+                canActivate: [authGuard],
+            },
             {path: AppRoutes.LOGOUT, redirectTo: '/', pathMatch: 'full'},
         ]
     },

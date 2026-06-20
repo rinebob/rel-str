@@ -1,0 +1,252 @@
+.signal-history {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 64px);
+  overflow: hidden;
+}
+
+// Header
+.history-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--mat-sys-surface-container);
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  flex-shrink: 0;
+
+  h1 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 16px;
+    font-weight: 500;
+
+    mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+  }
+
+  .symbol-input {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 16px;
+
+    .symbol-field {
+      width: 100px;
+      height: 32px;
+      padding: 0 8px;
+      border: 1px solid var(--mat-sys-outline);
+      border-radius: 4px;
+      background: var(--mat-sys-surface);
+      color: var(--mat-sys-on-surface);
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      outline: none;
+
+      &:focus {
+        border-color: var(--mat-sys-primary);
+      }
+    }
+  }
+
+  .current-symbol {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--mat-sys-primary);
+    margin-left: auto;
+  }
+}
+
+// Loading
+.loading-overlay {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 13px;
+}
+
+// Filter bar
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 4px 16px;
+  background: var(--mat-sys-surface-container);
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  flex-shrink: 0;
+
+  .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    .filter-label {
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      color: var(--mat-sys-on-surface-variant);
+      letter-spacing: 0.5px;
+    }
+  }
+}
+
+// Summary bar
+.summary-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 6px 16px;
+  background: var(--mat-sys-surface-container-low);
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  flex-shrink: 0;
+
+  .summary-item {
+    font-size: 12px;
+    font-weight: 500;
+
+    &.total {
+      font-weight: 600;
+      color: var(--mat-sys-on-surface);
+    }
+
+    &.long {
+      color: #4caf50;
+    }
+
+    &.short {
+      color: #f44336;
+    }
+
+    &.zone {
+      color: #2196f3;
+    }
+
+    &.strength {
+      color: #ff9800;
+    }
+  }
+}
+
+// Signal table
+.signal-table-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.signal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+
+  thead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--mat-sys-surface-container);
+
+    th {
+      padding: 6px 10px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--mat-sys-on-surface-variant);
+      border-bottom: 1px solid var(--mat-sys-outline-variant);
+    }
+  }
+
+  tbody {
+    tr {
+      border-bottom: 1px solid var(--mat-sys-outline-variant);
+
+      &:hover {
+        background: var(--mat-sys-surface-container-low);
+      }
+
+      &.long {
+        border-left: 3px solid #4caf50;
+      }
+
+      &.short {
+        border-left: 3px solid #f44336;
+      }
+    }
+
+    td {
+      padding: 5px 10px;
+      color: var(--mat-sys-on-surface);
+    }
+  }
+
+  .col-date {
+    width: 110px;
+    white-space: nowrap;
+  }
+
+  .col-tf {
+    width: 60px;
+  }
+
+  .col-dir {
+    width: 70px;
+  }
+
+  .col-source {
+    width: 70px;
+  }
+
+  .col-type {
+    width: 120px;
+  }
+
+  .col-price {
+    width: 80px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .col-reason {
+    min-width: 200px;
+    font-size: 11px;
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  .empty-row {
+    text-align: center;
+    padding: 32px;
+    color: var(--mat-sys-on-surface-variant);
+  }
+}
+
+// Direction badges
+.dir-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+
+  &.dir-long {
+    background: rgba(76, 175, 80, 0.15);
+    color: #4caf50;
+  }
+
+  &.dir-short {
+    background: rgba(244, 67, 54, 0.15);
+    color: #f44336;
+  }
+}
