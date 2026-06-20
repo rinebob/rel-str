@@ -82,7 +82,7 @@ export class SignalDetailComponent {
 
   /** Determine which pane to assign based on indicator type and what's already active */
   private getNextAvailablePane(option: IndicatorOption): IndicatorPane {
-    if (option.defaultPane === 'main') return 'main';
+    if (option.defaultPane === 'main' || option.defaultPane === 'overlay') return 'overlay';
 
     const active = this.activeIndicators();
     const usedLowerPanes = new Set(
