@@ -24,6 +24,21 @@
           </button>
         </span>
       }
+
+      <!-- Interval toggle buttons (right-aligned) -->
+      <span class="interval-spacer"></span>
+      <span class="interval-toggle">
+        <button class="interval-btn" [class.active]="selectedInterval() === BarsInterval.DAILY"
+          (click)="onIntervalChange(BarsInterval.DAILY)">D</button>
+        <button class="interval-btn" [class.active]="selectedInterval() === BarsInterval.WEEKLY"
+          (click)="onIntervalChange(BarsInterval.WEEKLY)">W</button>
+        <button class="interval-btn" [class.active]="selectedInterval() === BarsInterval.MONTHLY"
+          (click)="onIntervalChange(BarsInterval.MONTHLY)">M</button>
+      </span>
+      <button mat-icon-button class="fullscreen-btn" (click)="uiState.toggleFullscreen()"
+        [matTooltip]="uiState.fullscreen() ? 'Exit fullscreen' : 'Fullscreen'">
+        <mat-icon>{{ uiState.fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
+      </button>
     </div>
 
     <!-- Chart Area -->

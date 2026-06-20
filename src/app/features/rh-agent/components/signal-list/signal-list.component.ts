@@ -11,10 +11,12 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatIconButton } from '@angular/material/button';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { RhAgentDashboardStore } from '../../rh-agent-dashboard.store';
 import { RhAgentStore } from '../../rh-agent.store';
 import { RhTradeSignal } from '../../rh-agent.service';
+import { UiStateService } from '../../../../core/services/ui-state.service';
 
 @Component({
   selector: 'app-signal-list',
@@ -27,6 +29,7 @@ import { RhTradeSignal } from '../../rh-agent.service';
     MatFormFieldModule,
     MatInputModule,
     MatIconButton,
+    MatTooltipModule,
   ],
   templateUrl: './signal-list.component.html',
   styleUrl: './signal-list.component.scss',
@@ -34,6 +37,7 @@ import { RhTradeSignal } from '../../rh-agent.service';
 export class SignalListComponent {
   readonly uiStore = inject(RhAgentDashboardStore);
   readonly dataStore = inject(RhAgentStore);
+  readonly uiState = inject(UiStateService);
 
   signalSelected = output<RhTradeSignal>();
 

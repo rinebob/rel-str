@@ -7,6 +7,7 @@ import { MatSidenav, MatSidenavModule } from '@angular/material/sidenav';
 import { NavItem } from './common/interfaces';
 import { HeaderComponent } from './comps/header/header.component';
 import { SidenavMenuComponent } from './comps/sidenav-menu/sidenav-menu.component';
+import { UiStateService } from './services/ui-state.service';
 
 @Component({
     selector: 'rs-core',
@@ -20,6 +21,7 @@ export class CoreComponent {
 	@ViewChild('sidenav', { static: false }) sidenav!: MatSidenav;
 
     router = inject(Router);
+    readonly ui = inject(UiStateService);
 
     public ngOnInit() {}
 

@@ -59,10 +59,52 @@
   }
 }
 
+.interval-spacer {
+  flex: 1;
+}
+
+.interval-toggle {
+  display: inline-flex;
+  gap: 2px;
+  border-radius: 4px;
+  padding: 2px;
+
+  .interval-btn {
+    border: none;
+    background: #1565c0;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+
+    &:hover {
+      background: #1976d2;
+    }
+
+    &.active {
+      background: #42a5f5;
+      color: #fff;
+      box-shadow: 0 0 0 2px #90caf9;
+    }
+  }
+}
+
 .chart-area {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  position: relative;
+
+  app-flex-chart {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
 
   .chart-loading {
     height: 100%;

@@ -12,6 +12,10 @@ import {
   signal,
   ChangeDetectionStrategy,
   computed,
+  ElementRef,
+  inject,
+  OnDestroy,
+  NgZone,
 } from '@angular/core';
 import {
   ChartModule,
@@ -102,7 +106,8 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
               close="close"
               bearFillColor="#ef5350"
               bullFillColor="#26a69a"
-              [enableTooltip]="true">
+              [enableTooltip]="true"
+              [animation]="noAnimation">
             </e-series>
 
             <!-- ST Trend Bands (rendered as candle bodies) -->
@@ -119,7 +124,8 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
                 [bearFillColor]="band.bearColor"
                 [enableSolidCandles]="true"
                 opacity="0.7"
-                [enableTooltip]="false">
+                [enableTooltip]="false"
+                [animation]="noAnimation">
               </e-series>
             }
 
@@ -134,7 +140,8 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
                   [name]="indicator.config.options.name || indicator.config.type.toUpperCase()"
                   [fill]="indicator.config.options.color || '#2196f3'"
                   width="{{ indicator.config.options.lineWidth || 2 }}"
-                  [enableTooltip]="true">
+                  [enableTooltip]="true"
+                  [animation]="noAnimation">
                 </e-series>
               }
             }
@@ -154,7 +161,8 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
                     [fill]="indicator.config.options.color || '#26a69a'"
                     pointColorMapping="color"
                     [columnWidth]="0.8"
-                    [enableTooltip]="true">
+                    [enableTooltip]="true"
+                    [animation]="noAnimation">
                   </e-series>
                 } @else if (indicator.config.seriesType === 'scatter') {
                   <!-- Thin connecting line behind dots -->
@@ -168,7 +176,8 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
                     fill="#9e9e9e"
                     width="1"
                     opacity="0.5"
-                    [enableTooltip]="false">
+                    [enableTooltip]="false"
+                    [animation]="noAnimation">
                   </e-series>
                   <!-- Scatter (dots) series with per-point color -->
                   <e-series
@@ -180,7 +189,8 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
                     [name]="indicator.config.options.name || indicator.config.type.toUpperCase()"
                     pointColorMapping="color"
                     [marker]="{ visible: true, shape: 'Circle', width: 4, height: 4 }"
-                    [enableTooltip]="true">
+                    [enableTooltip]="true"
+                    [animation]="noAnimation">
                   </e-series>
                 } @else if (indicator.config.seriesType === 'line') {
                   <!-- Histogram (column) behind line series -->
@@ -195,7 +205,8 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
                       [fill]="'#26a69a'"
                       opacity="0.5"
                       [columnWidth]="0.6"
-                      [enableTooltip]="true">
+                      [enableTooltip]="true"
+                      [animation]="noAnimation">
                     </e-series>
                   }
                   <!-- Primary line -->
@@ -208,7 +219,8 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
                     [name]="indicator.config.options.name || indicator.config.type.toUpperCase()"
                     [fill]="indicator.config.options.color || '#2196f3'"
                     width="{{ indicator.config.options.lineWidth || 2 }}"
-                    [enableTooltip]="true">
+                    [enableTooltip]="true"
+                    [animation]="noAnimation">
                   </e-series>
                   <!-- Secondary line (signal) -->
                   @if (indicator.data.length > 0 && indicator.data[0].y2 !== undefined) {
@@ -222,7 +234,8 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
                       [fill]="indicator.config.options.color2 || '#e91e63'"
                       width="1"
                       [dashArray]="'4,3'"
-                      [enableTooltip]="true">
+                      [enableTooltip]="true"
+                      [animation]="noAnimation">
                     </e-series>
                   }
                 }
@@ -257,13 +270,20 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class FlexChartComponent {
+export class FlexChartComponent implements OnDestroy {
+  private readonly el = inject(ElementRef);
+  private readonly zone = inject(NgZone);
+  private resizeObserver: ResizeObserver | null = null;
+
   chart = viewChild<SfChartComponent>('chart');
 
   // Inputs
   chartData = input.required<FlexChartDataset | null>();
   config = input<FlexChartConfig>({ indicators: [] });
   height = input<string>('400px');
+
+  // Disable all series animations
+  noAnimation = { enable: false };
 
   // Signals
   isInitialLoad = signal<boolean>(true);
@@ -438,23 +458,11 @@ export class FlexChartComponent {
     if (args.axis.name !== 'primaryXAxis') return;
 
     const data = this.chartData();
-    if (!data || !data.bars[args.value]) return;
-    
-    const date = data.bars[args.value].x;
-    const month = date.getMonth();
-    const day = date.getDate();
-    
-    const visibleStart = this.visibleRangeStart();
-    const isFirstVisibleLabel = visibleStart && date.getTime() <= visibleStart.getTime() + 86400000;
-    
-    const isYearBoundary = month === 0 && day === 1;
-    const shouldShowYear = isYearBoundary || (isFirstVisibleLabel && !isYearBoundary);
-    
-    if (shouldShowYear) {
-      args.text = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-    } else {
-      args.text = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    }
+    const idx = Math.round(args.value);
+    if (!data || !data.bars[idx]) return;
+
+    const date = data.bars[idx].x;
+    args.text = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
   }
 
   // primaryYAxis rowIndex is dynamic — set via computed
@@ -472,7 +480,9 @@ export class FlexChartComponent {
     enableMouseWheelZooming: false,
     mode: 'X',
     enablePan: true,
+    showToolbar: true,
     toolbarItems: ['Zoom', 'ZoomIn', 'ZoomOut', 'Pan', 'Reset'],
+    toolbarPosition: { horizontalAlignment: 'Near', verticalAlignment: 'Top' },
   };
 
   tooltip = {
@@ -493,6 +503,22 @@ export class FlexChartComponent {
         this.isInitialLoad.set(true);
       }
     });
+
+    // Watch for container resize (e.g. fullscreen toggle) and refresh chart
+    this.zone.runOutsideAngular(() => {
+      this.resizeObserver = new ResizeObserver(() => {
+        const chart = this.chart();
+        if (chart) {
+          chart.animateSeries = false;
+          chart.refresh();
+        }
+      });
+      this.resizeObserver.observe(this.el.nativeElement);
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.resizeObserver?.disconnect();
   }
 
   onChartLoaded(): void {

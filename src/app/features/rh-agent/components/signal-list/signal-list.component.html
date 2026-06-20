@@ -7,6 +7,10 @@
         <mat-icon>clear_all</mat-icon>
       </button>
     }
+    <span class="header-spacer"></span>
+    <button mat-icon-button class="collapse-btn" (click)="uiState.toggleSidebar()" matTooltip="Collapse panel">
+      <mat-icon>chevron_left</mat-icon>
+    </button>
   </div>
 
   <mat-list class="signal-list">

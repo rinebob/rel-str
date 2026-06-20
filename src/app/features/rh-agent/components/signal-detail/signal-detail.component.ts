@@ -17,6 +17,7 @@ import { RhAgentDashboardStore } from '../../rh-agent-dashboard.store';
 import { HeatmapChartStore } from '../../../heatmap-chart/heatmap-chart.store';
 import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-chart.component';
 import { BarsInterval } from '../../../../core/models/partner.types';
+import { UiStateService } from '../../../../core/services/ui-state.service';
 import type { FlexChartConfig, IndicatorConfig, IndicatorPane, IndicatorOption } from '../../../shared/components/flex-chart/flex-chart.types';
 import { INDICATOR_OPTIONS, DEFAULT_ST_INDICATORS } from '../../../shared/components/flex-chart/indicators/indicator-registry';
 import { IndicatorConfigDialogComponent } from '../indicator-config-dialog/indicator-config-dialog.component';
@@ -32,6 +33,10 @@ export class SignalDetailComponent {
   readonly uiStore = inject(RhAgentDashboardStore);
   readonly chartStore = inject(HeatmapChartStore);
   private readonly dialog = inject(MatDialog);
+  readonly uiState = inject(UiStateService);
+
+  /** Expose enum to template */
+  readonly BarsInterval = BarsInterval;
 
   signalAccepted = output<string>();
   signalConsidered = output<string>();
@@ -45,17 +50,29 @@ export class SignalDetailComponent {
   /** User-added indicators — pre-loaded with ST indicator suite */
   activeIndicators = signal<IndicatorConfig[]>([...DEFAULT_ST_INDICATORS]);
 
+  /** Selected chart interval */
+  selectedInterval = signal<BarsInterval>(BarsInterval.DAILY);
+
   /** Available indicators for the dropdown */
   indicatorOptions = INDICATOR_OPTIONS;
 
   /** Dynamic chart config driven by user-added indicators */
   chartConfig = computed<FlexChartConfig>(() => {
+    const interval = this.selectedInterval();
+    let initialZoomDays = 365;
+    if (interval === BarsInterval.WEEKLY) initialZoomDays = 104; // ~2 years of weekly bars
+    else if (interval === BarsInterval.MONTHLY) initialZoomDays = 9999; // show all
+
+    const intervalHint = interval === BarsInterval.WEEKLY ? 'weekly'
+      : interval === BarsInterval.MONTHLY ? 'monthly' : 'daily';
+
     return {
       indicators: this.activeIndicators(),
       showCrosshair: true,
       showZoomToolbar: true,
       enableScrollbar: true,
-      initialZoomDays: 365,
+      initialZoomDays,
+      interval: intervalHint as 'daily' | 'weekly' | 'monthly',
     };
   });
 
@@ -96,15 +113,21 @@ export class SignalDetailComponent {
     return 'lower-4'; // Max reached, stack on last
   }
 
+  /** Change the chart interval (D/W/M) */
+  onIntervalChange(interval: BarsInterval): void {
+    this.selectedInterval.set(interval);
+  }
+
   constructor() {
-    // Load chart data when signal changes
+    // Load chart data when signal or interval changes
     effect(() => {
       const signal = this.signal();
+      const interval = this.selectedInterval();
       if (signal) {
         this.chartStore.loadData({
           baseline: 'SPY',
           symbol: signal.symbol,
-          interval: BarsInterval.DAILY,
+          interval,
         });
       }
     });

@@ -27,6 +27,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 
 import { RhAgentStore } from './rh-agent.store';
 import { RhAgentDashboardStore } from './rh-agent-dashboard.store';
+import { UiStateService } from '../../core/services/ui-state.service';
 import { SignalListComponent } from './components/signal-list/signal-list.component';
 import { SignalDetailComponent } from './components/signal-detail/signal-detail.component';
 import { RobinhoodTradePanelComponent } from '../rs/components/robinhood-trade-panel.component';
@@ -59,6 +60,7 @@ export class RhAgentReviewComponent {
   readonly store = inject(RhAgentStore);
   readonly uiStore = inject(RhAgentDashboardStore);
   readonly dialog = inject(MatDialog);
+  readonly uiState = inject(UiStateService);
 
   constructor() {
     this.store.loadData();

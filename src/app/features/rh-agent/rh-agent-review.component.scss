@@ -7,6 +7,10 @@
   height: calc(100vh - 64px);
   min-height: 400px;
   overflow: hidden;
+
+  &.fullscreen {
+    height: 100vh;
+  }
 }
 
 // ========================================
@@ -336,6 +340,19 @@
   @media (max-width: 1200px) {
     grid-template-columns: 280px 1fr;
   }
+
+  &.sidebar-collapsed {
+    grid-template-columns: 40px 1fr;
+  }
+}
+
+.collapsed-sidebar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 4px;
+  background: var(--mat-sys-surface-container);
+  border-right: 1px solid var(--mat-sys-outline-variant);
 }
 
 .signal-list-wrapper,

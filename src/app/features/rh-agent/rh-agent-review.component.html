@@ -1,4 +1,4 @@
-<div class="rh-agent-review">
+<div class="rh-agent-review" [class.fullscreen]="uiState.fullscreen()">
   <!-- Unified Header: Filter + Strategies row, ACR + Info + Actions row -->
   <div class="review-header">
     <!-- Left Column: Filter + Strategy Chips -->
@@ -133,8 +133,16 @@
 
   <!-- Master-Detail Layout -->
   @if (uiStore.currentRun()) {
-    <div class="master-detail-container">
-      <app-signal-list class="signal-list-wrapper" (signalSelected)="onSignalSelected($event)"></app-signal-list>
+    <div class="master-detail-container" [class.sidebar-collapsed]="uiState.sidebarCollapsed()">
+      @if (uiState.sidebarCollapsed()) {
+        <div class="collapsed-sidebar">
+          <button mat-icon-button (click)="uiState.toggleSidebar()" matTooltip="Expand panel">
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+        </div>
+      } @else {
+        <app-signal-list class="signal-list-wrapper" (signalSelected)="onSignalSelected($event)"></app-signal-list>
+      }
       <app-signal-detail class="detail-wrapper"></app-signal-detail>
     </div>
   } @else {

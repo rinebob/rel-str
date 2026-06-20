@@ -149,6 +149,9 @@ export interface FlexChartConfig {
 
   /** Initial zoom days */
   initialZoomDays?: number;
+
+  /** Data interval hint for axis label formatting */
+  interval?: 'daily' | 'weekly' | 'monthly';
 }
 
 /** Computed indicator series - supports both Date (DateTime) and index (Category) x values */
