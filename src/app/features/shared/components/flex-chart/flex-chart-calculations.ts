@@ -39,7 +39,8 @@ export function groupIndicatorsByPane(
   const grouped: Record<string, ComputedIndicatorSeries[]> = {};
 
   for (const s of series) {
-    const pane = s.config.pane;
+    // 'overlay' indicators render on the main price pane
+    const pane = s.config.pane === 'overlay' ? 'main' : s.config.pane;
     if (!grouped[pane]) {
       grouped[pane] = [];
     }

@@ -33,10 +33,14 @@ export type IndicatorType =
   | 'macd'     // MACD
   | 'adx'      // Average Directional Index
   | 'volume'   // Volume bars
+  | 'st-trend-bands'     // ST Trend Bands (overlay)
+  | 'st-zone'            // ST Zone Classification (lower pane)
+  | 'st-trend-strength'  // ST Trend Strength (lower pane)
+  | 'st-trigger-band'    // ST Trigger Band (overlay)
   | 'custom';  // Custom indicator (data provided externally)
 
 /** Pane assignment for indicators */
-export type IndicatorPane = 'main' | 'lower-1' | 'lower-2' | 'lower-3' | 'lower-4';
+export type IndicatorPane = 'main' | 'overlay' | 'lower-1' | 'lower-2' | 'lower-3' | 'lower-4';
 
 /** Series type for rendering */
 export type SeriesType = 'line' | 'area' | 'column' | 'band' | 'candle';
@@ -84,8 +88,8 @@ export interface IndicatorConfig {
     /** Visibility toggle */
     visible?: boolean;
 
-    /** Y-axis scale: 'fixed-0-100' for RSI-type, 'auto' for everything else */
-    axisScale?: 'auto' | 'fixed-0-100';
+    /** Y-axis scale: 'fixed-0-100' for RSI-type, 'price' for overlays, 'fixed' for custom range, 'auto' for everything else */
+    axisScale?: 'auto' | 'fixed-0-100' | 'price' | 'fixed';
 
     /** Horizontal reference lines to draw on this indicator's pane */
     referenceLines?: { value: number; color: string; dashArray?: string; label?: string }[];
@@ -147,7 +151,7 @@ export interface FlexChartConfig {
 export interface ComputedIndicatorSeries {
   id: string;
   config: IndicatorConfig;
-  data: { x?: Date; index?: number; y: number; y2?: number; y3?: number }[];
+  data: { x?: Date; index?: number; y: number; y2?: number; y3?: number; bandHigh?: number; bandLow?: number; up?: boolean }[];
 }
 
 /** Parameter definition for indicator config dialogs */
@@ -165,7 +169,7 @@ export interface IndicatorOption {
   label: string;
   type: IndicatorType;
   defaultPane: IndicatorPane;
-  axisScale?: 'auto' | 'fixed-0-100';
+  axisScale?: 'auto' | 'fixed-0-100' | 'price' | 'fixed';
   params: IndicatorParamDef[];
   /** Default options applied when this indicator is added (referenceLines, histogram, etc.) */
   defaultOptions?: Partial<IndicatorConfig['options']>;
@@ -175,4 +179,4 @@ export interface IndicatorOption {
 export type IndicatorCalculator = (
   bars: PriceBar[],
   params: Record<string, number | string | boolean>
-) => { x: Date; y: number; y2?: number; y3?: number }[];
+) => { x: Date; y: number; y2?: number; y3?: number; bandHigh?: number; bandLow?: number; up?: boolean }[];

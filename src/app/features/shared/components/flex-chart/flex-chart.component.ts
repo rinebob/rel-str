@@ -40,6 +40,7 @@ import type {
   ComputedIndicatorSeries,
 } from './flex-chart.types';
 import { computeIndicators, groupIndicatorsByPane } from './flex-chart-calculations';
+import { computeAllBands, type BandSeriesData } from './indicators/st-trend-bands.indicator';
 import { autoscaleYAxisForRange } from '../../utils/chart.util';
 import type { OHLCDatum } from '../../types/rs.interfaces';
 
@@ -102,9 +103,27 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
               [enableTooltip]="true">
             </e-series>
 
+            <!-- ST Trend Bands (rendered as candle bodies) -->
+            @for (band of trendBandSeries(); track band.bandIndex) {
+              <e-series
+                [dataSource]="band.data"
+                type="Candle"
+                xName="index"
+                high="high"
+                low="low"
+                open="open"
+                close="close"
+                [bullFillColor]="band.bullColor"
+                [bearFillColor]="band.bearColor"
+                [enableSolidCandles]="true"
+                opacity="0.7"
+                [enableTooltip]="false">
+              </e-series>
+            }
+
             <!-- Main pane indicators (overlay on price) -->
             @for (indicator of mainPaneSeries(); track indicator.id) {
-              @if (indicator.config.seriesType === 'line') {
+              @if (indicator.config.type !== 'st-trend-bands' && indicator.config.seriesType === 'line') {
                 <e-series
                   [dataSource]="indicator.data"
                   type="Line"
@@ -262,6 +281,18 @@ export class FlexChartComponent {
   private groupedSeries = computed(() => groupIndicatorsByPane(this.computedSeries()));
 
   mainPaneSeries = computed(() => this.groupedSeries()['main'] || []);
+
+  /** ST Trend Band candle series — computed when trend bands indicator is active */
+  trendBandSeries = computed<BandSeriesData[]>(() => {
+    const mainSeries = this.mainPaneSeries();
+    const hasTrendBands = mainSeries.some(s => s.config.type === 'st-trend-bands');
+    if (!hasTrendBands) return [];
+
+    const data = this.chartData();
+    if (!data || data.bars.length < 30) return [];
+
+    return computeAllBands(data.bars);
+  });
 
   /** Active lower panes derived from current indicators — sorted by pane ID */
   lowerPanes = computed(() => {
