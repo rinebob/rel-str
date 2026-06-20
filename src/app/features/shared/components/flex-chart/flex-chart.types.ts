@@ -39,6 +39,7 @@ export type IndicatorType =
   | 'st-zone-window'     // ST Zone Window — HTF window open dots (lower pane)
   | 'st-trend-strength'  // ST Trend Strength (lower pane)
   | 'st-signal-dots'     // Signal annotation dots on strength histogram
+  | 'st-zone-uptick-dots' // Zone uptick signal dots on main chart
   | 'st-trigger-band'    // ST Trigger Band (overlay)
   | 'custom';  // Custom indicator (data provided externally)
 

@@ -108,13 +108,13 @@ export function computeZoneWindowData(
     if (htfZone === null) continue;
 
     if (htfZone > 0) {
-      result.push({ x: bar.x, y: 6, color: LONG_COLOR });
+      result.push({ x: bar.x, y: -6, color: LONG_COLOR });
     } else if (htfZone < 0) {
-      result.push({ x: bar.x, y: -6, color: SHORT_COLOR });
+      result.push({ x: bar.x, y: 6, color: SHORT_COLOR });
     } else {
       // Neutral: plot both
-      result.push({ x: bar.x, y: 6, color: LONG_COLOR });
-      result.push({ x: bar.x, y: -6, color: SHORT_COLOR });
+      result.push({ x: bar.x, y: -6, color: LONG_COLOR });
+      result.push({ x: bar.x, y: 6, color: SHORT_COLOR });
     }
   }
 

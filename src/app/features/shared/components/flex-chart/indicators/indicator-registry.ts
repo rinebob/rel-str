@@ -15,6 +15,7 @@ export { ST_ZONE_V2_INDICATOR, calculateStZoneV2 } from './st-zone-v2.indicator'
 export { ST_TREND_STRENGTH_INDICATOR, calculateStTrendStrength } from './st-trend-strength.indicator';
 export { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR, computeZoneWindowData } from './st-zone-window.indicator';
 export { ST_SIGNAL_DOTS_INDICATOR, computeSignalDots } from './st-signal-dots.indicator';
+export { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, detectZoneUptickDots } from './st-zone-uptick-dots.indicator';
 
 import type { IndicatorOption, IndicatorCalculator, IndicatorConfig, SeriesType, IndicatorType } from '../flex-chart.types';
 import { EMA_INDICATOR, calculateEMA } from './ema.indicator';
@@ -26,6 +27,7 @@ import { ST_ZONE_V2_INDICATOR, calculateStZoneV2 } from './st-zone-v2.indicator'
 import { ST_TREND_STRENGTH_INDICATOR, calculateStTrendStrength } from './st-trend-strength.indicator';
 import { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR } from './st-zone-window.indicator';
 import { ST_SIGNAL_DOTS_INDICATOR } from './st-signal-dots.indicator';
+import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR } from './st-zone-uptick-dots.indicator';
 
 /** All available indicators for UI dropdowns */
 export const INDICATOR_OPTIONS: IndicatorOption[] = [
@@ -38,6 +40,8 @@ export const INDICATOR_OPTIONS: IndicatorOption[] = [
   ST_ZONE_WINDOW_MONTHLY_INDICATOR,
   ST_ZONE_WINDOW_WEEKLY_INDICATOR,
   ST_SIGNAL_DOTS_INDICATOR,
+  ST_ZONE_V1_UPTICK_DOTS_INDICATOR,
+  ST_ZONE_V2_UPTICK_DOTS_INDICATOR,
   ST_TREND_STRENGTH_INDICATOR,
 ];
 
@@ -60,6 +64,7 @@ const SERIES_TYPE_MAP: Partial<Record<IndicatorType, SeriesType>> = {
   'st-zone-v2': 'scatter',
   'st-zone-window': 'scatter',
   'st-signal-dots': 'scatter',
+  'st-zone-uptick-dots': 'scatter',
 };
 
 /** Build an IndicatorConfig from an IndicatorOption using its declared defaults */
