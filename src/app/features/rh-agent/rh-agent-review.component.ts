@@ -182,6 +182,10 @@ export class RhAgentReviewComponent {
     this.router.navigate(['/rh-agent']);
   }
 
+  goToSignalHistory(): void {
+    this.router.navigate(['/signal-history']);
+  }
+
   loadManualSymbol(symbolInput: string): void {
     const symbol = symbolInput.trim().toUpperCase();
     if (!symbol) return;

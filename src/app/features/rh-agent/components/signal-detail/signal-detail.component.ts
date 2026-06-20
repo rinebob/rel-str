@@ -19,7 +19,12 @@ import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-c
 import { BarsInterval } from '../../../../core/models/partner.types';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import type { FlexChartConfig, IndicatorConfig, IndicatorPane, IndicatorOption } from '../../../shared/components/flex-chart/flex-chart.types';
-import { INDICATOR_OPTIONS, DEFAULT_ST_INDICATORS } from '../../../shared/components/flex-chart/indicators/indicator-registry';
+import { INDICATOR_OPTIONS, DEFAULT_ST_INDICATORS, buildDefaultConfig } from '../../../shared/components/flex-chart/indicators/indicator-registry';
+import { calculateStZoneV2 } from '../../../shared/components/flex-chart/indicators/st-zone-v2.indicator';
+import { calculateStTrendStrength } from '../../../shared/components/flex-chart/indicators/st-trend-strength.indicator';
+import { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR, computeZoneWindowData } from '../../../shared/components/flex-chart/indicators/st-zone-window.indicator';
+import { ST_SIGNAL_DOTS_INDICATOR, computeSignalDots } from '../../../shared/components/flex-chart/indicators/st-signal-dots.indicator';
+import { detectTrendStrengthSignals } from '../../../shared/components/flex-chart/signals';
 import { IndicatorConfigDialogComponent } from '../indicator-config-dialog/indicator-config-dialog.component';
 
 @Component({
@@ -64,7 +69,7 @@ export class SignalDetailComponent {
   selectedInterval = signal<BarsInterval>(BarsInterval.DAILY);
 
   /** When true, charts show all available data instead of a zoomed-in window */
-  showAllData = signal(false);
+  showAllData = signal(true);
 
   /** Available indicators for the dropdown */
   indicatorOptions = INDICATOR_OPTIONS;
@@ -80,8 +85,16 @@ export class SignalDetailComponent {
     const intervalHint = interval === BarsInterval.WEEKLY ? 'weekly'
       : interval === BarsInterval.MONTHLY ? 'monthly' : 'daily';
 
+    // Include window data for D and W charts in single mode
+    let indicators = this.activeIndicators();
+    if (interval === BarsInterval.DAILY) {
+      indicators = this.dailyIndicators();
+    } else if (interval === BarsInterval.WEEKLY) {
+      indicators = this.weeklyIndicators();
+    }
+
     return {
-      indicators: this.activeIndicators(),
+      indicators,
       showCrosshair: true,
       showZoomToolbar: true,
       enableScrollbar: true,
@@ -90,9 +103,99 @@ export class SignalDetailComponent {
     };
   });
 
+  // =========================================================================
+  // Zone Window — pre-computed HTF zone data mapped to LTF dots
+  // =========================================================================
+
+  /** Monthly zone V2 data (computed from monthly bars) */
+  private monthlyZoneV2 = computed(() => {
+    const data = this.chartDataMonthly();
+    if (!data || data.bars.length < 30) return [];
+    return calculateStZoneV2(data.bars, {});
+  });
+
+  /** Weekly zone V2 data (computed from weekly bars) */
+  private weeklyZoneV2 = computed(() => {
+    const data = this.chartDataWeekly();
+    if (!data || data.bars.length < 30) return [];
+    return calculateStZoneV2(data.bars, {});
+  });
+
+  /** Window data: monthly zone → weekly dots */
+  private windowDataMonthlyOnWeekly = computed(() => {
+    const htfZone = this.monthlyZoneV2();
+    const ltfData = this.chartDataWeekly();
+    if (htfZone.length === 0 || !ltfData) return [];
+    return computeZoneWindowData(htfZone, ltfData.bars);
+  });
+
+  /** Window data: weekly zone → daily dots */
+  private windowDataWeeklyOnDaily = computed(() => {
+    const htfZone = this.weeklyZoneV2();
+    const ltfData = this.chartData();
+    if (htfZone.length === 0 || !ltfData) return [];
+    return computeZoneWindowData(htfZone, ltfData.bars);
+  });
+
+  /** Build a window IndicatorConfig with pre-computed data */
+  private buildWindowConfig(option: typeof ST_ZONE_WINDOW_MONTHLY_INDICATOR, data: { x: Date; y: number; color?: string }[]): IndicatorConfig {
+    const cfg = buildDefaultConfig(option);
+    return { ...cfg, pane: 'lower-3' as IndicatorPane, data: data as any };
+  }
+
+  // =========================================================================
+  // Signal Dots — Trend-Strength signals annotated on histogram
+  // =========================================================================
+
+  /** Signal dots for daily chart */
+  private dailySignalDots = computed(() => {
+    const data = this.chartData();
+    if (!data || data.bars.length < 30) return [];
+    const strengthData = calculateStTrendStrength(data.bars, {});
+    const signals = detectTrendStrengthSignals(strengthData, data.bars);
+    return computeSignalDots(signals, strengthData);
+  });
+
+  /** Signal dots for weekly chart */
+  private weeklySignalDots = computed(() => {
+    const data = this.chartDataWeekly();
+    if (!data || data.bars.length < 30) return [];
+    const strengthData = calculateStTrendStrength(data.bars, {});
+    const signals = detectTrendStrengthSignals(strengthData, data.bars);
+    return computeSignalDots(signals, strengthData);
+  });
+
+  /** Build signal dots IndicatorConfig with pre-computed data */
+  private buildSignalDotsConfig(data: { x: Date; y: number; color?: string }[]): IndicatorConfig {
+    const cfg = buildDefaultConfig(ST_SIGNAL_DOTS_INDICATOR);
+    return { ...cfg, pane: 'lower-1' as IndicatorPane, data: data as any };
+  }
+
+  /** Daily chart indicators = base + weekly window + signal dots */
+  private dailyIndicators = computed<IndicatorConfig[]>(() => {
+    const base = this.activeIndicators();
+    const extras: IndicatorConfig[] = [];
+    const windowData = this.windowDataWeeklyOnDaily();
+    if (windowData.length > 0) extras.push(this.buildWindowConfig(ST_ZONE_WINDOW_WEEKLY_INDICATOR, windowData));
+    const dots = this.dailySignalDots();
+    if (dots.length > 0) extras.push(this.buildSignalDotsConfig(dots));
+    return extras.length > 0 ? [...base, ...extras] : base;
+  });
+
+  /** Weekly chart indicators = base + monthly window + signal dots */
+  private weeklyIndicators = computed<IndicatorConfig[]>(() => {
+    const base = this.activeIndicators();
+    const extras: IndicatorConfig[] = [];
+    const windowData = this.windowDataMonthlyOnWeekly();
+    if (windowData.length > 0) extras.push(this.buildWindowConfig(ST_ZONE_WINDOW_MONTHLY_INDICATOR, windowData));
+    const dots = this.weeklySignalDots();
+    if (dots.length > 0) extras.push(this.buildSignalDotsConfig(dots));
+    return extras.length > 0 ? [...base, ...extras] : base;
+  });
+
   /** Chart config for daily chart in triple mode */
   chartConfigDaily = computed<FlexChartConfig>(() => ({
-    indicators: this.activeIndicators(),
+    indicators: this.dailyIndicators(),
     showCrosshair: true,
     showZoomToolbar: true,
     enableScrollbar: true,
@@ -102,7 +205,7 @@ export class SignalDetailComponent {
 
   /** Chart config for weekly chart in triple mode */
   chartConfigWeekly = computed<FlexChartConfig>(() => ({
-    indicators: this.activeIndicators(),
+    indicators: this.weeklyIndicators(),
     showCrosshair: true,
     showZoomToolbar: false,
     enableScrollbar: true,

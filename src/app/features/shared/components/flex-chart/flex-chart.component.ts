@@ -169,7 +169,8 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
                     [animation]="noAnimation">
                   </e-series>
                 } @else if (indicator.config.seriesType === 'scatter') {
-                  <!-- Thin connecting line behind dots -->
+                  <!-- Thin connecting line behind dots (skip for window indicators) -->
+                  @if (indicator.config.type !== 'st-zone-window' && indicator.config.type !== 'st-signal-dots') {
                   <e-series
                     [dataSource]="indicator.data"
                     type="Line"
@@ -183,6 +184,7 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
                     [enableTooltip]="false"
                     [animation]="noAnimation">
                   </e-series>
+                  }
                   <!-- Scatter (dots) series with per-point color -->
                   <e-series
                     [dataSource]="indicator.data"
@@ -247,6 +249,12 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
             }
           </e-series-collection>
         </ejs-chart>
+        <!-- Pane labels overlay -->
+        @for (pane of lowerPanes(); track pane.id; let i = $index) {
+          <div class="pane-label" [style.bottom]="paneLabelPosition(i)">
+            {{ paneLabelText(pane) }}
+          </div>
+        }
         }
       } @else {
         <div class="no-data">Select a signal to view chart</div>
@@ -272,6 +280,19 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
       justify-content: center;
       height: 100%;
       color: var(--mat-sys-on-surface-variant);
+    }
+    .pane-label {
+      position: absolute;
+      left: 8px;
+      padding: 1px 6px;
+      font-size: 10px;
+      font-weight: 600;
+      color: rgba(158, 158, 158, 0.9);
+      background: rgba(30, 30, 30, 0.6);
+      border-radius: 3px;
+      pointer-events: none;
+      z-index: 5;
+      letter-spacing: 0.3px;
     }
     .crosshair-sync-line {
       display: none;
@@ -421,11 +442,17 @@ export class FlexChartComponent implements OnDestroy {
           verticalAlignment: 'Middle' as const,
         }));
 
+      // Build axis title from indicator names on this pane
+      const paneTitle = pane.series
+        .map(s => s.config.options.name || s.config.type.toUpperCase())
+        .join(' / ');
+
       return {
         name: pane.axisName,
         valueType: 'Double' as const,
         opposedPosition: true,
-        title: '',
+        title: paneTitle,
+        titleStyle: { size: '10px', fontWeight: '500', color: '#9e9e9e' },
         rowIndex: index,
         minimum: pane.useFixedScale ? 0 : (pane.axisMin ?? undefined),
         maximum: pane.useFixedScale ? 100 : (pane.axisMax ?? undefined),
@@ -453,6 +480,26 @@ export class FlexChartComponent implements OnDestroy {
     rows.push({ height: `${100 - lowerCount * lowerPct}%` }); // Main pane (top)
     return rows;
   });
+
+  /** Calculate bottom position for a pane label overlay (row index 0 = bottom) */
+  paneLabelPosition(index: number): string {
+    const lowerCount = this.lowerPanes().length;
+    if (lowerCount === 0) return '0%';
+    const lowerPct = Math.floor(40 / lowerCount);
+    // Row 0 is the bottom pane, row 1 is above it, etc.
+    // Each pane occupies lowerPct% of chart height
+    // Label goes near the top of each pane
+    const bottomOfPane = index * lowerPct;
+    const topOfPane = bottomOfPane + lowerPct;
+    return `${topOfPane - 3}%`;
+  }
+
+  /** Get display text for a pane label */
+  paneLabelText(pane: { series: { config: { options: { name?: string }; type: string } }[] }): string {
+    return pane.series
+      .map(s => s.config.options.name || s.config.type.toUpperCase())
+      .join(' / ');
+  }
 
   // Chart configuration - Category axis removes gaps (like TradingView)
   primaryXAxis = computed(() => {

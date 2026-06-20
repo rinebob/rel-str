@@ -13,7 +13,7 @@ export class UiStateService {
   readonly sidebarCollapsed = signal(false);
 
   /** Chart layout mode: single chart or triple (W/M left, D right) */
-  readonly chartLayout = signal<'single' | 'triple'>('single');
+  readonly chartLayout = signal<'single' | 'triple'>('triple');
 
   toggleFullscreen(): void {
     this.fullscreen.update(v => !v);
