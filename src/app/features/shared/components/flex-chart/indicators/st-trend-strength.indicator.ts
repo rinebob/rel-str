@@ -59,15 +59,17 @@ export const ST_TREND_STRENGTH_INDICATOR: IndicatorOption = {
   label: 'ST Trend Strength',
   type: 'st-trend-strength',
   defaultPane: 'lower-2',
-  axisScale: 'auto',
+  axisScale: 'fixed',
   params: [
     { key: 'period', label: 'Period', default: 14, min: 5, max: 50 },
   ],
   defaultOptions: {
+    axisMin: -50,
+    axisMax: 50,
     referenceLines: [
-      { value: 0, color: '#9e9e9e', dashArray: '4,3', label: 'Zero' },
-      { value: 10, color: '#26a69a', dashArray: '2,2', label: 'Upper' },
-      { value: -10, color: '#ef5350', dashArray: '2,2', label: 'Lower' },
+      { value: 0, color: '#000000', label: 'Zero' },
+      { value: 10, color: '#000000', label: 'Upper' },
+      { value: -10, color: '#000000', label: 'Lower' },
     ],
   },
 };
@@ -131,5 +133,6 @@ export const calculateStTrendStrength: IndicatorCalculator = (bars, params) => {
   return bars.map((b, i) => ({
     x: b.x,
     y: diHist[i],
+    color: diHist[i] >= 0 ? '#2196f3' : '#ffeb3b',
   })).filter(p => !isNaN(p.y));
 };

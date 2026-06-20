@@ -192,8 +192,18 @@ export const calculateStZone: IndicatorCalculator = (bars, params) => {
     else if (zoneMinusTwo) zone = -2;
     else if (zoneMinusThree) zone = -3;
 
-    return { x: b.x, y: zone };
-  }).filter((p): p is { x: Date; y: number } => p !== null);
+    const ZONE_COLORS: Record<number, string> = {
+      3: '#2196f3',   // blue
+      2: '#4caf50',   // green
+      1: '#9e9e9e',   // grey
+      0: '#9e9e9e',   // grey
+      [-1]: '#f44336', // red
+      [-2]: '#e91e63', // magenta
+      [-3]: '#ffeb3b', // yellow
+    };
+
+    return { x: b.x, y: zone, color: ZONE_COLORS[zone] || '#9e9e9e' };
+  }).filter((p): p is { x: Date; y: number; color: string } => p !== null);
 
   return result;
 };

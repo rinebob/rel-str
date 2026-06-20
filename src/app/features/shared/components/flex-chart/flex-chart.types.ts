@@ -43,7 +43,7 @@ export type IndicatorType =
 export type IndicatorPane = 'main' | 'overlay' | 'lower-1' | 'lower-2' | 'lower-3' | 'lower-4';
 
 /** Series type for rendering */
-export type SeriesType = 'line' | 'area' | 'column' | 'band' | 'candle';
+export type SeriesType = 'line' | 'area' | 'column' | 'band' | 'candle' | 'scatter';
 
 /** Individual indicator configuration */
 export interface IndicatorConfig {
@@ -90,6 +90,10 @@ export interface IndicatorConfig {
 
     /** Y-axis scale: 'fixed-0-100' for RSI-type, 'price' for overlays, 'fixed' for custom range, 'auto' for everything else */
     axisScale?: 'auto' | 'fixed-0-100' | 'price' | 'fixed';
+
+    /** Custom axis min/max (used when axisScale is 'fixed') */
+    axisMin?: number;
+    axisMax?: number;
 
     /** Horizontal reference lines to draw on this indicator's pane */
     referenceLines?: { value: number; color: string; dashArray?: string; label?: string }[];

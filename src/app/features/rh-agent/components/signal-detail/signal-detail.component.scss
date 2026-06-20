@@ -42,13 +42,18 @@
     .chip-remove {
       width: 18px;
       height: 18px;
-      font-size: 14px;
-      line-height: 18px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
 
       mat-icon {
         font-size: 14px;
         width: 14px;
         height: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
     }
   }

@@ -21,6 +21,7 @@ import {
   AreaSeriesService,
   ColumnSeriesService,
   RangeAreaSeriesService,
+  ScatterSeriesService,
   DateTimeService,
   CategoryService,
   ZoomService,
@@ -54,6 +55,7 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
     AreaSeriesService,
     ColumnSeriesService,
     RangeAreaSeriesService,
+    ScatterSeriesService,
     DateTimeService,
     CategoryService,
     ZoomService,
@@ -72,7 +74,7 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
         <ejs-chart
           [enableAnimation]="false"
           #chart
-          [primaryXAxis]="primaryXAxis"
+          [primaryXAxis]="primaryXAxis()"
           [primaryYAxis]="primaryYAxis()"
           [zoomSettings]="zoomSettings"
           [tooltip]="tooltip"
@@ -86,7 +88,7 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
           (loaded)="onChartLoaded()"
           (zoomComplete)="onZoomComplete($event)"
           (scrollEnd)="onScrollEnd($event)"
-          (axisLabelRender)="primaryXAxis.axisLabelRender($event)">
+          (axisLabelRender)="onAxisLabelRender($event)">
 
           <e-series-collection>
             <!-- Main pane: Price candles -->
@@ -140,7 +142,47 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
             <!-- Dynamic lower panes -->
             @for (pane of lowerPanes(); track pane.id) {
               @for (indicator of pane.series; track indicator.id) {
-                @if (indicator.config.seriesType === 'line') {
+                @if (indicator.config.seriesType === 'column') {
+                  <!-- Histogram (column) series -->
+                  <e-series
+                    [dataSource]="indicator.data"
+                    type="Column"
+                    xName="index"
+                    yName="y"
+                    [yAxisName]="pane.axisName"
+                    [name]="indicator.config.options.name || indicator.config.type.toUpperCase()"
+                    [fill]="indicator.config.options.color || '#26a69a'"
+                    pointColorMapping="color"
+                    [columnWidth]="0.8"
+                    [enableTooltip]="true">
+                  </e-series>
+                } @else if (indicator.config.seriesType === 'scatter') {
+                  <!-- Thin connecting line behind dots -->
+                  <e-series
+                    [dataSource]="indicator.data"
+                    type="Line"
+                    xName="index"
+                    yName="y"
+                    [yAxisName]="pane.axisName"
+                    name=""
+                    fill="#9e9e9e"
+                    width="1"
+                    opacity="0.5"
+                    [enableTooltip]="false">
+                  </e-series>
+                  <!-- Scatter (dots) series with per-point color -->
+                  <e-series
+                    [dataSource]="indicator.data"
+                    type="Scatter"
+                    xName="index"
+                    yName="y"
+                    [yAxisName]="pane.axisName"
+                    [name]="indicator.config.options.name || indicator.config.type.toUpperCase()"
+                    pointColorMapping="color"
+                    [marker]="{ visible: true, shape: 'Circle', width: 4, height: 4 }"
+                    [enableTooltip]="true">
+                  </e-series>
+                } @else if (indicator.config.seriesType === 'line') {
                   <!-- Histogram (column) behind line series -->
                   @if (indicator.config.options.showHistogram && indicator.data.length > 0 && indicator.data[0].y3 !== undefined) {
                     <e-series
@@ -265,13 +307,11 @@ export class FlexChartComponent {
     return originalSeries.map(series => ({
       ...series,
       data: series.data.map((point) => {
-        if (!point.x) return { index: -1, y: point.y, y2: point.y2, y3: point.y3 };
+        if (!point.x) return { ...point, index: -1 };
         const index = dateToIndex.get(point.x.getTime());
         return {
-          index: index ?? -1, // -1 if not found (shouldn't happen)
-          y: point.y,
-          y2: point.y2,
-          y3: point.y3,
+          ...point,
+          index: index ?? -1,
         };
       }).filter(p => p.index >= 0), // Remove any unmatched points
     }));
@@ -304,13 +344,18 @@ export class FlexChartComponent {
     return paneIds.map(paneId => {
       const series = grouped[paneId];
       const axisName = `lowerYAxis${paneId.replace('lower-', '')}`;
-      // Use fixed-0-100 if ANY indicator on this pane requests it
+      // Determine axis scale from indicators on this pane
       const useFixedScale = series.some(s => s.config.options.axisScale === 'fixed-0-100');
+      const fixedIndicator = series.find(s => s.config.options.axisScale === 'fixed');
+      const axisMin = fixedIndicator?.config.options.axisMin;
+      const axisMax = fixedIndicator?.config.options.axisMax;
       return {
         id: paneId,
         axisName,
         series,
         useFixedScale,
+        axisMin,
+        axisMax,
       };
     });
   });
@@ -323,12 +368,13 @@ export class FlexChartComponent {
         .flatMap(s => s.config.options.referenceLines || [])
         .map(ref => ({
           start: ref.value,
-          size: 0,
+          size: 1,
           sizeType: 'Pixel' as const,
-          dashArray: ref.dashArray || '',
           color: ref.color,
+          dashArray: ref.dashArray || '',
           visible: true,
-          opacity: 0.7,
+          opacity: 1,
+          zIndex: 'Over' as const,
           text: ref.label || '',
           textStyle: { color: ref.color, size: '10px' },
           horizontalAlignment: 'End' as const,
@@ -341,8 +387,8 @@ export class FlexChartComponent {
         opposedPosition: true,
         title: '',
         rowIndex: index,
-        minimum: pane.useFixedScale ? 0 : undefined,
-        maximum: pane.useFixedScale ? 100 : undefined,
+        minimum: pane.useFixedScale ? 0 : (pane.axisMin ?? undefined),
+        maximum: pane.useFixedScale ? 100 : (pane.axisMax ?? undefined),
         labelFormat: '{value}',
         majorGridLines: { width: 0.5, color: 'rgba(158,158,158,0.3)' },
         lineStyle: { width: 1, color: '#9e9e9e' },
@@ -369,40 +415,47 @@ export class FlexChartComponent {
   });
 
   // Chart configuration - Category axis removes gaps (like TradingView)
-  // Note: primaryXAxis needs a dynamic rowIndex but Syncfusion takes it from primaryYAxis row
-  primaryXAxis = {
-    valueType: 'Category',
-    majorGridLines: { width: 0 },
-    crosshairTooltip: { enable: false }, // Disabled - Category axis uses indices, not dates
-    edgeLabelPlacement: 'Shift',
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    axisLabelRender: (args: any) => {
-      // Only format labels for the primary X-axis — skip Y-axes and secondary axes
-      if (args.axis.name !== 'primaryXAxis') return;
+  primaryXAxis = computed(() => {
+    const data = this.chartData();
+    const initialDays = this.config().initialZoomDays ?? 60;
+    const totalBars = data?.bars.length ?? 0;
+    const visibleCount = Math.min(initialDays, totalBars);
+    const zoomFactor = totalBars > 0 ? visibleCount / totalBars : 1;
+    const zoomPosition = totalBars > 0 ? (totalBars - visibleCount) / totalBars : 0;
 
-      // args.value is the index - look up the actual date
-      const data = this.chartData();
-      if (!data || !data.bars[args.value]) return;
-      
-      const date = data.bars[args.value].x;
-      const month = date.getMonth();
-      const day = date.getDate();
-      
-      // Get the visible range start from our tracked signal
-      const visibleStart = this.visibleRangeStart();
-      const isFirstVisibleLabel = visibleStart && date.getTime() <= visibleStart.getTime() + 86400000;
-      
-      // Show year for year boundaries or first visible label
-      const isYearBoundary = month === 0 && day === 1;
-      const shouldShowYear = isYearBoundary || (isFirstVisibleLabel && !isYearBoundary);
-      
-      if (shouldShowYear) {
-        args.text = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-      } else {
-        args.text = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      }
-    },
-  };
+    return {
+      valueType: 'Category',
+      majorGridLines: { width: 0 },
+      crosshairTooltip: { enable: false },
+      edgeLabelPlacement: 'Shift',
+      zoomFactor,
+      zoomPosition,
+    };
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onAxisLabelRender(args: any): void {
+    if (args.axis.name !== 'primaryXAxis') return;
+
+    const data = this.chartData();
+    if (!data || !data.bars[args.value]) return;
+    
+    const date = data.bars[args.value].x;
+    const month = date.getMonth();
+    const day = date.getDate();
+    
+    const visibleStart = this.visibleRangeStart();
+    const isFirstVisibleLabel = visibleStart && date.getTime() <= visibleStart.getTime() + 86400000;
+    
+    const isYearBoundary = month === 0 && day === 1;
+    const shouldShowYear = isYearBoundary || (isFirstVisibleLabel && !isYearBoundary);
+    
+    if (shouldShowYear) {
+      args.text = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    } else {
+      args.text = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+  }
 
   // primaryYAxis rowIndex is dynamic — set via computed
   primaryYAxis = computed(() => ({
@@ -430,6 +483,7 @@ export class FlexChartComponent {
   crosshair = {
     enable: true,
     lineType: 'Vertical',
+    snapToData: true,
   };
 
   constructor() {

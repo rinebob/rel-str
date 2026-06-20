@@ -18,7 +18,7 @@ import { HeatmapChartStore } from '../../../heatmap-chart/heatmap-chart.store';
 import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-chart.component';
 import { BarsInterval } from '../../../../core/models/partner.types';
 import type { FlexChartConfig, IndicatorConfig, IndicatorPane, IndicatorOption } from '../../../shared/components/flex-chart/flex-chart.types';
-import { INDICATOR_OPTIONS } from '../../../shared/components/flex-chart/indicators/indicator-registry';
+import { INDICATOR_OPTIONS, DEFAULT_ST_INDICATORS } from '../../../shared/components/flex-chart/indicators/indicator-registry';
 import { IndicatorConfigDialogComponent } from '../indicator-config-dialog/indicator-config-dialog.component';
 
 @Component({
@@ -42,8 +42,8 @@ export class SignalDetailComponent {
   chartData = this.chartStore.chartData;
   chartLoading = this.chartStore.loading;
 
-  /** User-added indicators */
-  activeIndicators = signal<IndicatorConfig[]>([]);
+  /** User-added indicators — pre-loaded with ST indicator suite */
+  activeIndicators = signal<IndicatorConfig[]>([...DEFAULT_ST_INDICATORS]);
 
   /** Available indicators for the dropdown */
   indicatorOptions = INDICATOR_OPTIONS;
@@ -55,7 +55,7 @@ export class SignalDetailComponent {
       showCrosshair: true,
       showZoomToolbar: true,
       enableScrollbar: true,
-      initialZoomDays: 60,
+      initialZoomDays: 365,
     };
   });
 
