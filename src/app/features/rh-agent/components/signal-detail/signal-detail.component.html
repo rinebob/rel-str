@@ -1,4 +1,4 @@
-@if (hasSignal(); as signal) {
+@if (showChart()) {
   <div class="signal-detail">
     <!-- Indicator toolbar -->
     <div class="indicator-toolbar">
@@ -35,6 +35,11 @@
         <button class="interval-btn" [class.active]="selectedInterval() === BarsInterval.MONTHLY"
           (click)="onIntervalChange(BarsInterval.MONTHLY)">M</button>
       </span>
+      <button mat-icon-button class="alldata-btn" (click)="showAllData.set(!showAllData())"
+        [class.active]="showAllData()"
+        [matTooltip]="showAllData() ? 'Show recent data' : 'Show all data'">
+        <mat-icon>{{ showAllData() ? 'zoom_in_map' : 'zoom_out_map' }}</mat-icon>
+      </button>
       <button mat-icon-button class="layout-btn" (click)="uiState.toggleChartLayout()"
         [matTooltip]="uiState.chartLayout() === 'single' ? 'Three-chart layout' : 'Single-chart layout'">
         <mat-icon>{{ uiState.chartLayout() === 'single' ? 'grid_view' : 'crop_square' }}</mat-icon>

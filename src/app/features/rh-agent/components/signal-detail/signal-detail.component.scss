@@ -22,6 +22,10 @@
   flex-wrap: wrap;
   padding: 4px 0;
 
+  .alldata-btn.active {
+    color: var(--mat-sys-primary);
+  }
+
   .indicator-chip {
     display: inline-flex;
     align-items: center;

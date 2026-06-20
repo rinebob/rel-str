@@ -26,6 +26,11 @@
   flex-shrink: 0;
   min-height: 40px;
 
+  .back-btn {
+    flex-shrink: 0;
+    align-self: center;
+  }
+
   // Left column: Filter + Strategy Chips stacked
   .header-left-column {
     display: flex;
@@ -283,6 +288,37 @@
     gap: 4px;
     flex-shrink: 0;
     align-items: center;
+    margin-left: auto;
+
+    .manual-symbol-input {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      margin-right: 8px;
+
+      .symbol-field {
+        width: 80px;
+        height: 28px;
+        padding: 0 8px;
+        border: 1px solid var(--mat-sys-outline);
+        border-radius: 4px;
+        background: var(--mat-sys-surface);
+        color: var(--mat-sys-on-surface);
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        outline: none;
+
+        &:focus {
+          border-color: var(--mat-sys-primary);
+        }
+
+        &::placeholder {
+          color: var(--mat-sys-on-surface-variant);
+          font-weight: 400;
+        }
+      }
+    }
 
     button {
       width: 28px;

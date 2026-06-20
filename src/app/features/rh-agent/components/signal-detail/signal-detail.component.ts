@@ -3,7 +3,7 @@
  *
  * Detail panel for the review interface.
  */
-import { Component, inject, ChangeDetectionStrategy, output, effect, computed, signal } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy, output, effect, computed, signal, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -42,8 +42,13 @@ export class SignalDetailComponent {
   signalConsidered = output<string>();
   signalRejected = output<string>();
 
+  /** Manual symbol override from parent (when user types a symbol directly) */
+  manualSymbol = input<string | null>(null);
+
   signal = this.uiStore.selectedSignal;
   hasSignal = this.uiStore.hasSelectedSignal;
+  /** Show chart when a signal is selected OR a manual symbol is entered */
+  showChart = computed(() => this.hasSignal() || !!this.manualSymbol());
   chartData = this.chartStore.chartData;
   chartDataWeekly = this.chartStore.chartDataWeekly;
   chartDataMonthly = this.chartStore.chartDataMonthly;
@@ -58,15 +63,19 @@ export class SignalDetailComponent {
   /** Selected chart interval */
   selectedInterval = signal<BarsInterval>(BarsInterval.DAILY);
 
+  /** When true, charts show all available data instead of a zoomed-in window */
+  showAllData = signal(false);
+
   /** Available indicators for the dropdown */
   indicatorOptions = INDICATOR_OPTIONS;
 
   /** Dynamic chart config driven by user-added indicators (single mode) */
   chartConfig = computed<FlexChartConfig>(() => {
     const interval = this.selectedInterval();
-    let initialZoomDays = 365;
-    if (interval === BarsInterval.WEEKLY) initialZoomDays = 104;
-    else if (interval === BarsInterval.MONTHLY) initialZoomDays = 9999;
+    const all = this.showAllData();
+    let initialZoomDays = all ? 99999 : 365;
+    if (!all && interval === BarsInterval.WEEKLY) initialZoomDays = 104;
+    else if (!all && interval === BarsInterval.MONTHLY) initialZoomDays = 9999;
 
     const intervalHint = interval === BarsInterval.WEEKLY ? 'weekly'
       : interval === BarsInterval.MONTHLY ? 'monthly' : 'daily';
@@ -87,7 +96,7 @@ export class SignalDetailComponent {
     showCrosshair: true,
     showZoomToolbar: true,
     enableScrollbar: true,
-    initialZoomDays: 365,
+    initialZoomDays: this.showAllData() ? 99999 : 365,
     interval: 'daily' as const,
   }));
 
@@ -97,7 +106,7 @@ export class SignalDetailComponent {
     showCrosshair: true,
     showZoomToolbar: false,
     enableScrollbar: true,
-    initialZoomDays: 104,
+    initialZoomDays: this.showAllData() ? 99999 : 104,
     interval: 'weekly' as const,
   }));
 
@@ -107,7 +116,7 @@ export class SignalDetailComponent {
     showCrosshair: true,
     showZoomToolbar: false,
     enableScrollbar: true,
-    initialZoomDays: 9999,
+    initialZoomDays: this.showAllData() ? 99999 : 9999,
     interval: 'monthly' as const,
   }));
 
@@ -178,6 +187,23 @@ export class SignalDetailComponent {
       const layout = this.uiState.chartLayout();
       if (signal && layout === 'triple') {
         this.chartStore.loadTripleData();
+      }
+    });
+
+    // Load chart data when manual symbol is entered
+    effect(() => {
+      const symbol = this.manualSymbol();
+      if (symbol) {
+        const interval = this.selectedInterval();
+        this.chartStore.loadData({
+          baseline: 'SPY',
+          symbol,
+          interval,
+        });
+        const layout = this.uiState.chartLayout();
+        if (layout === 'triple') {
+          this.chartStore.loadTripleData();
+        }
       }
     });
   }

@@ -1,6 +1,10 @@
 <div class="rh-agent-review" [class.fullscreen]="uiState.fullscreen()">
   <!-- Unified Header: Filter + Strategies row, ACR + Info + Actions row -->
   <div class="review-header">
+    <button mat-icon-button class="back-btn" (click)="goToRuns()" matTooltip="Back to runs">
+      <mat-icon>arrow_back</mat-icon>
+    </button>
+
     <!-- Left Column: Filter + Strategy Chips -->
     <div class="header-left-column">
       <!-- Filter (32px height, bordered) -->
@@ -105,6 +109,17 @@
     </div>
 
     <div class="header-actions">
+      <div class="manual-symbol-input">
+        <input
+          #symbolInput
+          type="text"
+          placeholder="Symbol..."
+          (keydown)="onManualSymbolKeydown($event, symbolInput)"
+          class="symbol-field">
+        <button mat-icon-button (click)="loadManualSymbol(symbolInput.value)" matTooltip="Load chart for symbol">
+          <mat-icon>trending_up</mat-icon>
+        </button>
+      </div>
       <button
         mat-raised-button
         color="accent"
@@ -143,7 +158,7 @@
       } @else {
         <app-signal-list class="signal-list-wrapper" (signalSelected)="onSignalSelected($event)"></app-signal-list>
       }
-      <app-signal-detail class="detail-wrapper"></app-signal-detail>
+      <app-signal-detail class="detail-wrapper" [manualSymbol]="manualSymbol()"></app-signal-detail>
     </div>
   } @else {
     <div class="empty-state">

@@ -9,6 +9,7 @@ import {
   Component,
   inject,
   effect,
+  signal,
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -24,6 +25,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { Router } from '@angular/router';
 
 import { RhAgentStore } from './rh-agent.store';
 import { RhAgentDashboardStore } from './rh-agent-dashboard.store';
@@ -61,6 +63,10 @@ export class RhAgentReviewComponent {
   readonly uiStore = inject(RhAgentDashboardStore);
   readonly dialog = inject(MatDialog);
   readonly uiState = inject(UiStateService);
+  private readonly router = inject(Router);
+
+  /** Manual symbol input for quick chart viewing */
+  manualSymbol = signal<string | null>(null);
 
   constructor() {
     this.store.loadData();
@@ -169,6 +175,23 @@ export class RhAgentReviewComponent {
     const signal = this.uiStore.selectedSignal();
     if (signal) {
       this.uiStore.rejectSignal(signal.id);
+    }
+  }
+
+  goToRuns(): void {
+    this.router.navigate(['/rh-agent']);
+  }
+
+  loadManualSymbol(symbolInput: string): void {
+    const symbol = symbolInput.trim().toUpperCase();
+    if (!symbol) return;
+    this.uiStore.clearSelectedSignal();
+    this.manualSymbol.set(symbol);
+  }
+
+  onManualSymbolKeydown(event: KeyboardEvent, input: HTMLInputElement): void {
+    if (event.key === 'Enter') {
+      this.loadManualSymbol(input.value);
     }
   }
 }
