@@ -17,6 +17,8 @@ import type {
 interface HeatmapChartState {
   query: HeatmapChartQuery | null;
   chartData: ChartDataset | null;
+  chartDataWeekly: ChartDataset | null;
+  chartDataMonthly: ChartDataset | null;
   heatmapData: HeatmapDataset | null;
   loading: boolean;
   error: string | null;
@@ -26,6 +28,8 @@ interface HeatmapChartState {
 const initialState: HeatmapChartState = {
   query: null,
   chartData: null,
+  chartDataWeekly: null,
+  chartDataMonthly: null,
   heatmapData: null,
   loading: false,
   error: null,
@@ -130,6 +134,37 @@ export const HeatmapChartStore = signalStore(
           });
         },
       });
+    },
+
+    /**
+     * Load all three timeframes (daily, weekly, monthly) for triple-chart mode.
+     * Uses the current query's symbol/baseline.
+     */
+    loadTripleData() {
+      const query = store.query();
+      if (!query) return;
+
+      const { baseline, symbol } = query;
+
+      // Load weekly
+      dataService.fetchChartData$(baseline, symbol, BarsInterval.WEEKLY).subscribe({
+        next: (chartDataWeekly) => patchState(store, { chartDataWeekly }),
+        error: (err) => console.error('HeatmapChartStore.loadTripleData weekly error', err),
+      });
+
+      // Load monthly
+      dataService.fetchChartData$(baseline, symbol, BarsInterval.MONTHLY).subscribe({
+        next: (chartDataMonthly) => patchState(store, { chartDataMonthly }),
+        error: (err) => console.error('HeatmapChartStore.loadTripleData monthly error', err),
+      });
+
+      // Ensure daily is also loaded
+      if (query.interval !== BarsInterval.DAILY) {
+        dataService.fetchChartData$(baseline, symbol, BarsInterval.DAILY).subscribe({
+          next: (chartData) => patchState(store, { chartData }),
+          error: (err) => console.error('HeatmapChartStore.loadTripleData daily error', err),
+        });
+      }
     },
 
     /**

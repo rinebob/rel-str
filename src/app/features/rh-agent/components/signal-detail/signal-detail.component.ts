@@ -45,7 +45,12 @@ export class SignalDetailComponent {
   signal = this.uiStore.selectedSignal;
   hasSignal = this.uiStore.hasSelectedSignal;
   chartData = this.chartStore.chartData;
+  chartDataWeekly = this.chartStore.chartDataWeekly;
+  chartDataMonthly = this.chartStore.chartDataMonthly;
   chartLoading = this.chartStore.loading;
+
+  /** Shared crosshair date for syncing across triple charts */
+  crosshairDate = signal<Date | null>(null);
 
   /** User-added indicators — pre-loaded with ST indicator suite */
   activeIndicators = signal<IndicatorConfig[]>([...DEFAULT_ST_INDICATORS]);
@@ -56,12 +61,12 @@ export class SignalDetailComponent {
   /** Available indicators for the dropdown */
   indicatorOptions = INDICATOR_OPTIONS;
 
-  /** Dynamic chart config driven by user-added indicators */
+  /** Dynamic chart config driven by user-added indicators (single mode) */
   chartConfig = computed<FlexChartConfig>(() => {
     const interval = this.selectedInterval();
     let initialZoomDays = 365;
-    if (interval === BarsInterval.WEEKLY) initialZoomDays = 104; // ~2 years of weekly bars
-    else if (interval === BarsInterval.MONTHLY) initialZoomDays = 9999; // show all
+    if (interval === BarsInterval.WEEKLY) initialZoomDays = 104;
+    else if (interval === BarsInterval.MONTHLY) initialZoomDays = 9999;
 
     const intervalHint = interval === BarsInterval.WEEKLY ? 'weekly'
       : interval === BarsInterval.MONTHLY ? 'monthly' : 'daily';
@@ -75,6 +80,36 @@ export class SignalDetailComponent {
       interval: intervalHint as 'daily' | 'weekly' | 'monthly',
     };
   });
+
+  /** Chart config for daily chart in triple mode */
+  chartConfigDaily = computed<FlexChartConfig>(() => ({
+    indicators: this.activeIndicators(),
+    showCrosshair: true,
+    showZoomToolbar: true,
+    enableScrollbar: true,
+    initialZoomDays: 365,
+    interval: 'daily' as const,
+  }));
+
+  /** Chart config for weekly chart in triple mode */
+  chartConfigWeekly = computed<FlexChartConfig>(() => ({
+    indicators: this.activeIndicators(),
+    showCrosshair: true,
+    showZoomToolbar: false,
+    enableScrollbar: true,
+    initialZoomDays: 104,
+    interval: 'weekly' as const,
+  }));
+
+  /** Chart config for monthly chart in triple mode */
+  chartConfigMonthly = computed<FlexChartConfig>(() => ({
+    indicators: this.activeIndicators(),
+    showCrosshair: true,
+    showZoomToolbar: false,
+    enableScrollbar: true,
+    initialZoomDays: 9999,
+    interval: 'monthly' as const,
+  }));
 
   /** Open config dialog for the selected indicator type */
   onAddIndicator(option: IndicatorOption): void {
@@ -118,6 +153,11 @@ export class SignalDetailComponent {
     this.selectedInterval.set(interval);
   }
 
+  /** Update shared crosshair date for triple-chart sync */
+  onCrosshairChange(date: Date | null): void {
+    this.crosshairDate.set(date);
+  }
+
   constructor() {
     // Load chart data when signal or interval changes
     effect(() => {
@@ -129,6 +169,15 @@ export class SignalDetailComponent {
           symbol: signal.symbol,
           interval,
         });
+      }
+    });
+
+    // Load triple data when layout switches to triple or signal changes
+    effect(() => {
+      const signal = this.signal();
+      const layout = this.uiState.chartLayout();
+      if (signal && layout === 'triple') {
+        this.chartStore.loadTripleData();
       }
     });
   }

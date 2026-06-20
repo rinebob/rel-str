@@ -7,6 +7,7 @@
 import {
   Component,
   input,
+  output,
   viewChild,
   effect,
   signal,
@@ -36,6 +37,7 @@ import {
   StripLineService,
   IZoomCompleteEventArgs,
   IScrollEventArgs,
+  IMouseEventArgs,
 } from '@syncfusion/ej2-angular-charts';
 
 import type {
@@ -92,7 +94,9 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
           (loaded)="onChartLoaded()"
           (zoomComplete)="onZoomComplete($event)"
           (scrollEnd)="onScrollEnd($event)"
-          (axisLabelRender)="onAxisLabelRender($event)">
+          (axisLabelRender)="onAxisLabelRender($event)"
+          (chartMouseMove)="onChartMouseMove($event)"
+          (chartMouseLeave)="onChartMouseLeave()">
 
           <e-series-collection>
             <!-- Main pane: Price candles -->
@@ -247,6 +251,7 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
       } @else {
         <div class="no-data">Select a signal to view chart</div>
       }
+      <div class="crosshair-sync-line"></div>
     </div>
   `,
   styles: [`
@@ -259,6 +264,7 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
       width: 100%;
       height: 100%;
       min-height: 300px;
+      position: relative;
     }
     .no-data {
       display: flex;
@@ -266,6 +272,16 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
       justify-content: center;
       height: 100%;
       color: var(--mat-sys-on-surface-variant);
+    }
+    .crosshair-sync-line {
+      display: none;
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: #000000;
+      pointer-events: none;
+      z-index: 10;
     }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -281,6 +297,10 @@ export class FlexChartComponent implements OnDestroy {
   chartData = input.required<FlexChartDataset | null>();
   config = input<FlexChartConfig>({ indicators: [] });
   height = input<string>('400px');
+  syncCrosshairDate = input<Date | null>(null);
+
+  // Outputs
+  crosshairDateChange = output<Date | null>();
 
   // Disable all series animations
   noAnimation = { enable: false };
@@ -504,6 +524,55 @@ export class FlexChartComponent implements OnDestroy {
       }
     });
 
+    // Sync crosshair from another chart via CSS overlay line
+    effect(() => {
+      const syncDate = this.syncCrosshairDate();
+      const chartComp = this.chart() as any;
+      const data = this.chartData();
+
+      const overlay = this.el.nativeElement.querySelector('.crosshair-sync-line') as HTMLElement;
+      if (!overlay) return;
+
+      if (!syncDate || !chartComp || !data || data.bars.length === 0) {
+        overlay.style.display = 'none';
+        return;
+      }
+
+      // Get axis info
+      const xAxis = chartComp.axisCollections?.[0];
+      if (!xAxis?.rect || !xAxis?.visibleRange) {
+        overlay.style.display = 'none';
+        return;
+      }
+
+      // Find the bar index closest to the synced date
+      const targetTime = syncDate.getTime();
+      let closestIdx = 0;
+      let closestDiff = Infinity;
+      for (let i = 0; i < data.bars.length; i++) {
+        const barTime = new Date(data.bars[i].x).getTime();
+        const diff = Math.abs(barTime - targetTime);
+        if (diff < closestDiff) {
+          closestDiff = diff;
+          closestIdx = i;
+        }
+      }
+
+      // Convert bar index to pixel position
+      const { min, delta } = xAxis.visibleRange;
+      const rect = xAxis.rect;
+      const pixelX = rect.x + ((closestIdx - min) / delta) * rect.width;
+
+      // Only show if within chart area
+      if (pixelX < rect.x || pixelX > rect.x + rect.width) {
+        overlay.style.display = 'none';
+        return;
+      }
+
+      overlay.style.display = 'block';
+      overlay.style.left = `${pixelX}px`;
+    });
+
     // Watch for container resize (e.g. fullscreen toggle) and refresh chart
     this.zone.runOutsideAngular(() => {
       this.resizeObserver = new ResizeObserver(() => {
@@ -519,6 +588,34 @@ export class FlexChartComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     this.resizeObserver?.disconnect();
+  }
+
+  onChartMouseMove(event: IMouseEventArgs): void {
+    const chartComp = this.chart() as any;
+    const data = this.chartData();
+    if (!chartComp || !data || data.bars.length === 0) return;
+
+    // Get the x-axis from axisCollections
+    const xAxis = chartComp.axisCollections?.[0];
+    if (!xAxis || !xAxis.visibleRange || !xAxis.rect) return;
+
+    const rect = xAxis.rect;
+    const pixelX = event.x - rect.x;
+    if (pixelX < 0 || pixelX > rect.width) return;
+
+    const { min, delta } = xAxis.visibleRange;
+    const idx = Math.round(min + (pixelX / rect.width) * delta);
+
+    if (idx >= 0 && idx < data.bars.length) {
+      const bar = data.bars[idx];
+      if (bar) {
+        this.crosshairDateChange.emit(new Date(bar.x));
+      }
+    }
+  }
+
+  onChartMouseLeave(): void {
+    this.crosshairDateChange.emit(null);
   }
 
   onChartLoaded(): void {

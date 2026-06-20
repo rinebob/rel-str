@@ -155,6 +155,67 @@
   }
 }
 
+// Triple chart layout
+.triple-chart-grid {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: 30% 70%;
+  gap: 1px;
+  background: var(--mat-sys-outline-variant);
+
+  .triple-left {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-height: 0;
+
+    .triple-chart-cell {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      background: var(--mat-sys-surface-container);
+
+      app-flex-chart {
+        position: absolute;
+        top: 18px;
+        left: 0;
+        right: 0;
+        bottom: 0;
+      }
+    }
+  }
+
+  .triple-right {
+    position: relative;
+    background: var(--mat-sys-surface-container);
+    min-height: 0;
+
+    app-flex-chart {
+      position: absolute;
+      top: 18px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+    }
+  }
+
+  .chart-label {
+    position: absolute;
+    top: 2px;
+    left: 8px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--mat-sys-on-surface-variant);
+    z-index: 1;
+    letter-spacing: 0.5px;
+  }
+}
+
 .detail-empty {
   flex: 1;
   display: flex;
