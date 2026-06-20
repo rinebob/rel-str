@@ -11,7 +11,10 @@ export { RSI_INDICATOR, calculateRSI } from './rsi.indicator';
 export { MACD_INDICATOR, calculateMACD } from './macd.indicator';
 export { ST_TREND_BANDS_INDICATOR, calculateStTrendBands } from './st-trend-bands.indicator';
 export { ST_ZONE_INDICATOR, calculateStZone } from './st-zone.indicator';
+export { ST_ZONE_V2_INDICATOR, calculateStZoneV2 } from './st-zone-v2.indicator';
 export { ST_TREND_STRENGTH_INDICATOR, calculateStTrendStrength } from './st-trend-strength.indicator';
+export { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR, computeZoneWindowData } from './st-zone-window.indicator';
+export { ST_SIGNAL_DOTS_INDICATOR, computeSignalDots } from './st-signal-dots.indicator';
 
 import type { IndicatorOption, IndicatorCalculator, IndicatorConfig, SeriesType, IndicatorType } from '../flex-chart.types';
 import { EMA_INDICATOR, calculateEMA } from './ema.indicator';
@@ -19,7 +22,10 @@ import { RSI_INDICATOR, calculateRSI } from './rsi.indicator';
 import { MACD_INDICATOR, calculateMACD } from './macd.indicator';
 import { ST_TREND_BANDS_INDICATOR, calculateStTrendBands } from './st-trend-bands.indicator';
 import { ST_ZONE_INDICATOR, calculateStZone } from './st-zone.indicator';
+import { ST_ZONE_V2_INDICATOR, calculateStZoneV2 } from './st-zone-v2.indicator';
 import { ST_TREND_STRENGTH_INDICATOR, calculateStTrendStrength } from './st-trend-strength.indicator';
+import { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR } from './st-zone-window.indicator';
+import { ST_SIGNAL_DOTS_INDICATOR } from './st-signal-dots.indicator';
 
 /** All available indicators for UI dropdowns */
 export const INDICATOR_OPTIONS: IndicatorOption[] = [
@@ -28,6 +34,10 @@ export const INDICATOR_OPTIONS: IndicatorOption[] = [
   MACD_INDICATOR,
   ST_TREND_BANDS_INDICATOR,
   ST_ZONE_INDICATOR,
+  ST_ZONE_V2_INDICATOR,
+  ST_ZONE_WINDOW_MONTHLY_INDICATOR,
+  ST_ZONE_WINDOW_WEEKLY_INDICATOR,
+  ST_SIGNAL_DOTS_INDICATOR,
   ST_TREND_STRENGTH_INDICATOR,
 ];
 
@@ -38,6 +48,7 @@ export const indicatorCalculators: Record<string, IndicatorCalculator> = {
   macd: calculateMACD,
   'st-trend-bands': calculateStTrendBands,
   'st-zone': calculateStZone,
+  'st-zone-v2': calculateStZoneV2,
   'st-trend-strength': calculateStTrendStrength,
 };
 
@@ -46,6 +57,9 @@ const SERIES_TYPE_MAP: Partial<Record<IndicatorType, SeriesType>> = {
   'st-trend-bands': 'candle',
   'st-trend-strength': 'column',
   'st-zone': 'scatter',
+  'st-zone-v2': 'scatter',
+  'st-zone-window': 'scatter',
+  'st-signal-dots': 'scatter',
 };
 
 /** Build an IndicatorConfig from an IndicatorOption using its declared defaults */
@@ -76,6 +90,7 @@ export function buildDefaultConfig(option: IndicatorOption): IndicatorConfig {
 /** Default ST indicator suite — auto-loaded on chart */
 export const DEFAULT_ST_INDICATORS: IndicatorConfig[] = [
   buildDefaultConfig(ST_TREND_BANDS_INDICATOR),
-  buildDefaultConfig(ST_ZONE_INDICATOR),
-  buildDefaultConfig(ST_TREND_STRENGTH_INDICATOR),
+  { ...buildDefaultConfig(ST_TREND_STRENGTH_INDICATOR), pane: 'lower-1' },
+  { ...buildDefaultConfig(ST_ZONE_INDICATOR), pane: 'lower-2', options: { ...buildDefaultConfig(ST_ZONE_INDICATOR).options, name: 'ST-ZONE V1' } },
+  { ...buildDefaultConfig(ST_ZONE_V2_INDICATOR), pane: 'lower-3', options: { ...buildDefaultConfig(ST_ZONE_V2_INDICATOR).options, name: 'ST-ZONE V2' } },
 ];

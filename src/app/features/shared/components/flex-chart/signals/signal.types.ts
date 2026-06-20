@@ -11,7 +11,7 @@
 export type SignalDirection = 'long' | 'short';
 
 /** Signal source identifier */
-export type SignalSource = 'st-zone' | 'st-trend-strength';
+export type SignalSource = 'st-zone' | 'st-zone-mtf' | 'st-trend-strength';
 
 /** Signal sub-type for trend-strength signals */
 export type TrendStrengthSignalType =

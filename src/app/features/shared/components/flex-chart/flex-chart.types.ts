@@ -35,7 +35,10 @@ export type IndicatorType =
   | 'volume'   // Volume bars
   | 'st-trend-bands'     // ST Trend Bands (overlay)
   | 'st-zone'            // ST Zone Classification (lower pane)
+  | 'st-zone-v2'         // ST Zone V2 — 4-band classification (lower pane)
+  | 'st-zone-window'     // ST Zone Window — HTF window open dots (lower pane)
   | 'st-trend-strength'  // ST Trend Strength (lower pane)
+  | 'st-signal-dots'     // Signal annotation dots on strength histogram
   | 'st-trigger-band'    // ST Trigger Band (overlay)
   | 'custom';  // Custom indicator (data provided externally)
 
