@@ -70,8 +70,25 @@ export class SignalDetailComponent {
   /** Selected chart interval */
   selectedInterval = signal<BarsInterval>(BarsInterval.DAILY);
 
-  /** When true, charts show all available data instead of a zoomed-in window */
-  showAllData = signal(true);
+  /** Selected chart time range */
+  selectedRange = signal<'recent' | '6m' | '1y' | '5y' | 'all'>('recent');
+
+  /** Number of bars to show based on the selected range and interval */
+  rangeBars = computed(() => this.rangeBarsFor(this.selectedInterval()));
+
+  private rangeBarsFor(interval: BarsInterval): number {
+    const range = this.selectedRange();
+    const barsPerYear = interval === BarsInterval.WEEKLY ? 52 : interval === BarsInterval.MONTHLY ? 12 : 252;
+    const barsPerMonth = interval === BarsInterval.WEEKLY ? 4.33 : interval === BarsInterval.MONTHLY ? 1 : 21;
+
+    switch (range) {
+      case 'recent': return interval === BarsInterval.WEEKLY ? 104 : interval === BarsInterval.MONTHLY ? 60 : 365;
+      case '6m': return Math.round(6 * barsPerMonth);
+      case '1y': return barsPerYear;
+      case '5y': return Math.round(5 * barsPerYear);
+      case 'all': return 99999;
+    }
+  }
 
   /** Available indicators for the dropdown */
   indicatorOptions = INDICATOR_OPTIONS;
@@ -79,10 +96,6 @@ export class SignalDetailComponent {
   /** Dynamic chart config driven by user-added indicators (single mode) */
   chartConfig = computed<FlexChartConfig>(() => {
     const interval = this.selectedInterval();
-    const all = this.showAllData();
-    let initialZoomDays = all ? 99999 : 365;
-    if (!all && interval === BarsInterval.WEEKLY) initialZoomDays = 104;
-    else if (!all && interval === BarsInterval.MONTHLY) initialZoomDays = 9999;
 
     const intervalHint = interval === BarsInterval.WEEKLY ? 'weekly'
       : interval === BarsInterval.MONTHLY ? 'monthly' : 'daily';
@@ -100,7 +113,7 @@ export class SignalDetailComponent {
       showCrosshair: true,
       showZoomToolbar: true,
       enableScrollbar: true,
-      initialZoomDays,
+      initialZoomDays: this.rangeBars(),
       interval: intervalHint as 'daily' | 'weekly' | 'monthly',
     };
   });
@@ -259,7 +272,7 @@ export class SignalDetailComponent {
     showCrosshair: true,
     showZoomToolbar: true,
     enableScrollbar: true,
-    initialZoomDays: this.showAllData() ? 99999 : 365,
+    initialZoomDays: this.rangeBarsFor(BarsInterval.DAILY),
     interval: 'daily' as const,
   }));
 
@@ -269,7 +282,7 @@ export class SignalDetailComponent {
     showCrosshair: true,
     showZoomToolbar: false,
     enableScrollbar: true,
-    initialZoomDays: this.showAllData() ? 99999 : 104,
+    initialZoomDays: this.rangeBarsFor(BarsInterval.WEEKLY),
     interval: 'weekly' as const,
   }));
 
@@ -279,7 +292,7 @@ export class SignalDetailComponent {
     showCrosshair: true,
     showZoomToolbar: false,
     enableScrollbar: true,
-    initialZoomDays: this.showAllData() ? 99999 : 9999,
+    initialZoomDays: this.rangeBarsFor(BarsInterval.MONTHLY),
     interval: 'monthly' as const,
   }));
 

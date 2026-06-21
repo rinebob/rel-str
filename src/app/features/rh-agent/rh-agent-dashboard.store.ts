@@ -11,11 +11,13 @@ import { RhTradeSignal, RH_AGENT_SCHEDULE_CRON, RH_AGENT_MAX_TRADE_AMOUNT } from
 import { RobinhoodTradeService, TradePrompt, TradeBatch } from '../rs/services/robinhood-trade.service';
 
 type SignalStatus = 'PENDING' | 'ACCEPTED' | 'CONSIDERED' | 'REJECTED';
+type DirectionFilter = 'all' | 'long' | 'short';
 
 // State interface
 export interface DashboardUiState {
   selectedSymbols: Set<string>;
   selectedSignalTypes: Set<string>;
+  directionFilter: DirectionFilter;
   filterPanelsOpen: boolean; // Single toggle for both symbols and signal types
   showAllRuns: boolean;
   symbolSearch: string;
@@ -31,6 +33,7 @@ export interface DashboardUiState {
 const initialState: DashboardUiState = {
   selectedSymbols: new Set<string>(),
   selectedSignalTypes: new Set<string>(),
+  directionFilter: 'all',
   filterPanelsOpen: true,
   showAllRuns: false,
   symbolSearch: '',
@@ -60,7 +63,9 @@ export const RhAgentDashboardStore = signalStore(
 
     // Check if any filter is active
     hasActiveFilters: computed(() => 
-      state.selectedSymbols().size > 0 || state.selectedSignalTypes().size > 0
+      state.selectedSymbols().size > 0 ||
+      state.selectedSignalTypes().size > 0 ||
+      state.directionFilter() !== 'all'
     ),
 
     // Current run (most recent)
@@ -194,6 +199,13 @@ export const RhAgentDashboardStore = signalStore(
       patchState(state, { selectedSignalTypes: current });
     },
 
+    /**
+     * Set the direction filter (all / long / short)
+     */
+    setDirectionFilter(direction: DirectionFilter): void {
+      patchState(state, { directionFilter: direction });
+    },
+
     deselectSignalType(type: string): void {
       const current = new Set(state.selectedSignalTypes());
       current.delete(type);
@@ -206,7 +218,8 @@ export const RhAgentDashboardStore = signalStore(
     clearFilters(): void {
       patchState(state, { 
         selectedSymbols: new Set<string>(),
-        selectedSignalTypes: new Set<string>()
+        selectedSignalTypes: new Set<string>(),
+        directionFilter: 'all'
       });
     },
 
@@ -221,6 +234,7 @@ export const RhAgentDashboardStore = signalStore(
       let signals = dataStore.getSignalsForRun(runId);
       const symbolFilters = state.selectedSymbols();
       const typeFilters = state.selectedSignalTypes();
+      const directionFilter = state.directionFilter();
       const symbolSearch = state.symbolSearch().toLowerCase().trim();
 
       // Filter to only PENDING signals
@@ -236,6 +250,10 @@ export const RhAgentDashboardStore = signalStore(
       }
       if (typeFilters.size > 0) {
         signals = signals.filter(s => !!s.signalType && typeFilters.has(s.signalType));
+      }
+      if (directionFilter !== 'all') {
+        const direction = directionFilter.toUpperCase();
+        signals = signals.filter(s => (s.tradeDirection || 'LONG') === direction);
       }
       return this.sortSignals(signals);
     },

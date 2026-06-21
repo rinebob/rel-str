@@ -53,16 +53,17 @@
         }
       </div>
 
-      <!-- Strategy Chips -->
-      <mat-chip-listbox class="strategy-chips" [multiple]="true">
+      <!-- Strategy toggle buttons -->
+      <div class="strategy-toggles">
         @for (type of uiStore.signalTypes(); track type) {
-          <mat-chip-option
-            [selected]="uiStore.selectedSignalTypes().has(type)"
-            (selectionChange)="uiStore.toggleSignalTypeFilter(type)">
+          <button
+            class="strategy-btn"
+            [class.active]="uiStore.selectedSignalTypes().has(type)"
+            (click)="uiStore.toggleSignalTypeFilter(type)">
             {{ type }}
-          </mat-chip-option>
+          </button>
         }
-      </mat-chip-listbox>
+      </div>
     </div>
 
     @if (!uiStore.hasSelectedSignal()) {

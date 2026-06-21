@@ -10,7 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatIconButton } from '@angular/material/button';
+import { MatButtonModule, MatIconButton } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { RhAgentDashboardStore } from '../../rh-agent-dashboard.store';
@@ -28,6 +28,7 @@ import { UiStateService } from '../../../../core/services/ui-state.service';
     MatChipsModule,
     MatFormFieldModule,
     MatInputModule,
+    MatButtonModule,
     MatIconButton,
     MatTooltipModule,
   ],

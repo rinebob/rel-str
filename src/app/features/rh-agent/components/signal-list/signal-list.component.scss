@@ -43,6 +43,47 @@
     }
   }
 
+  .direction-toggle {
+    display: inline-flex;
+    gap: 2px;
+    border-radius: 4px;
+    padding: 2px;
+    background: var(--mat-sys-surface-container-highest);
+
+    .dir-btn {
+      border: none;
+      background: transparent;
+      color: var(--mat-sys-on-surface-variant);
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 6px;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+      text-transform: uppercase;
+      line-height: 1;
+
+      &:hover {
+        background: var(--mat-sys-surface-container-highest);
+      }
+
+      &.active {
+        background: var(--mat-sys-secondary-container);
+        color: var(--mat-sys-secondary);
+      }
+
+      &.long.active {
+        background: var(--mat-sys-success-container);
+        color: var(--mat-sys-success);
+      }
+
+      &.short.active {
+        background: var(--mat-sys-error-container);
+        color: var(--mat-sys-error);
+      }
+    }
+  }
+
   .header-spacer {
     flex: 1;
   }

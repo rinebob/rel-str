@@ -110,6 +110,7 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
               close="close"
               bearFillColor="#ef5350"
               bullFillColor="#26a69a"
+              [columnWidth]="0.9"
               [enableTooltip]="true"
               [animation]="noAnimation">
             </e-series>
@@ -127,6 +128,7 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
                 [bullFillColor]="band.bullColor"
                 [bearFillColor]="band.bearColor"
                 [enableSolidCandles]="true"
+                [columnWidth]="0.9"
                 opacity="0.7"
                 [enableTooltip]="false"
                 [animation]="noAnimation">
@@ -301,11 +303,17 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FlexChartComponent implements OnDestroy {
+  /** Empty categories to pad past the last bar, like TradingView's right margin */
+  private static readonly RIGHT_MARGIN_BARS = 5;
+
   private readonly el = inject(ElementRef);
   private readonly zone = inject(NgZone);
   private resizeObserver: ResizeObserver | null = null;
 
   chart = viewChild<SfChartComponent>('chart');
+
+  // Track last applied zoom to avoid re-applying when only indicators change
+  private lastZoomKey: string | null = null;
 
   // Inputs
   chartData = input.required<FlexChartDataset | null>();
@@ -473,9 +481,11 @@ export class FlexChartComponent implements OnDestroy {
     const data = this.chartData();
     const initialDays = this.config().initialZoomDays ?? 60;
     const totalBars = data?.bars.length ?? 0;
+    const margin = FlexChartComponent.RIGHT_MARGIN_BARS;
+    const totalCategories = totalBars + margin;
     const visibleCount = Math.min(initialDays, totalBars);
-    const zoomFactor = totalBars > 0 ? visibleCount / totalBars : 1;
-    const zoomPosition = totalBars > 0 ? (totalBars - visibleCount) / totalBars : 0;
+    const zoomFactor = totalCategories > 0 ? (visibleCount + margin) / totalCategories : 1;
+    const zoomPosition = totalCategories > 0 ? (totalBars - visibleCount) / totalCategories : 0;
 
     return {
       valueType: 'Category',
@@ -585,6 +595,21 @@ export class FlexChartComponent implements OnDestroy {
 
       overlay.style.display = 'block';
       overlay.style.left = `${pixelX}px`;
+    });
+
+    // Re-apply zoom + right margin + Y-axis snap whenever the chart data
+    // or zoom range (initialZoomDays / interval) changes.
+    effect(() => {
+      const chart = this.chart();
+      const data = this.chartData();
+      const config = this.config();
+      if (!chart || !data || data.bars.length === 0) return;
+
+      const key = `${config.initialZoomDays ?? 0}-${config.interval ?? ''}-${data.bars.length}`;
+      if (this.lastZoomKey === key) return;
+      this.lastZoomKey = key;
+
+      this.applyInitialZoom(data.bars.length);
     });
 
     // Watch for container resize (e.g. fullscreen toggle) and refresh chart
@@ -711,16 +736,20 @@ export class FlexChartComponent implements OnDestroy {
     const data = this.chartData();
     if (!chart || !data || data.bars.length === 0) return;
 
-    // Category axis: use indices for min/max
+    const margin = FlexChartComponent.RIGHT_MARGIN_BARS;
+    const totalCategories = data.bars.length + margin;
+
+    // Category axis: use indices for min/max, including the right margin
     if (chart.primaryXAxis) {
       chart.primaryXAxis.minimum = 0;
-      chart.primaryXAxis.maximum = data.bars.length - 1;
+      chart.primaryXAxis.maximum = data.bars.length - 1 + margin;
     }
 
     const initialDays = this.config().initialZoomDays ?? 60;
     const visibleCount = Math.min(initialDays, data.bars.length - 1);
-    const zoomFactor = visibleCount / data.bars.length;
-    const zoomPosition = (data.bars.length - visibleCount) / data.bars.length;
+    const visibleRange = visibleCount + margin;
+    const zoomFactor = visibleRange / totalCategories;
+    const zoomPosition = (data.bars.length - visibleCount) / totalCategories;
 
     if (chart.primaryXAxis) {
       chart.primaryXAxis.zoomFactor = zoomFactor;
@@ -743,6 +772,6 @@ export class FlexChartComponent implements OnDestroy {
     // Track visible range start for axis label formatting
     this.visibleRangeStart.set(minX);
     
-    autoscaleYAxisForRange(chartBars, [], chart, minX, maxX, false);
+    autoscaleYAxisForRange(chartBars, [], chart, minX, maxX, true);
   }
 }

@@ -136,6 +136,16 @@ export class RhAgentService {
   }
 
   /**
+   * Normalize signals from the backend, deriving tradeDirection from action.
+   */
+  private normalizeSignals(signals: RhTradeSignal[]): RhTradeSignal[] {
+    return signals.map(signal => ({
+      ...signal,
+      tradeDirection: signal.action === 'OPEN_SHORT' ? 'SHORT' : 'LONG',
+    }));
+  }
+
+  /**
    * Get recent signal history.
    */
   getSignalHistory(limitCount = 50): Observable<RhTradeSignal[]> {
@@ -144,7 +154,7 @@ export class RhAgentService {
       'rhAgentGetSignalHistory'
     );
     return from(callable({ limit: limitCount })).pipe(
-      map((result) => result.data.signals)
+      map((result) => this.normalizeSignals(result.data.signals))
     );
   }
 
@@ -156,7 +166,7 @@ export class RhAgentService {
       this.functions,
       'rhAgentGetSignalHistory'
     );
-    return from(callable({ runId })).pipe(map((result) => result.data.signals));
+    return from(callable({ runId })).pipe(map((result) => this.normalizeSignals(result.data.signals)));
   }
 
   /**
@@ -178,8 +188,8 @@ export class RhAgentService {
       orderBy('createdAt', 'desc'),
       limit(count)
     );
-    return collectionData(opportunitiesQuery, { idField: 'id' }) as Observable<
+    return (collectionData(opportunitiesQuery, { idField: 'id' }) as Observable<
       RhTradeSignal[]
-    >;
+    >).pipe(map(signals => this.normalizeSignals(signals)));
   }
 }
