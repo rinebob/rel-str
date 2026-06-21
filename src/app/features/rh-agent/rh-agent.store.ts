@@ -136,12 +136,12 @@ export const RhAgentStore = signalStore(
      * Trigger a manual agent run
      * Now enqueues Cloud Tasks like the scheduler - async processing
      */
-    triggerManualRun(): void {
-      console.log('[RH Agent Store] triggerManualRun called');
+    triggerManualRun(date?: string): void {
+      console.log('[RH Agent Store] triggerManualRun called', { date });
       patchState(state, { isLoading: true });
 
       service
-        .triggerManualRun({})
+        .triggerManualRun(date ? { date } : {})
         .pipe(takeUntilDestroyed(destroyRef))
         .subscribe({
           next: (result) => {
@@ -161,6 +161,22 @@ export const RhAgentStore = signalStore(
             console.error('[RH Agent Store] Manual run failed:', err);
             snackBar.open(`Run failed: ${err.message}`, 'Dismiss', { duration: 5000 });
             patchState(state, { isLoading: false });
+          },
+        });
+    },
+
+    triggerBarsBackfill(): void {
+      snackBar.open('Starting bars backfill for all symbols…', 'Dismiss', { duration: 4000 });
+      service.triggerBarsBackfill()
+        .pipe(takeUntilDestroyed(destroyRef))
+        .subscribe({
+          next: (result) => {
+            console.log('[RH Agent Store] Bars backfill complete:', result);
+            snackBar.open(`Bars backfill done: ${result.ok} ok, ${result.errors} errors`, 'Dismiss', { duration: 8000 });
+          },
+          error: (err) => {
+            console.error('[RH Agent Store] Bars backfill failed:', err);
+            snackBar.open(`Bars backfill failed: ${err.message}`, 'Dismiss', { duration: 6000 });
           },
         });
     },

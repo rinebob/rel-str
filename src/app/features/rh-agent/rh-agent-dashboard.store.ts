@@ -402,10 +402,11 @@ export const RhAgentDashboardStore = signalStore(
      * Get Material icon for action type
      */
     getActionIcon(action: string): string {
-      switch (action.toLowerCase()) {
-        case 'buy': return 'trending_up';
-        case 'sell': return 'trending_down';
-        case 'hold': return 'remove_circle';
+      switch (action) {
+        case 'OPEN_LONG': return 'trending_up';
+        case 'OPEN_SHORT': return 'trending_down';
+        case 'BUY': return 'trending_up';
+        case 'SELL': return 'trending_down';
         default: return 'help';
       }
     },
@@ -456,7 +457,7 @@ export const RhAgentDashboardStore = signalStore(
       
       const trades = acceptedSignals.map(signal => ({
         symbol: signal.symbol,
-        side: (signal.action?.toLowerCase() === 'sell' ? 'sell' : 'buy') as 'buy' | 'sell',
+        side: (signal.action === 'OPEN_SHORT' ? 'sell' : 'buy') as 'buy' | 'sell',
         amount: allocationPerTrade,
         orderType: 'market' as const,
       }));
@@ -471,7 +472,7 @@ export const RhAgentDashboardStore = signalStore(
       const tradeService = new RobinhoodTradeService();
       return tradeService.generateTradePrompt(
         signal.symbol,
-        (signal.action?.toLowerCase() === 'sell' ? 'sell' : 'buy') as 'buy' | 'sell',
+        (signal.action === 'OPEN_SHORT' ? 'sell' : 'buy') as 'buy' | 'sell',
         amount,
         'market'
       );

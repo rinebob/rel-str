@@ -7,6 +7,7 @@
 import {
   Component,
   inject,
+  signal,
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -24,6 +25,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
 import { RouterModule } from '@angular/router';
 
 import { RhAgentStore } from './rh-agent.store';
@@ -50,6 +53,8 @@ import { Router } from '@angular/router';
     MatSlideToggleModule,
     MatFormFieldModule,
     MatInputModule,
+    MatDatepickerModule,
+    MatNativeDateModule,
     RobinhoodTradePanelComponent,
     RouterModule,
   ],
@@ -67,6 +72,9 @@ export class RhAgentDashboardComponent {
 
   // Trade panel visibility
   showTradePanel = false;
+
+  // Date picker for manual runs (defaults to today in PT)
+  readonly selectedDate = signal<Date | null>(null);
 
   constructor() {
     console.log('[RH Agent Dashboard] Component initialized');
@@ -92,7 +100,15 @@ export class RhAgentDashboardComponent {
    * Trigger a manual agent run
    */
   triggerManualRun(): void {
-    this.store.triggerManualRun();
+    const date = this.selectedDate();
+    let dateStr: string | undefined;
+    if (date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      dateStr = `${y}-${m}-${d}`;
+    }
+    this.store.triggerManualRun(dateStr);
   }
 
   /**

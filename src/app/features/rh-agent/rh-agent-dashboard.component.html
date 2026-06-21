@@ -11,16 +11,23 @@
       </mat-chip-option>
     </h1>
     <div class="actions">
-      @if (uiStore.currentRunSignalCount() > 0) {
-        <button
-          mat-raised-button
-          color="accent"
-          (click)="goToReview()"
-          matTooltip="Review current opportunities">
-          <mat-icon>psychology</mat-icon>
-          Review {{ uiStore.currentRunSignalCount() }} Opportunities
-        </button>
-      }
+      <button
+        mat-raised-button
+        color="accent"
+        (click)="goToReview()"
+        matTooltip="Review current opportunities">
+        <mat-icon>psychology</mat-icon>
+        Review {{ uiStore.currentRunSignalCount() }} Opportunities
+      </button>
+      <mat-form-field appearance="outline" class="run-date-picker">
+        <mat-label>Market Date</mat-label>
+        <input matInput [matDatepicker]="runDatePicker" 
+               [value]="selectedDate()"
+               (dateChange)="selectedDate.set($event.value)"
+               placeholder="Today">
+        <mat-datepicker-toggle matIconSuffix [for]="runDatePicker"></mat-datepicker-toggle>
+        <mat-datepicker #runDatePicker></mat-datepicker>
+      </mat-form-field>
       <button
         mat-raised-button
         color="primary"
@@ -36,6 +43,13 @@
         [disabled]="store.isLoading()">
         <mat-icon>refresh</mat-icon>
         Refresh
+      </button>
+      <button
+        mat-stroked-button
+        (click)="store.triggerBarsBackfill()"
+        matTooltip="Backfill rs-bars with full D/W/M history from SA">
+        <mat-icon>download</mat-icon>
+        Backfill Bars
       </button>
     </div>
   </div>

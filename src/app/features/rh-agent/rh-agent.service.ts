@@ -70,6 +70,7 @@ export interface RhTradeSignal {
 export interface ManualRunRequest {
   symbols?: string[]; // Optional: specific symbols to run, or all enabled
   strategy?: string; // Optional: specific strategy to run
+  date?: string;     // Optional: override market date (YYYY-MM-DD)
 }
 
 export interface ManualRunResponse {
@@ -92,6 +93,14 @@ export class RhAgentService {
   private readonly runsCollection = 'rh-agent-runs';
   private readonly opportunitiesCollection = 'rh-agent-opportunities';
   private readonly statusDoc = 'rh-agent-status/current';
+
+  /**
+   * Trigger rs-bars backfill via rsBarsSyncAdmin callable.
+   */
+  triggerBarsBackfill(symbols?: string[]): Observable<any> {
+    const callable = httpsCallable<any, any>(this.functions, 'rsBarsSyncAdmin');
+    return from(callable({ forceFullFetch: true, ...(symbols?.length ? { symbols } : {}) })).pipe(map(r => r.data));
+  }
 
   /**
    * Trigger a manual agent run.
