@@ -29,6 +29,7 @@ import {
 interface ManualRunRequest {
   symbols?: string[]; // Optional: specific symbols to run, or all enabled
   strategy?: string; // Optional: specific strategy to run
+  date?: string;     // Optional: override market date (YYYY-MM-DD)
 }
 
 interface ManualRunResponse {
@@ -82,6 +83,7 @@ const ALLOWED_ORIGINS = [
   'https://savanttrader.com',
   'https://www.savanttrader.com',
   'http://localhost:4200',
+  'http://localhost:4210',
   'http://localhost:5000',
 ];
 
@@ -98,8 +100,8 @@ export const rhAgentManualRun = onCall<ManualRunRequest, Promise<ManualRunRespon
     logger.info('rh_agent_manual_run_called', { auth: request.auth?.uid });
 
     try {
-      // 1. Get today's market date
-      const marketDate = getMarketDate();
+      // 1. Get market date (allow override for holidays/weekends)
+      const marketDate = request.data.date || getMarketDate();
 
       // 2. Load enabled symbols (filter if specific symbols requested)
       const symbols = await loadEnabledSymbols(request.data.symbols);

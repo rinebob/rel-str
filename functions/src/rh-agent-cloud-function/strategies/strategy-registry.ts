@@ -6,15 +6,14 @@
  *
  * Usage:
  *   import { strategyRegistry } from './strategies';
- *   const strategy = strategyRegistry.get('rsi-oversold-bounce');
- *   const signal = strategy.execute(input, config);
+ *   const strategy = strategyRegistry.get('st-zone-uptick');
+ *   const signals = strategy.execute(input, config);
  */
 
 import type { StrategyAdapter, StrategyMetadata, StrategyConfig } from './base-strategy';
 
 // Import all strategy implementations
-import * as rsiOversoldBounce from './rsi-oversold-bounce/rsi-oversold-bounce.strategy';
-import * as macdCrossover from './macd-crossover/macd-crossover.strategy';
+import * as stZoneUptick from './st-zone-uptick/st-zone-uptick.strategy';
 
 // =============================================================================
 // REGISTRY CLASS
@@ -106,8 +105,7 @@ class StrategyRegistry {
 export const strategyRegistry = new StrategyRegistry();
 
 // Register all strategies at module load
-strategyRegistry.register(rsiOversoldBounce);
-strategyRegistry.register(macdCrossover);
+strategyRegistry.register(stZoneUptick as unknown as StrategyAdapter);
 
 // Re-export types for convenience
 export type { StrategyAdapter, StrategyInput, StrategyOutput, StrategyConfig, StrategyMetadata } from './base-strategy';

@@ -15,6 +15,8 @@ export interface StrategyInput {
   symbol: string;
   marketDate: string;
   bars: OHLCV[];
+  weeklyBars?: OHLCV[];
+  monthlyBars?: OHLCV[];
   intraday?: IntradaySnapshot;
   context?: StrategyContext;
 }
@@ -32,6 +34,9 @@ export interface OHLCV {
   [key: string]: any;
 }
 
+/** Normalized action for strategy output */
+export type StrategyAction = 'OPEN_LONG' | 'OPEN_SHORT' | null;
+
 export interface StrategyContext {
   marketRegime?: 'bull' | 'bear' | 'neutral' | 'volatile';
   sector?: string;
@@ -43,10 +48,10 @@ export interface StrategyContext {
 // =============================================================================
 
 export interface StrategyOutput {
-  action: 'BUY' | 'SELL' | null;
+  action: StrategyAction;
   confidence: number;           // 0-100
   reason: string;               // Human-readable explanation
-  signalType: string;           // Strategy identifier (e.g., 'RSI_OVERSOLD')
+  signalType: string;           // e.g., 'D_ZONE_V1_UPTICK'
   indicators?: Record<string, number | string | null>;
   metadata?: Record<string, any>;
   suggestedAmount?: number;
@@ -58,51 +63,7 @@ export interface StrategyOutput {
 
 /** All registered strategy identifiers. */
 export enum StrategyId {
-  RSI_OVERSOLD_BOUNCE = 'rsi-oversold-bounce',
-  MACD_CROSSOVER = 'macd-crossover',
-}
-
-// =============================================================================
-// INDICATOR ENUMS (No magic strings for indicator names or MA types)
-// =============================================================================
-
-/** All supported technical indicators. */
-export enum IndicatorId {
-  RSI = 'RSI',
-  SMA = 'SMA',
-  EMA = 'EMA',
-  WMA = 'WMA',
-  TEMA = 'TEMA',
-  MACD = 'MACD',
-  BOLLINGER = 'BOLLINGER',
-  ATR = 'ATR',
-  ADX = 'ADX',
-  STOCHASTIC = 'STOCHASTIC',
-  VWAP = 'VWAP',
-}
-
-/** Moving average variants — used when a strategy needs a configurable MA type. */
-export enum MaType {
-  SMA = 'SMA',
-  EMA = 'EMA',
-  WMA = 'WMA',
-  TEMA = 'TEMA',
-  DEMA = 'DEMA',
-  KAMA = 'KAMA',
-}
-
-/**
- * Describes a single indicator usage within a strategy config.
- * Allows the same indicator (e.g., SMA) to be used with different periods.
- *
- * Example: { id: IndicatorId.SMA, period: 10 } and { id: IndicatorId.SMA, period: 20 }
- * Example: { id: IndicatorId.EMA, period: 50, maType: MaType.EMA }
- */
-export interface IndicatorSpec {
-  id: IndicatorId;
-  period?: number;
-  maType?: MaType;
-  params?: Record<string, number | string>;
+  ST_ZONE_UPTICK = 'st-zone-uptick',
 }
 
 // =============================================================================
@@ -144,5 +105,5 @@ export interface StrategyMetadata {
 
 export interface StrategyAdapter {
   metadata: StrategyMetadata;
-  execute(input: StrategyInput, config: StrategyConfig): StrategyOutput;
+  execute(input: StrategyInput, config: StrategyConfig): StrategyOutput | StrategyOutput[];
 }

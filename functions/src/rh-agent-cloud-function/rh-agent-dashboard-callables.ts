@@ -191,12 +191,12 @@ export const rhAgentGetSignalHistory = onCall<{ limit?: number; runId?: string }
           id: doc.id,
           runId: data.runId || '',
           symbol: data.symbol || '',
-          action: data.action || 'BUY',
+          action: data.action || 'OPEN_LONG',
           status: data.status || 'PENDING',
-          reason: data.reason || data.signalType || 'RSI oversold signal',
+          reason: data.reason || data.signalType || 'Zone uptick signal',
           createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
           confidence: data.confidence || 0,
-          signalType: data.signalType || 'RSI_OVERSOLD',
+          signalType: data.signalType || 'D_ZONE_V1_UPTICK',
           indicators: data.indicators || {},
         };
       });

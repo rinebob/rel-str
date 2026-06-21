@@ -58,8 +58,8 @@ export enum RhOpportunityStatus {
  * Opportunity action type.
  */
 export enum RhOpportunityAction {
-  BUY = 'BUY',
-  SELL = 'SELL',
+  OPEN_LONG = 'OPEN_LONG',
+  OPEN_SHORT = 'OPEN_SHORT',
 }
 
 /**
@@ -110,7 +110,7 @@ export interface RhAgentStatus {
  */
 export interface RhWatchedSymbol {
   symbol: string;
-  strategy: 'rsi-oversold' | 'macd-crossover' | 'dip-buy' | 'custom' | 'portfolio-summary' | 'rebalance' | 'watchlist-check' | 'earnings-play';
+  strategy: 'st-zone-uptick' | string;
   amount: number;
   enabled: boolean;
   customPrompt?: string;
@@ -165,8 +165,8 @@ export interface RhTradeOpportunity {
   marketDate: string;  // YYYY-MM-DD for easy grouping
   symbol: string;
   action: RhOpportunityAction;
-  signalType: string;  // e.g., 'RSI_OVERSOLD', 'MACD_CROSSOVER'
-  strategy: 'rsi-oversold' | 'macd-crossover' | 'simple-breakout' | string;
+  signalType: string;  // e.g., 'D_ZONE_V1_UPTICK', 'W_ZONE_V2_DOWNTICK'
+  strategy: 'st-zone-uptick' | string;
   confidence: number;  // 0-100
   reason: string;
   indicators: Record<string, number>;
