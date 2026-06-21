@@ -28,7 +28,7 @@ import type { StrategyInput, StrategyOutput } from './strategies/strategy-regist
 import { StrategyId } from './strategies/base-strategy';
 
 // Default strategy if none specified on the run document
-const DEFAULT_STRATEGY = StrategyId.RSI_OVERSOLD_BOUNCE;
+const DEFAULT_STRATEGY = StrategyId.ST_ZONE_UPTICK;
 
 // Feature flags
 const REQUIRE_FRESH_DATA = false; // Set to true for production - checks that data is from today
@@ -64,43 +64,42 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
 
       // 2. Fetch cached bars from internal rel-str Firestore (NOT from RH)
       logger.info('rh_agent_worker_fetching_data', { runId, symbol, marketDate, cachePath: `rs-symbol-cache/${marketDate}/symbols/${symbol}`, hasIntraday: !!intraday });
-      const bars = await getCachedBars(symbol, marketDate);
+      const { dailyBars, weeklyBars, monthlyBars } = await getCachedBars(symbol, marketDate);
 
-      // Need at least 14 historical bars + intraday = 15 for RSI(14)
-      const minRequiredBars = 14;
-      if (!bars || bars.length < minRequiredBars) {
-        logger.warn('rh_agent_worker_insufficient_data', { runId, symbol, barCount: bars?.length || 0, required: minRequiredBars, hasIntraday: !!intraday });
-        await markJobComplete(runId, symbol, 'SUCCESS', false); // No opportunity
+      const minRequiredBars = 45;
+      if (!dailyBars || dailyBars.length < minRequiredBars) {
+        logger.warn('rh_agent_worker_insufficient_data', { runId, symbol, barCount: dailyBars?.length || 0, required: minRequiredBars, hasIntraday: !!intraday });
+        await markJobComplete(runId, symbol, 'SUCCESS', false);
         return;
       }
 
       logger.info('rh_agent_worker_data_loaded', {
         runId,
         symbol,
-        totalBars: bars.length,
-        dateRange: `${bars[0]?.date || bars[0]?.t || 'unknown'} to ${bars[bars.length - 1]?.date || bars[bars.length - 1]?.t || 'unknown'}`,
+        dailyBars: dailyBars.length,
+        weeklyBars: weeklyBars?.length || 0,
+        monthlyBars: monthlyBars?.length || 0,
       });
 
       // 2b. Verify data freshness (most recent bar should be today)
       if (REQUIRE_FRESH_DATA) {
-        const isFresh = verifyDataFreshness(bars, marketDate, runId, symbol);
+        const isFresh = verifyDataFreshness(dailyBars, marketDate, runId, symbol);
         if (!isFresh) {
           logger.warn('rh_agent_worker_stale_data', { runId, symbol, marketDate });
-          await markJobComplete(runId, symbol, 'SUCCESS', false); // No opportunity due to stale data
+          await markJobComplete(runId, symbol, 'SUCCESS', false);
           return;
         }
       }
 
       // 3. Load strategy from registry
-      // TODO: Read strategy name from run document or per-symbol assignment
       const strategyName = DEFAULT_STRATEGY;
       const strategy = strategyRegistry.get(strategyName);
       const strategyConfig = strategy.metadata.defaultConfig;
 
       // 4. Validate minimum data requirements
-      if (bars.length < strategy.metadata.minBarsRequired) {
+      if (dailyBars.length < strategy.metadata.minBarsRequired) {
         logger.warn('rh_agent_worker_insufficient_bars_for_strategy', {
-          runId, symbol, barCount: bars.length,
+          runId, symbol, barCount: dailyBars.length,
           required: strategy.metadata.minBarsRequired, strategy: strategyName,
         });
         await markJobComplete(runId, symbol, 'SUCCESS', false);
@@ -108,45 +107,58 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
       }
 
       // 5. Execute strategy
-      const strategyInput: StrategyInput = { symbol, marketDate, bars, intraday };
+      const strategyInput: StrategyInput = {
+        symbol, marketDate,
+        bars: dailyBars,
+        weeklyBars: weeklyBars || undefined,
+        monthlyBars: monthlyBars || undefined,
+        intraday,
+      };
 
       logger.info('rh_agent_worker_executing_strategy', {
-        runId, symbol, strategy: strategyName, barCount: bars.length,
-        hasIntraday: !!intraday,
+        runId, symbol, strategy: strategyName,
+        dailyBars: dailyBars.length,
+        weeklyBars: weeklyBars?.length || 0,
+        monthlyBars: monthlyBars?.length || 0,
       });
 
-      const result: StrategyOutput = strategy.execute(strategyInput, strategyConfig);
+      const rawResult = strategy.execute(strategyInput, strategyConfig);
+      const results: StrategyOutput[] = Array.isArray(rawResult) ? rawResult : [rawResult];
 
       logger.info('rh_agent_worker_strategy_result', {
         runId, symbol, strategy: strategyName,
-        action: result.action, confidence: result.confidence,
-        signalType: result.signalType, reason: result.reason,
+        signalCount: results.filter(r => r.action).length,
+        signals: results.filter(r => r.action).map(r => r.signalType),
       });
 
-      // 6. If signal detected, create and store opportunity
-      if (result.action) {
-        const opportunity = createOpportunityFromSignal(
-          symbol, marketDate, strategyName, result
-        );
+      // 6. Store each signal as a separate opportunity
+      let opportunityCount = 0;
+      for (const result of results) {
+        if (result.action) {
+          const opportunity = createOpportunityFromSignal(
+            symbol, marketDate, strategyName, result
+          );
 
-        await storeOpportunity(runId, marketDate, opportunity);
-        logger.info('rh_agent_worker_opportunity_created', {
-          runId, symbol, opportunityId: opportunity.id,
-          confidence: opportunity.confidence,
-        });
+          await storeOpportunity(runId, marketDate, opportunity);
+          logger.info('rh_agent_worker_opportunity_created', {
+            runId, symbol, opportunityId: opportunity.id,
+            signalType: result.signalType,
+          });
 
-        await incrementOpportunitiesFound(runId);
+          await incrementOpportunitiesFound(runId);
+          opportunityCount++;
+        }
       }
 
       // 7. Mark job complete
-      await markJobComplete(runId, symbol, 'SUCCESS', !!result.action);
+      await markJobComplete(runId, symbol, 'SUCCESS', opportunityCount > 0);
 
       const duration = Date.now() - startTime;
       logger.info('rh_agent_worker_complete', {
         runId,
         symbol,
         durationMs: duration,
-        opportunityCreated: !!result.action,
+        opportunityCreated: opportunityCount > 0,
       });
     } catch (error: any) {
       logger.error('rh_agent_worker_error', {
@@ -315,57 +327,51 @@ function verifyDataFreshness(bars: any[], marketDate: string, runId: string, sym
 }
 
 /**
- * Fetch cached bars from internal rel-str Firestore.
- * Uses rs-symbol-cache/{marketDate}/symbols/{symbol}
+ * Fetch bars from rs-bars/{symbol} — the single local source of truth.
+ * Populated nightly by rsBarsSyncNightly. Returns D/W/M bars trimmed to
+ * bars on or before marketDate so historical runs see the correct snapshot.
  */
-async function getCachedBars(symbol: string, marketDate: string): Promise<any[] | null> {
+async function getCachedBars(symbol: string, marketDate: string): Promise<{ dailyBars: any[] | null; weeklyBars: any[] | null; monthlyBars: any[] | null }> {
   try {
-    // rs-symbol-cache structure from rs-time-series-jobs.worker.ts
-    const collectionPath = `rs-symbol-cache/${marketDate}/symbols`;
-    const docPath = `${collectionPath}/${symbol}`;
+    const docRef = db.collection('rs-bars').doc(symbol);
+    const snap = await docRef.get();
 
-    logger.info('rh_agent_worker_cache_query', {
-      symbol,
-      marketDate,
-      fullPath: docPath,
-    });
+    logger.info('rh_agent_worker_cache_query', { symbol, marketDate, collection: 'rs-bars', exists: snap.exists });
 
-    const cacheDocRef = db
-      .collection('rs-symbol-cache')
-      .doc(marketDate)
-      .collection('symbols')
-      .doc(symbol);
+    if (!snap.exists) {
+      logger.warn('rh_agent_worker_cache_miss', { symbol, marketDate, note: 'Run rsBarsSyncAdmin to backfill' });
+      return { dailyBars: null, weeklyBars: null, monthlyBars: null };
+    }
 
-    const snap = await cacheDocRef.get();
+    const data = snap.data() as any;
+
+    // Trim to bars on or before marketDate for correct historical snapshots
+    const trim = (bars: any[] | null) => {
+      if (!Array.isArray(bars) || bars.length === 0) return null;
+      const filtered = bars.filter((b: any) => (b?.d ?? '') <= marketDate);
+      return filtered.length > 0 ? filtered : null;
+    };
+
+    const dailyBars   = trim(data?.daily);
+    const weeklyBars  = trim(data?.weekly);
+    const monthlyBars = trim(data?.monthly);
 
     logger.info('rh_agent_worker_cache_result', {
       symbol,
       marketDate,
-      exists: snap.exists,
-      hasData: snap.exists ? 'checking...' : 'N/A',
+      dailyBars: dailyBars?.length ?? 0,
+      weeklyBars: weeklyBars?.length ?? 0,
+      monthlyBars: monthlyBars?.length ?? 0,
     });
 
-    if (!snap.exists) {
-      logger.warn('rh_agent_worker_cache_miss', { symbol, marketDate, attemptedPath: docPath });
-      return null;
-    }
-
-    const data = snap.data() as any;
-    const bars = data?.dailyBars || null;
-
-    if (!Array.isArray(bars) || bars.length === 0) {
+    if (!dailyBars) {
       logger.warn('rh_agent_worker_no_daily_bars', { symbol, marketDate });
-      return null;
     }
 
-    return bars;
+    return { dailyBars, weeklyBars, monthlyBars };
   } catch (error: any) {
-    logger.error('rh_agent_worker_cache_error', {
-      symbol,
-      marketDate,
-      error: error?.message,
-    });
-    return null;
+    logger.error('rh_agent_worker_cache_error', { symbol, marketDate, error: error?.message });
+    return { dailyBars: null, weeklyBars: null, monthlyBars: null };
   }
 }
 
@@ -384,7 +390,7 @@ function createOpportunityFromSignal(
     runId: '',
     marketDate,
     symbol,
-    action: result.action === 'BUY' ? RhOpportunityAction.BUY : RhOpportunityAction.SELL,
+    action: result.action === 'OPEN_LONG' ? RhOpportunityAction.OPEN_LONG : RhOpportunityAction.OPEN_SHORT,
     signalType: result.signalType,
     strategy: strategyName,
     confidence: result.confidence,
@@ -400,7 +406,7 @@ function createOpportunityFromSignal(
 
 /**
  * Store opportunity in Firestore with custom ID: DATE_DAYOFWEEK_SYMBOL_DIRECTION_SIGNALTYPE.
- * Example: "2026-06-14_mon_AAPL_BUY_RSI_OVERSOLD"
+ * Example: "2026-06-14_mon_AAPL_OPEN_LONG_D_ZONE_V1_UPTICK"
  */
 async function storeOpportunity(runId: string, marketDate: string, opportunity: RhTradeOpportunity): Promise<void> {
   // Get day of week from market date
