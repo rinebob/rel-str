@@ -80,6 +80,25 @@ export class RhAgentReviewComponent {
         }
       }
     });
+
+    // Auto-advance: when selected signal's status changes away from PENDING, move to next PENDING
+    effect(() => {
+      const selectedId = this.uiStore.selectedSignalId();
+      const statuses = this.uiStore.signalStatuses(); // reactive dependency on the whole map
+      if (!selectedId) return;
+      const status = statuses.get(selectedId) ?? 'PENDING';
+      if (status === 'PENDING') return;
+      const run = this.uiStore.currentRun();
+      if (!run) return;
+      const signals = this.uiStore.getFilteredSignals(run.id);
+      const currentIndex = signals.findIndex(s => s.id === selectedId);
+      const searchOrder = [
+        ...signals.slice(currentIndex + 1),
+        ...signals.slice(0, currentIndex),
+      ];
+      const next = searchOrder.find(s => (statuses.get(s.id) ?? 'PENDING') === 'PENDING');
+      if (next) this.uiStore.selectSignal(next.id);
+    });
   }
 
   refreshData(): void {
@@ -157,23 +176,17 @@ export class RhAgentReviewComponent {
 
   onAcceptSelected(): void {
     const signal = this.uiStore.selectedSignal();
-    if (signal) {
-      this.uiStore.acceptSignal(signal.id);
-    }
+    if (signal) this.uiStore.acceptSignal(signal.id);
   }
 
   onConsiderSelected(): void {
     const signal = this.uiStore.selectedSignal();
-    if (signal) {
-      this.uiStore.considerSignal(signal.id);
-    }
+    if (signal) this.uiStore.considerSignal(signal.id);
   }
 
   onRejectSelected(): void {
     const signal = this.uiStore.selectedSignal();
-    if (signal) {
-      this.uiStore.rejectSignal(signal.id);
-    }
+    if (signal) this.uiStore.rejectSignal(signal.id);
   }
 
   goToRuns(): void {

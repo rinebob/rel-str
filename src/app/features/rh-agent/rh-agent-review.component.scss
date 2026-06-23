@@ -18,7 +18,7 @@
 // ========================================
 .review-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
   padding: 4px 8px;
   background: var(--mat-sys-surface-container);
@@ -28,17 +28,32 @@
   min-height: 40px;
   overflow: visible;
 
-  .back-btn {
+  .back-btn,
+  .history-btn {
     flex-shrink: 0;
     align-self: center;
+    width: 28px;
+    height: 28px;
+    line-height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
   }
 
-  // Left column: Filter + Strategy Chips stacked
+  // Left column: Filter + signal info inline
   .header-left-column {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
-    flex-shrink: 0;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 auto;
+    min-width: 0;
 
     // Filter - 32px height with border
     .header-filter {
@@ -135,7 +150,8 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    flex-shrink: 0;
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   // Title section when no signal selected
@@ -235,10 +251,8 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    flex: 0 1 auto;
-    max-width: 180px;
+    flex: 1 1 auto;
     min-width: 0;
-    overflow: hidden;
     font-size: 11px;
 
     .symbol {
@@ -255,9 +269,6 @@
       font-weight: 500;
       flex-shrink: 0;
       white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 80px;
 
       &.dir {
         max-width: 36px;
@@ -266,7 +277,6 @@
       }
       &.type { background: var(--mat-sys-primary-container); color: var(--mat-sys-primary); }
       &.status {
-        max-width: 60px;
         &.status-pending { background: var(--mat-sys-surface-container-highest); color: var(--mat-sys-on-surface-variant); }
         &.status-accepted { background: var(--mat-sys-success-container); color: var(--mat-sys-success); }
         &.status-considered { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-tertiary); }
@@ -275,12 +285,8 @@
     }
 
     .reason {
-      flex: 1;
       white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
       color: var(--mat-sys-on-surface-variant);
-      min-width: 0;
     }
 
     .metric {

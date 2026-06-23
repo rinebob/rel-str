@@ -4,66 +4,65 @@
     <button mat-icon-button class="back-btn" (click)="goToRuns()" matTooltip="Back to runs">
       <mat-icon>arrow_back</mat-icon>
     </button>
-    <button mat-icon-button (click)="goToSignalHistory()" matTooltip="Signal History">
+    <button mat-icon-button class="history-btn" (click)="goToSignalHistory()" matTooltip="Signal History">
       <mat-icon>history</mat-icon>
     </button>
 
-    <!-- Left Column: Filter + Strategy Chips -->
+    <!-- Left: Filter + ACR + signal info inline -->
     <div class="header-left-column">
-      <div class="header-left-row">
-        <!-- Filter (32px height, bordered) -->
-        <div class="header-filter">
-          <mat-icon class="filter-icon">search</mat-icon>
-          <input
-            type="text"
-            [value]="uiStore.symbolSearch()"
-            (input)="uiStore.setSymbolSearch($any($event).target.value)"
-            placeholder="Filter symbols...">
-          @if (uiStore.symbolSearch()) {
-            <button mat-icon-button class="clear-btn" (click)="uiStore.setSymbolSearch('')">
-              <mat-icon>close</mat-icon>
-            </button>
-          }
-        </div>
-
-        @if (uiStore.hasSelectedSignal()) {
-          <div class="header-signal-block">
-            <div class="header-acr">
-              <button type="button" class="acr-btn accept" [class.selected]="getSelectedSignalStatus() === 'ACCEPTED'" (click)="onAcceptSelected()" title="Accept">
-                <mat-icon>check</mat-icon>
-              </button>
-              <button type="button" class="acr-btn consider" [class.selected]="getSelectedSignalStatus() === 'CONSIDERED'" (click)="onConsiderSelected()" title="Consider">
-                <mat-icon>help</mat-icon>
-              </button>
-              <button type="button" class="acr-btn reject" [class.selected]="getSelectedSignalStatus() === 'REJECTED'" (click)="onRejectSelected()" title="Reject">
-                <mat-icon>close</mat-icon>
-              </button>
-            </div>
-
-            <div class="header-signal-info">
-              <span class="symbol">{{ uiStore.selectedSignal()?.symbol }}</span>
-              <span class="badge dir" [class]="'dir-' + (uiStore.selectedSignal()?.tradeDirection || 'LONG').toLowerCase()">
-                {{ uiStore.selectedSignal()?.tradeDirection || 'LONG' }}
-              </span>
-              <span class="badge type">{{ uiStore.selectedSignal()?.signalType }}</span>
-              <span class="badge status" [class]="'status-' + (getSelectedSignalStatus() | lowercase)">{{ getSelectedSignalStatus() }}</span>
-              <span class="reason" [title]="uiStore.selectedSignal()?.reason">{{ uiStore.selectedSignal()?.reason }}</span>
-            </div>
-          </div>
-        }
-      </div>
-
-      <!-- Strategy toggle buttons -->
-      <div class="strategy-toggles">
-        @for (type of uiStore.signalTypes(); track type) {
-          <button
-            class="strategy-btn"
-            [class.active]="uiStore.selectedSignalTypes().has(type)"
-            (click)="uiStore.toggleSignalTypeFilter(type)">
-            {{ type }}
+      <!-- Filter (32px height, bordered) -->
+      <div class="header-filter">
+        <mat-icon class="filter-icon">search</mat-icon>
+        <input
+          type="text"
+          [value]="uiStore.symbolSearch()"
+          (input)="uiStore.setSymbolSearch($any($event).target.value)"
+          placeholder="Filter symbols...">
+        @if (uiStore.symbolSearch()) {
+          <button mat-icon-button class="clear-btn" (click)="uiStore.setSymbolSearch('')">
+            <mat-icon>close</mat-icon>
           </button>
         }
       </div>
+
+      @if (uiStore.hasSelectedSignal()) {
+        <div class="header-signal-block">
+          <div class="header-acr">
+            <button type="button" class="acr-btn accept" [class.selected]="getSelectedSignalStatus() === 'ACCEPTED'" (click)="onAcceptSelected()" title="Accept">
+              <mat-icon>check</mat-icon>
+            </button>
+            <button type="button" class="acr-btn consider" [class.selected]="getSelectedSignalStatus() === 'CONSIDERED'" (click)="onConsiderSelected()" title="Consider">
+              <mat-icon>help</mat-icon>
+            </button>
+            <button type="button" class="acr-btn reject" [class.selected]="getSelectedSignalStatus() === 'REJECTED'" (click)="onRejectSelected()" title="Reject">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+
+          <!-- Decision counts inline with signal info -->
+          <div class="header-decisions">
+            <span class="decision accepted" [class.has-items]="acceptedCount() > 0">
+              <mat-icon>check_circle</mat-icon>{{ acceptedCount() }}
+            </span>
+            <span class="decision considered" [class.has-items]="consideredCount() > 0">
+              <mat-icon>help</mat-icon>{{ consideredCount() }}
+            </span>
+            <span class="decision rejected" [class.has-items]="rejectedCount() > 0">
+              <mat-icon>cancel</mat-icon>{{ rejectedCount() }}
+            </span>
+          </div>
+
+          <div class="header-signal-info">
+            <span class="symbol">{{ uiStore.selectedSignal()?.symbol }}</span>
+            <span class="badge dir" [class]="'dir-' + (uiStore.selectedSignal()?.tradeDirection || 'LONG').toLowerCase()">
+              {{ uiStore.selectedSignal()?.tradeDirection || 'LONG' }}
+            </span>
+            <span class="badge type">{{ uiStore.selectedSignal()?.signalType }}</span>
+            <span class="badge status" [class]="'status-' + (getSelectedSignalStatus() | lowercase)">{{ getSelectedSignalStatus() }}</span>
+            <span class="reason">{{ uiStore.selectedSignal()?.reason }}</span>
+          </div>
+        </div>
+      }
     </div>
 
     @if (!uiStore.hasSelectedSignal()) {
@@ -81,19 +80,6 @@
         <span class="signal-badge">{{ uiStore.currentRunSignalCount() }}</span>
       </div>
     }
-
-    <!-- Decision counts -->
-    <div class="header-decisions">
-      <span class="decision accepted" [class.has-items]="acceptedCount() > 0">
-        <mat-icon>check_circle</mat-icon>{{ acceptedCount() }}
-      </span>
-      <span class="decision considered" [class.has-items]="consideredCount() > 0">
-        <mat-icon>help</mat-icon>{{ consideredCount() }}
-      </span>
-      <span class="decision rejected" [class.has-items]="rejectedCount() > 0">
-        <mat-icon>cancel</mat-icon>{{ rejectedCount() }}
-      </span>
-    </div>
 
     <!-- Spacer pushes remaining header items to the right -->
     <div class="header-spacer"></div>
