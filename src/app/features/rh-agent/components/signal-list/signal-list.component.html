@@ -36,6 +36,7 @@
   <mat-list class="signal-list">
     @for (signal of signals(); track signal.id) {
       <mat-list-item
+        #signalItem
         class="signal-item"
         [class.selected]="uiStore.isSignalSelected(signal.id)"
         (click)="onSelect(signal)">

@@ -11,15 +11,14 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatDialog } from '@angular/material/dialog';
 
 import { RhAgentDashboardStore } from '../../rh-agent-dashboard.store';
 import { HeatmapChartStore } from '../../../heatmap-chart/heatmap-chart.store';
 import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-chart.component';
 import { BarsInterval } from '../../../../core/models/partner.types';
 import { UiStateService } from '../../../../core/services/ui-state.service';
-import type { FlexChartConfig, IndicatorConfig, IndicatorPane, IndicatorOption } from '../../../shared/components/flex-chart/flex-chart.types';
-import { INDICATOR_OPTIONS, DEFAULT_ST_INDICATORS, buildDefaultConfig } from '../../../shared/components/flex-chart/indicators/indicator-registry';
+import type { FlexChartConfig, IndicatorConfig, IndicatorPane } from '../../../shared/components/flex-chart/flex-chart.types';
+import { ST_INDICATOR_OPTIONS, buildDefaultConfig } from '../../../shared/components/flex-chart/indicators/indicator-registry';
 import { calculateStZone } from '../../../shared/components/flex-chart/indicators/st-zone.indicator';
 import { calculateStZoneV2 } from '../../../shared/components/flex-chart/indicators/st-zone-v2.indicator';
 import { calculateStTrendStrength } from '../../../shared/components/flex-chart/indicators/st-trend-strength.indicator';
@@ -27,7 +26,6 @@ import { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR, comp
 import { ST_SIGNAL_DOTS_INDICATOR, computeSignalDots } from '../../../shared/components/flex-chart/indicators/st-signal-dots.indicator';
 import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, detectZoneUptickDots } from '../../../shared/components/flex-chart/indicators/st-zone-uptick-dots.indicator';
 import { detectTrendStrengthSignals } from '../../../shared/components/flex-chart/signals';
-import { IndicatorConfigDialogComponent } from '../indicator-config-dialog/indicator-config-dialog.component';
 
 @Component({
   selector: 'app-signal-detail',
@@ -39,7 +37,6 @@ import { IndicatorConfigDialogComponent } from '../indicator-config-dialog/indic
 export class SignalDetailComponent {
   readonly uiStore = inject(RhAgentDashboardStore);
   readonly chartStore = inject(HeatmapChartStore);
-  private readonly dialog = inject(MatDialog);
   readonly uiState = inject(UiStateService);
 
   /** Expose enum to template */
@@ -64,8 +61,75 @@ export class SignalDetailComponent {
   /** Shared crosshair date for syncing across triple charts */
   crosshairDate = signal<Date | null>(null);
 
-  /** User-added indicators — pre-loaded with ST indicator suite */
-  activeIndicators = signal<IndicatorConfig[]>([...DEFAULT_ST_INDICATORS]);
+  /** Toggle zoom/pan toolbar visibility on all charts */
+  showZoomToolbar = signal(true);
+
+  /** All ST indicator options */
+  readonly stIndicatorOptions = ST_INDICATOR_OPTIONS;
+
+  /** Full IndicatorConfig map keyed by option id — one config per option */
+  private readonly allStConfigs = new Map<string, IndicatorConfig>((
+    (() => {
+      const m: [string, IndicatorConfig][] = [];
+      for (const opt of ST_INDICATOR_OPTIONS) {
+        const cfg = buildDefaultConfig(opt);
+        if (opt.id === 'st-trend-strength') cfg.pane = 'lower-1';
+        if (opt.id === 'st-zone') { cfg.pane = 'lower-2'; cfg.options = { ...cfg.options, name: 'ST-ZONE V1' }; }
+        if (opt.id === 'st-zone-v2') { cfg.pane = 'lower-3'; cfg.options = { ...cfg.options, name: 'ST-ZONE V2' }; }
+        m.push([opt.id, cfg]);
+      }
+      return m;
+    })()
+  ));
+
+  /** Indicators available for each chart context (excludes auto-injected HTF extras) */
+  private static readonly INDICATORS_BY_INTERVAL: Record<string, string[]> = {
+    daily:   ['st-trend-bands', 'st-trend-strength', 'st-zone', 'st-zone-v2',
+               'st-zone-window-weekly', 'st-signal-dots', 'st-zone-v1-uptick-dots', 'st-zone-v2-uptick-dots'],
+    weekly:  ['st-trend-bands', 'st-trend-strength', 'st-zone', 'st-zone-v2',
+               'st-zone-window-monthly', 'st-signal-dots', 'st-zone-v1-uptick-dots', 'st-zone-v2-uptick-dots'],
+    monthly: ['st-trend-bands', 'st-trend-strength', 'st-zone', 'st-zone-v2'],
+  };
+
+  /** Indicator options visible in the menu for the currently active chart */
+  activeChartIndicatorOptions = computed<typeof ST_INDICATOR_OPTIONS>(() => {
+    const interval = this.activeChartInterval();
+    const key = interval === BarsInterval.WEEKLY ? 'weekly' : interval === BarsInterval.MONTHLY ? 'monthly' : 'daily';
+    const allowed = SignalDetailComponent.INDICATORS_BY_INTERVAL[key];
+    return ST_INDICATOR_OPTIONS.filter(o => allowed.includes(o.id));
+  });
+
+  /** Per-interval selected indicator ID sets — all on by default */
+  private selectedIdsByInterval = signal<Record<string, Set<string>>>({
+    daily:   new Set(SignalDetailComponent.INDICATORS_BY_INTERVAL['daily']),
+    weekly:  new Set(SignalDetailComponent.INDICATORS_BY_INTERVAL['weekly']),
+    monthly: new Set(SignalDetailComponent.INDICATORS_BY_INTERVAL['monthly']),
+  });
+
+  /** IDs that require pre-computed runtime data \u2014 handled via extras injection, not allStConfigs */
+  private static readonly COMPUTED_DATA_IDS = new Set([
+    'st-zone-window-weekly', 'st-zone-window-monthly',
+    'st-signal-dots', 'st-zone-v1-uptick-dots', 'st-zone-v2-uptick-dots',
+  ]);
+
+  /** Active IndicatorConfig[] for the base interval (used for monthly and as base for D/W) */
+  private indicatorsForInterval(key: string): IndicatorConfig[] {
+    const ids = this.selectedIdsByInterval()[key];
+    return ST_INDICATOR_OPTIONS
+      .filter(opt => ids.has(opt.id) && !SignalDetailComponent.COMPUTED_DATA_IDS.has(opt.id))
+      .map(opt => this.allStConfigs.get(opt.id)!)
+      .filter(Boolean);
+  }
+
+  /** Base active indicators for the selected single-mode interval */
+  activeIndicators = computed<IndicatorConfig[]>(() => {
+    const interval = this.selectedInterval();
+    const key = interval === BarsInterval.WEEKLY ? 'weekly' : interval === BarsInterval.MONTHLY ? 'monthly' : 'daily';
+    return this.indicatorsForInterval(key);
+  });
+
+  /** Which chart the Indicators menu targets (daily by default) */
+  activeChartInterval = signal<BarsInterval>(BarsInterval.DAILY);
 
   /** Selected chart interval */
   selectedInterval = signal<BarsInterval>(BarsInterval.DAILY);
@@ -90,9 +154,6 @@ export class SignalDetailComponent {
     }
   }
 
-  /** Available indicators for the dropdown */
-  indicatorOptions = INDICATOR_OPTIONS;
-
   /** Dynamic chart config driven by user-added indicators (single mode) */
   chartConfig = computed<FlexChartConfig>(() => {
     const interval = this.selectedInterval();
@@ -111,7 +172,7 @@ export class SignalDetailComponent {
     return {
       indicators,
       showCrosshair: true,
-      showZoomToolbar: true,
+      showZoomToolbar: this.showZoomToolbar(),
       enableScrollbar: true,
       initialZoomDays: this.rangeBars(),
       interval: intervalHint as 'daily' | 'weekly' | 'monthly',
@@ -236,33 +297,51 @@ export class SignalDetailComponent {
     return { ...cfg, pane: 'overlay' as IndicatorPane, data: data as any };
   }
 
-  /** Daily chart indicators = base + window + signal dots + uptick dots */
+  /** Daily chart indicators = base + conditionally-injected computed extras */
   private dailyIndicators = computed<IndicatorConfig[]>(() => {
-    const base = this.activeIndicators();
+    const sel = this.selectedIdsByInterval()['daily'];
+    const base = this.indicatorsForInterval('daily');
     const extras: IndicatorConfig[] = [];
-    const windowData = this.windowDataWeeklyOnDaily();
-    if (windowData.length > 0) extras.push(this.buildWindowConfig(ST_ZONE_WINDOW_WEEKLY_INDICATOR, windowData));
-    const dots = this.dailySignalDots();
-    if (dots.length > 0) extras.push(this.buildSignalDotsConfig(dots));
-    const v1 = this.dailyUptickDotsV1();
-    if (v1.length > 0) extras.push(this.buildUptickDotsConfig(ST_ZONE_V1_UPTICK_DOTS_INDICATOR, v1));
-    const v2 = this.dailyUptickDotsV2();
-    if (v2.length > 0) extras.push(this.buildUptickDotsConfig(ST_ZONE_V2_UPTICK_DOTS_INDICATOR, v2));
+    if (sel.has('st-zone-window-weekly')) {
+      const windowData = this.windowDataWeeklyOnDaily();
+      if (windowData.length > 0) extras.push(this.buildWindowConfig(ST_ZONE_WINDOW_WEEKLY_INDICATOR, windowData));
+    }
+    if (sel.has('st-signal-dots')) {
+      const dots = this.dailySignalDots();
+      if (dots.length > 0) extras.push(this.buildSignalDotsConfig(dots));
+    }
+    if (sel.has('st-zone-v1-uptick-dots')) {
+      const v1 = this.dailyUptickDotsV1();
+      if (v1.length > 0) extras.push(this.buildUptickDotsConfig(ST_ZONE_V1_UPTICK_DOTS_INDICATOR, v1));
+    }
+    if (sel.has('st-zone-v2-uptick-dots')) {
+      const v2 = this.dailyUptickDotsV2();
+      if (v2.length > 0) extras.push(this.buildUptickDotsConfig(ST_ZONE_V2_UPTICK_DOTS_INDICATOR, v2));
+    }
     return extras.length > 0 ? [...base, ...extras] : base;
   });
 
-  /** Weekly chart indicators = base + window + signal dots + uptick dots */
+  /** Weekly chart indicators = base + conditionally-injected computed extras */
   private weeklyIndicators = computed<IndicatorConfig[]>(() => {
-    const base = this.activeIndicators();
+    const sel = this.selectedIdsByInterval()['weekly'];
+    const base = this.indicatorsForInterval('weekly');
     const extras: IndicatorConfig[] = [];
-    const windowData = this.windowDataMonthlyOnWeekly();
-    if (windowData.length > 0) extras.push(this.buildWindowConfig(ST_ZONE_WINDOW_MONTHLY_INDICATOR, windowData));
-    const dots = this.weeklySignalDots();
-    if (dots.length > 0) extras.push(this.buildSignalDotsConfig(dots));
-    const v1 = this.weeklyUptickDotsV1();
-    if (v1.length > 0) extras.push(this.buildUptickDotsConfig(ST_ZONE_V1_UPTICK_DOTS_INDICATOR, v1));
-    const v2 = this.weeklyUptickDotsV2();
-    if (v2.length > 0) extras.push(this.buildUptickDotsConfig(ST_ZONE_V2_UPTICK_DOTS_INDICATOR, v2));
+    if (sel.has('st-zone-window-monthly')) {
+      const windowData = this.windowDataMonthlyOnWeekly();
+      if (windowData.length > 0) extras.push(this.buildWindowConfig(ST_ZONE_WINDOW_MONTHLY_INDICATOR, windowData));
+    }
+    if (sel.has('st-signal-dots')) {
+      const dots = this.weeklySignalDots();
+      if (dots.length > 0) extras.push(this.buildSignalDotsConfig(dots));
+    }
+    if (sel.has('st-zone-v1-uptick-dots')) {
+      const v1 = this.weeklyUptickDotsV1();
+      if (v1.length > 0) extras.push(this.buildUptickDotsConfig(ST_ZONE_V1_UPTICK_DOTS_INDICATOR, v1));
+    }
+    if (sel.has('st-zone-v2-uptick-dots')) {
+      const v2 = this.weeklyUptickDotsV2();
+      if (v2.length > 0) extras.push(this.buildUptickDotsConfig(ST_ZONE_V2_UPTICK_DOTS_INDICATOR, v2));
+    }
     return extras.length > 0 ? [...base, ...extras] : base;
   });
 
@@ -270,7 +349,7 @@ export class SignalDetailComponent {
   chartConfigDaily = computed<FlexChartConfig>(() => ({
     indicators: this.dailyIndicators(),
     showCrosshair: true,
-    showZoomToolbar: true,
+    showZoomToolbar: this.showZoomToolbar(),
     enableScrollbar: true,
     initialZoomDays: this.rangeBarsFor(BarsInterval.DAILY),
     interval: 'daily' as const,
@@ -280,7 +359,7 @@ export class SignalDetailComponent {
   chartConfigWeekly = computed<FlexChartConfig>(() => ({
     indicators: this.weeklyIndicators(),
     showCrosshair: true,
-    showZoomToolbar: false,
+    showZoomToolbar: this.showZoomToolbar(),
     enableScrollbar: true,
     initialZoomDays: this.rangeBarsFor(BarsInterval.WEEKLY),
     interval: 'weekly' as const,
@@ -288,54 +367,41 @@ export class SignalDetailComponent {
 
   /** Chart config for monthly chart in triple mode */
   chartConfigMonthly = computed<FlexChartConfig>(() => ({
-    indicators: this.activeIndicators(),
+    indicators: this.indicatorsForInterval('monthly'),
     showCrosshair: true,
-    showZoomToolbar: false,
+    showZoomToolbar: this.showZoomToolbar(),
     enableScrollbar: true,
     initialZoomDays: this.rangeBarsFor(BarsInterval.MONTHLY),
     interval: 'monthly' as const,
   }));
 
-  /** Open config dialog for the selected indicator type */
-  onAddIndicator(option: IndicatorOption): void {
-    const pane = this.getNextAvailablePane(option);
-
-    const dialogRef = this.dialog.open(IndicatorConfigDialogComponent, {
-      data: { indicator: option, pane },
-      width: '360px',
-    });
-
-    dialogRef.afterClosed().subscribe((result: IndicatorConfig | undefined) => {
-      if (result) {
-        this.activeIndicators.update(current => [...current, result]);
-      }
+  /** Toggle an indicator on/off for the currently active chart interval */
+  onToggleIndicator(optionId: string): void {
+    const interval = this.activeChartInterval();
+    const key = interval === BarsInterval.WEEKLY ? 'weekly' : interval === BarsInterval.MONTHLY ? 'monthly' : 'daily';
+    this.selectedIdsByInterval.update(current => {
+      const next = new Set(current[key]);
+      if (next.has(optionId)) next.delete(optionId); else next.add(optionId);
+      return { ...current, [key]: next };
     });
   }
 
-  /** Remove an indicator from the chart */
-  onRemoveIndicator(id: string): void {
-    this.activeIndicators.update(current => current.filter(i => i.id !== id));
+  /** Whether a given indicator is active for the currently active chart interval */
+  isIndicatorSelected(optionId: string): boolean {
+    const interval = this.activeChartInterval();
+    const key = interval === BarsInterval.WEEKLY ? 'weekly' : interval === BarsInterval.MONTHLY ? 'monthly' : 'daily';
+    return this.selectedIdsByInterval()[key].has(optionId);
   }
 
-  /** Determine which pane to assign based on indicator type and what's already active */
-  private getNextAvailablePane(option: IndicatorOption): IndicatorPane {
-    if (option.defaultPane === 'main' || option.defaultPane === 'overlay') return 'overlay';
-
-    const active = this.activeIndicators();
-    const usedLowerPanes = new Set(
-      active.filter(i => i.pane.startsWith('lower-')).map(i => i.pane)
-    );
-
-    const allLower: IndicatorPane[] = ['lower-1', 'lower-2', 'lower-3', 'lower-4'];
-    for (const pane of allLower) {
-      if (!usedLowerPanes.has(pane)) return pane;
-    }
-    return 'lower-4'; // Max reached, stack on last
+  /** Set the active chart (for the indicator menu) — used by triple-mode chart label clicks */
+  setActiveChart(interval: BarsInterval): void {
+    this.activeChartInterval.set(interval);
   }
 
-  /** Change the chart interval (D/W/M) */
+  /** Change the chart interval (D/W/M) — also sets activeChartInterval in single mode */
   onIntervalChange(interval: BarsInterval): void {
     this.selectedInterval.set(interval);
+    this.activeChartInterval.set(interval);
   }
 
   /** Update shared crosshair date for triple-chart sync */

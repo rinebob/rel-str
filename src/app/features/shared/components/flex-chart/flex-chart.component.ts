@@ -82,7 +82,7 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
           #chart
           [primaryXAxis]="primaryXAxis()"
           [primaryYAxis]="primaryYAxis()"
-          [zoomSettings]="zoomSettings"
+          [zoomSettings]="zoomSettings()"
           [tooltip]="tooltip"
           [crosshair]="crosshair"
           [legendSettings]="{ visible: false }"
@@ -518,16 +518,16 @@ export class FlexChartComponent implements OnDestroy {
     crosshairTooltip: { enable: false },
   }));
 
-  zoomSettings = {
+  zoomSettings = computed(() => ({
     enableSelectionZooming: true,
-    enableScrollbar: true,
+    enableScrollbar: this.config().enableScrollbar !== false,
     enableMouseWheelZooming: false,
     mode: 'X',
     enablePan: true,
-    showToolbar: true,
+    showToolbar: this.config().showZoomToolbar !== false,
     toolbarItems: ['Zoom', 'ZoomIn', 'ZoomOut', 'Pan', 'Reset'],
     toolbarPosition: { horizontalAlignment: 'Near', verticalAlignment: 'Top' },
-  };
+  }));
 
   tooltip = {
     enable: false,
@@ -610,6 +610,19 @@ export class FlexChartComponent implements OnDestroy {
       this.lastZoomKey = key;
 
       this.applyInitialZoom(data.bars.length);
+    });
+
+    // Refresh chart when zoom toolbar visibility changes — Syncfusion ignores runtime zoomSettings updates
+    let prevShowToolbar: boolean | undefined = undefined;
+    effect(() => {
+      const showToolbar = this.config().showZoomToolbar;
+      const chart = this.chart();
+      if (!chart) return;
+      if (prevShowToolbar === undefined) { prevShowToolbar = showToolbar; return; }
+      if (prevShowToolbar === showToolbar) return;
+      prevShowToolbar = showToolbar;
+      chart.animateSeries = false;
+      chart.refresh();
     });
 
     // Watch for container resize (e.g. fullscreen toggle) and refresh chart

@@ -10,80 +10,120 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 8px;
-  gap: 8px;
+  padding: 4px;
+  gap: 4px;
   overflow: hidden;
 }
 
-.indicator-toolbar {
+.chart-toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  padding: 4px 0;
+  gap: 6px;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  height: 28px;
 
-  .indicator-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 8px;
-    border-radius: 16px;
-    background: var(--mat-sys-surface-container-high);
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--mat-sys-on-surface);
+  .toolbar-menu-btn {
+    font-size: 11px;
+    height: 24px;
+    line-height: 24px;
+    padding: 0 8px;
 
-    .chip-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
+    mat-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+      margin-right: 3px;
     }
 
-    .chip-remove {
-      width: 18px;
-      height: 18px;
-      padding: 0;
+    &.has-filter {
+      border-color: var(--mat-sys-primary);
+      color: var(--mat-sys-primary);
+    }
+
+    .active-chart-badge {
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      margin-left: 4px;
+      padding: 1px 4px;
+      border-radius: 8px;
+      background: var(--mat-sys-primary);
+      color: var(--mat-sys-on-primary);
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 12px;
+    }
+  }
 
-      mat-icon {
-        font-size: 14px;
-        width: 14px;
-        height: 14px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
+  .toolbar-spacer { flex: 1; }
+
+  .toolbar-icon-btn {
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+
+    &.zoom-off {
+      color: var(--mat-sys-on-surface-variant);
+      opacity: 0.5;
     }
   }
 }
 
-.interval-spacer {
-  flex: 1;
+
+::ng-deep .indicator-menu-item {
+  .menu-checkbox {
+    display: inline-flex;
+    align-items: center;
+    color: var(--mat-sys-on-surface-variant);
+    margin-right: 6px;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+
+    &.checked {
+      color: var(--mat-sys-primary);
+    }
+  }
+
+  .menu-label {
+    flex: 1;
+    font-size: 13px;
+  }
 }
 
 .interval-toggle {
   display: inline-flex;
   gap: 2px;
   border-radius: 4px;
-  padding: 2px;
+  padding: 1px;
 
   .interval-btn {
     border: none;
     background: #1565c0;
     color: #ffffff;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
-    padding: 4px 10px;
+    padding: 2px 8px;
     border-radius: 3px;
     cursor: pointer;
     transition: background 0.15s, box-shadow 0.15s;
+    line-height: 1.4;
 
-    &:hover {
-      background: #1976d2;
-    }
-
+    &:hover { background: #1976d2; }
     &.active {
       background: #42a5f5;
       color: #fff;
@@ -96,24 +136,22 @@
   display: inline-flex;
   gap: 2px;
   border-radius: 4px;
-  padding: 2px;
+  padding: 1px;
 
   .range-btn {
     border: none;
     background: #424242;
     color: #ffffff;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
-    padding: 4px 8px;
+    padding: 2px 6px;
     border-radius: 3px;
     cursor: pointer;
     transition: background 0.15s, box-shadow 0.15s;
     white-space: nowrap;
+    line-height: 1.4;
 
-    &:hover {
-      background: #616161;
-    }
-
+    &:hover { background: #616161; }
     &.active {
       background: #9e9e9e;
       color: #212121;
@@ -201,17 +239,17 @@
     display: flex;
     flex-direction: column;
     gap: 1px;
-    min-height: 0;
+    overflow: hidden;
 
     .triple-chart-cell {
-      flex: 1;
+      flex: 1 1 0;
       min-height: 0;
       position: relative;
       background: var(--mat-sys-surface-container);
 
       app-flex-chart {
         position: absolute;
-        top: 18px;
+        top: 0;
         left: 0;
         right: 0;
         bottom: 0;
@@ -226,23 +264,21 @@
 
     app-flex-chart {
       position: absolute;
-      top: 18px;
+      top: 0;
       left: 0;
       right: 0;
       bottom: 0;
     }
   }
 
-  .chart-label {
+  .triple-chart-cell.active-chart::after,
+  .triple-right.active-chart::after {
+    content: '';
     position: absolute;
-    top: 2px;
-    left: 8px;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    color: var(--mat-sys-on-surface-variant);
-    z-index: 1;
-    letter-spacing: 0.5px;
+    inset: 0;
+    border: 2px solid var(--mat-sys-primary, #6750a4);
+    pointer-events: none;
+    z-index: 10;
   }
 }
 

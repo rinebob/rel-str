@@ -1,32 +1,57 @@
 @if (showChart()) {
   <div class="signal-detail">
-    <!-- Indicator toolbar -->
-    <div class="indicator-toolbar">
-      <button mat-stroked-button [matMenuTriggerFor]="indicatorMenu">
-        <mat-icon>add_chart</mat-icon>
-        Add Indicator
+    <!-- Compact chart toolbar -->
+    <div class="chart-toolbar">
+      <!-- Left: Signals + Indicators menus -->
+      <button mat-stroked-button [matMenuTriggerFor]="signalTypeMenu" class="toolbar-menu-btn"
+        [class.has-filter]="uiStore.selectedSignalTypes().size > 0">
+        <mat-icon>filter_list</mat-icon>
+        Signals
+        @if (uiStore.selectedSignalTypes().size > 0) {
+          <span class="active-chart-badge">{{ uiStore.selectedSignalTypes().size }}</span>
+        }
       </button>
-      <mat-menu #indicatorMenu="matMenu">
-        @for (option of indicatorOptions; track option.id) {
-          <button mat-menu-item (click)="onAddIndicator(option)">
-            {{ option.label }}
+      <mat-menu #signalTypeMenu="matMenu" class="indicator-checkbox-menu">
+        @for (type of uiStore.signalTypes(); track type) {
+          <button mat-menu-item (click)="uiStore.toggleSignalTypeFilter(type)" class="indicator-menu-item">
+            <span class="menu-checkbox" [class.checked]="uiStore.selectedSignalTypes().has(type)">
+              @if (uiStore.selectedSignalTypes().has(type)) {
+                <mat-icon>check_box</mat-icon>
+              } @else {
+                <mat-icon>check_box_outline_blank</mat-icon>
+              }
+            </span>
+            <span class="menu-label">{{ type }}</span>
           </button>
         }
       </mat-menu>
-
-      <!-- Active indicator chips -->
-      @for (ind of activeIndicators(); track ind.id) {
-        <span class="indicator-chip">
-          <span class="chip-dot" [style.background]="ind.options.color"></span>
-          {{ ind.options.name }}
-          <button mat-icon-button class="chip-remove" (click)="onRemoveIndicator(ind.id)">
-            <mat-icon>close</mat-icon>
+      <button mat-stroked-button [matMenuTriggerFor]="indicatorMenu" class="toolbar-menu-btn">
+        <mat-icon>add_chart</mat-icon>
+        Indicators
+        <span class="active-chart-badge">{{ activeChartInterval() === BarsInterval.WEEKLY ? 'W' : activeChartInterval() === BarsInterval.MONTHLY ? 'M' : 'D' }}</span>
+      </button>
+      <mat-menu #indicatorMenu="matMenu" class="indicator-checkbox-menu">
+        @for (option of activeChartIndicatorOptions(); track option.id) {
+          <button mat-menu-item (click)="onToggleIndicator(option.id)" class="indicator-menu-item">
+            <span class="menu-checkbox" [class.checked]="isIndicatorSelected(option.id)">
+              @if (isIndicatorSelected(option.id)) {
+                <mat-icon>check_box</mat-icon>
+              } @else {
+                <mat-icon>check_box_outline_blank</mat-icon>
+              }
+            </span>
+            <span class="menu-label">{{ option.label }}</span>
           </button>
-        </span>
-      }
-
-      <!-- Interval toggle buttons (right-aligned) -->
-      <span class="interval-spacer"></span>
+        }
+      </mat-menu>
+      <button mat-icon-button class="toolbar-icon-btn" (click)="showZoomToolbar.set(!showZoomToolbar())"
+        [class.zoom-off]="!showZoomToolbar()"
+        [matTooltip]="showZoomToolbar() ? 'Hide zoom toolbar' : 'Show zoom toolbar'">
+        <mat-icon>{{ showZoomToolbar() ? 'zoom_in' : 'zoom_out' }}</mat-icon>
+      </button>
+      <!-- Spacer -->
+      <span class="toolbar-spacer"></span>
+      <!-- Right: D/W/M, range, layout, fullscreen -->
       <span class="interval-toggle">
         <button class="interval-btn" [class.active]="selectedInterval() === BarsInterval.DAILY"
           (click)="onIntervalChange(BarsInterval.DAILY)">D</button>
@@ -42,11 +67,11 @@
         <button class="range-btn" [class.active]="selectedRange() === '5y'" (click)="selectedRange.set('5y')">5Y</button>
         <button class="range-btn" [class.active]="selectedRange() === 'all'" (click)="selectedRange.set('all')">All</button>
       </span>
-      <button mat-icon-button class="layout-btn" (click)="uiState.toggleChartLayout()"
+      <button mat-icon-button class="toolbar-icon-btn" (click)="uiState.toggleChartLayout()"
         [matTooltip]="uiState.chartLayout() === 'single' ? 'Three-chart layout' : 'Single-chart layout'">
         <mat-icon>{{ uiState.chartLayout() === 'single' ? 'grid_view' : 'crop_square' }}</mat-icon>
       </button>
-      <button mat-icon-button class="fullscreen-btn" (click)="uiState.toggleFullscreen()"
+      <button mat-icon-button class="toolbar-icon-btn" (click)="uiState.toggleFullscreen()"
         [matTooltip]="uiState.fullscreen() ? 'Exit fullscreen' : 'Fullscreen'">
         <mat-icon>{{ uiState.fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
       </button>
@@ -63,8 +88,7 @@
         <!-- Triple chart layout: left (W top, M bottom) | right (D) -->
         <div class="triple-chart-grid">
           <div class="triple-left">
-            <div class="triple-chart-cell">
-              <span class="chart-label">Weekly</span>
+            <div class="triple-chart-cell" [class.active-chart]="activeChartInterval() === BarsInterval.WEEKLY" (click)="setActiveChart(BarsInterval.WEEKLY)">
               <app-flex-chart
                 [chartData]="chartDataWeekly()"
                 [config]="chartConfigWeekly()"
@@ -73,8 +97,7 @@
                 height="100%">
               </app-flex-chart>
             </div>
-            <div class="triple-chart-cell">
-              <span class="chart-label">Monthly</span>
+            <div class="triple-chart-cell" [class.active-chart]="activeChartInterval() === BarsInterval.MONTHLY" (click)="setActiveChart(BarsInterval.MONTHLY)">
               <app-flex-chart
                 [chartData]="chartDataMonthly()"
                 [config]="chartConfigMonthly()"
@@ -84,8 +107,7 @@
               </app-flex-chart>
             </div>
           </div>
-          <div class="triple-right">
-            <span class="chart-label">Daily</span>
+          <div class="triple-right" [class.active-chart]="activeChartInterval() === BarsInterval.DAILY" (click)="setActiveChart(BarsInterval.DAILY)">
             <app-flex-chart
               [chartData]="chartData()"
               [config]="chartConfigDaily()"

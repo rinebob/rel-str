@@ -29,20 +29,17 @@ import { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR } fro
 import { ST_SIGNAL_DOTS_INDICATOR } from './st-signal-dots.indicator';
 import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR } from './st-zone-uptick-dots.indicator';
 
-/** All available indicators for UI dropdowns */
-export const INDICATOR_OPTIONS: IndicatorOption[] = [
-  EMA_INDICATOR,
-  RSI_INDICATOR,
-  MACD_INDICATOR,
+/** ST-only indicators for the checkbox toggle menu */
+export const ST_INDICATOR_OPTIONS: IndicatorOption[] = [
   ST_TREND_BANDS_INDICATOR,
+  ST_TREND_STRENGTH_INDICATOR,
   ST_ZONE_INDICATOR,
   ST_ZONE_V2_INDICATOR,
-  ST_ZONE_WINDOW_MONTHLY_INDICATOR,
   ST_ZONE_WINDOW_WEEKLY_INDICATOR,
+  ST_ZONE_WINDOW_MONTHLY_INDICATOR,
   ST_SIGNAL_DOTS_INDICATOR,
   ST_ZONE_V1_UPTICK_DOTS_INDICATOR,
   ST_ZONE_V2_UPTICK_DOTS_INDICATOR,
-  ST_TREND_STRENGTH_INDICATOR,
 ];
 
 /** Calculator map — keyed by IndicatorType, used by computeIndicators() */

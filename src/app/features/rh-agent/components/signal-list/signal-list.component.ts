@@ -3,7 +3,7 @@
  *
  * Master list panel for the review interface.
  */
-import { Component, inject, ChangeDetectionStrategy, output } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy, output, viewChildren, ElementRef, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
@@ -11,6 +11,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule, MatIconButton } from '@angular/material/button';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { RhAgentDashboardStore } from '../../rh-agent-dashboard.store';
@@ -30,6 +31,7 @@ import { UiStateService } from '../../../../core/services/ui-state.service';
     MatInputModule,
     MatButtonModule,
     MatIconButton,
+    MatMenuModule,
     MatTooltipModule,
   ],
   templateUrl: './signal-list.component.html',
@@ -41,6 +43,21 @@ export class SignalListComponent {
   readonly uiState = inject(UiStateService);
 
   signalSelected = output<RhTradeSignal>();
+
+  private listItems = viewChildren<ElementRef>('signalItem');
+
+  constructor() {
+    effect(() => {
+      const selectedId = this.uiStore.selectedSignalId();
+      const items = this.listItems();
+      if (!selectedId || !items.length) return;
+      const signals = this.signals();
+      const idx = signals.findIndex(s => s.id === selectedId);
+      if (idx !== -1 && items[idx]) {
+        items[idx].nativeElement.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    });
+  }
 
   signals() {
     const currentRun = this.uiStore.currentRun();
