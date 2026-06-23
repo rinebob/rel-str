@@ -14,10 +14,17 @@
       <button
         mat-raised-button
         color="accent"
+        (click)="goToGroupedReview()"
+        matTooltip="Grouped symbol review">
+        <mat-icon>account_tree</mat-icon>
+        Grouped Review
+      </button>
+      <button
+        mat-stroked-button
         (click)="goToReview()"
-        matTooltip="Review current opportunities">
+        matTooltip="Review current opportunities (legacy)">
         <mat-icon>psychology</mat-icon>
-        Review {{ uiStore.currentRunSignalCount() }} Opportunities
+        Review {{ uiStore.currentRunSignalCount() }}
       </button>
       <mat-form-field appearance="outline" class="run-date-picker">
         <mat-label>Market Date</mat-label>
@@ -36,6 +43,13 @@
         matTooltip="Trigger a manual agent run">
         <mat-icon>play_arrow</mat-icon>
         Run Now
+      </button>
+      <button
+        mat-stroked-button
+        (click)="triggerOverviewSync()"
+        matTooltip="Backfill company overview data (sector, industry, market cap)">
+        <mat-icon>sync</mat-icon>
+        Sync Overview
       </button>
       <button
         mat-stroked-button

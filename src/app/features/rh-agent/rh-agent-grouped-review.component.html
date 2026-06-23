@@ -1,0 +1,262 @@
+<div class="grouped-review">
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <div class="gr-header">
+    <button mat-icon-button class="back-btn" (click)="goBack()" matTooltip="Back">
+      <mat-icon>arrow_back</mat-icon>
+    </button>
+
+    <h1 class="gr-title">
+      <mat-icon>psychology</mat-icon>
+      Grouped Review
+    </h1>
+
+    <!-- Timeframe toggle -->
+    <div class="pill-group tf-toggle">
+      <button class="pill" [class.active]="groupStore.timeframe() === 'W'" (click)="onTimeframe('W')">Weekly</button>
+      <button class="pill" [class.active]="groupStore.timeframe() === 'D'" (click)="onTimeframe('D')">Daily</button>
+    </div>
+
+    <span class="gr-count" matTooltip="Signal symbols today">
+      {{ groupStore.totalSignalCount() }} signals
+    </span>
+
+    <!-- Status summary chips -->
+    <div class="status-summary">
+      @if (groupStore.statusCounts().PROMOTE > 0) {
+        <span class="status-chip promote">↑ {{ groupStore.statusCounts().PROMOTE }}</span>
+      }
+      @if (groupStore.statusCounts().ACCEPT > 0) {
+        <span class="status-chip accept">✓ {{ groupStore.statusCounts().ACCEPT }}</span>
+      }
+      @if (groupStore.statusCounts().CONSIDER > 0) {
+        <span class="status-chip consider">? {{ groupStore.statusCounts().CONSIDER }}</span>
+      }
+      @if (groupStore.statusCounts().REJECT > 0) {
+        <span class="status-chip reject">✕ {{ groupStore.statusCounts().REJECT }}</span>
+      }
+    </div>
+
+    <div class="header-spacer"></div>
+
+    <!-- Group dimension selector -->
+    <div class="pill-group dim-toggle">
+      @for (opt of dimensionOptions; track opt.value) {
+        <button
+          class="pill"
+          [class.active]="groupStore.groupDimension() === opt.value"
+          (click)="onDimension(opt.value)">
+          {{ opt.label }}
+        </button>
+      }
+    </div>
+
+    <!-- Refresh -->
+    <button mat-icon-button (click)="groupStore.loadSymbolsWithSignals()" matTooltip="Refresh"
+      [disabled]="groupStore.symbolsLoading()">
+      <mat-icon>refresh</mat-icon>
+    </button>
+  </div>
+
+  <!-- ── Loading ─────────────────────────────────────────────────────────── -->
+  @if (groupStore.symbolsLoading()) {
+    <div class="loading-overlay">
+      <mat-spinner diameter="32"></mat-spinner>
+    </div>
+  }
+
+  <!-- ── Error ───────────────────────────────────────────────────────────── -->
+  @if (groupStore.symbolsError()) {
+    <div class="error-state">
+      <mat-icon>error_outline</mat-icon>
+      <p>{{ groupStore.symbolsError() }}</p>
+      <button mat-button (click)="groupStore.loadSymbolsWithSignals()">Retry</button>
+    </div>
+  }
+
+  <!-- ── Main layout ─────────────────────────────────────────────────────── -->
+  @if (!groupStore.symbolsLoading() && !groupStore.symbolsError()) {
+    <div class="gr-body" [class.has-detail]="groupStore.selectedSymbol()">
+
+      <!-- ── Group expansion panels ──────────────────────────────────────── -->
+      <div class="groups-panel">
+        @if (groupStore.groups().length === 0) {
+          <div class="empty-state">
+            <mat-icon>inbox</mat-icon>
+            <p>No signals for {{ groupStore.marketDate() }}</p>
+            <p class="hint">Run the agent or select a different date</p>
+          </div>
+        }
+
+        <mat-accordion [multi]="true">
+          @for (group of groupStore.groups(); track group.key) {
+            <mat-expansion-panel class="group-panel">
+
+              <!-- Panel header -->
+              <mat-expansion-panel-header class="group-header">
+                <mat-panel-title class="group-title">
+                  <span class="group-key">{{ group.key }}</span>
+                  <span class="signal-badge" matTooltip="Signals today">{{ signalCount(group) }}</span>
+                  <span class="total-badge" matTooltip="Total in group">{{ group.rows.length }}</span>
+                </mat-panel-title>
+                <mat-panel-description class="group-actions">
+                  <button
+                    class="pill small"
+                    [class.active]="group.showFullGroup"
+                    (click)="onToggleFullGroup(group.key, $event)"
+                    matTooltip="{{ group.showFullGroup ? 'Show signals only' : 'Show full group' }}">
+                    {{ group.showFullGroup ? 'Signals Only' : 'Full Group' }}
+                  </button>
+                </mat-panel-description>
+              </mat-expansion-panel-header>
+
+              <!-- Symbol rows -->
+              <div class="symbol-rows">
+                @for (row of visibleRows(group); track row.profile.symbol) {
+                  <div
+                    class="symbol-row"
+                    [class.selected]="groupStore.selectedSymbol() === row.profile.symbol"
+                    [class.no-signal]="!row.hasSignal"
+                    [class.status-promote]="row.reviewStatus === 'PROMOTE'"
+                    [class.status-accept]="row.reviewStatus === 'ACCEPT'"
+                    [class.status-consider]="row.reviewStatus === 'CONSIDER'"
+                    [class.status-reject]="row.reviewStatus === 'REJECT'"
+                    (click)="onSymbolClick(row)">
+
+                    <!-- Symbol + name -->
+                    <div class="symbol-identity">
+                      <span class="symbol-ticker">{{ row.profile.symbol }}</span>
+                      @if (row.profile.name) {
+                        <span class="symbol-name">{{ row.profile.name }}</span>
+                      }
+                    </div>
+
+                    <!-- Badges -->
+                    <div class="symbol-badges">
+                      @if (row.profile.marketCapTier) {
+                        <span class="badge tier tier-{{ row.profile.marketCapTier }}">
+                          {{ tierLabel(row.profile.marketCapTier) }}
+                        </span>
+                      }
+                      @if (row.hasSignal && row.signals?.length) {
+                        <span class="badge dir dir-{{ row.signals![0].direction.toLowerCase() }}">
+                          {{ row.signals![0].direction }}
+                        </span>
+                        <span class="badge sig-type">{{ row.signals![0].signalType }}</span>
+                      } @else if (row.hasSignal) {
+                        <span class="badge sig-pending">signal</span>
+                      }
+                    </div>
+
+                    <!-- Hover chart placeholder -->
+                    <div class="chart-hover-target" matTooltip="Quick chart — coming soon" title="Quick chart placeholder"></div>
+
+                    <!-- ACR actions (disabled for no-signal rows) -->
+                    <div class="acr-actions" [class.disabled]="!row.hasSignal">
+                      <button
+                        type="button"
+                        class="acr-btn promote"
+                        [class.active]="row.reviewStatus === 'PROMOTE'"
+                        [disabled]="!row.hasSignal"
+                        (click)="onPromote(row.profile.symbol, $event)"
+                        matTooltip="Promote">
+                        <mat-icon>north</mat-icon>
+                      </button>
+                      <button
+                        type="button"
+                        class="acr-btn accept"
+                        [class.active]="row.reviewStatus === 'ACCEPT'"
+                        [disabled]="!row.hasSignal"
+                        (click)="onAccept(row.profile.symbol, $event)"
+                        matTooltip="Accept">
+                        <mat-icon>check</mat-icon>
+                      </button>
+                      <button
+                        type="button"
+                        class="acr-btn consider"
+                        [class.active]="row.reviewStatus === 'CONSIDER'"
+                        [disabled]="!row.hasSignal"
+                        (click)="onConsider(row.profile.symbol, $event)"
+                        matTooltip="Consider">
+                        <mat-icon>help</mat-icon>
+                      </button>
+                      <button
+                        type="button"
+                        class="acr-btn reject"
+                        [class.active]="row.reviewStatus === 'REJECT'"
+                        [disabled]="!row.hasSignal"
+                        (click)="onReject(row.profile.symbol, $event)"
+                        matTooltip="Reject">
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    </div>
+                  </div>
+                }
+              </div>
+
+            </mat-expansion-panel>
+          }
+        </mat-accordion>
+      </div>
+
+      <!-- ── Detail panel ─────────────────────────────────────────────────── -->
+      @if (groupStore.selectedSymbol()) {
+        <div class="detail-panel">
+          <div class="detail-header">
+            <span class="detail-symbol">{{ groupStore.selectedSymbolProfile()?.symbol }}</span>
+            @if (groupStore.selectedSymbolProfile()?.name) {
+              <span class="detail-name">{{ groupStore.selectedSymbolProfile()?.name }}</span>
+            }
+            <button mat-icon-button class="detail-close" (click)="groupStore.clearSelectedSymbol()" matTooltip="Close">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+
+          <!-- Overview fields -->
+          @if (groupStore.selectedSymbolProfile(); as profile) {
+            <div class="detail-overview">
+              @if (profile.sector)    { <span class="ov-field"><label>Sector</label>{{ profile.sector }}</span> }
+              @if (profile.industry)  { <span class="ov-field"><label>Industry</label>{{ profile.industry }}</span> }
+              @if (profile.exchange)  { <span class="ov-field"><label>Exchange</label>{{ profile.exchange }}</span> }
+              @if (profile.marketCapTier) { <span class="ov-field"><label>Cap</label>{{ tierLabel(profile.marketCapTier) }}</span> }
+              @if (profile.beta != null) { <span class="ov-field"><label>Beta</label>{{ profile.beta | number:'1.2-2' }}</span> }
+              @if (profile.peRatio != null) { <span class="ov-field"><label>P/E</label>{{ profile.peRatio | number:'1.1-1' }}</span> }
+            </div>
+          }
+
+          <!-- Signal history -->
+          <div class="detail-signals">
+            <div class="detail-signals-header">
+              <span class="detail-section-title">Signal History ({{ groupStore.timeframe() }})</span>
+              @if (selectedSymbolLoading()) {
+                <mat-spinner diameter="16"></mat-spinner>
+              }
+            </div>
+
+            @if (groupStore.selectedSymbolSignals().length === 0) {
+              <div class="no-signals">No signals in the last 5 trading days</div>
+            } @else {
+              <div class="signal-history-rows">
+                @for (sig of groupStore.selectedSymbolSignals(); track sig.id) {
+                  <div class="signal-history-row">
+                    <span class="sh-date">{{ sig.marketDate }}</span>
+                    <span class="sh-dir dir-{{ sig.direction.toLowerCase() }}">{{ sig.direction }}</span>
+                    <span class="sh-type">{{ sig.signalType }}</span>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+
+          <!-- Chart placeholder -->
+          <div class="detail-chart-placeholder">
+            <mat-icon>show_chart</mat-icon>
+            <span>Chart — Phase 5 wiring</span>
+          </div>
+        </div>
+      }
+
+    </div>
+  }
+
+</div>

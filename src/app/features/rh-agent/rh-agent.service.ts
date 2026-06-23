@@ -67,6 +67,54 @@ export interface RhTradeSignal {
   };
 }
 
+/** Market cap tiers derived from SA overview data. */
+export type MarketCapTier = 'mega' | 'large' | 'mid' | 'small' | 'micro';
+
+/** Direction of a signal entry. */
+export type SignalDirection = 'LONG' | 'SHORT';
+
+/**
+ * Symbol profile returned by rhAgentGetSymbolsWithSignals.
+ * Includes config fields and company overview (after Phase 1 sync).
+ */
+export interface RhAgentSymbolProfile {
+  symbol: string;
+  enabled: boolean;
+  addedAt: string;
+  lastAnalyzedAt?: string;
+  lastDailySignalDate?: string;
+  lastWeeklySignalDate?: string;
+  // Company overview (populated by Phase 1 SA sync)
+  name?: string;
+  sector?: string;
+  industry?: string;
+  exchange?: string;
+  marketCap?: number;
+  marketCapTier?: MarketCapTier;
+  beta?: number;
+  peRatio?: number;
+  week52High?: number;
+  week52Low?: number;
+  ma200?: number;
+  ma50?: number;
+  dividendYield?: number;
+}
+
+/**
+ * A single signal doc returned by rhAgentGetSymbolSignalHistory.
+ */
+export interface RhAgentSignalItem {
+  id: string;
+  symbol: string;
+  marketDate: string;
+  runId: string;
+  timeframe: 'D' | 'W';
+  direction: SignalDirection;
+  signalType: string;
+  indicators: Record<string, number | string | null>;
+  createdAt: string;
+}
+
 export interface ManualRunRequest {
   symbols?: string[]; // Optional: specific symbols to run, or all enabled
   strategy?: string; // Optional: specific strategy to run
@@ -176,6 +224,46 @@ export class RhAgentService {
     const runsRef = collection(this.firestore, this.runsCollection);
     const runsQuery = query(runsRef, orderBy('startedAt', 'desc'), limit(count));
     return collectionData(runsQuery, { idField: 'id' }) as Observable<RhAgentRun[]>;
+  }
+
+  /**
+   * Primary grouped review query.
+   * Returns symbol profiles with a signal on the given marketDate for the given timeframe.
+   */
+  getSymbolsWithSignals(marketDate: string, timeframe: 'W' | 'D'): Observable<RhAgentSymbolProfile[]> {
+    const callable = httpsCallable<
+      { marketDate: string; timeframe: 'W' | 'D' },
+      { symbols: RhAgentSymbolProfile[] }
+    >(this.functions, 'rhAgentGetSymbolsWithSignals');
+    return from(callable({ marketDate, timeframe })).pipe(map((r) => r.data.symbols));
+  }
+
+  /**
+   * Per-symbol signal history for the detail panel.
+   * Returns signals from the last `days` trading days, filtered by timeframe.
+   */
+  getSymbolSignalHistory(
+    symbol: string,
+    timeframe: 'W' | 'D',
+    days = 5
+  ): Observable<RhAgentSignalItem[]> {
+    const callable = httpsCallable<
+      { symbol: string; timeframe: 'W' | 'D'; days: number },
+      { symbol: string; timeframe: 'W' | 'D'; signals: RhAgentSignalItem[] }
+    >(this.functions, 'rhAgentGetSymbolSignalHistory');
+    return from(callable({ symbol, timeframe, days })).pipe(map((r) => r.data.signals));
+  }
+
+  /**
+   * Trigger the company overview backfill (Phase 1).
+   * Enqueues one Cloud Task per enabled symbol to fetch SA overview data.
+   */
+  triggerOverviewSync(forceRefresh = true): Observable<{ enqueued: number; skipped: number; total: number }> {
+    const callable = httpsCallable<
+      { forceRefresh: boolean },
+      { enqueued: number; skipped: number; total: number }
+    >(this.functions, 'rhAgentOverviewSyncAdmin');
+    return from(callable({ forceRefresh })).pipe(map((r) => r.data));
   }
 
   /**

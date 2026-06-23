@@ -32,7 +32,9 @@ import { RouterModule } from '@angular/router';
 import { RhAgentStore } from './rh-agent.store';
 import { RobinhoodTradePanelComponent } from '../rs/components/robinhood-trade-panel.component';
 import { RhAgentDashboardStore } from './rh-agent-dashboard.store';
+import { RhAgentService } from './rh-agent.service';
 import { Router } from '@angular/router';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 @Component({
   selector: 'app-rh-agent-dashboard',
@@ -65,10 +67,10 @@ import { Router } from '@angular/router';
 export class RhAgentDashboardComponent {
   // Inject the data store - manages all business logic and API calls
   readonly store = inject(RhAgentStore);
-  
-  // Inject the UI state store - manages all UI state (filters, selections, etc.)
   readonly uiStore = inject(RhAgentDashboardStore);
   private readonly router = inject(Router);
+  private readonly rhService = inject(RhAgentService);
+  private readonly snackBar = inject(MatSnackBar);
 
   // Trade panel visibility
   showTradePanel = false;
@@ -134,5 +136,16 @@ export class RhAgentDashboardComponent {
    */
   goToReview(): void {
     this.router.navigate(['/rh-agent-review']);
+  }
+
+  goToGroupedReview(): void {
+    this.router.navigate(['/rh-agent-grouped-review']);
+  }
+
+  triggerOverviewSync(): void {
+    this.rhService.triggerOverviewSync(true).subscribe({
+      next: (r: { enqueued: number; skipped: number; total: number }) => this.snackBar.open(`Overview sync enqueued: ${r.enqueued} symbols`, 'OK', { duration: 4000 }),
+      error: (e: Error) => this.snackBar.open(`Sync failed: ${e?.message}`, 'OK', { duration: 5000 }),
+    });
   }
 }
