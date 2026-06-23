@@ -189,7 +189,6 @@ export const rhAgentGetStatus = onCall<void, Promise<AgentStatusResponse>>(
     const symbolsSnapshot = await db
       .collection('rh-agent-symbols')
       .where('enabled', '==', true)
-      .orderBy('priority', 'asc')
       .get();
     const symbolsMonitored = symbolsSnapshot.docs.map((d) => d.data().symbol as string);
 

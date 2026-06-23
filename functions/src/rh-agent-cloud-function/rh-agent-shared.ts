@@ -52,7 +52,6 @@ export async function loadEnabledSymbols(requestedSymbols?: string[]): Promise<s
   const snapshot = await db
     .collection(RH_AGENT_SYMBOLS_COLLECTION)
     .where('enabled', '==', true)
-    .orderBy('priority', 'asc')
     .get();
 
   const symbols = snapshot.docs.map((doc) => doc.data().symbol as string);
