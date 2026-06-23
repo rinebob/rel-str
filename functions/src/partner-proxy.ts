@@ -2,7 +2,7 @@ import {onRequest, onCall} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import {GoogleAuth} from "google-auth-library";
 import {db, FieldValue} from "./firebase-admin-init";
-import { GetTrackedSymbolsResponse, TrackedSymbolDTO, PartnerEndpointPath, PartnerMarketHolidaysResponse, PartnerIntradaySnapshotResponse, PartnerListTrackedSymbolsResponse } from './types/partner';
+import { GetTrackedSymbolsResponse, TrackedSymbolDTO, PartnerEndpointPath, PartnerMarketHolidaysResponse, PartnerIntradaySnapshotResponse, PartnerListTrackedSymbolsResponse, PartnerCompanyOverviewResponse } from './types/partner';
 import { DEFAULT_PARTNER_CALLER_SA, IAM_CREDENTIALS_BASE_URL, OAUTH_CLOUD_PLATFORM_SCOPE, IAM_SERVICE_ACCOUNTS_PATH, IamCredentialsMethod } from './config/constants';
 import { persistWarning } from './logging/warn';
 import { ENABLE_CONSOLE_LOGGING, RsCloudFunctionName } from './webhooks/webhooks-config';
@@ -38,6 +38,13 @@ const PARTNER_MARKET_HOLIDAYS_AUDIENCE =
 
 const PARTNER_INTRADAY_SNAPSHOT_AUDIENCE =
   process.env.PARTNER_INTRADAY_SNAPSHOT_AUDIENCE || PARTNER_INTRADAY_SNAPSHOT_URL;
+
+const PARTNER_COMPANY_OVERVIEW_URL =
+  process.env.PARTNER_COMPANY_OVERVIEW_URL ||
+  `${PARTNER_AUDIENCE.replace(/\/$/, '')}/${PartnerEndpointPath.COMPANY_OVERVIEW}`;
+
+const PARTNER_COMPANY_OVERVIEW_AUDIENCE =
+  process.env.PARTNER_COMPANY_OVERVIEW_AUDIENCE || PARTNER_COMPANY_OVERVIEW_URL;
 
 // Service account email for rel-str prod
 const CALLER_SA = process.env.PARTNER_CALLER_SA || DEFAULT_PARTNER_CALLER_SA;
@@ -234,6 +241,43 @@ export async function callPartnerIntradaySnapshotV2(symbols: string[]): Promise<
   logger.info('partnerIntradaySnapshot_response', {
     marketDate: parsed.marketDate,
     count: parsed.count,
+  });
+
+  return parsed;
+}
+
+/**
+ * Call Savant Partner Company Overview endpoint for a single symbol.
+ * Returns 404 for non-equity symbols (ETFs, indexes) — caller should handle gracefully.
+ */
+export async function callPartnerCompanyOverview(symbol: string): Promise<PartnerCompanyOverviewResponse> {
+  const audience = PARTNER_COMPANY_OVERVIEW_AUDIENCE;
+  const idToken = await generateIdTokenWithEmail(audience, CALLER_SA);
+  const url = `${PARTNER_COMPANY_OVERVIEW_URL}?symbol=${encodeURIComponent(symbol)}`;
+
+  logger.info('partnerCompanyOverview_request', { symbol, url, audience });
+
+  const resp = await fetchWithRetry(url, { Authorization: `Bearer ${idToken}` });
+  const text = await resp.text();
+
+  if (!resp.ok) {
+    logger.error('partnerCompanyOverview_upstream_error', {
+      symbol, status: resp.status, url, callerSa: CALLER_SA,
+      snippet: typeof text === 'string' ? text.slice(0, 300) : undefined,
+    });
+    throw new Error(`partnerCompanyOverview upstream ${resp.status}: ${text}`);
+  }
+
+  let parsed: PartnerCompanyOverviewResponse;
+  try {
+    parsed = JSON.parse(text) as PartnerCompanyOverviewResponse;
+  } catch (e: any) {
+    logger.error('partnerCompanyOverview_parse_error', { symbol, message: e?.message, snippet: text.slice(0, 300) });
+    throw e;
+  }
+
+  logger.info('partnerCompanyOverview_response', {
+    symbol: parsed.symbol, sector: parsed.data?.['Sector'], processingTimeMs: parsed.processingTimeMs,
   });
 
   return parsed;

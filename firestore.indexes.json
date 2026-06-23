@@ -16,6 +16,38 @@
         { "fieldPath": "pair", "order": "ASCENDING" },
         { "fieldPath": "entryDay", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "rh-agent-symbols",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "enabled", "order": "ASCENDING" },
+        { "fieldPath": "lastDailySignalDate", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "rh-agent-symbols",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "enabled", "order": "ASCENDING" },
+        { "fieldPath": "lastWeeklySignalDate", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "signals",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "timeframe", "order": "ASCENDING" },
+        { "fieldPath": "marketDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "signals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "timeframe", "order": "ASCENDING" },
+        { "fieldPath": "marketDate", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

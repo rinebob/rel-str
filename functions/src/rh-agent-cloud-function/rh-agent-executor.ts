@@ -2,7 +2,7 @@
  * RH Agent Trade Executor
  *
  * Cloud Callable function that executes trades via Robinhood MCP.
- * Uses stored OAuth tokens from Firebase Secrets.
+ * Auth is handled by the MCP session — no stored tokens required.
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
@@ -34,23 +34,10 @@ interface TradeResponse {
 }
 
 /**
- * Create MCP client with tokens from Firebase Secrets
+ * Create MCP client connected to the RH Agentic API.
  */
 async function createMCPClient(): Promise<Client> {
-  // In production, tokens come from Firebase Secrets
-  // For now, read from environment or secret manager
-  const tokensJson = process.env.ROBINHOOD_TOKENS;
-  
-  if (!tokensJson) {
-    throw new HttpsError('failed-precondition', 'Robinhood tokens not configured');
-  }
-
-  const tokens = JSON.parse(tokensJson);
-  
-  const transport = new StreamableHTTPClientTransport(
-    new URL(MCP_SERVER_URL),
-    { requestInit: { headers: { Authorization: `Bearer ${tokens.access_token}` } } }
-  );
+  const transport = new StreamableHTTPClientTransport(new URL(MCP_SERVER_URL));
 
   const client = new Client(
     { name: 'rh-cloud-executor', version: '1.0.0' },
@@ -69,11 +56,11 @@ async function executeTrade(
   request: TradeRequest
 ): Promise<TradeResponse> {
   const { symbol, side, amount, orderType = 'market', limitPrice, dryRun = false } = request;
-  
+
   try {
     // Step 1: Review the order (preview)
     logger.info('trade_review_start', { symbol, side, amount, orderType });
-    
+
     const reviewResult = await client.callTool({
       name: 'review_equity_order',
       arguments: {
@@ -89,7 +76,7 @@ async function executeTrade(
 
     const reviewContent = (reviewResult.content as Array<{ type: string; text?: string }>)
       .map(c => c.text ?? '').join('');
-    
+
     logger.info('trade_review_complete', { reviewContent: reviewContent.slice(0, 200) });
 
     // If dry run, stop here
@@ -106,7 +93,7 @@ async function executeTrade(
 
     // Step 2: Place the order
     logger.info('trade_place_start', { symbol, side, amount });
-    
+
     const placeResult = await client.callTool({
       name: 'place_equity_order',
       arguments: {
@@ -122,11 +109,11 @@ async function executeTrade(
 
     const placeContent = (placeResult.content as Array<{ type: string; text?: string }>)
       .map(c => c.text ?? '').join('');
-    
+
     // Parse order confirmation
     const orderData = JSON.parse(placeContent);
-    
-    logger.info('trade_place_complete', { 
+
+    logger.info('trade_place_complete', {
       orderId: orderData.id,
       state: orderData.state,
     });
@@ -173,13 +160,11 @@ export const rhExecuteTrade = onCall<TradeRequest, Promise<TradeResponse>>(
       'http://localhost:4200',
       'http://localhost:5000',
     ],
-    secrets: ['ROBINHOOD_TOKENS'],
     timeoutSeconds: 30,
   },
   async (request) => {
     const { symbol, side, amount, orderType, limitPrice, dryRun } = request.data;
 
-    // Validate inputs
     if (!symbol || !side || !amount) {
       throw new HttpsError('invalid-argument', 'Missing required fields: symbol, side, amount');
     }
@@ -202,7 +187,7 @@ export const rhExecuteTrade = onCall<TradeRequest, Promise<TradeResponse>>(
     });
 
     let client: Client | undefined;
-    
+
     try {
       client = await createMCPClient();
       const result = await executeTrade(client, {
@@ -230,15 +215,14 @@ export const rhExecuteTrade = onCall<TradeRequest, Promise<TradeResponse>>(
 export const rhGetAccountSummary = onCall<void, Promise<any>>(
   {
     cors: true,
-    secrets: ['ROBINHOOD_TOKENS'],
     timeoutSeconds: 15,
   },
   async () => {
     let client: Client | undefined;
-    
+
     try {
       client = await createMCPClient();
-      
+
       const result = await client.callTool({
         name: 'get_portfolio',
         arguments: { account_number: AGENTIC_ACCOUNT_NUMBER },
@@ -246,7 +230,7 @@ export const rhGetAccountSummary = onCall<void, Promise<any>>(
 
       const content = (result.content as Array<{ type: string; text?: string }>)
         .map(c => c.text ?? '').join('');
-      
+
       return JSON.parse(content);
     } catch (error: any) {
       logger.error('account_summary_error', { error: error?.message });

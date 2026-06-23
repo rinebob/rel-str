@@ -14,13 +14,13 @@ import { db, FieldValue } from '../firebase-admin-init';
 import {
   RH_AGENT_RUNS_COLLECTION,
   RH_AGENT_JOBS_SUBCOLLECTION,
-  RH_AGENT_OPPORTUNITIES_COLLECTION,
+  RH_AGENT_SYMBOLS_COLLECTION,
+  RH_AGENT_SIGNALS_SUBCOLLECTION,
   RhAgentJobStatus,
   RhAgentRunStatus,
-  RhOpportunityStatus,
-  RhOpportunityAction,
+  RhAgentSignalDoc,
+  StSignalDirection,
   SymbolJobPayload,
-  RhTradeOpportunity,
 } from './rh-agent-config';
 
 import { strategyRegistry } from './strategies/strategy-registry';
@@ -131,18 +131,18 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
         signals: results.filter(r => r.action).map(r => r.signalType),
       });
 
-      // 6. Store each signal as a separate opportunity
+      // 6. Store each signal under rh-agent-symbols/{symbol}/signals/
       let opportunityCount = 0;
       for (const result of results) {
         if (result.action) {
-          const opportunity = createOpportunityFromSignal(
-            symbol, marketDate, strategyName, result
-          );
+          const signalDoc = createSignalDoc(symbol, marketDate, runId, result);
 
-          await storeOpportunity(runId, marketDate, opportunity);
-          logger.info('rh_agent_worker_opportunity_created', {
-            runId, symbol, opportunityId: opportunity.id,
-            signalType: result.signalType,
+          await writeSignalToSubcollection(signalDoc);
+          await updateSymbolGateDate(symbol, marketDate, signalDoc.timeframe);
+
+          logger.info('rh_agent_worker_signal_written', {
+            runId, symbol, signalId: signalDoc.id,
+            signalType: result.signalType, timeframe: signalDoc.timeframe,
           });
 
           await incrementOpportunitiesFound(runId);
@@ -376,53 +376,60 @@ async function getCachedBars(symbol: string, marketDate: string): Promise<{ dail
 }
 
 /**
- * Create opportunity from strategy output.
- * Converts the standardized StrategyOutput into a Firestore RhTradeOpportunity.
+ * Derive timeframe ('D' | 'W') from signalType prefix.
  */
-function createOpportunityFromSignal(
+function deriveTimeframe(signalType: string): 'D' | 'W' {
+  return signalType.startsWith('W_') ? 'W' : 'D';
+}
+
+/**
+ * Build a RhAgentSignalDoc from strategy output.
+ * Doc ID: {DATE}_{SIGNALTYPE} — deterministic, idempotent on re-run.
+ */
+function createSignalDoc(
   symbol: string,
   marketDate: string,
-  strategyName: string,
+  runId: string,
   result: StrategyOutput
-): RhTradeOpportunity {
+): RhAgentSignalDoc {
+  const signalId = `${marketDate}_${result.signalType}`;
+  const timeframe = deriveTimeframe(result.signalType);
+
   return {
-    id: '',
-    runId: '',
-    marketDate,
+    id: signalId,
     symbol,
-    action: result.action === 'OPEN_LONG' ? RhOpportunityAction.OPEN_LONG : RhOpportunityAction.OPEN_SHORT,
+    marketDate,
+    runId,
+    timeframe,
+    direction: result.action === 'OPEN_LONG' ? StSignalDirection.LONG : StSignalDirection.SHORT,
     signalType: result.signalType,
-    strategy: strategyName,
-    confidence: result.confidence,
-    reason: result.reason,
-    indicators: (result.indicators || {}) as Record<string, number>,
-    suggestedAmount: result.suggestedAmount || 1000,
-    orderType: 'MARKET',
-    status: RhOpportunityStatus.PENDING,
+    indicators: (result.indicators || {}) as Record<string, number | string | null>,
     createdAt: FieldValue.serverTimestamp() as any,
-    updatedAt: FieldValue.serverTimestamp() as any,
   };
 }
 
 /**
- * Store opportunity in Firestore with custom ID: DATE_DAYOFWEEK_SYMBOL_DIRECTION_SIGNALTYPE.
- * Example: "2026-06-14_mon_AAPL_OPEN_LONG_D_ZONE_V1_UPTICK"
+ * Write signal doc to rh-agent-symbols/{symbol}/signals/{signalId}.
+ * merge: true makes re-runs idempotent.
  */
-async function storeOpportunity(runId: string, marketDate: string, opportunity: RhTradeOpportunity): Promise<void> {
-  // Get day of week from market date
-  const date = new Date(marketDate);
-  const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase(); // sun, mon, tue, etc.
+async function writeSignalToSubcollection(signal: RhAgentSignalDoc): Promise<void> {
+  const signalRef = db
+    .collection(RH_AGENT_SYMBOLS_COLLECTION)
+    .doc(signal.symbol)
+    .collection(RH_AGENT_SIGNALS_SUBCOLLECTION)
+    .doc(signal.id);
 
-  // Generate custom ID for easy identification in Firestore list
-  const oppId = `${marketDate}_${dayOfWeek}_${opportunity.symbol}_${opportunity.action}_${opportunity.signalType}`;
-  const oppRef = db.collection(RH_AGENT_OPPORTUNITIES_COLLECTION).doc(oppId);
+  await signalRef.set(signal, { merge: true });
+}
 
-  const oppData: RhTradeOpportunity = {
-    ...opportunity,
-    id: oppId,
-    runId,
-  };
+/**
+ * Update lastDailySignalDate or lastWeeklySignalDate on the symbol doc.
+ * This is the only gate field needed for the review list query.
+ */
+async function updateSymbolGateDate(symbol: string, marketDate: string, timeframe: 'D' | 'W'): Promise<void> {
+  const symbolRef = db.collection(RH_AGENT_SYMBOLS_COLLECTION).doc(symbol);
+  const field = timeframe === 'W' ? 'lastWeeklySignalDate' : 'lastDailySignalDate';
 
-  await oppRef.set(oppData, { merge: true });
+  await symbolRef.set({ [field]: marketDate }, { merge: true });
 }
 

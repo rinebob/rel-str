@@ -308,6 +308,7 @@ enum RhReviewStatus {
 - Remove dual-write, deprecate `rh-agent-opportunities` flat collection.
 - Migrate signal history component to read from subcollection.
 - Add Firestore composite indexes for all new query patterns.
+- **Migrate `StrategyOutput.action` from `'OPEN_LONG' | 'OPEN_SHORT'` string literals to `StSignalDirection` enum** — eliminates the mapping in `createSignalDoc()` and makes the type consistent from strategy execution through to Firestore persistence.
 
 ---
 

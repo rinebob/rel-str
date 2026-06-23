@@ -35,6 +35,26 @@ export enum PartnerEndpointPath {
   TIME_SERIES = 'partnerTimeSeriesV2',
   MARKET_HOLIDAYS = 'partnerMarketHolidays',
   INTRADAY_SNAPSHOT = 'partnerIntradaySnapshotV2',
+  COMPANY_OVERVIEW = 'partnerCompanyOverviewV2',
+}
+
+/** Raw AV data fields from company overview — all values are strings. */
+export interface PartnerOverviewData extends Record<string, string> {}
+
+/** Response shape for partnerCompanyOverviewV2 endpoint. */
+export interface PartnerCompanyOverviewResponse {
+  ok: boolean;
+  symbol: string;
+  data: PartnerOverviewData;
+  metadata: {
+    lastUpdated: string;
+    nextUpdate: string;
+    ttlSeconds: number;
+    vendor: string;
+    endpoint: string;
+  };
+  timestamp: string;
+  processingTimeMs: number;
 }
 
 /** RS calculation phase for a day's value. */

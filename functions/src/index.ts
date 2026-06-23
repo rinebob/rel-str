@@ -102,10 +102,19 @@ export {
   rhAgentGetRunHistory,
   rhAgentGetSignalHistory,
   rhAgentGetOpportunities,
+  rhAgentGetSymbolsWithSignals,
+  rhAgentGetSymbolSignalHistory,
 } from './rh-agent-cloud-function/rh-agent-dashboard-callables';
 
 // RH Agent Manual Run callable
 export { rhAgentManualRun } from './rh-agent-cloud-function/rh-agent-callables';
+
+// RH Agent Company Overview Sync (Phase 1)
+export {
+  rhAgentOverviewSyncWeekly,
+  rhAgentOverviewSyncAdmin,
+  rhAgentOverviewSyncSymbol,
+} from './rh-agent-cloud-function/rh-agent-overview-sync';
 
 // RS Bars nightly sync — single source of truth for OHLCV bars
 export { rsBarsSyncNightly, rsBarsSyncAdmin, rsBarsSyncSymbol } from './rs-bars/rs-bars-sync';

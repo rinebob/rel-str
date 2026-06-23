@@ -22,6 +22,47 @@ export const RH_AGENT_OPPORTUNITIES_COLLECTION = 'rh-agent-opportunities';
 /** Symbol list collection for daily scanning. */
 export const RH_AGENT_SYMBOLS_COLLECTION = 'rh-agent-symbols';
 
+/** Signals subcollection under each symbol doc. */
+export const RH_AGENT_SIGNALS_SUBCOLLECTION = 'signals';
+
+/**
+ * Signal direction — whether the signal is a long or short entry.
+ */
+export enum StSignalDirection {
+  LONG  = 'LONG',
+  SHORT = 'SHORT',
+}
+
+/**
+ * All known signal types produced by ST strategies.
+ * Format: {TIMEFRAME}_{INDICATOR}_{VERSION}_{DIRECTION}
+ */
+export enum StSignalType {
+  D_ZONE_V1_UPTICK   = 'D_ZONE_V1_UPTICK',
+  D_ZONE_V1_DOWNTICK = 'D_ZONE_V1_DOWNTICK',
+  D_ZONE_V2_UPTICK   = 'D_ZONE_V2_UPTICK',
+  D_ZONE_V2_DOWNTICK = 'D_ZONE_V2_DOWNTICK',
+  W_ZONE_V1_UPTICK   = 'W_ZONE_V1_UPTICK',
+  W_ZONE_V1_DOWNTICK = 'W_ZONE_V1_DOWNTICK',
+  W_ZONE_V2_UPTICK   = 'W_ZONE_V2_UPTICK',
+  W_ZONE_V2_DOWNTICK = 'W_ZONE_V2_DOWNTICK',
+}
+
+/**
+ * Signal document stored under rh-agent-symbols/{SYMBOL}/signals/{DATE}_{SIGNALTYPE}.
+ */
+export interface RhAgentSignalDoc {
+  id: string;                   // {DATE}_{SIGNALTYPE}
+  symbol: string;
+  marketDate: string;           // YYYY-MM-DD
+  runId: string;
+  timeframe: 'D' | 'W';
+  direction: StSignalDirection;
+  signalType: StSignalType | string;
+  indicators: Record<string, number | string | null>;
+  createdAt: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
+}
+
 /**
  * Status of an agent run.
  */
@@ -192,15 +233,37 @@ export interface RhTradeOpportunity {
 }
 
 /**
- * Symbol list entry for daily scanning.
+ * Symbol document in rh-agent-symbols/{SYMBOL}.
+ * Config fields coexist with SA company overview and signal gate fields.
  */
 export interface RhAgentSymbol {
   symbol: string;
-  name?: string;
   enabled: boolean;
-  priority: number;  // Order of processing (lower = first)
   addedAt: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
   lastAnalyzedAt?: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
+  // Denormalized signal gate fields (written by worker on each signal)
+  lastDailySignalDate?: string;   // YYYY-MM-DD
+  lastWeeklySignalDate?: string;  // YYYY-MM-DD
+  // Company overview (written by rhAgentOverviewSyncSymbol, Phase 1)
+  name?: string;
+  sector?: string;
+  industry?: string;
+  exchange?: string;
+  assetType?: string;
+  marketCap?: number;
+  marketCapTier?: 'mega' | 'large' | 'mid' | 'small' | 'micro';
+  beta?: number;
+  peRatio?: number;
+  forwardPe?: number;
+  week52High?: number;
+  week52Low?: number;
+  ma200?: number;
+  ma50?: number;
+  dividendYield?: number;
+  analystTarget?: number;
+  analystBuys?: number;
+  analystSells?: number;
+  overviewFetchedAt?: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
 }
 
 /**

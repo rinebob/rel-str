@@ -13,8 +13,10 @@ import {
   RH_AGENT_STATUS_COLLECTION,
   RH_AGENT_OPPORTUNITIES_COLLECTION,
   RH_AGENT_SYMBOLS_COLLECTION,
+  RH_AGENT_SIGNALS_SUBCOLLECTION,
   AGENT_STATUS_DOC,
   RhAgentRunStatus,
+  RhAgentSignalDoc,
 } from './rh-agent-config';
 
 // Response types
@@ -66,6 +68,51 @@ interface OpportunitiesResponse {
     indicators: Record<string, number>;
     createdAt: string;
   }>;
+}
+
+interface SymbolProfile {
+  symbol: string;
+  enabled: boolean;
+  addedAt: string;
+  lastAnalyzedAt?: string;
+  lastDailySignalDate?: string;
+  lastWeeklySignalDate?: string;
+  // Company overview (populated by Phase 1)
+  name?: string;
+  sector?: string;
+  industry?: string;
+  exchange?: string;
+  marketCap?: number;
+  marketCapTier?: string;
+  beta?: number;
+  peRatio?: number;
+  week52High?: number;
+  week52Low?: number;
+  ma200?: number;
+  ma50?: number;
+  dividendYield?: number;
+}
+
+interface SymbolsWithSignalsResponse {
+  symbols: SymbolProfile[];
+}
+
+interface SignalItem {
+  id: string;
+  symbol: string;
+  marketDate: string;
+  runId: string;
+  timeframe: 'D' | 'W';
+  direction: string;
+  signalType: string;
+  indicators: Record<string, number | string | null>;
+  createdAt: string;
+}
+
+interface SymbolSignalHistoryResponse {
+  symbol: string;
+  timeframe: 'D' | 'W';
+  signals: SignalItem[];
 }
 
 /**
@@ -204,6 +251,136 @@ export const rhAgentGetSignalHistory = onCall<{ limit?: number; runId?: string }
       return { signals };
     } catch (error: any) {
       logger.error('rh_agent_get_signal_history_error', { error: error?.message });
+      throw new Error(`Failed to get signal history: ${error?.message}`);
+    }
+  }
+);
+
+/**
+ * Primary review page query.
+ * Returns enabled rh-agent-symbols docs filtered by lastWeeklySignalDate or
+ * lastDailySignalDate matching the given marketDate.
+ * Includes all company overview fields for grouping/sorting in the UI.
+ */
+export const rhAgentGetSymbolsWithSignals = onCall<
+  { marketDate: string; timeframe: 'W' | 'D' },
+  Promise<SymbolsWithSignalsResponse>
+>(
+  {
+    cors: true,
+    memory: '256MiB',
+    invoker: 'public',
+  },
+  async (request) => {
+    try {
+      const { marketDate, timeframe } = request.data;
+      if (!marketDate || !timeframe) {
+        throw new Error('marketDate and timeframe are required');
+      }
+
+      const dateField = timeframe === 'W' ? 'lastWeeklySignalDate' : 'lastDailySignalDate';
+
+      const snapshot = await db
+        .collection(RH_AGENT_SYMBOLS_COLLECTION)
+        .where('enabled', '==', true)
+        .where(dateField, '==', marketDate)
+        .get();
+
+      const symbols: SymbolProfile[] = snapshot.docs.map((doc) => {
+        const d = doc.data();
+        return {
+          symbol: d.symbol || doc.id,
+          enabled: d.enabled ?? true,
+          addedAt: d.addedAt?.toDate?.()?.toISOString() || '',
+          lastAnalyzedAt: d.lastAnalyzedAt?.toDate?.()?.toISOString(),
+          lastDailySignalDate: d.lastDailySignalDate,
+          lastWeeklySignalDate: d.lastWeeklySignalDate,
+          name: d.name,
+          sector: d.sector,
+          industry: d.industry,
+          exchange: d.exchange,
+          marketCap: d.marketCap,
+          marketCapTier: d.marketCapTier,
+          beta: d.beta,
+          peRatio: d.peRatio,
+          week52High: d.week52High,
+          week52Low: d.week52Low,
+          ma200: d.ma200,
+          ma50: d.ma50,
+          dividendYield: d.dividendYield,
+        };
+      });
+
+      logger.info('rh_agent_get_symbols_with_signals', {
+        marketDate, timeframe, count: symbols.length,
+      });
+
+      return { symbols };
+    } catch (error: any) {
+      logger.error('rh_agent_get_symbols_with_signals_error', { error: error?.message });
+      throw new Error(`Failed to get symbols with signals: ${error?.message}`);
+    }
+  }
+);
+
+/**
+ * Returns signal history for a single symbol, filtered by timeframe.
+ * Used by the detail panel when a symbol row is selected.
+ * Returns signals from the last `days` trading days (default 5).
+ */
+export const rhAgentGetSymbolSignalHistory = onCall<
+  { symbol: string; timeframe: 'W' | 'D'; days?: number },
+  Promise<SymbolSignalHistoryResponse>
+>(
+  {
+    cors: true,
+    memory: '256MiB',
+    invoker: 'public',
+  },
+  async (request) => {
+    try {
+      const { symbol, timeframe, days = 5 } = request.data;
+      if (!symbol || !timeframe) {
+        throw new Error('symbol and timeframe are required');
+      }
+
+      // Compute cutoff date: today minus `days` calendar days
+      // (approximation for trading days — simple and sufficient)
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days * 2); // ×2 to account for weekends
+      const cutoffDate = cutoff.toISOString().slice(0, 10);
+
+      const snapshot = await db
+        .collection(RH_AGENT_SYMBOLS_COLLECTION)
+        .doc(symbol)
+        .collection(RH_AGENT_SIGNALS_SUBCOLLECTION)
+        .where('timeframe', '==', timeframe)
+        .where('marketDate', '>=', cutoffDate)
+        .orderBy('marketDate', 'desc')
+        .get();
+
+      const signals: SignalItem[] = snapshot.docs.map((doc) => {
+        const d = doc.data() as RhAgentSignalDoc;
+        return {
+          id: doc.id,
+          symbol: d.symbol,
+          marketDate: d.marketDate,
+          runId: d.runId,
+          timeframe: d.timeframe,
+          direction: d.direction as string,
+          signalType: d.signalType as string,
+          indicators: d.indicators || {},
+          createdAt: (d.createdAt as any)?.toDate?.()?.toISOString() || '',
+        };
+      });
+
+      logger.info('rh_agent_get_symbol_signal_history', {
+        symbol, timeframe, days, cutoffDate, count: signals.length,
+      });
+
+      return { symbol, timeframe, signals };
+    } catch (error: any) {
+      logger.error('rh_agent_get_symbol_signal_history_error', { error: error?.message });
       throw new Error(`Failed to get signal history: ${error?.message}`);
     }
   }
