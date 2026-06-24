@@ -167,7 +167,13 @@ function normalizeBars(bars: any[]): OHLCV[] {
     low: b.low ?? b.l ?? 0,
     close: b.close ?? b.c ?? 0,
     volume: b.volume ?? b.v ?? 0,
+    date: b.d ?? b.date ?? b.t ?? '',
   }));
+}
+
+function lastBarDate(bars: any[]): string {
+  const last = bars[bars.length - 1];
+  return last?.d ?? last?.date ?? last?.t ?? '';
 }
 
 // =============================================================================
@@ -182,6 +188,7 @@ export function execute(input: StrategyInput, _config: StrategyConfig): Strategy
   if (bars && bars.length >= 45 && weeklyBars && weeklyBars.length >= 30) {
     const dailyOhlcv = normalizeBars(bars);
     const weeklyOhlcv = normalizeBars(weeklyBars);
+    const dailyBarDate = lastBarDate(bars);
 
     // Compute bands once, reuse for V1 and V2
     const dailyBands = computeStTrendBands(dailyOhlcv);
@@ -201,6 +208,7 @@ export function execute(input: StrategyInput, _config: StrategyConfig): Strategy
         confidence: 0,
         reason: v1Daily.reason,
         signalType: v1Daily.signalType,
+        barDate: dailyBarDate,
         indicators: v1Daily.indicators,
       });
     }
@@ -215,6 +223,7 @@ export function execute(input: StrategyInput, _config: StrategyConfig): Strategy
         confidence: 0,
         reason: v2Daily.reason,
         signalType: v2Daily.signalType,
+        barDate: dailyBarDate,
         indicators: v2Daily.indicators,
       });
     }
@@ -224,6 +233,7 @@ export function execute(input: StrategyInput, _config: StrategyConfig): Strategy
   if (weeklyBars && weeklyBars.length >= 45 && monthlyBars && monthlyBars.length >= 30) {
     const weeklyOhlcv = normalizeBars(weeklyBars);
     const monthlyOhlcv = normalizeBars(monthlyBars);
+    const weeklyBarDate = lastBarDate(weeklyBars);
 
     const weeklyBands = computeStTrendBands(weeklyOhlcv);
     const monthlyBands = computeStTrendBands(monthlyOhlcv);
@@ -242,6 +252,7 @@ export function execute(input: StrategyInput, _config: StrategyConfig): Strategy
         confidence: 0,
         reason: v1Weekly.reason,
         signalType: v1Weekly.signalType,
+        barDate: weeklyBarDate,
         indicators: v1Weekly.indicators,
       });
     }
@@ -256,6 +267,7 @@ export function execute(input: StrategyInput, _config: StrategyConfig): Strategy
         confidence: 0,
         reason: v2Weekly.reason,
         signalType: v2Weekly.signalType,
+        barDate: weeklyBarDate,
         indicators: v2Weekly.indicators,
       });
     }

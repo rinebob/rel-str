@@ -68,10 +68,18 @@ export async function loadEnabledSymbols(requestedSymbols?: string[]): Promise<s
  */
 function generateRunId(marketDate: string): string {
   const now = new Date();
-  const dow = now.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
+  const [year, month, day] = marketDate.split('-').map(Number);
+  const dow = new Date(year, month - 1, day)
+    .toLocaleDateString('en-US', { weekday: 'short' })
+    .toLowerCase();
+  const timeParts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  }).formatToParts(now);
+  const hours = timeParts.find(p => p.type === 'hour')!.value.padStart(2, '0');
+  const minutes = timeParts.find(p => p.type === 'minute')!.value.padStart(2, '0');
+  const seconds = timeParts.find(p => p.type === 'second')!.value.padStart(2, '0');
   return `${marketDate}_${dow}_${hours}${minutes}${seconds}`;
 }
 

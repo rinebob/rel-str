@@ -22,7 +22,10 @@ export const RH_AGENT_OPPORTUNITIES_COLLECTION = 'rh-agent-opportunities';
 /** Symbol list collection for daily scanning. */
 export const RH_AGENT_SYMBOLS_COLLECTION = 'rh-agent-symbols';
 
-/** Signals subcollection under each symbol doc. */
+/** Signal-dates subcollection under each symbol doc. One doc per bar date, signals as a map field. */
+export const RH_AGENT_SIGNAL_DATES_SUBCOLLECTION = 'signal-dates';
+
+/** @deprecated Use RH_AGENT_SIGNAL_DATES_SUBCOLLECTION. Kept for migration reference. */
 export const RH_AGENT_SIGNALS_SUBCOLLECTION = 'signals';
 
 /**
@@ -49,8 +52,37 @@ export enum StSignalType {
 }
 
 /**
- * Signal document stored under rh-agent-symbols/{SYMBOL}/signals/{DATE}_{SIGNALTYPE}.
+ * Signal status — INTERIM for open W/M periods, CONFIRMED once the period closes.
+ * Daily signals are always CONFIRMED.
  */
+export type RhAgentSignalStatus = 'INTERIM' | 'CONFIRMED';
+
+/**
+ * Individual signal entry stored in the signals map of RhAgentSignalDateDoc.
+ */
+export interface RhAgentSignalEntry {
+  signalType: StSignalType | string;
+  timeframe: 'D' | 'W';
+  direction: StSignalDirection;
+  status: RhAgentSignalStatus;
+  barDate: string;               // YYYY-MM-DD — the bar that triggered (doc ID)
+  marketDate: string;            // YYYY-MM-DD — run date (may differ from barDate for W)
+  indicators: Record<string, number | string | null>;
+}
+
+/**
+ * Signal date doc stored under rh-agent-symbols/{SYMBOL}/signal-dates/{barDate}.
+ * One doc per bar date; all signals for that date stored as a map keyed by signalType.
+ */
+export interface RhAgentSignalDateDoc {
+  symbol: string;
+  barDate: string;               // YYYY-MM-DD — doc ID
+  runId: string;                 // last run that wrote/updated this doc
+  updatedAt: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
+  signals: Record<string, RhAgentSignalEntry>;
+}
+
+/** @deprecated Use RhAgentSignalDateDoc. */
 export interface RhAgentSignalDoc {
   id: string;                   // {DATE}_{SIGNALTYPE}
   symbol: string;

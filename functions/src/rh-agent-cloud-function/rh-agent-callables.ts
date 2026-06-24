@@ -99,6 +99,10 @@ export const rhAgentManualRun = onCall<ManualRunRequest, Promise<ManualRunRespon
     const startTime = Date.now();
     logger.info('rh_agent_manual_run_called', { auth: request.auth?.uid });
 
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Must be signed in to trigger a manual run');
+    }
+
     try {
       // 1. Get market date (allow override for holidays/weekends)
       const marketDate = request.data.date || getMarketDate();

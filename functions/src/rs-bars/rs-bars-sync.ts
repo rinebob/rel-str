@@ -18,12 +18,14 @@ import { logger } from 'firebase-functions';
 import { FieldValue } from 'firebase-admin/firestore';
 import { db } from '../firebase-admin-init';
 import { callPartnerTimeSeries, callPartnerTrackedSymbols } from '../partner-proxy';
+import { startRhAgentRun } from '../rh-agent-cloud-function/rh-agent-trigger';
 
 // ============================================================================
 // Constants
 // ============================================================================
 
 export const RS_BARS_COLLECTION = 'rs-bars';
+const RS_BARS_SYNC_RUNS_COLLECTION = 'rs-bars-sync-runs';
 
 // Lookback windows for full backfill (in years)
 const DAILY_BACKFILL_YEARS = 3;
@@ -219,13 +221,20 @@ async function syncSymbol(symbol: string, forceFullFetch: boolean): Promise<Sync
 interface RsBarsSyncPayload {
   symbol: string;
   forceFullFetch: boolean;
+  syncRunId?: string;   // Tracking doc ID for completion callback
+  totalSymbols?: number;
+  marketDate?: string;
 }
 
 // ============================================================================
 // Enqueue all symbols as Cloud Tasks
 // ============================================================================
 
-async function enqueueAllSymbols(forceFullFetch: boolean, symbols?: string[]): Promise<{ total: number; enqueued: number }> {
+async function enqueueAllSymbols(
+  forceFullFetch: boolean,
+  symbols?: string[],
+  triggerAgentOnComplete?: boolean
+): Promise<{ total: number; enqueued: number }> {
   let allSymbols: string[] = [];
 
   if (symbols && symbols.length > 0) {
@@ -241,6 +250,22 @@ async function enqueueAllSymbols(forceFullFetch: boolean, symbols?: string[]): P
     return { total: 0, enqueued: 0 };
   }
 
+  // Create a sync run tracking doc when triggering agent on completion
+  let syncRunId: string | undefined;
+  const marketDate = todayIso();
+  if (triggerAgentOnComplete) {
+    syncRunId = `${marketDate}_${Date.now()}`;
+    await db.collection(RS_BARS_SYNC_RUNS_COLLECTION).doc(syncRunId).set({
+      syncRunId,
+      marketDate,
+      totalSymbols: allSymbols.length,
+      processedCount: 0,
+      startedAt: FieldValue.serverTimestamp(),
+      triggerAgentOnComplete: true,
+    });
+    logger.info('rs_bars_sync_run_created', { syncRunId, total: allSymbols.length });
+  }
+
   logger.info('rs_bars_sync_enqueue_start', { total: allSymbols.length, forceFullFetch });
 
   const queue = getFunctions().taskQueue('rsBarsSyncSymbol');
@@ -249,7 +274,7 @@ async function enqueueAllSymbols(forceFullFetch: boolean, symbols?: string[]): P
   await Promise.allSettled(
     allSymbols.map(async (symbol) => {
       try {
-        const payload: RsBarsSyncPayload = { symbol, forceFullFetch };
+        const payload: RsBarsSyncPayload = { symbol, forceFullFetch, syncRunId, totalSymbols: allSymbols.length, marketDate };
         await queue.enqueue(payload);
         enqueued++;
       } catch (err: any) {
@@ -274,9 +299,14 @@ export const rsBarsSyncSymbol = onTaskDispatched<RsBarsSyncPayload>(
     timeoutSeconds: 120,
   },
   async (req) => {
-    const { symbol, forceFullFetch } = req.data;
+    const { symbol, forceFullFetch, syncRunId, totalSymbols, marketDate } = req.data;
     const result = await syncSymbol(symbol, forceFullFetch);
     logger.info('rs_bars_sync_symbol_done', result);
+
+    // If this sync has a tracking doc, increment counter and check for completion
+    if (syncRunId && totalSymbols && marketDate) {
+      await checkSyncRunCompletion(syncRunId, totalSymbols, marketDate);
+    }
   }
 );
 
@@ -291,7 +321,7 @@ export const rsBarsSyncNightly = onSchedule({
   memory: '256MiB',
 }, async () => {
   logger.info('rsBarsSyncNightly triggered');
-  await enqueueAllSymbols(false);
+  await enqueueAllSymbols(false, undefined, true); // true = trigger agent run when done
 });
 
 // ============================================================================
@@ -308,7 +338,39 @@ export const rsBarsSyncAdmin = onCall<RsBarsSyncAdminRequest>(
   async (request) => {
     const { forceFullFetch = false, symbols } = request.data ?? {};
     logger.info('rsBarsSyncAdmin called', { forceFullFetch, symbolCount: symbols?.length ?? 'all' });
-    const result = await enqueueAllSymbols(forceFullFetch, symbols);
+    const result = await enqueueAllSymbols(forceFullFetch, symbols); // Admin runs don't trigger agent
     return { ...result, message: `Enqueued ${result.enqueued} symbols for processing` };
   }
 );
+
+/**
+ * Increment the processed counter for a sync run and trigger the RH Agent run
+ * once all symbols have been synced.
+ */
+async function checkSyncRunCompletion(
+  syncRunId: string,
+  totalSymbols: number,
+  marketDate: string
+): Promise<void> {
+  const runRef = db.collection(RS_BARS_SYNC_RUNS_COLLECTION).doc(syncRunId);
+  await runRef.set(
+    { processedCount: FieldValue.increment(1) },
+    { merge: true }
+  );
+
+  const snap = await runRef.get();
+  const processed = (snap.data() as any)?.processedCount ?? 0;
+
+  logger.info('rs_bars_sync_run_progress', { syncRunId, processed, totalSymbols });
+
+  if (processed >= totalSymbols) {
+    logger.info('rs_bars_sync_run_complete', { syncRunId, marketDate });
+    await runRef.set({ completedAt: FieldValue.serverTimestamp() }, { merge: true });
+    try {
+      await startRhAgentRun(marketDate, 'nightly');
+      logger.info('rs_bars_sync_agent_run_triggered', { syncRunId, marketDate });
+    } catch (err: any) {
+      logger.error('rs_bars_sync_agent_run_failed', { syncRunId, marketDate, error: err?.message });
+    }
+  }
+}

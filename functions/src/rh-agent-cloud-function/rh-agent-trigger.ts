@@ -22,6 +22,7 @@ import {
 } from './rh-agent-config';
 
 import { callPartnerIntradaySnapshotV2 } from '../partner-proxy';
+import { RS_BARS_COLLECTION, OhlcBar } from '../rs-bars/rs-bars-sync';
 
 /**
  * Pub/Sub trigger: Automatically starts RH Agent when PDR intraday-snapshot message arrives.
@@ -87,7 +88,10 @@ export const rhAgentPdrTrigger = onMessagePublished(
         logger.warn('rh_agent_pdr_intraday_fetch_failed', { marketDate, error: error?.message });
       }
 
-      // 3. Start the RH Agent run with intraday data
+      // 3. Write intraday partial bars to rs-bars so workers see today's price
+      await writeIntradayBarsToRsBars(marketDate, intradaySnapshots);
+
+      // 4. Start the RH Agent run with intraday data
       await startRhAgentRun(marketDate, 'pdr', intradaySnapshots);
 
       logger.info('rh_agent_pdr_success', { marketDate, symbolCount: symbols.length });
@@ -218,10 +222,18 @@ async function loadEnabledSymbols(): Promise<string[]> {
  */
 function generateRunId(marketDate: string): string {
   const now = new Date();
-  const dow = now.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
+  const [year, month, day] = marketDate.split('-').map(Number);
+  const dow = new Date(year, month - 1, day)
+    .toLocaleDateString('en-US', { weekday: 'short' })
+    .toLowerCase();
+  const timeParts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  }).formatToParts(now);
+  const hours = timeParts.find(p => p.type === 'hour')!.value.padStart(2, '0');
+  const minutes = timeParts.find(p => p.type === 'minute')!.value.padStart(2, '0');
+  const seconds = timeParts.find(p => p.type === 'second')!.value.padStart(2, '0');
   return `${marketDate}_${dow}_${hours}${minutes}${seconds}`;
 }
 
@@ -229,7 +241,7 @@ async function createDailyRun(
   marketDate: string,
   totalSymbols: number,
   deadlineAt: string,
-  triggeredBy: 'manual' | 'pdr' = 'manual'
+  triggeredBy: 'manual' | 'pdr' | 'nightly' = 'manual'
 ): Promise<string> {
   const runId = generateRunId(marketDate);
   const runRef = db.collection(RH_AGENT_RUNS_COLLECTION).doc(runId);
@@ -263,7 +275,7 @@ async function createJobAndEnqueue(
   runId: string,
   symbol: string,
   marketDate: string,
-  context: 'manual' | 'pdr' = 'manual',
+  context: 'manual' | 'pdr' | 'nightly' = 'manual',
   intraday?: IntradaySnapshot
 ): Promise<void> {
   const jobRef = db
@@ -295,11 +307,61 @@ async function createJobAndEnqueue(
 }
 
 /**
- * Start RH Agent run - shared logic for all trigger types.
+ * Write intraday partial bars to rs-bars/{symbol} so that workers see today's
+ * current price as the latest daily bar. If today's bar already exists it is
+ * overwritten (idempotent — safe for multiple PDR runs per day).
+ * The nightly rsBarsSyncNightly will later replace this with the real EOD bar.
  */
-async function startRhAgentRun(
-  marketDate: string, 
-  triggeredBy: 'manual' | 'pdr',
+async function writeIntradayBarsToRsBars(
+  marketDate: string,
+  snapshots: IntradaySnapshot[]
+): Promise<void> {
+  if (snapshots.length === 0) return;
+
+  const writes = snapshots.map(async (snap) => {
+    try {
+      const docRef = db.collection(RS_BARS_COLLECTION).doc(snap.symbol);
+      const existing = await docRef.get();
+      if (!existing.exists) return; // No bars doc yet — skip
+
+      const data = existing.data() as any;
+      const daily: OhlcBar[] = Array.isArray(data?.daily) ? data.daily : [];
+
+      const partialBar: OhlcBar = {
+        d: marketDate,
+        o: snap.ip,
+        h: snap.ip,
+        l: snap.ip,
+        c: snap.ip,
+      };
+
+      // Replace today's bar if present, otherwise append
+      const last = daily.at(-1);
+      const updatedDaily = last?.d === marketDate
+        ? [...daily.slice(0, -1), partialBar]
+        : [...daily, partialBar];
+
+      await docRef.update({
+        daily: updatedDaily,
+        lastDailyBarDate: marketDate,
+        lastIntradayAt: FieldValue.serverTimestamp(),
+      });
+    } catch (err: any) {
+      logger.warn('rh_agent_pdr_rs_bars_write_failed', { symbol: snap.symbol, error: err?.message });
+    }
+  });
+
+  await Promise.allSettled(writes);
+  logger.info('rh_agent_pdr_rs_bars_written', { marketDate, count: snapshots.length });
+}
+
+/**
+ * Start RH Agent run - shared logic for all trigger types.
+ * Exported so rs-bars-sync can call it after nightly sync completes.
+ */
+export async function startRhAgentRun(
+  marketDate: string,
+  triggeredBy: 'manual' | 'pdr' | 'nightly',
   intradaySnapshots: IntradaySnapshot[] = []
 ): Promise<void> {
   const startTime = Date.now();
