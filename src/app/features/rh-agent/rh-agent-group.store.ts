@@ -8,7 +8,6 @@
  * - Load symbols with signals for a given marketDate + timeframe
  * - Group symbols by the selected dimension (sector, industry, marketCapTier, exchange)
  * - Track per-symbol signal history (loaded on demand)
- * - Track ACR triage status per symbol (local UI state)
  * - Track "show full group" toggle per group
  * - Track selected symbol for detail panel
  */
@@ -21,6 +20,7 @@ import {
   patchState,
 } from '@ngrx/signals';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { forkJoin } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import {
@@ -28,6 +28,7 @@ import {
   RhAgentSymbolProfile,
   RhAgentSignalItem,
 } from './rh-agent.service';
+import { RhAgentTriageStore } from './rh-agent-triage.store';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -67,17 +68,12 @@ export interface RhSymbolGroup {
 // ---------------------------------------------------------------------------
 
 export interface RhAgentGroupState {
-  /** Active timeframe for the review pass. */
-  timeframe: 'W' | 'D';
   /** Market date being reviewed (YYYY-MM-DD). */
   marketDate: string;
   /** Current grouping dimension. */
   groupDimension: GroupDimension;
-  /** All signal symbols returned from the callable. */
+  /** All signal symbols returned from the callable (W + D merged). */
   signalSymbols: RhAgentSymbolProfile[];
-  /** Signal counts per timeframe (for the W/D toggle badges). */
-  weeklySignalCount: number;
-  dailySignalCount: number;
   /** Loading state for the main symbol list query. */
   symbolsLoading: boolean;
   symbolsError: string | null;
@@ -85,31 +81,27 @@ export interface RhAgentGroupState {
   signalHistoryCache: Record<string, RhAgentSignalItem[]>;
   /** Per-symbol loading flags. */
   signalHistoryLoading: Record<string, boolean>;
-  /** Local triage status per symbol. */
-  reviewStatuses: Record<string, RhReviewStatus>;
   /** Per-group "show full group" toggle. */
   fullGroupToggles: Record<string, boolean>;
   /** Currently selected symbol for the detail panel. */
   selectedSymbol: string | null;
 }
 
-const todayDate = (): string => {
+/** Yesterday in PT — used as default marketDate until intraday bars are wired. */
+const yesterdayDate = (): string => {
   const now = new Date();
+  now.setDate(now.getDate() - 1);
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(now);
 };
 
 const initialState: RhAgentGroupState = {
-  timeframe: 'W',
-  marketDate: todayDate(),
+  marketDate: yesterdayDate(),
   groupDimension: 'sector',
   signalSymbols: [],
-  weeklySignalCount: 0,
-  dailySignalCount: 0,
   symbolsLoading: false,
   symbolsError: null,
   signalHistoryCache: {},
   signalHistoryLoading: {},
-  reviewStatuses: {},
   fullGroupToggles: {},
   selectedSymbol: null,
 };
@@ -135,6 +127,118 @@ function getGroupKey(profile: RhAgentSymbolProfile, dimension: GroupDimension): 
 export const RhAgentGroupStore = signalStore(
   withState(initialState),
 
+  withMethods((
+    state,
+    service = inject(RhAgentService),
+    snackBar = inject(MatSnackBar),
+    destroyRef = inject(DestroyRef),
+    triageStore = inject(RhAgentTriageStore),
+  ) => ({
+    /** Expose triage store statuses for use by computed signals. */
+    getTriageStatuses(): Record<string, RhReviewStatus> {
+      return triageStore.statuses();
+    },
+
+    /** Expose triage store status counts. */
+    getTriageStatusCounts() {
+      return triageStore.statusCounts();
+    },
+
+    /** Set the market date and reload. */
+    setMarketDate(marketDate: string): void {
+      patchState(state, { marketDate, signalSymbols: [], signalHistoryCache: {}, selectedSymbol: null });
+      triageStore.setMarketDate(marketDate);
+      this.loadSymbolsWithSignals();
+    },
+
+    /** Change group dimension (no reload needed — regrouping is computed). */
+    setGroupDimension(dimension: GroupDimension): void {
+      patchState(state, { groupDimension: dimension });
+    },
+
+    /**
+     * Load signal symbols for current marketDate — fetches both W and D,
+     * merges by symbol (union). A symbol appears if it has either timeframe signal.
+     * Profile fields from the W result take precedence (arbitrary — they're the same doc).
+     */
+    loadSymbolsWithSignals(): void {
+      const marketDate = state.marketDate();
+      patchState(state, { symbolsLoading: true, symbolsError: null });
+
+      // Fetch both timeframes in parallel and merge
+      const w$ = service.getSymbolsWithSignals(marketDate, 'W');
+      const d$ = service.getSymbolsWithSignals(marketDate, 'D');
+
+      forkJoin([w$, d$])
+        .pipe(takeUntilDestroyed(destroyRef))
+        .subscribe({
+          next: ([weeklySymbols, dailySymbols]) => {
+            // Merge: build map keyed by symbol, W first then D overlay
+            const map = new Map<string, RhAgentSymbolProfile>();
+            for (const s of weeklySymbols) map.set(s.symbol, s);
+            for (const s of dailySymbols) {
+              if (!map.has(s.symbol)) map.set(s.symbol, s);
+            }
+            patchState(state, { signalSymbols: [...map.values()], symbolsLoading: false });
+          },
+          error: (err: any) => {
+            patchState(state, { symbolsLoading: false, symbolsError: err?.message ?? 'Load failed' });
+            snackBar.open('Failed to load symbols', 'Dismiss', { duration: 5000 });
+          },
+        });
+    },
+
+    /** Select a symbol — loads signal history on demand if not cached. */
+    selectSymbol(symbol: string): void {
+      patchState(state, { selectedSymbol: symbol });
+      if (!state.signalHistoryCache()[symbol]) {
+        this.loadSignalHistory(symbol);
+      }
+    },
+
+    /** Clear selected symbol. */
+    clearSelectedSymbol(): void {
+      patchState(state, { selectedSymbol: null });
+    },
+
+    /**
+     * Load signal history for a symbol into the cache.
+     * Reads all signals (W + D) directly from Firestore subcollection.
+     */
+    loadSignalHistory(symbol: string): void {
+      patchState(state, {
+        signalHistoryLoading: { ...state.signalHistoryLoading(), [symbol]: true },
+      });
+
+      service.getSymbolSignalHistory(symbol)
+        .pipe(takeUntilDestroyed(destroyRef))
+        .subscribe({
+          next: (signals) => {
+            console.log(`[RhAgentGroupStore] Signal history for ${symbol}: ${signals.length} signals`);
+            patchState(state, {
+              signalHistoryCache: { ...state.signalHistoryCache(), [symbol]: signals },
+              signalHistoryLoading: { ...state.signalHistoryLoading(), [symbol]: false },
+            });
+          },
+          error: (err: any) => {
+            patchState(state, {
+              signalHistoryCache: { ...state.signalHistoryCache(), [symbol]: [] },
+              signalHistoryLoading: { ...state.signalHistoryLoading(), [symbol]: false },
+            });
+            console.error(`[RhAgentGroupStore] Failed to load signal history for ${symbol}:`, err);
+          },
+        });
+    },
+
+    /** Toggle the "show full group" flag for a group key. */
+    toggleFullGroup(groupKey: string): void {
+      const current = state.fullGroupToggles();
+      patchState(state, {
+        fullGroupToggles: { ...current, [groupKey]: !(current[groupKey] ?? false) },
+      });
+    },
+  })),
+
   withComputed((state) => ({
     /**
      * Grouped view — groups built from signalSymbols, sorted by marketCap desc within group.
@@ -145,7 +249,7 @@ export const RhAgentGroupStore = signalStore(
     groups: computed((): RhSymbolGroup[] => {
       const symbols = state.signalSymbols();
       const dimension = state.groupDimension();
-      const statuses = state.reviewStatuses();
+      const statuses = state.getTriageStatuses();
       const historyCache = state.signalHistoryCache();
       const historyLoading = state.signalHistoryLoading();
       const fullGroupToggles = state.fullGroupToggles();
@@ -182,10 +286,15 @@ export const RhAgentGroupStore = signalStore(
           reviewStatus: statuses[profile.symbol] ?? 'PENDING',
         }));
 
-        const tf = state.timeframe();
-        const dirField = tf === 'W' ? 'lastWeeklySignalDirection' : 'lastDailySignalDirection';
-        const longCount = rows.filter((r) => (r.profile as any)[dirField] === 'LONG').length;
-        const shortCount = rows.filter((r) => (r.profile as any)[dirField] === 'SHORT').length;
+        // Count long/short from both timeframes
+        const longCount = rows.filter((r) =>
+          r.profile.lastWeeklySignalDirection === 'LONG' ||
+          r.profile.lastDailySignalDirection === 'LONG'
+        ).length;
+        const shortCount = rows.filter((r) =>
+          r.profile.lastWeeklySignalDirection === 'SHORT' ||
+          r.profile.lastDailySignalDirection === 'SHORT'
+        ).length;
 
         return {
           key,
@@ -200,18 +309,28 @@ export const RhAgentGroupStore = signalStore(
     /** Total signal count across all groups. */
     totalSignalCount: computed(() => state.signalSymbols().length),
 
-    /** Long/short breakdown for the active timeframe. */
-    longCount: computed(() => {
-      const tf = state.timeframe();
-      const dirField = tf === 'W' ? 'lastWeeklySignalDirection' : 'lastDailySignalDirection';
-      return state.signalSymbols().filter((p) => (p as any)[dirField] === 'LONG').length;
-    }),
+    /** Count of symbols with a weekly signal (informational, not a filter). */
+    weeklySignalCount: computed(() =>
+      state.signalSymbols().filter((p) => !!p.lastWeeklySignalDate).length
+    ),
 
-    shortCount: computed(() => {
-      const tf = state.timeframe();
-      const dirField = tf === 'W' ? 'lastWeeklySignalDirection' : 'lastDailySignalDirection';
-      return state.signalSymbols().filter((p) => (p as any)[dirField] === 'SHORT').length;
-    }),
+    /** Count of symbols with a daily signal (informational, not a filter). */
+    dailySignalCount: computed(() =>
+      state.signalSymbols().filter((p) => !!p.lastDailySignalDate).length
+    ),
+
+    /** Long/short breakdown across both timeframes. */
+    longCount: computed(() =>
+      state.signalSymbols().filter((p) =>
+        p.lastWeeklySignalDirection === 'LONG' || p.lastDailySignalDirection === 'LONG'
+      ).length
+    ),
+
+    shortCount: computed(() =>
+      state.signalSymbols().filter((p) =>
+        p.lastWeeklySignalDirection === 'SHORT' || p.lastDailySignalDirection === 'SHORT'
+      ).length
+    ),
 
     /** Currently selected symbol's loaded signals (from cache). */
     selectedSymbolSignals: computed((): RhAgentSignalItem[] => {
@@ -227,133 +346,7 @@ export const RhAgentGroupStore = signalStore(
       return state.signalSymbols().find((p) => p.symbol === sym) ?? null;
     }),
 
-    /** Review status counts. */
-    statusCounts: computed(() => {
-      const statuses = Object.values(state.reviewStatuses());
-      return {
-        PENDING:  statuses.filter((s) => s === 'PENDING').length,
-        PROMOTE:  statuses.filter((s) => s === 'PROMOTE').length,
-        ACCEPT:   statuses.filter((s) => s === 'ACCEPT').length,
-        CONSIDER: statuses.filter((s) => s === 'CONSIDER').length,
-        REJECT:   statuses.filter((s) => s === 'REJECT').length,
-      };
-    }),
+    /** Review status counts — delegates to triage store. */
+    statusCounts: computed(() => state.getTriageStatusCounts()),
   })),
-
-  withMethods((
-    state,
-    service = inject(RhAgentService),
-    snackBar = inject(MatSnackBar),
-    destroyRef = inject(DestroyRef),
-  ) => ({
-    /** Set the active timeframe and reload symbols. */
-    setTimeframe(timeframe: 'W' | 'D'): void {
-      patchState(state, { timeframe, signalSymbols: [], signalHistoryCache: {}, selectedSymbol: null });
-      this.loadSymbolsWithSignals();
-    },
-
-    /** Set the market date and reload. */
-    setMarketDate(marketDate: string): void {
-      patchState(state, { marketDate, signalSymbols: [], signalHistoryCache: {}, selectedSymbol: null });
-      this.loadSymbolsWithSignals();
-      this.loadSignalCounts();
-    },
-
-    /** Change group dimension (no reload needed — regrouping is computed). */
-    setGroupDimension(dimension: GroupDimension): void {
-      patchState(state, { groupDimension: dimension });
-    },
-
-    /** Load signal symbols for current marketDate + timeframe. */
-    loadSymbolsWithSignals(): void {
-      const { marketDate, timeframe } = state;
-      patchState(state, { symbolsLoading: true, symbolsError: null });
-
-      service
-        .getSymbolsWithSignals(marketDate(), timeframe())
-        .pipe(takeUntilDestroyed(destroyRef))
-        .subscribe({
-          next: (symbols) => {
-            patchState(state, { signalSymbols: symbols, symbolsLoading: false });
-          },
-          error: (err: any) => {
-            patchState(state, { symbolsLoading: false, symbolsError: err?.message ?? 'Load failed' });
-            snackBar.open('Failed to load symbols', 'Dismiss', { duration: 5000 });
-          },
-        });
-    },
-
-    /** Load W and D signal counts for the badge on the timeframe toggle. */
-    loadSignalCounts(): void {
-      const marketDate = state.marketDate();
-      service.getSymbolsWithSignals(marketDate, 'W')
-        .pipe(takeUntilDestroyed(destroyRef))
-        .subscribe({ next: (s) => patchState(state, { weeklySignalCount: s.length }), error: () => {} });
-      service.getSymbolsWithSignals(marketDate, 'D')
-        .pipe(takeUntilDestroyed(destroyRef))
-        .subscribe({ next: (s) => patchState(state, { dailySignalCount: s.length }), error: () => {} });
-    },
-
-    /** Select a symbol — loads signal history on demand if not cached. */
-    selectSymbol(symbol: string): void {
-      patchState(state, { selectedSymbol: symbol });
-      if (!state.signalHistoryCache()[symbol]) {
-        this.loadSignalHistory(symbol);
-      }
-    },
-
-    /** Clear selected symbol. */
-    clearSelectedSymbol(): void {
-      patchState(state, { selectedSymbol: null });
-    },
-
-    /** Load signal history for a symbol into the cache. */
-    loadSignalHistory(symbol: string): void {
-      const timeframe = state.timeframe();
-      patchState(state, {
-        signalHistoryLoading: { ...state.signalHistoryLoading(), [symbol]: true },
-      });
-
-      service
-        .getSymbolSignalHistory(symbol, timeframe, 14)
-        .pipe(takeUntilDestroyed(destroyRef))
-        .subscribe({
-          next: (signals) => {
-            patchState(state, {
-              signalHistoryCache: { ...state.signalHistoryCache(), [symbol]: signals },
-              signalHistoryLoading: { ...state.signalHistoryLoading(), [symbol]: false },
-            });
-          },
-          error: (err: any) => {
-            patchState(state, {
-              signalHistoryCache: { ...state.signalHistoryCache(), [symbol]: [] },
-              signalHistoryLoading: { ...state.signalHistoryLoading(), [symbol]: false },
-            });
-            console.error(`[RhAgentGroupStore] Failed to load signal history for ${symbol}:`, err);
-          },
-        });
-    },
-
-    /** Toggle the "show full group" flag for a group key. */
-    toggleFullGroup(groupKey: string): void {
-      const current = state.fullGroupToggles();
-      patchState(state, {
-        fullGroupToggles: { ...current, [groupKey]: !(current[groupKey] ?? false) },
-      });
-    },
-
-    // --- Triage actions ---
-
-    setReviewStatus(symbol: string, status: RhReviewStatus): void {
-      patchState(state, {
-        reviewStatuses: { ...state.reviewStatuses(), [symbol]: status },
-      });
-    },
-
-    promoteSymbol(symbol: string): void  { this.setReviewStatus(symbol, 'PROMOTE'); },
-    acceptSymbol(symbol: string): void   { this.setReviewStatus(symbol, 'ACCEPT'); },
-    considerSymbol(symbol: string): void { this.setReviewStatus(symbol, 'CONSIDER'); },
-    rejectSymbol(symbol: string): void   { this.setReviewStatus(symbol, 'REJECT'); },
-    resetSymbol(symbol: string): void    { this.setReviewStatus(symbol, 'PENDING'); },
-  }))
 );

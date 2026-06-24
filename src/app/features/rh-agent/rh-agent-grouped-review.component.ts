@@ -10,6 +10,7 @@ import {
   inject,
   OnInit,
   ChangeDetectionStrategy,
+  signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
@@ -22,6 +23,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { Router } from '@angular/router';
 
 import { RhAgentGroupStore, GroupDimension, RhSymbolGroup, RhSymbolRow } from './rh-agent-group.store';
+import { RhAgentTriageStore } from './rh-agent-triage.store';
 import { RhAgentSignalItem } from './rh-agent.service';
 
 @Component({
@@ -43,6 +45,7 @@ import { RhAgentSignalItem } from './rh-agent.service';
 })
 export class RhAgentGroupedReviewComponent implements OnInit {
   readonly groupStore = inject(RhAgentGroupStore);
+  readonly triageStore = inject(RhAgentTriageStore);
   private readonly router = inject(Router);
 
   /** Group dimension options for the pill toggle. */
@@ -72,11 +75,6 @@ export class RhAgentGroupedReviewComponent implements OnInit {
 
   ngOnInit(): void {
     this.groupStore.loadSymbolsWithSignals();
-    this.groupStore.loadSignalCounts();
-  }
-
-  onTimeframe(tf: 'W' | 'D'): void {
-    this.groupStore.setTimeframe(tf);
   }
 
   onDimension(dim: GroupDimension): void {
@@ -87,6 +85,37 @@ export class RhAgentGroupedReviewComponent implements OnInit {
     this.groupStore.selectSymbol(row.profile.symbol);
   }
 
+  /** Tracks which groups have all symbol panels expanded. */
+  readonly expandedGroups = signal<Record<string, boolean>>({});
+
+  /** Whether all symbol panels in a group are expanded. */
+  isGroupExpanded(groupKey: string): boolean {
+    return this.expandedGroups()[groupKey] ?? false;
+  }
+
+  onGroupOpened(group: RhSymbolGroup): void {
+    for (const row of group.rows) {
+      if (!row.signals) {
+        this.groupStore.loadSignalHistory(row.profile.symbol);
+      }
+    }
+  }
+
+  onExpandAll(group: RhSymbolGroup, event: Event): void {
+    event.stopPropagation();
+    const current = this.expandedGroups();
+    const isExpanded = current[group.key] ?? false;
+    this.expandedGroups.set({ ...current, [group.key]: !isExpanded });
+    // Also trigger signal history loading for all symbols in the group
+    if (!isExpanded) {
+      for (const row of group.rows) {
+        if (!row.signals) {
+          this.groupStore.loadSignalHistory(row.profile.symbol);
+        }
+      }
+    }
+  }
+
   onToggleFullGroup(groupKey: string, event: Event): void {
     event.stopPropagation();
     this.groupStore.toggleFullGroup(groupKey);
@@ -94,22 +123,22 @@ export class RhAgentGroupedReviewComponent implements OnInit {
 
   onPromote(symbol: string, event: Event): void {
     event.stopPropagation();
-    this.groupStore.promoteSymbol(symbol);
+    this.triageStore.promoteSymbol(symbol);
   }
 
   onAccept(symbol: string, event: Event): void {
     event.stopPropagation();
-    this.groupStore.acceptSymbol(symbol);
+    this.triageStore.acceptSymbol(symbol);
   }
 
   onConsider(symbol: string, event: Event): void {
     event.stopPropagation();
-    this.groupStore.considerSymbol(symbol);
+    this.triageStore.considerSymbol(symbol);
   }
 
   onReject(symbol: string, event: Event): void {
     event.stopPropagation();
-    this.groupStore.rejectSymbol(symbol);
+    this.triageStore.rejectSymbol(symbol);
   }
 
   goBack(): void {

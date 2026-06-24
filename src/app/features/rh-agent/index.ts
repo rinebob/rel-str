@@ -32,5 +32,8 @@ export {
   GroupDimension,
 } from './rh-agent-group.store';
 
+// Triage Store (Phase 5B — shared PACR state across pages)
+export { RhAgentTriageStore } from './rh-agent-triage.store';
+
 // Component
 export { RhAgentDashboardComponent } from './rh-agent-dashboard.component';

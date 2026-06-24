@@ -6,7 +6,7 @@
  */
 import { Injectable, inject } from '@angular/core';
 import { Functions, httpsCallable } from '@angular/fire/functions';
-import { Firestore, collection, collectionData, query, orderBy, limit } from '@angular/fire/firestore';
+import { Firestore, collection, collectionData, query, orderBy, limit, doc, getDocs } from '@angular/fire/firestore';
 import { Observable, from, map } from 'rxjs';
 
 /**
@@ -250,14 +250,60 @@ export class RhAgentService {
 
   /**
    * Per-symbol signal history for the detail panel.
-   * Returns signals from the last `days` trading days, filtered by timeframe.
+   * Reads directly from Firestore: rh-agent-symbols/{symbol}/signal-dates/*
+   * Returns all signals across all bar dates, sorted by barDate desc.
    */
   getSymbolSignalHistory(
     symbol: string,
-    timeframe: 'W' | 'D',
-    days = 5
+    _timeframe?: 'W' | 'D',
+    _days?: number
   ): Observable<RhAgentSignalItem[]> {
-    return from(this.symbolSignalHistoryCallable({ symbol, timeframe, days })).pipe(map((r) => r.data.signals));
+    const symbolDocRef = doc(this.firestore, 'rh-agent-symbols', symbol);
+    const signalDatesRef = collection(symbolDocRef, 'signal-dates');
+
+    return from(getDocs(signalDatesRef)).pipe(
+      map((snapshot) => {
+        const signals: RhAgentSignalItem[] = [];
+        for (const docSnap of snapshot.docs) {
+          const d = docSnap.data();
+
+          // Extract signal entries. Firestore may return:
+          // (a) Nested map: d['signals'] = { W_ZONE_V1_UPTICK: {...} }
+          // (b) Dot-notation keys: d['signals.W_ZONE_V1_UPTICK'] = {...}
+          const entries: any[] = [];
+
+          // Case (a): nested signals map
+          if (d['signals'] && typeof d['signals'] === 'object') {
+            entries.push(...Object.values(d['signals']));
+          }
+
+          // Case (b): dot-notation keys (signals.SIGNAL_TYPE as top-level keys)
+          for (const key of Object.keys(d)) {
+            if (key.startsWith('signals.') && typeof d[key] === 'object') {
+              entries.push(d[key]);
+            }
+          }
+
+          for (const entry of entries) {
+            if (!entry || !entry.signalType) continue;
+            signals.push({
+              id: docSnap.id,
+              symbol: d['symbol'] ?? symbol,
+              barDate: entry.barDate ?? docSnap.id,
+              marketDate: entry.marketDate ?? '',
+              runId: d['runId'] ?? '',
+              timeframe: entry.timeframe,
+              direction: entry.direction,
+              signalType: entry.signalType,
+              status: entry.status ?? 'CONFIRMED',
+              indicators: entry.indicators ?? {},
+            });
+          }
+        }
+        signals.sort((a, b) => b.barDate.localeCompare(a.barDate));
+        return signals;
+      })
+    );
   }
 
   /**

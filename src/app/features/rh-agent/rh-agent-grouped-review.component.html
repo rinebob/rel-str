@@ -11,15 +11,13 @@
       Grouped Review
     </h1>
 
-    <!-- Timeframe toggle -->
-    <div class="pill-group tf-toggle">
-      <button class="pill" [class.active]="groupStore.timeframe() === 'W'" (click)="onTimeframe('W')">
-        Weekly <span class="pill-count">{{ groupStore.weeklySignalCount() }}</span>
-      </button>
-      <button class="pill" [class.active]="groupStore.timeframe() === 'D'" (click)="onTimeframe('D')">
-        Daily <span class="pill-count">{{ groupStore.dailySignalCount() }}</span>
-      </button>
+    <!-- Signal counts (informational, not filters) -->
+    <div class="signal-counts">
+      <span class="signal-count">{{ groupStore.totalSignalCount() }} symbols</span>
+      <span class="signal-count tf-badge">W {{ groupStore.weeklySignalCount() }}</span>
+      <span class="signal-count tf-badge">D {{ groupStore.dailySignalCount() }}</span>
     </div>
+
     @if (groupStore.longCount() > 0 || groupStore.shortCount() > 0) {
       <div class="dir-counts">
         <span class="dir-count long">↑ {{ groupStore.longCount() }}</span>
@@ -89,14 +87,14 @@
         @if (groupStore.groups().length === 0) {
           <div class="empty-state">
             <mat-icon>inbox</mat-icon>
-            <p>No signals in the last 14 days</p>
+            <p>No signals found for this date</p>
             <p class="hint">Run the agent or select a different date</p>
           </div>
         }
 
         <mat-accordion [multi]="true">
           @for (group of groupStore.groups(); track group.key) {
-            <mat-expansion-panel class="group-panel">
+            <mat-expansion-panel class="group-panel" (opened)="onGroupOpened(group)">
 
               <!-- Sector panel header -->
               <mat-expansion-panel-header class="group-header">
@@ -111,6 +109,11 @@
                       <span class="grp-dir short">↓ {{ group.shortCount }} short</span>
                     }
                   </span>
+                  <button mat-icon-button class="expand-all-btn"
+                    (click)="onExpandAll(group, $event)"
+                    [matTooltip]="isGroupExpanded(group.key) ? 'Collapse all' : 'Expand all'">
+                    <mat-icon>{{ isGroupExpanded(group.key) ? 'unfold_less' : 'unfold_more' }}</mat-icon>
+                  </button>
                 </mat-panel-title>
               </mat-expansion-panel-header>
 
@@ -119,6 +122,7 @@
                 @for (row of visibleRows(group); track row.profile.symbol) {
                   <mat-expansion-panel
                     class="symbol-panel"
+                    [expanded]="isGroupExpanded(group.key)"
                     [class.status-promote]="row.reviewStatus === 'PROMOTE'"
                     [class.status-accept]="row.reviewStatus === 'ACCEPT'"
                     [class.status-consider]="row.reviewStatus === 'CONSIDER'"
@@ -223,7 +227,7 @@
                       } @else if (row.signals.length === 0) {
                         <span class="no-signals">No signal history found</span>
                       } @else {
-                        @for (sig of row.signals; track sig.id) {
+                        @for (sig of row.signals; track $index) {
                           <div class="signal-history-row">
                             <span class="sh-date">{{ sig.barDate }}</span>
                             <span class="sh-tf">{{ sig.timeframe }}</span>
