@@ -1,0 +1,65 @@
+<div class="quick-charts">
+
+  <!-- Empty state -->
+  @if (!symbol()) {
+    <div class="qc-empty">
+      <mat-icon>bar_chart</mat-icon>
+      <p>Click symbol to view charts</p>
+    </div>
+  }
+
+  <!-- Loading -->
+  @if (symbol() && loading()) {
+    <div class="qc-loading">
+      <mat-spinner diameter="24"></mat-spinner>
+      <span>Loading {{ symbol() }}…</span>
+    </div>
+  }
+
+  <!-- Error -->
+  @if (symbol() && error() && !loading()) {
+    <div class="qc-error">
+      <mat-icon>error_outline</mat-icon>
+      <p>{{ error() }}</p>
+    </div>
+  }
+
+  <!-- Charts: Monthly → Weekly → Daily -->
+  @if (symbol() && !loading() && !error()) {
+    <div class="qc-stack">
+      <div class="qc-chart-cell">
+        <div class="qc-tf-label">Daily</div>
+        <app-flex-chart
+          [chartData]="dailyData()"
+          [config]="dailyConfig()"
+          [syncCrosshairDate]="sharedCrosshairDate()"
+          (crosshairDateChange)="sharedCrosshairDate.set($event)"
+          height="100%">
+        </app-flex-chart>
+      </div>
+
+      <div class="qc-chart-cell">
+        <div class="qc-tf-label">Weekly</div>
+        <app-flex-chart
+          [chartData]="weeklyData()"
+          [config]="weeklyConfig()"
+          [syncCrosshairDate]="sharedCrosshairDate()"
+          (crosshairDateChange)="sharedCrosshairDate.set($event)"
+          height="100%">
+        </app-flex-chart>
+      </div>
+
+      <div class="qc-chart-cell">
+        <div class="qc-tf-label">Monthly</div>
+        <app-flex-chart
+          [chartData]="monthlyData()"
+          [config]="monthlyConfig"
+          [syncCrosshairDate]="sharedCrosshairDate()"
+          (crosshairDateChange)="sharedCrosshairDate.set($event)"
+          height="100%">
+        </app-flex-chart>
+      </div>
+    </div>
+  }
+
+</div>

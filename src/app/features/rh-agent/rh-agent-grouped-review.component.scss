@@ -163,7 +163,7 @@
 
 .gr-body {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   flex: 1;
   overflow: hidden;
 }
@@ -173,6 +173,77 @@
 .groups-panel {
   overflow-y: auto;
   padding: 8px;
+  flex: 1;
+  min-width: 0;
+  transition: flex 0.2s ease;
+
+  &.has-charts {
+    flex: 0 0 50%;
+    max-width: 50%;
+  }
+}
+
+// ─── Quick charts right panel ─────────────────────────────────────────────────
+
+.quick-charts-panel {
+  flex: 0 0 50%;
+  max-width: 50%;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--mat-sys-outline-variant);
+  overflow: hidden;
+  background: var(--mat-sys-surface);
+}
+
+.qcp-close {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: var(--mat-sys-surface-container);
+  cursor: pointer;
+  border-radius: 4px;
+  color: var(--mat-sys-on-surface-variant);
+  opacity: 0.7;
+
+  mat-icon { font-size: 14px; width: 14px; height: 14px; }
+  &:hover { opacity: 1; background: var(--mat-sys-surface-container-high); }
+}
+
+.qcp-body {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+
+  app-quick-charts {
+    display: flex;
+    flex-direction: column;
+  }
+
+}
+
+.qcp-placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--mat-sys-on-surface-variant);
+  opacity: 0.5;
+
+  mat-icon { font-size: 48px; width: 48px; height: 48px; }
+  p { font-size: 13px; margin: 0; }
 }
 
 .group-panel {
@@ -334,24 +405,32 @@
 
 .symbol-spacer { flex: 1; }
 
-.chart-placeholders {
-  display: flex;
-  gap: 3px;
-}
-
-.chart-thumb {
-  width: 22px;
-  height: 22px;
-  border-radius: 4px;
-  border: 1px dashed var(--mat-sys-outline);
-  display: flex;
+.quick-charts-btn {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  font-size: 8px;
-  font-weight: 700;
+  gap: 3px;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 7px 2px 4px;
+  border-radius: 10px;
+  border: none;
+  background: var(--mat-sys-surface-container);
   color: var(--mat-sys-on-surface-variant);
-  opacity: 0.4;
-  cursor: default;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+
+  mat-icon { font-size: 12px; width: 12px; height: 12px; }
+
+  &:hover {
+    background: var(--mat-sys-surface-container-high);
+    color: var(--mat-sys-on-surface);
+  }
+
+  &.active {
+    background: var(--mat-sys-primary-container);
+    color: var(--mat-sys-on-primary-container);
+  }
 }
 
 // ─── Badges ──────────────────────────────────────────────────────────────────

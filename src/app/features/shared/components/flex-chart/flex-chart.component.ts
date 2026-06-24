@@ -48,8 +48,6 @@ import type {
 } from './flex-chart.types';
 import { computeIndicators, groupIndicatorsByPane } from './flex-chart-calculations';
 import { computeAllBands, type BandSeriesData } from './indicators/st-trend-bands.indicator';
-import { autoscaleYAxisForRange } from '../../utils/chart.util';
-import type { OHLCDatum } from '../../types/rs.interfaces';
 
 @Component({
   selector: 'app-flex-chart',
@@ -108,9 +106,10 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
               low="low"
               open="open"
               close="close"
-              bearFillColor="#ef5350"
-              bullFillColor="#26a69a"
-              [columnWidth]="0.9"
+              bearFillColor="#26a69a"
+              bullFillColor="#ef5350"
+              [enableSolidCandles]="true"
+              [columnWidth]="1.0"
               [enableTooltip]="true"
               [animation]="noAnimation">
             </e-series>
@@ -128,7 +127,7 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
                 [bullFillColor]="band.bullColor"
                 [bearFillColor]="band.bearColor"
                 [enableSolidCandles]="true"
-                [columnWidth]="0.9"
+                [columnWidth]="1.0"
                 opacity="0.7"
                 [enableTooltip]="false"
                 [animation]="noAnimation">
@@ -157,7 +156,7 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
                   yName="y"
                   [name]="indicator.config.options.name || indicator.config.type.toUpperCase()"
                   pointColorMapping="color"
-                  [marker]="{ visible: true, shape: 'Circle', width: 6, height: 6 }"
+                  [marker]="{ visible: true, shape: 'Circle', width: 10, height: 10 }"
                   [enableTooltip]="true"
                   [animation]="noAnimation">
                 </e-series>
@@ -178,7 +177,7 @@ import type { OHLCDatum } from '../../types/rs.interfaces';
                     [name]="indicator.config.options.name || indicator.config.type.toUpperCase()"
                     [fill]="indicator.config.options.color || '#26a69a'"
                     pointColorMapping="color"
-                    [columnWidth]="0.8"
+                    [columnWidth]="1.0"
                     [enableTooltip]="true"
                     [animation]="noAnimation">
                   </e-series>
@@ -516,18 +515,22 @@ export class FlexChartComponent implements OnDestroy {
     rowIndex: this.lowerPanes().length, // Main pane = topmost row
     majorGridLines: { width: 1 },
     crosshairTooltip: { enable: false },
+    rangePadding: 'None',
   }));
 
-  zoomSettings = computed(() => ({
-    enableSelectionZooming: true,
-    enableScrollbar: this.config().enableScrollbar !== false,
-    enableMouseWheelZooming: false,
-    mode: 'X',
-    enablePan: true,
-    showToolbar: this.config().showZoomToolbar !== false,
-    toolbarItems: ['Zoom', 'ZoomIn', 'ZoomOut', 'Pan', 'Reset'],
-    toolbarPosition: { horizontalAlignment: 'Near', verticalAlignment: 'Top' },
-  }));
+  zoomSettings = computed(() => {
+    const showToolbar = this.config().showZoomToolbar !== false;
+    return {
+      enableSelectionZooming: showToolbar,
+      enableScrollbar: this.config().enableScrollbar !== false,
+      enableMouseWheelZooming: false,
+      mode: 'X',
+      enablePan: showToolbar,
+      showToolbar,
+      toolbarItems: ['Zoom', 'ZoomIn', 'ZoomOut', 'Pan', 'Reset'],
+      toolbarPosition: { horizontalAlignment: 'Near', verticalAlignment: 'Top' },
+    };
+  });
 
   tooltip = {
     enable: false,
@@ -687,28 +690,20 @@ export class FlexChartComponent implements OnDestroy {
     const data = this.chartData();
     if (!chart || !data || !event.currentVisibleRange) return;
 
-    // Category axis: min/max are indices
-    const minIdx = Math.floor(event.currentVisibleRange.min ?? 0);
-    const maxIdx = Math.ceil(event.currentVisibleRange.max ?? 0);
-    
-    // Track visible range start for axis label formatting (get date from bar at index)
-    const startBar = data.bars[minIdx];
-    if (startBar) {
-      this.visibleRangeStart.set(startBar.x);
-    }
-    
-    const chartBars: OHLCDatum[] = data.bars.map(b => ({
-      x: b.x,
-      open: b.open,
-      high: b.high,
-      low: b.low,
-      close: b.close,
-    }));
+    const minIdx = Math.max(0, Math.floor(event.currentVisibleRange.min ?? 0));
+    const maxIdx = Math.min(data.bars.length - 1, Math.ceil(event.currentVisibleRange.max ?? 0));
+    const visibleBars = data.bars.slice(minIdx, maxIdx + 1);
 
-    // Use date values for Y-axis autoscale
-    const minDate = data.bars[minIdx]?.x ?? new Date(0);
-    const maxDate = data.bars[Math.min(maxIdx, data.bars.length - 1)]?.x ?? new Date();
-    autoscaleYAxisForRange(chartBars, [], chart, minDate, maxDate, true);
+    if (visibleBars[0]) this.visibleRangeStart.set(visibleBars[0].x);
+
+    if (visibleBars.length > 0 && chart.primaryYAxis) {
+      const rawMin = Math.min(...visibleBars.map(b => b.low));
+      const rawMax = Math.max(...visibleBars.map(b => b.high));
+      const pad = (rawMax - rawMin) * 0.03;
+      chart.primaryYAxis.minimum = rawMin - pad;
+      chart.primaryYAxis.maximum = rawMax + pad;
+      chart.dataBind();
+    }
   }
 
   onScrollEnd(event: IScrollEventArgs): void {
@@ -720,28 +715,20 @@ export class FlexChartComponent implements OnDestroy {
     const visibleRange = xAxis?.visibleRange;
     if (!visibleRange) return;
 
-    // Category axis: min/max are indices
-    const minIdx = Math.floor(visibleRange.min ?? 0);
-    const maxIdx = Math.ceil(visibleRange.max ?? 0);
-    
-    // Track visible range start for axis label formatting
-    const startBar = data.bars[minIdx];
-    if (startBar) {
-      this.visibleRangeStart.set(startBar.x);
-    }
-    
-    const chartBars: OHLCDatum[] = data.bars.map(b => ({
-      x: b.x,
-      open: b.open,
-      high: b.high,
-      low: b.low,
-      close: b.close,
-    }));
+    const minIdx = Math.max(0, Math.floor(visibleRange.min ?? 0));
+    const maxIdx = Math.min(data.bars.length - 1, Math.ceil(visibleRange.max ?? 0));
+    const visibleBars = data.bars.slice(minIdx, maxIdx + 1);
 
-    // Use date values for Y-axis autoscale
-    const minDate = data.bars[minIdx]?.x ?? new Date(0);
-    const maxDate = data.bars[Math.min(maxIdx, data.bars.length - 1)]?.x ?? new Date();
-    autoscaleYAxisForRange(chartBars, [], chart, minDate, maxDate, true);
+    if (visibleBars[0]) this.visibleRangeStart.set(visibleBars[0].x);
+
+    if (visibleBars.length > 0 && chart.primaryYAxis) {
+      const rawMin = Math.min(...visibleBars.map(b => b.low));
+      const rawMax = Math.max(...visibleBars.map(b => b.high));
+      const pad = (rawMax - rawMin) * 0.03;
+      chart.primaryYAxis.minimum = rawMin - pad;
+      chart.primaryYAxis.maximum = rawMax + pad;
+      chart.dataBind();
+    }
   }
 
   private applyInitialZoom(totalBars: number): void {
@@ -769,22 +756,20 @@ export class FlexChartComponent implements OnDestroy {
       chart.primaryXAxis.zoomPosition = zoomPosition;
     }
 
-    // Apply initial Y-axis autoscale and track visible range
-    const chartBars: OHLCDatum[] = data.bars.map(b => ({
-      x: b.x,
-      open: b.open,
-      high: b.high,
-      low: b.low,
-      close: b.close,
-    }));
-    
+    // Apply initial Y-axis autoscale directly from visible bar slice
     const visibleStart = Math.max(0, data.bars.length - visibleCount);
-    const minX = chartBars[visibleStart].x;
-    const maxX = chartBars[chartBars.length - 1].x;
-    
+    const visibleBars = data.bars.slice(visibleStart);
+
     // Track visible range start for axis label formatting
-    this.visibleRangeStart.set(minX);
-    
-    autoscaleYAxisForRange(chartBars, [], chart, minX, maxX, true);
+    this.visibleRangeStart.set(visibleBars[0]?.x ?? null);
+
+    if (visibleBars.length > 0 && chart.primaryYAxis) {
+      const rawMin = Math.min(...visibleBars.map(b => b.low));
+      const rawMax = Math.max(...visibleBars.map(b => b.high));
+      const pad = (rawMax - rawMin) * 0.03;
+      chart.primaryYAxis.minimum = rawMin - pad;
+      chart.primaryYAxis.maximum = rawMax + pad;
+      chart.dataBind();
+    }
   }
 }

@@ -79,8 +79,11 @@ export function autoscaleYAxisForRange(
   if (!visibleChartData.length && !visibleBaselineData.length) return;
 
   const allVisibleData = [...visibleChartData, ...visibleBaselineData];
-  const min = Math.min(...allVisibleData.map((d) => d.low));
-  const max = Math.max(...allVisibleData.map((d) => d.high));
+  const rawMin = Math.min(...allVisibleData.map((d) => d.low));
+  const rawMax = Math.max(...allVisibleData.map((d) => d.high));
+  const pad = (rawMax - rawMin) * 0.03;
+  const min = rawMin - pad;
+  const max = rawMax + pad;
 
   if (chartComponent?.primaryYAxis) {
     // Prevent infinite loops and unnecessary re-renders:

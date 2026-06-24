@@ -9,6 +9,7 @@ import {
   Component,
   inject,
   OnInit,
+  OnDestroy,
   ChangeDetectionStrategy,
   signal,
 } from '@angular/core';
@@ -25,6 +26,8 @@ import { Router } from '@angular/router';
 import { RhAgentGroupStore, GroupDimension, RhSymbolGroup, RhSymbolRow } from './rh-agent-group.store';
 import { RhAgentTriageStore } from './rh-agent-triage.store';
 import { RhAgentSignalItem } from './rh-agent.service';
+import { QuickChartsComponent } from './components/quick-charts/quick-charts.component';
+import { UiStateService } from '../../core/services/ui-state.service';
 
 @Component({
   selector: 'app-rh-agent-grouped-review',
@@ -38,14 +41,16 @@ import { RhAgentSignalItem } from './rh-agent.service';
     MatExpansionModule,
     MatBadgeModule,
     MatChipsModule,
+    QuickChartsComponent,
   ],
   templateUrl: './rh-agent-grouped-review.component.html',
   styleUrl: './rh-agent-grouped-review.component.scss',
   providers: [RhAgentGroupStore],
 })
-export class RhAgentGroupedReviewComponent implements OnInit {
+export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
   readonly groupStore = inject(RhAgentGroupStore);
   readonly triageStore = inject(RhAgentTriageStore);
+  readonly uiState = inject(UiStateService);
   private readonly router = inject(Router);
 
   /** Group dimension options for the pill toggle. */
@@ -74,7 +79,12 @@ export class RhAgentGroupedReviewComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.uiState.setFullscreen(true);
     this.groupStore.loadSymbolsWithSignals();
+  }
+
+  ngOnDestroy(): void {
+    this.uiState.setFullscreen(false);
   }
 
   onDimension(dim: GroupDimension): void {
@@ -139,6 +149,12 @@ export class RhAgentGroupedReviewComponent implements OnInit {
   onReject(symbol: string, event: Event): void {
     event.stopPropagation();
     this.triageStore.rejectSymbol(symbol);
+  }
+
+  onViewQuickCharts(symbol: string, event: Event): void {
+    event.stopPropagation();
+    const current = this.groupStore.quickChartSymbol();
+    this.groupStore.setQuickChartSymbol(current === symbol ? null : symbol);
   }
 
   goBack(): void {

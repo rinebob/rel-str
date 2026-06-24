@@ -1,4 +1,4 @@
-<div class="grouped-review">
+<div class="grouped-review" [class.fullscreen]="uiState.fullscreen()">
 
   <!-- ── Header ─────────────────────────────────────────────────────────── -->
   <div class="gr-header">
@@ -60,6 +60,12 @@
       [disabled]="groupStore.symbolsLoading()">
       <mat-icon>refresh</mat-icon>
     </button>
+
+    <!-- Fullscreen -->
+    <button mat-icon-button (click)="uiState.toggleFullscreen()"
+      [matTooltip]="uiState.fullscreen() ? 'Exit fullscreen' : 'Fullscreen'">
+      <mat-icon>{{ uiState.fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
+    </button>
   </div>
 
   <!-- ── Loading ─────────────────────────────────────────────────────────── -->
@@ -83,7 +89,7 @@
     <div class="gr-body">
 
       <!-- ── Group expansion panels ──────────────────────────────────────── -->
-      <div class="groups-panel">
+      <div class="groups-panel has-charts">
         @if (groupStore.groups().length === 0) {
           <div class="empty-state">
             <mat-icon>inbox</mat-icon>
@@ -152,11 +158,14 @@
 
                           <div class="symbol-spacer"></div>
 
-                          <!-- Chart placeholders -->
-                          <div class="chart-placeholders">
-                            <div class="chart-thumb" matTooltip="Weekly chart — coming soon">W</div>
-                            <div class="chart-thumb" matTooltip="Daily chart — coming soon">D</div>
-                          </div>
+                          <!-- View quick charts button -->
+                          <button type="button" class="quick-charts-btn"
+                            [class.active]="groupStore.quickChartSymbol() === row.profile.symbol"
+                            (click)="onViewQuickCharts(row.profile.symbol, $event)"
+                            matTooltip="View quick charts">
+                            <mat-icon>bar_chart</mat-icon>
+                            Quick charts
+                          </button>
 
                           <!-- ACR actions -->
                           <div class="acr-actions" [class.disabled]="!row.hasSignal" (click)="$event.stopPropagation()">
@@ -248,6 +257,23 @@
             </mat-expansion-panel>
           }
         </mat-accordion>
+      </div>
+
+      <!-- ── Quick charts right panel ────────────────────────────────────── -->
+      <div class="quick-charts-panel">
+        <div class="qcp-body">
+          @if (groupStore.quickChartSymbol()) {
+            <button type="button" class="qcp-close" (click)="groupStore.setQuickChartSymbol(null)" matTooltip="Close">
+              <mat-icon>close</mat-icon>
+            </button>
+            <app-quick-charts [symbol]="groupStore.quickChartSymbol()"></app-quick-charts>
+          } @else {
+            <div class="qcp-placeholder">
+              <mat-icon>bar_chart</mat-icon>
+              <p>Select a symbol to view signal charts</p>
+            </div>
+          }
+        </div>
       </div>
 
     </div>

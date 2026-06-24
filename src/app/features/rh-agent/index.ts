@@ -35,5 +35,6 @@ export {
 // Triage Store (Phase 5B — shared PACR state across pages)
 export { RhAgentTriageStore } from './rh-agent-triage.store';
 
-// Component
+// Components
 export { RhAgentDashboardComponent } from './rh-agent-dashboard.component';
+export { QuickChartsComponent } from './components/quick-charts/quick-charts.component';

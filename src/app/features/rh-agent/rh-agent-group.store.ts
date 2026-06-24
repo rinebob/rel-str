@@ -85,6 +85,8 @@ export interface RhAgentGroupState {
   fullGroupToggles: Record<string, boolean>;
   /** Currently selected symbol for the detail panel. */
   selectedSymbol: string | null;
+  /** Symbol currently displayed in the quick-charts panel. */
+  quickChartSymbol: string | null;
 }
 
 /** Yesterday in PT — used as default marketDate until intraday bars are wired. */
@@ -104,6 +106,7 @@ const initialState: RhAgentGroupState = {
   signalHistoryLoading: {},
   fullGroupToggles: {},
   selectedSymbol: null,
+  quickChartSymbol: null,
 };
 
 // ---------------------------------------------------------------------------
@@ -228,6 +231,11 @@ export const RhAgentGroupStore = signalStore(
             console.error(`[RhAgentGroupStore] Failed to load signal history for ${symbol}:`, err);
           },
         });
+    },
+
+    /** Set the symbol shown in the quick-charts panel. */
+    setQuickChartSymbol(symbol: string | null): void {
+      patchState(state, { quickChartSymbol: symbol });
     },
 
     /** Toggle the "show full group" flag for a group key. */
