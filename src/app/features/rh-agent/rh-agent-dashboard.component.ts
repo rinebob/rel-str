@@ -7,11 +7,10 @@
 import {
   Component,
   inject,
-  signal,
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, FormGroup, FormControl } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -42,6 +41,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
   imports: [
     CommonModule,
     FormsModule,
+    ReactiveFormsModule,
     MatCardModule,
     MatButtonModule,
     MatIconModule,
@@ -74,9 +74,13 @@ export class RhAgentDashboardComponent {
 
   // Trade panel visibility
   showTradePanel = false;
+  isSyncingOverview = false;
 
-  // Date picker for manual runs (defaults to today in PT)
-  readonly selectedDate = signal<Date | null>(null);
+  // Date range picker for manual runs
+  readonly dateRange = new FormGroup({
+    start: new FormControl<Date | null>(null),
+    end: new FormControl<Date | null>(null),
+  });
 
   constructor() {
     console.log('[RH Agent Dashboard] Component initialized');
@@ -102,15 +106,32 @@ export class RhAgentDashboardComponent {
    * Trigger a manual agent run
    */
   triggerManualRun(): void {
-    const date = this.selectedDate();
-    let dateStr: string | undefined;
-    if (date) {
-      const y = date.getFullYear();
-      const m = String(date.getMonth() + 1).padStart(2, '0');
-      const d = String(date.getDate()).padStart(2, '0');
-      dateStr = `${y}-${m}-${d}`;
+    const start = this.dateRange.value.start;
+    const end = this.dateRange.value.end;
+    if (!start) {
+      this.store.triggerManualRun(undefined);
+      return;
     }
-    this.store.triggerManualRun(dateStr);
+    const dates = this.expandDateRange(start, end ?? start);
+    for (const dateStr of dates) {
+      this.store.triggerManualRun(dateStr);
+    }
+  }
+
+  private expandDateRange(start: Date, end: Date): string[] {
+    const dates: string[] = [];
+    const cur = new Date(start);
+    cur.setHours(0, 0, 0, 0);
+    const last = new Date(end);
+    last.setHours(0, 0, 0, 0);
+    while (cur <= last) {
+      const y = cur.getFullYear();
+      const m = String(cur.getMonth() + 1).padStart(2, '0');
+      const d = String(cur.getDate()).padStart(2, '0');
+      dates.push(`${y}-${m}-${d}`);
+      cur.setDate(cur.getDate() + 1);
+    }
+    return dates;
   }
 
   /**
@@ -143,9 +164,16 @@ export class RhAgentDashboardComponent {
   }
 
   triggerOverviewSync(): void {
+    this.isSyncingOverview = true;
     this.rhService.triggerOverviewSync(true).subscribe({
-      next: (r: { enqueued: number; skipped: number; total: number }) => this.snackBar.open(`Overview sync enqueued: ${r.enqueued} symbols`, 'OK', { duration: 4000 }),
-      error: (e: Error) => this.snackBar.open(`Sync failed: ${e?.message}`, 'OK', { duration: 5000 }),
+      next: (r: { enqueued: number; skipped: number; total: number }) => {
+        this.isSyncingOverview = false;
+        this.snackBar.open(`Overview sync enqueued: ${r.enqueued} symbols`, 'OK', { duration: 4000 });
+      },
+      error: (e: Error) => {
+        this.isSyncingOverview = false;
+        this.snackBar.open(`Sync failed: ${e?.message}`, 'OK', { duration: 5000 });
+      },
     });
   }
 }

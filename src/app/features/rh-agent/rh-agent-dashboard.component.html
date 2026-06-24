@@ -27,19 +27,18 @@
         Review {{ uiStore.currentRunSignalCount() }}
       </button>
       <mat-form-field appearance="outline" class="run-date-picker">
-        <mat-label>Market Date</mat-label>
-        <input matInput [matDatepicker]="runDatePicker" 
-               [value]="selectedDate()"
-               (dateChange)="selectedDate.set($event.value)"
-               placeholder="Today">
-        <mat-datepicker-toggle matIconSuffix [for]="runDatePicker"></mat-datepicker-toggle>
-        <mat-datepicker #runDatePicker></mat-datepicker>
+        <mat-label>Date Range</mat-label>
+        <mat-date-range-input [formGroup]="dateRange" [rangePicker]="runRangePicker">
+          <input matStartDate formControlName="start" placeholder="Start">
+          <input matEndDate formControlName="end" placeholder="End">
+        </mat-date-range-input>
+        <mat-datepicker-toggle matIconSuffix [for]="runRangePicker"></mat-datepicker-toggle>
+        <mat-date-range-picker #runRangePicker></mat-date-range-picker>
       </mat-form-field>
       <button
         mat-raised-button
         color="primary"
         (click)="triggerManualRun()"
-        [disabled]="store.isLoading()"
         matTooltip="Trigger a manual agent run">
         <mat-icon>play_arrow</mat-icon>
         Run Now
@@ -47,8 +46,13 @@
       <button
         mat-stroked-button
         (click)="triggerOverviewSync()"
+        [disabled]="isSyncingOverview"
         matTooltip="Backfill company overview data (sector, industry, market cap)">
-        <mat-icon>sync</mat-icon>
+        @if (isSyncingOverview) {
+          <mat-spinner diameter="16" style="display:inline-block;margin-right:4px"></mat-spinner>
+        } @else {
+          <mat-icon>sync</mat-icon>
+        }
         Sync Overview
       </button>
       <button
