@@ -10,8 +10,6 @@ import {
   inject,
   OnInit,
   ChangeDetectionStrategy,
-  signal,
-  computed,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
@@ -65,8 +63,16 @@ export class RhAgentGroupedReviewComponent implements OnInit {
     return group.rows.filter((r) => r.hasSignal).length;
   }
 
+  /** Most recent signals for a row — shown as inline badges in the header. */
+  latestSignals(row: RhSymbolRow): RhAgentSignalItem[] {
+    if (!row.signals?.length) return [];
+    const latest = row.signals[0];
+    return row.signals.filter((s) => s.barDate === latest.barDate);
+  }
+
   ngOnInit(): void {
     this.groupStore.loadSymbolsWithSignals();
+    this.groupStore.loadSignalCounts();
   }
 
   onTimeframe(tf: 'W' | 'D'): void {
@@ -109,13 +115,6 @@ export class RhAgentGroupedReviewComponent implements OnInit {
   goBack(): void {
     this.router.navigate(['/rh-agent']);
   }
-
-  /** Whether the currently selected symbol's signal history is loading. */
-  readonly selectedSymbolLoading = computed(() => {
-    const sym = this.groupStore.selectedSymbol();
-    if (!sym) return false;
-    return this.groupStore.signalHistoryLoading()[sym] ?? false;
-  });
 
   /** Market cap tier display label. */
   tierLabel(tier: string | undefined): string {

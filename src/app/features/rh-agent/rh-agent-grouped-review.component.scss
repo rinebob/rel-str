@@ -41,6 +41,19 @@
 
 .header-spacer { flex: 1; }
 
+.dir-counts {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.dir-count {
+  font-size: 11px;
+  font-weight: 700;
+  &.long  { color: #2e7d32; }
+  &.short { color: var(--mat-sys-error); }
+}
+
 // ─── Pill toggles (reuse from RH Agent existing pattern) ─────────────────────
 
 .pill-group {
@@ -61,6 +74,9 @@
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.15s, color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 
   &:hover { background: var(--mat-sys-surface-container-high); }
 
@@ -71,6 +87,22 @@
   }
 
   &.small { font-size: 9px; padding: 2px 6px; }
+}
+
+.pill-count {
+  font-size: 9px;
+  font-weight: 700;
+  background: var(--mat-sys-surface-container-high);
+  color: var(--mat-sys-on-surface-variant);
+  padding: 0 4px;
+  border-radius: 6px;
+  min-width: 16px;
+  text-align: center;
+
+  .active & {
+    background: var(--mat-sys-on-primary-container);
+    color: var(--mat-sys-primary-container);
+  }
 }
 
 // ─── Status summary chips ─────────────────────────────────────────────────────
@@ -117,14 +149,10 @@
 // ─── Body ─────────────────────────────────────────────────────────────────────
 
 .gr-body {
-  display: grid;
-  grid-template-columns: 1fr;
+  display: flex;
+  flex-direction: column;
   flex: 1;
   overflow: hidden;
-
-  &.has-detail {
-    grid-template-columns: 1fr 360px;
-  }
 }
 
 // ─── Groups panel ─────────────────────────────────────────────────────────────
@@ -155,6 +183,21 @@
   font-weight: 600;
 }
 
+.group-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--mat-sys-on-surface-variant);
+  font-weight: 400;
+}
+
+.grp-dir {
+  font-weight: 700;
+  &.long  { color: #2e7d32; }
+  &.short { color: var(--mat-sys-error); }
+}
+
 .signal-badge {
   font-size: 10px;
   font-weight: 700;
@@ -181,46 +224,59 @@
   justify-content: flex-end;
 }
 
-// ─── Symbol rows ──────────────────────────────────────────────────────────────
+// ─── Symbol sub-panels ────────────────────────────────────────────────────────
 
-.symbol-rows {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
+.symbol-accordion {
+  padding: 0 4px 4px;
 }
 
-.symbol-row {
-  display: grid;
-  grid-template-columns: 1fr auto auto auto;
+.symbol-panel {
+  margin-bottom: 2px !important;
+  border-radius: 6px !important;
+
+  &.status-promote { border-left: 3px solid var(--mat-sys-tertiary); }
+  &.status-accept  { border-left: 3px solid #2e7d32; }
+  &.status-consider { border-left: 3px solid var(--mat-sys-secondary); }
+  &.status-reject  { border-left: 3px solid var(--mat-sys-error); }
+}
+
+.symbol-header {
+  min-height: 52px !important;
+  align-items: flex-start !important;
+}
+
+.symbol-header-content {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 2px;
+  padding: 4px 0;
+  align-items: flex-start;
+}
+
+.symbol-row-main {
+  display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.1s;
-
-  &:hover { background: var(--mat-sys-surface-container-high); }
-
-  &.selected { background: var(--mat-sys-secondary-container); }
-
-  &.no-signal { opacity: 0.55; }
-
-  &.status-promote { border-left: 2px solid var(--mat-sys-tertiary); }
-  &.status-accept  { border-left: 2px solid #2e7d32; }
-  &.status-consider { border-left: 2px solid var(--mat-sys-secondary); }
-  &.status-reject  { border-left: 2px solid var(--mat-sys-error); }
+  gap: 6px;
+  width: 100%;
 }
 
-.symbol-identity {
+.symbol-row-meta {
   display: flex;
-  flex-direction: column;
-  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  justify-content: flex-start;
+  text-align: left;
+  width: 100%;
 }
 
 .symbol-ticker {
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .symbol-name {
@@ -229,6 +285,45 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.meta-field {
+  font-size: 10px;
+  color: var(--mat-sys-on-surface-variant);
+  white-space: nowrap;
+}
+
+.meta-sep {
+  font-size: 10px;
+  color: var(--mat-sys-outline);
+}
+
+.symbol-signals-today {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.symbol-spacer { flex: 1; }
+
+.chart-placeholders {
+  display: flex;
+  gap: 3px;
+}
+
+.chart-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px dashed var(--mat-sys-outline);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--mat-sys-on-surface-variant);
+  opacity: 0.4;
+  cursor: default;
 }
 
 // ─── Badges ──────────────────────────────────────────────────────────────────
@@ -264,15 +359,13 @@
   &.sig-pending { background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container); }
 }
 
-// ─── Hover chart placeholder ──────────────────────────────────────────────────
+// ─── Symbol expansion body: signal history ───────────────────────────────────
 
-.chart-hover-target {
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  border: 1px dashed var(--mat-sys-outline);
-  opacity: 0.3;
-  cursor: default;
+.symbol-signal-history {
+  padding: 4px 8px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
 // ─── ACR buttons ─────────────────────────────────────────────────────────────
@@ -308,129 +401,46 @@
   &.reject.active  { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
 }
 
-// ─── Detail panel ─────────────────────────────────────────────────────────────
-
-.detail-panel {
-  border-left: 1px solid var(--mat-sys-outline-variant);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.detail-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--mat-sys-outline-variant);
-  flex-shrink: 0;
-}
-
-.detail-symbol {
-  font-size: 18px;
-  font-weight: 700;
-}
-
-.detail-name {
-  font-size: 11px;
-  color: var(--mat-sys-on-surface-variant);
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.detail-close { margin-left: auto; }
-
-.detail-overview {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--mat-sys-outline-variant);
-  flex-shrink: 0;
-}
-
-.ov-field {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-
-  label {
-    font-size: 9px;
-    font-weight: 600;
-    color: var(--mat-sys-on-surface-variant);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  font-size: 12px;
-}
-
-// ─── Signal history in detail ─────────────────────────────────────────────────
-
-.detail-signals {
-  padding: 10px 12px;
-  flex: 1;
-  overflow-y: auto;
-}
-
-.detail-signals-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.detail-section-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--mat-sys-on-surface-variant);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
+// ─── Signal history rows (in expansion body) ─────────────────────────────────
 
 .no-signals {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--mat-sys-on-surface-variant);
   font-style: italic;
+  padding: 4px 0;
 }
-
-.signal-history-rows { display: flex; flex-direction: column; gap: 4px; }
 
 .signal-history-row {
   display: flex;
   gap: 8px;
   align-items: center;
-  padding: 4px 6px;
+  padding: 3px 6px;
   border-radius: 4px;
   background: var(--mat-sys-surface-container);
   font-size: 11px;
 }
 
-.sh-date { color: var(--mat-sys-on-surface-variant); }
+.sh-date { color: var(--mat-sys-on-surface-variant); min-width: 80px; }
+.sh-tf {
+  font-weight: 700;
+  font-size: 9px;
+  background: var(--mat-sys-surface-container-high);
+  color: var(--mat-sys-on-surface-variant);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+.sh-type { color: var(--mat-sys-on-surface-variant); font-size: 10px; flex: 1; }
 .sh-dir {
   font-weight: 700;
+  font-size: 10px;
   &.dir-long  { color: #2e7d32; }
   &.dir-short { color: var(--mat-sys-error); }
 }
-.sh-type { color: var(--mat-sys-on-surface-variant); font-size: 10px; }
-
-// ─── Chart placeholder ────────────────────────────────────────────────────────
-
-.detail-chart-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 24px;
-  margin: 8px 12px;
-  border-radius: 8px;
-  border: 1px dashed var(--mat-sys-outline);
-  color: var(--mat-sys-on-surface-variant);
-  opacity: 0.5;
-
-  mat-icon { font-size: 32px; width: 32px; height: 32px; }
-  span { font-size: 11px; }
+.sh-status-interim {
+  font-size: 8px;
+  font-weight: 600;
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+  padding: 1px 4px;
+  border-radius: 4px;
 }

@@ -56,6 +56,10 @@ export interface RhSymbolGroup {
   rows: RhSymbolRow[];
   /** Whether "Full Group" is toggled on (show all, not just signal symbols). */
   showFullGroup: boolean;
+  /** Long signal count for the active timeframe. */
+  longCount: number;
+  /** Short signal count for the active timeframe. */
+  shortCount: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -71,6 +75,9 @@ export interface RhAgentGroupState {
   groupDimension: GroupDimension;
   /** All signal symbols returned from the callable. */
   signalSymbols: RhAgentSymbolProfile[];
+  /** Signal counts per timeframe (for the W/D toggle badges). */
+  weeklySignalCount: number;
+  dailySignalCount: number;
   /** Loading state for the main symbol list query. */
   symbolsLoading: boolean;
   symbolsError: string | null;
@@ -86,13 +93,18 @@ export interface RhAgentGroupState {
   selectedSymbol: string | null;
 }
 
-const todayDate = (): string => new Date().toISOString().slice(0, 10);
+const todayDate = (): string => {
+  const now = new Date();
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(now);
+};
 
 const initialState: RhAgentGroupState = {
   timeframe: 'W',
   marketDate: todayDate(),
   groupDimension: 'sector',
   signalSymbols: [],
+  weeklySignalCount: 0,
+  dailySignalCount: 0,
   symbolsLoading: false,
   symbolsError: null,
   signalHistoryCache: {},
@@ -164,22 +176,42 @@ export const RhAgentGroupStore = signalStore(
 
         const rows: RhSymbolRow[] = sorted.map((profile) => ({
           profile,
-          hasSignal: true, // all symbols from backend have a signal today
+          hasSignal: true,
           signals: historyCache[profile.symbol],
           signalsLoading: historyLoading[profile.symbol] ?? false,
           reviewStatus: statuses[profile.symbol] ?? 'PENDING',
         }));
 
+        const tf = state.timeframe();
+        const dirField = tf === 'W' ? 'lastWeeklySignalDirection' : 'lastDailySignalDirection';
+        const longCount = rows.filter((r) => (r.profile as any)[dirField] === 'LONG').length;
+        const shortCount = rows.filter((r) => (r.profile as any)[dirField] === 'SHORT').length;
+
         return {
           key,
           rows,
           showFullGroup: fullGroupToggles[key] ?? false,
+          longCount,
+          shortCount,
         };
       });
     }),
 
     /** Total signal count across all groups. */
     totalSignalCount: computed(() => state.signalSymbols().length),
+
+    /** Long/short breakdown for the active timeframe. */
+    longCount: computed(() => {
+      const tf = state.timeframe();
+      const dirField = tf === 'W' ? 'lastWeeklySignalDirection' : 'lastDailySignalDirection';
+      return state.signalSymbols().filter((p) => (p as any)[dirField] === 'LONG').length;
+    }),
+
+    shortCount: computed(() => {
+      const tf = state.timeframe();
+      const dirField = tf === 'W' ? 'lastWeeklySignalDirection' : 'lastDailySignalDirection';
+      return state.signalSymbols().filter((p) => (p as any)[dirField] === 'SHORT').length;
+    }),
 
     /** Currently selected symbol's loaded signals (from cache). */
     selectedSymbolSignals: computed((): RhAgentSignalItem[] => {
@@ -224,6 +256,7 @@ export const RhAgentGroupStore = signalStore(
     setMarketDate(marketDate: string): void {
       patchState(state, { marketDate, signalSymbols: [], signalHistoryCache: {}, selectedSymbol: null });
       this.loadSymbolsWithSignals();
+      this.loadSignalCounts();
     },
 
     /** Change group dimension (no reload needed — regrouping is computed). */
@@ -250,6 +283,17 @@ export const RhAgentGroupStore = signalStore(
         });
     },
 
+    /** Load W and D signal counts for the badge on the timeframe toggle. */
+    loadSignalCounts(): void {
+      const marketDate = state.marketDate();
+      service.getSymbolsWithSignals(marketDate, 'W')
+        .pipe(takeUntilDestroyed(destroyRef))
+        .subscribe({ next: (s) => patchState(state, { weeklySignalCount: s.length }), error: () => {} });
+      service.getSymbolsWithSignals(marketDate, 'D')
+        .pipe(takeUntilDestroyed(destroyRef))
+        .subscribe({ next: (s) => patchState(state, { dailySignalCount: s.length }), error: () => {} });
+    },
+
     /** Select a symbol — loads signal history on demand if not cached. */
     selectSymbol(symbol: string): void {
       patchState(state, { selectedSymbol: symbol });
@@ -271,7 +315,7 @@ export const RhAgentGroupStore = signalStore(
       });
 
       service
-        .getSymbolSignalHistory(symbol, timeframe, 5)
+        .getSymbolSignalHistory(symbol, timeframe, 14)
         .pipe(takeUntilDestroyed(destroyRef))
         .subscribe({
           next: (signals) => {
@@ -282,6 +326,7 @@ export const RhAgentGroupStore = signalStore(
           },
           error: (err: any) => {
             patchState(state, {
+              signalHistoryCache: { ...state.signalHistoryCache(), [symbol]: [] },
               signalHistoryLoading: { ...state.signalHistoryLoading(), [symbol]: false },
             });
             console.error(`[RhAgentGroupStore] Failed to load signal history for ${symbol}:`, err);

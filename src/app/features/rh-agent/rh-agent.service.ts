@@ -84,6 +84,8 @@ export interface RhAgentSymbolProfile {
   lastAnalyzedAt?: string;
   lastDailySignalDate?: string;
   lastWeeklySignalDate?: string;
+  lastDailySignalDirection?: string;
+  lastWeeklySignalDirection?: string;
   // Company overview (populated by Phase 1 SA sync)
   name?: string;
   sector?: string;
@@ -101,18 +103,20 @@ export interface RhAgentSymbolProfile {
 }
 
 /**
- * A single signal doc returned by rhAgentGetSymbolSignalHistory.
+ * A single signal entry returned by rhAgentGetSymbolSignalHistory.
+ * Sourced from rh-agent-symbols/{symbol}/signal-dates/{barDate}.signals map.
  */
 export interface RhAgentSignalItem {
-  id: string;
+  id: string;                            // barDate (doc ID)
   symbol: string;
-  marketDate: string;
+  barDate: string;                       // YYYY-MM-DD — the bar that fired
+  marketDate: string;                    // YYYY-MM-DD — the run date
   runId: string;
   timeframe: 'D' | 'W';
   direction: SignalDirection;
   signalType: string;
+  status: 'INTERIM' | 'CONFIRMED';
   indicators: Record<string, number | string | null>;
-  createdAt: string;
 }
 
 export interface ManualRunRequest {
@@ -136,6 +140,16 @@ export interface ManualRunResponse {
 export class RhAgentService {
   private functions = inject(Functions);
   private firestore = inject(Firestore);
+
+  private readonly symbolsWithSignalsCallable = httpsCallable<
+    { marketDate: string; timeframe: 'W' | 'D' },
+    { symbols: RhAgentSymbolProfile[] }
+  >(this.functions, 'rhAgentGetSymbolsWithSignals');
+
+  private readonly symbolSignalHistoryCallable = httpsCallable<
+    { symbol: string; timeframe: 'W' | 'D'; days: number },
+    { symbol: string; timeframe: 'W' | 'D'; signals: RhAgentSignalItem[] }
+  >(this.functions, 'rhAgentGetSymbolSignalHistory');
 
   // Collection references for realtime data
   private readonly runsCollection = 'rh-agent-runs';
@@ -231,11 +245,7 @@ export class RhAgentService {
    * Returns symbol profiles with a signal on the given marketDate for the given timeframe.
    */
   getSymbolsWithSignals(marketDate: string, timeframe: 'W' | 'D'): Observable<RhAgentSymbolProfile[]> {
-    const callable = httpsCallable<
-      { marketDate: string; timeframe: 'W' | 'D' },
-      { symbols: RhAgentSymbolProfile[] }
-    >(this.functions, 'rhAgentGetSymbolsWithSignals');
-    return from(callable({ marketDate, timeframe })).pipe(map((r) => r.data.symbols));
+    return from(this.symbolsWithSignalsCallable({ marketDate, timeframe })).pipe(map((r) => r.data.symbols));
   }
 
   /**
@@ -247,11 +257,7 @@ export class RhAgentService {
     timeframe: 'W' | 'D',
     days = 5
   ): Observable<RhAgentSignalItem[]> {
-    const callable = httpsCallable<
-      { symbol: string; timeframe: 'W' | 'D'; days: number },
-      { symbol: string; timeframe: 'W' | 'D'; signals: RhAgentSignalItem[] }
-    >(this.functions, 'rhAgentGetSymbolSignalHistory');
-    return from(callable({ symbol, timeframe, days })).pipe(map((r) => r.data.signals));
+    return from(this.symbolSignalHistoryCallable({ symbol, timeframe, days })).pipe(map((r) => r.data.signals));
   }
 
   /**
