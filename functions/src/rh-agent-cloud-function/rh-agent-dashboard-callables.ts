@@ -13,10 +13,11 @@ import {
   RH_AGENT_STATUS_COLLECTION,
   RH_AGENT_OPPORTUNITIES_COLLECTION,
   RH_AGENT_SYMBOLS_COLLECTION,
-  RH_AGENT_SIGNALS_SUBCOLLECTION,
+  RH_AGENT_SIGNAL_DATES_SUBCOLLECTION,
   AGENT_STATUS_DOC,
   RhAgentRunStatus,
-  RhAgentSignalDoc,
+  RhAgentSignalDateDoc,
+  RhAgentSignalEntry,
 } from './rh-agent-config';
 
 // Response types
@@ -98,15 +99,16 @@ interface SymbolsWithSignalsResponse {
 }
 
 interface SignalItem {
-  id: string;
+  id: string;          // barDate
   symbol: string;
+  barDate: string;
   marketDate: string;
   runId: string;
   timeframe: 'D' | 'W';
   direction: string;
   signalType: string;
+  status: 'INTERIM' | 'CONFIRMED';
   indicators: Record<string, number | string | null>;
-  createdAt: string;
 }
 
 interface SymbolSignalHistoryResponse {
@@ -279,10 +281,17 @@ export const rhAgentGetSymbolsWithSignals = onCall<
 
       const dateField = timeframe === 'W' ? 'lastWeeklySignalDate' : 'lastDailySignalDate';
 
+      // Use marketDate as upper bound and look back 14 calendar days
+      // so the UI shows recent signals even if none ran today
+      const cutoff = new Date(marketDate + 'T00:00:00Z');
+      cutoff.setDate(cutoff.getDate() - 14);
+      const cutoffDate = cutoff.toISOString().slice(0, 10);
+
       const snapshot = await db
         .collection(RH_AGENT_SYMBOLS_COLLECTION)
         .where('enabled', '==', true)
-        .where(dateField, '==', marketDate)
+        .where(dateField, '>=', cutoffDate)
+        .where(dateField, '<=', marketDate)
         .get();
 
       const symbols: SymbolProfile[] = snapshot.docs.map((doc) => {
@@ -294,6 +303,8 @@ export const rhAgentGetSymbolsWithSignals = onCall<
           lastAnalyzedAt: d.lastAnalyzedAt?.toDate?.()?.toISOString(),
           lastDailySignalDate: d.lastDailySignalDate,
           lastWeeklySignalDate: d.lastWeeklySignalDate,
+          lastDailySignalDirection: d.lastDailySignalDirection,
+          lastWeeklySignalDirection: d.lastWeeklySignalDirection,
           name: d.name,
           sector: d.sector,
           industry: d.industry,
@@ -338,43 +349,39 @@ export const rhAgentGetSymbolSignalHistory = onCall<
   },
   async (request) => {
     try {
-      const { symbol, timeframe, days = 5 } = request.data;
+      const { symbol, timeframe, days = 14 } = request.data;
       if (!symbol || !timeframe) {
         throw new Error('symbol and timeframe are required');
       }
 
-      // Compute cutoff date: today minus `days` calendar days
-      // (approximation for trading days — simple and sufficient)
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - days * 2); // ×2 to account for weekends
-      const cutoffDate = cutoff.toISOString().slice(0, 10);
-
       const snapshot = await db
         .collection(RH_AGENT_SYMBOLS_COLLECTION)
         .doc(symbol)
-        .collection(RH_AGENT_SIGNALS_SUBCOLLECTION)
-        .where('timeframe', '==', timeframe)
-        .where('marketDate', '>=', cutoffDate)
-        .orderBy('marketDate', 'desc')
+        .collection(RH_AGENT_SIGNAL_DATES_SUBCOLLECTION)
         .get();
 
-      const signals: SignalItem[] = snapshot.docs.map((doc) => {
-        const d = doc.data() as RhAgentSignalDoc;
-        return {
-          id: doc.id,
-          symbol: d.symbol,
-          marketDate: d.marketDate,
-          runId: d.runId,
-          timeframe: d.timeframe,
-          direction: d.direction as string,
-          signalType: d.signalType as string,
-          indicators: d.indicators || {},
-          createdAt: (d.createdAt as any)?.toDate?.()?.toISOString() || '',
-        };
-      });
+      const signals: SignalItem[] = [];
+      for (const doc of snapshot.docs) {
+        const d = doc.data() as RhAgentSignalDateDoc;
+        for (const entry of Object.values(d.signals ?? {}) as RhAgentSignalEntry[]) {
+          signals.push({
+            id: doc.id,
+            symbol: d.symbol,
+            barDate: entry.barDate,
+            marketDate: entry.marketDate,
+            runId: d.runId,
+            timeframe: entry.timeframe,
+            direction: entry.direction as string,
+            signalType: entry.signalType as string,
+            status: entry.status,
+            indicators: entry.indicators || {},
+          });
+        }
+      }
+      signals.sort((a, b) => b.barDate.localeCompare(a.barDate));
 
       logger.info('rh_agent_get_symbol_signal_history', {
-        symbol, timeframe, days, cutoffDate, count: signals.length,
+        symbol, timeframe, days, count: signals.length,
       });
 
       return { symbol, timeframe, signals };

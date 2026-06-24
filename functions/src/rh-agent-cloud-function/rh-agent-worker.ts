@@ -15,10 +15,12 @@ import {
   RH_AGENT_RUNS_COLLECTION,
   RH_AGENT_JOBS_SUBCOLLECTION,
   RH_AGENT_SYMBOLS_COLLECTION,
-  RH_AGENT_SIGNALS_SUBCOLLECTION,
+  RH_AGENT_SIGNAL_DATES_SUBCOLLECTION,
   RhAgentJobStatus,
   RhAgentRunStatus,
-  RhAgentSignalDoc,
+  RhAgentSignalEntry,
+  RhAgentSignalDateDoc,
+  RhAgentSignalStatus,
   StSignalDirection,
   SymbolJobPayload,
 } from './rh-agent-config';
@@ -131,24 +133,45 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
         signals: results.filter(r => r.action).map(r => r.signalType),
       });
 
-      // 6. Store each signal under rh-agent-symbols/{symbol}/signals/
+      // 6. Store signals under rh-agent-symbols/{symbol}/signal-dates/{barDate}
+      const fired = results.filter(r => r.action);
+      const entries = fired.map(r => createSignalEntry(marketDate, runId, r));
+
+      // Group entries by barDate (daily and weekly may have different bar dates)
+      const byBarDate = new Map<string, typeof entries>();
+      for (const entry of entries) {
+        if (!byBarDate.has(entry.barDate)) byBarDate.set(entry.barDate, []);
+        byBarDate.get(entry.barDate)!.push(entry);
+      }
+
       let opportunityCount = 0;
-      for (const result of results) {
-        if (result.action) {
-          const signalDoc = createSignalDoc(symbol, marketDate, runId, result);
+      for (const [barDate, dateEntries] of byBarDate) {
+        await writeSignalDateDoc(symbol, runId, dateEntries);
 
-          await writeSignalToSubcollection(signalDoc);
-          await updateSymbolGateDate(symbol, marketDate, signalDoc.timeframe);
-
+        for (const entry of dateEntries) {
+          await updateSymbolGateDate(symbol, barDate, entry.timeframe, entry.direction);
           logger.info('rh_agent_worker_signal_written', {
-            runId, symbol, signalId: signalDoc.id,
-            signalType: result.signalType, timeframe: signalDoc.timeframe,
+            runId, symbol, barDate, signalType: entry.signalType,
+            timeframe: entry.timeframe, status: entry.status,
           });
-
-          await incrementOpportunitiesFound(runId);
           opportunityCount++;
         }
+
+        // Clear stale INTERIM signals for weekly bar dates (reversal handling)
+        const isWeeklyBarDate = dateEntries.some(e => e.timeframe === 'W');
+        if (isWeeklyBarDate) {
+          const firedTypes = new Set(dateEntries.filter(e => e.timeframe === 'W').map(e => e.signalType));
+          await clearStaleInterimSignals(symbol, barDate, firedTypes);
+        }
       }
+
+      // Also clear stale INTERIM for the current weekly bar if no weekly signal fired at all
+      const weeklyBarDate = results.find(r => r.barDate && deriveTimeframe(r.signalType) === 'W')?.barDate;
+      if (weeklyBarDate && !byBarDate.has(weeklyBarDate)) {
+        await clearStaleInterimSignals(symbol, weeklyBarDate, new Set());
+      }
+
+      await incrementOpportunitiesFound(runId, opportunityCount);
 
       // 7. Mark job complete
       await markJobComplete(runId, symbol, 'SUCCESS', opportunityCount > 0);
@@ -281,11 +304,12 @@ async function checkRunCompletion(runId: string): Promise<void> {
 /**
  * Increment opportunities found counter on run document.
  */
-async function incrementOpportunitiesFound(runId: string): Promise<void> {
+async function incrementOpportunitiesFound(runId: string, count = 1): Promise<void> {
+  if (count === 0) return;
   const runRef = db.collection(RH_AGENT_RUNS_COLLECTION).doc(runId);
   await runRef.set(
     {
-      opportunitiesFound: FieldValue.increment(1),
+      opportunitiesFound: FieldValue.increment(count),
     },
     { merge: true }
   );
@@ -383,53 +407,119 @@ function deriveTimeframe(signalType: string): 'D' | 'W' {
 }
 
 /**
- * Build a RhAgentSignalDoc from strategy output.
- * Doc ID: {DATE}_{SIGNALTYPE} — deterministic, idempotent on re-run.
+ * Determine signal status.
+ * Daily signals are always CONFIRMED.
+ * Weekly signals are CONFIRMED once the next weekly bar has started
+ * (i.e. marketDate is at least 7 days after barDate), otherwise INTERIM.
  */
-function createSignalDoc(
-  symbol: string,
+function deriveSignalStatus(
+  timeframe: 'D' | 'W',
+  barDate: string,
+  marketDate: string
+): RhAgentSignalStatus {
+  if (timeframe === 'D') return 'CONFIRMED';
+  const barMs = new Date(barDate).getTime();
+  const runMs = new Date(marketDate).getTime();
+  return runMs - barMs >= 7 * 86_400_000 ? 'CONFIRMED' : 'INTERIM';
+}
+
+/**
+ * Build a signal entry for the signal-dates map.
+ */
+function createSignalEntry(
   marketDate: string,
   runId: string,
   result: StrategyOutput
-): RhAgentSignalDoc {
-  const signalId = `${marketDate}_${result.signalType}`;
+): RhAgentSignalEntry {
   const timeframe = deriveTimeframe(result.signalType);
-
+  const barDate = result.barDate || marketDate;
   return {
-    id: signalId,
-    symbol,
-    marketDate,
-    runId,
+    signalType: result.signalType,
     timeframe,
     direction: result.action === 'OPEN_LONG' ? StSignalDirection.LONG : StSignalDirection.SHORT,
-    signalType: result.signalType,
+    status: deriveSignalStatus(timeframe, barDate, marketDate),
+    barDate,
+    marketDate,
     indicators: (result.indicators || {}) as Record<string, number | string | null>,
-    createdAt: FieldValue.serverTimestamp() as any,
   };
 }
 
 /**
- * Write signal doc to rh-agent-symbols/{symbol}/signals/{signalId}.
- * merge: true makes re-runs idempotent.
+ * Write signals to rh-agent-symbols/{symbol}/signal-dates/{barDate}.
+ * Uses map merge so multiple signals on the same bar date are combined.
+ * CONFIRMED entries from previous runs are never overwritten.
  */
-async function writeSignalToSubcollection(signal: RhAgentSignalDoc): Promise<void> {
-  const signalRef = db
-    .collection(RH_AGENT_SYMBOLS_COLLECTION)
-    .doc(signal.symbol)
-    .collection(RH_AGENT_SIGNALS_SUBCOLLECTION)
-    .doc(signal.id);
+async function writeSignalDateDoc(
+  symbol: string,
+  runId: string,
+  entries: RhAgentSignalEntry[]
+): Promise<void> {
+  if (entries.length === 0) return;
 
-  await signalRef.set(signal, { merge: true });
+  const barDate = entries[0].barDate;
+  const docRef = db
+    .collection(RH_AGENT_SYMBOLS_COLLECTION)
+    .doc(symbol)
+    .collection(RH_AGENT_SIGNAL_DATES_SUBCOLLECTION)
+    .doc(barDate);
+
+  const existing = await docRef.get();
+  const existingData = existing.exists ? (existing.data() as RhAgentSignalDateDoc) : null;
+
+  const signalsUpdate: Record<string, any> = {};
+  for (const entry of entries) {
+    const existing = existingData?.signals?.[entry.signalType];
+    if (existing?.status === 'CONFIRMED') continue;
+    signalsUpdate[`signals.${entry.signalType}`] = entry;
+  }
+
+  if (Object.keys(signalsUpdate).length === 0) return;
+
+  await docRef.set(
+    { symbol, barDate, runId, updatedAt: FieldValue.serverTimestamp(), ...signalsUpdate },
+    { merge: true }
+  );
+}
+
+/**
+ * For W/M bar dates that had INTERIM signals in a previous run:
+ * if this run produced no signal for a given signalType, delete the INTERIM entry.
+ */
+async function clearStaleInterimSignals(
+  symbol: string,
+  barDate: string,
+  firedSignalTypes: Set<string>
+): Promise<void> {
+  const docRef = db
+    .collection(RH_AGENT_SYMBOLS_COLLECTION)
+    .doc(symbol)
+    .collection(RH_AGENT_SIGNAL_DATES_SUBCOLLECTION)
+    .doc(barDate);
+
+  const snap = await docRef.get();
+  if (!snap.exists) return;
+
+  const data = snap.data() as RhAgentSignalDateDoc;
+  const deletions: Record<string, any> = {};
+  for (const [signalType, entry] of Object.entries(data.signals ?? {})) {
+    if (entry.status === 'INTERIM' && !firedSignalTypes.has(signalType)) {
+      deletions[`signals.${signalType}`] = FieldValue.delete();
+    }
+  }
+
+  if (Object.keys(deletions).length > 0) {
+    await docRef.update(deletions);
+  }
 }
 
 /**
  * Update lastDailySignalDate or lastWeeklySignalDate on the symbol doc.
- * This is the only gate field needed for the review list query.
+ * Uses barDate so the gate matches the signal-dates doc ID.
  */
-async function updateSymbolGateDate(symbol: string, marketDate: string, timeframe: 'D' | 'W'): Promise<void> {
+async function updateSymbolGateDate(symbol: string, barDate: string, timeframe: 'D' | 'W', direction: string): Promise<void> {
   const symbolRef = db.collection(RH_AGENT_SYMBOLS_COLLECTION).doc(symbol);
-  const field = timeframe === 'W' ? 'lastWeeklySignalDate' : 'lastDailySignalDate';
-
-  await symbolRef.set({ [field]: marketDate }, { merge: true });
+  const dateField = timeframe === 'W' ? 'lastWeeklySignalDate' : 'lastDailySignalDate';
+  const dirField  = timeframe === 'W' ? 'lastWeeklySignalDirection' : 'lastDailySignalDirection';
+  await symbolRef.set({ [dateField]: barDate, [dirField]: direction }, { merge: true });
 }
 
