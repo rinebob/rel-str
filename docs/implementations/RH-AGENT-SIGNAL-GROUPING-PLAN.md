@@ -27,32 +27,44 @@ Desired state:
 
 ## Architecture Decisions
 
-### 1. Signal Persistence: Subcollection under symbol doc
+### 1. Signal Persistence: `signal-dates` subcollection under symbol doc
 
 **New structure:**
 
 ```
 rh-agent-symbols/{SYMBOL}                    ← symbol config + company overview
-  signals/                                   ← subcollection
-    {DATE}_{SIGNALTYPE}                      ← one doc per signal occurrence
+  signal-dates/                              ← subcollection, one doc per date
+    {YYYY-MM-DD}                             ← doc ID is the bar date (not run date for W/M)
+      signals: {                             ← map field — all signals for that date
+        D_ZONE_V1_UPTICK: { status, direction, barDate, runId, indicators, ... }
+        W_ZONE_V1_UPTICK: { status, direction, barDate, runId, indicators, ... }
+      }
 ```
 
-**Why subcollection:**
-- Clean symbol ownership — all signal history for a symbol lives under its doc.
-- The review page is **symbol-first**, not signal-first. The primary query loads `rh-agent-symbols` (with overview + denormalized summary fields) and checks which symbols have a signal today — signals subcollection is not touched during list rendering.
+**Why `signal-dates` with a map field:**
+- One doc per date is far less noisy in Firestore than one doc per signal occurrence.
+- The map key is `signalType` — reading all signals for a date is a single doc fetch.
 - Signal history drill-down ("show me all signals for AAPL") is a simple subcollection query on one symbol.
-- `collectionGroup('signals')` is available as a secondary tool (e.g., admin queries across all symbols for a date) but is **not** the primary review query path.
-- Single write path — no denormalization of signal docs themselves.
+- `collectionGroup('signal-dates')` is available as a secondary tool for admin queries.
+- Re-runs are idempotent — writing to a map key with `merge: true` overwrites only that key.
+- Reversals are handled by deleting the specific map key (`FieldValue.delete()`).
 
-**Signal doc ID format:** `{YYYY-MM-DD}_{SIGNALTYPE}` (e.g., `2026-06-14_D_ZONE_V1_UPTICK`, `2026-06-14_W_ZONE_V1_UPTICK`)
-- Deterministic: re-running the same date/strategy is idempotent (merge/upsert).
-- Timeframe is encoded in `signalType` and also stored as an explicit `timeframe` field for clean query filtering.
-- Naturally sorted by date when listed under a symbol.
+**Doc ID = bar date, not run date:**
+- Daily signals: bar date === run date === `marketDate`. No difference.
+- Weekly signals: bar date = last weekly bar's date (e.g. `2026-06-20`). The same weekly bar fires on Mon-Fri of the following week — they all write to the same doc, preventing duplicates.
+- Monthly signals: same pattern — bar date = last monthly bar's date.
+
+**INTERIM vs CONFIRMED status:**
+- All daily signals are always `CONFIRMED` (bar is closed).
+- Weekly/monthly signals within the current open period are `INTERIM` — price action could reverse.
+- A signal becomes `CONFIRMED` when the bar period closes (Friday for weekly, month-end for monthly).
+- `CONFIRMED` signal map entries are **never overwritten or deleted**.
+- When a W/M signal reverses intraperiod, the worker deletes the `INTERIM` map key.
 
 **Migration of `rh-agent-opportunities`:**
-- No backward compat requirement — this is a prototype. The review page won't be used until grouping is complete.
-- Worker writes exclusively to the subcollection from the start (no dual-write needed).
-- **Do not delete `rh-agent-opportunities`** — there is pending analysis that requires the existing data. Leave the collection untouched until explicitly confirmed safe to remove.
+- No backward compat requirement — this is a prototype.
+- Worker writes exclusively to `signal-dates` from the start.
+- **Do not delete `rh-agent-opportunities`** — leave untouched until explicitly confirmed safe to remove.
 
 ---
 
@@ -98,10 +110,13 @@ rh-agent-symbols/{SYMBOL}                    ← symbol config + company overvie
 
 ---
 
-### 3. Signal Doc Schema (under `rh-agent-symbols/{SYMBOL}/signals/`)
+### 3. Signal Schema (under `rh-agent-symbols/{SYMBOL}/signal-dates/`)
+
+**Collection constant:** `RH_AGENT_SIGNAL_DATES_SUBCOLLECTION = 'signal-dates'`
+
+**Doc ID:** `{YYYY-MM-DD}` — the bar date (daily = run date; weekly/monthly = last bar's date).
 
 **Signal type enum** — signal types are finite and fully knowable from the strategy implementations.
-Define in `rh-agent-config.ts` (shared between backend and frontend via a types package or copy):
 
 ```typescript
 enum StSignalType {
@@ -113,24 +128,40 @@ enum StSignalType {
   W_ZONE_V1_DOWNTICK = 'W_ZONE_V1_DOWNTICK',
   W_ZONE_V2_UPTICK   = 'W_ZONE_V2_UPTICK',
   W_ZONE_V2_DOWNTICK = 'W_ZONE_V2_DOWNTICK',
-  // Add new signal types here as strategies expand
 }
 ```
 
+**Signal date doc** — one doc per bar date, signals stored as a map keyed by `signalType`:
+
 ```typescript
-interface RhAgentSignalDoc {
-  id: string;                    // {DATE}_{SIGNALTYPE}
-  symbol: string;                // denormalized for collectionGroup queries
-  marketDate: string;            // YYYY-MM-DD
-  runId: string;                 // which run generated this
-  timeframe: 'D' | 'W';        // explicit — enables clean filtering without parsing signalType
-  action: 'OPEN_LONG' | 'OPEN_SHORT';
-  signalType: StSignalType;      // enum — no magic strings
-  indicators: Record<string, number | string | null>;  // diagnostic context (zone values, htfZone, delta) — not displayed in UI
-  // Metadata
-  createdAt: Timestamp;
+interface RhAgentSignalDateDoc {
+  symbol: string;                // denormalized
+  barDate: string;               // YYYY-MM-DD — doc ID, the bar's date
+  runId: string;                 // last run that wrote/updated this doc
+  updatedAt: Timestamp;
+  signals: {
+    [signalType: string]: RhAgentSignalEntry;
+  };
+}
+
+interface RhAgentSignalEntry {
+  signalType: StSignalType;
+  timeframe: 'D' | 'W';
+  direction: StSignalDirection;  // LONG | SHORT
+  status: 'INTERIM' | 'CONFIRMED';
+  barDate: string;               // YYYY-MM-DD — the bar that triggered
+  marketDate: string;            // YYYY-MM-DD — the run date (may differ from barDate for W)
+  indicators: Record<string, number | string | null>;
 }
 ```
+
+**Status rules:**
+- Daily signals → always `CONFIRMED` (daily bar is closed by the time the agent runs).
+- Weekly/monthly signals → `INTERIM` if `marketDate` is within the bar's open period; `CONFIRMED` once the period closes (worker checks if `marketDate >= barDate + 7 days` for weekly, month-end for monthly — meaning the next bar has started).
+- `CONFIRMED` entries are never overwritten or deleted.
+- When a W/M signal reverses intraperiod, worker uses `FieldValue.delete()` to remove the `INTERIM` entry from the map.
+
+**`lastWeeklySignalDate` / `lastDailySignalDate` on symbol doc** now stores the bar date (not run date), so the grouped review query correctly finds symbols with a recent bar-level signal.
 
 ---
 
@@ -191,16 +222,19 @@ Tasks:
 
 ---
 
-### Phase 2 — Backend: Worker writes signals to subcollection
+### Phase 2 — Backend: Worker writes signals to `signal-dates` subcollection
 
-**Goal:** Worker stores signals under `rh-agent-symbols/{SYMBOL}/signals/` instead of (or in addition to) `rh-agent-opportunities`.
+**Goal:** Worker stores signals under `rh-agent-symbols/{SYMBOL}/signal-dates/{barDate}` instead of (or in addition to) `rh-agent-opportunities`.
 
 Tasks:
-1. Update `storeOpportunity()` in `rh-agent-worker.ts` to write exclusively to `rh-agent-symbols/{symbol}/signals/{oppId}` with `merge: true`. Include `timeframe` field derived from `signalType` prefix (`D_` → `'D'`, `W_` → `'W'`).
-2. After signal write, update the correct gate field on the symbol doc via `merge: true`:
-   - Daily signal → update `lastDailySignalDate`
-   - Weekly signal → update `lastWeeklySignalDate`
-3. `rh-agent-opportunities` left in place, cleaned up in Phase 6.
+1. Strategy `execute()` must return `barDate` in each `StrategyOutput` — the date of the bar that fired (last bar in the trimmed array passed to the strategy).
+2. Update worker to write to `signal-dates/{barDate}` using a map merge: `{ signals: { [signalType]: RhAgentSignalEntry } }` with `merge: true`.
+3. Determine `status` in worker: daily → `CONFIRMED`; weekly → `CONFIRMED` if `marketDate >= barDate + 7 days` (next week started), else `INTERIM`.
+4. On reversal (no signal for a W/M bar that previously had an INTERIM entry): worker reads existing doc, deletes INTERIM keys via `FieldValue.delete()` for signal types that did not fire.
+5. After signal write, update gate field on symbol doc using `barDate` (not `marketDate`):
+   - Daily signal → `lastDailySignalDate = barDate`
+   - Weekly signal → `lastWeeklySignalDate = barDate`
+6. `rh-agent-opportunities` left in place, cleaned up in Phase 6.
 
 ---
 
@@ -317,8 +351,8 @@ enum RhReviewStatus {
 | Collection | Fields | Query | Usage |
 |---|---|---|---|
 | `rh-agent-symbols` | `enabled` ASC, `sector` ASC, `marketCap` DESC | Grouped symbol list | **Primary — review page load** |
-| `rh-agent-symbols/{S}/signals` | `marketDate` DESC | Symbol signal history | Detail panel drill-down |
-| `signals` (collectionGroup) | `marketDate` ASC, `createdAt` DESC | All signals for a date | Admin / legacy transition only |
+| `rh-agent-symbols/{S}/signal-dates` | `barDate` DESC | Symbol signal date history | Detail panel drill-down |
+| `signal-dates` (collectionGroup) | `barDate` ASC | All signal dates across symbols | Admin use only |
 
 ---
 
