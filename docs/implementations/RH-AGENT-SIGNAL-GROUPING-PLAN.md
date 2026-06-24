@@ -1,8 +1,9 @@
 # RH Agent — Signal Grouping & Symbol-Centric Persistence Plan
 
-**Status:** Planning  
+**Status:** Phases 1–5 deployed, Phase 5B planned  
 **Created:** 2026-06-22  
-**Goal:** Reorganize signal storage from a flat opportunity list into a symbol-centric structure with company metadata, enabling grouped review by sector/industry/market-cap and multi-day signal history tracking.
+**Updated:** 2026-06-24  
+**Goal:** Reorganize signal storage from a flat opportunity list into a symbol-centric structure with company metadata, enabling grouped review by sector/industry/market-cap and multi-day signal history tracking. Connect triage decisions to the deep-review and trade execution surface.
 
 ---
 
@@ -337,12 +338,159 @@ enum RhReviewStatus {
 
 ---
 
+### Phase 5B — Frontend: Triage → Review → Order Pipeline
+
+**Goal:** Wire PACR decisions from Grouped Review through chart review to trade execution via a shared triage state service.
+
+**Four-page pipeline:**
+
+```
+Dashboard (/rh-agent)                      → Operate: runs, sync, admin
+Grouped Review (/rh-agent-grouped-review)  → Triage: scan 200+ signals, rapid PACR
+Review (/rh-agent/review)                  → Chart analysis for PROMOTED symbols
+Order (/rh-agent/order)                    → Final trade params + prompt generation
+```
+
+Flow: **Operate → Triage → Review → Order**.
+
+**PACR semantics:**
+
+| Status | Meaning | Set where | Consequence |
+|--------|---------|-----------|-------------|
+| **PROMOTE** | "Looks good — needs chart review before committing" | Grouped Review | Flows to Review page |
+| **ACCEPT** | "One-glance yes — signal is so strong I'm confident without a chart" | Grouped Review (rare) or Review page (after chart analysis) | Flows to Order page |
+| **CONSIDER** | "Not now, not never" — soft skip for this session | Grouped Review | Hidden from current session, no permanent consequence |
+| **REJECT** | "Untradable" — bad chart setup, unfavorable conditions | Review page (primarily) | Removed from session. Future: global exclusion list |
+| **PENDING** | Default — not yet triaged | — | Visible in Grouped Review |
+
+**Key flow rules:**
+- ACCEPT on Grouped Review = skip chart review, go directly to Order page.
+- PROMOTE on Grouped Review = send to Review page for chart analysis.
+- On Review page: PROMOTE → ACCEPT (chart confirms) or PROMOTE → REJECT (chart disqualifies).
+- CONSIDER = "I saw it, not interested today." Clears from view without consequence.
+- The chart is the gating function. No chart, no trade — except for rare one-glance accepts.
+
+---
+
+#### 5B.1 Triage State Store (Single SOT)
+
+`RhAgentTriageStore` — NgRx signal store (`providedIn: 'root'`), **the only owner** of PACR state. All pages read from and write to this store. Same pattern as `RhAgentGroupStore`.
+
+```
+File: src/app/features/rh-agent/rh-agent-triage.store.ts
+```
+
+**State:**
+- `statuses: Record<string, RhReviewStatus>` — per-symbol PACR status
+- `timeframe: 'W' | 'D'` — active timeframe (carried from Grouped Review)
+- `marketDate: string` — active market date (YYYY-MM-DD)
+
+**Computed:**
+- `promotedSymbols` — symbols with status PROMOTE (feeds Review page)
+- `acceptedSymbols` — symbols with status ACCEPT (feeds Order page)
+- `promotedCount` / `acceptedCount` — for button badges
+
+**Methods:**
+- `setStatus(symbol, status)` — set one symbol's PACR status
+- `setGroupStatus(symbols[], status)` — set all symbols in a group
+- `setTimeframe(tf)` / `setMarketDate(date)` — context setters
+- `clear()` — reset all state (called on timeframe or date change)
+
+**Design rules:**
+- `RhAgentGroupStore.reviewStatuses` is **removed**. The group store reads PACR state from the triage store. One source, one owner.
+- Session-scoped. Page refresh clears state. No Firestore persistence (yet).
+- Changing timeframe or market date calls `clear()` automatically — stale selections from a previous scan don't carry over.
+
+---
+
+#### 5B.2 Grouped Review Integration
+
+Update `RhAgentGroupedReviewComponent` and `RhAgentGroupStore`:
+
+1. **Remove `reviewStatuses` from group store state.** Replace with reads from `RhAgentTriageStore.statuses`.
+2. **PACR button handlers** call `triageStore.setStatus(symbol, status)` directly. UI reactivity comes from the triage store's signal — no local copy.
+3. **Group-level actions** in expansion panel headers: "Promote Group" / "Accept Group" buttons that call `triageStore.setGroupStatus(group.signalSymbols, status)`.
+4. **"Review Promoted (N)"** button in page toolbar:
+   - Badge shows `triageStore.promotedCount()`.
+   - Disabled when count is 0.
+   - Navigates to `/rh-agent/review`.
+5. **"Order Accepted (N)"** button in page toolbar:
+   - Badge shows `triageStore.acceptedCount()`.
+   - Disabled when count is 0.
+   - Navigates to `/rh-agent/order`.
+
+---
+
+#### 5B.3 Review Page Integration
+
+The review page already has a working master-detail layout with charts, signal detail, and ACR buttons. **Don't rewrite it.** Feed promoted symbols into the existing left panel alongside or instead of the current run-based signals.
+
+**Data source addition:** When `triageStore.promotedSymbols` is non-empty, the left panel (signal list) shows those symbols. Each symbol fetches its signal history via `rhAgentGetSymbolSignalHistory(symbol, timeframe, days)`. The existing chart + indicator overlays in the detail panel work as-is.
+
+**Actions per symbol (already exist in the review page):**
+- **Accept** — chart confirms the signal. Moves symbol from PROMOTE → ACCEPT in triage store. Symbol disappears from left panel, appears in Order page list.
+- **Reject** — chart disqualifies. Moves symbol to REJECT. Disappears from left panel. Future: adds to global exclusion list.
+
+**Integration approach:** The existing `RhAgentDashboardStore` and `SignalListComponent` need a secondary input path — "show these symbols" from the triage store. The exact integration (whether the signal list switches modes, or we add a toggle) is deferred to implementation. The key constraint is: **don't break or remove existing review page functionality.**
+
+---
+
+#### 5B.4 Order Page (New)
+
+**Route:** `/rh-agent/order`
+
+**Purpose:** Final trade parameter configuration and prompt generation for ACCEPTED symbols. This is where the Claude RH MCP prompt is built.
+
+**Data source:** Reads `triageStore.acceptedSymbols`.
+
+**Existing code to build on:**
+- `RobinhoodTradeService` — already generates `TradePrompt` and `TradeBatch` objects, handles clipboard copy.
+- `RobinhoodTradePanelComponent` — already renders trade prompts in a dialog. Currently opened from the review page via `openTradeDialog()`.
+- `RhAgentDashboardStore.generateBatchTrade()` / `generateTradeBatchFromAccepted()` — batch prompt generation from accepted signals.
+
+The Order page extracts this existing functionality from the dialog into a full-page view with additional trade parameters.
+
+**Per-symbol fields (editable table row):**
+
+| Field | Default | Notes |
+|-------|---------|-------|
+| Symbol | from triage | Read-only |
+| Direction | from signal (LONG/SHORT) | Read-only |
+| Entry type | Market | Market / Limit |
+| Position size | $100 | Editable, per-symbol |
+| Stop loss % | 8% | Editable, per-symbol |
+| Stop loss price | computed from entry − 8% | Auto-calculated |
+| Options strategy | Stock | Stock / Call / Put / Spread (future) |
+| Go/No-Go | ✓ | Toggle — final gate before prompt inclusion |
+
+**Actions:**
+- **Generate Prompt** — builds batch trade prompt text from all Go symbols via `RobinhoodTradeService.generateBatchPrompt()`.
+- **Copy to Clipboard** — one-click copy via `RobinhoodTradeService.copyToClipboard()`.
+- **Remove** — moves symbol back to PROMOTE (returns to Review page list) or drops entirely.
+
+**Minimal first version:** Table of accepted symbols with position size + stop loss fields. "Generate All" button. Copy to clipboard. Options strategy and limit orders are future.
+
+---
+
+#### 5B.5 Implementation Order
+
+1. Create `RhAgentTriageStore` (NgRx signal store) — state, computed, methods.
+2. Remove `reviewStatuses` from `RhAgentGroupStore`. Wire PACR buttons to triage store.
+3. Add "Review Promoted (N)" and "Order Accepted (N)" buttons to Grouped Review toolbar.
+4. Add group-level Promote/Accept buttons in expansion panel headers.
+5. Integrate Review page — signal list reads promoted symbols from triage store, existing chart/detail unchanged.
+6. Build Order page — accepted symbols table, stop/size fields, prompt generation (building on existing `RobinhoodTradeService`).
+
+---
+
 ### Phase 6 — Cleanup
 
-- Remove dual-write, deprecate `rh-agent-opportunities` flat collection.
+- Remove `rh-agent-opportunities` flat collection reads from all frontend code.
+- Evaluate whether `RhAgentStore` and `RhAgentDashboardStore` can be simplified once triage store is the primary state owner.
 - Migrate signal history component to read from subcollection.
 - Add Firestore composite indexes for all new query patterns.
 - **Migrate `StrategyOutput.action` from `'OPEN_LONG' | 'OPEN_SHORT'` string literals to `StSignalDirection` enum** — eliminates the mapping in `createSignalDoc()` and makes the type consistent from strategy execution through to Firestore persistence.
+- Gut Dashboard page — ops/admin only (run status, "Run Now", bars sync, link to Grouped Review).
 
 ---
 
@@ -358,16 +506,15 @@ enum RhReviewStatus {
 
 ## What We Are NOT Doing (Yet)
 
-- Persisting review decisions (`ACCEPTED`/`REJECTED`) to Firestore — still local UI state for now.
+- Persisting review decisions (`ACCEPTED`/`REJECTED`) to Firestore — still local UI state for now (Phase 5B uses session-scoped NgRx signal store).
 - Multi-strategy grouping (one strategy at a time).
 - Real-time signal streaming — still callable-based fetch on page load.
-- The actual UI group rendering (Phase 5) — backend phases first.
 - "All signals for a run" as a first-class query — this is the flat random list we are explicitly replacing. Run-level stats (count, status) are fine on the run doc; the signal list itself must be symbol-grouped.
 
 ---
 
 ## Open Questions
 
-- **SA overview endpoint:** Confirm the exact SA endpoint path and GCP auth mechanism for company overview data before Phase 1.
+- ~~**SA overview endpoint:** Confirm the exact SA endpoint path and GCP auth mechanism for company overview data before Phase 1.~~ **RESOLVED** — company overview data is persisted in RS.
 - **Pub/Sub for weekly overview refresh:** Determine whether to trigger via Cloud Scheduler → Pub/Sub → callable, or a direct scheduled function.
 - **collectionGroup security rules:** `rh-agent-symbols` is admin-only. Verify the `signals` subcollection inherits those rules correctly (should by default).
