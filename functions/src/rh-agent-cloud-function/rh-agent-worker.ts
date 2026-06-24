@@ -135,7 +135,7 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
 
       // 6. Store signals under rh-agent-symbols/{symbol}/signal-dates/{barDate}
       const fired = results.filter(r => r.action);
-      const entries = fired.map(r => createSignalEntry(marketDate, runId, r));
+      const entries = fired.map(r => createSignalEntry(marketDate, runId, r, !!intraday));
 
       // Group entries by barDate (daily and weekly may have different bar dates)
       const byBarDate = new Map<string, typeof entries>();
@@ -163,12 +163,26 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
           const firedTypes = new Set(dateEntries.filter(e => e.timeframe === 'W').map(e => e.signalType));
           await clearStaleInterimSignals(symbol, barDate, firedTypes);
         }
+
+        // Clear stale INTERIM daily signals during intraday runs (reversal handling)
+        if (intraday) {
+          const isDailyBarDate = dateEntries.some(e => e.timeframe === 'D');
+          if (isDailyBarDate) {
+            const firedDailyTypes = new Set(dateEntries.filter(e => e.timeframe === 'D').map(e => e.signalType));
+            await clearStaleInterimSignals(symbol, barDate, firedDailyTypes);
+          }
+        }
       }
 
       // Also clear stale INTERIM for the current weekly bar if no weekly signal fired at all
       const weeklyBarDate = results.find(r => r.barDate && deriveTimeframe(r.signalType) === 'W')?.barDate;
       if (weeklyBarDate && !byBarDate.has(weeklyBarDate)) {
         await clearStaleInterimSignals(symbol, weeklyBarDate, new Set());
+      }
+
+      // For intraday runs: if no daily signal fired at all, clear any existing INTERIM daily signals for today
+      if (intraday && !byBarDate.has(marketDate)) {
+        await clearStaleInterimSignals(symbol, marketDate, new Set());
       }
 
       await incrementOpportunitiesFound(runId, opportunityCount);
@@ -408,16 +422,17 @@ function deriveTimeframe(signalType: string): 'D' | 'W' {
 
 /**
  * Determine signal status.
- * Daily signals are always CONFIRMED.
+ * Daily signals are CONFIRMED on nightly runs, INTERIM during intraday runs.
  * Weekly signals are CONFIRMED once the next weekly bar has started
  * (i.e. marketDate is at least 7 days after barDate), otherwise INTERIM.
  */
 function deriveSignalStatus(
   timeframe: 'D' | 'W',
   barDate: string,
-  marketDate: string
+  marketDate: string,
+  intraday: boolean
 ): RhAgentSignalStatus {
-  if (timeframe === 'D') return 'CONFIRMED';
+  if (timeframe === 'D') return intraday ? 'INTERIM' : 'CONFIRMED';
   const barMs = new Date(barDate).getTime();
   const runMs = new Date(marketDate).getTime();
   return runMs - barMs >= 7 * 86_400_000 ? 'CONFIRMED' : 'INTERIM';
@@ -429,7 +444,8 @@ function deriveSignalStatus(
 function createSignalEntry(
   marketDate: string,
   runId: string,
-  result: StrategyOutput
+  result: StrategyOutput,
+  intraday: boolean
 ): RhAgentSignalEntry {
   const timeframe = deriveTimeframe(result.signalType);
   const barDate = result.barDate || marketDate;
@@ -437,7 +453,7 @@ function createSignalEntry(
     signalType: result.signalType,
     timeframe,
     direction: result.action === 'OPEN_LONG' ? StSignalDirection.LONG : StSignalDirection.SHORT,
-    status: deriveSignalStatus(timeframe, barDate, marketDate),
+    status: deriveSignalStatus(timeframe, barDate, marketDate, intraday),
     barDate,
     marketDate,
     indicators: (result.indicators || {}) as Record<string, number | string | null>,

@@ -281,17 +281,12 @@ export const rhAgentGetSymbolsWithSignals = onCall<
 
       const dateField = timeframe === 'W' ? 'lastWeeklySignalDate' : 'lastDailySignalDate';
 
-      // Use marketDate as upper bound and look back 14 calendar days
-      // so the UI shows recent signals even if none ran today
-      const cutoff = new Date(marketDate + 'T00:00:00Z');
-      cutoff.setDate(cutoff.getDate() - 14);
-      const cutoffDate = cutoff.toISOString().slice(0, 10);
-
+      // Exact match on the requested marketDate.
+      // Frontend passes yesterday until intraday bars are wired; then switches to today.
       const snapshot = await db
         .collection(RH_AGENT_SYMBOLS_COLLECTION)
         .where('enabled', '==', true)
-        .where(dateField, '>=', cutoffDate)
-        .where(dateField, '<=', marketDate)
+        .where(dateField, '==', marketDate)
         .get();
 
       const symbols: SymbolProfile[] = snapshot.docs.map((doc) => {

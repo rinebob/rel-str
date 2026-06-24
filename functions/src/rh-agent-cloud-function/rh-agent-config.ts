@@ -53,7 +53,7 @@ export enum StSignalType {
 
 /**
  * Signal status — INTERIM for open W/M periods, CONFIRMED once the period closes.
- * Daily signals are always CONFIRMED.
+ * Daily signals are INTERIM during intraday runs, CONFIRMED on the nightly run.
  */
 export type RhAgentSignalStatus = 'INTERIM' | 'CONFIRMED';
 
