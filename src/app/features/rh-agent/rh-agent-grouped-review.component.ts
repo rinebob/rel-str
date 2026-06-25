@@ -26,7 +26,7 @@ import { MatBadgeModule } from '@angular/material/badge';
 import { MatChipsModule } from '@angular/material/chips';
 import { Router } from '@angular/router';
 
-import { RhAgentGroupStore, GroupDimension, RhSymbolGroup, RhSymbolRow } from './rh-agent-group.store';
+import { RhAgentGroupStore, GroupDimension, RhSymbolGroup, RhSymbolRow, UniverseFilter } from './rh-agent-group.store';
 import { RhAgentTriageStore } from './rh-agent-triage.store';
 import { RhAgentSignalItem } from './rh-agent.service';
 import { QuickChartsComponent } from './components/quick-charts/quick-charts.component';
@@ -61,6 +61,16 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
     { value: 'sector',        label: 'Sector' },
     { value: 'industry',      label: 'Industry' },
     { value: 'marketCapTier', label: 'Market Cap' },
+  ];
+
+  /** Universe filter options for the pill toggle. */
+  readonly universeFilterOptions: { value: UniverseFilter; label: string }[] = [
+    { value: 'ALL',             label: 'Active' },
+    { value: 'IN_UNIVERSE',     label: 'Universe' },
+    { value: 'PREFERRED',       label: 'Preferred' },
+    { value: 'WATCHLIST',       label: 'Watchlist' },
+    { value: 'LOW_TRADABILITY', label: 'Low Tradability' },
+    { value: 'EXCLUDED',        label: 'Excluded' },
   ];
 
   /** Scroll container ref for scroll-into-view on navigation. */
@@ -128,6 +138,10 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
 
   onDimension(dim: GroupDimension): void {
     this.groupStore.setGroupDimension(dim);
+  }
+
+  onUniverseFilter(filter: UniverseFilter): void {
+    this.groupStore.setUniverseFilter(filter);
   }
 
   onSymbolClick(row: RhSymbolRow): void {
@@ -212,6 +226,26 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
   onReset(symbol: string, event: Event): void {
     event.stopPropagation();
     this.triageStore.resetSymbol(symbol);
+  }
+
+  onExclude(symbol: string, event: Event): void {
+    event.stopPropagation();
+    this.triageStore.excludeSymbol(symbol);
+  }
+
+  onLowTradability(symbol: string, event: Event): void {
+    event.stopPropagation();
+    this.triageStore.demoteSymbol(symbol);
+  }
+
+  onWatch(symbol: string, event: Event): void {
+    event.stopPropagation();
+    this.triageStore.watchSymbol(symbol);
+  }
+
+  onElevate(symbol: string, event: Event): void {
+    event.stopPropagation();
+    this.triageStore.elevateSymbol(symbol);
   }
 
   onPromoteGroup(group: RhSymbolGroup, event: Event): void {

@@ -1,24 +1,25 @@
 /**
  * RH Agent Triage Store
  *
- * Single source of truth for PACR (Promote/Accept/Consider/Reject) state
- * across all RH Agent pages: Grouped Review, Review, and Order.
+ * Single source of truth for PACR (Promote/Accept/Consider/Reject/Exclude/etc.)
+ * state across all RH Agent pages: Grouped Review, Review, and Order.
  *
- * Session-scoped — state resets on page refresh or timeframe/date change.
- * No Firestore persistence (yet).
- *
+ * Persisted to Firestore via RhAgentTriageService.
  * providedIn: 'root' so state survives route navigation.
  */
-import { computed } from '@angular/core';
+import { computed, inject } from '@angular/core';
 import {
   signalStore,
   withState,
   withComputed,
   withMethods,
+  withHooks,
   patchState,
 } from '@ngrx/signals';
 
-import { RhReviewStatus } from './rh-agent-group.store';
+import { RhReviewStatus, UniverseStatus } from './rh-agent-group.store';
+import { RhAgentTriageService } from './rh-agent-triage.service';
+import { RhAgentSymbolMetaService } from './rh-agent-symbol-meta.service';
 
 // ---------------------------------------------------------------------------
 // State
@@ -31,6 +32,12 @@ export interface RhAgentTriageState {
   timeframe: 'W' | 'D';
   /** Active market date (YYYY-MM-DD) carried from Grouped Review. */
   marketDate: string;
+  /** Whether persisted decisions are being loaded. */
+  decisionsLoading: boolean;
+  /** Error from loading or persisting decisions. */
+  decisionsError: string | null;
+  /** Cache of all persisted decisions loaded from Firestore: symbol -> date -> status. */
+  persistedStatuses: Record<string, Record<string, RhReviewStatus>>;
 }
 
 const todayPT = (): string =>
@@ -40,6 +47,9 @@ const initialState: RhAgentTriageState = {
   statuses: {},
   timeframe: 'W',
   marketDate: todayPT(),
+  decisionsLoading: false,
+  decisionsError: null,
+  persistedStatuses: {},
 };
 
 // ---------------------------------------------------------------------------
@@ -80,31 +90,81 @@ export const RhAgentTriageStore = signalStore(
     statusCounts: computed(() => {
       const values = Object.values(state.statuses());
       return {
-        PENDING:  values.filter((s) => s === 'PENDING').length,
-        PROMOTE:  values.filter((s) => s === 'PROMOTE').length,
-        ACCEPT:   values.filter((s) => s === 'ACCEPT').length,
-        CONSIDER: values.filter((s) => s === 'CONSIDER').length,
-        REJECT:   values.filter((s) => s === 'REJECT').length,
+        PENDING:          values.filter((s) => s === 'PENDING').length,
+        PROMOTE:          values.filter((s) => s === 'PROMOTE').length,
+        ACCEPT:           values.filter((s) => s === 'ACCEPT').length,
+        CONSIDER:         values.filter((s) => s === 'CONSIDER').length,
+        REJECT:           values.filter((s) => s === 'REJECT').length,
+        EXCLUDE:          values.filter((s) => s === 'EXCLUDE').length,
+        LOW_TRADABILITY:  values.filter((s) => s === 'LOW_TRADABILITY').length,
+        WATCH:            values.filter((s) => s === 'WATCH').length,
+        ELEVATE:          values.filter((s) => s === 'ELEVATE').length,
       };
     }),
   })),
 
-  withMethods((state) => ({
-    /** Set a single symbol's PACR status. */
-    setStatus(symbol: string, status: RhReviewStatus): void {
+  withMethods((
+    state,
+    triageService = inject(RhAgentTriageService),
+    metaService = inject(RhAgentSymbolMetaService),
+  ) => ({
+    /** Set a single symbol's PACR status and persist it. */
+    setStatus(symbol: string, status: RhReviewStatus, source = 'unknown'): void {
+      const marketDate = state.marketDate();
       patchState(state, {
         statuses: { ...state.statuses(), [symbol]: status },
+        persistedStatuses: mergePersistedStatus(state.persistedStatuses(), symbol, marketDate, status),
+      });
+
+      triageService.setDecision({ symbol, date: marketDate, status, source }).subscribe({
+        error: (err) => {
+          console.error(`[TriageStore] Failed to persist status for ${symbol}:`, err);
+          patchState(state, { decisionsError: err?.message ?? 'Persist failed' });
+        },
       });
     },
 
-    /** Set PACR status for multiple symbols at once (group-level action). */
-    setGroupStatus(symbols: string[], status: RhReviewStatus): void {
+    /** Set PACR status for multiple symbols at once (group-level action) and persist. */
+    setGroupStatus(symbols: string[], status: RhReviewStatus, source = 'unknown'): void {
+      const marketDate = state.marketDate();
       const current = state.statuses();
       const updates: Record<string, RhReviewStatus> = {};
+      let persisted = state.persistedStatuses();
       for (const symbol of symbols) {
         updates[symbol] = status;
+        persisted = mergePersistedStatus(persisted, symbol, marketDate, status);
       }
-      patchState(state, { statuses: { ...current, ...updates } });
+      patchState(state, { statuses: { ...current, ...updates }, persistedStatuses: persisted });
+
+      const inputs = symbols.map((symbol) => ({ symbol, date: marketDate, status, source }));
+      triageService.setDecisionsBatch(inputs).subscribe({
+        error: (err) => {
+          console.error(`[TriageStore] Failed to persist group status:`, err);
+          patchState(state, { decisionsError: err?.message ?? 'Batch persist failed' });
+        },
+      });
+    },
+
+    /** Set a symbol's persistent universe status and write a daily audit decision. */
+    setUniverseStatus(symbol: string, status: UniverseStatus, source = 'unknown'): void {
+      const marketDate = state.marketDate();
+      const decisionStatus: RhReviewStatus =
+        status === 'EXCLUDED' ? 'EXCLUDE' :
+        status === 'LOW_TRADABILITY' ? 'LOW_TRADABILITY' :
+        status === 'PREFERRED' ? 'ELEVATE' :
+        status === 'WATCHLIST' ? 'WATCH' :
+        'PENDING';
+
+      if (decisionStatus !== 'PENDING') {
+        this.setStatus(symbol, decisionStatus, source);
+      }
+
+      metaService.setUniverseStatus(symbol, status).subscribe({
+        error: (err) => {
+          console.error(`[TriageStore] Failed to set universe status for ${symbol}:`, err);
+          patchState(state, { decisionsError: err?.message ?? 'Universe status update failed' });
+        },
+      });
     },
 
     /** Set the active timeframe. */
@@ -112,22 +172,97 @@ export const RhAgentTriageStore = signalStore(
       patchState(state, { timeframe });
     },
 
-    /** Set the active market date. */
+    /** Set the active market date and sync local statuses from persisted cache. */
     setMarketDate(marketDate: string): void {
-      patchState(state, { marketDate });
+      const persisted = state.persistedStatuses();
+      const dateStatuses: Record<string, RhReviewStatus> = {};
+      for (const [symbol, byDate] of Object.entries(persisted)) {
+        if (byDate[marketDate]) {
+          dateStatuses[symbol] = byDate[marketDate];
+        }
+      }
+      patchState(state, {
+        marketDate,
+        statuses: { ...state.statuses(), ...dateStatuses },
+      });
     },
 
-    /** Clear all triage state — full reset. */
+    /** Load persisted decisions for a date range and merge into local state. */
+    loadPersistedDecisions(startDate: string, endDate: string): void {
+      patchState(state, { decisionsLoading: true, decisionsError: null });
+
+      triageService.loadDecisionsForDateRange(startDate, endDate).subscribe({
+        next: (decisions) => {
+          let persisted = state.persistedStatuses();
+          const currentStatuses = state.statuses();
+          const currentDate = state.marketDate();
+
+          for (const d of decisions) {
+            persisted = mergePersistedStatus(persisted, d.symbol, d.date, d.status);
+            if (d.date === currentDate) {
+              currentStatuses[d.symbol] = d.status;
+            }
+          }
+
+          patchState(state, {
+            persistedStatuses: persisted,
+            statuses: currentStatuses,
+            decisionsLoading: false,
+          });
+        },
+        error: (err) => {
+          console.error('[TriageStore] Failed to load persisted decisions:', err);
+          patchState(state, { decisionsLoading: false, decisionsError: err?.message ?? 'Load failed' });
+        },
+      });
+    },
+
+    /** Clear all triage state — full local reset (does not delete Firestore). */
     clear(): void {
       patchState(state, { statuses: {} });
     },
 
     // --- Convenience methods (match RhAgentGroupStore pattern) ---
 
-    promoteSymbol(symbol: string): void  { this.setStatus(symbol, 'PROMOTE'); },
-    acceptSymbol(symbol: string): void   { this.setStatus(symbol, 'ACCEPT'); },
-    considerSymbol(symbol: string): void { this.setStatus(symbol, 'CONSIDER'); },
-    rejectSymbol(symbol: string): void   { this.setStatus(symbol, 'REJECT'); },
-    resetSymbol(symbol: string): void    { this.setStatus(symbol, 'PENDING'); },
+    promoteSymbol(symbol: string): void  { this.setStatus(symbol, 'PROMOTE', 'triage-store'); },
+    acceptSymbol(symbol: string): void   { this.setStatus(symbol, 'ACCEPT', 'triage-store'); },
+    considerSymbol(symbol: string): void { this.setStatus(symbol, 'CONSIDER', 'triage-store'); },
+    rejectSymbol(symbol: string): void   { this.setStatus(symbol, 'REJECT', 'triage-store'); },
+    resetSymbol(symbol: string): void    { this.setStatus(symbol, 'PENDING', 'triage-store'); },
+    excludeSymbol(symbol: string): void  { this.setUniverseStatus(symbol, 'EXCLUDED', 'triage-store'); },
+    demoteSymbol(symbol: string): void   { this.setUniverseStatus(symbol, 'LOW_TRADABILITY', 'triage-store'); },
+    watchSymbol(symbol: string): void    { this.setStatus(symbol, 'WATCH', 'triage-store'); },
+    elevateSymbol(symbol: string): void  { this.setUniverseStatus(symbol, 'PREFERRED', 'triage-store'); },
+  })),
+
+  withHooks((store) => ({
+    onInit() {
+      const marketDate = store.marketDate();
+      const today = todayPT();
+      const start = marketDate <= today ? marketDate : today;
+      const end = today;
+
+      // Load current date plus the last 30 days of decisions
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const startDate = start < thirtyDaysAgo.toISOString().slice(0, 10) ? start : thirtyDaysAgo.toISOString().slice(0, 10);
+
+      store.loadPersistedDecisions(startDate, end);
+    },
   }))
 );
+
+function mergePersistedStatus(
+  persisted: Record<string, Record<string, RhReviewStatus>>,
+  symbol: string,
+  date: string,
+  status: RhReviewStatus,
+): Record<string, Record<string, RhReviewStatus>> {
+  return {
+    ...persisted,
+    [symbol]: {
+      ...(persisted[symbol] ?? {}),
+      [date]: status,
+    },
+  };
+}

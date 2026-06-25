@@ -39,6 +39,18 @@
       @if (groupStore.statusCounts().REJECT > 0) {
         <span class="status-chip reject">✕ {{ groupStore.statusCounts().REJECT }}</span>
       }
+      @if (groupStore.statusCounts().EXCLUDE > 0) {
+        <span class="status-chip exclude">✕ {{ groupStore.statusCounts().EXCLUDE }}</span>
+      }
+      @if (groupStore.statusCounts().LOW_TRADABILITY > 0) {
+        <span class="status-chip low-tradability">↓ {{ groupStore.statusCounts().LOW_TRADABILITY }}</span>
+      }
+      @if (groupStore.statusCounts().WATCH > 0) {
+        <span class="status-chip watch">👁 {{ groupStore.statusCounts().WATCH }}</span>
+      }
+      @if (groupStore.statusCounts().ELEVATE > 0) {
+        <span class="status-chip elevate">↑ {{ groupStore.statusCounts().ELEVATE }}</span>
+      }
     </div>
 
     <div class="header-spacer"></div>
@@ -68,6 +80,18 @@
           class="pill"
           [class.active]="groupStore.groupDimension() === opt.value"
           (click)="onDimension(opt.value)">
+          {{ opt.label }}
+        </button>
+      }
+    </div>
+
+    <!-- Universe filter selector -->
+    <div class="pill-group universe-filter-toggle">
+      @for (opt of universeFilterOptions; track opt.value) {
+        <button
+          class="pill"
+          [class.active]="groupStore.universeFilter() === opt.value"
+          (click)="onUniverseFilter(opt.value)">
           {{ opt.label }}
         </button>
       }
@@ -195,6 +219,14 @@
                     [class.status-accept]="row.reviewStatus === 'ACCEPT'"
                     [class.status-consider]="row.reviewStatus === 'CONSIDER'"
                     [class.status-reject]="row.reviewStatus === 'REJECT'"
+                    [class.status-exclude]="row.reviewStatus === 'EXCLUDE'"
+                    [class.status-low-tradability]="row.reviewStatus === 'LOW_TRADABILITY'"
+                    [class.status-watch]="row.reviewStatus === 'WATCH'"
+                    [class.status-elevate]="row.reviewStatus === 'ELEVATE'"
+                    [class.universe-excluded]="row.universeStatus === 'EXCLUDED'"
+                    [class.universe-low-tradability]="row.universeStatus === 'LOW_TRADABILITY'"
+                    [class.universe-preferred]="row.universeStatus === 'PREFERRED'"
+                    [class.universe-watchlist]="row.universeStatus === 'WATCHLIST'"
                     (opened)="onSymbolClick(row)">
 
                     <!-- Symbol panel header -->
@@ -204,6 +236,12 @@
                         <!-- Row 1: ticker + today's signals + charts + ACR -->
                         <div class="symbol-row-main">
                           <span class="symbol-ticker">{{ row.profile.symbol }}</span>
+
+                          @if (row.universeStatus !== 'IN_UNIVERSE') {
+                            <span class="badge universe universe-{{ row.universeStatus.toLowerCase().replace('_', '-') }}">
+                              {{ row.universeStatus }}
+                            </span>
+                          }
 
                           <!-- Today's signal badges -->
                           <div class="symbol-signals-today">
@@ -261,6 +299,30 @@
                               (click)="onReset(row.profile.symbol, $event)"
                               matTooltip="Reset to pending">
                               <mat-icon>undo</mat-icon>
+                            </button>
+                            <button type="button" class="acr-btn watch"
+                              [class.active]="row.reviewStatus === 'WATCH'"
+                              (click)="onWatch(row.profile.symbol, $event)"
+                              matTooltip="Watch">
+                              <mat-icon>visibility</mat-icon>
+                            </button>
+                            <button type="button" class="acr-btn elevate"
+                              [class.active]="row.reviewStatus === 'ELEVATE'"
+                              (click)="onElevate(row.profile.symbol, $event)"
+                              matTooltip="Elevate / Preferred">
+                              <mat-icon>star</mat-icon>
+                            </button>
+                            <button type="button" class="acr-btn low-tradability"
+                              [class.active]="row.reviewStatus === 'LOW_TRADABILITY'"
+                              (click)="onLowTradability(row.profile.symbol, $event)"
+                              matTooltip="Low tradability">
+                              <mat-icon>trending_down</mat-icon>
+                            </button>
+                            <button type="button" class="acr-btn exclude"
+                              [class.active]="row.reviewStatus === 'EXCLUDE'"
+                              (click)="onExclude(row.profile.symbol, $event)"
+                              matTooltip="Exclude from universe">
+                              <mat-icon>block</mat-icon>
                             </button>
                           </div>
                         </div>

@@ -30,10 +30,17 @@ export {
   RhSymbolGroup,
   RhReviewStatus,
   GroupDimension,
+  UniverseStatus,
+  SymbolType,
+  UniverseFilter,
 } from './rh-agent-group.store';
 
 // Triage Store (Phase 5B — shared PACR state across pages)
 export { RhAgentTriageStore } from './rh-agent-triage.store';
+
+// Persistence & Universe Services (Phase 5C)
+export { RhAgentTriageService, RhTriageDecision, RhTriageDecisionInput } from './rh-agent-triage.service';
+export { RhAgentSymbolMetaService, RhSymbolMeta, RhSymbolMetaInput } from './rh-agent-symbol-meta.service';
 
 // Components
 export { RhAgentDashboardComponent } from './rh-agent-dashboard.component';

@@ -181,6 +181,10 @@
   &.accept   { background: #1b5e2033; color: #1b5e20; }
   &.consider { background: var(--mat-sys-secondary-container); color: var(--mat-sys-on-secondary-container); }
   &.reject   { background: var(--mat-sys-error-container);     color: var(--mat-sys-on-error-container); }
+  &.exclude  { background: var(--mat-sys-error-container);    color: var(--mat-sys-on-error-container); }
+  &.low-tradability { background: var(--mat-sys-warning-container); color: var(--mat-sys-on-warning-container); }
+  &.watch    { background: var(--mat-sys-primary-container);   color: var(--mat-sys-on-primary-container); }
+  &.elevate  { background: var(--mat-sys-tertiary-container);  color: var(--mat-sys-on-tertiary-container); }
 }
 
 // ─── Loading / Error / Empty ──────────────────────────────────────────────────
@@ -383,6 +387,15 @@
   &.status-accept  { border-left: 3px solid #2e7d32; }
   &.status-consider { border-left: 3px solid var(--mat-sys-secondary); }
   &.status-reject  { border-left: 3px solid var(--mat-sys-error); }
+  &.status-exclude { border-left: 3px solid var(--mat-sys-error); }
+  &.status-low-tradability { border-left: 3px solid var(--mat-sys-warning); }
+  &.status-watch  { border-left: 3px solid var(--mat-sys-primary); }
+  &.status-elevate { border-left: 3px solid var(--mat-sys-tertiary); }
+
+  &.universe-excluded { opacity: 0.6; background: var(--mat-sys-error-container); }
+  &.universe-low-tradability { opacity: 0.85; }
+  &.universe-preferred { background: var(--mat-sys-tertiary-container); }
+  &.universe-watchlist { background: var(--mat-sys-primary-container); }
 
   &.active-chart { outline: 2px solid #1976d2; outline-offset: -1px; }
 }
@@ -430,6 +443,19 @@
   font-weight: 700;
   letter-spacing: 0.02em;
   white-space: nowrap;
+}
+
+.badge.universe {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 4px;
+  text-transform: uppercase;
+
+  &.universe-excluded { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
+  &.universe-low-tradability { background: var(--mat-sys-warning-container); color: var(--mat-sys-on-warning-container); }
+  &.universe-preferred { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
+  &.universe-watchlist { background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container); }
 }
 
 .symbol-name {
@@ -583,6 +609,10 @@
   &.consider.active { background: var(--mat-sys-secondary-container); color: var(--mat-sys-on-secondary-container); }
   &.reject.active  { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
   &.reset.active  { background: var(--mat-sys-surface-container-highest); color: var(--mat-sys-on-surface); }
+  &.watch.active  { background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container); }
+  &.elevate.active { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
+  &.low-tradability.active { background: var(--mat-sys-warning-container); color: var(--mat-sys-on-warning-container); }
+  &.exclude.active { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
 }
 
 // ─── Signal history rows (in expansion body) ─────────────────────────────────

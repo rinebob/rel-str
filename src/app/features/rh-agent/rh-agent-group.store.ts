@@ -29,6 +29,7 @@ import {
   RhAgentSignalItem,
 } from './rh-agent.service';
 import { RhAgentTriageStore } from './rh-agent-triage.store';
+import { RhAgentSymbolMetaService } from './rh-agent-symbol-meta.service';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -37,10 +38,25 @@ import { RhAgentTriageStore } from './rh-agent-triage.store';
 /** Dimensions available for grouping the symbol list. */
 export type GroupDimension = 'sector' | 'industry' | 'marketCapTier';
 
-/** Triage status for a symbol — local UI state, not yet persisted. */
-export type RhReviewStatus = 'PENDING' | 'PROMOTE' | 'ACCEPT' | 'CONSIDER' | 'REJECT';
+/** Triage status for a symbol — local UI state, now persisted to Firestore. */
+export type RhReviewStatus =
+  | 'PENDING'
+  | 'PROMOTE'
+  | 'ACCEPT'
+  | 'CONSIDER'
+  | 'REJECT'
+  | 'EXCLUDE'
+  | 'LOW_TRADABILITY'
+  | 'WATCH'
+  | 'ELEVATE';
 
-/** A symbol row in the grouped list — profile + triage state. */
+/** Persistent classification of a symbol's membership in the trading universe. */
+export type UniverseStatus = 'IN_UNIVERSE' | 'EXCLUDED' | 'LOW_TRADABILITY' | 'WATCHLIST' | 'PREFERRED';
+
+/** Symbol type classification for the trading universe. */
+export type SymbolType = 'STOCK' | 'ETF' | 'FUTURE' | 'FOREX' | 'CRYPTO' | 'OTHER';
+
+/** A symbol row in the grouped list — profile + triage state + universe classification. */
 export interface RhSymbolRow {
   profile: RhAgentSymbolProfile;
   /** True if the symbol has a signal for the active marketDate + timeframe. */
@@ -48,6 +64,8 @@ export interface RhSymbolRow {
   signals?: RhAgentSignalItem[];
   signalsLoading?: boolean;
   reviewStatus: RhReviewStatus;
+  /** Persistent universe status from rh-agent-symbol-meta. */
+  universeStatus: UniverseStatus;
 }
 
 /** A rendered group in the expansion panel list. */
@@ -93,7 +111,16 @@ export interface RhAgentGroupState {
   allSymbols: RhAgentSymbolProfile[];
   /** Loading state for the all-symbols query. */
   allSymbolsLoading: boolean;
+  /** Persistent symbol meta cache: symbol -> RhSymbolMeta. */
+  symbolMeta: Record<string, { universeStatus: UniverseStatus; symbolType: SymbolType }>;
+  /** Loading state for symbol meta. */
+  symbolMetaLoading: boolean;
+  /** Active universe filter. */
+  universeFilter: UniverseFilter;
 }
+
+/** Filter modes for the grouped review universe. */
+export type UniverseFilter = 'ALL' | 'IN_UNIVERSE' | 'EXCLUDED' | 'LOW_TRADABILITY' | 'WATCHLIST' | 'PREFERRED';
 
 /** Yesterday in PT — used as default marketDate until intraday bars are wired. */
 const yesterdayDate = (): string => {
@@ -116,6 +143,9 @@ const initialState: RhAgentGroupState = {
   showAllSymbols: false,
   allSymbols: [],
   allSymbolsLoading: false,
+  symbolMeta: {},
+  symbolMetaLoading: false,
+  universeFilter: 'ALL',
 };
 
 // ---------------------------------------------------------------------------
@@ -132,6 +162,18 @@ function getGroupKey(profile: RhAgentSymbolProfile, dimension: GroupDimension): 
   }
 }
 
+/**
+ * Determine whether a symbol with a given universe status should appear
+ * under the active grouped review filter.
+ *
+ * Default view: hide EXCLUDED, show everything else.
+ * Explicit filters show only matching status.
+ */
+function shouldShowInUniverseFilter(status: UniverseStatus, filter: UniverseFilter): boolean {
+  if (filter === 'ALL') return status !== 'EXCLUDED';
+  return status === filter;
+}
+
 // ---------------------------------------------------------------------------
 // Store
 // ---------------------------------------------------------------------------
@@ -145,6 +187,7 @@ export const RhAgentGroupStore = signalStore(
     snackBar = inject(MatSnackBar),
     destroyRef = inject(DestroyRef),
     triageStore = inject(RhAgentTriageStore),
+    metaService = inject(RhAgentSymbolMetaService),
   ) => ({
     /** Expose triage store statuses for use by computed signals. */
     getTriageStatuses(): Record<string, RhReviewStatus> {
@@ -191,7 +234,9 @@ export const RhAgentGroupStore = signalStore(
             for (const s of dailySymbols) {
               if (!map.has(s.symbol)) map.set(s.symbol, s);
             }
-            patchState(state, { signalSymbols: [...map.values()], symbolsLoading: false });
+            const symbols = [...map.values()];
+            patchState(state, { signalSymbols: symbols, symbolsLoading: false });
+            this.loadSymbolMeta(symbols.map((s) => s.symbol));
           },
           error: (err: any) => {
             patchState(state, { symbolsLoading: false, symbolsError: err?.message ?? 'Load failed' });
@@ -257,12 +302,40 @@ export const RhAgentGroupStore = signalStore(
       service.getAllSymbols()
         .pipe(takeUntilDestroyed(destroyRef))
         .subscribe({
-          next: (symbols) => patchState(state, { allSymbols: symbols, allSymbolsLoading: false }),
+          next: (symbols) => {
+            patchState(state, { allSymbols: symbols, allSymbolsLoading: false });
+            this.loadSymbolMeta(symbols.map((s) => s.symbol));
+          },
           error: (err: any) => {
             patchState(state, { allSymbolsLoading: false });
             snackBar.open('Failed to load all symbols', 'Dismiss', { duration: 5000 });
           },
         });
+    },
+
+    /** Load persistent symbol meta for a list of symbols. */
+    loadSymbolMeta(symbols: string[]): void {
+      if (symbols.length === 0) return;
+      patchState(state, { symbolMetaLoading: true });
+
+      metaService.loadSymbolMeta(symbols).subscribe({
+        next: (meta) => {
+          const metaRecord: Record<string, { universeStatus: UniverseStatus; symbolType: SymbolType }> = {};
+          for (const [symbol, m] of Object.entries(meta)) {
+            metaRecord[symbol] = { universeStatus: m.universeStatus, symbolType: m.symbolType };
+          }
+          patchState(state, { symbolMeta: metaRecord, symbolMetaLoading: false });
+        },
+        error: (err: any) => {
+          console.error('[RhAgentGroupStore] Failed to load symbol meta:', err);
+          patchState(state, { symbolMetaLoading: false });
+        },
+      });
+    },
+
+    /** Set the active universe filter for the grouped review. */
+    setUniverseFilter(filter: UniverseFilter): void {
+      patchState(state, { universeFilter: filter });
     },
 
     /** Set the symbol shown in the quick-charts panel. */
@@ -295,6 +368,8 @@ export const RhAgentGroupStore = signalStore(
       const fullGroupToggles = state.fullGroupToggles();
       const showAll = state.showAllSymbols();
       const allSymbols = state.allSymbols();
+      const symbolMeta = state.symbolMeta();
+      const universeFilter = state.universeFilter();
 
       // Build signal symbol set for fast lookup
       const signalSet = new Set(signalSymbols.map(s => s.symbol));
@@ -310,11 +385,14 @@ export const RhAgentGroupStore = signalStore(
       ];
 
       // Build group map
-      const groupMap = new Map<string, Array<{ profile: RhAgentSymbolProfile; hasSignal: boolean }>>();
+      const groupMap = new Map<string, Array<{ profile: RhAgentSymbolProfile; hasSignal: boolean; universeStatus: UniverseStatus }>>();
       for (const item of symbols) {
+        const us = symbolMeta[item.profile.symbol]?.universeStatus ?? 'IN_UNIVERSE';
+        if (!shouldShowInUniverseFilter(us, universeFilter)) continue;
+
         const key = getGroupKey(item.profile, dimension);
         const existing = groupMap.get(key) ?? [];
-        existing.push(item);
+        existing.push({ ...item, universeStatus: us });
         groupMap.set(key, existing);
       }
 
@@ -339,6 +417,7 @@ export const RhAgentGroupStore = signalStore(
           signals: historyCache[item.profile.symbol],
           signalsLoading: historyLoading[item.profile.symbol] ?? false,
           reviewStatus: statuses[item.profile.symbol] ?? 'PENDING',
+          universeStatus: item.universeStatus,
         }));
 
         // Count long/short from both timeframes
