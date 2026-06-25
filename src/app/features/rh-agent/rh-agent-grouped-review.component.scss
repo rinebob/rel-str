@@ -118,6 +118,51 @@
   }
 }
 
+// ─── Pipeline actions (Review / Order) ───────────────────────────────────────
+
+.pipeline-actions {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  background: var(--mat-sys-surface-container);
+  color: var(--mat-sys-on-surface-variant);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+
+  mat-icon { font-size: 12px; width: 12px; height: 12px; }
+
+  &:hover:not(:disabled) {
+    background: var(--mat-sys-surface-container-high);
+    border-color: var(--mat-sys-outline);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  &.promote {
+    &:hover:not(:disabled) { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); border-color: var(--mat-sys-tertiary); }
+  }
+  &.accept {
+    &:hover:not(:disabled) { background: #1b5e2033; color: #1b5e20; border-color: #2e7d32; }
+  }
+
+  &.small { font-size: 9px; padding: 2px 6px; border-radius: 10px; }
+}
+
 // ─── Status summary chips ─────────────────────────────────────────────────────
 
 .status-summary {
@@ -317,10 +362,11 @@
 }
 
 .group-actions {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  justify-content: flex-end;
+  gap: 4px;
+  margin-left: auto;
+  margin-right: 4px;
 }
 
 // ─── Symbol sub-panels ────────────────────────────────────────────────────────
@@ -337,6 +383,8 @@
   &.status-accept  { border-left: 3px solid #2e7d32; }
   &.status-consider { border-left: 3px solid var(--mat-sys-secondary); }
   &.status-reject  { border-left: 3px solid var(--mat-sys-error); }
+
+  &.active-chart { outline: 2px solid #1976d2; outline-offset: -1px; }
 }
 
 .symbol-header {
@@ -506,6 +554,7 @@
   &.accept.active  { background: #1b5e2033; color: #1b5e20; }
   &.consider.active { background: var(--mat-sys-secondary-container); color: var(--mat-sys-on-secondary-container); }
   &.reject.active  { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
+  &.reset.active  { background: var(--mat-sys-surface-container-highest); color: var(--mat-sys-on-surface); }
 }
 
 // ─── Signal history rows (in expansion body) ─────────────────────────────────

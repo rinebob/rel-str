@@ -43,6 +43,24 @@
 
     <div class="header-spacer"></div>
 
+    <!-- Pipeline navigation -->
+    <div class="pipeline-actions">
+      <button type="button" class="pill-btn promote"
+        [disabled]="triageStore.promotedCount() === 0"
+        (click)="goToReview()"
+        matTooltip="Review promoted symbols">
+        <mat-icon>visibility</mat-icon>
+        Review <span class="pill-count">{{ triageStore.promotedCount() }}</span>
+      </button>
+      <button type="button" class="pill-btn accept"
+        [disabled]="triageStore.acceptedCount() === 0"
+        (click)="goToOrder()"
+        matTooltip="Order accepted symbols">
+        <mat-icon>account_balance</mat-icon>
+        Order <span class="pill-count">{{ triageStore.acceptedCount() }}</span>
+      </button>
+    </div>
+
     <!-- Group dimension selector -->
     <div class="pill-group dim-toggle">
       @for (opt of dimensionOptions; track opt.value) {
@@ -54,6 +72,24 @@
         </button>
       }
     </div>
+
+    <!-- Prev / Next symbol navigation -->
+    <button mat-icon-button (click)="navigatePrev()"
+      [disabled]="!groupStore.quickChartSymbol() || flatSymbols().indexOf(groupStore.quickChartSymbol()!) <= 0"
+      matTooltip="Previous symbol">
+      <mat-icon>chevron_left</mat-icon>
+    </button>
+    <button mat-icon-button (click)="navigateNext()"
+      [disabled]="!groupStore.quickChartSymbol() || flatSymbols().indexOf(groupStore.quickChartSymbol()!) >= flatSymbols().length - 1"
+      matTooltip="Next symbol">
+      <mat-icon>chevron_right</mat-icon>
+    </button>
+
+    <!-- Expand all -->
+    <button mat-icon-button (click)="toggleExpandAll()"
+      [matTooltip]="allExpanded() ? 'Collapse all' : 'Expand all'">
+      <mat-icon>{{ allExpanded() ? 'unfold_less' : 'unfold_more' }}</mat-icon>
+    </button>
 
     <!-- Refresh -->
     <button mat-icon-button (click)="groupStore.loadSymbolsWithSignals()" matTooltip="Refresh"
@@ -89,7 +125,7 @@
     <div class="gr-body">
 
       <!-- ── Group expansion panels ──────────────────────────────────────── -->
-      <div class="groups-panel has-charts">
+      <div class="groups-panel has-charts" #groupsPanel>
         @if (groupStore.groups().length === 0) {
           <div class="empty-state">
             <mat-icon>inbox</mat-icon>
@@ -100,7 +136,7 @@
 
         <mat-accordion [multi]="true">
           @for (group of groupStore.groups(); track group.key) {
-            <mat-expansion-panel class="group-panel" (opened)="onGroupOpened(group)">
+            <mat-expansion-panel class="group-panel" [expanded]="allExpanded()" (opened)="onGroupOpened(group)">
 
               <!-- Sector panel header -->
               <mat-expansion-panel-header class="group-header">
@@ -115,6 +151,22 @@
                       <span class="grp-dir short">↓ {{ group.shortCount }} short</span>
                     }
                   </span>
+                  <div class="group-actions" (click)="$event.stopPropagation()">
+                    <button type="button" class="pill-btn small promote"
+                      [disabled]="signalCount(group) === 0"
+                      (click)="onPromoteGroup(group, $event)"
+                      matTooltip="Promote all signal symbols in group">
+                      <mat-icon>bookmark_border</mat-icon>
+                      Promote all
+                    </button>
+                    <button type="button" class="pill-btn small accept"
+                      [disabled]="signalCount(group) === 0"
+                      (click)="onAcceptGroup(group, $event)"
+                      matTooltip="Accept all signal symbols in group">
+                      <mat-icon>check</mat-icon>
+                      Accept all
+                    </button>
+                  </div>
                   <button mat-icon-button class="expand-all-btn"
                     (click)="onExpandAll(group, $event)"
                     [matTooltip]="isGroupExpanded(group.key) ? 'Collapse all' : 'Expand all'">
@@ -128,6 +180,8 @@
                 @for (row of visibleRows(group); track row.profile.symbol) {
                   <mat-expansion-panel
                     class="symbol-panel"
+                    [attr.data-symbol]="row.profile.symbol"
+                    [class.active-chart]="groupStore.quickChartSymbol() === row.profile.symbol"
                     [expanded]="isGroupExpanded(group.key)"
                     [class.status-promote]="row.reviewStatus === 'PROMOTE'"
                     [class.status-accept]="row.reviewStatus === 'ACCEPT'"
@@ -196,6 +250,13 @@
                               (click)="onReject(row.profile.symbol, $event)"
                               matTooltip="Reject">
                               <mat-icon>close</mat-icon>
+                            </button>
+                            <button type="button" class="acr-btn reset"
+                              [class.active]="row.reviewStatus === 'PENDING'"
+                              [disabled]="!row.hasSignal || row.reviewStatus === 'PENDING'"
+                              (click)="onReset(row.profile.symbol, $event)"
+                              matTooltip="Reset to pending">
+                              <mat-icon>undo</mat-icon>
                             </button>
                           </div>
                         </div>

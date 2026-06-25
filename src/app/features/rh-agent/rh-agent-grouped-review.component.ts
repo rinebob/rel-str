@@ -7,11 +7,14 @@
  */
 import {
   Component,
+  ElementRef,
   inject,
   OnInit,
   OnDestroy,
   ChangeDetectionStrategy,
+  computed,
   signal,
+  viewChild,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
@@ -60,6 +63,42 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
     { value: 'marketCapTier', label: 'Market Cap' },
   ];
 
+  /** Scroll container ref for scroll-into-view on navigation. */
+  private readonly groupsPanel = viewChild<ElementRef>('groupsPanel');
+
+  /** Flat ordered list of all visible symbols across all groups. */
+  readonly flatSymbols = computed(() =>
+    this.groupStore.groups().flatMap(g => this.visibleRows(g).map(r => r.profile.symbol))
+  );
+
+  navigatePrev(): void {
+    this._navigateBy(-1);
+  }
+
+  navigateNext(): void {
+    this._navigateBy(1);
+  }
+
+  private _navigateBy(delta: -1 | 1): void {
+    const flat = this.flatSymbols();
+    if (flat.length === 0) return;
+    const current = this.groupStore.quickChartSymbol();
+    const idx = current ? flat.indexOf(current) : -1;
+    const next = flat[Math.max(0, Math.min(flat.length - 1, idx + delta))];
+    if (!next || next === current) return;
+    this.groupStore.setQuickChartSymbol(next);
+    const row = this.groupStore.groups().flatMap(g => g.rows).find(r => r.profile.symbol === next);
+    if (row && !row.signals) {
+      this.groupStore.loadSignalHistory(next);
+    }
+    setTimeout(() => {
+      const panel = this.groupsPanel()?.nativeElement as HTMLElement | undefined;
+      if (!panel) return;
+      const el = panel.querySelector(`[data-symbol="${next}"]`) as HTMLElement | null;
+      el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 50);
+  }
+
   /** Visible rows within a group — respects fullGroup toggle. */
   visibleRows(group: RhSymbolGroup): RhSymbolRow[] {
     if (group.showFullGroup) return group.rows;
@@ -97,6 +136,25 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
 
   /** Tracks which groups have all symbol panels expanded. */
   readonly expandedGroups = signal<Record<string, boolean>>({});
+
+  /** True when all groups are expanded. */
+  readonly allExpanded = signal(false);
+
+  toggleExpandAll(): void {
+    const next = !this.allExpanded();
+    this.allExpanded.set(next);
+    const groups = this.groupStore.groups();
+    const record: Record<string, boolean> = {};
+    for (const g of groups) {
+      record[g.key] = next;
+      if (next) {
+        for (const row of g.rows) {
+          if (!row.signals) this.groupStore.loadSignalHistory(row.profile.symbol);
+        }
+      }
+    }
+    this.expandedGroups.set(record);
+  }
 
   /** Whether all symbol panels in a group are expanded. */
   isGroupExpanded(groupKey: string): boolean {
@@ -151,6 +209,23 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
     this.triageStore.rejectSymbol(symbol);
   }
 
+  onReset(symbol: string, event: Event): void {
+    event.stopPropagation();
+    this.triageStore.resetSymbol(symbol);
+  }
+
+  onPromoteGroup(group: RhSymbolGroup, event: Event): void {
+    event.stopPropagation();
+    const symbols = group.rows.filter((r) => r.hasSignal).map((r) => r.profile.symbol);
+    this.triageStore.setGroupStatus(symbols, 'PROMOTE');
+  }
+
+  onAcceptGroup(group: RhSymbolGroup, event: Event): void {
+    event.stopPropagation();
+    const symbols = group.rows.filter((r) => r.hasSignal).map((r) => r.profile.symbol);
+    this.triageStore.setGroupStatus(symbols, 'ACCEPT');
+  }
+
   onViewQuickCharts(symbol: string, event: Event): void {
     event.stopPropagation();
     const current = this.groupStore.quickChartSymbol();
@@ -159,6 +234,16 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
 
   goBack(): void {
     this.router.navigate(['/rh-agent']);
+  }
+
+  goToReview(): void {
+    if (this.triageStore.promotedCount() === 0) return;
+    this.router.navigate(['/rh-agent-review']);
+  }
+
+  goToOrder(): void {
+    if (this.triageStore.acceptedCount() === 0) return;
+    this.router.navigate(['/rh-agent-order']);
   }
 
   /** Market cap tier display label. */
