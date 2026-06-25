@@ -27,6 +27,7 @@ import { ST_INDICATOR_OPTIONS, buildDefaultConfig } from '../../../shared/compon
 import { calculateStZone } from '../../../shared/components/flex-chart/indicators/st-zone.indicator';
 import { calculateStZoneV2 } from '../../../shared/components/flex-chart/indicators/st-zone-v2.indicator';
 import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, detectZoneUptickDots } from '../../../shared/components/flex-chart/indicators/st-zone-uptick-dots.indicator';
+import { ST_ZONE_WINDOW_WEEKLY_INDICATOR, ST_ZONE_WINDOW_MONTHLY_INDICATOR, computeZoneWindowData } from '../../../shared/components/flex-chart/indicators/st-zone-window.indicator';
 import type { IndicatorPane } from '../../../shared/components/flex-chart/flex-chart.types';
 import { forkJoin } from 'rxjs';
 
@@ -102,6 +103,21 @@ export class QuickChartsComponent {
     return calculateStZoneV2(d.bars, {});
   });
 
+  // ── Zone window dots (HTF zone V2 mapped onto LTF bars) ──────────────────
+  private readonly dailyWindowData = computed(() => {
+    const d = this.dailyData();
+    const htf = this.weeklyZoneV2();
+    if (!d || !htf.length) return [];
+    return computeZoneWindowData(htf, d.bars);
+  });
+
+  private readonly weeklyWindowData = computed(() => {
+    const d = this.weeklyData();
+    const htf = this.monthlyZoneV2();
+    if (!d || !htf.length) return [];
+    return computeZoneWindowData(htf, d.bars);
+  });
+
   // ── Uptick dots: daily (gated by weekly HTF) ──────────────────────────────
   private readonly dailyDotsV1 = computed(() => {
     const d = this.dailyData();
@@ -148,6 +164,8 @@ export class QuickChartsComponent {
 
   readonly weeklyConfig = computed<FlexChartConfig>(() => {
     const extras: IndicatorConfig[] = [];
+    const win = this.weeklyWindowData();
+    if (win.length) extras.push({ ...buildDefaultConfig(ST_ZONE_WINDOW_MONTHLY_INDICATOR), pane: 'lower-3' as IndicatorPane, data: win as any });
     const v1 = this.weeklyDotsV1();
     if (v1.length) extras.push({ ...buildDefaultConfig(ST_ZONE_V1_UPTICK_DOTS_INDICATOR), pane: 'overlay' as IndicatorPane, data: v1 as any });
     const v2 = this.weeklyDotsV2();
@@ -164,6 +182,8 @@ export class QuickChartsComponent {
 
   readonly dailyConfig = computed<FlexChartConfig>(() => {
     const extras: IndicatorConfig[] = [];
+    const win = this.dailyWindowData();
+    if (win.length) extras.push({ ...buildDefaultConfig(ST_ZONE_WINDOW_WEEKLY_INDICATOR), pane: 'lower-3' as IndicatorPane, data: win as any });
     const v1 = this.dailyDotsV1();
     if (v1.length) extras.push({ ...buildDefaultConfig(ST_ZONE_V1_UPTICK_DOTS_INDICATOR), pane: 'overlay' as IndicatorPane, data: v1 as any });
     const v2 = this.dailyDotsV2();
