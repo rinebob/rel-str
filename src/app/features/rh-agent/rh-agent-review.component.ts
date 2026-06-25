@@ -10,6 +10,7 @@ import {
   inject,
   effect,
   signal,
+  computed,
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -28,6 +29,8 @@ import { Router } from '@angular/router';
 
 import { RhAgentStore } from './rh-agent.store';
 import { RhAgentDashboardStore } from './rh-agent-dashboard.store';
+import { RhAgentTriageStore } from './rh-agent-triage.store';
+import { RhAgentService, RhAgentSignalItem } from './rh-agent.service';
 import { UiStateService } from '../../core/services/ui-state.service';
 import { SignalListComponent } from './components/signal-list/signal-list.component';
 import { SignalDetailComponent } from './components/signal-detail/signal-detail.component';
@@ -59,6 +62,8 @@ import { RobinhoodTradePanelComponent } from '../rs/components/robinhood-trade-p
 export class RhAgentReviewComponent {
   readonly store = inject(RhAgentStore);
   readonly uiStore = inject(RhAgentDashboardStore);
+  readonly triageStore = inject(RhAgentTriageStore);
+  readonly service = inject(RhAgentService);
   readonly dialog = inject(MatDialog);
   readonly uiState = inject(UiStateService);
   private readonly router = inject(Router);
@@ -66,11 +71,32 @@ export class RhAgentReviewComponent {
   /** Manual symbol input for quick chart viewing */
   manualSymbol = signal<string | null>(null);
 
+  /** Currently selected promoted symbol from the triage store. */
+  selectedPromotedSymbol = signal<string | null>(null);
+
+  /** Signal history cache for promoted symbols. */
+  promotedSignalHistory = signal<Record<string, RhAgentSignalItem[]>>({});
+
+  /** Whether the triage store has promoted symbols to review. */
+  hasPromotedSymbols = computed(() => this.triageStore.promotedSymbols().length > 0);
+
+  /** Promoted symbols list. */
+  promotedSymbols = computed(() => this.triageStore.promotedSymbols());
+
+  /** Latest signal details for the selected promoted symbol. */
+  selectedPromotedSignal = computed(() => {
+    const symbol = this.selectedPromotedSymbol();
+    if (!symbol) return null;
+    const history = this.promotedSignalHistory()[symbol] ?? [];
+    return history.length > 0 ? history[0] : null;
+  });
+
   constructor() {
     this.store.loadData();
 
-    // Auto-select first signal once data loads
+    // Auto-select first signal once data loads (only in legacy run mode)
     effect(() => {
+      if (this.hasPromotedSymbols()) return;
       const currentRun = this.uiStore.currentRun();
       const selectedSignal = this.uiStore.selectedSignal();
       if (currentRun && !selectedSignal) {
@@ -81,8 +107,9 @@ export class RhAgentReviewComponent {
       }
     });
 
-    // Auto-advance: when selected signal's status changes away from PENDING, move to next PENDING
+    // Auto-advance: when selected signal's status changes away from PENDING, move to next PENDING (legacy run mode only)
     effect(() => {
+      if (this.hasPromotedSymbols()) return;
       const selectedId = this.uiStore.selectedSignalId();
       const statuses = this.uiStore.signalStatuses(); // reactive dependency on the whole map
       if (!selectedId) return;
@@ -98,6 +125,15 @@ export class RhAgentReviewComponent {
       ];
       const next = searchOrder.find(s => (statuses.get(s.id) ?? 'PENDING') === 'PENDING');
       if (next) this.uiStore.selectSignal(next.id);
+    });
+
+    // Auto-select first promoted symbol when the list changes and none is selected
+    effect(() => {
+      const symbols = this.triageStore.promotedSymbols();
+      if (symbols.length === 0) return;
+      if (!this.selectedPromotedSymbol()) {
+        this.selectPromotedSymbol(symbols[0]);
+      }
     });
   }
 
@@ -189,6 +225,39 @@ export class RhAgentReviewComponent {
     if (signal) this.uiStore.rejectSignal(signal.id);
   }
 
+  // --- Promoted-symbol review mode (from Triage store) ---
+
+  selectPromotedSymbol(symbol: string): void {
+    this.selectedPromotedSymbol.set(symbol);
+    this.uiStore.clearSelectedSignal();
+    this.loadPromotedSignalHistory(symbol);
+  }
+
+  onPromotedSymbolSelected(symbol: string): void {
+    this.selectPromotedSymbol(symbol);
+  }
+
+  onAcceptPromoted(symbol: string): void {
+    this.triageStore.setStatus(symbol, 'ACCEPT');
+  }
+
+  onRejectPromoted(symbol: string): void {
+    this.triageStore.setStatus(symbol, 'REJECT');
+  }
+
+  private loadPromotedSignalHistory(symbol: string): void {
+    if (this.promotedSignalHistory()[symbol]) return;
+    this.service.getSymbolSignalHistory(symbol).subscribe({
+      next: (signals) => {
+        this.promotedSignalHistory.update((cache) => ({ ...cache, [symbol]: signals }));
+      },
+      error: (err) => {
+        console.error(`[Review] Failed to load signal history for ${symbol}:`, err);
+        this.promotedSignalHistory.update((cache) => ({ ...cache, [symbol]: [] }));
+      },
+    });
+  }
+
   goToRuns(): void {
     this.router.navigate(['/rh-agent']);
   }
@@ -201,7 +270,12 @@ export class RhAgentReviewComponent {
     const symbol = symbolInput.trim().toUpperCase();
     if (!symbol) return;
     this.uiStore.clearSelectedSignal();
+    this.selectedPromotedSymbol.set(null);
     this.manualSymbol.set(symbol);
+  }
+
+  goToGroupedReview(): void {
+    this.router.navigate(['/rh-agent-grouped-review']);
   }
 
   onManualSymbolKeydown(event: KeyboardEvent, input: HTMLInputElement): void {

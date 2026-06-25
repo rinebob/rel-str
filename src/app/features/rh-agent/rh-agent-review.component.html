@@ -1,7 +1,7 @@
 <div class="rh-agent-review" [class.fullscreen]="uiState.fullscreen()">
   <!-- Unified Header: Filter + Strategies row, ACR + Info + Actions row -->
   <div class="review-header">
-    <button mat-icon-button class="back-btn" (click)="goToRuns()" matTooltip="Back to runs">
+    <button mat-icon-button class="back-btn" (click)="goToGroupedReview()" matTooltip="Back to grouped review">
       <mat-icon>arrow_back</mat-icon>
     </button>
     <button mat-icon-button class="history-btn" (click)="goToSignalHistory()" matTooltip="Signal History">
@@ -63,9 +63,32 @@
           </div>
         </div>
       }
+
+      @if (selectedPromotedSymbol(); as symbol) {
+        <div class="header-signal-block promoted">
+          <div class="header-acr">
+            <button type="button" class="acr-btn accept" (click)="onAcceptPromoted(symbol)" title="Accept">
+              <mat-icon>check</mat-icon>
+            </button>
+            <button type="button" class="acr-btn reject" (click)="onRejectPromoted(symbol)" title="Reject">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+
+          <div class="header-signal-info">
+            <span class="symbol">{{ symbol }}</span>
+            <span class="badge dir" [class]="'dir-' + (selectedPromotedSignal()?.direction || 'LONG').toLowerCase()">
+              {{ selectedPromotedSignal()?.direction || 'LONG' }}
+            </span>
+            <span class="badge type">{{ selectedPromotedSignal()?.signalType }}</span>
+            <span class="badge status status-promote">PROMOTE</span>
+            <span class="reason">Promoted from grouped review</span>
+          </div>
+        </div>
+      }
     </div>
 
-    @if (!uiStore.hasSelectedSignal()) {
+    @if (!uiStore.hasSelectedSignal() && !selectedPromotedSymbol()) {
       <!-- Default header title when no signal selected -->
       <div class="header-title">
         <h1>
@@ -123,7 +146,7 @@
   }
 
   <!-- Master-Detail Layout -->
-  @if (uiStore.currentRun()) {
+  @if (uiStore.currentRun() || hasPromotedSymbols()) {
     <div class="master-detail-container" [class.sidebar-collapsed]="uiState.sidebarCollapsed()">
       @if (uiState.sidebarCollapsed()) {
         <div class="collapsed-sidebar">
@@ -132,9 +155,32 @@
           </button>
         </div>
       } @else {
-        <app-signal-list class="signal-list-wrapper" (signalSelected)="onSignalSelected($event)"></app-signal-list>
+        @if (hasPromotedSymbols()) {
+          <div class="promoted-list signal-list-wrapper">
+            <div class="promoted-list-header">
+              <span class="promoted-title">Promoted</span>
+              <span class="promoted-count">{{ promotedSymbols().length }}</span>
+            </div>
+            <div class="promoted-list-body">
+              @for (symbol of promotedSymbols(); track symbol) {
+                <div class="promoted-item"
+                  [class.selected]="selectedPromotedSymbol() === symbol"
+                  (click)="onPromotedSymbolSelected(symbol)">
+                  <span class="promoted-symbol">{{ symbol }}</span>
+                  @if (selectedPromotedSignal()?.symbol === symbol) {
+                    <span class="promoted-meta dir-{{ selectedPromotedSignal()?.direction?.toLowerCase() }}">
+                      {{ selectedPromotedSignal()?.direction }}
+                    </span>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+        } @else {
+          <app-signal-list class="signal-list-wrapper" (signalSelected)="onSignalSelected($event)"></app-signal-list>
+        }
       }
-      <app-signal-detail class="detail-wrapper" [manualSymbol]="manualSymbol()"></app-signal-detail>
+      <app-signal-detail class="detail-wrapper" [manualSymbol]="selectedPromotedSymbol() || manualSymbol()"></app-signal-detail>
     </div>
   } @else {
     <div class="empty-state">

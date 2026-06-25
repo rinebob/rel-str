@@ -281,6 +281,7 @@
         &.status-accepted { background: var(--mat-sys-success-container); color: var(--mat-sys-success); }
         &.status-considered { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-tertiary); }
         &.status-rejected { background: var(--mat-sys-error-container); color: var(--mat-sys-error); }
+        &.status-promote { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
       }
     }
 
@@ -438,6 +439,74 @@
   padding-top: 4px;
   background: var(--mat-sys-surface-container);
   border-right: 1px solid var(--mat-sys-outline-variant);
+}
+
+.promoted-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--mat-sys-surface-container);
+
+  .promoted-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+    background: var(--mat-sys-surface-container-high);
+
+    .promoted-title {
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .promoted-count {
+      font-size: 11px;
+      font-weight: 600;
+      background: var(--mat-sys-tertiary-container);
+      color: var(--mat-sys-on-tertiary-container);
+      padding: 1px 6px;
+      border-radius: 8px;
+    }
+  }
+
+  .promoted-list-body {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .promoted-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+    font-size: 13px;
+    transition: background 0.15s;
+
+    &:hover { background: var(--mat-sys-surface-container-high); }
+
+    &.selected {
+      background: var(--mat-sys-primary-container);
+      color: var(--mat-sys-on-primary-container);
+    }
+
+    .promoted-symbol {
+      font-weight: 600;
+    }
+
+    .promoted-meta {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 5px;
+      border-radius: 4px;
+
+      &.dir-long { background: #1b5e2033; color: #2e7d32; }
+      &.dir-short { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
+    }
+  }
 }
 
 .signal-list-wrapper,
