@@ -160,6 +160,9 @@
             <div class="promoted-list-header">
               <span class="promoted-title">Promoted</span>
               <span class="promoted-count">{{ promotedSymbols().length }}</span>
+              <button mat-icon-button class="collapse-btn" (click)="uiState.toggleSidebar()" matTooltip="Collapse panel">
+                <mat-icon>chevron_left</mat-icon>
+              </button>
             </div>
             <div class="promoted-list-body">
               @for (symbol of promotedSymbols(); track symbol) {

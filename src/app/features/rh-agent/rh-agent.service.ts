@@ -6,7 +6,7 @@
  */
 import { Injectable, inject } from '@angular/core';
 import { Functions, httpsCallable } from '@angular/fire/functions';
-import { Firestore, collection, collectionData, query, orderBy, limit, doc, getDocs } from '@angular/fire/firestore';
+import { Firestore, collection, collectionData, query, where, orderBy, limit, doc, getDocs } from '@angular/fire/firestore';
 import { Observable, from, map } from 'rxjs';
 
 /**
@@ -246,6 +246,40 @@ export class RhAgentService {
    */
   getSymbolsWithSignals(marketDate: string, timeframe: 'W' | 'D'): Observable<RhAgentSymbolProfile[]> {
     return from(this.symbolsWithSignalsCallable({ marketDate, timeframe })).pipe(map((r) => r.data.symbols));
+  }
+
+  /**
+   * All enabled tracked symbols — direct Firestore read, no callable.
+   * Used for the "Show all symbols" toggle in grouped review.
+   */
+  getAllSymbols(): Observable<RhAgentSymbolProfile[]> {
+    const ref = collection(this.firestore, 'rh-agent-symbols');
+    const q = query(ref, where('enabled', '==', true));
+    return (collectionData(q, { idField: 'symbol' }) as Observable<any[]>).pipe(
+      map(docs => docs.map(d => ({
+        symbol: d.symbol,
+        enabled: d.enabled ?? true,
+        addedAt: d.addedAt?.toDate?.()?.toISOString() ?? '',
+        lastAnalyzedAt: d.lastAnalyzedAt?.toDate?.()?.toISOString(),
+        lastDailySignalDate: d.lastDailySignalDate,
+        lastWeeklySignalDate: d.lastWeeklySignalDate,
+        lastDailySignalDirection: d.lastDailySignalDirection,
+        lastWeeklySignalDirection: d.lastWeeklySignalDirection,
+        name: d.name,
+        sector: d.sector,
+        industry: d.industry,
+        exchange: d.exchange,
+        marketCap: d.marketCap,
+        marketCapTier: d.marketCapTier,
+        beta: d.beta,
+        peRatio: d.peRatio,
+        week52High: d.week52High,
+        week52Low: d.week52Low,
+        ma200: d.ma200,
+        ma50: d.ma50,
+        dividendYield: d.dividendYield,
+      } as RhAgentSymbolProfile)))
+    );
   }
 
   /**

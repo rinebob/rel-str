@@ -85,6 +85,13 @@
       <mat-icon>chevron_right</mat-icon>
     </button>
 
+    <!-- Show all symbols toggle -->
+    <button mat-icon-button (click)="groupStore.toggleShowAllSymbols()"
+      [class.active-toggle]="groupStore.showAllSymbols()"
+      [matTooltip]="groupStore.showAllSymbols() ? 'Signal symbols only' : 'Show all symbols'">
+      <mat-icon>{{ groupStore.showAllSymbols() ? 'filter_list_off' : 'filter_list' }}</mat-icon>
+    </button>
+
     <!-- Expand all -->
     <button mat-icon-button (click)="toggleExpandAll()"
       [matTooltip]="allExpanded() ? 'Collapse all' : 'Expand all'">
@@ -182,6 +189,7 @@
                     class="symbol-panel"
                     [attr.data-symbol]="row.profile.symbol"
                     [class.active-chart]="groupStore.quickChartSymbol() === row.profile.symbol"
+                    [class.has-signal]="row.hasSignal"
                     [expanded]="isGroupExpanded(group.key)"
                     [class.status-promote]="row.reviewStatus === 'PROMOTE'"
                     [class.status-accept]="row.reviewStatus === 'ACCEPT'"
@@ -222,38 +230,34 @@
                           </button>
 
                           <!-- ACR actions -->
-                          <div class="acr-actions" [class.disabled]="!row.hasSignal" (click)="$event.stopPropagation()">
+                          <div class="acr-actions" (click)="$event.stopPropagation()">
                             <button type="button" class="acr-btn promote"
                               [class.active]="row.reviewStatus === 'PROMOTE'"
-                              [disabled]="!row.hasSignal"
                               (click)="onPromote(row.profile.symbol, $event)"
                               matTooltip="Watch">
                               <mat-icon>bookmark_border</mat-icon>
                             </button>
                             <button type="button" class="acr-btn accept"
                               [class.active]="row.reviewStatus === 'ACCEPT'"
-                              [disabled]="!row.hasSignal"
                               (click)="onAccept(row.profile.symbol, $event)"
                               matTooltip="Accept">
                               <mat-icon>check</mat-icon>
                             </button>
                             <button type="button" class="acr-btn consider"
                               [class.active]="row.reviewStatus === 'CONSIDER'"
-                              [disabled]="!row.hasSignal"
                               (click)="onConsider(row.profile.symbol, $event)"
                               matTooltip="Consider">
                               <mat-icon>help_outline</mat-icon>
                             </button>
                             <button type="button" class="acr-btn reject"
                               [class.active]="row.reviewStatus === 'REJECT'"
-                              [disabled]="!row.hasSignal"
                               (click)="onReject(row.profile.symbol, $event)"
                               matTooltip="Reject">
                               <mat-icon>close</mat-icon>
                             </button>
                             <button type="button" class="acr-btn reset"
                               [class.active]="row.reviewStatus === 'PENDING'"
-                              [disabled]="!row.hasSignal || row.reviewStatus === 'PENDING'"
+                              [disabled]="row.reviewStatus === 'PENDING'"
                               (click)="onReset(row.profile.symbol, $event)"
                               matTooltip="Reset to pending">
                               <mat-icon>undo</mat-icon>

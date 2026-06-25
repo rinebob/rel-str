@@ -99,9 +99,9 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
     }, 50);
   }
 
-  /** Visible rows within a group — respects fullGroup toggle. */
+  /** Visible rows within a group — shows all when showAllSymbols is active or showFullGroup is toggled. */
   visibleRows(group: RhSymbolGroup): RhSymbolRow[] {
-    if (group.showFullGroup) return group.rows;
+    if (this.groupStore.showAllSymbols() || group.showFullGroup) return group.rows;
     return group.rows.filter((r) => r.hasSignal);
   }
 

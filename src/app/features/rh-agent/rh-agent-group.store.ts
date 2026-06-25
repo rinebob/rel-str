@@ -87,6 +87,12 @@ export interface RhAgentGroupState {
   selectedSymbol: string | null;
   /** Symbol currently displayed in the quick-charts panel. */
   quickChartSymbol: string | null;
+  /** Whether the "show all symbols" mode is active. */
+  showAllSymbols: boolean;
+  /** All enabled symbols — loaded on demand when showAllSymbols is toggled on. */
+  allSymbols: RhAgentSymbolProfile[];
+  /** Loading state for the all-symbols query. */
+  allSymbolsLoading: boolean;
 }
 
 /** Yesterday in PT — used as default marketDate until intraday bars are wired. */
@@ -107,6 +113,9 @@ const initialState: RhAgentGroupState = {
   fullGroupToggles: {},
   selectedSymbol: null,
   quickChartSymbol: null,
+  showAllSymbols: false,
+  allSymbols: [],
+  allSymbolsLoading: false,
 };
 
 // ---------------------------------------------------------------------------
@@ -233,6 +242,29 @@ export const RhAgentGroupStore = signalStore(
         });
     },
 
+    /** Toggle show-all-symbols mode. Loads all symbols on first activation. */
+    toggleShowAllSymbols(): void {
+      const next = !state.showAllSymbols();
+      patchState(state, { showAllSymbols: next });
+      if (next && state.allSymbols().length === 0) {
+        this.loadAllSymbols();
+      }
+    },
+
+    /** Load all enabled symbols from Firestore (no callable). */
+    loadAllSymbols(): void {
+      patchState(state, { allSymbolsLoading: true });
+      service.getAllSymbols()
+        .pipe(takeUntilDestroyed(destroyRef))
+        .subscribe({
+          next: (symbols) => patchState(state, { allSymbols: symbols, allSymbolsLoading: false }),
+          error: (err: any) => {
+            patchState(state, { allSymbolsLoading: false });
+            snackBar.open('Failed to load all symbols', 'Dismiss', { duration: 5000 });
+          },
+        });
+    },
+
     /** Set the symbol shown in the quick-charts panel. */
     setQuickChartSymbol(symbol: string | null): void {
       patchState(state, { quickChartSymbol: symbol });
@@ -255,19 +287,34 @@ export const RhAgentGroupStore = signalStore(
      * that will include context symbols once static ETF lists are wired in.
      */
     groups: computed((): RhSymbolGroup[] => {
-      const symbols = state.signalSymbols();
+      const signalSymbols = state.signalSymbols();
       const dimension = state.groupDimension();
       const statuses = state.getTriageStatuses();
       const historyCache = state.signalHistoryCache();
       const historyLoading = state.signalHistoryLoading();
       const fullGroupToggles = state.fullGroupToggles();
+      const showAll = state.showAllSymbols();
+      const allSymbols = state.allSymbols();
+
+      // Build signal symbol set for fast lookup
+      const signalSet = new Set(signalSymbols.map(s => s.symbol));
+
+      // When showing all: union of signal symbols + NSS symbols (no duplicates)
+      const symbols: Array<{ profile: RhAgentSymbolProfile; hasSignal: boolean }> = [
+        ...signalSymbols.map(p => ({ profile: p, hasSignal: true })),
+        ...(showAll
+          ? allSymbols
+              .filter(p => !signalSet.has(p.symbol))
+              .map(p => ({ profile: p, hasSignal: false }))
+          : []),
+      ];
 
       // Build group map
-      const groupMap = new Map<string, RhAgentSymbolProfile[]>();
-      for (const profile of symbols) {
-        const key = getGroupKey(profile, dimension);
+      const groupMap = new Map<string, Array<{ profile: RhAgentSymbolProfile; hasSignal: boolean }>>();
+      for (const item of symbols) {
+        const key = getGroupKey(item.profile, dimension);
         const existing = groupMap.get(key) ?? [];
-        existing.push(profile);
+        existing.push(item);
         groupMap.set(key, existing);
       }
 
@@ -279,19 +326,19 @@ export const RhAgentGroupStore = signalStore(
       });
 
       return sortedKeys.map((key) => {
-        const profiles = groupMap.get(key)!;
+        const items = groupMap.get(key)!;
 
         // Sort by marketCap desc within group
-        const sorted = [...profiles].sort(
-          (a, b) => (b.marketCap ?? 0) - (a.marketCap ?? 0)
+        const sorted = [...items].sort(
+          (a, b) => (b.profile.marketCap ?? 0) - (a.profile.marketCap ?? 0)
         );
 
-        const rows: RhSymbolRow[] = sorted.map((profile) => ({
-          profile,
-          hasSignal: true,
-          signals: historyCache[profile.symbol],
-          signalsLoading: historyLoading[profile.symbol] ?? false,
-          reviewStatus: statuses[profile.symbol] ?? 'PENDING',
+        const rows: RhSymbolRow[] = sorted.map((item) => ({
+          profile: item.profile,
+          hasSignal: item.hasSignal,
+          signals: historyCache[item.profile.symbol],
+          signalsLoading: historyLoading[item.profile.symbol] ?? false,
+          reviewStatus: statuses[item.profile.symbol] ?? 'PENDING',
         }));
 
         // Count long/short from both timeframes

@@ -387,6 +387,12 @@
   &.active-chart { outline: 2px solid #1976d2; outline-offset: -1px; }
 }
 
+.active-toggle {
+  color: var(--mat-sys-primary) !important;
+  background: var(--mat-sys-primary-container) !important;
+  border-radius: 50%;
+}
+
 .symbol-header {
   min-height: 52px !important;
   align-items: flex-start !important;
@@ -449,11 +455,19 @@
   display: flex;
   gap: 3px;
   align-items: center;
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+
+  .badge {
+    flex-shrink: 0;
+  }
 }
 
-.symbol-spacer { flex: 1; }
+.symbol-spacer { flex: 0 0 4px; }
 
 .quick-charts-btn {
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   gap: 3px;
@@ -506,8 +520,21 @@
   }
 
   &.dir {
-    &-long  { background: #1b5e2033; color: #1b5e20; }
-    &-short { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 4px;
+    letter-spacing: 0.04em;
+    &-long  {
+      background: #1b5e20;
+      color: #fff;
+      &::before { content: '▲ '; font-size: 8px; }
+    }
+    &-short {
+      background: #b71c1c;
+      color: #fff;
+      &::before { content: '▼ '; font-size: 8px; }
+    }
   }
 
   &.sig-type { background: var(--mat-sys-surface-container-high); color: var(--mat-sys-on-surface-variant); }
@@ -528,6 +555,7 @@
 .acr-actions {
   display: flex;
   gap: 2px;
+  flex-shrink: 0;
 
   &.disabled { opacity: 0.25; pointer-events: none; }
 }
