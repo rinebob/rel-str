@@ -1,0 +1,225 @@
+/**
+ * RH Agent Order Component
+ *
+ * Final trade parameter configuration and prompt generation for ACCEPTED symbols.
+ * Reads accepted symbols from the shared RhAgentTriageStore.
+ * URL: /rh-agent/order
+ */
+import {
+  Component,
+  inject,
+  OnInit,
+  signal,
+  computed,
+  ChangeDetectionStrategy,
+} from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { Router } from '@angular/router';
+import { forkJoin } from 'rxjs';
+
+import { RhAgentTriageStore } from './rh-agent-triage.store';
+import {
+  RhAgentService,
+  RhAgentSignalItem,
+  SignalDirection,
+  RH_AGENT_MAX_TRADE_AMOUNT,
+} from './rh-agent.service';
+import {
+  RobinhoodTradeService,
+  TradeBatch,
+  TradePrompt,
+} from '../rs/services/robinhood-trade.service';
+import { UiStateService } from '../../core/services/ui-state.service';
+
+interface TradeRow {
+  symbol: string;
+  direction: SignalDirection;
+  signalType: string;
+  barDate: string;
+  positionSize: number;
+  stopLossPercent: number;
+  enabled: boolean;
+}
+
+@Component({
+  selector: 'app-rh-agent-order',
+  standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [
+    CommonModule,
+    FormsModule,
+    MatButtonModule,
+    MatIconModule,
+    MatInputModule,
+    MatFormFieldModule,
+    MatSlideToggleModule,
+    MatTooltipModule,
+    MatProgressSpinnerModule,
+  ],
+  templateUrl: './rh-agent-order.component.html',
+  styleUrl: './rh-agent-order.component.scss',
+})
+export class RhAgentOrderComponent implements OnInit {
+  readonly triageStore = inject(RhAgentTriageStore);
+  readonly service = inject(RhAgentService);
+  readonly tradeService = inject(RobinhoodTradeService);
+  readonly snackBar = inject(MatSnackBar);
+  readonly uiState = inject(UiStateService);
+  private readonly router = inject(Router);
+
+  readonly tradeRows = signal<TradeRow[]>([]);
+  readonly loading = signal(false);
+  readonly generatedBatch = signal<TradeBatch | null>(null);
+
+  readonly enabledRows = computed(() =>
+    this.tradeRows().filter((r) => r.enabled)
+  );
+
+  readonly totalAmount = computed(() =>
+    this.enabledRows().reduce((sum, r) => sum + r.positionSize, 0)
+  );
+
+  readonly hasGeneratedBatch = computed(() => !!this.generatedBatch());
+
+  ngOnInit(): void {
+    this.uiState.setFullscreen(true);
+    this.loadAcceptedSymbols();
+  }
+
+  /** Load signal history for each accepted symbol to determine direction/signal type. */
+  private loadAcceptedSymbols(): void {
+    const symbols = this.triageStore.acceptedSymbols();
+    if (symbols.length === 0) {
+      this.tradeRows.set([]);
+      return;
+    }
+
+    this.loading.set(true);
+    const requests = symbols.map((symbol) => this.service.getSymbolSignalHistory(symbol));
+
+    forkJoin(requests).subscribe({
+      next: (histories) => {
+        const rows: TradeRow[] = [];
+        for (let i = 0; i < symbols.length; i++) {
+          const symbol = symbols[i];
+          const latest = this.findLatestSignal(histories[i]);
+          rows.push({
+            symbol,
+            direction: latest?.direction ?? 'LONG',
+            signalType: latest?.signalType ?? '',
+            barDate: latest?.barDate ?? '',
+            positionSize: RH_AGENT_MAX_TRADE_AMOUNT,
+            stopLossPercent: 8,
+            enabled: true,
+          });
+        }
+        this.tradeRows.set(rows);
+        this.loading.set(false);
+      },
+      error: (err) => {
+        console.error('[RhAgentOrder] Failed to load signal histories:', err);
+        this.snackBar.open('Failed to load accepted symbols', 'Dismiss', { duration: 5000 });
+        this.loading.set(false);
+      },
+    });
+  }
+
+  private findLatestSignal(signals: RhAgentSignalItem[]): RhAgentSignalItem | null {
+    if (!signals?.length) return null;
+    return signals.reduce((latest, s) =>
+      s.barDate > latest.barDate ? s : latest
+    );
+  }
+
+  updatePositionSize(row: TradeRow, value: number): void {
+    const clamped = Math.max(1, Math.min(value, RH_AGENT_MAX_TRADE_AMOUNT));
+    this.patchRow(row.symbol, { positionSize: clamped });
+  }
+
+  updateStopLossPercent(row: TradeRow, value: number): void {
+    const clamped = Math.max(0, Math.min(value, 100));
+    this.patchRow(row.symbol, { stopLossPercent: clamped });
+  }
+
+  toggleEnabled(symbol: string): void {
+    const row = this.tradeRows().find((r) => r.symbol === symbol);
+    if (row) {
+      this.patchRow(symbol, { enabled: !row.enabled });
+    }
+  }
+
+  removeSymbol(symbol: string): void {
+    this.triageStore.setStatus(symbol, 'PROMOTE');
+    this.tradeRows.update((rows) => rows.filter((r) => r.symbol !== symbol));
+  }
+
+  private patchRow(symbol: string, patch: Partial<TradeRow>): void {
+    this.tradeRows.update((rows) =>
+      rows.map((r) => (r.symbol === symbol ? { ...r, ...patch } : r))
+    );
+  }
+
+  generateBatch(): void {
+    const enabled = this.enabledRows();
+    if (enabled.length === 0) {
+      this.snackBar.open('No enabled symbols to trade', 'Dismiss', { duration: 3000 });
+      this.generatedBatch.set(null);
+      return;
+    }
+
+    const trades: TradePrompt[] = enabled.map((row) => ({
+      symbol: row.symbol,
+      side: row.direction === 'SHORT' ? 'sell' : 'buy',
+      amount: row.positionSize,
+      orderType: 'market' as const,
+      promptText: '',
+    }));
+
+    const batch = this.tradeService.generateBatchPrompt(trades);
+    this.generatedBatch.set(batch);
+  }
+
+  async copyBatch(): Promise<void> {
+    const batch = this.generatedBatch();
+    if (!batch) return;
+    const success = await this.tradeService.copyToClipboard(batch.batchPrompt);
+    this.showCopyResult(success, `Copied batch of ${batch.trades.length} trades`);
+  }
+
+  async copyTrade(row: TradeRow): Promise<void> {
+    if (!row.enabled) return;
+    const trade = this.tradeService.generateTradePrompt(
+      row.symbol,
+      row.direction === 'SHORT' ? 'sell' : 'buy',
+      row.positionSize,
+      'market'
+    );
+    const success = await this.tradeService.copyToClipboard(trade.promptText);
+    this.showCopyResult(success, `Copied: ${trade.side.toUpperCase()} $${trade.amount} ${trade.symbol}`);
+  }
+
+  private showCopyResult(success: boolean, message: string): void {
+    if (success) {
+      this.snackBar.open(message, 'Dismiss', { duration: 3000 });
+    } else {
+      this.snackBar.open('Failed to copy. Please copy manually.', 'Dismiss', { duration: 5000 });
+    }
+  }
+
+  goBack(): void {
+    this.router.navigate(['/rh-agent-grouped-review']);
+  }
+
+  goToReview(): void {
+    this.router.navigate(['/rh-agent-review']);
+  }
+}

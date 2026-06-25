@@ -38,6 +38,7 @@ export enum AppRoutes {
 	RH_AGENT = 'rh-agent',
 	RH_AGENT_REVIEW = 'rh-agent-review',
 	RH_AGENT_GROUPED_REVIEW = 'rh-agent-grouped-review',
+	RH_AGENT_ORDER = 'rh-agent-order',
 	SIGNAL_HISTORY = 'signal-history',
 }
 

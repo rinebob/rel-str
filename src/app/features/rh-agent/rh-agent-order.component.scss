@@ -1,0 +1,217 @@
+.order-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+}
+
+.order-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  min-height: 48px;
+  flex-shrink: 0;
+}
+
+.order-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  white-space: nowrap;
+
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+}
+
+.order-subtitle {
+  font-size: 12px;
+  color: var(--mat-sys-on-surface-variant);
+  white-space: nowrap;
+}
+
+.header-spacer { flex: 1; }
+
+.pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  background: var(--mat-sys-surface-container);
+  color: var(--mat-sys-on-surface-variant);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+
+  mat-icon { font-size: 12px; width: 12px; height: 12px; }
+
+  &:hover:not(:disabled) {
+    background: var(--mat-sys-surface-container-high);
+    border-color: var(--mat-sys-outline);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.loading-overlay,
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 12px;
+  color: var(--mat-sys-on-surface-variant);
+
+  mat-icon { font-size: 48px; width: 48px; height: 48px; }
+  p { margin: 0; font-size: 14px; }
+  .hint { font-size: 12px; opacity: 0.7; }
+}
+
+.order-body {
+  flex: 1;
+  overflow: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.trade-table {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--mat-sys-surface-container);
+}
+
+.trade-row {
+  display: grid;
+  grid-template-columns: 50px 100px 80px 140px 90px 70px 80px 80px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+
+  &:last-child { border-bottom: none; }
+
+  &.header {
+    background: var(--mat-sys-surface-container-high);
+    font-weight: 600;
+    font-size: 11px;
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  &.footer {
+    background: var(--mat-sys-surface-container-high);
+    font-weight: 600;
+  }
+
+  &.disabled {
+    opacity: 0.5;
+  }
+}
+
+.col-go,
+.col-symbol,
+.col-direction,
+.col-signal,
+.col-size,
+.col-stop,
+.col-total,
+.col-actions {
+  display: flex;
+  align-items: center;
+}
+
+.col-direction {
+  font-weight: 600;
+
+  &.dir-long { color: #2e7d32; }
+  &.dir-short { color: var(--mat-sys-error); }
+}
+
+.col-signal {
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 10px;
+}
+
+.col-size,
+.col-stop {
+  input {
+    width: 60px;
+    height: 26px;
+    padding: 0 6px;
+    border: 1px solid var(--mat-sys-outline);
+    border-radius: 4px;
+    background: var(--mat-sys-surface);
+    color: var(--mat-sys-on-surface);
+    font-size: 12px;
+    outline: none;
+
+    &:focus { border-color: var(--mat-sys-primary); }
+    &:disabled { opacity: 0.5; }
+  }
+}
+
+.col-total {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.col-actions {
+  display: flex;
+  gap: 2px;
+  justify-content: flex-end;
+}
+
+.batch-prompt {
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 8px;
+  background: var(--mat-sys-surface-container);
+  overflow: hidden;
+
+  .batch-prompt-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--mat-sys-surface-container-high);
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+
+    .batch-title {
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    .batch-meta {
+      font-size: 11px;
+      color: var(--mat-sys-on-surface-variant);
+    }
+  }
+
+  pre {
+    margin: 0;
+    padding: 12px;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    color: var(--mat-sys-on-surface);
+    max-height: 300px;
+    overflow: auto;
+  }
+}

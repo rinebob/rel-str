@@ -37,4 +37,7 @@ export { RhAgentTriageStore } from './rh-agent-triage.store';
 
 // Components
 export { RhAgentDashboardComponent } from './rh-agent-dashboard.component';
+export { RhAgentGroupedReviewComponent } from './rh-agent-grouped-review.component';
+export { RhAgentReviewComponent } from './rh-agent-review.component';
+export { RhAgentOrderComponent } from './rh-agent-order.component';
 export { QuickChartsComponent } from './components/quick-charts/quick-charts.component';

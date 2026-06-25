@@ -1,0 +1,143 @@
+<div class="order-page">
+  <!-- Header -->
+  <div class="order-header">
+    <button mat-icon-button class="back-btn" (click)="goBack()" matTooltip="Back to grouped review">
+      <mat-icon>arrow_back</mat-icon>
+    </button>
+
+    <h1 class="order-title">
+      <mat-icon>account_balance</mat-icon>
+      Order
+    </h1>
+
+    <span class="order-subtitle">
+      {{ triageStore.acceptedCount() }} accepted symbol{{ triageStore.acceptedCount() === 1 ? '' : 's' }}
+    </span>
+
+    <div class="header-spacer"></div>
+
+    <button type="button" class="pill-btn review"
+      [disabled]="triageStore.promotedCount() === 0"
+      (click)="goToReview()"
+      matTooltip="Back to review">
+      <mat-icon>visibility</mat-icon>
+      Review {{ triageStore.promotedCount() }}
+    </button>
+
+    <button mat-raised-button color="accent"
+      (click)="generateBatch()"
+      [disabled]="enabledRows().length === 0"
+      matTooltip="Generate trade prompt batch">
+      <mat-icon>psychology</mat-icon>
+      Generate
+    </button>
+
+    <button mat-raised-button color="primary"
+      (click)="copyBatch()"
+      [disabled]="!hasGeneratedBatch()"
+      matTooltip="Copy batch prompt to clipboard">
+      <mat-icon>content_copy</mat-icon>
+      Copy
+    </button>
+  </div>
+
+  <!-- Loading -->
+  @if (loading()) {
+    <div class="loading-overlay">
+      <mat-spinner diameter="32"></mat-spinner>
+    </div>
+  }
+
+  <!-- Empty -->
+  @if (!loading() && tradeRows().length === 0) {
+    <div class="empty-state">
+      <mat-icon>inbox</mat-icon>
+      <p>No accepted symbols</p>
+      <p class="hint">Accept symbols in Grouped Review or Review, then return here.</p>
+    </div>
+  }
+
+  <!-- Trade table -->
+  @if (!loading() && tradeRows().length > 0) {
+    <div class="order-body">
+      <div class="trade-table">
+        <div class="trade-row header">
+          <span class="col-go">Go</span>
+          <span class="col-symbol">Symbol</span>
+          <span class="col-direction">Direction</span>
+          <span class="col-signal">Signal</span>
+          <span class="col-size">Size ($)</span>
+          <span class="col-stop">Stop %</span>
+          <span class="col-total">Total</span>
+          <span class="col-actions"></span>
+        </div>
+
+        @for (row of tradeRows(); track row.symbol) {
+          <div class="trade-row" [class.disabled]="!row.enabled">
+            <span class="col-go">
+              <mat-slide-toggle
+                [checked]="row.enabled"
+                (change)="toggleEnabled(row.symbol)">
+              </mat-slide-toggle>
+            </span>
+            <span class="col-symbol">{{ row.symbol }}</span>
+            <span class="col-direction dir-{{ row.direction.toLowerCase() }}">{{ row.direction }}</span>
+            <span class="col-signal">{{ row.signalType }}</span>
+            <span class="col-size">
+              <input type="number"
+                [value]="row.positionSize"
+                (change)="updatePositionSize(row, +$any($event).target.value)"
+                min="1"
+                [max]="100"
+                [disabled]="!row.enabled">
+            </span>
+            <span class="col-stop">
+              <input type="number"
+                [value]="row.stopLossPercent"
+                (change)="updateStopLossPercent(row, +$any($event).target.value)"
+                min="0"
+                max="100"
+                [disabled]="!row.enabled">
+            </span>
+            <span class="col-total">${{ row.enabled ? row.positionSize : 0 }}</span>
+            <span class="col-actions">
+              <button type="button" mat-icon-button
+                (click)="copyTrade(row)"
+                matTooltip="Copy single trade prompt"
+                [disabled]="!row.enabled">
+                <mat-icon>content_copy</mat-icon>
+              </button>
+              <button type="button" mat-icon-button
+                (click)="removeSymbol(row.symbol)"
+                matTooltip="Move back to Review">
+                <mat-icon>undo</mat-icon>
+              </button>
+            </span>
+          </div>
+        }
+
+        <div class="trade-row footer">
+          <span class="col-go"></span>
+          <span class="col-symbol"></span>
+          <span class="col-direction"></span>
+          <span class="col-signal"></span>
+          <span class="col-size"></span>
+          <span class="col-stop">Enabled total</span>
+          <span class="col-total">${{ totalAmount() }}</span>
+          <span class="col-actions"></span>
+        </div>
+      </div>
+
+      <!-- Generated batch prompt -->
+      @if (generatedBatch(); as batch) {
+        <div class="batch-prompt">
+          <div class="batch-prompt-header">
+            <span class="batch-title">Batch Prompt</span>
+            <span class="batch-meta">{{ batch.trades.length }} trades · ${{ batch.totalAmount.toFixed(2) }}</span>
+          </div>
+          <pre>{{ batch.batchPrompt }}</pre>
+        </div>
+      }
+    </div>
+  }
+</div>
