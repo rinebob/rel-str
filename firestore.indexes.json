@@ -48,6 +48,41 @@
         { "fieldPath": "timeframe", "order": "ASCENDING" },
         { "fieldPath": "marketDate", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "rh-agent-triage-decisions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "DESCENDING" },
+        { "fieldPath": "symbol", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "rh-agent-triage-decisions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "rh-agent-symbol-meta",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "symbol", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "rh-agent-symbol-meta",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "universeStatus", "order": "ASCENDING" },
+        { "fieldPath": "symbol", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
