@@ -13,18 +13,6 @@ mat-expansion-panel.symbol-panel.has-signal {
   --mat-expansion-panel-container-background-color: color-mix(in srgb, var(--mat-sys-primary) 8%, var(--mat-sys-surface));
   border-left: 3px solid var(--mat-sys-primary) !important;
 }
-mat-expansion-panel.symbol-panel.has-signal.status-promote {
-  border-left: 3px solid var(--mat-sys-tertiary) !important;
-}
-mat-expansion-panel.symbol-panel.has-signal.status-accept {
-  border-left: 3px solid #2e7d32 !important;
-}
-mat-expansion-panel.symbol-panel.has-signal.status-consider {
-  border-left: 3px solid var(--mat-sys-secondary) !important;
-}
-mat-expansion-panel.symbol-panel.has-signal.status-reject {
-  border-left: 3px solid var(--mat-sys-error) !important;
-}
 mat-expansion-panel.symbol-panel.has-signal .symbol-ticker {
   color: var(--mat-sys-primary);
   font-size: 14px !important;

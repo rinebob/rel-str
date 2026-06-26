@@ -26,8 +26,9 @@ import { MatBadgeModule } from '@angular/material/badge';
 import { MatChipsModule } from '@angular/material/chips';
 import { Router } from '@angular/router';
 
-import { RhAgentGroupStore, GroupDimension, RhSymbolGroup, RhSymbolRow, UniverseFilter } from './rh-agent-group.store';
+import { RhAgentGroupStore, GroupDimension, RhSymbolGroup, RhSymbolRow } from './rh-agent-group.store';
 import { RhAgentTriageStore } from './rh-agent-triage.store';
+import { RhSymbolListName, ALL_SYMBOL_LIST_NAMES } from './common/rh-agent.constants';
 import { RhAgentSignalItem } from './rh-agent.service';
 import { QuickChartsComponent } from './components/quick-charts/quick-charts.component';
 import { UiStateService } from '../../core/services/ui-state.service';
@@ -56,6 +57,9 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
   readonly uiState = inject(UiStateService);
   private readonly router = inject(Router);
 
+  /** Expose list name enum to the template. */
+  readonly ListName = RhSymbolListName;
+
   /** Group dimension options for the pill toggle. */
   readonly dimensionOptions: { value: GroupDimension; label: string }[] = [
     { value: 'sector',        label: 'Sector' },
@@ -63,14 +67,14 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
     { value: 'marketCapTier', label: 'Market Cap' },
   ];
 
-  /** Universe filter options for the pill toggle. */
-  readonly universeFilterOptions: { value: UniverseFilter; label: string }[] = [
-    { value: 'ALL',             label: 'Active' },
-    { value: 'IN_UNIVERSE',     label: 'Universe' },
-    { value: 'PREFERRED',       label: 'Preferred' },
-    { value: 'WATCHLIST',       label: 'Watchlist' },
-    { value: 'LOW_TRADABILITY', label: 'Low Tradability' },
-    { value: 'EXCLUDED',        label: 'Excluded' },
+  /** Symbol list filter options for the pill toggle. */
+  readonly listFilterOptions: { value: RhSymbolListName | 'ALL'; label: string }[] = [
+    { value: 'ALL',                       label: 'Active' },
+    { value: RhSymbolListName.PRIMARY,    label: 'Primary' },
+    { value: RhSymbolListName.SECONDARY,  label: 'Secondary' },
+    { value: RhSymbolListName.NEUTRAL,    label: 'Neutral' },
+    { value: RhSymbolListName.AVOID,      label: 'Avoid' },
+    { value: RhSymbolListName.HIDE,       label: 'Hidden' },
   ];
 
   /** Scroll container ref for scroll-into-view on navigation. */
@@ -140,8 +144,18 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
     this.groupStore.setGroupDimension(dim);
   }
 
-  onUniverseFilter(filter: UniverseFilter): void {
-    this.groupStore.setUniverseFilter(filter);
+  onListFilter(filter: RhSymbolListName | 'ALL'): void {
+    this.groupStore.setActiveListFilter(filter);
+  }
+
+  isInList(symbol: string, listName: string | RhSymbolListName): boolean {
+    return (this.groupStore.symbolLists()[listName] ?? []).includes(symbol.toUpperCase());
+  }
+
+  onToggleList(symbol: string, listName: string | RhSymbolListName, event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.groupStore.toggleSymbolInList(symbol, listName);
   }
 
   onSymbolClick(row: RhSymbolRow): void {
@@ -228,26 +242,6 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
     this.triageStore.resetSymbol(symbol);
   }
 
-  onExclude(symbol: string, event: Event): void {
-    event.stopPropagation();
-    this.triageStore.excludeSymbol(symbol);
-  }
-
-  onLowTradability(symbol: string, event: Event): void {
-    event.stopPropagation();
-    this.triageStore.demoteSymbol(symbol);
-  }
-
-  onWatch(symbol: string, event: Event): void {
-    event.stopPropagation();
-    this.triageStore.watchSymbol(symbol);
-  }
-
-  onElevate(symbol: string, event: Event): void {
-    event.stopPropagation();
-    this.triageStore.elevateSymbol(symbol);
-  }
-
   onPromoteGroup(group: RhSymbolGroup, event: Event): void {
     event.stopPropagation();
     const symbols = group.rows.filter((r) => r.hasSignal).map((r) => r.profile.symbol);
@@ -278,6 +272,10 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
   goToOrder(): void {
     if (this.triageStore.acceptedCount() === 0) return;
     this.router.navigate(['/rh-agent-order']);
+  }
+
+  goToTriageReport(): void {
+    this.router.navigate(['/rh-agent-triage-report']);
   }
 
   /** Market cap tier display label. */

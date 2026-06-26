@@ -71,6 +71,12 @@
         <mat-icon>account_balance</mat-icon>
         Order <span class="pill-count">{{ triageStore.acceptedCount() }}</span>
       </button>
+      <button type="button" class="pill-btn"
+        (click)="goToTriageReport()"
+        matTooltip="View PACR triage report">
+        <mat-icon>assignment</mat-icon>
+        Report
+      </button>
     </div>
 
     <!-- Group dimension selector -->
@@ -85,13 +91,13 @@
       }
     </div>
 
-    <!-- Universe filter selector -->
-    <div class="pill-group universe-filter-toggle">
-      @for (opt of universeFilterOptions; track opt.value) {
+    <!-- Symbol list filter selector -->
+    <div class="pill-group list-filter-toggle">
+      @for (opt of listFilterOptions; track opt.value) {
         <button
           class="pill"
-          [class.active]="groupStore.universeFilter() === opt.value"
-          (click)="onUniverseFilter(opt.value)">
+          [class.active]="groupStore.activeListFilter() === opt.value"
+          (click)="onListFilter(opt.value)">
           {{ opt.label }}
         </button>
       }
@@ -213,6 +219,7 @@
                     class="symbol-panel"
                     [attr.data-symbol]="row.profile.symbol"
                     [class.active-chart]="groupStore.quickChartSymbol() === row.profile.symbol"
+                    [class.symbol-selected]="groupStore.selectedSymbol() === row.profile.symbol"
                     [class.has-signal]="row.hasSignal"
                     [expanded]="isGroupExpanded(group.key)"
                     [class.status-promote]="row.reviewStatus === 'PROMOTE'"
@@ -223,10 +230,6 @@
                     [class.status-low-tradability]="row.reviewStatus === 'LOW_TRADABILITY'"
                     [class.status-watch]="row.reviewStatus === 'WATCH'"
                     [class.status-elevate]="row.reviewStatus === 'ELEVATE'"
-                    [class.universe-excluded]="row.universeStatus === 'EXCLUDED'"
-                    [class.universe-low-tradability]="row.universeStatus === 'LOW_TRADABILITY'"
-                    [class.universe-preferred]="row.universeStatus === 'PREFERRED'"
-                    [class.universe-watchlist]="row.universeStatus === 'WATCHLIST'"
                     (opened)="onSymbolClick(row)">
 
                     <!-- Symbol panel header -->
@@ -237,19 +240,12 @@
                         <div class="symbol-row-main">
                           <span class="symbol-ticker">{{ row.profile.symbol }}</span>
 
-                          @if (row.universeStatus !== 'IN_UNIVERSE') {
-                            <span class="badge universe universe-{{ row.universeStatus.toLowerCase().replace('_', '-') }}">
-                              {{ row.universeStatus }}
-                            </span>
-                          }
-
                           <!-- Today's signal badges -->
                           <div class="symbol-signals-today">
                             @for (sig of latestSignals(row); track sig.signalType) {
                               <span class="badge dir dir-{{ sig.direction.toLowerCase() }}" matTooltip="{{ sig.signalType }}">
                                 {{ sig.direction }}
                               </span>
-                              <span class="badge sig-type">{{ sig.signalType }}</span>
                             }
                             @if (row.hasSignal && !latestSignals(row).length) {
                               <span class="badge sig-pending">signal</span>
@@ -300,28 +296,34 @@
                               matTooltip="Reset to pending">
                               <mat-icon>undo</mat-icon>
                             </button>
-                            <button type="button" class="acr-btn watch"
-                              [class.active]="row.reviewStatus === 'WATCH'"
-                              (click)="onWatch(row.profile.symbol, $event)"
-                              matTooltip="Watch">
-                              <mat-icon>visibility</mat-icon>
-                            </button>
-                            <button type="button" class="acr-btn elevate"
-                              [class.active]="row.reviewStatus === 'ELEVATE'"
-                              (click)="onElevate(row.profile.symbol, $event)"
-                              matTooltip="Elevate / Preferred">
+                            <button type="button" class="acr-btn primary"
+                              [class.active]="isInList(row.profile.symbol, ListName.PRIMARY)"
+                              (click)="onToggleList(row.profile.symbol, ListName.PRIMARY, $event)"
+                              matTooltip="Toggle primary list">
                               <mat-icon>star</mat-icon>
                             </button>
-                            <button type="button" class="acr-btn low-tradability"
-                              [class.active]="row.reviewStatus === 'LOW_TRADABILITY'"
-                              (click)="onLowTradability(row.profile.symbol, $event)"
-                              matTooltip="Low tradability">
+                            <button type="button" class="acr-btn secondary"
+                              [class.active]="isInList(row.profile.symbol, ListName.SECONDARY)"
+                              (click)="onToggleList(row.profile.symbol, ListName.SECONDARY, $event)"
+                              matTooltip="Toggle secondary list">
+                              <mat-icon>visibility</mat-icon>
+                            </button>
+                            <button type="button" class="acr-btn neutral"
+                              [class.active]="isInList(row.profile.symbol, ListName.NEUTRAL)"
+                              (click)="onToggleList(row.profile.symbol, ListName.NEUTRAL, $event)"
+                              matTooltip="Toggle neutral list">
+                              <mat-icon>remove_circle_outline</mat-icon>
+                            </button>
+                            <button type="button" class="acr-btn avoid"
+                              [class.active]="isInList(row.profile.symbol, ListName.AVOID)"
+                              (click)="onToggleList(row.profile.symbol, ListName.AVOID, $event)"
+                              matTooltip="Toggle avoid list">
                               <mat-icon>trending_down</mat-icon>
                             </button>
-                            <button type="button" class="acr-btn exclude"
-                              [class.active]="row.reviewStatus === 'EXCLUDE'"
-                              (click)="onExclude(row.profile.symbol, $event)"
-                              matTooltip="Exclude from universe">
+                            <button type="button" class="acr-btn hide"
+                              [class.active]="isInList(row.profile.symbol, ListName.HIDE)"
+                              (click)="onToggleList(row.profile.symbol, ListName.HIDE, $event)"
+                              matTooltip="Toggle hide list">
                               <mat-icon>block</mat-icon>
                             </button>
                           </div>

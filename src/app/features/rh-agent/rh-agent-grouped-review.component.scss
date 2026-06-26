@@ -383,21 +383,8 @@
   margin-bottom: 2px !important;
   border-radius: 6px !important;
 
-  &.status-promote { border-left: 3px solid var(--mat-sys-tertiary); }
-  &.status-accept  { border-left: 3px solid #2e7d32; }
-  &.status-consider { border-left: 3px solid var(--mat-sys-secondary); }
-  &.status-reject  { border-left: 3px solid var(--mat-sys-error); }
-  &.status-exclude { border-left: 3px solid var(--mat-sys-error); }
-  &.status-low-tradability { border-left: 3px solid var(--mat-sys-warning); }
-  &.status-watch  { border-left: 3px solid var(--mat-sys-primary); }
-  &.status-elevate { border-left: 3px solid var(--mat-sys-tertiary); }
-
-  &.universe-excluded { opacity: 0.6; background: var(--mat-sys-error-container); }
-  &.universe-low-tradability { opacity: 0.85; }
-  &.universe-preferred { background: var(--mat-sys-tertiary-container); }
-  &.universe-watchlist { background: var(--mat-sys-primary-container); }
-
   &.active-chart { outline: 2px solid #1976d2; outline-offset: -1px; }
+  &.symbol-selected { outline: 2px solid #1976d2; outline-offset: -1px; }
 }
 
 .active-toggle {
@@ -445,17 +432,18 @@
   white-space: nowrap;
 }
 
-.badge.universe {
+.badge.list {
   font-size: 9px;
   font-weight: 700;
   padding: 1px 4px;
   border-radius: 4px;
   text-transform: uppercase;
 
-  &.universe-excluded { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
-  &.universe-low-tradability { background: var(--mat-sys-warning-container); color: var(--mat-sys-on-warning-container); }
-  &.universe-preferred { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
-  &.universe-watchlist { background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container); }
+  &.list-primary { background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container); }
+  &.list-secondary { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
+  &.list-neutral { background: var(--mat-sys-surface-container-highest); color: var(--mat-sys-on-surface); }
+  &.list-avoid { background: var(--mat-sys-warning-container); color: var(--mat-sys-on-warning-container); }
+  &.list-hide { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
 }
 
 .symbol-name {
@@ -580,8 +568,9 @@
 
 .acr-actions {
   display: flex;
-  gap: 2px;
+  gap: 4px;
   flex-shrink: 0;
+  margin-right: 6px;
 
   &.disabled { opacity: 0.25; pointer-events: none; }
 }
@@ -590,29 +579,56 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border: none;
   border-radius: 4px;
   background: transparent;
   cursor: pointer;
   transition: background 0.1s;
   color: var(--mat-sys-on-surface-variant);
+  flex-shrink: 0;
 
-  mat-icon { font-size: 14px; width: 14px; height: 14px; }
+  mat-icon { font-size: 13px; width: 13px; height: 13px; }
 
   &:hover { background: var(--mat-sys-surface-container-high); }
   &:disabled { opacity: 0.3; cursor: not-allowed; }
 
-  &.promote.active { background: var(--mat-sys-tertiary-container);  color: var(--mat-sys-on-tertiary-container); }
+  &.promote.active { background: #7b1fa233; color: #7b1fa2; }
   &.accept.active  { background: #1b5e2033; color: #1b5e20; }
-  &.consider.active { background: var(--mat-sys-secondary-container); color: var(--mat-sys-on-secondary-container); }
-  &.reject.active  { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
-  &.reset.active  { background: var(--mat-sys-surface-container-highest); color: var(--mat-sys-on-surface); }
-  &.watch.active  { background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container); }
-  &.elevate.active { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
-  &.low-tradability.active { background: var(--mat-sys-warning-container); color: var(--mat-sys-on-warning-container); }
-  &.exclude.active { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
+  &.consider.active { background: #f57c0033; color: #f57c00; }
+  &.reject.active  { background: #d32f2f33; color: #d32f2f; }
+  &.reset.active  { background: #61616133; color: #616161; }
+  &.primary.active {
+    background: #1976d233;
+    color: #1976d2;
+    border-radius: 50%;
+    mat-icon { font-size: 14px; width: 14px; height: 14px; }
+  }
+  &.secondary.active {
+    background: #7b1fa233;
+    color: #7b1fa2;
+    border-radius: 50%;
+    mat-icon { font-size: 14px; width: 14px; height: 14px; }
+  }
+  &.neutral.active {
+    background: #61616133;
+    color: #616161;
+    border-radius: 50%;
+    mat-icon { font-size: 14px; width: 14px; height: 14px; }
+  }
+  &.avoid.active {
+    background: #f57c0033;
+    color: #f57c00;
+    border-radius: 50%;
+    mat-icon { font-size: 14px; width: 14px; height: 14px; }
+  }
+  &.hide.active {
+    background: #d32f2f33;
+    color: #d32f2f;
+    border-radius: 50%;
+    mat-icon { font-size: 14px; width: 14px; height: 14px; }
+  }
 }
 
 // ─── Signal history rows (in expansion body) ─────────────────────────────────

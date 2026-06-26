@@ -1,0 +1,170 @@
+.triage-report {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+}
+
+.tr-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  min-height: 48px;
+  flex-shrink: 0;
+}
+
+.tr-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  white-space: nowrap;
+
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+}
+
+.header-spacer { flex: 1; }
+
+.date-field {
+  width: 150px;
+  font-size: 12px;
+
+  ::ng-deep .mat-mdc-form-field-infix {
+    min-height: 36px;
+    padding: 8px 0;
+  }
+
+  ::ng-deep .mat-mdc-text-field-wrapper {
+    padding: 0 8px;
+  }
+}
+
+.tr-status-bar {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.status-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  background: var(--mat-sys-surface-container);
+  color: var(--mat-sys-on-surface-variant);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+
+  &:hover {
+    background: var(--mat-sys-surface-container-high);
+  }
+
+  &.active {
+    background: var(--mat-sys-primary-container);
+    color: var(--mat-sys-on-primary-container);
+    border-color: var(--mat-sys-primary);
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  .status-count {
+    font-size: 9px;
+    font-weight: 700;
+    background: var(--mat-sys-surface-container-high);
+    padding: 0 4px;
+    border-radius: 6px;
+    min-width: 16px;
+    text-align: center;
+  }
+}
+
+.status-dot {
+  &.status-pending { background: var(--mat-sys-on-surface-variant); }
+  &.status-promote { background: var(--mat-sys-tertiary); }
+  &.status-accept { background: #2e7d32; }
+  &.status-consider { background: var(--mat-sys-secondary); }
+  &.status-reject { background: var(--mat-sys-error); }
+  &.status-exclude { background: var(--mat-sys-error); }
+  &.status-low-tradability { background: var(--mat-sys-warning); }
+  &.status-watch { background: var(--mat-sys-primary); }
+  &.status-elevate { background: var(--mat-sys-tertiary); }
+}
+
+.badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 6px;
+  text-transform: uppercase;
+
+  &.status-pending { background: var(--mat-sys-surface-container-high); color: var(--mat-sys-on-surface-variant); }
+  &.status-promote { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
+  &.status-accept { background: #1b5e2033; color: #1b5e20; }
+  &.status-consider { background: var(--mat-sys-secondary-container); color: var(--mat-sys-on-secondary-container); }
+  &.status-reject { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
+  &.status-exclude { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
+  &.status-low-tradability { background: var(--mat-sys-warning-container); color: var(--mat-sys-on-warning-container); }
+  &.status-watch { background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container); }
+  &.status-elevate { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
+}
+
+.loading-overlay,
+.error-state,
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  gap: 8px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.error-state,
+.empty-state {
+  mat-icon { font-size: 32px; width: 32px; height: 32px; }
+  p { margin: 0; }
+  .hint { font-size: 12px; opacity: 0.8; }
+}
+
+.tr-table-container {
+  flex: 1;
+  overflow: auto;
+}
+
+.tr-table {
+  width: 100%;
+
+  th {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--mat-sys-on-surface-variant);
+    background: var(--mat-sys-surface-container);
+  }
+
+  td {
+    font-size: 12px;
+  }
+
+  .symbol-cell {
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+}

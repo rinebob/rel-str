@@ -1,0 +1,124 @@
+<div class="triage-report">
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <div class="tr-header">
+    <button mat-icon-button class="back-btn" (click)="goBack()" matTooltip="Back to grouped review">
+      <mat-icon>arrow_back</mat-icon>
+    </button>
+
+    <h1 class="tr-title">
+      <mat-icon>assignment</mat-icon>
+      PACR Triage Report
+    </h1>
+
+    <div class="header-spacer"></div>
+
+    <!-- Date range -->
+    <mat-form-field appearance="outline" class="date-field">
+      <mat-label>Start date</mat-label>
+      <input matInput [matDatepicker]="startPicker" [ngModel]="startDate()" (dateChange)="onStartDateChange($event.value)" />
+      <mat-datepicker-toggle matSuffix [for]="startPicker"></mat-datepicker-toggle>
+      <mat-datepicker #startPicker></mat-datepicker>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="date-field">
+      <mat-label>End date</mat-label>
+      <input matInput [matDatepicker]="endPicker" [ngModel]="endDate()" (dateChange)="onEndDateChange($event.value)" />
+      <mat-datepicker-toggle matSuffix [for]="endPicker"></mat-datepicker-toggle>
+      <mat-datepicker #endPicker></mat-datepicker>
+    </mat-form-field>
+
+    <button mat-stroked-button (click)="loadDecisions()" [disabled]="loading()" matTooltip="Refresh">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+
+    <button mat-stroked-button (click)="exportCsv()" [disabled]="filteredDecisions().length === 0" matTooltip="Export CSV">
+      <mat-icon>download</mat-icon>
+      Export CSV
+    </button>
+
+    <button mat-icon-button (click)="uiState.toggleFullscreen()"
+      [matTooltip]="uiState.fullscreen() ? 'Exit fullscreen' : 'Fullscreen'">
+      <mat-icon>{{ uiState.fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
+    </button>
+  </div>
+
+  <!-- ── Status filters ───────────────────────────────────────────────────── -->
+  <div class="tr-status-bar">
+    @for (status of allStatuses; track status) {
+      <button
+        type="button"
+        class="status-filter-btn"
+        [class.active]="isStatusSelected(status)"
+        [class.has-counts]="countForStatus(status) > 0"
+        (click)="toggleStatus(status)">
+        <span class="status-dot status-{{ cssClassForStatus(status) }}"></span>
+        <span class="status-label">{{ status }}</span>
+        <span class="status-count">{{ countForStatus(status) }}</span>
+      </button>
+    }
+  </div>
+
+  <!-- ── Loading ─────────────────────────────────────────────────────────── -->
+  @if (loading()) {
+    <div class="loading-overlay">
+      <mat-spinner diameter="32"></mat-spinner>
+    </div>
+  }
+
+  <!-- ── Error ───────────────────────────────────────────────────────────── -->
+  @if (error()) {
+    <div class="error-state">
+      <mat-icon>error_outline</mat-icon>
+      <p>{{ error() }}</p>
+      <button mat-button (click)="loadDecisions()">Retry</button>
+    </div>
+  }
+
+  <!-- ── Results table ────────────────────────────────────────────────────── -->
+  @if (!loading() && !error()) {
+    <div class="tr-table-container">
+      <table mat-table [dataSource]="filteredDecisions()" class="tr-table">
+        <ng-container matColumnDef="date">
+          <th mat-header-cell *matHeaderCellDef>Date</th>
+          <td mat-cell *matCellDef="let d">{{ d.date }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="symbol">
+          <th mat-header-cell *matHeaderCellDef>Symbol</th>
+          <td mat-cell *matCellDef="let d" class="symbol-cell">{{ d.symbol }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef>Status</th>
+          <td mat-cell *matCellDef="let d">
+            <span class="badge status-{{ d.status.toLowerCase().replace('_', '-') }}">{{ d.status }}</span>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="source">
+          <th mat-header-cell *matHeaderCellDef>Source</th>
+          <td mat-cell *matCellDef="let d">{{ d.source ?? '-' }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="notes">
+          <th mat-header-cell *matHeaderCellDef>Notes</th>
+          <td mat-cell *matCellDef="let d">{{ d.notes ?? '-' }}</td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+      </table>
+
+      @if (filteredDecisions().length === 0) {
+        <div class="empty-state">
+          <mat-icon>inbox</mat-icon>
+          <p>No PACR decisions found for this date range</p>
+          @if (selectedStatuses().size > 0) {
+            <p class="hint">Try clearing the status filters</p>
+          }
+        </div>
+      }
+    </div>
+  }
+</div>
