@@ -50,6 +50,9 @@
           </div>
           <div class="signal-line-2">{{ signal.reason }}</div>
         </div>
+        <div class="status-badge" [class]="'status-' + (uiStore.getSignalStatus(signal.id) | lowercase)">
+          {{ uiStore.getSignalStatus(signal.id) }}
+        </div>
       </mat-list-item>
     } @empty {
       <div class="empty-list">

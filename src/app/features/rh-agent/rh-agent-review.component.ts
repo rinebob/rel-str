@@ -11,6 +11,7 @@ import {
   effect,
   signal,
   computed,
+  OnInit,
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -59,7 +60,7 @@ import { RobinhoodTradePanelComponent } from '../rs/components/robinhood-trade-p
   styleUrl: './rh-agent-review.component.scss',
   providers: [RhAgentStore, RhAgentDashboardStore],
 })
-export class RhAgentReviewComponent {
+export class RhAgentReviewComponent implements OnInit {
   readonly store = inject(RhAgentStore);
   readonly uiStore = inject(RhAgentDashboardStore);
   readonly triageStore = inject(RhAgentTriageStore);
@@ -82,6 +83,16 @@ export class RhAgentReviewComponent {
 
   /** Promoted symbols list. */
   promotedSymbols = computed(() => this.triageStore.promotedSymbols());
+
+  /** Per-symbol latest signal details for the promoted list. */
+  promotedSignalDetails = computed(() => {
+    const symbols = this.promotedSymbols();
+    const history = this.promotedSignalHistory();
+    return symbols.map(symbol => {
+      const signals = history[symbol] ?? [];
+      return { symbol, latestSignal: signals[0] ?? null };
+    });
+  });
 
   /** Latest signal details for the selected promoted symbol. */
   selectedPromotedSignal = computed(() => {
@@ -135,6 +146,23 @@ export class RhAgentReviewComponent {
         this.selectPromotedSymbol(symbols[0]);
       }
     });
+
+    // Load signal history for all promoted symbols so the list can show direction/type
+    effect(() => {
+      const symbols = this.triageStore.promotedSymbols();
+      for (const symbol of symbols) {
+        this.loadPromotedSignalHistory(symbol);
+      }
+    });
+  }
+
+  ngOnInit(): void {
+    const marketDate = this.triageStore.marketDate();
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    const startDate = thirtyDaysAgo.toISOString().slice(0, 10);
+    this.triageStore.loadPersistedDecisions(startDate, marketDate);
   }
 
   refreshData(): void {

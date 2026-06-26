@@ -169,16 +169,25 @@
               </button>
             </div>
             <div class="promoted-list-body">
-              @for (symbol of promotedSymbols(); track symbol) {
+              @for (item of promotedSignalDetails(); track item.symbol) {
                 <div class="promoted-item"
-                  [class.selected]="selectedPromotedSymbol() === symbol"
-                  (click)="onPromotedSymbolSelected(symbol)">
-                  <span class="promoted-symbol">{{ symbol }}</span>
-                  @if (selectedPromotedSignal()?.symbol === symbol) {
-                    <span class="promoted-meta dir-{{ selectedPromotedSignal()?.direction?.toLowerCase() }}">
-                      {{ selectedPromotedSignal()?.direction }}
-                    </span>
-                  }
+                  [class.selected]="selectedPromotedSymbol() === item.symbol"
+                  (click)="onPromotedSymbolSelected(item.symbol)">
+                  <mat-icon class="promoted-dir" [class]="'dir-' + (item.latestSignal ? item.latestSignal.direction : 'LONG').toLowerCase()">
+                    {{ item.latestSignal && item.latestSignal.direction === 'SHORT' ? 'arrow_downward' : 'arrow_upward' }}
+                  </mat-icon>
+                  <div class="promoted-main">
+                    <div class="promoted-line-1">
+                      <span class="promoted-symbol">{{ item.symbol }}</span>
+                      @if (item.latestSignal) {
+                        <span class="badge type">{{ item.latestSignal.signalType }}</span>
+                      }
+                    </div>
+                    @if (item.latestSignal) {
+                      <div class="promoted-line-2">{{ item.latestSignal.barDate }} · {{ item.latestSignal.timeframe }}</div>
+                    }
+                  </div>
+                  <div class="status-badge status-promote">PROMOTE</div>
                 </div>
               }
             </div>

@@ -24,6 +24,9 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatSelectModule } from '@angular/material/select';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 
 import { RhAgentGroupStore, GroupDimension, RhSymbolGroup, RhSymbolRow } from './rh-agent-group.store';
@@ -45,6 +48,9 @@ import { UiStateService } from '../../core/services/ui-state.service';
     MatExpansionModule,
     MatBadgeModule,
     MatChipsModule,
+    MatSelectModule,
+    MatFormFieldModule,
+    FormsModule,
     QuickChartsComponent,
   ],
   templateUrl: './rh-agent-grouped-review.component.html',
@@ -69,12 +75,13 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
 
   /** Symbol list filter options for the pill toggle. */
   readonly listFilterOptions: { value: RhSymbolListName | 'ALL'; label: string }[] = [
-    { value: 'ALL',                       label: 'Active' },
+    { value: 'ALL',                       label: 'All' },
     { value: RhSymbolListName.PRIMARY,    label: 'Primary' },
     { value: RhSymbolListName.SECONDARY,  label: 'Secondary' },
     { value: RhSymbolListName.NEUTRAL,    label: 'Neutral' },
     { value: RhSymbolListName.AVOID,      label: 'Avoid' },
     { value: RhSymbolListName.HIDE,       label: 'Hidden' },
+    { value: RhSymbolListName.PAST_SIGNALS, label: 'Monitor' },
   ];
 
   /** Scroll container ref for scroll-into-view on navigation. */
@@ -150,6 +157,7 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.uiState.setFullscreen(true);
+    this.triageStore.setMarketDate(this.groupStore.marketDate());
     this.groupStore.loadSymbolsWithSignals();
   }
 
@@ -257,6 +265,15 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
   onReset(symbol: string, event: Event): void {
     event.stopPropagation();
     this.triageStore.resetSymbol(symbol);
+  }
+
+  onMonitor(symbol: string, event: Event): void {
+    event.stopPropagation();
+    if (this.groupStore.activeListFilter() === RhSymbolListName.PAST_SIGNALS) {
+      this.groupStore.removeSymbolFromList(symbol, RhSymbolListName.PAST_SIGNALS);
+    } else {
+      this.groupStore.addSymbolToList(symbol, RhSymbolListName.PAST_SIGNALS);
+    }
   }
 
   onPromoteGroup(group: RhSymbolGroup, event: Event): void {

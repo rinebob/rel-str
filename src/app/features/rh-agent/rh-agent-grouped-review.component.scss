@@ -118,6 +118,25 @@
   }
 }
 
+// ─── Compact header selects ───────────────────────────────────────────────────
+
+.header-select {
+  width: 130px;
+  --mdc-outlined-text-field-container-height: 32px;
+  --mat-form-field-container-height: 32px;
+  --mat-form-field-container-vertical-padding: 4px;
+
+  .mat-mdc-text-field-wrapper { padding: 0 8px; }
+  .mat-mdc-form-field-infix {
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+    min-height: 32px !important;
+  }
+  .mat-mdc-select-trigger { font-size: 11px; }
+  .mdc-floating-label, .mat-mdc-floating-label { font-size: 11px; }
+  .mdc-notched-outline__notch { border-right: none; }
+}
+
 // ─── Pipeline actions (Review / Order) ───────────────────────────────────────
 
 .pipeline-actions {
@@ -365,14 +384,6 @@
   border-radius: 8px;
 }
 
-.group-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: auto;
-  margin-right: 4px;
-}
-
 // ─── Symbol sub-panels ────────────────────────────────────────────────────────
 
 .symbol-accordion {
@@ -410,7 +421,7 @@
 .symbol-row-main {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   width: 100%;
 }
 
@@ -478,7 +489,7 @@
   }
 }
 
-.symbol-spacer { flex: 0 0 4px; }
+.symbol-spacer { flex: 0 0 0; }
 
 .quick-charts-btn {
   flex-shrink: 0;
@@ -487,7 +498,7 @@
   gap: 3px;
   font-size: 9px;
   font-weight: 600;
-  padding: 2px 7px 2px 4px;
+  padding: 2px 4px;
   border-radius: 10px;
   border: none;
   background: var(--mat-sys-surface-container);
@@ -568,9 +579,8 @@
 
 .acr-actions {
   display: flex;
-  gap: 4px;
+  gap: 1px;
   flex-shrink: 0;
-  margin-right: 6px;
 
   &.disabled { opacity: 0.25; pointer-events: none; }
 }
@@ -579,8 +589,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
   border: none;
   border-radius: 4px;
   background: transparent;
@@ -589,16 +600,17 @@
   color: var(--mat-sys-on-surface-variant);
   flex-shrink: 0;
 
-  mat-icon { font-size: 13px; width: 13px; height: 13px; }
+  mat-icon { font-size: 12px; width: 12px; height: 12px; }
 
   &:hover { background: var(--mat-sys-surface-container-high); }
   &:disabled { opacity: 0.3; cursor: not-allowed; }
 
-  &.promote.active { background: #7b1fa233; color: #7b1fa2; }
+  &.review.active { background: #7b1fa233; color: #7b1fa2; }
   &.accept.active  { background: #1b5e2033; color: #1b5e20; }
   &.consider.active { background: #f57c0033; color: #f57c00; }
   &.reject.active  { background: #d32f2f33; color: #d32f2f; }
   &.reset.active  { background: #61616133; color: #616161; }
+  &.monitor.active { background: #00695c33; color: #00695c; }
   &.primary.active {
     background: #1976d233;
     color: #1976d2;

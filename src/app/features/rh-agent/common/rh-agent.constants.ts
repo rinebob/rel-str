@@ -50,6 +50,7 @@ export enum RhSymbolListName {
   NEUTRAL = 'NEUTRAL',
   AVOID = 'AVOID',
   HIDE = 'HIDE',
+  PAST_SIGNALS = 'PAST_SIGNALS',
 }
 
 /** All built-in symbol list names in display order. */
@@ -59,6 +60,7 @@ export const ALL_SYMBOL_LIST_NAMES: RhSymbolListName[] = [
   RhSymbolListName.NEUTRAL,
   RhSymbolListName.AVOID,
   RhSymbolListName.HIDE,
+  RhSymbolListName.PAST_SIGNALS,
 ];
 
 /** Symbol type classification for the trading universe. */

@@ -80,28 +80,24 @@
     </div>
 
     <!-- Group dimension selector -->
-    <div class="pill-group dim-toggle">
-      @for (opt of dimensionOptions; track opt.value) {
-        <button
-          class="pill"
-          [class.active]="groupStore.groupDimension() === opt.value"
-          (click)="onDimension(opt.value)">
-          {{ opt.label }}
-        </button>
-      }
-    </div>
+    <mat-form-field appearance="outline" class="header-select" subscriptSizing="dynamic">
+      <mat-label>Select group</mat-label>
+      <mat-select [value]="groupStore.groupDimension()" (valueChange)="onDimension($event)">
+        @for (opt of dimensionOptions; track opt.value) {
+          <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
 
     <!-- Symbol list filter selector -->
-    <div class="pill-group list-filter-toggle">
-      @for (opt of listFilterOptions; track opt.value) {
-        <button
-          class="pill"
-          [class.active]="groupStore.activeListFilter() === opt.value"
-          (click)="onListFilter(opt.value)">
-          {{ opt.label }}
-        </button>
-      }
-    </div>
+    <mat-form-field appearance="outline" class="header-select" subscriptSizing="dynamic">
+      <mat-label>Select list</mat-label>
+      <mat-select [value]="groupStore.activeListFilter()" (valueChange)="onListFilter($event)">
+        @for (opt of listFilterOptions; track opt.value) {
+          <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
 
     <!-- Prev / Next symbol navigation -->
     <button mat-icon-button (click)="navigatePrev()"
@@ -188,22 +184,6 @@
                       <span class="grp-dir short">↓ {{ group.shortCount }} short</span>
                     }
                   </span>
-                  <div class="group-actions" (click)="$event.stopPropagation()">
-                    <button type="button" class="pill-btn small promote"
-                      [disabled]="signalCount(group) === 0"
-                      (click)="onPromoteGroup(group, $event)"
-                      matTooltip="Promote all signal symbols in group">
-                      <mat-icon>bookmark_border</mat-icon>
-                      Promote all
-                    </button>
-                    <button type="button" class="pill-btn small accept"
-                      [disabled]="signalCount(group) === 0"
-                      (click)="onAcceptGroup(group, $event)"
-                      matTooltip="Accept all signal symbols in group">
-                      <mat-icon>check</mat-icon>
-                      Accept all
-                    </button>
-                  </div>
                   <button mat-icon-button class="expand-all-btn"
                     (click)="onExpandAll(group, $event)"
                     [matTooltip]="isGroupExpanded(group.key) ? 'Collapse all' : 'Expand all'">
@@ -260,15 +240,15 @@
                             (click)="onViewQuickCharts(row.profile.symbol, $event)"
                             matTooltip="View quick charts">
                             <mat-icon>bar_chart</mat-icon>
-                            Quick charts
+                            Charts
                           </button>
 
                           <!-- ACR actions -->
                           <div class="acr-actions" (click)="$event.stopPropagation()">
-                            <button type="button" class="acr-btn promote"
+                            <button type="button" class="acr-btn review"
                               [class.active]="row.reviewStatus === 'PROMOTE'"
                               (click)="onPromote(row.profile.symbol, $event)"
-                              matTooltip="Watch">
+                              matTooltip="Review">
                               <mat-icon>bookmark_border</mat-icon>
                             </button>
                             <button type="button" class="acr-btn accept"
@@ -325,6 +305,12 @@
                               (click)="onToggleList(row.profile.symbol, ListName.HIDE, $event)"
                               matTooltip="Toggle hide list">
                               <mat-icon>block</mat-icon>
+                            </button>
+                            <button type="button" class="acr-btn monitor"
+                              [class.active]="isInList(row.profile.symbol, ListName.PAST_SIGNALS)"
+                              (click)="onMonitor(row.profile.symbol, $event)"
+                              [matTooltip]="groupStore.activeListFilter() === ListName.PAST_SIGNALS ? 'Stop monitoring' : 'Monitor'">
+                              <mat-icon>{{ groupStore.activeListFilter() === ListName.PAST_SIGNALS ? 'history_off' : 'history' }}</mat-icon>
                             </button>
                           </div>
                         </div>

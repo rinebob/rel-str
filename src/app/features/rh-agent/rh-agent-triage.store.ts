@@ -163,7 +163,7 @@ export const RhAgentTriageStore = signalStore(
       triageService.loadDecisionsForDateRange(startDate, endDate).subscribe({
         next: (decisions) => {
           let persisted = state.persistedStatuses();
-          const currentStatuses = state.statuses();
+          const currentStatuses = { ...state.statuses() };
           const currentDate = state.marketDate();
 
           for (const d of decisions) {
