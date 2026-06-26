@@ -210,6 +210,10 @@ export class RhAgentReviewComponent {
     return this.uiStore.getSignalStatus(signal.id);
   }
 
+  getPromotedSymbolStatus(symbol: string): string {
+    return this.triageStore.statuses()[symbol] ?? 'PENDING';
+  }
+
   onAcceptSelected(): void {
     const signal = this.uiStore.selectedSignal();
     if (signal) this.uiStore.acceptSignal(signal.id);

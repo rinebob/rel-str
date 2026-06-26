@@ -227,21 +227,21 @@
       &.accept {
         background-color: #4caf50;
         &:hover { filter: brightness(1.1); }
-        &.selected { opacity: 0.5; }
+        &.selected { background-color: #1b5e20; box-shadow: 0 0 0 2px var(--mat-sys-surface), 0 0 0 4px #1b5e20; }
       }
 
       // Consider - Yellow/Gold
       &.consider {
         background-color: #ff9800;
         &:hover { filter: brightness(1.1); }
-        &.selected { opacity: 0.5; }
+        &.selected { background-color: #e65100; box-shadow: 0 0 0 2px var(--mat-sys-surface), 0 0 0 4px #e65100; }
       }
 
       // Reject - Red
       &.reject {
         background-color: #f44336;
         &:hover { filter: brightness(1.1); }
-        &.selected { opacity: 0.5; }
+        &.selected { background-color: #c62828; box-shadow: 0 0 0 2px var(--mat-sys-surface), 0 0 0 4px #c62828; }
       }
     }
   }

@@ -6,7 +6,7 @@
  * of PACR daily decisions and of any single symbol classification.
  *
  * Collection: rh-agent-symbol-lists
- * Document ID: {userId}_{listName}
+ * Document ID: {listName}
  */
 import { Injectable, inject } from '@angular/core';
 import {
@@ -161,8 +161,8 @@ export class RhAgentSymbolListService {
     );
   }
 
-  private listId(userId: string, name: string): string {
-    return `${userId}_${name}`;
+  private listId(_userId: string, name: string): string {
+    return name;
   }
 
   private toList(id: string, data: any): RhSymbolList {

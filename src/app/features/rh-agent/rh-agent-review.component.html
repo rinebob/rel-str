@@ -67,10 +67,14 @@
       @if (selectedPromotedSymbol(); as symbol) {
         <div class="header-signal-block promoted">
           <div class="header-acr">
-            <button type="button" class="acr-btn accept" (click)="onAcceptPromoted(symbol)" title="Accept">
+            <button type="button" class="acr-btn accept"
+              [class.selected]="getPromotedSymbolStatus(symbol) === 'ACCEPT'"
+              (click)="onAcceptPromoted(symbol)" title="Accept">
               <mat-icon>check</mat-icon>
             </button>
-            <button type="button" class="acr-btn reject" (click)="onRejectPromoted(symbol)" title="Reject">
+            <button type="button" class="acr-btn reject"
+              [class.selected]="getPromotedSymbolStatus(symbol) === 'REJECT'"
+              (click)="onRejectPromoted(symbol)" title="Reject">
               <mat-icon>close</mat-icon>
             </button>
           </div>
@@ -146,7 +150,7 @@
   }
 
   <!-- Master-Detail Layout -->
-  @if (uiStore.currentRun() || hasPromotedSymbols()) {
+  @if (uiStore.currentRun() || hasPromotedSymbols() || manualSymbol()) {
     <div class="master-detail-container" [class.sidebar-collapsed]="uiState.sidebarCollapsed()">
       @if (uiState.sidebarCollapsed()) {
         <div class="collapsed-sidebar">

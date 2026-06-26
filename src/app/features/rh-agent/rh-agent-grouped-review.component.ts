@@ -128,7 +128,24 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
   latestSignals(row: RhSymbolRow): RhAgentSignalItem[] {
     if (!row.signals?.length) return [];
     const latest = row.signals[0];
+    if (!this.isRecentSignalDate(latest.barDate)) return [];
     return row.signals.filter((s) => s.barDate === latest.barDate);
+  }
+
+  private isRecentSignalDate(barDate: string): boolean {
+    const now = new Date();
+    const today = this.formatLocalDate(now);
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    const yesterdayStr = this.formatLocalDate(yesterday);
+    return barDate === today || barDate === yesterdayStr;
+  }
+
+  private formatLocalDate(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   ngOnInit(): void {

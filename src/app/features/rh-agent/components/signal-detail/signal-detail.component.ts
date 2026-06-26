@@ -62,7 +62,7 @@ export class SignalDetailComponent {
   crosshairDate = signal<Date | null>(null);
 
   /** Toggle zoom/pan toolbar visibility on all charts */
-  showZoomToolbar = signal(true);
+  showZoomToolbar = signal(false);
 
   /** All ST indicator options */
   readonly stIndicatorOptions = ST_INDICATOR_OPTIONS;
