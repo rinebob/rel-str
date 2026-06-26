@@ -17,9 +17,8 @@ import {
   patchState,
 } from '@ngrx/signals';
 
-import { RhReviewStatus, UniverseStatus } from './rh-agent-group.store';
+import { RhReviewStatus, ALL_REVIEW_STATUSES, StatusCounts } from './common/rh-agent.constants';
 import { RhAgentTriageService } from './rh-agent-triage.service';
-import { RhAgentSymbolMetaService } from './rh-agent-symbol-meta.service';
 
 // ---------------------------------------------------------------------------
 // State
@@ -87,26 +86,18 @@ export const RhAgentTriageStore = signalStore(
     ),
 
     /** Full status counts — useful for summary chips. */
-    statusCounts: computed(() => {
+    statusCounts: computed((): StatusCounts => {
       const values = Object.values(state.statuses());
-      return {
-        PENDING:          values.filter((s) => s === 'PENDING').length,
-        PROMOTE:          values.filter((s) => s === 'PROMOTE').length,
-        ACCEPT:           values.filter((s) => s === 'ACCEPT').length,
-        CONSIDER:         values.filter((s) => s === 'CONSIDER').length,
-        REJECT:           values.filter((s) => s === 'REJECT').length,
-        EXCLUDE:          values.filter((s) => s === 'EXCLUDE').length,
-        LOW_TRADABILITY:  values.filter((s) => s === 'LOW_TRADABILITY').length,
-        WATCH:            values.filter((s) => s === 'WATCH').length,
-        ELEVATE:          values.filter((s) => s === 'ELEVATE').length,
-      };
+      const counts = Object.fromEntries(
+        ALL_REVIEW_STATUSES.map((status) => [status, values.filter((s) => s === status).length])
+      ) as StatusCounts;
+      return counts;
     }),
   })),
 
   withMethods((
     state,
     triageService = inject(RhAgentTriageService),
-    metaService = inject(RhAgentSymbolMetaService),
   ) => ({
     /** Set a single symbol's PACR status and persist it. */
     setStatus(symbol: string, status: RhReviewStatus, source = 'unknown'): void {
@@ -141,28 +132,6 @@ export const RhAgentTriageStore = signalStore(
         error: (err) => {
           console.error(`[TriageStore] Failed to persist group status:`, err);
           patchState(state, { decisionsError: err?.message ?? 'Batch persist failed' });
-        },
-      });
-    },
-
-    /** Set a symbol's persistent universe status and write a daily audit decision. */
-    setUniverseStatus(symbol: string, status: UniverseStatus, source = 'unknown'): void {
-      const marketDate = state.marketDate();
-      const decisionStatus: RhReviewStatus =
-        status === 'EXCLUDED' ? 'EXCLUDE' :
-        status === 'LOW_TRADABILITY' ? 'LOW_TRADABILITY' :
-        status === 'PREFERRED' ? 'ELEVATE' :
-        status === 'WATCHLIST' ? 'WATCH' :
-        'PENDING';
-
-      if (decisionStatus !== 'PENDING') {
-        this.setStatus(symbol, decisionStatus, source);
-      }
-
-      metaService.setUniverseStatus(symbol, status).subscribe({
-        error: (err) => {
-          console.error(`[TriageStore] Failed to set universe status for ${symbol}:`, err);
-          patchState(state, { decisionsError: err?.message ?? 'Universe status update failed' });
         },
       });
     },
@@ -222,17 +191,13 @@ export const RhAgentTriageStore = signalStore(
       patchState(state, { statuses: {} });
     },
 
-    // --- Convenience methods (match RhAgentGroupStore pattern) ---
+    // --- Convenience methods for daily PACR actions ---
 
     promoteSymbol(symbol: string): void  { this.setStatus(symbol, 'PROMOTE', 'triage-store'); },
     acceptSymbol(symbol: string): void   { this.setStatus(symbol, 'ACCEPT', 'triage-store'); },
     considerSymbol(symbol: string): void { this.setStatus(symbol, 'CONSIDER', 'triage-store'); },
     rejectSymbol(symbol: string): void   { this.setStatus(symbol, 'REJECT', 'triage-store'); },
     resetSymbol(symbol: string): void    { this.setStatus(symbol, 'PENDING', 'triage-store'); },
-    excludeSymbol(symbol: string): void  { this.setUniverseStatus(symbol, 'EXCLUDED', 'triage-store'); },
-    demoteSymbol(symbol: string): void   { this.setUniverseStatus(symbol, 'LOW_TRADABILITY', 'triage-store'); },
-    watchSymbol(symbol: string): void    { this.setStatus(symbol, 'WATCH', 'triage-store'); },
-    elevateSymbol(symbol: string): void  { this.setUniverseStatus(symbol, 'PREFERRED', 'triage-store'); },
   })),
 
   withHooks((store) => ({

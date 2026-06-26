@@ -20,7 +20,7 @@ import {
   patchState,
 } from '@ngrx/signals';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { forkJoin } from 'rxjs';
+import { forkJoin, Observable } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import {
@@ -29,7 +29,15 @@ import {
   RhAgentSignalItem,
 } from './rh-agent.service';
 import { RhAgentTriageStore } from './rh-agent-triage.store';
-import { RhAgentSymbolMetaService } from './rh-agent-symbol-meta.service';
+import { RhAgentSymbolListService } from './rh-agent-symbol-list.service';
+import {
+  RhReviewStatus,
+  ALL_REVIEW_STATUSES,
+  StatusCounts,
+  SymbolType,
+  RhSymbolListName,
+  ALL_SYMBOL_LIST_NAMES,
+} from './common/rh-agent.constants';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -38,25 +46,7 @@ import { RhAgentSymbolMetaService } from './rh-agent-symbol-meta.service';
 /** Dimensions available for grouping the symbol list. */
 export type GroupDimension = 'sector' | 'industry' | 'marketCapTier';
 
-/** Triage status for a symbol — local UI state, now persisted to Firestore. */
-export type RhReviewStatus =
-  | 'PENDING'
-  | 'PROMOTE'
-  | 'ACCEPT'
-  | 'CONSIDER'
-  | 'REJECT'
-  | 'EXCLUDE'
-  | 'LOW_TRADABILITY'
-  | 'WATCH'
-  | 'ELEVATE';
-
-/** Persistent classification of a symbol's membership in the trading universe. */
-export type UniverseStatus = 'IN_UNIVERSE' | 'EXCLUDED' | 'LOW_TRADABILITY' | 'WATCHLIST' | 'PREFERRED';
-
-/** Symbol type classification for the trading universe. */
-export type SymbolType = 'STOCK' | 'ETF' | 'FUTURE' | 'FOREX' | 'CRYPTO' | 'OTHER';
-
-/** A symbol row in the grouped list — profile + triage state + universe classification. */
+/** A symbol row in the grouped list — profile + triage state. */
 export interface RhSymbolRow {
   profile: RhAgentSymbolProfile;
   /** True if the symbol has a signal for the active marketDate + timeframe. */
@@ -64,8 +54,6 @@ export interface RhSymbolRow {
   signals?: RhAgentSignalItem[];
   signalsLoading?: boolean;
   reviewStatus: RhReviewStatus;
-  /** Persistent universe status from rh-agent-symbol-meta. */
-  universeStatus: UniverseStatus;
 }
 
 /** A rendered group in the expansion panel list. */
@@ -111,16 +99,13 @@ export interface RhAgentGroupState {
   allSymbols: RhAgentSymbolProfile[];
   /** Loading state for the all-symbols query. */
   allSymbolsLoading: boolean;
-  /** Persistent symbol meta cache: symbol -> RhSymbolMeta. */
-  symbolMeta: Record<string, { universeStatus: UniverseStatus; symbolType: SymbolType }>;
-  /** Loading state for symbol meta. */
-  symbolMetaLoading: boolean;
-  /** Active universe filter. */
-  universeFilter: UniverseFilter;
+  /** User-defined symbol lists: listName -> symbols[]. */
+  symbolLists: Record<string, string[]>;
+  /** Loading state for symbol lists. */
+  symbolListsLoading: boolean;
+  /** Active list filter — 'ALL' shows everything. */
+  activeListFilter: string | 'ALL';
 }
-
-/** Filter modes for the grouped review universe. */
-export type UniverseFilter = 'ALL' | 'IN_UNIVERSE' | 'EXCLUDED' | 'LOW_TRADABILITY' | 'WATCHLIST' | 'PREFERRED';
 
 /** Yesterday in PT — used as default marketDate until intraday bars are wired. */
 const yesterdayDate = (): string => {
@@ -143,9 +128,9 @@ const initialState: RhAgentGroupState = {
   showAllSymbols: false,
   allSymbols: [],
   allSymbolsLoading: false,
-  symbolMeta: {},
-  symbolMetaLoading: false,
-  universeFilter: 'ALL',
+  symbolLists: {},
+  symbolListsLoading: false,
+  activeListFilter: 'ALL',
 };
 
 // ---------------------------------------------------------------------------
@@ -163,15 +148,15 @@ function getGroupKey(profile: RhAgentSymbolProfile, dimension: GroupDimension): 
 }
 
 /**
- * Determine whether a symbol with a given universe status should appear
- * under the active grouped review filter.
+ * Determine whether a symbol should appear under the active list filter.
  *
- * Default view: hide EXCLUDED, show everything else.
- * Explicit filters show only matching status.
+ * 'ALL' shows every symbol. Any other filter value shows only symbols that
+ * belong to that named list.
  */
-function shouldShowInUniverseFilter(status: UniverseStatus, filter: UniverseFilter): boolean {
-  if (filter === 'ALL') return status !== 'EXCLUDED';
-  return status === filter;
+function shouldShowInListFilter(symbol: string, lists: Record<string, string[]>, filter: string | 'ALL'): boolean {
+  if (filter === 'ALL') return true;
+  const list = lists[filter] ?? [];
+  return list.includes(symbol.toUpperCase());
 }
 
 // ---------------------------------------------------------------------------
@@ -187,7 +172,7 @@ export const RhAgentGroupStore = signalStore(
     snackBar = inject(MatSnackBar),
     destroyRef = inject(DestroyRef),
     triageStore = inject(RhAgentTriageStore),
-    metaService = inject(RhAgentSymbolMetaService),
+    listService = inject(RhAgentSymbolListService),
   ) => ({
     /** Expose triage store statuses for use by computed signals. */
     getTriageStatuses(): Record<string, RhReviewStatus> {
@@ -195,7 +180,7 @@ export const RhAgentGroupStore = signalStore(
     },
 
     /** Expose triage store status counts. */
-    getTriageStatusCounts() {
+    getTriageStatusCounts(): StatusCounts {
       return triageStore.statusCounts();
     },
 
@@ -236,7 +221,7 @@ export const RhAgentGroupStore = signalStore(
             }
             const symbols = [...map.values()];
             patchState(state, { signalSymbols: symbols, symbolsLoading: false });
-            this.loadSymbolMeta(symbols.map((s) => s.symbol));
+            this.loadSymbolLists();
           },
           error: (err: any) => {
             patchState(state, { symbolsLoading: false, symbolsError: err?.message ?? 'Load failed' });
@@ -304,7 +289,7 @@ export const RhAgentGroupStore = signalStore(
         .subscribe({
           next: (symbols) => {
             patchState(state, { allSymbols: symbols, allSymbolsLoading: false });
-            this.loadSymbolMeta(symbols.map((s) => s.symbol));
+            this.loadSymbolLists();
           },
           error: (err: any) => {
             patchState(state, { allSymbolsLoading: false });
@@ -313,29 +298,130 @@ export const RhAgentGroupStore = signalStore(
         });
     },
 
-    /** Load persistent symbol meta for a list of symbols. */
-    loadSymbolMeta(symbols: string[]): void {
-      if (symbols.length === 0) return;
-      patchState(state, { symbolMetaLoading: true });
+    /** Load all user-defined symbol lists from Firestore. */
+    loadSymbolLists(): void {
+      patchState(state, { symbolListsLoading: true });
 
-      metaService.loadSymbolMeta(symbols).subscribe({
-        next: (meta) => {
-          const metaRecord: Record<string, { universeStatus: UniverseStatus; symbolType: SymbolType }> = {};
-          for (const [symbol, m] of Object.entries(meta)) {
-            metaRecord[symbol] = { universeStatus: m.universeStatus, symbolType: m.symbolType };
+      listService.loadAllLists().subscribe({
+        next: (lists) => {
+          const record: Record<string, string[]> = {};
+          for (const list of lists) {
+            record[list.name] = list.symbols.map((s) => s.toUpperCase());
           }
-          patchState(state, { symbolMeta: metaRecord, symbolMetaLoading: false });
+          patchState(state, { symbolLists: record, symbolListsLoading: false });
         },
         error: (err: any) => {
-          console.error('[RhAgentGroupStore] Failed to load symbol meta:', err);
-          patchState(state, { symbolMetaLoading: false });
+          console.error('[RhAgentGroupStore] Failed to load symbol lists:', err);
+          patchState(state, { symbolListsLoading: false });
         },
       });
     },
 
-    /** Set the active universe filter for the grouped review. */
-    setUniverseFilter(filter: UniverseFilter): void {
-      patchState(state, { universeFilter: filter });
+    /** Set the active list filter for the grouped review. */
+    setActiveListFilter(filter: string | 'ALL'): void {
+      patchState(state, { activeListFilter: filter });
+    },
+
+    /** Toggle a symbol's membership in a named list.
+     *
+     * List membership is exclusive: a symbol can only be in one list at a time.
+     * Selecting a new list removes the symbol from every other list.
+     */
+    toggleSymbolInList(symbol: string, listName: string | RhSymbolListName): void {
+      const normalized = symbol.toUpperCase();
+      const current = { ...state.symbolLists() };
+      const list = current[listName] ?? [];
+      const isInList = list.includes(normalized);
+      const previousLists = { ...current };
+
+      if (isInList) {
+        // Toggle off: remove from this list only
+        current[listName] = list.filter((s) => s !== normalized);
+      } else {
+        // Toggle on: add to this list, remove from all other lists
+        current[listName] = [...list, normalized];
+        for (const otherName of ALL_SYMBOL_LIST_NAMES) {
+          if (otherName !== listName) {
+            const otherList = current[otherName] ?? [];
+            if (otherList.includes(normalized)) {
+              current[otherName] = otherList.filter((s) => s !== normalized);
+            }
+          }
+        }
+      }
+      patchState(state, { symbolLists: current });
+
+      // Persist the target list change
+      const target$ = isInList
+        ? listService.removeFromList(symbol, listName)
+        : listService.addToList(symbol, listName);
+
+      // Persist removals from other lists
+      const removalObservables: Observable<void>[] = [];
+      if (!isInList) {
+        for (const otherName of ALL_SYMBOL_LIST_NAMES) {
+          if (otherName !== listName) {
+            const otherList = previousLists[otherName] ?? [];
+            if (otherList.includes(normalized)) {
+              removalObservables.push(listService.removeFromList(symbol, otherName));
+            }
+          }
+        }
+      }
+
+      forkJoin([target$, ...removalObservables]).subscribe({
+        error: (err: any) => {
+          console.error(`[RhAgentGroupStore] Failed to toggle ${symbol} in ${listName}:`, err);
+          snackBar.open(`Failed to save ${symbol} to ${listName}: ${err?.message ?? 'Unknown error'}`, 'Dismiss', {
+            duration: 5000,
+          });
+          // Revert local change on failure
+          patchState(state, { symbolLists: previousLists });
+        },
+      });
+    },
+
+    /** Add a symbol to a named list. */
+    addSymbolToList(symbol: string, listName: string | RhSymbolListName): void {
+      const normalized = symbol.toUpperCase();
+      const current = { ...state.symbolLists() };
+      const list = current[listName] ?? [];
+      if (list.includes(normalized)) return;
+      current[listName] = [...list, normalized];
+      patchState(state, { symbolLists: current });
+
+      listService.addToList(symbol, listName).subscribe({
+        error: (err: any) => {
+          console.error(`[RhAgentGroupStore] Failed to add ${symbol} to ${listName}:`, err);
+          patchState(state, {
+            symbolLists: {
+              ...state.symbolLists(),
+              [listName]: state.symbolLists()[listName]?.filter((s) => s !== normalized) ?? [],
+            },
+          });
+        },
+      });
+    },
+
+    /** Remove a symbol from a named list. */
+    removeSymbolFromList(symbol: string, listName: string | RhSymbolListName): void {
+      const normalized = symbol.toUpperCase();
+      const current = { ...state.symbolLists() };
+      const list = current[listName] ?? [];
+      current[listName] = list.filter((s) => s !== normalized);
+      patchState(state, { symbolLists: current });
+
+      listService.removeFromList(symbol, listName).subscribe({
+        error: (err: any) => {
+          console.error(`[RhAgentGroupStore] Failed to remove ${symbol} from ${listName}:`, err);
+          patchState(state, {
+            symbolLists: {
+              ...state.symbolLists(),
+              [listName]: [...(state.symbolLists()[listName] ?? []), normalized],
+            },
+          });
+        },
+      });
     },
 
     /** Set the symbol shown in the quick-charts panel. */
@@ -368,8 +454,8 @@ export const RhAgentGroupStore = signalStore(
       const fullGroupToggles = state.fullGroupToggles();
       const showAll = state.showAllSymbols();
       const allSymbols = state.allSymbols();
-      const symbolMeta = state.symbolMeta();
-      const universeFilter = state.universeFilter();
+      const symbolLists = state.symbolLists();
+      const activeListFilter = state.activeListFilter();
 
       // Build signal symbol set for fast lookup
       const signalSet = new Set(signalSymbols.map(s => s.symbol));
@@ -385,14 +471,13 @@ export const RhAgentGroupStore = signalStore(
       ];
 
       // Build group map
-      const groupMap = new Map<string, Array<{ profile: RhAgentSymbolProfile; hasSignal: boolean; universeStatus: UniverseStatus }>>();
+      const groupMap = new Map<string, Array<{ profile: RhAgentSymbolProfile; hasSignal: boolean }>>();
       for (const item of symbols) {
-        const us = symbolMeta[item.profile.symbol]?.universeStatus ?? 'IN_UNIVERSE';
-        if (!shouldShowInUniverseFilter(us, universeFilter)) continue;
+        if (!shouldShowInListFilter(item.profile.symbol, symbolLists, activeListFilter)) continue;
 
         const key = getGroupKey(item.profile, dimension);
         const existing = groupMap.get(key) ?? [];
-        existing.push({ ...item, universeStatus: us });
+        existing.push(item);
         groupMap.set(key, existing);
       }
 
@@ -417,7 +502,6 @@ export const RhAgentGroupStore = signalStore(
           signals: historyCache[item.profile.symbol],
           signalsLoading: historyLoading[item.profile.symbol] ?? false,
           reviewStatus: statuses[item.profile.symbol] ?? 'PENDING',
-          universeStatus: item.universeStatus,
         }));
 
         // Count long/short from both timeframes

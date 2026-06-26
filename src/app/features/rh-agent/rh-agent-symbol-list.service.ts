@@ -1,0 +1,189 @@
+/**
+ * RH Agent Symbol List Service
+ *
+ * Manages user-defined symbol lists (watchlists) in Firestore.
+ * A symbol can belong to many lists simultaneously. Lists are independent
+ * of PACR daily decisions and of any single symbol classification.
+ *
+ * Collection: rh-agent-symbol-lists
+ * Document ID: {userId}_{listName}
+ */
+import { Injectable, inject } from '@angular/core';
+import {
+  Firestore,
+  collection,
+  doc,
+  setDoc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  writeBatch,
+  Timestamp,
+  serverTimestamp,
+} from '@angular/fire/firestore';
+import { Auth, authState } from '@angular/fire/auth';
+import { Observable, from, of } from 'rxjs';
+import { map, switchMap, take } from 'rxjs/operators';
+
+export const SYMBOL_LISTS_COLLECTION = 'rh-agent-symbol-lists';
+
+export interface RhSymbolList {
+  name: string;
+  symbols: string[];
+  userId?: string;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+@Injectable({ providedIn: 'root' })
+export class RhAgentSymbolListService {
+  private readonly firestore = inject(Firestore);
+  private readonly auth = inject(Auth);
+
+  private readonly listsCollection = collection(this.firestore, SYMBOL_LISTS_COLLECTION);
+
+  /** Load a single named list for the current user. */
+  loadList(name: string): Observable<RhSymbolList> {
+    return this.withUserId().pipe(
+      take(1),
+      switchMap(async (userId) => {
+        const docId = this.listId(userId, name);
+        const snap = await getDoc(doc(this.firestore, SYMBOL_LISTS_COLLECTION, docId));
+        return snap.exists() ? this.toList(snap.id, snap.data()) : { name, symbols: [], userId };
+      })
+    );
+  }
+
+  /** Load all lists for the current user. */
+  loadAllLists(): Observable<RhSymbolList[]> {
+    return this.withUserId().pipe(
+      take(1),
+      switchMap(async (userId) => {
+        const q = query(this.listsCollection, where('userId', '==', userId));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map((d) => this.toList(d.id, d.data()));
+      })
+    );
+  }
+
+  /** Replace a list with a full set of symbols. */
+  setList(name: string, symbols: string[]): Observable<void> {
+    return this.withUserId().pipe(
+      take(1),
+      switchMap(async (userId) => {
+        const docId = this.listId(userId, name);
+        const docRef = doc(this.firestore, SYMBOL_LISTS_COLLECTION, docId);
+        const existing = await getDoc(docRef);
+        await setDoc(
+          docRef,
+          {
+            name,
+            symbols: symbols.map((s) => s.toUpperCase()),
+            userId,
+            updatedAt: serverTimestamp(),
+            createdAt: existing.exists() ? (existing.data()['createdAt'] ?? serverTimestamp()) : serverTimestamp(),
+          },
+          { merge: true }
+        );
+      }),
+      map(() => undefined)
+    );
+  }
+
+  /** Add a symbol to a list if it is not already present. */
+  addToList(symbol: string, name: string): Observable<void> {
+    return this.withUserId().pipe(
+      take(1),
+      switchMap(async (userId) => {
+        const docId = this.listId(userId, name);
+        const docRef = doc(this.firestore, SYMBOL_LISTS_COLLECTION, docId);
+        const existing = await getDoc(docRef);
+        const normalized = symbol.toUpperCase();
+        const current = existing.exists() ? (existing.data()['symbols'] as string[] ?? []) : [];
+        if (current.includes(normalized)) return;
+        await setDoc(
+          docRef,
+          {
+            name,
+            symbols: [...current, normalized],
+            userId,
+            updatedAt: serverTimestamp(),
+            createdAt: existing.exists() ? (existing.data()['createdAt'] ?? serverTimestamp()) : serverTimestamp(),
+          },
+          { merge: true }
+        );
+      }),
+      map(() => undefined)
+    );
+  }
+
+  /** Remove a symbol from a list. */
+  removeFromList(symbol: string, name: string): Observable<void> {
+    return this.withUserId().pipe(
+      take(1),
+      switchMap(async (userId) => {
+        const docId = this.listId(userId, name);
+        const docRef = doc(this.firestore, SYMBOL_LISTS_COLLECTION, docId);
+        const existing = await getDoc(docRef);
+        if (!existing.exists()) return;
+        const normalized = symbol.toUpperCase();
+        const current = (existing.data()['symbols'] as string[] ?? []).filter((s) => s !== normalized);
+        await setDoc(
+          docRef,
+          {
+            name,
+            symbols: current,
+            userId,
+            updatedAt: serverTimestamp(),
+            createdAt: existing.data()['createdAt'] ?? serverTimestamp(),
+          },
+          { merge: true }
+        );
+      }),
+      map(() => undefined)
+    );
+  }
+
+  /** Toggle a symbol in a list. */
+  toggleInList(symbol: string, name: string): Observable<boolean> {
+    return this.loadList(name).pipe(
+      take(1),
+      switchMap((list) => {
+        const normalized = symbol.toUpperCase();
+        const isInList = list.symbols.includes(normalized);
+        if (isInList) {
+          return this.removeFromList(symbol, name).pipe(map(() => false));
+        } else {
+          return this.addToList(symbol, name).pipe(map(() => true));
+        }
+      })
+    );
+  }
+
+  private listId(userId: string, name: string): string {
+    return `${userId}_${name}`;
+  }
+
+  private toList(id: string, data: any): RhSymbolList {
+    return {
+      name: data['name'] ?? id,
+      symbols: data['symbols'] ?? [],
+      userId: data['userId'],
+      createdAt: data['createdAt'],
+      updatedAt: data['updatedAt'],
+    };
+  }
+
+  private withUserId(): Observable<string> {
+    return authState(this.auth).pipe(
+      take(1),
+      map((user) => {
+        if (!user?.uid) {
+          throw new Error('Authentication required to manage symbol lists');
+        }
+        return user.uid;
+      })
+    );
+  }
+}

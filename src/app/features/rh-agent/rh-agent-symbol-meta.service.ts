@@ -25,11 +25,10 @@ import { Auth, authState } from '@angular/fire/auth';
 import { Observable, from, of } from 'rxjs';
 import { map, switchMap, take } from 'rxjs/operators';
 
-import { UniverseStatus, SymbolType } from './rh-agent-group.store';
+import { SymbolType } from './common/rh-agent.constants';
 
 export interface RhSymbolMeta {
   symbol: string;
-  universeStatus: UniverseStatus;
   symbolType: SymbolType;
   tags: string[];
   tradeabilityScore?: number;
@@ -43,7 +42,6 @@ export interface RhSymbolMeta {
 
 export interface RhSymbolMetaInput {
   symbol?: string;
-  universeStatus?: UniverseStatus;
   symbolType?: SymbolType;
   tags?: string[];
   tradeabilityScore?: number;
@@ -108,11 +106,6 @@ export class RhAgentSymbolMetaService {
     );
   }
 
-  /** Set a symbol's persistent universe status. */
-  setUniverseStatus(symbol: string, status: UniverseStatus, notes?: string): Observable<void> {
-    return this.updateMeta(symbol, { universeStatus: status, notes });
-  }
-
   /** Set a symbol's type (e.g., ETF). */
   setSymbolType(symbol: string, type: SymbolType): Observable<void> {
     return this.updateMeta(symbol, { symbolType: type });
@@ -123,7 +116,6 @@ export class RhAgentSymbolMetaService {
     return this.updateMeta(symbol, {
       symbolType: type,
       tags,
-      universeStatus: 'IN_UNIVERSE',
       source: 'import',
     });
   }
@@ -147,7 +139,6 @@ export class RhAgentSymbolMetaService {
             docRef,
             {
               symbol,
-              universeStatus: 'IN_UNIVERSE' as UniverseStatus,
               symbolType: item.type,
               tags: item.tags ?? [],
               userId,
@@ -182,7 +173,6 @@ export class RhAgentSymbolMetaService {
           updatedAt: now,
         };
 
-        if (input.universeStatus !== undefined) payload['universeStatus'] = input.universeStatus;
         if (input.symbolType !== undefined) payload['symbolType'] = input.symbolType;
         if (input.tags !== undefined) payload['tags'] = input.tags;
         if (input.tradeabilityScore !== undefined) payload['tradeabilityScore'] = input.tradeabilityScore;
@@ -191,7 +181,6 @@ export class RhAgentSymbolMetaService {
         if (input.metadata !== undefined) payload['metadata'] = input.metadata ?? {};
         if (!existing) {
           payload['createdAt'] = now;
-          payload['universeStatus'] = input.universeStatus ?? 'IN_UNIVERSE';
           payload['symbolType'] = input.symbolType ?? 'STOCK';
           payload['tags'] = input.tags ?? [];
           payload['metadata'] = input.metadata ?? {};
@@ -229,7 +218,6 @@ export class RhAgentSymbolMetaService {
   private toMeta(id: string, data: any): RhSymbolMeta {
     return {
       symbol: data['symbol'] ?? id,
-      universeStatus: data['universeStatus'] ?? 'IN_UNIVERSE',
       symbolType: data['symbolType'] ?? 'STOCK',
       tags: data['tags'] ?? [],
       tradeabilityScore: data['tradeabilityScore'],
