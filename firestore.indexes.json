@@ -80,8 +80,15 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "universeStatus", "order": "ASCENDING" },
         { "fieldPath": "symbol", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "rh-agent-symbol-lists",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "name", "order": "ASCENDING" }
       ]
     }
   ],

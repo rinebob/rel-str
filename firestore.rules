@@ -159,7 +159,7 @@ service cloud.firestore {
 
     // RH Agent PACR triage decisions — user-scoped read/write
     match /rh-agent-triage-decisions/{decisionId} {
-      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow read: if request.auth != null && (resource == null || request.auth.uid == resource.data.userId);
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
       allow update: if request.auth != null && request.auth.uid == resource.data.userId;
       allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
@@ -167,7 +167,15 @@ service cloud.firestore {
 
     // RH Agent symbol meta — user-scoped read/write
     match /rh-agent-symbol-meta/{symbol} {
-      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow read: if request.auth != null && (resource == null || request.auth.uid == resource.data.userId);
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
+    // RH Agent symbol lists — user-scoped read/write
+    match /rh-agent-symbol-lists/{listId} {
+      allow read: if request.auth != null && (resource == null || request.auth.uid == resource.data.userId);
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
       allow update: if request.auth != null && request.auth.uid == resource.data.userId;
       allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
