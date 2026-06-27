@@ -1,32 +1,7 @@
 <div class="signal-list-container">
   <div class="panel-header">
-    <span class="panel-title">Signals</span>
-    <span class="panel-count">{{ filteredCount() }}</span>
-    <span class="direction-toggle">
-      <button
-        class="dir-btn"
-        [class.active]="uiStore.directionFilter() === 'all'"
-        (click)="uiStore.setDirectionFilter('all')">
-        All
-      </button>
-      <button
-        class="dir-btn long"
-        [class.active]="uiStore.directionFilter() === 'long'"
-        (click)="uiStore.setDirectionFilter('long')">
-        Long
-      </button>
-      <button
-        class="dir-btn short"
-        [class.active]="uiStore.directionFilter() === 'short'"
-        (click)="uiStore.setDirectionFilter('short')">
-        Short
-      </button>
-    </span>
-    @if (uiStore.hasActiveFilters()) {
-      <button mat-icon-button class="clear-all-btn" (click)="uiStore.clearFilters()" matTooltip="Clear filters">
-        <mat-icon>clear_all</mat-icon>
-      </button>
-    }
+    <span class="panel-title">Review</span>
+    <span class="panel-count">{{ items().length }}</span>
     <span class="header-spacer"></span>
     <button mat-icon-button class="collapse-btn" (click)="uiState.toggleSidebar()" matTooltip="Collapse panel">
       <mat-icon>chevron_left</mat-icon>
@@ -34,34 +9,31 @@
   </div>
 
   <mat-list class="signal-list">
-    @for (signal of signals(); track signal.id) {
+    @for (item of items(); track item.symbol) {
       <mat-list-item
-        #signalItem
+        #listItem
         class="signal-item"
-        [class.selected]="uiStore.isSignalSelected(signal.id)"
-        (click)="onSelect(signal)">
-        <mat-icon matListItemIcon [class]="'dir-' + (signal.tradeDirection || 'LONG').toLowerCase()">
-          {{ signal.tradeDirection === 'SHORT' ? 'arrow_downward' : 'arrow_upward' }}
+        [class.selected]="selectedSymbol() === item.symbol"
+        (click)="onSelect(item.symbol)">
+        <mat-icon matListItemIcon
+          [class]="'dir-' + (item.latestSignal?.direction || 'LONG').toLowerCase()">
+          {{ item.latestSignal?.direction === 'SHORT' ? 'arrow_downward' : 'arrow_upward' }}
         </mat-icon>
         <div class="signal-main">
           <div class="signal-line-1">
-            <span class="symbol">{{ signal.symbol }}</span>
-            <span class="badge type">{{ signal.signalType }}</span>
+            <span class="symbol">{{ item.symbol }}</span>
+            @if (item.latestSignal?.signalType) {
+              <span class="badge type">{{ item.latestSignal!.signalType }}</span>
+            }
           </div>
-          <div class="signal-line-2">{{ signal.reason }}</div>
-        </div>
-        <div class="status-badge" [class]="'status-' + (uiStore.getSignalStatus(signal.id) | lowercase)">
-          {{ uiStore.getSignalStatus(signal.id) }}
+          @if (item.latestSignal) {
+            <div class="signal-line-2">{{ item.latestSignal.barDate }} · {{ item.latestSignal.timeframe }}</div>
+          }
         </div>
       </mat-list-item>
     } @empty {
       <div class="empty-list">
-        @if (uiStore.hasActiveFilters()) {
-          <p>No signals match your filters</p>
-          <button mat-button (click)="uiStore.clearFilters()">Clear Filters</button>
-        } @else {
-          <p>No opportunities available</p>
-        }
+        <p>No symbols queued for review</p>
       </div>
     }
   </mat-list>

@@ -2,29 +2,7 @@
   <div class="signal-detail">
     <!-- Compact chart toolbar -->
     <div class="chart-toolbar">
-      <!-- Left: Signals + Indicators menus -->
-      <button mat-stroked-button [matMenuTriggerFor]="signalTypeMenu" class="toolbar-menu-btn"
-        [class.has-filter]="uiStore.selectedSignalTypes().size > 0">
-        <mat-icon>filter_list</mat-icon>
-        Signals
-        @if (uiStore.selectedSignalTypes().size > 0) {
-          <span class="active-chart-badge">{{ uiStore.selectedSignalTypes().size }}</span>
-        }
-      </button>
-      <mat-menu #signalTypeMenu="matMenu" class="indicator-checkbox-menu">
-        @for (type of uiStore.signalTypes(); track type) {
-          <button mat-menu-item (click)="uiStore.toggleSignalTypeFilter(type)" class="indicator-menu-item">
-            <span class="menu-checkbox" [class.checked]="uiStore.selectedSignalTypes().has(type)">
-              @if (uiStore.selectedSignalTypes().has(type)) {
-                <mat-icon>check_box</mat-icon>
-              } @else {
-                <mat-icon>check_box_outline_blank</mat-icon>
-              }
-            </span>
-            <span class="menu-label">{{ type }}</span>
-          </button>
-        }
-      </mat-menu>
+      <!-- Left: Indicators menu -->
       <button mat-stroked-button [matMenuTriggerFor]="indicatorMenu" class="toolbar-menu-btn">
         <mat-icon>add_chart</mat-icon>
         Indicators

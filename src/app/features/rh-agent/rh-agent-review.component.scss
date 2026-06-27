@@ -237,6 +237,13 @@
         &.selected { background-color: #e65100; box-shadow: 0 0 0 2px var(--mat-sys-surface), 0 0 0 4px #e65100; }
       }
 
+      // Watch - Yellow
+      &.watch {
+        background-color: #f9a825;
+        &:hover { filter: brightness(1.1); }
+        &.selected { background-color: #f57f17; box-shadow: 0 0 0 2px var(--mat-sys-surface), 0 0 0 4px #f57f17; }
+      }
+
       // Reject - Red
       &.reject {
         background-color: #f44336;
@@ -261,6 +268,15 @@
       flex-shrink: 0;
     }
 
+    .company-name {
+      font-size: 11px;
+      color: var(--mat-sys-on-surface-variant);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 160px;
+    }
+
     .badge {
       padding: 1px 5px;
       border-radius: 3px;
@@ -281,7 +297,7 @@
         &.status-accepted { background: var(--mat-sys-success-container); color: var(--mat-sys-success); }
         &.status-considered { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-tertiary); }
         &.status-rejected { background: var(--mat-sys-error-container); color: var(--mat-sys-error); }
-        &.status-promote { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
+        &.status-review { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
       }
     }
 
@@ -441,14 +457,14 @@
   border-right: 1px solid var(--mat-sys-outline-variant);
 }
 
-.promoted-list {
+.review-queue-list {
   display: flex;
   flex-direction: column;
   height: 100%;
   overflow: hidden;
   background: var(--mat-sys-surface-container);
 
-  .promoted-list-header {
+  .review-queue-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -456,12 +472,12 @@
     border-bottom: 1px solid var(--mat-sys-outline-variant);
     background: var(--mat-sys-surface-container-high);
 
-    .promoted-title {
+    .review-queue-title {
       font-size: 12px;
       font-weight: 600;
     }
 
-    .promoted-count {
+    .review-queue-count {
       font-size: 11px;
       font-weight: 600;
       background: var(--mat-sys-tertiary-container);
@@ -484,12 +500,12 @@
     }
   }
 
-  .promoted-list-body {
+  .review-queue-body {
     flex: 1;
     overflow-y: auto;
   }
 
-  .promoted-item {
+  .review-item {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -507,7 +523,7 @@
       color: var(--mat-sys-on-primary-container);
     }
 
-    .promoted-dir {
+    .review-dir {
       font-size: 16px;
       width: 16px;
       height: 16px;
@@ -517,17 +533,27 @@
       &.dir-short { color: var(--mat-sys-error); }
     }
 
-    .promoted-main {
+    .review-main {
       flex: 1;
       min-width: 0;
 
-      .promoted-line-1 {
+      .review-line-1 {
         display: flex;
         align-items: center;
         gap: 6px;
 
-        .promoted-symbol {
+        .review-symbol {
           font-weight: 600;
+          flex-shrink: 0;
+        }
+
+        .review-name {
+          font-size: 10px;
+          color: var(--mat-sys-on-surface-variant);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          max-width: 110px;
         }
 
         .badge.type {
@@ -539,7 +565,7 @@
         }
       }
 
-      .promoted-line-2 {
+      .review-line-2 {
         font-size: 10px;
         color: var(--mat-sys-on-surface-variant);
         margin-top: 1px;
@@ -553,11 +579,17 @@
       text-transform: uppercase;
       font-weight: 500;
       flex-shrink: 0;
-      background: var(--mat-sys-tertiary-container);
-      color: var(--mat-sys-on-tertiary-container);
+      background: var(--mat-sys-surface-container-highest);
+      color: var(--mat-sys-on-surface-variant);
+
+      &.status-review  { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
+      &.status-accept   { background: #1b5e2033; color: #1b5e20; }
+      &.status-consider { background: #f57c0033; color: #e65100; }
+      &.status-reject   { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
+      &.status-pending  { background: var(--mat-sys-surface-container-highest); color: var(--mat-sys-on-surface-variant); }
     }
 
-    .promoted-meta {
+    .review-meta {
       font-size: 10px;
       font-weight: 600;
       padding: 1px 5px;

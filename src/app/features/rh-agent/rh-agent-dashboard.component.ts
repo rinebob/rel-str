@@ -10,26 +10,20 @@ import {
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule, ReactiveFormsModule, FormGroup, FormControl } from '@angular/forms';
-import { MatCardModule } from '@angular/material/card';
+import { ReactiveFormsModule, FormGroup, FormControl } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
-import { MatBadgeModule } from '@angular/material/badge';
-import { MatListModule } from '@angular/material/list';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
-import { RouterModule } from '@angular/router';
 
 import { RhAgentStore } from './rh-agent.store';
-import { RobinhoodTradePanelComponent } from '../rs/components/robinhood-trade-panel.component';
 import { RhAgentDashboardStore } from './rh-agent-dashboard.store';
 import { RhAgentService } from './rh-agent.service';
 import { Router } from '@angular/router';
@@ -40,25 +34,18 @@ import { MatSnackBar } from '@angular/material/snack-bar';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    FormsModule,
     ReactiveFormsModule,
-    MatCardModule,
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
     MatChipsModule,
-    MatBadgeModule,
-    MatListModule,
     MatExpansionModule,
     MatSnackBarModule,
     MatTooltipModule,
-    MatSlideToggleModule,
     MatFormFieldModule,
     MatInputModule,
     MatDatepickerModule,
     MatNativeDateModule,
-    RobinhoodTradePanelComponent,
-    RouterModule,
   ],
   templateUrl: './rh-agent-dashboard.component.html',
   styleUrl: './rh-agent-dashboard.component.scss',
@@ -72,8 +59,6 @@ export class RhAgentDashboardComponent {
   private readonly rhService = inject(RhAgentService);
   private readonly snackBar = inject(MatSnackBar);
 
-  // Trade panel visibility
-  showTradePanel = false;
   isSyncingOverview = false;
 
   // Date range picker for manual runs
@@ -86,13 +71,6 @@ export class RhAgentDashboardComponent {
     console.log('[RH Agent Dashboard] Component initialized');
     // Load data on init - data store handles all the business logic
     this.store.loadData();
-  }
-
-  /**
-   * Toggle trade panel visibility
-   */
-  toggleTradePanel(): void {
-    this.showTradePanel = !this.showTradePanel;
   }
 
   /**
@@ -132,31 +110,6 @@ export class RhAgentDashboardComponent {
       cur.setDate(cur.getDate() + 1);
     }
     return dates;
-  }
-
-  /**
-   * Get the current trade batch for accepted signals
-   */
-  getTradeBatch() {
-    const currentRun = this.uiStore.currentRun();
-    if (!currentRun) return null;
-    return this.uiStore.generateBatchTrade(currentRun.id);
-  }
-
-  /**
-   * Check if there are accepted signals ready to trade
-   */
-  hasAcceptedSignals(): boolean {
-    const currentRun = this.uiStore.currentRun();
-    if (!currentRun) return false;
-    return this.uiStore.getAcceptedSignalsForTrade(currentRun.id).length > 0;
-  }
-
-  /**
-   * Navigate to the review page for current opportunities
-   */
-  goToReview(): void {
-    this.router.navigate(['/rh-agent-review']);
   }
 
   goToGroupedReview(): void {

@@ -3,20 +3,15 @@
  *
  * Master list panel for the review interface.
  */
-import { Component, inject, ChangeDetectionStrategy, output, viewChildren, ElementRef, effect } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy, output, input, viewChildren, ElementRef, effect, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule, MatIconButton } from '@angular/material/button';
-import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-import { RhAgentDashboardStore } from '../../rh-agent-dashboard.store';
-import { RhAgentStore } from '../../rh-agent.store';
-import { RhTradeSignal } from '../../rh-agent.service';
+import { RhAgentTriageStore } from '../../rh-agent-triage.store';
+import { RhAgentService, RhAgentSignalItem } from '../../rh-agent.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 
 @Component({
@@ -26,51 +21,61 @@ import { UiStateService } from '../../../../core/services/ui-state.service';
     CommonModule,
     MatListModule,
     MatIconModule,
-    MatChipsModule,
-    MatFormFieldModule,
-    MatInputModule,
     MatButtonModule,
     MatIconButton,
-    MatMenuModule,
     MatTooltipModule,
   ],
   templateUrl: './signal-list.component.html',
   styleUrl: './signal-list.component.scss',
 })
 export class SignalListComponent {
-  readonly uiStore = inject(RhAgentDashboardStore);
-  readonly dataStore = inject(RhAgentStore);
+  readonly triageStore = inject(RhAgentTriageStore);
+  readonly service = inject(RhAgentService);
   readonly uiState = inject(UiStateService);
 
-  signalSelected = output<RhTradeSignal>();
+  /** Currently selected symbol (passed in from parent) */
+  selectedSymbol = input<string | null>(null);
 
-  private listItems = viewChildren<ElementRef>('signalItem');
+  symbolSelected = output<string>();
+
+  /** Signal history cache keyed by symbol */
+  private signalHistoryCache = new Map<string, RhAgentSignalItem[]>();
+
+  private listItems = viewChildren<ElementRef>('listItem');
+
+  items = computed(() => {
+    const symbols = this.triageStore.reviewSymbols();
+    return symbols.map(symbol => ({
+      symbol,
+      latestSignal: this.signalHistoryCache.get(symbol)?.[0] ?? null,
+    }));
+  });
 
   constructor() {
     effect(() => {
-      const selectedId = this.uiStore.selectedSignalId();
-      const items = this.listItems();
-      if (!selectedId || !items.length) return;
-      const signals = this.signals();
-      const idx = signals.findIndex(s => s.id === selectedId);
-      if (idx !== -1 && items[idx]) {
-        items[idx].nativeElement.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      for (const symbol of this.triageStore.reviewSymbols()) {
+        if (!this.signalHistoryCache.has(symbol)) {
+          this.service.getSymbolSignalHistory(symbol).subscribe({
+            next: (signals) => this.signalHistoryCache.set(symbol, signals),
+            error: () => this.signalHistoryCache.set(symbol, []),
+          });
+        }
+      }
+    });
+
+    effect(() => {
+      const sel = this.selectedSymbol();
+      const listItems = this.listItems();
+      if (!sel || !listItems.length) return;
+      const symbols = this.triageStore.reviewSymbols();
+      const idx = symbols.indexOf(sel);
+      if (idx !== -1 && listItems[idx]) {
+        listItems[idx].nativeElement.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       }
     });
   }
 
-  signals() {
-    const currentRun = this.uiStore.currentRun();
-    if (!currentRun) return [];
-    return this.uiStore.getFilteredSignals(currentRun.id);
-  }
-
-  filteredCount(): number {
-    return this.signals().length;
-  }
-
-  onSelect(signal: RhTradeSignal): void {
-    this.uiStore.selectSignal(signal.id);
-    this.signalSelected.emit(signal);
+  onSelect(symbol: string): void {
+    this.symbolSelected.emit(symbol);
   }
 }

@@ -1,5 +1,4 @@
 <div class="rh-agent-review" [class.fullscreen]="uiState.fullscreen()">
-  <!-- Unified Header: Filter + Strategies row, ACR + Info + Actions row -->
   <div class="review-header">
     <button mat-icon-button class="back-btn" (click)="goToGroupedReview()" matTooltip="Back to grouped review">
       <mat-icon>arrow_back</mat-icon>
@@ -8,107 +7,43 @@
       <mat-icon>history</mat-icon>
     </button>
 
-    <!-- Left: Filter + ACR + signal info inline -->
     <div class="header-left-column">
-      <!-- Filter (32px height, bordered) -->
-      <div class="header-filter">
-        <mat-icon class="filter-icon">search</mat-icon>
-        <input
-          type="text"
-          [value]="uiStore.symbolSearch()"
-          (input)="uiStore.setSymbolSearch($any($event).target.value)"
-          placeholder="Filter symbols...">
-        @if (uiStore.symbolSearch()) {
-          <button mat-icon-button class="clear-btn" (click)="uiStore.setSymbolSearch('')">
-            <mat-icon>close</mat-icon>
-          </button>
-        }
-      </div>
-
-      @if (uiStore.hasSelectedSignal()) {
-        <div class="header-signal-block">
+      @if (selectedReviewSymbol(); as symbol) {
+        <div class="header-signal-block review-queue">
           <div class="header-acr">
-            <button type="button" class="acr-btn accept" [class.selected]="getSelectedSignalStatus() === 'ACCEPTED'" (click)="onAcceptSelected()" title="Accept">
+            <button type="button" class="acr-btn accept"
+              [class.selected]="getReviewSymbolStatus(symbol) === 'ACCEPT'"
+              (click)="onAcceptReview(symbol)" title="Accept">
               <mat-icon>check</mat-icon>
             </button>
-            <button type="button" class="acr-btn consider" [class.selected]="getSelectedSignalStatus() === 'CONSIDERED'" (click)="onConsiderSelected()" title="Consider">
-              <mat-icon>help</mat-icon>
+            <button type="button" class="acr-btn watch"
+              [class.selected]="getReviewSymbolStatus(symbol) === 'WATCH'"
+              (click)="onWatchReview(symbol)" title="Watch">
+              <mat-icon>visibility</mat-icon>
             </button>
-            <button type="button" class="acr-btn reject" [class.selected]="getSelectedSignalStatus() === 'REJECTED'" (click)="onRejectSelected()" title="Reject">
+            <button type="button" class="acr-btn reject"
+              [class.selected]="getReviewSymbolStatus(symbol) === 'REJECT'"
+              (click)="onRejectReview(symbol)" title="Reject">
               <mat-icon>close</mat-icon>
             </button>
           </div>
-
-          <!-- Decision counts inline with signal info -->
-          <div class="header-decisions">
-            <span class="decision accepted" [class.has-items]="acceptedCount() > 0">
-              <mat-icon>check_circle</mat-icon>{{ acceptedCount() }}
-            </span>
-            <span class="decision considered" [class.has-items]="consideredCount() > 0">
-              <mat-icon>help</mat-icon>{{ consideredCount() }}
-            </span>
-            <span class="decision rejected" [class.has-items]="rejectedCount() > 0">
-              <mat-icon>cancel</mat-icon>{{ rejectedCount() }}
-            </span>
-          </div>
-
           <div class="header-signal-info">
-            <span class="symbol">{{ uiStore.selectedSignal()?.symbol }}</span>
-            <span class="badge dir" [class]="'dir-' + (uiStore.selectedSignal()?.tradeDirection || 'LONG').toLowerCase()">
-              {{ uiStore.selectedSignal()?.tradeDirection || 'LONG' }}
-            </span>
-            <span class="badge type">{{ uiStore.selectedSignal()?.signalType }}</span>
-            <span class="badge status" [class]="'status-' + (getSelectedSignalStatus() | lowercase)">{{ getSelectedSignalStatus() }}</span>
-            <span class="reason">{{ uiStore.selectedSignal()?.reason }}</span>
+            <span class="symbol">{{ symbol }}</span>
+            <span class="reason">Queued for review</span>
           </div>
         </div>
       }
 
-      @if (selectedPromotedSymbol(); as symbol) {
-        <div class="header-signal-block promoted">
-          <div class="header-acr">
-            <button type="button" class="acr-btn accept"
-              [class.selected]="getPromotedSymbolStatus(symbol) === 'ACCEPT'"
-              (click)="onAcceptPromoted(symbol)" title="Accept">
-              <mat-icon>check</mat-icon>
-            </button>
-            <button type="button" class="acr-btn reject"
-              [class.selected]="getPromotedSymbolStatus(symbol) === 'REJECT'"
-              (click)="onRejectPromoted(symbol)" title="Reject">
-              <mat-icon>close</mat-icon>
-            </button>
-          </div>
-
-          <div class="header-signal-info">
-            <span class="symbol">{{ symbol }}</span>
-            <span class="badge dir" [class]="'dir-' + (selectedPromotedSignal()?.direction || 'LONG').toLowerCase()">
-              {{ selectedPromotedSignal()?.direction || 'LONG' }}
-            </span>
-            <span class="badge type">{{ selectedPromotedSignal()?.signalType }}</span>
-            <span class="badge status status-promote">PROMOTE</span>
-            <span class="reason">Promoted from grouped review</span>
-          </div>
+      @if (!selectedReviewSymbol() && !manualSymbol()) {
+        <div class="header-title">
+          <h1>
+            <mat-icon>psychology</mat-icon>
+            Review
+          </h1>
         </div>
       }
     </div>
 
-    @if (!uiStore.hasSelectedSignal() && !selectedPromotedSymbol()) {
-      <!-- Default header title when no signal selected -->
-      <div class="header-title">
-        <h1>
-          <mat-icon>psychology</mat-icon>
-          Review
-        </h1>
-        @if (store.status(); as status) {
-          <span class="data-time" [title]="status.lastRunAt ? (status.lastRunAt | date: 'medium') : 'Never'">
-            {{ status.lastRunAt ? (status.lastRunAt | date: 'shortTime') : '--:--' }}
-          </span>
-        }
-        <span class="signal-badge">{{ uiStore.currentRunSignalCount() }}</span>
-      </div>
-    }
-
-    <!-- Spacer pushes remaining header items to the right -->
     <div class="header-spacer"></div>
 
     <div class="header-actions">
@@ -123,34 +58,11 @@
           <mat-icon>trending_up</mat-icon>
         </button>
       </div>
-      <button
-        mat-raised-button
-        color="accent"
-        (click)="openTradeDialog()"
-        [disabled]="acceptedCount() === 0"
-        matTooltip="{{ acceptedCount() > 0 ? 'Execute trades' : 'No accepted signals to trade' }}">
-        <mat-icon>account_balance</mat-icon>
-        Trade {{ acceptedCount() }}
-      </button>
-      <button
-        mat-icon-button
-        (click)="refreshData()"
-        [disabled]="store.isLoading()"
-        matTooltip="Refresh">
-        <mat-icon>refresh</mat-icon>
-      </button>
     </div>
   </div>
 
-  <!-- Loading State -->
-  @if (store.isLoading()) {
-    <div class="loading-overlay">
-      <mat-spinner diameter="32"></mat-spinner>
-    </div>
-  }
-
   <!-- Master-Detail Layout -->
-  @if (uiStore.currentRun() || hasPromotedSymbols() || manualSymbol()) {
+  @if (hasReviewSymbols() || manualSymbol()) {
     <div class="master-detail-container" [class.sidebar-collapsed]="uiState.sidebarCollapsed()">
       @if (uiState.sidebarCollapsed()) {
         <div class="collapsed-sidebar">
@@ -159,50 +71,19 @@
           </button>
         </div>
       } @else {
-        @if (hasPromotedSymbols()) {
-          <div class="promoted-list signal-list-wrapper">
-            <div class="promoted-list-header">
-              <span class="promoted-title">Promoted</span>
-              <span class="promoted-count">{{ promotedSymbols().length }}</span>
-              <button mat-icon-button class="collapse-btn" (click)="uiState.toggleSidebar()" matTooltip="Collapse panel">
-                <mat-icon>chevron_left</mat-icon>
-              </button>
-            </div>
-            <div class="promoted-list-body">
-              @for (item of promotedSignalDetails(); track item.symbol) {
-                <div class="promoted-item"
-                  [class.selected]="selectedPromotedSymbol() === item.symbol"
-                  (click)="onPromotedSymbolSelected(item.symbol)">
-                  <mat-icon class="promoted-dir" [class]="'dir-' + (item.latestSignal ? item.latestSignal.direction : 'LONG').toLowerCase()">
-                    {{ item.latestSignal && item.latestSignal.direction === 'SHORT' ? 'arrow_downward' : 'arrow_upward' }}
-                  </mat-icon>
-                  <div class="promoted-main">
-                    <div class="promoted-line-1">
-                      <span class="promoted-symbol">{{ item.symbol }}</span>
-                      @if (item.latestSignal) {
-                        <span class="badge type">{{ item.latestSignal.signalType }}</span>
-                      }
-                    </div>
-                    @if (item.latestSignal) {
-                      <div class="promoted-line-2">{{ item.latestSignal.barDate }} · {{ item.latestSignal.timeframe }}</div>
-                    }
-                  </div>
-                  <div class="status-badge status-promote">PROMOTE</div>
-                </div>
-              }
-            </div>
-          </div>
-        } @else {
-          <app-signal-list class="signal-list-wrapper" (signalSelected)="onSignalSelected($event)"></app-signal-list>
-        }
+        <app-signal-list
+          class="signal-list-wrapper"
+          [selectedSymbol]="selectedReviewSymbol()"
+          (symbolSelected)="onReviewSymbolSelected($event)">
+        </app-signal-list>
       }
-      <app-signal-detail class="detail-wrapper" [manualSymbol]="selectedPromotedSymbol() || manualSymbol()"></app-signal-detail>
+      <app-signal-detail class="detail-wrapper" [manualSymbol]="selectedReviewSymbol() || manualSymbol()"></app-signal-detail>
     </div>
   } @else {
     <div class="empty-state">
       <mat-icon>inbox</mat-icon>
-      <p>No runs available</p>
-      <p class="hint">Run a calculation to generate opportunities</p>
+      <p>No symbols queued for review</p>
+      <p class="hint">Mark symbols for review in Grouped Review first</p>
     </div>
   }
 </div>

@@ -12,7 +12,6 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-import { RhAgentDashboardStore } from '../../rh-agent-dashboard.store';
 import { HeatmapChartStore } from '../../../heatmap-chart/heatmap-chart.store';
 import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-chart.component';
 import { BarsInterval } from '../../../../core/models/partner.types';
@@ -35,7 +34,6 @@ import { detectTrendStrengthSignals } from '../../../shared/components/flex-char
   styleUrl: './signal-detail.component.scss',
 })
 export class SignalDetailComponent {
-  readonly uiStore = inject(RhAgentDashboardStore);
   readonly chartStore = inject(HeatmapChartStore);
   readonly uiState = inject(UiStateService);
 
@@ -49,10 +47,8 @@ export class SignalDetailComponent {
   /** Manual symbol override from parent (when user types a symbol directly) */
   manualSymbol = input<string | null>(null);
 
-  signal = this.uiStore.selectedSignal;
-  hasSignal = this.uiStore.hasSelectedSignal;
-  /** Show chart when a signal is selected OR a manual symbol is entered */
-  showChart = computed(() => this.hasSignal() || !!this.manualSymbol());
+  /** Show chart when a manual symbol is entered */
+  showChart = computed(() => !!this.manualSymbol());
   chartData = this.chartStore.chartData;
   chartDataWeekly = this.chartStore.chartDataWeekly;
   chartDataMonthly = this.chartStore.chartDataMonthly;
@@ -410,29 +406,7 @@ export class SignalDetailComponent {
   }
 
   constructor() {
-    // Load chart data when signal or interval changes
-    effect(() => {
-      const signal = this.signal();
-      const interval = this.selectedInterval();
-      if (signal) {
-        this.chartStore.loadData({
-          baseline: 'SPY',
-          symbol: signal.symbol,
-          interval,
-        });
-      }
-    });
-
-    // Load triple data when layout switches to triple or signal changes
-    effect(() => {
-      const signal = this.signal();
-      const layout = this.uiState.chartLayout();
-      if (signal && layout === 'triple') {
-        this.chartStore.loadTripleData();
-      }
-    });
-
-    // Load chart data when manual symbol is entered
+    // Load chart data when manual symbol or interval changes
     effect(() => {
       const symbol = this.manualSymbol();
       if (symbol) {
@@ -448,26 +422,5 @@ export class SignalDetailComponent {
         }
       }
     });
-  }
-
-  getStatus(): string {
-    const s = this.signal();
-    if (!s) return 'PENDING';
-    return this.uiStore.getSignalStatus(s.id);
-  }
-
-  onAccept(signalId: string): void {
-    this.uiStore.acceptSignal(signalId);
-    this.signalAccepted.emit(signalId);
-  }
-
-  onConsider(signalId: string): void {
-    this.uiStore.considerSignal(signalId);
-    this.signalConsidered.emit(signalId);
-  }
-
-  onReject(signalId: string): void {
-    this.uiStore.rejectSignal(signalId);
-    this.signalRejected.emit(signalId);
   }
 }
