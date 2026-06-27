@@ -9,41 +9,13 @@ import { logger } from 'firebase-functions/v2';
 import { db } from '../firebase-admin-init';
 
 import {
-  RH_AGENT_RUNS_COLLECTION,
-  RH_AGENT_STATUS_COLLECTION,
   RH_AGENT_SYMBOLS_COLLECTION,
   RH_AGENT_SIGNAL_DATES_SUBCOLLECTION,
-  AGENT_STATUS_DOC,
-  RhAgentRunStatus,
   RhAgentSignalDateDoc,
   RhAgentSignalEntry,
 } from './rh-agent-config';
 
 // Response types
-interface AgentStatusResponse {
-  isEnabled: boolean;
-  lastRunAt?: string;
-  lastRunStatus?: RhAgentRunStatus;
-  totalRuns: number;
-  totalSignalsGenerated: number;
-  symbolsMonitored: string[];
-  schedule: string;
-}
-
-interface RunHistoryResponse {
-  runs: Array<{
-    id: string;
-    status: RhAgentRunStatus;
-    startedAt: string;
-    completedAt?: string;
-    marketDate: string;
-    totalSymbols: number;
-    processedCount: number;
-    successCount: number;
-    failureCount: number;
-    opportunitiesFound: number;
-  }>;
-}
 
 interface SymbolProfile {
   symbol: string;
@@ -90,101 +62,6 @@ interface SymbolSignalHistoryResponse {
   timeframe: 'D' | 'W';
   signals: SignalItem[];
 }
-
-/**
- * Get agent status callable.
- */
-export const rhAgentGetStatus = onCall<void, Promise<AgentStatusResponse>>(
-  {
-    cors: true,
-    memory: '256MiB',
-    invoker: 'public',
-  },
-  async () => {
-    try {
-      // Get status doc
-      const doc = await db.collection(RH_AGENT_STATUS_COLLECTION).doc(AGENT_STATUS_DOC).get();
-
-      // Get actual enabled symbols from rh-agent-symbols collection
-      const symbolsSnapshot = await db
-        .collection(RH_AGENT_SYMBOLS_COLLECTION)
-        .where('enabled', '==', true)
-        .get();
-      const symbolsMonitored = symbolsSnapshot.docs.map((d) => d.data().symbol as string);
-
-      if (!doc.exists) {
-        return {
-          isEnabled: true,
-          totalRuns: 0,
-          totalSignalsGenerated: 0,
-          symbolsMonitored,
-          schedule: '0 20 * * 1-5',
-        };
-      }
-
-      const data = doc.data()!;
-
-      // Convert timestamps to ISO strings
-      const lastRunAt = data.lastRunAt?.toDate?.()?.toISOString();
-
-      return {
-        isEnabled: data.isEnabled ?? true,
-        lastRunAt,
-        lastRunStatus: data.lastRunStatus,
-        totalRuns: data.totalRuns ?? 0,
-        totalSignalsGenerated: data.totalSignalsGenerated ?? 0,
-        symbolsMonitored,
-        schedule: data.schedule || '0 20 * * 1-5',
-      };
-    } catch (error: any) {
-      logger.error('rh_agent_get_status_error', { error: error?.message });
-      throw new Error(`Failed to get status: ${error?.message}`);
-    }
-  }
-);
-
-/**
- * Get run history callable.
- */
-export const rhAgentGetRunHistory = onCall<{ limit?: number }, Promise<RunHistoryResponse>>(
-  {
-    cors: true,
-    memory: '256MiB',
-    invoker: 'public',
-  },
-  async (request) => {
-    try {
-      const limit = request.data.limit ?? 20;
-
-      const snapshot = await db
-        .collection(RH_AGENT_RUNS_COLLECTION)
-        .orderBy('startedAt', 'desc')
-        .limit(limit)
-        .get();
-
-      const runs = snapshot.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          status: data.status || RhAgentRunStatus.PENDING,
-          startedAt: data.startedAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-          completedAt: data.completedAt?.toDate?.()?.toISOString(),
-          marketDate: data.marketDate || '',
-          totalSymbols: data.totalSymbols || 0,
-          processedCount: data.processedCount || 0,
-          successCount: data.successCount || 0,
-          failureCount: data.failureCount || 0,
-          opportunitiesFound: data.opportunitiesFound || 0,
-        };
-      });
-
-      return { runs };
-    } catch (error: any) {
-      logger.error('rh_agent_get_run_history_error', { error: error?.message });
-      throw new Error(`Failed to get run history: ${error?.message}`);
-    }
-  }
-);
 
 /**
  * Primary review page query.
