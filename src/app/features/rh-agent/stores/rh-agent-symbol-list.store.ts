@@ -29,7 +29,7 @@ export interface RhAgentSymbolListState {
   /** Loading state for symbol lists. */
   symbolListsLoading: boolean;
   /** Active list filter — 'ALL' shows everything. */
-  activeListFilter: string | 'ALL';
+  activeListFilter: RhSymbolListName | 'ALL';
 }
 
 const initialState: RhAgentSymbolListState = {
@@ -66,7 +66,7 @@ export const RhAgentSymbolListStore = signalStore(
     },
 
     /** Set the active list filter for the grouped review. */
-    setActiveListFilter(filter: string | 'ALL'): void {
+    setActiveListFilter(filter: RhSymbolListName | 'ALL'): void {
       patchState(state, { activeListFilter: filter });
     },
 
