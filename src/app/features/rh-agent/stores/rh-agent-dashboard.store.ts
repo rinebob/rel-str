@@ -7,7 +7,6 @@
 import { inject, computed } from '@angular/core';
 import { signalStore, withState, withComputed, withMethods, patchState } from '@ngrx/signals';
 import { RhAgentStore } from './rh-agent.store';
-import { RH_AGENT_SCHEDULE_CRON } from '../services/rh-agent.service';
 
 // State interface
 export interface DashboardUiState {
@@ -52,48 +51,6 @@ export const RhAgentDashboardStore = signalStore(
 
     clearSelectedSignal(): void {
       patchState(state, { selectedSignalId: null });
-    },
-
-    getScheduleDescription(_cron: string | undefined): string {
-      const cron = RH_AGENT_SCHEDULE_CRON;
-      if (!cron) return 'Not scheduled';
-      const parts = cron.split(' ');
-      if (parts.length !== 5) return cron;
-      const [minute, hour, , , dayOfWeek] = parts;
-      let hourNum = (parseInt(hour, 10) - 8 + 24) % 24;
-      const minNum = parseInt(minute, 10);
-      const ampm = hourNum >= 12 ? 'PM' : 'AM';
-      const hour12 = hourNum % 12 || 12;
-      const minStr = minNum === 0 ? '' : `:${minNum.toString().padStart(2, '0')}`;
-      const time = `${hour12}${minStr} ${ampm}`;
-      let days = '';
-      if (dayOfWeek === '*') days = 'daily';
-      else if (dayOfWeek === '1-5') days = 'Monday-Friday';
-      else if (dayOfWeek === '0-6') days = 'daily';
-      else if (dayOfWeek === '1') days = 'Mondays';
-      else if (dayOfWeek === '5') days = 'Fridays';
-      else days = dayOfWeek;
-      return `${time} PT, ${days}`;
-    },
-
-    getRunStatusColor(status: string): string {
-      switch (status.toLowerCase()) {
-        case 'success': return 'success';
-        case 'failed': return 'error';
-        case 'running': return 'primary';
-        case 'partial': return 'accent';
-        default: return '';
-      }
-    },
-
-    getRunStatusIcon(status: string): string {
-      switch (status.toLowerCase()) {
-        case 'success': return 'check_circle';
-        case 'failed': return 'error';
-        case 'running': return 'pending';
-        case 'partial': return 'warning';
-        default: return 'help';
-      }
     },
   }))
 );

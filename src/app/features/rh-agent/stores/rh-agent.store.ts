@@ -12,7 +12,7 @@ import {
   patchState,
 } from '@ngrx/signals';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { finalize } from 'rxjs';
+import { forkJoin, of, catchError, finalize } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import {
@@ -56,41 +56,28 @@ export const RhAgentStore = signalStore(
      * Load dashboard data (status + runs)
      */
     loadData(): void {
-      console.log('[RH Agent Store] loadData() called');
       patchState(state, { isLoading: true });
 
-      let completedCalls = 0;
-      const totalCalls = 2;
-
-      const checkComplete = () => {
-        completedCalls++;
-        if (completedCalls >= totalCalls) {
-          patchState(state, { isLoading: false });
-        }
-      };
-
-      // Load status
-      service
-        .getStatus()
-        .pipe(takeUntilDestroyed(destroyRef), finalize(checkComplete))
-        .subscribe({
-          next: (status) => patchState(state, { status }),
-          error: (err) => {
-            console.error('[RH Agent Store] Failed to load status:', err);
+      forkJoin({
+        status: service.getStatus().pipe(
+          catchError((err) => {
             snackBar.open('Failed to load status', 'Dismiss', { duration: 5000 });
-          },
-        });
-
-      // Load runs
-      service
-        .getRunHistory(20)
-        .pipe(takeUntilDestroyed(destroyRef), finalize(checkComplete))
-        .subscribe({
-          next: (runs) => patchState(state, { runs }),
-          error: (err) => {
-            console.error('[RH Agent Store] Failed to load runs:', err);
+            return of(null);
+          })
+        ),
+        runs: service.getRunHistory(20).pipe(
+          catchError((err) => {
             snackBar.open('Failed to load runs', 'Dismiss', { duration: 5000 });
-          },
+            return of([]);
+          })
+        ),
+      })
+        .pipe(
+          takeUntilDestroyed(destroyRef),
+          finalize(() => patchState(state, { isLoading: false }))
+        )
+        .subscribe({
+          next: ({ status, runs }) => patchState(state, { status, runs }),
         });
     },
 
@@ -99,7 +86,6 @@ export const RhAgentStore = signalStore(
      * Now enqueues Cloud Tasks like the scheduler - async processing
      */
     triggerManualRun(date?: string): void {
-      console.log('[RH Agent Store] triggerManualRun called', { date });
       patchState(state, { isLoading: true });
 
       service
@@ -107,7 +93,6 @@ export const RhAgentStore = signalStore(
         .pipe(takeUntilDestroyed(destroyRef))
         .subscribe({
           next: (result) => {
-            console.log('[RH Agent Store] Manual run enqueued:', result);
             snackBar.open(
               `Run ${result.runId} started: ${result.enqueued} symbols enqueued`,
               'Dismiss',
@@ -120,7 +105,6 @@ export const RhAgentStore = signalStore(
             }, 2000);
           },
           error: (err) => {
-            console.error('[RH Agent Store] Manual run failed:', err);
             snackBar.open(`Run failed: ${err.message}`, 'Dismiss', { duration: 5000 });
             patchState(state, { isLoading: false });
           },
@@ -133,11 +117,9 @@ export const RhAgentStore = signalStore(
         .pipe(takeUntilDestroyed(destroyRef))
         .subscribe({
           next: (result) => {
-            console.log('[RH Agent Store] Bars backfill complete:', result);
             snackBar.open(`Bars backfill done: ${result.ok} ok, ${result.errors} errors`, 'Dismiss', { duration: 8000 });
           },
           error: (err) => {
-            console.error('[RH Agent Store] Bars backfill failed:', err);
             snackBar.open(`Bars backfill failed: ${err.message}`, 'Dismiss', { duration: 6000 });
           },
         });

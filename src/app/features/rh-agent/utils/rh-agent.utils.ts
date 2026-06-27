@@ -3,7 +3,7 @@
  *
  * Small, pure helpers used across the RH Agent feature components.
  */
-import { RhAgentSignalItem } from '../services/rh-agent.service';
+import { RhAgentSignalItem, RH_AGENT_SCHEDULE_CRON } from '../services/rh-agent.service';
 import { RhSymbolRow } from '../stores/rh-agent-group.store';
 
 /** Market cap tier display label. */
@@ -45,4 +45,62 @@ export function isRecentSignalDate(barDate: string): boolean {
   yesterday.setDate(now.getDate() - 1);
   const yesterdayStr = formatLocalDate(yesterday);
   return barDate === today || barDate === yesterdayStr;
+}
+
+/** Expand a date range into a list of YYYY-MM-DD strings (inclusive). */
+export function expandDateRange(start: Date, end: Date): string[] {
+  const dates: string[] = [];
+  const cur = new Date(start);
+  cur.setHours(0, 0, 0, 0);
+  const last = new Date(end);
+  last.setHours(0, 0, 0, 0);
+  while (cur <= last) {
+    dates.push(formatLocalDate(new Date(cur)));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return dates;
+}
+
+/** Human-readable description of the agent cron schedule. */
+export function getScheduleDescription(cron = RH_AGENT_SCHEDULE_CRON): string {
+  if (!cron) return 'Not scheduled';
+  const parts = cron.split(' ');
+  if (parts.length !== 5) return cron;
+  const [minute, hour, , , dayOfWeek] = parts;
+  let hourNum = (parseInt(hour, 10) - 8 + 24) % 24;
+  const minNum = parseInt(minute, 10);
+  const ampm = hourNum >= 12 ? 'PM' : 'AM';
+  const hour12 = hourNum % 12 || 12;
+  const minStr = minNum === 0 ? '' : `:${minNum.toString().padStart(2, '0')}`;
+  const time = `${hour12}${minStr} ${ampm}`;
+  let days = '';
+  if (dayOfWeek === '*') days = 'daily';
+  else if (dayOfWeek === '1-5') days = 'Monday-Friday';
+  else if (dayOfWeek === '0-6') days = 'daily';
+  else if (dayOfWeek === '1') days = 'Mondays';
+  else if (dayOfWeek === '5') days = 'Fridays';
+  else days = dayOfWeek;
+  return `${time} PT, ${days}`;
+}
+
+/** Material color name for a run status. */
+export function getRunStatusColor(status: string): string {
+  switch (status?.toLowerCase()) {
+    case 'success': return 'success';
+    case 'failed': return 'error';
+    case 'running': return 'primary';
+    case 'partial': return 'accent';
+    default: return '';
+  }
+}
+
+/** Material icon name for a run status. */
+export function getRunStatusIcon(status: string): string {
+  switch (status?.toLowerCase()) {
+    case 'success': return 'check_circle';
+    case 'failed': return 'error';
+    case 'running': return 'pending';
+    case 'partial': return 'warning';
+    default: return 'help';
+  }
 }

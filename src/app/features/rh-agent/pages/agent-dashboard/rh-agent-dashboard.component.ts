@@ -7,6 +7,7 @@
 import {
   Component,
   inject,
+  signal,
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -15,7 +16,6 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
-import { MatExpansionModule } from '@angular/material/expansion';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -28,6 +28,9 @@ import { RhAgentDashboardStore } from '../../stores/rh-agent-dashboard.store';
 import { RhAgentService } from '../../services/rh-agent.service';
 import { Router } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { expandDateRange, getScheduleDescription } from '../../utils/rh-agent.utils';
+import { AgentStatusBarComponent } from '../../components/agent-status-bar/agent-status-bar.component';
+import { RunHistoryPanelComponent } from '../../components/run-history-panel/run-history-panel.component';
 
 @Component({
   selector: 'app-rh-agent-dashboard',
@@ -39,13 +42,14 @@ import { MatSnackBar } from '@angular/material/snack-bar';
     MatIconModule,
     MatProgressSpinnerModule,
     MatChipsModule,
-    MatExpansionModule,
     MatSnackBarModule,
     MatTooltipModule,
     MatFormFieldModule,
     MatInputModule,
     MatDatepickerModule,
     MatNativeDateModule,
+    AgentStatusBarComponent,
+    RunHistoryPanelComponent,
   ],
   templateUrl: './rh-agent-dashboard.component.html',
   styleUrl: './rh-agent-dashboard.component.scss',
@@ -59,7 +63,8 @@ export class RhAgentDashboardComponent {
   private readonly rhService = inject(RhAgentService);
   private readonly snackBar = inject(MatSnackBar);
 
-  isSyncingOverview = false;
+  readonly isSyncingOverview = signal(false);
+  readonly scheduleDescription = getScheduleDescription();
 
   // Date range picker for manual runs
   readonly dateRange = new FormGroup({
@@ -68,7 +73,6 @@ export class RhAgentDashboardComponent {
   });
 
   constructor() {
-    console.log('[RH Agent Dashboard] Component initialized');
     // Load data on init - data store handles all the business logic
     this.store.loadData();
   }
@@ -90,26 +94,10 @@ export class RhAgentDashboardComponent {
       this.store.triggerManualRun(undefined);
       return;
     }
-    const dates = this.expandDateRange(start, end ?? start);
+    const dates = expandDateRange(start, end ?? start);
     for (const dateStr of dates) {
       this.store.triggerManualRun(dateStr);
     }
-  }
-
-  private expandDateRange(start: Date, end: Date): string[] {
-    const dates: string[] = [];
-    const cur = new Date(start);
-    cur.setHours(0, 0, 0, 0);
-    const last = new Date(end);
-    last.setHours(0, 0, 0, 0);
-    while (cur <= last) {
-      const y = cur.getFullYear();
-      const m = String(cur.getMonth() + 1).padStart(2, '0');
-      const d = String(cur.getDate()).padStart(2, '0');
-      dates.push(`${y}-${m}-${d}`);
-      cur.setDate(cur.getDate() + 1);
-    }
-    return dates;
   }
 
   goToGroupedReview(): void {
@@ -117,14 +105,14 @@ export class RhAgentDashboardComponent {
   }
 
   triggerOverviewSync(): void {
-    this.isSyncingOverview = true;
+    this.isSyncingOverview.set(true);
     this.rhService.triggerOverviewSync(true).subscribe({
       next: (r: { enqueued: number; skipped: number; total: number }) => {
-        this.isSyncingOverview = false;
+        this.isSyncingOverview.set(false);
         this.snackBar.open(`Overview sync enqueued: ${r.enqueued} symbols`, 'OK', { duration: 4000 });
       },
       error: (e: Error) => {
-        this.isSyncingOverview = false;
+        this.isSyncingOverview.set(false);
         this.snackBar.open(`Sync failed: ${e?.message}`, 'OK', { duration: 5000 });
       },
     });

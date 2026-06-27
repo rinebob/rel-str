@@ -1,0 +1,88 @@
+<div class="runs-header">
+  <mat-icon>history</mat-icon>
+  <span class="runs-title">Runs</span>
+  <span class="runs-count">({{ runsTotal() }} total)</span>
+</div>
+
+@if (runsTotal() > 0) {
+  <mat-accordion>
+    @if (currentRun(); as run) {
+      <div class="current-run">
+        <div class="current-run-header" (click)="toggleCurrentRun.emit()">
+          <div class="current-run-title">
+            <mat-chip-option color="accent" selected>CURRENT</mat-chip-option>
+            <span class="run-date">{{ run.startedAt | date: 'short' }}</span>
+          </div>
+          <div class="current-run-meta">
+            <mat-icon class="panel-toggle-icon">{{ currentRunOpen() ? 'expand_less' : 'expand_more' }}</mat-icon>
+          </div>
+        </div>
+        @if (currentRunOpen()) {
+          <div class="run-details">
+            <div class="run-info-row">
+              <span><strong>Run ID:</strong> {{ run.id }}</span>
+              <span><strong>Status:</strong> {{ run.status }}</span>
+              <span><strong>Started:</strong> {{ run.startedAt | date: 'medium' }}</span>
+              @if (run.completedAt) {
+                <span><strong>Completed:</strong> {{ run.completedAt | date: 'medium' }}</span>
+              }
+              <span><strong>Symbols:</strong> {{ run.symbolsProcessed || run.processedCount || 0 }} / {{ run.totalSymbols || 0 }}</span>
+              <span><strong>Signals:</strong> {{ run.signalsGenerated || 0 }}</span>
+            </div>
+            @if (run.summary) {
+              <p><strong>Summary:</strong> {{ run.summary }}</p>
+            }
+          </div>
+        }
+      </div>
+    }
+
+    @if (previousRuns().length > 0) {
+      <mat-expansion-panel hideToggle class="previous-runs-section">
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            <mat-icon>history</mat-icon>
+            Previous Runs ({{ previousRuns().length }})
+          </mat-panel-title>
+        </mat-expansion-panel-header>
+        <mat-accordion class="nested-accordion">
+          @for (run of previousRuns().slice(0, showAllRuns() ? undefined : 5); track run.id) {
+            <mat-expansion-panel hideToggle class="previous-run">
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <mat-icon [color]="getRunStatusColor(run.status)" class="run-status-icon">
+                    {{ getRunStatusIcon(run.status) }}
+                  </mat-icon>
+                  {{ run.strategy || run.marketDate || 'Daily Run' }}
+                </mat-panel-title>
+                <mat-panel-description>
+                  {{ run.startedAt | date: 'short' }}
+                  <span class="run-stats">
+                    {{ run.symbolsProcessed || run.processedCount || 0 }} / {{ run.totalSymbols || 0 }} symbols,
+                    {{ run.signalsGenerated || 0 }} signals
+                  </span>
+                </mat-panel-description>
+              </mat-expansion-panel-header>
+              <div class="run-details">
+                <div class="run-info-row">
+                  <span><strong>Run ID:</strong> {{ run.id }}</span>
+                  <span><strong>Status:</strong> {{ run.status }}</span>
+                </div>
+              </div>
+            </mat-expansion-panel>
+          }
+          @if (previousRuns().length > 5) {
+            <button mat-button (click)="toggleShowAllRuns.emit()" class="show-more-btn">
+              {{ showAllRuns() ? 'Show Less' : 'Show All (' + (previousRuns().length - 5) + ' more)' }}
+            </button>
+          }
+        </mat-accordion>
+      </mat-expansion-panel>
+    }
+  </mat-accordion>
+} @else {
+  <div class="empty-state">
+    <mat-icon>inbox</mat-icon>
+    <p>No runs yet</p>
+  </div>
+}
