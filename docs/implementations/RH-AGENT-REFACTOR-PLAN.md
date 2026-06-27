@@ -259,12 +259,16 @@ src/app/features/rh-agent/
 
 ## Implementation Order
 
-1. **Phase 0** — backend cleanup, symbol-list store, opportunities counter rename, and directory restructure.
-2. **Phase 1** — shared chart indicator builder.
-3. **Phase 2** — grouped review child components.
-4. **Phase 3** — dashboard / review / order / detail small extractions.
-5. **Phase 4** — backend orchestration and worker write path.
-6. **Phase 5** — store/type cleanup.
-7. **Phase 6** — documentation.
+- [x] **Phase 0** — backend cleanup, symbol-list store, opportunities counter rename, and directory restructure.
+- [ ] **Phase 1** — shared chart indicator builder.
+- [ ] **Phase 2** — grouped review child components.
+- [ ] **Phase 3** — dashboard / review / order / detail small extractions.
+- [ ] **Phase 4** — backend orchestration and worker write path.
+- [ ] **Phase 5** — store/type cleanup.
+- [ ] **Phase 6** — documentation.
 
 Each phase should be a focused, reviewable change. Run `ng build` after frontend phases and run the Cloud Functions build / lint after backend phases.
+
+## Current Phase
+
+**Phase 1** — extract a shared chart indicator builder from `signal-detail.component.ts` and `quick-charts.component.ts`.
