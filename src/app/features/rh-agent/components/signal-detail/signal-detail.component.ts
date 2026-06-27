@@ -9,7 +9,6 @@ import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { HeatmapChartStore } from '../../../heatmap-chart/heatmap-chart.store';
@@ -18,6 +17,7 @@ import { BarsInterval } from '../../../../core/models/partner.types';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import type { FlexChartConfig, IndicatorConfig } from '../../../shared/components/flex-chart/flex-chart.types';
 import { ST_INDICATOR_OPTIONS } from '../../../shared/components/flex-chart/indicators/indicator-registry';
+import { ChartToolbarComponent } from '../chart-toolbar/chart-toolbar.component';
 import {
   buildBaseIndicators,
   computeHtfZoneV2,
@@ -37,7 +37,7 @@ import {
 @Component({
   selector: 'app-signal-detail',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatCardModule, MatButtonModule, MatIconModule, MatTooltipModule, MatMenuModule, MatProgressSpinnerModule, FlexChartComponent],
+  imports: [CommonModule, MatCardModule, MatButtonModule, MatIconModule, MatTooltipModule, MatProgressSpinnerModule, FlexChartComponent, ChartToolbarComponent],
   templateUrl: './signal-detail.component.html',
   styleUrl: './signal-detail.component.scss',
 })
@@ -93,6 +93,13 @@ export class SignalDetailComponent {
     daily:   new Set(SignalDetailComponent.INDICATORS_BY_INTERVAL['daily']),
     weekly:  new Set(SignalDetailComponent.INDICATORS_BY_INTERVAL['weekly']),
     monthly: new Set(SignalDetailComponent.INDICATORS_BY_INTERVAL['monthly']),
+  });
+
+  /** Selected indicator IDs for the currently active chart interval. */
+  activeSelectedIndicatorIds = computed<Set<string>>(() => {
+    const interval = this.activeChartInterval();
+    const key = interval === BarsInterval.WEEKLY ? 'weekly' : interval === BarsInterval.MONTHLY ? 'monthly' : 'daily';
+    return this.selectedIdsByInterval()[key];
   });
 
   /** Base active indicators for an interval, filtered by the user's current selection. */
