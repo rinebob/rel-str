@@ -261,7 +261,7 @@ src/app/features/rh-agent/
 
 - [x] **Phase 0** — backend cleanup, symbol-list store, opportunities counter rename, and directory restructure.
 - [x] **Phase 1** — shared chart indicator builder.
-- [ ] **Phase 2** — grouped review child components.
+- [x] **Phase 2** — grouped review child components.
 - [ ] **Phase 3** — dashboard / review / order / detail small extractions.
 - [ ] **Phase 4** — backend orchestration and worker write path.
 - [ ] **Phase 5** — store/type cleanup.
@@ -271,4 +271,4 @@ Each phase should be a focused, reviewable change. Run `ng build` after frontend
 
 ## Current Phase
 
-**Phase 2** — extract focused child components from `rh-agent-grouped-review.component.ts`.
+**Phase 3** — small extractions from dashboard, review, order, and detail pages.
