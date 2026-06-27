@@ -41,15 +41,8 @@
     </button>
   </div>
 
-  <!-- Loading -->
-  @if (loading()) {
-    <div class="loading-overlay">
-      <mat-spinner diameter="32"></mat-spinner>
-    </div>
-  }
-
   <!-- Empty -->
-  @if (!loading() && tradeRows().length === 0) {
+  @if (tradeRows().length === 0) {
     <div class="empty-state">
       <mat-icon>inbox</mat-icon>
       <p>No accepted symbols</p>
@@ -58,7 +51,7 @@
   }
 
   <!-- Trade table -->
-  @if (!loading() && tradeRows().length > 0) {
+  @if (tradeRows().length > 0) {
     <div class="order-body">
       <div class="trade-table">
         <div class="trade-row header">
@@ -73,47 +66,16 @@
         </div>
 
         @for (row of tradeRows(); track row.symbol) {
-          <div class="trade-row" [class.disabled]="!row.enabled">
-            <span class="col-go">
-              <mat-slide-toggle
-                [checked]="row.enabled"
-                (change)="toggleEnabled(row.symbol)">
-              </mat-slide-toggle>
-            </span>
-            <span class="col-symbol">{{ row.symbol }}</span>
-            <span class="col-direction dir-{{ row.direction.toLowerCase() }}">{{ row.direction }}</span>
-            <span class="col-signal">{{ row.signalType }}</span>
-            <span class="col-size">
-              <input type="number"
-                [value]="row.positionSize"
-                (change)="updatePositionSize(row, +$any($event).target.value)"
-                min="1"
-                [max]="100"
-                [disabled]="!row.enabled">
-            </span>
-            <span class="col-stop">
-              <input type="number"
-                [value]="row.stopLossPercent"
-                (change)="updateStopLossPercent(row, +$any($event).target.value)"
-                min="0"
-                max="100"
-                [disabled]="!row.enabled">
-            </span>
-            <span class="col-total">${{ row.enabled ? row.positionSize : 0 }}</span>
-            <span class="col-actions">
-              <button type="button" mat-icon-button
-                (click)="copyTrade(row)"
-                matTooltip="Copy single trade prompt"
-                [disabled]="!row.enabled">
-                <mat-icon>content_copy</mat-icon>
-              </button>
-              <button type="button" mat-icon-button
-                (click)="removeSymbol(row.symbol)"
-                matTooltip="Move back to Review">
-                <mat-icon>undo</mat-icon>
-              </button>
-            </span>
-          </div>
+          <app-trade-row
+            [row]="row"
+            [maxPositionSize]="maxTradeAmount"
+            (toggleEnabled)="onToggleEnabled($event)"
+            (positionSizeChange)="onPositionSizeChange($event)"
+            (stopLossChange)="onStopLossChange($event)"
+            (copyTrade)="copyTrade($event)"
+            (remove)="onRemoveSymbol($event)"
+            (signalLoaded)="onSignalLoaded($event)">
+          </app-trade-row>
         }
 
         <div class="trade-row footer">

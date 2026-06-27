@@ -1,0 +1,41 @@
+<div class="trade-row" [class.disabled]="!row().enabled">
+  <span class="col-go">
+    <mat-slide-toggle
+      [checked]="row().enabled"
+      (change)="toggleEnabled.emit(row().symbol)">
+    </mat-slide-toggle>
+  </span>
+  <span class="col-symbol">{{ row().symbol }}</span>
+  <span class="col-direction dir-{{ row().direction.toLowerCase() }}">{{ row().direction }}</span>
+  <span class="col-signal">{{ row().signalType }}</span>
+  <span class="col-size">
+    <input type="number"
+      [value]="row().positionSize"
+      (change)="onPositionSizeChange(+$any($event).target.value)"
+      min="1"
+      [max]="maxPositionSize()"
+      [disabled]="!row().enabled">
+  </span>
+  <span class="col-stop">
+    <input type="number"
+      [value]="row().stopLossPercent"
+      (change)="onStopLossChange(+$any($event).target.value)"
+      min="0"
+      max="100"
+      [disabled]="!row().enabled">
+  </span>
+  <span class="col-total">${{ row().enabled ? row().positionSize : 0 }}</span>
+  <span class="col-actions">
+    <button type="button" mat-icon-button
+      (click)="copyTrade.emit(row())"
+      matTooltip="Copy single trade prompt"
+      [disabled]="!row().enabled">
+      <mat-icon>content_copy</mat-icon>
+    </button>
+    <button type="button" mat-icon-button
+      (click)="remove.emit(row().symbol)"
+      matTooltip="Move back to Review">
+      <mat-icon>undo</mat-icon>
+    </button>
+  </span>
+</div>

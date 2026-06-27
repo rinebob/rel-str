@@ -21,17 +21,13 @@ import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
-import { forkJoin } from 'rxjs';
 
 import { RhAgentTriageStore } from '../../stores/rh-agent-triage.store';
 import { RhReviewStatus } from '../../common/rh-agent.constants';
 import {
-  RhAgentService,
   RhAgentSignalItem,
-  SignalDirection,
   RH_AGENT_MAX_TRADE_AMOUNT,
 } from '../../services/rh-agent.service';
 import {
@@ -40,16 +36,7 @@ import {
   TradePrompt,
 } from '../../../rs/services/robinhood-trade.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
-
-interface TradeRow {
-  symbol: string;
-  direction: SignalDirection;
-  signalType: string;
-  barDate: string;
-  positionSize: number;
-  stopLossPercent: number;
-  enabled: boolean;
-}
+import { TradeRowComponent, TradeRow } from '../../components/trade-row/trade-row.component';
 
 @Component({
   selector: 'app-rh-agent-order',
@@ -64,22 +51,21 @@ interface TradeRow {
     MatFormFieldModule,
     MatSlideToggleModule,
     MatTooltipModule,
-    MatProgressSpinnerModule,
+    TradeRowComponent,
   ],
   templateUrl: './rh-agent-order.component.html',
   styleUrl: './rh-agent-order.component.scss',
 })
 export class RhAgentOrderComponent implements OnInit {
   readonly triageStore = inject(RhAgentTriageStore);
-  readonly service = inject(RhAgentService);
   readonly tradeService = inject(RobinhoodTradeService);
   readonly snackBar = inject(MatSnackBar);
   readonly uiState = inject(UiStateService);
   private readonly router = inject(Router);
 
   readonly tradeRows = signal<TradeRow[]>([]);
-  readonly loading = signal(false);
   readonly generatedBatch = signal<TradeBatch | null>(null);
+  readonly maxTradeAmount = RH_AGENT_MAX_TRADE_AMOUNT;
 
   readonly enabledRows = computed(() =>
     this.tradeRows().filter((r) => r.enabled)
@@ -93,72 +79,51 @@ export class RhAgentOrderComponent implements OnInit {
 
   ngOnInit(): void {
     this.uiState.setFullscreen(true);
-    this.loadAcceptedSymbols();
+    this.initializeTradeRows();
   }
 
-  /** Load signal history for each accepted symbol to determine direction/signal type. */
-  private loadAcceptedSymbols(): void {
+  /** Build initial trade rows from accepted symbols; each row loads its own signal history. */
+  private initializeTradeRows(): void {
     const symbols = this.triageStore.acceptedSymbols();
-    if (symbols.length === 0) {
-      this.tradeRows.set([]);
-      return;
-    }
-
-    this.loading.set(true);
-    const requests = symbols.map((symbol) => this.service.getSymbolSignalHistory(symbol));
-
-    forkJoin(requests).subscribe({
-      next: (histories) => {
-        const rows: TradeRow[] = [];
-        for (let i = 0; i < symbols.length; i++) {
-          const symbol = symbols[i];
-          const latest = this.findLatestSignal(histories[i]);
-          rows.push({
-            symbol,
-            direction: latest?.direction ?? 'LONG',
-            signalType: latest?.signalType ?? '',
-            barDate: latest?.barDate ?? '',
-            positionSize: RH_AGENT_MAX_TRADE_AMOUNT,
-            stopLossPercent: 8,
-            enabled: true,
-          });
-        }
-        this.tradeRows.set(rows);
-        this.loading.set(false);
-      },
-      error: (err) => {
-        console.error('[RhAgentOrder] Failed to load signal histories:', err);
-        this.snackBar.open('Failed to load accepted symbols', 'Dismiss', { duration: 5000 });
-        this.loading.set(false);
-      },
-    });
-  }
-
-  private findLatestSignal(signals: RhAgentSignalItem[]): RhAgentSignalItem | null {
-    if (!signals?.length) return null;
-    return signals.reduce((latest, s) =>
-      s.barDate > latest.barDate ? s : latest
+    this.tradeRows.set(
+      symbols.map((symbol) => ({
+        symbol,
+        direction: 'LONG' as const,
+        signalType: '',
+        barDate: '',
+        positionSize: RH_AGENT_MAX_TRADE_AMOUNT,
+        stopLossPercent: 8,
+        enabled: true,
+      }))
     );
   }
 
-  updatePositionSize(row: TradeRow, value: number): void {
-    const clamped = Math.max(1, Math.min(value, RH_AGENT_MAX_TRADE_AMOUNT));
-    this.patchRow(row.symbol, { positionSize: clamped });
+  onSignalLoaded(event: { symbol: string; signal: RhAgentSignalItem | null }): void {
+    const latest = event.signal;
+    this.patchRow(event.symbol, {
+      signal: latest ?? undefined,
+      direction: latest?.direction ?? 'LONG',
+      signalType: latest?.signalType ?? '',
+      barDate: latest?.barDate ?? '',
+    });
   }
 
-  updateStopLossPercent(row: TradeRow, value: number): void {
-    const clamped = Math.max(0, Math.min(value, 100));
-    this.patchRow(row.symbol, { stopLossPercent: clamped });
-  }
-
-  toggleEnabled(symbol: string): void {
+  onToggleEnabled(symbol: string): void {
     const row = this.tradeRows().find((r) => r.symbol === symbol);
     if (row) {
       this.patchRow(symbol, { enabled: !row.enabled });
     }
   }
 
-  removeSymbol(symbol: string): void {
+  onPositionSizeChange(event: { symbol: string; value: number }): void {
+    this.patchRow(event.symbol, { positionSize: event.value });
+  }
+
+  onStopLossChange(event: { symbol: string; value: number }): void {
+    this.patchRow(event.symbol, { stopLossPercent: event.value });
+  }
+
+  onRemoveSymbol(symbol: string): void {
     this.triageStore.setStatus(symbol, RhReviewStatus.REVIEW);
     this.tradeRows.update((rows) => rows.filter((r) => r.symbol !== symbol));
   }

@@ -1,3 +1,5 @@
+:host ::ng-deep {
+
 .order-page {
   display: flex;
   flex-direction: column;
@@ -214,4 +216,6 @@
     max-height: 300px;
     overflow: auto;
   }
+}
+
 }
