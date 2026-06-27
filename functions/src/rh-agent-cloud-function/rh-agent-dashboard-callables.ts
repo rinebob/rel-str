@@ -11,7 +11,6 @@ import { db } from '../firebase-admin-init';
 import {
   RH_AGENT_RUNS_COLLECTION,
   RH_AGENT_STATUS_COLLECTION,
-  RH_AGENT_OPPORTUNITIES_COLLECTION,
   RH_AGENT_SYMBOLS_COLLECTION,
   RH_AGENT_SIGNAL_DATES_SUBCOLLECTION,
   AGENT_STATUS_DOC,
@@ -43,31 +42,6 @@ interface RunHistoryResponse {
     successCount: number;
     failureCount: number;
     opportunitiesFound: number;
-  }>;
-}
-
-interface SignalHistoryResponse {
-  signals: Array<{
-    id: string;
-    runId: string;
-    symbol: string;
-    action: string;
-    status: string;
-    reason: string;
-    createdAt: string;
-  }>;
-}
-
-interface OpportunitiesResponse {
-  opportunities: Array<{
-    id: string;
-    runId: string;
-    symbol: string;
-    strategy: string;
-    action: string;
-    confidence: number;
-    indicators: Record<string, number>;
-    createdAt: string;
   }>;
 }
 
@@ -213,51 +187,6 @@ export const rhAgentGetRunHistory = onCall<{ limit?: number }, Promise<RunHistor
 );
 
 /**
- * Get signal history callable.
- */
-export const rhAgentGetSignalHistory = onCall<{ limit?: number; runId?: string }, Promise<SignalHistoryResponse>>(
-  {
-    cors: true,
-    memory: '256MiB',
-    invoker: 'public',
-  },
-  async (request) => {
-    try {
-      const { limit = 50, runId } = request.data;
-
-      let query = db.collection(RH_AGENT_OPPORTUNITIES_COLLECTION).orderBy('createdAt', 'desc');
-
-      if (runId) {
-        query = query.where('runId', '==', runId);
-      }
-
-      const snapshot = await query.limit(limit).get();
-
-      const signals = snapshot.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          runId: data.runId || '',
-          symbol: data.symbol || '',
-          action: data.action || 'OPEN_LONG',
-          status: data.status || 'PENDING',
-          reason: data.reason || data.signalType || 'Zone uptick signal',
-          createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-          confidence: data.confidence || 0,
-          signalType: data.signalType || 'D_ZONE_V1_UPTICK',
-          indicators: data.indicators || {},
-        };
-      });
-
-      return { signals };
-    } catch (error: any) {
-      logger.error('rh_agent_get_signal_history_error', { error: error?.message });
-      throw new Error(`Failed to get signal history: ${error?.message}`);
-    }
-  }
-);
-
-/**
  * Primary review page query.
  * Returns enabled rh-agent-symbols docs filtered by lastWeeklySignalDate or
  * lastDailySignalDate matching the given marketDate.
@@ -387,45 +316,3 @@ export const rhAgentGetSymbolSignalHistory = onCall<
   }
 );
 
-/**
- * Get opportunities callable.
- */
-export const rhAgentGetOpportunities = onCall<{ limit?: number; status?: string }, Promise<OpportunitiesResponse>>(
-  {
-    cors: true,
-    memory: '256MiB',
-    invoker: 'public',
-  },
-  async (request) => {
-    try {
-      const { limit = 50, status } = request.data;
-
-      let query = db.collection(RH_AGENT_OPPORTUNITIES_COLLECTION).orderBy('createdAt', 'desc');
-
-      if (status) {
-        query = query.where('status', '==', status);
-      }
-
-      const snapshot = await query.limit(limit).get();
-
-      const opportunities = snapshot.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          runId: data.runId || '',
-          symbol: data.symbol || '',
-          strategy: data.strategy || '',
-          action: data.action || '',
-          confidence: data.confidence || 0,
-          indicators: data.indicators || {},
-          createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-        };
-      });
-
-      return { opportunities };
-    } catch (error: any) {
-      logger.error('rh_agent_get_opportunities_error', { error: error?.message });
-      throw new Error(`Failed to get opportunities: ${error?.message}`);
-    }
-  }
-);

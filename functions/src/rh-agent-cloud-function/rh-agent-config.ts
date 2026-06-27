@@ -16,9 +16,6 @@ export const RH_AGENT_STATUS_COLLECTION = 'rh-agent-status';
 /** Root collection for symbol analysis jobs (subcollection under runs). */
 export const RH_AGENT_JOBS_SUBCOLLECTION = 'jobs';
 
-/** Root collection for trade opportunities (user approval workflow). */
-export const RH_AGENT_OPPORTUNITIES_COLLECTION = 'rh-agent-opportunities';
-
 /** Symbol list collection for daily scanning. */
 export const RH_AGENT_SYMBOLS_COLLECTION = 'rh-agent-symbols';
 
@@ -117,25 +114,6 @@ export enum RhAgentJobStatus {
 }
 
 /**
- * Status of a trade opportunity in approval workflow.
- */
-export enum RhOpportunityStatus {
-  PENDING = 'PENDING',
-  APPROVED = 'APPROVED',
-  REJECTED = 'REJECTED',
-  EXECUTED = 'EXECUTED',
-  FAILED = 'FAILED',
-}
-
-/**
- * Opportunity action type.
- */
-export enum RhOpportunityAction {
-  OPEN_LONG = 'OPEN_LONG',
-  OPEN_SHORT = 'OPEN_SHORT',
-}
-
-/**
  * Type of trade action.
  */
 export enum RhTradeAction {
@@ -227,41 +205,6 @@ export interface RhAgentJob {
   createdAt: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
   startedAt?: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
   completedAt?: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
-}
-
-/**
- * Trade opportunity stored in Firestore (user approval workflow).
- */
-export interface RhTradeOpportunity {
-  id: string;
-  runId: string;
-  marketDate: string;  // YYYY-MM-DD for easy grouping
-  symbol: string;
-  action: RhOpportunityAction;
-  signalType: string;  // e.g., 'D_ZONE_V1_UPTICK', 'W_ZONE_V2_DOWNTICK'
-  strategy: 'st-zone-uptick' | string;
-  confidence: number;  // 0-100
-  reason: string;
-  indicators: Record<string, number>;
-  // User-modifiable fields
-  suggestedAmount: number;
-  amount?: number;  // User override
-  orderType: 'MARKET' | 'LIMIT';
-  limitPrice?: number;
-  // Status workflow
-  status: RhOpportunityStatus;
-  // Execution details (if executed)
-  orderId?: string;
-  executedAt?: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
-  executedPrice?: number;
-  error?: string;
-  // Metadata
-  createdAt: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
-  updatedAt: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
-  approvedAt?: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
-  approvedBy?: string;  // User UID
-  rejectedAt?: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
-  rejectedBy?: string;  // User UID
 }
 
 /**

@@ -15,11 +15,9 @@ import {
 } from './rh-agent-shared';
 import {
   RH_AGENT_RUNS_COLLECTION,
-  RH_AGENT_OPPORTUNITIES_COLLECTION,
   RH_AGENT_STATUS_COLLECTION,
   AGENT_STATUS_DOC,
   RhAgentRun,
-  RhTradeOpportunity,
   RhAgentStatus,
 } from './rh-agent-config';
 
@@ -61,18 +59,6 @@ interface RunHistoryResponse {
     symbolsProcessed: number;
     signalsGenerated: number;
     summary?: string;
-  }>;
-}
-
-interface SignalHistoryResponse {
-  signals: Array<{
-    id: string;
-    symbol: string;
-    action: string;
-    status: string;
-    reason: string;
-    createdAt: string;
-    dryRun: boolean;
   }>;
 }
 
@@ -270,39 +256,3 @@ export const rhAgentGetRunHistory = onCall<{ limit?: number }, Promise<RunHistor
   }
 );
 
-/**
- * Get signal history callable (reads from rh-agent-opportunities).
- */
-export const rhAgentGetSignalHistory = onCall<{ limit?: number; runId?: string }, Promise<SignalHistoryResponse>>(
-  {
-    cors: true,
-  },
-  async (request) => {
-    const { limit, runId } = request.data;
-
-    let query = db.collection(RH_AGENT_OPPORTUNITIES_COLLECTION).orderBy('createdAt', 'desc');
-
-    if (runId) {
-      query = query.where('runId', '==', runId);
-    }
-
-    const snapshot = await query.limit(limit ?? 50).get();
-    const opportunities = snapshot.docs.map((d) => d.data() as RhTradeOpportunity);
-
-    return {
-      signals: opportunities.map((o) => ({
-        id: o.id,
-        symbol: o.symbol,
-        action: o.action,
-        status: o.status,
-        reason: o.reason,
-        createdAt: o.createdAt
-          ? typeof o.createdAt === 'object' && 'toDate' in o.createdAt
-            ? (o.createdAt as { toDate(): Date }).toDate().toISOString()
-            : new Date().toISOString()
-          : new Date().toISOString(),
-        dryRun: false, // Opportunities are always live
-      })),
-    };
-  }
-);

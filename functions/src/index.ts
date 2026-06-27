@@ -100,8 +100,6 @@ export {
 export {
   rhAgentGetStatus,
   rhAgentGetRunHistory,
-  rhAgentGetSignalHistory,
-  rhAgentGetOpportunities,
   rhAgentGetSymbolsWithSignals,
   rhAgentGetSymbolSignalHistory,
 } from './rh-agent-cloud-function/rh-agent-dashboard-callables';
