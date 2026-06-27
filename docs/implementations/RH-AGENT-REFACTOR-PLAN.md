@@ -24,6 +24,12 @@ Simplify the `rh-agent` feature by extracting inline Angular UI into child compo
 - Apply the `angular-developer` and `thermo-nuclear-code-review` skills: prefer deleting complexity over moving it around, keep files under 1k lines, use signal-based child components with `input()`/`output()`, and avoid function calls in templates.
 - Move logic into the canonical layer: list management belongs in a list store, chart configuration belongs in a shared builder, trigger orchestration belongs in shared helpers.
 
+## Working Agreement
+
+- **Commit after every phase.** Do not mix Phase N changes with Phase N+1 changes in the same commit.
+- **Stop and ask for help after a single build failure.** Do not run repeated build attempts or retry the same command multiple times without explaining the failure and asking the user for direction.
+- Only run one verification build per phase/sub-task unless the user explicitly asks for more.
+
 ---
 
 ## Phase 0 — Backend Cleanup (foundation work)
@@ -162,32 +168,32 @@ src/app/features/rh-agent/
 
 ### 3.1 Dashboard
 
-- Prune `rh-agent-dashboard.component.scss` (currently 1,259 lines with stale CSS for old filter panels and master-detail layouts).
-- Extract `RunHistoryPanelComponent` and `AgentStatusBarComponent`.
-- Remove `console.log` / `console.error` noise from `rh-agent.store.ts`.
-- Refactor `RhAgentStore.loadData()` to use `forkJoin` instead of the manual `completedCalls` / `finalize` pattern.
-- Move pure helpers (`getScheduleDescription`, `getRunStatusColor`, `getRunStatusIcon`) out of `RhAgentDashboardStore` into a utility or pipe.
-- Convert `RhAgentDashboardComponent.isSyncingOverview` from a plain boolean to a signal.
+- [x] Prune `rh-agent-dashboard.component.scss` — reduced from ~1,259 lines to ~300 lines by removing stale filter panels, signal lists, and master-detail styles.
+- [x] Extract `RunHistoryPanelComponent` and `AgentStatusBarComponent`.
+- [x] Remove `console.log` / `console.error` noise from `rh-agent.store.ts`.
+- [x] Refactor `RhAgentStore.loadData()` to use `forkJoin` instead of the manual `completedCalls` / `finalize` pattern.
+- [x] Move pure helpers (`getScheduleDescription`, `getRunStatusColor`, `getRunStatusIcon`) out of `RhAgentDashboardStore` into `rh-agent.utils.ts`.
+- [x] Convert `RhAgentDashboardComponent.isSyncingOverview` from a plain boolean to a signal.
 
 ### 3.2 Review page
 
-- Extract `ReviewHeaderComponent` for the selected-symbol block, ACR buttons, and manual-symbol input.
-- Make `SignalListComponent` load signal history on demand instead of eagerly loading every review symbol via an `effect()`.
+- [x] Extract `ReviewHeaderComponent` for the selected-symbol block, ACR buttons, and manual-symbol input.
+- [x] Make `SignalListComponent` load signal history on demand instead of eagerly loading every review symbol via an `effect()`.
 
 ### 3.3 Signal detail
 
-- Extract `ChartToolbarComponent` (indicators menu, D/W/M toggle, range toggle, layout/fullscreen).
-- Extract `IndicatorMenuComponent`.
+- [x] Extract `ChartToolbarComponent` (indicators menu, D/W/M toggle, range toggle, layout/fullscreen).
+- [x] Extract `IndicatorMenuComponent` (used by `ChartToolbarComponent`).
 
 ### 3.4 Order page
 
-- Extract `TradeRowComponent` for each row and simplify the manual `patchRow` updates.
-- Avoid loading all accepted symbol histories upfront with `forkJoin`; prefer per-row `resource()` or a single batched callable.
+- [x] Extract `TradeRowComponent` for each row and simplify the manual `patchRow` updates.
+- [x] Avoid loading all accepted symbol histories upfront with `forkJoin`; `TradeRowComponent` now loads its own history and emits the latest signal to the parent.
 
 ### 3.5 Signal history
 
-- Replace `mat-chip-listbox` filters with the existing compact pill-style toggle pattern.
-- Extract `SignalTableComponent`.
+- [x] Replace `mat-chip-listbox` filters with the existing compact pill-style toggle pattern.
+- [x] Extract `SignalTableComponent`.
 
 ---
 
@@ -262,7 +268,7 @@ src/app/features/rh-agent/
 - [x] **Phase 0** — backend cleanup, symbol-list store, opportunities counter rename, and directory restructure.
 - [x] **Phase 1** — shared chart indicator builder.
 - [x] **Phase 2** — grouped review child components.
-- [ ] **Phase 3** — dashboard / review / order / detail small extractions.
+- [x] **Phase 3** — dashboard / review / order / detail small extractions.
 - [ ] **Phase 4** — backend orchestration and worker write path.
 - [ ] **Phase 5** — store/type cleanup.
 - [ ] **Phase 6** — documentation.
@@ -271,4 +277,4 @@ Each phase should be a focused, reviewable change. Run `ng build` after frontend
 
 ## Current Phase
 
-**Phase 3** — small extractions from dashboard, review, order, and detail pages.
+**Phase 4** — backend orchestration and worker write path.
