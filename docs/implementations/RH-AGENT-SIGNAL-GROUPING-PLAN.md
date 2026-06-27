@@ -1,19 +1,19 @@
 # RH Agent — Signal Grouping & Symbol-Centric Persistence Plan
 
-**Status:** Phases 1–5 deployed, Phase 5B planned  
+**Status:** Phases 1–6 complete  
 **Created:** 2026-06-22  
-**Updated:** 2026-06-24  
+**Updated:** 2026-06-27  
 **Goal:** Reorganize signal storage from a flat opportunity list into a symbol-centric structure with company metadata, enabling grouped review by sector/industry/market-cap and multi-day signal history tracking. Connect triage decisions to the deep-review and trade execution surface.
 
 ---
 
 ## Problem Statement
 
-Current state:
-- Signals are flat docs in `rh-agent-opportunities` with no structural relationship to the symbol that generated them.
-- Each run overwrites or appends independently — no cross-run history per symbol.
+Original state (resolved):
+- Signals were flat docs in `rh-agent-opportunities` with no structural relationship to the symbol that generated them.
+- Each run overwrote or appended independently — no cross-run history per symbol.
 - No company metadata (sector, industry, market cap) anywhere in the system.
-- The review page is a single sorted list — cognitively expensive to prioritize across 700+ symbols.
+- The review page was a single sorted list — cognitively expensive to prioritize across 700+ symbols.
 
 Desired state:
 - Signals live inside their symbol's doc hierarchy.
@@ -62,10 +62,11 @@ rh-agent-symbols/{SYMBOL}                    ← symbol config + company overvie
 - `CONFIRMED` signal map entries are **never overwritten or deleted**.
 - When a W/M signal reverses intraperiod, the worker deletes the `INTERIM` map key.
 
-**Migration of `rh-agent-opportunities`:**
-- No backward compat requirement — this is a prototype.
-- Worker writes exclusively to `signal-dates` from the start.
-- **Do not delete `rh-agent-opportunities`** — leave untouched until explicitly confirmed safe to remove.
+**Migration of `rh-agent-opportunities`:** ✅ Complete (2026-06-27)
+- Worker writes exclusively to `signal-dates`.
+- All frontend reads removed; `rh-agent-opportunities` collection is now dead code in production.
+- `RH_AGENT_OPPORTUNITIES_COLLECTION`, `RhTradeOpportunity`, `RhOpportunityStatus`, `RhOpportunityAction` removed from `rh-agent-config.ts`.
+- `rhAgentGetSignalHistory` and `rhAgentGetOpportunities` callables deleted.
 
 ---
 
@@ -235,7 +236,7 @@ Tasks:
 5. After signal write, update gate field on symbol doc using `barDate` (not `marketDate`):
    - Daily signal → `lastDailySignalDate = barDate`
    - Weekly signal → `lastWeeklySignalDate = barDate`
-6. `rh-agent-opportunities` left in place, cleaned up in Phase 6.
+6. ✅ `rh-agent-opportunities` reads fully removed in Phase 6.
 
 ---
 
@@ -258,7 +259,7 @@ New/updated callables:
 
 Tasks:
 1. Add `RhAgentSymbolProfile` interface to `rh-agent.service.ts` mirroring the Firestore doc.
-2. Update `RhAgentService`: add `getSymbolsWithSignals(marketDate)` calling the Phase 3 callable. Existing `getSignalHistory` stays for legacy compat during transition.
+2. ✅ `RhAgentService`: `getSymbolsWithSignals(marketDate)` added. `getSignalHistory`, `getSignalsForRun`, `watchRecentOpportunitiesRealtime`, `normalizeSignals`, and `RhTradeSignal` removed in Phase 6.
 3. Update `RhAgentStore`: primary state is `symbols: RhAgentSymbolProfile[]` + `activeTimeframe: 'W' | 'D'` (defaults to `'W'`). No monthly mode.
 4. Add computed `symbolsWithTodaySignal` — filters on `lastWeeklySignalDate === today` or `lastDailySignalDate === today` depending on `activeTimeframe`. This is what gets grouped and rendered.
 5. Add computed `groupedByDimension(dimension)` — produces `SignalGroup[]` from `symbolsWithTodaySignal`.
@@ -431,7 +432,7 @@ The review page already has a working master-detail layout with charts, signal d
 - **Accept** — chart confirms the signal. Moves symbol from PROMOTE → ACCEPT in triage store. Symbol disappears from left panel, appears in Order page list.
 - **Reject** — chart disqualifies. Moves symbol to REJECT. Disappears from left panel. Future: adds to global exclusion list.
 
-**Integration approach:** The existing `RhAgentDashboardStore` and `SignalListComponent` need a secondary input path — "show these symbols" from the triage store. The exact integration (whether the signal list switches modes, or we add a toggle) is deferred to implementation. The key constraint is: **don't break or remove existing review page functionality.**
+**Integration approach:** ✅ Complete. `SignalListComponent` refactored to read directly from `RhAgentTriageStore.reviewSymbols()` and serves as the left panel in `rh-agent-review.component`. `RhAgentDashboardStore` is now runs-only (no signal triage state). `rh-agent-dashboard` page is ops/admin only.
 
 ---
 
@@ -483,14 +484,20 @@ The Order page extracts this existing functionality from the dialog into a full-
 
 ---
 
-### Phase 6 — Cleanup
+### Phase 6 — Cleanup ✅ Complete (2026-06-27)
 
-- Remove `rh-agent-opportunities` flat collection reads from all frontend code.
-- Evaluate whether `RhAgentStore` and `RhAgentDashboardStore` can be simplified once triage store is the primary state owner.
-- Migrate signal history component to read from subcollection.
-- Add Firestore composite indexes for all new query patterns.
-- **Migrate `StrategyOutput.action` from `'OPEN_LONG' | 'OPEN_SHORT'` string literals to `StSignalDirection` enum** — eliminates the mapping in `createSignalDoc()` and makes the type consistent from strategy execution through to Firestore persistence.
-- Gut Dashboard page — ops/admin only (run status, "Run Now", bars sync, link to Grouped Review).
+- ✅ Removed all `rh-agent-opportunities` reads from frontend (`RhAgentStore`, `RhAgentDashboardStore`, `rh-agent.service.ts`, `rh-agent-dashboard.component`).
+- ✅ `RhAgentDashboardStore` simplified to runs-only UI state (expand/collapse, show-all toggle, run status helpers). No signal triage state.
+- ✅ `RhAgentStore` no longer holds `signals` state or calls `getSignalHistory`.
+- ✅ `rh-agent.service.ts`: removed `RhTradeSignal`, `normalizeSignals`, `getSignalHistory`, `getSignalsForRun`, `watchRecentOpportunitiesRealtime`, `opportunitiesCollection`.
+- ✅ `rh-agent-dashboard.component.html` rewritten — runs-only, no filter panels or triage ACR columns.
+- ✅ `SignalListComponent` refactored to display `triageStore.reviewSymbols()` and used as left panel in `rh-agent-review.component`.
+- ✅ `signal-detail.component` removed dependency on `RhAgentDashboardStore`; Signals filter menu (which filtered by `rh-agent-opportunities` signal types) removed from chart toolbar.
+- ✅ Backend: `rhAgentGetSignalHistory` and `rhAgentGetOpportunities` deleted from both callable files.
+- ✅ `RH_AGENT_OPPORTUNITIES_COLLECTION`, `RhTradeOpportunity`, `RhOpportunityStatus`, `RhOpportunityAction` removed from `rh-agent-config.ts`.
+- ✅ Dashboard page is now ops/admin only — run status, "Run Now", bars sync, Grouped Review link.
+- ⏳ Firestore composite indexes — add when query patterns stabilize.
+- ⏳ Migrate `StrategyOutput.action` from `'OPEN_LONG' | 'OPEN_SHORT'` string literals to `StSignalDirection` enum.
 
 ---
 

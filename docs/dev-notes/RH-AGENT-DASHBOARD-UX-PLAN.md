@@ -1,6 +1,24 @@
 # RH Agent Dashboard UX Enhancement Plan
 
-## Current Issues Identified
+> **⚠️ SUPERSEDED (2026-06-27)**
+> This plan described a signal-triage master-detail UI on the `/rh-agent` dashboard page.
+> That design was **not implemented** — signal triage was moved to the Grouped Review → Review → Order pipeline instead.
+>
+> **Current state of `/rh-agent` dashboard:**
+> - Ops/admin only: run status, Run Now (with date range), Sync Overview, Backfill Bars, Grouped Review link.
+> - No signal list, no ACR triage panels, no filter chips.
+> - `rh-agent-opportunities` collection reads fully removed (Phase 6 of Signal Grouping Plan).
+>
+> **Triage pipeline lives at:**
+> - `/rh-agent-grouped-review` — grouped symbol review with PACR decisions
+> - `/rh-agent/review` — deep chart review of symbols in REVIEW queue (`SignalListComponent` left panel + `SignalDetailComponent`)
+> - `/rh-agent/order` — accepted symbols, stop/size, trade prompt generation
+>
+> The notes below are historical context only.
+
+---
+
+## Current Issues Identified (Historical — Pre-Refactor)
 - **Limited real estate**: Two-column layout cramps signals and decision panels
 - **No dedicated space for charts**: Future chart embedding would require major redesign
 - **Compact signal cards**: Limited detail visibility and quick decision-making
