@@ -1,0 +1,15 @@
+<div class="quick-charts-panel">
+  <div class="qcp-body">
+    @if (symbol()) {
+      <button type="button" class="qcp-close" (click)="close.emit()" matTooltip="Close">
+        <mat-icon>close</mat-icon>
+      </button>
+      <app-quick-charts [symbol]="symbol()"></app-quick-charts>
+    } @else {
+      <div class="qcp-placeholder">
+        <mat-icon>bar_chart</mat-icon>
+        <p>Select a symbol to view signal charts</p>
+      </div>
+    }
+  </div>
+</div>

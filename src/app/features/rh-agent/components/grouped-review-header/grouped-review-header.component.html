@@ -1,0 +1,100 @@
+<div class="gr-header">
+  <button mat-icon-button class="back-btn" (click)="back.emit()" matTooltip="Back">
+    <mat-icon>arrow_back</mat-icon>
+  </button>
+
+  <h1 class="gr-title">
+    <mat-icon>psychology</mat-icon>
+    Grouped Review
+  </h1>
+
+  <div class="signal-counts">
+    <span class="signal-count">{{ totalSignalCount() }} symbols</span>
+    <span class="signal-count tf-badge">W {{ weeklySignalCount() }}</span>
+    <span class="signal-count tf-badge">D {{ dailySignalCount() }}</span>
+  </div>
+
+  @if (longCount() > 0 || shortCount() > 0) {
+    <div class="dir-counts">
+      <span class="dir-count long">↑ {{ longCount() }}</span>
+      <span class="dir-count short">↓ {{ shortCount() }}</span>
+    </div>
+  }
+
+  <app-status-summary-chips [counts]="statusCounts()"></app-status-summary-chips>
+
+  <div class="header-spacer"></div>
+
+  <div class="pipeline-actions">
+    <button type="button" class="pill-btn review"
+      [disabled]="reviewCount() === 0"
+      (click)="goToReview.emit()"
+      matTooltip="Review symbols">
+      <mat-icon>visibility</mat-icon>
+      Review <span class="pill-count">{{ reviewCount() }}</span>
+    </button>
+    <button type="button" class="pill-btn accept"
+      [disabled]="acceptedCount() === 0"
+      (click)="goToOrder.emit()"
+      matTooltip="Order accepted symbols">
+      <mat-icon>account_balance</mat-icon>
+      Order <span class="pill-count">{{ acceptedCount() }}</span>
+    </button>
+    <button type="button" class="pill-btn"
+      (click)="goToTriageReport.emit()"
+      matTooltip="View PACR triage report">
+      <mat-icon>assignment</mat-icon>
+      Report
+    </button>
+  </div>
+
+  <mat-form-field appearance="outline" class="header-select" subscriptSizing="dynamic">
+    <mat-label>Select group</mat-label>
+    <mat-select [value]="groupDimension()" (valueChange)="dimensionChange.emit($event)">
+      @for (opt of dimensionOptions; track opt.value) {
+        <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="header-select" subscriptSizing="dynamic">
+    <mat-label>Select list</mat-label>
+    <mat-select [value]="activeListFilter()" (valueChange)="listFilterChange.emit($event)">
+      @for (opt of listFilterOptions; track opt.value) {
+        <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <button mat-icon-button (click)="prev.emit()"
+    [disabled]="!quickChartSymbol() || flatSymbols().indexOf(quickChartSymbol()!) <= 0"
+    matTooltip="Previous symbol">
+    <mat-icon>chevron_left</mat-icon>
+  </button>
+  <button mat-icon-button (click)="next.emit()"
+    [disabled]="!quickChartSymbol() || flatSymbols().indexOf(quickChartSymbol()!) >= flatSymbols().length - 1"
+    matTooltip="Next symbol">
+    <mat-icon>chevron_right</mat-icon>
+  </button>
+
+  <button mat-icon-button (click)="toggleShowAllSymbols.emit()"
+    [class.active-toggle]="showAllSymbols()"
+    [matTooltip]="showAllSymbols() ? 'Signal symbols only' : 'Show all symbols'">
+    <mat-icon>{{ showAllSymbols() ? 'filter_list_off' : 'filter_list' }}</mat-icon>
+  </button>
+
+  <button mat-icon-button (click)="toggleExpandAll.emit()"
+    [matTooltip]="allExpanded() ? 'Collapse all' : 'Expand all'">
+    <mat-icon>{{ allExpanded() ? 'unfold_less' : 'unfold_more' }}</mat-icon>
+  </button>
+
+  <button mat-icon-button (click)="refresh.emit()" matTooltip="Refresh"
+    [disabled]="loading()">
+    <mat-icon>refresh</mat-icon>
+  </button>
+
+  <button mat-icon-button (click)="toggleFullscreen.emit()"
+    [matTooltip]="fullscreen() ? 'Exit fullscreen' : 'Fullscreen'">
+    <mat-icon>{{ fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
+  </button>
+</div>

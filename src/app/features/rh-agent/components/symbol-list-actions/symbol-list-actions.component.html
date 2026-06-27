@@ -1,0 +1,38 @@
+<div class="list-actions" (click)="$event.stopPropagation()">
+  <button type="button" class="acr-btn primary"
+    [class.active]="isInList(ListName.PRIMARY)"
+    (click)="toggleList.emit({ symbol: symbol(), listName: ListName.PRIMARY })"
+    matTooltip="Toggle primary list">
+    <mat-icon>star</mat-icon>
+  </button>
+  <button type="button" class="acr-btn secondary"
+    [class.active]="isInList(ListName.SECONDARY)"
+    (click)="toggleList.emit({ symbol: symbol(), listName: ListName.SECONDARY })"
+    matTooltip="Toggle secondary list">
+    <mat-icon>visibility</mat-icon>
+  </button>
+  <button type="button" class="acr-btn neutral"
+    [class.active]="isInList(ListName.NEUTRAL)"
+    (click)="toggleList.emit({ symbol: symbol(), listName: ListName.NEUTRAL })"
+    matTooltip="Toggle neutral list">
+    <mat-icon>remove_circle_outline</mat-icon>
+  </button>
+  <button type="button" class="acr-btn avoid"
+    [class.active]="isInList(ListName.AVOID)"
+    (click)="toggleList.emit({ symbol: symbol(), listName: ListName.AVOID })"
+    matTooltip="Toggle avoid list">
+    <mat-icon>trending_down</mat-icon>
+  </button>
+  <button type="button" class="acr-btn hide"
+    [class.active]="isInList(ListName.HIDE)"
+    (click)="toggleList.emit({ symbol: symbol(), listName: ListName.HIDE })"
+    matTooltip="Toggle hide list">
+    <mat-icon>block</mat-icon>
+  </button>
+  <button type="button" class="acr-btn monitor"
+    [class.active]="isInList(ListName.PAST_SIGNALS)"
+    (click)="monitor.emit(symbol())"
+    [matTooltip]="activeListFilter() === ListName.PAST_SIGNALS ? 'Stop monitoring' : 'Monitor'">
+    <mat-icon>{{ activeListFilter() === ListName.PAST_SIGNALS ? 'history_off' : 'history' }}</mat-icon>
+  </button>
+</div>

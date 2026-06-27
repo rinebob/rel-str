@@ -1,0 +1,26 @@
+<div class="status-summary">
+  @if (counts().REVIEW > 0) {
+    <span class="status-chip review">↑ {{ counts().REVIEW }}</span>
+  }
+  @if (counts().ACCEPT > 0) {
+    <span class="status-chip accept">✓ {{ counts().ACCEPT }}</span>
+  }
+  @if (counts().CONSIDER > 0) {
+    <span class="status-chip consider">? {{ counts().CONSIDER }}</span>
+  }
+  @if (counts().REJECT > 0) {
+    <span class="status-chip reject">✕ {{ counts().REJECT }}</span>
+  }
+  @if (counts().EXCLUDE > 0) {
+    <span class="status-chip exclude">✕ {{ counts().EXCLUDE }}</span>
+  }
+  @if (counts().LOW_TRADABILITY > 0) {
+    <span class="status-chip low-tradability">↓ {{ counts().LOW_TRADABILITY }}</span>
+  }
+  @if (counts().WATCH > 0) {
+    <span class="status-chip watch">👁 {{ counts().WATCH }}</span>
+  }
+  @if (counts().ELEVATE > 0) {
+    <span class="status-chip elevate">↑ {{ counts().ELEVATE }}</span>
+  }
+</div>

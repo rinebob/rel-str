@@ -20,22 +20,16 @@ import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatExpansionModule } from '@angular/material/expansion';
-import { MatBadgeModule } from '@angular/material/badge';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatSelectModule } from '@angular/material/select';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 
 import { RhAgentGroupStore, GroupDimension, RhSymbolGroup, RhSymbolRow } from '../../stores/rh-agent-group.store';
 import { RhAgentTriageStore } from '../../stores/rh-agent-triage.store';
 import { RhAgentSymbolListStore } from '../../stores/rh-agent-symbol-list.store';
-import { RhReviewStatus, RhSymbolListName, ALL_SYMBOL_LIST_NAMES } from '../../common/rh-agent.constants';
-import { RhAgentSignalItem } from '../../services/rh-agent.service';
-import { QuickChartsComponent } from '../../components/quick-charts/quick-charts.component';
+import { RhReviewStatus, RhSymbolListName } from '../../common/rh-agent.constants';
 import { UiStateService } from '../../../../core/services/ui-state.service';
+import { GroupedReviewHeaderComponent } from '../../components/grouped-review-header/grouped-review-header.component';
+import { GroupPanelComponent } from '../../components/group-panel/group-panel.component';
+import { QuickChartsPanelComponent } from '../../components/quick-charts-panel/quick-charts-panel.component';
 
 @Component({
   selector: 'app-rh-agent-grouped-review',
@@ -45,14 +39,9 @@ import { UiStateService } from '../../../../core/services/ui-state.service';
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
-    MatTooltipModule,
-    MatExpansionModule,
-    MatBadgeModule,
-    MatChipsModule,
-    MatSelectModule,
-    MatFormFieldModule,
-    FormsModule,
-    QuickChartsComponent,
+    GroupedReviewHeaderComponent,
+    GroupPanelComponent,
+    QuickChartsPanelComponent,
   ],
   templateUrl: './rh-agent-grouped-review.component.html',
   styleUrl: './rh-agent-grouped-review.component.scss',
@@ -64,29 +53,6 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
   readonly symbolListStore = inject(RhAgentSymbolListStore);
   readonly uiState = inject(UiStateService);
   private readonly router = inject(Router);
-
-  /** Expose list name enum to the template. */
-  readonly ListName = RhSymbolListName;
-  /** Expose review status enum to the template. */
-  readonly Status = RhReviewStatus;
-
-  /** Group dimension options for the pill toggle. */
-  readonly dimensionOptions: { value: GroupDimension; label: string }[] = [
-    { value: 'sector',        label: 'Sector' },
-    { value: 'industry',      label: 'Industry' },
-    { value: 'marketCapTier', label: 'Market Cap' },
-  ];
-
-  /** Symbol list filter options for the pill toggle. */
-  readonly listFilterOptions: { value: RhSymbolListName | 'ALL'; label: string }[] = [
-    { value: 'ALL',                       label: 'All' },
-    { value: RhSymbolListName.PRIMARY,    label: 'Primary' },
-    { value: RhSymbolListName.SECONDARY,  label: 'Secondary' },
-    { value: RhSymbolListName.NEUTRAL,    label: 'Neutral' },
-    { value: RhSymbolListName.AVOID,      label: 'Avoid' },
-    { value: RhSymbolListName.HIDE,       label: 'Hidden' },
-    { value: RhSymbolListName.PAST_SIGNALS, label: 'Monitor' },
-  ];
 
   /** Scroll container ref for scroll-into-view on navigation. */
   private readonly groupsPanel = viewChild<ElementRef>('groupsPanel');
@@ -130,35 +96,6 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
     return group.rows.filter((r) => r.hasSignal);
   }
 
-  /** Signal count in a group (regardless of fullGroup toggle). */
-  signalCount(group: RhSymbolGroup): number {
-    return group.rows.filter((r) => r.hasSignal).length;
-  }
-
-  /** Most recent signals for a row — shown as inline badges in the header. */
-  latestSignals(row: RhSymbolRow): RhAgentSignalItem[] {
-    if (!row.signals?.length) return [];
-    const latest = row.signals[0];
-    if (!this.isRecentSignalDate(latest.barDate)) return [];
-    return row.signals.filter((s) => s.barDate === latest.barDate);
-  }
-
-  private isRecentSignalDate(barDate: string): boolean {
-    const now = new Date();
-    const today = this.formatLocalDate(now);
-    const yesterday = new Date(now);
-    yesterday.setDate(now.getDate() - 1);
-    const yesterdayStr = this.formatLocalDate(yesterday);
-    return barDate === today || barDate === yesterdayStr;
-  }
-
-  private formatLocalDate(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-
   ngOnInit(): void {
     this.uiState.setFullscreen(true);
     this.triageStore.setMarketDate(this.groupStore.marketDate());
@@ -177,18 +114,12 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
     this.symbolListStore.setActiveListFilter(filter);
   }
 
-  isInList(symbol: string, listName: string | RhSymbolListName): boolean {
-    return (this.symbolListStore.symbolLists()[listName] ?? []).includes(symbol.toUpperCase());
+  onToggleList(event: { symbol: string; listName: RhSymbolListName }): void {
+    this.symbolListStore.toggleSymbolInList(event.symbol, event.listName);
   }
 
-  onToggleList(symbol: string, listName: string | RhSymbolListName, event: Event): void {
-    event.preventDefault();
-    event.stopPropagation();
-    this.symbolListStore.toggleSymbolInList(symbol, listName);
-  }
-
-  onSymbolClick(row: RhSymbolRow): void {
-    this.groupStore.selectSymbol(row.profile.symbol);
+  onSymbolClick(symbol: string): void {
+    this.groupStore.selectSymbol(symbol);
   }
 
   /** Tracks which groups have all symbol panels expanded. */
@@ -226,14 +157,13 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
     }
   }
 
-  onExpandAll(group: RhSymbolGroup, event: Event): void {
-    event.stopPropagation();
+  onExpandAll(event: { group: RhSymbolGroup; expand: boolean }): void {
     const current = this.expandedGroups();
-    const isExpanded = current[group.key] ?? false;
-    this.expandedGroups.set({ ...current, [group.key]: !isExpanded });
-    // Also trigger signal history loading for all symbols in the group
-    if (!isExpanded) {
-      for (const row of group.rows) {
+    const isExpanded = current[event.group.key] ?? false;
+    const nextExpand = event.expand;
+    this.expandedGroups.set({ ...current, [event.group.key]: nextExpand });
+    if (nextExpand && !isExpanded) {
+      for (const row of event.group.rows) {
         if (!row.signals) {
           this.groupStore.loadSignalHistory(row.profile.symbol);
         }
@@ -241,38 +171,27 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
     }
   }
 
-  onToggleFullGroup(groupKey: string, event: Event): void {
-    event.stopPropagation();
-    this.groupStore.toggleFullGroup(groupKey);
-  }
-
-  onMarkForReview(symbol: string, event: Event): void {
-    event.stopPropagation();
+  onMarkForReview(symbol: string): void {
     this.triageStore.markForReview(symbol);
   }
 
-  onAccept(symbol: string, event: Event): void {
-    event.stopPropagation();
+  onAccept(symbol: string): void {
     this.triageStore.acceptSymbol(symbol);
   }
 
-  onConsider(symbol: string, event: Event): void {
-    event.stopPropagation();
+  onConsider(symbol: string): void {
     this.triageStore.considerSymbol(symbol);
   }
 
-  onReject(symbol: string, event: Event): void {
-    event.stopPropagation();
+  onReject(symbol: string): void {
     this.triageStore.rejectSymbol(symbol);
   }
 
-  onReset(symbol: string, event: Event): void {
-    event.stopPropagation();
+  onReset(symbol: string): void {
     this.triageStore.resetSymbol(symbol);
   }
 
-  onMonitor(symbol: string, event: Event): void {
-    event.stopPropagation();
+  onMonitor(symbol: string): void {
     if (this.symbolListStore.activeListFilter() === RhSymbolListName.PAST_SIGNALS) {
       this.symbolListStore.removeSymbolFromList(symbol, RhSymbolListName.PAST_SIGNALS);
     } else {
@@ -280,20 +199,7 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
     }
   }
 
-  onMarkGroupForReview(group: RhSymbolGroup, event: Event): void {
-    event.stopPropagation();
-    const symbols = group.rows.filter((r) => r.hasSignal).map((r) => r.profile.symbol);
-    this.triageStore.setGroupStatus(symbols, RhReviewStatus.REVIEW);
-  }
-
-  onAcceptGroup(group: RhSymbolGroup, event: Event): void {
-    event.stopPropagation();
-    const symbols = group.rows.filter((r) => r.hasSignal).map((r) => r.profile.symbol);
-    this.triageStore.setGroupStatus(symbols, RhReviewStatus.ACCEPT);
-  }
-
-  onViewQuickCharts(symbol: string, event: Event): void {
-    event.stopPropagation();
+  onViewQuickCharts(symbol: string): void {
     const current = this.groupStore.quickChartSymbol();
     this.groupStore.setQuickChartSymbol(current === symbol ? null : symbol);
   }
@@ -316,18 +222,4 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
     this.router.navigate(['/rh-agent-triage-report']);
   }
 
-  /** Market cap tier display label. */
-  tierLabel(tier: string | undefined): string {
-    const map: Record<string, string> = {
-      mega: 'MEGA', large: 'LG', mid: 'MID', small: 'SM', micro: 'µ',
-    };
-    return tier ? (map[tier] ?? tier.toUpperCase()) : '';
-  }
-
-  /** Direction label from signal items. */
-  signalDirections(signals: RhAgentSignalItem[] | undefined): string {
-    if (!signals?.length) return '';
-    const dirs = [...new Set(signals.map((s) => s.direction))];
-    return dirs.join('/');
-  }
 }

@@ -1,0 +1,20 @@
+<div class="symbol-signal-history">
+  @let signals = row().signals;
+  @if (row().signalsLoading || signals === undefined) {
+    <mat-spinner diameter="16"></mat-spinner>
+  } @else if (signals.length === 0) {
+    <span class="no-signals">No signal history found</span>
+  } @else {
+    @for (sig of signals; track $index) {
+      <div class="signal-history-row">
+        <span class="sh-date">{{ sig.barDate }}</span>
+        <span class="sh-tf">{{ sig.timeframe }}</span>
+        <span class="sh-type">{{ sig.signalType }}</span>
+        <span class="sh-dir dir-{{ sig.direction.toLowerCase() }}">{{ sig.direction }}</span>
+        @if (sig.status === 'INTERIM') {
+          <span class="sh-status-interim">INTERIM</span>
+        }
+      </div>
+    }
+  }
+</div>

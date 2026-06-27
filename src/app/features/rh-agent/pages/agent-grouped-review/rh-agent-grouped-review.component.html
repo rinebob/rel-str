@@ -1,150 +1,42 @@
 <div class="grouped-review" [class.fullscreen]="uiState.fullscreen()">
 
-  <!-- ── Header ─────────────────────────────────────────────────────────── -->
-  <div class="gr-header">
-    <button mat-icon-button class="back-btn" (click)="goBack()" matTooltip="Back">
-      <mat-icon>arrow_back</mat-icon>
-    </button>
+  <app-grouped-review-header
+    [totalSignalCount]="groupStore.totalSignalCount()"
+    [weeklySignalCount]="groupStore.weeklySignalCount()"
+    [dailySignalCount]="groupStore.dailySignalCount()"
+    [longCount]="groupStore.longCount()"
+    [shortCount]="groupStore.shortCount()"
+    [statusCounts]="groupStore.statusCounts()"
+    [reviewCount]="triageStore.reviewCount()"
+    [acceptedCount]="triageStore.acceptedCount()"
+    [groupDimension]="groupStore.groupDimension()"
+    [activeListFilter]="symbolListStore.activeListFilter()"
+    [showAllSymbols]="groupStore.showAllSymbols()"
+    [allExpanded]="allExpanded()"
+    [fullscreen]="uiState.fullscreen()"
+    [loading]="groupStore.symbolsLoading()"
+    [quickChartSymbol]="groupStore.quickChartSymbol()"
+    [flatSymbols]="flatSymbols()"
+    (back)="goBack()"
+    (goToReview)="goToReview()"
+    (goToOrder)="goToOrder()"
+    (goToTriageReport)="goToTriageReport()"
+    (dimensionChange)="onDimension($event)"
+    (listFilterChange)="onListFilter($event)"
+    (prev)="navigatePrev()"
+    (next)="navigateNext()"
+    (toggleShowAllSymbols)="groupStore.toggleShowAllSymbols()"
+    (toggleExpandAll)="toggleExpandAll()"
+    (refresh)="groupStore.loadSymbolsWithSignals()"
+    (toggleFullscreen)="uiState.toggleFullscreen()">
+  </app-grouped-review-header>
 
-    <h1 class="gr-title">
-      <mat-icon>psychology</mat-icon>
-      Grouped Review
-    </h1>
-
-    <!-- Signal counts (informational, not filters) -->
-    <div class="signal-counts">
-      <span class="signal-count">{{ groupStore.totalSignalCount() }} symbols</span>
-      <span class="signal-count tf-badge">W {{ groupStore.weeklySignalCount() }}</span>
-      <span class="signal-count tf-badge">D {{ groupStore.dailySignalCount() }}</span>
-    </div>
-
-    @if (groupStore.longCount() > 0 || groupStore.shortCount() > 0) {
-      <div class="dir-counts">
-        <span class="dir-count long">↑ {{ groupStore.longCount() }}</span>
-        <span class="dir-count short">↓ {{ groupStore.shortCount() }}</span>
-      </div>
-    }
-
-    <!-- Status summary chips -->
-    <div class="status-summary">
-      @if (groupStore.statusCounts().REVIEW > 0) {
-        <span class="status-chip review">↑ {{ groupStore.statusCounts().REVIEW }}</span>
-      }
-      @if (groupStore.statusCounts().ACCEPT > 0) {
-        <span class="status-chip accept">✓ {{ groupStore.statusCounts().ACCEPT }}</span>
-      }
-      @if (groupStore.statusCounts().CONSIDER > 0) {
-        <span class="status-chip consider">? {{ groupStore.statusCounts().CONSIDER }}</span>
-      }
-      @if (groupStore.statusCounts().REJECT > 0) {
-        <span class="status-chip reject">✕ {{ groupStore.statusCounts().REJECT }}</span>
-      }
-      @if (groupStore.statusCounts().EXCLUDE > 0) {
-        <span class="status-chip exclude">✕ {{ groupStore.statusCounts().EXCLUDE }}</span>
-      }
-      @if (groupStore.statusCounts().LOW_TRADABILITY > 0) {
-        <span class="status-chip low-tradability">↓ {{ groupStore.statusCounts().LOW_TRADABILITY }}</span>
-      }
-      @if (groupStore.statusCounts().WATCH > 0) {
-        <span class="status-chip watch">👁 {{ groupStore.statusCounts().WATCH }}</span>
-      }
-      @if (groupStore.statusCounts().ELEVATE > 0) {
-        <span class="status-chip elevate">↑ {{ groupStore.statusCounts().ELEVATE }}</span>
-      }
-    </div>
-
-    <div class="header-spacer"></div>
-
-    <!-- Pipeline navigation -->
-    <div class="pipeline-actions">
-      <button type="button" class="pill-btn review"
-        [disabled]="triageStore.reviewCount() === 0"
-        (click)="goToReview()"
-        matTooltip="Review symbols">
-        <mat-icon>visibility</mat-icon>
-        Review <span class="pill-count">{{ triageStore.reviewCount() }}</span>
-      </button>
-      <button type="button" class="pill-btn accept"
-        [disabled]="triageStore.acceptedCount() === 0"
-        (click)="goToOrder()"
-        matTooltip="Order accepted symbols">
-        <mat-icon>account_balance</mat-icon>
-        Order <span class="pill-count">{{ triageStore.acceptedCount() }}</span>
-      </button>
-      <button type="button" class="pill-btn"
-        (click)="goToTriageReport()"
-        matTooltip="View PACR triage report">
-        <mat-icon>assignment</mat-icon>
-        Report
-      </button>
-    </div>
-
-    <!-- Group dimension selector -->
-    <mat-form-field appearance="outline" class="header-select" subscriptSizing="dynamic">
-      <mat-label>Select group</mat-label>
-      <mat-select [value]="groupStore.groupDimension()" (valueChange)="onDimension($event)">
-        @for (opt of dimensionOptions; track opt.value) {
-          <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-        }
-      </mat-select>
-    </mat-form-field>
-
-    <!-- Symbol list filter selector -->
-    <mat-form-field appearance="outline" class="header-select" subscriptSizing="dynamic">
-      <mat-label>Select list</mat-label>
-      <mat-select [value]="symbolListStore.activeListFilter()" (valueChange)="onListFilter($event)">
-        @for (opt of listFilterOptions; track opt.value) {
-          <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-        }
-      </mat-select>
-    </mat-form-field>
-
-    <!-- Prev / Next symbol navigation -->
-    <button mat-icon-button (click)="navigatePrev()"
-      [disabled]="!groupStore.quickChartSymbol() || flatSymbols().indexOf(groupStore.quickChartSymbol()!) <= 0"
-      matTooltip="Previous symbol">
-      <mat-icon>chevron_left</mat-icon>
-    </button>
-    <button mat-icon-button (click)="navigateNext()"
-      [disabled]="!groupStore.quickChartSymbol() || flatSymbols().indexOf(groupStore.quickChartSymbol()!) >= flatSymbols().length - 1"
-      matTooltip="Next symbol">
-      <mat-icon>chevron_right</mat-icon>
-    </button>
-
-    <!-- Show all symbols toggle -->
-    <button mat-icon-button (click)="groupStore.toggleShowAllSymbols()"
-      [class.active-toggle]="groupStore.showAllSymbols()"
-      [matTooltip]="groupStore.showAllSymbols() ? 'Signal symbols only' : 'Show all symbols'">
-      <mat-icon>{{ groupStore.showAllSymbols() ? 'filter_list_off' : 'filter_list' }}</mat-icon>
-    </button>
-
-    <!-- Expand all -->
-    <button mat-icon-button (click)="toggleExpandAll()"
-      [matTooltip]="allExpanded() ? 'Collapse all' : 'Expand all'">
-      <mat-icon>{{ allExpanded() ? 'unfold_less' : 'unfold_more' }}</mat-icon>
-    </button>
-
-    <!-- Refresh -->
-    <button mat-icon-button (click)="groupStore.loadSymbolsWithSignals()" matTooltip="Refresh"
-      [disabled]="groupStore.symbolsLoading()">
-      <mat-icon>refresh</mat-icon>
-    </button>
-
-    <!-- Fullscreen -->
-    <button mat-icon-button (click)="uiState.toggleFullscreen()"
-      [matTooltip]="uiState.fullscreen() ? 'Exit fullscreen' : 'Fullscreen'">
-      <mat-icon>{{ uiState.fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
-    </button>
-  </div>
-
-  <!-- ── Loading ─────────────────────────────────────────────────────────── -->
   @if (groupStore.symbolsLoading()) {
     <div class="loading-overlay">
       <mat-spinner diameter="32"></mat-spinner>
     </div>
   }
 
-  <!-- ── Error ───────────────────────────────────────────────────────────── -->
   @if (groupStore.symbolsError()) {
     <div class="error-state">
       <mat-icon>error_outline</mat-icon>
@@ -153,11 +45,8 @@
     </div>
   }
 
-  <!-- ── Main layout ─────────────────────────────────────────────────────── -->
   @if (!groupStore.symbolsLoading() && !groupStore.symbolsError()) {
     <div class="gr-body">
-
-      <!-- ── Group expansion panels ──────────────────────────────────────── -->
       <div class="groups-panel has-charts" #groupsPanel>
         @if (groupStore.groups().length === 0) {
           <div class="empty-state">
@@ -167,230 +56,34 @@
           </div>
         }
 
-        <mat-accordion [multi]="true">
-          @for (group of groupStore.groups(); track group.key) {
-            <mat-expansion-panel class="group-panel" [expanded]="allExpanded()" (opened)="onGroupOpened(group)">
-
-              <!-- Sector panel header -->
-              <mat-expansion-panel-header class="group-header">
-                <mat-panel-title class="group-title">
-                  <span class="group-key">{{ group.key }}</span>
-                  <span class="group-summary">
-                    {{ signalCount(group) }} symbols
-                    @if (group.longCount > 0) {
-                      <span class="grp-dir long">↑ {{ group.longCount }} long</span>
-                    }
-                    @if (group.shortCount > 0) {
-                      <span class="grp-dir short">↓ {{ group.shortCount }} short</span>
-                    }
-                  </span>
-                  <button mat-icon-button class="expand-all-btn"
-                    (click)="onExpandAll(group, $event)"
-                    [matTooltip]="isGroupExpanded(group.key) ? 'Collapse all' : 'Expand all'">
-                    <mat-icon>{{ isGroupExpanded(group.key) ? 'unfold_less' : 'unfold_more' }}</mat-icon>
-                  </button>
-                </mat-panel-title>
-              </mat-expansion-panel-header>
-
-              <!-- Symbol sub-panels -->
-              <mat-accordion [multi]="true" class="symbol-accordion">
-                @for (row of visibleRows(group); track row.profile.symbol) {
-                  <mat-expansion-panel
-                    class="symbol-panel"
-                    [attr.data-symbol]="row.profile.symbol"
-                    [class.active-chart]="groupStore.quickChartSymbol() === row.profile.symbol"
-                    [class.symbol-selected]="groupStore.selectedSymbol() === row.profile.symbol"
-                    [class.has-signal]="row.hasSignal"
-                    [expanded]="isGroupExpanded(group.key)"
-                    [class.status-review]="row.reviewStatus === Status.REVIEW"
-                    [class.status-accept]="row.reviewStatus === Status.ACCEPT"
-                    [class.status-consider]="row.reviewStatus === Status.CONSIDER"
-                    [class.status-reject]="row.reviewStatus === Status.REJECT"
-                    [class.status-exclude]="row.reviewStatus === Status.EXCLUDE"
-                    [class.status-low-tradability]="row.reviewStatus === Status.LOW_TRADABILITY"
-                    [class.status-watch]="row.reviewStatus === Status.WATCH"
-                    [class.status-elevate]="row.reviewStatus === Status.ELEVATE"
-                    (opened)="onSymbolClick(row)">
-
-                    <!-- Symbol panel header -->
-                    <mat-expansion-panel-header class="symbol-header">
-                      <div class="symbol-header-content">
-
-                        <!-- Row 1: ticker + today's signals + charts + ACR -->
-                        <div class="symbol-row-main">
-                          <span class="symbol-ticker">{{ row.profile.symbol }}</span>
-
-                          <!-- Today's signal badges -->
-                          <div class="symbol-signals-today">
-                            @for (sig of latestSignals(row); track sig.signalType) {
-                              <span class="badge dir dir-{{ sig.direction.toLowerCase() }}" matTooltip="{{ sig.signalType }}">
-                                {{ sig.direction }}
-                              </span>
-                            }
-                            @if (row.hasSignal && !latestSignals(row).length) {
-                              <span class="badge sig-pending">signal</span>
-                            }
-                          </div>
-
-                          <div class="symbol-spacer"></div>
-
-                          <!-- View quick charts button -->
-                          <button type="button" class="quick-charts-btn"
-                            [class.active]="groupStore.quickChartSymbol() === row.profile.symbol"
-                            (click)="onViewQuickCharts(row.profile.symbol, $event)"
-                            matTooltip="View quick charts">
-                            <mat-icon>bar_chart</mat-icon>
-                            Charts
-                          </button>
-
-                          <!-- ACR actions -->
-                          <div class="acr-actions" (click)="$event.stopPropagation()">
-                            <button type="button" class="acr-btn review"
-                              [class.active]="row.reviewStatus === Status.REVIEW"
-                              (click)="onMarkForReview(row.profile.symbol, $event)"
-                              matTooltip="Review">
-                              <mat-icon>bookmark_border</mat-icon>
-                            </button>
-                            <button type="button" class="acr-btn accept"
-                              [class.active]="row.reviewStatus === Status.ACCEPT"
-                              (click)="onAccept(row.profile.symbol, $event)"
-                              matTooltip="Accept">
-                              <mat-icon>check</mat-icon>
-                            </button>
-                            <button type="button" class="acr-btn consider"
-                              [class.active]="row.reviewStatus === Status.CONSIDER"
-                              (click)="onConsider(row.profile.symbol, $event)"
-                              matTooltip="Consider">
-                              <mat-icon>help_outline</mat-icon>
-                            </button>
-                            <button type="button" class="acr-btn reject"
-                              [class.active]="row.reviewStatus === Status.REJECT"
-                              (click)="onReject(row.profile.symbol, $event)"
-                              matTooltip="Reject">
-                              <mat-icon>close</mat-icon>
-                            </button>
-                            <button type="button" class="acr-btn reset"
-                              [class.active]="row.reviewStatus === Status.PENDING"
-                              [disabled]="row.reviewStatus === Status.PENDING"
-                              (click)="onReset(row.profile.symbol, $event)"
-                              matTooltip="Reset to pending">
-                              <mat-icon>undo</mat-icon>
-                            </button>
-                            <button type="button" class="acr-btn primary"
-                              [class.active]="isInList(row.profile.symbol, ListName.PRIMARY)"
-                              (click)="onToggleList(row.profile.symbol, ListName.PRIMARY, $event)"
-                              matTooltip="Toggle primary list">
-                              <mat-icon>star</mat-icon>
-                            </button>
-                            <button type="button" class="acr-btn secondary"
-                              [class.active]="isInList(row.profile.symbol, ListName.SECONDARY)"
-                              (click)="onToggleList(row.profile.symbol, ListName.SECONDARY, $event)"
-                              matTooltip="Toggle secondary list">
-                              <mat-icon>visibility</mat-icon>
-                            </button>
-                            <button type="button" class="acr-btn neutral"
-                              [class.active]="isInList(row.profile.symbol, ListName.NEUTRAL)"
-                              (click)="onToggleList(row.profile.symbol, ListName.NEUTRAL, $event)"
-                              matTooltip="Toggle neutral list">
-                              <mat-icon>remove_circle_outline</mat-icon>
-                            </button>
-                            <button type="button" class="acr-btn avoid"
-                              [class.active]="isInList(row.profile.symbol, ListName.AVOID)"
-                              (click)="onToggleList(row.profile.symbol, ListName.AVOID, $event)"
-                              matTooltip="Toggle avoid list">
-                              <mat-icon>trending_down</mat-icon>
-                            </button>
-                            <button type="button" class="acr-btn hide"
-                              [class.active]="isInList(row.profile.symbol, ListName.HIDE)"
-                              (click)="onToggleList(row.profile.symbol, ListName.HIDE, $event)"
-                              matTooltip="Toggle hide list">
-                              <mat-icon>block</mat-icon>
-                            </button>
-                            <button type="button" class="acr-btn monitor"
-                              [class.active]="isInList(row.profile.symbol, ListName.PAST_SIGNALS)"
-                              (click)="onMonitor(row.profile.symbol, $event)"
-                              [matTooltip]="symbolListStore.activeListFilter() === ListName.PAST_SIGNALS ? 'Stop monitoring' : 'Monitor'">
-                              <mat-icon>{{ symbolListStore.activeListFilter() === ListName.PAST_SIGNALS ? 'history_off' : 'history' }}</mat-icon>
-                            </button>
-                          </div>
-                        </div>
-
-                        <!-- Row 2: company name + financials inline -->
-                        <div class="symbol-row-meta">
-                          @if (row.profile.name) {
-                            <span class="symbol-name">{{ row.profile.name }}</span>
-                          }
-                          @if (row.profile.sector) {
-                            <span class="meta-field">{{ row.profile.sector }}</span>
-                          }
-                          @if (row.profile.exchange) {
-                            <span class="meta-sep">·</span>
-                            <span class="meta-field">{{ row.profile.exchange }}</span>
-                          }
-                          @if (row.profile.marketCapTier) {
-                            <span class="meta-sep">·</span>
-                            <span class="badge tier tier-{{ row.profile.marketCapTier }}">{{ tierLabel(row.profile.marketCapTier) }}</span>
-                          }
-                          @if (row.profile.beta != null) {
-                            <span class="meta-sep">·</span>
-                            <span class="meta-field">β {{ row.profile.beta | number:'1.2-2' }}</span>
-                          }
-                          @if (row.profile.peRatio != null) {
-                            <span class="meta-sep">·</span>
-                            <span class="meta-field">P/E {{ row.profile.peRatio | number:'1.1-1' }}</span>
-                          }
-                        </div>
-
-                      </div>
-                    </mat-expansion-panel-header>
-
-                    <!-- Symbol expansion body: signal history -->
-                    <div class="symbol-signal-history">
-                      @if (row.signalsLoading || row.signals === undefined) {
-                        <mat-spinner diameter="16"></mat-spinner>
-                      } @else if (row.signals.length === 0) {
-                        <span class="no-signals">No signal history found</span>
-                      } @else {
-                        @for (sig of row.signals; track $index) {
-                          <div class="signal-history-row">
-                            <span class="sh-date">{{ sig.barDate }}</span>
-                            <span class="sh-tf">{{ sig.timeframe }}</span>
-                            <span class="sh-type">{{ sig.signalType }}</span>
-                            <span class="sh-dir dir-{{ sig.direction.toLowerCase() }}">{{ sig.direction }}</span>
-                            @if (sig.status === 'INTERIM') {
-                              <span class="sh-status-interim">INTERIM</span>
-                            }
-                          </div>
-                        }
-                      }
-                    </div>
-
-                  </mat-expansion-panel>
-                }
-              </mat-accordion>
-
-            </mat-expansion-panel>
-          }
-        </mat-accordion>
+        @for (group of groupStore.groups(); track group.key) {
+          <app-group-panel
+            [group]="group"
+            [expanded]="isGroupExpanded(group.key)"
+            [visibleRows]="visibleRows(group)"
+            [symbolLists]="symbolListStore.symbolLists()"
+            [activeListFilter]="symbolListStore.activeListFilter()"
+            [selectedSymbol]="groupStore.selectedSymbol()"
+            [quickChartSymbol]="groupStore.quickChartSymbol()"
+            (opened)="onGroupOpened(group)"
+            (expandAll)="onExpandAll($event)"
+            (rowSelect)="onSymbolClick($event)"
+            (rowViewQuickCharts)="onViewQuickCharts($event)"
+            (rowMarkForReview)="onMarkForReview($event)"
+            (rowAccept)="onAccept($event)"
+            (rowConsider)="onConsider($event)"
+            (rowReject)="onReject($event)"
+            (rowReset)="onReset($event)"
+            (rowToggleList)="onToggleList($event)"
+            (rowMonitor)="onMonitor($event)">
+          </app-group-panel>
+        }
       </div>
 
-      <!-- ── Quick charts right panel ────────────────────────────────────── -->
-      <div class="quick-charts-panel">
-        <div class="qcp-body">
-          @if (groupStore.quickChartSymbol()) {
-            <button type="button" class="qcp-close" (click)="groupStore.setQuickChartSymbol(null)" matTooltip="Close">
-              <mat-icon>close</mat-icon>
-            </button>
-            <app-quick-charts [symbol]="groupStore.quickChartSymbol()"></app-quick-charts>
-          } @else {
-            <div class="qcp-placeholder">
-              <mat-icon>bar_chart</mat-icon>
-              <p>Select a symbol to view signal charts</p>
-            </div>
-          }
-        </div>
-      </div>
-
+      <app-quick-charts-panel
+        [symbol]="groupStore.quickChartSymbol()"
+        (close)="groupStore.setQuickChartSymbol(null)">
+      </app-quick-charts-panel>
     </div>
   }
 

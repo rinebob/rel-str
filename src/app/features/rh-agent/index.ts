@@ -53,6 +53,15 @@ export { RhAgentSymbolMetaService, RhSymbolMeta, RhSymbolMetaInput } from './ser
 export { RhAgentSymbolListService, RhSymbolList } from './services/rh-agent-symbol-list.service';
 
 // Components
+export { GroupedReviewHeaderComponent } from './components/grouped-review-header/grouped-review-header.component';
+export { GroupPanelComponent } from './components/group-panel/group-panel.component';
+export { SymbolRowComponent } from './components/symbol-row/symbol-row.component';
+export { SymbolSignalHistoryComponent } from './components/symbol-signal-history/symbol-signal-history.component';
+export { SymbolAcrActionsComponent } from './components/symbol-acr-actions/symbol-acr-actions.component';
+export { SymbolListActionsComponent } from './components/symbol-list-actions/symbol-list-actions.component';
+export { StatusSummaryChipsComponent } from './components/status-summary-chips/status-summary-chips.component';
+export { QuickChartsPanelComponent } from './components/quick-charts-panel/quick-charts-panel.component';
+
 export { RhAgentDashboardComponent } from './pages/agent-dashboard/rh-agent-dashboard.component';
 export { RhAgentGroupedReviewComponent } from './pages/agent-grouped-review/rh-agent-grouped-review.component';
 export { RhAgentReviewComponent } from './pages/agent-review/rh-agent-review.component';

@@ -1,0 +1,45 @@
+<mat-expansion-panel class="group-panel" [expanded]="expanded()" (opened)="opened.emit()">
+
+  <mat-expansion-panel-header class="group-header">
+    <mat-panel-title class="group-title">
+      <span class="group-key">{{ group().key }}</span>
+      <span class="group-summary">
+        {{ group().rows.filter(r => r.hasSignal).length }} symbols
+        @if (group().longCount > 0) {
+          <span class="grp-dir long">↑ {{ group().longCount }} long</span>
+        }
+        @if (group().shortCount > 0) {
+          <span class="grp-dir short">↓ {{ group().shortCount }} short</span>
+        }
+      </span>
+
+      <button mat-icon-button class="expand-all-btn"
+        (click)="onExpandAll($event)"
+        [matTooltip]="expanded() ? 'Collapse all' : 'Expand all'">
+        <mat-icon>{{ expanded() ? 'unfold_less' : 'unfold_more' }}</mat-icon>
+      </button>
+    </mat-panel-title>
+  </mat-expansion-panel-header>
+
+  <mat-accordion [multi]="true" class="symbol-accordion">
+    @for (row of visibleRows(); track row.profile.symbol) {
+      <app-symbol-row
+        [row]="row"
+        [isSelected]="selectedSymbol() === row.profile.symbol"
+        [isChartActive]="quickChartSymbol() === row.profile.symbol"
+        [expanded]="expanded()"
+        [symbolLists]="symbolLists()"
+        [activeListFilter]="activeListFilter()"
+        (select)="rowSelect.emit(row.profile.symbol)"
+        (viewQuickCharts)="rowViewQuickCharts.emit($event)"
+        (markForReview)="rowMarkForReview.emit($event)"
+        (accept)="rowAccept.emit($event)"
+        (consider)="rowConsider.emit($event)"
+        (reject)="rowReject.emit($event)"
+        (reset)="rowReset.emit($event)"
+        (toggleList)="rowToggleList.emit($event)"
+        (monitor)="rowMonitor.emit($event)">
+      </app-symbol-row>
+    }
+  </mat-accordion>
+</mat-expansion-panel>

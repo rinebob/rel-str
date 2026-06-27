@@ -1,0 +1,92 @@
+<mat-expansion-panel
+  class="symbol-panel"
+  [attr.data-symbol]="row().profile.symbol"
+  [class.active-chart]="isChartActive()"
+  [class.symbol-selected]="isSelected()"
+  [class.has-signal]="row().hasSignal"
+  [expanded]="expanded()"
+  [class.status-review]="row().reviewStatus === Status.REVIEW"
+  [class.status-accept]="row().reviewStatus === Status.ACCEPT"
+  [class.status-consider]="row().reviewStatus === Status.CONSIDER"
+  [class.status-reject]="row().reviewStatus === Status.REJECT"
+  [class.status-exclude]="row().reviewStatus === Status.EXCLUDE"
+  [class.status-low-tradability]="row().reviewStatus === Status.LOW_TRADABILITY"
+  [class.status-watch]="row().reviewStatus === Status.WATCH"
+  [class.status-elevate]="row().reviewStatus === Status.ELEVATE"
+  (opened)="select.emit()">
+
+  <mat-expansion-panel-header class="symbol-header">
+    <div class="symbol-header-content">
+
+      <div class="symbol-row-main">
+        <span class="symbol-ticker">{{ row().profile.symbol }}</span>
+
+        <div class="symbol-signals-today">
+          @for (sig of latestSignals(row()); track sig.signalType) {
+            <span class="badge dir dir-{{ sig.direction.toLowerCase() }}" matTooltip="{{ sig.signalType }}">
+              {{ sig.direction }}
+            </span>
+          }
+          @if (row().hasSignal && !latestSignals(row()).length) {
+            <span class="badge sig-pending">signal</span>
+          }
+        </div>
+
+        <div class="symbol-spacer"></div>
+
+        <button type="button" class="quick-charts-btn"
+          [class.active]="isChartActive()"
+          (click)="viewQuickCharts.emit(row().profile.symbol); $event.stopPropagation()"
+          matTooltip="View quick charts">
+          <mat-icon>bar_chart</mat-icon>
+          Charts
+        </button>
+
+        <app-symbol-acr-actions
+          [row]="row()"
+          (markForReview)="markForReview.emit($event)"
+          (accept)="accept.emit($event)"
+          (consider)="consider.emit($event)"
+          (reject)="reject.emit($event)"
+          (reset)="reset.emit($event)">
+        </app-symbol-acr-actions>
+
+        <app-symbol-list-actions
+          [symbol]="row().profile.symbol"
+          [symbolLists]="symbolLists()"
+          [activeListFilter]="activeListFilter()"
+          (toggleList)="toggleList.emit($event)"
+          (monitor)="monitor.emit($event)">
+        </app-symbol-list-actions>
+      </div>
+
+      <div class="symbol-row-meta">
+        @if (row().profile.name) {
+          <span class="symbol-name">{{ row().profile.name }}</span>
+        }
+        @if (row().profile.sector) {
+          <span class="meta-field">{{ row().profile.sector }}</span>
+        }
+        @if (row().profile.exchange) {
+          <span class="meta-sep">·</span>
+          <span class="meta-field">{{ row().profile.exchange }}</span>
+        }
+        @if (row().profile.marketCapTier) {
+          <span class="meta-sep">·</span>
+          <span class="badge tier tier-{{ row().profile.marketCapTier }}">{{ tierLabel(row().profile.marketCapTier) }}</span>
+        }
+        @if (row().profile.beta != null) {
+          <span class="meta-sep">·</span>
+          <span class="meta-field">β {{ row().profile.beta | number:'1.2-2' }}</span>
+        }
+        @if (row().profile.peRatio != null) {
+          <span class="meta-sep">·</span>
+          <span class="meta-field">P/E {{ row().profile.peRatio | number:'1.1-1' }}</span>
+        }
+      </div>
+
+    </div>
+  </mat-expansion-panel-header>
+
+  <app-symbol-signal-history [row]="row()"></app-symbol-signal-history>
+</mat-expansion-panel>
