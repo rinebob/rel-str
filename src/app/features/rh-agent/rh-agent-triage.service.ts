@@ -1,7 +1,7 @@
 /**
  * RH Agent Triage Service
  *
- * Persists PACR (Promote / Accept / Consider / Reject / Exclude / etc.)
+ * Persists RACR (Review / Accept / Consider / Reject / Exclude / etc.)
  * decisions to Firestore under the `rh-agent-triage-decisions` collection.
  *
  * One document per symbol per market date. The store is the in-memory source

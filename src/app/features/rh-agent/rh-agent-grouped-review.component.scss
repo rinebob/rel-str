@@ -172,7 +172,7 @@
     cursor: not-allowed;
   }
 
-  &.promote {
+  &.review {
     &:hover:not(:disabled) { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); border-color: var(--mat-sys-tertiary); }
   }
   &.accept {
@@ -196,7 +196,7 @@
   padding: 2px 6px;
   border-radius: 8px;
 
-  &.promote  { background: var(--mat-sys-tertiary-container);  color: var(--mat-sys-on-tertiary-container); }
+  &.review   { background: var(--mat-sys-tertiary-container);  color: var(--mat-sys-on-tertiary-container); }
   &.accept   { background: #1b5e2033; color: #1b5e20; }
   &.consider { background: var(--mat-sys-secondary-container); color: var(--mat-sys-on-secondary-container); }
   &.reject   { background: var(--mat-sys-error-container);     color: var(--mat-sys-on-error-container); }

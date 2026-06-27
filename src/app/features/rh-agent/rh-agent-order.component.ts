@@ -27,6 +27,7 @@ import { Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 
 import { RhAgentTriageStore } from './rh-agent-triage.store';
+import { RhReviewStatus } from './common/rh-agent.constants';
 import {
   RhAgentService,
   RhAgentSignalItem,
@@ -158,7 +159,7 @@ export class RhAgentOrderComponent implements OnInit {
   }
 
   removeSymbol(symbol: string): void {
-    this.triageStore.setStatus(symbol, 'PROMOTE');
+    this.triageStore.setStatus(symbol, RhReviewStatus.REVIEW);
     this.tradeRows.update((rows) => rows.filter((r) => r.symbol !== symbol));
   }
 

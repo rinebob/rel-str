@@ -27,8 +27,8 @@
 
     <!-- Status summary chips -->
     <div class="status-summary">
-      @if (groupStore.statusCounts().PROMOTE > 0) {
-        <span class="status-chip promote">↑ {{ groupStore.statusCounts().PROMOTE }}</span>
+      @if (groupStore.statusCounts().REVIEW > 0) {
+        <span class="status-chip review">↑ {{ groupStore.statusCounts().REVIEW }}</span>
       }
       @if (groupStore.statusCounts().ACCEPT > 0) {
         <span class="status-chip accept">✓ {{ groupStore.statusCounts().ACCEPT }}</span>
@@ -57,12 +57,12 @@
 
     <!-- Pipeline navigation -->
     <div class="pipeline-actions">
-      <button type="button" class="pill-btn promote"
-        [disabled]="triageStore.promotedCount() === 0"
+      <button type="button" class="pill-btn review"
+        [disabled]="triageStore.reviewCount() === 0"
         (click)="goToReview()"
-        matTooltip="Review promoted symbols">
+        matTooltip="Review symbols">
         <mat-icon>visibility</mat-icon>
-        Review <span class="pill-count">{{ triageStore.promotedCount() }}</span>
+        Review <span class="pill-count">{{ triageStore.reviewCount() }}</span>
       </button>
       <button type="button" class="pill-btn accept"
         [disabled]="triageStore.acceptedCount() === 0"
@@ -202,14 +202,14 @@
                     [class.symbol-selected]="groupStore.selectedSymbol() === row.profile.symbol"
                     [class.has-signal]="row.hasSignal"
                     [expanded]="isGroupExpanded(group.key)"
-                    [class.status-promote]="row.reviewStatus === 'PROMOTE'"
-                    [class.status-accept]="row.reviewStatus === 'ACCEPT'"
-                    [class.status-consider]="row.reviewStatus === 'CONSIDER'"
-                    [class.status-reject]="row.reviewStatus === 'REJECT'"
-                    [class.status-exclude]="row.reviewStatus === 'EXCLUDE'"
-                    [class.status-low-tradability]="row.reviewStatus === 'LOW_TRADABILITY'"
-                    [class.status-watch]="row.reviewStatus === 'WATCH'"
-                    [class.status-elevate]="row.reviewStatus === 'ELEVATE'"
+                    [class.status-review]="row.reviewStatus === Status.REVIEW"
+                    [class.status-accept]="row.reviewStatus === Status.ACCEPT"
+                    [class.status-consider]="row.reviewStatus === Status.CONSIDER"
+                    [class.status-reject]="row.reviewStatus === Status.REJECT"
+                    [class.status-exclude]="row.reviewStatus === Status.EXCLUDE"
+                    [class.status-low-tradability]="row.reviewStatus === Status.LOW_TRADABILITY"
+                    [class.status-watch]="row.reviewStatus === Status.WATCH"
+                    [class.status-elevate]="row.reviewStatus === Status.ELEVATE"
                     (opened)="onSymbolClick(row)">
 
                     <!-- Symbol panel header -->
@@ -246,32 +246,32 @@
                           <!-- ACR actions -->
                           <div class="acr-actions" (click)="$event.stopPropagation()">
                             <button type="button" class="acr-btn review"
-                              [class.active]="row.reviewStatus === 'PROMOTE'"
-                              (click)="onPromote(row.profile.symbol, $event)"
+                              [class.active]="row.reviewStatus === Status.REVIEW"
+                              (click)="onMarkForReview(row.profile.symbol, $event)"
                               matTooltip="Review">
                               <mat-icon>bookmark_border</mat-icon>
                             </button>
                             <button type="button" class="acr-btn accept"
-                              [class.active]="row.reviewStatus === 'ACCEPT'"
+                              [class.active]="row.reviewStatus === Status.ACCEPT"
                               (click)="onAccept(row.profile.symbol, $event)"
                               matTooltip="Accept">
                               <mat-icon>check</mat-icon>
                             </button>
                             <button type="button" class="acr-btn consider"
-                              [class.active]="row.reviewStatus === 'CONSIDER'"
+                              [class.active]="row.reviewStatus === Status.CONSIDER"
                               (click)="onConsider(row.profile.symbol, $event)"
                               matTooltip="Consider">
                               <mat-icon>help_outline</mat-icon>
                             </button>
                             <button type="button" class="acr-btn reject"
-                              [class.active]="row.reviewStatus === 'REJECT'"
+                              [class.active]="row.reviewStatus === Status.REJECT"
                               (click)="onReject(row.profile.symbol, $event)"
                               matTooltip="Reject">
                               <mat-icon>close</mat-icon>
                             </button>
                             <button type="button" class="acr-btn reset"
-                              [class.active]="row.reviewStatus === 'PENDING'"
-                              [disabled]="row.reviewStatus === 'PENDING'"
+                              [class.active]="row.reviewStatus === Status.PENDING"
+                              [disabled]="row.reviewStatus === Status.PENDING"
                               (click)="onReset(row.profile.symbol, $event)"
                               matTooltip="Reset to pending">
                               <mat-icon>undo</mat-icon>

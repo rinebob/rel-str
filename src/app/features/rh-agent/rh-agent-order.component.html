@@ -17,11 +17,11 @@
     <div class="header-spacer"></div>
 
     <button type="button" class="pill-btn review"
-      [disabled]="triageStore.promotedCount() === 0"
+      [disabled]="triageStore.reviewCount() === 0"
       (click)="goToReview()"
       matTooltip="Back to review">
       <mat-icon>visibility</mat-icon>
-      Review {{ triageStore.promotedCount() }}
+      Review {{ triageStore.reviewCount() }}
     </button>
 
     <button mat-raised-button color="accent"

@@ -6,34 +6,35 @@
  */
 
 /** Daily PACR review status for a symbol. */
-export type RhReviewStatus =
-  | 'PENDING'
-  | 'PROMOTE'
-  | 'ACCEPT'
-  | 'CONSIDER'
-  | 'REJECT'
-  | 'EXCLUDE'
-  | 'LOW_TRADABILITY'
-  | 'WATCH'
-  | 'ELEVATE';
+export enum RhReviewStatus {
+  PENDING        = 'PENDING',
+  REVIEW         = 'REVIEW',
+  ACCEPT         = 'ACCEPT',
+  CONSIDER       = 'CONSIDER',
+  REJECT         = 'REJECT',
+  EXCLUDE        = 'EXCLUDE',
+  LOW_TRADABILITY = 'LOW_TRADABILITY',
+  WATCH          = 'WATCH',
+  ELEVATE        = 'ELEVATE',
+}
 
 /** All PACR review statuses in display order. */
 export const ALL_REVIEW_STATUSES: RhReviewStatus[] = [
-  'PENDING',
-  'PROMOTE',
-  'ACCEPT',
-  'CONSIDER',
-  'REJECT',
-  'EXCLUDE',
-  'LOW_TRADABILITY',
-  'WATCH',
-  'ELEVATE',
+  RhReviewStatus.PENDING,
+  RhReviewStatus.REVIEW,
+  RhReviewStatus.ACCEPT,
+  RhReviewStatus.CONSIDER,
+  RhReviewStatus.REJECT,
+  RhReviewStatus.EXCLUDE,
+  RhReviewStatus.LOW_TRADABILITY,
+  RhReviewStatus.WATCH,
+  RhReviewStatus.ELEVATE,
 ];
 
-/** Concrete count shape so templates can use dot access (e.g. counts.PROMOTE). */
+/** Concrete count shape so templates can use dot access (e.g. counts.REVIEW). */
 export type StatusCounts = {
   PENDING: number;
-  PROMOTE: number;
+  REVIEW: number;
   ACCEPT: number;
   CONSIDER: number;
   REJECT: number;

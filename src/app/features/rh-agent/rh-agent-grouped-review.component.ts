@@ -31,7 +31,7 @@ import { Router } from '@angular/router';
 
 import { RhAgentGroupStore, GroupDimension, RhSymbolGroup, RhSymbolRow } from './rh-agent-group.store';
 import { RhAgentTriageStore } from './rh-agent-triage.store';
-import { RhSymbolListName, ALL_SYMBOL_LIST_NAMES } from './common/rh-agent.constants';
+import { RhReviewStatus, RhSymbolListName, ALL_SYMBOL_LIST_NAMES } from './common/rh-agent.constants';
 import { RhAgentSignalItem } from './rh-agent.service';
 import { QuickChartsComponent } from './components/quick-charts/quick-charts.component';
 import { UiStateService } from '../../core/services/ui-state.service';
@@ -65,6 +65,8 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
 
   /** Expose list name enum to the template. */
   readonly ListName = RhSymbolListName;
+  /** Expose review status enum to the template. */
+  readonly Status = RhReviewStatus;
 
   /** Group dimension options for the pill toggle. */
   readonly dimensionOptions: { value: GroupDimension; label: string }[] = [
@@ -242,9 +244,9 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
     this.groupStore.toggleFullGroup(groupKey);
   }
 
-  onPromote(symbol: string, event: Event): void {
+  onMarkForReview(symbol: string, event: Event): void {
     event.stopPropagation();
-    this.triageStore.promoteSymbol(symbol);
+    this.triageStore.markForReview(symbol);
   }
 
   onAccept(symbol: string, event: Event): void {
@@ -276,16 +278,16 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
     }
   }
 
-  onPromoteGroup(group: RhSymbolGroup, event: Event): void {
+  onMarkGroupForReview(group: RhSymbolGroup, event: Event): void {
     event.stopPropagation();
     const symbols = group.rows.filter((r) => r.hasSignal).map((r) => r.profile.symbol);
-    this.triageStore.setGroupStatus(symbols, 'PROMOTE');
+    this.triageStore.setGroupStatus(symbols, RhReviewStatus.REVIEW);
   }
 
   onAcceptGroup(group: RhSymbolGroup, event: Event): void {
     event.stopPropagation();
     const symbols = group.rows.filter((r) => r.hasSignal).map((r) => r.profile.symbol);
-    this.triageStore.setGroupStatus(symbols, 'ACCEPT');
+    this.triageStore.setGroupStatus(symbols, RhReviewStatus.ACCEPT);
   }
 
   onViewQuickCharts(symbol: string, event: Event): void {
@@ -299,7 +301,7 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
   }
 
   goToReview(): void {
-    if (this.triageStore.promotedCount() === 0) return;
+    if (this.triageStore.reviewCount() === 0) return;
     this.router.navigate(['/rh-agent-review']);
   }
 

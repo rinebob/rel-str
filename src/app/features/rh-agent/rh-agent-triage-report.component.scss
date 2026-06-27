@@ -97,7 +97,7 @@
 
 .status-dot {
   &.status-pending { background: var(--mat-sys-on-surface-variant); }
-  &.status-promote { background: var(--mat-sys-tertiary); }
+  &.status-review { background: var(--mat-sys-tertiary); }
   &.status-accept { background: #2e7d32; }
   &.status-consider { background: var(--mat-sys-secondary); }
   &.status-reject { background: var(--mat-sys-error); }
@@ -115,7 +115,7 @@
   text-transform: uppercase;
 
   &.status-pending { background: var(--mat-sys-surface-container-high); color: var(--mat-sys-on-surface-variant); }
-  &.status-promote { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
+  &.status-review { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
   &.status-accept { background: #1b5e2033; color: #1b5e20; }
   &.status-consider { background: var(--mat-sys-secondary-container); color: var(--mat-sys-on-secondary-container); }
   &.status-reject { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }

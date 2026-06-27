@@ -84,7 +84,7 @@ export class RhAgentTriageReportComponent implements OnInit {
   readonly statusCounts = computed((): StatusCounts => {
     const counts: StatusCounts = {
       PENDING: 0,
-      PROMOTE: 0,
+      REVIEW: 0,
       ACCEPT: 0,
       CONSIDER: 0,
       REJECT: 0,

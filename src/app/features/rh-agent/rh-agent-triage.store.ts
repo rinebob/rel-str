@@ -1,7 +1,7 @@
 /**
  * RH Agent Triage Store
  *
- * Single source of truth for PACR (Promote/Accept/Consider/Reject/Exclude/etc.)
+ * Single source of truth for RACR (Review/Accept/Consider/Reject/Exclude/etc.)
  * state across all RH Agent pages: Grouped Review, Review, and Order.
  *
  * Persisted to Firestore via RhAgentTriageService.
@@ -19,6 +19,8 @@ import {
 
 import { RhReviewStatus, ALL_REVIEW_STATUSES, StatusCounts } from './common/rh-agent.constants';
 import { RhAgentTriageService } from './rh-agent-triage.service';
+
+const ReviewStatus = RhReviewStatus;
 
 // ---------------------------------------------------------------------------
 // State
@@ -61,28 +63,28 @@ export const RhAgentTriageStore = signalStore(
   withState(initialState),
 
   withComputed((state) => ({
-    /** Symbols with PROMOTE status — feeds the Review page. */
-    promotedSymbols: computed((): string[] =>
+    /** Symbols with REVIEW status — feeds the Review page. */
+    reviewSymbols: computed((): string[] =>
       Object.entries(state.statuses())
-        .filter(([_, status]) => status === 'PROMOTE')
+        .filter(([_, status]) => status === ReviewStatus.REVIEW)
         .map(([symbol]) => symbol)
     ),
 
     /** Symbols with ACCEPT status — feeds the Order page. */
     acceptedSymbols: computed((): string[] =>
       Object.entries(state.statuses())
-        .filter(([_, status]) => status === 'ACCEPT')
+        .filter(([_, status]) => status === ReviewStatus.ACCEPT)
         .map(([symbol]) => symbol)
     ),
 
-    /** Count of PROMOTE symbols (for badge on "Review Promoted" button). */
-    promotedCount: computed((): number =>
-      Object.values(state.statuses()).filter((s) => s === 'PROMOTE').length
+    /** Count of REVIEW symbols (for badge on "Review" button). */
+    reviewCount: computed((): number =>
+      Object.values(state.statuses()).filter((s) => s === ReviewStatus.REVIEW).length
     ),
 
     /** Count of ACCEPT symbols (for badge on "Order Accepted" button). */
     acceptedCount: computed((): number =>
-      Object.values(state.statuses()).filter((s) => s === 'ACCEPT').length
+      Object.values(state.statuses()).filter((s) => s === ReviewStatus.ACCEPT).length
     ),
 
     /** Full status counts — useful for summary chips. */
@@ -193,11 +195,12 @@ export const RhAgentTriageStore = signalStore(
 
     // --- Convenience methods for daily PACR actions ---
 
-    promoteSymbol(symbol: string): void  { this.setStatus(symbol, 'PROMOTE', 'triage-store'); },
-    acceptSymbol(symbol: string): void   { this.setStatus(symbol, 'ACCEPT', 'triage-store'); },
-    considerSymbol(symbol: string): void { this.setStatus(symbol, 'CONSIDER', 'triage-store'); },
-    rejectSymbol(symbol: string): void   { this.setStatus(symbol, 'REJECT', 'triage-store'); },
-    resetSymbol(symbol: string): void    { this.setStatus(symbol, 'PENDING', 'triage-store'); },
+    markForReview(symbol: string): void  { this.setStatus(symbol, ReviewStatus.REVIEW,   'triage-store'); },
+    acceptSymbol(symbol: string): void   { this.setStatus(symbol, ReviewStatus.ACCEPT,   'triage-store'); },
+    considerSymbol(symbol: string): void { this.setStatus(symbol, ReviewStatus.CONSIDER, 'triage-store'); },
+    rejectSymbol(symbol: string): void   { this.setStatus(symbol, ReviewStatus.REJECT,   'triage-store'); },
+    watchSymbol(symbol: string): void    { this.setStatus(symbol, ReviewStatus.WATCH,    'triage-store'); },
+    resetSymbol(symbol: string): void    { this.setStatus(symbol, ReviewStatus.PENDING,  'triage-store'); },
   })),
 
   withHooks((store) => ({
