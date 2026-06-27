@@ -1,0 +1,36 @@
+<div class="signal-table-container">
+  <table class="signal-table">
+    <thead>
+      <tr>
+        <th class="col-date">Date</th>
+        <th class="col-tf">TF</th>
+        <th class="col-dir">Dir</th>
+        <th class="col-source">Source</th>
+        <th class="col-type">Type</th>
+        <th class="col-price">Price</th>
+        <th class="col-reason">Reason</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (sig of signals(); track trackBy($index, sig)) {
+        <tr [class.long]="sig.direction === 'long'" [class.short]="sig.direction === 'short'">
+          <td class="col-date">{{ formatDate(sig.x) }}</td>
+          <td class="col-tf">{{ sig.timeframe }}</td>
+          <td class="col-dir">
+            <span class="dir-badge" [class]="'dir-' + sig.direction">
+              {{ sig.direction === 'long' ? '▲' : '▼' }} {{ sig.direction | uppercase }}
+            </span>
+          </td>
+          <td class="col-source">{{ sig.source === 'st-zone' ? 'Zone' : 'Strength' }}</td>
+          <td class="col-type">{{ sig.signalType }}</td>
+          <td class="col-price">{{ sig.y | number: '1.2-2' }}</td>
+          <td class="col-reason">{{ sig.reason }}</td>
+        </tr>
+      } @empty {
+        <tr>
+          <td colspan="7" class="empty-row">No signals match the current filters</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>

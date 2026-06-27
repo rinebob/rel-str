@@ -13,7 +13,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatChipsModule, MatChipListbox, MatChipOption } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
@@ -27,6 +26,7 @@ import { calculateStTrendStrength } from '../../../shared/components/flex-chart/
 import { detectZoneSignals } from '../../../shared/components/flex-chart/signals/st-zone.signals';
 import { detectTrendStrengthSignals } from '../../../shared/components/flex-chart/signals/st-trend-strength.signals';
 import type { SignalMarker } from '../../../shared/components/flex-chart/signals/signal.types';
+import { SignalTableComponent, SignalTableRow } from '../../components/signal-table/signal-table.component';
 
 interface TimeframeSignals {
   interval: string;
@@ -47,8 +47,8 @@ interface TimeframeSignals {
     MatFormFieldModule,
     MatInputModule,
     MatProgressSpinnerModule,
-    MatChipsModule,
     MatTooltipModule,
+    SignalTableComponent,
   ],
   templateUrl: './signal-history.component.html',
   styleUrl: './signal-history.component.scss',
@@ -75,7 +75,7 @@ export class SignalHistoryComponent {
   timeframeFilter = signal<'all' | 'daily' | 'weekly' | 'monthly'>('all');
 
   /** All signals combined and filtered */
-  filteredSignals = computed(() => {
+  filteredSignals = computed<SignalTableRow[]>(() => {
     const d = this.daily();
     const w = this.weekly();
     const m = this.monthly();
@@ -83,7 +83,7 @@ export class SignalHistoryComponent {
     const direction = this.directionFilter();
     const tf = this.timeframeFilter();
 
-    let signals: (SignalMarker & { timeframe: string })[] = [];
+    let signals: SignalTableRow[] = [];
 
     if (d && (tf === 'all' || tf === 'daily')) {
       signals.push(...d.all.map(s => ({ ...s, timeframe: 'Daily' })));
@@ -167,14 +167,6 @@ export class SignalHistoryComponent {
     );
 
     return { interval, zone: zoneSignals, strength: strengthSignals, all };
-  }
-
-  formatDate(date: Date): string {
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
   }
 
   onSymbolKeydown(event: KeyboardEvent): void {

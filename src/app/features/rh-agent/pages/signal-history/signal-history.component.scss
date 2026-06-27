@@ -1,3 +1,5 @@
+:host ::ng-deep {
+
 .signal-history {
   display: flex;
   flex-direction: column;
@@ -96,6 +98,37 @@
       text-transform: uppercase;
       color: var(--mat-sys-on-surface-variant);
       letter-spacing: 0.5px;
+    }
+
+    .pill-group {
+      display: inline-flex;
+      gap: 4px;
+
+      .pill-btn {
+        border: 1px solid var(--mat-sys-outline-variant);
+        background: var(--mat-sys-surface-container-highest);
+        color: var(--mat-sys-on-surface-variant);
+        font-size: 10px;
+        font-weight: 600;
+        padding: 3px 8px;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+        white-space: nowrap;
+        line-height: 1;
+
+        &:hover {
+          background: var(--mat-sys-surface-container-highest);
+          border-color: var(--mat-sys-outline);
+        }
+
+        &.active {
+          background: var(--mat-sys-primary-container);
+          color: var(--mat-sys-primary);
+          border-color: var(--mat-sys-primary);
+          box-shadow: 0 0 0 1px var(--mat-sys-primary-container);
+        }
+      }
     }
   }
 }
@@ -249,4 +282,6 @@
     background: rgba(244, 67, 54, 0.15);
     color: #f44336;
   }
+}
+
 }
