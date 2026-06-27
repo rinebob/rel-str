@@ -7,7 +7,7 @@
 import { inject, computed } from '@angular/core';
 import { signalStore, withState, withComputed, withMethods, patchState } from '@ngrx/signals';
 import { RhAgentStore } from './rh-agent.store';
-import { RH_AGENT_SCHEDULE_CRON } from './rh-agent.service';
+import { RH_AGENT_SCHEDULE_CRON } from '../services/rh-agent.service';
 
 // State interface
 export interface DashboardUiState {

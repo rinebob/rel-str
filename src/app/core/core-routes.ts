@@ -93,32 +93,32 @@ import { authGuard } from './auth/auth.guard';
                 canActivate: [authGuard],
             },
             {path: AppRoutes.RH_AGENT, 
-                loadComponent: () => import('../features/rh-agent/rh-agent-dashboard.component')
+                loadComponent: () => import('../features/rh-agent/pages/agent-dashboard/rh-agent-dashboard.component')
                 .then(mod => mod.RhAgentDashboardComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.RH_AGENT_REVIEW, 
-                loadComponent: () => import('../features/rh-agent/rh-agent-review.component')
+                loadComponent: () => import('../features/rh-agent/pages/agent-review/rh-agent-review.component')
                 .then(mod => mod.RhAgentReviewComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.RH_AGENT_GROUPED_REVIEW,
-                loadComponent: () => import('../features/rh-agent/rh-agent-grouped-review.component')
+                loadComponent: () => import('../features/rh-agent/pages/agent-grouped-review/rh-agent-grouped-review.component')
                 .then(mod => mod.RhAgentGroupedReviewComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.RH_AGENT_ORDER,
-                loadComponent: () => import('../features/rh-agent/rh-agent-order.component')
+                loadComponent: () => import('../features/rh-agent/pages/agent-order/rh-agent-order.component')
                 .then(mod => mod.RhAgentOrderComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.RH_AGENT_TRIAGE_REPORT,
-                loadComponent: () => import('../features/rh-agent/rh-agent-triage-report.component')
+                loadComponent: () => import('../features/rh-agent/pages/agent-triage-report/rh-agent-triage-report.component')
                 .then(mod => mod.RhAgentTriageReportComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.SIGNAL_HISTORY, 
-                loadComponent: () => import('../features/rh-agent/signal-history/signal-history.component')
+                loadComponent: () => import('../features/rh-agent/pages/signal-history/signal-history.component')
                 .then(mod => mod.SignalHistoryComponent),
                 canActivate: [authGuard],
             },

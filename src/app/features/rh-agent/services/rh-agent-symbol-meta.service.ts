@@ -25,7 +25,7 @@ import { Auth, authState } from '@angular/fire/auth';
 import { Observable, from, of } from 'rxjs';
 import { map, switchMap, take } from 'rxjs/operators';
 
-import { SymbolType } from './common/rh-agent.constants';
+import { SymbolType } from '../common/rh-agent.constants';
 
 export interface RhSymbolMeta {
   symbol: string;

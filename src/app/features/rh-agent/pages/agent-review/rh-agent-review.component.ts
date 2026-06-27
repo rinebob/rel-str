@@ -19,11 +19,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
 
-import { RhAgentTriageStore } from './rh-agent-triage.store';
-import { RhReviewStatus } from './common/rh-agent.constants';
-import { UiStateService } from '../../core/services/ui-state.service';
-import { SignalListComponent } from './components/signal-list/signal-list.component';
-import { SignalDetailComponent } from './components/signal-detail/signal-detail.component';
+import { RhAgentTriageStore } from '../../stores/rh-agent-triage.store';
+import { RhReviewStatus } from '../../common/rh-agent.constants';
+import { UiStateService } from '../../../../core/services/ui-state.service';
+import { SignalListComponent } from '../../components/signal-list/signal-list.component';
+import { SignalDetailComponent } from '../../components/signal-detail/signal-detail.component';
 
 @Component({
   selector: 'app-rh-agent-review',

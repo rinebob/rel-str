@@ -28,9 +28,9 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatTableModule } from '@angular/material/table';
 import { Router } from '@angular/router';
 
-import { RhAgentTriageService, RhTriageDecision } from './rh-agent-triage.service';
-import { RhReviewStatus, ALL_REVIEW_STATUSES, StatusCounts } from './common/rh-agent.constants';
-import { UiStateService } from '../../core/services/ui-state.service';
+import { RhAgentTriageService, RhTriageDecision } from '../../services/rh-agent-triage.service';
+import { RhReviewStatus, ALL_REVIEW_STATUSES, StatusCounts } from '../../common/rh-agent.constants';
+import { UiStateService } from '../../../../core/services/ui-state.service';
 
 @Component({
   selector: 'app-rh-agent-triage-report',

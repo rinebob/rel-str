@@ -23,9 +23,9 @@ import { MatInputModule } from '@angular/material/input';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 
-import { RhAgentStore } from './rh-agent.store';
-import { RhAgentDashboardStore } from './rh-agent-dashboard.store';
-import { RhAgentService } from './rh-agent.service';
+import { RhAgentStore } from '../../stores/rh-agent.store';
+import { RhAgentDashboardStore } from '../../stores/rh-agent-dashboard.store';
+import { RhAgentService } from '../../services/rh-agent.service';
 import { Router } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
 

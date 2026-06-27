@@ -19,7 +19,7 @@ import {
   RhAgentService,
   RhAgentStatus,
   RhAgentRun,
-} from './rh-agent.service';
+} from '../services/rh-agent.service';
 
 // State interface
 export interface RhAgentState {

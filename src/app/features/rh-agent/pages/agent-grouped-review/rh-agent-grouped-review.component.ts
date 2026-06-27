@@ -29,12 +29,13 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 
-import { RhAgentGroupStore, GroupDimension, RhSymbolGroup, RhSymbolRow } from './rh-agent-group.store';
-import { RhAgentTriageStore } from './rh-agent-triage.store';
-import { RhReviewStatus, RhSymbolListName, ALL_SYMBOL_LIST_NAMES } from './common/rh-agent.constants';
-import { RhAgentSignalItem } from './rh-agent.service';
-import { QuickChartsComponent } from './components/quick-charts/quick-charts.component';
-import { UiStateService } from '../../core/services/ui-state.service';
+import { RhAgentGroupStore, GroupDimension, RhSymbolGroup, RhSymbolRow } from '../../stores/rh-agent-group.store';
+import { RhAgentTriageStore } from '../../stores/rh-agent-triage.store';
+import { RhAgentSymbolListStore } from '../../stores/rh-agent-symbol-list.store';
+import { RhReviewStatus, RhSymbolListName, ALL_SYMBOL_LIST_NAMES } from '../../common/rh-agent.constants';
+import { RhAgentSignalItem } from '../../services/rh-agent.service';
+import { QuickChartsComponent } from '../../components/quick-charts/quick-charts.component';
+import { UiStateService } from '../../../../core/services/ui-state.service';
 
 @Component({
   selector: 'app-rh-agent-grouped-review',
@@ -55,11 +56,12 @@ import { UiStateService } from '../../core/services/ui-state.service';
   ],
   templateUrl: './rh-agent-grouped-review.component.html',
   styleUrl: './rh-agent-grouped-review.component.scss',
-  providers: [RhAgentGroupStore],
+  providers: [RhAgentGroupStore, RhAgentSymbolListStore],
 })
 export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
   readonly groupStore = inject(RhAgentGroupStore);
   readonly triageStore = inject(RhAgentTriageStore);
+  readonly symbolListStore = inject(RhAgentSymbolListStore);
   readonly uiState = inject(UiStateService);
   private readonly router = inject(Router);
 
@@ -172,17 +174,17 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
   }
 
   onListFilter(filter: RhSymbolListName | 'ALL'): void {
-    this.groupStore.setActiveListFilter(filter);
+    this.symbolListStore.setActiveListFilter(filter);
   }
 
   isInList(symbol: string, listName: string | RhSymbolListName): boolean {
-    return (this.groupStore.symbolLists()[listName] ?? []).includes(symbol.toUpperCase());
+    return (this.symbolListStore.symbolLists()[listName] ?? []).includes(symbol.toUpperCase());
   }
 
   onToggleList(symbol: string, listName: string | RhSymbolListName, event: Event): void {
     event.preventDefault();
     event.stopPropagation();
-    this.groupStore.toggleSymbolInList(symbol, listName);
+    this.symbolListStore.toggleSymbolInList(symbol, listName);
   }
 
   onSymbolClick(row: RhSymbolRow): void {
@@ -271,10 +273,10 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
 
   onMonitor(symbol: string, event: Event): void {
     event.stopPropagation();
-    if (this.groupStore.activeListFilter() === RhSymbolListName.PAST_SIGNALS) {
-      this.groupStore.removeSymbolFromList(symbol, RhSymbolListName.PAST_SIGNALS);
+    if (this.symbolListStore.activeListFilter() === RhSymbolListName.PAST_SIGNALS) {
+      this.symbolListStore.removeSymbolFromList(symbol, RhSymbolListName.PAST_SIGNALS);
     } else {
-      this.groupStore.addSymbolToList(symbol, RhSymbolListName.PAST_SIGNALS);
+      this.symbolListStore.addSymbolToList(symbol, RhSymbolListName.PAST_SIGNALS);
     }
   }
 

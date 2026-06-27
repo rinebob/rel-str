@@ -92,7 +92,7 @@
     <!-- Symbol list filter selector -->
     <mat-form-field appearance="outline" class="header-select" subscriptSizing="dynamic">
       <mat-label>Select list</mat-label>
-      <mat-select [value]="groupStore.activeListFilter()" (valueChange)="onListFilter($event)">
+      <mat-select [value]="symbolListStore.activeListFilter()" (valueChange)="onListFilter($event)">
         @for (opt of listFilterOptions; track opt.value) {
           <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
         }
@@ -309,8 +309,8 @@
                             <button type="button" class="acr-btn monitor"
                               [class.active]="isInList(row.profile.symbol, ListName.PAST_SIGNALS)"
                               (click)="onMonitor(row.profile.symbol, $event)"
-                              [matTooltip]="groupStore.activeListFilter() === ListName.PAST_SIGNALS ? 'Stop monitoring' : 'Monitor'">
-                              <mat-icon>{{ groupStore.activeListFilter() === ListName.PAST_SIGNALS ? 'history_off' : 'history' }}</mat-icon>
+                              [matTooltip]="symbolListStore.activeListFilter() === ListName.PAST_SIGNALS ? 'Stop monitoring' : 'Monitor'">
+                              <mat-icon>{{ symbolListStore.activeListFilter() === ListName.PAST_SIGNALS ? 'history_off' : 'history' }}</mat-icon>
                             </button>
                           </div>
                         </div>

@@ -10,8 +10,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule, MatIconButton } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-import { RhAgentTriageStore } from '../../rh-agent-triage.store';
-import { RhAgentService, RhAgentSignalItem } from '../../rh-agent.service';
+import { RhAgentTriageStore } from '../../stores/rh-agent-triage.store';
+import { RhAgentService, RhAgentSignalItem } from '../../services/rh-agent.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 
 @Component({

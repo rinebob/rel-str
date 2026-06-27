@@ -17,8 +17,8 @@ import {
   patchState,
 } from '@ngrx/signals';
 
-import { RhReviewStatus, ALL_REVIEW_STATUSES, StatusCounts } from './common/rh-agent.constants';
-import { RhAgentTriageService } from './rh-agent-triage.service';
+import { RhReviewStatus, ALL_REVIEW_STATUSES, StatusCounts } from '../common/rh-agent.constants';
+import { RhAgentTriageService } from '../services/rh-agent-triage.service';
 
 const ReviewStatus = RhReviewStatus;
 

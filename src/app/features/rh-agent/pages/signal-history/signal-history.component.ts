@@ -18,15 +18,15 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 
-import { BarsInterval } from '../../../core/models/partner.types';
-import { HeatmapChartDataService } from '../../heatmap-chart/heatmap-chart-data.service';
-import type { ChartDataset } from '../../heatmap-chart/heatmap-chart.types';
-import type { PriceBar } from '../../shared/components/flex-chart/flex-chart.types';
-import { calculateStZone } from '../../shared/components/flex-chart/indicators/st-zone.indicator';
-import { calculateStTrendStrength } from '../../shared/components/flex-chart/indicators/st-trend-strength.indicator';
-import { detectZoneSignals } from '../../shared/components/flex-chart/signals/st-zone.signals';
-import { detectTrendStrengthSignals } from '../../shared/components/flex-chart/signals/st-trend-strength.signals';
-import type { SignalMarker } from '../../shared/components/flex-chart/signals/signal.types';
+import { BarsInterval } from '../../../../core/models/partner.types';
+import { HeatmapChartDataService } from '../../../heatmap-chart/heatmap-chart-data.service';
+import type { ChartDataset } from '../../../heatmap-chart/heatmap-chart.types';
+import type { PriceBar } from '../../../shared/components/flex-chart/flex-chart.types';
+import { calculateStZone } from '../../../shared/components/flex-chart/indicators/st-zone.indicator';
+import { calculateStTrendStrength } from '../../../shared/components/flex-chart/indicators/st-trend-strength.indicator';
+import { detectZoneSignals } from '../../../shared/components/flex-chart/signals/st-zone.signals';
+import { detectTrendStrengthSignals } from '../../../shared/components/flex-chart/signals/st-trend-strength.signals';
+import type { SignalMarker } from '../../../shared/components/flex-chart/signals/signal.types';
 
 interface TimeframeSignals {
   interval: string;

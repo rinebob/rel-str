@@ -8,7 +8,7 @@ import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 
-import { RhAgentDashboardStore } from '../../rh-agent-dashboard.store';
+import { RhAgentDashboardStore } from '../../stores/rh-agent-dashboard.store';
 import { RobinhoodTradePanelComponent } from '../../../rs/components/robinhood-trade-panel.component';
 import { TradeBatch } from '../../../rs/services/robinhood-trade.service';
 

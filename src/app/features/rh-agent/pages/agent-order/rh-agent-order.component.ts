@@ -26,20 +26,20 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 
-import { RhAgentTriageStore } from './rh-agent-triage.store';
-import { RhReviewStatus } from './common/rh-agent.constants';
+import { RhAgentTriageStore } from '../../stores/rh-agent-triage.store';
+import { RhReviewStatus } from '../../common/rh-agent.constants';
 import {
   RhAgentService,
   RhAgentSignalItem,
   SignalDirection,
   RH_AGENT_MAX_TRADE_AMOUNT,
-} from './rh-agent.service';
+} from '../../services/rh-agent.service';
 import {
   RobinhoodTradeService,
   TradeBatch,
   TradePrompt,
-} from '../rs/services/robinhood-trade.service';
-import { UiStateService } from '../../core/services/ui-state.service';
+} from '../../../rs/services/robinhood-trade.service';
+import { UiStateService } from '../../../../core/services/ui-state.service';
 
 interface TradeRow {
   symbol: string;

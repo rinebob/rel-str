@@ -27,7 +27,7 @@ import { Auth, authState } from '@angular/fire/auth';
 import { Observable, from, of } from 'rxjs';
 import { map, switchMap, take } from 'rxjs/operators';
 
-import { RhReviewStatus } from './common/rh-agent.constants';
+import { RhReviewStatus } from '../common/rh-agent.constants';
 
 export interface RhTriageDecision {
   symbol: string;

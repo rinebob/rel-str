@@ -20,24 +20,20 @@ import {
   patchState,
 } from '@ngrx/signals';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { forkJoin, Observable } from 'rxjs';
+import { forkJoin } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import {
   RhAgentService,
   RhAgentSymbolProfile,
   RhAgentSignalItem,
-} from './rh-agent.service';
+} from '../services/rh-agent.service';
 import { RhAgentTriageStore } from './rh-agent-triage.store';
-import { RhAgentSymbolListService } from './rh-agent-symbol-list.service';
+import { RhAgentSymbolListStore } from './rh-agent-symbol-list.store';
 import {
   RhReviewStatus,
-  ALL_REVIEW_STATUSES,
   StatusCounts,
-  SymbolType,
-  RhSymbolListName,
-  ALL_SYMBOL_LIST_NAMES,
-} from './common/rh-agent.constants';
+} from '../common/rh-agent.constants';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -99,12 +95,6 @@ export interface RhAgentGroupState {
   allSymbols: RhAgentSymbolProfile[];
   /** Loading state for the all-symbols query. */
   allSymbolsLoading: boolean;
-  /** User-defined symbol lists: listName -> symbols[]. */
-  symbolLists: Record<string, string[]>;
-  /** Loading state for symbol lists. */
-  symbolListsLoading: boolean;
-  /** Active list filter — 'ALL' shows everything. */
-  activeListFilter: string | 'ALL';
 }
 
 /** Yesterday in PT — used as default marketDate until intraday bars are wired. */
@@ -128,9 +118,6 @@ const initialState: RhAgentGroupState = {
   showAllSymbols: false,
   allSymbols: [],
   allSymbolsLoading: false,
-  symbolLists: {},
-  symbolListsLoading: false,
-  activeListFilter: 'ALL',
 };
 
 // ---------------------------------------------------------------------------
@@ -172,7 +159,7 @@ export const RhAgentGroupStore = signalStore(
     snackBar = inject(MatSnackBar),
     destroyRef = inject(DestroyRef),
     triageStore = inject(RhAgentTriageStore),
-    listService = inject(RhAgentSymbolListService),
+    symbolListStore = inject(RhAgentSymbolListStore),
   ) => ({
     /** Expose triage store statuses for use by computed signals. */
     getTriageStatuses(): Record<string, RhReviewStatus> {
@@ -221,7 +208,7 @@ export const RhAgentGroupStore = signalStore(
             }
             const symbols = [...map.values()];
             patchState(state, { signalSymbols: symbols, symbolsLoading: false });
-            this.loadSymbolLists();
+            symbolListStore.loadSymbolLists();
           },
           error: (err: any) => {
             patchState(state, { symbolsLoading: false, symbolsError: err?.message ?? 'Load failed' });
@@ -289,139 +276,13 @@ export const RhAgentGroupStore = signalStore(
         .subscribe({
           next: (symbols) => {
             patchState(state, { allSymbols: symbols, allSymbolsLoading: false });
-            this.loadSymbolLists();
+            symbolListStore.loadSymbolLists();
           },
           error: (err: any) => {
             patchState(state, { allSymbolsLoading: false });
             snackBar.open('Failed to load all symbols', 'Dismiss', { duration: 5000 });
           },
         });
-    },
-
-    /** Load all user-defined symbol lists from Firestore. */
-    loadSymbolLists(): void {
-      patchState(state, { symbolListsLoading: true });
-
-      listService.loadAllLists().subscribe({
-        next: (lists) => {
-          const record: Record<string, string[]> = {};
-          for (const list of lists) {
-            record[list.name] = list.symbols.map((s) => s.toUpperCase());
-          }
-          patchState(state, { symbolLists: record, symbolListsLoading: false });
-        },
-        error: (err: any) => {
-          console.error('[RhAgentGroupStore] Failed to load symbol lists:', err);
-          patchState(state, { symbolListsLoading: false });
-        },
-      });
-    },
-
-    /** Set the active list filter for the grouped review. */
-    setActiveListFilter(filter: string | 'ALL'): void {
-      patchState(state, { activeListFilter: filter });
-    },
-
-    /** Toggle a symbol's membership in a named list.
-     *
-     * List membership is exclusive: a symbol can only be in one list at a time.
-     * Selecting a new list removes the symbol from every other list.
-     */
-    toggleSymbolInList(symbol: string, listName: string | RhSymbolListName): void {
-      const normalized = symbol.toUpperCase();
-      const current = { ...state.symbolLists() };
-      const list = current[listName] ?? [];
-      const isInList = list.includes(normalized);
-      const previousLists = { ...current };
-
-      if (isInList) {
-        // Toggle off: remove from this list only
-        current[listName] = list.filter((s) => s !== normalized);
-      } else {
-        // Toggle on: add to this list, remove from all other lists
-        current[listName] = [...list, normalized];
-        for (const otherName of ALL_SYMBOL_LIST_NAMES) {
-          if (otherName !== listName) {
-            const otherList = current[otherName] ?? [];
-            if (otherList.includes(normalized)) {
-              current[otherName] = otherList.filter((s) => s !== normalized);
-            }
-          }
-        }
-      }
-      patchState(state, { symbolLists: current });
-
-      // Persist the target list change
-      const target$ = isInList
-        ? listService.removeFromList(symbol, listName)
-        : listService.addToList(symbol, listName);
-
-      // Persist removals from other lists
-      const removalObservables: Observable<void>[] = [];
-      if (!isInList) {
-        for (const otherName of ALL_SYMBOL_LIST_NAMES) {
-          if (otherName !== listName) {
-            const otherList = previousLists[otherName] ?? [];
-            if (otherList.includes(normalized)) {
-              removalObservables.push(listService.removeFromList(symbol, otherName));
-            }
-          }
-        }
-      }
-
-      forkJoin([target$, ...removalObservables]).subscribe({
-        error: (err: any) => {
-          console.error(`[RhAgentGroupStore] Failed to toggle ${symbol} in ${listName}:`, err);
-          snackBar.open(`Failed to save ${symbol} to ${listName}: ${err?.message ?? 'Unknown error'}`, 'Dismiss', {
-            duration: 5000,
-          });
-          // Revert local change on failure
-          patchState(state, { symbolLists: previousLists });
-        },
-      });
-    },
-
-    /** Add a symbol to a named list. */
-    addSymbolToList(symbol: string, listName: string | RhSymbolListName): void {
-      const normalized = symbol.toUpperCase();
-      const current = { ...state.symbolLists() };
-      const list = current[listName] ?? [];
-      if (list.includes(normalized)) return;
-      current[listName] = [...list, normalized];
-      patchState(state, { symbolLists: current });
-
-      listService.addToList(symbol, listName).subscribe({
-        error: (err: any) => {
-          console.error(`[RhAgentGroupStore] Failed to add ${symbol} to ${listName}:`, err);
-          patchState(state, {
-            symbolLists: {
-              ...state.symbolLists(),
-              [listName]: state.symbolLists()[listName]?.filter((s) => s !== normalized) ?? [],
-            },
-          });
-        },
-      });
-    },
-
-    /** Remove a symbol from a named list. */
-    removeSymbolFromList(symbol: string, listName: string | RhSymbolListName): void {
-      const normalized = symbol.toUpperCase();
-      const current = { ...state.symbolLists() };
-      const list = current[listName] ?? [];
-      current[listName] = list.filter((s) => s !== normalized);
-      patchState(state, { symbolLists: current });
-
-      listService.removeFromList(symbol, listName).subscribe({
-        error: (err: any) => {
-          console.error(`[RhAgentGroupStore] Failed to remove ${symbol} from ${listName}:`, err);
-          patchState(state, {
-            symbolLists: {
-              ...state.symbolLists(),
-              [listName]: [...(state.symbolLists()[listName] ?? []), normalized],
-            },
-          });
-        },
-      });
     },
 
     /** Set the symbol shown in the quick-charts panel. */
@@ -438,7 +299,7 @@ export const RhAgentGroupStore = signalStore(
     },
   })),
 
-  withComputed((state) => ({
+  withComputed((state, symbolListStore = inject(RhAgentSymbolListStore)) => ({
     /**
      * Grouped view — groups built from signalSymbols, sorted by marketCap desc within group.
      * Each group respects its fullGroupToggle (Full Group shows all, default shows signal-only).
@@ -454,8 +315,8 @@ export const RhAgentGroupStore = signalStore(
       const fullGroupToggles = state.fullGroupToggles();
       const showAll = state.showAllSymbols();
       const allSymbols = state.allSymbols();
-      const symbolLists = state.symbolLists();
-      const activeListFilter = state.activeListFilter();
+      const symbolLists = symbolListStore.symbolLists();
+      const activeListFilter = symbolListStore.activeListFilter();
 
       // Build signal symbol set for fast lookup
       const signalSet = new Set(signalSymbols.map(s => s.symbol));

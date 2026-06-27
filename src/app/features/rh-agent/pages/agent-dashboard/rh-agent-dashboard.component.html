@@ -111,7 +111,7 @@
                   <span><strong>Completed:</strong> {{ run.completedAt | date: 'medium' }}</span>
                 }
                 <span><strong>Symbols:</strong> {{ run.symbolsProcessed || run.processedCount || 0 }} / {{ run.totalSymbols || 0 }}</span>
-                <span><strong>Signals:</strong> {{ run.signalsGenerated || run.opportunitiesFound || 0 }}</span>
+                <span><strong>Signals:</strong> {{ run.signalsGenerated || 0 }}</span>
               </div>
               @if (run.summary) {
                 <p><strong>Summary:</strong> {{ run.summary }}</p>
@@ -143,7 +143,7 @@
                     {{ run.startedAt | date: 'short' }}
                     <span class="run-stats">
                       {{ run.symbolsProcessed || run.processedCount || 0 }} / {{ run.totalSymbols || 0 }} symbols,
-                      {{ run.signalsGenerated || run.opportunitiesFound || 0 }} signals
+                      {{ run.signalsGenerated || 0 }} signals
                     </span>
                   </mat-panel-description>
                 </mat-expansion-panel-header>
