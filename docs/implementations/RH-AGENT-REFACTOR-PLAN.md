@@ -260,7 +260,7 @@ src/app/features/rh-agent/
 ## Implementation Order
 
 - [x] **Phase 0** — backend cleanup, symbol-list store, opportunities counter rename, and directory restructure.
-- [ ] **Phase 1** — shared chart indicator builder.
+- [x] **Phase 1** — shared chart indicator builder.
 - [ ] **Phase 2** — grouped review child components.
 - [ ] **Phase 3** — dashboard / review / order / detail small extractions.
 - [ ] **Phase 4** — backend orchestration and worker write path.
@@ -271,4 +271,4 @@ Each phase should be a focused, reviewable change. Run `ng build` after frontend
 
 ## Current Phase
 
-**Phase 1** — extract a shared chart indicator builder from `signal-detail.component.ts` and `quick-charts.component.ts`.
+**Phase 2** — extract focused child components from `rh-agent-grouped-review.component.ts`.
