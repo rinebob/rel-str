@@ -90,7 +90,7 @@ export async function createDailyRun(
   marketDate: string,
   totalSymbols: number,
   deadlineAt: string,
-  triggeredBy: 'manual' | 'pdr' = 'pdr'
+  triggeredBy: 'manual' | 'pdr' | 'nightly' = 'pdr'
 ): Promise<string> {
   // Generate run ID in DATE_DOW_TIME format (e.g., 2026-06-16_tue_153145)
   const runId = generateRunId(marketDate);
@@ -108,10 +108,8 @@ export async function createDailyRun(
     processedCount: 0,
     successCount: 0,
     failureCount: 0,
-    opportunitiesFound: 0,
-    opportunitiesApproved: 0,
-    opportunitiesRejected: 0,
-    opportunitiesExecuted: 0,
+    signalsGenerated: 0,
+    completionProcessed: false,
     startedAt: now,
     deadlineAt,
     errors: [],

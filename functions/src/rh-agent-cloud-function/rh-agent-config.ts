@@ -133,7 +133,7 @@ export interface RhAgentRun {
   strategy: string;
   symbol?: string;
   dryRun: boolean;
-  triggeredBy?: 'manual' | 'pdr';
+  triggeredBy?: 'manual' | 'pdr' | 'nightly';
   symbolsProcessed: number;
   signalsGenerated: number;
   errors: string[];
@@ -177,15 +177,13 @@ export interface RhAgentDailyRun {
   type: 'daily-scan';
   marketDate: string;  // YYYY-MM-DD
   status: RhAgentRunStatus;
-  triggeredBy?: 'manual' | 'pdr';
+  triggeredBy?: 'manual' | 'pdr' | 'nightly';
   totalSymbols: number;
   processedCount: number;
   successCount: number;
   failureCount: number;
-  opportunitiesFound: number;
-  opportunitiesApproved: number;
-  opportunitiesRejected: number;
-  opportunitiesExecuted: number;
+  signalsGenerated: number;
+  completionProcessed?: boolean;
   startedAt: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
   completedAt?: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
   deadlineAt: string;  // ISO string - deadline for user approval

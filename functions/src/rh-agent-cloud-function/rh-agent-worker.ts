@@ -13,9 +13,11 @@ import { db, FieldValue } from '../firebase-admin-init';
 
 import {
   RH_AGENT_RUNS_COLLECTION,
+  RH_AGENT_STATUS_COLLECTION,
   RH_AGENT_JOBS_SUBCOLLECTION,
   RH_AGENT_SYMBOLS_COLLECTION,
   RH_AGENT_SIGNAL_DATES_SUBCOLLECTION,
+  AGENT_STATUS_DOC,
   RhAgentJobStatus,
   RhAgentRunStatus,
   RhAgentSignalEntry,
@@ -185,7 +187,7 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
         await clearStaleInterimSignals(symbol, marketDate, new Set());
       }
 
-      await incrementOpportunitiesFound(runId, opportunityCount);
+      await incrementSignalsGenerated(runId, opportunityCount);
 
       // 7. Mark job complete
       await markJobComplete(runId, symbol, 'SUCCESS', opportunityCount > 0);
@@ -288,42 +290,67 @@ async function updateRunCounters(runId: string, jobStatus: 'SUCCESS' | 'FAILED')
 }
 
 /**
- * Check if all jobs are complete and update run status.
+ * Check if all jobs are complete and update run and agent status.
  */
 async function checkRunCompletion(runId: string): Promise<void> {
   const runRef = db.collection(RH_AGENT_RUNS_COLLECTION).doc(runId);
-  const runDoc = await runRef.get();
+  const statusRef = db.collection(RH_AGENT_STATUS_COLLECTION).doc(AGENT_STATUS_DOC);
 
-  if (!runDoc.exists) return;
+  try {
+    let finalStatus: RhAgentRunStatus | undefined;
 
-  const runData = runDoc.data() as any;
-  const total = runData.totalSymbols || 0;
-  const processed = (runData.successCount || 0) + (runData.failureCount || 0);
+    await db.runTransaction(async (t) => {
+      const runDoc = await t.get(runRef);
+      if (!runDoc.exists) return;
 
-  if (processed >= total) {
-    // All jobs complete
-    const status = runData.failureCount > 0 ? RhAgentRunStatus.PARTIAL : RhAgentRunStatus.SUCCESS;
-    await runRef.set(
-      {
-        status,
-        completedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true }
-    );
+      const runData = runDoc.data() as any;
+      const total = runData.totalSymbols || 0;
+      const processed = (runData.successCount || 0) + (runData.failureCount || 0);
 
-    logger.info('rh_agent_run_complete', { runId, status, total, processed });
+      if (processed < total || runData.completionProcessed) return;
+
+      finalStatus = runData.failureCount > 0 ? RhAgentRunStatus.PARTIAL : RhAgentRunStatus.SUCCESS;
+
+      t.set(
+        runRef,
+        {
+          status: finalStatus,
+          completedAt: FieldValue.serverTimestamp(),
+          completionProcessed: true,
+        },
+        { merge: true }
+      );
+
+      t.set(
+        statusRef,
+        {
+          lastRunAt: FieldValue.serverTimestamp(),
+          lastRunId: runId,
+          lastRunStatus: finalStatus,
+          totalRuns: FieldValue.increment(1),
+          totalSignalsGenerated: FieldValue.increment(runData.signalsGenerated || 0),
+        },
+        { merge: true }
+      );
+    });
+
+    if (finalStatus) {
+      logger.info('rh_agent_run_complete', { runId, status: finalStatus });
+    }
+  } catch (error: any) {
+    logger.error('rh_agent_run_completion_error', { runId, error: error?.message });
   }
 }
 
 /**
- * Increment opportunities found counter on run document.
+ * Increment signals generated counter on run document.
  */
-async function incrementOpportunitiesFound(runId: string, count = 1): Promise<void> {
+async function incrementSignalsGenerated(runId: string, count = 1): Promise<void> {
   if (count === 0) return;
   const runRef = db.collection(RH_AGENT_RUNS_COLLECTION).doc(runId);
   await runRef.set(
     {
-      opportunitiesFound: FieldValue.increment(count),
+      signalsGenerated: FieldValue.increment(count),
     },
     { merge: true }
   );
