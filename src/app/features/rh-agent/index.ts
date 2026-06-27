@@ -61,6 +61,13 @@ export { SymbolAcrActionsComponent } from './components/symbol-acr-actions/symbo
 export { SymbolListActionsComponent } from './components/symbol-list-actions/symbol-list-actions.component';
 export { StatusSummaryChipsComponent } from './components/status-summary-chips/status-summary-chips.component';
 export { QuickChartsPanelComponent } from './components/quick-charts-panel/quick-charts-panel.component';
+export { ReviewHeaderComponent } from './components/review-header/review-header.component';
+export { TradeRowComponent, TradeRow } from './components/trade-row/trade-row.component';
+export { ChartToolbarComponent } from './components/chart-toolbar/chart-toolbar.component';
+export { IndicatorMenuComponent } from './components/indicator-menu/indicator-menu.component';
+export { SignalTableComponent, SignalTableRow } from './components/signal-table/signal-table.component';
+export { AgentStatusBarComponent } from './components/agent-status-bar/agent-status-bar.component';
+export { RunHistoryPanelComponent } from './components/run-history-panel/run-history-panel.component';
 
 export { RhAgentDashboardComponent } from './pages/agent-dashboard/rh-agent-dashboard.component';
 export { RhAgentGroupedReviewComponent } from './pages/agent-grouped-review/rh-agent-grouped-review.component';
