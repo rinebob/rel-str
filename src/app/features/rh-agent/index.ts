@@ -44,6 +44,9 @@ export { RhAgentTriageStore } from './stores/rh-agent-triage.store';
 // Symbol List Store (Phase 0 — extracted list management)
 export { RhAgentSymbolListStore } from './stores/rh-agent-symbol-list.store';
 
+// Chart Indicator Builder (Phase 1 — shared indicator configuration)
+export * as RhAgentChartIndicators from './utils/rh-agent-chart-indicators';
+
 // Persistence & Universe Services (Phase 5C)
 export { RhAgentTriageService, RhTriageDecision, RhTriageDecisionInput } from './services/rh-agent-triage.service';
 export { RhAgentSymbolMetaService, RhSymbolMeta, RhSymbolMetaInput } from './services/rh-agent-symbol-meta.service';

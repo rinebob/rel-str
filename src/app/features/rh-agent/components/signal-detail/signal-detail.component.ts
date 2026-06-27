@@ -16,15 +16,23 @@ import { HeatmapChartStore } from '../../../heatmap-chart/heatmap-chart.store';
 import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-chart.component';
 import { BarsInterval } from '../../../../core/models/partner.types';
 import { UiStateService } from '../../../../core/services/ui-state.service';
-import type { FlexChartConfig, IndicatorConfig, IndicatorPane } from '../../../shared/components/flex-chart/flex-chart.types';
-import { ST_INDICATOR_OPTIONS, buildDefaultConfig } from '../../../shared/components/flex-chart/indicators/indicator-registry';
-import { calculateStZone } from '../../../shared/components/flex-chart/indicators/st-zone.indicator';
-import { calculateStZoneV2 } from '../../../shared/components/flex-chart/indicators/st-zone-v2.indicator';
-import { calculateStTrendStrength } from '../../../shared/components/flex-chart/indicators/st-trend-strength.indicator';
-import { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR, computeZoneWindowData } from '../../../shared/components/flex-chart/indicators/st-zone-window.indicator';
-import { ST_SIGNAL_DOTS_INDICATOR, computeSignalDots } from '../../../shared/components/flex-chart/indicators/st-signal-dots.indicator';
-import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, detectZoneUptickDots } from '../../../shared/components/flex-chart/indicators/st-zone-uptick-dots.indicator';
-import { detectTrendStrengthSignals } from '../../../shared/components/flex-chart/signals';
+import type { FlexChartConfig, IndicatorConfig } from '../../../shared/components/flex-chart/flex-chart.types';
+import { ST_INDICATOR_OPTIONS } from '../../../shared/components/flex-chart/indicators/indicator-registry';
+import {
+  buildBaseIndicators,
+  computeHtfZoneV2,
+  computeHtfWindowData,
+  computeSignalDotsData,
+  computeUptickDotsV1,
+  computeUptickDotsV2,
+  addHtfZoneWindow,
+  addSignalDots,
+  addUptickDots,
+  ST_ZONE_WINDOW_MONTHLY_INDICATOR,
+  ST_ZONE_WINDOW_WEEKLY_INDICATOR,
+  ST_ZONE_V1_UPTICK_DOTS_INDICATOR,
+  ST_ZONE_V2_UPTICK_DOTS_INDICATOR,
+} from '../../utils/rh-agent-chart-indicators';
 
 @Component({
   selector: 'app-signal-detail',
@@ -63,21 +71,6 @@ export class SignalDetailComponent {
   /** All ST indicator options */
   readonly stIndicatorOptions = ST_INDICATOR_OPTIONS;
 
-  /** Full IndicatorConfig map keyed by option id — one config per option */
-  private readonly allStConfigs = new Map<string, IndicatorConfig>((
-    (() => {
-      const m: [string, IndicatorConfig][] = [];
-      for (const opt of ST_INDICATOR_OPTIONS) {
-        const cfg = buildDefaultConfig(opt);
-        if (opt.id === 'st-trend-strength') cfg.pane = 'lower-1';
-        if (opt.id === 'st-zone') { cfg.pane = 'lower-2'; cfg.options = { ...cfg.options, name: 'ST-ZONE V1' }; }
-        if (opt.id === 'st-zone-v2') { cfg.pane = 'lower-3'; cfg.options = { ...cfg.options, name: 'ST-ZONE V2' }; }
-        m.push([opt.id, cfg]);
-      }
-      return m;
-    })()
-  ));
-
   /** Indicators available for each chart context (excludes auto-injected HTF extras) */
   private static readonly INDICATORS_BY_INTERVAL: Record<string, string[]> = {
     daily:   ['st-trend-bands', 'st-trend-strength', 'st-zone', 'st-zone-v2',
@@ -102,26 +95,17 @@ export class SignalDetailComponent {
     monthly: new Set(SignalDetailComponent.INDICATORS_BY_INTERVAL['monthly']),
   });
 
-  /** IDs that require pre-computed runtime data \u2014 handled via extras injection, not allStConfigs */
-  private static readonly COMPUTED_DATA_IDS = new Set([
-    'st-zone-window-weekly', 'st-zone-window-monthly',
-    'st-signal-dots', 'st-zone-v1-uptick-dots', 'st-zone-v2-uptick-dots',
-  ]);
-
-  /** Active IndicatorConfig[] for the base interval (used for monthly and as base for D/W) */
-  private indicatorsForInterval(key: string): IndicatorConfig[] {
+  /** Base active indicators for an interval, filtered by the user's current selection. */
+  private baseIndicatorsFor(key: 'daily' | 'weekly' | 'monthly'): IndicatorConfig[] {
     const ids = this.selectedIdsByInterval()[key];
-    return ST_INDICATOR_OPTIONS
-      .filter(opt => ids.has(opt.id) && !SignalDetailComponent.COMPUTED_DATA_IDS.has(opt.id))
-      .map(opt => this.allStConfigs.get(opt.id)!)
-      .filter(Boolean);
+    return buildBaseIndicators(key).filter(cfg => ids.has(cfg.id));
   }
 
   /** Base active indicators for the selected single-mode interval */
   activeIndicators = computed<IndicatorConfig[]>(() => {
     const interval = this.selectedInterval();
     const key = interval === BarsInterval.WEEKLY ? 'weekly' : interval === BarsInterval.MONTHLY ? 'monthly' : 'daily';
-    return this.indicatorsForInterval(key);
+    return this.baseIndicatorsFor(key);
   });
 
   /** Which chart the Indicators menu targets (daily by default) */
@@ -176,169 +160,95 @@ export class SignalDetailComponent {
   });
 
   // =========================================================================
-  // Zone Window — pre-computed HTF zone data mapped to LTF dots
+  // HTF zones / windows / dots data (computed from chart data)
   // =========================================================================
 
-  /** Monthly zone V2 data (computed from monthly bars) */
-  private monthlyZoneV2 = computed(() => {
-    const data = this.chartDataMonthly();
-    if (!data || data.bars.length < 30) return [];
-    return calculateStZoneV2(data.bars, {});
-  });
-
-  /** Weekly zone V2 data (computed from weekly bars) */
   private weeklyZoneV2 = computed(() => {
     const data = this.chartDataWeekly();
-    if (!data || data.bars.length < 30) return [];
-    return calculateStZoneV2(data.bars, {});
+    return data ? computeHtfZoneV2(data.bars) : [];
   });
 
-  /** Window data: monthly zone → weekly dots */
-  private windowDataMonthlyOnWeekly = computed(() => {
-    const htfZone = this.monthlyZoneV2();
-    const ltfData = this.chartDataWeekly();
-    if (htfZone.length === 0 || !ltfData) return [];
-    return computeZoneWindowData(htfZone, ltfData.bars);
+  private monthlyZoneV2 = computed(() => {
+    const data = this.chartDataMonthly();
+    return data ? computeHtfZoneV2(data.bars) : [];
   });
 
-  /** Window data: weekly zone → daily dots */
   private windowDataWeeklyOnDaily = computed(() => {
-    const htfZone = this.weeklyZoneV2();
-    const ltfData = this.chartData();
-    if (htfZone.length === 0 || !ltfData) return [];
-    return computeZoneWindowData(htfZone, ltfData.bars);
+    const ltf = this.chartData();
+    return ltf ? computeHtfWindowData(this.weeklyZoneV2(), ltf.bars) : [];
   });
 
-  /** Build a window IndicatorConfig with pre-computed data */
-  private buildWindowConfig(option: typeof ST_ZONE_WINDOW_MONTHLY_INDICATOR, data: { x: Date; y: number; color?: string }[]): IndicatorConfig {
-    const cfg = buildDefaultConfig(option);
-    return { ...cfg, pane: 'lower-3' as IndicatorPane, data: data as any };
-  }
+  private windowDataMonthlyOnWeekly = computed(() => {
+    const ltf = this.chartDataWeekly();
+    return ltf ? computeHtfWindowData(this.monthlyZoneV2(), ltf.bars) : [];
+  });
 
-  // =========================================================================
-  // Signal Dots — Trend-Strength signals annotated on histogram
-  // =========================================================================
-
-  /** Signal dots for daily chart */
   private dailySignalDots = computed(() => {
     const data = this.chartData();
-    if (!data || data.bars.length < 30) return [];
-    const strengthData = calculateStTrendStrength(data.bars, {});
-    const signals = detectTrendStrengthSignals(strengthData, data.bars);
-    return computeSignalDots(signals, strengthData);
+    return data ? computeSignalDotsData(data.bars) : [];
   });
 
-  /** Signal dots for weekly chart */
   private weeklySignalDots = computed(() => {
     const data = this.chartDataWeekly();
-    if (!data || data.bars.length < 30) return [];
-    const strengthData = calculateStTrendStrength(data.bars, {});
-    const signals = detectTrendStrengthSignals(strengthData, data.bars);
-    return computeSignalDots(signals, strengthData);
+    return data ? computeSignalDotsData(data.bars) : [];
   });
 
-  /** Build signal dots IndicatorConfig with pre-computed data */
-  private buildSignalDotsConfig(data: { x: Date; y: number; color?: string }[]): IndicatorConfig {
-    const cfg = buildDefaultConfig(ST_SIGNAL_DOTS_INDICATOR);
-    return { ...cfg, pane: 'lower-1' as IndicatorPane, data: data as any };
-  }
-
-  // =========================================================================
-  // Zone Uptick Dots — V1 and V2 signals on main chart
-  // =========================================================================
-
-  // Colors: V1 green/red, V2 lime/orange
-  private static readonly V1_LONG = '#4caf50';
-  private static readonly V1_SHORT = '#f44336';
-  private static readonly V2_LONG = '#8bc34a';
-  private static readonly V2_SHORT = '#ff9800';
-
-  /** Zone uptick dots for daily chart (weekly HTF context) */
   private dailyUptickDotsV1 = computed(() => {
     const data = this.chartData();
-    const htfZone = this.weeklyZoneV2();
-    if (!data || data.bars.length < 30 || htfZone.length === 0) return [];
-    const zoneV1 = calculateStZone(data.bars, {});
-    return detectZoneUptickDots(zoneV1, htfZone, data.bars, SignalDetailComponent.V1_LONG, SignalDetailComponent.V1_SHORT);
+    return data ? computeUptickDotsV1(data.bars, this.weeklyZoneV2()) : [];
   });
 
   private dailyUptickDotsV2 = computed(() => {
     const data = this.chartData();
-    const htfZone = this.weeklyZoneV2();
-    if (!data || data.bars.length < 30 || htfZone.length === 0) return [];
-    const zoneV2 = calculateStZoneV2(data.bars, {});
-    return detectZoneUptickDots(zoneV2, htfZone, data.bars, SignalDetailComponent.V2_LONG, SignalDetailComponent.V2_SHORT);
+    return data ? computeUptickDotsV2(data.bars, this.weeklyZoneV2()) : [];
   });
 
-  /** Zone uptick dots for weekly chart (monthly HTF context) */
   private weeklyUptickDotsV1 = computed(() => {
     const data = this.chartDataWeekly();
-    const htfZone = this.monthlyZoneV2();
-    if (!data || data.bars.length < 30 || htfZone.length === 0) return [];
-    const zoneV1 = calculateStZone(data.bars, {});
-    return detectZoneUptickDots(zoneV1, htfZone, data.bars, SignalDetailComponent.V1_LONG, SignalDetailComponent.V1_SHORT);
+    return data ? computeUptickDotsV1(data.bars, this.monthlyZoneV2()) : [];
   });
 
   private weeklyUptickDotsV2 = computed(() => {
     const data = this.chartDataWeekly();
-    const htfZone = this.monthlyZoneV2();
-    if (!data || data.bars.length < 30 || htfZone.length === 0) return [];
-    const zoneV2 = calculateStZoneV2(data.bars, {});
-    return detectZoneUptickDots(zoneV2, htfZone, data.bars, SignalDetailComponent.V2_LONG, SignalDetailComponent.V2_SHORT);
+    return data ? computeUptickDotsV2(data.bars, this.monthlyZoneV2()) : [];
   });
-
-  /** Build uptick dots IndicatorConfig (overlay on main chart) */
-  private buildUptickDotsConfig(option: typeof ST_ZONE_V1_UPTICK_DOTS_INDICATOR, data: { x: Date; y: number; color?: string }[]): IndicatorConfig {
-    const cfg = buildDefaultConfig(option);
-    return { ...cfg, pane: 'overlay' as IndicatorPane, data: data as any };
-  }
 
   /** Daily chart indicators = base + conditionally-injected computed extras */
   private dailyIndicators = computed<IndicatorConfig[]>(() => {
     const sel = this.selectedIdsByInterval()['daily'];
-    const base = this.indicatorsForInterval('daily');
-    const extras: IndicatorConfig[] = [];
+    const indicators = this.baseIndicatorsFor('daily');
     if (sel.has('st-zone-window-weekly')) {
-      const windowData = this.windowDataWeeklyOnDaily();
-      if (windowData.length > 0) extras.push(this.buildWindowConfig(ST_ZONE_WINDOW_WEEKLY_INDICATOR, windowData));
+      addHtfZoneWindow(indicators, ST_ZONE_WINDOW_WEEKLY_INDICATOR, this.windowDataWeeklyOnDaily());
     }
     if (sel.has('st-signal-dots')) {
-      const dots = this.dailySignalDots();
-      if (dots.length > 0) extras.push(this.buildSignalDotsConfig(dots));
+      addSignalDots(indicators, this.dailySignalDots());
     }
     if (sel.has('st-zone-v1-uptick-dots')) {
-      const v1 = this.dailyUptickDotsV1();
-      if (v1.length > 0) extras.push(this.buildUptickDotsConfig(ST_ZONE_V1_UPTICK_DOTS_INDICATOR, v1));
+      addUptickDots(indicators, ST_ZONE_V1_UPTICK_DOTS_INDICATOR, this.dailyUptickDotsV1());
     }
     if (sel.has('st-zone-v2-uptick-dots')) {
-      const v2 = this.dailyUptickDotsV2();
-      if (v2.length > 0) extras.push(this.buildUptickDotsConfig(ST_ZONE_V2_UPTICK_DOTS_INDICATOR, v2));
+      addUptickDots(indicators, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, this.dailyUptickDotsV2());
     }
-    return extras.length > 0 ? [...base, ...extras] : base;
+    return indicators;
   });
 
   /** Weekly chart indicators = base + conditionally-injected computed extras */
   private weeklyIndicators = computed<IndicatorConfig[]>(() => {
     const sel = this.selectedIdsByInterval()['weekly'];
-    const base = this.indicatorsForInterval('weekly');
-    const extras: IndicatorConfig[] = [];
+    const indicators = this.baseIndicatorsFor('weekly');
     if (sel.has('st-zone-window-monthly')) {
-      const windowData = this.windowDataMonthlyOnWeekly();
-      if (windowData.length > 0) extras.push(this.buildWindowConfig(ST_ZONE_WINDOW_MONTHLY_INDICATOR, windowData));
+      addHtfZoneWindow(indicators, ST_ZONE_WINDOW_MONTHLY_INDICATOR, this.windowDataMonthlyOnWeekly());
     }
     if (sel.has('st-signal-dots')) {
-      const dots = this.weeklySignalDots();
-      if (dots.length > 0) extras.push(this.buildSignalDotsConfig(dots));
+      addSignalDots(indicators, this.weeklySignalDots());
     }
     if (sel.has('st-zone-v1-uptick-dots')) {
-      const v1 = this.weeklyUptickDotsV1();
-      if (v1.length > 0) extras.push(this.buildUptickDotsConfig(ST_ZONE_V1_UPTICK_DOTS_INDICATOR, v1));
+      addUptickDots(indicators, ST_ZONE_V1_UPTICK_DOTS_INDICATOR, this.weeklyUptickDotsV1());
     }
     if (sel.has('st-zone-v2-uptick-dots')) {
-      const v2 = this.weeklyUptickDotsV2();
-      if (v2.length > 0) extras.push(this.buildUptickDotsConfig(ST_ZONE_V2_UPTICK_DOTS_INDICATOR, v2));
+      addUptickDots(indicators, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, this.weeklyUptickDotsV2());
     }
-    return extras.length > 0 ? [...base, ...extras] : base;
+    return indicators;
   });
 
   /** Chart config for daily chart in triple mode */
@@ -363,7 +273,7 @@ export class SignalDetailComponent {
 
   /** Chart config for monthly chart in triple mode */
   chartConfigMonthly = computed<FlexChartConfig>(() => ({
-    indicators: this.indicatorsForInterval('monthly'),
+    indicators: this.baseIndicatorsFor('monthly'),
     showCrosshair: true,
     showZoomToolbar: this.showZoomToolbar(),
     enableScrollbar: true,

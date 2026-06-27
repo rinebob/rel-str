@@ -22,44 +22,23 @@ import { HeatmapChartDataService } from '../../../heatmap-chart/heatmap-chart-da
 import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-chart.component';
 import { BarsInterval } from '../../../../core/models/partner.types';
 import type { ChartDataset } from '../../../heatmap-chart/heatmap-chart.types';
-import type { FlexChartConfig, IndicatorConfig } from '../../../shared/components/flex-chart/flex-chart.types';
-import { ST_INDICATOR_OPTIONS, buildDefaultConfig } from '../../../shared/components/flex-chart/indicators/indicator-registry';
-import { calculateStZone } from '../../../shared/components/flex-chart/indicators/st-zone.indicator';
-import { calculateStZoneV2 } from '../../../shared/components/flex-chart/indicators/st-zone-v2.indicator';
-import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, detectZoneUptickDots } from '../../../shared/components/flex-chart/indicators/st-zone-uptick-dots.indicator';
-import { ST_ZONE_WINDOW_WEEKLY_INDICATOR, ST_ZONE_WINDOW_MONTHLY_INDICATOR, computeZoneWindowData } from '../../../shared/components/flex-chart/indicators/st-zone-window.indicator';
-import type { IndicatorPane } from '../../../shared/components/flex-chart/flex-chart.types';
+import type { FlexChartConfig } from '../../../shared/components/flex-chart/flex-chart.types';
+import {
+  buildBaseIndicators,
+  computeHtfZoneV2,
+  computeHtfWindowData,
+  computeUptickDotsV1,
+  computeUptickDotsV2,
+  addHtfZoneWindow,
+  addUptickDots,
+  ST_ZONE_WINDOW_MONTHLY_INDICATOR,
+  ST_ZONE_WINDOW_WEEKLY_INDICATOR,
+  ST_ZONE_V1_UPTICK_DOTS_INDICATOR,
+  ST_ZONE_V2_UPTICK_DOTS_INDICATOR,
+} from '../../utils/rh-agent-chart-indicators';
 import { forkJoin } from 'rxjs';
 
 const QUICK_BARS = 100;
-
-/** Indicator IDs shown in each quick chart (all 4, each in their own lower pane). */
-const BASE_INDICATORS: Record<string, string[]> = {
-  daily:   ['st-trend-bands', 'st-trend-strength', 'st-zone', 'st-zone-v2'],
-  weekly:  ['st-trend-bands', 'st-trend-strength', 'st-zone', 'st-zone-v2'],
-  monthly: ['st-trend-bands', 'st-trend-strength', 'st-zone', 'st-zone-v2'],
-};
-
-/** Pre-built base IndicatorConfig map with pane assignments. */
-function buildBaseConfigs(): Map<string, IndicatorConfig> {
-  const m = new Map<string, IndicatorConfig>();
-  for (const opt of ST_INDICATOR_OPTIONS) {
-    const cfg = buildDefaultConfig(opt);
-    if (opt.id === 'st-trend-strength') { cfg.pane = 'lower-1'; }
-    if (opt.id === 'st-zone')    { cfg.pane = 'lower-2'; cfg.options = { ...cfg.options, name: 'ZONE V1' }; }
-    if (opt.id === 'st-zone-v2') { cfg.pane = 'lower-3'; cfg.options = { ...cfg.options, name: 'ZONE V2' }; }
-    m.set(opt.id, cfg);
-  }
-  return m;
-}
-
-const BASE_CONFIGS = buildBaseConfigs();
-
-function baseIndicatorsFor(key: string): IndicatorConfig[] {
-  return BASE_INDICATORS[key]
-    .map(id => BASE_CONFIGS.get(id)!)
-    .filter(Boolean);
-}
 
 @Component({
   selector: 'app-quick-charts',
@@ -84,77 +63,50 @@ export class QuickChartsComponent {
   /** Shared crosshair date — whichever chart is hovered broadcasts here; all charts receive it. */
   readonly sharedCrosshairDate = signal<Date | null>(null);
 
-  // ── Colors ─────────────────────────────────────────────────────────────────
-  private static readonly V1_LONG  = '#4caf50';
-  private static readonly V1_SHORT = '#f44336';
-  private static readonly V2_LONG  = '#8bc34a';
-  private static readonly V2_SHORT = '#ff9800';
-
-  // ── HTF zone V2 (for dot gating) ──────────────────────────────────────────
+  // ── HTF zones / windows / dots data (computed from chart data) ─────────────
   private readonly weeklyZoneV2 = computed(() => {
     const d = this.weeklyData();
-    if (!d || d.bars.length < 30) return [];
-    return calculateStZoneV2(d.bars, {});
+    return d ? computeHtfZoneV2(d.bars) : [];
   });
 
   private readonly monthlyZoneV2 = computed(() => {
     const d = this.monthlyData();
-    if (!d || d.bars.length < 30) return [];
-    return calculateStZoneV2(d.bars, {});
+    return d ? computeHtfZoneV2(d.bars) : [];
   });
 
-  // ── Zone window dots (HTF zone V2 mapped onto LTF bars) ──────────────────
   private readonly dailyWindowData = computed(() => {
     const d = this.dailyData();
-    const htf = this.weeklyZoneV2();
-    if (!d || !htf.length) return [];
-    return computeZoneWindowData(htf, d.bars);
+    return d ? computeHtfWindowData(this.weeklyZoneV2(), d.bars) : [];
   });
 
   private readonly weeklyWindowData = computed(() => {
     const d = this.weeklyData();
-    const htf = this.monthlyZoneV2();
-    if (!d || !htf.length) return [];
-    return computeZoneWindowData(htf, d.bars);
+    return d ? computeHtfWindowData(this.monthlyZoneV2(), d.bars) : [];
   });
 
-  // ── Uptick dots: daily (gated by weekly HTF) ──────────────────────────────
   private readonly dailyDotsV1 = computed(() => {
     const d = this.dailyData();
-    const htf = this.weeklyZoneV2();
-    if (!d || d.bars.length < 30 || !htf.length) return [];
-    return detectZoneUptickDots(calculateStZone(d.bars, {}), htf, d.bars,
-      QuickChartsComponent.V1_LONG, QuickChartsComponent.V1_SHORT);
+    return d ? computeUptickDotsV1(d.bars, this.weeklyZoneV2()) : [];
   });
 
   private readonly dailyDotsV2 = computed(() => {
     const d = this.dailyData();
-    const htf = this.weeklyZoneV2();
-    if (!d || d.bars.length < 30 || !htf.length) return [];
-    return detectZoneUptickDots(calculateStZoneV2(d.bars, {}), htf, d.bars,
-      QuickChartsComponent.V2_LONG, QuickChartsComponent.V2_SHORT);
+    return d ? computeUptickDotsV2(d.bars, this.weeklyZoneV2()) : [];
   });
 
-  // ── Uptick dots: weekly (gated by monthly HTF) ────────────────────────────
   private readonly weeklyDotsV1 = computed(() => {
     const d = this.weeklyData();
-    const htf = this.monthlyZoneV2();
-    if (!d || d.bars.length < 30 || !htf.length) return [];
-    return detectZoneUptickDots(calculateStZone(d.bars, {}), htf, d.bars,
-      QuickChartsComponent.V1_LONG, QuickChartsComponent.V1_SHORT);
+    return d ? computeUptickDotsV1(d.bars, this.monthlyZoneV2()) : [];
   });
 
   private readonly weeklyDotsV2 = computed(() => {
     const d = this.weeklyData();
-    const htf = this.monthlyZoneV2();
-    if (!d || d.bars.length < 30 || !htf.length) return [];
-    return detectZoneUptickDots(calculateStZoneV2(d.bars, {}), htf, d.bars,
-      QuickChartsComponent.V2_LONG, QuickChartsComponent.V2_SHORT);
+    return d ? computeUptickDotsV2(d.bars, this.monthlyZoneV2()) : [];
   });
 
   // ── Chart configs ──────────────────────────────────────────────────────────
   readonly monthlyConfig: FlexChartConfig = {
-    indicators: baseIndicatorsFor('monthly'),
+    indicators: buildBaseIndicators('monthly'),
     showCrosshair: true,
     showZoomToolbar: false,
     enableScrollbar: false,
@@ -163,15 +115,12 @@ export class QuickChartsComponent {
   };
 
   readonly weeklyConfig = computed<FlexChartConfig>(() => {
-    const extras: IndicatorConfig[] = [];
-    const win = this.weeklyWindowData();
-    if (win.length) extras.push({ ...buildDefaultConfig(ST_ZONE_WINDOW_MONTHLY_INDICATOR), pane: 'lower-3' as IndicatorPane, data: win as any });
-    const v1 = this.weeklyDotsV1();
-    if (v1.length) extras.push({ ...buildDefaultConfig(ST_ZONE_V1_UPTICK_DOTS_INDICATOR), pane: 'overlay' as IndicatorPane, data: v1 as any });
-    const v2 = this.weeklyDotsV2();
-    if (v2.length) extras.push({ ...buildDefaultConfig(ST_ZONE_V2_UPTICK_DOTS_INDICATOR), pane: 'overlay' as IndicatorPane, data: v2 as any });
+    const indicators = buildBaseIndicators('weekly');
+    addHtfZoneWindow(indicators, ST_ZONE_WINDOW_MONTHLY_INDICATOR, this.weeklyWindowData());
+    addUptickDots(indicators, ST_ZONE_V1_UPTICK_DOTS_INDICATOR, this.weeklyDotsV1());
+    addUptickDots(indicators, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, this.weeklyDotsV2());
     return {
-      indicators: [...baseIndicatorsFor('weekly'), ...extras],
+      indicators,
       showCrosshair: true,
       showZoomToolbar: false,
       enableScrollbar: false,
@@ -181,15 +130,12 @@ export class QuickChartsComponent {
   });
 
   readonly dailyConfig = computed<FlexChartConfig>(() => {
-    const extras: IndicatorConfig[] = [];
-    const win = this.dailyWindowData();
-    if (win.length) extras.push({ ...buildDefaultConfig(ST_ZONE_WINDOW_WEEKLY_INDICATOR), pane: 'lower-3' as IndicatorPane, data: win as any });
-    const v1 = this.dailyDotsV1();
-    if (v1.length) extras.push({ ...buildDefaultConfig(ST_ZONE_V1_UPTICK_DOTS_INDICATOR), pane: 'overlay' as IndicatorPane, data: v1 as any });
-    const v2 = this.dailyDotsV2();
-    if (v2.length) extras.push({ ...buildDefaultConfig(ST_ZONE_V2_UPTICK_DOTS_INDICATOR), pane: 'overlay' as IndicatorPane, data: v2 as any });
+    const indicators = buildBaseIndicators('daily');
+    addHtfZoneWindow(indicators, ST_ZONE_WINDOW_WEEKLY_INDICATOR, this.dailyWindowData());
+    addUptickDots(indicators, ST_ZONE_V1_UPTICK_DOTS_INDICATOR, this.dailyDotsV1());
+    addUptickDots(indicators, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, this.dailyDotsV2());
     return {
-      indicators: [...baseIndicatorsFor('daily'), ...extras],
+      indicators,
       showCrosshair: true,
       showZoomToolbar: false,
       enableScrollbar: false,
