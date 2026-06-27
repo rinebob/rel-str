@@ -1,3 +1,5 @@
+:host ::ng-deep {
+
 .rh-agent-review {
   padding: 0;
   max-width: none;
@@ -638,4 +640,6 @@
       opacity: 0.7;
     }
   }
+}
+
 }

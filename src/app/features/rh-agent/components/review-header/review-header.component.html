@@ -1,0 +1,61 @@
+<div class="review-header">
+  <button mat-icon-button class="back-btn" (click)="back.emit()" matTooltip="Back to grouped review">
+    <mat-icon>arrow_back</mat-icon>
+  </button>
+  <button mat-icon-button class="history-btn" (click)="history.emit()" matTooltip="Signal History">
+    <mat-icon>history</mat-icon>
+  </button>
+
+  <div class="header-left-column">
+    @if (selectedSymbol(); as symbol) {
+      <div class="header-signal-block review-queue">
+        <div class="header-acr">
+          <button type="button" class="acr-btn accept"
+            [class.selected]="status() === 'ACCEPT'"
+            (click)="accept.emit()" title="Accept">
+            <mat-icon>check</mat-icon>
+          </button>
+          <button type="button" class="acr-btn watch"
+            [class.selected]="status() === 'WATCH'"
+            (click)="watch.emit()" title="Watch">
+            <mat-icon>visibility</mat-icon>
+          </button>
+          <button type="button" class="acr-btn reject"
+            [class.selected]="status() === 'REJECT'"
+            (click)="reject.emit()" title="Reject">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+        <div class="header-signal-info">
+          <span class="symbol">{{ symbol }}</span>
+          <span class="reason">Queued for review</span>
+        </div>
+      </div>
+    }
+
+    @if (!selectedSymbol() && !manualSymbol()) {
+      <div class="header-title">
+        <h1>
+          <mat-icon>psychology</mat-icon>
+          Review
+        </h1>
+      </div>
+    }
+  </div>
+
+  <div class="header-spacer"></div>
+
+  <div class="header-actions">
+    <div class="manual-symbol-input">
+      <input
+        #symbolInput
+        type="text"
+        placeholder="Symbol..."
+        (keydown)="symbolKeydown.emit({ event: $event, input: symbolInput })"
+        class="symbol-field">
+      <button mat-icon-button (click)="loadSymbol.emit(symbolInput.value)" matTooltip="Load chart for symbol">
+        <mat-icon>trending_up</mat-icon>
+      </button>
+    </div>
+  </div>
+</div>

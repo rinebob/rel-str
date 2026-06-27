@@ -1,65 +1,16 @@
 <div class="rh-agent-review" [class.fullscreen]="uiState.fullscreen()">
-  <div class="review-header">
-    <button mat-icon-button class="back-btn" (click)="goToGroupedReview()" matTooltip="Back to grouped review">
-      <mat-icon>arrow_back</mat-icon>
-    </button>
-    <button mat-icon-button class="history-btn" (click)="goToSignalHistory()" matTooltip="Signal History">
-      <mat-icon>history</mat-icon>
-    </button>
-
-    <div class="header-left-column">
-      @if (selectedReviewSymbol(); as symbol) {
-        <div class="header-signal-block review-queue">
-          <div class="header-acr">
-            <button type="button" class="acr-btn accept"
-              [class.selected]="getReviewSymbolStatus(symbol) === 'ACCEPT'"
-              (click)="onAcceptReview(symbol)" title="Accept">
-              <mat-icon>check</mat-icon>
-            </button>
-            <button type="button" class="acr-btn watch"
-              [class.selected]="getReviewSymbolStatus(symbol) === 'WATCH'"
-              (click)="onWatchReview(symbol)" title="Watch">
-              <mat-icon>visibility</mat-icon>
-            </button>
-            <button type="button" class="acr-btn reject"
-              [class.selected]="getReviewSymbolStatus(symbol) === 'REJECT'"
-              (click)="onRejectReview(symbol)" title="Reject">
-              <mat-icon>close</mat-icon>
-            </button>
-          </div>
-          <div class="header-signal-info">
-            <span class="symbol">{{ symbol }}</span>
-            <span class="reason">Queued for review</span>
-          </div>
-        </div>
-      }
-
-      @if (!selectedReviewSymbol() && !manualSymbol()) {
-        <div class="header-title">
-          <h1>
-            <mat-icon>psychology</mat-icon>
-            Review
-          </h1>
-        </div>
-      }
-    </div>
-
-    <div class="header-spacer"></div>
-
-    <div class="header-actions">
-      <div class="manual-symbol-input">
-        <input
-          #symbolInput
-          type="text"
-          placeholder="Symbol..."
-          (keydown)="onManualSymbolKeydown($event, symbolInput)"
-          class="symbol-field">
-        <button mat-icon-button (click)="loadManualSymbol(symbolInput.value)" matTooltip="Load chart for symbol">
-          <mat-icon>trending_up</mat-icon>
-        </button>
-      </div>
-    </div>
-  </div>
+  <app-review-header
+    [selectedSymbol]="selectedReviewSymbol()"
+    [manualSymbol]="manualSymbol()"
+    [status]="selectedSymbolStatus()"
+    (back)="goToGroupedReview()"
+    (history)="goToSignalHistory()"
+    (accept)="onAcceptReview()"
+    (watch)="onWatchReview()"
+    (reject)="onRejectReview()"
+    (loadSymbol)="loadManualSymbol($event)"
+    (symbolKeydown)="onManualSymbolKeydown($event.event, $event.input)">
+  </app-review-header>
 
   <!-- Master-Detail Layout -->
   @if (hasReviewSymbols() || manualSymbol()) {

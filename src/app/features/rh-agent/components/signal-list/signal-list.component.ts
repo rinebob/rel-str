@@ -53,14 +53,12 @@ export class SignalListComponent {
 
   constructor() {
     effect(() => {
-      for (const symbol of this.triageStore.reviewSymbols()) {
-        if (!this.signalHistoryCache.has(symbol)) {
-          this.service.getSymbolSignalHistory(symbol).subscribe({
-            next: (signals) => this.signalHistoryCache.set(symbol, signals),
-            error: () => this.signalHistoryCache.set(symbol, []),
-          });
-        }
-      }
+      const symbol = this.selectedSymbol();
+      if (!symbol || this.signalHistoryCache.has(symbol)) return;
+      this.service.getSymbolSignalHistory(symbol).subscribe({
+        next: (signals) => this.signalHistoryCache.set(symbol, signals),
+        error: () => this.signalHistoryCache.set(symbol, []),
+      });
     });
 
     effect(() => {

@@ -24,6 +24,7 @@ import { RhReviewStatus } from '../../common/rh-agent.constants';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { SignalListComponent } from '../../components/signal-list/signal-list.component';
 import { SignalDetailComponent } from '../../components/signal-detail/signal-detail.component';
+import { ReviewHeaderComponent } from '../../components/review-header/review-header.component';
 
 @Component({
   selector: 'app-rh-agent-review',
@@ -34,6 +35,7 @@ import { SignalDetailComponent } from '../../components/signal-detail/signal-det
     MatTooltipModule,
     SignalListComponent,
     SignalDetailComponent,
+    ReviewHeaderComponent,
   ],
   templateUrl: './rh-agent-review.component.html',
   styleUrl: './rh-agent-review.component.scss',
@@ -51,6 +53,12 @@ export class RhAgentReviewComponent implements OnInit {
 
   /** Whether the review queue has symbols pending decision. */
   hasReviewSymbols = computed(() => this.triageStore.reviewSymbols().length > 0);
+
+  /** Status of the currently selected review symbol. */
+  selectedSymbolStatus = computed(() => {
+    const symbol = this.selectedReviewSymbol();
+    return symbol ? (this.triageStore.statuses()[symbol] ?? 'PENDING') : 'PENDING';
+  });
 
   constructor() {
     // Auto-select first review symbol when the queue changes and none is selected
@@ -72,27 +80,29 @@ export class RhAgentReviewComponent implements OnInit {
     this.triageStore.loadPersistedDecisions(startDate, marketDate);
   }
 
-  getReviewSymbolStatus(symbol: string): string {
-    return this.triageStore.statuses()[symbol] ?? 'PENDING';
-  }
-
   // --- Review queue mode (symbols with REVIEW status from grouped review) ---
 
   onReviewSymbolSelected(symbol: string): void {
     this.selectedReviewSymbol.set(symbol);
   }
 
-  onAcceptReview(symbol: string): void {
+  onAcceptReview(): void {
+    const symbol = this.selectedReviewSymbol();
+    if (!symbol) return;
     this.triageStore.setStatus(symbol, RhReviewStatus.ACCEPT);
     this.advanceReviewQueue(symbol);
   }
 
-  onWatchReview(symbol: string): void {
+  onWatchReview(): void {
+    const symbol = this.selectedReviewSymbol();
+    if (!symbol) return;
     this.triageStore.watchSymbol(symbol);
     this.advanceReviewQueue(symbol);
   }
 
-  onRejectReview(symbol: string): void {
+  onRejectReview(): void {
+    const symbol = this.selectedReviewSymbol();
+    if (!symbol) return;
     this.triageStore.setStatus(symbol, RhReviewStatus.REJECT);
     this.advanceReviewQueue(symbol);
   }
@@ -100,10 +110,6 @@ export class RhAgentReviewComponent implements OnInit {
   private advanceReviewQueue(decidedSymbol: string): void {
     const remaining = this.triageStore.reviewSymbols().filter((s: string) => s !== decidedSymbol);
     this.selectedReviewSymbol.set(remaining.length > 0 ? remaining[0] : null);
-  }
-
-  goToRuns(): void {
-    this.router.navigate(['/rh-agent']);
   }
 
   goToSignalHistory(): void {
