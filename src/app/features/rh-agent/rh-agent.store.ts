@@ -19,14 +19,12 @@ import {
   RhAgentService,
   RhAgentStatus,
   RhAgentRun,
-  RhTradeSignal,
 } from './rh-agent.service';
 
 // State interface
 export interface RhAgentState {
   status: RhAgentStatus | null;
   runs: RhAgentRun[];
-  signals: RhTradeSignal[];
   isLoading: boolean;
 }
 
@@ -34,7 +32,6 @@ export interface RhAgentState {
 const initialState: RhAgentState = {
   status: null,
   runs: [],
-  signals: [],
   isLoading: false,
 };
 
@@ -43,17 +40,6 @@ export const RhAgentStore = signalStore(
 
   // Computed signals
   withComputed((state) => ({
-    // Group signals by run ID for easy lookup
-    signalsByRun: computed(() => {
-      const map = new Map<string, RhTradeSignal[]>();
-      for (const signal of state.signals()) {
-        const existing = map.get(signal.runId) || [];
-        existing.push(signal);
-        map.set(signal.runId, existing);
-      }
-      return map;
-    }),
-
     // Check if we have any data
     hasData: computed(() => state.runs().length > 0 || state.status() !== null),
 
@@ -67,22 +53,19 @@ export const RhAgentStore = signalStore(
   // Methods
   withMethods((state, service = inject(RhAgentService), snackBar = inject(MatSnackBar), destroyRef = inject(DestroyRef)) => ({
     /**
-     * Load all dashboard data (status, runs, signals)
+     * Load dashboard data (status + runs)
      */
     loadData(): void {
       console.log('[RH Agent Store] loadData() called');
       patchState(state, { isLoading: true });
 
       let completedCalls = 0;
-      const totalCalls = 3;
+      const totalCalls = 2;
 
       const checkComplete = () => {
         completedCalls++;
-        console.log(`[RH Agent Store] API call completed (${completedCalls}/${totalCalls})`);
         if (completedCalls >= totalCalls) {
           patchState(state, { isLoading: false });
-          console.log('[RH Agent Store] All API calls complete');
-          console.log('[RH Agent Store] Final state - runs:', state.runs().length, 'signals:', state.signals().length, 'status:', state.status());
         }
       };
 
@@ -91,14 +74,11 @@ export const RhAgentStore = signalStore(
         .getStatus()
         .pipe(takeUntilDestroyed(destroyRef), finalize(checkComplete))
         .subscribe({
-          next: (status) => {
-            console.log('[RH Agent Store] Status received:', status);
-            patchState(state, { status });
-          },
+          next: (status) => patchState(state, { status }),
           error: (err) => {
-          console.error('[RH Agent Store] Failed to load status:', err);
-          snackBar.open('Failed to load status', 'Dismiss', { duration: 5000 });
-        },
+            console.error('[RH Agent Store] Failed to load status:', err);
+            snackBar.open('Failed to load status', 'Dismiss', { duration: 5000 });
+          },
         });
 
       // Load runs
@@ -106,29 +86,11 @@ export const RhAgentStore = signalStore(
         .getRunHistory(20)
         .pipe(takeUntilDestroyed(destroyRef), finalize(checkComplete))
         .subscribe({
-          next: (runs) => {
-            console.log('[RH Agent Store] Runs received:', runs.length, runs);
-            patchState(state, { runs });
-          },
+          next: (runs) => patchState(state, { runs }),
           error: (err) => {
-          console.error('[RH Agent Store] Failed to load runs:', err);
-          snackBar.open('Failed to load runs', 'Dismiss', { duration: 5000 });
-        },
-        });
-
-      // Load signals
-      service
-        .getSignalHistory(50)
-        .pipe(takeUntilDestroyed(destroyRef), finalize(checkComplete))
-        .subscribe({
-          next: (signals) => {
-            console.log('[RH Agent Store] Signals received:', signals.length, signals);
-            patchState(state, { signals });
+            console.error('[RH Agent Store] Failed to load runs:', err);
+            snackBar.open('Failed to load runs', 'Dismiss', { duration: 5000 });
           },
-          error: (err) => {
-          console.error('[RH Agent Store] Failed to load signals:', err);
-          snackBar.open('Failed to load signals', 'Dismiss', { duration: 5000 });
-        },
         });
     },
 
@@ -181,11 +143,5 @@ export const RhAgentStore = signalStore(
         });
     },
 
-    /**
-     * Get signals for a specific run
-     */
-    getSignalsForRun(runId: string): RhTradeSignal[] {
-      return state.signalsByRun().get(runId) || [];
-    },
   }))
 );

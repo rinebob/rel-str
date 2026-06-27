@@ -48,25 +48,6 @@ export interface RhAgentRun {
   triggeredBy?: 'manual' | 'schedule';
 }
 
-export interface RhTradeSignal {
-  id: string;
-  runId: string;
-  symbol: string;
-  action: string;
-  status: string;
-  reason: string;
-  createdAt: string;
-  dryRun?: boolean;
-  confidence?: number;
-  signalType?: string;
-  tradeDirection?: 'LONG' | 'SHORT';
-  indicators?: {
-    rsi?: number;
-    priceChange?: number;
-    currentPrice?: number;
-  };
-}
-
 /** Market cap tiers derived from SA overview data. */
 export type MarketCapTier = 'mega' | 'large' | 'mid' | 'small' | 'micro';
 
@@ -153,7 +134,6 @@ export class RhAgentService {
 
   // Collection references for realtime data
   private readonly runsCollection = 'rh-agent-runs';
-  private readonly opportunitiesCollection = 'rh-agent-opportunities';
   private readonly statusDoc = 'rh-agent-status/current';
 
   /**
@@ -195,40 +175,6 @@ export class RhAgentService {
       'rhAgentGetRunHistory'
     );
     return from(callable({ limit: limitCount })).pipe(map((result) => result.data.runs));
-  }
-
-  /**
-   * Normalize signals from the backend, deriving tradeDirection from action.
-   */
-  private normalizeSignals(signals: RhTradeSignal[]): RhTradeSignal[] {
-    return signals.map(signal => ({
-      ...signal,
-      tradeDirection: signal.action === 'OPEN_SHORT' ? 'SHORT' : 'LONG',
-    }));
-  }
-
-  /**
-   * Get recent signal history.
-   */
-  getSignalHistory(limitCount = 50): Observable<RhTradeSignal[]> {
-    const callable = httpsCallable<{ limit: number }, { signals: RhTradeSignal[] }>(
-      this.functions,
-      'rhAgentGetSignalHistory'
-    );
-    return from(callable({ limit: limitCount })).pipe(
-      map((result) => this.normalizeSignals(result.data.signals))
-    );
-  }
-
-  /**
-   * Get signals for a specific run.
-   */
-  getSignalsForRun(runId: string): Observable<RhTradeSignal[]> {
-    const callable = httpsCallable<{ runId: string }, { signals: RhTradeSignal[] }>(
-      this.functions,
-      'rhAgentGetSignalHistory'
-    );
-    return from(callable({ runId })).pipe(map((result) => this.normalizeSignals(result.data.signals)));
   }
 
   /**
@@ -352,18 +298,4 @@ export class RhAgentService {
     return from(callable({ forceRefresh })).pipe(map((r) => r.data));
   }
 
-  /**
-   * Subscribe to recent opportunities from Firestore (realtime updates).
-   */
-  watchRecentOpportunitiesRealtime(count = 50): Observable<RhTradeSignal[]> {
-    const opportunitiesRef = collection(this.firestore, this.opportunitiesCollection);
-    const opportunitiesQuery = query(
-      opportunitiesRef,
-      orderBy('createdAt', 'desc'),
-      limit(count)
-    );
-    return (collectionData(opportunitiesQuery, { idField: 'id' }) as Observable<
-      RhTradeSignal[]
-    >).pipe(map(signals => this.normalizeSignals(signals)));
-  }
 }
