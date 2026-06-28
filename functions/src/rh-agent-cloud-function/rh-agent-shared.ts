@@ -15,6 +15,7 @@ import {
   RhAgentDailyRun,
   RhAgentJob,
   SymbolJobPayload,
+  IntradaySnapshot,
 } from './rh-agent-config';
 import { db, FieldValue } from '../firebase-admin-init';
 
@@ -129,7 +130,8 @@ export async function createJobAndEnqueue(
   runId: string,
   symbol: string,
   marketDate: string,
-  context: 'pdr' | 'manual' = 'pdr'
+  triggeredBy: 'manual' | 'pdr' | 'nightly' = 'pdr',
+  intraday?: IntradaySnapshot
 ): Promise<void> {
   // Create job document
   const jobRef = db
@@ -153,13 +155,14 @@ export async function createJobAndEnqueue(
     runId,
     symbol,
     marketDate,
+    intraday,
   };
 
   try {
     const queue = getFunctions().taskQueue('rhAgentProcessSymbol');
     await queue.enqueue(payload);
   } catch (error: any) {
-    logger.warn(`rh_agent_${context}_enqueue_failed`, {
+    logger.warn(`rh_agent_${triggeredBy}_enqueue_failed`, {
       symbol,
       runId,
       error: error?.message,

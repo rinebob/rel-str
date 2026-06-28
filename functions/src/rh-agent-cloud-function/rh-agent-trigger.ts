@@ -7,22 +7,19 @@
 import { onRequest } from 'firebase-functions/v2/https';
 import { onMessagePublished } from 'firebase-functions/v2/pubsub';
 import { logger } from 'firebase-functions/v2';
-import { getFunctions } from 'firebase-admin/functions';
 import { db, FieldValue } from '../firebase-admin-init';
 
-import {
-  RH_AGENT_RUNS_COLLECTION,
-  RH_AGENT_JOBS_SUBCOLLECTION,
-  RH_AGENT_SYMBOLS_COLLECTION,
-  RhAgentRunStatus,
-  RhAgentJobStatus,
-  RhAgentJob,
-  SymbolJobPayload,
-  type IntradaySnapshot,
-} from './rh-agent-config';
+import { type IntradaySnapshot } from './rh-agent-config';
 
 import { callPartnerIntradaySnapshotV2 } from '../partner-proxy';
 import { RS_BARS_COLLECTION, OhlcBar } from '../rs-bars/rs-bars-sync';
+import {
+  getMarketDate,
+  getDeadlineISO,
+  loadEnabledSymbols,
+  createDailyRun,
+  createJobAndEnqueue,
+} from './rh-agent-shared';
 
 /**
  * Pub/Sub trigger: Automatically starts RH Agent when PDR intraday-snapshot message arrives.
@@ -118,58 +115,14 @@ export const rhAgentTriggerDaily = onRequest(
     logger.info('rh_agent_manual_trigger_start');
 
     try {
-      const startTime = Date.now();
-
-      // 1. Get market date (allow override via query param for testing)
       const marketDate = req.query.date as string || getMarketDate();
       logger.info('rh_agent_manual_trigger_market_date', { marketDate, isOverride: !!req.query.date });
 
-      // 2. Load enabled symbols
-      const symbols = await loadEnabledSymbols();
-      if (symbols.length === 0) {
-        logger.warn('rh_agent_manual_trigger_no_symbols');
-        res.status(400).json({ success: false, error: 'No symbols found' });
-        return;
-      }
-      logger.info('rh_agent_manual_trigger_symbols_loaded', { count: symbols.length });
-
-      // 3. Calculate deadline
-      const deadlineAt = getDeadlineISO();
-
-      // 4. Create daily run document
-      const runId = await createDailyRun(marketDate, symbols.length, deadlineAt);
-      logger.info('rh_agent_manual_trigger_run_created', { runId, symbolCount: symbols.length });
-
-      // 5. Create job documents and enqueue Cloud Tasks
-      let enqueuedCount = 0;
-      for (const symbol of symbols) {
-        try {
-          await createJobAndEnqueue(runId, symbol, marketDate);
-          enqueuedCount++;
-        } catch (error: any) {
-          logger.error('rh_agent_manual_trigger_enqueue_failed', {
-            symbol,
-            runId,
-            error: error?.message,
-          });
-        }
-      }
-
-      const duration = Date.now() - startTime;
-      logger.info('rh_agent_manual_trigger_complete', {
-        runId,
-        symbolCount: symbols.length,
-        enqueuedCount,
-        duration,
-      });
+      const result = await startRhAgentRun(marketDate, 'manual', []);
 
       res.status(200).json({
         success: true,
-        runId,
-        marketDate,
-        symbolCount: symbols.length,
-        enqueuedCount,
-        duration,
+        ...result,
       });
     } catch (error: any) {
       logger.error('rh_agent_manual_trigger_fatal_error', { error: error?.message });
@@ -177,132 +130,6 @@ export const rhAgentTriggerDaily = onRequest(
     }
   }
 );
-
-// Helper functions (copied from scheduler)
-function getMarketDate(): string {
-  const now = new Date();
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Los_Angeles',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(now);
-  const year = parts.find(p => p.type === 'year')!.value;
-  const month = parts.find(p => p.type === 'month')!.value;
-  const day = parts.find(p => p.type === 'day')!.value;
-  return `${year}-${month}-${day}`;
-}
-
-function getDeadlineISO(): string {
-  const now = new Date();
-  const deadline = new Date(Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate(),
-    20, 30, 0, 0
-  ));
-  return deadline.toISOString();
-}
-
-async function loadEnabledSymbols(): Promise<string[]> {
-  const snapshot = await db
-    .collection(RH_AGENT_SYMBOLS_COLLECTION)
-    .where('enabled', '==', true)
-    .get();
-
-  if (snapshot.empty) {
-    return [];
-  }
-
-  return snapshot.docs.map((doc) => doc.data().symbol as string);
-}
-
-/**
- * Generate run ID in format: DATE_DOW_TIME (e.g., 2026-06-16_tue_153145)
- */
-function generateRunId(marketDate: string): string {
-  const now = new Date();
-  const [year, month, day] = marketDate.split('-').map(Number);
-  const dow = new Date(year, month - 1, day)
-    .toLocaleDateString('en-US', { weekday: 'short' })
-    .toLowerCase();
-  const timeParts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Los_Angeles',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-    hour12: false,
-  }).formatToParts(now);
-  const hours = timeParts.find(p => p.type === 'hour')!.value.padStart(2, '0');
-  const minutes = timeParts.find(p => p.type === 'minute')!.value.padStart(2, '0');
-  const seconds = timeParts.find(p => p.type === 'second')!.value.padStart(2, '0');
-  return `${marketDate}_${dow}_${hours}${minutes}${seconds}`;
-}
-
-async function createDailyRun(
-  marketDate: string,
-  totalSymbols: number,
-  deadlineAt: string,
-  triggeredBy: 'manual' | 'pdr' | 'nightly' = 'manual'
-): Promise<string> {
-  const runId = generateRunId(marketDate);
-  const runRef = db.collection(RH_AGENT_RUNS_COLLECTION).doc(runId);
-  const now = FieldValue.serverTimestamp();
-
-  const runData = {
-    id: runId,
-    type: 'daily-scan',
-    marketDate,
-    status: RhAgentRunStatus.RUNNING,
-    totalSymbols,
-    processedCount: 0,
-    successCount: 0,
-    failureCount: 0,
-    signalsGenerated: 0,
-    completionProcessed: false,
-    triggeredBy,
-    startedAt: now,
-    deadlineAt,
-    errors: [],
-    logs: [`[${new Date().toISOString()}] Run started: ${totalSymbols} symbols (triggered by ${triggeredBy})`],
-  };
-
-  await runRef.set(runData);
-  return runId;
-}
-
-async function createJobAndEnqueue(
-  runId: string,
-  symbol: string,
-  marketDate: string,
-  context: 'manual' | 'pdr' | 'nightly' = 'manual',
-  intraday?: IntradaySnapshot
-): Promise<void> {
-  const jobRef = db
-    .collection(RH_AGENT_RUNS_COLLECTION)
-    .doc(runId)
-    .collection(RH_AGENT_JOBS_SUBCOLLECTION)
-    .doc(symbol);
-
-  const jobData: RhAgentJob = {
-    id: symbol,
-    symbol,
-    status: RhAgentJobStatus.PENDING,
-    attempts: 0,
-    createdAt: FieldValue.serverTimestamp(),
-  };
-
-  await jobRef.set(jobData);
-
-  const payload: SymbolJobPayload = { runId, symbol, marketDate, intraday };
-
-  try {
-    const queue = getFunctions().taskQueue('rhAgentProcessSymbol');
-    await queue.enqueue(payload);
-  } catch (error: any) {
-    logger.warn(`rh_agent_${context}_task_queue_failed`, {
-      symbol, runId, error: error?.message,
-    });
-  }
-}
 
 /**
  * Write intraday partial bars to rs-bars/{symbol} so that workers see today's
@@ -361,14 +188,14 @@ export async function startRhAgentRun(
   marketDate: string,
   triggeredBy: 'manual' | 'pdr' | 'nightly',
   intradaySnapshots: IntradaySnapshot[] = []
-): Promise<void> {
+): Promise<{ runId: string; marketDate: string; symbolCount: number; enqueued: number; failed: number; duration: number }> {
   const startTime = Date.now();
 
   // 1. Load enabled symbols
   const symbols = await loadEnabledSymbols();
   if (symbols.length === 0) {
     logger.warn('rh_agent_trigger_no_symbols', { marketDate, triggeredBy });
-    return;
+    return { runId: '', marketDate, symbolCount: 0, enqueued: 0, failed: 0, duration: 0 };
   }
   logger.info('rh_agent_trigger_symbols_loaded', {
     marketDate,
@@ -420,4 +247,6 @@ export async function startRhAgentRun(
     failed: failedCount,
     duration,
   });
+
+  return { runId, marketDate, symbolCount: symbols.length, enqueued: enqueuedCount, failed: failedCount, duration };
 }
