@@ -4,7 +4,7 @@
  * Cloud Task worker that analyzes a single symbol.
  * Triggered by the task queue for each symbol in the daily run.
  *
- * Uses internal rel-str Firestore data (rs-symbol-cache), NOT Robinhood API.
+ * Uses internal rel-str Firestore data (rs-bars), NOT Robinhood API.
  */
 import { onTaskDispatched } from 'firebase-functions/v2/tasks';
 import { logger } from 'firebase-functions/v2';
@@ -15,17 +15,16 @@ import {
   RH_AGENT_RUNS_COLLECTION,
   RH_AGENT_STATUS_COLLECTION,
   RH_AGENT_JOBS_SUBCOLLECTION,
-  RH_AGENT_SYMBOLS_COLLECTION,
-  RH_AGENT_SIGNAL_DATES_SUBCOLLECTION,
   AGENT_STATUS_DOC,
   RhAgentJobStatus,
   RhAgentRunStatus,
   RhAgentSignalEntry,
-  RhAgentSignalDateDoc,
   RhAgentSignalStatus,
   StSignalDirection,
   SymbolJobPayload,
 } from './rh-agent-config';
+
+import { SignalDateWriter } from './rh-agent-signal-date-writer';
 
 import { strategyRegistry } from './strategies/strategy-registry';
 import type { StrategyInput, StrategyOutput } from './strategies/strategy-registry';
@@ -33,6 +32,9 @@ import { StrategyId } from './strategies/base-strategy';
 
 // Default strategy if none specified on the run document
 const DEFAULT_STRATEGY = StrategyId.ST_ZONE_UPTICK;
+
+// Minimum daily bars required before a strategy is executed
+const MIN_REQUIRED_BARS = 45;
 
 // Feature flags
 const REQUIRE_FRESH_DATA = false; // Set to true for production - checks that data is from today
@@ -66,47 +68,35 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
       // 1. Mark job as in-progress
       await markJobInProgress(runId, symbol);
 
-      // 2. Fetch cached bars from internal rel-str Firestore (NOT from RH)
-      logger.info('rh_agent_worker_fetching_data', { runId, symbol, marketDate, cachePath: `rs-symbol-cache/${marketDate}/symbols/${symbol}`, hasIntraday: !!intraday });
-      const { dailyBars, weeklyBars, monthlyBars } = await getCachedBars(symbol, marketDate);
+      // 2. Load cached bars
+      const { dailyBars, weeklyBars, monthlyBars } = await loadData(symbol, marketDate, intraday, runId);
 
-      const minRequiredBars = 45;
-      if (!dailyBars || dailyBars.length < minRequiredBars) {
-        logger.warn('rh_agent_worker_insufficient_data', { runId, symbol, barCount: dailyBars?.length || 0, required: minRequiredBars, hasIntraday: !!intraday });
-        await markJobComplete(runId, symbol, 'SUCCESS', false);
+      if (!dailyBars || dailyBars.length < MIN_REQUIRED_BARS) {
+        logger.warn('rh_agent_worker_insufficient_data', { runId, symbol, barCount: dailyBars?.length || 0, required: MIN_REQUIRED_BARS, hasIntraday: !!intraday });
+        await markJobComplete(runId, symbol, 'SUCCESS', false, undefined, 0);
         return;
       }
 
-      logger.info('rh_agent_worker_data_loaded', {
-        runId,
-        symbol,
-        dailyBars: dailyBars.length,
-        weeklyBars: weeklyBars?.length || 0,
-        monthlyBars: monthlyBars?.length || 0,
-      });
-
-      // 2b. Verify data freshness (most recent bar should be today)
+      // 2b. Verify data freshness
       if (REQUIRE_FRESH_DATA) {
         const isFresh = verifyDataFreshness(dailyBars, marketDate, runId, symbol);
         if (!isFresh) {
           logger.warn('rh_agent_worker_stale_data', { runId, symbol, marketDate });
-          await markJobComplete(runId, symbol, 'SUCCESS', false);
+          await markJobComplete(runId, symbol, 'SUCCESS', false, undefined, 0);
           return;
         }
       }
 
       // 3. Load strategy from registry
-      const strategyName = DEFAULT_STRATEGY;
-      const strategy = strategyRegistry.get(strategyName);
-      const strategyConfig = strategy.metadata.defaultConfig;
+      const strategy = strategyRegistry.get(DEFAULT_STRATEGY);
 
       // 4. Validate minimum data requirements
       if (dailyBars.length < strategy.metadata.minBarsRequired) {
         logger.warn('rh_agent_worker_insufficient_bars_for_strategy', {
           runId, symbol, barCount: dailyBars.length,
-          required: strategy.metadata.minBarsRequired, strategy: strategyName,
+          required: strategy.metadata.minBarsRequired, strategy: DEFAULT_STRATEGY,
         });
-        await markJobComplete(runId, symbol, 'SUCCESS', false);
+        await markJobComplete(runId, symbol, 'SUCCESS', false, undefined, 0);
         return;
       }
 
@@ -119,78 +109,16 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
         intraday,
       };
 
-      logger.info('rh_agent_worker_executing_strategy', {
-        runId, symbol, strategy: strategyName,
-        dailyBars: dailyBars.length,
-        weeklyBars: weeklyBars?.length || 0,
-        monthlyBars: monthlyBars?.length || 0,
-      });
+      const results = await executeStrategy(strategy, strategyInput, runId);
 
-      const rawResult = strategy.execute(strategyInput, strategyConfig);
-      const results: StrategyOutput[] = Array.isArray(rawResult) ? rawResult : [rawResult];
+      // 6. Persist signals
+      const { opportunityCount, barDates } = await persistSignals(symbol, runId, marketDate, !!intraday, results);
 
-      logger.info('rh_agent_worker_strategy_result', {
-        runId, symbol, strategy: strategyName,
-        signalCount: results.filter(r => r.action).length,
-        signals: results.filter(r => r.action).map(r => r.signalType),
-      });
+      // 7. Clear stale INTERIM signals for bar dates that did not fire this run
+      await clearStaleSignals(symbol, marketDate, !!intraday, results, barDates);
 
-      // 6. Store signals under rh-agent-symbols/{symbol}/signal-dates/{barDate}
-      const fired = results.filter(r => r.action);
-      const entries = fired.map(r => createSignalEntry(marketDate, runId, r, !!intraday));
-
-      // Group entries by barDate (daily and weekly may have different bar dates)
-      const byBarDate = new Map<string, typeof entries>();
-      for (const entry of entries) {
-        if (!byBarDate.has(entry.barDate)) byBarDate.set(entry.barDate, []);
-        byBarDate.get(entry.barDate)!.push(entry);
-      }
-
-      let opportunityCount = 0;
-      for (const [barDate, dateEntries] of byBarDate) {
-        await writeSignalDateDoc(symbol, runId, dateEntries);
-
-        for (const entry of dateEntries) {
-          await updateSymbolGateDate(symbol, barDate, entry.timeframe, entry.direction);
-          logger.info('rh_agent_worker_signal_written', {
-            runId, symbol, barDate, signalType: entry.signalType,
-            timeframe: entry.timeframe, status: entry.status,
-          });
-          opportunityCount++;
-        }
-
-        // Clear stale INTERIM signals for weekly bar dates (reversal handling)
-        const isWeeklyBarDate = dateEntries.some(e => e.timeframe === 'W');
-        if (isWeeklyBarDate) {
-          const firedTypes = new Set(dateEntries.filter(e => e.timeframe === 'W').map(e => e.signalType));
-          await clearStaleInterimSignals(symbol, barDate, firedTypes);
-        }
-
-        // Clear stale INTERIM daily signals during intraday runs (reversal handling)
-        if (intraday) {
-          const isDailyBarDate = dateEntries.some(e => e.timeframe === 'D');
-          if (isDailyBarDate) {
-            const firedDailyTypes = new Set(dateEntries.filter(e => e.timeframe === 'D').map(e => e.signalType));
-            await clearStaleInterimSignals(symbol, barDate, firedDailyTypes);
-          }
-        }
-      }
-
-      // Also clear stale INTERIM for the current weekly bar if no weekly signal fired at all
-      const weeklyBarDate = results.find(r => r.barDate && deriveTimeframe(r.signalType) === 'W')?.barDate;
-      if (weeklyBarDate && !byBarDate.has(weeklyBarDate)) {
-        await clearStaleInterimSignals(symbol, weeklyBarDate, new Set());
-      }
-
-      // For intraday runs: if no daily signal fired at all, clear any existing INTERIM daily signals for today
-      if (intraday && !byBarDate.has(marketDate)) {
-        await clearStaleInterimSignals(symbol, marketDate, new Set());
-      }
-
-      await incrementSignalsGenerated(runId, opportunityCount);
-
-      // 7. Mark job complete
-      await markJobComplete(runId, symbol, 'SUCCESS', opportunityCount > 0);
+      // 8. Mark job complete (signalsGenerated counter is batched with run counters)
+      await markJobComplete(runId, symbol, 'SUCCESS', opportunityCount > 0, undefined, opportunityCount);
 
       const duration = Date.now() - startTime;
       logger.info('rh_agent_worker_complete', {
@@ -208,13 +136,131 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
       });
 
       // Mark job as failed
-      await markJobComplete(runId, symbol, 'FAILED', false, error?.message);
+      await markJobComplete(runId, symbol, 'FAILED', false, error?.message, 0);
 
       // Re-throw to trigger Cloud Tasks retry
       throw error;
     }
   }
 );
+
+/**
+ * Load cached bars from rs-bars/{symbol}.
+ */
+async function loadData(
+  symbol: string,
+  marketDate: string,
+  intraday: any,
+  runId: string
+): Promise<{ dailyBars: any[] | null; weeklyBars: any[] | null; monthlyBars: any[] | null }> {
+  logger.info('rh_agent_worker_fetching_data', { runId, symbol, marketDate, cachePath: `rs-bars/${symbol}`, hasIntraday: !!intraday });
+  const { dailyBars, weeklyBars, monthlyBars } = await getCachedBars(symbol, marketDate);
+  logger.info('rh_agent_worker_data_loaded', {
+    runId,
+    symbol,
+    dailyBars: dailyBars?.length || 0,
+    weeklyBars: weeklyBars?.length || 0,
+    monthlyBars: monthlyBars?.length || 0,
+  });
+  return { dailyBars, weeklyBars, monthlyBars };
+}
+
+/**
+ * Execute the selected strategy and return normalized outputs.
+ */
+async function executeStrategy(
+  strategy: any,
+  input: StrategyInput,
+  runId: string
+): Promise<StrategyOutput[]> {
+  const strategyName = strategy.metadata?.id || DEFAULT_STRATEGY;
+  const strategyConfig = strategy.metadata?.defaultConfig;
+
+  logger.info('rh_agent_worker_executing_strategy', {
+    runId, symbol: input.symbol, strategy: strategyName,
+    dailyBars: input.bars.length,
+    weeklyBars: input.weeklyBars?.length || 0,
+    monthlyBars: input.monthlyBars?.length || 0,
+  });
+
+  const rawResult = strategy.execute(input, strategyConfig);
+  const results: StrategyOutput[] = Array.isArray(rawResult) ? rawResult : [rawResult];
+
+  logger.info('rh_agent_worker_strategy_result', {
+    runId, symbol: input.symbol, strategy: strategyName,
+    signalCount: results.filter(r => r.action).length,
+    signals: results.filter(r => r.action).map(r => r.signalType),
+  });
+
+  return results;
+}
+
+/**
+ * Persist all fired signals grouped by bar date.
+ */
+async function persistSignals(
+  symbol: string,
+  runId: string,
+  marketDate: string,
+  intraday: boolean,
+  results: StrategyOutput[]
+): Promise<{ opportunityCount: number; barDates: Set<string> }> {
+  const fired = results.filter(r => r.action);
+  const entries = fired.map(r => createSignalEntry(marketDate, runId, r, intraday));
+
+  const byBarDate = new Map<string, RhAgentSignalEntry[]>();
+  for (const entry of entries) {
+    const list = byBarDate.get(entry.barDate) ?? [];
+    list.push(entry);
+    byBarDate.set(entry.barDate, list);
+  }
+
+  const writer = new SignalDateWriter(symbol);
+  const barDatePromises: Promise<number>[] = [];
+  for (const [, dateEntries] of byBarDate) {
+    barDatePromises.push(writer.persistBarDate(runId, dateEntries, intraday));
+  }
+
+  const counts = await Promise.all(barDatePromises);
+  const opportunityCount = counts.reduce((sum, c) => sum + c, 0);
+
+  logger.info('rh_agent_worker_signals_persisted', {
+    symbol,
+    runId,
+    marketDate,
+    barDates: Array.from(byBarDate.keys()),
+    opportunityCount,
+  });
+
+  return { opportunityCount, barDates: new Set(byBarDate.keys()) };
+}
+
+/**
+ * Clear stale INTERIM signals for bar dates that did not fire this run.
+ */
+async function clearStaleSignals(
+  symbol: string,
+  marketDate: string,
+  intraday: boolean,
+  results: StrategyOutput[],
+  barDates: Set<string>
+): Promise<void> {
+  const writer = new SignalDateWriter(symbol);
+  const promises: Promise<void>[] = [];
+
+  // Also clear stale INTERIM for the current weekly bar if no weekly signal fired at all
+  const weeklyBarDate = results.find(r => r.barDate && deriveTimeframe(r.signalType) === 'W')?.barDate;
+  if (weeklyBarDate && !barDates.has(weeklyBarDate)) {
+    promises.push(writer.clearStaleInterimSignals(weeklyBarDate, new Set()));
+  }
+
+  // For intraday runs: if no daily signal fired at all, clear any existing INTERIM daily signals for today
+  if (intraday && !barDates.has(marketDate)) {
+    promises.push(writer.clearStaleInterimSignals(marketDate, new Set()));
+  }
+
+  await Promise.all(promises);
+}
 
 /**
  * Mark job as in-progress.
@@ -236,14 +282,16 @@ async function markJobInProgress(runId: string, symbol: string): Promise<void> {
 }
 
 /**
- * Mark job as complete (success or failed).
+ * Mark job as complete (success or failed) and batch the run-level signalsGenerated
+ * increment with the success/failure counters.
  */
 async function markJobComplete(
   runId: string,
   symbol: string,
   status: 'SUCCESS' | 'FAILED',
   createdOpportunity: boolean,
-  errorMessage?: string
+  errorMessage?: string,
+  signalsGenerated = 0
 ): Promise<void> {
   const jobRef = db
     .collection(RH_AGENT_RUNS_COLLECTION)
@@ -263,14 +311,19 @@ async function markJobComplete(
 
   await jobRef.set(updates, { merge: true });
 
-  // Update run counters
-  await updateRunCounters(runId, status);
+  // Update run counters (signalsGenerated is batched here)
+  await updateRunCounters(runId, status, signalsGenerated);
 }
 
 /**
- * Update run-level counters.
+ * Update run-level counters. When signalsGenerated is provided, it is incremented
+ * in the same write as processed/success/failure counts.
  */
-async function updateRunCounters(runId: string, jobStatus: 'SUCCESS' | 'FAILED'): Promise<void> {
+async function updateRunCounters(
+  runId: string,
+  jobStatus: 'SUCCESS' | 'FAILED',
+  signalsGenerated = 0
+): Promise<void> {
   const runRef = db.collection(RH_AGENT_RUNS_COLLECTION).doc(runId);
 
   const updates: any = {
@@ -281,6 +334,10 @@ async function updateRunCounters(runId: string, jobStatus: 'SUCCESS' | 'FAILED')
     updates.successCount = FieldValue.increment(1);
   } else {
     updates.failureCount = FieldValue.increment(1);
+  }
+
+  if (signalsGenerated > 0) {
+    updates.signalsGenerated = FieldValue.increment(signalsGenerated);
   }
 
   await runRef.set(updates, { merge: true });
@@ -340,20 +397,6 @@ async function checkRunCompletion(runId: string): Promise<void> {
   } catch (error: any) {
     logger.error('rh_agent_run_completion_error', { runId, error: error?.message });
   }
-}
-
-/**
- * Increment signals generated counter on run document.
- */
-async function incrementSignalsGenerated(runId: string, count = 1): Promise<void> {
-  if (count === 0) return;
-  const runRef = db.collection(RH_AGENT_RUNS_COLLECTION).doc(runId);
-  await runRef.set(
-    {
-      signalsGenerated: FieldValue.increment(count),
-    },
-    { merge: true }
-  );
 }
 
 /**
@@ -485,84 +528,5 @@ function createSignalEntry(
     marketDate,
     indicators: (result.indicators || {}) as Record<string, number | string | null>,
   };
-}
-
-/**
- * Write signals to rh-agent-symbols/{symbol}/signal-dates/{barDate}.
- * Uses map merge so multiple signals on the same bar date are combined.
- * CONFIRMED entries from previous runs are never overwritten.
- */
-async function writeSignalDateDoc(
-  symbol: string,
-  runId: string,
-  entries: RhAgentSignalEntry[]
-): Promise<void> {
-  if (entries.length === 0) return;
-
-  const barDate = entries[0].barDate;
-  const docRef = db
-    .collection(RH_AGENT_SYMBOLS_COLLECTION)
-    .doc(symbol)
-    .collection(RH_AGENT_SIGNAL_DATES_SUBCOLLECTION)
-    .doc(barDate);
-
-  const existing = await docRef.get();
-  const existingData = existing.exists ? (existing.data() as RhAgentSignalDateDoc) : null;
-
-  const signalsUpdate: Record<string, any> = {};
-  for (const entry of entries) {
-    const existing = existingData?.signals?.[entry.signalType];
-    if (existing?.status === 'CONFIRMED') continue;
-    signalsUpdate[`signals.${entry.signalType}`] = entry;
-  }
-
-  if (Object.keys(signalsUpdate).length === 0) return;
-
-  await docRef.set(
-    { symbol, barDate, runId, updatedAt: FieldValue.serverTimestamp(), ...signalsUpdate },
-    { merge: true }
-  );
-}
-
-/**
- * For W/M bar dates that had INTERIM signals in a previous run:
- * if this run produced no signal for a given signalType, delete the INTERIM entry.
- */
-async function clearStaleInterimSignals(
-  symbol: string,
-  barDate: string,
-  firedSignalTypes: Set<string>
-): Promise<void> {
-  const docRef = db
-    .collection(RH_AGENT_SYMBOLS_COLLECTION)
-    .doc(symbol)
-    .collection(RH_AGENT_SIGNAL_DATES_SUBCOLLECTION)
-    .doc(barDate);
-
-  const snap = await docRef.get();
-  if (!snap.exists) return;
-
-  const data = snap.data() as RhAgentSignalDateDoc;
-  const deletions: Record<string, any> = {};
-  for (const [signalType, entry] of Object.entries(data.signals ?? {})) {
-    if (entry.status === 'INTERIM' && !firedSignalTypes.has(signalType)) {
-      deletions[`signals.${signalType}`] = FieldValue.delete();
-    }
-  }
-
-  if (Object.keys(deletions).length > 0) {
-    await docRef.update(deletions);
-  }
-}
-
-/**
- * Update lastDailySignalDate or lastWeeklySignalDate on the symbol doc.
- * Uses barDate so the gate matches the signal-dates doc ID.
- */
-async function updateSymbolGateDate(symbol: string, barDate: string, timeframe: 'D' | 'W', direction: string): Promise<void> {
-  const symbolRef = db.collection(RH_AGENT_SYMBOLS_COLLECTION).doc(symbol);
-  const dateField = timeframe === 'W' ? 'lastWeeklySignalDate' : 'lastDailySignalDate';
-  const dirField  = timeframe === 'W' ? 'lastWeeklySignalDirection' : 'lastDailySignalDirection';
-  await symbolRef.set({ [dateField]: barDate, [dirField]: direction }, { merge: true });
 }
 
