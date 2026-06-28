@@ -185,8 +185,8 @@ server.listen(PORT, () => {
   console.log(`  - Claude Code must be running with robinhood-trading MCP connected`);
   console.log(`  - Agentic account (••••6245) must have buying power`);
   console.log("\nExample request:");
-  console.log(`  curl -X POST http://localhost:${PORT}/trade \\\`);
-  console.log('    -H "Content-Type: application/json" \\\`);
+  console.log(`  curl -X POST http://localhost:${PORT}/trade \\`);
+  console.log('    -H "Content-Type: application/json" \\');
   console.log('    -d \'{"symbol":"AAPL","side":"buy","amount":100}\'');
   console.log("\nPress Ctrl+C to stop\n");
 });
