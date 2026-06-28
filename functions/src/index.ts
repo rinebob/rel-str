@@ -98,8 +98,6 @@ export {
 
 // RH Agent Callables (for frontend dashboard)
 export {
-  rhAgentGetStatus,
-  rhAgentGetRunHistory,
   rhAgentGetSymbolsWithSignals,
   rhAgentGetSymbolSignalHistory,
 } from './rh-agent-cloud-function/rh-agent-dashboard-callables';
