@@ -66,3 +66,6 @@ export const ALL_SYMBOL_LIST_NAMES: RhSymbolListName[] = [
 
 /** Symbol type classification for the trading universe. */
 export type SymbolType = 'STOCK' | 'ETF' | 'FUTURE' | 'FOREX' | 'CRYPTO' | 'OTHER';
+
+/** Dimensions available for grouping the symbol list in the grouped review. */
+export type GroupDimension = 'sector' | 'industry' | 'marketCapTier';

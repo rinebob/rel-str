@@ -12,8 +12,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { GroupDimension } from '../../stores/rh-agent-group.store';
-import { RhSymbolListName, StatusCounts } from '../../common/rh-agent.constants';
+import { RhSymbolListName, StatusCounts, GroupDimension } from '../../common/rh-agent.constants';
 import { StatusSummaryChipsComponent } from '../status-summary-chips/status-summary-chips.component';
 
 @Component({

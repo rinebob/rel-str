@@ -3,8 +3,38 @@
  *
  * Small, pure helpers used across the RH Agent feature components.
  */
-import { RhAgentSignalItem, RH_AGENT_SCHEDULE_CRON } from '../services/rh-agent.service';
+import { RhAgentSignalItem, RhAgentSymbolProfile, RH_AGENT_SCHEDULE_CRON } from '../services/rh-agent.service';
 import { RhSymbolRow } from '../stores/rh-agent-group.store';
+import { GroupDimension } from '../common/rh-agent.constants';
+
+/** Today in Pacific Time as YYYY-MM-DD. */
+export function todayDate(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date());
+}
+
+/** Fallback group name for symbols missing the active dimension value. */
+export const UNKNOWN_GROUP = '(Unknown)';
+
+/** Build the group key for a symbol profile under the chosen dimension. */
+export function getGroupKey(profile: RhAgentSymbolProfile, dimension: GroupDimension): string {
+  switch (dimension) {
+    case 'sector':        return profile.sector        || UNKNOWN_GROUP;
+    case 'industry':      return profile.industry      || UNKNOWN_GROUP;
+    case 'marketCapTier': return profile.marketCapTier || UNKNOWN_GROUP;
+  }
+}
+
+/**
+ * Determine whether a symbol should appear under the active list filter.
+ *
+ * 'ALL' shows every symbol. Any other filter value shows only symbols that
+ * belong to that named list.
+ */
+export function shouldShowInListFilter(symbol: string, lists: Record<string, string[]>, filter: string | 'ALL'): boolean {
+  if (filter === 'ALL') return true;
+  const list = lists[filter] ?? [];
+  return list.includes(symbol.toUpperCase());
+}
 
 /** Market cap tier display label. */
 export function tierLabel(tier: string | undefined): string {

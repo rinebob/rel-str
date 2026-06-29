@@ -33,14 +33,18 @@ import { RhAgentSymbolListStore } from './rh-agent-symbol-list.store';
 import {
   RhReviewStatus,
   StatusCounts,
+  GroupDimension,
 } from '../common/rh-agent.constants';
+import {
+  getGroupKey,
+  shouldShowInListFilter,
+  todayDate,
+  UNKNOWN_GROUP,
+} from '../utils/rh-agent.utils';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-/** Dimensions available for grouping the symbol list. */
-export type GroupDimension = 'sector' | 'industry' | 'marketCapTier';
 
 /** A symbol row in the grouped list — profile + triage state. */
 export interface RhSymbolRow {
@@ -97,10 +101,6 @@ export interface RhAgentGroupState {
   allSymbolsLoading: boolean;
 }
 
-/** Today in PT — intraday bars are wired so same-day signals are available. */
-const todayDate = (): string =>
-  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date());
-
 const initialState: RhAgentGroupState = {
   marketDate: todayDate(),
   groupDimension: 'sector',
@@ -116,32 +116,6 @@ const initialState: RhAgentGroupState = {
   allSymbols: [],
   allSymbolsLoading: false,
 };
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const UNKNOWN_GROUP = '(Unknown)';
-
-function getGroupKey(profile: RhAgentSymbolProfile, dimension: GroupDimension): string {
-  switch (dimension) {
-    case 'sector':        return profile.sector        || UNKNOWN_GROUP;
-    case 'industry':      return profile.industry      || UNKNOWN_GROUP;
-    case 'marketCapTier': return profile.marketCapTier  || UNKNOWN_GROUP;
-  }
-}
-
-/**
- * Determine whether a symbol should appear under the active list filter.
- *
- * 'ALL' shows every symbol. Any other filter value shows only symbols that
- * belong to that named list.
- */
-function shouldShowInListFilter(symbol: string, lists: Record<string, string[]>, filter: string | 'ALL'): boolean {
-  if (filter === 'ALL') return true;
-  const list = lists[filter] ?? [];
-  return list.includes(symbol.toUpperCase());
-}
 
 // ---------------------------------------------------------------------------
 // Store

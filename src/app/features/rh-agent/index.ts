@@ -27,7 +27,6 @@ export {
   RhAgentGroupStore,
   RhSymbolRow,
   RhSymbolGroup,
-  GroupDimension,
 } from './stores/rh-agent-group.store';
 
 export {
@@ -36,6 +35,7 @@ export {
   RhSymbolListName,
   ALL_SYMBOL_LIST_NAMES,
   SymbolType,
+  GroupDimension,
 } from './common/rh-agent.constants';
 
 // Triage Store (Phase 5B — shared PACR state across pages)

@@ -22,7 +22,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Router } from '@angular/router';
 
-import { RhAgentGroupStore, GroupDimension, RhSymbolGroup, RhSymbolRow } from '../../stores/rh-agent-group.store';
+import { RhAgentGroupStore, RhSymbolGroup, RhSymbolRow } from '../../stores/rh-agent-group.store';
+import { GroupDimension } from '../../common/rh-agent.constants';
 import { RhAgentTriageStore } from '../../stores/rh-agent-triage.store';
 import { RhAgentSymbolListStore } from '../../stores/rh-agent-symbol-list.store';
 import { RhReviewStatus, RhSymbolListName } from '../../common/rh-agent.constants';
