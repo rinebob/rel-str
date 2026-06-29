@@ -101,8 +101,12 @@ export {
   rhAgentGetSymbolSignalHistory,
 } from './rh-agent-cloud-function/rh-agent-dashboard-callables';
 
-// RH Agent Manual Run callable
-export { rhAgentManualRun } from './rh-agent-cloud-function/rh-agent-callables';
+// RH Agent Manual Run + status + run history callables
+export {
+  rhAgentManualRun,
+  rhAgentGetStatus,
+  rhAgentGetRunHistory,
+} from './rh-agent-cloud-function/rh-agent-callables';
 
 // RH Agent Company Overview Sync (Phase 1)
 export {
