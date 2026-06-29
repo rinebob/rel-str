@@ -6,11 +6,33 @@
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
+import { defineSecret } from 'firebase-functions/params';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
-const MCP_SERVER_URL = 'https://agent.robinhood.com/mcp/trading';
-const AGENTIC_ACCOUNT_NUMBER = '6245'; // Last 4 digits of Agentic account
+const mcpServerUrlSecret = defineSecret('RH_AGENT_MCP_SERVER_URL');
+const accountNumberSecret = defineSecret('RH_AGENT_ACCOUNT_NUMBER');
+
+const MCP_SERVER_URL = process.env.RH_AGENT_MCP_SERVER_URL || 'https://agent.robinhood.com/mcp/trading';
+const AGENTIC_ACCOUNT_NUMBER = process.env.RH_AGENT_ACCOUNT_NUMBER || '6245'; // Last 4 digits of Agentic account
+
+/**
+ * Safely parse MCP text content as JSON. Returns null if the content is empty or
+ * malformed so the caller can fail gracefully instead of throwing.
+ */
+function safeParseMcpJson(text: string): any | null {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    logger.warn('mcp_response_empty');
+    return null;
+  }
+  try {
+    return JSON.parse(trimmed);
+  } catch (error: any) {
+    logger.warn('mcp_response_parse_failed', { error: error?.message, preview: trimmed.slice(0, 200) });
+    return null;
+  }
+}
 
 // Interface definitions
 interface TradeRequest {
@@ -111,7 +133,16 @@ async function executeTrade(
       .map(c => c.text ?? '').join('');
 
     // Parse order confirmation
-    const orderData = JSON.parse(placeContent);
+    const orderData = safeParseMcpJson(placeContent);
+    if (!orderData) {
+      return {
+        success: false,
+        symbol,
+        side,
+        amount,
+        error: 'Invalid order confirmation from MCP',
+      };
+    }
 
     logger.info('trade_place_complete', {
       orderId: orderData.id,
@@ -161,6 +192,7 @@ export const rhExecuteTrade = onCall<TradeRequest, Promise<TradeResponse>>(
       'http://localhost:5000',
     ],
     timeoutSeconds: 30,
+    secrets: [mcpServerUrlSecret, accountNumberSecret],
   },
   async (request) => {
     const { symbol, side, amount, orderType, limitPrice, dryRun } = request.data;
@@ -216,6 +248,7 @@ export const rhGetAccountSummary = onCall<void, Promise<any>>(
   {
     cors: true,
     timeoutSeconds: 15,
+    secrets: [mcpServerUrlSecret, accountNumberSecret],
   },
   async () => {
     let client: Client | undefined;
@@ -231,7 +264,11 @@ export const rhGetAccountSummary = onCall<void, Promise<any>>(
       const content = (result.content as Array<{ type: string; text?: string }>)
         .map(c => c.text ?? '').join('');
 
-      return JSON.parse(content);
+      const parsed = safeParseMcpJson(content);
+      if (!parsed) {
+        throw new HttpsError('internal', 'Invalid account summary response from MCP');
+      }
+      return parsed;
     } catch (error: any) {
       logger.error('account_summary_error', { error: error?.message });
       throw new HttpsError('internal', `Failed to get account summary: ${error?.message}`);
