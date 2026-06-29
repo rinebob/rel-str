@@ -20,6 +20,9 @@ import {
   Timestamp,
   serverTimestamp,
   onSnapshot,
+  DocumentData,
+  DocumentReference,
+  FieldValue,
 } from '@angular/fire/firestore';
 import { Auth, authState } from '@angular/fire/auth';
 import { Observable, from, of } from 'rxjs';
@@ -167,7 +170,7 @@ export class RhAgentSymbolMetaService {
         const existing = await this.getDocData(docRef);
         const now = serverTimestamp();
 
-        const payload: Record<string, any> = {
+        const payload: Omit<Partial<RhSymbolMeta>, 'createdAt' | 'updatedAt'> & { updatedAt: FieldValue | Timestamp; createdAt?: FieldValue | Timestamp } = {
           symbol: normalized,
           userId,
           updatedAt: now,
@@ -215,7 +218,7 @@ export class RhAgentSymbolMetaService {
     );
   }
 
-  private toMeta(id: string, data: any): RhSymbolMeta {
+  private toMeta(id: string, data: DocumentData): RhSymbolMeta {
     return {
       symbol: data['symbol'] ?? id,
       symbolType: data['symbolType'] ?? 'STOCK',
@@ -230,7 +233,7 @@ export class RhAgentSymbolMetaService {
     };
   }
 
-  private async getDocData(docRef: any): Promise<{ createdAt?: Timestamp } | null> {
+  private async getDocData(docRef: DocumentReference<DocumentData>): Promise<{ createdAt?: Timestamp } | null> {
     const snap = await getDoc(docRef);
     return snap.exists() ? (snap.data() as { createdAt?: Timestamp }) : null;
   }

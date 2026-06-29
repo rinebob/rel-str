@@ -117,7 +117,7 @@ export const RhAgentStore = signalStore(
         .pipe(takeUntilDestroyed(destroyRef))
         .subscribe({
           next: (result) => {
-            snackBar.open(`Bars backfill done: ${result.ok} ok, ${result.errors} errors`, 'Dismiss', { duration: 8000 });
+            snackBar.open(`Bars backfill done: ${result.enqueued} ok, ${result.errors} errors`, 'Dismiss', { duration: 8000 });
           },
           error: (err) => {
             snackBar.open(`Bars backfill failed: ${err.message}`, 'Dismiss', { duration: 6000 });

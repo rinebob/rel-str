@@ -22,6 +22,10 @@ import {
   Timestamp,
   serverTimestamp,
   onSnapshot,
+  Query,
+  QueryDocumentSnapshot,
+  DocumentReference,
+  DocumentData,
 } from '@angular/fire/firestore';
 import { Auth, authState } from '@angular/fire/auth';
 import { Observable, from, of } from 'rxjs';
@@ -226,11 +230,11 @@ export class RhAgentTriageService {
     return `${symbol}_${date}`;
   }
 
-  private runQuery(q: any): Observable<RhTriageDecision[]> {
+  private runQuery(q: Query<DocumentData>): Observable<RhTriageDecision[]> {
     return from(getDocs(q)).pipe(map((snapshot) => this.toDecisions(snapshot.docs)));
   }
 
-  private toDecisions(docs: any[]): RhTriageDecision[] {
+  private toDecisions(docs: QueryDocumentSnapshot<DocumentData>[]): RhTriageDecision[] {
     return docs.map((d) => {
       const data = d.data();
       return {
@@ -276,7 +280,7 @@ export class RhAgentTriageService {
     return map;
   }
 
-  private async getDocData(docRef: any): Promise<{ createdAt?: Timestamp } | null> {
+  private async getDocData(docRef: DocumentReference<DocumentData>): Promise<{ createdAt?: Timestamp } | null> {
     const snap = await getDoc(docRef);
     return snap.exists() ? (snap.data() as { createdAt?: Timestamp }) : null;
   }

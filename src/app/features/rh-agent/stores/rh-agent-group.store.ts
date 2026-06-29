@@ -177,8 +177,9 @@ export const RhAgentGroupStore = signalStore(
             patchState(state, { signalSymbols: symbols, symbolsLoading: false });
             symbolListStore.loadSymbolLists();
           },
-          error: (err: any) => {
-            patchState(state, { symbolsLoading: false, symbolsError: err?.message ?? 'Load failed' });
+          error: (err: unknown) => {
+            const message = err instanceof Error ? err.message : 'Load failed';
+            patchState(state, { symbolsLoading: false, symbolsError: message });
             snackBar.open('Failed to load symbols', 'Dismiss', { duration: 5000 });
           },
         });
@@ -214,9 +215,10 @@ export const RhAgentGroupStore = signalStore(
             patchState(state, { allSymbols: symbols, allSymbolsLoading: false });
             symbolListStore.loadSymbolLists();
           },
-          error: (err: any) => {
+          error: (err: unknown) => {
             patchState(state, { allSymbolsLoading: false });
             snackBar.open('Failed to load all symbols', 'Dismiss', { duration: 5000 });
+            console.error('[RhAgentGroupStore] Failed to load all symbols:', err);
           },
         });
     },

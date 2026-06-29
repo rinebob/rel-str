@@ -21,6 +21,7 @@ import {
   writeBatch,
   Timestamp,
   serverTimestamp,
+  DocumentData,
 } from '@angular/fire/firestore';
 import { Auth, authState } from '@angular/fire/auth';
 import { Observable, from, of } from 'rxjs';
@@ -165,7 +166,7 @@ export class RhAgentSymbolListService {
     return name;
   }
 
-  private toList(id: string, data: any): RhSymbolList {
+  private toList(id: string, data: DocumentData): RhSymbolList {
     return {
       name: data['name'] ?? id,
       symbols: data['symbols'] ?? [],

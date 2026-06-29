@@ -138,8 +138,11 @@ export class RhAgentService {
   /**
    * Trigger rs-bars backfill via rsBarsSyncAdmin callable.
    */
-  triggerBarsBackfill(symbols?: string[]): Observable<any> {
-    const callable = httpsCallable<any, any>(this.functions, 'rsBarsSyncAdmin');
+  triggerBarsBackfill(symbols?: string[]): Observable<{ total: number; enqueued: number; errors: number }> {
+    const callable = httpsCallable<
+      { forceFullFetch: true; symbols?: string[] },
+      { total: number; enqueued: number; errors: number }
+    >(this.functions, 'rsBarsSyncAdmin');
     return from(callable({ forceFullFetch: true, ...(symbols?.length ? { symbols } : {}) })).pipe(map(r => r.data));
   }
 
@@ -200,6 +203,7 @@ export class RhAgentService {
   getAllSymbols(): Observable<RhAgentSymbolProfile[]> {
     const ref = collection(this.firestore, 'rh-agent-symbols');
     const q = query(ref, where('enabled', '==', true));
+    // Raw Firestore docs contain Timestamp fields; we map them to strings below.
     return (collectionData(q, { idField: 'symbol' }) as Observable<any[]>).pipe(
       map(docs => docs.map(d => ({
         symbol: d.symbol,
@@ -249,31 +253,41 @@ export class RhAgentService {
           // Extract signal entries. Firestore may return:
           // (a) Nested map: d['signals'] = { W_ZONE_V1_UPTICK: {...} }
           // (b) Dot-notation keys: d['signals.W_ZONE_V1_UPTICK'] = {...}
-          const entries: any[] = [];
+          const rawSignalEntry = (entry: unknown): Partial<RhAgentSignalItem> | null => {
+            if (!entry || typeof entry !== 'object') return null;
+            const e = entry as Record<string, unknown>;
+            if (!e['signalType'] || typeof e['signalType'] !== 'string') return null;
+            return e as Partial<RhAgentSignalItem>;
+          };
+
+          const entries: Partial<RhAgentSignalItem>[] = [];
 
           // Case (a): nested signals map
           if (d['signals'] && typeof d['signals'] === 'object') {
-            entries.push(...Object.values(d['signals']));
+            for (const entry of Object.values(d['signals'])) {
+              const parsed = rawSignalEntry(entry);
+              if (parsed) entries.push(parsed);
+            }
           }
 
           // Case (b): dot-notation keys (signals.SIGNAL_TYPE as top-level keys)
           for (const key of Object.keys(d)) {
             if (key.startsWith('signals.') && typeof d[key] === 'object') {
-              entries.push(d[key]);
+              const parsed = rawSignalEntry(d[key]);
+              if (parsed) entries.push(parsed);
             }
           }
 
           for (const entry of entries) {
-            if (!entry || !entry.signalType) continue;
             signals.push({
               id: docSnap.id,
               symbol: d['symbol'] ?? symbol,
               barDate: entry.barDate ?? docSnap.id,
               marketDate: entry.marketDate ?? '',
               runId: d['runId'] ?? '',
-              timeframe: entry.timeframe,
-              direction: entry.direction,
-              signalType: entry.signalType,
+              timeframe: entry.timeframe ?? 'D',
+              direction: entry.direction ?? 'LONG',
+              signalType: entry.signalType!,
               status: entry.status ?? 'CONFIRMED',
               indicators: entry.indicators ?? {},
             });
