@@ -67,14 +67,20 @@ export function formatLocalDate(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-/** Return true if the bar date is today or yesterday in local time. */
+/** Return true if the bar date is today or yesterday in Pacific Time. */
 export function isRecentSignalDate(barDate: string): boolean {
-  const now = new Date();
-  const today = formatLocalDate(now);
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  const yesterdayStr = formatLocalDate(yesterday);
-  return barDate === today || barDate === yesterdayStr;
+  const today = todayDate();
+  const yesterday = yesterdayPt();
+  return barDate === today || barDate === yesterday;
+}
+
+/** Yesterday in Pacific Time as YYYY-MM-DD. */
+function yesterdayPt(): string {
+  const today = todayDate();
+  const [year, month, day] = today.split('-').map(Number);
+  const d = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  d.setDate(d.getDate() - 1);
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(d);
 }
 
 /** Expand a date range into a list of YYYY-MM-DD strings (inclusive). */
