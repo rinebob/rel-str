@@ -234,7 +234,7 @@ async function enqueueAllSymbols(
   forceFullFetch: boolean,
   symbols?: string[],
   triggerAgentOnComplete?: boolean
-): Promise<{ total: number; enqueued: number }> {
+): Promise<{ total: number; enqueued: number; errors: number }> {
   let allSymbols: string[] = [];
 
   if (symbols && symbols.length > 0) {
@@ -247,7 +247,7 @@ async function enqueueAllSymbols(
 
   if (allSymbols.length === 0) {
     logger.error('rs_bars_sync_no_symbols');
-    return { total: 0, enqueued: 0 };
+    return { total: 0, enqueued: 0, errors: 0 };
   }
 
   // Create a sync run tracking doc when triggering agent on completion
@@ -270,6 +270,7 @@ async function enqueueAllSymbols(
 
   const queue = getFunctions().taskQueue('rsBarsSyncSymbol');
   let enqueued = 0;
+  let errors = 0;
 
   await Promise.allSettled(
     allSymbols.map(async (symbol) => {
@@ -278,13 +279,14 @@ async function enqueueAllSymbols(
         await queue.enqueue(payload);
         enqueued++;
       } catch (err: any) {
+        errors++;
         logger.warn('rs_bars_sync_enqueue_failed', { symbol, error: err?.message });
       }
     })
   );
 
-  logger.info('rs_bars_sync_enqueue_complete', { total: allSymbols.length, enqueued });
-  return { total: allSymbols.length, enqueued };
+  logger.info('rs_bars_sync_enqueue_complete', { total: allSymbols.length, enqueued, errors });
+  return { total: allSymbols.length, enqueued, errors };
 }
 
 // ============================================================================
