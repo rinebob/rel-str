@@ -5,10 +5,11 @@
  * last bar. These functions are strategy-agnostic and can be reused by future
  * strategies that operate on zone/indicator transitions.
  */
+import { StSignalDirection } from '../rh-agent-config';
 import type { OHLCV } from './base-strategy';
 
 export interface ZoneSignal {
-  action: 'OPEN_LONG' | 'OPEN_SHORT';
+  action: StSignalDirection;
   signalType: string;
   reason: string;
   indicators: Record<string, number | string | null>;
@@ -62,7 +63,7 @@ export function detectLastBarSignals(
       if (delta > 0) {
         if (longState === 'READY') {
           lastSignal = {
-            action: 'OPEN_LONG',
+            action: StSignalDirection.LONG,
             signalType: `${timeframe}_ZONE_${version}_UPTICK`,
             reason: `${version} zone upticked ${prevZone}→${currZone} with ${timeframe === 'D' ? 'weekly' : 'monthly'} HTF zone at +${currentHtfZone}`,
             indicators: {
@@ -87,7 +88,7 @@ export function detectLastBarSignals(
       if (delta < 0) {
         if (shortState === 'READY') {
           lastSignal = {
-            action: 'OPEN_SHORT',
+            action: StSignalDirection.SHORT,
             signalType: `${timeframe}_ZONE_${version}_DOWNTICK`,
             reason: `${version} zone downticked ${prevZone}→${currZone} with ${timeframe === 'D' ? 'weekly' : 'monthly'} HTF zone at ${currentHtfZone}`,
             indicators: {

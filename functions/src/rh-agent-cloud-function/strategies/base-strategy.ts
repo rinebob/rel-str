@@ -5,7 +5,7 @@
  * Provides standardized I/O so the worker can execute any registered strategy.
  */
 
-import { IntradaySnapshot } from '../rh-agent-config';
+import { IntradaySnapshot, StSignalDirection } from '../rh-agent-config';
 
 // =============================================================================
 // STRATEGY INPUT (What the worker provides to every strategy)
@@ -34,9 +34,6 @@ export interface OHLCV {
   [key: string]: any;
 }
 
-/** Normalized action for strategy output */
-export type StrategyAction = 'OPEN_LONG' | 'OPEN_SHORT' | null;
-
 export interface StrategyContext {
   marketRegime?: 'bull' | 'bear' | 'neutral' | 'volatile';
   sector?: string;
@@ -48,7 +45,7 @@ export interface StrategyContext {
 // =============================================================================
 
 export interface StrategyOutput {
-  action: StrategyAction;
+  action: StSignalDirection | null;  // LONG/SHORT signal, or null for no action
   confidence: number;           // 0-100
   reason: string;               // Human-readable explanation
   signalType: string;           // e.g., 'D_ZONE_V1_UPTICK'

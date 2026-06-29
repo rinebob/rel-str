@@ -522,7 +522,7 @@ function createSignalEntry(
   return {
     signalType: result.signalType,
     timeframe,
-    direction: result.action === 'OPEN_LONG' ? StSignalDirection.LONG : StSignalDirection.SHORT,
+    direction: result.action ?? StSignalDirection.LONG,
     status: deriveSignalStatus(timeframe, barDate, marketDate, intraday),
     barDate,
     marketDate,
