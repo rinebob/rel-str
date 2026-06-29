@@ -199,45 +199,45 @@ src/app/features/rh-agent/
 
 ## Phase 4 — Backend Orchestration & Worker Write Path
 
-### 4.1 Remove duplicate trigger helpers
+### 4.1 Remove duplicate trigger helpers ✅
 
 `rh-agent-trigger.ts` re-implements `getMarketDate`, `getDeadlineISO`, `loadEnabledSymbols`, `createDailyRun`, and `createJobAndEnqueue` even though `rh-agent-shared.ts` already provides them.
 
-- Delete the local helper copies in `rh-agent-trigger.ts`.
-- Route `rhAgentTriggerDaily` through `startRhAgentRun` so it behaves like the PDR trigger and passes intraday context correctly.
-- Unify `getDeadlineISO` — remove the duplicate UTC-20:30 implementation in `rh-agent-trigger.ts` and use the shared helper from `rh-agent-shared.ts`.
+- [x] Delete the local helper copies in `rh-agent-trigger.ts`.
+- [x] Route `rhAgentTriggerDaily` through `startRhAgentRun` so it behaves like the PDR trigger and passes intraday context correctly.
+- [x] Unify `getDeadlineISO` — remove the duplicate UTC-20:30 implementation in `rh-agent-trigger.ts` and use the shared helper from `rh-agent-shared.ts`.
 
-### 4.2 Parallelize the worker write path
+### 4.2 Parallelize the worker write path ✅
 
 `rh-agent-worker.ts` currently writes each signal-date doc and updates each symbol gate date sequentially inside nested loops. These writes are independent.
 
-- Extract a `SignalDateWriter` helper that encapsulates `writeSignalDateDoc`, `updateSymbolGateDate`, and `clearStaleInterimSignals`.
-- Run independent writes within a single `barDate` in parallel (and across bar dates where order does not matter).
-- Split the ~300-line `processSymbol` function into `loadData`, `executeStrategy`, `persistSignals`, and `clearStaleSignals` helpers.
-- Batch `markJobComplete` and the run-level `signalsGenerated` increment together when possible.
+- [x] Extract a `SignalDateWriter` helper that encapsulates `writeSignalDateDoc`, `updateSymbolGateDate`, and `clearStaleInterimSignals`.
+- [x] Run independent writes within a single `barDate` in parallel (and across bar dates where order does not matter).
+- [x] Split the ~300-line `processSymbol` function into `loadData`, `executeStrategy`, `persistSignals`, and `clearStaleSignals` helpers.
+- [x] Batch `markJobComplete` and the run-level `signalsGenerated` increment together when possible.
 
-### 4.3 Callable and type cleanup
+### 4.3 Callable and type cleanup ✅
 
-- Filter or drop the unused `days` parameter in `rhAgentGetSymbolSignalHistory` (currently it loads the entire subcollection).
-- Move a single `SymbolProfile` / `RhAgentSymbolProfile` type to a shared location instead of duplicating it in `rh-agent-dashboard-callables.ts`.
-- Remove or wire `ManualRunRequest.strategy` — either pass the selected strategy through to the worker or delete the field.
-- Remove deprecated `RH_AGENT_SIGNALS_SUBCOLLECTION` and the dead `RhAgentSignalDoc` interface from `rh-agent-config.ts`.
-- Reconcile the overlapping `RhAgentRun` / `RhAgentDailyRun` interfaces and unify the `triggeredBy` type to `'manual' | 'pdr' | 'nightly'`.
-- Move the `detectLastBarSignals` state machine from `st-zone-uptick.strategy.ts` into a shared `signal-detection.ts` utility so future strategies can reuse it.
-- Clean up the `as unknown as StrategyAdapter` / `as any` casts in `strategy-registry.ts` by exporting a proper adapter object from the strategy file.
+- [x] Wire the `days` parameter in `rhAgentGetSymbolSignalHistory` to filter to the most recent `days` bar dates.
+- [x] Move a single `SymbolProfile` / `RhAgentSymbolProfile` type to a shared location instead of duplicating it in `rh-agent-dashboard-callables.ts`.
+- [x] Remove or wire `ManualRunRequest.strategy` — the field was removed; strategy is currently selected by `DEFAULT_STRATEGY` in the worker.
+- [x] Remove deprecated `RH_AGENT_SIGNALS_SUBCOLLECTION` and the dead `RhAgentSignalDoc` interface from `rh-agent-config.ts`.
+- [x] Reconcile the overlapping `RhAgentRun` / `RhAgentDailyRun` interfaces and unify the `triggeredBy` type to `'manual' | 'pdr' | 'nightly'`.
+- [x] Move the `detectLastBarSignals` state machine from `st-zone-uptick.strategy.ts` into a shared `signal-detection.ts` utility so future strategies can reuse it.
+- [x] Clean up the `as unknown as StrategyAdapter` / `as any` casts in `strategy-registry.ts` by exporting a proper adapter object from the strategy file.
 
-### 4.4 Split overview sync
+### 4.4 Split overview sync ✅
 
 `rh-agent-overview-sync.ts` currently mixes the scheduler, admin callable, and task worker.
 
-- Split into `rh-agent-overview-sync-orchestrator.ts` (scheduler + admin callable) and `rh-agent-overview-sync-worker.ts` (task worker).
-- Unify logger imports: switch `rh-agent-overview-sync.ts` to `firebase-functions/v2` logger.
-- Move the hardcoded `TOP_20_SYMBOLS` list in `rh-agent-seed-admin.ts` to config.
+- [x] Split into `rh-agent-overview-sync-orchestrator.ts` (scheduler + admin callable) and `rh-agent-overview-sync-worker.ts` (task worker).
+- [x] Unify logger imports to `firebase-functions/v2`.
+- [x] Remove the hardcoded `TOP_20_SYMBOLS` list in `rh-agent-seed-admin.ts`.
 
-### 4.5 Trade executor hardening
+### 4.5 Trade executor hardening ✅
 
-- Move hardcoded `MCP_SERVER_URL` and `AGENTIC_ACCOUNT_NUMBER` in `rh-agent-executor.ts` to environment config.
-- Guard `JSON.parse(placeContent)` in the executor so a bad MCP response does not crash the function.
+- [x] Move hardcoded `MCP_SERVER_URL` and `AGENTIC_ACCOUNT_NUMBER` in `rh-agent-executor.ts` to environment config.
+- [x] Guard `JSON.parse(placeContent)` (and the account-summary `JSON.parse`) in the executor so a bad MCP response does not crash the function.
 
 ---
 
@@ -269,7 +269,7 @@ src/app/features/rh-agent/
 - [x] **Phase 1** — shared chart indicator builder.
 - [x] **Phase 2** — grouped review child components.
 - [x] **Phase 3** — dashboard / review / order / detail small extractions.
-- [ ] **Phase 4** — backend orchestration and worker write path.
+- [x] **Phase 4** — backend orchestration and worker write path.
 - [ ] **Phase 5** — store/type cleanup.
 - [ ] **Phase 6** — documentation.
 
@@ -277,4 +277,10 @@ Each phase should be a focused, reviewable change. Run `ng build` after frontend
 
 ## Current Phase
 
-**Phase 4** — backend orchestration and worker write path.
+**Phase 5** — store/type cleanup.
+
+### Recent fixes outside the refactor plan
+
+- **PDR/manual trigger memory raised to 1 GiB** (`5d92d64`, superseded by `85a72ed`) — fixed OOM when fetching the bulk intraday snapshot and writing partial bars.
+- **Manual Run Now and HTTP trigger fetch intraday data** (`85a72ed`) — moved `fetchIntradaySnapshots` / `writeIntradayBarsToRsBars` into shared helpers and wired both `rhAgentManualRun` and `rhAgentTriggerDaily` to use them.
+- **Grouped review defaults to today's PT date** (`5af9d15`) — now that intraday runs produce same-day signals, the store opens on the current date.
