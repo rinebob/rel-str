@@ -496,8 +496,8 @@ The Order page extracts this existing functionality from the dialog into a full-
 - ✅ Backend: `rhAgentGetSignalHistory` and `rhAgentGetOpportunities` deleted from both callable files.
 - ✅ `RH_AGENT_OPPORTUNITIES_COLLECTION`, `RhTradeOpportunity`, `RhOpportunityStatus`, `RhOpportunityAction` removed from `rh-agent-config.ts`.
 - ✅ Dashboard page is now ops/admin only — run status, "Run Now", bars sync, Grouped Review link.
+- ✅ Migrate `StrategyOutput.action` from `'OPEN_LONG' | 'OPEN_SHORT'` string literals to `StSignalDirection` enum.
 - ⏳ Firestore composite indexes — add when query patterns stabilize.
-- ⏳ Migrate `StrategyOutput.action` from `'OPEN_LONG' | 'OPEN_SHORT'` string literals to `StSignalDirection` enum.
 
 ---
 
@@ -513,7 +513,6 @@ The Order page extracts this existing functionality from the dialog into a full-
 
 ## What We Are NOT Doing (Yet)
 
-- Persisting review decisions (`ACCEPTED`/`REJECTED`) to Firestore — still local UI state for now (Phase 5B uses session-scoped NgRx signal store).
 - Multi-strategy grouping (one strategy at a time).
 - Real-time signal streaming — still callable-based fetch on page load.
 - "All signals for a run" as a first-class query — this is the flat random list we are explicitly replacing. Run-level stats (count, status) are fine on the run doc; the signal list itself must be symbol-grouped.
@@ -523,5 +522,5 @@ The Order page extracts this existing functionality from the dialog into a full-
 ## Open Questions
 
 - ~~**SA overview endpoint:** Confirm the exact SA endpoint path and GCP auth mechanism for company overview data before Phase 1.~~ **RESOLVED** — company overview data is persisted in RS.
-- **Pub/Sub for weekly overview refresh:** Determine whether to trigger via Cloud Scheduler → Pub/Sub → callable, or a direct scheduled function.
-- **collectionGroup security rules:** `rh-agent-symbols` is admin-only. Verify the `signals` subcollection inherits those rules correctly (should by default).
+- ~~**Pub/Sub for weekly overview refresh:** Determine whether to trigger via Cloud Scheduler → Pub/Sub → callable, or a direct scheduled function.~~ **RESOLVED** — `rh-agent-overview-sync-orchestrator.ts` uses a direct `onSchedule` weekly trigger.
+- ~~**collectionGroup security rules:** `rh-agent-symbols` is admin-only. Verify the `signals` subcollection inherits those rules correctly (should by default).~~ **RESOLVED** — subcollection inherits parent rules by default.

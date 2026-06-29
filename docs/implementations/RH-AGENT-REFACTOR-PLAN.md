@@ -241,24 +241,24 @@ src/app/features/rh-agent/
 
 ---
 
-## Phase 5 — Store & Type Cleanup
+## Phase 5 — Store & Type Cleanup ✅
 
-- Move `getGroupKey`, `shouldShowInListFilter`, `tierLabel`, `formatLocalDate`, and the PT date helpers into `src/app/features/rh-agent/utils/rh-agent.utils.ts`.
-- Move signal-history loading/caching from `RhAgentGroupStore` into a dedicated `RhAgentSymbolHistoryStore` or `resource()`-based helper.
-- Align `StrategyOutput.action` with the `StSignalDirection` enum instead of relying on string values.
-- Tighten `any` types in `rh-agent-group.store.ts`, `rh-agent.service.ts`, `rh-agent-symbol-list.service.ts`, `rh-agent-symbol-meta.service.ts`, and `rh-agent-triage.service.ts`.
-- Use the PT date helper for `latestSignals()` in `rh-agent-grouped-review.component.ts` instead of `new Date()` in local time.
-- Remove unnecessary `any` casts in the frontend service and backend worker.
+- [x] Move `getGroupKey`, `shouldShowInListFilter`, `tierLabel`, `formatLocalDate`, and the PT date helpers into `src/app/features/rh-agent/utils/rh-agent.utils.ts`.
+- [x] Move signal-history loading/caching from `RhAgentGroupStore` into a dedicated `RhAgentSymbolHistoryStore`.
+- [x] Align `StrategyOutput.action` with the `StSignalDirection` enum instead of relying on string values.
+- [x] Tighten `any` types in `rh-agent-group.store.ts`, `rh-agent.service.ts`, `rh-agent-symbol-list.service.ts`, `rh-agent-symbol-meta.service.ts`, and `rh-agent-triage.service.ts`.
+- [x] Use the PT date helper for `latestSignals()` instead of `new Date()` in local time.
+- [x] Remove unnecessary `any` casts in the frontend service and backend worker.
 
 ---
 
 ## Phase 6 — Documentation
 
-- Update `functions/src/rh-agent-cloud-function/README.md`: it still references the old RSI strategy, the removed `rh-agent-opportunities` collection, and endpoints that no longer exist.
-- Update `docs/implementations/RH-AGENT-SIGNAL-GROUPING-PLAN.md`: mark completed phases and close open questions.
-- Update `docs/implementations/RH-AGENT-PACR-PERSISTENCE-PLAN.md`: reflect the already-implemented store/service wiring and list remaining decisions.
-- Archive or add a prominent "superseded" banner to `docs/dev-notes/RH-AGENT-DASHBOARD-UX-PLAN.md`.
-- Add brief code-level comments to the refactored complex components (group store, signal detail) after the work is done.
+- [ ] Update `functions/src/rh-agent-cloud-function/README.md`: it still references the old RSI strategy, the removed `rh-agent-opportunities` collection, and endpoints that no longer exist.
+- [x] Update `docs/implementations/RH-AGENT-SIGNAL-GROUPING-PLAN.md`: mark completed phases and close open questions.
+- [x] Update `docs/implementations/RH-AGENT-PACR-PERSISTENCE-PLAN.md`: reflect the already-implemented store/service wiring and list remaining decisions.
+- [x] Archive or add a prominent "superseded" banner to `docs/dev-notes/RH-AGENT-DASHBOARD-UX-PLAN.md`.
+- [ ] Add brief code-level comments to the refactored complex components (group store, signal detail) after the work is done.
 
 ---
 
@@ -269,14 +269,14 @@ src/app/features/rh-agent/
 - [x] **Phase 2** — grouped review child components.
 - [x] **Phase 3** — dashboard / review / order / detail small extractions.
 - [x] **Phase 4** — backend orchestration and worker write path.
-- [ ] **Phase 5** — store/type cleanup.
+- [x] **Phase 5** — store/type cleanup.
 - [ ] **Phase 6** — documentation.
 
 Each phase should be a focused, reviewable change. Run `ng build` after frontend phases and run the Cloud Functions build / lint after backend phases.
 
 ## Current Phase
 
-**Phase 5** — store/type cleanup.
+**Phase 6** — documentation.
 
 ### Recent fixes outside the refactor plan
 

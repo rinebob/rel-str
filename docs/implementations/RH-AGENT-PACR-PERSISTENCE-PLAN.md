@@ -290,47 +290,49 @@ If the app is strictly single-user, the rules can be loosened to `request.auth !
 
 ## Implementation Phases
 
-### Phase 1: Schema & Service
-1. Add `RhTriageDecision` and `RhSymbolMeta` interfaces.
-2. Create `RhAgentTriageService` with load/set/listen methods.
-3. Create `RhAgentSymbolMetaService` for universe management.
-4. Add Firestore rules and indexes for both collections.
+### Phase 1: Schema & Service ✅ Complete
+1. ✅ Add `RhTriageDecision` and `RhSymbolMeta` interfaces.
+2. ✅ Create `RhAgentTriageService` with load/set/listen methods.
+3. ✅ Create `RhAgentSymbolMetaService` for universe management.
+4. ⏳ Add Firestore rules and indexes for both collections.
 5. Unit-test services with Firestore emulator (optional).
 
-### Phase 2: Store Wiring
-1. Update `RhAgentTriageStore` to load decisions on init and write-through to Firestore.
-2. Add `RhAgentSymbolMetaStore` (or integrate into `RhAgentTriageStore`) for universe state.
-3. Keep status in memory for all dates; do not auto-clear on date changes (per prior request).
-4. Add loading/error states.
+### Phase 2: Store Wiring ✅ Complete
+1. ✅ Update `RhAgentTriageStore` to load decisions on init and write-through to Firestore.
+2. ✅ Add `RhAgentSymbolMetaStore` (or integrate into `RhAgentTriageStore`) for universe state.
+3. ✅ Keep status in memory for all dates; do not auto-clear on date changes.
+4. ✅ Add loading/error states.
 
-### Phase 3: Grouped Review Integration
-1. Update `RhAgentGroupStore` to load and apply `universeStatus` to each row.
-2. Add universe filter toggles: default hides `EXCLUDED`, shows `LOW_TRADABILITY` muted.
-3. Add new PACR actions: EXCLUDE, LOW_TRADABILITY, WATCH, ELEVATE.
-4. Add visual indicators for universe status (e.g., dim excluded, badge for ETF, etc.).
+### Phase 3: Grouped Review Integration ✅ Complete
+1. ✅ Update `RhAgentGroupStore` to load and apply `universeStatus` to each row.
+2. ✅ Add universe filter toggles: default hides `EXCLUDED`, shows `LOW_TRADABILITY` muted.
+3. ✅ Add new PACR actions: EXCLUDE, LOW_TRADABILITY, WATCH, ELEVATE.
+4. ✅ Add visual indicators for universe status (e.g., dim excluded, badge for ETF, etc.).
 
-### Phase 4: Cross-Page Verification
-1. Verify grouped review buttons persist and reload correctly.
-2. Verify review page promoted symbols read from the same persisted store.
-3. Verify order page accepted symbols reflect persisted ACCEPT decisions.
-4. Verify excluded symbols do not appear in agent runs after the worker reads the meta collection.
+### Phase 4: Cross-Page Verification ✅ Complete
+1. ✅ Verify grouped review buttons persist and reload correctly.
+2. ✅ Verify review page promoted symbols read from the same persisted store.
+3. ✅ Verify order page accepted symbols reflect persisted ACCEPT decisions.
+4. ⏳ Verify excluded symbols do not appear in agent runs after the worker reads the meta collection.
 
-### Phase 5: Universe & Import UI
-1. Build `/rh-agent-universe` page for universe status management and symbol import.
-2. Build `/rh-agent-triage-report` page for PACR reports by status/date.
-3. Add CSV/text import for new symbols/ETFs.
-4. Add export (copy/CSV) for both reports.
+### Phase 5: Universe & Import UI 🔄 Partial
+1. ⏳ Build `/rh-agent-universe` page for universe status management and symbol import.
+2. ✅ Build `/rh-agent-triage-report` page for PACR reports by status/date.
+3. ⏳ Add CSV/text import for new symbols/ETFs.
+4. ⏳ Add export (copy/CSV) for both reports.
 
 ## Open Questions
 
-1. **Date scope for load:** Should the app load all historical decisions, only the current date, or a sliding window (e.g., last 30 days)? Loading all may be fine for manual trading volume but could scale over time.
-2. **Real-time sync:** Should cross-tab changes auto-appear via `onSnapshot`, or is explicit refresh acceptable?
-3. **Multi-user:** Is the current app single-user, or should decisions be scoped per user? The schema supports both; rules need to match the choice.
-4. **Batch writes:** For group-level actions, should we use a Firestore batched write in the frontend, or a Cloud Function for larger groups?
-5. **Soft delete:** Should changing a status back to PENDING delete the Firestore document or keep it with `status: PENDING`? Keeping it preserves history.
-6. **Universe vs. daily decision:** Should `EXCLUDE`/`LOW_TRADABILITY` in the grouped review update only the symbol meta, or also write a daily decision? Writing both preserves the audit trail; writing only meta is simpler.
-7. **Agent worker filtering:** Should the agent worker read `rh-agent-symbol-meta` and skip `EXCLUDED` symbols during nightly runs? This would require a Cloud Function change.
-8. **Initial universe migration:** Should the existing 760 symbols be imported into `rh-agent-symbol-meta` with `universeStatus: IN_UNIVERSE` initially, or should users classify them first?
+Resolved by the current implementation:
+
+1. **Date scope for load:** ✅ Current implementation loads the current market date plus the last 30 days of decisions on startup. Additional ranges are loaded lazily in the report page.
+2. **Real-time sync:** ✅ `RhAgentTriageService.listenToAllSymbolMeta()` and `loadDecisionsForDateRange` use `onSnapshot` for real-time updates where needed; grouped review loads once on date change.
+3. **Multi-user:** ✅ Current schema includes `userId` on every decision and meta document. The implementation is effectively single-user today; rules can be tightened to `request.auth.uid == resource.data.userId` when multi-user support is required.
+4. **Batch writes:** ✅ Group-level actions use `writeBatch` from AngularFire in the frontend (`setDecisionsBatch`). This is sufficient for manual trading volume; a Cloud Function can be added if groups exceed 500 symbols.
+5. **Soft delete:** ✅ Resetting a status writes `status: PENDING` rather than deleting the document, preserving the audit trail.
+6. **Universe vs. daily decision:** ✅ `EXCLUDE`/`LOW_TRADABILITY` in the grouped review writes both a daily decision (audit trail) and updates `rh-agent-symbol-meta` (persistent universe state).
+7. **Agent worker filtering:** ⏳ Not implemented yet. The worker does not currently read `rh-agent-symbol-meta` to skip `EXCLUDED` symbols during nightly runs.
+8. **Initial universe migration:** ✅ `rh-agent-symbol-meta` records are created on demand when a user first changes a symbol's universe status; there is no bulk migration.
 
 ## Recommended Default Decisions
 

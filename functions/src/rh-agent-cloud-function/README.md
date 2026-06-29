@@ -7,11 +7,12 @@ Firebase Cloud Functions for the Robinhood AI Trading Agent.
 Event-driven daily scan that:
 1. Triggers on `partner-data-ready` Pub/Sub (`runType: "intraday-snapshot"`)
 2. Fetches a bulk intraday snapshot from SavantAPI for all monitored symbols
-3. Enqueues one Cloud Tasks job per symbol for parallel analysis
-4. Each worker reads historical OHLCV bars from `rs-symbol-cache`, computes RSI(14) + price change, and writes a trade opportunity to Firestore if RSI < 30 AND price drop > 2%
-5. Opportunities appear in the Angular dashboard for user review and approval
+3. Writes today's partial bars into `rs-bars`
+4. Enqueues one Cloud Tasks job per symbol for parallel analysis
+5. Each worker reads historical OHLCV bars from `rs-bars`, executes the selected ST zone-uptick strategy, and persists signal entries under `rh-agent-symbols/{symbol}/signal-dates`
+6. Signals appear in the Angular dashboard for grouped review, triage, and (when enabled) MCP trade execution
 
-All runs are **dry-run only** — no real trades are placed until the Robinhood OAuth integration is complete.
+Trade execution is controlled via the `rh-agent-executor` callable using the configured MCP server and account number.
 
 ## Architecture
 
@@ -21,6 +22,7 @@ partner-data-ready Pub/Sub (runType: intraday-snapshot)
     ▼
 rhAgentPdrTrigger
     ├─ callPartnerIntradaySnapshotV2(symbols)  [one bulk POST]
+    ├─ writeIntradayBarsToRsBars(marketDate, snapshots)
     ├─ createDailyRun(marketDate, 'pdr')
     └─ createJobAndEnqueue(symbol, intraday)   [× N symbols]
             │
@@ -29,15 +31,14 @@ rhAgentPdrTrigger
             │
             ▼
     rhAgentProcessSymbol (per symbol)
-            ├─ getCachedBars(symbol, marketDate)  [rs-symbol-cache]
-            ├─ compute RSI(14) + priceChange
-            └─ storeOpportunity()  [if RSI < 30 AND drop > 2%]
+            ├─ getCachedBars(symbol, marketDate)  [rs-bars]
+            ├─ executeStrategy('st-zone-uptick')
+            │      ├─ compute V1/V2 zone signals
+            │      └─ return LONG/SHORT signals
+            └─ persistSignals()  [rh-agent-symbols/{symbol}/signal-dates/{barDate}]
                         │
                         ▼
-                rh-agent-opportunities (Firestore)
-                        │
-                        ▼
-                Angular Dashboard (review/approve)
+            Angular Dashboard (grouped review / triage / MCP execution)
 ```
 
 ## Files
@@ -45,22 +46,29 @@ rhAgentPdrTrigger
 | File | Exports | Purpose |
 |------|---------|---------|
 | `rh-agent-config.ts` | interfaces, enums, constants | All Firestore data shapes and collection names |
-| `rh-agent-shared.ts` | `getMarketDate`, `getDeadlineISO`, `loadEnabledSymbols`, `createDailyRun`, `createJobAndEnqueue` | Shared helpers used by PDR trigger and manual callable |
+| `rh-agent-shared.ts` | `getMarketDate`, `getDeadlineISO`, `loadEnabledSymbols`, `createDailyRun`, `createJobAndEnqueue`, `fetchIntradaySnapshots`, `writeIntradayBarsToRsBars` | Shared helpers used by triggers and manual callable |
 | `rh-agent-trigger.ts` | `rhAgentPdrTrigger`, `rhAgentTriggerDaily` | PDR Pub/Sub trigger; HTTP admin trigger with `?date` override |
-| `rh-agent-worker.ts` | `rhAgentProcessSymbol` | Cloud Tasks worker: reads cache, computes indicators, writes opportunities |
+| `rh-agent-worker.ts` | `rhAgentProcessSymbol` | Cloud Tasks worker: reads bars, executes strategy, persists signals |
 | `rh-agent-callables.ts` | `rhAgentManualRun` | HTTPS callable for dashboard "Run Now" button |
-| `rh-agent-dashboard-callables.ts` | `rhAgentGetStatus`, `rhAgentGetRunHistory`, `rhAgentGetSignalHistory`, `rhAgentGetOpportunities` | Dashboard data callables |
+| `rh-agent-dashboard-callables.ts` | `rhAgentGetStatus`, `rhAgentGetRunHistory`, `rhAgentGetSymbolsWithSignals` | Dashboard status, run history, and grouped-review symbol query |
+| `rh-agent-signal-date-writer.ts` | `SignalDateWriter` | Persists per-date signal entries under `rh-agent-symbols/{symbol}/signal-dates` |
+| `rh-agent-executor.ts` | `rhAgentExecuteTrades`, `rhAgentGetAccountSummary` | MCP trade executor and account summary callables |
+| `rh-agent-overview-sync-orchestrator.ts` / `rh-agent-overview-sync-worker.ts` | `rhAgentOverviewSync`, `rhAgentOverviewSyncSymbol` | Enqueues company-overview backfill tasks |
 | `rh-agent-seed-admin.ts` | `clearRhAgentSymbolsAdmin`, `seedAllSymbolsFromPartner` | Symbol list management |
+| `strategies/` | `base-strategy`, `signal-detection`, `st-zone-uptick.strategy` | Strategy adapter, signal state machine, and concrete zone-uptick strategy |
 
 ## Firestore Collections
 
 | Collection | Doc ID | Purpose |
 |-----------|--------|---------|
-| `rh-agent-symbols` | `{symbol}` | Monitored symbols with `enabled` flag and `priority` |
+| `rh-agent-symbols` | `{symbol}` | Monitored symbols with `enabled`, overview, and last-signal fields |
+| `rh-agent-symbols/{symbol}/signal-dates` | `{barDate}` | Per-date signal entries keyed by signal type |
 | `rh-agent-runs` | PDR: `marketDate`; manual: `{marketDate}_manual_{ts}` | Run metadata and counters |
 | `rh-agent-runs/{runId}/jobs` | `{symbol}` | Per-symbol job status |
-| `rh-agent-opportunities` | `{date}_{dow}_{symbol}_{action}_{signalType}` | Trade opportunities pending approval |
 | `rh-agent-status/current` | `current` | Agent status singleton |
+| `rh-agent-symbol-meta` | `{symbol}` | Symbol-level classification/tags (universe management) |
+| `rh-agent-triage-decisions` | `{symbol}_{marketDate}` | Daily PACR review decisions |
+| `rh-agent-symbol-lists` | `{listName}` | User-defined watchlists |
 
 ## Setup
 
@@ -68,6 +76,8 @@ rhAgentPdrTrigger
 
 ```bash
 firebase functions:secrets:set ANTHROPIC_API_KEY
+firebase functions:secrets:set RH_AGENT_MCP_SERVER_URL
+firebase functions:secrets:set RH_AGENT_ACCOUNT_NUMBER
 ```
 
 ### 2. Seed Symbol List
@@ -83,7 +93,7 @@ curl -X POST https://<region>-rel-str.cloudfunctions.net/seedAllSymbolsFromPartn
 ```bash
 cd functions
 npm run build
-firebase deploy --only functions:rhAgentPdrTrigger,functions:rhAgentProcessSymbol,functions:rhAgentManualRun,functions:rhAgentGetStatus,functions:rhAgentGetRunHistory,functions:rhAgentGetOpportunities,functions:rhAgentTriggerDaily,functions:clearRhAgentSymbolsAdmin,functions:seedAllSymbolsFromPartner
+firebase deploy --only functions
 ```
 
 ## Manual Testing
@@ -94,15 +104,18 @@ Trigger a run with a historical date to test against cached data:
 curl "https://rhagenttriggerdaily-<hash>-uc.a.run.app?date=2026-06-13"
 ```
 
-## Signal Strategy (MVP)
+## Signal Strategy
 
-**RSI Oversold Bounce** — fires when both conditions are true:
-- RSI(14) < 30 (oversold)
-- 1-day price change < −2%
+**ST Zone Uptick** — fires when the ST zone crosses into a higher (lower) zone in the direction of the higher-timeframe trend:
+- **Daily** (LTF) zone vs **weekly** (HTF) zone context
+- **Weekly** (LTF) zone vs **monthly** (HTF) zone context
+- Both V1 (±3) and V2 (±4) zone classifications are computed; a signal can fire independently from each
 
-Confidence = `round((30 − rsi) / 30 * 100)`, capped at 95.
+A signal is generated when the last bar completes a zone transition:
+- **LONG** uptick: LTF zone rises and HTF zone is positive
+- **SHORT** downtick: LTF zone falls and HTF zone is negative
 
-Opportunity ID format: `2026-06-16_mon_AAPL_BUY_RSI_OVERSOLD`
+Signal type format: `{D|W}_ZONE_{V1|V2}_{UPTICK|DOWNTICK}`
 
 ## Local Development
 
@@ -120,10 +133,12 @@ ng serve
 Emulator `.env.local`:
 ```
 ANTHROPIC_API_KEY=your_key_here
+RH_AGENT_MCP_SERVER_URL=http://localhost:3000/sse
+RH_AGENT_ACCOUNT_NUMBER=your_account_number
 ```
 
 ## Status
 
-- **Robinhood MCP** — disabled; no real orders placed
+- **Robinhood MCP** — enabled via `RH_AGENT_MCP_SERVER_URL` and `RH_AGENT_ACCOUNT_NUMBER` secrets; orders are sent only when the executor callable is invoked with a non-empty allocation
 - **Claude** — reserved for post-scan approval flow (not used during scanning)
-- **Live trading** — pending Robinhood OAuth2 integration (mechanism TBD)
+- **Live trading** — controlled through the `rh-agent-executor` MCP integration; no separate OAuth2 flow is required
