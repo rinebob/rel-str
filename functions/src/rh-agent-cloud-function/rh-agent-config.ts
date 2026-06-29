@@ -22,8 +22,6 @@ export const RH_AGENT_SYMBOLS_COLLECTION = 'rh-agent-symbols';
 /** Signal-dates subcollection under each symbol doc. One doc per bar date, signals as a map field. */
 export const RH_AGENT_SIGNAL_DATES_SUBCOLLECTION = 'signal-dates';
 
-/** @deprecated Use RH_AGENT_SIGNAL_DATES_SUBCOLLECTION. Kept for migration reference. */
-export const RH_AGENT_SIGNALS_SUBCOLLECTION = 'signals';
 
 /**
  * Signal direction — whether the signal is a long or short entry.
@@ -79,19 +77,6 @@ export interface RhAgentSignalDateDoc {
   signals: Record<string, RhAgentSignalEntry>;
 }
 
-/** @deprecated Use RhAgentSignalDateDoc. */
-export interface RhAgentSignalDoc {
-  id: string;                   // {DATE}_{SIGNALTYPE}
-  symbol: string;
-  marketDate: string;           // YYYY-MM-DD
-  runId: string;
-  timeframe: 'D' | 'W';
-  direction: StSignalDirection;
-  signalType: StSignalType | string;
-  indicators: Record<string, number | string | null>;
-  createdAt: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
-}
-
 /**
  * Status of an agent run.
  */
@@ -123,23 +108,9 @@ export enum RhTradeAction {
 }
 
 /**
- * Agent run record stored in Firestore.
+ * Trigger source for an agent run.
  */
-export interface RhAgentRun {
-  id: string;
-  status: RhAgentRunStatus;
-  startedAt: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
-  completedAt?: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
-  strategy: string;
-  symbol?: string;
-  dryRun: boolean;
-  triggeredBy?: 'manual' | 'pdr' | 'nightly';
-  symbolsProcessed: number;
-  signalsGenerated: number;
-  errors: string[];
-  logs: string[];
-  summary?: string;
-}
+export type RhAgentTriggeredBy = 'manual' | 'pdr' | 'nightly';
 
 /**
  * Agent status singleton stored in Firestore.
@@ -177,7 +148,7 @@ export interface RhAgentDailyRun {
   type: 'daily-scan';
   marketDate: string;  // YYYY-MM-DD
   status: RhAgentRunStatus;
-  triggeredBy?: 'manual' | 'pdr' | 'nightly';
+  triggeredBy?: RhAgentTriggeredBy;
   totalSymbols: number;
   processedCount: number;
   successCount: number;
@@ -237,6 +208,34 @@ export interface RhAgentSymbol {
   analystBuys?: number;
   analystSells?: number;
   overviewFetchedAt?: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
+}
+
+/**
+ * Symbol profile returned by rhAgentGetSymbolsWithSignals.
+ * Mirrors RhAgentSymbol with timestamp fields converted to ISO strings for JSON.
+ */
+export interface RhAgentSymbolProfile {
+  symbol: string;
+  enabled: boolean;
+  addedAt: string;
+  lastAnalyzedAt?: string;
+  lastDailySignalDate?: string;
+  lastWeeklySignalDate?: string;
+  lastDailySignalDirection?: string;
+  lastWeeklySignalDirection?: string;
+  name?: string;
+  sector?: string;
+  industry?: string;
+  exchange?: string;
+  marketCap?: number;
+  marketCapTier?: string;
+  beta?: number;
+  peRatio?: number;
+  week52High?: number;
+  week52Low?: number;
+  ma200?: number;
+  ma50?: number;
+  dividendYield?: number;
 }
 
 /**

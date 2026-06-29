@@ -12,8 +12,8 @@
 
 import type { StrategyAdapter, StrategyMetadata, StrategyConfig } from './base-strategy';
 
-// Import all strategy implementations
-import * as stZoneUptick from './st-zone-uptick/st-zone-uptick.strategy';
+// Import all strategy adapters
+import { adapter as stZoneUptickAdapter } from './st-zone-uptick/st-zone-uptick.strategy';
 
 // =============================================================================
 // REGISTRY CLASS
@@ -105,7 +105,7 @@ class StrategyRegistry {
 export const strategyRegistry = new StrategyRegistry();
 
 // Register all strategies at module load
-strategyRegistry.register(stZoneUptick as unknown as StrategyAdapter);
+strategyRegistry.register(stZoneUptickAdapter);
 
 // Re-export types for convenience
 export type { StrategyAdapter, StrategyInput, StrategyOutput, StrategyConfig, StrategyMetadata } from './base-strategy';

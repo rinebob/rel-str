@@ -17,7 +17,7 @@ import {
   RH_AGENT_RUNS_COLLECTION,
   RH_AGENT_STATUS_COLLECTION,
   AGENT_STATUS_DOC,
-  RhAgentRun,
+  RhAgentDailyRun,
   RhAgentStatus,
 } from './rh-agent-config';
 
@@ -26,7 +26,6 @@ import {
  */
 interface ManualRunRequest {
   symbols?: string[]; // Optional: specific symbols to run, or all enabled
-  strategy?: string; // Optional: specific strategy to run
   date?: string;     // Optional: override market date (YYYY-MM-DD)
 }
 
@@ -55,10 +54,11 @@ interface RunHistoryResponse {
     status: string;
     startedAt: string;
     completedAt?: string;
-    strategy: string;
-    symbolsProcessed: number;
-    signalsGenerated: number;
-    summary?: string;
+    marketDate?: string;
+    totalSymbols?: number;
+    processedCount?: number;
+    signalsGenerated?: number;
+    triggeredBy?: 'manual' | 'pdr' | 'nightly';
   }>;
 }
 
@@ -231,7 +231,7 @@ export const rhAgentGetRunHistory = onCall<{ limit?: number }, Promise<RunHistor
       .limit(limit)
       .get();
 
-    const runs = snapshot.docs.map((d) => d.data() as RhAgentRun);
+    const runs = snapshot.docs.map((d) => d.data() as RhAgentDailyRun);
 
     return {
       runs: runs.map((run) => ({
@@ -247,10 +247,11 @@ export const rhAgentGetRunHistory = onCall<{ limit?: number }, Promise<RunHistor
             ? (run.completedAt as { toDate(): Date }).toDate().toISOString()
             : undefined
           : undefined,
-        strategy: run.strategy,
-        symbolsProcessed: run.symbolsProcessed,
+        marketDate: run.marketDate,
+        totalSymbols: run.totalSymbols,
+        processedCount: run.processedCount,
         signalsGenerated: run.signalsGenerated,
-        summary: run.summary,
+        triggeredBy: run.triggeredBy,
       })),
     };
   }

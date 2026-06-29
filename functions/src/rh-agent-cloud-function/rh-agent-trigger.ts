@@ -9,7 +9,7 @@ import { onMessagePublished } from 'firebase-functions/v2/pubsub';
 import { logger } from 'firebase-functions/v2';
 import { db, FieldValue } from '../firebase-admin-init';
 
-import { type IntradaySnapshot } from './rh-agent-config';
+import { type IntradaySnapshot, type RhAgentTriggeredBy } from './rh-agent-config';
 
 import { callPartnerIntradaySnapshotV2 } from '../partner-proxy';
 import { RS_BARS_COLLECTION, OhlcBar } from '../rs-bars/rs-bars-sync';
@@ -186,7 +186,7 @@ async function writeIntradayBarsToRsBars(
  */
 export async function startRhAgentRun(
   marketDate: string,
-  triggeredBy: 'manual' | 'pdr' | 'nightly',
+  triggeredBy: RhAgentTriggeredBy,
   intradaySnapshots: IntradaySnapshot[] = []
 ): Promise<{ runId: string; marketDate: string; symbolCount: number; enqueued: number; failed: number; duration: number }> {
   const startTime = Date.now();

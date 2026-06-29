@@ -14,6 +14,7 @@ import {
   RhAgentJobStatus,
   RhAgentDailyRun,
   RhAgentJob,
+  RhAgentTriggeredBy,
   SymbolJobPayload,
   IntradaySnapshot,
 } from './rh-agent-config';
@@ -91,7 +92,7 @@ export async function createDailyRun(
   marketDate: string,
   totalSymbols: number,
   deadlineAt: string,
-  triggeredBy: 'manual' | 'pdr' | 'nightly' = 'pdr'
+  triggeredBy: RhAgentTriggeredBy = 'pdr'
 ): Promise<string> {
   // Generate run ID in DATE_DOW_TIME format (e.g., 2026-06-16_tue_153145)
   const runId = generateRunId(marketDate);
@@ -130,7 +131,7 @@ export async function createJobAndEnqueue(
   runId: string,
   symbol: string,
   marketDate: string,
-  triggeredBy: 'manual' | 'pdr' | 'nightly' = 'pdr',
+  triggeredBy: RhAgentTriggeredBy = 'pdr',
   intraday?: IntradaySnapshot
 ): Promise<void> {
   // Create job document

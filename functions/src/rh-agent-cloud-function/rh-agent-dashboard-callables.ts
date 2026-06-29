@@ -13,35 +13,13 @@ import {
   RH_AGENT_SIGNAL_DATES_SUBCOLLECTION,
   RhAgentSignalDateDoc,
   RhAgentSignalEntry,
+  RhAgentSymbolProfile,
 } from './rh-agent-config';
 
 // Response types
 
-interface SymbolProfile {
-  symbol: string;
-  enabled: boolean;
-  addedAt: string;
-  lastAnalyzedAt?: string;
-  lastDailySignalDate?: string;
-  lastWeeklySignalDate?: string;
-  // Company overview (populated by Phase 1)
-  name?: string;
-  sector?: string;
-  industry?: string;
-  exchange?: string;
-  marketCap?: number;
-  marketCapTier?: string;
-  beta?: number;
-  peRatio?: number;
-  week52High?: number;
-  week52Low?: number;
-  ma200?: number;
-  ma50?: number;
-  dividendYield?: number;
-}
-
 interface SymbolsWithSignalsResponse {
-  symbols: SymbolProfile[];
+  symbols: RhAgentSymbolProfile[];
 }
 
 interface SignalItem {
@@ -95,7 +73,7 @@ export const rhAgentGetSymbolsWithSignals = onCall<
         .where(dateField, '==', marketDate)
         .get();
 
-      const symbols: SymbolProfile[] = snapshot.docs.map((doc) => {
+      const symbols: RhAgentSymbolProfile[] = snapshot.docs.map((doc) => {
         const d = doc.data();
         return {
           symbol: d.symbol || doc.id,
@@ -181,11 +159,18 @@ export const rhAgentGetSymbolSignalHistory = onCall<
       }
       signals.sort((a, b) => b.barDate.localeCompare(a.barDate));
 
+      // Limit to the most recent `days` bar dates
+      const distinctBarDates = Array.from(new Set(signals.map((s) => s.barDate))).sort(
+        (a, b) => b.localeCompare(a)
+      );
+      const keepDates = new Set(distinctBarDates.slice(0, days));
+      const filteredSignals = signals.filter((s) => keepDates.has(s.barDate));
+
       logger.info('rh_agent_get_symbol_signal_history', {
-        symbol, timeframe, days, count: signals.length,
+        symbol, timeframe, days, count: filteredSignals.length,
       });
 
-      return { symbol, timeframe, signals };
+      return { symbol, timeframe, signals: filteredSignals };
     } catch (error: any) {
       logger.error('rh_agent_get_symbol_signal_history_error', { error: error?.message });
       throw new Error(`Failed to get signal history: ${error?.message}`);
