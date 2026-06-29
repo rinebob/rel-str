@@ -30,7 +30,7 @@ import {
 export const rhAgentPdrTrigger = onMessagePublished(
   {
     topic: 'partner-data-ready',
-    memory: '256MiB',
+    memory: '512MiB',
     timeoutSeconds: 300,
   },
   async (event) => {
