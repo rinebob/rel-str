@@ -19,6 +19,8 @@ import {
   IntradaySnapshot,
 } from './rh-agent-config';
 import { db, FieldValue } from '../firebase-admin-init';
+import { RS_BARS_COLLECTION, OhlcBar } from '../rs-bars/rs-bars-sync';
+import { callPartnerIntradaySnapshotV2 } from '../partner-proxy';
 
 /**
  * Get market date in YYYY-MM-DD format (America/Los_Angeles).
@@ -125,8 +127,75 @@ export async function createDailyRun(
 }
 
 /**
- * Create a job document and enqueue a Cloud Task.
+ * Fetch an intraday snapshot for the given symbols.
+ * Gracefully returns an empty array if the partner endpoint fails.
  */
+export async function fetchIntradaySnapshots(
+  symbols: string[],
+  marketDate: string
+): Promise<IntradaySnapshot[]> {
+  if (symbols.length === 0) return [];
+
+  logger.info('rh_agent_fetching_intraday', { marketDate, symbolCount: symbols.length });
+  try {
+    const response = await callPartnerIntradaySnapshotV2(symbols);
+    logger.info('rh_agent_intraday_fetched', { marketDate, count: response.count });
+    return response.snapshots;
+  } catch (error: any) {
+    logger.warn('rh_agent_intraday_fetch_failed', { marketDate, error: error?.message });
+    return [];
+  }
+}
+
+/**
+ * Write intraday partial bars to rs-bars/{symbol} so workers see today's
+ * current price as the latest daily bar. If today's bar already exists it is
+ * overwritten (idempotent — safe for multiple runs per day).
+ * The nightly rsBarsSyncNightly will later replace this with the real EOD bar.
+ */
+export async function writeIntradayBarsToRsBars(
+  marketDate: string,
+  snapshots: IntradaySnapshot[]
+): Promise<void> {
+  if (snapshots.length === 0) return;
+
+  const writes = snapshots.map(async (snap) => {
+    try {
+      const docRef = db.collection(RS_BARS_COLLECTION).doc(snap.symbol);
+      const existing = await docRef.get();
+      if (!existing.exists) return; // No bars doc yet — skip
+
+      const data = existing.data() as any;
+      const daily: OhlcBar[] = Array.isArray(data?.daily) ? data.daily : [];
+
+      const partialBar: OhlcBar = {
+        d: marketDate,
+        o: snap.ip,
+        h: snap.ip,
+        l: snap.ip,
+        c: snap.ip,
+      };
+
+      // Replace today's bar if present, otherwise append
+      const last = daily.at(-1);
+      const updatedDaily = last?.d === marketDate
+        ? [...daily.slice(0, -1), partialBar]
+        : [...daily, partialBar];
+
+      await docRef.update({
+        daily: updatedDaily,
+        lastDailyBarDate: marketDate,
+        lastIntradayAt: FieldValue.serverTimestamp(),
+      });
+    } catch (err: any) {
+      logger.warn('rh_agent_rs_bars_write_failed', { symbol: snap.symbol, error: err?.message });
+    }
+  });
+
+  await Promise.allSettled(writes);
+  logger.info('rh_agent_rs_bars_written', { marketDate, count: snapshots.length });
+}
+
 export async function createJobAndEnqueue(
   runId: string,
   symbol: string,

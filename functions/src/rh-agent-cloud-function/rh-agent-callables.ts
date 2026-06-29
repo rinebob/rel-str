@@ -12,6 +12,8 @@ import {
   loadEnabledSymbols,
   createDailyRun,
   createJobAndEnqueue,
+  fetchIntradaySnapshots,
+  writeIntradayBarsToRsBars,
 } from './rh-agent-shared';
 import {
   RH_AGENT_RUNS_COLLECTION,
@@ -80,6 +82,8 @@ const ALLOWED_ORIGINS = [
 export const rhAgentManualRun = onCall<ManualRunRequest, Promise<ManualRunResponse>>(
   {
     cors: ALLOWED_ORIGINS,
+    memory: '1GiB',
+    timeoutSeconds: 300,
   },
   async (request) => {
     const startTime = Date.now();
@@ -105,7 +109,13 @@ export const rhAgentManualRun = onCall<ManualRunRequest, Promise<ManualRunRespon
         throw new HttpsError('invalid-argument', 'No symbols to process');
       }
 
-      // 3. Create run document with 30-minute deadline
+      // 3. Fetch intraday snapshot so Run Now also sees today's price
+      const intradaySnapshots = await fetchIntradaySnapshots(symbols, marketDate);
+
+      // 4. Write partial bars to rs-bars
+      await writeIntradayBarsToRsBars(marketDate, intradaySnapshots);
+
+      // 5. Create run document with 30-minute deadline
       const deadlineAt = getDeadlineISO(30);
       const runId = await createDailyRun(marketDate, symbols.length, deadlineAt, 'manual');
       logger.info('rh_agent_manual_run_created', {
@@ -114,13 +124,16 @@ export const rhAgentManualRun = onCall<ManualRunRequest, Promise<ManualRunRespon
         symbolCount: symbols.length,
       });
 
-      // 4. Create job documents and enqueue Cloud Tasks
+      // 6. Create job documents and enqueue Cloud Tasks (with intraday data)
       let enqueuedCount = 0;
       let failedCount = 0;
 
+      const intradayMap = new Map(intradaySnapshots.map(s => [s.symbol, s]));
+
       for (const symbol of symbols) {
         try {
-          await createJobAndEnqueue(runId, symbol, marketDate, 'manual');
+          const intraday = intradayMap.get(symbol);
+          await createJobAndEnqueue(runId, symbol, marketDate, 'manual', intraday);
           enqueuedCount++;
           if (enqueuedCount % 10 === 0) {
             logger.info('rh_agent_manual_enqueue_progress', {

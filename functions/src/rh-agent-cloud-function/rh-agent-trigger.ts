@@ -7,18 +7,17 @@
 import { onRequest } from 'firebase-functions/v2/https';
 import { onMessagePublished } from 'firebase-functions/v2/pubsub';
 import { logger } from 'firebase-functions/v2';
-import { db, FieldValue } from '../firebase-admin-init';
 
 import { type IntradaySnapshot, type RhAgentTriggeredBy } from './rh-agent-config';
 
-import { callPartnerIntradaySnapshotV2 } from '../partner-proxy';
-import { RS_BARS_COLLECTION, OhlcBar } from '../rs-bars/rs-bars-sync';
 import {
   getMarketDate,
   getDeadlineISO,
   loadEnabledSymbols,
   createDailyRun,
   createJobAndEnqueue,
+  fetchIntradaySnapshots,
+  writeIntradayBarsToRsBars,
 } from './rh-agent-shared';
 
 /**
@@ -30,7 +29,7 @@ import {
 export const rhAgentPdrTrigger = onMessagePublished(
   {
     topic: 'partner-data-ready',
-    memory: '512MiB',
+    memory: '1GiB',
     timeoutSeconds: 300,
   },
   async (event) => {
@@ -72,18 +71,7 @@ export const rhAgentPdrTrigger = onMessagePublished(
       }
 
       // 2. Fetch intraday snapshot for all symbols (one POST call to partnerIntradaySnapshotV2)
-      // NOTE: This will work when SavantAPI deploys the endpoint
-      logger.info('rh_agent_pdr_fetching_intraday', { marketDate, symbolCount: symbols.length });
-      let intradaySnapshots: IntradaySnapshot[] = [];
-      try {
-        const response = await callPartnerIntradaySnapshotV2(symbols);
-        intradaySnapshots = response.snapshots;
-        logger.info('rh_agent_pdr_intraday_fetched', { marketDate, count: response.count });
-      } catch (error: any) {
-        // If intraday fetch fails, continue without intraday data
-        // Workers will handle missing intraday gracefully
-        logger.warn('rh_agent_pdr_intraday_fetch_failed', { marketDate, error: error?.message });
-      }
+      const intradaySnapshots = await fetchIntradaySnapshots(symbols, marketDate);
 
       // 3. Write intraday partial bars to rs-bars so workers see today's price
       await writeIntradayBarsToRsBars(marketDate, intradaySnapshots);
@@ -108,7 +96,7 @@ export const rhAgentPdrTrigger = onMessagePublished(
  */
 export const rhAgentTriggerDaily = onRequest(
   {
-    memory: '256MiB',
+    memory: '1GiB',
     timeoutSeconds: 300,
   },
   async (req, res) => {
@@ -118,7 +106,21 @@ export const rhAgentTriggerDaily = onRequest(
       const marketDate = req.query.date as string || getMarketDate();
       logger.info('rh_agent_manual_trigger_market_date', { marketDate, isOverride: !!req.query.date });
 
-      const result = await startRhAgentRun(marketDate, 'manual', []);
+      // 1. Load enabled symbols
+      const symbols = await loadEnabledSymbols();
+      if (symbols.length === 0) {
+        res.status(200).json({ success: false, error: 'No symbols to process' });
+        return;
+      }
+
+      // 2. Fetch intraday snapshot so manual runs also see today's price
+      const intradaySnapshots = await fetchIntradaySnapshots(symbols, marketDate);
+
+      // 3. Write partial bars to rs-bars
+      await writeIntradayBarsToRsBars(marketDate, intradaySnapshots);
+
+      // 4. Start the run with intraday data
+      const result = await startRhAgentRun(marketDate, 'manual', intradaySnapshots);
 
       res.status(200).json({
         success: true,
@@ -130,55 +132,6 @@ export const rhAgentTriggerDaily = onRequest(
     }
   }
 );
-
-/**
- * Write intraday partial bars to rs-bars/{symbol} so that workers see today's
- * current price as the latest daily bar. If today's bar already exists it is
- * overwritten (idempotent — safe for multiple PDR runs per day).
- * The nightly rsBarsSyncNightly will later replace this with the real EOD bar.
- */
-async function writeIntradayBarsToRsBars(
-  marketDate: string,
-  snapshots: IntradaySnapshot[]
-): Promise<void> {
-  if (snapshots.length === 0) return;
-
-  const writes = snapshots.map(async (snap) => {
-    try {
-      const docRef = db.collection(RS_BARS_COLLECTION).doc(snap.symbol);
-      const existing = await docRef.get();
-      if (!existing.exists) return; // No bars doc yet — skip
-
-      const data = existing.data() as any;
-      const daily: OhlcBar[] = Array.isArray(data?.daily) ? data.daily : [];
-
-      const partialBar: OhlcBar = {
-        d: marketDate,
-        o: snap.ip,
-        h: snap.ip,
-        l: snap.ip,
-        c: snap.ip,
-      };
-
-      // Replace today's bar if present, otherwise append
-      const last = daily.at(-1);
-      const updatedDaily = last?.d === marketDate
-        ? [...daily.slice(0, -1), partialBar]
-        : [...daily, partialBar];
-
-      await docRef.update({
-        daily: updatedDaily,
-        lastDailyBarDate: marketDate,
-        lastIntradayAt: FieldValue.serverTimestamp(),
-      });
-    } catch (err: any) {
-      logger.warn('rh_agent_pdr_rs_bars_write_failed', { symbol: snap.symbol, error: err?.message });
-    }
-  });
-
-  await Promise.allSettled(writes);
-  logger.info('rh_agent_pdr_rs_bars_written', { marketDate, count: snapshots.length });
-}
 
 /**
  * Start RH Agent run - shared logic for all trigger types.
