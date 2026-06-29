@@ -97,15 +97,12 @@ export interface RhAgentGroupState {
   allSymbolsLoading: boolean;
 }
 
-/** Yesterday in PT — used as default marketDate until intraday bars are wired. */
-const yesterdayDate = (): string => {
-  const now = new Date();
-  now.setDate(now.getDate() - 1);
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(now);
-};
+/** Today in PT — intraday bars are wired so same-day signals are available. */
+const todayDate = (): string =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date());
 
 const initialState: RhAgentGroupState = {
-  marketDate: yesterdayDate(),
+  marketDate: todayDate(),
   groupDimension: 'sector',
   signalSymbols: [],
   symbolsLoading: false,
