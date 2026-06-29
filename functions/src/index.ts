@@ -91,7 +91,6 @@ export { rhAgentProcessSymbol } from './rh-agent-cloud-function/rh-agent-worker'
 
 // RH Agent Admin utilities
 export {
-  seedRhAgentSymbolsAdmin,
   clearRhAgentSymbolsAdmin,
   seedAllSymbolsFromPartner,
 } from './rh-agent-cloud-function/rh-agent-seed-admin';
@@ -109,8 +108,8 @@ export { rhAgentManualRun } from './rh-agent-cloud-function/rh-agent-callables';
 export {
   rhAgentOverviewSyncWeekly,
   rhAgentOverviewSyncAdmin,
-  rhAgentOverviewSyncSymbol,
-} from './rh-agent-cloud-function/rh-agent-overview-sync';
+} from './rh-agent-cloud-function/rh-agent-overview-sync-orchestrator';
+export { rhAgentOverviewSyncSymbol } from './rh-agent-cloud-function/rh-agent-overview-sync-worker';
 
 // RS Bars nightly sync — single source of truth for OHLCV bars
 export { rsBarsSyncNightly, rsBarsSyncAdmin, rsBarsSyncSymbol } from './rs-bars/rs-bars-sync';

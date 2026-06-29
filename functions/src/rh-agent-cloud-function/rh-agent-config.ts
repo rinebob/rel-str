@@ -22,7 +22,6 @@ export const RH_AGENT_SYMBOLS_COLLECTION = 'rh-agent-symbols';
 /** Signal-dates subcollection under each symbol doc. One doc per bar date, signals as a map field. */
 export const RH_AGENT_SIGNAL_DATES_SUBCOLLECTION = 'signal-dates';
 
-
 /**
  * Signal direction — whether the signal is a long or short entry.
  */

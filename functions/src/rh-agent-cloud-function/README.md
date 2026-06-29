@@ -50,7 +50,7 @@ rhAgentPdrTrigger
 | `rh-agent-worker.ts` | `rhAgentProcessSymbol` | Cloud Tasks worker: reads cache, computes indicators, writes opportunities |
 | `rh-agent-callables.ts` | `rhAgentManualRun` | HTTPS callable for dashboard "Run Now" button |
 | `rh-agent-dashboard-callables.ts` | `rhAgentGetStatus`, `rhAgentGetRunHistory`, `rhAgentGetSignalHistory`, `rhAgentGetOpportunities` | Dashboard data callables |
-| `rh-agent-seed-admin.ts` | `seedRhAgentSymbolsAdmin`, `clearRhAgentSymbolsAdmin`, `seedAllSymbolsFromPartner` | Symbol list management |
+| `rh-agent-seed-admin.ts` | `clearRhAgentSymbolsAdmin`, `seedAllSymbolsFromPartner` | Symbol list management |
 
 ## Firestore Collections
 
@@ -72,15 +72,8 @@ firebase functions:secrets:set ANTHROPIC_API_KEY
 
 ### 2. Seed Symbol List
 
-**Option A — 20 test symbols:**
+Clear existing symbols, then seed the full universe from SavantAPI:
 ```bash
-# Call the admin HTTP endpoint (once deployed)
-curl -X POST https://<region>-rel-str.cloudfunctions.net/seedRhAgentSymbolsAdmin
-```
-
-**Option B — Full ~700-symbol universe from SavantAPI:**
-```bash
-# Clear existing, then seed from partner
 curl -X POST https://<region>-rel-str.cloudfunctions.net/clearRhAgentSymbolsAdmin
 curl -X POST https://<region>-rel-str.cloudfunctions.net/seedAllSymbolsFromPartner
 ```
@@ -90,7 +83,7 @@ curl -X POST https://<region>-rel-str.cloudfunctions.net/seedAllSymbolsFromPartn
 ```bash
 cd functions
 npm run build
-firebase deploy --only functions:rhAgentPdrTrigger,functions:rhAgentProcessSymbol,functions:rhAgentManualRun,functions:rhAgentGetStatus,functions:rhAgentGetRunHistory,functions:rhAgentGetOpportunities,functions:rhAgentTriggerDaily,functions:seedRhAgentSymbolsAdmin,functions:clearRhAgentSymbolsAdmin,functions:seedAllSymbolsFromPartner
+firebase deploy --only functions:rhAgentPdrTrigger,functions:rhAgentProcessSymbol,functions:rhAgentManualRun,functions:rhAgentGetStatus,functions:rhAgentGetRunHistory,functions:rhAgentGetOpportunities,functions:rhAgentTriggerDaily,functions:clearRhAgentSymbolsAdmin,functions:seedAllSymbolsFromPartner
 ```
 
 ## Manual Testing
