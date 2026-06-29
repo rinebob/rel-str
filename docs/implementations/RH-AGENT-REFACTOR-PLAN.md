@@ -248,7 +248,6 @@ src/app/features/rh-agent/
 - Align `StrategyOutput.action` with the `StSignalDirection` enum instead of relying on string values.
 - Tighten `any` types in `rh-agent-group.store.ts`, `rh-agent.service.ts`, `rh-agent-symbol-list.service.ts`, `rh-agent-symbol-meta.service.ts`, and `rh-agent-triage.service.ts`.
 - Use the PT date helper for `latestSignals()` in `rh-agent-grouped-review.component.ts` instead of `new Date()` in local time.
-- Remove unused V1 values from `StSignalType` and remove unused `StrategyAction` from `base-strategy.ts`.
 - Remove unnecessary `any` casts in the frontend service and backend worker.
 
 ---
