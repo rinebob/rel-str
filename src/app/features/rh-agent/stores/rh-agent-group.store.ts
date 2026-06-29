@@ -30,6 +30,7 @@ import {
 } from '../services/rh-agent.service';
 import { RhAgentTriageStore } from './rh-agent-triage.store';
 import { RhAgentSymbolListStore } from './rh-agent-symbol-list.store';
+import { RhAgentSymbolHistoryStore } from './rh-agent-symbol-history.store';
 import {
   RhReviewStatus,
   StatusCounts,
@@ -83,10 +84,6 @@ export interface RhAgentGroupState {
   /** Loading state for the main symbol list query. */
   symbolsLoading: boolean;
   symbolsError: string | null;
-  /** Per-symbol signal history cache: symbol → signals[] */
-  signalHistoryCache: Record<string, RhAgentSignalItem[]>;
-  /** Per-symbol loading flags. */
-  signalHistoryLoading: Record<string, boolean>;
   /** Per-group "show full group" toggle. */
   fullGroupToggles: Record<string, boolean>;
   /** Currently selected symbol for the detail panel. */
@@ -107,8 +104,6 @@ const initialState: RhAgentGroupState = {
   signalSymbols: [],
   symbolsLoading: false,
   symbolsError: null,
-  signalHistoryCache: {},
-  signalHistoryLoading: {},
   fullGroupToggles: {},
   selectedSymbol: null,
   quickChartSymbol: null,
@@ -131,6 +126,7 @@ export const RhAgentGroupStore = signalStore(
     destroyRef = inject(DestroyRef),
     triageStore = inject(RhAgentTriageStore),
     symbolListStore = inject(RhAgentSymbolListStore),
+    historyStore = inject(RhAgentSymbolHistoryStore),
   ) => ({
     /** Expose triage store statuses for use by computed signals. */
     getTriageStatuses(): Record<string, RhReviewStatus> {
@@ -144,7 +140,7 @@ export const RhAgentGroupStore = signalStore(
 
     /** Set the market date and reload. */
     setMarketDate(marketDate: string): void {
-      patchState(state, { marketDate, signalSymbols: [], signalHistoryCache: {}, selectedSymbol: null });
+      patchState(state, { marketDate, signalSymbols: [], selectedSymbol: null });
       triageStore.setMarketDate(marketDate);
       this.loadSymbolsWithSignals();
     },
@@ -188,46 +184,15 @@ export const RhAgentGroupStore = signalStore(
         });
     },
 
-    /** Select a symbol — loads signal history on demand if not cached. */
+    /** Select a symbol — delegates signal history loading to the history store. */
     selectSymbol(symbol: string): void {
       patchState(state, { selectedSymbol: symbol });
-      if (!state.signalHistoryCache()[symbol]) {
-        this.loadSignalHistory(symbol);
-      }
+      historyStore.loadSignalHistory(symbol);
     },
 
     /** Clear selected symbol. */
     clearSelectedSymbol(): void {
       patchState(state, { selectedSymbol: null });
-    },
-
-    /**
-     * Load signal history for a symbol into the cache.
-     * Reads all signals (W + D) directly from Firestore subcollection.
-     */
-    loadSignalHistory(symbol: string): void {
-      patchState(state, {
-        signalHistoryLoading: { ...state.signalHistoryLoading(), [symbol]: true },
-      });
-
-      service.getSymbolSignalHistory(symbol)
-        .pipe(takeUntilDestroyed(destroyRef))
-        .subscribe({
-          next: (signals) => {
-            console.log(`[RhAgentGroupStore] Signal history for ${symbol}: ${signals.length} signals`);
-            patchState(state, {
-              signalHistoryCache: { ...state.signalHistoryCache(), [symbol]: signals },
-              signalHistoryLoading: { ...state.signalHistoryLoading(), [symbol]: false },
-            });
-          },
-          error: (err: any) => {
-            patchState(state, {
-              signalHistoryCache: { ...state.signalHistoryCache(), [symbol]: [] },
-              signalHistoryLoading: { ...state.signalHistoryLoading(), [symbol]: false },
-            });
-            console.error(`[RhAgentGroupStore] Failed to load signal history for ${symbol}:`, err);
-          },
-        });
     },
 
     /** Toggle show-all-symbols mode. Loads all symbols on first activation. */
@@ -270,7 +235,7 @@ export const RhAgentGroupStore = signalStore(
     },
   })),
 
-  withComputed((state, symbolListStore = inject(RhAgentSymbolListStore)) => ({
+  withComputed((state, symbolListStore = inject(RhAgentSymbolListStore), historyStore = inject(RhAgentSymbolHistoryStore)) => ({
     /**
      * Grouped view — groups built from signalSymbols, sorted by marketCap desc within group.
      * Each group respects its fullGroupToggle (Full Group shows all, default shows signal-only).
@@ -281,8 +246,8 @@ export const RhAgentGroupStore = signalStore(
       const signalSymbols = state.signalSymbols();
       const dimension = state.groupDimension();
       const statuses = state.getTriageStatuses();
-      const historyCache = state.signalHistoryCache();
-      const historyLoading = state.signalHistoryLoading();
+      const historyCache = historyStore.signalHistoryCache();
+      const historyLoading = historyStore.signalHistoryLoading();
       const fullGroupToggles = state.fullGroupToggles();
       const showAll = state.showAllSymbols();
       const allSymbols = state.allSymbols();
@@ -382,11 +347,11 @@ export const RhAgentGroupStore = signalStore(
       ).length
     ),
 
-    /** Currently selected symbol's loaded signals (from cache). */
+    /** Currently selected symbol's loaded signals (from the history store cache). */
     selectedSymbolSignals: computed((): RhAgentSignalItem[] => {
       const sym = state.selectedSymbol();
       if (!sym) return [];
-      return state.signalHistoryCache()[sym] ?? [];
+      return historyStore.signalHistoryCache()[sym] ?? [];
     }),
 
     /** Profile of the currently selected symbol. */

@@ -44,6 +44,9 @@ export { RhAgentTriageStore } from './stores/rh-agent-triage.store';
 // Symbol List Store (Phase 0 — extracted list management)
 export { RhAgentSymbolListStore } from './stores/rh-agent-symbol-list.store';
 
+// Symbol History Store (Phase 5 — extracted signal history cache)
+export { RhAgentSymbolHistoryStore } from './stores/rh-agent-symbol-history.store';
+
 // Chart Indicator Builder (Phase 1 — shared indicator configuration)
 export * as RhAgentChartIndicators from './utils/rh-agent-chart-indicators';
 

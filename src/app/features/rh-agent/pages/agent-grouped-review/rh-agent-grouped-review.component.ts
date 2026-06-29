@@ -26,6 +26,7 @@ import { RhAgentGroupStore, RhSymbolGroup, RhSymbolRow } from '../../stores/rh-a
 import { GroupDimension } from '../../common/rh-agent.constants';
 import { RhAgentTriageStore } from '../../stores/rh-agent-triage.store';
 import { RhAgentSymbolListStore } from '../../stores/rh-agent-symbol-list.store';
+import { RhAgentSymbolHistoryStore } from '../../stores/rh-agent-symbol-history.store';
 import { RhReviewStatus, RhSymbolListName } from '../../common/rh-agent.constants';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { GroupedReviewHeaderComponent } from '../../components/grouped-review-header/grouped-review-header.component';
@@ -46,12 +47,13 @@ import { QuickChartsPanelComponent } from '../../components/quick-charts-panel/q
   ],
   templateUrl: './rh-agent-grouped-review.component.html',
   styleUrl: './rh-agent-grouped-review.component.scss',
-  providers: [RhAgentGroupStore, RhAgentSymbolListStore],
+  providers: [RhAgentGroupStore, RhAgentSymbolListStore, RhAgentSymbolHistoryStore],
 })
 export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
   readonly groupStore = inject(RhAgentGroupStore);
   readonly triageStore = inject(RhAgentTriageStore);
   readonly symbolListStore = inject(RhAgentSymbolListStore);
+  readonly historyStore = inject(RhAgentSymbolHistoryStore);
   readonly uiState = inject(UiStateService);
   private readonly router = inject(Router);
 
@@ -81,7 +83,7 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
     this.groupStore.setQuickChartSymbol(next);
     const row = this.groupStore.groups().flatMap(g => g.rows).find(r => r.profile.symbol === next);
     if (row && !row.signals) {
-      this.groupStore.loadSignalHistory(next);
+      this.historyStore.loadSignalHistory(next);
     }
     setTimeout(() => {
       const panel = this.groupsPanel()?.nativeElement as HTMLElement | undefined;
@@ -138,7 +140,7 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
       record[g.key] = next;
       if (next) {
         for (const row of g.rows) {
-          if (!row.signals) this.groupStore.loadSignalHistory(row.profile.symbol);
+          if (!row.signals) this.historyStore.loadSignalHistory(row.profile.symbol);
         }
       }
     }
@@ -153,7 +155,7 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
   onGroupOpened(group: RhSymbolGroup): void {
     for (const row of group.rows) {
       if (!row.signals) {
-        this.groupStore.loadSignalHistory(row.profile.symbol);
+        this.historyStore.loadSignalHistory(row.profile.symbol);
       }
     }
   }
@@ -166,7 +168,7 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
     if (nextExpand && !isExpanded) {
       for (const row of event.group.rows) {
         if (!row.signals) {
-          this.groupStore.loadSignalHistory(row.profile.symbol);
+          this.historyStore.loadSignalHistory(row.profile.symbol);
         }
       }
     }
