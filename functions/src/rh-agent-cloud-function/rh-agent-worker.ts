@@ -10,12 +10,14 @@ import { onTaskDispatched } from 'firebase-functions/v2/tasks';
 import { logger } from 'firebase-functions/v2';
 
 import { db, FieldValue } from '../firebase-admin-init';
+import { OhlcBar, RsBarsDoc } from '../rs-bars/rs-bars-sync';
 
 import {
   RH_AGENT_RUNS_COLLECTION,
   RH_AGENT_STATUS_COLLECTION,
   RH_AGENT_JOBS_SUBCOLLECTION,
   AGENT_STATUS_DOC,
+  RhAgentDailyRun,
   RhAgentJobStatus,
   RhAgentRunStatus,
   RhAgentSignalEntry,
@@ -360,13 +362,13 @@ async function checkRunCompletion(runId: string): Promise<void> {
       const runDoc = await t.get(runRef);
       if (!runDoc.exists) return;
 
-      const runData = runDoc.data() as any;
-      const total = runData.totalSymbols || 0;
-      const processed = (runData.successCount || 0) + (runData.failureCount || 0);
+      const runData = runDoc.data() as Partial<RhAgentDailyRun> | undefined;
+      const total = runData?.totalSymbols || 0;
+      const processed = (runData?.successCount || 0) + (runData?.failureCount || 0);
 
-      if (processed < total || runData.completionProcessed) return;
+      if (processed < total || runData?.completionProcessed) return;
 
-      finalStatus = runData.failureCount > 0 ? RhAgentRunStatus.PARTIAL : RhAgentRunStatus.SUCCESS;
+      finalStatus = runData?.failureCount ? RhAgentRunStatus.PARTIAL : RhAgentRunStatus.SUCCESS;
 
       t.set(
         runRef,
@@ -385,7 +387,7 @@ async function checkRunCompletion(runId: string): Promise<void> {
           lastRunId: runId,
           lastRunStatus: finalStatus,
           totalRuns: FieldValue.increment(1),
-          totalSignalsGenerated: FieldValue.increment(runData.signalsGenerated || 0),
+          totalSignalsGenerated: FieldValue.increment(runData?.signalsGenerated || 0),
         },
         { merge: true }
       );
@@ -439,7 +441,7 @@ function verifyDataFreshness(bars: any[], marketDate: string, runId: string, sym
  * Populated nightly by rsBarsSyncNightly. Returns D/W/M bars trimmed to
  * bars on or before marketDate so historical runs see the correct snapshot.
  */
-async function getCachedBars(symbol: string, marketDate: string): Promise<{ dailyBars: any[] | null; weeklyBars: any[] | null; monthlyBars: any[] | null }> {
+async function getCachedBars(symbol: string, marketDate: string): Promise<{ dailyBars: OhlcBar[] | null; weeklyBars: OhlcBar[] | null; monthlyBars: OhlcBar[] | null }> {
   try {
     const docRef = db.collection('rs-bars').doc(symbol);
     const snap = await docRef.get();
@@ -451,12 +453,12 @@ async function getCachedBars(symbol: string, marketDate: string): Promise<{ dail
       return { dailyBars: null, weeklyBars: null, monthlyBars: null };
     }
 
-    const data = snap.data() as any;
+    const data = snap.data() as RsBarsDoc | undefined;
 
     // Trim to bars on or before marketDate for correct historical snapshots
-    const trim = (bars: any[] | null) => {
+    const trim = (bars: OhlcBar[] | null | undefined) => {
       if (!Array.isArray(bars) || bars.length === 0) return null;
-      const filtered = bars.filter((b: any) => (b?.d ?? '') <= marketDate);
+      const filtered = bars.filter((b) => (b?.d ?? '') <= marketDate);
       return filtered.length > 0 ? filtered : null;
     };
 
