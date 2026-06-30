@@ -1,8 +1,8 @@
 /**
  * RH Agent Shared Utilities
  *
- * Common functions used by both the scheduler and manual run callables.
- * Avoids duplication between rh-agent-scheduler.ts and rh-agent-callables.ts
+ * Common functions used by both the scheduled trigger (rh-agent-trigger.ts) and
+ * manual run callable (rh-agent-callables.ts).
  */
 import { getFunctions } from 'firebase-admin/functions';
 import { logger } from 'firebase-functions/v2';
@@ -196,6 +196,18 @@ export async function writeIntradayBarsToRsBars(
   logger.info('rh_agent_rs_bars_written', { marketDate, count: snapshots.length });
 }
 
+/**
+ * Create a per-symbol job document under the run and enqueue it on the
+ * `rhAgentProcessSymbol` Cloud Tasks queue. In the emulator the task queue may
+ * be unavailable, in which case the job document is still created but the
+ * enqueue error is swallowed.
+ *
+ * @param runId Daily run document ID.
+ * @param symbol Symbol to process.
+ * @param marketDate Market date in YYYY-MM-DD format.
+ * @param triggeredBy Who started the run (pdr/manual/nightly).
+ * @param intraday Optional intraday snapshot for the symbol.
+ */
 export async function createJobAndEnqueue(
   runId: string,
   symbol: string,

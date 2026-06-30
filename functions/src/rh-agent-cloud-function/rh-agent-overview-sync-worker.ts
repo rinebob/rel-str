@@ -111,6 +111,10 @@ function isOverviewFresh(fetchedAt: FirebaseFirestore.Timestamp | undefined): bo
 // Task worker — fetches and writes overview for a single symbol
 // ============================================================================
 
+/**
+ * Cloud Task worker that fetches and writes company overview data for one symbol.
+ * Skips fresh data unless forceRefresh is true; treats 404s as non-equities.
+ */
 export const rhAgentOverviewSyncSymbol = onTaskDispatched<{ symbol: string; forceRefresh?: boolean }>(
   {
     retryConfig: { maxAttempts: 3, minBackoffSeconds: 10, maxBackoffSeconds: 120 },

@@ -59,6 +59,7 @@ function normalizeBars(bars: any[]): OHLCV[] {
   }));
 }
 
+/** Extract the date string from the last bar, supporting multiple cached bar formats. */
 function lastBarDate(bars: any[]): string {
   const last = bars[bars.length - 1];
   return last?.d ?? last?.date ?? last?.t ?? '';
@@ -68,6 +69,10 @@ function lastBarDate(bars: any[]): string {
 // 4. MAIN EXECUTION
 // =============================================================================
 
+/**
+ * Execute the ST Zone Uptick strategy for the given input.
+ * Produces daily and weekly signals gated by higher-timeframe zone V2 context.
+ */
 export function execute(input: StrategyInput, _config: StrategyConfig): StrategyOutput[] {
   const { bars, weeklyBars, monthlyBars } = input;
   const signals: StrategyOutput[] = [];
@@ -168,5 +173,6 @@ export function execute(input: StrategyInput, _config: StrategyConfig): Strategy
 // 5. ADAPTER EXPORT
 // =============================================================================
 
+/** Strategy adapter exported to the registry. */
 export const adapter: StrategyAdapter = { metadata, execute };
 export default adapter;

@@ -16,6 +16,10 @@ import {
 export class SignalDateWriter {
   private readonly symbolRef: FirebaseFirestore.DocumentReference;
 
+  /**
+   * Create a writer bound to a specific symbol.
+   * @param symbol Symbol ticker to which all writes are scoped.
+   */
   constructor(private readonly symbol: string) {
     this.symbolRef = db.collection(RH_AGENT_SYMBOLS_COLLECTION).doc(symbol);
   }
@@ -82,6 +86,10 @@ export class SignalDateWriter {
     }
   }
 
+  /**
+   * Merge-write the signal-date doc. Confirmed signals are never overwritten
+   * by new INTERIM entries.
+   */
   private async writeSignalDateDoc(runId: string, entries: RhAgentSignalEntry[]): Promise<void> {
     if (entries.length === 0) return;
 
@@ -112,6 +120,10 @@ export class SignalDateWriter {
     );
   }
 
+  /**
+   * Update the symbol doc's last signal date/direction fields based on the
+   * highest-priority entries written for this bar date.
+   */
   private async updateGateDates(entries: RhAgentSignalEntry[]): Promise<void> {
     const updates: Record<string, string> = {};
     for (const entry of entries) {

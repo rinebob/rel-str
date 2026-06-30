@@ -18,12 +18,15 @@ import {
 
 // Response types
 
+/** Response shape for the symbol-with-signals dashboard callable. */
 interface SymbolsWithSignalsResponse {
   symbols: RhAgentSymbolProfile[];
 }
 
+/** Flat signal item returned by the symbol signal history callable. */
 interface SignalItem {
-  id: string;          // barDate
+  /** Document ID of the signal-date subcollection doc (barDate). */
+  id: string;
   symbol: string;
   barDate: string;
   marketDate: string;
@@ -35,6 +38,7 @@ interface SignalItem {
   indicators: Record<string, number | string | null>;
 }
 
+/** Response shape for the symbol signal history callable. */
 interface SymbolSignalHistoryResponse {
   symbol: string;
   timeframe: 'D' | 'W';

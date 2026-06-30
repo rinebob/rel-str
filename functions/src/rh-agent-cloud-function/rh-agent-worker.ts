@@ -29,7 +29,7 @@ import {
 import { SignalDateWriter } from './rh-agent-signal-date-writer';
 
 import { strategyRegistry } from './strategies/strategy-registry';
-import type { StrategyInput, StrategyOutput } from './strategies/strategy-registry';
+import type { StrategyInput, StrategyOutput, StrategyAdapter } from './strategies/strategy-registry';
 import { StrategyId } from './strategies/base-strategy';
 
 // Default strategy if none specified on the run document
@@ -71,7 +71,7 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
       await markJobInProgress(runId, symbol);
 
       // 2. Load cached bars
-      const { dailyBars, weeklyBars, monthlyBars } = await loadData(symbol, marketDate, intraday, runId);
+      const { dailyBars, weeklyBars, monthlyBars } = await loadData(symbol, marketDate, !!intraday, runId);
 
       if (!dailyBars || dailyBars.length < MIN_REQUIRED_BARS) {
         logger.warn('rh_agent_worker_insufficient_data', { runId, symbol, barCount: dailyBars?.length || 0, required: MIN_REQUIRED_BARS, hasIntraday: !!intraday });
@@ -152,9 +152,9 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
 async function loadData(
   symbol: string,
   marketDate: string,
-  intraday: any,
+  intraday: boolean,
   runId: string
-): Promise<{ dailyBars: any[] | null; weeklyBars: any[] | null; monthlyBars: any[] | null }> {
+): Promise<{ dailyBars: OhlcBar[] | null; weeklyBars: OhlcBar[] | null; monthlyBars: OhlcBar[] | null }> {
   logger.info('rh_agent_worker_fetching_data', { runId, symbol, marketDate, cachePath: `rs-bars/${symbol}`, hasIntraday: !!intraday });
   const { dailyBars, weeklyBars, monthlyBars } = await getCachedBars(symbol, marketDate);
   logger.info('rh_agent_worker_data_loaded', {
@@ -171,7 +171,7 @@ async function loadData(
  * Execute the selected strategy and return normalized outputs.
  */
 async function executeStrategy(
-  strategy: any,
+  strategy: StrategyAdapter,
   input: StrategyInput,
   runId: string
 ): Promise<StrategyOutput[]> {
@@ -455,7 +455,7 @@ async function getCachedBars(symbol: string, marketDate: string): Promise<{ dail
 
     const data = snap.data() as RsBarsDoc | undefined;
 
-    // Trim to bars on or before marketDate for correct historical snapshots
+    /** Trim bars to dates on or before marketDate for correct historical snapshots. */
     const trim = (bars: OhlcBar[] | null | undefined) => {
       if (!Array.isArray(bars) || bars.length === 0) return null;
       const filtered = bars.filter((b) => (b?.d ?? '') <= marketDate);

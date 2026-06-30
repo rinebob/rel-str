@@ -64,6 +64,7 @@ interface RunHistoryResponse {
   }>;
 }
 
+/** Origins allowed to call the RH Agent callable functions. */
 const ALLOWED_ORIGINS = [
   'https://rel-str--rel-str.web.app',
   'https://rel-str--rel-str.us-central1.hosted.app',
