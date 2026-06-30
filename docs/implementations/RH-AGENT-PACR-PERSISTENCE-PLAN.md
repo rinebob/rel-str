@@ -1,5 +1,8 @@
 # RH Agent PACR Persistence & Universe Management Plan
 
+**Status:** Phase 1 implemented (store/service wiring and reporting page)  
+**Updated:** 2026-06-29
+
 ## Goal
 Move PACR (Promote / Accept / Consider / Reject) decisions from the session-only `RhAgentTriageStore` into Firestore, and extend the system to support symbol-level universe management:
 

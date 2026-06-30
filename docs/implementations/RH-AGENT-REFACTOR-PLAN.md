@@ -254,11 +254,13 @@ src/app/features/rh-agent/
 
 ## Phase 6 — Documentation
 
-- [ ] Update `functions/src/rh-agent-cloud-function/README.md`: it still references the old RSI strategy, the removed `rh-agent-opportunities` collection, and endpoints that no longer exist.
+- [x] Update `functions/src/rh-agent-cloud-function/README.md`: it still references the old RSI strategy, the removed `rh-agent-opportunities` collection, and endpoints that no longer exist.
 - [x] Update `docs/implementations/RH-AGENT-SIGNAL-GROUPING-PLAN.md`: mark completed phases and close open questions.
 - [x] Update `docs/implementations/RH-AGENT-PACR-PERSISTENCE-PLAN.md`: reflect the already-implemented store/service wiring and list remaining decisions.
 - [x] Archive or add a prominent "superseded" banner to `docs/dev-notes/RH-AGENT-DASHBOARD-UX-PLAN.md`.
-- [ ] Add brief code-level comments to the refactored complex components (group store, signal detail) after the work is done.
+- [x] Add brief code-level comments to the refactored complex components (group store, signal detail) after the work is done.
+- [x] Create a full RH Agent ecosystem inventory (`docs/implementations/RH-AGENT-ECOSYSTEM-INVENTORY.md`) with a directory tree and a one-line purpose for every frontend, backend, and script file.
+- [x] Add JSDoc comments to every RH-related TypeScript file that exposes a public API (services, stores, callables, worker, strategies, utilities) and to component classes that are not self-explanatory.
 
 ---
 
@@ -270,13 +272,13 @@ src/app/features/rh-agent/
 - [x] **Phase 3** — dashboard / review / order / detail small extractions.
 - [x] **Phase 4** — backend orchestration and worker write path.
 - [x] **Phase 5** — store/type cleanup.
-- [ ] **Phase 6** — documentation.
+- [x] **Phase 6** — documentation.
 
 Each phase should be a focused, reviewable change. Run `ng build` after frontend phases and run the Cloud Functions build / lint after backend phases.
 
 ## Current Phase
 
-**Phase 6** — documentation.
+**Phase 6 complete** — documentation, ecosystem inventory, and JSDoc pass are done.
 
 ### Recent fixes outside the refactor plan
 

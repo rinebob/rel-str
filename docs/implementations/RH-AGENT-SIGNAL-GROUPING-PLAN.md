@@ -2,7 +2,7 @@
 
 **Status:** Phases 1–6 complete  
 **Created:** 2026-06-22  
-**Updated:** 2026-06-27  
+**Updated:** 2026-06-29  
 **Goal:** Reorganize signal storage from a flat opportunity list into a symbol-centric structure with company metadata, enabling grouped review by sector/industry/market-cap and multi-day signal history tracking. Connect triage decisions to the deep-review and trade execution surface.
 
 ---
