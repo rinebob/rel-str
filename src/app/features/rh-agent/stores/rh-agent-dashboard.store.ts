@@ -12,14 +12,12 @@ import { RhAgentStore } from './rh-agent.store';
 export interface DashboardUiState {
   showAllRuns: boolean;
   currentRunOpen: boolean;
-  selectedSignalId: string | null;
 }
 
 // Initial state
 const initialState: DashboardUiState = {
   showAllRuns: false,
   currentRunOpen: true,
-  selectedSignalId: null,
 };
 
 export const RhAgentDashboardStore = signalStore(
@@ -50,14 +48,5 @@ export const RhAgentDashboardStore = signalStore(
       patchState(state, { currentRunOpen: !state.currentRunOpen() });
     },
 
-    /** Set the currently selected signal ID for the dashboard detail panel. */
-    selectSignal(signalId: string): void {
-      patchState(state, { selectedSignalId: signalId });
-    },
-
-    /** Clear the selected signal. */
-    clearSelectedSignal(): void {
-      patchState(state, { selectedSignalId: null });
-    },
   }))
 );

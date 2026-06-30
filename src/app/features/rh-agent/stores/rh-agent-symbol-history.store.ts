@@ -35,6 +35,7 @@ const initialState: RhAgentSymbolHistoryState = {
 };
 
 export const RhAgentSymbolHistoryStore = signalStore(
+  { providedIn: 'root' },
   withState(initialState),
 
   withMethods((state, service = inject(RhAgentService), destroyRef = inject(DestroyRef)) => ({

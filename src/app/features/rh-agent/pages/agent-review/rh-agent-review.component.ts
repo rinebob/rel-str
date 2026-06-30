@@ -75,12 +75,12 @@ export class RhAgentReviewComponent implements OnInit {
 
   /** Load persisted decisions for the last 30 days through the active market date. */
   ngOnInit(): void {
-    const marketDate = this.triageStore.marketDate();
-    const today = new Date();
-    const thirtyDaysAgo = new Date(today);
-    thirtyDaysAgo.setDate(today.getDate() - 30);
+    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date());
+    const endDate = this.triageStore.activeMarketDate() ?? todayStr;
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const startDate = thirtyDaysAgo.toISOString().slice(0, 10);
-    this.triageStore.loadPersistedDecisions(startDate, marketDate);
+    this.triageStore.loadPersistedDecisions(startDate, endDate);
   }
 
   // --- Review queue mode (symbols with REVIEW status from grouped review) ---

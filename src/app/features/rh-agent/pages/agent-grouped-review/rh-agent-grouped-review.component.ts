@@ -47,7 +47,7 @@ import { QuickChartsPanelComponent } from '../../components/quick-charts-panel/q
   ],
   templateUrl: './rh-agent-grouped-review.component.html',
   styleUrl: './rh-agent-grouped-review.component.scss',
-  providers: [RhAgentGroupStore, RhAgentSymbolListStore, RhAgentSymbolHistoryStore],
+  providers: [],
 })
 export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
   readonly groupStore = inject(RhAgentGroupStore);

@@ -119,6 +119,7 @@ const initialState: RhAgentGroupState = {
 // ---------------------------------------------------------------------------
 
 export const RhAgentGroupStore = signalStore(
+  { providedIn: 'root' },
   withState(initialState),
 
   withMethods((

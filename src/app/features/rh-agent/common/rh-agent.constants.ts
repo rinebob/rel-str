@@ -69,3 +69,27 @@ export type SymbolType = 'STOCK' | 'ETF' | 'FUTURE' | 'FOREX' | 'CRYPTO' | 'OTHE
 
 /** Dimensions available for grouping the symbol list in the grouped review. */
 export type GroupDimension = 'sector' | 'industry' | 'marketCapTier';
+
+/** Filter by who triggered the run. */
+export enum RhAgentRunTriggerFilter {
+  ALL      = 'all',
+  MANUAL   = 'manual',
+  PDR      = 'pdr',
+  NIGHTLY  = 'nightly',
+}
+
+/** Filter by run date range. */
+export enum RhAgentRunDateFilter {
+  TODAY = 'today',
+  WEEK  = 'week',
+  ALL   = 'all',
+}
+
+/** Filter by run status. */
+export enum RhAgentRunStatusFilter {
+  ALL     = 'all',
+  RUNNING = 'running',
+  SUCCESS = 'success',
+  FAILED  = 'failed',
+  PARTIAL = 'partial',
+}

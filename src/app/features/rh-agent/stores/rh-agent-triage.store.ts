@@ -31,8 +31,10 @@ export interface RhAgentTriageState {
   statuses: Record<string, RhReviewStatus>;
   /** Active timeframe carried from Grouped Review. */
   timeframe: 'W' | 'D';
-  /** Active market date (YYYY-MM-DD) carried from Grouped Review. */
-  marketDate: string;
+  /** Active run ID — the run whose signals are being triaged. */
+  activeRunId: string | null;
+  /** Market date of the active run (YYYY-MM-DD) — used for triage decision persistence only. */
+  activeMarketDate: string | null;
   /** Whether persisted decisions are being loaded. */
   decisionsLoading: boolean;
   /** Error from loading or persisting decisions. */
@@ -41,14 +43,11 @@ export interface RhAgentTriageState {
   persistedStatuses: Record<string, Record<string, RhReviewStatus>>;
 }
 
-/** Return today's date in Pacific Time as YYYY-MM-DD. */
-const todayPT = (): string =>
-  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date());
-
 const initialState: RhAgentTriageState = {
   statuses: {},
   timeframe: 'W',
-  marketDate: todayPT(),
+  activeRunId: null,
+  activeMarketDate: null,
   decisionsLoading: false,
   decisionsError: null,
   persistedStatuses: {},
@@ -104,12 +103,13 @@ export const RhAgentTriageStore = signalStore(
   ) => ({
     /** Set a single symbol's PACR status and persist it. */
     setStatus(symbol: string, status: RhReviewStatus, source = 'unknown'): void {
-      const marketDate = state.marketDate();
+      const marketDate = state.activeMarketDate();
       patchState(state, {
         statuses: { ...state.statuses(), [symbol]: status },
-        persistedStatuses: mergePersistedStatus(state.persistedStatuses(), symbol, marketDate, status),
+        persistedStatuses: marketDate ? mergePersistedStatus(state.persistedStatuses(), symbol, marketDate, status) : state.persistedStatuses(),
       });
 
+      if (!marketDate) return;
       triageService.setDecision({ symbol, date: marketDate, status, source }).subscribe({
         error: (err) => {
           console.error(`[TriageStore] Failed to persist status for ${symbol}:`, err);
@@ -120,16 +120,17 @@ export const RhAgentTriageStore = signalStore(
 
     /** Set PACR status for multiple symbols at once (group-level action) and persist. */
     setGroupStatus(symbols: string[], status: RhReviewStatus, source = 'unknown'): void {
-      const marketDate = state.marketDate();
+      const marketDate = state.activeMarketDate();
       const current = state.statuses();
       const updates: Record<string, RhReviewStatus> = {};
       let persisted = state.persistedStatuses();
       for (const symbol of symbols) {
         updates[symbol] = status;
-        persisted = mergePersistedStatus(persisted, symbol, marketDate, status);
+        if (marketDate) persisted = mergePersistedStatus(persisted, symbol, marketDate, status);
       }
       patchState(state, { statuses: { ...current, ...updates }, persistedStatuses: persisted });
 
+      if (!marketDate) return;
       const inputs = symbols.map((symbol) => ({ symbol, date: marketDate, status, source }));
       triageService.setDecisionsBatch(inputs).subscribe({
         error: (err) => {
@@ -144,7 +145,7 @@ export const RhAgentTriageStore = signalStore(
       patchState(state, { timeframe });
     },
 
-    /** Set the active market date and sync local statuses from persisted cache. */
+    /** Set the active run and sync local statuses from persisted cache for that run's market date. */
     setMarketDate(marketDate: string): void {
       const persisted = state.persistedStatuses();
       const dateStatuses: Record<string, RhReviewStatus> = {};
@@ -154,7 +155,7 @@ export const RhAgentTriageStore = signalStore(
         }
       }
       patchState(state, {
-        marketDate,
+        activeMarketDate: marketDate,
         statuses: { ...state.statuses(), ...dateStatuses },
       });
     },
@@ -167,7 +168,7 @@ export const RhAgentTriageStore = signalStore(
         next: (decisions) => {
           let persisted = state.persistedStatuses();
           const currentStatuses = { ...state.statuses() };
-          const currentDate = state.marketDate();
+          const currentDate = state.activeMarketDate();
 
           for (const d of decisions) {
             persisted = mergePersistedStatus(persisted, d.symbol, d.date, d.status);
@@ -212,17 +213,12 @@ export const RhAgentTriageStore = signalStore(
 
   withHooks((store) => ({
     onInit() {
-      const marketDate = store.marketDate();
-      const today = todayPT();
-      const start = marketDate <= today ? marketDate : today;
-      const end = today;
-
-      // Load current date plus the last 30 days of decisions
+      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date());
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const startDate = start < thirtyDaysAgo.toISOString().slice(0, 10) ? start : thirtyDaysAgo.toISOString().slice(0, 10);
+      const startDate = thirtyDaysAgo.toISOString().slice(0, 10);
 
-      store.loadPersistedDecisions(startDate, end);
+      store.loadPersistedDecisions(startDate, today);
     },
   }))
 );

@@ -39,6 +39,7 @@ const initialState: RhAgentSymbolListState = {
 };
 
 export const RhAgentSymbolListStore = signalStore(
+  { providedIn: 'root' },
   withState(initialState),
   withMethods((
     state,
