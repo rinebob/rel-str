@@ -90,6 +90,14 @@
         { "fieldPath": "runId", "order": "ASCENDING" },
         { "fieldPath": "marketDate", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "signal-history",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "date", "order": "ASCENDING" },
+        { "fieldPath": "symbol", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

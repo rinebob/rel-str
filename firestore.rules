@@ -144,6 +144,12 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // Per-symbol signal history (canonical EOD records written by nightly run)
+      match /signal-history/{date} {
+        allow read: if request.auth != null;
+        allow write: if false;
+      }
+
       // Per-symbol signal history (deprecated — kept for migration period)
       match /signals/{signalId} {
         allow read: if request.auth != null;
