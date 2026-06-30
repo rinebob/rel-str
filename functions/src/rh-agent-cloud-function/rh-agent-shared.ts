@@ -212,6 +212,7 @@ export async function createJobAndEnqueue(
   runId: string,
   symbol: string,
   marketDate: string,
+  runStartedAt: string,
   triggeredBy: RhAgentTriggeredBy = 'pdr',
   intraday?: IntradaySnapshot
 ): Promise<void> {
@@ -237,6 +238,7 @@ export async function createJobAndEnqueue(
     runId,
     symbol,
     marketDate,
+    runStartedAt,
     intraday,
   };
 

@@ -22,6 +22,9 @@ export const RH_AGENT_SYMBOLS_COLLECTION = 'rh-agent-symbols';
 /** Signal-dates subcollection under each symbol doc. One doc per bar date, signals as a map field. */
 export const RH_AGENT_SIGNAL_DATES_SUBCOLLECTION = 'signal-dates';
 
+/** Run-ids subcollection under each symbol doc. One doc per runId, signals as a map field. Run-centric real-time path. */
+export const RH_AGENT_RUN_IDS_SUBCOLLECTION = 'run-ids';
+
 /**
  * Signal direction — whether the signal is a long or short entry.
  */
@@ -72,6 +75,20 @@ export interface RhAgentSignalDateDoc {
   symbol: string;
   barDate: string;               // YYYY-MM-DD — doc ID
   runId: string;                 // last run that wrote/updated this doc
+  updatedAt: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
+  signals: Record<string, RhAgentSignalEntry>;
+}
+
+/**
+ * Run-id doc stored under rh-agent-symbols/{SYMBOL}/run-ids/{runId}.
+ * One doc per run; all signals produced by that run stored as a map keyed by signalType.
+ * This is the real-time / intraday path. Nightly runs also write here before writing to signal-history.
+ */
+export interface RhAgentRunIdDoc {
+  symbol: string;
+  runId: string;                 // doc ID — the agent run that produced these signals
+  marketDate: string;            // YYYY-MM-DD — calendar date of the run
+  startedAt: string;             // ISO timestamp — distinguishes 8AM vs 10AM vs 12PM PDR runs
   updatedAt: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
   signals: Record<string, RhAgentSignalEntry>;
 }
@@ -243,7 +260,8 @@ export interface RhAgentSymbolProfile {
 export interface SymbolJobPayload {
   runId: string;
   symbol: string;
-  marketDate: string;  // YYYY-MM-DD
+  marketDate: string;    // YYYY-MM-DD
+  runStartedAt: string;  // ISO timestamp — when the run started; written to run-ids docs for distinguishability
   intraday?: IntradaySnapshot;  // Intraday data from trigger's bulk fetch
 }
 

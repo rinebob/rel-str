@@ -11,7 +11,9 @@ import { db } from '../firebase-admin-init';
 import {
   RH_AGENT_SYMBOLS_COLLECTION,
   RH_AGENT_SIGNAL_DATES_SUBCOLLECTION,
+  RH_AGENT_RUN_IDS_SUBCOLLECTION,
   RhAgentSignalDateDoc,
+  RhAgentRunIdDoc,
   RhAgentSignalEntry,
   RhAgentSymbolProfile,
 } from './rh-agent-config';
@@ -46,13 +48,13 @@ interface SymbolSignalHistoryResponse {
 }
 
 /**
- * Primary review page query.
- * Returns enabled rh-agent-symbols docs filtered by lastWeeklySignalDate or
- * lastDailySignalDate matching the given marketDate.
+ * Primary review page query — run-centric path.
+ * Returns enabled rh-agent-symbols docs that have a signal doc under run-ids/{runId}.
+ * Queries the run-ids subcollection via collection group filtered by runId.
  * Includes all company overview fields for grouping/sorting in the UI.
  */
 export const rhAgentGetSymbolsWithSignals = onCall<
-  { marketDate: string; timeframe: 'W' | 'D' },
+  { runId: string; timeframe: 'W' | 'D' },
   Promise<SymbolsWithSignalsResponse>
 >(
   {
@@ -62,22 +64,45 @@ export const rhAgentGetSymbolsWithSignals = onCall<
   },
   async (request) => {
     try {
-      const { marketDate, timeframe } = request.data;
-      if (!marketDate || !timeframe) {
-        throw new Error('marketDate and timeframe are required');
+      const { runId, timeframe } = request.data;
+      if (!runId || !timeframe) {
+        throw new Error('runId and timeframe are required');
       }
 
-      const dateField = timeframe === 'W' ? 'lastWeeklySignalDate' : 'lastDailySignalDate';
-
-      // Exact match on the requested marketDate.
-      // Frontend passes yesterday until intraday bars are wired; then switches to today.
-      const snapshot = await db
-        .collection(RH_AGENT_SYMBOLS_COLLECTION)
-        .where('enabled', '==', true)
-        .where(dateField, '==', marketDate)
+      // Query all run-ids/{runId} docs across all symbols via collection group.
+      // Each doc that exists for this runId means that symbol had signals on this run.
+      const runIdSnapshot = await db
+        .collectionGroup(RH_AGENT_RUN_IDS_SUBCOLLECTION)
+        .where('runId', '==', runId)
         .get();
 
-      const symbols: RhAgentSymbolProfile[] = snapshot.docs.map((doc) => {
+      // Extract symbol names from the matched run-id docs
+      const symbolsWithSignals = new Set(
+        runIdSnapshot.docs
+          .map((doc) => (doc.data() as RhAgentRunIdDoc).symbol)
+          .filter(Boolean)
+      );
+
+      if (symbolsWithSignals.size === 0) {
+        logger.info('rh_agent_get_symbols_with_signals', { runId, timeframe, count: 0 });
+        return { symbols: [] };
+      }
+
+      // Fetch symbol profile docs for the matched symbols (in batches of 30 for Firestore 'in' limit)
+      const symbolArray = Array.from(symbolsWithSignals);
+      const batches: Promise<FirebaseFirestore.QuerySnapshot>[] = [];
+      for (let i = 0; i < symbolArray.length; i += 30) {
+        batches.push(
+          db.collection(RH_AGENT_SYMBOLS_COLLECTION)
+            .where('enabled', '==', true)
+            .where('symbol', 'in', symbolArray.slice(i, i + 30))
+            .get()
+        );
+      }
+      const batchResults = await Promise.all(batches);
+      const allDocs = batchResults.flatMap((snap) => snap.docs);
+
+      const symbols: RhAgentSymbolProfile[] = allDocs.map((doc) => {
         const d = doc.data();
         return {
           symbol: d.symbol || doc.id,
@@ -104,9 +129,7 @@ export const rhAgentGetSymbolsWithSignals = onCall<
         };
       });
 
-      logger.info('rh_agent_get_symbols_with_signals', {
-        marketDate, timeframe, count: symbols.length,
-      });
+      logger.info('rh_agent_get_symbols_with_signals', { runId, timeframe, count: symbols.length });
 
       return { symbols };
     } catch (error: any) {

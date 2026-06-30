@@ -161,6 +161,7 @@ export async function startRhAgentRun(
   const deadlineAt = getDeadlineISO();
 
   // 3. Create run document
+  const runStartedAt = new Date().toISOString();
   const runId = await createDailyRun(marketDate, symbols.length, deadlineAt, triggeredBy);
   logger.info('rh_agent_trigger_run_created', {
     runId,
@@ -177,7 +178,7 @@ export async function startRhAgentRun(
   for (const symbol of symbols) {
     try {
       const intraday = intradaySnapshots.find(s => s.symbol === symbol);
-      await createJobAndEnqueue(runId, symbol, marketDate, triggeredBy, intraday);
+      await createJobAndEnqueue(runId, symbol, marketDate, runStartedAt, triggeredBy, intraday);
       enqueuedCount++;
     } catch (error: any) {
       failedCount++;

@@ -61,7 +61,7 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
     // secrets: [ANTHROPIC_API_KEY], // Temporarily disabled for testing
   },
   async (req) => {
-    const { runId, symbol, marketDate, intraday } = req.data;
+    const { runId, symbol, marketDate, runStartedAt, intraday } = req.data;
     const startTime = Date.now();
 
     logger.info('rh_agent_worker_start', { runId, symbol, marketDate });
@@ -114,7 +114,7 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
       const results = await executeStrategy(strategy, strategyInput, runId);
 
       // 6. Persist signals
-      const { opportunityCount, barDates } = await persistSignals(symbol, runId, marketDate, !!intraday, results);
+      const { opportunityCount, barDates } = await persistSignals(symbol, runId, marketDate, runStartedAt, !!intraday, results);
 
       // 7. Clear stale INTERIM signals for bar dates that did not fire this run
       await clearStaleSignals(symbol, marketDate, !!intraday, results, barDates);
@@ -204,6 +204,7 @@ async function persistSignals(
   symbol: string,
   runId: string,
   marketDate: string,
+  runStartedAt: string,
   intraday: boolean,
   results: StrategyOutput[]
 ): Promise<{ opportunityCount: number; barDates: Set<string> }> {
@@ -220,7 +221,7 @@ async function persistSignals(
   const writer = new SignalDateWriter(symbol);
   const barDatePromises: Promise<number>[] = [];
   for (const [, dateEntries] of byBarDate) {
-    barDatePromises.push(writer.persistBarDate(runId, dateEntries, intraday));
+    barDatePromises.push(writer.persistBarDate(runId, runStartedAt, marketDate, dateEntries, intraday));
   }
 
   const counts = await Promise.all(barDatePromises);

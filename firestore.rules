@@ -132,8 +132,14 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow write: if false;
 
-      // Per-symbol signal dates (new structure: one doc per bar date, signals as map)
+      // Per-symbol signal dates (date-centric path — kept for backward compatibility)
       match /signal-dates/{barDate} {
+        allow read: if request.auth != null;
+        allow write: if false;
+      }
+
+      // Per-symbol run-ids (run-centric real-time path — one doc per run per symbol)
+      match /run-ids/{runId} {
         allow read: if request.auth != null;
         allow write: if false;
       }

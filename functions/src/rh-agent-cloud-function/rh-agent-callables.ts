@@ -118,6 +118,7 @@ export const rhAgentManualRun = onCall<ManualRunRequest, Promise<ManualRunRespon
 
       // 5. Create run document with 30-minute deadline
       const deadlineAt = getDeadlineISO(30);
+      const runStartedAt = new Date().toISOString();
       const runId = await createDailyRun(marketDate, symbols.length, deadlineAt, 'manual');
       logger.info('rh_agent_manual_run_created', {
         runId,
@@ -134,7 +135,7 @@ export const rhAgentManualRun = onCall<ManualRunRequest, Promise<ManualRunRespon
       for (const symbol of symbols) {
         try {
           const intraday = intradayMap.get(symbol);
-          await createJobAndEnqueue(runId, symbol, marketDate, 'manual', intraday);
+          await createJobAndEnqueue(runId, symbol, marketDate, runStartedAt, 'manual', intraday);
           enqueuedCount++;
           if (enqueuedCount % 10 === 0) {
             logger.info('rh_agent_manual_enqueue_progress', {

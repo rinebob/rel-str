@@ -9,7 +9,9 @@ import { db, FieldValue } from '../firebase-admin-init';
 import {
   RH_AGENT_SYMBOLS_COLLECTION,
   RH_AGENT_SIGNAL_DATES_SUBCOLLECTION,
+  RH_AGENT_RUN_IDS_SUBCOLLECTION,
   RhAgentSignalDateDoc,
+  RhAgentRunIdDoc,
   RhAgentSignalEntry,
 } from './rh-agent-config';
 
@@ -34,6 +36,8 @@ export class SignalDateWriter {
    */
   async persistBarDate(
     runId: string,
+    runStartedAt: string,
+    marketDate: string,
     entries: RhAgentSignalEntry[],
     intraday: boolean
   ): Promise<number> {
@@ -46,7 +50,8 @@ export class SignalDateWriter {
     const dailyTypes = new Set(dailyEntries.map((e) => e.signalType));
     const barDate = entries[0].barDate;
 
-    const writeDoc = this.writeSignalDateDoc(runId, entries);
+    const writeSignalDate = this.writeSignalDateDoc(runId, entries);
+    const writeRunId = this.writeRunIdDoc(runId, runStartedAt, marketDate, entries);
     const gateUpdate = this.updateGateDates(entries);
 
     const clearPromises: Promise<void>[] = [];
@@ -57,7 +62,7 @@ export class SignalDateWriter {
       clearPromises.push(this.clearStaleInterimSignals(barDate, dailyTypes));
     }
 
-    await Promise.all([writeDoc, gateUpdate, ...clearPromises]);
+    await Promise.all([writeSignalDate, writeRunId, gateUpdate, ...clearPromises]);
     return entries.length;
   }
 
@@ -87,8 +92,39 @@ export class SignalDateWriter {
   }
 
   /**
-   * Merge-write the signal-date doc. Confirmed signals are never overwritten
-   * by new INTERIM entries.
+   * Write signals to run-ids/{runId} — the run-centric real-time path.
+   * One doc per run per symbol; all signals for this run stored as a map keyed by signalType.
+   */
+  private async writeRunIdDoc(
+    runId: string,
+    runStartedAt: string,
+    marketDate: string,
+    entries: RhAgentSignalEntry[]
+  ): Promise<void> {
+    if (entries.length === 0) return;
+
+    const docRef = this.symbolRef.collection(RH_AGENT_RUN_IDS_SUBCOLLECTION).doc(runId);
+    const signalsUpdate: Record<string, any> = {};
+    for (const entry of entries) {
+      signalsUpdate[`signals.${entry.signalType}`] = entry;
+    }
+
+    await docRef.set(
+      {
+        symbol: this.symbol,
+        runId,
+        marketDate,
+        startedAt: runStartedAt,
+        updatedAt: FieldValue.serverTimestamp(),
+        ...signalsUpdate,
+      } as RhAgentRunIdDoc,
+      { merge: true }
+    );
+  }
+
+  /**
+   * Merge-write the signal-date doc (date-centric path, kept for backward compatibility).
+   * Confirmed signals are never overwritten by new INTERIM entries.
    */
   private async writeSignalDateDoc(runId: string, entries: RhAgentSignalEntry[]): Promise<void> {
     if (entries.length === 0) return;
