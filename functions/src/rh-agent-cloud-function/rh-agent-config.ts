@@ -25,6 +25,9 @@ export const RH_AGENT_SIGNAL_DATES_SUBCOLLECTION = 'signal-dates';
 /** Run-ids subcollection under each symbol doc. One doc per runId, signals as a map field. Run-centric real-time path. */
 export const RH_AGENT_RUN_IDS_SUBCOLLECTION = 'run-ids';
 
+/** Signal-history subcollection under each symbol doc. One doc per date; canonical EOD truth written by the nightly run only. */
+export const RH_AGENT_SIGNAL_HISTORY_SUBCOLLECTION = 'signal-history';
+
 /**
  * Signal direction — whether the signal is a long or short entry.
  */
@@ -77,6 +80,19 @@ export interface RhAgentSignalDateDoc {
   runId: string;                 // last run that wrote/updated this doc
   updatedAt: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
   signals: Record<string, RhAgentSignalEntry>;
+}
+
+/**
+ * Signal history doc stored under rh-agent-symbols/{SYMBOL}/signal-history/{date}.
+ * Canonical EOD record — written only by the nightly run for CONFIRMED signals.
+ * One doc per symbol per date; signals stored as a map keyed by signalType.
+ */
+export interface RhAgentSignalHistoryDoc {
+  symbol: string;
+  date: string;                  // YYYY-MM-DD — doc ID; for weekly signals: the week-open (Monday bar date)
+  updatedAt: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
+  canonicalizedAt: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
+  signals: Record<string, RhAgentSignalEntry & { sourceRunId: string }>;
 }
 
 /**
@@ -262,6 +278,7 @@ export interface SymbolJobPayload {
   symbol: string;
   marketDate: string;    // YYYY-MM-DD
   runStartedAt: string;  // ISO timestamp — when the run started; written to run-ids docs for distinguishability
+  triggeredBy?: RhAgentTriggeredBy;  // Source of the run; 'nightly' enables signal-history writes
   intraday?: IntradaySnapshot;  // Intraday data from trigger's bulk fetch
 }
 

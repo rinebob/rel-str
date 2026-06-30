@@ -10,9 +10,12 @@ import {
   RH_AGENT_SYMBOLS_COLLECTION,
   RH_AGENT_SIGNAL_DATES_SUBCOLLECTION,
   RH_AGENT_RUN_IDS_SUBCOLLECTION,
+  RH_AGENT_SIGNAL_HISTORY_SUBCOLLECTION,
   RhAgentSignalDateDoc,
   RhAgentRunIdDoc,
+  RhAgentSignalHistoryDoc,
   RhAgentSignalEntry,
+  RhAgentTriggeredBy,
 } from './rh-agent-config';
 
 export class SignalDateWriter {
@@ -39,7 +42,8 @@ export class SignalDateWriter {
     runStartedAt: string,
     marketDate: string,
     entries: RhAgentSignalEntry[],
-    intraday: boolean
+    intraday: boolean,
+    triggeredBy?: RhAgentTriggeredBy
   ): Promise<number> {
     if (entries.length === 0) return 0;
 
@@ -62,7 +66,12 @@ export class SignalDateWriter {
       clearPromises.push(this.clearStaleInterimSignals(barDate, dailyTypes));
     }
 
-    await Promise.all([writeSignalDate, writeRunId, gateUpdate, ...clearPromises]);
+    const writes: Promise<any>[] = [writeSignalDate, writeRunId, gateUpdate, ...clearPromises];
+    if (triggeredBy === 'nightly') {
+      writes.push(this.writeSignalHistoryDoc(runId, entries));
+    }
+
+    await Promise.all(writes);
     return entries.length;
   }
 
@@ -120,6 +129,48 @@ export class SignalDateWriter {
       } as RhAgentRunIdDoc,
       { merge: true }
     );
+  }
+
+  /**
+   * Write canonical EOD signal history to signal-history/{date}.
+   * Called only for nightly runs. Groups entries by barDate and writes one doc per date.
+   * Each signal entry is stored with a sourceRunId for auditability.
+   */
+  private async writeSignalHistoryDoc(
+    runId: string,
+    entries: RhAgentSignalEntry[]
+  ): Promise<void> {
+    if (entries.length === 0) return;
+
+    const byBarDate = new Map<string, RhAgentSignalEntry[]>();
+    for (const entry of entries) {
+      const list = byBarDate.get(entry.barDate) ?? [];
+      list.push(entry);
+      byBarDate.set(entry.barDate, list);
+    }
+
+    const writes: Promise<any>[] = [];
+    for (const [barDate, dateEntries] of byBarDate) {
+      const docRef = this.symbolRef.collection(RH_AGENT_SIGNAL_HISTORY_SUBCOLLECTION).doc(barDate);
+      const signalsUpdate: Record<string, any> = {};
+      for (const entry of dateEntries) {
+        signalsUpdate[`signals.${entry.signalType}`] = { ...entry, sourceRunId: runId };
+      }
+      writes.push(
+        docRef.set(
+          {
+            symbol: this.symbol,
+            date: barDate,
+            updatedAt: FieldValue.serverTimestamp(),
+            canonicalizedAt: FieldValue.serverTimestamp(),
+            ...signalsUpdate,
+          } as RhAgentSignalHistoryDoc,
+          { merge: true }
+        )
+      );
+    }
+
+    await Promise.all(writes);
   }
 
   /**
