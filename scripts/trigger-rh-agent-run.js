@@ -46,10 +46,12 @@ const date = dateArg || new Date().toISOString().slice(0, 10);
 // --- Invoke callable via fetch + gcloud identity-token ---
 const { execSync } = require('child_process');
 
+/** Get a current gcloud access token for authenticated callable invocation. */
 function getAccessToken() {
   return execSync('gcloud auth print-access-token', { encoding: 'utf8' }).trim();
 }
 
+/** Trigger rhAgentManualRun for the configured date and optional symbol list. */
 async function main() {
   const payload = { date, ...(symbols ? { symbols } : {}) };
 

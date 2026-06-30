@@ -27,6 +27,7 @@ const USE_EMULATOR = process.env.USE_EMULATOR === '1';
 const TIMEFRAME = process.env.TIMEFRAME || 'D';
 const DAYS = parseInt(process.env.DAYS || '14', 10);
 
+/** Determine the market date to query, defaulting to yesterday in PT. */
 function getMarketDate() {
   if (process.env.MARKET_DATE) return process.env.MARKET_DATE;
   const d = new Date();
@@ -46,6 +47,10 @@ function getMarketDate() {
 
 const MARKET_DATE = getMarketDate();
 
+/**
+ * Call a v2 callable function using raw HTTP(S).
+ * Resolves with the parsed JSON body on 2xx, rejects otherwise.
+ */
 function callCallable(name, data) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({ data });
@@ -92,11 +97,13 @@ function callCallable(name, data) {
   });
 }
 
+/** Pretty-print a JSON result under a titled heading. */
 function logResult(title, data) {
   console.log(`\n=== ${title} ===`);
   console.log(JSON.stringify(data, null, 2));
 }
 
+/** Run the dashboard callables test sequence. */
 async function main() {
   console.log('RH Agent dashboard callables test');
   console.log(`Target: ${USE_EMULATOR ? 'emulator 127.0.0.1:5001' : `https://${REGION}-${PROJECT}.cloudfunctions.net`}`);

@@ -96,6 +96,11 @@ const db = admin.firestore();
 
 // --- Helpers ---
 
+/**
+ * Delete all documents in a collection in batched chunks.
+ * @param {FirebaseFirestore.CollectionReference} collRef Collection to clear.
+ * @param {string} label Progress label for console output.
+ */
 async function deleteCollection(collRef, label) {
   let total = 0;
   let snap;
@@ -115,6 +120,10 @@ async function deleteCollection(collRef, label) {
   return total;
 }
 
+/**
+ * Clear lastDailySignalDate and lastWeeklySignalDate from all symbol docs.
+ * @param {FirebaseFirestore.QueryDocumentSnapshot[]} symbolDocs Array of symbol documents.
+ */
 async function clearSymbolGateDates(symbolDocs) {
   let total = 0;
   for (let i = 0; i < symbolDocs.length; i += BATCH_SIZE) {
@@ -135,6 +144,7 @@ async function clearSymbolGateDates(symbolDocs) {
 
 // --- Main ---
 
+/** Run the signal cleanup sequence. */
 async function main() {
   console.log(`\n=== RH Agent Signal Cleanup${DRY_RUN ? ' [DRY RUN]' : ''} ===\n`);
 
