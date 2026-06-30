@@ -22,6 +22,15 @@ import { environment } from '../../../environments/environment';
  * mapping backend PartnerDailyBarDTO objects into OHLCDatum points suitable
  * for SyncFusion charts. Bars with issues are excluded from the plotted series
  * but can be surfaced separately for diagnostics if needed.
+ *
+ * @techdebt PRICE-BAR-SERVICE
+ * This service is the right foundation for an app-wide `SaDataService` (or `PriceBarService`)
+ * that should live in `src/app/core/services/`. Currently `HeatmapChartDataService` wraps this
+ * inside the heatmap feature, and `rh-agent` reaches into heatmap just to get OHLC bars.
+ * The intended refactor:
+ *   1. Create `src/app/core/services/sa-data.service.ts` — wraps this service + aggregation utils.
+ *   2. Wire rh-agent (signal-detail) to use it first.
+ *   3. Migrate heatmap-chart to use it, then remove the wrapper from `HeatmapChartDataService`.
  */
 const EMULATOR_YEARS_BACK = 2;
 const PROD_YEARS_BACK = 7;

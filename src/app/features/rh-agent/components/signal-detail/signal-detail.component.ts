@@ -19,6 +19,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
+// @techdebt PRICE-BAR-SERVICE — rh-agent should not depend on heatmap-chart for price bars.
+// HeatmapChartStore is used here solely for OHLC bar fetching (full SA history for chart rendering).
+// Replace with a shared `SaDataService` in `src/app/core/services/` once created.
 import { HeatmapChartStore } from '../../../heatmap-chart/heatmap-chart.store';
 import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-chart.component';
 import { BarsInterval } from '../../../../core/models/partner.types';

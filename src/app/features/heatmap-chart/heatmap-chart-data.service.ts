@@ -10,6 +10,17 @@ import { Timeframe } from '../shared/types/rs.interfaces';
 import type { ChartDataset, HeatmapDataset, HeatmapRow, HeatmapCell, PriceBar } from './heatmap-chart.types';
 import { aggregateDailyToWeekly, aggregateDailyToMonthly } from './heatmap-chart-aggregation.util';
 
+/**
+ * @techdebt PRICE-BAR-SERVICE
+ * `fetchChartData$` belongs in an app-wide `SaDataService` (or `PriceBarService`) in
+ * `src/app/core/services/`, not here. Currently `rh-agent` crosses into this heatmap-feature
+ * service just to fetch OHLC bars for chart rendering. The fix:
+ *   1. Create `src/app/core/services/sa-data.service.ts` wrapping `RsBarsService.getDailyBars$`
+ *      + the daily→weekly/monthly aggregation helpers.
+ *   2. Consume it in rh-agent first (signal-detail.component.ts).
+ *   3. Refactor heatmap-chart to use the shared service, then remove `fetchChartData$` from here.
+ * Until then, `signal-detail` deliberately imports `HeatmapChartStore` for its price bar data.
+ */
 @Injectable({ providedIn: 'root' })
 export class HeatmapChartDataService {
   private readonly dbService = inject(RelStrDbV2Service);
