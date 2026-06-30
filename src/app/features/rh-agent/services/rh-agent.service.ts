@@ -11,8 +11,8 @@ import { Observable, from, map } from 'rxjs';
 
 /**
  * Cron expression for the RH Agent daily scheduler (UTC).
- * ⚠️ Must stay in sync with the `schedule` field in:
- *    functions/src/rh-agent-cloud-function/rh-agent-scheduler.ts → rhAgentDailyScheduler
+ * ⚠️ Must stay in sync with the scheduled run logic in:
+ *    functions/src/rh-agent-cloud-function/rh-agent-trigger.ts → rhAgentPdrTrigger
  */
 export const RH_AGENT_SCHEDULE_CRON = '0 20 * * 1-5'; // 8 PM UTC = 12 PM PT, Mon-Fri
 
@@ -235,6 +235,10 @@ export class RhAgentService {
    * Per-symbol signal history for the detail panel.
    * Reads directly from Firestore: rh-agent-symbols/{symbol}/signal-dates/*
    * Returns all signals across all bar dates, sorted by barDate desc.
+   *
+   * @param symbol Symbol to query.
+   * @param _timeframe Reserved for future filtering (currently ignored).
+   * @param _days Reserved for future filtering (currently ignored).
    */
   getSymbolSignalHistory(
     symbol: string,

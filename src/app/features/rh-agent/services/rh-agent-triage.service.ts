@@ -226,14 +226,17 @@ export class RhAgentTriageService {
   // Helpers
   // ---------------------------------------------------------------------------
 
+  /** Build the Firestore document ID for a symbol/date decision. */
   private decisionId(symbol: string, date: string): string {
     return `${symbol}_${date}`;
   }
 
+  /** Execute a one-time query and map the results to typed decisions. */
   private runQuery(q: Query<DocumentData>): Observable<RhTriageDecision[]> {
     return from(getDocs(q)).pipe(map((snapshot) => this.toDecisions(snapshot.docs)));
   }
 
+  /** Map Firestore decision docs into the RhTriageDecision type. */
   private toDecisions(docs: QueryDocumentSnapshot<DocumentData>[]): RhTriageDecision[] {
     return docs.map((d) => {
       const data = d.data();
@@ -253,6 +256,10 @@ export class RhAgentTriageService {
     });
   }
 
+  /**
+   * Fetch existing decision docs for a batch so createdAt can be preserved.
+   * Respects the Firestore `in` query limit of 30 by chunking doc IDs.
+   */
   private async getExistingDecisions(
     inputs: RhTriageDecisionInput[],
     userId: string
@@ -280,11 +287,13 @@ export class RhAgentTriageService {
     return map;
   }
 
+  /** Fetch a single doc's createdAt to preserve it during updates. */
   private async getDocData(docRef: DocumentReference<DocumentData>): Promise<{ createdAt?: Timestamp } | null> {
     const snap = await getDoc(docRef);
     return snap.exists() ? (snap.data() as { createdAt?: Timestamp }) : null;
   }
 
+  /** Return the current user ID or throw if not authenticated. */
   private withUserId(): Observable<string> {
     return authState(this.auth).pipe(
       take(1),
@@ -298,6 +307,10 @@ export class RhAgentTriageService {
   }
 }
 
+/**
+ * Split an array into chunks of a given size.
+ * Used to keep Firestore `in` queries under the 30-document limit.
+ */
 function chunkArray<T>(arr: T[], size: number): T[][] {
   const chunks: T[][] = [];
   for (let i = 0; i < arr.length; i += size) {

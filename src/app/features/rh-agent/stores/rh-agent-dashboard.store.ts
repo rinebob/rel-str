@@ -26,29 +26,36 @@ export const RhAgentDashboardStore = signalStore(
   withState(initialState),
 
   withComputed((_state, dataStore = inject(RhAgentStore)) => ({
+    /** Most recent run from the shared RhAgentStore. */
     currentRun: computed(() => {
       const runs = dataStore.runs();
       return runs.length > 0 ? runs[0] : null;
     }),
 
+    /** All runs except the most recent. */
     previousRuns: computed(() => dataStore.runs().slice(1)),
 
+    /** Total number of runs loaded. */
     totalRunsLive: computed(() => dataStore.runs().length),
   })),
 
   withMethods((state) => ({
+    /** Toggle the "show all runs" expansion state. */
     toggleShowAllRuns(): void {
       patchState(state, { showAllRuns: !state.showAllRuns() });
     },
 
+    /** Toggle the current run expansion panel. */
     toggleCurrentRun(): void {
       patchState(state, { currentRunOpen: !state.currentRunOpen() });
     },
 
+    /** Set the currently selected signal ID for the dashboard detail panel. */
     selectSignal(signalId: string): void {
       patchState(state, { selectedSignalId: signalId });
     },
 
+    /** Clear the selected signal. */
     clearSelectedSignal(): void {
       patchState(state, { selectedSignalId: null });
     },

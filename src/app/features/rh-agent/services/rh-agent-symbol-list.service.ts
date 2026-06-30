@@ -162,10 +162,12 @@ export class RhAgentSymbolListService {
     );
   }
 
+  /** Build the Firestore document ID for a list. Currently keyed by list name only. */
   private listId(_userId: string, name: string): string {
     return name;
   }
 
+  /** Convert a Firestore document into the typed RhSymbolList shape. */
   private toList(id: string, data: DocumentData): RhSymbolList {
     return {
       name: data['name'] ?? id,
@@ -176,6 +178,7 @@ export class RhAgentSymbolListService {
     };
   }
 
+  /** Return the current user ID or throw if not authenticated. */
   private withUserId(): Observable<string> {
     return authState(this.auth).pipe(
       take(1),

@@ -41,6 +41,7 @@ export interface RhAgentTriageState {
   persistedStatuses: Record<string, Record<string, RhReviewStatus>>;
 }
 
+/** Return today's date in Pacific Time as YYYY-MM-DD. */
 const todayPT = (): string =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date());
 
@@ -195,11 +196,17 @@ export const RhAgentTriageStore = signalStore(
 
     // --- Convenience methods for daily PACR actions ---
 
+    /** Mark a symbol as REVIEW and persist. */
     markForReview(symbol: string): void  { this.setStatus(symbol, ReviewStatus.REVIEW,   'triage-store'); },
+    /** Mark a symbol as ACCEPT and persist. */
     acceptSymbol(symbol: string): void   { this.setStatus(symbol, ReviewStatus.ACCEPT,   'triage-store'); },
+    /** Mark a symbol as CONSIDER and persist. */
     considerSymbol(symbol: string): void { this.setStatus(symbol, ReviewStatus.CONSIDER, 'triage-store'); },
+    /** Mark a symbol as REJECT and persist. */
     rejectSymbol(symbol: string): void   { this.setStatus(symbol, ReviewStatus.REJECT,   'triage-store'); },
+    /** Mark a symbol as WATCH and persist. */
     watchSymbol(symbol: string): void    { this.setStatus(symbol, ReviewStatus.WATCH,    'triage-store'); },
+    /** Reset a symbol's daily status back to PENDING and persist. */
     resetSymbol(symbol: string): void    { this.setStatus(symbol, ReviewStatus.PENDING,  'triage-store'); },
   })),
 
@@ -220,6 +227,10 @@ export const RhAgentTriageStore = signalStore(
   }))
 );
 
+/**
+ * Immutable update of the persisted status cache.
+ * Returns a new object with the given symbol/date updated to the new status.
+ */
 function mergePersistedStatus(
   persisted: Record<string, Record<string, RhReviewStatus>>,
   symbol: string,

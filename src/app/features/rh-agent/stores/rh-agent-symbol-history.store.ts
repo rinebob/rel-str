@@ -62,7 +62,7 @@ export const RhAgentSymbolHistoryStore = signalStore(
               signalHistoryLoading: { ...state.signalHistoryLoading(), [symbol]: false },
             });
           },
-          error: (err: any) => {
+          error: (err: unknown) => {
             patchState(state, {
               signalHistoryCache: { ...state.signalHistoryCache(), [symbol]: [] },
               signalHistoryLoading: { ...state.signalHistoryLoading(), [symbol]: false },

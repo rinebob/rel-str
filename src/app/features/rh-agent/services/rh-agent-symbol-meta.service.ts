@@ -170,6 +170,11 @@ export class RhAgentSymbolMetaService {
         const existing = await this.getDocData(docRef);
         const now = serverTimestamp();
 
+        /**
+         * Firestore serverTimestamp() returns a FieldValue at write time, but existing docs
+         * already contain Timestamp instances. Exclude the typed Timestamp fields from the
+         * base Partial and re-add them as a union so the payload accepts both.
+         */
         const payload: Omit<Partial<RhSymbolMeta>, 'createdAt' | 'updatedAt'> & { updatedAt: FieldValue | Timestamp; createdAt?: FieldValue | Timestamp } = {
           symbol: normalized,
           userId,
@@ -218,6 +223,7 @@ export class RhAgentSymbolMetaService {
     );
   }
 
+  /** Convert a Firestore document into the typed RhSymbolMeta shape. */
   private toMeta(id: string, data: DocumentData): RhSymbolMeta {
     return {
       symbol: data['symbol'] ?? id,
@@ -233,11 +239,13 @@ export class RhAgentSymbolMetaService {
     };
   }
 
+  /** Fetch a single doc's data to preserve createdAt during updates. */
   private async getDocData(docRef: DocumentReference<DocumentData>): Promise<{ createdAt?: Timestamp } | null> {
     const snap = await getDoc(docRef);
     return snap.exists() ? (snap.data() as { createdAt?: Timestamp }) : null;
   }
 
+  /** Return the current user ID or throw if not authenticated. */
   private withUserId(): Observable<string> {
     return authState(this.auth).pipe(
       take(1),

@@ -40,13 +40,13 @@ export const RhAgentStore = signalStore(
 
   // Computed signals
   withComputed((state) => ({
-    // Check if we have any data
+    /** True if any status or run data has been loaded. */
     hasData: computed(() => state.runs().length > 0 || state.status() !== null),
 
-    // Get latest run
+    /** The most recent run from the run history. */
     latestRun: computed(() => state.runs()[0] || null),
 
-    // Count of monitored symbols
+    /** Number of symbols currently enabled for monitoring. */
     symbolCount: computed(() => state.status()?.symbolsMonitored?.length || 0),
   })),
 
@@ -82,8 +82,9 @@ export const RhAgentStore = signalStore(
     },
 
     /**
-     * Trigger a manual agent run
-     * Now enqueues Cloud Tasks like the scheduler - async processing
+     * Trigger a manual agent run via the rhAgentManualRun callable.
+     * Enqueues Cloud Tasks like the PDR scheduler; workers process asynchronously.
+     * @param date Optional market date override (YYYY-MM-DD).
      */
     triggerManualRun(date?: string): void {
       patchState(state, { isLoading: true });
@@ -104,13 +105,18 @@ export const RhAgentStore = signalStore(
               this.loadData();
             }, 2000);
           },
-          error: (err) => {
-            snackBar.open(`Run failed: ${err.message}`, 'Dismiss', { duration: 5000 });
+          error: (err: unknown) => {
+            const message = err instanceof Error ? err.message : 'Unknown error';
+            snackBar.open(`Run failed: ${message}`, 'Dismiss', { duration: 5000 });
             patchState(state, { isLoading: false });
           },
         });
     },
 
+    /**
+     * Trigger the rs-bars backfill callable for all enabled symbols.
+     * Displays a snackbar with the total enqueued and error counts.
+     */
     triggerBarsBackfill(): void {
       snackBar.open('Starting bars backfill for all symbols…', 'Dismiss', { duration: 4000 });
       service.triggerBarsBackfill()
@@ -119,8 +125,9 @@ export const RhAgentStore = signalStore(
           next: (result) => {
             snackBar.open(`Bars backfill done: ${result.enqueued} ok, ${result.errors} errors`, 'Dismiss', { duration: 8000 });
           },
-          error: (err) => {
-            snackBar.open(`Bars backfill failed: ${err.message}`, 'Dismiss', { duration: 6000 });
+          error: (err: unknown) => {
+            const message = err instanceof Error ? err.message : 'Unknown error';
+            snackBar.open(`Bars backfill failed: ${message}`, 'Dismiss', { duration: 6000 });
           },
         });
     },

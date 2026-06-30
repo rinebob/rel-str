@@ -57,7 +57,7 @@ export const RhAgentSymbolListStore = signalStore(
           }
           patchState(state, { symbolLists: record, symbolListsLoading: false });
         },
-        error: (err: any) => {
+        error: (err: unknown) => {
           console.error('[RhAgentSymbolListStore] Failed to load symbol lists:', err);
           patchState(state, { symbolListsLoading: false });
           snackBar.open('Failed to load symbol lists', 'Dismiss', { duration: 5000 });
@@ -118,9 +118,10 @@ export const RhAgentSymbolListStore = signalStore(
       }
 
       forkJoin([target$, ...removalObservables]).subscribe({
-        error: (err: any) => {
+        error: (err: unknown) => {
+          const message = err instanceof Error ? err.message : 'Unknown error';
           console.error(`[RhAgentSymbolListStore] Failed to toggle ${symbol} in ${listName}:`, err);
-          snackBar.open(`Failed to save ${symbol} to ${listName}: ${err?.message ?? 'Unknown error'}`, 'Dismiss', {
+          snackBar.open(`Failed to save ${symbol} to ${listName}: ${message}`, 'Dismiss', {
             duration: 5000,
           });
           // Revert local change on failure
@@ -139,7 +140,7 @@ export const RhAgentSymbolListStore = signalStore(
       patchState(state, { symbolLists: current });
 
       listService.addToList(symbol, listName).subscribe({
-        error: (err: any) => {
+        error: (err: unknown) => {
           console.error(`[RhAgentSymbolListStore] Failed to add ${symbol} to ${listName}:`, err);
           patchState(state, {
             symbolLists: {
@@ -160,7 +161,7 @@ export const RhAgentSymbolListStore = signalStore(
       patchState(state, { symbolLists: current });
 
       listService.removeFromList(symbol, listName).subscribe({
-        error: (err: any) => {
+        error: (err: unknown) => {
           console.error(`[RhAgentSymbolListStore] Failed to remove ${symbol} from ${listName}:`, err);
           patchState(state, {
             symbolLists: {
