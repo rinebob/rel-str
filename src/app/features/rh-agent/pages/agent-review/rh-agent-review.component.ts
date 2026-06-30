@@ -61,7 +61,9 @@ export class RhAgentReviewComponent implements OnInit {
   });
 
   constructor() {
-    // Auto-select first review symbol when the queue changes and none is selected
+    /**
+     * Auto-select the first review symbol when the queue changes and none is selected.
+     */
     effect(() => {
       const symbols = this.triageStore.reviewSymbols();
       if (symbols.length === 0) return;
@@ -71,6 +73,7 @@ export class RhAgentReviewComponent implements OnInit {
     });
   }
 
+  /** Load persisted decisions for the last 30 days through the active market date. */
   ngOnInit(): void {
     const marketDate = this.triageStore.marketDate();
     const today = new Date();
@@ -82,10 +85,12 @@ export class RhAgentReviewComponent implements OnInit {
 
   // --- Review queue mode (symbols with REVIEW status from grouped review) ---
 
+  /** Select a symbol from the review queue. */
   onReviewSymbolSelected(symbol: string): void {
     this.selectedReviewSymbol.set(symbol);
   }
 
+  /** Accept the currently selected review symbol and advance the queue. */
   onAcceptReview(): void {
     const symbol = this.selectedReviewSymbol();
     if (!symbol) return;
@@ -93,6 +98,7 @@ export class RhAgentReviewComponent implements OnInit {
     this.advanceReviewQueue(symbol);
   }
 
+  /** Watch the currently selected review symbol and advance the queue. */
   onWatchReview(): void {
     const symbol = this.selectedReviewSymbol();
     if (!symbol) return;
@@ -100,6 +106,7 @@ export class RhAgentReviewComponent implements OnInit {
     this.advanceReviewQueue(symbol);
   }
 
+  /** Reject the currently selected review symbol and advance the queue. */
   onRejectReview(): void {
     const symbol = this.selectedReviewSymbol();
     if (!symbol) return;
@@ -107,15 +114,18 @@ export class RhAgentReviewComponent implements OnInit {
     this.advanceReviewQueue(symbol);
   }
 
+  /** Move the selection to the next review symbol after a decision. */
   private advanceReviewQueue(decidedSymbol: string): void {
     const remaining = this.triageStore.reviewSymbols().filter((s: string) => s !== decidedSymbol);
     this.selectedReviewSymbol.set(remaining.length > 0 ? remaining[0] : null);
   }
 
+  /** Navigate to the standalone signal history page. */
   goToSignalHistory(): void {
     this.router.navigate(['/signal-history']);
   }
 
+  /** Load an arbitrary symbol for chart review without a decision queue. */
   loadManualSymbol(symbolInput: string): void {
     const symbol = symbolInput.trim().toUpperCase();
     if (!symbol) return;
@@ -123,10 +133,12 @@ export class RhAgentReviewComponent implements OnInit {
     this.manualSymbol.set(symbol);
   }
 
+  /** Navigate back to the grouped review page. */
   goToGroupedReview(): void {
     this.router.navigate(['/rh-agent-grouped-review']);
   }
 
+  /** Handle Enter key in the manual symbol input. */
   onManualSymbolKeydown(event: KeyboardEvent, input: HTMLInputElement): void {
     if (event.key === 'Enter') {
       this.loadManualSymbol(input.value);

@@ -65,14 +65,17 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
     this.groupStore.groups().flatMap(g => this.visibleRows(g).map(r => r.profile.symbol))
   );
 
+  /** Move the quick-chart selection to the previous visible symbol. */
   navigatePrev(): void {
     this._navigateBy(-1);
   }
 
+  /** Move the quick-chart selection to the next visible symbol. */
   navigateNext(): void {
     this._navigateBy(1);
   }
 
+  /** Navigate the quick-chart selection by a signed offset and scroll the row into view. */
   private _navigateBy(delta: -1 | 1): void {
     const flat = this.flatSymbols();
     if (flat.length === 0) return;
@@ -93,34 +96,44 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
     }, 50);
   }
 
-  /** Visible rows within a group — shows all when showAllSymbols is active or showFullGroup is toggled. */
+  /**
+   * Visible rows within a group.
+   * Shows all rows when showAllSymbols is active or showFullGroup is toggled,
+   * otherwise shows only symbols with an active signal.
+   */
   visibleRows(group: RhSymbolGroup): RhSymbolRow[] {
     if (this.groupStore.showAllSymbols() || group.showFullGroup) return group.rows;
     return group.rows.filter((r) => r.hasSignal);
   }
 
+  /** Initialize the page: fullscreen mode, sync market date, and load signal symbols. */
   ngOnInit(): void {
     this.uiState.setFullscreen(true);
     this.triageStore.setMarketDate(this.groupStore.marketDate());
     this.groupStore.loadSymbolsWithSignals();
   }
 
+  /** Leave fullscreen mode when the page is destroyed. */
   ngOnDestroy(): void {
     this.uiState.setFullscreen(false);
   }
 
+  /** Change the group dimension (sector, industry, or market cap). */
   onDimension(dim: GroupDimension): void {
     this.groupStore.setGroupDimension(dim);
   }
 
+  /** Apply a list filter to the grouped review. */
   onListFilter(filter: RhSymbolListName | 'ALL'): void {
     this.symbolListStore.setActiveListFilter(filter);
   }
 
+  /** Toggle a symbol's membership in a named list. */
   onToggleList(event: { symbol: string; listName: RhSymbolListName }): void {
     this.symbolListStore.toggleSymbolInList(event.symbol, event.listName);
   }
 
+  /** Select a symbol for the detail panel and load its signal history. */
   onSymbolClick(symbol: string): void {
     this.groupStore.selectSymbol(symbol);
   }
@@ -131,6 +144,7 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
   /** True when all groups are expanded. */
   readonly allExpanded = signal(false);
 
+  /** Expand or collapse all groups and preload history for newly visible rows. */
   toggleExpandAll(): void {
     const next = !this.allExpanded();
     this.allExpanded.set(next);
@@ -152,6 +166,7 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
     return this.expandedGroups()[groupKey] ?? false;
   }
 
+  /** Preload signal history for every row when a group is opened. */
   onGroupOpened(group: RhSymbolGroup): void {
     for (const row of group.rows) {
       if (!row.signals) {
@@ -160,6 +175,7 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** Toggle expansion for a single group and preload history if expanding. */
   onExpandAll(event: { group: RhSymbolGroup; expand: boolean }): void {
     const current = this.expandedGroups();
     const isExpanded = current[event.group.key] ?? false;
@@ -174,26 +190,32 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** Set a symbol's status to REVIEW. */
   onMarkForReview(symbol: string): void {
     this.triageStore.markForReview(symbol);
   }
 
+  /** Set a symbol's status to ACCEPT. */
   onAccept(symbol: string): void {
     this.triageStore.acceptSymbol(symbol);
   }
 
+  /** Set a symbol's status to CONSIDER. */
   onConsider(symbol: string): void {
     this.triageStore.considerSymbol(symbol);
   }
 
+  /** Set a symbol's status to REJECT. */
   onReject(symbol: string): void {
     this.triageStore.rejectSymbol(symbol);
   }
 
+  /** Reset a symbol's status to PENDING. */
   onReset(symbol: string): void {
     this.triageStore.resetSymbol(symbol);
   }
 
+  /** Toggle a symbol's membership in the PAST_SIGNALS monitor list. */
   onMonitor(symbol: string): void {
     if (this.symbolListStore.activeListFilter() === RhSymbolListName.PAST_SIGNALS) {
       this.symbolListStore.removeSymbolFromList(symbol, RhSymbolListName.PAST_SIGNALS);
@@ -202,25 +224,30 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** Toggle the quick-charts panel for a symbol. */
   onViewQuickCharts(symbol: string): void {
     const current = this.groupStore.quickChartSymbol();
     this.groupStore.setQuickChartSymbol(current === symbol ? null : symbol);
   }
 
+  /** Navigate back to the RH Agent dashboard. */
   goBack(): void {
     this.router.navigate(['/rh-agent']);
   }
 
+  /** Navigate to the review page if there are REVIEW symbols. */
   goToReview(): void {
     if (this.triageStore.reviewCount() === 0) return;
     this.router.navigate(['/rh-agent-review']);
   }
 
+  /** Navigate to the order page if there are ACCEPT symbols. */
   goToOrder(): void {
     if (this.triageStore.acceptedCount() === 0) return;
     this.router.navigate(['/rh-agent-order']);
   }
 
+  /** Navigate to the triage report page. */
   goToTriageReport(): void {
     this.router.navigate(['/rh-agent-triage-report']);
   }

@@ -119,10 +119,12 @@ export class SignalHistoryComponent {
     };
   });
 
+  /** Navigate back to the RH Agent dashboard. */
   goBack(): void {
     this.router.navigate(['/rh-agent']);
   }
 
+  /** Load D/W/M chart data and generate signals for the current symbol input. */
   loadSignals(): void {
     const symbol = this.symbolInput().trim().toUpperCase();
     if (!symbol) return;
@@ -150,6 +152,7 @@ export class SignalHistoryComponent {
     });
   }
 
+  /** Generate ST-Zone and ST-Trend-Strength signals for a single chart dataset. */
   private generateSignals(dataset: ChartDataset, interval: string): TimeframeSignals {
     const bars = dataset.bars;
     const params = {};
@@ -169,6 +172,7 @@ export class SignalHistoryComponent {
     return { interval, zone: zoneSignals, strength: strengthSignals, all };
   }
 
+  /** Handle Enter key in the symbol input to trigger signal loading. */
   onSymbolKeydown(event: KeyboardEvent): void {
     if (event.key === 'Enter') {
       this.loadSignals();

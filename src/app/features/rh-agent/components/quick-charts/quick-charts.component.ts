@@ -158,6 +158,10 @@ export class QuickChartsComponent {
     });
   }
 
+  /**
+   * Load D/W/M chart data for the selected symbol using SPY as the baseline.
+   * Runs the three requests in parallel and resets the loading/error signals.
+   */
   private loadCharts(symbol: string): void {
     this.loading.set(true);
     this.error.set(null);
@@ -173,8 +177,9 @@ export class QuickChartsComponent {
         this.monthlyData.set(monthly);
         this.loading.set(false);
       },
-      error: (err: any) => {
-        this.error.set(err?.message ?? 'Failed to load charts');
+      error: (err: unknown) => {
+        const message = err instanceof Error ? err.message : 'Failed to load charts';
+        this.error.set(message);
         this.loading.set(false);
       },
     });

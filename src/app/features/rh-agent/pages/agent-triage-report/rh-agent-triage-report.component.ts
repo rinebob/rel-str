@@ -99,11 +99,13 @@ export class RhAgentTriageReportComponent implements OnInit {
     return counts;
   });
 
+  /** Initialize the page in fullscreen mode and load the initial report. */
   ngOnInit(): void {
     this.uiState.setFullscreen(true);
     this.loadDecisions();
   }
 
+  /** Load decisions for the current date range from Firestore. */
   loadDecisions(): void {
     this.loading.set(true);
     this.error.set(null);
@@ -123,6 +125,7 @@ export class RhAgentTriageReportComponent implements OnInit {
       });
   }
 
+  /** Toggle inclusion of a status in the filter chips. */
   toggleStatus(status: RhReviewStatus): void {
     const next = new Set(this.selectedStatuses());
     if (next.has(status)) {
@@ -133,30 +136,36 @@ export class RhAgentTriageReportComponent implements OnInit {
     this.selectedStatuses.set(next);
   }
 
+  /** Whether a status is currently selected in the filter. */
   isStatusSelected(status: RhReviewStatus): boolean {
     return this.selectedStatuses().has(status);
   }
 
+  /** Total decisions for a given status in the loaded range. */
   countForStatus(status: RhReviewStatus): number {
     return this.statusCounts()[status] ?? 0;
   }
 
+  /** CSS class name derived from a status value (e.g., 'low-tradability'). */
   cssClassForStatus(status: RhReviewStatus): string {
     return status.toLowerCase().replace('_', '-');
   }
 
+  /** Update the start date and reload the report. */
   onStartDateChange(value: Date | null): void {
     if (!value) return;
     this.startDate.set(value);
     this.loadDecisions();
   }
 
+  /** Update the end date and reload the report. */
   onEndDateChange(value: Date | null): void {
     if (!value) return;
     this.endDate.set(value);
     this.loadDecisions();
   }
 
+  /** Export the filtered decisions as a CSV download. */
   exportCsv(): void {
     const rows = this.filteredDecisions();
     const headers = ['date', 'symbol', 'status', 'source', 'notes', 'userId'];
@@ -182,24 +191,29 @@ export class RhAgentTriageReportComponent implements OnInit {
     URL.revokeObjectURL(url);
   }
 
+  /** Navigate back to the grouped review page. */
   goBack(): void {
     this.router.navigate(['/rh-agent-grouped-review']);
   }
 
+  /** Return today's local date. */
   private today(): Date {
     return new Date();
   }
 
+  /** Return a date N days ago. */
   private daysAgo(n: number): Date {
     const d = new Date();
     d.setDate(d.getDate() - n);
     return d;
   }
 
+  /** Format a date as YYYY-MM-DD in Pacific Time. */
   private toIsoDate(date: Date): string {
     return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(date);
   }
 
+  /** Escape a CSV field if it contains commas, quotes, or newlines. */
   private escapeCsv(value: string): string {
     if (value.includes(',') || value.includes('"') || value.includes('\n')) {
       return `"${value.replace(/"/g, '""')}"`;

@@ -65,13 +65,14 @@ export class IndicatorConfigDialogComponent {
 
   paramValues: Record<string, number> = {};
 
+  /** Initialize parameter values from the indicator's defaults. */
   constructor() {
-    // Initialize with defaults
     for (const param of this.data.indicator.params) {
       this.paramValues[param.key] = param.default;
     }
   }
 
+  /** Build the IndicatorConfig from the current parameter values and close the dialog. */
   onConfirm(): void {
     const ind = this.data.indicator;
     const paramStr = ind.params.map(p => this.paramValues[p.key]).join(',');
@@ -96,6 +97,7 @@ export class IndicatorConfigDialogComponent {
   }
 }
 
+/** Compute a simple 32-bit hash code for a string. */
 function hashCode(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {

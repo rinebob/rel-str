@@ -72,20 +72,22 @@ export class RhAgentDashboardComponent {
     end: new FormControl<Date | null>(null),
   });
 
+  /**
+   * Load dashboard data on init.
+   * The data store handles all API calls.
+   */
   constructor() {
-    // Load data on init - data store handles all the business logic
     this.store.loadData();
   }
 
-  /**
-   * Refresh all dashboard data
-   */
+  /** Refresh all dashboard data (status + runs). */
   refreshData(): void {
     this.store.loadData();
   }
 
   /**
-   * Trigger a manual agent run
+   * Trigger a manual agent run.
+   * If a date range is selected, enqueue one run per date in the range.
    */
   triggerManualRun(): void {
     const start = this.dateRange.value.start;
@@ -100,10 +102,12 @@ export class RhAgentDashboardComponent {
     }
   }
 
+  /** Navigate to the grouped review page. */
   goToGroupedReview(): void {
     this.router.navigate(['/rh-agent-grouped-review']);
   }
 
+  /** Trigger a full company overview sync and show a snackbar with the result. */
   triggerOverviewSync(): void {
     this.isSyncingOverview.set(true);
     this.rhService.triggerOverviewSync(true).subscribe({

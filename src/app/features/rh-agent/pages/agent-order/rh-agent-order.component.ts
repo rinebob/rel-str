@@ -67,16 +67,20 @@ export class RhAgentOrderComponent implements OnInit {
   readonly generatedBatch = signal<TradeBatch | null>(null);
   readonly maxTradeAmount = RH_AGENT_MAX_TRADE_AMOUNT;
 
+  /** Rows that are currently enabled for trade generation. */
   readonly enabledRows = computed(() =>
     this.tradeRows().filter((r) => r.enabled)
   );
 
+  /** Sum of position sizes for all enabled rows. */
   readonly totalAmount = computed(() =>
     this.enabledRows().reduce((sum, r) => sum + r.positionSize, 0)
   );
 
+  /** Whether a trade batch has already been generated. */
   readonly hasGeneratedBatch = computed(() => !!this.generatedBatch());
 
+  /** Initialize the page and build trade rows from accepted symbols. */
   ngOnInit(): void {
     this.uiState.setFullscreen(true);
     this.initializeTradeRows();
@@ -98,6 +102,7 @@ export class RhAgentOrderComponent implements OnInit {
     );
   }
 
+  /** Update a trade row with the latest signal details from the backend. */
   onSignalLoaded(event: { symbol: string; signal: RhAgentSignalItem | null }): void {
     const latest = event.signal;
     this.patchRow(event.symbol, {
@@ -108,6 +113,7 @@ export class RhAgentOrderComponent implements OnInit {
     });
   }
 
+  /** Toggle whether a symbol is included in the generated trade batch. */
   onToggleEnabled(symbol: string): void {
     const row = this.tradeRows().find((r) => r.symbol === symbol);
     if (row) {
@@ -115,25 +121,30 @@ export class RhAgentOrderComponent implements OnInit {
     }
   }
 
+  /** Update a row's dollar position size. */
   onPositionSizeChange(event: { symbol: string; value: number }): void {
     this.patchRow(event.symbol, { positionSize: event.value });
   }
 
+  /** Update a row's stop-loss percentage. */
   onStopLossChange(event: { symbol: string; value: number }): void {
     this.patchRow(event.symbol, { stopLossPercent: event.value });
   }
 
+  /** Remove a symbol from the order page and set its status back to REVIEW. */
   onRemoveSymbol(symbol: string): void {
     this.triageStore.setStatus(symbol, RhReviewStatus.REVIEW);
     this.tradeRows.update((rows) => rows.filter((r) => r.symbol !== symbol));
   }
 
+  /** Apply a partial update to a single trade row by symbol. */
   private patchRow(symbol: string, patch: Partial<TradeRow>): void {
     this.tradeRows.update((rows) =>
       rows.map((r) => (r.symbol === symbol ? { ...r, ...patch } : r))
     );
   }
 
+  /** Generate a trade batch prompt from all enabled rows. */
   generateBatch(): void {
     const enabled = this.enabledRows();
     if (enabled.length === 0) {
@@ -154,6 +165,7 @@ export class RhAgentOrderComponent implements OnInit {
     this.generatedBatch.set(batch);
   }
 
+  /** Copy the generated batch prompt to the clipboard. */
   async copyBatch(): Promise<void> {
     const batch = this.generatedBatch();
     if (!batch) return;
@@ -161,6 +173,7 @@ export class RhAgentOrderComponent implements OnInit {
     this.showCopyResult(success, `Copied batch of ${batch.trades.length} trades`);
   }
 
+  /** Copy a single trade's prompt to the clipboard. */
   async copyTrade(row: TradeRow): Promise<void> {
     if (!row.enabled) return;
     const trade = this.tradeService.generateTradePrompt(
@@ -173,6 +186,7 @@ export class RhAgentOrderComponent implements OnInit {
     this.showCopyResult(success, `Copied: ${trade.side.toUpperCase()} $${trade.amount} ${trade.symbol}`);
   }
 
+  /** Show a snackbar confirming or warning about a clipboard copy. */
   private showCopyResult(success: boolean, message: string): void {
     if (success) {
       this.snackBar.open(message, 'Dismiss', { duration: 3000 });
@@ -181,10 +195,12 @@ export class RhAgentOrderComponent implements OnInit {
     }
   }
 
+  /** Navigate back to the grouped review page. */
   goBack(): void {
     this.router.navigate(['/rh-agent-grouped-review']);
   }
 
+  /** Navigate to the review page. */
   goToReview(): void {
     this.router.navigate(['/rh-agent-review']);
   }

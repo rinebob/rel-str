@@ -2,6 +2,14 @@
  * Signal Detail Component
  *
  * Detail panel for the review interface.
+ *
+ * Supports two chart layouts:
+ * - Single: one D/W/M chart controlled by `selectedInterval`.
+ * - Triple: D/W/M charts stacked, with a shared crosshair for visual alignment.
+ *
+ * HTF-derived indicators (weekly zone windows on daily, monthly zone windows on weekly,
+ * and signal/uptick dots) are computed from the chart store data and injected into the
+ * base indicator list before being passed to the flex chart component.
  */
 import { Component, inject, ChangeDetectionStrategy, output, effect, computed, signal, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -322,8 +330,11 @@ export class SignalDetailComponent {
     this.crosshairDate.set(date);
   }
 
+  /**
+   * Load chart data when a manual symbol is supplied (review page / order page).
+   * Single mode loads one interval; triple mode loads D/W/M simultaneously.
+   */
   constructor() {
-    // Load chart data when manual symbol or interval changes
     effect(() => {
       const symbol = this.manualSymbol();
       if (symbol) {

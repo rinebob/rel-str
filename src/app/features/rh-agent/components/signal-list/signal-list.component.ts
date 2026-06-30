@@ -52,6 +52,9 @@ export class SignalListComponent {
   });
 
   constructor() {
+    /**
+     * Load signal history on demand when the selected symbol changes and is not cached.
+     */
     effect(() => {
       const symbol = this.selectedSymbol();
       if (!symbol || this.signalHistoryCache.has(symbol)) return;
@@ -61,6 +64,9 @@ export class SignalListComponent {
       });
     });
 
+    /**
+     * Scroll the selected symbol into view in the virtual list.
+     */
     effect(() => {
       const sel = this.selectedSymbol();
       const listItems = this.listItems();

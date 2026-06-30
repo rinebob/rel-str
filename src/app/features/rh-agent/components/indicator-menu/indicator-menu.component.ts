@@ -25,10 +25,12 @@ export class IndicatorMenuComponent {
 
   toggle = output<string>();
 
+  /** Whether the given indicator is currently selected. */
   isSelected(id: string): boolean {
     return this.selectedIds().has(id);
   }
 
+  /** Emit a toggle event for the given indicator. */
   onToggle(id: string): void {
     this.toggle.emit(id);
   }

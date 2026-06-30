@@ -43,6 +43,7 @@ export class TradeRowComponent implements OnInit {
   remove = output<string>();
   signalLoaded = output<{ symbol: string; signal: RhAgentSignalItem | null }>();
 
+  /** Load the latest signal for this row if it was not provided by the parent. */
   ngOnInit(): void {
     const symbol = this.row().symbol;
     if (this.row().signal) return;
@@ -52,16 +53,19 @@ export class TradeRowComponent implements OnInit {
     });
   }
 
+  /** Return the most recent signal by barDate. */
   private findLatestSignal(signals: RhAgentSignalItem[]): RhAgentSignalItem | null {
     if (!signals?.length) return null;
     return signals.reduce((latest, s) => (s.barDate > latest.barDate ? s : latest));
   }
 
+  /** Clamp position size and emit the change to the parent. */
   onPositionSizeChange(value: number): void {
     const clamped = Math.max(1, Math.min(value, this.maxPositionSize()));
     this.positionSizeChange.emit({ symbol: this.row().symbol, value: clamped });
   }
 
+  /** Clamp stop loss percentage and emit the change to the parent. */
   onStopLossChange(value: number): void {
     const clamped = Math.max(0, Math.min(value, 100));
     this.stopLossChange.emit({ symbol: this.row().symbol, value: clamped });
