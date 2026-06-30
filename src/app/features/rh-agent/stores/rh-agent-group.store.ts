@@ -39,7 +39,6 @@ import {
 import {
   getGroupKey,
   shouldShowInListFilter,
-  todayDate,
   UNKNOWN_GROUP,
 } from '../utils/rh-agent.utils';
 
@@ -50,7 +49,7 @@ import {
 /** A symbol row in the grouped list — profile + triage state. */
 export interface RhSymbolRow {
   profile: RhAgentSymbolProfile;
-  /** True if the symbol has a signal for the active marketDate + timeframe. */
+  /** True if the symbol has a signal for the active run. */
   hasSignal: boolean;
   signals?: RhAgentSignalItem[];
   signalsLoading?: boolean;
@@ -75,8 +74,10 @@ export interface RhSymbolGroup {
 // ---------------------------------------------------------------------------
 
 export interface RhAgentGroupState {
-  /** Market date being reviewed (YYYY-MM-DD). */
-  marketDate: string;
+  /** Active run ID being reviewed. */
+  activeRunId: string | null;
+  /** Market date of the active run (YYYY-MM-DD) — used for triage decision keying. */
+  activeRunMarketDate: string | null;
   /** Current grouping dimension. */
   groupDimension: GroupDimension;
   /** All signal symbols returned from the callable (W + D merged). */
@@ -99,7 +100,8 @@ export interface RhAgentGroupState {
 }
 
 const initialState: RhAgentGroupState = {
-  marketDate: todayDate(),
+  activeRunId: null,
+  activeRunMarketDate: null,
   groupDimension: 'sector',
   signalSymbols: [],
   symbolsLoading: false,
@@ -138,9 +140,9 @@ export const RhAgentGroupStore = signalStore(
       return triageStore.statusCounts();
     },
 
-    /** Set the market date and reload. */
-    setMarketDate(marketDate: string): void {
-      patchState(state, { marketDate, signalSymbols: [], selectedSymbol: null });
+    /** Set the active run and reload symbols. */
+    setActiveRun(runId: string, marketDate: string): void {
+      patchState(state, { activeRunId: runId, activeRunMarketDate: marketDate, signalSymbols: [], selectedSymbol: null });
       triageStore.setMarketDate(marketDate);
       this.loadSymbolsWithSignals();
     },
@@ -156,12 +158,13 @@ export const RhAgentGroupStore = signalStore(
      * Profile fields from the W result take precedence (arbitrary — they're the same doc).
      */
     loadSymbolsWithSignals(): void {
-      const marketDate = state.marketDate();
+      const runId = state.activeRunId();
+      if (!runId) return;
       patchState(state, { symbolsLoading: true, symbolsError: null });
 
       // Fetch both timeframes in parallel and merge
-      const w$ = service.getSymbolsWithSignals(marketDate, 'W');
-      const d$ = service.getSymbolsWithSignals(marketDate, 'D');
+      const w$ = service.getSymbolsWithSignals(runId, 'W');
+      const d$ = service.getSymbolsWithSignals(runId, 'D');
 
       forkJoin([w$, d$])
         .pipe(takeUntilDestroyed(destroyRef))

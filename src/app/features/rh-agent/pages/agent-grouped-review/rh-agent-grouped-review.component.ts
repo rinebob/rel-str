@@ -109,7 +109,8 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
   /** Initialize the page: fullscreen mode, sync market date, and load signal symbols. */
   ngOnInit(): void {
     this.uiState.setFullscreen(true);
-    this.triageStore.setMarketDate(this.groupStore.marketDate());
+    const marketDate = this.groupStore.activeRunMarketDate();
+    if (marketDate) this.triageStore.setMarketDate(marketDate);
     this.groupStore.loadSymbolsWithSignals();
   }
 

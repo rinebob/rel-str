@@ -122,7 +122,7 @@ export class RhAgentService {
   private firestore = inject(Firestore);
 
   private readonly symbolsWithSignalsCallable = httpsCallable<
-    { marketDate: string; timeframe: 'W' | 'D' },
+    { runId: string; timeframe: 'W' | 'D' },
     { symbols: RhAgentSymbolProfile[] }
   >(this.functions, 'rhAgentGetSymbolsWithSignals');
 
@@ -189,11 +189,11 @@ export class RhAgentService {
   }
 
   /**
-   * Primary grouped review query.
-   * Returns symbol profiles with a signal on the given marketDate for the given timeframe.
+   * Primary grouped review query — run-centric.
+   * Returns symbol profiles with a signal produced by the given runId for the given timeframe.
    */
-  getSymbolsWithSignals(marketDate: string, timeframe: 'W' | 'D'): Observable<RhAgentSymbolProfile[]> {
-    return from(this.symbolsWithSignalsCallable({ marketDate, timeframe })).pipe(map((r) => r.data.symbols));
+  getSymbolsWithSignals(runId: string, timeframe: 'W' | 'D'): Observable<RhAgentSymbolProfile[]> {
+    return from(this.symbolsWithSignalsCallable({ runId, timeframe })).pipe(map((r) => r.data.symbols));
   }
 
   /**

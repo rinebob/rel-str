@@ -25,6 +25,7 @@ import { MatNativeDateModule } from '@angular/material/core';
 
 import { RhAgentStore } from '../../stores/rh-agent.store';
 import { RhAgentDashboardStore } from '../../stores/rh-agent-dashboard.store';
+import { RhAgentGroupStore } from '../../stores/rh-agent-group.store';
 import { RhAgentService } from '../../services/rh-agent.service';
 import { Router } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -59,6 +60,7 @@ export class RhAgentDashboardComponent {
   // Inject the data store - manages all business logic and API calls
   readonly store = inject(RhAgentStore);
   readonly uiStore = inject(RhAgentDashboardStore);
+  private readonly groupStore = inject(RhAgentGroupStore);
   private readonly router = inject(Router);
   private readonly rhService = inject(RhAgentService);
   private readonly snackBar = inject(MatSnackBar);
@@ -102,8 +104,12 @@ export class RhAgentDashboardComponent {
     }
   }
 
-  /** Navigate to the grouped review page. */
+  /** Navigate to the grouped review page, pre-seeding the active run from the latest run. */
   goToGroupedReview(): void {
+    const latest = this.store.latestRun();
+    if (latest?.id && latest?.marketDate) {
+      this.groupStore.setActiveRun(latest.id, latest.marketDate);
+    }
     this.router.navigate(['/rh-agent-grouped-review']);
   }
 
