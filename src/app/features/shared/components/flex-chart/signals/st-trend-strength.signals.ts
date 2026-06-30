@@ -18,6 +18,7 @@
  */
 
 import type { SignalMarker, SignalDetector } from './signal.types';
+import { StIndicator } from '../flex-chart.types';
 
 const THRESHOLDS = [-10, 0, 10];
 
@@ -51,7 +52,7 @@ function detectThresholdCrossovers(
           x: barDate,
           y: bar.low,
           direction: 'long',
-          source: 'st-trend-strength',
+          source: StIndicator.TREND_STRENGTH,
           signalType: `cross-${THRESHOLD_LABELS[threshold]}`,
           reason: `DI crossed above ${THRESHOLD_LABELS[threshold]} (${prev.toFixed(1)} → ${curr.toFixed(1)})`,
           barIndex: i,
@@ -64,7 +65,7 @@ function detectThresholdCrossovers(
           x: barDate,
           y: bar.high,
           direction: 'short',
-          source: 'st-trend-strength',
+          source: StIndicator.TREND_STRENGTH,
           signalType: `cross-${THRESHOLD_LABELS[threshold]}`,
           reason: `DI crossed below ${THRESHOLD_LABELS[threshold]} (${prev.toFixed(1)} → ${curr.toFixed(1)})`,
           barIndex: i,
@@ -131,7 +132,7 @@ function detectPullbackBreakouts(
           x: barDate,
           y: bar.low,
           direction: 'long',
-          source: 'st-trend-strength',
+          source: StIndicator.TREND_STRENGTH,
           signalType: 'pullback-breakout',
           reason: `DI breakout above ${longSwingHigh.toFixed(1)} after pullback (${curr.toFixed(1)})`,
           barIndex: i,
@@ -179,7 +180,7 @@ function detectPullbackBreakouts(
           x: barDate,
           y: bar.high,
           direction: 'short',
-          source: 'st-trend-strength',
+          source: StIndicator.TREND_STRENGTH,
           signalType: 'pullback-breakout',
           reason: `DI breakdown below ${shortSwingLow.toFixed(1)} after pullback (${curr.toFixed(1)})`,
           barIndex: i,

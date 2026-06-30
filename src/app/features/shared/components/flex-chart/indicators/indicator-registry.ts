@@ -18,6 +18,7 @@ export { ST_SIGNAL_DOTS_INDICATOR, computeSignalDots } from './st-signal-dots.in
 export { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, detectZoneUptickDots } from './st-zone-uptick-dots.indicator';
 
 import type { IndicatorOption, IndicatorCalculator, IndicatorConfig, SeriesType, IndicatorType } from '../flex-chart.types';
+import { StIndicator } from '../flex-chart.types';
 import { EMA_INDICATOR, calculateEMA } from './ema.indicator';
 import { RSI_INDICATOR, calculateRSI } from './rsi.indicator';
 import { MACD_INDICATOR, calculateMACD } from './macd.indicator';
@@ -47,21 +48,21 @@ export const indicatorCalculators: Record<string, IndicatorCalculator> = {
   ema: calculateEMA,
   rsi: calculateRSI,
   macd: calculateMACD,
-  'st-trend-bands': calculateStTrendBands,
-  'st-zone': calculateStZone,
-  'st-zone-v2': calculateStZoneV2,
-  'st-trend-strength': calculateStTrendStrength,
+  [StIndicator.TREND_BANDS]:    calculateStTrendBands,
+  [StIndicator.ZONE]:           calculateStZone,
+  [StIndicator.ZONE_V2]:        calculateStZoneV2,
+  [StIndicator.TREND_STRENGTH]: calculateStTrendStrength,
 };
 
 /** Default series type per indicator type */
 const SERIES_TYPE_MAP: Partial<Record<IndicatorType, SeriesType>> = {
-  'st-trend-bands': 'candle',
-  'st-trend-strength': 'column',
-  'st-zone': 'scatter',
-  'st-zone-v2': 'scatter',
-  'st-zone-window': 'scatter',
-  'st-signal-dots': 'scatter',
-  'st-zone-uptick-dots': 'scatter',
+  [StIndicator.TREND_BANDS]:      'candle',
+  [StIndicator.TREND_STRENGTH]:   'column',
+  [StIndicator.ZONE]:             'scatter',
+  [StIndicator.ZONE_V2]:          'scatter',
+  [StIndicator.ZONE_WINDOW]:      'scatter',
+  [StIndicator.SIGNAL_DOTS]:      'scatter',
+  [StIndicator.ZONE_UPTICK_DOTS]: 'scatter',
 };
 
 /** Build an IndicatorConfig from an IndicatorOption using its declared defaults */

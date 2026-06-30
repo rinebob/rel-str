@@ -24,8 +24,22 @@ export interface FlexChartDataset {
   bars: PriceBar[];
 }
 
+/** ST indicator type enum — single source of truth for all ST indicator type strings */
+export enum StIndicator {
+  TREND_BANDS      = 'st-trend-bands',
+  TREND_STRENGTH   = 'st-trend-strength',
+  ZONE             = 'st-zone',
+  ZONE_MTF         = 'st-zone-mtf',
+  ZONE_V2          = 'st-zone-v2',
+  ZONE_WINDOW      = 'st-zone-window',
+  SIGNAL_DOTS      = 'st-signal-dots',
+  ZONE_UPTICK_DOTS = 'st-zone-uptick-dots',
+  TRIGGER_BAND     = 'st-trigger-band',
+}
+
 /** Indicator types supported */
 export type IndicatorType =
+  | StIndicator
   | 'sma'      // Simple Moving Average
   | 'ema'      // Exponential Moving Average
   | 'bollinger' // Bollinger Bands
@@ -33,14 +47,6 @@ export type IndicatorType =
   | 'macd'     // MACD
   | 'adx'      // Average Directional Index
   | 'volume'   // Volume bars
-  | 'st-trend-bands'     // ST Trend Bands (overlay)
-  | 'st-zone'            // ST Zone Classification (lower pane)
-  | 'st-zone-v2'         // ST Zone V2 — 4-band classification (lower pane)
-  | 'st-zone-window'     // ST Zone Window — HTF window open dots (lower pane)
-  | 'st-trend-strength'  // ST Trend Strength (lower pane)
-  | 'st-signal-dots'     // Signal annotation dots on strength histogram
-  | 'st-zone-uptick-dots' // Zone uptick signal dots on main chart
-  | 'st-trigger-band'    // ST Trigger Band (overlay)
   | 'custom';  // Custom indicator (data provided externally)
 
 /** Pane assignment for indicators */

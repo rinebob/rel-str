@@ -21,6 +21,7 @@
  */
 
 import type { IndicatorOption, PriceBar } from '../flex-chart.types';
+import { StIndicator } from '../flex-chart.types';
 
 // =============================================================================
 // 1. CHART CONFIGURATION
@@ -29,7 +30,7 @@ import type { IndicatorOption, PriceBar } from '../flex-chart.types';
 export const ST_ZONE_V1_UPTICK_DOTS_INDICATOR: IndicatorOption = {
   id: 'st-zone-v1-uptick-dots',
   label: 'Zone V1 Signals',
-  type: 'st-zone-uptick-dots',
+  type: StIndicator.ZONE_UPTICK_DOTS,
   defaultPane: 'overlay',
   params: [],
   defaultOptions: {
@@ -40,7 +41,7 @@ export const ST_ZONE_V1_UPTICK_DOTS_INDICATOR: IndicatorOption = {
 export const ST_ZONE_V2_UPTICK_DOTS_INDICATOR: IndicatorOption = {
   id: 'st-zone-v2-uptick-dots',
   label: 'Zone V2 Signals',
-  type: 'st-zone-uptick-dots',
+  type: StIndicator.ZONE_UPTICK_DOTS,
   defaultPane: 'overlay',
   params: [],
   defaultOptions: {

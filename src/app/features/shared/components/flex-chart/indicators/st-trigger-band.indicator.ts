@@ -25,6 +25,7 @@
  */
 
 import type { IndicatorOption, IndicatorCalculator } from '../flex-chart.types';
+import { StIndicator } from '../flex-chart.types';
 
 // =============================================================================
 // 1. CHART CONFIGURATION
@@ -33,7 +34,7 @@ import type { IndicatorOption, IndicatorCalculator } from '../flex-chart.types';
 export const ST_TRIGGER_BAND_INDICATOR: IndicatorOption = {
   id: 'st-trigger-band',
   label: 'ST Trigger Band',
-  type: 'st-trigger-band',
+  type: StIndicator.TRIGGER_BAND,
   defaultPane: 'overlay',
   axisScale: 'price',
   params: [

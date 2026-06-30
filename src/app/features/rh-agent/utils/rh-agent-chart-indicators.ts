@@ -7,6 +7,7 @@
  * duplicated across components.
  */
 import type { IndicatorConfig, IndicatorOption, IndicatorPane, PriceBar } from '../../../features/shared/components/flex-chart/flex-chart.types';
+import { StIndicator } from '../../../features/shared/components/flex-chart/flex-chart.types';
 import { ST_INDICATOR_OPTIONS, buildDefaultConfig } from '../../../features/shared/components/flex-chart/indicators/indicator-registry';
 import { calculateStZone } from '../../../features/shared/components/flex-chart/indicators/st-zone.indicator';
 import { calculateStZoneV2 } from '../../../features/shared/components/flex-chart/indicators/st-zone-v2.indicator';
@@ -21,10 +22,10 @@ import { detectTrendStrengthSignals } from '../../../features/shared/components/
 // ---------------------------------------------------------------------------
 
 /** Indicator IDs shown by default for each interval. */
-const INDICATORS_BY_INTERVAL: Record<'daily' | 'weekly' | 'monthly', string[]> = {
-  daily:   ['st-trend-bands', 'st-trend-strength', 'st-zone', 'st-zone-v2'],
-  weekly:  ['st-trend-bands', 'st-trend-strength', 'st-zone', 'st-zone-v2'],
-  monthly: ['st-trend-bands', 'st-trend-strength', 'st-zone', 'st-zone-v2'],
+const INDICATORS_BY_INTERVAL: Record<'daily' | 'weekly' | 'monthly', StIndicator[]> = {
+  daily:   [StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2],
+  weekly:  [StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2],
+  monthly: [StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2],
 };
 
 /** Pre-built base IndicatorConfig map with pane assignments and display names. */
@@ -33,14 +34,14 @@ const BASE_CONFIGS = new Map<string, IndicatorConfig>(
     const m: [string, IndicatorConfig][] = [];
     for (const opt of ST_INDICATOR_OPTIONS) {
       const cfg = buildDefaultConfig(opt);
-      if (opt.id === 'st-trend-strength') {
+      if (opt.id === StIndicator.TREND_STRENGTH) {
         cfg.pane = 'lower-1';
       }
-      if (opt.id === 'st-zone') {
+      if (opt.id === StIndicator.ZONE) {
         cfg.pane = 'lower-2';
         cfg.options = { ...cfg.options, name: 'ST-ZONE V1' };
       }
-      if (opt.id === 'st-zone-v2') {
+      if (opt.id === StIndicator.ZONE_V2) {
         cfg.pane = 'lower-3';
         cfg.options = { ...cfg.options, name: 'ST-ZONE V2' };
       }

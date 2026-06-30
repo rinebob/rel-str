@@ -24,6 +24,7 @@ import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-c
 import { BarsInterval } from '../../../../core/models/partner.types';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import type { FlexChartConfig, IndicatorConfig } from '../../../shared/components/flex-chart/flex-chart.types';
+import { StIndicator } from '../../../shared/components/flex-chart/flex-chart.types';
 import { ST_INDICATOR_OPTIONS } from '../../../shared/components/flex-chart/indicators/indicator-registry';
 import { ChartToolbarComponent } from '../chart-toolbar/chart-toolbar.component';
 import {
@@ -81,11 +82,11 @@ export class SignalDetailComponent {
 
   /** Indicators available for each chart context (excludes auto-injected HTF extras) */
   private static readonly INDICATORS_BY_INTERVAL: Record<string, string[]> = {
-    daily:   ['st-trend-bands', 'st-trend-strength', 'st-zone', 'st-zone-v2',
+    daily:   [StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2,
                'st-zone-window-weekly', 'st-signal-dots', 'st-zone-v1-uptick-dots', 'st-zone-v2-uptick-dots'],
-    weekly:  ['st-trend-bands', 'st-trend-strength', 'st-zone', 'st-zone-v2',
+    weekly:  [StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2,
                'st-zone-window-monthly', 'st-signal-dots', 'st-zone-v1-uptick-dots', 'st-zone-v2-uptick-dots'],
-    monthly: ['st-trend-bands', 'st-trend-strength', 'st-zone', 'st-zone-v2'],
+    monthly: [StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2],
   };
 
   /** Indicator options visible in the menu for the currently active chart */
@@ -113,7 +114,7 @@ export class SignalDetailComponent {
   /** Base active indicators for an interval, filtered by the user's current selection. */
   private baseIndicatorsFor(key: 'daily' | 'weekly' | 'monthly'): IndicatorConfig[] {
     const ids = this.selectedIdsByInterval()[key];
-    return buildBaseIndicators(key).filter(cfg => ids.has(cfg.id));
+    return buildBaseIndicators(key).filter(cfg => ids.has(cfg.type));
   }
 
   /** Base active indicators for the selected single-mode interval */

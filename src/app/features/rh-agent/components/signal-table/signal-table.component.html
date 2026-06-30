@@ -21,7 +21,7 @@
               {{ sig.direction === 'long' ? '▲' : '▼' }} {{ sig.direction | uppercase }}
             </span>
           </td>
-          <td class="col-source">{{ sig.source === 'st-zone' ? 'Zone' : 'Strength' }}</td>
+          <td class="col-source">{{ sig.source === StIndicator.ZONE ? 'Zone' : 'Strength' }}</td>
           <td class="col-type">{{ sig.signalType }}</td>
           <td class="col-price">{{ sig.y | number: '1.2-2' }}</td>
           <td class="col-reason">{{ sig.reason }}</td>

@@ -49,6 +49,7 @@
  */
 
 import type { IndicatorOption, IndicatorCalculator } from '../flex-chart.types';
+import { StIndicator } from '../flex-chart.types';
 
 // =============================================================================
 // 1. CHART CONFIGURATION
@@ -57,7 +58,7 @@ import type { IndicatorOption, IndicatorCalculator } from '../flex-chart.types';
 export const ST_TREND_STRENGTH_INDICATOR: IndicatorOption = {
   id: 'st-trend-strength',
   label: 'ST Trend Strength',
-  type: 'st-trend-strength',
+  type: StIndicator.TREND_STRENGTH,
   defaultPane: 'lower-2',
   axisScale: 'fixed',
   params: [

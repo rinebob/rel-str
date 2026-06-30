@@ -51,6 +51,7 @@
  */
 
 import type { IndicatorOption, IndicatorCalculator, PriceBar } from '../flex-chart.types';
+import { StIndicator } from '../flex-chart.types';
 
 // =============================================================================
 // 1. CHART CONFIGURATION
@@ -59,7 +60,7 @@ import type { IndicatorOption, IndicatorCalculator, PriceBar } from '../flex-cha
 export const ST_TREND_BANDS_INDICATOR: IndicatorOption = {
   id: 'st-trend-bands',
   label: 'ST Trend Bands',
-  type: 'st-trend-bands',
+  type: StIndicator.TREND_BANDS,
   defaultPane: 'overlay',
   axisScale: 'price',
   params: [

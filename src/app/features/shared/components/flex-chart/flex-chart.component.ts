@@ -46,6 +46,7 @@ import type {
   IndicatorPane,
   ComputedIndicatorSeries,
 } from './flex-chart.types';
+import { StIndicator } from './flex-chart.types';
 import { computeIndicators, groupIndicatorsByPane } from './flex-chart-calculations';
 import { computeAllBands, type BandSeriesData } from './indicators/st-trend-bands.indicator';
 
@@ -136,7 +137,7 @@ import { computeAllBands, type BandSeriesData } from './indicators/st-trend-band
 
             <!-- Main pane indicators (overlay on price) -->
             @for (indicator of mainPaneSeries(); track indicator.id) {
-              @if (indicator.config.type !== 'st-trend-bands' && indicator.config.seriesType === 'line') {
+              @if (indicator.config.type !== StIndicator.TREND_BANDS && indicator.config.seriesType === 'line') {
                 <e-series
                   [dataSource]="indicator.data"
                   type="Line"
@@ -183,7 +184,7 @@ import { computeAllBands, type BandSeriesData } from './indicators/st-trend-band
                   </e-series>
                 } @else if (indicator.config.seriesType === 'scatter') {
                   <!-- Thin connecting line behind dots (skip for window indicators) -->
-                  @if (indicator.config.type !== 'st-zone-window' && indicator.config.type !== 'st-signal-dots') {
+                  @if (indicator.config.type !== StIndicator.ZONE_WINDOW && indicator.config.type !== StIndicator.SIGNAL_DOTS) {
                   <e-series
                     [dataSource]="indicator.data"
                     type="Line"
@@ -302,6 +303,7 @@ import { computeAllBands, type BandSeriesData } from './indicators/st-trend-band
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FlexChartComponent implements OnDestroy {
+  readonly StIndicator = StIndicator;
   /** Empty categories to pad past the last bar, like TradingView's right margin */
   private static readonly RIGHT_MARGIN_BARS = 5;
 
@@ -386,7 +388,7 @@ export class FlexChartComponent implements OnDestroy {
   /** ST Trend Band candle series — computed when trend bands indicator is active */
   trendBandSeries = computed<BandSeriesData[]>(() => {
     const mainSeries = this.mainPaneSeries();
-    const hasTrendBands = mainSeries.some(s => s.config.type === 'st-trend-bands');
+    const hasTrendBands = mainSeries.some(s => s.config.type === StIndicator.TREND_BANDS);
     if (!hasTrendBands) return [];
 
     const data = this.chartData();

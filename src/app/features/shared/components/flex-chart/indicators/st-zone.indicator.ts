@@ -42,6 +42,7 @@
  */
 
 import type { IndicatorOption, IndicatorCalculator, PriceBar } from '../flex-chart.types';
+import { StIndicator } from '../flex-chart.types';
 
 // =============================================================================
 // 1. CHART CONFIGURATION
@@ -50,7 +51,7 @@ import type { IndicatorOption, IndicatorCalculator, PriceBar } from '../flex-cha
 export const ST_ZONE_INDICATOR: IndicatorOption = {
   id: 'st-zone',
   label: 'ST Zone',
-  type: 'st-zone',
+  type: StIndicator.ZONE,
   defaultPane: 'lower-1',
   axisScale: 'fixed',
   params: [

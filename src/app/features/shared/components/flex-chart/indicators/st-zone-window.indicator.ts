@@ -28,6 +28,7 @@
  */
 
 import type { IndicatorOption, PriceBar } from '../flex-chart.types';
+import { StIndicator } from '../flex-chart.types';
 
 // =============================================================================
 // 1. CHART CONFIGURATION
@@ -36,7 +37,7 @@ import type { IndicatorOption, PriceBar } from '../flex-chart.types';
 export const ST_ZONE_WINDOW_MONTHLY_INDICATOR: IndicatorOption = {
   id: 'st-zone-window-monthly',
   label: 'Zone Window (M)',
-  type: 'st-zone-window',
+  type: StIndicator.ZONE_WINDOW,
   defaultPane: 'lower-3',
   axisScale: 'fixed',
   params: [],
@@ -48,7 +49,7 @@ export const ST_ZONE_WINDOW_MONTHLY_INDICATOR: IndicatorOption = {
 export const ST_ZONE_WINDOW_WEEKLY_INDICATOR: IndicatorOption = {
   id: 'st-zone-window-weekly',
   label: 'Zone Window (W)',
-  type: 'st-zone-window',
+  type: StIndicator.ZONE_WINDOW,
   defaultPane: 'lower-3',
   axisScale: 'fixed',
   params: [],

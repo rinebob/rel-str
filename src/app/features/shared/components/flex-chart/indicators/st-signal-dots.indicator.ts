@@ -17,6 +17,7 @@
  */
 
 import type { IndicatorOption, PriceBar } from '../flex-chart.types';
+import { StIndicator } from '../flex-chart.types';
 import type { SignalMarker } from '../signals/signal.types';
 
 // =============================================================================
@@ -26,7 +27,7 @@ import type { SignalMarker } from '../signals/signal.types';
 export const ST_SIGNAL_DOTS_INDICATOR: IndicatorOption = {
   id: 'st-signal-dots',
   label: 'Signal Dots',
-  type: 'st-signal-dots',
+  type: StIndicator.SIGNAL_DOTS,
   defaultPane: 'lower-1',
   params: [],
   defaultOptions: {

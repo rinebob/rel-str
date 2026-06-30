@@ -43,9 +43,9 @@
       <div class="filter-group">
         <span class="filter-label">Source:</span>
         <span class="pill-group">
-          <button class="pill-btn" [class.active]="sourceFilter() === 'all'" (click)="sourceFilter.set('all')">All</button>
-          <button class="pill-btn" [class.active]="sourceFilter() === 'st-zone'" (click)="sourceFilter.set('st-zone')">Zone</button>
-          <button class="pill-btn" [class.active]="sourceFilter() === 'st-trend-strength'" (click)="sourceFilter.set('st-trend-strength')">Strength</button>
+          <button class="pill-btn" [class.active]="sourceFilter() === null" (click)="sourceFilter.set(null)">All</button>
+          <button class="pill-btn" [class.active]="sourceFilter() === StIndicator.ZONE" (click)="sourceFilter.set(StIndicator.ZONE)">Zone</button>
+          <button class="pill-btn" [class.active]="sourceFilter() === StIndicator.TREND_STRENGTH" (click)="sourceFilter.set(StIndicator.TREND_STRENGTH)">Strength</button>
         </span>
       </div>
 

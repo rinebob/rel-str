@@ -21,6 +21,7 @@ import { BarsInterval } from '../../../../core/models/partner.types';
 import { HeatmapChartDataService } from '../../../heatmap-chart/heatmap-chart-data.service';
 import type { ChartDataset } from '../../../heatmap-chart/heatmap-chart.types';
 import type { PriceBar } from '../../../shared/components/flex-chart/flex-chart.types';
+import { StIndicator } from '../../../shared/components/flex-chart/flex-chart.types';
 import { calculateStZone } from '../../../shared/components/flex-chart/indicators/st-zone.indicator';
 import { calculateStTrendStrength } from '../../../shared/components/flex-chart/indicators/st-trend-strength.indicator';
 import { detectZoneSignals } from '../../../shared/components/flex-chart/signals/st-zone.signals';
@@ -54,6 +55,7 @@ interface TimeframeSignals {
   styleUrl: './signal-history.component.scss',
 })
 export class SignalHistoryComponent {
+  readonly StIndicator = StIndicator;
   private readonly dataService = inject(HeatmapChartDataService);
   private readonly router = inject(Router);
 
@@ -66,7 +68,7 @@ export class SignalHistoryComponent {
   monthly = signal<TimeframeSignals | null>(null);
 
   /** Active source filter */
-  sourceFilter = signal<'all' | 'st-zone' | 'st-trend-strength'>('all');
+  sourceFilter = signal<StIndicator | null>(null);
 
   /** Active direction filter */
   directionFilter = signal<'all' | 'long' | 'short'>('all');
@@ -95,7 +97,7 @@ export class SignalHistoryComponent {
       signals.push(...m.all.map(s => ({ ...s, timeframe: 'Monthly' })));
     }
 
-    if (source !== 'all') {
+    if (source !== null) {
       signals = signals.filter(s => s.source === source);
     }
     if (direction !== 'all') {
@@ -114,8 +116,8 @@ export class SignalHistoryComponent {
       total: signals.length,
       long: signals.filter(s => s.direction === 'long').length,
       short: signals.filter(s => s.direction === 'short').length,
-      zone: signals.filter(s => s.source === 'st-zone').length,
-      strength: signals.filter(s => s.source === 'st-trend-strength').length,
+      zone: signals.filter(s => s.source === StIndicator.ZONE).length,
+      strength: signals.filter(s => s.source === StIndicator.TREND_STRENGTH).length,
     };
   });
 

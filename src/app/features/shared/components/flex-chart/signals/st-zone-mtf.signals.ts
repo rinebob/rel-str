@@ -33,6 +33,7 @@
  */
 
 import type { SignalMarker } from './signal.types';
+import { StIndicator } from '../flex-chart.types';
 
 /** Zone data point */
 export interface ZoneDataPoint {
@@ -153,7 +154,7 @@ export function detectMtfZoneSignals(
           x: barDate,
           y: bar.low,
           direction: 'long',
-          source: 'st-zone-mtf',
+          source: StIndicator.ZONE_MTF,
           signalType: 'mtf-pullback-uptick',
           reason: `${config.htfLabel} zone ${htfZone >= 4 ? '+4' : '+3'}, ${config.timeframeLabel} pullback uptick (${prev} → ${curr})`,
           barIndex: i,
@@ -176,7 +177,7 @@ export function detectMtfZoneSignals(
           x: barDate,
           y: bar.high,
           direction: 'short',
-          source: 'st-zone-mtf',
+          source: StIndicator.ZONE_MTF,
           signalType: 'mtf-pullback-downtick',
           reason: `${config.htfLabel} zone ${htfZone <= -4 ? '-4' : '-3'}, ${config.timeframeLabel} pullback downtick (${prev} → ${curr})`,
           barIndex: i,
