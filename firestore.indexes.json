@@ -76,21 +76,29 @@
       ]
     },
     {
-      "collectionGroup": "rh-agent-symbol-meta",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "symbol", "order": "ASCENDING" }
-      ]
-    },
-    {
       "collectionGroup": "rh-agent-symbol-lists",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "userId", "order": "ASCENDING" },
         { "fieldPath": "name", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "run-ids",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "runId", "order": "ASCENDING" },
+        { "fieldPath": "marketDate", "order": "DESCENDING" }
+      ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "run-ids",
+      "fieldPath": "runId",
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
+      ]
+    }
+  ]
 }
