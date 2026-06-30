@@ -26,7 +26,7 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { RhAgentStore } from '../../stores/rh-agent.store';
 import { RhAgentDashboardStore } from '../../stores/rh-agent-dashboard.store';
 import { RhAgentGroupStore } from '../../stores/rh-agent-group.store';
-import { RhAgentService } from '../../services/rh-agent.service';
+import { RhAgentService, RhAgentRun } from '../../services/rh-agent.service';
 import { Router } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { expandDateRange, getScheduleDescription } from '../../utils/rh-agent.utils';
@@ -109,6 +109,14 @@ export class RhAgentDashboardComponent {
     const latest = this.store.latestRun();
     if (latest?.id && latest?.marketDate) {
       this.groupStore.setActiveRun(latest.id, latest.marketDate);
+    }
+    this.router.navigate(['/rh-agent-grouped-review']);
+  }
+
+  /** Review signals for a specific run selected from the run history panel. */
+  onRunSelected(run: RhAgentRun): void {
+    if (run.id && run.marketDate) {
+      this.groupStore.setActiveRun(run.id, run.marketDate);
     }
     this.router.navigate(['/rh-agent-grouped-review']);
   }

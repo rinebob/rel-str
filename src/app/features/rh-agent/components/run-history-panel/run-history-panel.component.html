@@ -32,6 +32,11 @@
             @if (run.summary) {
               <p><strong>Summary:</strong> {{ run.summary }}</p>
             }
+            <div class="run-actions">
+              <button mat-stroked-button color="primary" (click)="runSelected.emit(run)">
+                <mat-icon>manage_search</mat-icon> Review Signals
+              </button>
+            </div>
           </div>
         }
       </div>
@@ -67,6 +72,11 @@
                 <div class="run-info-row">
                   <span><strong>Run ID:</strong> {{ run.id }}</span>
                   <span><strong>Status:</strong> {{ run.status }}</span>
+                </div>
+                <div class="run-actions">
+                  <button mat-stroked-button color="primary" (click)="$event.stopPropagation(); runSelected.emit(run)">
+                    <mat-icon>manage_search</mat-icon> Review Signals
+                  </button>
                 </div>
               </div>
             </mat-expansion-panel>

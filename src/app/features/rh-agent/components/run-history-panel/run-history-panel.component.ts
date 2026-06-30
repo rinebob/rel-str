@@ -29,6 +29,7 @@ export class RunHistoryPanelComponent {
 
   toggleCurrentRun = output<void>();
   toggleShowAllRuns = output<void>();
+  runSelected = output<RhAgentRun>();
 
   readonly getRunStatusColor = getRunStatusColor;
   readonly getRunStatusIcon = getRunStatusIcon;

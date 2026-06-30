@@ -71,6 +71,7 @@
     [showAllRuns]="uiStore.showAllRuns()"
     [runsTotal]="store.runs().length"
     (toggleCurrentRun)="uiStore.toggleCurrentRun()"
-    (toggleShowAllRuns)="uiStore.toggleShowAllRuns()">
+    (toggleShowAllRuns)="uiStore.toggleShowAllRuns()"
+    (runSelected)="onRunSelected($event)">
   </app-run-history-panel>
 </div>
