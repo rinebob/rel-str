@@ -99,3 +99,4 @@ functions/src/rh-agent-cloud-function/rh-agent-worker.ts
 - **Provide a separate `Files to stage` list alongside each message**, not inside the commit message body.
 - **Avoid combining unrelated refactorings.** If the branch contains both a rename
   and a logic fix, split them.
+  - **Put the message body in bullet points.** Don't use paragraph style commit message bodies.  Always list the changes as bullet points.
