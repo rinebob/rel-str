@@ -68,9 +68,9 @@ export class RhAgentDashboardComponent {
     this.store.loadData();
   }
 
-  /** Refresh all dashboard data (status + runs). */
+  /** Refresh status — runs update automatically via the realtime listener. */
   refreshData(): void {
-    this.store.loadData();
+    this.store.refreshStatus();
   }
 
   /**

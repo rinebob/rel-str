@@ -3,7 +3,7 @@
  *
  * Manages agent state, runs, and signals using NgRx Signals.
  */
-import { inject, computed, Injectable, DestroyRef } from '@angular/core';
+import { inject, computed, DestroyRef } from '@angular/core';
 import {
   signalStore,
   withState,
@@ -12,7 +12,7 @@ import {
   patchState,
 } from '@ngrx/signals';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { forkJoin, of, catchError, finalize } from 'rxjs';
+import { of, catchError, finalize, Subscription } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import {
@@ -26,6 +26,7 @@ export interface RhAgentState {
   status: RhAgentStatus | null;
   runs: RhAgentRun[];
   isLoading: boolean;
+  runsStreaming: boolean;
 }
 
 // Initial state
@@ -33,6 +34,7 @@ const initialState: RhAgentState = {
   status: null,
   runs: [],
   isLoading: false,
+  runsStreaming: false,
 };
 
 export const RhAgentStore = signalStore(
@@ -51,34 +53,61 @@ export const RhAgentStore = signalStore(
   })),
 
   // Methods
-  withMethods((state, service = inject(RhAgentService), snackBar = inject(MatSnackBar), destroyRef = inject(DestroyRef)) => ({
+  withMethods((state, service = inject(RhAgentService), snackBar = inject(MatSnackBar), destroyRef = inject(DestroyRef)) => {
+    let runsSubscription: Subscription | null = null;
+
+    return {
     /**
-     * Load dashboard data (status + runs)
+     * Load status and start a realtime listener for runs.
+     * The listener stays active until the store is destroyed.
      */
     loadData(): void {
       patchState(state, { isLoading: true });
 
-      forkJoin({
-        status: service.getStatus().pipe(
-          catchError((err) => {
-            snackBar.open('Failed to load status', 'Dismiss', { duration: 5000 });
-            return of(null);
-          })
-        ),
-        runs: service.getRunHistory(20).pipe(
-          catchError((err) => {
-            snackBar.open('Failed to load runs', 'Dismiss', { duration: 5000 });
+      // Load status once
+      service.getStatus().pipe(
+        catchError(() => {
+          snackBar.open('Failed to load status', 'Dismiss', { duration: 5000 });
+          return of(null);
+        }),
+        takeUntilDestroyed(destroyRef),
+        finalize(() => patchState(state, { isLoading: false }))
+      ).subscribe({
+        next: (status) => patchState(state, { status }),
+      });
+
+      // Start realtime runs stream (idempotent — only one listener at a time)
+      if (!runsSubscription) {
+        patchState(state, { runsStreaming: true });
+        runsSubscription = service.watchRecentRunsRealtime(30).pipe(
+          catchError(() => {
+            snackBar.open('Failed to stream runs', 'Dismiss', { duration: 5000 });
             return of([]);
-          })
-        ),
-      })
-        .pipe(
+          }),
           takeUntilDestroyed(destroyRef),
-          finalize(() => patchState(state, { isLoading: false }))
-        )
-        .subscribe({
-          next: ({ status, runs }) => patchState(state, { status, runs }),
+        ).subscribe({
+          next: (runs) => patchState(state, { runs }),
+          error: () => patchState(state, { runsStreaming: false }),
+          complete: () => patchState(state, { runsStreaming: false }),
         });
+      }
+    },
+
+    /**
+     * Refresh status only — runs update automatically via the realtime listener.
+     */
+    refreshStatus(): void {
+      patchState(state, { isLoading: true });
+      service.getStatus().pipe(
+        catchError(() => {
+          snackBar.open('Failed to load status', 'Dismiss', { duration: 5000 });
+          return of(null);
+        }),
+        takeUntilDestroyed(destroyRef),
+        finalize(() => patchState(state, { isLoading: false }))
+      ).subscribe({
+        next: (status) => patchState(state, { status }),
+      });
     },
 
     /**
@@ -99,11 +128,7 @@ export const RhAgentStore = signalStore(
               'Dismiss',
               { duration: 5000 }
             );
-            // Keep loading state active - workers are processing asynchronously
-            // Reload data after a short delay to show initial progress
-            setTimeout(() => {
-              this.loadData();
-            }, 2000);
+            patchState(state, { isLoading: false });
           },
           error: (err: unknown) => {
             const message = err instanceof Error ? err.message : 'Unknown error';
@@ -132,5 +157,6 @@ export const RhAgentStore = signalStore(
         });
     },
 
-  }))
+    };
+  })
 );
