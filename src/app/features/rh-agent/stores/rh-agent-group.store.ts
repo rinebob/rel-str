@@ -144,7 +144,7 @@ export const RhAgentGroupStore = signalStore(
     /** Set the active run and reload symbols. */
     setActiveRun(runId: string, marketDate: string): void {
       patchState(state, { activeRunId: runId, activeRunMarketDate: marketDate, signalSymbols: [], selectedSymbol: null });
-      triageStore.setMarketDate(marketDate);
+      triageStore.setActiveRun(runId, marketDate);
       this.loadSymbolsWithSignals();
     },
 

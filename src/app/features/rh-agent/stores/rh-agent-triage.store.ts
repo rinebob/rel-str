@@ -146,7 +146,7 @@ export const RhAgentTriageStore = signalStore(
     },
 
     /** Set the active run and sync local statuses from persisted cache for that run's market date. */
-    setMarketDate(marketDate: string): void {
+    setActiveRun(runId: string, marketDate: string): void {
       const persisted = state.persistedStatuses();
       const dateStatuses: Record<string, RhReviewStatus> = {};
       for (const [symbol, byDate] of Object.entries(persisted)) {
@@ -155,6 +155,7 @@ export const RhAgentTriageStore = signalStore(
         }
       }
       patchState(state, {
+        activeRunId: runId,
         activeMarketDate: marketDate,
         statuses: { ...state.statuses(), ...dateStatuses },
       });
