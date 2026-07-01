@@ -166,10 +166,11 @@ The existing `signal-dates/{barDate}` collection is `signal-history` in spirit. 
 
 ## Implementation Order
 
-1. **Run-centric first** — implement `run-ids/{runId}` writes and the run-explorer dashboard workflow (see Run Explorer Plan). This unblocks real-time signal review.
-2. **Signal history second** — add `signal-history/{date}` EOD writes from the nightly worker + Firestore index.
-3. **Chart rendering third** — wire chart signal markers to read from `signal-history` instead of live recomputation. This fixes the chart/list divergence.
-4. **Migration** — backfill `signal-dates` → `signal-history`, cut over consumers, deprecate `signal-dates`.
+1. **Run-centric first** — implement `run-ids/{runId}` writes and the run-explorer dashboard workflow (see Run Explorer Plan). This unblocks real-time signal review. ✅ Done.
+2. **Signal history second** — add `signal-history/{date}` EOD writes from the nightly worker + Firestore index. ✅ Done.
+3. **Backfill third** — copy existing `signal-dates` docs into `signal-history` so historical chart markers are not blank when the chart rendering switches over. Do this before step 4 or historical bars will show nothing until the next nightly run.
+4. **Chart rendering fourth** — wire chart signal markers to use the hybrid strategy: historical bars from `signal-history/{barDate}`, today's bar from the latest completed `run-ids/{runId}`. This fixes the chart/list divergence.
+5. **Cut over** — stop writing to `signal-dates` once all consumers are migrated; keep readable for reference.
 
 ---
 
