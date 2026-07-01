@@ -38,6 +38,7 @@ import {
   IZoomCompleteEventArgs,
   IScrollEventArgs,
   IMouseEventArgs,
+  ITooltipRenderEventArgs,
 } from '@syncfusion/ej2-angular-charts';
 
 import type {
@@ -72,6 +73,9 @@ import { computeAllBands, type BandSeriesData } from './indicators/st-trend-band
   ],
   template: `
     <div class="flex-chart-wrapper">
+      @if (hoveredDate()) {
+        <div class="crosshair-date-label">{{ hoveredDate() }}</div>
+      }
       @if (chartData(); as data) {
         @if (data.bars.length === 0) {
           <div class="no-data">No price data available</div>
@@ -95,7 +99,8 @@ import { computeAllBands, type BandSeriesData } from './indicators/st-trend-band
           (scrollEnd)="onScrollEnd($event)"
           (axisLabelRender)="onAxisLabelRender($event)"
           (chartMouseMove)="onChartMouseMove($event)"
-          (chartMouseLeave)="onChartMouseLeave()">
+          (chartMouseLeave)="onChartMouseLeave()"
+          (tooltipRender)="onTooltipRender($event)">
 
           <e-series-collection>
             <!-- Main pane: Price candles -->
@@ -289,6 +294,21 @@ import { computeAllBands, type BandSeriesData } from './indicators/st-trend-band
       height: 100%;
       color: var(--mat-sys-on-surface-variant);
     }
+    .crosshair-date-label {
+      position: absolute;
+      top: 6px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.75);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: 4px;
+      pointer-events: none;
+      z-index: 20;
+      white-space: nowrap;
+    }
     .crosshair-sync-line {
       display: none;
       position: absolute;
@@ -331,6 +351,7 @@ export class FlexChartComponent implements OnDestroy {
   // Signals
   isInitialLoad = signal<boolean>(true);
   visibleRangeStart = signal<Date | null>(null);
+  hoveredDate = signal<string | null>(null);
 
   // Transform bars for Category axis (even spacing, no gaps)
   categoryBars = computed(() => {
@@ -338,15 +359,20 @@ export class FlexChartComponent implements OnDestroy {
     if (!data) return [];
     
     // Map bars to index-based x values for Category axis
-    return data.bars.map((bar, index) => ({
-      index,
-      open: bar.open,
-      high: bar.high,
-      low: bar.low,
-      close: bar.close,
-      volume: bar.volume,
-      date: bar.x, // Keep original date for reference
-    }));
+    return data.bars.map((bar, index) => {
+      const d = bar.x instanceof Date ? bar.x : new Date(bar.x);
+      const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+      return {
+        index,
+        open: bar.open,
+        high: bar.high,
+        low: bar.low,
+        close: bar.close,
+        volume: bar.volume,
+        date: bar.x,
+        label,
+      };
+    });
   });
 
   // Computed indicators with index-based x values
@@ -491,7 +517,7 @@ export class FlexChartComponent implements OnDestroy {
     return {
       valueType: 'Category',
       majorGridLines: { width: 0 },
-      crosshairTooltip: { enable: false },
+      crosshairTooltip: { enable: true },
       edgeLabelPlacement: 'Shift',
       zoomFactor,
       zoomPosition,
@@ -536,14 +562,31 @@ export class FlexChartComponent implements OnDestroy {
 
   tooltip = {
     enable: false,
-    shared: false,
   };
+
+  private _tooltipDateInjected = false;
 
   crosshair = {
     enable: true,
     lineType: 'Vertical',
     snapToData: true,
   };
+
+  onTooltipRender(args: ITooltipRenderEventArgs): void {
+    const point = args.point as any;
+    const idx = point?.index ?? point?.x;
+    if (idx === undefined || idx === null) return;
+    const bar = this.categoryBars()[+idx];
+    if (!bar?.label) return;
+    if (!this._tooltipDateInjected) {
+      this._tooltipDateInjected = true;
+      args.text = `<b style="font-size:12px">${bar.label}</b>`;
+    }
+  }
+
+  onChartTooltipClose(): void {
+    this._tooltipDateInjected = false;
+  }
 
   constructor() {
     effect(() => {
@@ -666,13 +709,17 @@ export class FlexChartComponent implements OnDestroy {
     if (idx >= 0 && idx < data.bars.length) {
       const bar = data.bars[idx];
       if (bar) {
-        this.crosshairDateChange.emit(new Date(bar.x));
+        const d = new Date(bar.x);
+        this.crosshairDateChange.emit(d);
+        this.hoveredDate.set(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }));
       }
     }
   }
 
   onChartMouseLeave(): void {
     this.crosshairDateChange.emit(null);
+    this._tooltipDateInjected = false;
+    this.hoveredDate.set(null);
   }
 
   onChartLoaded(): void {
@@ -691,6 +738,42 @@ export class FlexChartComponent implements OnDestroy {
     const chart = this.chart();
     const data = this.chartData();
     if (!chart || !data || !event.currentVisibleRange) return;
+
+    // Re-anchor zoomPosition so the right edge stays pinned after ZoomIn/ZoomOut.
+    // Only do this for toolbar zoom actions (not pan/selection), detected by checking
+    // whether the right edge of the new window has drifted away from the data end.
+    const xAxis = chart.primaryXAxis as any;
+    const currentZoomFactor: number = xAxis?.zoomFactor ?? 1;
+    const currentZoomPosition: number = xAxis?.zoomPosition ?? 0;
+    const margin = FlexChartComponent.RIGHT_MARGIN_BARS;
+    const totalCategories = data.bars.length + margin;
+
+    // The right edge of the visible window in category-axis units
+    const visibleRight = (currentZoomPosition + currentZoomFactor) * totalCategories;
+    const dataRightEdge = data.bars.length - 1 + margin;
+
+    // If the right edge is not already near the data end, re-anchor it
+    const tolerance = 2; // bars
+    if (Math.abs(visibleRight - dataRightEdge) > tolerance) {
+      const newZoomPosition = Math.max(0, 1 - currentZoomFactor);
+      xAxis.zoomPosition = newZoomPosition;
+      chart.dataBind();
+
+      // Recalculate visible bars from re-anchored position
+      const newMinIdx = Math.max(0, Math.round(newZoomPosition * totalCategories));
+      const newMaxIdx = Math.min(data.bars.length - 1, Math.round((newZoomPosition + currentZoomFactor) * totalCategories));
+      const visibleBars = data.bars.slice(newMinIdx, newMaxIdx + 1);
+      if (visibleBars[0]) this.visibleRangeStart.set(visibleBars[0].x);
+      if (visibleBars.length > 0 && chart.primaryYAxis) {
+        const rawMin = Math.min(...visibleBars.map(b => b.low));
+        const rawMax = Math.max(...visibleBars.map(b => b.high));
+        const pad = (rawMax - rawMin) * 0.03;
+        chart.primaryYAxis.minimum = rawMin - pad;
+        chart.primaryYAxis.maximum = rawMax + pad;
+        chart.dataBind();
+      }
+      return;
+    }
 
     const minIdx = Math.max(0, Math.floor(event.currentVisibleRange.min ?? 0));
     const maxIdx = Math.min(data.bars.length - 1, Math.ceil(event.currentVisibleRange.max ?? 0));
