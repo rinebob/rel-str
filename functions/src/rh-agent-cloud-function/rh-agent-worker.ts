@@ -70,8 +70,8 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
       // 1. Mark job as in-progress
       await markJobInProgress(runId, symbol);
 
-      // 2. Load cached bars
-      const { dailyBars, weeklyBars, monthlyBars } = await loadData(symbol, marketDate, !!intraday, runId);
+      // 2. Load cached bars (injects today's intraday price as a partial bar)
+      const { dailyBars, weeklyBars, monthlyBars } = await loadData(symbol, marketDate, !!intraday, runId, intraday ?? null);
 
       if (!dailyBars || dailyBars.length < MIN_REQUIRED_BARS) {
         logger.warn('rh_agent_worker_insufficient_data', { runId, symbol, barCount: dailyBars?.length || 0, required: MIN_REQUIRED_BARS, hasIntraday: !!intraday });
@@ -147,16 +147,20 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
 );
 
 /**
- * Load cached bars from rs-bars/{symbol}.
+ * Load cached bars from rs-bars/{symbol} and inject today's intraday price
+ * as a partial bar if provided. This replaces the trigger-side
+ * writeIntradayBarsToRsBars — the worker owns bar injection using the
+ * intraday snapshot already present in its Cloud Task payload.
  */
 async function loadData(
   symbol: string,
   marketDate: string,
   intraday: boolean,
-  runId: string
+  runId: string,
+  intradaySnapshot?: { ip: number } | null
 ): Promise<{ dailyBars: OhlcBar[] | null; weeklyBars: OhlcBar[] | null; monthlyBars: OhlcBar[] | null }> {
   logger.info('rh_agent_worker_fetching_data', { runId, symbol, marketDate, cachePath: `rs-bars/${symbol}`, hasIntraday: !!intraday });
-  const { dailyBars, weeklyBars, monthlyBars } = await getCachedBars(symbol, marketDate);
+  const { dailyBars, weeklyBars, monthlyBars } = await getCachedBars(symbol, marketDate, intradaySnapshot ?? null);
   logger.info('rh_agent_worker_data_loaded', {
     runId,
     symbol,
@@ -443,7 +447,11 @@ function verifyDataFreshness(bars: any[], marketDate: string, runId: string, sym
  * Populated nightly by rsBarsSyncNightly. Returns D/W/M bars trimmed to
  * bars on or before marketDate so historical runs see the correct snapshot.
  */
-async function getCachedBars(symbol: string, marketDate: string): Promise<{ dailyBars: OhlcBar[] | null; weeklyBars: OhlcBar[] | null; monthlyBars: OhlcBar[] | null }> {
+async function getCachedBars(
+  symbol: string,
+  marketDate: string,
+  intraday: { ip: number } | null = null
+): Promise<{ dailyBars: OhlcBar[] | null; weeklyBars: OhlcBar[] | null; monthlyBars: OhlcBar[] | null }> {
   try {
     const docRef = db.collection('rs-bars').doc(symbol);
     const snap = await docRef.get();
@@ -464,9 +472,19 @@ async function getCachedBars(symbol: string, marketDate: string): Promise<{ dail
       return filtered.length > 0 ? filtered : null;
     };
 
-    const dailyBars   = trim(data?.daily);
+    let dailyBars = trim(data?.daily);
     const weeklyBars  = trim(data?.weekly);
     const monthlyBars = trim(data?.monthly);
+
+    // Inject today's intraday price as a partial bar (replace-or-append).
+    // This avoids the trigger having to pre-write all 761 rs-bars docs.
+    if (intraday && dailyBars) {
+      const partialBar: OhlcBar = { d: marketDate, o: intraday.ip, h: intraday.ip, l: intraday.ip, c: intraday.ip };
+      const last = dailyBars[dailyBars.length - 1];
+      dailyBars = last?.d === marketDate
+        ? [...dailyBars.slice(0, -1), partialBar]
+        : [...dailyBars, partialBar];
+    }
 
     logger.info('rh_agent_worker_cache_result', {
       symbol,

@@ -13,7 +13,6 @@ import {
   createDailyRun,
   createJobAndEnqueue,
   fetchIntradaySnapshots,
-  writeIntradayBarsToRsBars,
 } from './rh-agent-shared';
 import {
   RH_AGENT_RUNS_COLLECTION,
@@ -113,10 +112,7 @@ export const rhAgentManualRun = onCall<ManualRunRequest, Promise<ManualRunRespon
       // 3. Fetch intraday snapshot so Run Now also sees today's price
       const intradaySnapshots = await fetchIntradaySnapshots(symbols, marketDate);
 
-      // 4. Write partial bars to rs-bars
-      await writeIntradayBarsToRsBars(marketDate, intradaySnapshots);
-
-      // 5. Create run document with 30-minute deadline
+      // 4. Create run document with 30-minute deadline
       const deadlineAt = getDeadlineISO(30);
       const runStartedAt = new Date().toISOString();
       const runId = await createDailyRun(marketDate, symbols.length, deadlineAt, 'manual');
@@ -126,7 +122,7 @@ export const rhAgentManualRun = onCall<ManualRunRequest, Promise<ManualRunRespon
         symbolCount: symbols.length,
       });
 
-      // 6. Create job documents and enqueue Cloud Tasks (with intraday data)
+      // 5. Create job documents and enqueue Cloud Tasks (intraday snapshot in each payload)
       let enqueuedCount = 0;
       let failedCount = 0;
 

@@ -18,7 +18,6 @@ import {
   createDailyRun,
   createJobAndEnqueue,
   fetchIntradaySnapshots,
-  writeIntradayBarsToRsBars,
 } from './rh-agent-shared';
 
 /**
@@ -31,7 +30,7 @@ import {
 export const rhAgentPdrTrigger = onMessagePublished(
   {
     topic: PARTNER_DATA_READY_TOPIC,
-    memory: '1GiB',
+    memory: '2GiB',
     timeoutSeconds: 300,
   },
   async (event) => {
@@ -52,12 +51,12 @@ export const rhAgentPdrTrigger = onMessagePublished(
       return;
     }
 
-    // Gate: reject messages outside intraday windows (7:30am–6:30pm PT).
+    // Gate: reject messages outside intraday windows (7:55am–6:30pm PT).
     // SA incorrectly publishes intraday-snapshot messages during overnight cleanup
-    // runs (~5am PT). Our PDR windows are 8am, 10am, 12pm PT.
+    // runs that arrive as late as ~7:24am PT. Our PDR windows are 8am, 10am, 12pm PT.
     const nowPT = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
     const hourPT = nowPT.getHours() + nowPT.getMinutes() / 60;
-    const PDR_WINDOW_START_PT = 7.5;  // 7:30am
+    const PDR_WINDOW_START_PT = 7.917; // 7:55am — SA overnight runs arrive as late as ~7:24am PT
     const PDR_WINDOW_END_PT   = 18.5; // 6:30pm
     if (hourPT < PDR_WINDOW_START_PT || hourPT > PDR_WINDOW_END_PT) {
       logger.info('rh_agent_pdr_skip_outside_window', { hourPT, PDR_WINDOW_START_PT, PDR_WINDOW_END_PT });
@@ -87,10 +86,7 @@ export const rhAgentPdrTrigger = onMessagePublished(
       // 2. Fetch intraday snapshot for all symbols (one POST call to partnerIntradaySnapshotV2)
       const intradaySnapshots = await fetchIntradaySnapshots(symbols, marketDate);
 
-      // 3. Write intraday partial bars to rs-bars so workers see today's price
-      await writeIntradayBarsToRsBars(marketDate, intradaySnapshots);
-
-      // 4. Start the RH Agent run with intraday data
+      // 3. Start the RH Agent run — workers inject intraday bar themselves from task payload
       await startRhAgentRun(marketDate, 'pdr', intradaySnapshots);
 
       logger.info('rh_agent_pdr_success', { marketDate, symbolCount: symbols.length });
@@ -130,10 +126,7 @@ export const rhAgentTriggerDaily = onRequest(
       // 2. Fetch intraday snapshot so manual runs also see today's price
       const intradaySnapshots = await fetchIntradaySnapshots(symbols, marketDate);
 
-      // 3. Write partial bars to rs-bars
-      await writeIntradayBarsToRsBars(marketDate, intradaySnapshots);
-
-      // 4. Start the run with intraday data
+      // 3. Start the run — workers inject intraday bar themselves from task payload
       const result = await startRhAgentRun(marketDate, 'manual', intradaySnapshots);
 
       res.status(200).json({
