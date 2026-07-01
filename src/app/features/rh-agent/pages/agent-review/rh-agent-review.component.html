@@ -25,6 +25,7 @@
         <app-signal-list
           class="signal-list-wrapper"
           [selectedSymbol]="selectedReviewSymbol()"
+          [manualSymbol]="manualSymbol()"
           (symbolSelected)="onReviewSymbolSelected($event)">
         </app-signal-list>
       }

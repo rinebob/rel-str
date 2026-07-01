@@ -43,6 +43,30 @@
     }
   }
 
+  .tf-filter {
+    display: inline-flex;
+    gap: 2px;
+    border-radius: 4px;
+    padding: 2px;
+    background: var(--mat-sys-surface-container-highest);
+
+    .tf-btn {
+      min-width: unset;
+      padding: 0 7px;
+      height: 22px;
+      line-height: 22px;
+      font-size: 10px;
+      font-weight: 600;
+      border-radius: 3px;
+      color: var(--mat-sys-on-surface-variant);
+
+      &.active {
+        background: var(--mat-sys-primary);
+        color: var(--mat-sys-on-primary);
+      }
+    }
+  }
+
   .direction-toggle {
     display: inline-flex;
     gap: 2px;
@@ -222,12 +246,30 @@
           font-size: 13px;
         }
 
+        .history-date {
+          font-size: 11px;
+          font-weight: 500;
+          font-variant-numeric: tabular-nums;
+          color: var(--mat-sys-on-surface);
+          min-width: 80px;
+        }
+
         .badge.type {
           font-size: 9px;
           padding: 1px 4px;
           border-radius: 3px;
           background: var(--mat-sys-primary-container);
           color: var(--mat-sys-primary);
+
+          &.long {
+            background: var(--mat-sys-success-container, #c8e6c9);
+            color: var(--mat-sys-success, #2e7d32);
+          }
+
+          &.short {
+            background: var(--mat-sys-error-container);
+            color: var(--mat-sys-error);
+          }
         }
       }
 
@@ -238,6 +280,43 @@
         overflow: hidden;
         text-overflow: ellipsis;
         margin-top: 1px;
+      }
+
+      .signal-trail {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        margin-top: 3px;
+
+        .trail-item {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          font-size: 10px;
+
+          .trail-date {
+            color: var(--mat-sys-on-surface-variant);
+            font-variant-numeric: tabular-nums;
+            min-width: 42px;
+          }
+
+          .trail-type {
+            font-weight: 500;
+            font-size: 9px;
+            padding: 1px 4px;
+            border-radius: 3px;
+          }
+
+          &.long .trail-type {
+            background: var(--mat-sys-success-container, #c8e6c9);
+            color: var(--mat-sys-success, #2e7d32);
+          }
+
+          &.short .trail-type {
+            background: var(--mat-sys-error-container);
+            color: var(--mat-sys-error);
+          }
+        }
       }
     }
 
