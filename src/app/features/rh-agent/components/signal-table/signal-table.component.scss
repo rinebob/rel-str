@@ -1,1 +1,67 @@
-/* Signal table styles are provided by the parent until Phase 5 cleanup. */
+.signal-table-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.signal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+
+  thead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--mat-sys-surface-container);
+
+    th {
+      padding: 6px 10px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--mat-sys-on-surface-variant);
+      border-bottom: 1px solid var(--mat-sys-outline-variant);
+    }
+  }
+
+  tbody {
+    tr {
+      border-bottom: 1px solid var(--mat-sys-outline-variant);
+
+      &:hover { background: var(--mat-sys-surface-container-low); }
+      &.long  { border-left: 3px solid #4caf50; }
+      &.short { border-left: 3px solid #f44336; }
+    }
+
+    td {
+      padding: 5px 10px;
+      color: var(--mat-sys-on-surface);
+    }
+  }
+
+  .col-date   { width: 110px; white-space: nowrap; }
+  .col-tf     { width: 60px; }
+  .col-dir    { width: 70px; }
+  .col-source { width: 70px; }
+  .col-type   { width: 120px; }
+  .col-price  { width: 80px; text-align: right; font-variant-numeric: tabular-nums; }
+  .col-reason { min-width: 200px; font-size: 11px; color: var(--mat-sys-on-surface-variant); }
+
+  .empty-row { text-align: center; padding: 32px; color: var(--mat-sys-on-surface-variant); }
+}
+
+.dir-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+
+  &.dir-long  { background: rgba(76, 175, 80, 0.15);  color: #4caf50; }
+  &.dir-short { background: rgba(244, 67, 54, 0.15); color: #f44336; }
+}

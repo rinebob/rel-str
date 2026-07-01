@@ -1,1 +1,56 @@
-/* Quick charts panel styles are provided by the parent until Phase 5 cleanup. */
+.quick-charts-panel {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.qcp-close {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: var(--mat-sys-surface-container);
+  cursor: pointer;
+  border-radius: 4px;
+  color: var(--mat-sys-on-surface-variant);
+  opacity: 0.7;
+
+  mat-icon { font-size: 14px; width: 14px; height: 14px; }
+  &:hover { opacity: 1; background: var(--mat-sys-surface-container-high); }
+}
+
+.qcp-body {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+
+  app-quick-charts {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+.qcp-placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--mat-sys-on-surface-variant);
+  opacity: 0.5;
+
+  mat-icon { font-size: 48px; width: 48px; height: 48px; }
+  p { font-size: 13px; margin: 0; }
+}

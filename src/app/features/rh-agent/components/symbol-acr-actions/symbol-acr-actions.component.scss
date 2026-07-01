@@ -1,1 +1,66 @@
-/* ACR action styles are provided by the parent until Phase 5 cleanup. */
+.acr-actions {
+  display: flex;
+  gap: 1px;
+  flex-shrink: 0;
+
+  &.disabled { opacity: 0.25; pointer-events: none; }
+}
+
+.acr-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.1s;
+  color: var(--mat-sys-on-surface-variant);
+  flex-shrink: 0;
+
+  mat-icon { font-size: 12px; width: 12px; height: 12px; }
+
+  &:hover  { background: var(--mat-sys-surface-container-high); }
+  &:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  &.review.active   { background: #7b1fa233; color: #7b1fa2; }
+  &.accept.active   { background: #1b5e2033; color: #1b5e20; }
+  &.consider.active { background: #f57c0033; color: #f57c00; }
+  &.reject.active   { background: #d32f2f33; color: #d32f2f; }
+  &.reset.active    { background: #61616133; color: #616161; }
+  &.monitor.active  { background: #00695c33; color: #00695c; }
+
+  &.primary.active {
+    background: #1976d233;
+    color: #1976d2;
+    border-radius: 50%;
+    mat-icon { font-size: 14px; width: 14px; height: 14px; }
+  }
+  &.secondary.active {
+    background: #7b1fa233;
+    color: #7b1fa2;
+    border-radius: 50%;
+    mat-icon { font-size: 14px; width: 14px; height: 14px; }
+  }
+  &.neutral.active {
+    background: #61616133;
+    color: #616161;
+    border-radius: 50%;
+    mat-icon { font-size: 14px; width: 14px; height: 14px; }
+  }
+  &.avoid.active {
+    background: #f57c0033;
+    color: #f57c00;
+    border-radius: 50%;
+    mat-icon { font-size: 14px; width: 14px; height: 14px; }
+  }
+  &.hide.active {
+    background: #d32f2f33;
+    color: #d32f2f;
+    border-radius: 50%;
+    mat-icon { font-size: 14px; width: 14px; height: 14px; }
+  }
+}

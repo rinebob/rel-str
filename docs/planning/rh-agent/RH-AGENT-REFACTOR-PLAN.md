@@ -280,6 +280,10 @@ Each phase should be a focused, reviewable change. Run `ng build` after frontend
 
 **Phase 6 complete** — documentation, ecosystem inventory, and JSDoc pass are done.
 
+### Follow-up style cleanup (post Phase 6) ✅ DONE
+
+- **Migrated all `::ng-deep` child component styles into their own SCSS files** — all 5 page SCSS files (dashboard, grouped-review, review, order, signal-history) had child component styles buried in `:host ::ng-deep` blocks. Extracted into 14 component SCSS files. Pages now contain only their own layout/composition styles. Remaining `::ng-deep` usage is intentional (Syncfusion toolbar suppression, Angular Material form field overrides, `mat-menu` portal targeting).
+
 ### Recent fixes outside the refactor plan
 
 - **PDR/manual trigger memory raised to 1 GiB** (`5d92d64`, superseded by `85a72ed`) — fixed OOM when fetching the bulk intraday snapshot and writing partial bars.

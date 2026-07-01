@@ -1,1 +1,73 @@
-/* Group panel styles are provided by the parent until Phase 5 cleanup. */
+.group-panel {
+  margin-bottom: 4px;
+  border-radius: 8px !important;
+  overflow: hidden;
+}
+
+.group-header {
+  min-height: 40px !important;
+}
+
+.group-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.group-key {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.group-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--mat-sys-on-surface-variant);
+  font-weight: 400;
+}
+
+.grp-dir {
+  font-weight: 700;
+  &.long  { color: #2e7d32; }
+  &.short { color: var(--mat-sys-error); }
+}
+
+.expand-all-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin-left: 4px;
+  opacity: 0.6;
+
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+
+  &:hover { opacity: 1; }
+}
+
+.signal-badge {
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--mat-sys-primary-container);
+  color: var(--mat-sys-on-primary-container);
+  padding: 1px 6px;
+  border-radius: 8px;
+  min-width: 20px;
+  text-align: center;
+}
+
+.total-badge {
+  font-size: 10px;
+  background: var(--mat-sys-surface-container-high);
+  color: var(--mat-sys-on-surface-variant);
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+.symbol-accordion {
+  padding: 0 4px 4px;
+}

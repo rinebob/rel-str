@@ -1,1 +1,52 @@
-/* Symbol signal history styles are provided by the parent until Phase 5 cleanup. */
+.symbol-signal-history {
+  padding: 4px 8px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.no-signals {
+  font-size: 11px;
+  color: var(--mat-sys-on-surface-variant);
+  font-style: italic;
+  padding: 4px 0;
+}
+
+.signal-history-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: var(--mat-sys-surface-container);
+  font-size: 11px;
+}
+
+.sh-date { color: var(--mat-sys-on-surface-variant); min-width: 80px; }
+
+.sh-tf {
+  font-weight: 700;
+  font-size: 9px;
+  background: var(--mat-sys-surface-container-high);
+  color: var(--mat-sys-on-surface-variant);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.sh-type  { color: var(--mat-sys-on-surface-variant); font-size: 10px; flex: 1; }
+
+.sh-dir {
+  font-weight: 700;
+  font-size: 10px;
+  &.dir-long  { color: #2e7d32; }
+  &.dir-short { color: var(--mat-sys-error); }
+}
+
+.sh-status-interim {
+  font-size: 8px;
+  font-weight: 600;
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+  padding: 1px 4px;
+  border-radius: 4px;
+}

@@ -1,1 +1,156 @@
-/* Run history panel styles are provided by the parent until Phase 5 cleanup. */
+.runs-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  flex-shrink: 0;
+
+  mat-icon {
+    color: var(--mat-sys-primary);
+  }
+
+  .runs-title {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--mat-sys-on-surface);
+  }
+
+  .runs-count {
+    font-size: 13px;
+    color: var(--mat-sys-on-surface-variant);
+  }
+}
+
+mat-accordion {
+  flex: 1 1 auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.current-run {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  border-radius: 4px;
+  background: var(--mat-sys-primary-container);
+  margin-bottom: 4px;
+
+  .run-details {
+    overflow-y: auto;
+    max-height: 60vh;
+  }
+}
+
+.current-run-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  height: 40px;
+  cursor: pointer;
+  user-select: none;
+
+  .current-run-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .current-run-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--mat-sys-on-surface-variant);
+  }
+}
+
+.previous-runs-section {
+  mat-expansion-panel-header {
+    background: var(--mat-sys-surface-container);
+  }
+}
+
+.nested-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.previous-run {
+  background: var(--mat-sys-surface);
+}
+
+.run-info-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 8px;
+
+  span {
+    font-size: 12px;
+  }
+}
+
+.panel-toggle-icon {
+  font-size: 20px;
+  color: var(--mat-sys-on-surface-variant);
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+.run-status-icon {
+  margin-right: 8px;
+}
+
+.run-date {
+  margin-left: 1rem;
+  font-size: 13px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.run-stats {
+  margin-left: auto;
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 12px;
+}
+
+.run-details {
+  padding: 12px;
+  background: var(--mat-sys-surface-container);
+  border-radius: 8px;
+
+  p {
+    margin: 6px 0;
+    font-size: 13px;
+  }
+}
+
+.show-more-btn {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.status-success  { color: var(--mat-sys-success); }
+.status-failed   { color: var(--mat-sys-error); }
+.status-running  { color: var(--mat-sys-primary); }
+.status-pending  { color: var(--mat-sys-on-surface-variant); }
+.status-partial  { color: var(--mat-sys-tertiary); }
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px;
+  color: var(--mat-sys-on-surface-variant);
+
+  mat-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    margin-bottom: 16px;
+  }
+}

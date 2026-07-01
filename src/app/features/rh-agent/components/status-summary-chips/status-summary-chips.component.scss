@@ -1,1 +1,21 @@
-/* Status summary chips styles are provided by the parent until Phase 5 cleanup. */
+.status-summary {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.status-chip {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 8px;
+
+  &.review   { background: var(--mat-sys-tertiary-container);  color: var(--mat-sys-on-tertiary-container); }
+  &.accept   { background: #1b5e2033; color: #1b5e20; }
+  &.consider { background: var(--mat-sys-secondary-container); color: var(--mat-sys-on-secondary-container); }
+  &.reject   { background: var(--mat-sys-error-container);     color: var(--mat-sys-on-error-container); }
+  &.exclude  { background: var(--mat-sys-error-container);     color: var(--mat-sys-on-error-container); }
+  &.low-tradability { background: var(--mat-sys-warning-container); color: var(--mat-sys-on-warning-container); }
+  &.watch    { background: var(--mat-sys-primary-container);   color: var(--mat-sys-on-primary-container); }
+  &.elevate  { background: var(--mat-sys-tertiary-container);  color: var(--mat-sys-on-tertiary-container); }
+}
