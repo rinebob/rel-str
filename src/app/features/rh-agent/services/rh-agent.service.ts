@@ -181,11 +181,27 @@ export class RhAgentService {
 
   /**
    * Subscribe to recent runs from Firestore (realtime updates).
+   * Maps Firestore Timestamps to ISO strings so consumers receive plain RhAgentRun objects.
    */
   watchRecentRunsRealtime(count = 20): Observable<RhAgentRun[]> {
     const runsRef = collection(this.firestore, this.runsCollection);
     const runsQuery = query(runsRef, orderBy('startedAt', 'desc'), limit(count));
-    return collectionData(runsQuery, { idField: 'id' }) as Observable<RhAgentRun[]>;
+    return (collectionData(runsQuery, { idField: 'id' }) as Observable<any[]>).pipe(
+      map(docs => docs.map(d => ({
+        id: d['id'],
+        status: d['status'] ?? '',
+        startedAt: d['startedAt']?.toDate?.()?.toISOString?.() ?? d['startedAt'] ?? '',
+        completedAt: d['completedAt']?.toDate?.()?.toISOString?.() ?? d['completedAt'],
+        marketDate: d['marketDate'],
+        triggeredBy: d['triggeredBy'],
+        totalSymbols: d['totalSymbols'],
+        processedCount: d['processedCount'] ?? d['symbolsProcessed'],
+        symbolsProcessed: d['symbolsProcessed'],
+        signalsGenerated: d['signalsGenerated'],
+        summary: d['summary'],
+        strategy: d['strategy'],
+      } as RhAgentRun)))
+    );
   }
 
   /**
