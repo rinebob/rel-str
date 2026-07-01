@@ -1,0 +1,44 @@
+<div class="run-control-card">
+  <div class="run-control-primary">
+    <button mat-flat-button class="run-now-btn" [disabled]="isRunning()" (click)="runNow.emit()">
+      <mat-icon>play_arrow</mat-icon>
+      {{ isRunning() ? 'Running…' : 'Run Now' }}
+    </button>
+
+    <button mat-icon-button class="refresh-btn" matTooltip="Refresh runs" (click)="refresh.emit()">
+      <mat-icon>refresh</mat-icon>
+    </button>
+  </div>
+
+  <div class="run-control-filters">
+    <div class="filter-group">
+      <span class="filter-label">Trigger</span>
+      <div class="pill-group">
+        @for (opt of triggerOptions; track opt.value) {
+          <button class="pill-btn" [class.active]="triggerFilter() === opt.value"
+            (click)="triggerFilterChange.emit(opt.value)">{{ opt.label }}</button>
+        }
+      </div>
+    </div>
+
+    <div class="filter-group">
+      <span class="filter-label">Date</span>
+      <div class="pill-group">
+        @for (opt of dateOptions; track opt.value) {
+          <button class="pill-btn" [class.active]="dateFilter() === opt.value"
+            (click)="dateFilterChange.emit(opt.value)">{{ opt.label }}</button>
+        }
+      </div>
+    </div>
+
+    <div class="filter-group">
+      <span class="filter-label">Status</span>
+      <div class="pill-group">
+        @for (opt of statusOptions; track opt.value) {
+          <button class="pill-btn" [class.active]="statusFilter() === opt.value"
+            (click)="statusFilterChange.emit(opt.value)">{{ opt.label }}</button>
+        }
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,77 @@
+<div class="metrics-strip">
+  @if (selectedRun(); as run) {
+    <!-- Selected run metrics -->
+    <div class="metric">
+      <mat-icon class="metric-icon" [style.color]="getRunStatusColor(run.status)">
+        {{ getRunStatusIcon(run.status) }}
+      </mat-icon>
+      <span class="metric-label">Status</span>
+      <span class="metric-value">{{ run.status }}</span>
+    </div>
+    <div class="metric-divider"></div>
+    <div class="metric">
+      <mat-icon class="metric-icon">schedule</mat-icon>
+      <span class="metric-label">Market Date</span>
+      <span class="metric-value">{{ run.marketDate ?? '—' }}</span>
+    </div>
+    <div class="metric-divider"></div>
+    <div class="metric">
+      <mat-icon class="metric-icon">bar_chart</mat-icon>
+      <span class="metric-label">Symbols</span>
+      <span class="metric-value">
+        {{ run.processedCount ?? 0 }} / {{ run.totalSymbols ?? '?' }}
+      </span>
+    </div>
+    <div class="metric-divider"></div>
+    <div class="metric">
+      <mat-icon class="metric-icon">notifications</mat-icon>
+      <span class="metric-label">Signals</span>
+      <span class="metric-value">{{ run.signalsGenerated ?? 0 }}</span>
+    </div>
+    <div class="metric-divider"></div>
+    <div class="metric">
+      <mat-icon class="metric-icon">timer</mat-icon>
+      <span class="metric-label">Duration</span>
+      <span class="metric-value">{{ formatDuration(run) }}</span>
+    </div>
+    <div class="metric-divider"></div>
+    <div class="metric">
+      <span class="metric-label metric-trigger">{{ run.triggeredBy ?? 'manual' }}</span>
+    </div>
+  } @else {
+    <!-- Aggregate / overview metrics -->
+    <div class="metric">
+      <mat-icon class="metric-icon">history</mat-icon>
+      <span class="metric-label">Runs Loaded</span>
+      <span class="metric-value">{{ allRuns().length }}</span>
+    </div>
+    <div class="metric-divider"></div>
+    <div class="metric">
+      <mat-icon class="metric-icon" [class.running]="runningCount > 0">sync</mat-icon>
+      <span class="metric-label">Running</span>
+      <span class="metric-value">{{ runningCount }}</span>
+    </div>
+    <div class="metric-divider"></div>
+    <div class="metric">
+      <mat-icon class="metric-icon">today</mat-icon>
+      <span class="metric-label">Today</span>
+      <span class="metric-value">{{ todayCount }}</span>
+    </div>
+    @if (latestRun; as latest) {
+      <div class="metric-divider"></div>
+      <div class="metric">
+        <mat-icon class="metric-icon" [style.color]="getRunStatusColor(latest.status)">
+          {{ getRunStatusIcon(latest.status) }}
+        </mat-icon>
+        <span class="metric-label">Latest</span>
+        <span class="metric-value">{{ latest.status }}</span>
+      </div>
+      <div class="metric-divider"></div>
+      <div class="metric">
+        <mat-icon class="metric-icon">notifications</mat-icon>
+        <span class="metric-label">Last Signals</span>
+        <span class="metric-value">{{ latest.signalsGenerated ?? 0 }}</span>
+      </div>
+    }
+  }
+</div>

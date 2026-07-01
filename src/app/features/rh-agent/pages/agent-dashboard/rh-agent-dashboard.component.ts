@@ -11,17 +11,11 @@ import {
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormGroup, FormControl } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
 
 import { RhAgentStore } from '../../stores/rh-agent.store';
 import { RhAgentDashboardStore } from '../../stores/rh-agent-dashboard.store';
@@ -29,28 +23,26 @@ import { RhAgentGroupStore } from '../../stores/rh-agent-group.store';
 import { RhAgentService, RhAgentRun } from '../../services/rh-agent.service';
 import { Router } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { expandDateRange, getScheduleDescription } from '../../utils/rh-agent.utils';
+import { getScheduleDescription } from '../../utils/rh-agent.utils';
 import { AgentStatusBarComponent } from '../../components/agent-status-bar/agent-status-bar.component';
 import { RunHistoryPanelComponent } from '../../components/run-history-panel/run-history-panel.component';
+import { RunControlCardComponent } from '../../components/run-control-card/run-control-card.component';
+import { RunMetricsStripComponent } from '../../components/run-metrics-strip/run-metrics-strip.component';
 
 @Component({
   selector: 'app-rh-agent-dashboard',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    ReactiveFormsModule,
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
-    MatChipsModule,
     MatSnackBarModule,
     MatTooltipModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatDatepickerModule,
-    MatNativeDateModule,
     AgentStatusBarComponent,
     RunHistoryPanelComponent,
+    RunControlCardComponent,
+    RunMetricsStripComponent,
   ],
   templateUrl: './rh-agent-dashboard.component.html',
   styleUrl: './rh-agent-dashboard.component.scss',
@@ -67,12 +59,6 @@ export class RhAgentDashboardComponent {
 
   readonly isSyncingOverview = signal(false);
   readonly scheduleDescription = getScheduleDescription();
-
-  // Date range picker for manual runs
-  readonly dateRange = new FormGroup({
-    start: new FormControl<Date | null>(null),
-    end: new FormControl<Date | null>(null),
-  });
 
   /**
    * Load dashboard data on init.
@@ -92,16 +78,7 @@ export class RhAgentDashboardComponent {
    * If a date range is selected, enqueue one run per date in the range.
    */
   triggerManualRun(): void {
-    const start = this.dateRange.value.start;
-    const end = this.dateRange.value.end;
-    if (!start) {
-      this.store.triggerManualRun(undefined);
-      return;
-    }
-    const dates = expandDateRange(start, end ?? start);
-    for (const dateStr of dates) {
-      this.store.triggerManualRun(dateStr);
-    }
+    this.store.triggerManualRun(undefined);
   }
 
   /** Navigate to the grouped review page, pre-seeding the active run from the latest run. */
@@ -115,6 +92,7 @@ export class RhAgentDashboardComponent {
 
   /** Review signals for a specific run selected from the run history panel. */
   onRunSelected(run: RhAgentRun): void {
+    this.uiStore.selectRun(run.id);
     if (run.id && run.marketDate) {
       this.groupStore.setActiveRun(run.id, run.marketDate);
     }

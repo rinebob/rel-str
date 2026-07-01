@@ -1,98 +1,83 @@
-<div class="runs-header">
-  <mat-icon>history</mat-icon>
-  <span class="runs-title">Runs</span>
-  <span class="runs-count">({{ runsTotal() }} total)</span>
-</div>
-
-@if (runsTotal() > 0) {
-  <mat-accordion>
-    @if (currentRun(); as run) {
-      <div class="current-run">
-        <div class="current-run-header" (click)="toggleCurrentRun.emit()">
-          <div class="current-run-title">
-            <mat-chip-option color="accent" selected>CURRENT</mat-chip-option>
-            <span class="run-date">{{ run.startedAt | date: 'short' }}</span>
-          </div>
-          <div class="current-run-meta">
-            <mat-icon class="panel-toggle-icon">{{ currentRunOpen() ? 'expand_less' : 'expand_more' }}</mat-icon>
-          </div>
-        </div>
-        @if (currentRunOpen()) {
-          <div class="run-details">
-            <div class="run-info-row">
-              <span><strong>Run ID:</strong> {{ run.id }}</span>
-              <span><strong>Status:</strong> {{ run.status }}</span>
-              <span><strong>Started:</strong> {{ run.startedAt | date: 'medium' }}</span>
-              @if (run.completedAt) {
-                <span><strong>Completed:</strong> {{ run.completedAt | date: 'medium' }}</span>
-              }
-              <span><strong>Symbols:</strong> {{ run.symbolsProcessed || run.processedCount || 0 }} / {{ run.totalSymbols || 0 }}</span>
-              <span><strong>Signals:</strong> {{ run.signalsGenerated || 0 }}</span>
-            </div>
-            @if (run.summary) {
-              <p><strong>Summary:</strong> {{ run.summary }}</p>
-            }
-            <div class="run-actions">
-              <button mat-stroked-button color="primary" (click)="runSelected.emit(run)">
-                <mat-icon>manage_search</mat-icon> Review Signals
+<div class="run-table-container">
+  @if (runs().length > 0) {
+    <table class="run-table">
+      <thead>
+        <tr>
+          <th class="col-status"></th>
+          <th class="col-date">Started</th>
+          <th class="col-market-date">Market Date</th>
+          <th class="col-trigger">Trigger</th>
+          <th class="col-progress">Progress</th>
+          <th class="col-signals">Signals</th>
+          <th class="col-duration">Duration</th>
+          <th class="col-actions"></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (run of runs(); track run.id) {
+          <tr class="run-row"
+            [class.selected]="selectedRunId() === run.id"
+            [class.expanded]="expandedRunId() === run.id"
+            (click)="toggleExpand(run)">
+            <td class="col-status">
+              <mat-icon class="status-icon" [style.color]="getRunStatusColor(run.status)"
+                [matTooltip]="run.status">
+                {{ getRunStatusIcon(run.status) }}
+              </mat-icon>
+            </td>
+            <td class="col-date">{{ formatTime(run.startedAt) }}</td>
+            <td class="col-market-date">{{ run.marketDate ?? '—' }}</td>
+            <td class="col-trigger">
+              <span class="trigger-badge trigger-{{ run.triggeredBy ?? 'manual' }}">
+                {{ run.triggeredBy ?? 'manual' }}
+              </span>
+            </td>
+            <td class="col-progress">
+              {{ (run.processedCount ?? run.symbolsProcessed ?? 0) }} / {{ run.totalSymbols ?? '?' }}
+            </td>
+            <td class="col-signals">{{ run.signalsGenerated ?? 0 }}</td>
+            <td class="col-duration">{{ formatDuration(run) }}</td>
+            <td class="col-actions">
+              <button mat-icon-button class="review-btn"
+                matTooltip="Review signals from this run"
+                (click)="reviewSignals(run, $event)">
+                <mat-icon>manage_search</mat-icon>
               </button>
-            </div>
-          </div>
-        }
-      </div>
-    }
+              <mat-icon class="expand-icon">
+                {{ expandedRunId() === run.id ? 'expand_less' : 'expand_more' }}
+              </mat-icon>
+            </td>
+          </tr>
 
-    @if (previousRuns().length > 0) {
-      <mat-expansion-panel hideToggle class="previous-runs-section">
-        <mat-expansion-panel-header>
-          <mat-panel-title>
-            <mat-icon>history</mat-icon>
-            Previous Runs ({{ previousRuns().length }})
-          </mat-panel-title>
-        </mat-expansion-panel-header>
-        <mat-accordion class="nested-accordion">
-          @for (run of previousRuns().slice(0, showAllRuns() ? undefined : 5); track run.id) {
-            <mat-expansion-panel hideToggle class="previous-run">
-              <mat-expansion-panel-header>
-                <mat-panel-title>
-                  <mat-icon [color]="getRunStatusColor(run.status)" class="run-status-icon">
-                    {{ getRunStatusIcon(run.status) }}
-                  </mat-icon>
-                  {{ run.strategy || run.marketDate || 'Daily Run' }}
-                </mat-panel-title>
-                <mat-panel-description>
-                  {{ run.startedAt | date: 'short' }}
-                  <span class="run-stats">
-                    {{ run.symbolsProcessed || run.processedCount || 0 }} / {{ run.totalSymbols || 0 }} symbols,
-                    {{ run.signalsGenerated || 0 }} signals
-                  </span>
-                </mat-panel-description>
-              </mat-expansion-panel-header>
-              <div class="run-details">
-                <div class="run-info-row">
-                  <span><strong>Run ID:</strong> {{ run.id }}</span>
-                  <span><strong>Status:</strong> {{ run.status }}</span>
-                </div>
-                <div class="run-actions">
-                  <button mat-stroked-button color="primary" (click)="$event.stopPropagation(); runSelected.emit(run)">
-                    <mat-icon>manage_search</mat-icon> Review Signals
+          @if (expandedRunId() === run.id) {
+            <tr class="run-detail-row">
+              <td colspan="8">
+                <div class="run-detail">
+                  <div class="detail-items">
+                    <span class="detail-item"><span class="detail-key">Run ID</span><span class="detail-val">{{ run.id }}</span></span>
+                    @if (run.completedAt) {
+                      <span class="detail-item"><span class="detail-key">Completed</span><span class="detail-val">{{ formatTime(run.completedAt) }}</span></span>
+                    }
+                    @if (run.summary) {
+                      <span class="detail-item"><span class="detail-key">Summary</span><span class="detail-val">{{ run.summary }}</span></span>
+                    }
+                  </div>
+                  <button mat-stroked-button class="review-signals-btn"
+                    (click)="reviewSignals(run, $event)">
+                    <mat-icon>manage_search</mat-icon>
+                    Review Signals
                   </button>
                 </div>
-              </div>
-            </mat-expansion-panel>
+              </td>
+            </tr>
           }
-          @if (previousRuns().length > 5) {
-            <button mat-button (click)="toggleShowAllRuns.emit()" class="show-more-btn">
-              {{ showAllRuns() ? 'Show Less' : 'Show All (' + (previousRuns().length - 5) + ' more)' }}
-            </button>
-          }
-        </mat-accordion>
-      </mat-expansion-panel>
-    }
-  </mat-accordion>
-} @else {
-  <div class="empty-state">
-    <mat-icon>inbox</mat-icon>
-    <p>No runs yet</p>
-  </div>
-}
+        }
+      </tbody>
+    </table>
+  } @else {
+    <div class="empty-state">
+      <mat-icon>inbox</mat-icon>
+      <p>No runs match the current filters</p>
+    </div>
+  }
+</div>

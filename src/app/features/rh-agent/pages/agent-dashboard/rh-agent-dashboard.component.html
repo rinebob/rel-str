@@ -1,59 +1,33 @@
 <div class="rh-agent-dashboard">
+<div class="dashboard-content">
   <div class="dashboard-header">
-    <h1>
-      <mat-icon>smart_toy</mat-icon>
-      RH Agent Dashboard
-      <mat-chip-option
-        [selected]="store.status()?.isEnabled"
-        [color]="store.status()?.isEnabled ? 'accent' : 'warn'">
+    <div class="header-left">
+      <mat-icon class="header-icon">smart_toy</mat-icon>
+      <h1 class="header-title">RH Agent</h1>
+      <span class="enabled-badge" [class.enabled]="store.status()?.isEnabled">
         {{ store.status()?.isEnabled ? 'Enabled' : 'Disabled' }}
-      </mat-chip-option>
-    </h1>
-    <div class="actions">
-      <button mat-raised-button color="accent" (click)="goToGroupedReview()" matTooltip="Grouped symbol review">
+      </span>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button class="review-latest-btn" (click)="goToGroupedReview()"
+        matTooltip="Review signals from the latest run">
         <mat-icon>account_tree</mat-icon>
-        Grouped Review
+        Review Latest Signals
       </button>
-      <mat-form-field appearance="outline" class="run-date-picker">
-        <mat-label>Date Range</mat-label>
-        <mat-date-range-input [formGroup]="dateRange" [rangePicker]="runRangePicker">
-          <input matStartDate formControlName="start" placeholder="Start">
-          <input matEndDate formControlName="end" placeholder="End">
-        </mat-date-range-input>
-        <mat-datepicker-toggle matIconSuffix [for]="runRangePicker"></mat-datepicker-toggle>
-        <mat-date-range-picker #runRangePicker></mat-date-range-picker>
-      </mat-form-field>
-      <button mat-raised-button color="primary" (click)="triggerManualRun()" matTooltip="Trigger a manual agent run">
-        <mat-icon>play_arrow</mat-icon>
-        Run Now
-      </button>
-      <button mat-stroked-button (click)="triggerOverviewSync()" [disabled]="isSyncingOverview()"
-        matTooltip="Backfill company overview data (sector, industry, market cap)">
+      <button mat-icon-button (click)="triggerOverviewSync()" [disabled]="isSyncingOverview()"
+        matTooltip="Sync company overview data">
         @if (isSyncingOverview()) {
-          <mat-spinner diameter="16" style="display:inline-block;margin-right:4px"></mat-spinner>
+          <mat-spinner diameter="18"></mat-spinner>
         } @else {
-          <mat-icon>sync</mat-icon>
+          <mat-icon>business</mat-icon>
         }
-        Sync Overview
       </button>
-      <button mat-stroked-button (click)="refreshData()" [disabled]="store.isLoading()">
-        <mat-icon>refresh</mat-icon>
-        Refresh
-      </button>
-      <button mat-stroked-button (click)="store.triggerBarsBackfill()"
-        matTooltip="Backfill rs-bars with full D/W/M history from SA">
+      <button mat-icon-button (click)="store.triggerBarsBackfill()"
+        matTooltip="Backfill rs-bars with full D/W/M history">
         <mat-icon>download</mat-icon>
-        Backfill Bars
       </button>
     </div>
   </div>
-
-  @if (store.isLoading()) {
-    <div class="loading-overlay">
-      <mat-spinner diameter="40"></mat-spinner>
-      <span>Processing...</span>
-    </div>
-  }
 
   @if (store.status()) {
     <app-agent-status-bar
@@ -64,14 +38,27 @@
     </app-agent-status-bar>
   }
 
+  <app-run-control-card
+    [isRunning]="store.isLoading()"
+    [triggerFilter]="uiStore.triggerFilter()"
+    [dateFilter]="uiStore.dateFilter()"
+    [statusFilter]="uiStore.statusFilter()"
+    (runNow)="triggerManualRun()"
+    (refresh)="refreshData()"
+    (triggerFilterChange)="uiStore.setTriggerFilter($event)"
+    (dateFilterChange)="uiStore.setDateFilter($event)"
+    (statusFilterChange)="uiStore.setStatusFilter($event)">
+  </app-run-control-card>
+
+  <app-run-metrics-strip
+    [selectedRun]="uiStore.selectedRun()"
+    [allRuns]="store.runs()">
+  </app-run-metrics-strip>
+
   <app-run-history-panel
-    [currentRun]="uiStore.currentRun()"
-    [currentRunOpen]="uiStore.currentRunOpen()"
-    [previousRuns]="uiStore.previousRuns()"
-    [showAllRuns]="uiStore.showAllRuns()"
-    [runsTotal]="store.runs().length"
-    (toggleCurrentRun)="uiStore.toggleCurrentRun()"
-    (toggleShowAllRuns)="uiStore.toggleShowAllRuns()"
+    [runs]="uiStore.filteredRuns()"
+    [selectedRunId]="uiStore.selectedRunId()"
     (runSelected)="onRunSelected($event)">
   </app-run-history-panel>
+</div>
 </div>

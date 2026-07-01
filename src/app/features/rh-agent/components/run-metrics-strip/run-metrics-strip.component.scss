@@ -1,0 +1,64 @@
+.metrics-strip {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 6px 16px;
+  background: var(--mat-sys-surface-container-low);
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+
+.metric {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.metric-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--mat-sys-outline-variant);
+  flex-shrink: 0;
+}
+
+.metric-icon {
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
+  color: var(--mat-sys-on-surface-variant);
+
+  &.running { animation: spin 1.2s linear infinite; }
+}
+
+.metric-label {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.metric-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mat-sys-on-surface);
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-trigger {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: var(--mat-sys-surface-container-high);
+  color: var(--mat-sys-on-surface-variant);
+  padding: 2px 6px;
+  border-radius: 8px;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
