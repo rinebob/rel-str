@@ -9,6 +9,7 @@ import { onMessagePublished } from 'firebase-functions/v2/pubsub';
 import { logger } from 'firebase-functions/v2';
 
 import { type IntradaySnapshot, type RhAgentTriggeredBy } from './rh-agent-config';
+import { PARTNER_DATA_READY_TOPIC } from '../webhooks/webhooks-config';
 
 import {
   getMarketDate,
@@ -23,12 +24,13 @@ import {
 /**
  * Pub/Sub trigger: Automatically starts RH Agent when PDR intraday-snapshot message arrives.
  *
- * Trigger: partner-data-ready Pub/Sub topic with runType = "intraday-snapshot"
- * This ensures intraday data is ready before analysis begins.
+ * Trigger: partner-data-ready Pub/Sub topic with runType = "intraday-snapshot".
+ * Time-gated to 7:30am–6:30pm PT to filter spurious SA overnight cleanup messages
+ * that incorrectly publish intraday-snapshot events outside our PDR windows (8, 10, 12pm PT).
  */
 export const rhAgentPdrTrigger = onMessagePublished(
   {
-    topic: 'partner-data-ready',
+    topic: PARTNER_DATA_READY_TOPIC,
     memory: '1GiB',
     timeoutSeconds: 300,
   },
@@ -47,6 +49,18 @@ export const rhAgentPdrTrigger = onMessagePublished(
     }
     if (payload.runStatus !== 'completed' && payload.runStatus !== 'completed_with_errors') {
       logger.debug('rh_agent_pdr_skip_not_complete', { runStatus: payload.runStatus });
+      return;
+    }
+
+    // Gate: reject messages outside intraday windows (7:30am–6:30pm PT).
+    // SA incorrectly publishes intraday-snapshot messages during overnight cleanup
+    // runs (~5am PT). Our PDR windows are 8am, 10am, 12pm PT.
+    const nowPT = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+    const hourPT = nowPT.getHours() + nowPT.getMinutes() / 60;
+    const PDR_WINDOW_START_PT = 7.5;  // 7:30am
+    const PDR_WINDOW_END_PT   = 18.5; // 6:30pm
+    if (hourPT < PDR_WINDOW_START_PT || hourPT > PDR_WINDOW_END_PT) {
+      logger.info('rh_agent_pdr_skip_outside_window', { hourPT, PDR_WINDOW_START_PT, PDR_WINDOW_END_PT });
       return;
     }
 
