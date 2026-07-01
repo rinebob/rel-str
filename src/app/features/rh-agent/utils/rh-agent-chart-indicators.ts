@@ -7,6 +7,7 @@
  * duplicated across components.
  */
 import type { IndicatorConfig, IndicatorOption, IndicatorPane, PriceBar } from '../../../features/shared/components/flex-chart/flex-chart.types';
+import type { RhAgentSignalItem } from '../services/rh-agent.service';
 import { StIndicator } from '../../../features/shared/components/flex-chart/flex-chart.types';
 import { ST_INDICATOR_OPTIONS, buildDefaultConfig } from '../../../features/shared/components/flex-chart/indicators/indicator-registry';
 import { calculateStZone } from '../../../features/shared/components/flex-chart/indicators/st-zone.indicator';
@@ -136,6 +137,43 @@ export function addSignalDots(
   cfg.pane = 'lower-1';
   cfg.data = data;
   indicators.push(cfg);
+}
+
+/**
+ * Convert RhAgentSignalItem[] from signal-history into chart dot points.
+ * Matches each signal's barDate to a price bar to get the y-coordinate (close price).
+ * Filters by signalType prefix (e.g. 'D_ZONE_V1' for V1 daily dots).
+ */
+export function uptickDotsFromHistory(
+  signals: RhAgentSignalItem[],
+  bars: PriceBar[],
+  signalTypePrefix: string,
+  longColor: string,
+  shortColor: string,
+): { x: Date; y: number; color?: string }[] {
+  if (!signals.length || !bars.length) return [];
+
+  const barByDate = new Map<string, PriceBar>();
+  for (const b of bars) {
+    const d = (b as any).date ?? (b as any).d ?? '';
+    if (d) barByDate.set(String(d).slice(0, 10), b);
+  }
+
+  const dots: { x: Date; y: number; color?: string }[] = [];
+  for (const s of signals) {
+    if (!s.signalType.startsWith(signalTypePrefix)) continue;
+    const bar = barByDate.get(s.barDate);
+    if (!bar) continue;
+    const close = (bar as any).close ?? (bar as any).c ?? 0;
+    if (!close) continue;
+    const isLong = s.direction === 'LONG' || (s as any).action === 'LONG';
+    dots.push({
+      x: new Date(s.barDate + 'T00:00:00.000Z'),
+      y: close,
+      color: isLong ? longColor : shortColor,
+    });
+  }
+  return dots;
 }
 
 /** Add zone uptick dots to an existing indicator list. */

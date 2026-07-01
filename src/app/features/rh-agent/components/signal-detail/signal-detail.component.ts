@@ -37,14 +37,17 @@ import {
   computeSignalDotsData,
   computeUptickDotsV1,
   computeUptickDotsV2,
+  uptickDotsFromHistory,
   addHtfZoneWindow,
   addSignalDots,
   addUptickDots,
+  UptickDotColors,
   ST_ZONE_WINDOW_MONTHLY_INDICATOR,
   ST_ZONE_WINDOW_WEEKLY_INDICATOR,
   ST_ZONE_V1_UPTICK_DOTS_INDICATOR,
   ST_ZONE_V2_UPTICK_DOTS_INDICATOR,
 } from '../../utils/rh-agent-chart-indicators';
+import { RhAgentSymbolHistoryStore } from '../../stores/rh-agent-symbol-history.store';
 
 @Component({
   selector: 'app-signal-detail',
@@ -56,6 +59,7 @@ import {
 export class SignalDetailComponent {
   readonly chartStore = inject(HeatmapChartStore);
   readonly uiState = inject(UiStateService);
+  readonly historyStore = inject(RhAgentSymbolHistoryStore);
 
   /** Expose enum to template */
   readonly BarsInterval = BarsInterval;
@@ -214,22 +218,38 @@ export class SignalDetailComponent {
 
   private dailyUptickDotsV1 = computed(() => {
     const data = this.chartData();
-    return data ? computeUptickDotsV1(data.bars, this.weeklyZoneV2()) : [];
+    if (!data) return [];
+    const symbol = this.manualSymbol();
+    const cached = symbol ? this.historyStore.signalHistoryCache()[symbol] : null;
+    if (cached) return uptickDotsFromHistory(cached, data.bars, 'D_ZONE_V1', UptickDotColors.v1Long, UptickDotColors.v1Short);
+    return computeUptickDotsV1(data.bars, this.weeklyZoneV2());
   });
 
   private dailyUptickDotsV2 = computed(() => {
     const data = this.chartData();
-    return data ? computeUptickDotsV2(data.bars, this.weeklyZoneV2()) : [];
+    if (!data) return [];
+    const symbol = this.manualSymbol();
+    const cached = symbol ? this.historyStore.signalHistoryCache()[symbol] : null;
+    if (cached) return uptickDotsFromHistory(cached, data.bars, 'D_ZONE_V2', UptickDotColors.v2Long, UptickDotColors.v2Short);
+    return computeUptickDotsV2(data.bars, this.weeklyZoneV2());
   });
 
   private weeklyUptickDotsV1 = computed(() => {
     const data = this.chartDataWeekly();
-    return data ? computeUptickDotsV1(data.bars, this.monthlyZoneV2()) : [];
+    if (!data) return [];
+    const symbol = this.manualSymbol();
+    const cached = symbol ? this.historyStore.signalHistoryCache()[symbol] : null;
+    if (cached) return uptickDotsFromHistory(cached, data.bars, 'W_ZONE_V1', UptickDotColors.v1Long, UptickDotColors.v1Short);
+    return computeUptickDotsV1(data.bars, this.monthlyZoneV2());
   });
 
   private weeklyUptickDotsV2 = computed(() => {
     const data = this.chartDataWeekly();
-    return data ? computeUptickDotsV2(data.bars, this.monthlyZoneV2()) : [];
+    if (!data) return [];
+    const symbol = this.manualSymbol();
+    const cached = symbol ? this.historyStore.signalHistoryCache()[symbol] : null;
+    if (cached) return uptickDotsFromHistory(cached, data.bars, 'W_ZONE_V2', UptickDotColors.v2Long, UptickDotColors.v2Short);
+    return computeUptickDotsV2(data.bars, this.monthlyZoneV2());
   });
 
   /** Daily chart indicators = base + conditionally-injected computed extras */
@@ -342,6 +362,7 @@ export class SignalDetailComponent {
     effect(() => {
       const symbol = this.manualSymbol();
       if (symbol) {
+        this.historyStore.loadSignalHistory(symbol);
         const interval = this.selectedInterval();
         this.chartStore.loadData({
           baseline: 'SPY',

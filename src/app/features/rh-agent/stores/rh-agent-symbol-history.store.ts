@@ -10,7 +10,7 @@
  * - Cache results by symbol
  * - Expose loading flags per symbol
  */
-import { inject, DestroyRef } from '@angular/core';
+import { inject, DestroyRef, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import {
   signalStore,
   withState,
@@ -38,23 +38,21 @@ export const RhAgentSymbolHistoryStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
 
-  withMethods((state, service = inject(RhAgentService), destroyRef = inject(DestroyRef)) => ({
+  withMethods((state, service = inject(RhAgentService), destroyRef = inject(DestroyRef), injector = inject(EnvironmentInjector)) => ({
     /**
      * Load signal history for a symbol into the cache.
      * Reads all signals (W + D) directly from the Firestore subcollection.
      * If the symbol is already cached, this is a no-op.
      */
     loadSignalHistory(symbol: string): void {
-      const cache = state.signalHistoryCache();
-      if (cache[symbol] !== undefined) {
-        return;
-      }
+      if (state.signalHistoryCache()[symbol] !== undefined) return;
+      if (state.signalHistoryLoading()[symbol]) return;
 
       patchState(state, {
         signalHistoryLoading: { ...state.signalHistoryLoading(), [symbol]: true },
       });
 
-      service.getSymbolSignalHistory(symbol)
+      runInInjectionContext(injector, () => service.getSymbolSignalHistoryFromHistory(symbol))
         .pipe(takeUntilDestroyed(destroyRef))
         .subscribe({
           next: (signals) => {

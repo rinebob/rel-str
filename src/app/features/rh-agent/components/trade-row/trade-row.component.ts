@@ -47,7 +47,7 @@ export class TradeRowComponent implements OnInit {
   ngOnInit(): void {
     const symbol = this.row().symbol;
     if (this.row().signal) return;
-    this.service.getSymbolSignalHistory(symbol).subscribe({
+    this.service.getSymbolSignalHistoryFromHistory(symbol).subscribe({
       next: (signals) => this.signalLoaded.emit({ symbol, signal: this.findLatestSignal(signals) }),
       error: () => this.signalLoaded.emit({ symbol, signal: null }),
     });

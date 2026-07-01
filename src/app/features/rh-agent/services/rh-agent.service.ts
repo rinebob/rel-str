@@ -304,6 +304,65 @@ export class RhAgentService {
   }
 
   /**
+   * Per-symbol signal history from the canonical signal-history subcollection.
+   * Reads directly from Firestore: rh-agent-symbols/{symbol}/signal-history/*
+   * Returns all signals sorted by barDate desc.
+   */
+  getSymbolSignalHistoryFromHistory(symbol: string): Observable<RhAgentSignalItem[]> {
+    const symbolDocRef = doc(this.firestore, 'rh-agent-symbols', symbol);
+    const signalHistoryRef = collection(symbolDocRef, 'signal-history');
+
+    return from(getDocs(signalHistoryRef)).pipe(
+      map((snapshot) => {
+        const signals: RhAgentSignalItem[] = [];
+        for (const docSnap of snapshot.docs) {
+          const d = docSnap.data();
+
+          const rawSignalEntry = (entry: unknown): Partial<RhAgentSignalItem> | null => {
+            if (!entry || typeof entry !== 'object') return null;
+            const e = entry as Record<string, unknown>;
+            if (!e['signalType'] || typeof e['signalType'] !== 'string') return null;
+            return e as Partial<RhAgentSignalItem>;
+          };
+
+          const entries: Partial<RhAgentSignalItem>[] = [];
+
+          if (d['signals'] && typeof d['signals'] === 'object') {
+            for (const entry of Object.values(d['signals'])) {
+              const parsed = rawSignalEntry(entry);
+              if (parsed) entries.push(parsed);
+            }
+          }
+
+          for (const key of Object.keys(d)) {
+            if (key.startsWith('signals.') && typeof d[key] === 'object') {
+              const parsed = rawSignalEntry(d[key]);
+              if (parsed) entries.push(parsed);
+            }
+          }
+
+          for (const entry of entries) {
+            signals.push({
+              id: docSnap.id,
+              symbol: d['symbol'] ?? symbol,
+              barDate: entry.barDate ?? docSnap.id,
+              marketDate: entry.marketDate ?? '',
+              runId: d['sourceRunId'] ?? d['runId'] ?? '',
+              timeframe: entry.timeframe ?? (String(entry.signalType ?? '').startsWith('W_') ? 'W' : 'D'),
+              direction: (entry as any).action ?? entry.direction ?? 'LONG',
+              signalType: entry.signalType!,
+              status: 'CONFIRMED',
+              indicators: entry.indicators ?? {},
+            });
+          }
+        }
+        signals.sort((a, b) => b.barDate.localeCompare(a.barDate));
+        return signals;
+      })
+    );
+  }
+
+  /**
    * Trigger the company overview backfill (Phase 1).
    * Enqueues one Cloud Task per enabled symbol to fetch SA overview data.
    */
