@@ -28,8 +28,8 @@ export const RS_BARS_COLLECTION = 'rs-bars';
 const RS_BARS_SYNC_RUNS_COLLECTION = 'rs-bars-sync-runs';
 
 // Lookback windows for full backfill (in years)
-const DAILY_BACKFILL_YEARS = 3;
-const WEEKLY_BACKFILL_YEARS = 5;
+const DAILY_BACKFILL_YEARS = 7;
+const WEEKLY_BACKFILL_YEARS = 7;
 const MONTHLY_BACKFILL_YEARS = 8;
 
 // Number of bars to fetch on incremental (nightly) runs
