@@ -10,9 +10,9 @@ import { db } from '../firebase-admin-init';
 
 import {
   RH_AGENT_SYMBOLS_COLLECTION,
-  RH_AGENT_SIGNAL_DATES_SUBCOLLECTION,
+  RH_AGENT_SIGNAL_HISTORY_SUBCOLLECTION,
   RH_AGENT_RUN_IDS_SUBCOLLECTION,
-  RhAgentSignalDateDoc,
+  RhAgentSignalHistoryDoc,
   RhAgentRunIdDoc,
   RhAgentSignalEntry,
   RhAgentSymbolProfile,
@@ -163,19 +163,19 @@ export const rhAgentGetSymbolSignalHistory = onCall<
       const snapshot = await db
         .collection(RH_AGENT_SYMBOLS_COLLECTION)
         .doc(symbol)
-        .collection(RH_AGENT_SIGNAL_DATES_SUBCOLLECTION)
+        .collection(RH_AGENT_SIGNAL_HISTORY_SUBCOLLECTION)
         .get();
 
       const signals: SignalItem[] = [];
       for (const doc of snapshot.docs) {
-        const d = doc.data() as RhAgentSignalDateDoc;
-        for (const entry of Object.values(d.signals ?? {}) as RhAgentSignalEntry[]) {
+        const d = doc.data() as RhAgentSignalHistoryDoc;
+        for (const entry of Object.values(d.signals ?? {}) as (RhAgentSignalEntry & { sourceRunId: string })[]) {
           signals.push({
             id: doc.id,
             symbol: d.symbol,
             barDate: entry.barDate,
             marketDate: entry.marketDate,
-            runId: d.runId,
+            runId: entry.sourceRunId,
             timeframe: entry.timeframe,
             direction: entry.direction as string,
             signalType: entry.signalType as string,

@@ -8,10 +8,8 @@
 import { db, FieldValue } from '../firebase-admin-init';
 import {
   RH_AGENT_SYMBOLS_COLLECTION,
-  RH_AGENT_SIGNAL_DATES_SUBCOLLECTION,
   RH_AGENT_RUN_IDS_SUBCOLLECTION,
   RH_AGENT_SIGNAL_HISTORY_SUBCOLLECTION,
-  RhAgentSignalDateDoc,
   RhAgentRunIdDoc,
   RhAgentSignalHistoryDoc,
   RhAgentSignalEntry,
@@ -42,31 +40,15 @@ export class SignalDateWriter {
     runStartedAt: string,
     marketDate: string,
     entries: RhAgentSignalEntry[],
-    intraday: boolean,
+    _intraday: boolean,
     triggeredBy?: RhAgentTriggeredBy
   ): Promise<number> {
     if (entries.length === 0) return 0;
 
-    const weeklyEntries = entries.filter((e) => e.timeframe === 'W');
-    const dailyEntries = entries.filter((e) => e.timeframe === 'D');
-
-    const weeklyTypes = new Set(weeklyEntries.map((e) => e.signalType));
-    const dailyTypes = new Set(dailyEntries.map((e) => e.signalType));
-    const barDate = entries[0].barDate;
-
-    const writeSignalDate = this.writeSignalDateDoc(runId, entries);
     const writeRunId = this.writeRunIdDoc(runId, runStartedAt, marketDate, entries);
     const gateUpdate = this.updateGateDates(entries);
 
-    const clearPromises: Promise<void>[] = [];
-    if (weeklyTypes.size > 0) {
-      clearPromises.push(this.clearStaleInterimSignals(barDate, weeklyTypes));
-    }
-    if (intraday && dailyTypes.size > 0) {
-      clearPromises.push(this.clearStaleInterimSignals(barDate, dailyTypes));
-    }
-
-    const writes: Promise<any>[] = [writeSignalDate, writeRunId, gateUpdate, ...clearPromises];
+    const writes: Promise<any>[] = [writeRunId, gateUpdate];
     if (triggeredBy === 'nightly') {
       writes.push(this.writeSignalHistoryDoc(runId, entries));
     }
@@ -76,28 +58,14 @@ export class SignalDateWriter {
   }
 
   /**
-   * Delete stale INTERIM signals on a bar date that did not fire this run.
-   * The caller controls which timeframes are considered by the signal types it passes.
+   * No-op: signal-dates is no longer written to. INTERIM signals only existed
+   * in signal-dates; signal-history stores CONFIRMED signals only.
    */
   async clearStaleInterimSignals(
-    barDate: string,
-    firedSignalTypes: Set<string>
+    _barDate: string,
+    _firedSignalTypes: Set<string>
   ): Promise<void> {
-    const docRef = this.symbolRef.collection(RH_AGENT_SIGNAL_DATES_SUBCOLLECTION).doc(barDate);
-    const snap = await docRef.get();
-    if (!snap.exists) return;
-
-    const data = snap.data() as RhAgentSignalDateDoc;
-    const deletions: Record<string, any> = {};
-    for (const [signalType, entry] of Object.entries(data.signals ?? {})) {
-      if (entry.status === 'INTERIM' && !firedSignalTypes.has(signalType)) {
-        deletions[`signals.${signalType}`] = FieldValue.delete();
-      }
-    }
-
-    if (Object.keys(deletions).length > 0) {
-      await docRef.update(deletions);
-    }
+    return;
   }
 
   /**
@@ -173,39 +141,6 @@ export class SignalDateWriter {
     await Promise.all(writes);
   }
 
-  /**
-   * Merge-write the signal-date doc (date-centric path, kept for backward compatibility).
-   * Confirmed signals are never overwritten by new INTERIM entries.
-   */
-  private async writeSignalDateDoc(runId: string, entries: RhAgentSignalEntry[]): Promise<void> {
-    if (entries.length === 0) return;
-
-    const barDate = entries[0].barDate;
-    const docRef = this.symbolRef.collection(RH_AGENT_SIGNAL_DATES_SUBCOLLECTION).doc(barDate);
-
-    const existing = await docRef.get();
-    const existingData = existing.exists ? (existing.data() as RhAgentSignalDateDoc) : null;
-
-    const signalsUpdate: Record<string, any> = {};
-    for (const entry of entries) {
-      const previous = existingData?.signals?.[entry.signalType];
-      if (previous?.status === 'CONFIRMED') continue;
-      signalsUpdate[`signals.${entry.signalType}`] = entry;
-    }
-
-    if (Object.keys(signalsUpdate).length === 0) return;
-
-    await docRef.set(
-      {
-        symbol: this.symbol,
-        barDate,
-        runId,
-        updatedAt: FieldValue.serverTimestamp(),
-        ...signalsUpdate,
-      },
-      { merge: true }
-    );
-  }
 
   /**
    * Update the symbol doc's last signal date/direction fields based on the
