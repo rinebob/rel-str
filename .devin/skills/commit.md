@@ -100,3 +100,4 @@ functions/src/rh-agent-cloud-function/rh-agent-worker.ts
 - **Avoid combining unrelated refactorings.** If the branch contains both a rename
   and a logic fix, split them.
   - **Put the message body in bullet points.** Don't use paragraph style commit message bodies.  Always list the changes as bullet points.
+  - **If there is a planning doc, always add the section of the planning doc that the work pertains to.** Make sure to include the planning doc name and section number so we can track work progress in each commit.
