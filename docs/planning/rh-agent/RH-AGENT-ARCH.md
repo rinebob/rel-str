@@ -3,13 +3,12 @@
 ## What It Does
 
 A daily automated trading signal system that:
-1. Triggers automatically when SavantAPI publishes a `partner-data-ready` Pub/Sub message with `runType = "intraday-snapshot"` (typically 7 AM–12 PM PT, Mon–Fri)
-2. Fetches a bulk intraday snapshot from `callPartnerIntradaySnapshotV2` (one POST call for all symbols)
-3. Loads monitored symbols from Firestore (`rh-agent-symbols`; currently 20 test symbols, full ~700-symbol universe available via `seedAllSymbolsFromPartner`)
-4. Enqueues a Cloud Tasks job per symbol for parallel analysis, embedding the intraday snapshot in each job payload
-5. Each worker reads **pre-cached daily OHLCV bars** from `rs-symbol-cache/{marketDate}/symbols/{symbol}` (internal Firestore cache populated separately — see Data Source below), appends the intraday price, computes RSI(14) and price change, and writes trade opportunities to Firestore if signals trigger
-6. An Angular dashboard lets the user view signals, filter by symbol/type, and approve or reject trade opportunities
-7. The user can also trigger a **manual run** via the dashboard's "Run Now" button — uses the same Cloud Tasks processing as the PDR-triggered run, just with `triggeredBy: 'manual'`
+1. Triggers automatically when SavantAPI publishes a `partner-data-ready` Pub/Sub message with `runType = "intraday-snapshot"` (PDR windows: ~8:20, ~10:20, ~12:20 PM PT, Mon–Fri — SA takes ~20 min per run)
+2. Fetches a bulk intraday snapshot from `callPartnerIntradaySnapshotV2` (one POST for all ~761 symbols)
+3. Enqueues a Cloud Tasks job per symbol for parallel analysis, embedding each symbol's intraday snapshot in its own task payload
+4. Each worker reads **historical OHLCV bars** from `rs-bars/{symbol}` (populated nightly by `rsBarsSyncNightly`), injects today's intraday price as a partial bar, runs the ST-Zone-Uptick strategy, and writes signals to `rh-agent-symbols/{symbol}/signal-dates/{barDate}`
+5. Nightly after market close, `rsBarsSyncNightly` syncs real EOD bars for all symbols and auto-triggers a nightly agent run for confirmed signals
+6. An Angular dashboard lets the user view runs, signals, and triage opportunities
 
 ---
 
@@ -171,30 +170,84 @@ export const RH_AGENT_SCHEDULE_CRON = '0 20 * * 1-5'; // 8 PM UTC = 12 PM PT, Mo
 
 ## Run Flow (PDR-Triggered)
 
-1. SavantAPI publishes Pub/Sub message on `partner-data-ready` with `runType: "intraday-snapshot"`, `status: "end"`, `runStatus: "completed"`
-2. `rhAgentPdrTrigger` receives the message and validates fields
-3. Calls `callPartnerIntradaySnapshotV2(symbols)` — one bulk POST to SavantAPI for all enabled symbols
-4. Calls `startRhAgentRun(marketDate, 'pdr', intradaySnapshots)`
-5. `startRhAgentRun` loads symbols, creates run doc via `createDailyRun()` (run ID = `marketDate`), enqueues one Cloud Task per symbol with intraday snapshot in payload
-6. Each worker (`rhAgentProcessSymbol`):
-   - Reads `rs-symbol-cache/{marketDate}/symbols/{symbol}` for cached daily OHLCV bars (requires ≥ 14 bars)
-   - Uses `intraday?.ip` from payload as today's price (falls back to last historical close if missing)
-   - Computes RSI(14) from `[...historicalCloses.slice(0, 14), currentPrice]`
-   - Computes 1-day price change: `(currentPrice - previousClose) / previousClose`
-   - If RSI < 30 AND price drop > 2% → creates a `PENDING` opportunity in `rh-agent-opportunities`
-   - Increments run `processedCount`, `successCount`/`failureCount`, `opportunitiesFound`
-7. When all jobs complete → run status set to `SUCCESS` or `PARTIAL`
+1. SavantAPI publishes Pub/Sub message on `partner-data-ready` with `runType: "intraday-snapshot"`, `status: "end"`, `runStatus: "completed"`/`"completed_with_errors"`
+2. `rhAgentPdrTrigger` validates fields and applies time gate (7:55am–6:30pm PT) to reject spurious SA overnight cleanup messages
+3. Fetches bulk intraday snapshot via `callPartnerIntradaySnapshotV2(symbols)` — one POST for all ~761 symbols
+4. Calls `startRhAgentRun(marketDate, 'pdr', intradaySnapshots)` — loads symbols, creates run doc (ID = `marketDate`), enqueues one Cloud Task per symbol with **only that symbol's** intraday snapshot in the payload
+5. Each worker (`rhAgentProcessSymbol`):
+   - Reads `rs-bars/{symbol}` for historical D/W/M OHLCV bars (populated nightly)
+   - Injects `intraday.ip` from payload as a partial bar for today (replace-or-append)
+   - Runs ST-Zone-Uptick strategy against D/W/M bars
+   - Writes signals to `rh-agent-symbols/{symbol}/signal-dates/{barDate}` with status `INTERIM`
+   - Increments run counters; last worker to complete updates run status to `SUCCESS`/`PARTIAL`
+
+## Run Flow (Nightly)
+
+1. Cloud Scheduler triggers `rsBarsSyncNightly` after market close (~6 PM PT)
+2. Creates tracking doc in `rs-bars-sync-runs/{syncRunId}`; enqueues one Cloud Task per symbol to `rsBarsSyncSymbol`
+3. Each `rsBarsSyncSymbol` task syncs real EOD D/W/M bars from SA into `rs-bars/{symbol}`, increments `processedCount`
+4. When `processedCount >= totalSymbols` → auto-calls `startRhAgentRun(marketDate, 'nightly')`
+5. Workers run same strategy; signals written with status `CONFIRMED` (daily) or `INTERIM`→`CONFIRMED` (weekly, after 7 days)
 
 ---
 
 ## Data Source
 
-The worker reads from `rs-symbol-cache/{marketDate}/symbols/{symbol}` — an internal Firestore collection populated by a **separate process** (`rs-time-series-jobs.worker.ts`). Each document contains a `dailyBars` array of OHLCV objects (fields: `close`/`c`, `date`/`t`).
+Workers read from `rs-bars/{symbol}` — a single Firestore doc per symbol containing `daily`, `weekly`, `monthly` OHLCV arrays. Populated nightly by `rsBarsSyncNightly`.
 
-- This cache must be populated before the PDR intraday-snapshot trigger fires for the run to find historical data
-- Today's intraday price comes from the **job payload** (`intraday.ip`), which was fetched in bulk by `rhAgentPdrTrigger` via `callPartnerIntradaySnapshotV2` — workers do not make any external API calls for price data
-- `REQUIRE_FRESH_DATA` flag in `rh-agent-worker.ts` (currently `false`) can be set to `true` in production to enforce that the most recent cached bar matches `marketDate`
-- The Robinhood API / MCP server is **not used** for price data — only the internal cache and SavantAPI intraday snapshot
+- `daily` array contains ~500 EOD bars (the `d` field is `YYYY-MM-DD`)
+- Today's intraday price (`intraday.ip`) comes from the **job payload** and is injected as a partial bar inside the worker — workers make no external API calls
+- `REQUIRE_FRESH_DATA` flag in `rh-agent-worker.ts` (currently `false`) — set to `true` to enforce that the last bar date matches `marketDate`
+- The Robinhood API / MCP server is **not used** for price data
+
+### Intraday Bar Injection (worker responsibility)
+
+The worker receives `intraday: IntradaySnapshot` in its Cloud Task payload and injects it as today's partial bar into the `daily` array before running strategy:
+
+```
+partialBar = { d: marketDate, o: ip, h: ip, l: ip, c: ip }
+if daily.last.d === marketDate → replace last bar
+else → append
+```
+
+This keeps the trigger stateless with respect to `rs-bars` — it never reads or writes Firestore docs during the intraday fetch phase, eliminating the ~761 concurrent Firestore reads that caused OOM crashes at 1GiB.
+
+> **Historical note:** Prior to this refactor, `rhAgentPdrTrigger` called `writeIntradayBarsToRsBars()` to pre-write all 761 partial bars to Firestore before enqueueing workers. This required reading each symbol's full `daily` array (~64KB) to perform the replace-or-append check, causing the trigger function to exceed its 1GiB memory limit. The fix moves the bar injection into each worker, which already has the intraday snapshot in its payload.
+
+---
+
+## Pending Work (cross-plan summary)
+
+### 1. Frontend chart → rs-bars (Layer 3 migration) ❌ Not started
+`signal-detail.component` imports `HeatmapChartStore` solely to fetch OHLC price bars from SA for chart rendering. The intent is to replace this with a read from `rs-bars` Firestore docs (the same data the backend workers use), eliminating the SA round-trip.
+
+- **Correct fix:** create a shared `SaDataService` (or `RsBarsService`) in `src/app/core/services/` that reads `rs-bars/{symbol}` and builds D/W/M bar arrays for the chart.
+- **Files tagged:** `// @techdebt PRICE-BAR-SERVICE` in `signal-detail.component.ts` and `RH-AGENT-DASHBOARD-RUN-EXPLORER-PLAN.md`.
+- **Note:** `rs-bars` does not contain today's intraday bar (removed by the Jul 2026 refactor). The chart service will call `rhAgentGetIntradaySnapshot` to synthesize daily/weekly/monthly partial bars client-side when `lastEodSyncAt < today`.
+- **Plan doc:** `RH-AGENT-RS-BARS-CHART-MIGRATION-PLAN.md`
+
+### 2. Run-centric signal storage migration ✅ Complete
+`SignalDateWriter` writes signals to `rh-agent-symbols/{symbol}/run-ids/{runId}`. Frontend `getSymbolsWithSignals(runId, timeframe)` passes `runId` to the callable. `RhAgentGroupStore.setActiveRun` and `loadSymbolsWithSignals` are fully wired.
+
+### 3. Signal history canonicalization ✅ Complete
+`SignalDateWriter.writeSignalHistoryDoc` writes confirmed signals to `signal-history/{date}` for nightly runs (`triggeredBy === 'nightly'`). Both `RH_AGENT_RUN_IDS_SUBCOLLECTION` and `RH_AGENT_SIGNAL_HISTORY_SUBCOLLECTION` constants are defined in `rh-agent-config.ts`.
+
+### 4. Nightly run resilience ⏳ On standby
+`RH-AGENT-NIGHTLY-RESILIENCE-PLAN.md` defines three mitigations. Implement only if nightly failures are observed.
+
+- **2B** (fallback scheduler at 3 AM UTC) — 30 lines, implement first if needed
+- **1A** (gap fill validator at 4:30 AM UTC) — implement if partial failures observed
+- **4A** (strategy version field) — low effort, implement alongside 1A
+
+### 5. PACR persistence — remaining items ⏳ Partial
+From `RH-AGENT-PACR-PERSISTENCE-PLAN.md`:
+- ⏳ **Phase 4:** worker filtering of `EXCLUDED` symbols not yet implemented
+- ⏳ **Phase 5:** `/rh-agent-universe` page, CSV import, export not built
+- ⏳ **Firestore rules/indexes** for `rh-agent-triage-decisions` and `rh-agent-symbol-meta` not added
+
+### 6. Signal grouping plan — remaining items ⏳ Partial
+From `RH-AGENT-SIGNAL-GROUPING-PLAN.md`:
+- ⏳ Firestore composite indexes not added (blocked on query patterns stabilizing with run-centric model)
 
 ---
 

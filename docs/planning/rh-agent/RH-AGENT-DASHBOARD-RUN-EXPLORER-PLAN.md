@@ -1,6 +1,6 @@
 # RH Agent Dashboard — Run Explorer Plan
 
-**Status:** Planning / Ready to implement  
+**Status:** UI complete (Phases 1–4 done). Run-centric signal storage migration pending (see "Run-Centric Signal Model" section).  
 **Created:** 2026-06-29  
 **Related docs:**
 - `RH-AGENT-REFACTOR-PLAN.md` (Phase 3 dashboard work is complete)
