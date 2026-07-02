@@ -9,10 +9,12 @@ import {
   Component,
   ElementRef,
   inject,
+  Injector,
   OnInit,
   OnDestroy,
   ChangeDetectionStrategy,
   computed,
+  effect,
   signal,
   viewChild,
 } from '@angular/core';
@@ -23,6 +25,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Router } from '@angular/router';
 
 import { RhAgentGroupStore, RhSymbolGroup, RhSymbolRow } from '../../stores/rh-agent-group.store';
+import { RhAgentStore } from '../../stores/rh-agent.store';
 import { GroupDimension } from '../../common/rh-agent.constants';
 import { RhAgentTriageStore } from '../../stores/rh-agent-triage.store';
 import { RhAgentSymbolListStore } from '../../stores/rh-agent-symbol-list.store';
@@ -55,6 +58,8 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
   readonly symbolListStore = inject(RhAgentSymbolListStore);
   readonly historyStore = inject(RhAgentSymbolHistoryStore);
   readonly uiState = inject(UiStateService);
+  private readonly agentStore = inject(RhAgentStore);
+  private readonly injector = inject(Injector);
   private readonly router = inject(Router);
 
   /** Scroll container ref for scroll-into-view on navigation. */
@@ -111,8 +116,20 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
     this.uiState.setFullscreen(true);
     const runId = this.groupStore.activeRunId();
     const marketDate = this.groupStore.activeRunMarketDate();
-    if (runId && marketDate) this.triageStore.setActiveRun(runId, marketDate);
-    this.groupStore.loadSymbolsWithSignals();
+    if (runId && marketDate) {
+      this.triageStore.setActiveRun(runId, marketDate);
+      this.groupStore.loadSymbolsWithSignals();
+    } else {
+      // Direct page reload — activeRunId not yet set. Start runs stream and
+      // auto-select the most recent run when it arrives.
+      this.agentStore.loadData();
+      effect(() => {
+        const latest = this.agentStore.latestRun();
+        if (!latest) return;
+        if (this.groupStore.activeRunId()) return;
+        this.groupStore.setActiveRun(latest.id, latest.marketDate ?? '');
+      }, { injector: this.injector });
+    }
   }
 
   /** Leave fullscreen mode when the page is destroyed. */
@@ -155,8 +172,9 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
     for (const g of groups) {
       record[g.key] = next;
       if (next) {
+        const runId = this.groupStore.activeRunId();
         for (const row of g.rows) {
-          if (!row.signals) this.historyStore.loadSignalHistory(row.profile.symbol);
+          if (!row.signals && runId) this.historyStore.loadSignalHistoryForRun(row.profile.symbol, runId);
         }
       }
     }
@@ -170,9 +188,10 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
 
   /** Preload signal history for every row when a group is opened. */
   onGroupOpened(group: RhSymbolGroup): void {
+    const runId = this.groupStore.activeRunId();
     for (const row of group.rows) {
-      if (!row.signals) {
-        this.historyStore.loadSignalHistory(row.profile.symbol);
+      if (!row.signals && runId) {
+        this.historyStore.loadSignalHistoryForRun(row.profile.symbol, runId);
       }
     }
   }
@@ -184,9 +203,10 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
     const nextExpand = event.expand;
     this.expandedGroups.set({ ...current, [event.group.key]: nextExpand });
     if (nextExpand && !isExpanded) {
+      const runId = this.groupStore.activeRunId();
       for (const row of event.group.rows) {
-        if (!row.signals) {
-          this.historyStore.loadSignalHistory(row.profile.symbol);
+        if (!row.signals && runId) {
+          this.historyStore.loadSignalHistoryForRun(row.profile.symbol, runId);
         }
       }
     }

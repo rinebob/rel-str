@@ -180,6 +180,12 @@ export const RhAgentGroupStore = signalStore(
             const symbols = [...map.values()];
             patchState(state, { signalSymbols: symbols, symbolsLoading: false });
             symbolListStore.loadSymbolLists();
+            const runId = state.activeRunId();
+            if (runId) {
+              for (const s of symbols) {
+                historyStore.loadSignalHistoryForRun(s.symbol, runId);
+              }
+            }
           },
           error: (err: unknown) => {
             const message = err instanceof Error ? err.message : 'Load failed';
@@ -299,13 +305,17 @@ export const RhAgentGroupStore = signalStore(
           (a, b) => (b.profile.marketCap ?? 0) - (a.profile.marketCap ?? 0)
         );
 
-        const rows: RhSymbolRow[] = sorted.map((item) => ({
-          profile: item.profile,
-          hasSignal: item.hasSignal,
-          signals: historyCache[item.profile.symbol],
-          signalsLoading: historyLoading[item.profile.symbol] ?? false,
-          reviewStatus: statuses[item.profile.symbol] ?? 'PENDING',
-        }));
+        const runId = state.activeRunId();
+        const rows: RhSymbolRow[] = sorted.map((item) => {
+          const cacheKey = runId ? `${item.profile.symbol}::${runId}` : item.profile.symbol;
+          return {
+            profile: item.profile,
+            hasSignal: item.hasSignal,
+            signals: historyCache[cacheKey],
+            signalsLoading: historyLoading[cacheKey] ?? false,
+            reviewStatus: statuses[item.profile.symbol] ?? 'PENDING',
+          };
+        });
 
         // Count long/short from both timeframes
         const longCount = rows.filter((r) =>

@@ -6,7 +6,7 @@
  */
 import { Injectable, inject } from '@angular/core';
 import { Functions, httpsCallable } from '@angular/fire/functions';
-import { Firestore, collection, collectionData, query, where, orderBy, limit, doc, getDocs } from '@angular/fire/firestore';
+import { Firestore, collection, collectionData, query, where, orderBy, limit, doc, getDocs, getDoc } from '@angular/fire/firestore';
 import { Observable, from, map } from 'rxjs';
 
 /**
@@ -332,6 +332,43 @@ export class RhAgentService {
   }
 
   /**
+   * Signals for a specific run from rh-agent-symbols/{symbol}/run-ids/{runId}.
+   * Used by grouped review to show only the signals produced by the active run.
+   */
+  getSymbolSignalsForRun(symbol: string, runId: string): Observable<RhAgentSignalItem[]> {
+    const runDocRef = doc(this.firestore, 'rh-agent-symbols', symbol, 'run-ids', runId);
+    return from(getDoc(runDocRef)).pipe(
+      map((snap: any) => {
+        if (!snap.exists()) return [];
+        const d = snap.data();
+        const signals: RhAgentSignalItem[] = [];
+
+        // Signals are stored as dot-notation top-level fields: signals.D_ZONE_V1, signals.W_ZONE_V2 etc.
+        for (const key of Object.keys(d)) {
+          if (!key.startsWith('signals.')) continue;
+          const entry = d[key];
+          if (!entry || typeof entry !== 'object') continue;
+          if (!entry['signalType']) continue;
+          signals.push({
+            id:         entry['barDate']    ?? runId,
+            symbol,
+            barDate:    entry['barDate']    ?? '',
+            marketDate: entry['marketDate'] ?? d['marketDate'] ?? '',
+            runId,
+            timeframe:  entry['timeframe']  ?? 'D',
+            direction:  entry['direction']  ?? 'LONG',
+            signalType: entry['signalType'],
+            status:     entry['status']     ?? 'INTERIM',
+            indicators: entry['indicators'] ?? {},
+          });
+        }
+        signals.sort((a, b) => b.barDate.localeCompare(a.barDate));
+        return signals;
+      })
+    );
+  }
+
+  /**
    * Per-symbol signal history from the canonical signal-history subcollection.
    * Reads directly from Firestore: rh-agent-symbols/{symbol}/signal-history/*
    * Returns all signals sorted by barDate desc.
@@ -340,7 +377,8 @@ export class RhAgentService {
     const symbolDocRef = doc(this.firestore, 'rh-agent-symbols', symbol);
     const signalHistoryRef = collection(symbolDocRef, 'signal-history');
 
-    return from(getDocs(signalHistoryRef)).pipe(
+    const recentQuery = query(signalHistoryRef, orderBy('date', 'desc'));
+    return from(getDocs(recentQuery)).pipe(
       map((snapshot) => {
         const signals: RhAgentSignalItem[] = [];
         for (const docSnap of snapshot.docs) {

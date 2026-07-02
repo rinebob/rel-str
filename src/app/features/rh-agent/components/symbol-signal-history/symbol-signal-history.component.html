@@ -5,7 +5,7 @@
   } @else if (signals.length === 0) {
     <span class="no-signals">No signal history found</span>
   } @else {
-    @for (sig of signals; track $index) {
+    @for (sig of recentSignals(); track $index) {
       <div class="signal-history-row">
         <span class="sh-date">{{ sig.barDate }}</span>
         <span class="sh-tf">{{ sig.timeframe }}</span>

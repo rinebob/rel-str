@@ -4,7 +4,7 @@
  * Displays the signal history for a single symbol row, including loading,
  * empty, and populated states.
  */
-import { Component, ChangeDetectionStrategy, input } from '@angular/core';
+import { Component, ChangeDetectionStrategy, computed, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { RhSymbolRow } from '../../stores/rh-agent-group.store';
@@ -18,4 +18,6 @@ import { RhSymbolRow } from '../../stores/rh-agent-group.store';
 })
 export class SymbolSignalHistoryComponent {
   row = input.required<RhSymbolRow>();
+
+  readonly recentSignals = computed(() => (this.row().signals ?? []).slice(0, 10));
 }

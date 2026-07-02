@@ -40,6 +40,39 @@ export const RhAgentSymbolHistoryStore = signalStore(
 
   withMethods((state, service = inject(RhAgentService), destroyRef = inject(DestroyRef), injector = inject(EnvironmentInjector)) => ({
     /**
+     * Load signals for a symbol from a specific run (run-ids/{runId}).
+     * Used by grouped review — shows only signals from the active run.
+     * Cache key: `${symbol}::${runId}` to avoid conflicts with all-history cache.
+     */
+    loadSignalHistoryForRun(symbol: string, runId: string): void {
+      const cacheKey = `${symbol}::${runId}`;
+      if (state.signalHistoryCache()[cacheKey] !== undefined) return;
+      if (state.signalHistoryLoading()[cacheKey]) return;
+
+      patchState(state, {
+        signalHistoryLoading: { ...state.signalHistoryLoading(), [cacheKey]: true },
+      });
+
+      runInInjectionContext(injector, () => service.getSymbolSignalsForRun(symbol, runId))
+        .pipe(takeUntilDestroyed(destroyRef))
+        .subscribe({
+          next: (signals) => {
+            patchState(state, {
+              signalHistoryCache: { ...state.signalHistoryCache(), [cacheKey]: signals },
+              signalHistoryLoading: { ...state.signalHistoryLoading(), [cacheKey]: false },
+            });
+          },
+          error: (err: unknown) => {
+            patchState(state, {
+              signalHistoryCache: { ...state.signalHistoryCache(), [cacheKey]: [] },
+              signalHistoryLoading: { ...state.signalHistoryLoading(), [cacheKey]: false },
+            });
+            console.error(`[RhAgentSymbolHistoryStore] Failed to load run signals for ${symbol}:`, err);
+          },
+        });
+    },
+
+    /**
      * Load signal history for a symbol into the cache.
      * Reads all signals (W + D) directly from the Firestore subcollection.
      * If the symbol is already cached, this is a no-op.
