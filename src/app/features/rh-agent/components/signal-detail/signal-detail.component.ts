@@ -11,7 +11,8 @@
  * and signal/uptick dots) are computed from the chart store data and injected into the
  * base indicator list before being passed to the flex chart component.
  */
-import { Component, inject, ChangeDetectionStrategy, output, effect, computed, signal, input } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy, output, computed, signal, input } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -19,10 +20,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-// @techdebt PRICE-BAR-SERVICE — rh-agent should not depend on heatmap-chart for price bars.
-// HeatmapChartStore is used here solely for OHLC bar fetching (full SA history for chart rendering).
-// Replace with a shared `SaDataService` in `src/app/core/services/` once created.
-import { HeatmapChartStore } from '../../../heatmap-chart/heatmap-chart.store';
+import { RhAgentChartService } from '../../services/rh-agent-chart.service';
+import type { ChartDataset } from '../../../heatmap-chart/heatmap-chart.types';
+import { filter, switchMap, catchError } from 'rxjs/operators';
+import { of } from 'rxjs';
 import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-chart.component';
 import { BarsInterval } from '../../../../core/models/partner.types';
 import { UiStateService } from '../../../../core/services/ui-state.service';
@@ -57,7 +58,7 @@ import { RhAgentSymbolHistoryStore } from '../../stores/rh-agent-symbol-history.
   styleUrl: './signal-detail.component.scss',
 })
 export class SignalDetailComponent {
-  readonly chartStore = inject(HeatmapChartStore);
+  private readonly chartService = inject(RhAgentChartService);
   readonly uiState = inject(UiStateService);
   readonly historyStore = inject(RhAgentSymbolHistoryStore);
 
@@ -73,10 +74,10 @@ export class SignalDetailComponent {
 
   /** Show chart when a manual symbol is entered */
   showChart = computed(() => !!this.manualSymbol());
-  chartData = this.chartStore.chartData;
-  chartDataWeekly = this.chartStore.chartDataWeekly;
-  chartDataMonthly = this.chartStore.chartDataMonthly;
-  chartLoading = this.chartStore.loading;
+  chartData = signal<ChartDataset | null>(null);
+  chartDataWeekly = signal<ChartDataset | null>(null);
+  chartDataMonthly = signal<ChartDataset | null>(null);
+  chartLoading = signal(false);
 
   /** Shared crosshair date for syncing across triple charts */
   crosshairDate = signal<Date | null>(null);
@@ -356,24 +357,25 @@ export class SignalDetailComponent {
 
   /**
    * Load chart data when a manual symbol is supplied (review page / order page).
-   * Single mode loads one interval; triple mode loads D/W/M simultaneously.
+   * Reads all three intervals from rs-bars in one Firestore fetch.
+   * switchMap cancels any in-flight fetch when the symbol changes.
    */
   constructor() {
-    effect(() => {
-      const symbol = this.manualSymbol();
-      if (symbol) {
+    toObservable(this.manualSymbol).pipe(
+      filter((symbol): symbol is string => !!symbol),
+      switchMap(symbol => {
         this.historyStore.loadSignalHistory(symbol);
-        const interval = this.selectedInterval();
-        this.chartStore.loadData({
-          baseline: 'SPY',
-          symbol,
-          interval,
-        });
-        const layout = this.uiState.chartLayout();
-        if (layout === 'triple') {
-          this.chartStore.loadTripleData();
-        }
-      }
+        this.chartLoading.set(true);
+        return this.chartService.loadBars$(symbol).pipe(
+          catchError(() => of(null))
+        );
+      }),
+      takeUntilDestroyed(),
+    ).subscribe(datasets => {
+      this.chartData.set(datasets?.daily ?? null);
+      this.chartDataWeekly.set(datasets?.weekly ?? null);
+      this.chartDataMonthly.set(datasets?.monthly ?? null);
+      this.chartLoading.set(false);
     });
   }
 }
