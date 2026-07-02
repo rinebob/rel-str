@@ -50,7 +50,10 @@
 .col-progress     { font-variant-numeric: tabular-nums; }
 .col-signals      { font-variant-numeric: tabular-nums; font-weight: 600; }
 .col-duration     { font-variant-numeric: tabular-nums; color: var(--mat-sys-on-surface-variant); }
-.col-actions      { width: 64px; }
+.col-actions {
+  width: 64px;
+  white-space: nowrap;
+}
 
 .trigger-badge {
   font-size: 9px;
@@ -65,19 +68,43 @@
   &.trigger-nightly { background: #f3e5f5; color: #6a1b9a; }
 }
 
+.actions-cell {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .review-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 28px;
   height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  color: var(--mat-sys-on-surface-variant);
+  transition: background 0.1s;
+  flex-shrink: 0;
 
   mat-icon { font-size: 16px; width: 16px; height: 16px; }
+
+  &:hover { background: var(--mat-sys-surface-container-high); }
 }
 
 .expand-icon {
+  font-family: 'Material Icons';
   font-size: 16px;
-  width: 16px;
-  height: 16px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--mat-sys-on-surface-variant);
-  vertical-align: middle;
+  pointer-events: none;
+  user-select: none;
 }
 
 .run-detail-row td {

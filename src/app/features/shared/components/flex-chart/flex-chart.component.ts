@@ -481,6 +481,7 @@ export class FlexChartComponent implements OnDestroy {
         majorGridLines: { width: 0.5, color: 'rgba(158,158,158,0.3)' },
         lineStyle: { width: 1, color: '#9e9e9e' },
         crosshairTooltip: { enable: false },
+        rangePadding: 'None',
         stripLines,
       };
     });
@@ -493,7 +494,7 @@ export class FlexChartComponent implements OnDestroy {
 
     // Lower panes at bottom, main pane on top
     // Row order in array: [lower-1, lower-2, ..., main]
-    const lowerPct = Math.floor(40 / lowerCount);
+    const lowerPct = Math.floor(55 / lowerCount);
     const rows: { height: string }[] = [];
     for (let i = 0; i < lowerCount; i++) {
       rows.push({ height: `${lowerPct}%` });

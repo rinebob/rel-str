@@ -38,14 +38,14 @@
             <td class="col-signals">{{ run.signalsGenerated ?? 0 }}</td>
             <td class="col-duration">{{ formatDuration(run) }}</td>
             <td class="col-actions">
-              <button mat-icon-button class="review-btn"
-                matTooltip="Review signals from this run"
-                (click)="reviewSignals(run, $event)">
-                <mat-icon>manage_search</mat-icon>
-              </button>
-              <mat-icon class="expand-icon">
-                {{ expandedRunId() === run.id ? 'expand_less' : 'expand_more' }}
-              </mat-icon>
+              <div class="actions-cell">
+                <button class="review-btn"
+                  matTooltip="Review signals from this run"
+                  (click)="reviewSignals(run, $event)">
+                  <mat-icon>manage_search</mat-icon>
+                </button>
+                <span class="expand-icon">{{ expandedRunId() === run.id ? 'expand_less' : 'expand_more' }}</span>
+              </div>
             </td>
           </tr>
 
