@@ -35,6 +35,7 @@ export enum StIndicator {
   SIGNAL_DOTS      = 'st-signal-dots',
   ZONE_UPTICK_DOTS = 'st-zone-uptick-dots',
   TRIGGER_BAND     = 'st-trigger-band',
+  TREND_BAND_WIDTH = 'st-trend-band-width',
 }
 
 /** Indicator types supported */

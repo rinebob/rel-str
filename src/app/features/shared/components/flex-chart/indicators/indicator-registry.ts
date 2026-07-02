@@ -16,6 +16,7 @@ export { ST_TREND_STRENGTH_INDICATOR, calculateStTrendStrength } from './st-tren
 export { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR, computeZoneWindowData } from './st-zone-window.indicator';
 export { ST_SIGNAL_DOTS_INDICATOR, computeSignalDots } from './st-signal-dots.indicator';
 export { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, detectZoneUptickDots } from './st-zone-uptick-dots.indicator';
+export { ST_TREND_BAND_WIDTH_INDICATOR, calculateStTrendBandWidth, computeBandWidthDots } from './st-trend-band-width.indicator';
 
 import type { IndicatorOption, IndicatorCalculator, IndicatorConfig, SeriesType, IndicatorType } from '../flex-chart.types';
 import { StIndicator } from '../flex-chart.types';
@@ -29,6 +30,7 @@ import { ST_TREND_STRENGTH_INDICATOR, calculateStTrendStrength } from './st-tren
 import { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR } from './st-zone-window.indicator';
 import { ST_SIGNAL_DOTS_INDICATOR } from './st-signal-dots.indicator';
 import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR } from './st-zone-uptick-dots.indicator';
+import { ST_TREND_BAND_WIDTH_INDICATOR, calculateStTrendBandWidth } from './st-trend-band-width.indicator';
 
 /** ST-only indicators for the checkbox toggle menu */
 export const ST_INDICATOR_OPTIONS: IndicatorOption[] = [
@@ -41,6 +43,7 @@ export const ST_INDICATOR_OPTIONS: IndicatorOption[] = [
   ST_SIGNAL_DOTS_INDICATOR,
   ST_ZONE_V1_UPTICK_DOTS_INDICATOR,
   ST_ZONE_V2_UPTICK_DOTS_INDICATOR,
+  ST_TREND_BAND_WIDTH_INDICATOR,
 ];
 
 /** Calculator map — keyed by IndicatorType, used by computeIndicators() */
@@ -51,7 +54,8 @@ export const indicatorCalculators: Record<string, IndicatorCalculator> = {
   [StIndicator.TREND_BANDS]:    calculateStTrendBands,
   [StIndicator.ZONE]:           calculateStZone,
   [StIndicator.ZONE_V2]:        calculateStZoneV2,
-  [StIndicator.TREND_STRENGTH]: calculateStTrendStrength,
+  [StIndicator.TREND_STRENGTH]:   calculateStTrendStrength,
+  [StIndicator.TREND_BAND_WIDTH]:  calculateStTrendBandWidth,
 };
 
 /** Default series type per indicator type */
@@ -62,7 +66,8 @@ const SERIES_TYPE_MAP: Partial<Record<IndicatorType, SeriesType>> = {
   [StIndicator.ZONE_V2]:          'scatter',
   [StIndicator.ZONE_WINDOW]:      'scatter',
   [StIndicator.SIGNAL_DOTS]:      'scatter',
-  [StIndicator.ZONE_UPTICK_DOTS]: 'scatter',
+  [StIndicator.ZONE_UPTICK_DOTS]:  'scatter',
+  [StIndicator.TREND_BAND_WIDTH]:   'column',
 };
 
 /** Build an IndicatorConfig from an IndicatorOption using its declared defaults */

@@ -301,3 +301,92 @@ export function computeStTrendBands(bars: OHLCV[]): TrendBandsResult {
     band4: computeHtfBand(bars, HTF_SLOW_LENGTH, HTF_SLOW_LENGTH),
   };
 }
+
+// =============================================================================
+// ST-TREND-BAND-WIDTH: Compression → Expansion → Pullback regime detection
+// =============================================================================
+
+/** Parameters for computeTrendBandWidth */
+export interface TrendBandWidthParams {
+  N: number;                  // lookback for ratio and rolling min/max (default: 10)
+  expansionThreshold: number; // expansionRatio must exceed this to count as a spike (default: 1.25)
+  retainThreshold: number;    // expansionRatio must stay above this at signal bar (default: 1.10)
+  maxPullbackBars: number;    // spike must have occurred within this many bars (default: 10)
+}
+
+/** Per-bar output of the ST-TrendBandWidth derived series */
+export interface TrendBandWidthResult {
+  width:            number[];   // raw total span: max(all band highs) - min(all band lows)
+  expansionRatio:   number[];   // width[i] / width[i-N] — how much wider now vs N bars ago
+  spiked:           boolean[];  // expansionRatio > expansionThreshold
+  barsSinceSpike:   number[];   // bars elapsed since last spiked=true
+  recentlyExpanded: boolean[];  // barsSinceSpike <= maxPullbackBars
+  stillElevated:    boolean[];  // expansionRatio > retainThreshold
+  validSetup:       boolean[];  // recentlyExpanded && stillElevated — the regime gate
+}
+
+const DEFAULT_WIDTH_PARAMS: TrendBandWidthParams = {
+  N:                  10,
+  expansionThreshold: 1.25,
+  retainThreshold:    1.10,
+  maxPullbackBars:    10,
+};
+
+/**
+ * Compute ST-TrendBandWidth from an existing TrendBandsResult.
+ *
+ * Derived series only — no new indicator math. One pass over band high/low arrays.
+ * validSetup[i] is true when a recent expansion spike is still elevated at bar i,
+ * identifying the compression → expansion → pullback regime for high-probability entries.
+ *
+ * @param bands  - Output of computeStTrendBands()
+ * @param params - Optional overrides for thresholds and lookback
+ */
+export function computeTrendBandWidth(
+  bands: TrendBandsResult,
+  params: Partial<TrendBandWidthParams> = {},
+): TrendBandWidthResult {
+  const { N, expansionThreshold, retainThreshold, maxPullbackBars } = { ...DEFAULT_WIDTH_PARAMS, ...params };
+
+  const { band1, band2, band3, band4 } = bands;
+  const len = band1.h.length;
+
+  const width            = new Array<number>(len).fill(NaN);
+  const expansionRatio   = new Array<number>(len).fill(NaN);
+  const spiked           = new Array<boolean>(len).fill(false);
+  const barsSinceSpike   = new Array<number>(len).fill(Infinity);
+  const recentlyExpanded = new Array<boolean>(len).fill(false);
+  const stillElevated    = new Array<boolean>(len).fill(false);
+  const validSetup       = new Array<boolean>(len).fill(false);
+
+  // Pass 1: compute raw width per bar
+  for (let i = 0; i < len; i++) {
+    const maxH = Math.max(band1.h[i], band2.h[i], band3.h[i], band4.h[i]);
+    const minL = Math.min(band1.l[i], band2.l[i], band3.l[i], band4.l[i]);
+    if (isFinite(maxH) && isFinite(minL)) {
+      width[i] = maxH - minL;
+    }
+  }
+
+  // Pass 2: compute derived series
+  let lastSpikeBar = -Infinity;
+
+  for (let i = N; i < len; i++) {
+    const w    = width[i];
+    const wN   = width[i - N];
+
+    if (isNaN(w) || isNaN(wN) || wN === 0) continue;
+
+    expansionRatio[i] = w / wN;
+    spiked[i]         = expansionRatio[i] > expansionThreshold;
+
+    if (spiked[i]) lastSpikeBar = i;
+
+    barsSinceSpike[i]   = i - lastSpikeBar;
+    recentlyExpanded[i] = barsSinceSpike[i] <= maxPullbackBars;
+    stillElevated[i]    = expansionRatio[i] > retainThreshold;
+    validSetup[i]       = recentlyExpanded[i] && stillElevated[i];
+  }
+
+  return { width, expansionRatio, spiked, barsSinceSpike, recentlyExpanded, stillElevated, validSetup };
+}

@@ -41,14 +41,20 @@ export enum StSignalDirection {
  * Format: {TIMEFRAME}_{INDICATOR}_{VERSION}_{DIRECTION}
  */
 export enum StSignalType {
-  D_ZONE_V1_UPTICK   = 'D_ZONE_V1_UPTICK',
-  D_ZONE_V1_DOWNTICK = 'D_ZONE_V1_DOWNTICK',
-  D_ZONE_V2_UPTICK   = 'D_ZONE_V2_UPTICK',
-  D_ZONE_V2_DOWNTICK = 'D_ZONE_V2_DOWNTICK',
-  W_ZONE_V1_UPTICK   = 'W_ZONE_V1_UPTICK',
-  W_ZONE_V1_DOWNTICK = 'W_ZONE_V1_DOWNTICK',
-  W_ZONE_V2_UPTICK   = 'W_ZONE_V2_UPTICK',
-  W_ZONE_V2_DOWNTICK = 'W_ZONE_V2_DOWNTICK',
+  D_ZONE_V1_UPTICK      = 'D_ZONE_V1_UPTICK',
+  D_ZONE_V1_DOWNTICK    = 'D_ZONE_V1_DOWNTICK',
+  D_ZONE_V2_UPTICK      = 'D_ZONE_V2_UPTICK',
+  D_ZONE_V2_DOWNTICK    = 'D_ZONE_V2_DOWNTICK',
+  W_ZONE_V1_UPTICK      = 'W_ZONE_V1_UPTICK',
+  W_ZONE_V1_DOWNTICK    = 'W_ZONE_V1_DOWNTICK',
+  W_ZONE_V2_UPTICK      = 'W_ZONE_V2_UPTICK',
+  W_ZONE_V2_DOWNTICK    = 'W_ZONE_V2_DOWNTICK',
+  // Counter-trend longs: HTF zone is negative but LTF zone is upticking
+  // Backtest shows these have equal or better win rate than with-trend longs
+  D_ZONE_V1_CT_UPTICK   = 'D_ZONE_V1_CT_UPTICK',
+  D_ZONE_V2_CT_UPTICK   = 'D_ZONE_V2_CT_UPTICK',
+  W_ZONE_V1_CT_UPTICK   = 'W_ZONE_V1_CT_UPTICK',
+  W_ZONE_V2_CT_UPTICK   = 'W_ZONE_V2_CT_UPTICK',
 }
 
 /**
