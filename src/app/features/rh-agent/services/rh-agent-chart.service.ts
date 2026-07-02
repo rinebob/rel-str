@@ -124,8 +124,11 @@ export class RhAgentChartService {
     return from(this.fetchRsBarsDoc(symbol)).pipe(
       switchMap(rsBarsDoc => {
         if (!rsBarsDoc) {
+          console.warn('[RhAgentChartService] rs-bars doc not found for', symbol);
           return of(this.emptyDatasets(symbol));
         }
+
+        console.log('[RhAgentChartService] doc found', symbol, 'daily bars:', rsBarsDoc.daily?.length, 'lastEodSyncAt:', rsBarsDoc.lastEodSyncAt);
 
         const today = todayIso();
         const needsIntraday = this.needsIntradayFetch(rsBarsDoc, today);
@@ -134,18 +137,26 @@ export class RhAgentChartService {
           return of(this.buildDatasets(symbol, rsBarsDoc.daily, rsBarsDoc.weekly, rsBarsDoc.monthly));
         }
 
+        console.log('[RhAgentChartService] fetching intraday for', symbol);
         return this.rhAgentService.getIntradaySnapshot$(symbol).pipe(
           map(snapshot => {
+            console.log('[RhAgentChartService] intraday snapshot', symbol, 'ip:', snapshot.ip);
             const ip = snapshot.ip;
             if (ip === null) {
               return this.buildDatasets(symbol, rsBarsDoc.daily, rsBarsDoc.weekly, rsBarsDoc.monthly);
             }
             return this.buildDatasetsWithIntraday(symbol, rsBarsDoc.daily, rsBarsDoc.weekly, rsBarsDoc.monthly, ip, today);
           }),
-          catchError(() => of(this.buildDatasets(symbol, rsBarsDoc.daily, rsBarsDoc.weekly, rsBarsDoc.monthly)))
+          catchError(err => {
+            console.error('[RhAgentChartService] intraday callable failed', symbol, err);
+            return of(this.buildDatasets(symbol, rsBarsDoc.daily, rsBarsDoc.weekly, rsBarsDoc.monthly));
+          })
         );
       }),
-      catchError(() => of(this.emptyDatasets(symbol)))
+      catchError(err => {
+        console.error('[RhAgentChartService] fetchRsBarsDoc failed', symbol, err);
+        return of(this.emptyDatasets(symbol));
+      })
     );
   }
 

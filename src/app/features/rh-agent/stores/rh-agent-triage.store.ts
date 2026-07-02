@@ -169,7 +169,8 @@ export const RhAgentTriageStore = signalStore(
         next: (decisions) => {
           let persisted = state.persistedStatuses();
           const currentStatuses = { ...state.statuses() };
-          const currentDate = state.activeMarketDate();
+          // Fall back to endDate when activeMarketDate is not yet set (e.g. direct page reload).
+          const currentDate = state.activeMarketDate() ?? endDate;
 
           for (const d of decisions) {
             persisted = mergePersistedStatus(persisted, d.symbol, d.date, d.status);
@@ -182,6 +183,7 @@ export const RhAgentTriageStore = signalStore(
             persistedStatuses: persisted,
             statuses: currentStatuses,
             decisionsLoading: false,
+            activeMarketDate: state.activeMarketDate() ?? endDate,
           });
         },
         error: (err) => {
