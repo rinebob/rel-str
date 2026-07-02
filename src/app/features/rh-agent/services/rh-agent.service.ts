@@ -180,6 +180,18 @@ export class RhAgentService {
   }
 
   /**
+   * Fetch the current intraday price for a single symbol.
+   * Returns ip: null if SA has no data (outside market hours, unknown symbol, etc.).
+   */
+  getIntradaySnapshot$(symbol: string): Observable<{ symbol: string; ip: number | null; marketDate: string }> {
+    const callable = httpsCallable<{ symbol: string }, { symbol: string; ip: number | null; marketDate: string }>(
+      this.functions,
+      'rhAgentGetIntradaySnapshot'
+    );
+    return from(callable({ symbol })).pipe(map(result => result.data));
+  }
+
+  /**
    * Subscribe to recent runs from Firestore (realtime updates).
    * Maps Firestore Timestamps to ISO strings so consumers receive plain RhAgentRun objects.
    */

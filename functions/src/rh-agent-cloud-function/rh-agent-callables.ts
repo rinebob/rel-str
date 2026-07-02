@@ -4,6 +4,7 @@
  * HTTP callable functions for manual agent trigger and status queries.
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { callPartnerIntradaySnapshotV2 } from '../partner-proxy';
 import { logger } from 'firebase-functions';
 import { db } from '../firebase-admin-init';
 import {
@@ -14,6 +15,7 @@ import {
   createJobAndEnqueue,
   fetchIntradaySnapshots,
 } from './rh-agent-shared';
+import type { PartnerIntradaySnapshotResponse } from '../types/partner';
 import {
   RH_AGENT_RUNS_COLLECTION,
   RH_AGENT_STATUS_COLLECTION,
@@ -47,6 +49,16 @@ interface AgentStatusResponse {
   totalSignalsGenerated: number;
   symbolsMonitored: string[];
   schedule: string;
+}
+
+interface IntradaySnapshotRequest {
+  symbol: string;
+}
+
+interface IntradaySnapshotResponse {
+  symbol: string;
+  ip: number | null;
+  marketDate: string;
 }
 
 interface RunHistoryResponse {
@@ -268,3 +280,38 @@ export const rhAgentGetRunHistory = onCall<{ limit?: number }, Promise<RunHistor
   }
 );
 
+/**
+ * Fetch the current intraday price for a single symbol.
+ * Used by the frontend chart service to synthesize today's partial bar when
+ * rs-bars does not yet contain a bar for today (lastEodSyncAt < today).
+ *
+ * Passes a single-element array to callPartnerIntradaySnapshotV2 (the SA
+ * endpoint accepts { symbols: string[] } so no separate endpoint is needed).
+ * Returns ip: null if SA returns no data (outside market hours, unknown symbol,
+ * endpoint error) — the caller renders rs-bars as-is without injecting a bar.
+ */
+export const rhAgentGetIntradaySnapshot = onCall<IntradaySnapshotRequest, Promise<IntradaySnapshotResponse>>(
+  { cors: ALLOWED_ORIGINS },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Must be signed in');
+    }
+
+    const { symbol } = request.data;
+    if (!symbol || typeof symbol !== 'string') {
+      throw new HttpsError('invalid-argument', 'symbol is required');
+    }
+
+    const marketDate = getMarketDate();
+
+    try {
+      const response: PartnerIntradaySnapshotResponse = await callPartnerIntradaySnapshotV2([symbol]);
+      const snapshot = response.snapshots?.find(s => s.symbol === symbol);
+      const ip = snapshot?.ip != null && Number.isFinite(snapshot.ip) ? snapshot.ip : null;
+      return { symbol, ip, marketDate };
+    } catch (err: any) {
+      logger.warn('rh_agent_get_intraday_snapshot_failed', { symbol, error: err?.message });
+      return { symbol, ip: null, marketDate };
+    }
+  }
+);
