@@ -1,6 +1,6 @@
 # RH Agent — Frontend Chart Migration to rs-bars
 
-**Status:** Not started  
+**Status:** Complete (deployed 2026-07-01)  
 **Created:** 2026-07-01  
 **Related docs:**
 - `RH-AGENT-ARCH.md` (Layer 3 migration, Pending Work item 1)
@@ -195,7 +195,6 @@ export interface RsBarsDoc {
 1. Create `rh-agent-chart.service.ts`
 2. Implement Firestore `rs-bars/{symbol}` reader
 3. Implement today-bar injection logic (daily + weekly + monthly)
-4. Unit test the bar injection logic for all three arrays
 
 ### Phase 3 — `signal-detail.component` migration
 1. Replace `HeatmapChartStore` with `RhAgentChartService`

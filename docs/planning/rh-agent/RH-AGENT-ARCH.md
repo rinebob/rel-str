@@ -218,12 +218,12 @@ This keeps the trigger stateless with respect to `rs-bars` — it never reads or
 
 ## Pending Work (cross-plan summary)
 
-### 1. Frontend chart → rs-bars (Layer 3 migration) ❌ Not started
-`signal-detail.component` imports `HeatmapChartStore` solely to fetch OHLC price bars from SA for chart rendering. The intent is to replace this with a read from `rs-bars` Firestore docs (the same data the backend workers use), eliminating the SA round-trip.
+### 1. Frontend chart → rs-bars (Layer 3 migration) ✅ Complete (2026-07-01)
+`signal-detail.component` now reads `rs-bars/{symbol}` directly via `RhAgentChartService`. `HeatmapChartStore` is no longer imported. The 1–3s SA round-trip per chart open is eliminated.
 
-- **Correct fix:** create a shared `SaDataService` (or `RsBarsService`) in `src/app/core/services/` that reads `rs-bars/{symbol}` and builds D/W/M bar arrays for the chart.
-- **Files tagged:** `// @techdebt PRICE-BAR-SERVICE` in `signal-detail.component.ts` and `RH-AGENT-DASHBOARD-RUN-EXPLORER-PLAN.md`.
-- **Note:** `rs-bars` does not contain today's intraday bar (removed by the Jul 2026 refactor). The chart service will call `rhAgentGetIntradaySnapshot` to synthesize daily/weekly/monthly partial bars client-side when `lastEodSyncAt < today`.
+- **`RhAgentChartService`** (`src/app/features/rh-agent/services/rh-agent-chart.service.ts`) reads Firestore, checks `lastEodSyncAt`, calls `rhAgentGetIntradaySnapshot` when today’s bar is missing, synthesizes D/W/M partial bars client-side.
+- **`rhAgentGetIntradaySnapshot`** callable added to `rh-agent-callables.ts`; wraps `callPartnerIntradaySnapshotV2([symbol])`.
+- **`lastEodSyncAt`** added to `RsBarsDoc` — written only by `rsBarsSyncNightly`, used by frontend as the EOD sync sentinel.
 - **Plan doc:** `RH-AGENT-RS-BARS-CHART-MIGRATION-PLAN.md`
 
 ### 2. Run-centric signal storage migration ✅ Complete
