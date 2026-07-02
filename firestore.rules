@@ -127,6 +127,12 @@ service cloud.firestore {
       }
     }
 
+    // RS Bars — nightly EOD OHLC bar cache; authenticated read, backend-only write
+    match /rs-bars/{symbol} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
     // RH Agent symbol list — authenticated read, backend-only write
     match /rh-agent-symbols/{symbol} {
       allow read: if request.auth != null;
