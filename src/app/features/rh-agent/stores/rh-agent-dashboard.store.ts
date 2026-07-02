@@ -29,7 +29,7 @@ const initialState: DashboardUiState = {
   showAllRuns: false,
   currentRunOpen: true,
   triggerFilter: RhAgentRunTriggerFilter.ALL,
-  dateFilter: RhAgentRunDateFilter.TODAY,
+  dateFilter: RhAgentRunDateFilter.WEEK,
   statusFilter: RhAgentRunStatusFilter.ALL,
   selectedRunId: null,
 };

@@ -38,6 +38,7 @@ const initialState: RhAgentState = {
 };
 
 export const RhAgentStore = signalStore(
+  { providedIn: 'root' },
   withState(initialState),
 
   // Computed signals

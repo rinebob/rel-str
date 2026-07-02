@@ -46,7 +46,7 @@ import { RunMetricsStripComponent } from '../../components/run-metrics-strip/run
   ],
   templateUrl: './rh-agent-dashboard.component.html',
   styleUrl: './rh-agent-dashboard.component.scss',
-  providers: [RhAgentStore, RhAgentDashboardStore], // Component-scoped stores
+  providers: [RhAgentDashboardStore],
 })
 export class RhAgentDashboardComponent {
   // Inject the data store - manages all business logic and API calls
