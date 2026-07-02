@@ -59,9 +59,11 @@ export interface RsBarsDoc {
   weekly: OhlcBar[];
   monthly: OhlcBar[];
   lastSyncedAt: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
+  lastEodSyncAt: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
   lastDailyBarDate: string;
   lastWeeklyBarDate: string;
   lastMonthlyBarDate: string;
+  lastIntradayAt?: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
 }
 
 interface SyncResult {
@@ -194,6 +196,7 @@ async function syncSymbol(symbol: string, forceFullFetch: boolean): Promise<Sync
       weekly,
       monthly,
       lastSyncedAt: FieldValue.serverTimestamp(),
+      lastEodSyncAt: FieldValue.serverTimestamp(),
       lastDailyBarDate,
       lastWeeklyBarDate,
       lastMonthlyBarDate,
