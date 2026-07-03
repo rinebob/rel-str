@@ -18,17 +18,17 @@ import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-import { HeatmapChartDataService } from '../../../heatmap-chart/heatmap-chart-data.service';
+import { RhAgentChartService } from '../../services/rh-agent-chart.service';
+import { IndicatorSeriesStore } from '../../stores/indicator-series.store';
 import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-chart.component';
-import { BarsInterval } from '../../../../core/models/partner.types';
 import type { ChartDataset } from '../../../heatmap-chart/heatmap-chart.types';
 import type { FlexChartConfig } from '../../../shared/components/flex-chart/flex-chart.types';
 import {
   buildBaseIndicators,
   computeHtfZoneV2,
   computeHtfWindowData,
-  computeUptickDotsV1,
-  computeUptickDotsV2,
+  injectCallableIndicatorData,
+  convertZoneSignals,
   addHtfZoneWindow,
   addUptickDots,
   ST_ZONE_WINDOW_MONTHLY_INDICATOR,
@@ -36,7 +36,7 @@ import {
   ST_ZONE_V1_UPTICK_DOTS_INDICATOR,
   ST_ZONE_V2_UPTICK_DOTS_INDICATOR,
 } from '../../utils/rh-agent-chart-indicators';
-import { forkJoin } from 'rxjs';
+import { ChartInterval, IndicatorFamily, StrategyFamily } from '../../common/rh-agent-indicator.types';
 
 const QUICK_BARS = 100;
 
@@ -48,7 +48,8 @@ const QUICK_BARS = 100;
   styleUrl: './quick-charts.component.scss',
 })
 export class QuickChartsComponent {
-  private readonly dataService = inject(HeatmapChartDataService);
+  private readonly chartService = inject(RhAgentChartService);
+  private readonly indicatorStore = inject(IndicatorSeriesStore);
 
   /** Symbol to display. When null/undefined, shows the empty placeholder. */
   symbol = input<string | null>(null);
@@ -59,6 +60,35 @@ export class QuickChartsComponent {
   readonly dailyData = signal<ChartDataset | null>(null);
   readonly weeklyData = signal<ChartDataset | null>(null);
   readonly monthlyData = signal<ChartDataset | null>(null);
+  readonly barsVersion = signal<string>('');
+
+  /** Default indicator filters for the callable. */
+  private readonly defaultIntervals = [ChartInterval.DAILY, ChartInterval.WEEKLY, ChartInterval.MONTHLY];
+  private readonly defaultIndicators = [
+    IndicatorFamily.ZONE_V1,
+    IndicatorFamily.ZONE_V2,
+    IndicatorFamily.TREND_STRENGTH,
+    IndicatorFamily.TREND_BANDS,
+  ];
+  private readonly defaultStrategies = [
+    StrategyFamily.ZONE_V1,
+    StrategyFamily.ZONE_V2,
+    StrategyFamily.TREND_STRENGTH,
+  ];
+
+  /** Cached indicator series response for the current symbol/version/filters. */
+  indicatorResponse = computed(() => {
+    const symbol = this.symbol();
+    const version = this.barsVersion();
+    if (!symbol || !version) return undefined;
+    return this.indicatorStore.responseFor()(
+      symbol,
+      version,
+      this.defaultIntervals,
+      this.defaultIndicators,
+      this.defaultStrategies,
+    );
+  });
 
   /** Shared crosshair date — whichever chart is hovered broadcasts here; all charts receive it. */
   readonly sharedCrosshairDate = signal<Date | null>(null);
@@ -84,38 +114,53 @@ export class QuickChartsComponent {
     return d ? computeHtfWindowData(this.monthlyZoneV2(), d.bars) : [];
   });
 
+  private readonly dailyIntervalData = computed(() => this.indicatorResponse()?.intervals?.daily);
+  private readonly weeklyIntervalData = computed(() => this.indicatorResponse()?.intervals?.weekly);
+  private readonly monthlyIntervalData = computed(() => this.indicatorResponse()?.intervals?.monthly);
+
   private readonly dailyDotsV1 = computed(() => {
     const d = this.dailyData();
-    return d ? computeUptickDotsV1(d.bars, this.weeklyZoneV2()) : [];
+    return d ? convertZoneSignals(this.dailyIntervalData(), d.bars, true) : [];
   });
 
   private readonly dailyDotsV2 = computed(() => {
     const d = this.dailyData();
-    return d ? computeUptickDotsV2(d.bars, this.weeklyZoneV2()) : [];
+    return d ? convertZoneSignals(this.dailyIntervalData(), d.bars, false) : [];
   });
 
   private readonly weeklyDotsV1 = computed(() => {
     const d = this.weeklyData();
-    return d ? computeUptickDotsV1(d.bars, this.monthlyZoneV2()) : [];
+    return d ? convertZoneSignals(this.weeklyIntervalData(), d.bars, true) : [];
   });
 
   private readonly weeklyDotsV2 = computed(() => {
     const d = this.weeklyData();
-    return d ? computeUptickDotsV2(d.bars, this.monthlyZoneV2()) : [];
+    return d ? convertZoneSignals(this.weeklyIntervalData(), d.bars, false) : [];
   });
 
   // ── Chart configs ──────────────────────────────────────────────────────────
-  readonly monthlyConfig: FlexChartConfig = {
-    indicators: buildBaseIndicators('monthly'),
-    showCrosshair: true,
-    showZoomToolbar: false,
-    enableScrollbar: false,
-    initialZoomDays: QUICK_BARS,
-    interval: 'monthly',
-  };
+  readonly monthlyConfig = computed<FlexChartConfig>(() => {
+    const indicators = injectCallableIndicatorData(
+      buildBaseIndicators('monthly'),
+      this.monthlyIntervalData(),
+      this.monthlyData()?.bars ?? [],
+    );
+    return {
+      indicators,
+      showCrosshair: true,
+      showZoomToolbar: false,
+      enableScrollbar: false,
+      initialZoomDays: QUICK_BARS,
+      interval: 'monthly',
+    };
+  });
 
   readonly weeklyConfig = computed<FlexChartConfig>(() => {
-    const indicators = buildBaseIndicators('weekly');
+    const indicators = injectCallableIndicatorData(
+      buildBaseIndicators('weekly'),
+      this.weeklyIntervalData(),
+      this.weeklyData()?.bars ?? [],
+    );
     addHtfZoneWindow(indicators, ST_ZONE_WINDOW_MONTHLY_INDICATOR, this.weeklyWindowData());
     addUptickDots(indicators, ST_ZONE_V1_UPTICK_DOTS_INDICATOR, this.weeklyDotsV1());
     addUptickDots(indicators, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, this.weeklyDotsV2());
@@ -130,7 +175,11 @@ export class QuickChartsComponent {
   });
 
   readonly dailyConfig = computed<FlexChartConfig>(() => {
-    const indicators = buildBaseIndicators('daily');
+    const indicators = injectCallableIndicatorData(
+      buildBaseIndicators('daily'),
+      this.dailyIntervalData(),
+      this.dailyData()?.bars ?? [],
+    );
     addHtfZoneWindow(indicators, ST_ZONE_WINDOW_WEEKLY_INDICATOR, this.dailyWindowData());
     addUptickDots(indicators, ST_ZONE_V1_UPTICK_DOTS_INDICATOR, this.dailyDotsV1());
     addUptickDots(indicators, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, this.dailyDotsV2());
@@ -159,22 +208,29 @@ export class QuickChartsComponent {
   }
 
   /**
-   * Load D/W/M chart data for the selected symbol using SPY as the baseline.
-   * Runs the three requests in parallel and resets the loading/error signals.
+   * Load D/W/M chart data for the selected symbol from rs-bars.
+   * Also fetches the backend indicator series via the store.
    */
   private loadCharts(symbol: string): void {
     this.loading.set(true);
     this.error.set(null);
 
-    forkJoin({
-      daily:   this.dataService.fetchChartData$('SPY', symbol, BarsInterval.DAILY),
-      weekly:  this.dataService.fetchChartData$('SPY', symbol, BarsInterval.WEEKLY),
-      monthly: this.dataService.fetchChartData$('SPY', symbol, BarsInterval.MONTHLY),
-    }).subscribe({
-      next: ({ daily, weekly, monthly }) => {
-        this.dailyData.set(daily);
-        this.weeklyData.set(weekly);
-        this.monthlyData.set(monthly);
+    this.chartService.loadBars$(symbol).subscribe({
+      next: (result) => {
+        this.dailyData.set(result.daily);
+        this.weeklyData.set(result.weekly);
+        this.monthlyData.set(result.monthly);
+        const version = result.version ?? '';
+        this.barsVersion.set(version);
+        if (version) {
+          this.indicatorStore.loadIfNeeded(
+            symbol,
+            version,
+            this.defaultIntervals,
+            this.defaultIndicators,
+            this.defaultStrategies,
+          );
+        }
         this.loading.set(false);
       },
       error: (err: unknown) => {

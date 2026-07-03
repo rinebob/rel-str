@@ -7,9 +7,9 @@
  *
  * SIGNAL RULES (ST Trend Rider)
  * ------------------------------
- * Long (Zone V2 > 0): zone was falling/flat, then upticks once → signal.
+ * Long (Zone V2 > 0): zone was falling/flat while already ≥ +1, then upticks once → signal.
  *   No repeat until zone falls or goes flat again, then upticks.
- * Short (Zone V2 < 0): zone was rising/flat, then downticks once → signal.
+ * Short (Zone V2 < 0): zone was rising/flat while already ≤ -1, then downticks once → signal.
  *   No repeat until zone rises or goes flat again, then downticks.
  *
  * DATA FLOW
@@ -162,9 +162,9 @@ export function detectZoneUptickDots(
     // --- Long side (HTF > 0) ---
     if (htfZone > 0) {
       if (delta > 0) {
-        // Zone upticked
-        if (longState === 'READY') {
-          // First uptick → signal
+        // Zone upticked — only valid if the prior value was already above zero (≥ +1)
+        if (longState === 'READY' && prevZone >= 1) {
+          // First valid uptick → signal
           dots.push({
             x: bar.x,
             y: bar.low - offset,
@@ -172,7 +172,7 @@ export function detectZoneUptickDots(
           });
           longState = 'FIRED';
         }
-        // If FIRED, do nothing (continuation)
+        // If FIRED or prior zone was on the wrong side, do nothing (continuation / invalid)
       } else if (delta < 0) {
         // Zone downticked → reset to READY
         longState = 'READY';
@@ -186,9 +186,9 @@ export function detectZoneUptickDots(
     // --- Short side (HTF < 0) ---
     if (htfZone < 0) {
       if (delta < 0) {
-        // Zone downticked
-        if (shortState === 'READY') {
-          // First downtick → signal
+        // Zone downticked — only valid if the prior value was already below zero (≤ -1)
+        if (shortState === 'READY' && prevZone <= -1) {
+          // First valid downtick → signal
           dots.push({
             x: bar.x,
             y: bar.high + offset,
@@ -196,7 +196,7 @@ export function detectZoneUptickDots(
           });
           shortState = 'FIRED';
         }
-        // If FIRED, do nothing (continuation)
+        // If FIRED or prior zone was on the wrong side, do nothing (continuation / invalid)
       } else if (delta > 0) {
         // Zone upticked → reset to READY
         shortState = 'READY';

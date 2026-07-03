@@ -14,7 +14,7 @@ import { calculateStZone } from '../../../features/shared/components/flex-chart/
 import { calculateStZoneV2 } from '../../../features/shared/components/flex-chart/indicators/st-zone-v2.indicator';
 import { calculateStTrendStrength } from '../../../features/shared/components/flex-chart/indicators/st-trend-strength.indicator';
 import { ST_SIGNAL_DOTS_INDICATOR, computeSignalDots } from '../../../features/shared/components/flex-chart/indicators/st-signal-dots.indicator';
-import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, detectZoneUptickDots } from '../../../features/shared/components/flex-chart/indicators/st-zone-uptick-dots.indicator';
+import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, detectZoneUptickDots } from '../../../features/shared/components/flex-chart/indicators/st-trend-rider-dots.indicator';
 import { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR, computeZoneWindowData } from '../../../features/shared/components/flex-chart/indicators/st-zone-window.indicator';
 import { detectTrendStrengthSignals } from '../../../features/shared/components/flex-chart/signals';
 import type { BandSeriesData } from '../../../features/shared/components/flex-chart/indicators/st-trend-bands.indicator';
@@ -330,7 +330,7 @@ export function convertTrendStrengthSignals(
   return dots;
 }
 
-/** Convert backend zone signals (V1 or V2) into overlay uptick/downtick dots. */
+/** Convert backend ST Trend Rider signals (V1 or V2) into overlay long/short dots. */
 export function convertZoneSignals(
   intervalData: IntervalData | undefined,
   bars: PriceBar[],

@@ -53,7 +53,7 @@
         <div class="qc-tf-label">Monthly</div>
         <app-flex-chart
           [chartData]="monthlyData()"
-          [config]="monthlyConfig"
+          [config]="monthlyConfig()"
           [syncCrosshairDate]="sharedCrosshairDate()"
           (crosshairDateChange)="sharedCrosshairDate.set($event)"
           height="100%">

@@ -15,7 +15,7 @@ export { ST_ZONE_V2_INDICATOR, calculateStZoneV2 } from './st-zone-v2.indicator'
 export { ST_TREND_STRENGTH_INDICATOR, calculateStTrendStrength } from './st-trend-strength.indicator';
 export { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR, computeZoneWindowData } from './st-zone-window.indicator';
 export { ST_SIGNAL_DOTS_INDICATOR, computeSignalDots } from './st-signal-dots.indicator';
-export { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, detectZoneUptickDots } from './st-zone-uptick-dots.indicator';
+export { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, detectZoneUptickDots } from './st-trend-rider-dots.indicator';
 export { ST_TREND_BAND_WIDTH_INDICATOR, calculateStTrendBandWidth, computeBandWidthDots } from './st-trend-band-width.indicator';
 
 import type { IndicatorOption, IndicatorCalculator, IndicatorConfig, SeriesType, IndicatorType } from '../flex-chart.types';
@@ -29,7 +29,7 @@ import { ST_ZONE_V2_INDICATOR, calculateStZoneV2 } from './st-zone-v2.indicator'
 import { ST_TREND_STRENGTH_INDICATOR, calculateStTrendStrength } from './st-trend-strength.indicator';
 import { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR } from './st-zone-window.indicator';
 import { ST_SIGNAL_DOTS_INDICATOR } from './st-signal-dots.indicator';
-import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR } from './st-zone-uptick-dots.indicator';
+import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR } from './st-trend-rider-dots.indicator';
 import { ST_TREND_BAND_WIDTH_INDICATOR, calculateStTrendBandWidth } from './st-trend-band-width.indicator';
 
 /** ST-only indicators for the checkbox toggle menu */

@@ -284,8 +284,8 @@ export class RhAgentService {
           const d = docSnap.data();
 
           // Extract signal entries. Firestore may return:
-          // (a) Nested map: d['signals'] = { W_ZONE_V1_UPTICK: {...} }
-          // (b) Dot-notation keys: d['signals.W_ZONE_V1_UPTICK'] = {...}
+          // (a) Nested map: d['signals'] = { W_ST_TREND_RIDER_V1_LONG: {...} }
+          // (b) Dot-notation keys: d['signals.W_ST_TREND_RIDER_V1_LONG'] = {...}
           const rawSignalEntry = (entry: unknown): Partial<RhAgentSignalItem> | null => {
             if (!entry || typeof entry !== 'object') return null;
             const e = entry as Record<string, unknown>;
