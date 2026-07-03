@@ -7,3 +7,7 @@ When working with this user, proceed in measured steps.
 - Wait for the user to confirm before proceeding to the next step.
 - Do not rush into calculations, coding, or multiple edits without pausing for user input.
 - If a task has multiple parts, break it into steps and ask the user which step to tackle next.
+- Measure the approach before acting; do not use a shotgun approach.
+- Wait for explicit guidance before making code changes.
+- Think, then report findings concisely before implementing.
+- Do not go 5–10 minutes without giving an update to the user.
