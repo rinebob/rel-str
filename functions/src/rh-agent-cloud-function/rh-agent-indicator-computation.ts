@@ -279,7 +279,10 @@ function generateZoneSignals(
   if (data.length < 2) return [];
 
   const zone = data.map((p: IndicatorDataPoint) => (version === 'V1' ? p.zoneV1 : p.zoneV2));
-  const windowV2 = data.map((p: IndicatorDataPoint) => p.zoneV2);
+  // ST Trend Rider uses the same-timeframe zone as its own context, not a cross-zone
+  // HTF check. The windowV2 parameter is kept so future strategies can supply a true
+  // higher-timeframe window if needed.
+  const windowV2 = zone;
   const zoneNumbers = zone.map((z: number | null) => (z === null ? NaN : z));
   const windowV2Numbers = windowV2.map((z: number | null) => (z === null ? NaN : z));
   const ohlcv = data.map((p: IndicatorDataPoint) => ({ open: 0, high: 0, low: 0, close: 0, date: p.d }));

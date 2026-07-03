@@ -106,16 +106,16 @@ curl "https://rhagenttriggerdaily-<hash>-uc.a.run.app?date=2026-06-13"
 
 ## Signal Strategy
 
-**ST Zone Uptick** — fires when the ST zone crosses into a higher (lower) zone in the direction of the higher-timeframe trend:
-- **Daily** (LTF) zone vs **weekly** (HTF) zone context
-- **Weekly** (LTF) zone vs **monthly** (HTF) zone context
+**ST Trend Rider** — fires when the ST zone crosses into a higher (lower) zone on the same timeframe:
+- **Daily** zone V1/V2 context
+- **Weekly** zone V1/V2 context
 - Both V1 (±3) and V2 (±4) zone classifications are computed; a signal can fire independently from each
 
 A signal is generated when the last bar completes a zone transition:
-- **LONG** uptick: LTF zone rises and HTF zone is positive
-- **SHORT** downtick: LTF zone falls and HTF zone is negative
+- **LONG** uptick: same-timeframe zone rises and is already positive
+- **SHORT** downtick: same-timeframe zone falls and is already negative
 
-Signal type format: `{D|W}_ZONE_{V1|V2}_{UPTICK|DOWNTICK}`
+Signal type format: `{D|W}_ST_TREND_RIDER_{V1|V2}_{LONG|SHORT}`
 
 ## Local Development
 

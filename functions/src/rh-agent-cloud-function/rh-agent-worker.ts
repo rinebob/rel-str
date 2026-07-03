@@ -33,7 +33,7 @@ import type { StrategyInput, StrategyOutput, StrategyAdapter } from './strategie
 import { StrategyId } from './strategies/base-strategy';
 
 // Default strategy if none specified on the run document
-const DEFAULT_STRATEGY = StrategyId.ST_ZONE_UPTICK;
+const DEFAULT_STRATEGY = StrategyId.ST_TREND_RIDER;
 
 // Minimum daily bars required before a strategy is executed
 const MIN_REQUIRED_BARS = 45;

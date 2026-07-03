@@ -2,11 +2,11 @@
  * ST Trend Rider Strategy
  *
  * Detects ST Trend Rider long/short signals on both daily and weekly timeframes.
- * Long signals fire when Zone V2 is above zero and Zone V1 or V2 upticks from above zero.
- * Short signals are the reverse: Zone V2 below zero and Zone V1 or V2 downticks from below zero.
+ * Long signals fire when the same-timeframe zone is above zero and Zone V1 or V2 upticks from above zero.
+ * Short signals are the reverse: same-timeframe zone below zero and Zone V1 or V2 downticks from below zero.
  *
- * Daily signals: daily zone V1/V2 vs daily zone V2 window context
- * Weekly signals: weekly zone V1/V2 vs weekly zone V2 window context
+ * Daily signals: daily zone V1/V2 vs daily zone V1/V2 window context
+ * Weekly signals: weekly zone V1/V2 vs weekly zone V1/V2 window context
  *
  * Returns an array of signals — multiple can fire per symbol per run.
  */
@@ -87,9 +87,9 @@ export function execute(input: StrategyInput, _config: StrategyConfig): Strategy
     const dailyZoneV1 = computeStZone(dailyOhlcv, dailyBands);
     const dailyZoneV2 = computeStZoneV2(dailyOhlcv, dailyBands);
 
-    // V1 daily signal
+    // V1 daily signal — same-timeframe Zone V1 context, no HTF cross-zone check
     const v1Daily = detectLastBarSignals(
-      dailyZoneV1.zone, dailyZoneV2.zone, dailyOhlcv, dailyOhlcv, 'V1', 'D'
+      dailyZoneV1.zone, dailyOhlcv, dailyZoneV1.zone, 'V1', 'D'
     );
     if (v1Daily) {
       signals.push({
@@ -102,9 +102,9 @@ export function execute(input: StrategyInput, _config: StrategyConfig): Strategy
       });
     }
 
-    // V2 daily signal
+    // V2 daily signal — same-timeframe Zone V2 context, no HTF cross-zone check
     const v2Daily = detectLastBarSignals(
-      dailyZoneV2.zone, dailyZoneV2.zone, dailyOhlcv, dailyOhlcv, 'V2', 'D'
+      dailyZoneV2.zone, dailyOhlcv, dailyZoneV2.zone, 'V2', 'D'
     );
     if (v2Daily) {
       signals.push({
@@ -127,9 +127,9 @@ export function execute(input: StrategyInput, _config: StrategyConfig): Strategy
     const weeklyZoneV1 = computeStZone(weeklyOhlcv, weeklyBands);
     const weeklyZoneV2 = computeStZoneV2(weeklyOhlcv, weeklyBands);
 
-    // V1 weekly signal
+    // V1 weekly signal — same-timeframe Zone V1 context, no HTF cross-zone check
     const v1Weekly = detectLastBarSignals(
-      weeklyZoneV1.zone, weeklyZoneV2.zone, weeklyOhlcv, weeklyOhlcv, 'V1', 'W'
+      weeklyZoneV1.zone, weeklyOhlcv, weeklyZoneV1.zone, 'V1', 'W'
     );
     if (v1Weekly) {
       signals.push({
@@ -142,9 +142,9 @@ export function execute(input: StrategyInput, _config: StrategyConfig): Strategy
       });
     }
 
-    // V2 weekly signal
+    // V2 weekly signal — same-timeframe Zone V2 context, no HTF cross-zone check
     const v2Weekly = detectLastBarSignals(
-      weeklyZoneV2.zone, weeklyZoneV2.zone, weeklyOhlcv, weeklyOhlcv, 'V2', 'W'
+      weeklyZoneV2.zone, weeklyOhlcv, weeklyZoneV2.zone, 'V2', 'W'
     );
     if (v2Weekly) {
       signals.push({

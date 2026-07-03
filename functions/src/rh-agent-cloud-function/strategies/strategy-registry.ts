@@ -6,14 +6,14 @@
  *
  * Usage:
  *   import { strategyRegistry } from './strategies';
- *   const strategy = strategyRegistry.get('st-zone-uptick');
+ *   const strategy = strategyRegistry.get('st-trend-rider');
  *   const signals = strategy.execute(input, config);
  */
 
 import type { StrategyAdapter, StrategyMetadata, StrategyConfig } from './base-strategy';
 
 // Import all strategy adapters
-import { adapter as stZoneUptickAdapter } from './st-zone-uptick/st-zone-uptick.strategy';
+import { adapter as stTrendRiderAdapter } from './st-trend-rider/st-trend-rider.strategy';
 
 // =============================================================================
 // REGISTRY CLASS
@@ -105,7 +105,7 @@ class StrategyRegistry {
 export const strategyRegistry = new StrategyRegistry();
 
 // Register all strategies at module load
-strategyRegistry.register(stZoneUptickAdapter);
+strategyRegistry.register(stTrendRiderAdapter);
 
 // Re-export types for convenience
 export type { StrategyAdapter, StrategyInput, StrategyOutput, StrategyConfig, StrategyMetadata } from './base-strategy';

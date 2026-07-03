@@ -48,7 +48,7 @@ export interface StrategyOutput {
   action: StSignalDirection | null;  // LONG/SHORT signal, or null for no action
   confidence: number;           // 0-100
   reason: string;               // Human-readable explanation
-  signalType: string;           // e.g., 'D_ZONE_V1_UPTICK'
+  signalType: string;           // e.g., 'D_ST_TREND_RIDER_V1_LONG'
   barDate: string;              // YYYY-MM-DD — date of the bar that fired (daily = marketDate, weekly = last weekly bar date)
   indicators?: Record<string, number | string | null>;
   metadata?: Record<string, any>;
@@ -61,7 +61,7 @@ export interface StrategyOutput {
 
 /** All registered strategy identifiers. */
 export enum StrategyId {
-  ST_ZONE_UPTICK = 'st-zone-uptick',
+  ST_TREND_RIDER = 'st-trend-rider',
 }
 
 // =============================================================================
