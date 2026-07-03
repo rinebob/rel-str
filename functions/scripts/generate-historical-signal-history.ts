@@ -1,9 +1,10 @@
 /**
  * Generate Historical Signal History
  *
- * One-time backfill script: walks every bar date for each rh-agent symbol,
- * runs the ST_ZONE_UPTICK strategy against the bar slice up to that date,
- * and writes fired signals to signal-history/{barDate}.
+ * One-time backfill script: computes the full ST Trend Rider indicator series
+ * for each rh-agent symbol exactly like the chart callable does, then writes
+ * every signal to signal-history/{barDate}. This guarantees the left-side signal
+ * list and the right-side chart dots are generated from the exact same source.
  *
  * Source:  rs-bars/{symbol}  (daily/weekly/monthly arrays)
  * Target:  rh-agent-symbols/{symbol}/signal-history/{barDate}
@@ -17,14 +18,20 @@
  *   --from <YYYY-MM-DD>    Only write signal-history docs on or after this date (default: 2019-01-01).
  *   --to <YYYY-MM-DD>      Only write signal-history docs on or before this date (default: today).
  *   --overwrite            Overwrite existing signal-history docs (default: skip existing).
+ *   --wipeout              Delete all existing signal-history docs for each symbol before regenerating.
+ *
+ * Full usage guide, examples, and safety rules:
+ *   docs/implementations/RS-BE-SIGNALS-BACKFILL-GUIDE_how-to-use-generate-historical-signal-history.md
  */
 import { initializeApp, cert, applicationDefault, App } from 'firebase-admin/app';
-import { getFirestore, Firestore, Timestamp, FieldValue } from 'firebase-admin/firestore';
+import { getFirestore, Firestore, FieldValue } from 'firebase-admin/firestore';
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { execute as runStrategy } from '../src/rh-agent-cloud-function/strategies/st-zone-uptick/st-zone-uptick.strategy';
-import type { StrategyInput, StrategyOutput } from '../src/rh-agent-cloud-function/strategies/base-strategy';
+import { computeSymbolIndicatorSeries } from '../src/rh-agent-cloud-function/rh-agent-indicator-computation';
+import type { OhlcBar as CallableOhlcBar } from '../src/rh-agent-cloud-function/rh-agent-indicator-computation';
+import { StSignalDirection } from '../src/rh-agent-cloud-function/rh-agent-config';
+import type { StrategyOutput } from '../src/rh-agent-cloud-function/strategies/base-strategy';
 
 // ---------------------------------------------------------------------------
 // CLI args
@@ -32,6 +39,8 @@ import type { StrategyInput, StrategyOutput } from '../src/rh-agent-cloud-functi
 
 const DRY_RUN   = process.argv.includes('--dry-run');
 const OVERWRITE = process.argv.includes('--overwrite');
+const WIPEOUT   = process.argv.includes('--wipeout');
+const CSV       = process.argv.includes('--csv');
 
 function argValue(flag: string): string | null {
   const idx = process.argv.indexOf(flag);
@@ -51,11 +60,6 @@ const RS_BARS_COLLECTION      = 'rs-bars';
 const SIGNAL_HISTORY_SUB      = 'signal-history';
 const BATCH_SIZE              = 400;
 const BACKFILL_RUN_ID         = 'backfill-historical';
-
-// Minimum bars required before running the strategy (matches worker)
-const MIN_DAILY_BARS  = 45;
-const MIN_WEEKLY_BARS = 30;
-const MIN_MONTHLY_BARS = 30;
 
 // ---------------------------------------------------------------------------
 // Auth
@@ -107,16 +111,22 @@ function barDate(b: OhlcBar): string {
   return (b.d ?? b.date ?? '').slice(0, 10);
 }
 
-/** Return all bars with date <= cutoff, sorted ascending. */
-function barsUpTo(bars: OhlcBar[], cutoff: string): OhlcBar[] {
-  return bars
-    .filter(b => barDate(b) <= cutoff)
-    .sort((a, b) => barDate(a).localeCompare(barDate(b)));
-}
-
-/** Most recent weekly/monthly bar date on or before the given daily date. */
-function htfBarsUpTo(bars: OhlcBar[], cutoff: string): OhlcBar[] {
-  return barsUpTo(bars, cutoff);
+/** Normalize rs-bars arrays into the exact shape the callable consumes. */
+function normalizeToCallableBars(
+  daily: OhlcBar[],
+  weekly: OhlcBar[],
+  monthly: OhlcBar[],
+): { daily: CallableOhlcBar[]; weekly: CallableOhlcBar[]; monthly: CallableOhlcBar[] } {
+  const toCallable = (bars: OhlcBar[]): CallableOhlcBar[] =>
+    bars.map(b => ({
+      d: barDate(b),
+      o: b.o ?? b.open ?? 0,
+      h: b.h ?? b.high ?? 0,
+      l: b.l ?? b.low ?? 0,
+      c: b.c ?? b.close ?? 0,
+      v: b.v ?? b.volume,
+    }));
+  return { daily: toCallable(daily), weekly: toCallable(weekly), monthly: toCallable(monthly) };
 }
 
 // ---------------------------------------------------------------------------
@@ -167,7 +177,11 @@ async function main() {
   console.log('\n=== Summary ===');
   console.log(`Symbols:  ${symbols.length}`);
   console.log(`Written:  ${totalSignals}`);
-  console.log(`Skipped:  ${totalSkipped} (already existed)`);
+  if (WIPEOUT) {
+    console.log(`Skipped:  ${totalSkipped} (not tracked during wipeout)`);
+  } else {
+    console.log(`Skipped:  ${totalSkipped} (already existed)`);
+  }
   console.log(`Errors:   ${totalErrors}`);
   if (DRY_RUN) console.log('\n(DRY RUN — no data was written)');
 }
@@ -200,8 +214,8 @@ async function processSymbol(
 
   // Filter to the requested date window
   const candidateDates = allDaily
-    .map(b => barDate(b))
-    .filter(d => d >= FROM_DATE && d <= TO_DATE)
+    .map((b: OhlcBar) => barDate(b))
+    .filter((d: string) => d >= FROM_DATE && d <= TO_DATE)
     .sort();
 
   if (candidateDates.length === 0) {
@@ -216,30 +230,64 @@ async function processSymbol(
     existingDates = new Set(existingSnap.docs.map(d => d.id));
   }
 
-  // Collect writes
-  const toWrite: { barDate: string; signals: StrategyOutput[] }[] = [];
+  // Wipeout: in live mode delete existing docs; in dry-run mode simulate the wipeout
+  if (WIPEOUT) {
+    const existingSnap = await historyRef.get();
+    if (existingSnap.docs.length > 0) {
+      if (DRY_RUN) {
+        console.log(`  ${symbol}: would wipe ${existingSnap.docs.length} existing signal-history docs`);
+      } else {
+        let deleted = 0;
+        for (let i = 0; i < existingSnap.docs.length; i += BATCH_SIZE) {
+          const batch = db.batch();
+          for (const doc of existingSnap.docs.slice(i, i + BATCH_SIZE)) {
+            batch.delete(doc.ref);
+            deleted++;
+          }
+          await batch.commit();
+        }
+        console.log(`  ${symbol}: wiped ${deleted} existing signal-history docs`);
+      }
+    }
+    // After wipeout, nothing is "existing" anymore
+    existingDates = new Set<string>();
+  }
 
+  // Compute the full indicator series exactly like the chart callable
+  const callableBars = normalizeToCallableBars(allDaily, allWeekly, allMonthly);
+  const series = computeSymbolIndicatorSeries(symbol, callableBars.daily, callableBars.weekly, callableBars.monthly);
+
+  // Collect every ST Trend Rider signal and group by bar date
+  const signalsByDate = new Map<string, StrategyOutput[]>();
+  const addSignal = (barDate: string, s: StrategyOutput) => {
+    const list = signalsByDate.get(barDate) ?? [];
+    list.push(s);
+    signalsByDate.set(barDate, list);
+  };
+
+  for (const [, intervalData] of Object.entries(series.intervals)) {
+    const signals = intervalData?.signals ?? {};
+    for (const [family, markers] of Object.entries(signals)) {
+      if (!markers || !family.startsWith('zone')) continue;
+      for (const m of markers) {
+        if (!m.d) continue;
+        addSignal(m.d, {
+          action: m.direction === 'long' ? StSignalDirection.LONG : StSignalDirection.SHORT,
+          confidence: 0,
+          reason: m.reason,
+          signalType: m.signalType,
+          barDate: m.d,
+          indicators: {},
+        });
+      }
+    }
+  }
+
+  // Filter to requested date range and apply skip/existing logic
+  const toWrite: { barDate: string; signals: StrategyOutput[] }[] = [];
   for (const date of candidateDates) {
     if (!OVERWRITE && existingDates.has(date)) continue;
-
-    const dailySlice   = barsUpTo(allDaily, date);
-    const weeklySlice  = htfBarsUpTo(allWeekly, date);
-    const monthlySlice = htfBarsUpTo(allMonthly, date);
-
-    if (dailySlice.length < MIN_DAILY_BARS || weeklySlice.length < MIN_WEEKLY_BARS) continue;
-
-    const input: StrategyInput = {
-      symbol,
-      marketDate: date,
-      bars:         dailySlice   as any,
-      weeklyBars:   weeklySlice  as any,
-      monthlyBars:  monthlySlice.length >= MIN_MONTHLY_BARS ? (monthlySlice as any) : undefined,
-    };
-
-    const rawResult = runStrategy(input, {});
-    const results: StrategyOutput[] = Array.isArray(rawResult) ? rawResult : [rawResult];
-    const fired = results.filter(r => r.action && r.barDate === date);
-
+    const fired = signalsByDate.get(date) ?? [];
     if (fired.length > 0) {
       toWrite.push({ barDate: date, signals: fired });
     }
@@ -250,9 +298,17 @@ async function processSymbol(
   }
 
   if (DRY_RUN) {
-    for (const { barDate: d, signals } of toWrite) {
-      for (const s of signals) {
-        console.log(`    [dry-run] ${symbol}/${d} → ${s.signalType} (${s.action})`);
+    if (CSV) {
+      for (const { barDate: d, signals } of toWrite) {
+        for (const s of signals) {
+          console.log(`${d},${s.signalType},${s.action}`);
+        }
+      }
+    } else {
+      for (const { barDate: d, signals } of toWrite) {
+        for (const s of signals) {
+          console.log(`    [dry-run] ${symbol}/${d} → ${s.signalType} (${s.action})`);
+        }
       }
     }
     return { written: toWrite.length, skipped: existingDates.size };
