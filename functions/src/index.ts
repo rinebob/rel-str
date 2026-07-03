@@ -120,7 +120,7 @@ export {
 export { rhAgentOverviewSyncSymbol } from './rh-agent-cloud-function/rh-agent-overview-sync-worker';
 
 // RS Bars nightly sync — single source of truth for OHLCV bars
-export { rsBarsSyncNightly, rsBarsSyncAdmin, rsBarsSyncSymbol } from './rs-bars/rs-bars-sync';
+export { rsBarsSyncNightly, rsBarsSyncAdminHttp, rsBarsSyncSymbol } from './rs-bars/rs-bars-sync';
 
 // RH Agent Trade Executor (MCP direct integration)
 export {

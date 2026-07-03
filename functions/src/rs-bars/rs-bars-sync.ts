@@ -5,17 +5,18 @@
  * and writes to rs-bars/{SYMBOL} in Firestore.
  *
  * Architecture:
- *   - rsBarsSyncAdmin (callable) / rsBarsSyncNightly (scheduler)
+ *   - rsBarsSyncAdmin (HTTP request) / rsBarsSyncNightly (scheduler)
  *       → loads all symbols, enqueues one Cloud Task per symbol, returns immediately
  *   - rsBarsSyncSymbol (task worker)
  *       → fetches D/W/M bars from SA for one symbol, writes to rs-bars/{SYMBOL}
  */
 import { onSchedule } from 'firebase-functions/v2/scheduler';
-import { onCall } from 'firebase-functions/v2/https';
+import { onRequest } from 'firebase-functions/v2/https';
 import { onTaskDispatched } from 'firebase-functions/v2/tasks';
 import { getFunctions } from 'firebase-admin/functions';
 import { logger } from 'firebase-functions';
 import { FieldValue } from 'firebase-admin/firestore';
+import { OAuth2Client } from 'google-auth-library';
 import { db } from '../firebase-admin-init';
 import { callPartnerTimeSeries, callPartnerTrackedSymbols } from '../partner-proxy';
 import { startRhAgentRun } from '../rh-agent-cloud-function/rh-agent-trigger';
@@ -235,7 +236,7 @@ interface RsBarsSyncPayload {
 // Enqueue all symbols as Cloud Tasks
 // ============================================================================
 
-async function enqueueAllSymbols(
+export async function enqueueAllSymbols(
   forceFullFetch: boolean,
   symbols?: string[],
   triggerAgentOnComplete?: boolean
@@ -302,7 +303,7 @@ export const rsBarsSyncSymbol = onTaskDispatched<RsBarsSyncPayload>(
   {
     retryConfig: { maxAttempts: 3, minBackoffSeconds: 5, maxBackoffSeconds: 60 },
     rateLimits: { maxConcurrentDispatches: 50, maxDispatchesPerSecond: 20 },
-    memory: '256MiB',
+    memory: '512MiB',
     timeoutSeconds: 120,
   },
   async (req) => {
@@ -332,7 +333,7 @@ export const rsBarsSyncNightly = onSchedule({
 });
 
 // ============================================================================
-// Admin callable — manual trigger for backfill or re-sync, returns immediately
+// Admin HTTP request — manual trigger for backfill or re-sync, returns immediately
 // ============================================================================
 
 interface RsBarsSyncAdminRequest {
@@ -340,13 +341,33 @@ interface RsBarsSyncAdminRequest {
   symbols?: string[];
 }
 
-export const rsBarsSyncAdmin = onCall<RsBarsSyncAdminRequest>(
+const adminFunctionUrl = 'https://us-central1-rel-str.cloudfunctions.net/rsBarsSyncAdminHttp';
+const oauth2Client = new OAuth2Client();
+
+async function verifyAdminToken(authHeader?: string): Promise<boolean> {
+  if (!authHeader?.startsWith('Bearer ')) return false;
+  const token = authHeader.split(' ')[1];
+  try {
+    const ticket = await oauth2Client.verifyIdToken({ idToken: token, audience: adminFunctionUrl });
+    return !!ticket.getPayload();
+  } catch (err: any) {
+    logger.error('rsBarsSyncAdmin token verification failed', { error: err?.message });
+    return false;
+  }
+}
+
+export const rsBarsSyncAdminHttp = onRequest(
   { timeoutSeconds: 60, memory: '256MiB' },
-  async (request) => {
-    const { forceFullFetch = false, symbols } = request.data ?? {};
-    logger.info('rsBarsSyncAdmin called', { forceFullFetch, symbolCount: symbols?.length ?? 'all' });
+  async (request, response) => {
+    if (!(await verifyAdminToken(request.headers.authorization))) {
+      response.status(401).json({ error: 'Unauthenticated' });
+      return;
+    }
+
+    const { forceFullFetch = false, symbols } = (request.body ?? {}) as RsBarsSyncAdminRequest;
+    logger.info('rsBarsSyncAdminHttp called', { forceFullFetch, symbolCount: symbols?.length ?? 'all' });
     const result = await enqueueAllSymbols(forceFullFetch, symbols); // Admin runs don't trigger agent
-    return { ...result, message: `Enqueued ${result.enqueued} symbols for processing` };
+    response.status(200).json({ ...result, message: `Enqueued ${result.enqueued} symbols for processing` });
   }
 );
 
