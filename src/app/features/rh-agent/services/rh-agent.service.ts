@@ -5,9 +5,11 @@
  * Provides methods to trigger manual runs, view status, and query signal history.
  */
 import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { Functions, httpsCallable } from '@angular/fire/functions';
+import { Auth, getIdToken } from '@angular/fire/auth';
 import { Firestore, collection, collectionData, query, where, orderBy, limit, doc, getDocs, getDoc } from '@angular/fire/firestore';
-import { Observable, from, map } from 'rxjs';
+import { Observable, from, map, switchMap } from 'rxjs';
 
 /**
  * Cron expression for the RH Agent daily scheduler (UTC).
@@ -121,6 +123,10 @@ export class RhAgentService {
   private functions = inject(Functions);
   private firestore = inject(Firestore);
   private injector = inject(EnvironmentInjector);
+  private http = inject(HttpClient);
+  private auth = inject(Auth);
+
+  private readonly adminHttpUrl = 'https://us-central1-rel-str.cloudfunctions.net/rsBarsSyncAdminHttp';
 
   private readonly symbolsWithSignalsCallable = httpsCallable<
     { runId: string; timeframe: 'W' | 'D' },
@@ -137,14 +143,18 @@ export class RhAgentService {
   private readonly statusDoc = 'rh-agent-status/current';
 
   /**
-   * Trigger rs-bars backfill via rsBarsSyncAdmin callable.
+   * Trigger rs-bars backfill via rsBarsSyncAdminHttp HTTPS endpoint.
    */
   triggerBarsBackfill(symbols?: string[]): Observable<{ total: number; enqueued: number; errors: number }> {
-    const callable = httpsCallable<
-      { forceFullFetch: true; symbols?: string[] },
-      { total: number; enqueued: number; errors: number }
-    >(this.functions, 'rsBarsSyncAdmin');
-    return from(callable({ forceFullFetch: true, ...(symbols?.length ? { symbols } : {}) })).pipe(map(r => r.data));
+    return from(getIdToken(this.auth.currentUser!, false)).pipe(
+      switchMap(token =>
+        this.http.post<{ total: number; enqueued: number; errors: number }>(
+          this.adminHttpUrl,
+          { forceFullFetch: true, ...(symbols?.length ? { symbols } : {}) },
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+      )
+    );
   }
 
   /**
