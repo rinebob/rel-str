@@ -63,11 +63,12 @@ export class RhAgentReviewComponent implements OnInit {
   constructor() {
     /**
      * Auto-select the first review symbol when the queue changes and none is selected.
+     * Skip when a manual symbol is active so the chart stays on the manual symbol.
      */
     effect(() => {
       const symbols = this.triageStore.reviewSymbols();
       if (symbols.length === 0) return;
-      if (!this.selectedReviewSymbol()) {
+      if (!this.selectedReviewSymbol() && !this.manualSymbol()) {
         this.selectedReviewSymbol.set(symbols[0]);
       }
     });
@@ -128,6 +129,7 @@ export class RhAgentReviewComponent implements OnInit {
   /** Load an arbitrary symbol for chart review without a decision queue. */
   loadManualSymbol(symbolInput: string): void {
     const symbol = symbolInput.trim().toUpperCase();
+    console.log('[AgentReview] loadManualSymbol called:', symbol);
     if (!symbol) return;
     this.selectedReviewSymbol.set(null);
     this.manualSymbol.set(symbol);
@@ -140,6 +142,7 @@ export class RhAgentReviewComponent implements OnInit {
 
   /** Handle Enter key in the manual symbol input. */
   onManualSymbolKeydown(event: KeyboardEvent, input: HTMLInputElement): void {
+    console.log('[AgentReview] onManualSymbolKeydown:', event.key, input.value);
     if (event.key === 'Enter') {
       this.loadManualSymbol(input.value);
     }
