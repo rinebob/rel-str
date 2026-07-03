@@ -32,7 +32,7 @@ rhAgentPdrTrigger
             ▼
     rhAgentProcessSymbol (per symbol)
             ├─ getCachedBars(symbol, marketDate)  [rs-bars]
-            ├─ executeStrategy('st-zone-uptick')
+            ├─ executeStrategy('st-zone-uptick')  // ST Trend Rider
             │      ├─ compute V1/V2 zone signals
             │      └─ return LONG/SHORT signals
             └─ persistSignals()  [rh-agent-symbols/{symbol}/signal-dates/{barDate}]
