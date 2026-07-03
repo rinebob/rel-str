@@ -8,8 +8,8 @@
  * - Triple: D/W/M charts stacked, with a shared crosshair for visual alignment.
  *
  * HTF-derived indicators (weekly zone windows on daily, monthly zone windows on weekly,
- * and signal/uptick dots) are computed from the chart store data and injected into the
- * base indicator list before being passed to the flex chart component.
+ * signal dots, and ST Trend Rider dots) are computed from the chart store data and injected
+ * into the base indicator list before being passed to the flex chart component.
  */
 import { Component, inject, ChangeDetectionStrategy, output, computed, signal, input } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
@@ -21,8 +21,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { RhAgentChartService } from '../../services/rh-agent-chart.service';
-import type { ChartDataset } from '../../../heatmap-chart/heatmap-chart.types';
-import { filter, switchMap, catchError } from 'rxjs/operators';
+import type { ChartDataset, PriceBar } from '../../../heatmap-chart/heatmap-chart.types';
+import { filter, switchMap, catchError, tap } from 'rxjs/operators';
 import { of } from 'rxjs';
 import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-chart.component';
 import { BarsInterval } from '../../../../core/models/partner.types';
@@ -35,20 +35,20 @@ import {
   buildBaseIndicators,
   computeHtfZoneV2,
   computeHtfWindowData,
-  computeSignalDotsData,
-  computeUptickDotsV1,
-  computeUptickDotsV2,
-  uptickDotsFromHistory,
   addHtfZoneWindow,
   addSignalDots,
   addUptickDots,
-  UptickDotColors,
   ST_ZONE_WINDOW_MONTHLY_INDICATOR,
   ST_ZONE_WINDOW_WEEKLY_INDICATOR,
   ST_ZONE_V1_UPTICK_DOTS_INDICATOR,
   ST_ZONE_V2_UPTICK_DOTS_INDICATOR,
+  convertTrendStrengthSignals,
+  convertZoneSignals,
 } from '../../utils/rh-agent-chart-indicators';
 import { RhAgentSymbolHistoryStore } from '../../stores/rh-agent-symbol-history.store';
+import { IndicatorSeriesStore } from '../../stores/indicator-series.store';
+import { ChartInterval, IndicatorFamily, StrategyFamily } from '../../common/rh-agent-indicator.types';
+import { injectCallableIndicatorData } from '../../utils/rh-agent-chart-indicators';
 
 @Component({
   selector: 'app-signal-detail',
@@ -61,6 +61,7 @@ export class SignalDetailComponent {
   private readonly chartService = inject(RhAgentChartService);
   readonly uiState = inject(UiStateService);
   readonly historyStore = inject(RhAgentSymbolHistoryStore);
+  readonly indicatorStore = inject(IndicatorSeriesStore);
 
   /** Expose enum to template */
   readonly BarsInterval = BarsInterval;
@@ -79,6 +80,23 @@ export class SignalDetailComponent {
   chartDataMonthly = signal<ChartDataset | null>(null);
   chartLoading = signal(false);
 
+  /** rs-bars version used as the indicator cache key */
+  barsVersion = signal<string>('');
+
+  /** Default indicator filters for the callable */
+  private readonly defaultIntervals = [ChartInterval.DAILY, ChartInterval.WEEKLY, ChartInterval.MONTHLY];
+  private readonly defaultIndicators = [
+    IndicatorFamily.ZONE_V1,
+    IndicatorFamily.ZONE_V2,
+    IndicatorFamily.TREND_STRENGTH,
+    IndicatorFamily.TREND_BANDS,
+  ];
+  private readonly defaultStrategies = [
+    StrategyFamily.ZONE_V1,
+    StrategyFamily.ZONE_V2,
+    StrategyFamily.TREND_STRENGTH,
+  ];
+
   /** Shared crosshair date for syncing across triple charts */
   crosshairDate = signal<Date | null>(null);
 
@@ -88,12 +106,12 @@ export class SignalDetailComponent {
   /** All ST indicator options */
   readonly stIndicatorOptions = ST_INDICATOR_OPTIONS;
 
-  /** Indicators available for each chart context (excludes auto-injected HTF extras) */
+  /** Indicators available for each chart context — core ST indicators + callable signal markers */
   private static readonly INDICATORS_BY_INTERVAL: Record<string, string[]> = {
     daily:   [StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2,
-               'st-zone-window-weekly', 'st-signal-dots', 'st-zone-v1-uptick-dots', 'st-zone-v2-uptick-dots'],
+               'st-signal-dots', 'st-zone-v1-uptick-dots', 'st-zone-v2-uptick-dots'],
     weekly:  [StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2,
-               'st-zone-window-monthly', 'st-signal-dots', 'st-zone-v1-uptick-dots', 'st-zone-v2-uptick-dots'],
+               'st-signal-dots', 'st-zone-v1-uptick-dots', 'st-zone-v2-uptick-dots'],
     monthly: [StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2],
   };
 
@@ -119,10 +137,38 @@ export class SignalDetailComponent {
     return this.selectedIdsByInterval()[key];
   });
 
+  /** Cached indicator series response for the current symbol/version/filters. */
+  indicatorResponse = computed(() => {
+    const symbol = this.manualSymbol();
+    const version = this.barsVersion();
+    if (!symbol || !version) return undefined;
+    return this.indicatorStore.responseFor()(
+      symbol,
+      version,
+      this.defaultIntervals,
+      this.defaultIndicators,
+      this.defaultStrategies,
+    );
+  });
+
+  private dailyIntervalData = computed(() => this.indicatorResponse()?.intervals?.daily);
+  private weeklyIntervalData = computed(() => this.indicatorResponse()?.intervals?.weekly);
+  private monthlyIntervalData = computed(() => this.indicatorResponse()?.intervals?.monthly);
+
   /** Base active indicators for an interval, filtered by the user's current selection. */
   private baseIndicatorsFor(key: 'daily' | 'weekly' | 'monthly'): IndicatorConfig[] {
     const ids = this.selectedIdsByInterval()[key];
-    return buildBaseIndicators(key).filter(cfg => ids.has(cfg.type));
+    const base = buildBaseIndicators(key).filter(cfg => ids.has(cfg.type));
+
+    const response = this.indicatorResponse();
+    const bars = key === 'weekly' ? this.chartDataWeekly()?.bars
+      : key === 'monthly' ? this.chartDataMonthly()?.bars
+      : this.chartData()?.bars;
+
+    if (!response || !bars || bars.length === 0) return base;
+
+    const intervalData = response.intervals[key];
+    return injectCallableIndicatorData(base, intervalData, bars);
   }
 
   /** Base active indicators for the selected single-mode interval */
@@ -158,6 +204,14 @@ export class SignalDetailComponent {
     }
   }
 
+  /** Active chart dataset for single-mode based on the selected interval */
+  activeChartData = computed<ChartDataset | null>(() => {
+    const interval = this.selectedInterval();
+    if (interval === BarsInterval.WEEKLY) return this.chartDataWeekly();
+    if (interval === BarsInterval.MONTHLY) return this.chartDataMonthly();
+    return this.chartData();
+  });
+
   /** Dynamic chart config driven by user-added indicators (single mode) */
   chartConfig = computed<FlexChartConfig>(() => {
     const interval = this.selectedInterval();
@@ -184,7 +238,7 @@ export class SignalDetailComponent {
   });
 
   // =========================================================================
-  // HTF zones / windows / dots data (computed from chart data)
+  // HTF zones / windows / ST Trend Rider dots data (computed from chart data)
   // =========================================================================
 
   private weeklyZoneV2 = computed(() => {
@@ -209,48 +263,32 @@ export class SignalDetailComponent {
 
   private dailySignalDots = computed(() => {
     const data = this.chartData();
-    return data ? computeSignalDotsData(data.bars) : [];
+    return data ? convertTrendStrengthSignals(this.dailyIntervalData(), data.bars) : [];
   });
 
   private weeklySignalDots = computed(() => {
     const data = this.chartDataWeekly();
-    return data ? computeSignalDotsData(data.bars) : [];
+    return data ? convertTrendStrengthSignals(this.weeklyIntervalData(), data.bars) : [];
   });
 
   private dailyUptickDotsV1 = computed(() => {
     const data = this.chartData();
-    if (!data) return [];
-    const symbol = this.manualSymbol();
-    const cached = symbol ? this.historyStore.signalHistoryCache()[symbol] : null;
-    if (cached) return uptickDotsFromHistory(cached, data.bars, 'D_ZONE_V1', UptickDotColors.v1Long, UptickDotColors.v1Short);
-    return computeUptickDotsV1(data.bars, this.weeklyZoneV2());
+    return data ? convertZoneSignals(this.dailyIntervalData(), data.bars, true) : [];
   });
 
   private dailyUptickDotsV2 = computed(() => {
     const data = this.chartData();
-    if (!data) return [];
-    const symbol = this.manualSymbol();
-    const cached = symbol ? this.historyStore.signalHistoryCache()[symbol] : null;
-    if (cached) return uptickDotsFromHistory(cached, data.bars, 'D_ZONE_V2', UptickDotColors.v2Long, UptickDotColors.v2Short);
-    return computeUptickDotsV2(data.bars, this.weeklyZoneV2());
+    return data ? convertZoneSignals(this.dailyIntervalData(), data.bars, false) : [];
   });
 
   private weeklyUptickDotsV1 = computed(() => {
     const data = this.chartDataWeekly();
-    if (!data) return [];
-    const symbol = this.manualSymbol();
-    const cached = symbol ? this.historyStore.signalHistoryCache()[symbol] : null;
-    if (cached) return uptickDotsFromHistory(cached, data.bars, 'W_ZONE_V1', UptickDotColors.v1Long, UptickDotColors.v1Short);
-    return computeUptickDotsV1(data.bars, this.monthlyZoneV2());
+    return data ? convertZoneSignals(this.weeklyIntervalData(), data.bars, true) : [];
   });
 
   private weeklyUptickDotsV2 = computed(() => {
     const data = this.chartDataWeekly();
-    if (!data) return [];
-    const symbol = this.manualSymbol();
-    const cached = symbol ? this.historyStore.signalHistoryCache()[symbol] : null;
-    if (cached) return uptickDotsFromHistory(cached, data.bars, 'W_ZONE_V2', UptickDotColors.v2Long, UptickDotColors.v2Short);
-    return computeUptickDotsV2(data.bars, this.monthlyZoneV2());
+    return data ? convertZoneSignals(this.weeklyIntervalData(), data.bars, false) : [];
   });
 
   /** Daily chart indicators = base + conditionally-injected computed extras */
@@ -362,19 +400,37 @@ export class SignalDetailComponent {
    */
   constructor() {
     toObservable(this.manualSymbol).pipe(
+      tap(symbol => console.log('[SignalDetail] manualSymbol changed:', symbol)),
       filter((symbol): symbol is string => !!symbol),
       switchMap(symbol => {
         this.historyStore.loadSignalHistory(symbol);
         this.chartLoading.set(true);
         return this.chartService.loadBars$(symbol).pipe(
-          catchError(() => of(null))
+          catchError(err => {
+            console.error('[SignalDetail] loadBars$ failed', symbol, err);
+            return of(null);
+          })
         );
       }),
+      tap(bars => {
+        if (!bars) return;
+        const version = bars.version ?? '';
+        this.barsVersion.set(version);
+        if (version) {
+          this.indicatorStore.loadIfNeeded(
+            this.manualSymbol() ?? '',
+            version,
+            this.defaultIntervals,
+            this.defaultIndicators,
+            this.defaultStrategies,
+          );
+        }
+      }),
       takeUntilDestroyed(),
-    ).subscribe(datasets => {
-      this.chartData.set(datasets?.daily ?? null);
-      this.chartDataWeekly.set(datasets?.weekly ?? null);
-      this.chartDataMonthly.set(datasets?.monthly ?? null);
+    ).subscribe((bars: { daily: ChartDataset; weekly: ChartDataset; monthly: ChartDataset; version: string } | null) => {
+      this.chartData.set(bars?.daily ?? null);
+      this.chartDataWeekly.set(bars?.weekly ?? null);
+      this.chartDataMonthly.set(bars?.monthly ?? null);
       this.chartLoading.set(false);
     });
   }

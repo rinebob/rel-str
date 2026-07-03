@@ -3,7 +3,7 @@
  *
  * Shared builder for the ST indicator configurations used by the signal detail
  * and quick-charts panels. Centralizes base configs, pane assignments, HTF zone
- * window dots, signal dots, and zone uptick dots so the same logic is not
+ * window dots, signal dots, and ST Trend Rider dots so the same logic is not
  * duplicated across components.
  */
 import type { IndicatorConfig, IndicatorOption, IndicatorPane, PriceBar } from '../../../features/shared/components/flex-chart/flex-chart.types';
@@ -17,6 +17,8 @@ import { ST_SIGNAL_DOTS_INDICATOR, computeSignalDots } from '../../../features/s
 import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, detectZoneUptickDots } from '../../../features/shared/components/flex-chart/indicators/st-zone-uptick-dots.indicator';
 import { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR, computeZoneWindowData } from '../../../features/shared/components/flex-chart/indicators/st-zone-window.indicator';
 import { detectTrendStrengthSignals } from '../../../features/shared/components/flex-chart/signals';
+import type { BandSeriesData } from '../../../features/shared/components/flex-chart/indicators/st-trend-bands.indicator';
+import type { IndicatorDataPoint, IntervalData, SignalMarker, TrendBandsPoint } from '../common/rh-agent-indicator.types';
 
 // ---------------------------------------------------------------------------
 // Base configuration
@@ -94,7 +96,7 @@ export function computeSignalDotsData(bars: PriceBar[]) {
   return computeSignalDots(signals, strengthData);
 }
 
-/** Compute zone uptick dots (V1). */
+/** Compute ST Trend Rider dots for Zone V1. */
 export function computeUptickDotsV1(
   bars: PriceBar[],
   htfZone: ReturnType<typeof calculateStZoneV2>
@@ -104,7 +106,7 @@ export function computeUptickDotsV1(
   return detectZoneUptickDots(zoneV1, htfZone, bars, UptickDotColors.v1Long, UptickDotColors.v1Short);
 }
 
-/** Compute zone uptick dots (V2). */
+/** Compute ST Trend Rider dots for Zone V2. */
 export function computeUptickDotsV2(
   bars: PriceBar[],
   htfZone: ReturnType<typeof calculateStZoneV2>
@@ -176,7 +178,7 @@ export function uptickDotsFromHistory(
   return dots;
 }
 
-/** Add zone uptick dots to an existing indicator list. */
+/** Add ST Trend Rider dots to an existing indicator list. */
 export function addUptickDots(
   indicators: IndicatorConfig[],
   option: IndicatorOption,
@@ -187,6 +189,200 @@ export function addUptickDots(
   cfg.pane = 'overlay';
   cfg.data = data;
   indicators.push(cfg);
+}
+
+// ---------------------------------------------------------------------------
+// Callable indicator data conversion
+// ---------------------------------------------------------------------------
+
+function toDate(d: string): Date {
+  return new Date(`${d}T00:00:00.000Z`);
+}
+
+function zoneColor(zone: number): string {
+  const ZONE_COLORS: Record<number, string> = {
+    4: '#0d47a1',
+    3: '#2196f3',
+    2: '#4caf50',
+    1: '#81c784',
+    0: '#9e9e9e',
+    [-1]: '#e57373',
+    [-2]: '#f44336',
+    [-3]: '#e91e63',
+    [-4]: '#b71c1c',
+  };
+  return ZONE_COLORS[zone] || '#9e9e9e';
+}
+
+function zoneToChartData(
+  points: IndicatorDataPoint[],
+  field: 'zoneV1' | 'zoneV2',
+): { x: Date; y: number; color?: string }[] {
+  return points
+    .filter(p => p[field] !== null && Number.isFinite(p[field] as number))
+    .map(p => {
+      const zone = p[field] as number;
+      return { x: toDate(p.d), y: zone, color: zoneColor(zone) };
+    });
+}
+
+function trendStrengthToChartData(
+  points: IndicatorDataPoint[],
+): { x: Date; y: number; y2: number; y3: number; color: string }[] {
+  return points
+    .filter(p => p.diPlus !== null && p.diMinus !== null && p.diHist !== null)
+    .map(p => {
+      const diHist = p.diHist as number;
+      return {
+        x: toDate(p.d),
+        y: diHist,
+        y2: p.diPlus as number,
+        y3: p.diMinus as number,
+        color: diHist >= 0 ? '#2196f3' : '#ffeb3b',
+      };
+    });
+}
+
+function trendBandsToChartData(
+  points: TrendBandsPoint[],
+  bars: PriceBar[],
+): BandSeriesData[] {
+  if (points.length === 0 || bars.length === 0) return [];
+
+  const dateToIndex = new Map<string, number>();
+  for (let i = 0; i < bars.length; i++) {
+    const d = (bars[i] as any).date ?? bars[i].x;
+    const dateStr = d instanceof Date ? d.toISOString().slice(0, 10) : String(d).slice(0, 10);
+    dateToIndex.set(dateStr, i);
+  }
+
+  const bandMap = new Map<number, { bandIndex: number; bullColor: string; bearColor: string; data: { index: number; open: number; high: number; low: number; close: number }[] }>();
+
+  for (const p of points) {
+    const index = dateToIndex.get(p.d);
+    if (index === undefined) continue;
+    for (const b of p.bands) {
+      if (b.open === null || b.high === null || b.low === null || b.close === null) continue;
+      const idx = b.bandIndex;
+      if (!bandMap.has(idx)) {
+        bandMap.set(idx, {
+          bandIndex: idx,
+          bullColor: b.bullColor,
+          bearColor: b.bearColor,
+          data: [],
+        });
+      }
+      bandMap.get(idx)!.data.push({ index, open: b.open, high: b.high, low: b.low, close: b.close });
+    }
+  }
+
+  return Array.from(bandMap.values()).sort((a, b) => a.bandIndex - b.bandIndex);
+}
+
+/** Convert one interval of the callable response into chart-ready data. */
+export function convertIntervalIndicators(
+  intervalData: IntervalData | undefined,
+  bars: PriceBar[],
+): {
+  zoneV1: { x: Date; y: number; color?: string }[];
+  zoneV2: { x: Date; y: number; color?: string }[];
+  trendStrength: { x: Date; y: number; y2: number; y3: number }[];
+  trendBands: BandSeriesData[];
+} {
+  const zone = intervalData?.indicators?.zoneV1 ?? [];
+  const trendStrength = intervalData?.indicators?.trendStrength ?? [];
+  const trendBands = intervalData?.indicators?.trendBands ?? [];
+  return {
+    zoneV1: zoneToChartData(zone, 'zoneV1'),
+    zoneV2: zoneToChartData(zone, 'zoneV2'),
+    trendStrength: trendStrengthToChartData(trendStrength),
+    trendBands: trendBandsToChartData(trendBands, bars),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Callable signal marker conversion
+// ---------------------------------------------------------------------------
+
+const SIGNAL_DOT_LONG_COLOR = '#4caf50';
+const SIGNAL_DOT_SHORT_COLOR = '#f44336';
+const SIGNAL_DOT_OFFSET = 3;
+
+/** Convert backend trend-strength signals into scatter dots on the histogram. */
+export function convertTrendStrengthSignals(
+  intervalData: IntervalData | undefined,
+  bars: PriceBar[],
+): { x: Date; y: number; color?: string }[] {
+  const signals = intervalData?.signals?.trendStrength ?? [];
+  const strength = intervalData?.indicators?.trendStrength ?? [];
+  if (signals.length === 0 || strength.length === 0 || bars.length === 0) return [];
+
+  const dots: { x: Date; y: number; color?: string }[] = [];
+  for (const sig of signals) {
+    const point = strength[sig.index];
+    if (!point || point.diHist === null) continue;
+    dots.push({
+      x: toDate(sig.d),
+      y: point.diHist + (sig.direction === 'long' ? SIGNAL_DOT_OFFSET : -SIGNAL_DOT_OFFSET),
+      color: sig.direction === 'long' ? SIGNAL_DOT_LONG_COLOR : SIGNAL_DOT_SHORT_COLOR,
+    });
+  }
+  return dots;
+}
+
+/** Convert backend zone signals (V1 or V2) into overlay uptick/downtick dots. */
+export function convertZoneSignals(
+  intervalData: IntervalData | undefined,
+  bars: PriceBar[],
+  v1 = true,
+): { x: Date; y: number; color?: string }[] {
+  const key = v1 ? 'zoneV1' : 'zoneV2';
+  const signals = intervalData?.signals?.[key] ?? [];
+  if (signals.length === 0 || bars.length === 0) return [];
+
+  const longColor = v1 ? UptickDotColors.v1Long : UptickDotColors.v2Long;
+  const shortColor = v1 ? UptickDotColors.v1Short : UptickDotColors.v2Short;
+
+  const dots: { x: Date; y: number; color?: string }[] = [];
+  for (const sig of signals) {
+    const bar = bars[sig.index];
+    if (!bar) continue;
+    const close = bar.close ?? (bar as any).c ?? 0;
+    if (!close) continue;
+    dots.push({
+      x: toDate(sig.d),
+      y: close,
+      color: sig.direction === 'long' ? longColor : shortColor,
+    });
+  }
+  return dots;
+}
+
+/**
+ * Inject callable indicator data into the base indicator configs for a single interval.
+ * When the callable has no data for an indicator, the config is left unchanged so the
+ * flex chart can fall back to its inline calculator.
+ */
+export function injectCallableIndicatorData(
+  indicators: IndicatorConfig[],
+  intervalData: IntervalData | undefined,
+  bars: PriceBar[],
+): IndicatorConfig[] {
+  const converted = convertIntervalIndicators(intervalData, bars);
+  return indicators.map(cfg => {
+    switch (cfg.type) {
+      case StIndicator.ZONE:
+        return converted.zoneV1.length ? { ...cfg, data: converted.zoneV1 } : cfg;
+      case StIndicator.ZONE_V2:
+        return converted.zoneV2.length ? { ...cfg, data: converted.zoneV2 } : cfg;
+      case StIndicator.TREND_STRENGTH:
+        return converted.trendStrength.length ? { ...cfg, data: converted.trendStrength } : cfg;
+      case StIndicator.TREND_BANDS:
+        return converted.trendBands.length ? { ...cfg, bandData: converted.trendBands } : cfg;
+      default:
+        return cfg;
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------

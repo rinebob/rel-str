@@ -14,7 +14,7 @@
  * If the intraday callable returns ip: null (market closed, unknown symbol, etc.),
  * the bars are returned as-is from Firestore — no partial bar injected.
  */
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import { Firestore, doc, getDoc, Timestamp } from '@angular/fire/firestore';
 import { Observable, from, of, switchMap } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
@@ -41,6 +41,7 @@ interface RsBarsDoc {
   daily: OhlcBar[];
   weekly: OhlcBar[];
   monthly: OhlcBar[];
+  version?: string;
   lastEodSyncAt?: Timestamp | null;
   lastDailyBarDate?: string;
 }
@@ -113,19 +114,21 @@ function replaceOrAppend(bars: OhlcBar[], bar: OhlcBar): OhlcBar[] {
 export class RhAgentChartService {
   private readonly firestore = inject(Firestore);
   private readonly rhAgentService = inject(RhAgentService);
+  private readonly injector = inject(EnvironmentInjector);
 
   private readonly RS_BARS_COLLECTION = 'rs-bars';
 
   /**
    * Load D/W/M ChartDatasets for a symbol from Firestore rs-bars.
    * Injects today's partial bars if the nightly EOD sync has not yet run.
+   * Returns the rs-bars version so callers can key the indicator cache.
    */
-  loadBars$(symbol: string): Observable<{ daily: ChartDataset; weekly: ChartDataset; monthly: ChartDataset }> {
+  loadBars$(symbol: string): Observable<{ daily: ChartDataset; weekly: ChartDataset; monthly: ChartDataset; version: string }> {
     return from(this.fetchRsBarsDoc(symbol)).pipe(
       switchMap(rsBarsDoc => {
         if (!rsBarsDoc) {
           console.warn('[RhAgentChartService] rs-bars doc not found for', symbol);
-          return of(this.emptyDatasets(symbol));
+          return of({ ...this.emptyDatasets(symbol), version: '' });
         }
 
         console.log('[RhAgentChartService] doc found', symbol, 'daily bars:', rsBarsDoc.daily?.length, 'lastEodSyncAt:', rsBarsDoc.lastEodSyncAt);
@@ -133,8 +136,10 @@ export class RhAgentChartService {
         const today = todayIso();
         const needsIntraday = this.needsIntradayFetch(rsBarsDoc, today);
 
+        const version = rsBarsDoc.version ?? rsBarsDoc.lastDailyBarDate ?? this.timestampToIso(rsBarsDoc.lastEodSyncAt) ?? '';
+
         if (!needsIntraday) {
-          return of(this.buildDatasets(symbol, rsBarsDoc.daily, rsBarsDoc.weekly, rsBarsDoc.monthly));
+          return of({ ...this.buildDatasets(symbol, rsBarsDoc.daily, rsBarsDoc.weekly, rsBarsDoc.monthly), version });
         }
 
         console.log('[RhAgentChartService] fetching intraday for', symbol);
@@ -143,19 +148,19 @@ export class RhAgentChartService {
             console.log('[RhAgentChartService] intraday snapshot', symbol, 'ip:', snapshot.ip);
             const ip = snapshot.ip;
             if (ip === null) {
-              return this.buildDatasets(symbol, rsBarsDoc.daily, rsBarsDoc.weekly, rsBarsDoc.monthly);
+              return { ...this.buildDatasets(symbol, rsBarsDoc.daily, rsBarsDoc.weekly, rsBarsDoc.monthly), version };
             }
-            return this.buildDatasetsWithIntraday(symbol, rsBarsDoc.daily, rsBarsDoc.weekly, rsBarsDoc.monthly, ip, today);
+            return { ...this.buildDatasetsWithIntraday(symbol, rsBarsDoc.daily, rsBarsDoc.weekly, rsBarsDoc.monthly, ip, today), version };
           }),
           catchError(err => {
             console.error('[RhAgentChartService] intraday callable failed', symbol, err);
-            return of(this.buildDatasets(symbol, rsBarsDoc.daily, rsBarsDoc.weekly, rsBarsDoc.monthly));
+            return of({ ...this.buildDatasets(symbol, rsBarsDoc.daily, rsBarsDoc.weekly, rsBarsDoc.monthly), version });
           })
         );
       }),
       catchError(err => {
         console.error('[RhAgentChartService] fetchRsBarsDoc failed', symbol, err);
-        return of(this.emptyDatasets(symbol));
+        return of({ ...this.emptyDatasets(symbol), version: '' });
       })
     );
   }
@@ -164,10 +169,12 @@ export class RhAgentChartService {
   // Private helpers
   // --------------------------------------------------------------------------
 
-  private async fetchRsBarsDoc(symbol: string): Promise<RsBarsDoc | null> {
-    const ref = doc(this.firestore, this.RS_BARS_COLLECTION, symbol);
-    const snap = await getDoc(ref);
-    return snap.exists() ? (snap.data() as RsBarsDoc) : null;
+  private fetchRsBarsDoc(symbol: string): Promise<RsBarsDoc | null> {
+    return runInInjectionContext(this.injector, async () => {
+      const ref = doc(this.firestore, this.RS_BARS_COLLECTION, symbol);
+      const snap = await getDoc(ref);
+      return snap.exists() ? (snap.data() as RsBarsDoc) : null;
+    }) as Promise<RsBarsDoc | null>;
   }
 
   /**
@@ -180,6 +187,13 @@ export class RhAgentChartService {
     const ts = rsBarsDoc.lastEodSyncAt;
     if (!ts || !(ts instanceof Timestamp)) return true;
     return ts.toDate().toISOString().slice(0, 10) < today;
+  }
+
+  private timestampToIso(ts: Timestamp | string | null | undefined): string | null {
+    if (!ts) return null;
+    if (typeof ts === 'string') return ts;
+    if (ts instanceof Timestamp) return ts.toDate().toISOString();
+    return null;
   }
 
   private buildDatasetsWithIntraday(
