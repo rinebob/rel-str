@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import { Auth, GoogleAuthProvider, User, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, signOut, user as afUser } from '@angular/fire/auth';
 import { Firestore, doc, getDoc, serverTimestamp, setDoc } from '@angular/fire/firestore';
 import { Observable, firstValueFrom } from 'rxjs';
@@ -11,9 +11,10 @@ import { Observable, firstValueFrom } from 'rxjs';
 export class AuthService {
   private readonly auth = inject(Auth);
   private readonly db = inject(Firestore);
+  private readonly injector = inject(EnvironmentInjector);
 
   /** Cold observable of the Firebase user. */
-  readonly user$: Observable<User | null> = afUser(this.auth);
+  readonly user$: Observable<User | null> = runInInjectionContext(this.injector, () => afUser(this.auth));
 
   /** Retrieve an ID token for the given user. */
   async getIdToken(u: User): Promise<string> {
