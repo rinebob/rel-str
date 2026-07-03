@@ -101,6 +101,9 @@ export {
   rhAgentGetSymbolSignalHistory,
 } from './rh-agent-cloud-function/rh-agent-dashboard-callables';
 
+// RH Agent Indicator Series callable
+export { rhAgentGetSymbolIndicatorSeries } from './rh-agent-cloud-function/rh-agent-indicator-series';
+
 // RH Agent Manual Run + status + run history callables
 export {
   rhAgentManualRun,
