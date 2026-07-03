@@ -4,7 +4,7 @@
  * Angular service for interacting with the Robinhood Trading Agent Cloud Functions.
  * Provides methods to trigger manual runs, view status, and query signal history.
  */
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { Firestore, collection, collectionData, query, where, orderBy, limit, doc, getDocs, getDoc } from '@angular/fire/firestore';
 import { Observable, from, map } from 'rxjs';
@@ -120,6 +120,7 @@ export interface ManualRunResponse {
 export class RhAgentService {
   private functions = inject(Functions);
   private firestore = inject(Firestore);
+  private injector = inject(EnvironmentInjector);
 
   private readonly symbolsWithSignalsCallable = httpsCallable<
     { runId: string; timeframe: 'W' | 'D' },
@@ -276,7 +277,7 @@ export class RhAgentService {
     const symbolDocRef = doc(this.firestore, 'rh-agent-symbols', symbol);
     const signalDatesRef = collection(symbolDocRef, 'signal-dates');
 
-    return from(getDocs(signalDatesRef)).pipe(
+    return from(runInInjectionContext(this.injector, () => getDocs(signalDatesRef))).pipe(
       map((snapshot) => {
         const signals: RhAgentSignalItem[] = [];
         for (const docSnap of snapshot.docs) {
@@ -337,7 +338,7 @@ export class RhAgentService {
    */
   getSymbolSignalsForRun(symbol: string, runId: string): Observable<RhAgentSignalItem[]> {
     const runDocRef = doc(this.firestore, 'rh-agent-symbols', symbol, 'run-ids', runId);
-    return from(getDoc(runDocRef)).pipe(
+    return from(runInInjectionContext(this.injector, () => getDoc(runDocRef))).pipe(
       map((snap: any) => {
         if (!snap.exists()) return [];
         const d = snap.data();
@@ -378,7 +379,7 @@ export class RhAgentService {
     const signalHistoryRef = collection(symbolDocRef, 'signal-history');
 
     const recentQuery = query(signalHistoryRef, orderBy('date', 'desc'));
-    return from(getDocs(recentQuery)).pipe(
+    return from(runInInjectionContext(this.injector, () => getDocs(recentQuery))).pipe(
       map((snapshot) => {
         const signals: RhAgentSignalItem[] = [];
         for (const docSnap of snapshot.docs) {
