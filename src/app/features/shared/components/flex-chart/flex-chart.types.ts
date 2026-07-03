@@ -5,6 +5,7 @@
  */
 
 import type { BarsInterval } from '../../../../core/models/partner.types';
+import type { BandSeriesData } from './indicators/st-trend-bands.indicator';
 
 /** Price bar data point */
 export interface PriceBar {
@@ -115,6 +116,9 @@ export interface IndicatorConfig {
 
   /** Pre-calculated indicator data (optional - if not provided, will be calculated from price bars) */
   data?: { x: Date; y: number; y2?: number }[];
+
+  /** Pre-calculated band candle data for indicators rendered as multiple bands (e.g. ST-Trend-Bands) */
+  bandData?: BandSeriesData[];
 }
 
 /** Pane configuration */

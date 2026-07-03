@@ -411,11 +411,15 @@ export class FlexChartComponent implements OnDestroy {
 
   mainPaneSeries = computed(() => this.groupedSeries()['main'] || []);
 
-  /** ST Trend Band candle series — computed when trend bands indicator is active */
+  /** ST Trend Band candle series — use pre-computed bandData when available, otherwise compute from bars */
   trendBandSeries = computed<BandSeriesData[]>(() => {
     const mainSeries = this.mainPaneSeries();
-    const hasTrendBands = mainSeries.some(s => s.config.type === StIndicator.TREND_BANDS);
-    if (!hasTrendBands) return [];
+    const trendBands = mainSeries.find(s => s.config.type === StIndicator.TREND_BANDS);
+    if (!trendBands) return [];
+
+    if (trendBands.config.bandData && trendBands.config.bandData.length > 0) {
+      return trendBands.config.bandData;
+    }
 
     const data = this.chartData();
     if (!data || data.bars.length < 30) return [];
@@ -518,7 +522,7 @@ export class FlexChartComponent implements OnDestroy {
     return {
       valueType: 'Category',
       majorGridLines: { width: 0 },
-      crosshairTooltip: { enable: true },
+      crosshairTooltip: { enable: false },
       edgeLabelPlacement: 'Shift',
       zoomFactor,
       zoomPosition,

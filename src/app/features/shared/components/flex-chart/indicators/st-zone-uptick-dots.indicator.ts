@@ -1,22 +1,22 @@
 /**
- * ST-Zone Uptick Dots — Main Chart Signal Overlay
+ * ST Trend Rider Uptick Dots — Main Chart Signal Overlay
  *
  * Plots signal dots on the main price chart when a zone value upticks
  * for the first time during a long window open (or downticks during
- * a short window open).
+ * a short window open). These are the ST Trend Rider entry markers.
  *
- * SIGNAL RULES
- * ------------
- * Long (HTF zone > 0): zone was falling/flat, then upticks once → signal.
+ * SIGNAL RULES (ST Trend Rider)
+ * ------------------------------
+ * Long (Zone V2 > 0): zone was falling/flat, then upticks once → signal.
  *   No repeat until zone falls or goes flat again, then upticks.
- * Short (HTF zone < 0): zone was rising/flat, then downticks once → signal.
+ * Short (Zone V2 < 0): zone was rising/flat, then downticks once → signal.
  *   No repeat until zone rises or goes flat again, then downticks.
  *
  * DATA FLOW
  * ---------
  * Pre-computed in signal-detail using:
  *   1. LTF zone data (V1 or V2) — from calculator
- *   2. HTF zone data (SOT, pre-computed) — for window open check
+ *   2. Zone V2 same-timeframe data — for ST Trend Rider window open check
  *   3. LTF price bars — for dot Y placement (high/low ± ATR offset)
  */
 
@@ -29,23 +29,23 @@ import { StIndicator } from '../flex-chart.types';
 
 export const ST_ZONE_V1_UPTICK_DOTS_INDICATOR: IndicatorOption = {
   id: 'st-zone-v1-uptick-dots',
-  label: 'Zone V1 Signals',
+  label: 'ST Trend Rider V1',
   type: StIndicator.ZONE_UPTICK_DOTS,
   defaultPane: 'overlay',
   params: [],
   defaultOptions: {
-    name: 'V1 Signals',
+    name: 'ST Trend Rider V1',
   },
 };
 
 export const ST_ZONE_V2_UPTICK_DOTS_INDICATOR: IndicatorOption = {
   id: 'st-zone-v2-uptick-dots',
-  label: 'Zone V2 Signals',
+  label: 'ST Trend Rider V2',
   type: StIndicator.ZONE_UPTICK_DOTS,
   defaultPane: 'overlay',
   params: [],
   defaultOptions: {
-    name: 'V2 Signals',
+    name: 'ST Trend Rider V2',
   },
 };
 
@@ -93,10 +93,10 @@ const ATR_OFFSET_MULT = 2.5;
 
 
 /**
- * Detect zone uptick signals and return scatter dot points for the main chart.
+ * Detect ST Trend Rider signals and return scatter dot points for the main chart.
  *
  * @param ltfZoneData  - LTF zone indicator output (V1 or V2)
- * @param htfZoneData  - Pre-computed HTF zone V2 data (SOT)
+ * @param htfZoneData  - Zone V2 data for the same timeframe window check
  * @param ltfBars      - LTF price bars
  * @param longColor    - Dot color for long signals
  * @param shortColor   - Dot color for short signals

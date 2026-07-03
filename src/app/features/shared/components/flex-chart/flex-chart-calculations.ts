@@ -15,9 +15,12 @@ export function computeIndicators(
   configs: IndicatorConfig[]
 ): ComputedIndicatorSeries[] {
   return configs.map((config) => {
-    // If pre-calculated data is provided, use it
+    // If pre-calculated data or band candle data is provided, use it
     if (config.data && config.data.length > 0) {
       return { id: config.id, config, data: config.data };
+    }
+    if (config.bandData && config.bandData.length > 0) {
+      return { id: config.id, config, data: [] };
     }
 
     // Otherwise calculate from bars
