@@ -47,7 +47,7 @@ export class SignalListComponent {
   /** Timeframe filter for history mode: 'all' | 'D' | 'W' */
   timeframeFilter = signal<'all' | 'D' | 'W'>('all');
 
-  private listItems = viewChildren<ElementRef>('listItem');
+  private listItems = viewChildren('listItem', { read: ElementRef });
 
   items = computed(() => {
     const cache = this.signalHistoryCache();
