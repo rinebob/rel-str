@@ -12,15 +12,16 @@ export interface ZoneSignal {
   action: StSignalDirection;
   signalType: string;
   reason: string;
+  index?: number;
   indicators: Record<string, number | string | null>;
 }
 
 /**
- * Run the zone uptick state machine on a zone array with HTF context.
+ * Run the ST Trend Rider state machine on a zone array.
  * Only fires if the LAST bar is the signal bar.
  *
  * @param ltfZone   - Zone values per LTF bar (V1: -3/+3, V2: -4/+4)
- * @param htfZone   - Zone V2 values per HTF bar
+ * @param htfZone   - Zone V2 values per bar (same-timeframe window context)
  * @param ltfBars   - LTF OHLCV bars (for date alignment)
  * @param htfBars   - HTF OHLCV bars (for date alignment)
  * @param version   - 'V1' or 'V2' for signal type naming
@@ -65,7 +66,7 @@ export function detectLastBarSignals(
           lastSignal = {
             action: StSignalDirection.LONG,
             signalType: `${timeframe}_ZONE_${version}_UPTICK`,
-            reason: `${version} zone upticked ${prevZone}→${currZone} with ${timeframe === 'D' ? 'weekly' : 'monthly'} HTF zone at +${currentHtfZone}`,
+            reason: `ST Trend Rider: ${version} zone upticked ${prevZone}→${currZone} with window zone V2 at +${currentHtfZone}`,
             indicators: {
               [`zone${version}`]: currZone,
               [`zone${version}Prev`]: prevZone,
@@ -90,7 +91,7 @@ export function detectLastBarSignals(
           lastSignal = {
             action: StSignalDirection.SHORT,
             signalType: `${timeframe}_ZONE_${version}_DOWNTICK`,
-            reason: `${version} zone downticked ${prevZone}→${currZone} with ${timeframe === 'D' ? 'weekly' : 'monthly'} HTF zone at ${currentHtfZone}`,
+            reason: `ST Trend Rider: ${version} zone downticked ${prevZone}→${currZone} with window zone V2 at ${currentHtfZone}`,
             indicators: {
               [`zone${version}`]: currZone,
               [`zone${version}Prev`]: prevZone,
@@ -115,4 +116,95 @@ export function detectLastBarSignals(
   }
 
   return null;
+}
+
+/**
+ * Detect all ST Trend Rider signals across a full zone array.
+ *
+ * Window condition: same-timeframe Zone V2 > 0 for longs, < 0 for shorts.
+ * Long signal: zone was falling/flat, then upticks (>= 1) while Zone V2 > 0.
+ * Short signal: zone was rising/flat, then downticks (>= 1) while Zone V2 < 0.
+ *
+ * @param ltfZone   - Zone values per LTF bar (V1: -3/+3, V2: -4/+4)
+ * @param windowV2  - Same-timeframe Zone V2 values per bar
+ * @param ltfBars   - LTF OHLCV bars (for date alignment)
+ * @param version   - 'V1' or 'V2' for signal type naming
+ * @param timeframe - 'D' or 'W' for signal type prefix
+ */
+export function detectAllStTrendRiderSignals(
+  ltfZone: number[],
+  windowV2: number[],
+  ltfBars: OHLCV[],
+  version: 'V1' | 'V2',
+  timeframe: 'D' | 'W',
+): ZoneSignal[] {
+  if (ltfZone.length < 2 || windowV2.length === 0) return [];
+
+  const signals: ZoneSignal[] = [];
+  let longState: 'READY' | 'FIRED' = 'READY';
+  let shortState: 'READY' | 'FIRED' = 'READY';
+
+  // Skip leading zeros (indicator warm-up)
+  let start = 0;
+  while (start < ltfZone.length && ltfZone[start] === 0) start++;
+  if (start >= ltfZone.length - 1) return [];
+
+  for (let i = start + 1; i < ltfZone.length; i++) {
+    const prevZone = ltfZone[i - 1];
+    const currZone = ltfZone[i];
+    const delta = currZone - prevZone;
+    const currentWindowV2 = windowV2[i];
+
+    // --- Long side (Zone V2 > 0) ---
+    if (currentWindowV2 > 0) {
+      if (delta > 0) {
+        if (longState === 'READY') {
+          signals.push({
+            action: StSignalDirection.LONG,
+            signalType: `${timeframe}_ZONE_${version}_UPTICK`,
+            reason: `ST Trend Rider: ${version} zone upticked ${prevZone}→${currZone} with window zone V2 at +${currentWindowV2}`,
+            index: i,
+            indicators: {
+              [`zone${version}`]: currZone,
+              [`zone${version}Prev`]: prevZone,
+              windowV2: currentWindowV2,
+              delta,
+            },
+          });
+          longState = 'FIRED';
+        }
+      } else if (delta < 0) {
+        longState = 'READY';
+      }
+    } else {
+      longState = 'READY';
+    }
+
+    // --- Short side (Zone V2 < 0) ---
+    if (currentWindowV2 < 0) {
+      if (delta < 0) {
+        if (shortState === 'READY') {
+          signals.push({
+            action: StSignalDirection.SHORT,
+            signalType: `${timeframe}_ZONE_${version}_DOWNTICK`,
+            reason: `ST Trend Rider: ${version} zone downticked ${prevZone}→${currZone} with window zone V2 at ${currentWindowV2}`,
+            index: i,
+            indicators: {
+              [`zone${version}`]: currZone,
+              [`zone${version}Prev`]: prevZone,
+              windowV2: currentWindowV2,
+              delta,
+            },
+          });
+          shortState = 'FIRED';
+        }
+      } else if (delta > 0) {
+        shortState = 'READY';
+      }
+    } else {
+      shortState = 'READY';
+    }
+  }
+
+  return signals;
 }

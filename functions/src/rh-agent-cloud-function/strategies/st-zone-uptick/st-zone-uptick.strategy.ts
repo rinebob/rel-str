@@ -1,11 +1,12 @@
 /**
- * ST-Zone Uptick Strategy
+ * ST Trend Rider Strategy
  *
- * Detects zone uptick/downtick signals on both daily and weekly timeframes.
- * Uses the same state machine as the frontend detectZoneUptickDots.
+ * Detects ST Trend Rider long/short signals on both daily and weekly timeframes.
+ * Long signals fire when Zone V2 is above zero and Zone V1 or V2 upticks from above zero.
+ * Short signals are the reverse: Zone V2 below zero and Zone V1 or V2 downticks from below zero.
  *
- * Daily signals: daily zone vs weekly HTF zone V2 context
- * Weekly signals: weekly zone vs monthly HTF zone V2 context
+ * Daily signals: daily zone V1/V2 vs daily zone V2 window context
+ * Weekly signals: weekly zone V1/V2 vs weekly zone V2 window context
  *
  * Returns an array of signals — multiple can fire per symbol per run.
  */
@@ -28,10 +29,10 @@ import { detectLastBarSignals } from '../signal-detection';
 // =============================================================================
 
 export const metadata: StrategyMetadata = {
-  id: 'st-zone-uptick',
-  name: 'ST Zone Uptick',
+  id: 'st-trend-rider',
+  name: 'ST Trend Rider',
   description:
-    'Detects first zone uptick during long window open (or first downtick during short window open) using V1 and V2 zone classifications on daily and weekly timeframes.',
+    'ST Trend Rider: long signals fire when Zone V2 is above zero and Zone V1 or V2 upticks from above zero; short signals are the reverse. Uses V1 and V2 zone classifications on daily and weekly timeframes.',
   category: 'trend',
   defaultConfig: {},
   minBarsRequired: 45,
@@ -70,30 +71,25 @@ function lastBarDate(bars: any[]): string {
 // =============================================================================
 
 /**
- * Execute the ST Zone Uptick strategy for the given input.
- * Produces daily and weekly signals gated by higher-timeframe zone V2 context.
+ * Execute the ST Trend Rider strategy for the given input.
+ * Produces daily and weekly signals gated by the same-timeframe Zone V2 context.
  */
 export function execute(input: StrategyInput, _config: StrategyConfig): StrategyOutput[] {
-  const { bars, weeklyBars, monthlyBars } = input;
+  const { bars, weeklyBars } = input;
   const signals: StrategyOutput[] = [];
 
-  // --- Daily signals (daily bars + weekly HTF) ---
-  if (bars && bars.length >= 45 && weeklyBars && weeklyBars.length >= 30) {
+  // --- Daily ST Trend Rider signals ---
+  if (bars && bars.length >= 45) {
     const dailyOhlcv = normalizeBars(bars);
-    const weeklyOhlcv = normalizeBars(weeklyBars);
     const dailyBarDate = lastBarDate(bars);
 
-    // Compute bands once, reuse for V1 and V2
     const dailyBands = computeStTrendBands(dailyOhlcv);
-    const weeklyBands = computeStTrendBands(weeklyOhlcv);
-
     const dailyZoneV1 = computeStZone(dailyOhlcv, dailyBands);
     const dailyZoneV2 = computeStZoneV2(dailyOhlcv, dailyBands);
-    const weeklyZoneV2 = computeStZoneV2(weeklyOhlcv, weeklyBands);
 
     // V1 daily signal
     const v1Daily = detectLastBarSignals(
-      dailyZoneV1.zone, weeklyZoneV2.zone, dailyOhlcv, weeklyOhlcv, 'V1', 'D'
+      dailyZoneV1.zone, dailyZoneV2.zone, dailyOhlcv, dailyOhlcv, 'V1', 'D'
     );
     if (v1Daily) {
       signals.push({
@@ -108,7 +104,7 @@ export function execute(input: StrategyInput, _config: StrategyConfig): Strategy
 
     // V2 daily signal
     const v2Daily = detectLastBarSignals(
-      dailyZoneV2.zone, weeklyZoneV2.zone, dailyOhlcv, weeklyOhlcv, 'V2', 'D'
+      dailyZoneV2.zone, dailyZoneV2.zone, dailyOhlcv, dailyOhlcv, 'V2', 'D'
     );
     if (v2Daily) {
       signals.push({
@@ -122,22 +118,18 @@ export function execute(input: StrategyInput, _config: StrategyConfig): Strategy
     }
   }
 
-  // --- Weekly signals (weekly bars + monthly HTF) ---
-  if (weeklyBars && weeklyBars.length >= 45 && monthlyBars && monthlyBars.length >= 30) {
+  // --- Weekly ST Trend Rider signals ---
+  if (weeklyBars && weeklyBars.length >= 45) {
     const weeklyOhlcv = normalizeBars(weeklyBars);
-    const monthlyOhlcv = normalizeBars(monthlyBars);
     const weeklyBarDate = lastBarDate(weeklyBars);
 
     const weeklyBands = computeStTrendBands(weeklyOhlcv);
-    const monthlyBands = computeStTrendBands(monthlyOhlcv);
-
     const weeklyZoneV1 = computeStZone(weeklyOhlcv, weeklyBands);
     const weeklyZoneV2 = computeStZoneV2(weeklyOhlcv, weeklyBands);
-    const monthlyZoneV2 = computeStZoneV2(monthlyOhlcv, monthlyBands);
 
     // V1 weekly signal
     const v1Weekly = detectLastBarSignals(
-      weeklyZoneV1.zone, monthlyZoneV2.zone, weeklyOhlcv, monthlyOhlcv, 'V1', 'W'
+      weeklyZoneV1.zone, weeklyZoneV2.zone, weeklyOhlcv, weeklyOhlcv, 'V1', 'W'
     );
     if (v1Weekly) {
       signals.push({
@@ -152,7 +144,7 @@ export function execute(input: StrategyInput, _config: StrategyConfig): Strategy
 
     // V2 weekly signal
     const v2Weekly = detectLastBarSignals(
-      weeklyZoneV2.zone, monthlyZoneV2.zone, weeklyOhlcv, monthlyOhlcv, 'V2', 'W'
+      weeklyZoneV2.zone, weeklyZoneV2.zone, weeklyOhlcv, weeklyOhlcv, 'V2', 'W'
     );
     if (v2Weekly) {
       signals.push({

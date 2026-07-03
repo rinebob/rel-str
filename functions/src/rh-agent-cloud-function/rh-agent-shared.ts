@@ -187,6 +187,7 @@ export async function writeIntradayBarsToRsBars(
 
         await docRef.update({
           daily: updatedDaily,
+          version: new Date().toISOString(),
           lastDailyBarDate: marketDate,
           lastIntradayAt: FieldValue.serverTimestamp(),
         });
