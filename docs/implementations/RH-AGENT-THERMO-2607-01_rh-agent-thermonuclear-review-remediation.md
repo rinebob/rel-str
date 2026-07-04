@@ -512,7 +512,7 @@ These are blockers and should be done first. Each task should be a separate, sma
 8. ✅ T08 — Decompose worker
 9. ✅ T09 — Unify enqueue path
 10. ✅ T10 — Split frontend service
-11. T11 — Simplify group store
+11. ✅ T11 — Simplify group store
 12. T12 — Extract chart state
 13. T13 — Centralize Firestore helpers
 14. T14 — Split config file
