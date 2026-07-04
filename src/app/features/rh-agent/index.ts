@@ -54,6 +54,14 @@ export { RhAgentSymbolListStore } from './stores/rh-agent-symbol-list.store';
 // Symbol History Store (Phase 5 — extracted signal history cache)
 export { RhAgentSymbolHistoryStore } from './stores/rh-agent-symbol-history.store';
 
+// Chart Store (Phase 6 — shared chart data loading)
+export {
+  RhAgentChartStore,
+  DEFAULT_CHART_INTERVALS,
+  DEFAULT_CHART_INDICATORS,
+  DEFAULT_CHART_STRATEGIES,
+} from './stores/rh-agent-chart.store';
+
 // Chart Indicator Builder (Phase 1 — shared indicator configuration)
 export * as RhAgentChartIndicators from './utils/rh-agent-chart-indicators';
 

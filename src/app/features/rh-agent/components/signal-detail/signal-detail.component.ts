@@ -11,8 +11,7 @@
  * signal dots, and ST Trend Rider dots) are computed from the chart store data and injected
  * into the base indicator list before being passed to the flex chart component.
  */
-import { Component, inject, ChangeDetectionStrategy, output, computed, signal, input } from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { Component, inject, ChangeDetectionStrategy, output, computed, signal, input, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -20,10 +19,13 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-import { RhAgentChartService } from '../../services/rh-agent-chart.service';
-import type { ChartDataset, PriceBar } from '../../../heatmap-chart/heatmap-chart.types';
-import { filter, switchMap, catchError, tap } from 'rxjs/operators';
-import { of } from 'rxjs';
+import { RhAgentChartStore } from '../../stores/rh-agent-chart.store';
+import {
+  DEFAULT_CHART_INTERVALS,
+  DEFAULT_CHART_INDICATORS,
+  DEFAULT_CHART_STRATEGIES,
+} from '../../stores/rh-agent-chart.store';
+import type { ChartDataset } from '../../../heatmap-chart/heatmap-chart.types';
 import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-chart.component';
 import { BarsInterval } from '../../../../core/models/partner.types';
 import { UiStateService } from '../../../../core/services/ui-state.service';
@@ -44,11 +46,10 @@ import {
   ST_ZONE_V2_UPTICK_DOTS_INDICATOR,
   convertTrendStrengthSignals,
   convertZoneSignals,
+  injectCallableIndicatorData,
 } from '../../utils/rh-agent-chart-indicators';
 import { RhAgentSymbolHistoryStore } from '../../stores/rh-agent-symbol-history.store';
 import { IndicatorSeriesStore } from '../../stores/indicator-series.store';
-import { ChartInterval, IndicatorFamily, StrategyFamily } from '../../common/rh-agent-indicator.types';
-import { injectCallableIndicatorData } from '../../utils/rh-agent-chart-indicators';
 
 @Component({
   selector: 'app-signal-detail',
@@ -58,7 +59,7 @@ import { injectCallableIndicatorData } from '../../utils/rh-agent-chart-indicato
   styleUrl: './signal-detail.component.scss',
 })
 export class SignalDetailComponent {
-  private readonly chartService = inject(RhAgentChartService);
+  readonly chartStore = inject(RhAgentChartStore);
   readonly uiState = inject(UiStateService);
   readonly historyStore = inject(RhAgentSymbolHistoryStore);
   readonly indicatorStore = inject(IndicatorSeriesStore);
@@ -75,27 +76,12 @@ export class SignalDetailComponent {
 
   /** Show chart when a manual symbol is entered */
   showChart = computed(() => !!this.manualSymbol());
-  chartData = signal<ChartDataset | null>(null);
-  chartDataWeekly = signal<ChartDataset | null>(null);
-  chartDataMonthly = signal<ChartDataset | null>(null);
-  chartLoading = signal(false);
 
-  /** rs-bars version used as the indicator cache key */
-  barsVersion = signal<string>('');
-
-  /** Default indicator filters for the callable */
-  private readonly defaultIntervals = [ChartInterval.DAILY, ChartInterval.WEEKLY, ChartInterval.MONTHLY];
-  private readonly defaultIndicators = [
-    IndicatorFamily.ZONE_V1,
-    IndicatorFamily.ZONE_V2,
-    IndicatorFamily.TREND_STRENGTH,
-    IndicatorFamily.TREND_BANDS,
-  ];
-  private readonly defaultStrategies = [
-    StrategyFamily.ZONE_V1,
-    StrategyFamily.ZONE_V2,
-    StrategyFamily.TREND_STRENGTH,
-  ];
+  /** Local reference to chart data for convenient access in this component. */
+  readonly chartData = computed(() => this.chartStore.dailyData());
+  readonly chartDataWeekly = computed(() => this.chartStore.weeklyData());
+  readonly chartDataMonthly = computed(() => this.chartStore.monthlyData());
+  readonly chartLoading = computed(() => this.chartStore.loading());
 
   /** Shared crosshair date for syncing across triple charts */
   crosshairDate = signal<Date | null>(null);
@@ -140,14 +126,14 @@ export class SignalDetailComponent {
   /** Cached indicator series response for the current symbol/version/filters. */
   indicatorResponse = computed(() => {
     const symbol = this.manualSymbol();
-    const version = this.barsVersion();
+    const version = this.chartStore.barsVersion();
     if (!symbol || !version) return undefined;
     return this.indicatorStore.responseFor()(
       symbol,
       version,
-      this.defaultIntervals,
-      this.defaultIndicators,
-      this.defaultStrategies,
+      DEFAULT_CHART_INTERVALS,
+      DEFAULT_CHART_INDICATORS,
+      DEFAULT_CHART_STRATEGIES,
     );
   });
 
@@ -395,43 +381,17 @@ export class SignalDetailComponent {
 
   /**
    * Load chart data when a manual symbol is supplied (review page / order page).
-   * Reads all three intervals from rs-bars in one Firestore fetch.
-   * switchMap cancels any in-flight fetch when the symbol changes.
+   * The chart store handles the fetch, cancellation, and indicator series trigger.
    */
   constructor() {
-    toObservable(this.manualSymbol).pipe(
-      tap(symbol => console.log('[SignalDetail] manualSymbol changed:', symbol)),
-      filter((symbol): symbol is string => !!symbol),
-      switchMap(symbol => {
-        this.historyStore.loadSignalHistory(symbol);
-        this.chartLoading.set(true);
-        return this.chartService.loadBars$(symbol).pipe(
-          catchError(err => {
-            console.error('[SignalDetail] loadBars$ failed', symbol, err);
-            return of(null);
-          })
-        );
-      }),
-      tap(bars => {
-        if (!bars) return;
-        const version = bars.version ?? '';
-        this.barsVersion.set(version);
-        if (version) {
-          this.indicatorStore.loadIfNeeded(
-            this.manualSymbol() ?? '',
-            version,
-            this.defaultIntervals,
-            this.defaultIndicators,
-            this.defaultStrategies,
-          );
-        }
-      }),
-      takeUntilDestroyed(),
-    ).subscribe((bars: { daily: ChartDataset; weekly: ChartDataset; monthly: ChartDataset; version: string } | null) => {
-      this.chartData.set(bars?.daily ?? null);
-      this.chartDataWeekly.set(bars?.weekly ?? null);
-      this.chartDataMonthly.set(bars?.monthly ?? null);
-      this.chartLoading.set(false);
+    effect(() => {
+      const symbol = this.manualSymbol();
+      if (!symbol) {
+        this.chartStore.clearCharts();
+        return;
+      }
+      this.historyStore.loadSignalHistory(symbol);
+      this.chartStore.loadCharts(symbol);
     });
   }
 }

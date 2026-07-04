@@ -9,7 +9,7 @@
   }
 
   <!-- Loading -->
-  @if (symbol() && loading()) {
+  @if (symbol() && chartStore.loading()) {
     <div class="qc-loading">
       <mat-spinner diameter="24"></mat-spinner>
       <span>Loading {{ symbol() }}…</span>
@@ -17,20 +17,20 @@
   }
 
   <!-- Error -->
-  @if (symbol() && error() && !loading()) {
+  @if (symbol() && chartStore.error() && !chartStore.loading()) {
     <div class="qc-error">
       <mat-icon>error_outline</mat-icon>
-      <p>{{ error() }}</p>
+      <p>{{ chartStore.error() }}</p>
     </div>
   }
 
   <!-- Charts: Monthly → Weekly → Daily -->
-  @if (symbol() && !loading() && !error()) {
+  @if (symbol() && !chartStore.loading() && !chartStore.error()) {
     <div class="qc-stack">
       <div class="qc-chart-cell">
         <div class="qc-tf-label">Daily</div>
         <app-flex-chart
-          [chartData]="dailyData()"
+          [chartData]="chartStore.dailyData()"
           [config]="dailyConfig()"
           [syncCrosshairDate]="sharedCrosshairDate()"
           (crosshairDateChange)="sharedCrosshairDate.set($event)"
@@ -41,7 +41,7 @@
       <div class="qc-chart-cell">
         <div class="qc-tf-label">Weekly</div>
         <app-flex-chart
-          [chartData]="weeklyData()"
+          [chartData]="chartStore.weeklyData()"
           [config]="weeklyConfig()"
           [syncCrosshairDate]="sharedCrosshairDate()"
           (crosshairDateChange)="sharedCrosshairDate.set($event)"
@@ -52,7 +52,7 @@
       <div class="qc-chart-cell">
         <div class="qc-tf-label">Monthly</div>
         <app-flex-chart
-          [chartData]="monthlyData()"
+          [chartData]="chartStore.monthlyData()"
           [config]="monthlyConfig()"
           [syncCrosshairDate]="sharedCrosshairDate()"
           (crosshairDateChange)="sharedCrosshairDate.set($event)"
