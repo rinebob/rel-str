@@ -12,17 +12,7 @@ import { computeStTrendStrength } from '../indicators/st-trend-strength';
 import { detectAllStTrendRiderSignals } from './strategies/signal-detection';
 import { StSignalDirection } from './rh-agent-config';
 import type { OHLCV } from '../indicators/st-trend-bands';
-
-// Local copy of the rs-bars shape to avoid importing rs-bars-sync (which has
-// Firebase side effects) into backfill scripts and other pure consumers.
-export interface OhlcBar {
-  d: string;   // YYYY-MM-DD
-  o: number;
-  h: number;
-  l: number;
-  c: number;
-  v?: number;
-}
+import type { OhlcBar } from './rh-agent-types';
 
 // =============================================================================
 // TYPES

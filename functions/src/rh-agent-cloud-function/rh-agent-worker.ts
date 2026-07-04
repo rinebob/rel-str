@@ -10,7 +10,8 @@ import { onTaskDispatched } from 'firebase-functions/v2/tasks';
 import { logger } from 'firebase-functions/v2';
 
 import { db, FieldValue } from '../firebase-admin-init';
-import { OhlcBar, RsBarsDoc } from '../rs-bars/rs-bars-sync';
+import type { OhlcBar } from './rh-agent-types';
+import { RsBarsDoc } from '../rs-bars/rs-bars-sync';
 
 import {
   RH_AGENT_RUNS_COLLECTION,

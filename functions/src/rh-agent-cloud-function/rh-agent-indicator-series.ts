@@ -11,12 +11,12 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 import { db } from '../firebase-admin-init';
 import { RS_BARS_COLLECTION } from '../rs-bars/rs-bars-sync';
+import type { OhlcBar } from './rh-agent-types';
 import {
   computeSymbolIndicatorSeries,
   ChartInterval,
   IndicatorFamily,
   StrategyFamily,
-  type OhlcBar,
   type SymbolIndicatorSeriesResponse,
   type IntervalData,
 } from './rh-agent-indicator-computation';
@@ -26,7 +26,6 @@ export {
   computeSymbolIndicatorSeries,
   type ChartInterval,
   type IndicatorFamily,
-  type OhlcBar,
   type StrategyFamily,
   type IndicatorDataPoint,
   type IndicatorIntervalData,

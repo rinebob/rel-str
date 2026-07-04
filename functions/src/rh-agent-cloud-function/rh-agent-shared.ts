@@ -19,7 +19,8 @@ import {
   IntradaySnapshot,
 } from './rh-agent-config';
 import { db, FieldValue } from '../firebase-admin-init';
-import { RS_BARS_COLLECTION, OhlcBar } from '../rs-bars/rs-bars-sync';
+import { RS_BARS_COLLECTION } from '../rs-bars/rs-bars-sync';
+import type { OhlcBar } from './rh-agent-types';
 import { callPartnerIntradaySnapshotV2 } from '../partner-proxy';
 
 /**

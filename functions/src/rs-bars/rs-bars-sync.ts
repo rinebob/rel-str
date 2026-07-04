@@ -20,6 +20,7 @@ import { OAuth2Client } from 'google-auth-library';
 import { db } from '../firebase-admin-init';
 import { callPartnerTimeSeries, callPartnerTrackedSymbols } from '../partner-proxy';
 import { startRhAgentRun } from '../rh-agent-cloud-function/rh-agent-trigger';
+import type { OhlcBar } from '../rh-agent-cloud-function/rh-agent-types';
 
 // ============================================================================
 // Constants
@@ -44,15 +45,6 @@ const STALE_THRESHOLD_DAYS = 7;
 // ============================================================================
 // Types
 // ============================================================================
-
-export interface OhlcBar {
-  d: string;   // YYYY-MM-DD
-  o: number;
-  h: number;
-  l: number;
-  c: number;
-  v?: number;
-}
 
 export interface RsBarsDoc {
   symbol: string;
