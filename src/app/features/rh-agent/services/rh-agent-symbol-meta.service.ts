@@ -11,7 +11,6 @@ import {
   collection,
   doc,
   setDoc,
-  getDoc,
   getDocs,
   query,
   where,
@@ -21,14 +20,13 @@ import {
   serverTimestamp,
   onSnapshot,
   DocumentData,
-  DocumentReference,
   FieldValue,
 } from '@angular/fire/firestore';
-import { Auth, authState } from '@angular/fire/auth';
 import { Observable, from, of } from 'rxjs';
 import { map, switchMap, take } from 'rxjs/operators';
 
 import { SymbolType } from '../common/rh-agent.constants';
+import { requireUserId, chunkArray, getDocData } from './rh-agent-firestore-helpers';
 
 export interface RhSymbolMeta {
   symbol: string;
@@ -60,7 +58,6 @@ export const SYMBOL_META_COLLECTION = 'rh-agent-symbol-meta';
 })
 export class RhAgentSymbolMetaService {
   private readonly firestore = inject(Firestore);
-  private readonly auth = inject(Auth);
 
   private readonly metaCollection = collection(this.firestore, SYMBOL_META_COLLECTION);
 
@@ -68,7 +65,7 @@ export class RhAgentSymbolMetaService {
   loadSymbolMeta(symbols: string[]): Observable<Record<string, RhSymbolMeta>> {
     if (symbols.length === 0) return of({});
 
-    return this.withUserId().pipe(
+    return requireUserId().pipe(
       switchMap(async (userId) => {
         const normalized = symbols.map((s) => s.toUpperCase());
         const chunks = chunkArray(normalized, 30);
@@ -95,7 +92,7 @@ export class RhAgentSymbolMetaService {
 
   /** Load all symbol meta for the user. */
   loadAllSymbolMeta(): Observable<RhSymbolMeta[]> {
-    return this.withUserId().pipe(
+    return requireUserId().pipe(
       switchMap((userId) => {
         const q = query(
           this.metaCollection,
@@ -127,7 +124,7 @@ export class RhAgentSymbolMetaService {
   addSymbolsBatch(symbols: Array<{ symbol: string; type: SymbolType; tags?: string[] }>): Observable<void> {
     if (symbols.length === 0) return of(undefined);
 
-    return this.withUserId().pipe(
+    return requireUserId().pipe(
       take(1),
       switchMap(async (userId) => {
         const batch = writeBatch(this.firestore);
@@ -136,7 +133,7 @@ export class RhAgentSymbolMetaService {
         for (const item of symbols) {
           const symbol = item.symbol.toUpperCase();
           const docRef = doc(this.firestore, SYMBOL_META_COLLECTION, symbol);
-          const existing = await this.getDocData(docRef);
+          const existing = await getDocData(docRef);
 
           batch.set(
             docRef,
@@ -148,7 +145,7 @@ export class RhAgentSymbolMetaService {
               source: 'import',
               metadata: {},
               updatedAt: now,
-              createdAt: existing?.createdAt ?? now,
+              createdAt: existing?.['createdAt'] ?? now,
             },
             { merge: true }
           );
@@ -162,12 +159,12 @@ export class RhAgentSymbolMetaService {
 
   /** Full update of a symbol's meta record. */
   updateMeta(symbol: string, input: RhSymbolMetaInput): Observable<void> {
-    return this.withUserId().pipe(
+    return requireUserId().pipe(
       take(1),
       switchMap(async (userId) => {
         const normalized = symbol.toUpperCase();
         const docRef = doc(this.firestore, SYMBOL_META_COLLECTION, normalized);
-        const existing = await this.getDocData(docRef);
+        const existing = await getDocData(docRef);
         const now = serverTimestamp();
 
         /**
@@ -202,7 +199,7 @@ export class RhAgentSymbolMetaService {
 
   /** Listen to real-time changes for all symbol meta. */
   listenToAllSymbolMeta(): Observable<RhSymbolMeta[]> {
-    return this.withUserId().pipe(
+    return requireUserId().pipe(
       switchMap((userId) => {
         const q = query(
           this.metaCollection,
@@ -239,30 +236,4 @@ export class RhAgentSymbolMetaService {
     };
   }
 
-  /** Fetch a single doc's data to preserve createdAt during updates. */
-  private async getDocData(docRef: DocumentReference<DocumentData>): Promise<{ createdAt?: Timestamp } | null> {
-    const snap = await getDoc(docRef);
-    return snap.exists() ? (snap.data() as { createdAt?: Timestamp }) : null;
-  }
-
-  /** Return the current user ID or throw if not authenticated. */
-  private withUserId(): Observable<string> {
-    return authState(this.auth).pipe(
-      take(1),
-      map((user) => {
-        if (!user?.uid) {
-          throw new Error('Authentication required to manage symbol meta');
-        }
-        return user.uid;
-      })
-    );
-  }
-}
-
-function chunkArray<T>(arr: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) {
-    chunks.push(arr.slice(i, i + size));
-  }
-  return chunks;
 }

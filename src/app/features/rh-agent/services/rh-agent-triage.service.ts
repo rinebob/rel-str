@@ -13,7 +13,6 @@ import {
   collection,
   doc,
   setDoc,
-  getDoc,
   getDocs,
   query,
   where,
@@ -24,14 +23,13 @@ import {
   onSnapshot,
   Query,
   QueryDocumentSnapshot,
-  DocumentReference,
   DocumentData,
 } from '@angular/fire/firestore';
-import { Auth, authState } from '@angular/fire/auth';
 import { Observable, from, of } from 'rxjs';
 import { map, switchMap, take } from 'rxjs/operators';
 
 import { RhReviewStatus } from '../common/rh-agent.constants';
+import { requireUserId, chunkArray, getDocData } from './rh-agent-firestore-helpers';
 
 export interface RhTriageDecision {
   symbol: string;
@@ -63,13 +61,12 @@ export const TRIAGE_DECISIONS_COLLECTION = 'rh-agent-triage-decisions';
 })
 export class RhAgentTriageService {
   private readonly firestore = inject(Firestore);
-  private readonly auth = inject(Auth);
 
   private readonly decisionsCollection = collection(this.firestore, TRIAGE_DECISIONS_COLLECTION);
 
   /** Load all decisions for a specific date. */
   loadDecisionsForDate(date: string): Observable<RhTriageDecision[]> {
-    return this.withUserId().pipe(
+    return requireUserId().pipe(
       switchMap((userId) => {
         const q = query(
           this.decisionsCollection,
@@ -84,7 +81,7 @@ export class RhAgentTriageService {
 
   /** Load decisions for a date range. */
   loadDecisionsForDateRange(startDate: string, endDate: string): Observable<RhTriageDecision[]> {
-    return this.withUserId().pipe(
+    return requireUserId().pipe(
       switchMap((userId) => {
         const q = query(
           this.decisionsCollection,
@@ -101,7 +98,7 @@ export class RhAgentTriageService {
 
   /** Persist a single decision. Creates or updates the {symbol}_{date} doc. */
   setDecision(input: RhTriageDecisionInput): Observable<void> {
-    return this.withUserId().pipe(
+    return requireUserId().pipe(
       take(1),
       switchMap(async (userId) => {
         const symbol = input.symbol.toUpperCase();
@@ -110,7 +107,7 @@ export class RhAgentTriageService {
         const docRef = doc(this.firestore, TRIAGE_DECISIONS_COLLECTION, docId);
         const now = serverTimestamp();
 
-        const existing = await this.getDocData(docRef);
+        const existing = await getDocData(docRef);
         const payload = {
           symbol,
           date,
@@ -121,7 +118,7 @@ export class RhAgentTriageService {
           notes: input.notes ?? null,
           metadata: input.metadata ?? {},
           updatedAt: now,
-          createdAt: existing?.createdAt ?? now,
+          createdAt: existing?.['createdAt'] ?? now,
         };
 
         await setDoc(docRef, payload);
@@ -134,7 +131,7 @@ export class RhAgentTriageService {
   setDecisionsBatch(inputs: RhTriageDecisionInput[]): Observable<void> {
     if (inputs.length === 0) return of(undefined);
 
-    return this.withUserId().pipe(
+    return requireUserId().pipe(
       take(1),
       switchMap(async (userId) => {
         const batch = writeBatch(this.firestore);
@@ -162,7 +159,7 @@ export class RhAgentTriageService {
               notes: input.notes ?? null,
               metadata: input.metadata ?? {},
               updatedAt: now,
-              createdAt: existing?.createdAt ?? now,
+              createdAt: existing?.['createdAt'] ?? now,
             },
             { merge: true }
           );
@@ -176,7 +173,7 @@ export class RhAgentTriageService {
 
   /** Listen to real-time changes for a specific date. */
   listenToDecisionsForDate(date: string): Observable<RhTriageDecision[]> {
-    return this.withUserId().pipe(
+    return requireUserId().pipe(
       switchMap((userId) => {
         const q = query(
           this.decisionsCollection,
@@ -200,7 +197,7 @@ export class RhAgentTriageService {
 
   /** Listen to real-time changes for all of a user's decisions. */
   listenToAllDecisions(): Observable<RhTriageDecision[]> {
-    return this.withUserId().pipe(
+    return requireUserId().pipe(
       switchMap((userId) => {
         const q = query(
           this.decisionsCollection,
@@ -287,34 +284,4 @@ export class RhAgentTriageService {
     return map;
   }
 
-  /** Fetch a single doc's createdAt to preserve it during updates. */
-  private async getDocData(docRef: DocumentReference<DocumentData>): Promise<{ createdAt?: Timestamp } | null> {
-    const snap = await getDoc(docRef);
-    return snap.exists() ? (snap.data() as { createdAt?: Timestamp }) : null;
-  }
-
-  /** Return the current user ID or throw if not authenticated. */
-  private withUserId(): Observable<string> {
-    return authState(this.auth).pipe(
-      take(1),
-      map((user) => {
-        if (!user?.uid) {
-          throw new Error('Authentication required to persist triage decisions');
-        }
-        return user.uid;
-      })
-    );
-  }
-}
-
-/**
- * Split an array into chunks of a given size.
- * Used to keep Firestore `in` queries under the 30-document limit.
- */
-function chunkArray<T>(arr: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) {
-    chunks.push(arr.slice(i, i + size));
-  }
-  return chunks;
 }

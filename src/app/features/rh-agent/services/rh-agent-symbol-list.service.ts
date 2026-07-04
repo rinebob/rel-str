@@ -23,9 +23,10 @@ import {
   serverTimestamp,
   DocumentData,
 } from '@angular/fire/firestore';
-import { Auth, authState } from '@angular/fire/auth';
 import { Observable, from, of } from 'rxjs';
 import { map, switchMap, take } from 'rxjs/operators';
+
+import { requireUserId } from './rh-agent-firestore-helpers';
 
 export const SYMBOL_LISTS_COLLECTION = 'rh-agent-symbol-lists';
 
@@ -40,13 +41,12 @@ export interface RhSymbolList {
 @Injectable({ providedIn: 'root' })
 export class RhAgentSymbolListService {
   private readonly firestore = inject(Firestore);
-  private readonly auth = inject(Auth);
 
   private readonly listsCollection = collection(this.firestore, SYMBOL_LISTS_COLLECTION);
 
   /** Load a single named list for the current user. */
   loadList(name: string): Observable<RhSymbolList> {
-    return this.withUserId().pipe(
+    return requireUserId().pipe(
       take(1),
       switchMap(async (userId) => {
         const docId = this.listId(userId, name);
@@ -58,7 +58,7 @@ export class RhAgentSymbolListService {
 
   /** Load all lists for the current user. */
   loadAllLists(): Observable<RhSymbolList[]> {
-    return this.withUserId().pipe(
+    return requireUserId().pipe(
       take(1),
       switchMap(async (userId) => {
         const q = query(this.listsCollection, where('userId', '==', userId));
@@ -70,7 +70,7 @@ export class RhAgentSymbolListService {
 
   /** Replace a list with a full set of symbols. */
   setList(name: string, symbols: string[]): Observable<void> {
-    return this.withUserId().pipe(
+    return requireUserId().pipe(
       take(1),
       switchMap(async (userId) => {
         const docId = this.listId(userId, name);
@@ -94,7 +94,7 @@ export class RhAgentSymbolListService {
 
   /** Add a symbol to a list if it is not already present. */
   addToList(symbol: string, name: string): Observable<void> {
-    return this.withUserId().pipe(
+    return requireUserId().pipe(
       take(1),
       switchMap(async (userId) => {
         const docId = this.listId(userId, name);
@@ -121,7 +121,7 @@ export class RhAgentSymbolListService {
 
   /** Remove a symbol from a list. */
   removeFromList(symbol: string, name: string): Observable<void> {
-    return this.withUserId().pipe(
+    return requireUserId().pipe(
       take(1),
       switchMap(async (userId) => {
         const docId = this.listId(userId, name);
@@ -178,16 +178,4 @@ export class RhAgentSymbolListService {
     };
   }
 
-  /** Return the current user ID or throw if not authenticated. */
-  private withUserId(): Observable<string> {
-    return authState(this.auth).pipe(
-      take(1),
-      map((user) => {
-        if (!user?.uid) {
-          throw new Error('Authentication required to manage symbol lists');
-        }
-        return user.uid;
-      })
-    );
-  }
 }

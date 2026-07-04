@@ -65,6 +65,9 @@ export {
 // Chart Indicator Builder (Phase 1 — shared indicator configuration)
 export * as RhAgentChartIndicators from './utils/rh-agent-chart-indicators';
 
+// Shared Firestore Helpers (Phase 6B — centralize duplicated utilities)
+export { requireUserId, chunkArray, getDocData, CreatedAtDoc } from './services/rh-agent-firestore-helpers';
+
 // Persistence & Universe Services (Phase 5C)
 export { RhAgentTriageService, RhTriageDecision, RhTriageDecisionInput } from './services/rh-agent-triage.service';
 export { RhAgentSymbolMetaService, RhSymbolMeta, RhSymbolMetaInput } from './services/rh-agent-symbol-meta.service';
