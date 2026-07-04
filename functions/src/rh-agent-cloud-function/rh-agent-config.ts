@@ -19,9 +19,6 @@ export const RH_AGENT_JOBS_SUBCOLLECTION = 'jobs';
 /** Symbol list collection for daily scanning. */
 export const RH_AGENT_SYMBOLS_COLLECTION = 'rh-agent-symbols';
 
-/** Signal-dates subcollection under each symbol doc. One doc per bar date, signals as a map field. */
-export const RH_AGENT_SIGNAL_DATES_SUBCOLLECTION = 'signal-dates';
-
 /** Run-ids subcollection under each symbol doc. One doc per runId, signals as a map field. Run-centric real-time path. */
 export const RH_AGENT_RUN_IDS_SUBCOLLECTION = 'run-ids';
 
@@ -49,12 +46,6 @@ export enum StSignalType {
   W_ST_TREND_RIDER_V1_SHORT      = 'W_ST_TREND_RIDER_V1_SHORT',
   W_ST_TREND_RIDER_V2_LONG       = 'W_ST_TREND_RIDER_V2_LONG',
   W_ST_TREND_RIDER_V2_SHORT      = 'W_ST_TREND_RIDER_V2_SHORT',
-  // Counter-trend longs: HTF zone is negative but LTF zone is upticking
-  // Backtest shows these have equal or better win rate than with-trend longs
-  D_ST_TREND_RIDER_V1_CT_LONG    = 'D_ST_TREND_RIDER_V1_CT_LONG',
-  D_ST_TREND_RIDER_V2_CT_LONG    = 'D_ST_TREND_RIDER_V2_CT_LONG',
-  W_ST_TREND_RIDER_V1_CT_LONG    = 'W_ST_TREND_RIDER_V1_CT_LONG',
-  W_ST_TREND_RIDER_V2_CT_LONG    = 'W_ST_TREND_RIDER_V2_CT_LONG',
 }
 
 /**
@@ -64,7 +55,7 @@ export enum StSignalType {
 export type RhAgentSignalStatus = 'INTERIM' | 'CONFIRMED';
 
 /**
- * Individual signal entry stored in the signals map of RhAgentSignalDateDoc.
+ * Individual signal entry stored in the signals map of a run-ids or signal-history doc.
  */
 export interface RhAgentSignalEntry {
   signalType: StSignalType | string;
@@ -74,18 +65,6 @@ export interface RhAgentSignalEntry {
   barDate: string;               // YYYY-MM-DD — the bar that triggered (doc ID)
   marketDate: string;            // YYYY-MM-DD — run date (may differ from barDate for W)
   indicators: Record<string, number | string | null>;
-}
-
-/**
- * Signal date doc stored under rh-agent-symbols/{SYMBOL}/signal-dates/{barDate}.
- * One doc per bar date; all signals for that date stored as a map keyed by signalType.
- */
-export interface RhAgentSignalDateDoc {
-  symbol: string;
-  barDate: string;               // YYYY-MM-DD — doc ID
-  runId: string;                 // last run that wrote/updated this doc
-  updatedAt: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
-  signals: Record<string, RhAgentSignalEntry>;
 }
 
 /**

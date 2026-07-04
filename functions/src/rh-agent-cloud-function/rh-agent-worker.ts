@@ -114,12 +114,9 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
       const results = await executeStrategy(strategy, strategyInput, runId);
 
       // 6. Persist signals
-      const { opportunityCount, barDates } = await persistSignals(symbol, runId, marketDate, runStartedAt, !!intraday, results, triggeredBy);
+      const { opportunityCount } = await persistSignals(symbol, runId, marketDate, runStartedAt, !!intraday, results, triggeredBy);
 
-      // 7. Clear stale INTERIM signals for bar dates that did not fire this run
-      await clearStaleSignals(symbol, marketDate, !!intraday, results, barDates);
-
-      // 8. Mark job complete (signalsGenerated counter is batched with run counters)
+      // 7. Mark job complete (signalsGenerated counter is batched with run counters)
       await markJobComplete(runId, symbol, 'SUCCESS', opportunityCount > 0, undefined, opportunityCount);
 
       const duration = Date.now() - startTime;
@@ -212,7 +209,7 @@ async function persistSignals(
   intraday: boolean,
   results: StrategyOutput[],
   triggeredBy?: string
-): Promise<{ opportunityCount: number; barDates: Set<string> }> {
+): Promise<{ opportunityCount: number }> {
   const fired = results.filter(r => r.action);
   const entries = fired.map(r => createSignalEntry(marketDate, runId, r, intraday));
 
@@ -240,34 +237,7 @@ async function persistSignals(
     opportunityCount,
   });
 
-  return { opportunityCount, barDates: new Set(byBarDate.keys()) };
-}
-
-/**
- * Clear stale INTERIM signals for bar dates that did not fire this run.
- */
-async function clearStaleSignals(
-  symbol: string,
-  marketDate: string,
-  intraday: boolean,
-  results: StrategyOutput[],
-  barDates: Set<string>
-): Promise<void> {
-  const writer = new SignalDateWriter(symbol);
-  const promises: Promise<void>[] = [];
-
-  // Also clear stale INTERIM for the current weekly bar if no weekly signal fired at all
-  const weeklyBarDate = results.find(r => r.barDate && deriveTimeframe(r.signalType) === 'W')?.barDate;
-  if (weeklyBarDate && !barDates.has(weeklyBarDate)) {
-    promises.push(writer.clearStaleInterimSignals(weeklyBarDate, new Set()));
-  }
-
-  // For intraday runs: if no daily signal fired at all, clear any existing INTERIM daily signals for today
-  if (intraday && !barDates.has(marketDate)) {
-    promises.push(writer.clearStaleInterimSignals(marketDate, new Set()));
-  }
-
-  await Promise.all(promises);
+  return { opportunityCount };
 }
 
 /**
@@ -531,7 +501,7 @@ function deriveSignalStatus(
 }
 
 /**
- * Build a signal entry for the signal-dates map.
+ * Build a signal entry for the run-ids and signal-history maps.
  */
 function createSignalEntry(
   marketDate: string,

@@ -1,9 +1,9 @@
 /**
  * SignalDateWriter
  *
- * Encapsulates all Firestore writes to `rh-agent-symbols/{symbol}/signal-dates/{barDate}`
- * and the per-symbol gate-date fields. Writes for different bar dates and doc types run
- * in parallel; writes to the same doc are kept as a single batched update.
+ * Encapsulates all Firestore writes to the per-symbol run-ids and signal-history
+ * subcollections, plus the per-symbol gate-date fields. Writes for different bar dates
+ * and doc types run in parallel; writes to the same doc are kept as a single batched update.
  */
 import { db, FieldValue } from '../firebase-admin-init';
 import {
@@ -29,9 +29,9 @@ export class SignalDateWriter {
 
   /**
    * Persist all signal entries for a single bar date in parallel:
-   *   - merge-write the signal-date doc
+   *   - merge-write the run-ids doc
+   *   - merge-write the signal-history doc (nightly runs only)
    *   - batch-update the symbol gate dates
-   *   - delete stale INTERIM signals for this bar date
    *
    * Returns the number of entries persisted.
    */
@@ -55,17 +55,6 @@ export class SignalDateWriter {
 
     await Promise.all(writes);
     return entries.length;
-  }
-
-  /**
-   * No-op: signal-dates is no longer written to. INTERIM signals only existed
-   * in signal-dates; signal-history stores CONFIRMED signals only.
-   */
-  async clearStaleInterimSignals(
-    _barDate: string,
-    _firedSignalTypes: Set<string>
-  ): Promise<void> {
-    return;
   }
 
   /**
