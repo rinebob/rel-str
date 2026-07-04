@@ -21,7 +21,7 @@ import { map, catchError } from 'rxjs/operators';
 
 import { BarsInterval } from '../../../core/models/partner.types';
 import type { ChartDataset, PriceBar } from '../../heatmap-chart/heatmap-chart.types';
-import { RhAgentService } from './rh-agent.service';
+import { RhAgentRunService } from './rh-agent-run.service';
 
 // ============================================================================
 // Types (mirrors canonical backend OhlcBar in functions/src/rh-agent-cloud-function/rh-agent-types.ts)
@@ -113,7 +113,7 @@ function replaceOrAppend(bars: OhlcBar[], bar: OhlcBar): OhlcBar[] {
 @Injectable({ providedIn: 'root' })
 export class RhAgentChartService {
   private readonly firestore = inject(Firestore);
-  private readonly rhAgentService = inject(RhAgentService);
+  private readonly runService = inject(RhAgentRunService);
   private readonly injector = inject(EnvironmentInjector);
 
   private readonly RS_BARS_COLLECTION = 'rs-bars';
@@ -143,7 +143,7 @@ export class RhAgentChartService {
         }
 
         console.log('[RhAgentChartService] fetching intraday for', symbol);
-        return this.rhAgentService.getIntradaySnapshot$(symbol).pipe(
+        return this.runService.getIntradaySnapshot$(symbol).pipe(
           map(snapshot => {
             console.log('[RhAgentChartService] intraday snapshot', symbol, 'ip:', snapshot.ip);
             const ip = snapshot.ip;

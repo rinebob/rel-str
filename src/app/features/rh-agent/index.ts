@@ -9,18 +9,25 @@
  * ```
  */
 
-// Service
+// Services
+export { RhAgentService } from './services/rh-agent.service';
+export { RhAgentRunService } from './services/rh-agent-run.service';
+export { RhAgentSignalService } from './services/rh-agent-signal.service';
+export { RhAgentOverviewService } from './services/rh-agent-overview.service';
+export { RhAgentChartService } from './services/rh-agent-chart.service';
+
 export {
-  RhAgentService,
-  RhAgentStatus,
-  RhAgentRun,
-  RhAgentSymbolProfile,
-  RhAgentSignalItem,
-  MarketCapTier,
-  SignalDirection,
-  ManualRunRequest,
-  ManualRunResponse,
-} from './services/rh-agent.service';
+  type RhAgentStatus,
+  type RhAgentRun,
+  type RhAgentSymbolProfile,
+  type RhAgentSignalItem,
+  type MarketCapTier,
+  type SignalDirection,
+  type ManualRunRequest,
+  type ManualRunResponse,
+  RH_AGENT_SCHEDULE_CRON,
+  RH_AGENT_MAX_TRADE_AMOUNT,
+} from './services/rh-agent.types';
 
 // Group Store (Phase 4 — symbol-centric grouped review)
 export {

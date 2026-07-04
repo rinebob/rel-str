@@ -16,10 +16,10 @@ import { of, catchError, finalize, Subscription } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import {
-  RhAgentService,
-  RhAgentStatus,
-  RhAgentRun,
-} from '../services/rh-agent.service';
+  type RhAgentStatus,
+  type RhAgentRun,
+} from '../services/rh-agent.types';
+import { RhAgentRunService } from '../services/rh-agent-run.service';
 
 // State interface
 export interface RhAgentState {
@@ -54,7 +54,7 @@ export const RhAgentStore = signalStore(
   })),
 
   // Methods
-  withMethods((state, service = inject(RhAgentService), snackBar = inject(MatSnackBar), destroyRef = inject(DestroyRef)) => {
+  withMethods((state, runService = inject(RhAgentRunService), snackBar = inject(MatSnackBar), destroyRef = inject(DestroyRef)) => {
     let runsSubscription: Subscription | null = null;
 
     return {
@@ -66,7 +66,7 @@ export const RhAgentStore = signalStore(
       patchState(state, { isLoading: true });
 
       // Load status once
-      service.getStatus().pipe(
+      runService.getStatus().pipe(
         catchError(() => {
           snackBar.open('Failed to load status', 'Dismiss', { duration: 5000 });
           return of(null);
@@ -80,7 +80,7 @@ export const RhAgentStore = signalStore(
       // Start realtime runs stream (idempotent — only one listener at a time)
       if (!runsSubscription) {
         patchState(state, { runsStreaming: true });
-        runsSubscription = service.watchRecentRunsRealtime(30).pipe(
+        runsSubscription = runService.watchRecentRunsRealtime(30).pipe(
           catchError(() => {
             snackBar.open('Failed to stream runs', 'Dismiss', { duration: 5000 });
             return of([]);
@@ -99,7 +99,7 @@ export const RhAgentStore = signalStore(
      */
     refreshStatus(): void {
       patchState(state, { isLoading: true });
-      service.getStatus().pipe(
+      runService.getStatus().pipe(
         catchError(() => {
           snackBar.open('Failed to load status', 'Dismiss', { duration: 5000 });
           return of(null);
@@ -119,8 +119,7 @@ export const RhAgentStore = signalStore(
     triggerManualRun(date?: string): void {
       patchState(state, { isLoading: true });
 
-      service
-        .triggerManualRun(date ? { date } : {})
+      runService.triggerManualRun(date ? { date } : {})
         .pipe(takeUntilDestroyed(destroyRef))
         .subscribe({
           next: (result) => {
@@ -145,7 +144,7 @@ export const RhAgentStore = signalStore(
      */
     triggerBarsBackfill(): void {
       snackBar.open('Starting bars backfill for all symbols…', 'Dismiss', { duration: 4000 });
-      service.triggerBarsBackfill()
+      runService.triggerBarsBackfill()
         .pipe(takeUntilDestroyed(destroyRef))
         .subscribe({
           next: (result) => {

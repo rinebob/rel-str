@@ -24,10 +24,10 @@ import { forkJoin } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import {
-  RhAgentService,
-  RhAgentSymbolProfile,
-  RhAgentSignalItem,
-} from '../services/rh-agent.service';
+  type RhAgentSymbolProfile,
+  type RhAgentSignalItem,
+} from '../services/rh-agent.types';
+import { RhAgentSignalService } from '../services/rh-agent-signal.service';
 import { RhAgentTriageStore } from './rh-agent-triage.store';
 import { RhAgentSymbolListStore } from './rh-agent-symbol-list.store';
 import { RhAgentSymbolHistoryStore } from './rh-agent-symbol-history.store';
@@ -124,7 +124,7 @@ export const RhAgentGroupStore = signalStore(
 
   withMethods((
     state,
-    service = inject(RhAgentService),
+    signalService = inject(RhAgentSignalService),
     snackBar = inject(MatSnackBar),
     destroyRef = inject(DestroyRef),
     triageStore = inject(RhAgentTriageStore),
@@ -164,8 +164,8 @@ export const RhAgentGroupStore = signalStore(
       patchState(state, { symbolsLoading: true, symbolsError: null });
 
       // Fetch both timeframes in parallel and merge
-      const w$ = service.getSymbolsWithSignals(runId, 'W');
-      const d$ = service.getSymbolsWithSignals(runId, 'D');
+      const w$ = signalService.getSymbolsWithSignals(runId, 'W');
+      const d$ = signalService.getSymbolsWithSignals(runId, 'D');
 
       forkJoin([w$, d$])
         .pipe(takeUntilDestroyed(destroyRef))
@@ -218,7 +218,7 @@ export const RhAgentGroupStore = signalStore(
     /** Load all enabled symbols from Firestore (no callable). */
     loadAllSymbols(): void {
       patchState(state, { allSymbolsLoading: true });
-      service.getAllSymbols()
+      signalService.getAllSymbols()
         .pipe(takeUntilDestroyed(destroyRef))
         .subscribe({
           next: (symbols) => {

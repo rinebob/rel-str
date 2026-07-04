@@ -20,7 +20,8 @@ import {
 } from '@ngrx/signals';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
-import { RhAgentService, RhAgentSignalItem } from '../services/rh-agent.service';
+import { type RhAgentSignalItem } from '../services/rh-agent.types';
+import { RhAgentSignalService } from '../services/rh-agent-signal.service';
 
 export interface RhAgentSymbolHistoryState {
   /** Per-symbol signal history cache: symbol → signals[] */
@@ -38,7 +39,7 @@ export const RhAgentSymbolHistoryStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
 
-  withMethods((state, service = inject(RhAgentService), destroyRef = inject(DestroyRef), injector = inject(EnvironmentInjector)) => ({
+  withMethods((state, signalService = inject(RhAgentSignalService), destroyRef = inject(DestroyRef), injector = inject(EnvironmentInjector)) => ({
     /**
      * Load signals for a symbol from a specific run (run-ids/{runId}).
      * Used by grouped review — shows only signals from the active run.
@@ -53,7 +54,7 @@ export const RhAgentSymbolHistoryStore = signalStore(
         signalHistoryLoading: { ...state.signalHistoryLoading(), [cacheKey]: true },
       });
 
-      runInInjectionContext(injector, () => service.getSymbolSignalsForRun(symbol, runId))
+      runInInjectionContext(injector, () => signalService.getSymbolSignalsForRun(symbol, runId))
         .pipe(takeUntilDestroyed(destroyRef))
         .subscribe({
           next: (signals) => {
@@ -85,7 +86,7 @@ export const RhAgentSymbolHistoryStore = signalStore(
         signalHistoryLoading: { ...state.signalHistoryLoading(), [symbol]: true },
       });
 
-      runInInjectionContext(injector, () => service.getSymbolSignalHistoryFromHistory(symbol))
+      runInInjectionContext(injector, () => signalService.getSymbolSignalHistoryFromHistory(symbol))
         .pipe(takeUntilDestroyed(destroyRef))
         .subscribe({
           next: (signals) => {

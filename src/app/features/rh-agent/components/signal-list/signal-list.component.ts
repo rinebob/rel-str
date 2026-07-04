@@ -11,7 +11,8 @@ import { MatButtonModule, MatIconButton } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { RhAgentTriageStore } from '../../stores/rh-agent-triage.store';
-import { RhAgentService, RhAgentSignalItem } from '../../services/rh-agent.service';
+import { RhAgentSignalItem } from '../../services/rh-agent.types';
+import { RhAgentSignalService } from '../../services/rh-agent-signal.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 
 @Component({
@@ -30,7 +31,7 @@ import { UiStateService } from '../../../../core/services/ui-state.service';
 })
 export class SignalListComponent {
   readonly triageStore = inject(RhAgentTriageStore);
-  readonly service = inject(RhAgentService);
+  readonly signalService = inject(RhAgentSignalService);
   readonly uiState = inject(UiStateService);
 
   /** Currently selected symbol (passed in from parent) */
@@ -82,7 +83,7 @@ export class SignalListComponent {
       const symbol = this.selectedSymbol();
       if (!symbol || this.signalHistoryCache()[symbol] !== undefined) return;
       this.signalHistoryCache.update(c => ({ ...c, [symbol]: [] }));
-      this.service.getSymbolSignalHistoryFromHistory(symbol).subscribe({
+      this.signalService.getSymbolSignalHistoryFromHistory(symbol).subscribe({
         next: (signals) => this.signalHistoryCache.update(c => ({ ...c, [symbol]: signals })),
         error: () => {},
       });
@@ -96,7 +97,7 @@ export class SignalListComponent {
       this.timeframeFilter.set('all');
       if (!symbol || this.signalHistoryCache()[symbol] !== undefined) return;
       this.signalHistoryCache.update(c => ({ ...c, [symbol]: [] }));
-      this.service.getSymbolSignalHistoryFromHistory(symbol).subscribe({
+      this.signalService.getSymbolSignalHistoryFromHistory(symbol).subscribe({
         next: (signals) => this.signalHistoryCache.update(c => ({ ...c, [symbol]: signals })),
         error: () => {},
       });

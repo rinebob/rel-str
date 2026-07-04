@@ -10,7 +10,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { SignalDirection, RhAgentSignalItem, RhAgentService } from '../../services/rh-agent.service';
+import { SignalDirection, RhAgentSignalItem } from '../../services/rh-agent.types';
+import { RhAgentSignalService } from '../../services/rh-agent-signal.service';
 
 export interface TradeRow {
   symbol: string;
@@ -31,7 +32,7 @@ export interface TradeRow {
   styleUrl: './trade-row.component.scss',
 })
 export class TradeRowComponent implements OnInit {
-  private readonly service = inject(RhAgentService);
+  private readonly signalService = inject(RhAgentSignalService);
 
   row = input.required<TradeRow>();
   maxPositionSize = input(100000);
@@ -47,7 +48,7 @@ export class TradeRowComponent implements OnInit {
   ngOnInit(): void {
     const symbol = this.row().symbol;
     if (this.row().signal) return;
-    this.service.getSymbolSignalHistoryFromHistory(symbol).subscribe({
+    this.signalService.getSymbolSignalHistoryFromHistory(symbol).subscribe({
       next: (signals) => this.signalLoaded.emit({ symbol, signal: this.findLatestSignal(signals) }),
       error: () => this.signalLoaded.emit({ symbol, signal: null }),
     });

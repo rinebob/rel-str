@@ -20,7 +20,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { RhAgentStore } from '../../stores/rh-agent.store';
 import { RhAgentDashboardStore } from '../../stores/rh-agent-dashboard.store';
 import { RhAgentGroupStore } from '../../stores/rh-agent-group.store';
-import { RhAgentService, RhAgentRun } from '../../services/rh-agent.service';
+import { RhAgentRun } from '../../services/rh-agent.types';
+import { RhAgentOverviewService } from '../../services/rh-agent-overview.service';
 import { Router } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { getScheduleDescription } from '../../utils/rh-agent.utils';
@@ -54,7 +55,7 @@ export class RhAgentDashboardComponent {
   readonly uiStore = inject(RhAgentDashboardStore);
   private readonly groupStore = inject(RhAgentGroupStore);
   private readonly router = inject(Router);
-  private readonly rhService = inject(RhAgentService);
+  private readonly overviewService = inject(RhAgentOverviewService);
   private readonly snackBar = inject(MatSnackBar);
 
   readonly isSyncingOverview = signal(false);
@@ -102,7 +103,7 @@ export class RhAgentDashboardComponent {
   /** Trigger a full company overview sync and show a snackbar with the result. */
   triggerOverviewSync(): void {
     this.isSyncingOverview.set(true);
-    this.rhService.triggerOverviewSync(true).subscribe({
+    this.overviewService.triggerOverviewSync(true).subscribe({
       next: (r: { enqueued: number; skipped: number; total: number }) => {
         this.isSyncingOverview.set(false);
         this.snackBar.open(`Overview sync enqueued: ${r.enqueued} symbols`, 'OK', { duration: 4000 });
