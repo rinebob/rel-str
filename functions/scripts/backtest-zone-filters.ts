@@ -17,6 +17,7 @@
  */
 
 import 'dotenv/config';
+import type { OhlcBar } from '../src/rh-agent-cloud-function/rh-agent-types';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
@@ -44,7 +45,6 @@ const db = getFirestore();
 // Shared types
 // ============================================================================
 
-interface OhlcBar { d: string; o: number; h: number; l: number; c: number; v?: number; }
 interface RsBarsDoc {
   symbol: string;
   daily: OhlcBar[];

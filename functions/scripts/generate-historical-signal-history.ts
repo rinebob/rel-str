@@ -29,7 +29,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { computeSymbolIndicatorSeries } from '../src/rh-agent-cloud-function/rh-agent-indicator-computation';
-import type { OhlcBar as CallableOhlcBar } from '../src/rh-agent-cloud-function/rh-agent-indicator-computation';
+import type { OhlcBar as CallableOhlcBar } from '../src/rh-agent-cloud-function/rh-agent-types';
 import { StSignalDirection } from '../src/rh-agent-cloud-function/rh-agent-config';
 import type { StrategyOutput } from '../src/rh-agent-cloud-function/strategies/base-strategy';
 
