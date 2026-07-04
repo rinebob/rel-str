@@ -24,7 +24,7 @@ import type { ChartDataset, PriceBar } from '../../heatmap-chart/heatmap-chart.t
 import { RhAgentService } from './rh-agent.service';
 
 // ============================================================================
-// Types (mirrors backend OhlcBar in rs-bars-sync.ts)
+// Types (mirrors canonical backend OhlcBar in functions/src/rh-agent-cloud-function/rh-agent-types.ts)
 // ============================================================================
 
 interface OhlcBar {
