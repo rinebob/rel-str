@@ -360,8 +360,9 @@ export function convertZoneSignals(
 
 /**
  * Inject callable indicator data into the base indicator configs for a single interval.
- * When the callable has no data for an indicator, the config is left unchanged so the
- * flex chart can fall back to its inline calculator.
+ * Always overwrites the config data with the backend response, even when empty, so the
+ * flex chart never silently falls back to its inline calculator. If backend data is missing
+ * the chart will show an empty series and the gap is visible.
  */
 export function injectCallableIndicatorData(
   indicators: IndicatorConfig[],
@@ -372,13 +373,13 @@ export function injectCallableIndicatorData(
   return indicators.map(cfg => {
     switch (cfg.type) {
       case StIndicator.ZONE:
-        return converted.zoneV1.length ? { ...cfg, data: converted.zoneV1 } : cfg;
+        return { ...cfg, data: converted.zoneV1 };
       case StIndicator.ZONE_V2:
-        return converted.zoneV2.length ? { ...cfg, data: converted.zoneV2 } : cfg;
+        return { ...cfg, data: converted.zoneV2 };
       case StIndicator.TREND_STRENGTH:
-        return converted.trendStrength.length ? { ...cfg, data: converted.trendStrength } : cfg;
+        return { ...cfg, data: converted.trendStrength };
       case StIndicator.TREND_BANDS:
-        return converted.trendBands.length ? { ...cfg, bandData: converted.trendBands } : cfg;
+        return { ...cfg, bandData: converted.trendBands };
       default:
         return cfg;
     }
