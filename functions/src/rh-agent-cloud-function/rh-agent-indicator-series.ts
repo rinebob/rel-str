@@ -66,7 +66,7 @@ function filterResponse(
     const intervalData: IntervalData = { indicators: {}, signals: {} };
     for (const family of indicators) {
       if (source.indicators[family]) {
-        intervalData.indicators[family] = source.indicators[family];
+        (intervalData.indicators as Record<string, unknown>)[family] = source.indicators[family];
       }
     }
     for (const family of strategies) {

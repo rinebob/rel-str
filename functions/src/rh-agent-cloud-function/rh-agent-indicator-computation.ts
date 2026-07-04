@@ -62,6 +62,34 @@ export interface IndicatorDataPoint {
 
 export type IndicatorIntervalData = IndicatorDataPoint[];
 
+export interface ZoneV1Point {
+  d: string;
+  zone: number | null;
+}
+
+export interface ZoneV2Point {
+  d: string;
+  zone: number | null;
+}
+
+export interface TrendStrengthPoint {
+  d: string;
+  diPlus: number | null;
+  diMinus: number | null;
+  diHist: number | null;
+  adx: number | null;
+}
+
+export interface TrendBandsPoint {
+  d: string;
+  bands: BandPoint[];
+}
+
+export interface TriggerBandsPoint {
+  d: string;
+  // Trigger band fields TBD in Phase 2
+}
+
 export interface SignalIntervalData {
   zoneV1?: IndicatorSignalMarker[];
   zoneV2?: IndicatorSignalMarker[];
@@ -103,11 +131,11 @@ export interface SymbolIndicatorSeriesResponse {
 
 export interface IntervalData {
   indicators: {
-    zoneV1?: IndicatorIntervalData;
-    zoneV2?: IndicatorIntervalData;
-    trendStrength?: IndicatorIntervalData;
-    trendBands?: IndicatorIntervalData;
-    triggerBands?: IndicatorIntervalData;
+    zoneV1?: ZoneV1Point[];
+    zoneV2?: ZoneV2Point[];
+    trendStrength?: TrendStrengthPoint[];
+    trendBands?: TrendBandsPoint[];
+    triggerBands?: TriggerBandsPoint[];
   };
   signals: {
     zoneV1?: IndicatorSignalMarker[];
@@ -203,31 +231,6 @@ function detectTrendStrengthSignals(data: IndicatorDataPoint[]): IndicatorSignal
   return signals;
 }
 
-function mapHtfZoneToLtfDates(ltfDates: string[], htfDates: string[], htfZone: (number | null)[]): (number | null)[] {
-  // Both arrays are sorted chronologically. For each LTF date, use the most recent HTF zone
-  // whose HTF date is <= the LTF date.
-  const result: (number | null)[] = new Array(ltfDates.length).fill(null);
-  let htfIdx = 0;
-  for (let i = 0; i < ltfDates.length; i++) {
-    const ltfDate = ltfDates[i];
-    while (htfIdx < htfDates.length && htfDates[htfIdx] <= ltfDate) {
-      htfIdx++;
-    }
-    result[i] = htfIdx > 0 ? htfZone[htfIdx - 1] : null;
-  }
-  return result;
-}
-
-function assignHtfContext(ltfData: IndicatorDataPoint[], htfData: IndicatorDataPoint[]): void {
-  const ltfDates = ltfData.map((p: IndicatorDataPoint) => p.d);
-  const htfDates = htfData.map((p: IndicatorDataPoint) => p.d);
-  const htfZone = htfData.map((p: IndicatorDataPoint) => p.zoneV2);
-  const mapped = mapHtfZoneToLtfDates(ltfDates, htfDates, htfZone);
-  for (let i = 0; i < ltfData.length; i++) {
-    ltfData[i].htfZoneV2 = mapped[i];
-  }
-}
-
 function computeIndicatorInterval(bars: OhlcBar[]): IndicatorIntervalData {
   if (bars.length < 30) {
     return bars.map(b => ({
@@ -265,6 +268,26 @@ function computeIndicatorInterval(bars: OhlcBar[]): IndicatorIntervalData {
     ],
     htfZoneV2: null,
   }));
+}
+
+function splitIndicatorInterval(data: IndicatorIntervalData): {
+  zoneV1: ZoneV1Point[];
+  zoneV2: ZoneV2Point[];
+  trendStrength: TrendStrengthPoint[];
+  trendBands: TrendBandsPoint[];
+} {
+  return {
+    zoneV1: data.map(p => ({ d: p.d, zone: p.zoneV1 })),
+    zoneV2: data.map(p => ({ d: p.d, zone: p.zoneV2 })),
+    trendStrength: data.map(p => ({
+      d: p.d,
+      diPlus: p.diPlus,
+      diMinus: p.diMinus,
+      diHist: p.diHist,
+      adx: p.adx,
+    })),
+    trendBands: data.map(p => ({ d: p.d, bands: p.bands })),
+  };
 }
 
 function emptySignalInterval(): SignalIntervalData {
@@ -356,9 +379,6 @@ export function computeIndicatorSeries(
   const weekly = computeIndicatorInterval(weeklyBars);
   const monthly = computeIndicatorInterval(monthlyBars);
 
-  assignHtfContext(daily, weekly);
-  assignHtfContext(weekly, monthly);
-
   return { daily, weekly, monthly };
 }
 
@@ -381,30 +401,15 @@ export function computeSymbolIndicatorSeries(
     computedAt: new Date().toISOString(),
     intervals: {
       daily: {
-        indicators: {
-          zoneV1: indicators.daily,
-          zoneV2: indicators.daily,
-          trendStrength: indicators.daily,
-          trendBands: indicators.daily,
-        },
+        indicators: splitIndicatorInterval(indicators.daily),
         signals: signals.daily,
       },
       weekly: {
-        indicators: {
-          zoneV1: indicators.weekly,
-          zoneV2: indicators.weekly,
-          trendStrength: indicators.weekly,
-          trendBands: indicators.weekly,
-        },
+        indicators: splitIndicatorInterval(indicators.weekly),
         signals: signals.weekly,
       },
       monthly: {
-        indicators: {
-          zoneV1: indicators.monthly,
-          zoneV2: indicators.monthly,
-          trendStrength: indicators.monthly,
-          trendBands: indicators.monthly,
-        },
+        indicators: splitIndicatorInterval(indicators.monthly),
         signals: signals.monthly,
       },
     },
