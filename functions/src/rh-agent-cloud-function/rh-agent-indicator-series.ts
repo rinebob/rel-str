@@ -11,6 +11,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 import { db } from '../firebase-admin-init';
 import { RS_BARS_COLLECTION } from '../rs-bars/rs-bars-sync';
+import { RH_AGENT_ALLOWED_ORIGINS } from './rh-agent-cors';
 import type { OhlcBar } from './rh-agent-types';
 import {
   computeSymbolIndicatorSeries,
@@ -78,25 +79,13 @@ function filterResponse(
   return { ...response, intervals: filteredIntervals };
 }
 
-/** Allowed origins for the indicator series callable. */
-const ALLOWED_ORIGINS = [
-  'https://rel-str--rel-str.web.app',
-  'https://rel-str--rel-str.us-central1.hosted.app',
-  'https://rel-str.web.app',
-  'https://savanttrader.com',
-  'https://www.savanttrader.com',
-  'http://localhost:4200',
-  'http://localhost:4210',
-  'http://localhost:5000',
-];
-
 /**
  * Callable: fetch pre-computed indicator time series for a symbol.
  * Reads from rs-bars/{symbol} and computes all indicators on the backend.
  */
 export const rhAgentGetSymbolIndicatorSeries = onCall<GetIndicatorSeriesRequest, Promise<SymbolIndicatorSeriesResponse>>(
   {
-    cors: ALLOWED_ORIGINS,
+    cors: RH_AGENT_ALLOWED_ORIGINS,
     memory: '256MiB',
     timeoutSeconds: 60,
   },

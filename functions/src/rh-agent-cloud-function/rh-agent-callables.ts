@@ -23,6 +23,7 @@ import {
   RhAgentDailyRun,
   RhAgentStatus,
 } from './rh-agent-config';
+import { RH_AGENT_ALLOWED_ORIGINS } from './rh-agent-cors';
 
 /**
  * Request/response types for callables.
@@ -75,25 +76,13 @@ interface RunHistoryResponse {
   }>;
 }
 
-/** Origins allowed to call the RH Agent callable functions. */
-const ALLOWED_ORIGINS = [
-  'https://rel-str--rel-str.web.app',
-  'https://rel-str--rel-str.us-central1.hosted.app',
-  'https://rel-str.web.app',
-  'https://savanttrader.com',
-  'https://www.savanttrader.com',
-  'http://localhost:4200',
-  'http://localhost:4210',
-  'http://localhost:5000',
-];
-
 /**
  * Manual trigger callable - enqueues Cloud Tasks for symbol analysis.
  * Identical processing to scheduled run, just triggered manually.
  */
 export const rhAgentManualRun = onCall<ManualRunRequest, Promise<ManualRunResponse>>(
   {
-    cors: ALLOWED_ORIGINS,
+    cors: RH_AGENT_ALLOWED_ORIGINS,
     memory: '1GiB',
     timeoutSeconds: 300,
   },
@@ -195,7 +184,7 @@ export const rhAgentManualRun = onCall<ManualRunRequest, Promise<ManualRunRespon
  */
 export const rhAgentGetStatus = onCall<void, Promise<AgentStatusResponse>>(
   {
-    cors: true,
+    cors: RH_AGENT_ALLOWED_ORIGINS,
   },
   async () => {
     // Get actual enabled symbols from rh-agent-symbols collection
@@ -243,7 +232,7 @@ export const rhAgentGetStatus = onCall<void, Promise<AgentStatusResponse>>(
  */
 export const rhAgentGetRunHistory = onCall<{ limit?: number }, Promise<RunHistoryResponse>>(
   {
-    cors: true,
+    cors: RH_AGENT_ALLOWED_ORIGINS,
   },
   async (request) => {
     const limit = request.data.limit ?? 20;
@@ -291,7 +280,7 @@ export const rhAgentGetRunHistory = onCall<{ limit?: number }, Promise<RunHistor
  * endpoint error) — the caller renders rs-bars as-is without injecting a bar.
  */
 export const rhAgentGetIntradaySnapshot = onCall<IntradaySnapshotRequest, Promise<IntradaySnapshotResponse>>(
-  { cors: ALLOWED_ORIGINS },
+  { cors: RH_AGENT_ALLOWED_ORIGINS },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Must be signed in');

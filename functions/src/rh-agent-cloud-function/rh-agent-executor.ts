@@ -7,6 +7,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { defineSecret } from 'firebase-functions/params';
+import { RH_AGENT_ALLOWED_ORIGINS } from './rh-agent-cors';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
@@ -182,15 +183,7 @@ async function executeTrade(
  */
 export const rhExecuteTrade = onCall<TradeRequest, Promise<TradeResponse>>(
   {
-    cors: [
-      'https://rel-str--rel-str.web.app',
-      'https://rel-str--rel-str.us-central1.hosted.app',
-      'https://rel-str.web.app',
-      'https://savanttrader.com',
-      'https://www.savanttrader.com',
-      'http://localhost:4200',
-      'http://localhost:5000',
-    ],
+    cors: RH_AGENT_ALLOWED_ORIGINS,
     timeoutSeconds: 30,
     secrets: [mcpServerUrlSecret, accountNumberSecret],
   },
@@ -246,7 +239,7 @@ export const rhExecuteTrade = onCall<TradeRequest, Promise<TradeResponse>>(
  */
 export const rhGetAccountSummary = onCall<void, Promise<any>>(
   {
-    cors: true,
+    cors: RH_AGENT_ALLOWED_ORIGINS,
     timeoutSeconds: 15,
     secrets: [mcpServerUrlSecret, accountNumberSecret],
   },
