@@ -280,26 +280,36 @@ These are blockers and should be done first. Each task should be a separate, sma
 - `groups` is composed from smaller, named computeds.
 - Each computed is independently testable.
 
-### RH-AGENT-THERMO-2607-01-T12 — Extract chart state from `SignalDetailComponent`
+### RH-AGENT-THERMO-2607-01-T12 — Extract shared chart state from `SignalDetailComponent` and `QuickChartsComponent`
 
-**Problem**: `SignalDetailComponent` (438 lines) mixes layout, data loading, chart configuration, and indicator injection.
+**Problem**: Both `SignalDetailComponent` (438 lines) and `QuickChartsComponent` duplicate chart data loading, version tracking, and indicator-series triggering. The chart state is mixed into components that should own layout, not data orchestration.
 
-**Location**: `src/app/features/rh-agent/components/signal-detail/signal-detail.component.ts`
+**Location**:
+- `src/app/features/rh-agent/components/signal-detail/signal-detail.component.ts`
+- `src/app/features/rh-agent/components/quick-charts/quick-charts.component.ts`
 
 **Remediation**:
 
-- Create a `SignalDetailChartState` signal-store or injectable state class that owns:
-  - Loading bars for the symbol.
-  - Loading callable indicator series.
-  - Building base indicator configs.
-  - Injecting zone dots, signal dots, and trend-rider dots.
-  - Range selection state.
-- The component should bind to the state and own only template logic.
+- Create a shared `RhAgentChartStore` signal-store that owns:
+  - Loading D/W/M bars for the active symbol via `RhAgentChartService.loadBars$`.
+  - Tracking `loading`, `error`, and `barsVersion`.
+  - Triggering `IndicatorSeriesStore.loadIfNeeded` when the bars version is known.
+  - Exposing `dailyData`, `weeklyData`, `monthlyData`, and `barsVersion`.
+- `SignalDetailComponent` should:
+  - Bind to `RhAgentChartStore` for chart data and loading state.
+  - Retain its own layout-specific concerns: chart layout mode (single/triple), interval/range selection, selected indicator IDs, crosshair, zoom toolbar, and building interval-specific indicator configs.
+- `QuickChartsComponent` should:
+  - Bind to `RhAgentChartStore` for chart data and loading state.
+  - Retain its own simplified 100-bar fixed D/W/M config building.
+- Move the default indicator/interval/strategy filter lists into a shared constant if they are identical across both components.
 
 **Acceptance**:
 
-- `SignalDetailComponent` is under 200 lines.
-- Chart state is testable in isolation.
+- `SignalDetailComponent` is under 300 lines.
+- `QuickChartsComponent` is reduced or simplified.
+- `RhAgentChartStore` is under 300 lines.
+- Chart state is testable in isolation and shared between both chart views.
+- Frontend build passes.
 
 ### RH-AGENT-THERMO-2607-01-T13 — Centralize frontend Firestore auth helpers
 
@@ -513,7 +523,7 @@ These are blockers and should be done first. Each task should be a separate, sma
 9. ✅ T09 — Unify enqueue path
 10. ✅ T10 — Split frontend service
 11. ✅ T11 — Simplify group store
-12. T12 — Extract chart state
+12. ✅ T12 — Extract chart state
 13. T13 — Centralize Firestore helpers
 14. T14 — Split config file
 15. T15 — Atomic signal writes
