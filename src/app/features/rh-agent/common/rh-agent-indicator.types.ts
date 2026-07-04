@@ -49,9 +49,9 @@ export interface SymbolIndicatorSeriesResponse {
 
 export interface IntervalData {
   indicators: {
-    zoneV1?: IndicatorDataPoint[];
-    zoneV2?: IndicatorDataPoint[];
-    trendStrength?: IndicatorDataPoint[];
+    zoneV1?: ZoneV1Point[];
+    zoneV2?: ZoneV2Point[];
+    trendStrength?: TrendStrengthPoint[];
     trendBands?: TrendBandsPoint[];
     triggerBands?: TriggerBandsPoint[];
   };
@@ -63,16 +63,22 @@ export interface IntervalData {
   };
 }
 
-export interface IndicatorDataPoint {
+export interface ZoneV1Point {
   d: string;
-  zoneV1: number | null;
-  zoneV2: number | null;
+  zone: number | null;
+}
+
+export interface ZoneV2Point {
+  d: string;
+  zone: number | null;
+}
+
+export interface TrendStrengthPoint {
+  d: string;
   diPlus: number | null;
   diMinus: number | null;
   diHist: number | null;
   adx: number | null;
-  bands: BandPoint[];
-  htfZoneV2: number | null;
 }
 
 export interface TrendBandsPoint {
@@ -95,6 +101,19 @@ export interface BandPoint {
 export interface TriggerBandsPoint {
   d: string;
   // Trigger band fields TBD in Phase 2
+}
+
+/** @deprecated Use the per-family point types instead. */
+export interface IndicatorDataPoint {
+  d: string;
+  zoneV1: number | null;
+  zoneV2: number | null;
+  diPlus: number | null;
+  diMinus: number | null;
+  diHist: number | null;
+  adx: number | null;
+  bands: BandPoint[];
+  htfZoneV2: number | null;
 }
 
 export interface SignalMarker {

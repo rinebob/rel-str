@@ -18,7 +18,7 @@ import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, det
 import { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR, computeZoneWindowData } from '../../../features/shared/components/flex-chart/indicators/st-zone-window.indicator';
 import { detectTrendStrengthSignals } from '../../../features/shared/components/flex-chart/signals';
 import type { BandSeriesData } from '../../../features/shared/components/flex-chart/indicators/st-trend-bands.indicator';
-import type { IndicatorDataPoint, IntervalData, SignalMarker, TrendBandsPoint } from '../common/rh-agent-indicator.types';
+import type { IntervalData, SignalMarker, TrendBandsPoint, TrendStrengthPoint, ZoneV1Point, ZoneV2Point } from '../common/rh-agent-indicator.types';
 
 // ---------------------------------------------------------------------------
 // Base configuration
@@ -215,19 +215,18 @@ function zoneColor(zone: number): string {
 }
 
 function zoneToChartData(
-  points: IndicatorDataPoint[],
-  field: 'zoneV1' | 'zoneV2',
+  points: ZoneV1Point[] | ZoneV2Point[],
 ): { x: Date; y: number; color?: string }[] {
   return points
-    .filter(p => p[field] !== null && Number.isFinite(p[field] as number))
+    .filter(p => p.zone !== null && Number.isFinite(p.zone))
     .map(p => {
-      const zone = p[field] as number;
+      const zone = p.zone as number;
       return { x: toDate(p.d), y: zone, color: zoneColor(zone) };
     });
 }
 
 function trendStrengthToChartData(
-  points: IndicatorDataPoint[],
+  points: TrendStrengthPoint[],
 ): { x: Date; y: number; y2: number; y3: number; color: string }[] {
   return points
     .filter(p => p.diPlus !== null && p.diMinus !== null && p.diHist !== null)
@@ -289,12 +288,13 @@ export function convertIntervalIndicators(
   trendStrength: { x: Date; y: number; y2: number; y3: number }[];
   trendBands: BandSeriesData[];
 } {
-  const zone = intervalData?.indicators?.zoneV1 ?? [];
+  const zoneV1 = intervalData?.indicators?.zoneV1 ?? [];
+  const zoneV2 = intervalData?.indicators?.zoneV2 ?? [];
   const trendStrength = intervalData?.indicators?.trendStrength ?? [];
   const trendBands = intervalData?.indicators?.trendBands ?? [];
   return {
-    zoneV1: zoneToChartData(zone, 'zoneV1'),
-    zoneV2: zoneToChartData(zone, 'zoneV2'),
+    zoneV1: zoneToChartData(zoneV1),
+    zoneV2: zoneToChartData(zoneV2),
     trendStrength: trendStrengthToChartData(trendStrength),
     trendBands: trendBandsToChartData(trendBands, bars),
   };
