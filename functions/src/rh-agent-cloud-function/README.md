@@ -9,7 +9,7 @@ Event-driven daily scan that:
 2. Fetches a bulk intraday snapshot from SavantAPI for all monitored symbols
 3. Writes today's partial bars into `rs-bars`
 4. Enqueues one Cloud Tasks job per symbol for parallel analysis
-5. Each worker reads historical OHLCV bars from `rs-bars`, executes the selected ST zone-uptick strategy, and persists signal entries under `rh-agent-symbols/{symbol}/signal-dates`
+5. Each worker reads historical OHLCV bars from `rs-bars`, executes the selected ST trend-rider strategy, and persists signal entries under `rh-agent-symbols/{symbol}/run-ids` and `rh-agent-symbols/{symbol}/signal-history`
 6. Signals appear in the Angular dashboard for grouped review, triage, and (when enabled) MCP trade execution
 
 Trade execution is controlled via the `rh-agent-executor` callable using the configured MCP server and account number.
@@ -22,7 +22,6 @@ partner-data-ready Pub/Sub (runType: intraday-snapshot)
     ▼
 rhAgentPdrTrigger
     ├─ callPartnerIntradaySnapshotV2(symbols)  [one bulk POST]
-    ├─ writeIntradayBarsToRsBars(marketDate, snapshots)
     ├─ createDailyRun(marketDate, 'pdr')
     └─ createJobAndEnqueue(symbol, intraday)   [× N symbols]
             │
@@ -32,10 +31,10 @@ rhAgentPdrTrigger
             ▼
     rhAgentProcessSymbol (per symbol)
             ├─ getCachedBars(symbol, marketDate)  [rs-bars]
-            ├─ executeStrategy('st-zone-uptick')  // ST Trend Rider
+            ├─ executeStrategy('st-trend-rider')  // ST Trend Rider
             │      ├─ compute V1/V2 zone signals
             │      └─ return LONG/SHORT signals
-            └─ persistSignals()  [rh-agent-symbols/{symbol}/signal-dates/{barDate}]
+            └─ persistSignals()  [rh-agent-symbols/{symbol}/run-ids/{runId}, rh-agent-symbols/{symbol}/signal-history/{barDate}]
                         │
                         ▼
             Angular Dashboard (grouped review / triage / MCP execution)
@@ -46,23 +45,24 @@ rhAgentPdrTrigger
 | File | Exports | Purpose |
 |------|---------|---------|
 | `rh-agent-config.ts` | interfaces, enums, constants | All Firestore data shapes and collection names |
-| `rh-agent-shared.ts` | `getMarketDate`, `getDeadlineISO`, `loadEnabledSymbols`, `createDailyRun`, `createJobAndEnqueue`, `fetchIntradaySnapshots`, `writeIntradayBarsToRsBars` | Shared helpers used by triggers and manual callable |
+| `rh-agent-shared.ts` | `getMarketDate`, `getDeadlineISO`, `loadEnabledSymbols`, `createDailyRun`, `createJobAndEnqueue`, `fetchIntradaySnapshots` | Shared helpers used by triggers and manual callable |
 | `rh-agent-trigger.ts` | `rhAgentPdrTrigger`, `rhAgentTriggerDaily` | PDR Pub/Sub trigger; HTTP admin trigger with `?date` override |
 | `rh-agent-worker.ts` | `rhAgentProcessSymbol` | Cloud Tasks worker: reads bars, executes strategy, persists signals |
 | `rh-agent-callables.ts` | `rhAgentManualRun` | HTTPS callable for dashboard "Run Now" button |
 | `rh-agent-dashboard-callables.ts` | `rhAgentGetStatus`, `rhAgentGetRunHistory`, `rhAgentGetSymbolsWithSignals` | Dashboard status, run history, and grouped-review symbol query |
-| `rh-agent-signal-date-writer.ts` | `SignalDateWriter` | Persists per-date signal entries under `rh-agent-symbols/{symbol}/signal-dates` |
+| `rh-agent-signal-date-writer.ts` | `SignalDateWriter` | Persists signal entries under `rh-agent-symbols/{symbol}/run-ids` and `rh-agent-symbols/{symbol}/signal-history` |
 | `rh-agent-executor.ts` | `rhAgentExecuteTrades`, `rhAgentGetAccountSummary` | MCP trade executor and account summary callables |
 | `rh-agent-overview-sync-orchestrator.ts` / `rh-agent-overview-sync-worker.ts` | `rhAgentOverviewSync`, `rhAgentOverviewSyncSymbol` | Enqueues company-overview backfill tasks |
 | `rh-agent-seed-admin.ts` | `clearRhAgentSymbolsAdmin`, `seedAllSymbolsFromPartner` | Symbol list management |
-| `strategies/` | `base-strategy`, `signal-detection`, `st-zone-uptick.strategy` | Strategy adapter, signal state machine, and concrete zone-uptick strategy |
+| `strategies/` | `base-strategy`, `signal-detection`, `st-trend-rider.strategy` | Strategy adapter, signal state machine, and concrete trend-rider strategy |
 
 ## Firestore Collections
 
 | Collection | Doc ID | Purpose |
 |-----------|--------|---------|
 | `rh-agent-symbols` | `{symbol}` | Monitored symbols with `enabled`, overview, and last-signal fields |
-| `rh-agent-symbols/{symbol}/signal-dates` | `{barDate}` | Per-date signal entries keyed by signal type |
+| `rh-agent-symbols/{symbol}/run-ids` | `{runId}` | Per-run signal entries keyed by signal type |
+| `rh-agent-symbols/{symbol}/signal-history` | `{barDate}` | Canonical EOD signal entries keyed by signal type |
 | `rh-agent-runs` | PDR: `marketDate`; manual: `{marketDate}_manual_{ts}` | Run metadata and counters |
 | `rh-agent-runs/{runId}/jobs` | `{symbol}` | Per-symbol job status |
 | `rh-agent-status/current` | `current` | Agent status singleton |

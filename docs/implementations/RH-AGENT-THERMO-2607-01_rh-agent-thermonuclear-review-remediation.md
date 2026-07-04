@@ -101,6 +101,8 @@ These are blockers and should be done first. Each task should be a separate, sma
 
 **Context**: Project planning docs (`docs/planning/rh-agent/RH-AGENT-REFACTOR-PLAN.md`) note that `invoker: 'public'` was intentionally kept because Firebase Auth / App Check was not working reliably. This is a documented risk, not an accidental oversight.
 
+> **Note**: The Auth / App Check reliability fix is a separate, larger infrastructure issue that is intentionally out of scope for this remediation plan. T03 should not be started until that work is complete and verified.
+
 **Remediation**:
 
 - Resolve the Auth / App Check reliability issue first.
