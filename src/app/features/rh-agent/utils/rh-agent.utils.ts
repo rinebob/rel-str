@@ -3,9 +3,9 @@
  *
  * Small, pure helpers used across the RH Agent feature components.
  */
-import { RhAgentSignalItem, RhAgentSymbolProfile, RH_AGENT_SCHEDULE_CRON } from '../services/rh-agent.service';
-import { RhSymbolRow } from '../stores/rh-agent-group.store';
-import { GroupDimension } from '../common/rh-agent.constants';
+import { RhAgentSignalItem, RhAgentSymbolProfile, RH_AGENT_SCHEDULE_CRON } from '../services/rh-agent.types';
+import { RhSymbolRow, RhSymbolGroup } from '../stores/rh-agent-group.store';
+import { GroupDimension, RhReviewStatus } from '../common/rh-agent.constants';
 
 /** Today in Pacific Time as YYYY-MM-DD. */
 export function todayDate(): string {
@@ -139,4 +139,99 @@ export function getRunStatusIcon(status: string): string {
     case 'partial': return 'warning';
     default: return 'help';
   }
+}
+
+/** Input shape for building a grouped view — kept generic so it can be computed from store state. */
+export interface BuildSymbolGroupsInput {
+  signalSymbols: RhAgentSymbolProfile[];
+  allSymbols: RhAgentSymbolProfile[];
+  showAll: boolean;
+  dimension: GroupDimension;
+  symbolLists: Record<string, string[]>;
+  activeListFilter: string | 'ALL';
+  fullGroupToggles: Record<string, boolean>;
+  statuses: Record<string, RhReviewStatus>;
+  historyCache: Record<string, RhAgentSignalItem[]>;
+  historyLoading: Record<string, boolean>;
+  activeRunId: string | null;
+}
+
+/**
+ * Build the grouped view used by the grouped review page.
+ * Pure function: no store access, just transforms the supplied state into groups.
+ */
+export function buildSymbolGroups(input: BuildSymbolGroupsInput): RhSymbolGroup[] {
+  const {
+    signalSymbols,
+    allSymbols,
+    showAll,
+    dimension,
+    symbolLists,
+    activeListFilter,
+    fullGroupToggles,
+    statuses,
+    historyCache,
+    historyLoading,
+    activeRunId,
+  } = input;
+
+  const signalSet = new Set(signalSymbols.map((s) => s.symbol));
+
+  const symbols: Array<{ profile: RhAgentSymbolProfile; hasSignal: boolean }> = [
+    ...signalSymbols.map((p) => ({ profile: p, hasSignal: true })),
+    ...(showAll
+      ? allSymbols
+          .filter((p) => !signalSet.has(p.symbol))
+          .map((p) => ({ profile: p, hasSignal: false }))
+      : []),
+  ];
+
+  const groupMap = new Map<string, Array<{ profile: RhAgentSymbolProfile; hasSignal: boolean }>>();
+  for (const item of symbols) {
+    if (!shouldShowInListFilter(item.profile.symbol, symbolLists, activeListFilter)) continue;
+
+    const key = getGroupKey(item.profile, dimension);
+    const existing = groupMap.get(key) ?? [];
+    existing.push(item);
+    groupMap.set(key, existing);
+  }
+
+  const sortedKeys = [...groupMap.keys()].sort((a, b) => {
+    if (a === UNKNOWN_GROUP) return 1;
+    if (b === UNKNOWN_GROUP) return -1;
+    return a.localeCompare(b);
+  });
+
+  return sortedKeys.map((key) => {
+    const items = groupMap.get(key)!;
+    const sorted = [...items].sort(
+      (a, b) => (b.profile.marketCap ?? 0) - (a.profile.marketCap ?? 0)
+    );
+
+    const rows: RhSymbolRow[] = sorted.map((item) => {
+      const cacheKey = activeRunId ? `${item.profile.symbol}::${activeRunId}` : item.profile.symbol;
+      return {
+        profile: item.profile,
+        hasSignal: item.hasSignal,
+        signals: historyCache[cacheKey],
+        signalsLoading: historyLoading[cacheKey] ?? false,
+        reviewStatus: statuses[item.profile.symbol] ?? 'PENDING',
+      };
+    });
+
+    const longCount = rows.filter(
+      (r) => r.profile.lastWeeklySignalDirection === 'LONG' || r.profile.lastDailySignalDirection === 'LONG'
+    ).length;
+    const shortCount = rows.filter(
+      (r) => r.profile.lastWeeklySignalDirection === 'SHORT' || r.profile.lastDailySignalDirection === 'SHORT'
+    ).length;
+
+    return {
+      key,
+      rows,
+      showFullGroup: fullGroupToggles[key] ?? false,
+      longCount,
+      shortCount,
+    };
+  });
 }

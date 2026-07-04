@@ -32,14 +32,11 @@ import { RhAgentTriageStore } from './rh-agent-triage.store';
 import { RhAgentSymbolListStore } from './rh-agent-symbol-list.store';
 import { RhAgentSymbolHistoryStore } from './rh-agent-symbol-history.store';
 import {
-  RhReviewStatus,
-  StatusCounts,
   GroupDimension,
+  RhReviewStatus,
 } from '../common/rh-agent.constants';
 import {
-  getGroupKey,
-  shouldShowInListFilter,
-  UNKNOWN_GROUP,
+  buildSymbolGroups,
 } from '../utils/rh-agent.utils';
 
 // ---------------------------------------------------------------------------
@@ -131,16 +128,6 @@ export const RhAgentGroupStore = signalStore(
     symbolListStore = inject(RhAgentSymbolListStore),
     historyStore = inject(RhAgentSymbolHistoryStore),
   ) => ({
-    /** Expose triage store statuses for use by computed signals. */
-    getTriageStatuses(): Record<string, RhReviewStatus> {
-      return triageStore.statuses();
-    },
-
-    /** Expose triage store status counts. */
-    getTriageStatusCounts(): StatusCounts {
-      return triageStore.statusCounts();
-    },
-
     /** Set the active run and reload symbols. */
     setActiveRun(runId: string, marketDate: string): void {
       patchState(state, { activeRunId: runId, activeRunMarketDate: marketDate, signalSymbols: [], selectedSymbol: null });
@@ -247,95 +234,28 @@ export const RhAgentGroupStore = signalStore(
     },
   })),
 
-  withComputed((state, symbolListStore = inject(RhAgentSymbolListStore), historyStore = inject(RhAgentSymbolHistoryStore)) => ({
+  withComputed((state, triageStore = inject(RhAgentTriageStore), symbolListStore = inject(RhAgentSymbolListStore), historyStore = inject(RhAgentSymbolHistoryStore)) => ({
     /**
      * Grouped view — groups built from signalSymbols, sorted by marketCap desc within group.
      * Each group respects its fullGroupToggle (Full Group shows all, default shows signal-only).
      * Since we only have signal symbols from the backend, Full Group is a future hook
      * that will include context symbols once static ETF lists are wired in.
      */
-    groups: computed((): RhSymbolGroup[] => {
-      const signalSymbols = state.signalSymbols();
-      const dimension = state.groupDimension();
-      const statuses = state.getTriageStatuses();
-      const historyCache = historyStore.signalHistoryCache();
-      const historyLoading = historyStore.signalHistoryLoading();
-      const fullGroupToggles = state.fullGroupToggles();
-      const showAll = state.showAllSymbols();
-      const allSymbols = state.allSymbols();
-      const symbolLists = symbolListStore.symbolLists();
-      const activeListFilter = symbolListStore.activeListFilter();
-
-      // Build signal symbol set for fast lookup
-      const signalSet = new Set(signalSymbols.map(s => s.symbol));
-
-      // When showing all: union of signal symbols + NSS symbols (no duplicates)
-      const symbols: Array<{ profile: RhAgentSymbolProfile; hasSignal: boolean }> = [
-        ...signalSymbols.map(p => ({ profile: p, hasSignal: true })),
-        ...(showAll
-          ? allSymbols
-              .filter(p => !signalSet.has(p.symbol))
-              .map(p => ({ profile: p, hasSignal: false }))
-          : []),
-      ];
-
-      // Build group map
-      const groupMap = new Map<string, Array<{ profile: RhAgentSymbolProfile; hasSignal: boolean }>>();
-      for (const item of symbols) {
-        if (!shouldShowInListFilter(item.profile.symbol, symbolLists, activeListFilter)) continue;
-
-        const key = getGroupKey(item.profile, dimension);
-        const existing = groupMap.get(key) ?? [];
-        existing.push(item);
-        groupMap.set(key, existing);
-      }
-
-      // Sort groups alphabetically; Unknown always last
-      const sortedKeys = [...groupMap.keys()].sort((a, b) => {
-        if (a === UNKNOWN_GROUP) return 1;
-        if (b === UNKNOWN_GROUP) return -1;
-        return a.localeCompare(b);
-      });
-
-      return sortedKeys.map((key) => {
-        const items = groupMap.get(key)!;
-
-        // Sort by marketCap desc within group
-        const sorted = [...items].sort(
-          (a, b) => (b.profile.marketCap ?? 0) - (a.profile.marketCap ?? 0)
-        );
-
-        const runId = state.activeRunId();
-        const rows: RhSymbolRow[] = sorted.map((item) => {
-          const cacheKey = runId ? `${item.profile.symbol}::${runId}` : item.profile.symbol;
-          return {
-            profile: item.profile,
-            hasSignal: item.hasSignal,
-            signals: historyCache[cacheKey],
-            signalsLoading: historyLoading[cacheKey] ?? false,
-            reviewStatus: statuses[item.profile.symbol] ?? 'PENDING',
-          };
-        });
-
-        // Count long/short from both timeframes
-        const longCount = rows.filter((r) =>
-          r.profile.lastWeeklySignalDirection === 'LONG' ||
-          r.profile.lastDailySignalDirection === 'LONG'
-        ).length;
-        const shortCount = rows.filter((r) =>
-          r.profile.lastWeeklySignalDirection === 'SHORT' ||
-          r.profile.lastDailySignalDirection === 'SHORT'
-        ).length;
-
-        return {
-          key,
-          rows,
-          showFullGroup: fullGroupToggles[key] ?? false,
-          longCount,
-          shortCount,
-        };
-      });
-    }),
+    groups: computed((): RhSymbolGroup[] =>
+      buildSymbolGroups({
+        signalSymbols: state.signalSymbols(),
+        allSymbols: state.allSymbols(),
+        showAll: state.showAllSymbols(),
+        dimension: state.groupDimension(),
+        symbolLists: symbolListStore.symbolLists(),
+        activeListFilter: symbolListStore.activeListFilter(),
+        fullGroupToggles: state.fullGroupToggles(),
+        statuses: triageStore.statuses(),
+        historyCache: historyStore.signalHistoryCache(),
+        historyLoading: historyStore.signalHistoryLoading(),
+        activeRunId: state.activeRunId(),
+      })
+    ),
 
     /** Total signal count across all groups. */
     totalSignalCount: computed(() => state.signalSymbols().length),
@@ -376,8 +296,5 @@ export const RhAgentGroupStore = signalStore(
       if (!sym) return null;
       return state.signalSymbols().find((p) => p.symbol === sym) ?? null;
     }),
-
-    /** Review status counts — delegates to triage store. */
-    statusCounts: computed(() => state.getTriageStatusCounts()),
   })),
 );
