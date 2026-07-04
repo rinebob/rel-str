@@ -85,8 +85,7 @@ export interface RhAgentSymbolProfile {
 }
 
 /**
- * A single signal entry returned by rhAgentGetSymbolSignalHistory.
- * Sourced from rh-agent-symbols/{symbol}/signal-dates/{barDate}.signals map.
+ * A single signal entry stored in run-ids or signal-history docs.
  */
 export interface RhAgentSignalItem {
   id: string;                            // barDate (doc ID)
@@ -132,11 +131,6 @@ export class RhAgentService {
     { runId: string; timeframe: 'W' | 'D' },
     { symbols: RhAgentSymbolProfile[] }
   >(this.functions, 'rhAgentGetSymbolsWithSignals');
-
-  private readonly symbolSignalHistoryCallable = httpsCallable<
-    { symbol: string; timeframe: 'W' | 'D'; days: number },
-    { symbol: string; timeframe: 'W' | 'D'; signals: RhAgentSignalItem[] }
-  >(this.functions, 'rhAgentGetSymbolSignalHistory');
 
   // Collection references for realtime data
   private readonly runsCollection = 'rh-agent-runs';
@@ -271,78 +265,6 @@ export class RhAgentService {
   }
 
   /**
-   * Per-symbol signal history for the detail panel.
-   * Reads directly from Firestore: rh-agent-symbols/{symbol}/signal-dates/*
-   * Returns all signals across all bar dates, sorted by barDate desc.
-   *
-   * @param symbol Symbol to query.
-   * @param _timeframe Reserved for future filtering (currently ignored).
-   * @param _days Reserved for future filtering (currently ignored).
-   */
-  getSymbolSignalHistory(
-    symbol: string,
-    _timeframe?: 'W' | 'D',
-    _days?: number
-  ): Observable<RhAgentSignalItem[]> {
-    const symbolDocRef = doc(this.firestore, 'rh-agent-symbols', symbol);
-    const signalDatesRef = collection(symbolDocRef, 'signal-dates');
-
-    return from(runInInjectionContext(this.injector, () => getDocs(signalDatesRef))).pipe(
-      map((snapshot) => {
-        const signals: RhAgentSignalItem[] = [];
-        for (const docSnap of snapshot.docs) {
-          const d = docSnap.data();
-
-          // Extract signal entries. Firestore may return:
-          // (a) Nested map: d['signals'] = { W_ST_TREND_RIDER_V1_LONG: {...} }
-          // (b) Dot-notation keys: d['signals.W_ST_TREND_RIDER_V1_LONG'] = {...}
-          const rawSignalEntry = (entry: unknown): Partial<RhAgentSignalItem> | null => {
-            if (!entry || typeof entry !== 'object') return null;
-            const e = entry as Record<string, unknown>;
-            if (!e['signalType'] || typeof e['signalType'] !== 'string') return null;
-            return e as Partial<RhAgentSignalItem>;
-          };
-
-          const entries: Partial<RhAgentSignalItem>[] = [];
-
-          // Case (a): nested signals map
-          if (d['signals'] && typeof d['signals'] === 'object') {
-            for (const entry of Object.values(d['signals'])) {
-              const parsed = rawSignalEntry(entry);
-              if (parsed) entries.push(parsed);
-            }
-          }
-
-          // Case (b): dot-notation keys (signals.SIGNAL_TYPE as top-level keys)
-          for (const key of Object.keys(d)) {
-            if (key.startsWith('signals.') && typeof d[key] === 'object') {
-              const parsed = rawSignalEntry(d[key]);
-              if (parsed) entries.push(parsed);
-            }
-          }
-
-          for (const entry of entries) {
-            signals.push({
-              id: docSnap.id,
-              symbol: d['symbol'] ?? symbol,
-              barDate: entry.barDate ?? docSnap.id,
-              marketDate: entry.marketDate ?? '',
-              runId: d['runId'] ?? '',
-              timeframe: entry.timeframe ?? 'D',
-              direction: entry.direction ?? 'LONG',
-              signalType: entry.signalType!,
-              status: entry.status ?? 'CONFIRMED',
-              indicators: entry.indicators ?? {},
-            });
-          }
-        }
-        signals.sort((a, b) => b.barDate.localeCompare(a.barDate));
-        return signals;
-      })
-    );
-  }
-
-  /**
    * Signals for a specific run from rh-agent-symbols/{symbol}/run-ids/{runId}.
    * Used by grouped review to show only the signals produced by the active run.
    */
@@ -354,7 +276,7 @@ export class RhAgentService {
         const d = snap.data();
         const signals: RhAgentSignalItem[] = [];
 
-        // Signals are stored as dot-notation top-level fields: signals.D_ZONE_V1, signals.W_ZONE_V2 etc.
+        // Signals are stored as dot-notation top-level fields: signals.D_ST_TREND_RIDER_V1_LONG etc.
         for (const key of Object.keys(d)) {
           if (!key.startsWith('signals.')) continue;
           const entry = d[key];
