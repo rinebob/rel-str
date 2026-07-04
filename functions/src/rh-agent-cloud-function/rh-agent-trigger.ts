@@ -16,8 +16,8 @@ import {
   getDeadlineISO,
   loadEnabledSymbols,
   createDailyRun,
-  createJobAndEnqueue,
   fetchIntradaySnapshots,
+  enqueueSymbolJobs,
 } from './rh-agent-shared';
 
 /**
@@ -177,25 +177,17 @@ export async function startRhAgentRun(
     symbolCount: symbols.length,
   });
 
-  // 4. Create job documents and enqueue Cloud Tasks
+  // 4. Enqueue Cloud Tasks for all symbols
   // Pass intraday data in payload so workers don't need to fetch
-  let enqueuedCount = 0;
-  let failedCount = 0;
-
-  for (const symbol of symbols) {
-    try {
-      const intraday = intradaySnapshots.find(s => s.symbol === symbol);
-      await createJobAndEnqueue(runId, symbol, marketDate, runStartedAt, triggeredBy, intraday);
-      enqueuedCount++;
-    } catch (error: any) {
-      failedCount++;
-      logger.error('rh_agent_trigger_enqueue_failed', {
-        symbol,
-        runId,
-        error: error?.message,
-      });
-    }
-  }
+  const intradayBySymbol = new Map(intradaySnapshots.map(s => [s.symbol, s]));
+  const { enqueued, failed } = await enqueueSymbolJobs(
+    runId,
+    symbols,
+    marketDate,
+    runStartedAt,
+    intradayBySymbol,
+    triggeredBy,
+  );
 
   const duration = Date.now() - startTime;
   logger.info('rh_agent_trigger_complete', {
@@ -204,10 +196,10 @@ export async function startRhAgentRun(
     triggeredBy,
     symbolCount: symbols.length,
     intradayCount: intradaySnapshots.length,
-    enqueued: enqueuedCount,
-    failed: failedCount,
+    enqueued,
+    failed,
     duration,
   });
 
-  return { runId, marketDate, symbolCount: symbols.length, enqueued: enqueuedCount, failed: failedCount, duration };
+  return { runId, marketDate, symbolCount: symbols.length, enqueued, failed, duration };
 }

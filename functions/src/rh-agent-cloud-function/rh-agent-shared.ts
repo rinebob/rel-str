@@ -263,3 +263,71 @@ export async function createJobAndEnqueue(
     }
   }
 }
+
+/**
+ * Enqueue Cloud Tasks for all symbols in a run.
+ *
+ * Shared by the trigger and the manual callable so both paths produce identical
+ * job payloads and logging.
+ *
+ * @param runId Daily run document ID.
+ * @param symbols Symbols to process.
+ * @param marketDate Market date in YYYY-MM-DD format.
+ * @param runStartedAt ISO timestamp when the run started.
+ * @param intradayBySymbol Map of symbol -> intraday snapshot.
+ * @param triggeredBy Who started the run (pdr/manual/nightly).
+ * @returns Enqueue result: counts of enqueued and failed jobs.
+ */
+export async function enqueueSymbolJobs(
+  runId: string,
+  symbols: string[],
+  marketDate: string,
+  runStartedAt: string,
+  intradayBySymbol: Map<string, IntradaySnapshot>,
+  triggeredBy: RhAgentTriggeredBy,
+): Promise<{ enqueued: number; failed: number }> {
+  logger.info('rh_agent_enqueue_symbol_jobs_start', {
+    runId,
+    marketDate,
+    triggeredBy,
+    symbolCount: symbols.length,
+  });
+
+  let enqueued = 0;
+  let failed = 0;
+
+  for (const symbol of symbols) {
+    try {
+      const intraday = intradayBySymbol.get(symbol);
+      await createJobAndEnqueue(runId, symbol, marketDate, runStartedAt, triggeredBy, intraday);
+      enqueued++;
+      if (enqueued % 10 === 0) {
+        logger.info('rh_agent_enqueue_symbol_jobs_progress', {
+          runId,
+          triggeredBy,
+          enqueued,
+          total: symbols.length,
+        });
+      }
+    } catch (error: any) {
+      failed++;
+      logger.error('rh_agent_enqueue_symbol_jobs_failed', {
+        symbol,
+        runId,
+        triggeredBy,
+        error: error?.message,
+      });
+    }
+  }
+
+  logger.info('rh_agent_enqueue_symbol_jobs_complete', {
+    runId,
+    marketDate,
+    triggeredBy,
+    symbolCount: symbols.length,
+    enqueued,
+    failed,
+  });
+
+  return { enqueued, failed };
+}

@@ -12,8 +12,8 @@ import {
   getDeadlineISO,
   loadEnabledSymbols,
   createDailyRun,
-  createJobAndEnqueue,
   fetchIntradaySnapshots,
+  enqueueSymbolJobs,
 } from './rh-agent-shared';
 import type { PartnerIntradaySnapshotResponse } from '../types/partner';
 import {
@@ -123,33 +123,16 @@ export const rhAgentManualRun = onCall<ManualRunRequest, Promise<ManualRunRespon
         symbolCount: symbols.length,
       });
 
-      // 5. Create job documents and enqueue Cloud Tasks (intraday snapshot in each payload)
-      let enqueuedCount = 0;
-      let failedCount = 0;
-
-      const intradayMap = new Map(intradaySnapshots.map(s => [s.symbol, s]));
-
-      for (const symbol of symbols) {
-        try {
-          const intraday = intradayMap.get(symbol);
-          await createJobAndEnqueue(runId, symbol, marketDate, runStartedAt, 'manual', intraday);
-          enqueuedCount++;
-          if (enqueuedCount % 10 === 0) {
-            logger.info('rh_agent_manual_enqueue_progress', {
-              runId,
-              enqueued: enqueuedCount,
-              total: symbols.length,
-            });
-          }
-        } catch (error: any) {
-          failedCount++;
-          logger.error('rh_agent_manual_enqueue_failed', {
-            symbol,
-            runId,
-            error: error?.message,
-          });
-        }
-      }
+      // 5. Enqueue Cloud Tasks for all symbols (intraday snapshot in each payload)
+      const intradayBySymbol = new Map(intradaySnapshots.map(s => [s.symbol, s]));
+      const { enqueued: enqueuedCount, failed: failedCount } = await enqueueSymbolJobs(
+        runId,
+        symbols,
+        marketDate,
+        runStartedAt,
+        intradayBySymbol,
+        'manual',
+      );
 
       const duration = Date.now() - startTime;
       logger.info('rh_agent_manual_run_enqueued', {

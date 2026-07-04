@@ -510,7 +510,7 @@ These are blockers and should be done first. Each task should be a separate, sma
 6. ✅ T06 — Centralize CORS
 7. ✅ T07 — Strict `OHLCV`
 8. ✅ T08 — Decompose worker
-9. T09 — Unify enqueue path
+9. ✅ T09 — Unify enqueue path
 10. T10 — Split frontend service
 11. T11 — Simplify group store
 12. T12 — Extract chart state
