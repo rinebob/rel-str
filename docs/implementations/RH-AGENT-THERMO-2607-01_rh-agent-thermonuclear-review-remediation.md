@@ -524,7 +524,7 @@ These are blockers and should be done first. Each task should be a separate, sma
 10. ✅ T10 — Split frontend service
 11. ✅ T11 — Simplify group store
 12. ✅ T12 — Extract chart state
-13. T13 — Centralize Firestore helpers
+13. ✅ T13 — Centralize Firestore helpers
 14. T14 — Split config file
 15. T15 — Atomic signal writes
 16. T16 — Fix list doc ID collision (deferred)
