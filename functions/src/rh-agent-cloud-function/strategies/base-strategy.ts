@@ -31,7 +31,6 @@ export interface OHLCV {
   close?: number;
   c?: number;
   volume?: number;
-  [key: string]: any;
 }
 
 export interface StrategyContext {

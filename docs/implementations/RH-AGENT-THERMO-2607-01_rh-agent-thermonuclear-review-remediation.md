@@ -508,7 +508,7 @@ These are blockers and should be done first. Each task should be a separate, sma
 4. ✅ T04 — Remove abandoned signal-dates and dead intraday code
 5. ✅ T05 — Canonical `OhlcBar`
 6. ✅ T06 — Centralize CORS
-7. T07 — Strict `OHLCV`
+7. ✅ T07 — Strict `OHLCV`
 8. T08 — Decompose worker
 9. T09 — Unify enqueue path
 10. T10 — Split frontend service
