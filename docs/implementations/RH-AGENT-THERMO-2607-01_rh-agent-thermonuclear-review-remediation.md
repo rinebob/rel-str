@@ -502,11 +502,11 @@ These are blockers and should be done first. Each task should be a separate, sma
 
 ## Task order summary
 
-1. T01 — Fix indicator response shape
-2. T02 — Remove unused counter-trend signal enum values
-3. T03 — Secure callables
-4. T04 — Remove abandoned signal-dates and dead intraday code
-5. T05 — Canonical `OhlcBar`
+1. ✅ T01 — Fix indicator response shape
+2. ✅ T02 — Remove unused counter-trend signal enum values
+3. T03 — Secure callables (blocked on Auth / App Check reliability)
+4. ✅ T04 — Remove abandoned signal-dates and dead intraday code
+5. ✅ T05 — Canonical `OhlcBar`
 6. T06 — Centralize CORS
 7. T07 — Strict `OHLCV`
 8. T08 — Decompose worker
