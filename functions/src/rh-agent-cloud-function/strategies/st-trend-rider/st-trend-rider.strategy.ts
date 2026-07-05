@@ -75,11 +75,11 @@ function lastBarDate(bars: any[]): string {
  * Produces daily and weekly signals gated by the same-timeframe Zone V2 context.
  */
 export function execute(input: StrategyInput, _config: StrategyConfig): StrategyOutput[] {
-  const { bars, weeklyBars } = input;
+  const { bars, weeklyBars = [] } = input;
   const signals: StrategyOutput[] = [];
 
   // --- Daily ST Trend Rider signals ---
-  if (bars && bars.length >= 45) {
+  if (bars.length >= 45) {
     const dailyOhlcv = normalizeBars(bars);
     const dailyBarDate = lastBarDate(bars);
 
@@ -119,7 +119,7 @@ export function execute(input: StrategyInput, _config: StrategyConfig): Strategy
   }
 
   // --- Weekly ST Trend Rider signals ---
-  if (weeklyBars && weeklyBars.length >= 45) {
+  if (weeklyBars.length >= 45) {
     const weeklyOhlcv = normalizeBars(weeklyBars);
     const weeklyBarDate = lastBarDate(weeklyBars);
 

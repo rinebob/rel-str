@@ -72,8 +72,8 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
         MIN_REQUIRED_BARS,
       );
 
-      if (!sufficient || !dailyBars) {
-        logger.warn('rh_agent_worker_insufficient_data', { runId, symbol, barCount: dailyBars?.length || 0, required: MIN_REQUIRED_BARS, hasIntraday: !!intraday });
+      if (!sufficient) {
+        logger.warn('rh_agent_worker_insufficient_data', { runId, symbol, barCount: dailyBars.length, required: MIN_REQUIRED_BARS, hasIntraday: !!intraday });
         await progress.markComplete('SUCCESS', false, undefined, 0);
         return;
       }
@@ -106,8 +106,8 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
         symbol,
         marketDate,
         bars: dailyBars,
-        weeklyBars: weeklyBars || undefined,
-        monthlyBars: monthlyBars || undefined,
+        weeklyBars,
+        monthlyBars,
         intraday,
       };
 

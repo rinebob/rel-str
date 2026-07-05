@@ -11,9 +11,9 @@ import type { OhlcBar } from './rh-agent-types';
 import { RsBarsDoc } from '../rs-bars/rs-bars-sync';
 
 export interface SymbolBars {
-  dailyBars: OhlcBar[] | null;
-  weeklyBars: OhlcBar[] | null;
-  monthlyBars: OhlcBar[] | null;
+  dailyBars: OhlcBar[];
+  weeklyBars: OhlcBar[];
+  monthlyBars: OhlcBar[];
   sufficient: boolean;
 }
 
@@ -41,16 +41,16 @@ export async function loadSymbolBars(
   logger.info('rh_agent_data_loader_loaded', {
     runId,
     symbol,
-    dailyBars: dailyBars?.length || 0,
-    weeklyBars: weeklyBars?.length || 0,
-    monthlyBars: monthlyBars?.length || 0,
+    dailyBars: dailyBars.length,
+    weeklyBars: weeklyBars.length,
+    monthlyBars: monthlyBars.length,
   });
 
   return {
     dailyBars,
     weeklyBars,
     monthlyBars,
-    sufficient: !!dailyBars && dailyBars.length >= minRequiredBars,
+    sufficient: dailyBars.length >= minRequiredBars,
   };
 }
 
@@ -63,7 +63,7 @@ async function getCachedBars(
   symbol: string,
   marketDate: string,
   intraday: { ip: number } | null = null
-): Promise<{ dailyBars: OhlcBar[] | null; weeklyBars: OhlcBar[] | null; monthlyBars: OhlcBar[] | null }> {
+): Promise<{ dailyBars: OhlcBar[]; weeklyBars: OhlcBar[]; monthlyBars: OhlcBar[] }> {
   try {
     const docRef = db.collection('rs-bars').doc(symbol);
     const snap = await docRef.get();
@@ -72,16 +72,16 @@ async function getCachedBars(
 
     if (!snap.exists) {
       logger.warn('rh_agent_data_loader_cache_miss', { symbol, marketDate, note: 'Run rsBarsSyncAdmin to backfill' });
-      return { dailyBars: null, weeklyBars: null, monthlyBars: null };
+      return { dailyBars: [], weeklyBars: [], monthlyBars: [] };
     }
 
     const data = snap.data() as RsBarsDoc | undefined;
 
     /** Trim bars to dates on or before marketDate for correct historical snapshots. */
     const trim = (bars: OhlcBar[] | null | undefined) => {
-      if (!Array.isArray(bars) || bars.length === 0) return null;
+      if (!Array.isArray(bars) || bars.length === 0) return [];
       const filtered = bars.filter((b) => (b?.d ?? '') <= marketDate);
-      return filtered.length > 0 ? filtered : null;
+      return filtered.length > 0 ? filtered : [];
     };
 
     let dailyBars = trim(data?.daily);
@@ -100,19 +100,19 @@ async function getCachedBars(
     logger.info('rh_agent_data_loader_cache_result', {
       symbol,
       marketDate,
-      dailyBars: dailyBars?.length ?? 0,
-      weeklyBars: weeklyBars?.length ?? 0,
-      monthlyBars: monthlyBars?.length ?? 0,
+      dailyBars: dailyBars.length,
+      weeklyBars: weeklyBars.length,
+      monthlyBars: monthlyBars.length,
     });
 
-    if (!dailyBars) {
+    if (dailyBars.length === 0) {
       logger.warn('rh_agent_data_loader_no_daily_bars', { symbol, marketDate });
     }
 
     return { dailyBars, weeklyBars, monthlyBars };
   } catch (error: any) {
     logger.error('rh_agent_data_loader_cache_error', { symbol, marketDate, error: error?.message });
-    return { dailyBars: null, weeklyBars: null, monthlyBars: null };
+    return { dailyBars: [], weeklyBars: [], monthlyBars: [] };
   }
 }
 
@@ -121,7 +121,7 @@ async function getCachedBars(
  * Returns true if data is fresh (from today), false otherwise.
  */
 export function verifyDataFreshness(bars: any[], marketDate: string, runId: string, symbol: string): boolean {
-  if (!bars || bars.length === 0) return false;
+  if (bars.length === 0) return false;
 
   const mostRecentBar = bars[bars.length - 1];
   const barDate = mostRecentBar?.d ?? mostRecentBar?.date ?? mostRecentBar?.t ?? mostRecentBar?.timestamp;
