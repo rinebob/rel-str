@@ -30,10 +30,13 @@ export class SignalDateWriter {
   }
 
   /**
-   * Persist all signal entries for a single bar date in parallel:
+   * Persist all signal entries for a single bar date atomically:
    *   - merge-write the run-ids doc
    *   - merge-write the signal-history doc (nightly runs only)
-   *   - batch-update the symbol gate dates
+   *   - merge-update the symbol gate dates
+   *
+   * All writes are queued in one Firestore batch and committed together so the
+   * run-id, signal-history, and gate-date state stay consistent.
    *
    * Returns the number of entries persisted.
    */
@@ -47,15 +50,15 @@ export class SignalDateWriter {
   ): Promise<number> {
     if (entries.length === 0) return 0;
 
-    const writeRunId = this.writeRunIdDoc(runId, runStartedAt, marketDate, entries);
-    const gateUpdate = this.updateGateDates(entries);
+    const batch = db.batch();
 
-    const writes: Promise<any>[] = [writeRunId, gateUpdate];
+    this.writeRunIdDoc(batch, runId, runStartedAt, marketDate, entries);
     if (triggeredBy === 'nightly') {
-      writes.push(this.writeSignalHistoryDoc(runId, entries));
+      this.writeSignalHistoryDoc(batch, runId, entries);
     }
+    this.updateGateDates(batch, entries);
 
-    await Promise.all(writes);
+    await batch.commit();
     return entries.length;
   }
 
@@ -63,12 +66,13 @@ export class SignalDateWriter {
    * Write signals to run-ids/{runId} — the run-centric real-time path.
    * One doc per run per symbol; all signals for this run stored as a map keyed by signalType.
    */
-  private async writeRunIdDoc(
+  private writeRunIdDoc(
+    batch: FirebaseFirestore.WriteBatch,
     runId: string,
     runStartedAt: string,
     marketDate: string,
     entries: RhAgentSignalEntry[]
-  ): Promise<void> {
+  ): void {
     if (entries.length === 0) return;
 
     const docRef = this.symbolRef.collection(RH_AGENT_RUN_IDS_SUBCOLLECTION).doc(runId);
@@ -77,7 +81,8 @@ export class SignalDateWriter {
       signalsUpdate[`signals.${entry.signalType}`] = entry;
     }
 
-    await docRef.set(
+    batch.set(
+      docRef,
       {
         symbol: this.symbol,
         runId,
@@ -95,10 +100,11 @@ export class SignalDateWriter {
    * Called only for nightly runs. Groups entries by barDate and writes one doc per date.
    * Each signal entry is stored with a sourceRunId for auditability.
    */
-  private async writeSignalHistoryDoc(
+  private writeSignalHistoryDoc(
+    batch: FirebaseFirestore.WriteBatch,
     runId: string,
     entries: RhAgentSignalEntry[]
-  ): Promise<void> {
+  ): void {
     if (entries.length === 0) return;
 
     const byBarDate = new Map<string, RhAgentSignalEntry[]>();
@@ -108,28 +114,24 @@ export class SignalDateWriter {
       byBarDate.set(entry.barDate, list);
     }
 
-    const writes: Promise<any>[] = [];
     for (const [barDate, dateEntries] of byBarDate) {
       const docRef = this.symbolRef.collection(RH_AGENT_SIGNAL_HISTORY_SUBCOLLECTION).doc(barDate);
       const signalsUpdate: Record<string, any> = {};
       for (const entry of dateEntries) {
         signalsUpdate[`signals.${entry.signalType}`] = { ...entry, sourceRunId: runId };
       }
-      writes.push(
-        docRef.set(
-          {
-            symbol: this.symbol,
-            date: barDate,
-            updatedAt: FieldValue.serverTimestamp(),
-            canonicalizedAt: FieldValue.serverTimestamp(),
-            ...signalsUpdate,
-          } as RhAgentSignalHistoryDoc,
-          { merge: true }
-        )
+      batch.set(
+        docRef,
+        {
+          symbol: this.symbol,
+          date: barDate,
+          updatedAt: FieldValue.serverTimestamp(),
+          canonicalizedAt: FieldValue.serverTimestamp(),
+          ...signalsUpdate,
+        } as RhAgentSignalHistoryDoc,
+        { merge: true }
       );
     }
-
-    await Promise.all(writes);
   }
 
 
@@ -137,7 +139,7 @@ export class SignalDateWriter {
    * Update the symbol doc's last signal date/direction fields based on the
    * highest-priority entries written for this bar date.
    */
-  private async updateGateDates(entries: RhAgentSignalEntry[]): Promise<void> {
+  private updateGateDates(batch: FirebaseFirestore.WriteBatch, entries: RhAgentSignalEntry[]): void {
     const updates: Record<string, string> = {};
     for (const entry of entries) {
       if (entry.timeframe === 'W') {
@@ -149,7 +151,7 @@ export class SignalDateWriter {
       }
     }
     if (Object.keys(updates).length === 0) return;
-    await this.symbolRef.set(updates, { merge: true });
+    batch.set(this.symbolRef, updates, { merge: true });
   }
 }
 
