@@ -137,6 +137,8 @@ ng serve
 Emulator `.env.local`:
 ```
 ANTHROPIC_API_KEY=your_key_here
+
+# Required by rh-agent-executor. The function fails at startup if either is missing.
 RH_AGENT_MCP_SERVER_URL=http://localhost:3000/sse
 RH_AGENT_ACCOUNT_NUMBER=your_account_number
 ```

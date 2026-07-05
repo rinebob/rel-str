@@ -14,8 +14,17 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 const mcpServerUrlSecret = defineSecret('RH_AGENT_MCP_SERVER_URL');
 const accountNumberSecret = defineSecret('RH_AGENT_ACCOUNT_NUMBER');
 
-const MCP_SERVER_URL = process.env.RH_AGENT_MCP_SERVER_URL || 'https://agent.robinhood.com/mcp/trading';
-const AGENTIC_ACCOUNT_NUMBER = process.env.RH_AGENT_ACCOUNT_NUMBER || '6245'; // Last 4 digits of Agentic account
+/** Fail fast at startup if a required secret/env var is missing. */
+function requiredEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing required secret: ${name}`);
+  }
+  return value;
+}
+
+const MCP_SERVER_URL = requiredEnv('RH_AGENT_MCP_SERVER_URL');
+const AGENTIC_ACCOUNT_NUMBER = requiredEnv('RH_AGENT_ACCOUNT_NUMBER');
 
 /**
  * Safely parse MCP text content as JSON. Returns null if the content is empty or
