@@ -557,8 +557,8 @@ These are blockers and should be done first. Each task should be a separate, sma
 17. ✅ T17 — Remove executor hardcoded defaults
 18. ✅ T18 — Use or remove validateConfig
 19. ✅ T19 — Non-null bar arrays
-20. T20 — Regression tests
-21. T21 — README update
+20. ⏭️ T20 — Regression tests (skipped at user request)
+21. ✅ T21 — README update
 22. T22 — Full verification
 23. T23 — Evaluate run-ids storage model
 24. T24 — Evaluate exclusive use of backend indicator callable

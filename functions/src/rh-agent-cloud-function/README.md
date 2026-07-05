@@ -7,10 +7,9 @@ Firebase Cloud Functions for the Robinhood AI Trading Agent.
 Event-driven daily scan that:
 1. Triggers on `partner-data-ready` Pub/Sub (`runType: "intraday-snapshot"`)
 2. Fetches a bulk intraday snapshot from SavantAPI for all monitored symbols
-3. Writes today's partial bars into `rs-bars`
-4. Enqueues one Cloud Tasks job per symbol for parallel analysis
-5. Each worker reads historical OHLCV bars from `rs-bars`, executes the selected ST trend-rider strategy, and persists signal entries under `rh-agent-symbols/{symbol}/run-ids` and `rh-agent-symbols/{symbol}/signal-history`
-6. Signals appear in the Angular dashboard for grouped review, triage, and (when enabled) MCP trade execution
+3. Enqueues one Cloud Tasks job per symbol for parallel analysis
+4. Each worker reads historical OHLCV bars from `rs-bars`, injects the intraday snapshot as an in-memory partial bar, executes the selected ST trend-rider strategy, and persists signal entries under `rh-agent-symbols/{symbol}/run-ids` and `rh-agent-symbols/{symbol}/signal-history`
+5. Signals appear in the Angular dashboard for grouped review, triage, and (when enabled) MCP trade execution
 
 Trade execution is controlled via the `rh-agent-executor` callable using the configured MCP server and account number.
 
@@ -31,6 +30,7 @@ rhAgentPdrTrigger
             ▼
     rhAgentProcessSymbol (per symbol)
             ├─ getCachedBars(symbol, marketDate)  [rs-bars]
+            ├─ inject intraday snapshot as partial bar  [in-memory only]
             ├─ executeStrategy('st-trend-rider')  // ST Trend Rider
             │      ├─ compute V1/V2 zone signals
             │      └─ return LONG/SHORT signals
@@ -120,6 +120,34 @@ A signal is generated when the last bar completes a zone transition:
 - **SHORT** downtick: same-timeframe zone falls and is already negative
 
 Signal type format: `{D|W}_ST_TREND_RIDER_{V1|V2}_{LONG|SHORT}`
+
+## Data Contracts
+
+### `OhlcBar`
+
+Canonical compact OHLCV bar used by `rs-bars` storage and all indicator/signal computation. Field names are single-letter to keep Firestore documents small.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `d` | `string` | Bar date in `YYYY-MM-DD` format (UTC market date) |
+| `o` | `number` | Open price |
+| `h` | `number` | High price |
+| `l` | `number` | Low price |
+| `c` | `number` | Close price |
+| `v` | `number` | *(Optional)* Volume |
+
+The nightly `rsBarsSyncNightly` function populates `rs-bars/{symbol}` with D/W/M `OhlcBar` arrays. Workers read these arrays and never mutate the stored bars; intraday snapshots are injected in-memory only at worker read time.
+
+## Security Model
+
+| Function Type | Examples | Authentication |
+|---------------|----------|----------------|
+| `onCall` dashboard callables | `rhAgentGetSymbolsWithSignals`, `rhAgentGetSymbolIndicatorSeries`, `rhAgentManualRun`, `rhExecuteTrade`, `rhGetAccountSummary` | Require a signed-in Firebase Auth user. CORS is restricted to `RH_AGENT_ALLOWED_ORIGINS`. |
+| `onRequest` admin endpoints | `rhAgentTriggerDaily`, `clearRhAgentSymbolsAdmin`, `seedAllSymbolsFromPartner` | HTTP endpoints intended for admin/internal use. Protect at the network layer (IP allowlist, Cloud IAM, or admin token) before exposing them. |
+| Pub/Sub triggers | `rhAgentPdrTrigger` | Invoked by Google Cloud Pub/Sub; no direct external access. |
+| Scheduled functions | `rhAgentOverviewSync` | Invoked by Cloud Scheduler; no direct external access. |
+
+Secrets (`ANTHROPIC_API_KEY`, `RH_AGENT_MCP_SERVER_URL`, `RH_AGENT_ACCOUNT_NUMBER`) are managed with Firebase Secrets and injected at runtime. No API keys or account credentials are hardcoded in source.
 
 ## Local Development
 
