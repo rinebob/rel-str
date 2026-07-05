@@ -1,13 +1,12 @@
 /**
- * Triggers rsBarsSyncAdmin to do a full backfill of rs-bars for all symbols.
+ * Targeted re-sync of one or more specific symbols via rsBarsSyncAdminHttp.
  *
- * Uses ADC + gcloud service-account impersonation to mint an ID token for the
- * onCall Cloud Function. No downloaded service-account key required.
+ * Use this for ad-hoc re-syncs of a small number of known symbols.
+ * For bulk backfills of all affected symbols, use diagnose-bar-interval-mismatch.ts instead:
+ *   npx tsx scripts/diagnose-bar-interval-mismatch.ts           (find affected symbols)
+ *   npx tsx scripts/diagnose-bar-interval-mismatch.ts --backfill --confirm-delete  (fix them)
  *
- * Run from the functions/ directory:
- *   npx tsx scripts/trigger-bars-backfill.ts
- *
- * Optional: pass specific symbols to test first:
+ * Usage (from functions/ dir):
  *   npx tsx scripts/trigger-bars-backfill.ts AAPL MSFT TSLA
  *
  * Override the impersonated service account if needed:
@@ -15,12 +14,17 @@
  */
 import { execSync } from 'child_process';
 
-const symbols = process.argv.slice(2); // optional symbol list from CLI args
+const symbols = process.argv.slice(2);
+if (symbols.length === 0) {
+  console.error('ERROR: provide at least one symbol. For bulk backfills use diagnose-bar-interval-mismatch.ts --backfill --confirm-delete');
+  process.exit(1);
+}
+
 const url = 'https://us-central1-rel-str.cloudfunctions.net/rsBarsSyncAdminHttp';
 const serviceAccount = process.env.IMPERSONATE_SERVICE_ACCOUNT ?? '145446780542-compute@developer.gserviceaccount.com';
 
-console.log('Triggering rsBarsSyncAdmin...');
-console.log(symbols.length > 0 ? `Symbols: ${symbols.join(', ')}` : 'Symbols: ALL');
+console.log('Triggering rsBarsSyncAdminHttp...');
+console.log(`Symbols: ${symbols.join(', ')}`);
 console.log('Impersonating service account:', serviceAccount);
 
 function getIdToken(audience: string): string {
