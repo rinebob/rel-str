@@ -169,6 +169,13 @@ async function executeStrategy(
     monthlyBars: input.monthlyBars?.length || 0,
   });
 
+  const validation = strategyRegistry.validateConfig(strategyName, strategyConfig);
+  if (!validation.valid) {
+    const message = `Invalid strategy config for ${strategyName}: ${validation.errors.join(', ')}`;
+    logger.error('rh_agent_worker_strategy_config_invalid', { runId, symbol: input.symbol, strategy: strategyName, errors: validation.errors });
+    throw new Error(message);
+  }
+
   const rawResult = strategy.execute(input, strategyConfig);
   const results: StrategyOutput[] = Array.isArray(rawResult) ? rawResult : [rawResult];
 
