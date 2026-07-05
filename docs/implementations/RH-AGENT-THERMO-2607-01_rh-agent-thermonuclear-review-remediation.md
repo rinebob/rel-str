@@ -552,7 +552,7 @@ These are blockers and should be done first. Each task should be a separate, sma
 12. ✅ T12 — Extract chart state
 13. ✅ T13 — Centralize Firestore helpers
 14. ✅ T14 — Split config file
-15. T15 — Atomic signal writes
+15. ✅ T15 — Atomic signal writes
 16. T16 — Fix list doc ID collision (deferred)
 17. T17 — Remove executor hardcoded defaults
 18. T18 — Use or remove validateConfig
