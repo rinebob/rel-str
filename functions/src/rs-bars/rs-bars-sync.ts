@@ -21,6 +21,7 @@ import { db } from '../firebase-admin-init';
 import { callPartnerTimeSeries, callPartnerTrackedSymbols } from '../partner-proxy';
 import { startRhAgentRun } from '../rh-agent-cloud-function/rh-agent-trigger';
 import type { OhlcBar } from '../rh-agent-cloud-function/rh-agent-types';
+import { HolidaySet, loadUsHolidaySetForWindow, addDays, isTradingDay } from '../webhooks/calendar';
 
 // ============================================================================
 // Constants
@@ -100,6 +101,76 @@ function normalizeBar(raw: any): OhlcBar | null {
   return bar;
 }
 
+/** Advance a date to the next trading day (skipping weekends and holidays). */
+function rollToNextTradingDay(ymd: string, holidays: HolidaySet): string {
+  let d = ymd;
+  while (!isTradingDay(d, holidays)) {
+    d = addDays(d, 1);
+  }
+  return d;
+}
+
+/** Return the last calendar day of the month for a given YYYY-MM-DD. */
+function lastDayOfMonth(ymd: string): string {
+  const dt = new Date(`${ymd.slice(0, 7)}-01T00:00:00.000Z`);
+  dt.setUTCMonth(dt.getUTCMonth() + 1);
+  dt.setUTCDate(dt.getUTCDate() - 1);
+  const y = dt.getUTCFullYear();
+  const m = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(dt.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Validate that a set of bars matches the expected interval by walking the
+ * last 6 bars and checking each against the expected calendar date, rolling
+ * forward past weekends and holidays.
+ *
+ * DAILY:   every bar must itself be a trading day.
+ * WEEKLY:  each bar must be the expected date: anchor + 7 days, rolled forward
+ *          if it lands on a weekend/holiday.
+ * MONTHLY: each bar must be the last calendar day of the month, rolled forward
+ *          to the next trading day if needed.
+ *
+ * Returns true if bars look correct for the interval, false if they appear
+ * to be the wrong timeframe (e.g. partner returned daily bars for a WEEKLY query).
+ */
+function validateBarInterval(
+  bars: OhlcBar[],
+  interval: 'DAILY' | 'WEEKLY' | 'MONTHLY',
+  holidays: HolidaySet,
+): boolean {
+  if (bars.length < 2) return true; // not enough data to validate
+  const tail = bars.slice(-6); // up to 6 bars
+
+  if (interval === 'DAILY') {
+    return tail.every((bar) => isTradingDay(bar.d, holidays));
+  }
+
+  if (interval === 'WEEKLY') {
+    const anchor = tail[0].d;
+    for (let i = 0; i < tail.length; i++) {
+      const expected = addDays(anchor, i * 7);
+      const rolled = rollToNextTradingDay(expected, holidays);
+      if (tail[i].d !== rolled) return false;
+    }
+    return true;
+  }
+
+  if (interval === 'MONTHLY') {
+    let expected = lastDayOfMonth(tail[0].d);
+    for (let i = 0; i < tail.length; i++) {
+      const rolled = rollToNextTradingDay(expected, holidays);
+      if (tail[i].d !== rolled) return false;
+      // Advance to the last day of the next month.
+      expected = lastDayOfMonth(addDays(rolled, 1));
+    }
+    return true;
+  }
+
+  return true;
+}
+
 /**
  * Merge new bars into existing bars array, keyed by date.
  * New bars overwrite existing bars with the same date (handles corrections).
@@ -115,6 +186,20 @@ function mergeBars(existing: OhlcBar[], incoming: OhlcBar[]): OhlcBar[] {
 // ============================================================================
 // Date helpers
 // ============================================================================
+
+/** Compute min/max YYYY-MM-DD across any number of bar arrays. */
+function dateRangeFromBars(...arrays: OhlcBar[][]): { fromDay: string; toDay: string } | null {
+  let fromDay = '';
+  let toDay = '';
+  for (const bars of arrays) {
+    for (const bar of bars) {
+      if (!fromDay || bar.d < fromDay) fromDay = bar.d;
+      if (!toDay || bar.d > toDay) toDay = bar.d;
+    }
+  }
+  if (!fromDay || !toDay) return null;
+  return { fromDay, toDay };
+}
 
 function dateYearsAgo(years: number): string {
   const d = new Date();
@@ -170,10 +255,28 @@ async function syncSymbol(symbol: string, forceFullFetch: boolean): Promise<Sync
     const incomingWeekly  = ((rawWeekly  as any)?.bars ?? []).map(normalizeBar).filter(Boolean) as OhlcBar[];
     const incomingMonthly = ((rawMonthly as any)?.bars ?? []).map(normalizeBar).filter(Boolean) as OhlcBar[];
 
-    // Merge with existing (or use fresh if full fetch)
-    const daily   = doFullFetch ? incomingDaily   : mergeBars(existing?.daily   ?? [], incomingDaily);
-    const weekly  = doFullFetch ? incomingWeekly  : mergeBars(existing?.weekly  ?? [], incomingWeekly);
-    const monthly = doFullFetch ? incomingMonthly : mergeBars(existing?.monthly ?? [], incomingMonthly);
+    // Load holiday set for the incoming bar window so interval validation can skip closed days.
+    const barRange = dateRangeFromBars(incomingDaily, incomingWeekly, incomingMonthly);
+    const holidays: HolidaySet = barRange ? await loadUsHolidaySetForWindow(barRange) : new Set();
+
+    // Validate interval shapes — reject bars that don't match expected frequency
+    const dailyValid   = incomingDaily.length   === 0 || validateBarInterval(incomingDaily,   'DAILY',   holidays);
+    const weeklyValid  = incomingWeekly.length  === 0 || validateBarInterval(incomingWeekly,  'WEEKLY',  holidays);
+    const monthlyValid = incomingMonthly.length === 0 || validateBarInterval(incomingMonthly, 'MONTHLY', holidays);
+    if (!dailyValid)   logger.error('rs_bars_sync_interval_mismatch', { symbol, interval: 'DAILY',   count: incomingDaily.length });
+    if (!weeklyValid)  logger.error('rs_bars_sync_interval_mismatch', { symbol, interval: 'WEEKLY',  count: incomingWeekly.length });
+    if (!monthlyValid) logger.error('rs_bars_sync_interval_mismatch', { symbol, interval: 'MONTHLY', count: incomingMonthly.length });
+
+    // Merge with existing (or use fresh if full fetch); skip corrupted intervals
+    const daily   = doFullFetch
+      ? (dailyValid   ? incomingDaily   : [])
+      : mergeBars(existing?.daily   ?? [], dailyValid   ? incomingDaily   : []);
+    const weekly  = doFullFetch
+      ? (weeklyValid  ? incomingWeekly  : [])
+      : mergeBars(existing?.weekly  ?? [], weeklyValid  ? incomingWeekly  : []);
+    const monthly = doFullFetch
+      ? (monthlyValid ? incomingMonthly : [])
+      : mergeBars(existing?.monthly ?? [], monthlyValid ? incomingMonthly : []);
 
     if (daily.length === 0) {
       logger.warn('rs_bars_sync_no_daily_bars', { symbol });
@@ -349,7 +452,7 @@ async function verifyAdminToken(authHeader?: string): Promise<boolean> {
 }
 
 export const rsBarsSyncAdminHttp = onRequest(
-  { timeoutSeconds: 60, memory: '256MiB' },
+  { timeoutSeconds: 60, memory: '512MiB' },
   async (request, response) => {
     if (!(await verifyAdminToken(request.headers.authorization))) {
       response.status(401).json({ error: 'Unauthenticated' });
