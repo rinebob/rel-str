@@ -44,7 +44,11 @@ rhAgentPdrTrigger
 
 | File | Exports | Purpose |
 |------|---------|---------|
-| `rh-agent-config.ts` | interfaces, enums, constants | All Firestore data shapes and collection names |
+| `rh-agent-collections.ts` | Collection constants, `RhAgentSymbol`, `RhAgentSymbolProfile`, `RhAgentOverviewFields` | Firestore paths and symbol document shapes |
+| `rh-agent-signals.ts` | `StSignalType`, `StSignalDirection`, `RhAgentSignalEntry`, `RhAgentSignalHistoryDoc`, `RhAgentRunIdDoc` | Signal enums and signal document shapes |
+| `rh-agent-runs.ts` | `RhAgentRunStatus`, `RhAgentJobStatus`, `RhAgentDailyRun`, `RhAgentJob`, `RhAgentStatus`, `RhWatchedSymbol`, `RhAgentTriggeredBy` | Run/job status and run record types |
+| `rh-agent-opportunities.ts` | `RhTradeAction` | Trade action and opportunity types |
+| `rh-agent-shared-types.ts` | `SymbolJobPayload`, `IntradaySnapshot` | Cross-cutting payloads and snapshots |
 | `rh-agent-shared.ts` | `getMarketDate`, `getDeadlineISO`, `loadEnabledSymbols`, `createDailyRun`, `createJobAndEnqueue`, `fetchIntradaySnapshots` | Shared helpers used by triggers and manual callable |
 | `rh-agent-trigger.ts` | `rhAgentPdrTrigger`, `rhAgentTriggerDaily` | PDR Pub/Sub trigger; HTTP admin trigger with `?date` override |
 | `rh-agent-worker.ts` | `rhAgentProcessSymbol` | Cloud Tasks worker: reads bars, executes strategy, persists signals |

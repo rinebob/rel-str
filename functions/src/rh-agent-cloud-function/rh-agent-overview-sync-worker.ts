@@ -11,7 +11,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { db } from '../firebase-admin-init';
 import { callPartnerCompanyOverview } from '../partner-proxy';
 import { PartnerCompanyOverviewResponse } from '../types/partner';
-import { RH_AGENT_SYMBOLS_COLLECTION } from './rh-agent-config';
+import { RH_AGENT_SYMBOLS_COLLECTION, RhAgentOverviewFields } from './rh-agent-collections';
 
 // ============================================================================
 // Constants
@@ -23,29 +23,6 @@ const OVERVIEW_TTL_DAYS = 7;
 // ============================================================================
 // Types
 // ============================================================================
-
-/** Parsed overview fields written to rh-agent-symbols/{SYMBOL}. */
-export interface RhAgentOverviewFields {
-  name?: string;
-  sector?: string;
-  industry?: string;
-  exchange?: string;
-  assetType?: string;
-  marketCap?: number;
-  marketCapTier?: 'mega' | 'large' | 'mid' | 'small' | 'micro';
-  beta?: number;
-  peRatio?: number;
-  forwardPe?: number;
-  week52High?: number;
-  week52Low?: number;
-  ma200?: number;
-  ma50?: number;
-  dividendYield?: number;
-  analystTarget?: number;
-  analystBuys?: number;
-  analystSells?: number;
-  overviewFetchedAt: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
-}
 
 // ============================================================================
 // Helpers
@@ -69,7 +46,7 @@ function deriveMarketCapTier(marketCap: number | undefined): RhAgentOverviewFiel
 }
 
 /** Map raw AV data fields (all strings) to our stored overview shape. */
-function parseOverviewData(data: Record<string, string>): Omit<RhAgentOverviewFields, 'overviewFetchedAt'> {
+function parseOverviewData(data: Record<string, string>): RhAgentOverviewFields {
   const marketCap = parseNum(data['MarketCapitalization']);
   const analystBuys =
     (parseNum(data['AnalystRatingBuy']) ?? 0) +
@@ -155,13 +132,12 @@ export const rhAgentOverviewSyncSymbol = onTaskDispatched<{ symbol: string; forc
     }
 
     const parsed = parseOverviewData(json.data);
-    const overviewFields: RhAgentOverviewFields = {
-      ...parsed,
-      overviewFetchedAt: FieldValue.serverTimestamp(),
-    };
 
     // merge: true — preserves existing signal gate fields and config fields
-    await symbolRef.set(overviewFields, { merge: true });
+    await symbolRef.set(
+      { ...parsed, overviewFetchedAt: FieldValue.serverTimestamp() },
+      { merge: true }
+    );
 
     logger.info('rh_agent_overview_sync_symbol_complete', {
       symbol,

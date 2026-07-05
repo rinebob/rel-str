@@ -12,11 +12,13 @@ import {
   RH_AGENT_SYMBOLS_COLLECTION,
   RH_AGENT_SIGNAL_HISTORY_SUBCOLLECTION,
   RH_AGENT_RUN_IDS_SUBCOLLECTION,
+  RhAgentSymbolProfile,
+} from './rh-agent-collections';
+import {
   RhAgentSignalHistoryDoc,
   RhAgentRunIdDoc,
   RhAgentSignalEntry,
-  RhAgentSymbolProfile,
-} from './rh-agent-config';
+} from './rh-agent-signals';
 
 // Response types
 

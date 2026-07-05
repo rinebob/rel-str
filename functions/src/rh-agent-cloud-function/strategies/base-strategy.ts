@@ -5,7 +5,8 @@
  * Provides standardized I/O so the worker can execute any registered strategy.
  */
 
-import { IntradaySnapshot, StSignalDirection } from '../rh-agent-config';
+import { StSignalDirection } from '../rh-agent-signals';
+import { IntradaySnapshot } from '../rh-agent-shared-types';
 
 // =============================================================================
 // STRATEGY INPUT (What the worker provides to every strategy)

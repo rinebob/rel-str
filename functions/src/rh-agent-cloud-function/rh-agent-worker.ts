@@ -17,7 +17,7 @@ import { loadSymbolBars, verifyDataFreshness } from './rh-agent-data-loader';
 import { persistSymbolSignals } from './rh-agent-signal-persister';
 import { RunProgressTracker } from './rh-agent-run-progress';
 
-import { SymbolJobPayload } from './rh-agent-config';
+import { SymbolJobPayload } from './rh-agent-shared-types';
 
 import { strategyRegistry } from './strategies/strategy-registry';
 import type { StrategyInput, StrategyOutput, StrategyAdapter } from './strategies/strategy-registry';

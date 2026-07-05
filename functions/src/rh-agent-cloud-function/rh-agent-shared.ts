@@ -10,14 +10,15 @@ import {
   RH_AGENT_SYMBOLS_COLLECTION,
   RH_AGENT_RUNS_COLLECTION,
   RH_AGENT_JOBS_SUBCOLLECTION,
+} from './rh-agent-collections';
+import {
   RhAgentRunStatus,
   RhAgentJobStatus,
   RhAgentDailyRun,
   RhAgentJob,
   RhAgentTriggeredBy,
-  SymbolJobPayload,
-  IntradaySnapshot,
-} from './rh-agent-config';
+} from './rh-agent-runs';
+import { SymbolJobPayload, IntradaySnapshot } from './rh-agent-shared-types';
 import { db, FieldValue } from '../firebase-admin-init';
 import { RS_BARS_COLLECTION } from '../rs-bars/rs-bars-sync';
 import type { OhlcBar } from './rh-agent-types';

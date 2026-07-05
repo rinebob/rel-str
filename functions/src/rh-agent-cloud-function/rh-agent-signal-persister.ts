@@ -12,7 +12,7 @@ import {
   RhAgentSignalEntry,
   RhAgentSignalStatus,
   StSignalDirection,
-} from './rh-agent-config';
+} from './rh-agent-signals';
 import type { StrategyOutput } from './strategies/strategy-registry';
 
 export interface SignalPersistenceResult {

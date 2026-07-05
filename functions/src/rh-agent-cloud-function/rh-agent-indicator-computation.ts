@@ -10,7 +10,7 @@ import { computeStZone } from '../indicators/st-zone';
 import { computeStZoneV2 } from '../indicators/st-zone-v2';
 import { computeStTrendStrength } from '../indicators/st-trend-strength';
 import { detectAllStTrendRiderSignals } from './strategies/signal-detection';
-import { StSignalDirection } from './rh-agent-config';
+import { StSignalDirection } from './rh-agent-signals';
 import type { OHLCV } from '../indicators/st-trend-bands';
 import type { OhlcBar } from './rh-agent-types';
 

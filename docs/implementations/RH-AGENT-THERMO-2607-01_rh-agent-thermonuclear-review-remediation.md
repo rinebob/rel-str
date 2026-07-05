@@ -510,6 +510,32 @@ These are blockers and should be done first. Each task should be a separate, sma
 
 - Documented decision and a path to eliminating the frontend mirrors.
 
+### RH-AGENT-THERMO-2607-01-T26 — Evaluate and migrate `rs-bars` to year-sharded subcollections
+
+**Problem**: `rs-bars/{SYMBOL}` stores daily, weekly, and monthly bar arrays in a single Firestore document. This is unbounded (1 MB ceiling), causes full-document write amplification on every nightly sync, and provides no query granularity.
+
+**Full analysis**: `docs/implementations/RS-BARS-STORAGE-2607-01_rs-bars-schema-evaluation.md`
+
+**Summary of options**:
+- **Option A (recommended)**: Year-sharded subcollections (`rs-bars/{SYMBOL}/daily/{YYYY}`) — mirrors SA architecture, unbounded, surgical writes. Increases agent reads from 1 to ~22 per symbol; cost impact negligible.
+- **Option B (avoid)**: Interval-split flat docs — solves D/W/M separation but leaves single-array ceiling intact.
+- **Option C (fallback)**: Hot window + year-sharded archive — best read performance, more implementation complexity.
+
+**Remediation** (after THERMO Phase 1–3 complete):
+
+- Migrate `rs-bars-sync.ts` `syncSymbol` and `RsBarsDoc` to the year-shard schema.
+- Rewrite `getCachedBars` in `rh-agent-data-loader.ts` to load year shards in parallel and merge.
+- Write a one-time migration Cloud Function to fan out existing flat docs into year-shard subcollections.
+- Update `firestore.rules` to cover subcollection paths.
+- Audit frontend services for any direct `rs-bars` reads and update accordingly.
+
+**Acceptance**:
+
+- No bar arrays stored in the `rs-bars/{SYMBOL}` root document.
+- Nightly sync writes only the current year's shard doc per interval.
+- Agent worker reads correct bars via parallel year-shard queries.
+- Existing signal computation behavior is preserved end-to-end.
+
 ## Task order summary
 
 1. ✅ T01 — Fix indicator response shape
@@ -525,7 +551,7 @@ These are blockers and should be done first. Each task should be a separate, sma
 11. ✅ T11 — Simplify group store
 12. ✅ T12 — Extract chart state
 13. ✅ T13 — Centralize Firestore helpers
-14. T14 — Split config file
+14. ✅ T14 — Split config file
 15. T15 — Atomic signal writes
 16. T16 — Fix list doc ID collision (deferred)
 17. T17 — Remove executor hardcoded defaults
@@ -537,6 +563,7 @@ These are blockers and should be done first. Each task should be a separate, sma
 23. T23 — Evaluate run-ids storage model
 24. T24 — Evaluate exclusive use of backend indicator callable
 25. T25 — Evaluate shared types package
+26. T26 — Evaluate and migrate `rs-bars` to year-sharded subcollections (see `RS-BARS-STORAGE-2607-01`; start after Phase 1–3)
 
 ## Risks and notes
 

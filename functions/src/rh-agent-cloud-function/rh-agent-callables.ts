@@ -20,9 +20,8 @@ import {
   RH_AGENT_RUNS_COLLECTION,
   RH_AGENT_STATUS_COLLECTION,
   AGENT_STATUS_DOC,
-  RhAgentDailyRun,
-  RhAgentStatus,
-} from './rh-agent-config';
+} from './rh-agent-collections';
+import { RhAgentDailyRun, RhAgentStatus } from './rh-agent-runs';
 import { RH_AGENT_ALLOWED_ORIGINS } from './rh-agent-cors';
 
 /**

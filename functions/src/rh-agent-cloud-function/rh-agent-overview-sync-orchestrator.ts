@@ -10,7 +10,7 @@ import { getFunctions } from 'firebase-admin/functions';
 import { logger } from 'firebase-functions/v2';
 
 import { db } from '../firebase-admin-init';
-import { RH_AGENT_SYMBOLS_COLLECTION } from './rh-agent-config';
+import { RH_AGENT_SYMBOLS_COLLECTION } from './rh-agent-collections';
 
 // ============================================================================
 // Constants

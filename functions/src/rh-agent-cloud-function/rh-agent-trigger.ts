@@ -8,7 +8,8 @@ import { onRequest } from 'firebase-functions/v2/https';
 import { onMessagePublished } from 'firebase-functions/v2/pubsub';
 import { logger } from 'firebase-functions/v2';
 
-import { type IntradaySnapshot, type RhAgentTriggeredBy } from './rh-agent-config';
+import { type IntradaySnapshot } from './rh-agent-shared-types';
+import { type RhAgentTriggeredBy } from './rh-agent-runs';
 import { PARTNER_DATA_READY_TOPIC } from '../webhooks/webhooks-config';
 
 import {

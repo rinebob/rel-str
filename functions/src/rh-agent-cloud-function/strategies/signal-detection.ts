@@ -5,7 +5,7 @@
  * last bar. These functions are strategy-agnostic and can be reused by future
  * strategies that operate on zone/indicator transitions.
  */
-import { StSignalDirection } from '../rh-agent-config';
+import { StSignalDirection } from '../rh-agent-signals';
 import type { OHLCV } from './base-strategy';
 
 export interface ZoneSignal {
