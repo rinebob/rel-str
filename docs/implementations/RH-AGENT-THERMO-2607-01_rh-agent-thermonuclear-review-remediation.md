@@ -554,7 +554,7 @@ These are blockers and should be done first. Each task should be a separate, sma
 14. ✅ T14 — Split config file
 15. ✅ T15 — Atomic signal writes
 16. T16 — Fix list doc ID collision (deferred)
-17. T17 — Remove executor hardcoded defaults
+17. ✅ T17 — Remove executor hardcoded defaults
 18. T18 — Use or remove validateConfig
 19. T19 — Non-null bar arrays
 20. T20 — Regression tests
