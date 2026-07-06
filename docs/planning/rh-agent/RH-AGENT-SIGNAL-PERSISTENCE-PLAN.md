@@ -1,4 +1,4 @@
-# RH Agent — Signal Persistence Plan
+﻿# RH Agent — Signal Persistence Plan
 
 **Status:** Planning  
 **Created:** 2026-06-30  
@@ -12,7 +12,7 @@
 
 The system currently has two separate signal computation paths that diverge:
 
-1. **Stored signals** — computed by the cloud function worker using `rs-bars` (Firestore nightly sync, ~45 day window), written to `rh-agent-symbols/{symbol}/signal-dates/{barDate}`
+1. **Stored signals** — computed by the cloud function worker using `symbol-data` subcollections (Firestore nightly sync), written to `rh-agent-symbols/{symbol}/signal-dates/{barDate}`
 2. **Chart signals** — computed on-the-fly in the browser by `detectZoneUptickDots()` and other detectors, using price bars fetched from SavantAPI via `HeatmapChartStore`
 
 These diverge because they use different data sources, different amounts of history, and potentially different HTF gating logic. The result: a symbol appears in the run's signal list but shows no uptick dot on its chart — or vice versa. This is a trust problem.
@@ -109,7 +109,7 @@ Firestore collection group queries use the composite index directly — they do 
 
 The nightly run (post-market close) is the natural EOD trigger. When the nightly run completes:
 
-1. Worker computes signals using final EOD price data from SavantAPI (full history, not `rs-bars` snapshot)
+1. Worker computes signals using final EOD price data from SavantAPI (full history, not `symbol-data` snapshot)
 2. Writes to `run-ids/{runId}` as usual (run-centric record)
 3. Also writes to `signal-history/{date}` — the canonical EOD record for that date
 

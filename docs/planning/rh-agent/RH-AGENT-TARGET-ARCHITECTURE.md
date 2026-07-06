@@ -1,4 +1,4 @@
-# RH Agent — Target Architecture
+﻿# RH Agent — Target Architecture
 
 - **Status**: proposed
 - **Planning doc(s)**: `RH-AGENT-ARCH.md`, `RH-AGENT-REFACTOR-PLAN.md`, `RH-AGENT-RS-BARS-CHART-MIGRATION-PLAN.md`
@@ -16,9 +16,9 @@ The current remediation plan (`RH-AGENT-THERMO-2607-01`) fixes concrete bugs, re
 ## Core architectural principles
 
 1. **Single source of truth for price data**
-   - `rs-bars/{symbol}` is the canonical source for daily, weekly, and monthly OHLC bars.
-   - The nightly `rsBarsSyncNightly` function is the only writer of real EOD bars.
-   - Intraday prices are injected only when needed, at the edges (workers, chart service), not persisted back to `rs-bars` as real bars.
+   - `symbol-data/{symbol}` subcollections are the canonical source for daily, weekly, and monthly OHLC bars.
+   - The nightly `symbolDataSyncNightly` function is the only writer of real EOD bars.
+   - Intraday prices are injected only when needed, at the edges (workers, chart service), not persisted back to `symbol-data` as real bars.
 
 2. **Backend owns all indicator math**
    - The backend callable `rhAgentGetSymbolIndicatorSeries` is the source of truth for ST indicators and signal markers.
@@ -71,7 +71,7 @@ functions/src/rh-agent-cloud-function/
       load-symbols.ts                # Enabled symbol loading
       overview-sync.ts               # Company overview fetch/write
     bars/
-      load-bars.ts                   # rs-bars reader + intraday injection
+      load-bars.ts                   # symbol-data reader + intraday injection
     signals/
       signal-detection.ts            # Pure signal detection
       signal-persister.ts            # Atomic signal writes
@@ -105,7 +105,7 @@ Create run doc + enqueue jobs
     ▼
 Cloud Tasks: rhAgentProcessSymbol (per symbol)
     │
-    ├─ loadBars(symbol, marketDate)    → reads rs-bars/{symbol}, injects intraday
+    ├─ loadBars(symbol, marketDate)    → reads symbol-data/{symbol} subcollections, injects intraday
     ├─ strategyRegistry.execute(...)   → pure signal detection
     ├─ signalPersister.persist(...)    → atomic write to signal-history + latest-signals
     └─ runTracker.completeJob(...)     → update run/job counters
@@ -118,7 +118,7 @@ Frontend dashboard / review / charts
 
 | Decision | Current state | Target state |
 |----------|---------------|--------------|
-| Price source | `rs-bars/{symbol}` + intraday injection | Same, but intraday injection is centralized in `loadBars` |
+| Price source | `symbol-data/{symbol}` + intraday injection | Same, but intraday injection is centralized in `loadBars` |
 | Indicator source | Frontend inline + backend callable | Backend callable only |
 | Signal storage | `run-ids` + `signal-history` | `signal-history` canonical + `latest-signals` per symbol |
 | Strategy selection | Hardcoded `DEFAULT_STRATEGY` | Read from run doc or config |
@@ -168,7 +168,7 @@ src/app/features/rh-agent/
   services/
     rh-agent-run.service.ts        # Runs, status, manual trigger
     rh-agent-signal.service.ts     # Signal history, symbol profiles
-    rh-agent-chart.service.ts      # rs-bars + indicator series callable
+    rh-agent-chart.service.ts      # symbol-data + indicator series callable
     rh-agent-symbol.service.ts     # Symbol lists, meta, overview sync
     rh-agent-triage.service.ts     # Triage persistence
     rh-agent-firestore-helpers.ts  # Shared auth/chunk helpers
@@ -194,7 +194,7 @@ src/app/features/rh-agent/
 |---------|----------------|
 | `RhAgentRunService` | Manual run, status, run history |
 | `RhAgentSignalService` | Signal queries, symbol profiles |
-| `RhAgentChartService` | Read `rs-bars/{symbol}`, call `rhAgentGetSymbolIndicatorSeries` |
+| `RhAgentChartService` | Read `symbol-data/{symbol}` subcollections, call `rhAgentGetSymbolIndicatorSeries` |
 | `RhAgentSymbolService` | Symbol lists, meta, overview sync |
 | `RhAgentTriageService` | Triage decision persistence |
 
@@ -240,7 +240,7 @@ A single `types/` package or side-effect-free module should export:
 
 | Collection / Doc | Purpose | Writer |
 |------------------|---------|--------|
-| `rs-bars/{symbol}` | Canonical D/W/M bars | `rsBarsSyncNightly` |
+| `symbol-data/{symbol}` | Canonical D/W/M bars | `symbolDataSyncNightly` |
 | `rh-agent-symbols/{symbol}` | Symbol metadata, overview, last signal | Worker, overview sync, seed admin |
 | `rh-agent-symbols/{symbol}/signal-history/{barDate}` | Permanent signal record | Worker (nightly) |
 | `rh-agent-symbols/{symbol}/latest-signals` | Latest signals for review | Worker (all runs) |

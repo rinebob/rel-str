@@ -1,5 +1,12 @@
 # RH Agent — Frontend Chart Migration to rs-bars
 
+> **⚠️ SUPERSEDED (2026-07-06)**
+> `rs-bars` has been fully replaced by `symbol-data` subcollections. `RhAgentChartService` now reads
+> `symbol-data/{symbol}/daily|weekly|monthly` directly. Function names updated to `symbolDataSync*`.
+> See `RS-BARS-STORAGE-2607-01_rs-bars-schema-evaluation.md` for the complete migration record.
+>
+> This document is retained as a historical record of the chart migration phase.
+
 **Status:** Complete (deployed 2026-07-01)  
 **Created:** 2026-07-01  
 **Related docs:**

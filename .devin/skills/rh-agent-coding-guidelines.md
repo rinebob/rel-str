@@ -1,4 +1,4 @@
----
+﻿---
 name: rh-agent-coding-guidelines
 description: Apply RH Agent-specific coding standards when writing or refactoring code in functions/src/rh-agent-cloud-function or src/app/features/rh-agent. Prevents monolithic files, duplicated code, inconsistent patterns, boundary drift, and dead code.
 disable-model-invocation: true
@@ -33,7 +33,7 @@ These standards are derived from the thermonuclear review of the RH Agent featur
 - **Shared constants must exist once.** `ALLOWED_ORIGINS` / CORS allowlists, collection names, and enum values should live in a single source of truth.
 - **Do not mirror types between frontend and backend.** If a shared type is needed, import it from a side-effect-free shared location or document why duplication is unavoidable.
 - **Examples from the current codebase to avoid:**
-  - `OhlcBar` defined in `rs-bars-sync.ts`, `rh-agent-indicator-computation.ts`, and `rh-agent-chart.service.ts`.
+  - `OhlcBar` defined in `symbol-data-sync.ts`, `rh-agent-indicator-computation.ts`, and `rh-agent-chart.service.ts`.
   - `ALLOWED_ORIGINS` defined separately in `rh-agent-callables.ts`, `rh-agent-indicator-series.ts`, and inline in `rh-agent-executor.ts`.
   - Frontend `rh-agent-indicator.types.ts` mirroring backend types with a comment saying duplication is intentional.
 
@@ -97,10 +97,10 @@ These standards are derived from the thermonuclear review of the RH Agent featur
 
 - **Signal type names should match what the code emits.** Do not define enum values that no code path produces.
 - **Function names should describe what they actually do.** A function called `writeIntradayBarsToRsBars` that is never called is worse than no function.
-- **Prefer explicit names over generic ones.** `loadData` is too vague for a function that reads `rs-bars` and injects intraday bars.
+- **Prefer explicit names over generic ones.** `loadData` is too vague for a function that reads `symbol-data` subcollections and injects intraday bars.
 - **Examples from the current codebase to avoid:**
   - `*_CT_LONG` enum values with no emission path.
-  - `loadData` in `rh-agent-worker.ts` doing rs-bars loading + intraday injection.
+  - `loadData` in `rh-agent-worker.ts` doing symbol-data loading + intraday injection.
 
 ## 9. Before adding a new file or function, ask these questions
 

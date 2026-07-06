@@ -1,4 +1,4 @@
-# RH Agent Ecosystem Inventory
+﻿# RH Agent Ecosystem Inventory
 
 **Status:** Complete (matching current implementation)  
 **Updated:** 2026-06-29
@@ -142,7 +142,7 @@ re-exported from `index.ts`.
 Location: `functions/src/rh-agent-cloud-function/`
 
 The backend is a set of Firebase Cloud Functions (v2) plus a shared strategy
-registry. It reads from the `rs-bars` cache, runs the ST Zone Uptick strategy,
+registry. It reads from `symbol-data` subcollections, runs the ST Zone Uptick strategy,
 writes signals to `rh-agent-symbols/{symbol}/signal-dates`, and exposes
 admin/trigger/status callables.
 
@@ -197,8 +197,8 @@ admin/trigger/status callables.
 
 ### Supporting backend files
 
-- `functions/src/rs-bars/rs-bars-sync.ts` — Bars cache types (`OhlcBar`,
-  `RsBarsDoc`) and the `rsBarsSyncAdmin` callable that fetches and caches
+- `functions/src/symbol-data-sync/symbol-data-sync.ts` — Bars cache types (`OhlcBar`,
+  `SymbolDataSyncPayload`) and the `symbolDataSyncAdminHttp` callable that fetches and caches
   daily/weekly/monthly bars for symbols. Heavily used by the RH Agent worker.
 - `functions/src/scheduled/sync-tracked-symbols.ts` — Scheduled job that keeps
   the tracked symbol list in sync with external data sources; feeds the RH Agent
@@ -269,9 +269,9 @@ admin/trigger/status callables.
 ```
 
 1. **Scheduled/PDR/manual trigger** (`rh-agent-trigger.ts`) fetches the latest
-   intraday snapshot, writes partial bars to `rs-bars`, and enqueues one Cloud
+   intraday snapshot, injects partial bars in-memory, and enqueues one Cloud
    Task per enabled symbol.
-2. **Worker** (`rh-agent-worker.ts`) loads cached bars from `rs-bars`, runs the
+2. **Worker** (`rh-agent-worker.ts`) loads bars from `symbol-data` subcollections, runs the
    ST Zone Uptick strategy, and writes signal entries to
    `rh-agent-symbols/{symbol}/signal-dates/{barDate}`.
 3. **Frontend** reads aggregated symbol profiles and signal history through
@@ -293,7 +293,7 @@ admin/trigger/status callables.
 | `rh-agent-triage-decisions` | PACR decisions keyed by `{symbol}_{date}`. |
 | `rh-agent-symbol-lists` | User-defined watchlists keyed by list name. |
 | `rh-agent-symbol-meta` | Symbol-level universe metadata (type, tags, score, notes). |
-| `rs-bars` | Cached daily/weekly/monthly OHLCV bars used by the worker. |
+| `symbol-data` | Year-sharded daily + flat weekly/monthly OHLCV bars used by the worker. |
 
 ---
 

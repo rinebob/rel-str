@@ -1,6 +1,6 @@
 # RS-BARS-STORAGE-2607-01 — rs-bars Schema Evaluation & Migration Plan
 
-- **Status**: in-progress
+- **Status**: complete
 - **Area**: BE
 - **Scope**: MAINT / PERF
 - **Code**: RS-BARS-STORAGE
@@ -81,13 +81,10 @@ interface SymbolDataDoc {
   lastWeeklyBarDate?: string;   // YYYY-MM-DD
   lastMonthlyBarDate?: string;  // YYYY-MM-DD
   lastBarSyncedAt?: Timestamp;
-  // flat arrays — small enough to stay here forever:
-  weekly?: OhlcBar[];           // ~27 KB max, bounded
-  monthly?: OhlcBar[];          // ~7 KB max, bounded
+  // No bar arrays on the root doc — all bars live in subcollections
 }
 
 // symbol-data/{SYMBOL}/daily/{YYYY} — year shard for daily bars
-// symbol-data/{SYMBOL}/2day/{YYYY}  — future, not in scope for this task
 interface SymbolBarsYearDoc {
   year: number;                       // YYYY
   interval: 'daily';                  // 2day deferred to separate task
@@ -95,10 +92,20 @@ interface SymbolBarsYearDoc {
   updatedAt: Timestamp;
 }
 
+// symbol-data/{SYMBOL}/weekly/all  — single flat doc for all weekly bars (bounded forever)
+// symbol-data/{SYMBOL}/monthly/all — single flat doc for all monthly bars (bounded forever)
+interface SymbolBarsFlatDoc {
+  interval: 'weekly' | 'monthly';
+  bars: OhlcBar[];                    // full history, sorted chronologically
+  updatedAt: Timestamp;
+}
+
 // Collection paths:
-// symbol-data/{SYMBOL}              — SymbolDataDoc (root, existing + extended)
-// symbol-data/{SYMBOL}/daily/{YYYY} — SymbolBarsYearDoc
-// symbol-data/{SYMBOL}/2day/{YYYY}  — future (out of scope here)
+// symbol-data/{SYMBOL}               — SymbolDataDoc (root, metadata only — no bar arrays)
+// symbol-data/{SYMBOL}/daily/{YYYY}  — SymbolBarsYearDoc
+// symbol-data/{SYMBOL}/weekly/all    — SymbolBarsFlatDoc
+// symbol-data/{SYMBOL}/monthly/all   — SymbolBarsFlatDoc
+// symbol-data/{SYMBOL}/2day/{YYYY}   — future (out of scope here)
 ```
 
 ---
@@ -115,21 +122,23 @@ All new code is added as new functions/sections alongside existing code, clearly
 
 **Phase 1 — Parallel write**
 1. Add `syncSymbolToSymbolData` alongside existing `syncSymbol` in `rs-bars-sync.ts`
-2. New function writes daily year shards to `symbol-data/{SYMBOL}/daily/{YYYY}` and weekly/monthly flat arrays to `symbol-data/{SYMBOL}.weekly` / `.monthly` (merge)
+2. New function writes daily year shards to `symbol-data/{SYMBOL}/daily/{YYYY}`, weekly bars to `symbol-data/{SYMBOL}/weekly/all`, and monthly bars to `symbol-data/{SYMBOL}/monthly/all`
 3. Also upserts `{ symbol, enabled: true }` into `rh-agent-symbols/{SYMBOL}` so the agent enable list stays in sync automatically — eliminating the need to run `seedAllSymbolsFromPartner` manually
 4. Both old and new sync paths run on the same nightly schedule until verified
 
 **Phase 2 — Switch readers**
 1. Add `getCachedBarsFromSymbolData` alongside existing `getCachedBars` in `rh-agent-data-loader.ts`
-2. New function: reads `Promise.all([currentYearShard, prevYearShard])` for daily + reads `symbol-data/{SYMBOL}.weekly` / `.monthly` from root doc — 3 Firestore reads per symbol total
+2. New function: reads `Promise.all([currentYearShard, prevYearShard])` for daily + reads `symbol-data/{SYMBOL}/weekly/all` and `symbol-data/{SYMBOL}/monthly/all` — 4 Firestore reads per symbol total
 3. Update `rh-agent-indicator-series.ts` reader to use `symbol-data` (this file was missing from the original affected-files list)
 4. Switch agent worker to use new reader
 5. Verify signal output matches old path over several runs
 
-**Phase 3 — Retire rs-bars**
-1. Stop old `syncSymbol` writes to `rs-bars`
-2. Delete `rs-bars` collection via admin script
-3. Remove old code sections from all affected files
+**Phase 3 — Retire rs-bars** ✅
+1. Removed `syncSymbol` and `RS_BARS_COLLECTION`/`RsBarsDoc` from `rs-bars-sync.ts`
+2. Removed `getCachedBars` (rs-bars reader) from `rh-agent-data-loader.ts`
+3. Removed `rhAgentGetSymbolIndicatorSeries` (V1 callable) from `rh-agent-indicator-series.ts`
+4. Removed dead `writeIntradayBarsToRsBars` from `rh-agent-shared.ts`
+5. `rs-bars` collection left in Firestore — safe to delete manually at any time
 
 ---
 
@@ -151,7 +160,7 @@ All new code is added as new functions/sections alongside existing code, clearly
 - `src/app/features/services/rel-str-db-v2.service.ts` — `getAvailableSymbolsFromSymbolData$` already reads from `symbol-data` root — **no change needed**
 
 ### Firestore
-- `firestore.rules` — add read rules for `symbol-data/{symbol}/daily/{year}` and `symbol-data/{symbol}/2day/{year}`
+- `firestore.rules` — add read rules for `symbol-data/{symbol}/daily/{year}`, `symbol-data/{symbol}/weekly/{docId}`, `symbol-data/{symbol}/monthly/{docId}`
 - `firestore.indexes.json` — no composite indexes needed (reads are by doc path, not query)
 
 ---
@@ -170,6 +179,20 @@ await db.collection('rh-agent-symbols').doc(symbol).set(
 New symbols added to SA are picked up automatically on the next nightly bar sync. The `enabled` flag can still be set to `false` manually to exclude a symbol from agent runs — `merge: true` preserves any existing override.
 
 ---
+
+## Open Issues — Resolved
+
+- **NG0203 injection error** ✅ — `Auth` now injected in constructor of all three services (`rh-agent-triage.service.ts`, `rh-agent-symbol-list.service.ts`, `rh-agent-symbol-meta.service.ts`); `requireUserId` requires explicit `auth` parameter.
+- **`flex-chart.component.ts` indicator refresh** ✅ — `prevDataKey`/`refreshPending` closure-mutation pattern replaced with a `lastSeriesKey` class field. Effect now: read key → skip if unchanged → skip if chart not yet ready → record key → refresh. Handles the case where indicators arrive before chart is initialized without implicit mutable state inside the effect.
+- **`rh-agent-chart.service.ts` post-migration cleanup** ✅ (thermo review) — Removed `runInInjectionContext` wrapper (was masking a straightforward `async` method and forced an `as` cast to escape `unknown`); removed `EnvironmentInjector` injection; removed 5 `console.log/warn/error` calls from production path; removed phantom `lastEodSyncAt` field from return literal (was absent from `SymbolBarsResult` interface); replaced `as any` data casts with typed local interfaces (`SymbolBarsYearDoc`, `SymbolBarsFlatDoc`, `SymbolDataRootDoc`); updated stale file header and JSDoc still referencing `rs-bars`.
+
+## Post-Deploy Steps (Cloud Function rename) — ✅ Complete (2026-07-06)
+
+1. ✅ `firebase deploy --only functions` — new functions deployed
+2. ✅ `firebase functions:delete rsBarsSyncNightly rsBarsSyncAdminHttp rsBarsSyncSymbol` + `rhAgentGetSymbolIndicatorSeries` — old functions deleted
+3. ✅ **GCP Cloud Scheduler** — Firebase auto-created `firebase-schedule-symbolDataSyncNightly-us-central1` on deploy; old scheduler job removed automatically
+4. ✅ **GCP Cloud Tasks** — deleted old `rsBarsSyncSymbol` queue; `symbolDataSyncSymbol` queue auto-created by Firebase
+5. ✅ **Firestore `rs-bars-sync-runs`** — constant renamed to `'symbol-data-sync-runs'` in `symbol-data-sync.ts`; new sync runs write to `symbol-data-sync-runs` going forward
 
 ## Notes
 

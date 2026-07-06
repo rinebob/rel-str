@@ -1,4 +1,4 @@
----
+﻿---
 name: rel-str-coding-guidelines
 description: Apply project-wide coding standards for the rel-str Angular + Firebase codebase. Prevents monolithic files, duplicated code, inconsistent patterns, boundary drift, dead code, and security anti-patterns.
 disable-model-invocation: true
@@ -36,7 +36,7 @@ These standards are derived from the thermonuclear review of the RH Agent featur
 - **Shared constants must exist once.** CORS allowlists, collection names, enum values, and magic numbers should live in a single source of truth.
 - **Do not mirror types between frontend and backend.** If both sides need a type, place it in a side-effect-free shared location or document why duplication is unavoidable.
 - **Examples of duplication to avoid:**
-  - The same bar shape defined in `rs-bars-sync.ts`, a cloud function file, and the frontend chart service.
+  - The same bar shape defined in `symbol-data-sync.ts`, a cloud function file, and the frontend chart service.
   - CORS allowlists defined separately in multiple callable files.
   - Frontend files duplicating backend contracts with a comment saying the duplication is intentional.
 

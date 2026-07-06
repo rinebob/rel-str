@@ -1,4 +1,4 @@
-# Robinhood AI Trading Agent — Architecture Overview
+﻿# Robinhood AI Trading Agent — Architecture Overview
 
 ## What It Does
 
@@ -6,8 +6,8 @@ A daily automated trading signal system that:
 1. Triggers automatically when SavantAPI publishes a `partner-data-ready` Pub/Sub message with `runType = "intraday-snapshot"` (PDR windows: ~8:20, ~10:20, ~12:20 PM PT, Mon–Fri — SA takes ~20 min per run)
 2. Fetches a bulk intraday snapshot from `callPartnerIntradaySnapshotV2` (one POST for all ~761 symbols)
 3. Enqueues a Cloud Tasks job per symbol for parallel analysis, embedding each symbol's intraday snapshot in its own task payload
-4. Each worker reads **historical OHLCV bars** from `rs-bars/{symbol}` (populated nightly by `rsBarsSyncNightly`), injects today's intraday price as a partial bar, runs the ST-Zone-Uptick strategy, and writes signals to `rh-agent-symbols/{symbol}/signal-dates/{barDate}`
-5. Nightly after market close, `rsBarsSyncNightly` syncs real EOD bars for all symbols and auto-triggers a nightly agent run for confirmed signals
+4. Each worker reads **historical OHLCV bars** from `symbol-data/{symbol}` subcollections (populated nightly by `symbolDataSyncNightly`), injects today's intraday price as a partial bar, runs the ST-Zone-Uptick strategy, and writes signals to `rh-agent-symbols/{symbol}/signal-dates/{barDate}`
+5. Nightly after market close, `symbolDataSyncNightly` syncs real EOD bars for all symbols and auto-triggers a nightly agent run for confirmed signals
 6. An Angular dashboard lets the user view runs, signals, and triage opportunities
 
 ---
@@ -175,7 +175,7 @@ export const RH_AGENT_SCHEDULE_CRON = '0 20 * * 1-5'; // 8 PM UTC = 12 PM PT, Mo
 3. Fetches bulk intraday snapshot via `callPartnerIntradaySnapshotV2(symbols)` — one POST for all ~761 symbols
 4. Calls `startRhAgentRun(marketDate, 'pdr', intradaySnapshots)` — loads symbols, creates run doc (ID = `marketDate`), enqueues one Cloud Task per symbol with **only that symbol's** intraday snapshot in the payload
 5. Each worker (`rhAgentProcessSymbol`):
-   - Reads `rs-bars/{symbol}` for historical D/W/M OHLCV bars (populated nightly)
+   - Reads `symbol-data/{symbol}` subcollections for historical D/W/M OHLCV bars (populated nightly)
    - Injects `intraday.ip` from payload as a partial bar for today (replace-or-append)
    - Runs ST-Zone-Uptick strategy against D/W/M bars
    - Writes signals to `rh-agent-symbols/{symbol}/signal-dates/{barDate}` with status `INTERIM`
@@ -183,9 +183,9 @@ export const RH_AGENT_SCHEDULE_CRON = '0 20 * * 1-5'; // 8 PM UTC = 12 PM PT, Mo
 
 ## Run Flow (Nightly)
 
-1. Cloud Scheduler triggers `rsBarsSyncNightly` after market close (~6 PM PT)
-2. Creates tracking doc in `rs-bars-sync-runs/{syncRunId}`; enqueues one Cloud Task per symbol to `rsBarsSyncSymbol`
-3. Each `rsBarsSyncSymbol` task syncs real EOD D/W/M bars from SA into `rs-bars/{symbol}`, increments `processedCount`
+1. Cloud Scheduler triggers `symbolDataSyncNightly` after market close (~6 PM PT)
+2. Creates tracking doc in `symbol-data-sync-runs/{syncRunId}`; enqueues one Cloud Task per symbol to `symbolDataSyncSymbol`
+3. Each `symbolDataSyncSymbol` task syncs real EOD D/W/M bars from SA into `symbol-data/{symbol}` subcollections, increments `processedCount`
 4. When `processedCount >= totalSymbols` → auto-calls `startRhAgentRun(marketDate, 'nightly')`
 5. Workers run same strategy; signals written with status `CONFIRMED` (daily) or `INTERIM`→`CONFIRMED` (weekly, after 7 days)
 
@@ -193,7 +193,7 @@ export const RH_AGENT_SCHEDULE_CRON = '0 20 * * 1-5'; // 8 PM UTC = 12 PM PT, Mo
 
 ## Data Source
 
-Workers read from `rs-bars/{symbol}` — a single Firestore doc per symbol containing `daily`, `weekly`, `monthly` OHLCV arrays. Populated nightly by `rsBarsSyncNightly`.
+Workers read from `symbol-data/{symbol}` subcollections — year-sharded daily bars under `daily/{YYYY}`, flat weekly bars at `weekly/all`, flat monthly bars at `monthly/all`. Populated nightly by `symbolDataSyncNightly`.
 
 - `daily` array contains ~500 EOD bars (the `d` field is `YYYY-MM-DD`)
 - Today's intraday price (`intraday.ip`) comes from the **job payload** and is injected as a partial bar inside the worker — workers make no external API calls
@@ -210,7 +210,7 @@ if daily.last.d === marketDate → replace last bar
 else → append
 ```
 
-This keeps the trigger stateless with respect to `rs-bars` — it never reads or writes Firestore docs during the intraday fetch phase, eliminating the ~761 concurrent Firestore reads that caused OOM crashes at 1GiB.
+This keeps the trigger stateless with respect to `symbol-data` — it never reads or writes Firestore docs during the intraday fetch phase, eliminating the ~761 concurrent Firestore reads that caused OOM crashes at 1GiB.
 
 > **Historical note:** Prior to this refactor, `rhAgentPdrTrigger` called `writeIntradayBarsToRsBars()` to pre-write all 761 partial bars to Firestore before enqueueing workers. This required reading each symbol's full `daily` array (~64KB) to perform the replace-or-append check, causing the trigger function to exceed its 1GiB memory limit. The fix moves the bar injection into each worker, which already has the intraday snapshot in its payload.
 
@@ -218,12 +218,12 @@ This keeps the trigger stateless with respect to `rs-bars` — it never reads or
 
 ## Pending Work (cross-plan summary)
 
-### 1. Frontend chart → rs-bars (Layer 3 migration) ✅ Complete (2026-07-01)
-`signal-detail.component` now reads `rs-bars/{symbol}` directly via `RhAgentChartService`. `HeatmapChartStore` is no longer imported. The 1–3s SA round-trip per chart open is eliminated.
+### 1. Frontend chart → symbol-data (Layer 3 migration) ✅ Complete (2026-07-01)
+`signal-detail.component` now reads `symbol-data/{symbol}` subcollections directly via `RhAgentChartService`. `HeatmapChartStore` is no longer imported. The 1–3s SA round-trip per chart open is eliminated.
 
 - **`RhAgentChartService`** (`src/app/features/rh-agent/services/rh-agent-chart.service.ts`) reads Firestore, checks `lastEodSyncAt`, calls `rhAgentGetIntradaySnapshot` when today’s bar is missing, synthesizes D/W/M partial bars client-side.
 - **`rhAgentGetIntradaySnapshot`** callable added to `rh-agent-callables.ts`; wraps `callPartnerIntradaySnapshotV2([symbol])`.
-- **`lastEodSyncAt`** added to `RsBarsDoc` — written only by `rsBarsSyncNightly`, used by frontend as the EOD sync sentinel.
+- ~~**`lastEodSyncAt`** added to `RsBarsDoc`~~ — written only by `symbolDataSyncNightly`, used by frontend as the EOD sync sentinel.
 - **Plan doc:** `RH-AGENT-RS-BARS-CHART-MIGRATION-PLAN.md`
 
 ### 2. Run-centric signal storage migration ✅ Complete

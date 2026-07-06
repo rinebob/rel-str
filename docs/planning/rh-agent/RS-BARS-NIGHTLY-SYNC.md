@@ -1,5 +1,14 @@
 # RS Bars Nightly Sync — Integration Brief
 
+> **⚠️ SUPERSEDED (2026-07-06)**
+> The `rs-bars` Firestore collection and all associated function names have been replaced.
+> - Collection: `rs-bars/{symbol}` → `symbol-data/{symbol}/daily|weekly|monthly`
+> - Functions: `rsBarsSyncNightly` → `symbolDataSyncNightly`, `rsBarsSyncAdminHttp` → `symbolDataSyncAdminHttp`, `rsBarsSyncSymbol` → `symbolDataSyncSymbol`
+> - Source: `functions/src/symbol-data-sync/symbol-data-sync.ts`
+> - Plan: `RS-BARS-STORAGE-2607-01_rs-bars-schema-evaluation.md`
+>
+> This document is retained as a historical record of the original design.
+
 ## Overview
 
 We need a new nightly Cloud Function that fetches full price history (daily, weekly, monthly) from SavantAPI for all tracked symbols and writes it to a local Firestore collection `rs-bars`. This becomes the **single local source of truth for OHLCV bars**, used by:

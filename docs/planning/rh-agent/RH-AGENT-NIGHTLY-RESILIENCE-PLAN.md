@@ -1,4 +1,4 @@
-# RH Agent — Nightly Run Resilience Plan
+﻿# RH Agent — Nightly Run Resilience Plan
 
 **Status:** TODO — implement only if nightly run failures are observed in production
 **Created:** 2026-07-01
@@ -11,7 +11,7 @@
 
 The nightly run is the canonical writer of `signal-history`. Every night:
 
-1. `rsBarsSyncNightly` fires at 1:00 AM UTC (6 PM PT) via Cloud Scheduler
+1. `symbolDataSyncNightly` fires at 1:00 AM UTC (6 PM PT) via Cloud Scheduler
 2. It enqueues one Cloud Task per symbol to sync price bars from SavantAPI
 3. When all tasks complete, it calls `startRhAgentRun(marketDate, 'nightly')`
 4. Each symbol's worker runs the strategy and writes to `run-ids/{runId}` and `signal-history/{barDate}`
@@ -22,8 +22,8 @@ The nightly run is the canonical writer of `signal-history`. Every night:
 
 ## Failure Modes
 
-### F1 — `rsBarsSyncNightly` fires but `startRhAgentRun` is never called
-**Cause:** rs-bars-sync worker throws before reaching the agent trigger, or Cloud Scheduler job is skipped/delayed.
+### F1 — `symbolDataSyncNightly` fires but `startRhAgentRun` is never called
+**Cause:** symbol-data-sync worker throws before reaching the agent trigger, or Cloud Scheduler job is skipped/delayed.
 **Impact:** No `rh-agent-runs` doc is created for the day. `signal-history` is never written.
 
 ### F2 — `startRhAgentRun` fires but individual symbol workers fail
@@ -53,7 +53,7 @@ Add a second `onSchedule` Cloud Function in `rh-agent-trigger.ts` that fires at 
 
 **Proposed function name:** `rhAgentNightlyFallback`
 
-**Schedule:** `0 3 * * 2-6` (3 AM UTC Tue–Sat, same day-of-week window as rsBarsSyncNightly)
+**Schedule:** `0 3 * * 2-6` (3 AM UTC Tue–Sat, same day-of-week window as symbolDataSyncNightly)
 
 ```typescript
 // rh-agent-trigger.ts
@@ -141,7 +141,7 @@ The idea: decouple `writeSignalHistoryDoc` from the per-symbol worker entirely. 
 - Gap-fill (1A) becomes trivial — just re-run the canonicalization step for the runId
 
 **Why it was deferred:**
-- Requires a reliable "all workers done" signal. Currently the run completion is detected inside `rsBarsSyncSymbol` after the last task writes back, but there is no durable fan-in event that a separate function can subscribe to without polling
+- Requires a reliable "all workers done" signal. Currently the run completion is detected inside `symbolDataSyncSymbol` after the last task writes back, but there is no durable fan-in event that a separate function can subscribe to without polling
 - Cloud Tasks has no native "all tasks in queue finished" callback — would require a counter approach (increment `processedCount` on each worker, trigger canonicalization when `processedCount === totalSymbols`)
 - That counter-based fan-in is non-trivial to make reliable under partial retries and would change how the run lifecycle works — the user explicitly wanted to avoid changing run behavior at this stage
 - The current approach (worker writes `signal-history` directly when `triggeredBy === 'nightly'`) is simple and already working well. The gap validator (1A) and fallback trigger (2B) cover the failure modes without this architectural change
