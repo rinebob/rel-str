@@ -26,6 +26,21 @@ export interface IndicatorSignalMarker {
   reason: string;
 }
 
+export interface DotMarker {
+  d: string;                    // bar date
+  index: number;                // bar index in the interval's bars array
+  direction: 'long' | 'short';
+  y: number;                    // chart y-coordinate (price with ATR offset, or DI hist with offset)
+  version: 'V1' | 'V2' | 'TS';
+  signalType: string;
+}
+
+export interface HtfWindowPoint {
+  d: string;                    // bar date (LTF)
+  y: number;                    // -6 or +6
+  color: string;                // long/short color
+}
+
 export interface BandPoint {
   bandIndex: number;
   bullColor: string;
@@ -85,6 +100,15 @@ export interface SignalIntervalData {
   zoneV2?: IndicatorSignalMarker[];
   trendStrength?: IndicatorSignalMarker[];
   triggerBands?: IndicatorSignalMarker[];
+  dotMarkers?: {
+    zoneV1?: DotMarker[];
+    zoneV2?: DotMarker[];
+    trendStrength?: DotMarker[];
+  };
+  htfWindows?: {
+    weekly?: HtfWindowPoint[];
+    monthly?: HtfWindowPoint[];
+  };
 }
 
 export enum ChartInterval {
@@ -132,6 +156,15 @@ export interface IntervalData {
     zoneV2?: IndicatorSignalMarker[];
     trendStrength?: IndicatorSignalMarker[];
     triggerBands?: IndicatorSignalMarker[];
+  };
+  dotMarkers?: {
+    zoneV1?: DotMarker[];
+    zoneV2?: DotMarker[];
+    trendStrength?: DotMarker[];
+  };
+  htfWindows?: {
+    weekly?: HtfWindowPoint[];
+    monthly?: HtfWindowPoint[];
   };
 }
 
@@ -315,6 +348,123 @@ function generateZoneSignals(
   });
 }
 
+function computeATR(bars: OhlcBar[], period = 14): number[] {
+  const atr: number[] = new Array(bars.length).fill(0);
+  if (bars.length < 2) return atr;
+
+  const tr: number[] = [bars[0].h - bars[0].l];
+  for (let i = 1; i < bars.length; i++) {
+    const h = bars[i].h;
+    const l = bars[i].l;
+    const pc = bars[i - 1].c;
+    tr.push(Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc)));
+  }
+
+  let sum = 0;
+  for (let i = 0; i < Math.min(period, tr.length); i++) sum += tr[i];
+  const seed = sum / Math.min(period, tr.length);
+  for (let i = 0; i < period && i < bars.length; i++) atr[i] = seed;
+
+  for (let i = period; i < bars.length; i++) {
+    atr[i] = (atr[i - 1] * (period - 1) + tr[i]) / period;
+  }
+
+  return atr;
+}
+
+const ATR_OFFSET_MULT = 2.5;
+
+function generateZoneDotMarkers(
+  signals: IndicatorSignalMarker[],
+  bars: OhlcBar[],
+  version: 'V1' | 'V2',
+): DotMarker[] {
+  if (signals.length === 0 || bars.length === 0) return [];
+  const atr = computeATR(bars);
+  const markers: DotMarker[] = [];
+  for (const signal of signals) {
+    const idx = signal.index;
+    const bar = bars[idx];
+    if (!bar) continue;
+    const offset = atr[idx] * ATR_OFFSET_MULT;
+    const y = signal.direction === 'long' ? bar.l - offset : bar.h + offset;
+    markers.push({
+      d: signal.d,
+      index: idx,
+      direction: signal.direction,
+      y,
+      version,
+      signalType: signal.signalType,
+    });
+  }
+  return markers;
+}
+
+const TS_DOT_OFFSET = 3;
+
+function generateTrendStrengthDotMarkers(
+  signals: IndicatorSignalMarker[],
+  data: IndicatorIntervalData,
+): DotMarker[] {
+  if (signals.length === 0 || data.length === 0) return [];
+  const markers: DotMarker[] = [];
+  for (const signal of signals) {
+    const idx = signal.index;
+    const point = data[idx];
+    if (!point || point.diHist === null) continue;
+    markers.push({
+      d: signal.d,
+      index: idx,
+      direction: signal.direction,
+      y: point.diHist + (signal.direction === 'long' ? TS_DOT_OFFSET : -TS_DOT_OFFSET),
+      version: 'TS',
+      signalType: signal.signalType,
+    });
+  }
+  return markers;
+}
+
+const HTF_WINDOW_LONG_COLOR = '#4caf50';
+const HTF_WINDOW_SHORT_COLOR = '#f44336';
+const HTF_WINDOW_Y = 6;
+
+function generateHtfWindowData(
+  htfData: IndicatorIntervalData,
+  ltfBars: OhlcBar[],
+): HtfWindowPoint[] {
+  if (htfData.length === 0 || ltfBars.length === 0) return [];
+
+  // Build a sorted map of HTF date -> zoneV2
+  const entries: [string, number][] = [...htfData]
+    .filter(p => p.zoneV2 !== null && Number.isFinite(p.zoneV2))
+    .map(p => [p.d, p.zoneV2 as number]);
+  entries.sort((a, b) => a[0].localeCompare(b[0]));
+  const htfByDate = new Map<string, number>(entries);
+  const sortedDates = Array.from(htfByDate.keys()).sort();
+
+  const result: HtfWindowPoint[] = [];
+  for (const bar of ltfBars) {
+    // Find most recent HTF date at or before this LTF bar
+    let htfDate: string | null = null;
+    for (const d of sortedDates) {
+      if (d <= bar.d) htfDate = d;
+      else break;
+    }
+    if (!htfDate) continue;
+    const zone = htfByDate.get(htfDate) ?? 0;
+
+    if (zone > 0) {
+      result.push({ d: bar.d, y: -HTF_WINDOW_Y, color: HTF_WINDOW_LONG_COLOR });
+    } else if (zone < 0) {
+      result.push({ d: bar.d, y: HTF_WINDOW_Y, color: HTF_WINDOW_SHORT_COLOR });
+    } else {
+      result.push({ d: bar.d, y: -HTF_WINDOW_Y, color: HTF_WINDOW_LONG_COLOR });
+      result.push({ d: bar.d, y: HTF_WINDOW_Y, color: HTF_WINDOW_SHORT_COLOR });
+    }
+  }
+  return result;
+}
+
 function generateSymbolSignals(
   daily: IndicatorIntervalData,
   weekly: IndicatorIntervalData,
@@ -335,14 +485,40 @@ function generateSymbolSignals(
   weeklySignals.trendStrength = detectTrendStrengthSignals(weekly);
   monthlySignals.trendStrength = detectTrendStrengthSignals(monthly);
 
-  // Only emit last-bar zone signals for the daily and weekly intervals
+  dailySignals.dotMarkers = {
+    trendStrength: generateTrendStrengthDotMarkers(dailySignals.trendStrength, daily),
+  };
+  weeklySignals.dotMarkers = {
+    trendStrength: generateTrendStrengthDotMarkers(weeklySignals.trendStrength, weekly),
+  };
+  monthlySignals.dotMarkers = {
+    trendStrength: generateTrendStrengthDotMarkers(monthlySignals.trendStrength, monthly),
+  };
+
+  // Emit all zone signals for the daily and weekly intervals (used for chart dots)
   if (dailyBars.length >= 45 && weeklyBars.length >= 30) {
     dailySignals.zoneV1 = generateZoneSignals(daily, 'V1', 'D');
     dailySignals.zoneV2 = generateZoneSignals(daily, 'V2', 'D');
+    dailySignals.dotMarkers = {
+      ...dailySignals.dotMarkers,
+      zoneV1: generateZoneDotMarkers(dailySignals.zoneV1, dailyBars, 'V1'),
+      zoneV2: generateZoneDotMarkers(dailySignals.zoneV2, dailyBars, 'V2'),
+    };
+    dailySignals.htfWindows = {
+      weekly: generateHtfWindowData(weekly, dailyBars),
+    };
   }
   if (weeklyBars.length >= 45 && monthlyBars.length >= 30) {
     weeklySignals.zoneV1 = generateZoneSignals(weekly, 'V1', 'W');
     weeklySignals.zoneV2 = generateZoneSignals(weekly, 'V2', 'W');
+    weeklySignals.dotMarkers = {
+      ...weeklySignals.dotMarkers,
+      zoneV1: generateZoneDotMarkers(weeklySignals.zoneV1, weeklyBars, 'V1'),
+      zoneV2: generateZoneDotMarkers(weeklySignals.zoneV2, weeklyBars, 'V2'),
+    };
+    weeklySignals.htfWindows = {
+      monthly: generateHtfWindowData(monthly, weeklyBars),
+    };
   }
 
   return { daily: dailySignals, weekly: weeklySignals, monthly: monthlySignals };
@@ -393,14 +569,19 @@ export function computeSymbolIndicatorSeries(
       daily: {
         indicators: splitIndicatorInterval(indicators.daily),
         signals: signals.daily,
+        dotMarkers: signals.daily.dotMarkers,
+        htfWindows: signals.daily.htfWindows,
       },
       weekly: {
         indicators: splitIndicatorInterval(indicators.weekly),
         signals: signals.weekly,
+        dotMarkers: signals.weekly.dotMarkers,
+        htfWindows: signals.weekly.htfWindows,
       },
       monthly: {
         indicators: splitIndicatorInterval(indicators.monthly),
         signals: signals.monthly,
+        dotMarkers: signals.monthly.dotMarkers,
       },
     },
   };

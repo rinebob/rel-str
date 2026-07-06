@@ -74,6 +74,24 @@ function filterResponse(
         intervalData.signals[family] = source.signals[family];
       }
     }
+    if (source.dotMarkers) {
+      intervalData.dotMarkers = {};
+      for (const family of strategies) {
+        const key = family === StrategyFamily.ZONE_V1 ? 'zoneV1' : family === StrategyFamily.ZONE_V2 ? 'zoneV2' : family === StrategyFamily.TREND_STRENGTH ? 'trendStrength' : null;
+        if (key && source.dotMarkers[key]) {
+          intervalData.dotMarkers[key] = source.dotMarkers[key];
+        }
+      }
+    }
+    if (source.htfWindows) {
+      intervalData.htfWindows = {};
+      if (source.htfWindows.weekly) {
+        intervalData.htfWindows.weekly = source.htfWindows.weekly;
+      }
+      if (source.htfWindows.monthly) {
+        intervalData.htfWindows.monthly = source.htfWindows.monthly;
+      }
+    }
     filteredIntervals[interval] = intervalData;
   }
   return { ...response, intervals: filteredIntervals };
@@ -119,9 +137,36 @@ export const rhAgentGetSymbolIndicatorSeries = onCall<GetIndicatorSeriesRequest,
 
       const result = computeSymbolIndicatorSeries(symbol, daily, weekly, monthly);
       result.marketDate = marketDate || todayIso();
+
+      const dotCounts = {
+        dailyV1: result.intervals.daily?.dotMarkers?.zoneV1?.length ?? 0,
+        dailyV2: result.intervals.daily?.dotMarkers?.zoneV2?.length ?? 0,
+        dailyTs: result.intervals.daily?.dotMarkers?.trendStrength?.length ?? 0,
+        weeklyV1: result.intervals.weekly?.dotMarkers?.zoneV1?.length ?? 0,
+        weeklyV2: result.intervals.weekly?.dotMarkers?.zoneV2?.length ?? 0,
+        weeklyTs: result.intervals.weekly?.dotMarkers?.trendStrength?.length ?? 0,
+      };
+      const htfCounts = {
+        dailyWeekly: result.intervals.daily?.htfWindows?.weekly?.length ?? 0,
+        weeklyMonthly: result.intervals.weekly?.htfWindows?.monthly?.length ?? 0,
+      };
+      logger.info('rh_agent_indicator_series_computed', { symbol, dotCounts, htfCounts });
+
       const filtered = filterResponse(result, requestedIntervals, requestedIndicators, requestedStrategies);
 
-      logger.info('rh_agent_indicator_series_complete', { symbol, dailyBars: daily.length, weeklyBars: weekly.length, monthlyBars: monthly.length, intervals: requestedIntervals, indicators: requestedIndicators, strategies: requestedStrategies });
+      const filteredDotCounts = {
+        dailyV1: filtered.intervals.daily?.dotMarkers?.zoneV1?.length ?? 0,
+        dailyV2: filtered.intervals.daily?.dotMarkers?.zoneV2?.length ?? 0,
+        dailyTs: filtered.intervals.daily?.dotMarkers?.trendStrength?.length ?? 0,
+        weeklyV1: filtered.intervals.weekly?.dotMarkers?.zoneV1?.length ?? 0,
+        weeklyV2: filtered.intervals.weekly?.dotMarkers?.zoneV2?.length ?? 0,
+        weeklyTs: filtered.intervals.weekly?.dotMarkers?.trendStrength?.length ?? 0,
+      };
+      const filteredHtfCounts = {
+        dailyWeekly: filtered.intervals.daily?.htfWindows?.weekly?.length ?? 0,
+        weeklyMonthly: filtered.intervals.weekly?.htfWindows?.monthly?.length ?? 0,
+      };
+      logger.info('rh_agent_indicator_series_complete', { symbol, dailyBars: daily.length, weeklyBars: weekly.length, monthlyBars: monthly.length, intervals: requestedIntervals, indicators: requestedIndicators, strategies: requestedStrategies, filteredDotCounts, filteredHtfCounts });
       return filtered;
     } catch (err) {
       logger.error('rh_agent_indicator_series_error', { symbol: request.data?.symbol, error: err instanceof Error ? err.message : String(err), stack: err instanceof Error ? err.stack : undefined });
