@@ -112,6 +112,18 @@ export const TRACKED_SYMBOLS_COLLECTION = 'tracked-symbols';
 /** Root collection for current symbol price snapshots consumed by the frontend. */
 export const SYMBOL_DATA_COLLECTION = 'symbol-data';
 
+/** Subcollection name under symbol-data/{symbol} for year-sharded daily bars. */
+export const SYMBOL_BARS_DAILY_SUBCOL = 'daily';
+
+/** Subcollection name under symbol-data/{symbol} for the single flat weekly bars doc. */
+export const SYMBOL_BARS_WEEKLY_SUBCOL = 'weekly';
+
+/** Subcollection name under symbol-data/{symbol} for the single flat monthly bars doc. */
+export const SYMBOL_BARS_MONTHLY_SUBCOL = 'monthly';
+
+/** Doc ID for the single weekly/monthly bars doc within their subcollection. */
+export const SYMBOL_BARS_FLAT_DOC_ID = 'all';
+
 /** Root collection for rs-symbol-cache (time-series bars by marketDate+symbol). */
 export const RS_SYMBOL_CACHE_COLLECTION = 'rs-symbol-cache';
 
