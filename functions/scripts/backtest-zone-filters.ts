@@ -1,7 +1,7 @@
 /**
  * Zone Signal Backtest + Filter Evaluator
  *
- * Reads rs-bars from Firestore, replays the ST-Zone strategy across full
+ * Reads symbol-data from Firestore, replays the ST-Zone strategy across full
  * history for every symbol, and measures forward-return quality with and
  * without candidate filters.
  *
@@ -45,7 +45,7 @@ const db = getFirestore();
 // Shared types
 // ============================================================================
 
-interface RsBarsDoc {
+interface SymbolBarsDoc {
   symbol: string;
   daily: OhlcBar[];
   weekly: OhlcBar[];
@@ -280,7 +280,7 @@ function computeMetrics(outcomes: Outcome[], totalOriginal: number): FilterMetri
 // Per-symbol processing
 // ============================================================================
 
-function processSymbol(doc: RsBarsDoc): { signals: Signal[]; outcomes: Outcome[] } {
+function processSymbol(doc: SymbolBarsDoc): { signals: Signal[]; outcomes: Outcome[] } {
   const { symbol, daily, weekly, monthly } = doc;
 
   if (!daily || daily.length < MIN_BARS) return { signals: [], outcomes: [] };
@@ -422,13 +422,12 @@ function printTable(title: string, rows: Record<string, FilterMetrics>): void {
 async function main(): Promise<void> {
   console.log(`\nZone Signal Backtest`);
   console.log(`Forward bars: ${FORWARD_BARS} | Min bars: ${MIN_BARS} | Signal type: ${SIGNAL_TYPE}`);
-  console.log(`Loading rs-bars from Firestore...`);
+  console.log(`Loading symbol-data from Firestore...`);
 
-  // Fetch all rs-bars docs
-  let query = db.collection('rs-bars') as FirebaseFirestore.Query;
-  if (LIMIT > 0) query = query.limit(LIMIT);
-  const snap = await query.get();
-  console.log(`Loaded ${snap.size} symbol docs.`);
+  // Fetch all symbol refs from symbol-data collection
+  let symbolRefs = await db.collection('symbol-data').listDocuments();
+  if (LIMIT > 0) symbolRefs = symbolRefs.slice(0, LIMIT);
+  console.log(`Found ${symbolRefs.length} symbols.`);
 
   const allOutcomes: Outcome[] = [];
   let processedCount = 0;
@@ -439,12 +438,21 @@ async function main(): Promise<void> {
   const signalKeys = ['D_V1', 'D_V2', 'W_V1', 'W_V2'];
   for (const k of signalKeys) outcomesByKey[k] = [];
 
-  for (const docSnap of snap.docs) {
-    const data = docSnap.data() as RsBarsDoc;
-    if (!data.symbol) continue;
-
+  for (const symRef of symbolRefs) {
+    const symbol = symRef.id;
     try {
-      const { outcomes } = processSymbol(data);
+      // Daily: year-sharded docs ordered by year
+      const dailySubSnap = await symRef.collection('daily').orderBy('year').get();
+      const daily: OhlcBar[] = dailySubSnap.docs.flatMap(d => (d.data() as any)?.bars ?? []);
+
+      // Weekly/monthly: single flat docs
+      const weeklySnap  = await symRef.collection('weekly').doc('all').get();
+      const monthlySnap = await symRef.collection('monthly').doc('all').get();
+      const weekly:  OhlcBar[] = (weeklySnap.data() as any)?.bars  ?? [];
+      const monthly: OhlcBar[] = (monthlySnap.data() as any)?.bars ?? [];
+
+      const doc: SymbolBarsDoc = { symbol, daily, weekly, monthly };
+      const { outcomes } = processSymbol(doc);
       if (outcomes.length === 0) { skippedCount++; continue; }
       allOutcomes.push(...outcomes);
       for (const o of outcomes) {

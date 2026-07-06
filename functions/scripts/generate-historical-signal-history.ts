@@ -6,7 +6,7 @@
  * every signal to signal-history/{barDate}. This guarantees the left-side signal
  * list and the right-side chart dots are generated from the exact same source.
  *
- * Source:  rs-bars/{symbol}  (daily/weekly/monthly arrays)
+ * Source:  symbol-data/{symbol}/daily/{YYYY}, weekly/all, monthly/all
  * Target:  rh-agent-symbols/{symbol}/signal-history/{barDate}
  *
  * Usage (from functions/ dir):
@@ -56,7 +56,7 @@ const TO_DATE       = argValue('--to')   ?? new Date().toISOString().slice(0, 10
 // ---------------------------------------------------------------------------
 
 const SYMBOLS_COLLECTION      = 'rh-agent-symbols';
-const RS_BARS_COLLECTION      = 'rs-bars';
+const SYMBOL_DATA_COLLECTION  = 'symbol-data';
 const SIGNAL_HISTORY_SUB      = 'signal-history';
 const BATCH_SIZE              = 400;
 const BACKFILL_RUN_ID         = 'backfill-historical';
@@ -111,7 +111,7 @@ function barDate(b: OhlcBar): string {
   return (b.d ?? b.date ?? '').slice(0, 10);
 }
 
-/** Normalize rs-bars arrays into the exact shape the callable consumes. */
+/** Normalize symbol-data arrays into the exact shape the callable consumes. */
 function normalizeToCallableBars(
   daily: OhlcBar[],
   weekly: OhlcBar[],
@@ -195,22 +195,23 @@ async function processSymbol(
   symbol: string
 ): Promise<{ written: number; skipped: number }> {
 
-  // Load rs-bars
-  const barsSnap = await db.collection(RS_BARS_COLLECTION).doc(symbol).get();
-  if (!barsSnap.exists) {
-    console.log(`  ${symbol}: no rs-bars doc — skip`);
-    return { written: 0, skipped: 0 };
-  }
+  // Load symbol-data subcollections
+  const symbolRef = db.collection(SYMBOL_DATA_COLLECTION).doc(symbol);
 
-  const data = barsSnap.data() as any;
-  const allDaily:   OhlcBar[] = Array.isArray(data?.daily)   ? data.daily   : [];
-  const allWeekly:  OhlcBar[] = Array.isArray(data?.weekly)  ? data.weekly  : [];
-  const allMonthly: OhlcBar[] = Array.isArray(data?.monthly) ? data.monthly : [];
+  // Daily: year-sharded docs under daily/{YYYY}
+  const dailySubSnap = await symbolRef.collection('daily').orderBy('year').get();
+  const allDaily: OhlcBar[] = dailySubSnap.docs.flatMap(d => (d.data() as any)?.bars ?? []);
 
   if (allDaily.length === 0) {
-    console.log(`  ${symbol}: no daily bars — skip`);
+    console.log(`  ${symbol}: no symbol-data daily bars — skip`);
     return { written: 0, skipped: 0 };
   }
+
+  // Weekly/monthly: single flat docs under weekly/all and monthly/all
+  const weeklySnap  = await symbolRef.collection('weekly').doc('all').get();
+  const monthlySnap = await symbolRef.collection('monthly').doc('all').get();
+  const allWeekly:  OhlcBar[] = (weeklySnap.data() as any)?.bars  ?? [];
+  const allMonthly: OhlcBar[] = (monthlySnap.data() as any)?.bars ?? [];
 
   // Filter to the requested date window
   const candidateDates = allDaily

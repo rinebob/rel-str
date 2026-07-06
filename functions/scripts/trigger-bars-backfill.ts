@@ -1,10 +1,8 @@
 /**
- * Targeted re-sync of one or more specific symbols via rsBarsSyncAdminHttp.
+ * Targeted re-sync of one or more specific symbols via symbolDataSyncAdminHttp.
  *
  * Use this for ad-hoc re-syncs of a small number of known symbols.
- * For bulk backfills of all affected symbols, use diagnose-bar-interval-mismatch.ts instead:
- *   npx tsx scripts/diagnose-bar-interval-mismatch.ts           (find affected symbols)
- *   npx tsx scripts/diagnose-bar-interval-mismatch.ts --backfill --confirm-delete  (fix them)
+ * For bulk backfills use trigger-symbol-data-sync.js with --force instead.
  *
  * Usage (from functions/ dir):
  *   npx tsx scripts/trigger-bars-backfill.ts AAPL MSFT TSLA
@@ -16,14 +14,14 @@ import { execSync } from 'child_process';
 
 const symbols = process.argv.slice(2);
 if (symbols.length === 0) {
-  console.error('ERROR: provide at least one symbol. For bulk backfills use diagnose-bar-interval-mismatch.ts --backfill --confirm-delete');
+  console.error('ERROR: provide at least one symbol. Example: npx tsx scripts/trigger-bars-backfill.ts AAPL MSFT');
   process.exit(1);
 }
 
-const url = 'https://us-central1-rel-str.cloudfunctions.net/rsBarsSyncAdminHttp';
+const url = 'https://us-central1-rel-str.cloudfunctions.net/symbolDataSyncAdminHttp';
 const serviceAccount = process.env.IMPERSONATE_SERVICE_ACCOUNT ?? '145446780542-compute@developer.gserviceaccount.com';
 
-console.log('Triggering rsBarsSyncAdminHttp...');
+console.log('Triggering symbolDataSyncAdminHttp...');
 console.log(`Symbols: ${symbols.join(', ')}`);
 console.log('Impersonating service account:', serviceAccount);
 

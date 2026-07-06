@@ -1,5 +1,5 @@
 /**
- * Runs the rs-bars backfill in batches for a symbol list read from a file.
+ * Runs the symbol-data sync backfill in batches for a symbol list read from a file.
  *
  * Run from the functions/ directory:
  *   npx tsx scripts/run-backfill-batches.ts
