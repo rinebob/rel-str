@@ -14,18 +14,6 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 const mcpServerUrlSecret = defineSecret('RH_AGENT_MCP_SERVER_URL');
 const accountNumberSecret = defineSecret('RH_AGENT_ACCOUNT_NUMBER');
 
-/** Fail fast at startup if a required secret/env var is missing. */
-function requiredEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required secret: ${name}`);
-  }
-  return value;
-}
-
-const MCP_SERVER_URL = requiredEnv('RH_AGENT_MCP_SERVER_URL');
-const AGENTIC_ACCOUNT_NUMBER = requiredEnv('RH_AGENT_ACCOUNT_NUMBER');
-
 /**
  * Safely parse MCP text content as JSON. Returns null if the content is empty or
  * malformed so the caller can fail gracefully instead of throwing.
@@ -68,8 +56,8 @@ interface TradeResponse {
 /**
  * Create MCP client connected to the RH Agentic API.
  */
-async function createMCPClient(): Promise<Client> {
-  const transport = new StreamableHTTPClientTransport(new URL(MCP_SERVER_URL));
+async function createMCPClient(mcpServerUrl: string): Promise<Client> {
+  const transport = new StreamableHTTPClientTransport(new URL(mcpServerUrl));
 
   const client = new Client(
     { name: 'rh-cloud-executor', version: '1.0.0' },
@@ -85,6 +73,7 @@ async function createMCPClient(): Promise<Client> {
  */
 async function executeTrade(
   client: Client,
+  accountNumber: string,
   request: TradeRequest
 ): Promise<TradeResponse> {
   const { symbol, side, amount, orderType = 'market', limitPrice, dryRun = false } = request;
@@ -96,7 +85,7 @@ async function executeTrade(
     const reviewResult = await client.callTool({
       name: 'review_equity_order',
       arguments: {
-        account_number: AGENTIC_ACCOUNT_NUMBER,
+        account_number: accountNumber,
         symbol: symbol.toUpperCase(),
         side: side.toLowerCase(),
         type: orderType,
@@ -129,7 +118,7 @@ async function executeTrade(
     const placeResult = await client.callTool({
       name: 'place_equity_order',
       arguments: {
-        account_number: AGENTIC_ACCOUNT_NUMBER,
+        account_number: accountNumber,
         symbol: symbol.toUpperCase(),
         side: side.toLowerCase(),
         type: orderType,
@@ -223,8 +212,10 @@ export const rhExecuteTrade = onCall<TradeRequest, Promise<TradeResponse>>(
     let client: Client | undefined;
 
     try {
-      client = await createMCPClient();
-      const result = await executeTrade(client, {
+      const mcpServerUrl = mcpServerUrlSecret.value();
+      const accountNumber = accountNumberSecret.value();
+      client = await createMCPClient(mcpServerUrl);
+      const result = await executeTrade(client, accountNumber, {
         symbol,
         side,
         amount,
@@ -256,11 +247,13 @@ export const rhGetAccountSummary = onCall<void, Promise<any>>(
     let client: Client | undefined;
 
     try {
-      client = await createMCPClient();
+      const mcpServerUrl = mcpServerUrlSecret.value();
+      const accountNumber = accountNumberSecret.value();
+      client = await createMCPClient(mcpServerUrl);
 
       const result = await client.callTool({
         name: 'get_portfolio',
-        arguments: { account_number: AGENTIC_ACCOUNT_NUMBER },
+        arguments: { account_number: accountNumber },
       });
 
       const content = (result.content as Array<{ type: string; text?: string }>)
