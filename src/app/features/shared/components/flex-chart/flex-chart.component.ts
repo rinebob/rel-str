@@ -335,6 +335,10 @@ export class FlexChartComponent implements OnDestroy {
 
   // Track last applied zoom to avoid re-applying when only indicators change
   private lastZoomKey: string | null = null;
+  // Track last series data snapshot to drive programmatic chart refresh
+  private lastSeriesKey: string | null = null;
+  // Track last zoom toolbar visibility to detect runtime config changes
+  private lastShowToolbar: boolean | null = null;
 
   // Inputs
   chartData = input.required<FlexChartDataset | null>();
@@ -665,15 +669,29 @@ export class FlexChartComponent implements OnDestroy {
       this.applyInitialZoom(data.bars.length);
     });
 
+    // Refresh chart when indicator data changes — Syncfusion doesn't pick up [dataSource] changes
+    // on existing series when async callable data arrives (e.g. dot markers populating after bars).
+    // lastSeriesKey tracks the last key we refreshed for; if it changes while chart isn't ready
+    // yet, the effect re-runs when chart becomes available and fires the refresh then.
+    effect(() => {
+      const chart = this.chart();
+      const series = this.computedSeries();
+      const key = series.map(s => s.data.length).join(',');
+      if (key === '' || key === this.lastSeriesKey) return;
+      if (!chart) return;
+      this.lastSeriesKey = key;
+      chart.animateSeries = false;
+      chart.refresh();
+    });
+
     // Refresh chart when zoom toolbar visibility changes — Syncfusion ignores runtime zoomSettings updates
-    let prevShowToolbar: boolean | undefined = undefined;
     effect(() => {
       const showToolbar = this.config().showZoomToolbar;
       const chart = this.chart();
       if (!chart) return;
-      if (prevShowToolbar === undefined) { prevShowToolbar = showToolbar; return; }
-      if (prevShowToolbar === showToolbar) return;
-      prevShowToolbar = showToolbar;
+      if (this.lastShowToolbar === null) { this.lastShowToolbar = showToolbar ?? null; return; }
+      if (this.lastShowToolbar === showToolbar) return;
+      this.lastShowToolbar = showToolbar ?? null;
       chart.animateSeries = false;
       chart.refresh();
     });

@@ -226,61 +226,21 @@ export class SignalDetailComponent {
   // HTF windows / signal dots / ST Trend Rider dots data (from backend)
   // =========================================================================
 
-  private windowDataWeeklyOnDaily = computed(() => {
-    const start = performance.now();
-    const result = convertHtfWindowData(this.dailyIntervalData(), 'weekly');
-    console.log(`[SignalDetail] daily W window (backend): ${(performance.now() - start).toFixed(2)}ms, ${result.length} points`);
-    return result;
-  });
+  private windowDataWeeklyOnDaily = computed(() => convertHtfWindowData(this.dailyIntervalData(), 'weekly'));
 
-  private windowDataMonthlyOnWeekly = computed(() => {
-    const start = performance.now();
-    const result = convertHtfWindowData(this.weeklyIntervalData(), 'monthly');
-    console.log(`[SignalDetail] weekly M window (backend): ${(performance.now() - start).toFixed(2)}ms, ${result.length} points`);
-    return result;
-  });
+  private windowDataMonthlyOnWeekly = computed(() => convertHtfWindowData(this.weeklyIntervalData(), 'monthly'));
 
-  private dailySignalDots = computed(() => {
-    const start = performance.now();
-    const result = convertTrendStrengthDotMarkers(this.dailyIntervalData());
-    console.log(`[SignalDetail] daily TS dots (backend): ${(performance.now() - start).toFixed(2)}ms, ${result.length} dots`);
-    return result;
-  });
+  private dailySignalDots = computed(() => convertTrendStrengthDotMarkers(this.dailyIntervalData()));
 
-  private weeklySignalDots = computed(() => {
-    const start = performance.now();
-    const result = convertTrendStrengthDotMarkers(this.weeklyIntervalData());
-    console.log(`[SignalDetail] weekly TS dots (backend): ${(performance.now() - start).toFixed(2)}ms, ${result.length} dots`);
-    return result;
-  });
+  private weeklySignalDots = computed(() => convertTrendStrengthDotMarkers(this.weeklyIntervalData()));
 
-  private dailyUptickDotsV1 = computed(() => {
-    const start = performance.now();
-    const result = convertZoneDotMarkers(this.dailyIntervalData(), true);
-    console.log(`[SignalDetail] daily V1 dots (backend): ${(performance.now() - start).toFixed(2)}ms, ${result.length} dots`);
-    return result;
-  });
+  private dailyUptickDotsV1 = computed(() => convertZoneDotMarkers(this.dailyIntervalData(), true));
 
-  private dailyUptickDotsV2 = computed(() => {
-    const start = performance.now();
-    const result = convertZoneDotMarkers(this.dailyIntervalData(), false);
-    console.log(`[SignalDetail] daily V2 dots (backend): ${(performance.now() - start).toFixed(2)}ms, ${result.length} dots`);
-    return result;
-  });
+  private dailyUptickDotsV2 = computed(() => convertZoneDotMarkers(this.dailyIntervalData(), false));
 
-  private weeklyUptickDotsV1 = computed(() => {
-    const start = performance.now();
-    const result = convertZoneDotMarkers(this.weeklyIntervalData(), true);
-    console.log(`[SignalDetail] weekly V1 dots (backend): ${(performance.now() - start).toFixed(2)}ms, ${result.length} dots`);
-    return result;
-  });
+  private weeklyUptickDotsV1 = computed(() => convertZoneDotMarkers(this.weeklyIntervalData(), true));
 
-  private weeklyUptickDotsV2 = computed(() => {
-    const start = performance.now();
-    const result = convertZoneDotMarkers(this.weeklyIntervalData(), false);
-    console.log(`[SignalDetail] weekly V2 dots (backend): ${(performance.now() - start).toFixed(2)}ms, ${result.length} dots`);
-    return result;
-  });
+  private weeklyUptickDotsV2 = computed(() => convertZoneDotMarkers(this.weeklyIntervalData(), false));
 
   /** Daily chart indicators = base + conditionally-injected computed extras */
   private dailyIndicators = computed<IndicatorConfig[]>(() => {
