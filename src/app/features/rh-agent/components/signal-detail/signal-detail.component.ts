@@ -35,8 +35,6 @@ import { ST_INDICATOR_OPTIONS } from '../../../shared/components/flex-chart/indi
 import { ChartToolbarComponent } from '../chart-toolbar/chart-toolbar.component';
 import {
   buildBaseIndicators,
-  computeHtfZoneV2,
-  computeHtfWindowData,
   addHtfZoneWindow,
   addSignalDots,
   addUptickDots,
@@ -44,8 +42,9 @@ import {
   ST_ZONE_WINDOW_WEEKLY_INDICATOR,
   ST_ZONE_V1_UPTICK_DOTS_INDICATOR,
   ST_ZONE_V2_UPTICK_DOTS_INDICATOR,
-  convertTrendStrengthSignals,
-  convertZoneSignals,
+  convertTrendStrengthDotMarkers,
+  convertZoneDotMarkers,
+  convertHtfWindowData,
   injectCallableIndicatorData,
 } from '../../utils/rh-agent-chart-indicators';
 import { RhAgentSymbolHistoryStore } from '../../stores/rh-agent-symbol-history.store';
@@ -95,9 +94,9 @@ export class SignalDetailComponent {
   /** Indicators available for each chart context — core ST indicators + callable signal markers */
   private static readonly INDICATORS_BY_INTERVAL: Record<string, string[]> = {
     daily:   [StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2,
-               'st-signal-dots', 'st-zone-v1-uptick-dots', 'st-zone-v2-uptick-dots'],
+               'st-signal-dots', 'st-zone-v1-uptick-dots', 'st-zone-v2-uptick-dots', 'st-zone-window-weekly'],
     weekly:  [StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2,
-               'st-signal-dots', 'st-zone-v1-uptick-dots', 'st-zone-v2-uptick-dots'],
+               'st-signal-dots', 'st-zone-v1-uptick-dots', 'st-zone-v2-uptick-dots', 'st-zone-window-monthly'],
     monthly: [StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2],
   };
 
@@ -224,57 +223,63 @@ export class SignalDetailComponent {
   });
 
   // =========================================================================
-  // HTF zones / windows / ST Trend Rider dots data (computed from chart data)
+  // HTF windows / signal dots / ST Trend Rider dots data (from backend)
   // =========================================================================
 
-  private weeklyZoneV2 = computed(() => {
-    const data = this.chartDataWeekly();
-    return data ? computeHtfZoneV2(data.bars) : [];
-  });
-
-  private monthlyZoneV2 = computed(() => {
-    const data = this.chartDataMonthly();
-    return data ? computeHtfZoneV2(data.bars) : [];
-  });
-
   private windowDataWeeklyOnDaily = computed(() => {
-    const ltf = this.chartData();
-    return ltf ? computeHtfWindowData(this.weeklyZoneV2(), ltf.bars) : [];
+    const start = performance.now();
+    const result = convertHtfWindowData(this.dailyIntervalData(), 'weekly');
+    console.log(`[SignalDetail] daily W window (backend): ${(performance.now() - start).toFixed(2)}ms, ${result.length} points`);
+    return result;
   });
 
   private windowDataMonthlyOnWeekly = computed(() => {
-    const ltf = this.chartDataWeekly();
-    return ltf ? computeHtfWindowData(this.monthlyZoneV2(), ltf.bars) : [];
+    const start = performance.now();
+    const result = convertHtfWindowData(this.weeklyIntervalData(), 'monthly');
+    console.log(`[SignalDetail] weekly M window (backend): ${(performance.now() - start).toFixed(2)}ms, ${result.length} points`);
+    return result;
   });
 
   private dailySignalDots = computed(() => {
-    const data = this.chartData();
-    return data ? convertTrendStrengthSignals(this.dailyIntervalData(), data.bars) : [];
+    const start = performance.now();
+    const result = convertTrendStrengthDotMarkers(this.dailyIntervalData());
+    console.log(`[SignalDetail] daily TS dots (backend): ${(performance.now() - start).toFixed(2)}ms, ${result.length} dots`);
+    return result;
   });
 
   private weeklySignalDots = computed(() => {
-    const data = this.chartDataWeekly();
-    return data ? convertTrendStrengthSignals(this.weeklyIntervalData(), data.bars) : [];
+    const start = performance.now();
+    const result = convertTrendStrengthDotMarkers(this.weeklyIntervalData());
+    console.log(`[SignalDetail] weekly TS dots (backend): ${(performance.now() - start).toFixed(2)}ms, ${result.length} dots`);
+    return result;
   });
 
   private dailyUptickDotsV1 = computed(() => {
-    const data = this.chartData();
-    return data ? convertZoneSignals(this.dailyIntervalData(), data.bars, true) : [];
+    const start = performance.now();
+    const result = convertZoneDotMarkers(this.dailyIntervalData(), true);
+    console.log(`[SignalDetail] daily V1 dots (backend): ${(performance.now() - start).toFixed(2)}ms, ${result.length} dots`);
+    return result;
   });
 
   private dailyUptickDotsV2 = computed(() => {
-    const data = this.chartData();
-    return data ? convertZoneSignals(this.dailyIntervalData(), data.bars, false) : [];
+    const start = performance.now();
+    const result = convertZoneDotMarkers(this.dailyIntervalData(), false);
+    console.log(`[SignalDetail] daily V2 dots (backend): ${(performance.now() - start).toFixed(2)}ms, ${result.length} dots`);
+    return result;
   });
 
   private weeklyUptickDotsV1 = computed(() => {
-    const data = this.chartDataWeekly();
-    return data ? convertZoneSignals(this.weeklyIntervalData(), data.bars, true) : [];
+    const start = performance.now();
+    const result = convertZoneDotMarkers(this.weeklyIntervalData(), true);
+    console.log(`[SignalDetail] weekly V1 dots (backend): ${(performance.now() - start).toFixed(2)}ms, ${result.length} dots`);
+    return result;
   });
 
   private weeklyUptickDotsV2 = computed(() => {
-    const data = this.chartDataWeekly();
-    return data ? convertZoneSignals(this.weeklyIntervalData(), data.bars, false) : [];
+    const start = performance.now();
+    const result = convertZoneDotMarkers(this.weeklyIntervalData(), false);
+    console.log(`[SignalDetail] weekly V2 dots (backend): ${(performance.now() - start).toFixed(2)}ms, ${result.length} dots`);
+    return result;
   });
 
   /** Daily chart indicators = base + conditionally-injected computed extras */

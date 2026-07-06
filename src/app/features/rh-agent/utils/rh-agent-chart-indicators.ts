@@ -10,13 +10,9 @@ import type { IndicatorConfig, IndicatorOption, IndicatorPane, PriceBar } from '
 import type { RhAgentSignalItem } from '../services/rh-agent.service';
 import { StIndicator } from '../../../features/shared/components/flex-chart/flex-chart.types';
 import { ST_INDICATOR_OPTIONS, buildDefaultConfig } from '../../../features/shared/components/flex-chart/indicators/indicator-registry';
-import { calculateStZone } from '../../../features/shared/components/flex-chart/indicators/st-zone.indicator';
-import { calculateStZoneV2 } from '../../../features/shared/components/flex-chart/indicators/st-zone-v2.indicator';
-import { calculateStTrendStrength } from '../../../features/shared/components/flex-chart/indicators/st-trend-strength.indicator';
-import { ST_SIGNAL_DOTS_INDICATOR, computeSignalDots } from '../../../features/shared/components/flex-chart/indicators/st-signal-dots.indicator';
-import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, detectZoneUptickDots } from '../../../features/shared/components/flex-chart/indicators/st-trend-rider-dots.indicator';
-import { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR, computeZoneWindowData } from '../../../features/shared/components/flex-chart/indicators/st-zone-window.indicator';
-import { detectTrendStrengthSignals } from '../../../features/shared/components/flex-chart/signals';
+import { ST_SIGNAL_DOTS_INDICATOR } from '../../../features/shared/components/flex-chart/indicators/st-signal-dots.indicator';
+import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR } from '../../../features/shared/components/flex-chart/indicators/st-trend-rider-dots.indicator';
+import { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR } from '../../../features/shared/components/flex-chart/indicators/st-zone-window.indicator';
 import type { BandSeriesData } from '../../../features/shared/components/flex-chart/indicators/st-trend-bands.indicator';
 import type { IntervalData, SignalMarker, TrendBandsPoint, TrendStrengthPoint, ZoneV1Point, ZoneV2Point } from '../common/rh-agent-indicator.types';
 
@@ -74,46 +70,6 @@ export function buildBaseIndicators(interval: 'daily' | 'weekly' | 'monthly'): I
   return INDICATORS_BY_INTERVAL[interval]
     .map(id => BASE_CONFIGS.get(id))
     .filter((cfg): cfg is IndicatorConfig => cfg !== undefined);
-}
-
-/** Compute ST-Zone V2 values for a set of bars (used as HTF context). */
-export function computeHtfZoneV2(bars: PriceBar[]): ReturnType<typeof calculateStZoneV2> {
-  if (bars.length < 30) return [];
-  return calculateStZoneV2(bars, {});
-}
-
-/** Compute HTF zone-window dots mapped onto LTF bars. */
-export function computeHtfWindowData(htfZone: ReturnType<typeof calculateStZoneV2>, ltfBars: PriceBar[]) {
-  if (htfZone.length === 0 || ltfBars.length === 0) return [];
-  return computeZoneWindowData(htfZone, ltfBars);
-}
-
-/** Compute signal dots for the trend-strength histogram. */
-export function computeSignalDotsData(bars: PriceBar[]) {
-  if (bars.length < 30) return [];
-  const strengthData = calculateStTrendStrength(bars, {});
-  const signals = detectTrendStrengthSignals(strengthData, bars);
-  return computeSignalDots(signals, strengthData);
-}
-
-/** Compute ST Trend Rider dots for Zone V1. */
-export function computeUptickDotsV1(
-  bars: PriceBar[],
-  htfZone: ReturnType<typeof calculateStZoneV2>
-) {
-  if (bars.length < 30 || htfZone.length === 0) return [];
-  const zoneV1 = calculateStZone(bars, {});
-  return detectZoneUptickDots(zoneV1, htfZone, bars, UptickDotColors.v1Long, UptickDotColors.v1Short);
-}
-
-/** Compute ST Trend Rider dots for Zone V2. */
-export function computeUptickDotsV2(
-  bars: PriceBar[],
-  htfZone: ReturnType<typeof calculateStZoneV2>
-) {
-  if (bars.length < 30 || htfZone.length === 0) return [];
-  const zoneV2 = calculateStZoneV2(bars, {});
-  return detectZoneUptickDots(zoneV2, htfZone, bars, UptickDotColors.v2Long, UptickDotColors.v2Short);
 }
 
 /** Add a zone-window indicator to an existing indicator list. */
@@ -306,56 +262,45 @@ export function convertIntervalIndicators(
 
 const SIGNAL_DOT_LONG_COLOR = '#4caf50';
 const SIGNAL_DOT_SHORT_COLOR = '#f44336';
-const SIGNAL_DOT_OFFSET = 3;
 
-/** Convert backend trend-strength signals into scatter dots on the histogram. */
-export function convertTrendStrengthSignals(
+/** Convert backend trend-strength dot markers into scatter dots on the histogram. */
+export function convertTrendStrengthDotMarkers(
   intervalData: IntervalData | undefined,
-  bars: PriceBar[],
 ): { x: Date; y: number; color?: string }[] {
-  const signals = intervalData?.signals?.trendStrength ?? [];
-  const strength = intervalData?.indicators?.trendStrength ?? [];
-  if (signals.length === 0 || strength.length === 0 || bars.length === 0) return [];
-
-  const dots: { x: Date; y: number; color?: string }[] = [];
-  for (const sig of signals) {
-    const point = strength[sig.index];
-    if (!point || point.diHist === null) continue;
-    dots.push({
-      x: toDate(sig.d),
-      y: point.diHist + (sig.direction === 'long' ? SIGNAL_DOT_OFFSET : -SIGNAL_DOT_OFFSET),
-      color: sig.direction === 'long' ? SIGNAL_DOT_LONG_COLOR : SIGNAL_DOT_SHORT_COLOR,
-    });
-  }
-  return dots;
+  const markers = intervalData?.dotMarkers?.trendStrength ?? [];
+  return markers.map((m) => ({
+    x: toDate(m.d),
+    y: m.y,
+    color: m.direction === 'long' ? SIGNAL_DOT_LONG_COLOR : SIGNAL_DOT_SHORT_COLOR,
+  }));
 }
 
-/** Convert backend ST Trend Rider signals (V1 or V2) into overlay long/short dots. */
-export function convertZoneSignals(
+/** Convert backend pre-computed zone dot markers into overlay long/short dots. */
+export function convertZoneDotMarkers(
   intervalData: IntervalData | undefined,
-  bars: PriceBar[],
   v1 = true,
 ): { x: Date; y: number; color?: string }[] {
   const key = v1 ? 'zoneV1' : 'zoneV2';
-  const signals = intervalData?.signals?.[key] ?? [];
-  if (signals.length === 0 || bars.length === 0) return [];
+  const markers = intervalData?.dotMarkers?.[key] ?? [];
+  if (markers.length === 0) return [];
 
   const longColor = v1 ? UptickDotColors.v1Long : UptickDotColors.v2Long;
   const shortColor = v1 ? UptickDotColors.v1Short : UptickDotColors.v2Short;
 
-  const dots: { x: Date; y: number; color?: string }[] = [];
-  for (const sig of signals) {
-    const bar = bars[sig.index];
-    if (!bar) continue;
-    const close = bar.close ?? (bar as any).c ?? 0;
-    if (!close) continue;
-    dots.push({
-      x: toDate(sig.d),
-      y: close,
-      color: sig.direction === 'long' ? longColor : shortColor,
-    });
-  }
-  return dots;
+  return markers.map((m) => ({
+    x: toDate(m.d),
+    y: m.y,
+    color: m.direction === 'long' ? longColor : shortColor,
+  }));
+}
+
+/** Convert backend pre-computed HTF window data into chart-ready window dots. */
+export function convertHtfWindowData(
+  intervalData: IntervalData | undefined,
+  key: 'weekly' | 'monthly',
+): { x: Date; y: number; color?: string }[] {
+  const markers = intervalData?.htfWindows?.[key] ?? [];
+  return markers.map((m) => ({ x: toDate(m.d), y: m.y, color: m.color }));
 }
 
 /**

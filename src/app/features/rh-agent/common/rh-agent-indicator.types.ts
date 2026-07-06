@@ -47,6 +47,21 @@ export interface SymbolIndicatorSeriesResponse {
   };
 }
 
+export interface DotMarker {
+  d: string;
+  index: number;
+  direction: 'long' | 'short';
+  y: number;
+  version: 'V1' | 'V2' | 'TS';
+  signalType: string;
+}
+
+export interface HtfWindowPoint {
+  d: string;
+  y: number;
+  color: string;
+}
+
 export interface IntervalData {
   indicators: {
     zoneV1?: ZoneV1Point[];
@@ -60,6 +75,15 @@ export interface IntervalData {
     zoneV2?: SignalMarker[];
     trendStrength?: SignalMarker[];
     triggerBands?: SignalMarker[];
+  };
+  dotMarkers?: {
+    zoneV1?: DotMarker[];
+    zoneV2?: DotMarker[];
+    trendStrength?: DotMarker[];
+  };
+  htfWindows?: {
+    weekly?: HtfWindowPoint[];
+    monthly?: HtfWindowPoint[];
   };
 }
 

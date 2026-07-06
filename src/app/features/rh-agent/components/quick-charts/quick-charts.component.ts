@@ -29,11 +29,12 @@ import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-c
 import type { FlexChartConfig } from '../../../shared/components/flex-chart/flex-chart.types';
 import {
   buildBaseIndicators,
-  computeHtfZoneV2,
-  computeHtfWindowData,
   injectCallableIndicatorData,
-  convertZoneSignals,
+  convertZoneDotMarkers,
+  convertTrendStrengthDotMarkers,
+  convertHtfWindowData,
   addHtfZoneWindow,
+  addSignalDots,
   addUptickDots,
   ST_ZONE_WINDOW_MONTHLY_INDICATOR,
   ST_ZONE_WINDOW_WEEKLY_INDICATOR,
@@ -74,25 +75,33 @@ export class QuickChartsComponent {
   /** Shared crosshair date — whichever chart is hovered broadcasts here; all charts receive it. */
   readonly sharedCrosshairDate = signal<Date | null>(null);
 
-  // ── HTF zones / windows / dots data (computed from chart data) ─────────────
-  private readonly weeklyZoneV2 = computed(() => {
-    const d = this.chartStore.weeklyData();
-    return d ? computeHtfZoneV2(d.bars) : [];
-  });
-
-  private readonly monthlyZoneV2 = computed(() => {
-    const d = this.chartStore.monthlyData();
-    return d ? computeHtfZoneV2(d.bars) : [];
-  });
-
+  // ── HTF windows / signal dots / ST Trend Rider dots data (from backend) ────
   private readonly dailyWindowData = computed(() => {
-    const d = this.chartStore.dailyData();
-    return d ? computeHtfWindowData(this.weeklyZoneV2(), d.bars) : [];
+    const start = performance.now();
+    const result = convertHtfWindowData(this.dailyIntervalData(), 'weekly');
+    console.log(`[QuickCharts] daily W window (backend): ${(performance.now() - start).toFixed(2)}ms, ${result.length} points`);
+    return result;
   });
 
   private readonly weeklyWindowData = computed(() => {
-    const d = this.chartStore.weeklyData();
-    return d ? computeHtfWindowData(this.monthlyZoneV2(), d.bars) : [];
+    const start = performance.now();
+    const result = convertHtfWindowData(this.weeklyIntervalData(), 'monthly');
+    console.log(`[QuickCharts] weekly M window (backend): ${(performance.now() - start).toFixed(2)}ms, ${result.length} points`);
+    return result;
+  });
+
+  private readonly dailySignalDots = computed(() => {
+    const start = performance.now();
+    const result = convertTrendStrengthDotMarkers(this.dailyIntervalData());
+    console.log(`[QuickCharts] daily TS dots (backend): ${(performance.now() - start).toFixed(2)}ms, ${result.length} dots`);
+    return result;
+  });
+
+  private readonly weeklySignalDots = computed(() => {
+    const start = performance.now();
+    const result = convertTrendStrengthDotMarkers(this.weeklyIntervalData());
+    console.log(`[QuickCharts] weekly TS dots (backend): ${(performance.now() - start).toFixed(2)}ms, ${result.length} dots`);
+    return result;
   });
 
   private readonly dailyIntervalData = computed(() => this.indicatorResponse()?.intervals?.daily);
@@ -100,23 +109,31 @@ export class QuickChartsComponent {
   private readonly monthlyIntervalData = computed(() => this.indicatorResponse()?.intervals?.monthly);
 
   private readonly dailyDotsV1 = computed(() => {
-    const d = this.chartStore.dailyData();
-    return d ? convertZoneSignals(this.dailyIntervalData(), d.bars, true) : [];
+    const start = performance.now();
+    const result = convertZoneDotMarkers(this.dailyIntervalData(), true);
+    console.log(`[QuickCharts] daily V1 dots (backend): ${(performance.now() - start).toFixed(2)}ms, ${result.length} dots`);
+    return result;
   });
 
   private readonly dailyDotsV2 = computed(() => {
-    const d = this.chartStore.dailyData();
-    return d ? convertZoneSignals(this.dailyIntervalData(), d.bars, false) : [];
+    const start = performance.now();
+    const result = convertZoneDotMarkers(this.dailyIntervalData(), false);
+    console.log(`[QuickCharts] daily V2 dots (backend): ${(performance.now() - start).toFixed(2)}ms, ${result.length} dots`);
+    return result;
   });
 
   private readonly weeklyDotsV1 = computed(() => {
-    const d = this.chartStore.weeklyData();
-    return d ? convertZoneSignals(this.weeklyIntervalData(), d.bars, true) : [];
+    const start = performance.now();
+    const result = convertZoneDotMarkers(this.weeklyIntervalData(), true);
+    console.log(`[QuickCharts] weekly V1 dots (backend): ${(performance.now() - start).toFixed(2)}ms, ${result.length} dots`);
+    return result;
   });
 
   private readonly weeklyDotsV2 = computed(() => {
-    const d = this.chartStore.weeklyData();
-    return d ? convertZoneSignals(this.weeklyIntervalData(), d.bars, false) : [];
+    const start = performance.now();
+    const result = convertZoneDotMarkers(this.weeklyIntervalData(), false);
+    console.log(`[QuickCharts] weekly V2 dots (backend): ${(performance.now() - start).toFixed(2)}ms, ${result.length} dots`);
+    return result;
   });
 
   // ── Chart configs ──────────────────────────────────────────────────────────
@@ -143,6 +160,7 @@ export class QuickChartsComponent {
       this.chartStore.weeklyData()?.bars ?? [],
     );
     addHtfZoneWindow(indicators, ST_ZONE_WINDOW_MONTHLY_INDICATOR, this.weeklyWindowData());
+    addSignalDots(indicators, this.weeklySignalDots());
     addUptickDots(indicators, ST_ZONE_V1_UPTICK_DOTS_INDICATOR, this.weeklyDotsV1());
     addUptickDots(indicators, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, this.weeklyDotsV2());
     return {
@@ -162,6 +180,7 @@ export class QuickChartsComponent {
       this.chartStore.dailyData()?.bars ?? [],
     );
     addHtfZoneWindow(indicators, ST_ZONE_WINDOW_WEEKLY_INDICATOR, this.dailyWindowData());
+    addSignalDots(indicators, this.dailySignalDots());
     addUptickDots(indicators, ST_ZONE_V1_UPTICK_DOTS_INDICATOR, this.dailyDotsV1());
     addUptickDots(indicators, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, this.dailyDotsV2());
     return {
