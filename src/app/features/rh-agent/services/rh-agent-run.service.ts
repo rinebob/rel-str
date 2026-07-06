@@ -27,13 +27,13 @@ export class RhAgentRunService {
   private http = inject(HttpClient);
   private auth = inject(Auth);
 
-  private readonly adminHttpUrl = 'https://us-central1-rel-str.cloudfunctions.net/rsBarsSyncAdminHttp';
+  private readonly adminHttpUrl = 'https://us-central1-rel-str.cloudfunctions.net/symbolDataSyncAdminHttp';
 
   private readonly runsCollection = 'rh-agent-runs';
   private readonly statusDoc = 'rh-agent-status/current';
 
   /**
-   * Trigger rs-bars backfill via rsBarsSyncAdminHttp HTTPS endpoint.
+   * Trigger symbol-data backfill via symbolDataSyncAdminHttp HTTPS endpoint.
    */
   triggerBarsBackfill(symbols?: string[]): Observable<{ total: number; enqueued: number; errors: number }> {
     return from(getIdToken(this.auth.currentUser!, false)).pipe(

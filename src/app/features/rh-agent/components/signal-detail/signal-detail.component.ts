@@ -125,7 +125,7 @@ export class SignalDetailComponent {
   /** Cached indicator series response for the current symbol/version/filters. */
   indicatorResponse = computed(() => {
     const symbol = this.manualSymbol();
-    const version = this.chartStore.barsVersion();
+    const version = this.chartStore.symbolDataVersion();
     if (!symbol || !version) return undefined;
     return this.indicatorStore.responseFor()(
       symbol,

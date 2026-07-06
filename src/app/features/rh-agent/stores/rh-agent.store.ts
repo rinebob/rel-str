@@ -139,7 +139,7 @@ export const RhAgentStore = signalStore(
     },
 
     /**
-     * Trigger the rs-bars backfill callable for all enabled symbols.
+     * Trigger the symbol-data backfill callable for all enabled symbols.
      * Displays a snackbar with the total enqueued and error counts.
      */
     triggerBarsBackfill(): void {

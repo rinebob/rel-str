@@ -5,7 +5,7 @@
  *
  * Responsibilities:
  * - Load D/W/M chart data via RhAgentChartService.
- * - Track loading/error state and the rs-bars version.
+ * - Track loading/error state and the symbol-data bars version.
  * - Trigger the indicator-series callable once the version is known.
  *
  * Consumers (SignalDetailComponent, QuickChartsComponent) bind to this store
@@ -56,8 +56,8 @@ export interface RhAgentChartState {
   weeklyData: ChartDataset | null;
   /** Monthly chart dataset. */
   monthlyData: ChartDataset | null;
-  /** rs-bars version used as the indicator cache key. */
-  barsVersion: string;
+  /** symbol-data version used as the indicator cache key. */
+  symbolDataVersion: string;
 }
 
 const initialState: RhAgentChartState = {
@@ -67,7 +67,7 @@ const initialState: RhAgentChartState = {
   dailyData: null,
   weeklyData: null,
   monthlyData: null,
-  barsVersion: '',
+  symbolDataVersion: '',
 };
 
 export const RhAgentChartStore = signalStore(
@@ -102,7 +102,7 @@ export const RhAgentChartStore = signalStore(
               dailyData: result.daily,
               weeklyData: result.weekly,
               monthlyData: result.monthly,
-              barsVersion: version,
+              symbolDataVersion: version,
               loading: false,
               error: null,
             });
@@ -124,7 +124,7 @@ export const RhAgentChartStore = signalStore(
               dailyData: null,
               weeklyData: null,
               monthlyData: null,
-              barsVersion: '',
+              symbolDataVersion: '',
             });
           },
         });
@@ -139,7 +139,7 @@ export const RhAgentChartStore = signalStore(
         dailyData: null,
         weeklyData: null,
         monthlyData: null,
-        barsVersion: '',
+        symbolDataVersion: '',
       });
     },
   })),

@@ -61,7 +61,7 @@ export class QuickChartsComponent {
   /** Cached indicator series response for the current symbol/version/filters. */
   indicatorResponse = computed(() => {
     const symbol = this.symbol();
-    const version = this.chartStore.barsVersion();
+    const version = this.chartStore.symbolDataVersion();
     if (!symbol || !version) return undefined;
     return this.indicatorStore.responseFor()(
       symbol,

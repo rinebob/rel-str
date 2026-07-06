@@ -2,7 +2,7 @@
  * Indicator Series Store
  *
  * NgRx Signal Store that caches callable responses for indicator series.
- * Cache key includes the symbol, the rs-bars version, and the requested
+ * Cache key includes the symbol, the symbol-data bars version, and the requested
  * filters so that stale data is automatically refetched when the bars change.
  */
 import { DestroyRef, EnvironmentInjector, inject, runInInjectionContext } from '@angular/core';
@@ -70,7 +70,7 @@ export const IndicatorSeriesStore = signalStore(
   ) => ({
     /**
      * Load the indicator series for the given symbol if not already cached.
-     * The version comes from the rs-bars/{symbol} doc and busts the cache
+     * The version comes from the symbol-data/{symbol} doc and busts the cache
      * whenever the bars change.
      */
     loadIfNeeded(
