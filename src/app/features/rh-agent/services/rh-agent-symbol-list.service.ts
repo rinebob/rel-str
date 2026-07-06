@@ -9,6 +9,7 @@
  * Document ID: {listName}
  */
 import { Injectable, inject } from '@angular/core';
+import { Auth } from '@angular/fire/auth';
 import {
   Firestore,
   collection,
@@ -41,12 +42,13 @@ export interface RhSymbolList {
 @Injectable({ providedIn: 'root' })
 export class RhAgentSymbolListService {
   private readonly firestore = inject(Firestore);
+  private readonly auth = inject(Auth);
 
   private readonly listsCollection = collection(this.firestore, SYMBOL_LISTS_COLLECTION);
 
   /** Load a single named list for the current user. */
   loadList(name: string): Observable<RhSymbolList> {
-    return requireUserId().pipe(
+    return requireUserId(this.auth).pipe(
       take(1),
       switchMap(async (userId) => {
         const docId = this.listId(userId, name);
@@ -58,7 +60,7 @@ export class RhAgentSymbolListService {
 
   /** Load all lists for the current user. */
   loadAllLists(): Observable<RhSymbolList[]> {
-    return requireUserId().pipe(
+    return requireUserId(this.auth).pipe(
       take(1),
       switchMap(async (userId) => {
         const q = query(this.listsCollection, where('userId', '==', userId));
@@ -70,7 +72,7 @@ export class RhAgentSymbolListService {
 
   /** Replace a list with a full set of symbols. */
   setList(name: string, symbols: string[]): Observable<void> {
-    return requireUserId().pipe(
+    return requireUserId(this.auth).pipe(
       take(1),
       switchMap(async (userId) => {
         const docId = this.listId(userId, name);
@@ -94,7 +96,7 @@ export class RhAgentSymbolListService {
 
   /** Add a symbol to a list if it is not already present. */
   addToList(symbol: string, name: string): Observable<void> {
-    return requireUserId().pipe(
+    return requireUserId(this.auth).pipe(
       take(1),
       switchMap(async (userId) => {
         const docId = this.listId(userId, name);
@@ -121,7 +123,7 @@ export class RhAgentSymbolListService {
 
   /** Remove a symbol from a list. */
   removeFromList(symbol: string, name: string): Observable<void> {
-    return requireUserId().pipe(
+    return requireUserId(this.auth).pipe(
       take(1),
       switchMap(async (userId) => {
         const docId = this.listId(userId, name);

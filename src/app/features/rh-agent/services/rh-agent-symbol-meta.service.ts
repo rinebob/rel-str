@@ -6,6 +6,7 @@
  * exclude, demote, mark preferred, classify as ETF, etc.
  */
 import { Injectable, inject } from '@angular/core';
+import { Auth } from '@angular/fire/auth';
 import {
   Firestore,
   collection,
@@ -58,6 +59,7 @@ export const SYMBOL_META_COLLECTION = 'rh-agent-symbol-meta';
 })
 export class RhAgentSymbolMetaService {
   private readonly firestore = inject(Firestore);
+  private readonly auth = inject(Auth);
 
   private readonly metaCollection = collection(this.firestore, SYMBOL_META_COLLECTION);
 
@@ -65,7 +67,7 @@ export class RhAgentSymbolMetaService {
   loadSymbolMeta(symbols: string[]): Observable<Record<string, RhSymbolMeta>> {
     if (symbols.length === 0) return of({});
 
-    return requireUserId().pipe(
+    return requireUserId(this.auth).pipe(
       switchMap(async (userId) => {
         const normalized = symbols.map((s) => s.toUpperCase());
         const chunks = chunkArray(normalized, 30);
@@ -92,7 +94,7 @@ export class RhAgentSymbolMetaService {
 
   /** Load all symbol meta for the user. */
   loadAllSymbolMeta(): Observable<RhSymbolMeta[]> {
-    return requireUserId().pipe(
+    return requireUserId(this.auth).pipe(
       switchMap((userId) => {
         const q = query(
           this.metaCollection,
@@ -124,7 +126,7 @@ export class RhAgentSymbolMetaService {
   addSymbolsBatch(symbols: Array<{ symbol: string; type: SymbolType; tags?: string[] }>): Observable<void> {
     if (symbols.length === 0) return of(undefined);
 
-    return requireUserId().pipe(
+    return requireUserId(this.auth).pipe(
       take(1),
       switchMap(async (userId) => {
         const batch = writeBatch(this.firestore);
@@ -159,7 +161,7 @@ export class RhAgentSymbolMetaService {
 
   /** Full update of a symbol's meta record. */
   updateMeta(symbol: string, input: RhSymbolMetaInput): Observable<void> {
-    return requireUserId().pipe(
+    return requireUserId(this.auth).pipe(
       take(1),
       switchMap(async (userId) => {
         const normalized = symbol.toUpperCase();
@@ -199,7 +201,7 @@ export class RhAgentSymbolMetaService {
 
   /** Listen to real-time changes for all symbol meta. */
   listenToAllSymbolMeta(): Observable<RhSymbolMeta[]> {
-    return requireUserId().pipe(
+    return requireUserId(this.auth).pipe(
       switchMap((userId) => {
         const q = query(
           this.metaCollection,

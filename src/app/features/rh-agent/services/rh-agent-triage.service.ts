@@ -8,6 +8,7 @@
  * of truth; this service handles all Firestore I/O.
  */
 import { Injectable, inject } from '@angular/core';
+import { Auth } from '@angular/fire/auth';
 import {
   Firestore,
   collection,
@@ -61,12 +62,13 @@ export const TRIAGE_DECISIONS_COLLECTION = 'rh-agent-triage-decisions';
 })
 export class RhAgentTriageService {
   private readonly firestore = inject(Firestore);
+  private readonly auth = inject(Auth);
 
   private readonly decisionsCollection = collection(this.firestore, TRIAGE_DECISIONS_COLLECTION);
 
   /** Load all decisions for a specific date. */
   loadDecisionsForDate(date: string): Observable<RhTriageDecision[]> {
-    return requireUserId().pipe(
+    return requireUserId(this.auth).pipe(
       switchMap((userId) => {
         const q = query(
           this.decisionsCollection,
@@ -81,7 +83,7 @@ export class RhAgentTriageService {
 
   /** Load decisions for a date range. */
   loadDecisionsForDateRange(startDate: string, endDate: string): Observable<RhTriageDecision[]> {
-    return requireUserId().pipe(
+    return requireUserId(this.auth).pipe(
       switchMap((userId) => {
         const q = query(
           this.decisionsCollection,
@@ -98,7 +100,7 @@ export class RhAgentTriageService {
 
   /** Persist a single decision. Creates or updates the {symbol}_{date} doc. */
   setDecision(input: RhTriageDecisionInput): Observable<void> {
-    return requireUserId().pipe(
+    return requireUserId(this.auth).pipe(
       take(1),
       switchMap(async (userId) => {
         const symbol = input.symbol.toUpperCase();
@@ -131,7 +133,7 @@ export class RhAgentTriageService {
   setDecisionsBatch(inputs: RhTriageDecisionInput[]): Observable<void> {
     if (inputs.length === 0) return of(undefined);
 
-    return requireUserId().pipe(
+    return requireUserId(this.auth).pipe(
       take(1),
       switchMap(async (userId) => {
         const batch = writeBatch(this.firestore);
@@ -173,7 +175,7 @@ export class RhAgentTriageService {
 
   /** Listen to real-time changes for a specific date. */
   listenToDecisionsForDate(date: string): Observable<RhTriageDecision[]> {
-    return requireUserId().pipe(
+    return requireUserId(this.auth).pipe(
       switchMap((userId) => {
         const q = query(
           this.decisionsCollection,
@@ -197,7 +199,7 @@ export class RhAgentTriageService {
 
   /** Listen to real-time changes for all of a user's decisions. */
   listenToAllDecisions(): Observable<RhTriageDecision[]> {
-    return requireUserId().pipe(
+    return requireUserId(this.auth).pipe(
       switchMap((userId) => {
         const q = query(
           this.decisionsCollection,
