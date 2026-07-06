@@ -561,7 +561,7 @@ These are blockers and should be done first. Each task should be a separate, sma
 21. ✅ T21 — README update
 22. ✅ T22 — Full verification: functions build/typecheck passed; ng build passed; set `noPropertyAccessFromIndexSignature: false` in root `tsconfig.json` and reverted bracket access in `functions/src/webhooks/webhooks-config.ts` to keep dot notation. `ng test` is blocked by a pre-existing test framework mismatch (`tests/functions/archive.spec.ts` uses Jest globals but the root test runner is Karma/Jasmine). Staging deploy/manual E2E not run.
 23. ✅ T23 — Evaluate run-ids storage model (see `RH-AGENT-RUNIDS-2607-01_run-ids-storage-evaluation.md`; decision: single `latest-signals` doc per symbol; next-step task: RH-AGENT-LATEST-SIGNALS-2607-01)
-24. T24 — Evaluate exclusive use of backend indicator callable
+24. ✅ T24 — Evaluate exclusive use of backend indicator callable (see `RH-AGENT-INDICATOR-CALLABLE-2607-01_indicator-callable-evaluation.md`; decision: RH Agent chart already backend-only; extended backend to pre-compute all chart annotations: zone uptick dots, trend-strength dots, and HTF zone windows; removed all frontend fallback computation; standalone signal-history page is out of scope)
 25. T25 — Evaluate shared types package
 26. T26 — Evaluate and migrate `rs-bars` to year-sharded subcollections (see `RS-BARS-STORAGE-2607-01`; start after Phase 1–3)
 
