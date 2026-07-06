@@ -61,6 +61,24 @@ service cloud.firestore {
     match /symbol-data/{symbolId} {
       allow read: if request.auth != null;
       allow write: if false;
+
+      // Year-sharded daily bars (RS-BARS-STORAGE-2607-01)
+      match /daily/{year} {
+        allow read: if request.auth != null;
+        allow write: if false;
+      }
+
+      // Flat weekly bars — single doc at weekly/all
+      match /weekly/{docId} {
+        allow read: if request.auth != null;
+        allow write: if false;
+      }
+
+      // Flat monthly bars — single doc at monthly/all
+      match /monthly/{docId} {
+        allow read: if request.auth != null;
+        allow write: if false;
+      }
     }
 
     // Heatmap snapshots for dashboard v3 (viewport docs), backend-written, FE read-only
