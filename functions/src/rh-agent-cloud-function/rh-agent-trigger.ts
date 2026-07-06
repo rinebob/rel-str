@@ -143,7 +143,7 @@ export const rhAgentTriggerDaily = onRequest(
 
 /**
  * Start RH Agent run - shared logic for all trigger types.
- * Exported so rs-bars-sync can call it after nightly sync completes.
+ * Exported so symbol-data-sync can call it after nightly sync completes.
  */
 export async function startRhAgentRun(
   marketDate: string,

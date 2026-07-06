@@ -9,10 +9,8 @@
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
-import { db } from '../firebase-admin-init';
-import { RS_BARS_COLLECTION } from '../rs-bars/rs-bars-sync';
 import { RH_AGENT_ALLOWED_ORIGINS } from './rh-agent-cors';
-import type { OhlcBar } from './rh-agent-types';
+import { getCachedBarsFromSymbolData } from './rh-agent-data-loader';
 import {
   computeSymbolIndicatorSeries,
   ChartInterval,
@@ -99,9 +97,9 @@ function filterResponse(
 
 /**
  * Callable: fetch pre-computed indicator time series for a symbol.
- * Reads from rs-bars/{symbol} and computes all indicators on the backend.
+ * Reads from symbol-data/{symbol} subcollections.
  */
-export const rhAgentGetSymbolIndicatorSeries = onCall<GetIndicatorSeriesRequest, Promise<SymbolIndicatorSeriesResponse>>(
+export const rhAgentGetSymbolIndicatorSeriesV2 = onCall<GetIndicatorSeriesRequest, Promise<SymbolIndicatorSeriesResponse>>(
   {
     cors: RH_AGENT_ALLOWED_ORIGINS,
     memory: '256MiB',
@@ -117,26 +115,19 @@ export const rhAgentGetSymbolIndicatorSeries = onCall<GetIndicatorSeriesRequest,
       const requestedIntervals = intervals?.length ? intervals : DEFAULT_INTERVALS;
       const requestedIndicators = indicators?.length ? indicators : DEFAULT_INDICATORS;
       const requestedStrategies = strategies?.length ? strategies : DEFAULT_STRATEGIES;
+      const resolvedMarketDate = marketDate || todayIso();
 
-      logger.info('rh_agent_indicator_series_request', { symbol, marketDate, intervals: requestedIntervals, indicators: requestedIndicators, strategies: requestedStrategies });
+      logger.info('rh_agent_indicator_series_v2_request', { symbol, marketDate: resolvedMarketDate, intervals: requestedIntervals, indicators: requestedIndicators, strategies: requestedStrategies });
 
-      const docRef = db.collection(RS_BARS_COLLECTION).doc(symbol);
-      const snap = await docRef.get();
-      if (!snap.exists) {
-        throw new HttpsError('not-found', `No rs-bars data found for ${symbol}`);
-      }
-
-      const doc = snap.data() as { daily?: OhlcBar[]; weekly?: OhlcBar[]; monthly?: OhlcBar[] };
-      const daily = doc.daily ?? [];
-      const weekly = doc.weekly ?? [];
-      const monthly = doc.monthly ?? [];
+      const { dailyBars: daily, weeklyBars: weekly, monthlyBars: monthly } =
+        await getCachedBarsFromSymbolData(symbol, resolvedMarketDate);
 
       if (daily.length < 30) {
         throw new HttpsError('failed-precondition', `Insufficient daily bars for ${symbol}: ${daily.length}`);
       }
 
       const result = computeSymbolIndicatorSeries(symbol, daily, weekly, monthly);
-      result.marketDate = marketDate || todayIso();
+      result.marketDate = resolvedMarketDate;
 
       const dotCounts = {
         dailyV1: result.intervals.daily?.dotMarkers?.zoneV1?.length ?? 0,
@@ -150,26 +141,14 @@ export const rhAgentGetSymbolIndicatorSeries = onCall<GetIndicatorSeriesRequest,
         dailyWeekly: result.intervals.daily?.htfWindows?.weekly?.length ?? 0,
         weeklyMonthly: result.intervals.weekly?.htfWindows?.monthly?.length ?? 0,
       };
-      logger.info('rh_agent_indicator_series_computed', { symbol, dotCounts, htfCounts });
+      logger.info('rh_agent_indicator_series_v2_computed', { symbol, dotCounts, htfCounts });
 
       const filtered = filterResponse(result, requestedIntervals, requestedIndicators, requestedStrategies);
 
-      const filteredDotCounts = {
-        dailyV1: filtered.intervals.daily?.dotMarkers?.zoneV1?.length ?? 0,
-        dailyV2: filtered.intervals.daily?.dotMarkers?.zoneV2?.length ?? 0,
-        dailyTs: filtered.intervals.daily?.dotMarkers?.trendStrength?.length ?? 0,
-        weeklyV1: filtered.intervals.weekly?.dotMarkers?.zoneV1?.length ?? 0,
-        weeklyV2: filtered.intervals.weekly?.dotMarkers?.zoneV2?.length ?? 0,
-        weeklyTs: filtered.intervals.weekly?.dotMarkers?.trendStrength?.length ?? 0,
-      };
-      const filteredHtfCounts = {
-        dailyWeekly: filtered.intervals.daily?.htfWindows?.weekly?.length ?? 0,
-        weeklyMonthly: filtered.intervals.weekly?.htfWindows?.monthly?.length ?? 0,
-      };
-      logger.info('rh_agent_indicator_series_complete', { symbol, dailyBars: daily.length, weeklyBars: weekly.length, monthlyBars: monthly.length, intervals: requestedIntervals, indicators: requestedIndicators, strategies: requestedStrategies, filteredDotCounts, filteredHtfCounts });
+      logger.info('rh_agent_indicator_series_v2_complete', { symbol, dailyBars: daily.length, weeklyBars: weekly.length, monthlyBars: monthly.length });
       return filtered;
     } catch (err) {
-      logger.error('rh_agent_indicator_series_error', { symbol: request.data?.symbol, error: err instanceof Error ? err.message : String(err), stack: err instanceof Error ? err.stack : undefined });
+      logger.error('rh_agent_indicator_series_v2_error', { symbol: request.data?.symbol, error: err instanceof Error ? err.message : String(err), stack: err instanceof Error ? err.stack : undefined });
       if (err instanceof HttpsError) {
         throw err;
       }

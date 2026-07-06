@@ -7,7 +7,7 @@
  */
 
 /**
- * Compact OHLCV bar shape used by rs-bars storage and RH Agent indicator/signal
+ * Compact OHLCV bar shape used by symbol-data storage and RH Agent indicator/signal
  * computation. Fields are single-letter to keep Firestore documents small.
  */
 export interface OhlcBar {

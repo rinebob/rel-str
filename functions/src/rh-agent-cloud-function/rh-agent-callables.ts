@@ -254,12 +254,12 @@ export const rhAgentGetRunHistory = onCall<{ limit?: number }, Promise<RunHistor
 /**
  * Fetch the current intraday price for a single symbol.
  * Used by the frontend chart service to synthesize today's partial bar when
- * rs-bars does not yet contain a bar for today (lastEodSyncAt < today).
+ * symbol-data does not yet contain a bar for today (last daily bar date < today).
  *
  * Passes a single-element array to callPartnerIntradaySnapshotV2 (the SA
  * endpoint accepts { symbols: string[] } so no separate endpoint is needed).
  * Returns ip: null if SA returns no data (outside market hours, unknown symbol,
- * endpoint error) — the caller renders rs-bars as-is without injecting a bar.
+ * endpoint error) — the caller renders symbol-data bars as-is without injecting a bar.
  */
 export const rhAgentGetIntradaySnapshot = onCall<IntradaySnapshotRequest, Promise<IntradaySnapshotResponse>>(
   { cors: RH_AGENT_ALLOWED_ORIGINS },

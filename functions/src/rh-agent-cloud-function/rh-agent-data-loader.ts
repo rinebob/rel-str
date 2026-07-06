@@ -1,14 +1,20 @@
 /**
  * Symbol Data Loader
  *
- * Reads cached D/W/M bars from rs-bars/{symbol} and injects an intraday partial
- * bar when needed. This is a pure data-loading concern extracted from the
- * worker so it can be tested independently.
+ * Reads cached D/W/M bars from symbol-data/{symbol} subcollections and injects
+ * an intraday partial bar when needed. This is a pure data-loading concern
+ * extracted from the worker so it can be tested independently.
  */
 import { logger } from 'firebase-functions/v2';
 import { db } from '../firebase-admin-init';
 import type { OhlcBar } from './rh-agent-types';
-import { RsBarsDoc } from '../rs-bars/rs-bars-sync';
+import {
+  SYMBOL_DATA_COLLECTION,
+  SYMBOL_BARS_DAILY_SUBCOL,
+  SYMBOL_BARS_WEEKLY_SUBCOL,
+  SYMBOL_BARS_MONTHLY_SUBCOL,
+  SYMBOL_BARS_FLAT_DOC_ID,
+} from '../webhooks/webhooks-config';
 
 export interface SymbolBars {
   dailyBars: OhlcBar[];
@@ -37,7 +43,7 @@ export async function loadSymbolBars(
   minRequiredBars = 45,
 ): Promise<SymbolBars> {
   logger.info('rh_agent_data_loader_fetching', { runId, symbol, marketDate, hasIntraday: !!intraday });
-  const { dailyBars, weeklyBars, monthlyBars } = await getCachedBars(symbol, marketDate, intradaySnapshot ?? null);
+  const { dailyBars, weeklyBars, monthlyBars } = await getCachedBarsFromSymbolData(symbol, marketDate, intradaySnapshot ?? null);
   logger.info('rh_agent_data_loader_loaded', {
     runId,
     symbol,
@@ -55,41 +61,59 @@ export async function loadSymbolBars(
 }
 
 /**
- * Fetch bars from rs-bars/{symbol} — the single local source of truth.
- * Populated nightly by rsBarsSyncNightly. Returns D/W/M bars trimmed to
- * bars on or before marketDate so historical runs see the correct snapshot.
+ * Fetch bars from the symbol-data schema:
+ *   - symbol-data/{symbol}/daily/{YYYY}  — year-sharded daily bars
+ *   - symbol-data/{symbol}/weekly/all    — flat weekly bars
+ *   - symbol-data/{symbol}/monthly/all   — flat monthly bars
+ *
+ * Trims all intervals to bars on or before marketDate.
+ * Injects an intraday partial bar into daily when provided.
  */
-async function getCachedBars(
+export async function getCachedBarsFromSymbolData(
   symbol: string,
   marketDate: string,
-  intraday: { ip: number } | null = null
+  intraday: { ip: number } | null = null,
 ): Promise<{ dailyBars: OhlcBar[]; weeklyBars: OhlcBar[]; monthlyBars: OhlcBar[] }> {
   try {
-    const docRef = db.collection('rs-bars').doc(symbol);
-    const snap = await docRef.get();
+    const rootRef = db.collection(SYMBOL_DATA_COLLECTION).doc(symbol);
 
-    logger.info('rh_agent_data_loader_cache_query', { symbol, marketDate, collection: 'rs-bars', exists: snap.exists });
+    const [weeklySnap, monthlySnap, yearShards] = await Promise.all([
+      rootRef.collection(SYMBOL_BARS_WEEKLY_SUBCOL).doc(SYMBOL_BARS_FLAT_DOC_ID).get(),
+      rootRef.collection(SYMBOL_BARS_MONTHLY_SUBCOL).doc(SYMBOL_BARS_FLAT_DOC_ID).get(),
+      rootRef.collection(SYMBOL_BARS_DAILY_SUBCOL).get(),
+    ]);
 
-    if (!snap.exists) {
-      logger.warn('rh_agent_data_loader_cache_miss', { symbol, marketDate, note: 'Run rsBarsSyncAdmin to backfill' });
+    logger.info('rh_agent_symbol_data_loader_query', {
+      symbol,
+      marketDate,
+      weeklyExists: weeklySnap.exists,
+      monthlyExists: monthlySnap.exists,
+      yearShardCount: yearShards.size,
+    });
+
+    if (yearShards.empty) {
+      logger.warn('rh_agent_symbol_data_loader_cache_miss', { symbol, marketDate });
       return { dailyBars: [], weeklyBars: [], monthlyBars: [] };
     }
 
-    const data = snap.data() as RsBarsDoc | undefined;
-
-    /** Trim bars to dates on or before marketDate for correct historical snapshots. */
     const trim = (bars: OhlcBar[] | null | undefined) => {
       if (!Array.isArray(bars) || bars.length === 0) return [];
-      const filtered = bars.filter((b) => (b?.d ?? '') <= marketDate);
-      return filtered.length > 0 ? filtered : [];
+      return bars.filter((b) => (b?.d ?? '') <= marketDate);
     };
 
-    let dailyBars = trim(data?.daily);
-    const weeklyBars = trim(data?.weekly);
-    const monthlyBars = trim(data?.monthly);
+    // Merge all year shards into a single sorted array
+    const allDailyBars: OhlcBar[] = [];
+    for (const shardDoc of yearShards.docs) {
+      const bars: OhlcBar[] = (shardDoc.data() as any)?.bars ?? [];
+      allDailyBars.push(...bars);
+    }
+    allDailyBars.sort((a, b) => a.d.localeCompare(b.d));
 
-    // Inject today's intraday price as a partial bar (replace-or-append).
-    if (intraday && dailyBars) {
+    let dailyBars = trim(allDailyBars);
+    const weeklyBars = trim((weeklySnap.data() as any)?.bars);
+    const monthlyBars = trim((monthlySnap.data() as any)?.bars);
+
+    if (intraday && dailyBars.length > 0) {
       const partialBar: OhlcBar = { d: marketDate, o: intraday.ip, h: intraday.ip, l: intraday.ip, c: intraday.ip };
       const last = dailyBars[dailyBars.length - 1];
       dailyBars = last?.d === marketDate
@@ -97,7 +121,7 @@ async function getCachedBars(
         : [...dailyBars, partialBar];
     }
 
-    logger.info('rh_agent_data_loader_cache_result', {
+    logger.info('rh_agent_symbol_data_loader_result', {
       symbol,
       marketDate,
       dailyBars: dailyBars.length,
@@ -105,13 +129,9 @@ async function getCachedBars(
       monthlyBars: monthlyBars.length,
     });
 
-    if (dailyBars.length === 0) {
-      logger.warn('rh_agent_data_loader_no_daily_bars', { symbol, marketDate });
-    }
-
     return { dailyBars, weeklyBars, monthlyBars };
   } catch (error: any) {
-    logger.error('rh_agent_data_loader_cache_error', { symbol, marketDate, error: error?.message });
+    logger.error('rh_agent_symbol_data_loader_error', { symbol, marketDate, error: error?.message });
     return { dailyBars: [], weeklyBars: [], monthlyBars: [] };
   }
 }

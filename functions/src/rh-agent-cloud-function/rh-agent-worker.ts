@@ -4,7 +4,7 @@
  * Cloud Task worker that analyzes a single symbol.
  * Triggered by the task queue for each symbol in the daily run.
  *
- * Uses internal rel-str Firestore data (rs-bars), NOT Robinhood API.
+ * Uses internal rel-str Firestore data (symbol-data), NOT Robinhood API.
  *
  * This file is intentionally a thin orchestrator. Data loading, signal
  * persistence, and run progress tracking have been extracted into dedicated
