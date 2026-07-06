@@ -102,7 +102,7 @@ export {
 } from './rh-agent-cloud-function/rh-agent-dashboard-callables';
 
 // RH Agent Indicator Series callable
-export { rhAgentGetSymbolIndicatorSeries } from './rh-agent-cloud-function/rh-agent-indicator-series';
+export { rhAgentGetSymbolIndicatorSeriesV2 } from './rh-agent-cloud-function/rh-agent-indicator-series';
 
 // RH Agent Manual Run + status + run history callables
 export {
@@ -119,8 +119,8 @@ export {
 } from './rh-agent-cloud-function/rh-agent-overview-sync-orchestrator';
 export { rhAgentOverviewSyncSymbol } from './rh-agent-cloud-function/rh-agent-overview-sync-worker';
 
-// RS Bars nightly sync — single source of truth for OHLCV bars
-export { rsBarsSyncNightly, rsBarsSyncAdminHttp, rsBarsSyncSymbol } from './rs-bars/rs-bars-sync';
+// Symbol-data nightly sync — single source of truth for OHLCV bars
+export { symbolDataSyncNightly, symbolDataSyncAdminHttp, symbolDataSyncSymbol } from './symbol-data-sync/symbol-data-sync';
 
 // RH Agent Trade Executor (MCP direct integration)
 export {
