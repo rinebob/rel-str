@@ -22,7 +22,9 @@ import { OAuth2Client } from 'google-auth-library';
 import { db } from '../firebase-admin-init';
 import { callPartnerTimeSeries, callPartnerTrackedSymbols } from '../partner-proxy';
 import { startRhAgentRun } from '../rh-agent-cloud-function/rh-agent-trigger';
-import type { OhlcBar } from '../rh-agent-cloud-function/rh-agent-types';
+import type { OhlcBar } from '../common/market-data-types';
+import { normalizeBar, mergeBars } from './symbol-data-bar-helpers';
+import { writeWeeklyMonthlyBars } from './symbol-data-writer';
 import {
   getMarketDatePT,
   getRunDatePT,
@@ -31,9 +33,6 @@ import {
 import {
   SYMBOL_DATA_COLLECTION,
   SYMBOL_BARS_DAILY_SUBCOL,
-  SYMBOL_BARS_WEEKLY_SUBCOL,
-  SYMBOL_BARS_MONTHLY_SUBCOL,
-  SYMBOL_BARS_FLAT_DOC_ID,
 } from '../webhooks/webhooks-config';
 import { RH_AGENT_SYMBOLS_COLLECTION } from '../rh-agent-cloud-function/rh-agent-collections';
 
@@ -67,52 +66,6 @@ interface SyncResult {
   weeklyCount?: number;
   monthlyCount?: number;
   error?: string;
-}
-
-// ============================================================================
-// Bar normalization
-// ============================================================================
-
-/**
- * Convert a raw SA partner bar to our compact OhlcBar.
- * SA returns: { t: epochMs, o, h, l, c, v, d?: string }
- * We store: { d: YYYY-MM-DD, o, h, l, c, v }
- */
-function normalizeBar(raw: any): OhlcBar | null {
-  // Prefer explicit date string; fall back to epoch timestamp
-  let d: string = '';
-  if (raw?.d && typeof raw.d === 'string') {
-    d = raw.d.slice(0, 10);
-  } else if (raw?.t && Number.isFinite(Number(raw.t))) {
-    d = new Date(Number(raw.t)).toISOString().slice(0, 10);
-  }
-
-  const o = Number(raw?.o);
-  const h = Number(raw?.h);
-  const l = Number(raw?.l);
-  const c = Number(raw?.c ?? raw?.ac); // adjusted close preferred
-  const v = Number(raw?.v);
-
-  if (!d || !Number.isFinite(c) || c <= 0) return null;
-
-  const bar: OhlcBar = { d, o: Number.isFinite(o) ? o : c, h: Number.isFinite(h) ? h : c, l: Number.isFinite(l) ? l : c, c };
-  if (Number.isFinite(v) && v > 0) bar.v = v;
-  if (raw?.barStatus != null && ['-1', '0', '1'].includes(String(raw.barStatus))) {
-    bar.barStatus = Number(raw.barStatus) as -1 | 0 | 1;
-  }
-  return bar;
-}
-
-/**
- * Merge new bars into existing bars array, keyed by date.
- * New bars overwrite existing bars with the same date (handles corrections).
- * Result is sorted chronologically.
- */
-function mergeBars(existing: OhlcBar[], incoming: OhlcBar[]): OhlcBar[] {
-  const map = new Map<string, OhlcBar>();
-  for (const b of existing) map.set(b.d, b);
-  for (const b of incoming) map.set(b.d, b);
-  return Array.from(map.values()).sort((a, b) => a.d.localeCompare(b.d));
 }
 
 // ============================================================================
@@ -315,28 +268,10 @@ async function syncSymbolToSymbolData(symbol: string, forceFullFetch: boolean): 
     // Weekly + monthly — single flat doc per interval in own subcollection
     // symbol-data/{SYMBOL}/weekly/all  and  symbol-data/{SYMBOL}/monthly/all
     // -----------------------------------------------------------------------
-
-    const weeklyDocRef  = rootRef.collection(SYMBOL_BARS_WEEKLY_SUBCOL).doc(SYMBOL_BARS_FLAT_DOC_ID);
-    const monthlyDocRef = rootRef.collection(SYMBOL_BARS_MONTHLY_SUBCOL).doc(SYMBOL_BARS_FLAT_DOC_ID);
-
-    let finalWeekly: OhlcBar[];
-    let finalMonthly: OhlcBar[];
-
-    if (doFullFetch) {
-      finalWeekly  = incomingWeekly;
-      finalMonthly = incomingMonthly;
-    } else {
-      const [weeklySnap, monthlySnap] = await Promise.all([weeklyDocRef.get(), monthlyDocRef.get()]);
-      const existingWeekly  = (weeklySnap.exists  ? (weeklySnap.data()  as any)?.bars ?? [] : []) as OhlcBar[];
-      const existingMonthly = (monthlySnap.exists ? (monthlySnap.data() as any)?.bars ?? [] : []) as OhlcBar[];
-      finalWeekly  = mergeBars(existingWeekly,  incomingWeekly);
-      finalMonthly = mergeBars(existingMonthly, incomingMonthly);
-    }
-
-    await Promise.all([
-      weeklyDocRef.set({ interval: 'weekly', bars: finalWeekly,  updatedAt: FieldValue.serverTimestamp() }),
-      monthlyDocRef.set({ interval: 'monthly', bars: finalMonthly, updatedAt: FieldValue.serverTimestamp() }),
-    ]);
+    // SA re-dates incomplete weekly/monthly bars on every trading day. The shared
+    // writer merges by date and dedups by period so we keep only the latest bar
+    // per period. It also writes atomically via a Firestore transaction.
+    const { finalWeekly, finalMonthly } = await writeWeeklyMonthlyBars(symbol, incomingWeekly, incomingMonthly);
 
     const lastDailyBarDate   = incomingDaily.at(-1)?.d ?? existingRoot?.lastDailyBarDate ?? '';
     const lastWeeklyBarDate  = finalWeekly.at(-1)?.d   ?? '';
