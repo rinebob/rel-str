@@ -12,6 +12,7 @@ import {
   RH_AGENT_STATUS_COLLECTION,
   RH_AGENT_JOBS_SUBCOLLECTION,
   AGENT_STATUS_DOC,
+  RH_AGENT_SCHEDULE_CRON,
 } from './rh-agent-collections';
 import {
   RhAgentDailyRun,
@@ -142,6 +143,7 @@ export class RunProgressTracker {
             lastRunStatus: finalStatus,
             totalRuns: FieldValue.increment(1),
             totalSignalsGenerated: FieldValue.increment(runData?.signalsGenerated || 0),
+            schedule: RH_AGENT_SCHEDULE_CRON,
           },
           { merge: true }
         );

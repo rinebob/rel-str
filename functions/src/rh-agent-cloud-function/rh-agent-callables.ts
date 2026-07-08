@@ -15,11 +15,13 @@ import {
   fetchIntradaySnapshots,
   enqueueSymbolJobs,
 } from './rh-agent-shared';
+import { normalizeMarketDate } from './rh-agent-date-utils';
 import type { PartnerIntradaySnapshotResponse } from '../types/partner';
 import {
   RH_AGENT_RUNS_COLLECTION,
   RH_AGENT_STATUS_COLLECTION,
   AGENT_STATUS_DOC,
+  RH_AGENT_SCHEDULE_CRON,
 } from './rh-agent-collections';
 import { RhAgentDailyRun, RhAgentStatus } from './rh-agent-runs';
 import { RH_AGENT_ALLOWED_ORIGINS } from './rh-agent-cors';
@@ -95,7 +97,7 @@ export const rhAgentManualRun = onCall<ManualRunRequest, Promise<ManualRunRespon
 
     try {
       // 1. Get market date (allow override for holidays/weekends)
-      const marketDate = request.data.date || getMarketDate();
+      const marketDate = request.data.date ? normalizeMarketDate(request.data.date) : getMarketDate();
 
       // 2. Load enabled symbols (filter if specific symbols requested)
       const symbols = await loadEnabledSymbols(request.data.symbols);
@@ -184,7 +186,7 @@ export const rhAgentGetStatus = onCall<void, Promise<AgentStatusResponse>>(
         totalRuns: 0,
         totalSignalsGenerated: 0,
         symbolsMonitored,
-        schedule: '0 20 * * 1-5',
+        schedule: RH_AGENT_SCHEDULE_CRON,
       };
     }
 
@@ -204,7 +206,7 @@ export const rhAgentGetStatus = onCall<void, Promise<AgentStatusResponse>>(
       totalRuns: status.totalRuns,
       totalSignalsGenerated: status.totalSignalsGenerated,
       symbolsMonitored,
-      schedule: status.schedule || '0 20 * * 1-5',
+      schedule: status.schedule || RH_AGENT_SCHEDULE_CRON,
     };
   }
 );

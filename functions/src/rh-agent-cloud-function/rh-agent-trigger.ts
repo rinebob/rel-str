@@ -20,6 +20,7 @@ import {
   fetchIntradaySnapshots,
   enqueueSymbolJobs,
 } from './rh-agent-shared';
+import { normalizeMarketDate } from './rh-agent-date-utils';
 
 /**
  * Pub/Sub trigger: Automatically starts RH Agent when PDR intraday-snapshot message arrives.
@@ -64,7 +65,7 @@ export const rhAgentPdrTrigger = onMessagePublished(
       return;
     }
 
-    const marketDate = payload.marketDate;
+    const marketDate = normalizeMarketDate(payload.marketDate);
     if (!marketDate) {
       logger.warn('rh_agent_pdr_no_market_date', { payload });
       return;

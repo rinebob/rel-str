@@ -21,22 +21,14 @@ import {
 import { SymbolJobPayload, IntradaySnapshot } from './rh-agent-shared-types';
 import { db, FieldValue } from '../firebase-admin-init';
 import { callPartnerIntradaySnapshotV2 } from '../partner-proxy';
+import { getMarketDatePT, getRunDatePT, getRunIdPT } from './rh-agent-date-utils';
 
 /**
  * Get market date in YYYY-MM-DD format (America/Los_Angeles).
+ * Delegates to the shared PT date utility.
  */
 export function getMarketDate(): string {
-  const now = new Date();
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Los_Angeles',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(now);
-  const year = parts.find(p => p.type === 'year')!.value;
-  const month = parts.find(p => p.type === 'month')!.value;
-  const day = parts.find(p => p.type === 'day')!.value;
-  return `${year}-${month}-${day}`;
+  return getMarketDatePT();
 }
 
 /**
@@ -68,23 +60,11 @@ export async function loadEnabledSymbols(requestedSymbols?: string[]): Promise<s
 }
 
 /**
- * Generate run ID in format: DATE_DOW_TIME (e.g., 2026-06-16_tue_153145)
+ * Generate run ID in format: YYYY-MM-DD_dow_HHMMSS_trigger.
+ * Delegates to the shared PT date utility.
  */
-function generateRunId(marketDate: string): string {
-  const now = new Date();
-  const [year, month, day] = marketDate.split('-').map(Number);
-  const dow = new Date(year, month - 1, day)
-    .toLocaleDateString('en-US', { weekday: 'short' })
-    .toLowerCase();
-  const timeParts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Los_Angeles',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-    hour12: false,
-  }).formatToParts(now);
-  const hours = timeParts.find(p => p.type === 'hour')!.value.padStart(2, '0');
-  const minutes = timeParts.find(p => p.type === 'minute')!.value.padStart(2, '0');
-  const seconds = timeParts.find(p => p.type === 'second')!.value.padStart(2, '0');
-  return `${marketDate}_${dow}_${hours}${minutes}${seconds}`;
+function generateRunId(runDate: string, trigger: RhAgentTriggeredBy): string {
+  return getRunIdPT(runDate, trigger);
 }
 
 /**
@@ -96,8 +76,9 @@ export async function createDailyRun(
   deadlineAt: string,
   triggeredBy: RhAgentTriggeredBy = 'pdr'
 ): Promise<string> {
-  // Generate run ID in DATE_DOW_TIME format (e.g., 2026-06-16_tue_153145)
-  const runId = generateRunId(marketDate);
+  // runDate is the PT calendar date the run occurred; marketDate is the trading date.
+  const runDate = getRunDatePT();
+  const runId = generateRunId(runDate, triggeredBy);
 
   const runRef = db.collection(RH_AGENT_RUNS_COLLECTION).doc(runId);
   const now = FieldValue.serverTimestamp();
@@ -106,6 +87,7 @@ export async function createDailyRun(
     id: runId,
     type: 'daily-scan',
     marketDate,
+    runDate,
     status: RhAgentRunStatus.RUNNING,
     triggeredBy,
     totalSymbols,

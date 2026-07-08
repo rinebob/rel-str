@@ -14,6 +14,9 @@ export const AGENT_STATUS_DOC = 'current';
 /** Root collection for agent configuration and status. */
 export const RH_AGENT_STATUS_COLLECTION = 'rh-agent-status';
 
+/** UTC cron for the nightly RH Agent Cloud Scheduler (6 PM PT Mon-Fri in PDT). */
+export const RH_AGENT_SCHEDULE_CRON = '0 1 * * 2-6';
+
 /** Symbol list collection for daily scanning. */
 export const RH_AGENT_SYMBOLS_COLLECTION = 'rh-agent-symbols';
 
