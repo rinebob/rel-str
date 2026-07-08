@@ -8,6 +8,7 @@ import {
   Component,
   inject,
   signal,
+  computed,
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -15,7 +16,6 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { RhAgentStore } from '../../stores/rh-agent.store';
 import { RhAgentDashboardStore } from '../../stores/rh-agent-dashboard.store';
@@ -24,7 +24,7 @@ import { RhAgentRun } from '../../services/rh-agent.types';
 import { RhAgentOverviewService } from '../../services/rh-agent-overview.service';
 import { Router } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { getScheduleDescription } from '../../utils/rh-agent.utils';
+import { getScheduleDescription, formatTimestampPT, formatTimePt, getNextPdrWindowPt, getNextNightlyPt, todayDate } from '../../utils/rh-agent.utils';
 import { AgentStatusBarComponent } from '../../components/agent-status-bar/agent-status-bar.component';
 import { RunHistoryPanelComponent } from '../../components/run-history-panel/run-history-panel.component';
 import { RunControlCardComponent } from '../../components/run-control-card/run-control-card.component';
@@ -39,7 +39,6 @@ import { RunMetricsStripComponent } from '../../components/run-metrics-strip/run
     MatIconModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
-    MatTooltipModule,
     AgentStatusBarComponent,
     RunHistoryPanelComponent,
     RunControlCardComponent,
@@ -59,7 +58,30 @@ export class RhAgentDashboardComponent {
   private readonly snackBar = inject(MatSnackBar);
 
   readonly isSyncingOverview = signal(false);
-  readonly scheduleDescription = getScheduleDescription();
+  readonly scheduleSummary = computed(() => {
+    const lastRunAt = this.store.status()?.lastRunAt;
+    const lastRunType = this.uiStore.currentRun()?.triggeredBy ?? 'nightly';
+    const now = new Date();
+    const todayStr = todayDate();
+    const dateOf = (ts: string | Date | number): string =>
+      new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date(ts));
+    const formatRunTime = (ts: string | Date | number): string =>
+      dateOf(ts) === todayStr ? formatTimePt(ts) : formatTimestampPT(ts);
+    const parts: string[] = [];
+
+    if (lastRunAt) {
+      parts.push(`Last: ${formatRunTime(lastRunAt)} (${lastRunType})`);
+    }
+
+    const nextPdr = getNextPdrWindowPt(now);
+    const nextNightly = getNextNightlyPt(now);
+    const nextParts: string[] = [];
+    if (nextPdr) nextParts.push(`${formatRunTime(nextPdr)} (pdr)`);
+    if (nextNightly) nextParts.push(`${formatRunTime(nextNightly)} (nightly)`);
+    if (nextParts.length) parts.push(`Next: ${nextParts.join(', ')}`);
+
+    return parts.join(' • ') || getScheduleDescription();
+  });
 
   /**
    * Load dashboard data on init.

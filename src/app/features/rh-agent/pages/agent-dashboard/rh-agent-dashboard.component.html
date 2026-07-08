@@ -34,7 +34,7 @@
       [lastRunAt]="store.status()?.lastRunAt"
       [lastRunStatus]="store.status()?.lastRunStatus"
       [triggeredBy]="uiStore.currentRun()?.triggeredBy"
-      [scheduleDescription]="scheduleDescription">
+      [scheduleDescription]="scheduleSummary()">
     </app-agent-status-bar>
   }
 
