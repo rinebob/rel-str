@@ -14,6 +14,7 @@ import { onTaskDispatched } from 'firebase-functions/v2/tasks';
 import { logger } from 'firebase-functions/v2';
 
 import { loadSymbolBars, verifyDataFreshness } from './rh-agent-data-loader';
+import { syncIntradayWmToSymbolData } from '../symbol-data-sync/intraday-wm-sync';
 import { persistSymbolSignals } from './rh-agent-signal-persister';
 import { RunProgressTracker } from './rh-agent-run-progress';
 
@@ -62,7 +63,14 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
       // 1. Mark job as in-progress
       await progress.markInProgress();
 
-      // 2. Load cached bars (injects today's intraday price as a partial bar)
+      // 2. Refresh weekly/monthly intraday bars from SA before loading cached bars.
+      //    This keeps symbol-data up to date during the trading day; daily is still
+      //    injected from the intraday snapshot in loadSymbolBars.
+      if (intraday) {
+        await syncIntradayWmToSymbolData(symbol, marketDate);
+      }
+
+      // 3. Load cached bars (injects today's intraday price as a partial bar)
       const {
         dailyBars,
         weeklyBars,
