@@ -24,6 +24,11 @@ import { callPartnerTimeSeries, callPartnerTrackedSymbols } from '../partner-pro
 import { startRhAgentRun } from '../rh-agent-cloud-function/rh-agent-trigger';
 import type { OhlcBar } from '../rh-agent-cloud-function/rh-agent-types';
 import {
+  getMarketDatePT,
+  getRunDatePT,
+  getRunIdPT,
+} from '../rh-agent-cloud-function/rh-agent-date-utils';
+import {
   SYMBOL_DATA_COLLECTION,
   SYMBOL_BARS_DAILY_SUBCOL,
   SYMBOL_BARS_WEEKLY_SUBCOL,
@@ -92,6 +97,9 @@ function normalizeBar(raw: any): OhlcBar | null {
 
   const bar: OhlcBar = { d, o: Number.isFinite(o) ? o : c, h: Number.isFinite(h) ? h : c, l: Number.isFinite(l) ? l : c, c };
   if (Number.isFinite(v) && v > 0) bar.v = v;
+  if (raw?.barStatus != null && ['-1', '0', '1'].includes(String(raw.barStatus))) {
+    bar.barStatus = Number(raw.barStatus) as -1 | 0 | 1;
+  }
   return bar;
 }
 
@@ -118,7 +126,7 @@ function dateYearsAgo(years: number): string {
 }
 
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  return getMarketDatePT();
 }
 
 function daysSince(dateStr: string): number {
@@ -166,16 +174,18 @@ export async function enqueueAllSymbols(
   let syncRunId: string | undefined;
   const marketDate = todayIso();
   if (triggerAgentOnComplete) {
-    syncRunId = `${marketDate}_${Date.now()}`;
+    const runDate = getRunDatePT();
+    syncRunId = getRunIdPT(runDate, 'nightly');
     await db.collection(SYMBOL_DATA_SYNC_RUNS_COLLECTION).doc(syncRunId).set({
       syncRunId,
       marketDate,
+      runDate,
       totalSymbols: allSymbols.length,
       processedCount: 0,
       startedAt: FieldValue.serverTimestamp(),
       triggerAgentOnComplete: true,
     });
-    logger.info('symbol_data_sync_run_created', { syncRunId, total: allSymbols.length });
+    logger.info('symbol_data_sync_run_created', { syncRunId, marketDate, runDate, total: allSymbols.length });
   }
 
   logger.info('symbol_data_sync_enqueue_start', { total: allSymbols.length, forceFullFetch });
