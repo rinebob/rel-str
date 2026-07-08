@@ -61,20 +61,6 @@ interface SymbolDataRootDoc {
 // Helpers
 // ============================================================================
 
-/** ISO week number (Mon = start of week) for a YYYY-MM-DD string. */
-function isoWeekKey(d: string): string {
-  const date = new Date(`${d}T00:00:00.000Z`);
-  const dayOfWeek = (date.getUTCDay() + 6) % 7; // Mon=0 … Sun=6
-  const monday = new Date(date);
-  monday.setUTCDate(date.getUTCDate() - dayOfWeek);
-  return monday.toISOString().slice(0, 10);
-}
-
-/** YYYY-MM month key for a YYYY-MM-DD string. */
-function monthKey(d: string): string {
-  return d.slice(0, 7);
-}
-
 /** Convert an OhlcBar to a PriceBar for chart rendering. */
 function toPrice(b: OhlcBar): PriceBar {
   return {
@@ -86,23 +72,6 @@ function toPrice(b: OhlcBar): PriceBar {
     close: b.c,
     volume: b.v,
   };
-}
-
-/**
- * Synthesize an OHLC bar for an incomplete period (week or month) from
- * the constituent daily bars plus the current intraday price.
- *
- *   open  = open of the first daily bar in the period
- *   high  = max of all daily highs, raised to ip if ip exceeds them
- *   low   = min of all daily lows, lowered to ip if ip falls below them
- *   close = ip (live intraday price)
- *   d     = date of the first daily bar in the period
- */
-function synthesizePeriodBar(dailyBarsInPeriod: OhlcBar[], ip: number): OhlcBar {
-  const first = dailyBarsInPeriod[0];
-  const high  = Math.max(...dailyBarsInPeriod.map(b => b.h), ip);
-  const low   = Math.min(...dailyBarsInPeriod.map(b => b.l), ip);
-  return { d: first.d, o: first.o, h: high, l: low, c: ip };
 }
 
 /**
@@ -216,26 +185,12 @@ export class RhAgentChartService {
     ip: number,
     today: string
   ): { daily: ChartDataset; weekly: ChartDataset; monthly: ChartDataset } {
-    // Daily: simple partial bar (replace today's EOD bar if already present, else append)
+    // Daily: simple partial bar (replace today's EOD bar if already present, else append).
+    // Weekly/monthly are sourced directly from symbol-data; SA owns their aggregation.
     const partialDaily: OhlcBar = { d: today, o: ip, h: ip, l: ip, c: ip };
     const updatedDaily = replaceOrAppend(daily, partialDaily);
 
-    // Weekly: aggregate from the *original* confirmed daily bars in the current ISO week + ip
-    // Using `daily` (not updatedDaily) avoids mixing the synthetic o=h=l=c=ip bar into the aggregation.
-    const currentWeek = isoWeekKey(today);
-    const weekBars = daily.filter(b => isoWeekKey(b.d) === currentWeek);
-    const updatedWeekly = weekBars.length > 0
-      ? replaceOrAppend(weekly, synthesizePeriodBar(weekBars, ip))
-      : replaceOrAppend(weekly, partialDaily);
-
-    // Monthly: aggregate from the *original* confirmed daily bars in the current month + ip
-    const currentMonth = monthKey(today);
-    const monthBars = daily.filter(b => monthKey(b.d) === currentMonth);
-    const updatedMonthly = monthBars.length > 0
-      ? replaceOrAppend(monthly, synthesizePeriodBar(monthBars, ip))
-      : replaceOrAppend(monthly, partialDaily);
-
-    return this.buildDatasets(symbol, updatedDaily, updatedWeekly, updatedMonthly);
+    return this.buildDatasets(symbol, updatedDaily, weekly, monthly);
   }
 
   private buildDatasets(
