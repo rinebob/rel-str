@@ -21,6 +21,7 @@ import { map, catchError } from 'rxjs/operators';
 import { BarsInterval } from '../../../core/models/partner.types';
 import type { ChartDataset, PriceBar } from '../../heatmap-chart/heatmap-chart.types';
 import { RhAgentRunService } from './rh-agent-run.service';
+import { todayDate, toDatePt } from '../utils/rh-agent.utils';
 
 // ============================================================================
 // Types (mirrors canonical backend OhlcBar in functions/src/rh-agent-cloud-function/rh-agent-types.ts)
@@ -60,10 +61,6 @@ interface SymbolDataRootDoc {
 // Helpers
 // ============================================================================
 
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 /** ISO week number (Mon = start of week) for a YYYY-MM-DD string. */
 function isoWeekKey(d: string): string {
   const date = new Date(`${d}T00:00:00.000Z`);
@@ -82,7 +79,7 @@ function monthKey(d: string): string {
 function toPrice(b: OhlcBar): PriceBar {
   return {
     date: b.d,
-    x: new Date(`${b.d}T00:00:00.000Z`),
+    x: toDatePt(b.d),
     open: b.o,
     high: b.h,
     low: b.l,
@@ -139,7 +136,7 @@ export class RhAgentChartService {
           return of({ ...this.emptyDatasets(symbol), version: '' });
         }
 
-        const today = todayIso();
+        const today = todayDate();
         const needsIntraday = this.needsIntradayFetchFromResult(result, today);
         const version = result.version || result.lastDailyBarDate || today;
 

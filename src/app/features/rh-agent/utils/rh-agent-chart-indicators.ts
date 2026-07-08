@@ -15,6 +15,7 @@ import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR } fr
 import { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR } from '../../../features/shared/components/flex-chart/indicators/st-zone-window.indicator';
 import type { BandSeriesData } from '../../../features/shared/components/flex-chart/indicators/st-trend-bands.indicator';
 import type { IntervalData, SignalMarker, TrendBandsPoint, TrendStrengthPoint, ZoneV1Point, ZoneV2Point } from '../common/rh-agent-indicator.types';
+import { toDatePt } from '../utils/rh-agent.utils';
 
 // ---------------------------------------------------------------------------
 // Base configuration
@@ -126,7 +127,7 @@ export function uptickDotsFromHistory(
     if (!close) continue;
     const isLong = s.direction === 'LONG' || (s as any).action === 'LONG';
     dots.push({
-      x: new Date(s.barDate + 'T00:00:00.000Z'),
+      x: toDatePt(s.barDate),
       y: close,
       color: isLong ? longColor : shortColor,
     });
@@ -152,7 +153,7 @@ export function addUptickDots(
 // ---------------------------------------------------------------------------
 
 function toDate(d: string): Date {
-  return new Date(`${d}T00:00:00.000Z`);
+  return toDatePt(d);
 }
 
 function zoneColor(zone: number): string {
