@@ -75,12 +75,127 @@ export function isRecentSignalDate(barDate: string): boolean {
 }
 
 /** Yesterday in Pacific Time as YYYY-MM-DD. */
-function yesterdayPt(): string {
+export function yesterdayPt(): string {
+  return daysAgoPt(1);
+}
+
+/** N days ago in Pacific Time as YYYY-MM-DD. */
+export function daysAgoPt(days: number): string {
   const today = todayDate();
   const [year, month, day] = today.split('-').map(Number);
   const d = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
-  d.setDate(d.getDate() - 1);
+  d.setUTCDate(d.getUTCDate() - days);
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(d);
+}
+
+/**
+ * Convert a YYYY-MM-DD calendar string into a Date object that represents
+ * midnight in Pacific Time. Useful for chart axes that format Date values in
+ * the browser's local timezone, ensuring the displayed date matches the PT
+ * calendar date used by the backend.
+ */
+export function toDatePt(dateStr: string): Date {
+  return toDateTimePt(dateStr, 0, 0) ?? new Date(`${dateStr}T00:00:00`);
+}
+
+/** Convert a PT calendar date + hour/minute into a Date object. Returns undefined if no offset matches. */
+function toDateTimePt(dateStr: string, hourPt: number, minutePt: number): Date | undefined {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  // PT is either UTC-7 (PDT) or UTC-8 (PST).
+  for (const offset of [7, 8]) {
+    const candidate = new Date(Date.UTC(year, month - 1, day, hourPt + offset, minutePt, 0));
+    const ptDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(candidate);
+    const ptHour = parseInt(
+      new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', hour: 'numeric', hour12: false }).format(candidate),
+      10
+    );
+    if (ptDate === dateStr && ptHour === hourPt) return candidate;
+  }
+  return undefined;
+}
+
+/** Format a UTC timestamp as a PT date+time string. */
+export function formatTimestampPT(ts: Date | string | number): string {
+  const d = ts instanceof Date ? ts : new Date(ts);
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(d);
+}
+
+/** Format a UTC timestamp as a PT time-only string. */
+export function formatTimePt(ts: Date | string | number): string {
+  const d = ts instanceof Date ? ts : new Date(ts);
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(d);
+}
+
+/** Day-of-week (0=Sun...6=Sat) for a PT calendar date string. */
+function getPtDayOfWeek(dateStr: string): number {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day, 12, 0, 0)).getUTCDay();
+}
+
+/** Find the next PT PDR window (8/10/12 AM/PM) that is at least 1 minute in the future. */
+export function getNextPdrWindowPt(now = new Date()): Date | undefined {
+  const dateFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' });
+  const windows = [8, 10, 12];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(now);
+    d.setUTCDate(d.getUTCDate() + i);
+    const dateStr = dateFmt.format(d);
+    const dayOfWeek = getPtDayOfWeek(dateStr);
+    if (dayOfWeek === 0 || dayOfWeek === 6) continue;
+    for (const hour of windows) {
+      const candidate = toDateTimePt(dateStr, hour, 0);
+      if (candidate && candidate.getTime() > now.getTime() + 60 * 1000) return candidate;
+    }
+  }
+  return undefined;
+}
+
+/** Find the next nightly run time (6 PM PT on a weekday) that is at least 1 minute in the future. */
+export function getNextNightlyPt(now = new Date()): Date | undefined {
+  const dateFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' });
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(now);
+    d.setUTCDate(d.getUTCDate() + i);
+    const dateStr = dateFmt.format(d);
+    const dayOfWeek = getPtDayOfWeek(dateStr);
+    if (dayOfWeek === 0 || dayOfWeek === 6) continue;
+    const candidate = toDateTimePt(dateStr, 18, 0);
+    if (candidate && candidate.getTime() > now.getTime() + 60 * 1000) return candidate;
+  }
+  return undefined;
+}
+
+/** Build a tooltip showing the last run, next PDR window, and next nightly run. */
+export function getRunScheduleTooltip(
+  lastRunAt: string | Date | null | undefined,
+  lastRunType: string | null | undefined,
+  now = new Date()
+): string {
+  const lines: string[] = [];
+
+  if (lastRunAt) {
+    const time = formatTimestampPT(lastRunAt);
+    const type = (lastRunType ?? 'nightly').toLowerCase();
+    lines.push(`Last run: ${time} (${type})`);
+  }
+
+  const nextPdr = getNextPdrWindowPt(now);
+  if (nextPdr) lines.push(`Next PDR: ${formatTimestampPT(nextPdr)}`);
+
+  const nextNightly = getNextNightlyPt(now);
+  if (nextNightly) lines.push(`Next nightly: ${formatTimestampPT(nextNightly)}`);
+
+  return lines.join('\n') || 'No scheduled runs';
 }
 
 /** Expand a date range into a list of YYYY-MM-DD strings (inclusive). */
@@ -100,6 +215,10 @@ export function expandDateRange(start: Date, end: Date): string[] {
 /** Human-readable description of the agent cron schedule. */
 export function getScheduleDescription(cron = RH_AGENT_SCHEDULE_CRON): string {
   if (!cron) return 'Not scheduled';
+
+  // Known RH Agent schedules: 1 AM UTC Tue-Sat == 6 PM PT Mon-Fri (PDT).
+  if (cron === '0 1 * * 2-6') return '6 PM PT, Monday-Friday';
+
   const parts = cron.split(' ');
   if (parts.length !== 5) return cron;
   const [minute, hour, , , dayOfWeek] = parts;
@@ -111,7 +230,7 @@ export function getScheduleDescription(cron = RH_AGENT_SCHEDULE_CRON): string {
   const time = `${hour12}${minStr} ${ampm}`;
   let days = '';
   if (dayOfWeek === '*') days = 'daily';
-  else if (dayOfWeek === '1-5') days = 'Monday-Friday';
+  else if (dayOfWeek === '1-5' || dayOfWeek === '2-6') days = 'Monday-Friday';
   else if (dayOfWeek === '0-6') days = 'daily';
   else if (dayOfWeek === '1') days = 'Mondays';
   else if (dayOfWeek === '5') days = 'Fridays';
