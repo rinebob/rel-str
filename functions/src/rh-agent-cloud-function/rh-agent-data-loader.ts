@@ -7,7 +7,7 @@
  */
 import { logger } from 'firebase-functions/v2';
 import { db } from '../firebase-admin-init';
-import type { OhlcBar } from './rh-agent-types';
+import type { OhlcBar } from '../common/market-data-types';
 import {
   SYMBOL_DATA_COLLECTION,
   SYMBOL_BARS_DAILY_SUBCOL,
