@@ -38,9 +38,10 @@ export async function persistSymbolSignals(
   intraday: boolean,
   results: StrategyOutput[],
   triggeredBy?: string,
+  barStatusByTimeframe?: Record<'D' | 'W' | 'M', -1 | 0 | 1 | undefined>,
 ): Promise<SignalPersistenceResult> {
   const fired = results.filter(r => r.action);
-  const entries = fired.map(r => createSignalEntry(marketDate, r, intraday));
+  const entries = fired.map(r => createSignalEntry(marketDate, r, barStatusByTimeframe));
 
   const byBarDate = new Map<string, RhAgentSignalEntry[]>();
   for (const entry of entries) {
@@ -71,19 +72,26 @@ export async function persistSymbolSignals(
 
 /**
  * Build a signal entry for the run-ids and signal-history maps.
+ *
+ * barStatus is authoritative for interim vs. historical:
+ *   - barStatus === 1  → historical (CONFIRMED), keep the strategy's period-end barDate.
+ *   - barStatus === -1 or 0 or undefined → interim (INTERIM), barDate = marketDate.
  */
 function createSignalEntry(
   marketDate: string,
   result: StrategyOutput,
-  intraday: boolean
+  barStatusByTimeframe?: Record<'D' | 'W' | 'M', -1 | 0 | 1 | undefined>,
 ): RhAgentSignalEntry {
   const timeframe = deriveTimeframe(result.signalType);
-  const barDate = result.barDate || marketDate;
+  const barStatus = barStatusByTimeframe?.[timeframe];
+  const isHistorical = barStatus === 1;
+  const barDate = isHistorical ? (result.barDate || marketDate) : marketDate;
+  const status: RhAgentSignalStatus = isHistorical ? 'CONFIRMED' : 'INTERIM';
   return {
     signalType: result.signalType,
     timeframe,
     direction: result.action ?? StSignalDirection.LONG,
-    status: deriveSignalStatus(timeframe, barDate, marketDate, intraday),
+    status,
     barDate,
     marketDate,
     indicators: (result.indicators || {}) as Record<string, number | string | null>,
@@ -91,26 +99,10 @@ function createSignalEntry(
 }
 
 /**
- * Derive timeframe ('D' | 'W') from signalType prefix.
+ * Derive timeframe ('D' | 'W' | 'M') from signalType prefix.
  */
-function deriveTimeframe(signalType: string): 'D' | 'W' {
-  return signalType.startsWith('W_') ? 'W' : 'D';
-}
-
-/**
- * Determine signal status.
- * Daily signals are CONFIRMED on nightly runs, INTERIM during intraday runs.
- * Weekly signals are CONFIRMED once the next weekly bar has started
- * (i.e. marketDate is at least 7 days after barDate), otherwise INTERIM.
- */
-function deriveSignalStatus(
-  timeframe: 'D' | 'W',
-  barDate: string,
-  marketDate: string,
-  intraday: boolean
-): RhAgentSignalStatus {
-  if (timeframe === 'D') return intraday ? 'INTERIM' : 'CONFIRMED';
-  const barMs = new Date(barDate).getTime();
-  const runMs = new Date(marketDate).getTime();
-  return runMs - barMs >= 7 * 86_400_000 ? 'CONFIRMED' : 'INTERIM';
+function deriveTimeframe(signalType: string): 'D' | 'W' | 'M' {
+  if (signalType.startsWith('W_')) return 'W';
+  if (signalType.startsWith('M_')) return 'M';
+  return 'D';
 }

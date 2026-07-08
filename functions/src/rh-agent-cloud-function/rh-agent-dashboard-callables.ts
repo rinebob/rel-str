@@ -35,7 +35,7 @@ interface SignalItem {
   barDate: string;
   marketDate: string;
   runId: string;
-  timeframe: 'D' | 'W';
+  timeframe: 'D' | 'W' | 'M';
   direction: string;
   signalType: string;
   status: 'INTERIM' | 'CONFIRMED';
@@ -45,7 +45,7 @@ interface SignalItem {
 /** Response shape for the symbol signal history callable. */
 interface SymbolSignalHistoryResponse {
   symbol: string;
-  timeframe: 'D' | 'W';
+  timeframe: 'D' | 'W' | 'M';
   signals: SignalItem[];
 }
 

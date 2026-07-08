@@ -20,6 +20,9 @@ export interface SymbolBars {
   dailyBars: OhlcBar[];
   weeklyBars: OhlcBar[];
   monthlyBars: OhlcBar[];
+  lastDailyBarStatus?: -1 | 0 | 1;
+  lastWeeklyBarStatus?: -1 | 0 | 1;
+  lastMonthlyBarStatus?: -1 | 0 | 1;
   sufficient: boolean;
 }
 
@@ -56,6 +59,9 @@ export async function loadSymbolBars(
     dailyBars,
     weeklyBars,
     monthlyBars,
+    lastDailyBarStatus: dailyBars.at(-1)?.barStatus,
+    lastWeeklyBarStatus: weeklyBars.at(-1)?.barStatus,
+    lastMonthlyBarStatus: monthlyBars.at(-1)?.barStatus,
     sufficient: dailyBars.length >= minRequiredBars,
   };
 }

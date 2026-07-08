@@ -17,4 +17,5 @@ export interface OhlcBar {
   l: number;
   c: number;
   v?: number;
+  barStatus?: -1 | 0 | 1;  // SA interim/end-of-period flag (-1 opening, 0 interim, 1 final)
 }

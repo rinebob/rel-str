@@ -63,7 +63,15 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
       await progress.markInProgress();
 
       // 2. Load cached bars (injects today's intraday price as a partial bar)
-      const { dailyBars, weeklyBars, monthlyBars, sufficient } = await loadSymbolBars(
+      const {
+        dailyBars,
+        weeklyBars,
+        monthlyBars,
+        lastDailyBarStatus,
+        lastWeeklyBarStatus,
+        lastMonthlyBarStatus,
+        sufficient,
+      } = await loadSymbolBars(
         symbol,
         marketDate,
         !!intraday,
@@ -114,6 +122,11 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
       const results = await executeStrategy(strategy, strategyInput, runId);
 
       // 6. Persist signals
+      const barStatusByTimeframe = {
+        D: lastDailyBarStatus,
+        W: lastWeeklyBarStatus,
+        M: lastMonthlyBarStatus,
+      };
       const { opportunityCount } = await persistSymbolSignals(
         symbol,
         runId,
@@ -122,6 +135,7 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
         !!intraday,
         results,
         triggeredBy,
+        barStatusByTimeframe,
       );
 
       // 7. Mark job complete

@@ -65,7 +65,8 @@ export interface RhWatchedSymbol {
 export interface RhAgentDailyRun {
   id: string;
   type: 'daily-scan';
-  marketDate: string;  // YYYY-MM-DD
+  marketDate: string;  // YYYY-MM-DD — trading date of the data being processed
+  runDate: string;    // YYYY-MM-DD — PT calendar date on which the run occurred
   status: RhAgentRunStatus;
   triggeredBy?: RhAgentTriggeredBy;
   totalSymbols: number;

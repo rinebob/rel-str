@@ -39,11 +39,11 @@ export type RhAgentSignalStatus = 'INTERIM' | 'CONFIRMED';
  */
 export interface RhAgentSignalEntry {
   signalType: StSignalType | string;
-  timeframe: 'D' | 'W';
+  timeframe: 'D' | 'W' | 'M';
   direction: StSignalDirection;
   status: RhAgentSignalStatus;
   barDate: string;               // YYYY-MM-DD — the bar that triggered (doc ID)
-  marketDate: string;            // YYYY-MM-DD — run date (may differ from barDate for W)
+  marketDate: string;            // YYYY-MM-DD — run date (may differ from barDate for W/M)
   indicators: Record<string, number | string | null>;
 }
 
