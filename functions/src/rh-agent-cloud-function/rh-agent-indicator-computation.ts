@@ -12,7 +12,7 @@ import { computeStTrendStrength } from '../indicators/st-trend-strength';
 import { detectAllStTrendRiderSignals } from './strategies/signal-detection';
 import { StSignalDirection } from './rh-agent-signals';
 import type { OHLCV } from '../indicators/st-trend-bands';
-import type { OhlcBar } from './rh-agent-types';
+import type { OhlcBar } from '../common/market-data-types';
 
 // =============================================================================
 // TYPES

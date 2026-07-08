@@ -1,9 +1,8 @@
 /**
- * Side-effect-free shared types for the RH Agent cloud function.
+ * Shared market-data types used across the backend.
  *
- * These types are intentionally kept in a file with no runtime imports (no
- * firebase-admin, no firebase-functions, no external side effects) so they can be
- * safely imported by backfill scripts, unit tests, and other pure consumers.
+ * Kept in a neutral common directory so modules like symbol-data (the shared
+ * SOT) do not depend on feature-specific type files such as rh-agent-types.
  */
 
 /**

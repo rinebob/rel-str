@@ -17,7 +17,7 @@
  */
 
 import 'dotenv/config';
-import type { OhlcBar } from '../src/rh-agent-cloud-function/rh-agent-types';
+import type { OhlcBar } from '../src/common/market-data-types';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
