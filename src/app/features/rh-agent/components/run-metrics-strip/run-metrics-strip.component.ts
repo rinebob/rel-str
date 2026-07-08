@@ -7,7 +7,7 @@ import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 
 import { RhAgentRun } from '../../services/rh-agent.service';
-import { getRunStatusColor, getRunStatusIcon } from '../../utils/rh-agent.utils';
+import { getRunStatusColor, getRunStatusIcon, todayDate } from '../../utils/rh-agent.utils';
 
 @Component({
   selector: 'app-run-metrics-strip',
@@ -28,8 +28,7 @@ export class RunMetricsStripComponent {
   }
 
   get todayCount(): number {
-    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date());
-    return this.allRuns().filter((r) => r.marketDate === today).length;
+    return this.allRuns().filter((r) => r.marketDate === todayDate()).length;
   }
 
   get latestRun(): RhAgentRun | null {

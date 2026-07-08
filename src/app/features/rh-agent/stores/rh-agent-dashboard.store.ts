@@ -13,6 +13,7 @@ import {
   RhAgentRunStatusFilter,
 } from '../common/rh-agent.constants';
 import { RhAgentRun } from '../services/rh-agent.service';
+import { todayDate, daysAgoPt } from '../utils/rh-agent.utils';
 
 // State interface
 export interface DashboardUiState {
@@ -56,12 +57,9 @@ export const RhAgentDashboardStore = signalStore(
         if (trigger !== RhAgentRunTriggerFilter.ALL && r.triggeredBy !== trigger) return false;
         if (status !== RhAgentRunStatusFilter.ALL && r.status?.toLowerCase() !== status) return false;
         if (date === RhAgentRunDateFilter.TODAY) {
-          const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date());
-          if ((r.marketDate ?? '') !== today) return false;
+          if ((r.marketDate ?? '') !== todayDate()) return false;
         } else if (date === RhAgentRunDateFilter.WEEK) {
-          const weekAgo = new Date();
-          weekAgo.setDate(weekAgo.getDate() - 7);
-          if ((r.marketDate ?? '') < weekAgo.toISOString().slice(0, 10)) return false;
+          if ((r.marketDate ?? '') < daysAgoPt(7)) return false;
         }
         return true;
       });

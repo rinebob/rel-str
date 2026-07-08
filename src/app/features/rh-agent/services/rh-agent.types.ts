@@ -9,7 +9,7 @@
  * Cron expression for the RH Agent daily scheduler (UTC).
  * Must stay in sync with functions/src/rh-agent-cloud-function/rh-agent-trigger.ts
  */
-export const RH_AGENT_SCHEDULE_CRON = '0 20 * * 1-5'; // 8 PM UTC = 12 PM PT, Mon-Fri
+export const RH_AGENT_SCHEDULE_CRON = '0 1 * * 2-6'; // 1 AM UTC = 6 PM PT, Mon-Fri
 
 /**
  * Maximum dollar amount per trade to prevent oversized positions.

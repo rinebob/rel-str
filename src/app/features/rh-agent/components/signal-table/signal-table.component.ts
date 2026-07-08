@@ -24,7 +24,12 @@ export class SignalTableComponent {
   signals = input.required<SignalTableRow[]>();
 
   formatDate(date: Date): string {
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Los_Angeles',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    }).format(date);
   }
 
   trackBy(index: number, row: SignalTableRow): string {

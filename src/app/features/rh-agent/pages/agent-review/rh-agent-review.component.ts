@@ -22,6 +22,7 @@ import { Router } from '@angular/router';
 import { RhAgentTriageStore } from '../../stores/rh-agent-triage.store';
 import { RhReviewStatus } from '../../common/rh-agent.constants';
 import { UiStateService } from '../../../../core/services/ui-state.service';
+import { todayDate, daysAgoPt } from '../../utils/rh-agent.utils';
 import { SignalListComponent } from '../../components/signal-list/signal-list.component';
 import { SignalDetailComponent } from '../../components/signal-detail/signal-detail.component';
 import { ReviewHeaderComponent } from '../../components/review-header/review-header.component';
@@ -76,11 +77,8 @@ export class RhAgentReviewComponent implements OnInit {
 
   /** Load persisted decisions for the last 30 days through the active market date. */
   ngOnInit(): void {
-    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date());
-    const endDate = this.triageStore.activeMarketDate() ?? todayStr;
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const startDate = thirtyDaysAgo.toISOString().slice(0, 10);
+    const endDate = this.triageStore.activeMarketDate() ?? todayDate();
+    const startDate = daysAgoPt(30);
     this.triageStore.loadPersistedDecisions(startDate, endDate);
   }
 

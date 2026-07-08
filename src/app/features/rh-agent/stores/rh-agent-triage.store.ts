@@ -19,6 +19,7 @@ import {
 
 import { RhReviewStatus, ALL_REVIEW_STATUSES, StatusCounts } from '../common/rh-agent.constants';
 import { RhAgentTriageService } from '../services/rh-agent-triage.service';
+import { todayDate, daysAgoPt } from '../utils/rh-agent.utils';
 
 const ReviewStatus = RhReviewStatus;
 
@@ -225,10 +226,8 @@ export const RhAgentTriageStore = signalStore(
 
   withHooks((store) => ({
     onInit() {
-      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date());
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const startDate = thirtyDaysAgo.toISOString().slice(0, 10);
+      const today = todayDate();
+      const startDate = daysAgoPt(30);
 
       store.loadPersistedDecisions(startDate, today);
     },
