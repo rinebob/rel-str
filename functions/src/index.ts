@@ -122,6 +122,9 @@ export { rhAgentOverviewSyncSymbol } from './rh-agent-cloud-function/rh-agent-ov
 // Symbol-data nightly sync — single source of truth for OHLCV bars
 export { symbolDataSyncNightly, symbolDataSyncAdminHttp, symbolDataSyncSymbol } from './symbol-data-sync/symbol-data-sync';
 
+// Symbol-data onboarding consumer — backfills new symbols emitted by partner
+export { processSymbolAdded } from './symbol-data-sync/symbol-data-symbol-added';
+
 // RH Agent Trade Executor (MCP direct integration)
 export {
   rhExecuteTrade,

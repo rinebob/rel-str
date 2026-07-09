@@ -83,6 +83,17 @@ export const PARTNER_SYMBOLS_READY_TOPIC =
     : 'projects/alpha-vantage-proxy-api/topics/partner-symbols-ready';
 
 /**
+ * Pub/Sub topic for symbol-onboarding notifications. Fires after a new symbol
+ * has been added to the partner's tracked-symbols list and its full D/W/M
+ * history has been backfilled by the partner. Consumers should fetch the
+ * symbol's full history into their own datastore and enable it for scanning.
+ */
+export const PARTNER_SYMBOL_ADDED_TOPIC =
+  process.env.FUNCTIONS_EMULATOR === 'true'
+    ? 'projects/rel-str/topics/partner-symbol-added'
+    : 'projects/alpha-vantage-proxy-api/topics/partner-symbol-added';
+
+/**
  * Root collection for recording per-run status, metrics, and error samples
  * to aid observability and idempotency.
  */
