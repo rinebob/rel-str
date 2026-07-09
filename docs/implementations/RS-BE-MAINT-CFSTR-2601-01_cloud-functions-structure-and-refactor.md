@@ -1,13 +1,13 @@
 # RS-BE-MAINT-CFSTR-2601-01 Cloud Functions Structure and Refactor
 
-- **Status**: planned
+- **Status**: planned — partial implementation (common/, symbol-data-sync)
 - **Planning doc(s)**:
   - 3_BACKEND.md (code `CFSTR`)
 - **Area**: BE
 - **Scope**: MAINT
 - **Code**: CFSTR
 - **Created**: 2026-01-25
-- **Last updated**: 2026-01-25
+- **Last updated**: 2026-07-08
 
 ## Intent
 
@@ -66,9 +66,11 @@ This effort aims to:
 Key areas:
 
 - `admin/` – admin HTTP/callable utilities (cleanup, archive tools, etc.).
+- `common/` – cross-cutting primitives shared by multiple feature modules (e.g., PT date utilities, RH Agent types and collection constants, run/job orchestration helpers).
 - `config/` – configuration and constants (e.g., `constants.ts`).
 - `logging/` – `persistWarning` and related logging helpers.
 - `partner-proxy.ts` – Savant API proxy and OIDC helper.
+- `symbol-data-sync/` – symbol-level D/W/M bar ingestion and onboarding (nightly sync, `partner-symbol-added` consumer).
 - `webhooks/` – **highly overloaded** directory containing:
   - Partner-facing orchestrators and events.
   - RS-domain engine, series, positions, signals-activity writers.
@@ -118,6 +120,12 @@ functions/src/
     types/                 # Partner-facing TS contracts
       partner.ts
 
+  symbol-data-sync/        # Symbol-level D/W/M bar ingestion and onboarding
+    symbol-data-sync.ts    # Nightly scheduler/orchestrator
+    symbol-data-backfill.ts # Reusable per-symbol D/W/M backfill
+    symbol-data-symbol-added.ts # Pub/Sub consumer for partner-symbol-added
+    intraday-wm-sync.ts    # Intraday weekly/monthly sync helper
+
   rs/                      # RS domain (archives, signals, positions, activity)
     time-series/           # RS time-series ingestion, backfill, and jobs for archives
       rs-time-series-jobs.model.ts    # Job/run enums + Firestore paths (created by FRBARR T01)
@@ -132,6 +140,16 @@ functions/src/
       rs-events-consumer.ts
       signals-activity-writer.ts
       positions-manager.ts
+
+  common/                  # Cross-cutting primitives shared by multiple feature modules
+    pt-date-utils.ts       # PT date/run-ID utilities
+    rh-agent-collections.ts # RH Agent Firestore collection constants
+    rh-agent-runs.ts       # RH Agent run/job/status types
+    rh-agent-shared-types.ts # Intraday snapshot, task payload
+    rh-agent-run-creation.ts # Run document creation
+    rh-agent-job-enqueueing.ts # Cloud Tasks enqueueing
+    rh-agent-symbol-source.ts # Enabled symbol loading + intraday snapshots
+    rh-agent-orchestration.ts # High-level startRhAgentRun orchestrator
 
   admin/                   # Cross-domain admin utilities (cleanup, maintenance)
 
@@ -148,6 +166,8 @@ functions/src/
 
 Notes:
 
+- `symbol-data-sync/` hosts the **symbol-level bar ingestion pipeline** (nightly sync, backfill logic, and the `partner-symbol-added` Pub/Sub consumer). It is a peer to `rs/`, not part of it.
+- `common/` hosts **cross-cutting primitives** shared by multiple feature modules (e.g., PT date utilities, RH Agent collection constants, run/job types). It must not depend on feature modules; feature modules import from it.
 - `rs/time-series` hosts **time-series specific entrypoints and helpers** (ingestion, backfill, and job orchestration for RS archives).
 - `rs/core` hosts RS-domain **pure logic and services**, importable from both ingestion-style entrypoints and jobs.
 - `partner/` isolates Savant integration and partner contracts so they can be reasoned about independently.
@@ -241,6 +261,8 @@ This section proposes where each `functions/src/webhooks` file would live in the
 ## Migration Guidelines (New vs Existing Code)
 
 - **New code (going forward)**:
+  - Place symbol-level bar ingestion code under `functions/src/symbol-data-sync/*`.
+  - Place cross-cutting primitives shared by multiple feature modules under `functions/src/common/*`. `common/` must not import from feature modules.
   - Place RS job-pipeline code (FRBARR) under `functions/src/jobs/*` (transitional) with the intention of moving to `functions/src/rs/jobs/*` in a future MAINT phase.
   - For any new RS-domain helpers, prefer `functions/src/rs/core/*` instead of `webhooks/*`.
   - For new partner integration utilities, use `functions/src/partner/*`.

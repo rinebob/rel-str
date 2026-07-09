@@ -1,8 +1,13 @@
 # RH-AGENT-RUNIDS-2607-01 — Run-ids Storage Model Evaluation
 
+- **Last updated**: 2026-07-08
+- **Related**: `RH-AGENT-SYMBOL-ONBOARDING-2607-01_symbol-onboarding.md`
+
 ## Context
 
 Per-symbol `run-ids/{runId}` docs store every run's signals under `rh-agent-symbols/{symbol}/run-ids`. The grouped review page needs to know which symbols had signals for the active run, and the detail panel reads the active run's signals from the same doc. Canonical nightly EOD signals are also written to `rh-agent-symbols/{symbol}/signal-history/{barDate}`.
+
+Runs are triggered by one of four sources: `nightly`, `pdr`, `manual`, or `symbol-added`. The `symbol-added` trigger produces a per-symbol run ID with the symbol appended to avoid collisions.
 
 Current pain points:
 - Collection group query across all `run-ids` is required for the grouped review list.

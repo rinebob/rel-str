@@ -10,6 +10,7 @@ This document defines how `barDate` is assigned to signals and how the signal li
 - `RH-AGENT-USER-WORKFLOW-2607-01_daily-signal-review.md` — user workflow for signal review, order confirmation, and daily startup cleanup.
 - `RH-AGENT-SIGNAL-PERSISTENCE-PLAN.md` — original plan for run-centric vs. date-centric signal storage.
 - `RH-AGENT-RUNIDS-2607-01_run-ids-storage-evaluation.md` — evaluation of run-id storage models.
+- `RH-AGENT-SYMBOL-ONBOARDING-2607-01_symbol-onboarding.md` — trigger sources and signal persistence behavior per trigger.
 
 ## Definitions
 
@@ -20,6 +21,7 @@ This document defines how `barDate` is assigned to signals and how the signal li
 | `barStatus` | SA-provided bar status. `-1` = opening tick, `0` = interim, `1` = end-of-period/closing. | `1` |
 | `signal-history/{barDate}` | Canonical, period-end signals persisted by the nightly run. | `rh-agent-symbols/{symbol}/signal-history/2026-07-06` |
 | `run-ids/{runId}` | Transient signals for the latest run. | `rh-agent-symbols/{symbol}/run-ids/2026-07-06_mon_092300_pdr` |
+| `run-ids/{runId}` (symbol-added) | Transient signals for a one-symbol onboarding run. | `rh-agent-symbols/{symbol}/run-ids/2026-07-08_tue_143022_symbol-added_CIEN` |
 
 ## Signal Lifecycle
 
@@ -106,6 +108,7 @@ Signal hover tooltips should show `marketDate` for interim signals (which is the
 - `barDate` = actual period-end date.
 - Used for per-symbol historical lookup.
 - Interim signals are never written here.
+- `symbol-added` runs do not write here; they only write to `run-ids/{runId}` because they are not nightly EOD runs.
 
 ## Decisions
 

@@ -1,12 +1,12 @@
 # RS-BARS-STORAGE-2607-01 — rs-bars Schema Evaluation & Migration Plan
 
-- **Status**: complete
+- **Status**: complete — extended by symbol-added onboarding
 - **Area**: BE
 - **Scope**: MAINT / PERF
 - **Code**: RS-BARS-STORAGE
 - **Created**: 2026-07-04
-- **Last updated**: 2026-07-06
-- **Related**: RH-AGENT-THERMO-2607-01 T26
+- **Last updated**: 2026-07-08
+- **Related**: RH-AGENT-THERMO-2607-01 T26, RH-AGENT-SYMBOL-ONBOARDING-2607-01
 
 ## Problem Statement
 
@@ -145,15 +145,36 @@ All new code is added as new functions/sections alongside existing code, clearly
 ## Affected Files
 
 ### Backend
-- `functions/src/rs-bars/rs-bars-sync.ts` — add `syncSymbolToSymbolData` alongside existing `syncSymbol`; new function targets `symbol-data` subcollections and upserts `rh-agent-symbols`
-- `functions/src/rh-agent-cloud-function/rh-agent-data-loader.ts` — add `getCachedBarsFromSymbolData` alongside existing `getCachedBars`
-- `functions/src/rh-agent-cloud-function/rh-agent-indicator-series.ts` — add new reader path for `symbol-data` (**not in original doc — identified during review**)
-- `functions/src/rh-agent-cloud-function/rh-agent-shared.ts` — `writeIntradayBarsToRsBars` already dead (T04); remove in Phase 3 cleanup
-- `functions/src/rh-agent-cloud-function/rh-agent-types.ts` — `OhlcBar` already canonical (T05); no change needed
-- `functions/src/webhooks/webhooks-config.ts` — add `SYMBOL_BARS_DAILY_SUBCOL = 'daily'`, `SYMBOL_BARS_WEEKLY_FIELD = 'weekly'` etc. constants
+- `functions/src/symbol-data-sync/symbol-data-sync.ts` — nightly scheduler/orchestrator; loads symbols, enqueues per-symbol tasks, and triggers the nightly RH Agent run on completion
+- `functions/src/symbol-data-sync/symbol-data-backfill.ts` — `syncSymbolToSymbolData`; reusable D/W/M backfill logic that targets `symbol-data` subcollections and upserts `rh-agent-symbols`
+- `functions/src/symbol-data-sync/symbol-data-symbol-added.ts` — Pub/Sub consumer for `partner-symbol-added`; backfills a single newly-added symbol and triggers a one-symbol RH Agent run
+- `functions/src/rh-agent-cloud-function/rh-agent-data-loader.ts` — `getCachedBarsFromSymbolData` reader path for `symbol-data`
+- `functions/src/rh-agent-cloud-function/rh-agent-indicator-series.ts` — reader path for `symbol-data`
+- `functions/src/rh-agent-cloud-function/rh-agent-types.ts` — `OhlcBar` canonical type; no change needed
+- `functions/src/webhooks/webhooks-config.ts` — `SYMBOL_BARS_DAILY_SUBCOL = 'daily'`, `SYMBOL_BARS_WEEKLY_FIELD = 'weekly'` etc.; also `PARTNER_SYMBOL_ADDED_TOPIC`
 
 ### Backend (migration script)
 - **No migration script needed.** On the first nightly sync after Phase 1 is deployed, `syncSymbolToSymbolData` will detect no existing `symbol-data` year-shard docs (equivalent to `!existing` / `isStale` in the old path) and trigger a full backfill automatically — fetching 7 years of daily, 7 years of weekly, 8 years of monthly from SA for every symbol. This is the same auto-backfill behaviour that already works for new symbols in `rs-bars`.
+
+## Symbol-Added Onboarding (Added 2026-07-08)
+
+A newly added symbol no longer has to wait for the next nightly sync. The `partner-symbol-added` Pub/Sub topic notifies RS as soon as SA has the symbol's full D/W/M history ready.
+
+The consumer `processSymbolAdded` in `functions/src/symbol-data-sync/symbol-data-symbol-added.ts`:
+
+- Backfills the symbol by calling `syncSymbolToSymbolData(symbol, true)`.
+- Upserts `{ symbol, enabled: true }` into `rh-agent-symbols/{symbol}`.
+- Creates a one-symbol RH Agent run with `type: 'symbol-added'` and enqueues the worker task.
+
+This keeps the symbol enable list in sync automatically and makes the symbol reviewable immediately. See `RH-AGENT-SYMBOL-ONBOARDING-2607-01` for the full trigger matrix and operations guide.
+
+### Backend
+- `functions/src/symbol-data-sync/symbol-data-symbol-added.ts` — Pub/Sub consumer for `partner-symbol-added`
+- `functions/src/symbol-data-sync/symbol-data-backfill.ts` — `syncSymbolToSymbolData` backfill logic shared with nightly sync
+- `functions/src/common/rh-agent-run-creation.ts` — run document creation
+- `functions/src/common/rh-agent-job-enqueueing.ts` — worker task enqueueing
+- `functions/src/webhooks/webhooks-config.ts` — `PARTNER_SYMBOL_ADDED_TOPIC`
+- `functions/src/index.ts` — exports `processSymbolAdded`
 
 ### Frontend
 - `src/app/features/rh-agent/services/rh-agent-chart.service.ts` — audit for direct `rs-bars` reads; update if found
@@ -167,7 +188,7 @@ All new code is added as new functions/sections alongside existing code, clearly
 
 ## rh-agent-symbols Sync (bonus fix)
 
-The `rh-agent-symbols` enable list currently requires manual seeding via `seedAllSymbolsFromPartner`. Adding the following upsert to `syncSymbolToSymbolData` eliminates this entirely:
+The `rh-agent-symbols` enable list previously required manual seeding via `seedAllSymbolsFromPartner`. The following upsert in `syncSymbolToSymbolData` eliminates this for the nightly sync:
 
 ```typescript
 await db.collection('rh-agent-symbols').doc(symbol).set(
@@ -176,7 +197,12 @@ await db.collection('rh-agent-symbols').doc(symbol).set(
 );
 ```
 
-New symbols added to SA are picked up automatically on the next nightly bar sync. The `enabled` flag can still be set to `false` manually to exclude a symbol from agent runs — `merge: true` preserves any existing override.
+New symbols added to SA are picked up in two ways:
+
+- **Nightly sync** — every tracked symbol is synced and enabled automatically.
+- **Real-time onboarding** — the `partner-symbol-added` consumer backfills the symbol and enables it immediately, then triggers a one-symbol RH Agent run.
+
+The `enabled` flag can still be set to `false` manually to exclude a symbol from agent runs — `merge: true` preserves any existing override.
 
 ---
 

@@ -94,6 +94,17 @@ subscription.on('error', err => {
 });
 ```
 
+## Symbol-Added Notifications
+
+In addition to the scheduled `partner-data-ready` broadcasts, SavantAPI publishes a `partner-symbol-added` message whenever a new symbol's full D/W/M history is available.
+
+- **Pub/Sub topic**: `partner-symbol-added`
+- **Consumer**: `functions/src/symbol-data-sync/symbol-data-symbol-added.ts`
+- **Purpose**: Backfill the new symbol into `symbol-data/{symbol}`, enable it in `rh-agent-symbols/{symbol}`, and trigger a one-symbol RH Agent run so it is immediately reviewable.
+- **Idempotency key**: combine `version` + `symbols[]` + `addedAtUTC`.
+
+See `RH-AGENT-SYMBOL-ONBOARDING-2607-01_symbol-onboarding.md` for the full processing contract and example payload.
+
 ## Environments
 
 - Use distinct service accounts per environment, if desired (staging vs prod).

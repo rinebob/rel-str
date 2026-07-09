@@ -1,12 +1,13 @@
 # RH-AGENT-THERMO-2607-01 RH Agent Thermonuclear Review Remediation
 
-- **Status**: planned
+- **Status**: in progress — structural refactor and symbol onboarding complete; remaining tasks tracked below
 - **Planning doc(s)**: `.devin/skills/thermo-nuclear-code-review.md`
 - **Area**: BE / FE
 - **Scope**: MAINT
 - **Code**: THERMO
 - **Created**: 2026-07-03
-- **Last updated**: 2026-07-03
+- **Last updated**: 2026-07-08
+- **Related**: `RH-AGENT-SYMBOL-ONBOARDING-2607-01_symbol-onboarding.md`, `RS-BARS-STORAGE-2607-01_rs-bars-schema-evaluation.md`
 
 ## Intent
 
@@ -117,11 +118,11 @@ These are blockers and should be done first. Each task should be a separate, sma
 
 ### RH-AGENT-THERMO-2607-01-T04 — Remove abandoned signal-dates and dead intraday code
 
-**Problem**: `writeIntradayBarsToRsBars` is no longer called. `clearStaleInterimSignals` is a no-op. The `signal-dates` subcollection is intentionally abandoned.
+**Problem**: `writeIntradayBarsToRsBars` is no longer called. `clearStaleInterimSignals` is a no-op. The `signal-dates` subcollection is intentionally abandoned. `rh-agent-shared.ts` has also become a dumping ground for unrelated orchestration helpers.
 
 **Location**: `functions/src/rh-agent-cloud-function/rh-agent-shared.ts`, `rh-agent-signal-date-writer.ts`, `rh-agent-worker.ts`, `rh-agent-config.ts`, and `README.md`
 
-**Decision**: The `signal-dates` path is permanently abandoned. All related code, constants, types, and documentation references must be removed.
+**Decision**: The `signal-dates` path is permanently abandoned. The monolithic `rh-agent-shared.ts` orchestration module has been split into focused `common/` modules. All related code, constants, types, and documentation references must be removed.
 
 **Remediation**:
 
@@ -130,26 +131,29 @@ These are blockers and should be done first. Each task should be a separate, sma
 - Remove the `signal-dates` clearing calls from `rh-agent-worker.ts`.
 - Remove `RH_AGENT_SIGNAL_DATES_SUBCOLLECTION` and `RhAgentSignalDateDoc` from `rh-agent-config.ts`.
 - Remove references to `signal-dates` from `README.md` and the worker comment.
+- Extract run creation, job enqueueing, symbol loading, and shared types/collections/date utilities from `rh-agent-shared.ts` into `functions/src/common/*` modules.
+- Delete the now-empty `rh-agent-shared.ts` barrel file.
 - If the trigger flow diagram is still useful, update it to reflect the current trigger → worker path.
 
 **Acceptance**:
 
 - No references to `signal-dates` in code or docs.
-- `npm run build` in `functions/` passes.
+- `rh-agent-shared.ts` no longer exists; orchestration helpers live in `common/`.
+- `npm run build` and `npm run typecheck` in `functions/` pass.
 - No unused imports remain.
 
 ## Phase 2 — Share boundary contracts
 
 ### RH-AGENT-THERMO-2607-01-T05 — Create a single canonical `OhlcBar` type
 
-**Problem**: `OhlcBar` is defined in `rs-bars-sync.ts`, `rh-agent-indicator-computation.ts`, and `rh-agent-chart.service.ts`.
+**Problem**: `OhlcBar` is defined in `symbol-data-backfill.ts`, `rh-agent-indicator-computation.ts`, and `rh-agent-chart.service.ts`.
 
-**Location**: `functions/src/rs-bars/rs-bars-sync.ts`, `functions/src/rh-agent-cloud-function/rh-agent-indicator-computation.ts`, `src/app/features/rh-agent/services/rh-agent-chart.service.ts`
+**Location**: `functions/src/symbol-data-sync/symbol-data-backfill.ts`, `functions/src/rh-agent-cloud-function/rh-agent-indicator-computation.ts`, `src/app/features/rh-agent/services/rh-agent-chart.service.ts`
 
 **Remediation**:
 
 - Move the canonical `OhlcBar` interface to a side-effect-free location such as `functions/src/rh-agent-cloud-function/rh-agent-types.ts`.
-- Import it from `rs-bars-sync.ts`, `rh-agent-indicator-computation.ts`, and any scripts/backfill code.
+- Import it from `symbol-data-backfill.ts`, `rh-agent-indicator-computation.ts`, and any scripts/backfill code.
 - Remove the frontend duplicate if it can be replaced by a generated or shared contract; otherwise, document why the frontend must mirror it.
 
 **Acceptance**:
@@ -203,7 +207,7 @@ These are blockers and should be done first. Each task should be a separate, sma
 **Remediation**:
 
 - Extract `SymbolDataLoader` (or `loadSymbolBars`) that owns:
-  - Reading `rs-bars/{symbol}`.
+  - Reading `symbol-data/{symbol}` daily year-shards and weekly/monthly flat docs.
   - Injecting intraday partial bars.
   - Returning typed arrays and a `sufficient` flag.
 - Extract `SignalPersister` that owns:
