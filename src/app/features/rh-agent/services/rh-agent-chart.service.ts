@@ -171,10 +171,13 @@ export class RhAgentChartService {
    * Returns true if the nightly EOD sync has not yet run today.
    * Infers from last bar date: if the most recent daily bar predates today
    * the EOD write hasn't landed yet and we should fetch intraday.
+   *
+   * DISABLED: SA is transitioning to full intraday OHLCV bars written into
+   * the standard o/h/l/c/v fields. Keeping i* fields populated in parallel
+   * until the new bar is confirmed stable. Re-enable once stable.
    */
-  private needsIntradayFetchFromResult(result: SymbolBarsResult, today: string): boolean {
-    const lastBar = result.daily[result.daily.length - 1]?.d;
-    return !lastBar || lastBar < today;
+  private needsIntradayFetchFromResult(_result: SymbolBarsResult, _today: string): boolean {
+    return false;
   }
 
   private buildDatasetsWithIntraday(
