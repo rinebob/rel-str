@@ -1,8 +1,9 @@
 /**
  * RH Agent Firestore Collections
  *
- * Collection names and document ID patterns used across the RH Agent cloud
- * function. Keeping these in one place prevents typos and makes renames easy.
+ * Collection names, document ID patterns, and core symbol document shapes used
+ * across the RH Agent cloud function and related modules such as symbol-data-sync.
+ * Keeping these in one place prevents typos and makes renames easy.
  */
 
 /** Root collection for agent run records (metadata, status, summary). */

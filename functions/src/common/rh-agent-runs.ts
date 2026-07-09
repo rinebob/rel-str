@@ -3,6 +3,9 @@
  *
  * Run statuses, job statuses, agent status, daily run records, and per-symbol
  * job records used by the run orchestration and progress tracker.
+ *
+ * These types are shared across the RH Agent module and symbol-data-sync, so they
+ * live in common/ to avoid cross-module import cycles.
  */
 
 /**
@@ -29,7 +32,7 @@ export enum RhAgentJobStatus {
 /**
  * Trigger source for an agent run.
  */
-export type RhAgentTriggeredBy = 'manual' | 'pdr' | 'nightly';
+export type RhAgentTriggeredBy = 'manual' | 'pdr' | 'nightly' | 'symbol-added';
 
 /**
  * Agent status singleton stored in Firestore.
@@ -59,12 +62,11 @@ export interface RhWatchedSymbol {
 }
 
 /**
- * Daily agent run record stored in Firestore.
- * Used for the daily 12:00 PM PT scan of ~700 symbols.
+ * Agent run record stored in Firestore.
  */
 export interface RhAgentDailyRun {
   id: string;
-  type: 'daily-scan';
+  type: 'daily-scan' | 'symbol-added';
   marketDate: string;  // YYYY-MM-DD — trading date of the data being processed
   runDate: string;    // YYYY-MM-DD — PT calendar date on which the run occurred
   status: RhAgentRunStatus;

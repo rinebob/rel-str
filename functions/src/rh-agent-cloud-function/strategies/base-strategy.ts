@@ -6,7 +6,7 @@
  */
 
 import { StSignalDirection } from '../rh-agent-signals';
-import { IntradaySnapshot } from '../rh-agent-shared-types';
+import { IntradaySnapshot } from '../../common/rh-agent-shared-types';
 
 // =============================================================================
 // STRATEGY INPUT (What the worker provides to every strategy)

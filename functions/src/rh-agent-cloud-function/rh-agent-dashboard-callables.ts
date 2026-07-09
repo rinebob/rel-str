@@ -13,7 +13,7 @@ import {
   RH_AGENT_SIGNAL_HISTORY_SUBCOLLECTION,
   RH_AGENT_RUN_IDS_SUBCOLLECTION,
   RhAgentSymbolProfile,
-} from './rh-agent-collections';
+} from '../common/rh-agent-collections';
 import {
   RhAgentSignalHistoryDoc,
   RhAgentRunIdDoc,

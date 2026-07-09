@@ -18,7 +18,7 @@ import { syncIntradayWmToSymbolData } from '../symbol-data-sync/intraday-wm-sync
 import { persistSymbolSignals } from './rh-agent-signal-persister';
 import { RunProgressTracker } from './rh-agent-run-progress';
 
-import { SymbolJobPayload } from './rh-agent-shared-types';
+import { SymbolJobPayload } from '../common/rh-agent-shared-types';
 
 import { strategyRegistry } from './strategies/strategy-registry';
 import type { StrategyInput, StrategyOutput, StrategyAdapter } from './strategies/strategy-registry';

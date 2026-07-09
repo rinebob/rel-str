@@ -10,7 +10,7 @@
 import { onRequest } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { db } from '../firebase-admin-init';
-import { RH_AGENT_SYMBOLS_COLLECTION } from './rh-agent-collections';
+import { RH_AGENT_SYMBOLS_COLLECTION } from '../common/rh-agent-collections';
 import { callPartnerTrackedSymbols } from '../partner-proxy';
 
 /**

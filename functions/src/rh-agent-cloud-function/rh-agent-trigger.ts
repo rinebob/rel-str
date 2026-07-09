@@ -8,19 +8,12 @@ import { onRequest } from 'firebase-functions/v2/https';
 import { onMessagePublished } from 'firebase-functions/v2/pubsub';
 import { logger } from 'firebase-functions/v2';
 
-import { type IntradaySnapshot } from './rh-agent-shared-types';
-import { type RhAgentTriggeredBy } from './rh-agent-runs';
 import { PARTNER_DATA_READY_TOPIC } from '../webhooks/webhooks-config';
 
-import {
-  getMarketDate,
-  getDeadlineISO,
-  loadEnabledSymbols,
-  createDailyRun,
-  fetchIntradaySnapshots,
-  enqueueSymbolJobs,
-} from './rh-agent-shared';
-import { normalizeMarketDate } from './rh-agent-date-utils';
+import { getMarketDate } from '../common/rh-agent-run-creation';
+import { loadEnabledSymbols, fetchIntradaySnapshots } from '../common/rh-agent-symbol-source';
+import { startRhAgentRun } from '../common/rh-agent-orchestration';
+import { normalizeMarketDate } from '../common/pt-date-utils';
 
 /**
  * Pub/Sub trigger: Automatically starts RH Agent when PDR intraday-snapshot message arrives.
@@ -142,66 +135,3 @@ export const rhAgentTriggerDaily = onRequest(
   }
 );
 
-/**
- * Start RH Agent run - shared logic for all trigger types.
- * Exported so symbol-data-sync can call it after nightly sync completes.
- */
-export async function startRhAgentRun(
-  marketDate: string,
-  triggeredBy: RhAgentTriggeredBy,
-  intradaySnapshots: IntradaySnapshot[] = []
-): Promise<{ runId: string; marketDate: string; symbolCount: number; enqueued: number; failed: number; duration: number }> {
-  const startTime = Date.now();
-
-  // 1. Load enabled symbols
-  const symbols = await loadEnabledSymbols();
-  if (symbols.length === 0) {
-    logger.warn('rh_agent_trigger_no_symbols', { marketDate, triggeredBy });
-    return { runId: '', marketDate, symbolCount: 0, enqueued: 0, failed: 0, duration: 0 };
-  }
-  logger.info('rh_agent_trigger_symbols_loaded', {
-    marketDate,
-    triggeredBy,
-    count: symbols.length,
-    firstFew: symbols.slice(0, 5),
-  });
-
-  // 2. Calculate deadline
-  const deadlineAt = getDeadlineISO();
-
-  // 3. Create run document
-  const runStartedAt = new Date().toISOString();
-  const runId = await createDailyRun(marketDate, symbols.length, deadlineAt, triggeredBy);
-  logger.info('rh_agent_trigger_run_created', {
-    runId,
-    marketDate,
-    triggeredBy,
-    symbolCount: symbols.length,
-  });
-
-  // 4. Enqueue Cloud Tasks for all symbols
-  // Pass intraday data in payload so workers don't need to fetch
-  const intradayBySymbol = new Map(intradaySnapshots.map(s => [s.symbol, s]));
-  const { enqueued, failed } = await enqueueSymbolJobs(
-    runId,
-    symbols,
-    marketDate,
-    runStartedAt,
-    intradayBySymbol,
-    triggeredBy,
-  );
-
-  const duration = Date.now() - startTime;
-  logger.info('rh_agent_trigger_complete', {
-    runId,
-    marketDate,
-    triggeredBy,
-    symbolCount: symbols.length,
-    intradayCount: intradaySnapshots.length,
-    enqueued,
-    failed,
-    duration,
-  });
-
-  return { runId, marketDate, symbolCount: symbols.length, enqueued, failed, duration };
-}

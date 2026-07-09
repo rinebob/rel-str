@@ -7,23 +7,18 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { callPartnerIntradaySnapshotV2 } from '../partner-proxy';
 import { logger } from 'firebase-functions';
 import { db } from '../firebase-admin-init';
-import {
-  getMarketDate,
-  getDeadlineISO,
-  loadEnabledSymbols,
-  createDailyRun,
-  fetchIntradaySnapshots,
-  enqueueSymbolJobs,
-} from './rh-agent-shared';
-import { normalizeMarketDate } from './rh-agent-date-utils';
+import { getMarketDate, getDeadlineISO, createDailyRun } from '../common/rh-agent-run-creation';
+import { fetchIntradaySnapshots, loadEnabledSymbols } from '../common/rh-agent-symbol-source';
+import { enqueueSymbolJobs } from '../common/rh-agent-job-enqueueing';
+import { normalizeMarketDate } from '../common/pt-date-utils';
 import type { PartnerIntradaySnapshotResponse } from '../types/partner';
 import {
   RH_AGENT_RUNS_COLLECTION,
   RH_AGENT_STATUS_COLLECTION,
   AGENT_STATUS_DOC,
   RH_AGENT_SCHEDULE_CRON,
-} from './rh-agent-collections';
-import { RhAgentDailyRun, RhAgentStatus } from './rh-agent-runs';
+} from '../common/rh-agent-collections';
+import { RhAgentDailyRun, RhAgentStatus, RhAgentTriggeredBy } from '../common/rh-agent-runs';
 import { RH_AGENT_ALLOWED_ORIGINS } from './rh-agent-cors';
 
 /**
@@ -73,7 +68,7 @@ interface RunHistoryResponse {
     totalSymbols?: number;
     processedCount?: number;
     signalsGenerated?: number;
-    triggeredBy?: 'manual' | 'pdr' | 'nightly';
+    triggeredBy?: RhAgentTriggeredBy;
   }>;
 }
 

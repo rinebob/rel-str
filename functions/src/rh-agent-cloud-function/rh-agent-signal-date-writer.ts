@@ -10,13 +10,13 @@ import {
   RH_AGENT_SYMBOLS_COLLECTION,
   RH_AGENT_RUN_IDS_SUBCOLLECTION,
   RH_AGENT_SIGNAL_HISTORY_SUBCOLLECTION,
-} from './rh-agent-collections';
+} from '../common/rh-agent-collections';
 import {
   RhAgentRunIdDoc,
   RhAgentSignalHistoryDoc,
   RhAgentSignalEntry,
 } from './rh-agent-signals';
-import { RhAgentTriggeredBy } from './rh-agent-runs';
+import { RhAgentTriggeredBy } from '../common/rh-agent-runs';
 
 export class SignalDateWriter {
   private readonly symbolRef: FirebaseFirestore.DocumentReference;

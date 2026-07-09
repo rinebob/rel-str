@@ -13,12 +13,12 @@ import {
   RH_AGENT_JOBS_SUBCOLLECTION,
   AGENT_STATUS_DOC,
   RH_AGENT_SCHEDULE_CRON,
-} from './rh-agent-collections';
+} from '../common/rh-agent-collections';
 import {
   RhAgentDailyRun,
   RhAgentJobStatus,
   RhAgentRunStatus,
-} from './rh-agent-runs';
+} from '../common/rh-agent-runs';
 
 export class RunProgressTracker {
   constructor(

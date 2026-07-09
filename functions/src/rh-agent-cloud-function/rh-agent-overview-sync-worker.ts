@@ -11,7 +11,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { db } from '../firebase-admin-init';
 import { callPartnerCompanyOverview } from '../partner-proxy';
 import { PartnerCompanyOverviewResponse } from '../types/partner';
-import { RH_AGENT_SYMBOLS_COLLECTION, RhAgentOverviewFields } from './rh-agent-collections';
+import { RH_AGENT_SYMBOLS_COLLECTION, RhAgentOverviewFields } from '../common/rh-agent-collections';
 
 // ============================================================================
 // Constants

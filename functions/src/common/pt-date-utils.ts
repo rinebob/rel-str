@@ -1,11 +1,15 @@
 /**
- * RH Agent PT date utilities
+ * PT date utilities
  *
  * All user-facing dates and identifiers are generated or formatted in PT
  * (America/Los_Angeles). Internal timestamps stay UTC; calendar strings are
  * normalized and rendered in PT.
+ *
+ * These utilities are shared across multiple domains (RH Agent, symbol-data-sync,
+ * etc.) and intentionally live in common/ to avoid circular dependencies between
+ * feature modules.
  */
-import type { RhAgentTriggeredBy } from './rh-agent-runs';
+import { RhAgentTriggeredBy } from './rh-agent-runs';
 
 const PT_TIMEZONE = 'America/Los_Angeles';
 
