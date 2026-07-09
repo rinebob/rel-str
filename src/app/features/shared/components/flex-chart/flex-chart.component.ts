@@ -513,23 +513,19 @@ export class FlexChartComponent implements OnDestroy {
 
 
   // Chart configuration - Category axis removes gaps (like TradingView)
+  // NOTE: zoomFactor/zoomPosition are NOT included here — they are imperative state
+  // applied once by applyInitialZoom(). Including them would cause Syncfusion to
+  // reset the user's scroll position whenever this computed re-fires (e.g. on
+  // async indicator data arrival changing the config input).
   primaryXAxis = computed(() => {
-    const data = this.chartData();
-    const initialDays = this.config().initialZoomDays ?? 60;
-    const totalBars = data?.bars.length ?? 0;
-    const margin = FlexChartComponent.RIGHT_MARGIN_BARS;
-    const totalCategories = totalBars + margin;
-    const visibleCount = Math.min(initialDays, totalBars);
-    const zoomFactor = totalCategories > 0 ? (visibleCount + margin) / totalCategories : 1;
-    const zoomPosition = totalCategories > 0 ? (totalBars - visibleCount) / totalCategories : 0;
+    // Touch chartData so axis updates when bar count changes (new symbol)
+    this.chartData();
 
     return {
       valueType: 'Category',
       majorGridLines: { width: 0 },
       crosshairTooltip: { enable: false },
       edgeLabelPlacement: 'Shift',
-      zoomFactor,
-      zoomPosition,
     };
   });
 
@@ -602,6 +598,7 @@ export class FlexChartComponent implements OnDestroy {
       const data = this.chartData();
       if (data && data.bars.length > 0) {
         this.isInitialLoad.set(true);
+        this.lastZoomKey = null;
       }
     });
 
@@ -656,6 +653,9 @@ export class FlexChartComponent implements OnDestroy {
 
     // Re-apply zoom + right margin + Y-axis snap whenever the chart data
     // or zoom range (initialZoomDays / interval) changes.
+    // Keyed on bar count + initialZoomDays + interval so it only fires on
+    // meaningful changes (new symbol, interval switch, range change), NOT on
+    // indicator config changes that don't affect zoom.
     effect(() => {
       const chart = this.chart();
       const data = this.chartData();
@@ -758,73 +758,26 @@ export class FlexChartComponent implements OnDestroy {
   }
 
   onZoomComplete(event: IZoomCompleteEventArgs): void {
-    const chart = this.chart();
-    const data = this.chartData();
-    if (!chart || !data || !event.currentVisibleRange) return;
-
-    // Re-anchor zoomPosition so the right edge stays pinned after ZoomIn/ZoomOut.
-    // Only do this for toolbar zoom actions (not pan/selection), detected by checking
-    // whether the right edge of the new window has drifted away from the data end.
-    const xAxis = chart.primaryXAxis as any;
-    const currentZoomFactor: number = xAxis?.zoomFactor ?? 1;
-    const currentZoomPosition: number = xAxis?.zoomPosition ?? 0;
-    const margin = FlexChartComponent.RIGHT_MARGIN_BARS;
-    const totalCategories = data.bars.length + margin;
-
-    // The right edge of the visible window in category-axis units
-    const visibleRight = (currentZoomPosition + currentZoomFactor) * totalCategories;
-    const dataRightEdge = data.bars.length - 1 + margin;
-
-    // If the right edge is not already near the data end, re-anchor it
-    const tolerance = 2; // bars
-    if (Math.abs(visibleRight - dataRightEdge) > tolerance) {
-      const newZoomPosition = Math.max(0, 1 - currentZoomFactor);
-      xAxis.zoomPosition = newZoomPosition;
-      chart.dataBind();
-
-      // Recalculate visible bars from re-anchored position
-      const newMinIdx = Math.max(0, Math.round(newZoomPosition * totalCategories));
-      const newMaxIdx = Math.min(data.bars.length - 1, Math.round((newZoomPosition + currentZoomFactor) * totalCategories));
-      const visibleBars = data.bars.slice(newMinIdx, newMaxIdx + 1);
-      if (visibleBars[0]) this.visibleRangeStart.set(visibleBars[0].x);
-      if (visibleBars.length > 0 && chart.primaryYAxis) {
-        const rawMin = Math.min(...visibleBars.map(b => b.low));
-        const rawMax = Math.max(...visibleBars.map(b => b.high));
-        const pad = (rawMax - rawMin) * 0.03;
-        chart.primaryYAxis.minimum = rawMin - pad;
-        chart.primaryYAxis.maximum = rawMax + pad;
-        chart.dataBind();
-      }
-      return;
-    }
-
-    const minIdx = Math.max(0, Math.floor(event.currentVisibleRange.min ?? 0));
-    const maxIdx = Math.min(data.bars.length - 1, Math.ceil(event.currentVisibleRange.max ?? 0));
-    const visibleBars = data.bars.slice(minIdx, maxIdx + 1);
-
-    if (visibleBars[0]) this.visibleRangeStart.set(visibleBars[0].x);
-
-    if (visibleBars.length > 0 && chart.primaryYAxis) {
-      const rawMin = Math.min(...visibleBars.map(b => b.low));
-      const rawMax = Math.max(...visibleBars.map(b => b.high));
-      const pad = (rawMax - rawMin) * 0.03;
-      chart.primaryYAxis.minimum = rawMin - pad;
-      chart.primaryYAxis.maximum = rawMax + pad;
-      chart.dataBind();
-    }
+    if (!event.currentVisibleRange) return;
+    this.snapYAxisToVisibleRange(event.currentVisibleRange.min ?? 0, event.currentVisibleRange.max ?? 0);
   }
 
   onScrollEnd(event: IScrollEventArgs): void {
     const chart = this.chart();
-    const data = this.chartData();
-    if (!chart || !data) return;
-
+    if (!chart) return;
     const xAxis = chart.primaryXAxis as any;
     const visibleRange = xAxis?.visibleRange;
     if (!visibleRange) return;
+    this.snapYAxisToVisibleRange(visibleRange.min ?? 0, visibleRange.max ?? 0);
+  }
 
-    const minIdx = Math.max(0, Math.floor(visibleRange.min ?? 0));
-    const maxIdx = Math.min(data.bars.length - 1, Math.ceil(visibleRange.max ?? 0));
+  private snapYAxisToVisibleRange(rangeMin: number, rangeMax: number): void {
+    const chart = this.chart();
+    const data = this.chartData();
+    if (!chart || !data) return;
+
+    const minIdx = Math.max(0, Math.floor(rangeMin));
+    const maxIdx = Math.min(data.bars.length - 1, Math.ceil(rangeMax));
     const visibleBars = data.bars.slice(minIdx, maxIdx + 1);
 
     if (visibleBars[0]) this.visibleRangeStart.set(visibleBars[0].x);
