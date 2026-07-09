@@ -260,7 +260,7 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
   /** Navigate to the review page if there are REVIEW symbols. */
   goToReview(): void {
     if (this.triageStore.reviewCount() === 0) return;
-    this.router.navigate(['/rh-agent-review']);
+    this.router.navigate(['/chart-review']);
   }
 
   /** Navigate to the order page if there are ACCEPT symbols. */

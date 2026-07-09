@@ -92,7 +92,7 @@ export { RunHistoryPanelComponent } from './components/run-history-panel/run-his
 
 export { RhAgentDashboardComponent } from './pages/agent-dashboard/rh-agent-dashboard.component';
 export { RhAgentGroupedReviewComponent } from './pages/agent-grouped-review/rh-agent-grouped-review.component';
-export { RhAgentReviewComponent } from './pages/agent-review/rh-agent-review.component';
+export { ChartReviewComponent } from './pages/chart-review/chart-review.component';
 export { RhAgentOrderComponent } from './pages/agent-order/rh-agent-order.component';
 export { RhAgentTriageReportComponent } from './pages/agent-triage-report/rh-agent-triage-report.component';
 export { QuickChartsComponent } from './components/quick-charts/quick-charts.component';

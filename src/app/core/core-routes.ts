@@ -97,9 +97,9 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.RhAgentDashboardComponent),
                 canActivate: [authGuard],
             },
-            {path: AppRoutes.RH_AGENT_REVIEW, 
-                loadComponent: () => import('../features/rh-agent/pages/agent-review/rh-agent-review.component')
-                .then(mod => mod.RhAgentReviewComponent),
+            {path: AppRoutes.CHART_REVIEW, 
+                loadComponent: () => import('../features/rh-agent/pages/chart-review/chart-review.component')
+                .then(mod => mod.ChartReviewComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.RH_AGENT_GROUPED_REVIEW,

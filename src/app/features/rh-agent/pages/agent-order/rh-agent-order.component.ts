@@ -202,6 +202,6 @@ export class RhAgentOrderComponent implements OnInit {
 
   /** Navigate to the review page. */
   goToReview(): void {
-    this.router.navigate(['/rh-agent-review']);
+    this.router.navigate(['/chart-review']);
   }
 }

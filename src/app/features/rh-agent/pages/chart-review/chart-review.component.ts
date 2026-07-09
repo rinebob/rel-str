@@ -1,9 +1,9 @@
 /**
- * RH Agent Review Component
+ * Chart Review Component
  *
  * Master-detail interface for opportunity triage and trade execution.
  * Focuses on current signals from the latest run only.
- * URL: /rh-agent/review
+ * URL: /chart-review
  */
 import {
   Component,
@@ -12,6 +12,7 @@ import {
   signal,
   computed,
   OnInit,
+  OnDestroy,
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
@@ -28,7 +29,7 @@ import { SignalDetailComponent } from '../../components/signal-detail/signal-det
 import { ReviewHeaderComponent } from '../../components/review-header/review-header.component';
 
 @Component({
-  selector: 'app-rh-agent-review',
+  selector: 'app-chart-review',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     MatButtonModule,
@@ -38,10 +39,10 @@ import { ReviewHeaderComponent } from '../../components/review-header/review-hea
     SignalDetailComponent,
     ReviewHeaderComponent,
   ],
-  templateUrl: './rh-agent-review.component.html',
-  styleUrl: './rh-agent-review.component.scss',
+  templateUrl: './chart-review.component.html',
+  styleUrl: './chart-review.component.scss',
 })
-export class RhAgentReviewComponent implements OnInit {
+export class ChartReviewComponent implements OnInit, OnDestroy {
   readonly triageStore = inject(RhAgentTriageStore);
   readonly uiState = inject(UiStateService);
   private readonly router = inject(Router);
@@ -77,9 +78,15 @@ export class RhAgentReviewComponent implements OnInit {
 
   /** Load persisted decisions for the last 30 days through the active market date. */
   ngOnInit(): void {
+    this.uiState.setFullscreen(true);
     const endDate = this.triageStore.activeMarketDate() ?? todayDate();
     const startDate = daysAgoPt(30);
     this.triageStore.loadPersistedDecisions(startDate, endDate);
+  }
+
+  /** Leave fullscreen mode when the page is destroyed. */
+  ngOnDestroy(): void {
+    this.uiState.setFullscreen(false);
   }
 
   // --- Review queue mode (symbols with REVIEW status from grouped review) ---
@@ -127,7 +134,7 @@ export class RhAgentReviewComponent implements OnInit {
   /** Load an arbitrary symbol for chart review without a decision queue. */
   loadManualSymbol(symbolInput: string): void {
     const symbol = symbolInput.trim().toUpperCase();
-    console.log('[AgentReview] loadManualSymbol called:', symbol);
+    console.log('[ChartReview] loadManualSymbol called:', symbol);
     if (!symbol) return;
     this.selectedReviewSymbol.set(null);
     this.manualSymbol.set(symbol);
@@ -140,7 +147,7 @@ export class RhAgentReviewComponent implements OnInit {
 
   /** Handle Enter key in the manual symbol input. */
   onManualSymbolKeydown(event: KeyboardEvent, input: HTMLInputElement): void {
-    console.log('[AgentReview] onManualSymbolKeydown:', event.key, input.value);
+    console.log('[ChartReview] onManualSymbolKeydown:', event.key, input.value);
     if (event.key === 'Enter') {
       this.loadManualSymbol(input.value);
     }
