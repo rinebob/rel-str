@@ -123,7 +123,7 @@ All new code is added as new functions/sections alongside existing code, clearly
 **Phase 1 — Parallel write**
 1. Add `syncSymbolToSymbolData` alongside existing `syncSymbol` in `rs-bars-sync.ts`
 2. New function writes daily year shards to `symbol-data/{SYMBOL}/daily/{YYYY}`, weekly bars to `symbol-data/{SYMBOL}/weekly/all`, and monthly bars to `symbol-data/{SYMBOL}/monthly/all`
-3. Also upserts `{ symbol, enabled: true }` into `rh-agent-symbols/{SYMBOL}` so the agent enable list stays in sync automatically — eliminating the need to run `seedAllSymbolsFromPartner` manually
+3. ~~Also upserts `{ symbol, enabled: true }` into `rh-agent-symbols/{SYMBOL}`~~ — this was removed; see rh-agent-symbols Sync section below
 4. Both old and new sync paths run on the same nightly schedule until verified
 
 **Phase 2 — Switch readers**
@@ -146,7 +146,7 @@ All new code is added as new functions/sections alongside existing code, clearly
 
 ### Backend
 - `functions/src/symbol-data-sync/symbol-data-sync.ts` — nightly scheduler/orchestrator; loads symbols, enqueues per-symbol tasks, and triggers the nightly RH Agent run on completion
-- `functions/src/symbol-data-sync/symbol-data-backfill.ts` — `syncSymbolToSymbolData`; reusable D/W/M backfill logic that targets `symbol-data` subcollections and upserts `rh-agent-symbols`
+- `functions/src/symbol-data-sync/symbol-data-backfill.ts` — `syncSymbolToSymbolData`; reusable D/W/M backfill logic that targets `symbol-data` subcollections (pure data-sync, no side-effects on other collections)
 - `functions/src/symbol-data-sync/symbol-data-symbol-added.ts` — Pub/Sub consumer for `partner-symbol-added`; backfills a single newly-added symbol and triggers a one-symbol RH Agent run
 - `functions/src/rh-agent-cloud-function/rh-agent-data-loader.ts` — `getCachedBarsFromSymbolData` reader path for `symbol-data`
 - `functions/src/rh-agent-cloud-function/rh-agent-indicator-series.ts` — reader path for `symbol-data`
@@ -186,23 +186,26 @@ This keeps the symbol enable list in sync automatically and makes the symbol rev
 
 ---
 
-## rh-agent-symbols Sync (bonus fix)
+## rh-agent-symbols Sync
 
-The `rh-agent-symbols` enable list previously required manual seeding via `seedAllSymbolsFromPartner`. The following upsert in `syncSymbolToSymbolData` eliminates this for the nightly sync:
+The `rh-agent-symbols` enable list is managed by the `symbol-added` onboarding path only. The upsert was previously inside `syncSymbolToSymbolData` but was removed (2026-07-09) because:
+
+- By the time any symbol is synced incrementally (nightly or intraday), it is already in `rh-agent-symbols` with `enabled: true` — the upsert was always a no-op write.
+- On intraday runs (~750 symbols), it produced ~750 unnecessary Firestore writes per run.
+- The correct owner of the upsert is the `symbol-added` consumer, not the pure data-sync function.
+
+`syncSymbolToSymbolData` is now a pure data-sync function with no side-effects on other collections.
+
+The upsert now lives in `symbol-data-symbol-added.ts` and runs only on new-symbol onboarding:
 
 ```typescript
-await db.collection('rh-agent-symbols').doc(symbol).set(
+await db.collection(RH_AGENT_SYMBOLS_COLLECTION).doc(symbol).set(
   { symbol, enabled: true },
   { merge: true }  // never overwrites existing enabled=false overrides
 );
 ```
 
-New symbols added to SA are picked up in two ways:
-
-- **Nightly sync** — every tracked symbol is synced and enabled automatically.
-- **Real-time onboarding** — the `partner-symbol-added` consumer backfills the symbol and enables it immediately, then triggers a one-symbol RH Agent run.
-
-The `enabled` flag can still be set to `false` manually to exclude a symbol from agent runs — `merge: true` preserves any existing override.
+New symbols are picked up via the `partner-symbol-added` Pub/Sub topic — see `RH-AGENT-SYMBOL-ONBOARDING-2607-01`.
 
 ---
 

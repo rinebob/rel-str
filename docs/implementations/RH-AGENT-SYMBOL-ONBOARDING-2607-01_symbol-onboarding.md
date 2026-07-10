@@ -14,8 +14,8 @@ This document describes how new symbols are onboarded into the RH Agent and how 
 | Trigger | Source | Data available | Run type | Writes signal-history? |
 |---|---|---|---|---|
 | `nightly` | Cloud Scheduler at 6:00 PM PT Mon–Fri | Full EOD D/W/M bars | `daily-scan` | Yes |
-| `pdr` | `partner-data-ready` Pub/Sub with `runType=intraday-snapshot` | Intraday snapshot + cached bars | `daily-scan` | No |
-| `manual` | HTTP callable `rhAgentManualRun` | Intraday snapshot + cached bars | `daily-scan` | No |
+| `pdr` | `partner-data-ready` Pub/Sub with `runType=intraday-snapshot` | Full D/W/M sync from SA (written to `symbol-data`) + cached bars | `daily-scan` | No |
+| `manual` | HTTP callable `rhAgentManualRun` | Full D/W/M sync from SA (written to `symbol-data`) + cached bars | `daily-scan` | No |
 | `symbol-added` | `partner-symbol-added` Pub/Sub | Full D/W/M historical bars | `symbol-added` | No |
 
 All triggers create a run document in `rh-agent-runs/{runId}`, enqueue one `rhAgentProcessSymbol` Cloud Task per symbol, and rely on the worker to load bars, execute the configured strategy, and persist signals.
@@ -25,7 +25,7 @@ All triggers create a run document in `rh-agent-runs/{runId}`, enqueue one `rhAg
 When SavantAPI (SA) finishes fetching a new symbol's full D/W/M history, it publishes a `partner-symbol-added` message. The RS consumer `processSymbolAdded` performs three steps for each symbol in the payload:
 
 1. **Backfill bars** — calls `syncSymbolToSymbolData(symbol, true)` to fetch full D/W/M history from SA and write it into `symbol-data/{symbol}` (daily year-shards, weekly/monthly flat docs).
-2. **Enable the symbol** — upserts `{ symbol, enabled: true }` into `rh-agent-symbols/{symbol}` so the symbol is eligible for future agent runs.
+2. **Enable the symbol** — `processSymbolAdded` upserts `{ symbol, enabled: true }` directly into `rh-agent-symbols/{symbol}` so the symbol is eligible for future agent runs. This upsert lives in the consumer, not in `syncSymbolToSymbolData`, which is a pure data-sync function.
 3. **Trigger a single-symbol agent run** — creates a one-symbol run in `rh-agent-runs` and enqueues the worker task. This makes the symbol immediately reviewable without waiting for the next nightly or PDR run.
 
 ### Run ID for `symbol-added`
@@ -163,7 +163,7 @@ Same as the PDR flow, but triggered via the `rhAgentManualRun` HTTP callable. Th
 - `functions/src/rh-agent-cloud-function/rh-agent-callables.ts` — manual callable.
 
 ### Worker
-- `functions/src/rh-agent-cloud-function/rh-agent-worker.ts` — executes strategy and persists signals.
+- `functions/src/rh-agent-cloud-function/rh-agent-worker.ts` — on intraday runs, calls `syncSymbolToSymbolData(symbol, false)` to write SA's latest D/W/M bars (including today's full intraday OHLCV bar) into `symbol-data` before loading cached bars and executing the strategy. This replaced the old `syncIntradayWmToSymbolData` call which only refreshed W/M.
 - `functions/src/rh-agent-cloud-function/rh-agent-signal-persister.ts` — builds signal entries.
 - `functions/src/rh-agent-cloud-function/rh-agent-signal-date-writer.ts` — writes `run-ids` / `signal-history` / gate dates.
 

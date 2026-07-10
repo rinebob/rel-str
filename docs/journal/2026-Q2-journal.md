@@ -32,6 +32,15 @@
   - Completed full symbol universe seed. Called `seedAllSymbolsFromPartner` to populate `rh-agent-symbols` collection with ~760 symbols from SavantAPI partner. Verified in Firestore: all symbols present with `enabled: true`, `source: 'partner-universe'`.
   - **Status**: full universe seeded, ready for end-to-end PDR flow verification.
 
+### 2026-07-09
+
+- RS-BE-FEAT-RHAGENT-2606 / SA intraday full bar
+  - **Bug fix**: Intraday daily bars (today's candle) were missing from charts for D/W/M. Root cause: `rh-agent-worker.ts` only called `syncIntradayWmToSymbolData` on intraday runs, which refreshed W/M but never wrote today's daily bar to `symbol-data`. The charts read from Firestore so always showed the prior EOD bar.
+  - **Fix**: Replaced `syncIntradayWmToSymbolData` with `syncSymbolToSymbolData(symbol, false)` (incremental). This fetches the last 14 daily bars + W/M from SA and writes them all to `symbol-data` in one call. SA's new full intraday OHLCV bar aggregation now lands in Firestore on every intraday run, giving the charts a real candle for today.
+  - **Cleanup**: Removed `rh-agent-symbols` upsert from `syncSymbolToSymbolData`. It was a ~750-write no-op on every intraday run. Upsert moved to `symbol-data-symbol-added.ts` where it belongs (only fires on new-symbol onboarding). `syncSymbolToSymbolData` is now a pure data-sync function.
+  - `intraday-wm-sync.ts` is now dead code — to be deleted in the `i*` fields cleanup PR.
+  - Docs updated: `RS-BARS-STORAGE-2607-01`, `RH-AGENT-SYMBOL-ONBOARDING-2607-01`.
+
 ## End-of-Quarter Summary
 
 *(to be filled at end of Q2)*
