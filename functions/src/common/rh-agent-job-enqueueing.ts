@@ -9,7 +9,7 @@ import { getFunctions } from 'firebase-admin/functions';
 import { logger } from 'firebase-functions/v2';
 import { RH_AGENT_RUNS_COLLECTION, RH_AGENT_JOBS_SUBCOLLECTION } from './rh-agent-collections';
 import { RhAgentJobStatus, RhAgentJob, RhAgentTriggeredBy } from './rh-agent-runs';
-import { SymbolJobPayload, IntradaySnapshot } from './rh-agent-shared-types';
+import { SymbolJobPayload } from './rh-agent-shared-types';
 import { db, FieldValue } from '../firebase-admin-init';
 
 /**
@@ -22,7 +22,6 @@ import { db, FieldValue } from '../firebase-admin-init';
  * @param symbol Symbol to process.
  * @param marketDate Market date in YYYY-MM-DD format.
  * @param triggeredBy Who started the run (pdr/manual/nightly/symbol-added).
- * @param intraday Optional intraday snapshot for the symbol.
  */
 export async function createJobAndEnqueue(
   runId: string,
@@ -30,7 +29,6 @@ export async function createJobAndEnqueue(
   marketDate: string,
   runStartedAt: string,
   triggeredBy: RhAgentTriggeredBy = 'pdr',
-  intraday?: IntradaySnapshot
 ): Promise<void> {
   // Create job document
   const jobRef = db
@@ -56,7 +54,6 @@ export async function createJobAndEnqueue(
     marketDate,
     runStartedAt,
     triggeredBy,
-    intraday,
   };
 
   try {
@@ -85,7 +82,6 @@ export async function createJobAndEnqueue(
  * @param symbols Symbols to process.
  * @param marketDate Market date in YYYY-MM-DD format.
  * @param runStartedAt ISO timestamp when the run started.
- * @param intradayBySymbol Map of symbol -> intraday snapshot.
  * @param triggeredBy Who started the run (pdr/manual/nightly/symbol-added).
  * @returns Enqueue result: counts of enqueued and failed jobs.
  */
@@ -94,7 +90,6 @@ export async function enqueueSymbolJobs(
   symbols: string[],
   marketDate: string,
   runStartedAt: string,
-  intradayBySymbol: Map<string, IntradaySnapshot>,
   triggeredBy: RhAgentTriggeredBy,
 ): Promise<{ enqueued: number; failed: number }> {
   logger.info('rh_agent_enqueue_symbol_jobs_start', {
@@ -109,8 +104,7 @@ export async function enqueueSymbolJobs(
 
   for (const symbol of symbols) {
     try {
-      const intraday = intradayBySymbol.get(symbol);
-      await createJobAndEnqueue(runId, symbol, marketDate, runStartedAt, triggeredBy, intraday);
+      await createJobAndEnqueue(runId, symbol, marketDate, runStartedAt, triggeredBy);
       enqueued++;
       if (enqueued % 10 === 0) {
         logger.info('rh_agent_enqueue_symbol_jobs_progress', {

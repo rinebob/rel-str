@@ -11,7 +11,6 @@ import { logger } from 'firebase-functions/v2';
 import { PARTNER_DATA_READY_TOPIC } from '../webhooks/webhooks-config';
 
 import { getMarketDate } from '../common/rh-agent-run-creation';
-import { loadEnabledSymbols, fetchIntradaySnapshots } from '../common/rh-agent-symbol-source';
 import { startRhAgentRun } from '../common/rh-agent-orchestration';
 import { normalizeMarketDate } from '../common/pt-date-utils';
 
@@ -71,20 +70,10 @@ export const rhAgentPdrTrigger = onMessagePublished(
     });
 
     try {
-      // 1. Load enabled symbols
-      const symbols = await loadEnabledSymbols();
-      if (symbols.length === 0) {
-        logger.warn('rh_agent_pdr_no_symbols', { marketDate });
-        return;
-      }
+      // 1. Start the RH Agent run
+      const result = await startRhAgentRun(marketDate, 'pdr');
 
-      // 2. Fetch intraday snapshot for all symbols (one POST call to partnerIntradaySnapshotV2)
-      const intradaySnapshots = await fetchIntradaySnapshots(symbols, marketDate);
-
-      // 3. Start the RH Agent run — workers inject intraday bar themselves from task payload
-      await startRhAgentRun(marketDate, 'pdr', intradaySnapshots);
-
-      logger.info('rh_agent_pdr_success', { marketDate, symbolCount: symbols.length });
+      logger.info('rh_agent_pdr_success', { marketDate, symbolCount: result.symbolCount });
     } catch (error: any) {
       logger.error('rh_agent_pdr_error', {
         marketDate,
@@ -111,18 +100,8 @@ export const rhAgentTriggerDaily = onRequest(
       const marketDate = req.query.date as string || getMarketDate();
       logger.info('rh_agent_manual_trigger_market_date', { marketDate, isOverride: !!req.query.date });
 
-      // 1. Load enabled symbols
-      const symbols = await loadEnabledSymbols();
-      if (symbols.length === 0) {
-        res.status(200).json({ success: false, error: 'No symbols to process' });
-        return;
-      }
-
-      // 2. Fetch intraday snapshot so manual runs also see today's price
-      const intradaySnapshots = await fetchIntradaySnapshots(symbols, marketDate);
-
-      // 3. Start the run — workers inject intraday bar themselves from task payload
-      const result = await startRhAgentRun(marketDate, 'manual', intradaySnapshots);
+      // 1. Start the run
+      const result = await startRhAgentRun(marketDate, 'manual');
 
       res.status(200).json({
         success: true,

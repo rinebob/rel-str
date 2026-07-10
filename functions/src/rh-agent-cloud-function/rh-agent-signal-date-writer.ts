@@ -45,7 +45,6 @@ export class SignalDateWriter {
     runStartedAt: string,
     marketDate: string,
     entries: RhAgentSignalEntry[],
-    _intraday: boolean,
     triggeredBy?: RhAgentTriggeredBy
   ): Promise<number> {
     if (entries.length === 0) return 0;

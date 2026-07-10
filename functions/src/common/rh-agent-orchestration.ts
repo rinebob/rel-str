@@ -10,7 +10,6 @@ import { createDailyRun, getDeadlineISO } from './rh-agent-run-creation';
 import { enqueueSymbolJobs } from './rh-agent-job-enqueueing';
 import { loadEnabledSymbols } from './rh-agent-symbol-source';
 import { RhAgentTriggeredBy } from './rh-agent-runs';
-import { IntradaySnapshot } from './rh-agent-shared-types';
 
 /**
  * Start RH Agent run - shared logic for all trigger types.
@@ -19,7 +18,6 @@ import { IntradaySnapshot } from './rh-agent-shared-types';
 export async function startRhAgentRun(
   marketDate: string,
   triggeredBy: RhAgentTriggeredBy,
-  intradaySnapshots: IntradaySnapshot[] = []
 ): Promise<{ runId: string; marketDate: string; symbolCount: number; enqueued: number; failed: number; duration: number }> {
   const startTime = Date.now();
 
@@ -50,14 +48,11 @@ export async function startRhAgentRun(
   });
 
   // 4. Enqueue Cloud Tasks for all symbols
-  // Pass intraday data in payload so workers don't need to fetch
-  const intradayBySymbol = new Map(intradaySnapshots.map(s => [s.symbol, s]));
   const { enqueued, failed } = await enqueueSymbolJobs(
     runId,
     symbols,
     marketDate,
     runStartedAt,
-    intradayBySymbol,
     triggeredBy,
   );
 
@@ -67,7 +62,6 @@ export async function startRhAgentRun(
     marketDate,
     triggeredBy,
     symbolCount: symbols.length,
-    intradayCount: intradaySnapshots.length,
     enqueued,
     failed,
     duration,

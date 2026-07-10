@@ -4,14 +4,12 @@
  * HTTP callable functions for manual agent trigger and status queries.
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { callPartnerIntradaySnapshotV2 } from '../partner-proxy';
 import { logger } from 'firebase-functions';
 import { db } from '../firebase-admin-init';
 import { getMarketDate, getDeadlineISO, createDailyRun } from '../common/rh-agent-run-creation';
-import { fetchIntradaySnapshots, loadEnabledSymbols } from '../common/rh-agent-symbol-source';
+import { loadEnabledSymbols } from '../common/rh-agent-symbol-source';
 import { enqueueSymbolJobs } from '../common/rh-agent-job-enqueueing';
 import { normalizeMarketDate } from '../common/pt-date-utils';
-import type { PartnerIntradaySnapshotResponse } from '../types/partner';
 import {
   RH_AGENT_RUNS_COLLECTION,
   RH_AGENT_STATUS_COLLECTION,
@@ -46,16 +44,6 @@ interface AgentStatusResponse {
   totalSignalsGenerated: number;
   symbolsMonitored: string[];
   schedule: string;
-}
-
-interface IntradaySnapshotRequest {
-  symbol: string;
-}
-
-interface IntradaySnapshotResponse {
-  symbol: string;
-  ip: number | null;
-  marketDate: string;
 }
 
 interface RunHistoryResponse {
@@ -106,10 +94,7 @@ export const rhAgentManualRun = onCall<ManualRunRequest, Promise<ManualRunRespon
         throw new HttpsError('invalid-argument', 'No symbols to process');
       }
 
-      // 3. Fetch intraday snapshot so Run Now also sees today's price
-      const intradaySnapshots = await fetchIntradaySnapshots(symbols, marketDate);
-
-      // 4. Create run document with 30-minute deadline
+      // 3. Create run document with 30-minute deadline
       const deadlineAt = getDeadlineISO(30);
       const runStartedAt = new Date().toISOString();
       const runId = await createDailyRun(marketDate, symbols.length, deadlineAt, 'manual');
@@ -119,14 +104,12 @@ export const rhAgentManualRun = onCall<ManualRunRequest, Promise<ManualRunRespon
         symbolCount: symbols.length,
       });
 
-      // 5. Enqueue Cloud Tasks for all symbols (intraday snapshot in each payload)
-      const intradayBySymbol = new Map(intradaySnapshots.map(s => [s.symbol, s]));
+      // 4. Enqueue Cloud Tasks for all symbols
       const { enqueued: enqueuedCount, failed: failedCount } = await enqueueSymbolJobs(
         runId,
         symbols,
         marketDate,
         runStartedAt,
-        intradayBySymbol,
         'manual',
       );
 
@@ -248,38 +231,3 @@ export const rhAgentGetRunHistory = onCall<{ limit?: number }, Promise<RunHistor
   }
 );
 
-/**
- * Fetch the current intraday price for a single symbol.
- * Used by the frontend chart service to synthesize today's partial bar when
- * symbol-data does not yet contain a bar for today (last daily bar date < today).
- *
- * Passes a single-element array to callPartnerIntradaySnapshotV2 (the SA
- * endpoint accepts { symbols: string[] } so no separate endpoint is needed).
- * Returns ip: null if SA returns no data (outside market hours, unknown symbol,
- * endpoint error) — the caller renders symbol-data bars as-is without injecting a bar.
- */
-export const rhAgentGetIntradaySnapshot = onCall<IntradaySnapshotRequest, Promise<IntradaySnapshotResponse>>(
-  { cors: RH_AGENT_ALLOWED_ORIGINS },
-  async (request) => {
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'Must be signed in');
-    }
-
-    const { symbol } = request.data;
-    if (!symbol || typeof symbol !== 'string') {
-      throw new HttpsError('invalid-argument', 'symbol is required');
-    }
-
-    const marketDate = getMarketDate();
-
-    try {
-      const response: PartnerIntradaySnapshotResponse = await callPartnerIntradaySnapshotV2([symbol]);
-      const snapshot = response.snapshots?.find(s => s.symbol === symbol);
-      const ip = snapshot?.ip != null && Number.isFinite(snapshot.ip) ? snapshot.ip : null;
-      return { symbol, ip, marketDate };
-    } catch (err: any) {
-      logger.warn('rh_agent_get_intraday_snapshot_failed', { symbol, error: err?.message });
-      return { symbol, ip: null, marketDate };
-    }
-  }
-);

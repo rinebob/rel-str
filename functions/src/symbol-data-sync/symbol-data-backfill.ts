@@ -18,7 +18,6 @@ import {
   SYMBOL_DATA_COLLECTION,
   SYMBOL_BARS_DAILY_SUBCOL,
 } from '../webhooks/webhooks-config';
-import { RH_AGENT_SYMBOLS_COLLECTION } from '../common/rh-agent-collections';
 
 // ============================================================================
 // Constants
@@ -90,9 +89,8 @@ function daysSince(dateStr: string): number {
  *   - symbol-data/{SYMBOL}/weekly/all    — flat OhlcBar[] (bounded, single doc)
  *   - symbol-data/{SYMBOL}/monthly/all   — flat OhlcBar[] (bounded, single doc)
  *   - symbol-data/{SYMBOL} metadata      — lastDailyBarDate, lastWeeklyBarDate, etc.
- *   - rh-agent-symbols/{SYMBOL}          — upsert {symbol, enabled:true} (merge) so
- *                                          the agent enable list stays in sync automatically.
  *
+ * Pure data-sync: no side-effects on other collections.
  * Staleness and incremental logic mirrors the original syncSymbol behavior.
  */
 export async function syncSymbolToSymbolData(symbol: string, forceFullFetch: boolean): Promise<SyncResult> {
@@ -193,14 +191,6 @@ export async function syncSymbolToSymbolData(symbol: string, forceFullFetch: boo
         lastMonthlyBarDate,
         lastBarSyncedAt: FieldValue.serverTimestamp(),
       },
-      { merge: true },
-    );
-
-    // -----------------------------------------------------------------------
-    // rh-agent-symbols upsert — keeps agent enable list in sync automatically
-    // -----------------------------------------------------------------------
-    await db.collection(RH_AGENT_SYMBOLS_COLLECTION).doc(symbol).set(
-      { symbol, enabled: true },
       { merge: true },
     );
 

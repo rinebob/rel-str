@@ -26,7 +26,6 @@ export interface SignalPersistenceResult {
  * @param runId Run ID.
  * @param marketDate YYYY-MM-DD run date.
  * @param runStartedAt ISO run start timestamp.
- * @param intraday Whether this is an intraday run.
  * @param results Strategy outputs.
  * @param triggeredBy Optional trigger source ('manual' | 'pdr' | 'nightly').
  */
@@ -35,7 +34,6 @@ export async function persistSymbolSignals(
   runId: string,
   marketDate: string,
   runStartedAt: string,
-  intraday: boolean,
   results: StrategyOutput[],
   triggeredBy?: string,
   barStatusByTimeframe?: Record<'D' | 'W' | 'M', -1 | 0 | 1 | undefined>,
@@ -53,7 +51,7 @@ export async function persistSymbolSignals(
   const writer = new SignalDateWriter(symbol);
   const barDatePromises: Promise<number>[] = [];
   for (const [, dateEntries] of byBarDate) {
-    barDatePromises.push(writer.persistBarDate(runId, runStartedAt, marketDate, dateEntries, intraday, triggeredBy as any));
+    barDatePromises.push(writer.persistBarDate(runId, runStartedAt, marketDate, dateEntries, triggeredBy as any));
   }
 
   const counts = await Promise.all(barDatePromises);

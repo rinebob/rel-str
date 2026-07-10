@@ -13,8 +13,8 @@
 import { onTaskDispatched } from 'firebase-functions/v2/tasks';
 import { logger } from 'firebase-functions/v2';
 
-import { loadSymbolBars, verifyDataFreshness } from './rh-agent-data-loader';
-import { syncIntradayWmToSymbolData } from '../symbol-data-sync/intraday-wm-sync';
+import { loadSymbolBars } from './rh-agent-data-loader';
+import { syncSymbolToSymbolData } from '../symbol-data-sync/symbol-data-backfill';
 import { persistSymbolSignals } from './rh-agent-signal-persister';
 import { RunProgressTracker } from './rh-agent-run-progress';
 
@@ -29,9 +29,6 @@ const DEFAULT_STRATEGY = StrategyId.ST_TREND_RIDER;
 
 // Minimum daily bars required before a strategy is executed
 const MIN_REQUIRED_BARS = 45;
-
-// Feature flags
-const REQUIRE_FRESH_DATA = false; // Set to true for production - checks that data is from today
 
 /**
  * Cloud Task worker for analyzing a single symbol.
@@ -53,7 +50,7 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
     // secrets: [ANTHROPIC_API_KEY], // Temporarily disabled for testing
   },
   async (req) => {
-    const { runId, symbol, marketDate, runStartedAt, intraday, triggeredBy } = req.data;
+    const { runId, symbol, marketDate, runStartedAt, triggeredBy } = req.data;
     const startTime = Date.now();
     const progress = new RunProgressTracker(runId, symbol);
 
@@ -63,14 +60,16 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
       // 1. Mark job as in-progress
       await progress.markInProgress();
 
-      // 2. Refresh weekly/monthly intraday bars from SA before loading cached bars.
-      //    This keeps symbol-data up to date during the trading day; daily is still
-      //    injected from the intraday snapshot in loadSymbolBars.
-      if (intraday) {
-        await syncIntradayWmToSymbolData(symbol, marketDate);
+      // 2. Refresh D/W/M bars from SA before loading cached bars.
+      //    Incremental sync fetches the latest 14 daily bars (including today's full
+      //    intraday OHLCV bar from SA) and writes them into symbol-data.
+      //    Skipped on nightly runs — nightly sync already wrote fresh bars before
+      //    the worker was enqueued.
+      if (triggeredBy !== 'nightly') {
+        await syncSymbolToSymbolData(symbol, false);
       }
 
-      // 3. Load cached bars (injects today's intraday price as a partial bar)
+      // 3. Load cached bars
       const {
         dailyBars,
         weeklyBars,
@@ -82,32 +81,20 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
       } = await loadSymbolBars(
         symbol,
         marketDate,
-        !!intraday,
         runId,
-        intraday ?? null,
         MIN_REQUIRED_BARS,
       );
 
       if (!sufficient) {
-        logger.warn('rh_agent_worker_insufficient_data', { runId, symbol, barCount: dailyBars.length, required: MIN_REQUIRED_BARS, hasIntraday: !!intraday });
+        logger.warn('rh_agent_worker_insufficient_data', { runId, symbol, barCount: dailyBars.length, required: MIN_REQUIRED_BARS });
         await progress.markComplete('SUCCESS', false, undefined, 0);
         return;
       }
 
-      // 2b. Verify data freshness
-      if (REQUIRE_FRESH_DATA) {
-        const isFresh = verifyDataFreshness(dailyBars, marketDate, runId, symbol);
-        if (!isFresh) {
-          logger.warn('rh_agent_worker_stale_data', { runId, symbol, marketDate });
-          await progress.markComplete('SUCCESS', false, undefined, 0);
-          return;
-        }
-      }
-
-      // 3. Load strategy from registry
+      // 4. Load strategy from registry
       const strategy = strategyRegistry.get(DEFAULT_STRATEGY);
 
-      // 4. Validate minimum data requirements
+      // 5. Validate minimum data requirements
       if (dailyBars.length < strategy.metadata.minBarsRequired) {
         logger.warn('rh_agent_worker_insufficient_bars_for_strategy', {
           runId, symbol, barCount: dailyBars.length,
@@ -117,19 +104,18 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
         return;
       }
 
-      // 5. Execute strategy
+      // 6. Execute strategy
       const strategyInput: StrategyInput = {
         symbol,
         marketDate,
         bars: dailyBars,
         weeklyBars,
         monthlyBars,
-        intraday,
       };
 
       const results = await executeStrategy(strategy, strategyInput, runId);
 
-      // 6. Persist signals
+      // 7. Persist signals
       const barStatusByTimeframe = {
         D: lastDailyBarStatus,
         W: lastWeeklyBarStatus,
@@ -140,13 +126,12 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
         runId,
         marketDate,
         runStartedAt,
-        !!intraday,
         results,
         triggeredBy,
         barStatusByTimeframe,
       );
 
-      // 7. Mark job complete
+      // 8. Mark job complete
       await progress.markComplete('SUCCESS', opportunityCount > 0, undefined, opportunityCount);
 
       const duration = Date.now() - startTime;

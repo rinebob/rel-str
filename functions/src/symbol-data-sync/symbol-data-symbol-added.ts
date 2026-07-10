@@ -23,6 +23,8 @@ import {
   getRunIdPT,
 } from '../common/pt-date-utils';
 import { syncSymbolToSymbolData } from './symbol-data-backfill';
+import { db } from '../firebase-admin-init';
+import { RH_AGENT_SYMBOLS_COLLECTION } from '../common/rh-agent-collections';
 
 interface SymbolAddedPayloadV1 {
   version: 'v1';
@@ -121,6 +123,12 @@ export const processSymbolAdded = onMessagePublished(
           if (result.status !== 'ok') {
             return { symbol, ok: false, error: result.error ?? 'backfill not ok' };
           }
+
+          // Enable the symbol for RH Agent scanning
+          await db.collection(RH_AGENT_SYMBOLS_COLLECTION).doc(symbol).set(
+            { symbol, enabled: true },
+            { merge: true },
+          );
 
           // Trigger a single-symbol RH Agent run so the symbol is reviewable
           // immediately instead of waiting for the next nightly/PDR run.

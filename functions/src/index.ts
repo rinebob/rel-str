@@ -109,7 +109,6 @@ export {
   rhAgentManualRun,
   rhAgentGetStatus,
   rhAgentGetRunHistory,
-  rhAgentGetIntradaySnapshot,
 } from './rh-agent-cloud-function/rh-agent-callables';
 
 // RH Agent Company Overview Sync (Phase 1)

@@ -6,7 +6,6 @@
  */
 
 import { StSignalDirection } from '../rh-agent-signals';
-import { IntradaySnapshot } from '../../common/rh-agent-shared-types';
 
 // =============================================================================
 // STRATEGY INPUT (What the worker provides to every strategy)
@@ -18,7 +17,6 @@ export interface StrategyInput {
   bars: OHLCV[];
   weeklyBars?: OHLCV[];
   monthlyBars?: OHLCV[];
-  intraday?: IntradaySnapshot;
   context?: StrategyContext;
 }
 
