@@ -2,26 +2,17 @@
  * RH Agent Chart Service
  *
  * Reads OHLC bars for a symbol from the `symbol-data/{symbol}` Firestore subcollections.
- * Eliminates the 1–3s SA round-trip on every chart open.
- *
- * When the nightly EOD sync has not yet run today (last daily bar date < today),
- * fetches the current intraday price and synthesizes partial bars:
- *   - Daily: single bar { d:today, o:ip, h:ip, l:ip, c:ip }
- *   - Weekly: aggregated from all daily bars in the current ISO week, close = ip
- *   - Monthly: aggregated from all daily bars in the current calendar month, close = ip
- *
- * If the intraday callable returns ip: null (market closed, unknown symbol, etc.),
- * bars are returned as-is from Firestore with no partial bar injected.
+ * SA writes full intraday OHLCV bars on every PDR run, so symbol-data always contains
+ * today's bar after the first intraday run. No partial-bar synthesis needed.
  */
 import { Injectable, inject } from '@angular/core';
 import { Firestore, doc, getDoc, getDocs, collection } from '@angular/fire/firestore';
-import { Observable, from, of, switchMap } from 'rxjs';
+import { Observable, from, of } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
 
 import { BarsInterval } from '../../../core/models/partner.types';
 import type { ChartDataset, PriceBar } from '../../heatmap-chart/heatmap-chart.types';
-import { RhAgentRunService } from './rh-agent-run.service';
-import { todayDate, toDatePt } from '../utils/rh-agent.utils';
+import { toDatePt } from '../utils/rh-agent.utils';
 
 // ============================================================================
 // Types (mirrors canonical backend OhlcBar in functions/src/rh-agent-cloud-function/rh-agent-types.ts)
@@ -41,7 +32,6 @@ interface SymbolBarsResult {
   weekly: OhlcBar[];
   monthly: OhlcBar[];
   version: string;
-  lastDailyBarDate?: string;
 }
 
 interface SymbolBarsFlatDoc {
@@ -74,14 +64,6 @@ function toPrice(b: OhlcBar): PriceBar {
   };
 }
 
-/**
- * Replace the last bar if its date matches `bar.d`, otherwise append.
- */
-function replaceOrAppend(bars: OhlcBar[], bar: OhlcBar): OhlcBar[] {
-  const last = bars[bars.length - 1];
-  return last?.d === bar.d ? [...bars.slice(0, -1), bar] : [...bars, bar];
-}
-
 // ============================================================================
 // Service
 // ============================================================================
@@ -89,46 +71,22 @@ function replaceOrAppend(bars: OhlcBar[], bar: OhlcBar): OhlcBar[] {
 @Injectable({ providedIn: 'root' })
 export class RhAgentChartService {
   private readonly firestore = inject(Firestore);
-  private readonly runService = inject(RhAgentRunService);
 
   private readonly SYMBOL_DATA_COLLECTION = 'symbol-data';
 
   /**
    * Load D/W/M ChartDatasets for a symbol from symbol-data subcollections.
-   * Injects today's partial bars if the nightly EOD sync has not yet run.
    * Returns a version string so callers can key the indicator cache.
    */
   loadBars$(symbol: string): Observable<{ daily: ChartDataset; weekly: ChartDataset; monthly: ChartDataset; version: string }> {
     return from(this.fetchSymbolBars(symbol)).pipe(
-      switchMap(result => {
+      map(result => {
         if (!result) {
-          return of({ ...this.emptyDatasets(symbol), version: '' });
+          return { ...this.emptyDatasets(symbol), version: '' };
         }
-
-        const today = todayDate();
-        const needsIntraday = this.needsIntradayFetchFromResult(result, today);
-        const version = result.version || result.lastDailyBarDate || today;
-
-        if (!needsIntraday) {
-          return of({ ...this.buildDatasets(symbol, result.daily, result.weekly, result.monthly), version });
-        }
-
-        return this.runService.getIntradaySnapshot$(symbol).pipe(
-          map(snapshot => {
-            const ip = snapshot.ip;
-            if (ip === null) {
-              return { ...this.buildDatasets(symbol, result.daily, result.weekly, result.monthly), version };
-            }
-            return { ...this.buildDatasetsWithIntraday(symbol, result.daily, result.weekly, result.monthly, ip, today), version };
-          }),
-          catchError(() => {
-            return of({ ...this.buildDatasets(symbol, result.daily, result.weekly, result.monthly), version });
-          })
-        );
+        return { ...this.buildDatasets(symbol, result.daily, result.weekly, result.monthly), version: result.version };
       }),
-      catchError(() => {
-        return of({ ...this.emptyDatasets(symbol), version: '' });
-      })
+      catchError(() => of({ ...this.emptyDatasets(symbol), version: '' }))
     );
   }
 
@@ -163,37 +121,7 @@ export class RhAgentChartService {
       weekly,
       monthly,
       version: rootData.lastDailyBarDate ?? allDaily[allDaily.length - 1]?.d ?? '',
-      lastDailyBarDate: rootData.lastDailyBarDate,
     };
-  }
-
-  /**
-   * Returns true if the nightly EOD sync has not yet run today.
-   * Infers from last bar date: if the most recent daily bar predates today
-   * the EOD write hasn't landed yet and we should fetch intraday.
-   *
-   * DISABLED: SA is transitioning to full intraday OHLCV bars written into
-   * the standard o/h/l/c/v fields. Keeping i* fields populated in parallel
-   * until the new bar is confirmed stable. Re-enable once stable.
-   */
-  private needsIntradayFetchFromResult(_result: SymbolBarsResult, _today: string): boolean {
-    return false;
-  }
-
-  private buildDatasetsWithIntraday(
-    symbol: string,
-    daily: OhlcBar[],
-    weekly: OhlcBar[],
-    monthly: OhlcBar[],
-    ip: number,
-    today: string
-  ): { daily: ChartDataset; weekly: ChartDataset; monthly: ChartDataset } {
-    // Daily: simple partial bar (replace today's EOD bar if already present, else append).
-    // Weekly/monthly are sourced directly from symbol-data; SA owns their aggregation.
-    const partialDaily: OhlcBar = { d: today, o: ip, h: ip, l: ip, c: ip };
-    const updatedDaily = replaceOrAppend(daily, partialDaily);
-
-    return this.buildDatasets(symbol, updatedDaily, weekly, monthly);
   }
 
   private buildDatasets(

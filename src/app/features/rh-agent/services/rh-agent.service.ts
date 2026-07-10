@@ -62,10 +62,6 @@ export class RhAgentService {
     return this.runService.getRunHistory(limitCount);
   }
 
-  getIntradaySnapshot$(symbol: string): Observable<{ symbol: string; ip: number | null; marketDate: string }> {
-    return this.runService.getIntradaySnapshot$(symbol);
-  }
-
   watchRecentRunsRealtime(count = 20): Observable<RhAgentRun[]> {
     return this.runService.watchRecentRunsRealtime(count);
   }

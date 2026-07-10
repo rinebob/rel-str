@@ -1,8 +1,8 @@
 /**
  * RH Agent Run Service
  *
- * Focused service for manual runs, agent status, run history, and
- * intraday snapshots. Extracted from the monolithic RhAgentService.
+ * Focused service for manual runs, agent status, and run history.
+ * Extracted from the monolithic RhAgentService.
  */
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
@@ -78,18 +78,6 @@ export class RhAgentRunService {
       'rhAgentGetRunHistory'
     );
     return from(callable({ limit: limitCount })).pipe(map((result) => result.data.runs));
-  }
-
-  /**
-   * Fetch the current intraday price for a single symbol.
-   * Returns ip: null if SA has no data (outside market hours, unknown symbol, etc.).
-   */
-  getIntradaySnapshot$(symbol: string): Observable<{ symbol: string; ip: number | null; marketDate: string }> {
-    const callable = httpsCallable<{ symbol: string }, { symbol: string; ip: number | null; marketDate: string }>(
-      this.functions,
-      'rhAgentGetIntradaySnapshot'
-    );
-    return from(callable({ symbol })).pipe(map(result => result.data));
   }
 
   /**
