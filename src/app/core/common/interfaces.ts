@@ -37,7 +37,7 @@ export enum AppRoutes {
 	DECISION_BOARD = 'decision-board',
 	RH_AGENT = 'rh-agent',
 	CHART_REVIEW = 'chart-review',
-	RH_AGENT_GROUPED_REVIEW = 'rh-agent-grouped-review',
+	SIGNAL_REVIEW = 'signal-review',
 	RH_AGENT_ORDER = 'rh-agent-order',
 	RH_AGENT_TRIAGE_REPORT = 'rh-agent-triage-report',
 	SIGNAL_HISTORY = 'signal-history',

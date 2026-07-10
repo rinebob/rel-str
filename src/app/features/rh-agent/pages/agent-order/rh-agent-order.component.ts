@@ -195,9 +195,9 @@ export class RhAgentOrderComponent implements OnInit {
     }
   }
 
-  /** Navigate back to the grouped review page. */
+  /** Navigate back to the signal review page. */
   goBack(): void {
-    this.router.navigate(['/rh-agent-grouped-review']);
+    this.router.navigate(['/signal-review']);
   }
 
   /** Navigate to the review page. */

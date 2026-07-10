@@ -1,7 +1,7 @@
 /**
  * Status Summary Chips
  *
- * Reusable status-count chips used in the grouped-review header and group headers.
+ * Reusable status-count chips used in the signal-review header and group headers.
  */
 import { Component, ChangeDetectionStrategy, input } from '@angular/core';
 import { CommonModule } from '@angular/common';

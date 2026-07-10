@@ -104,13 +104,13 @@ export class RhAgentDashboardComponent {
     this.store.triggerManualRun(undefined);
   }
 
-  /** Navigate to the grouped review page, pre-seeding the active run from the latest run. */
-  goToGroupedReview(): void {
+  /** Navigate to the signal review page, pre-seeding the active run from the latest run. */
+  goToSignalReview(): void {
     const latest = this.store.latestRun();
     if (latest?.id && latest?.marketDate) {
       this.groupStore.setActiveRun(latest.id, latest.marketDate);
     }
-    this.router.navigate(['/rh-agent-grouped-review']);
+    this.router.navigate(['/signal-review']);
   }
 
   /** Review signals for a specific run selected from the run history panel. */
@@ -119,7 +119,7 @@ export class RhAgentDashboardComponent {
     if (run.id && run.marketDate) {
       this.groupStore.setActiveRun(run.id, run.marketDate);
     }
-    this.router.navigate(['/rh-agent-grouped-review']);
+    this.router.navigate(['/signal-review']);
   }
 
   /** Trigger a full company overview sync and show a snackbar with the result. */

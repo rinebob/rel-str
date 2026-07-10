@@ -102,9 +102,9 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.ChartReviewComponent),
                 canActivate: [authGuard],
             },
-            {path: AppRoutes.RH_AGENT_GROUPED_REVIEW,
-                loadComponent: () => import('../features/rh-agent/pages/agent-grouped-review/rh-agent-grouped-review.component')
-                .then(mod => mod.RhAgentGroupedReviewComponent),
+            {path: AppRoutes.SIGNAL_REVIEW,
+                loadComponent: () => import('../features/rh-agent/pages/signal-review/signal-review.component')
+                .then(mod => mod.SignalReviewComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.RH_AGENT_ORDER,

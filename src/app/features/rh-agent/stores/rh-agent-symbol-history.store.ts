@@ -2,7 +2,7 @@
  * RH Agent Symbol History Store
  *
  * Owns per-symbol signal history loading and caching.
- * Decoupled from the grouped-review store so any page can load a symbol's
+ * Decoupled from the signal-review store so any page can load a symbol's
  * history without pulling in the full group state.
  *
  * Responsibilities:
@@ -42,7 +42,7 @@ export const RhAgentSymbolHistoryStore = signalStore(
   withMethods((state, signalService = inject(RhAgentSignalService), destroyRef = inject(DestroyRef), injector = inject(EnvironmentInjector)) => ({
     /**
      * Load signals for a symbol from a specific run (run-ids/{runId}).
-     * Used by grouped review — shows only signals from the active run.
+     * Used by signal review — shows only signals from the active run.
      * Cache key: `${symbol}::${runId}` to avoid conflicts with all-history cache.
      */
     loadSignalHistoryForRun(symbol: string, runId: string): void {

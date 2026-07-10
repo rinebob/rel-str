@@ -1,9 +1,9 @@
 /**
- * RH Agent Grouped Review Component
+ * Signal Review Component
  *
- * Symbol-centric grouped review UI.
+ * Symbol-centric signal review UI.
  * Replaces the flat signal list with sector/industry expansion panels.
- * URL: /rh-agent-grouped-review
+ * URL: /signal-review
  */
 import {
   Component,
@@ -32,27 +32,27 @@ import { RhAgentSymbolListStore } from '../../stores/rh-agent-symbol-list.store'
 import { RhAgentSymbolHistoryStore } from '../../stores/rh-agent-symbol-history.store';
 import { RhReviewStatus, RhSymbolListName } from '../../common/rh-agent.constants';
 import { UiStateService } from '../../../../core/services/ui-state.service';
-import { GroupedReviewHeaderComponent } from '../../components/grouped-review-header/grouped-review-header.component';
+import { SignalReviewHeaderComponent } from '../../components/signal-review-header/signal-review-header.component';
 import { GroupPanelComponent } from '../../components/group-panel/group-panel.component';
 import { QuickChartsPanelComponent } from '../../components/quick-charts-panel/quick-charts-panel.component';
 
 @Component({
-  selector: 'app-rh-agent-grouped-review',
+  selector: 'app-signal-review',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
-    GroupedReviewHeaderComponent,
+    SignalReviewHeaderComponent,
     GroupPanelComponent,
     QuickChartsPanelComponent,
   ],
-  templateUrl: './rh-agent-grouped-review.component.html',
-  styleUrl: './rh-agent-grouped-review.component.scss',
+  templateUrl: './signal-review.component.html',
+  styleUrl: './signal-review.component.scss',
   providers: [],
 })
-export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
+export class SignalReviewComponent implements OnInit, OnDestroy {
   readonly groupStore = inject(RhAgentGroupStore);
   readonly triageStore = inject(RhAgentTriageStore);
   readonly symbolListStore = inject(RhAgentSymbolListStore);
@@ -142,7 +142,7 @@ export class RhAgentGroupedReviewComponent implements OnInit, OnDestroy {
     this.groupStore.setGroupDimension(dim);
   }
 
-  /** Apply a list filter to the grouped review. */
+  /** Apply a list filter to the signal review. */
   onListFilter(filter: RhSymbolListName | 'ALL'): void {
     this.symbolListStore.setActiveListFilter(filter);
   }

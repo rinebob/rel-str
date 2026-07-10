@@ -1,6 +1,6 @@
-<div class="grouped-review" [class.fullscreen]="uiState.fullscreen()">
+<div class="signal-review" [class.fullscreen]="uiState.fullscreen()">
 
-  <app-grouped-review-header
+  <app-signal-review-header
     [totalSignalCount]="groupStore.totalSignalCount()"
     [weeklySignalCount]="groupStore.weeklySignalCount()"
     [dailySignalCount]="groupStore.dailySignalCount()"
@@ -29,7 +29,7 @@
     (toggleExpandAll)="toggleExpandAll()"
     (refresh)="groupStore.loadSymbolsWithSignals()"
     (toggleFullscreen)="uiState.toggleFullscreen()">
-  </app-grouped-review-header>
+  </app-signal-review-header>
 
   @if (groupStore.symbolsLoading()) {
     <div class="loading-overlay">

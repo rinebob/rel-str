@@ -74,7 +74,7 @@ export { RhAgentSymbolMetaService, RhSymbolMeta, RhSymbolMetaInput } from './ser
 export { RhAgentSymbolListService, RhSymbolList } from './services/rh-agent-symbol-list.service';
 
 // Components
-export { GroupedReviewHeaderComponent } from './components/grouped-review-header/grouped-review-header.component';
+export { SignalReviewHeaderComponent } from './components/signal-review-header/signal-review-header.component';
 export { GroupPanelComponent } from './components/group-panel/group-panel.component';
 export { SymbolRowComponent } from './components/symbol-row/symbol-row.component';
 export { SymbolSignalHistoryComponent } from './components/symbol-signal-history/symbol-signal-history.component';
@@ -91,7 +91,7 @@ export { AgentStatusBarComponent } from './components/agent-status-bar/agent-sta
 export { RunHistoryPanelComponent } from './components/run-history-panel/run-history-panel.component';
 
 export { RhAgentDashboardComponent } from './pages/agent-dashboard/rh-agent-dashboard.component';
-export { RhAgentGroupedReviewComponent } from './pages/agent-grouped-review/rh-agent-grouped-review.component';
+export { SignalReviewComponent } from './pages/signal-review/signal-review.component';
 export { ChartReviewComponent } from './pages/chart-review/chart-review.component';
 export { RhAgentOrderComponent } from './pages/agent-order/rh-agent-order.component';
 export { RhAgentTriageReportComponent } from './pages/agent-triage-report/rh-agent-triage-report.component';

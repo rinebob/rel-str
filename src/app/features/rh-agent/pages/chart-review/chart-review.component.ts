@@ -140,9 +140,9 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     this.manualSymbol.set(symbol);
   }
 
-  /** Navigate back to the grouped review page. */
-  goToGroupedReview(): void {
-    this.router.navigate(['/rh-agent-grouped-review']);
+  /** Navigate back to the signal review page. */
+  goToSignalReview(): void {
+    this.router.navigate(['/signal-review']);
   }
 
   /** Handle Enter key in the manual symbol input. */

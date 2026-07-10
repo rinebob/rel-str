@@ -1,7 +1,7 @@
 /**
- * Grouped Review Header
+ * Signal Review Header
  *
- * Top bar of the grouped review page: navigation, signal counts, status chips,
+ * Top bar of the signal review page: navigation, signal counts, status chips,
  * pipeline actions, group/list selectors, and view controls.
  */
 import { Component, ChangeDetectionStrategy, input, output } from '@angular/core';
@@ -16,7 +16,7 @@ import { RhSymbolListName, StatusCounts, GroupDimension } from '../../common/rh-
 import { StatusSummaryChipsComponent } from '../status-summary-chips/status-summary-chips.component';
 
 @Component({
-  selector: 'app-grouped-review-header',
+  selector: 'app-signal-review-header',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
@@ -28,10 +28,10 @@ import { StatusSummaryChipsComponent } from '../status-summary-chips/status-summ
     MatProgressSpinnerModule,
     StatusSummaryChipsComponent,
   ],
-  templateUrl: './grouped-review-header.component.html',
-  styleUrl: './grouped-review-header.component.scss',
+  templateUrl: './signal-review-header.component.html',
+  styleUrl: './signal-review-header.component.scss',
 })
-export class GroupedReviewHeaderComponent {
+export class SignalReviewHeaderComponent {
   totalSignalCount = input(0);
   weeklySignalCount = input(0);
   dailySignalCount = input(0);
@@ -76,5 +76,6 @@ export class GroupedReviewHeaderComponent {
   toggleShowAllSymbols = output<void>();
   toggleExpandAll = output<void>();
   refresh = output<void>();
+  clearTriage = output<void>();
   toggleFullscreen = output<void>();
 }

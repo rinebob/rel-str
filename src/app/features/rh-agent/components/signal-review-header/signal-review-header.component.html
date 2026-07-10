@@ -5,7 +5,7 @@
 
   <h1 class="gr-title">
     <mat-icon>psychology</mat-icon>
-    Grouped Review
+    Signal Review
   </h1>
 
   <div class="signal-counts">
@@ -45,6 +45,12 @@
       matTooltip="View PACR triage report">
       <mat-icon>assignment</mat-icon>
       Report
+    </button>
+    <button type="button" class="pill-btn small"
+      [disabled]="reviewCount() === 0 && acceptedCount() === 0"
+      (click)="clearTriage.emit()"
+      matTooltip="Clear review & order queues">
+      <mat-icon>playlist_remove</mat-icon>
     </button>
   </div>
 

@@ -191,9 +191,9 @@ export class RhAgentTriageReportComponent implements OnInit {
     URL.revokeObjectURL(url);
   }
 
-  /** Navigate back to the grouped review page. */
+  /** Navigate back to the signal review page. */
   goBack(): void {
-    this.router.navigate(['/rh-agent-grouped-review']);
+    this.router.navigate(['/signal-review']);
   }
 
   /** Return today's local date. */
