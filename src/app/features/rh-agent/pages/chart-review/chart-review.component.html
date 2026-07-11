@@ -2,6 +2,7 @@
   <app-review-header
     [selectedSymbol]="selectedReviewSymbol()"
     [manualSymbol]="manualSymbol()"
+    [companyName]="selectedSymbolName()"
     [status]="selectedSymbolStatus()"
     (back)="goToSignalReview()"
     (history)="goToSignalHistory()"

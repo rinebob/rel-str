@@ -12,7 +12,7 @@ import {
   patchState,
 } from '@ngrx/signals';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { of, catchError, finalize, Subscription } from 'rxjs';
+import { of, catchError, finalize, map, Subscription } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import {
@@ -80,7 +80,8 @@ export const RhAgentStore = signalStore(
       // Start realtime runs stream (idempotent — only one listener at a time)
       if (!runsSubscription) {
         patchState(state, { runsStreaming: true });
-        runsSubscription = runService.watchRecentRunsRealtime(30).pipe(
+        runsSubscription = runService.watchRecentRunsRealtime(100).pipe(
+          map((runs) => runs.filter((r) => r.triggeredBy !== 'symbol-added')),
           catchError(() => {
             snackBar.open('Failed to stream runs', 'Dismiss', { duration: 5000 });
             return of([]);

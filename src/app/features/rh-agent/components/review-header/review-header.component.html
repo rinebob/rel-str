@@ -28,6 +28,10 @@
         </div>
         <div class="header-signal-info">
           <span class="symbol">{{ symbol }}</span>
+          @if (companyName()) {
+            <span class="company-name">{{ companyName() }}</span>
+          }
+          <span class="header-spacer"></span>
           <span class="reason">Queued for review</span>
         </div>
       </div>

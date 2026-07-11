@@ -38,7 +38,7 @@ export interface RhAgentRun {
   processedCount?: number;
   signalsGenerated?: number;
   summary?: string;
-  triggeredBy?: 'manual' | 'pdr' | 'nightly';
+  triggeredBy?: 'manual' | 'pdr' | 'nightly' | 'symbol-added';
 }
 
 /** Market cap tiers derived from SA overview data. */

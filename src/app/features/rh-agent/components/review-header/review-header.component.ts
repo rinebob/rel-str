@@ -20,6 +20,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 export class ReviewHeaderComponent {
   selectedSymbol = input<string | null>(null);
   manualSymbol = input<string | null>(null);
+  companyName = input<string | null>(null);
   status = input('PENDING');
 
   back = output<void>();
