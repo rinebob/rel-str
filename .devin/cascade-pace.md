@@ -13,3 +13,4 @@ When working with this user, proceed in measured steps.
 - Do not go 5–10 minutes without giving an update to the user.
 - **NEVER commit without first giving the user a detailed report of the changes.** Always summarize what changed, which files are affected, and the verification status before staging or committing. Wait for explicit user approval before proceeding to commit.
 - **When the user asks a question or challenges a design choice, respond first — do not write or edit code.** Discuss the approach, propose options, and wait for explicit approval before implementing any change. This applies to comments, code reviews, and design questions alike.
+- **Reuse the exact same terminal command for the same purpose** (e.g., always use `npx ng build --configuration development --project rel-str` for Angular build checks) so the user can add it to an allowlist. Avoid varying flags, pipes, or wrappers between runs.
