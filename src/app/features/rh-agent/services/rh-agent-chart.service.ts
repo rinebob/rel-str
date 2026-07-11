@@ -5,7 +5,7 @@
  * SA writes full intraday OHLCV bars on every PDR run, so symbol-data always contains
  * today's bar after the first intraday run. No partial-bar synthesis needed.
  */
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import { Firestore, doc, getDoc, getDocs, collection } from '@angular/fire/firestore';
 import { Observable, from, of } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
@@ -34,11 +34,7 @@ interface SymbolBarsResult {
   version: string;
 }
 
-interface SymbolBarsFlatDoc {
-  bars: OhlcBar[];
-}
-
-interface SymbolBarsYearDoc {
+interface OhlcBarsDoc {
   bars: OhlcBar[];
 }
 
@@ -71,6 +67,7 @@ function toPrice(b: OhlcBar): PriceBar {
 @Injectable({ providedIn: 'root' })
 export class RhAgentChartService {
   private readonly firestore = inject(Firestore);
+  private readonly injector = inject(EnvironmentInjector);
 
   private readonly SYMBOL_DATA_COLLECTION = 'symbol-data';
 
@@ -79,7 +76,7 @@ export class RhAgentChartService {
    * Returns a version string so callers can key the indicator cache.
    */
   loadBars$(symbol: string): Observable<{ daily: ChartDataset; weekly: ChartDataset; monthly: ChartDataset; version: string }> {
-    return from(this.fetchSymbolBars(symbol)).pipe(
+    return from(runInInjectionContext(this.injector, () => this.fetchSymbolBars(symbol))).pipe(
       map(result => {
         if (!result) {
           return { ...this.emptyDatasets(symbol), version: '' };
@@ -107,13 +104,13 @@ export class RhAgentChartService {
 
     const allDaily: OhlcBar[] = [];
     for (const shardDoc of yearShards.docs) {
-      const shardData = shardDoc.data() as SymbolBarsYearDoc;
+      const shardData = shardDoc.data() as OhlcBarsDoc;
       allDaily.push(...(shardData.bars ?? []));
     }
     allDaily.sort((a, b) => a.d.localeCompare(b.d));
 
-    const weekly: OhlcBar[] = (weeklySnap.data() as SymbolBarsFlatDoc | undefined)?.bars ?? [];
-    const monthly: OhlcBar[] = (monthlySnap.data() as SymbolBarsFlatDoc | undefined)?.bars ?? [];
+    const weekly: OhlcBar[] = (weeklySnap.data() as OhlcBarsDoc | undefined)?.bars ?? [];
+    const monthly: OhlcBar[] = (monthlySnap.data() as OhlcBarsDoc | undefined)?.bars ?? [];
     const rootData = rootSnap.exists() ? (rootSnap.data() as SymbolDataRootDoc) : {};
 
     return {
