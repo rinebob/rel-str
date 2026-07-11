@@ -41,6 +41,30 @@
   - `intraday-wm-sync.ts` is now dead code — to be deleted in the `i*` fields cleanup PR.
   - Docs updated: `RS-BARS-STORAGE-2607-01`, `RH-AGENT-SYMBOL-ONBOARDING-2607-01`.
 
+### 2026-07-10
+
+- RS-FE-FEAT-FLEXCHART / Crosshair performance and cleanup
+  - **Completed** the remaining FlexChart crosshair fixes from the third thermo-nuclear review:
+    - Disabled Syncfusion built-in crosshair and draw custom vertical/horizontal lines via DOM + `requestAnimationFrame` outside Angular zone.
+    - Throttled crosshair store/broadcast updates by bar index and rounded price.
+    - Cached crosshair line and price-label DOM refs with `afterNextRender`.
+    - `ChartSyncOverlayComponent` uses binary search over precomputed sorted timestamps and caches its own line elements.
+    - Crosshair now shows across the full chart height (including lower indicator panes); price label only follows in the primary Y-axis.
+    - Horizontal crosshair propagates to sibling charts even when the cursor is in lower panes by falling back to the hovered bar's close price.
+    - Moved lifecycle coordination and initial zoom logic into `ChartLifecycleFacade`; component reads axis state from the facade instead of the chart object.
+    - Reset `hovered` in `ChartViewportStore.resetViewport()`.
+  - **Cleanup from latest review pass**:
+    - Fixed stale `priceLabelEl` cache by rendering the label unconditionally and hiding it with CSS by default.
+    - Removed dead `TooltipService`, `CrosshairService`, tooltip config, and `(tooltipRender)` handler.
+    - Removed unused `#dateLabel`, `#priceLabel`, `#hoverVLine`, `#hoverHLine` template refs.
+    - Removed dead `ChartCrosshairCoordinator` service and broadcast calls.
+    - Throttled `ResizeObserver` callback with `requestAnimationFrame`.
+    - Converted numeric string attributes (`opacity`, `width`) to property bindings.
+    - Removed redundant `crosshairTooltip: { enable: false }` from `primaryXAxis`.
+    - Fixed single-bar `applyInitialZoom` edge case.
+  - **Docs updated**: `FLEX-CHART-ARCH-2607-01_flex-chart-component-decomposition-plan.md`.
+  - **Verification**: `npx ng build --configuration development --project rel-str` passes.
+
 ## End-of-Quarter Summary
 
 *(to be filled at end of Q2)*
