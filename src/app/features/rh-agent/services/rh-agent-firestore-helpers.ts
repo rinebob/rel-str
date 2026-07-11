@@ -4,13 +4,14 @@
  * Shared, low-level helpers used by the RH Agent frontend services.
  * These were duplicated across triage, symbol-list, and symbol-meta services.
  */
+import { EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import { Auth, authState } from '@angular/fire/auth';
 import { DocumentData, DocumentReference, getDoc, Timestamp } from '@angular/fire/firestore';
 import { Observable, map, take } from 'rxjs';
 
 /** Return the current user ID or throw if not authenticated. */
-export function requireUserId(auth: Auth): Observable<string> {
-  return authState(auth).pipe(
+export function requireUserId(auth: Auth, injector: EnvironmentInjector): Observable<string> {
+  return runInInjectionContext(injector, () => authState(auth)).pipe(
     take(1),
     map((user) => {
       if (!user?.uid) throw new Error('Authentication required');

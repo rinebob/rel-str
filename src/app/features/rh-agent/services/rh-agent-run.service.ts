@@ -4,7 +4,7 @@
  * Focused service for manual runs, agent status, and run history.
  * Extracted from the monolithic RhAgentService.
  */
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { Auth, getIdToken } from '@angular/fire/auth';
@@ -26,6 +26,7 @@ export class RhAgentRunService {
   private firestore = inject(Firestore);
   private http = inject(HttpClient);
   private auth = inject(Auth);
+  private injector = inject(EnvironmentInjector);
 
   private readonly adminHttpUrl = 'https://us-central1-rel-str.cloudfunctions.net/symbolDataSyncAdminHttp';
 
@@ -51,33 +52,30 @@ export class RhAgentRunService {
    * Trigger a manual agent run.
    */
   triggerManualRun(request: ManualRunRequest = {}): Observable<ManualRunResponse> {
-    const callable = httpsCallable<ManualRunRequest, ManualRunResponse>(
-      this.functions,
-      'rhAgentManualRun'
-    );
-    return from(callable(request)).pipe(map((result) => result.data));
+    return from(runInInjectionContext(this.injector, () => {
+      const callable = httpsCallable<ManualRunRequest, ManualRunResponse>(this.functions, 'rhAgentManualRun');
+      return callable(request);
+    })).pipe(map((result) => result.data));
   }
 
   /**
    * Get the current agent status.
    */
   getStatus(): Observable<RhAgentStatus> {
-    const callable = httpsCallable<void, RhAgentStatus>(
-      this.functions,
-      'rhAgentGetStatus'
-    );
-    return from(callable()).pipe(map((result) => result.data));
+    return from(runInInjectionContext(this.injector, () => {
+      const callable = httpsCallable<void, RhAgentStatus>(this.functions, 'rhAgentGetStatus');
+      return callable();
+    })).pipe(map((result) => result.data));
   }
 
   /**
    * Get recent run history.
    */
   getRunHistory(limitCount = 20): Observable<RhAgentRun[]> {
-    const callable = httpsCallable<{ limit: number }, { runs: RhAgentRun[] }>(
-      this.functions,
-      'rhAgentGetRunHistory'
-    );
-    return from(callable({ limit: limitCount })).pipe(map((result) => result.data.runs));
+    return from(runInInjectionContext(this.injector, () => {
+      const callable = httpsCallable<{ limit: number }, { runs: RhAgentRun[] }>(this.functions, 'rhAgentGetRunHistory');
+      return callable({ limit: limitCount });
+    })).pipe(map((result) => result.data.runs));
   }
 
   /**
@@ -87,7 +85,7 @@ export class RhAgentRunService {
   watchRecentRunsRealtime(count = 20): Observable<RhAgentRun[]> {
     const runsRef = collection(this.firestore, this.runsCollection);
     const runsQuery = query(runsRef, orderBy('startedAt', 'desc'), limit(count));
-    return (collectionData(runsQuery, { idField: 'id' }) as Observable<any[]>).pipe(
+    return (runInInjectionContext(this.injector, () => collectionData(runsQuery, { idField: 'id' })) as Observable<any[]>).pipe(
       map(docs => docs.map(d => ({
         id: d['id'],
         status: d['status'] ?? '',

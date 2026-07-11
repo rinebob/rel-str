@@ -22,17 +22,15 @@ export class RhAgentSignalService {
   private firestore = inject(Firestore);
   private injector = inject(EnvironmentInjector);
 
-  private readonly symbolsWithSignalsCallable = httpsCallable<
-    { runId: string; timeframe: 'W' | 'D' },
-    { symbols: RhAgentSymbolProfile[] }
-  >(this.functions, 'rhAgentGetSymbolsWithSignals');
-
   /**
    * Primary grouped review query — run-centric.
    * Returns symbol profiles with a signal produced by the given runId for the given timeframe.
    */
   getSymbolsWithSignals(runId: string, timeframe: 'W' | 'D'): Observable<RhAgentSymbolProfile[]> {
-    return from(this.symbolsWithSignalsCallable({ runId, timeframe })).pipe(map((r) => r.data.symbols));
+    return from(runInInjectionContext(this.injector, () => {
+      const callable = httpsCallable<{ runId: string; timeframe: 'W' | 'D' }, { symbols: RhAgentSymbolProfile[] }>(this.functions, 'rhAgentGetSymbolsWithSignals');
+      return callable({ runId, timeframe });
+    })).pipe(map((r) => r.data.symbols));
   }
 
   /**
@@ -43,7 +41,7 @@ export class RhAgentSignalService {
     const ref = collection(this.firestore, 'rh-agent-symbols');
     const q = query(ref, where('enabled', '==', true));
     // Raw Firestore docs contain Timestamp fields; we map them to strings below.
-    return (collectionData(q, { idField: 'symbol' }) as Observable<any[]>).pipe(
+    return (runInInjectionContext(this.injector, () => collectionData(q, { idField: 'symbol' })) as Observable<any[]>).pipe(
       map(docs => docs.map(d => ({
         symbol: d.symbol,
         enabled: d.enabled ?? true,

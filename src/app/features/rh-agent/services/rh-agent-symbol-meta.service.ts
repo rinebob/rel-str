@@ -5,7 +5,7 @@
  * `rh-agent-symbol-meta` collection. Used for universe management:
  * exclude, demote, mark preferred, classify as ETF, etc.
  */
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import { Auth } from '@angular/fire/auth';
 import {
   Firestore,
@@ -60,6 +60,7 @@ export const SYMBOL_META_COLLECTION = 'rh-agent-symbol-meta';
 export class RhAgentSymbolMetaService {
   private readonly firestore = inject(Firestore);
   private readonly auth = inject(Auth);
+  private readonly injector = inject(EnvironmentInjector);
 
   private readonly metaCollection = collection(this.firestore, SYMBOL_META_COLLECTION);
 
@@ -67,8 +68,8 @@ export class RhAgentSymbolMetaService {
   loadSymbolMeta(symbols: string[]): Observable<Record<string, RhSymbolMeta>> {
     if (symbols.length === 0) return of({});
 
-    return requireUserId(this.auth).pipe(
-      switchMap(async (userId) => {
+    return requireUserId(this.auth, this.injector).pipe(
+      switchMap((userId) => runInInjectionContext(this.injector, async () => {
         const normalized = symbols.map((s) => s.toUpperCase());
         const chunks = chunkArray(normalized, 30);
         const map: Record<string, RhSymbolMeta> = {};
@@ -88,20 +89,20 @@ export class RhAgentSymbolMetaService {
         }
 
         return map;
-      })
+      }))
     );
   }
 
   /** Load all symbol meta for the user. */
   loadAllSymbolMeta(): Observable<RhSymbolMeta[]> {
-    return requireUserId(this.auth).pipe(
+    return requireUserId(this.auth, this.injector).pipe(
       switchMap((userId) => {
         const q = query(
           this.metaCollection,
           where('userId', '==', userId),
           orderBy('symbol', 'asc')
         );
-        return from(getDocs(q)).pipe(
+        return from(runInInjectionContext(this.injector, () => getDocs(q))).pipe(
           map((snapshot) => snapshot.docs.map((d) => this.toMeta(d.id, d.data())))
         );
       })
@@ -126,9 +127,9 @@ export class RhAgentSymbolMetaService {
   addSymbolsBatch(symbols: Array<{ symbol: string; type: SymbolType; tags?: string[] }>): Observable<void> {
     if (symbols.length === 0) return of(undefined);
 
-    return requireUserId(this.auth).pipe(
+    return requireUserId(this.auth, this.injector).pipe(
       take(1),
-      switchMap(async (userId) => {
+      switchMap((userId) => runInInjectionContext(this.injector, async () => {
         const batch = writeBatch(this.firestore);
         const now = Timestamp.now();
 
@@ -154,16 +155,16 @@ export class RhAgentSymbolMetaService {
         }
 
         await batch.commit();
-      }),
+      })),
       map(() => undefined)
     );
   }
 
   /** Full update of a symbol's meta record. */
   updateMeta(symbol: string, input: RhSymbolMetaInput): Observable<void> {
-    return requireUserId(this.auth).pipe(
+    return requireUserId(this.auth, this.injector).pipe(
       take(1),
-      switchMap(async (userId) => {
+      switchMap((userId) => runInInjectionContext(this.injector, async () => {
         const normalized = symbol.toUpperCase();
         const docRef = doc(this.firestore, SYMBOL_META_COLLECTION, normalized);
         const existing = await getDocData(docRef);
@@ -194,14 +195,14 @@ export class RhAgentSymbolMetaService {
         }
 
         await setDoc(docRef, payload, { merge: true });
-      }),
+      })),
       map(() => undefined)
     );
   }
 
   /** Listen to real-time changes for all symbol meta. */
   listenToAllSymbolMeta(): Observable<RhSymbolMeta[]> {
-    return requireUserId(this.auth).pipe(
+    return requireUserId(this.auth, this.injector).pipe(
       switchMap((userId) => {
         const q = query(
           this.metaCollection,

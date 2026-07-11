@@ -14,13 +14,17 @@ import {
   OnInit,
   OnDestroy,
   ChangeDetectionStrategy,
+  EnvironmentInjector,
+  runInInjectionContext,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
 
+import { Firestore, doc, getDoc } from '@angular/fire/firestore';
 import { RhAgentTriageStore } from '../../stores/rh-agent-triage.store';
+import { RhAgentGroupStore } from '../../stores/rh-agent-group.store';
 import { RhReviewStatus } from '../../common/rh-agent.constants';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { todayDate, daysAgoPt } from '../../utils/rh-agent.utils';
@@ -44,8 +48,11 @@ import { ReviewHeaderComponent } from '../../components/review-header/review-hea
 })
 export class ChartReviewComponent implements OnInit, OnDestroy {
   readonly triageStore = inject(RhAgentTriageStore);
+  readonly groupStore = inject(RhAgentGroupStore);
   readonly uiState = inject(UiStateService);
   private readonly router = inject(Router);
+  private readonly firestore = inject(Firestore);
+  private readonly injector = inject(EnvironmentInjector);
 
   /** Manual symbol input for quick chart viewing */
   manualSymbol = signal<string | null>(null);
@@ -55,6 +62,20 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
 
   /** Whether the review queue has symbols pending decision. */
   hasReviewSymbols = computed(() => this.triageStore.reviewSymbols().length > 0);
+
+  /** Cache of symbol -> company name fetched from Firestore. */
+  private symbolNameCache = signal<Record<string, string | null>>({});
+
+  /** Company name for the currently active symbol. */
+  selectedSymbolName = computed(() => {
+    const symbol = this.selectedReviewSymbol() ?? this.manualSymbol();
+    if (!symbol) return null;
+    const profile = this.groupStore.signalSymbols().find(p => p.symbol === symbol)
+      ?? this.groupStore.allSymbols().find(p => p.symbol === symbol);
+    if (profile?.name) return profile.name;
+    const cache = this.symbolNameCache();
+    return cache[symbol] ?? null;
+  });
 
   /** Status of the currently selected review symbol. */
   selectedSymbolStatus = computed(() => {
@@ -73,6 +94,27 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
       if (!this.selectedReviewSymbol() && !this.manualSymbol()) {
         this.selectedReviewSymbol.set(symbols[0]);
       }
+    });
+
+    /**
+     * Fetch company name from Firestore when the active symbol changes and
+     * isn't already in the group store or name cache.
+     */
+    effect(() => {
+      const symbol = this.selectedReviewSymbol() ?? this.manualSymbol();
+      if (!symbol) return;
+      const inGroupStore = this.groupStore.signalSymbols().find(p => p.symbol === symbol)
+        ?? this.groupStore.allSymbols().find(p => p.symbol === symbol);
+      if (inGroupStore?.name) return;
+      const cache = this.symbolNameCache();
+      if (symbol in cache) return;
+      this.symbolNameCache.update(c => ({ ...c, [symbol]: null }));
+      runInInjectionContext(this.injector, () =>
+        getDoc(doc(this.firestore, 'rh-agent-symbols', symbol))
+      ).then(snap => {
+        const name: string | null = snap.exists() ? (snap.data()['name'] ?? null) : null;
+        this.symbolNameCache.update(c => ({ ...c, [symbol]: name }));
+      });
     });
   }
 

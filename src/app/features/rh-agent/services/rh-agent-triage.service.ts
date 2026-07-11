@@ -7,7 +7,7 @@
  * One document per symbol per market date. The store is the in-memory source
  * of truth; this service handles all Firestore I/O.
  */
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import { Auth } from '@angular/fire/auth';
 import {
   Firestore,
@@ -63,12 +63,13 @@ export const TRIAGE_DECISIONS_COLLECTION = 'rh-agent-triage-decisions';
 export class RhAgentTriageService {
   private readonly firestore = inject(Firestore);
   private readonly auth = inject(Auth);
+  private readonly injector = inject(EnvironmentInjector);
 
   private readonly decisionsCollection = collection(this.firestore, TRIAGE_DECISIONS_COLLECTION);
 
   /** Load all decisions for a specific date. */
   loadDecisionsForDate(date: string): Observable<RhTriageDecision[]> {
-    return requireUserId(this.auth).pipe(
+    return requireUserId(this.auth, this.injector).pipe(
       switchMap((userId) => {
         const q = query(
           this.decisionsCollection,
@@ -83,7 +84,7 @@ export class RhAgentTriageService {
 
   /** Load decisions for a date range. */
   loadDecisionsForDateRange(startDate: string, endDate: string): Observable<RhTriageDecision[]> {
-    return requireUserId(this.auth).pipe(
+    return requireUserId(this.auth, this.injector).pipe(
       switchMap((userId) => {
         const q = query(
           this.decisionsCollection,
@@ -100,9 +101,9 @@ export class RhAgentTriageService {
 
   /** Persist a single decision. Creates or updates the {symbol}_{date} doc. */
   setDecision(input: RhTriageDecisionInput): Observable<void> {
-    return requireUserId(this.auth).pipe(
+    return requireUserId(this.auth, this.injector).pipe(
       take(1),
-      switchMap(async (userId) => {
+      switchMap((userId) => runInInjectionContext(this.injector, async () => {
         const symbol = input.symbol.toUpperCase();
         const date = input.date;
         const docId = this.decisionId(symbol, date);
@@ -124,7 +125,7 @@ export class RhAgentTriageService {
         };
 
         await setDoc(docRef, payload);
-      }),
+      })),
       map(() => undefined)
     );
   }
@@ -133,9 +134,9 @@ export class RhAgentTriageService {
   setDecisionsBatch(inputs: RhTriageDecisionInput[]): Observable<void> {
     if (inputs.length === 0) return of(undefined);
 
-    return requireUserId(this.auth).pipe(
+    return requireUserId(this.auth, this.injector).pipe(
       take(1),
-      switchMap(async (userId) => {
+      switchMap((userId) => runInInjectionContext(this.injector, async () => {
         const batch = writeBatch(this.firestore);
         const now = Timestamp.now();
 
@@ -168,14 +169,14 @@ export class RhAgentTriageService {
         }
 
         await batch.commit();
-      }),
+      })),
       map(() => undefined)
     );
   }
 
   /** Listen to real-time changes for a specific date. */
   listenToDecisionsForDate(date: string): Observable<RhTriageDecision[]> {
-    return requireUserId(this.auth).pipe(
+    return requireUserId(this.auth, this.injector).pipe(
       switchMap((userId) => {
         const q = query(
           this.decisionsCollection,
@@ -199,7 +200,7 @@ export class RhAgentTriageService {
 
   /** Listen to real-time changes for all of a user's decisions. */
   listenToAllDecisions(): Observable<RhTriageDecision[]> {
-    return requireUserId(this.auth).pipe(
+    return requireUserId(this.auth, this.injector).pipe(
       switchMap((userId) => {
         const q = query(
           this.decisionsCollection,
@@ -232,7 +233,9 @@ export class RhAgentTriageService {
 
   /** Execute a one-time query and map the results to typed decisions. */
   private runQuery(q: Query<DocumentData>): Observable<RhTriageDecision[]> {
-    return from(getDocs(q)).pipe(map((snapshot) => this.toDecisions(snapshot.docs)));
+    return from(runInInjectionContext(this.injector, () => getDocs(q))).pipe(
+      map((snapshot) => this.toDecisions(snapshot.docs))
+    );
   }
 
   /** Map Firestore decision docs into the RhTriageDecision type. */

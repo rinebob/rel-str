@@ -8,7 +8,7 @@
  * Collection: rh-agent-symbol-lists
  * Document ID: {listName}
  */
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import { Auth } from '@angular/fire/auth';
 import {
   Firestore,
@@ -43,38 +43,39 @@ export interface RhSymbolList {
 export class RhAgentSymbolListService {
   private readonly firestore = inject(Firestore);
   private readonly auth = inject(Auth);
+  private readonly injector = inject(EnvironmentInjector);
 
   private readonly listsCollection = collection(this.firestore, SYMBOL_LISTS_COLLECTION);
 
   /** Load a single named list for the current user. */
   loadList(name: string): Observable<RhSymbolList> {
-    return requireUserId(this.auth).pipe(
+    return requireUserId(this.auth, this.injector).pipe(
       take(1),
-      switchMap(async (userId) => {
+      switchMap((userId) => runInInjectionContext(this.injector, async () => {
         const docId = this.listId(userId, name);
         const snap = await getDoc(doc(this.firestore, SYMBOL_LISTS_COLLECTION, docId));
         return snap.exists() ? this.toList(snap.id, snap.data()) : { name, symbols: [], userId };
-      })
+      }))
     );
   }
 
   /** Load all lists for the current user. */
   loadAllLists(): Observable<RhSymbolList[]> {
-    return requireUserId(this.auth).pipe(
+    return requireUserId(this.auth, this.injector).pipe(
       take(1),
-      switchMap(async (userId) => {
+      switchMap((userId) => runInInjectionContext(this.injector, async () => {
         const q = query(this.listsCollection, where('userId', '==', userId));
         const snapshot = await getDocs(q);
         return snapshot.docs.map((d) => this.toList(d.id, d.data()));
-      })
+      }))
     );
   }
 
   /** Replace a list with a full set of symbols. */
   setList(name: string, symbols: string[]): Observable<void> {
-    return requireUserId(this.auth).pipe(
+    return requireUserId(this.auth, this.injector).pipe(
       take(1),
-      switchMap(async (userId) => {
+      switchMap((userId) => runInInjectionContext(this.injector, async () => {
         const docId = this.listId(userId, name);
         const docRef = doc(this.firestore, SYMBOL_LISTS_COLLECTION, docId);
         const existing = await getDoc(docRef);
@@ -89,16 +90,16 @@ export class RhAgentSymbolListService {
           },
           { merge: true }
         );
-      }),
+      })),
       map(() => undefined)
     );
   }
 
   /** Add a symbol to a list if it is not already present. */
   addToList(symbol: string, name: string): Observable<void> {
-    return requireUserId(this.auth).pipe(
+    return requireUserId(this.auth, this.injector).pipe(
       take(1),
-      switchMap(async (userId) => {
+      switchMap((userId) => runInInjectionContext(this.injector, async () => {
         const docId = this.listId(userId, name);
         const docRef = doc(this.firestore, SYMBOL_LISTS_COLLECTION, docId);
         const existing = await getDoc(docRef);
@@ -116,16 +117,16 @@ export class RhAgentSymbolListService {
           },
           { merge: true }
         );
-      }),
+      })),
       map(() => undefined)
     );
   }
 
   /** Remove a symbol from a list. */
   removeFromList(symbol: string, name: string): Observable<void> {
-    return requireUserId(this.auth).pipe(
+    return requireUserId(this.auth, this.injector).pipe(
       take(1),
-      switchMap(async (userId) => {
+      switchMap((userId) => runInInjectionContext(this.injector, async () => {
         const docId = this.listId(userId, name);
         const docRef = doc(this.firestore, SYMBOL_LISTS_COLLECTION, docId);
         const existing = await getDoc(docRef);
@@ -143,7 +144,7 @@ export class RhAgentSymbolListService {
           },
           { merge: true }
         );
-      }),
+      })),
       map(() => undefined)
     );
   }
