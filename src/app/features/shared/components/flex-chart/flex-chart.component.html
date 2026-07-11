@@ -2,13 +2,14 @@
   @if (hoveredDate()) {
     <div class="crosshair-date-label">{{ hoveredDate() }}</div>
   }
-  <div class="crosshair-price-label" [style.top.px]="hoveredPriceTop()">{{ hoveredPrice() }}</div>
+  <div class="crosshair-price-label">{{ hoveredPrice() }}</div>
   <div class="crosshair-line-v"></div>
   <div class="crosshair-line-h"></div>
-  @if (chartData(); as data) {
-    @if (data.bars.length === 0) {
-      <div class="no-data">No price data available</div>
-    } @else {
+  @if (chartKey(); as key) {
+    @if (chartData(); as data) {
+      @if (data.bars.length === 0) {
+        <div class="no-data">No price data available</div>
+      } @else {
     <ejs-chart
       [enableAnimation]="false"
       #chart
@@ -195,6 +196,9 @@
         }
       </e-series-collection>
     </ejs-chart>
+      }
+    } @else {
+      <div class="no-data">Select a signal to view chart</div>
     }
   } @else {
     <div class="no-data">Select a signal to view chart</div>

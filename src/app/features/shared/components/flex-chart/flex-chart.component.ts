@@ -139,6 +139,8 @@ export class FlexChartComponent implements OnDestroy {
   lowerPanes = this.dataAdapter.lowerPanes;
   chartAxes = this.dataAdapter.chartAxes;
   chartRows = this.dataAdapter.chartRows;
+  private readonly liveChartAxes = this.dataAdapter.liveChartAxes;
+  private readonly liveChartRows = this.dataAdapter.liveChartRows;
 
 
   // Chart configuration - Category axis removes gaps (like TradingView)
@@ -186,6 +188,16 @@ export class FlexChartComponent implements OnDestroy {
     this.yAxisController.buildAxisConfig(!!this.config().logScale, this.lowerPanes().length),
   );
 
+  /** Unique key that changes whenever chartData identity changes — used to key the
+   *  ejs-chart element so Syncfusion is fully destroyed and recreated on new symbol load
+   *  rather than receiving concurrent binding updates mid-initialization.
+   */
+  chartKey = computed(() => {
+    const data = this.chartData();
+    if (!data) return null;
+    return `${data.symbol}-${data.interval}-${data.bars.length}`;
+  });
+
   zoomSettings = computed(() => {
     const showToolbar = this.config().showZoomToolbar !== false;
     return {
@@ -214,7 +226,7 @@ export class FlexChartComponent implements OnDestroy {
       this.priceLabelEl = native.querySelector('.crosshair-price-label');
     });
 
-    this.lifecycleFacade.connectAndActivate(this.typedChart, this.chartData, this.config, this.dataAdapter.computedSeries);
+    this.lifecycleFacade.connectAndActivate(this.typedChart, this.chartData, this.config, this.dataAdapter.computedSeries, this.liveChartAxes, this.liveChartRows);
     this.dataAdapter.connect(this.chartData, this.config);
 
     // Sync incoming crosshair values (from parent input/output binding) into the store
@@ -389,7 +401,7 @@ export class FlexChartComponent implements OnDestroy {
       this.pendingPriceLabelRaf = null;
       const label = this.priceLabelEl;
       if (label) {
-        label.style.display = '';
+        label.style.display = 'block';
         label.style.top = `${y}px`;
       }
     });

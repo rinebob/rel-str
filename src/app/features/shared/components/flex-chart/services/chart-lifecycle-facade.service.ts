@@ -1,4 +1,5 @@
 import { Injectable, Signal, effect, inject, signal, untracked } from '@angular/core';
+import type { ChartAxisView } from './chart-data-adapter.service';
 import type { ComputedIndicatorSeries, FlexChartConfig, FlexChartDataset, PriceBar } from '../flex-chart.types';
 import { ChartViewportStore } from '../store/chart-viewport.store';
 import { ChartYAxisViewportController } from './chart-y-axis-viewport-controller.service';
@@ -18,38 +19,56 @@ export class ChartLifecycleFacade {
   private readonly viewport = inject(ChartViewportStore);
   private readonly yAxisController = inject(ChartYAxisViewportController);
 
-  // References to the component's input signals. Initialized with defaults so
-  // methods can be called safely before connect(); the effects below are set up
-  // in connect() so they track the actual input signals.
+  /** References to the component's input signals. Initialized with defaults so
+   *  methods can be called safely before `connectAndActivate()`; effects are
+   *  registered there so they track the actual input signals.
+   */
   private chartSignal: Signal<SfChartInstance | null> = signal(null);
   private chartData: Signal<FlexChartDataset | null> = signal(null);
   private config: Signal<FlexChartConfig> = signal({ indicators: [] });
   private computedSeries: Signal<ComputedIndicatorSeries[]> = signal([]);
+  private liveChartAxes: Signal<ChartAxisView[]> = signal([]);
+  private liveChartRows: Signal<{ height: string }[]> = signal([]);
 
+  /** Idempotency key for the initial-zoom effect — prevents re-applying zoom when only
+   *  indicator configs change (same dataset, same interval, same zoom days).
+   */
   private readonly lastZoomKey = signal<string | null>(null);
+  /** Last chartData reference seen by the dataBind effect — used to skip dataBind
+   *  on a fresh dataset change and only call it for async series updates on the same dataset.
+   */
+  private lastDataBindDataset: FlexChartDataset | null = null;
+  /** Last-seen value of `showZoomToolbar` — guards the toolbar-change effect so a full
+   *  chart refresh only fires when the setting actually flips, not on every config read.
+   */
   private readonly lastShowToolbar = signal<boolean | null>(null);
+  /** Writable backing signal for `chartState`; updated after every dataBind/viewport change. */
   private readonly chartStateSignal = signal<ChartAxisState | null>(null);
   static readonly RIGHT_MARGIN_BARS = 5;
 
   /** Read-only snapshot of the current chart axis state (rects, ranges, value types) */
   readonly chartState: Signal<ChartAxisState | null> = this.chartStateSignal.asReadonly();
 
-  /** Bind the facade to the component's typed chart reference and inputs, and register lifecycle effects. */
+  /** Bind the facade to the component's typed chart reference and inputs, and register lifecycle effects.
+   */
   connectAndActivate(
     chart: Signal<SfChartInstance | null>,
     chartData: Signal<FlexChartDataset | null>,
     config: Signal<FlexChartConfig>,
     computedSeries: Signal<ComputedIndicatorSeries[]>,
+    liveChartAxes: Signal<ChartAxisView[]>,
+    liveChartRows: Signal<{ height: string }[]>,
   ): void {
     this.chartSignal = chart;
     this.chartData = chartData;
     this.config = config;
     this.computedSeries = computedSeries;
+    this.liveChartAxes = liveChartAxes;
+    this.liveChartRows = liveChartRows;
 
-    // Apply initial zoom whenever the chart becomes available, the dataset
+    // Applies initial zoom whenever the chart becomes available, the dataset
     // changes, or the zoom range config changes. Keyed so it does not re-apply
-    // for indicator-only config changes. This replaces the component's
-    // lastZoomKey effect and onChartLoaded zoom logic.
+    // for indicator-only config changes.
     effect(() => {
       const chart = this.chartSignal();
       const data = this.chartData();
@@ -64,23 +83,48 @@ export class ChartLifecycleFacade {
       this.viewport.setLifecycle('ready');
     });
 
-    // Rebind when indicator data changes — Syncfusion doesn't pick up [dataSource]
+    // Rebinds when indicator data changes — Syncfusion doesn't pick up [dataSource]
     // updates on existing series when async callable data arrives (e.g. dot markers).
-    // dataBind() is much cheaper than refresh() and still forces Syncfusion to read the
-    // latest series dataSource arrays.
+    // dataBind() is much cheaper than refresh() and still forces Syncfusion to read
+    // the latest series dataSource arrays.
+    // Skip when chartData itself just changed — Syncfusion's declarative bindings handle
+    // the full re-render; calling dataBind() concurrently causes a getVisibleSeries crash.
     effect(() => {
       const series = this.computedSeries();
+      const currentData = untracked(this.chartData);
       const key = series.map((s) => s.data.length).join(',');
       if (key === '') return;
-      const chart = this.chartSignal();
-      if (!chart) return;
+
+      // Dataset changed — record it and let the declarative render handle initialization.
+      if (currentData !== this.lastDataBindDataset) {
+        this.lastDataBindDataset = currentData;
+        return;
+      }
+
+      const chart = untracked(this.chartSignal);
+      if (!chart || !chart.series?.length) return;
       chart.animateSeries = false;
-      chart.dataBind();
+      try { chart.dataBind(); } catch { /* suppress residual Syncfusion race */ }
     });
 
-    // Refresh chart only when zoom toolbar visibility actually changes — Syncfusion
-    // ignores runtime zoomSettings updates, but a full refresh on every chart availability
-    // event is wasteful.
+    // Applies live axes/rows imperatively after the chart is initialized — these are
+    // withheld from the declarative [axes]/[rows] bindings (which only update on chartData
+    // change) to prevent Syncfusion's getVisibleSeries crash during first render.
+    effect(() => {
+      const axes = this.liveChartAxes();
+      const rows = this.liveChartRows();
+      const chart = untracked(this.chartSignal);
+      if (!chart || !chart.series?.length) return;
+      chart.animateSeries = false;
+      try {
+        chart.setProperties({ axes, rows }, false);
+        chart.dataBind();
+      } catch { /* suppress Syncfusion race */ }
+    });
+
+    // Refreshes the chart when zoom toolbar visibility changes — Syncfusion ignores
+    // runtime zoomSettings updates so a full refresh is required, but only when
+    // the setting actually changes to avoid unnecessary full renders.
     effect(() => {
       const showToolbar = this.config().showZoomToolbar ?? false;
       const last = untracked(this.lastShowToolbar);
@@ -93,9 +137,9 @@ export class ChartLifecycleFacade {
       chart.refresh();
     });
 
-    // When the viewport changes, apply it to the chart imperatively and rebind.
-    // This is the single place where Y-axis min/max or zoomFactor/zoomPosition
-    // are written to the Syncfusion instance.
+    // Applies Y-axis viewport changes imperatively and rebinds. This is the single
+    // place where Y-axis min/max or zoomFactor/zoomPosition are written to the
+    // Syncfusion instance.
     effect(() => {
       const chart = this.chartSignal();
       const viewport = this.viewport.yAxisViewport();
@@ -117,8 +161,8 @@ export class ChartLifecycleFacade {
       chart.animateSeries = false;
       chart.dataBind();
 
-      // Re-capture axis rects/ranges so the overlay and crosshair logic can
-      // react to the updated viewport without reading the chart directly.
+      // Re-captures axis rects/ranges so overlay and crosshair logic can react
+      // to the updated viewport without reading the chart instance directly.
       this.refreshChartState();
     });
   }
@@ -155,7 +199,7 @@ export class ChartLifecycleFacade {
 
     const visibleStart = Math.max(0, data.bars.length - visibleCount);
     const visibleBars = data.bars.slice(visibleStart);
-    this.setYAxisViewport(visibleBars);
+    this.setYAxisViewport(data.bars, !!config.logScale, visibleBars);
   }
 
   /** Snap the Y-axis to the visible bar range after zoom/scroll. */
@@ -166,8 +210,8 @@ export class ChartLifecycleFacade {
     const minIdx = Math.max(0, Math.floor(rangeMin));
     const maxIdx = Math.min(data.bars.length - 1, Math.ceil(rangeMax));
     const visibleBars = data.bars.slice(minIdx, maxIdx + 1);
-
-    this.setYAxisViewport(visibleBars);
+    const config = this.config();
+    this.setYAxisViewport(data.bars, !!config.logScale, visibleBars);
   }
 
   /** Snap the Y-axis to whatever the chart's current X-axis visible range is. */
@@ -186,12 +230,19 @@ export class ChartLifecycleFacade {
     this.refreshChartState();
   }
 
-  /** Capture the current axis rects/ranges from the Syncfusion instance. */
+  /** Capture the current axis rects/ranges from the Syncfusion instance.
+   *  Also flushes a dataBind so any series updates that arrived before the
+   *  chart finished its initial render are applied now that series are populated.
+   */
   refreshChartState(): void {
     const chart = this.chartSignal();
     if (!chart) {
       this.chartStateSignal.set(null);
       return;
+    }
+    if (chart.series?.length) {
+      chart.animateSeries = false;
+      try { chart.dataBind(); } catch { /* suppress Syncfusion race during initial render */ }
     }
     const xAxis = chart.axisCollections?.[0];
     const yAxis = chart.primaryYAxis;
@@ -213,16 +264,9 @@ export class ChartLifecycleFacade {
   }
 
 
-  private setYAxisViewport(visibleBars: PriceBar[]): void {
-    const data = this.chartData();
-    const config = this.config();
-    if (!data || data.bars.length === 0) return;
-
-    const viewport = this.yAxisController.computeViewport(
-      !!config.logScale,
-      data.bars,
-      visibleBars,
-    );
+  private setYAxisViewport(allBars: PriceBar[], logScale: boolean, visibleBars: PriceBar[]): void {
+    if (allBars.length === 0) return;
+    const viewport = this.yAxisController.computeViewport(logScale, allBars, visibleBars);
     this.viewport.setYAxisViewport(viewport);
   }
 }

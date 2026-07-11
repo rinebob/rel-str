@@ -40,7 +40,9 @@ export interface SfChartInstance {
   primaryYAxis?: SfChartAxisLike;
   axisCollections?: SfChartAxisLike[];
   series?: SfChartSeriesLike[];
+  rows?: { height: string }[];
   animateSeries?: boolean;
+  setProperties(props: Record<string, unknown>, muteOnChange?: boolean): void;
   dataBind(): void;
   refresh(): void;
 }
