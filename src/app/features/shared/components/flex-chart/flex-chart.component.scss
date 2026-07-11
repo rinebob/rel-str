@@ -1,0 +1,74 @@
+:host {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.flex-chart-wrapper {
+  width: 100%;
+  height: 100%;
+  min-height: 300px;
+  position: relative;
+}
+
+.no-data {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.crosshair-date-label {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 20;
+  white-space: nowrap;
+}
+
+.crosshair-price-label {
+  position: absolute;
+  left: 6px;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 20;
+  white-space: nowrap;
+  display: none;
+}
+
+.crosshair-line-v,
+.crosshair-line-h {
+  display: none;
+  position: absolute;
+  background: #000000;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.crosshair-line-v {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+
+.crosshair-line-h {
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+

@@ -39,6 +39,13 @@ export enum StIndicator {
   TREND_BAND_WIDTH = 'st-trend-band-width',
 }
 
+/** Chart data interval enum — replaces 'daily' | 'weekly' | 'monthly' magic strings */
+export enum ChartIntervalKey {
+  DAILY   = 'daily',
+  WEEKLY  = 'weekly',
+  MONTHLY = 'monthly',
+}
+
 /** Indicator types supported */
 export type IndicatorType =
   | StIndicator
@@ -166,7 +173,10 @@ export interface FlexChartConfig {
   initialZoomDays?: number;
 
   /** Data interval hint for axis label formatting */
-  interval?: 'daily' | 'weekly' | 'monthly';
+  interval?: ChartIntervalKey;
+
+  /** Use logarithmic scale for the price Y-axis */
+  logScale?: boolean;
 }
 
 /** Computed indicator series - supports both Date (DateTime) and index (Category) x values */

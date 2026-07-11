@@ -1,0 +1,203 @@
+<div class="flex-chart-wrapper">
+  @if (hoveredDate()) {
+    <div class="crosshair-date-label">{{ hoveredDate() }}</div>
+  }
+  <div class="crosshair-price-label" [style.top.px]="hoveredPriceTop()">{{ hoveredPrice() }}</div>
+  <div class="crosshair-line-v"></div>
+  <div class="crosshair-line-h"></div>
+  @if (chartData(); as data) {
+    @if (data.bars.length === 0) {
+      <div class="no-data">No price data available</div>
+    } @else {
+    <ejs-chart
+      [enableAnimation]="false"
+      #chart
+      [primaryXAxis]="primaryXAxis()"
+      [primaryYAxis]="primaryYAxis()"
+      [zoomSettings]="zoomSettings()"
+      [crosshair]="crosshair"
+      [legendSettings]="{ visible: false }"
+      [axes]="chartAxes()"
+      [rows]="chartRows()"
+      [height]="height()"
+      [width]="'100%'"
+      background="transparent"
+      (loaded)="onChartLoaded()"
+      (zoomComplete)="onZoomComplete($event)"
+      (scrollEnd)="onScrollEnd()"
+      (axisLabelRender)="onAxisLabelRender($event)"
+      (chartMouseMove)="onChartMouseMove($event)"
+      (chartMouseLeave)="onChartMouseLeave()">
+
+      <e-series-collection>
+        <!-- Main pane: Price candles -->
+        <e-series
+          [dataSource]="categoryBars()"
+          type="Candle"
+          xName="index"
+          high="high"
+          low="low"
+          open="open"
+          close="close"
+          bearFillColor="#26a69a"
+          bullFillColor="#ef5350"
+          [enableSolidCandles]="true"
+          [columnWidth]="1.0"
+          [enableTooltip]="true"
+          [animation]="noAnimation">
+        </e-series>
+
+        <!-- ST Trend Bands (rendered as candle bodies) -->
+        @for (band of trendBandSeries(); track band.bandIndex) {
+          <e-series
+            [dataSource]="band.data"
+            type="Candle"
+            xName="index"
+            high="high"
+            low="low"
+            open="open"
+            close="close"
+            [bullFillColor]="band.bullColor"
+            [bearFillColor]="band.bearColor"
+            [enableSolidCandles]="true"
+            [columnWidth]="1.0"
+            [opacity]="0.7"
+            [enableTooltip]="false"
+            [animation]="noAnimation">
+          </e-series>
+        }
+
+        <!-- Main pane indicators (overlay on price) -->
+        @for (indicator of mainPaneSeries(); track indicator.id) {
+          @if (indicator.config.type !== StIndicator.TREND_BANDS && indicator.config.seriesType === 'line') {
+            <e-series
+              [dataSource]="indicator.data"
+              type="Line"
+              xName="index"
+              yName="y"
+              [name]="indicator.config.options.name || indicator.config.type.toUpperCase()"
+              [fill]="indicator.config.options.color || '#2196f3'"
+              [width]="indicator.config.options.lineWidth || 2"
+              [enableTooltip]="true"
+              [animation]="noAnimation">
+            </e-series>
+          } @else if (indicator.config.seriesType === 'scatter') {
+            <e-series
+              [dataSource]="indicator.data"
+              type="Scatter"
+              xName="index"
+              yName="y"
+              [name]="indicator.config.options.name || indicator.config.type.toUpperCase()"
+              pointColorMapping="color"
+              [marker]="{ visible: true, shape: 'Circle', width: 10, height: 10 }"
+              [enableTooltip]="true"
+              [animation]="noAnimation">
+            </e-series>
+          }
+        }
+
+        <!-- Dynamic lower panes -->
+        @for (pane of lowerPanes(); track pane.id) {
+          @for (indicator of pane.series; track indicator.id) {
+            @if (indicator.config.seriesType === 'column') {
+              <!-- Histogram (column) series -->
+              <e-series
+                [dataSource]="indicator.data"
+                type="Column"
+                xName="index"
+                yName="y"
+                [yAxisName]="pane.axisName"
+                [name]="indicator.config.options.name || indicator.config.type.toUpperCase()"
+                [fill]="indicator.config.options.color || '#26a69a'"
+                pointColorMapping="color"
+                [columnWidth]="1.0"
+                [enableTooltip]="true"
+                [animation]="noAnimation">
+              </e-series>
+            } @else if (indicator.config.seriesType === 'scatter') {
+              <!-- Thin connecting line behind dots (skip for window indicators) -->
+              @if (indicator.config.type !== StIndicator.ZONE_WINDOW && indicator.config.type !== StIndicator.SIGNAL_DOTS) {
+              <e-series
+                [dataSource]="indicator.data"
+                type="Line"
+                xName="index"
+                yName="y"
+                [yAxisName]="pane.axisName"
+                name=""
+                fill="#9e9e9e"
+                [width]="1"
+                [opacity]="0.5"
+                [enableTooltip]="false"
+                [animation]="noAnimation">
+              </e-series>
+              }
+              <!-- Scatter (dots) series with per-point color -->
+              <e-series
+                [dataSource]="indicator.data"
+                type="Scatter"
+                xName="index"
+                yName="y"
+                [yAxisName]="pane.axisName"
+                [name]="indicator.config.options.name || indicator.config.type.toUpperCase()"
+                pointColorMapping="color"
+                [marker]="{ visible: true, shape: 'Circle', width: 4, height: 4 }"
+                [enableTooltip]="true"
+                [animation]="noAnimation">
+              </e-series>
+            } @else if (indicator.config.seriesType === 'line') {
+              <!-- Histogram (column) behind line series -->
+              @if (indicator.config.options.showHistogram && indicator.data.length > 0 && indicator.data[0].y3 !== undefined) {
+                <e-series
+                  [dataSource]="indicator.data"
+                  type="Column"
+                  xName="index"
+                  yName="y3"
+                  [yAxisName]="pane.axisName"
+                  name="Histogram"
+                  [fill]="'#26a69a'"
+                  [opacity]="0.5"
+                  [columnWidth]="0.6"
+                  [enableTooltip]="true"
+                  [animation]="noAnimation">
+                </e-series>
+              }
+              <!-- Primary line -->
+              <e-series
+                [dataSource]="indicator.data"
+                type="Line"
+                xName="index"
+                yName="y"
+                [yAxisName]="pane.axisName"
+                [name]="indicator.config.options.name || indicator.config.type.toUpperCase()"
+                [fill]="indicator.config.options.color || '#2196f3'"
+                [width]="indicator.config.options.lineWidth || 2"
+                [enableTooltip]="true"
+                [animation]="noAnimation">
+              </e-series>
+              <!-- Secondary line (signal) -->
+              @if (indicator.data.length > 0 && indicator.data[0].y2 !== undefined) {
+                <e-series
+                  [dataSource]="indicator.data"
+                  type="Line"
+                  xName="index"
+                  yName="y2"
+                  [yAxisName]="pane.axisName"
+                  [name]="(indicator.config.options.name || indicator.config.type.toUpperCase()) + ' Signal'"
+                  [fill]="indicator.config.options.color2 || '#e91e63'"
+                  [width]="1"
+                  [dashArray]="'4,3'"
+                  [enableTooltip]="true"
+                  [animation]="noAnimation">
+                </e-series>
+              }
+            }
+          }
+        }
+      </e-series-collection>
+    </ejs-chart>
+    }
+  } @else {
+    <div class="no-data">Select a signal to view chart</div>
+  }
+  <app-chart-sync-overlay [bars]="categoryBars()"></app-chart-sync-overlay>
+</div>

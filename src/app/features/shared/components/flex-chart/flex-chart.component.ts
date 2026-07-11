@@ -10,13 +10,13 @@ import {
   output,
   viewChild,
   effect,
-  signal,
   ChangeDetectionStrategy,
   computed,
   ElementRef,
   inject,
   OnDestroy,
   NgZone,
+  afterNextRender,
 } from '@angular/core';
 import {
   ChartModule,
@@ -31,32 +31,36 @@ import {
   CategoryService,
   ZoomService,
   ScrollBarService,
-  TooltipService,
-  CrosshairService,
   LegendService,
   StripLineService,
+  LogarithmicService,
   IZoomCompleteEventArgs,
-  IScrollEventArgs,
   IMouseEventArgs,
-  ITooltipRenderEventArgs,
 } from '@syncfusion/ej2-angular-charts';
 
 import type {
   FlexChartDataset,
   FlexChartConfig,
-  IndicatorPane,
-  ComputedIndicatorSeries,
 } from './flex-chart.types';
-import { StIndicator } from './flex-chart.types';
-import { computeIndicators, groupIndicatorsByPane } from './flex-chart-calculations';
-import { computeAllBands, type BandSeriesData } from './indicators/st-trend-bands.indicator';
+import { ChartIntervalKey, StIndicator } from './flex-chart.types';
+import { ChartViewportStore } from './store/chart-viewport.store';
+import { ChartYAxisViewportController } from './services/chart-y-axis-viewport-controller.service';
+import { ChartLifecycleFacade } from './services/chart-lifecycle-facade.service';
+import { ChartDataAdapter } from './services/chart-data-adapter.service';
+import type { SfAxisLabelRenderArgs, SfChartInstance } from './services/chart-instance.types';
+import { ChartSyncOverlayComponent } from './components/chart-sync-overlay.component';
 
 @Component({
   selector: 'app-flex-chart',
   standalone: true,
-  imports: [ChartModule],
+  imports: [ChartModule, ChartSyncOverlayComponent],
   providers: [
+    ChartViewportStore,
+    ChartYAxisViewportController,
+    ChartLifecycleFacade,
+    ChartDataAdapter,
     CandleSeriesService,
+    LogarithmicService,
     LineSeriesService,
     AreaSeriesService,
     ColumnSeriesService,
@@ -66,490 +70,121 @@ import { computeAllBands, type BandSeriesData } from './indicators/st-trend-band
     CategoryService,
     ZoomService,
     ScrollBarService,
-    TooltipService,
-    CrosshairService,
     LegendService,
     StripLineService,
   ],
-  template: `
-    <div class="flex-chart-wrapper">
-      @if (hoveredDate()) {
-        <div class="crosshair-date-label">{{ hoveredDate() }}</div>
-      }
-      @if (chartData(); as data) {
-        @if (data.bars.length === 0) {
-          <div class="no-data">No price data available</div>
-        } @else {
-        <ejs-chart
-          [enableAnimation]="false"
-          #chart
-          [primaryXAxis]="primaryXAxis()"
-          [primaryYAxis]="primaryYAxis()"
-          [zoomSettings]="zoomSettings()"
-          [tooltip]="tooltip"
-          [crosshair]="crosshair"
-          [legendSettings]="{ visible: false }"
-          [axes]="chartAxes()"
-          [rows]="chartRows()"
-          [height]="height()"
-          width="100%"
-          background="transparent"
-          (loaded)="onChartLoaded()"
-          (zoomComplete)="onZoomComplete($event)"
-          (scrollEnd)="onScrollEnd($event)"
-          (axisLabelRender)="onAxisLabelRender($event)"
-          (chartMouseMove)="onChartMouseMove($event)"
-          (chartMouseLeave)="onChartMouseLeave()"
-          (tooltipRender)="onTooltipRender($event)">
-
-          <e-series-collection>
-            <!-- Main pane: Price candles -->
-            <e-series
-              [dataSource]="categoryBars()"
-              type="Candle"
-              xName="index"
-              high="high"
-              low="low"
-              open="open"
-              close="close"
-              bearFillColor="#26a69a"
-              bullFillColor="#ef5350"
-              [enableSolidCandles]="true"
-              [columnWidth]="1.0"
-              [enableTooltip]="true"
-              [animation]="noAnimation">
-            </e-series>
-
-            <!-- ST Trend Bands (rendered as candle bodies) -->
-            @for (band of trendBandSeries(); track band.bandIndex) {
-              <e-series
-                [dataSource]="band.data"
-                type="Candle"
-                xName="index"
-                high="high"
-                low="low"
-                open="open"
-                close="close"
-                [bullFillColor]="band.bullColor"
-                [bearFillColor]="band.bearColor"
-                [enableSolidCandles]="true"
-                [columnWidth]="1.0"
-                opacity="0.7"
-                [enableTooltip]="false"
-                [animation]="noAnimation">
-              </e-series>
-            }
-
-            <!-- Main pane indicators (overlay on price) -->
-            @for (indicator of mainPaneSeries(); track indicator.id) {
-              @if (indicator.config.type !== StIndicator.TREND_BANDS && indicator.config.seriesType === 'line') {
-                <e-series
-                  [dataSource]="indicator.data"
-                  type="Line"
-                  xName="index"
-                  yName="y"
-                  [name]="indicator.config.options.name || indicator.config.type.toUpperCase()"
-                  [fill]="indicator.config.options.color || '#2196f3'"
-                  width="{{ indicator.config.options.lineWidth || 2 }}"
-                  [enableTooltip]="true"
-                  [animation]="noAnimation">
-                </e-series>
-              } @else if (indicator.config.seriesType === 'scatter') {
-                <e-series
-                  [dataSource]="indicator.data"
-                  type="Scatter"
-                  xName="index"
-                  yName="y"
-                  [name]="indicator.config.options.name || indicator.config.type.toUpperCase()"
-                  pointColorMapping="color"
-                  [marker]="{ visible: true, shape: 'Circle', width: 10, height: 10 }"
-                  [enableTooltip]="true"
-                  [animation]="noAnimation">
-                </e-series>
-              }
-            }
-
-            <!-- Dynamic lower panes -->
-            @for (pane of lowerPanes(); track pane.id) {
-              @for (indicator of pane.series; track indicator.id) {
-                @if (indicator.config.seriesType === 'column') {
-                  <!-- Histogram (column) series -->
-                  <e-series
-                    [dataSource]="indicator.data"
-                    type="Column"
-                    xName="index"
-                    yName="y"
-                    [yAxisName]="pane.axisName"
-                    [name]="indicator.config.options.name || indicator.config.type.toUpperCase()"
-                    [fill]="indicator.config.options.color || '#26a69a'"
-                    pointColorMapping="color"
-                    [columnWidth]="1.0"
-                    [enableTooltip]="true"
-                    [animation]="noAnimation">
-                  </e-series>
-                } @else if (indicator.config.seriesType === 'scatter') {
-                  <!-- Thin connecting line behind dots (skip for window indicators) -->
-                  @if (indicator.config.type !== StIndicator.ZONE_WINDOW && indicator.config.type !== StIndicator.SIGNAL_DOTS) {
-                  <e-series
-                    [dataSource]="indicator.data"
-                    type="Line"
-                    xName="index"
-                    yName="y"
-                    [yAxisName]="pane.axisName"
-                    name=""
-                    fill="#9e9e9e"
-                    width="1"
-                    opacity="0.5"
-                    [enableTooltip]="false"
-                    [animation]="noAnimation">
-                  </e-series>
-                  }
-                  <!-- Scatter (dots) series with per-point color -->
-                  <e-series
-                    [dataSource]="indicator.data"
-                    type="Scatter"
-                    xName="index"
-                    yName="y"
-                    [yAxisName]="pane.axisName"
-                    [name]="indicator.config.options.name || indicator.config.type.toUpperCase()"
-                    pointColorMapping="color"
-                    [marker]="{ visible: true, shape: 'Circle', width: 4, height: 4 }"
-                    [enableTooltip]="true"
-                    [animation]="noAnimation">
-                  </e-series>
-                } @else if (indicator.config.seriesType === 'line') {
-                  <!-- Histogram (column) behind line series -->
-                  @if (indicator.config.options.showHistogram && indicator.data.length > 0 && indicator.data[0].y3 !== undefined) {
-                    <e-series
-                      [dataSource]="indicator.data"
-                      type="Column"
-                      xName="index"
-                      yName="y3"
-                      [yAxisName]="pane.axisName"
-                      name="Histogram"
-                      [fill]="'#26a69a'"
-                      opacity="0.5"
-                      [columnWidth]="0.6"
-                      [enableTooltip]="true"
-                      [animation]="noAnimation">
-                    </e-series>
-                  }
-                  <!-- Primary line -->
-                  <e-series
-                    [dataSource]="indicator.data"
-                    type="Line"
-                    xName="index"
-                    yName="y"
-                    [yAxisName]="pane.axisName"
-                    [name]="indicator.config.options.name || indicator.config.type.toUpperCase()"
-                    [fill]="indicator.config.options.color || '#2196f3'"
-                    width="{{ indicator.config.options.lineWidth || 2 }}"
-                    [enableTooltip]="true"
-                    [animation]="noAnimation">
-                  </e-series>
-                  <!-- Secondary line (signal) -->
-                  @if (indicator.data.length > 0 && indicator.data[0].y2 !== undefined) {
-                    <e-series
-                      [dataSource]="indicator.data"
-                      type="Line"
-                      xName="index"
-                      yName="y2"
-                      [yAxisName]="pane.axisName"
-                      [name]="(indicator.config.options.name || indicator.config.type.toUpperCase()) + ' Signal'"
-                      [fill]="indicator.config.options.color2 || '#e91e63'"
-                      width="1"
-                      [dashArray]="'4,3'"
-                      [enableTooltip]="true"
-                      [animation]="noAnimation">
-                    </e-series>
-                  }
-                }
-              }
-            }
-          </e-series-collection>
-        </ejs-chart>
-        }
-      } @else {
-        <div class="no-data">Select a signal to view chart</div>
-      }
-      <div class="crosshair-sync-line"></div>
-    </div>
-  `,
-  styles: [`
-    :host {
-      display: block;
-      width: 100%;
-      height: 100%;
-    }
-    .flex-chart-wrapper {
-      width: 100%;
-      height: 100%;
-      min-height: 300px;
-      position: relative;
-    }
-    .no-data {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-      color: var(--mat-sys-on-surface-variant);
-    }
-    .crosshair-date-label {
-      position: absolute;
-      top: 6px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.75);
-      color: #fff;
-      font-size: 12px;
-      font-weight: 500;
-      padding: 2px 8px;
-      border-radius: 4px;
-      pointer-events: none;
-      z-index: 20;
-      white-space: nowrap;
-    }
-    .crosshair-sync-line {
-      display: none;
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 1px;
-      background: #000000;
-      pointer-events: none;
-      z-index: 10;
-    }
-  `],
+  templateUrl: './flex-chart.component.html',
+  styleUrl: './flex-chart.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FlexChartComponent implements OnDestroy {
   readonly StIndicator = StIndicator;
-  /** Empty categories to pad past the last bar, like TradingView's right margin */
-  private static readonly RIGHT_MARGIN_BARS = 5;
 
   private readonly el = inject(ElementRef);
   private readonly zone = inject(NgZone);
+  private readonly viewport = inject(ChartViewportStore);
+  private readonly yAxisController = inject(ChartYAxisViewportController);
+  private readonly lifecycleFacade = inject(ChartLifecycleFacade);
+  private readonly dataAdapter = inject(ChartDataAdapter);
   private resizeObserver: ResizeObserver | null = null;
 
-  chart = viewChild<SfChartComponent>('chart');
+  private readonly chart = viewChild<SfChartComponent>('chart');
 
-  // Track last applied zoom to avoid re-applying when only indicators change
-  private lastZoomKey: string | null = null;
-  // Track last series data snapshot to drive programmatic chart refresh
-  private lastSeriesKey: string | null = null;
-  // Track last zoom toolbar visibility to detect runtime config changes
-  private lastShowToolbar: boolean | null = null;
+  // Cached DOM refs for the hovered crosshair lines and price label. Caching avoids
+  // relying on viewChild signal updates when running outside Angular zone.
+  private hoverVLineEl: HTMLElement | null = null;
+  private hoverHLineEl: HTMLElement | null = null;
+  private priceLabelEl: HTMLElement | null = null;
+
+  // Raf handles for smooth hovered crosshair positioning outside Angular change detection
+  private pendingPriceLabelRaf: number | null = null;
+  private pendingHoverCrosshairRaf: number | null = null;
+  private pendingResizeRaf: number | null = null;
+
+  // Narrow viewChild Syncfusion component to the runtime properties we actually touch.
+  // This is the only place an assertion crosses from SfChartComponent to our facade.
+  private readonly typedChart = computed<SfChartInstance | null>(() => {
+    const chart = this.chart();
+    return chart ? (chart as unknown as SfChartInstance) : null;
+  });
+
+  // Throttle crosshair store/broadcast updates to bar-index or rounded-price changes
+  private lastCrosshairIdx = -1;
+  private lastCrosshairPriceRounded: number | null = null;
 
   // Inputs
   chartData = input.required<FlexChartDataset | null>();
   config = input<FlexChartConfig>({ indicators: [] });
   height = input<string>('400px');
   syncCrosshairDate = input<Date | null>(null);
+  syncCrosshairPrice = input<number | null>(null);
 
   // Outputs
   crosshairDateChange = output<Date | null>();
+  crosshairPriceChange = output<number | null>();
 
   // Disable all series animations
   noAnimation = { enable: false };
 
-  // Signals
-  isInitialLoad = signal<boolean>(true);
-  visibleRangeStart = signal<Date | null>(null);
-  hoveredDate = signal<string | null>(null);
+  // Store-derived helpers (kept as aliases for readability inside the component)
+  hoveredDate = this.viewport.crosshairDateLabel;
+  hoveredPrice = this.viewport.crosshairPriceLabel;
+  hoveredPriceTop = this.viewport.hoveredPriceTop;
 
-  // Transform bars for Category axis (even spacing, no gaps)
-  categoryBars = computed(() => {
-    const data = this.chartData();
-    if (!data) return [];
-    
-    // Map bars to index-based x values for Category axis
-    return data.bars.map((bar, index) => {
-      const d = bar.x instanceof Date ? bar.x : new Date(bar.x);
-      const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
-      return {
-        index,
-        open: bar.open,
-        high: bar.high,
-        low: bar.low,
-        close: bar.close,
-        volume: bar.volume,
-        date: bar.x,
-        label,
-      };
-    });
-  });
-
-  // Computed indicators with index-based x values
-  computedSeries = computed<ComputedIndicatorSeries[]>(() => {
-    const data = this.chartData();
-    const cfg = this.config();
-    if (!data || data.bars.length === 0 || cfg.indicators.length === 0) {
-      return [];
-    }
-
-    // Compute indicators on original bars
-    const originalSeries = computeIndicators(data.bars, cfg.indicators);
-
-    // Build a map of date timestamp to bar index for quick lookup
-    const dateToIndex = new Map<number, number>();
-    data.bars.forEach((bar, idx) => {
-      dateToIndex.set(bar.x.getTime(), idx);
-    });
-
-    // Transform to index-based x values using date matching
-    return originalSeries.map(series => ({
-      ...series,
-      data: series.data.map((point) => {
-        if (!point.x) return { ...point, index: -1 };
-        const index = dateToIndex.get(point.x.getTime());
-        return {
-          ...point,
-          index: index ?? -1,
-        };
-      }).filter(p => p.index >= 0), // Remove any unmatched points
-    }));
-  });
-
-  // Group by pane
-  private groupedSeries = computed(() => groupIndicatorsByPane(this.computedSeries()));
-
-  mainPaneSeries = computed(() => this.groupedSeries()['main'] || []);
-
-  /** ST Trend Band candle series — use pre-computed bandData when available, otherwise compute from bars */
-  trendBandSeries = computed<BandSeriesData[]>(() => {
-    const mainSeries = this.mainPaneSeries();
-    const trendBands = mainSeries.find(s => s.config.type === StIndicator.TREND_BANDS);
-    if (!trendBands) return [];
-
-    if (trendBands.config.bandData && trendBands.config.bandData.length > 0) {
-      return trendBands.config.bandData;
-    }
-
-    const data = this.chartData();
-    if (!data || data.bars.length < 30) return [];
-
-    return computeAllBands(data.bars);
-  });
-
-  /** Active lower panes derived from current indicators — sorted by pane ID */
-  lowerPanes = computed(() => {
-    const grouped = this.groupedSeries();
-    const paneIds = Object.keys(grouped)
-      .filter(id => id.startsWith('lower-'))
-      .sort() as IndicatorPane[];
-
-    return paneIds.map(paneId => {
-      const series = grouped[paneId];
-      const axisName = `lowerYAxis${paneId.replace('lower-', '')}`;
-      // Determine axis scale from indicators on this pane
-      const useFixedScale = series.some(s => s.config.options.axisScale === 'fixed-0-100');
-      const fixedIndicator = series.find(s => s.config.options.axisScale === 'fixed');
-      const axisMin = fixedIndicator?.config.options.axisMin;
-      const axisMax = fixedIndicator?.config.options.axisMax;
-      return {
-        id: paneId,
-        axisName,
-        series,
-        useFixedScale,
-        axisMin,
-        axisMax,
-      };
-    });
-  });
-
-  /** Dynamic Y-axes for lower panes. All series share the primary X-axis for zoom sync. */
-  chartAxes = computed(() => {
-    return this.lowerPanes().map((pane, index) => {
-      // Collect stripLines from all indicators on this pane
-      const stripLines = pane.series
-        .flatMap(s => s.config.options.referenceLines || [])
-        .map(ref => ({
-          start: ref.value,
-          size: 1,
-          sizeType: 'Pixel' as const,
-          color: ref.color,
-          dashArray: ref.dashArray || '',
-          visible: true,
-          opacity: 1,
-          zIndex: 'Over' as const,
-          text: ref.label || '',
-          textStyle: { color: ref.color, size: '10px' },
-          horizontalAlignment: 'End' as const,
-          verticalAlignment: 'Middle' as const,
-        }));
-
-      return {
-        name: pane.axisName,
-        valueType: 'Double' as const,
-        opposedPosition: true,
-        rowIndex: index,
-        minimum: pane.useFixedScale ? 0 : (pane.axisMin ?? undefined),
-        maximum: pane.useFixedScale ? 100 : (pane.axisMax ?? undefined),
-        labelFormat: '{value}',
-        majorGridLines: { width: 0.5, color: 'rgba(158,158,158,0.3)' },
-        lineStyle: { width: 1, color: '#9e9e9e' },
-        crosshairTooltip: { enable: false },
-        rangePadding: 'None',
-        stripLines,
-      };
-    });
-  });
-
-  /** Dynamic row definitions: bottom-to-top (index 0 = bottom row) */
-  chartRows = computed(() => {
-    const lowerCount = this.lowerPanes().length;
-    if (lowerCount === 0) return [{ height: '100%' }];
-
-    // Lower panes at bottom, main pane on top
-    // Row order in array: [lower-1, lower-2, ..., main]
-    const lowerPct = Math.floor(55 / lowerCount);
-    const rows: { height: string }[] = [];
-    for (let i = 0; i < lowerCount; i++) {
-      rows.push({ height: `${lowerPct}%` });
-    }
-    rows.push({ height: `${100 - lowerCount * lowerPct}%` }); // Main pane (top)
-    return rows;
-  });
+  // Data transformation delegated to ChartDataAdapter
+  categoryBars = this.dataAdapter.categoryBars;
+  computedSeries = this.dataAdapter.computedSeries;
+  mainPaneSeries = this.dataAdapter.mainPaneSeries;
+  trendBandSeries = this.dataAdapter.trendBandSeries;
+  lowerPanes = this.dataAdapter.lowerPanes;
+  chartAxes = this.dataAdapter.chartAxes;
+  chartRows = this.dataAdapter.chartRows;
 
 
   // Chart configuration - Category axis removes gaps (like TradingView)
   // NOTE: zoomFactor/zoomPosition are NOT included here — they are imperative state
   // applied once by applyInitialZoom(). Including them would cause Syncfusion to
-  // reset the user's scroll position whenever this computed re-fires (e.g. on
-  // async indicator data arrival changing the config input).
+  // reset the user's scroll position whenever this computed re-fires.
   primaryXAxis = computed(() => {
-    // Touch chartData so axis updates when bar count changes (new symbol)
-    this.chartData();
+    // Re-evaluate when the dataset changes so Syncfusion rebuilds the category axis
+    // for a new symbol/interval. The axis config itself is constant.
+    this.chartData()?.bars.length;
 
     return {
       valueType: 'Category',
       majorGridLines: { width: 0 },
-      crosshairTooltip: { enable: false },
       edgeLabelPlacement: 'Shift',
     };
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onAxisLabelRender(args: any): void {
-    if (args.axis.name !== 'primaryXAxis') return;
+  onAxisLabelRender(args: SfAxisLabelRenderArgs): void {
+    if (args.axis.name === 'primaryXAxis') {
+      const data = this.chartData();
+      const idx = Math.round(Number(args.value));
+      if (!data || Number.isNaN(idx) || !data.bars[idx]) return;
 
-    const data = this.chartData();
-    const idx = Math.round(args.value);
-    if (!data || !data.bars[idx]) return;
+      const date = data.bars[idx].x;
+      const interval = this.config().interval;
+      const format: Intl.DateTimeFormatOptions = interval === ChartIntervalKey.MONTHLY
+        ? { month: 'short', year: '2-digit' }
+        : { month: 'short', day: 'numeric' };
+      args.text = date.toLocaleDateString('en-US', format);
+      return;
+    }
 
-    const date = data.bars[idx].x;
-    args.text = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    if (args.axis.name === 'primaryYAxis') {
+      const value = Number(args.value);
+      if (Number.isNaN(value)) return;
+
+      args.text = this.yAxisController.formatLabel(args.axis.valueType === 'Logarithmic', value);
+    }
   }
 
-  // primaryYAxis rowIndex is dynamic — set via computed
-  primaryYAxis = computed(() => ({
-    labelFormat: '${value}',
-    opposedPosition: true, // Y-axis on the right side
-    rowIndex: this.lowerPanes().length, // Main pane = topmost row
-    majorGridLines: { width: 1 },
-    crosshairTooltip: { enable: false },
-    rangePadding: 'None',
-  }));
+  // primaryYAxis declarative config. The actual min/max (or zoomFactor/zoomPosition for log)
+  // are applied imperatively by the lifecycle facade so the component does not mutate the chart.
+  primaryYAxis = computed(() =>
+    this.yAxisController.buildAxisConfig(!!this.config().logScale, this.lowerPanes().length),
+  );
 
   zoomSettings = computed(() => {
     const showToolbar = this.config().showZoomToolbar !== false;
@@ -565,272 +200,235 @@ export class FlexChartComponent implements OnDestroy {
     };
   });
 
-  tooltip = {
+  // Disable Syncfusion's built-in crosshair — we draw our own lines so we control
+  // the render path and can sync the same position across sibling charts.
+  crosshair = {
     enable: false,
   };
 
-  private _tooltipDateInjected = false;
-
-  crosshair = {
-    enable: true,
-    lineType: 'Vertical',
-    snapToData: true,
-  };
-
-  onTooltipRender(args: ITooltipRenderEventArgs): void {
-    const point = args.point as any;
-    const idx = point?.index ?? point?.x;
-    if (idx === undefined || idx === null) return;
-    const bar = this.categoryBars()[+idx];
-    if (!bar?.label) return;
-    if (!this._tooltipDateInjected) {
-      this._tooltipDateInjected = true;
-      args.text = `<b style="font-size:12px">${bar.label}</b>`;
-    }
-  }
-
-  onChartTooltipClose(): void {
-    this._tooltipDateInjected = false;
-  }
-
   constructor() {
+    afterNextRender(() => {
+      const native = this.el.nativeElement;
+      this.hoverVLineEl = native.querySelector('.crosshair-line-v');
+      this.hoverHLineEl = native.querySelector('.crosshair-line-h');
+      this.priceLabelEl = native.querySelector('.crosshair-price-label');
+    });
+
+    this.lifecycleFacade.connectAndActivate(this.typedChart, this.chartData, this.config, this.dataAdapter.computedSeries);
+    this.dataAdapter.connect(this.chartData, this.config);
+
+    // Sync incoming crosshair values (from parent input/output binding) into the store
+    // so the overlay component can render them. Skip when this chart is hovered.
+    // Updating on null is required so crosshair lines clear when the mouse leaves the source chart.
+    effect(() => {
+      const syncDate = this.syncCrosshairDate();
+      const syncPrice = this.syncCrosshairPrice();
+      if (!this.viewport.hovered()) {
+        this.viewport.setCrosshair(syncDate, syncPrice);
+      }
+    });
+
     effect(() => {
       const data = this.chartData();
       if (data && data.bars.length > 0) {
-        this.isInitialLoad.set(true);
-        this.lastZoomKey = null;
+        this.viewport.resetViewport();
+        this.lastCrosshairIdx = -1;
+        this.lastCrosshairPriceRounded = null;
       }
     });
 
-    // Sync crosshair from another chart via CSS overlay line
-    effect(() => {
-      const syncDate = this.syncCrosshairDate();
-      const chartComp = this.chart() as any;
-      const data = this.chartData();
-
-      const overlay = this.el.nativeElement.querySelector('.crosshair-sync-line') as HTMLElement;
-      if (!overlay) return;
-
-      if (!syncDate || !chartComp || !data || data.bars.length === 0) {
-        overlay.style.display = 'none';
-        return;
-      }
-
-      // Get axis info
-      const xAxis = chartComp.axisCollections?.[0];
-      if (!xAxis?.rect || !xAxis?.visibleRange) {
-        overlay.style.display = 'none';
-        return;
-      }
-
-      // Find the bar index closest to the synced date
-      const targetTime = syncDate.getTime();
-      let closestIdx = 0;
-      let closestDiff = Infinity;
-      for (let i = 0; i < data.bars.length; i++) {
-        const barTime = new Date(data.bars[i].x).getTime();
-        const diff = Math.abs(barTime - targetTime);
-        if (diff < closestDiff) {
-          closestDiff = diff;
-          closestIdx = i;
-        }
-      }
-
-      // Convert bar index to pixel position
-      const { min, delta } = xAxis.visibleRange;
-      const rect = xAxis.rect;
-      const pixelX = rect.x + ((closestIdx - min) / delta) * rect.width;
-
-      // Only show if within chart area
-      if (pixelX < rect.x || pixelX > rect.x + rect.width) {
-        overlay.style.display = 'none';
-        return;
-      }
-
-      overlay.style.display = 'block';
-      overlay.style.left = `${pixelX}px`;
-    });
-
-    // Re-apply zoom + right margin + Y-axis snap whenever the chart data
-    // or zoom range (initialZoomDays / interval) changes.
-    // Keyed on bar count + initialZoomDays + interval so it only fires on
-    // meaningful changes (new symbol, interval switch, range change), NOT on
-    // indicator config changes that don't affect zoom.
-    effect(() => {
-      const chart = this.chart();
-      const data = this.chartData();
-      const config = this.config();
-      if (!chart || !data || data.bars.length === 0) return;
-
-      const key = `${config.initialZoomDays ?? 0}-${config.interval ?? ''}-${data.bars.length}`;
-      if (this.lastZoomKey === key) return;
-      this.lastZoomKey = key;
-
-      this.applyInitialZoom(data.bars.length);
-    });
-
-    // Refresh chart when indicator data changes — Syncfusion doesn't pick up [dataSource] changes
-    // on existing series when async callable data arrives (e.g. dot markers populating after bars).
-    // lastSeriesKey tracks the last key we refreshed for; if it changes while chart isn't ready
-    // yet, the effect re-runs when chart becomes available and fires the refresh then.
-    effect(() => {
-      const chart = this.chart();
-      const series = this.computedSeries();
-      const key = series.map(s => s.data.length).join(',');
-      if (key === '' || key === this.lastSeriesKey) return;
-      if (!chart) return;
-      this.lastSeriesKey = key;
-      chart.animateSeries = false;
-      chart.refresh();
-    });
-
-    // Refresh chart when zoom toolbar visibility changes — Syncfusion ignores runtime zoomSettings updates
-    effect(() => {
-      const showToolbar = this.config().showZoomToolbar;
-      const chart = this.chart();
-      if (!chart) return;
-      if (this.lastShowToolbar === null) { this.lastShowToolbar = showToolbar ?? null; return; }
-      if (this.lastShowToolbar === showToolbar) return;
-      this.lastShowToolbar = showToolbar ?? null;
-      chart.animateSeries = false;
-      chart.refresh();
-    });
-
-    // Watch for container resize (e.g. fullscreen toggle) and refresh chart
+    // Watch for container resize (e.g. fullscreen toggle) and refresh chart.
+    // Throttle with requestAnimationFrame so multiple consecutive resize events
+    // do not trigger repeated Syncfusion refreshes.
     this.zone.runOutsideAngular(() => {
       this.resizeObserver = new ResizeObserver(() => {
-        const chart = this.chart();
-        if (chart) {
-          chart.animateSeries = false;
-          chart.refresh();
-        }
+        if (this.pendingResizeRaf) cancelAnimationFrame(this.pendingResizeRaf);
+        this.pendingResizeRaf = requestAnimationFrame(() => {
+          this.pendingResizeRaf = null;
+          this.lifecycleFacade.refresh();
+        });
       });
       this.resizeObserver.observe(this.el.nativeElement);
     });
   }
 
   ngOnDestroy(): void {
+    if (this.pendingResizeRaf) cancelAnimationFrame(this.pendingResizeRaf);
     this.resizeObserver?.disconnect();
   }
 
   onChartMouseMove(event: IMouseEventArgs): void {
-    const chartComp = this.chart() as any;
-    const data = this.chartData();
-    if (!chartComp || !data || data.bars.length === 0) return;
+    // Run the fast path outside Angular change detection. Only re-enter the zone
+    // when a store value actually changes.
+    this.zone.runOutsideAngular(() => {
+      const data = this.chartData();
+      const state = this.lifecycleFacade.chartState();
+      if (!data || data.bars.length === 0 || !state) return;
 
-    // Get the x-axis from axisCollections
-    const xAxis = chartComp.axisCollections?.[0];
-    if (!xAxis || !xAxis.visibleRange || !xAxis.rect) return;
+      let crosshairIdx = -1;
+      let crosshairDate: Date | null = null;
+      let crosshairPrice: number | null = null;
 
-    const rect = xAxis.rect;
-    const pixelX = event.x - rect.x;
-    if (pixelX < 0 || pixelX > rect.width) return;
-
-    const { min, delta } = xAxis.visibleRange;
-    const idx = Math.round(min + (pixelX / rect.width) * delta);
-
-    if (idx >= 0 && idx < data.bars.length) {
-      const bar = data.bars[idx];
-      if (bar) {
-        const d = new Date(bar.x);
-        this.crosshairDateChange.emit(d);
-        this.hoveredDate.set(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }));
+      // Map mouse X to the nearest bar index using the facade-captured axis snapshot
+      const xAxis = state.xAxis;
+      const pixelX = event.x - xAxis.rect.x;
+      if (pixelX >= 0 && pixelX <= xAxis.rect.width) {
+        const { min, delta } = xAxis.visibleRange;
+        const idx = Math.round(min + (pixelX / xAxis.rect.width) * delta);
+        if (idx >= 0 && idx < data.bars.length) {
+          crosshairIdx = idx;
+          crosshairDate = new Date(data.bars[idx].x);
+        }
       }
-    }
+
+      // Compute price from primary Y-axis under the mouse pointer, or fall back to the
+      // hovered bar's close price when the cursor is in a lower indicator pane. This gives
+      // a meaningful price to sync to the other charts so the horizontal crosshair can
+      // propagate even when the mouse is not in the primary price pane.
+      const yAxis = state.yAxis;
+      const pixelY = event.y - yAxis.rect.y;
+      const insidePrimaryY = pixelY >= 0 && pixelY <= yAxis.rect.height;
+      if (insidePrimaryY) {
+        crosshairPrice = this.yAxisController.priceFromPixel(
+          yAxis.valueType === 'Logarithmic',
+          pixelY,
+          yAxis.rect,
+          yAxis.visibleRange,
+        );
+      } else if (crosshairIdx !== -1) {
+        const bar = data.bars[crosshairIdx];
+        if (bar) crosshairPrice = bar.close;
+      }
+
+      // Move the hovered crosshair lines whenever the cursor is inside the chart's
+      // X bounds — this includes the lower indicator panes.
+      // The price label only follows when the cursor is inside the primary Y-axis.
+      const insideX = pixelX >= 0 && pixelX <= xAxis.rect.width;
+      if (insideX) {
+        this.positionHoverCrosshair(event.x, event.y);
+        if (insidePrimaryY) {
+          this.positionPriceLabel(event.y);
+        } else {
+          this.hidePriceLabel();
+        }
+      } else {
+        this.hideHoverCrosshair();
+        this.hidePriceLabel();
+      }
+
+      // Sync to other charts whenever the hovered bar or rounded price changes.
+      const priceRounded = crosshairPrice !== null ? Math.round(crosshairPrice) : null;
+      const crosshairChanged =
+        crosshairIdx !== -1 &&
+        (crosshairIdx !== this.lastCrosshairIdx || priceRounded !== this.lastCrosshairPriceRounded);
+
+      if (crosshairChanged || !this.viewport.hovered()) {
+        this.zone.run(() => {
+          if (!this.viewport.hovered()) {
+            this.viewport.setHovered(true);
+          }
+          if (crosshairChanged) {
+            this.lastCrosshairIdx = crosshairIdx;
+            this.lastCrosshairPriceRounded = priceRounded;
+            this.viewport.setHoveredPriceTop(event.y);
+            if (crosshairDate) this.viewport.setCrosshairDate(crosshairDate);
+            if (crosshairPrice !== null) this.viewport.setCrosshairPrice(crosshairPrice);
+            this.broadcastCrosshair(crosshairDate, crosshairPrice);
+          }
+        });
+      }
+    });
   }
 
   onChartMouseLeave(): void {
-    this.crosshairDateChange.emit(null);
-    this._tooltipDateInjected = false;
-    this.hoveredDate.set(null);
+    this.cancelPriceLabelRaf();
+    this.cancelHoverCrosshairRaf();
+    this.hideHoverCrosshair();
+    this.viewport.setHovered(false);
+    this.viewport.clearCrosshair();
+    this.viewport.setHoveredPriceTop(null);
+    this.lastCrosshairIdx = -1;
+    this.lastCrosshairPriceRounded = null;
+    this.broadcastCrosshair(null, null);
+  }
+
+  private positionHoverCrosshair(x: number, y: number): void {
+    if (this.pendingHoverCrosshairRaf) {
+      cancelAnimationFrame(this.pendingHoverCrosshairRaf);
+    }
+    this.pendingHoverCrosshairRaf = requestAnimationFrame(() => {
+      this.pendingHoverCrosshairRaf = null;
+      const vLine = this.hoverVLineEl;
+      const hLine = this.hoverHLineEl;
+      if (vLine && hLine) {
+        vLine.style.display = 'block';
+        hLine.style.display = 'block';
+        vLine.style.left = `${x}px`;
+        hLine.style.top = `${y}px`;
+      }
+    });
+  }
+
+  private hideHoverCrosshair(): void {
+    if (this.hoverVLineEl) this.hoverVLineEl.style.display = 'none';
+    if (this.hoverHLineEl) this.hoverHLineEl.style.display = 'none';
+  }
+
+  private cancelHoverCrosshairRaf(): void {
+    if (this.pendingHoverCrosshairRaf) {
+      cancelAnimationFrame(this.pendingHoverCrosshairRaf);
+      this.pendingHoverCrosshairRaf = null;
+    }
+  }
+
+  private positionPriceLabel(y: number): void {
+    if (this.pendingPriceLabelRaf) {
+      cancelAnimationFrame(this.pendingPriceLabelRaf);
+    }
+    this.pendingPriceLabelRaf = requestAnimationFrame(() => {
+      this.pendingPriceLabelRaf = null;
+      const label = this.priceLabelEl;
+      if (label) {
+        label.style.display = '';
+        label.style.top = `${y}px`;
+      }
+    });
+  }
+
+  private hidePriceLabel(): void {
+    if (this.priceLabelEl) {
+      this.priceLabelEl.style.display = 'none';
+    }
+  }
+
+  private cancelPriceLabelRaf(): void {
+    if (this.pendingPriceLabelRaf) {
+      cancelAnimationFrame(this.pendingPriceLabelRaf);
+      this.pendingPriceLabelRaf = null;
+    }
+  }
+
+  private broadcastCrosshair(date: Date | null, price: number | null): void {
+    this.crosshairDateChange.emit(date);
+    this.crosshairPriceChange.emit(price);
   }
 
   onChartLoaded(): void {
-    if (!this.isInitialLoad()) return;
-
-    const chart = this.chart();
-    const data = this.chartData();
-
-    if (!chart || !data || data.bars.length === 0) return;
-
-    this.applyInitialZoom(data.bars.length);
-    this.isInitialLoad.set(false);
+    // Refresh the captured axis state now that the chart has finished rendering
+    // and the axis rects are available. This is required before mouse-move can
+    // position the custom crosshair overlay.
+    this.lifecycleFacade.refreshChartState();
   }
 
   onZoomComplete(event: IZoomCompleteEventArgs): void {
     if (!event.currentVisibleRange) return;
-    this.snapYAxisToVisibleRange(event.currentVisibleRange.min ?? 0, event.currentVisibleRange.max ?? 0);
+    this.lifecycleFacade.snapYAxisToVisibleRange(
+      event.currentVisibleRange.min ?? 0,
+      event.currentVisibleRange.max ?? 0,
+    );
   }
 
-  onScrollEnd(event: IScrollEventArgs): void {
-    const chart = this.chart();
-    if (!chart) return;
-    const xAxis = chart.primaryXAxis as any;
-    const visibleRange = xAxis?.visibleRange;
-    if (!visibleRange) return;
-    this.snapYAxisToVisibleRange(visibleRange.min ?? 0, visibleRange.max ?? 0);
-  }
-
-  private snapYAxisToVisibleRange(rangeMin: number, rangeMax: number): void {
-    const chart = this.chart();
-    const data = this.chartData();
-    if (!chart || !data) return;
-
-    const minIdx = Math.max(0, Math.floor(rangeMin));
-    const maxIdx = Math.min(data.bars.length - 1, Math.ceil(rangeMax));
-    const visibleBars = data.bars.slice(minIdx, maxIdx + 1);
-
-    if (visibleBars[0]) this.visibleRangeStart.set(visibleBars[0].x);
-
-    if (visibleBars.length > 0 && chart.primaryYAxis) {
-      const rawMin = Math.min(...visibleBars.map(b => b.low));
-      const rawMax = Math.max(...visibleBars.map(b => b.high));
-      const pad = (rawMax - rawMin) * 0.03;
-      chart.primaryYAxis.minimum = rawMin - pad;
-      chart.primaryYAxis.maximum = rawMax + pad;
-      chart.dataBind();
-    }
-  }
-
-  private applyInitialZoom(totalBars: number): void {
-    const chart = this.chart();
-    const data = this.chartData();
-    if (!chart || !data || data.bars.length === 0) return;
-
-    const margin = FlexChartComponent.RIGHT_MARGIN_BARS;
-    const totalCategories = data.bars.length + margin;
-
-    // Category axis: use indices for min/max, including the right margin
-    if (chart.primaryXAxis) {
-      chart.primaryXAxis.minimum = 0;
-      chart.primaryXAxis.maximum = data.bars.length - 1 + margin;
-    }
-
-    const initialDays = this.config().initialZoomDays ?? 60;
-    const visibleCount = Math.min(initialDays, data.bars.length - 1);
-    const visibleRange = visibleCount + margin;
-    const zoomFactor = visibleRange / totalCategories;
-    const zoomPosition = (data.bars.length - visibleCount) / totalCategories;
-
-    if (chart.primaryXAxis) {
-      chart.primaryXAxis.zoomFactor = zoomFactor;
-      chart.primaryXAxis.zoomPosition = zoomPosition;
-    }
-
-    // Apply initial Y-axis autoscale directly from visible bar slice
-    const visibleStart = Math.max(0, data.bars.length - visibleCount);
-    const visibleBars = data.bars.slice(visibleStart);
-
-    // Track visible range start for axis label formatting
-    this.visibleRangeStart.set(visibleBars[0]?.x ?? null);
-
-    if (visibleBars.length > 0 && chart.primaryYAxis) {
-      const rawMin = Math.min(...visibleBars.map(b => b.low));
-      const rawMax = Math.max(...visibleBars.map(b => b.high));
-      const pad = (rawMax - rawMin) * 0.03;
-      chart.primaryYAxis.minimum = rawMin - pad;
-      chart.primaryYAxis.maximum = rawMax + pad;
-      chart.dataBind();
-    }
+  onScrollEnd(): void {
+    this.lifecycleFacade.snapYAxisToCurrentVisibleRange();
   }
 }
