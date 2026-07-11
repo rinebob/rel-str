@@ -33,7 +33,9 @@
           [chartData]="chartStore.dailyData()"
           [config]="dailyConfig()"
           [syncCrosshairDate]="sharedCrosshairDate()"
+          [syncCrosshairPrice]="sharedCrosshairPrice()"
           (crosshairDateChange)="sharedCrosshairDate.set($event)"
+          (crosshairPriceChange)="sharedCrosshairPrice.set($event)"
           height="100%">
         </app-flex-chart>
       </div>
@@ -44,7 +46,9 @@
           [chartData]="chartStore.weeklyData()"
           [config]="weeklyConfig()"
           [syncCrosshairDate]="sharedCrosshairDate()"
+          [syncCrosshairPrice]="sharedCrosshairPrice()"
           (crosshairDateChange)="sharedCrosshairDate.set($event)"
+          (crosshairPriceChange)="sharedCrosshairPrice.set($event)"
           height="100%">
         </app-flex-chart>
       </div>
@@ -55,7 +59,9 @@
           [chartData]="chartStore.monthlyData()"
           [config]="monthlyConfig()"
           [syncCrosshairDate]="sharedCrosshairDate()"
+          [syncCrosshairPrice]="sharedCrosshairPrice()"
           (crosshairDateChange)="sharedCrosshairDate.set($event)"
+          (crosshairPriceChange)="sharedCrosshairPrice.set($event)"
           height="100%">
         </app-flex-chart>
       </div>

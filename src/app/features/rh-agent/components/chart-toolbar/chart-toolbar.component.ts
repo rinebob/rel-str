@@ -29,6 +29,7 @@ export class ChartToolbarComponent {
   activeChartInterval = input.required<BarsInterval>();
   layout = input.required<'single' | 'triple'>();
   fullscreen = input.required<boolean>();
+  logScale = input.required<boolean>();
   indicatorOptions = input.required<IndicatorOption[]>();
   selectedIndicatorIds = input.required<Set<string>>();
 
@@ -37,5 +38,6 @@ export class ChartToolbarComponent {
   zoomToggle = output<void>();
   layoutToggle = output<void>();
   fullscreenToggle = output<void>();
+  logScaleToggle = output<void>();
   indicatorToggle = output<string>();
 }

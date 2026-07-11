@@ -32,6 +32,7 @@
     <button class="range-btn" [class.active]="selectedRange() === '5y'" (click)="rangeChange.emit('5y')">5Y</button>
     <button class="range-btn" [class.active]="selectedRange() === 'all'" (click)="rangeChange.emit('all')">All</button>
   </span>
+
   <button mat-icon-button class="toolbar-icon-btn" (click)="layoutToggle.emit()"
     [matTooltip]="layout() === 'single' ? 'Three-chart layout' : 'Single-chart layout'">
     <mat-icon>{{ layout() === 'single' ? 'grid_view' : 'crop_square' }}</mat-icon>

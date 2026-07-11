@@ -7,6 +7,7 @@
       [activeChartInterval]="activeChartInterval()"
       [layout]="uiState.chartLayout()"
       [fullscreen]="uiState.fullscreen()"
+      [logScale]="logScale()"
       [indicatorOptions]="activeChartIndicatorOptions()"
       [selectedIndicatorIds]="activeSelectedIndicatorIds()"
       (intervalChange)="onIntervalChange($event)"
@@ -14,6 +15,7 @@
       (zoomToggle)="showZoomToolbar.set(!showZoomToolbar())"
       (layoutToggle)="uiState.toggleChartLayout()"
       (fullscreenToggle)="uiState.toggleFullscreen()"
+      (logScaleToggle)="onToggleLogScale()"
       (indicatorToggle)="onToggleIndicator($event)">
     </app-chart-toolbar>
 
@@ -33,7 +35,9 @@
                 [chartData]="chartDataWeekly()"
                 [config]="chartConfigWeekly()"
                 [syncCrosshairDate]="crosshairDate()"
+                [syncCrosshairPrice]="crosshairPrice()"
                 (crosshairDateChange)="onCrosshairChange($event)"
+                (crosshairPriceChange)="onCrosshairPriceChange($event)"
                 height="100%">
               </app-flex-chart>
             </div>
@@ -42,7 +46,9 @@
                 [chartData]="chartDataMonthly()"
                 [config]="chartConfigMonthly()"
                 [syncCrosshairDate]="crosshairDate()"
+                [syncCrosshairPrice]="crosshairPrice()"
                 (crosshairDateChange)="onCrosshairChange($event)"
+                (crosshairPriceChange)="onCrosshairPriceChange($event)"
                 height="100%">
               </app-flex-chart>
             </div>
@@ -52,7 +58,9 @@
               [chartData]="chartData()"
               [config]="chartConfigDaily()"
               [syncCrosshairDate]="crosshairDate()"
+              [syncCrosshairPrice]="crosshairPrice()"
               (crosshairDateChange)="onCrosshairChange($event)"
+              (crosshairPriceChange)="onCrosshairPriceChange($event)"
               height="100%">
             </app-flex-chart>
           </div>
