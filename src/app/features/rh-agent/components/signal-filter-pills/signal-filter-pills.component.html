@@ -1,0 +1,25 @@
+<div class="filter-pills">
+  <div class="pill-group">
+    <button type="button" class="pill"
+      [class.active]="timeframe() === SignalTimeframe.ALL"
+      (click)="timeframeChange.emit(SignalTimeframe.ALL)">All</button>
+    <button type="button" class="pill"
+      [class.active]="timeframe() === SignalTimeframe.DAILY"
+      (click)="timeframeChange.emit(SignalTimeframe.DAILY)">D</button>
+    <button type="button" class="pill"
+      [class.active]="timeframe() === SignalTimeframe.WEEKLY"
+      (click)="timeframeChange.emit(SignalTimeframe.WEEKLY)">W</button>
+  </div>
+
+  <div class="pill-group">
+    <button type="button" class="pill"
+      [class.active]="direction() === SignalDirection.ALL"
+      (click)="directionChange.emit(SignalDirection.ALL)">All</button>
+    <button type="button" class="pill long"
+      [class.active]="direction() === SignalDirection.LONG"
+      (click)="directionChange.emit(SignalDirection.LONG)">Long</button>
+    <button type="button" class="pill short"
+      [class.active]="direction() === SignalDirection.SHORT"
+      (click)="directionChange.emit(SignalDirection.SHORT)">Short</button>
+  </div>
+</div>

@@ -1,0 +1,61 @@
+:host {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.filter-pills {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.pill-group {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+  background: var(--mat-sys-surface-container);
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 12px;
+  padding: 2px;
+}
+
+.pill {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--mat-sys-on-surface-variant);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+
+  &:hover:not(.active) {
+    background: var(--mat-sys-surface-container-high);
+    color: var(--mat-sys-on-surface);
+  }
+
+  &.active {
+    background: var(--mat-sys-primary-container);
+    color: var(--mat-sys-on-primary-container);
+    border-color: var(--mat-sys-primary);
+    box-shadow: 0 0 0 1px var(--mat-sys-primary);
+    font-weight: 700;
+  }
+
+  &.long.active {
+    background: var(--mat-sys-success-container);
+    color: var(--mat-sys-on-success-container);
+    border-color: var(--mat-sys-success);
+    box-shadow: 0 0 0 1px var(--mat-sys-success);
+  }
+
+  &.short.active {
+    background: var(--mat-sys-error-container);
+    color: var(--mat-sys-on-error-container);
+    border-color: var(--mat-sys-error);
+    box-shadow: 0 0 0 1px var(--mat-sys-error);
+  }
+}
