@@ -4,7 +4,7 @@
 :host {
     @include global.flexboxLayout(row, flex-start, center);
     background-color: rgb(230, 230, 230);
-    height: 64px;
+    height: var(--app-header-height);
     
     //////////////// CONTAINERS
     

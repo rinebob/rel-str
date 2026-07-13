@@ -9,7 +9,7 @@
 
     </mat-drawer>
 
-    <mat-drawer-content [style.--header-height.px]="ui.fullscreen() ? 0 : 64">
+    <mat-drawer-content [style.--header-height]="ui.fullscreen() ? '0px' : 'var(--app-header-height)'">
 
         @if (!ui.fullscreen()) {
           <rs-header (openSidenav)="handleOpenSidenav()" />

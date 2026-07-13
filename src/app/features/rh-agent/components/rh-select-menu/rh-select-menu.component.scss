@@ -1,0 +1,24 @@
+.rh-select-btn {
+  font-size: 10px;
+  height: 28px;
+  line-height: 28px;
+  padding: 0 4px 0 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+
+  mat-icon { font-size: 18px; width: 18px; height: 18px; margin: 0; }
+}
+
+.rh-select-label {
+  font-size: 9px;
+  font-weight: 400;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.rh-select-value {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--mat-sys-on-surface);
+}

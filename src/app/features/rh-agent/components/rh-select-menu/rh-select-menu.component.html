@@ -1,0 +1,16 @@
+<button mat-stroked-button [matMenuTriggerFor]="menu" class="rh-select-btn">
+  <span class="rh-select-label">{{ label() }}</span>
+  <span class="rh-select-value">{{ activeLabel() }}</span>
+  <mat-icon>arrow_drop_down</mat-icon>
+</button>
+
+<mat-menu #menu="matMenu">
+  @for (opt of options(); track opt.value) {
+    <button mat-menu-item (click)="valueChange.emit(opt.value)" class="rh-dropdown-menu-item">
+      <span class="menu-checkbox" [class.checked]="value() === opt.value">
+        <mat-icon>{{ value() === opt.value ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
+      </span>
+      <span class="menu-label">{{ opt.label }}</span>
+    </button>
+  }
+</mat-menu>
