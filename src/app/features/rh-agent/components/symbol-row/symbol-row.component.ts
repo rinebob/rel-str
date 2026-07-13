@@ -12,7 +12,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatBadgeModule } from '@angular/material/badge';
 import { RhSymbolRow } from '../../stores/rh-agent-group.store';
 import { RhSymbolListName, RhReviewStatus } from '../../common/rh-agent.constants';
-import { tierLabel, latestSignals } from '../../utils/rh-agent.utils';
+import { tierLabel } from '../../utils/rh-agent.utils';
 import { SymbolAcrActionsComponent } from '../symbol-acr-actions/symbol-acr-actions.component';
 import { SymbolListActionsComponent } from '../symbol-list-actions/symbol-list-actions.component';
 import { SymbolSignalHistoryComponent } from '../symbol-signal-history/symbol-signal-history.component';
@@ -47,9 +47,6 @@ export class SymbolRowComponent {
 
   /** Expose helper to template. */
   readonly tierLabel = tierLabel;
-
-  /** Latest signals for the row (already filtered by the active store-level filter). */
-  readonly latestSignals = computed(() => latestSignals(this.row()));
 
   select = output<void>();
   viewQuickCharts = output<string>();

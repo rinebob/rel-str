@@ -2,6 +2,37 @@
 @use './app/styles/variables-global' as globalVar;
 @import '../node_modules/@syncfusion/ej2-angular-base/styles/material.css';
 
+// Material 3 system variables are not emitted by the prebuilt indigo-pink theme,
+// but the app uses them extensively. Define them here so components can rely on them.
+:root {
+  --mat-sys-primary: #3f51b5;
+  --mat-sys-on-primary: #ffffff;
+  --mat-sys-primary-container: #e8eaf6;
+  --mat-sys-on-primary-container: #1a237e;
+  --mat-sys-secondary: #018786;
+  --mat-sys-on-secondary: #ffffff;
+  --mat-sys-secondary-container: #e0f2f1;
+  --mat-sys-on-secondary-container: #004d40;
+  --mat-sys-tertiary: #e91e63;
+  --mat-sys-on-tertiary: #ffffff;
+  --mat-sys-tertiary-container: #f8bbd0;
+  --mat-sys-on-tertiary-container: #880e4f;
+  --mat-sys-error: #f44336;
+  --mat-sys-on-error: #ffffff;
+  --mat-sys-error-container: #ffebee;
+  --mat-sys-on-error-container: #b71c1c;
+  --mat-sys-surface: #ffffff;
+  --mat-sys-on-surface: #000000;
+  --mat-sys-on-surface-variant: #444746;
+  --mat-sys-surface-container: #f3f6fc;
+  --mat-sys-surface-container-high: #e8eaf6;
+  --mat-sys-surface-container-highest: #dbe1ee;
+  --mat-sys-outline: #747775;
+  --mat-sys-success: #4caf50;
+  --mat-sys-on-success: #ffffff;
+  --mat-sys-warning-container: #fff3e0;
+  --mat-sys-on-warning-container: #e65100;
+}
 
 body {
     margin: 0;

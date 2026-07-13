@@ -2,8 +2,8 @@
   margin-bottom: 2px !important;
   border-radius: 6px !important;
 
-  &.active-chart    { outline: 2px solid #1976d2; outline-offset: -1px; }
-  &.symbol-selected { outline: 2px solid #1976d2; outline-offset: -1px; }
+  &.active-chart    { outline: 2px solid var(--mat-sys-primary); outline-offset: -1px; }
+  &.symbol-selected { outline: 2px solid var(--mat-sys-primary); outline-offset: -1px; }
 }
 
 .symbol-header {
@@ -135,10 +135,10 @@
   white-space: nowrap;
 
   &.tier {
-    &-mega  { background: #4a148c22; color: #4a148c; }
-    &-large { background: #1565c022; color: #1565c0; }
-    &-mid   { background: #1b5e2022; color: #1b5e20; }
-    &-small { background: #e6510022; color: #e65100; }
+    &-mega  { background: var(--mat-sys-primary);   color: var(--mat-sys-on-primary); }
+    &-large { background: var(--mat-sys-tertiary);  color: var(--mat-sys-on-tertiary); }
+    &-mid   { background: var(--mat-sys-secondary); color: var(--mat-sys-on-secondary); }
+    &-small { background: var(--mat-sys-error);      color: var(--mat-sys-on-error); }
     &-micro { background: var(--mat-sys-surface-container-high); color: var(--mat-sys-on-surface-variant); }
   }
 
@@ -153,5 +153,5 @@
   }
 
   &.sig-type    { background: var(--mat-sys-surface-container-high); color: var(--mat-sys-on-surface-variant); }
-  &.sig-pending { background: var(--mat-sys-primary-container);      color: var(--mat-sys-on-primary-container); }
+  &.sig-pending { background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container); }
 }

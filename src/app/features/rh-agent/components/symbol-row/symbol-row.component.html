@@ -23,12 +23,12 @@
         <span class="symbol-ticker">{{ row().profile.symbol }}</span>
 
         <div class="symbol-signals-today">
-          @for (sig of latestSignals(); track sig.signalType) {
+          @for (sig of row().signals; track sig.signalType) {
             <span class="badge dir dir-{{ sig.direction.toLowerCase() }}" matTooltip="{{ sig.signalType }}">
               {{ sig.direction }}
             </span>
           }
-          @if (row().hasSignal && !latestSignals().length) {
+          @if (row().hasSignal && !row().signals?.length) {
             <span class="badge sig-pending">signal</span>
           }
         </div>
