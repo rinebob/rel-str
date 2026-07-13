@@ -61,23 +61,19 @@
     </button>
   </div>
 
-  <mat-form-field appearance="outline" class="header-select" subscriptSizing="dynamic">
-    <mat-label>Select group</mat-label>
-    <mat-select [value]="groupDimension()" (valueChange)="dimensionChange.emit($event)">
-      @for (opt of dimensionOptions; track opt.value) {
-        <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-      }
-    </mat-select>
-  </mat-form-field>
+  <app-rh-select-menu
+    label="Group"
+    [options]="dimensionOptions"
+    [value]="groupDimension()"
+    (valueChange)="dimensionChange.emit($event)">
+  </app-rh-select-menu>
 
-  <mat-form-field appearance="outline" class="header-select" subscriptSizing="dynamic">
-    <mat-label>Select list</mat-label>
-    <mat-select [value]="activeListFilter()" (valueChange)="listFilterChange.emit($event)">
-      @for (opt of listFilterOptions; track opt.value) {
-        <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-      }
-    </mat-select>
-  </mat-form-field>
+  <app-rh-select-menu
+    label="List"
+    [options]="listFilterOptions"
+    [value]="activeListFilter()"
+    (valueChange)="listFilterChange.emit($event)">
+  </app-rh-select-menu>
 
   <button mat-icon-button (click)="prev.emit()"
     [disabled]="!quickChartSymbol() || flatSymbols().indexOf(quickChartSymbol()!) <= 0"

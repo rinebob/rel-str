@@ -12,7 +12,6 @@ import {
   OnDestroy,
   ChangeDetectionStrategy,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -28,7 +27,6 @@ import { QuickChartsPanelComponent } from '../../components/quick-charts-panel/q
   selector: 'app-signal-review',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    CommonModule,
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
@@ -75,13 +73,13 @@ export class SignalReviewComponent implements OnInit, OnDestroy {
   }
 
   /** Change the group dimension (sector, industry, or market cap). */
-  onDimension(dim: GroupDimension): void {
-    this.facade.setGroupDimension(dim);
+  onDimension(dim: string): void {
+    this.facade.setGroupDimension(dim as GroupDimension);
   }
 
   /** Apply a list filter to the signal review. */
-  onListFilter(filter: RhSymbolListName | 'ALL'): void {
-    this.facade.setActiveListFilter(filter);
+  onListFilter(filter: string): void {
+    this.facade.setActiveListFilter(filter as RhSymbolListName | 'ALL');
   }
 
   /** Toggle a symbol's membership in a named list. */

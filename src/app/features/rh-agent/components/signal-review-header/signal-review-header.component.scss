@@ -114,22 +114,7 @@
   }
 }
 
-.header-select {
-  width: 95px;
-  --mdc-outlined-text-field-container-height: 28px;
-  --mat-form-field-container-height: 28px;
-  --mat-form-field-container-vertical-padding: 2px;
 
-  .mat-mdc-text-field-wrapper { padding: 0 6px; }
-  .mat-mdc-form-field-infix {
-    padding-top: 2px !important;
-    padding-bottom: 2px !important;
-    min-height: 28px !important;
-  }
-  .mat-mdc-select-trigger { font-size: 10px; }
-  .mdc-floating-label, .mat-mdc-floating-label { font-size: 10px; }
-  .mdc-notched-outline__notch { border-right: none; }
-}
 
 .active-toggle {
   color: var(--mat-sys-primary) !important;

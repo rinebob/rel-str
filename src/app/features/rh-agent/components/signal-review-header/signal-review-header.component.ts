@@ -5,35 +5,48 @@
  * pipeline actions, group/list selectors, and view controls.
  */
 import { Component, ChangeDetectionStrategy, input, output } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatSelectModule } from '@angular/material/select';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { RhSymbolListName, StatusCounts, GroupDimension, SignalTimeframe, SignalDirection } from '../../common/rh-agent.constants';
 import { StatusSummaryChipsComponent } from '../status-summary-chips/status-summary-chips.component';
 import { SignalFilterPillsComponent } from '../signal-filter-pills/signal-filter-pills.component';
+import { RhSelectMenuComponent, RhSelectOption } from '../rh-select-menu/rh-select-menu.component';
+
+const DIMENSION_OPTIONS: RhSelectOption[] = [
+  { value: GroupDimension.SECTOR,          label: 'Sector' },
+  { value: GroupDimension.INDUSTRY,        label: 'Industry' },
+  { value: GroupDimension.MARKET_CAP_TIER, label: 'Market Cap' },
+];
+
+const LIST_FILTER_OPTIONS: RhSelectOption[] = [
+  { value: 'ALL',                          label: 'All' },
+  { value: RhSymbolListName.PRIMARY,       label: 'Primary' },
+  { value: RhSymbolListName.SECONDARY,     label: 'Secondary' },
+  { value: RhSymbolListName.NEUTRAL,       label: 'Neutral' },
+  { value: RhSymbolListName.AVOID,         label: 'Avoid' },
+  { value: RhSymbolListName.HIDE,          label: 'Hidden' },
+  { value: RhSymbolListName.PAST_SIGNALS,  label: 'Monitor' },
+];
 
 @Component({
   selector: 'app-signal-review-header',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    CommonModule,
     MatButtonModule,
     MatIconModule,
     MatTooltipModule,
-    MatSelectModule,
-    MatFormFieldModule,
-    MatProgressSpinnerModule,
     StatusSummaryChipsComponent,
     SignalFilterPillsComponent,
+    RhSelectMenuComponent,
   ],
   templateUrl: './signal-review-header.component.html',
   styleUrl: './signal-review-header.component.scss',
 })
 export class SignalReviewHeaderComponent {
+  readonly dimensionOptions = DIMENSION_OPTIONS;
+  readonly listFilterOptions = LIST_FILTER_OPTIONS;
+
   totalSignalCount = input(0);
   weeklySignalCount = input(0);
   dailySignalCount = input(0);
@@ -53,28 +66,12 @@ export class SignalReviewHeaderComponent {
   quickChartSymbol = input<string | null>(null);
   flatSymbols = input<string[]>([]);
 
-  readonly dimensionOptions: { value: GroupDimension; label: string }[] = [
-    { value: GroupDimension.SECTOR,        label: 'Sector' },
-    { value: GroupDimension.INDUSTRY,      label: 'Industry' },
-    { value: GroupDimension.MARKET_CAP_TIER, label: 'Market Cap' },
-  ];
-
-  readonly listFilterOptions: { value: RhSymbolListName | 'ALL'; label: string }[] = [
-    { value: 'ALL',                       label: 'All' },
-    { value: RhSymbolListName.PRIMARY,    label: 'Primary' },
-    { value: RhSymbolListName.SECONDARY,  label: 'Secondary' },
-    { value: RhSymbolListName.NEUTRAL,    label: 'Neutral' },
-    { value: RhSymbolListName.AVOID,      label: 'Avoid' },
-    { value: RhSymbolListName.HIDE,       label: 'Hidden' },
-    { value: RhSymbolListName.PAST_SIGNALS, label: 'Monitor' },
-  ];
-
   back = output<void>();
   goToReview = output<void>();
   goToOrder = output<void>();
   goToTriageReport = output<void>();
-  dimensionChange = output<GroupDimension>();
-  listFilterChange = output<RhSymbolListName | 'ALL'>();
+  dimensionChange = output<string>();
+  listFilterChange = output<string>();
   timeframeFilterChange = output<SignalTimeframe>();
   directionFilterChange = output<SignalDirection>();
   prev = output<void>();
