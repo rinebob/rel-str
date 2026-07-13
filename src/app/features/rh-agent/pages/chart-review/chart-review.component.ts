@@ -25,7 +25,8 @@ import { Router } from '@angular/router';
 import { Firestore, doc, getDoc } from '@angular/fire/firestore';
 import { RhAgentTriageStore } from '../../stores/rh-agent-triage.store';
 import { RhAgentGroupStore } from '../../stores/rh-agent-group.store';
-import { RhReviewStatus } from '../../common/rh-agent.constants';
+import { RhAgentSymbolListStore } from '../../stores/rh-agent-symbol-list.store';
+import { RhReviewStatus, RhSymbolListName } from '../../common/rh-agent.constants';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { todayDate, daysAgoPt } from '../../utils/rh-agent.utils';
 import { SignalListComponent } from '../../components/signal-list/signal-list.component';
@@ -49,6 +50,7 @@ import { ReviewHeaderComponent } from '../../components/review-header/review-hea
 export class ChartReviewComponent implements OnInit, OnDestroy {
   readonly triageStore = inject(RhAgentTriageStore);
   readonly groupStore = inject(RhAgentGroupStore);
+  readonly symbolListStore = inject(RhAgentSymbolListStore);
   readonly uiState = inject(UiStateService);
   private readonly router = inject(Router);
   private readonly firestore = inject(Firestore);
@@ -124,6 +126,7 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     const marketDate = this.groupStore.activeRunMarketDate() ?? todayDate();
     const startDate = daysAgoPt(30);
     this.triageStore.loadPersistedDecisions(startDate, marketDate, marketDate);
+    this.symbolListStore.loadSymbolLists();
   }
 
   /** Leave fullscreen mode when the page is destroyed. */
@@ -175,6 +178,20 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
   /** Navigate to the standalone signal history page. */
   goToSignalHistory(): void {
     this.router.navigate(['/signal-history']);
+  }
+
+  /** Toggle the active symbol's membership in a named list. */
+  onToggleList(event: { symbol: string; listName: RhSymbolListName }): void {
+    this.symbolListStore.toggleSymbolInList(event.symbol, event.listName);
+  }
+
+  /** Toggle the active symbol's membership in the PAST_SIGNALS monitor list. */
+  onMonitor(symbol: string): void {
+    if (this.symbolListStore.activeListFilter() === RhSymbolListName.PAST_SIGNALS) {
+      this.symbolListStore.removeSymbolFromList(symbol, RhSymbolListName.PAST_SIGNALS);
+    } else {
+      this.symbolListStore.addSymbolToList(symbol, RhSymbolListName.PAST_SIGNALS);
+    }
   }
 
   /** Load an arbitrary symbol for chart review without a decision queue. */

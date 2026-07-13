@@ -17,6 +17,13 @@
       (fullscreenToggle)="uiState.toggleFullscreen()"
       (logScaleToggle)="onToggleLogScale()"
       (indicatorToggle)="onToggleIndicator($event)">
+      <app-symbol-list-actions chartToolbarCenter
+        [symbol]="manualSymbol()!"
+        [symbolLists]="symbolLists()"
+        [activeListFilter]="activeListFilter()"
+        (toggleList)="toggleList.emit($event)"
+        (monitor)="monitor.emit($event)">
+      </app-symbol-list-actions>
     </app-chart-toolbar>
 
     <!-- Chart Area -->

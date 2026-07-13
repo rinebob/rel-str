@@ -34,6 +34,7 @@ import { ChartIntervalKey, StIndicator } from '../../../shared/components/flex-c
 import { ST_INDICATOR_OPTIONS } from '../../../shared/components/flex-chart/indicators/indicator-registry';
 import { ST_SIGNAL_DOTS_INDICATOR } from '../../../shared/components/flex-chart/indicators/st-signal-dots.indicator';
 import { ChartToolbarComponent } from '../chart-toolbar/chart-toolbar.component';
+import { SymbolListActionsComponent } from '../symbol-list-actions/symbol-list-actions.component';
 import {
   buildBaseIndicators,
   addRhAgentExtras,
@@ -47,6 +48,7 @@ import {
 import { RhAgentSymbolHistoryStore } from '../../stores/rh-agent-symbol-history.store';
 import { IndicatorSeriesStore } from '../../stores/indicator-series.store';
 import type { SymbolIndicatorSeriesResponse } from '../../common/rh-agent-indicator.types';
+import { RhSymbolListName } from '../../common/rh-agent.constants';
 
 /** RH Agent indicator menu options: shared ST base + RH Agent-specific HTF zone windows. */
 const RH_AGENT_INDICATOR_OPTIONS: IndicatorOption[] = [
@@ -69,7 +71,7 @@ const ALL_BARS_MAX = 99999;          /** Sentinel passed to initialZoomDays to s
 @Component({
   selector: 'app-signal-detail',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatCardModule, MatButtonModule, MatIconModule, MatTooltipModule, MatProgressSpinnerModule, FlexChartComponent, ChartToolbarComponent],
+  imports: [CommonModule, MatCardModule, MatButtonModule, MatIconModule, MatTooltipModule, MatProgressSpinnerModule, FlexChartComponent, ChartToolbarComponent, SymbolListActionsComponent],
   templateUrl: './signal-detail.component.html',
   styleUrl: './signal-detail.component.scss',
 })
@@ -193,6 +195,10 @@ export class SignalDetailComponent {
 
   /** Symbol to display. When non-null the chart panel renders; null collapses it. */
   manualSymbol = input<string | null>(null);
+  /** Map of list name -> symbols in that list. */
+  symbolLists = input<Record<string, string[]>>({});
+  /** Active list filter from the symbol list store. */
+  activeListFilter = input<RhSymbolListName | 'ALL'>('ALL');
 
   /** Emits the signal ID when the user marks a signal as accepted (A key / button). */
   signalAccepted = output<string>();
@@ -200,6 +206,10 @@ export class SignalDetailComponent {
   signalConsidered = output<string>();
   /** Emits the signal ID when the user marks a signal as rejected (R key / button). */
   signalRejected = output<string>();
+  /** Emits when the user toggles the active symbol's list membership. */
+  toggleList = output<{ symbol: string; listName: RhSymbolListName }>();
+  /** Emits when the user toggles the active symbol's monitor status. */
+  monitor = output<string>();
 
   // ==========================================================================
   // UI state signals

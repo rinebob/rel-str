@@ -30,7 +30,14 @@
           (symbolSelected)="onReviewSymbolSelected($event)">
         </app-signal-list>
       }
-      <app-signal-detail class="detail-wrapper" [manualSymbol]="selectedReviewSymbol() || manualSymbol()"></app-signal-detail>
+      <app-signal-detail
+        class="detail-wrapper"
+        [manualSymbol]="selectedReviewSymbol() || manualSymbol()"
+        [symbolLists]="symbolListStore.symbolLists()"
+        [activeListFilter]="symbolListStore.activeListFilter()"
+        (toggleList)="onToggleList($event)"
+        (monitor)="onMonitor($event)">
+      </app-signal-detail>
     </div>
   } @else {
     <div class="empty-state">

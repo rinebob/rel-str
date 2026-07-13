@@ -7,32 +7,40 @@
   </button>
 
   <div class="header-left-column">
-    @if (selectedSymbol(); as symbol) {
-      <div class="header-signal-block review-queue">
-        <div class="header-acr">
-          <button type="button" class="acr-btn accept"
-            [class.selected]="status() === 'ACCEPT'"
-            (click)="accept.emit()" title="Accept">
-            <mat-icon>check</mat-icon>
-          </button>
-          <button type="button" class="acr-btn watch"
-            [class.selected]="status() === 'WATCH'"
-            (click)="watch.emit()" title="Watch">
-            <mat-icon>visibility</mat-icon>
-          </button>
-          <button type="button" class="acr-btn reject"
-            [class.selected]="status() === 'REJECT'"
-            (click)="reject.emit()" title="Reject">
-            <mat-icon>close</mat-icon>
-          </button>
-        </div>
+    @let activeSymbol = selectedSymbol() ?? manualSymbol();
+    @if (activeSymbol; as symbol) {
+      <div class="header-signal-block" [class.review-queue]="selectedSymbol()">
+        @if (selectedSymbol()) {
+          <div class="header-acr">
+            <button type="button" class="acr-btn accept"
+              [class.selected]="status() === 'ACCEPT'"
+              (click)="accept.emit()" title="Accept">
+              <mat-icon>check</mat-icon>
+            </button>
+            <button type="button" class="acr-btn watch"
+              [class.selected]="status() === 'WATCH'"
+              (click)="watch.emit()" title="Watch">
+              <mat-icon>visibility</mat-icon>
+            </button>
+            <button type="button" class="acr-btn reject"
+              [class.selected]="status() === 'REJECT'"
+              (click)="reject.emit()" title="Reject">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+        }
+
         <div class="header-signal-info">
           <span class="symbol">{{ symbol }}</span>
           @if (companyName()) {
             <span class="company-name">{{ companyName() }}</span>
           }
           <span class="header-spacer"></span>
-          <span class="reason">Queued for review</span>
+          @if (selectedSymbol()) {
+            <span class="reason">Queued for review</span>
+          } @else {
+            <span class="reason">Manual chart</span>
+          }
         </div>
       </div>
     }

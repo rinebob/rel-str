@@ -16,6 +16,9 @@
   <!-- Spacer -->
   <span class="toolbar-spacer"></span>
 
+  <!-- Center: caller-projected content (e.g., symbol list actions). -->
+  <ng-content select="[chartToolbarCenter]"></ng-content>
+
   <!-- Right: D/W/M, range, layout, fullscreen -->
   <span class="interval-toggle">
     <button class="interval-btn" [class.active]="selectedInterval() === BarsInterval.DAILY"
