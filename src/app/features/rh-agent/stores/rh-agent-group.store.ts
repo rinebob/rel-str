@@ -34,9 +34,16 @@ import { RhAgentSymbolHistoryStore } from './rh-agent-symbol-history.store';
 import {
   GroupDimension,
   RhReviewStatus,
+  SignalDirection,
+  SignalFilter,
+  SignalTimeframe,
+  SIGNAL_FILTER_ALL,
 } from '../common/rh-agent.constants';
 import {
+  buildFilteredCandidates,
   buildSymbolGroups,
+  daysAgoPt,
+  profileMatchesSignalFilter,
 } from '../utils/rh-agent.utils';
 
 // ---------------------------------------------------------------------------
@@ -58,8 +65,6 @@ export interface RhSymbolGroup {
   /** Group key — e.g. 'Technology', 'large', 'NASDAQ' */
   key: string;
   rows: RhSymbolRow[];
-  /** Whether "Full Group" is toggled on (show all, not just signal symbols). */
-  showFullGroup: boolean;
   /** Long signal count for the active timeframe. */
   longCount: number;
   /** Short signal count for the active timeframe. */
@@ -75,6 +80,8 @@ export interface RhAgentGroupState {
   activeRunId: string | null;
   /** Market date of the active run (YYYY-MM-DD) — used for triage decision keying. */
   activeRunMarketDate: string | null;
+  /** Active signal filter applied to grouped rows. Owned by the page layer. */
+  signalFilter: SignalFilter;
   /** Current grouping dimension. */
   groupDimension: GroupDimension;
   /** All signal symbols returned from the callable (W + D merged). */
@@ -82,8 +89,6 @@ export interface RhAgentGroupState {
   /** Loading state for the main symbol list query. */
   symbolsLoading: boolean;
   symbolsError: string | null;
-  /** Per-group "show full group" toggle. */
-  fullGroupToggles: Record<string, boolean>;
   /** Currently selected symbol for the detail panel. */
   selectedSymbol: string | null;
   /** Symbol currently displayed in the quick-charts panel. */
@@ -99,11 +104,11 @@ export interface RhAgentGroupState {
 const initialState: RhAgentGroupState = {
   activeRunId: null,
   activeRunMarketDate: null,
-  groupDimension: 'sector',
+  signalFilter: SIGNAL_FILTER_ALL,
+  groupDimension: GroupDimension.SECTOR,
   signalSymbols: [],
   symbolsLoading: false,
   symbolsError: null,
-  fullGroupToggles: {},
   selectedSymbol: null,
   quickChartSymbol: null,
   showAllSymbols: false,
@@ -128,10 +133,10 @@ export const RhAgentGroupStore = signalStore(
     symbolListStore = inject(RhAgentSymbolListStore),
     historyStore = inject(RhAgentSymbolHistoryStore),
   ) => ({
-    /** Set the active run and reload symbols. */
+    /** Set the active run, load persisted triage decisions, and reload symbols. */
     setActiveRun(runId: string, marketDate: string): void {
       patchState(state, { activeRunId: runId, activeRunMarketDate: marketDate, signalSymbols: [], selectedSymbol: null });
-      triageStore.setActiveRun(runId, marketDate);
+      triageStore.loadPersistedDecisions(daysAgoPt(30), marketDate, marketDate);
       this.loadSymbolsWithSignals();
     },
 
@@ -225,21 +230,16 @@ export const RhAgentGroupStore = signalStore(
       patchState(state, { quickChartSymbol: symbol });
     },
 
-    /** Toggle the "show full group" flag for a group key. */
-    toggleFullGroup(groupKey: string): void {
-      const current = state.fullGroupToggles();
-      patchState(state, {
-        fullGroupToggles: { ...current, [groupKey]: !(current[groupKey] ?? false) },
-      });
+    /** Set the active signal filter applied to grouped rows. Owned by the page layer. */
+    setSignalFilter(filter: SignalFilter): void {
+      patchState(state, { signalFilter: filter });
     },
   })),
 
   withComputed((state, triageStore = inject(RhAgentTriageStore), symbolListStore = inject(RhAgentSymbolListStore), historyStore = inject(RhAgentSymbolHistoryStore)) => ({
     /**
      * Grouped view — groups built from signalSymbols, sorted by marketCap desc within group.
-     * Each group respects its fullGroupToggle (Full Group shows all, default shows signal-only).
-     * Since we only have signal symbols from the backend, Full Group is a future hook
-     * that will include context symbols once static ETF lists are wired in.
+     * When showAllSymbols is true, non-signal symbols are included; otherwise only signal symbols.
      */
     groups: computed((): RhSymbolGroup[] =>
       buildSymbolGroups({
@@ -249,39 +249,111 @@ export const RhAgentGroupStore = signalStore(
         dimension: state.groupDimension(),
         symbolLists: symbolListStore.symbolLists(),
         activeListFilter: symbolListStore.activeListFilter(),
-        fullGroupToggles: state.fullGroupToggles(),
         statuses: triageStore.statuses(),
         historyCache: historyStore.signalHistoryCache(),
         historyLoading: historyStore.signalHistoryLoading(),
         activeRunId: state.activeRunId(),
+        signalFilter: state.signalFilter(),
       })
     ),
+  })),
 
-    /** Total signal count across all groups. */
-    totalSignalCount: computed(() => state.signalSymbols().length),
+  withComputed((state, historyStore = inject(RhAgentSymbolHistoryStore), symbolListStore = inject(RhAgentSymbolListStore)) => ({
+    /**
+     * Profiles that pass the active list and signal filters, using profile data.
+     * Kept separate from the history-backed `groups()` so header counts and the
+     * flat symbol list are stable while per-symbol signal histories finish loading.
+     */
+    filteredProfiles: computed((): RhAgentSymbolProfile[] => {
+      const candidates = buildFilteredCandidates({
+        signalSymbols: state.signalSymbols(),
+        allSymbols: state.allSymbols(),
+        showAll: state.showAllSymbols(),
+        symbolLists: symbolListStore.symbolLists(),
+        activeListFilter: symbolListStore.activeListFilter(),
+      });
+      const filter = state.signalFilter();
+      return candidates.filter((p) => profileMatchesSignalFilter(p, filter));
+    }),
+  })),
 
-    /** Count of symbols with a weekly signal (informational, not a filter). */
-    weeklySignalCount: computed(() =>
-      state.signalSymbols().filter((p) => !!p.lastWeeklySignalDate).length
+  withComputed((state) => ({
+    /**
+     * Counts derived from the stable profile-filtered set.
+     * These update only when the symbol list, list filter, or signal filter changes.
+     */
+    filteredProfileCounts: computed((): { total: number; weekly: number; daily: number; long: number; short: number } => {
+      const filter = state.signalFilter();
+      let total = 0;
+      let weekly = 0;
+      let daily = 0;
+      let long = 0;
+      let short = 0;
+
+      for (const profile of state.filteredProfiles()) {
+        total++;
+
+        const hasWeekly = !!profile.lastWeeklySignalDate;
+        const hasDaily = !!profile.lastDailySignalDate;
+        const weeklyLong = profile.lastWeeklySignalDirection === SignalDirection.LONG;
+        const weeklyShort = profile.lastWeeklySignalDirection === SignalDirection.SHORT;
+        const dailyLong = profile.lastDailySignalDirection === SignalDirection.LONG;
+        const dailyShort = profile.lastDailySignalDirection === SignalDirection.SHORT;
+
+        if (filter.timeframe !== SignalTimeframe.DAILY) {
+          if (filter.direction === SignalDirection.ALL) {
+            if (hasWeekly) weekly++;
+          } else if (profile.lastWeeklySignalDirection === filter.direction) {
+            weekly++;
+          }
+        }
+
+        if (filter.timeframe !== SignalTimeframe.WEEKLY) {
+          if (filter.direction === SignalDirection.ALL) {
+            if (hasDaily) daily++;
+          } else if (profile.lastDailySignalDirection === filter.direction) {
+            daily++;
+          }
+        }
+
+        if (filter.timeframe === SignalTimeframe.WEEKLY) {
+          if (weeklyLong) long++;
+          if (weeklyShort) short++;
+        } else if (filter.timeframe === SignalTimeframe.DAILY) {
+          if (dailyLong) long++;
+          if (dailyShort) short++;
+        } else {
+          if (weeklyLong || dailyLong) long++;
+          if (weeklyShort || dailyShort) short++;
+        }
+      }
+
+      return { total, weekly, daily, long, short };
+    }),
+
+    /**
+     * Stable flat list of visible symbols for prev/next navigation.
+     * Derived from profile-filtered data so it does not flicker while histories load.
+     */
+    flatFilteredSymbols: computed((): string[] =>
+      state.filteredProfiles().map((p) => p.symbol).sort()
     ),
+  })),
 
-    /** Count of symbols with a daily signal (informational, not a filter). */
-    dailySignalCount: computed(() =>
-      state.signalSymbols().filter((p) => !!p.lastDailySignalDate).length
-    ),
+  withComputed((state, historyStore = inject(RhAgentSymbolHistoryStore)) => ({
+    /** Total visible symbol count across all groups. */
+    totalSignalCount: computed(() => state.filteredProfileCounts().total),
 
-    /** Long/short breakdown across both timeframes. */
-    longCount: computed(() =>
-      state.signalSymbols().filter((p) =>
-        p.lastWeeklySignalDirection === 'LONG' || p.lastDailySignalDirection === 'LONG'
-      ).length
-    ),
+    /** Count of visible symbols with a weekly signal. */
+    weeklySignalCount: computed(() => state.filteredProfileCounts().weekly),
 
-    shortCount: computed(() =>
-      state.signalSymbols().filter((p) =>
-        p.lastWeeklySignalDirection === 'SHORT' || p.lastDailySignalDirection === 'SHORT'
-      ).length
-    ),
+    /** Count of visible symbols with a daily signal. */
+    dailySignalCount: computed(() => state.filteredProfileCounts().daily),
+
+    /** Long/short breakdown across visible rows. */
+    longCount: computed(() => state.filteredProfileCounts().long),
+
+    shortCount: computed(() => state.filteredProfileCounts().short),
 
     /** Currently selected symbol's loaded signals (from the history store cache). */
     selectedSymbolSignals: computed((): RhAgentSignalItem[] => {

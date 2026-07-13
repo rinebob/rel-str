@@ -5,7 +5,7 @@
  */
 import { RhAgentSignalItem, RhAgentSymbolProfile, RH_AGENT_SCHEDULE_CRON } from '../services/rh-agent.types';
 import { RhSymbolRow, RhSymbolGroup } from '../stores/rh-agent-group.store';
-import { GroupDimension, RhReviewStatus } from '../common/rh-agent.constants';
+import { GroupDimension, RhReviewStatus, SignalFilter, SignalTimeframe, SignalDirection } from '../common/rh-agent.constants';
 
 /** Today in Pacific Time as YYYY-MM-DD. */
 export function todayDate(): string {
@@ -18,9 +18,9 @@ export const UNKNOWN_GROUP = '(Unknown)';
 /** Build the group key for a symbol profile under the chosen dimension. */
 export function getGroupKey(profile: RhAgentSymbolProfile, dimension: GroupDimension): string {
   switch (dimension) {
-    case 'sector':        return profile.sector        || UNKNOWN_GROUP;
-    case 'industry':      return profile.industry      || UNKNOWN_GROUP;
-    case 'marketCapTier': return profile.marketCapTier || UNKNOWN_GROUP;
+    case GroupDimension.SECTOR:        return profile.sector        || UNKNOWN_GROUP;
+    case GroupDimension.INDUSTRY:      return profile.industry      || UNKNOWN_GROUP;
+    case GroupDimension.MARKET_CAP_TIER: return profile.marketCapTier || UNKNOWN_GROUP;
   }
 }
 
@@ -57,6 +57,100 @@ export function latestSignals(row: RhSymbolRow): RhAgentSignalItem[] {
   const latest = row.signals[0];
   if (!isRecentSignalDate(latest.barDate)) return [];
   return row.signals.filter((s) => s.barDate === latest.barDate);
+}
+
+/**
+ * Returns true if a signal passes the active timeframe and direction filter.
+ */
+export function matchesSignalFilter(
+  signal: RhAgentSignalItem,
+  filter: SignalFilter
+): boolean {
+  const { timeframe: tf, direction: dir } = filter;
+  return (
+    (tf === SignalTimeframe.ALL || signal.timeframe === tf) &&
+    (dir === SignalDirection.ALL || signal.direction === dir)
+  );
+}
+
+/**
+ * Filter an array of signals by timeframe and direction.
+ */
+export function filterSignals(
+  signals: RhAgentSignalItem[],
+  filter: SignalFilter
+): RhAgentSignalItem[] {
+  return signals.filter((s) => matchesSignalFilter(s, filter));
+}
+
+/**
+ * Fallback row-inclusion check when a row has no loaded signal history.
+ * Treats the symbol profile's last known signal directions as a signal proxy.
+ */
+export function profileMatchesSignalFilter(
+  profile: RhAgentSymbolProfile,
+  filter: SignalFilter
+): boolean {
+  const { timeframe: tf, direction: dir } = filter;
+
+  const tfOk =
+    tf === SignalTimeframe.ALL ||
+    (tf === SignalTimeframe.DAILY
+      ? !!profile.lastDailySignalDirection
+      : !!profile.lastWeeklySignalDirection);
+  if (!tfOk) return false;
+
+  if (dir === SignalDirection.ALL) return true;
+
+  return (
+    profile.lastDailySignalDirection === dir ||
+    profile.lastWeeklySignalDirection === dir
+  );
+}
+
+/**
+ * Determine whether a symbol is visible under the active signal filter.
+ * Uses loaded signals when available, otherwise falls back to profile fields.
+ */
+export function symbolMatchesSignalFilter(
+  profile: RhAgentSymbolProfile,
+  signals: RhAgentSignalItem[] | undefined,
+  filter: SignalFilter
+): boolean {
+  if (signals?.length) {
+    return signals.some((s) => matchesSignalFilter(s, filter));
+  }
+  return profileMatchesSignalFilter(profile, filter);
+}
+
+/**
+ * Determine whether a row is visible under the active signal filter.
+ * Uses loaded signals when available, otherwise falls back to profile fields.
+ */
+export function rowMatchesSignalFilter(
+  row: RhSymbolRow,
+  filter: SignalFilter
+): boolean {
+  return symbolMatchesSignalFilter(row.profile, row.signals, filter);
+}
+
+/**
+ * Determine whether a row has any signal with the given direction,
+ * falling back to the symbol profile's last signal directions when
+ * the row's signal history has not been loaded.
+ */
+export function rowHasDirection(
+  row: RhSymbolRow,
+  direction: SignalDirection
+): boolean {
+  const signals = row.signals;
+  if (signals?.length) {
+    return signals.some((s) => s.direction === direction);
+  }
+  return (
+    row.profile.lastDailySignalDirection === direction ||
+    row.profile.lastWeeklySignalDirection === direction
+  );
 }
 
 /** Format a Date as a local ISO date string (YYYY-MM-DD). */
@@ -260,6 +354,30 @@ export function getRunStatusIcon(status: string): string {
   }
 }
 
+/** Input shape for building the list of candidate profiles before signal/list filtering. */
+export interface BuildFilteredCandidatesInput {
+  signalSymbols: RhAgentSymbolProfile[];
+  allSymbols: RhAgentSymbolProfile[];
+  showAll: boolean;
+  symbolLists: Record<string, string[]>;
+  activeListFilter: string | 'ALL';
+}
+
+/**
+ * Build the candidate profile list for the grouped review.
+ * Returns signal symbols plus optional non-signal symbols, filtered by the active list filter.
+ * Pure function: no store access.
+ */
+export function buildFilteredCandidates(input: BuildFilteredCandidatesInput): RhAgentSymbolProfile[] {
+  const { signalSymbols, allSymbols, showAll, symbolLists, activeListFilter } = input;
+  const signalSet = new Set(signalSymbols.map((s) => s.symbol));
+  const candidates = [
+    ...signalSymbols,
+    ...(showAll ? allSymbols.filter((p) => !signalSet.has(p.symbol)) : []),
+  ];
+  return candidates.filter((p) => shouldShowInListFilter(p.symbol, symbolLists, activeListFilter));
+}
+
 /** Input shape for building a grouped view — kept generic so it can be computed from store state. */
 export interface BuildSymbolGroupsInput {
   signalSymbols: RhAgentSymbolProfile[];
@@ -268,11 +386,11 @@ export interface BuildSymbolGroupsInput {
   dimension: GroupDimension;
   symbolLists: Record<string, string[]>;
   activeListFilter: string | 'ALL';
-  fullGroupToggles: Record<string, boolean>;
   statuses: Record<string, RhReviewStatus>;
   historyCache: Record<string, RhAgentSignalItem[]>;
   historyLoading: Record<string, boolean>;
   activeRunId: string | null;
+  signalFilter: SignalFilter;
 }
 
 /**
@@ -287,31 +405,35 @@ export function buildSymbolGroups(input: BuildSymbolGroupsInput): RhSymbolGroup[
     dimension,
     symbolLists,
     activeListFilter,
-    fullGroupToggles,
     statuses,
     historyCache,
     historyLoading,
     activeRunId,
+    signalFilter,
   } = input;
 
   const signalSet = new Set(signalSymbols.map((s) => s.symbol));
 
-  const symbols: Array<{ profile: RhAgentSymbolProfile; hasSignal: boolean }> = [
-    ...signalSymbols.map((p) => ({ profile: p, hasSignal: true })),
-    ...(showAll
-      ? allSymbols
-          .filter((p) => !signalSet.has(p.symbol))
-          .map((p) => ({ profile: p, hasSignal: false }))
-      : []),
-  ];
+  const candidates = buildFilteredCandidates({
+    signalSymbols,
+    allSymbols,
+    showAll,
+    symbolLists,
+    activeListFilter,
+  });
 
   const groupMap = new Map<string, Array<{ profile: RhAgentSymbolProfile; hasSignal: boolean }>>();
-  for (const item of symbols) {
-    if (!shouldShowInListFilter(item.profile.symbol, symbolLists, activeListFilter)) continue;
+  for (const profile of candidates) {
+    const hasSignal = signalSet.has(profile.symbol);
+    if (!showAll && !hasSignal) continue;
 
-    const key = getGroupKey(item.profile, dimension);
+    const key = getGroupKey(profile, dimension);
+    const cacheKey = activeRunId ? `${profile.symbol}::${activeRunId}` : profile.symbol;
+    const signals = historyCache[cacheKey];
+    if (!symbolMatchesSignalFilter(profile, signals, signalFilter)) continue;
+
     const existing = groupMap.get(key) ?? [];
-    existing.push(item);
+    existing.push({ profile, hasSignal });
     groupMap.set(key, existing);
   }
 
@@ -329,26 +451,23 @@ export function buildSymbolGroups(input: BuildSymbolGroupsInput): RhSymbolGroup[
 
     const rows: RhSymbolRow[] = sorted.map((item) => {
       const cacheKey = activeRunId ? `${item.profile.symbol}::${activeRunId}` : item.profile.symbol;
+      const rawSignals = historyCache[cacheKey];
+      const signals = rawSignals ? filterSignals(rawSignals, signalFilter) : undefined;
       return {
         profile: item.profile,
         hasSignal: item.hasSignal,
-        signals: historyCache[cacheKey],
+        signals,
         signalsLoading: historyLoading[cacheKey] ?? false,
         reviewStatus: statuses[item.profile.symbol] ?? 'PENDING',
       };
     });
 
-    const longCount = rows.filter(
-      (r) => r.profile.lastWeeklySignalDirection === 'LONG' || r.profile.lastDailySignalDirection === 'LONG'
-    ).length;
-    const shortCount = rows.filter(
-      (r) => r.profile.lastWeeklySignalDirection === 'SHORT' || r.profile.lastDailySignalDirection === 'SHORT'
-    ).length;
+    const longCount = rows.filter((r) => rowHasDirection(r, SignalDirection.LONG)).length;
+    const shortCount = rows.filter((r) => rowHasDirection(r, SignalDirection.SHORT)).length;
 
     return {
       key,
       rows,
-      showFullGroup: fullGroupToggles[key] ?? false,
       longCount,
       shortCount,
     };
