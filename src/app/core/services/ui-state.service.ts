@@ -1,5 +1,11 @@
 import { Injectable, signal } from '@angular/core';
 
+/** Chart layout mode: single chart or triple (W/M left, D right). */
+export enum ChartLayout {
+  SINGLE = 'single',
+  TRIPLE = 'triple',
+}
+
 /**
  * App-wide UI state service.
  * Manages global layout toggles like fullscreen mode.
@@ -13,7 +19,7 @@ export class UiStateService {
   readonly sidebarCollapsed = signal(false);
 
   /** Chart layout mode: single chart or triple (W/M left, D right) */
-  readonly chartLayout = signal<'single' | 'triple'>('triple');
+  readonly chartLayout = signal<ChartLayout>(ChartLayout.TRIPLE);
 
   toggleFullscreen(): void {
     this.fullscreen.update(v => !v);
@@ -28,6 +34,6 @@ export class UiStateService {
   }
 
   toggleChartLayout(): void {
-    this.chartLayout.update(v => v === 'single' ? 'triple' : 'single');
+    this.chartLayout.update(v => v === ChartLayout.SINGLE ? ChartLayout.TRIPLE : ChartLayout.SINGLE);
   }
 }

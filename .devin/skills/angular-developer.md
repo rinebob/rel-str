@@ -41,6 +41,64 @@ When asked to create a new Angular project, you must determine the correct execu
 - **IF** no specific version is requested AND the `ng version` command fails (indicating no Angular installation exists), you must use `npx` to fetch the latest version.
 - **Command:** `npx @angular/cli@latest new <project-name>`
 
+## ⛔ ABSOLUTE RULE: No Method Calls in Templates
+
+**NEVER NEVER NEVER NEVER NEVER call component methods in Angular templates.**
+
+This is a hard non-negotiable rule. Method calls in templates are called on every change detection cycle, bypassing Angular's memoization entirely and causing severe unnecessary re-computation.
+
+**Instead, always use:**
+- `computed()` signals for derived values — they memoize automatically and only recompute when their dependencies change
+- `@let` in the template to bind a computed or signal value once per block and reuse it
+- Store-level computed properties for values shared across the template
+
+**Wrong:**
+```html
+<!-- BAD: called on every CD cycle, never memoized -->
+@for (group of groups()) {
+  @if (visibleRows(group).length > 0) {
+    <app-panel [rows]="visibleRows(group)">  <!-- called TWICE per group -->
+```
+
+**Right:**
+```html
+<!-- GOOD: computed map built once reactively, template just reads it -->
+@for (group of groups()) {
+  @let rows = visibleRowsMap().get(group.key) ?? [];
+  @if (rows.length > 0) {
+    <app-panel [rows]="rows">
+```
+
+If you find yourself writing `someMethod(arg)` in a template, stop and refactor it into a `computed()` signal or a `@let` binding first.
+
+## Prefer Enums and Interfaces Over String Unions and Type Aliases
+
+Whenever a string union or inline type will be used in more than one place, **replace it with an `enum` or `interface`** defined in the canonical constants file for that feature.
+
+**Rules:**
+- A string union used in a single private helper is acceptable. The moment it crosses a file boundary or appears in a component `input()`/`output()`, extract it.
+- Use `enum` for closed sets of named values (directions, timeframes, statuses, filter modes). This gives you refactor safety, autocomplete, and zero magic strings.
+- Use `interface` for any object shape that is passed between more than one component or service.
+- Never repeat a string union `'A' | 'B' | 'C'` in two different files. Extract it once.
+
+**Wrong:**
+```ts
+// spread across 4 files — silent typos, no autocomplete
+timeframeFilter = input<'ALL' | 'D' | 'W'>('ALL');
+directionFilter = input<'ALL' | 'LONG' | 'SHORT'>('ALL');
+```
+
+**Right:**
+```ts
+// defined once in rh-agent.constants.ts
+export enum SignalTimeframe { ALL = 'ALL', DAILY = 'D', WEEKLY = 'W' }
+export enum SignalDirection  { ALL = 'ALL', LONG = 'LONG', SHORT = 'SHORT' }
+export interface SignalFilter { timeframe: SignalTimeframe; direction: SignalDirection; }
+
+// used everywhere
+filter = input<SignalFilter>(SIGNAL_FILTER_ALL);
+```
+
 ## Components
 
 When working with Angular components, consult the following references based on the task:

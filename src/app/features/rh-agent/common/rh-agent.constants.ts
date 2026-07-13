@@ -68,7 +68,36 @@ export const ALL_SYMBOL_LIST_NAMES: RhSymbolListName[] = [
 export type SymbolType = 'STOCK' | 'ETF' | 'FUTURE' | 'FOREX' | 'CRYPTO' | 'OTHER';
 
 /** Dimensions available for grouping the symbol list in the grouped review. */
-export type GroupDimension = 'sector' | 'industry' | 'marketCapTier';
+export enum GroupDimension {
+  SECTOR = 'sector',
+  INDUSTRY = 'industry',
+  MARKET_CAP_TIER = 'marketCapTier',
+}
+
+/** Signal timeframe filter options. */
+export enum SignalTimeframe {
+  ALL = 'ALL',
+  DAILY = 'D',
+  WEEKLY = 'W',
+}
+
+/** Signal direction filter options. */
+export enum SignalDirection {
+  ALL = 'ALL',
+  LONG = 'LONG',
+  SHORT = 'SHORT',
+}
+
+/** Active timeframe + direction filter for the signal review page. */
+export interface SignalFilter {
+  timeframe: SignalTimeframe;
+  direction: SignalDirection;
+}
+
+export const SIGNAL_FILTER_ALL: SignalFilter = {
+  timeframe: SignalTimeframe.ALL,
+  direction: SignalDirection.ALL,
+};
 
 /** Filter by who triggered the run. */
 export enum RhAgentRunTriggerFilter {
