@@ -51,14 +51,6 @@ export function signalDirections(signals: RhAgentSignalItem[] | undefined): stri
   return dirs.join('/');
 }
 
-/** Most recent signals for a row — shown as inline badges in the header. */
-export function latestSignals(row: RhSymbolRow): RhAgentSignalItem[] {
-  if (!row.signals?.length) return [];
-  const latest = row.signals[0];
-  if (!isRecentSignalDate(latest.barDate)) return [];
-  return row.signals.filter((s) => s.barDate === latest.barDate);
-}
-
 /**
  * Returns true if a signal passes the active timeframe and direction filter.
  */
@@ -354,6 +346,52 @@ export function getRunStatusIcon(status: string): string {
   }
 }
 
+/** Build the cache key for a symbol's signal history given an optional run ID. */
+export function getCacheKey(symbol: string, runId: string | null): string {
+  return runId ? `${symbol}::${runId}` : symbol;
+}
+
+/** True if a profile's stored direction matches the filter direction. */
+function profileDirectionMatches(
+  direction: string | null | undefined,
+  filterDirection: SignalDirection
+): boolean {
+  return filterDirection === SignalDirection.ALL || direction === filterDirection;
+}
+
+/** Compute header counts from a profile list already filtered by profileMatchesSignalFilter. */
+export function computeProfileCounts(
+  profiles: RhAgentSymbolProfile[],
+  filter: SignalFilter
+): { total: number; weekly: number; daily: number; long: number; short: number } {
+  const counts = { total: profiles.length, weekly: 0, daily: 0, long: 0, short: 0 };
+
+  for (const p of profiles) {
+    const wDir = p.lastWeeklySignalDirection;
+    const dDir = p.lastDailySignalDirection;
+
+    if (filter.timeframe !== SignalTimeframe.DAILY && profileDirectionMatches(wDir, filter.direction)) {
+      counts.weekly++;
+    }
+    if (filter.timeframe !== SignalTimeframe.WEEKLY && profileDirectionMatches(dDir, filter.direction)) {
+      counts.daily++;
+    }
+
+    if (filter.timeframe === SignalTimeframe.WEEKLY) {
+      if (wDir === SignalDirection.LONG) counts.long++;
+      if (wDir === SignalDirection.SHORT) counts.short++;
+    } else if (filter.timeframe === SignalTimeframe.DAILY) {
+      if (dDir === SignalDirection.LONG) counts.long++;
+      if (dDir === SignalDirection.SHORT) counts.short++;
+    } else {
+      if (wDir === SignalDirection.LONG || dDir === SignalDirection.LONG) counts.long++;
+      if (wDir === SignalDirection.SHORT || dDir === SignalDirection.SHORT) counts.short++;
+    }
+  }
+
+  return counts;
+}
+
 /** Input shape for building the list of candidate profiles before signal/list filtering. */
 export interface BuildFilteredCandidatesInput {
   signalSymbols: RhAgentSymbolProfile[];
@@ -428,7 +466,7 @@ export function buildSymbolGroups(input: BuildSymbolGroupsInput): RhSymbolGroup[
     if (!showAll && !hasSignal) continue;
 
     const key = getGroupKey(profile, dimension);
-    const cacheKey = activeRunId ? `${profile.symbol}::${activeRunId}` : profile.symbol;
+    const cacheKey = getCacheKey(profile.symbol, activeRunId);
     const signals = historyCache[cacheKey];
     if (!symbolMatchesSignalFilter(profile, signals, signalFilter)) continue;
 
@@ -450,7 +488,7 @@ export function buildSymbolGroups(input: BuildSymbolGroupsInput): RhSymbolGroup[
     );
 
     const rows: RhSymbolRow[] = sorted.map((item) => {
-      const cacheKey = activeRunId ? `${item.profile.symbol}::${activeRunId}` : item.profile.symbol;
+      const cacheKey = getCacheKey(item.profile.symbol, activeRunId);
       const rawSignals = historyCache[cacheKey];
       const signals = rawSignals ? filterSignals(rawSignals, signalFilter) : undefined;
       return {

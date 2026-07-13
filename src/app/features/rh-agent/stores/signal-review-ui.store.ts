@@ -2,8 +2,8 @@
  * Signal Review UI Store
  *
  * Page-local UI state for the grouped signal review page.
- * Owns filters, expansion state, and other ephemeral view controls.
- * Domain data (symbols, groups, selected symbol, quick chart) stays in
+ * Owns filters and expansion state.
+ * Domain data (symbols, groups, selected symbol, quick chart, showAllSymbols) stays in
  * RhAgentGroupStore.
  */
 import { computed } from '@angular/core';
@@ -27,17 +27,11 @@ export interface SignalReviewUiState {
   signalFilter: SignalFilter;
   /** Per-group expansion state. */
   expandedGroups: Partial<Record<string, boolean>>;
-  /** Symbol currently displayed in the quick-charts panel. */
-  quickChartSymbol: string | null;
-  /** Whether the "show all symbols" mode is active. */
-  showAllSymbols: boolean;
 }
 
 const initialState: SignalReviewUiState = {
   signalFilter: SIGNAL_FILTER_ALL,
   expandedGroups: {},
-  quickChartSymbol: null,
-  showAllSymbols: false,
 };
 
 export const SignalReviewUiStore = signalStore(

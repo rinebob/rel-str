@@ -7,7 +7,6 @@
  *
  * The facade owns:
  * - Page enter/leave orchestration (fullscreen, active run selection, load).
- * - Syncing the UI store filter into the domain group store.
  * - Expansion preloading of signal history.
  * - Navigation actions used by the header.
  */
@@ -88,11 +87,6 @@ export class SignalReviewFacade {
   readonly flatSymbols = computed(() => this.groupStore.flatFilteredSymbols());
 
   constructor() {
-    /** Keep the domain group store filter in sync with the page UI filter. */
-    effect(() => {
-      this.groupStore.setSignalFilter(this.uiStore.signalFilter());
-    });
-
     /**
      * Auto-select the latest run on direct page reload.
      * Registered once in the constructor so multiple enterPage() calls cannot
@@ -170,15 +164,27 @@ export class SignalReviewFacade {
     this.uiStore.setGroupExpanded(groupKey, expand);
   }
 
-  preloadHistoryForGroups(groups: { key: string; rows: { profile: { symbol: string }; signals?: RhAgentSignalItem[] }[] }[]): void {
+  /** Expand/collapse a group and preload signal history when expanding. */
+  groupExpandChanged(group: { key: string; rows: { profile: { symbol: string }; signals?: RhAgentSignalItem[] }[] }, expand: boolean): void {
+    this.uiStore.setGroupExpanded(group.key, expand);
+    if (expand) {
+      this._preloadHistoryForGroup(group);
+    }
+  }
+
+  private _preloadHistoryForGroup(group: { rows: { profile: { symbol: string }; signals?: RhAgentSignalItem[] }[] }): void {
     const runId = this.groupStore.activeRunId();
     if (!runId) return;
-    for (const g of groups) {
-      for (const row of g.rows) {
-        if (!row.signals) {
-          this.historyStore.loadSignalHistoryForRun(row.profile.symbol, runId);
-        }
+    for (const row of group.rows) {
+      if (!row.signals) {
+        this.historyStore.loadSignalHistoryForRun(row.profile.symbol, runId);
       }
+    }
+  }
+
+  preloadHistoryForGroups(groups: { key: string; rows: { profile: { symbol: string }; signals?: RhAgentSignalItem[] }[] }[]): void {
+    for (const g of groups) {
+      this._preloadHistoryForGroup(g);
     }
   }
 

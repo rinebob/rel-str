@@ -17,8 +17,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-import { RhSymbolGroup } from '../../stores/rh-agent-group.store';
 import { GroupDimension, RhSymbolListName } from '../../common/rh-agent.constants';
+import { RhSymbolGroup } from '../../stores/rh-agent-group.store';
 import { SignalReviewFacade } from '../../stores/signal-review.facade';
 import { SignalReviewHeaderComponent } from '../../components/signal-review-header/signal-review-header.component';
 import { GroupPanelComponent } from '../../components/group-panel/group-panel.component';
@@ -99,17 +99,9 @@ export class SignalReviewComponent implements OnInit, OnDestroy {
     this.facade.toggleExpandAll();
   }
 
-  /** Preload signal history for every row when a group is opened. */
-  onGroupOpened(group: RhSymbolGroup): void {
-    this.facade.preloadHistoryForGroups([group]);
-  }
-
-  /** Toggle expansion for a single group and preload history if expanding. */
-  onExpandAll(event: { group: RhSymbolGroup; expand: boolean }): void {
-    this.facade.setGroupExpanded(event.group.key, event.expand);
-    if (event.expand) {
-      this.facade.preloadHistoryForGroups([event.group]);
-    }
+  /** Expand/collapse a group and preload history when expanding. */
+  onGroupExpandChanged(event: { group: RhSymbolGroup; expand: boolean }): void {
+    this.facade.groupExpandChanged(event.group, event.expand);
   }
 
   /** Set a symbol's status to REVIEW. */

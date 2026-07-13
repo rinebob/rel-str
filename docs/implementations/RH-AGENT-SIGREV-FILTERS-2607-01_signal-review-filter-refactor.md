@@ -287,6 +287,62 @@ A re-review of the refactored code identified the following new issues, in sugge
 | Store split breaks cross-page state | Keep `providedIn: 'root'`; test navigation to review/order pages |
 | Tests do not exist for baseline | Add tests for the canonical helper first, then for the integrated path |
 
+## Thermo-Nuclear Review #4 Findings (2026-07-12) — Final Structural Round
+
+This is the last structural review. After the three items marked HIGH/MEDIUM below are fixed, the architecture is considered **structurally stable** and further thermo reviews on this page are not warranted. Remaining LOW items are normal maintenance cleanups.
+
+### HIGH — Fix before declaring architecture stable
+
+1. **`signalFilter` duplicated across two stores, synced by an async `effect`**
+   - `signalFilter: SignalFilter` exists in both `SignalReviewUiStore` (authoritative) and `RhAgentGroupStore` (copy). The facade bridges them via a constructor `effect`, creating a reactive tick delay and a confusing dual-source-of-truth.
+   - **Fix**: Remove `signalFilter` state and `setSignalFilter()` from `RhAgentGroupStore`. Have the `groups` computed inside `RhAgentGroupStore` read `signalFilter` directly from `SignalReviewUiStore` via `inject()` inside `withComputed`. Delete the bridge `effect` in the facade.
+
+2. **`quickChartSymbol` and `showAllSymbols` defined in `SignalReviewUiStore` but never used from there**
+   - Both fields are declared in `SignalReviewUiState` but `SignalReviewFacade` reads them from `RhAgentGroupStore`, making the UI store copies dead weight.
+   - **Fix**: Remove them from `SignalReviewUiStore.initialState` and the `SignalReviewUiState` interface. Single owner is `RhAgentGroupStore`.
+
+### MEDIUM — Fix in the same pass
+
+3. **`onGroupOpened` / `onExpandAll` encode orchestration policy in the page component**
+   - `onExpandAll` contains `if (event.expand) { this.facade.preloadHistoryForGroups(...) }`. That conditional belongs in the facade, not the component.
+   - **Fix**: Replace `onGroupOpened` and `onExpandAll` with a single `facade.groupExpandChanged(group, expand)` method that owns the preload-on-expand decision.
+
+4. **`filteredProfileCounts` is 45 lines of inline nested conditionals inside `withComputed`**
+   - Partially re-implements logic already in `matchesSignalFilter` / `profileMatchesSignalFilter`. Fragile timeframe guards (`!== DAILY`, `!== WEEKLY`) instead of explicit branch per case.
+   - **Fix**: Extract `computeProfileCounts(profiles, filter)` pure function to `rh-agent.utils.ts`. Replace the inline block with a single call.
+
+5. **`cacheKey` template repeated verbatim twice in `buildSymbolGroups`**
+   - Lines 431 and 453 both compute `` activeRunId ? `${symbol}::${activeRunId}` : symbol ``.
+   - **Fix**: Extract `getCacheKey(symbol, runId)` one-liner and use it in both places.
+
+### LOW — Normal maintenance, no review needed
+
+6. **Ten one-liner pass-through methods in `SignalReviewComponent`** — style preference, no architectural risk.
+7. **`RhAgentGroupStore` approaching 400 lines** — manageable; extracting `computeProfileCounts` (item 4) reduces it meaningfully.
+
+---
+
+## Done Criteria — When to Stop Thermo Reviewing This Page
+
+The thermo review cycle on this page is **complete** when all of the following are true:
+
+- [ ] Single source of truth for `signalFilter` — lives in `SignalReviewUiStore` only; `RhAgentGroupStore.groups` reads it via `inject`, no bridge effect.
+- [ ] No dead state fields — `quickChartSymbol` / `showAllSymbols` removed from `SignalReviewUiStore`.
+- [ ] No orchestration policy in the component — `onGroupOpened` / `onExpandAll` collapsed into `facade.groupExpandChanged()`.
+- [ ] `filteredProfileCounts` extracted to a pure util function.
+- [ ] `getCacheKey` helper eliminates the duplicate cache-key template.
+- [x] `SignalReviewComponent` injects only `SignalReviewFacade`.
+- [x] No method calls in templates.
+- [x] No filter logic duplicated across components.
+- [x] `allExpanded` is a computed, not stored state.
+- [x] `RhAgentTriageStore` does not own `activeRunId`/`activeMarketDate`.
+- [x] `SignalReviewUiStore` exists and owns filter + expansion.
+- [x] `SignalReviewFacade` exists and owns page orchestration.
+
+Once all checkboxes are checked, stop. Further thermo reviews should focus on a different page or feature.
+
+---
+
 ## Changelog
 
 - **2026-07-11**: Initial plan created.
@@ -294,3 +350,4 @@ A re-review of the refactored code identified the following new issues, in sugge
 - **2026-07-12**: Thermo-nuclear review follow-up added; identified remaining store-coupling and orchestration issues to fix.
 - **2026-07-12**: Converted `GroupDimension` from string-union type to enum to support future dimensions.
 - **2026-07-12**: Replaced imperative `querySelector` scroll logic with `ScrollTargetService` + `ScrollIntoViewDirective` so scrolling participates in Angular change detection.
+- **2026-07-12**: Thermo review #4 findings added. Identified dual-store `signalFilter` sync, dead UI store state, and component-layer orchestration leakage. Done criteria defined to close the review loop.

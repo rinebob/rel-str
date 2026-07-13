@@ -5,11 +5,10 @@
  * Primary data model for Phase 5 grouped review UI.
  *
  * Responsibilities:
- * - Load symbols with signals for a given marketDate + timeframe
- * - Group symbols by the selected dimension (sector, industry, marketCapTier, exchange)
- * - Track per-symbol signal history (loaded on demand)
- * - Track "show full group" toggle per group
- * - Track selected symbol for detail panel
+ * - Load symbols with signals for a given run ID
+ * - Group symbols by the selected dimension (sector, industry, marketCapTier)
+ * - Track selected symbol for the detail panel
+ * - Track quick-chart symbol and show-all mode
  */
 import { inject, computed, DestroyRef } from '@angular/core';
 import {
@@ -34,17 +33,15 @@ import { RhAgentSymbolHistoryStore } from './rh-agent-symbol-history.store';
 import {
   GroupDimension,
   RhReviewStatus,
-  SignalDirection,
-  SignalFilter,
-  SignalTimeframe,
-  SIGNAL_FILTER_ALL,
 } from '../common/rh-agent.constants';
 import {
   buildFilteredCandidates,
   buildSymbolGroups,
+  computeProfileCounts,
   daysAgoPt,
   profileMatchesSignalFilter,
 } from '../utils/rh-agent.utils';
+import { SignalReviewUiStore } from './signal-review-ui.store';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -80,8 +77,6 @@ export interface RhAgentGroupState {
   activeRunId: string | null;
   /** Market date of the active run (YYYY-MM-DD) — used for triage decision keying. */
   activeRunMarketDate: string | null;
-  /** Active signal filter applied to grouped rows. Owned by the page layer. */
-  signalFilter: SignalFilter;
   /** Current grouping dimension. */
   groupDimension: GroupDimension;
   /** All signal symbols returned from the callable (W + D merged). */
@@ -104,7 +99,6 @@ export interface RhAgentGroupState {
 const initialState: RhAgentGroupState = {
   activeRunId: null,
   activeRunMarketDate: null,
-  signalFilter: SIGNAL_FILTER_ALL,
   groupDimension: GroupDimension.SECTOR,
   signalSymbols: [],
   symbolsLoading: false,
@@ -229,16 +223,12 @@ export const RhAgentGroupStore = signalStore(
     setQuickChartSymbol(symbol: string | null): void {
       patchState(state, { quickChartSymbol: symbol });
     },
-
-    /** Set the active signal filter applied to grouped rows. Owned by the page layer. */
-    setSignalFilter(filter: SignalFilter): void {
-      patchState(state, { signalFilter: filter });
-    },
   })),
 
-  withComputed((state, triageStore = inject(RhAgentTriageStore), symbolListStore = inject(RhAgentSymbolListStore), historyStore = inject(RhAgentSymbolHistoryStore)) => ({
+  withComputed((state, triageStore = inject(RhAgentTriageStore), symbolListStore = inject(RhAgentSymbolListStore), historyStore = inject(RhAgentSymbolHistoryStore), uiStore = inject(SignalReviewUiStore)) => ({
     /**
      * Grouped view — groups built from signalSymbols, sorted by marketCap desc within group.
+     * Reads signalFilter directly from SignalReviewUiStore — single source of truth, no copy.
      * When showAllSymbols is true, non-signal symbols are included; otherwise only signal symbols.
      */
     groups: computed((): RhSymbolGroup[] =>
@@ -253,12 +243,12 @@ export const RhAgentGroupStore = signalStore(
         historyCache: historyStore.signalHistoryCache(),
         historyLoading: historyStore.signalHistoryLoading(),
         activeRunId: state.activeRunId(),
-        signalFilter: state.signalFilter(),
+        signalFilter: uiStore.signalFilter(),
       })
     ),
   })),
 
-  withComputed((state, historyStore = inject(RhAgentSymbolHistoryStore), symbolListStore = inject(RhAgentSymbolListStore)) => ({
+  withComputed((state, symbolListStore = inject(RhAgentSymbolListStore), uiStore = inject(SignalReviewUiStore)) => ({
     /**
      * Profiles that pass the active list and signal filters, using profile data.
      * Kept separate from the history-backed `groups()` so header counts and the
@@ -272,64 +262,18 @@ export const RhAgentGroupStore = signalStore(
         symbolLists: symbolListStore.symbolLists(),
         activeListFilter: symbolListStore.activeListFilter(),
       });
-      const filter = state.signalFilter();
-      return candidates.filter((p) => profileMatchesSignalFilter(p, filter));
+      return candidates.filter((p) => profileMatchesSignalFilter(p, uiStore.signalFilter()));
     }),
   })),
 
-  withComputed((state) => ({
+  withComputed((state, uiStore = inject(SignalReviewUiStore)) => ({
     /**
      * Counts derived from the stable profile-filtered set.
      * These update only when the symbol list, list filter, or signal filter changes.
      */
-    filteredProfileCounts: computed((): { total: number; weekly: number; daily: number; long: number; short: number } => {
-      const filter = state.signalFilter();
-      let total = 0;
-      let weekly = 0;
-      let daily = 0;
-      let long = 0;
-      let short = 0;
-
-      for (const profile of state.filteredProfiles()) {
-        total++;
-
-        const hasWeekly = !!profile.lastWeeklySignalDate;
-        const hasDaily = !!profile.lastDailySignalDate;
-        const weeklyLong = profile.lastWeeklySignalDirection === SignalDirection.LONG;
-        const weeklyShort = profile.lastWeeklySignalDirection === SignalDirection.SHORT;
-        const dailyLong = profile.lastDailySignalDirection === SignalDirection.LONG;
-        const dailyShort = profile.lastDailySignalDirection === SignalDirection.SHORT;
-
-        if (filter.timeframe !== SignalTimeframe.DAILY) {
-          if (filter.direction === SignalDirection.ALL) {
-            if (hasWeekly) weekly++;
-          } else if (profile.lastWeeklySignalDirection === filter.direction) {
-            weekly++;
-          }
-        }
-
-        if (filter.timeframe !== SignalTimeframe.WEEKLY) {
-          if (filter.direction === SignalDirection.ALL) {
-            if (hasDaily) daily++;
-          } else if (profile.lastDailySignalDirection === filter.direction) {
-            daily++;
-          }
-        }
-
-        if (filter.timeframe === SignalTimeframe.WEEKLY) {
-          if (weeklyLong) long++;
-          if (weeklyShort) short++;
-        } else if (filter.timeframe === SignalTimeframe.DAILY) {
-          if (dailyLong) long++;
-          if (dailyShort) short++;
-        } else {
-          if (weeklyLong || dailyLong) long++;
-          if (weeklyShort || dailyShort) short++;
-        }
-      }
-
-      return { total, weekly, daily, long, short };
-    }),
+    filteredProfileCounts: computed(() =>
+      computeProfileCounts(state.filteredProfiles(), uiStore.signalFilter())
+    ),
 
     /**
      * Stable flat list of visible symbols for prev/next navigation.
