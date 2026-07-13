@@ -25,7 +25,9 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 
 import { RhAgentTriageStore } from '../../stores/rh-agent-triage.store';
+import { RhAgentGroupStore } from '../../stores/rh-agent-group.store';
 import { RhReviewStatus } from '../../common/rh-agent.constants';
+import { todayDate, daysAgoPt } from '../../utils/rh-agent.utils';
 import {
   RhAgentSignalItem,
   RH_AGENT_MAX_TRADE_AMOUNT,
@@ -58,6 +60,7 @@ import { TradeRowComponent, TradeRow } from '../../components/trade-row/trade-ro
 })
 export class RhAgentOrderComponent implements OnInit {
   readonly triageStore = inject(RhAgentTriageStore);
+  readonly groupStore = inject(RhAgentGroupStore);
   readonly tradeService = inject(RobinhoodTradeService);
   readonly snackBar = inject(MatSnackBar);
   readonly uiState = inject(UiStateService);
@@ -80,9 +83,15 @@ export class RhAgentOrderComponent implements OnInit {
   /** Whether a trade batch has already been generated. */
   readonly hasGeneratedBatch = computed(() => !!this.generatedBatch());
 
+  private currentMarketDate(): string {
+    return this.groupStore.activeRunMarketDate() ?? todayDate();
+  }
+
   /** Initialize the page and build trade rows from accepted symbols. */
   ngOnInit(): void {
     this.uiState.setFullscreen(true);
+    const marketDate = this.currentMarketDate();
+    this.triageStore.loadPersistedDecisions(daysAgoPt(30), marketDate, marketDate);
     this.initializeTradeRows();
   }
 
@@ -133,7 +142,7 @@ export class RhAgentOrderComponent implements OnInit {
 
   /** Remove a symbol from the order page and set its status back to REVIEW. */
   onRemoveSymbol(symbol: string): void {
-    this.triageStore.setStatus(symbol, RhReviewStatus.REVIEW);
+    this.triageStore.setStatus(symbol, RhReviewStatus.REVIEW, this.currentMarketDate());
     this.tradeRows.update((rows) => rows.filter((r) => r.symbol !== symbol));
   }
 

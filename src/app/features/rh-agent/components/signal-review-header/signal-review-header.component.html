@@ -21,6 +21,13 @@
     </div>
   }
 
+  <app-signal-filter-pills
+    [timeframe]="timeframe()"
+    [direction]="direction()"
+    (timeframeChange)="timeframeFilterChange.emit($event)"
+    (directionChange)="directionFilterChange.emit($event)">
+  </app-signal-filter-pills>
+
   <app-status-summary-chips [counts]="statusCounts()"></app-status-summary-chips>
 
   <div class="header-spacer"></div>

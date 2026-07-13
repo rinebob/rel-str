@@ -148,8 +148,8 @@
     padding: 2px 7px;
     border-radius: 4px;
     letter-spacing: 0.04em;
-    &-long  { background: #1b5e20; color: #fff; &::before { content: '▲ '; font-size: 8px; } }
-    &-short { background: #b71c1c; color: #fff; &::before { content: '▼ '; font-size: 8px; } }
+    &-long  { background: var(--mat-sys-success); color: var(--mat-sys-on-success); &::before { content: '▲ '; font-size: 8px; } }
+    &-short { background: var(--mat-sys-error); color: var(--mat-sys-on-error); &::before { content: '▼ '; font-size: 8px; } }
   }
 
   &.sig-type    { background: var(--mat-sys-surface-container-high); color: var(--mat-sys-on-surface-variant); }

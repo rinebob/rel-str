@@ -19,5 +19,7 @@ import { RhSymbolRow } from '../../stores/rh-agent-group.store';
 export class SymbolSignalHistoryComponent {
   row = input.required<RhSymbolRow>();
 
-  readonly recentSignals = computed(() => (this.row().signals ?? []).slice(0, 10));
+  readonly recentSignals = computed(() =>
+    (this.row().signals ?? []).slice(0, 10)
+  );
 }

@@ -4,13 +4,14 @@
  * A single mat-expansion-panel for a group (sector, industry, market cap tier).
  * Renders the group header and a list of symbol rows.
  */
-import { Component, ChangeDetectionStrategy, input, output } from '@angular/core';
+import { Component, ChangeDetectionStrategy, computed, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RhSymbolGroup, RhSymbolRow } from '../../stores/rh-agent-group.store';
-import { RhSymbolListName } from '../../common/rh-agent.constants';
+import { RhSymbolListName, SignalDirection } from '../../common/rh-agent.constants';
+import { rowHasDirection } from '../../utils/rh-agent.utils';
 import { SymbolRowComponent } from '../symbol-row/symbol-row.component';
 
 @Component({
@@ -34,6 +35,15 @@ export class GroupPanelComponent {
   activeListFilter = input.required<RhSymbolListName | 'ALL'>();
   selectedSymbol = input<string | null>(null);
   quickChartSymbol = input<string | null>(null);
+
+  readonly visibleSymbolCount = computed(() => this.visibleRows().length);
+
+  readonly visibleLongCount = computed(() =>
+    this.visibleRows().filter(r => rowHasDirection(r, SignalDirection.LONG)).length
+  );
+  readonly visibleShortCount = computed(() =>
+    this.visibleRows().filter(r => rowHasDirection(r, SignalDirection.SHORT)).length
+  );
 
   opened = output<void>();
   expandAll = output<{ group: RhSymbolGroup; expand: boolean }>();

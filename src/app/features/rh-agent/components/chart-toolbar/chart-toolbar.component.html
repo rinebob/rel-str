@@ -34,8 +34,8 @@
   </span>
 
   <button mat-icon-button class="toolbar-icon-btn" (click)="layoutToggle.emit()"
-    [matTooltip]="layout() === 'single' ? 'Three-chart layout' : 'Single-chart layout'">
-    <mat-icon>{{ layout() === 'single' ? 'grid_view' : 'crop_square' }}</mat-icon>
+    [matTooltip]="layout() === ChartLayout.SINGLE ? 'Three-chart layout' : 'Single-chart layout'">
+    <mat-icon>{{ layout() === ChartLayout.SINGLE ? 'grid_view' : 'crop_square' }}</mat-icon>
   </button>
   <button mat-icon-button class="toolbar-icon-btn" (click)="fullscreenToggle.emit()"
     [matTooltip]="fullscreen() ? 'Exit fullscreen' : 'Fullscreen'">

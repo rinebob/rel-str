@@ -121,14 +121,18 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
   /** Load persisted decisions for the last 30 days through the active market date. */
   ngOnInit(): void {
     this.uiState.setFullscreen(true);
-    const endDate = this.triageStore.activeMarketDate() ?? todayDate();
+    const marketDate = this.groupStore.activeRunMarketDate() ?? todayDate();
     const startDate = daysAgoPt(30);
-    this.triageStore.loadPersistedDecisions(startDate, endDate);
+    this.triageStore.loadPersistedDecisions(startDate, marketDate, marketDate);
   }
 
   /** Leave fullscreen mode when the page is destroyed. */
   ngOnDestroy(): void {
     this.uiState.setFullscreen(false);
+  }
+
+  private currentMarketDate(): string {
+    return this.groupStore.activeRunMarketDate() ?? todayDate();
   }
 
   // --- Review queue mode (symbols with REVIEW status from grouped review) ---
@@ -142,7 +146,7 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
   onAcceptReview(): void {
     const symbol = this.selectedReviewSymbol();
     if (!symbol) return;
-    this.triageStore.setStatus(symbol, RhReviewStatus.ACCEPT);
+    this.triageStore.setStatus(symbol, RhReviewStatus.ACCEPT, this.currentMarketDate());
     this.advanceReviewQueue(symbol);
   }
 
@@ -150,7 +154,7 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
   onWatchReview(): void {
     const symbol = this.selectedReviewSymbol();
     if (!symbol) return;
-    this.triageStore.watchSymbol(symbol);
+    this.triageStore.watchSymbol(symbol, this.currentMarketDate());
     this.advanceReviewQueue(symbol);
   }
 
@@ -158,7 +162,7 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
   onRejectReview(): void {
     const symbol = this.selectedReviewSymbol();
     if (!symbol) return;
-    this.triageStore.setStatus(symbol, RhReviewStatus.REJECT);
+    this.triageStore.setStatus(symbol, RhReviewStatus.REJECT, this.currentMarketDate());
     this.advanceReviewQueue(symbol);
   }
 

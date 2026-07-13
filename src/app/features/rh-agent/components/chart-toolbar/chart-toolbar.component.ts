@@ -10,6 +10,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { BarsInterval } from '../../../../core/models/partner.types';
+import { ChartLayout } from '../../../../core/services/ui-state.service';
 import { IndicatorOption } from '../../../shared/components/flex-chart/flex-chart.types';
 import { IndicatorMenuComponent } from '../indicator-menu/indicator-menu.component';
 
@@ -23,6 +24,7 @@ import { IndicatorMenuComponent } from '../indicator-menu/indicator-menu.compone
 export class ChartToolbarComponent {
   /** Exposed for template comparisons — Angular templates cannot reference imported enums directly. */
   readonly BarsInterval = BarsInterval;
+  readonly ChartLayout = ChartLayout;
 
   /** Currently selected chart interval (D/W/M). Controls which interval button appears active. */
   selectedInterval = input.required<BarsInterval>();
@@ -33,7 +35,7 @@ export class ChartToolbarComponent {
   /** Interval of the chart whose indicator menu badge is highlighted as active. */
   activeChartInterval = input.required<BarsInterval>();
   /** Current chart layout mode — controls visibility of the layout toggle button icon. */
-  layout = input.required<'single' | 'triple'>();
+  layout = input.required<ChartLayout>();
   /** Whether the view is currently in fullscreen mode. */
   fullscreen = input.required<boolean>();
   /** Whether the price axis is using logarithmic scale. */

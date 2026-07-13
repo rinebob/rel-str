@@ -1,54 +1,59 @@
-<div class="signal-review" [class.fullscreen]="uiState.fullscreen()">
+<div class="signal-review" [class.fullscreen]="facade.fullscreen()">
 
   <app-signal-review-header
-    [totalSignalCount]="groupStore.totalSignalCount()"
-    [weeklySignalCount]="groupStore.weeklySignalCount()"
-    [dailySignalCount]="groupStore.dailySignalCount()"
-    [longCount]="groupStore.longCount()"
-    [shortCount]="groupStore.shortCount()"
-    [statusCounts]="triageStore.statusCounts()"
-    [reviewCount]="triageStore.reviewCount()"
-    [acceptedCount]="triageStore.acceptedCount()"
-    [groupDimension]="groupStore.groupDimension()"
-    [activeListFilter]="symbolListStore.activeListFilter()"
-    [showAllSymbols]="groupStore.showAllSymbols()"
-    [allExpanded]="allExpanded()"
-    [fullscreen]="uiState.fullscreen()"
-    [loading]="groupStore.symbolsLoading()"
-    [quickChartSymbol]="groupStore.quickChartSymbol()"
-    [flatSymbols]="flatSymbols()"
+    [totalSignalCount]="facade.totalSignalCount()"
+    [weeklySignalCount]="facade.weeklySignalCount()"
+    [dailySignalCount]="facade.dailySignalCount()"
+    [longCount]="facade.longCount()"
+    [shortCount]="facade.shortCount()"
+    [statusCounts]="facade.statusCounts()"
+    [reviewCount]="facade.reviewCount()"
+    [acceptedCount]="facade.acceptedCount()"
+    [groupDimension]="facade.groupDimension()"
+    [activeListFilter]="facade.activeListFilter()"
+    [timeframe]="facade.timeframe()"
+    [direction]="facade.direction()"
+    [showAllSymbols]="facade.showAllSymbols()"
+    [allExpanded]="facade.allExpanded()"
+    [fullscreen]="facade.fullscreen()"
+    [loading]="facade.symbolsLoading()"
+    [quickChartSymbol]="facade.quickChartSymbol()"
+    [flatSymbols]="facade.flatSymbols()"
     (back)="goBack()"
     (goToReview)="goToReview()"
     (goToOrder)="goToOrder()"
     (goToTriageReport)="goToTriageReport()"
     (dimensionChange)="onDimension($event)"
     (listFilterChange)="onListFilter($event)"
+    (timeframeFilterChange)="facade.setTimeframeFilter($event)"
+    (directionFilterChange)="facade.setDirectionFilter($event)"
     (prev)="navigatePrev()"
     (next)="navigateNext()"
-    (toggleShowAllSymbols)="groupStore.toggleShowAllSymbols()"
+    (toggleShowAllSymbols)="facade.toggleShowAllSymbols()"
     (toggleExpandAll)="toggleExpandAll()"
-    (refresh)="groupStore.loadSymbolsWithSignals()"
-    (toggleFullscreen)="uiState.toggleFullscreen()">
+    (refresh)="facade.refreshSymbols()"
+    (clearTriage)="onClearTriage()"
+    (toggleFullscreen)="facade.toggleFullscreen()">
   </app-signal-review-header>
 
-  @if (groupStore.symbolsLoading()) {
+  @if (facade.symbolsLoading()) {
     <div class="loading-overlay">
       <mat-spinner diameter="32"></mat-spinner>
     </div>
   }
 
-  @if (groupStore.symbolsError()) {
+  @if (facade.symbolsError()) {
     <div class="error-state">
       <mat-icon>error_outline</mat-icon>
-      <p>{{ groupStore.symbolsError() }}</p>
-      <button mat-button (click)="groupStore.loadSymbolsWithSignals()">Retry</button>
+      <p>{{ facade.symbolsError() }}</p>
+      <button mat-button (click)="facade.refreshSymbols()">Retry</button>
     </div>
   }
 
-  @if (!groupStore.symbolsLoading() && !groupStore.symbolsError()) {
+  @if (!facade.symbolsLoading() && !facade.symbolsError()) {
     <div class="gr-body">
-      <div class="groups-panel has-charts" #groupsPanel>
-        @if (groupStore.groups().length === 0) {
+      <div class="groups-panel has-charts">
+        @if (facade.groups().length === 0) {
           <div class="empty-state">
             <mat-icon>inbox</mat-icon>
             <p>No signals found for this date</p>
@@ -56,15 +61,17 @@
           </div>
         }
 
-        @for (group of groupStore.groups(); track group.key) {
+        @let expandedMap = facade.expandedGroups();
+        @for (group of facade.groups(); track group.key) {
+          @if (group.rows.length > 0) {
           <app-group-panel
             [group]="group"
-            [expanded]="isGroupExpanded(group.key)"
-            [visibleRows]="visibleRows(group)"
-            [symbolLists]="symbolListStore.symbolLists()"
-            [activeListFilter]="symbolListStore.activeListFilter()"
-            [selectedSymbol]="groupStore.selectedSymbol()"
-            [quickChartSymbol]="groupStore.quickChartSymbol()"
+            [expanded]="expandedMap[group.key] ?? false"
+            [visibleRows]="group.rows"
+            [symbolLists]="facade.symbolLists()"
+            [activeListFilter]="facade.activeListFilter()"
+            [selectedSymbol]="facade.selectedSymbol()"
+            [quickChartSymbol]="facade.quickChartSymbol()"
             (opened)="onGroupOpened(group)"
             (expandAll)="onExpandAll($event)"
             (rowSelect)="onSymbolClick($event)"
@@ -77,12 +84,13 @@
             (rowToggleList)="onToggleList($event)"
             (rowMonitor)="onMonitor($event)">
           </app-group-panel>
+          }
         }
       </div>
 
       <app-quick-charts-panel
-        [symbol]="groupStore.quickChartSymbol()"
-        (close)="groupStore.setQuickChartSymbol(null)">
+        [symbol]="facade.quickChartSymbol()"
+        (close)="facade.setQuickChartSymbol(null)">
       </app-quick-charts-panel>
     </div>
   }

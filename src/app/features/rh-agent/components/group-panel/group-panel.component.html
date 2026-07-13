@@ -4,12 +4,12 @@
     <mat-panel-title class="group-title">
       <span class="group-key">{{ group().key }}</span>
       <span class="group-summary">
-        {{ group().rows.filter(r => r.hasSignal).length }} symbols
-        @if (group().longCount > 0) {
-          <span class="grp-dir long">↑ {{ group().longCount }} long</span>
+        {{ visibleSymbolCount() }} symbols
+        @if (visibleLongCount() > 0) {
+          <span class="grp-dir long">↑ {{ visibleLongCount() }} long</span>
         }
-        @if (group().shortCount > 0) {
-          <span class="grp-dir short">↓ {{ group().shortCount }} short</span>
+        @if (visibleShortCount() > 0) {
+          <span class="grp-dir short">↓ {{ visibleShortCount() }} short</span>
         }
       </span>
 

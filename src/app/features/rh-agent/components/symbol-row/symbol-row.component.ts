@@ -4,7 +4,7 @@
  * A single symbol expansion panel inside a group: ticker, signal badges,
  * company meta, ACR and list action buttons, and signal history body.
  */
-import { Component, ChangeDetectionStrategy, input, output } from '@angular/core';
+import { Component, ChangeDetectionStrategy, computed, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
@@ -16,6 +16,7 @@ import { tierLabel, latestSignals } from '../../utils/rh-agent.utils';
 import { SymbolAcrActionsComponent } from '../symbol-acr-actions/symbol-acr-actions.component';
 import { SymbolListActionsComponent } from '../symbol-list-actions/symbol-list-actions.component';
 import { SymbolSignalHistoryComponent } from '../symbol-signal-history/symbol-signal-history.component';
+import { ScrollIntoViewDirective } from '../../directives/scroll-into-view.directive';
 
 @Component({
   selector: 'app-symbol-row',
@@ -29,6 +30,7 @@ import { SymbolSignalHistoryComponent } from '../symbol-signal-history/symbol-si
     SymbolAcrActionsComponent,
     SymbolListActionsComponent,
     SymbolSignalHistoryComponent,
+    ScrollIntoViewDirective,
   ],
   templateUrl: './symbol-row.component.html',
   styleUrl: './symbol-row.component.scss',
@@ -45,7 +47,9 @@ export class SymbolRowComponent {
 
   /** Expose helper to template. */
   readonly tierLabel = tierLabel;
-  readonly latestSignals = latestSignals;
+
+  /** Latest signals for the row (already filtered by the active store-level filter). */
+  readonly latestSignals = computed(() => latestSignals(this.row()));
 
   select = output<void>();
   viewQuickCharts = output<string>();

@@ -1,6 +1,7 @@
 <mat-expansion-panel
   class="symbol-panel"
   [attr.data-symbol]="row().profile.symbol"
+  [appScrollIntoView]="row().profile.symbol"
   [class.active-chart]="isChartActive()"
   [class.symbol-selected]="isSelected()"
   [class.has-signal]="row().hasSignal"
@@ -22,12 +23,12 @@
         <span class="symbol-ticker">{{ row().profile.symbol }}</span>
 
         <div class="symbol-signals-today">
-          @for (sig of latestSignals(row()); track sig.signalType) {
+          @for (sig of latestSignals(); track sig.signalType) {
             <span class="badge dir dir-{{ sig.direction.toLowerCase() }}" matTooltip="{{ sig.signalType }}">
               {{ sig.direction }}
             </span>
           }
-          @if (row().hasSignal && !latestSignals(row()).length) {
+          @if (row().hasSignal && !latestSignals().length) {
             <span class="badge sig-pending">signal</span>
           }
         </div>

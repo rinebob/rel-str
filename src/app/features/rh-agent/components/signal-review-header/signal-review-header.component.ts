@@ -12,8 +12,9 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { RhSymbolListName, StatusCounts, GroupDimension } from '../../common/rh-agent.constants';
+import { RhSymbolListName, StatusCounts, GroupDimension, SignalTimeframe, SignalDirection } from '../../common/rh-agent.constants';
 import { StatusSummaryChipsComponent } from '../status-summary-chips/status-summary-chips.component';
+import { SignalFilterPillsComponent } from '../signal-filter-pills/signal-filter-pills.component';
 
 @Component({
   selector: 'app-signal-review-header',
@@ -27,6 +28,7 @@ import { StatusSummaryChipsComponent } from '../status-summary-chips/status-summ
     MatFormFieldModule,
     MatProgressSpinnerModule,
     StatusSummaryChipsComponent,
+    SignalFilterPillsComponent,
   ],
   templateUrl: './signal-review-header.component.html',
   styleUrl: './signal-review-header.component.scss',
@@ -40,8 +42,10 @@ export class SignalReviewHeaderComponent {
   statusCounts = input.required<StatusCounts>();
   reviewCount = input(0);
   acceptedCount = input(0);
-  groupDimension = input<GroupDimension>('sector');
+  groupDimension = input<GroupDimension>(GroupDimension.SECTOR);
   activeListFilter = input<RhSymbolListName | 'ALL'>('ALL');
+  timeframe = input<SignalTimeframe>(SignalTimeframe.ALL);
+  direction = input<SignalDirection>(SignalDirection.ALL);
   showAllSymbols = input(false);
   allExpanded = input(false);
   fullscreen = input(false);
@@ -50,9 +54,9 @@ export class SignalReviewHeaderComponent {
   flatSymbols = input<string[]>([]);
 
   readonly dimensionOptions: { value: GroupDimension; label: string }[] = [
-    { value: 'sector',        label: 'Sector' },
-    { value: 'industry',      label: 'Industry' },
-    { value: 'marketCapTier', label: 'Market Cap' },
+    { value: GroupDimension.SECTOR,        label: 'Sector' },
+    { value: GroupDimension.INDUSTRY,      label: 'Industry' },
+    { value: GroupDimension.MARKET_CAP_TIER, label: 'Market Cap' },
   ];
 
   readonly listFilterOptions: { value: RhSymbolListName | 'ALL'; label: string }[] = [
@@ -71,6 +75,8 @@ export class SignalReviewHeaderComponent {
   goToTriageReport = output<void>();
   dimensionChange = output<GroupDimension>();
   listFilterChange = output<RhSymbolListName | 'ALL'>();
+  timeframeFilterChange = output<SignalTimeframe>();
+  directionFilterChange = output<SignalDirection>();
   prev = output<void>();
   next = output<void>();
   toggleShowAllSymbols = output<void>();

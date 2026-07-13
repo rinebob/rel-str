@@ -78,34 +78,34 @@ export const RhAgentSymbolListStore = signalStore(
      */
     toggleSymbolInList(symbol: string, listName: string | RhSymbolListName): void {
       const normalized = symbol.toUpperCase();
-      const current = { ...state.symbolLists() };
-      const list = current[listName] ?? [];
-      const isInList = list.includes(normalized);
-      const previousLists = { ...current };
+      const previousLists = state.symbolLists();
+      const isInList = (previousLists[listName] ?? []).includes(normalized);
 
-      if (isInList) {
-        // Toggle off: remove from this list only
-        current[listName] = list.filter((s) => s !== normalized);
-      } else {
-        // Toggle on: add to this list, remove from all other lists
-        current[listName] = [...list, normalized];
-        for (const otherName of ALL_SYMBOL_LIST_NAMES) {
-          if (otherName !== listName) {
-            const otherList = current[otherName] ?? [];
-            if (otherList.includes(normalized)) {
-              current[otherName] = otherList.filter((s) => s !== normalized);
-            }
-          }
+      // Build the next state immutably: every list gets a fresh array.
+      const nextLists: Record<string, string[]> = {};
+      for (const name of Object.keys(previousLists)) {
+        const sourceList = previousLists[name] ?? [];
+        if (name === listName) {
+          nextLists[name] = isInList
+            ? sourceList.filter((s) => s !== normalized)
+            : [...sourceList, normalized];
+        } else if (!isInList) {
+          nextLists[name] = sourceList.filter((s) => s !== normalized);
+        } else {
+          nextLists[name] = [...sourceList];
         }
       }
-      patchState(state, { symbolLists: current });
+      if (!isInList && !(listName in nextLists)) {
+        nextLists[listName] = [normalized];
+      }
+      patchState(state, { symbolLists: nextLists });
 
       // Persist the target list change
       const target$ = isInList
         ? listService.removeFromList(symbol, listName)
         : listService.addToList(symbol, listName);
 
-      // Persist removals from other lists
+      // Persist removals from other canonical lists
       const removalObservables: Observable<void>[] = [];
       if (!isInList) {
         for (const otherName of ALL_SYMBOL_LIST_NAMES) {

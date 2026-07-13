@@ -28,7 +28,7 @@ import {
 import type { ChartDataset } from '../../../heatmap-chart/heatmap-chart.types';
 import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-chart.component';
 import { BarsInterval } from '../../../../core/models/partner.types';
-import { UiStateService } from '../../../../core/services/ui-state.service';
+import { UiStateService, ChartLayout } from '../../../../core/services/ui-state.service';
 import type { FlexChartConfig, IndicatorConfig, IndicatorOption, PriceBar } from '../../../shared/components/flex-chart/flex-chart.types';
 import { ChartIntervalKey, StIndicator } from '../../../shared/components/flex-chart/flex-chart.types';
 import { ST_INDICATOR_OPTIONS } from '../../../shared/components/flex-chart/indicators/indicator-registry';
@@ -189,6 +189,7 @@ export class SignalDetailComponent {
 
   /** Exposed for template comparisons — Angular templates cannot reference imported enums directly. */
   readonly BarsInterval = BarsInterval;
+  readonly ChartLayout = ChartLayout;
 
   /** Symbol to display. When non-null the chart panel renders; null collapses it. */
   manualSymbol = input<string | null>(null);
@@ -313,7 +314,7 @@ export class SignalDetailComponent {
    *  Single layout: the active interval only.
    */
   private indicatorScope = computed<ChartIntervalKey[]>(() => {
-    if (this.uiState.chartLayout() === 'triple') {
+    if (this.uiState.chartLayout() === ChartLayout.TRIPLE) {
       return [ChartIntervalKey.DAILY, ChartIntervalKey.WEEKLY, ChartIntervalKey.MONTHLY];
     }
     return [SignalDetailComponent.intervalKey(this.activeChartInterval())];
