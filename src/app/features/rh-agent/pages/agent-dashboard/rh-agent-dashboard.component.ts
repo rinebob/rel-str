@@ -9,6 +9,8 @@ import {
   inject,
   signal,
   computed,
+  OnInit,
+  OnDestroy,
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -22,6 +24,7 @@ import { RhAgentDashboardStore } from '../../stores/rh-agent-dashboard.store';
 import { RhAgentGroupStore } from '../../stores/rh-agent-group.store';
 import { RhAgentRun } from '../../services/rh-agent.types';
 import { RhAgentOverviewService } from '../../services/rh-agent-overview.service';
+import { UiStateService } from '../../../../core/services/ui-state.service';
 import { Router } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { getScheduleDescription, formatTimestampPT, formatTimePt, getNextPdrWindowPt, getNextNightlyPt, todayDate } from '../../utils/rh-agent.utils';
@@ -48,11 +51,12 @@ import { RunMetricsStripComponent } from '../../components/run-metrics-strip/run
   styleUrl: './rh-agent-dashboard.component.scss',
   providers: [RhAgentDashboardStore],
 })
-export class RhAgentDashboardComponent {
+export class RhAgentDashboardComponent implements OnInit, OnDestroy {
   // Inject the data store - manages all business logic and API calls
   readonly store = inject(RhAgentStore);
   readonly uiStore = inject(RhAgentDashboardStore);
   private readonly groupStore = inject(RhAgentGroupStore);
+  private readonly uiState = inject(UiStateService);
   private readonly router = inject(Router);
   private readonly overviewService = inject(RhAgentOverviewService);
   private readonly snackBar = inject(MatSnackBar);
@@ -89,6 +93,16 @@ export class RhAgentDashboardComponent {
    */
   constructor() {
     this.store.loadData();
+  }
+
+  /** Enter fullscreen mode when the dashboard is active. */
+  ngOnInit(): void {
+    this.uiState.setFullscreen(true);
+  }
+
+  /** Leave fullscreen mode when the dashboard is destroyed. */
+  ngOnDestroy(): void {
+    this.uiState.setFullscreen(false);
   }
 
   /** Refresh status — runs update automatically via the realtime listener. */
