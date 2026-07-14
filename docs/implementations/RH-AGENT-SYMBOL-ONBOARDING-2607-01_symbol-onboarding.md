@@ -179,7 +179,7 @@ firebase deploy --only functions --project rel-str
 
 ```bash
 gcloud pubsub topics publish projects/<sa-project>/topics/partner-symbol-added \
-  --message '{"version":"v1","symbols":["CIEN"],"addedAtUTC":"2026-07-08T21:00:00Z","status":"ready","availableIntervals":["DAILY","WEEKLY","MONTHLY"]}' \
+  --message '{"version":"v1","symbols":["CIEN"],"createdAtUTC":"2026-07-08T21:00:00Z","status":"ready","availableIntervals":["DAILY","WEEKLY","MONTHLY"]}' \
   --project <sa-project>
 ```
 

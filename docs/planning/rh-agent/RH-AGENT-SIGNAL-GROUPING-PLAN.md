@@ -74,7 +74,7 @@ rh-agent-symbols/{SYMBOL}                    ← symbol config + company overvie
 
 **Why here:**
 - Already one doc per symbol.
-- Config fields (`enabled`, `priority`, `addedAt`) and metadata fields (`sector`, `industry`, `marketCap`) coexist naturally — when you load the symbol list for the review page you get everything in one read.
+- Config fields (`enabled`, `createdAt`) and metadata fields (`sector`, `industry`, `marketCap`) coexist naturally — when you load the symbol list for the review page you get everything in one read.
 - Doc size: ~2KB of SA overview fields × 761 symbols ≈ 1.5MB total — trivial.
 
 **Fields to store from SA Company Overview:**
@@ -174,7 +174,7 @@ interface RhAgentSymbolDoc {
   // Existing config fields
   symbol: string;
   enabled: boolean;
-  addedAt: Timestamp;
+  createdAt: Timestamp;
   lastAnalyzedAt?: Timestamp;
 
   // Company overview (from SA)
@@ -217,7 +217,7 @@ Tasks:
 1. Create `rh-agent-overview-sync.ts` Cloud Function (admin callable + optional scheduled).
 2. For each symbol in `rh-agent-symbols`, call the SA company overview endpoint (auth via Firebase/GCP — no API key).
 3. Map SA fields → normalized `RhAgentSymbolDoc` fields, compute `marketCapTier`.
-4. `merge: true` upsert — never overwrites config fields (`enabled`, `addedAt`).
+4. `merge: true` upsert — never overwrites config fields (`enabled`, `createdAt`).
 5. Store `overviewFetchedAt` timestamp for freshness checks.
 
 **Refresh cadence:** SA checks company data weekly. Set up a Pub/Sub notification or scheduled function to trigger the sync weekly. Sector/industry/market cap rarely change but beta and analyst ratings do — weekly refresh covers both.
