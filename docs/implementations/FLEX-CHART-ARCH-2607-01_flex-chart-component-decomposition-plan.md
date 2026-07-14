@@ -494,3 +494,46 @@ This DAG ensures that pure conversion code never accidentally depends on Angular
 ### 8.5 Out of Scope
 
 This split does not change the public API or the behavior of any caller. It is purely a file-level decomposition.
+
+---
+
+## 9. Fix — Static/Live Axes+Rows Split Removed
+
+### 9.1 Problem
+
+Commit `21d7b61` introduced a two-array workaround in `ChartDataAdapter` to prevent a Syncfusion `getVisibleSeries` crash that occurred when `[axes]` or `[rows]` changed during `ngAfterContentChecked` before the chart's internal series array was populated on first render:
+
+- **Static pair** (`chartAxes` / `chartRows`): depended only on `chartData()` identity, emitted placeholder values (no strip lines, equal row heights for all panes including inactive ones).
+- **Live pair** (`liveChartAxes` / `liveChartRows`): depended on `lowerPanes()`, carried real values (strip lines, collapsed `0%` heights for inactive panes). Applied imperatively by `ChartLifecycleFacade` via `setProperties` + `dataBind()`.
+
+This introduced two new bugs:
+
+1. **Row heights never reflowed.** Syncfusion requires `refresh()` to reflow row layout. `dataBind()` is insufficient. The inactive lower-pane slot (`lower-4`) remained at the static placeholder height instead of collapsing to `0%`.
+
+2. **Strip lines (reference/zero lines) never rendered.** Strip lines also require `refresh()` to render after `setProperties`. With only `dataBind()`, they were silently ignored, so all indicator reference lines (zero lines, ±10 thresholds) were invisible.
+
+Additionally, `ST_TREND_STRENGTH_INDICATOR`'s `referenceLines` used `color: '#000000'` (pure black), which was invisible against the chart background regardless of the strip line rendering issue.
+
+### 9.2 Root Cause of the Original Crash
+
+The `getVisibleSeries` crash happens only during **initial mount**: Syncfusion's `ngAfterContentChecked` runs before its internal series array is populated. If `[axes]` receives an update at that moment, Syncfusion tries to match axes to series that don't exist yet and throws.
+
+The crash window is exactly: **from component creation until `onChartLoaded` fires**. After that, the chart is safe to update.
+
+### 9.3 Fix
+
+The `chartKey` + `@if (chartKey())` pattern (added in the same commit) already handles this correctly: it forces a full Syncfusion destroy/recreate on symbol or interval change, so the initial mount always starts with a clean chart instance and the `[axes]`/`[rows]` bindings receive their values on a fresh mount, not mid-render.
+
+Given that guard, the static/live split is unnecessary. Fix applied:
+
+- Merged `chartAxes` / `liveChartAxes` → single `chartAxes` depending on `lowerPanes()`.
+- Merged `chartRows` / `liveChartRows` → single `chartRows` depending on `lowerPanes()`.
+- Removed `liveChartAxes` and `liveChartRows` from `ChartDataAdapter`.
+- Removed the `setProperties` effect and both private signal fields from `ChartLifecycleFacade`.
+- Simplified `connectAndActivate` from 6 params to 4.
+- Fixed `ST_TREND_STRENGTH_INDICATOR` reference line colors: zero line → `#9e9e9e` dashed; ±10 thresholds → `rgba(158,158,158,0.5)` dashed.
+- Removed strip line label text (`text: ''`) — labels cluttered the right edge of every lower pane.
+
+### 9.4 Invariant to Preserve
+
+`chartAxes` and `chartRows` must depend on `lowerPanes()` (not just `chartData()`). Do not re-introduce a frozen/static version of either. If a new Syncfusion crash is encountered on symbol change, fix it by strengthening the `chartKey` destroy/recreate guard — not by splitting the axis/row computeds again.

@@ -139,8 +139,6 @@ export class FlexChartComponent implements OnDestroy {
   lowerPanes = this.dataAdapter.lowerPanes;
   chartAxes = this.dataAdapter.chartAxes;
   chartRows = this.dataAdapter.chartRows;
-  private readonly liveChartAxes = this.dataAdapter.liveChartAxes;
-  private readonly liveChartRows = this.dataAdapter.liveChartRows;
 
 
   // Chart configuration - Category axis removes gaps (like TradingView)
@@ -226,7 +224,7 @@ export class FlexChartComponent implements OnDestroy {
       this.priceLabelEl = native.querySelector('.crosshair-price-label');
     });
 
-    this.lifecycleFacade.connectAndActivate(this.typedChart, this.chartData, this.config, this.dataAdapter.computedSeries, this.liveChartAxes, this.liveChartRows);
+    this.lifecycleFacade.connectAndActivate(this.typedChart, this.chartData, this.config, this.dataAdapter.computedSeries);
     this.dataAdapter.connect(this.chartData, this.config);
 
     // Sync incoming crosshair values (from parent input/output binding) into the store

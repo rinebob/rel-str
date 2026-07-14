@@ -198,45 +198,11 @@ export class ChartDataAdapter {
     });
   });
 
-  /** Fixed-length Y-axes array — depends only on `chartData` so the axis structure
-   *  never changes mid-render due to indicator config toggles. Syncfusion crashes in
-   *  `getVisibleSeries` when `[axes]` updates during `ngAfterContentChecked` before the
-   *  chart's internal series array is populated. Content that varies per indicator
-   *  (labels, grid lines, strip lines, min/max) is applied via dataBind after load.
+  /** Y-axes for all lower panes — reflects active indicators including strip lines,
+   *  min/max, and grid line visibility. Depends on `lowerPanes()` so it updates
+   *  whenever the indicator config changes.
    */
   chartAxes = computed<ChartAxisView[]>(() => {
-    this.chartData(); // depend only on dataset identity, not config
-    return ChartDataAdapter.LOWER_PANE_SLOTS.map((paneId, index) => ({
-      name: `lowerYAxis${paneId.replace('lower-', '')}`,
-      valueType: 'Double' as const,
-      opposedPosition: true,
-      rowIndex: index,
-      minimum: undefined,
-      maximum: undefined,
-      labelFormat: '{value}',
-      majorGridLines: { width: 0.5, color: 'rgba(158,158,158,0.3)' },
-      lineStyle: { width: 1, color: '#9e9e9e' },
-      crosshairTooltip: { enable: false },
-      rangePadding: 'None' as const,
-      stripLines: [],
-    }));
-  });
-
-  /** Fixed-length rows array — depends only on `chartData` for the same reason as
-   *  `chartAxes`. Uses a fixed 4-pane split; pane heights are updated via dataBind.
-   */
-  chartRows = computed(() => {
-    this.chartData(); // depend only on dataset identity
-    const lowerPct = Math.floor(55 / ChartDataAdapter.LOWER_PANE_SLOTS.length);
-    const rows: { height: string }[] = ChartDataAdapter.LOWER_PANE_SLOTS.map(() => ({ height: `${lowerPct}%` }));
-    rows.push({ height: `${100 - lowerPct * ChartDataAdapter.LOWER_PANE_SLOTS.length}%` });
-    return rows;
-  });
-
-  /** Live axes config reflecting active indicators — used by the facade to apply
-   *  updates imperatively via dataBind after the chart is initialized.
-   */
-  liveChartAxes = computed<ChartAxisView[]>(() => {
     return this.lowerPanes().map((pane, index) => {
       const stripLines = pane.series
         .flatMap((s) => s.config.options.referenceLines || [])
@@ -249,7 +215,7 @@ export class ChartDataAdapter {
           visible: true,
           opacity: 1,
           zIndex: 'Over' as const,
-          text: ref.label || '',
+          text: '',
           textStyle: { color: ref.color, size: '10px' },
           horizontalAlignment: 'End' as const,
           verticalAlignment: 'Middle' as const,
@@ -272,8 +238,10 @@ export class ChartDataAdapter {
     });
   });
 
-  /** Live rows config reflecting active indicators — used by the facade after load. */
-  liveChartRows = computed(() => {
+  /** Row heights for all panes — collapses inactive lower panes to 0% so they
+   *  don't consume space. Depends on `lowerPanes()` so it updates with indicator config.
+   */
+  chartRows = computed(() => {
     const panes = this.lowerPanes();
     const activePaneCount = panes.filter((p) => p.series.length > 0).length;
     const lowerPct = activePaneCount > 0 ? Math.floor(55 / activePaneCount) : 0;

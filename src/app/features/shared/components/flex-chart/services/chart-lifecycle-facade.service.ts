@@ -1,5 +1,4 @@
 import { Injectable, Signal, effect, inject, signal, untracked } from '@angular/core';
-import type { ChartAxisView } from './chart-data-adapter.service';
 import type { ComputedIndicatorSeries, FlexChartConfig, FlexChartDataset, PriceBar } from '../flex-chart.types';
 import { ChartViewportStore } from '../store/chart-viewport.store';
 import { ChartYAxisViewportController } from './chart-y-axis-viewport-controller.service';
@@ -27,8 +26,6 @@ export class ChartLifecycleFacade {
   private chartData: Signal<FlexChartDataset | null> = signal(null);
   private config: Signal<FlexChartConfig> = signal({ indicators: [] });
   private computedSeries: Signal<ComputedIndicatorSeries[]> = signal([]);
-  private liveChartAxes: Signal<ChartAxisView[]> = signal([]);
-  private liveChartRows: Signal<{ height: string }[]> = signal([]);
 
   /** Idempotency key for the initial-zoom effect — prevents re-applying zoom when only
    *  indicator configs change (same dataset, same interval, same zoom days).
@@ -56,15 +53,11 @@ export class ChartLifecycleFacade {
     chartData: Signal<FlexChartDataset | null>,
     config: Signal<FlexChartConfig>,
     computedSeries: Signal<ComputedIndicatorSeries[]>,
-    liveChartAxes: Signal<ChartAxisView[]>,
-    liveChartRows: Signal<{ height: string }[]>,
   ): void {
     this.chartSignal = chart;
     this.chartData = chartData;
     this.config = config;
     this.computedSeries = computedSeries;
-    this.liveChartAxes = liveChartAxes;
-    this.liveChartRows = liveChartRows;
 
     // Applies initial zoom whenever the chart becomes available, the dataset
     // changes, or the zoom range config changes. Keyed so it does not re-apply
@@ -105,21 +98,6 @@ export class ChartLifecycleFacade {
       if (!chart || !chart.series?.length) return;
       chart.animateSeries = false;
       try { chart.dataBind(); } catch { /* suppress residual Syncfusion race */ }
-    });
-
-    // Applies live axes/rows imperatively after the chart is initialized — these are
-    // withheld from the declarative [axes]/[rows] bindings (which only update on chartData
-    // change) to prevent Syncfusion's getVisibleSeries crash during first render.
-    effect(() => {
-      const axes = this.liveChartAxes();
-      const rows = this.liveChartRows();
-      const chart = untracked(this.chartSignal);
-      if (!chart || !chart.series?.length) return;
-      chart.animateSeries = false;
-      try {
-        chart.setProperties({ axes, rows }, false);
-        chart.dataBind();
-      } catch { /* suppress Syncfusion race */ }
     });
 
     // Refreshes the chart when zoom toolbar visibility changes — Syncfusion ignores
