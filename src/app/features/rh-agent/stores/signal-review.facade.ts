@@ -27,6 +27,7 @@ import {
   SignalTimeframe,
   SignalDirection,
 } from '../common/rh-agent.constants';
+import { todayDate } from '../utils/rh-agent.utils';
 
 @Injectable({ providedIn: 'root' })
 export class SignalReviewFacade {
@@ -256,7 +257,8 @@ export class SignalReviewFacade {
   // -------------------------------------------------------------------------
 
   clearTriage(): void {
-    this.triageStore.clear();
+    const date = this.groupStore.activeRunMarketDate() ?? todayDate();
+    this.triageStore.clear(date);
   }
 
   // -------------------------------------------------------------------------
@@ -268,7 +270,6 @@ export class SignalReviewFacade {
   }
 
   goToReview(): void {
-    if (this.triageStore.reviewCount() === 0) return;
     this.router.navigate(['/chart-review']);
   }
 

@@ -17,6 +17,8 @@ import {
   patchState,
 } from '@ngrx/signals';
 
+import { MatSnackBar } from '@angular/material/snack-bar';
+
 import { RhReviewStatus, ALL_REVIEW_STATUSES, StatusCounts } from '../common/rh-agent.constants';
 import { RhAgentTriageService } from '../services/rh-agent-triage.service';
 import { todayDate, daysAgoPt } from '../utils/rh-agent.utils';
@@ -92,6 +94,7 @@ export const RhAgentTriageStore = signalStore(
   withMethods((
     state,
     triageService = inject(RhAgentTriageService),
+    snackBar = inject(MatSnackBar),
   ) => ({
     /** Set a single symbol's PACR status and persist it for the given market date. */
     setStatus(symbol: string, status: RhReviewStatus, marketDate: string, source = 'unknown'): void {
@@ -182,9 +185,44 @@ export const RhAgentTriageStore = signalStore(
       });
     },
 
-    /** Clear all triage state — full local reset (does not delete Firestore). */
-    clear(): void {
-      patchState(state, { statuses: {} });
+    /** Clear review/accept queues — resets those symbols to PENDING locally and in Firestore. */
+    clear(marketDate: string): void {
+      const previousStatuses = state.statuses();
+      const previousPersisted = state.persistedStatuses();
+      const symbolsToClear = Object.entries(previousStatuses)
+        .filter(([_, status]) => status === ReviewStatus.REVIEW || status === ReviewStatus.ACCEPT)
+        .map(([symbol]) => symbol);
+
+      // Update persistedStatuses cache so any subsequent loadPersistedDecisions
+      // won't restore these symbols as REVIEW from the in-memory cache.
+      let persisted = previousPersisted;
+      for (const symbol of symbolsToClear) {
+        persisted = mergePersistedStatus(persisted, symbol, marketDate, ReviewStatus.PENDING);
+      }
+
+      // Clear local state for ALL statuses and update persisted cache
+      patchState(state, { statuses: {}, persistedStatuses: persisted });
+
+      // Persist PENDING for symbols that were REVIEW or ACCEPT
+      if (symbolsToClear.length > 0) {
+        const inputs = symbolsToClear.map((symbol) => ({
+          symbol,
+          date: marketDate,
+          status: ReviewStatus.PENDING as RhReviewStatus,
+          source: 'clear-triage',
+        }));
+        triageService.setDecisionsBatch(inputs).subscribe({
+          error: (err) => {
+            console.error('[TriageStore] Failed to persist clear:', err);
+            patchState(state, {
+              statuses: previousStatuses,
+              persistedStatuses: previousPersisted,
+              decisionsError: err?.message ?? 'Clear persist failed',
+            });
+            snackBar.open('Failed to clear review list — reverted', 'Dismiss', { duration: 5000 });
+          },
+        });
+      }
     },
 
     // --- Convenience methods for daily PACR actions ---

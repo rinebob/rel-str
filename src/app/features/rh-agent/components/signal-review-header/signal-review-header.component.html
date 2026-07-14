@@ -34,7 +34,6 @@
 
   <div class="pipeline-actions">
     <button type="button" class="pill-btn review"
-      [disabled]="reviewCount() === 0"
       (click)="goToReview.emit()"
       matTooltip="Review symbols">
       <mat-icon>visibility</mat-icon>
@@ -54,7 +53,6 @@
       Report
     </button>
     <button type="button" class="pill-btn small"
-      [disabled]="reviewCount() === 0 && acceptedCount() === 0"
       (click)="clearTriage.emit()"
       matTooltip="Clear review & order queues">
       <mat-icon>playlist_remove</mat-icon>
