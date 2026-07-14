@@ -246,6 +246,18 @@
           font-size: 13px;
         }
 
+        .new-chip {
+          flex-shrink: 0;
+          font-size: 9px;
+          font-weight: 700;
+          text-transform: uppercase;
+          padding: 1px 5px;
+          border-radius: 8px;
+          background: var(--mat-sys-tertiary-container);
+          color: var(--mat-sys-tertiary);
+          margin-left: 4px;
+        }
+
         .history-date {
           font-size: 11px;
           font-weight: 500;

@@ -18,6 +18,7 @@ import {
   runInInjectionContext,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
@@ -32,12 +33,14 @@ import { todayDate, daysAgoPt } from '../../utils/rh-agent.utils';
 import { SignalListComponent } from '../../components/signal-list/signal-list.component';
 import { SignalDetailComponent } from '../../components/signal-detail/signal-detail.component';
 import { ReviewHeaderComponent } from '../../components/review-header/review-header.component';
+import { NewSymbolsDialogService } from '../../services/new-symbols-dialog.service';
 
 @Component({
   selector: 'app-chart-review',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     MatButtonModule,
+    MatDialogModule,
     MatIconModule,
     MatTooltipModule,
     SignalListComponent,
@@ -53,6 +56,7 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
   readonly symbolListStore = inject(RhAgentSymbolListStore);
   readonly uiState = inject(UiStateService);
   private readonly router = inject(Router);
+  private readonly newSymbolsDialog = inject(NewSymbolsDialogService);
   private readonly firestore = inject(Firestore);
   private readonly injector = inject(EnvironmentInjector);
 
@@ -61,6 +65,9 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
 
   /** Currently selected symbol in the review queue. */
   selectedReviewSymbol = signal<string | null>(null);
+
+  /** Symbols added to the review queue via the new-symbols dialog this session. */
+  newlyAddedSymbols = signal<string[]>([]);
 
   /** Whether the review queue has symbols pending decision. */
   hasReviewSymbols = computed(() => this.triageStore.reviewSymbols().length > 0);
@@ -178,6 +185,24 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
   /** Navigate to the standalone signal history page. */
   goToSignalHistory(): void {
     this.router.navigate(['/signal-history']);
+  }
+
+  /** Open a dialog to find symbols added to rh-agent-symbols in the last N days. */
+  openNewSymbolsDialog(): void {
+    this.newSymbolsDialog.open().subscribe((symbols) => {
+      if (!symbols || symbols.length === 0) return;
+      this.addSymbolsToReview(symbols);
+    });
+  }
+
+  /** Mark a batch of found symbols as REVIEW and surface them in the left panel. */
+  private addSymbolsToReview(symbols: string[]): void {
+    const marketDate = this.currentMarketDate();
+    this.triageStore.setGroupStatus(symbols, RhReviewStatus.REVIEW, marketDate, 'new-symbols-dialog');
+    this.newlyAddedSymbols.update((existing) => Array.from(new Set([...existing, ...symbols])));
+    if (!this.selectedReviewSymbol()) {
+      this.selectedReviewSymbol.set(symbols[0]);
+    }
   }
 
   /** Toggle the active symbol's membership in a named list. */

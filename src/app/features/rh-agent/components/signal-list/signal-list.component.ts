@@ -40,6 +40,9 @@ export class SignalListComponent {
   /** Manual symbol override — when set, show this symbol's signal history instead of triage queue */
   manualSymbol = input<string | null>(null);
 
+  /** Symbols that were just added via the new-symbols dialog; shown with a NEW chip. */
+  newSymbols = input<string[]>([]);
+
   symbolSelected = output<string>();
 
   /** Signal history cache keyed by symbol — reactive so items() computed re-runs on load */

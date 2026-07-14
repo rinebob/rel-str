@@ -30,4 +30,6 @@ export class ReviewHeaderComponent {
   reject = output<void>();
   loadSymbol = output<string>();
   symbolKeydown = output<{ event: KeyboardEvent; input: HTMLInputElement }>();
+  /** Emits when the user opens the "new symbols" dialog. */
+  newSymbols = output<void>();
 }

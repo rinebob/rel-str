@@ -10,7 +10,8 @@
     (watch)="onWatchReview()"
     (reject)="onRejectReview()"
     (loadSymbol)="loadManualSymbol($event)"
-    (symbolKeydown)="onManualSymbolKeydown($event.event, $event.input)">
+    (symbolKeydown)="onManualSymbolKeydown($event.event, $event.input)"
+    (newSymbols)="openNewSymbolsDialog()">
   </app-review-header>
 
   <!-- Master-Detail Layout -->
@@ -27,6 +28,7 @@
           class="signal-list-wrapper"
           [selectedSymbol]="selectedReviewSymbol()"
           [manualSymbol]="manualSymbol()"
+          [newSymbols]="newlyAddedSymbols()"
           (symbolSelected)="onReviewSymbolSelected($event)">
         </app-signal-list>
       }

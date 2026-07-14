@@ -38,6 +38,9 @@
           } @else {
             <div class="signal-line-1">
               <span class="symbol">{{ item.symbol }}</span>
+              @if (newSymbols().includes(item.symbol)) {
+                <span class="new-chip">NEW</span>
+              }
             </div>
             @if (item.recentSignals.length > 0) {
               <div class="signal-trail">
