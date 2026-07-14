@@ -9,7 +9,9 @@ import {
   rowHasDirection,
   buildSymbolGroups,
   BuildSymbolGroupsInput,
+  mapSymbolProfile,
 } from './rh-agent.utils';
+import { RhAgentSymbolSource } from '../services/rh-agent.types';
 
 const mockSignal = (
   overrides: Partial<RhAgentSignalItem> = {}
@@ -208,5 +210,53 @@ describe('buildSymbolGroups', () => {
 
     const groups = buildSymbolGroups(input);
     expect(groups.length).toBe(2);
+  });
+});
+
+describe('mapSymbolProfile', () => {
+  it('maps string fields and defaults enabled to true', () => {
+    const raw: Record<string, unknown> = {
+      symbol: 'AAPL',
+      createdAt: '2026-07-13T20:00:00Z',
+      source: RhAgentSymbolSource.PARTNER_UNIVERSE,
+      name: 'Apple Inc.',
+      sector: 'Technology',
+      marketCap: 3000e9,
+      marketCapTier: 'mega',
+    };
+    const profile = mapSymbolProfile(raw);
+    expect(profile.symbol).toBe('AAPL');
+    expect(profile.enabled).toBe(true);
+    expect(profile.createdAt).toBe('2026-07-13T20:00:00Z');
+    expect(profile.source).toBe(RhAgentSymbolSource.PARTNER_UNIVERSE);
+    expect(profile.name).toBe('Apple Inc.');
+    expect(profile.marketCap).toBe(3000e9);
+    expect(profile.marketCapTier).toBe('mega');
+  });
+
+  it('converts a Firestore Timestamp duck-type to an ISO string', () => {
+    const raw: Record<string, unknown> = {
+      symbol: 'TSLA',
+      createdAt: { toDate: () => new Date('2026-07-13T20:00:00Z') },
+    };
+    const profile = mapSymbolProfile(raw);
+    expect(profile.createdAt).toBe(new Date('2026-07-13T20:00:00Z').toISOString());
+  });
+
+  it('ignores non-canonical source values', () => {
+    const raw: Record<string, unknown> = {
+      symbol: 'SPY',
+      source: 'partner-universe-260713',
+    };
+    const profile = mapSymbolProfile(raw);
+    expect(profile.source).toBeUndefined();
+  });
+
+  it('leaves missing fields undefined', () => {
+    const raw: Record<string, unknown> = { symbol: 'META' };
+    const profile = mapSymbolProfile(raw);
+    expect(profile.name).toBeUndefined();
+    expect(profile.marketCap).toBeUndefined();
+    expect(profile.createdAt).toBe('');
   });
 });
