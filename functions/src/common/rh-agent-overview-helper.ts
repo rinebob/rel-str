@@ -12,16 +12,7 @@ import { db } from '../firebase-admin-init';
 import { callPartnerCompanyOverview, PartnerHttpError } from '../partner-proxy';
 import { PartnerCompanyOverviewResponse } from '../types/partner';
 import { RH_AGENT_SYMBOLS_COLLECTION, RhAgentOverviewFields, RhAgentSymbol } from './rh-agent-collections';
-
-/** Type guard for a Firestore Timestamp value (as opposed to FieldValue). */
-function isTimestamp(value: unknown): value is FirebaseFirestore.Timestamp {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'toDate' in value &&
-    typeof (value as { toDate?: unknown }).toDate === 'function'
-  );
-}
+import { isTimestamp } from './type-guards';
 
 /** Parse a string field to number — returns undefined for "None" or non-numeric. */
 export function parseNum(val: string | undefined): number | undefined {

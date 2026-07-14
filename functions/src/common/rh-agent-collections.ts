@@ -50,8 +50,8 @@ export interface RhAgentSymbol {
   symbol: string;
   enabled: boolean;
   createdAt: string | FirebaseFirestore.Timestamp;
-  /** How this symbol was added to the tracked universe (e.g. RhAgentSymbolSource.MANUAL_ADD). */
-  source?: string;
+  /** How this symbol was added to the tracked universe (one of RhAgentSymbolSource). */
+  source?: RhAgentSymbolSource;
   lastAnalyzedAt?: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
   // Denormalized signal gate fields (written by worker on each signal)
   lastDailySignalDate?: string;   // YYYY-MM-DD

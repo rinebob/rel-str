@@ -96,12 +96,11 @@ export const seedAllSymbolsFromPartner = onRequest(
       for (let i = 0; i < validSymbols.length; i++) {
         const symbol = validSymbols[i].trim();
         const docRef = collection.doc(symbol);
-        const sourceTag = `${RhAgentSymbolSource.PARTNER_UNIVERSE}-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}`;
         const symbolDoc: RhAgentSymbol = {
           symbol,
           enabled: true,
           createdAt: new Date().toISOString(),
-          source: sourceTag,
+          source: RhAgentSymbolSource.PARTNER_UNIVERSE,
         };
         batch.set(docRef, symbolDoc);
       }

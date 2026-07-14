@@ -29,72 +29,12 @@ import {
   RH_AGENT_SYMBOLS_COLLECTION,
   RH_AGENT_SYMBOL_LISTS_COLLECTION,
   RhAgentSymbol,
-  RhAgentSymbolSource,
 } from '../common/rh-agent-collections';
 import { fetchAndWriteSymbolOverview } from '../common/rh-agent-overview-helper';
+import { decodeSymbolAddedMessage, normalizeSource } from '../common/rh-agent-symbol-added-helpers';
 
 /** Deadline for the single-symbol RH Agent run triggered after onboarding. */
 const RUN_DEADLINE_MINUTES = 30;
-
-interface SymbolAddedPayloadV1 {
-  version: 'v1';
-  symbols: string[];
-  createdAtUTC: string;
-  status: 'ready';
-  availableIntervals: string[];
-  /** Optional source tag; defaults to RhAgentSymbolSource.ManualAdd. */
-  source?: string;
-}
-
-/** Validate that the parsed payload matches the expected V1 shape.
- * Returns null for unsupported-but-ackable payloads (wrong version/status,
- * malformed symbols, etc.) so Pub/Sub does not retry them. */
-function validateSymbolAddedPayload(
-  raw: unknown,
-): { body: SymbolAddedPayloadV1 | null; reason?: string } {
-  const body = raw as Partial<SymbolAddedPayloadV1>;
-  if (body?.version !== 'v1') {
-    return { body: null, reason: `unsupported version: ${body?.version}` };
-  }
-  if (body.status !== 'ready') {
-    return { body: null, reason: `unsupported status: ${body.status}` };
-  }
-  if (!Array.isArray(body.symbols) || body.symbols.some((s) => typeof s !== 'string' || s.length === 0)) {
-    return { body: null, reason: 'malformed symbols' };
-  }
-  if (typeof body.createdAtUTC !== 'string' || body.createdAtUTC.length === 0) {
-    return { body: null, reason: 'missing or malformed createdAtUTC' };
-  }
-  if (!Array.isArray(body.availableIntervals)) {
-    return { body: null, reason: 'malformed availableIntervals' };
-  }
-  return {
-    body: {
-      version: 'v1',
-      symbols: body.symbols,
-      createdAtUTC: body.createdAtUTC,
-      status: 'ready',
-      availableIntervals: body.availableIntervals,
-      source: typeof body.source === 'string' ? body.source : undefined,
-    },
-  };
-}
-
-/**
- * Decode and validate a partner-symbol-added Pub/Sub message.
- */
-function decodeSymbolAddedMessage(message: {
-  data?: string;
-  attributes?: Record<string, string>;
-}): { body: SymbolAddedPayloadV1 | null; attributes: Record<string, string>; reason?: string } {
-  if (!message.data) {
-    throw new Error('Missing message data');
-  }
-  const jsonString = Buffer.from(message.data, 'base64').toString('utf8');
-  const raw = JSON.parse(jsonString);
-  const { body, reason } = validateSymbolAddedPayload(raw);
-  return { body, reason, attributes: message.attributes || {} };
-}
 
 /** Add a symbol to the default PRIMARY watchlist. */
 async function addSymbolToDefaultList(symbol: string): Promise<void> {
@@ -184,13 +124,27 @@ export const processSymbolAdded = onMessagePublished(
           }
 
           // Create/enable the symbol with the same doc shape as the seed path.
+          // Preserve an existing createdAt so a redelivery cannot reset it.
           const symbolDocRef = db.collection(RH_AGENT_SYMBOLS_COLLECTION).doc(symbol);
-          const symbolDoc: RhAgentSymbol = {
+          const existingSnap = await symbolDocRef.get();
+          const existingData = existingSnap.data() as Partial<RhAgentSymbol> | undefined;
+          const source = normalizeSource(body.source);
+          if (body.source && source !== body.source) {
+            logger.warn('symbol_data_symbol_added_source_normalized', {
+              symbol,
+              original: body.source,
+              source,
+            });
+          }
+
+          const symbolDoc: Partial<RhAgentSymbol> = {
             symbol,
             enabled: true,
-            createdAt: body.createdAtUTC || new Date().toISOString(),
-            source: body.source || RhAgentSymbolSource.MANUAL_ADD,
+            source,
           };
+          if (!existingData?.createdAt) {
+            symbolDoc.createdAt = body.createdAtUTC || new Date().toISOString();
+          }
           await symbolDocRef.set(symbolDoc, { merge: true });
 
           // Best-effort follow-up steps: list add, overview fetch, and run trigger
