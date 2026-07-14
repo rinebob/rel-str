@@ -3,14 +3,14 @@
  *
  * Orphan = doc has only { symbol, enabled } (no createdAt/source/etc).
  * For each orphan:
- *   1. Set source='manual-add-backfill_26-0713' and createdAt in rh-agent-symbols
+ *   1. Set source to RhAgentSymbolSource.MANUAL_ADD and createdAt in rh-agent-symbols
  *   2. Trigger symbolDataSyncAdminHttp for D/W/M bars
  *   3. Trigger rhAgentOverviewSyncAdmin for company overview
  *
  * Usage (from functions/ dir):
- *   npx tsx scripts/backfill-orphan-rh-agent-symbols.ts [source-tag]
+ *   npx tsx scripts/backfill-orphan-rh-agent-symbols.ts [source]
  *
- * Override source tag (defaults to manual-add-backfill_26-0713):
+ * Override source (defaults to RhAgentSymbolSource.MANUAL_ADD):
  *   $env:SOURCE="custom-backfill"
  *   npx tsx scripts/backfill-orphan-rh-agent-symbols.ts
  *
@@ -22,20 +22,28 @@ import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getFunctions } from 'firebase-admin/functions';
 import { execSync } from 'child_process';
+import { RhAgentSymbol, RhAgentSymbolSource } from '../src/common/rh-agent-collections';
 
 const COLLECTION = 'rh-agent-symbols';
-// Source tag can be overridden via CLI arg or env var so this script is reusable.
-const SOURCE = process.argv[2] || process.env.SOURCE || 'manual-add-backfill_26-0713';
+// Source can be overridden via CLI arg or env var so this script is reusable.
+// Default to the canonical enum value so the frontend source filter works.
+const SOURCE = process.argv[2] || process.env.SOURCE || RhAgentSymbolSource.MANUAL_ADD;
 const BARS_URL = 'https://us-central1-rel-str.cloudfunctions.net/symbolDataSyncAdminHttp';
 const OVERVIEW_QUEUE = 'rhAgentOverviewSyncSymbol';
 const serviceAccount = process.env.IMPERSONATE_SERVICE_ACCOUNT ?? '145446780542-compute@developer.gserviceaccount.com';
 
+function hasCreatedAt(data: Record<string, unknown>): boolean {
+  return data.createdAt != null && data.createdAt !== '';
+}
+
+function hasSource(data: Record<string, unknown>): boolean {
+  return data.source != null && data.source !== '';
+}
+
 function needsBackfill(data: Record<string, unknown>): boolean {
-  const keys = Object.keys(data);
-  const isBareOrphan = keys.length <= 2 && keys.every((k) => k === 'symbol' || k === 'enabled');
-  const isThisRun = data.source === SOURCE;
-  const hasOverview = data.overviewFetchedAt != null || data.name != null;
-  return isBareOrphan || (isThisRun && !hasOverview);
+  // Re-process any doc that is still missing the core onboarding fields.
+  // Once both createdAt and source are present, the doc is considered backfilled.
+  return !hasCreatedAt(data) || !hasSource(data);
 }
 
 function getIdToken(audience: string): string {
@@ -45,8 +53,7 @@ function getIdToken(audience: string): string {
   ).trim();
 }
 
-async function postJson(url: string, body: unknown): Promise<void> {
-  const token = getIdToken(url);
+async function postJson(url: string, body: unknown, token: string): Promise<void> {
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -93,49 +100,62 @@ async function main(): Promise<void> {
   }
 
   // 1. Stamp source + createdAt so the dialog can stop treating them as orphans.
+  //    createdAt is only written if the doc does not already have one, preserving
+  //    any value set by a previous (interrupted) run.
   const batch = db.batch();
   for (const symbol of orphans) {
     const ref = db.collection(COLLECTION).doc(symbol);
-    batch.update(ref, { source: SOURCE, createdAt });
+    const data = (await ref.get()).data() as Partial<RhAgentSymbol> | undefined;
+    const update: Partial<RhAgentSymbol> = { source: SOURCE as RhAgentSymbol['source'] };
+    if (!hasCreatedAt(data ?? {})) {
+      update.createdAt = createdAt;
+    }
+    batch.update(ref, update);
   }
   await batch.commit();
-  console.log(`Updated ${orphans.length} docs with source=${SOURCE} and createdAt=${createdAt}.`);
+  console.log(`Updated ${orphans.length} docs with source=${SOURCE} and createdAt (where missing).`);
 
-  // 2. Trigger D/W/M bars backfill.
+  // 2. Trigger D/W/M bars backfill (one shared HTTP call; auth token reused).
   console.log('Triggering bars backfill...');
-  await postJson(BARS_URL, { symbols: orphans, forceFullFetch: true });
+  const idToken = getIdToken(BARS_URL);
+  await postJson(BARS_URL, { symbols: orphans, forceFullFetch: true }, idToken);
 
   // 3. Enqueue company overview sync tasks directly.
   console.log('Enqueuing overview sync tasks...');
   const overviewQueue = getFunctions().taskQueue(OVERVIEW_QUEUE);
-  let overviewEnqueued = 0;
-  for (const symbol of orphans) {
-    await overviewQueue.enqueue({ symbol, forceRefresh: true });
-    overviewEnqueued++;
-  }
-  console.log(`Enqueued ${overviewEnqueued} overview sync tasks.`);
+  await Promise.all(
+    orphans.map((symbol) => overviewQueue.enqueue({ symbol, forceRefresh: true })),
+  );
+  console.log(`Enqueued ${orphans.length} overview sync tasks.`);
 
   // 4. Fallback enrichment: copy basic fields from symbol-data (bars sync writes
   // name, type, marketOpen/Close etc.) into rh-agent-symbols so the UI has a
   // display name even when partner overview API doesn't know the symbol.
   console.log('Enriching from symbol-data fallback...');
+  const fallbackData = await Promise.all(
+    orphans.map(async (symbol) => {
+      const symbolDataSnap = await db.collection('symbol-data').doc(symbol).get();
+      const symbolData = symbolDataSnap.data();
+      return { symbol, symbolData };
+    }),
+  );
   let enriched = 0;
-  for (const symbol of orphans) {
-    const symbolDataSnap = await db.collection('symbol-data').doc(symbol).get();
-    const symbolData = symbolDataSnap.data();
-    if (symbolData?.name) {
-      await db.collection(COLLECTION).doc(symbol).set(
-        {
-          name: symbolData.name,
-          assetType: symbolData.type,
-          exchange: symbolData.region,
-          overviewFetchedAt: FieldValue.serverTimestamp(),
-        },
-        { merge: true }
-      );
+  const enrichBatch = db.batch();
+  for (const { symbol, symbolData } of fallbackData) {
+    const fallback = symbolData as { name?: unknown; type?: unknown; region?: unknown } | undefined;
+    if (typeof fallback?.name === 'string') {
+      const ref = db.collection(COLLECTION).doc(symbol);
+      const update: Partial<RhAgentSymbol> = {
+        name: fallback.name,
+        assetType: typeof fallback.type === 'string' ? fallback.type : undefined,
+        exchange: typeof fallback.region === 'string' ? fallback.region : undefined,
+        overviewFetchedAt: FieldValue.serverTimestamp(),
+      };
+      enrichBatch.update(ref, update);
       enriched++;
     }
   }
+  await enrichBatch.commit();
   console.log(`Enriched ${enriched} docs with basic data from symbol-data.`);
 
   console.log('Done.');
