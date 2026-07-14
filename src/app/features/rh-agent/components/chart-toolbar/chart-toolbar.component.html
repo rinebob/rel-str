@@ -16,6 +16,21 @@
   <!-- Spacer -->
   <span class="toolbar-spacer"></span>
 
+  <!-- Symbol nav: prev/next within review queue -->
+  @if (symbolCount() > 0) {
+    <span class="symbol-nav">
+      <button class="nav-btn" (click)="prevSymbol.emit()"
+        [disabled]="symbolIndex() <= 0" title="Previous symbol">
+        <mat-icon>chevron_left</mat-icon>
+      </button>
+      <span class="nav-position">{{ symbolIndex() + 1 }}&nbsp;/&nbsp;{{ symbolCount() }}</span>
+      <button class="nav-btn" (click)="nextSymbol.emit()"
+        [disabled]="symbolIndex() >= symbolCount() - 1" title="Next symbol">
+        <mat-icon>chevron_right</mat-icon>
+      </button>
+    </span>
+  }
+
   <!-- Center: caller-projected content (e.g., symbol list actions). -->
   <ng-content select="[chartToolbarCenter]"></ng-content>
 

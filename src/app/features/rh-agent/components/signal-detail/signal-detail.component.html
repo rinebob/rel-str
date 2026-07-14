@@ -10,13 +10,17 @@
       [logScale]="logScale()"
       [indicatorOptions]="activeChartIndicatorOptions()"
       [selectedIndicatorIds]="activeSelectedIndicatorIds()"
+      [symbolIndex]="symbolIndex()"
+      [symbolCount]="symbolCount()"
       (intervalChange)="onIntervalChange($event)"
       (rangeChange)="selectedRange.set($event)"
       (zoomToggle)="showZoomToolbar.set(!showZoomToolbar())"
       (layoutToggle)="uiState.toggleChartLayout()"
       (fullscreenToggle)="uiState.toggleFullscreen()"
       (logScaleToggle)="onToggleLogScale()"
-      (indicatorToggle)="onToggleIndicator($event)">
+      (indicatorToggle)="onToggleIndicator($event)"
+      (prevSymbol)="prevSymbol.emit()"
+      (nextSymbol)="nextSymbol.emit()">
       <app-symbol-list-actions chartToolbarCenter
         [symbol]="manualSymbol()!"
         [symbolLists]="symbolLists()"

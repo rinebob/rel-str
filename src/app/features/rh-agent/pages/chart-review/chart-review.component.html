@@ -37,8 +37,12 @@
         [manualSymbol]="selectedReviewSymbol() || manualSymbol()"
         [symbolLists]="symbolListStore.symbolLists()"
         [activeListFilter]="symbolListStore.activeListFilter()"
+        [symbolIndex]="selectedReviewSymbolIndex()"
+        [symbolCount]="reviewSymbolCount()"
         (toggleList)="onToggleList($event)"
-        (monitor)="onMonitor($event)">
+        (monitor)="onMonitor($event)"
+        (prevSymbol)="onPrevSymbol()"
+        (nextSymbol)="onNextSymbol()">
       </app-signal-detail>
     </div>
   } @else {

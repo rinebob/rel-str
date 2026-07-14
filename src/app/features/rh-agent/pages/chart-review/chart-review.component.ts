@@ -72,6 +72,16 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
   /** Whether the review queue has symbols pending decision. */
   hasReviewSymbols = computed(() => this.triageStore.reviewSymbols().length > 0);
 
+  /** Index of the currently selected symbol within the review queue. */
+  selectedReviewSymbolIndex = computed(() => {
+    const symbol = this.selectedReviewSymbol();
+    if (!symbol) return -1;
+    return this.triageStore.reviewSymbols().indexOf(symbol);
+  });
+
+  /** Total number of symbols in the review queue. */
+  reviewSymbolCount = computed(() => this.triageStore.reviewSymbols().length);
+
   /** Cache of symbol -> company name fetched from Firestore. */
   private symbolNameCache = signal<Record<string, string | null>>({});
 
@@ -176,10 +186,14 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     this.advanceReviewQueue(symbol);
   }
 
-  /** Move the selection to the next review symbol after a decision. */
+  /** Move the selection to the next review symbol after a decision, staying at the same queue position. */
   private advanceReviewQueue(decidedSymbol: string): void {
-    const remaining = this.triageStore.reviewSymbols().filter((s: string) => s !== decidedSymbol);
-    this.selectedReviewSymbol.set(remaining.length > 0 ? remaining[0] : null);
+    const before = this.triageStore.reviewSymbols();
+    const idx = before.indexOf(decidedSymbol);
+    const remaining = before.filter((s: string) => s !== decidedSymbol);
+    if (remaining.length === 0) { this.selectedReviewSymbol.set(null); return; }
+    const nextIdx = Math.min(idx, remaining.length - 1);
+    this.selectedReviewSymbol.set(remaining[nextIdx]);
   }
 
   /** Navigate to the standalone signal history page. */
@@ -222,10 +236,24 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
   /** Load an arbitrary symbol for chart review without a decision queue. */
   loadManualSymbol(symbolInput: string): void {
     const symbol = symbolInput.trim().toUpperCase();
-    console.log('[ChartReview] loadManualSymbol called:', symbol);
     if (!symbol) return;
     this.selectedReviewSymbol.set(null);
     this.manualSymbol.set(symbol);
+  }
+
+  /** Navigate to the previous symbol in the review queue. */
+  onPrevSymbol(): void {
+    const idx = this.selectedReviewSymbolIndex();
+    if (idx <= 0) return;
+    this.selectedReviewSymbol.set(this.triageStore.reviewSymbols()[idx - 1]);
+  }
+
+  /** Navigate to the next symbol in the review queue. */
+  onNextSymbol(): void {
+    const symbols = this.triageStore.reviewSymbols();
+    const idx = this.selectedReviewSymbolIndex();
+    if (idx < 0 || idx >= symbols.length - 1) return;
+    this.selectedReviewSymbol.set(symbols[idx + 1]);
   }
 
   /** Navigate back to the signal review page. */
@@ -235,7 +263,6 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
 
   /** Handle Enter key in the manual symbol input. */
   onManualSymbolKeydown(event: KeyboardEvent, input: HTMLInputElement): void {
-    console.log('[ChartReview] onManualSymbolKeydown:', event.key, input.value);
     if (event.key === 'Enter') {
       this.loadManualSymbol(input.value);
     }

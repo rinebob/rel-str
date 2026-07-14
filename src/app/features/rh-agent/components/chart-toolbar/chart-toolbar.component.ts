@@ -44,6 +44,10 @@ export class ChartToolbarComponent {
   indicatorOptions = input.required<IndicatorOption[]>();
   /** Currently selected indicator IDs — drives checkbox state in the indicator menu. */
   selectedIndicatorIds = input.required<Set<string>>();
+  /** 0-based index of the active symbol in the review queue, or -1 when not in queue. */
+  symbolIndex = input<number>(-1);
+  /** Total number of symbols in the review queue (0 = not in queue mode). */
+  symbolCount = input<number>(0);
 
   /** Emits the chosen interval when the user clicks a D/W/M button. */
   intervalChange = output<BarsInterval>();
@@ -59,4 +63,8 @@ export class ChartToolbarComponent {
   logScaleToggle = output<void>();
   /** Emits the batch of toggled indicator IDs from the indicator menu's debounce window. */
   indicatorToggle = output<string[]>();
+  /** Emits when the user clicks the previous-symbol nav button. */
+  prevSymbol = output<void>();
+  /** Emits when the user clicks the next-symbol nav button. */
+  nextSymbol = output<void>();
 }

@@ -199,6 +199,10 @@ export class SignalDetailComponent {
   symbolLists = input<Record<string, string[]>>({});
   /** Active list filter from the symbol list store. */
   activeListFilter = input<RhSymbolListName | 'ALL'>('ALL');
+  /** 0-based index of this symbol within the review queue, or -1 when not in queue. */
+  symbolIndex = input<number>(-1);
+  /** Total number of symbols in the review queue. */
+  symbolCount = input<number>(0);
 
   /** Emits the signal ID when the user marks a signal as accepted (A key / button). */
   signalAccepted = output<string>();
@@ -210,6 +214,10 @@ export class SignalDetailComponent {
   toggleList = output<{ symbol: string; listName: RhSymbolListName }>();
   /** Emits when the user toggles the active symbol's monitor status. */
   monitor = output<string>();
+  /** Emits when the user clicks the previous-symbol nav button. */
+  prevSymbol = output<void>();
+  /** Emits when the user clicks the next-symbol nav button. */
+  nextSymbol = output<void>();
 
   // ==========================================================================
   // UI state signals
