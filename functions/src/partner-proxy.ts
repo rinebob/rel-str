@@ -49,6 +49,17 @@ const PARTNER_COMPANY_OVERVIEW_AUDIENCE =
 // Service account email for rel-str prod
 const CALLER_SA = process.env.PARTNER_CALLER_SA || DEFAULT_PARTNER_CALLER_SA;
 
+/** Error thrown by partner API calls; carries the HTTP status code for typed handling. */
+export class PartnerHttpError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+    this.name = 'PartnerHttpError';
+  }
+}
+
 /** Public DTO and response interfaces are declared in './types/partner' */
 
 /**
@@ -265,7 +276,7 @@ export async function callPartnerCompanyOverview(symbol: string): Promise<Partne
       symbol, status: resp.status, url, callerSa: CALLER_SA,
       snippet: typeof text === 'string' ? text.slice(0, 300) : undefined,
     });
-    throw new Error(`partnerCompanyOverview upstream ${resp.status}: ${text}`);
+    throw new PartnerHttpError(`partnerCompanyOverview upstream ${resp.status}: ${text}`, resp.status);
   }
 
   let parsed: PartnerCompanyOverviewResponse;
