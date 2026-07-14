@@ -169,7 +169,7 @@ async function seedEmulator(emuDb: any, metadata: any[], barData: Record<string,
       name: meta.name || meta.symbol,
       enabled: true,
       priority: i + 1,
-      addedAt: Timestamp.now(),
+      createdAt: new Date().toISOString(),
     });
   }
   console.log(`   ✓ ${metadata.length} symbols in rh-agent-symbols`);

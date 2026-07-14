@@ -10,7 +10,7 @@
 import { onRequest } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { db } from '../firebase-admin-init';
-import { RH_AGENT_SYMBOLS_COLLECTION } from '../common/rh-agent-collections';
+import { RH_AGENT_SYMBOLS_COLLECTION, RhAgentSymbol } from '../common/rh-agent-collections';
 import { callPartnerTrackedSymbols } from '../partner-proxy';
 
 /**
@@ -96,13 +96,13 @@ export const seedAllSymbolsFromPartner = onRequest(
       for (let i = 0; i < validSymbols.length; i++) {
         const symbol = validSymbols[i].trim();
         const docRef = collection.doc(symbol);
-        batch.set(docRef, {
+        const symbolDoc: RhAgentSymbol = {
           symbol,
           enabled: true,
-          priority: i + 1,  // Preserve order from partner
           createdAt: new Date().toISOString(),
           source: 'partner-universe',
-        });
+        };
+        batch.set(docRef, symbolDoc);
       }
 
       await batch.commit();

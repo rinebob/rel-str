@@ -109,7 +109,7 @@ export const rhAgentGetSymbolsWithSignals = onCall<
         return {
           symbol: d.symbol || doc.id,
           enabled: d.enabled ?? true,
-          addedAt: d.addedAt?.toDate?.()?.toISOString() || '',
+          createdAt: d.createdAt?.toDate?.()?.toISOString() ?? d.createdAt ?? '',
           lastAnalyzedAt: d.lastAnalyzedAt?.toDate?.()?.toISOString(),
           lastDailySignalDate: d.lastDailySignalDate,
           lastWeeklySignalDate: d.lastWeeklySignalDate,

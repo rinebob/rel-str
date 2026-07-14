@@ -21,6 +21,9 @@ export const RH_AGENT_SCHEDULE_CRON = '0 1 * * 2-6';
 /** Symbol list collection for daily scanning. */
 export const RH_AGENT_SYMBOLS_COLLECTION = 'rh-agent-symbols';
 
+/** User-defined symbol lists (PRIMARY, SECONDARY, etc.). */
+export const RH_AGENT_SYMBOL_LISTS_COLLECTION = 'rh-agent-symbol-lists';
+
 /** Symbol analysis jobs (subcollection under runs). */
 export const RH_AGENT_JOBS_SUBCOLLECTION = 'jobs';
 
@@ -37,7 +40,9 @@ export const RH_AGENT_SIGNAL_HISTORY_SUBCOLLECTION = 'signal-history';
 export interface RhAgentSymbol {
   symbol: string;
   enabled: boolean;
-  addedAt: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
+  createdAt: string | FirebaseFirestore.Timestamp;
+  /** How this symbol was added to the tracked universe (e.g. 'manual-addition'). */
+  source?: string;
   lastAnalyzedAt?: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
   // Denormalized signal gate fields (written by worker on each signal)
   lastDailySignalDate?: string;   // YYYY-MM-DD
@@ -97,7 +102,7 @@ export type RhAgentOverviewFields = Pick<
 export interface RhAgentSymbolProfile extends Omit<RhAgentOverviewFields, 'marketCapTier'> {
   symbol: string;
   enabled: boolean;
-  addedAt: string;
+  createdAt: string;
   lastAnalyzedAt?: string;
   lastDailySignalDate?: string;
   lastWeeklySignalDate?: string;
