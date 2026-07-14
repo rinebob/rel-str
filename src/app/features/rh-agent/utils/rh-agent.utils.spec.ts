@@ -27,8 +27,11 @@ const mockSignal = (
   ...overrides,
 });
 
+const TEST_CREATED_AT = '2026-01-01T00:00:00.000Z';
+
 const mockProfile = (
-  overrides: Partial<RhAgentSymbolProfile> = {}
+  createdAt: string,
+  overrides: Partial<Omit<RhAgentSymbolProfile, 'createdAt'>> = {}
 ): RhAgentSymbolProfile => ({
   symbol: 'AAPL',
   name: 'Apple Inc.',
@@ -37,7 +40,7 @@ const mockProfile = (
   marketCapTier: 'large',
   exchange: 'NASDAQ',
   enabled: true,
-  addedAt: '2026-01-01',
+  createdAt,
   ...overrides,
 });
 
@@ -83,13 +86,13 @@ describe('filterSignals', () => {
 
 describe('profileMatchesSignalFilter', () => {
   it('matches daily direction from profile', () => {
-    const profile = mockProfile({ lastDailySignalDirection: SignalDirection.LONG });
+    const profile = mockProfile(TEST_CREATED_AT, { lastDailySignalDirection: SignalDirection.LONG });
     expect(profileMatchesSignalFilter(profile, { timeframe: SignalTimeframe.DAILY, direction: SignalDirection.LONG })).toBe(true);
     expect(profileMatchesSignalFilter(profile, { timeframe: SignalTimeframe.WEEKLY, direction: SignalDirection.LONG })).toBe(false);
   });
 
   it('matches any direction with ALL timeframe when profile has either signal', () => {
-    const profile = mockProfile({ lastWeeklySignalDirection: SignalDirection.SHORT });
+    const profile = mockProfile(TEST_CREATED_AT, { lastWeeklySignalDirection: SignalDirection.SHORT });
     expect(profileMatchesSignalFilter(profile, { timeframe: SignalTimeframe.ALL, direction: SignalDirection.SHORT })).toBe(true);
   });
 });
@@ -97,7 +100,7 @@ describe('profileMatchesSignalFilter', () => {
 describe('rowHasDirection', () => {
   it('uses loaded signals when available', () => {
     const row = {
-      profile: mockProfile(),
+      profile: mockProfile(TEST_CREATED_AT),
       hasSignal: true,
       signals: [mockSignal({ direction: SignalDirection.SHORT })],
       reviewStatus: 'PENDING' as RhReviewStatus,
@@ -108,7 +111,7 @@ describe('rowHasDirection', () => {
 
   it('falls back to profile directions when signals are not loaded', () => {
     const row = {
-      profile: mockProfile({ lastDailySignalDirection: SignalDirection.LONG }),
+      profile: mockProfile(TEST_CREATED_AT, { lastDailySignalDirection: SignalDirection.LONG }),
       hasSignal: true,
       signals: undefined,
       reviewStatus: 'PENDING' as RhReviewStatus,
@@ -137,9 +140,9 @@ describe('buildSymbolGroups', () => {
   it('groups symbols by dimension', () => {
     const input = baseInput({
       signalSymbols: [
-        mockProfile({ symbol: 'AAPL', sector: 'Technology', marketCap: 1000 }),
-        mockProfile({ symbol: 'MSFT', sector: 'Technology', marketCap: 900 }),
-        mockProfile({ symbol: 'XOM', sector: 'Energy', marketCap: 500 }),
+        mockProfile(TEST_CREATED_AT, { symbol: 'AAPL', sector: 'Technology', marketCap: 1000 }),
+        mockProfile(TEST_CREATED_AT, { symbol: 'MSFT', sector: 'Technology', marketCap: 900 }),
+        mockProfile(TEST_CREATED_AT, { symbol: 'XOM', sector: 'Energy', marketCap: 500 }),
       ],
     });
 
@@ -157,8 +160,8 @@ describe('buildSymbolGroups', () => {
   it('applies signal filter at the row level', () => {
     const input = baseInput({
       signalSymbols: [
-        mockProfile({ symbol: 'AAPL', sector: 'Technology', lastDailySignalDirection: SignalDirection.LONG }),
-        mockProfile({ symbol: 'TSLA', sector: 'Technology', lastDailySignalDirection: SignalDirection.SHORT }),
+        mockProfile(TEST_CREATED_AT, { symbol: 'AAPL', sector: 'Technology', lastDailySignalDirection: SignalDirection.LONG }),
+        mockProfile(TEST_CREATED_AT, { symbol: 'TSLA', sector: 'Technology', lastDailySignalDirection: SignalDirection.SHORT }),
       ],
       signalFilter: { timeframe: SignalTimeframe.ALL, direction: SignalDirection.LONG },
     });
@@ -169,7 +172,7 @@ describe('buildSymbolGroups', () => {
   });
 
   it('filters signals per row when history is loaded', () => {
-    const profile = mockProfile({ symbol: 'AAPL' });
+    const profile = mockProfile(TEST_CREATED_AT, { symbol: 'AAPL' });
     const longSignal = mockSignal({ direction: SignalDirection.LONG });
     const shortSignal = mockSignal({ direction: SignalDirection.SHORT });
 
@@ -187,8 +190,8 @@ describe('buildSymbolGroups', () => {
 
   it('excludes non-signal symbols unless showAll is true', () => {
     const input = baseInput({
-      signalSymbols: [mockProfile({ symbol: 'AAPL' })],
-      allSymbols: [mockProfile({ symbol: 'SPY' })],
+      signalSymbols: [mockProfile(TEST_CREATED_AT, { symbol: 'AAPL' })],
+      allSymbols: [mockProfile(TEST_CREATED_AT, { symbol: 'SPY' })],
       showAll: false,
     });
 
@@ -198,8 +201,8 @@ describe('buildSymbolGroups', () => {
 
   it('includes non-signal symbols when showAll is true', () => {
     const input = baseInput({
-      signalSymbols: [mockProfile({ symbol: 'AAPL' })],
-      allSymbols: [mockProfile({ symbol: 'SPY' })],
+      signalSymbols: [mockProfile(TEST_CREATED_AT, { symbol: 'AAPL' })],
+      allSymbols: [mockProfile(TEST_CREATED_AT, { symbol: 'SPY' })],
       showAll: true,
     });
 
