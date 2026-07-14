@@ -24,6 +24,15 @@ export const RH_AGENT_SYMBOLS_COLLECTION = 'rh-agent-symbols';
 /** User-defined symbol lists (PRIMARY, SECONDARY, etc.). */
 export const RH_AGENT_SYMBOL_LISTS_COLLECTION = 'rh-agent-symbol-lists';
 
+/** Default list name for newly onboarded symbols. */
+export const DEFAULT_SYMBOL_LIST_NAME = 'PRIMARY';
+
+/** Known source values for how a symbol entered the RH Agent tracked universe. */
+export enum RhAgentSymbolSource {
+  MANUAL_ADD = 'manual-add',
+  PARTNER_UNIVERSE = 'partner-universe',
+}
+
 /** Symbol analysis jobs (subcollection under runs). */
 export const RH_AGENT_JOBS_SUBCOLLECTION = 'jobs';
 
@@ -41,7 +50,7 @@ export interface RhAgentSymbol {
   symbol: string;
   enabled: boolean;
   createdAt: string | FirebaseFirestore.Timestamp;
-  /** How this symbol was added to the tracked universe (e.g. 'manual-addition'). */
+  /** How this symbol was added to the tracked universe (e.g. RhAgentSymbolSource.MANUAL_ADD). */
   source?: string;
   lastAnalyzedAt?: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
   // Denormalized signal gate fields (written by worker on each signal)

@@ -23,15 +23,61 @@ import {
   getRunIdPT,
 } from '../common/pt-date-utils';
 import { syncSymbolToSymbolData } from './symbol-data-backfill';
-import { db } from '../firebase-admin-init';
-import { RH_AGENT_SYMBOLS_COLLECTION } from '../common/rh-agent-collections';
+import { db, FieldValue } from '../firebase-admin-init';
+import {
+  DEFAULT_SYMBOL_LIST_NAME,
+  RH_AGENT_SYMBOLS_COLLECTION,
+  RH_AGENT_SYMBOL_LISTS_COLLECTION,
+  RhAgentSymbol,
+  RhAgentSymbolSource,
+} from '../common/rh-agent-collections';
+import { fetchAndWriteSymbolOverview } from '../common/rh-agent-overview-helper';
+
+/** Deadline for the single-symbol RH Agent run triggered after onboarding. */
+const RUN_DEADLINE_MINUTES = 30;
 
 interface SymbolAddedPayloadV1 {
   version: 'v1';
   symbols: string[];
-  addedAtUTC: string;
+  createdAtUTC: string;
   status: 'ready';
   availableIntervals: string[];
+  /** Optional source tag; defaults to RhAgentSymbolSource.ManualAdd. */
+  source?: string;
+}
+
+/** Validate that the parsed payload matches the expected V1 shape.
+ * Returns null for unsupported-but-ackable payloads (wrong version/status,
+ * malformed symbols, etc.) so Pub/Sub does not retry them. */
+function validateSymbolAddedPayload(
+  raw: unknown,
+): { body: SymbolAddedPayloadV1 | null; reason?: string } {
+  const body = raw as Partial<SymbolAddedPayloadV1>;
+  if (body?.version !== 'v1') {
+    return { body: null, reason: `unsupported version: ${body?.version}` };
+  }
+  if (body.status !== 'ready') {
+    return { body: null, reason: `unsupported status: ${body.status}` };
+  }
+  if (!Array.isArray(body.symbols) || body.symbols.some((s) => typeof s !== 'string' || s.length === 0)) {
+    return { body: null, reason: 'malformed symbols' };
+  }
+  if (typeof body.createdAtUTC !== 'string' || body.createdAtUTC.length === 0) {
+    return { body: null, reason: 'missing or malformed createdAtUTC' };
+  }
+  if (!Array.isArray(body.availableIntervals)) {
+    return { body: null, reason: 'malformed availableIntervals' };
+  }
+  return {
+    body: {
+      version: 'v1',
+      symbols: body.symbols,
+      createdAtUTC: body.createdAtUTC,
+      status: 'ready',
+      availableIntervals: body.availableIntervals,
+      source: typeof body.source === 'string' ? body.source : undefined,
+    },
+  };
 }
 
 /**
@@ -40,13 +86,41 @@ interface SymbolAddedPayloadV1 {
 function decodeSymbolAddedMessage(message: {
   data?: string;
   attributes?: Record<string, string>;
-}): { body: SymbolAddedPayloadV1; attributes: Record<string, string> } {
+}): { body: SymbolAddedPayloadV1 | null; attributes: Record<string, string>; reason?: string } {
   if (!message.data) {
     throw new Error('Missing message data');
   }
   const jsonString = Buffer.from(message.data, 'base64').toString('utf8');
-  const body = JSON.parse(jsonString) as SymbolAddedPayloadV1;
-  return { body, attributes: message.attributes || {} };
+  const raw = JSON.parse(jsonString);
+  const { body, reason } = validateSymbolAddedPayload(raw);
+  return { body, reason, attributes: message.attributes || {} };
+}
+
+/** Add a symbol to the default PRIMARY watchlist. */
+async function addSymbolToDefaultList(symbol: string): Promise<void> {
+  await db.collection(RH_AGENT_SYMBOL_LISTS_COLLECTION).doc(DEFAULT_SYMBOL_LIST_NAME).set(
+    { name: DEFAULT_SYMBOL_LIST_NAME, symbols: FieldValue.arrayUnion(symbol) },
+    { merge: true },
+  );
+}
+
+/** Trigger a single-symbol RH Agent run for a newly onboarded symbol. */
+async function triggerSymbolAddedRun(symbol: string): Promise<void> {
+  const marketDate = getMarketDatePT();
+  const runStartedAt = new Date().toISOString();
+  const runDate = getRunDatePT();
+  const uniqueRunId = `${getRunIdPT(runDate, 'symbol-added')}_${symbol}`;
+  const runId = await createDailyRun(
+    marketDate,
+    1,
+    getDeadlineISO(RUN_DEADLINE_MINUTES),
+    'symbol-added',
+    uniqueRunId,
+    runDate,
+    'symbol-added',
+  );
+  await createJobAndEnqueue(runId, symbol, marketDate, runStartedAt, 'symbol-added');
+  logger.info('symbol_data_symbol_added_agent_run_enqueued', { symbol, runId, marketDate });
 }
 
 /**
@@ -55,10 +129,14 @@ function decodeSymbolAddedMessage(message: {
  * For each symbol in the payload:
  *   1. Runs a full backfill into symbol-data.
  *   2. Enables the symbol for RH Agent scanning.
- *   3. Creates a one-symbol RH Agent run and enqueues the worker task so the
+ *   3. Adds the symbol to the default PRIMARY watchlist.
+ *   4. Fetches company overview so the symbol is reviewable right away.
+ *   5. Creates a one-symbol RH Agent run and enqueues the worker task so the
  *      symbol is immediately reviewable.
  *
- * Failures for one symbol do not block processing of the others.
+ * Failures for one symbol do not block processing of the others, and the
+ * message is acknowledged even if some symbols fail. Failed symbols are logged
+ * and must be handled manually or by a separate retry mechanism.
  */
 export const processSymbolAdded = onMessagePublished(
   {
@@ -68,33 +146,14 @@ export const processSymbolAdded = onMessagePublished(
     timeoutSeconds: 300,
   },
   async (event) => {
-    const { body, attributes } = decodeSymbolAddedMessage(event.data.message);
+    const { body, attributes, reason } = decodeSymbolAddedMessage(event.data.message);
 
-    if (body.version !== 'v1') {
-      logger.warn('symbol_data_symbol_added_unsupported_version', {
-        version: body.version,
-        attributes,
-      });
+    if (!body) {
+      logger.warn('symbol_data_symbol_added_unsupported', { reason, attributes });
       return;
     }
 
-    if (body.status !== 'ready') {
-      logger.warn('symbol_data_symbol_added_unsupported_status', {
-        status: body.status,
-        attributes,
-      });
-      return;
-    }
-
-    if (!Array.isArray(body.symbols)) {
-      logger.warn('symbol_data_symbol_added_malformed_symbols', {
-        symbolsType: typeof body.symbols,
-        attributes,
-      });
-      return;
-    }
-
-    const symbols = body.symbols.filter((s): s is string => typeof s === 'string' && s.length > 0);
+    const symbols = body.symbols.map((s) => s.trim()).filter((s) => s.length > 0);
     if (symbols.length === 0) {
       logger.warn('symbol_data_symbol_added_no_symbols', { attributes });
       return;
@@ -102,7 +161,7 @@ export const processSymbolAdded = onMessagePublished(
 
     logger.info('symbol_data_symbol_added_received', {
       symbolCount: symbols.length,
-      addedAtUTC: body.addedAtUTC,
+      createdAtUTC: body.createdAtUTC,
       availableIntervals: body.availableIntervals,
       attributes,
     });
@@ -124,40 +183,29 @@ export const processSymbolAdded = onMessagePublished(
             return { symbol, ok: false, error: result.error ?? 'backfill not ok' };
           }
 
-          // Enable the symbol for RH Agent scanning
-          await db.collection(RH_AGENT_SYMBOLS_COLLECTION).doc(symbol).set(
-            { symbol, enabled: true },
-            { merge: true },
-          );
-
-          // Trigger a single-symbol RH Agent run so the symbol is reviewable
-          // immediately instead of waiting for the next nightly/PDR run.
-          const marketDate = getMarketDatePT();
-          const runStartedAt = new Date().toISOString();
-          const runDate = getRunDatePT();
-          const uniqueRunId = `${getRunIdPT(runDate, 'symbol-added')}_${symbol}`;
-          const runId = await createDailyRun(
-            marketDate,
-            1,
-            getDeadlineISO(30),
-            'symbol-added',
-            uniqueRunId,
-            runDate,
-            'symbol-added',
-          );
-          await createJobAndEnqueue(
-            runId,
+          // Create/enable the symbol with the same doc shape as the seed path.
+          const symbolDocRef = db.collection(RH_AGENT_SYMBOLS_COLLECTION).doc(symbol);
+          const symbolDoc: RhAgentSymbol = {
             symbol,
-            marketDate,
-            runStartedAt,
-            'symbol-added',
-          );
+            enabled: true,
+            createdAt: body.createdAtUTC || new Date().toISOString(),
+            source: body.source || RhAgentSymbolSource.MANUAL_ADD,
+          };
+          await symbolDocRef.set(symbolDoc, { merge: true });
 
-          logger.info('symbol_data_symbol_added_agent_run_enqueued', {
-            symbol,
-            runId,
-            marketDate,
-          });
+          // Best-effort follow-up steps: list add, overview fetch, and run trigger
+          // can run in parallel once the symbol doc exists.
+          await Promise.all([
+            addSymbolToDefaultList(symbol).catch((err) => {
+              logger.warn('symbol_data_symbol_added_list_failed', { symbol, error: err?.message });
+            }),
+            fetchAndWriteSymbolOverview(symbol).catch((err) => {
+              logger.warn('symbol_data_symbol_added_overview_failed', { symbol, error: err?.message });
+            }),
+            triggerSymbolAddedRun(symbol).catch((err) => {
+              logger.warn('symbol_data_symbol_added_run_failed', { symbol, error: err?.message });
+            }),
+          ]);
 
           return { symbol, ok: true };
         } catch (err: any) {
@@ -179,14 +227,5 @@ export const processSymbolAdded = onMessagePublished(
       failed: failed.length,
       failedSymbols: failed.map((f) => f.symbol),
     });
-
-    if (failed.length > 0) {
-      // Throw so Pub/Sub retries the whole message. Individual symbol failures
-      // are logged; a retry will re-run syncSymbolToSymbolData which is
-      // idempotent for existing data.
-      throw new Error(
-        `Failed to backfill symbols: ${failed.map((f) => `${f.symbol} (${f.error})`).join(', ')}`,
-      );
-    }
   },
 );
