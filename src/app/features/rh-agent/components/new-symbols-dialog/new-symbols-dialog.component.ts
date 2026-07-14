@@ -26,7 +26,7 @@ import { RhAgentSymbolProfile } from '../../services/rh-agent.types';
 /** Search modes available in the new-symbols dialog. */
 export enum SearchMode {
   NEWLY_ADDED = 'newly-added',
-  NOT_IN_LISTS = 'not-in-lists',
+  UNBACKFILLED = 'unbackfilled',
 }
 
 @Component({
@@ -90,10 +90,10 @@ export class NewSymbolsDialogComponent implements OnInit {
     const query$ =
       mode === SearchMode.NEWLY_ADDED
         ? this.signalService.getSymbolsAddedSince(Math.max(1, this.daysBack()))
-        : this.signalService.getSymbolsNotInLists(this.listSymbols());
+        : this.signalService.getUnbackfilledSymbols(this.listSymbols());
 
     query$.subscribe({
-      next: (profiles) => {
+      next: (profiles: RhAgentSymbolProfile[]) => {
         const sorted = [...profiles].sort((a, b) =>
           (b.createdAt ?? '').localeCompare(a.createdAt ?? '')
         );

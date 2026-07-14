@@ -12,9 +12,9 @@
     <button
       type="button"
       class="mode-pill"
-      [class.active]="searchMode() === searchModes.NOT_IN_LISTS"
-      (click)="searchMode.set(searchModes.NOT_IN_LISTS)">
-      Not in any list
+      [class.active]="searchMode() === searchModes.UNBACKFILLED"
+      (click)="searchMode.set(searchModes.UNBACKFILLED)">
+      Unbackfilled
     </button>
   </div>
 
@@ -46,7 +46,7 @@
         @if (searchMode() === searchModes.NEWLY_ADDED) {
           No symbols added in the last {{ daysBack() }} days.
         } @else {
-          No symbols are missing from all lists.
+          No unbackfilled symbols found.
         }
       </div>
     }

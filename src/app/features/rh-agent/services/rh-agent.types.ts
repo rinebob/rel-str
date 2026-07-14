@@ -61,8 +61,8 @@ export interface RhAgentSymbolProfile {
   symbol: string;
   enabled: boolean;
   createdAt: string;
-  /** How this symbol entered the tracked universe (e.g. RhAgentSymbolSource.MANUAL_ADD). */
-  source?: string;
+  /** How this symbol entered the tracked universe (one of RhAgentSymbolSource). */
+  source?: RhAgentSymbolSource;
   lastAnalyzedAt?: string;
   lastDailySignalDate?: string;
   lastWeeklySignalDate?: string;

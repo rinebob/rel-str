@@ -12,8 +12,8 @@ import { Observable, from, map } from 'rxjs';
 import {
   type RhAgentSymbolProfile,
   type RhAgentSignalItem,
-  RhAgentSymbolSource,
 } from './rh-agent.types';
+import { mapSymbolProfile } from '../utils/rh-agent.utils';
 
 @Injectable({
   providedIn: 'root',
@@ -35,41 +35,6 @@ export class RhAgentSignalService {
   }
 
   /**
-   * Map a raw Firestore rh-agent-symbols doc into the client symbol profile shape.
-   * Timestamp fields are converted to ISO strings; missing fields are left undefined.
-   */
-  private mapSymbolProfile(d: any): RhAgentSymbolProfile {
-    const createdAt: string =
-      d.createdAt?.toDate?.()?.toISOString() ??
-      d.createdAt ??
-      '';
-    return {
-      symbol: d.symbol,
-      enabled: d.enabled ?? true,
-      createdAt,
-      source: d.source,
-      lastAnalyzedAt: d.lastAnalyzedAt?.toDate?.()?.toISOString(),
-      lastDailySignalDate: d.lastDailySignalDate,
-      lastWeeklySignalDate: d.lastWeeklySignalDate,
-      lastDailySignalDirection: d.lastDailySignalDirection,
-      lastWeeklySignalDirection: d.lastWeeklySignalDirection,
-      name: d.name,
-      sector: d.sector,
-      industry: d.industry,
-      exchange: d.exchange,
-      marketCap: d.marketCap,
-      marketCapTier: d.marketCapTier,
-      beta: d.beta,
-      peRatio: d.peRatio,
-      week52High: d.week52High,
-      week52Low: d.week52Low,
-      ma200: d.ma200,
-      ma50: d.ma50,
-      dividendYield: d.dividendYield,
-    } as RhAgentSymbolProfile;
-  }
-
-  /**
    * All enabled tracked symbols — direct Firestore read, no callable.
    * Used for the "Show all symbols" toggle in grouped review.
    */
@@ -77,8 +42,8 @@ export class RhAgentSignalService {
     const ref = collection(this.firestore, 'rh-agent-symbols');
     const q = query(ref, where('enabled', '==', true));
     // Raw Firestore docs contain Timestamp fields; we map them to strings below.
-    return (runInInjectionContext(this.injector, () => collectionData(q, { idField: 'symbol' })) as Observable<any[]>).pipe(
-      map(docs => docs.map(d => this.mapSymbolProfile(d)))
+    return (runInInjectionContext(this.injector, () => collectionData(q, { idField: 'symbol' })) as Observable<Record<string, unknown>[]>).pipe(
+      map(docs => docs.map(d => mapSymbolProfile(d)))
     );
   }
 
@@ -88,32 +53,31 @@ export class RhAgentSignalService {
    *
    * createdAt is stored as an ISO string, so the cutoff is also an ISO string.
    *
-   * TODO: re-add source === RhAgentSymbolSource.MANUAL_ADD filter once existing
-   * symbols are backfilled with source values.
+   * Source is now normalized to RhAgentSymbolSource at write time, so no extra
+   * client-side source filter is required.
    */
   getSymbolsAddedSince(daysAgo: number): Observable<RhAgentSymbolProfile[]> {
     const ref = collection(this.firestore, 'rh-agent-symbols');
     const cutoff = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000).toISOString();
     const q = query(ref, where('enabled', '==', true), where('createdAt', '>=', cutoff));
-    return (runInInjectionContext(this.injector, () => collectionData(q, { idField: 'symbol' })) as Observable<any[]>).pipe(
-      map(docs => docs.map(d => this.mapSymbolProfile(d)))
+    return (runInInjectionContext(this.injector, () => collectionData(q, { idField: 'symbol' })) as Observable<Record<string, unknown>[]>).pipe(
+      map(docs => docs.map(d => mapSymbolProfile(d)))
     );
   }
 
   /**
-   * Enabled symbols that are not present in any of the supplied list symbol sets
-   * AND have no createdAt value. This surfaces manually added symbols that have
-   * not yet been backfilled/organized, while excluding bulk-uploaded universe
-   * symbols that carry a createdAt timestamp.
+   * Enabled symbols that have no createdAt/source (i.e., orphan/unbackfilled docs)
+   * and are not present in any of the supplied list symbol sets. This surfaces
+   * manually added symbols that have not yet been backfilled/organized.
    */
-  getSymbolsNotInLists(excludedSymbols: string[]): Observable<RhAgentSymbolProfile[]> {
+  getUnbackfilledSymbols(excludedSymbols: string[]): Observable<RhAgentSymbolProfile[]> {
     const ref = collection(this.firestore, 'rh-agent-symbols');
     const q = query(ref, where('enabled', '==', true));
     const excluded = new Set(excludedSymbols.map((s) => s.toUpperCase()));
-    return (runInInjectionContext(this.injector, () => collectionData(q, { idField: 'symbol' })) as Observable<any[]>).pipe(
+    return (runInInjectionContext(this.injector, () => collectionData(q, { idField: 'symbol' })) as Observable<Record<string, unknown>[]>).pipe(
       map(docs =>
         docs
-          .map(d => this.mapSymbolProfile(d))
+          .map(d => mapSymbolProfile(d))
           .filter(p => !excluded.has(p.symbol.toUpperCase()) && !p.createdAt)
       )
     );

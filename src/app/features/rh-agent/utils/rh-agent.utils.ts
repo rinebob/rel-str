@@ -3,9 +3,89 @@
  *
  * Small, pure helpers used across the RH Agent feature components.
  */
-import { RhAgentSignalItem, RhAgentSymbolProfile, RH_AGENT_SCHEDULE_CRON } from '../services/rh-agent.types';
+import { MarketCapTier, RhAgentSignalItem, RhAgentSymbolProfile, RH_AGENT_SCHEDULE_CRON, RhAgentSymbolSource } from '../services/rh-agent.types';
 import { RhSymbolRow, RhSymbolGroup } from '../stores/rh-agent-group.store';
 import { GroupDimension, RhReviewStatus, SignalFilter, SignalTimeframe, SignalDirection } from '../common/rh-agent.constants';
+
+/** True if a Firestore Timestamp duck-type is present. */
+function isTimestamp(value: unknown): value is { toDate: () => Date } {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    'toDate' in value &&
+    typeof (value as { toDate?: unknown }).toDate === 'function'
+  );
+}
+
+function getTimestampOrStringIso(value: unknown): string | undefined {
+  if (isTimestamp(value)) {
+    return value.toDate().toISOString();
+  }
+  return typeof value === 'string' ? value : undefined;
+}
+
+function getOptionalString(raw: Record<string, unknown>, key: string): string | undefined {
+  const value = raw[key];
+  return typeof value === 'string' ? value : undefined;
+}
+
+function getOptionalNumber(raw: Record<string, unknown>, key: string): number | undefined {
+  const value = raw[key];
+  return typeof value === 'number' ? value : undefined;
+}
+
+function getOptionalMarketCapTier(raw: Record<string, unknown>): MarketCapTier | undefined {
+  const value = raw['marketCapTier'];
+  if (
+    value === 'mega' ||
+    value === 'large' ||
+    value === 'mid' ||
+    value === 'small' ||
+    value === 'micro'
+  ) {
+    return value;
+  }
+  return undefined;
+}
+
+function getOptionalSource(raw: Record<string, unknown>): RhAgentSymbolSource | undefined {
+  const value = raw['source'];
+  if (value === RhAgentSymbolSource.MANUAL_ADD || value === RhAgentSymbolSource.PARTNER_UNIVERSE) {
+    return value;
+  }
+  return undefined;
+}
+
+/**
+ * Map a raw Firestore rh-agent-symbols doc into the client symbol profile shape.
+ * Timestamp fields are converted to ISO strings; missing fields are left undefined.
+ */
+export function mapSymbolProfile(raw: Record<string, unknown>): RhAgentSymbolProfile {
+  return {
+    symbol: String(raw.symbol ?? ''),
+    enabled: Boolean(raw.enabled ?? true),
+    createdAt: getTimestampOrStringIso(raw.createdAt) ?? '',
+    source: getOptionalSource(raw),
+    lastAnalyzedAt: getTimestampOrStringIso(raw.lastAnalyzedAt),
+    lastDailySignalDate: getOptionalString(raw, 'lastDailySignalDate'),
+    lastWeeklySignalDate: getOptionalString(raw, 'lastWeeklySignalDate'),
+    lastDailySignalDirection: getOptionalString(raw, 'lastDailySignalDirection'),
+    lastWeeklySignalDirection: getOptionalString(raw, 'lastWeeklySignalDirection'),
+    name: getOptionalString(raw, 'name'),
+    sector: getOptionalString(raw, 'sector'),
+    industry: getOptionalString(raw, 'industry'),
+    exchange: getOptionalString(raw, 'exchange'),
+    marketCap: getOptionalNumber(raw, 'marketCap'),
+    marketCapTier: getOptionalMarketCapTier(raw),
+    beta: getOptionalNumber(raw, 'beta'),
+    peRatio: getOptionalNumber(raw, 'peRatio'),
+    week52High: getOptionalNumber(raw, 'week52High'),
+    week52Low: getOptionalNumber(raw, 'week52Low'),
+    ma200: getOptionalNumber(raw, 'ma200'),
+    ma50: getOptionalNumber(raw, 'ma50'),
+    dividendYield: getOptionalNumber(raw, 'dividendYield'),
+  };
+}
 
 /** Today in Pacific Time as YYYY-MM-DD. */
 export function todayDate(): string {
