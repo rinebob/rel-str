@@ -68,9 +68,9 @@ export const ST_TREND_STRENGTH_INDICATOR: IndicatorOption = {
     axisMin: -50,
     axisMax: 50,
     referenceLines: [
-      { value: 0, color: '#000000', label: 'Zero' },
-      { value: 10, color: '#000000', label: 'Upper' },
-      { value: -10, color: '#000000', label: 'Lower' },
+      { value: 0,   color: '#9e9e9e', dashArray: '4,3', label: 'Zero' },
+      { value: 10,  color: 'rgba(158,158,158,0.5)', dashArray: '4,3', label: 'Upper' },
+      { value: -10, color: 'rgba(158,158,158,0.5)', dashArray: '4,3', label: 'Lower' },
     ],
   },
 };
