@@ -47,6 +47,12 @@ export type MarketCapTier = 'mega' | 'large' | 'mid' | 'small' | 'micro';
 /** Direction of a signal entry. */
 export type SignalDirection = 'LONG' | 'SHORT';
 
+/** Known source values for how a symbol entered the RH Agent tracked universe. */
+export enum RhAgentSymbolSource {
+  MANUAL_ADD = 'manual-add',
+  PARTNER_UNIVERSE = 'partner-universe',
+}
+
 /**
  * Symbol profile returned by rhAgentGetSymbolsWithSignals.
  * Includes config fields and company overview (after Phase 1 sync).
@@ -54,7 +60,9 @@ export type SignalDirection = 'LONG' | 'SHORT';
 export interface RhAgentSymbolProfile {
   symbol: string;
   enabled: boolean;
-  addedAt: string;
+  createdAt: string;
+  /** How this symbol entered the tracked universe (e.g. RhAgentSymbolSource.MANUAL_ADD). */
+  source?: string;
   lastAnalyzedAt?: string;
   lastDailySignalDate?: string;
   lastWeeklySignalDate?: string;

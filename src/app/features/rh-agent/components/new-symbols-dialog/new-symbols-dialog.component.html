@@ -1,0 +1,88 @@
+<h2 mat-dialog-title>New symbols</h2>
+
+<mat-dialog-content>
+  <div class="mode-toggle">
+    <button
+      type="button"
+      class="mode-pill"
+      [class.active]="searchMode() === searchModes.NEWLY_ADDED"
+      (click)="searchMode.set(searchModes.NEWLY_ADDED)">
+      Newly added
+    </button>
+    <button
+      type="button"
+      class="mode-pill"
+      [class.active]="searchMode() === searchModes.NOT_IN_LISTS"
+      (click)="searchMode.set(searchModes.NOT_IN_LISTS)">
+      Not in any list
+    </button>
+  </div>
+
+  <div class="controls">
+    @if (searchMode() === searchModes.NEWLY_ADDED) {
+      <mat-form-field appearance="outline" class="days-field">
+        <mat-label>Days back</mat-label>
+        <input matInput type="number" min="1" [ngModel]="daysBack()" (ngModelChange)="daysBack.set($event)" (keydown.enter)="findSymbols()">
+      </mat-form-field>
+    }
+
+    <button mat-stroked-button (click)="findSymbols()" [disabled]="loading()">
+      @if (loading()) {
+        <mat-spinner diameter="16"></mat-spinner>
+      } @else {
+        <mat-icon>search</mat-icon>
+      }
+      Find
+    </button>
+  </div>
+
+  @if (error()) {
+    <div class="error">{{ error() }}</div>
+  }
+
+  <div class="results">
+    @if (!loading() && symbols().length === 0 && !error()) {
+      <div class="empty">
+        @if (searchMode() === searchModes.NEWLY_ADDED) {
+          No symbols added in the last {{ daysBack() }} days.
+        } @else {
+          No symbols are missing from all lists.
+        }
+      </div>
+    }
+
+    @if (symbols().length > 0) {
+      <div class="select-all">
+        <mat-checkbox [checked]="allSelected()" (change)="toggleSelectAll()">
+          Select all ({{ selectedSymbols().size }}/{{ symbols().length }})
+        </mat-checkbox>
+      </div>
+
+      @for (profile of symbols(); track profile.symbol) {
+        <label class="symbol-row">
+          <mat-checkbox
+            [checked]="selectedSymbols().has(profile.symbol)"
+            (change)="toggleSymbol(profile.symbol)"
+            (click)="$event.stopPropagation()">
+          </mat-checkbox>
+          <span class="symbol">{{ profile.symbol }}</span>
+          @if (profile.name) {
+            <span class="name">{{ profile.name }}</span>
+          }
+          <span class="date">{{ profile.createdAt | date:'short' }}</span>
+        </label>
+      }
+    }
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="close()">Close</button>
+  <button
+    mat-flat-button
+    color="primary"
+    (click)="addToReview()"
+    [disabled]="selectedSymbols().size === 0">
+    Add {{ selectedSymbols().size }} to review
+  </button>
+</mat-dialog-actions>
