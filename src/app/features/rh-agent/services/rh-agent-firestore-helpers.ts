@@ -45,3 +45,13 @@ export function chunkArray<T>(arr: T[], size: number): T[][] {
 export interface CreatedAtDoc {
   createdAt?: Timestamp;
 }
+
+/** Build a stable doc id for an occurrence-level decision. */
+export function buildRhAgentOccurrenceDecisionId(
+  runId: string,
+  symbol: string,
+  timeframe: string,
+  signalType: string
+): string {
+  return `${runId}_${symbol.toUpperCase()}_${timeframe}_${signalType}`;
+}
