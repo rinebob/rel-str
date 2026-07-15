@@ -386,8 +386,9 @@ export const RhAgentGroupStore = signalStore(
           if (!runId) return;
 
           // Aggregate per-symbol status from possibly multiple occurrences.
-          // ACCEPT wins over REJECT.
+          // EXECUTED wins over ACCEPT, which wins over REJECT.
           const ranked = [
+            RhAgentReviewDecision.EXECUTED,
             RhAgentReviewDecision.ACCEPT,
             RhAgentReviewDecision.REJECT,
           ];
@@ -395,7 +396,9 @@ export const RhAgentGroupStore = signalStore(
           for (const decision of Object.values(decisions)) {
             if (decision.runId !== runId) continue;
             const current = statusMap[decision.symbol];
-            const next = decision.decisionType;
+            const next = decision.executedAt
+              ? RhAgentReviewDecision.EXECUTED
+              : decision.decisionType;
             if (!current) {
               statusMap[decision.symbol] = next;
             } else if (ranked.indexOf(next) < ranked.indexOf(current)) {

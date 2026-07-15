@@ -130,6 +130,8 @@ export interface RhAgentOccurrenceDecision {
   decisionType: DurableDecisionType;
   /** Timestamp when the user decision was recorded. */
   decidedAt: string;
+  /** Timestamp when the associated trade was actually placed, if applicable. */
+  executedAt?: string;
   /** Whether this decision still appears in the latest completed run. */
   isCurrentInLatestRun: boolean;
   /** Optional user-facing notes. */

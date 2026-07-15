@@ -2,8 +2,9 @@
  * RH Agent Occurrence Decision Service
  *
  * Persists durable user decisions (ACCEPT / REJECT) for specific signal
- * occurrences. Each decision is keyed by the source run, symbol, timeframe, and
- * signal type so multiple intraday occurrences do not overwrite one another.
+ * occurrences and records when an accepted occurrence is executed.
+ * Each decision is keyed by the source run, symbol, timeframe, and signal type
+ * so multiple intraday occurrences do not overwrite one another.
  */
 import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import { Auth } from '@angular/fire/auth';
@@ -223,6 +224,24 @@ export class RhAgentOccurrenceDecisionService {
     );
   }
 
+  /**
+   * Mark the occurrence decisions with the given IDs as executed.
+   * The caller (the store) is responsible for deciding which decisions are
+   * eligible; this method performs the direct batch write by document ID.
+   */
+  markExecutedByIds(ids: string[]): Observable<void> {
+    if (ids.length === 0) return of(undefined);
+    return from(runInInjectionContext(this.injector, async () => {
+      const now = new Date().toISOString();
+      const batch = writeBatch(this.firestore);
+      for (const id of ids) {
+        const docRef = doc(this.firestore, Collection.RH_OCCURRENCE_DECISIONS, id);
+        batch.update(docRef, { executedAt: now, updatedAt: serverTimestamp() });
+      }
+      await batch.commit();
+    })).pipe(map(() => undefined));
+  }
+
   /** Load occurrence decisions across a market-date range. */
   loadDecisionsForDateRange(startDate: string, endDate: string): Observable<RhAgentOccurrenceDecision[]> {
     return requireUserId(this.auth, this.injector).pipe(
@@ -294,6 +313,7 @@ export class RhAgentOccurrenceDecisionService {
           barDate: data['barDate'] ?? '',
           decisionType,
           decidedAt: data['decidedAt'] ?? '',
+          executedAt: data['executedAt'] ?? undefined,
           isCurrentInLatestRun: data['isCurrentInLatestRun'] ?? false,
           notes: data['notes'] ?? undefined,
           indicators: data['indicators'] ?? {},
