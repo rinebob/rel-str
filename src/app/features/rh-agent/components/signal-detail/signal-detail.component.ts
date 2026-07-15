@@ -179,7 +179,7 @@ export class SignalDetailComponent {
   /** @internal */
   readonly chartStore = inject(RhAgentChartStore);
   /** @internal */
-  readonly uiState = inject(UiStateService);
+  readonly uiStateService = inject(UiStateService);
   /** @internal */
   readonly historyStore = inject(RhAgentSymbolHistoryStore);
   /** @internal */
@@ -332,7 +332,7 @@ export class SignalDetailComponent {
    *  Single layout: the active interval only.
    */
   private indicatorScope = computed<ChartIntervalKey[]>(() => {
-    if (this.uiState.chartLayout() === ChartLayout.TRIPLE) {
+    if (this.uiStateService.chartLayout() === ChartLayout.TRIPLE) {
       return [ChartIntervalKey.DAILY, ChartIntervalKey.WEEKLY, ChartIntervalKey.MONTHLY];
     }
     return [SignalDetailComponent.intervalKey(this.activeChartInterval())];

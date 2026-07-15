@@ -1,9 +1,11 @@
-<div class="chart-review" [class.fullscreen]="uiState.fullscreen()">
+<div class="chart-review" [class.fullscreen]="uiStateService.fullscreen()">
   <app-review-header
     [selectedSymbol]="selectedReviewSymbol()"
     [manualSymbol]="manualSymbol()"
     [companyName]="selectedSymbolName()"
     [status]="selectedSymbolStatus()"
+    [activeList]="activeReviewList()"
+    [viewportMode]="viewportMode()"
     (back)="goToSignalReview()"
     (history)="goToSignalHistory()"
     (accept)="onAcceptReview()"
@@ -11,45 +13,40 @@
     (reject)="onRejectReview()"
     (loadSymbol)="loadManualSymbol($event)"
     (symbolKeydown)="onManualSymbolKeydown($event.event, $event.input)"
-    (newSymbols)="openNewSymbolsDialog()">
+    (newSymbols)="openNewSymbolsDialog()"
+    (listChange)="onListChange($event)"
+    (modeChange)="toggleViewportMode()">
   </app-review-header>
 
   <!-- Master-Detail Layout -->
-  @if (hasReviewSymbols() || manualSymbol()) {
-    <div class="master-detail-container" [class.sidebar-collapsed]="uiState.sidebarCollapsed()">
-      @if (uiState.sidebarCollapsed()) {
-        <div class="collapsed-sidebar">
-          <button mat-icon-button (click)="uiState.toggleSidebar()" matTooltip="Expand panel">
-            <mat-icon>chevron_right</mat-icon>
-          </button>
-        </div>
-      } @else {
-        <app-signal-list
-          class="signal-list-wrapper"
-          [selectedSymbol]="selectedReviewSymbol()"
-          [manualSymbol]="manualSymbol()"
-          [newSymbols]="newlyAddedSymbols()"
-          (symbolSelected)="onReviewSymbolSelected($event)">
-        </app-signal-list>
-      }
-      <app-signal-detail
-        class="detail-wrapper"
-        [manualSymbol]="selectedReviewSymbol() || manualSymbol()"
-        [symbolLists]="symbolListStore.symbolLists()"
-        [activeListFilter]="symbolListStore.activeListFilter()"
-        [symbolIndex]="selectedReviewSymbolIndex()"
-        [symbolCount]="reviewSymbolCount()"
-        (toggleList)="onToggleList($event)"
-        (monitor)="onMonitor($event)"
-        (prevSymbol)="onPrevSymbol()"
-        (nextSymbol)="onNextSymbol()">
-      </app-signal-detail>
-    </div>
-  } @else {
-    <div class="empty-state">
-      <mat-icon>inbox</mat-icon>
-      <p>No symbols queued for review</p>
-      <p class="hint">Mark symbols for review in Grouped Review first</p>
-    </div>
-  }
+  <div class="master-detail-container" [class.sidebar-collapsed]="uiStateService.sidebarCollapsed()">
+    @if (uiStateService.sidebarCollapsed()) {
+      <div class="collapsed-sidebar">
+        <button mat-icon-button (click)="uiStateService.toggleSidebar()" matTooltip="Expand panel">
+          <mat-icon>chevron_right</mat-icon>
+        </button>
+      </div>
+    } @else {
+      <app-signal-list
+        class="signal-list-wrapper"
+        [selectedSymbol]="selectedReviewSymbol()"
+        [manualSymbol]="manualSymbol()"
+        [symbols]="viewportSymbols()"
+        [newSymbols]="newlyAddedSymbols()"
+        (symbolSelected)="onReviewSymbolSelected($event)">
+      </app-signal-list>
+    }
+    <app-signal-detail
+      class="detail-wrapper"
+      [manualSymbol]="selectedReviewSymbol() || manualSymbol()"
+      [symbolLists]="symbolListStore.symbolLists()"
+      [activeListFilter]="symbolListStore.activeListFilter()"
+      [symbolIndex]="selectedReviewSymbolIndex()"
+      [symbolCount]="reviewSymbolCount()"
+      (toggleList)="onToggleList($event)"
+      (monitor)="onMonitor($event)"
+      (prevSymbol)="onPrevSymbol()"
+      (nextSymbol)="onNextSymbol()">
+    </app-signal-detail>
+  </div>
 </div>

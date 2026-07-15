@@ -10,7 +10,7 @@
       </div>
     }
     <span class="header-spacer"></span>
-    <button mat-icon-button class="collapse-btn" (click)="uiState.toggleSidebar()" matTooltip="Collapse panel">
+    <button mat-icon-button class="collapse-btn" (click)="uiStateService.toggleSidebar()" matTooltip="Collapse panel">
       <mat-icon>chevron_left</mat-icon>
     </button>
   </div>
@@ -57,7 +57,7 @@
       </mat-list-item>
     } @empty {
       <div class="empty-list">
-        <p>No symbols queued for review</p>
+        <p>Enter a symbol above to review</p>
       </div>
     }
   </mat-list>

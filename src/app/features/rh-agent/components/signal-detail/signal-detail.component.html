@@ -5,8 +5,8 @@
       [selectedRange]="selectedRange()"
       [showZoomToolbar]="showZoomToolbar()"
       [activeChartInterval]="activeChartInterval()"
-      [layout]="uiState.chartLayout()"
-      [fullscreen]="uiState.fullscreen()"
+      [layout]="uiStateService.chartLayout()"
+      [fullscreen]="uiStateService.fullscreen()"
       [logScale]="logScale()"
       [indicatorOptions]="activeChartIndicatorOptions()"
       [selectedIndicatorIds]="activeSelectedIndicatorIds()"
@@ -15,8 +15,8 @@
       (intervalChange)="onIntervalChange($event)"
       (rangeChange)="selectedRange.set($event)"
       (zoomToggle)="showZoomToolbar.set(!showZoomToolbar())"
-      (layoutToggle)="uiState.toggleChartLayout()"
-      (fullscreenToggle)="uiState.toggleFullscreen()"
+      (layoutToggle)="uiStateService.toggleChartLayout()"
+      (fullscreenToggle)="uiStateService.toggleFullscreen()"
       (logScaleToggle)="onToggleLogScale()"
       (indicatorToggle)="onToggleIndicator($event)"
       (prevSymbol)="prevSymbol.emit()"
@@ -37,7 +37,7 @@
           <mat-spinner diameter="32"></mat-spinner>
           <span>Loading chart data...</span>
         </div>
-      } @else if (uiState.chartLayout() === ChartLayout.TRIPLE) {
+      } @else if (uiStateService.chartLayout() === ChartLayout.TRIPLE) {
         <!-- Triple chart layout: left (W top, M bottom) | right (D) -->
         <div class="triple-chart-grid">
           <div class="triple-left">
@@ -87,7 +87,7 @@
   </div>
 } @else {
   <div class="detail-empty">
-    <mat-icon>touch_app</mat-icon>
-    <p>Select a signal to review</p>
+    <mat-icon>search</mat-icon>
+    <p>Enter a symbol to view charts</p>
   </div>
 }

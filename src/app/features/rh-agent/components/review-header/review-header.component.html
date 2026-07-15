@@ -58,6 +58,19 @@
   <div class="header-spacer"></div>
 
   <div class="header-actions">
+    <button mat-icon-button
+      (click)="modeChange.emit()"
+      [matTooltip]="viewportMode() === 'signals' ? 'Showing signals only — click for all symbols' : 'Showing all symbols — click for signals only'">
+      <mat-icon>{{ viewportMode() === 'signals' ? 'filter_alt' : 'list' }}</mat-icon>
+    </button>
+
+    <app-rh-select-menu
+      label="List"
+      [options]="listOptions"
+      [value]="activeList()"
+      (valueChange)="listChange.emit($event)">
+    </app-rh-select-menu>
+
     <button mat-icon-button (click)="newSymbols.emit()" matTooltip="Find newly added symbols">
       <mat-icon>new_releases</mat-icon>
     </button>

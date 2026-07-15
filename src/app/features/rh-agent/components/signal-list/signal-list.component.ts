@@ -10,7 +10,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule, MatIconButton } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-import { RhAgentTriageStore } from '../../stores/rh-agent-triage.store';
 import { RhAgentSignalItem } from '../../services/rh-agent.types';
 import { RhAgentSignalService } from '../../services/rh-agent-signal.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
@@ -30,15 +29,17 @@ import { UiStateService } from '../../../../core/services/ui-state.service';
   styleUrl: './signal-list.component.scss',
 })
 export class SignalListComponent {
-  readonly triageStore = inject(RhAgentTriageStore);
   readonly signalService = inject(RhAgentSignalService);
-  readonly uiState = inject(UiStateService);
+  readonly uiStateService = inject(UiStateService);
 
   /** Currently selected symbol (passed in from parent) */
   selectedSymbol = input<string | null>(null);
 
   /** Manual symbol override — when set, show this symbol's signal history instead of triage queue */
   manualSymbol = input<string | null>(null);
+
+  /** Viewport symbols — the parent-computed list of symbols to display in the sidebar. */
+  symbols = input<string[]>([]);
 
   /** Symbols that were just added via the new-symbols dialog; shown with a NEW chip. */
   newSymbols = input<string[]>([]);
@@ -66,8 +67,8 @@ export class SignalListComponent {
         isHistoryRow: true,
       }));
     }
-    const symbols = this.triageStore.reviewSymbols();
-    return symbols.map(symbol => {
+    const viewportSymbols = this.symbols();
+    return viewportSymbols.map(symbol => {
       const signals = cache[symbol] ?? [];
       return {
         symbol,
@@ -113,8 +114,8 @@ export class SignalListComponent {
       const sel = this.selectedSymbol();
       const listItems = this.listItems();
       if (!sel || !listItems.length) return;
-      const symbols = this.triageStore.reviewSymbols();
-      const idx = symbols.indexOf(sel);
+      const viewportSymbols = this.symbols();
+      const idx = viewportSymbols.indexOf(sel);
       if (idx !== -1 && listItems[idx]) {
         listItems[idx].nativeElement.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       }

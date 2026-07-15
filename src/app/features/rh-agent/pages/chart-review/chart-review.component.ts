@@ -28,8 +28,9 @@ import { RhAgentTriageStore } from '../../stores/rh-agent-triage.store';
 import { RhAgentGroupStore } from '../../stores/rh-agent-group.store';
 import { RhAgentSymbolListStore } from '../../stores/rh-agent-symbol-list.store';
 import { RhReviewStatus, RhSymbolListName } from '../../common/rh-agent.constants';
+import { ChartReviewViewportService } from '../../services/chart-review-viewport.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
-import { todayDate, daysAgoPt } from '../../utils/rh-agent.utils';
+import { todayDate } from '../../utils/rh-agent.utils';
 import { SignalListComponent } from '../../components/signal-list/signal-list.component';
 import { SignalDetailComponent } from '../../components/signal-detail/signal-detail.component';
 import { ReviewHeaderComponent } from '../../components/review-header/review-header.component';
@@ -54,7 +55,8 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
   readonly triageStore = inject(RhAgentTriageStore);
   readonly groupStore = inject(RhAgentGroupStore);
   readonly symbolListStore = inject(RhAgentSymbolListStore);
-  readonly uiState = inject(UiStateService);
+  readonly viewportService = inject(ChartReviewViewportService);
+  readonly uiStateService = inject(UiStateService);
   private readonly router = inject(Router);
   private readonly newSymbolsDialog = inject(NewSymbolsDialogService);
   private readonly firestore = inject(Firestore);
@@ -69,18 +71,20 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
   /** Symbols added to the review queue via the new-symbols dialog this session. */
   newlyAddedSymbols = signal<string[]>([]);
 
-  /** Whether the review queue has symbols pending decision. */
-  hasReviewSymbols = computed(() => this.triageStore.reviewSymbols().length > 0);
+  /** Delegate viewport state from the viewport service. */
+  readonly viewportSymbols = this.viewportService.viewportSymbols;
+  readonly viewportMode = this.viewportService.viewportMode;
+  readonly activeReviewList = this.viewportService.activeViewportList;
 
-  /** Index of the currently selected symbol within the review queue. */
+  /** Index of the currently selected symbol within the viewport. */
   selectedReviewSymbolIndex = computed(() => {
     const symbol = this.selectedReviewSymbol();
     if (!symbol) return -1;
-    return this.triageStore.reviewSymbols().indexOf(symbol);
+    return this.viewportSymbols().indexOf(symbol);
   });
 
-  /** Total number of symbols in the review queue. */
-  reviewSymbolCount = computed(() => this.triageStore.reviewSymbols().length);
+  /** Total number of symbols in the viewport. */
+  reviewSymbolCount = computed(() => this.viewportSymbols().length);
 
   /** Cache of symbol -> company name fetched from Firestore. */
   private symbolNameCache = signal<Record<string, string | null>>({});
@@ -108,7 +112,7 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
      * Skip when a manual symbol is active so the chart stays on the manual symbol.
      */
     effect(() => {
-      const symbols = this.triageStore.reviewSymbols();
+      const symbols = this.viewportSymbols();
       if (symbols.length === 0) return;
       if (!this.selectedReviewSymbol() && !this.manualSymbol()) {
         this.selectedReviewSymbol.set(symbols[0]);
@@ -137,18 +141,15 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     });
   }
 
-  /** Load persisted decisions for the last 30 days through the active market date. */
+  /** Enter fullscreen and ensure symbol lists are loaded. */
   ngOnInit(): void {
-    this.uiState.setFullscreen(true);
-    const marketDate = this.groupStore.activeRunMarketDate() ?? todayDate();
-    const startDate = daysAgoPt(30);
-    this.triageStore.loadPersistedDecisions(startDate, marketDate, marketDate);
+    this.uiStateService.setFullscreen(true);
     this.symbolListStore.loadSymbolLists();
   }
 
   /** Leave fullscreen mode when the page is destroyed. */
   ngOnDestroy(): void {
-    this.uiState.setFullscreen(false);
+    this.uiStateService.setFullscreen(false);
   }
 
   private currentMarketDate(): string {
@@ -186,9 +187,9 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     this.advanceReviewQueue(symbol);
   }
 
-  /** Move the selection to the next review symbol after a decision, staying at the same queue position. */
+  /** Move the selection to the next symbol in the viewport after a decision. */
   private advanceReviewQueue(decidedSymbol: string): void {
-    const before = this.triageStore.reviewSymbols();
+    const before = this.viewportSymbols();
     const idx = before.indexOf(decidedSymbol);
     const remaining = before.filter((s: string) => s !== decidedSymbol);
     if (remaining.length === 0) { this.selectedReviewSymbol.set(null); return; }
@@ -209,10 +210,9 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     });
   }
 
-  /** Mark a batch of found symbols as REVIEW and surface them in the left panel. */
+  /** Flag a batch of found symbols for review and surface them in the left panel. */
   private addSymbolsToReview(symbols: string[]): void {
-    const marketDate = this.currentMarketDate();
-    this.triageStore.setGroupStatus(symbols, RhReviewStatus.REVIEW, marketDate, 'new-symbols-dialog');
+    this.triageStore.markGroupForReview(symbols);
     this.newlyAddedSymbols.update((existing) => Array.from(new Set([...existing, ...symbols])));
     if (!this.selectedReviewSymbol()) {
       this.selectedReviewSymbol.set(symbols[0]);
@@ -241,16 +241,16 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     this.manualSymbol.set(symbol);
   }
 
-  /** Navigate to the previous symbol in the review queue. */
+  /** Navigate to the previous symbol in the viewport. */
   onPrevSymbol(): void {
     const idx = this.selectedReviewSymbolIndex();
     if (idx <= 0) return;
-    this.selectedReviewSymbol.set(this.triageStore.reviewSymbols()[idx - 1]);
+    this.selectedReviewSymbol.set(this.viewportSymbols()[idx - 1]);
   }
 
-  /** Navigate to the next symbol in the review queue. */
+  /** Navigate to the next symbol in the viewport. */
   onNextSymbol(): void {
-    const symbols = this.triageStore.reviewSymbols();
+    const symbols = this.viewportSymbols();
     const idx = this.selectedReviewSymbolIndex();
     if (idx < 0 || idx >= symbols.length - 1) return;
     this.selectedReviewSymbol.set(symbols[idx + 1]);
@@ -266,5 +266,19 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     if (event.key === 'Enter') {
       this.loadManualSymbol(input.value);
     }
+  }
+
+  /** Handle list dropdown change — purely a viewport filter, no triage mutations. */
+  onListChange(listName: string): void {
+    this.viewportService.setActiveViewportList(listName);
+    this.manualSymbol.set(null);
+    this.selectedReviewSymbol.set(null);
+  }
+
+  /** Toggle viewport mode between 'signals' and 'browse'. */
+  toggleViewportMode(): void {
+    const next = this.viewportMode() === 'signals' ? 'browse' : 'signals';
+    this.viewportService.setViewportMode(next);
+    this.selectedReviewSymbol.set(null);
   }
 }
