@@ -209,6 +209,11 @@ export enum Collection {
   APP = 'app',
   POSITIONS = 'positions',
   SYMBOL_DATA = 'symbol-data',
+  RH_TRIAGE_DECISIONS = 'rh-agent-triage-decisions',
+  RH_REVIEW_FLAGS = 'rh-agent-review-flags',
+  RH_SYMBOL_LISTS = 'rh-agent-symbol-lists',
+  RH_SYMBOL_META = 'rh-agent-symbol-meta',
+  RH_RUNS = 'rh-agent-runs',
 }
 
 /** Known subcollection names under a user document. */

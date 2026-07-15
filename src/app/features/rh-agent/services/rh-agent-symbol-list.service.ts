@@ -28,8 +28,7 @@ import { Observable, from, of } from 'rxjs';
 import { map, switchMap, take } from 'rxjs/operators';
 
 import { requireUserId } from './rh-agent-firestore-helpers';
-
-export const SYMBOL_LISTS_COLLECTION = 'rh-agent-symbol-lists';
+import { Collection } from '../../../core/common/constants';
 
 export interface RhSymbolList {
   name: string;
@@ -45,7 +44,7 @@ export class RhAgentSymbolListService {
   private readonly auth = inject(Auth);
   private readonly injector = inject(EnvironmentInjector);
 
-  private readonly listsCollection = collection(this.firestore, SYMBOL_LISTS_COLLECTION);
+  private readonly listsCollection = collection(this.firestore, Collection.RH_SYMBOL_LISTS);
 
   /** Load a single named list for the current user. */
   loadList(name: string): Observable<RhSymbolList> {
@@ -53,7 +52,7 @@ export class RhAgentSymbolListService {
       take(1),
       switchMap((userId) => runInInjectionContext(this.injector, async () => {
         const docId = this.listId(userId, name);
-        const snap = await getDoc(doc(this.firestore, SYMBOL_LISTS_COLLECTION, docId));
+        const snap = await getDoc(doc(this.firestore, Collection.RH_SYMBOL_LISTS, docId));
         return snap.exists() ? this.toList(snap.id, snap.data()) : { name, symbols: [], userId };
       }))
     );
@@ -77,7 +76,7 @@ export class RhAgentSymbolListService {
       take(1),
       switchMap((userId) => runInInjectionContext(this.injector, async () => {
         const docId = this.listId(userId, name);
-        const docRef = doc(this.firestore, SYMBOL_LISTS_COLLECTION, docId);
+        const docRef = doc(this.firestore, Collection.RH_SYMBOL_LISTS, docId);
         const existing = await getDoc(docRef);
         await setDoc(
           docRef,
@@ -101,7 +100,7 @@ export class RhAgentSymbolListService {
       take(1),
       switchMap((userId) => runInInjectionContext(this.injector, async () => {
         const docId = this.listId(userId, name);
-        const docRef = doc(this.firestore, SYMBOL_LISTS_COLLECTION, docId);
+        const docRef = doc(this.firestore, Collection.RH_SYMBOL_LISTS, docId);
         const existing = await getDoc(docRef);
         const normalized = symbol.toUpperCase();
         const current = existing.exists() ? (existing.data()['symbols'] as string[] ?? []) : [];
@@ -128,7 +127,7 @@ export class RhAgentSymbolListService {
       take(1),
       switchMap((userId) => runInInjectionContext(this.injector, async () => {
         const docId = this.listId(userId, name);
-        const docRef = doc(this.firestore, SYMBOL_LISTS_COLLECTION, docId);
+        const docRef = doc(this.firestore, Collection.RH_SYMBOL_LISTS, docId);
         const existing = await getDoc(docRef);
         if (!existing.exists()) return;
         const normalized = symbol.toUpperCase();
@@ -162,6 +161,55 @@ export class RhAgentSymbolListService {
           return this.addToList(symbol, name).pipe(map(() => true));
         }
       })
+    );
+  }
+
+  /**
+   * Atomically move a symbol to a target list, removing it from all other lists.
+   * Uses a Firestore batch write so the add and all removals are committed together.
+   * If targetList is null, the symbol is removed from all lists (un-assign).
+   */
+  moveToList(symbol: string, targetList: string | null, allListNames: string[]): Observable<void> {
+    return requireUserId(this.auth, this.injector).pipe(
+      take(1),
+      switchMap((userId) => runInInjectionContext(this.injector, async () => {
+        const normalized = symbol.toUpperCase();
+        const batch = writeBatch(this.firestore);
+
+        for (const listName of allListNames) {
+          const docId = this.listId(userId, listName);
+          const docRef = doc(this.firestore, Collection.RH_SYMBOL_LISTS, docId);
+          const existing = await getDoc(docRef);
+          const currentSymbols: string[] = existing.exists()
+            ? (existing.data()['symbols'] as string[] ?? [])
+            : [];
+
+          let newSymbols: string[];
+          if (listName === targetList) {
+            // Add to target list (if not already present)
+            newSymbols = currentSymbols.includes(normalized)
+              ? currentSymbols
+              : [...currentSymbols, normalized];
+          } else {
+            // Remove from all other lists
+            newSymbols = currentSymbols.filter((s) => s !== normalized);
+          }
+
+          // Only write if the array actually changed
+          if (newSymbols.length !== currentSymbols.length || !newSymbols.every((s, i) => s === currentSymbols[i])) {
+            batch.set(docRef, {
+              name: listName,
+              symbols: newSymbols,
+              userId,
+              updatedAt: serverTimestamp(),
+              createdAt: existing.exists() ? (existing.data()['createdAt'] ?? serverTimestamp()) : serverTimestamp(),
+            }, { merge: true });
+          }
+        }
+
+        await batch.commit();
+      })),
+      map(() => undefined)
     );
   }
 

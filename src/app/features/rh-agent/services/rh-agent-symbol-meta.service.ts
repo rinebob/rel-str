@@ -27,6 +27,7 @@ import { Observable, from, of } from 'rxjs';
 import { map, switchMap, take } from 'rxjs/operators';
 
 import { SymbolType } from '../common/rh-agent.constants';
+import { Collection } from '../../../core/common/constants';
 import { requireUserId, chunkArray, getDocData } from './rh-agent-firestore-helpers';
 
 export interface RhSymbolMeta {
@@ -52,7 +53,6 @@ export interface RhSymbolMetaInput {
   metadata?: Record<string, unknown>;
 }
 
-export const SYMBOL_META_COLLECTION = 'rh-agent-symbol-meta';
 
 @Injectable({
   providedIn: 'root',
@@ -62,7 +62,7 @@ export class RhAgentSymbolMetaService {
   private readonly auth = inject(Auth);
   private readonly injector = inject(EnvironmentInjector);
 
-  private readonly metaCollection = collection(this.firestore, SYMBOL_META_COLLECTION);
+  private readonly metaCollection = collection(this.firestore, Collection.RH_SYMBOL_META);
 
   /** Load meta for a specific list of symbols. */
   loadSymbolMeta(symbols: string[]): Observable<Record<string, RhSymbolMeta>> {
@@ -135,7 +135,7 @@ export class RhAgentSymbolMetaService {
 
         for (const item of symbols) {
           const symbol = item.symbol.toUpperCase();
-          const docRef = doc(this.firestore, SYMBOL_META_COLLECTION, symbol);
+          const docRef = doc(this.firestore, Collection.RH_SYMBOL_META, symbol);
           const existing = await getDocData(docRef);
 
           batch.set(
@@ -166,7 +166,7 @@ export class RhAgentSymbolMetaService {
       take(1),
       switchMap((userId) => runInInjectionContext(this.injector, async () => {
         const normalized = symbol.toUpperCase();
-        const docRef = doc(this.firestore, SYMBOL_META_COLLECTION, normalized);
+        const docRef = doc(this.firestore, Collection.RH_SYMBOL_META, normalized);
         const existing = await getDocData(docRef);
         const now = serverTimestamp();
 

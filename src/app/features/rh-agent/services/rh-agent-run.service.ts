@@ -17,6 +17,7 @@ import {
   type ManualRunRequest,
   type ManualRunResponse,
 } from './rh-agent.types';
+import { Collection } from '../../../core/common/constants';
 
 @Injectable({
   providedIn: 'root',
@@ -30,7 +31,7 @@ export class RhAgentRunService {
 
   private readonly adminHttpUrl = 'https://us-central1-rel-str.cloudfunctions.net/symbolDataSyncAdminHttp';
 
-  private readonly runsCollection = 'rh-agent-runs';
+  private readonly runsCollection = Collection.RH_RUNS;
   private readonly statusDoc = 'rh-agent-status/current';
 
   /**
