@@ -1,7 +1,7 @@
 # RH Agent Latest-Only Action Workflow
 
-**Status:** Approved design direction — implementation pending  
-**Updated:** 2026-07-14
+**Status:** Implementation in progress — Phase 1 and Phase 2 complete  
+**Updated:** 2026-07-15
 
 ## Purpose
 
@@ -113,19 +113,19 @@ No code change is authorized by this document until this task list is reviewed. 
 
 ### Phase 1 — Establish the latest-run action boundary
 
-- [ ] **Dashboard entry point:** make the Run Dashboard the active-workflow entry point and clearly identify the latest completed actionable run.
-- [ ] **Latest-only decision gate:** allow full signal/chart inspection and normal navigation for every run, but permit ACR decisions and changes to active Order/execution state only for occurrences in the latest completed run. Present historical occurrences as decision read-only, not page or route read-only.
-- [ ] **Viewed versus actionable context:** keep the user-selected/viewed run separate from the latest completed actionable `runId` and `marketDate`. The viewed run drives research display; the actionable context drives decision eligibility. Do not derive eligibility from arbitrary historical selection or from today's date alone.
-- [ ] **Active-run header:** display the current run information in the Signal Review page header using the same visual treatment and metadata shown by Run Dashboard. Display the same header in Chart Review when it is in Signals mode; omit it for non-signal/history browsing modes.
-- [ ] **New-run transition:** when a newer run becomes latest, discard in-memory screening state from the prior run and disable only its decision mutations. Preserve normal navigation, historical signal/chart research, and access to the active Order process.
+- [x] **Dashboard entry point:** make the Run Dashboard the active-workflow entry point and clearly identify the latest completed actionable run.
+- [x] **Latest-only decision gate:** allow full signal/chart inspection and normal navigation for every run, but permit ACR decisions and changes to active Order/execution state only for occurrences in the latest completed run. Present historical occurrences as decision read-only, not page or route read-only.
+- [x] **Viewed versus actionable context:** keep the user-selected/viewed run separate from the latest completed actionable `runId` and `marketDate`. The viewed run drives research display; the actionable context drives decision eligibility. Do not derive eligibility from arbitrary historical selection or from today's date alone.
+- [x] **Active-run header:** display the current run information in the Signal Review page header using the same visual treatment and metadata shown by Run Dashboard. Display the same header in Chart Review when it is in Signals mode; omit it for non-signal/history browsing modes.
+- [x] **New-run transition:** when a newer run becomes latest, discard in-memory screening state from the prior run and disable only its decision mutations. Preserve normal navigation, historical signal/chart research, and access to the active Order process.
 
 ### Phase 2 — Make screening ephemeral
 
-- [ ] **Remove durable screening behavior:** stop creating/loading/persisting dateless review flags and non-decision PACR screening state for the active workflow. Preserve immediate durable persistence only for source-specific `ACCEPTED` and `REJECTED` decisions.
-- [ ] **In-memory triage state:** retain only the latest run's current symbol selection, chart-review queue membership, and temporary screening choices across normal page navigation.
-- [ ] **Chart Review input:** populate Chart Review exclusively from the ephemeral selection made in Signal Review for the current latest run.
-- [ ] **Historical decision guardrails:** disable only ACR, queue-entry, Order-mutation, and execution-mutation controls for an older occurrence. Keep historical signal/chart inspection and normal navigation, including access to Order, available.
-- [ ] **Legacy data policy:** leave existing triage-decision and review-flag documents readable during transition, but do not use them to populate active queues. Define later whether they are retained, archived, or removed.
+- [x] **Remove durable screening behavior:** stop creating/loading/persisting dateless review flags and non-decision PACR screening state for the active workflow. Preserve immediate durable persistence only for source-specific `ACCEPTED` and `REJECTED` decisions.
+- [x] **In-memory triage state:** retain only the latest run's current symbol selection, chart-review queue membership, and temporary screening choices across normal page navigation.
+- [x] **Chart Review input:** populate Chart Review exclusively from the ephemeral selection made in Signal Review for the current latest run.
+- [x] **Historical decision guardrails:** disable only ACR, queue-entry, Order-mutation, and execution-mutation controls for an older occurrence. Keep historical signal/chart inspection and normal navigation, including access to Order, available.
+- [x] **Legacy data policy:** leave existing triage-decision and review-flag documents readable during transition, but do not use them to populate active queues. Define later whether they are retained, archived, or removed.
 
 ### Phase 3 — Persist source-specific ACR decisions
 
