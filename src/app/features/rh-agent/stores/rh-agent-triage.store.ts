@@ -124,6 +124,7 @@ export const RhAgentTriageStore = signalStore(
         error: (err) => {
           console.error(`[TriageStore] Failed to persist status for ${symbol}:`, err);
           patchState(state, { decisionsError: err?.message ?? 'Persist failed' });
+          snackBar.open(`Failed to save ${symbol} status`, 'Dismiss', { duration: 4000 });
         },
       });
     },

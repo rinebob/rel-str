@@ -26,7 +26,7 @@ import { Router } from '@angular/router';
 
 import { RhAgentTriageStore } from '../../stores/rh-agent-triage.store';
 import { RhAgentGroupStore } from '../../stores/rh-agent-group.store';
-import { RhReviewStatus } from '../../common/rh-agent.constants';
+
 import { todayDate, daysAgoPt } from '../../utils/rh-agent.utils';
 import {
   RhAgentSignalItem,
@@ -140,9 +140,10 @@ export class RhAgentOrderComponent implements OnInit {
     this.patchRow(event.symbol, { stopLossPercent: event.value });
   }
 
-  /** Remove a symbol from the order page and set its status back to REVIEW. */
+  /** Remove a symbol from the order page: reset ACR to PENDING and re-flag for review. */
   onRemoveSymbol(symbol: string): void {
-    this.triageStore.setStatus(symbol, RhReviewStatus.REVIEW, this.currentMarketDate());
+    this.triageStore.resetSymbol(symbol, this.currentMarketDate());
+    this.triageStore.markForReview(symbol);
     this.tradeRows.update((rows) => rows.filter((r) => r.symbol !== symbol));
   }
 
