@@ -17,7 +17,6 @@ import {
   withMethods,
   patchState,
 } from '@ngrx/signals';
-import { Observable, forkJoin } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { RhAgentSymbolListService } from '../services/rh-agent-symbol-list.service';
@@ -74,7 +73,7 @@ export const RhAgentSymbolListStore = signalStore(
     /**
      * Toggle a symbol's membership in a named list.
      * List membership is exclusive: a symbol can only be in one list at a time.
-     * Selecting a new list removes the symbol from every other list.
+     * Uses an atomic Firestore batch write to guarantee consistency.
      */
     toggleSymbolInList(symbol: string, listName: string | RhSymbolListName): void {
       const normalized = symbol.toUpperCase();
@@ -100,25 +99,10 @@ export const RhAgentSymbolListStore = signalStore(
       }
       patchState(state, { symbolLists: nextLists });
 
-      // Persist the target list change
-      const target$ = isInList
-        ? listService.removeFromList(symbol, listName)
-        : listService.addToList(symbol, listName);
-
-      // Persist removals from other canonical lists
-      const removalObservables: Observable<void>[] = [];
-      if (!isInList) {
-        for (const otherName of ALL_SYMBOL_LIST_NAMES) {
-          if (otherName !== listName) {
-            const otherList = previousLists[otherName] ?? [];
-            if (otherList.includes(normalized)) {
-              removalObservables.push(listService.removeFromList(symbol, otherName));
-            }
-          }
-        }
-      }
-
-      forkJoin([target$, ...removalObservables]).subscribe({
+      // Atomic persist: add to target list and remove from all others in one batch.
+      // If toggling OFF (isInList=true), targetList is null (remove from all).
+      const targetList = isInList ? null : (listName as string);
+      listService.moveToList(symbol, targetList, ALL_SYMBOL_LIST_NAMES.map(n => n as string)).subscribe({
         error: (err: unknown) => {
           const message = err instanceof Error ? err.message : 'Unknown error';
           console.error(`[RhAgentSymbolListStore] Failed to toggle ${symbol} in ${listName}:`, err);

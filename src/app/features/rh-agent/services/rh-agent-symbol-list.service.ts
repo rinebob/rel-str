@@ -176,34 +176,33 @@ export class RhAgentSymbolListService {
         const normalized = symbol.toUpperCase();
         const batch = writeBatch(this.firestore);
 
-        for (const listName of allListNames) {
+        // Read all list docs in parallel to avoid sequential round-trips.
+        const reads = allListNames.map(async (listName) => {
           const docId = this.listId(userId, listName);
           const docRef = doc(this.firestore, Collection.RH_SYMBOL_LISTS, docId);
           const existing = await getDoc(docRef);
+          return { listName, docRef, existing };
+        });
+        const results = await Promise.all(reads);
+
+        for (const { listName, docRef, existing } of results) {
           const currentSymbols: string[] = existing.exists()
             ? (existing.data()['symbols'] as string[] ?? [])
             : [];
 
-          let newSymbols: string[];
-          if (listName === targetList) {
-            // Add to target list (if not already present)
-            newSymbols = currentSymbols.includes(normalized)
-              ? currentSymbols
-              : [...currentSymbols, normalized];
-          } else {
-            // Remove from all other lists
-            newSymbols = currentSymbols.filter((s) => s !== normalized);
-          }
+          const newSymbols = listName === targetList
+            ? (currentSymbols.includes(normalized) ? currentSymbols : [...currentSymbols, normalized])
+            : currentSymbols.filter((s) => s !== normalized);
 
           // Only write if the array actually changed
-          if (newSymbols.length !== currentSymbols.length || !newSymbols.every((s, i) => s === currentSymbols[i])) {
+          if (newSymbols.length !== currentSymbols.length) {
             batch.set(docRef, {
               name: listName,
               symbols: newSymbols,
               userId,
               updatedAt: serverTimestamp(),
               createdAt: existing.exists() ? (existing.data()['createdAt'] ?? serverTimestamp()) : serverTimestamp(),
-            }, { merge: true });
+            });
           }
         }
 
