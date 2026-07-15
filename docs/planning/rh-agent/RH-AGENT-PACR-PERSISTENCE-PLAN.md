@@ -3,6 +3,12 @@
 **Status:** Phase 1 implemented (store/service wiring and reporting page)  
 **Updated:** 2026-06-29
 
+## Status Note
+
+The persistent PACR and review-queue model proposed here is superseded by `RH-AGENT-LATEST-ACTION-WORKFLOW-2607-01.md`.
+
+The approved workflow persists explicit source-specific `ACCEPTED` and `REJECTED` decisions immediately, with later `EXECUTED` trade state; it does not persist every review, consider, or skip action. Only the latest completed run is actionable. `rh-agent-symbol-meta` remains an independent durable model for symbol-universe/list management and is not superseded by this note.
+
 ## Goal
 Move PACR (Promote / Accept / Consider / Reject) decisions from the session-only `RhAgentTriageStore` into Firestore, and extend the system to support symbol-level universe management:
 

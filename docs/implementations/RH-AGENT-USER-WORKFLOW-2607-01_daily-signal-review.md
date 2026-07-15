@@ -1,8 +1,14 @@
 # RH Agent Daily Signal Review and Order Workflow
 
+## Status Note
+
+The active review/order behavior in this document is superseded by `RH-AGENT-LATEST-ACTION-WORKFLOW-2607-01.md`.
+
+The approved model is latest-run-only, with ephemeral review/skip screening: only the latest completed run is actionable and older runs are historical/read-only. Explicit source-specific `ACCEPTED` and `REJECTED` decisions persist immediately; other screening state does not. `EXECUTED` is a future, separate trade-lifecycle state.
+
 ## Context
 
-This document defines the user workflow for managing RH Agent signals on a daily basis. It covers how signals arrive, how they are reviewed, how orders are created and sent, and how stale state is cleared. This is a user-experience and risk-management document, separate from the technical signal lifecycle and timezone plans.
+This document records the earlier daily workflow discussion. It covers how signals arrive, how they were proposed to be reviewed, how orders were proposed to be created and sent, and how stale state was proposed to be cleared. It remains useful for unresolved order/execution questions, but it is not the source of truth for active review eligibility or ACR persistence.
 
 ## Related Documents
 

@@ -7,7 +7,8 @@ This document defines how `barDate` is assigned to signals and how the signal li
 ## Related Documents
 
 - `RH-AGENT-TIMEZONE-2607-01_pt-timezone-standardization.md` — defines `marketDate`, `runDate`, `runId`, and the PT display layer.
-- `RH-AGENT-USER-WORKFLOW-2607-01_daily-signal-review.md` — user workflow for signal review, order confirmation, and daily startup cleanup.
+- `RH-AGENT-USER-WORKFLOW-2607-01_daily-signal-review.md` — earlier user-workflow discussion; superseded for active review eligibility by the latest-action workflow.
+- `RH-AGENT-LATEST-ACTION-WORKFLOW-2607-01.md` — approved latest-run-only action eligibility, ephemeral screening, and durable accepted/executed tracking direction.
 - `RH-AGENT-SIGNAL-PERSISTENCE-PLAN.md` — original plan for run-centric vs. date-centric signal storage.
 - `RH-AGENT-RUNIDS-2607-01_run-ids-storage-evaluation.md` — evaluation of run-id storage models.
 - `RH-AGENT-SYMBOL-ONBOARDING-2607-01_symbol-onboarding.md` — trigger sources and signal persistence behavior per trigger.
@@ -117,8 +118,9 @@ Signal hover tooltips should show `marketDate` for interim signals (which is the
 3. **Historical `barDate` = actual period-end date.** Compute this at persistence time from the `barStatus = 1` bar.
 4. **Only `barStatus = 1` signals are persisted to `signal-history`.** Interim signals stay in `run-ids` only.
 5. **Ignore W/M signals on PRE runs until SA adds `barStatusWeekly`/`barStatusMonthly` attributes.** Code should be flexible to adopt W/M PRE signals when SA implements them.
-6. **Run list shows only the latest run.** Older run signals are accessed via `signal-history` per symbol.
-7. **Daily startup workflow (clearing leftover reviews/orders, confirmation steps) is out of scope for this document.** It should be defined in a separate user-workflow planning doc.
+6. **Only the latest completed run is actionable.** Older run signals and `signal-history` are historical/read-only and cannot create active review, order, or execution state.
+7. **Routine screening state is ephemeral.** Unreviewed, skipped, and chart-inspection selections are discarded when a newer run becomes latest. Explicit source-specific `ACCEPTED` and `REJECTED` decisions persist immediately; only accepted occurrences may remain in active Order while still present in the latest run.
+8. **Daily startup workflow and durable decision/execution tracking are out of scope for this document.** They are defined by the latest-action workflow and require a separate implementation plan.
 
 ## Answered Questions
 

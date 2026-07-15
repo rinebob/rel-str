@@ -5,6 +5,10 @@
 **Updated:** 2026-06-29  
 **Goal:** Reorganize signal storage from a flat opportunity list into a symbol-centric structure with company metadata, enabling grouped review by sector/industry/market-cap and multi-day signal history tracking. Connect triage decisions to the deep-review and trade execution surface.
 
+## Status Note
+
+The completed symbol-grouping, signal-storage, and universe-management work remains valid. The persistent PACR pipeline described later in this historical plan is superseded by `RH-AGENT-LATEST-ACTION-WORKFLOW-2607-01.md`: only the latest completed run is actionable; routine screening is ephemeral; explicit source-specific `ACCEPTED` and `REJECTED` decisions are durable; and `EXECUTED` is later trade state.
+
 ---
 
 ## Problem Statement

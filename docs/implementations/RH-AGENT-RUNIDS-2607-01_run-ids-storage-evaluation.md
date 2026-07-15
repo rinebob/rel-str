@@ -7,6 +7,10 @@
 
 Per-symbol `run-ids/{runId}` docs store every run's signals under `rh-agent-symbols/{symbol}/run-ids`. The grouped review page needs to know which symbols had signals for the active run, and the detail panel reads the active run's signals from the same doc. Canonical nightly EOD signals are also written to `rh-agent-symbols/{symbol}/signal-history/{barDate}`.
 
+### Action-eligibility clarification
+
+Per `RH-AGENT-LATEST-ACTION-WORKFLOW-2607-01.md`, only the latest completed run is actionable for screening, acceptance, order, and execution. Older `run-ids` documents and `signal-history` are historical/read-only inspection sources. This workflow rule is independent of whether old `run-ids` documents are retained temporarily, TTL-cleaned, or replaced by a `latest-signals` document.
+
 Runs are triggered by one of four sources: `nightly`, `pdr`, `manual`, or `symbol-added`. The `symbol-added` trigger produces a per-symbol run ID with the symbol appended to avoid collisions.
 
 Current pain points:

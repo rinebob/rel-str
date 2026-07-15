@@ -25,12 +25,12 @@ Additionally, the current `signal-dates/{barDate}` path makes it impossible to d
 
 ### 1. Run-Centric (real-time, intraday)
 
-**Purpose:** "What did the agent see during this specific run, right now? Should I act on it today?"
+**Purpose:** "What did the agent see during this specific run?"
 
-- Time-sensitive — meaningful for active trading decisions
-- Multiple runs per day are all valid and distinct (8AM PDR may differ from 10AM PDR)
-- Expires at EOD — stale after market close
-- Stored at: `rh-agent-symbols/{symbol}/run-ids/{runId}` (see Run Explorer Plan)
+- Multiple runs per day are all valid and distinct (8AM PDR may differ from 10AM PDR).
+- Only the latest completed run is eligible for active screening, acceptance, order, or execution.
+- Earlier run documents remain signal-inspection records only; they are not alternate ACR sessions.
+- Stored at: `rh-agent-symbols/{symbol}/run-ids/{runId}` (see Run Explorer Plan and `RH-AGENT-LATEST-ACTION-WORKFLOW-2607-01.md`).
 
 ### 2. Date-Centric / Signal History (canonical EOD SOT)
 
