@@ -1,4 +1,4 @@
-import { SignalTimeframe, SignalDirection, SIGNAL_FILTER_ALL, RhReviewStatus, GroupDimension } from '../common/rh-agent.constants';
+import { SignalTimeframe, SignalDirection, SIGNAL_FILTER_ALL, RhAgentReviewDecision, GroupDimension } from '../common/rh-agent.constants';
 import type { RhAgentSignalItem, RhAgentSymbolProfile } from '../services/rh-agent.types';
 import type { RhSymbolGroup } from '../stores/rh-agent-group.store';
 import {
@@ -105,7 +105,7 @@ describe('rowHasDirection', () => {
       profile: mockProfile(TEST_CREATED_AT),
       hasSignal: true,
       signals: [mockSignal({ direction: SignalDirection.SHORT })],
-      reviewStatus: 'PENDING' as RhReviewStatus,
+      reviewStatus: RhAgentReviewDecision.PENDING,
     };
     expect(rowHasDirection(row, SignalDirection.SHORT)).toBe(true);
     expect(rowHasDirection(row, SignalDirection.LONG)).toBe(false);
@@ -116,7 +116,7 @@ describe('rowHasDirection', () => {
       profile: mockProfile(TEST_CREATED_AT, { lastDailySignalDirection: SignalDirection.LONG }),
       hasSignal: true,
       signals: undefined,
-      reviewStatus: 'PENDING' as RhReviewStatus,
+      reviewStatus: RhAgentReviewDecision.PENDING,
     };
     expect(rowHasDirection(row, SignalDirection.LONG)).toBe(true);
     expect(rowHasDirection(row, SignalDirection.SHORT)).toBe(false);

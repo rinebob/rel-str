@@ -21,6 +21,8 @@ export {
   type RhAgentRun,
   type RhAgentSymbolProfile,
   type RhAgentSignalItem,
+  type RhAgentOccurrenceDecision,
+  type DurableDecisionType,
   type MarketCapTier,
   type SignalDirection,
   type ManualRunRequest,
@@ -37,7 +39,7 @@ export {
 } from './stores/rh-agent-group.store';
 
 export {
-  RhReviewStatus,
+  RhAgentReviewDecision,
   ALL_REVIEW_STATUSES,
   RhSymbolListName,
   ALL_SYMBOL_LIST_NAMES,
@@ -69,7 +71,7 @@ export * as RhAgentChartIndicators from './utils/rh-agent-chart-indicators';
 export { requireUserId, chunkArray, getDocData, CreatedAtDoc } from './services/rh-agent-firestore-helpers';
 
 // Persistence & Universe Services (Phase 5C)
-export { RhAgentTriageService, RhTriageDecision, RhTriageDecisionInput } from './services/rh-agent-triage.service';
+export { RhAgentTriageService } from './services/rh-agent-triage.service';
 export { RhAgentSymbolMetaService, RhSymbolMeta, RhSymbolMetaInput } from './services/rh-agent-symbol-meta.service';
 export { RhAgentSymbolListService, RhSymbolList } from './services/rh-agent-symbol-list.service';
 

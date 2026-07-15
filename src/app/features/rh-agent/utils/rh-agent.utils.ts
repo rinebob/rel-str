@@ -5,7 +5,7 @@
  */
 import { MarketCapTier, RhAgentSignalItem, RhAgentSymbolProfile, RH_AGENT_SCHEDULE_CRON, RhAgentSymbolSource } from '../services/rh-agent.types';
 import { RhSymbolRow, RhSymbolGroup } from '../stores/rh-agent-group.store';
-import { GroupDimension, RhReviewStatus, SignalFilter, SignalTimeframe, SignalDirection } from '../common/rh-agent.constants';
+import { GroupDimension, RhAgentReviewDecision, SignalFilter, SignalTimeframe, SignalDirection } from '../common/rh-agent.constants';
 
 /** True if a Firestore Timestamp duck-type is present. */
 function isTimestamp(value: unknown): value is { toDate: () => Date } {
@@ -504,7 +504,7 @@ export interface BuildSymbolGroupsInput {
   dimension: GroupDimension;
   symbolLists: Record<string, string[]>;
   activeListFilter: string | 'ALL';
-  statuses: Record<string, RhReviewStatus>;
+  statuses: Record<string, RhAgentReviewDecision>;
   historyCache: Record<string, RhAgentSignalItem[]>;
   historyLoading: Record<string, boolean>;
   activeRunId: string | null;
@@ -576,7 +576,7 @@ export function buildSymbolGroups(input: BuildSymbolGroupsInput): RhSymbolGroup[
         hasSignal: item.hasSignal,
         signals,
         signalsLoading: historyLoading[cacheKey] ?? false,
-        reviewStatus: statuses[item.profile.symbol] ?? 'PENDING',
+        reviewStatus: statuses[item.profile.symbol] ?? RhAgentReviewDecision.PENDING,
       };
     });
 
