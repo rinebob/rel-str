@@ -10,12 +10,13 @@
  * - Track selected symbol for the detail panel
  * - Track quick-chart symbol and show-all mode
  */
-import { inject, computed, DestroyRef } from '@angular/core';
+import { inject, effect, computed, DestroyRef } from '@angular/core';
 import {
   signalStore,
   withState,
   withComputed,
   withMethods,
+  withHooks,
   patchState,
 } from '@ngrx/signals';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -25,14 +26,18 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import {
   type RhAgentSymbolProfile,
   type RhAgentSignalItem,
+  type RhAgentRun,
 } from '../services/rh-agent.types';
 import { RhAgentSignalService } from '../services/rh-agent-signal.service';
+import { RhAgentStore } from './rh-agent.store';
 import { RhAgentTriageStore } from './rh-agent-triage.store';
 import { RhAgentSymbolListStore } from './rh-agent-symbol-list.store';
 import { RhAgentSymbolHistoryStore } from './rh-agent-symbol-history.store';
 import {
   GroupDimension,
   RhReviewStatus,
+  SignalTimeframe,
+  SignalDirection,
 } from '../common/rh-agent.constants';
 import {
   buildFilteredCandidates,
@@ -75,8 +80,8 @@ export interface RhSymbolGroup {
 export interface RhAgentGroupState {
   /** Active run ID being reviewed. */
   activeRunId: string | null;
-  /** Market date of the active run (YYYY-MM-DD) — used for triage decision keying. */
-  activeRunMarketDate: string | null;
+  /** Cached market date of the active run (YYYY-MM-DD). Prefer the canonical value from viewedRun(). */
+  _activeRunMarketDate: string | null;
   /** Current grouping dimension. */
   groupDimension: GroupDimension;
   /** All signal symbols returned from the callable (W + D merged). */
@@ -98,7 +103,7 @@ export interface RhAgentGroupState {
 
 const initialState: RhAgentGroupState = {
   activeRunId: null,
-  activeRunMarketDate: null,
+  _activeRunMarketDate: null,
   groupDimension: GroupDimension.SECTOR,
   signalSymbols: [],
   symbolsLoading: false,
@@ -129,7 +134,7 @@ export const RhAgentGroupStore = signalStore(
   ) => ({
     /** Set the active run, load persisted triage decisions, and reload symbols. */
     setActiveRun(runId: string, marketDate: string): void {
-      patchState(state, { activeRunId: runId, activeRunMarketDate: marketDate, signalSymbols: [], selectedSymbol: null });
+      patchState(state, { activeRunId: runId, _activeRunMarketDate: marketDate, signalSymbols: [], selectedSymbol: null });
       triageStore.loadPersistedDecisions(daysAgoPt(30), marketDate, marketDate);
       this.loadSymbolsWithSignals();
     },
@@ -313,4 +318,59 @@ export const RhAgentGroupStore = signalStore(
       return state.signalSymbols().find((p) => p.symbol === sym) ?? null;
     }),
   })),
+
+  withComputed((state, agentStore = inject(RhAgentStore)) => ({
+    /** The full run document for the currently viewed run, if available in the runs stream. */
+    viewedRun: computed((): RhAgentRun | null => {
+      const id = state.activeRunId();
+      if (!id) return null;
+      return agentStore.runs().find((r) => r.id === id) ?? null;
+    }),
+  })),
+
+  withComputed((state, agentStore = inject(RhAgentStore)) => ({
+    /**
+     * Market date of the viewed run.
+     * Derived from canonical run metadata when available; falls back to the cached value set by setActiveRun.
+     */
+    activeRunMarketDate: computed((): string | null =>
+      state.viewedRun()?.marketDate ?? state._activeRunMarketDate()
+    ),
+
+    /** True when the viewed run is the latest completed actionable run. */
+    isActionableRun: computed(() => {
+      const viewedId = state.activeRunId();
+      const latestId = agentStore.latestCompletedRun()?.id;
+      return !!viewedId && !!latestId && viewedId === latestId;
+    }),
+  })),
+
+  withHooks((store, agentStore = inject(RhAgentStore), uiStore = inject(SignalReviewUiStore)) => {
+    /** Tracks the previous latest completed run ID to detect new-run transitions. */
+    let previousLatestRunId: string | null = null;
+
+    return {
+      onInit() {
+        /**
+         * When a newer completed run becomes latest and the viewed run was the
+         * previous latest, clear only ephemeral screening state. Historical research
+         * and navigation remain available.
+         */
+        effect(() => {
+          const latestId = agentStore.latestCompletedRun()?.id ?? null;
+          const previousId = previousLatestRunId;
+          previousLatestRunId = latestId;
+
+          if (!latestId || !previousId || latestId === previousId) return;
+          const viewedId = store.activeRunId();
+          if (viewedId !== previousId) return;
+
+          uiStore.setTimeframeFilter(SignalTimeframe.ALL);
+          uiStore.setDirectionFilter(SignalDirection.ALL);
+          uiStore.setAllExpanded(false, []);
+          patchState(store, { selectedSymbol: null, quickChartSymbol: null });
+        });
+      },
+    };
+  }),
 );

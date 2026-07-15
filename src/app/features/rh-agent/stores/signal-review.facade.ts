@@ -27,6 +27,7 @@ import {
   SignalTimeframe,
   SignalDirection,
 } from '../common/rh-agent.constants';
+import type { RhAgentRun } from '../services/rh-agent.types';
 
 @Injectable({ providedIn: 'root' })
 export class SignalReviewFacade {
@@ -76,6 +77,10 @@ export class SignalReviewFacade {
   readonly selectedSymbol = computed(() => this.groupStore.selectedSymbol());
   readonly quickChartSymbol = computed(() => this.groupStore.quickChartSymbol());
 
+  /** Active-run context for header / eligibility. */
+  readonly viewedRun = computed((): RhAgentRun | null => this.groupStore.viewedRun());
+  readonly isActionableRun = computed(() => this.groupStore.isActionableRun());
+
   /** Fullscreen state for the header. */
   readonly fullscreen = computed(() => this.uiState.fullscreen());
 
@@ -88,12 +93,12 @@ export class SignalReviewFacade {
 
   constructor() {
     /**
-     * Auto-select the latest run on direct page reload.
+     * Auto-select the latest completed run on direct page reload.
      * Registered once in the constructor so multiple enterPage() calls cannot
      * create duplicate effects.
      */
     effect(() => {
-      const latest = this.agentStore.latestRun();
+      const latest = this.agentStore.latestCompletedRun();
       if (!latest) return;
       if (this.groupStore.activeRunId()) return;
       this.groupStore.setActiveRun(latest.id, latest.marketDate ?? '');
@@ -213,32 +218,46 @@ export class SignalReviewFacade {
     this.symbolListStore.toggleSymbolInList(symbol, listName);
   }
 
+  /** Guard helper: mutation actions are only allowed for the latest completed run. */
+  private runIfActionable<T>(fn: () => T): T | undefined {
+    if (!this.groupStore.isActionableRun()) return;
+    return fn();
+  }
+
   markForReview(symbol: string): void {
-    this.triageStore.markForReview(symbol);
+    this.runIfActionable(() => this.triageStore.markForReview(symbol));
   }
 
   acceptSymbol(symbol: string): void {
-    const date = this.groupStore.activeRunMarketDate();
-    if (!date) return;
-    this.triageStore.acceptSymbol(symbol, date);
+    this.runIfActionable(() => {
+      const date = this.groupStore.activeRunMarketDate();
+      if (!date) return;
+      this.triageStore.acceptSymbol(symbol, date);
+    });
   }
 
   considerSymbol(symbol: string): void {
-    const date = this.groupStore.activeRunMarketDate();
-    if (!date) return;
-    this.triageStore.considerSymbol(symbol, date);
+    this.runIfActionable(() => {
+      const date = this.groupStore.activeRunMarketDate();
+      if (!date) return;
+      this.triageStore.considerSymbol(symbol, date);
+    });
   }
 
   rejectSymbol(symbol: string): void {
-    const date = this.groupStore.activeRunMarketDate();
-    if (!date) return;
-    this.triageStore.rejectSymbol(symbol, date);
+    this.runIfActionable(() => {
+      const date = this.groupStore.activeRunMarketDate();
+      if (!date) return;
+      this.triageStore.rejectSymbol(symbol, date);
+    });
   }
 
   resetSymbol(symbol: string): void {
-    const date = this.groupStore.activeRunMarketDate();
-    if (!date) return;
-    this.triageStore.resetSymbol(symbol, date);
+    this.runIfActionable(() => {
+      const date = this.groupStore.activeRunMarketDate();
+      if (!date) return;
+      this.triageStore.resetSymbol(symbol, date);
+    });
   }
 
   toggleMonitor(symbol: string): void {
@@ -254,7 +273,7 @@ export class SignalReviewFacade {
   // -------------------------------------------------------------------------
 
   clearReviewFlags(): void {
-    this.triageStore.clearReviewFlags();
+    this.runIfActionable(() => this.triageStore.clearReviewFlags());
   }
 
   // -------------------------------------------------------------------------

@@ -9,6 +9,7 @@ import {
   inject,
   signal,
   computed,
+  effect,
   OnInit,
   OnDestroy,
   ChangeDetectionStrategy,
@@ -64,7 +65,7 @@ export class RhAgentDashboardComponent implements OnInit, OnDestroy {
   readonly isSyncingOverview = signal(false);
   readonly scheduleSummary = computed(() => {
     const lastRunAt = this.store.status()?.lastRunAt;
-    const lastRunType = this.uiStore.currentRun()?.triggeredBy ?? 'nightly';
+    const lastRunType = this.store.latestCompletedRun()?.triggeredBy ?? 'nightly';
     const now = new Date();
     const todayStr = todayDate();
     const dateOf = (ts: string | Date | number): string =>
@@ -93,6 +94,17 @@ export class RhAgentDashboardComponent implements OnInit, OnDestroy {
    */
   constructor() {
     this.store.loadData();
+
+    /**
+     * Default the dashboard metrics strip to the latest completed actionable run
+     * so the active workflow entry point is clearly identified.
+     */
+    effect(() => {
+      const latest = this.store.latestCompletedRun();
+      if (!latest) return;
+      if (this.uiStore.selectedRunId()) return;
+      this.uiStore.selectRun(latest.id);
+    });
   }
 
   /** Enter fullscreen mode when the dashboard is active. */
@@ -118,9 +130,9 @@ export class RhAgentDashboardComponent implements OnInit, OnDestroy {
     this.store.triggerManualRun(undefined);
   }
 
-  /** Navigate to the signal review page, pre-seeding the active run from the latest run. */
+  /** Navigate to the signal review page, pre-seeding the active run from the latest completed run. */
   goToSignalReview(): void {
-    const latest = this.store.latestRun();
+    const latest = this.store.latestCompletedRun();
     if (latest?.id && latest?.marketDate) {
       this.groupStore.setActiveRun(latest.id, latest.marketDate);
     }

@@ -49,6 +49,18 @@ export const RhAgentStore = signalStore(
     /** The most recent run from the run history. */
     latestRun: computed(() => state.runs()[0] || null),
 
+    /** The latest completed actionable run (SUCCESS or PARTIAL with a completedAt timestamp). */
+    latestCompletedRun: computed(() => {
+      const runs = state.runs();
+      const status = (r: RhAgentRun) => r.status?.toUpperCase();
+      return (
+        runs.find((r) => {
+          const s = status(r);
+          return (s === 'SUCCESS' || s === 'PARTIAL') && !!r.completedAt;
+        }) ?? null
+      );
+    }),
+
     /** Number of symbols currently enabled for monitoring. */
     symbolCount: computed(() => state.status()?.symbolsMonitored?.length || 0),
   })),
