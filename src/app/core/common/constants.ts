@@ -210,6 +210,7 @@ export enum Collection {
   POSITIONS = 'positions',
   SYMBOL_DATA = 'symbol-data',
   RH_TRIAGE_DECISIONS = 'rh-agent-triage-decisions',
+  RH_OCCURRENCE_DECISIONS = 'rh-agent-occurrence-decisions',
   RH_REVIEW_FLAGS = 'rh-agent-review-flags',
   RH_SYMBOL_LISTS = 'rh-agent-symbol-lists',
   RH_SYMBOL_META = 'rh-agent-symbol-meta',

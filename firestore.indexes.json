@@ -93,6 +93,48 @@
       ]
     },
     {
+      "collectionGroup": "rh-agent-occurrence-decisions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "runId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "rh-agent-occurrence-decisions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "runId", "order": "ASCENDING" },
+        { "fieldPath": "isCurrentInLatestRun", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "rh-agent-occurrence-decisions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "isCurrentInLatestRun", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "rh-agent-occurrence-decisions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "symbol", "order": "ASCENDING" },
+        { "fieldPath": "isCurrentInLatestRun", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "rh-agent-occurrence-decisions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "marketDate", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "rh-agent-symbol-lists",
       "queryScope": "COLLECTION",
       "fields": [
