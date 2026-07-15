@@ -132,9 +132,10 @@ export const RhAgentGroupStore = signalStore(
     symbolListStore = inject(RhAgentSymbolListStore),
     historyStore = inject(RhAgentSymbolHistoryStore),
   ) => ({
-    /** Set the active run, load persisted triage decisions, and reload symbols. */
+    /** Set the active run, clear in-memory triage state, load durable decisions, and reload symbols. */
     setActiveRun(runId: string, marketDate: string): void {
       patchState(state, { activeRunId: runId, _activeRunMarketDate: marketDate, signalSymbols: [], selectedSymbol: null });
+      triageStore.resetForRun();
       triageStore.loadPersistedDecisions(daysAgoPt(30), marketDate, marketDate);
       this.loadSymbolsWithSignals();
     },
@@ -345,7 +346,7 @@ export const RhAgentGroupStore = signalStore(
     }),
   })),
 
-  withHooks((store, agentStore = inject(RhAgentStore), uiStore = inject(SignalReviewUiStore)) => {
+  withHooks((store, agentStore = inject(RhAgentStore), uiStore = inject(SignalReviewUiStore), triageStore = inject(RhAgentTriageStore)) => {
     /** Tracks the previous latest completed run ID to detect new-run transitions. */
     let previousLatestRunId: string | null = null;
 
@@ -369,6 +370,7 @@ export const RhAgentGroupStore = signalStore(
           uiStore.setDirectionFilter(SignalDirection.ALL);
           uiStore.setAllExpanded(false, []);
           patchState(store, { selectedSymbol: null, quickChartSymbol: null });
+          triageStore.clearEphemeralScreeningState();
         });
       },
     };

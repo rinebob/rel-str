@@ -174,6 +174,30 @@ export class RhAgentTriageService {
     );
   }
 
+  /** Delete a persisted decision doc for the given symbol and date. */
+  deleteDecision(symbol: string, date: string): Observable<void> {
+    return this.deleteDecisionsBatch([symbol], date);
+  }
+
+  /** Delete persisted decision docs for multiple symbols on the same date. */
+  deleteDecisionsBatch(symbols: string[], date: string): Observable<void> {
+    if (symbols.length === 0) return of(undefined);
+    return requireUserId(this.auth, this.injector).pipe(
+      take(1),
+      switchMap(() => runInInjectionContext(this.injector, async () => {
+        const batch = writeBatch(this.firestore);
+        for (const symbol of symbols) {
+          const normalized = symbol.toUpperCase();
+          const docId = this.decisionId(normalized, date);
+          const docRef = doc(this.firestore, Collection.RH_TRIAGE_DECISIONS, docId);
+          batch.delete(docRef);
+        }
+        await batch.commit();
+      })),
+      map(() => undefined)
+    );
+  }
+
   /** Listen to real-time changes for a specific date. */
   listenToDecisionsForDate(date: string): Observable<RhTriageDecision[]> {
     return requireUserId(this.auth, this.injector).pipe(

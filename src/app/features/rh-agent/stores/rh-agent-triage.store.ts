@@ -40,8 +40,6 @@ export interface RhAgentTriageState {
   activeViewportList: string;
   /** Whether persisted decisions are being loaded. */
   decisionsLoading: boolean;
-  /** Whether review flags are being loaded. */
-  reviewFlagsLoading: boolean;
   /** Error from loading or persisting decisions. */
   decisionsError: string | null;
   /** Cache of all persisted decisions loaded from Firestore: symbol -> date -> status. */
@@ -54,7 +52,6 @@ const initialState: RhAgentTriageState = {
   viewportMode: 'signals',
   activeViewportList: RhSymbolListName.NONE,
   decisionsLoading: false,
-  reviewFlagsLoading: false,
   decisionsError: null,
   persistedStatuses: {},
 };
@@ -93,8 +90,8 @@ export const RhAgentTriageStore = signalStore(
       Object.values(state.statuses()).filter((s) => s === ReviewStatus.ACCEPT).length
     ),
 
-    /** True while either decisions or review flags are still loading. */
-    loading: computed((): boolean => state.decisionsLoading() || state.reviewFlagsLoading()),
+    /** True while persisted decisions are still loading. */
+    loading: computed((): boolean => state.decisionsLoading()),
 
     /** Full status counts — useful for summary chips. */
     statusCounts: computed((): StatusCounts => {
@@ -113,40 +110,85 @@ export const RhAgentTriageStore = signalStore(
     triageService = inject(RhAgentTriageService),
     snackBar = inject(MatSnackBar),
   ) => ({
-    /** Set a single symbol's ACR status and persist it for the given market date. */
+    /** Set a single symbol's ACR status. Only ACCEPT and REJECT are durable decisions. */
     setStatus(symbol: string, status: RhReviewStatus, marketDate: string, source = 'unknown'): void {
+      const previous = state.statuses()[symbol];
+      const isDecision = isDurableDecision(status);
+      const wasDecision = isDurableDecision(previous);
+
+      const previousStatuses = state.statuses();
+      const previousPersisted = state.persistedStatuses();
+
+      let nextPersisted = previousPersisted;
+      if (isDecision) {
+        nextPersisted = mergePersistedStatus(nextPersisted, symbol, marketDate, status);
+      } else if (wasDecision) {
+        nextPersisted = removePersistedStatus(nextPersisted, symbol, marketDate);
+      }
+
       patchState(state, {
-        statuses: { ...state.statuses(), [symbol]: status },
-        persistedStatuses: mergePersistedStatus(state.persistedStatuses(), symbol, marketDate, status),
+        statuses: { ...previousStatuses, [symbol]: status },
+        persistedStatuses: nextPersisted,
       });
 
-      triageService.setDecision({ symbol, date: marketDate, status, source }).subscribe({
-        error: (err) => {
-          console.error(`[TriageStore] Failed to persist status for ${symbol}:`, err);
-          patchState(state, { decisionsError: err?.message ?? 'Persist failed' });
-          snackBar.open(`Failed to save ${symbol} status`, 'Dismiss', { duration: 4000 });
-        },
-      });
+      const rollback = (err: unknown) => {
+        console.error(`[TriageStore] Failed to persist status for ${symbol}:`, err);
+        const message = err instanceof Error ? err.message : String(err ?? 'Persist failed');
+        patchState(state, {
+          statuses: previousStatuses,
+          persistedStatuses: previousPersisted,
+          decisionsError: message,
+        });
+        snackBar.open(`Failed to save ${symbol} status`, 'Dismiss', { duration: 4000 });
+      };
+
+      if (isDecision) {
+        triageService.setDecision({ symbol, date: marketDate, status, source }).subscribe({ error: rollback });
+      } else if (wasDecision) {
+        triageService.deleteDecision(symbol, marketDate).subscribe({ error: rollback });
+      }
     },
 
-    /** Set PACR status for multiple symbols at once (group-level action) and persist. */
+    /** Set PACR status for multiple symbols at once. Only ACCEPT and REJECT are durable decisions. */
     setGroupStatus(symbols: string[], status: RhReviewStatus, marketDate: string, source = 'unknown'): void {
-      const current = state.statuses();
+      const isDecision = isDurableDecision(status);
+      const previousStatuses = state.statuses();
+      const previousPersisted = state.persistedStatuses();
       const updates: Record<string, RhReviewStatus> = {};
-      let persisted = state.persistedStatuses();
+      let nextPersisted = previousPersisted;
+      const toDelete: string[] = [];
+
       for (const symbol of symbols) {
         updates[symbol] = status;
-        persisted = mergePersistedStatus(persisted, symbol, marketDate, status);
+        if (isDecision) {
+          nextPersisted = mergePersistedStatus(nextPersisted, symbol, marketDate, status);
+        } else if (isDurableDecision(previousStatuses[symbol])) {
+          nextPersisted = removePersistedStatus(nextPersisted, symbol, marketDate);
+          toDelete.push(symbol);
+        }
       }
-      patchState(state, { statuses: { ...current, ...updates }, persistedStatuses: persisted });
 
-      const inputs = symbols.map((symbol) => ({ symbol, date: marketDate, status, source }));
-      triageService.setDecisionsBatch(inputs).subscribe({
-        error: (err) => {
-          console.error(`[TriageStore] Failed to persist group status:`, err);
-          patchState(state, { decisionsError: err?.message ?? 'Batch persist failed' });
-        },
+      patchState(state, {
+        statuses: { ...previousStatuses, ...updates },
+        persistedStatuses: nextPersisted,
       });
+
+      const rollback = (err: unknown) => {
+        console.error(`[TriageStore] Failed to persist group status:`, err);
+        const message = err instanceof Error ? err.message : String(err ?? 'Batch persist failed');
+        patchState(state, {
+          statuses: previousStatuses,
+          persistedStatuses: previousPersisted,
+          decisionsError: message,
+        });
+      };
+
+      if (isDecision) {
+        const inputs = symbols.map((symbol) => ({ symbol, date: marketDate, status, source }));
+        triageService.setDecisionsBatch(inputs).subscribe({ error: rollback });
+      } else if (toDelete.length > 0) {
+        triageService.deleteDecisionsBatch(toDelete, marketDate).subscribe({ error: rollback });
+      }
     },
 
     /** Sync local statuses from the persisted cache for the given market date. */
@@ -163,27 +205,21 @@ export const RhAgentTriageStore = signalStore(
       });
     },
 
-    /** Load persisted ACR decisions for a date range and merge into local state. */
+    /** Load persisted ACCEPT/REJECT decisions for a date range and merge into local state. */
     loadPersistedDecisions(startDate: string, endDate: string, currentDate?: string): void {
       patchState(state, { decisionsLoading: true, decisionsError: null });
 
       triageService.loadDecisionsForDateRange(startDate, endDate).subscribe({
         next: (decisions) => {
           let persisted = state.persistedStatuses();
-          const currentStatuses = { ...state.statuses() };
+          const currentStatuses = currentDate ? {} : { ...state.statuses() };
 
           for (const d of decisions) {
-            // Skip legacy REVIEW docs — review flags are loaded separately.
-            if (d.status === ReviewStatus.REVIEW) continue;
+            // Only durable decisions are loaded; screening states stay in memory.
+            if (!isDurableDecision(d.status)) continue;
             persisted = mergePersistedStatus(persisted, d.symbol, d.date, d.status);
-          }
-
-          // Apply ACR statuses for the current market date.
-          if (currentDate) {
-            for (const d of decisions) {
-              if (d.date === currentDate && d.status !== ReviewStatus.REVIEW) {
-                currentStatuses[d.symbol] = d.status;
-              }
+            if (currentDate && d.date === currentDate) {
+              currentStatuses[d.symbol] = d.status;
             }
           }
 
@@ -193,74 +229,53 @@ export const RhAgentTriageStore = signalStore(
             decisionsLoading: false,
           });
         },
-        error: (err) => {
+        error: (err: unknown) => {
           console.error('[TriageStore] Failed to load persisted decisions:', err);
-          patchState(state, { decisionsLoading: false, decisionsError: err?.message ?? 'Load failed' });
+          const message = err instanceof Error ? err.message : String(err ?? 'Load failed');
+          patchState(state, { decisionsLoading: false, decisionsError: message });
         },
       });
     },
 
-    /** Clear review flags — unflag all symbols from the review queue. */
+    /** Clear review flags — unflag all symbols from the review queue (in-memory only). */
     clearReviewFlags(): void {
-      const previousFlags = state.reviewFlags();
-      const symbolsToClear = Object.entries(previousFlags)
-        .filter(([_, flagged]) => flagged)
-        .map(([symbol]) => symbol);
-
       patchState(state, { reviewFlags: {} });
-
-      if (symbolsToClear.length > 0) {
-        triageService.setReviewFlagsBatch(symbolsToClear, false).subscribe({
-          error: (err) => {
-            console.error('[TriageStore] Failed to persist clear:', err);
-            patchState(state, { reviewFlags: previousFlags, decisionsError: err?.message ?? 'Clear persist failed' });
-            snackBar.open('Failed to clear review list — reverted', 'Dismiss', { duration: 5000 });
-          },
-        });
-      }
     },
 
     // --- Review flag methods (independent of ACR, dateless) ---
 
-    /** Flag a symbol for review ("I want to look at this chart") and persist. */
+    /** Flag a symbol for review ("I want to look at this chart"). */
     markForReview(symbol: string): void {
       patchState(state, { reviewFlags: { ...state.reviewFlags(), [symbol]: true } });
-      triageService.setReviewFlag(symbol).subscribe({
-        error: (err) => {
-          console.error(`[TriageStore] Failed to persist review flag for ${symbol}:`, err);
-          patchState(state, { reviewFlags: { ...state.reviewFlags(), [symbol]: false } });
-        },
-      });
     },
 
     /** Unflag a symbol from review. */
     unmarkFromReview(symbol: string): void {
-      const prev = state.reviewFlags();
-      const next = { ...prev };
+      const next = { ...state.reviewFlags() };
       delete next[symbol];
       patchState(state, { reviewFlags: next });
-      triageService.clearReviewFlag(symbol).subscribe({
-        error: (err) => {
-          console.error(`[TriageStore] Failed to persist unmark review for ${symbol}:`, err);
-          patchState(state, { reviewFlags: { ...state.reviewFlags(), [symbol]: true } });
-        },
-      });
     },
 
-    /** Flag multiple symbols for review at once and persist. */
+    /** Flag multiple symbols for review at once. */
     markGroupForReview(symbols: string[]): void {
-      const previousFlags = state.reviewFlags();
-      const flags = { ...previousFlags };
+      const flags = { ...state.reviewFlags() };
       for (const s of symbols) { flags[s] = true; }
       patchState(state, { reviewFlags: flags });
+    },
 
-      triageService.setReviewFlagsBatch(symbols, true).subscribe({
-        error: (err) => {
-          console.error('[TriageStore] Failed to persist group review flags:', err);
-          patchState(state, { reviewFlags: previousFlags });
-          snackBar.open('Failed to save review flags — reverted', 'Dismiss', { duration: 5000 });
-        },
-      });
+    /** Drop all in-memory statuses and review flags. Use when switching to a different run; durable decisions for the target date will be reloaded. */
+    resetForRun(): void {
+      patchState(state, { statuses: {}, reviewFlags: {} });
+    },
+
+    /** Drop ephemeral screening state (review flags and non-durable statuses) while keeping durable ACCEPT/REJECT decisions in memory. */
+    clearEphemeralScreeningState(): void {
+      const statuses = state.statuses();
+      const durableOnly: Record<string, RhReviewStatus> = {};
+      for (const [symbol, status] of Object.entries(statuses)) {
+        if (isDurableDecision(status)) durableOnly[symbol] = status;
+      }
+      patchState(state, { reviewFlags: {}, statuses: durableOnly });
     },
 
     // --- Viewport methods ---
@@ -277,41 +292,34 @@ export const RhAgentTriageStore = signalStore(
 
     // --- Convenience methods for daily ACR actions ---
 
-    /** Mark a symbol as ACCEPT and persist. */
+    /** Mark a symbol as ACCEPT and persist the durable decision. */
     acceptSymbol(symbol: string, marketDate: string): void   { this.setStatus(symbol, ReviewStatus.ACCEPT,   marketDate, 'triage-store'); },
-    /** Mark a symbol as CONSIDER and persist. */
+    /** Mark a symbol as CONSIDER (ephemeral screening state). */
     considerSymbol(symbol: string, marketDate: string): void { this.setStatus(symbol, ReviewStatus.CONSIDER, marketDate, 'triage-store'); },
-    /** Mark a symbol as REJECT and persist. */
+    /** Mark a symbol as REJECT and persist the durable decision. */
     rejectSymbol(symbol: string, marketDate: string): void   { this.setStatus(symbol, ReviewStatus.REJECT,   marketDate, 'triage-store'); },
-    /** Mark a symbol as WATCH and persist. */
+    /** Mark a symbol as WATCH (ephemeral screening state). */
     watchSymbol(symbol: string, marketDate: string): void    { this.setStatus(symbol, ReviewStatus.WATCH,    marketDate, 'triage-store'); },
-    /** Reset a symbol's daily status back to PENDING and persist. */
-    resetSymbol(symbol: string, marketDate: string): void    { this.setStatus(symbol, ReviewStatus.PENDING,  marketDate, 'triage-store'); },
+    /** Reset a symbol's daily status back to PENDING and remove any durable decision. */
+    resetSymbol(symbol: string, marketDate: string): void {
+      this.setStatus(symbol, ReviewStatus.PENDING, marketDate, 'triage-store');
+    },
   })),
 
-  withHooks((store, triageService = inject(RhAgentTriageService)) => ({
+  withHooks((store) => ({
     onInit() {
       const today = todayDate();
       const startDate = daysAgoPt(30);
 
       store.loadPersistedDecisions(startDate, today);
-
-      // Load review flags from the dateless collection.
-      patchState(store, { reviewFlagsLoading: true });
-      triageService.loadReviewFlags().subscribe({
-        next: (symbols) => {
-          const flags: Record<string, boolean> = {};
-          for (const s of symbols) { flags[s] = true; }
-          patchState(store, { reviewFlags: { ...store.reviewFlags(), ...flags }, reviewFlagsLoading: false });
-        },
-        error: (err) => {
-          console.error('[TriageStore] Failed to load review flags:', err);
-          patchState(store, { reviewFlagsLoading: false, decisionsError: err?.message ?? 'Review flags load failed' });
-        },
-      });
     },
   }))
 );
+
+/** True for statuses that represent a durable source-specific decision. */
+function isDurableDecision(status: RhReviewStatus): boolean {
+  return status === ReviewStatus.ACCEPT || status === ReviewStatus.REJECT;
+}
 
 /**
  * Immutable update of the persisted status cache.
@@ -330,4 +338,25 @@ function mergePersistedStatus(
       [date]: status,
     },
   };
+}
+
+/**
+ * Immutable removal of a symbol/date entry from the persisted status cache.
+ * Drops the symbol key entirely when no dates remain.
+ */
+function removePersistedStatus(
+  persisted: Record<string, Record<string, RhReviewStatus>>,
+  symbol: string,
+  date: string,
+): Record<string, Record<string, RhReviewStatus>> {
+  const byDate = persisted[symbol];
+  if (!byDate) return persisted;
+  const nextByDate = { ...byDate };
+  delete nextByDate[date];
+  if (Object.keys(nextByDate).length === 0) {
+    const next = { ...persisted };
+    delete next[symbol];
+    return next;
+  }
+  return { ...persisted, [symbol]: nextByDate };
 }
