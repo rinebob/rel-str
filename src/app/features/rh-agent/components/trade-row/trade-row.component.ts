@@ -21,6 +21,7 @@ export interface TradeRow {
   positionSize: number;
   stopLossPercent: number;
   enabled: boolean;
+  executed: boolean;
   signal?: RhAgentSignalItem;
 }
 
@@ -43,6 +44,7 @@ export class TradeRowComponent implements OnInit {
   positionSizeChange = output<{ symbol: string; value: number }>();
   stopLossChange = output<{ symbol: string; value: number }>();
   copyTrade = output<TradeRow>();
+  markExecuted = output<string>();
   remove = output<string>();
   signalLoaded = output<{ symbol: string; signal: RhAgentSignalItem | null }>();
 

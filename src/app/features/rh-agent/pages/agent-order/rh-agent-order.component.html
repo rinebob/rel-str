@@ -39,6 +39,14 @@
       <mat-icon>content_copy</mat-icon>
       Copy
     </button>
+
+    <button mat-raised-button
+      (click)="onMarkAllExecuted()"
+      [disabled]="enabledUnexecutedRows().length === 0 || !isActionableRun()"
+      matTooltip="Mark all enabled rows as executed after trades are placed">
+      <mat-icon>done_all</mat-icon>
+      Mark Executed
+    </button>
   </div>
 
   <!-- Empty -->
@@ -74,6 +82,7 @@
             (positionSizeChange)="onPositionSizeChange($event)"
             (stopLossChange)="onStopLossChange($event)"
             (copyTrade)="copyTrade($event)"
+            (markExecuted)="onMarkExecuted($event)"
             (remove)="onRemoveSymbol($event)"
             (signalLoaded)="onSignalLoaded($event)">
           </app-trade-row>

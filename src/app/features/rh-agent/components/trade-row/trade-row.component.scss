@@ -22,6 +22,10 @@
   }
 
   &.disabled { opacity: 0.5; }
+
+  &.executed {
+    background: var(--mat-sys-surface-container-highest);
+  }
 }
 
 .col-go,
@@ -75,4 +79,11 @@
   display: flex;
   gap: 2px;
   justify-content: flex-end;
+
+  .executed-badge {
+    color: var(--mat-sys-primary);
+    font-size: 24px;
+    width: 24px;
+    height: 24px;
+  }
 }

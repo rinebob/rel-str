@@ -32,6 +32,7 @@ import { RhAgentGroupStore } from '../../stores/rh-agent-group.store';
 import { RhAgentStore } from '../../stores/rh-agent.store';
 
 import { RhAgentSignalItem, RH_AGENT_MAX_TRADE_AMOUNT } from '../../services/rh-agent.types';
+import { RhAgentReviewDecision } from '../../common/rh-agent.constants';
 import {
   RobinhoodTradeService,
   TradeBatch,
@@ -82,6 +83,11 @@ export class RhAgentOrderComponent implements OnInit {
     this.enabledRows().reduce((sum, r) => sum + r.positionSize, 0)
   );
 
+  /** Enabled rows that have not yet been marked executed. */
+  readonly enabledUnexecutedRows = computed(() =>
+    this.enabledRows().filter((r) => !r.executed)
+  );
+
   /** Whether a trade batch has already been generated. */
   readonly hasGeneratedBatch = computed(() => !!this.generatedBatch());
 
@@ -96,8 +102,8 @@ export class RhAgentOrderComponent implements OnInit {
   }
 
   constructor() {
-    // Keep trade rows in sync with accepted symbols while preserving user edits for symbols still present.
-    effect(() => this.syncTradeRowsWithAcceptedSymbols());
+    // Keep trade rows in sync with active order symbols while preserving user edits for symbols still present.
+    effect(() => this.syncTradeRowsWithActiveOrderSymbols());
   }
 
   /** Initialize the page and load accepted current-run occurrences. */
@@ -108,9 +114,10 @@ export class RhAgentOrderComponent implements OnInit {
     this.occurrenceStore.loadDecisionsForRun(latestRun.id);
   }
 
-  /** Merge accepted symbols with existing trade rows, preserving edits for symbols still accepted. */
-  private syncTradeRowsWithAcceptedSymbols(): void {
-    const symbols = this.occurrenceStore.acceptedSymbols();
+  /** Merge active order symbols with existing trade rows, preserving edits for symbols still present. */
+  private syncTradeRowsWithActiveOrderSymbols(): void {
+    const symbols = this.occurrenceStore.activeOrderSymbols();
+
     const existing = untracked(() => this.tradeRows());
     const existingBySymbol = new Map(existing.map((r) => [r.symbol, r]));
 
@@ -125,6 +132,7 @@ export class RhAgentOrderComponent implements OnInit {
         positionSize: RH_AGENT_MAX_TRADE_AMOUNT,
         stopLossPercent: 8,
         enabled: true,
+        executed: false,
       };
     });
 
@@ -158,6 +166,22 @@ export class RhAgentOrderComponent implements OnInit {
   /** Update a row's stop-loss percentage. */
   onStopLossChange(event: { symbol: string; value: number }): void {
     this.patchRow(event.symbol, { stopLossPercent: event.value });
+  }
+
+  /** Mark the accepted occurrence decisions for a symbol as executed after a real trade is placed. */
+  onMarkExecuted(symbol: string): void {
+    const latestRun = this.agentStore.latestCompletedRun();
+    if (!latestRun) return;
+    this.occurrenceStore.markExecutedForSymbols(latestRun.id, [symbol]);
+  }
+
+  /** Mark all enabled, unexecuted rows as executed. */
+  onMarkAllExecuted(): void {
+    const latestRun = this.agentStore.latestCompletedRun();
+    if (!latestRun) return;
+    const symbols = this.enabledUnexecutedRows().map((r) => r.symbol);
+    if (symbols.length === 0) return;
+    this.occurrenceStore.markExecutedForSymbols(latestRun.id, symbols);
   }
 
   /** Remove a symbol from the order page: delete occurrence decisions and re-flag for review. */

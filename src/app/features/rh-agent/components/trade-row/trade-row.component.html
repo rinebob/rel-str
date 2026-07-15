@@ -1,7 +1,8 @@
-<div class="trade-row" [class.disabled]="!row().enabled">
+<div class="trade-row" [class.disabled]="!row().enabled" [class.executed]="row().executed">
   <span class="col-go">
     <mat-slide-toggle
       [checked]="row().enabled"
+      [disabled]="row().executed || !isActionableRun()"
       (change)="toggleEnabled.emit(row().symbol)">
     </mat-slide-toggle>
   </span>
@@ -14,7 +15,7 @@
       (change)="onPositionSizeChange(+$any($event).target.value)"
       min="1"
       [max]="maxPositionSize()"
-      [disabled]="!row().enabled">
+      [disabled]="row().executed || !row().enabled">
   </span>
   <span class="col-stop">
     <input type="number"
@@ -22,18 +23,28 @@
       (change)="onStopLossChange(+$any($event).target.value)"
       min="0"
       max="100"
-      [disabled]="!row().enabled">
+      [disabled]="row().executed || !row().enabled">
   </span>
   <span class="col-total">${{ row().enabled ? row().positionSize : 0 }}</span>
   <span class="col-actions">
+    @if (row().executed) {
+      <mat-icon class="executed-badge" matTooltip="Trade placed">done_all</mat-icon>
+    } @else {
+      <button type="button" mat-icon-button
+        (click)="markExecuted.emit(row().symbol)"
+        matTooltip="Mark trade as executed"
+        [disabled]="!isActionableRun() || !row().enabled">
+        <mat-icon>done</mat-icon>
+      </button>
+    }
     <button type="button" mat-icon-button
       (click)="copyTrade.emit(row())"
       matTooltip="Copy single trade prompt"
-      [disabled]="!row().enabled">
+      [disabled]="row().executed || !row().enabled">
       <mat-icon>content_copy</mat-icon>
     </button>
     <button type="button" mat-icon-button
-      [disabled]="!isActionableRun()"
+      [disabled]="row().executed || !isActionableRun()"
       (click)="remove.emit(row().symbol)"
       matTooltip="Move back to Review">
       <mat-icon>undo</mat-icon>
