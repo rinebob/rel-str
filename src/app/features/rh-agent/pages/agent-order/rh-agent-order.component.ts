@@ -2,7 +2,7 @@
  * RH Agent Order Component
  *
  * Final trade parameter configuration and prompt generation for ACCEPTED symbols.
- * Reads accepted symbols from the shared RhAgentTriageStore.
+ * Reads accepted occurrences from the shared RhAgentOccurrenceDecisionStore.
  * URL: /rh-agent/order
  */
 import {
@@ -11,6 +11,8 @@ import {
   OnInit,
   signal,
   computed,
+  effect,
+  untracked,
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -25,14 +27,11 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 
 import { RhAgentTriageStore } from '../../stores/rh-agent-triage.store';
+import { RhAgentOccurrenceDecisionStore } from '../../stores/rh-agent-occurrence-decision.store';
 import { RhAgentGroupStore } from '../../stores/rh-agent-group.store';
 import { RhAgentStore } from '../../stores/rh-agent.store';
 
-import { todayDate, daysAgoPt } from '../../utils/rh-agent.utils';
-import {
-  RhAgentSignalItem,
-  RH_AGENT_MAX_TRADE_AMOUNT,
-} from '../../services/rh-agent.service';
+import { RhAgentSignalItem, RH_AGENT_MAX_TRADE_AMOUNT } from '../../services/rh-agent.types';
 import {
   RobinhoodTradeService,
   TradeBatch,
@@ -61,6 +60,7 @@ import { TradeRowComponent, TradeRow } from '../../components/trade-row/trade-ro
 })
 export class RhAgentOrderComponent implements OnInit {
   readonly triageStore = inject(RhAgentTriageStore);
+  readonly occurrenceStore = inject(RhAgentOccurrenceDecisionStore);
   readonly groupStore = inject(RhAgentGroupStore);
   readonly agentStore = inject(RhAgentStore);
   readonly tradeService = inject(RobinhoodTradeService);
@@ -95,20 +95,29 @@ export class RhAgentOrderComponent implements OnInit {
     return this.orderMarketDate();
   }
 
-  /** Initialize the page and build trade rows from accepted symbols. */
-  ngOnInit(): void {
-    this.uiState.setFullscreen(true);
-    const marketDate = this.currentMarketDate();
-    if (!marketDate) return;
-    this.triageStore.loadPersistedDecisions(daysAgoPt(30), marketDate, marketDate);
-    this.initializeTradeRows();
+  constructor() {
+    // Keep trade rows in sync with accepted symbols while preserving user edits for symbols still present.
+    effect(() => this.syncTradeRowsWithAcceptedSymbols());
   }
 
-  /** Build initial trade rows from accepted symbols; each row loads its own signal history. */
-  private initializeTradeRows(): void {
-    const symbols = this.triageStore.acceptedSymbols();
-    this.tradeRows.set(
-      symbols.map((symbol) => ({
+  /** Initialize the page and load accepted current-run occurrences. */
+  ngOnInit(): void {
+    this.uiState.setFullscreen(true);
+    const latestRun = this.agentStore.latestCompletedRun();
+    if (!latestRun) return;
+    this.occurrenceStore.loadDecisionsForRun(latestRun.id);
+  }
+
+  /** Merge accepted symbols with existing trade rows, preserving edits for symbols still accepted. */
+  private syncTradeRowsWithAcceptedSymbols(): void {
+    const symbols = this.occurrenceStore.acceptedSymbols();
+    const existing = untracked(() => this.tradeRows());
+    const existingBySymbol = new Map(existing.map((r) => [r.symbol, r]));
+
+    const next: TradeRow[] = symbols.map((symbol) => {
+      const row = existingBySymbol.get(symbol);
+      if (row) return row;
+      return {
         symbol,
         direction: 'LONG' as const,
         signalType: '',
@@ -116,8 +125,10 @@ export class RhAgentOrderComponent implements OnInit {
         positionSize: RH_AGENT_MAX_TRADE_AMOUNT,
         stopLossPercent: 8,
         enabled: true,
-      }))
-    );
+      };
+    });
+
+    this.tradeRows.set(next);
   }
 
   /** Update a trade row with the latest signal details from the backend. */
@@ -149,11 +160,11 @@ export class RhAgentOrderComponent implements OnInit {
     this.patchRow(event.symbol, { stopLossPercent: event.value });
   }
 
-  /** Remove a symbol from the order page: reset ACR to PENDING and re-flag for review. */
+  /** Remove a symbol from the order page: delete occurrence decisions and re-flag for review. */
   onRemoveSymbol(symbol: string): void {
-    const marketDate = this.currentMarketDate();
-    if (!marketDate) return;
-    this.triageStore.resetSymbol(symbol, marketDate);
+    const latestRun = this.agentStore.latestCompletedRun();
+    if (!latestRun) return;
+    this.occurrenceStore.resetSymbol(symbol, latestRun.id);
     this.triageStore.markForReview(symbol);
     this.tradeRows.update((rows) => rows.filter((r) => r.symbol !== symbol));
   }
