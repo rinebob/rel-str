@@ -19,7 +19,7 @@ import {
 
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-import { RhReviewStatus, ALL_REVIEW_STATUSES, StatusCounts } from '../common/rh-agent.constants';
+import { RhReviewStatus, ALL_REVIEW_STATUSES, StatusCounts, RhSymbolListName, ViewportMode } from '../common/rh-agent.constants';
 import { RhAgentTriageService } from '../services/rh-agent-triage.service';
 import { todayDate, daysAgoPt } from '../utils/rh-agent.utils';
 
@@ -30,10 +30,18 @@ const ReviewStatus = RhReviewStatus;
 // ---------------------------------------------------------------------------
 
 export interface RhAgentTriageState {
-  /** Per-symbol PACR status. Key = symbol ticker. */
+  /** Per-symbol ACR status. Key = symbol ticker. Values: PENDING/ACCEPT/CONSIDER/REJECT/WATCH/etc. */
   statuses: Record<string, RhReviewStatus>;
+  /** Per-symbol review flag — "I want to look at this symbol's chart." Independent of ACR. */
+  reviewFlags: Record<string, boolean>;
+  /** Viewport mode: 'signals' = show only review-flagged symbols, 'browse' = show all list symbols. */
+  viewportMode: ViewportMode;
+  /** Currently selected list for viewport filtering. */
+  activeViewportList: string;
   /** Whether persisted decisions are being loaded. */
   decisionsLoading: boolean;
+  /** Whether review flags are being loaded. */
+  reviewFlagsLoading: boolean;
   /** Error from loading or persisting decisions. */
   decisionsError: string | null;
   /** Cache of all persisted decisions loaded from Firestore: symbol -> date -> status. */
@@ -42,7 +50,11 @@ export interface RhAgentTriageState {
 
 const initialState: RhAgentTriageState = {
   statuses: {},
+  reviewFlags: {},
+  viewportMode: 'signals',
+  activeViewportList: RhSymbolListName.NONE,
   decisionsLoading: false,
+  reviewFlagsLoading: false,
   decisionsError: null,
   persistedStatuses: {},
 };
@@ -57,10 +69,10 @@ export const RhAgentTriageStore = signalStore(
   withState(initialState),
 
   withComputed((state) => ({
-    /** Symbols with REVIEW status — feeds the Review page. */
+    /** Symbols flagged for review — feeds the Review page sidebar. */
     reviewSymbols: computed((): string[] =>
-      Object.entries(state.statuses())
-        .filter(([_, status]) => status === ReviewStatus.REVIEW)
+      Object.entries(state.reviewFlags())
+        .filter(([_, flagged]) => flagged)
         .map(([symbol]) => symbol)
     ),
 
@@ -71,9 +83,9 @@ export const RhAgentTriageStore = signalStore(
         .map(([symbol]) => symbol)
     ),
 
-    /** Count of REVIEW symbols (for badge on "Review" button). */
+    /** Count of symbols flagged for review. */
     reviewCount: computed((): number =>
-      Object.values(state.statuses()).filter((s) => s === ReviewStatus.REVIEW).length
+      Object.values(state.reviewFlags()).filter(Boolean).length
     ),
 
     /** Count of ACCEPT symbols (for badge on "Order Accepted" button). */
@@ -81,12 +93,17 @@ export const RhAgentTriageStore = signalStore(
       Object.values(state.statuses()).filter((s) => s === ReviewStatus.ACCEPT).length
     ),
 
+    /** True while either decisions or review flags are still loading. */
+    loading: computed((): boolean => state.decisionsLoading() || state.reviewFlagsLoading()),
+
     /** Full status counts — useful for summary chips. */
     statusCounts: computed((): StatusCounts => {
       const values = Object.values(state.statuses());
       const counts = Object.fromEntries(
         ALL_REVIEW_STATUSES.map((status) => [status, values.filter((s) => s === status).length])
       ) as StatusCounts;
+      // Include review count from flags (not from statuses)
+      counts.REVIEW = Object.values(state.reviewFlags()).filter(Boolean).length;
       return counts;
     }),
   })),
@@ -96,7 +113,7 @@ export const RhAgentTriageStore = signalStore(
     triageService = inject(RhAgentTriageService),
     snackBar = inject(MatSnackBar),
   ) => ({
-    /** Set a single symbol's PACR status and persist it for the given market date. */
+    /** Set a single symbol's ACR status and persist it for the given market date. */
     setStatus(symbol: string, status: RhReviewStatus, marketDate: string, source = 'unknown'): void {
       patchState(state, {
         statuses: { ...state.statuses(), [symbol]: status },
@@ -145,7 +162,7 @@ export const RhAgentTriageStore = signalStore(
       });
     },
 
-    /** Load persisted decisions for a date range and merge into local state. */
+    /** Load persisted ACR decisions for a date range and merge into local state. */
     loadPersistedDecisions(startDate: string, endDate: string, currentDate?: string): void {
       patchState(state, { decisionsLoading: true, decisionsError: null });
 
@@ -155,18 +172,15 @@ export const RhAgentTriageStore = signalStore(
           const currentStatuses = { ...state.statuses() };
 
           for (const d of decisions) {
+            // Skip legacy REVIEW docs — review flags are loaded separately.
+            if (d.status === ReviewStatus.REVIEW) continue;
             persisted = mergePersistedStatus(persisted, d.symbol, d.date, d.status);
-            // Always restore REVIEW status regardless of date — the review queue
-            // should show any symbol the user marked for review in the window.
-            if (d.status === ReviewStatus.REVIEW) {
-              currentStatuses[d.symbol] = d.status;
-            }
           }
 
-          // Also apply non-REVIEW statuses for the current market date when provided.
+          // Apply ACR statuses for the current market date.
           if (currentDate) {
             for (const d of decisions) {
-              if (d.date === currentDate) {
+              if (d.date === currentDate && d.status !== ReviewStatus.REVIEW) {
                 currentStatuses[d.symbol] = d.status;
               }
             }
@@ -185,50 +199,83 @@ export const RhAgentTriageStore = signalStore(
       });
     },
 
-    /** Clear review/accept queues — resets those symbols to PENDING locally and in Firestore. */
-    clear(marketDate: string): void {
-      const previousStatuses = state.statuses();
-      const previousPersisted = state.persistedStatuses();
-      const symbolsToClear = Object.entries(previousStatuses)
-        .filter(([_, status]) => status === ReviewStatus.REVIEW || status === ReviewStatus.ACCEPT)
+    /** Clear review flags — unflag all symbols from the review queue. */
+    clearReviewFlags(): void {
+      const previousFlags = state.reviewFlags();
+      const symbolsToClear = Object.entries(previousFlags)
+        .filter(([_, flagged]) => flagged)
         .map(([symbol]) => symbol);
 
-      // Update persistedStatuses cache so any subsequent loadPersistedDecisions
-      // won't restore these symbols as REVIEW from the in-memory cache.
-      let persisted = previousPersisted;
-      for (const symbol of symbolsToClear) {
-        persisted = mergePersistedStatus(persisted, symbol, marketDate, ReviewStatus.PENDING);
-      }
+      patchState(state, { reviewFlags: {} });
 
-      // Clear local state for ALL statuses and update persisted cache
-      patchState(state, { statuses: {}, persistedStatuses: persisted });
-
-      // Persist PENDING for symbols that were REVIEW or ACCEPT
       if (symbolsToClear.length > 0) {
-        const inputs = symbolsToClear.map((symbol) => ({
-          symbol,
-          date: marketDate,
-          status: ReviewStatus.PENDING as RhReviewStatus,
-          source: 'clear-triage',
-        }));
-        triageService.setDecisionsBatch(inputs).subscribe({
+        triageService.setReviewFlagsBatch(symbolsToClear, false).subscribe({
           error: (err) => {
             console.error('[TriageStore] Failed to persist clear:', err);
-            patchState(state, {
-              statuses: previousStatuses,
-              persistedStatuses: previousPersisted,
-              decisionsError: err?.message ?? 'Clear persist failed',
-            });
+            patchState(state, { reviewFlags: previousFlags, decisionsError: err?.message ?? 'Clear persist failed' });
             snackBar.open('Failed to clear review list — reverted', 'Dismiss', { duration: 5000 });
           },
         });
       }
     },
 
-    // --- Convenience methods for daily PACR actions ---
+    // --- Review flag methods (independent of ACR, dateless) ---
 
-    /** Mark a symbol as REVIEW and persist. */
-    markForReview(symbol: string, marketDate: string): void  { this.setStatus(symbol, ReviewStatus.REVIEW,   marketDate, 'triage-store'); },
+    /** Flag a symbol for review ("I want to look at this chart") and persist. */
+    markForReview(symbol: string): void {
+      patchState(state, { reviewFlags: { ...state.reviewFlags(), [symbol]: true } });
+      triageService.setReviewFlag(symbol).subscribe({
+        error: (err) => {
+          console.error(`[TriageStore] Failed to persist review flag for ${symbol}:`, err);
+          patchState(state, { reviewFlags: { ...state.reviewFlags(), [symbol]: false } });
+        },
+      });
+    },
+
+    /** Unflag a symbol from review. */
+    unmarkFromReview(symbol: string): void {
+      const prev = state.reviewFlags();
+      const next = { ...prev };
+      delete next[symbol];
+      patchState(state, { reviewFlags: next });
+      triageService.clearReviewFlag(symbol).subscribe({
+        error: (err) => {
+          console.error(`[TriageStore] Failed to persist unmark review for ${symbol}:`, err);
+          patchState(state, { reviewFlags: { ...state.reviewFlags(), [symbol]: true } });
+        },
+      });
+    },
+
+    /** Flag multiple symbols for review at once and persist. */
+    markGroupForReview(symbols: string[]): void {
+      const previousFlags = state.reviewFlags();
+      const flags = { ...previousFlags };
+      for (const s of symbols) { flags[s] = true; }
+      patchState(state, { reviewFlags: flags });
+
+      triageService.setReviewFlagsBatch(symbols, true).subscribe({
+        error: (err) => {
+          console.error('[TriageStore] Failed to persist group review flags:', err);
+          patchState(state, { reviewFlags: previousFlags });
+          snackBar.open('Failed to save review flags — reverted', 'Dismiss', { duration: 5000 });
+        },
+      });
+    },
+
+    // --- Viewport methods ---
+
+    /** Set the viewport mode (signals or browse). */
+    setViewportMode(mode: ViewportMode): void {
+      patchState(state, { viewportMode: mode });
+    },
+
+    /** Set the active list filter for viewport. */
+    setActiveViewportList(listName: string): void {
+      patchState(state, { activeViewportList: listName });
+    },
+
+    // --- Convenience methods for daily ACR actions ---
+
     /** Mark a symbol as ACCEPT and persist. */
     acceptSymbol(symbol: string, marketDate: string): void   { this.setStatus(symbol, ReviewStatus.ACCEPT,   marketDate, 'triage-store'); },
     /** Mark a symbol as CONSIDER and persist. */
@@ -241,12 +288,26 @@ export const RhAgentTriageStore = signalStore(
     resetSymbol(symbol: string, marketDate: string): void    { this.setStatus(symbol, ReviewStatus.PENDING,  marketDate, 'triage-store'); },
   })),
 
-  withHooks((store) => ({
+  withHooks((store, triageService = inject(RhAgentTriageService)) => ({
     onInit() {
       const today = todayDate();
       const startDate = daysAgoPt(30);
 
       store.loadPersistedDecisions(startDate, today);
+
+      // Load review flags from the dateless collection.
+      patchState(store, { reviewFlagsLoading: true });
+      triageService.loadReviewFlags().subscribe({
+        next: (symbols) => {
+          const flags: Record<string, boolean> = {};
+          for (const s of symbols) { flags[s] = true; }
+          patchState(store, { reviewFlags: { ...store.reviewFlags(), ...flags }, reviewFlagsLoading: false });
+        },
+        error: (err) => {
+          console.error('[TriageStore] Failed to load review flags:', err);
+          patchState(store, { reviewFlagsLoading: false, decisionsError: err?.message ?? 'Review flags load failed' });
+        },
+      });
     },
   }))
 );

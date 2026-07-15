@@ -46,6 +46,7 @@ export type StatusCounts = {
 
 /** Canonical names for the built-in user-managed symbol lists. */
 export enum RhSymbolListName {
+  NONE = 'NONE',
   PRIMARY = 'PRIMARY',
   SECONDARY = 'SECONDARY',
   NEUTRAL = 'NEUTRAL',
@@ -122,3 +123,6 @@ export enum RhAgentRunStatusFilter {
   FAILED  = 'failed',
   PARTIAL = 'partial',
 }
+
+/** Viewport mode for the chart-review sidebar. */
+export type ViewportMode = 'signals' | 'browse';

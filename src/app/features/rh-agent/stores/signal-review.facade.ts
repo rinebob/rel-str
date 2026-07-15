@@ -27,7 +27,6 @@ import {
   SignalTimeframe,
   SignalDirection,
 } from '../common/rh-agent.constants';
-import { todayDate } from '../utils/rh-agent.utils';
 
 @Injectable({ providedIn: 'root' })
 export class SignalReviewFacade {
@@ -215,9 +214,7 @@ export class SignalReviewFacade {
   }
 
   markForReview(symbol: string): void {
-    const date = this.groupStore.activeRunMarketDate();
-    if (!date) return;
-    this.triageStore.markForReview(symbol, date);
+    this.triageStore.markForReview(symbol);
   }
 
   acceptSymbol(symbol: string): void {
@@ -256,9 +253,8 @@ export class SignalReviewFacade {
   // Pipeline actions
   // -------------------------------------------------------------------------
 
-  clearTriage(): void {
-    const date = this.groupStore.activeRunMarketDate() ?? todayDate();
-    this.triageStore.clear(date);
+  clearReviewFlags(): void {
+    this.triageStore.clearReviewFlags();
   }
 
   // -------------------------------------------------------------------------

@@ -14,6 +14,7 @@ import {
   collection,
   doc,
   setDoc,
+  deleteDoc,
   getDocs,
   query,
   where,
@@ -30,6 +31,7 @@ import { Observable, from, of } from 'rxjs';
 import { map, switchMap, take } from 'rxjs/operators';
 
 import { RhReviewStatus } from '../common/rh-agent.constants';
+import { Collection } from '../../../core/common/constants';
 import { requireUserId, chunkArray, getDocData } from './rh-agent-firestore-helpers';
 
 export interface RhTriageDecision {
@@ -55,8 +57,6 @@ export interface RhTriageDecisionInput {
   metadata?: Record<string, unknown>;
 }
 
-export const TRIAGE_DECISIONS_COLLECTION = 'rh-agent-triage-decisions';
-
 @Injectable({
   providedIn: 'root',
 })
@@ -65,7 +65,7 @@ export class RhAgentTriageService {
   private readonly auth = inject(Auth);
   private readonly injector = inject(EnvironmentInjector);
 
-  private readonly decisionsCollection = collection(this.firestore, TRIAGE_DECISIONS_COLLECTION);
+  private readonly decisionsCollection = collection(this.firestore, Collection.RH_TRIAGE_DECISIONS);
 
   /** Load all decisions for a specific date. */
   loadDecisionsForDate(date: string): Observable<RhTriageDecision[]> {
@@ -107,7 +107,7 @@ export class RhAgentTriageService {
         const symbol = input.symbol.toUpperCase();
         const date = input.date;
         const docId = this.decisionId(symbol, date);
-        const docRef = doc(this.firestore, TRIAGE_DECISIONS_COLLECTION, docId);
+        const docRef = doc(this.firestore, Collection.RH_TRIAGE_DECISIONS, docId);
         const now = serverTimestamp();
 
         const existing = await getDocData(docRef);
@@ -147,7 +147,7 @@ export class RhAgentTriageService {
           const symbol = input.symbol.toUpperCase();
           const date = input.date;
           const docId = this.decisionId(symbol, date);
-          const docRef = doc(this.firestore, TRIAGE_DECISIONS_COLLECTION, docId);
+          const docRef = doc(this.firestore, Collection.RH_TRIAGE_DECISIONS, docId);
           const existing = existingMap.get(docId);
 
           batch.set(
@@ -219,6 +219,85 @@ export class RhAgentTriageService {
           return unsubscribe;
         });
       })
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Review Flags (dateless)
+  // ---------------------------------------------------------------------------
+
+  private get reviewFlagCollection() {
+    return collection(this.firestore, Collection.RH_REVIEW_FLAGS);
+  }
+
+  /** Persist a review flag for a symbol (dateless). Doc existence = flagged. */
+  setReviewFlag(symbol: string): Observable<void> {
+    return requireUserId(this.auth, this.injector).pipe(
+      take(1),
+      switchMap((userId) => runInInjectionContext(this.injector, async () => {
+        const normalized = symbol.toUpperCase();
+        const docRef = doc(this.firestore, Collection.RH_REVIEW_FLAGS, normalized);
+        await setDoc(docRef, {
+          symbol: normalized,
+          userId,
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+      })),
+      map(() => undefined)
+    );
+  }
+
+  /** Remove a review flag for a symbol by deleting its doc. */
+  clearReviewFlag(symbol: string): Observable<void> {
+    return requireUserId(this.auth, this.injector).pipe(
+      take(1),
+      switchMap(() => runInInjectionContext(this.injector, async () => {
+        const normalized = symbol.toUpperCase();
+        const docRef = doc(this.firestore, Collection.RH_REVIEW_FLAGS, normalized);
+        await deleteDoc(docRef);
+      })),
+      map(() => undefined)
+    );
+  }
+
+  /** Set or clear review flags for multiple symbols at once. */
+  setReviewFlagsBatch(symbols: string[], flagged: boolean): Observable<void> {
+    if (symbols.length === 0) return of(undefined);
+    return requireUserId(this.auth, this.injector).pipe(
+      take(1),
+      switchMap((userId) => runInInjectionContext(this.injector, async () => {
+        const batch = writeBatch(this.firestore);
+        for (const symbol of symbols) {
+          const normalized = symbol.toUpperCase();
+          const docRef = doc(this.firestore, Collection.RH_REVIEW_FLAGS, normalized);
+          if (flagged) {
+            batch.set(docRef, {
+              symbol: normalized,
+              userId,
+              updatedAt: serverTimestamp(),
+            }, { merge: true });
+          } else {
+            batch.delete(docRef);
+          }
+        }
+        await batch.commit();
+      })),
+      map(() => undefined)
+    );
+  }
+
+  /** Load all active review flags (all existing docs are flagged). */
+  loadReviewFlags(): Observable<string[]> {
+    return requireUserId(this.auth, this.injector).pipe(
+      take(1),
+      switchMap((userId) => {
+        const q = query(
+          this.reviewFlagCollection,
+          where('userId', '==', userId)
+        );
+        return from(runInInjectionContext(this.injector, () => getDocs(q)));
+      }),
+      map((snapshot) => snapshot.docs.map((d) => d.data()['symbol'] as string))
     );
   }
 
