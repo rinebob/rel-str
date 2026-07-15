@@ -137,7 +137,7 @@ No code change is authorized by this document until this task list is reviewed. 
 
 ### Phase 4 — Add execution and trade management
 
-- [ ] **Execution transition:** add explicit `EXECUTED` behavior distinct from `ACCEPT`; it occurs only after a real trade is placed.
+- [x] **Execution transition:** add explicit `EXECUTED` behavior distinct from `ACCEPT`; it occurs only after a real trade is placed. Implemented by storing an `executedAt` timestamp on accepted occurrence decisions when the user marks trades as executed from the Order page.
 - [ ] **Trade data model:** decide whether execution details live on the tracked-signal record or in a related trade record, then persist entry, size, stop, exit, and outcome data there.
 - [ ] **Trade-management views:** define active versus closed-trade views without reintroducing historical runs as actionable signal queues.
 
