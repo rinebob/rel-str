@@ -79,6 +79,6 @@ export class SignalReviewHeaderComponent {
   toggleShowAllSymbols = output<void>();
   toggleExpandAll = output<void>();
   refresh = output<void>();
-  clearTriage = output<void>();
+  clearReviewFlags = output<void>();
   toggleFullscreen = output<void>();
 }

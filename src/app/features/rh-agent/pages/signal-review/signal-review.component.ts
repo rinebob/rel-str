@@ -127,9 +127,9 @@ export class SignalReviewComponent implements OnInit, OnDestroy {
     this.facade.resetSymbol(symbol);
   }
 
-  /** Clear all triage review/order queue state. */
-  onClearTriage(): void {
-    this.facade.clearTriage();
+  /** Clear all review flags from the queue. */
+  onClearReviewFlags(): void {
+    this.facade.clearReviewFlags();
   }
 
   /** Toggle a symbol's membership in the PAST_SIGNALS monitor list. */
