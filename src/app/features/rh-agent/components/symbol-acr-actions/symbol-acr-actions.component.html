@@ -1,31 +1,35 @@
 <div class="acr-actions" (click)="$event.stopPropagation()">
   <button type="button" class="acr-btn review"
     [class.active]="row().reviewStatus === Status.REVIEW"
+    [disabled]="disabled()"
     (click)="markForReview.emit(row().profile.symbol)"
     matTooltip="Review">
     <mat-icon>bookmark_border</mat-icon>
   </button>
   <button type="button" class="acr-btn accept"
     [class.active]="row().reviewStatus === Status.ACCEPT"
+    [disabled]="disabled()"
     (click)="accept.emit(row().profile.symbol)"
     matTooltip="Accept">
     <mat-icon>check</mat-icon>
   </button>
   <button type="button" class="acr-btn consider"
     [class.active]="row().reviewStatus === Status.CONSIDER"
+    [disabled]="disabled()"
     (click)="consider.emit(row().profile.symbol)"
     matTooltip="Consider">
     <mat-icon>help_outline</mat-icon>
   </button>
   <button type="button" class="acr-btn reject"
     [class.active]="row().reviewStatus === Status.REJECT"
+    [disabled]="disabled()"
     (click)="reject.emit(row().profile.symbol)"
     matTooltip="Reject">
     <mat-icon>close</mat-icon>
   </button>
   <button type="button" class="acr-btn reset"
     [class.active]="row().reviewStatus === Status.PENDING"
-    [disabled]="row().reviewStatus === Status.PENDING"
+    [disabled]="disabled() || row().reviewStatus === Status.PENDING"
     (click)="reset.emit(row().profile.symbol)"
     matTooltip="Reset to pending">
     <mat-icon>undo</mat-icon>

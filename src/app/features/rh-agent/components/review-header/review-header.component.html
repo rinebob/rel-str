@@ -14,16 +14,19 @@
           <div class="header-acr">
             <button type="button" class="acr-btn accept"
               [class.selected]="status() === 'ACCEPT'"
+              [disabled]="!isActionableRun()"
               (click)="accept.emit()" title="Accept">
               <mat-icon>check</mat-icon>
             </button>
             <button type="button" class="acr-btn watch"
               [class.selected]="status() === 'WATCH'"
+              [disabled]="!isActionableRun()"
               (click)="watch.emit()" title="Watch">
               <mat-icon>visibility</mat-icon>
             </button>
             <button type="button" class="acr-btn reject"
               [class.selected]="status() === 'REJECT'"
+              [disabled]="!isActionableRun()"
               (click)="reject.emit()" title="Reject">
               <mat-icon>close</mat-icon>
             </button>
@@ -71,7 +74,10 @@
       (valueChange)="listChange.emit($event)">
     </app-rh-select-menu>
 
-    <button mat-icon-button (click)="newSymbols.emit()" matTooltip="Find newly added symbols">
+    <button mat-icon-button
+      [disabled]="!isActionableRun()"
+      (click)="newSymbols.emit()"
+      matTooltip="Find newly added symbols">
       <mat-icon>new_releases</mat-icon>
     </button>
 

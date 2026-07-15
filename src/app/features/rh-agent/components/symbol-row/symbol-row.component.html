@@ -45,6 +45,7 @@
 
         <app-symbol-acr-actions
           [row]="row()"
+          [disabled]="!isActionableRun()"
           (markForReview)="markForReview.emit($event)"
           (accept)="accept.emit($event)"
           (consider)="consider.emit($event)"

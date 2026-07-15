@@ -35,6 +35,8 @@ export class GroupPanelComponent {
   activeListFilter = input.required<RhSymbolListName | 'ALL'>();
   selectedSymbol = input<string | null>(null);
   quickChartSymbol = input<string | null>(null);
+  /** When false, ACR mutation controls are disabled for all rows in this group. */
+  isActionableRun = input(true);
 
   readonly visibleSymbolCount = computed(() => this.visibleRows().length);
 

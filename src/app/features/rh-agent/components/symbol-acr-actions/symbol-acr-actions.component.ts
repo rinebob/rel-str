@@ -3,7 +3,7 @@
  *
  * Review / Accept / Consider / Reject / Reset buttons for a single symbol row.
  */
-import { Component, ChangeDetectionStrategy, input, output } from '@angular/core';
+import { Component, ChangeDetectionStrategy, booleanAttribute, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -19,6 +19,8 @@ import { RhSymbolRow } from '../../stores/rh-agent-group.store';
 })
 export class SymbolAcrActionsComponent {
   row = input.required<RhSymbolRow>();
+  /** When true, all ACR mutation buttons are disabled. */
+  disabled = input(false, { transform: booleanAttribute });
   readonly Status = RhReviewStatus;
 
   markForReview = output<string>();

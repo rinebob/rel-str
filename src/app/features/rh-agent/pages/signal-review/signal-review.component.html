@@ -16,6 +16,7 @@
     [showAllSymbols]="facade.showAllSymbols()"
     [allExpanded]="facade.allExpanded()"
     [fullscreen]="facade.fullscreen()"
+    [isActionableRun]="facade.isActionableRun()"
     [loading]="facade.symbolsLoading()"
     [quickChartSymbol]="facade.quickChartSymbol()"
     [flatSymbols]="facade.flatSymbols()"
@@ -35,6 +36,13 @@
     (clearReviewFlags)="onClearReviewFlags()"
     (toggleFullscreen)="facade.toggleFullscreen()">
   </app-signal-review-header>
+
+  <div class="active-run-context">
+    <app-run-metrics-strip
+      [selectedRun]="facade.viewedRun()"
+      [allRuns]="[]">
+    </app-run-metrics-strip>
+  </div>
 
   @if (facade.symbolsLoading()) {
     <div class="loading-overlay">
@@ -72,6 +80,7 @@
             [activeListFilter]="facade.activeListFilter()"
             [selectedSymbol]="facade.selectedSymbol()"
             [quickChartSymbol]="facade.quickChartSymbol()"
+            [isActionableRun]="facade.isActionableRun()"
             (opened)="onGroupExpandChanged({ group: group, expand: true })"
             (expandAll)="onGroupExpandChanged($event)"
             (rowSelect)="onSymbolClick($event)"

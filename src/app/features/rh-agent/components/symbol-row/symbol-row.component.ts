@@ -42,6 +42,8 @@ export class SymbolRowComponent {
   expanded = input(false);
   symbolLists = input.required<Record<string, string[]>>();
   activeListFilter = input.required<RhSymbolListName | 'ALL'>();
+  /** When false, ACR mutation controls are disabled for this historical row. */
+  isActionableRun = input(true);
   readonly Status = RhReviewStatus;
   readonly ListName = RhSymbolListName;
 

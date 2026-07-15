@@ -6,6 +6,7 @@
     [status]="selectedSymbolStatus()"
     [activeList]="activeReviewList()"
     [viewportMode]="viewportMode()"
+    [isActionableRun]="isActionableRun()"
     (back)="goToSignalReview()"
     (history)="goToSignalHistory()"
     (accept)="onAcceptReview()"
@@ -17,6 +18,15 @@
     (listChange)="onListChange($event)"
     (modeChange)="toggleViewportMode()">
   </app-review-header>
+
+  @if (viewportMode() === 'signals') {
+    <div class="active-run-context">
+      <app-run-metrics-strip
+        [selectedRun]="groupStore.viewedRun()"
+        [allRuns]="[]">
+      </app-run-metrics-strip>
+    </div>
+  }
 
   <!-- Master-Detail Layout -->
   <div class="master-detail-container" [class.sidebar-collapsed]="uiStateService.sidebarCollapsed()">

@@ -22,6 +22,7 @@ import { SignalReviewFacade } from '../../stores/signal-review.facade';
 import { SignalReviewHeaderComponent } from '../../components/signal-review-header/signal-review-header.component';
 import { GroupPanelComponent } from '../../components/group-panel/group-panel.component';
 import { QuickChartsPanelComponent } from '../../components/quick-charts-panel/quick-charts-panel.component';
+import { RunMetricsStripComponent } from '../../components/run-metrics-strip/run-metrics-strip.component';
 
 @Component({
   selector: 'app-signal-review',
@@ -33,6 +34,7 @@ import { QuickChartsPanelComponent } from '../../components/quick-charts-panel/q
     SignalReviewHeaderComponent,
     GroupPanelComponent,
     QuickChartsPanelComponent,
+    RunMetricsStripComponent,
   ],
   templateUrl: './signal-review.component.html',
   styleUrl: './signal-review.component.scss',

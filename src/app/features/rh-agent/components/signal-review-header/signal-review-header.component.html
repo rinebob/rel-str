@@ -53,6 +53,7 @@
       Report
     </button>
     <button type="button" class="pill-btn small"
+      [disabled]="!isActionableRun()"
       (click)="clearReviewFlags.emit()"
       matTooltip="Clear review flags">
       <mat-icon>playlist_remove</mat-icon>

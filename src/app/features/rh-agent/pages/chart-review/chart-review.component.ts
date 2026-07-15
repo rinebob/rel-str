@@ -34,6 +34,7 @@ import { todayDate } from '../../utils/rh-agent.utils';
 import { SignalListComponent } from '../../components/signal-list/signal-list.component';
 import { SignalDetailComponent } from '../../components/signal-detail/signal-detail.component';
 import { ReviewHeaderComponent } from '../../components/review-header/review-header.component';
+import { RunMetricsStripComponent } from '../../components/run-metrics-strip/run-metrics-strip.component';
 import { NewSymbolsDialogService } from '../../services/new-symbols-dialog.service';
 
 @Component({
@@ -47,6 +48,7 @@ import { NewSymbolsDialogService } from '../../services/new-symbols-dialog.servi
     SignalListComponent,
     SignalDetailComponent,
     ReviewHeaderComponent,
+    RunMetricsStripComponent,
   ],
   templateUrl: './chart-review.component.html',
   styleUrl: './chart-review.component.scss',
@@ -105,6 +107,9 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     const symbol = this.selectedReviewSymbol();
     return symbol ? (this.triageStore.statuses()[symbol] ?? 'PENDING') : 'PENDING';
   });
+
+  /** Expose the actionable-run predicate from the group store for the template. */
+  readonly isActionableRun = this.groupStore.isActionableRun;
 
   constructor() {
     /**
@@ -165,6 +170,7 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
 
   /** Accept the currently selected review symbol and advance the queue. */
   onAcceptReview(): void {
+    if (!this.isActionableRun()) return;
     const symbol = this.selectedReviewSymbol();
     if (!symbol) return;
     this.triageStore.setStatus(symbol, RhReviewStatus.ACCEPT, this.currentMarketDate());
@@ -173,6 +179,7 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
 
   /** Watch the currently selected review symbol and advance the queue. */
   onWatchReview(): void {
+    if (!this.isActionableRun()) return;
     const symbol = this.selectedReviewSymbol();
     if (!symbol) return;
     this.triageStore.watchSymbol(symbol, this.currentMarketDate());
@@ -181,6 +188,7 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
 
   /** Reject the currently selected review symbol and advance the queue. */
   onRejectReview(): void {
+    if (!this.isActionableRun()) return;
     const symbol = this.selectedReviewSymbol();
     if (!symbol) return;
     this.triageStore.setStatus(symbol, RhReviewStatus.REJECT, this.currentMarketDate());
@@ -212,6 +220,7 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
 
   /** Flag a batch of found symbols for review and surface them in the left panel. */
   private addSymbolsToReview(symbols: string[]): void {
+    if (!this.isActionableRun()) return;
     this.triageStore.markGroupForReview(symbols);
     this.newlyAddedSymbols.update((existing) => Array.from(new Set([...existing, ...symbols])));
     if (!this.selectedReviewSymbol()) {

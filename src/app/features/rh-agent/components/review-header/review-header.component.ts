@@ -37,6 +37,8 @@ export class ReviewHeaderComponent {
   status = input('PENDING');
   activeList = input<string>(RhSymbolListName.NONE);
   viewportMode = input<ViewportMode>('signals');
+  /** When false, ACR and queue mutation controls are disabled for the viewed historical run. */
+  isActionableRun = input(true);
 
   back = output<void>();
   history = output<void>();

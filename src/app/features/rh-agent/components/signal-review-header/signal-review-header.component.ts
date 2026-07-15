@@ -65,6 +65,8 @@ export class SignalReviewHeaderComponent {
   loading = input(false);
   quickChartSymbol = input<string | null>(null);
   flatSymbols = input<string[]>([]);
+  /** When false, mutation actions in the header are disabled for the viewed historical run. */
+  isActionableRun = input(true);
 
   back = output<void>();
   goToReview = output<void>();

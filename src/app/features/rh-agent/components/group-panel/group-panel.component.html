@@ -30,6 +30,7 @@
         [expanded]="expanded()"
         [symbolLists]="symbolLists()"
         [activeListFilter]="activeListFilter()"
+        [isActionableRun]="isActionableRun()"
         (select)="rowSelect.emit(row.profile.symbol)"
         (viewQuickCharts)="rowViewQuickCharts.emit($event)"
         (markForReview)="rowMarkForReview.emit($event)"

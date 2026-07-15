@@ -26,6 +26,7 @@ import { Router } from '@angular/router';
 
 import { RhAgentTriageStore } from '../../stores/rh-agent-triage.store';
 import { RhAgentGroupStore } from '../../stores/rh-agent-group.store';
+import { RhAgentStore } from '../../stores/rh-agent.store';
 
 import { todayDate, daysAgoPt } from '../../utils/rh-agent.utils';
 import {
@@ -61,6 +62,7 @@ import { TradeRowComponent, TradeRow } from '../../components/trade-row/trade-ro
 export class RhAgentOrderComponent implements OnInit {
   readonly triageStore = inject(RhAgentTriageStore);
   readonly groupStore = inject(RhAgentGroupStore);
+  readonly agentStore = inject(RhAgentStore);
   readonly tradeService = inject(RobinhoodTradeService);
   readonly snackBar = inject(MatSnackBar);
   readonly uiState = inject(UiStateService);
@@ -83,14 +85,21 @@ export class RhAgentOrderComponent implements OnInit {
   /** Whether a trade batch has already been generated. */
   readonly hasGeneratedBatch = computed(() => !!this.generatedBatch());
 
-  private currentMarketDate(): string {
-    return this.groupStore.activeRunMarketDate() ?? todayDate();
+  /** Order always operates on the latest completed run, regardless of the currently viewed run. */
+  readonly orderMarketDate = computed(() => this.agentStore.latestCompletedRun()?.marketDate ?? null);
+
+  /** True when the latest completed run is known and actionable. */
+  readonly isActionableRun = computed(() => !!this.orderMarketDate());
+
+  private currentMarketDate(): string | null {
+    return this.orderMarketDate();
   }
 
   /** Initialize the page and build trade rows from accepted symbols. */
   ngOnInit(): void {
     this.uiState.setFullscreen(true);
     const marketDate = this.currentMarketDate();
+    if (!marketDate) return;
     this.triageStore.loadPersistedDecisions(daysAgoPt(30), marketDate, marketDate);
     this.initializeTradeRows();
   }
@@ -142,7 +151,9 @@ export class RhAgentOrderComponent implements OnInit {
 
   /** Remove a symbol from the order page: reset ACR to PENDING and re-flag for review. */
   onRemoveSymbol(symbol: string): void {
-    this.triageStore.resetSymbol(symbol, this.currentMarketDate());
+    const marketDate = this.currentMarketDate();
+    if (!marketDate) return;
+    this.triageStore.resetSymbol(symbol, marketDate);
     this.triageStore.markForReview(symbol);
     this.tradeRows.update((rows) => rows.filter((r) => r.symbol !== symbol));
   }
