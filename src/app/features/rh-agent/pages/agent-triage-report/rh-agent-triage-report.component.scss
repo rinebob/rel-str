@@ -104,7 +104,7 @@
   &.status-exclude { background: var(--mat-sys-error); }
   &.status-low-tradability { background: var(--mat-sys-warning); }
   &.status-watch { background: var(--mat-sys-primary); }
-  &.status-elevate { background: var(--mat-sys-tertiary); }
+  &.status-executed { background: var(--mat-sys-tertiary); }
 }
 
 .badge {
@@ -122,7 +122,7 @@
   &.status-exclude { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
   &.status-low-tradability { background: var(--mat-sys-warning-container); color: var(--mat-sys-on-warning-container); }
   &.status-watch { background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container); }
-  &.status-elevate { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
+  &.status-executed { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
 }
 
 .loading-overlay,

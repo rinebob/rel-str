@@ -6,14 +6,6 @@
   [class.symbol-selected]="isSelected()"
   [class.has-signal]="row().hasSignal"
   [expanded]="expanded()"
-  [class.status-review]="row().reviewStatus === Status.REVIEW"
-  [class.status-accept]="row().reviewStatus === Status.ACCEPT"
-  [class.status-consider]="row().reviewStatus === Status.CONSIDER"
-  [class.status-reject]="row().reviewStatus === Status.REJECT"
-  [class.status-exclude]="row().reviewStatus === Status.EXCLUDE"
-  [class.status-low-tradability]="row().reviewStatus === Status.LOW_TRADABILITY"
-  [class.status-watch]="row().reviewStatus === Status.WATCH"
-  [class.status-elevate]="row().reviewStatus === Status.ELEVATE"
   (opened)="select.emit()">
 
   <mat-expansion-panel-header class="symbol-header">

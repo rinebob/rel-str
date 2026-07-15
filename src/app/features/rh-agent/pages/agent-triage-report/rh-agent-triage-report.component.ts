@@ -1,8 +1,8 @@
 /**
  * RH Agent Triage Report Component
  *
- * Lists all PACR decisions from Firestore with filtering by date
- * range and status. Supports CSV export.
+ * Lists durable occurrence-level decisions from Firestore with filtering by
+ * market-date range and decision type. Supports CSV export.
  *
  * URL: /rh-agent-triage-report
  */
@@ -28,9 +28,17 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatTableModule } from '@angular/material/table';
 import { Router } from '@angular/router';
 
-import { RhAgentTriageService, RhTriageDecision } from '../../services/rh-agent-triage.service';
-import { RhReviewStatus, ALL_REVIEW_STATUSES, StatusCounts } from '../../common/rh-agent.constants';
 import { UiStateService } from '../../../../core/services/ui-state.service';
+import { RhAgentReviewDecision } from '../../common/rh-agent.constants';
+import { RhAgentOccurrenceDecisionService } from '../../services/rh-agent-occurrence-decision.service';
+import { RhAgentOccurrenceDecision, DurableDecisionType } from '../../services/rh-agent.types';
+
+type DecisionCounts = Record<DurableDecisionType, number>;
+
+const DURABLE_DECISION_STATUSES: DurableDecisionType[] = [
+  RhAgentReviewDecision.ACCEPT,
+  RhAgentReviewDecision.REJECT,
+];
 
 @Component({
   selector: 'app-rh-agent-triage-report',
@@ -53,11 +61,11 @@ import { UiStateService } from '../../../../core/services/ui-state.service';
   styleUrl: './rh-agent-triage-report.component.scss',
 })
 export class RhAgentTriageReportComponent implements OnInit {
-  readonly triageService = inject(RhAgentTriageService);
+  readonly occurrenceService = inject(RhAgentOccurrenceDecisionService);
   readonly uiState = inject(UiStateService);
   private readonly router = inject(Router);
 
-  readonly allStatuses = ALL_REVIEW_STATUSES;
+  readonly allStatuses = DURABLE_DECISION_STATUSES;
   readonly displayedColumns = ['date', 'symbol', 'status', 'source', 'notes'];
 
   /** Start of date range (defaults to 30 days ago). */
@@ -65,36 +73,28 @@ export class RhAgentTriageReportComponent implements OnInit {
   /** End of date range (defaults to today). */
   readonly endDate = signal<Date>(this.today());
   /** Selected status filter (empty = all). */
-  readonly selectedStatuses = signal<Set<RhReviewStatus>>(new Set());
+  readonly selectedStatuses = signal<Set<DurableDecisionType>>(new Set());
   /** Loading state. */
   readonly loading = signal(false);
   /** Error message. */
   readonly error = signal<string | null>(null);
-  /** Raw decisions loaded from Firestore. */
-  readonly decisions = signal<RhTriageDecision[]>([]);
+  /** Raw occurrence decisions loaded from Firestore. */
+  readonly decisions = signal<RhAgentOccurrenceDecision[]>([]);
 
   /** Decisions filtered by selected status. */
   readonly filteredDecisions = computed(() => {
     const selected = this.selectedStatuses();
     if (selected.size === 0) return this.decisions();
-    return this.decisions().filter((d) => selected.has(d.status));
+    return this.decisions().filter((d) => selected.has(d.decisionType));
   });
 
   /** Count of decisions per status. */
-  readonly statusCounts = computed((): StatusCounts => {
-    const counts: StatusCounts = {
-      PENDING: 0,
-      REVIEW: 0,
-      ACCEPT: 0,
-      CONSIDER: 0,
-      REJECT: 0,
-      EXCLUDE: 0,
-      LOW_TRADABILITY: 0,
-      WATCH: 0,
-      ELEVATE: 0,
-    };
+  readonly statusCounts = computed((): DecisionCounts => {
+    const counts = Object.fromEntries(
+      DURABLE_DECISION_STATUSES.map((s) => [s, 0])
+    ) as DecisionCounts;
     for (const d of this.decisions()) {
-      counts[d.status] = (counts[d.status] ?? 0) + 1;
+      counts[d.decisionType] = (counts[d.decisionType] ?? 0) + 1;
     }
     return counts;
   });
@@ -110,7 +110,7 @@ export class RhAgentTriageReportComponent implements OnInit {
     this.loading.set(true);
     this.error.set(null);
 
-    this.triageService
+    this.occurrenceService
       .loadDecisionsForDateRange(this.toIsoDate(this.startDate()), this.toIsoDate(this.endDate()))
       .subscribe({
         next: (decisions) => {
@@ -126,7 +126,7 @@ export class RhAgentTriageReportComponent implements OnInit {
   }
 
   /** Toggle inclusion of a status in the filter chips. */
-  toggleStatus(status: RhReviewStatus): void {
+  toggleStatus(status: DurableDecisionType): void {
     const next = new Set(this.selectedStatuses());
     if (next.has(status)) {
       next.delete(status);
@@ -137,18 +137,18 @@ export class RhAgentTriageReportComponent implements OnInit {
   }
 
   /** Whether a status is currently selected in the filter. */
-  isStatusSelected(status: RhReviewStatus): boolean {
+  isStatusSelected(status: DurableDecisionType): boolean {
     return this.selectedStatuses().has(status);
   }
 
   /** Total decisions for a given status in the loaded range. */
-  countForStatus(status: RhReviewStatus): number {
+  countForStatus(status: DurableDecisionType): number {
     return this.statusCounts()[status] ?? 0;
   }
 
-  /** CSS class name derived from a status value (e.g., 'low-tradability'). */
-  cssClassForStatus(status: RhReviewStatus): string {
-    return status.toLowerCase().replace('_', '-');
+  /** CSS class name derived from a status value (e.g., 'reject'). */
+  cssClassForStatus(status: DurableDecisionType): string {
+    return status.toLowerCase().replace(/_/g, '-');
   }
 
   /** Update the start date and reload the report. */
@@ -173,10 +173,10 @@ export class RhAgentTriageReportComponent implements OnInit {
       headers.join(','),
       ...rows.map((d) =>
         [
-          d.date,
+          d.marketDate,
           d.symbol,
-          d.status,
-          d.source ?? '',
+          d.decisionType,
+          d.runId ?? '',
           this.escapeCsv(d.notes ?? ''),
           d.userId ?? '',
         ].join(',')
