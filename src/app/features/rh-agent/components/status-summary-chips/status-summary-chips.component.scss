@@ -16,6 +16,6 @@
   &.reject   { background: var(--mat-sys-error-container);     color: var(--mat-sys-on-error-container); }
   &.exclude  { background: var(--mat-sys-error-container);     color: var(--mat-sys-on-error-container); }
   &.low-tradability { background: var(--mat-sys-warning-container); color: var(--mat-sys-on-warning-container); }
-  &.watch    { background: var(--mat-sys-primary-container);   color: var(--mat-sys-on-primary-container); }
-  &.elevate  { background: var(--mat-sys-tertiary-container);  color: var(--mat-sys-on-tertiary-container); }
+  &.watch             { background: var(--mat-sys-primary-container);   color: var(--mat-sys-on-primary-container); }
+  &.executed          { background: var(--mat-sys-success-container);   color: var(--mat-sys-on-success-container); }
 }

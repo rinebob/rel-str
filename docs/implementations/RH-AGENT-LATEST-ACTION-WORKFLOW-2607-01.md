@@ -43,14 +43,14 @@ The following are session/UI state only and are not durable records:
 - Unreviewed signals.
 - Symbols opened for chart inspection.
 - Review queue membership.
-- Passes, soft skips, and other screening outcomes that are not an explicit `ACCEPTED` or `REJECTED` decision.
+- Passes, soft skips, and other screening outcomes that are not an explicit `ACCEPT` or `REJECT` decision.
 - Any ACR state that does not create a source-specific durable decision record.
 
 When the latest run changes, this transient state is discarded from active UI. No expiry job, historical triage queue, or cleanup write is required.
 
 ## Durable Decision and Trade Lifecycle
 
-An explicit user `ACCEPTED` or `REJECTED` decision is durable immediately, including during intraday runs. Do not wait for nightly processing: the source run and signal state at the time of the decision are required context.
+An explicit user `ACCEPT` or `REJECT` decision is durable immediately, including during intraday runs. Do not wait for nightly processing: the source run and signal state at the time of the decision are required context.
 
 ### Signal occurrence identity
 
@@ -60,23 +60,21 @@ A durable decision belongs to one specific signal occurrence, not to a symbol/da
 - The durable record snapshots `marketDate`, `barDate`, direction, signal status, relevant indicators, decision timestamp, and future user identity/notes.
 - Decisions from different runs on the same symbol/day are separate records and never overwrite one another.
 
-### ACCEPTED
+### ACCEPT
 
-`ACCEPTED` means: **this is a good setup worth keeping and potentially trading.**
+`ACCEPT` means: **this is a good setup worth keeping and potentially trading.**
 
 An accepted occurrence remains available to Order only while that same occurrence is still present in the latest completed run. If a newer latest run no longer contains it, the accepted record leaves active Order automatically but remains available for later analysis. An accepted occurrence that is executed remains durable as trade-management history.
 
-### REJECTED
+### REJECT
 
-`REJECTED` means: **the user evaluated this specific signal occurrence and decided it was not a worthwhile setup.**
+`REJECT` means: **the user evaluated this specific signal occurrence and decided it was not a worthwhile setup.**
 
 Rejected occurrences are historical decision data only. They do not create an active queue, do not carry forward as a rejection of a later occurrence, and are retained for future analysis, education, and possible workflow acceleration.
 
 ### Whipsaw reversals
 
-A later opposite-direction occurrence for the same symbol and timeframe is a new signal occurrence. It must not overwrite the earlier occurrence or its decision.
-
-When detected, link the later occurrence to the earlier occurrence with `relationship: WHIPSAW_REVERSAL` and a `previousOccurrenceId`. The user independently decides whether to accept or reject the new occurrence.
+Whipsaw reversal handling is deferred. A later opposite-direction occurrence for the same symbol and timeframe is treated as a new, independent signal occurrence. It must not overwrite the earlier occurrence or its decision. A dedicated `WHIPSAW_REVERSAL` decision type and linkage field will only be introduced when whipsaw tracking becomes a priority.
 
 ### EXECUTED
 
@@ -102,7 +100,7 @@ The pages are separate navigation steps but share one latest-run context. They d
 
 ## Non-Goals
 
-- Persisting every review, consider, or skip action; only explicit per-occurrence `ACCEPTED` and `REJECTED` decisions are durable.
+- Persisting every review, consider, or skip action; only explicit per-occurrence `ACCEPT` and `REJECT` decisions are durable.
 - Reopening an old run as an active ACR/order session.
 - Automatically carrying prior-run screening decisions into the latest run.
 - Treating raw signal storage as the user's trade-management record.
@@ -121,7 +119,7 @@ No code change is authorized by this document until this task list is reviewed. 
 
 ### Phase 2 — Make screening ephemeral
 
-- [x] **Remove durable screening behavior:** stop creating/loading/persisting dateless review flags and non-decision PACR screening state for the active workflow. Preserve immediate durable persistence only for source-specific `ACCEPTED` and `REJECTED` decisions.
+- [x] **Remove durable screening behavior:** stop creating/loading/persisting dateless review flags and non-decision PACR screening state for the active workflow. Preserve immediate durable persistence only for source-specific `ACCEPT` and `REJECT` decisions.
 - [x] **In-memory triage state:** retain only the latest run's current symbol selection, chart-review queue membership, and temporary screening choices across normal page navigation.
 - [x] **Chart Review input:** populate Chart Review exclusively from the ephemeral selection made in Signal Review for the current latest run.
 - [x] **Historical decision guardrails:** disable only ACR, queue-entry, Order-mutation, and execution-mutation controls for an older occurrence. Keep historical signal/chart inspection and normal navigation, including access to Order, available.
@@ -129,17 +127,17 @@ No code change is authorized by this document until this task list is reviewed. 
 
 ### Phase 3 — Persist source-specific ACR decisions
 
-- [ ] **Decision schema:** define one durable occurrence-level record for each explicit `ACCEPTED` or `REJECTED` choice. It must snapshot/reference the source `runId`, `marketDate`, symbol, timeframe, direction, signal type, `barDate`, indicator payload, decision type, decision time, and user identity.
-- [ ] **Occurrence identity:** key decisions by `runId + symbol + timeframe + signalType`, never by symbol/date alone, so multiple intraday occurrences do not overwrite one another.
-- [ ] **Decision transitions:** make `Accept` and `Reject` persist immediately; do not persist skipped, merely reviewed, or `CONSIDER` state.
-- [ ] **Whipsaw linkage:** detect a later opposite-direction occurrence for the same symbol/timeframe and link it to the prior occurrence as `WHIPSAW_REVERSAL` without changing either decision.
-- [ ] **Order input:** make Order read accepted occurrences only while they remain present in the latest run; remove no-longer-current accepted occurrences from active Order without deleting their historical records.
-- [ ] **Accepted-not-executed state:** retain accepted setups that are never traded for setup-quality review and statistics, outside the active Order workflow.
-- [ ] **Firestore boundary:** add the collection constants, security rules, indexes, and service/store ownership for occurrence-level decisions in one focused change.
+- [x] **Decision schema:** define one durable occurrence-level record for each explicit `ACCEPT` or `REJECT` choice. It must snapshot/reference the source `runId`, `marketDate`, symbol, timeframe, direction, signal type, `barDate`, indicator payload, decision type, decision time, and user identity.
+- [x] **Occurrence identity:** key decisions by `runId + symbol + timeframe + signalType`, never by symbol/date alone, so multiple intraday occurrences do not overwrite one another.
+- [x] **Decision transitions:** make `Accept` and `Reject` persist immediately; do not persist skipped, merely reviewed, or `CONSIDER` state.
+- [ ] **Whipsaw linkage (deferred):** detect a later opposite-direction occurrence for the same symbol/timeframe and link it to the prior occurrence only when whipsaw tracking becomes a priority.
+- [x] **Order input:** make Order read accepted occurrences only while they remain present in the latest run; remove no-longer-current accepted occurrences from active Order without deleting their historical records.
+- [x] **Accepted-not-executed state:** retain accepted setups that are never traded for setup-quality review and statistics, outside the active Order workflow.
+- [x] **Firestore boundary:** add the collection constants, security rules, indexes, and service/store ownership for occurrence-level decisions in one focused change.
 
 ### Phase 4 — Add execution and trade management
 
-- [ ] **Execution transition:** add explicit `EXECUTED` behavior distinct from `ACCEPTED`; it occurs only after a real trade is placed.
+- [ ] **Execution transition:** add explicit `EXECUTED` behavior distinct from `ACCEPT`; it occurs only after a real trade is placed.
 - [ ] **Trade data model:** decide whether execution details live on the tracked-signal record or in a related trade record, then persist entry, size, stop, exit, and outcome data there.
 - [ ] **Trade-management views:** define active versus closed-trade views without reintroducing historical runs as actionable signal queues.
 

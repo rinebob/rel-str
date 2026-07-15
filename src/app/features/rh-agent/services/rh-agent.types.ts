@@ -5,6 +5,8 @@
  * can share them without circular dependencies.
  */
 
+import { RhAgentReviewDecision } from '../common/rh-agent.constants';
+
 /**
  * Cron expression for the RH Agent daily scheduler (UTC).
  * Must stay in sync with functions/src/rh-agent-cloud-function/rh-agent-trigger.ts
@@ -98,6 +100,42 @@ export interface RhAgentSignalItem {
   signalType: string;
   status: 'INTERIM' | 'CONFIRMED';
   indicators: Record<string, number | string | null>;
+}
+
+/** Subset of review decisions that are persisted as durable occurrence decisions. */
+export type DurableDecisionType =
+  | RhAgentReviewDecision.ACCEPT
+  | RhAgentReviewDecision.REJECT;
+
+export interface RhAgentOccurrenceDecision {
+  /** Stable identity for the decision doc. */
+  id: string;
+  /** User who made the decision. Optional when the object is built optimistically; the service stamps it. */
+  userId?: string;
+  /** Source run that produced the occurrence. */
+  runId: string;
+  /** Market date of the source run. */
+  marketDate: string;
+  /** Symbol ticker. */
+  symbol: string;
+  /** Timeframe of the signal: D or W. */
+  timeframe: 'D' | 'W';
+  /** LONG or SHORT direction of the signal. */
+  direction: SignalDirection;
+  /** Concrete signal type (e.g., D_ZONE_V1_UPTICK). */
+  signalType: string;
+  /** Bar date that fired the signal. */
+  barDate: string;
+  /** Decision type. */
+  decisionType: DurableDecisionType;
+  /** Timestamp when the user decision was recorded. */
+  decidedAt: string;
+  /** Whether this decision still appears in the latest completed run. */
+  isCurrentInLatestRun: boolean;
+  /** Optional user-facing notes. */
+  notes?: string;
+  /** Indicator payload snapshot from the source signal. */
+  indicators?: Record<string, number | string | null>;
 }
 
 export interface ManualRunRequest {

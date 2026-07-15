@@ -6,7 +6,7 @@
  */
 
 /** Daily PACR review status for a symbol. */
-export enum RhReviewStatus {
+export enum RhAgentReviewDecision {
   PENDING        = 'PENDING',
   REVIEW         = 'REVIEW',
   ACCEPT         = 'ACCEPT',
@@ -15,20 +15,20 @@ export enum RhReviewStatus {
   EXCLUDE        = 'EXCLUDE',
   LOW_TRADABILITY = 'LOW_TRADABILITY',
   WATCH          = 'WATCH',
-  ELEVATE        = 'ELEVATE',
+  EXECUTED       = 'EXECUTED',
 }
 
 /** All PACR review statuses in display order. */
-export const ALL_REVIEW_STATUSES: RhReviewStatus[] = [
-  RhReviewStatus.PENDING,
-  RhReviewStatus.REVIEW,
-  RhReviewStatus.ACCEPT,
-  RhReviewStatus.CONSIDER,
-  RhReviewStatus.REJECT,
-  RhReviewStatus.EXCLUDE,
-  RhReviewStatus.LOW_TRADABILITY,
-  RhReviewStatus.WATCH,
-  RhReviewStatus.ELEVATE,
+export const ALL_REVIEW_STATUSES: RhAgentReviewDecision[] = [
+  RhAgentReviewDecision.PENDING,
+  RhAgentReviewDecision.REVIEW,
+  RhAgentReviewDecision.ACCEPT,
+  RhAgentReviewDecision.CONSIDER,
+  RhAgentReviewDecision.REJECT,
+  RhAgentReviewDecision.EXCLUDE,
+  RhAgentReviewDecision.LOW_TRADABILITY,
+  RhAgentReviewDecision.WATCH,
+  RhAgentReviewDecision.EXECUTED,
 ];
 
 /** Concrete count shape so templates can use dot access (e.g. counts.REVIEW). */
@@ -41,7 +41,7 @@ export type StatusCounts = {
   EXCLUDE: number;
   LOW_TRADABILITY: number;
   WATCH: number;
-  ELEVATE: number;
+  EXECUTED: number;
 };
 
 /** Canonical names for the built-in user-managed symbol lists. */
