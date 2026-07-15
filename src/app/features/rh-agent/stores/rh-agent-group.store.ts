@@ -33,9 +33,10 @@ import { RhAgentStore } from './rh-agent.store';
 import { RhAgentTriageStore } from './rh-agent-triage.store';
 import { RhAgentSymbolListStore } from './rh-agent-symbol-list.store';
 import { RhAgentSymbolHistoryStore } from './rh-agent-symbol-history.store';
+import { RhAgentOccurrenceDecisionStore } from './rh-agent-occurrence-decision.store';
 import {
   GroupDimension,
-  RhReviewStatus,
+  RhAgentReviewDecision,
   SignalTimeframe,
   SignalDirection,
 } from '../common/rh-agent.constants';
@@ -43,7 +44,6 @@ import {
   buildFilteredCandidates,
   buildSymbolGroups,
   computeProfileCounts,
-  daysAgoPt,
   profileMatchesSignalFilter,
 } from '../utils/rh-agent.utils';
 import { SignalReviewUiStore } from './signal-review-ui.store';
@@ -59,7 +59,7 @@ export interface RhSymbolRow {
   hasSignal: boolean;
   signals?: RhAgentSignalItem[];
   signalsLoading?: boolean;
-  reviewStatus: RhReviewStatus;
+  reviewStatus: RhAgentReviewDecision;
 }
 
 /** A rendered group in the expansion panel list. */
@@ -129,14 +129,16 @@ export const RhAgentGroupStore = signalStore(
     snackBar = inject(MatSnackBar),
     destroyRef = inject(DestroyRef),
     triageStore = inject(RhAgentTriageStore),
+    occurrenceStore = inject(RhAgentOccurrenceDecisionStore),
     symbolListStore = inject(RhAgentSymbolListStore),
     historyStore = inject(RhAgentSymbolHistoryStore),
   ) => ({
-    /** Set the active run, clear in-memory triage state, load durable decisions, and reload symbols. */
+    /** Set the active run, clear in-memory triage state, load durable occurrence decisions, and reload symbols. */
     setActiveRun(runId: string, marketDate: string): void {
       patchState(state, { activeRunId: runId, _activeRunMarketDate: marketDate, signalSymbols: [], selectedSymbol: null });
       triageStore.resetForRun();
-      triageStore.loadPersistedDecisions(daysAgoPt(30), marketDate, marketDate);
+      occurrenceStore.clearDecisions();
+      occurrenceStore.loadDecisionsForRun(runId);
       this.loadSymbolsWithSignals();
     },
 
@@ -346,7 +348,7 @@ export const RhAgentGroupStore = signalStore(
     }),
   })),
 
-  withHooks((store, agentStore = inject(RhAgentStore), uiStore = inject(SignalReviewUiStore), triageStore = inject(RhAgentTriageStore)) => {
+  withHooks((store, agentStore = inject(RhAgentStore), uiStore = inject(SignalReviewUiStore), triageStore = inject(RhAgentTriageStore), occurrenceStore = inject(RhAgentOccurrenceDecisionStore)) => {
     /** Tracks the previous latest completed run ID to detect new-run transitions. */
     let previousLatestRunId: string | null = null;
 
@@ -363,6 +365,11 @@ export const RhAgentGroupStore = signalStore(
           previousLatestRunId = latestId;
 
           if (!latestId || !previousId || latestId === previousId) return;
+
+          // Durable decisions for the previous latest run are no longer current,
+          // regardless of which run is currently being viewed.
+          occurrenceStore.markRunNotCurrent(previousId);
+
           const viewedId = store.activeRunId();
           if (viewedId !== previousId) return;
 
@@ -371,6 +378,31 @@ export const RhAgentGroupStore = signalStore(
           uiStore.setAllExpanded(false, []);
           patchState(store, { selectedSymbol: null, quickChartSymbol: null });
           triageStore.clearEphemeralScreeningState();
+        });
+
+        effect(() => {
+          const runId = store.activeRunId();
+          const decisions = occurrenceStore.occurrenceDecisions();
+          if (!runId) return;
+
+          // Aggregate per-symbol status from possibly multiple occurrences.
+          // ACCEPT wins over REJECT.
+          const ranked = [
+            RhAgentReviewDecision.ACCEPT,
+            RhAgentReviewDecision.REJECT,
+          ];
+          const statusMap: Record<string, RhAgentReviewDecision> = {};
+          for (const decision of Object.values(decisions)) {
+            if (decision.runId !== runId) continue;
+            const current = statusMap[decision.symbol];
+            const next = decision.decisionType;
+            if (!current) {
+              statusMap[decision.symbol] = next;
+            } else if (ranked.indexOf(next) < ranked.indexOf(current)) {
+              statusMap[decision.symbol] = next;
+            }
+          }
+          triageStore.setStatuses(statusMap);
         });
       },
     };

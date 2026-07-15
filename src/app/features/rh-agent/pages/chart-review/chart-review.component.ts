@@ -22,12 +22,17 @@ import { MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
+import { Observable, of } from 'rxjs';
 
 import { Firestore, doc, getDoc } from '@angular/fire/firestore';
+import type { RhAgentSignalItem } from '../../services/rh-agent.types';
 import { RhAgentTriageStore } from '../../stores/rh-agent-triage.store';
+import { RhAgentOccurrenceDecisionStore } from '../../stores/rh-agent-occurrence-decision.store';
 import { RhAgentGroupStore } from '../../stores/rh-agent-group.store';
 import { RhAgentSymbolListStore } from '../../stores/rh-agent-symbol-list.store';
-import { RhReviewStatus, RhSymbolListName } from '../../common/rh-agent.constants';
+import { RhAgentSymbolHistoryStore } from '../../stores/rh-agent-symbol-history.store';
+import { RhAgentSignalService } from '../../services/rh-agent-signal.service';
+import { RhAgentReviewDecision, RhSymbolListName } from '../../common/rh-agent.constants';
 import { ChartReviewViewportService } from '../../services/chart-review-viewport.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { todayDate } from '../../utils/rh-agent.utils';
@@ -55,8 +60,11 @@ import { NewSymbolsDialogService } from '../../services/new-symbols-dialog.servi
 })
 export class ChartReviewComponent implements OnInit, OnDestroy {
   readonly triageStore = inject(RhAgentTriageStore);
+  readonly occurrenceStore = inject(RhAgentOccurrenceDecisionStore);
   readonly groupStore = inject(RhAgentGroupStore);
   readonly symbolListStore = inject(RhAgentSymbolListStore);
+  readonly historyStore = inject(RhAgentSymbolHistoryStore);
+  readonly signalService = inject(RhAgentSignalService);
   readonly viewportService = inject(ChartReviewViewportService);
   readonly uiStateService = inject(UiStateService);
   private readonly router = inject(Router);
@@ -161,6 +169,13 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     return this.groupStore.activeRunMarketDate() ?? todayDate();
   }
 
+  /** Return the current-run signal occurrences for a symbol, using the cache if available. */
+  private currentRunSignals(symbol: string): Observable<RhAgentSignalItem[]> {
+    const runId = this.groupStore.activeRunId();
+    if (!runId) return of([]);
+    return this.signalService.getCurrentRunSignalsForSymbol(symbol, runId, this.historyStore.signalHistoryCache());
+  }
+
   // --- Review queue mode (symbols with REVIEW status from grouped review) ---
 
   /** Select a symbol from the review queue. */
@@ -172,9 +187,15 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
   onAcceptReview(): void {
     if (!this.isActionableRun()) return;
     const symbol = this.selectedReviewSymbol();
+    const marketDate = this.currentMarketDate();
     if (!symbol) return;
-    this.triageStore.setStatus(symbol, RhReviewStatus.ACCEPT, this.currentMarketDate());
-    this.advanceReviewQueue(symbol);
+    this.currentRunSignals(symbol).subscribe((signals) => {
+      if (signals.length === 0) return;
+      const runId = this.groupStore.activeRunId()!;
+      this.occurrenceStore.acceptSignals(signals, runId, marketDate);
+      this.triageStore.setStatus(symbol, RhAgentReviewDecision.ACCEPT);
+      this.advanceReviewQueue(symbol);
+    });
   }
 
   /** Watch the currently selected review symbol and advance the queue. */
@@ -182,7 +203,7 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     if (!this.isActionableRun()) return;
     const symbol = this.selectedReviewSymbol();
     if (!symbol) return;
-    this.triageStore.watchSymbol(symbol, this.currentMarketDate());
+    this.triageStore.watchSymbol(symbol);
     this.advanceReviewQueue(symbol);
   }
 
@@ -190,9 +211,15 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
   onRejectReview(): void {
     if (!this.isActionableRun()) return;
     const symbol = this.selectedReviewSymbol();
+    const marketDate = this.currentMarketDate();
     if (!symbol) return;
-    this.triageStore.setStatus(symbol, RhReviewStatus.REJECT, this.currentMarketDate());
-    this.advanceReviewQueue(symbol);
+    this.currentRunSignals(symbol).subscribe((signals) => {
+      if (signals.length === 0) return;
+      const runId = this.groupStore.activeRunId()!;
+      this.occurrenceStore.rejectSignals(signals, runId, marketDate);
+      this.triageStore.setStatus(symbol, RhAgentReviewDecision.REJECT);
+      this.advanceReviewQueue(symbol);
+    });
   }
 
   /** Move the selection to the next symbol in the viewport after a decision. */

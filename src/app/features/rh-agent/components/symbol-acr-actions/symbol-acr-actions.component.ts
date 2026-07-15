@@ -7,7 +7,7 @@ import { Component, ChangeDetectionStrategy, booleanAttribute, input, output } f
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { RhReviewStatus } from '../../common/rh-agent.constants';
+import { RhAgentReviewDecision } from '../../common/rh-agent.constants';
 import { RhSymbolRow } from '../../stores/rh-agent-group.store';
 
 @Component({
@@ -21,7 +21,7 @@ export class SymbolAcrActionsComponent {
   row = input.required<RhSymbolRow>();
   /** When true, all ACR mutation buttons are disabled. */
   disabled = input(false, { transform: booleanAttribute });
-  readonly Status = RhReviewStatus;
+  readonly Status = RhAgentReviewDecision;
 
   markForReview = output<string>();
   accept = output<string>();

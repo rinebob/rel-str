@@ -12,12 +12,15 @@
  */
 import { computed, effect, inject, Injectable } from '@angular/core';
 import { Router } from '@angular/router';
+import { Observable, of } from 'rxjs';
 import { RhAgentGroupStore } from './rh-agent-group.store';
 import { RhAgentTriageStore } from './rh-agent-triage.store';
+import { RhAgentOccurrenceDecisionStore } from './rh-agent-occurrence-decision.store';
 import { RhAgentSymbolListStore } from './rh-agent-symbol-list.store';
 import { RhAgentSymbolHistoryStore } from './rh-agent-symbol-history.store';
 import { RhAgentStore } from './rh-agent.store';
 import { SignalReviewUiStore } from './signal-review-ui.store';
+import { RhAgentSignalService } from '../services/rh-agent-signal.service';
 import type { RhAgentSignalItem } from '../services/rh-agent.types';
 import { UiStateService } from '../../../core/services/ui-state.service';
 import { ScrollTargetService } from '../services/scroll-target.service';
@@ -26,6 +29,7 @@ import {
   RhSymbolListName,
   SignalTimeframe,
   SignalDirection,
+  RhAgentReviewDecision,
 } from '../common/rh-agent.constants';
 import type { RhAgentRun } from '../services/rh-agent.types';
 
@@ -33,8 +37,10 @@ import type { RhAgentRun } from '../services/rh-agent.types';
 export class SignalReviewFacade {
   private readonly groupStore = inject(RhAgentGroupStore);
   private readonly triageStore = inject(RhAgentTriageStore);
+  private readonly occurrenceStore = inject(RhAgentOccurrenceDecisionStore);
   private readonly symbolListStore = inject(RhAgentSymbolListStore);
   private readonly historyStore = inject(RhAgentSymbolHistoryStore);
+  private readonly signalService = inject(RhAgentSignalService);
   private readonly uiStore = inject(SignalReviewUiStore);
   private readonly agentStore = inject(RhAgentStore);
   private readonly uiState = inject(UiStateService);
@@ -64,7 +70,7 @@ export class SignalReviewFacade {
   /** Triage state. */
   readonly statusCounts = computed(() => this.triageStore.statusCounts());
   readonly reviewCount = computed(() => this.triageStore.reviewCount());
-  readonly acceptedCount = computed(() => this.triageStore.acceptedCount());
+  readonly acceptedCount = computed(() => this.occurrenceStore.acceptedCount());
 
   /** UI filter / expansion. */
   readonly signalFilter = computed(() => this.uiStore.signalFilter());
@@ -224,39 +230,53 @@ export class SignalReviewFacade {
     return fn();
   }
 
+  /** Return the current-run signal occurrences for a symbol, using the cache if available. */
+  private currentRunSignals(symbol: string): Observable<RhAgentSignalItem[]> {
+    const runId = this.groupStore.activeRunId();
+    if (!runId) return of([]);
+    return this.signalService.getCurrentRunSignalsForSymbol(symbol, runId, this.historyStore.signalHistoryCache());
+  }
+
   markForReview(symbol: string): void {
     this.runIfActionable(() => this.triageStore.markForReview(symbol));
   }
 
   acceptSymbol(symbol: string): void {
     this.runIfActionable(() => {
-      const date = this.groupStore.activeRunMarketDate();
-      if (!date) return;
-      this.triageStore.acceptSymbol(symbol, date);
+      const runId = this.groupStore.activeRunId();
+      const marketDate = this.groupStore.activeRunMarketDate();
+      if (!runId || !marketDate) return;
+      this.currentRunSignals(symbol).subscribe((signals) => {
+        if (signals.length === 0) return;
+        this.occurrenceStore.acceptSignals(signals, runId, marketDate);
+        this.triageStore.setStatus(symbol, RhAgentReviewDecision.ACCEPT);
+      });
     });
   }
 
   considerSymbol(symbol: string): void {
-    this.runIfActionable(() => {
-      const date = this.groupStore.activeRunMarketDate();
-      if (!date) return;
-      this.triageStore.considerSymbol(symbol, date);
-    });
+    this.runIfActionable(() => this.triageStore.considerSymbol(symbol));
   }
 
   rejectSymbol(symbol: string): void {
     this.runIfActionable(() => {
-      const date = this.groupStore.activeRunMarketDate();
-      if (!date) return;
-      this.triageStore.rejectSymbol(symbol, date);
+      const runId = this.groupStore.activeRunId();
+      const marketDate = this.groupStore.activeRunMarketDate();
+      if (!runId || !marketDate) return;
+      this.currentRunSignals(symbol).subscribe((signals) => {
+        if (signals.length === 0) return;
+        this.occurrenceStore.rejectSignals(signals, runId, marketDate);
+        this.triageStore.setStatus(symbol, RhAgentReviewDecision.REJECT);
+      });
     });
   }
 
   resetSymbol(symbol: string): void {
     this.runIfActionable(() => {
-      const date = this.groupStore.activeRunMarketDate();
-      if (!date) return;
-      this.triageStore.resetSymbol(symbol, date);
+      const runId = this.groupStore.activeRunId();
+      if (!runId) return;
+      this.occurrenceStore.resetSymbol(symbol, runId);
+      this.triageStore.setStatus(symbol, RhAgentReviewDecision.PENDING);
     });
   }
 
@@ -289,7 +309,7 @@ export class SignalReviewFacade {
   }
 
   goToOrder(): void {
-    if (this.triageStore.acceptedCount() === 0) return;
+    if (this.occurrenceStore.acceptedCount() === 0) return;
     this.router.navigate(['/rh-agent-order']);
   }
 

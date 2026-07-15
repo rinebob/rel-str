@@ -7,7 +7,7 @@
 import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { Firestore, collection, collectionData, query, where, doc, getDoc, getDocs, orderBy } from '@angular/fire/firestore';
-import { Observable, from, map } from 'rxjs';
+import { Observable, from, of, map, take } from 'rxjs';
 
 import {
   type RhAgentSymbolProfile,
@@ -118,6 +118,22 @@ export class RhAgentSignalService {
         return signals;
       })
     );
+  }
+
+  /**
+   * Signals for a specific run, preferring the in-memory history cache when it
+   * already contains signals for the requested symbol/run pair.
+   */
+  getCurrentRunSignalsForSymbol(
+    symbol: string,
+    runId: string,
+    historyCache: Record<string, RhAgentSignalItem[]>
+  ): Observable<RhAgentSignalItem[]> {
+    const runKey = `${symbol.toUpperCase()}::${runId}`;
+    if (historyCache[runKey]?.length) {
+      return of(historyCache[runKey]!);
+    }
+    return this.getSymbolSignalsForRun(symbol, runId).pipe(take(1));
   }
 
   /**
