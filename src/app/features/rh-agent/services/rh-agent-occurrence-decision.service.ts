@@ -16,7 +16,6 @@ import {
   query,
   where,
   writeBatch,
-  serverTimestamp,
   onSnapshot,
   Query,
   QueryDocumentSnapshot,
@@ -32,7 +31,7 @@ import {
   DurableDecisionType,
 } from './rh-agent.types';
 import { requireUserId, buildRhAgentOccurrenceDecisionId } from './rh-agent-firestore-helpers';
-import { RhAgentReviewDecision } from '../common/rh-agent.constants';
+import { RhAgentReviewDecision, SignalDirection, SignalTimeframe } from '../common/rh-agent.constants';
 
 export interface PersistOccurrenceDecisionInput {
   runId: string;
@@ -78,7 +77,7 @@ export class RhAgentOccurrenceDecisionService {
             isCurrentInLatestRun: true,
             notes: input.notes ?? null,
             indicators: input.signal.indicators ?? {},
-            updatedAt: serverTimestamp(),
+            updatedAt: nowIso,
           }, { merge: true })
           .commit();
       })),
@@ -112,7 +111,7 @@ export class RhAgentOccurrenceDecisionService {
             isCurrentInLatestRun: true,
             notes: null,
             indicators: signal.indicators ?? {},
-            updatedAt: serverTimestamp(),
+            updatedAt: nowIso,
           }, { merge: true });
         }
         await batch.commit();
@@ -122,7 +121,7 @@ export class RhAgentOccurrenceDecisionService {
   }
 
   /** Delete a decision for a specific occurrence. */
-  deleteDecision(runId: string, symbol: string, timeframe: string, signalType: string): Observable<void> {
+  deleteDecision(runId: string, symbol: string, timeframe: SignalTimeframe, signalType: string): Observable<void> {
     return this.deleteDecisionsBatch(runId, [{ symbol, timeframe, signalType }]);
   }
 
@@ -146,7 +145,7 @@ export class RhAgentOccurrenceDecisionService {
   /** Delete decisions for multiple occurrences of the same run. */
   deleteDecisionsBatch(
     runId: string,
-    keys: { symbol: string; timeframe: string; signalType: string }[]
+    keys: { symbol: string; timeframe: SignalTimeframe; signalType: string }[]
   ): Observable<void> {
     if (keys.length === 0) return of(undefined);
     return requireUserId(this.auth, this.injector).pipe(
@@ -216,30 +215,13 @@ export class RhAgentOccurrenceDecisionService {
         );
         const snapshot = await getDocs(q);
         if (snapshot.empty) return;
+        const nowIso = new Date().toISOString();
         const batch = writeBatch(this.firestore);
-        snapshot.docs.forEach((d) => batch.update(d.ref, { isCurrentInLatestRun: false, updatedAt: serverTimestamp() }));
+        snapshot.docs.forEach((d) => batch.update(d.ref, { isCurrentInLatestRun: false, updatedAt: nowIso }));
         await batch.commit();
       })),
       map(() => undefined)
     );
-  }
-
-  /**
-   * Mark the occurrence decisions with the given IDs as executed.
-   * The caller (the store) is responsible for deciding which decisions are
-   * eligible; this method performs the direct batch write by document ID.
-   */
-  markExecutedByIds(ids: string[]): Observable<void> {
-    if (ids.length === 0) return of(undefined);
-    return from(runInInjectionContext(this.injector, async () => {
-      const now = new Date().toISOString();
-      const batch = writeBatch(this.firestore);
-      for (const id of ids) {
-        const docRef = doc(this.firestore, Collection.RH_OCCURRENCE_DECISIONS, id);
-        batch.update(docRef, { executedAt: now, updatedAt: serverTimestamp() });
-      }
-      await batch.commit();
-    })).pipe(map(() => undefined));
   }
 
   /** Load occurrence decisions across a market-date range. */
@@ -293,36 +275,90 @@ export class RhAgentOccurrenceDecisionService {
   }
 
   private toDecisions(docs: QueryDocumentSnapshot<DocumentData>[]): RhAgentOccurrenceDecision[] {
-    return docs
-      .map((d) => {
-        const data = d.data();
-        const decisionType = data['decisionType'];
-        if (!isDurableDecisionType(decisionType)) {
-          console.warn('[OccurrenceDecisionService] Skipping decision with invalid decisionType:', d.id, decisionType);
-          return null;
-        }
-        return {
-          id: d.id,
-          userId: data['userId'] ?? '',
-          runId: data['runId'] ?? '',
-          marketDate: data['marketDate'] ?? '',
-          symbol: data['symbol'] ?? '',
-          timeframe: data['timeframe'] ?? 'D',
-          direction: data['direction'] ?? 'LONG',
-          signalType: data['signalType'] ?? '',
-          barDate: data['barDate'] ?? '',
-          decisionType,
-          decidedAt: data['decidedAt'] ?? '',
-          executedAt: data['executedAt'] ?? undefined,
-          isCurrentInLatestRun: data['isCurrentInLatestRun'] ?? false,
-          notes: data['notes'] ?? undefined,
-          indicators: data['indicators'] ?? {},
-        } as RhAgentOccurrenceDecision;
-      })
-      .filter((d): d is RhAgentOccurrenceDecision => d !== null);
+    return docs.map((d) => parseOccurrenceDecision(d.data(), d.id));
   }
 }
 
 function isDurableDecisionType(value: unknown): value is DurableDecisionType {
   return value === RhAgentReviewDecision.ACCEPT || value === RhAgentReviewDecision.REJECT;
+}
+
+function isIndicatorRecord(value: unknown): value is Record<string, number | string | null> {
+  if (!value || typeof value !== 'object') return false;
+  return Object.entries(value as Record<string, unknown>).every(
+    ([, v]) => v === null || typeof v === 'number' || typeof v === 'string'
+  );
+}
+
+function parseOccurrenceDecision(data: DocumentData, id: string): RhAgentOccurrenceDecision {
+  const requireString = (field: string) => {
+    const value = data[field];
+    if (typeof value !== 'string' || value.length === 0) {
+      throw new Error(`[OccurrenceDecisionService] Decision doc ${id} is missing or invalid required field "${field}"`);
+    }
+  };
+  const optionalString = (field: string) => {
+    const value = data[field];
+    if (value !== undefined && (typeof value !== 'string' || value.length === 0)) {
+      throw new Error(`[OccurrenceDecisionService] Decision doc ${id} has invalid optional field "${field}"`);
+    }
+  };
+
+  requireString('runId');
+  requireString('marketDate');
+  requireString('symbol');
+  requireString('signalType');
+  requireString('barDate');
+  requireString('decidedAt');
+
+  const timeframe = data['timeframe'];
+  if (timeframe !== SignalTimeframe.DAILY && timeframe !== SignalTimeframe.WEEKLY) {
+    throw new Error(`[OccurrenceDecisionService] Decision doc ${id} has invalid "timeframe": ${String(timeframe)}`);
+  }
+
+  const direction = data['direction'];
+  if (direction !== SignalDirection.LONG && direction !== SignalDirection.SHORT) {
+    throw new Error(`[OccurrenceDecisionService] Decision doc ${id} has invalid "direction": ${String(direction)}`);
+  }
+
+  const decisionType = data['decisionType'];
+  if (!isDurableDecisionType(decisionType)) {
+    throw new Error(`[OccurrenceDecisionService] Decision doc ${id} has invalid "decisionType": ${String(decisionType)}`);
+  }
+
+  const isCurrent = data['isCurrentInLatestRun'];
+  if (typeof isCurrent !== 'boolean') {
+    throw new Error(`[OccurrenceDecisionService] Decision doc ${id} has invalid "isCurrentInLatestRun": ${String(isCurrent)}`);
+  }
+
+  const executedAt = data['executedAt'];
+  if (executedAt !== undefined && (typeof executedAt !== 'string' || executedAt.length === 0)) {
+    throw new Error(`[OccurrenceDecisionService] Decision doc ${id} has invalid "executedAt"`);
+  }
+
+  optionalString('userId');
+  optionalString('notes');
+
+  const indicators = data['indicators'];
+  if (indicators !== undefined && !isIndicatorRecord(indicators)) {
+    throw new Error(`[OccurrenceDecisionService] Decision doc ${id} has invalid "indicators"`);
+  }
+
+  return {
+    id,
+    runId: data['runId'] as string,
+    marketDate: data['marketDate'] as string,
+    symbol: data['symbol'] as string,
+    timeframe,
+    direction,
+    signalType: data['signalType'] as string,
+    barDate: data['barDate'] as string,
+    decisionType,
+    decidedAt: data['decidedAt'] as string,
+    executedAt,
+    isCurrentInLatestRun: isCurrent,
+    userId: data['userId'] as string | undefined,
+    notes: data['notes'] as string | undefined,
+    indicators: indicators as Record<string, number | string | null> | undefined,
+  };
 }

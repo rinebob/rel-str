@@ -158,8 +158,8 @@ export const RhAgentGroupStore = signalStore(
       patchState(state, { symbolsLoading: true, symbolsError: null });
 
       // Fetch both timeframes in parallel and merge
-      const w$ = signalService.getSymbolsWithSignals(runId, 'W');
-      const d$ = signalService.getSymbolsWithSignals(runId, 'D');
+      const w$ = signalService.getSymbolsWithSignals(runId, SignalTimeframe.WEEKLY);
+      const d$ = signalService.getSymbolsWithSignals(runId, SignalTimeframe.DAILY);
 
       forkJoin([w$, d$])
         .pipe(takeUntilDestroyed(destroyRef))

@@ -20,6 +20,7 @@ import {
   RH_AGENT_SCHEDULE_CRON,
   RH_AGENT_MAX_TRADE_AMOUNT,
 } from './rh-agent.types';
+import { SignalTimeframe } from '../common/rh-agent.constants';
 
 import { RhAgentRunService } from './rh-agent-run.service';
 import { RhAgentSignalService } from './rh-agent-signal.service';
@@ -66,7 +67,7 @@ export class RhAgentService {
     return this.runService.watchRecentRunsRealtime(count);
   }
 
-  getSymbolsWithSignals(runId: string, timeframe: 'W' | 'D'): Observable<RhAgentSymbolProfile[]> {
+  getSymbolsWithSignals(runId: string, timeframe: SignalTimeframe): Observable<RhAgentSymbolProfile[]> {
     return this.signalService.getSymbolsWithSignals(runId, timeframe);
   }
 

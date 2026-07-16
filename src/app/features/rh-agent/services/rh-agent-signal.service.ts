@@ -6,14 +6,102 @@
  */
 import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import { Functions, httpsCallable } from '@angular/fire/functions';
-import { Firestore, collection, collectionData, query, where, doc, getDoc, getDocs, orderBy } from '@angular/fire/firestore';
+import { Firestore, collection, collectionData, query, where, doc, getDoc, getDocs, orderBy, DocumentData } from '@angular/fire/firestore';
 import { Observable, from, of, map, take } from 'rxjs';
 
 import {
   type RhAgentSymbolProfile,
   type RhAgentSignalItem,
 } from './rh-agent.types';
+import { SignalDirection, SignalStatus, SignalTimeframe } from '../common/rh-agent.constants';
 import { mapSymbolProfile } from '../utils/rh-agent.utils';
+
+function isSignalTimeframe(value: unknown): value is SignalTimeframe {
+  return value === SignalTimeframe.DAILY || value === SignalTimeframe.WEEKLY;
+}
+
+function isSignalDirection(value: unknown): value is SignalDirection {
+  return value === SignalDirection.LONG || value === SignalDirection.SHORT;
+}
+
+function isIndicatorRecord(value: unknown): value is Record<string, number | string | null> {
+  if (!value || typeof value !== 'object') return false;
+  return Object.entries(value as Record<string, unknown>).every(
+    ([, v]) => v === null || typeof v === 'number' || typeof v === 'string'
+  );
+}
+
+interface SignalEntryContext {
+  id: string;
+  symbol: string;
+  runId: string;
+  /** Canonical market date for all signals in the source document. */
+  marketDate: string;
+  status: SignalStatus;
+}
+
+function collectSignalEntries(data: DocumentData): Record<string, unknown>[] {
+  const entries: Record<string, unknown>[] = [];
+
+  const signals = data['signals'];
+  if (signals && typeof signals === 'object') {
+    for (const value of Object.values(signals as Record<string, unknown>)) {
+      if (value && typeof value === 'object') {
+        entries.push(value as Record<string, unknown>);
+      }
+    }
+  }
+
+  for (const [key, value] of Object.entries(data)) {
+    if (key.startsWith('signals.') && value && typeof value === 'object') {
+      entries.push(value as Record<string, unknown>);
+    }
+  }
+
+  return entries;
+}
+
+function parseSignalEntry(raw: unknown, ctx: SignalEntryContext): RhAgentSignalItem | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const e = raw as Record<string, unknown>;
+  const signalType = e['signalType'];
+  const barDate = e['barDate'];
+  if (typeof signalType !== 'string' || typeof barDate !== 'string') return null;
+
+  const timeframe = e['timeframe'];
+  if (!isSignalTimeframe(timeframe)) {
+    throw new Error(`[RhAgentSignalService] Signal entry has invalid "timeframe": ${String(timeframe)}`);
+  }
+
+  const direction = e['direction'];
+  if (!isSignalDirection(direction)) {
+    throw new Error(`[RhAgentSignalService] Signal entry has invalid "direction": ${String(direction)}`);
+  }
+
+  const indicators = e['indicators'];
+  if (!isIndicatorRecord(indicators)) {
+    throw new Error(`[RhAgentSignalService] Signal entry has invalid "indicators"`);
+  }
+
+  const close = e['close'];
+  if (close !== undefined && typeof close !== 'number') {
+    throw new Error(`[RhAgentSignalService] Signal entry has invalid "close": ${String(close)}`);
+  }
+
+  return {
+    id: ctx.id,
+    symbol: ctx.symbol,
+    barDate,
+    marketDate: ctx.marketDate,
+    runId: ctx.runId,
+    timeframe,
+    direction,
+    signalType,
+    status: ctx.status,
+    indicators,
+    closePrice: close,
+  };
+}
 
 @Injectable({
   providedIn: 'root',
@@ -27,9 +115,9 @@ export class RhAgentSignalService {
    * Primary grouped review query — run-centric.
    * Returns symbol profiles with a signal produced by the given runId for the given timeframe.
    */
-  getSymbolsWithSignals(runId: string, timeframe: 'W' | 'D'): Observable<RhAgentSymbolProfile[]> {
+  getSymbolsWithSignals(runId: string, timeframe: SignalTimeframe): Observable<RhAgentSymbolProfile[]> {
     return from(runInInjectionContext(this.injector, () => {
-      const callable = httpsCallable<{ runId: string; timeframe: 'W' | 'D' }, { symbols: RhAgentSymbolProfile[] }>(this.functions, 'rhAgentGetSymbolsWithSignals');
+      const callable = httpsCallable<{ runId: string; timeframe: SignalTimeframe }, { symbols: RhAgentSymbolProfile[] }>(this.functions, 'rhAgentGetSymbolsWithSignals');
       return callable({ runId, timeframe });
     })).pipe(map((r) => r.data.symbols));
   }
@@ -90,30 +178,28 @@ export class RhAgentSignalService {
   getSymbolSignalsForRun(symbol: string, runId: string): Observable<RhAgentSignalItem[]> {
     const runDocRef = doc(this.firestore, 'rh-agent-symbols', symbol, 'run-ids', runId);
     return from(runInInjectionContext(this.injector, () => getDoc(runDocRef))).pipe(
-      map((snap: any) => {
+      map((snap) => {
         if (!snap.exists()) return [];
         const d = snap.data();
         const signals: RhAgentSignalItem[] = [];
-
-        // Signals are stored as dot-notation top-level fields: signals.D_ST_TREND_RIDER_V1_LONG etc.
-        for (const key of Object.keys(d)) {
-          if (!key.startsWith('signals.')) continue;
-          const entry = d[key];
-          if (!entry || typeof entry !== 'object') continue;
-          if (!entry['signalType']) continue;
-          signals.push({
-            id: entry['barDate'] ?? runId,
-            symbol,
-            barDate: entry['barDate'] ?? '',
-            marketDate: entry['marketDate'] ?? d['marketDate'] ?? '',
-            runId,
-            timeframe: entry['timeframe'] ?? 'D',
-            direction: entry['direction'] ?? 'LONG',
-            signalType: entry['signalType'],
-            status: entry['status'] ?? 'INTERIM',
-            indicators: entry['indicators'] ?? {},
-          });
+        const marketDate = d['marketDate'];
+        if (typeof marketDate !== 'string' || marketDate.length === 0) {
+          throw new Error(`[RhAgentSignalService] Run doc ${runId} for ${symbol} is missing marketDate`);
         }
+
+        for (const entry of collectSignalEntries(d)) {
+          const barDate = entry['barDate'];
+          if (typeof barDate !== 'string' || barDate.length === 0) continue;
+          const signal = parseSignalEntry(entry, {
+            id: barDate,
+            symbol,
+            runId,
+            marketDate,
+            status: SignalStatus.INTERIM,
+          });
+          if (signal) signals.push(signal);
+        }
+
         signals.sort((a, b) => b.barDate.localeCompare(a.barDate));
         return signals;
       })
@@ -151,43 +237,30 @@ export class RhAgentSignalService {
         const signals: RhAgentSignalItem[] = [];
         for (const docSnap of snapshot.docs) {
           const d = docSnap.data();
-
-          const rawSignalEntry = (entry: unknown): Partial<RhAgentSignalItem> | null => {
-            if (!entry || typeof entry !== 'object') return null;
-            const e = entry as Record<string, unknown>;
-            if (!e['signalType'] || typeof e['signalType'] !== 'string') return null;
-            return e as Partial<RhAgentSignalItem>;
-          };
-
-          const entries: Partial<RhAgentSignalItem>[] = [];
-
-          if (d['signals'] && typeof d['signals'] === 'object') {
-            for (const entry of Object.values(d['signals'])) {
-              const parsed = rawSignalEntry(entry);
-              if (parsed) entries.push(parsed);
-            }
+          const runId = typeof d['sourceRunId'] === 'string'
+            ? d['sourceRunId']
+            : typeof d['runId'] === 'string'
+              ? d['runId']
+              : undefined;
+          if (typeof runId !== 'string' || runId.length === 0) {
+            throw new Error(`[RhAgentSignalService] Signal history doc ${docSnap.id} for ${symbol} is missing runId`);
+          }
+          const marketDate = d['marketDate'];
+          if (typeof marketDate !== 'string' || marketDate.length === 0) {
+            throw new Error(`[RhAgentSignalService] Signal history doc ${docSnap.id} for ${symbol} is missing marketDate`);
           }
 
-          for (const key of Object.keys(d)) {
-            if (key.startsWith('signals.') && typeof d[key] === 'object') {
-              const parsed = rawSignalEntry(d[key]);
-              if (parsed) entries.push(parsed);
-            }
-          }
-
-          for (const entry of entries) {
-            signals.push({
+          for (const entry of collectSignalEntries(d)) {
+            const barDate = entry['barDate'];
+            if (typeof barDate !== 'string' || barDate.length === 0) continue;
+            const signal = parseSignalEntry(entry, {
               id: docSnap.id,
-              symbol: d['symbol'] ?? symbol,
-              barDate: entry.barDate ?? docSnap.id,
-              marketDate: entry.marketDate ?? '',
-              runId: d['sourceRunId'] ?? d['runId'] ?? '',
-              timeframe: entry.timeframe ?? (String(entry.signalType ?? '').startsWith('W_') ? 'W' : 'D'),
-              direction: (entry as any).action ?? entry.direction ?? 'LONG',
-              signalType: entry.signalType!,
-              status: 'CONFIRMED',
-              indicators: entry.indicators ?? {},
+              symbol,
+              runId,
+              marketDate,
+              status: SignalStatus.CONFIRMED,
             });
+            if (signal) signals.push(signal);
           }
         }
         signals.sort((a, b) => b.barDate.localeCompare(a.barDate));
