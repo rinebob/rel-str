@@ -11,6 +11,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { SignalDirection, RhAgentSignalItem } from '../../services/rh-agent.types';
+import { SignalTimeframe } from '../../common/rh-agent.constants';
 import { RhAgentSignalService } from '../../services/rh-agent-signal.service';
 
 export interface TradeRow {
@@ -18,8 +19,10 @@ export interface TradeRow {
   direction: SignalDirection;
   signalType: string;
   barDate: string;
+  timeframe: SignalTimeframe;
   positionSize: number;
   stopLossPercent: number;
+  entryPrice: number;
   enabled: boolean;
   executed: boolean;
   signal?: RhAgentSignalItem;
