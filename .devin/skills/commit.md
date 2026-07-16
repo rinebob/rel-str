@@ -97,6 +97,8 @@ functions/src/rh-agent-cloud-function/rh-agent-worker.ts
 - **Present the plan for approval.** Do not commit or push unless the user
   explicitly says to do so.
 - **Provide a separate `Files to stage` list alongside each message**, not inside the commit message body.
+- **Put both the commit message and the `Files to stage` list in fenced text boxes**
+  (e.g. triple backticks labeled `text`) so they can be copied as-is.
 - **Avoid combining unrelated refactorings.** If the branch contains both a rename
   and a logic fix, split them.
   - **Put the message body in bullet points.** Don't use paragraph style commit message bodies.  Always list the changes as bullet points.
