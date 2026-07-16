@@ -1,4 +1,4 @@
-import { SignalTimeframe, SignalDirection, SIGNAL_FILTER_ALL, RhAgentReviewDecision, GroupDimension } from '../common/rh-agent.constants';
+import { SignalTimeframe, SignalDirection, SignalStatus, SIGNAL_FILTER_ALL, RhAgentReviewDecision, GroupDimension } from '../common/rh-agent.constants';
 import type { RhAgentSignalItem, RhAgentSymbolProfile } from '../services/rh-agent.types';
 import type { RhSymbolGroup } from '../stores/rh-agent-group.store';
 import {
@@ -24,7 +24,7 @@ const mockSignal = (
   timeframe: SignalTimeframe.DAILY,
   direction: SignalDirection.LONG,
   signalType: 'D_ZONE_V1_UPTICK',
-  status: 'CONFIRMED',
+  status: SignalStatus.CONFIRMED,
   indicators: {},
   ...overrides,
 });

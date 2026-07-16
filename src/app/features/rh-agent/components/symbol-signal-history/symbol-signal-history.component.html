@@ -11,7 +11,7 @@
         <span class="sh-tf">{{ sig.timeframe }}</span>
         <span class="sh-type">{{ sig.signalType }}</span>
         <span class="sh-dir dir-{{ sig.direction.toLowerCase() }}">{{ sig.direction }}</span>
-        @if (sig.status === 'INTERIM') {
+        @if (sig.status === SignalStatus.INTERIM) {
           <span class="sh-status-interim">INTERIM</span>
         }
       </div>

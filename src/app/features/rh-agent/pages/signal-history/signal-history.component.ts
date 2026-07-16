@@ -28,6 +28,7 @@ import { detectZoneSignals } from '../../../shared/components/flex-chart/signals
 import { detectTrendStrengthSignals } from '../../../shared/components/flex-chart/signals/st-trend-strength.signals';
 import type { SignalMarker } from '../../../shared/components/flex-chart/signals/signal.types';
 import { SignalTableComponent, SignalTableRow } from '../../components/signal-table/signal-table.component';
+import { SignalDirection } from '../../common/rh-agent.constants';
 
 interface TimeframeSignals {
   interval: string;
@@ -56,6 +57,7 @@ interface TimeframeSignals {
 })
 export class SignalHistoryComponent {
   readonly StIndicator = StIndicator;
+  readonly SignalDirection = SignalDirection;
   private readonly dataService = inject(HeatmapChartDataService);
   private readonly router = inject(Router);
 
@@ -71,7 +73,7 @@ export class SignalHistoryComponent {
   sourceFilter = signal<StIndicator | null>(null);
 
   /** Active direction filter */
-  directionFilter = signal<'all' | 'long' | 'short'>('all');
+  directionFilter = signal<'all' | SignalDirection>('all');
 
   /** Active timeframe filter */
   timeframeFilter = signal<'all' | 'daily' | 'weekly' | 'monthly'>('all');
@@ -114,8 +116,8 @@ export class SignalHistoryComponent {
     const signals = this.filteredSignals();
     return {
       total: signals.length,
-      long: signals.filter(s => s.direction === 'long').length,
-      short: signals.filter(s => s.direction === 'short').length,
+      long: signals.filter(s => s.direction === SignalDirection.LONG).length,
+      short: signals.filter(s => s.direction === SignalDirection.SHORT).length,
       zone: signals.filter(s => s.source === StIndicator.ZONE).length,
       strength: signals.filter(s => s.source === StIndicator.TREND_STRENGTH).length,
     };

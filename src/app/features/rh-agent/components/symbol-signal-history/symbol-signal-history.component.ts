@@ -8,6 +8,7 @@ import { Component, ChangeDetectionStrategy, computed, input } from '@angular/co
 import { CommonModule } from '@angular/common';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { RhSymbolRow } from '../../stores/rh-agent-group.store';
+import { SignalStatus } from '../../common/rh-agent.constants';
 
 @Component({
   selector: 'app-symbol-signal-history',
@@ -18,6 +19,7 @@ import { RhSymbolRow } from '../../stores/rh-agent-group.store';
 })
 export class SymbolSignalHistoryComponent {
   row = input.required<RhSymbolRow>();
+  readonly SignalStatus = SignalStatus;
 
   readonly recentSignals = computed(() =>
     (this.row().signals ?? []).slice(0, 10)

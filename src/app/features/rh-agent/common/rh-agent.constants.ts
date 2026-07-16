@@ -5,6 +5,9 @@
  * stores, services, and components without circular dependencies.
  */
 
+import { SignalDirection } from '../../shared/constants/signal-direction';
+export { SignalDirection };
+
 /** Daily PACR review status for a symbol. */
 export enum RhAgentReviewDecision {
   PENDING        = 'PENDING',
@@ -82,11 +85,16 @@ export enum SignalTimeframe {
   WEEKLY = 'W',
 }
 
-/** Signal direction filter options. */
-export enum SignalDirection {
-  ALL = 'ALL',
-  LONG = 'LONG',
-  SHORT = 'SHORT',
+/** Signal persistence status. */
+export enum SignalStatus {
+  INTERIM = 'INTERIM',
+  CONFIRMED = 'CONFIRMED',
+}
+
+/** Persisted trade status. */
+export enum RhAgentTradeStatus {
+  OPEN = 'OPEN',
+  CLOSED = 'CLOSED',
 }
 
 /** Active timeframe + direction filter for the signal review page. */

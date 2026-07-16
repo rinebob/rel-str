@@ -13,12 +13,12 @@
     </thead>
     <tbody>
       @for (sig of signals(); track trackBy($index, sig)) {
-        <tr [class.long]="sig.direction === 'long'" [class.short]="sig.direction === 'short'">
+        <tr [class.long]="sig.direction === SignalDirection.LONG" [class.short]="sig.direction === SignalDirection.SHORT">
           <td class="col-date">{{ formatDate(sig.x) }}</td>
           <td class="col-tf">{{ sig.timeframe }}</td>
           <td class="col-dir">
-            <span class="dir-badge" [class]="'dir-' + sig.direction">
-              {{ sig.direction === 'long' ? '▲' : '▼' }} {{ sig.direction | uppercase }}
+            <span class="dir-badge" [class]="'dir-' + (sig.direction | lowercase)">
+              {{ sig.direction === SignalDirection.SHORT ? '▼' : '▲' }} {{ sig.direction | uppercase }}
             </span>
           </td>
           <td class="col-source">{{ sig.source === StIndicator.ZONE ? 'Zone' : 'Strength' }}</td>

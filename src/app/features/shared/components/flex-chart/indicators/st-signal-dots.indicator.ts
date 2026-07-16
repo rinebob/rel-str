@@ -19,6 +19,7 @@
 import type { IndicatorOption, PriceBar } from '../flex-chart.types';
 import { StIndicator } from '../flex-chart.types';
 import type { SignalMarker } from '../signals/signal.types';
+import { SignalDirection } from '../signals/signal.types';
 
 // =============================================================================
 // 1. CHART CONFIGURATION
@@ -79,7 +80,7 @@ export function computeSignalDots(
       histValue = strengthData[idx].y;
     }
 
-    if (sig.direction === 'long') {
+    if (sig.direction === SignalDirection.LONG) {
       dots.push({
         x: sig.x,
         y: histValue + DOT_OFFSET,

@@ -5,8 +5,8 @@
     @if (manualSymbol()) {
       <div class="tf-filter">
         <button mat-button class="tf-btn" [class.active]="timeframeFilter() === 'all'" (click)="timeframeFilter.set('all')">All</button>
-        <button mat-button class="tf-btn" [class.active]="timeframeFilter() === 'D'" (click)="timeframeFilter.set('D')">D</button>
-        <button mat-button class="tf-btn" [class.active]="timeframeFilter() === 'W'" (click)="timeframeFilter.set('W')">W</button>
+        <button mat-button class="tf-btn" [class.active]="timeframeFilter() === SignalTimeframe.DAILY" (click)="timeframeFilter.set(SignalTimeframe.DAILY)">D</button>
+        <button mat-button class="tf-btn" [class.active]="timeframeFilter() === SignalTimeframe.WEEKLY" (click)="timeframeFilter.set(SignalTimeframe.WEEKLY)">W</button>
       </div>
     }
     <span class="header-spacer"></span>
@@ -23,18 +23,18 @@
         [class.selected]="selectedSymbol() === item.symbol"
         (click)="onSelect(item.symbol)">
         <mat-icon matListItemIcon
-          [class]="'dir-' + (item.latestSignal ? item.latestSignal.direction : 'LONG').toLowerCase()">
-          {{ item.latestSignal && item.latestSignal.direction === 'SHORT' ? 'arrow_downward' : 'arrow_upward' }}
+          [class]="'dir-' + (item.latestSignal ? item.latestSignal.direction : SignalDirection.LONG).toLowerCase()">
+          {{ item.latestSignal && item.latestSignal.direction === SignalDirection.SHORT ? 'arrow_downward' : 'arrow_upward' }}
         </mat-icon>
         <div class="signal-main">
           @if (item.isHistoryRow && item.latestSignal) {
             <div class="signal-line-1">
               <span class="history-date">{{ item.latestSignal.barDate }}</span>
-              <span class="badge type" [class.long]="item.latestSignal.direction === 'LONG'" [class.short]="item.latestSignal.direction === 'SHORT'">
+              <span class="badge type" [class.long]="item.latestSignal.direction === SignalDirection.LONG" [class.short]="item.latestSignal.direction === SignalDirection.SHORT">
                 {{ item.latestSignal.signalType }}
               </span>
             </div>
-            <div class="signal-line-2">{{ item.latestSignal.timeframe === 'W' ? 'Weekly' : 'Daily' }} · {{ item.latestSignal.status }}</div>
+            <div class="signal-line-2">{{ item.latestSignal.timeframe === SignalTimeframe.WEEKLY ? 'Weekly' : 'Daily' }} · {{ item.latestSignal.status }}</div>
           } @else {
             <div class="signal-line-1">
               <span class="symbol">{{ item.symbol }}</span>
@@ -45,7 +45,7 @@
             @if (item.recentSignals.length > 0) {
               <div class="signal-trail">
                 @for (s of item.recentSignals; track s.barDate + s.signalType) {
-                  <span class="trail-item" [class.long]="s.direction === 'LONG'" [class.short]="s.direction === 'SHORT'">
+                  <span class="trail-item" [class.long]="s.direction === SignalDirection.LONG" [class.short]="s.direction === SignalDirection.SHORT">
                     <span class="trail-date">{{ s.barDate.slice(5) }}</span>
                     <span class="trail-type">{{ s.signalType }}</span>
                   </span>

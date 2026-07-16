@@ -8,9 +8,9 @@
  */
 
 import { StIndicator } from '../flex-chart.types';
+import { SignalDirection } from '../../../constants/signal-direction';
 
-/** Signal direction */
-export type SignalDirection = 'long' | 'short';
+export { SignalDirection };
 
 /** Signal source identifier */
 export type SignalSource = StIndicator.ZONE | StIndicator.ZONE_MTF | StIndicator.TREND_STRENGTH;

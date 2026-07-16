@@ -14,6 +14,7 @@
  */
 
 import type { SignalMarker, SignalDetector } from './signal.types';
+import { SignalDirection } from './signal.types';
 import { StIndicator } from '../flex-chart.types';
 
 const ZONE_LABELS: Record<number, string> = {
@@ -49,7 +50,7 @@ export const detectZoneSignals: SignalDetector = (indicatorData, bars) => {
       signals.push({
         x: barDate,
         y: bar.low,
-        direction: 'long',
+        direction: SignalDirection.LONG,
         source: StIndicator.ZONE,
         signalType: 'zone-up',
         reason: `Zone ${zoneLabel(prevZone)} → ${zoneLabel(currZone)}`,
@@ -60,7 +61,7 @@ export const detectZoneSignals: SignalDetector = (indicatorData, bars) => {
       signals.push({
         x: barDate,
         y: bar.high,
-        direction: 'short',
+        direction: SignalDirection.SHORT,
         source: StIndicator.ZONE,
         signalType: 'zone-down',
         reason: `Zone ${zoneLabel(prevZone)} → ${zoneLabel(currZone)}`,

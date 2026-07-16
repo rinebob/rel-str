@@ -53,8 +53,8 @@
         <span class="filter-label">Direction:</span>
         <span class="pill-group">
           <button class="pill-btn" [class.active]="directionFilter() === 'all'" (click)="directionFilter.set('all')">All</button>
-          <button class="pill-btn" [class.active]="directionFilter() === 'long'" (click)="directionFilter.set('long')">Long</button>
-          <button class="pill-btn" [class.active]="directionFilter() === 'short'" (click)="directionFilter.set('short')">Short</button>
+          <button class="pill-btn" [class.active]="directionFilter() === SignalDirection.LONG" (click)="directionFilter.set(SignalDirection.LONG)">Long</button>
+          <button class="pill-btn" [class.active]="directionFilter() === SignalDirection.SHORT" (click)="directionFilter.set(SignalDirection.SHORT)">Short</button>
         </span>
       </div>
 

@@ -13,6 +13,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { RhAgentSignalItem } from '../../services/rh-agent.types';
 import { RhAgentSignalService } from '../../services/rh-agent-signal.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
+import { SignalDirection, SignalTimeframe } from '../../common/rh-agent.constants';
 
 @Component({
   selector: 'app-signal-list',
@@ -31,6 +32,8 @@ import { UiStateService } from '../../../../core/services/ui-state.service';
 export class SignalListComponent {
   readonly signalService = inject(RhAgentSignalService);
   readonly uiStateService = inject(UiStateService);
+  readonly SignalDirection = SignalDirection;
+  readonly SignalTimeframe = SignalTimeframe;
 
   /** Currently selected symbol (passed in from parent) */
   selectedSymbol = input<string | null>(null);
@@ -49,8 +52,8 @@ export class SignalListComponent {
   /** Signal history cache keyed by symbol — reactive so items() computed re-runs on load */
   private signalHistoryCache = signal<Record<string, RhAgentSignalItem[]>>({});
 
-  /** Timeframe filter for history mode: 'all' | 'D' | 'W' */
-  timeframeFilter = signal<'all' | 'D' | 'W'>('all');
+  /** Timeframe filter for history mode: 'all' | daily | weekly */
+  timeframeFilter = signal<'all' | SignalTimeframe>('all');
 
   private listItems = viewChildren('listItem', { read: ElementRef });
 

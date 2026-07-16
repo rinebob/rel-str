@@ -5,7 +5,7 @@
  */
 import { Component, ChangeDetectionStrategy, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { SignalMarker } from '../../../shared/components/flex-chart/signals/signal.types';
+import { SignalMarker, SignalDirection } from '../../../shared/components/flex-chart/signals/signal.types';
 import { StIndicator } from '../../../shared/components/flex-chart/flex-chart.types';
 
 export interface SignalTableRow extends SignalMarker {
@@ -21,6 +21,7 @@ export interface SignalTableRow extends SignalMarker {
 })
 export class SignalTableComponent {
   readonly StIndicator = StIndicator;
+  readonly SignalDirection = SignalDirection;
   signals = input.required<SignalTableRow[]>();
 
   formatDate(date: Date): string {
