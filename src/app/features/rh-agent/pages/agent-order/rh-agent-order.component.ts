@@ -28,15 +28,23 @@ import { Router } from '@angular/router';
 
 import { RhAgentTriageStore } from '../../stores/rh-agent-triage.store';
 import { RhAgentOccurrenceDecisionStore } from '../../stores/rh-agent-occurrence-decision.store';
-import { RhAgentGroupStore } from '../../stores/rh-agent-group.store';
+import { RhAgentTradeStore } from '../../stores/rh-agent-trade.store';
+import { RhAgentExecutionService } from '../../services/rh-agent-execution.service';
 import { RhAgentStore } from '../../stores/rh-agent.store';
 
-import { RhAgentSignalItem, RH_AGENT_MAX_TRADE_AMOUNT } from '../../services/rh-agent.types';
-import { RhAgentReviewDecision } from '../../common/rh-agent.constants';
+import {
+  RhAgentSignalItem,
+  RhAgentOccurrenceDecision,
+  RH_AGENT_MAX_TRADE_AMOUNT,
+  SignalDirection,
+} from '../../services/rh-agent.types';
+import { RhAgentReviewDecision, SignalTimeframe } from '../../common/rh-agent.constants';
 import {
   RobinhoodTradeService,
   TradeBatch,
   TradePrompt,
+  TradeSide,
+  TradeOrderType,
 } from '../../../rs/services/robinhood-trade.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { TradeRowComponent, TradeRow } from '../../components/trade-row/trade-row.component';
@@ -62,7 +70,8 @@ import { TradeRowComponent, TradeRow } from '../../components/trade-row/trade-ro
 export class RhAgentOrderComponent implements OnInit {
   readonly triageStore = inject(RhAgentTriageStore);
   readonly occurrenceStore = inject(RhAgentOccurrenceDecisionStore);
-  readonly groupStore = inject(RhAgentGroupStore);
+  readonly tradeStore = inject(RhAgentTradeStore);
+  readonly executionService = inject(RhAgentExecutionService);
   readonly agentStore = inject(RhAgentStore);
   readonly tradeService = inject(RobinhoodTradeService);
   readonly snackBar = inject(MatSnackBar);
@@ -97,40 +106,52 @@ export class RhAgentOrderComponent implements OnInit {
   /** True when the latest completed run is known and actionable. */
   readonly isActionableRun = computed(() => !!this.orderMarketDate());
 
-  private currentMarketDate(): string | null {
-    return this.orderMarketDate();
-  }
-
   constructor() {
     // Keep trade rows in sync with active order symbols while preserving user edits for symbols still present.
     effect(() => this.syncTradeRowsWithActiveOrderSymbols());
   }
 
-  /** Initialize the page and load accepted current-run occurrences. */
+  /** Initialize the page and load accepted current-run occurrences and trades. */
   ngOnInit(): void {
     this.uiState.setFullscreen(true);
     const latestRun = this.agentStore.latestCompletedRun();
     if (!latestRun) return;
     this.occurrenceStore.loadDecisionsForRun(latestRun.id);
+    this.tradeStore.loadTradesForRun(latestRun.id);
   }
 
   /** Merge active order symbols with existing trade rows, preserving edits for symbols still present. */
   private syncTradeRowsWithActiveOrderSymbols(): void {
-    const symbols = this.occurrenceStore.activeOrderSymbols();
+    const decisions = this.occurrenceStore.activeOrderDecisions();
 
     const existing = untracked(() => this.tradeRows());
     const existingBySymbol = new Map(existing.map((r) => [r.symbol, r]));
 
+    const decisionBySymbol = new Map<string, RhAgentOccurrenceDecision>();
+    for (const d of decisions) {
+      const current = decisionBySymbol.get(d.symbol);
+      if (!current || d.barDate > current.barDate) {
+        decisionBySymbol.set(d.symbol, d);
+      }
+    }
+
+    const symbols = this.occurrenceStore.activeOrderSymbols();
     const next: TradeRow[] = symbols.map((symbol) => {
       const row = existingBySymbol.get(symbol);
       if (row) return row;
+      const decision = decisionBySymbol.get(symbol);
+      if (!decision) {
+        throw new Error(`[RhAgentOrderComponent] No accepted occurrence decision for symbol ${symbol}`);
+      }
       return {
         symbol,
-        direction: 'LONG' as const,
-        signalType: '',
-        barDate: '',
+        direction: decision.direction,
+        signalType: decision.signalType,
+        barDate: decision.barDate,
+        timeframe: decision.timeframe,
         positionSize: RH_AGENT_MAX_TRADE_AMOUNT,
         stopLossPercent: 8,
+        entryPrice: 0,
         enabled: true,
         executed: false,
       };
@@ -139,15 +160,14 @@ export class RhAgentOrderComponent implements OnInit {
     this.tradeRows.set(next);
   }
 
-  /** Update a trade row with the latest signal details from the backend. */
+  /** Update a trade row's cached signal and entry price from the backend. */
   onSignalLoaded(event: { symbol: string; signal: RhAgentSignalItem | null }): void {
     const latest = event.signal;
-    this.patchRow(event.symbol, {
-      signal: latest ?? undefined,
-      direction: latest?.direction ?? 'LONG',
-      signalType: latest?.signalType ?? '',
-      barDate: latest?.barDate ?? '',
-    });
+    const patch: Partial<TradeRow> = { signal: latest ?? undefined };
+    if (latest?.closePrice !== undefined && !Number.isNaN(latest.closePrice)) {
+      patch.entryPrice = latest.closePrice;
+    }
+    this.patchRow(event.symbol, patch);
   }
 
   /** Toggle whether a symbol is included in the generated trade batch. */
@@ -171,17 +191,70 @@ export class RhAgentOrderComponent implements OnInit {
   /** Mark the accepted occurrence decisions for a symbol as executed after a real trade is placed. */
   onMarkExecuted(symbol: string): void {
     const latestRun = this.agentStore.latestCompletedRun();
-    if (!latestRun) return;
-    this.occurrenceStore.markExecutedForSymbols(latestRun.id, [symbol]);
+    if (!latestRun?.marketDate) return;
+    const row = this.tradeRows().find((r) => r.symbol === symbol);
+    if (!row) return;
+    this.executeRows(latestRun.id, latestRun.marketDate, [row]);
   }
 
   /** Mark all enabled, unexecuted rows as executed. */
   onMarkAllExecuted(): void {
     const latestRun = this.agentStore.latestCompletedRun();
-    if (!latestRun) return;
-    const symbols = this.enabledUnexecutedRows().map((r) => r.symbol);
-    if (symbols.length === 0) return;
-    this.occurrenceStore.markExecutedForSymbols(latestRun.id, symbols);
+    if (!latestRun?.marketDate) return;
+    const rows = this.enabledUnexecutedRows();
+    if (rows.length === 0) return;
+    this.executeRows(latestRun.id, latestRun.marketDate, rows);
+  }
+
+  /** Execute the given rows: create trade records and mark their source decisions executed. */
+  private executeRows(runId: string, marketDate: string, rows: TradeRow[]): void {
+    if (!marketDate) {
+      console.warn('[RhAgentOrderComponent] Cannot execute without marketDate');
+      return;
+    }
+    const inputs = this.buildExecutionInputs(runId, rows);
+    if (inputs.length === 0) return;
+
+    this.executionService.executeTradeRows(runId, marketDate, inputs).subscribe({
+      next: ({ trades, decisionIds }) => {
+        this.tradeStore.addTrades(trades);
+        this.occurrenceStore.patchExecutedByIds(decisionIds);
+      },
+      error: (err: unknown) => {
+        console.error('[RhAgentOrderComponent] Failed to execute trades:', err);
+        const message = err instanceof Error ? err.message : String(err ?? 'Execution failed');
+        this.snackBar.open(message, 'Dismiss', { duration: 4000 });
+      },
+    });
+  }
+
+  /** Pair each row with its exact current-run ACCEPT occurrence decision. */
+  private buildExecutionInputs(
+    runId: string,
+    rows: TradeRow[]
+  ): { row: TradeRow; occurrenceDecisionId: string }[] {
+    const decisionsByKey = new Map<string, RhAgentOccurrenceDecision>();
+    for (const d of Object.values(this.occurrenceStore.occurrenceDecisions())) {
+      if (
+        d.runId === runId &&
+        d.decisionType === RhAgentReviewDecision.ACCEPT &&
+        d.isCurrentInLatestRun
+      ) {
+        decisionsByKey.set(`${d.symbol}:${d.timeframe}:${d.signalType}`, d);
+      }
+    }
+
+    const inputs: { row: TradeRow; occurrenceDecisionId: string }[] = [];
+    for (const row of rows) {
+      const key = `${row.symbol.toUpperCase()}:${row.timeframe}:${row.signalType}`;
+      const decision = decisionsByKey.get(key);
+      if (!decision) {
+        console.warn('[RhAgentOrderComponent] No matching decision for row:', row.symbol);
+        continue;
+      }
+      inputs.push({ row, occurrenceDecisionId: decision.id });
+    }
+    return inputs;
   }
 
   /** Remove a symbol from the order page: delete occurrence decisions and re-flag for review. */
@@ -211,9 +284,9 @@ export class RhAgentOrderComponent implements OnInit {
 
     const trades: TradePrompt[] = enabled.map((row) => ({
       symbol: row.symbol,
-      side: row.direction === 'SHORT' ? 'sell' : 'buy',
+      side: row.direction === SignalDirection.SHORT ? TradeSide.SELL : TradeSide.BUY,
       amount: row.positionSize,
-      orderType: 'market' as const,
+      orderType: TradeOrderType.MARKET,
       promptText: '',
     }));
 
@@ -234,9 +307,9 @@ export class RhAgentOrderComponent implements OnInit {
     if (!row.enabled) return;
     const trade = this.tradeService.generateTradePrompt(
       row.symbol,
-      row.direction === 'SHORT' ? 'sell' : 'buy',
+      row.direction === SignalDirection.SHORT ? TradeSide.SELL : TradeSide.BUY,
       row.positionSize,
-      'market'
+      TradeOrderType.MARKET
     );
     const success = await this.tradeService.copyToClipboard(trade.promptText);
     this.showCopyResult(success, `Copied: ${trade.side.toUpperCase()} $${trade.amount} ${trade.symbol}`);

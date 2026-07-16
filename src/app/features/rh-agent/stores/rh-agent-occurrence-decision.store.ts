@@ -86,23 +86,26 @@ export const RhAgentOccurrenceDecisionStore = signalStore(
       )
     );
 
-    const activeOrderSymbols = computed((): string[] =>
-      Array.from(
-        new Set(
-          Object.values(state.occurrenceDecisions())
-            .filter(
-              (d) =>
-                d.decisionType === RhAgentReviewDecision.ACCEPT &&
-                d.isCurrentInLatestRun &&
-                !d.executedAt
-            )
-            .map((d) => d.symbol)
+    const activeOrderDecisions = computed((): RhAgentOccurrenceDecision[] =>
+      Object.values(state.occurrenceDecisions())
+        .filter(
+          (d) =>
+            d.decisionType === RhAgentReviewDecision.ACCEPT &&
+            d.isCurrentInLatestRun &&
+            !d.executedAt
         )
-      )
+        .sort((a, b) => a.symbol.localeCompare(b.symbol))
+    );
+
+    const activeOrderSymbols = computed((): string[] =>
+      Array.from(new Set(activeOrderDecisions().map((d) => d.symbol)))
     );
 
     return {
       acceptedSymbols,
+
+      /** Accepted, current-run, unexecuted occurrence decisions. */
+      activeOrderDecisions,
 
       /** Accepted symbols that have not yet been executed, suitable for the active Order page. */
       activeOrderSymbols,
@@ -198,40 +201,22 @@ export const RhAgentOccurrenceDecisionStore = signalStore(
     },
 
     /**
-     * Mark accepted, current-run occurrence decisions for the given symbols as
-     * executed. Optimistically sets executedAt on the local cache and rolls back
-     * on service failure.
+     * Patch the local cache to reflect that the given occurrence decision IDs
+     * have been executed. Persistence is handled by the execution service; this
+     * method only updates the in-memory state.
      */
-    markExecutedForSymbols(runId: string, symbols: string[]): void {
-      if (symbols.length === 0) return;
-      const normalizedSymbols = symbols.map((s) => s.toUpperCase());
-      const symbolSet = new Set(normalizedSymbols);
-      const previousDecisions = state.occurrenceDecisions();
-      const next: Record<string, RhAgentOccurrenceDecision> = { ...previousDecisions };
+    patchExecutedByIds(ids: string[]): void {
+      if (ids.length === 0) return;
+      const decisions = state.occurrenceDecisions();
+      const next: Record<string, RhAgentOccurrenceDecision> = { ...decisions };
       const now = new Date().toISOString();
-      const idsToMark: string[] = [];
-      for (const [id, d] of Object.entries(previousDecisions)) {
-        if (
-          d.runId === runId &&
-          d.decisionType === RhAgentReviewDecision.ACCEPT &&
-          symbolSet.has(d.symbol) &&
-          d.isCurrentInLatestRun
-        ) {
+      for (const id of ids) {
+        const d = decisions[id];
+        if (d && !d.executedAt) {
           next[id] = { ...d, executedAt: now };
-          idsToMark.push(id);
         }
       }
-      if (idsToMark.length === 0) return;
       patchState(state, { occurrenceDecisions: next });
-
-      occurrenceService.markExecutedByIds(idsToMark).subscribe({
-        error: (err: unknown) => {
-          console.error('[OccurrenceDecisionStore] Failed to mark executed:', err);
-          const message = err instanceof Error ? err.message : String(err ?? 'Update failed');
-          patchState(state, { occurrenceDecisions: previousDecisions, decisionsError: message });
-          snackBar.open('Failed to mark executed — reverted', 'Dismiss', { duration: 4000 });
-        },
-      });
     },
 
     /** Mark every decision for the given source run as no longer current in the latest run. */

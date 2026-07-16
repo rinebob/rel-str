@@ -6,11 +6,21 @@
  */
 import { Injectable } from '@angular/core';
 
+export enum TradeSide {
+  BUY = 'buy',
+  SELL = 'sell',
+}
+
+export enum TradeOrderType {
+  MARKET = 'market',
+  LIMIT = 'limit',
+}
+
 export interface TradePrompt {
   symbol: string;
-  side: 'buy' | 'sell';
+  side: TradeSide;
   amount: number;
-  orderType: 'market' | 'limit';
+  orderType: TradeOrderType;
   limitPrice?: number;
   promptText: string;
   estimatedShares?: number;
@@ -34,9 +44,9 @@ export class RobinhoodTradeService {
    */
   generateTradePrompt(
     symbol: string,
-    side: 'buy' | 'sell',
+    side: TradeSide,
     amount: number,
-    orderType: 'market' | 'limit' = 'market',
+    orderType: TradeOrderType = TradeOrderType.MARKET,
     limitPrice?: number
   ): TradePrompt {
     const promptText = this.buildPrompt(symbol, side, amount, orderType, limitPrice);
@@ -48,7 +58,6 @@ export class RobinhoodTradeService {
       orderType,
       limitPrice,
       promptText,
-      estimatedShares: orderType === 'market' ? undefined : undefined
     };
   }
 
@@ -83,9 +92,9 @@ Please confirm each order after review and place them sequentially.`;
    */
   private buildPrompt(
     symbol: string,
-    side: 'buy' | 'sell',
+    side: TradeSide,
     amount: number,
-    orderType: 'market' | 'limit',
+    orderType: TradeOrderType,
     limitPrice?: number
   ): string {
     const lines = [
@@ -94,7 +103,7 @@ Please confirm each order after review and place them sequentially.`;
       `Order Type: ${orderType.toUpperCase()}`
     ];
 
-    if (orderType === 'limit' && limitPrice) {
+    if (orderType === TradeOrderType.LIMIT && limitPrice) {
       lines.push(`Limit Price: $${limitPrice.toFixed(2)}`);
     }
 
@@ -122,18 +131,17 @@ Please confirm each order after review and place them sequentially.`;
    */
   generateFromSignal(signal: {
     symbol: string;
-    action: 'buy' | 'sell';
+    action: TradeSide;
     allocation: number; // percentage of portfolio
-    portfolioValue?: number;
+    portfolioValue: number;
   }): TradePrompt {
-    const portfolioValue = signal.portfolioValue || 5000; // Default to Agentic account value
-    const amount = (portfolioValue * signal.allocation) / 100;
+    const amount = (signal.portfolioValue * signal.allocation) / 100;
 
     return this.generateTradePrompt(
       signal.symbol,
       signal.action,
       Math.round(amount),
-      'market'
+      TradeOrderType.MARKET
     );
   }
 }
