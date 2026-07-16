@@ -42,6 +42,8 @@ export class TradeRowComponent implements OnInit {
   maxPositionSize = input(100000);
   /** When false, mutation controls are disabled for this historical order row. */
   isActionableRun = input(true);
+  /** When true, execute controls are disabled because a batch is in flight. */
+  isExecuting = input(false);
 
   toggleEnabled = output<string>();
   positionSizeChange = output<{ symbol: string; value: number }>();

@@ -29,7 +29,7 @@ import { Router } from '@angular/router';
 import { RhAgentTriageStore } from '../../stores/rh-agent-triage.store';
 import { RhAgentOccurrenceDecisionStore } from '../../stores/rh-agent-occurrence-decision.store';
 import { RhAgentTradeStore } from '../../stores/rh-agent-trade.store';
-import { RhAgentExecutionService } from '../../services/rh-agent-execution.service';
+import { RhAgentExecutionStore } from '../../stores/rh-agent-execution.store';
 import { RhAgentStore } from '../../stores/rh-agent.store';
 
 import {
@@ -71,7 +71,7 @@ export class RhAgentOrderComponent implements OnInit {
   readonly triageStore = inject(RhAgentTriageStore);
   readonly occurrenceStore = inject(RhAgentOccurrenceDecisionStore);
   readonly tradeStore = inject(RhAgentTradeStore);
-  readonly executionService = inject(RhAgentExecutionService);
+  readonly executionStore = inject(RhAgentExecutionStore);
   readonly agentStore = inject(RhAgentStore);
   readonly tradeService = inject(RobinhoodTradeService);
   readonly snackBar = inject(MatSnackBar);
@@ -208,24 +208,10 @@ export class RhAgentOrderComponent implements OnInit {
 
   /** Execute the given rows: create trade records and mark their source decisions executed. */
   private executeRows(runId: string, marketDate: string, rows: TradeRow[]): void {
-    if (!marketDate) {
-      console.warn('[RhAgentOrderComponent] Cannot execute without marketDate');
-      return;
-    }
     const inputs = this.buildExecutionInputs(runId, rows);
     if (inputs.length === 0) return;
 
-    this.executionService.executeTradeRows(runId, marketDate, inputs).subscribe({
-      next: ({ trades, decisionIds }) => {
-        this.tradeStore.addTrades(trades);
-        this.occurrenceStore.patchExecutedByIds(decisionIds);
-      },
-      error: (err: unknown) => {
-        console.error('[RhAgentOrderComponent] Failed to execute trades:', err);
-        const message = err instanceof Error ? err.message : String(err ?? 'Execution failed');
-        this.snackBar.open(message, 'Dismiss', { duration: 4000 });
-      },
-    });
+    this.executionStore.executeTradeRows(runId, marketDate, inputs);
   }
 
   /** Pair each row with its exact current-run ACCEPT occurrence decision. */

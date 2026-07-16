@@ -42,7 +42,7 @@
 
     <button mat-raised-button
       (click)="onMarkAllExecuted()"
-      [disabled]="enabledUnexecutedRows().length === 0 || !isActionableRun()"
+      [disabled]="enabledUnexecutedRows().length === 0 || !isActionableRun() || executionStore.executing()"
       matTooltip="Mark all enabled rows as executed after trades are placed">
       <mat-icon>done_all</mat-icon>
       Mark Executed
@@ -78,6 +78,7 @@
             [row]="row"
             [maxPositionSize]="maxTradeAmount"
             [isActionableRun]="isActionableRun()"
+            [isExecuting]="executionStore.executing()"
             (toggleEnabled)="onToggleEnabled($event)"
             (positionSizeChange)="onPositionSizeChange($event)"
             (stopLossChange)="onStopLossChange($event)"

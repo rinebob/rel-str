@@ -33,7 +33,7 @@
       <button type="button" mat-icon-button
         (click)="markExecuted.emit(row().symbol)"
         matTooltip="Mark trade as executed"
-        [disabled]="!isActionableRun() || !row().enabled">
+        [disabled]="!isActionableRun() || !row().enabled || isExecuting()">
         <mat-icon>done</mat-icon>
       </button>
     }
