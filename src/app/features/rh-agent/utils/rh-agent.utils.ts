@@ -7,6 +7,13 @@ import { MarketCapTier, RhAgentSignalItem, RhAgentSymbolProfile, RH_AGENT_SCHEDU
 import { RhSymbolRow, RhSymbolGroup } from '../stores/rh-agent-group.store';
 import { GroupDimension, RhAgentReviewDecision, SignalFilter, SignalTimeframe, SignalDirection } from '../common/rh-agent.constants';
 
+/** Build a stop price from entry price, stop-loss percent, and direction. */
+export function buildStopPrice(entryPrice: number, stopLossPercent: number, direction: SignalDirection): number | undefined {
+  if (entryPrice <= 0 || stopLossPercent < 0) return undefined;
+  const multiplier = direction === SignalDirection.LONG ? 1 - stopLossPercent / 100 : 1 + stopLossPercent / 100;
+  return Number((entryPrice * multiplier).toFixed(4));
+}
+
 /** True if a Firestore Timestamp duck-type is present. */
 function isTimestamp(value: unknown): value is { toDate: () => Date } {
   return (
