@@ -138,7 +138,7 @@ No code change is authorized by this document until this task list is reviewed. 
 ### Phase 4 — Add execution and trade management
 
 - [x] **Execution transition:** add explicit `EXECUTED` behavior distinct from `ACCEPT`; it occurs only after a real trade is placed. Implemented by storing an `executedAt` timestamp on accepted occurrence decisions when the user marks trades as executed from the Order page.
-- [ ] **Trade data model:** decide whether execution details live on the tracked-signal record or in a related trade record, then persist entry, size, stop, exit, and outcome data there.
+- [x] **Trade data model:** execution details live in a related trade record under `rh-agent-trades/{symbol}/trades/{tradeId}`, where `tradeId` is a human-readable deterministic key (`{symbol}_{marketDate}_{timeframe}_{signalType}`). Each record is optionally linked back to the source occurrence decision, and persists entry timestamp/price, position size, whole-share quantity, stop price, and exit/outcome fields. Trade creation is wired into the Order page "Mark Executed" flow.
 - [ ] **Trade-management views:** define active versus closed-trade views without reintroducing historical runs as actionable signal queues.
 
 ### Phase 5 — Validate and clean up
