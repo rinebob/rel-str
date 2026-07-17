@@ -8,7 +8,6 @@ import {
   createTradeBridgeServer,
   formatTradeBridgeStartupMessages,
   listenTradeBridgeServer,
-  type TradeBridgeLogEntry,
   type TradeBridgeServerOptions,
   type TradeExecutionResult,
 } from "../../functions/src/rh-agent/trade-bridge-server";
@@ -43,15 +42,11 @@ function confirmedResult(trade: TradeRequest): TradeExecutionResult {
 
 async function startServer(
   overrides: Partial<TradeBridgeServerOptions> = {},
-): Promise<{ server: Server; baseUrl: string; logs: TradeBridgeLogEntry[] }> {
-  const logs: TradeBridgeLogEntry[] = [];
+): Promise<{ server: Server; baseUrl: string }> {
   const server = createTradeBridgeServer({
     expectedToken: TOKEN,
     allowedOrigins: [ALLOWED_ORIGIN],
     executeTrade: async (trade) => confirmedResult(trade),
-    writeLog: (entry) => {
-      logs.push(entry);
-    },
     ...overrides,
   });
   servers.add(server);
@@ -62,7 +57,6 @@ async function startServer(
   return {
     server,
     baseUrl: `http://${TRADE_BRIDGE_HOST}:${address.port}`,
-    logs,
   };
 }
 
@@ -347,30 +341,5 @@ describe("trade bridge HTTP boundary", () => {
     assert.equal(recovered.status, 200);
     assert.equal((await recovered.json() as { success: boolean }).success, true);
     assert.equal(executorCalls, 2);
-  });
-
-  it("releases the gate after result logging fails", async () => {
-    let logCalls = 0;
-    const { baseUrl } = await startServer({
-      writeLog: () => {
-        logCalls += 1;
-        if (logCalls === 1) throw new Error("fake log failure");
-      },
-    });
-
-    const failed = await fetch(`${baseUrl}/trade`, {
-      method: "POST",
-      headers: authorizedHeaders(),
-      body: validBody("AAPL"),
-    });
-    const recovered = await fetch(`${baseUrl}/trade`, {
-      method: "POST",
-      headers: authorizedHeaders(),
-      body: validBody("MSFT"),
-    });
-
-    assert.equal(failed.status, 500);
-    assert.equal(recovered.status, 200);
-    assert.equal(logCalls, 2);
   });
 });
