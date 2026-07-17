@@ -145,8 +145,8 @@ No code change is authorized by this document until this task list is reviewed. 
 
 The prior `executedAt`/`EXECUTED` implementation and locally inferred `OPEN` trade model predate direct Robinhood MCP discovery. They are legacy behavior to remove, not the target architecture.
 
-- [ ] **Retire signal execution status:** remove `EXECUTED` and `executedAt` from occurrence-decision behavior while preserving `ACCEPT`/`REJECT` history.
-- [ ] **Replace Mark Executed:** remove manual success marking and use linked broker order/position activity from the direct-MCP workflow.
+- [x] **Retire signal execution status:** remove `EXECUTED` and `executedAt` from occurrence-decision behavior while preserving `ACCEPT`/`REJECT` history.
+- [x] **Remove legacy execution UI:** remove Mark Executed, Claude/bridge execution controls, and locally inferred trade persistence. Linked broker order/position activity remains part of the direct-MCP implementation.
 - [ ] **Preserve source linkage:** link new order intents to accepted occurrences without changing the occurrence decision.
 - [ ] **Move execution ownership:** implement order, capacity, broker synchronization, stop, target, and exit behavior only under `RH-AGENT-DIRECT-MCP-EXECUTION-WORKFLOW-2607-01.md`.
 - [ ] **Keep management cross-run:** broker orders and positions remain manageable after their source run becomes historical.
