@@ -1,7 +1,7 @@
 {
   "name": "functions",
   "scripts": {
-    "lint": "eslint --ext .js,.ts .",
+    "lint": "eslint --ext .js,.ts src",
     "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=lib/index.js --external:firebase-admin --external:firebase-functions --external:google-auth-library --external:busboy --external:node-fetch --external:@anthropic-ai/sdk",
     "build:watch": "npm run build -- --watch",
     "typecheck": "tsc --noEmit",

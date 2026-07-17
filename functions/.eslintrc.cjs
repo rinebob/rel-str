@@ -9,12 +9,11 @@ module.exports = {
     "plugin:import/errors",
     "plugin:import/warnings",
     "plugin:import/typescript",
-    "google",
     "plugin:@typescript-eslint/recommended",
   ],
   parser: "@typescript-eslint/parser",
   parserOptions: {
-    project: ["tsconfig.json", "tsconfig.dev.json"],
+    project: ["tsconfig.json"],
     sourceType: "module",
   },
   ignorePatterns: [
@@ -26,13 +25,20 @@ module.exports = {
     "import",
   ],
   rules: {
-    "quotes": ["error", "double"],
+    "quotes": ["warn", "single", {"avoidEscape": true}],
     "import/no-unresolved": 0,
-    "indent": ["error", 2],
-    "linebreak-style": ["error", "windows"],
-    // Relax overly strict default from google config
+    "indent": ["warn", 2],
+    "linebreak-style": "off",
+    "prefer-const": "warn",
+    "no-mixed-spaces-and-tabs": "warn",
+    "@typescript-eslint/no-explicit-any": "warn",
+    "@typescript-eslint/no-non-null-assertion": "warn",
+    "@typescript-eslint/no-inferrable-types": "warn",
+    "@typescript-eslint/prefer-as-const": "warn",
+    "@typescript-eslint/no-empty-interface": "warn",
+    "no-empty": "warn",
     "max-len": [
-      "error",
+      "warn",
       {
         code: 120,
         tabWidth: 2,
