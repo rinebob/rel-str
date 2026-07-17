@@ -13,4 +13,6 @@ node_modules/
 .rh-tokens.json
 auth-url.txt
 scheduler.log
+.trade-results.json
+.trade-prompt.txt
 .env
