@@ -91,8 +91,7 @@ export const RhAgentOccurrenceDecisionStore = signalStore(
         .filter(
           (d) =>
             d.decisionType === RhAgentReviewDecision.ACCEPT &&
-            d.isCurrentInLatestRun &&
-            !d.executedAt
+            d.isCurrentInLatestRun
         )
         .sort((a, b) => a.symbol.localeCompare(b.symbol))
     );
@@ -104,10 +103,10 @@ export const RhAgentOccurrenceDecisionStore = signalStore(
     return {
       acceptedSymbols,
 
-      /** Accepted, current-run, unexecuted occurrence decisions. */
+      /** Accepted, current-run occurrence decisions. */
       activeOrderDecisions,
 
-      /** Accepted symbols that have not yet been executed, suitable for the active Order page. */
+      /** Accepted symbols suitable for the active Order page. */
       activeOrderSymbols,
 
       /** Count of symbols with an accepted current-run occurrence. */
@@ -198,25 +197,6 @@ export const RhAgentOccurrenceDecisionStore = signalStore(
           patchState(state, { decisionsLoading: false, decisionsError: message });
         },
       });
-    },
-
-    /**
-     * Patch the local cache to reflect that the given occurrence decision IDs
-     * have been executed. Persistence is handled by the execution service; this
-     * method only updates the in-memory state.
-     */
-    patchExecutedByIds(ids: string[]): void {
-      if (ids.length === 0) return;
-      const decisions = state.occurrenceDecisions();
-      const next: Record<string, RhAgentOccurrenceDecision> = { ...decisions };
-      const now = new Date().toISOString();
-      for (const id of ids) {
-        const d = decisions[id];
-        if (d && !d.executedAt) {
-          next[id] = { ...d, executedAt: now };
-        }
-      }
-      patchState(state, { occurrenceDecisions: next });
     },
 
     /** Mark every decision for the given source run as no longer current in the latest run. */

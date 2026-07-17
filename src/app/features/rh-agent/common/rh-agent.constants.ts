@@ -18,7 +18,6 @@ export enum RhAgentReviewDecision {
   EXCLUDE        = 'EXCLUDE',
   LOW_TRADABILITY = 'LOW_TRADABILITY',
   WATCH          = 'WATCH',
-  EXECUTED       = 'EXECUTED',
 }
 
 /** All PACR review statuses in display order. */
@@ -31,7 +30,6 @@ export const ALL_REVIEW_STATUSES: RhAgentReviewDecision[] = [
   RhAgentReviewDecision.EXCLUDE,
   RhAgentReviewDecision.LOW_TRADABILITY,
   RhAgentReviewDecision.WATCH,
-  RhAgentReviewDecision.EXECUTED,
 ];
 
 /** Concrete count shape so templates can use dot access (e.g. counts.REVIEW). */
@@ -44,7 +42,6 @@ export type StatusCounts = {
   EXCLUDE: number;
   LOW_TRADABILITY: number;
   WATCH: number;
-  EXECUTED: number;
 };
 
 /** Canonical names for the built-in user-managed symbol lists. */
@@ -89,12 +86,6 @@ export enum SignalTimeframe {
 export enum SignalStatus {
   INTERIM = 'INTERIM',
   CONFIRMED = 'CONFIRMED',
-}
-
-/** Persisted trade status. */
-export enum RhAgentTradeStatus {
-  OPEN = 'OPEN',
-  CLOSED = 'CLOSED',
 }
 
 /** Active timeframe + direction filter for the signal review page. */

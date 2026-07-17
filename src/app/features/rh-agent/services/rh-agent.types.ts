@@ -5,7 +5,7 @@
  * can share them without circular dependencies.
  */
 
-import { RhAgentReviewDecision, RhAgentTradeStatus, SignalDirection, SignalStatus, SignalTimeframe } from '../common/rh-agent.constants';
+import { RhAgentReviewDecision, SignalDirection, SignalStatus, SignalTimeframe } from '../common/rh-agent.constants';
 
 /**
  * Cron expression for the RH Agent daily scheduler (UTC).
@@ -46,7 +46,7 @@ export interface RhAgentRun {
 /** Market cap tiers derived from SA overview data. */
 export type MarketCapTier = 'mega' | 'large' | 'mid' | 'small' | 'micro';
 
-export { SignalDirection, RhAgentTradeStatus } from '../common/rh-agent.constants';
+export { SignalDirection } from '../common/rh-agent.constants';
 
 /** Known source values for how a symbol entered the RH Agent tracked universe. */
 export enum RhAgentSymbolSource {
@@ -103,57 +103,6 @@ export interface RhAgentSignalItem {
   closePrice?: number;
 }
 
-/** UI row shape used as input when opening trades from the Order page. */
-export interface TradeInputRow {
-  symbol: string;
-  direction: SignalDirection;
-  signalType: string;
-  barDate: string;
-  timeframe: SignalTimeframe;
-  positionSize: number;
-  stopLossPercent: number;
-  entryPrice: number;
-}
-
-/** A real trade placed from an accepted RH Agent occurrence. */
-export interface RhAgentTrade {
-  id: string;
-  userId?: string;
-  runId: string;
-  marketDate: string;
-  /** Optional link back to the occurrence decision that generated this trade. */
-  occurrenceDecisionId?: string;
-  symbol: string;
-  direction: SignalDirection;
-  timeframe: SignalTimeframe;
-  signalType: string;
-  barDate: string;
-  status: RhAgentTradeStatus;
-  /** Timestamp when the trade was opened (when the user marked it executed). */
-  entryAt: string;
-  /** Entry price, typically the close price of the signal bar. */
-  entryPrice: number;
-  /** Dollar amount committed. */
-  positionSize: number;
-  /** Whole-share quantity derived from positionSize / entryPrice. */
-  quantity: number;
-  /** Stop-loss price derived from the configured stop-loss percentage. */
-  stopPrice?: number;
-  /** Timestamp when the trade was closed, if applicable. */
-  exitAt?: string;
-  /** Exit price, if the trade has been closed. */
-  exitPrice?: number;
-  /** Realized P&L in dollars, if the trade has been closed. */
-  realizedPnl?: number;
-  /** Optional user-facing notes. */
-  notes?: string;
-  createdAt: string;
-  updatedAt?: string;
-}
-
-/** Firestore document shape for a trade record (the trade ID is the doc ID). */
-export interface RhAgentTradeDoc extends Omit<RhAgentTrade, 'id'> {}
-
 /** Subset of review decisions that are persisted as durable occurrence decisions. */
 export type DurableDecisionType =
   | RhAgentReviewDecision.ACCEPT
@@ -182,8 +131,6 @@ export interface RhAgentOccurrenceDecision {
   decisionType: DurableDecisionType;
   /** Timestamp when the user decision was recorded. */
   decidedAt: string;
-  /** Timestamp when the associated trade was actually placed, if applicable. */
-  executedAt?: string;
   /** Whether this decision still appears in the latest completed run. */
   isCurrentInLatestRun: boolean;
   /** Optional user-facing notes. */

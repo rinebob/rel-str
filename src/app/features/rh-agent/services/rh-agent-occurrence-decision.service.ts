@@ -331,11 +331,6 @@ function parseOccurrenceDecision(data: DocumentData, id: string): RhAgentOccurre
     throw new Error(`[OccurrenceDecisionService] Decision doc ${id} has invalid "isCurrentInLatestRun": ${String(isCurrent)}`);
   }
 
-  const executedAt = data['executedAt'];
-  if (executedAt !== undefined && (typeof executedAt !== 'string' || executedAt.length === 0)) {
-    throw new Error(`[OccurrenceDecisionService] Decision doc ${id} has invalid "executedAt"`);
-  }
-
   optionalString('userId');
   optionalString('notes');
 
@@ -355,7 +350,6 @@ function parseOccurrenceDecision(data: DocumentData, id: string): RhAgentOccurre
     barDate: data['barDate'] as string,
     decisionType,
     decidedAt: data['decidedAt'] as string,
-    executedAt,
     isCurrentInLatestRun: isCurrent,
     userId: data['userId'] as string | undefined,
     notes: data['notes'] as string | undefined,

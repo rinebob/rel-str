@@ -55,13 +55,3 @@ export function buildRhAgentOccurrenceDecisionId(
 ): string {
   return `${runId}_${symbol.toUpperCase()}_${timeframe}_${signalType}`;
 }
-
-/** Build a human-readable doc id for a trade placed from an occurrence. */
-export function buildRhAgentTradeId(
-  symbol: string,
-  marketDate: string,
-  timeframe: string,
-  signalType: string
-): string {
-  return `${symbol.toUpperCase()}_${marketDate}_${timeframe}_${signalType}`;
-}
