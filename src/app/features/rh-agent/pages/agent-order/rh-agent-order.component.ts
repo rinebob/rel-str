@@ -25,6 +25,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
+import { finalize } from 'rxjs';
 
 import { RhAgentTriageStore } from '../../stores/rh-agent-triage.store';
 import { RhAgentOccurrenceDecisionStore } from '../../stores/rh-agent-occurrence-decision.store';
@@ -48,22 +49,13 @@ import {
 } from '../../../rs/services/robinhood-trade.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { TradeRowComponent, TradeRow } from '../../components/trade-row/trade-row.component';
+import { TradeBridgeClientService, TradeBridgeTrade } from '../../services/trade-bridge-client.service';
 
 @Component({
   selector: 'app-rh-agent-order',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    CommonModule,
-    FormsModule,
-    MatButtonModule,
-    MatIconModule,
-    MatInputModule,
-    MatFormFieldModule,
-    MatSlideToggleModule,
-    MatTooltipModule,
-    TradeRowComponent,
-  ],
+  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule, MatSlideToggleModule, MatTooltipModule, TradeRowComponent],
   templateUrl: './rh-agent-order.component.html',
   styleUrl: './rh-agent-order.component.scss',
 })
@@ -77,10 +69,16 @@ export class RhAgentOrderComponent implements OnInit {
   readonly snackBar = inject(MatSnackBar);
   readonly uiState = inject(UiStateService);
   private readonly router = inject(Router);
+  private readonly bridgeClient = inject(TradeBridgeClientService);
+
+  readonly bridgeExecuting = signal(false);
 
   readonly tradeRows = signal<TradeRow[]>([]);
   readonly generatedBatch = signal<TradeBatch | null>(null);
   readonly maxTradeAmount = RH_AGENT_MAX_TRADE_AMOUNT;
+
+  /** Tracks the last run whose decisions/trades were loaded so we don't reload on every signal change. */
+  private loadedRunId: string | null = null;
 
   /** Rows that are currently enabled for trade generation. */
   readonly enabledRows = computed(() =>
@@ -106,18 +104,31 @@ export class RhAgentOrderComponent implements OnInit {
   /** True when the latest completed run is known and actionable. */
   readonly isActionableRun = computed(() => !!this.orderMarketDate());
 
+  /** Diagnostic counts to surface load/run mismatches. */
+  readonly debugDecisionCount = computed(() => Object.values(this.occurrenceStore.occurrenceDecisions()).length);
+  readonly debugActiveOrderCount = computed(() => this.occurrenceStore.activeOrderDecisions().length);
+  readonly debugAcceptedCount = computed(() => this.occurrenceStore.acceptedCount());
+
   constructor() {
     // Keep trade rows in sync with active order symbols while preserving user edits for symbols still present.
     effect(() => this.syncTradeRowsWithActiveOrderSymbols());
+
+    // Load decisions/trades when the latest completed run becomes known. This handles
+    // direct navigation or refresh where agentStore hasn't yet fetched runs.
+    effect(() => {
+      const latestRun = this.agentStore.latestCompletedRun();
+      if (!latestRun) return;
+      if (this.loadedRunId === latestRun.id) return;
+      this.loadedRunId = latestRun.id;
+      this.occurrenceStore.loadDecisionsForRun(latestRun.id);
+      this.tradeStore.loadTradesForRun(latestRun.id);
+    });
   }
 
   /** Initialize the page and load accepted current-run occurrences and trades. */
   ngOnInit(): void {
     this.uiState.setFullscreen(true);
-    const latestRun = this.agentStore.latestCompletedRun();
-    if (!latestRun) return;
-    this.occurrenceStore.loadDecisionsForRun(latestRun.id);
-    this.tradeStore.loadTradesForRun(latestRun.id);
+    this.agentStore.loadData();
   }
 
   /** Merge active order symbols with existing trade rows, preserving edits for symbols still present. */
@@ -286,6 +297,65 @@ export class RhAgentOrderComponent implements OnInit {
     if (!batch) return;
     const success = await this.tradeService.copyToClipboard(batch.batchPrompt);
     this.showCopyResult(success, `Copied batch of ${batch.trades.length} trades`);
+  }
+
+  /** Open the generated batch prompt in Claude web chat. */
+  openInClaude(): void {
+    const batch = this.generatedBatch();
+    if (!batch) return;
+    const url = `https://claude.ai/new?q=${encodeURIComponent(batch.batchPrompt)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  /** Send the enabled batch to the local trade bridge server, which calls Claude Code + the Robinhood MCP. */
+  executeViaBridge(): void {
+    const enabled = this.enabledUnexecutedRows();
+    if (enabled.length === 0) {
+      this.snackBar.open('No enabled, unexecuted rows to trade', 'Dismiss', { duration: 3000 });
+      return;
+    }
+
+    const latestRun = this.agentStore.latestCompletedRun();
+    const marketDate = latestRun?.marketDate;
+    if (!latestRun || !marketDate) {
+      this.snackBar.open('No actionable run', 'Dismiss', { duration: 3000 });
+      return;
+    }
+
+    const trades: TradeBridgeTrade[] = enabled.map((row) => ({
+      symbol: row.symbol,
+      side: row.direction === SignalDirection.SHORT ? 'sell' : 'buy',
+      amount: row.positionSize,
+      orderType: 'market',
+    }));
+
+    this.bridgeExecuting.set(true);
+    this.bridgeClient.executeTrades(trades).pipe(
+      finalize(() => this.bridgeExecuting.set(false))
+    ).subscribe((result) => {
+      if (!result.ok) {
+        if (result.error.kind !== 'cancelled') {
+          this.snackBar.open(result.error.message, 'Dismiss', { duration: 5000 });
+        }
+        return;
+      }
+
+      const res = result.response;
+      const confirmedSymbols = new Set(res.results
+        .filter((item) => item.parsed.confirmed && !!item.parsed.orderId && !!item.parsed.state)
+        .map((item) => item.trade.symbol.toUpperCase()));
+      const confirmedRows = enabled.filter((row) => confirmedSymbols.has(row.symbol.toUpperCase()));
+      if (confirmedRows.length > 0) this.executeRows(latestRun.id, marketDate, confirmedRows);
+
+      if (res.success) {
+        this.snackBar.open(`Trade bridge executed ${res.count} order(s)`, 'Dismiss', { duration: 4000 });
+      } else if (confirmedRows.length > 0) {
+        this.snackBar.open(`Executed ${confirmedRows.length} of ${res.requestedCount} order(s); remaining orders were not attempted`, 'Dismiss', { duration: 6000 });
+      } else {
+        const message = res.results.find((item) => item.parsed.error)?.parsed.error ?? 'No orders were confirmed by the trade bridge';
+        this.snackBar.open(message, 'Dismiss', { duration: 6000 });
+      }
+    });
   }
 
   /** Copy a single trade's prompt to the clipboard. */
