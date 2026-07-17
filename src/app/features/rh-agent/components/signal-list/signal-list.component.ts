@@ -64,6 +64,7 @@ export class SignalListComponent {
     if (manual) {
       const signals = (cache[manual] ?? []).filter(s => filter === 'all' || s.timeframe === filter);
       return signals.map(s => ({
+        trackId: `${manual}-${s.runId}-${s.barDate}-${s.timeframe}-${s.signalType}`,
         symbol: manual,
         latestSignal: s,
         recentSignals: [] as RhAgentSignalItem[],
@@ -74,6 +75,7 @@ export class SignalListComponent {
     return viewportSymbols.map(symbol => {
       const signals = cache[symbol] ?? [];
       return {
+        trackId: symbol,
         symbol,
         latestSignal: signals[0] ?? null,
         recentSignals: signals.slice(0, 3),

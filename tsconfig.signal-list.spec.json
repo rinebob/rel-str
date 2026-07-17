@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["jasmine", "node"]
+  },
+  "files": [
+    "src/app/features/rh-agent/components/signal-list/signal-list.component.spec.ts"
+  ],
+  "include": [
+    "**/*.d.ts"
+  ]
+}

@@ -15,7 +15,7 @@
         <span class="symbol-ticker">{{ row().profile.symbol }}</span>
 
         <div class="symbol-signals-today">
-          @for (sig of row().signals; track sig.signalType) {
+          @for (sig of row().signals; track sig.barDate + '-' + sig.timeframe + '-' + sig.signalType) {
             <span class="badge dir dir-{{ sig.direction.toLowerCase() }}" matTooltip="{{ sig.signalType }}">
               {{ sig.direction }}
             </span>

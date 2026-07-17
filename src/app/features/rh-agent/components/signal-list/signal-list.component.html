@@ -16,7 +16,7 @@
   </div>
 
   <mat-list class="signal-list">
-    @for (item of items(); track item.symbol) {
+    @for (item of items(); track item.trackId) {
       <mat-list-item
         #listItem
         class="signal-item"
@@ -44,7 +44,7 @@
             </div>
             @if (item.recentSignals.length > 0) {
               <div class="signal-trail">
-                @for (s of item.recentSignals; track s.barDate + s.signalType) {
+                @for (s of item.recentSignals; track s.barDate + '-' + s.timeframe + '-' + s.signalType) {
                   <span class="trail-item" [class.long]="s.direction === SignalDirection.LONG" [class.short]="s.direction === SignalDirection.SHORT">
                     <span class="trail-date">{{ s.barDate.slice(5) }}</span>
                     <span class="trail-type">{{ s.signalType }}</span>
