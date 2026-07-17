@@ -5,6 +5,7 @@
     "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=lib/index.js --external:firebase-admin --external:firebase-functions --external:google-auth-library --external:busboy --external:node-fetch --external:@anthropic-ai/sdk",
     "build:watch": "npm run build -- --watch",
     "typecheck": "tsc --noEmit",
+    "test:trade-bridge": "tsx --test ../tests/functions/trade-bridge-security.test.ts ../tests/functions/trade-bridge-http.test.ts",
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
