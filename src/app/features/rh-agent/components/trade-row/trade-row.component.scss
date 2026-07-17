@@ -54,6 +54,17 @@
 
 .col-size,
 .col-stop {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+
+  .field-label {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--mat-sys-on-surface-variant);
+    white-space: nowrap;
+  }
+
   input {
     width: 60px;
     height: 26px;

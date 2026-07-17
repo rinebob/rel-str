@@ -23,46 +23,6 @@
       <mat-icon>visibility</mat-icon>
       Review {{ triageStore.reviewCount() }}
     </button>
-
-    <button mat-raised-button color="accent"
-      (click)="generateBatch()"
-      [disabled]="enabledRows().length === 0 || !isActionableRun()"
-      matTooltip="Generate trade prompt batch">
-      <mat-icon>psychology</mat-icon>
-      Generate
-    </button>
-
-    <button mat-raised-button color="primary"
-      (click)="copyBatch()"
-      [disabled]="!hasGeneratedBatch()"
-      matTooltip="Copy batch prompt to clipboard">
-      <mat-icon>content_copy</mat-icon>
-      Copy
-    </button>
-
-    <button mat-raised-button color="accent"
-      (click)="openInClaude()"
-      [disabled]="!hasGeneratedBatch()"
-      matTooltip="Open batch prompt in Claude web chat">
-      <mat-icon>open_in_new</mat-icon>
-      Open in Claude
-    </button>
-
-    <button mat-raised-button color="warn"
-      (click)="executeViaBridge()"
-      [disabled]="enabledUnexecutedRows().length === 0 || bridgeExecuting() || !isActionableRun()"
-      matTooltip="Send enabled rows to the local trade bridge (Claude Code + Robinhood MCP)">
-      <mat-icon>account_balance</mat-icon>
-      Execute via Bridge
-    </button>
-
-    <button mat-raised-button
-      (click)="onMarkAllExecuted()"
-      [disabled]="enabledUnexecutedRows().length === 0 || !isActionableRun() || executionStore.executing()"
-      matTooltip="Mark all enabled rows as executed after trades are placed">
-      <mat-icon>done_all</mat-icon>
-      Mark Executed
-    </button>
   </div>
 
   <!-- Empty -->
@@ -71,11 +31,6 @@
       <mat-icon>inbox</mat-icon>
       <p>No accepted symbols</p>
       <p class="hint">Accept symbols in Grouped Review or Review, then return here.</p>
-      <pre class="debug">
-Latest run: {{ agentStore.latestCompletedRun()?.id }} ({{ agentStore.latestCompletedRun()?.marketDate }})
-Decisions loaded: {{ debugDecisionCount() }} | Active order: {{ debugActiveOrderCount() }} | Accepted count: {{ debugAcceptedCount() }}
-Error: {{ occurrenceStore.decisionsError() ?? 'none' }}
-      </pre>
     </div>
   }
 
@@ -99,14 +54,10 @@ Error: {{ occurrenceStore.decisionsError() ?? 'none' }}
             [row]="row"
             [maxPositionSize]="maxTradeAmount"
             [isActionableRun]="isActionableRun()"
-            [isExecuting]="executionStore.executing()"
             (toggleEnabled)="onToggleEnabled($event)"
             (positionSizeChange)="onPositionSizeChange($event)"
             (stopLossChange)="onStopLossChange($event)"
-            (copyTrade)="copyTrade($event)"
-            (markExecuted)="onMarkExecuted($event)"
-            (remove)="onRemoveSymbol($event)"
-            (signalLoaded)="onSignalLoaded($event)">
+            (remove)="onRemoveSymbol($event)">
           </app-trade-row>
         }
 
@@ -121,17 +72,6 @@ Error: {{ occurrenceStore.decisionsError() ?? 'none' }}
           <span class="col-actions"></span>
         </div>
       </div>
-
-      <!-- Generated batch prompt -->
-      @if (generatedBatch(); as batch) {
-        <div class="batch-prompt">
-          <div class="batch-prompt-header">
-            <span class="batch-title">Batch Prompt</span>
-            <span class="batch-meta">{{ batch.trades.length }} trades · ${{ batch.totalAmount.toFixed(2) }}</span>
-          </div>
-          <pre>{{ batch.batchPrompt }}</pre>
-        </div>
-      }
     </div>
   }
 </div>
