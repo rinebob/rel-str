@@ -15,7 +15,7 @@ The implementation successfully placed a real Robinhood order through the local 
 The review originally identified three critical blockers:
 
 1. The local bridge could accept unauthorized live-trade requests. **Resolved on 2026-07-16.**
-2. Sensitive live order/account data is written to an unignored local file. **Open.**
+2. Sensitive live order/account data is written to an unignored local file. **Resolved on 2026-07-16.**
 3. A queued/submitted broker order is persisted as an open trade with locally fabricated fill data. **Open.**
 
 The largest structural opportunity is to stop using Claude prose as a brokerage protocol. The repository already contains direct typed MCP order-execution logic. A canonical MCP client/executor can remove the Claude subprocess, prompt files, tool-permission flags, natural-language parsing, and regex confirmation from the live execution boundary.
@@ -297,6 +297,7 @@ Token acquisition previously occurred synchronously before the HTTP observable, 
 
 ## 2. Remove and ignore sensitive local execution artifacts
 
+**Resolution:** **Fixed and validated on 2026-07-16.**
 **Severity:** Critical  
 **Files:**
 
@@ -321,13 +322,31 @@ The bridge writes complete request objects and raw Claude/Robinhood output. Raw 
 
 ### Acceptance checklist
 
-- [ ] Current `.trade-results.json` is removed.
-- [ ] `.trade-results.json` is added to `functions/.gitignore`.
-- [ ] `.trade-prompt.txt` is added to `functions/.gitignore`.
-- [ ] Raw account-specific output is no longer persisted.
-- [ ] Any retained audit log is redacted and structured.
-- [ ] Log growth is bounded or rotated.
-- [ ] `git status --short` shows no sensitive execution artifacts.
+- [x] Current `.trade-results.json` is removed.
+- [x] `.trade-results.json` is added to `functions/.gitignore`.
+- [x] `.trade-prompt.txt` is added to `functions/.gitignore`.
+- [x] Raw account-specific output is no longer persisted.
+- [x] No local audit log is retained; redaction is therefore not applicable.
+- [x] No persistent log collection exists, so unbounded growth is eliminated.
+- [x] `git status --short` shows no sensitive execution artifacts.
+
+### Implementation evidence
+
+- The bridge no longer imports filesystem APIs or defines a result-log path, log-entry contract, or log writer.
+- Claude prompts remain in process memory and are sent directly through child-process stdin.
+- The HTTP server no longer accepts or invokes a persistence callback after execution.
+- Both legacy artifact names are ignored in the Functions-local ignore file as defense in depth.
+- The existing sensitive result artifact was physically deleted from the working tree.
+- The operating guide now documents the no-persistent-log design and safe troubleshooting path.
+
+### Validation
+
+- [x] `npm run validate` passed: Angular build, Functions typecheck, 8 frontend tests, and 26 backend tests.
+- [x] Regression tests verify both legacy artifact names remain ignored and filesystem persistence is not reintroduced.
+- [x] `git check-ignore -v --no-index` resolves both names to `functions/.gitignore`.
+- [x] Filesystem checks report both legacy artifacts absent.
+- [x] Source inspection finds no `writeFile`, `appendFile`, legacy artifact path, `writeLog`, or `TradeBridgeLogEntry` symbol.
+- [x] Focused `git diff --check` passed with line-ending warnings only.
 
 ---
 
