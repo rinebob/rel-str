@@ -3,8 +3,8 @@
 **Date:** 2026-07-16  
 **Scope:** All current working-tree changes, with emphasis on the local Claude Code + Robinhood MCP trade bridge, Order-page execution flow, trade persistence, Firestore rules, and Trade Management page.  
 **Review framework:** `.devin/skills/thermo-nuclear-code-review.md`, `.devin/skills/rh-agent-coding-guidelines.md`, and `.devin/skills/rel-str-coding-guidelines.md`.  
-**Status:** **Changes requested — not merge-ready.**  
-**Primary reason:** The implementation places real orders but does not yet meet the required broker-order lifecycle, idempotency, persistence-boundary, and complete regression-test standards.
+**Status:** **Items #1 and #2 complete; simplified direct MCP Phase A for #3–#8 remains.**
+**Primary reason:** Robinhood MCP discovery and the 2026-07-17 scope review establish a small broker-synchronized bridge, but direct execution, account-wide monitoring, persistence, protection, UI, and tests are not implemented yet. The secured legacy Claude implementation remains isolated and disabled, not an operational fallback.
 
 ---
 
@@ -15,10 +15,14 @@ The implementation successfully placed a real Robinhood order through the local 
 The review originally identified three critical blockers:
 
 1. The local bridge could accept unauthorized live-trade requests. **Resolved on 2026-07-16.**
-2. Sensitive live order/account data is written to an unignored local file. **Resolved on 2026-07-16.**
-3. A queued/submitted broker order is persisted as an open trade with locally fabricated fill data. **Open.**
+2. Sensitive live order/account data was written to an unignored local file. **Resolved on 2026-07-16.**
+3. A queued/submitted broker order is persisted as an open trade with locally fabricated fill data. **Open; direct MCP design is now established.**
 
-The largest structural opportunity is to stop using Claude prose as a brokerage protocol. The repository already contains direct typed MCP order-execution logic. A canonical MCP client/executor can remove the Claude subprocess, prompt files, tool-permission flags, natural-language parsing, and regex confirmation from the live execution boundary.
+Authenticated discovery found 49 deterministic Robinhood MCP tools. The required broker-sync resources exist: order lookup/history, current positions, open tax lots, closed/realizing trade history, aggregate realized P&L, portfolio values, and caller-generated `ref_id` idempotency. This selects the minimal broker-synchronized Path A in `docs/implementations/RH-AGENT-BROKER-SYNC-SPIKE-2607-01.md`.
+
+The agreed product scope is defined in `docs/implementations/RH-AGENT-DIRECT-MCP-EXECUTION-WORKFLOW-2607-01.md`: one human-authorized whole-share market entry at a time, account-wide monitoring and capacity, broker-held stop protection, simple manual exits, and a one-minute synthetic target. Rare broker exceptions are shown for direct Robinhood intervention rather than handled by a general recovery engine.
+
+The production path calls exact MCP tools with exact JSON arguments and typed parsers; it does not send a prompt to an LLM. The existing secured Claude subprocess implementation is retained without being invoked by the normal UI, backend exports, schedulers, or policies. Robinhood itself is the emergency fallback.
 
 ---
 
@@ -316,18 +320,19 @@ The bridge writes complete request objects and raw Claude/Robinhood output. Raw 
 
 - Delete the current sensitive artifact from the working tree.
 - Ignore `.trade-results.json` and `.trade-prompt.txt`.
-- Do not persist raw broker/Claude output by default.
-- If an audit log is required, write only a redacted typed record.
-- Consider bounded rotation rather than an indefinitely growing JSON array.
+- Do not persist raw broker/Claude output in local bridge artifacts by default.
+- Keep raw local bridge artifacts separate from durable typed Firestore domain records. Broker orders, errors, fills, positions, and closed trades may require canonical typed persistence under items #3–#7.
+- If a local diagnostic log is required, write only a redacted typed record with bounded rotation.
 
 ### Acceptance checklist
 
 - [x] Current `.trade-results.json` is removed.
 - [x] `.trade-results.json` is added to `functions/.gitignore`.
 - [x] `.trade-prompt.txt` is added to `functions/.gitignore`.
-- [x] Raw account-specific output is no longer persisted.
-- [x] No local audit log is retained; redaction is therefore not applicable.
-- [x] No persistent log collection exists, so unbounded growth is eliminated.
+- [x] Raw account-specific output is no longer persisted to local bridge files.
+- [x] No local bridge audit log is retained; redaction is therefore not applicable.
+- [x] No persistent local raw-log artifact exists, so unbounded local growth is eliminated.
+- [x] Removal of the local artifact does not remove Firestore trade records or prohibit typed canonical broker/trade persistence.
 - [x] `git status --short` shows no sensitive execution artifacts.
 
 ### Implementation evidence
@@ -373,37 +378,32 @@ Persistence then creates an `OPEN` trade with:
 
 This is incorrect for queued, pending, rejected, cancelled, partially filled, or fractional dollar orders. A queued order is broker-accepted but not filled.
 
-### Required design
+### MCP discovery decision — 2026-07-17
 
-Introduce a broker-order lifecycle separate from trade/fill state. Suggested states:
+The capability spike and full 49-tool inventory are complete at the schema level. Path A is selected for the simplified Phase A bridge:
 
 ```text
-SUBMITTING
-SUBMITTED
-QUEUED
-PENDING
-PARTIALLY_FILLED
-FILLED
-REJECTED
-CANCELLED
-FAILED
-UNKNOWN_REQUIRES_RECONCILIATION
+persist exact authorized intent and ref_id
+→ call place_equity_order directly with exact typed arguments
+→ persist broker acknowledgement or ambiguous state
+→ refresh relevant orders across the configured account
+→ synchronize the complete account position snapshot
+→ synchronize required closed/realizing history
 ```
 
-Persist at least:
+Relevant broker states are `new`, `queued`, `confirmed`, `unconfirmed`, `partially_filled`, `filled`, `cancelled`, `rejected`, `failed`, and `voided`. Preserve them rather than collapsing submission into an open trade.
 
-- Execution-attempt ID.
-- Broker order ID.
-- Broker state.
-- Submitted timestamp.
-- Requested symbol, side, dollar amount, and order type.
-- Estimated quantity.
-- Actual filled quantity.
-- Average fill price.
-- Filled timestamp.
-- Source occurrence decision ID and run ID.
+Persist separate concepts:
 
-Only transition to an open position/trade after the broker reports a fill.
+- Local execution attempt, source-run linkage, and persisted `ref_id`.
+- Broker order projection keyed by Robinhood order UUID.
+- Current broker position projection from complete paginated snapshots.
+- Closed/realizing broker trade projection from `get_pnl_trade_history`.
+- Optional replaceable tax-lot projection or on-demand lot reads.
+
+A queued, confirmed, or partial order remains an order. A position is created or updated only from Robinhood-reported position/fill facts. Signal close and locally calculated whole shares remain estimates and are never stored as actual broker fill price or quantity.
+
+On-demand refresh is implemented first. One-minute cloud stop/target monitoring remains deferred until unattended backend Robinhood OAuth and token refresh are proven. Phase A does not recreate a local order-event ledger, tax-lot engine, automatic replacement flow, or rare-state recovery engine.
 
 ### Acceptance checklist
 
@@ -413,9 +413,11 @@ Only transition to an open position/trade after the broker reports a fill.
 - [ ] Queued/pending orders are not represented as filled/open trades.
 - [ ] Signal close is not persisted as actual entry price.
 - [ ] Locally calculated whole-share quantity is not persisted as actual fractional quantity.
-- [ ] Fill price and quantity come from broker reconciliation.
+- [ ] Fill price and quantity come from broker reconciliation or broker-provided trade/position history.
 - [ ] Rejected/cancelled orders remain visible without becoming open trades.
-- [ ] Tests cover queued, pending, rejected, cancelled, partially filled, and filled states.
+- [ ] Multiple orders and trades for the same symbol/day cannot overwrite one another.
+- [ ] On-demand refresh is supported; an early-morning poll is added only through an authenticated backend path.
+- [ ] Tests cover every state and broker data shape actually exposed by the MCP, including queued/pending and filled outcomes.
 
 ---
 
@@ -436,74 +438,96 @@ The trade document ID contains symbol, market date, timeframe, and signal type, 
 
 ### Required design
 
-- Generate and persist a stable execution-attempt ID before broker submission.
-- Record a `SUBMITTING` intent first.
-- Reconcile ambiguous results against Robinhood before permitting retry.
-- Use broker order ID as canonical post-submission identity.
-- Never overwrite a previous broker order record.
-- Make repeated delivery of the same confirmed result idempotent.
+- Generate a unique execution-attempt ID and UUID `ref_id` for each logical order.
+- Persist the attempt, exact decimal-string order terms, source metadata, and `ref_id` before broker submission.
+- Record a pre-dispatch state such as `PREPARED`, then `DISPATCHED`, `ACKNOWLEDGED`, `AMBIGUOUS`, or `FAILED`.
+- Submit `ref_id` through `place_equity_order`.
+- On timeout or ambiguous transport failure, query `get_equity_orders` before permitting a retry.
+- Retry only when safe and only with the original persisted `ref_id`.
+- Never generate a replacement `ref_id` for the same logical order.
+- Use broker order UUID as canonical post-acknowledgement identity.
+- Make repeated refreshes and repeated confirmed results idempotent broker-identity upserts.
+- Never automatically fall back to the legacy Claude pathway after an ambiguous direct-MCP submission; reconcile first to prevent duplicate orders.
 
 ### Acceptance checklist
 
-- [ ] Every button submission gets a stable execution-attempt ID.
-- [ ] Order intent exists before calling the broker.
+- [ ] Every direct-MCP submission gets a stable execution-attempt ID and UUID `ref_id`.
+- [ ] Order intent and exact order terms exist before calling the broker.
 - [ ] Broker order ID is unique in storage.
-- [ ] A repeated response cannot create a duplicate order record.
+- [ ] A repeated response or refresh cannot create a duplicate order record.
 - [ ] A retry after timeout is blocked until reconciliation completes.
+- [ ] An ambiguous retry reuses the original `ref_id`.
+- [ ] Automatic fallback to legacy Claude is prohibited after ambiguous direct submission.
 - [ ] Firestore failure after broker success produces a recoverable reconciliation state.
-- [ ] Tests cover duplicate clicks, timeout, Firestore failure, repeated callbacks, and retry.
+- [ ] Tests cover duplicate clicks, timeout, Firestore failure, repeated refreshes, and retry.
 
 ---
 
-## 5. Replace Claude prose parsing with a canonical typed MCP executor
+## 5. Add a separate canonical direct Robinhood MCP path; isolate and disable the legacy Claude implementation
 
 **Severity:** High / structural  
-**Files:**
+**Disabled legacy reference location:** `functions/src/rh-agent/` and its existing Angular bridge client
 
-- `functions/src/rh-agent/trade-bridge-server.ts:55-131`
-- `functions/src/rh-agent-cloud-function/rh-agent-executor.ts:74-159`
-- `functions/src/rh-agent/index.ts:129-161`
+**New backend location:** `functions/src/rh-agent-mcp/`
 
-### Finding
+**New frontend integration location:** `src/app/features/rh-agent/services/robinhood-mcp/`
 
-The live execution path currently:
+### Discovery finding
 
-1. Builds a natural-language prompt.
-2. Starts a Claude subprocess.
-3. Grants three MCP tools.
-4. Sends the prompt through stdin.
-5. Parses Claude prose with a greedy JSON regex.
-6. Falls back to regex matching arbitrary `orderId` and `state` text.
+MCP calls are deterministic API operations. A direct client sends an exact tool name and JSON arguments over MCP Streamable HTTP; no natural-language prompt or LLM decision is required. The 49-tool catalog provides exact input schemas, including `review_equity_order`, `place_equity_order`, order lookup/history, positions, lots, and closed-trade history.
 
-This is a fragile protocol boundary. Mentioning an order ID and state in prose can produce a false confirmation. Any state is accepted, including potentially rejected states.
+The current Claude bridge remains a fragile protocol because it builds prose, launches Claude, and parses model output. It is secured and tested as a local boundary, but it is not an operational fallback once direct MCP placement is available. Retaining it as an isolated, disabled reference avoids reconstruction cost without allowing it to bypass direct-path capacity, authorization, and protection.
 
-The repository already contains direct MCP connection and typed `review_equity_order` / `place_equity_order` execution code.
+### Required separation
 
-### Code-judo remedy
-
-Extract a canonical Robinhood MCP client and order executor that both local and cloud entrypoints can call. The local HTTP bridge should become a thin validated adapter:
+Do not modify the legacy path merely to implement direct MCP. Build new code with separate contracts and entrypoints:
 
 ```text
-validate local request
-→ create/reuse MCP client
-→ review order
-→ place order
-→ parse typed MCP response
-→ return typed broker-order result
+Angular RobinhoodMcp service
+→ narrow authenticated backend callable/endpoint
+→ functions/src/rh-agent-mcp typed broker facade
+→ authenticated MCP SDK client
+→ review_equity_order / place_equity_order / read-only sync tools
+→ strict response parser
+→ typed broker DTO
 ```
 
-This removes the Claude subprocess, prompt construction, permission flags, temp prompt file, prose parsing, and regex confirmation from live execution.
+The new backend location should separate responsibilities such as:
+
+```text
+functions/src/rh-agent-mcp/contracts
+functions/src/rh-agent-mcp/client
+functions/src/rh-agent-mcp/parsers
+functions/src/rh-agent-mcp/orders
+functions/src/rh-agent-mcp/sync
+functions/src/rh-agent-mcp/callables
+```
+
+Exact filenames may follow repository conventions, but new direct code must not be placed inside the legacy `functions/src/rh-agent/` bridge directory.
+
+### Execution and fallback rules
+
+- Direct MCP is the only RH Agent execution path.
+- Keep the legacy Claude implementation in isolated source, but remove/disable normal UI, backend export, scheduler, and policy entrypoints that can invoke it.
+- Re-enabling legacy execution requires a separate explicit decision and security review.
+- If direct MCP returns ambiguously, reconcile with Robinhood before any retry.
+- Never send the same logical order through the legacy path because the direct response timed out.
+- Use the Robinhood app or site for emergency manual intervention.
+- Keep OAuth tokens, account numbers, and MCP sessions out of the browser.
+- Do not expose a generic `{ tool, arguments }` backend proxy; expose narrow allowlisted operations.
 
 ### Acceptance checklist
 
-- [ ] Local bridge calls a canonical direct MCP executor.
-- [ ] Cloud and local paths reuse the same order contract and parser.
-- [ ] Claude subprocess is removed from the live order path.
-- [ ] Prompt file creation is removed.
-- [ ] Regex confirmation fallback is removed.
-- [ ] Only typed broker responses can confirm submission.
-- [ ] Invalid or unexpected broker states fail closed.
-- [ ] Tests cover malformed MCP content and unexpected states.
+- [ ] New direct-MCP code lives under `functions/src/rh-agent-mcp/`.
+- [ ] New Angular integration lives under `src/app/features/rh-agent/services/robinhood-mcp/`.
+- [ ] Existing `functions/src/rh-agent/` Claude implementation remains isolated but is disabled from normal execution.
+- [ ] Direct MCP uses exact tool calls without a Claude subprocess or prompt.
+- [ ] Direct and legacy source boundaries remain separately testable.
+- [ ] Direct MCP is the only enabled RH Agent execution path.
+- [ ] No automatic fallback occurs after an ambiguous response.
+- [ ] Only strict typed broker responses can acknowledge direct submission.
+- [ ] Invalid or unexpected broker content and states fail closed.
+- [ ] Tests use injected fake MCP transports and cannot place live orders.
 
 ---
 
@@ -522,26 +546,41 @@ The recursive rule `/{path=**}/trades/{tradeId}` applies to every subcollection 
 
 The generic subcollection name forced a broad security rule.
 
-### Required design
+### MCP-informed required design
 
-Prefer one of:
+Path A needs distinct root collections rather than one ambiguous trade document:
 
-- Root collection: `rh-agent-trades/{tradeId}`.
-- Unique collection group: `rh-agent-trade-records`.
+```text
+rh-agent-execution-attempts/{attemptId}
+rh-agent-broker-orders/{brokerOrderId}
+rh-agent-broker-positions/{positionId}
+rh-agent-broker-trades/{brokerTradeId}
+```
 
-Avoid reusing the generic `trades` collection-group name across separate domains.
+Optional cached lots, if needed, use a distinct broker-lot collection rather than generic `trades`.
 
-Rules must verify ownership on both existing and replacement data for updates.
+- Order intents/attempts preserve `refId`, exact requested terms, optional run/occurrence provenance, and ambiguous-state reconciliation.
+- Broker orders are upserted by Robinhood order UUID.
+- Broker positions are replaceable projections from complete paginated snapshots.
+- Broker trades are upserted from `get_pnl_trade_history` using a stable identity established by response discovery.
+- Decimal prices and quantities remain strings in canonical broker DTOs.
+- `runId` and occurrence IDs are metadata, never document identity or visibility boundaries.
+
+The direct MCP backend should own canonical writes through Admin SDK after authentication and authorization. Client rules should allow authenticated users to read only their records and should deny direct client mutation unless a narrowly justified operation is designed separately. This avoids trusting browser-supplied broker IDs, states, fills, or `userId`.
+
+Legacy `trades` data remains untouched during initial direct-MCP development. Define a later non-destructive migration or read-only compatibility decision after new projections are validated.
 
 ### Acceptance checklist
 
-- [ ] RH Agent trades no longer share the generic `trades` collection-group name.
-- [ ] Rules are scoped only to the RH Agent trade schema.
-- [ ] Create requires `request.resource.data.userId == request.auth.uid`.
-- [ ] Update requires both old and new `userId` to remain the authenticated UID.
-- [ ] Cross-user parent-path writes are denied.
-- [ ] Firestore emulator tests cover read/create/update/delete and cross-user denial.
-- [ ] Required indexes match the new query shape.
+- [ ] Direct MCP records use unique `rh-agent-*` root collections and never the generic `trades` collection group.
+- [ ] Execution attempts, broker orders, positions, and closed trades are separate schemas.
+- [ ] Canonical broker writes are backend-only.
+- [ ] Authenticated reads require `resource.data.userId == request.auth.uid`.
+- [ ] Direct client create, update, and delete are denied for broker-authoritative projections.
+- [ ] Cross-user reads and writes are denied.
+- [ ] Legacy records receive a documented non-destructive compatibility or migration decision.
+- [ ] Firestore emulator tests cover own-user reads, cross-user denial, and denied client mutations.
+- [ ] Required indexes support user/state/time queries for each projection.
 
 ---
 
@@ -562,54 +601,85 @@ Direct navigation is also fragile: if `latestCompletedRun()` is unavailable duri
 
 Active trade management is a portfolio/order concern, not a latest-run concern. Run ID should remain source metadata rather than the page's visibility boundary.
 
-### Required design
+### MCP-informed required design
 
-- Load all active broker orders/open positions for the authenticated user across runs.
-- Load closed history separately with pagination/date filters.
-- Use reactive initialization rather than one synchronous `ngOnInit` read.
-- Preserve source run and occurrence links as metadata.
+Trade Management becomes a broker-state view with separate queries:
+
+```text
+open/nonterminal orders
+→ rh-agent-broker-orders by userId + brokerState + broker time
+
+current positions
+→ rh-agent-broker-positions by userId + symbol
+
+closed/realizing history
+→ rh-agent-broker-trades by userId + brokerTimestamp with pagination/date filters
+```
+
+- Add **Refresh from Robinhood** through the new direct-MCP backend.
+- Refresh relevant account orders with an overlapping `created_at_gte` watermark and every cursor; placement source is provenance, not a management boundary.
+- Reconcile every position in the configured Agentic account only after a complete successful paginated snapshot.
+- Refresh closed history independently of the latest RH Agent run.
+- Use reactive initialization from authenticated user state rather than one synchronous `ngOnInit` read.
+- Preserve source run and occurrence links as metadata when a synchronized broker record can be linked to a local attempt.
+- Show stale, partial-refresh, authentication, throttling, and parse failures rather than silently replacing good data.
+- Keep every account position and relevant order visible regardless of whether it originated in RH Agent, Robinhood, or the disabled legacy implementation.
 
 ### Acceptance checklist
 
-- [ ] Open orders/positions from previous runs remain visible.
-- [ ] Closed history is queryable independently of latest run.
-- [ ] Direct navigation loads data after store initialization.
-- [ ] Loading failures are shown to the user.
-- [ ] Queries are indexed and paginated where necessary.
-- [ ] Tests cover direct navigation and run transition while positions remain open.
+- [ ] Open orders and positions from previous runs remain visible.
+- [ ] RH Agent-originated and externally initiated account activity can coexist without identity collisions.
+- [ ] Closed broker history is queryable independently of latest run.
+- [ ] **Refresh from Robinhood** uses the new backend and reports partial/failure status.
+- [ ] Direct navigation loads after authentication/store initialization.
+- [ ] Loading and synchronization failures are shown to the user.
+- [ ] Queries are indexed and closed history is paginated.
+- [ ] Tests cover direct navigation, run transition, external account activity, complete snapshot removal, and partial snapshot safety.
 
 ---
 
 ## 8. Add regression and security tests for the live-trading path
 
 **Severity:** High  
-**Files:** No relevant tests currently found.
+**Status:** Partially completed on 2026-07-16; legacy bridge security, HTTP-boundary, and frontend client coverage are implemented. Direct MCP broker lifecycle, persistence, rules, and reconciliation tests remain dependent on items #3–#7.
+**Legacy test files:** `tests/functions/trade-bridge-security.test.ts`, `tests/functions/trade-bridge-http.test.ts`, and `src/app/features/rh-agent/services/trade-bridge-client.service.spec.ts` remain intact.
+**New test location:** add direct backend tests under `tests/functions/rh-agent-mcp/` and frontend tests beside `src/app/features/rh-agent/services/robinhood-mcp/`.
 
 ### Required coverage
 
-- Bridge authentication and origin enforcement.
-- Request schema validation.
-- Maximum trade amount and batch size.
-- Allowed MCP tool boundary or direct MCP executor contract.
-- Broker response parsing.
-- Queued, pending, rejected, cancelled, partial-fill, and fill state transitions.
-- Partial batch failure.
-- Stop-on-first-unconfirmed behavior.
-- Duplicate click and idempotency behavior.
+Legacy tests continue covering:
+
+- Loopback bridge authentication and origin enforcement.
+- Legacy request schema, amount, and batch limits.
+- Injected fake executor behavior with no live Claude or Robinhood calls.
+
+New direct-MCP tests cover:
+
+- Allowlisted typed tool boundary; generic arbitrary tool dispatch is impossible.
+- Strict parsing of MCP content blocks and malformed/non-JSON content.
+- Exact documented order states, including new, queued, confirmed, unconfirmed, partial, filled, cancelled, rejected, failed, and voided.
+- Pagination completion and cursor failure.
+- Complete position-snapshot reconciliation versus partial-snapshot safety.
+- Stable broker-order and closed-trade identity upserts.
+- Duplicate click, persisted `ref_id`, ambiguous timeout, reconciliation, and same-`ref_id` retry.
+- Prohibition on automatic direct-to-legacy fallback.
 - Firestore failure after broker success.
-- Trade rules and cross-user denial.
-- Order-page persistence of only confirmed broker results.
-- Direct navigation to Trade Management.
+- Backend-only broker writes and cross-user denial.
+- Trade Management direct navigation, cross-run data, external account activity, and refresh failures.
 - The prior false-success regression.
+- Fake MCP transport injection so no automated test can place, review, or cancel a live order.
 
 ### Acceptance checklist
 
-- [ ] Pure bridge/executor unit tests exist.
-- [ ] Frontend bridge-client/facade tests exist.
-- [ ] Firestore rules emulator tests exist.
-- [ ] At least one end-to-end test uses a fake broker/MCP implementation.
-- [ ] No automated test can place a live order.
-- [ ] Live-order execution is impossible in CI.
+- [x] Pure bridge security and request-policy tests exist.
+- [ ] Separate direct-MCP broker adapter and parser tests exist under the new test location.
+- [x] Legacy frontend bridge-client tests remain intact.
+- [ ] New direct-MCP frontend service tests exist.
+- [ ] Firestore rules emulator tests exist for the new root collections.
+- [x] Legacy HTTP-boundary integration tests use an injected fake executor and cannot invoke Claude or Robinhood.
+- [ ] Direct-MCP tests use an injected fake transport and cannot contact Robinhood.
+- [x] No current automated test can place a live order.
+- [ ] Canonical validation runs both legacy and new fake-only suites; live execution remains outside CI.
 
 ---
 
@@ -618,7 +688,8 @@ Active trade management is a portfolio/order concern, not a latest-run concern. 
 ## 9. Extract bridge transport and result reconciliation from `RhAgentOrderComponent`
 
 **Severity:** Medium / structural  
-**File:** `src/app/features/rh-agent/pages/agent-order/rh-agent-order.component.ts:1-425`
+**Status:** Legacy extraction completed on 2026-07-16. `TradeBridgeClientService` remains an isolated, disabled Claude-bridge reference client. Direct MCP submission and broker synchronization must be added as separate services under `src/app/features/rh-agent/services/robinhood-mcp/`; do not expand the legacy service into a dual-path transport.
+**File:** `src/app/features/rh-agent/pages/agent-order/rh-agent-order.component.ts`
 
 ### Finding
 
@@ -635,15 +706,25 @@ The component has crossed the RH Agent guideline's 400-line strong-smell thresho
 
 ### Required design
 
-Extract a focused bridge/order-submission facade with canonical request/response contracts. Keep the component responsible for display state and explicit user intent.
+Keep `TradeBridgeClientService` isolated as the disabled legacy adapter. Add a separate direct-MCP facade that owns:
+
+- Direct order review and placement requests.
+- Typed backend result normalization.
+- On-demand Robinhood refresh.
+- Broker-result-to-projection orchestration.
+
+The component owns user intent and presentation state. It must not parse MCP content, hold OAuth/account credentials, or expose a legacy/direct execution selector.
 
 ### Acceptance checklist
 
-- [ ] HTTP bridge details leave the component.
-- [ ] Bridge contracts are defined in one canonical location.
+- [x] Legacy HTTP bridge details remain outside the component.
+- [x] Legacy contracts remain defined in isolated `TradeBridgeClientService` source.
+- [ ] Normal UI entrypoints cannot invoke the legacy adapter.
+- [ ] Direct MCP contracts and transport are defined in separate `robinhood-mcp` services.
 - [ ] Broker-result-to-persistence mapping is tested outside the component.
-- [ ] Component returns below the 400-line smell threshold.
-- [ ] Component methods primarily represent user actions and presentation state.
+- [ ] No UI execution-path selector or automatic fallback exists.
+- [x] Component remains below the 400-line smell threshold.
+- [x] Component methods primarily represent user actions and presentation state.
 
 ---
 
@@ -670,7 +751,8 @@ The empty state exposes internal run IDs, decision counts, and errors. The debug
 ## 11. Fix the bridge health endpoint
 
 **Severity:** Medium  
-**File:** `functions/src/rh-agent/trade-bridge-server.ts:134-148,228-238`
+**Status:** Completed on 2026-07-16.
+**File:** `functions/src/rh-agent/trade-bridge-server.ts`
 
 ### Finding
 
@@ -683,7 +765,7 @@ The response also hardcodes `claudeAvailable: true` without checking Claude or M
 - [x] A single router/request handler owns all routes.
 - [x] GET `/health` returns exactly one response.
 - [x] Health status no longer claims Claude is available without checking it.
-- [ ] Health endpoint has a unit/integration test.
+- [x] Health and unknown-route behavior have HTTP-boundary integration coverage.
 
 ---
 
@@ -750,42 +832,42 @@ The template also uses `matTooltip` without importing `MatTooltipModule`, so the
 
 ---
 
-# Recommended Fix Order
+# Recommended Implementation Order
 
-Fix these one at a time in this order:
+Items #1 and #2 are complete. Preserve their security and artifact protections while implementing the simplified Phase A separately.
 
-1. **Sensitive artifact removal and `.gitignore` protection.**
-2. **Bridge request security and loopback binding.**
-3. **Broker-order lifecycle model.**
-4. **Idempotent execution-attempt persistence and reconciliation.**
-5. **Direct typed MCP executor extraction.**
-6. **Firestore schema/rule narrowing.**
-7. **Cross-run Trade Management queries and reactive loading.**
-8. **Regression/security tests.**
-9. **Order component decomposition.**
-10. **Production debug removal.**
-11. **Health endpoint correction.**
-12. **Trade Management navigation.**
-13. **Trades template cleanup.**
-14. **Functions lint repair.**
+1. **Complete — local bridge security and loopback binding.**
+2. **Complete — sensitive artifact removal and `.gitignore` protection.**
+3. **Response and authentication proof:** capture redacted order, quote, and position shapes and prove unattended cloud token refresh.
+4. **Minimal direct boundary:** add owner/account authorization, strict DTOs, fake fixtures, broker identity, and backend-only persistence.
+5. **Single human order:** preflight and place one whole-share regular-hours market entry from an accepted LONG occurrence with a pre-persisted `ref_id`.
+6. **Account-wide monitoring:** synchronize every position and relevant order, derive allocation capacity, and add **Refresh from Robinhood**.
+7. **Position protection:** place one broker-held stop after confirmed fill and support manual full/partial exits.
+8. **Synthetic target:** add one-minute cloud evaluation only after unattended authentication is proven.
+9. **Legacy retirement:** remove `EXECUTED` behavior and isolate/disable Claude bridge entrypoints without deleting the reference source.
+10. **Focused regression suite:** cover the normal direct path, owner/account boundary, idempotency, broker identity, capacity, stop/exit flow, and visible exception states with fake transports.
+11. **Remaining review cleanup:** production debug removal, Trade Management navigation, Trades template cleanup, and Functions lint repair.
 
-Items 3–6 should be designed together before implementation because the broker-order identity, persistence schema, MCP response contract, and Firestore rules are one boundary. Implementing them independently without an agreed model risks another migration.
+Implement these as small commits. Do not add batch placement, limit entries, short entries, complex partial-fill recovery, path selection, or a local brokerage ledger during Phase A.
 
 ---
 
 # Approval Bar
 
-The change is approved only when:
+The direct MCP implementation is approved only when:
 
-- [x] No untrusted local or browser client can submit trades through the loopback bridge without an approved origin and current session token.
-- [ ] No sensitive execution artifacts can be committed accidentally.
+- [x] No untrusted local or browser client can submit trades through the legacy loopback bridge without an approved origin and current session token.
+- [x] No sensitive execution artifacts can be committed accidentally.
+- [ ] New direct code is isolated under `functions/src/rh-agent-mcp/` and `src/app/features/rh-agent/services/robinhood-mcp/`.
+- [ ] The secured legacy Claude implementation remains isolated and disabled from normal execution.
+- [ ] Direct MCP is the only RH Agent execution path and no automatic fallback occurs after an ambiguous response.
 - [ ] Broker submission state is distinct from fill/open-position state.
 - [ ] Broker order ID and state are persisted.
-- [ ] Retries are idempotent or require reconciliation.
-- [ ] Live execution uses a typed fail-closed response boundary.
-- [ ] Firestore rules are scoped to the RH Agent trade schema.
-- [ ] Active Trade Management works across RH Agent runs.
-- [ ] Critical execution and security regressions are tested.
-- [ ] Angular build, Functions typecheck, Functions lint, and relevant tests pass.
+- [ ] Every direct order has a pre-persisted `ref_id`; retries reconcile and reuse it.
+- [ ] Direct execution uses an exact typed, fail-closed MCP response boundary without an LLM.
+- [ ] Firestore collections and rules are scoped to the separate RH Agent broker schemas with backend-only canonical writes.
+- [ ] Active Trade Management works across RH Agent runs and includes all configured-account positions regardless of origin.
+- [ ] Critical execution, synchronization, rules, and security regressions are tested with fake transports.
+- [ ] Angular build, Functions typecheck, Functions lint, and relevant legacy and direct-path tests pass.
 
-**Current status: Changes requested.**
+**Current status: Items #1 and #2 approved; simplified direct-MCP items #3–#8 and remaining cleanup require implementation.**
