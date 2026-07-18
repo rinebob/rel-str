@@ -1,6 +1,9 @@
-import { runLocalOAuthBootstrap } from '../auth/local-oauth-bootstrap';
+import { runLocalOAuthBootstrapWithDependencies } from '../auth/local-oauth-bootstrap';
 
-const result = await runLocalOAuthBootstrap();
+const forceRefresh = process.argv.includes('--force-refresh') ||
+  process.env.RH_AGENT_FORCE_REFRESH === '1';
+
+const result = await runLocalOAuthBootstrapWithDependencies({ forceRefresh });
 console.log(JSON.stringify(result, null, 2));
 console.log(result.evidence.credentialsPersisted
   ? 'Credentials are encrypted for local restart reuse.'

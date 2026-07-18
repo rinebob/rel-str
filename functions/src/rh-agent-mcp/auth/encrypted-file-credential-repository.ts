@@ -56,9 +56,16 @@ function parseBundle(serialized: string): RobinhoodCredentialBundle {
     value.schemaVersion !== 1 ||
     typeof value.revision !== 'number' ||
     !Number.isInteger(value.revision) ||
-    value.revision < 1 ||
-    (value.lastSuccessfulRefreshAt !== undefined &&
-      typeof value.lastSuccessfulRefreshAt !== 'string')
+    value.revision < 1
+  ) {
+    throw new InvalidCredentialBundleError();
+  }
+
+  const lastTokenResponseAt = value.lastTokenResponseAt ?? value.lastSuccessfulRefreshAt;
+  if (
+    lastTokenResponseAt !== undefined &&
+    (typeof lastTokenResponseAt !== 'string' ||
+      !Number.isFinite(Date.parse(lastTokenResponseAt)))
   ) {
     throw new InvalidCredentialBundleError();
   }
@@ -76,9 +83,9 @@ function parseBundle(serialized: string): RobinhoodCredentialBundle {
     tokens: tokens.data,
     ...(clientInformation === undefined ? {} : { clientInformation }),
     ...(discoveryState === undefined ? {} : { discoveryState }),
-    ...(value.lastSuccessfulRefreshAt === undefined
+    ...(lastTokenResponseAt === undefined
       ? {}
-      : { lastSuccessfulRefreshAt: value.lastSuccessfulRefreshAt }),
+      : { lastTokenResponseAt }),
   };
 }
 

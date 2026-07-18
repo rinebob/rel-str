@@ -6,14 +6,20 @@ import { ROBINHOOD_TRADING_MCP_URL } from '../contracts/robinhood-mcp';
 
 export type RobinhoodMcpTransportFactory = (
   serverUrl: URL,
-  provider: OAuthClientProvider,
+  accessToken: string,
 ) => Transport;
 
 function createRobinhoodTransport(
   serverUrl: URL,
-  provider: OAuthClientProvider,
+  accessToken: string,
 ): Transport {
-  return new StreamableHTTPClientTransport(serverUrl, { authProvider: provider });
+  return new StreamableHTTPClientTransport(serverUrl, {
+    requestInit: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  });
 }
 
 export class McpSessionNotConnectedError extends Error {
@@ -34,9 +40,13 @@ export class RobinhoodMcpSession {
       return;
     }
 
+    const tokens = await this.provider.tokens();
+    if (!tokens?.access_token) {
+      throw new McpSessionNotConnectedError();
+    }
     const transport = this.createTransport(
       new URL(ROBINHOOD_TRADING_MCP_URL),
-      this.provider,
+      tokens.access_token,
     );
     const client = new Client(
       { name: 'rh-agent-mcp', version: '1.0.0' },

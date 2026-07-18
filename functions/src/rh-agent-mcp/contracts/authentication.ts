@@ -25,6 +25,6 @@ export interface RobinhoodCredentialBundle {
   tokens: OAuthTokens;
   clientInformation?: OAuthClientInformationMixed;
   discoveryState?: OAuthDiscoveryState;
-  lastSuccessfulRefreshAt?: string;
+  lastTokenResponseAt?: string;
 }
 

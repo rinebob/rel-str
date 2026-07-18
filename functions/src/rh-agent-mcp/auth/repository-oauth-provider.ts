@@ -13,21 +13,8 @@ import type { RobinhoodCredentialBundle } from '../contracts/authentication';
 export interface RepositoryOAuthProviderOptions {
   redirectUrl: string;
   state?: string;
+  now?: () => Date;
   openAuthorizationUrl(authorizationUrl: URL): void | Promise<void>;
-}
-
-export interface RepositoryOAuthProviderSnapshot {
-  discoveryStatePresent: boolean;
-  authorizationServerMetadataPresent: boolean;
-  resourceMetadataPresent: boolean;
-  clientInformationPresent: boolean;
-  pkceVerifierGenerated: boolean;
-  tokenPresent: boolean;
-  credentialsPersisted: boolean;
-  clientRegistrationPersisted: boolean;
-  accessTokenPresent: boolean;
-  refreshTokenPresent: boolean;
-  expiryPresent: boolean;
 }
 
 export class RepositoryOAuthProvider implements OAuthClientProvider {
@@ -90,21 +77,7 @@ export class RepositoryOAuthProvider implements OAuthClientProvider {
   }
 
   async saveTokens(tokens: OAuthTokens): Promise<void> {
-    await this.ensureLoaded();
-    const expectedRevision = this.bundle?.revision ?? null;
-    const stored = await this.repository.store({
-      schemaVersion: 1,
-      revision: expectedRevision ?? 0,
-      tokens,
-      clientInformation:
-        this.pendingClientInformation ?? this.bundle?.clientInformation,
-      discoveryState:
-        this.pendingDiscoveryState ?? this.bundle?.discoveryState,
-      lastSuccessfulRefreshAt: this.bundle?.lastSuccessfulRefreshAt,
-    }, expectedRevision);
-    this.bundle = stored;
-    this.pendingClientInformation = undefined;
-    this.pendingDiscoveryState = undefined;
+    await this.persistTokens(tokens);
   }
 
   redirectToAuthorization(authorizationUrl: URL): void | Promise<void> {
@@ -145,25 +118,35 @@ export class RepositoryOAuthProvider implements OAuthClientProvider {
     this.verifier = undefined;
   }
 
-  snapshot(): RepositoryOAuthProviderSnapshot {
-    const discoveryState = this.pendingDiscoveryState ?? this.bundle?.discoveryState;
-    const clientInformation =
-      this.pendingClientInformation ?? this.bundle?.clientInformation;
-    const tokens = this.bundle?.tokens;
-    return {
-      discoveryStatePresent: discoveryState !== undefined,
-      authorizationServerMetadataPresent:
-        discoveryState?.authorizationServerMetadata !== undefined,
-      resourceMetadataPresent: discoveryState?.resourceMetadata !== undefined,
-      clientInformationPresent: clientInformation !== undefined,
-      pkceVerifierGenerated: this.pkceGenerated,
-      tokenPresent: tokens !== undefined,
-      credentialsPersisted: this.bundle !== null,
-      clientRegistrationPersisted: this.bundle?.clientInformation !== undefined,
-      accessTokenPresent: Boolean(tokens?.access_token),
-      refreshTokenPresent: Boolean(tokens?.refresh_token),
-      expiryPresent: tokens?.expires_in !== undefined,
-    };
+  async currentBundle(): Promise<RobinhoodCredentialBundle | null> {
+    await this.ensureLoaded();
+    return this.bundle;
+  }
+
+  currentRevision(): number | undefined {
+    return this.bundle?.revision;
+  }
+
+  pkceVerifierGenerated(): boolean {
+    return this.pkceGenerated;
+  }
+
+  private async persistTokens(tokens: OAuthTokens): Promise<void> {
+    await this.ensureLoaded();
+    const expectedRevision = this.bundle?.revision ?? null;
+    const lastTokenResponseAt = (this.options.now ?? (() => new Date()))().toISOString();
+    this.bundle = await this.repository.store({
+      schemaVersion: 1,
+      revision: expectedRevision ?? 0,
+      tokens,
+      clientInformation:
+        this.pendingClientInformation ?? this.bundle?.clientInformation,
+      discoveryState:
+        this.pendingDiscoveryState ?? this.bundle?.discoveryState,
+      lastTokenResponseAt,
+    }, expectedRevision);
+    this.pendingClientInformation = undefined;
+    this.pendingDiscoveryState = undefined;
   }
 
   private async ensureLoaded(): Promise<void> {
