@@ -355,6 +355,6 @@ Implement only after read-only response sampling establishes DTOs. The authorita
 4. **Human direct placement:** support one whole-share regular-hours market entry from an accepted LONG signal.
 5. **Account-wide monitoring:** synchronize every position and relevant active order, derive capacity, and display exceptional broker states without automatic recovery.
 6. **Position protection:** add one broker-held stop, manual exits, and the agreed one-minute synthetic-target policy.
-7. **Legacy retirement:** remove `EXECUTED` behavior and isolate/disable the Claude bridge without deleting its reference implementation.
+7. **Legacy retirement:** remove `EXECUTED` behavior, preserve the Claude bridge implementation and operating detail in archive documents, and delete executable copies from the active tree.
 
 Each implementation commit must use fake MCP responses for automated tests. Live execution remains outside automated validation, and no automated test may place, review, or cancel a real order.

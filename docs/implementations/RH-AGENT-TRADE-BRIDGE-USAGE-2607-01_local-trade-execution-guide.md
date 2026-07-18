@@ -1,5 +1,7 @@
 # RH Agent Local Trade Bridge Usage Guide
 
+> **Archived implementation:** This guide documents the retired Claude trade bridge as it worked historically; it is not an active operating procedure. The executable implementation has been deleted from the active source tree. Its exact, unmodified source is preserved in `RH-AGENT-LEGACY-CLAUDE-BRIDGE-SOURCE-ARCHIVE-2607-01.md`, with architecture and retirement context in `RH-AGENT-LEGACY-CLAUDE-BRIDGE-ARCHIVE-2607-01.md`.
+
 ## Purpose
 
 This guide describes the complete setup and operating procedure for placing Robinhood equity orders from the RH Agent Order page through the local trade bridge.

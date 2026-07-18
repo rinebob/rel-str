@@ -1,10 +1,12 @@
 # Thermo-Nuclear Code Review — RH Agent Trade Bridge and Trade Management
 
+> **Superseded legacy-source policy — 2026-07-17:** This review is retained as historical evidence of the working bridge and its hardening. Later owner direction requires the exact implementation to be preserved in archive documents and executable copies to be deleted from the active tree. Any recommendation below to retain or isolate executable legacy source is superseded by `RH-AGENT-LEGACY-CLAUDE-BRIDGE-ARCHIVE-2607-01.md` and `RH-AGENT-LEGACY-CLAUDE-BRIDGE-SOURCE-ARCHIVE-2607-01.md`.
+
 **Date:** 2026-07-16  
 **Scope:** All current working-tree changes, with emphasis on the local Claude Code + Robinhood MCP trade bridge, Order-page execution flow, trade persistence, Firestore rules, and Trade Management page.  
 **Review framework:** `.devin/skills/thermo-nuclear-code-review.md`, `.devin/skills/rh-agent-coding-guidelines.md`, and `.devin/skills/rel-str-coding-guidelines.md`.  
-**Status:** **Items #1 and #2 complete; simplified direct MCP Phase A for #3–#8 remains.**
-**Primary reason:** Robinhood MCP discovery and the 2026-07-17 scope review establish a small broker-synchronized bridge, but direct execution, account-wide monitoring, persistence, protection, UI, and tests are not implemented yet. The secured legacy Claude implementation remains isolated and disabled, not an operational fallback.
+**Historical status at review time:** **Items #1 and #2 complete; simplified direct MCP Phase A for #3–#8 remained.**
+**Current status:** The secured legacy Claude implementation, Order-page execution/persistence integration, and legacy tests are preserved in exact archive snapshots and deleted from the active tree. Direct execution, account-wide monitoring, persistence, protection, UI, and tests are not implemented yet.
 
 ---
 

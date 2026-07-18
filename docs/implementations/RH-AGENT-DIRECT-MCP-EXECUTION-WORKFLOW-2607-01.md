@@ -1,6 +1,6 @@
-# RH Agent Direct MCP Execution Workflow
+o# RH Agent Direct MCP Execution Workflow
 
-**Status:** Agreed Phase A scope; implementation not started
+**Status:** Phase 0 legacy retirement complete; direct MCP implementation not started
 **Updated:** 2026-07-17
 **Related:** `RH-AGENT-LATEST-ACTION-WORKFLOW-2607-01.md`, `RH-AGENT-BROKER-SYNC-SPIKE-2607-01.md`, `RH-AGENT-AUTOMATION-PROGRESSION-2607-01.md`
 
@@ -38,7 +38,7 @@ Robinhood owns:
 - No direct `SHORT` to `SELL` mapping and no short-position opening.
 - Full and partial manual exits are allowed only against broker-confirmed owned quantity.
 - Limit entries, ad-hoc manual entries, multi-account routing, and multi-user roles are deferred.
-- The legacy Claude bridge is isolated and disabled. Robinhood is the emergency fallback.
+- The legacy Claude bridge source is removed from the active tree and preserved in archive documents. Robinhood is the emergency fallback.
 
 ## Human entry workflow
 
@@ -224,13 +224,13 @@ The broker-held stop remains effective if RH Agent is offline. Synthetic targets
 8. Implement manual full/partial market exits.
 9. Implement one-minute synthetic target evaluation.
 10. Apply the account-default policy to externally detected positions.
-11. Remove the legacy `EXECUTED` transition and disable/isolate the Claude bridge UI path.
+11. **Completed in Phase 0:** remove the legacy `EXECUTED` transition and archive/delete the Claude bridge execution path.
 
 Automated tests use fake MCP transports only. No test may place, review, or cancel a live order.
 
 ## Acceptance bar
 
-- [ ] `ACCEPT` remains a signal decision and never becomes `EXECUTED`.
+- [x] `ACCEPT` remains a signal decision and never becomes `EXECUTED`.
 - [ ] Only the configured owner and account can mutate trading state.
 - [ ] One exact preflighted market entry can be authorized and placed directly through MCP.
 - [ ] Intent and `ref_id` exist before dispatch.
@@ -241,4 +241,4 @@ Automated tests use fake MCP transports only. No test may place, review, or canc
 - [ ] Synthetic targets run in the cloud and use the safe stop-cancel/confirm/market-exit sequence.
 - [ ] Externally initiated positions inherit the account-default management policy.
 - [ ] Exceptional states are visible and direct the owner to Robinhood without speculative automatic recovery.
-- [ ] The legacy Claude path is isolated and disabled.
+- [x] The legacy Claude implementation and operating detail are archived, and executable source is removed from the active tree.
