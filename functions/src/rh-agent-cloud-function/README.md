@@ -9,9 +9,9 @@ Event-driven daily scan that:
 2. Fetches a bulk intraday snapshot from SavantAPI for all monitored symbols
 3. Enqueues one Cloud Tasks job per symbol for parallel analysis
 4. Each worker reads historical OHLCV bars from `symbol-data/{symbol}` subcollections, injects the intraday snapshot as an in-memory partial bar, executes the selected ST trend-rider strategy, and persists signal entries under `rh-agent-symbols/{symbol}/run-ids` and `rh-agent-symbols/{symbol}/signal-history`
-5. Signals appear in the Angular dashboard for grouped review, triage, and (when enabled) MCP trade execution
+5. Signals appear in the Angular dashboard for grouped review and triage
 
-Trade execution is controlled via the `rh-agent-executor` callable using the configured MCP server and account number.
+The retired Claude bridge and executor prototypes are preserved in archive documents. Direct MCP execution is not yet implemented.
 
 ## Architecture
 
@@ -37,7 +37,7 @@ rhAgentPdrTrigger
             └─ persistSignals()  [rh-agent-symbols/{symbol}/run-ids/{runId}, rh-agent-symbols/{symbol}/signal-history/{barDate}]
                         │
                         ▼
-            Angular Dashboard (grouped review / triage / MCP execution)
+            Angular Dashboard (grouped review / triage)
 ```
 
 ## Files
@@ -55,7 +55,6 @@ rhAgentPdrTrigger
 | `rh-agent-callables.ts` | `rhAgentManualRun` | HTTPS callable for dashboard "Run Now" button |
 | `rh-agent-dashboard-callables.ts` | `rhAgentGetStatus`, `rhAgentGetRunHistory`, `rhAgentGetSymbolsWithSignals` | Dashboard status, run history, and grouped-review symbol query |
 | `rh-agent-signal-date-writer.ts` | `SignalDateWriter` | Persists signal entries under `rh-agent-symbols/{symbol}/run-ids` and `rh-agent-symbols/{symbol}/signal-history` |
-| `rh-agent-executor.ts` | `rhAgentExecuteTrades`, `rhAgentGetAccountSummary` | MCP trade executor and account summary callables |
 | `rh-agent-overview-sync-orchestrator.ts` / `rh-agent-overview-sync-worker.ts` | `rhAgentOverviewSync`, `rhAgentOverviewSyncSymbol` | Enqueues company-overview backfill tasks |
 | `rh-agent-seed-admin.ts` | `clearRhAgentSymbolsAdmin`, `seedAllSymbolsFromPartner` | Symbol list management |
 | `strategies/` | `base-strategy`, `signal-detection`, `st-trend-rider.strategy` | Strategy adapter, signal state machine, and concrete trend-rider strategy |
@@ -76,15 +75,7 @@ rhAgentPdrTrigger
 
 ## Setup
 
-### 1. Configure Firebase Secrets
-
-```bash
-firebase functions:secrets:set ANTHROPIC_API_KEY
-firebase functions:secrets:set RH_AGENT_MCP_SERVER_URL
-firebase functions:secrets:set RH_AGENT_ACCOUNT_NUMBER
-```
-
-### 2. Seed Symbol List
+### 1. Seed Symbol List
 
 Clear existing symbols, then seed the full universe from SavantAPI:
 ```bash
@@ -92,7 +83,7 @@ curl -X POST https://<region>-rel-str.cloudfunctions.net/clearRhAgentSymbolsAdmi
 curl -X POST https://<region>-rel-str.cloudfunctions.net/seedAllSymbolsFromPartner
 ```
 
-### 3. Deploy Functions
+### 2. Deploy Functions
 
 ```bash
 cd functions
@@ -142,12 +133,10 @@ The nightly `symbolDataSyncNightly` function populates `symbol-data/{symbol}` su
 
 | Function Type | Examples | Authentication |
 |---------------|----------|----------------|
-| `onCall` dashboard callables | `rhAgentGetSymbolsWithSignals`, `rhAgentGetSymbolIndicatorSeries`, `rhAgentManualRun`, `rhExecuteTrade`, `rhGetAccountSummary` | Require a signed-in Firebase Auth user. CORS is restricted to `RH_AGENT_ALLOWED_ORIGINS`. |
+| `onCall` dashboard callables | `rhAgentGetSymbolsWithSignals`, `rhAgentGetSymbolIndicatorSeries`, `rhAgentManualRun` | Require a signed-in Firebase Auth user. CORS is restricted to `RH_AGENT_ALLOWED_ORIGINS`. |
 | `onRequest` admin endpoints | `rhAgentTriggerDaily`, `clearRhAgentSymbolsAdmin`, `seedAllSymbolsFromPartner` | HTTP endpoints intended for admin/internal use. Protect at the network layer (IP allowlist, Cloud IAM, or admin token) before exposing them. |
 | Pub/Sub triggers | `rhAgentPdrTrigger` | Invoked by Google Cloud Pub/Sub; no direct external access. |
 | Scheduled functions | `rhAgentOverviewSync` | Invoked by Cloud Scheduler; no direct external access. |
-
-Secrets (`ANTHROPIC_API_KEY`, `RH_AGENT_MCP_SERVER_URL`, `RH_AGENT_ACCOUNT_NUMBER`) are managed with Firebase Secrets and injected at runtime. No API keys or account credentials are hardcoded in source.
 
 ## Local Development
 
@@ -162,17 +151,8 @@ cd functions && npm run build:watch
 ng serve
 ```
 
-Emulator `.env.local`:
-```
-ANTHROPIC_API_KEY=your_key_here
-
-# Required by rh-agent-executor. The function fails at startup if either is missing.
-RH_AGENT_MCP_SERVER_URL=http://localhost:3000/sse
-RH_AGENT_ACCOUNT_NUMBER=your_account_number
-```
-
 ## Status
 
-- **Robinhood MCP** — enabled via `RH_AGENT_MCP_SERVER_URL` and `RH_AGENT_ACCOUNT_NUMBER` secrets; orders are sent only when the executor callable is invoked with a non-empty allocation
-- **Claude** — reserved for post-scan approval flow (not used during scanning)
-- **Live trading** — controlled through the `rh-agent-executor` MCP integration; no separate OAuth2 flow is required
+- **Signal generation** — active through the event-driven Cloud Functions architecture
+- **Direct Robinhood MCP authentication and execution** — planned under the Phase A workflow; not yet implemented
+- **Legacy Claude bridge and executor** — executable source removed and preserved in archive documents

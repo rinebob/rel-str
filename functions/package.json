@@ -2,16 +2,17 @@
   "name": "functions",
   "scripts": {
     "lint": "eslint --ext .js,.ts src",
-    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=lib/index.js --external:firebase-admin --external:firebase-functions --external:google-auth-library --external:busboy --external:node-fetch --external:@anthropic-ai/sdk",
+    "clean": "node -e \"require('node:fs').rmSync('lib', { recursive: true, force: true })\"",
+    "prebuild": "npm run clean",
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=lib/index.js --external:firebase-admin --external:firebase-functions --external:google-auth-library --external:busboy --external:node-fetch",
     "build:watch": "npm run build -- --watch",
     "typecheck": "tsc --noEmit",
-    "test:trade-bridge": "tsx --test ../tests/functions/trade-bridge-security.test.ts ../tests/functions/trade-bridge-http.test.ts",
+    "test:rh-agent-mcp-boundary": "tsx --test ../tests/functions/rh-agent-mcp-boundary.test.ts",
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
-    "dev": "npx tsx src/rh-agent/index.ts",
     "seed:rh-agent": "npx tsx scripts/seed-rh-agent-from-prod.ts"
   },
   "type": "module",
@@ -20,7 +21,6 @@
   },
   "main": "lib/index.js",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0",
     "@modelcontextprotocol/sdk": "^1.12.1",
     "busboy": "^1.6.0",
     "dotenv": "^16.4.0",

@@ -47,7 +47,6 @@ export const rhAgentProcessSymbol = onTaskDispatched<SymbolJobPayload>(
     },
     memory: '256MiB',
     timeoutSeconds: 60,
-    // secrets: [ANTHROPIC_API_KEY], // Temporarily disabled for testing
   },
   async (req) => {
     const { runId, symbol, marketDate, runStartedAt, triggeredBy } = req.data;

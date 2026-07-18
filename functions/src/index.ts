@@ -123,9 +123,3 @@ export { symbolDataSyncNightly, symbolDataSyncAdminHttp, symbolDataSyncSymbol } 
 
 // Symbol-data onboarding consumer — backfills new symbols emitted by partner
 export { processSymbolAdded } from './symbol-data-sync/symbol-data-symbol-added';
-
-// RH Agent Trade Executor (MCP direct integration)
-export {
-  rhExecuteTrade,
-  rhGetAccountSummary,
-} from './rh-agent-cloud-function/rh-agent-executor';
