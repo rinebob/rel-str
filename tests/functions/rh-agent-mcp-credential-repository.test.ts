@@ -69,6 +69,25 @@ describe("EncryptedFileCredentialRepository", () => {
     }
   });
 
+  it("loads a legacy refresh timestamp as the token-response timestamp", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "rh-agent-mcp-"));
+    const filePath = join(directory, "credentials.enc");
+    const repository = new EncryptedFileCredentialRepository(filePath, cipher);
+    const legacy = {
+      ...bundle(1, "synthetic-access"),
+      lastSuccessfulRefreshAt: "2026-07-18T19:00:00.000Z",
+    };
+
+    try {
+      await writeFile(filePath, await cipher.encrypt(JSON.stringify(legacy)), "utf8");
+      const loaded = await repository.load();
+      assert.equal(loaded?.lastTokenResponseAt, "2026-07-18T19:00:00.000Z");
+      assert.equal("lastSuccessfulRefreshAt" in (loaded ?? {}), false);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it("recovers a stale write lock left by an interrupted process", async () => {
     const directory = await mkdtemp(join(tmpdir(), "rh-agent-mcp-"));
     const filePath = join(directory, "credentials.enc");
@@ -176,7 +195,7 @@ describe("RepositoryOAuthProvider", () => {
         (await restarted.discoveryState())?.authorizationServerUrl,
         "https://synthetic.invalid",
       );
-      assert.equal(restarted.snapshot().credentialsPersisted, true);
+      assert.notEqual(await restarted.currentBundle(), null);
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

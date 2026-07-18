@@ -151,6 +151,7 @@ describe("local OAuth callback server", () => {
 describe("runLocalOAuthBootstrap", () => {
   it("persists an interactive bootstrap and reuses it without reopening the browser", async () => {
     const authorizationCode = syntheticValue();
+    const accessToken = syntheticValue();
     const repository = new InMemoryCredentialRepository();
     const authorize: OAuthAuthorizationDriver = async (
       provider: OAuthClientProvider,
@@ -171,7 +172,7 @@ describe("runLocalOAuthBootstrap", () => {
       }
       assert.equal(receivedCode, authorizationCode);
       await provider.saveTokens({
-        access_token: syntheticValue(),
+        access_token: accessToken,
         refresh_token: syntheticValue(),
         expires_in: 3600,
         token_type: "Bearer",
@@ -187,9 +188,8 @@ describe("runLocalOAuthBootstrap", () => {
       repository,
       authorize,
       openAuthorizationUrl: async () => undefined,
-      transportFactory: (_serverUrl, provider) => {
-        assert.throws(() => provider.state?.());
-        assert.throws(() => provider.codeVerifier());
+      transportFactory: (_serverUrl, durableAccessToken) => {
+        assert.equal(durableAccessToken, accessToken);
         return firstClientTransport;
       },
       callbackPort: 0,

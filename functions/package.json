@@ -12,6 +12,7 @@
     "test:rh-agent-mcp-auth-errors": "tsx --test ../tests/functions/rh-agent-mcp-auth-error-classifier.test.ts",
     "test:rh-agent-mcp-oauth-callback": "tsx --test ../tests/functions/rh-agent-mcp-oauth-callback.test.ts",
     "test:rh-agent-mcp-credentials": "tsx --test ../tests/functions/rh-agent-mcp-credential-repository.test.ts",
+    "test:rh-agent-mcp-refresh": "tsx --test ../tests/functions/rh-agent-mcp-token-refresh.test.ts ../tests/functions/rh-agent-mcp-token-refresh-failures.test.ts",
     "probe:rh-agent-mcp-auth": "tsx src/rh-agent-mcp/diagnostics/run-local-oauth-bootstrap.ts",
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",

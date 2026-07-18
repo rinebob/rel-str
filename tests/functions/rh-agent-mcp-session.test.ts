@@ -15,7 +15,10 @@ function createProvider(): OAuthClientProvider {
       redirect_uris: ["http://127.0.0.1:3456/callback"],
     },
     clientInformation: async () => undefined,
-    tokens: async () => undefined,
+    tokens: async () => ({
+      access_token: "synthetic-access-token",
+      token_type: "Bearer",
+    }),
     saveTokens: async () => undefined,
     redirectToAuthorization: async () => undefined,
     saveCodeVerifier: async () => undefined,
@@ -31,7 +34,10 @@ describe("RobinhoodMcpSession", () => {
     await server.connect(serverTransport);
     const session = new RobinhoodMcpSession(
       createProvider(),
-      () => clientTransport,
+      (_serverUrl, accessToken) => {
+        assert.equal(accessToken, "synthetic-access-token");
+        return clientTransport;
+      },
     );
 
     try {
