@@ -1,9 +1,9 @@
 # RH Agent Direct MCP Authentication Proof Plan
 
-**Status:** Phase 0 complete — Phase 1 not started
-**Updated:** 2026-07-17
+**Status:** Phase 1 complete — encrypted persistence and fresh-process restart reuse proven
+**Updated:** 2026-07-18
 **Scope:** Phase A authentication and read-only connectivity gate
-**Related:** `RH-AGENT-DIRECT-MCP-EXECUTION-WORKFLOW-2607-01.md`, `RH-AGENT-BROKER-SYNC-SPIKE-2607-01.md`, `RH-AGENT-ROBINHOOD-MCP-DISCOVERY-USAGE-2607-01.md`
+**Related:** `RH-AGENT-DIRECT-MCP-EXECUTION-WORKFLOW-2607-01.md`, `RH-AGENT-BROKER-SYNC-SPIKE-2607-01.md`, `RH-AGENT-ROBINHOOD-MCP-DISCOVERY-USAGE-2607-01.md`, `../reviews/2026-07-18-thermo-review-direct-mcp-auth.md`
 
 ## Purpose
 
@@ -141,7 +141,9 @@ credential revision for compare-and-swap updates
 last successful refresh time
 ```
 
-The authorization code and PKCE verifier are ephemeral bootstrap state and must be deleted after successful exchange or expiry.
+The authorization code and PKCE verifier are ephemeral bootstrap state. All application-held references must be released after successful exchange or expiry. JavaScript cannot claim secure zeroization or immediate deletion from process memory.
+
+The Phase 1 foundation uses the Functions lockfile's installed MCP SDK contracts rather than locally invented OAuth fields: `OAuthTokens` for token responses, `OAuthClientInformationMixed` for static or dynamically registered client information, and `OAuthDiscoveryState` for reusable authorization-server and protected-resource discovery. The RH Agent wrapper owns only its credential schema version, compare-and-swap revision, and refresh bookkeeping. These SDK contracts establish storage compatibility; they do not establish which optional fields Robinhood actually returns.
 
 Do not finalize the physical credential schema before observing Robinhood's actual token and refresh behavior. Tests use a synthetic shape that covers access-token expiry and refresh-token rotation without copying real values.
 
@@ -185,6 +187,77 @@ Responsibilities:
 
 The initial bootstrap runner may be a local admin CLI because Robinhood requires desktop interaction. It must share the same auth abstractions as the cloud proof and must not become a general MCP command runner.
 
+## Mandatory architecture guardrails
+
+These rules apply to every Phase 1–4 implementation change. They are acceptance criteria, not suggestions.
+
+### One canonical session path
+
+- Exactly one active module may construct `StreamableHTTPClientTransport` for RH Agent.
+- Exactly one active module may construct and own the MCP `Client` lifecycle used by bootstrap, restart, refresh, local diagnostics, and cloud reads.
+- That module must expose narrow allowlisted operations; callers must not construct their own MCP clients or receive generic `callTool` access.
+- Local bootstrap and cloud/runtime authentication must differ only in credential repository and interaction policy, not in transport, client, refresh, or tool-call implementation.
+- A new proof step must extend the canonical session seam. It must not create a sibling factory, wrapper, runner-specific client, or alternate OAuth lifecycle.
+
+### Tracer-bullet and spike retirement rule
+
+- A probe is temporary executable code created to answer one explicit question.
+- Before adding the next proof step, decide whether the previous probe becomes the canonical path or is deleted.
+- Once a later proof subsumes an earlier probe, preserve the redacted evidence and delete the superseded runner, orchestration, tests, scripts, and exports in the same change.
+- Completed probes must not accumulate as permanent modes of the authentication system.
+- No package script may remain for a proof path that is no longer the canonical implementation path.
+
+### Ownership and cleanup
+
+- One bootstrap-session scope must generate and own OAuth state, loopback callback lifetime, provider state, PKCE verifier, authorization-code exchange, and cleanup.
+- The outer CLI may receive only redacted evidence; it must not retain state, authorization code, verifier, authorization URL, tokens, or client information.
+- All terminal paths—success, OAuth rejection, timeout, malformed callback, connection failure, and process interruption—must use one idempotent cleanup path.
+- JavaScript implementations may claim only that application references were released for garbage collection. They must not claim secure zeroization or deletion from process memory.
+
+### State and error semantics
+
+- One typed classifier must own OAuth, transport, storage, and MCP error-to-state mapping.
+- `REAUTHORIZATION_REQUIRED` is reserved for invalid grant, revoked authorization, or explicit user interaction requirements.
+- Transport, timeout, throttling, and server failures map to `TEMPORARILY_UNAVAILABLE`.
+- Invalid redirect, registration, credential-store, or required configuration maps to `MISCONFIGURED` when distinguishable.
+- Unknown failures fail closed and remain redacted; they must not be guessed into a more specific state.
+
+### Contract and dependency control
+
+- Use installed MCP SDK contracts directly where they are authoritative; do not recreate OAuth response shapes.
+- Pin the MCP SDK to the exact version used for the proof until restart, refresh, and token rotation are proven.
+- SDK upgrades require focused authorization, refresh, persistence, and error-classification tests.
+- Barrel exports must expose only intentional consumers' seams. Tests must not force internal proof helpers into the public API.
+
+### Test the production composition
+
+- Automated tests must exercise the same session/provider/repository composition used by the local CLI and future cloud runtime.
+- Injection is used at external seams—transport, credential repository, clock, browser opener—not to replace the orchestration under test with hand-authored callback functions.
+- At least one fake/in-memory integration test must execute connect → `listTools` → close through the canonical session.
+- Tests must prove partial connection cleanup, callback replay rejection, port release, persistence, restart, refresh rotation, and state classification.
+- No automated test may resolve or contact the Robinhood MCP host.
+
+### Phase completion discipline
+
+- A checklist item is complete only when the canonical path implements it; a one-off runner that bypasses the canonical path is evidence, not completion.
+- Live success does not approve the architecture that produced it.
+- Each phase ends with a dead-code and duplicate-path scan before the next phase begins.
+- Persistence work may not begin while a completed probe remains as a parallel executable path.
+
+## Architecture cleanup hold — 2026-07-18
+
+The interactive callback, encrypted persistence, fresh-process restart, and authenticated `listTools` evidence are valid. Cleanup `RH-AGENT-MCP-AUTH-CLEANUP-T01` through `T08` is complete, and the architecture hold is closed.
+
+Required hold-exit conditions:
+
+- [x] One canonical provider-backed MCP session replaces parallel client paths.
+- [x] The discovery-only executable spike is removed after preserving its evidence.
+- [x] OAuth/MCP failures use the documented typed state classifier.
+- [x] One bootstrap-session scope owns ephemeral state and idempotent cleanup.
+- [x] The MCP SDK is pinned to the reviewed version.
+- [x] Fake/in-memory tests exercise the production composition.
+- [x] Canonical validation passes after cleanup.
+
 ## Implementation sequence
 
 ### Phase 0 — Make experimentation safe
@@ -199,16 +272,16 @@ The initial bootstrap runner may be a local admin CLI because Robinhood requires
 
 **Owner-approved dependency exception:** Keep `@modelcontextprotocol/sdk` installed between Phase 0 and the immediately following Phase 1 so it is not removed and re-added across adjacent phases. Phase 1 must introduce its first active consumer; remove the dependency if Phase 1 is abandoned or its design no longer uses the SDK.
 
-- [ ] Create a new `functions/src/rh-agent-mcp/` authentication boundary using the installed MCP SDK.
-- [ ] Define a minimal `RobinhoodCredentialRepository` interface rather than reading or writing files inside the OAuth provider.
-- [ ] Persist OAuth client registration information as well as tokens when Robinhood returns it.
-- [ ] Implement an explicit one-time local bootstrap command with a localhost callback and PKCE.
-- [ ] Keep authorization URL and callback state in memory where possible; delete temporary state after exchange.
-- [ ] Connect directly and call `listTools` after authorization.
-- [ ] Record only redacted structural evidence: success category, tool count, token-field presence, expiry presence, refresh-token presence, and client-registration-field presence.
-- [ ] Restart the process and prove the stored credential bundle reconnects without Claude or a browser.
+- [x] Create a new `functions/src/rh-agent-mcp/` authentication boundary using the installed MCP SDK.
+- [x] Define a minimal `RobinhoodCredentialRepository` interface rather than reading or writing files inside the OAuth provider.
+- [x] Persist OAuth client registration information as well as tokens when Robinhood returns it.
+- [x] Implement an explicit one-time local bootstrap command with a localhost callback and PKCE.
+- [x] Keep authorization URL and callback state in memory where possible; release provider-held temporary references after exchange. Full bootstrap-session ownership remains subject to the architecture cleanup hold.
+- [x] Connect directly and call `listTools` after authorization.
+- [x] Record only redacted structural evidence: success category, tool count, token-field presence, expiry presence, refresh-token presence, and client-registration-field presence.
+- [x] Restart the process and prove the stored credential bundle reconnects without Claude or a browser.
 
-### Phase 2 — Prove refresh behavior locally
+### Deferred Phase 2 — Prove refresh behavior locally
 
 - [ ] Add a fake-clock/fake-transport test for access-token expiry and refresh-token rotation.
 - [ ] Determine whether the SDK automatically refreshes or requires an explicit `auth()` refresh path.
@@ -218,7 +291,7 @@ The initial bootstrap runner may be a local admin CLI because Robinhood requires
 - [ ] Classify invalid-grant or equivalent revocation as `REAUTHORIZATION_REQUIRED`.
 - [ ] Document observed refresh fields and behavior without recording values.
 
-### Phase 3 — Select and implement secure cloud credential storage
+### Deferred Phase 3 — Select and implement secure cloud credential storage
 
 - [ ] Choose Secret Manager versioning, KMS-encrypted server-only storage, or an observed provider-supported alternative.
 - [ ] Restrict credential read/write IAM to the narrow direct-MCP runtime identity.
@@ -227,7 +300,7 @@ The initial bootstrap runner may be a local admin CLI because Robinhood requires
 - [ ] Ensure error paths and structured logs redact all secret-bearing fields.
 - [ ] Keep the configured brokerage account number in a separate backend-only secret/reference.
 
-### Phase 4 — Prove unattended cloud reads
+### Deferred Phase 4 — Prove unattended cloud reads
 
 - [ ] Add an owner-only authentication-status operation that returns only the redacted state contract.
 - [ ] Add a separately deployed, owner-only read-proof operation with a hardcoded allowlist.
@@ -238,7 +311,7 @@ The initial bootstrap runner may be a local admin CLI because Robinhood requires
 - [ ] Repeat after token expiry or natural refresh and prove no browser or Claude interaction occurs.
 - [ ] Verify revoked credentials surface `REAUTHORIZATION_REQUIRED` and do not retry indefinitely.
 
-### Phase 5 — Capture parser evidence and close the gate
+### Deferred Phase 5 — Capture parser evidence and close the gate
 
 - [ ] Capture redacted structural shapes for `get_equity_orders`, `get_equity_positions`, `get_equity_quotes`, and `get_portfolio`.
 - [ ] Identify pagination fields, stable broker identities, decimal-string fields, timestamp formats, nullable fields, and sensitive fields to discard.
@@ -321,6 +394,85 @@ Automated tests must use injected fakes and cover:
 Live verification is manual and read-only. No automated or manual authentication proof may place, review, or cancel an order.
 
 ## Evidence record
+
+### 2026-07-18 local discovery-only probe
+
+```text
+date and environment: 2026-07-18, local Windows process
+authentication step exercised: SDK metadata discovery and pre-authorization redirect
+human interaction completed: no
+authorization required: yes
+authorization-server metadata discovered: yes
+protected-resource metadata discovered: yes
+dynamic client registration returned client information: yes
+PKCE verifier generated: yes
+access-token field present: no
+refresh-token field present: no
+callback accepted: not tested
+authorization code exchanged: no
+read-only tool exercised: none
+financial mutation reachable: no
+redacted error category: none
+integration consequence: proceed to localhost callback and authorization-code exchange proof
+```
+
+The probe opened the authorization page only for the active owner ceremony. It did not retain the authorization URL, accept a callback, exchange an authorization code, persist credentials, invoke an MCP tool, or exercise any financial mutation.
+
+### 2026-07-18 local callback and code-exchange proof
+
+```text
+date and environment: 2026-07-18, local Windows process
+authentication step exercised: localhost callback, authorization-code exchange, authenticated listTools
+human interaction completed: yes
+authorization required: yes
+authorization-server metadata discovered: yes
+protected-resource metadata discovered: yes
+dynamic client registration returned client information: yes
+PKCE verifier generated and provider reference released after exchange: yes
+callback accepted with exact state: yes
+authorization code exchanged and orchestration reference released: yes
+outer-runner OAuth state reference released before process exit: yes, after cleanup
+access-token field present: yes
+refresh-token field present: yes
+expiry metadata present: yes
+client registration persisted: no
+credentials persisted: no
+restart reconnect succeeded: not tested
+read-only tool exercised: listTools
+reported tool count: 50
+financial mutation reachable: no
+redacted error category: none
+integration consequence: complete architecture cleanup before credential persistence or restart proof
+```
+
+The proof held credentials and client registration only in process memory. It did not log or persist credential values, account identifiers, authorization URLs, callback query strings, or tool definitions. The callback listener was loopback-only and one-shot; the authenticated MCP surface invoked only `listTools`.
+
+### 2026-07-18 encrypted persistence and restart proof
+
+```text
+date and environment: 2026-07-18, local Windows process
+credential protection: Windows CurrentUser DPAPI
+credential location class: local application data outside repository
+atomic persistence: encrypted temporary file plus rename
+credential revision compare-and-swap: enabled
+first process authorization callback accepted: yes
+access-token field persisted: yes
+refresh-token field persisted: yes
+expiry metadata persisted: yes
+client registration persisted: yes
+discovery state persisted: yes
+first process authenticated listTools count: 50
+fresh process started: yes
+browser opened during fresh process: no
+callback accepted during fresh process: no
+stored credential reused: yes
+fresh-process authenticated listTools count: 50
+financial mutation reachable: no
+redacted error category: none
+integration consequence: Phase 1 complete; proceed to Phase 2 refresh behavior proof
+```
+
+No credential value, authorization URL, callback query, account identifier, or tool definition was logged or added to the repository. The encrypted local bundle is bound to the current Windows user and is proof storage only; it is not the final cloud credential-store decision.
 
 For each live proof, record only:
 
