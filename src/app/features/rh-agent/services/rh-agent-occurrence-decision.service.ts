@@ -2,7 +2,7 @@
  * RH Agent Occurrence Decision Service
  *
  * Persists durable user decisions (ACCEPT / REJECT) for specific signal
- * occurrences and records when an accepted occurrence is executed.
+ * occurrences.
  * Each decision is keyed by the source run, symbol, timeframe, and signal type
  * so multiple intraday occurrences do not overwrite one another.
  */
