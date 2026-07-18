@@ -135,14 +135,6 @@
       ]
     },
     {
-      "collectionGroup": "trades",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "runId", "order": "ASCENDING" }
-      ]
-    },
-    {
       "collectionGroup": "rh-agent-symbol-lists",
       "queryScope": "COLLECTION",
       "fields": [
