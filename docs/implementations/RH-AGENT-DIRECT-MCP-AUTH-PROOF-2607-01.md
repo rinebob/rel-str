@@ -281,15 +281,117 @@ Required hold-exit conditions:
 - [x] Record only redacted structural evidence: success category, tool count, token-field presence, expiry presence, refresh-token presence, and client-registration-field presence.
 - [x] Restart the process and prove the stored credential bundle reconnects without Claude or a browser.
 
-### Deferred Phase 2 — Prove refresh behavior locally
+### Phase 2 — Prove refresh behavior locally
 
-- [ ] Add a fake-clock/fake-transport test for access-token expiry and refresh-token rotation.
-- [ ] Determine whether the SDK automatically refreshes or requires an explicit `auth()` refresh path.
-- [ ] Exercise a legitimate refresh only when the access token naturally requires it; do not force invalid token behavior against Robinhood.
-- [ ] Verify refreshed credentials are persisted before subsequent calls use them.
-- [ ] Verify a stale writer cannot overwrite a newer credential revision.
-- [ ] Classify invalid-grant or equivalent revocation as `REAUTHORIZATION_REQUIRED`.
-- [ ] Document observed refresh fields and behavior without recording values.
+**Status:** Deterministic local refresh implementation complete; the live proof remains pending until the stored Robinhood credential naturally requires refresh.
+
+#### Confirmed MCP SDK 1.29.0 behavior
+
+A network-isolated synthetic probe established the following behavior for the pinned `@modelcontextprotocol/sdk` version:
+
+- Calling `auth()` with a stored refresh token performs a refresh immediately; it does not evaluate `expires_in` against an issuance timestamp first.
+- The pre-Phase-2 restart path therefore refreshed on every process start rather than reusing a still-valid access token; the Phase 2 path now evaluates stored lifetime first.
+- `refreshAuthorization()` preserves the previous refresh token when the authorization server omits a replacement.
+- The SDK streamable HTTP transport can react to HTTP `401` by invoking OAuth refresh internally when it receives the full provider. Phase 2 deliberately supplies only the durably published bearer token to the short-lived MCP transport, so all refresh remains owned by the explicit coordinator.
+- The pre-Phase-2 implementation did not write `lastTokenResponseAt`; token acquisition and explicit refresh now persist that timestamp atomically with the token bundle.
+- A refresh-token exchange and durable token persistence must be treated as separate failure boundaries. The application must not use candidate credentials until repository persistence succeeds.
+
+#### Phase 2 boundary
+
+Phase 2 remains local-only. It does not add cloud credential storage, deployed endpoints, arbitrary MCP tool execution, account access, or trading.
+
+One explicit refresh coordinator will own the local refresh transaction:
+
+```text
+load durable credential revision
+→ determine whether refresh is required with an injected clock
+→ exchange the refresh token through SDK refreshAuthorization()
+→ persist the returned token set with revision compare-and-swap
+→ publish the stored bundle to the provider
+→ pass only the durable access token into the short-lived MCP transport
+→ begin or continue the MCP session
+```
+
+The coordinator must call `saveTokens()` outside the SDK refresh request's error-handling boundary. A persistence failure after authorization-server rotation must propagate and prevent the candidate access token from reaching an MCP request.
+
+#### Refresh decision
+
+- A token with a successful token-response timestamp and remaining lifetime beyond the safety window is reusable.
+- A token at or within the safety window requires refresh before connection.
+- A legacy bundle without a successful token-response timestamp requires one refresh to establish the timestamp.
+- A `forceRefresh` flag may bypass the lifetime check for controlled local testing; it does not change persistence or error-classification behavior.
+- A token without an expiry field remains usable until a bounded HTTP `401` requires refresh.
+- A refresh-required bundle without a refresh token maps to `REAUTHORIZATION_REQUIRED`.
+
+#### Safety invariants
+
+- Refreshed tokens become visible in memory only after encrypted persistence succeeds.
+- The MCP transport never receives the OAuth provider and cannot initiate an SDK-owned parallel refresh path.
+- A stale writer cannot overwrite a newer credential revision.
+- A failed refresh never opens the browser automatically.
+- `invalid_grant` or equivalent revocation maps to `REAUTHORIZATION_REQUIRED`.
+- Network, server, repository-busy, and revision-conflict failures fail closed without an MCP call.
+- No evidence or log contains token values, token request bodies, authorization URLs, account data, or raw provider errors.
+
+#### Redacted evidence
+
+Phase 2 may record only structural booleans and counts:
+
+- Refresh attempted.
+- Refresh succeeded.
+- Refresh-token field present.
+- Refresh token rotated.
+- Credential revision advanced.
+- Subsequent read-only proof call succeeded.
+
+#### Test matrix
+
+- [x] A valid stored token skips refresh and connects.
+- [x] An expired stored token refreshes once before `listTools`.
+- [x] A rotated refresh token is persisted and advances the credential revision.
+- [x] A refresh response without a replacement refresh token preserves the previous token.
+- [x] A persistence failure does not publish or use candidate tokens.
+- [x] A stale writer cannot overwrite a newer credential revision or begin an MCP call.
+- [x] Invalid grant maps to `REAUTHORIZATION_REQUIRED` without opening the browser.
+- [x] Transport or server failure maps to `TEMPORARILY_UNAVAILABLE`.
+- [x] A fresh process reuses the persisted refreshed bundle.
+- [x] Returned evidence contains no credential material.
+
+#### Live proof gate
+
+- [x] Complete the deterministic fake-clock, fake-fetch, repository, and in-memory MCP tests.
+- [x] Run canonical validation and a post-implementation duplicate-path scan.
+- [x] Perform one legitimate live refresh without corrupting or invalidating credentials.
+- [x] Record only redacted field-presence, revision, and tool-count evidence.
+
+Live forced-refresh result (2026-07-18, `run-local-oauth-bootstrap.ts --force-refresh`):
+
+```text
+state: CONNECTED
+resultCategory: STORED_CREDENTIAL_REFRESHED
+toolCount: 50
+refreshAttempted: true
+refreshSucceeded: true
+refreshTokenRotated: true
+credentialRevisionAdvanced: true
+subsequentCallSucceeded: true
+```
+
+No token values, authorization URLs, account data, or raw provider errors were logged. The encrypted credential bundle advanced to revision 3 with a fresh `lastTokenResponseAt` timestamp and intact access/refresh token fields.
+
+### Phase 2 Retrospective — Preventive architectural checklist
+
+Before declaring a future Phase complete, the author must answer these questions in addition to passing tests. These checks would have caught the structural debt in Phase 2 before it was merged.
+
+1. **Single responsibility per module:** Does each file/module have one clear reason to change? If a file now mixes orchestration, evidence, policy, and session execution, decompose before merging.
+2. **Interface creep:** Is any class implementing an external interface also accumulating custom methods that belong elsewhere? If yes, extract a policy/builder/helper.
+3. **Meaningful return values:** Does every function return something the caller actually uses to branch? If a boolean is always `true` on success, remove it.
+4. **Testing seams:** Are flags or test-only paths isolated in a policy or test harness, or are they bolted onto production orchestration?
+5. **File size and nesting:** Is any file approaching 300 lines without a documented decomposition plan? Is the main function readable as a flat chain of named phases?
+6. **State-machine clarity:** Can the primary flow be read as `determine phase → execute phase → run session`? If not, extract phase handlers or a state machine.
+7. **No conditional data clumps:** Do test fixtures build the same object in multiple ways based on a flag? Make variants explicit with named helpers or parameters.
+8. **Canonical-layer ownership:** Is each piece of logic in the package/layer that already owns the concept? Avoid leaking feature logic into shared paths.
+9. **Mandatory structural review:** For any PR touching authentication, credentials, or session lifecycle, run a dedicated structural review in addition to behavior tests before merging.
 
 ### Deferred Phase 3 — Select and implement secure cloud credential storage
 
