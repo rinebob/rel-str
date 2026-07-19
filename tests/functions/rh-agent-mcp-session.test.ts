@@ -42,13 +42,13 @@ describe("RobinhoodMcpSession", () => {
 
     try {
       await session.connect();
-      assert.equal(await session.listTools(), 1);
+      assert.equal((await session.getToolDefinitions()).length, 1);
     } finally {
       await session.close();
       await server.close();
     }
 
-    await assert.rejects(session.listTools(), { name: "McpSessionNotConnectedError" });
+    await assert.rejects(session.getToolDefinitions(), { name: "McpSessionNotConnectedError" });
   });
 
   it("surfaces a transport close failure without leaving the session connected", async () => {
@@ -64,7 +64,7 @@ describe("RobinhoodMcpSession", () => {
 
     await session.connect();
     await assert.rejects(session.close());
-    await assert.rejects(session.listTools(), { name: "McpSessionNotConnectedError" });
+    await assert.rejects(session.getToolDefinitions(), { name: "McpSessionNotConnectedError" });
     await server.close();
   });
 
