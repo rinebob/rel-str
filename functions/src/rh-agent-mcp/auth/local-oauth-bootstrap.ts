@@ -255,7 +255,7 @@ async function runSession(
   const session = new RobinhoodMcpSession(provider, transportFactory);
   try {
     await session.connect();
-    const toolCount = await session.listTools();
+    const toolCount = (await session.getToolDefinitions()).length;
     return {
       state: 'CONNECTED',
       evidence: await buildBootstrapEvidence(provider, {

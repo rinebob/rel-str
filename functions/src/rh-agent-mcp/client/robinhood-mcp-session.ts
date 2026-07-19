@@ -4,6 +4,9 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { ROBINHOOD_TRADING_MCP_URL } from '../contracts/robinhood-mcp';
 
+export type McpToolDefinition = Awaited<ReturnType<Client['listTools']>>['tools'][number];
+export type McpToolResult = Awaited<ReturnType<Client['callTool']>>;
+
 export type RobinhoodMcpTransportFactory = (
   serverUrl: URL,
   accessToken: string,
@@ -65,12 +68,22 @@ export class RobinhoodMcpSession {
     }
   }
 
-  async listTools(): Promise<number> {
+  async getToolDefinitions(): Promise<McpToolDefinition[]> {
     if (!this.client) {
       throw new McpSessionNotConnectedError();
     }
     const { tools } = await this.client.listTools();
-    return tools.length;
+    return tools;
+  }
+
+  async callTool(
+    name: string,
+    args: Record<string, unknown>,
+  ): Promise<McpToolResult> {
+    if (!this.client) {
+      throw new McpSessionNotConnectedError();
+    }
+    return await this.client.callTool({ name, arguments: args });
   }
 
   async close(): Promise<void> {
