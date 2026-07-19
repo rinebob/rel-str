@@ -40,6 +40,7 @@ export enum AppRoutes {
 	SIGNAL_REVIEW = 'signal-review',
 	RH_AGENT_ORDER = 'rh-agent-order',
 	RH_AGENT_TRIAGE_REPORT = 'rh-agent-triage-report',
+	RH_AGENT_OBSERVATION = 'rh-agent-observation',
 	SIGNAL_HISTORY = 'signal-history',
 }
 

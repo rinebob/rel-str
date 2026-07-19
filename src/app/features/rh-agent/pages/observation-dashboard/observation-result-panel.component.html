@@ -1,0 +1,46 @@
+@if (result()) {
+  <mat-card class="result-card">
+    <mat-card-content class="result-content">
+      @if (resultSuccess(); as success) {
+        <div class="result-success">
+          <div class="result-header">
+            <button mat-button (click)="onToggleRaw()">
+              {{ showRaw() ? 'Show redacted' : 'Show raw' }}
+            </button>
+            @if (history().length > 0) {
+              <button mat-button (click)="onToggleHistory()">
+                {{ showHistory() ? 'Hide history' : 'Show history' }}
+              </button>
+            }
+          </div>
+          <pre class="json-output">{{ formatJson(showRaw() ? (success.parsed ?? success.redacted) : success.redacted) }}</pre>
+          @if (showHistory() && history().length > 0) {
+            <div class="history-section">
+              <div class="history-header">
+                <span class="history-title">Call history</span>
+                <button mat-button (click)="onClearHistory()">Clear history</button>
+              </div>
+              @for (entry of history(); track entry.timestamp) {
+                <div class="history-entry">
+                  <button mat-button (click)="onLoadHistoryEntry(entry)">
+                    {{ entry.timestamp | date:'short' }} — {{ entry.tool }}
+                  </button>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+      @if (resultError(); as error) {
+        <div class="result-error">
+          <p><strong>Error:</strong> {{ error.error }}</p>
+          <p><strong>Category:</strong> {{ error.category }}</p>
+        </div>
+      }
+    </mat-card-content>
+  </mat-card>
+} @else {
+  <div class="empty-result">
+    <p>Select a tool and click Execute to see results.</p>
+  </div>
+}

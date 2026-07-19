@@ -1,0 +1,35 @@
+<div class="observation-dashboard">
+  <div class="page-header">
+    <h1>RH Agent Observation Dashboard</h1>
+    <span class="subtitle">Local-only tool explorer. No data is persisted to cloud.</span>
+  </div>
+
+  <div class="dashboard-grid">
+    <div class="left-panel">
+      <app-observation-tool-form
+        [tools]="tools()"
+        [selectedToolName]="selectedToolName()"
+        [argProperties]="argProperties()"
+        [argValues]="argValues()"
+        [accounts]="accounts()"
+        [extraRedactFields]="extraRedactFields()"
+        [loading]="loading()"
+        (toolSelected)="onToolSelected($event)"
+        (argValueChanged)="updateArgValue($event)"
+        (extraRedactFieldsChanged)="extraRedactFields.set($event)"
+        (execute)="execute()" />
+    </div>
+
+    <div class="right-panel">
+      <app-observation-result-panel
+        [result]="result()"
+        [history]="history()"
+        [showRaw]="showRaw()"
+        [showHistory]="showHistory()"
+        (toggleRaw)="toggleRaw()"
+        (toggleHistory)="toggleHistory()"
+        (loadHistoryEntry)="loadHistoryEntry($event)"
+        (clearHistory)="clearHistory()" />
+    </div>
+  </div>
+</div>

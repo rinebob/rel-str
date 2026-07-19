@@ -1,0 +1,130 @@
+<mat-card class="tool-card">
+  <mat-card-content>
+    <mat-form-field appearance="outline" class="tool-select">
+      <mat-label>Select tool</mat-label>
+      <mat-select [value]="selectedToolName()" (selectionChange)="onToolSelected($event.value)">
+        @for (tool of tools(); track tool.name) {
+          <mat-option [value]="tool.name">
+            {{ tool.name }}
+          </mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    @if (selectedTool(); as tool) {
+      <div class="tool-meta">
+        <p class="tool-description">{{ tool.description }}</p>
+        @if (tool.mutation) {
+          <div class="mutation-chip">mutation</div>
+        }
+      </div>
+    }
+
+    <div class="args-panel">
+      <div class="args-schema">
+        <h4>Param structure</h4>
+        @if (argProperties().length === 0) {
+          <p class="no-args">No arguments required.</p>
+        }
+        @for (prop of argProperties(); track prop.name) {
+          <div class="schema-row">
+            <div class="schema-header">
+              <code>{{ prop.name }}</code>
+              <span class="schema-type">{{ prop.type }}</span>
+              @if (prop.required) {
+                <span class="schema-required">required</span>
+              }
+            </div>
+            @if (prop.description) {
+              <p class="schema-description">{{ prop.description }}</p>
+            }
+          </div>
+        }
+      </div>
+
+      <div class="args-form">
+        <h4>Values</h4>
+        @if (argProperties().length === 0) {
+          <p class="no-args">No arguments required.</p>
+        }
+        @for (prop of argProperties(); track prop.name) {
+          @switch (prop.type) {
+            @case ('string[]') {
+              <mat-form-field appearance="outline" class="arg-input">
+                <mat-label>{{ prop.name }}{{ prop.required ? ' *' : '' }}</mat-label>
+                <input
+                  matInput
+                  [value]="formatArray(argValues()[prop.name])"
+                  (input)="updateArgValue(prop.name, parseArray($any($event.target).value))"
+                  [placeholder]="'Comma-separated values'" />
+              </mat-form-field>
+            }
+            @case ('boolean') {
+              <div class="arg-boolean">
+                <mat-checkbox
+                  [checked]="argValues()[prop.name] === true"
+                  (change)="updateArgValue(prop.name, $event.checked)">
+                  {{ prop.name }}{{ prop.required ? ' *' : '' }}
+                </mat-checkbox>
+              </div>
+            }
+            @case ('number') {
+              <mat-form-field appearance="outline" class="arg-input">
+                <mat-label>{{ prop.name }}{{ prop.required ? ' *' : '' }}</mat-label>
+                <input
+                  matInput
+                  type="number"
+                  [value]="argValues()[prop.name]"
+                  (input)="updateArgValue(prop.name, parseNumber($any($event.target).value))" />
+              </mat-form-field>
+            }
+            @default {
+              @if (prop.isAccountNumber && accounts().length > 0) {
+                <mat-form-field appearance="outline" class="arg-input">
+                  <mat-label>{{ prop.name }}{{ prop.required ? ' *' : '' }}</mat-label>
+                  <mat-select
+                    [value]="argValues()[prop.name]"
+                    (selectionChange)="updateArgValue(prop.name, $event.value)">
+                    @for (account of accounts(); track account.account_number) {
+                      <mat-option [value]="account.account_number">
+                        {{ account.nickname ?? account.brokerage_account_type ?? account.type }} — {{ maskAccountNumber(account.account_number) }}
+                        @if (account.agentic_allowed) {
+                          <span class="agentic-badge">agentic</span>
+                        }
+                        @if (account.is_default) {
+                          <span class="default-badge">default</span>
+                        }
+                      </mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+              } @else {
+                <mat-form-field appearance="outline" class="arg-input">
+                  <mat-label>{{ prop.name }}{{ prop.required ? ' *' : '' }}</mat-label>
+                  <input
+                    matInput
+                    [value]="argValues()[prop.name]"
+                    (input)="updateArgValue(prop.name, $any($event.target).value)" />
+                </mat-form-field>
+              }
+            }
+          }
+        }
+      </div>
+    </div>
+  </mat-card-content>
+
+  <div class="bottom-actions">
+    <mat-form-field appearance="outline" class="redact-field">
+      <mat-label>Extra redaction fields</mat-label>
+      <input matInput [ngModel]="extraRedactFields()" (ngModelChange)="extraRedactFieldsChanged.emit($event)" placeholder="e.g. portfolio_value, buying_power" />
+    </mat-form-field>
+    <button mat-raised-button color="primary" (click)="onExecute()" [disabled]="loading() || !argsValid()">
+      @if (loading()) {
+        <mat-spinner diameter="20"></mat-spinner>
+      } @else {
+        <span>Execute</span>
+      }
+    </button>
+  </div>
+</mat-card>

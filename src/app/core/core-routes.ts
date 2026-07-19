@@ -117,6 +117,11 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.RhAgentTriageReportComponent),
                 canActivate: [authGuard],
             },
+            {path: AppRoutes.RH_AGENT_OBSERVATION,
+                loadComponent: () => import('../features/rh-agent/pages/observation-dashboard/observation-dashboard.component')
+                .then(mod => mod.ObservationDashboardComponent),
+                canActivate: [authGuard],
+            },
             {path: AppRoutes.SIGNAL_HISTORY, 
                 loadComponent: () => import('../features/rh-agent/pages/signal-history/signal-history.component')
                 .then(mod => mod.SignalHistoryComponent),

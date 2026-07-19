@@ -15,6 +15,7 @@ export { RhAgentRunService } from './services/rh-agent-run.service';
 export { RhAgentSignalService } from './services/rh-agent-signal.service';
 export { RhAgentOverviewService } from './services/rh-agent-overview.service';
 export { RhAgentChartService } from './services/rh-agent-chart.service';
+export { RobinhoodMcpObservationService } from './services/robinhood-mcp-observation.service';
 
 export {
   type RhAgentStatus,
@@ -97,4 +98,5 @@ export { SignalReviewComponent } from './pages/signal-review/signal-review.compo
 export { ChartReviewComponent } from './pages/chart-review/chart-review.component';
 export { RhAgentOrderComponent } from './pages/agent-order/rh-agent-order.component';
 export { RhAgentTriageReportComponent } from './pages/agent-triage-report/rh-agent-triage-report.component';
+export { ObservationDashboardComponent } from './pages/observation-dashboard/observation-dashboard.component';
 export { QuickChartsComponent } from './components/quick-charts/quick-charts.component';
