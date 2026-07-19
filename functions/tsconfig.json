@@ -8,6 +8,11 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "paths": {
+      "@rh-agent-mcp/contracts": ["../shared/robinhood-mcp-contracts.ts"],
+      "@rh-agent-mcp/utils": ["../shared/robinhood-mcp-utils.ts"]
+    },
     "esModuleInterop": true,
     "isolatedModules": true,
     "skipLibCheck": true,

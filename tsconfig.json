@@ -14,6 +14,11 @@
     "declaration": false,
     "experimentalDecorators": true,
     "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "paths": {
+      "@rh-agent-mcp/contracts": ["shared/robinhood-mcp-contracts.ts"],
+      "@rh-agent-mcp/utils": ["shared/robinhood-mcp-utils.ts"]
+    },
     "importHelpers": true,
     "target": "ES2022",
     "module": "ES2022",
