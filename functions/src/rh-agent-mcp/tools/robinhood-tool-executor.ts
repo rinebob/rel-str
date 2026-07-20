@@ -5,26 +5,21 @@ import {
 import {
   connectLocalRobinhoodMcpSession,
   type ConnectLocalRobinhoodMcpSessionOptions,
+  type ConnectedRobinhoodMcpSession,
   RobinhoodMcpConnectionError,
 } from '../auth/robinhood-mcp-connection';
 import {
   getObservationToolDefinition,
   isObservationTool,
-  toServerToolName,
+  stripServerPrefix,
 } from './robinhood-tools';
 import { redactResponse, type RedactionOptions } from './robinhood-response-redactor';
+import { validateToolArgs } from './schema-validation';
 import {
   ToolExecutionErrorCategory,
   type ToolExecutionError,
   type ToolExecutionResult,
 } from '@rh-agent-mcp/contracts';
-
-export class ToolValidationError extends Error {
-  override name = 'ToolValidationError';
-  constructor(message: string) {
-    super(message);
-  }
-}
 
 export interface ExecuteObservationToolOptions {
   transportFactory?: RobinhoodMcpTransportFactory;
@@ -94,12 +89,22 @@ export async function executeObservationTool(
     };
   }
 
-  const connection = await connectLocalRobinhoodMcpSession({
-    transportFactory: options.transportFactory,
-    repository: options.repository,
-  });
+  const validation = validateToolArgs(definition.inputSchema, args);
+  if (!validation.valid) {
+    return {
+      success: false,
+      error: validation.error,
+      category: ToolExecutionErrorCategory.VALIDATION,
+    };
+  }
+
+  let connection: ConnectedRobinhoodMcpSession | undefined;
   try {
-    const mcpResult = await connection.session.callTool(toServerToolName(toolName), args);
+    connection = await connectLocalRobinhoodMcpSession({
+      transportFactory: options.transportFactory,
+      repository: options.repository,
+    });
+    const mcpResult = await connection.session.callTool(stripServerPrefix(toolName), validation.args);
     const parsed = parseToolResult(mcpResult);
     return {
       success: true,
@@ -114,14 +119,11 @@ export async function executeObservationTool(
       category: categorizeExecutionError(error),
     };
   } finally {
-    await connection.close();
+    await connection?.close().catch(() => undefined);
   }
 }
 
 function categorizeExecutionError(error: unknown): ToolExecutionErrorCategory {
-  if (error instanceof ToolValidationError) {
-    return ToolExecutionErrorCategory.VALIDATION;
-  }
   if (error instanceof RobinhoodMcpConnectionError || error instanceof McpSessionNotConnectedError) {
     return ToolExecutionErrorCategory.AUTH;
   }
