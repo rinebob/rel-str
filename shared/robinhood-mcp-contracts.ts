@@ -26,6 +26,9 @@ export interface RobinhoodToolDefinition {
   description: string;
   inputSchema: Record<string, unknown>;
   mutation: boolean;
+  simulation?: boolean;
+  financialMutation?: boolean;
+  category?: string;
 }
 
 export interface ToolExecutionRequest {
