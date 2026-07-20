@@ -14,6 +14,11 @@
         <mat-icon>account_tree</mat-icon>
         Review Latest Signals
       </button>
+      <a mat-stroked-button [routerLink]="'/' + appRoutes.RH_AGENT_OBSERVATION"
+        matTooltip="Open Robinhood MCP observation dashboard">
+        <mat-icon>query_stats</mat-icon>
+        Observation
+      </a>
       <button mat-icon-button (click)="triggerOverviewSync()" [disabled]="isSyncingOverview()"
         matTooltip="Sync company overview data">
         @if (isSyncingOverview()) {

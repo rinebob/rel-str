@@ -9,6 +9,8 @@ import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { RouterLink } from '@angular/router';
+import { AppRoutes } from '../../../../core/common/interfaces';
 import { RhSelectMenuComponent, RhSelectOption } from '../rh-select-menu/rh-select-menu.component';
 import { RhSymbolListName, ViewportMode } from '../../common/rh-agent.constants';
 
@@ -24,12 +26,13 @@ const LIST_OPTIONS: RhSelectOption[] = [
 @Component({
   selector: 'app-review-header',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatButtonModule, MatIconModule, MatTooltipModule, RhSelectMenuComponent],
+  imports: [CommonModule, MatButtonModule, MatIconModule, MatTooltipModule, RouterLink, RhSelectMenuComponent],
   templateUrl: './review-header.component.html',
   styleUrl: './review-header.component.scss',
 })
 export class ReviewHeaderComponent {
   readonly listOptions = LIST_OPTIONS;
+  protected readonly appRoutes = AppRoutes;
 
   selectedSymbol = input<string | null>(null);
   manualSymbol = input<string | null>(null);

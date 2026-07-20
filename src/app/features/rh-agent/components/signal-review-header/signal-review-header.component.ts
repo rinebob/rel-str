@@ -8,6 +8,8 @@ import { Component, ChangeDetectionStrategy, input, output } from '@angular/core
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { RouterLink } from '@angular/router';
+import { AppRoutes } from '../../../../core/common/interfaces';
 import { RhSymbolListName, StatusCounts, GroupDimension, SignalTimeframe, SignalDirection } from '../../common/rh-agent.constants';
 import { StatusSummaryChipsComponent } from '../status-summary-chips/status-summary-chips.component';
 import { SignalFilterPillsComponent } from '../signal-filter-pills/signal-filter-pills.component';
@@ -36,6 +38,7 @@ const LIST_FILTER_OPTIONS: RhSelectOption[] = [
     MatButtonModule,
     MatIconModule,
     MatTooltipModule,
+    RouterLink,
     StatusSummaryChipsComponent,
     SignalFilterPillsComponent,
     RhSelectMenuComponent,
@@ -46,6 +49,7 @@ const LIST_FILTER_OPTIONS: RhSelectOption[] = [
 export class SignalReviewHeaderComponent {
   readonly dimensionOptions = DIMENSION_OPTIONS;
   readonly listFilterOptions = LIST_FILTER_OPTIONS;
+  protected readonly appRoutes = AppRoutes;
 
   totalSignalCount = input(0);
   weeklySignalCount = input(0);

@@ -74,6 +74,7 @@
   color: var(--mat-sys-on-surface-variant);
   cursor: pointer;
   white-space: nowrap;
+  text-decoration: none;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 
   mat-icon { font-size: 11px; width: 11px; height: 11px; }

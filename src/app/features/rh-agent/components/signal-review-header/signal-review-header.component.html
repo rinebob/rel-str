@@ -52,6 +52,12 @@
       <mat-icon>assignment</mat-icon>
       Report
     </button>
+    <a class="pill-btn"
+      [routerLink]="'/' + appRoutes.RH_AGENT_OBSERVATION"
+      matTooltip="Open observation dashboard">
+      <mat-icon>query_stats</mat-icon>
+      Observation
+    </a>
     <button type="button" class="pill-btn small"
       [disabled]="!isActionableRun()"
       (click)="clearReviewFlags.emit()"

@@ -5,6 +5,9 @@
   <button mat-icon-button class="history-btn" (click)="history.emit()" matTooltip="Signal History">
     <mat-icon>history</mat-icon>
   </button>
+  <a mat-icon-button class="observation-btn" [routerLink]="'/' + appRoutes.RH_AGENT_OBSERVATION" matTooltip="Observation dashboard">
+    <mat-icon>query_stats</mat-icon>
+  </a>
 
   <div class="header-left-column">
     @let activeSymbol = selectedSymbol() ?? manualSymbol();

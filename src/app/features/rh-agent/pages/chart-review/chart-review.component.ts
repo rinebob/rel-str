@@ -22,6 +22,7 @@ import { MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
+import { AppRoutes } from '../../../../core/common/interfaces';
 import { Observable, of } from 'rxjs';
 
 import { Firestore, doc, getDoc } from '@angular/fire/firestore';
@@ -234,7 +235,7 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
 
   /** Navigate to the standalone signal history page. */
   goToSignalHistory(): void {
-    this.router.navigate(['/signal-history']);
+    this.router.navigate(['/' + AppRoutes.SIGNAL_HISTORY]);
   }
 
   /** Open a dialog to find symbols added to rh-agent-symbols in the last N days. */
@@ -294,7 +295,7 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
 
   /** Navigate back to the signal review page. */
   goToSignalReview(): void {
-    this.router.navigate(['/signal-review']);
+    this.router.navigate(['/' + AppRoutes.SIGNAL_REVIEW]);
   }
 
   /** Handle Enter key in the manual symbol input. */

@@ -26,7 +26,8 @@ import { RhAgentGroupStore } from '../../stores/rh-agent-group.store';
 import { RhAgentRun } from '../../services/rh-agent.types';
 import { RhAgentOverviewService } from '../../services/rh-agent-overview.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { AppRoutes } from '../../../../core/common/interfaces';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { getScheduleDescription, formatTimestampPT, formatTimePt, getNextPdrWindowPt, getNextNightlyPt, todayDate } from '../../utils/rh-agent.utils';
 import { AgentStatusBarComponent } from '../../components/agent-status-bar/agent-status-bar.component';
@@ -43,6 +44,7 @@ import { RunMetricsStripComponent } from '../../components/run-metrics-strip/run
     MatIconModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
+    RouterLink,
     AgentStatusBarComponent,
     RunHistoryPanelComponent,
     RunControlCardComponent,
@@ -59,6 +61,7 @@ export class RhAgentDashboardComponent implements OnInit, OnDestroy {
   private readonly groupStore = inject(RhAgentGroupStore);
   private readonly uiState = inject(UiStateService);
   private readonly router = inject(Router);
+  protected readonly appRoutes = AppRoutes;
   private readonly overviewService = inject(RhAgentOverviewService);
   private readonly snackBar = inject(MatSnackBar);
 
@@ -136,7 +139,7 @@ export class RhAgentDashboardComponent implements OnInit, OnDestroy {
     if (latest?.id && latest?.marketDate) {
       this.groupStore.setActiveRun(latest.id, latest.marketDate);
     }
-    this.router.navigate(['/signal-review']);
+    this.router.navigate(['/' + AppRoutes.SIGNAL_REVIEW]);
   }
 
   /** Review signals for a specific run selected from the run history panel. */
@@ -145,7 +148,7 @@ export class RhAgentDashboardComponent implements OnInit, OnDestroy {
     if (run.id && run.marketDate) {
       this.groupStore.setActiveRun(run.id, run.marketDate);
     }
-    this.router.navigate(['/signal-review']);
+    this.router.navigate(['/' + AppRoutes.SIGNAL_REVIEW]);
   }
 
   /** Trigger a full company overview sync and show a snackbar with the result. */
