@@ -2,6 +2,7 @@ import { Component, computed, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
+import { formatResultValue } from './observation-dashboard.model';
 import type { CallHistoryEntry } from './observation-dashboard.model';
 import type {
   ToolExecutionResult,
@@ -36,8 +37,8 @@ export class ObservationResultPanelComponent {
       : null,
   );
 
-  formatJson(value: unknown): string {
-    return JSON.stringify(value, null, 2);
+  formatResult(value: unknown): string {
+    return JSON.stringify(formatResultValue(value), null, 2);
   }
 
   onToggleRaw(): void {

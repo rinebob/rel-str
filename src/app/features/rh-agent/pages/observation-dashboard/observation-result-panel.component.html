@@ -13,7 +13,7 @@
               </button>
             }
           </div>
-          <pre class="json-output">{{ formatJson(showRaw() ? (success.parsed ?? success.redacted) : success.redacted) }}</pre>
+          <pre class="json-output">{{ formatResult(showRaw() ? (success.parsed ?? success.redacted) : success.redacted) }}</pre>
           @if (showHistory() && history().length > 0) {
             <div class="history-section">
               <div class="history-header">

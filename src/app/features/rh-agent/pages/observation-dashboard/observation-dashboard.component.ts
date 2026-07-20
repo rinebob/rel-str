@@ -21,6 +21,8 @@ import {
   argsValid,
   buildArgProperties,
   cleanArgsForExecution,
+  extractNextCursor,
+  isEmptyValue,
   parseExtraRedactFields,
   selectDefaultAccount,
 } from './observation-dashboard.model';
@@ -60,7 +62,8 @@ export class ObservationDashboardComponent implements OnInit, OnDestroy {
       const loaded = await this.observationService.listTools();
       this.tools.set(loaded);
       if (loaded.length > 0) {
-        this.selectedToolName.set(loaded[0].name);
+        const defaultTool = loaded.find((tool) => tool.name === 'get_accounts') ?? loaded[0];
+        this.selectedToolName.set(defaultTool.name);
         this.rebuildArgsForSelectedTool();
       }
     } catch (error) {
@@ -111,7 +114,15 @@ export class ObservationDashboardComponent implements OnInit, OnDestroy {
         { tool: toolName, args, result: response, timestamp: new Date() },
         ...entries,
       ]);
-      if (!response.success) {
+      if (response.success) {
+        const nextCursor = extractNextCursor((response as ToolExecutionSuccess).parsed);
+        if (this.argProperties().some((prop) => prop.name === 'cursor')) {
+          this.argValues.update((current) => ({
+            ...current,
+            cursor: nextCursor ?? '',
+          }));
+        }
+      } else {
         this.showError(response.error);
       }
     } catch (error) {
@@ -163,7 +174,12 @@ export class ObservationDashboardComponent implements OnInit, OnDestroy {
       }
       if (accounts && accounts.length > 0) {
         this.accounts.set(accounts);
-        this.rebuildArgsForSelectedTool();
+        const tool = this.selectedTool();
+        if (tool) {
+          this.rebuildArgsForTool(tool, this.argValues());
+        } else {
+          this.rebuildArgsForSelectedTool();
+        }
       }
     } catch {
       // Account prefill is best-effort; the user can still type account numbers manually.
@@ -178,17 +194,22 @@ export class ObservationDashboardComponent implements OnInit, OnDestroy {
     this.rebuildArgsForTool(tool, {});
   }
 
+  /**
+   * Rebuilds the argument properties and default values for a tool, then merges
+   * in non-empty `preservedValues`. Empty values are intentionally ignored so a
+   * just-populated cursor is not clobbered by an empty account-prefill merge.
+   */
   private rebuildArgsForTool(
     tool: RobinhoodToolDefinition,
-    overrides: Record<string, unknown>,
+    preservedValues: Record<string, unknown>,
   ): void {
     const { properties, values } = buildArgProperties(
       tool,
       selectDefaultAccount(this.accounts()),
       this.accounts(),
     );
-    for (const [name, value] of Object.entries(overrides)) {
-      if (value !== undefined) {
+    for (const [name, value] of Object.entries(preservedValues)) {
+      if (value !== undefined && !isEmptyValue(value)) {
         values[name] = value;
       }
     }

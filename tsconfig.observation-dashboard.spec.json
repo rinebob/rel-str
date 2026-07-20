@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["jasmine", "node"]
+  },
+  "files": [
+    "src/app/features/rh-agent/pages/observation-dashboard/observation-dashboard.model.spec.ts"
+  ],
+  "include": [
+    "**/*.d.ts"
+  ]
+}
