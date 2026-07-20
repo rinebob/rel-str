@@ -5,7 +5,6 @@ import {
   isObservationTool,
   listObservationTools,
   loadToolCatalog,
-  type RobinhoodToolName,
 } from "../../functions/src/rh-agent-mcp/tools/robinhood-tools";
 
 describe("Robinhood MCP tool registry", () => {
@@ -16,13 +15,14 @@ describe("Robinhood MCP tool registry", () => {
     assert.ok(catalog.tools.length > 0);
   });
 
-  it("returns only allowlisted observation tools", async () => {
+  it("returns all enabled observation tools including mutations", async () => {
     const tools = await listObservationTools();
     const names = new Set(tools.map((tool) => tool.name));
-    assert.ok(names.has("get_accounts" as RobinhoodToolName));
-    assert.ok(names.has("get_equity_positions" as RobinhoodToolName));
-    assert.ok(!names.has("place_equity_order" as RobinhoodToolName));
-    assert.ok(!names.has("add_to_watchlist" as RobinhoodToolName));
+    assert.ok(names.has("get_accounts"));
+    assert.ok(names.has("get_equity_positions"));
+    assert.ok(names.has("place_equity_order"));
+    assert.ok(names.has("add_to_watchlist"));
+    assert.ok(!names.has("unknown_tool"));
   });
 
   it("marks mutation tools based on catalog name or description", async () => {
@@ -38,7 +38,8 @@ describe("Robinhood MCP tool registry", () => {
 
   it("identifies observation tools", () => {
     assert.equal(isObservationTool("get_accounts"), true);
-    assert.equal(isObservationTool("place_equity_order"), false);
+    assert.equal(isObservationTool("place_equity_order"), true);
+    assert.equal(isObservationTool("unknown_tool"), false);
   });
 
   it("returns tool definitions with schemas", async () => {

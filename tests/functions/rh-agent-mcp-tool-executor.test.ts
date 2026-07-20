@@ -32,7 +32,7 @@ describe("executeObservationTool", () => {
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     const server = new McpServer({ name: "synthetic-server", version: "1.0.0" });
     server.registerTool(
-      "mcp__robinhood-trading__get_accounts",
+      "get_accounts",
       {},
       async () => ({
         content: [
@@ -76,7 +76,7 @@ describe("executeObservationTool", () => {
 
   it("rejects tools outside the observation allowlist", async () => {
     const result = await executeObservationTool(
-      "place_equity_order",
+      "unknown_tool",
       {},
     );
 

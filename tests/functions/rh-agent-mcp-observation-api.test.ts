@@ -3,6 +3,7 @@ import http from 'node:http';
 import { describe, it, before, after } from 'node:test';
 import type { AddressInfo } from 'node:net';
 import { createRobinhoodObservationApi } from '../../functions/src/rh-agent-mcp/local-api/robinhood-observation-api';
+import type { RobinhoodCredentialRepository } from '../../functions/src/rh-agent-mcp/auth/credential-repository';
 
 interface ResponseResult {
   status: number;
@@ -133,7 +134,7 @@ describe('Robinhood observation API', () => {
 
   it('returns a structured failure for disallowed tools', async () => {
     const { status, body } = await request(
-      `${baseUrl}/api/rh/tools/place_equity_order`,
+      `${baseUrl}/api/rh/tools/unknown_tool`,
       { method: 'POST' },
       {},
     );
@@ -149,19 +150,35 @@ describe('Robinhood observation API', () => {
   });
 
   it('returns a structured failure when credentials are unavailable', async () => {
-    const { status, body } = await request(
-      `${baseUrl}/api/rh/tools/get_accounts`,
-      { method: 'POST' },
-      {},
-    );
-    const typed = body as {
-      success: boolean;
-      error: string;
-      category: string;
+    const failingRepository: RobinhoodCredentialRepository = {
+      load: async () => null,
+      store: async (credential) => credential,
+      delete: async () => undefined,
     };
-    assert.equal(status, 200);
-    assert.equal(typed.success, false);
-    assert.equal(typeof typed.error, 'string');
-    assert.equal(typeof typed.category, 'string');
+    const failingServer = createRobinhoodObservationApi({ repository: failingRepository });
+    await new Promise<void>((resolve) => {
+      failingServer.listen(0, '127.0.0.1', () => resolve());
+    });
+    const failingPort = (failingServer.address() as AddressInfo).port;
+    const failingBaseUrl = `http://127.0.0.1:${failingPort}`;
+
+    try {
+      const { status, body } = await request(
+        `${failingBaseUrl}/api/rh/tools/get_accounts`,
+        { method: 'POST' },
+        {},
+      );
+      const typed = body as {
+        success: boolean;
+        error: string;
+        category: string;
+      };
+      assert.equal(status, 200);
+      assert.equal(typed.success, false);
+      assert.equal(typed.category, 'AUTH');
+      assert.ok(typed.error.includes('No stored Robinhood credential'));
+    } finally {
+      failingServer.close();
+    }
   });
 });
