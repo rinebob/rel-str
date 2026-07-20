@@ -2,7 +2,10 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { URL } from 'node:url';
 import { isStringArray } from '@rh-agent-mcp/utils';
 import { listObservationTools } from '../tools/robinhood-tools';
-import { executeObservationTool } from '../tools/robinhood-tool-executor';
+import {
+  executeObservationTool,
+  type ExecuteObservationToolOptions,
+} from '../tools/robinhood-tool-executor';
 
 const PORT = Number(process.env.RH_OBSERVATION_API_PORT ?? 3456);
 const HOST = process.env.RH_OBSERVATION_API_HOST ?? '127.0.0.1';
@@ -73,6 +76,7 @@ async function handleExecuteTool(
   request: IncomingMessage,
   response: ServerResponse,
   toolNameFromPath: string,
+  executorOptions?: ExecuteObservationToolOptions,
 ): Promise<void> {
   let body: string;
   try {
@@ -116,6 +120,7 @@ async function handleExecuteTool(
     toolNameFromPath,
     parsed.args ?? {},
     { extraFields: parsed.extraRedactFields },
+    executorOptions,
   );
 
   sendJson(response, 200, result);
@@ -131,21 +136,23 @@ interface Route {
   ) => Promise<void>;
 }
 
-const routes: Route[] = [
-  {
-    method: 'GET',
-    pattern: /^\/api\/rh\/tools$/,
-    handler: async (_request, response) => handleListTools(response),
-  },
-  {
-    method: 'POST',
-    pattern: /^\/api\/rh\/tools\/([^/]+)$/,
-    handler: async (request, response, match) =>
-      handleExecuteTool(request, response, match[1]!),
-  },
-];
+export function createRobinhoodObservationApi(
+  executorOptions?: ExecuteObservationToolOptions,
+) {
+  const routes: Route[] = [
+    {
+      method: 'GET',
+      pattern: /^\/api\/rh\/tools$/,
+      handler: async (_request, response) => handleListTools(response),
+    },
+    {
+      method: 'POST',
+      pattern: /^\/api\/rh\/tools\/([^/]+)$/,
+      handler: async (request, response, match) =>
+        handleExecuteTool(request, response, match[1]!, executorOptions),
+    },
+  ];
 
-export function createRobinhoodObservationApi() {
   return createServer(async (request, response) => {
     if (isNotLocalEnvironment()) {
       sendJson(response, 403, {
