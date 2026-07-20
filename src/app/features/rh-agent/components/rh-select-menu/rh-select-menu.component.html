@@ -5,12 +5,26 @@
 </button>
 
 <mat-menu #menu="matMenu">
-  @for (opt of options(); track opt.value) {
-    <button mat-menu-item (click)="valueChange.emit(opt.value)" class="rh-dropdown-menu-item">
-      <span class="menu-checkbox" [class.checked]="value() === opt.value">
-        <mat-icon>{{ value() === opt.value ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
-      </span>
-      <span class="menu-label">{{ opt.label }}</span>
+  <ng-template #optionItem let-option>
+    <button mat-menu-item [class.selected]="value() === option.value" (click)="valueChange.emit(option.value)" class="rh-dropdown-menu-item" [matTooltip]="option.description ?? ''" [matTooltipDisabled]="!option.description" matTooltipPosition="right">
+      <span class="menu-label">{{ option.label }}</span>
+      @if (option.badges) {
+        @for (badge of option.badges; track badge) {
+          <span class="rh-menu-badge">{{ badge }}</span>
+        }
+      }
     </button>
+  </ng-template>
+
+  @for (group of optionGroups(); track group.label) {
+    <button mat-menu-item disabled class="rh-menu-group-header">{{ group.label }}</button>
+    @for (opt of group.options; track opt.value) {
+      <ng-container *ngTemplateOutlet="optionItem; context: { $implicit: opt }"></ng-container>
+    }
+  }
+  @if (optionGroups().length === 0) {
+    @for (opt of options(); track opt.value) {
+      <ng-container *ngTemplateOutlet="optionItem; context: { $implicit: opt }"></ng-container>
+    }
   }
 </mat-menu>

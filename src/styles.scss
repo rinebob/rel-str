@@ -62,12 +62,16 @@ body {
 }
 
 
-// ── Shared dropdown menu items (indicator-menu, signal-review header) ────────
-// Applied via ::ng-deep in component SCSS or directly here since menus render
-// in the CDK overlay portal outside the component's shadow.
-.rh-dropdown-menu-item {
+// ── Shared dropdown menu items (indicator-menu, signal-review header, rh-select-menu) ────────
+// Mat-menu content is teleported into the CDK overlay portal, which lives outside the
+// component's shadow DOM. That means view-encapsulated styles in a component's SCSS
+// cannot target these items, so the shared styles for .rh-dropdown-menu-item must stay
+// in this global stylesheet. Keep these rules in sync with rh-select-menu.component.html.
+.rh-dropdown-menu-item.mat-mdc-menu-item {
   min-width: 180px;
   font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  justify-content: flex-start;
+  text-align: left;
 
   .mat-mdc-menu-item-text {
     display: flex;
@@ -79,20 +83,9 @@ body {
     white-space: nowrap;
   }
 
-  .menu-checkbox {
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-    pointer-events: none;
-
-    mat-icon {
-      font-size: 20px;
-      width: 20px;
-      height: 20px;
-      color: var(--mat-sys-on-surface-variant);
-    }
-
-    &.checked mat-icon { color: var(--mat-sys-primary); }
+  &.selected .menu-label {
+    color: var(--mat-sys-primary);
+    font-weight: 600;
   }
 
   .menu-label {

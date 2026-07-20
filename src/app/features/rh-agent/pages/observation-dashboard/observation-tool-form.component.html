@@ -1,19 +1,12 @@
 <mat-card class="tool-card">
   <mat-card-content>
-    <mat-form-field appearance="outline" class="tool-select">
-      <mat-label>Select tool</mat-label>
-      <mat-select [value]="selectedToolName()" (selectionChange)="onToolSelected($event.value)">
-        @for (group of toolsByCategory(); track group.category) {
-          <mat-optgroup [label]="group.category">
-            @for (tool of group.items; track tool.name) {
-              <mat-option [value]="tool.name">
-                {{ tool.name }}
-              </mat-option>
-            }
-          </mat-optgroup>
-        }
-      </mat-select>
-    </mat-form-field>
+    <app-rh-select-menu
+      class="tool-select"
+      label="Tool"
+      [optionGroups]="toolGroupOptions()"
+      [value]="selectedToolName()"
+      (valueChange)="onToolSelected($event)">
+    </app-rh-select-menu>
 
     @if (selectedTool(); as tool) {
       <div class="tool-meta">
@@ -92,35 +85,21 @@
             }
             @default {
               @if (prop.isAccountNumber && accounts().length > 0) {
-                <mat-form-field appearance="outline" class="arg-input">
-                  <mat-label>{{ prop.name }}{{ prop.required ? ' *' : '' }}</mat-label>
-                  <mat-select
-                    [value]="argValues()[prop.name]"
-                    (selectionChange)="updateArgValue(prop.name, $event.value)">
-                    @for (account of accounts(); track account.account_number) {
-                      <mat-option [value]="prop.useRhsAccountNumber ? (account.rhs_account_number ?? account.account_number) : account.account_number">
-                        {{ account.nickname ?? account.brokerage_account_type ?? account.type }} — {{ maskAccountNumber(prop.useRhsAccountNumber ? (account.rhs_account_number ?? account.account_number) : account.account_number) }}
-                        @if (account.agentic_allowed) {
-                          <span class="agentic-badge">agentic</span>
-                        }
-                        @if (account.is_default) {
-                          <span class="default-badge">default</span>
-                        }
-                      </mat-option>
-                    }
-                  </mat-select>
-                </mat-form-field>
+                <app-rh-select-menu
+                  class="arg-input"
+                  [label]="prop.name + (prop.required ? ' *' : '')"
+                  [options]="accountOptions(prop.useRhsAccountNumber)"
+                  [value]="selectedValue(argValues()[prop.name])"
+                  (valueChange)="updateArgValue(prop.name, $event)">
+                </app-rh-select-menu>
               } @else if (prop.enumValues && prop.enumValues.length > 0) {
-                <mat-form-field appearance="outline" class="arg-input">
-                  <mat-label>{{ prop.name }}{{ prop.required ? ' *' : '' }}</mat-label>
-                  <mat-select
-                    [value]="argValues()[prop.name]"
-                    (selectionChange)="updateArgValue(prop.name, $event.value)">
-                    @for (value of prop.enumValues; track value) {
-                      <mat-option [value]="value">{{ value }}</mat-option>
-                    }
-                  </mat-select>
-                </mat-form-field>
+                <app-rh-select-menu
+                  class="arg-input"
+                  [label]="prop.name + (prop.required ? ' *' : '')"
+                  [options]="enumOptions(prop.enumValues)"
+                  [value]="selectedValue(argValues()[prop.name])"
+                  (valueChange)="updateArgValue(prop.name, $event)">
+                </app-rh-select-menu>
               } @else if (prop.format === 'date' || prop.format === 'date-time') {
                 <mat-form-field appearance="outline" class="arg-input">
                   <mat-label>{{ prop.name }}{{ prop.required ? ' *' : '' }}</mat-label>

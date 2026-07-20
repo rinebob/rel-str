@@ -1,7 +1,6 @@
 import { Component, computed, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -13,9 +12,25 @@ import type { AccountInfo, ToolArgProperty } from './observation-dashboard.model
 import {
   argsValid,
   formatArray,
+  isSymbolField,
   maskAccountNumber,
+  normalizeSymbolValue,
   parseArray,
 } from './observation-dashboard.model';
+import {
+  RhSelectMenuComponent,
+  type RhSelectOption,
+  type RhSelectOptionGroup,
+} from '../../components/rh-select-menu/rh-select-menu.component';
+
+const TOOL_CATEGORY_ORDER = [
+  'Account & Performance',
+  'Orders',
+  'Market Data & Research',
+  'Options',
+  'Scanners',
+  'Watchlists',
+];
 
 @Component({
   selector: 'app-observation-tool-form',
@@ -23,13 +38,13 @@ import {
   imports: [
     CommonModule,
     FormsModule,
-    MatSelectModule,
     MatButtonModule,
     MatInputModule,
     MatFormFieldModule,
     MatCardModule,
     MatProgressSpinnerModule,
     MatCheckboxModule,
+    RhSelectMenuComponent,
   ],
   templateUrl: './observation-tool-form.component.html',
   styleUrl: './observation-tool-form.component.scss',
@@ -55,7 +70,7 @@ export class ObservationToolFormComponent {
     this.tools().find((tool) => tool.name === this.selectedToolName()),
   );
 
-  readonly toolsByCategory = computed(() => {
+  readonly toolGroupOptions = computed<RhSelectOptionGroup[]>(() => {
     const grouped = new Map<string, RobinhoodToolDefinition[]>();
     for (const tool of this.tools()) {
       const category = tool.category ?? 'Other';
@@ -64,7 +79,19 @@ export class ObservationToolFormComponent {
       }
       grouped.get(category)!.push(tool);
     }
-    return Array.from(grouped.entries()).map(([category, items]) => ({ category, items }));
+    const entries = Array.from(grouped.entries());
+    entries.sort(([a], [b]) => {
+      const indexA = TOOL_CATEGORY_ORDER.indexOf(a);
+      const indexB = TOOL_CATEGORY_ORDER.indexOf(b);
+      if (indexA === -1 && indexB === -1) return a.localeCompare(b);
+      if (indexA === -1) return 1;
+      if (indexB === -1) return -1;
+      return indexA - indexB;
+    });
+    return entries.map(([label, items]) => ({
+      label,
+      options: items.map((tool) => ({ value: tool.name, label: tool.name, description: tool.description })),
+    }));
   });
 
   readonly needsConfirmation = computed(() => {
@@ -103,7 +130,8 @@ export class ObservationToolFormComponent {
   }
 
   updateArgValue(name: string, value: unknown): void {
-    this.argValueChanged.emit({ name, value });
+    const normalized = isSymbolField(name) ? normalizeSymbolValue(value) : value;
+    this.argValueChanged.emit({ name, value: normalized });
   }
 
   formatArray(value: unknown): string {
@@ -129,6 +157,27 @@ export class ObservationToolFormComponent {
 
   maskAccountNumber(value: string): string {
     return maskAccountNumber(value);
+  }
+
+  enumOptions(values: string[] | undefined): RhSelectOption[] {
+    return (values ?? []).map((value) => ({ value, label: value }));
+  }
+
+  accountOptions(useRhsAccountNumber: boolean | undefined): RhSelectOption[] {
+    return this.accounts().map((account) => {
+      const value = useRhsAccountNumber
+        ? (account.rhs_account_number ?? account.account_number)
+        : account.account_number;
+      const label = `${account.nickname ?? account.brokerage_account_type ?? account.type} — ${this.maskAccountNumber(value)}`;
+      const badges: string[] = [];
+      if (account.agentic_allowed) badges.push('agentic');
+      if (account.is_default) badges.push('default');
+      return { value, label, badges };
+    });
+  }
+
+  selectedValue(value: unknown): string {
+    return value != null ? String(value) : '';
   }
 
   onExecute(): void {
