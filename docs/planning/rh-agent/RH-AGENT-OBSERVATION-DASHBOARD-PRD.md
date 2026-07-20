@@ -77,6 +77,25 @@ Build an observation dashboard that lets the owner run any Robinhood MCP tool lo
 - No credential material appears in browser devtools or network traffic.
 - Backend tests prove each tool can be called and redacted deterministically.
 
+## Additional features (added after initial draft)
+
+The following conveniences were added after the initial PRD and are now part of the dashboard behavior. They should be kept in sync with this document as the surface evolves.
+
+1. **Pagination cursor autopopulation**
+   - When a tool response contains a pagination cursor (e.g. `data.next`), the dashboard extracts the `cursor` query parameter and pre-fills the `cursor` argument field so the developer can call the tool again without manual copy/paste.
+
+2. **Symbol field normalization**
+   - Symbol and symbol-array inputs are uppercased before execution to reduce errors from lowercase ticker entry. This applies to the symbol fields used by the current tool catalog: `symbol`, `symbols`, `chain_symbol`, and `underlying_symbol`.
+
+3. **Default tool selection**
+   - When the tool catalog loads, `get_accounts` is selected by default if available, making it faster to start with an account-aware tool.
+
+4. **Option instrument display helpers**
+   - Structured results for option instruments are enriched with a human-readable `display_ticker` (`SYMBOL YYYY-MM-DD Type $strike`) and an OCC-style `occ_symbol` for easier manual reading.
+
+5. **Grouped tool selector with metadata**
+   - Tools are grouped by domain category (Account & Performance, Orders, Market Data & Research, Options, Scanners, Watchlists). Each tool option shows a tooltip with its description and optional badges.
+
 ## Related planning documents
 
 - `docs/implementations/RH-AGENT-DIRECT-MCP-AUTH-PROOF-2607-01.md` — local OAuth refresh proof.
