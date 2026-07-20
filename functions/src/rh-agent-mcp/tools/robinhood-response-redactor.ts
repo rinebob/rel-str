@@ -1,9 +1,49 @@
 import { maskAccountNumber } from '@rh-agent-mcp/utils';
 
+/**
+ * Redaction philosophy:
+ *
+ * - Redact only fields that are clearly PII or credentials (account numbers,
+ *   names, government ids, contact info, etc.).
+ * - Preserve public/reference identifiers such as option ids, chain ids,
+ *   instrument ids, pagination URLs/cursors, and request uuids. These are not
+ *   PII and are required for the dashboard to be useful.
+ * - Users can mark additional fields for redaction via `extraFields` /
+ *   `extraPatterns` in the dashboard UI.
+ *
+ * The safe-identifier allowlist exists so a future broad pattern cannot
+ * accidentally start redacting non-PII reference ids again.
+ */
+
+const SAFE_IDENTIFIER_FIELDS = new Set<string>([
+  'id',
+  'uuid',
+  'url',
+  'cursor',
+  'next',
+  'previous',
+  'href',
+  'self',
+  'chain_id',
+  'option_id',
+  'instrument_id',
+  'order_id',
+  'list_id',
+  'scan_id',
+  'watchlist_id',
+  'ids',
+  'chain_ids',
+  'option_ids',
+  'instrument_ids',
+  'currency_pair_ids',
+  'index_ids',
+]);
+
 const DEFAULT_SENSITIVE_FIELDS = new Set<string>([
   'account_number',
   'account_number_masked',
   'account_numbers',
+  'account_id',
   'ssn',
   'tin',
   'social_security_number',
@@ -13,7 +53,10 @@ const DEFAULT_SENSITIVE_FIELDS = new Set<string>([
   'full_name',
   'legal_name',
   'phone_number',
+  'phone_numbers',
+  'mobile_number',
   'email',
+  'emails',
   'email_address',
   'address',
   'street_address',
@@ -23,6 +66,11 @@ const DEFAULT_SENSITIVE_FIELDS = new Set<string>([
   'postal_code',
   'date_of_birth',
   'dob',
+  'user_id',
+  'customer_id',
+  'client_id',
+  'member_id',
+  'profile_id',
 ]);
 
 /**
@@ -31,14 +79,11 @@ const DEFAULT_SENSITIVE_FIELDS = new Set<string>([
  * names. Matching keys will be replaced by `redactValue`.
  */
 const DEFAULT_SENSITIVE_PATTERNS = [
-  /_account_number$/,
-  /_account_numbers$/,
-  /_id$/, // e.g. trade_id, request_id (use carefully; may match non-identifier IDs)
-  /_uuid$/, // e.g. request_uuid
-  /_url$/, // e.g. callback_url
-  /^id$/, // exact field name `id`
-  /^uuid$/, // exact field name `uuid`
-  /^url$/, // exact field name `url`
+  /_account_number$/i,
+  /_account_numbers$/i,
+  /_account_id$/i, // e.g. brokerage_account_id
+  /_ssn$/i, // e.g. last_4_ssn
+  /_taxpayer_id$/i, // e.g. taxpayer_id_number
 ];
 
 export interface RedactionOptions {
@@ -52,6 +97,13 @@ function isSensitiveField(
   options: RedactionOptions,
 ): boolean {
   const normalized = key.toLowerCase();
+
+  // Explicitly safe identifiers are never redacted, even if a future pattern
+  // would otherwise match them.
+  if (SAFE_IDENTIFIER_FIELDS.has(normalized)) {
+    return false;
+  }
+
   if (DEFAULT_SENSITIVE_FIELDS.has(normalized)) {
     return true;
   }
