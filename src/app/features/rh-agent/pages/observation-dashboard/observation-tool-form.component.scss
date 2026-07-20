@@ -28,11 +28,49 @@
   line-height: 1.4;
 }
 
-.mutation-chip {
-  color: var(--mat-sys-error);
+.tool-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.mutation-chip,
+.simulation-chip,
+.financial-mutation-chip {
   font-weight: 500;
   font-size: 11px;
-  margin-top: 4px;
+}
+
+.mutation-chip {
+  color: var(--mat-sys-error);
+}
+
+.simulation-chip {
+  color: var(--mat-sys-tertiary);
+}
+
+.financial-mutation-chip {
+  color: var(--mat-sys-error);
+  font-weight: 700;
+}
+
+.confirmation-panel {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 8px;
+  background: var(--mat-sys-surface-container);
+}
+
+.confirmation-warning {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.confirmation-input {
+  width: 100%;
 }
 
 .args-panel {

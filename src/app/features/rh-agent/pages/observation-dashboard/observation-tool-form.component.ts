@@ -1,4 +1,4 @@
-import { Component, computed, input, output } from '@angular/core';
+import { Component, computed, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatSelectModule } from '@angular/material/select';
@@ -48,13 +48,57 @@ export class ObservationToolFormComponent {
   readonly extraRedactFieldsChanged = output<string>();
   readonly execute = output<void>();
 
+  readonly confirmationState = signal<'idle' | 'confirming'>('idle');
+  readonly confirmationText = signal<string>('');
+
   readonly selectedTool = computed(() =>
     this.tools().find((tool) => tool.name === this.selectedToolName()),
   );
 
+  readonly toolsByCategory = computed(() => {
+    const grouped = new Map<string, RobinhoodToolDefinition[]>();
+    for (const tool of this.tools()) {
+      const category = tool.category ?? 'Other';
+      if (!grouped.has(category)) {
+        grouped.set(category, []);
+      }
+      grouped.get(category)!.push(tool);
+    }
+    return Array.from(grouped.entries()).map(([category, items]) => ({ category, items }));
+  });
+
+  readonly needsConfirmation = computed(() => {
+    const tool = this.selectedTool();
+    return !!(tool && (tool.mutation || tool.simulation));
+  });
+
+  readonly financialMutation = computed(() => !!this.selectedTool()?.financialMutation);
+
   readonly argsValid = computed(() => argsValid(this.argProperties(), this.argValues()));
 
+  readonly canExecute = computed(() => {
+    if (this.loading()) {
+      return false;
+    }
+    if (!this.argsValid()) {
+      return false;
+    }
+    if (!this.needsConfirmation()) {
+      return true;
+    }
+    if (this.confirmationState() === 'idle') {
+      // First click reveals the confirmation panel.
+      return true;
+    }
+    if (this.financialMutation()) {
+      return this.confirmationText().trim() === this.selectedToolName();
+    }
+    return true;
+  });
+
   onToolSelected(name: string): void {
+    this.confirmationState.set('idle');
+    this.confirmationText.set('');
     this.toolSelected.emit(name);
   }
 
@@ -78,11 +122,22 @@ export class ObservationToolFormComponent {
     return Number.isFinite(parsed) ? parsed : null;
   }
 
+  parseDate(value: string): string {
+    // Keep the raw ISO date string from the date input.
+    return value;
+  }
+
   maskAccountNumber(value: string): string {
     return maskAccountNumber(value);
   }
 
   onExecute(): void {
+    if (this.needsConfirmation() && this.confirmationState() === 'idle') {
+      this.confirmationState.set('confirming');
+      return;
+    }
     this.execute.emit();
+    this.confirmationState.set('idle');
+    this.confirmationText.set('');
   }
 }

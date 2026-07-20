@@ -180,6 +180,7 @@ export class ObservationDashboardComponent implements OnInit, OnDestroy {
     const { properties, values } = buildArgProperties(
       tool,
       selectDefaultAccount(this.accounts()),
+      this.accounts(),
     );
     for (const [name, value] of Object.entries(overrides)) {
       if (value !== undefined) {

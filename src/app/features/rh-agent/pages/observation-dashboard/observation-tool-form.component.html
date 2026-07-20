@@ -3,10 +3,14 @@
     <mat-form-field appearance="outline" class="tool-select">
       <mat-label>Select tool</mat-label>
       <mat-select [value]="selectedToolName()" (selectionChange)="onToolSelected($event.value)">
-        @for (tool of tools(); track tool.name) {
-          <mat-option [value]="tool.name">
-            {{ tool.name }}
-          </mat-option>
+        @for (group of toolsByCategory(); track group.category) {
+          <mat-optgroup [label]="group.category">
+            @for (tool of group.items; track tool.name) {
+              <mat-option [value]="tool.name">
+                {{ tool.name }}
+              </mat-option>
+            }
+          </mat-optgroup>
         }
       </mat-select>
     </mat-form-field>
@@ -14,9 +18,17 @@
     @if (selectedTool(); as tool) {
       <div class="tool-meta">
         <p class="tool-description">{{ tool.description }}</p>
-        @if (tool.mutation) {
-          <div class="mutation-chip">mutation</div>
-        }
+        <div class="tool-badges">
+          @if (tool.mutation) {
+            <div class="mutation-chip">mutation</div>
+          }
+          @if (tool.simulation) {
+            <div class="simulation-chip">simulation</div>
+          }
+          @if (tool.financialMutation) {
+            <div class="financial-mutation-chip">financial mutation</div>
+          }
+        </div>
       </div>
     }
 
@@ -86,8 +98,8 @@
                     [value]="argValues()[prop.name]"
                     (selectionChange)="updateArgValue(prop.name, $event.value)">
                     @for (account of accounts(); track account.account_number) {
-                      <mat-option [value]="account.account_number">
-                        {{ account.nickname ?? account.brokerage_account_type ?? account.type }} — {{ maskAccountNumber(account.account_number) }}
+                      <mat-option [value]="prop.useRhsAccountNumber ? (account.rhs_account_number ?? account.account_number) : account.account_number">
+                        {{ account.nickname ?? account.brokerage_account_type ?? account.type }} — {{ maskAccountNumber(prop.useRhsAccountNumber ? (account.rhs_account_number ?? account.account_number) : account.account_number) }}
                         @if (account.agentic_allowed) {
                           <span class="agentic-badge">agentic</span>
                         }
@@ -97,6 +109,26 @@
                       </mat-option>
                     }
                   </mat-select>
+                </mat-form-field>
+              } @else if (prop.enumValues && prop.enumValues.length > 0) {
+                <mat-form-field appearance="outline" class="arg-input">
+                  <mat-label>{{ prop.name }}{{ prop.required ? ' *' : '' }}</mat-label>
+                  <mat-select
+                    [value]="argValues()[prop.name]"
+                    (selectionChange)="updateArgValue(prop.name, $event.value)">
+                    @for (value of prop.enumValues; track value) {
+                      <mat-option [value]="value">{{ value }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+              } @else if (prop.format === 'date' || prop.format === 'date-time') {
+                <mat-form-field appearance="outline" class="arg-input">
+                  <mat-label>{{ prop.name }}{{ prop.required ? ' *' : '' }}</mat-label>
+                  <input
+                    matInput
+                    type="date"
+                    [value]="argValues()[prop.name]"
+                    (input)="updateArgValue(prop.name, parseDate($any($event.target).value))" />
                 </mat-form-field>
               } @else {
                 <mat-form-field appearance="outline" class="arg-input">
@@ -112,6 +144,30 @@
         }
       </div>
     </div>
+
+    @if (needsConfirmation() && confirmationState() === 'confirming') {
+      <div class="confirmation-panel">
+        @if (financialMutation()) {
+          <p class="confirmation-warning">
+            This is a <strong>financial mutation</strong> that can move money or change orders.
+            Type the tool name <code>{{ selectedToolName() }}</code> below and click Confirm to proceed.
+          </p>
+          <mat-form-field appearance="outline" class="confirmation-input">
+            <mat-label>Confirm tool name</mat-label>
+            <input matInput [value]="confirmationText()" (input)="confirmationText.set($any($event.target).value)" />
+          </mat-form-field>
+        } @else if (selectedTool()?.simulation) {
+          <p class="confirmation-warning">
+            This is a <strong>simulation</strong> (dry-run). No real order will be placed.
+            Click Confirm to proceed.
+          </p>
+        } @else {
+          <p class="confirmation-warning">
+            This is a <strong>write</strong> to your account. Click Confirm to proceed.
+          </p>
+        }
+      </div>
+    }
   </mat-card-content>
 
   <div class="bottom-actions">
@@ -119,9 +175,11 @@
       <mat-label>Extra redaction fields</mat-label>
       <input matInput [ngModel]="extraRedactFields()" (ngModelChange)="extraRedactFieldsChanged.emit($event)" placeholder="e.g. portfolio_value, buying_power" />
     </mat-form-field>
-    <button mat-raised-button color="primary" (click)="onExecute()" [disabled]="loading() || !argsValid()">
+    <button mat-raised-button color="primary" (click)="onExecute()" [disabled]="loading() || !canExecute()">
       @if (loading()) {
         <mat-spinner diameter="20"></mat-spinner>
+      } @else if (needsConfirmation() && confirmationState() === 'idle') {
+        <span>Confirm</span>
       } @else {
         <span>Execute</span>
       }

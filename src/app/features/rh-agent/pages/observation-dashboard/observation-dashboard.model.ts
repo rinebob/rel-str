@@ -26,7 +26,15 @@ export interface ToolArgProperty {
   required: boolean;
   description?: string;
   isAccountNumber: boolean;
+  useRhsAccountNumber: boolean;
+  enumValues?: string[];
+  format?: string;
 }
+
+export const TOOLS_USING_RHS_ACCOUNT_NUMBER = new Set<string>([
+  'get_pnl_trade_history',
+  'get_realized_pnl',
+]);
 
 export interface ToolInputSchema {
   type?: string | string[];
@@ -39,6 +47,8 @@ export interface ToolInputSchemaProperty {
   description?: string;
   items?: ToolInputSchemaProperty;
   required?: string[];
+  enum?: string[];
+  format?: string;
 }
 
 export const DEFAULT_ARRAY_DEFAULTS: Record<string, unknown[]> = {
@@ -121,6 +131,14 @@ export function inferPropertyType(prop: ToolInputSchemaProperty): ToolArgPropert
   return 'unknown';
 }
 
+function extractEnumValues(prop: ToolInputSchemaProperty): string[] | undefined {
+  if (!Array.isArray(prop.enum)) {
+    return undefined;
+  }
+  const values = prop.enum.filter((v): v is string => typeof v === 'string');
+  return values.length > 0 ? values : undefined;
+}
+
 export function inferDefaultValue(
   name: string,
   type: ToolArgProperty['type'],
@@ -146,21 +164,41 @@ export function inferDefaultValue(
   return '';
 }
 
+function resolveDefaultAccountNumber(
+  defaultAccountNumber: string,
+  useRhsAccountNumber: boolean,
+  accounts: AccountInfo[],
+): string {
+  if (!useRhsAccountNumber || !defaultAccountNumber) {
+    return defaultAccountNumber;
+  }
+  const account = accounts.find((a) => a.account_number === defaultAccountNumber);
+  return account?.rhs_account_number ?? defaultAccountNumber;
+}
+
 export function buildArgProperties(
   tool: RobinhoodToolDefinition,
   defaultAccountNumber: string,
+  accounts: AccountInfo[] = [],
 ): { properties: ToolArgProperty[]; values: Record<string, unknown> } {
   const schema = tool.inputSchema as ToolInputSchema;
   const required = new Set<string>(Array.isArray(schema.required) ? schema.required : []);
   const properties = schema.properties ?? {};
   const propertiesArray = Object.entries(properties);
+  const toolUsesRhsAccountNumber = TOOLS_USING_RHS_ACCOUNT_NUMBER.has(tool.name);
 
   const values: Record<string, unknown> = {};
   const argProps: ToolArgProperty[] = propertiesArray.map(([name, prop]) => {
     const type = inferPropertyType(prop);
     const isAccountNumber = name === 'account_number';
+    const useRhsAccountNumber = isAccountNumber && toolUsesRhsAccountNumber;
     const propRequired = required.has(name);
-    const value = inferDefaultValue(name, type, isAccountNumber ? defaultAccountNumber : '');
+    const resolvedAccountNumber = resolveDefaultAccountNumber(
+      defaultAccountNumber,
+      useRhsAccountNumber,
+      accounts,
+    );
+    const value = inferDefaultValue(name, type, isAccountNumber ? resolvedAccountNumber : '');
     values[name] = value;
 
     return {
@@ -169,6 +207,9 @@ export function buildArgProperties(
       required: propRequired,
       description: prop.description,
       isAccountNumber,
+      useRhsAccountNumber,
+      enumValues: extractEnumValues(prop),
+      format: prop.format,
     };
   });
 
