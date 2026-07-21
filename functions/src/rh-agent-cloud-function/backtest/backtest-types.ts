@@ -27,6 +27,31 @@ export interface BacktestPermutationPayload {
   rollStepDays?: number;
 }
 
+/** Why a simulated trade was closed. */
+export enum BacktestExitReason {
+  TARGET_GAIN = 'targetGain',
+  STOP_LOSS = 'stopLoss',
+  TRAILING_STOP = 'trailingStop',
+  MAX_HOLD_DAYS = 'maxHoldDays',
+  MISSING_DATA = 'missingData',
+  END_OF_DATA = 'endOfData',
+}
+
+/** One closed leg of a backtest trade. */
+export interface BacktestTradeLeg {
+  kind: 'option' | 'underlying';
+  side: 'long' | 'short';
+  quantity: number;
+  multiplier: number;
+  entryMark: number;
+  exitMark: number;
+  optionType?: OptionType;
+  strike?: string;
+  expiration?: string;
+  contractId?: string;
+  pnl: number;
+}
+
 /** One completed trade emitted by the simulator. */
 export interface BacktestTrade {
   entryDate: string;
@@ -40,15 +65,19 @@ export interface BacktestTrade {
   exitMark: number;
   quantity: number;
   side: 'long' | 'short';
-  optionType: OptionType;
+  optionType?: OptionType;
   strike?: string;
   expiration?: string;
   contractId?: string;
+  /** True when the trade was an equity/underlying position rather than an option. */
+  isUnderlying?: boolean;
   pnl: number;
   returnPct: number;
-  exitReason: 'targetGain' | 'stopLoss' | 'maxHoldDays' | 'missingData' | 'endOfData';
+  exitReason: BacktestExitReason;
   daysHeld: number;
   notes?: string[];
+  /** Per-leg detail for multi-leg spreads. */
+  legs?: BacktestTradeLeg[];
 }
 
 /** One daily equity-curve point. */

@@ -56,7 +56,7 @@ function parseDate(dateStr: string): number {
   return Date.UTC(y, m - 1, d);
 }
 
-function daysBetween(fromDate: string, toDate: string): number | undefined {
+export function daysBetween(fromDate: string, toDate: string): number | undefined {
   const from = parseDate(fromDate);
   const to = parseDate(toDate);
   if (Number.isNaN(from) || Number.isNaN(to)) return undefined;

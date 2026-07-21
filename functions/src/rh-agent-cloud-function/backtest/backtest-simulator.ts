@@ -9,25 +9,34 @@
 
 import { logger } from 'firebase-functions/v2';
 
-import type { StrategyAdapter, StrategyConfig, StrategyInput, StrategyOutput, OHLCV } from '../strategies/base-strategy';
-import type { HistoricalOptionContract, OptionType } from '../../types/partner';
-import { selectOptionContract, selectOptionSpread } from '../strategies/option-contract-selection';
+import type { StrategyAdapter, StrategyConfig, StrategyInput, StrategyOutput, StrategyOutputMetadata, ExitConfig, OHLCV, UnderlyingPositionSelection } from '../strategies/base-strategy';
+import type { HistoricalOptionContract } from '../../types/partner';
+import { selectOptionContract, selectOptionSpread, daysBetween } from '../strategies/option-contract-selection';
 import type { OptionSpreadLegSelection } from '../strategies/option-contract-selection';
 import type { OptionsChainCache } from './backtest-data-loader';
 import { computeMetrics } from './backtest-metrics';
-import type { BacktestEquityPoint, BacktestTrade, BacktestMetrics } from './backtest-types';
+import type { BacktestEquityPoint, BacktestTrade, BacktestTradeLeg, BacktestMetrics } from './backtest-types';
+import { BacktestExitReason } from './backtest-types';
 
-interface PositionLeg {
-  contract: HistoricalOptionContract;
-  contractId?: string;
-  optionType: OptionType;
-  strike?: string;
-  expiration?: string;
+interface BasePositionLeg {
   side: 'long' | 'short';
   quantity: number;
+  /** Option multiplier. 100 for standard options, 1 for underlying shares. */
+  multiplier: number;
   entryMark: number;
   lastMark: number;
 }
+
+interface OptionPositionLeg extends BasePositionLeg {
+  kind: 'option';
+  contract: HistoricalOptionContract;
+}
+
+interface UnderlyingPositionLeg extends BasePositionLeg {
+  kind: 'underlying';
+}
+
+type PositionLeg = OptionPositionLeg | UnderlyingPositionLeg;
 
 interface OpenPosition {
   id: number;
@@ -36,29 +45,26 @@ interface OpenPosition {
   legs: PositionLeg[];
   entryValue: number;
   daysHeld: number;
-  targetGainPct: number;
+  /** Highest pnlPct observed for this position; used for trailing stop. */
+  maxPnlPct: number;
+  targetGainPct?: number;
   stopLossPct: number;
+  trailingStopPct?: number;
   maxHoldDays: number;
   notes: string[];
 }
 
-interface EntryMetadata {
-  optionLegs?: OptionSpreadLegSelection[];
-  exit?: Partial<StrategyConfig>;
-}
-
-function calendarDaysBetween(fromDate: string, toDate: string): number {
-  const [y1, m1, d1] = fromDate.split('-').map(Number);
-  const [y2, m2, d2] = toDate.split('-').map(Number);
-  if (!y1 || !m1 || !d1 || !y2 || !m2 || !d2) return NaN;
-  const from = Date.UTC(y1, m1 - 1, d1);
-  const to = Date.UTC(y2, m2 - 1, d2);
-  if (Number.isNaN(from) || Number.isNaN(to)) return NaN;
-  return Math.round((to - from) / 86_400_000);
-}
 
 function sideMultiplier(side: 'long' | 'short'): number {
   return side === 'long' ? 1 : -1;
+}
+
+/** Compute the signed entry value for a set of legs (cash flow sign is the opposite). */
+function entryValueOfLegs(legs: PositionLeg[]): number {
+  return legs.reduce(
+    (sum, leg) => sum + sideMultiplier(leg.side) * leg.entryMark * leg.multiplier * leg.quantity,
+    0,
+  );
 }
 
 function marketValue(legs: PositionLeg[], marks: Map<number, number>): number | null {
@@ -67,9 +73,42 @@ function marketValue(legs: PositionLeg[], marks: Map<number, number>): number | 
     const leg = legs[i];
     const mark = marks.get(i);
     if (mark === undefined) return null;
-    value += sideMultiplier(leg.side) * mark * 100 * leg.quantity;
+    value += sideMultiplier(leg.side) * mark * leg.multiplier * leg.quantity;
   }
   return value;
+}
+
+/** Return the mark for a single leg on the current day, or undefined if no mark is available. */
+function getLegMark(leg: PositionLeg, today: OHLCV, chain: HistoricalOptionContract[]): number | undefined {
+  if (leg.kind === 'underlying') {
+    return Number.isFinite(today.close) ? (today.close as number) : undefined;
+  }
+  return findMarkForContract(leg.contract, chain);
+}
+
+function findMarkForContract(
+  contract: HistoricalOptionContract,
+  chain: HistoricalOptionContract[],
+): number | undefined {
+  if (contract.contractID) {
+    const byId = chain.find((c) => c.contractID === contract.contractID);
+    if (byId?.mark) {
+      const n = Number(byId.mark);
+      return Number.isNaN(n) ? undefined : n;
+    }
+  }
+  // Fallback: match by type + expiration + strike if contractId is missing.
+  const match = chain.find(
+    (c) =>
+      c.type === contract.type &&
+      c.expiration === contract.expiration &&
+      c.strike === contract.strike,
+  );
+  if (match?.mark) {
+    const n = Number(match.mark);
+    return Number.isNaN(n) ? undefined : n;
+  }
+  return undefined;
 }
 
 export interface BacktestSimulationResult {
@@ -91,6 +130,8 @@ export async function runBacktestSimulation(
   dailyBars: OHLCV[],
   optionsCache: OptionsChainCache,
   initialCash: number,
+  weeklyBars: OHLCV[] = [],
+  monthlyBars: OHLCV[] = [],
 ): Promise<BacktestSimulationResult> {
   logger.info('backtest_simulator_start', { symbol, strategy: strategy.metadata.id, bars: dailyBars.length, initialCash });
 
@@ -120,6 +161,8 @@ export async function runBacktestSimulation(
       symbol,
       marketDate: todayStr,
       bars: barsUpToToday,
+      weeklyBars,
+      monthlyBars,
     };
 
     let outputs: StrategyOutput[];
@@ -131,8 +174,13 @@ export async function runBacktestSimulation(
       continue;
     }
 
-    // Fetch today's option chain once for exits and possible entry.
-    const chain = await optionsCache.getChain(todayStr);
+    const hasOpenOptionPositions = openPositions.some((p) => p.legs.some((l) => l.kind === 'option'));
+    const hasOptionEntrySignal = outputs.some(
+      (o) => o.action && Array.isArray(o.metadata?.optionLegs) && o.metadata.optionLegs.length > 0,
+    );
+    // Only fetch the option chain if an option position needs marking or an option entry may fire.
+    const needsOptionChain = hasOpenOptionPositions || hasOptionEntrySignal;
+    const chain = needsOptionChain ? await optionsCache.getChain(todayStr) : [];
 
     // 1. Evaluate open positions first (exit at today's close).
     const stillOpen: OpenPosition[] = [];
@@ -145,17 +193,17 @@ export async function runBacktestSimulation(
           config,
           position,
           today,
-          exitResult.reason ?? 'missingData',
+          exitResult.reason ?? BacktestExitReason.MISSING_DATA,
           exitResult.marks,
           chain,
         );
         cash += closed.cashFlow;
         closedTrades.push(closed.trade);
       } else {
-        // Update lastMark for each leg from today's chain.
+        // Update lastMark for each leg from today's chain or underlying close.
         for (let li = 0; li < position.legs.length; li++) {
           const leg = position.legs[li];
-          const currentMark = findMarkForContract(chain, leg.contractId, leg.optionType, leg.expiration, leg.strike);
+          const currentMark = getLegMark(leg, today, chain);
           if (currentMark !== undefined) {
             leg.lastMark = currentMark;
           }
@@ -188,13 +236,13 @@ export async function runBacktestSimulation(
       );
       if (entry) {
         tradeSequence++;
-        cash -= entry.cashOutflow;
+        cash += entry.cashFlow;
         openPositions.push(entry.position);
       }
     }
 
     // 3. Record equity curve point for today.
-    const todaysPositionValue = computeOpenPositionValue(openPositions, chain, notes);
+    const todaysPositionValue = computeOpenPositionValue(openPositions, chain, today, notes);
     const equity = cash + todaysPositionValue;
     equityCurve.push({
       date: todayStr,
@@ -220,7 +268,8 @@ export async function runBacktestSimulation(
   // Close any remaining open positions at the last available mark.
   const lastBar = dailyBars[dailyBars.length - 1];
   if (lastBar && openPositions.length > 0) {
-    const lastChain = await optionsCache.getChain(lastBar.date as string);
+    const lastChainNeedsOptions = openPositions.some((p) => p.legs.some((l) => l.kind === 'option'));
+    const lastChain = lastChainNeedsOptions ? await optionsCache.getChain(lastBar.date as string) : [];
     const remaining = openPositions.splice(0, openPositions.length);
     for (const position of remaining) {
       const closed = await closePosition(
@@ -229,7 +278,7 @@ export async function runBacktestSimulation(
         config,
         position,
         lastBar,
-        'endOfData',
+        BacktestExitReason.END_OF_DATA,
         undefined,
         lastChain,
       );
@@ -289,11 +338,9 @@ function emptyResult(initialCash: number, notes: string[]): BacktestSimulationRe
   };
 }
 
-type CloseReason = 'targetGain' | 'stopLoss' | 'maxHoldDays' | 'missingData' | 'endOfData';
-
 interface ExitEvaluation {
   exit: boolean;
-  reason?: CloseReason;
+  reason?: BacktestExitReason;
   marks?: Map<number, number>;
 }
 
@@ -302,7 +349,7 @@ function evaluateExit(
   today: OHLCV,
   chain: HistoricalOptionContract[],
 ): ExitEvaluation {
-  const daysHeld = calendarDaysBetween(position.entryDate, today.date as string);
+  const daysHeld = daysBetween(position.entryDate, today.date as string) ?? NaN;
   if (!Number.isNaN(daysHeld) && daysHeld >= 0) {
     position.daysHeld = daysHeld;
   }
@@ -310,10 +357,10 @@ function evaluateExit(
   const marks = new Map<number, number>();
   for (let i = 0; i < position.legs.length; i++) {
     const leg = position.legs[i];
-    const mark = findMarkForContract(chain, leg.contractId, leg.optionType, leg.expiration, leg.strike);
+    const mark = getLegMark(leg, today, chain);
     if (mark === undefined) {
       // If max hold reached, force close using the last known mark.
-      if (position.daysHeld >= position.maxHoldDays && Number.isFinite(leg.lastMark)) {
+      if (position.maxHoldDays > 0 && position.daysHeld >= position.maxHoldDays && Number.isFinite(leg.lastMark)) {
         marks.set(i, leg.lastMark);
         continue;
       }
@@ -328,50 +375,107 @@ function evaluateExit(
   // Percent profit/loss relative to net entry value (works for long, short, and spreads).
   const pnlPct = position.entryValue === 0 ? 0 : (currentValue - position.entryValue) / Math.abs(position.entryValue);
 
-  if (pnlPct >= position.targetGainPct) {
-    return { exit: true, reason: 'targetGain', marks };
+  // Update running high watermark for trailing stop.
+  position.maxPnlPct = Math.max(position.maxPnlPct, pnlPct);
+
+  if (position.targetGainPct !== undefined && pnlPct >= position.targetGainPct) {
+    return { exit: true, reason: BacktestExitReason.TARGET_GAIN, marks };
   }
-  if (pnlPct <= -position.stopLossPct) {
-    return { exit: true, reason: 'stopLoss', marks };
+  if (
+    position.trailingStopPct !== undefined &&
+    position.trailingStopPct > 0 &&
+    position.maxPnlPct > 0 &&
+    pnlPct <= position.maxPnlPct - position.trailingStopPct
+  ) {
+    return { exit: true, reason: BacktestExitReason.TRAILING_STOP, marks };
   }
-  if (position.daysHeld >= position.maxHoldDays) {
-    return { exit: true, reason: 'maxHoldDays', marks };
+  if (position.stopLossPct > 0 && pnlPct <= -position.stopLossPct) {
+    return { exit: true, reason: BacktestExitReason.STOP_LOSS, marks };
+  }
+  if (position.maxHoldDays > 0 && position.daysHeld >= position.maxHoldDays) {
+    return { exit: true, reason: BacktestExitReason.MAX_HOLD_DAYS, marks };
   }
 
   return { exit: false };
 }
 
-function findMarkForContract(
-  chain: HistoricalOptionContract[],
-  contractId?: string,
-  optionType?: OptionType,
-  expiration?: string,
-  strike?: string,
-): number | undefined {
-  if (contractId) {
-    const byId = chain.find((c) => c.contractID === contractId);
-    if (byId?.mark) {
-      const n = Number(byId.mark);
-      return Number.isNaN(n) ? undefined : n;
-    }
-  }
-  // Fallback: match by type + expiration + strike if contractId is missing.
-  const match = chain.find(
-    (c) =>
-      c.type === optionType &&
-      c.expiration === expiration &&
-      c.strike === strike,
-  );
-  if (match?.mark) {
-    const n = Number(match.mark);
-    return Number.isNaN(n) ? undefined : n;
-  }
-  return undefined;
-}
-
 interface PositionEntry {
   position: OpenPosition;
-  cashOutflow: number;
+  cashFlow: number;
+}
+
+function buildUnderlyingLegs(
+  today: OHLCV,
+  underlying: UnderlyingPositionSelection,
+  notes: string[],
+): UnderlyingPositionLeg[] | null {
+  if (!Number.isFinite(today.close) || (today.close as number) <= 0) {
+    notes.push(`No valid close price on ${today.date as string} for underlying entry`);
+    return null;
+  }
+  const close = today.close as number;
+  const side = underlying.side ?? 'long';
+  const quantity = underlying.quantity ?? 1;
+  return [{ kind: 'underlying', side, quantity, multiplier: 1, entryMark: close, lastMark: close }];
+}
+
+function buildOptionLegs(
+  marketDate: string,
+  chain: HistoricalOptionContract[],
+  optionLegs: OptionSpreadLegSelection[],
+  signalType: string,
+  notes: string[],
+): OptionPositionLeg[] | null {
+  const spreadLegs: OptionSpreadLegSelection[] = optionLegs.map((l) => ({
+    side: l.side ?? 'long',
+    quantity: l.quantity ?? 1,
+    criteria: l.criteria,
+  }));
+
+  const legs: OptionPositionLeg[] = [];
+
+  if (spreadLegs.length === 1) {
+    const result = selectOptionContract(marketDate, chain, spreadLegs[0].criteria);
+    if (!result || result.mark === undefined) {
+      notes.push(`Could not select option contract on ${marketDate} for ${signalType}`);
+      return null;
+    }
+    const side = spreadLegs[0].side;
+    const quantity = spreadLegs[0].quantity ?? 1;
+    legs.push({
+      kind: 'option',
+      contract: result.contract,
+      side,
+      quantity,
+      multiplier: 100,
+      entryMark: result.mark,
+      lastMark: result.mark,
+    });
+  } else {
+    const result = selectOptionSpread(marketDate, chain, spreadLegs);
+    if (!result) {
+      notes.push(`Could not select spread on ${marketDate} for ${signalType}`);
+      return null;
+    }
+    for (let i = 0; i < result.length; i++) {
+      const r = result[i];
+      if (r.mark === undefined) {
+        notes.push(`Selected contract(s) had no usable mark on ${marketDate}`);
+        return null;
+      }
+      legs.push({
+        kind: 'option',
+        contract: r.contract,
+        side: r.side,
+        quantity: r.quantity,
+        multiplier: 100,
+        entryMark: r.mark,
+        lastMark: r.mark,
+      });
+    }
+  }
+
+  return legs;
 }
 
 async function tryEnterPosition(
@@ -385,94 +489,50 @@ async function tryEnterPosition(
   notes: string[],
 ): Promise<PositionEntry | null> {
   const todayStr = today.date as string;
-  const meta = (output.metadata as EntryMetadata | undefined) ?? {};
+  const meta: StrategyOutputMetadata = output.metadata ?? {};
   const optionLegs = meta.optionLegs;
-  if (!Array.isArray(optionLegs) || optionLegs.length === 0) {
-    notes.push(`Signal on ${todayStr} has no optionLegs metadata`);
+  const underlying = meta.underlyingPosition;
+
+  if (!underlying && (!Array.isArray(optionLegs) || optionLegs.length === 0)) {
+    notes.push(`Signal on ${todayStr} has no optionLegs or underlyingPosition metadata`);
     return null;
   }
 
-  let selectedLegs: { contract: HistoricalOptionContract; dte: number; mark?: number; side: 'long' | 'short'; quantity: number }[] | null = null;
-
-  if (optionLegs.length === 1) {
-    const leg = optionLegs[0];
-    const selected = selectOptionContract(todayStr, chain, leg.criteria);
-    if (!selected || selected.mark === undefined) {
-      notes.push(`Could not select option contract on ${todayStr} for ${output.signalType}`);
-      return null;
-    }
-    selectedLegs = [{
-      contract: selected.contract,
-      dte: selected.dte,
-      mark: selected.mark,
-      side: leg.side ?? 'long',
-      quantity: leg.quantity ?? 1,
-    }];
-  } else {
-    const spreadLegs: OptionSpreadLegSelection[] = optionLegs.map((l) => ({
-      side: l.side ?? 'long',
-      quantity: l.quantity ?? 1,
-      criteria: l.criteria,
-    }));
-    const result = selectOptionSpread(todayStr, chain, spreadLegs);
-    if (!result) {
-      notes.push(`Could not select spread on ${todayStr} for ${output.signalType}`);
-      return null;
-    }
-    selectedLegs = result.map((r, i) => ({
-      contract: r.contract,
-      dte: r.dte,
-      mark: r.mark,
-      side: spreadLegs[i].side,
-      quantity: spreadLegs[i].quantity ?? 1,
-    }));
+  let legs: PositionLeg[] | null = null;
+  if (underlying) {
+    legs = buildUnderlyingLegs(today, underlying, notes);
+  } else if (Array.isArray(optionLegs)) {
+    legs = buildOptionLegs(todayStr, chain, optionLegs, output.signalType, notes);
   }
 
-  const positionLegs: PositionLeg[] = [];
-  let cashOutflow = 0;
-  for (const selected of selectedLegs) {
-    if (selected.mark === undefined) continue;
-    const legEntryValue = sideMultiplier(selected.side) * selected.mark * 100 * selected.quantity;
-    positionLegs.push({
-      contract: selected.contract,
-      contractId: selected.contract.contractID,
-      optionType: selected.contract.type as OptionType,
-      strike: selected.contract.strike,
-      expiration: selected.contract.expiration,
-      side: selected.side,
-      quantity: selected.quantity,
-      entryMark: selected.mark,
-      lastMark: selected.mark,
-    });
-    cashOutflow += -legEntryValue; // cash change on entry (long = outflow, short = inflow)
-  }
+  if (!legs || legs.length === 0) return null;
 
-  if (positionLegs.length === 0) {
-    notes.push(`Selected contract(s) had no usable mark on ${todayStr}`);
-    return null;
-  }
+  const entryValue = entryValueOfLegs(legs);
+  const cashFlow = -entryValue;
 
-  const entryValue = positionLegs.reduce(
-    (sum, leg) => sum + sideMultiplier(leg.side) * leg.entryMark * 100 * leg.quantity,
-    0,
-  );
+  const exitConfig: ExitConfig = meta.exit ?? (config as ExitConfig);
+  const targetGainPctRaw = exitConfig?.targetGainPct;
+  const trailingStopPctRaw = exitConfig?.trailingStopPct;
 
-  const exitConfig = meta.exit ?? config;
+  const stopLossPctRaw = exitConfig?.stopLossPct;
+  const maxHoldDaysRaw = exitConfig?.maxHoldDays;
 
   const position: OpenPosition = {
     id: tradeId,
     entryDate: todayStr,
-    entryUnderlying: today.close ?? 0,
-    legs: positionLegs,
+    entryUnderlying: Number.isFinite(today.close) ? (today.close as number) : 0,
+    legs,
     entryValue,
     daysHeld: 0,
-    targetGainPct: Number(exitConfig?.targetGainPct ?? 1.0),
-    stopLossPct: Number(exitConfig?.stopLossPct ?? 0.5),
-    maxHoldDays: Number(exitConfig?.maxHoldDays ?? 252),
+    maxPnlPct: 0,
+    targetGainPct: Number.isFinite(Number(targetGainPctRaw)) ? Number(targetGainPctRaw) : undefined,
+    stopLossPct: Number.isFinite(Number(stopLossPctRaw)) ? Number(stopLossPctRaw) : 0,
+    trailingStopPct: Number.isFinite(Number(trailingStopPctRaw)) ? Number(trailingStopPctRaw) : undefined,
+    maxHoldDays: Number.isFinite(Number(maxHoldDaysRaw)) ? Number(maxHoldDaysRaw) : 0,
     notes: [],
   };
 
-  return { position, cashOutflow };
+  return { position, cashFlow };
 }
 
 interface CloseResult {
@@ -486,7 +546,7 @@ function closePosition(
   config: StrategyConfig,
   position: OpenPosition,
   today: OHLCV,
-  reason: CloseReason,
+  reason: BacktestExitReason,
   marks: Map<number, number> | undefined,
   chain: HistoricalOptionContract[],
 ): CloseResult {
@@ -497,7 +557,7 @@ function closePosition(
     const leg = position.legs[i];
     let mark = marks?.get(i);
     if (mark === undefined) {
-      mark = findMarkForContract(chain, leg.contractId, leg.optionType, leg.expiration, leg.strike);
+      mark = getLegMark(leg, today, chain);
     }
     if (mark === undefined) {
       mark = Number.isFinite(leg.lastMark) ? leg.lastMark : leg.entryMark;
@@ -508,21 +568,33 @@ function closePosition(
 
   let pnl = 0;
   let cashFlow = 0;
-  const firstLeg = position.legs[0];
-  const exitMark = finalMarks.get(0) ?? firstLeg.lastMark;
+  const tradeLegs: BacktestTradeLeg[] = [];
 
   for (let i = 0; i < position.legs.length; i++) {
     const leg = position.legs[i];
     const mark = finalMarks.get(i) ?? leg.lastMark;
-    const legPnl = sideMultiplier(leg.side) * (mark - leg.entryMark) * 100 * leg.quantity;
+    const legPnl = sideMultiplier(leg.side) * (mark - leg.entryMark) * leg.multiplier * leg.quantity;
     pnl += legPnl;
-    cashFlow += sideMultiplier(leg.side) * mark * 100 * leg.quantity;
+    cashFlow += sideMultiplier(leg.side) * mark * leg.multiplier * leg.quantity;
+
+    tradeLegs.push({
+      kind: leg.kind,
+      side: leg.side,
+      quantity: leg.quantity,
+      multiplier: leg.multiplier,
+      entryMark: leg.entryMark,
+      exitMark: mark,
+      optionType: leg.kind === 'option' ? leg.contract.type : undefined,
+      strike: leg.kind === 'option' ? leg.contract.strike : undefined,
+      expiration: leg.kind === 'option' ? leg.contract.expiration : undefined,
+      contractId: leg.kind === 'option' ? leg.contract.contractID : undefined,
+      pnl: legPnl,
+    });
   }
 
-  const entryMarkForPct = firstLeg?.entryMark ?? 0;
-  const returnPct = entryMarkForPct === 0 ? 0 : (pnl / (entryMarkForPct * 100 * firstLeg.quantity));
-
-  const daysHeld = calendarDaysBetween(position.entryDate, todayStr);
+  const firstLeg = tradeLegs[0];
+  const returnPct = position.entryValue === 0 ? 0 : pnl / Math.abs(position.entryValue);
+  const daysHeld = daysBetween(position.entryDate, todayStr) ?? NaN;
 
   const trade: BacktestTrade = {
     entryDate: position.entryDate,
@@ -531,20 +603,22 @@ function closePosition(
     strategyId,
     config,
     entryUnderlying: position.entryUnderlying,
-    exitUnderlying: today.close ?? 0,
+    exitUnderlying: Number.isFinite(today.close) ? (today.close as number) : 0,
     entryMark: firstLeg.entryMark,
-    exitMark,
+    exitMark: firstLeg.exitMark,
     quantity: firstLeg.quantity,
     side: firstLeg.side,
     optionType: firstLeg.optionType,
     strike: firstLeg.strike,
     expiration: firstLeg.expiration,
     contractId: firstLeg.contractId,
+    isUnderlying: firstLeg.kind === 'underlying',
     pnl,
     returnPct,
     exitReason: reason,
     daysHeld: Number.isNaN(daysHeld) ? 0 : daysHeld,
     notes: position.notes.length > 0 ? position.notes : undefined,
+    legs: tradeLegs,
   };
 
   return { trade, cashFlow };
@@ -553,6 +627,7 @@ function closePosition(
 function computeOpenPositionValue(
   positions: OpenPosition[],
   chain: HistoricalOptionContract[],
+  today: OHLCV,
   notes: string[],
 ): number {
   let value = 0;
@@ -561,7 +636,7 @@ function computeOpenPositionValue(
     let complete = true;
     for (let i = 0; i < position.legs.length; i++) {
       const leg = position.legs[i];
-      const mark = findMarkForContract(chain, leg.contractId, leg.optionType, leg.expiration, leg.strike);
+      const mark = getLegMark(leg, today, chain);
       if (mark === undefined) {
         complete = false;
         break;
@@ -570,7 +645,7 @@ function computeOpenPositionValue(
     }
     const mv = complete ? marketValue(position.legs, marks) : null;
     if (mv === null) {
-      notes.push(`Could not mark open position from ${position.entryDate} on ${chain[0]?.date}`);
+      notes.push(`Could not mark open position from ${position.entryDate} on ${today.date as string}`);
       continue;
     }
     value += mv;
