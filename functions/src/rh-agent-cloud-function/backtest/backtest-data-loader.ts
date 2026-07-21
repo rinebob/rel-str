@@ -26,26 +26,48 @@ function toOhlcv(bar: OhlcBar): OHLCV {
   };
 }
 
+export interface AllLoadedBars {
+  dailyBars: OHLCV[];
+  weeklyBars: OHLCV[];
+  monthlyBars: OHLCV[];
+}
+
+function sortAndUniqueBars(bars: OhlcBar[]): OhlcBar[] {
+  const sorted = [...bars].sort((a, b) => a.d.localeCompare(b.d));
+  return sorted.filter((bar, i) => i === 0 || bar.d !== sorted[i - 1].d);
+}
+
+/**
+ * Load every available daily, weekly, and monthly bar for the symbol.
+ * All arrays are sorted oldest to newest and de-duplicated by date.
+ */
+export async function loadAllBars(symbol: string): Promise<AllLoadedBars> {
+  logger.info('backtest_loader_start', { symbol });
+
+  // Pass a far-future date so nothing is trimmed.
+  const { dailyBars, weeklyBars, monthlyBars } = await getCachedBarsFromSymbolData(symbol, '2999-12-31');
+
+  const result = {
+    dailyBars: sortAndUniqueBars(dailyBars ?? []).map(toOhlcv),
+    weeklyBars: sortAndUniqueBars(weeklyBars ?? []).map(toOhlcv),
+    monthlyBars: sortAndUniqueBars(monthlyBars ?? []).map(toOhlcv),
+  };
+
+  logger.info('backtest_loader_complete', {
+    symbol,
+    dailyBars: result.dailyBars.length,
+    weeklyBars: result.weeklyBars.length,
+    monthlyBars: result.monthlyBars.length,
+  });
+
+  return result;
+}
+
 /**
  * Load every available daily bar for the symbol, sorted oldest to newest.
  */
 export async function loadAllDailyBars(symbol: string): Promise<OHLCV[]> {
-  logger.info('backtest_loader_start', { symbol });
-
-  // Pass a far-future date so nothing is trimmed.
-  const { dailyBars } = await getCachedBarsFromSymbolData(symbol, '2999-12-31');
-
-  if (!Array.isArray(dailyBars) || dailyBars.length === 0) {
-    logger.warn('backtest_loader_no_bars', { symbol });
-    return [];
-  }
-
-  // Ensure ascending order and remove any duplicates by date.
-  const sorted = [...dailyBars].sort((a, b) => a.d.localeCompare(b.d));
-  const unique = sorted.filter((bar, i) => i === 0 || bar.d !== sorted[i - 1].d);
-
-  logger.info('backtest_loader_complete', { symbol, bars: unique.length });
-  return unique.map(toOhlcv);
+  return (await loadAllBars(symbol)).dailyBars;
 }
 
 /**

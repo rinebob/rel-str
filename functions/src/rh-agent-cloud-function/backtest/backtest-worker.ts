@@ -11,14 +11,14 @@ import { logger } from 'firebase-functions/v2';
 
 import { db, FieldValue } from '../../firebase-admin-init';
 import { strategyRegistry } from '../strategies/strategy-registry';
-import { loadAllDailyBars, OptionsChainCache } from './backtest-data-loader';
+import { loadAllBars, OptionsChainCache } from './backtest-data-loader';
 import { runBacktestSimulation } from './backtest-simulator';
 import {
   BACKTEST_RUNS_COLLECTION,
   BACKTEST_PERMUTATIONS_COLLECTION,
   BacktestPermutationStatus,
 } from './backtest-collections';
-import type { BacktestPermutationPayload, BacktestPermutationSummary, BacktestTrade } from './backtest-types';
+import type { BacktestPermutationPayload, BacktestPermutationSummary } from './backtest-types';
 
 export const BACKTEST_TASK_QUEUE = 'rhAgentBacktestPermutation';
 const MAX_ATTEMPTS = 3;
@@ -71,8 +71,8 @@ export const rhAgentBacktestPermutation = onTaskDispatched<BacktestPermutationPa
         throw new Error(`Invalid config: ${validation.errors.join(', ')}`);
       }
 
-      // 2. Load all daily bars
-      const dailyBars = await loadAllDailyBars(symbol);
+      // 2. Load all bars
+      const { dailyBars, weeklyBars, monthlyBars } = await loadAllBars(symbol);
       if (dailyBars.length < (strategy.metadata.minBarsRequired ?? 2)) {
         throw new Error(`Insufficient daily bars for ${symbol}: ${dailyBars.length}`);
       }
@@ -86,6 +86,8 @@ export const rhAgentBacktestPermutation = onTaskDispatched<BacktestPermutationPa
         dailyBars,
         optionsCache,
         initialCash,
+        weeklyBars,
+        monthlyBars,
       );
 
       // 4. Persist permutation result (summary always; trades only for full tier)
@@ -109,7 +111,7 @@ export const rhAgentBacktestPermutation = onTaskDispatched<BacktestPermutationPa
 
       const fullResult = {
         ...summary,
-        trades: reportTier === 'full' ? (result.trades as BacktestTrade[]) : undefined,
+        trades: reportTier === 'full' ? result.trades : undefined,
       };
 
       await permRef.set(fullResult, { merge: true });
