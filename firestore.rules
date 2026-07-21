@@ -187,6 +187,22 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // RH Agent backtest runs and permutations
+    // - Backend orchestrator/worker create and update docs via Functions.
+    // - Frontend can read all authenticated runs and update archived/qualityDesignation.
+    match /backtest-runs/{runId} {
+      allow read: if request.auth != null;
+      allow create: if false;
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['archived', 'qualityDesignation', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    match /backtest-permutations/{permutationId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
     // RH Agent PACR triage decisions — user-scoped read/write
     match /rh-agent-triage-decisions/{decisionId} {
       allow read: if request.auth != null && (resource == null || request.auth.uid == resource.data.userId);
