@@ -36,6 +36,55 @@ export enum PartnerEndpointPath {
   MARKET_HOLIDAYS = 'partnerMarketHolidays',
   INTRADAY_SNAPSHOT = 'partnerIntradaySnapshotV2',
   COMPANY_OVERVIEW = 'partnerCompanyOverviewV2',
+  HISTORICAL_OPTIONS = 'partnerHistoricalOptionsV2',
+}
+
+export enum OptionType {
+  CALL = 'call',
+  PUT = 'put',
+}
+
+/** One Alpha Vantage historical option contract. All market-data values are optional strings. */
+export interface HistoricalOptionContract {
+  contractID?: string;
+  symbol?: string;
+  expiration?: string; // YYYY-MM-DD
+  strike?: string;
+  type?: OptionType;
+  last?: string;
+  mark?: string;
+  bid?: string;
+  ask?: string;
+  volume?: string;
+  open_interest?: string;
+  date?: string;
+  implied_volatility?: string;
+  delta?: string;
+  gamma?: string;
+  theta?: string;
+  vega?: string;
+  rho?: string;
+}
+
+/** Response shape for partnerHistoricalOptionsV2 endpoint. */
+export interface PartnerHistoricalOptionsResponse {
+  ok: boolean;
+  symbol: string;
+  date?: string;
+  source: string;
+  endpoint: string;
+  data: {
+    endpoint?: string;
+    message?: string;
+    data: HistoricalOptionContract[];
+  };
+  analysis?: {
+    summary?: Record<string, any>;
+    expirations?: any[];
+    strikes?: any[];
+  };
+  timestamp: string;
+  processingTimeMs: number;
 }
 
 /** Raw AV data fields from company overview — all values are strings. */

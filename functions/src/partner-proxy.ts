@@ -2,7 +2,7 @@ import {onRequest, onCall} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import {GoogleAuth} from "google-auth-library";
 import {db, FieldValue} from "./firebase-admin-init";
-import { GetTrackedSymbolsResponse, TrackedSymbolDTO, PartnerEndpointPath, PartnerMarketHolidaysResponse, PartnerIntradaySnapshotResponse, PartnerListTrackedSymbolsResponse, PartnerCompanyOverviewResponse } from './types/partner';
+import { GetTrackedSymbolsResponse, TrackedSymbolDTO, PartnerEndpointPath, PartnerMarketHolidaysResponse, PartnerIntradaySnapshotResponse, PartnerListTrackedSymbolsResponse, PartnerCompanyOverviewResponse, PartnerHistoricalOptionsResponse } from './types/partner';
 import { DEFAULT_PARTNER_CALLER_SA, IAM_CREDENTIALS_BASE_URL, OAUTH_CLOUD_PLATFORM_SCOPE, IAM_SERVICE_ACCOUNTS_PATH, IamCredentialsMethod } from './config/constants';
 import { persistWarning } from './logging/warn';
 import { ENABLE_CONSOLE_LOGGING, RsCloudFunctionName } from './webhooks/webhooks-config';
@@ -45,6 +45,13 @@ const PARTNER_COMPANY_OVERVIEW_URL =
 
 const PARTNER_COMPANY_OVERVIEW_AUDIENCE =
   process.env.PARTNER_COMPANY_OVERVIEW_AUDIENCE || PARTNER_COMPANY_OVERVIEW_URL;
+
+const PARTNER_HISTORICAL_OPTIONS_URL =
+  process.env.PARTNER_HISTORICAL_OPTIONS_URL ||
+  `${PARTNER_AUDIENCE.replace(/\/$/, '')}/${PartnerEndpointPath.HISTORICAL_OPTIONS}`;
+
+const PARTNER_HISTORICAL_OPTIONS_AUDIENCE =
+  process.env.PARTNER_HISTORICAL_OPTIONS_AUDIENCE || PARTNER_HISTORICAL_OPTIONS_URL;
 
 // Service account email for rel-str prod
 const CALLER_SA = process.env.PARTNER_CALLER_SA || DEFAULT_PARTNER_CALLER_SA;
@@ -289,6 +296,73 @@ export async function callPartnerCompanyOverview(symbol: string): Promise<Partne
 
   logger.info('partnerCompanyOverview_response', {
     symbol: parsed.symbol, sector: parsed.data?.['Sector'], processingTimeMs: parsed.processingTimeMs,
+  });
+
+  return parsed;
+}
+
+/**
+ * Call Savant Partner Historical Options endpoint for one symbol and optional date.
+ * Returns the full Alpha Vantage historical options chain for that session.
+ */
+export async function callPartnerHistoricalOptions(params: {
+  symbol: string;
+  date?: string;
+}): Promise<PartnerHistoricalOptionsResponse> {
+  const audience = PARTNER_HISTORICAL_OPTIONS_AUDIENCE;
+  const idToken = await generateIdTokenWithEmail(audience, CALLER_SA);
+
+  const search = new URLSearchParams();
+  search.set('symbol', params.symbol);
+  if (params.date) search.set('date', params.date);
+
+  const url = `${PARTNER_HISTORICAL_OPTIONS_URL}?${search.toString()}`;
+
+  logger.info('partnerHistoricalOptions_request', {
+    symbol: params.symbol,
+    date: params.date ?? null,
+    url,
+    audience,
+  });
+
+  const resp = await fetchWithRetry(url, { Authorization: `Bearer ${idToken}` });
+  const text = await resp.text();
+
+  if (!resp.ok) {
+    logger.error('partnerHistoricalOptions_upstream_error', {
+      symbol: params.symbol,
+      date: params.date ?? null,
+      status: resp.status,
+      url,
+      audience,
+      callerSa: CALLER_SA,
+      snippet: typeof text === 'string' ? text.slice(0, 500) : undefined,
+    });
+    throw new PartnerHttpError(
+      `partnerHistoricalOptions upstream ${resp.status}: ${text}`,
+      resp.status,
+    );
+  }
+
+  let parsed: PartnerHistoricalOptionsResponse;
+  try {
+    parsed = JSON.parse(text) as PartnerHistoricalOptionsResponse;
+  } catch (e: any) {
+    logger.error('partnerHistoricalOptions_parse_error', {
+      symbol: params.symbol,
+      date: params.date ?? null,
+      message: e?.message,
+      snippet: text.slice(0, 500),
+    });
+    throw e;
+  }
+
+  const contracts = parsed?.data?.data;
+  logger.info('partnerHistoricalOptions_response', {
+    symbol: parsed.symbol,
+    date: parsed.date,
+    contractCount: Array.isArray(contracts) ? contracts.length : 0,
+    processingTimeMs: parsed.processingTimeMs,
   });
 
   return parsed;
