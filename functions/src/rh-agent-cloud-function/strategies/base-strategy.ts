@@ -6,6 +6,7 @@
  */
 
 import { StSignalDirection } from '../rh-agent-signals';
+import type { OptionSpreadLegSelection } from './option-contract-selection';
 
 // =============================================================================
 // STRATEGY INPUT (What the worker provides to every strategy)
@@ -28,8 +29,14 @@ export interface OHLCV {
   high?: number;
   low?: number;
   close?: number;
-  c?: number;
   volume?: number;
+  // Raw OhlcBar aliases (d, o, h, l, c, v) for convenience when raw symbol-data bars are passed.
+  d?: string;
+  o?: number;
+  h?: number;
+  l?: number;
+  c?: number;
+  v?: number;
 }
 
 export interface StrategyContext {
@@ -49,8 +56,30 @@ export interface StrategyOutput {
   signalType: string;           // e.g., 'D_ST_TREND_RIDER_V1_LONG'
   barDate: string;              // YYYY-MM-DD — date of the bar that fired (daily = marketDate, weekly = last weekly bar date)
   indicators?: Record<string, number | string | null>;
-  metadata?: Record<string, any>;
+  metadata?: StrategyOutputMetadata;
   suggestedAmount?: number;
+}
+
+/** Equity/underlying position requested by a strategy when it does not want options. */
+export interface UnderlyingPositionSelection {
+  side?: 'long' | 'short';
+  quantity?: number;
+}
+
+/** Exit configuration carried on a strategy signal. */
+export interface ExitConfig {
+  targetGainPct?: number;
+  stopLossPct?: number;
+  trailingStopPct?: number;
+  maxHoldDays?: number;
+}
+
+/** Typed metadata bag carried on a StrategyOutput. Extra keys remain allowed. */
+export interface StrategyOutputMetadata extends Record<string, unknown> {
+  entry?: Record<string, unknown>;
+  optionLegs?: OptionSpreadLegSelection[];
+  underlyingPosition?: UnderlyingPositionSelection;
+  exit?: ExitConfig;
 }
 
 // =============================================================================
@@ -68,6 +97,8 @@ export enum StrategyId {
 // =============================================================================
 
 export interface StrategyConfig {
+  // Strategy configs are intentionally a heterogenous bag of parameters.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
 }
 
@@ -76,7 +107,7 @@ export interface ConfigSchemaField {
   min?: number;
   max?: number;
   step?: number;
-  enum?: any[];
+  enum?: unknown[];
   description?: string;
 }
 
