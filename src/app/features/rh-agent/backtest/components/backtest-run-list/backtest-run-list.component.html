@@ -1,0 +1,68 @@
+<div class="run-table-container">
+  @if (runs().length > 0) {
+    <table class="run-table">
+      <thead>
+        <tr>
+          <th class="col-status"></th>
+          <th class="col-run-id">Run ID</th>
+          <th class="col-created">Created</th>
+          <th class="col-strategy">Strategy</th>
+          <th class="col-symbols">Symbols</th>
+          <th class="col-progress">Progress</th>
+          <th class="col-tier">Tier</th>
+          <th class="col-quality">Quality</th>
+          <th class="col-duration">Duration</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (run of viewRuns(); track run.runId) {
+          <tr
+            class="run-row"
+            [class.selected]="selectedRunId() === run.runId"
+            (click)="onSelect(run)">
+            <td class="col-status">
+              <mat-icon
+                class="status-icon"
+                [style.color]="run.statusColorName"
+                [matTooltip]="run.status">
+                {{ run.statusIconName }}
+              </mat-icon>
+            </td>
+            <td class="col-run-id">{{ run.formattedRunId }}</td>
+            <td class="col-created">{{ run.formattedCreated }}</td>
+            <td class="col-strategy">{{ run.strategyId }}</td>
+            <td class="col-symbols">{{ run.symbols.length }}</td>
+            <td class="col-progress">
+              <div class="progress-with-bar">
+                <span>{{ run.progressText }}</span>
+                <div class="progress-bar-bg">
+                  <div class="progress-bar-fill completed" [style.width.%]="run.progressCompletedPercent"></div>
+                  <div class="progress-bar-fill failed" [style.width.%]="run.progressFailedPercent"></div>
+                </div>
+              </div>
+            </td>
+            <td class="col-tier">{{ run.reportTier }}</td>
+            <td class="col-quality">{{ run.qualityDesignation ?? '—' }}</td>
+            <td class="col-duration">{{ run.formattedDuration }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  } @else {
+    <div class="empty-state">
+      <mat-icon>inbox</mat-icon>
+      @if (hasActiveFilters()) {
+        <p>No runs match the current filters</p>
+      } @else {
+        <p>No backtest runs yet</p>
+        <button
+          type="button"
+          class="empty-cta"
+          disabled
+          matTooltip="Start-new-run flow is coming in Phase 5">
+          Start your first backtest
+        </button>
+      }
+    </div>
+  }
+</div>

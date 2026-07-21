@@ -11,6 +11,14 @@ export type BacktestPermutationStatus = 'pending' | 'running' | 'success' | 'fai
 export type BacktestReportTier = 'summary' | 'full';
 export type BacktestRunType = 'allData' | 'expandingWindow';
 
+export type BacktestStatusFilter = 'all' | BacktestRunStatus;
+export type BacktestDateFilter = 'all' | 'today' | '7d' | '30d';
+
+// Phase 2 supports createdAt and status. Phase 3 will add aggregate-metric sorts:
+// 'totalReturnPct' | 'calmarRatio' | 'tradeCount' once run aggregates are computed.
+export type BacktestSortBy = 'createdAt' | 'status';
+export type BacktestSortDirection = 'asc' | 'desc';
+
 export interface BacktestRunUi {
   runId: string;
   status: BacktestRunStatus;
@@ -22,6 +30,7 @@ export interface BacktestRunUi {
   totalPermutations: number;
   completedPermutations: number;
   failedPermutations: number;
+  config?: Record<string, unknown>;
   qualityDesignation?: string;
   archived?: boolean;
   createdAtIso: string;

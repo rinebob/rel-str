@@ -57,16 +57,12 @@ export class BacktestRunService {
   }
 
   /**
-   * Watch recent backtest runs in realtime.
+   * Watch recent backtest runs in realtime (all runs; UI store filters archived).
    */
-  watchRuns(count = 50, includeArchived = false): Observable<BacktestRunUi[]> {
+  watchRuns(count = 50): Observable<BacktestRunUi[]> {
     return from(runInInjectionContext(this.injector, () => {
       const runsRef = collection(this.firestore, this.runsCollection);
-      const constraints: Parameters<typeof query>[1][] = [orderBy('createdAt', 'desc'), limit(count)];
-      if (!includeArchived) {
-        constraints.push(where('archived', '!=', true));
-      }
-      const runsQuery = query(runsRef, ...constraints);
+      const runsQuery = query(runsRef, orderBy('createdAt', 'desc'), limit(count));
       return collectionData(runsQuery, { idField: 'runId' }) as Observable<Record<string, unknown>[]>;
     })).pipe(
       map((docs) =>

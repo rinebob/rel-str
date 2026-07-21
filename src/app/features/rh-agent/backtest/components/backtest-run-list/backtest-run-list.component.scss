@@ -1,0 +1,103 @@
+.run-table-container {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.run-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+
+  thead tr {
+    background: var(--mat-sys-surface-container-high);
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+
+    th {
+      padding: 6px 10px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: var(--mat-sys-on-surface-variant);
+      white-space: nowrap;
+    }
+  }
+}
+
+.run-row {
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  cursor: pointer;
+  transition: background 0.1s;
+
+  td { padding: 6px 10px; vertical-align: middle; }
+
+  &:hover   { background: var(--mat-sys-surface-container-low); }
+  &.selected { background: var(--mat-sys-primary-container); }
+}
+
+.status-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.col-status       { width: 28px; }
+.col-run-id       { font-family: monospace; font-size: 10px; white-space: nowrap; }
+.col-created      { white-space: nowrap; }
+.col-strategy     { white-space: nowrap; text-transform: uppercase; font-size: 10px; }
+.col-symbols      { white-space: nowrap; font-variant-numeric: tabular-nums; text-align: right; }
+.col-progress     { white-space: nowrap; min-width: 120px; }
+.col-tier         { text-transform: lowercase; }
+.col-quality      { white-space: nowrap; }
+.col-duration     { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--mat-sys-on-surface-variant); }
+
+.progress-with-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.progress-bar-bg {
+  flex: 1;
+  display: flex;
+  height: 4px;
+  min-width: 40px;
+  background: var(--mat-sys-surface-container-highest);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+
+  &.completed { background: var(--mat-sys-primary); }
+  &.failed    { background: var(--mat-sys-error); }
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 32px;
+  gap: 8px;
+  color: var(--mat-sys-on-surface-variant);
+
+  mat-icon { font-size: 40px; width: 40px; height: 40px; }
+  p { margin: 0; font-size: 13px; }
+}
+
+.empty-cta {
+  margin-top: 8px;
+  padding: 6px 14px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 8px;
+  background: var(--mat-sys-surface-container-highest);
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: not-allowed;
+}

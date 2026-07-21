@@ -1,27 +1,30 @@
 /**
  * Backtest Dashboard Component
  *
- * Phase 1 shell for the RH Agent strategy backtest run management UI.
- * Loads the strategy list on init and renders a placeholder layout for
- * future phases.
+ * Phase 2 dashboard for the RH Agent strategy backtest run management UI.
+ * Wires the run store, UI store, control strip, and run list together.
  */
 import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { toSignal } from '@angular/core/rxjs-interop';
 
-import { BacktestRunService } from '../../services/backtest-run.service';
+import { BacktestRunStore } from '../../stores/backtest-run.store';
+import { BacktestUiStore } from '../../stores/backtest-ui.store';
+import { BacktestRunControlComponent } from '../../components/backtest-run-control/backtest-run-control.component';
+import { BacktestRunListComponent } from '../../components/backtest-run-list/backtest-run-list.component';
 
 @Component({
   selector: 'app-backtest-dashboard',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [CommonModule, BacktestRunControlComponent, BacktestRunListComponent],
   templateUrl: './backtest-dashboard.component.html',
   styleUrl: './backtest-dashboard.component.scss',
 })
 export class BacktestDashboardComponent {
-  private readonly backtestService = inject(BacktestRunService);
+  readonly runStore = inject(BacktestRunStore);
+  readonly uiStore = inject(BacktestUiStore);
 
-  readonly strategies = toSignal(this.backtestService.listStrategies(), { initialValue: [] });
+  constructor() {
+    this.runStore.loadRuns();
+    this.runStore.loadStrategies();
+  }
 }

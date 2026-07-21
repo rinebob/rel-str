@@ -5,30 +5,30 @@
   </header>
 
   <section class="backtest-content">
-    <div class="placeholder-card">
-      <mat-icon>construction</mat-icon>
-      <h2>Backtest run management is under construction</h2>
-      <p>
-        This page will list backtest runs, show run summaries, and let you start
-        new simulations. For now it verifies that the backtest service and
-        strategy discovery callable are wired correctly.
-      </p>
+    <app-backtest-run-control
+      [isLoading]="runStore.isLoading()"
+      [statusFilter]="uiStore.statusFilter()"
+      [dateFilter]="uiStore.dateFilter()"
+      [strategyFilter]="uiStore.strategyFilter()"
+      [strategyOptions]="runStore.strategyOptions()"
+      [symbolSearch]="uiStore.symbolSearch()"
+      [configSearch]="uiStore.configSearch()"
+      [sortBy]="uiStore.sortBy()"
+      [sortDirection]="uiStore.sortDirection()"
+      [includeArchived]="uiStore.includeArchived()"
+      (statusFilterChange)="uiStore.setStatusFilter($event)"
+      (dateFilterChange)="uiStore.setDateFilter($event)"
+      (strategyFilterChange)="uiStore.setStrategyFilter($event)"
+      (symbolSearchChange)="uiStore.setSymbolSearch($event)"
+      (configSearchChange)="uiStore.setConfigSearch($event)"
+      (sortByChange)="uiStore.setSortBy($event)"
+      (sortDirectionChange)="uiStore.setSortDirection($event)"
+      (includeArchivedChange)="uiStore.setIncludeArchived($event)" />
 
-      <div class="strategy-list">
-        <h3>Available strategies</h3>
-        @if (strategies().length > 0) {
-          <ul>
-            @for (strategy of strategies(); track strategy.id) {
-              <li>
-                <strong>{{ strategy.name }}</strong>
-                <span class="strategy-meta">({{ strategy.id }})</span>
-              </li>
-            }
-          </ul>
-        } @else {
-          <mat-spinner diameter="24" />
-        }
-      </div>
-    </div>
+    <app-backtest-run-list
+      [runs]="uiStore.filteredRuns()"
+      [selectedRunId]="runStore.selectedRunId()"
+      [hasActiveFilters]="uiStore.hasActiveFilters()"
+      (selectRun)="runStore.selectRun($event)" />
   </section>
 </div>

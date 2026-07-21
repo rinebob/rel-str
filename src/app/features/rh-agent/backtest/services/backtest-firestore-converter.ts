@@ -32,6 +32,7 @@ export function convertBacktestRunDoc(id: string, data: Record<string, unknown>)
     totalPermutations: Number(data['totalPermutations'] ?? 0),
     completedPermutations: Number(data['completedPermutations'] ?? 0),
     failedPermutations: Number(data['failedPermutations'] ?? 0),
+    config: (data['config'] as Record<string, unknown>) ?? undefined,
     qualityDesignation: data['qualityDesignation'] ? String(data['qualityDesignation']) : undefined,
     archived: data['archived'] === true,
     createdAtIso: toIso(data['createdAt'] as TimestampLike) ?? '',

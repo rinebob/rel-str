@@ -1,0 +1,119 @@
+<div class="run-control-card">
+  <div class="run-control-primary">
+    <button
+      class="run-now-btn"
+      mat-raised-button
+      color="primary"
+      disabled
+      matTooltip="New backtest run flow is coming in Phase 5"
+      (click)="newRun.emit()">
+      <mat-icon>add</mat-icon>
+      New Backtest
+    </button>
+
+    <button
+      class="refresh-btn"
+      mat-icon-button
+      disabled
+      matTooltip="Runs update automatically via the realtime listener"
+      (click)="refresh.emit()">
+      <mat-icon>refresh</mat-icon>
+    </button>
+
+    @if (isLoading()) {
+      <mat-spinner diameter="20" />
+    }
+  </div>
+
+  <div class="run-control-filters">
+    <div class="filter-group">
+      <span class="filter-label">Status</span>
+      <div class="pill-group">
+        @for (option of statusOptions; track option.value) {
+          <button
+            type="button"
+            class="pill-btn"
+            [class.active]="statusFilter() === option.value"
+            (click)="onStatus(option.value)">
+            {{ option.label }}
+          </button>
+        }
+      </div>
+    </div>
+
+    <div class="filter-group">
+      <span class="filter-label">Date</span>
+      <div class="pill-group">
+        @for (option of dateOptions; track option.value) {
+          <button
+            type="button"
+            class="pill-btn"
+            [class.active]="dateFilter() === option.value"
+            (click)="onDate(option.value)">
+            {{ option.label }}
+          </button>
+        }
+      </div>
+    </div>
+
+    <div class="filter-group">
+      <span class="filter-label">Strategy</span>
+      <select #strategySelect class="filter-select" [value]="strategyFilter()" (change)="onStrategy(strategySelect.value)">
+        <option value="all">All</option>
+        @for (strategy of strategyOptions(); track strategy.id) {
+          <option [value]="strategy.id">{{ strategy.name }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <span class="filter-label">Symbol</span>
+      <input
+        #symbolInput
+        type="text"
+        class="filter-input"
+        placeholder="e.g. SPY"
+        [value]="symbolSearch()"
+        (input)="onSymbolSearch(symbolInput.value)" />
+    </div>
+
+    <div class="filter-group">
+      <span class="filter-label">Config</span>
+      <input
+        #configInput
+        type="text"
+        class="filter-input"
+        placeholder="e.g. dropPct"
+        [value]="configSearch()"
+        (input)="onConfigSearch(configInput.value)" />
+    </div>
+
+    <div class="filter-group">
+      <span class="filter-label">Sort</span>
+      <div class="sort-control">
+        <select #sortSelect class="filter-select" [value]="sortBy()" (change)="onSortBy(sortSelect.value)">
+          @for (option of sortOptions; track option.value) {
+            <option [value]="option.value">{{ option.label }}</option>
+          }
+        </select>
+        <button
+          type="button"
+          class="sort-direction-btn"
+          matTooltip="Toggle sort direction"
+          (click)="toggleSortDirection()">
+          <mat-icon>{{ sortDirection() === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+        </button>
+      </div>
+    </div>
+
+    <div class="filter-group">
+      <button
+        type="button"
+        class="pill-btn"
+        [class.active]="includeArchived()"
+        (click)="toggleIncludeArchived()">
+        Include archived
+      </button>
+    </div>
+  </div>
+</div>
