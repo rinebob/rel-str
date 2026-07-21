@@ -14,6 +14,7 @@ import type { StrategyAdapter, StrategyMetadata, StrategyConfig } from './base-s
 
 // Import all strategy adapters
 import { adapter as stTrendRiderAdapter } from './st-trend-rider/st-trend-rider.strategy';
+import { adapter as leapDropAdapter } from './leap-drop/leap-drop.strategy';
 
 // =============================================================================
 // REGISTRY CLASS
@@ -106,6 +107,7 @@ export const strategyRegistry = new StrategyRegistry();
 
 // Register all strategies at module load
 strategyRegistry.register(stTrendRiderAdapter);
+strategyRegistry.register(leapDropAdapter);
 
 // Re-export types for convenience
 export type { StrategyAdapter, StrategyInput, StrategyOutput, StrategyConfig, StrategyMetadata } from './base-strategy';

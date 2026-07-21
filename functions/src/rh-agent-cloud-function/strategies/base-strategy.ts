@@ -60,6 +60,7 @@ export interface StrategyOutput {
 /** All registered strategy identifiers. */
 export enum StrategyId {
   ST_TREND_RIDER = 'st-trend-rider',
+  LEAP_DROP = 'leap-drop',
 }
 
 // =============================================================================
@@ -74,6 +75,7 @@ export interface ConfigSchemaField {
   type: 'integer' | 'number' | 'string' | 'boolean';
   min?: number;
   max?: number;
+  step?: number;
   enum?: any[];
   description?: string;
 }
