@@ -347,11 +347,12 @@ export async function callPartnerHistoricalOptions(params: {
   let parsed: PartnerHistoricalOptionsResponse;
   try {
     parsed = JSON.parse(text) as PartnerHistoricalOptionsResponse;
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
     logger.error('partnerHistoricalOptions_parse_error', {
       symbol: params.symbol,
       date: params.date ?? null,
-      message: e?.message,
+      message,
       snippet: text.slice(0, 500),
     });
     throw e;

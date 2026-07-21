@@ -54,7 +54,9 @@ export interface HistoricalOptionContract {
   last?: string;
   mark?: string;
   bid?: string;
+  bid_size?: string;
   ask?: string;
+  ask_size?: string;
   volume?: string;
   open_interest?: string;
   date?: string;
@@ -66,11 +68,45 @@ export interface HistoricalOptionContract {
   rho?: string;
 }
 
+/** Aggregate analysis summary returned by partnerHistoricalOptionsV2. */
+export interface HistoricalOptionsAnalysisSummary {
+  totalContracts: number;
+  totalVolume: number;
+  totalOpenInterest: number;
+  callContracts: number;
+  putContracts: number;
+  uniqueStrikes: number;
+  avgVolumePerContract: number;
+  avgOpenInterest: number;
+}
+
+/** Expiration-level breakdown in the options analysis. */
+export interface HistoricalOptionsExpirationGroup {
+  expiration: string;
+  contractCount: number;
+  timeUntilExpiration: string;
+  callVolume: number;
+  putVolume: number;
+  callOpenInterest: number;
+  putOpenInterest: number;
+}
+
+/** Strike-level breakdown in the options analysis. */
+export interface HistoricalOptionsStrikeGroup {
+  strike: string;
+  callVolume: number;
+  putVolume: number;
+  callOpenInterest: number;
+  putOpenInterest: number;
+  totalVolume: number;
+  totalOpenInterest: number;
+}
+
 /** Response shape for partnerHistoricalOptionsV2 endpoint. */
 export interface PartnerHistoricalOptionsResponse {
   ok: boolean;
   symbol: string;
-  date?: string;
+  date: string | null;
   source: string;
   endpoint: string;
   data: {
@@ -78,10 +114,10 @@ export interface PartnerHistoricalOptionsResponse {
     message?: string;
     data: HistoricalOptionContract[];
   };
-  analysis?: {
-    summary?: Record<string, any>;
-    expirations?: any[];
-    strikes?: any[];
+  analysis: {
+    summary: HistoricalOptionsAnalysisSummary;
+    expirations: HistoricalOptionsExpirationGroup[];
+    strikes: HistoricalOptionsStrikeGroup[];
   };
   timestamp: string;
   processingTimeMs: number;
