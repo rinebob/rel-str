@@ -122,6 +122,11 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.ObservationDashboardComponent),
                 canActivate: [authGuard],
             },
+            {path: AppRoutes.RH_AGENT_BACKTEST,
+                loadComponent: () => import('../features/rh-agent/backtest/pages/backtest-dashboard/backtest-dashboard.component')
+                .then(mod => mod.BacktestDashboardComponent),
+                canActivate: [authGuard],
+            },
             {path: AppRoutes.SIGNAL_HISTORY, 
                 loadComponent: () => import('../features/rh-agent/pages/signal-history/signal-history.component')
                 .then(mod => mod.SignalHistoryComponent),

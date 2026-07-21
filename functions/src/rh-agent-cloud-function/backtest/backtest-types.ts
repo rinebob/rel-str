@@ -137,7 +137,7 @@ export interface BacktestPermutationFull extends BacktestPermutationSummary {
 /** Run document shape stored under backtest-runs/{runId}. */
 export interface BacktestRun {
   runId: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
   symbols: string[];
   strategyId: string;
   runType: BacktestRunType;
@@ -146,6 +146,8 @@ export interface BacktestRun {
   totalPermutations: number;
   completedPermutations: number;
   failedPermutations: number;
+  archived?: boolean;
+  qualityDesignation?: string;
   createdAt: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
   updatedAt: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
   startedAt?: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;

@@ -111,8 +111,9 @@ export {
   rhAgentGetRunHistory,
 } from './rh-agent-cloud-function/rh-agent-callables';
 
-// RH Agent Backtest (Cloud Task worker + orchestrator)
+// RH Agent Backtest (Cloud Task worker + orchestrator + strategy discovery)
 export { rhAgentBacktestStart } from './rh-agent-cloud-function/backtest/backtest-orchestrator';
+export { rhAgentBacktestStrategies } from './rh-agent-cloud-function/backtest/backtest-strategies-callable';
 export { rhAgentBacktestPermutation } from './rh-agent-cloud-function/backtest/backtest-worker';
 
 // RH Agent Company Overview Sync (Phase 1)

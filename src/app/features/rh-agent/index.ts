@@ -100,3 +100,6 @@ export { RhAgentOrderComponent } from './pages/agent-order/rh-agent-order.compon
 export { RhAgentTriageReportComponent } from './pages/agent-triage-report/rh-agent-triage-report.component';
 export { ObservationDashboardComponent } from './pages/observation-dashboard/observation-dashboard.component';
 export { QuickChartsComponent } from './components/quick-charts/quick-charts.component';
+
+// Backtest sub-feature (Phase 1)
+export * from './backtest';

@@ -41,6 +41,7 @@ export enum AppRoutes {
 	RH_AGENT_ORDER = 'rh-agent-order',
 	RH_AGENT_TRIAGE_REPORT = 'rh-agent-triage-report',
 	RH_AGENT_OBSERVATION = 'rh-agent-observation',
+	RH_AGENT_BACKTEST = 'rh-agent-backtest',
 	SIGNAL_HISTORY = 'signal-history',
 }
 
