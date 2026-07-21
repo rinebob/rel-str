@@ -1,6 +1,6 @@
 import './init';
 
-export {partnerProxyTest, getTrackedSymbols} from "./partner-proxy";
+export {partnerProxyTest, getTrackedSymbols} from './partner-proxy';
 
 /**
  * Cloud Functions below are intentionally commented out.
@@ -20,7 +20,7 @@ export {partnerProxyTest, getTrackedSymbols} from "./partner-proxy";
  */
 // export { processDataReadyRunV2, processSymbolsReady, processSymbolsReadyHttpTest } from "./webhooks/partner-webhooks";
 
-export { processDataReadyRunV2 } from "./webhooks/partner-webhooks";
+export { processDataReadyRunV2 } from './webhooks/partner-webhooks';
 
 export {
   recomputeRegisteredBackfill,
@@ -34,7 +34,7 @@ export {
   refreshMarketHolidaysAdmin,
   ingestStaticPairsAdmin,
   normalizePairRegistryAdmin,
-} from "./webhooks/admin-tasks";
+} from './webhooks/admin-tasks';
 
 export { recomputeRsBackfillAdmin } from './rs/time-series/rs-backfill-admin';
 export { drainRsBackfillRunAdmin } from './rs/time-series/rs-time-series-jobs.drain-admin';
@@ -110,6 +110,10 @@ export {
   rhAgentGetStatus,
   rhAgentGetRunHistory,
 } from './rh-agent-cloud-function/rh-agent-callables';
+
+// RH Agent Backtest (Cloud Task worker + orchestrator)
+export { rhAgentBacktestStart } from './rh-agent-cloud-function/backtest/backtest-orchestrator';
+export { rhAgentBacktestPermutation } from './rh-agent-cloud-function/backtest/backtest-worker';
 
 // RH Agent Company Overview Sync (Phase 1)
 export {
