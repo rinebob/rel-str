@@ -16,3 +16,7 @@ scheduler.log
 .trade-results.json
 .trade-prompt.txt
 .env
+
+# Backtest local output
+backtest-*.txt
+backtest-*.json

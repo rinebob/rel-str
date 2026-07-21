@@ -20,6 +20,7 @@
   },
   "compileOnSave": true,
   "include": [
-    "src"
+    "src",
+    "scripts/backtest-qqq-underlying.ts"
   ]
 }
