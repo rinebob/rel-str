@@ -86,12 +86,35 @@ class StrategyRegistry {
           errors.push(`${key}: expected ${field.type}, got ${typeof value}`);
           continue;
         }
+        if (field.type === 'integer' && !Number.isInteger(value)) {
+          errors.push(`${key}: expected integer, got ${value}`);
+          continue;
+        }
         if (field.min !== undefined && value < field.min) {
           errors.push(`${key}: ${value} < min ${field.min}`);
         }
         if (field.max !== undefined && value > field.max) {
           errors.push(`${key}: ${value} > max ${field.max}`);
         }
+        continue;
+      }
+
+      if (field.type === 'boolean') {
+        if (typeof value !== 'boolean') {
+          errors.push(`${key}: expected boolean, got ${typeof value}`);
+        }
+        continue;
+      }
+
+      if (field.type === 'string') {
+        if (typeof value !== 'string') {
+          errors.push(`${key}: expected string, got ${typeof value}`);
+          continue;
+        }
+        if (field.enum !== undefined && !field.enum.includes(value)) {
+          errors.push(`${key}: ${value} not in enum [${field.enum.join(', ')}]`);
+        }
+        continue;
       }
     }
 
