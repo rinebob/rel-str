@@ -59,3 +59,27 @@ The configured base dollar exposure used to normalize position sizing and portfo
 ## Capacity Full
 
 A derived condition where configured allocation capacity is unavailable after accounting for positions and active buy orders. It blocks new exposure but does not cancel or alter existing broker activity.
+
+## Strategy Backtest Run
+
+A UI-triggered, parameterized simulation of one or more strategies against historical data for one or more symbols. A run may span in-sample and out-of-sample windows and may generate many parameter permutations.
+
+## Parameter Sweep
+
+A set of strategy configurations produced by varying one or more numeric parameters across min/max/step ranges. Each permutation is a separate backtest task.
+
+## Walk-Forward Window
+
+An expanding-window partition of historical data into an in-sample optimization segment and an out-of-sample validation segment. The window advances by a configurable roll step.
+
+## Option Contract Selection Helper
+
+A reusable engine that selects an option contract for each leg of a strategy based on target delta, target DTE, and side (long/short, call/put) on a given date.
+
+## TradeStation-Style Report
+
+A full backtest report containing equity curve, trade list, and performance metrics (initially Total Net Profit, Profit Factor, % Profitable, Win/Loss Ratio, Average Trade, Max Drawdown, Sharpe Ratio).
+
+## Quality Designation
+
+A user-assigned label on a backtest run that supplements the computed Calmar-based quality score.
