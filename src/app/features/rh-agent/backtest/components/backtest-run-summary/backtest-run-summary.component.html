@@ -1,0 +1,104 @@
+@if (run(); as r) {
+  <div class="run-summary">
+    <header class="summary-header">
+      <div class="run-title">
+        <span class="run-id">{{ formattedRunId() }}</span>
+        <span class="run-strategy">{{ r.strategyId }}</span>
+      </div>
+      <div class="run-actions">
+        <button type="button" class="icon-btn" disabled matTooltip="Clone run (Phase 5)">
+          <mat-icon>content_copy</mat-icon>
+        </button>
+        <button type="button" class="icon-btn" disabled matTooltip="Archive run (Phase 5)">
+          <mat-icon>archive</mat-icon>
+        </button>
+        <button type="button" class="icon-btn" disabled matTooltip="Cancel run (Phase 5)">
+          <mat-icon>cancel</mat-icon>
+        </button>
+      </div>
+    </header>
+
+    <section class="aggregate-metrics">
+      <div class="metric-card">
+        <span class="label">Mean Return</span>
+        <span class="value">{{ aggregates().meanTotalReturnPct | number:'1.1-1' }}%</span>
+      </div>
+      <div class="metric-card">
+        <span class="label">Return Range</span>
+        <span class="value">{{ aggregates().minTotalReturnPct | number:'1.1-1' }}% / {{ aggregates().maxTotalReturnPct | number:'1.1-1' }}%</span>
+      </div>
+      <div class="metric-card">
+        <span class="label">Mean Calmar</span>
+        <span class="value">{{ aggregates().meanCalmarRatio | number:'1.2-2' }}</span>
+      </div>
+      <div class="metric-card">
+        <span class="label">Mean Sharpe</span>
+        <span class="value">{{ aggregates().meanSharpeRatio | number:'1.2-2' }}</span>
+      </div>
+      <div class="metric-card">
+        <span class="label">Mean Max DD</span>
+        <span class="value">{{ aggregates().meanMaxDrawdownPct | number:'1.1-1' }}%</span>
+      </div>
+      <div class="metric-card">
+        <span class="label">Total Trades</span>
+        <span class="value">{{ aggregates().totalTradeCount }}</span>
+      </div>
+      <div class="metric-card">
+        <span class="label">Success / Failed</span>
+        <span class="value">{{ aggregates().successCount }} / {{ aggregates().failedCount }}</span>
+      </div>
+      <div class="metric-card">
+        <span class="label">Running / Pending</span>
+        <span class="value">{{ aggregates().runningCount }} / {{ aggregates().pendingCount }}</span>
+      </div>
+    </section>
+
+    <section class="permutations">
+      <h4>Permutations</h4>
+      @if (isLoadingPermutations()) {
+        <div class="loading">Loading permutations…</div>
+      } @else if (viewPermutations().length) {
+        <table class="permutation-table">
+          <thead>
+            <tr>
+              <th class="sortable" (click)="onSort('symbol')">Symbol</th>
+              <th class="sortable" (click)="onSort('status')">Status</th>
+              <th class="sortable" (click)="onSort('totalReturnPct')">Return</th>
+              <th class="sortable" (click)="onSort('tradeCount')">Trades</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (p of viewPermutations(); track p.permutationId) {
+              <tr
+                class="permutation-row"
+                [class.selected]="selectedPermutationId() === p.permutationId"
+                (click)="onSelectPermutation(p)">
+                <td class="col-symbol">{{ p.symbol }}</td>
+                <td class="col-status">
+                  <mat-icon
+                    class="status-icon"
+                    [style.color]="p.statusColorName"
+                    [matTooltip]="p.status">
+                    {{ p.statusIconName }}
+                  </mat-icon>
+                  <span>{{ p.status }}</span>
+                </td>
+                <td class="col-return" [class.positive]="p.totalReturnPct >= 0" [class.negative]="p.totalReturnPct < 0">
+                  {{ p.totalReturnPct >= 0 ? '+' : '' }}{{ p.totalReturnPct | number:'1.1-1' }}%
+                </td>
+                <td class="col-trades">{{ p.tradeCount }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <div class="empty">No permutations yet.</div>
+      }
+    </section>
+  </div>
+} @else {
+  <div class="empty-state">
+    <mat-icon>analytics</mat-icon>
+    <p>Select a run to view the summary and permutations.</p>
+  </div>
+}
