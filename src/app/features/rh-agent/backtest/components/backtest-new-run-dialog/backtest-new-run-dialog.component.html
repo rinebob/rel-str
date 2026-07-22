@@ -1,0 +1,109 @@
+<h2 mat-dialog-title>New Backtest</h2>
+
+<mat-dialog-content>
+  <div class="new-run-form">
+    <div [formGroup]="mainForm">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Strategy</mat-label>
+        <mat-select formControlName="strategyId" (selectionChange)="onStrategyChange($event.value)">
+          @for (strategy of data.strategies; track strategy.id) {
+            <mat-option [value]="strategy.id">{{ strategy.name }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Symbols</mat-label>
+        <textarea matInput formControlName="symbolsText" rows="3" placeholder="SPY, QQQ"></textarea>
+        <mat-hint>Comma or newline separated</mat-hint>
+      </mat-form-field>
+
+      <div class="row-fields">
+        <mat-form-field appearance="outline" class="initial-cash-field">
+          <mat-label>Initial Cash</mat-label>
+          <input matInput type="number" formControlName="initialCash" min="0" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Run Type</mat-label>
+          <mat-select formControlName="runType">
+            @for (type of runTypes; track type) {
+              <mat-option [value]="type">{{ type }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Report Tier</mat-label>
+          <mat-select formControlName="reportTier">
+            @for (tier of reportTiers; track tier) {
+              <mat-option [value]="tier">{{ tier }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      </div>
+    </div>
+
+    @if (selectedStrategy(); as strategy) {
+      <h3 class="config-heading">Config: {{ strategy.name }}</h3>
+
+      <div [formGroup]="configForm" class="config-fields">
+        @for (entry of configSchemaEntries(); track entry.key) {
+          @if (entry.field.type === 'boolean') {
+            <div class="boolean-field">
+              <mat-checkbox [formControlName]="entry.key">{{ entry.key }}</mat-checkbox>
+              @if (entry.field.description) {
+                <span class="field-hint">{{ entry.field.description }}</span>
+              }
+            </div>
+          } @else if (entry.field.enum && entry.field.enum.length > 0) {
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>{{ entry.key }}</mat-label>
+              <mat-select [formControlName]="entry.key">
+                @for (option of entry.field.enum; track option) {
+                  <mat-option [value]="option">{{ option }}</mat-option>
+                }
+              </mat-select>
+              @if (entry.field.description) {
+                <mat-hint>{{ entry.field.description }}</mat-hint>
+              }
+            </mat-form-field>
+          } @else if (entry.field.type === 'integer' || entry.field.type === 'number') {
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>{{ entry.key }}</mat-label>
+              <input
+                matInput
+                type="number"
+                [formControlName]="entry.key"
+                [min]="entry.field.min ?? null"
+                [max]="entry.field.max ?? null"
+                [attr.step]="entry.field.step ?? 'any'" />
+              @if (entry.field.description) {
+                <mat-hint>{{ entry.field.description }}</mat-hint>
+              }
+            </mat-form-field>
+          } @else {
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>{{ entry.key }}</mat-label>
+              <input matInput [formControlName]="entry.key" />
+              @if (entry.field.description) {
+                <mat-hint>{{ entry.field.description }}</mat-hint>
+              }
+            </mat-form-field>
+          }
+        }
+      </div>
+    }
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="cancel()">Cancel</button>
+  <button
+    mat-raised-button
+    color="primary"
+    (click)="submit()"
+    [disabled]="mainForm.invalid || configForm.invalid">
+    Start
+  </button>
+</mat-dialog-actions>
