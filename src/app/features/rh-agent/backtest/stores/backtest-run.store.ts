@@ -11,7 +11,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { of, catchError, Subscription, Observable } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-import type { BacktestPermutationUi, BacktestRunUi, BacktestStrategyMetadata } from '../common/backtest.types';
+import type { BacktestPermutationUi, BacktestRunUi, BacktestStrategyMetadata, StartBacktestRequest } from '../common/backtest.types';
 import { BacktestRunService } from '../services/backtest-run.service';
 
 export interface BacktestRunState {
@@ -22,6 +22,22 @@ export interface BacktestRunState {
   isLoading: boolean;
   runsStreaming: boolean;
   permutationsStreaming: boolean;
+}
+
+/**
+ * Build a readable error message from a callable or runtime failure.
+ * Firebase callable errors expose the original server message in `details`.
+ */
+function buildBacktestErrorMessage(err: unknown): string {
+  if (err instanceof Error) {
+    const details = (err as { details?: unknown }).details;
+    if (details) {
+      const detailText = typeof details === 'string' ? details : JSON.stringify(details);
+      return `${err.message} — ${detailText}`;
+    }
+    return err.message;
+  }
+  return String(err ?? 'Unknown error');
 }
 
 const initialState: BacktestRunState = {
@@ -63,18 +79,17 @@ export const BacktestRunStore = signalStore(
       source: Observable<T[]>,
       onValue: (value: T[]) => void,
       startPatch: Partial<BacktestRunState>,
-      stopPatch: Partial<BacktestRunState>,
-      subscriptionRef: { current: Subscription | null }
-    ): void {
-      subscriptionRef.current?.unsubscribe();
-      subscriptionRef.current = null;
+      stopPatch: Partial<BacktestRunState>
+    ): Subscription {
       patchState(state, startPatch);
 
-      subscriptionRef.current = source.pipe(
+      return source.pipe(
         catchError((err: unknown) => {
-          const message = err instanceof Error ? err.message : 'Unknown error';
-          snackBar.open(`Failed to stream ${label}: ${message}`, 'Dismiss', { duration: 5000 });
-          return of([] as unknown as T[]);
+          // eslint-disable-next-line no-console
+          console.error(`[BacktestRunStore] Failed to stream ${label}`, err);
+          const message = buildBacktestErrorMessage(err);
+          snackBar.open(`Failed to stream ${label}: ${message}`, 'Dismiss', { duration: 30000 });
+          return of<T[]>([]);
         }),
         takeUntilDestroyed(destroyRef),
       ).subscribe({
@@ -83,14 +98,29 @@ export const BacktestRunStore = signalStore(
           patchState(state, stopPatch);
         },
         error: () => {
-          subscriptionRef.current = null;
           patchState(state, stopPatch);
         },
         complete: () => {
-          subscriptionRef.current = null;
           patchState(state, stopPatch);
         },
       });
+    }
+
+    function loadPermutations(runId: string | null): void {
+      permutationsSubscription?.unsubscribe();
+      permutationsSubscription = null;
+      if (!runId) {
+        patchState(state, { permutations: [], permutationsStreaming: false });
+        return;
+      }
+
+      permutationsSubscription = watchStream(
+        'permutations',
+        runService.watchPermutations(runId),
+        (permutations) => patchState(state, { permutations }),
+        { permutationsStreaming: true },
+        { permutationsStreaming: false }
+      );
     }
 
     return {
@@ -98,9 +128,11 @@ export const BacktestRunStore = signalStore(
       loadStrategies(): void {
         runService.listStrategies().pipe(
           catchError((err: unknown) => {
-            const message = err instanceof Error ? err.message : 'Unknown error';
-            snackBar.open(`Failed to load strategies: ${message}`, 'Dismiss', { duration: 5000 });
-            return of([]);
+            // eslint-disable-next-line no-console
+            console.error('[BacktestRunStore] loadStrategies failed', err);
+            const message = buildBacktestErrorMessage(err);
+            snackBar.open(`Failed to load strategies: ${message}`, 'Dismiss', { duration: 30000 });
+            return of<BacktestStrategyMetadata[]>([]);
           }),
           takeUntilDestroyed(destroyRef)
         ).subscribe((strategies) => {
@@ -112,39 +144,46 @@ export const BacktestRunStore = signalStore(
       loadRuns(): void {
         if (runsSubscription) return;
 
-        watchStream(
+        runsSubscription = watchStream(
           'runs',
           runService.watchRuns(50),
           (runs) => patchState(state, { runs }),
           { isLoading: true, runsStreaming: true },
-          { isLoading: false, runsStreaming: false },
-          { get current() { return runsSubscription; }, set current(value) { runsSubscription = value; } }
+          { isLoading: false, runsStreaming: false }
         );
+      },
+
+      /** Start a new backtest run and select it when the callable succeeds. */
+      startRun(request: StartBacktestRequest): void {
+        patchState(state, { isLoading: true });
+
+        runService
+          .startRun(request)
+          .pipe(
+            catchError((err: unknown) => {
+              // eslint-disable-next-line no-console
+              console.error('[BacktestRunStore] startRun failed', err);
+              const message = buildBacktestErrorMessage(err);
+              snackBar.open(`Failed to start backtest: ${message}`, 'Dismiss', { duration: 30000 });
+              patchState(state, { isLoading: false });
+              return of(null);
+            }),
+            takeUntilDestroyed(destroyRef)
+          )
+          .subscribe((response) => {
+            patchState(state, { isLoading: false });
+            if (response) {
+              snackBar.open(`Backtest started: ${response.runId}`, 'Dismiss', { duration: 30000 });
+              patchState(state, { selectedRunId: response.runId });
+              loadPermutations(response.runId);
+            }
+          });
       },
 
       /** Select a run for detail/summary panels and start streaming its permutations. */
       selectRun(runId: string | null): void {
         patchState(state, { selectedRunId: runId });
-        this.loadPermutations(runId);
-      },
-
-      /** Start a realtime listener for the selected run's permutations. */
-      loadPermutations(runId: string | null): void {
-        if (!runId) {
-          permutationsSubscription?.unsubscribe();
-          permutationsSubscription = null;
-          patchState(state, { permutations: [], permutationsStreaming: false });
-          return;
-        }
-
-        watchStream(
-          'permutations',
-          runService.watchPermutations(runId),
-          (permutations) => patchState(state, { permutations }),
-          { permutationsStreaming: true },
-          { permutationsStreaming: false },
-          { get current() { return permutationsSubscription; }, set current(value) { permutationsSubscription = value; } }
-        );
+        loadPermutations(runId);
       },
     };
   })

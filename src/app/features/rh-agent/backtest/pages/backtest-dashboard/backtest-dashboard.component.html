@@ -23,7 +23,8 @@
       (configSearchChange)="uiStore.setConfigSearch($event)"
       (sortByChange)="uiStore.setSortBy($event)"
       (sortDirectionChange)="uiStore.setSortDirection($event)"
-      (includeArchivedChange)="uiStore.setIncludeArchived($event)" />
+      (includeArchivedChange)="uiStore.setIncludeArchived($event)"
+      (newRun)="openNewRunDialog()" />
 
     <div class="dashboard-body">
       <div class="run-list-wrapper">
@@ -46,7 +47,8 @@
 
           <app-backtest-permutation-detail
             class="permutation-panel"
-            [permutation]="uiStore.selectedPermutation()" />
+            [permutation]="selectedPermutation()"
+            [reportTier]="runStore.selectedRun()?.reportTier" />
         </div>
       }
     </div>

@@ -21,11 +21,6 @@ export interface RunAggregateMetrics {
   exitReasonCounts: Record<string, number>;
 }
 
-function safeNumber(value: unknown): number {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : 0;
-}
-
 /** Compute a mean of a numeric array, guarding against empty input. */
 function mean(values: number[]): number {
   if (values.length === 0) return 0;
@@ -43,10 +38,10 @@ export function computeRunAggregates(permutations: BacktestPermutationUi[]): Run
   const successValues = permutations.filter((p) => p.status === 'success');
   const completedValues = permutations.filter((p) => p.status === 'success' || p.status === 'failed');
 
-  const totalReturnPcts = successValues.map((p) => safeNumber(p.totalReturnPct));
-  const calmarRatios = successValues.map((p) => safeNumber(p.metrics?.calmarRatio));
-  const sharpeRatios = successValues.map((p) => safeNumber(p.metrics?.sharpeRatio));
-  const maxDrawdownPcts = successValues.map((p) => safeNumber(p.metrics?.maxDrawdownPct));
+  const totalReturnPcts = successValues.map((p) => p.totalReturnPct);
+  const calmarRatios = successValues.map((p) => p.metrics.calmarRatio);
+  const sharpeRatios = successValues.map((p) => p.metrics.sharpeRatio);
+  const maxDrawdownPcts = successValues.map((p) => p.metrics.maxDrawdownPct);
 
   const exitReasonCounts: Record<string, number> = {};
   permutations.forEach((p) => {
@@ -63,7 +58,7 @@ export function computeRunAggregates(permutations: BacktestPermutationUi[]): Run
     meanCalmarRatio: calmarRatios.length > 0 ? mean(calmarRatios) : 0,
     meanSharpeRatio: sharpeRatios.length > 0 ? mean(sharpeRatios) : 0,
     meanMaxDrawdownPct: maxDrawdownPcts.length > 0 ? mean(maxDrawdownPcts) : 0,
-    totalTradeCount: completedValues.reduce((acc, p) => acc + safeNumber(p.tradeCount), 0),
+    totalTradeCount: completedValues.reduce((acc, p) => acc + p.tradeCount, 0),
     successCount: permutations.filter((p) => p.status === 'success').length,
     failedCount: permutations.filter((p) => p.status === 'failed').length,
     runningCount: permutations.filter((p) => p.status === 'running').length,

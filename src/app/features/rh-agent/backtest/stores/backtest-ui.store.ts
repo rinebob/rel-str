@@ -114,14 +114,9 @@ export const BacktestUiStore = signalStore(
       );
     }),
 
-    /** The currently selected permutation, if any. */
-    selectedPermutation: computed(() => {
-      const id = state.selectedPermutationId();
-      return id ? dataStore.permutations().find((p) => p.permutationId === id) ?? null : null;
-    }),
   })),
 
-  withMethods((state, dataStore = inject(BacktestRunStore)) => ({
+  withMethods((state) => ({
     setStatusFilter(filter: BacktestStatusFilter): void {
       patchState(state, { statusFilter: filter });
     },

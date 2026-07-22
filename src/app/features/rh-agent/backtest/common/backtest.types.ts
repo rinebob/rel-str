@@ -54,11 +54,13 @@ export interface BacktestPermutationUi {
   metrics: BacktestMetrics;
   equityCurve: BacktestEquityPoint[];
   tradeCount: number;
+  reportTier: BacktestReportTier;
   notes?: string[];
   error?: string;
   startedAtIso?: string;
   completedAtIso?: string;
   trades?: BacktestTradeUi[];
+  underlyingBars?: BacktestPricePointUi[];
 }
 
 export interface BacktestTradeUi {
@@ -103,6 +105,11 @@ export interface BacktestEquityPoint {
   cash: number;
   equity: number;
   openPositions: number;
+}
+
+export interface BacktestPricePointUi {
+  date: string;
+  close: number;
 }
 
 export interface BacktestMetrics {

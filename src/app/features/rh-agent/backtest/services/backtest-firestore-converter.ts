@@ -5,7 +5,7 @@
  * UI-facing `BacktestRunUi` and `BacktestPermutationUi` shapes.
  */
 
-import type { BacktestPermutationUi, BacktestRunUi, BacktestTradeUi, BacktestTradeLegUi } from '../common/backtest.types';
+import type { BacktestEquityPoint, BacktestPermutationUi, BacktestPricePointUi, BacktestRunUi, BacktestTradeUi, BacktestTradeLegUi } from '../common/backtest.types';
 
 type TimestampLike = { toDate: () => Date } | Date | string | number | undefined;
 
@@ -73,21 +73,41 @@ export function convertBacktestPermutationDoc(id: string, data: Record<string, u
       winCount: 0,
       lossCount: 0,
     },
-    equityCurve: Array.isArray(data['equityCurve']) ? data['equityCurve'] as BacktestPermutationUi['equityCurve'] : [],
+    equityCurve: Array.isArray(data['equityCurve']) ? data['equityCurve'].map(convertBacktestEquityPoint) : [],
     tradeCount: Number(data['tradeCount'] ?? 0),
+    reportTier: (data['reportTier'] as BacktestPermutationUi['reportTier']) ?? 'summary',
     notes: Array.isArray(data['notes']) ? data['notes'].map((n) => String(n)) : undefined,
     error: data['error'] ? String(data['error']) : undefined,
     startedAtIso: toIso(data['startedAt'] as TimestampLike),
     completedAtIso: toIso(data['completedAt'] as TimestampLike),
     trades: Array.isArray(data['trades']) ? data['trades'].map(convertBacktestTrade) : undefined,
+    underlyingBars: Array.isArray(data['underlyingBars']) ? data['underlyingBars'].map(convertBacktestPricePoint) : undefined,
+  };
+}
+
+function convertBacktestEquityPoint(data: unknown): BacktestEquityPoint {
+  const p = (data ?? {}) as Record<string, unknown>;
+  return {
+    date: toIso(p['date'] as TimestampLike) ?? '',
+    cash: Number(p['cash'] ?? 0),
+    equity: Number(p['equity'] ?? 0),
+    openPositions: Number(p['openPositions'] ?? 0),
+  };
+}
+
+function convertBacktestPricePoint(data: unknown): BacktestPricePointUi {
+  const p = (data ?? {}) as Record<string, unknown>;
+  return {
+    date: toIso(p['date'] as TimestampLike) ?? '',
+    close: Number(p['close'] ?? 0),
   };
 }
 
 function convertBacktestTrade(data: unknown): BacktestTradeUi {
   const t = (data ?? {}) as Record<string, unknown>;
   return {
-    entryDate: String(t['entryDate'] ?? ''),
-    exitDate: String(t['exitDate'] ?? ''),
+    entryDate: toIso(t['entryDate'] as TimestampLike) ?? '',
+    exitDate: toIso(t['exitDate'] as TimestampLike) ?? '',
     symbol: String(t['symbol'] ?? ''),
     side: (t['side'] as BacktestTradeUi['side']) ?? 'long',
     quantity: Number(t['quantity'] ?? 0),

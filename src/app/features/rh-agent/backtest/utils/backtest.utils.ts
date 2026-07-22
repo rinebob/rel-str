@@ -4,7 +4,7 @@
  * Pure helpers for formatting backtest run data and mapping statuses to
  * Material icons/colors. Kept in the backtest sub-feature.
  */
-import type { BacktestPermutationStatus, BacktestRunStatus } from '../common/backtest.types';
+import type { BacktestPermutationStatus, BacktestPermutationUi, BacktestRunStatus } from '../common/backtest.types';
 import { formatTimestampPT } from '../../utils/rh-agent.utils';
 
 export interface BacktestStatusVisuals {
@@ -68,4 +68,35 @@ export function formatBacktestDuration(startIso?: string, endIso?: string): stri
     return `${hours}:${mm}:${ss}`;
   }
   return `${minutes}:${ss}`;
+}
+
+export interface BacktestMetricEntry {
+  label: string;
+  value: string;
+  cssClass?: string;
+}
+
+/** Build the list of formatted metric rows for a permutation report. */
+export function buildBacktestMetricEntries(permutation: BacktestPermutationUi): BacktestMetricEntry[] {
+  const p = permutation;
+  const m = p.metrics;
+  return [
+    { label: 'Total Return', value: `${p.totalReturnPct >= 0 ? '+' : ''}${p.totalReturnPct.toFixed(1)}%`, cssClass: p.totalReturnPct >= 0 ? 'positive' : 'negative' },
+    { label: 'Net Profit', value: m.totalNetProfit.toLocaleString('en-US', { maximumFractionDigits: 0 }), cssClass: m.totalNetProfit >= 0 ? 'positive' : 'negative' },
+    { label: 'Gross Profit', value: m.grossProfit.toLocaleString('en-US', { maximumFractionDigits: 0 }), cssClass: 'positive' },
+    { label: 'Gross Loss', value: m.grossLoss.toLocaleString('en-US', { maximumFractionDigits: 0 }), cssClass: 'negative' },
+    { label: 'Profit Factor', value: m.profitFactor.toFixed(2) },
+    { label: '% Profitable', value: `${m.percentProfitable.toFixed(1)}%` },
+    { label: 'Win/Loss Ratio', value: m.winLossRatio.toFixed(2) },
+    { label: 'Total Trades', value: String(m.tradeCount) },
+    { label: 'Wins', value: String(m.winCount) },
+    { label: 'Losses', value: String(m.lossCount) },
+    { label: 'Avg Trade', value: m.averageTrade.toLocaleString('en-US', { maximumFractionDigits: 0 }), cssClass: m.averageTrade >= 0 ? 'positive' : 'negative' },
+    { label: 'Avg Win', value: m.averageWin.toLocaleString('en-US', { maximumFractionDigits: 0 }), cssClass: 'positive' },
+    { label: 'Avg Loss', value: m.averageLoss.toLocaleString('en-US', { maximumFractionDigits: 0 }), cssClass: 'negative' },
+    { label: 'Max Drawdown $', value: m.maxDrawdown.toLocaleString('en-US', { maximumFractionDigits: 0 }), cssClass: 'negative' },
+    { label: 'Max Drawdown %', value: `${m.maxDrawdownPct.toFixed(1)}%`, cssClass: 'negative' },
+    { label: 'Sharpe', value: m.sharpeRatio.toFixed(2) },
+    { label: 'Calmar', value: m.calmarRatio.toFixed(2) },
+  ];
 }

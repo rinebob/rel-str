@@ -5,59 +5,92 @@
         <span class="symbol">{{ p.symbol }}</span>
         <span class="strategy">{{ p.strategyId }}</span>
       </div>
-      <span class="status-badge" [class]="p.status">{{ p.status }}</span>
+      <div class="header-actions">
+        <span class="status-badge" [class]="p.status">{{ p.status }}</span>
+        <button mat-stroked-button type="button" (click)="openFullReport()">
+          <mat-icon>open_in_full</mat-icon>
+          <span>Full report</span>
+        </button>
+      </div>
     </header>
 
     <section class="metrics">
-      <div class="metric">
-        <span class="label">Total Return</span>
-        <span class="value" [class.positive]="p.totalReturnPct >= 0" [class.negative]="p.totalReturnPct < 0">
-          {{ p.totalReturnPct >= 0 ? '+' : '' }}{{ p.totalReturnPct | number:'1.1-1' }}%
-        </span>
-      </div>
-      <div class="metric">
-        <span class="label">Trades</span>
-        <span class="value">{{ p.tradeCount }}</span>
-      </div>
-      <div class="metric">
-        <span class="label">Net Profit</span>
-        <span class="value">{{ p.metrics.totalNetProfit | number:'1.0-0' }}</span>
-      </div>
-      <div class="metric">
-        <span class="label">Max Drawdown</span>
-        <span class="value">{{ p.metrics.maxDrawdownPct | number:'1.1-1' }}%</span>
-      </div>
-      <div class="metric">
-        <span class="label">Sharpe</span>
-        <span class="value">{{ p.metrics.sharpeRatio | number:'1.2-2' }}</span>
-      </div>
-      <div class="metric">
-        <span class="label">Calmar</span>
-        <span class="value">{{ p.metrics.calmarRatio | number:'1.2-2' }}</span>
-      </div>
-      <div class="metric">
-        <span class="label">Profit Factor</span>
-        <span class="value">{{ p.metrics.profitFactor | number:'1.2-2' }}</span>
-      </div>
-      <div class="metric">
-        <span class="label">% Profitable</span>
-        <span class="value">{{ p.metrics.percentProfitable | number:'1.1-1' }}%</span>
-      </div>
-      <div class="metric">
-        <span class="label">Win/Loss Ratio</span>
-        <span class="value">{{ p.metrics.winLossRatio | number:'1.2-2' }}</span>
-      </div>
-      <div class="metric">
-        <span class="label">Avg Trade</span>
-        <span class="value">{{ p.metrics.averageTrade | number:'1.0-0' }}</span>
-      </div>
-      <div class="metric">
-        <span class="label">Avg Win</span>
-        <span class="value">{{ p.metrics.averageWin | number:'1.0-0' }}</span>
-      </div>
-      <div class="metric">
-        <span class="label">Avg Loss</span>
-        <span class="value">{{ p.metrics.averageLoss | number:'1.0-0' }}</span>
+      <h4>Performance Report</h4>
+      <div class="metrics-grid">
+        <div class="metric">
+          <span class="label">Total Return</span>
+          <span class="value" [class.positive]="p.totalReturnPct >= 0" [class.negative]="p.totalReturnPct < 0">
+            {{ p.totalReturnPct >= 0 ? '+' : '' }}{{ p.totalReturnPct | number:'1.1-1' }}%
+          </span>
+        </div>
+        <div class="metric">
+          <span class="label">Net Profit</span>
+          <span class="value" [class.positive]="p.metrics.totalNetProfit >= 0" [class.negative]="p.metrics.totalNetProfit < 0">
+            {{ p.metrics.totalNetProfit | number:'1.0-0' }}
+          </span>
+        </div>
+        <div class="metric">
+          <span class="label">Gross Profit</span>
+          <span class="value positive">{{ p.metrics.grossProfit | number:'1.0-0' }}</span>
+        </div>
+        <div class="metric">
+          <span class="label">Gross Loss</span>
+          <span class="value negative">{{ p.metrics.grossLoss | number:'1.0-0' }}</span>
+        </div>
+        <div class="metric">
+          <span class="label">Profit Factor</span>
+          <span class="value">{{ p.metrics.profitFactor | number:'1.2-2' }}</span>
+        </div>
+        <div class="metric">
+          <span class="label">% Profitable</span>
+          <span class="value">{{ p.metrics.percentProfitable | number:'1.1-1' }}%</span>
+        </div>
+        <div class="metric">
+          <span class="label">Win/Loss Ratio</span>
+          <span class="value">{{ p.metrics.winLossRatio | number:'1.2-2' }}</span>
+        </div>
+        <div class="metric">
+          <span class="label">Total Trades</span>
+          <span class="value">{{ p.metrics.tradeCount }}</span>
+        </div>
+        <div class="metric">
+          <span class="label">Wins</span>
+          <span class="value">{{ p.metrics.winCount }}</span>
+        </div>
+        <div class="metric">
+          <span class="label">Losses</span>
+          <span class="value">{{ p.metrics.lossCount }}</span>
+        </div>
+        <div class="metric">
+          <span class="label">Avg Trade</span>
+          <span class="value" [class.positive]="p.metrics.averageTrade >= 0" [class.negative]="p.metrics.averageTrade < 0">
+            {{ p.metrics.averageTrade | number:'1.0-0' }}
+          </span>
+        </div>
+        <div class="metric">
+          <span class="label">Avg Win</span>
+          <span class="value positive">{{ p.metrics.averageWin | number:'1.0-0' }}</span>
+        </div>
+        <div class="metric">
+          <span class="label">Avg Loss</span>
+          <span class="value negative">{{ p.metrics.averageLoss | number:'1.0-0' }}</span>
+        </div>
+        <div class="metric">
+          <span class="label">Max Drawdown $</span>
+          <span class="value negative">{{ p.metrics.maxDrawdown | number:'1.0-0' }}</span>
+        </div>
+        <div class="metric">
+          <span class="label">Max Drawdown %</span>
+          <span class="value negative">{{ p.metrics.maxDrawdownPct | number:'1.1-1' }}%</span>
+        </div>
+        <div class="metric">
+          <span class="label">Sharpe</span>
+          <span class="value">{{ p.metrics.sharpeRatio | number:'1.2-2' }}</span>
+        </div>
+        <div class="metric">
+          <span class="label">Calmar</span>
+          <span class="value">{{ p.metrics.calmarRatio | number:'1.2-2' }}</span>
+        </div>
       </div>
     </section>
 
@@ -96,31 +129,25 @@
     @if (chartData().length) {
       <section class="chart">
         <h4>Equity Curve</h4>
-        <ejs-chart
-          [primaryXAxis]="primaryXAxis"
-          [primaryYAxis]="primaryYAxis"
-          [tooltip]="tooltip"
-          [legendSettings]="legendSettings">
-          <e-series-collection>
-            <e-series
-              type="Line"
-              [dataSource]="chartData()"
-              xName="date"
-              yName="equity"
-              name="Equity"
-              [width]="2"
-              [animation]="animation">
-            </e-series>
-          </e-series-collection>
-        </ejs-chart>
+        <app-backtest-equity-curve [dataSource]="chartData()" seriesName="Equity" [lineWidth]="2"></app-backtest-equity-curve>
       </section>
     }
 
-    <section class="report-link">
-      <button type="button" class="text-link" disabled title="Full report view is coming in Phase 4">
-        Open full report
-      </button>
+    <section class="trades">
+      <h4>Trades</h4>
+      @if (p.trades?.length) {
+        <app-backtest-trade-table [trades]="p.trades"></app-backtest-trade-table>
+      } @else {
+        <p class="empty-hint">
+          @if ((reportTier() ?? p.reportTier) === 'full') {
+            No trades recorded for this permutation.
+          } @else {
+            Run with <strong>Report Tier: full</strong> to record individual trades.
+          }
+        </p>
+      }
     </section>
+
   </div>
 } @else {
   <div class="empty-state">
