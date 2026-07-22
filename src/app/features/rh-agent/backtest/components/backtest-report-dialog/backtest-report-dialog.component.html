@@ -1,0 +1,75 @@
+<div class="report-dialog">
+  <header class="report-header">
+    <div class="symbol-block">
+      <span class="symbol">{{ permutation().symbol }}</span>
+      <span class="strategy">{{ permutation().strategyId }}</span>
+    </div>
+    <div class="meta-badges">
+      <span class="status-badge" [class]="permutation().status">{{ permutation().status }}</span>
+      <span class="tier-badge">{{ effectiveReportTier() }}</span>
+    </div>
+    <button mat-icon-button mat-dialog-close aria-label="Close report">
+      <mat-icon>close</mat-icon>
+    </button>
+  </header>
+
+  <mat-tab-group class="report-tabs" animationDuration="0ms" mat-stretch-tabs="false">
+    <mat-tab label="Report">
+      <div class="tab-content">
+        <section class="metrics-section">
+          <h4>Performance Report</h4>
+          <div class="metrics-grid">
+            @for (metric of metricEntries(); track metric.label) {
+              <div class="metric-card">
+                <span class="label">{{ metric.label }}</span>
+                <span class="value" [class]="metric.cssClass ?? ''">{{ metric.value }}</span>
+              </div>
+            }
+          </div>
+        </section>
+      </div>
+    </mat-tab>
+
+    <mat-tab label="Equity Curve">
+      <div class="tab-content chart-tab">
+        @if (equityChartData().length) {
+          <app-backtest-equity-curve [dataSource]="equityChartData()" seriesName="Equity" [lineWidth]="2"></app-backtest-equity-curve>
+        } @else {
+          <p class="empty-hint">Equity curve data is not available yet.</p>
+        }
+      </div>
+    </mat-tab>
+
+    <mat-tab label="Trades">
+      <div class="tab-content">
+        @if (permutation().trades?.length) {
+          <app-backtest-trade-table [trades]="permutation().trades"></app-backtest-trade-table>
+        } @else {
+          @if (effectiveReportTier() === 'summary') {
+            <p class="empty-hint">Run with <strong>Report Tier: full</strong> to record individual trades.</p>
+          } @else if (permutation().status === 'success') {
+            <p class="empty-hint">No trades were recorded for this permutation.</p>
+          } @else {
+            <p class="empty-hint">Trades will appear once the run completes.</p>
+          }
+        }
+      </div>
+    </mat-tab>
+
+    <mat-tab label="Underlying">
+      <div class="tab-content chart-tab">
+        @if (underlyingChartData().length) {
+          <app-backtest-underlying-chart [priceData]="underlyingChartData()" [trades]="permutation().trades"></app-backtest-underlying-chart>
+        } @else {
+          @if (effectiveReportTier() === 'summary') {
+            <p class="empty-hint">Run with <strong>Report Tier: full</strong> to plot the underlying price and trade markers.</p>
+          } @else if (permutation().status === 'success') {
+            <p class="empty-hint">No underlying price or trade marker data was recorded for this permutation.</p>
+          } @else {
+            <p class="empty-hint">Underlying price and trade markers will appear once the run completes.</p>
+          }
+        }
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+</div>

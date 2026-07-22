@@ -1,0 +1,17 @@
+<ejs-chart
+  [primaryXAxis]="primaryXAxis"
+  [primaryYAxis]="primaryYAxis"
+  [tooltip]="tooltip"
+  [legendSettings]="legendSettings()">
+  <e-series-collection>
+    <e-series
+      type="Line"
+      [dataSource]="dataSource()"
+      xName="date"
+      yName="value"
+      [name]="seriesName()"
+      [width]="lineWidth()"
+      [animation]="animation">
+    </e-series>
+  </e-series-collection>
+</ejs-chart>

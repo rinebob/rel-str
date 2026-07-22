@@ -1,0 +1,38 @@
+<table class="trade-table">
+  <thead>
+    <tr>
+      <th>Entry</th>
+      <th>Exit</th>
+      <th>Symbol</th>
+      <th>Side</th>
+      <th>Qty</th>
+      <th>Entry Mark</th>
+      <th>Exit Mark</th>
+      <th>PnL</th>
+      <th>Return</th>
+      <th>Reason</th>
+      <th>Days</th>
+    </tr>
+  </thead>
+  <tbody>
+    @for (trade of trades() ?? []; track $index) {
+      <tr>
+        <td>{{ trade.entryDate }}</td>
+        <td>{{ trade.exitDate }}</td>
+        <td>{{ trade.symbol }}</td>
+        <td>{{ trade.side }}</td>
+        <td>{{ trade.quantity }}</td>
+        <td>{{ trade.entryMark | number:'1.2-2' }}</td>
+        <td>{{ trade.exitMark | number:'1.2-2' }}</td>
+        <td [class.positive]="trade.pnl >= 0" [class.negative]="trade.pnl < 0">
+          {{ formatPnL(trade) }}
+        </td>
+        <td [class.positive]="trade.returnPct >= 0" [class.negative]="trade.returnPct < 0">
+          {{ formatReturn(trade) }}
+        </td>
+        <td>{{ trade.exitReason }}</td>
+        <td>{{ trade.daysHeld }}</td>
+      </tr>
+    }
+  </tbody>
+</table>

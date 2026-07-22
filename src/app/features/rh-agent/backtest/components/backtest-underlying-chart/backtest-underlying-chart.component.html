@@ -1,0 +1,61 @@
+<ejs-chart
+  [primaryXAxis]="primaryXAxis"
+  [primaryYAxis]="primaryYAxis"
+  [tooltip]="tooltip"
+  [legendSettings]="{ visible: true }">
+  <e-series-collection>
+    <e-series
+      type="Line"
+      [dataSource]="priceData()"
+      xName="date"
+      yName="close"
+      name="Underlying"
+      [width]="1.5"
+      [animation]="animation">
+    </e-series>
+    @if (longEntryPoints().length) {
+      <e-series
+        type="Scatter"
+        [dataSource]="longEntryPoints()"
+        xName="date"
+        yName="value"
+        name="Long Entry"
+        [fill]="longColor"
+        [marker]="{ visible: true, shape: 'Circle', width: 8, height: 8 }">
+      </e-series>
+    }
+    @if (shortEntryPoints().length) {
+      <e-series
+        type="Scatter"
+        [dataSource]="shortEntryPoints()"
+        xName="date"
+        yName="value"
+        name="Short Entry"
+        [fill]="shortColor"
+        [marker]="{ visible: true, shape: 'Triangle', width: 9, height: 9 }">
+      </e-series>
+    }
+    @if (longExitPoints().length) {
+      <e-series
+        type="Scatter"
+        [dataSource]="longExitPoints()"
+        xName="date"
+        yName="value"
+        name="Long Exit"
+        [fill]="longColor"
+        [marker]="{ visible: true, shape: 'Diamond', width: 8, height: 8 }">
+      </e-series>
+    }
+    @if (shortExitPoints().length) {
+      <e-series
+        type="Scatter"
+        [dataSource]="shortExitPoints()"
+        xName="date"
+        yName="value"
+        name="Short Exit"
+        [fill]="shortColor"
+        [marker]="{ visible: true, shape: 'Pentagon', width: 9, height: 9 }">
+      </e-series>
+    }
+  </e-series-collection>
+</ejs-chart>
