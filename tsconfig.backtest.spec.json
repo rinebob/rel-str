@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["jasmine", "node"]
+  },
+  "files": [
+    "src/app/features/rh-agent/backtest/utils/backtest-aggregate.utils.spec.ts"
+  ],
+  "include": [
+    "**/*.d.ts"
+  ]
+}
