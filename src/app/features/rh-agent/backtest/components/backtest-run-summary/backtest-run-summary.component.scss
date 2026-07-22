@@ -165,6 +165,20 @@
   }
 }
 
+.chart {
+  h4 {
+    margin: 0 0 8px;
+    font-size: 13px;
+    text-transform: uppercase;
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  app-backtest-equity-curve {
+    display: block;
+    height: 220px;
+  }
+}
+
 .empty-state {
   display: flex;
   flex-direction: column;

@@ -4,8 +4,7 @@
       class="run-now-btn"
       mat-raised-button
       color="primary"
-      disabled
-      matTooltip="New backtest run flow is coming in Phase 5"
+      [disabled]="isLoading()"
       (click)="newRun.emit()">
       <mat-icon>add</mat-icon>
       New Backtest

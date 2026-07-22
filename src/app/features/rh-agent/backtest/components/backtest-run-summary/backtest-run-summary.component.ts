@@ -12,6 +12,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import type { BacktestPermutationUi, BacktestRunUi } from '../../common/backtest.types';
 import { computeRunAggregates, type RunAggregateMetrics } from '../../utils/backtest-aggregate.utils';
 import { formatBacktestRunId, getBacktestStatusVisuals } from '../../utils/backtest.utils';
+import { BacktestEquityCurveComponent, type EquityCurvePoint } from '../backtest-equity-curve/backtest-equity-curve.component';
 
 type SummarySortBy = 'symbol' | 'status' | 'totalReturnPct' | 'tradeCount';
 
@@ -23,7 +24,7 @@ export interface SummaryPermutationRow extends BacktestPermutationUi {
 @Component({
   selector: 'app-backtest-run-summary',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatIconModule, MatTooltipModule],
+  imports: [CommonModule, MatIconModule, MatTooltipModule, BacktestEquityCurveComponent],
   templateUrl: './backtest-run-summary.component.html',
   styleUrl: './backtest-run-summary.component.scss',
 })
@@ -34,9 +35,6 @@ export class BacktestRunSummaryComponent {
   readonly isLoadingPermutations = input<boolean>(false);
 
   readonly selectPermutation = output<string>();
-  readonly cloneRun = output<void>();
-  readonly archiveRun = output<void>();
-  readonly cancelRun = output<void>();
 
   private readonly sortBy = signal<SummarySortBy>('symbol');
   private readonly sortDirection = signal<'asc' | 'desc'>('asc');
@@ -64,6 +62,27 @@ export class BacktestRunSummaryComponent {
   });
 
   readonly formattedRunId = computed(() => (this.run() ? formatBacktestRunId(this.run()!.runId) : '—'));
+
+  readonly aggregateChartData = computed((): EquityCurvePoint[] => {
+    const permutations = this.permutations();
+    if (permutations.length === 0) return [];
+
+    const initialCash = this.run()?.initialCash ?? 0;
+    const byDate = new Map<string, number>();
+
+    for (const permutation of permutations) {
+      for (const point of permutation.equityCurve ?? []) {
+        if (!point.date) continue;
+        const value = initialCash > 0 ? point.equity - initialCash : point.equity;
+        byDate.set(point.date, (byDate.get(point.date) ?? 0) + value);
+      }
+    }
+
+    const baseline = initialCash > 0 ? initialCash : 0;
+    return Array.from(byDate.entries())
+      .map(([date, value]) => ({ date: new Date(date), value: value + baseline }))
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+  });
 
   onSelectPermutation(permutation: SummaryPermutationRow): void {
     this.selectPermutation.emit(permutation.permutationId);
