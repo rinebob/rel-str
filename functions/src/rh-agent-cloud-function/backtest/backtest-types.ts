@@ -88,6 +88,12 @@ export interface BacktestEquityPoint {
   openPositions: number;
 }
 
+/** One underlying close price point for charting. */
+export interface BacktestPricePoint {
+  date: string;
+  close: number;
+}
+
 /** TradeStation-style performance metrics. */
 export interface BacktestMetrics {
   totalNetProfit: number;
@@ -117,6 +123,7 @@ export interface BacktestPermutationSummary {
   config: StrategyConfig;
   status: 'pending' | 'running' | 'success' | 'failed';
   runType: BacktestRunType;
+  reportTier: BacktestReportTier;
   initialCash: number;
   finalEquity: number;
   totalReturnPct: number;
@@ -129,9 +136,10 @@ export interface BacktestPermutationSummary {
   completedAt?: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
 }
 
-/** Full report extends summary with every trade. */
+/** Full report extends summary with every trade and underlying price series. */
 export interface BacktestPermutationFull extends BacktestPermutationSummary {
   trades: BacktestTrade[];
+  underlyingBars?: BacktestPricePoint[];
 }
 
 /** Run document shape stored under backtest-runs/{runId}. */

@@ -99,6 +99,7 @@ export const rhAgentBacktestPermutation = onTaskDispatched<BacktestPermutationPa
         config,
         status: BacktestPermutationStatus.SUCCESS,
         runType,
+        reportTier,
         initialCash,
         finalEquity: result.finalEquity,
         totalReturnPct: ((result.finalEquity - initialCash) / initialCash) * 100,
@@ -112,6 +113,10 @@ export const rhAgentBacktestPermutation = onTaskDispatched<BacktestPermutationPa
       const fullResult = {
         ...summary,
         trades: reportTier === 'full' ? result.trades : undefined,
+        underlyingBars:
+          reportTier === 'full'
+            ? dailyBars.map((bar) => ({ date: bar.date, close: bar.c }))
+            : undefined,
       };
 
       await permRef.set(fullResult, { merge: true });
