@@ -8,6 +8,8 @@ export { BacktestDashboardComponent } from './pages/backtest-dashboard/backtest-
 
 export { BacktestRunControlComponent } from './components/backtest-run-control/backtest-run-control.component';
 export { BacktestRunListComponent } from './components/backtest-run-list/backtest-run-list.component';
+export { BacktestRunSummaryComponent } from './components/backtest-run-summary/backtest-run-summary.component';
+export { BacktestPermutationDetailComponent } from './components/backtest-permutation-detail/backtest-permutation-detail.component';
 
 export { BacktestRunStore } from './stores/backtest-run.store';
 export { BacktestUiStore } from './stores/backtest-ui.store';

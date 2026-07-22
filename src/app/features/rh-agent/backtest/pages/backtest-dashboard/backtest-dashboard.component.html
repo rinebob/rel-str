@@ -25,10 +25,30 @@
       (sortDirectionChange)="uiStore.setSortDirection($event)"
       (includeArchivedChange)="uiStore.setIncludeArchived($event)" />
 
-    <app-backtest-run-list
-      [runs]="uiStore.filteredRuns()"
-      [selectedRunId]="runStore.selectedRunId()"
-      [hasActiveFilters]="uiStore.hasActiveFilters()"
-      (selectRun)="runStore.selectRun($event)" />
+    <div class="dashboard-body">
+      <div class="run-list-wrapper">
+        <app-backtest-run-list
+          [runs]="uiStore.filteredRuns()"
+          [selectedRunId]="runStore.selectedRunId()"
+          [hasActiveFilters]="uiStore.hasActiveFilters()"
+          (selectRun)="runStore.selectRun($event)" />
+      </div>
+
+      @if (runStore.selectedRunId()) {
+        <div class="detail-panel">
+          <app-backtest-run-summary
+            class="summary-panel"
+            [run]="runStore.selectedRun()"
+            [permutations]="runStore.permutations()"
+            [selectedPermutationId]="uiStore.selectedPermutationId()"
+            [isLoadingPermutations]="runStore.permutationsStreaming()"
+            (selectPermutation)="uiStore.setSelectedPermutationId($event)" />
+
+          <app-backtest-permutation-detail
+            class="permutation-panel"
+            [permutation]="uiStore.selectedPermutation()" />
+        </div>
+      }
+    </div>
   </section>
 </div>
