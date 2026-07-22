@@ -27,6 +27,7 @@ export interface BacktestUiState {
   sortBy: BacktestSortBy;
   sortDirection: BacktestSortDirection;
   includeArchived: boolean;
+  selectedPermutationId: string | null;
 }
 
 const initialState: BacktestUiState = {
@@ -38,6 +39,7 @@ const initialState: BacktestUiState = {
   sortBy: 'createdAt',
   sortDirection: 'desc',
   includeArchived: false,
+  selectedPermutationId: null,
 };
 
 export const BacktestUiStore = signalStore(
@@ -111,6 +113,12 @@ export const BacktestUiStore = signalStore(
         state.includeArchived()
       );
     }),
+
+    /** The currently selected permutation, if any. */
+    selectedPermutation: computed(() => {
+      const id = state.selectedPermutationId();
+      return id ? dataStore.permutations().find((p) => p.permutationId === id) ?? null : null;
+    }),
   })),
 
   withMethods((state, dataStore = inject(BacktestRunStore)) => ({
@@ -140,6 +148,9 @@ export const BacktestUiStore = signalStore(
     },
     setIncludeArchived(include: boolean): void {
       patchState(state, { includeArchived: include });
+    },
+    setSelectedPermutationId(id: string | null): void {
+      patchState(state, { selectedPermutationId: id });
     },
     resetFilters(): void {
       patchState(state, {
