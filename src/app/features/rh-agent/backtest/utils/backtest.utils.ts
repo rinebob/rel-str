@@ -4,41 +4,28 @@
  * Pure helpers for formatting backtest run data and mapping statuses to
  * Material icons/colors. Kept in the backtest sub-feature.
  */
-import type { BacktestRunStatus } from '../common/backtest.types';
+import type { BacktestPermutationStatus, BacktestRunStatus } from '../common/backtest.types';
 import { formatTimestampPT } from '../../utils/rh-agent.utils';
 
-/** Material color name for a backtest run status. */
-export function getBacktestStatusColor(status: BacktestRunStatus): string {
-  switch (status) {
-    case 'completed':
-      return 'success';
-    case 'failed':
-      return 'error';
-    case 'running':
-      return 'primary';
-    case 'cancelled':
-      return 'warning';
-    case 'pending':
-    default:
-      return '';
-  }
+export interface BacktestStatusVisuals {
+  color: string;
+  icon: string;
 }
 
-/** Material icon name for a backtest run status. */
-export function getBacktestStatusIcon(status: BacktestRunStatus): string {
-  switch (status) {
-    case 'completed':
-      return 'check_circle';
-    case 'failed':
-      return 'error';
-    case 'running':
-      return 'pending';
-    case 'cancelled':
-      return 'cancel';
-    case 'pending':
-    default:
-      return 'schedule';
-  }
+type BacktestAnyStatus = BacktestRunStatus | BacktestPermutationStatus;
+
+const STATUS_VISUALS: Record<BacktestAnyStatus, BacktestStatusVisuals> = {
+  completed: { color: 'var(--mat-sys-success)', icon: 'check_circle' },
+  success: { color: 'var(--mat-sys-success)', icon: 'check_circle' },
+  failed: { color: 'var(--mat-sys-error)', icon: 'error' },
+  running: { color: 'var(--mat-sys-primary)', icon: 'pending' },
+  cancelled: { color: 'var(--mat-sys-warning)', icon: 'cancel' },
+  pending: { color: '', icon: 'schedule' },
+};
+
+/** CSS color + Material icon for a run or permutation status. */
+export function getBacktestStatusVisuals(status: BacktestAnyStatus): BacktestStatusVisuals {
+  return STATUS_VISUALS[status] ?? { color: '', icon: 'schedule' };
 }
 
 /** Format an ISO timestamp as a PT date+time string. */

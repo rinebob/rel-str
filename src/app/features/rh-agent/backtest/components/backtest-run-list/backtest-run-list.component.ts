@@ -10,7 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 import type { BacktestRunUi } from '../../common/backtest.types';
-import { getBacktestStatusColor, getBacktestStatusIcon, formatBacktestTimestamp, formatBacktestDuration, formatBacktestRunId } from '../../utils/backtest.utils';
+import { getBacktestStatusVisuals, formatBacktestTimestamp, formatBacktestDuration, formatBacktestRunId } from '../../utils/backtest.utils';
 
 /** View model that pre-computes all display values for the run list row. */
 export interface BacktestRunListRow extends BacktestRunUi {
@@ -44,8 +44,8 @@ export class BacktestRunListComponent {
       formattedRunId: formatBacktestRunId(run.runId),
       formattedCreated: formatBacktestTimestamp(run.createdAtIso),
       formattedDuration: formatBacktestDuration(run.startedAtIso, run.completedAtIso),
-      statusColorName: getBacktestStatusColor(run.status),
-      statusIconName: getBacktestStatusIcon(run.status),
+      statusColorName: getBacktestStatusVisuals(run.status).color,
+      statusIconName: getBacktestStatusVisuals(run.status).icon,
       progressText: this.buildProgressText(run),
       progressCompletedPercent: this.buildProgressCompletedPercent(run),
       progressFailedPercent: this.buildProgressFailedPercent(run),
