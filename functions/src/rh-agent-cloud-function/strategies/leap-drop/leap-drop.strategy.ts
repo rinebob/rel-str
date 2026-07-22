@@ -119,7 +119,7 @@ export const metadata: StrategyMetadata = {
     'underlying drops at least the configured percentage from the prior close. ' +
     'Exits at target gain, stop loss, or max hold days using end-of-day option mark prices.',
   category: 'mean-reversion',
-  defaultConfig: applyDefaults({}),
+  defaultConfig: applyDefaults({ useUnderlying: true }),
   minBarsRequired: 2,
   supportedTimeframes: ['1d'],
   version: '1.0.0',
