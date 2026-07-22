@@ -1,0 +1,130 @@
+@if (permutation(); as p) {
+  <div class="permutation-detail">
+    <header class="detail-header">
+      <div class="symbol-block">
+        <span class="symbol">{{ p.symbol }}</span>
+        <span class="strategy">{{ p.strategyId }}</span>
+      </div>
+      <span class="status-badge" [class]="p.status">{{ p.status }}</span>
+    </header>
+
+    <section class="metrics">
+      <div class="metric">
+        <span class="label">Total Return</span>
+        <span class="value" [class.positive]="p.totalReturnPct >= 0" [class.negative]="p.totalReturnPct < 0">
+          {{ p.totalReturnPct >= 0 ? '+' : '' }}{{ p.totalReturnPct | number:'1.1-1' }}%
+        </span>
+      </div>
+      <div class="metric">
+        <span class="label">Trades</span>
+        <span class="value">{{ p.tradeCount }}</span>
+      </div>
+      <div class="metric">
+        <span class="label">Net Profit</span>
+        <span class="value">{{ p.metrics.totalNetProfit | number:'1.0-0' }}</span>
+      </div>
+      <div class="metric">
+        <span class="label">Max Drawdown</span>
+        <span class="value">{{ p.metrics.maxDrawdownPct | number:'1.1-1' }}%</span>
+      </div>
+      <div class="metric">
+        <span class="label">Sharpe</span>
+        <span class="value">{{ p.metrics.sharpeRatio | number:'1.2-2' }}</span>
+      </div>
+      <div class="metric">
+        <span class="label">Calmar</span>
+        <span class="value">{{ p.metrics.calmarRatio | number:'1.2-2' }}</span>
+      </div>
+      <div class="metric">
+        <span class="label">Profit Factor</span>
+        <span class="value">{{ p.metrics.profitFactor | number:'1.2-2' }}</span>
+      </div>
+      <div class="metric">
+        <span class="label">% Profitable</span>
+        <span class="value">{{ p.metrics.percentProfitable | number:'1.1-1' }}%</span>
+      </div>
+      <div class="metric">
+        <span class="label">Win/Loss Ratio</span>
+        <span class="value">{{ p.metrics.winLossRatio | number:'1.2-2' }}</span>
+      </div>
+      <div class="metric">
+        <span class="label">Avg Trade</span>
+        <span class="value">{{ p.metrics.averageTrade | number:'1.0-0' }}</span>
+      </div>
+      <div class="metric">
+        <span class="label">Avg Win</span>
+        <span class="value">{{ p.metrics.averageWin | number:'1.0-0' }}</span>
+      </div>
+      <div class="metric">
+        <span class="label">Avg Loss</span>
+        <span class="value">{{ p.metrics.averageLoss | number:'1.0-0' }}</span>
+      </div>
+    </section>
+
+    <section class="config">
+      <h4>Config</h4>
+      @if (configEntries().length) {
+        <dl>
+          @for (entry of configEntries(); track entry.key) {
+            <dt>{{ entry.key }}</dt>
+            <dd>{{ entry.value }}</dd>
+          }
+        </dl>
+      } @else {
+        <p class="empty-hint">No config recorded.</p>
+      }
+    </section>
+
+    @if (p.error) {
+      <section class="error-panel">
+        <mat-icon>error</mat-icon>
+        <span>{{ p.error }}</span>
+      </section>
+    }
+
+    @if (p.notes?.length) {
+      <section class="notes">
+        <h4>Notes</h4>
+        <ul>
+          @for (note of p.notes; track $index) {
+            <li>{{ note }}</li>
+          }
+        </ul>
+      </section>
+    }
+
+    @if (chartData().length) {
+      <section class="chart">
+        <h4>Equity Curve</h4>
+        <ejs-chart
+          [primaryXAxis]="primaryXAxis"
+          [primaryYAxis]="primaryYAxis"
+          [tooltip]="tooltip"
+          [legendSettings]="legendSettings">
+          <e-series-collection>
+            <e-series
+              type="Line"
+              [dataSource]="chartData()"
+              xName="date"
+              yName="equity"
+              name="Equity"
+              [width]="2"
+              [animation]="animation">
+            </e-series>
+          </e-series-collection>
+        </ejs-chart>
+      </section>
+    }
+
+    <section class="report-link">
+      <button type="button" class="text-link" disabled title="Full report view is coming in Phase 4">
+        Open full report
+      </button>
+    </section>
+  </div>
+} @else {
+  <div class="empty-state">
+    <mat-icon>bar_chart</mat-icon>
+    <p>Select a permutation to view details.</p>
+  </div>
+}
