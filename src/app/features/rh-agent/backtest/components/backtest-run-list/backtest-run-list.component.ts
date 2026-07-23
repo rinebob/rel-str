@@ -7,7 +7,6 @@
 import { Component, input, output, ChangeDetectionStrategy, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 import type { BacktestRunUi } from '../../common/backtest.types';
@@ -28,7 +27,7 @@ export interface BacktestRunListRow extends BacktestRunUi {
 @Component({
   selector: 'app-backtest-run-list',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatIconModule, MatButtonModule, MatTooltipModule],
+  imports: [CommonModule, MatIconModule, MatTooltipModule],
   templateUrl: './backtest-run-list.component.html',
   styleUrl: './backtest-run-list.component.scss',
 })
@@ -38,7 +37,6 @@ export class BacktestRunListComponent {
   readonly hasActiveFilters = input<boolean>(false);
 
   readonly selectRun = output<string>();
-  readonly viewReport = output<string>();
 
   readonly viewRuns = computed((): BacktestRunListRow[] => {
     return this.runs().map((run) => ({
@@ -56,11 +54,6 @@ export class BacktestRunListComponent {
 
   onSelect(row: BacktestRunListRow): void {
     this.selectRun.emit(row.runId);
-  }
-
-  onViewReport(event: Event, runId: string): void {
-    event.stopPropagation();
-    this.viewReport.emit(runId);
   }
 
   private buildProgressText(run: BacktestRunUi): string {

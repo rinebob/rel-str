@@ -1,4 +1,4 @@
-<div class="backtest-dashboard" [class.fullscreen]="uiStateService.fullscreen()">
+<div class="backtest-dashboard">
   <header class="backtest-header">
     <h1>Strategy Backtests</h1>
     <p class="subtitle">Run, inspect, and manage RH Agent strategy backtests.</p>
@@ -32,9 +32,25 @@
           [runs]="uiStore.filteredRuns()"
           [selectedRunId]="runStore.selectedRunId()"
           [hasActiveFilters]="uiStore.hasActiveFilters()"
-          (selectRun)="runStore.selectRun($event)"
-          (viewReport)="onViewReport($event)" />
+          (selectRun)="runStore.selectRun($event)" />
       </div>
+
+      @if (runStore.selectedRunId()) {
+        <div class="detail-panel">
+          <app-backtest-run-summary
+            class="summary-panel"
+            [run]="runStore.selectedRun()"
+            [permutations]="runStore.permutations()"
+            [selectedPermutationId]="uiStore.selectedPermutationId()"
+            [isLoadingPermutations]="runStore.permutationsStreaming()"
+            (selectPermutation)="uiStore.setSelectedPermutationId($event)" />
+
+          <app-backtest-permutation-detail
+            class="permutation-panel"
+            [permutation]="selectedPermutation()"
+            [reportTier]="runStore.selectedRun()?.reportTier" />
+        </div>
+      }
     </div>
   </section>
 </div>
