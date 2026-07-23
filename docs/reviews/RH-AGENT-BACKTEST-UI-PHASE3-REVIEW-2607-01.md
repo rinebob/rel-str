@@ -384,3 +384,57 @@ Remaining findings:
 - **Thermo-nuclear:** 0 new blockers; all previously flagged items are fixed. No remaining debt.
 - **Standards:** Two medium and two low items fixed.
 - **Spec:** Functional baseline preserved; single-line symbols remain the rh-select-menu regression workaround.
+
+---
+
+## Code review of backtest report button and fullscreen changes — 2026-07-23
+
+### Scope
+
+Working-tree changes since `1f097ef` (HEAD) across the backtest run list/dashboard and the observation dashboard. Review performed against `.devin/skills/code-review/SKILL.md` and `.devin/skills/thermo-nuclear-code-review.md`.
+
+### What changed
+
+- `backtest-run-list.component.*`: added a `viewReport` output and a "Full report" icon button in each run row.
+- `backtest-dashboard.component.*`: removed the run-summary and permutation-detail selectors; added `onViewReport` that opens `BacktestReportDialogComponent` for the first permutation; wired `UiStateService` to set fullscreen on page enter/leave.
+- `observation-dashboard.component.*`: made `uiStateService` public for the template, added `box-sizing`, and made the `100vh` height conditional on the `fullscreen` class.
+
+### Verification status
+
+- `npm run build -- --configuration development --no-progress` ✅
+
+### Thermo-nuclear review
+
+1. **Business logic leaked into `BacktestDashboardComponent`.** `onViewReport` calls `runService.watchPermutations`, chooses `permutations[0]`, opens a dialog, and shows a snackbar. That orchestration is not UI-layer work; it belongs in a backtest store/facade. The component should emit an intent and let the store resolve the permutation.
+2. **Dead code remains after the summary panel removal.** `selectedPermutation`, the `BacktestPermutationUi` import, and the `computed` import are no longer used in `backtest-dashboard.component.ts`. They should be removed.
+3. **`permutations[0]` is a brittle invariant.** The user's clarification that runs currently have one permutation is the real-world reason, but the code should not rely on raw array indexing; a helper or explicit contract would make the assumption visible and safe.
+4. **Component method count is climbing.** `BacktestDashboardComponent` now has four methods (`openNewRunDialog`, `ngOnInit`, `ngOnDestroy`, `onViewReport`). The Angular standards target fewer than three methods per component, signaling too much logic.
+5. **No file-size regression.** All changed files remain well under the 150-line maximum.
+
+### Regular code review
+
+#### Standards
+
+| # | Severity | Location | Finding | Proposed fix |
+|---|---|---|---|---|
+| S1 | High | `backtest-dashboard.component.ts` | `onViewReport` loads data, selects a permutation, opens a dialog, and shows a snackbar inside a component. Business logic and side effects belong in a store/service. | Move report-opening orchestration to `BacktestUiStore` or a backtest facade; the dashboard emits `viewReport` only. |
+| S2 | Medium | `backtest-dashboard.component.ts` | `selectedPermutation`, `BacktestPermutationUi` import, and `computed` import are unused after summary panels were removed. | Remove dead code and unused imports. |
+| S3 | Medium | `backtest-dashboard.component.ts` | `MatSnackBar` side effect in component. | Fold snackbar into the store method that opens the report. |
+| S4 | Low | `backtest-dashboard.component.ts` | `ngOnInit`/`ngOnDestroy` are used only to set fullscreen. Other RH Agent pages follow this lifecycle pattern, but the repo standards prefer constructor + `effect()`. | Accept for consistency with existing pages or refactor to `DestroyRef`/`effect` once the other pages migrate. |
+| S5 | Low | `backtest-dashboard.component.ts` | `watchPermutations` subscription uses `take(1)` without `takeUntilDestroyed`. `take(1)` does complete, but the standards checklist says to use `takeUntilDestroyed`. | Add `takeUntilDestroyed(this.destroyRef)` for consistency. |
+| S6 | Low | `observation-dashboard.component.ts` | `uiStateService` is public only for the template binding. | Optional: expose a `fullscreen()` computed instead of the whole service. |
+
+#### Spec
+
+- PRD 5.3 "View run summary" and 5.4 "Inspect a permutation" are no longer rendered in the dashboard. The user explicitly directed that the selectors be removed, so this is an intentional deviation, not a missing feature.
+- PRD 5.5 "View full TradeStation-style Report" is now reachable from the run list via the first permutation, matching the user's clarification that one permutation per run is the current scope.
+- Fullscreen behavior for the backtest and observation dashboards uses the canonical `UiStateService` pattern already used by `chart-review`, `signal-review`, and `agent-dashboard`.
+- `reportTier` is passed from the chosen permutation into `BacktestReportDialogComponent`, preserving the PRD's summary/full distinction.
+
+### Summary
+
+- **Thermo-nuclear:** 2 blockers — business logic in `BacktestDashboardComponent` and dead code from the removed summary panels. A third concern is the `permutations[0]` assumption.
+- **Standards:** 1 high-severity logic leak, 2 medium cleanup items, and 3 low consistency nits.
+- **Spec:** Intentional deviations from PRD 5.3/5.4 per user direction; PRD 5.5 and the fullscreen requirement are implemented correctly.
+
+**No code changes made; review only.**
