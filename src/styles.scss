@@ -101,6 +101,43 @@ body {
   }
 }
 
+// ── Dense Material form-field defaults for the new-run dialog ─────────────────
+.new-run-form .mat-mdc-form-field {
+  .mat-mdc-text-field-wrapper {
+    height: 36px;
+    min-height: 36px;
+  }
+
+  .mat-mdc-form-field-flex {
+    align-items: center;
+    min-height: 36px;
+  }
+
+  .mat-mdc-form-field-infix {
+    padding: 8px 0;
+    min-height: 20px;
+  }
+
+  .mdc-floating-label {
+    font-size: 12px;
+  }
+
+  .mat-mdc-form-field-subscript-wrapper {
+    display: none;
+  }
+
+  .mat-mdc-select-trigger,
+  .mat-mdc-input-element {
+    font-size: 13px;
+    line-height: 18px;
+  }
+
+  .mat-mdc-input-element::placeholder {
+    font-size: 13px;
+    opacity: 0.75;
+  }
+}
+
 // @include global.globalTopnavMenuCss();
 .global-topnav-menu-css {
     // @include global.globalColors($background-color: white, $color: blue);

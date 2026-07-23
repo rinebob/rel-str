@@ -4,7 +4,8 @@
  * Provides a thin dialog surface that delegates form construction,
  * validation, and normalization to BacktestNewRunFormBuilder.
  */
-import { Component, ChangeDetectionStrategy, computed, inject, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, DestroyRef, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -47,6 +48,7 @@ export class BacktestNewRunDialogComponent {
     MatDialogRef
   );
   private readonly formBuilder = inject(BacktestNewRunFormBuilder);
+  private readonly destroyRef = inject(DestroyRef);
   readonly data: BacktestNewRunDialogData = inject(MAT_DIALOG_DATA);
 
   readonly runTypes: BacktestRunType[] = ['allData', 'expandingWindow'];
@@ -59,10 +61,10 @@ export class BacktestNewRunDialogComponent {
 
   readonly selectedStrategy = computed(() => this.data.strategies.find((s) => s.id === this.selectedStrategyId()) ?? null);
 
+
   readonly configSchemaEntries = computed((): ConfigSchemaEntry[] => {
-    const schema = this.selectedStrategy()?.configSchema;
-    if (!schema) return [];
-    return Object.entries(schema).map(([key, field]) => ({ key, field }));
+    const strategyId = this.selectedStrategyId();
+    return this.formBuilder.getConfigEntries(strategyId, this.data.strategies);
   });
 
   constructor() {
@@ -70,12 +72,44 @@ export class BacktestNewRunDialogComponent {
     this.selectedStrategyId.set(defaultStrategyId);
     this.mainForm.patchValue({ strategyId: defaultStrategyId });
     this.configForm = this.formBuilder.buildConfigForm(defaultStrategyId, this.data.strategies);
+    this.wireOptionControl();
+    this.syncOptionControls();
   }
 
   onStrategyChange(strategyId: string): void {
     this.selectedStrategyId.set(strategyId);
     this.mainForm.patchValue({ strategyId });
     this.configForm = this.formBuilder.buildConfigForm(strategyId, this.data.strategies);
+    this.wireOptionControl();
+    this.syncOptionControls();
+  }
+
+  isOptionField(key: string): boolean {
+    return this.formBuilder.isOptionField(key);
+  }
+
+  isPercentField(key: string): boolean {
+    return this.formBuilder.isPercentField(key);
+  }
+
+  private wireOptionControl(): void {
+    this.configForm
+      .get('useUnderlying')
+      ?.valueChanges.pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.syncOptionControls());
+  }
+
+  private syncOptionControls(): void {
+    const useUnderlying = this.configForm.get('useUnderlying')?.value === true;
+    for (const key of this.formBuilder.optionKeys) {
+      const control = this.configForm.get(key);
+      if (!control) continue;
+      if (useUnderlying) {
+        control.disable({ emitEvent: false });
+      } else {
+        control.enable({ emitEvent: false });
+      }
+    }
   }
 
   submit(): void {
