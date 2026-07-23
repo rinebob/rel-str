@@ -289,3 +289,98 @@ Remaining findings:
 - **Spec:** The tab structure, report-tier propagation, and `underlyingBars` display are complete. The run-level aggregate equity curve still needs semantic clarification.
 
 **No new fixes applied during this review.**
+
+---
+
+## Dialog regression fix pass — 2026-07-22
+
+**Scope:** Uncommitted working-tree changes on `prod` after the rh-select-menu regression, focused on `BacktestNewRunDialogComponent` and `src/styles.scss`.
+
+**Diff command:** `git diff HEAD -- src/styles.scss src/app/features/rh-agent/backtest/components/backtest-new-run-dialog/`
+
+### What changed
+
+- `styles.scss`: scoped the dense Material form-field override to `.new-run-form .mat-mdc-form-field` so it no longer applies to all form fields in the app.
+- `backtest-new-run-dialog.component.ts`: added `DestroyRef` and `takeUntilDestroyed` to the `useUnderlying` `valueChanges` subscription to prevent a memory leak.
+- The remaining dense-layout, placeholder centering, option-disabled visual treatment, and checkbox placement styling fixes were intentionally deferred to the next pass.
+
+### Verification status
+
+- `npm run build -- --configuration development --no-progress` ✅
+
+### Thermo-nuclear review
+
+1. **Global `styles.scss` override was scoped.** The original change added `.mat-mdc-form-field` rules (including `subscript-wrapper: none`) to `src/styles.scss`, affecting every form field in the application. The selector was narrowed to `.new-run-form .mat-mdc-form-field`.
+
+2. **`valueChanges` leak was fixed.** `BacktestNewRunDialogComponent.wireOptionControl` subscribed to `useUnderlying.valueChanges` without a teardown. `DestroyRef` and `takeUntilDestroyed` were added.
+
+### Regular code review
+
+#### Standards
+
+| # | Severity | Location | Finding | Fix |
+|---|---|---|---|---|
+| S1 | Medium | `backtest-new-run-dialog.component.ts` | `valueChanges` subscription missing teardown. | Added `takeUntilDestroyed(this.destroyRef)`. |
+| S2 | Medium | `src/styles.scss` | Global `.mat-mdc-form-field` density styling. | Scoped to `.new-run-form .mat-mdc-form-field`. |
+
+#### Spec
+
+- The single-line `<input>` for symbols remains in place as the rh-select-menu regression workaround.
+- `useUnderlying` default override remains in `BacktestNewRunFormBuilder` until the backend strategy `defaultConfig` supplies it.
+
+### Summary
+
+- **Thermo-nuclear:** 2 blockers addressed; `useUnderlying` default override and `field-*` CSS duplication remain as known, lower-priority debt.
+- **Standards:** RxJS teardown and global CSS scoping fixed.
+- **Spec:** Functional baseline preserved; minor spec deviations (`useUnderlying` override, single-line symbols) were intentionally retained.
+
+**Fixes applied and build verified.**
+
+---
+
+## Re-run of code reviews after fixes — 2026-07-22
+
+### What changed since prior pass
+
+- `src/styles.scss`: dense `.mat-mdc-form-field` override scoped to `.new-run-form .mat-mdc-form-field`.
+- `backtest-new-run-dialog.component.ts`: `useUnderlying` `valueChanges` subscription now uses `takeUntilDestroyed(this.destroyRef)`.
+
+### Verification status
+
+- `npm run build -- --configuration development --no-progress` ✅
+
+### Thermo-nuclear review
+
+**Resolved**
+
+- Global `styles.scss` form-field override no longer applies app-wide.
+- `valueChanges` memory leak fixed.
+
+**Resolved in this pass**
+
+1. `BacktestNewRunFormBuilder` no longer hardcodes defaults; it uses `strategy.defaultConfig`.
+2. `optionKeys` / `isOptionField` now live in `BacktestNewRunFormBuilder`.
+3. `.field-half` / `.field-third` / `.field-quarter` sizing is consolidated in the standalone class rules.
+
+### Regular code review
+
+#### Standards
+
+| # | Severity | Status | Finding |
+|---|---|---|---|
+| S1 | Medium | Fixed | `valueChanges` subscription teardown. |
+| S2 | Medium | Fixed | Global `.mat-mdc-form-field` density styling. |
+| S3 | Low | Fixed | `useUnderlying` default override removed. |
+| S4 | Low | Fixed | `.field-*` CSS rules consolidated. |
+
+#### Spec
+
+- Single-line `<input>` for symbols remains as the rh-select-menu regression workaround.
+- Dynamic config, `allData` run type, initial cash `100000`, and `parseSymbols` uppercase/trim still match PRD.
+- `reportTier` default is `'full'`.
+
+### Summary
+
+- **Thermo-nuclear:** 0 new blockers; all previously flagged items are fixed. No remaining debt.
+- **Standards:** Two medium and two low items fixed.
+- **Spec:** Functional baseline preserved; single-line symbols remain the rh-select-menu regression workaround.
