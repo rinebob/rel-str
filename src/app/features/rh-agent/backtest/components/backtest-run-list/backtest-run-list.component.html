@@ -12,6 +12,7 @@
           <th class="col-tier">Tier</th>
           <th class="col-quality">Quality</th>
           <th class="col-duration">Duration</th>
+          <th class="col-report"></th>
         </tr>
       </thead>
       <tbody>
@@ -44,6 +45,17 @@
             <td class="col-tier">{{ run.reportTier }}</td>
             <td class="col-quality">{{ run.qualityDesignation ?? '—' }}</td>
             <td class="col-duration">{{ run.formattedDuration }}</td>
+            <td class="col-report">
+              <button
+                mat-icon-button
+                type="button"
+                [disabled]="run.totalPermutations === 0"
+                (click)="onViewReport($event, run.runId)"
+                matTooltip="Full report"
+                aria-label="Full report">
+                <mat-icon>open_in_full</mat-icon>
+              </button>
+            </td>
           </tr>
         }
       </tbody>

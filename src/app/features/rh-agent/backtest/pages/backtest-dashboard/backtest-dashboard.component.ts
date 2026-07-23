@@ -4,17 +4,20 @@
  * Phase 2 dashboard for the RH Agent strategy backtest run management UI.
  * Wires the run store, UI store, control strip, and run list together.
  */
-import { Component, computed, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, computed, inject, ChangeDetectionStrategy, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { take } from 'rxjs';
 
 import { BacktestRunStore } from '../../stores/backtest-run.store';
 import { BacktestUiStore } from '../../stores/backtest-ui.store';
 import { BacktestRunControlComponent } from '../../components/backtest-run-control/backtest-run-control.component';
 import { BacktestRunListComponent } from '../../components/backtest-run-list/backtest-run-list.component';
-import { BacktestRunSummaryComponent } from '../../components/backtest-run-summary/backtest-run-summary.component';
-import { BacktestPermutationDetailComponent } from '../../components/backtest-permutation-detail/backtest-permutation-detail.component';
 import { BacktestNewRunDialogComponent } from '../../components/backtest-new-run-dialog/backtest-new-run-dialog.component';
+import { BacktestReportDialogComponent } from '../../components/backtest-report-dialog/backtest-report-dialog.component';
+import { BacktestRunService } from '../../services/backtest-run.service';
+import { UiStateService } from '../../../../../core/services/ui-state.service';
 import type { BacktestPermutationUi, BacktestStrategyMetadata, StartBacktestRequest } from '../../common/backtest.types';
 
 @Component({
@@ -25,16 +28,17 @@ import type { BacktestPermutationUi, BacktestStrategyMetadata, StartBacktestRequ
     MatDialogModule,
     BacktestRunControlComponent,
     BacktestRunListComponent,
-    BacktestRunSummaryComponent,
-    BacktestPermutationDetailComponent,
   ],
   templateUrl: './backtest-dashboard.component.html',
   styleUrl: './backtest-dashboard.component.scss',
 })
-export class BacktestDashboardComponent {
+export class BacktestDashboardComponent implements OnInit, OnDestroy {
   readonly runStore = inject(BacktestRunStore);
   readonly uiStore = inject(BacktestUiStore);
   private readonly dialog = inject(MatDialog);
+  private readonly runService = inject(BacktestRunService);
+  private readonly snackBar = inject(MatSnackBar);
+  readonly uiStateService = inject(UiStateService);
 
   readonly selectedPermutation = computed((): BacktestPermutationUi | null => {
     const id = this.uiStore.selectedPermutationId();
@@ -60,6 +64,32 @@ export class BacktestDashboardComponent {
       if (request) {
         this.runStore.startRun(request);
       }
+    });
+  }
+
+  ngOnInit(): void {
+    this.uiStateService.setFullscreen(true);
+  }
+
+  ngOnDestroy(): void {
+    this.uiStateService.setFullscreen(false);
+  }
+
+  onViewReport(runId: string): void {
+    this.runService.watchPermutations(runId).pipe(take(1)).subscribe((permutations) => {
+      const permutation = permutations[0];
+      if (!permutation) {
+        this.snackBar.open('No permutations found for this run', 'Dismiss', { duration: 5000 });
+        return;
+      }
+      this.dialog.open(BacktestReportDialogComponent, {
+        width: '95vw',
+        maxWidth: '95vw',
+        height: '90vh',
+        maxHeight: '90vh',
+        panelClass: 'backtest-report-dialog',
+        data: { permutation, reportTier: permutation.reportTier },
+      });
     });
   }
 }
