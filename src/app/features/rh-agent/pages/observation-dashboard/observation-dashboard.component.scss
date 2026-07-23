@@ -1,11 +1,16 @@
 .observation-dashboard {
   padding: 8px 12px;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: calc(100vh - 64px);
   overflow: hidden;
   background: var(--mat-sys-background);
   color: var(--mat-sys-on-surface);
+
+  &.fullscreen {
+    height: 100vh;
+  }
 }
 
 .page-header {

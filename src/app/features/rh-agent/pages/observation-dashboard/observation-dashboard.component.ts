@@ -37,7 +37,7 @@ import {
 export class ObservationDashboardComponent implements OnInit, OnDestroy {
   private readonly observationService = inject(RobinhoodMcpObservationService);
   private readonly snackBar = inject(MatSnackBar);
-  private readonly uiStateService = inject(UiStateService);
+  readonly uiStateService = inject(UiStateService);
   protected readonly appRoutes = AppRoutes;
 
   readonly tools = signal<RobinhoodToolDefinition[]>([]);
