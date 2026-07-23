@@ -81,3 +81,5 @@ bulk-import.enriched_spy-qqq.json
 bulk-import.enriched_XL-non-spy-qqq.json
 .vscode/settings.json
 robinhood-support-request.md
+functions/scripts/options-contract-matrix.json
+functions/scripts/qqq-monthly.csv

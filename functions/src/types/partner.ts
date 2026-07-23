@@ -37,6 +37,7 @@ export enum PartnerEndpointPath {
   INTRADAY_SNAPSHOT = 'partnerIntradaySnapshotV2',
   COMPANY_OVERVIEW = 'partnerCompanyOverviewV2',
   HISTORICAL_OPTIONS = 'partnerHistoricalOptionsV2',
+  HISTORICAL_OPTIONS_CONTRACT_V2 = 'partnerHistoricalOptionsContractV2',
 }
 
 export enum OptionType {
@@ -121,6 +122,38 @@ export interface PartnerHistoricalOptionsResponse {
   };
   timestamp: string;
   processingTimeMs: number;
+}
+
+/** One historical options time-series observation for a single contract. All numeric values are optional strings. */
+export interface HistoricalOptionsContractV2Observation {
+  date: string;
+  last?: string;
+  mark?: string;
+  bid?: string;
+  bid_size?: string;
+  ask?: string;
+  ask_size?: string;
+  volume?: string;
+  open_interest?: string;
+  implied_volatility?: string;
+  delta?: string;
+  gamma?: string;
+  theta?: string;
+  vega?: string;
+  rho?: string;
+}
+
+/** Response shape for partnerHistoricalOptionsContractV2 endpoint. */
+export interface PartnerHistoricalOptionsContractV2Response {
+  ok: boolean;
+  symbol: string;
+  contractID: string;
+  expiration: string;
+  type: 'call' | 'put';
+  strike: string;
+  startDate: string;
+  endDate: string;
+  series: HistoricalOptionsContractV2Observation[];
 }
 
 /** Raw AV data fields from company overview — all values are strings. */
