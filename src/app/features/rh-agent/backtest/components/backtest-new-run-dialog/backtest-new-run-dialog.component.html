@@ -53,9 +53,6 @@
           @if (entry.field.type === 'boolean') {
             <div class="boolean-field">
               <mat-checkbox [formControlName]="entry.key">{{ entry.key }}</mat-checkbox>
-              @if (entry.field.description) {
-                <span class="field-hint">{{ entry.field.description }}</span>
-              }
             </div>
           } @else if (entry.field.enum && entry.field.enum.length > 0) {
             <mat-form-field appearance="outline" class="field-third" [class.option-disabled]="isOptionField(entry.key) && configForm.get('useUnderlying')?.value">
@@ -65,9 +62,6 @@
                   <mat-option [value]="option">{{ option }}</mat-option>
                 }
               </mat-select>
-              @if (entry.field.description) {
-                <mat-hint>{{ entry.field.description }}</mat-hint>
-              }
             </mat-form-field>
           } @else if (entry.field.type === 'integer' || entry.field.type === 'number') {
             <mat-form-field appearance="outline" class="field-quarter" [class.option-disabled]="isOptionField(entry.key) && configForm.get('useUnderlying')?.value">
@@ -80,17 +74,11 @@
               @if (isPercentField(entry.key)) {
                 <span matTextSuffix>%</span>
               }
-              @if (entry.field.description) {
-                <mat-hint>{{ entry.field.description }}</mat-hint>
-              }
             </mat-form-field>
           } @else {
             <mat-form-field appearance="outline" class="field-half" [class.option-disabled]="isOptionField(entry.key) && configForm.get('useUnderlying')?.value">
               <mat-label>{{ entry.key }}</mat-label>
               <input matInput [formControlName]="entry.key" />
-              @if (entry.field.description) {
-                <mat-hint>{{ entry.field.description }}</mat-hint>
-              }
             </mat-form-field>
           }
         }

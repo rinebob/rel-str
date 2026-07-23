@@ -36,6 +36,14 @@ const PERCENT_FIELDS = [
   'trailingStopPct',
 ];
 
+const DEFAULT_CONFIG: Record<string, unknown> = {
+  targetGainPct: 0.2,
+  stopLossPct: 0,
+  trailingStopPct: 0,
+  maxHoldDays: 0,
+  useUnderlying: true,
+};
+
 const OPTION_KEYS = [
   'optionType',
   'targetDelta',
@@ -99,7 +107,7 @@ export class BacktestNewRunFormBuilder {
     const form = new FormGroup({});
     if (!strategy) return form;
 
-    const defaults = strategy.defaultConfig ?? {};
+    const defaults = { ...strategy.defaultConfig, ...DEFAULT_CONFIG };
     const schema = strategy.configSchema ?? {};
 
     for (const [key, field] of this.orderedSchemaEntries(schema)) {
