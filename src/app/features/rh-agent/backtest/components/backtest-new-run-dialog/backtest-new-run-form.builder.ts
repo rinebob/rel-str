@@ -29,37 +29,6 @@ export interface ConfigSchemaEntry {
   field: BacktestStrategyConfigField;
 }
 
-const PERCENT_FIELDS = [
-  'dropPct',
-  'targetGainPct',
-  'stopLossPct',
-  'trailingStopPct',
-];
-
-const OPTION_KEYS = [
-  'optionType',
-  'targetDelta',
-  'targetDte',
-  'minDte',
-  'maxDte',
-];
-
-const CONFIG_ORDER = [
-  'dropPct',
-  'targetGainPct',
-  'stopLossPct',
-  'trailingStopPct',
-  'maxHoldDays',
-  'maxConcurrentPositions',
-  'positionSize',
-  'useUnderlying',
-  'optionType',
-  'targetDelta',
-  'targetDte',
-  'minDte',
-  'maxDte',
-];
-
 function integerValidator(control: AbstractControl): ValidationErrors | null {
   const value = control.value;
   if (value === null || value === undefined || value === '') return null;
@@ -69,7 +38,6 @@ function integerValidator(control: AbstractControl): ValidationErrors | null {
 
 @Injectable()
 export class BacktestNewRunFormBuilder {
-  readonly optionKeys = OPTION_KEYS;
   buildMainForm(): FormGroup<{
     strategyId: FormControl<string>;
     symbolsText: FormControl<string>;
@@ -79,10 +47,10 @@ export class BacktestNewRunFormBuilder {
   }> {
     return new FormGroup({
       strategyId: new FormControl<string>('', { nonNullable: true, validators: [Validators.required] }),
-      symbolsText: new FormControl<string>('QQQ', { nonNullable: true, validators: [Validators.required] }),
+      symbolsText: new FormControl<string>('', { nonNullable: true, validators: [Validators.required] }),
       initialCash: new FormControl<number>(100000, { nonNullable: true, validators: [Validators.required, Validators.min(0)] }),
       runType: new FormControl<BacktestRunType>('allData', { nonNullable: true, validators: [Validators.required] }),
-      reportTier: new FormControl<BacktestReportTier>('full', { nonNullable: true, validators: [Validators.required] }),
+      reportTier: new FormControl<BacktestReportTier>('summary', { nonNullable: true, validators: [Validators.required] }),
     });
   }
 
@@ -99,35 +67,16 @@ export class BacktestNewRunFormBuilder {
     const form = new FormGroup({});
     if (!strategy) return form;
 
-    const defaults = strategy.defaultConfig ?? {};
+    const defaults = { ...(strategy.defaultConfig ?? {}) };
     const schema = strategy.configSchema ?? {};
 
-    for (const [key, field] of this.orderedSchemaEntries(schema)) {
+    for (const [key, field] of Object.entries(schema)) {
       const defaultValue = this.resolveDefaultValue(key, field, defaults[key]);
-      const validators = this.buildValidators(key, field);
+      const validators = this.buildValidators(field);
       form.addControl(key, new FormControl(defaultValue, validators));
     }
 
     return form;
-  }
-
-  getConfigEntries(strategyId: string, strategies: BacktestStrategyMetadata[]): ConfigSchemaEntry[] {
-    const strategy = strategies.find((s) => s.id === strategyId);
-    const schema = strategy?.configSchema ?? {};
-    return this.orderedSchemaEntries(schema).map(([key, field]) => ({ key, field }));
-  }
-
-  private orderedSchemaEntries(schema: Record<string, BacktestStrategyConfigField>): [string, BacktestStrategyConfigField][] {
-    const entries = Object.entries(schema);
-    entries.sort(([a], [b]) => {
-      const indexA = CONFIG_ORDER.indexOf(a);
-      const indexB = CONFIG_ORDER.indexOf(b);
-      if (indexA === -1 && indexB === -1) return a.localeCompare(b);
-      if (indexA === -1) return 1;
-      if (indexB === -1) return -1;
-      return indexA - indexB;
-    });
-    return entries;
   }
 
   parseSymbols(symbolsText: string): string[] {
@@ -153,8 +102,7 @@ export class BacktestNewRunFormBuilder {
         normalized[key] = Boolean(value);
       } else if (field.type === 'integer' || field.type === 'number') {
         const num = Number(value);
-        const scaled = this.isPercentField(key) ? num / 100 : num;
-        normalized[key] = Number.isNaN(scaled) ? (field.min ?? 0) : scaled;
+        normalized[key] = Number.isNaN(num) ? (field.min ?? 0) : num;
       } else {
         normalized[key] = value;
       }
@@ -190,37 +138,20 @@ export class BacktestNewRunFormBuilder {
   }
 
   private resolveDefaultValue(key: string, field: BacktestStrategyConfigField, fallback: unknown): unknown {
-    const base =
-      fallback !== undefined
-        ? fallback
-        : field.type === 'boolean'
-        ? false
-        : field.type === 'integer' || field.type === 'number'
-        ? (field.min ?? 0)
-        : field.enum && field.enum.length > 0
-        ? field.enum[0]
-        : '';
-    if (this.isPercentField(key) && typeof base === 'number') {
-      return base * 100;
+    if (fallback !== undefined) return fallback;
+    if (field.type === 'boolean') return false;
+    if (field.type === 'integer' || field.type === 'number') {
+      return field.min ?? 0;
     }
-    return base;
+    if (field.enum && field.enum.length > 0) return field.enum[0];
+    return '';
   }
 
-  private buildValidators(key: string, field: BacktestStrategyConfigField): ValidatorFn[] {
+  private buildValidators(field: BacktestStrategyConfigField): ValidatorFn[] {
     const validators: ValidatorFn[] = [];
     if (field.type === 'integer') validators.push(integerValidator);
-    const min = this.isPercentField(key) && field.min !== undefined ? field.min * 100 : field.min;
-    const max = this.isPercentField(key) && field.max !== undefined ? field.max * 100 : field.max;
-    if (min !== undefined) validators.push(Validators.min(min));
-    if (max !== undefined) validators.push(Validators.max(max));
+    if (field.min !== undefined) validators.push(Validators.min(field.min));
+    if (field.max !== undefined) validators.push(Validators.max(field.max));
     return validators;
-  }
-
-  isPercentField(key: string): boolean {
-    return PERCENT_FIELDS.includes(key);
-  }
-
-  isOptionField(key: string): boolean {
-    return this.optionKeys.includes(key);
   }
 }
