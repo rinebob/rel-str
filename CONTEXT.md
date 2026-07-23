@@ -83,3 +83,27 @@ A full backtest report containing equity curve, trade list, and performance metr
 ## Quality Designation
 
 A user-assigned label on a backtest run that supplements the computed Calmar-based quality score.
+
+## Options Contract Viewer
+
+A dashboard page at `/rh-agent/option-chart` for requesting a historical options contract by OCC ID, inspecting its time-series data, and plotting it on a chart with underlying price overlay. Primary use is data validation; research overlays are a follow-on.
+
+## OCC Contract ID
+
+The Options Clearing Corporation symbol for a single option contract, encoding underlying symbol, expiration date, call/put, and strike price (e.g., `QQQ240719C00450000`). Used as the primary input for the options contract viewer.
+
+## Contract Series
+
+The daily time-series observations returned by the partner `partnerHistoricalOptionsContractV2` endpoint for one contract. Each observation includes date, mark, bid, ask, volume, open_interest, implied_volatility, and Greeks.
+
+## Underlying Overlay
+
+The underlying equity's daily close price rendered on the same chart pane as the option mark, using a secondary Y-axis. Auto-fetched on contract load; toggleable.
+
+## Data Quality Flags
+
+Summary indicators computed from the contract series: missing dates (gaps in the daily sequence), NaN implied volatility values, and zero-volume observations. Displayed in the viewer header to support validation.
+
+## DTE
+
+Days to expiration. Computed from the current date to the contract's expiration date. Displayed in the viewer header.
