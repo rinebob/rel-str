@@ -7,7 +7,7 @@
 
 import { logger } from 'firebase-functions/v2';
 import { getCachedBarsFromSymbolData } from '../rh-agent-data-loader';
-import { callPartnerHistoricalOptions } from '../../partner-proxy';
+import { callPartnerHistoricalOptions } from '../../options-contract-proxy';
 import type { OhlcBar } from '../../common/market-data-types';
 import type { OHLCV } from '../strategies/base-strategy';
 import type { HistoricalOptionContract } from '../../types/partner';

@@ -9,7 +9,8 @@ import { logger } from 'firebase-functions/v2';
 import { FieldValue } from 'firebase-admin/firestore';
 
 import { db } from '../firebase-admin-init';
-import { callPartnerCompanyOverview, PartnerHttpError } from '../partner-proxy';
+import { callPartnerCompanyOverview } from '../partner-proxy';
+import { PartnerHttpError } from '../partner-infrastructure';
 import { PartnerCompanyOverviewResponse } from '../types/partner';
 import { RH_AGENT_SYMBOLS_COLLECTION, RhAgentOverviewFields, RhAgentSymbol } from './rh-agent-collections';
 import { isTimestamp } from './type-guards';
