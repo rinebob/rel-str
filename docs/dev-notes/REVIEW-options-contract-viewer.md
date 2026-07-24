@@ -536,3 +536,241 @@ No issues found. The signal conversion is mechanically correct — `builtOccId` 
 | S9 (dead class ref) | ⏳ Minor | Remove `OptionsContractService` class reference when convenient |
 | P1-P4 (spec) | ✅ Met | — |
 | C1 (backtest fullscreen) | ✅ Separate commit | Not ADR-002 scope |
+
+---
+
+## Thermo-Nuclear Code Quality Review — Review 3
+
+### Review 3 — 2026-07-24 (Contract browser UI)
+
+**Scope:** Uncommitted FE changes — contract search UI in `option-chart.component.ts/.html/.scss` and `options-contract-viewer.store.ts`
+**Reviewer:** Cascade (automated)
+
+**Summary:** The contract browser is well-structured — store methods mirror the existing `loadContract` pattern, component handlers are thin, and the template uses signal-based bindings consistently. Two minor findings, both judgement calls.
+
+**Verdict: Approve with minor notes.**
+
+---
+
+#### 1. Prior Findings — Resolution Check
+
+**1.1 S9 (dead class reference)** ✅ RESOLVED
+
+The `readonly OptionsContractService = OptionsContractService;` property and its import were removed in the same session prior to this diff. No longer present.
+
+**1.2 Review 2 findings (2.1, 2.2, 2.3)** — All carry-over or acceptable, no action needed. Not reintroduced.
+
+---
+
+#### 2. New Findings
+
+**2.1 Duplicated date formatting logic** ⏳ MINOR *(Fowler: Duplicated Code)*
+
+`option-chart.component.ts:155-158` (`onSearchContracts`):
+```ts
+const yy = String(exp.getFullYear());
+const mm = String(exp.getMonth() + 1).padStart(2, '0');
+const dd = String(exp.getDate()).padStart(2, '0');
+filters.expiration = `${yy}-${mm}-${dd}`;
+```
+
+`option-chart.component.ts:96-98` (`builtOccId`):
+```ts
+const yy = String(d.getFullYear()).slice(2);
+const mm = String(d.getMonth() + 1).padStart(2, '0');
+const dd = String(d.getDate()).padStart(2, '0');
+```
+
+The `mm` and `dd` formatting is identical. The `yy` differs (full year vs 2-digit). Extracting a `formatDateParts(date)` helper would remove the duplication, but with only 2 call sites and the `yy` difference, this is a judgement call. Acceptable for now; extract if a third call site appears.
+
+**Assessment:** Judgement call — acceptable with 2 sites. Extract if a 3rd appears.
+
+**Status:** Minor — no action required now.
+
+---
+
+**2.2 `searchContracts` store method duplicates service validation** ⏳ MINOR *(Fowler: Duplicated Code)*
+
+`options-contract-viewer.store.ts:257-265`:
+```ts
+const sym = String(symbol || '').trim().toUpperCase();
+if (!sym) { ... }
+if (!filters?.expiration && filters?.strike == null) { ... }
+```
+
+`options-contract.service.ts:70-77` (`listContracts$`):
+```ts
+const sym = String(symbol || '').trim().toUpperCase();
+if (!sym) return throwError(...);
+if (!filters?.expiration && filters?.strike == null) return throwError(...);
+```
+
+The store re-validates what the service already validates. The store's validation produces user-facing error messages via `patchState`, while the service's validation produces RxJS errors. Both are needed for the current architecture (store for UI state, service as guard), but the logic is duplicated.
+
+**Assessment:** Judgement call — the dual validation is a consequence of the store/service split. The store needs to set `searchError` state synchronously (before the observable would error), so skipping store validation would mean the error only appears after the round-trip. Acceptable.
+
+**Status:** Minor — no action required.
+
+---
+
+**2.3 No subscription cleanup on `searchContracts`** ⏳ MINOR
+
+`options-contract-viewer.store.ts:269`:
+```ts
+optionsContractService.listContracts$(sym, filters).subscribe({ ... });
+```
+
+The subscription is not stored or cleaned up. If the user navigates away while a search is in-flight, the `next`/`error` callbacks will fire on a destroyed store. This mirrors the existing `loadContract` method (line 220), which also doesn't clean up its subscription. The store is `providedIn: 'root'` (singleton), so it's never actually destroyed during the app lifecycle — the callbacks would fire but `patchState` on a root store is safe.
+
+**Assessment:** Acceptable — consistent with existing `loadContract` pattern. The root store lifecycle means there's no real leak. If the store were ever scoped to a component, this would need a `takeUntilDestroyed`.
+
+**Status:** Minor — no action required (consistent with existing pattern, root store is singleton).
+
+---
+
+#### 3. Structural Assessment
+
+| Aspect | Assessment |
+|--------|------------|
+| Store method pattern consistency | ✅ `searchContracts` mirrors `loadContract` — same validate → patchState → subscribe pattern |
+| Component handler thinness | ✅ `onSearchContracts` reads signals, builds filters, delegates to store. `onSelectContract` sets input, clears search, delegates to `onLoad` |
+| Template signal bindings | ✅ All search-related reads use `store.searchLoading()`, `store.searchError()`, `store.searchResults()` — no method calls in template |
+| Template control flow | ✅ `@if` blocks for loading/error/results — consistent with existing template patterns |
+| `track` on `@for` | ✅ `track contract.contractId` — correct unique key |
+| Type safety | ✅ `ListContractsV2Contract` fields (`contractId`, `expiration`, `strike`, `type`) match template access |
+| Graceful degradation | ✅ Error chip displays when endpoint unavailable — no crash |
+| No `any` introduced | ✅ |
+| `OnPush` compatibility | ✅ All state reads via signals — CD will trigger correctly |
+| SCSS pattern consistency | ✅ Uses `var(--mat-sys-*)` with fallbacks, matches existing styles |
+
+---
+
+#### 4. Approval Bar Assessment
+
+- **Structural regression?** No — extends existing patterns cleanly.
+- **Missed simplification?** Date formatting duplication (2.1) — borderline, acceptable with 2 sites.
+- **Unjustified file-size explosion?** No — +206 lines across 4 files, proportional to the feature.
+- **Spaghetti growth?** No — store owns state, component is UI-only, template is declarative.
+- **Hacky abstraction?** No.
+- **Architecture-boundary leak?** No — types from shared contracts, service wraps callable, store wraps service.
+- **Dead code?** No.
+
+**Recommendation:** Approve. No blocking issues.
+
+---
+
+## Standards + Spec Review — Review 3
+
+### Review 3 — 2026-07-24 (Contract browser UI)
+
+**Scope:** Uncommitted FE changes — contract search UI
+**Reviewer:** Cascade (automated)
+**Standards sources:** Fowler code smells baseline (no repo-level coding standards docs found)
+**Spec source:** `docs/adr/ADR-002_options-contract-viewer.md`
+
+#### Standards
+
+##### Prior Findings Resolution
+
+| Prior Finding | Status |
+|---------------|--------|
+| S1-S8 (Review 1) | ✅ All resolved |
+| S9 (dead class ref, Review 2) | ✅ Resolved (removed in this session) |
+
+##### New Findings
+
+**S10. Duplicated date formatting** ⏳ MINOR *(Fowler: Duplicated Code)*
+
+`option-chart.component.ts:155-158` and `:96-98` share `mm`/`dd` formatting logic. Two call sites with a `yy` difference. Judgement call — extract if a 3rd site appears.
+
+**Status:** Minor — no action required now.
+
+**S11. Duplicated validation in store + service** ⏳ MINOR *(Fowler: Duplicated Code)*
+
+`options-contract-viewer.store.ts:257-265` duplicates `options-contract.service.ts:70-77` validation. Both needed for synchronous UI error vs async RxJS error. Judgement call.
+
+**Status:** Minor — no action required.
+
+##### No New Hard Violations
+
+- ✅ No `any` introduced
+- ✅ No method calls in templates
+- ✅ No type mirroring — shared types from `@options-contract/contracts`
+- ✅ `OnPush` change detection maintained
+- ✅ Signal-based reactivity throughout
+- ✅ `track` on `@for` loop
+
+##### Baseline Smells
+
+- **Duplicated Code** (judgement call): Date formatting (S10) and validation (S11). Both acceptable for reasons noted above.
+- **Speculative Generality** (judgement call): `clearSearch()` method is pre-wired for future "clear" button — but it's already used by the results header close button and by `onSelectContract`. Not speculative.
+- **Mysterious Name** (judgement call): `onSearchContracts` and `onSelectContract` — clear and descriptive. No issue.
+
+#### Spec
+
+**Spec source:** `docs/adr/ADR-002_options-contract-viewer.md`
+
+##### Requirements Met
+
+**P1. Contract discovery (partnerListContractsV2)** ✅
+
+ADR says: *"SA is implementing a new endpoint `partnerListContractsV2` that returns available option contract IDs... filterable by expiration, strike, and type. This solves the current discovery gap where the viewer requires a known OCC contract ID."*
+
+The contract browser UI directly addresses this discovery gap. Users can now search for available contracts by symbol + expiration/strike/type filters, select from results, and load — without needing to know the OCC ID in advance. ✅
+
+**P2. Frontend `listContracts$()` method usage** ✅
+
+ADR says: *"Frontend `listContracts$()` method in `options-contract.service.ts`"*
+
+The store's `searchContracts` method calls `optionsContractService.listContracts$()` — the pre-wired service method is now consumed. ✅
+
+**P3. FE state via NgRx SignalStore** ✅
+
+ADR says: *"FE state. NgRx SignalStore + service. Component is UI-only."*
+
+Search state (`searchLoading`, `searchError`, `searchResults`, `searchedSymbol`) lives in the store. Component handlers are thin delegators. Template reads from store signals. ✅
+
+**P4. Filter parameters match ADR** ✅
+
+ADR says: *"filterable by expiration, strike, and type"*
+
+`onSearchContracts` builds filters from builder fields: `expiration` (from date picker → `YYYY-MM-DD`), `strike` (from number input), `type` (from call/put toggle → `C`/`P`). All three filters supported. ✅
+
+##### Scope Creep
+
+No scope creep detected. All changes are within ADR-002's contract discovery scope.
+
+##### Potentially Wrong
+
+**W1. `if (stk) filters.strike = stk;` — falsy zero strike** ⏳ MINOR
+
+`option-chart.component.ts:160`:
+```ts
+if (stk) filters.strike = stk;
+```
+
+If `strike()` is `0`, `if (stk)` is falsy and the strike filter is omitted. A strike of 0 is unlikely for real options but technically valid. The store validation uses `filters?.strike == null` (correct null check), but the component gate uses truthiness.
+
+**Assessment:** Edge case — strike 0 is not a real-world scenario for equity options. The service validation would catch it anyway (if expiration is also missing and strike is 0, the `strike == null` check in the service would pass since `0 != null`). Low risk.
+
+**Status:** Minor — could use `if (stk != null)` for correctness, but practically harmless.
+
+---
+
+#### Summary
+
+| Axis | Findings | Worst Issue |
+|------|----------|-------------|
+| **Standards** | S9 resolved, 2 new minor (S10 duplicated date fmt, S11 duplicated validation) — both judgement calls | S10/S11 — Duplicated Code (judgement calls) |
+| **Spec** | 4 requirements met, 0 scope creep, 1 minor potentially wrong (W1 falsy zero strike) | W1 — falsy zero strike edge case |
+
+**Resolution (2026-07-24, Review 3):**
+
+| Item | Status | Action |
+|------|--------|--------|
+| S9 (dead class ref) | ✅ Resolved | Removed in this session |
+| S10 (duplicated date fmt) | ✅ Fixed | Extracted `formatDateParts()` private helper |
+| S11 (duplicated validation) | ✅ Fixed | Removed store validation — service `throwError` fires synchronously on subscribe |
+| 2.3 (no subscription cleanup) | ⏳ No action | Consistent with existing `loadContract` pattern; root store is singleton |
+| P1-P4 (spec) | ✅ Met | — |
+| W1 (falsy zero strike) | ✅ Fixed | Changed `if (stk)` to `if (stk != null)` |
