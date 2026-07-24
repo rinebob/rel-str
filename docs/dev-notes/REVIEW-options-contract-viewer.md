@@ -321,3 +321,218 @@ The ADR previously did not mention dynamic Y-axis range snapping on zoom/pan/scr
 | C1 (length selector) | ✅ ADR updated | — |
 | C2 (Y-axis snapping) | ✅ ADR updated | — |
 | W2 (0DTE resolver) | ⏳ Deferred (next pass) | — |
+
+---
+
+## Thermo-Nuclear Code Quality Review — Review 2
+
+### Review 2 — 2026-07-24 (FE changes: signal refactor, listContracts$, backtest fullscreen)
+
+**Scope:** Uncommitted FE changes — `option-chart.component.ts/.html` (signal conversion), `options-contract.service.ts` (`listContracts$()`), `constants.ts` (callable enum), `partner.types.ts` (re-exports), `backtest-dashboard.component.ts` (fullscreen toggle)
+**Reviewer:** Cascade (automated)
+
+**Summary:** The signal conversion is correct and well-executed. The `listContracts$()` method follows the existing service pattern faithfully. One minor finding, one carry-over from pre-existing code.
+
+**Verdict: Approve with minor notes.**
+
+---
+
+#### 1. Prior Findings — Resolution Check
+
+**1.1 S4 (file exceeds 400 lines)** ✅ RESOLVED (in partnerListContractsV2 review)
+
+`partner-proxy.ts` was decomposed into 3 files in the refactoring covered by `REVIEW-partnerListContractsV2-stub.md` Review 2. The `options-contract-proxy.ts` file (377 lines) is under threshold and will drop to ~230 when deprecated code is removed.
+
+**1.2 S7 (method call in template)** ✅ RESOLVED
+
+`lengthLabel` was converted from a method to a `computed()` signal in Review 1. This review extends the signal pattern to the remaining builder fields (`symbol`, `expiration`, `type`, `strike`), completing the migration. The template now uses `[ngModel]` + `(ngModelChange)` with `signal.set()` — no method calls in templates.
+
+---
+
+#### 2. New Findings
+
+**2.1 `occIdInput` not converted to signal — inconsistent with builder fields** ⏳ MINOR
+
+`option-chart.component.ts:60`:
+```ts
+occIdInput = 'QQQ240719C00450000';
+```
+
+The builder fields (`symbol`, `expiration`, `type`, `strike`) were converted to signals, but `occIdInput` remains a plain property. It uses `[(ngModel)]` two-way binding in the template (line 77) and is written to by `onBuildChange()`. This is intentionally not a signal because:
+- It's a two-way bound input field (user can type freely)
+- It doesn't participate in any `computed()` chain
+- Converting it to a signal would require `[ngModel]` + `(ngModelChange)` which adds verbosity for no reactivity benefit
+
+**Assessment:** Acceptable — the inconsistency is justified. `occIdInput` is a form input buffer, not reactive state. No change needed.
+
+**Status:** Minor — no action required.
+
+---
+
+**2.2 `OptionsContractService` class reference — dead code** ⏳ CARRY-OVER (pre-existing)
+
+`option-chart.component.ts:57`:
+```ts
+readonly OptionsContractService = OptionsContractService;
+```
+
+This assigns the class itself to a component property, presumably for static method access from the template (`OptionsContractService.parseOccId()`). However, the template does not reference it. The `parseOccId` static method exists on the service but is not called from this component or its template.
+
+**Assessment:** Pre-existing — not introduced by this diff. Speculative Generality smell (Fowler). Should be removed when the component is next touched.
+
+**Status:** Carry-over — remove when convenient.
+
+---
+
+**2.3 `onBuildChange()` side-effect pattern** ✅ ACCEPTABLE
+
+`option-chart.component.ts:107-110`:
+```ts
+onBuildChange(): void {
+  const id = this.builtOccId();
+  if (id) this.occIdInput = id;
+}
+```
+
+This method is called from `(ngModelChange)` event handlers in the template. It reads the `builtOccId` computed (which depends on the signal builder fields) and writes to `occIdInput`. An alternative would be an `effect()` that syncs `occIdInput` from `builtOccId`, but that would create a loop since `occIdInput` is also user-writable via the OCC ID input field. The current approach — sync only on builder field changes — is correct.
+
+**Assessment:** Acceptable — the side-effect is scoped to builder field changes and avoids a feedback loop.
+
+---
+
+#### 3. Structural Assessment
+
+| Aspect | Assessment |
+|--------|------------|
+| Signal conversion correctness | ✅ `builtOccId` computed correctly reads from signal fields |
+| Template binding pattern | ✅ `[ngModel]` + `(ngModelChange)` + `signal.set()` — no method calls in template |
+| `listContracts$()` pattern consistency | ✅ Mirrors `getHistoricalOptionsContract$()` — same `defer`/`from`/`inCtx`/`map` shape |
+| Validation in service | ✅ Defensive validation mirrors backend callable (symbol required, expiration/strike filter) |
+| Type safety | ✅ `httpsCallable<GetListContractsRequest, PartnerListContractsV2Response>` — fully typed |
+| Shared types | ✅ Re-exported from `partner.types.ts`, sourced from `@options-contract/contracts` |
+| Backtest fullscreen toggle | ✅ Clean `ngOnInit`/`ngOnDestroy` lifecycle usage |
+| No `any` introduced | ✅ |
+| No `cors` changes | ✅ N/A for FE |
+
+---
+
+#### 4. Approval Bar Assessment
+
+- **Structural regression?** No — improvement (signals improve reactivity).
+- **Missed simplification?** No — the pattern is clean and consistent.
+- **Unjustified file-size explosion?** No — minimal additions.
+- **Spaghetti growth?** No.
+- **Hacky abstraction?** No.
+- **Architecture-boundary leak?** No — types correctly sourced from shared.
+- **Dead code?** One carry-over (`OptionsContractService` class ref, pre-existing).
+
+**Recommendation:** Approve. Optionally remove the dead `OptionsContractService` class reference (2.2) when convenient.
+
+---
+
+## Standards + Spec Review — Review 2
+
+### Review 2 — 2026-07-24 (FE changes)
+
+**Scope:** Uncommitted FE changes
+**Reviewer:** Cascade (automated)
+**Standards sources:** `rel-str-coding-guidelines.md`, `rh-agent-coding-guidelines.md`, `angular-developer.md` (referenced from Review 1)
+**Spec source:** `docs/adr/ADR-002_options-contract-viewer.md`
+
+#### Standards
+
+##### Prior Findings Resolution
+
+| Prior Finding | Status |
+|---------------|--------|
+| S1 (cors: true) | ✅ Fixed (Review 1) |
+| S2 (duplicated types) | ✅ Fixed (Review 1) |
+| S3 (any in catch) | ✅ Fixed (Review 1) |
+| S4 (file exceeds 400 lines) | ✅ Resolved (partnerListContractsV2 review) |
+| S5 (duplicated OCC parser) | ✅ Fixed (Review 1) |
+| S6 (dead code — colors/index) | ✅/⏳ Fixed/intentional (Review 1) |
+| S7 (method call in template) | ✅ Fixed (Review 1) — extended to all builder fields in this review |
+| S8 (stale JSDoc) | ✅ Fixed (Review 1) |
+
+##### New Findings
+
+**S9. Dead class reference** ⏳ MINOR *(Fowler: Speculative Generality)*
+
+`option-chart.component.ts:57`: `readonly OptionsContractService = OptionsContractService;` — class reference not used in template. Pre-existing, not introduced by this diff.
+
+**Status:** Minor — remove when convenient.
+
+##### No New Violations
+
+- ✅ No `any` introduced
+- ✅ No method calls in templates (signal conversion completes the fix)
+- ✅ No type mirroring — shared types from `@options-contract/contracts`
+- ✅ No hardcoded credentials
+- ✅ `OnPush` change detection maintained
+- ✅ Signal-based reactivity follows Angular best practices
+
+##### Baseline Smells
+
+- **Duplicated Code** (judgement call): `listContracts$()` mirrors `getHistoricalOptionsContract$()` structure. With only 2 methods, abstracting a helper would be premature. Acceptable.
+- **Speculative Generality** (judgement call): `listContracts$()` has no callers yet. User-directed pre-wiring per ADR-002. Acceptable.
+- **Mysterious Name** (judgement call): `onBuildChange()` — adequately clear within component context. No change needed.
+
+#### Spec
+
+**Spec source:** `docs/adr/ADR-002_options-contract-viewer.md`
+
+##### Requirements Met
+
+**P1. Signal-based FE state** ✅
+
+ADR says: *"FE state. NgRx SignalStore + service. Component is UI-only."*
+
+The builder fields are now signals, and `builtOccId` is a `computed()` that reacts to them. The component remains UI-only — no data fetching or business logic. The store manages contract data, loading, and error states. ✅
+
+**P2. `listContracts$()` service method** ✅
+
+ADR says: *"Frontend `listContracts$()` method in `options-contract.service.ts`"*
+
+Implemented with matching validation, typed callable, and consistent pattern. ✅
+
+**P3. `LIST_OPTIONS_CONTRACTS` callable name** ✅
+
+ADR says: *"Callable `listOptionsContracts` in `functions/src/options-contract.callables.ts`"*
+
+`CallableName.LIST_OPTIONS_CONTRACTS = 'listOptionsContracts'` — matches. ✅
+
+**P4. Shared types re-exported** ✅
+
+ADR says: *"Shared types... in `shared/options-contract-contracts.ts`"*
+
+`ListContractsV2Contract`, `PartnerListContractsV2Response`, `GetListContractsRequest` re-exported from `src/app/core/models/partner.types.ts`. ✅
+
+##### Scope Creep
+
+**C1. Backtest dashboard fullscreen toggle** ⏳ SEPARATE CONCERN
+
+The `ngOnInit`/`ngOnDestroy` fullscreen toggle on `backtest-dashboard.component.ts` is not related to ADR-002 (options contract viewer). It's a UX improvement to a different feature. This should be a separate commit (it is in the commit plan).
+
+**Status:** Not scope creep against ADR-002 — separate feature, separate commit.
+
+##### Potentially Wrong
+
+No issues found. The signal conversion is mechanically correct — `builtOccId` reads `this.symbol()`, `this.expiration()`, `this.strike()`, `this.type()` which are all signals, so the computed will react to any builder field change. The `onBuildChange()` method is called after `signal.set($event)` in the template, and since signals are synchronous, the computed will already have the updated value.
+
+---
+
+#### Summary
+
+| Axis | Findings | Worst Issue |
+|------|----------|-------------|
+| **Standards** | 8 prior findings all resolved, 1 new minor (dead class ref, pre-existing) | Dead class reference (S9) |
+| **Spec** | 4 requirements met, 1 separate concern (backtest fullscreen), 0 potentially wrong | All met |
+
+**Resolution (2026-07-24, Review 2):**
+
+| Item | Status | Action |
+|------|--------|--------|
+| S1-S8 (prior) | ✅ All resolved | — |
+| S9 (dead class ref) | ⏳ Minor | Remove `OptionsContractService` class reference when convenient |
+| P1-P4 (spec) | ✅ Met | — |
+| C1 (backtest fullscreen) | ✅ Separate commit | Not ADR-002 scope |
