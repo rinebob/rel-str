@@ -1,7 +1,7 @@
 /**
  * Frontend: Partner types
- * Keep in sync with Functions types at `functions/src/types/partner.ts`.
- * # TODO(sync): FE/BE contract – update both when these shapes change.
+ * Options contract DTOs are shared via @options-contract/contracts
+ * (shared/options-contract-contracts.ts) and re-exported below.
  */
 
 export interface TrackedSymbolDTO {
@@ -52,3 +52,14 @@ export interface PartnerDailyBarDTO {
 export interface GetPairDailyBarsResponse {
   bars: PartnerDailyBarDTO[];
 }
+
+// ==========================
+// Historical Options Contract V2 DTOs
+// Single source of truth: shared/options-contract-contracts.ts
+// ==========================
+
+export type {
+  HistoricalOptionsContractV2Observation,
+  PartnerHistoricalOptionsContractV2Response,
+  GetHistoricalOptionsContractRequest,
+} from '@options-contract/contracts';

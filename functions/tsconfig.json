@@ -11,7 +11,8 @@
     "baseUrl": ".",
     "paths": {
       "@rh-agent-mcp/contracts": ["../shared/robinhood-mcp-contracts.ts"],
-      "@rh-agent-mcp/utils": ["../shared/robinhood-mcp-utils.ts"]
+      "@rh-agent-mcp/utils": ["../shared/robinhood-mcp-utils.ts"],
+      "@options-contract/contracts": ["../shared/options-contract-contracts.ts"]
     },
     "esModuleInterop": true,
     "isolatedModules": true,

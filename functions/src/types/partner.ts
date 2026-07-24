@@ -1,7 +1,7 @@
 /**
  * Functions: Partner types
- * Note: Keep in sync with FE types at `src/app/core/models/partner.types.ts`.
- * If you change fields here, reflect the same shape there. # TODO(sync): FE/BE contract
+ * Options contract DTOs are shared via @options-contract/contracts
+ * (shared/options-contract-contracts.ts) and re-exported below.
  */
 
 /** Public DTO for tracked symbols returned by partner-backed callable.
@@ -124,37 +124,11 @@ export interface PartnerHistoricalOptionsResponse {
   processingTimeMs: number;
 }
 
-/** One historical options time-series observation for a single contract. All numeric values are optional strings. */
-export interface HistoricalOptionsContractV2Observation {
-  date: string;
-  last?: string;
-  mark?: string;
-  bid?: string;
-  bid_size?: string;
-  ask?: string;
-  ask_size?: string;
-  volume?: string;
-  open_interest?: string;
-  implied_volatility?: string;
-  delta?: string;
-  gamma?: string;
-  theta?: string;
-  vega?: string;
-  rho?: string;
-}
-
-/** Response shape for partnerHistoricalOptionsContractV2 endpoint. */
-export interface PartnerHistoricalOptionsContractV2Response {
-  ok: boolean;
-  symbol: string;
-  contractID: string;
-  expiration: string;
-  type: 'call' | 'put';
-  strike: string;
-  startDate: string;
-  endDate: string;
-  series: HistoricalOptionsContractV2Observation[];
-}
+export type {
+  HistoricalOptionsContractV2Observation,
+  PartnerHistoricalOptionsContractV2Response,
+  GetHistoricalOptionsContractRequest,
+} from '@options-contract/contracts';
 
 /** Raw AV data fields from company overview — all values are strings. */
 export interface PartnerOverviewData extends Record<string, string> {}

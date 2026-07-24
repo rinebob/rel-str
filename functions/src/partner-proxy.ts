@@ -3,6 +3,7 @@ import * as logger from "firebase-functions/logger";
 import {GoogleAuth} from "google-auth-library";
 import {db, FieldValue} from "./firebase-admin-init";
 import { GetTrackedSymbolsResponse, TrackedSymbolDTO, PartnerEndpointPath, PartnerMarketHolidaysResponse, PartnerIntradaySnapshotResponse, PartnerListTrackedSymbolsResponse, PartnerCompanyOverviewResponse, PartnerHistoricalOptionsResponse, PartnerHistoricalOptionsContractV2Response } from './types/partner';
+import { parseOccContractId } from '@options-contract/contracts';
 import { DEFAULT_PARTNER_CALLER_SA, IAM_CREDENTIALS_BASE_URL, OAUTH_CLOUD_PLATFORM_SCOPE, IAM_SERVICE_ACCOUNTS_PATH, IamCredentialsMethod } from './config/constants';
 import { persistWarning } from './logging/warn';
 import { ENABLE_CONSOLE_LOGGING, RsCloudFunctionName } from './webhooks/webhooks-config';
@@ -377,6 +378,137 @@ export async function callPartnerHistoricalOptions(params: {
 }
 
 /**
+ * Map a length token (e.g. '0DTE', '1W', '1M', '3Y') to a target day range.
+ */
+function targetDaysFromLength(length: string): number | null {
+  switch (length.toUpperCase()) {
+    case '0DTE': return 0;
+    case '1D': return 1;
+    case '2D': return 2;
+    case '3D': return 3;
+    case '5D': return 5;
+    case '1W': return 7;
+    case '2W': return 14;
+    case '3W': return 21;
+    case '1M': return 30;
+    case '2M': return 60;
+    case '3M': return 90;
+    case '6M': return 180;
+    case '9M': return 270;
+    case '12M': return 365;
+    case '1Y': return 365;
+    case '2Y': return 730;
+    case '3Y': return 1095;
+    case 'LEAP': return 365;
+    default: return null;
+  }
+}
+
+/** Parse days from a timeUntilExpiration string like "30 days" or "1 year". */
+function parseTimeUntilExpiration(value: string): number | null {
+  if (!value) return null;
+  const normalized = value.toLowerCase().trim();
+  const match = normalized.match(/^(\d+(?:\.\d+)?)\s*(day|days|week|weeks|month|months|year|years)$/);
+  if (!match) return null;
+  const amount = Number(match[1]);
+  if (!Number.isFinite(amount)) return null;
+  const unit = match[2];
+  if (unit.startsWith('year')) return Math.round(amount * 365);
+  if (unit.startsWith('month')) return Math.round(amount * 30);
+  if (unit.startsWith('week')) return Math.round(amount * 7);
+  return Math.round(amount);
+}
+
+/**
+ * Resolve a contractID to the variant matching the requested length.
+ *
+ * Strategy:
+ * 1. Query the latest available options chain (no snapshot date) so the
+ *    timeUntilExpiration values reflect a current market snapshot.
+ * 2. Filter by type/strike/expiration and pick the contract whose
+ *    timeUntilExpiration is closest to the requested length.
+ * 3. If the latest chain has no match, fall back to the historical chain
+ *    for the expiration date itself.
+ */
+async function resolveContractIdByLength(params: {
+  symbol: string;
+  contractID: string;
+  length: string;
+}): Promise<string> {
+  const parsed = parseOccContractId(params.contractID);
+  if (!parsed) return params.contractID;
+
+  const targetDays = targetDaysFromLength(params.length);
+  if (targetDays == null) return params.contractID;
+
+  const snapshots: { date?: string }[] = [
+    {}, // latest chain first
+    { date: parsed.expiration }, // fallback: historical snapshot on expiration date
+  ];
+
+  for (const snapshot of snapshots) {
+    try {
+      const chain = await callPartnerHistoricalOptions({
+        symbol: params.symbol,
+        ...snapshot,
+      });
+
+      const candidates = (chain?.data?.data ?? []).filter((c) => {
+        const cType = String(c.type || '').toUpperCase();
+        const cStrike = Number(c.strike);
+        const cExpiration = String(c.expiration || '').trim();
+        return (
+          cType === parsed.type &&
+          Number.isFinite(cStrike) &&
+          Math.abs(cStrike - parsed.strike) < 0.001 &&
+          cExpiration === parsed.expiration
+        );
+      });
+
+      if (candidates.length === 0) continue;
+
+      let best = candidates[0];
+      let bestDiff = Infinity;
+      for (const candidate of candidates) {
+        const days = parseTimeUntilExpiration(
+          chain?.analysis?.expirations?.find((e) => e.expiration === candidate.expiration)?.timeUntilExpiration ?? '',
+        );
+        if (days == null) continue;
+        const diff = Math.abs(days - targetDays);
+        if (diff < bestDiff) {
+          bestDiff = diff;
+          best = candidate;
+        }
+      }
+
+      const resolved = best.contractID?.trim().toUpperCase();
+      if (resolved) {
+        logger.info('resolveContractIdByLength_success', {
+          symbol: params.symbol,
+          requestedContractID: params.contractID,
+          resolvedContractID: resolved,
+          length: params.length,
+          targetDays,
+          bestDiff,
+          snapshotDate: snapshot.date ?? null,
+        });
+        return resolved;
+      }
+    } catch (e) {
+      logger.warn('resolveContractIdByLength_snapshot_fallback', {
+        symbol: params.symbol,
+        contractID: params.contractID,
+        length: params.length,
+        snapshotDate: snapshot.date ?? null,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
+  return params.contractID;
+}
+
+/**
  * Call Savant Partner Historical Options Contract V2 endpoint for a single contract time series.
  * Returns one contract's daily observations from the GCS corpus.
  */
@@ -385,13 +517,23 @@ export async function callPartnerHistoricalOptionsContractV2(params: {
   contractID: string;
   startDate?: string;
   endDate?: string;
+  length?: string | null;
 }): Promise<PartnerHistoricalOptionsContractV2Response> {
   const audience = PARTNER_HISTORICAL_OPTIONS_CONTRACT_V2_AUDIENCE;
   const idToken = await generateIdTokenWithEmail(audience, CALLER_SA);
 
+  let resolvedContractID = params.contractID;
+  if (params.length) {
+    resolvedContractID = await resolveContractIdByLength({
+      symbol: params.symbol,
+      contractID: params.contractID,
+      length: params.length,
+    });
+  }
+
   const search = new URLSearchParams();
   search.set('symbol', params.symbol);
-  search.set('contractID', params.contractID);
+  search.set('contractID', resolvedContractID);
   if (params.startDate) search.set('startDate', params.startDate);
   if (params.endDate) search.set('endDate', params.endDate);
 
@@ -400,6 +542,8 @@ export async function callPartnerHistoricalOptionsContractV2(params: {
   logger.info('partnerHistoricalOptionsContractV2_request', {
     symbol: params.symbol,
     contractID: params.contractID,
+    resolvedContractID,
+    length: params.length ?? null,
     startDate: params.startDate ?? null,
     endDate: params.endDate ?? null,
     url,
