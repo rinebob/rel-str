@@ -38,6 +38,7 @@ export enum PartnerEndpointPath {
   COMPANY_OVERVIEW = 'partnerCompanyOverviewV2',
   HISTORICAL_OPTIONS = 'partnerHistoricalOptionsV2',
   HISTORICAL_OPTIONS_CONTRACT_V2 = 'partnerHistoricalOptionsContractV2',
+  LIST_CONTRACTS_V2 = 'partnerListContractsV2',
 }
 
 export enum OptionType {
@@ -128,6 +129,9 @@ export type {
   HistoricalOptionsContractV2Observation,
   PartnerHistoricalOptionsContractV2Response,
   GetHistoricalOptionsContractRequest,
+  ListContractsV2Contract,
+  PartnerListContractsV2Response,
+  GetListContractsRequest,
 } from '@options-contract/contracts';
 
 /** Raw AV data fields from company overview — all values are strings. */

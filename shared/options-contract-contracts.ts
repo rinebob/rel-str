@@ -77,3 +77,31 @@ export interface GetHistoricalOptionsContractRequest {
   contractID: string;
   length?: string | null;
 }
+
+// ==========================
+// Contract Discovery (partnerListContractsV2)
+// ==========================
+
+/** One contract entry returned by the partnerListContractsV2 endpoint. */
+export interface ListContractsV2Contract {
+  contractId: string;
+  expiration: string;
+  strike: number;
+  type: 'C' | 'P';
+}
+
+/** Response shape for partnerListContractsV2 endpoint. */
+export interface PartnerListContractsV2Response {
+  ok: boolean;
+  symbol: string;
+  contracts: ListContractsV2Contract[];
+  count: number;
+}
+
+/** Request shape for the listOptionsContracts callable. */
+export interface GetListContractsRequest {
+  symbol: string;
+  expiration?: string;
+  strike?: number;
+  type?: 'C' | 'P';
+}
