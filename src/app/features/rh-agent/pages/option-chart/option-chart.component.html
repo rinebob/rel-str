@@ -16,8 +16,8 @@
           <mat-label>Symbol</mat-label>
           <input
             matInput
-            [(ngModel)]="symbol"
-            (ngModelChange)="onBuildChange()"
+            [ngModel]="symbol()"
+            (ngModelChange)="symbol.set($event); onBuildChange()"
             placeholder="QQQ"
           />
         </mat-form-field>
@@ -27,16 +27,16 @@
           <input
             matInput
             [matDatepicker]="picker"
-            [(ngModel)]="expiration"
-            (ngModelChange)="onBuildChange()"
+            [ngModel]="expiration()"
+            (ngModelChange)="expiration.set($event); onBuildChange()"
           />
           <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
           <mat-datepicker #picker></mat-datepicker>
         </mat-form-field>
 
         <mat-button-toggle-group
-          [(ngModel)]="type"
-          (ngModelChange)="onBuildChange()"
+          [ngModel]="type()"
+          (ngModelChange)="type.set($event); onBuildChange()"
           class="type-toggle panel-full"
         >
           <mat-button-toggle value="call">Call</mat-button-toggle>
@@ -48,8 +48,8 @@
           <input
             matInput
             type="number"
-            [(ngModel)]="strike"
-            (ngModelChange)="onBuildChange()"
+            [ngModel]="strike()"
+            (ngModelChange)="strike.set($event); onBuildChange()"
             placeholder="450"
           />
         </mat-form-field>

@@ -6,15 +6,18 @@ import { CallableName } from '../../../core/common/constants';
 import type {
   GetHistoricalOptionsContractRequest,
   PartnerHistoricalOptionsContractV2Response,
+  GetListContractsRequest,
+  PartnerListContractsV2Response,
 } from '@options-contract/contracts';
 import { parseOccContractId } from '@options-contract/contracts';
 
 /**
  * OptionsContractService
  *
- * Thin Angular wrapper around the getHistoricalOptionsContract callable.
- * Fetches historical time-series data for a single options contract from the
- * Savant Partner API via the backend callable.
+ * Thin Angular wrapper around the options contract callables
+ * (getHistoricalOptionsContract, listOptionsContracts). Fetches historical
+ * time-series data for a single options contract and discovers available
+ * contract IDs via the Savant Partner API backend callables.
  */
 @Injectable({ providedIn: 'root' })
 export class OptionsContractService {
@@ -57,5 +60,36 @@ export class OptionsContractService {
   /** Parse an OCC-style contract ID into its constituent parts. */
   static parseOccId(occId: string) {
     return parseOccContractId(occId);
+  }
+
+  /** Discover available option contract IDs for a symbol, filtered by expiration/strike/type. */
+  listContracts$(
+    symbol: string,
+    filters?: { expiration?: string; strike?: number; type?: 'C' | 'P' },
+  ): Observable<PartnerListContractsV2Response> {
+    const sym = String(symbol || '').trim().toUpperCase();
+
+    if (!sym) {
+      return throwError(() => new Error('symbol is required'));
+    }
+    if (!filters?.expiration && filters?.strike == null) {
+      return throwError(() => new Error('at least one of expiration or strike must be provided'));
+    }
+
+    return defer(() => from(this.inCtx(() => {
+      const callable = httpsCallable<GetListContractsRequest, PartnerListContractsV2Response>(
+        this.functions,
+        CallableName.LIST_OPTIONS_CONTRACTS,
+      );
+      const req: GetListContractsRequest = {
+        symbol: sym,
+        expiration: filters?.expiration,
+        strike: filters?.strike,
+        type: filters?.type,
+      };
+      return callable(req);
+    }))).pipe(
+      map((res) => res.data as PartnerListContractsV2Response),
+    );
   }
 }

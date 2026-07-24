@@ -62,4 +62,7 @@ export type {
   HistoricalOptionsContractV2Observation,
   PartnerHistoricalOptionsContractV2Response,
   GetHistoricalOptionsContractRequest,
+  ListContractsV2Contract,
+  PartnerListContractsV2Response,
+  GetListContractsRequest,
 } from '@options-contract/contracts';

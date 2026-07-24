@@ -23,7 +23,6 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatNativeDateModule } from '@angular/material/core';
 
 import { OptionsContractViewerStore } from '../../stores/options-contract-viewer.store';
-import { OptionsContractService } from '../../services/options-contract.service';
 import { OptionsContractChartComponent } from '../../components/options-contract-chart/options-contract-chart.component';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 
@@ -54,7 +53,6 @@ import { UiStateService } from '../../../../core/services/ui-state.service';
 })
 export class OptionChartComponent implements OnInit, OnDestroy {
   readonly store = inject(OptionsContractViewerStore);
-  readonly OptionsContractService = OptionsContractService;
   readonly uiStateService = inject(UiStateService);
 
   occIdInput = 'QQQ240719C00450000';
@@ -62,11 +60,11 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   /** Whether the left control panel is open. */
   controlPanelOpen = true;
 
-  // Builder fields
-  symbol = 'QQQ';
-  expiration: Date | null = new Date('2024-07-19');
-  type: 'call' | 'put' = 'call';
-  strike = 450;
+  // Builder fields (signals so computed/derived state reacts)
+  symbol = signal('QQQ');
+  expiration = signal<Date | null>(new Date('2024-07-19'));
+  type = signal<'call' | 'put'>('call');
+  strike = signal(450);
   contractLength = signal<string | null>('1M');
 
   readonly lengthOptions: { value: string; label: string; group: string }[] = [
@@ -90,14 +88,16 @@ export class OptionChartComponent implements OnInit, OnDestroy {
 
   /** Build OCC ID from builder fields. */
   readonly builtOccId = computed(() => {
-    const sym = (this.symbol || '').trim().toUpperCase();
-    if (!sym || !this.expiration || !this.strike) return '';
-    const d = this.expiration;
+    const sym = (this.symbol() || '').trim().toUpperCase();
+    const exp = this.expiration();
+    const stk = this.strike();
+    if (!sym || !exp || !stk) return '';
+    const d = exp;
     const yy = String(d.getFullYear()).slice(2);
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
-    const cp = this.type === 'call' ? 'C' : 'P';
-    const strikeStr = String(Math.round(this.strike * 1000)).padStart(8, '0');
+    const cp = this.type() === 'call' ? 'C' : 'P';
+    const strikeStr = String(Math.round(stk * 1000)).padStart(8, '0');
     return `${sym}${yy}${mm}${dd}${cp}${strikeStr}`;
   });
 

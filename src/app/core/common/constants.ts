@@ -199,6 +199,8 @@ export enum CallableName {
   GET_PAIR_DAILY_BARS = 'getPairDailyBars',
   /** Options contract viewer: historical time-series for a single contract */
   GET_HISTORICAL_OPTIONS_CONTRACT = 'getHistoricalOptionsContract',
+  /** Options contract viewer: discover available contract IDs */
+  LIST_OPTIONS_CONTRACTS = 'listOptionsContracts',
 }
 
 /** Top-level Firestore collections used by the FE. */
