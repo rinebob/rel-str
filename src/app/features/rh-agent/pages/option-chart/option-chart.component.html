@@ -1,0 +1,204 @@
+<div class="option-chart-page" [class.fullscreen]="uiStateService.fullscreen()">
+  <mat-sidenav-container class="sidenav-container">
+    <mat-sidenav
+      [(opened)]="controlPanelOpen"
+      mode="side"
+      class="control-panel"
+      [disableClose]="false"
+    >
+      <div class="panel-header">
+        <span class="panel-title">Contract</span>
+      </div>
+
+      <!-- Builder Controls -->
+      <div class="builder-section">
+        <mat-form-field appearance="outline" class="panel-field">
+          <mat-label>Symbol</mat-label>
+          <input
+            matInput
+            [(ngModel)]="symbol"
+            (ngModelChange)="onBuildChange()"
+            placeholder="QQQ"
+          />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="panel-field">
+          <mat-label>Expiration</mat-label>
+          <input
+            matInput
+            [matDatepicker]="picker"
+            [(ngModel)]="expiration"
+            (ngModelChange)="onBuildChange()"
+          />
+          <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+          <mat-datepicker #picker></mat-datepicker>
+        </mat-form-field>
+
+        <mat-button-toggle-group
+          [(ngModel)]="type"
+          (ngModelChange)="onBuildChange()"
+          class="type-toggle panel-full"
+        >
+          <mat-button-toggle value="call">Call</mat-button-toggle>
+          <mat-button-toggle value="put">Put</mat-button-toggle>
+        </mat-button-toggle-group>
+
+        <mat-form-field appearance="outline" class="panel-field">
+          <mat-label>Strike</mat-label>
+          <input
+            matInput
+            type="number"
+            [(ngModel)]="strike"
+            (ngModelChange)="onBuildChange()"
+            placeholder="450"
+          />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="panel-field">
+          <mat-label>Length</mat-label>
+          <mat-select [ngModel]="contractLength()" (ngModelChange)="contractLength.set($event)">
+            @for (group of lengthGroups(); track group.name) {
+            <mat-optgroup [label]="group.name">
+              @for (opt of group.options; track opt.value) {
+              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-optgroup>
+            }
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <!-- OCC ID Input + Load -->
+      <div class="header-section">
+        <mat-form-field appearance="outline" class="panel-field">
+          <mat-label>OCC Contract ID</mat-label>
+          <input
+            matInput
+            [(ngModel)]="occIdInput"
+            (keyup)="onKeyPress($event)"
+            placeholder="e.g. QQQ240719C00450000"
+            [disabled]="store.loading()"
+          />
+        </mat-form-field>
+        <button
+          mat-flat-button
+          color="primary"
+          class="panel-full"
+          (click)="onLoad()"
+          [disabled]="store.loading() || !occIdInput.trim()"
+        >
+          Load {{ contractLength() ? '(' + lengthLabel() + ')' : '' }}
+        </button>
+      </div>
+
+      @if (store.contractData(); as data) {
+      <div class="metadata-section">
+        <div class="panel-title">Details</div>
+        <div class="metadata-grid">
+          <div class="meta-item">
+            <span class="meta-label">Symbol</span>
+            <span class="meta-value">{{ data.symbol }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Type</span>
+            <span class="meta-value" [class.call]="data.type === 'call'" [class.put]="data.type === 'put'">
+              {{ data.type | uppercase }}
+            </span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Strike</span>
+            <span class="meta-value">${{ data.strike }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Expiration</span>
+            <span class="meta-value">{{ data.expiration }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">DTE</span>
+            <span class="meta-value" [class.expired]="store.dte() !== null && store.dte()! < 0">
+              {{ store.dte() }}
+            </span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Observations</span>
+            <span class="meta-value">{{ store.observationCount() }}</span>
+          </div>
+        </div>
+
+        <!-- Data Quality Flags -->
+        <div class="quality-flags">
+          <span class="quality-label">Quality</span>
+          <mat-chip-set>
+            <mat-chip [color]="store.dataQuality().gaps > 0 ? 'warn' : 'default'" [highlighted]="store.dataQuality().gaps > 0">
+              Gaps: {{ store.dataQuality().gaps }}
+            </mat-chip>
+            <mat-chip [color]="store.dataQuality().nanIV > 0 ? 'warn' : 'default'" [highlighted]="store.dataQuality().nanIV > 0">
+              NaN IV: {{ store.dataQuality().nanIV }}
+            </mat-chip>
+            <mat-chip [color]="store.dataQuality().zeroVolume > 0 ? 'accent' : 'default'" [highlighted]="store.dataQuality().zeroVolume > 0">
+              Zero Vol: {{ store.dataQuality().zeroVolume }}
+            </mat-chip>
+          </mat-chip-set>
+        </div>
+
+        <!-- Toggle Controls -->
+        <div class="toggle-row">
+          <mat-slide-toggle [checked]="store.showUnderlying()" (change)="store.toggleUnderlying()">
+            Underlying
+          </mat-slide-toggle>
+          <mat-slide-toggle [checked]="store.showGreeks()" (change)="store.toggleGreeks()">
+            Greeks
+          </mat-slide-toggle>
+          <mat-slide-toggle [checked]="store.showVolumeOI()" (change)="store.toggleVolumeOI()">
+            Volume / OI
+          </mat-slide-toggle>
+        </div>
+      </div>
+      }
+
+      @if (store.underlyingLoading()) {
+      <div class="underlying-loading">
+        <mat-progress-spinner mode="indeterminate" diameter="24"></mat-progress-spinner>
+        <span>Loading underlying...</span>
+      </div>
+      }
+    </mat-sidenav>
+
+    <mat-sidenav-content class="chart-content">
+      <button
+        mat-icon-button
+        class="panel-toggle"
+        (click)="controlPanelOpen = !controlPanelOpen"
+        [matTooltip]="controlPanelOpen ? 'Hide panel' : 'Show panel'"
+      >
+        <mat-icon>{{ controlPanelOpen ? 'chevron_left' : 'chevron_right' }}</mat-icon>
+      </button>
+
+      @if (store.loading()) {
+      <div class="loading-section">
+        <mat-progress-spinner mode="indeterminate" diameter="40"></mat-progress-spinner>
+        <span>Loading contract data...</span>
+      </div>
+      }
+
+      @if (store.error()) {
+      <div class="error-section">
+        <mat-chip-set>
+          <mat-chip color="warn" highlighted>{{ store.error() }}</mat-chip>
+        </mat-chip-set>
+      </div>
+      }
+
+      @if (store.contractData()) {
+      <app-options-contract-chart
+        [observations]="store.observations()"
+        [xLabels]="store.xLabels()"
+        [underlyingBars]="store.underlyingBars()"
+        [showUnderlying]="store.showUnderlying()"
+        [showGreeks]="store.showGreeks()"
+        [showVolumeOI]="store.showVolumeOI()"
+      ></app-options-contract-chart>
+      }
+    </mat-sidenav-content>
+  </mat-sidenav-container>
+</div>

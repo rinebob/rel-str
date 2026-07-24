@@ -132,6 +132,11 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.SignalHistoryComponent),
                 canActivate: [authGuard],
             },
+            {path: AppRoutes.OPTION_CHART,
+                loadComponent: () => import('../features/rh-agent/pages/option-chart/option-chart.component')
+                .then(mod => mod.OptionChartComponent),
+                canActivate: [authGuard],
+            },
             {path: AppRoutes.LOGOUT, redirectTo: '/', pathMatch: 'full'},
         ]
     },

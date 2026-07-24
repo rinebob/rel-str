@@ -1,0 +1,124 @@
+<ejs-chart
+  #chart
+  [height]="chartHeight"
+  [primaryXAxis]="primaryXAxis()"
+  [primaryYAxis]="primaryYAxis"
+  [axes]="axes"
+  [rows]="rows"
+  [zoomSettings]="zoomSettings"
+  [crosshair]="crosshair"
+  [tooltip]="tooltip"
+  [legendSettings]="legend"
+  [palettes]="palettes"
+  background="transparent"
+  [border]="chartBorder"
+  [chartArea]="chartArea"
+  (zoomComplete)="onZoomComplete($event)"
+  (scrollEnd)="onScrollEnd()"
+>
+  <!-- Main Pane: Mark + Underlying close -->
+  <e-series-collection>
+    <!-- Main Pane: Mark -->
+    @if (observations().length > 0) {
+    <e-series
+      [dataSource]="observations()"
+      type="Line"
+      xName="date"
+      yName="mark"
+      name="Mark"
+      [width]="2"
+      [marker]="markerNone"
+      [animation]="animationNone"
+    ></e-series>
+    }
+
+    <!-- Main Pane: Underlying close on right Y-axis -->
+    @if (showUnderlying() && underlyingData().length > 0) {
+    <e-series
+      [dataSource]="underlyingData()"
+      type="Line"
+      xName="date"
+      yName="close"
+      name="Underlying"
+      [width]="1.5"
+      [dashArray]="dashArrayDashed"
+      [marker]="markerNone"
+      [yAxisName]="'underlyingAxis'"
+      [animation]="animationNone"
+    ></e-series>
+    }
+
+    <!-- Lower Pane 1: Implied Volatility -->
+    @if (observations().length > 0) {
+    <e-series
+      [dataSource]="observations()"
+      type="Line"
+      xName="date"
+      yName="iv"
+      name="IV"
+      [width]="1.5"
+      [marker]="markerNone"
+      [yAxisName]="'ivAxis'"
+      [animation]="animationNone"
+    ></e-series>
+    }
+
+    <!-- Lower Pane 2: Delta -->
+    @if (showGreeks() && observations().length > 0) {
+    <e-series
+      [dataSource]="observations()"
+      type="Line"
+      xName="date"
+      yName="delta"
+      name="Delta"
+      [width]="1.5"
+      [marker]="markerNone"
+      [yAxisName]="'greeksAxis'"
+      [animation]="animationNone"
+    ></e-series>
+    }
+
+    <!-- Lower Pane 2: Gamma (own right axis) -->
+    @if (showGreeks() && observations().length > 0) {
+    <e-series
+      [dataSource]="observations()"
+      type="Line"
+      xName="date"
+      yName="gamma"
+      name="Gamma"
+      [width]="1.5"
+      [marker]="markerNone"
+      [yAxisName]="'gammaAxis'"
+      [animation]="animationNone"
+    ></e-series>
+    }
+
+    <!-- Lower Pane 3: Volume -->
+    @if (showVolumeOI() && observations().length > 0) {
+    <e-series
+      [dataSource]="observations()"
+      type="Column"
+      xName="date"
+      yName="volume"
+      name="Volume"
+      [yAxisName]="'volumeAxis'"
+      [animation]="animationNone"
+    ></e-series>
+    }
+
+    <!-- Lower Pane 3: Open Interest -->
+    @if (showVolumeOI() && observations().length > 0) {
+    <e-series
+      [dataSource]="observations()"
+      type="Line"
+      xName="date"
+      yName="openInterest"
+      name="OI"
+      [width]="1.5"
+      [marker]="markerNone"
+      [yAxisName]="'volumeAxis'"
+      [animation]="animationNone"
+    ></e-series>
+    }
+  </e-series-collection>
+</ejs-chart>

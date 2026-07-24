@@ -197,6 +197,8 @@ export enum CallableName {
   DIAGNOSE_PAIR_DAYS = 'diagnosePairDays',
   /** RS chart: daily OHLCV bars via SavantAPI */
   GET_PAIR_DAILY_BARS = 'getPairDailyBars',
+  /** Options contract viewer: historical time-series for a single contract */
+  GET_HISTORICAL_OPTIONS_CONTRACT = 'getHistoricalOptionsContract',
 }
 
 /** Top-level Firestore collections used by the FE. */

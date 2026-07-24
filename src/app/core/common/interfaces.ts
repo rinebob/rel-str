@@ -43,6 +43,7 @@ export enum AppRoutes {
 	RH_AGENT_OBSERVATION = 'rh-agent-observation',
 	RH_AGENT_BACKTEST = 'rh-agent-backtest',
 	SIGNAL_HISTORY = 'signal-history',
+	OPTION_CHART = 'option-chart',
 }
 
 export enum AuthLevel {

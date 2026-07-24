@@ -99,6 +99,7 @@ export { ChartReviewComponent } from './pages/chart-review/chart-review.componen
 export { RhAgentOrderComponent } from './pages/agent-order/rh-agent-order.component';
 export { RhAgentTriageReportComponent } from './pages/agent-triage-report/rh-agent-triage-report.component';
 export { ObservationDashboardComponent } from './pages/observation-dashboard/observation-dashboard.component';
+export { OptionChartComponent } from './pages/option-chart/option-chart.component';
 export { QuickChartsComponent } from './components/quick-charts/quick-charts.component';
 
 // Backtest sub-feature (Phase 1)
