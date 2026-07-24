@@ -164,3 +164,52 @@
   font-size: 11px;
   color: var(--mat-sys-on-surface-variant, #666);
 }
+
+.search-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.search-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--mat-sys-on-surface-variant, #666);
+}
+
+.search-error {
+  flex: 0 0 auto;
+}
+
+.contract-type-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  color: white;
+  margin-right: 6px;
+
+  &.call {
+    background: var(--mat-sys-primary, #1976d2);
+  }
+
+  &.put {
+    background: var(--mat-sys-error, #e53935);
+  }
+}
+
+.contract-strike {
+  font-weight: 600;
+  margin-right: 6px;
+}
+
+.contract-exp {
+  color: var(--mat-sys-on-surface-variant, #666);
+  font-size: 10px;
+}

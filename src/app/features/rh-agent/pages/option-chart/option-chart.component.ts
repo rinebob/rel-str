@@ -20,6 +20,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatSelectModule } from '@angular/material/select';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
 import { MatNativeDateModule } from '@angular/material/core';
 
 import { OptionsContractViewerStore } from '../../stores/options-contract-viewer.store';
@@ -45,6 +47,7 @@ import { UiStateService } from '../../../../core/services/ui-state.service';
     MatDatepickerModule,
     MatNativeDateModule,
     MatSelectModule,
+    MatAutocompleteModule,
     OptionsContractChartComponent,
   ],
   templateUrl: './option-chart.component.html',
@@ -92,14 +95,26 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     const exp = this.expiration();
     const stk = this.strike();
     if (!sym || !exp || !stk) return '';
-    const d = exp;
-    const yy = String(d.getFullYear()).slice(2);
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
+    const { yy, mm, dd } = this.formatDateParts(exp);
     const cp = this.type() === 'call' ? 'C' : 'P';
     const strikeStr = String(Math.round(stk * 1000)).padStart(8, '0');
-    return `${sym}${yy}${mm}${dd}${cp}${strikeStr}`;
+    return `${sym}${yy.slice(2)}${mm}${dd}${cp}${strikeStr}`;
   });
+
+  /** Whether the search button should be enabled. */
+  readonly canSearch = computed(() => {
+    return !this.store.searchLoading()
+      && this.symbol().trim().length > 0
+      && (!!this.expiration() || this.strike() != null);
+  });
+
+  /** Format a Date into year/month/day string parts. */
+  private formatDateParts(date: Date): { yy: string; mm: string; dd: string } {
+    const yy = String(date.getFullYear());
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return { yy, mm, dd };
+  }
 
   /** Sync built OCC ID to the input field. */
   onBuildChange(): void {
@@ -141,5 +156,40 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     if (event.key === 'Enter') {
       this.onLoad();
     }
+  }
+
+  /** Search for available contracts using the builder fields as filters. */
+  onSearchContracts(): void {
+    const sym = (this.symbol() || '').trim().toUpperCase();
+    const exp = this.expiration();
+    const stk = this.strike();
+    const typ = this.type() === 'call' ? 'C' : 'P';
+
+    const filters: { expiration?: string; strike?: number; type?: 'C' | 'P' } = { type: typ };
+    if (exp) {
+      const { yy, mm, dd } = this.formatDateParts(exp);
+      filters.expiration = `${yy}-${mm}-${dd}`;
+    }
+    if (stk != null) filters.strike = stk;
+
+    this.store.searchContracts(sym, filters);
+  }
+
+  /** Select a contract from search results and load it. */
+  onSelectContract(contractId: string): void {
+    const id = contractId.trim().toUpperCase();
+    if (!id) return;
+    this.occIdInput = id;
+    this.store.clearSearch();
+    this.onLoad();
+  }
+
+  /** Handle mat-autocomplete option selection — auto-load the selected contract. */
+  onContractSelected(event: MatAutocompleteSelectedEvent): void {
+    const id = (event.option?.value as string)?.trim().toUpperCase();
+    if (!id) return;
+    this.occIdInput = id;
+    this.store.clearSearch();
+    this.onLoad();
   }
 }

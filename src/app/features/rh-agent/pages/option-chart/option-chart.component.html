@@ -68,8 +68,33 @@
         </mat-form-field>
       </div>
 
-      <!-- OCC ID Input + Load -->
-      <div class="header-section">
+      <!-- Contract Search + OCC ID Input -->
+      <div class="search-section">
+        <button
+          mat-stroked-button
+          class="panel-full"
+          (click)="onSearchContracts()"
+          [disabled]="!canSearch()"
+        >
+          <mat-icon>search</mat-icon>
+          Search Contracts
+        </button>
+
+        @if (store.searchLoading()) {
+        <div class="search-loading">
+          <mat-progress-spinner mode="indeterminate" diameter="24"></mat-progress-spinner>
+          <span>Searching...</span>
+        </div>
+        }
+
+        @if (store.searchError()) {
+        <div class="search-error">
+          <mat-chip-set>
+            <mat-chip color="warn" highlighted>{{ store.searchError() }}</mat-chip>
+          </mat-chip-set>
+        </div>
+        }
+
         <mat-form-field appearance="outline" class="panel-field">
           <mat-label>OCC Contract ID</mat-label>
           <input
@@ -78,8 +103,21 @@
             (keyup)="onKeyPress($event)"
             placeholder="e.g. QQQ240719C00450000"
             [disabled]="store.loading()"
+            [matAutocomplete]="contractAuto"
           />
+          <mat-autocomplete #contractAuto="matAutocomplete" (optionSelected)="onContractSelected($event)">
+            @for (contract of store.searchResults(); track contract.contractId) {
+            <mat-option [value]="contract.contractId">
+              <span class="contract-type-badge" [class.call]="contract.type === 'C'" [class.put]="contract.type === 'P'">
+                {{ contract.type === 'C' ? 'C' : 'P' }}
+              </span>
+              <span class="contract-strike">${{ contract.strike }}</span>
+              <span class="contract-exp">{{ contract.expiration }}</span>
+            </mat-option>
+            }
+          </mat-autocomplete>
         </mat-form-field>
+
         <button
           mat-flat-button
           color="primary"

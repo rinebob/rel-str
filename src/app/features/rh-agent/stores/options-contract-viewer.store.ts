@@ -19,6 +19,7 @@ import type { OHLCDatum } from '../../shared/types/rs.interfaces';
 import type {
   PartnerHistoricalOptionsContractV2Response,
   HistoricalOptionsContractV2Observation,
+  ListContractsV2Contract,
 } from '../../../core/models/partner.types';
 
 // ---------------------------------------------------------------------------
@@ -35,6 +36,10 @@ export interface OptionsContractViewerState {
   showUnderlying: boolean;
   showGreeks: boolean;
   showVolumeOI: boolean;
+  searchLoading: boolean;
+  searchError: string | null;
+  searchResults: ListContractsV2Contract[];
+  searchedSymbol: string | null;
 }
 
 const initialState: OptionsContractViewerState = {
@@ -47,6 +52,10 @@ const initialState: OptionsContractViewerState = {
   showUnderlying: true,
   showGreeks: true,
   showVolumeOI: false,
+  searchLoading: false,
+  searchError: null,
+  searchResults: [],
+  searchedSymbol: null,
 };
 
 // ---------------------------------------------------------------------------
@@ -242,6 +251,23 @@ export const OptionsContractViewerStore = signalStore(
 
     toggleVolumeOI(): void {
       patchState(store, { showVolumeOI: !store.showVolumeOI() });
+    },
+
+    searchContracts(symbol: string, filters?: { expiration?: string; strike?: number; type?: 'C' | 'P' }): void {
+      patchState(store, { searchLoading: true, searchError: null, searchResults: [], searchedSymbol: String(symbol || '').trim().toUpperCase() });
+
+      optionsContractService.listContracts$(symbol, filters).subscribe({
+        next: (data) => {
+          patchState(store, { searchLoading: false, searchResults: data.contracts ?? [], searchedSymbol: data.symbol ?? store.searchedSymbol() });
+        },
+        error: (err: Error) => {
+          patchState(store, { searchLoading: false, searchError: err?.message ?? 'Failed to search contracts', searchResults: [] });
+        },
+      });
+    },
+
+    clearSearch(): void {
+      patchState(store, { searchLoading: false, searchError: null, searchResults: [], searchedSymbol: null });
     },
   })),
 );
