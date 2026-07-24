@@ -4,7 +4,7 @@
  * Phase 2 dashboard for the RH Agent strategy backtest run management UI.
  * Wires the run store, UI store, control strip, and run list together.
  */
-import { Component, computed, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, computed, inject, ChangeDetectionStrategy, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 
@@ -15,6 +15,7 @@ import { BacktestRunListComponent } from '../../components/backtest-run-list/bac
 import { BacktestRunSummaryComponent } from '../../components/backtest-run-summary/backtest-run-summary.component';
 import { BacktestPermutationDetailComponent } from '../../components/backtest-permutation-detail/backtest-permutation-detail.component';
 import { BacktestNewRunDialogComponent } from '../../components/backtest-new-run-dialog/backtest-new-run-dialog.component';
+import { UiStateService } from '../../../../../core/services/ui-state.service';
 import type { BacktestPermutationUi, BacktestStrategyMetadata, StartBacktestRequest } from '../../common/backtest.types';
 
 @Component({
@@ -31,10 +32,11 @@ import type { BacktestPermutationUi, BacktestStrategyMetadata, StartBacktestRequ
   templateUrl: './backtest-dashboard.component.html',
   styleUrl: './backtest-dashboard.component.scss',
 })
-export class BacktestDashboardComponent {
+export class BacktestDashboardComponent implements OnInit, OnDestroy {
   readonly runStore = inject(BacktestRunStore);
   readonly uiStore = inject(BacktestUiStore);
   private readonly dialog = inject(MatDialog);
+  private readonly uiStateService = inject(UiStateService);
 
   readonly selectedPermutation = computed((): BacktestPermutationUi | null => {
     const id = this.uiStore.selectedPermutationId();
@@ -44,6 +46,14 @@ export class BacktestDashboardComponent {
   constructor() {
     this.runStore.loadRuns();
     this.runStore.loadStrategies();
+  }
+
+  ngOnInit(): void {
+    this.uiStateService.setFullscreen(true);
+  }
+
+  ngOnDestroy(): void {
+    this.uiStateService.setFullscreen(false);
   }
 
   openNewRunDialog(): void {
