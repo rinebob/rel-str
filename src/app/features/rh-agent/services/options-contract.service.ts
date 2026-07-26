@@ -8,6 +8,8 @@ import type {
   PartnerHistoricalOptionsContractV2Response,
   GetListContractsRequest,
   PartnerListContractsV2Response,
+  GetOptionsContractIndexRequest,
+  OptionsContractIndexResponse,
 } from '@options-contract/contracts';
 import { parseOccContractId } from '@options-contract/contracts';
 
@@ -90,6 +92,22 @@ export class OptionsContractService {
       return callable(req);
     }))).pipe(
       map((res) => res.data as PartnerListContractsV2Response),
+    );
+  }
+
+  /** Fetch the options contract index (expirations + strikes with cross-filter maps) via callable. */
+  getContractIndex$(symbol: string): Observable<OptionsContractIndexResponse> {
+    const sym = String(symbol || '').trim().toUpperCase();
+    if (!sym) return throwError(() => new Error('symbol is required'));
+
+    return defer(() => from(this.inCtx(() => {
+      const callable = httpsCallable<GetOptionsContractIndexRequest, OptionsContractIndexResponse>(
+        this.functions,
+        CallableName.GET_OPTIONS_CONTRACT_INDEX,
+      );
+      return callable({ symbol: sym });
+    }))).pipe(
+      map((res) => res.data as OptionsContractIndexResponse),
     );
   }
 }

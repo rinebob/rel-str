@@ -40,6 +40,17 @@ export interface OptionsContractViewerState {
   searchError: string | null;
   searchResults: ListContractsV2Contract[];
   searchedSymbol: string | null;
+  expirations: string[];
+  strikes: number[];
+  expirationToStrikes: Record<string, number[]>;
+  strikeToExpirations: Record<number, string[]>;
+  filteredExpirations: string[];
+  filteredStrikes: number[];
+  selectedExpiration: string | null;
+  selectedStrike: number | null;
+  indexLoading: boolean;
+  indexError: string | null;
+  chartPadDays: number;
 }
 
 const initialState: OptionsContractViewerState = {
@@ -51,11 +62,22 @@ const initialState: OptionsContractViewerState = {
   underlyingLoading: false,
   showUnderlying: true,
   showGreeks: true,
-  showVolumeOI: false,
+  showVolumeOI: true,
   searchLoading: false,
   searchError: null,
   searchResults: [],
   searchedSymbol: null,
+  expirations: [],
+  strikes: [],
+  expirationToStrikes: {},
+  strikeToExpirations: {},
+  filteredExpirations: [],
+  filteredStrikes: [],
+  selectedExpiration: null,
+  selectedStrike: null,
+  indexLoading: false,
+  indexError: null,
+  chartPadDays: 0,
 };
 
 // ---------------------------------------------------------------------------
@@ -99,6 +121,43 @@ function parseObservations(series: HistoricalOptionsContractV2Observation[]): Pa
     vega: parseNum(obs.vega),
     rho: parseNum(obs.rho),
   }));
+}
+
+/** Compute a padded date range from a contract's start/end dates and a pad-days count. */
+function paddedDateRange(startDate: string, endDate: string, padDays: number): { from: string; to: string } {
+  if (padDays <= 0) return { from: startDate, to: endDate };
+  const padMillis = padDays * 24 * 60 * 60 * 1000;
+  const from = new Date(new Date(startDate + 'T00:00:00.000Z').getTime() - padMillis);
+  const to = new Date(new Date(endDate + 'T00:00:00.000Z').getTime() + padMillis);
+  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+}
+
+/** Generate null-valued padding observations for the given number of days on each side. */
+function padObservations(baseObs: ParsedObservation[], padDays: number): ParsedObservation[] {
+  if (padDays <= 0 || baseObs.length === 0) return baseObs;
+
+  const nullObs = (date: string): ParsedObservation => ({
+    date, mark: null, bid: null, ask: null, volume: null, openInterest: null,
+    iv: null, delta: null, gamma: null, theta: null, vega: null, rho: null,
+  });
+
+  const firstDate = new Date(baseObs[0].date + 'T00:00:00.000Z');
+  const leftObs: ParsedObservation[] = [];
+  let d = new Date(firstDate);
+  for (let i = 0; i < padDays; i++) {
+    d = new Date(d.getTime() - 24 * 60 * 60 * 1000);
+    leftObs.unshift(nullObs(d.toISOString().slice(0, 10)));
+  }
+
+  const lastDate = new Date(baseObs[baseObs.length - 1].date + 'T00:00:00.000Z');
+  const rightObs: ParsedObservation[] = [];
+  d = new Date(lastDate);
+  for (let i = 0; i < padDays; i++) {
+    d = new Date(d.getTime() + 24 * 60 * 60 * 1000);
+    rightObs.push(nullObs(d.toISOString().slice(0, 10)));
+  }
+
+  return [...leftObs, ...baseObs, ...rightObs];
 }
 
 /** Compute days to expiration from today (PT) to the expiration date. */
@@ -158,18 +217,11 @@ export const OptionsContractViewerStore = signalStore(
   withState(initialState),
 
   withComputed((state) => ({
-    /** Parsed observations with numeric values for charting. */
+    /** Parsed observations with numeric values for charting, extended with null-valued padding entries. */
     observations: computed((): ParsedObservation[] => {
       const data = state.contractData();
       if (!data?.series) return [];
-      return parseObservations(data.series);
-    }),
-
-    /** Category labels for the X-axis (date strings). */
-    xLabels: computed((): string[] => {
-      const data = state.contractData();
-      if (!data?.series) return [];
-      return data.series.map((obs) => obs.date);
+      return padObservations(parseObservations(data.series), state.chartPadDays());
     }),
 
     /** Days to expiration from today. */
@@ -203,7 +255,22 @@ export const OptionsContractViewerStore = signalStore(
     }),
   })),
 
-  withMethods((store, optionsContractService = inject(OptionsContractService), rsBarsService = inject(RsBarsService)) => ({
+  withComputed((state) => ({
+    /** Category labels for the X-axis (date strings), derived from observations. */
+    xLabels: computed((): string[] => state.observations().map((obs) => obs.date)),
+  })),
+
+  withMethods((store, optionsContractService = inject(OptionsContractService), rsBarsService = inject(RsBarsService)) => {
+    /** Fetch underlying bars and update store loading state. */
+    function fetchUnderlyingBars(symbol: string, from: string, to: string): void {
+      patchState(store, { underlyingLoading: true });
+      rsBarsService.getDailyBars$(symbol, { from, to }).subscribe({
+        next: (bars) => patchState(store, { underlyingBars: bars, underlyingLoading: false }),
+        error: () => patchState(store, { underlyingBars: [], underlyingLoading: false }),
+      });
+    }
+
+    return {
     setOccIdInput(value: string): void {
       patchState(store, { occIdInput: value });
     },
@@ -221,19 +288,9 @@ export const OptionsContractViewerStore = signalStore(
         next: (data) => {
           patchState(store, { loading: false, contractData: data, occIdInput: occId });
 
-          // Auto-fetch underlying bars for the contract's date range
-          patchState(store, { underlyingLoading: true });
-          rsBarsService.getDailyBars$(data.symbol, {
-            from: data.startDate,
-            to: data.endDate,
-          }).subscribe({
-            next: (bars) => {
-              patchState(store, { underlyingBars: bars, underlyingLoading: false });
-            },
-            error: () => {
-              patchState(store, { underlyingBars: [], underlyingLoading: false });
-            },
-          });
+          // Auto-fetch underlying bars for the contract's date range, extended by current padding
+          const range = paddedDateRange(data.startDate, data.endDate, store.chartPadDays());
+          fetchUnderlyingBars(data.symbol, range.from, range.to);
         },
         error: (err: Error) => {
           patchState(store, { loading: false, error: err?.message ?? 'Failed to load contract' });
@@ -269,5 +326,111 @@ export const OptionsContractViewerStore = signalStore(
     clearSearch(): void {
       patchState(store, { searchLoading: false, searchError: null, searchResults: [], searchedSymbol: null });
     },
-  })),
+
+    loadContractIndex(symbol: string): void {
+      const sym = String(symbol || '').trim().toUpperCase();
+      if (!sym) {
+        patchState(store, {
+          expirations: [], strikes: [], indexError: 'Symbol is required', indexLoading: false,
+          expirationToStrikes: {}, strikeToExpirations: {},
+          filteredExpirations: [], filteredStrikes: [],
+          selectedExpiration: null, selectedStrike: null,
+        });
+        return;
+      }
+
+      patchState(store, {
+        indexLoading: true, indexError: null,
+        expirations: [], strikes: [],
+        expirationToStrikes: {}, strikeToExpirations: {},
+        filteredExpirations: [], filteredStrikes: [],
+        selectedExpiration: null, selectedStrike: null,
+      });
+
+      optionsContractService.getContractIndex$(sym).subscribe({
+        next: (data) => {
+          const expToStrikes: Record<string, number[]> = {};
+          const strikeToExps: Record<number, string[]> = {};
+          const allExpirations: string[] = [];
+          const allStrikes: number[] = [];
+
+          for (const exp of data.expirations) {
+            expToStrikes[exp.date] = exp.strikes;
+            allExpirations.push(exp.date);
+          }
+          for (const s of data.strikes) {
+            strikeToExps[s.strike] = s.expirations;
+            allStrikes.push(s.strike);
+          }
+          allExpirations.sort();
+          allStrikes.sort((a, b) => a - b);
+
+          patchState(store, {
+            indexLoading: false,
+            expirations: allExpirations,
+            strikes: allStrikes,
+            expirationToStrikes: expToStrikes,
+            strikeToExpirations: strikeToExps,
+            filteredExpirations: allExpirations,
+            filteredStrikes: allStrikes,
+            selectedExpiration: null,
+            selectedStrike: null,
+          });
+        },
+        error: (err: Error) => {
+          console.error('[loadContractIndex] error:', err);
+          patchState(store, { indexError: err?.message ?? 'Failed to load contract index', indexLoading: false });
+        },
+      });
+    },
+
+    setExpiration(expiration: string | null): void {
+      const expToStrikes = store.expirationToStrikes();
+      if (expiration && expToStrikes[expiration]) {
+        patchState(store, {
+          selectedExpiration: expiration,
+          filteredStrikes: [...expToStrikes[expiration]].sort((a, b) => a - b),
+        });
+      } else {
+        patchState(store, {
+          selectedExpiration: expiration,
+          filteredStrikes: [...store.strikes()],
+        });
+      }
+    },
+
+    setStrike(strike: number | null): void {
+      const strikeToExps = store.strikeToExpirations();
+      if (strike !== null && strikeToExps[strike]) {
+        patchState(store, {
+          selectedStrike: strike,
+          filteredExpirations: [...strikeToExps[strike]].sort(),
+        });
+      } else {
+        patchState(store, {
+          selectedStrike: strike,
+          filteredExpirations: [...store.expirations()],
+        });
+      }
+    },
+
+    addPadDays(days: number): void {
+      const newPad = store.chartPadDays() + days;
+      patchState(store, { chartPadDays: newPad });
+
+      const data = store.contractData();
+      if (!data) return;
+      const range = paddedDateRange(data.startDate, data.endDate, newPad);
+      fetchUnderlyingBars(data.symbol, range.from, range.to);
+    },
+
+    resetPadDays(): void {
+      patchState(store, { chartPadDays: 0 });
+
+      const data = store.contractData();
+      if (!data) return;
+      fetchUnderlyingBars(data.symbol, data.startDate, data.endDate);
+    },
+    };
+  }),
 );
