@@ -18,15 +18,14 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
-import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatSelectModule } from '@angular/material/select';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
-import { MatNativeDateModule } from '@angular/material/core';
 
 import { OptionsContractViewerStore } from '../../stores/options-contract-viewer.store';
 import { OptionsContractChartComponent } from '../../components/options-contract-chart/options-contract-chart.component';
 import { UiStateService } from '../../../../core/services/ui-state.service';
+import { formatUtcDate } from '../../utils/rh-agent.utils';
 
 @Component({
   selector: 'app-option-chart',
@@ -44,8 +43,6 @@ import { UiStateService } from '../../../../core/services/ui-state.service';
     MatChipsModule,
     MatTooltipModule,
     MatButtonToggleModule,
-    MatDatepickerModule,
-    MatNativeDateModule,
     MatSelectModule,
     MatAutocompleteModule,
     OptionsContractChartComponent,
@@ -58,17 +55,17 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   readonly store = inject(OptionsContractViewerStore);
   readonly uiStateService = inject(UiStateService);
 
-  occIdInput = 'QQQ240719C00450000';
+  occIdInput = '';
 
   /** Whether the left control panel is open. */
   controlPanelOpen = true;
 
   // Builder fields (signals so computed/derived state reacts)
   symbol = signal('QQQ');
-  expiration = signal<Date | null>(new Date('2024-07-19'));
+  readonly expiration = this.store.selectedExpiration;
   type = signal<'call' | 'put'>('call');
-  strike = signal(450);
-  contractLength = signal<string | null>('1M');
+  readonly strike = this.store.selectedStrike;
+  contractLength = signal<string | null>(null);
 
   readonly lengthOptions: { value: string; label: string; group: string }[] = [
     { value: '0DTE', label: '0DTE', group: 'Ultra short' },
@@ -94,8 +91,8 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     const sym = (this.symbol() || '').trim().toUpperCase();
     const exp = this.expiration();
     const stk = this.strike();
-    if (!sym || !exp || !stk) return '';
-    const { yy, mm, dd } = this.formatDateParts(exp);
+    if (!sym || !exp || stk == null) return '';
+    const { yy, mm, dd } = this.parseExpirationParts(exp);
     const cp = this.type() === 'call' ? 'C' : 'P';
     const strikeStr = String(Math.round(stk * 1000)).padStart(8, '0');
     return `${sym}${yy.slice(2)}${mm}${dd}${cp}${strikeStr}`;
@@ -108,18 +105,37 @@ export class OptionChartComponent implements OnInit, OnDestroy {
       && (!!this.expiration() || this.strike() != null);
   });
 
-  /** Format a Date into year/month/day string parts. */
-  private formatDateParts(date: Date): { yy: string; mm: string; dd: string } {
-    const yy = String(date.getFullYear());
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const dd = String(date.getDate()).padStart(2, '0');
-    return { yy, mm, dd };
+  /** Expiration options with day-of-week labels, e.g. "2026-01-15 (Thu)". */
+  readonly expirationOptions = computed(() =>
+    this.store.filteredExpirations().map((exp) => ({
+      value: exp,
+      label: this.formatExpWithDow(exp),
+    })),
+  );
+
+  /** Parse a YYYY-MM-DD expiration string into year/month/day parts. */
+  private parseExpirationParts(exp: string): { yy: string; mm: string; dd: string } {
+    const [yy, mm, dd] = exp.split('-');
+    return { yy, mm: mm.padStart(2, '0'), dd: dd.padStart(2, '0') };
+  }
+
+  /** Format an expiration date string with day of week, e.g. "2026-01-15 (Thu)". */
+  private formatExpWithDow(exp: string): string {
+    return `${exp} (${formatUtcDate(exp, { weekday: 'short' })})`;
   }
 
   /** Sync built OCC ID to the input field. */
   onBuildChange(): void {
     const id = this.builtOccId();
     if (id) this.occIdInput = id;
+  }
+
+  /** Handle symbol change — clear dependent fields and fetch expirations/strikes. */
+  onSymbolChange(value: string): void {
+    this.symbol.set(value);
+    this.occIdInput = '';
+    const sym = value.trim().toUpperCase();
+    if (sym) this.store.loadContractIndex(sym);
   }
 
   /** Label for the selected contract length. */
@@ -140,6 +156,8 @@ export class OptionChartComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.uiStateService.setFullscreen(true);
+    const sym = this.symbol().trim().toUpperCase();
+    if (sym) this.store.loadContractIndex(sym);
   }
 
   ngOnDestroy(): void {
@@ -166,10 +184,7 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     const typ = this.type() === 'call' ? 'C' : 'P';
 
     const filters: { expiration?: string; strike?: number; type?: 'C' | 'P' } = { type: typ };
-    if (exp) {
-      const { yy, mm, dd } = this.formatDateParts(exp);
-      filters.expiration = `${yy}-${mm}-${dd}`;
-    }
+    if (exp) filters.expiration = exp;
     if (stk != null) filters.strike = stk;
 
     this.store.searchContracts(sym, filters);

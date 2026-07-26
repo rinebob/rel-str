@@ -17,21 +17,19 @@
           <input
             matInput
             [ngModel]="symbol()"
-            (ngModelChange)="symbol.set($event); onBuildChange()"
+            (ngModelChange)="onSymbolChange($event)"
             placeholder="QQQ"
           />
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="panel-field">
           <mat-label>Expiration</mat-label>
-          <input
-            matInput
-            [matDatepicker]="picker"
-            [ngModel]="expiration()"
-            (ngModelChange)="expiration.set($event); onBuildChange()"
-          />
-          <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
-          <mat-datepicker #picker></mat-datepicker>
+          <mat-select [ngModel]="expiration()" (ngModelChange)="store.setExpiration($event); onBuildChange()" [disabled]="store.indexLoading()">
+            <mat-option [value]="null">All</mat-option>
+            @for (opt of expirationOptions(); track opt.value) {
+            <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+            }
+          </mat-select>
         </mat-form-field>
 
         <mat-button-toggle-group
@@ -45,13 +43,12 @@
 
         <mat-form-field appearance="outline" class="panel-field">
           <mat-label>Strike</mat-label>
-          <input
-            matInput
-            type="number"
-            [ngModel]="strike()"
-            (ngModelChange)="strike.set($event); onBuildChange()"
-            placeholder="450"
-          />
+          <mat-select [ngModel]="strike()" (ngModelChange)="store.setStrike($event); onBuildChange()" [disabled]="store.indexLoading()">
+            <mat-option [value]="null">All</mat-option>
+            @for (stk of store.filteredStrikes(); track stk) {
+            <mat-option [value]="stk">{{ stk }}</mat-option>
+            }
+          </mat-select>
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="panel-field">
@@ -191,6 +188,15 @@
             Volume / OI
           </mat-slide-toggle>
         </div>
+
+        <!-- Chart padding controls -->
+        <div class="pad-row">
+          <button mat-stroked-button (click)="store.addPadDays(20)" [disabled]="!store.contractData()">+20d</button>
+          <button mat-stroked-button (click)="store.addPadDays(50)" [disabled]="!store.contractData()">+50d</button>
+          @if (store.chartPadDays() > 0) {
+          <button mat-stroked-button (click)="store.resetPadDays()">Reset</button>
+          }
+        </div>
       </div>
       }
 
@@ -235,6 +241,7 @@
         [showUnderlying]="store.showUnderlying()"
         [showGreeks]="store.showGreeks()"
         [showVolumeOI]="store.showVolumeOI()"
+        [padDays]="store.chartPadDays()"
       ></app-options-contract-chart>
       }
     </mat-sidenav-content>

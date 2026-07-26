@@ -10,10 +10,23 @@
 .sidenav-container {
   height: 100%;
   width: 100%;
+  overflow: hidden;
+
+  ::ng-deep .mat-sidenav-content {
+    overflow-x: hidden;
+  }
+
+  ::ng-deep .mat-sidenav {
+    overflow-x: hidden;
+  }
+
+  ::ng-deep .mat-drawer-inner-container {
+    overflow-x: hidden;
+  }
 }
 
 .control-panel {
-  width: 220px;
+  width: 290px;
   padding: 12px;
   box-sizing: border-box;
   background: var(--mat-sys-surface-container);
@@ -22,6 +35,7 @@
   flex-direction: column;
   gap: 12px;
   overflow-y: auto;
+  overflow-x: hidden;
 
   .panel-header {
     display: flex;
@@ -43,6 +57,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
 }
 
 .panel-field,
@@ -58,6 +73,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
 
   .metadata-grid {
     display: grid;
@@ -117,6 +133,17 @@
       font-size: 12px;
     }
   }
+
+  .pad-row {
+    display: flex;
+    gap: 6px;
+
+    button {
+      flex: 1;
+      font-size: 11px;
+      min-height: 32px;
+    }
+  }
 }
 
 .chart-content {
@@ -124,6 +151,8 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
 
   app-options-contract-chart {
@@ -169,6 +198,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
 }
 
 .search-loading {

@@ -7,6 +7,13 @@ import { MarketCapTier, RhAgentSignalItem, RhAgentSymbolProfile, RH_AGENT_SCHEDU
 import { RhSymbolRow, RhSymbolGroup } from '../stores/rh-agent-group.store';
 import { GroupDimension, RhAgentReviewDecision, SignalFilter, SignalTimeframe, SignalDirection } from '../common/rh-agent.constants';
 
+/** Format a YYYY-MM-DD date string as a UTC date with the given Intl options. */
+export function formatUtcDate(dateStr: string, options: Intl.DateTimeFormatOptions): string {
+  const date = new Date(dateStr + 'T00:00:00.000Z');
+  if (isNaN(date.getTime())) return dateStr;
+  return date.toLocaleDateString('en-US', { ...options, timeZone: 'UTC' });
+}
+
 /** Build a stop price from entry price, stop-loss percent, and direction. */
 export function buildStopPrice(entryPrice: number, stopLossPercent: number, direction: SignalDirection): number | undefined {
   if (entryPrice <= 0 || stopLossPercent < 0) return undefined;
