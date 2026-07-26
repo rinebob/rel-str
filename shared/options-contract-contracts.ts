@@ -105,3 +105,32 @@ export interface GetListContractsRequest {
   strike?: number;
   type?: 'C' | 'P';
 }
+
+// ==========================
+// Contract Index (options-file-index cross-project read)
+// ==========================
+
+/** One expiration entry in the options contract index. */
+export interface ExpirationIndexEntry {
+  date: string;
+  strikes: number[];
+}
+
+/** One strike entry in the options contract index. */
+export interface StrikeIndexEntry {
+  strike: number;
+  expirations: string[];
+}
+
+/** Response shape for the getOptionsContractIndex callable. */
+export interface OptionsContractIndexResponse {
+  ok: boolean;
+  symbol: string;
+  expirations: ExpirationIndexEntry[];
+  strikes: StrikeIndexEntry[];
+}
+
+/** Request shape for the getOptionsContractIndex callable. */
+export interface GetOptionsContractIndexRequest {
+  symbol: string;
+}

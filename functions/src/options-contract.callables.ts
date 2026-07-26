@@ -1,5 +1,7 @@
 import { onCall } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
+import { initializeApp, getApps } from 'firebase-admin/app';
+import { getFirestore, Firestore } from 'firebase-admin/firestore';
 
 import { callPartnerHistoricalOptionsContractV2, callPartnerListContractsV2 } from './options-contract-proxy';
 import { RH_AGENT_ALLOWED_ORIGINS } from './rh-agent-cloud-function/rh-agent-cors';
@@ -8,7 +10,27 @@ import type {
   PartnerHistoricalOptionsContractV2Response,
   GetListContractsRequest,
   PartnerListContractsV2Response,
+  GetOptionsContractIndexRequest,
+  OptionsContractIndexResponse,
+  ExpirationIndexEntry,
+  StrikeIndexEntry,
 } from '@options-contract/contracts';
+
+const SA_PROJECT_ID = process.env.SA_PROJECT_ID || 'alpha-vantage-proxy-api';
+const OPTIONS_FILE_INDEX = 'options-file-index';
+const TS_EXPIRATIONS = 'ts-expirations';
+const TS_STRIKES = 'ts-strikes';
+
+let saDb: Firestore | null = null;
+function getSaFirestore(): Firestore {
+  if (saDb) return saDb;
+  const appName = 'sa-options-index';
+  const existing = getApps().find((a) => a.name === appName);
+  const app = existing ?? initializeApp({ projectId: SA_PROJECT_ID }, appName);
+  saDb = getFirestore(app);
+  saDb.settings({ ignoreUndefinedProperties: true });
+  return saDb;
+}
 
 /**
  * getHistoricalOptionsContract — Fetch historical time-series data for a single
@@ -105,6 +127,85 @@ export const listOptionsContracts = onCall(
         expiration: exp,
         strike: stk,
         type: typ,
+        message: e instanceof Error ? e.message : String(e),
+        stack: e instanceof Error ? e.stack : undefined,
+        error: e,
+      });
+      throw e;
+    }
+  },
+);
+
+/**
+ * getOptionsContractIndex — Fetch the options contract index (expirations + strikes
+ * with cross-filter maps) for a symbol from SA's Firestore project.
+ *
+ * Reads cross-project from the alpha-vantage-proxy-api Firestore's
+ * `options-file-index/{symbol}/ts-expirations` and `ts-strikes` subcollections.
+ * Returns the data needed by the frontend to populate dropdowns with cross-filtering.
+ */
+export const getOptionsContractIndex = onCall(
+  { region: 'us-central1', cors: RH_AGENT_ALLOWED_ORIGINS },
+  async (req): Promise<OptionsContractIndexResponse> => {
+    const { symbol } = (req.data || {}) as GetOptionsContractIndexRequest;
+    const sym = String(symbol || '').trim().toUpperCase();
+
+    if (!sym) {
+      throw new Error('symbol is required');
+    }
+
+    logger.info('getOptionsContractIndex', { symbol: sym });
+
+    try {
+      const db = getSaFirestore();
+
+      const expCol = db.collection(`${OPTIONS_FILE_INDEX}/${sym}/${TS_EXPIRATIONS}`);
+      const strikeCol = db.collection(`${OPTIONS_FILE_INDEX}/${sym}/${TS_STRIKES}`);
+
+      const [expSnap, strikeSnap] = await Promise.all([
+        expCol.get(),
+        strikeCol.get(),
+      ]);
+
+      const expirations: ExpirationIndexEntry[] = [];
+      for (const doc of expSnap.docs) {
+        const data = doc.data() as { date?: string; strikes?: number[] };
+        if (data.date) {
+          expirations.push({
+            date: data.date,
+            strikes: Array.isArray(data.strikes) ? data.strikes : [],
+          });
+        }
+      }
+      expirations.sort((a, b) => a.date.localeCompare(b.date));
+
+      const strikes: StrikeIndexEntry[] = [];
+      for (const doc of strikeSnap.docs) {
+        const data = doc.data() as { strike?: number; expirations?: string[] };
+        if (data.strike != null) {
+          strikes.push({
+            strike: data.strike,
+            expirations: Array.isArray(data.expirations) ? data.expirations : [],
+          });
+        }
+      }
+      strikes.sort((a, b) => a.strike - b.strike);
+
+      logger.info('getOptionsContractIndex_response', {
+        symbol: sym,
+        expirationCount: expirations.length,
+        strikeCount: strikes.length,
+      });
+
+      return {
+        ok: true,
+        symbol: sym,
+        expirations,
+        strikes,
+      };
+    } catch (e: unknown) {
+      logger.error('getOptionsContractIndex_error', {
+        symbol: sym,
         message: e instanceof Error ? e.message : String(e),
         stack: e instanceof Error ? e.stack : undefined,
         error: e,
