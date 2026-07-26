@@ -14,10 +14,10 @@ import {
   ChartModule,
   ChartComponent as SfChartComponent,
   IZoomCompleteEventArgs,
+  IAxisLabelRenderEventArgs,
   LineSeriesService,
   ColumnSeriesService,
   CategoryService,
-  DateTimeCategoryService,
   ZoomService,
   ScrollBarService,
   LegendService,
@@ -28,6 +28,7 @@ import {
 
 import type { OHLCDatum } from '../../../shared/types/rs.interfaces';
 import type { ParsedObservation } from '../../stores/options-contract-viewer.store';
+import { formatUtcDate } from '../../utils/rh-agent.utils';
 
 interface UnderlyingPoint {
   date: string;
@@ -113,7 +114,6 @@ function computeUnderlyingMinMax(
     LineSeriesService,
     ColumnSeriesService,
     CategoryService,
-    DateTimeCategoryService,
     ZoomService,
     ScrollBarService,
     LegendService,
@@ -132,6 +132,7 @@ export class OptionsContractChartComponent {
   showUnderlying = input(true);
   showGreeks = input(true);
   showVolumeOI = input(false);
+  padDays = input(0);
 
   private readonly chart = viewChild<SfChartComponent>('chart');
   private readonly visibleRange = signal<{ min: number; max: number } | null>(null);
@@ -148,14 +149,20 @@ export class OptionsContractChartComponent {
       iv: computeMinMax(obs, range, ['iv']),
       delta: computeMinMax(obs, range, ['delta']),
       gamma: computeMinMax(obs, range, ['gamma']),
-      volume: computeMinMax(obs, range, ['volume', 'openInterest']),
+      volume: computeMinMax(obs, range, ['volume']),
+      openInterest: computeMinMax(obs, range, ['openInterest']),
     };
   });
 
-  // Reset visible range when the dataset changes.
+  // Reset visible range when the dataset or padding changes.
   readonly initVisibleRange = effect(() => {
     const obs = this.observations();
-    this.visibleRange.set(obs.length > 0 ? { min: 0, max: obs.length - 1 } : null);
+    const pad = this.padDays();
+    if (obs.length > 0) {
+      this.visibleRange.set({ min: -pad, max: obs.length - 1 + pad });
+    } else {
+      this.visibleRange.set(null);
+    }
   });
 
   // Apply min/max to every Y-axis whenever the visible range or data changes.
@@ -176,6 +183,7 @@ export class OptionsContractChartComponent {
       greeksAxis: ranges.delta,
       gammaAxis: ranges.gamma,
       volumeAxis: ranges.volume,
+      oiAxis: ranges.openInterest,
     };
     for (const [name, range] of Object.entries(AXIS_MAP)) {
       const axis = findAxis(name);
@@ -200,7 +208,7 @@ export class OptionsContractChartComponent {
   readonly volumeColor = '#42a5f5';
   readonly oiColor = '#66bb6a';
 
-  /** Underlying bars aligned to observation dates by date. */
+  /** Underlying bars aligned to x-axis labels by date (includes padded dates). */
   underlyingData = computed<UnderlyingPoint[]>(() => {
     const bars = this.underlyingBars();
     const labels = this.xLabels();
@@ -216,8 +224,7 @@ export class OptionsContractChartComponent {
     const count = this.observations().length;
     const interval = count > 0 ? Math.max(1, Math.floor(count / 6)) : 1;
     return {
-      valueType: 'DateTimeCategory' as const,
-      labelFormat: 'MMM dd',
+      valueType: 'Category' as const,
       labelIntersectAction: 'Rotate45' as const,
       interval,
       majorGridLines: { width: 0.5, color: '#e0e0e0' },
@@ -286,7 +293,18 @@ export class OptionsContractChartComponent {
     rowIndex: 0, // bottom pane: Volume/OI
   };
 
-  readonly axes = [this.underlyingAxis, this.ivAxis, this.greeksAxis, this.gammaAxis, this.volumeAxis];
+  readonly oiAxis = {
+    name: 'oiAxis',
+    opposedPosition: true,
+    labelFormat: '{value}',
+    lineStyle: { color: '#66bb6a', width: 1 },
+    majorTickLines: { width: 0 },
+    labelStyle: { size: '10px', color: '#66bb6a' },
+    rangePadding: 'None' as const,
+    rowIndex: 0, // bottom pane: Volume/OI (opposed)
+  };
+
+  readonly axes = [this.underlyingAxis, this.ivAxis, this.greeksAxis, this.gammaAxis, this.volumeAxis, this.oiAxis];
 
   readonly rows = [
     { height: '15%' }, // bottom: Volume/OI
@@ -324,6 +342,12 @@ export class OptionsContractChartComponent {
 
   // Chart height fills the parent container.
   readonly chartHeight = '100%';
+
+  onAxisLabelRender(args: IAxisLabelRenderEventArgs): void {
+    if (args.axis?.name === 'primaryXAxis' && args.text) {
+      args.text = formatUtcDate(args.text, { month: 'short', day: '2-digit' });
+    }
+  }
 
   onZoomComplete(event: IZoomCompleteEventArgs): void {
     const range = event.currentVisibleRange;

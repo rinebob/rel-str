@@ -1,5 +1,6 @@
 <ejs-chart
   #chart
+  width="100%"
   [height]="chartHeight"
   [primaryXAxis]="primaryXAxis()"
   [primaryYAxis]="primaryYAxis"
@@ -13,6 +14,7 @@
   background="transparent"
   [border]="chartBorder"
   [chartArea]="chartArea"
+  (axisLabelRender)="onAxisLabelRender($event)"
   (zoomComplete)="onZoomComplete($event)"
   (scrollEnd)="onScrollEnd()"
 >
@@ -116,7 +118,7 @@
       name="OI"
       [width]="1.5"
       [marker]="markerNone"
-      [yAxisName]="'volumeAxis'"
+      [yAxisName]="'oiAxis'"
       [animation]="animationNone"
     ></e-series>
     }
