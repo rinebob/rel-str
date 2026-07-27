@@ -20,6 +20,7 @@ We need a viewer dashboard to request a historical options contract by OCC ID, i
 - **Contract length selector.** A dropdown allows selecting a target contract length (0DTE through LEAP). When a length is selected, the backend resolves the closest matching contract from the options chain by expiration proximity, falling back to the input contract ID if resolution fails. This enables comparing the same strike/type across different expiration windows.
 - **Shared contracts.** Options contract DTOs (`HistoricalOptionsContractV2Observation`, `PartnerHistoricalOptionsContractV2Response`, `GetHistoricalOptionsContractRequest`) and the OCC ID parser (`parseOccContractId`) live in `shared/options-contract-contracts.ts`, imported by both frontend and backend via the `@options-contract/contracts` path alias.
 - **Route.** `/rh-agent/option-chart`, lazy-loaded under the RH Agent feature.
+- **Contract navigation.** After a contract search, prev/next chevron buttons at the bottom-left of the chart allow cycling through search results without re-searching. A position counter (`3 / 25`) shows the current index. The store tracks `currentSearchIndex` and exposes `navigateContract(direction)` which loads the next/prev contract from the cached `searchResults` array. Search results are no longer cleared on contract selection, preserving the navigation list for the session.
 - **Header metadata.** Contract ID, symbol, type, strike, expiration, DTE, observation count, data quality flags (gaps, NaN IV).
 
 ## Considered Options

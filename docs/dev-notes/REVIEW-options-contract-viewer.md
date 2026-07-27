@@ -774,3 +774,272 @@ If `strike()` is `0`, `if (stk)` is falsy and the strike filter is omitted. A st
 | 2.3 (no subscription cleanup) | ⏳ No action | Consistent with existing `loadContract` pattern; root store is singleton |
 | P1-P4 (spec) | ✅ Met | — |
 | W1 (falsy zero strike) | ✅ Fixed | Changed `if (stk)` to `if (stk != null)` |
+
+---
+
+## Thermo-Nuclear Code Quality Review — Review 4
+
+### Review 4 — 2026-07-27 (Contract navigation: prev/next buttons)
+
+**Scope:** Uncommitted FE changes — contract navigation feature in `option-chart.component.ts/.html/.scss` and `options-contract-viewer.store.ts`
+**Reviewer:** Cascade (automated, Dr. John Reed persona)
+**Files changed:** 4 files, +100 / -7 lines
+
+**Summary:** The feature adds prev/next navigation buttons to cycle through cached search results without re-searching. The approach is sound — store tracks `currentSearchIndex`, component exposes computed guards, template renders a positioned nav bar. However, `navigateContract` duplicates the entire `loadContract` fetch+subscribe pipeline, introducing a maintainability risk.
+
+**Verdict: Changes requested.** 1 HIGH finding (duplicated fetch logic), 2 MEDIUM, 1 LOW.
+
+---
+
+#### 1. Prior Findings — Resolution Check
+
+**1.1 S10 (duplicated date formatting)** ✅ RESOLVED (in prior commit)
+
+The user extracted `formatUtcDate` helper in `rh-agent.utils.ts`. Both `formatExpWithDow` and `onAxisLabelRender` now use it. The duplication flagged in Review 3 S10/S2-5 is eliminated.
+
+**1.2 S11 (duplicated validation in store + service)** ✅ RESOLVED (in prior commit)
+
+Store validation was removed; service `throwError` fires synchronously on subscribe.
+
+**1.3 Thermo #4 (console.log in ngOnInit)** ✅ RESOLVED (in prior commit)
+
+Debug `console.log` removed by user.
+
+---
+
+#### 2. New Findings
+
+**2.1 [HIGH] Duplicated contract-fetch pipeline in `navigateContract`** *(Fowler: Duplicated Code)*
+
+`options-contract-viewer.store.ts:335-356` — `navigateContract` duplicates the entire `loadContract` fetch+subscribe flow:
+- Parse OCC ID
+- `patchState` with loading/contractData/underlyingBars
+- `getHistoricalOptionsContract$` subscribe
+- `patchState` with result + `fetchUnderlyingBars`
+- Error handling
+
+The only differences are:
+1. `navigateContract` doesn't pass `length` to the service call
+2. `navigateContract` sets `currentSearchIndex: next` (vs `loadContract` which computes `idx` via `findIndex`)
+3. `navigateContract` sets `occIdInput` before the call (vs `loadContract` which sets it in the `next` callback)
+
+This is the exact same Duplicated Code smell that was fixed in Round 2 (thermo #1, #3) by extracting `paddedDateRange` and `fetchUnderlyingBars`. The fix was applied to `loadContract`, `addPadDays`, and `resetPadDays`, but `navigateContract` was added without using the same pattern.
+
+**Remedy:** Refactor `navigateContract` to delegate to `loadContract` after setting `occIdInput` and `currentSearchIndex`. Since `loadContract` already computes `currentSearchIndex` via `findIndex` against `searchResults`, and `navigateContract` knows the target index, the simplest approach is:
+
+```ts
+navigateContract(direction: 1 | -1): void {
+  const results = store.searchResults();
+  const current = store.currentSearchIndex();
+  if (!results.length) return;
+  const next = current + direction;
+  if (next < 0 || next >= results.length) return;
+  const target = results[next];
+  patchState(store, { occIdInput: target.contractId });
+  store.loadContract(target.contractId);
+}
+```
+
+This works because `loadContract` already does `results.findIndex((c) => c.contractId === occId)` which will find `next` since `target.contractId === results[next].contractId`. The `length` parameter will be `undefined` (same as the current `navigateContract` which doesn't pass it).
+
+**Wait** — `loadContract` is defined in the same `withMethods` return object. Can `navigateContract` call `store.loadContract()`? In the prior attempt, this caused a TypeScript error: "Property 'loadContract' does not exist on type." The workaround was to inline the logic.
+
+**Alternative remedy:** Extract a private `loadContractInternal(occId, parsed, length, index)` function (like `fetchUnderlyingBars`) that both `loadContract` and `navigateContract` call. This avoids the TypeScript self-reference issue while eliminating the duplication.
+
+---
+
+**2.2 [MEDIUM] `navigateContract` does not pass `contractLength`** *(Fowler: Incomplete Abstraction)*
+
+`navigateContract` calls `getHistoricalOptionsContract$` without the `length` parameter:
+```ts
+optionsContractService.getHistoricalOptionsContract$(parsed.symbol, parsed.contractID).subscribe({
+```
+
+But `loadContract` passes `length`:
+```ts
+optionsContractService.getHistoricalOptionsContract$(parsed.symbol, parsed.contractID, length).subscribe({
+```
+
+If the user selected a contract length (e.g. "1M") and then navigates with prev/next, the length filter is silently dropped. The loaded contract will be the full lifetime series instead of the length-resolved one.
+
+**Remedy:** Pass `store.occIdInput()` or track the selected length in state. However, since `contractLength` is a component-level signal (not in the store), the store doesn't have access to it. Options:
+- (a) Move `contractLength` to store state (adds a state field for a UI concern)
+- (b) Accept the behavior — navigation loads the full contract, not the length-filtered one
+- (c) Add an optional `length` parameter to `navigateContract`
+
+**Assessment:** This may be intentional — when navigating, the user likely wants the full contract, not the length-resolved subset. But it should be documented. If not intentional, it's a bug.
+
+---
+
+**2.3 [MEDIUM] `clearSearch` no longer called on selection — search results persist indefinitely** *(Fowler: Mutable Data)*
+
+Removing `store.clearSearch()` from `onSelectContract` and `onContractSelected` means `searchResults` persists in the store until the next search or explicit clear. This is necessary for the nav feature to work, but has a side effect:
+
+- If the user searches for "QQQ calls @ 450", picks one, then manually types a different OCC ID and loads it, the search results from the previous search are still in the autocomplete dropdown.
+- If the user changes the symbol, `onSymbolChange` calls `loadContractIndex` but does NOT clear search results. The old results for the previous symbol will appear in the autocomplete.
+
+**Remedy:** Clear `searchResults` when the symbol changes. Add `store.clearSearch()` to `onSymbolChange` in the component, or clear in `loadContractIndex`.
+
+---
+
+**2.4 [LOW] Nav bar position may overlap Syncfusion legend** *(UX observation)*
+
+The `.contract-nav` is absolutely positioned at `bottom: 8px; left: 8px` of `.chart-content`. The Syncfusion legend is typically at the bottom of the chart. Depending on the legend position and number of series, the nav bar may overlap the legend.
+
+**Assessment:** The user requested "bottom-left, to the left of the legend if possible." The current position is bottom-left of the chart content container. If the legend is centered or right-aligned, there's no overlap. If the legend spans the full width, the nav bar will sit on top of it. The `z-index: 10` ensures the nav bar is clickable, but it may visually clash.
+
+**Status:** Needs visual confirmation. If overlap occurs, consider positioning relative to the legend or adding a semi-transparent background (which the current `surface-container` provides).
+
+---
+
+#### 3. Structural Assessment
+
+| Aspect | Assessment |
+|--------|------------|
+| Store state addition (`currentSearchIndex`) | ✅ Clean — single number, reset to -1 on search/clear |
+| Computed guards (`canGoPrev`/`canGoNext`) | ✅ Correct — check bounds + loading state |
+| Template signal bindings | ✅ All reads via signals — `store.currentSearchIndex()`, `store.searchResults()`, `canGoPrev()`, `canGoNext()` |
+| `track` on `@for` | N/A — no new `@for` loops |
+| Type safety | ✅ `direction: 1 \| -1` — literal union type |
+| `OnPush` compatibility | ✅ All state reads via signals |
+| SCSS pattern consistency | ✅ Uses `var(--mat-sys-*)` with fallbacks |
+| No `any` introduced | ✅ |
+| No method calls in template | ✅ — `canGoPrev()` and `canGoNext()` are computed signals, not methods |
+
+---
+
+#### 4. Approval Bar Assessment
+
+- **Structural regression?** Yes — `navigateContract` duplicates `loadContract` fetch pipeline (2.1)
+- **Missed simplification?** Yes — `navigateContract` should delegate to shared logic (2.1)
+- **Unjustified file-size explosion?** No — +100 lines across 4 files, proportional
+- **Spaghetti growth?** No — nav logic is self-contained
+- **Hacky abstraction?** No — `currentSearchIndex` is a clean state addition
+- **Architecture-boundary leak?** No
+- **Dead code?** No
+
+**Recommendation:** Address 2.1 (duplicated fetch pipeline) before merge. 2.2 and 2.3 need user confirmation on intended behavior. 2.4 needs visual check.
+
+---
+
+## Standards + Spec Review — Review 4
+
+### Review 4 — 2026-07-27 (Contract navigation)
+
+**Scope:** Uncommitted FE changes — contract navigation feature
+**Reviewer:** Cascade (automated)
+**Standards sources:** Fowler code smells baseline, `angular-developer.md` (ABSOLUTE RULE: no method calls in templates)
+**Spec source:** `docs/adr/ADR-002_options-contract-viewer.md` (updated with contract navigation decision)
+
+#### Standards
+
+##### Prior Findings Resolution
+
+| Prior Finding | Status |
+|---------------|--------|
+| S10 (duplicated date formatting) | ✅ Resolved — `formatUtcDate` helper extracted |
+| S11 (duplicated validation) | ✅ Resolved — store validation removed |
+| Thermo #4 (console.log) | ✅ Resolved — removed |
+| S5/Spec S5 (identity wrappers) | ✅ Resolved — `expiration`/`strike` direct assignment |
+
+##### New Findings
+
+**S12. [HIGH] Duplicated Code — `navigateContract` duplicates `loadContract` fetch pipeline** *(Fowler: Duplicated Code)*
+
+Same as thermo 2.1. The entire parse → patchState → subscribe → fetchUnderlying pattern is copy-pasted. This is the most significant finding.
+
+**Status:** Fix recommended — extract shared `loadContractInternal` helper.
+
+---
+
+**S13. [MEDIUM] Mutable Data — search results persist across symbol changes** *(Fowler: Mutable Data)*
+
+Same as thermo 2.3. `onSymbolChange` does not clear `searchResults`. Stale results from a previous symbol will appear in the autocomplete dropdown.
+
+**Status:** Fix recommended — add `store.clearSearch()` to `onSymbolChange`.
+
+---
+
+**S14. [PASS] No method calls in templates**
+
+`canGoPrev()` and `canGoNext()` are `computed()` signals, not methods. Calling them in the template as `canGoPrev()` is correct — computed signals are memoized and only recompute when dependencies change. ✅
+
+---
+
+**S15. [PASS] Signal-based reactivity**
+
+All new state (`currentSearchIndex`) is a signal. All new computeds (`canGoPrev`, `canGoNext`) derive from signals. Template bindings use `()` call syntax. ✅
+
+---
+
+**S16. [PASS] `direction: 1 | -1` literal union type**
+
+The `navigateContract` parameter uses a literal union instead of `number`, preventing invalid values. Aligns with the `angular-developer.md` guideline to prefer enums/interfaces over string unions for cross-file use, but since this type doesn't cross a file boundary, a literal union is acceptable. ✅
+
+---
+
+##### No New Hard Violations
+
+- ✅ No `any` introduced
+- ✅ No method calls in templates (computed signals used)
+- ✅ `OnPush` change detection maintained
+- ✅ No type mirroring
+- ✅ No hardcoded credentials
+
+#### Spec
+
+**Spec source:** `docs/adr/ADR-002_options-contract-viewer.md` (updated with contract navigation decision)
+
+##### Requirements Met
+
+**P1. Contract navigation via prev/next buttons** ✅
+
+ADR says: *"After a contract search, prev/next chevron buttons at the bottom-left of the chart allow cycling through search results without re-searching."*
+
+Implemented with `navigateContract(direction)` in the store, `canGoPrev`/`canGoNext` computeds in the component, and chevron buttons in the template. ✅
+
+**P2. Position counter** ✅
+
+ADR says: *"A position counter (`3 / 25`) shows the current index."*
+
+Template displays `{{ store.currentSearchIndex() + 1 }} / {{ store.searchResults().length }}`. ✅
+
+**P3. Search results preserved** ✅
+
+ADR says: *"Search results are no longer cleared on contract selection, preserving the navigation list for the session."*
+
+`clearSearch()` calls removed from `onSelectContract` and `onContractSelected`. ✅
+
+**P4. Store tracks `currentSearchIndex`** ✅
+
+ADR says: *"The store tracks `currentSearchIndex` and exposes `navigateContract(direction)`."*
+
+`currentSearchIndex: number` added to state interface, initialized to `-1`, updated by `loadContract` via `findIndex`, and by `navigateContract`. ✅
+
+##### Scope Creep
+
+No scope creep detected. All changes are within the contract navigation scope described in the ADR.
+
+##### Potentially Wrong
+
+**W1. `navigateContract` drops `contractLength` parameter** ⏳ NEEDS CONFIRMATION
+
+Same as thermo 2.2. When navigating via prev/next, the `length` parameter is not passed to `getHistoricalOptionsContract$`. If the user had selected a contract length, navigating will load the full contract instead of the length-resolved subset.
+
+**Question for user:** Is this intentional (navigation always loads full contract) or a bug (navigation should preserve the selected length)?
+
+---
+
+#### Summary
+
+| Axis | Findings | Worst Issue |
+|------|----------|-------------|
+| **Standards** | 4 prior findings resolved, 2 new (S12 HIGH duplicated code, S13 MEDIUM mutable data), 3 PASS | S12 — Duplicated fetch pipeline in `navigateContract` |
+| **Spec** | 4 requirements met, 0 scope creep, 1 needs confirmation (W1 length drop) | W1 — `contractLength` not passed on navigation |
+
+### Recommended Action Items (priority order)
+
+1. **Extract shared `loadContractInternal` helper** — eliminates S12/thermo 2.1 (duplicated fetch pipeline)
+2. **Clear search results on symbol change** — eliminates S13/thermo 2.3 (stale results across symbols)
+3. **Confirm `contractLength` behavior on navigation** — W1/thermo 2.2 (intentional or bug?)
+4. **Visual check nav bar vs legend overlap** — thermo 2.4 (may need position adjustment)
