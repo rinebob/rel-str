@@ -65,7 +65,7 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   readonly expiration = this.store.selectedExpiration;
   type = signal<'call' | 'put'>('call');
   readonly strike = this.store.selectedStrike;
-  contractLength = signal<string | null>(null);
+  readonly contractLength = this.store.contractLength;
 
   readonly lengthOptions: { value: string; label: string; group: string }[] = [
     { value: '0DTE', label: '0DTE', group: 'Ultra short' },
@@ -134,6 +134,7 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   onSymbolChange(value: string): void {
     this.symbol.set(value);
     this.occIdInput = '';
+    this.store.clearSearch();
     const sym = value.trim().toUpperCase();
     if (sym) this.store.loadContractIndex(sym);
   }
@@ -167,7 +168,7 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   onLoad(): void {
     const id = this.occIdInput.trim().toUpperCase();
     if (!id) return;
-    this.store.loadContract(id, this.contractLength());
+    this.store.loadContract(id, this.store.contractLength());
   }
 
   onKeyPress(event: KeyboardEvent): void {
@@ -195,7 +196,6 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     const id = contractId.trim().toUpperCase();
     if (!id) return;
     this.occIdInput = id;
-    this.store.clearSearch();
     this.onLoad();
   }
 
@@ -204,7 +204,26 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     const id = (event.option?.value as string)?.trim().toUpperCase();
     if (!id) return;
     this.occIdInput = id;
-    this.store.clearSearch();
     this.onLoad();
+  }
+
+  /** Whether the prev/next nav buttons can be used. */
+  readonly canGoPrev = computed(() => {
+    const idx = this.store.currentSearchIndex();
+    return idx > 0 && !this.store.loading();
+  });
+
+  readonly canGoNext = computed(() => {
+    const idx = this.store.currentSearchIndex();
+    const count = this.store.searchResults().length;
+    return idx >= 0 && idx < count - 1 && !this.store.loading();
+  });
+
+  onPrevContract(): void {
+    this.store.navigateContract(-1);
+  }
+
+  onNextContract(): void {
+    this.store.navigateContract(1);
   }
 }

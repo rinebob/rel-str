@@ -51,6 +51,8 @@ export interface OptionsContractViewerState {
   indexLoading: boolean;
   indexError: string | null;
   chartPadDays: number;
+  currentSearchIndex: number;
+  contractLength: string | null;
 }
 
 const initialState: OptionsContractViewerState = {
@@ -78,6 +80,8 @@ const initialState: OptionsContractViewerState = {
   indexLoading: false,
   indexError: null,
   chartPadDays: 0,
+  currentSearchIndex: -1,
+  contractLength: null,
 };
 
 // ---------------------------------------------------------------------------
@@ -270,25 +274,17 @@ export const OptionsContractViewerStore = signalStore(
       });
     }
 
-    return {
-    setOccIdInput(value: string): void {
-      patchState(store, { occIdInput: value });
-    },
-
-    loadContract(occId: string, length?: string | null): void {
+    /** Shared contract-loading pipeline used by loadContract and navigateContract. */
+    function loadContractInternal(occId: string, length: string | null | undefined, index: number): void {
       const parsed = OptionsContractService.parseOccId(occId);
       if (!parsed) {
         patchState(store, { error: 'Invalid OCC ID format', contractData: null, underlyingBars: [] });
         return;
       }
-
-      patchState(store, { loading: true, error: null, contractData: null, underlyingBars: [] });
-
+      patchState(store, { loading: true, error: null, contractData: null, underlyingBars: [], currentSearchIndex: index });
       optionsContractService.getHistoricalOptionsContract$(parsed.symbol, parsed.contractID, length).subscribe({
         next: (data) => {
           patchState(store, { loading: false, contractData: data, occIdInput: occId });
-
-          // Auto-fetch underlying bars for the contract's date range, extended by current padding
           const range = paddedDateRange(data.startDate, data.endDate, store.chartPadDays());
           fetchUnderlyingBars(data.symbol, range.from, range.to);
         },
@@ -296,6 +292,21 @@ export const OptionsContractViewerStore = signalStore(
           patchState(store, { loading: false, error: err?.message ?? 'Failed to load contract' });
         },
       });
+    }
+
+    return {
+    setOccIdInput(value: string): void {
+      patchState(store, { occIdInput: value });
+    },
+
+    setContractLength(value: string | null): void {
+      patchState(store, { contractLength: value });
+    },
+
+    loadContract(occId: string, length?: string | null): void {
+      const results = store.searchResults();
+      const idx = results.findIndex((c) => c.contractId === occId);
+      loadContractInternal(occId, length, idx);
     },
 
     toggleUnderlying(): void {
@@ -311,20 +322,31 @@ export const OptionsContractViewerStore = signalStore(
     },
 
     searchContracts(symbol: string, filters?: { expiration?: string; strike?: number; type?: 'C' | 'P' }): void {
-      patchState(store, { searchLoading: true, searchError: null, searchResults: [], searchedSymbol: String(symbol || '').trim().toUpperCase() });
+      patchState(store, { searchLoading: true, searchError: null, searchResults: [], searchedSymbol: String(symbol || '').trim().toUpperCase(), currentSearchIndex: -1 });
 
       optionsContractService.listContracts$(symbol, filters).subscribe({
         next: (data) => {
-          patchState(store, { searchLoading: false, searchResults: data.contracts ?? [], searchedSymbol: data.symbol ?? store.searchedSymbol() });
+          patchState(store, { searchLoading: false, searchResults: data.contracts ?? [], searchedSymbol: data.symbol ?? store.searchedSymbol(), currentSearchIndex: -1 });
         },
         error: (err: Error) => {
-          patchState(store, { searchLoading: false, searchError: err?.message ?? 'Failed to search contracts', searchResults: [] });
+          patchState(store, { searchLoading: false, searchError: err?.message ?? 'Failed to search contracts', searchResults: [], currentSearchIndex: -1 });
         },
       });
     },
 
     clearSearch(): void {
-      patchState(store, { searchLoading: false, searchError: null, searchResults: [], searchedSymbol: null });
+      patchState(store, { searchLoading: false, searchError: null, searchResults: [], searchedSymbol: null, currentSearchIndex: -1 });
+    },
+
+    navigateContract(direction: 1 | -1): void {
+      const results = store.searchResults();
+      const current = store.currentSearchIndex();
+      if (!results.length) return;
+      const next = current + direction;
+      if (next < 0 || next >= results.length) return;
+      const target = results[next];
+      patchState(store, { occIdInput: target.contractId });
+      loadContractInternal(target.contractId, store.contractLength(), next);
     },
 
     loadContractIndex(symbol: string): void {

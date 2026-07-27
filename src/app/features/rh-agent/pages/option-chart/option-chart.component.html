@@ -53,7 +53,7 @@
 
         <mat-form-field appearance="outline" class="panel-field">
           <mat-label>Length</mat-label>
-          <mat-select [ngModel]="contractLength()" (ngModelChange)="contractLength.set($event)">
+          <mat-select [ngModel]="contractLength()" (ngModelChange)="store.setContractLength($event)">
             @for (group of lengthGroups(); track group.name) {
             <mat-optgroup [label]="group.name">
               @for (opt of group.options; track opt.value) {
@@ -243,6 +243,30 @@
         [showVolumeOI]="store.showVolumeOI()"
         [padDays]="store.chartPadDays()"
       ></app-options-contract-chart>
+      }
+
+      @if (store.searchResults().length > 0) {
+      <div class="contract-nav">
+        <button
+          mat-icon-button
+          (click)="onPrevContract()"
+          [disabled]="!canGoPrev()"
+          matTooltip="Previous contract"
+        >
+          <mat-icon>chevron_left</mat-icon>
+        </button>
+        <span class="nav-position">
+          {{ store.currentSearchIndex() + 1 }} / {{ store.searchResults().length }}
+        </span>
+        <button
+          mat-icon-button
+          (click)="onNextContract()"
+          [disabled]="!canGoNext()"
+          matTooltip="Next contract"
+        >
+          <mat-icon>chevron_right</mat-icon>
+        </button>
+      </div>
       }
     </mat-sidenav-content>
   </mat-sidenav-container>
