@@ -54,6 +54,7 @@
         <mat-form-field appearance="outline" class="panel-field">
           <mat-label>Length</mat-label>
           <mat-select [ngModel]="contractLength()" (ngModelChange)="store.setContractLength($event)">
+            <mat-option [value]="null">All</mat-option>
             @for (group of lengthGroups(); track group.name) {
             <mat-optgroup [label]="group.name">
               @for (opt of group.options; track opt.value) {
@@ -65,30 +66,131 @@
         </mat-form-field>
       </div>
 
-      <!-- Contract Search + OCC ID Input -->
+      <!-- Contract Search + Catalog -->
       <div class="search-section">
+        <!-- Length-bucket filter buttons from SA summary -->
+        @if (lengthBucketButtons().length > 0) {
+        <div class="bucket-filters">
+          <button
+            mat-stroked-button
+            class="bucket-pill"
+            [class.active]="store.catalogFilters().contractLengthBucket === null"
+            (click)="onLengthBucketClick(null)"
+          >All</button>
+          @for (btn of lengthBucketButtons(); track btn.bucket) {
+          <button
+            mat-stroked-button
+            class="bucket-pill"
+            [class.active]="store.catalogFilters().contractLengthBucket === btn.bucket"
+            (click)="onLengthBucketClick(btn.bucket)"
+          >{{ btn.bucket }} ({{ btn.count }})</button>
+          }
+        </div>
+        }
+
+        <!-- Delta / IV / MinObs range filters (mutually exclusive) -->
+        <div class="range-filters">
+          <div class="range-row" [class.disabled]="ivFilterActive() || minObsFilterActive()"
+               [matTooltip]="(ivFilterActive() || minObsFilterActive()) ? 'Clear IV or min-obs filter to use this filter' : ''"
+               matTooltipPosition="above">
+            <label>Delta</label>
+            <input type="number" placeholder="min" [ngModel]="store.catalogFilters().deltaGte" (ngModelChange)="store.setCatalogFilter('deltaGte', $event)"
+              [disabled]="ivFilterActive() || minObsFilterActive()" step="0.05" />
+            <span>–</span>
+            <input type="number" placeholder="max" [ngModel]="store.catalogFilters().deltaLte" (ngModelChange)="store.setCatalogFilter('deltaLte', $event)"
+              [disabled]="ivFilterActive() || minObsFilterActive()" step="0.05" />
+          </div>
+          <div class="range-row" [class.disabled]="deltaFilterActive() || minObsFilterActive()"
+               [matTooltip]="(deltaFilterActive() || minObsFilterActive()) ? 'Clear delta or min-obs filter to use this filter' : ''"
+               matTooltipPosition="above">
+            <label>IV</label>
+            <input type="number" placeholder="min" [ngModel]="store.catalogFilters().ivGte" (ngModelChange)="store.setCatalogFilter('ivGte', $event)"
+              [disabled]="deltaFilterActive() || minObsFilterActive()" step="0.01" />
+            <span>–</span>
+            <input type="number" placeholder="max" [ngModel]="store.catalogFilters().ivLte" (ngModelChange)="store.setCatalogFilter('ivLte', $event)"
+              [disabled]="deltaFilterActive() || minObsFilterActive()" step="0.01" />
+          </div>
+          <div class="range-row single" [class.disabled]="deltaFilterActive() || ivFilterActive()"
+               [matTooltip]="(deltaFilterActive() || ivFilterActive()) ? 'Clear delta or IV filter to use this filter' : ''"
+               matTooltipPosition="above">
+            <label>Min Obs</label>
+            <input type="number" placeholder="min" [ngModel]="store.catalogFilters().minObservationCount" (ngModelChange)="store.setCatalogFilter('minObservationCount', $event)"
+              [disabled]="deltaFilterActive() || ivFilterActive()" step="1" />
+          </div>
+        </div>
+
         <button
           mat-stroked-button
           class="panel-full"
-          (click)="onSearchContracts()"
+          (click)="onQueryCatalog()"
           [disabled]="!canSearch()"
         >
           <mat-icon>search</mat-icon>
-          Search Contracts
+          Search Catalog
         </button>
 
-        @if (store.searchLoading()) {
+        @if (store.catalogLoading()) {
         <div class="search-loading">
           <mat-progress-spinner mode="indeterminate" diameter="24"></mat-progress-spinner>
           <span>Searching...</span>
         </div>
         }
 
-        @if (store.searchError()) {
+        @if (store.catalogError()) {
         <div class="search-error">
           <mat-chip-set>
-            <mat-chip color="warn" highlighted>{{ store.searchError() }}</mat-chip>
+            <mat-chip color="warn" highlighted>{{ store.catalogError() }}</mat-chip>
           </mat-chip-set>
+        </div>
+        }
+
+        <!-- Catalog results table -->
+        @if (catalogRows().length > 0) {
+        <div class="catalog-table-wrapper">
+          <table class="catalog-table">
+            <thead>
+              <tr>
+                <th class="col-type">T</th>
+                <th class="col-strike clickable" (click)="onSortChange('strike')">Strike</th>
+                <th class="col-exp clickable" (click)="onSortChange('expiration')">Exp</th>
+                <th class="col-length">Len</th>
+                <th class="col-obs clickable" (click)="onSortChange('observationCount')">Obs</th>
+                <th class="col-cov">Cov</th>
+                <th class="col-delta clickable" (click)="onSortChange('delta')">Δ</th>
+                <th class="col-iv">IV</th>
+                <th class="col-vol">Vol</th>
+                <th class="col-oi">OI</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of catalogRows(); track row.contractId) {
+              <tr (click)="onSelectCatalogContract(row)" [class.selected]="row.contractId === occIdInput.trim().toUpperCase()">
+                <td>
+                  <span class="contract-type-badge" [class.call]="row.type === 'call'" [class.put]="row.type === 'put'">
+                    {{ row.type === 'call' ? 'C' : 'P' }}
+                  </span>
+                </td>
+                <td class="num">${{ row.strike }}</td>
+                <td class="exp">{{ row.expiration }}</td>
+                <td class="length">{{ row.contractLengthBucket }}</td>
+                <td class="num">{{ row.observationCount }}</td>
+                <td class="num">{{ row.coverage != null ? (row.coverage * 100 | number:'1.0-0') + '%' : '—' }}</td>
+                <td class="num">{{ row.latestDelta != null ? (row.latestDelta | number:'1.2-2') : '—' }}</td>
+                <td class="num">{{ row.latestIV != null ? (row.latestIV | number:'1.3-3') : '—' }}</td>
+                <td class="num">{{ row.latestVolume != null ? row.latestVolume : '—' }}</td>
+                <td class="num">{{ row.latestOI != null ? row.latestOI : '—' }}</td>
+              </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <div class="catalog-pagination">
+          <span class="page-info">Showing {{ catalogRows().length }} of {{ store.catalogCount() }}</span>
+          @if (store.catalogPageToken()) {
+          <button mat-stroked-button (click)="onLoadMore()" [disabled]="store.catalogLoading()">
+            Load More
+          </button>
+          }
         </div>
         }
 
@@ -100,19 +202,7 @@
             (keyup)="onKeyPress($event)"
             placeholder="e.g. QQQ240719C00450000"
             [disabled]="store.loading()"
-            [matAutocomplete]="contractAuto"
           />
-          <mat-autocomplete #contractAuto="matAutocomplete" (optionSelected)="onContractSelected($event)">
-            @for (contract of store.searchResults(); track contract.contractId) {
-            <mat-option [value]="contract.contractId">
-              <span class="contract-type-badge" [class.call]="contract.type === 'C'" [class.put]="contract.type === 'P'">
-                {{ contract.type === 'C' ? 'C' : 'P' }}
-              </span>
-              <span class="contract-strike">${{ contract.strike }}</span>
-              <span class="contract-exp">{{ contract.expiration }}</span>
-            </mat-option>
-            }
-          </mat-autocomplete>
         </mat-form-field>
 
         <button
@@ -128,38 +218,6 @@
 
       @if (store.contractData(); as data) {
       <div class="metadata-section">
-        <div class="panel-title">Details</div>
-        <div class="metadata-grid">
-          <div class="meta-item">
-            <span class="meta-label">Symbol</span>
-            <span class="meta-value">{{ data.symbol }}</span>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">Type</span>
-            <span class="meta-value" [class.call]="data.type === 'call'" [class.put]="data.type === 'put'">
-              {{ data.type | uppercase }}
-            </span>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">Strike</span>
-            <span class="meta-value">${{ data.strike }}</span>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">Expiration</span>
-            <span class="meta-value">{{ data.expiration }}</span>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">DTE</span>
-            <span class="meta-value" [class.expired]="store.dte() !== null && store.dte()! < 0">
-              {{ store.dte() }}
-            </span>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">Observations</span>
-            <span class="meta-value">{{ store.observationCount() }}</span>
-          </div>
-        </div>
-
         <!-- Data Quality Flags -->
         <div class="quality-flags">
           <span class="quality-label">Quality</span>
@@ -218,6 +276,23 @@
         <mat-icon>{{ controlPanelOpen ? 'chevron_left' : 'chevron_right' }}</mat-icon>
       </button>
 
+      @if (store.contractData()) {
+      <div class="contract-header-bar">
+        <span class="ch-id">{{ store.contractData()!.contractID }}</span>
+        <span class="ch-sep">|</span>
+        <span class="ch-type" [class.call]="store.contractData()!.type === 'call'" [class.put]="store.contractData()!.type === 'put'">
+          {{ store.contractData()!.type === 'call' ? 'CALL' : 'PUT' }}
+        </span>
+        <span class="ch-strike">${{ store.contractData()!.strike }}</span>
+        <span class="ch-sep">|</span>
+        <span class="ch-exp">{{ store.contractData()!.expiration }}</span>
+        <span class="ch-sep">|</span>
+        <span class="ch-length">{{ contractLength() ? lengthLabel() : '—' }}</span>
+        <span class="ch-sep">|</span>
+        <span class="ch-obs">{{ store.observationCount() }} obs</span>
+      </div>
+      }
+
       @if (store.loading()) {
       <div class="loading-section">
         <mat-progress-spinner mode="indeterminate" diameter="40"></mat-progress-spinner>
@@ -245,7 +320,7 @@
       ></app-options-contract-chart>
       }
 
-      @if (store.searchResults().length > 0) {
+      @if (store.catalogResults().length > 0) {
       <div class="contract-nav">
         <button
           mat-icon-button
@@ -256,7 +331,7 @@
           <mat-icon>chevron_left</mat-icon>
         </button>
         <span class="nav-position">
-          {{ store.currentSearchIndex() + 1 }} / {{ store.searchResults().length }}
+          {{ store.currentSearchIndex() + 1 }} / {{ store.catalogResults().length }}
         </span>
         <button
           mat-icon-button

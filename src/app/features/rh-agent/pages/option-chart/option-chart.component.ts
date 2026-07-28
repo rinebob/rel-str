@@ -19,13 +19,20 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatSelectModule } from '@angular/material/select';
-import { MatAutocompleteModule } from '@angular/material/autocomplete';
-import { MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
 
 import { OptionsContractViewerStore } from '../../stores/options-contract-viewer.store';
 import { OptionsContractChartComponent } from '../../components/options-contract-chart/options-contract-chart.component';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { formatUtcDate } from '../../utils/rh-agent.utils';
+import {
+  groupLengthBuckets,
+  getLengthLabel,
+  toCatalogRow,
+  type CatalogRow,
+  type LengthGroup,
+} from '../../utils/contract-length.utils';
+import type { ContractCatalogEntry } from '@options-contract/contracts';
+import type { CatalogSortBy } from '../../stores/contract-catalog-feature';
 
 @Component({
   selector: 'app-option-chart',
@@ -44,7 +51,6 @@ import { formatUtcDate } from '../../utils/rh-agent.utils';
     MatTooltipModule,
     MatButtonToggleModule,
     MatSelectModule,
-    MatAutocompleteModule,
     OptionsContractChartComponent,
   ],
   templateUrl: './option-chart.component.html',
@@ -67,24 +73,6 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   readonly strike = this.store.selectedStrike;
   readonly contractLength = this.store.contractLength;
 
-  readonly lengthOptions: { value: string; label: string; group: string }[] = [
-    { value: '0DTE', label: '0DTE', group: 'Ultra short' },
-    { value: '1D', label: '1 day', group: 'Ultra short' },
-    { value: '2D', label: '2 day', group: 'Ultra short' },
-    { value: '3D', label: '3 day', group: 'Ultra short' },
-    { value: '5D', label: '5 day', group: 'Ultra short' },
-    { value: '1W', label: '1 week', group: 'Weekly' },
-    { value: '2W', label: '2 week', group: 'Weekly' },
-    { value: '3W', label: '3 week', group: 'Weekly' },
-    { value: '1M', label: '1 mo', group: 'Monthly' },
-    { value: '2M', label: '2 mo', group: 'Monthly' },
-    { value: '3M', label: '3 mo', group: 'Monthly' },
-    { value: '6M', label: '6 mo', group: 'Monthly' },
-    { value: '9M', label: '9 mo', group: 'Monthly' },
-    { value: '12M', label: '12 mo / LEAP', group: 'LEAPS' },
-    { value: '2Y', label: '2 yr', group: 'LEAPS' },
-    { value: '3Y', label: '3 yr', group: 'LEAPS' },
-  ];
 
   /** Build OCC ID from builder fields. */
   readonly builtOccId = computed(() => {
@@ -100,10 +88,39 @@ export class OptionChartComponent implements OnInit, OnDestroy {
 
   /** Whether the search button should be enabled. */
   readonly canSearch = computed(() => {
-    return !this.store.searchLoading()
-      && this.symbol().trim().length > 0
-      && (!!this.expiration() || this.strike() != null);
+    return !this.store.catalogLoading()
+      && this.symbol().trim().length > 0;
   });
+
+  /** Length-bucket filter buttons from summary (only buckets with count > 0). */
+  readonly lengthBucketButtons = computed(() => {
+    const summary = this.store.catalogSummary();
+    if (!summary?.lengthBuckets) return [];
+    return Object.entries(summary.lengthBuckets)
+      .filter(([_, count]) => count > 0)
+      .map(([bucket, count]) => ({ bucket, count }))
+      .sort((a, b) => a.bucket.localeCompare(b.bucket));
+  });
+
+  /** Parsed catalog results with numeric latest values for display. */
+  readonly catalogRows = computed<CatalogRow[]>(() =>
+    this.store.catalogResults().map(toCatalogRow),
+  );
+
+  /** Whether delta range filter is active (disables IV + minObs filters). */
+  readonly deltaFilterActive = computed(() => {
+    const f = this.store.catalogFilters();
+    return f.deltaGte != null || f.deltaLte != null;
+  });
+
+  /** Whether IV range filter is active (disables delta + minObs filters). */
+  readonly ivFilterActive = computed(() => {
+    const f = this.store.catalogFilters();
+    return f.ivGte != null || f.ivLte != null;
+  });
+
+  /** Whether minObs filter is active (disables delta + IV filters). */
+  readonly minObsFilterActive = computed(() => this.store.catalogFilters().minObservationCount != null);
 
   /** Expiration options with day-of-week labels, e.g. "2026-01-15 (Thu)". */
   readonly expirationOptions = computed(() =>
@@ -130,35 +147,48 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     if (id) this.occIdInput = id;
   }
 
-  /** Handle symbol change — clear dependent fields and fetch expirations/strikes. */
+  /** Handle symbol change — clear dependent fields and fetch expirations/strikes + catalog summary. */
   onSymbolChange(value: string): void {
     this.symbol.set(value);
     this.occIdInput = '';
-    this.store.clearSearch();
+    this.store.clearCatalog();
+    this.store.clearCatalogFilters();
+    this.store.setCatalogBuilder({ symbol: value });
     const sym = value.trim().toUpperCase();
-    if (sym) this.store.loadContractIndex(sym);
+    if (sym) {
+      this.store.loadContractIndex(sym);
+      this.store.loadCatalogSummary(sym);
+    }
   }
 
   /** Label for the selected contract length. */
   readonly lengthLabel = computed(() => {
     const length = this.contractLength();
-    return this.lengthOptions.find((o) => o.value === length)?.label ?? (length ?? '');
+    return length ? getLengthLabel(length) : '';
   });
 
-  /** Length options grouped for the dropdown. */
-  readonly lengthGroups = computed(() => {
-    const groups = new Map<string, { value: string; label: string }[]>();
-    for (const opt of this.lengthOptions) {
-      if (!groups.has(opt.group)) groups.set(opt.group, []);
-      groups.get(opt.group)!.push({ value: opt.value, label: opt.label });
+  /** Length options grouped for the dropdown. Uses catalog summary when available. */
+  readonly lengthGroups = computed<LengthGroup[]>(() => {
+    const summary = this.store.catalogSummary();
+    if (summary?.lengthBuckets) {
+      const buckets = Object.entries(summary.lengthBuckets)
+        .filter(([_, count]) => count > 0)
+        .map(([bucket]) => bucket);
+      if (buckets.length > 0) {
+        return groupLengthBuckets(buckets);
+      }
     }
-    return Array.from(groups.entries()).map(([name, options]) => ({ name, options }));
+    return [];
   });
 
   ngOnInit(): void {
     this.uiStateService.setFullscreen(true);
     const sym = this.symbol().trim().toUpperCase();
-    if (sym) this.store.loadContractIndex(sym);
+    this.store.setCatalogBuilder({ symbol: sym, type: this.type() === 'call' ? 'C' : 'P' });
+    if (sym) {
+      this.store.loadContractIndex(sym);
+      this.store.loadCatalogSummary(sym);
+    }
   }
 
   ngOnDestroy(): void {
@@ -177,34 +207,45 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** Search for available contracts using the builder fields as filters. */
-  onSearchContracts(): void {
-    const sym = (this.symbol() || '').trim().toUpperCase();
-    const exp = this.expiration();
-    const stk = this.strike();
-    const typ = this.type() === 'call' ? 'C' : 'P';
-
-    const filters: { expiration?: string; strike?: number; type?: 'C' | 'P' } = { type: typ };
-    if (exp) filters.expiration = exp;
-    if (stk != null) filters.strike = stk;
-
-    this.store.searchContracts(sym, filters);
+  /** Search for available contracts using the catalog endpoint with builder + catalog filters. */
+  onQueryCatalog(): void {
+    this.store.setCatalogBuilder({
+      symbol: this.symbol(),
+      type: this.type() === 'call' ? 'C' : 'P',
+    });
+    this.store.queryCatalog();
   }
 
-  /** Select a contract from search results and load it. */
-  onSelectContract(contractId: string): void {
-    const id = contractId.trim().toUpperCase();
+  /** Select a contract from catalog results and load it. */
+  onSelectCatalogContract(entry: ContractCatalogEntry): void {
+    const id = entry.contractId.trim().toUpperCase();
     if (!id) return;
     this.occIdInput = id;
     this.onLoad();
   }
 
-  /** Handle mat-autocomplete option selection — auto-load the selected contract. */
-  onContractSelected(event: MatAutocompleteSelectedEvent): void {
-    const id = (event.option?.value as string)?.trim().toUpperCase();
-    if (!id) return;
-    this.occIdInput = id;
-    this.onLoad();
+  /** Toggle length-bucket filter and re-query. */
+  onLengthBucketClick(bucket: string | null): void {
+    this.store.setCatalogFilter('contractLengthBucket', bucket);
+    this.onQueryCatalog();
+  }
+
+  /** Change sort field, toggling order if same field. */
+  onSortChange(field: CatalogSortBy): void {
+    const filters = this.store.catalogFilters();
+    if (filters.sortBy === field) {
+      this.store.setCatalogFilters({
+        sortOrder: filters.sortOrder === 'asc' ? 'desc' : 'asc',
+      });
+    } else {
+      this.store.setCatalogFilters({ sortBy: field, sortOrder: 'asc' });
+    }
+    this.onQueryCatalog();
+  }
+
+  /** Load more catalog results (pagination). */
+  onLoadMore(): void {
+    this.store.loadMoreCatalog();
   }
 
   /** Whether the prev/next nav buttons can be used. */
@@ -215,15 +256,15 @@ export class OptionChartComponent implements OnInit, OnDestroy {
 
   readonly canGoNext = computed(() => {
     const idx = this.store.currentSearchIndex();
-    const count = this.store.searchResults().length;
+    const count = this.store.catalogResults().length;
     return idx >= 0 && idx < count - 1 && !this.store.loading();
   });
 
   onPrevContract(): void {
-    this.store.navigateContract(-1);
+    this.store.navigateCatalogContract(-1);
   }
 
   onNextContract(): void {
-    this.store.navigateContract(1);
+    this.store.navigateCatalogContract(1);
   }
 }
