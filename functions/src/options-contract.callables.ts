@@ -3,7 +3,7 @@ import * as logger from 'firebase-functions/logger';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 
-import { callPartnerHistoricalOptionsContractV2, callPartnerListContractsV2 } from './options-contract-proxy';
+import { callPartnerHistoricalOptionsContractV2, callPartnerListContractsV2, callPartnerContractCatalogV2 } from './options-contract-proxy';
 import { RH_AGENT_ALLOWED_ORIGINS } from './rh-agent-cloud-function/rh-agent-cors';
 import type {
   GetHistoricalOptionsContractRequest,
@@ -14,6 +14,9 @@ import type {
   OptionsContractIndexResponse,
   ExpirationIndexEntry,
   StrikeIndexEntry,
+  QueryContractCatalogRequest,
+  ContractCatalogResponse,
+  ContractSummaryResponse,
 } from '@options-contract/contracts';
 
 const SA_PROJECT_ID = process.env.SA_PROJECT_ID || 'alpha-vantage-proxy-api';
@@ -206,6 +209,93 @@ export const getOptionsContractIndex = onCall(
     } catch (e: unknown) {
       logger.error('getOptionsContractIndex_error', {
         symbol: sym,
+        message: e instanceof Error ? e.message : String(e),
+        stack: e instanceof Error ? e.stack : undefined,
+        error: e,
+      });
+      throw e;
+    }
+  },
+);
+
+/**
+ * queryContractCatalog — Query the Savant Partner Contract Catalog V2 endpoint
+ * for metadata-rich contract listings with filtering, sorting, and pagination.
+ *
+ * Supports two modes:
+ * - Summary mode (summary=true): returns length-bucket histogram for the symbol
+ * - Catalog mode (default): returns paginated contract entries with latest greeks
+ *
+ * SA enforces at most one range field dimension per request. If the user sends
+ * conflicting range filters (e.g. deltaGte + ivGte), SA returns 400 and the
+ * error surfaces to the caller.
+ */
+export const queryContractCatalog = onCall(
+  { region: 'us-central1', cors: RH_AGENT_ALLOWED_ORIGINS },
+  async (req): Promise<ContractCatalogResponse | ContractSummaryResponse> => {
+    const data = (req.data || {}) as QueryContractCatalogRequest;
+    const sym = String(data.symbol || '').trim().toUpperCase();
+
+    if (!sym) {
+      throw new Error('symbol is required');
+    }
+
+    const params: QueryContractCatalogRequest = {
+      symbol: sym,
+      summary: data.summary,
+      expiration: data.expiration,
+      contractLengthBucket: data.contractLengthBucket,
+      type: data.type,
+      strike: data.strike,
+      strikeGte: data.strikeGte,
+      strikeLte: data.strikeLte,
+      deltaGte: data.deltaGte,
+      deltaLte: data.deltaLte,
+      ivGte: data.ivGte,
+      ivLte: data.ivLte,
+      minObservationCount: data.minObservationCount,
+      sortBy: data.sortBy,
+      sortOrder: data.sortOrder,
+      pageSize: data.pageSize,
+      pageToken: data.pageToken,
+    };
+
+    logger.info('queryContractCatalog', {
+      symbol: sym,
+      summary: params.summary ?? false,
+      expiration: params.expiration ?? null,
+      contractLengthBucket: params.contractLengthBucket ?? null,
+      type: params.type ?? null,
+      sortBy: params.sortBy ?? null,
+      sortOrder: params.sortOrder ?? null,
+      pageSize: params.pageSize ?? null,
+      hasPageToken: !!params.pageToken,
+    });
+
+    try {
+      const result = await callPartnerContractCatalogV2(params);
+
+      if (params.summary) {
+        const summary = result as ContractSummaryResponse;
+        logger.info('queryContractCatalog_summary_response', {
+          symbol: summary.symbol,
+          totalContracts: summary.totalContracts,
+          expirationCount: summary.expirationCount,
+        });
+      } else {
+        const catalog = result as ContractCatalogResponse;
+        logger.info('queryContractCatalog_response', {
+          symbol: catalog.symbol,
+          contractCount: catalog.count,
+          hasMore: !!catalog.nextPageToken,
+        });
+      }
+
+      return result;
+    } catch (e: unknown) {
+      logger.error('queryContractCatalog_error', {
+        symbol: sym,
+        summary: params.summary ?? false,
         message: e instanceof Error ? e.message : String(e),
         stack: e instanceof Error ? e.stack : undefined,
         error: e,

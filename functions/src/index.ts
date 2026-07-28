@@ -124,7 +124,7 @@ export {
 export { rhAgentOverviewSyncSymbol } from './rh-agent-cloud-function/rh-agent-overview-sync-worker';
 
 // Options contract viewer callables
-export { getHistoricalOptionsContract, listOptionsContracts, getOptionsContractIndex } from './options-contract.callables';
+export { getHistoricalOptionsContract, listOptionsContracts, getOptionsContractIndex, queryContractCatalog } from './options-contract.callables';
 
 // Symbol-data nightly sync — single source of truth for OHLCV bars
 export { symbolDataSyncNightly, symbolDataSyncAdminHttp, symbolDataSyncSymbol } from './symbol-data-sync/symbol-data-sync';

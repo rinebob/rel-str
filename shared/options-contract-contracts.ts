@@ -134,3 +134,75 @@ export interface OptionsContractIndexResponse {
 export interface GetOptionsContractIndexRequest {
   symbol: string;
 }
+
+// ==========================
+// Contract Catalog (partnerContractCatalogV2)
+// ==========================
+
+/** Latest snapshot of greeks/liquidity from the most recent observation. */
+export interface ContractLatestSnapshot {
+  mark?: string;
+  volume?: string;
+  openInterest?: string;
+  iv?: string;
+  delta?: string;
+  gamma?: string;
+  theta?: string;
+  vega?: string;
+  rho?: string;
+}
+
+/** One contract entry in the catalog response. */
+export interface ContractCatalogEntry {
+  contractId: string;
+  expiration: string;
+  strike: number;
+  type: 'call' | 'put';
+  firstObserved: string;
+  lastObserved: string;
+  observationCount: number;
+  expectedObservationCount: number;
+  contractLengthDays: number | null;
+  contractLengthBucket: string;
+  latest?: ContractLatestSnapshot;
+}
+
+/** Response shape for catalog mode. */
+export interface ContractCatalogResponse {
+  ok: boolean;
+  symbol: string;
+  contracts: ContractCatalogEntry[];
+  count: number;
+  nextPageToken?: string;
+}
+
+/** Response shape for summary mode. */
+export interface ContractSummaryResponse {
+  ok: boolean;
+  symbol: string;
+  totalContracts: number;
+  expirationCount: number;
+  lengthBuckets: Record<string, number>;
+  lastUpdated: string;
+}
+
+/** Request shape for the queryContractCatalog callable. */
+export interface QueryContractCatalogRequest {
+  symbol: string;
+  summary?: boolean;
+  expiration?: string;
+  contractLengthBucket?: string;
+  type?: 'C' | 'P';
+  strike?: number;
+  strikeGte?: number;
+  strikeLte?: number;
+  deltaGte?: number;
+  deltaLte?: number;
+  ivGte?: number;
+  ivLte?: number;
+  minObservationCount?: number;
+  sortBy?: 'expiration' | 'strike' | 'contractLengthDays' | 'observationCount' | 'delta';
+  sortOrder?: 'asc' | 'desc';
+  pageSize?: number;
+  pageToken?: string;
+}

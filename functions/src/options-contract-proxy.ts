@@ -1,6 +1,7 @@
 import * as logger from "firebase-functions/logger";
-import { PartnerEndpointPath, PartnerHistoricalOptionsResponse, PartnerHistoricalOptionsContractV2Response, PartnerListContractsV2Response } from './types/partner';
+import { PartnerEndpointPath, PartnerHistoricalOptionsResponse, PartnerHistoricalOptionsContractV2Response, PartnerListContractsV2Response, ContractCatalogResponse, ContractSummaryResponse } from './types/partner';
 import { parseOccContractId } from '@options-contract/contracts';
+import type { QueryContractCatalogRequest } from '@options-contract/contracts';
 import { PARTNER_AUDIENCE, CALLER_SA, PartnerHttpError, generateIdTokenWithEmail, fetchWithRetry } from './partner-infrastructure';
 
 // ==========================
@@ -27,6 +28,13 @@ const PARTNER_LIST_CONTRACTS_V2_URL =
 
 const PARTNER_LIST_CONTRACTS_V2_AUDIENCE =
   process.env.PARTNER_LIST_CONTRACTS_V2_AUDIENCE || PARTNER_LIST_CONTRACTS_V2_URL;
+
+const PARTNER_CONTRACT_CATALOG_V2_URL =
+  process.env.PARTNER_CONTRACT_CATALOG_V2_URL ||
+  `${PARTNER_AUDIENCE.replace(/\/$/, '')}/${PartnerEndpointPath.CONTRACT_CATALOG_V2}`;
+
+const PARTNER_CONTRACT_CATALOG_V2_AUDIENCE =
+  process.env.PARTNER_CONTRACT_CATALOG_V2_AUDIENCE || PARTNER_CONTRACT_CATALOG_V2_URL;
 
 // ==========================
 // Deprecated helpers (scheduled for removal once partnerListContractsV2 is broken in)
@@ -420,6 +428,113 @@ export async function callPartnerListContractsV2(params: {
     symbol: parsed.symbol,
     contractCount: parsed.count,
   });
+
+  return parsed;
+}
+
+/**
+ * Call Savant Partner Contract Catalog V2 endpoint to query contract metadata
+ * with filtering, sorting, and pagination. Supports summary mode (length-bucket
+ * histogram) and catalog mode (paginated contract entries with latest greeks).
+ */
+export async function callPartnerContractCatalogV2(
+  params: QueryContractCatalogRequest,
+): Promise<ContractCatalogResponse | ContractSummaryResponse> {
+  const audience = PARTNER_CONTRACT_CATALOG_V2_AUDIENCE;
+  const idToken = await generateIdTokenWithEmail(audience, CALLER_SA);
+
+  const search = new URLSearchParams();
+  search.set('symbol', params.symbol);
+  if (params.summary) search.set('summary', 'true');
+  if (params.expiration) search.set('expiration', params.expiration);
+  if (params.contractLengthBucket) search.set('contractLengthBucket', params.contractLengthBucket);
+  if (params.type) search.set('type', params.type);
+  if (params.strike != null) search.set('strike', String(params.strike));
+  if (params.strikeGte != null) search.set('strikeGte', String(params.strikeGte));
+  if (params.strikeLte != null) search.set('strikeLte', String(params.strikeLte));
+  if (params.deltaGte != null) search.set('deltaGte', String(params.deltaGte));
+  if (params.deltaLte != null) search.set('deltaLte', String(params.deltaLte));
+  if (params.ivGte != null) search.set('ivGte', String(params.ivGte));
+  if (params.ivLte != null) search.set('ivLte', String(params.ivLte));
+  if (params.minObservationCount != null) search.set('minObservationCount', String(params.minObservationCount));
+  if (params.sortBy) search.set('sortBy', params.sortBy);
+  if (params.sortOrder) search.set('sortOrder', params.sortOrder);
+  if (params.pageSize != null) search.set('pageSize', String(params.pageSize));
+  if (params.pageToken) search.set('pageToken', params.pageToken);
+
+  const url = `${PARTNER_CONTRACT_CATALOG_V2_URL}?${search.toString()}`;
+
+  logger.info('partnerContractCatalogV2_request', {
+    symbol: params.symbol,
+    summary: params.summary ?? false,
+    expiration: params.expiration ?? null,
+    contractLengthBucket: params.contractLengthBucket ?? null,
+    type: params.type ?? null,
+    strike: params.strike ?? null,
+    strikeGte: params.strikeGte ?? null,
+    strikeLte: params.strikeLte ?? null,
+    deltaGte: params.deltaGte ?? null,
+    deltaLte: params.deltaLte ?? null,
+    ivGte: params.ivGte ?? null,
+    ivLte: params.ivLte ?? null,
+    minObservationCount: params.minObservationCount ?? null,
+    sortBy: params.sortBy ?? null,
+    sortOrder: params.sortOrder ?? null,
+    pageSize: params.pageSize ?? null,
+    hasPageToken: !!params.pageToken,
+    url,
+    audience,
+  });
+
+  const resp = await fetchWithRetry(url, { Authorization: `Bearer ${idToken}` });
+  const text = await resp.text();
+
+  if (!resp.ok) {
+    logger.error('partnerContractCatalogV2_upstream_error', {
+      symbol: params.symbol,
+      summary: params.summary ?? false,
+      status: resp.status,
+      url,
+      audience,
+      callerSa: CALLER_SA,
+      snippet: typeof text === 'string' ? text.slice(0, 500) : undefined,
+    });
+    throw new PartnerHttpError(
+      `partnerContractCatalogV2 upstream ${resp.status}: ${text}`,
+      resp.status,
+    );
+  }
+
+  let parsed: ContractCatalogResponse | ContractSummaryResponse;
+  try {
+    parsed = JSON.parse(text) as ContractCatalogResponse | ContractSummaryResponse;
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    logger.error('partnerContractCatalogV2_parse_error', {
+      symbol: params.symbol,
+      summary: params.summary ?? false,
+      message,
+      snippet: text.slice(0, 500),
+    });
+    throw e;
+  }
+
+  if (params.summary) {
+    const summary = parsed as ContractSummaryResponse;
+    logger.info('partnerContractCatalogV2_summary_response', {
+      symbol: summary.symbol,
+      totalContracts: summary.totalContracts,
+      expirationCount: summary.expirationCount,
+      bucketCount: Object.keys(summary.lengthBuckets ?? {}).length,
+    });
+  } else {
+    const catalog = parsed as ContractCatalogResponse;
+    logger.info('partnerContractCatalogV2_catalog_response', {
+      symbol: catalog.symbol,
+      contractCount: catalog.count,
+      hasMore: !!catalog.nextPageToken,
+    });
+  }
 
   return parsed;
 }
