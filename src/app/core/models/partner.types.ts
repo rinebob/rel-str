@@ -65,4 +65,9 @@ export type {
   ListContractsV2Contract,
   PartnerListContractsV2Response,
   GetListContractsRequest,
+  ContractLatestSnapshot,
+  ContractCatalogEntry,
+  ContractCatalogResponse,
+  ContractSummaryResponse,
+  QueryContractCatalogRequest,
 } from '@options-contract/contracts';

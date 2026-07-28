@@ -203,6 +203,8 @@ export enum CallableName {
   LIST_OPTIONS_CONTRACTS = 'listOptionsContracts',
   /** Options contract viewer: fetch expiration/strike index from SA */
   GET_OPTIONS_CONTRACT_INDEX = 'getOptionsContractIndex',
+  /** Options contract viewer: query contract catalog with metadata, filters, pagination */
+  QUERY_CONTRACT_CATALOG = 'queryContractCatalog',
 }
 
 /** Top-level Firestore collections used by the FE. */

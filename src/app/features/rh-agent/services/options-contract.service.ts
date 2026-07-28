@@ -10,6 +10,9 @@ import type {
   PartnerListContractsV2Response,
   GetOptionsContractIndexRequest,
   OptionsContractIndexResponse,
+  QueryContractCatalogRequest,
+  ContractCatalogResponse,
+  ContractSummaryResponse,
 } from '@options-contract/contracts';
 import { parseOccContractId } from '@options-contract/contracts';
 
@@ -108,6 +111,38 @@ export class OptionsContractService {
       return callable({ symbol: sym });
     }))).pipe(
       map((res) => res.data as OptionsContractIndexResponse),
+    );
+  }
+
+  /** Fetch contract catalog summary (length-bucket histogram) for a symbol. */
+  getContractCatalogSummary$(symbol: string): Observable<ContractSummaryResponse> {
+    const sym = String(symbol || '').trim().toUpperCase();
+    if (!sym) return throwError(() => new Error('symbol is required'));
+
+    return defer(() => from(this.inCtx(() => {
+      const callable = httpsCallable<QueryContractCatalogRequest, ContractSummaryResponse>(
+        this.functions,
+        CallableName.QUERY_CONTRACT_CATALOG,
+      );
+      return callable({ symbol: sym, summary: true });
+    }))).pipe(
+      map((res) => res.data as ContractSummaryResponse),
+    );
+  }
+
+  /** Query contract catalog with filters, sort, and pagination. */
+  queryContractCatalog$(params: QueryContractCatalogRequest): Observable<ContractCatalogResponse> {
+    const sym = String(params.symbol || '').trim().toUpperCase();
+    if (!sym) return throwError(() => new Error('symbol is required'));
+
+    return defer(() => from(this.inCtx(() => {
+      const callable = httpsCallable<QueryContractCatalogRequest, ContractCatalogResponse>(
+        this.functions,
+        CallableName.QUERY_CONTRACT_CATALOG,
+      );
+      return callable({ ...params, symbol: sym });
+    }))).pipe(
+      map((res) => res.data as ContractCatalogResponse),
     );
   }
 }
