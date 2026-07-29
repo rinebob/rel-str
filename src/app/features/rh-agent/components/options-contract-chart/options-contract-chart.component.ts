@@ -126,7 +126,7 @@ function computeUnderlyingMinMax(
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class OptionsContractChartComponent {
-  observations = input.required<ParsedObservation[]>();
+  observations = input<ParsedObservation[]>([]);
   xLabels = input.required<string[]>();
   underlyingBars = input<OHLCDatum[]>([]);
   showUnderlying = input(true);
@@ -141,8 +141,31 @@ export class OptionsContractChartComponent {
   readonly axisRanges = computed(() => {
     const range = this.visibleRange();
     const obs = this.observations();
+    const labels = this.xLabels();
     const underlying = this.underlyingData();
-    if (!range || !obs.length) return null;
+    if (!range || (!obs.length && !labels.length)) return null;
+    if (obs.length === 0) {
+      const undRange = computeRangeMinMax(range, labels.length, (i) => {
+        const date = labels[i];
+        if (!date) return null;
+        let result: number | null = null;
+        for (const pt of underlying) {
+          if (pt.date === date && Number.isFinite(pt.close)) {
+            result = result == null ? pt.close : Math.min(result, pt.close);
+          }
+        }
+        return result;
+      });
+      return {
+        mark: undRange,
+        underlying: undRange,
+        iv: { min: 0, max: 1 },
+        delta: { min: 0, max: 1 },
+        gamma: { min: 0, max: 1 },
+        volume: { min: 0, max: 1 },
+        openInterest: { min: 0, max: 1 },
+      };
+    }
     return {
       mark: computeMinMax(obs, range, ['mark']),
       underlying: computeUnderlyingMinMax(obs, range, underlying),
@@ -154,12 +177,44 @@ export class OptionsContractChartComponent {
     };
   });
 
+  /** Visible chart extents: date range and underlying price range. */
+  readonly visibleExtents = computed(() => {
+    const range = this.visibleRange();
+    const obs = this.observations();
+    const labels = this.xLabels();
+    const underlying = this.underlyingData();
+    if (!range || !labels.length) return null;
+
+    const startIdx = Math.max(0, Math.floor(range.min));
+    const endIdx = Math.min(labels.length - 1, Math.ceil(range.max));
+    const startDate = labels[startIdx] ?? null;
+    const endDate = labels[endIdx] ?? null;
+
+    const undRange = obs.length > 0
+      ? computeUnderlyingMinMax(obs, range, underlying)
+      : computeRangeMinMax(range, labels.length, (i) => {
+          const date = labels[i];
+          if (!date) return null;
+          let result: number | null = null;
+          for (const pt of underlying) {
+            if (pt.date === date && Number.isFinite(pt.close)) {
+              result = result == null ? pt.close : Math.min(result, pt.close);
+            }
+          }
+          return result;
+        });
+    return { startDate, endDate, priceLow: undRange.min, priceHigh: undRange.max };
+  });
+
   // Reset visible range when the dataset or padding changes.
   readonly initVisibleRange = effect(() => {
     const obs = this.observations();
+    const labels = this.xLabels();
     const pad = this.padDays();
     if (obs.length > 0) {
       this.visibleRange.set({ min: -pad, max: obs.length - 1 + pad });
+    } else if (labels.length > 0) {
+      this.visibleRange.set({ min: 0, max: labels.length - 1 });
     } else {
       this.visibleRange.set(null);
     }
@@ -221,7 +276,7 @@ export class OptionsContractChartComponent {
 
   // Axis configurations
   readonly primaryXAxis = computed(() => {
-    const count = this.observations().length;
+    const count = Math.max(this.observations().length, this.xLabels().length);
     const interval = count > 0 ? Math.max(1, Math.floor(count / 6)) : 1;
     return {
       valueType: 'Category' as const,
@@ -232,16 +287,16 @@ export class OptionsContractChartComponent {
     };
   });
 
-  readonly primaryYAxis = {
+  readonly primaryYAxis = computed(() => ({
     labelFormat: '${value}',
     lineStyle: { color: '#e0e0e0' },
     majorTickLines: { width: 0 },
     labelStyle: { size: '11px' },
     rangePadding: 'None' as const,
-    rowIndex: 3, // top pane: price
-  };
+    rowIndex: this.observations().length > 0 ? 3 : 0,
+  }));
 
-  readonly underlyingAxis = {
+  readonly underlyingAxis = computed(() => ({
     name: 'underlyingAxis',
     opposedPosition: true,
     labelFormat: '${value}',
@@ -249,8 +304,8 @@ export class OptionsContractChartComponent {
     majorTickLines: { width: 0 },
     labelStyle: { size: '11px', color: '#ff9800' },
     rangePadding: 'None' as const,
-    rowIndex: 3, // top pane: price
-  };
+    rowIndex: this.observations().length > 0 ? 3 : 0,
+  }));
 
   readonly ivAxis = {
     name: 'ivAxis',
@@ -304,14 +359,20 @@ export class OptionsContractChartComponent {
     rowIndex: 0, // bottom pane: Volume/OI (opposed)
   };
 
-  readonly axes = [this.underlyingAxis, this.ivAxis, this.greeksAxis, this.gammaAxis, this.volumeAxis, this.oiAxis];
+  readonly axes = computed(() => [this.underlyingAxis(), this.ivAxis, this.greeksAxis, this.gammaAxis, this.volumeAxis, this.oiAxis]);
 
-  readonly rows = [
-    { height: '15%' }, // bottom: Volume/OI
-    { height: '15%' }, //        Greeks
-    { height: '15%' }, //        IV
-    { height: '55%' }, // top:    Price
-  ];
+  /** Row layout — single pane when underlying-only, 4 panes when observations exist. */
+  readonly rows = computed(() => {
+    if (this.observations().length === 0) {
+      return [{ height: '100%' }];
+    }
+    return [
+      { height: '15%' }, // bottom: Volume/OI
+      { height: '15%' }, //        Greeks
+      { height: '15%' }, //        IV
+      { height: '55%' }, // top:    Price
+    ];
+  });
 
   readonly palettes = [
     this.markColor, this.underlyingColor,

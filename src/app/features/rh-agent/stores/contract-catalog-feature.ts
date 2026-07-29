@@ -10,6 +10,9 @@ import type {
 
 export type CatalogSortBy = 'expiration' | 'strike' | 'contractLengthDays' | 'observationCount' | 'delta';
 
+/** Contract type filter for catalog queries. `null` = both (no type filter). */
+export type ContractType = 'C' | 'P' | null;
+
 export interface CatalogFilters {
   contractLengthBucket: string | null;
   deltaGte: number | null;
@@ -17,6 +20,10 @@ export interface CatalogFilters {
   ivGte: number | null;
   ivLte: number | null;
   minObservationCount: number | null;
+  strikeGte: number | null;
+  strikeLte: number | null;
+  expirationGte: string | null;
+  expirationLte: string | null;
   sortBy: CatalogSortBy;
   sortOrder: 'asc' | 'desc';
 }
@@ -32,7 +39,7 @@ export interface ContractCatalogState {
   catalogSummaryLoading: boolean;
   catalogFilters: CatalogFilters;
   catalogSymbol: string;
-  catalogType: 'C' | 'P';
+  catalogType: ContractType;
 }
 
 export const initialCatalogState: ContractCatalogState = {
@@ -51,6 +58,10 @@ export const initialCatalogState: ContractCatalogState = {
     ivGte: null,
     ivLte: null,
     minObservationCount: null,
+    strikeGte: null,
+    strikeLte: null,
+    expirationGte: null,
+    expirationLte: null,
     sortBy: 'strike',
     sortOrder: 'asc',
   },
@@ -62,16 +73,22 @@ function buildCatalogRequest(
   symbol: string,
   expiration: string | null,
   strike: number | null,
-  type: 'C' | 'P',
+  type: ContractType,
   filters: CatalogFilters,
   pageSize: number,
   pageToken?: string | null,
 ): QueryContractCatalogRequest {
+  const hasStrikeRange = filters.strikeGte != null || filters.strikeLte != null;
+  const hasExpRange = filters.expirationGte != null || filters.expirationLte != null;
   return {
     symbol,
-    expiration: expiration ?? undefined,
-    strike: strike ?? undefined,
-    type,
+    expiration: hasExpRange ? undefined : (expiration ?? undefined),
+    expirationGte: filters.expirationGte ?? undefined,
+    expirationLte: filters.expirationLte ?? undefined,
+    strike: hasStrikeRange ? undefined : (strike ?? undefined),
+    strikeGte: filters.strikeGte ?? undefined,
+    strikeLte: filters.strikeLte ?? undefined,
+    type: type ?? undefined,
     contractLengthBucket: filters.contractLengthBucket ?? undefined,
     deltaGte: filters.deltaGte ?? undefined,
     deltaLte: filters.deltaLte ?? undefined,
@@ -105,7 +122,7 @@ export function withCatalogMethods() {
         });
       },
 
-      setCatalogBuilder(partial: { symbol?: string; type?: 'C' | 'P' }): void {
+      setCatalogBuilder(partial: { symbol?: string; type?: ContractType }): void {
         const updates: Partial<ContractCatalogState> = {};
         if (partial.symbol !== undefined) updates.catalogSymbol = partial.symbol;
         if (partial.type !== undefined) updates.catalogType = partial.type;

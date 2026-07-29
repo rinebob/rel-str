@@ -142,8 +142,14 @@ export const OptionsContractViewerStore = signalStore(
   })),
 
   withComputed((state) => ({
-    /** Category labels for the X-axis (date strings), derived from observations. */
-    xLabels: computed((): string[] => state.observations().map((obs) => obs.date)),
+    /** Category labels for the X-axis — from observations, or falling back to underlying bar dates. */
+    xLabels: computed((): string[] => {
+      const obs = state.observations();
+      if (obs.length > 0) return obs.map((o) => o.date);
+      return state.underlyingBars()
+        .filter((b) => b.date)
+        .map((b) => b.date!);
+    }),
   })),
 
   withCatalogMethods(),
@@ -185,6 +191,24 @@ export const OptionsContractViewerStore = signalStore(
 
     setContractLength(value: string | null): void {
       patchState(store, { contractLength: value });
+    },
+
+    /** Fetch underlying bars for a symbol without needing a loaded contract. */
+    loadUnderlyingBars(symbol: string): void {
+      const sym = String(symbol || '').trim().toUpperCase();
+      if (!sym) return;
+      const to = new Date().toISOString().slice(0, 10);
+      const from = new Date(Date.now() - 730 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      fetchUnderlyingBars(sym, from, to);
+    },
+
+    /** Fetch full underlying history for a symbol (10 years). */
+    loadUnderlyingBarsFullHistory(symbol: string): void {
+      const sym = String(symbol || '').trim().toUpperCase();
+      if (!sym) return;
+      const to = new Date().toISOString().slice(0, 10);
+      const from = new Date(Date.now() - 3650 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      fetchUnderlyingBars(sym, from, to);
     },
 
     loadContract(occId: string, length?: string | null): void {

@@ -22,15 +22,27 @@
           />
         </mat-form-field>
 
-        <mat-form-field appearance="outline" class="panel-field">
-          <mat-label>Expiration</mat-label>
-          <mat-select [ngModel]="expiration()" (ngModelChange)="store.setExpiration($event); onBuildChange()" [disabled]="store.indexLoading()">
-            <mat-option [value]="null">All</mat-option>
-            @for (opt of expirationOptions(); track opt.value) {
-            <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+        <div class="exp-strike-row">
+          <mat-form-field appearance="outline" class="panel-field">
+            <mat-label>Exp</mat-label>
+            <mat-select [ngModel]="expiration()" (ngModelChange)="store.setExpiration($event); onBuildChange()" [disabled]="store.indexLoading()" panelClass="dense-select-panel">
+              <mat-option [value]="null">All</mat-option>
+              @for (opt of expirationOptions(); track opt.value) {
+              <mat-option [value]="opt.value">{{ opt.label }} <span class="opt-count">{{ opt.count }}</span></mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="panel-field">
+            <mat-label>Strike</mat-label>
+            <mat-select [ngModel]="strike()" (ngModelChange)="store.setStrike($event); onBuildChange()" [disabled]="store.indexLoading()" panelClass="dense-select-panel">
+              <mat-option [value]="null">All</mat-option>
+              @for (stk of store.filteredStrikes(); track stk) {
+              <mat-option [value]="stk">{{ stk }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        </div>
 
         <mat-button-toggle-group
           [ngModel]="type()"
@@ -39,21 +51,16 @@
         >
           <mat-button-toggle value="call">Call</mat-button-toggle>
           <mat-button-toggle value="put">Put</mat-button-toggle>
+          <mat-button-toggle value="both">Both</mat-button-toggle>
         </mat-button-toggle-group>
 
         <mat-form-field appearance="outline" class="panel-field">
-          <mat-label>Strike</mat-label>
-          <mat-select [ngModel]="strike()" (ngModelChange)="store.setStrike($event); onBuildChange()" [disabled]="store.indexLoading()">
-            <mat-option [value]="null">All</mat-option>
-            @for (stk of store.filteredStrikes(); track stk) {
-            <mat-option [value]="stk">{{ stk }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="panel-field">
           <mat-label>Length</mat-label>
-          <mat-select [ngModel]="contractLength()" (ngModelChange)="store.setContractLength($event)">
+          <mat-select
+            [ngModel]="contractLength()"
+            (ngModelChange)="onLengthChange($event)"
+            panelClass="dense-select-panel"
+          >
             <mat-option [value]="null">All</mat-option>
             @for (group of lengthGroups(); track group.name) {
             <mat-optgroup [label]="group.name">
@@ -68,57 +75,6 @@
 
       <!-- Contract Search + Catalog -->
       <div class="search-section">
-        <!-- Length-bucket filter buttons from SA summary -->
-        @if (lengthBucketButtons().length > 0) {
-        <div class="bucket-filters">
-          <button
-            mat-stroked-button
-            class="bucket-pill"
-            [class.active]="store.catalogFilters().contractLengthBucket === null"
-            (click)="onLengthBucketClick(null)"
-          >All</button>
-          @for (btn of lengthBucketButtons(); track btn.bucket) {
-          <button
-            mat-stroked-button
-            class="bucket-pill"
-            [class.active]="store.catalogFilters().contractLengthBucket === btn.bucket"
-            (click)="onLengthBucketClick(btn.bucket)"
-          >{{ btn.bucket }} ({{ btn.count }})</button>
-          }
-        </div>
-        }
-
-        <!-- Delta / IV / MinObs range filters (mutually exclusive) -->
-        <div class="range-filters">
-          <div class="range-row" [class.disabled]="ivFilterActive() || minObsFilterActive()"
-               [matTooltip]="(ivFilterActive() || minObsFilterActive()) ? 'Clear IV or min-obs filter to use this filter' : ''"
-               matTooltipPosition="above">
-            <label>Delta</label>
-            <input type="number" placeholder="min" [ngModel]="store.catalogFilters().deltaGte" (ngModelChange)="store.setCatalogFilter('deltaGte', $event)"
-              [disabled]="ivFilterActive() || minObsFilterActive()" step="0.05" />
-            <span>–</span>
-            <input type="number" placeholder="max" [ngModel]="store.catalogFilters().deltaLte" (ngModelChange)="store.setCatalogFilter('deltaLte', $event)"
-              [disabled]="ivFilterActive() || minObsFilterActive()" step="0.05" />
-          </div>
-          <div class="range-row" [class.disabled]="deltaFilterActive() || minObsFilterActive()"
-               [matTooltip]="(deltaFilterActive() || minObsFilterActive()) ? 'Clear delta or min-obs filter to use this filter' : ''"
-               matTooltipPosition="above">
-            <label>IV</label>
-            <input type="number" placeholder="min" [ngModel]="store.catalogFilters().ivGte" (ngModelChange)="store.setCatalogFilter('ivGte', $event)"
-              [disabled]="deltaFilterActive() || minObsFilterActive()" step="0.01" />
-            <span>–</span>
-            <input type="number" placeholder="max" [ngModel]="store.catalogFilters().ivLte" (ngModelChange)="store.setCatalogFilter('ivLte', $event)"
-              [disabled]="deltaFilterActive() || minObsFilterActive()" step="0.01" />
-          </div>
-          <div class="range-row single" [class.disabled]="deltaFilterActive() || ivFilterActive()"
-               [matTooltip]="(deltaFilterActive() || ivFilterActive()) ? 'Clear delta or IV filter to use this filter' : ''"
-               matTooltipPosition="above">
-            <label>Min Obs</label>
-            <input type="number" placeholder="min" [ngModel]="store.catalogFilters().minObservationCount" (ngModelChange)="store.setCatalogFilter('minObservationCount', $event)"
-              [disabled]="deltaFilterActive() || ivFilterActive()" step="1" />
-          </div>
-        </div>
-
         <button
           mat-stroked-button
           class="panel-full"
@@ -129,7 +85,7 @@
           Search Catalog
         </button>
 
-        @if (store.catalogLoading()) {
+        @if (store.catalogLoading() && catalogRows().length === 0) {
         <div class="search-loading">
           <mat-progress-spinner mode="indeterminate" diameter="24"></mat-progress-spinner>
           <span>Searching...</span>
@@ -144,26 +100,82 @@
         </div>
         }
 
+        <!-- Strike range filter -->
+        @if (catalogRows().length > 0) {
+        <div class="strike-range-row">
+          <input
+            type="number"
+            class="strike-input"
+            placeholder="Min"
+            [value]="strikeMin() ?? ''"
+            (input)="strikeMin.set($any($event.target).value ? +$any($event.target).value : null)"
+          />
+          <span class="strike-dash">–</span>
+          <input
+            type="number"
+            class="strike-input"
+            placeholder="Max"
+            [value]="strikeMax() ?? ''"
+            (input)="strikeMax.set($any($event.target).value ? +$any($event.target).value : null)"
+          />
+          @if (strikeMin() != null || strikeMax() != null) {
+          <button mat-icon-button class="strike-clear" (click)="strikeMin.set(null); strikeMax.set(null)">
+            <mat-icon>close</mat-icon>
+          </button>
+          }
+        </div>
+        }
+
         <!-- Catalog results table -->
         @if (catalogRows().length > 0) {
         <div class="catalog-table-wrapper">
           <table class="catalog-table">
             <thead>
               <tr>
-                <th class="col-type">T</th>
-                <th class="col-strike clickable" (click)="onSortChange('strike')">Strike</th>
-                <th class="col-exp clickable" (click)="onSortChange('expiration')">Exp</th>
-                <th class="col-length">Len</th>
-                <th class="col-obs clickable" (click)="onSortChange('observationCount')">Obs</th>
+                <th class="col-type clickable" (click)="onColumnSort('type')">
+                  T
+                  @if (getSortInfo('type'); as s) {
+                  <span class="sort-indicator">{{ s.priority }}{{ s.direction === 'asc' ? '\u2191' : '\u2193' }}</span>
+                  }
+                </th>
+                <th class="col-strike clickable" (click)="onColumnSort('strike')">
+                  Strike
+                  @if (getSortInfo('strike'); as s) {
+                  <span class="sort-indicator">{{ s.priority }}{{ s.direction === 'asc' ? '\u2191' : '\u2193' }}</span>
+                  }
+                </th>
+                <th class="col-exp clickable" (click)="onColumnSort('expiration')">
+                  Exp
+                  @if (getSortInfo('expiration'); as s) {
+                  <span class="sort-indicator">{{ s.priority }}{{ s.direction === 'asc' ? '\u2191' : '\u2193' }}</span>
+                  }
+                </th>
+                <th class="col-length clickable" (click)="onColumnSort('contractLengthDays')">
+                  Len
+                  @if (getSortInfo('contractLengthDays'); as s) {
+                  <span class="sort-indicator">{{ s.priority }}{{ s.direction === 'asc' ? '\u2191' : '\u2193' }}</span>
+                  }
+                </th>
+                <th class="col-obs clickable" (click)="onColumnSort('observationCount')">
+                  Obs
+                  @if (getSortInfo('observationCount'); as s) {
+                  <span class="sort-indicator">{{ s.priority }}{{ s.direction === 'asc' ? '\u2191' : '\u2193' }}</span>
+                  }
+                </th>
                 <th class="col-cov">Cov</th>
-                <th class="col-delta clickable" (click)="onSortChange('delta')">Δ</th>
+                <th class="col-delta clickable" (click)="onColumnSort('delta')">
+                  Δ
+                  @if (getSortInfo('delta'); as s) {
+                  <span class="sort-indicator">{{ s.priority }}{{ s.direction === 'asc' ? '\u2191' : '\u2193' }}</span>
+                  }
+                </th>
                 <th class="col-iv">IV</th>
                 <th class="col-vol">Vol</th>
                 <th class="col-oi">OI</th>
               </tr>
             </thead>
             <tbody>
-              @for (row of catalogRows(); track row.contractId) {
+              @for (row of displayedRows(); track row.contractId) {
               <tr (click)="onSelectCatalogContract(row)" [class.selected]="row.contractId === occIdInput.trim().toUpperCase()">
                 <td>
                   <span class="contract-type-badge" [class.call]="row.type === 'call'" [class.put]="row.type === 'put'">
@@ -183,14 +195,18 @@
               }
             </tbody>
           </table>
-        </div>
         <div class="catalog-pagination">
-          <span class="page-info">Showing {{ catalogRows().length }} of {{ store.catalogCount() }}</span>
+          <span class="page-info">{{ displayedRows().length }} shown{{ store.catalogPageToken() ? '+' : '' }} / {{ catalogRows().length }} loaded{{ store.catalogCount() !== catalogRows().length ? ' of ' + store.catalogCount() : '' }}</span>
           @if (store.catalogPageToken()) {
           <button mat-stroked-button (click)="onLoadMore()" [disabled]="store.catalogLoading()">
+            @if (store.catalogLoading()) {
+            <mat-progress-spinner mode="indeterminate" diameter="16" class="load-more-spinner"></mat-progress-spinner>
+            } @else {
             Load More
+            }
           </button>
           }
+        </div>
         </div>
         }
 
@@ -276,22 +292,41 @@
         <mat-icon>{{ controlPanelOpen ? 'chevron_left' : 'chevron_right' }}</mat-icon>
       </button>
 
-      @if (store.contractData()) {
       <div class="contract-header-bar">
-        <span class="ch-id">{{ store.contractData()!.contractID }}</span>
+        @if (store.contractData(); as data) {
+        <span class="ch-id">{{ data.contractID }}</span>
         <span class="ch-sep">|</span>
-        <span class="ch-type" [class.call]="store.contractData()!.type === 'call'" [class.put]="store.contractData()!.type === 'put'">
-          {{ store.contractData()!.type === 'call' ? 'CALL' : 'PUT' }}
+        <span class="ch-type" [class.call]="data.type === 'call'" [class.put]="data.type === 'put'">
+          {{ data.type === 'call' ? 'CALL' : 'PUT' }}
         </span>
-        <span class="ch-strike">${{ store.contractData()!.strike }}</span>
+        <span class="ch-strike">${{ data.strike }}</span>
         <span class="ch-sep">|</span>
-        <span class="ch-exp">{{ store.contractData()!.expiration }}</span>
+        <span class="ch-exp">{{ data.expiration }}</span>
         <span class="ch-sep">|</span>
         <span class="ch-length">{{ contractLength() ? lengthLabel() : '—' }}</span>
         <span class="ch-sep">|</span>
         <span class="ch-obs">{{ store.observationCount() }} obs</span>
+        } @else {
+        <span class="ch-id">{{ symbol() }}</span>
+        <span class="ch-sep">|</span>
+        <span class="ch-type">UNDERLYING</span>
+        }
+        <button
+          mat-stroked-button
+          class="header-btn"
+          (click)="chartFilterActive() ? onClearChartFilter() : onFilterToChart()"
+        >
+          {{ chartFilterActive() ? 'Clear Filter' : 'Filter to Chart' }}
+        </button>
+        <button
+          mat-stroked-button
+          class="header-btn"
+          (click)="store.loadUnderlyingBarsFullHistory(symbol())"
+          [disabled]="store.underlyingLoading()"
+        >
+          Full History
+        </button>
       </div>
-      }
 
       @if (store.loading()) {
       <div class="loading-section">
@@ -308,7 +343,7 @@
       </div>
       }
 
-      @if (store.contractData()) {
+      @if (store.contractData() || store.underlyingBars().length > 0) {
       <app-options-contract-chart
         [observations]="store.observations()"
         [xLabels]="store.xLabels()"

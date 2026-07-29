@@ -5,7 +5,7 @@
  * historical time-series, and plot it on a dedicated chart with underlying
  * price overlay, Greeks, and volume/OI panes.
  */
-import { Component, inject, computed, signal, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, computed, signal, viewChild, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -32,7 +32,9 @@ import {
   type LengthGroup,
 } from '../../utils/contract-length.utils';
 import type { ContractCatalogEntry } from '@options-contract/contracts';
-import type { CatalogSortBy } from '../../stores/contract-catalog-feature';
+
+type SortField = 'type' | 'strike' | 'expiration' | 'contractLengthDays' | 'observationCount' | 'delta';
+interface SortLevel { field: SortField; direction: 'asc' | 'desc'; }
 
 @Component({
   selector: 'app-option-chart',
@@ -60,6 +62,7 @@ import type { CatalogSortBy } from '../../stores/contract-catalog-feature';
 export class OptionChartComponent implements OnInit, OnDestroy {
   readonly store = inject(OptionsContractViewerStore);
   readonly uiStateService = inject(UiStateService);
+  readonly chartRef = viewChild(OptionsContractChartComponent);
 
   occIdInput = '';
 
@@ -69,7 +72,7 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   // Builder fields (signals so computed/derived state reacts)
   symbol = signal('QQQ');
   readonly expiration = this.store.selectedExpiration;
-  type = signal<'call' | 'put'>('call');
+  type = signal<'call' | 'put' | 'both'>('call');
   readonly strike = this.store.selectedStrike;
   readonly contractLength = this.store.contractLength;
 
@@ -81,6 +84,7 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     const stk = this.strike();
     if (!sym || !exp || stk == null) return '';
     const { yy, mm, dd } = this.parseExpirationParts(exp);
+    if (this.type() === 'both') return '';
     const cp = this.type() === 'call' ? 'C' : 'P';
     const strikeStr = String(Math.round(stk * 1000)).padStart(8, '0');
     return `${sym}${yy.slice(2)}${mm}${dd}${cp}${strikeStr}`;
@@ -92,42 +96,85 @@ export class OptionChartComponent implements OnInit, OnDestroy {
       && this.symbol().trim().length > 0;
   });
 
-  /** Length-bucket filter buttons from summary (only buckets with count > 0). */
-  readonly lengthBucketButtons = computed(() => {
-    const summary = this.store.catalogSummary();
-    if (!summary?.lengthBuckets) return [];
-    return Object.entries(summary.lengthBuckets)
-      .filter(([_, count]) => count > 0)
-      .map(([bucket, count]) => ({ bucket, count }))
-      .sort((a, b) => a.bucket.localeCompare(b.bucket));
-  });
-
   /** Parsed catalog results with numeric latest values for display. */
   readonly catalogRows = computed<CatalogRow[]>(() =>
     this.store.catalogResults().map(toCatalogRow),
   );
 
-  /** Whether delta range filter is active (disables IV + minObs filters). */
-  readonly deltaFilterActive = computed(() => {
-    const f = this.store.catalogFilters();
-    return f.deltaGte != null || f.deltaLte != null;
+  /** Multi-column sort state — order of array = sort priority. */
+  sortLevels = signal<SortLevel[]>([]);
+
+  /** Catalog rows after applying client-side multi-column sort. */
+  readonly sortedCatalogRows = computed<CatalogRow[]>(() => {
+    const rows = this.catalogRows();
+    const levels = this.sortLevels();
+    if (levels.length === 0) return rows;
+    return [...rows].sort((a, b) => {
+      for (const { field, direction } of levels) {
+        const cmp = compareByField(a, b, field);
+        if (cmp !== 0) return direction === 'asc' ? cmp : -cmp;
+      }
+      return 0;
+    });
   });
 
-  /** Whether IV range filter is active (disables delta + minObs filters). */
-  readonly ivFilterActive = computed(() => {
-    const f = this.store.catalogFilters();
-    return f.ivGte != null || f.ivLte != null;
+  /** Sort indicator for a column: { priority, direction } or null. */
+  getSortInfo(field: SortField): { priority: number; direction: 'asc' | 'desc' } | null {
+    const idx = this.sortLevels().findIndex((l) => l.field === field);
+    if (idx === -1) return null;
+    return { priority: idx + 1, direction: this.sortLevels()[idx].direction };
+  }
+
+  /** Click-to-add, cycle-to-remove sort. */
+  onColumnSort(field: SortField): void {
+    const levels = [...this.sortLevels()];
+    const idx = levels.findIndex((l) => l.field === field);
+    if (idx === -1) {
+      levels.push({ field, direction: 'asc' });
+    } else if (levels[idx].direction === 'asc') {
+      levels[idx] = { field, direction: 'desc' };
+    } else {
+      levels.splice(idx, 1);
+    }
+    this.sortLevels.set(levels);
+  }
+
+  /** Client-side strike range filter. */
+  strikeMin = signal<number | null>(null);
+  strikeMax = signal<number | null>(null);
+
+  /** Client-side expiration date range filter (from chart extents). */
+  expMin = signal<string | null>(null);
+  expMax = signal<string | null>(null);
+
+  /** Sorted rows filtered by strike range and expiration date range for display. */
+  readonly displayedRows = computed<CatalogRow[]>(() => {
+    const rows = this.sortedCatalogRows();
+    const min = this.strikeMin();
+    const max = this.strikeMax();
+    const expMin = this.expMin();
+    const expMax = this.expMax();
+    if (min == null && max == null && !expMin && !expMax) return rows;
+    return rows.filter((r) => {
+      if (min != null && r.strike < min) return false;
+      if (max != null && r.strike > max) return false;
+      if (expMin && r.expiration < expMin) return false;
+      if (expMax && r.expiration > expMax) return false;
+      return true;
+    });
   });
 
-  /** Whether minObs filter is active (disables delta + IV filters). */
-  readonly minObsFilterActive = computed(() => this.store.catalogFilters().minObservationCount != null);
-
-  /** Expiration options with day-of-week labels, e.g. "2026-01-15 (Thu)". */
+  /** Expiration options with day-of-week labels and contract counts, e.g. "2026-01-15 (Thu) · 42". */
   readonly expirationOptions = computed(() =>
-    this.store.filteredExpirations().map((exp) => ({
-      value: exp,
-      label: this.formatExpWithDow(exp),
-    })),
+    this.store.filteredExpirations().map((exp) => {
+      const strikes = this.store.expirationToStrikes()[exp];
+      const count = strikes ? strikes.length * 2 : 0;
+      return {
+        value: exp,
+        label: this.formatExpWithDow(exp),
+        count,
+      };
+    }),
   );
 
   /** Parse a YYYY-MM-DD expiration string into year/month/day parts. */
@@ -158,6 +205,7 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     if (sym) {
       this.store.loadContractIndex(sym);
       this.store.loadCatalogSummary(sym);
+      this.store.loadUnderlyingBars(sym);
     }
   }
 
@@ -167,15 +215,25 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     return length ? getLengthLabel(length) : '';
   });
 
-  /** Length options grouped for the dropdown. Uses catalog summary when available. */
+  /** Length options grouped for the dropdown with contract counts from summary. */
   readonly lengthGroups = computed<LengthGroup[]>(() => {
     const summary = this.store.catalogSummary();
     if (summary?.lengthBuckets) {
-      const buckets = Object.entries(summary.lengthBuckets)
-        .filter(([_, count]) => count > 0)
-        .map(([bucket]) => bucket);
-      if (buckets.length > 0) {
-        return groupLengthBuckets(buckets);
+      const entries = Object.entries(summary.lengthBuckets)
+        .filter(([_, count]) => count > 0);
+      if (entries.length > 0) {
+        const bucketCounts = new Map(entries);
+        const buckets = entries.map(([bucket]) => bucket);
+        return groupLengthBuckets(buckets).map((group) => ({
+          ...group,
+          options: group.options.map((opt) => {
+            const count = bucketCounts.get(opt.value);
+            return {
+              ...opt,
+              label: count != null ? `${opt.label} (${count})` : opt.label,
+            };
+          }),
+        }));
       }
     }
     return [];
@@ -184,10 +242,11 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.uiStateService.setFullscreen(true);
     const sym = this.symbol().trim().toUpperCase();
-    this.store.setCatalogBuilder({ symbol: sym, type: this.type() === 'call' ? 'C' : 'P' });
+    this.store.setCatalogBuilder({ symbol: sym, type: this.type() === 'put' ? 'P' : this.type() === 'both' ? null : 'C' });
     if (sym) {
       this.store.loadContractIndex(sym);
       this.store.loadCatalogSummary(sym);
+      this.store.loadUnderlyingBars(sym);
     }
   }
 
@@ -211,7 +270,7 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   onQueryCatalog(): void {
     this.store.setCatalogBuilder({
       symbol: this.symbol(),
-      type: this.type() === 'call' ? 'C' : 'P',
+      type: this.type() === 'put' ? 'P' : this.type() === 'both' ? null : 'C',
     });
     this.store.queryCatalog();
   }
@@ -224,23 +283,62 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     this.onLoad();
   }
 
-  /** Toggle length-bucket filter and re-query. */
-  onLengthBucketClick(bucket: string | null): void {
-    this.store.setCatalogFilter('contractLengthBucket', bucket);
+  /** Set contract length + bucket filter and re-query catalog. */
+  onLengthChange(value: string | null): void {
+    this.store.setContractLength(value);
+    this.store.setCatalogFilter('contractLengthBucket', value);
     this.onQueryCatalog();
   }
 
-  /** Change sort field, toggling order if same field. */
-  onSortChange(field: CatalogSortBy): void {
-    const filters = this.store.catalogFilters();
-    if (filters.sortBy === field) {
-      this.store.setCatalogFilters({
-        sortOrder: filters.sortOrder === 'asc' ? 'desc' : 'asc',
-      });
-    } else {
-      this.store.setCatalogFilters({ sortBy: field, sortOrder: 'asc' });
+  /** Whether the chart-based filter is currently active. */
+  readonly chartFilterActive = computed(() =>
+    this.expMin() != null || this.expMax() != null ||
+    this.strikeMin() != null || this.strikeMax() != null,
+  );
+
+  /** Filter contract list to contracts within the chart's visible extents. */
+  onFilterToChart(): void {
+    const ext = this.chartRef()?.visibleExtents();
+    if (!ext) return;
+    this.expMin.set(ext.startDate);
+    this.expMax.set(ext.endDate);
+
+    // Clamp strike range to ±10% of latest underlying close.
+    // SA API allows one range dimension per request — strike range is the most
+    // effective narrowing filter. Expiration is exact-match only, so date
+    // filtering stays client-side.
+    const bars = this.store.underlyingBars();
+    const lastClose = bars.length > 0 ? bars[bars.length - 1].close : null;
+    let strikeLow = Math.floor(ext.priceLow);
+    let strikeHigh = Math.ceil(ext.priceHigh);
+    if (lastClose != null && lastClose > 0) {
+      const band = lastClose * 0.1;
+      strikeLow = Math.max(strikeLow, Math.floor(lastClose - band));
+      strikeHigh = Math.min(strikeHigh, Math.ceil(lastClose + band));
     }
+    this.strikeMin.set(strikeLow);
+    this.strikeMax.set(strikeHigh);
+    this.store.setCatalogFilters({
+      strikeGte: strikeLow,
+      strikeLte: strikeHigh,
+      expirationGte: null,
+      expirationLte: null,
+    });
     this.onQueryCatalog();
+  }
+
+  /** Clear chart-based filter. */
+  onClearChartFilter(): void {
+    this.expMin.set(null);
+    this.expMax.set(null);
+    this.strikeMin.set(null);
+    this.strikeMax.set(null);
+    this.store.setCatalogFilters({
+      strikeGte: null,
+      strikeLte: null,
+      expirationGte: null,
+      expirationLte: null,
+    });
   }
 
   /** Load more catalog results (pagination). */
@@ -266,5 +364,30 @@ export class OptionChartComponent implements OnInit, OnDestroy {
 
   onNextContract(): void {
     this.store.navigateCatalogContract(1);
+  }
+}
+
+function compareByField(a: CatalogRow, b: CatalogRow, field: SortField): number {
+  switch (field) {
+    case 'type':
+      return a.type.localeCompare(b.type);
+    case 'strike':
+      return a.strike - b.strike;
+    case 'expiration':
+      return a.expiration.localeCompare(b.expiration);
+    case 'contractLengthDays': {
+      const aVal = a.contractLengthDays ?? Infinity;
+      const bVal = b.contractLengthDays ?? Infinity;
+      return aVal - bVal;
+    }
+    case 'observationCount':
+      return a.observationCount - b.observationCount;
+    case 'delta': {
+      const aVal = a.latestDelta ?? -Infinity;
+      const bVal = b.latestDelta ?? -Infinity;
+      return aVal - bVal;
+    }
+    default:
+      return 0;
   }
 }
