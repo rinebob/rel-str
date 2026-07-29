@@ -244,6 +244,8 @@ export const queryContractCatalog = onCall(
       symbol: sym,
       summary: data.summary,
       expiration: data.expiration,
+      expirationGte: data.expirationGte,
+      expirationLte: data.expirationLte,
       contractLengthBucket: data.contractLengthBucket,
       type: data.type,
       strike: data.strike,
