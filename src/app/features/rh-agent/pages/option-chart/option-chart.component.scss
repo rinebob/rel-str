@@ -137,18 +137,36 @@
   min-width: 0;
 }
 
-.exp-strike-row {
+.query-length-row {
+  display: flex;
+  width: 100%;
+}
+
+.query-len-btn {
+  width: 100%;
+  justify-content: space-between;
+  height: 40px;
+
+  mat-icon {
+    margin-left: auto;
+  }
+}
+
+.exp-range-row {
   display: flex;
   gap: 6px;
 
-  .panel-field:first-child {
+  .exp-range-field {
     flex: 1;
     min-width: 0;
-  }
 
-  .panel-field:last-child {
-    flex: 0 0 40%;
-    min-width: 0;
+    ::ng-deep .mat-mdc-form-field-icon-suffix {
+      .mat-datepicker-toggle-default-icon {
+        width: 16px;
+        height: 16px;
+        font-size: 16px;
+      }
+    }
   }
 }
 
@@ -257,6 +275,129 @@
     line-height: 22px;
     flex: 0 0 auto;
     margin-left: 4px;
+
+    &.active-toggle {
+      background: var(--mat-sys-primary-container);
+      color: var(--mat-sys-on-primary-container);
+      border-color: var(--mat-sys-primary);
+    }
+  }
+
+  .header-sep {
+    color: var(--mat-sys-outline-variant);
+    font-size: 10px;
+    margin: 0 2px 0 4px;
+  }
+
+  .filter-pill-group {
+    display: inline-flex;
+    gap: 2px;
+    flex: 0 0 auto;
+  }
+
+  .filter-pill {
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
+    padding: 0 8px;
+    border: 1px solid var(--mat-sys-outline-variant);
+    border-radius: 12px;
+    background: var(--mat-sys-surface);
+    color: var(--mat-sys-on-surface-variant);
+    font-size: 10px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background: var(--mat-sys-surface-container-high);
+    }
+
+    &.active {
+      background: var(--mat-sys-primary-container);
+      color: var(--mat-sys-on-primary-container);
+      border-color: var(--mat-sys-primary);
+      font-weight: 600;
+    }
+  }
+
+  .filter-dropdown-btn {
+    min-height: 22px;
+    font-size: 10px;
+    padding: 0 6px;
+    line-height: 22px;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+
+    mat-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+      margin: 0;
+    }
+  }
+
+  .strike-range-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    flex: 0 0 auto;
+
+    .strike-input {
+      width: 48px;
+      height: 22px;
+      border: 1px solid var(--mat-sys-outline-variant);
+      border-radius: 4px;
+      font-size: 10px;
+      text-align: center;
+      background: var(--mat-sys-surface);
+      color: var(--mat-sys-on-surface);
+      outline: none;
+
+      &::placeholder {
+        color: var(--mat-sys-on-surface-variant);
+        font-size: 9px;
+      }
+
+      &:focus {
+        border-color: var(--mat-sys-primary);
+      }
+
+      &::-webkit-inner-spin-button,
+      &::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      appearance: textfield;
+      -moz-appearance: textfield;
+    }
+
+    .strike-dash {
+      font-size: 10px;
+      color: var(--mat-sys-on-surface-variant);
+    }
+  }
+
+  .display-filter-clear {
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+    flex: 0 0 auto;
+
+    .mat-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+    }
+  }
+
+  .display-filter-count {
+    font-size: 10px;
+    color: var(--mat-sys-on-surface-variant);
+    margin-left: auto;
+    flex: 0 0 auto;
   }
 }
 
@@ -414,8 +555,12 @@
       tr {
         cursor: pointer;
 
-        &:hover {
+        &.group-shade {
           background: var(--mat-sys-surface-container-high);
+        }
+
+        &:hover {
+          background: var(--mat-sys-surface-container-highest);
         }
 
         &.selected {
@@ -568,5 +713,90 @@
     min-width: 48px;
     text-align: center;
     user-select: none;
+  }
+}
+
+/* Multi-select menu (mat-menu) */
+::ng-deep .multi-select-menu {
+  max-width: 320px;
+
+  .multi-select-header {
+    display: flex;
+    justify-content: flex-end;
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+    position: sticky;
+    top: 0;
+    background: var(--mat-sys-surface);
+    z-index: 1;
+
+    .multi-select-clear {
+      border: none;
+      background: none;
+      font-size: 10px;
+      color: var(--mat-sys-primary);
+      cursor: pointer;
+      padding: 2px 6px;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+  }
+
+  .multi-select-scroll {
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 2px 0;
+  }
+
+  .multi-select-group-header {
+    padding: 4px 8px 2px;
+    border-top: 1px solid var(--mat-sys-outline-variant);
+
+    &:first-child {
+      border-top: none;
+    }
+
+    .multi-select-group-toggle {
+      border: 1px solid var(--mat-sys-outline-variant);
+      border-radius: 10px;
+      background: var(--mat-sys-surface);
+      color: var(--mat-sys-on-surface-variant);
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 10px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+
+      &:hover {
+        background: var(--mat-sys-surface-container-high);
+      }
+    }
+  }
+
+  .multi-select-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 2px 8px;
+    font-size: 11px;
+
+    ::ng-deep .mdc-form-field {
+      font-size: 11px;
+    }
+
+    ::ng-deep .mdc-checkbox {
+      --mdc-checkbox-selected-icon-color: var(--mat-sys-primary);
+      --mdc-checkbox-unselected-icon-color: var(--mat-sys-on-surface-variant);
+    }
+
+    .opt-count {
+      margin-left: auto;
+      font-size: 9px;
+      color: var(--mat-sys-on-surface-variant);
+      opacity: 0.7;
+    }
   }
 }
