@@ -525,11 +525,19 @@ export async function callPartnerContractCatalogV2(
 
   if (params.summary) {
     const summary = parsed as ContractSummaryResponse;
+    // Normalize legacy shape: SA may still return Record<string, number> instead of LengthBucket[]
+    if (summary.lengthBuckets && !Array.isArray(summary.lengthBuckets)) {
+      const legacy = summary.lengthBuckets as unknown as Record<string, number>;
+      const BUCKET_ORDER = ['1d','3d','5d','7d','14d','21d','1mo','1.5mo','2mo','3mo','4mo','6mo','9mo','1yr','2yr','3yr'];
+      summary.lengthBuckets = BUCKET_ORDER
+        .filter((label) => legacy[label] != null)
+        .map((label, i) => ({ label, count: legacy[label], sortOrder: i }));
+    }
     logger.info('partnerContractCatalogV2_summary_response', {
       symbol: summary.symbol,
       totalContracts: summary.totalContracts,
       expirationCount: summary.expirationCount,
-      bucketCount: Object.keys(summary.lengthBuckets ?? {}).length,
+      bucketCount: (summary.lengthBuckets ?? []).length,
     });
   } else {
     const catalog = parsed as ContractCatalogResponse;

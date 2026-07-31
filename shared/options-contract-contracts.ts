@@ -176,13 +176,20 @@ export interface ContractCatalogResponse {
   nextPageToken?: string;
 }
 
+/** Single entry in the length-buckets array returned by summary mode. */
+export interface LengthBucket {
+  label: string;
+  count: number;
+  sortOrder: number;
+}
+
 /** Response shape for summary mode. */
 export interface ContractSummaryResponse {
   ok: boolean;
   symbol: string;
   totalContracts: number;
   expirationCount: number;
-  lengthBuckets: Record<string, number>;
+  lengthBuckets: LengthBucket[];
   lastUpdated: string;
 }
 
