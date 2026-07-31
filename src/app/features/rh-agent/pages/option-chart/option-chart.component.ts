@@ -19,6 +19,10 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatSelectModule } from '@angular/material/select';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
 
 import { OptionsContractViewerStore } from '../../stores/options-contract-viewer.store';
 import { OptionsContractChartComponent } from '../../components/options-contract-chart/options-contract-chart.component';
@@ -31,7 +35,7 @@ import {
   type CatalogRow,
   type LengthGroup,
 } from '../../utils/contract-length.utils';
-import type { ContractCatalogEntry } from '@options-contract/contracts';
+import type { ContractCatalogEntry, LengthBucket } from '@options-contract/contracts';
 
 type SortField = 'type' | 'strike' | 'expiration' | 'contractLengthDays' | 'observationCount' | 'delta';
 interface SortLevel { field: SortField; direction: 'asc' | 'desc'; }
@@ -53,6 +57,10 @@ interface SortLevel { field: SortField; direction: 'asc' | 'desc'; }
     MatTooltipModule,
     MatButtonToggleModule,
     MatSelectModule,
+    MatMenuModule,
+    MatCheckboxModule,
+    MatDatepickerModule,
+    MatNativeDateModule,
     OptionsContractChartComponent,
   ],
   templateUrl: './option-chart.component.html',
@@ -72,7 +80,41 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   // Builder fields (signals so computed/derived state reacts)
   symbol = signal('QQQ');
   readonly expiration = this.store.selectedExpiration;
-  type = signal<'call' | 'put' | 'both'>('call');
+  type = signal<'call' | 'put' | 'both'>('both');
+
+  /** Maps the type signal to the SA catalog type param: 'C' | 'P' | null (null = both). */
+  readonly catalogType = computed<'C' | 'P' | null>(() => {
+    const t = this.type();
+    return t === 'call' ? 'C' : t === 'put' ? 'P' : null;
+  });
+
+  /** Client-side display type filter (separate from backend query). */
+  displayType = signal<'all' | 'call' | 'put'>('all');
+
+  /** Client-side multi-select expiration filter. */
+  selectedExpirations = signal<Set<string>>(new Set());
+
+  /** Client-side multi-select length bucket filter. */
+  selectedLengthBuckets = signal<Set<string>>(new Set());
+
+  /** Backend query multi-select length buckets (comma-separated in request). */
+  selectedQueryLengthBuckets = signal<Set<string>>(new Set());
+
+  /** Backend query expiration range (from/to). */
+  queryExpGte = signal<string | null>(null);
+  queryExpLte = signal<string | null>(null);
+
+  /** Date object for the Exp From datepicker (null when empty). */
+  readonly queryExpGteDate = computed(() => this.queryExpGte() ? new Date(this.queryExpGte()! + 'T00:00:00') : null);
+  readonly queryExpLteDate = computed(() => this.queryExpLte() ? new Date(this.queryExpLte()! + 'T00:00:00') : null);
+
+  onExpGteChange(date: Date | null): void {
+    this.queryExpGte.set(date ? date.toISOString().split('T')[0] : null);
+  }
+  onExpLteChange(date: Date | null): void {
+    this.queryExpLte.set(date ? date.toISOString().split('T')[0] : null);
+  }
+
   readonly strike = this.store.selectedStrike;
   readonly contractLength = this.store.contractLength;
 
@@ -147,20 +189,50 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   expMin = signal<string | null>(null);
   expMax = signal<string | null>(null);
 
-  /** Sorted rows filtered by strike range and expiration date range for display. */
+  /** Sorted rows filtered by all client-side display filters. */
   readonly displayedRows = computed<CatalogRow[]>(() => {
     const rows = this.sortedCatalogRows();
     const min = this.strikeMin();
     const max = this.strikeMax();
     const expMin = this.expMin();
     const expMax = this.expMax();
-    if (min == null && max == null && !expMin && !expMax) return rows;
+    const dType = this.displayType();
+    const expSet = this.selectedExpirations();
+    const lenSet = this.selectedLengthBuckets();
+    if (min == null && max == null && !expMin && !expMax && dType === 'all' && expSet.size === 0 && lenSet.size === 0) return rows;
     return rows.filter((r) => {
+      if (dType !== 'all' && r.type !== dType) return false;
+      if (expSet.size > 0 && !expSet.has(r.expiration)) return false;
+      if (lenSet.size > 0 && !lenSet.has(r.contractLengthBucket)) return false;
       if (min != null && r.strike < min) return false;
       if (max != null && r.strike > max) return false;
       if (expMin && r.expiration < expMin) return false;
       if (expMax && r.expiration > expMax) return false;
       return true;
+    });
+  });
+
+  /** Rows with alternating shade index based on the primary sort column's group value. */
+  readonly displayedRowsWithShade = computed<{ row: CatalogRow; shade: 0 | 1 }[]>(() => {
+    const rows = this.displayedRows();
+    const primaryField = this.sortLevels()[0]?.field ?? 'expiration';
+    let lastKey: string | null = null;
+    let shade: 0 | 1 = 0;
+    return rows.map((row) => {
+      const key = String(
+        primaryField === 'delta' ? row.latestDelta
+        : primaryField === 'contractLengthDays' ? row.contractLengthDays
+        : primaryField === 'type' ? row.type
+        : primaryField === 'strike' ? row.strike
+        : primaryField === 'expiration' ? row.expiration
+        : primaryField === 'observationCount' ? row.observationCount
+        : ''
+      );
+      if (key !== lastKey) {
+        shade = shade === 0 ? 1 : 0;
+        lastKey = key;
+      }
+      return { row, shade };
     });
   });
 
@@ -176,6 +248,22 @@ export class OptionChartComponent implements OnInit, OnDestroy {
       };
     }),
   );
+
+  /** Expiration options derived from loaded catalog results, sorted with counts. */
+  readonly chartExpirationOptions = computed(() => {
+    const rows = this.catalogRows();
+    const expMap = new Map<string, number>();
+    for (const row of rows) {
+      expMap.set(row.expiration, (expMap.get(row.expiration) ?? 0) + 1);
+    }
+    return Array.from(expMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([exp, count]) => ({
+        value: exp,
+        label: this.formatExpWithDow(exp),
+        count,
+      }));
+  });
 
   /** Parse a YYYY-MM-DD expiration string into year/month/day parts. */
   private parseExpirationParts(exp: string): { yy: string; mm: string; dd: string } {
@@ -200,7 +288,7 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     this.occIdInput = '';
     this.store.clearCatalog();
     this.store.clearCatalogFilters();
-    this.store.setCatalogBuilder({ symbol: value });
+    this.store.setCatalogBuilder({ symbol: value, type: this.catalogType() });
     const sym = value.trim().toUpperCase();
     if (sym) {
       this.store.loadContractIndex(sym);
@@ -219,12 +307,13 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   readonly lengthGroups = computed<LengthGroup[]>(() => {
     const summary = this.store.catalogSummary();
     if (summary?.lengthBuckets) {
-      const entries = Object.entries(summary.lengthBuckets)
-        .filter(([_, count]) => count > 0);
-      if (entries.length > 0) {
-        const bucketCounts = new Map(entries);
-        const buckets = entries.map(([bucket]) => bucket);
-        return groupLengthBuckets(buckets).map((group) => ({
+      const buckets = (summary.lengthBuckets as LengthBucket[])
+        .filter((b) => b.count > 0)
+        .sort((a, b) => a.sortOrder - b.sortOrder);
+      if (buckets.length > 0) {
+        const bucketCounts = new Map(buckets.map((b) => [b.label, b.count]));
+        const labels = buckets.map((b) => b.label);
+        return groupLengthBuckets(labels).map((group) => ({
           ...group,
           options: group.options.map((opt) => {
             const count = bucketCounts.get(opt.value);
@@ -239,10 +328,64 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     return [];
   });
 
+  /** Flat list of available length buckets for the display filter dropdown. */
+  readonly availableLengthBuckets = computed(() => {
+    const summary = this.store.catalogSummary();
+    if (!summary?.lengthBuckets) return [];
+    return (summary.lengthBuckets as LengthBucket[])
+      .filter((b) => b.count > 0)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((b) => ({ value: b.label, label: getLengthLabel(b.label), count: b.count }));
+  });
+
+  /** Available length buckets grouped into Short/Medium/Long for quick toggle. */
+  readonly availableLengthGroups = computed(() => {
+    const buckets = this.availableLengthBuckets();
+    if (buckets.length === 0) return [];
+    return groupLengthBuckets(buckets.map((b) => b.value)).map((group) => ({
+      name: group.name,
+      options: group.options.map((opt) => {
+        const bucket = buckets.find((b) => b.value === opt.value);
+        return { ...opt, count: bucket?.count ?? 0 };
+      }),
+    }));
+  });
+
+  /** Label for the expiration display filter button. */
+  readonly expFilterLabel = computed(() => {
+    const count = this.selectedExpirations().size;
+    return count === 0 ? 'Exp' : `Exp (${count})`;
+  });
+
+  /** Label for the length display filter button. */
+  readonly lenFilterLabel = computed(() => {
+    const count = this.selectedLengthBuckets().size;
+    return count === 0 ? 'Len' : `Len (${count})`;
+  });
+
+  /** Label for the backend query length multi-select button. */
+  readonly queryLenLabel = computed(() => {
+    const count = this.selectedQueryLengthBuckets().size;
+    return count === 0 ? 'Length' : `Length (${count})`;
+  });
+
+  /** Total contract count for the current query. When all pages are loaded, this
+   *  is the exact total. When more pages remain, it's the count from the first page
+   *  (which may be page-level, not true total). */
+  readonly catalogTotal = computed(() => {
+    if (!this.store.catalogPageToken()) {
+      return this.catalogRows().length;
+    }
+    return Math.max(this.catalogRows().length, this.store.catalogCount());
+  });
+
+  /** Whether more pages are available to load. */
+  readonly hasMorePages = computed(() => !!this.store.catalogPageToken());
+
   ngOnInit(): void {
     this.uiStateService.setFullscreen(true);
     const sym = this.symbol().trim().toUpperCase();
-    this.store.setCatalogBuilder({ symbol: sym, type: this.type() === 'put' ? 'P' : this.type() === 'both' ? null : 'C' });
+    this.store.setCatalogBuilder({ symbol: sym, type: this.catalogType() });
     if (sym) {
       this.store.loadContractIndex(sym);
       this.store.loadCatalogSummary(sym);
@@ -268,9 +411,15 @@ export class OptionChartComponent implements OnInit, OnDestroy {
 
   /** Search for available contracts using the catalog endpoint with builder + catalog filters. */
   onQueryCatalog(): void {
+    const lenBuckets = this.selectedQueryLengthBuckets();
+    this.store.setCatalogFilter('contractLengthBucket', lenBuckets.size > 0 ? Array.from(lenBuckets).join(',') : null);
+    this.store.setCatalogFilters({
+      expirationGte: this.queryExpGte(),
+      expirationLte: this.queryExpLte(),
+    });
     this.store.setCatalogBuilder({
       symbol: this.symbol(),
-      type: this.type() === 'put' ? 'P' : this.type() === 'both' ? null : 'C',
+      type: this.catalogType(),
     });
     this.store.queryCatalog();
   }
@@ -290,6 +439,33 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     this.onQueryCatalog();
   }
 
+  /** Toggle a length bucket in the backend query multi-select. */
+  toggleQueryLengthBucket(value: string): void {
+    const set = new Set(this.selectedQueryLengthBuckets());
+    if (set.has(value)) set.delete(value);
+    else set.add(value);
+    this.selectedQueryLengthBuckets.set(set);
+  }
+
+  /** Toggle all buckets in a length group for the backend query. */
+  toggleQueryLengthGroup(groupName: string): void {
+    const group = this.availableLengthGroups().find((g) => g.name === groupName);
+    if (!group) return;
+    const set = new Set(this.selectedQueryLengthBuckets());
+    const allSelected = group.options.every((opt) => set.has(opt.value));
+    if (allSelected) {
+      group.options.forEach((opt) => set.delete(opt.value));
+    } else {
+      group.options.forEach((opt) => set.add(opt.value));
+    }
+    this.selectedQueryLengthBuckets.set(set);
+  }
+
+  /** Clear the backend query length bucket selection. */
+  clearQueryLengthBuckets(): void {
+    this.selectedQueryLengthBuckets.set(new Set());
+  }
+
   /** Whether the chart-based filter is currently active. */
   readonly chartFilterActive = computed(() =>
     this.expMin() != null || this.expMax() != null ||
@@ -303,28 +479,20 @@ export class OptionChartComponent implements OnInit, OnDestroy {
     this.expMin.set(ext.startDate);
     this.expMax.set(ext.endDate);
 
-    // Clamp strike range to ±10% of latest underlying close.
-    // SA API allows one range dimension per request — strike range is the most
-    // effective narrowing filter. Expiration is exact-match only, so date
-    // filtering stays client-side.
-    const bars = this.store.underlyingBars();
-    const lastClose = bars.length > 0 ? bars[bars.length - 1].close : null;
-    let strikeLow = Math.floor(ext.priceLow);
-    let strikeHigh = Math.ceil(ext.priceHigh);
-    if (lastClose != null && lastClose > 0) {
-      const band = lastClose * 0.1;
-      strikeLow = Math.max(strikeLow, Math.floor(lastClose - band));
-      strikeHigh = Math.min(strikeHigh, Math.ceil(lastClose + band));
-    }
-    this.strikeMin.set(strikeLow);
-    this.strikeMax.set(strikeHigh);
+    // SA allows one range dimension per request. Expiration range is used as
+    // the server-side filter because it narrows the result set more effectively
+    // than strike range (expiration dates are sparse, strikes are dense).
+    // Strike filtering stays client-side on returned results.
+    this.strikeMin.set(Math.floor(ext.priceLow));
+    this.strikeMax.set(Math.ceil(ext.priceHigh));
     this.store.setCatalogFilters({
-      strikeGte: strikeLow,
-      strikeLte: strikeHigh,
-      expirationGte: null,
-      expirationLte: null,
+      strikeGte: null,
+      strikeLte: null,
+      expirationGte: ext.startDate,
+      expirationLte: ext.endDate,
     });
-    this.onQueryCatalog();
+    this.store.setCatalogBuilder({ symbol: this.symbol(), type: this.catalogType() });
+    this.store.queryCatalog(true);
   }
 
   /** Clear chart-based filter. */
@@ -345,6 +513,69 @@ export class OptionChartComponent implements OnInit, OnDestroy {
   onLoadMore(): void {
     this.store.loadMoreCatalog();
   }
+
+  /** Auto-paginate through all remaining catalog results. */
+  onLoadAll(): void {
+    this.store.loadAllCatalog();
+  }
+
+  /** Toggle an expiration in the client-side multi-select set. */
+  toggleExpiration(value: string): void {
+    const set = new Set(this.selectedExpirations());
+    if (set.has(value)) set.delete(value);
+    else set.add(value);
+    this.selectedExpirations.set(set);
+  }
+
+  /** Toggle a length bucket in the client-side multi-select set. */
+  toggleLengthBucket(value: string): void {
+    const set = new Set(this.selectedLengthBuckets());
+    if (set.has(value)) set.delete(value);
+    else set.add(value);
+    this.selectedLengthBuckets.set(set);
+  }
+
+  /** Toggle all buckets in a length group (Short/Medium/Long) at once. */
+  toggleLengthGroup(groupName: string): void {
+    const group = this.availableLengthGroups().find((g) => g.name === groupName);
+    if (!group) return;
+    const set = new Set(this.selectedLengthBuckets());
+    const allSelected = group.options.every((opt) => set.has(opt.value));
+    if (allSelected) {
+      group.options.forEach((opt) => set.delete(opt.value));
+    } else {
+      group.options.forEach((opt) => set.add(opt.value));
+    }
+    this.selectedLengthBuckets.set(set);
+  }
+
+  /** Clear all client-side display filters. */
+  onClearAllDisplayFilters(): void {
+    this.displayType.set('all');
+    this.clearSelectedExpirations();
+    this.clearSelectedLengthBuckets();
+    this.strikeMin.set(null);
+    this.strikeMax.set(null);
+  }
+
+  /** Clear the expiration multi-select set. */
+  clearSelectedExpirations(): void {
+    this.selectedExpirations.set(new Set());
+  }
+
+  /** Clear the length bucket multi-select set. */
+  clearSelectedLengthBuckets(): void {
+    this.selectedLengthBuckets.set(new Set());
+  }
+
+  /** Whether any display filter is active. */
+  readonly displayFilterActive = computed(() =>
+    this.displayType() !== 'all' ||
+    this.selectedExpirations().size > 0 ||
+    this.selectedLengthBuckets().size > 0 ||
+    this.strikeMin() != null ||
+    this.strikeMax() != null,
+  );
 
   /** Whether the prev/next nav buttons can be used. */
   readonly canGoPrev = computed(() => {

@@ -40,6 +40,8 @@ export interface ContractCatalogState {
   catalogFilters: CatalogFilters;
   catalogSymbol: string;
   catalogType: ContractType;
+  catalogLoadAllProgress: string | null;
+  catalogLoadAllCancelled: boolean;
 }
 
 export const initialCatalogState: ContractCatalogState = {
@@ -48,7 +50,7 @@ export const initialCatalogState: ContractCatalogState = {
   catalogResults: [],
   catalogCount: 0,
   catalogPageToken: null,
-  catalogPageSize: 200,
+  catalogPageSize: 1000,
   catalogSummary: null,
   catalogSummaryLoading: false,
   catalogFilters: {
@@ -66,7 +68,9 @@ export const initialCatalogState: ContractCatalogState = {
     sortOrder: 'asc',
   },
   catalogSymbol: '',
-  catalogType: 'C',
+  catalogType: null,
+  catalogLoadAllProgress: null,
+  catalogLoadAllCancelled: false,
 };
 
 function buildCatalogRequest(
@@ -117,7 +121,6 @@ export function withCatalogMethods() {
           },
           error: (err: Error) => {
             patchState(store, { catalogSummaryLoading: false, catalogSummary: null });
-            console.error('[loadCatalogSummary] error:', err);
           },
         });
       },
@@ -129,7 +132,7 @@ export function withCatalogMethods() {
         patchState(store, updates);
       },
 
-      queryCatalog(): void {
+      queryCatalog(autoLoadAll = false): void {
         const sym = String(store.catalogSymbol() || '').trim().toUpperCase();
         if (!sym) {
           patchState(store, { catalogError: 'Symbol is required', catalogResults: [], catalogCount: 0, catalogPageToken: null });
@@ -146,17 +149,22 @@ export function withCatalogMethods() {
           store.catalogPageSize(),
         );
 
-        patchState(store, { catalogLoading: true, catalogError: null, catalogResults: [], catalogCount: 0, catalogPageToken: null, currentSearchIndex: -1 });
+        // Cancel any in-flight load-all, then reset for the new query.
+        patchState(store, { catalogLoadAllCancelled: true });
+        patchState(store, { catalogLoading: true, catalogError: null, catalogResults: [], catalogCount: 0, catalogPageToken: null, catalogLoadAllProgress: null, catalogLoadAllCancelled: false, currentSearchIndex: -1 });
 
         optionsContractService.queryContractCatalog$(req).subscribe({
           next: (data) => {
             patchState(store, {
-              catalogLoading: false,
               catalogResults: data.contracts ?? [],
-              catalogCount: data.count ?? 0,
+              catalogCount: Math.max(0, data.count ?? 0),
               catalogPageToken: data.nextPageToken ?? null,
               currentSearchIndex: -1,
+              catalogLoading: false,
             });
+            if (autoLoadAll && data.nextPageToken) {
+              store.loadAllCatalog();
+            }
           },
           error: (err: Error) => {
             patchState(store, {
@@ -195,7 +203,7 @@ export function withCatalogMethods() {
             patchState(store, {
               catalogLoading: false,
               catalogResults: [...existing, ...(data.contracts ?? [])],
-              catalogCount: data.count ?? store.catalogCount(),
+              catalogCount: Math.max(store.catalogCount(), data.count ?? 0),
               catalogPageToken: data.nextPageToken ?? null,
             });
           },
@@ -203,6 +211,60 @@ export function withCatalogMethods() {
             patchState(store, { catalogLoading: false, catalogError: err?.message ?? 'Failed to load more' });
           },
         });
+      },
+
+      loadAllCatalog(): void {
+        const token = store.catalogPageToken();
+        if (!token || store.catalogLoading()) return;
+
+        const sym = String(store.catalogSymbol() || '').trim().toUpperCase();
+        const filters = store.catalogFilters();
+        const pageSize = store.catalogPageSize();
+        const firstPageCount = store.catalogCount();
+        const estimatedTotalPages = Math.max(2, Math.ceil(firstPageCount / pageSize));
+        let pagesLoaded = 1;
+
+        patchState(store, { catalogLoading: true, catalogError: null, catalogLoadAllProgress: `Loading 2/${estimatedTotalPages}...`, catalogLoadAllCancelled: false });
+
+        const loadNext = (currentToken: string) => {
+          if (store.catalogLoadAllCancelled()) return;
+          const req = buildCatalogRequest(
+            sym,
+            store.selectedExpiration(),
+            store.selectedStrike(),
+            store.catalogType(),
+            filters,
+            pageSize,
+            currentToken,
+          );
+
+          optionsContractService.queryContractCatalog$(req).subscribe({
+            next: (data) => {
+              if (store.catalogLoadAllCancelled()) return;
+              const existing = store.catalogResults();
+              pagesLoaded++;
+              patchState(store, {
+                catalogResults: [...existing, ...(data.contracts ?? [])],
+                catalogCount: Math.max(store.catalogCount(), data.count ?? 0),
+                catalogPageToken: data.nextPageToken ?? null,
+              });
+
+              const nextToken = data.nextPageToken;
+              if (nextToken) {
+                patchState(store, { catalogLoadAllProgress: `Loading ${pagesLoaded + 1}/${estimatedTotalPages}...` });
+                loadNext(nextToken);
+              } else {
+                patchState(store, { catalogLoading: false, catalogLoadAllProgress: null });
+              }
+            },
+            error: (err: Error) => {
+              if (store.catalogLoadAllCancelled()) return;
+              patchState(store, { catalogLoading: false, catalogError: err?.message ?? 'Failed to load all', catalogLoadAllProgress: null });
+            },
+          });
+        };
+
+        loadNext(token);
       },
 
       setCatalogFilter(key: keyof CatalogFilters, value: string | number | null): void {
@@ -226,6 +288,8 @@ export function withCatalogMethods() {
           catalogResults: [],
           catalogCount: 0,
           catalogPageToken: null,
+          catalogLoadAllProgress: null,
+          catalogLoadAllCancelled: true,
           currentSearchIndex: -1,
         });
       },
