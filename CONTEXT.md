@@ -107,3 +107,15 @@ Summary indicators computed from the contract series: missing dates (gaps in the
 ## DTE
 
 Days to expiration. Computed from the current date to the contract's expiration date. Displayed in the viewer header.
+
+## Spread Time Series Viewer
+
+A dashboard page for requesting historical time series of multi-leg options spreads (verticals, straddles, strangles, iron condors) and plotting multiple spread price series simultaneously on a single chart with underlying price overlay. Purpose is identifying price behavior patterns across spread types, expirations, and configurations relative to the underlying. Distinct from the Options Contract Viewer, which inspects a single contract.
+
+## Spread Price
+
+The computed historical price of a multi-leg spread on a given date: `sum(long leg marks) − sum(short leg marks)`. Positive indicates a debit spread; negative indicates a credit spread. Returned as a daily time series by the partner `partnerSpreadTimeSeries` and `partnerSpreadTimeSeriesBatch` endpoints.
+
+## Spread List
+
+A browser-local (localStorage) working list of constructed spreads for the Spread Time Series Viewer. Persisted across page refreshes but not synced across devices. Each entry contains the full spread definition (spreadType, symbol, legs, optional date range). The list determines single vs. batch endpoint usage: one spread uses the single endpoint, multiple spreads use the batch endpoint.
