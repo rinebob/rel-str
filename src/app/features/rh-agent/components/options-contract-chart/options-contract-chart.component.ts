@@ -218,6 +218,24 @@ export class OptionsContractChartComponent {
     } else {
       this.visibleRange.set(null);
     }
+
+    // Reset the chart's internal zoom/scroll state so the X-axis
+    // redraws fully instead of retaining the previous zoom position.
+    const chart = this.chart();
+    if (chart) {
+      const xAxis = chart.primaryXAxis;
+      if (xAxis) {
+        xAxis.zoomFactor = 1;
+        xAxis.zoomPosition = 0;
+      }
+      const axisCol = chart.axisCollections;
+      if (axisCol?.length) {
+        axisCol[0].zoomFactor = 1;
+        axisCol[0].zoomPosition = 0;
+      }
+      chart.animateSeries = false;
+      chart.refresh();
+    }
   });
 
   // Apply min/max to every Y-axis whenever the visible range or data changes.
@@ -383,11 +401,11 @@ export class OptionsContractChartComponent {
   // Zoom settings
   readonly zoomSettings = {
     enablePinchZooming: true,
-    enableSelectionZooming: true,
+    enableSelectionZooming: false,
     enableMouseWheelZooming: true,
     enablePan: true,
     enableScrollbar: true,
-    mode: 'X',
+    mode: 'X' as const,
     toolbarItems: ['Zoom', 'ZoomIn', 'ZoomOut', 'Pan', 'Reset'] as const,
   };
 
@@ -423,4 +441,5 @@ export class OptionsContractChartComponent {
       this.visibleRange.set({ min: visibleRange.min, max: visibleRange.max });
     }
   }
+
 }

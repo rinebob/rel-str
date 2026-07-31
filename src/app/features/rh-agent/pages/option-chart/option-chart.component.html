@@ -22,55 +22,49 @@
           />
         </mat-form-field>
 
-        <div class="exp-strike-row">
-          <mat-form-field appearance="outline" class="panel-field">
-            <mat-label>Exp</mat-label>
-            <mat-select [ngModel]="expiration()" (ngModelChange)="store.setExpiration($event); onBuildChange()" [disabled]="store.indexLoading()" panelClass="dense-select-panel">
-              <mat-option [value]="null">All</mat-option>
-              @for (opt of expirationOptions(); track opt.value) {
-              <mat-option [value]="opt.value">{{ opt.label }} <span class="opt-count">{{ opt.count }}</span></mat-option>
+        <div class="query-length-row">
+          <button mat-stroked-button [matMenuTriggerFor]="queryLenMenu" class="query-len-btn">
+            {{ queryLenLabel() }} <mat-icon>arrow_drop_down</mat-icon>
+          </button>
+          <mat-menu #queryLenMenu="matMenu" class="multi-select-menu">
+            <div class="multi-select-header" (click)="$event.stopPropagation()">
+              <button class="multi-select-clear" (click)="clearQueryLengthBuckets()">Clear</button>
+            </div>
+            <div class="multi-select-scroll">
+              @for (group of availableLengthGroups(); track group.name) {
+              <div class="multi-select-group-header">
+                <button class="multi-select-group-toggle" (click)="$event.stopPropagation(); toggleQueryLengthGroup(group.name)">
+                  {{ group.name }}
+                </button>
+              </div>
+              @for (opt of group.options; track opt.value) {
+              <mat-checkbox
+                [checked]="selectedQueryLengthBuckets().has(opt.value)"
+                (click)="$event.stopPropagation(); toggleQueryLengthBucket(opt.value)"
+                class="multi-select-item"
+              >
+                {{ opt.label }} ({{ opt.count }})
+              </mat-checkbox>
               }
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="panel-field">
-            <mat-label>Strike</mat-label>
-            <mat-select [ngModel]="strike()" (ngModelChange)="store.setStrike($event); onBuildChange()" [disabled]="store.indexLoading()" panelClass="dense-select-panel">
-              <mat-option [value]="null">All</mat-option>
-              @for (stk of store.filteredStrikes(); track stk) {
-              <mat-option [value]="stk">{{ stk }}</mat-option>
               }
-            </mat-select>
-          </mat-form-field>
+            </div>
+          </mat-menu>
         </div>
 
-        <mat-button-toggle-group
-          [ngModel]="type()"
-          (ngModelChange)="type.set($event); onBuildChange()"
-          class="type-toggle panel-full"
-        >
-          <mat-button-toggle value="call">Call</mat-button-toggle>
-          <mat-button-toggle value="put">Put</mat-button-toggle>
-          <mat-button-toggle value="both">Both</mat-button-toggle>
-        </mat-button-toggle-group>
-
-        <mat-form-field appearance="outline" class="panel-field">
-          <mat-label>Length</mat-label>
-          <mat-select
-            [ngModel]="contractLength()"
-            (ngModelChange)="onLengthChange($event)"
-            panelClass="dense-select-panel"
-          >
-            <mat-option [value]="null">All</mat-option>
-            @for (group of lengthGroups(); track group.name) {
-            <mat-optgroup [label]="group.name">
-              @for (opt of group.options; track opt.value) {
-              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-              }
-            </mat-optgroup>
-            }
-          </mat-select>
-        </mat-form-field>
+        <div class="exp-range-row">
+          <mat-form-field appearance="outline" class="panel-field exp-range-field">
+            <mat-label>Exp From</mat-label>
+            <input matInput [matDatepicker]="expGtePicker" [ngModel]="queryExpGteDate()" (dateChange)="onExpGteChange($event.value)" />
+            <mat-datepicker-toggle matSuffix [for]="expGtePicker"></mat-datepicker-toggle>
+            <mat-datepicker #expGtePicker></mat-datepicker>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="panel-field exp-range-field">
+            <mat-label>Exp To</mat-label>
+            <input matInput [matDatepicker]="expLtePicker" [ngModel]="queryExpLteDate()" (dateChange)="onExpLteChange($event.value)" />
+            <mat-datepicker-toggle matSuffix [for]="expLtePicker"></mat-datepicker-toggle>
+            <mat-datepicker #expLtePicker></mat-datepicker>
+          </mat-form-field>
+        </div>
       </div>
 
       <!-- Contract Search + Catalog -->
@@ -97,32 +91,6 @@
           <mat-chip-set>
             <mat-chip color="warn" highlighted>{{ store.catalogError() }}</mat-chip>
           </mat-chip-set>
-        </div>
-        }
-
-        <!-- Strike range filter -->
-        @if (catalogRows().length > 0) {
-        <div class="strike-range-row">
-          <input
-            type="number"
-            class="strike-input"
-            placeholder="Min"
-            [value]="strikeMin() ?? ''"
-            (input)="strikeMin.set($any($event.target).value ? +$any($event.target).value : null)"
-          />
-          <span class="strike-dash">–</span>
-          <input
-            type="number"
-            class="strike-input"
-            placeholder="Max"
-            [value]="strikeMax() ?? ''"
-            (input)="strikeMax.set($any($event.target).value ? +$any($event.target).value : null)"
-          />
-          @if (strikeMin() != null || strikeMax() != null) {
-          <button mat-icon-button class="strike-clear" (click)="strikeMin.set(null); strikeMax.set(null)">
-            <mat-icon>close</mat-icon>
-          </button>
-          }
         </div>
         }
 
@@ -175,34 +143,42 @@
               </tr>
             </thead>
             <tbody>
-              @for (row of displayedRows(); track row.contractId) {
-              <tr (click)="onSelectCatalogContract(row)" [class.selected]="row.contractId === occIdInput.trim().toUpperCase()">
+              @for (item of displayedRowsWithShade(); track item.row.contractId) {
+              <tr (click)="onSelectCatalogContract(item.row)" [class.selected]="item.row.contractId === occIdInput.trim().toUpperCase()" [class.group-shade]="item.shade === 1">
                 <td>
-                  <span class="contract-type-badge" [class.call]="row.type === 'call'" [class.put]="row.type === 'put'">
-                    {{ row.type === 'call' ? 'C' : 'P' }}
+                  <span class="contract-type-badge" [class.call]="item.row.type === 'call'" [class.put]="item.row.type === 'put'">
+                    {{ item.row.type === 'call' ? 'C' : 'P' }}
                   </span>
                 </td>
-                <td class="num">${{ row.strike }}</td>
-                <td class="exp">{{ row.expiration }}</td>
-                <td class="length">{{ row.contractLengthBucket }}</td>
-                <td class="num">{{ row.observationCount }}</td>
-                <td class="num">{{ row.coverage != null ? (row.coverage * 100 | number:'1.0-0') + '%' : '—' }}</td>
-                <td class="num">{{ row.latestDelta != null ? (row.latestDelta | number:'1.2-2') : '—' }}</td>
-                <td class="num">{{ row.latestIV != null ? (row.latestIV | number:'1.3-3') : '—' }}</td>
-                <td class="num">{{ row.latestVolume != null ? row.latestVolume : '—' }}</td>
-                <td class="num">{{ row.latestOI != null ? row.latestOI : '—' }}</td>
+                <td class="num">${{ item.row.strike }}</td>
+                <td class="exp">{{ item.row.expiration }}</td>
+                <td class="length">{{ item.row.contractLengthBucket }}</td>
+                <td class="num">{{ item.row.observationCount }}</td>
+                <td class="num">{{ item.row.coverage != null ? (item.row.coverage * 100 | number:'1.0-0') + '%' : '—' }}</td>
+                <td class="num">{{ item.row.latestDelta != null ? (item.row.latestDelta | number:'1.2-2') : '—' }}</td>
+                <td class="num">{{ item.row.latestIV != null ? (item.row.latestIV | number:'1.3-3') : '—' }}</td>
+                <td class="num">{{ item.row.latestVolume != null ? item.row.latestVolume : '—' }}</td>
+                <td class="num">{{ item.row.latestOI != null ? item.row.latestOI : '—' }}</td>
               </tr>
               }
             </tbody>
           </table>
         <div class="catalog-pagination">
-          <span class="page-info">{{ displayedRows().length }} shown{{ store.catalogPageToken() ? '+' : '' }} / {{ catalogRows().length }} loaded{{ store.catalogCount() !== catalogRows().length ? ' of ' + store.catalogCount() : '' }}</span>
+          <span class="page-info">{{ displayedRows().length }} shown / {{ catalogTotal() }} total{{ hasMorePages() ? ' (loading…)' : '' }}</span>
           @if (store.catalogPageToken()) {
           <button mat-stroked-button (click)="onLoadMore()" [disabled]="store.catalogLoading()">
-            @if (store.catalogLoading()) {
+            @if (store.catalogLoading() && !store.catalogLoadAllProgress()) {
             <mat-progress-spinner mode="indeterminate" diameter="16" class="load-more-spinner"></mat-progress-spinner>
             } @else {
             Load More
+            }
+          </button>
+          <button mat-stroked-button (click)="onLoadAll()" [disabled]="store.catalogLoading()">
+            @if (store.catalogLoadAllProgress(); as progress) {
+            <mat-progress-spinner mode="indeterminate" diameter="16" class="load-more-spinner"></mat-progress-spinner>
+            <span>{{ progress }}</span>
+            } @else {
+            Load All
             }
           </button>
           }
@@ -326,6 +302,88 @@
         >
           Full History
         </button>
+
+        @if (catalogRows().length > 0) {
+        <span class="header-sep">|</span>
+        <div class="filter-pill-group">
+          <button class="filter-pill" [class.active]="displayType() === 'all'" (click)="displayType.set('all')">All</button>
+          <button class="filter-pill" [class.active]="displayType() === 'call'" (click)="displayType.set('call')">Call</button>
+          <button class="filter-pill" [class.active]="displayType() === 'put'" (click)="displayType.set('put')">Put</button>
+        </div>
+
+        <button mat-stroked-button [matMenuTriggerFor]="expMenu" class="filter-dropdown-btn">
+          {{ expFilterLabel() }} <mat-icon>arrow_drop_down</mat-icon>
+        </button>
+        <mat-menu #expMenu="matMenu" class="multi-select-menu">
+          <div class="multi-select-header" (click)="$event.stopPropagation()">
+            <button class="multi-select-clear" (click)="clearSelectedExpirations()">Clear</button>
+          </div>
+          <div class="multi-select-scroll">
+            @for (opt of chartExpirationOptions(); track opt.value) {
+            <mat-checkbox
+              [checked]="selectedExpirations().has(opt.value)"
+              (click)="$event.stopPropagation(); toggleExpiration(opt.value)"
+              class="multi-select-item"
+            >
+              {{ opt.label }} <span class="opt-count">{{ opt.count }}</span>
+            </mat-checkbox>
+            }
+          </div>
+        </mat-menu>
+
+        <button mat-stroked-button [matMenuTriggerFor]="lenMenu" class="filter-dropdown-btn">
+          {{ lenFilterLabel() }} <mat-icon>arrow_drop_down</mat-icon>
+        </button>
+        <mat-menu #lenMenu="matMenu" class="multi-select-menu">
+          <div class="multi-select-header" (click)="$event.stopPropagation()">
+            <button class="multi-select-clear" (click)="clearSelectedLengthBuckets()">Clear</button>
+          </div>
+          <div class="multi-select-scroll">
+            @for (group of availableLengthGroups(); track group.name) {
+            <div class="multi-select-group-header">
+              <button class="multi-select-group-toggle" (click)="$event.stopPropagation(); toggleLengthGroup(group.name)">
+                {{ group.name }}
+              </button>
+            </div>
+            @for (opt of group.options; track opt.value) {
+            <mat-checkbox
+              [checked]="selectedLengthBuckets().has(opt.value)"
+              (click)="$event.stopPropagation(); toggleLengthBucket(opt.value)"
+              class="multi-select-item"
+            >
+              {{ opt.label }} ({{ opt.count }})
+            </mat-checkbox>
+            }
+            }
+          </div>
+        </mat-menu>
+
+        <div class="strike-range-row">
+          <input
+            type="number"
+            class="strike-input"
+            placeholder="Min"
+            [value]="strikeMin() ?? ''"
+            (input)="strikeMin.set($any($event.target).value ? +$any($event.target).value : null)"
+          />
+          <span class="strike-dash">–</span>
+          <input
+            type="number"
+            class="strike-input"
+            placeholder="Max"
+            [value]="strikeMax() ?? ''"
+            (input)="strikeMax.set($any($event.target).value ? +$any($event.target).value : null)"
+          />
+        </div>
+
+        @if (displayFilterActive()) {
+        <button mat-icon-button class="display-filter-clear" (click)="onClearAllDisplayFilters()" matTooltip="Clear all display filters">
+          <mat-icon>close</mat-icon>
+        </button>
+        }
+
+        <span class="display-filter-count">{{ displayedRows().length }} shown / {{ catalogTotal() }} total{{ hasMorePages() ? ' …' : '' }}</span>
+        }
       </div>
 
       @if (store.loading()) {
