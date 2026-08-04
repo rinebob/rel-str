@@ -1,2 +1,4 @@
 [submodule ".devin/skills"]
 	branch = prod
+	path = .devin/skills
+	url = https://github.com/rinebob/rb-skills.git
