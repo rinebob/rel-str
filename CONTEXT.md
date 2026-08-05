@@ -110,7 +110,19 @@ Days to expiration. Computed from the current date to the contract's expiration 
 
 ## Spread Time Series Viewer
 
-A dashboard page for requesting historical time series of multi-leg options spreads (verticals, straddles, strangles, iron condors) and plotting multiple spread price series simultaneously on a single chart with underlying price overlay. Purpose is identifying price behavior patterns across spread types, expirations, and configurations relative to the underlying. Distinct from the Options Contract Viewer, which inspects a single contract.
+A dashboard page for requesting historical time series of multi-leg options spreads and plotting multiple spread price series simultaneously on a single chart with underlying price overlay. Supports two viewing modes: plain viewing mode for spreads constructed in the builder, and backtest plotting mode for positions output by strategy tests. Purpose is identifying price behavior patterns across spread types, expirations, and configurations relative to the underlying. Distinct from the Options Contract Viewer, which inspects a single contract.
+
+## Spread
+
+A multi-leg options position definition constructed in the spread builder: spreadType (vertical, straddle, strangle, iron_condor, or custom), symbol, legs (2-4, each with expiration/strike/optionType/direction), and an optional date range. A spread is the instrument being analyzed — like an option contract or a stock. It has a first trading date and expiration but no entry date, exit date, or provenance. Its full historical price series is relevant and viewed over the course of its life. Produced by manual construction in the builder.
+
+## Position
+
+A trading decision to open a spread at a specific entry date, with optional exit date, target, stop, and provenance metadata. A position represents a commitment to a trade — whether in a backtest, on paper, or live. The spread is the instrument; the position is the act of trading it. Viewed from entry forward; pre-entry history is less relevant. The price series is one property of the position.
+
+## Backtest Position
+
+A position produced by a backtest run. Carries a run reference (runId, permutationId, strategyId) as provenance, plus entry date, exit date, exit reason, P&L, and the full spread definition (legs with contract IDs, strikes, expirations). Corresponds to the existing `BacktestTrade` type in the backtest system. Backtest positions are the output of backtest runs, not manual construction.
 
 ## Spread Price
 
@@ -118,4 +130,8 @@ The computed historical price of a multi-leg spread on a given date: `sum(long l
 
 ## Spread List
 
-A browser-local (localStorage) working list of constructed spreads for the Spread Time Series Viewer. Persisted across page refreshes but not synced across devices. Each entry contains the full spread definition (spreadType, symbol, legs, optional date range). The list determines single vs. batch endpoint usage: one spread uses the single endpoint, multiple spreads use the batch endpoint.
+A session-working list of spreads produced by the spread builder for the Spread Time Series Viewer. Each entry is a spread definition (spreadType, symbol, legs, optional date range). The list determines single vs. batch endpoint usage: one spread uses the single endpoint, multiple spreads use the batch endpoint.
+
+## Position List
+
+A session-working list of backtest positions produced by a backtest run for the Spread Time Series Viewer's backtest plotting mode. Each entry is a position object carrying its spread definition, entry date, exit date, provenance (run reference), and other trade metadata. Loaded from backtest output, not constructed manually.
