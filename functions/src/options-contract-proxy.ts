@@ -1,3 +1,6 @@
+/**
+ * @topic #77 — Spread Time Series Viewer (opened 2026-08-02)
+ */
 import * as logger from "firebase-functions/logger";
 import { PartnerEndpointPath, PartnerHistoricalOptionsResponse, PartnerHistoricalOptionsContractV2Response, PartnerListContractsV2Response, ContractCatalogResponse, ContractSummaryResponse } from './types/partner';
 import { parseOccContractId } from '@options-contract/contracts';
@@ -132,7 +135,7 @@ async function resolveContractIdByLength(params: {
         const cType = String(c.type || '').toUpperCase();
         const cStrike = Number(c.strike);
         return (
-          cType === parsed.type &&
+          cType === parsed.optionType.toUpperCase() &&
           Number.isFinite(cStrike) &&
           Math.abs(cStrike - parsed.strike) < 0.001
         );
@@ -142,7 +145,7 @@ async function resolveContractIdByLength(params: {
         const sample = allContracts[0];
         logger.warn('resolveContractIdByLength_no_candidates', {
           symbol: params.symbol,
-          parsedType: parsed.type,
+          parsedType: parsed.optionType,
           parsedStrike: parsed.strike,
           totalContracts: allContracts.length,
           sampleType: sample?.type,

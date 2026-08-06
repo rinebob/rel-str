@@ -1,3 +1,6 @@
+/**
+ * @topic #77 — Spread Time Series Viewer (opened 2026-08-02)
+ */
 import { NavItem } from "./interfaces";
 
 export const NAV_MENU_ITEMS: NavItem[] = [
@@ -205,6 +208,8 @@ export enum CallableName {
   GET_OPTIONS_CONTRACT_INDEX = 'getOptionsContractIndex',
   /** Options contract viewer: query contract catalog with metadata, filters, pagination */
   QUERY_CONTRACT_CATALOG = 'queryContractCatalog',
+  /** Spread viewer: submit a batch of spreads for time series loading */
+  SUBMIT_SPREAD_RUN = 'submitSpreadRun',
 }
 
 /** Top-level Firestore collections used by the FE. */
@@ -223,6 +228,8 @@ export enum Collection {
   RH_SYMBOL_LISTS = 'rh-agent-symbol-lists',
   RH_SYMBOL_META = 'rh-agent-symbol-meta',
   RH_RUNS = 'rh-agent-runs',
+  SPREAD_RUNS = 'spread-runs',
+  SPREAD_LISTS = 'spread-lists',
 }
 
 /** Known subcollection names under a user document. */

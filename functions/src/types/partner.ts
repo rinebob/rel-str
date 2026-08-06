@@ -1,4 +1,6 @@
 /**
+ * @topic #77 — Spread Time Series Viewer (opened 2026-08-02)
+ *
  * Functions: Partner types
  * Options contract DTOs are shared via @options-contract/contracts
  * (shared/options-contract-contracts.ts) and re-exported below.
@@ -40,12 +42,11 @@ export enum PartnerEndpointPath {
   HISTORICAL_OPTIONS_CONTRACT_V2 = 'partnerHistoricalOptionsContractV2',
   LIST_CONTRACTS_V2 = 'partnerListContractsV2',
   CONTRACT_CATALOG_V2 = 'partnerContractCatalogV2',
+  SPREAD_TIME_SERIES = 'partnerSpreadTimeSeries',
 }
 
-export enum OptionType {
-  CALL = 'call',
-  PUT = 'put',
-}
+import { OptionType } from '@options/common';
+export { OptionType } from '@options/common';
 
 /** One Alpha Vantage historical option contract. All market-data values are optional strings. */
 export interface HistoricalOptionContract {

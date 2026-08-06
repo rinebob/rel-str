@@ -1,3 +1,6 @@
+/**
+ * @topic #77 — Spread Time Series Viewer (opened 2026-08-02)
+ */
 export enum AppRoutes {
 	LOGIN = 'login',
 	LOGOUT = 'logout',
@@ -44,6 +47,7 @@ export enum AppRoutes {
 	RH_AGENT_BACKTEST = 'rh-agent-backtest',
 	SIGNAL_HISTORY = 'signal-history',
 	OPTION_CHART = 'option-chart',
+	SPREAD_CHART = 'spread-chart',
 }
 
 export enum AuthLevel {

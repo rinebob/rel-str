@@ -1,43 +1,14 @@
 /**
+ * @topic #77 — Spread Time Series Viewer (opened 2026-08-02)
+ *
  * Shared contracts for the options contract viewer feature.
  *
  * Pure type and utility definitions with no runtime dependencies so they can
  * be imported by both the Firebase functions backend and the Angular frontend.
  */
 
-/** Parsed OCC-style contract ID. */
-export interface ParsedOccContractId {
-  symbol: string;
-  contractID: string;
-  expiration: string;
-  type: 'CALL' | 'PUT';
-  strike: number;
-}
-
-/**
- * Parse an OCC-style contract ID (e.g. "QQQ240719C00450000") into its
- * constituent parts: underlying symbol, expiration date, type, and strike.
- */
-export function parseOccContractId(occId: string): ParsedOccContractId | null {
-  const id = String(occId || '').trim().toUpperCase();
-  if (!id) return null;
-
-  const match = id.match(/^([A-Z]+)(\d{6})([CP])(\d{8})$/);
-  if (!match) return null;
-
-  const [, symbol, dateStr, typeChar, strikeStr] = match;
-  const year = 2000 + Number(dateStr.slice(0, 2));
-  const month = dateStr.slice(2, 4);
-  const day = dateStr.slice(4, 6);
-
-  return {
-    symbol,
-    contractID: id,
-    expiration: `${year}-${month}-${day}`,
-    type: typeChar === 'C' ? 'CALL' : 'PUT',
-    strike: Number(strikeStr) / 1000,
-  };
-}
+export { OptionType, parseOccContractId, buildOccContractId } from './options-common';
+export type { ParsedOccContractId } from './options-common';
 
 /** One historical options time-series observation for a single contract. */
 export interface HistoricalOptionsContractV2Observation {
