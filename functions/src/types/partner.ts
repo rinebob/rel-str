@@ -1,6 +1,4 @@
 /**
- * @topic #77 — Spread Time Series Viewer (opened 2026-08-02)
- *
  * Functions: Partner types
  * Options contract DTOs are shared via @options-contract/contracts
  * (shared/options-contract-contracts.ts) and re-exported below.

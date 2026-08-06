@@ -1,6 +1,4 @@
 /**
- * @topic #77 — Spread Time Series Viewer (opened 2026-08-02)
- *
  * Unit tests for shared/options-common.ts and shared/spread-contracts.ts
  */
 

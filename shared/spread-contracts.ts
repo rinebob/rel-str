@@ -1,6 +1,4 @@
 /**
- * @topic #77 — Spread Time Series Viewer (opened 2026-08-02)
- *
  * All spread-specific types, enums, and request/response interfaces.
  * Pure type definitions with no runtime dependencies — importable by both
  * the Firebase functions backend and the Angular frontend.

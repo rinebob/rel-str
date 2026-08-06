@@ -1,6 +1,4 @@
 /**
- * @topic #77 — Spread Time Series Viewer (opened 2026-08-02)
- *
  * Shared contracts for the options contract viewer feature.
  *
  * Pure type and utility definitions with no runtime dependencies so they can

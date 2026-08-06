@@ -1,6 +1,3 @@
-/**
- * @topic #77 — Spread Time Series Viewer (opened 2026-08-02)
- */
 import * as logger from "firebase-functions/logger";
 import { PartnerEndpointPath, PartnerHistoricalOptionsResponse, PartnerHistoricalOptionsContractV2Response, PartnerListContractsV2Response, ContractCatalogResponse, ContractSummaryResponse } from './types/partner';
 import { parseOccContractId } from '@options-contract/contracts';

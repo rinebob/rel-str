@@ -1,6 +1,3 @@
-/**
- * @topic #77 — Spread Time Series Viewer (opened 2026-08-02)
- */
 export enum AppRoutes {
 	LOGIN = 'login',
 	LOGOUT = 'logout',

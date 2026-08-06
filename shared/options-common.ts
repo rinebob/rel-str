@@ -1,6 +1,4 @@
 /**
- * @topic #77 — Spread Time Series Viewer (opened 2026-08-02)
- *
  * Canonical source for OptionType enum and OCC contract ID helpers,
  * shared between the options contract viewer and the spread viewer.
  */
