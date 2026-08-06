@@ -131,3 +131,7 @@ export { symbolDataSyncNightly, symbolDataSyncAdminHttp, symbolDataSyncSymbol } 
 
 // Symbol-data onboarding consumer — backfills new symbols emitted by partner
 export { processSymbolAdded } from './symbol-data-sync/symbol-data-symbol-added';
+
+// Spread Time Series Viewer — orchestrator + worker
+export { submitSpreadRun } from './spread-run-orchestrator';
+export { spreadRunWorker } from './spread-run-worker';
