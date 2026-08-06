@@ -50,11 +50,30 @@ export async function generateIdTokenWithEmail(audience: string, serviceAccountE
   return data.token;
 }
 
+/** Options for fetchWithRetry — method, body, and maxAttempts. */
+export interface FetchWithRetryOptions {
+  maxAttempts?: number;
+  method?: string;
+  body?: string;
+}
+
 /** Simple bounded retry with exponential backoff + jitter for transient upstream errors. */
-export async function fetchWithRetry(url: string, headers: Record<string, string>, maxAttempts = 3): Promise<Response> {
+export async function fetchWithRetry(
+  url: string,
+  headers: Record<string, string>,
+  options?: number | FetchWithRetryOptions,
+): Promise<Response> {
+  const opts: FetchWithRetryOptions =
+    typeof options === 'number'
+      ? { maxAttempts: options }
+      : options ?? {};
+  const maxAttempts = opts.maxAttempts ?? 3;
+  const method = opts.method ?? 'GET';
+  const body = opts.body;
+
   let lastResp: Response | undefined;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const resp = await fetch(url, { headers });
+    const resp = await fetch(url, { headers, method, body });
     if (resp.ok) return resp;
     lastResp = resp;
     const retriable = [429, 500, 502, 503, 504].includes(resp.status);
