@@ -45,7 +45,7 @@ export const spreadRunWorker = onTaskDispatched<SpreadRunTaskPayload>(
     const retryCount = (req as { retryCount?: number }).retryCount ?? 0;
     const isFinalAttempt = retryCount >= MAX_ATTEMPTS - 1;
 
-    logger.info('spread_worker_start', { runId, spreadIndex, retryCount });
+    logger.info('spread_worker_start', { runId, spreadIndex, retryCount, definition: JSON.stringify(definition).slice(0, 500) });
 
     const runRef = db.doc(spreadRunDocPath(runId));
     const jobRef = db.doc(spreadRunJobDocPath(runId, spreadIndex));
@@ -64,7 +64,9 @@ export const spreadRunWorker = onTaskDispatched<SpreadRunTaskPayload>(
     );
 
     try {
+      logger.info('spread_worker_calling_proxy', { runId, spreadIndex });
       const result = await callPartnerSpreadTimeSeries(definition);
+      logger.info('spread_worker_proxy_success', { runId, spreadIndex, seriesLength: result.series?.length, debitOrCredit: result.debitOrCredit });
 
       await jobRef.set(
         {
@@ -87,9 +89,10 @@ export const spreadRunWorker = onTaskDispatched<SpreadRunTaskPayload>(
         { merge: true },
       );
 
-      logger.info('spread_worker_success', { runId, spreadIndex });
+      logger.info('spread_worker_success', { runId, spreadIndex, seriesLength: result.series?.length });
     } catch (error: unknown) {
       const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error('spread_worker_error', { runId, spreadIndex, error: errorMsg, isFinalAttempt });
 
       if (isFinalAttempt) {
         await jobRef.set(

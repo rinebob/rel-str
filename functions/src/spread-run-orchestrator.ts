@@ -24,6 +24,8 @@ export const submitSpreadRun = onCall<SubmitSpreadRunRequest, Promise<SubmitSpre
     const spreads = request.data.spreads;
     if (!spreads || spreads.length === 0) throw new Error('At least one spread is required');
 
+    logger.info('spread_orchestrator_start', { userId, spreadCount: spreads.length, spreads: JSON.stringify(spreads).slice(0, 1000) });
+
     const runId = `spread_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const runRef = db.collection(SPREAD_RUNS_COLLECTION).doc(runId);
 
@@ -37,9 +39,12 @@ export const submitSpreadRun = onCall<SubmitSpreadRunRequest, Promise<SubmitSpre
       updatedAt: FieldValue.serverTimestamp(),
     });
 
+    logger.info('spread_orchestrator_run_doc_created', { runId, expectedJobs: spreads.length });
+
     const queue = getFunctions().taskQueue(SPREAD_RUN_WORKER_QUEUE);
 
     for (let i = 0; i < spreads.length; i++) {
+      logger.info('spread_orchestrator_enqueue', { runId, spreadIndex: i, definition: JSON.stringify(spreads[i]).slice(0, 500) });
       await queue.enqueue(
         {
           runId,

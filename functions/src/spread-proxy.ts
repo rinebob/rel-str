@@ -17,16 +17,28 @@ const PARTNER_SPREAD_TIME_SERIES_AUDIENCE =
 export async function callPartnerSpreadTimeSeries(
   definition: SpreadDefinition,
 ): Promise<SpreadTimeSeriesResponse> {
+  console.log('[spread-proxy] callPartnerSpreadTimeSeries — definition:', JSON.stringify(definition).slice(0, 500));
   const idToken = await generateIdTokenWithEmail(PARTNER_SPREAD_TIME_SERIES_AUDIENCE, CALLER_SA);
   const headers = {
     Authorization: `Bearer ${idToken}`,
     'Content-Type': 'application/json',
   };
-  const body = JSON.stringify(definition);
+  const cleaned: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(definition)) {
+    if (value != null) cleaned[key] = value;
+  }
+  const body = JSON.stringify(cleaned);
+  console.log('[spread-proxy] POST to:', PARTNER_SPREAD_TIME_SERIES_URL, 'body length:', body.length);
   const resp = await fetchWithRetry(PARTNER_SPREAD_TIME_SERIES_URL, headers, { method: 'POST', body });
 
+  console.log('[spread-proxy] response status:', resp.status, resp.ok);
+
   if (!resp.ok) {
-    throw new PartnerHttpError(await resp.text(), resp.status);
+    const errorText = await resp.text();
+    console.error('[spread-proxy] error response:', errorText);
+    throw new PartnerHttpError(errorText, resp.status);
   }
-  return resp.json() as Promise<SpreadTimeSeriesResponse>;
+  const json = await resp.json() as SpreadTimeSeriesResponse;
+  console.log('[spread-proxy] success — series length:', json.series?.length, 'ok:', json.ok);
+  return json;
 }
