@@ -20,6 +20,7 @@ import { SpreadRunService, type SpreadRunDocData, type SpreadJobDocData } from '
 import { SpreadListService } from '../services/spread-list.service';
 import { OptionsContractService } from '../services/options-contract.service';
 import { RsBarsService } from '../../services/rs-bars.service';
+import { cloneSpreadDefinition } from '../utils/spread-definition.utils';
 import type { OHLCDatum } from '../../shared/types/rs.interfaces';
 import type { OptionsContractIndexResponse } from '@options-contract/contracts';
 import {
@@ -52,6 +53,13 @@ export interface SpreadViewerState {
   showUnderlying: boolean;
   chartMode: 'absolute' | 'normalized';
   namedLists: SpreadListDoc[];
+  // ADR-004: named list context + parametric form state
+  selectedListId: string | null;
+  lastSavedSnapshot: SpreadDefinition[] | null;
+  chartDateRange: { start: string | null; end: string | null };
+  entryDate: string | null;
+  strikeRange: { min: number | null; max: number | null };
+  selectedLengthBuckets: Set<string>;
 }
 
 const initialState: SpreadViewerState = {
@@ -68,6 +76,12 @@ const initialState: SpreadViewerState = {
   showUnderlying: true,
   chartMode: 'absolute',
   namedLists: [],
+  selectedListId: null,
+  lastSavedSnapshot: null,
+  chartDateRange: { start: null, end: null },
+  entryDate: null,
+  strikeRange: { min: null, max: null },
+  selectedLengthBuckets: new Set<string>(),
 };
 
 // ---------------------------------------------------------------------------
@@ -140,6 +154,43 @@ export const SpreadViewerStore = signalStore(
       const len = state.plottedPageLength();
       return Math.max(1, Math.ceil(loaded / len));
     }),
+
+    // ── ADR-004: computed signals for parametric form + dirty state ────────
+
+    /** Whether the working buffer differs from the last saved snapshot. */
+    isDirty: computed(() => {
+      const snapshot = state.lastSavedSnapshot();
+      const spreads = state.spreads();
+      if (!snapshot) return spreads.length > 0;
+      // Shallow check first — different length means definitely dirty
+      if (spreads.length !== snapshot.length) return true;
+      // Deep comparison only when lengths match
+      const currentDefs = spreads.map(toDefinition);
+      return JSON.stringify(currentDefs) !== JSON.stringify(snapshot);
+    }),
+
+    /** Trading dates available from underlying bars within the chart date range. */
+    availableEntryDates: computed(() => {
+      const bars = state.underlyingBars();
+      const range = state.chartDateRange();
+      return bars
+        .map((b) => b.date)
+        .filter((d): d is string => d != null)
+        .filter((d) => {
+          if (range.start && d < range.start) return false;
+          if (range.end && d > range.end) return false;
+          return true;
+        })
+        .sort();
+    }),
+
+    /** Underlying close price on the selected entry date. */
+    underlyingPrice: computed(() => {
+      const date = state.entryDate();
+      if (!date) return null;
+      const bar = state.underlyingBars().find((b) => b.date === date);
+      return bar ? bar.close : null;
+    }),
   })),
 
   withMethods((store) => {
@@ -160,9 +211,8 @@ export const SpreadViewerStore = signalStore(
     function fetchUnderlyingBars(symbol: string): void {
       underlyingSub?.unsubscribe();
       patchState(store, { underlyingStatus: 'loading' });
-      const to = new Date().toISOString().slice(0, 10);
-      const from = new Date(Date.now() - 730 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-      underlyingSub = rsBarsService.getDailyBars$(symbol, { from, to }).subscribe({
+      // ADR-004: fetch full dataset, filter client-side to chartDateRange
+      underlyingSub = rsBarsService.getDailyBars$(symbol).subscribe({
         next: (bars) => patchState(store, { underlyingBars: bars, underlyingStatus: 'loaded' }),
         error: () => patchState(store, { underlyingBars: [], underlyingStatus: 'error' }),
       });
@@ -448,26 +498,6 @@ export const SpreadViewerStore = signalStore(
         });
       },
 
-      /** Save current spreads as a named list. */
-      saveCurrentList(name: string): void {
-        const defs: SpreadDefinition[] = store.spreads().map((s) => {
-          const { id, status, series, debitOrCredit, gaps, legMetadata, error, ...def } = s;
-          return def as SpreadDefinition;
-        });
-        spreadListService.saveList(name, defs).then(() => {
-          console.log('[SpreadViewer] saveCurrentList succeeded:', name, defs.length, 'spreads');
-          spreadListService.loadNamedLists$().pipe(take(1)).subscribe({
-            next: (lists) => patchState(store, { namedLists: lists }),
-            error: (err) => {
-              console.error('[SpreadViewer] loadNamedLists after save failed:', err);
-              patchState(store, { namedLists: [] });
-            },
-          });
-        }).catch((err) => {
-          console.error('[SpreadViewer] saveCurrentList failed:', err);
-        });
-      },
-
       /** Delete a named list by ID. */
       deleteNamedList(listId: string): void {
         spreadListService.deleteList(listId).then(() => {
@@ -476,6 +506,118 @@ export const SpreadViewerStore = signalStore(
           });
         }).catch((err) => {
           console.error('[SpreadViewer] deleteNamedList failed:', err);
+        });
+      },
+
+      // ── ADR-004: named list context + parametric form methods ────────────
+
+      /** Open a named list into the working buffer, set selectedListId, snapshot. */
+      openList(listId: string): void {
+        if (store.activeRunId() !== null) {
+          console.warn('[SpreadViewer] openList — run in progress, cannot replace buffer');
+          return;
+        }
+        const list = store.namedLists().find((l) => l.id === listId);
+        if (!list) return;
+        const newSpreads: Spread[] = list.spreads.map((def) => ({
+          ...def,
+          id: `spread_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          status: SpreadStatus.PENDING,
+        }));
+        const snapshot = list.spreads.map(cloneSpreadDefinition);
+        patchState(store, {
+          spreads: newSpreads,
+          selectedListId: listId,
+          lastSavedSnapshot: snapshot,
+          plottedStartIndex: 0,
+        });
+      },
+
+      /** Save the working buffer back to the selected named list. */
+      saveCurrentList(): void {
+        const listId = store.selectedListId();
+        if (!listId) return;
+        const list = store.namedLists().find((l) => l.id === listId);
+        if (!list) return;
+        const defs = store.spreads().map(toDefinition);
+        spreadListService.saveList(list.name, defs).then(() => {
+          patchState(store, { lastSavedSnapshot: defs });
+        }).catch((err) => {
+          console.error('[SpreadViewer] saveCurrentList failed:', err);
+        });
+      },
+
+      /** Save the working buffer as a new named list. */
+      saveAsList(name: string): void {
+        const defs = store.spreads().map(toDefinition);
+        spreadListService.saveList(name, defs).then(() => {
+          spreadListService.loadNamedLists$().pipe(take(1)).subscribe({
+            next: (lists) => {
+              const newList = lists.find((l) => l.name === name);
+              patchState(store, {
+                namedLists: lists,
+                selectedListId: newList?.id ?? null,
+                lastSavedSnapshot: defs,
+              });
+            },
+            error: (err) => console.error('[SpreadViewer] saveAsList loadNamedLists failed:', err),
+          });
+        }).catch((err) => {
+          console.error('[SpreadViewer] saveAsList failed:', err);
+        });
+      },
+
+      /** Clear the working buffer (does not affect named lists). */
+      clearBuffer(): void {
+        patchState(store, { spreads: [], plottedStartIndex: 0 });
+      },
+
+      /** Set the chart date range for underlying bars filtering. */
+      setChartDateRange(start: string | null, end: string | null): void {
+        patchState(store, { chartDateRange: { start, end } });
+      },
+
+      /** Set the strike range for catalog query filtering. */
+      setStrikeRange(min: number | null, max: number | null): void {
+        patchState(store, { strikeRange: { min, max } });
+      },
+
+      /** Set the selected contract length buckets for catalog filtering. */
+      setLengthBuckets(buckets: Set<string>): void {
+        patchState(store, { selectedLengthBuckets: new Set(buckets) });
+      },
+
+      /** Set the entry date for the parametric form. */
+      setEntryDate(date: string | null): void {
+        patchState(store, { entryDate: date });
+      },
+
+      /** Advance the entry date forward by a trading-day offset, skipping non-trading days. */
+      advanceEntryDate(offset: '1d' | '1w' | '1m'): void {
+        const available = store.availableEntryDates();
+        if (available.length === 0) return;
+        const current = store.entryDate();
+        if (!current) {
+          patchState(store, { entryDate: available[0] });
+          return;
+        }
+        const stepMap = { '1d': 1, '1w': 5, '1m': 21 } as const;
+        const step = stepMap[offset];
+        const idx = available.indexOf(current);
+        if (idx === -1) {
+          // Current date not in available dates — find the next one after it
+          const next = available.find((d) => d > current) ?? available[available.length - 1];
+          patchState(store, { entryDate: next ?? available[available.length - 1] });
+          return;
+        }
+        const nextIdx = Math.min(idx + step, available.length - 1);
+        patchState(store, { entryDate: available[nextIdx] });
+      },
+
+      /** Delete a spread from the working buffer by ID. */
+      deleteSpreadFromBuffer(spreadId: string): void {
+        patchState(store, {
+          spreads: store.spreads().filter((s) => s.id !== spreadId),
         });
       },
 
@@ -507,4 +649,10 @@ function isSameSpread(spread: Spread, def: SpreadDefinition): boolean {
       && leg.expiration === def.legs[i].expiration
       && leg.direction === def.legs[i].direction,
     );
+}
+
+/** Strip runtime fields from a Spread to get a plain SpreadDefinition. */
+function toDefinition(spread: Spread): SpreadDefinition {
+  const { id, status, series, debitOrCredit, gaps, legMetadata, error, ...def } = spread;
+  return def as SpreadDefinition;
 }

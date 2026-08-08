@@ -124,7 +124,7 @@ export class SpreadChartPageComponent implements OnInit, OnDestroy {
       maxWidth: '90vw',
     }).afterClosed().subscribe((name: string | undefined) => {
       if (name) {
-        this.store.saveCurrentList(name);
+        this.store.saveAsList(name);
       }
     });
   }
