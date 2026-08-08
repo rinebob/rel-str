@@ -100,6 +100,14 @@ export { RhAgentOrderComponent } from './pages/agent-order/rh-agent-order.compon
 export { RhAgentTriageReportComponent } from './pages/agent-triage-report/rh-agent-triage-report.component';
 export { ObservationDashboardComponent } from './pages/observation-dashboard/observation-dashboard.component';
 export { OptionChartComponent } from './pages/option-chart/option-chart.component';
+export { SpreadChartPageComponent } from './pages/spread-chart/spread-chart-page.component';
+export { SpreadChartComponent } from './components/spread-chart/spread-chart.component';
+export { SpreadBuilderDialogComponent } from './components/spread-builder-dialog/spread-builder-dialog.component';
+export { SaveListDialogComponent } from './components/save-list-dialog/save-list-dialog.component';
+export { SpreadService } from './services/spread.service';
+export { SpreadRunService } from './services/spread-run.service';
+export { SpreadListService } from './services/spread-list.service';
+export { SpreadViewerStore } from './stores/spread-viewer.store';
 export { QuickChartsComponent } from './components/quick-charts/quick-charts.component';
 
 // Backtest sub-feature (Phase 1)

@@ -1,0 +1,56 @@
+.builder-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 480px;
+  max-width: 600px;
+  padding-top: 16px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.half-width {
+  width: 48%;
+}
+
+.strike-row,
+.date-row {
+  display: flex;
+  gap: 4%;
+  flex-wrap: wrap;
+}
+
+.custom-legs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.custom-leg-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.leg-field {
+  flex: 1;
+  min-width: 80px;
+}
+
+.loading-text,
+.error-text {
+  padding: 12px 0;
+  font-size: 14px;
+}
+
+.error-text {
+  color: var(--mat-sys-error, #f44336);
+}
+
+.added-count {
+  font-size: 13px;
+  color: var(--mat-sys-on-surface-variant, #666);
+  margin: 4px 0;
+}

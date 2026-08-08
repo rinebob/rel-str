@@ -1,0 +1,116 @@
+<div class="spread-chart-page">
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="symbol-section">
+      <mat-form-field appearance="outline" class="symbol-input">
+        <mat-label>Symbol</mat-label>
+        <input matInput [value]="symbolInput()" (input)="onSymbolChange($event.target.value)" (keyup.enter)="onSymbolEnter()">
+      </mat-form-field>
+      <button mat-flat-button color="primary" (click)="onBuildSpreads()" [disabled]="!store.symbol()">
+        <mat-icon>build</mat-icon>
+        Build Spreads
+      </button>
+      @if (store.spreads().length > 0) {
+        <button mat-stroked-button (click)="onClearAll()">
+          <mat-icon>clear_all</mat-icon>
+          Clear
+        </button>
+      }
+      @if (store.hasPending()) {
+        <button mat-flat-button color="primary" (click)="onLoadSpreads()">
+          <mat-icon>play_arrow</mat-icon>
+          Load {{ store.pendingSpreads().length }} spread{{ store.pendingSpreads().length > 1 ? 's' : '' }}
+        </button>
+      }
+      <button mat-stroked-button (click)="onLoadRecent()" [disabled]="!store.symbol()" matTooltip="Load your 10 most recent spreads">
+        <mat-icon>history</mat-icon>
+        Recent
+      </button>
+      @if (store.spreads().length > 0) {
+        <button mat-stroked-button (click)="onSaveList()" matTooltip="Save current spreads as a named list">
+          <mat-icon>save</mat-icon>
+          Save List
+        </button>
+      }
+      <button mat-stroked-button [matMenuTriggerFor]="listsMenu" (menuOpened)="onListsMenuOpen()" matTooltip="Load or delete a saved list">
+        <mat-icon>folder_open</mat-icon>
+        My Lists
+      </button>
+      <mat-menu #listsMenu="matMenu">
+        @if (store.namedLists().length === 0) {
+          <button mat-menu-item disabled>No saved lists</button>
+        } @else {
+          @for (list of store.namedLists(); track list.id) {
+            <div class="list-menu-row">
+              <button mat-menu-item (click)="onLoadNamedList(list.id!)">
+                <mat-icon>folder_open</mat-icon>
+                <span>{{ list.name }} ({{ list.spreads.length }})</span>
+              </button>
+              <button mat-icon-button color="warn" (click)="onDeleteList(list.id!)" matTooltip="Delete">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
+          }
+        }
+      </mat-menu>
+    </div>
+
+    <div class="chart-controls">
+      <mat-button-toggle-group [value]="store.chartMode()" (change)="onChartModeChange($event.value)">
+        <mat-button-toggle value="absolute">Absolute</mat-button-toggle>
+        <mat-button-toggle value="normalized">Normalized</mat-button-toggle>
+      </mat-button-toggle-group>
+
+      <mat-slide-toggle [checked]="store.showUnderlying()" (change)="onToggleUnderlying()">
+        Underlying
+      </mat-slide-toggle>
+    </div>
+  </div>
+
+  <!-- Run progress -->
+  @if (store.isRunInProgress()) {
+    <div class="run-progress">
+      <mat-progress-spinner mode="indeterminate" diameter="20"></mat-progress-spinner>
+      <span>Loading spreads… {{ store.runProgress()?.succeeded ?? 0 }}/{{ store.runProgress()?.total ?? 0 }}</span>
+    </div>
+  }
+
+  <!-- Spread list summary -->
+  @if (store.spreads().length > 0) {
+    <div class="spread-list-summary">
+      @for (spread of store.spreads(); track spread.id) {
+        <span class="spread-status-pill" [class.loaded]="spread.status === SpreadStatus.LOADED" [class.loading]="spread.status === SpreadStatus.LOADING" [class.error]="spread.status === SpreadStatus.ERROR" [class.pending]="spread.status === SpreadStatus.PENDING">
+          {{ spread.spreadType }}
+          @if (spread.legs[0]?.expiration) { · {{ spread.legs[0].expiration }} }
+          @if (spread.status === SpreadStatus.LOADED) { ✓ }
+          @if (spread.status === SpreadStatus.LOADING) { … }
+          @if (spread.status === SpreadStatus.ERROR) { ✗ }
+        </span>
+      }
+    </div>
+  }
+
+  <!-- Chart area -->
+  <div class="chart-area">
+    <app-spread-chart
+      [plottedSpreads]="store.plottedSpreads()"
+      [allDates]="store.allDates()"
+      [underlyingBars]="store.underlyingBars()"
+      [showUnderlying]="store.showUnderlying()"
+      [chartMode]="store.chartMode()"
+    ></app-spread-chart>
+  </div>
+
+  <!-- Pagination -->
+  @if (store.loadedCount() > 0) {
+    <div class="pagination">
+      <button mat-icon-button (click)="onPrevPage()" [disabled]="store.plottedStartIndex() === 0">
+        <mat-icon>chevron_left</mat-icon>
+      </button>
+      <span class="page-indicator">{{ store.currentPage() }} of {{ store.totalPages() }}</span>
+      <button mat-icon-button (click)="onNextPage()" [disabled]="store.plottedStartIndex() + store.plottedPageLength() >= store.loadedCount()">
+        <mat-icon>chevron_right</mat-icon>
+      </button>
+    </div>
+  }
+</div>

@@ -137,6 +137,11 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.OptionChartComponent),
                 canActivate: [authGuard],
             },
+            {path: AppRoutes.SPREAD_CHART,
+                loadComponent: () => import('../features/rh-agent/pages/spread-chart/spread-chart-page.component')
+                .then(mod => mod.SpreadChartPageComponent),
+                canActivate: [authGuard],
+            },
             {path: AppRoutes.LOGOUT, redirectTo: '/', pathMatch: 'full'},
         ]
     },

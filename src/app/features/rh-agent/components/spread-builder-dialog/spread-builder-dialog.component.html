@@ -1,0 +1,136 @@
+<h2 mat-dialog-title>Build Spreads — {{ storeSymbol() }}</h2>
+
+<mat-dialog-content class="builder-content">
+  @if (contractIndexStatus() === 'loading') {
+    <p class="loading-text">Loading contract index…</p>
+  }
+
+  @if (contractIndexStatus() === 'error') {
+    <p class="error-text">Failed to load contract index. Please set a valid symbol.</p>
+  }
+
+  <!-- Spread type selector -->
+  <mat-form-field appearance="outline" class="full-width">
+    <mat-label>Spread Type</mat-label>
+    <mat-select [value]="selectedType()" (selectionChange)="onTypeChange($event.value)">
+      @for (st of spreadTypes; track st.value) {
+        <mat-option [value]="st.value">{{ st.label }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <!-- Option type selector (vertical only) -->
+  @if (showOptionTypeSelector()) {
+    <mat-form-field appearance="outline" class="half-width">
+      <mat-label>Option Type</mat-label>
+      <mat-select [value]="selectedOptionType()" (selectionChange)="selectedOptionType.set($event.value)">
+        <mat-option [value]="'call'">Call</mat-option>
+        <mat-option [value]="'put'">Put</mat-option>
+      </mat-select>
+    </mat-form-field>
+  }
+
+  <!-- Expiration selector -->
+  <mat-form-field appearance="outline" class="half-width">
+    <mat-label>Expiration</mat-label>
+    <mat-select [value]="selectedExpiration()" (selectionChange)="onExpirationChange($event.value)" [disabled]="contractIndexStatus() !== 'loaded'">
+      @for (exp of expirations(); track exp) {
+        <mat-option [value]="exp">{{ exp }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <!-- Strike selectors (non-custom) -->
+  @if (selectedType() !== 'custom') {
+    <div class="strike-row">
+      @for (label of strikeLabels(); track $index) {
+        <mat-form-field appearance="outline" class="half-width">
+          <mat-label>{{ label }}</mat-label>
+          <mat-select
+            [value]="selectedStrikes()[$index]"
+            (selectionChange)="onStrikeChange($index, $event.value)"
+            [disabled]="!selectedExpiration()"
+          >
+            @for (strike of availableStrikes(); track strike) {
+              <mat-option [value]="strike">{{ strike }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      }
+    </div>
+  }
+
+  <!-- Custom leg table -->
+  @if (selectedType() === 'custom') {
+    <div class="custom-legs">
+      @for (leg of customLegs(); track $index) {
+        <div class="custom-leg-row">
+          <mat-form-field appearance="outline" class="leg-field">
+            <mat-label>Type</mat-label>
+            <mat-select [value]="leg.optionType" (selectionChange)="updateCustomLeg($index, 'optionType', $event.value)">
+              <mat-option [value]="'call'">Call</mat-option>
+              <mat-option [value]="'put'">Put</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="leg-field">
+            <mat-label>Strike</mat-label>
+            <input matInput type="number" [value]="leg.strike" (input)="updateCustomLeg($index, 'strike', +$event.target.value)">
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="leg-field">
+            <mat-label>Expiration</mat-label>
+            <input matInput [value]="leg.expiration" (input)="updateCustomLeg($index, 'expiration', $event.target.value)">
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="leg-field">
+            <mat-label>Direction</mat-label>
+            <mat-select [value]="leg.direction" (selectionChange)="updateCustomLeg($index, 'direction', $event.value)">
+              <mat-option [value]="'long'">Long</mat-option>
+              <mat-option [value]="'short'">Short</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <button mat-icon-button (click)="removeCustomLeg($index)" color="warn">
+            <mat-icon>remove_circle_outline</mat-icon>
+          </button>
+        </div>
+      }
+      <button mat-stroked-button (click)="addCustomLeg()">
+        <mat-icon>add</mat-icon> Add Leg
+      </button>
+    </div>
+  }
+
+  <!-- Date range (optional) -->
+  <div class="date-row">
+    <mat-form-field appearance="outline" class="half-width">
+      <mat-label>Start Date (optional)</mat-label>
+      <input matInput [matDatepicker]="startPicker" (dateChange)="onStartDateChange($event.value)">
+      <mat-datepicker-toggle matIconSuffix [for]="startPicker"></mat-datepicker-toggle>
+      <mat-datepicker #startPicker></mat-datepicker>
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="half-width">
+      <mat-label>End Date (optional)</mat-label>
+      <input matInput [matDatepicker]="endPicker" (dateChange)="onEndDateChange($event.value)">
+      <mat-datepicker-toggle matIconSuffix [for]="endPicker"></mat-datepicker-toggle>
+      <mat-datepicker #endPicker></mat-datepicker>
+    </mat-form-field>
+  </div>
+
+  <!-- Debit/Credit badge -->
+  @if (debitOrCredit(); as doc) {
+    <mat-chip-set>
+      <mat-chip [highlighted]="doc === 'debit'" [color]="doc === 'debit' ? 'primary' : 'accent'">
+        {{ doc === 'debit' ? 'Debit' : 'Credit' }}
+      </mat-chip>
+    </mat-chip-set>
+  }
+
+  <!-- Running count -->
+  @if (addedCount() > 0) {
+    <p class="added-count">{{ addedCount() }} spread{{ addedCount() > 1 ? 's' : '' }} added</p>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="onCancel()">Cancel</button>
+  <button mat-stroked-button (click)="onAddToList()" [disabled]="!canAdd()">Add to List</button>
+  <button mat-flat-button color="primary" (click)="onLoad()" [disabled]="addedCount() === 0">Load</button>
+</mat-dialog-actions>
