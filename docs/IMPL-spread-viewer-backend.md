@@ -2,9 +2,9 @@
 **Issue:** #77  
 **Domain:** SPREAD-VIEWER  
 **Type:** Implementation Plan  
-**Status:** Draft  
+**Status:** Draft (refined 2026-08-07 — added firstObserved filter for catalog query, see ADR-004)  
 **Created:** 2026-08-05  
-**Last Updated:** 2026-08-05  
+**Last Updated:** 2026-08-07  
 
 # Implementation Plan: Spread Time Series Viewer — BACKEND
 
@@ -370,3 +370,34 @@ match /spread-lists/{listId} {
 6. Export both in `functions/src/index.ts`
 7. Add Firestore security rules for `spread-runs` and `spread-lists`
 8. Deploy and test with a single spread first
+
+### 8. `queryContractCatalog` callable — add `firstObservedGte` / `firstObservedLte` filters (new, refined 2026-08-07)
+
+The spread builder dialog's catalog picker filters contracts by first-observed date (the date the contract was listed), not by expiration date. The existing `queryContractCatalog` callable supports `expirationGte`/`expirationLte` but not `firstObservedGte`/`firstObservedLte`. This is a small additive change.
+
+**Files modified:**
+- `shared/options-contract-contracts.ts` — add `firstObservedGte?: string` and `firstObservedLte?: string` to `QueryContractCatalogRequest`
+- `functions/src/options-contract.callables.ts` — apply the new filters in the catalog query logic (same pattern as existing `expirationGte`/`expirationLte`)
+
+```typescript
+// In QueryContractCatalogRequest (shared/options-contract-contracts.ts):
+export interface QueryContractCatalogRequest {
+  symbol: string;
+  summary?: boolean;
+  expiration?: string;
+  expirationGte?: string;
+  expirationLte?: string;
+  firstObservedGte?: string;   // new
+  firstObservedLte?: string;   // new
+  contractLengthBucket?: string;
+  type?: 'C' | 'P';
+  strike?: number;
+  strikeGte?: number;
+  strikeLte?: number;
+  // ... existing fields
+}
+```
+
+**Implementation:** The catalog query logic already has `firstObserved` on each `ContractCatalogEntry`. The filter applies the same comparison pattern as `expirationGte`/`expirationLte` — string comparison against the `firstObserved` field.
+
+**Why:** The spread builder's parametric workflow is entry-date-driven. The trader picks an entry date, and the catalog should show contracts that were first observed near that date (i.e., newly listed contracts available for trading on that date). Filtering by expiration date would return contracts with the right expiration but wrong listing date — the trader would see contracts that didn't exist on their entry date.

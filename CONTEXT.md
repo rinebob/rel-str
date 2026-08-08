@@ -132,6 +132,38 @@ The computed historical price of a multi-leg spread on a given date: `sum(long l
 
 A session-working list of spreads produced by the spread builder for the Spread Time Series Viewer. Each entry is a spread definition (spreadType, symbol, legs, optional date range). The list determines single vs. batch endpoint usage: one spread uses the single endpoint, multiple spreads use the batch endpoint.
 
+## Working Buffer
+
+The in-memory list of spreads being built in the spread builder dialog. Persists across dialog open/close (lives in the root-provided `SpreadViewerStore`). The working buffer is the source of truth for what gets loaded to the chart. It is distinct from a Named List — the buffer is ephemeral working state, the named list is persisted.
+
+## Named List
+
+A persisted spread list in Firestore (`spread-lists/{listId}`), owned by a user. A Named List can be opened to populate the working buffer, and the buffer can be saved back to a Named List via Save or Save As. Named Lists are the persistence mechanism; the working buffer is the editing surface.
+
+## Dirty State
+
+A derived condition where the working buffer differs from the last-saved snapshot of the currently-selected Named List. Computed by comparing the buffer against a snapshot stored in the store. When dirty, the dialog shows an "unsaved changes" indicator and prompts on close.
+
+## Entry Date
+
+The date a trader plans to open a spread position. In the spread builder, the entry date drives the parametric chain: it determines the underlying price reference (for ATM strike selection) and filters the contract catalog to contracts first observed near that date. Distinct from the spread's first trading date (which is a property of the data, not a user choice).
+
+## Strike Distance
+
+The width between spread legs, measured in strike points. In the spread builder, the strike distance field auto-computes secondary strikes from a primary (ATM) strike. Type-specific: vertical uses one distance (long → short), strangle uses one symmetric distance (ATM ± distance), iron condor uses one symmetric wing width. The distance is preserved when cloning a spread across expirations.
+
+## Contract Length Bucket
+
+A categorical label for a contract's lifespan from listing to expiration: `1d`, `3d`, `7d`, `14d`, `1mo`, `3mo`, `6mo`, `1yr`, etc. Grouped into Short / Medium / Long. Used as a filter on the contract catalog query to narrow results to a manageable set. Distinct from DTE (days to expiration from entry), which is derived per-spread after selection.
+
+## Parametric Spread Template
+
+The configuration in the spread builder form that defines a spread structure once, then generates variants across expirations: spread type, option type, entry date, strike distance, contract length bucket. The template is the "same spread" being compared across time — the structure is fixed, the strikes and expiration vary with the underlying price and entry date.
+
+## Catalog Picker
+
+The filtered contract catalog table in the spread builder dialog (left column). Displays contracts matching the form's filters (symbol, first-observed date window, strike range, length bucket, option type). Clicking a row populates the form's expiration and strike fields. The catalog picker is the primary leg selection mechanism — the parametric chain narrows the catalog, the user picks the actual contract. No silent "nearest available" guesswork.
+
 ## Position List
 
 A session-working list of backtest positions produced by a backtest run for the Spread Time Series Viewer's backtest plotting mode. Each entry is a position object carrying its spread definition, entry date, exit date, provenance (run reference), and other trade metadata. Loaded from backtest output, not constructed manually.

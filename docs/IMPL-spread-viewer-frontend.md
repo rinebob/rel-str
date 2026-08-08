@@ -2,9 +2,9 @@
 **Issue:** #77  
 **Domain:** SPREAD-VIEWER  
 **Type:** Implementation Plan  
-**Status:** Draft  
+**Status:** Draft (refined 2026-08-07 — spread builder dialog redesign, see ADR-004)  
 **Created:** 2026-08-05  
-**Last Updated:** 2026-08-05  
+**Last Updated:** 2026-08-07  
 
 # Implementation Plan: Spread Time Series Viewer — FRONTEND
 
@@ -150,33 +150,106 @@ interface SpreadViewerState {
    - If `status === PERMANENT_FAILURE`: find spread by index, set `status: ERROR`, populate `error`
 4. When run doc `status === COMPLETE || PARTIAL`: unsubscribe both, clear `activeRunId`
 
-### 6. `src/app/features/rh-agent/components/spread-builder-dialog/` (new)
+### 6. `src/app/features/rh-agent/components/spread-builder-dialog/` (redesigned 2026-08-07, ADR-004)
 
-Material dialog component for constructing spreads.
+Material dialog component for constructing spreads. **Three-column wide dialog** (~1200px+) with dialog-scoped density styling.
 
 **Files:**
 - `spread-builder-dialog.component.ts`
 - `spread-builder-dialog.component.html`
 - `spread-builder-dialog.component.scss`
 
-**Behavior:**
-- Spread type selector (vertical, straddle, strangle, iron_condor, custom)
-- When type selected, form adapts:
-  - **Vertical:** optionType (call/put), expiration (dropdown), long strike (dropdown), short strike (dropdown)
-  - **Straddle:** expiration (dropdown), strike (dropdown) — both legs auto-created
-  - **Strangle:** expiration (dropdown), put strike (dropdown), call strike (dropdown)
-  - **Iron Condor:** expiration (dropdown), 4 strikes (put long, put short, call short, call long)
-  - **Custom:** free-form leg table (add/remove rows, each with optionType, strike, expiration, side)
-- Symbol pre-populated from store
-- Expiration/strike dropdowns populated from `OptionsCommonService.getContractIndex$`
-- Long/short assignment auto-determined by spread type + strike selection
-- **Debit/credit badge:** read-only, computed structurally from leg arrangement, updates live
-- **Date range fields:** optional `startDate` / `endDate`, defaults to full life
-- "Add to List" button — appends `SpreadDefinition` to store, shows running count, form resets (keeps symbol + expiration)
-- "Load" button — calls `store.loadSpreads()`, closes dialog
-- "Cancel" button — closes dialog without loading
+**Layout (three columns + top bar + bottom bar):**
 
-**Spread type leg config (config-driven):**
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Top Bar: [List dropdown ▼] [New List] [Save] [Save As] [Clear]  ● Unsaved  │
+├──────────────────┬──────────────────────┬───────────────────────────────────┤
+│ Left Column      │ Center Column        │ Right Column                      │
+│                  │                      │                                   │
+│ Filters:         │ Spread Form:         │ Built-Spreads Table:              │
+│ - Chart date     │ - Spread type        │ ┌──┬──────┬─────┬──────┬───────┐ │
+│   range (pickers)│ - Option type        │ │T │ Exp  │Legs │Entry │D/D-C/S│ │
+│ - Strike range   │ - Entry date (picker)│ ├──┼──────┼─────┼──────┼───────┤ │
+│   (min/max)      │ - Underlying price  │ │  │      │     │      │       │ │
+│ - Length bucket  │   (display)          │ │  │      │     │      │       │ │
+│   dropdown       │ - Strike distance   │ │  │      │     │      │       │ │
+│                  │ - Strikes (autocomplete)│  │      │     │      │       │ │
+│ Catalog Table:   │ - Expiration (auto)  │ └──┴──────┴─────┴──────┴───────┘ │
+│ ┌──┬──────┬─────┐│ - Debit/credit badge │ Row actions: [Clone] [Delete]     │
+│ │T │Strike│ Exp ││                      │                                   │
+│ ├──┼──────┼─────┤│ [Add to List]        │                                   │
+│ │  │      │     ││ [Adv 1D][Adv 1W][Adv 1M]│                              │
+│ └──┴──────┴─────┘│                      │                                   │
+│ + Len, FirstObs, │                      │                                   │
+│   Obs columns    │                      │                                   │
+├──────────────────┴──────────────────────┴───────────────────────────────────┤
+│ Bottom Bar: [Cancel] [Load]                                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Left Column — Filters + Catalog Table:**
+- Chart date range: two Material date pickers (start/end). Filters underlying bars client-side and drives entry date picker's available dates.
+- Strike range: min/max number inputs. Filters catalog query (`strikeGte`/`strikeLte`).
+- Length bucket dropdown: multi-select grouped Short/Medium/Long (reuses `contract-length.utils.ts` pattern from option-chart). Filters catalog query (`contractLengthBucket`).
+- "Search Catalog" button: queries `queryContractCatalog` callable with all filters.
+- Catalog table columns: Type, Strike, Expiration, Length bucket, **First Observed** (new display column — data already in `ContractCatalogEntry`), Observation count.
+- Clicking a catalog row populates the form's expiration + strike fields.
+- Table sorted by first-observed date.
+
+**Center Column — Spread Form (Parametric Template):**
+- Spread type selector (vertical, straddle, strangle, iron_condor, custom)
+- Option type selector (vertical only)
+- Entry date: Material date picker with `matDatepickerFilter` disabling non-trading days (dates not in underlying bars within chart date range)
+- Underlying price: read-only display, looked up from underlying bars for the selected entry date
+- Strike distance: number input. Auto-computes secondary strikes from primary. Type-specific:
+  - Vertical: long strike + distance → short strike
+  - Straddle: no distance field (single strike)
+  - Strangle: ATM ± distance (symmetric)
+  - Iron Condor: ATM ± distance, ± 2×distance (symmetric wings)
+  - Custom: no distance field (manual legs)
+- Strikes: `mat-autocomplete` inputs (typeahead) instead of `mat-select` dropdowns. Validates against available strikes from contract index.
+- Expiration: auto-filled from catalog row click, or `mat-autocomplete` input. Validates against available expirations.
+- Debit/credit badge: read-only, computed structurally from leg arrangement, updates live
+- "Add to List" button: appends `SpreadDefinition` to working buffer (store). Form values stay populated (user can tweak for next spread).
+- "Advance 1 Day / 1 Week / 1 Month" buttons: move entry date forward by offset, update underlying price display, scroll catalog table to contract closest to new entry date + underlying price. Does NOT add to list — user reviews then clicks "Add to List".
+- Strike distance auto-scroll: when user picks long leg from catalog, table auto-scrolls to row at `long strike + distance` (or `− distance`).
+
+**Right Column — Built-Spreads Table (Working Buffer):**
+- Table columns: Type, Expiration, Legs (compact, e.g., "C 450/455"), Entry date, DTE (derived: `expiration − entryDate`), Debit/Credit, Status (PENDING/LOADED/ERROR)
+- Row actions: Clone (loads spread into form for editing), Delete (removes from buffer)
+- Clone → form → "Add to List" always inserts as a new row (no in-place overwrite)
+
+**Top Bar — Named List Controls:**
+- List dropdown: select from user's named lists (`SpreadListService.loadNamedLists$`)
+- "New List" button: creates a new named list, sets as `selectedListId`, clears `lastSavedSnapshot`
+- "Save" button: persists working buffer to selected named list (`SpreadListService.saveList`), updates `lastSavedSnapshot`, clears dirty
+- "Save As" button: prompts for name, creates new named list, persists buffer, sets as `selectedListId`
+- "Clear" button: clears working buffer (with confirmation)
+- Dirty indicator: "● Unsaved changes" when buffer ≠ `lastSavedSnapshot`. Computed via `JSON.stringify` comparison.
+
+**Bottom Bar — Actions:**
+- "Cancel" button: closes dialog. If dirty, prompts "You have unsaved changes. Close anyway?"
+- "Load" button: calls `store.loadSpreads()` with working buffer, closes dialog. Independent of Save.
+
+**Density Styling (dialog-scoped):**
+- `.spread-builder-dialog` wrapper class on dialog content
+- SCSS overrides Material component sizing variables within scope:
+  - `--mat-form-field-container-vertical-padding` — reduced
+  - `--mat-form-field-container-height` — shorter
+  - `.mat-mdc-form-field-subscript-wrapper` — hidden (no hints in this dialog)
+  - Font sizes on labels, inputs, select triggers — smaller
+  - Button height/padding — reduced
+  - Table row height and cell padding — compact
+- No global theme change. Full design system deferred to future topic.
+
+**Store changes (`SpreadViewerState`):**
+- Add: `selectedListId: string | null`, `lastSavedSnapshot: SpreadDefinition[] | null`, `chartDateRange: { start: string | null, end: string | null }`, `entryDate: string | null`, `strikeRange: { min: number | null, max: number | null }`, `selectedLengthBuckets: Set<string>`
+- Change: `underlyingBars` fetched as full dataset (remove hardcoded 730-day window), filtered client-side to `chartDateRange`
+- Computed: `isDirty` (buffer ≠ snapshot), `availableEntryDates` (from underlying bars within chart date range), `underlyingPrice` (close on `entryDate`)
+- Methods: `openList(listId)`, `saveCurrentList()`, `saveAsList(name)`, `clearBuffer()`, `setChartDateRange(start, end)`, `setStrikeRange(min, max)`, `setLengthBuckets(set)`, `setEntryDate(date)`, `advanceEntryDate(offset)`, `cloneSpreadToForm(spreadId)`, `deleteSpreadFromBuffer(spreadId)`
+
+**Spread type leg config (config-driven, updated):**
 
 ```typescript
 interface SpreadTypeConfig {
@@ -184,9 +257,10 @@ interface SpreadTypeConfig {
   legCount: number;
   optionTypeConstraint: 'single' | 'both' | 'none';
   expirationConstraint: 'same' | 'none';
-  strikeConstraint: 'distinct' | 'same' | 'distinct_ordered';
+  strikeConstraint: 'distinct' | 'same' | 'distinct_ordered' | 'none';
   autoAssignSides: boolean;
-  debitOrCredit: (legs: SpreadLeg[]) => DebitOrCredit;
+  strikeDistanceApplies: boolean;  // new — whether strike distance field is shown
+  computeStrikes: (primaryStrike: number, distance: number, optionType: OptionType) => SpreadLeg[];  // new
 }
 ```
 

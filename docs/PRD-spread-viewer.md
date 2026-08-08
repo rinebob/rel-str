@@ -2,9 +2,9 @@
 **Issue:** #77  
 **Domain:** SPREAD-PRICING  
 **Type:** PRD  
-**Status:** Approved  
+**Status:** Approved (refined 2026-08-07 — spread builder dialog redesign, see ADR-004)  
 **Created:** 2026-08-03  
-**Last Updated:** 2026-08-03  
+**Last Updated:** 2026-08-07  
 
 # PRD: Spread Time Series Viewer
 
@@ -39,6 +39,52 @@ The viewer is a separate pipeline from the Options Contract Viewer (per ADR-003)
 7. As a trader, I want to optionally specify a date range (startDate/endDate) for the spread, so that I can filter the returned series to a relevant window.
 
 8. As a trader, I want to add a constructed spread to the spread list, so that I can build up a set of spreads to compare on the chart.
+
+### Spread Builder — Parametric Template + Catalog Picker (refined 2026-08-07, ADR-004)
+
+34. As a trader, I want to define a spread structure once (type, option type, strike distance, contract length bucket) and then generate variants across expirations by advancing an entry date, so that I can compare the same spread structure across time without re-entering every field.
+
+35. As a trader, I want to pick an entry date from a date picker that disables non-trading days, so that I can only select dates where underlying price data exists.
+
+36. As a trader, I want the dialog to show the underlying price for the selected entry date, so that I know which strike is ATM without looking it up separately.
+
+37. As a trader, I want to specify a strike distance and have the secondary strike(s) auto-computed from the primary strike, so that I only enter one strike value per spread.
+
+38. As a trader, I want to filter the contract catalog by first-observed date window, strike range, contract length bucket, and option type, so that the catalog table shows only a manageable set of relevant contracts instead of thousands.
+
+39. As a trader, I want to see a catalog table with first-observed date, contract length bucket, and observation count columns, so that I can make informed leg selections based on data availability.
+
+40. As a trader, I want to click a catalog row to populate the form's expiration and strike fields, so that I pick the actual contract rather than relying on algorithmic guesswork.
+
+41. As a trader, I want autocomplete/typeahead on strike and expiration inputs instead of scroll-only dropdowns, so that I can quickly find values in lists of hundreds or thousands.
+
+42. As a trader, I want "Advance 1 Day / 1 Week / 1 Month" buttons that move the entry date forward, update the underlying price, and scroll the catalog to the best matching contract, so that I can rapidly iterate through expirations.
+
+43. As a trader, I want the advance button to auto-fill the form but NOT add to the list, so that I can review the auto-filled values before committing.
+
+44. As a trader, I want the strike distance field to auto-scroll the catalog to the second leg when I pick the first leg, so that I can find the matching contract for the short strike without manual searching.
+
+45. As a trader, I want the dialog to use a three-column layout (filters+catalog | form | built-spreads table) with dialog-scoped density styling, so that all relevant information is visible at once without excessive component sizing.
+
+### Spread List — Working Buffer + Named List (refined 2026-08-07, ADR-004)
+
+46. As a trader, I want a working buffer of spreads that persists across dialog open/close, so that I don't lose my in-progress work when I close the dialog to look at the chart.
+
+47. As a trader, I want to open a named list from Firestore to populate the working buffer, so that I can resume work on a previously saved set of spreads.
+
+48. As a trader, I want to Save or Save As the working buffer to a named list, so that I can persist my work when I'm happy with it — not on every edit.
+
+49. As a trader, I want a dirty-state indicator showing when the working buffer has unsaved changes, so that I know whether I need to save before closing.
+
+50. As a trader, I want a prompt when closing the dialog with unsaved changes, so that I don't accidentally lose work.
+
+51. As a trader, I want to clear the working buffer explicitly, so that I can start fresh without manually deleting every row.
+
+52. As a trader, I want Load to send the working buffer to the chart independent of Save, so that I can explore spreads on the chart without committing them to a named list.
+
+53. As a trader, I want to clone a spread from the built-spreads table into the form for editing, so that I can create a variant by changing only the strikes and expiration while keeping the rest of the structure.
+
+54. As a trader, I want the built-spreads table to show type, expiration, legs, entry date, DTE (derived), debit/credit, and status, so that I can review my comparison set at a glance.
 
 ### Spread List
 
@@ -188,8 +234,8 @@ Test external behavior, not implementation details. Prefer the highest seam that
 
 - **Greeks pane**: spread delta/theta/vega/gamma visualization. Deferred until chart is stable and we understand what Greek visualization is most useful through real usage.
 - **Per-leg marks pane**: showing individual leg mark series for a single spread. Deferred — only available in single-spread mode (batch omits leg series).
-- **Generation feature (Tier 1)**: entry-date iteration on a fixed spread definition. Interesting but not the primary research goal.
-- **Generation feature (Tier 2)**: template-based selection (target DTE, target delta, strike width) with contract index lookup per entry date. The "holy grail" for strategy research. Reuses existing `selectOptionSpread` logic from the backtest system.
+- **Generation feature (Tier 1)**: ~~entry-date iteration on a fixed spread definition.~~ **Partially in scope (refined 2026-08-07):** The spread builder dialog now supports entry-date iteration via the Advance buttons + parametric template (ADR-004). The catalog picker replaces algorithmic contract selection with user-driven picking from a filtered catalog.
+- **Generation feature (Tier 2)**: template-based selection (target DTE, target delta, strike width) with contract index lookup per entry date. The "holy grail" for strategy research. Reuses existing `selectOptionSpread` logic from the backtest system. **Still deferred** — the refined dialog uses contract length bucket + strike distance instead of target delta. Delta-aware selection remains future work.
 - **Delta-aware builder**: open-date-first flow where the user picks an entry date, the builder fetches the options chain for that date (strikes, expirations, and per-strike deltas), and the user constructs spreads by delta target (e.g., "15 delta naked strangle"). Requires options chain access via a new data path (the viewer currently only has contract index access, not per-date chain data). This is the foundation for Tier 2 generation — "open a 15 delta naked strangle every Wednesday from X to Y" requires per-date delta resolution for each entry date.
 - **Filter-to-algo bridge (full)**: shared filter specification between viewer and backtest strategy config. v1 uses structurally aligned vocabulary (delta, DTE, strike width, debit/credit) to enable future bridge. Full shared spec is the goal.
 - **Filtering UI**: UI for selecting which subset of positions to plot (by spread type, date range, P&L, etc.). v1 caps plotted set at 50 with simple selection; full filtering is phase 2.
@@ -274,6 +320,7 @@ flowchart TD
 ## Further Notes
 
 - **ADR-003** governs the separate-pipeline architectural decision. This PRD implements ADR-003's v1 scope.
+- **ADR-004** governs the spread builder dialog redesign (parametric template + catalog picker + working buffer/named list hybrid). User stories 34-54 implement ADR-004's scope.
 - **Tech debt tracked during blueprint grilling:**
   1. Extract `getContractIndex$` from `OptionsContractService` into `OptionsCommonService`, update contract viewer callers.
   2. Rename `options-contract-contracts.ts` → `options-contracts.ts`.

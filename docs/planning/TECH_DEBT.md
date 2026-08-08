@@ -4,6 +4,7 @@
 
 ### Must-have
 
+- [ ] **PriceBarService refactor — migrate underlying bars from SA to Firestore `symbol-data`.** `RsBarsService.getDailyBars$` calls the `getPairDailyBars` callable, which round-trips to SA's partner API for daily OHLC bars. The app already has `RhAgentChartService` which reads the same data directly from Firestore `symbol-data/{symbol}/daily` (written by SA during PDR runs). The `@techdebt PRICE-BAR-SERVICE` comment in `rs-bars.service.ts` already documents the intended refactor: (1) create `src/app/core/services/price-bar.service.ts` wrapping Firestore `symbol-data` reads, returning `OHLCDatum[]`; (2) wire rh-agent (spread viewer, signal-detail) to use it; (3) migrate heatmap-chart, then remove the wrapper from `HeatmapChartDataService`; (4) deprecate `RsBarsService` SA-dependent path. Added 2026-08-07 during spread builder dialog refinement (ADR-004) — the spread viewer temporarily keeps `RsBarsService` but should migrate when this is done.
 - [ ] CFSTR follow-on: actual Cloud Functions filesystem migration from `webhooks/*` into the new partner/rs/admin structure (implementation efforts after RS-BE-MAINT-CFSTR-2601-01).
 - [ ] Tests: expand Jest unit test coverage for core RS pipelines (PDR/FRBARR) and critical callables; ensure new work ships with tests by default.
 - [ ] Centralize all Firestore collection/path constants (including `system/rs-backfill-runs/runs` and `system/rs-time-series-jobs/dates`) into a shared enum instead of scattering string constants across RS/time-series and webhooks code.
@@ -37,3 +38,4 @@
 
 - 2026-01-25 – Created TECH_DEBT with Ideas/Implementation order buckets and seeded initial items (CFSTR follow-on, tests, emulator workflow, logging/metrics).
 - 2026-01-25 – Added tech-debt item to centralize Firestore collection/path constants, including new RS backfill/time-series system roots.
+- 2026-08-07 – Added PriceBarService refactor tech-debt item (migrate `RsBarsService` SA-dependent underlying bars to Firestore `symbol-data`). Identified during spread builder dialog refinement (ADR-004, Topic #77).
