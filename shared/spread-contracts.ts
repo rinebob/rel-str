@@ -34,7 +34,7 @@ export interface SpreadLeg {
   optionType: OptionType;
   strike: number;
   expiration: string;
-  side: 'long' | 'short';
+  direction: 'long' | 'short';
 }
 
 export interface SpreadDefinition {
@@ -61,20 +61,26 @@ export interface Spread extends SpreadDefinition {
 
 export interface SpreadObservation {
   date: string;
-  spreadPrice: number;
-  legMarks: number[];
-  volume?: number;
+  price: number;
+  delta?: number;
+  gamma?: number;
+  theta?: number;
+  vega?: number;
+  rho?: number;
 }
 
 export interface LegMetadata {
-  contractId: string;
+  contractID: string;
   optionType: OptionType;
   strike: number;
   expiration: string;
-  side: 'long' | 'short';
+  direction: 'long' | 'short';
+  firstObserved?: string;
+  lastObserved?: string;
 }
 
 export interface SpreadTimeSeriesResponse {
+  ok: boolean;
   symbol: string;
   spreadType: SpreadType;
   debitOrCredit: DebitOrCredit;
@@ -115,6 +121,7 @@ export enum SpreadJobStatus {
 // ── Spread List Persistence (Firestore) ────────
 
 export interface SpreadListDoc {
+  id?: string;
   userId: string;
   name: string;
   spreads: SpreadDefinition[];
