@@ -10,6 +10,7 @@ import { Firestore, collection, collectionData, doc, docData, setDoc, deleteDoc,
 import { Observable, throwError, map } from 'rxjs';
 
 import { Collection } from '../../../core/common/constants';
+import { cloneSpreadDefinition } from '../utils/spread-definition.utils';
 import type { SpreadDefinition, SpreadListDoc } from '@spread/contracts';
 
 const RECENT_LIST_ID = 'recent';
@@ -74,7 +75,7 @@ export class SpreadListService {
     await setDoc(ref, {
       userId: uid,
       name,
-      spreads: spreads.map(cleanDefinition),
+      spreads: spreads.map(cloneSpreadDefinition),
       createdAt: snap.exists() ? undefined : now,
       updatedAt: now,
     }, { merge: true });
@@ -90,7 +91,7 @@ export class SpreadListService {
     await runTransaction(this.firestore, async (txn) => {
       const snap = await txn.get(ref);
       const existing = snap.exists() ? (snap.data() as SpreadListDoc).spreads ?? [] : [];
-      const updated = [cleanDefinition(spread), ...existing].slice(0, MAX_RECENT);
+      const updated = [cloneSpreadDefinition(spread), ...existing].slice(0, MAX_RECENT);
 
       txn.set(ref, {
         userId: uid,
@@ -107,15 +108,4 @@ export class SpreadListService {
     const ref = doc(this.firestore, `${Collection.SPREAD_LISTS}/${listId}`);
     await deleteDoc(ref);
   }
-}
-
-/** Remove undefined fields from a SpreadDefinition so Firestore doesn't reject it. */
-function cleanDefinition(def: SpreadDefinition): SpreadDefinition {
-  const cleaned: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(def)) {
-    if (value !== undefined) {
-      cleaned[key] = value;
-    }
-  }
-  return cleaned as unknown as SpreadDefinition;
 }
