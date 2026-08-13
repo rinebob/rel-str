@@ -8,7 +8,7 @@ import { Component, inject, computed, signal, ChangeDetectionStrategy } from '@a
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
@@ -16,15 +16,24 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatInputModule } from '@angular/material/input';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatTableModule } from '@angular/material/table';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 
 import { SpreadViewerStore } from '../../stores/spread-viewer.store';
+import { OptionsContractService } from '../../services/options-contract.service';
+import { SaveListDialogComponent } from '../save-list-dialog/save-list-dialog.component';
+import { groupLengthBuckets } from '../../utils/contract-length.utils';
 import { OptionType } from '@options/common';
 import {
   SpreadType,
   DebitOrCredit,
+  type Spread,
   type SpreadDefinition,
   type SpreadLeg,
 } from '@spread/contracts';
+import type { ContractCatalogEntry, QueryContractCatalogRequest } from '@options-contract/contracts';
 
 interface SpreadTypeConfig {
   type: SpreadType;
@@ -33,6 +42,7 @@ interface SpreadTypeConfig {
   expirationConstraint: 'same' | 'none';
   strikeConstraint: 'distinct' | 'same' | 'distinct_ordered' | 'none';
   autoAssignSides: boolean;
+  strikeDistanceApplies: boolean;
 }
 
 const SPREAD_CONFIGS: Record<SpreadType, SpreadTypeConfig> = {
@@ -43,6 +53,7 @@ const SPREAD_CONFIGS: Record<SpreadType, SpreadTypeConfig> = {
     expirationConstraint: 'same',
     strikeConstraint: 'distinct',
     autoAssignSides: true,
+    strikeDistanceApplies: true,
   },
   [SpreadType.STRADDLE]: {
     type: SpreadType.STRADDLE,
@@ -51,6 +62,7 @@ const SPREAD_CONFIGS: Record<SpreadType, SpreadTypeConfig> = {
     expirationConstraint: 'same',
     strikeConstraint: 'same',
     autoAssignSides: true,
+    strikeDistanceApplies: false,
   },
   [SpreadType.STRANGLE]: {
     type: SpreadType.STRANGLE,
@@ -59,6 +71,7 @@ const SPREAD_CONFIGS: Record<SpreadType, SpreadTypeConfig> = {
     expirationConstraint: 'same',
     strikeConstraint: 'distinct_ordered',
     autoAssignSides: true,
+    strikeDistanceApplies: true,
   },
   [SpreadType.IRON_CONDOR]: {
     type: SpreadType.IRON_CONDOR,
@@ -67,6 +80,7 @@ const SPREAD_CONFIGS: Record<SpreadType, SpreadTypeConfig> = {
     expirationConstraint: 'same',
     strikeConstraint: 'distinct_ordered',
     autoAssignSides: true,
+    strikeDistanceApplies: true,
   },
   [SpreadType.CUSTOM]: {
     type: SpreadType.CUSTOM,
@@ -75,6 +89,7 @@ const SPREAD_CONFIGS: Record<SpreadType, SpreadTypeConfig> = {
     expirationConstraint: 'none',
     strikeConstraint: 'none',
     autoAssignSides: false,
+    strikeDistanceApplies: false,
   },
 };
 
@@ -93,6 +108,10 @@ const SPREAD_CONFIGS: Record<SpreadType, SpreadTypeConfig> = {
     MatDatepickerModule,
     MatNativeDateModule,
     MatInputModule,
+    MatMenuModule,
+    MatTableModule,
+    MatProgressSpinnerModule,
+    MatAutocompleteModule,
   ],
   templateUrl: './spread-builder-dialog.component.html',
   styleUrl: './spread-builder-dialog.component.scss',
@@ -100,7 +119,9 @@ const SPREAD_CONFIGS: Record<SpreadType, SpreadTypeConfig> = {
 })
 export class SpreadBuilderDialogComponent {
   readonly store = inject(SpreadViewerStore);
+  readonly optionsContractService = inject(OptionsContractService);
   readonly dialogRef = inject(MatDialogRef<SpreadBuilderDialogComponent>);
+  private readonly dialog = inject(MatDialog);
 
   readonly spreadTypes = [
     { value: SpreadType.VERTICAL, label: 'Vertical' },
@@ -114,15 +135,75 @@ export class SpreadBuilderDialogComponent {
   selectedOptionType = signal<OptionType>(OptionType.CALL);
   selectedExpiration = signal<string | null>(null);
   selectedStrikes = signal<(number | null)[]>([null, null]);
+  strikeDistance = signal<number | null>(null);
   startDate = signal<string | null>(null);
   endDate = signal<string | null>(null);
 
   // Custom mode legs
   customLegs = signal<SpreadLeg[]>([]);
 
+  // Length bucket options — all known buckets, grouped Short/Medium/Long
+  readonly selectedLengthBucketValues = computed(() => Array.from(this.store.selectedLengthBuckets()));
+  readonly lengthBucketGroups = computed(() => groupLengthBuckets([
+    '1d', '3d', '5d', '7d', '14d', '21d',
+    '1mo', '1.5mo', '2mo', '3mo', '4mo',
+    '6mo', '9mo', '1yr', '2yr', '3yr',
+  ]));
+
+  // Catalog picker state
+  catalogLoading = signal(false);
+  catalogError = signal<string | null>(null);
+  catalogResults = signal<ContractCatalogEntry[]>([]);
+  catalogColumns = ['type', 'strike', 'expiration', 'contractLengthBucket', 'firstObserved', 'observationCount'];
+
+  // Built-spreads table helpers
+  formatLegs(spread: Spread): string {
+    return spread.legs.map((leg) => `${leg.optionType[0].toUpperCase()} ${leg.strike}`).join(' / ');
+  }
+
+  formatDte(spread: Spread): string {
+    const entry = spread.entryDate ?? '';
+    const exp = spread.legs[0]?.expiration ?? '';
+    if (!entry || !exp) return '-';
+    const entryTime = new Date(entry).getTime();
+    const expTime = new Date(exp).getTime();
+    if (isNaN(entryTime) || isNaN(expTime)) return '-';
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const dte = Math.ceil((expTime - entryTime) / msPerDay);
+    return dte.toString();
+  }
+
+  formatStatus(spread: Spread): string {
+    return spread.status.toUpperCase();
+  }
+
   readonly storeSymbol = computed(() => this.store.symbol() ?? '');
   readonly contractIndex = computed(() => this.store.contractIndex());
   readonly contractIndexStatus = computed(() => this.store.contractIndexStatus());
+
+  /** Entry date from store (synced with form and catalog clicks). */
+  readonly entryDate = computed(() => this.store.entryDate());
+
+  /** Underlying price for the selected entry date. */
+  readonly underlyingPrice = computed(() => this.store.underlyingPrice());
+
+  /** Dates that have underlying bars within the chart date range. */
+  readonly availableEntryDates = computed(() => this.store.availableEntryDates());
+
+  // Named list context
+  readonly namedLists = computed(() => this.store.namedLists());
+  readonly selectedListId = computed(() => this.store.selectedListId());
+  readonly isDirty = computed(() => this.store.isDirty());
+  readonly selectedListName = computed(() => {
+    const id = this.selectedListId();
+    const list = this.namedLists().find((l) => l.id === id);
+    return list?.name ?? 'Unsaved';
+  });
+
+  // Working buffer table
+  readonly spreads = computed(() => this.store.spreads());
+  readonly displayedColumns = ['type', 'expiration', 'legs', 'entryDate', 'dte', 'debitCredit', 'status', 'actions'];
+
 
   /** Available expirations from the contract index. */
   readonly expirations = computed(() => {
@@ -155,6 +236,12 @@ export class SpreadBuilderDialogComponent {
     if (c.strikeConstraint === 'same') return 1;
     return c.legCount;
   });
+
+  /** Whether the current spread type supports strike distance. */
+  readonly showStrikeDistance = computed(() => this.config().strikeDistanceApplies);
+
+  /** Whether the current spread type is Custom (manual legs). */
+  readonly isCustom = computed(() => this.selectedType() === SpreadType.CUSTOM);
 
   /** Strike selector labels. */
   readonly strikeLabels = computed<string[]>(() => {
@@ -289,6 +376,10 @@ export class SpreadBuilderDialogComponent {
     const strikes = [...this.selectedStrikes()];
     strikes[index] = value;
     this.selectedStrikes.set(strikes);
+
+    if (index === 0 && this.strikeDistance()) {
+      this.computeStrikesFromDistance(this.strikeDistance());
+    }
   }
 
   onStartDateChange(date: Date | null): void {
@@ -297,6 +388,72 @@ export class SpreadBuilderDialogComponent {
 
   onEndDateChange(date: Date | null): void {
     this.endDate.set(date ? date.toISOString().split('T')[0] : null);
+  }
+
+  /** Filter for entry date picker — only allow dates with underlying bars. */
+  entryDateFilter(date: Date | null): boolean {
+    if (!date) return false;
+    const iso = date.toISOString().split('T')[0];
+    return this.availableEntryDates().includes(iso);
+  }
+
+  onEntryDateChange(date: Date | null): void {
+    this.store.setEntryDate(date ? date.toISOString().split('T')[0] : null);
+  }
+
+  onStrikeDistanceChange(value: number | null): void {
+    const distance = value != null && !isNaN(value) ? value : null;
+    this.strikeDistance.set(distance);
+    this.computeStrikesFromDistance(distance);
+  }
+
+  /** Auto-compute secondary strikes when the primary strike and distance change. */
+  computeStrikesFromDistance(distance: number | null): void {
+    if (distance == null || distance <= 0) return;
+    const strikes = this.selectedStrikes();
+    const primary = strikes[0];
+    if (primary == null) return;
+
+    const type = this.selectedType();
+    switch (type) {
+      case SpreadType.VERTICAL:
+        this.selectedStrikes.set([primary, primary + distance]);
+        break;
+      case SpreadType.STRANGLE:
+        this.selectedStrikes.set([primary - distance, primary + distance]);
+        break;
+      case SpreadType.IRON_CONDOR:
+        this.selectedStrikes.set([primary - 2 * distance, primary - distance, primary + distance, primary + 2 * distance]);
+        break;
+    }
+  }
+
+  onAdvanceEntryDate(offset: '1d' | '1w' | '1m'): void {
+    this.store.advanceEntryDate(offset);
+  }
+
+  onChartStartDateChange(date: Date | null): void {
+    const start = date ? date.toISOString().split('T')[0] : null;
+    this.store.setChartDateRange(start, this.store.chartDateRange().end);
+  }
+
+  onChartEndDateChange(date: Date | null): void {
+    const end = date ? date.toISOString().split('T')[0] : null;
+    this.store.setChartDateRange(this.store.chartDateRange().start, end);
+  }
+
+  onStrikeRangeMinChange(value: number | null): void {
+    const min = value != null && !isNaN(value) ? value : null;
+    this.store.setStrikeRange(min, this.store.strikeRange().max);
+  }
+
+  onStrikeRangeMaxChange(value: number | null): void {
+    const max = value != null && !isNaN(value) ? value : null;
+    this.store.setStrikeRange(this.store.strikeRange().min, max);
+  }
+
+  onLengthBucketsChange(values: string[]): void {
+    this.store.setLengthBuckets(new Set(values));
   }
 
   onAddToList(): void {
@@ -308,8 +465,7 @@ export class SpreadBuilderDialogComponent {
       spreadType: this.selectedType(),
       symbol: sym,
       legs,
-      startDate: this.startDate() ?? undefined,
-      endDate: this.endDate() ?? undefined,
+      entryDate: this.store.entryDate() ?? undefined,
     };
 
     this.store.addSpread(definition);
@@ -326,7 +482,158 @@ export class SpreadBuilderDialogComponent {
   }
 
   onCancel(): void {
+    if (this.isDirty()) {
+      const closeAnyway = typeof window !== 'undefined' && window.confirm('You have unsaved changes. Close anyway?');
+      if (!closeAnyway) return;
+    }
     this.dialogRef.close();
+  }
+
+  // Named list controls
+  onListSelected(listId: string): void {
+    this.store.openList(listId);
+  }
+
+  onNewList(): void {
+    this.promptForName().subscribe((name) => {
+      if (name) this.store.createNewList(name);
+    });
+  }
+
+  onSaveList(): void {
+    this.store.saveCurrentList();
+  }
+
+  onSaveAsList(): void {
+    this.promptForName().subscribe((name) => {
+      if (name) this.store.saveAsList(name);
+    });
+  }
+
+  onClearBuffer(): void {
+    const confirmed = typeof window !== 'undefined' && window.confirm('Clear all spreads from the working buffer?');
+    if (confirmed) this.store.clearBuffer();
+  }
+
+  onListsMenuOpen(): void {
+    this.store.loadNamedLists();
+  }
+
+  /** Load a spread from the buffer into the form for editing. */
+  cloneSpread(spread: Spread): void {
+    this.selectedType.set(spread.spreadType);
+    this.selectedExpiration.set(spread.legs[0]?.expiration ?? null);
+
+    if (spread.spreadType === SpreadType.CUSTOM) {
+      this.customLegs.set([...spread.legs]);
+      this.selectedOptionType.set(OptionType.CALL);
+      this.selectedStrikes.set([null, null]);
+      return;
+    }
+
+    // For structured spreads, determine option type and strikes from legs
+    const optionTypes = new Set(spread.legs.map((l) => l.optionType));
+    const hasBoth = optionTypes.size > 1;
+    if (hasBoth) {
+      // Straddle, Strangle, Iron Condor — no single option type selector
+      this.selectedOptionType.set(OptionType.CALL);
+    } else {
+      this.selectedOptionType.set([...optionTypes][0] as OptionType);
+    }
+
+    const strikes = spread.legs.map((l) => l.strike);
+    this.selectedStrikes.set(strikes);
+
+    // Set chart date range / entry date from spread if present
+    this.store.setEntryDate(spread.entryDate ?? null);
+  }
+
+  /** Delete a spread from the working buffer. */
+  deleteSpread(spreadId: string): void {
+    this.store.deleteSpreadFromBuffer(spreadId);
+  }
+
+  /** Query the contract catalog using current filters and populate the table. */
+  onSearchCatalog(): void {
+    const sym = this.storeSymbol();
+    if (!sym) {
+      this.catalogError.set('Symbol is required');
+      return;
+    }
+
+    const range = this.store.strikeRange();
+    const dateRange = this.store.chartDateRange();
+    const buckets = Array.from(this.store.selectedLengthBuckets());
+    const type = this.mapOptionTypeToContractType(this.selectedOptionType());
+
+    const req: QueryContractCatalogRequest = {
+      symbol: sym,
+      firstObservedGte: dateRange.start ?? undefined,
+      firstObservedLte: dateRange.end ?? undefined,
+      strikeGte: range.min ?? undefined,
+      strikeLte: range.max ?? undefined,
+      contractLengthBucket: buckets[0] ?? undefined,
+      type,
+      sortBy: 'observationCount',
+      sortOrder: 'desc',
+      pageSize: 100,
+    };
+
+    this.catalogLoading.set(true);
+    this.catalogError.set(null);
+    this.catalogResults.set([]);
+
+    this.optionsContractService.queryContractCatalog$(req).subscribe({
+      next: (data) => {
+        const sorted = (data.contracts ?? []).slice().sort((a, b) =>
+          (a.firstObserved ?? '').localeCompare(b.firstObserved ?? ''),
+        );
+        this.catalogResults.set(sorted);
+        this.catalogLoading.set(false);
+      },
+      error: (err: Error) => {
+        this.catalogError.set(err?.message ?? 'Failed to query catalog');
+        this.catalogLoading.set(false);
+      },
+    });
+  }
+
+  /** Populate form fields when a catalog row is clicked. */
+  onCatalogRowClick(entry: ContractCatalogEntry): void {
+    this.selectedExpiration.set(entry.expiration);
+    this.selectedOptionType.set(entry.type as OptionType);
+
+    if (this.selectedType() === SpreadType.STRADDLE) {
+      this.selectedStrikes.set([entry.strike]);
+    } else {
+      // For other types, set the first strike and let the user fill the rest
+      const current = [...this.selectedStrikes()];
+      current[0] = entry.strike;
+      this.selectedStrikes.set(current);
+    }
+
+    this.store.setEntryDate(entry.firstObserved);
+
+    if (this.strikeDistance()) {
+      this.computeStrikesFromDistance(this.strikeDistance());
+    }
+  }
+
+  mapOptionTypeToContractType(optionType: OptionType): 'C' | 'P' | undefined {
+    if (optionType === OptionType.CALL) return 'C';
+    if (optionType === OptionType.PUT) return 'P';
+    return undefined;
+  }
+
+  formatFirstObserved(date: string): string {
+    return date;
+  }
+
+  private promptForName() {
+    return this.dialog.open(SaveListDialogComponent, {
+      width: '360px',
+      maxWidth: '90vw',
+    }).afterClosed();
   }
 
   // Custom leg management

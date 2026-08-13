@@ -1,136 +1,365 @@
 <h2 mat-dialog-title>Build Spreads — {{ storeSymbol() }}</h2>
 
-<mat-dialog-content class="builder-content">
-  @if (contractIndexStatus() === 'loading') {
-    <p class="loading-text">Loading contract index…</p>
-  }
-
-  @if (contractIndexStatus() === 'error') {
-    <p class="error-text">Failed to load contract index. Please set a valid symbol.</p>
-  }
-
-  <!-- Spread type selector -->
-  <mat-form-field appearance="outline" class="full-width">
-    <mat-label>Spread Type</mat-label>
-    <mat-select [value]="selectedType()" (selectionChange)="onTypeChange($event.value)">
-      @for (st of spreadTypes; track st.value) {
-        <mat-option [value]="st.value">{{ st.label }}</mat-option>
-      }
-    </mat-select>
-  </mat-form-field>
-
-  <!-- Option type selector (vertical only) -->
-  @if (showOptionTypeSelector()) {
-    <mat-form-field appearance="outline" class="half-width">
-      <mat-label>Option Type</mat-label>
-      <mat-select [value]="selectedOptionType()" (selectionChange)="selectedOptionType.set($event.value)">
-        <mat-option [value]="'call'">Call</mat-option>
-        <mat-option [value]="'put'">Put</mat-option>
+<div class="spread-builder-dialog">
+  <!-- Top Bar: Named list controls -->
+  <div class="dialog-top-bar">
+    <mat-form-field appearance="outline" class="list-select-field" subscriptSizing="dynamic">
+      <mat-select
+        [value]="selectedListId()"
+        (openedChange)="onListsMenuOpen()"
+        (selectionChange)="onListSelected($event.value)"
+      >
+        <mat-option [value]="null">Unsaved</mat-option>
+        @for (list of namedLists(); track list.id) {
+          <mat-option [value]="list.id">{{ list.name }}</mat-option>
+        }
       </mat-select>
     </mat-form-field>
-  }
 
-  <!-- Expiration selector -->
-  <mat-form-field appearance="outline" class="half-width">
-    <mat-label>Expiration</mat-label>
-    <mat-select [value]="selectedExpiration()" (selectionChange)="onExpirationChange($event.value)" [disabled]="contractIndexStatus() !== 'loaded'">
-      @for (exp of expirations(); track exp) {
-        <mat-option [value]="exp">{{ exp }}</mat-option>
-      }
-    </mat-select>
-  </mat-form-field>
+    <button mat-stroked-button (click)="onNewList()">New</button>
+    <button mat-stroked-button (click)="onSaveList()" [disabled]="!selectedListId() || !isDirty()">Save</button>
+    <button mat-stroked-button (click)="onSaveAsList()">Save As</button>
+    <button mat-stroked-button (click)="onClearBuffer()">Clear</button>
 
-  <!-- Strike selectors (non-custom) -->
-  @if (selectedType() !== 'custom') {
-    <div class="strike-row">
-      @for (label of strikeLabels(); track $index) {
-        <mat-form-field appearance="outline" class="half-width">
-          <mat-label>{{ label }}</mat-label>
-          <mat-select
-            [value]="selectedStrikes()[$index]"
-            (selectionChange)="onStrikeChange($index, $event.value)"
-            [disabled]="!selectedExpiration()"
-          >
-            @for (strike of availableStrikes(); track strike) {
-              <mat-option [value]="strike">{{ strike }}</mat-option>
+    @if (isDirty()) {
+      <span class="dirty-indicator">● Unsaved changes</span>
+    } @else {
+      <span class="dirty-indicator clean">✓ Saved</span>
+    }
+  </div>
+
+  <!-- Three-column layout -->
+  <mat-dialog-content class="builder-content">
+    @if (contractIndexStatus() === 'loading') {
+      <p class="loading-text">Loading contract index…</p>
+    }
+
+    @if (contractIndexStatus() === 'error') {
+      <p class="error-text">
+        @if (storeSymbol()) {
+          Server error loading contract index for {{ storeSymbol() }}. Please try again or check the backend logs.
+        } @else {
+          Failed to load contract index. Please set a valid symbol.
+        }
+      </p>
+    }
+
+    <div class="dialog-columns">
+      <!-- Left Column: Filters + Catalog -->
+      <div class="dialog-left-col">
+        <h3 class="col-title">Filters &amp; Catalog</h3>
+
+        <!-- Chart date range (also filters underlying bars) -->
+        <div class="filter-row date-filter">
+          <mat-form-field appearance="outline" class="half-width">
+            <mat-label>Start</mat-label>
+            <input matInput [matDatepicker]="chartStartPicker" (dateChange)="onChartStartDateChange($event.value)">
+            <mat-datepicker-toggle matIconSuffix [for]="chartStartPicker"></mat-datepicker-toggle>
+            <mat-datepicker #chartStartPicker></mat-datepicker>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="half-width">
+            <mat-label>End</mat-label>
+            <input matInput [matDatepicker]="chartEndPicker" (dateChange)="onChartEndDateChange($event.value)">
+            <mat-datepicker-toggle matIconSuffix [for]="chartEndPicker"></mat-datepicker-toggle>
+            <mat-datepicker #chartEndPicker></mat-datepicker>
+          </mat-form-field>
+        </div>
+
+        <!-- Strike range -->
+        <div class="filter-row">
+          <mat-form-field appearance="outline" class="half-width">
+            <mat-label>Min Strike</mat-label>
+            <input matInput type="number" [value]="store.strikeRange().min?.toString() ?? ''" (input)="onStrikeRangeMinChange(+$event.target.value)">
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="half-width">
+            <mat-label>Max Strike</mat-label>
+            <input matInput type="number" [value]="store.strikeRange().max?.toString() ?? ''" (input)="onStrikeRangeMaxChange(+$event.target.value)">
+          </mat-form-field>
+        </div>
+
+        <!-- Length bucket multi-select (first selected used for query) -->
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Length Buckets</mat-label>
+          <mat-select [value]="selectedLengthBucketValues()" multiple (selectionChange)="onLengthBucketsChange($event.value)">
+            @for (group of lengthBucketGroups(); track group.name) {
+              <mat-optgroup [label]="group.name">
+                @for (bucket of group.options; track bucket.value) {
+                  <mat-option [value]="bucket.value">{{ bucket.label }}</mat-option>
+                }
+              </mat-optgroup>
             }
           </mat-select>
         </mat-form-field>
-      }
-    </div>
-  }
 
-  <!-- Custom leg table -->
-  @if (selectedType() === 'custom') {
-    <div class="custom-legs">
-      @for (leg of customLegs(); track $index) {
-        <div class="custom-leg-row">
-          <mat-form-field appearance="outline" class="leg-field">
-            <mat-label>Type</mat-label>
-            <mat-select [value]="leg.optionType" (selectionChange)="updateCustomLeg($index, 'optionType', $event.value)">
+        <!-- Search button -->
+        <button mat-stroked-button (click)="onSearchCatalog()" [disabled]="catalogLoading()" class="search-button">
+          @if (catalogLoading()) {
+            <mat-spinner diameter="16" class="inline-spinner"></mat-spinner>
+          } @else {
+            <mat-icon>search</mat-icon>
+          }
+          Search Catalog
+        </button>
+
+        <!-- Error / empty state -->
+        @if (catalogError()) {
+          <p class="error-text">{{ catalogError() }}</p>
+        }
+        @if (!catalogLoading() && catalogResults().length === 0 && !catalogError()) {
+          <p class="col-placeholder">No catalog results. Adjust filters and click Search.</p>
+        }
+
+        <!-- Catalog table -->
+        @if (catalogResults().length > 0) {
+          <div class="table-scroll catalog-table-scroll">
+            <table mat-table [dataSource]="catalogResults()" class="catalog-table">
+              <ng-container matColumnDef="type">
+                <th mat-header-cell *matHeaderCellDef>Type</th>
+                <td mat-cell *matCellDef="let entry">{{ entry.type }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="strike">
+                <th mat-header-cell *matHeaderCellDef>Strike</th>
+                <td mat-cell *matCellDef="let entry">{{ entry.strike }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="expiration">
+                <th mat-header-cell *matHeaderCellDef>Exp</th>
+                <td mat-cell *matCellDef="let entry">{{ entry.expiration }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="contractLengthBucket">
+                <th mat-header-cell *matHeaderCellDef>Length</th>
+                <td mat-cell *matCellDef="let entry">{{ entry.contractLengthBucket }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="firstObserved">
+                <th mat-header-cell *matHeaderCellDef>First Obs</th>
+                <td mat-cell *matCellDef="let entry">{{ formatFirstObserved(entry.firstObserved) }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="observationCount">
+                <th mat-header-cell *matHeaderCellDef>Obs</th>
+                <td mat-cell *matCellDef="let entry">{{ entry.observationCount }}</td>
+              </ng-container>
+
+              <tr mat-header-row *matHeaderRowDef="catalogColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: catalogColumns;" (click)="onCatalogRowClick(row)" class="clickable-row"></tr>
+            </table>
+          </div>
+        }
+      </div>
+
+      <!-- Center Column: Spread Form (existing form content) -->
+      <div class="dialog-center-col">
+        <h3 class="col-title">Spread Form</h3>
+
+        <!-- Spread type selector -->
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Spread Type</mat-label>
+          <mat-select [value]="selectedType()" (selectionChange)="onTypeChange($event.value)">
+            @for (st of spreadTypes; track st.value) {
+              <mat-option [value]="st.value">{{ st.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <!-- Option type selector (vertical only) -->
+        @if (showOptionTypeSelector()) {
+          <mat-form-field appearance="outline" class="half-width">
+            <mat-label>Option Type</mat-label>
+            <mat-select [value]="selectedOptionType()" (selectionChange)="selectedOptionType.set($event.value)">
               <mat-option [value]="'call'">Call</mat-option>
               <mat-option [value]="'put'">Put</mat-option>
             </mat-select>
           </mat-form-field>
-          <mat-form-field appearance="outline" class="leg-field">
-            <mat-label>Strike</mat-label>
-            <input matInput type="number" [value]="leg.strike" (input)="updateCustomLeg($index, 'strike', +$event.target.value)">
+        }
+
+        <!-- Entry date picker with trading-day filter -->
+        <mat-form-field appearance="outline" class="half-width">
+          <mat-label>Entry Date</mat-label>
+          <input matInput [matDatepicker]="entryPicker" [matDatepickerFilter]="entryDateFilter" [value]="entryDate()" (dateChange)="onEntryDateChange($event.value)">
+          <mat-datepicker-toggle matIconSuffix [for]="entryPicker"></mat-datepicker-toggle>
+          <mat-datepicker #entryPicker></mat-datepicker>
+        </mat-form-field>
+
+        <!-- Underlying price display -->
+        @if (underlyingPrice() != null) {
+          <div class="underlying-price">
+            <span class="price-label">Underlying:</span>
+            <span class="price-value">{{ underlyingPrice() | number:'1.2-2' }}</span>
+          </div>
+        }
+
+        <!-- Expiration selector -->
+        <mat-form-field appearance="outline" class="half-width">
+          <mat-label>Expiration</mat-label>
+          <mat-select [value]="selectedExpiration()" (selectionChange)="onExpirationChange($event.value)" [disabled]="contractIndexStatus() !== 'loaded'">
+            @for (exp of expirations(); track exp) {
+              <mat-option [value]="exp">{{ exp }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <!-- Strike distance (parametric) -->
+        @if (showStrikeDistance()) {
+          <mat-form-field appearance="outline" class="half-width">
+            <mat-label>Strike Distance</mat-label>
+            <input matInput type="number" [value]="strikeDistance() ?? ''" (input)="onStrikeDistanceChange(+$event.target.value)">
           </mat-form-field>
-          <mat-form-field appearance="outline" class="leg-field">
-            <mat-label>Expiration</mat-label>
-            <input matInput [value]="leg.expiration" (input)="updateCustomLeg($index, 'expiration', $event.target.value)">
-          </mat-form-field>
-          <mat-form-field appearance="outline" class="leg-field">
-            <mat-label>Direction</mat-label>
-            <mat-select [value]="leg.direction" (selectionChange)="updateCustomLeg($index, 'direction', $event.value)">
-              <mat-option [value]="'long'">Long</mat-option>
-              <mat-option [value]="'short'">Short</mat-option>
-            </mat-select>
-          </mat-form-field>
-          <button mat-icon-button (click)="removeCustomLeg($index)" color="warn">
-            <mat-icon>remove_circle_outline</mat-icon>
-          </button>
+        }
+
+        <!-- Strike selectors (non-custom) -->
+        @if (selectedType() !== 'custom') {
+          <div class="strike-row">
+            @for (label of strikeLabels(); track $index) {
+              <mat-form-field appearance="outline" class="half-width">
+                <mat-label>{{ label }}</mat-label>
+                <mat-select
+                  [value]="selectedStrikes()[$index]"
+                  (selectionChange)="onStrikeChange($index, $event.value)"
+                  [disabled]="!selectedExpiration()"
+                >
+                  @for (strike of availableStrikes(); track strike) {
+                    <mat-option [value]="strike">{{ strike }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
+          </div>
+        }
+
+        <!-- Advance entry date buttons -->
+        <div class="advance-row">
+          <button mat-stroked-button (click)="onAdvanceEntryDate('1d')" [disabled]="!entryDate()">Adv 1D</button>
+          <button mat-stroked-button (click)="onAdvanceEntryDate('1w')" [disabled]="!entryDate()">Adv 1W</button>
+          <button mat-stroked-button (click)="onAdvanceEntryDate('1m')" [disabled]="!entryDate()">Adv 1M</button>
         </div>
-      }
-      <button mat-stroked-button (click)="addCustomLeg()">
-        <mat-icon>add</mat-icon> Add Leg
-      </button>
+
+        <!-- Custom leg table -->
+        @if (selectedType() === 'custom') {
+          <div class="custom-legs">
+            @for (leg of customLegs(); track $index) {
+              <div class="custom-leg-row">
+                <mat-form-field appearance="outline" class="leg-field">
+                  <mat-label>Type</mat-label>
+                  <mat-select [value]="leg.optionType" (selectionChange)="updateCustomLeg($index, 'optionType', $event.value)">
+                    <mat-option [value]="'call'">Call</mat-option>
+                    <mat-option [value]="'put'">Put</mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="leg-field">
+                  <mat-label>Strike</mat-label>
+                  <input matInput type="number" [value]="leg.strike" (input)="updateCustomLeg($index, 'strike', +$event.target.value)">
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="leg-field">
+                  <mat-label>Expiration</mat-label>
+                  <input matInput [value]="leg.expiration" (input)="updateCustomLeg($index, 'expiration', $event.target.value)">
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="leg-field">
+                  <mat-label>Direction</mat-label>
+                  <mat-select [value]="leg.direction" (selectionChange)="updateCustomLeg($index, 'direction', $event.value)">
+                    <mat-option [value]="'long'">Long</mat-option>
+                    <mat-option [value]="'short'">Short</mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <button mat-icon-button (click)="removeCustomLeg($index)" color="warn">
+                  <mat-icon>remove_circle_outline</mat-icon>
+                </button>
+              </div>
+            }
+            <button mat-stroked-button (click)="addCustomLeg()">
+              <mat-icon>add</mat-icon> Add Leg
+            </button>
+          </div>
+        }
+
+        <!-- Debit/Credit badge -->
+        @if (debitOrCredit(); as doc) {
+          <mat-chip-set>
+            <mat-chip [highlighted]="doc === 'debit'" [color]="doc === 'debit' ? 'primary' : 'accent'">
+              {{ doc === 'debit' ? 'Debit' : 'Credit' }}
+            </mat-chip>
+          </mat-chip-set>
+        }
+
+        <!-- Add to List -->
+        <div class="form-actions">
+          <button mat-stroked-button (click)="onAddToList()" [disabled]="!canAdd()">Add to List</button>
+          @if (addedCount() > 0) {
+            <span class="added-count">{{ addedCount() }} spread{{ addedCount() > 1 ? 's' : '' }} added</span>
+          }
+        </div>
+      </div>
+
+      <!-- Right Column: Built-spreads table -->
+      <div class="dialog-right-col">
+        <h3 class="col-title">Built Spreads</h3>
+
+        @if (spreads().length === 0) {
+          <p class="col-placeholder">No spreads added yet</p>
+        } @else {
+          <div class="table-scroll">
+            <table mat-table [dataSource]="spreads()" class="spreads-table">
+              <ng-container matColumnDef="type">
+                <th mat-header-cell *matHeaderCellDef>Type</th>
+                <td mat-cell *matCellDef="let spread">{{ spread.spreadType }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="expiration">
+                <th mat-header-cell *matHeaderCellDef>Exp</th>
+                <td mat-cell *matCellDef="let spread">{{ spread.legs[0]?.expiration ?? '-' }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="legs">
+                <th mat-header-cell *matHeaderCellDef>Legs</th>
+                <td mat-cell *matCellDef="let spread">{{ formatLegs(spread) }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="entryDate">
+                <th mat-header-cell *matHeaderCellDef>Entry</th>
+                <td mat-cell *matCellDef="let spread">{{ spread.entryDate ?? '-' }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="dte">
+                <th mat-header-cell *matHeaderCellDef>DTE</th>
+                <td mat-cell *matCellDef="let spread">{{ formatDte(spread) }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="debitCredit">
+                <th mat-header-cell *matHeaderCellDef>D/C</th>
+                <td mat-cell *matCellDef="let spread">{{ spread.debitOrCredit ? (spread.debitOrCredit === 'debit' ? 'D' : 'C') : '-' }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="status">
+                <th mat-header-cell *matHeaderCellDef>Status</th>
+                <td mat-cell *matCellDef="let spread">{{ formatStatus(spread) }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef></th>
+                <td mat-cell *matCellDef="let spread">
+                  <button mat-icon-button (click)="cloneSpread(spread)" title="Clone">
+                    <mat-icon>content_copy</mat-icon>
+                  </button>
+                  <button mat-icon-button (click)="deleteSpread(spread.id)" color="warn" title="Delete">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </td>
+              </ng-container>
+
+              <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+            </table>
+          </div>
+        }
+      </div>
     </div>
-  }
+  </mat-dialog-content>
 
-  <!-- Date range (optional) -->
-  <div class="date-row">
-    <mat-form-field appearance="outline" class="half-width">
-      <mat-label>Start Date (optional)</mat-label>
-      <input matInput [matDatepicker]="startPicker" (dateChange)="onStartDateChange($event.value)">
-      <mat-datepicker-toggle matIconSuffix [for]="startPicker"></mat-datepicker-toggle>
-      <mat-datepicker #startPicker></mat-datepicker>
-    </mat-form-field>
-    <mat-form-field appearance="outline" class="half-width">
-      <mat-label>End Date (optional)</mat-label>
-      <input matInput [matDatepicker]="endPicker" (dateChange)="onEndDateChange($event.value)">
-      <mat-datepicker-toggle matIconSuffix [for]="endPicker"></mat-datepicker-toggle>
-      <mat-datepicker #endPicker></mat-datepicker>
-    </mat-form-field>
-  </div>
-
-  <!-- Debit/Credit badge -->
-  @if (debitOrCredit(); as doc) {
-    <mat-chip-set>
-      <mat-chip [highlighted]="doc === 'debit'" [color]="doc === 'debit' ? 'primary' : 'accent'">
-        {{ doc === 'debit' ? 'Debit' : 'Credit' }}
-      </mat-chip>
-    </mat-chip-set>
-  }
-
-  <!-- Running count -->
-  @if (addedCount() > 0) {
-    <p class="added-count">{{ addedCount() }} spread{{ addedCount() > 1 ? 's' : '' }} added</p>
-  }
-</mat-dialog-content>
-
-<mat-dialog-actions align="end">
-  <button mat-button (click)="onCancel()">Cancel</button>
-  <button mat-stroked-button (click)="onAddToList()" [disabled]="!canAdd()">Add to List</button>
-  <button mat-flat-button color="primary" (click)="onLoad()" [disabled]="addedCount() === 0">Load</button>
-</mat-dialog-actions>
+  <!-- Bottom Bar: Actions -->
+  <mat-dialog-actions align="end">
+    <button mat-button (click)="onCancel()">Cancel</button>
+    <button mat-flat-button color="primary" (click)="onLoad()" [disabled]="addedCount() === 0">Load</button>
+  </mat-dialog-actions>
+</div>

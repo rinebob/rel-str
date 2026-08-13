@@ -80,8 +80,8 @@ export class SpreadChartPageComponent implements OnInit, OnDestroy {
 
   onBuildSpreads(): void {
     this.dialog.open(SpreadBuilderDialogComponent, {
-      width: '640px',
-      maxWidth: '90vw',
+      width: '1200px',
+      maxWidth: '95vw',
       maxHeight: '90vh',
     });
   }
