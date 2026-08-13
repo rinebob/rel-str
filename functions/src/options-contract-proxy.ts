@@ -449,6 +449,8 @@ export async function callPartnerContractCatalogV2(
   if (params.expiration) search.set('expiration', params.expiration);
   if (params.expirationGte) search.set('expirationGte', params.expirationGte);
   if (params.expirationLte) search.set('expirationLte', params.expirationLte);
+  if (params.firstObservedGte) search.set('firstObservedGte', params.firstObservedGte);
+  if (params.firstObservedLte) search.set('firstObservedLte', params.firstObservedLte);
   if (params.contractLengthBucket) search.set('contractLengthBucket', params.contractLengthBucket);
   if (params.type) search.set('type', params.type);
   if (params.strike != null) search.set('strike', String(params.strike));
@@ -472,6 +474,8 @@ export async function callPartnerContractCatalogV2(
     expiration: params.expiration ?? null,
     expirationGte: params.expirationGte ?? null,
     expirationLte: params.expirationLte ?? null,
+    firstObservedGte: params.firstObservedGte ?? null,
+    firstObservedLte: params.firstObservedLte ?? null,
     contractLengthBucket: params.contractLengthBucket ?? null,
     type: params.type ?? null,
     strike: params.strike ?? null,

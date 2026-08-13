@@ -1,4 +1,4 @@
-import { onCall } from 'firebase-functions/v2/https';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
@@ -17,6 +17,7 @@ import type {
   QueryContractCatalogRequest,
   ContractCatalogResponse,
   ContractSummaryResponse,
+  ContractCatalogEntry,
 } from '@options-contract/contracts';
 
 const SA_PROJECT_ID = process.env.SA_PROJECT_ID || 'alpha-vantage-proxy-api';
@@ -160,10 +161,13 @@ export const getOptionsContractIndex = onCall(
     logger.info('getOptionsContractIndex', { symbol: sym });
 
     try {
+      logger.info('getOptionsContractIndex_initFirestore', { symbol: sym });
       const db = getSaFirestore();
 
       const expCol = db.collection(`${OPTIONS_FILE_INDEX}/${sym}/${TS_EXPIRATIONS}`);
       const strikeCol = db.collection(`${OPTIONS_FILE_INDEX}/${sym}/${TS_STRIKES}`);
+
+      logger.info('getOptionsContractIndex_queryStart', { symbol: sym });
 
       const [expSnap, strikeSnap] = await Promise.all([
         expCol.get(),
@@ -211,9 +215,8 @@ export const getOptionsContractIndex = onCall(
         symbol: sym,
         message: e instanceof Error ? e.message : String(e),
         stack: e instanceof Error ? e.stack : undefined,
-        error: e,
       });
-      throw e;
+      throw new HttpsError('internal', 'Failed to load contract index');
     }
   },
 );
@@ -246,6 +249,8 @@ export const queryContractCatalog = onCall(
       expiration: data.expiration,
       expirationGte: data.expirationGte,
       expirationLte: data.expirationLte,
+      firstObservedGte: data.firstObservedGte,
+      firstObservedLte: data.firstObservedLte,
       contractLengthBucket: data.contractLengthBucket,
       type: data.type,
       strike: data.strike,
@@ -275,7 +280,7 @@ export const queryContractCatalog = onCall(
     });
 
     try {
-      const result = await callPartnerContractCatalogV2(params);
+      let result = await callPartnerContractCatalogV2(params);
 
       if (params.summary) {
         const summary = result as ContractSummaryResponse;
@@ -284,6 +289,27 @@ export const queryContractCatalog = onCall(
           totalContracts: summary.totalContracts,
           expirationCount: summary.expirationCount,
         });
+      } else if (params.firstObservedGte || params.firstObservedLte) {
+        // Client-side filter by firstObserved date (partner may not support this dimension)
+        const catalog = result as ContractCatalogResponse;
+        const gte = params.firstObservedGte;
+        const lte = params.firstObservedLte;
+        const filtered = catalog.contracts.filter((c: ContractCatalogEntry) => {
+          if (gte && c.firstObserved < gte) return false;
+          if (lte && c.firstObserved > lte) return false;
+          return true;
+        });
+        const filteredCatalog: ContractCatalogResponse = {
+          ...catalog,
+          contracts: filtered,
+          count: filtered.length,
+        };
+        logger.info('queryContractCatalog_response_filtered', {
+          symbol: catalog.symbol,
+          contractCount: filteredCatalog.count,
+          hasMore: !!filteredCatalog.nextPageToken,
+        });
+        result = filteredCatalog;
       } else {
         const catalog = result as ContractCatalogResponse;
         logger.info('queryContractCatalog_response', {

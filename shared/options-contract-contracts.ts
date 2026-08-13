@@ -169,6 +169,8 @@ export interface QueryContractCatalogRequest {
   expiration?: string;
   expirationGte?: string;
   expirationLte?: string;
+  firstObservedGte?: string;
+  firstObservedLte?: string;
   contractLengthBucket?: string;
   type?: 'C' | 'P';
   strike?: number;
