@@ -567,6 +567,27 @@ export const SpreadViewerStore = signalStore(
         });
       },
 
+      /** Create a new empty named list, set it as selected, and clear the buffer. */
+      createNewList(name: string): void {
+        spreadListService.saveList(name, []).then(() => {
+          spreadListService.loadNamedLists$().pipe(take(1)).subscribe({
+            next: (lists) => {
+              const newList = lists.find((l) => l.name === name);
+              patchState(store, {
+                namedLists: lists,
+                selectedListId: newList?.id ?? null,
+                lastSavedSnapshot: [],
+                spreads: [],
+                plottedStartIndex: 0,
+              });
+            },
+            error: (err) => console.error('[SpreadViewer] createNewList loadNamedLists failed:', err),
+          });
+        }).catch((err) => {
+          console.error('[SpreadViewer] createNewList failed:', err);
+        });
+      },
+
       /** Clear the working buffer (does not affect named lists). */
       clearBuffer(): void {
         patchState(store, { spreads: [], plottedStartIndex: 0 });

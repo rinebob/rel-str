@@ -41,6 +41,7 @@ export interface SpreadDefinition {
   spreadType: SpreadType;
   symbol: string;
   legs: SpreadLeg[];
+  entryDate?: string;
   startDate?: string;
   endDate?: string;
 }
