@@ -1,5 +1,10 @@
 # Changelog
 
+## [2026-08-14]
+
+### Added
+- [Options Position Strategy Engine] 108-108_SHARED-DOCS-OPTIONS: Checkpoint options strategy engine blueprint docs (checkpoint)
+
 ## [2026-08-06]
 
 ### Added
