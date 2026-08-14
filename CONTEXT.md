@@ -72,6 +72,14 @@ A set of strategy configurations produced by varying one or more numeric paramet
 
 An expanding-window partition of historical data into an in-sample optimization segment and an out-of-sample validation segment. The window advances by a configurable roll step.
 
+## Signal Strategy
+
+A strategy implementing the `StrategyAdapter` contract (`functions/src/rh-agent-cloud-function/strategies/base-strategy.ts`) that analyzes historical price/indicator data (`StrategyInput` bars) and emits a stateless, point-in-time LONG/SHORT/null `StrategyOutput`. Runs within the RH Agent's signal-detection worker pass; output feeds human review via ACR. Has no concept of managing a position over time. Examples: ST-Trend-Rider, Leap Drop, RSI Oversold Bounce, MACD Crossover. Tracked under `Topic: Trading Strategy Library`.
+
+## Position-Lifecycle Strategy
+
+A strategy that opens and manages options positions on a fixed schedule (daily/weekly) using option-chain contract-selection criteria (spread type, target delta, DTE) rather than price/indicator signal analysis. Owns the full position lifecycle itself: opening, periodic mark-to-market updates, and expiration settlement (expired worthless, cash-settled, or assigned). Runs under the Options Position Strategy Engine, independent of the RH Agent signal-detection worker and the ACR review flow. Examples: cash-secured put ladder, wheel, variance premium, iron condor. Tracked under `Topic: Options Position Strategy Engine`.
+
 ## Option Contract Selection Helper
 
 A reusable engine that selects an option contract for each leg of a strategy based on target delta, target DTE, and side (long/short, call/put) on a given date.
