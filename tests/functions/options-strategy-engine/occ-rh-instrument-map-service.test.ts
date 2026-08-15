@@ -68,6 +68,7 @@ describe('OccRhInstrumentMapService', () => {
       async (entry) => {
         written.push(entry);
       },
+      async () => null,
     );
 
     const quote = makeOptionQuote();
@@ -76,6 +77,152 @@ describe('OccRhInstrumentMapService', () => {
     assert.equal(entry.occId, 'SPY250817P00770000');
     assert.equal(written.length, 1);
     assert.equal((written[0] as { instrumentId: string }).instrumentId, 'inst-123');
+  });
+
+  it('get returns null when no entry exists', async () => {
+    const service = new OccRhInstrumentMapService(
+      { resolve: async () => ({ instrumentId: '', chainId: '' }) },
+      async () => {},
+      async () => null,
+    );
+
+    const result = await service.get('SPY250817P00770000');
+    assert.equal(result, null);
+  });
+
+  it('get returns a fresh entry without resolving', async () => {
+    let resolved = false;
+    const existing = buildOccRhInstrumentMapEntry(
+      makeOptionQuote(),
+      'inst-123',
+      'chain-456',
+    );
+    const service = new OccRhInstrumentMapService(
+      {
+        resolve: async () => {
+          resolved = true;
+          return { instrumentId: 'other', chainId: 'other' };
+        },
+      },
+      async () => {},
+      async () => existing,
+      () => new Date('2025-08-14T00:00:00.000Z'),
+    );
+
+    const result = await service.get('SPY250817P00770000');
+    assert.equal(result?.instrumentId, 'inst-123');
+    assert.equal(resolved, false);
+  });
+
+  it('getOrResolve returns a fresh entry and does not write', async () => {
+    const written: unknown[] = [];
+    const existing = buildOccRhInstrumentMapEntry(
+      makeOptionQuote(),
+      'inst-123',
+      'chain-456',
+    );
+    const service = new OccRhInstrumentMapService(
+      { resolve: async () => ({ instrumentId: 'other', chainId: 'other' }) },
+      async (entry) => {
+        written.push(entry);
+      },
+      async () => existing,
+      () => new Date('2025-08-14T00:00:00.000Z'),
+    );
+
+    const result = await service.getOrResolve(makeOptionQuote());
+    assert.equal(result.instrumentId, 'inst-123');
+    assert.equal(written.length, 0);
+  });
+
+  it('getOrResolve backfills a missing entry and writes', async () => {
+    const written: unknown[] = [];
+    const service = new OccRhInstrumentMapService(
+      {
+        resolve: async () => ({ instrumentId: 'inst-123', chainId: 'chain-456' }),
+      },
+      async (entry) => {
+        written.push(entry);
+      },
+      async () => null,
+      () => new Date('2025-08-14T00:00:00.000Z'),
+    );
+
+    const result = await service.getOrResolve(makeOptionQuote(), '2025-08-14');
+    assert.equal(result.instrumentId, 'inst-123');
+    assert.equal(written.length, 1);
+    assert.equal((written[0] as { firstTradedDate: string }).firstTradedDate, '2025-08-14');
+  });
+
+  it('getOrResolve backfills an expired entry and preserves firstTradedDate', async () => {
+    const written: unknown[] = [];
+    const existing = buildOccRhInstrumentMapEntry(
+      makeOptionQuote(),
+      'inst-old',
+      'chain-old',
+      '2025-08-01',
+    );
+    const service = new OccRhInstrumentMapService(
+      {
+        resolve: async () => ({ instrumentId: 'inst-new', chainId: 'chain-new' }),
+      },
+      async (entry) => {
+        written.push(entry);
+      },
+      async () => existing,
+      () => new Date('2026-01-01T00:00:00.000Z'),
+    );
+
+    const result = await service.getOrResolve(makeOptionQuote());
+    assert.equal(result.instrumentId, 'inst-new');
+    assert.equal(result.firstTradedDate, '2025-08-01');
+    assert.equal(written.length, 1);
+  });
+
+  it('buildAndPersist does not overwrite an unchanged fresh entry', async () => {
+    const written: unknown[] = [];
+    const existing = buildOccRhInstrumentMapEntry(
+      makeOptionQuote(),
+      'inst-123',
+      'chain-456',
+    );
+    const service = new OccRhInstrumentMapService(
+      {
+        resolve: async () => ({ instrumentId: 'inst-123', chainId: 'chain-456' }),
+      },
+      async (entry) => {
+        written.push(entry);
+      },
+      async () => existing,
+      () => new Date('2025-08-14T00:00:00.000Z'),
+    );
+
+    const result = await service.buildAndPersist(makeOptionQuote());
+    assert.equal(result.instrumentId, 'inst-123');
+    assert.equal(written.length, 0);
+  });
+
+  it('buildAndPersist overwrites and logs when the instrument ID changes', async () => {
+    const written: unknown[] = [];
+    const existing = buildOccRhInstrumentMapEntry(
+      makeOptionQuote(),
+      'inst-old',
+      'chain-456',
+    );
+    const service = new OccRhInstrumentMapService(
+      {
+        resolve: async () => ({ instrumentId: 'inst-new', chainId: 'chain-456' }),
+      },
+      async (entry) => {
+        written.push(entry);
+      },
+      async () => existing,
+      () => new Date('2025-08-14T00:00:00.000Z'),
+    );
+
+    const result = await service.buildAndPersist(makeOptionQuote());
+    assert.equal(result.instrumentId, 'inst-new');
+    assert.equal(written.length, 1);
   });
 });
 

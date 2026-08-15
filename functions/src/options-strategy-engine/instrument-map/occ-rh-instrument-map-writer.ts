@@ -4,7 +4,7 @@
  * Writer for the global OCC → Robinhood MCP instrument map.
  */
 
-import type { OptionQuote, OccRhInstrumentMapEntry } from '@options-strategy-engine/contracts';
+import type { OptionContractRef, OccRhInstrumentMapEntry } from '@options-strategy-engine/contracts';
 import { db } from '../../firebase-admin-init';
 import { OPTIONS_RH_INSTRUMENT_MAP_COLLECTION } from '../collections';
 import type { OccRhInstrumentMapWriter } from './occ-rh-instrument-map-types';
@@ -29,7 +29,7 @@ export function computeInstrumentMapExpiresAt(expiration: string): string {
  * resolved Robinhood IDs.
  */
 export function buildOccRhInstrumentMapEntry(
-  quote: OptionQuote,
+  quote: OptionContractRef,
   instrumentId: string,
   chainId: string,
   firstTradedDate?: string,

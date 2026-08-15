@@ -8,17 +8,25 @@ import { OptionType, OptionQuoteSource } from './options-common';
 import { TradeSide } from './common';
 
 /**
- * Normalized option quote shape consumed by the strategy engine.
- *
- * This is intentionally source-agnostic; each provider maps its upstream
- * response into this shape so the engine operates on one interface.
+ * Core option contract identifiers used for OCC → broker instrument
+ * resolution. Smaller than a full `OptionQuote` because resolution only
+ * needs the contract's static identity.
  */
-export interface OptionQuote {
+export interface OptionContractRef {
   contractID: string;          // OCC option ID, e.g. SPY250817P00770000
   symbol: string;              // Underlying symbol, e.g. SPY
   expiration: string;          // ISO date, e.g. 2025-08-17
   strike: number;
   type: OptionType;            // CALL | PUT
+}
+
+/**
+ * Normalized option quote shape consumed by the strategy engine.
+ *
+ * This is intentionally source-agnostic; each provider maps its upstream
+ * response into this shape so the engine operates on one interface.
+ */
+export interface OptionQuote extends OptionContractRef {
   side: TradeSide;             // LONG | SHORT — engine position side, not the option type
   mark: number;                // Canonical mark used for P&L
   bid?: number;

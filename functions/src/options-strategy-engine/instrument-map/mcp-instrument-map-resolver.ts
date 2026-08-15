@@ -8,7 +8,7 @@
  * `chainId`.
  */
 
-import type { OptionQuote } from '@options-strategy-engine/contracts';
+import type { OptionContractRef } from '@options-strategy-engine/contracts';
 import { executeObservationTool } from '../../rh-agent-mcp/tools/robinhood-tool-executor';
 import type {
   McpToolCaller,
@@ -75,7 +75,7 @@ function extractChains(raw: unknown): RhChain[] {
 
 function instrumentMatches(
   instrument: RhInstrument,
-  quote: OptionQuote,
+  quote: OptionContractRef,
 ): boolean {
   if (instrument.expiration_date !== quote.expiration) return false;
   if (!instrument.strike_price) return false;
@@ -101,7 +101,7 @@ export class McpOccRhInstrumentMapResolver implements OccRhInstrumentMapResolver
     private readonly callTool: McpToolCaller = makeDefaultMcpToolCaller(),
   ) {}
 
-  async resolve(quote: OptionQuote): Promise<ResolvedRhInstrumentIds> {
+  async resolve(quote: OptionContractRef): Promise<ResolvedRhInstrumentIds> {
     const symbol = quote.symbol.toUpperCase();
     const strikePrice = quote.strike.toFixed(4);
     const baseArgs = {
@@ -141,7 +141,7 @@ export class McpOccRhInstrumentMapResolver implements OccRhInstrumentMapResolver
 
   private async findMatchingInstrument(
     baseArgs: Record<string, unknown>,
-    quote: OptionQuote,
+    quote: OptionContractRef,
   ): Promise<ResolvedRhInstrumentIds | null> {
     let cursor: string | undefined;
     do {

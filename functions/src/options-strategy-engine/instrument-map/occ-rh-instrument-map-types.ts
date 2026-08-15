@@ -4,7 +4,7 @@
  * Types and interfaces for the OCC → Robinhood MCP instrument map.
  */
 
-import type { OptionQuote, OccRhInstrumentMapEntry } from '@options-strategy-engine/contracts';
+import type { OptionContractRef, OccRhInstrumentMapEntry } from '@options-strategy-engine/contracts';
 
 export interface ResolvedRhInstrumentIds {
   instrumentId: string;
@@ -12,10 +12,14 @@ export interface ResolvedRhInstrumentIds {
 }
 
 export interface OccRhInstrumentMapResolver {
-  resolve(quote: OptionQuote): Promise<ResolvedRhInstrumentIds>;
+  resolve(quote: OptionContractRef): Promise<ResolvedRhInstrumentIds>;
 }
 
 export type OccRhInstrumentMapWriter = (entry: OccRhInstrumentMapEntry) => Promise<void>;
+
+export type OccRhInstrumentMapReader = (
+  occId: string,
+) => Promise<OccRhInstrumentMapEntry | null>;
 
 export type McpToolCaller = (
   toolName: string,
