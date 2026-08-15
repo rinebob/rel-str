@@ -74,6 +74,11 @@ export async function listOpenPositions(instanceId?: string): Promise<Position[]
   return snap.docs.map((doc) => ({ id: doc.id, ...(doc.data() as Omit<Position, 'id'>) }));
 }
 
+export async function getLegs(positionId: string): Promise<PositionLeg[]> {
+  const snap = await legsCollectionRef(positionId).get();
+  return snap.docs.map((doc) => doc.data() as PositionLeg);
+}
+
 export async function listPositionsByInstance(instanceId: string): Promise<Position[]> {
   const snap = await db
     .collection(OPTIONS_STRATEGY_POSITIONS_COLLECTION)
@@ -134,6 +139,17 @@ export async function writeRawQuote(
 ): Promise<void> {
   const ref = rawQuotesCollectionRef(positionId).doc(rawQuote.date);
   await ref.set(rawQuote, { merge: true });
+}
+
+export async function markPosition(
+  positionId: string,
+  update: Partial<Position>,
+  rawQuote: RawQuote,
+): Promise<void> {
+  const batch = db.batch();
+  batch.update(positionDocRef(positionId), update);
+  batch.set(rawQuotesCollectionRef(positionId).doc(rawQuote.date), rawQuote, { merge: true });
+  await batch.commit();
 }
 
 // ── Settlement helpers ───────────────────────────────────────────────────────

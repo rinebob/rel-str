@@ -202,6 +202,7 @@ function mapQuote(
     rho: parseNumber(q.rho),
     source: OptionQuoteSource.RH_MCP,
     asOf: q.updated_at ?? q.last_trade_at ?? asOfFallback,
+    interpolatedClose: close.interpolated === true,
   };
 }
 
