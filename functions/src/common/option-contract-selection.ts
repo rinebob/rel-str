@@ -1,6 +1,7 @@
 /**
  * Option contract selection helpers for single-leg and multi-leg spreads.
  *
+ * Shared between the options strategy engine and the hybrid quote provider.
  * Supports target delta, target DTE, DTE bounds, and mark availability.
  * All AV market-data fields are optional strings, so helpers parse defensively.
  *
@@ -24,6 +25,8 @@ export interface OptionContractSelectionCriteria {
   maxDte?: number;
   /** If true, skip contracts with a missing mark price. */
   requireMark?: boolean;
+  /** If true, compare |delta| against targetDelta (useful for puts). */
+  useAbsoluteDelta?: boolean;
 }
 
 export interface SelectedOptionContract {
@@ -46,10 +49,10 @@ export interface SelectedOptionSpreadLeg extends SelectedOptionContract {
   quantity: number;
 }
 
-function parseOptionalNumber(value?: string): number | undefined {
+export function parseOptionalNumber(value?: string): number | undefined {
   if (value === undefined || value === null || value === '') return undefined;
   const n = Number(value);
-  return Number.isNaN(n) ? undefined : n;
+  return Number.isNaN(n) || !Number.isFinite(n) ? undefined : n;
 }
 
 function parseDate(dateStr: string): number {
@@ -84,7 +87,9 @@ function computeScore(
 
   let score = 0;
   if (criteria.targetDelta !== undefined) {
-    score += Math.abs((delta ?? 0) - criteria.targetDelta);
+    const signedDelta = delta ?? 0;
+    const effectiveDelta = criteria.useAbsoluteDelta ? Math.abs(signedDelta) : signedDelta;
+    score += Math.abs(effectiveDelta - criteria.targetDelta);
   }
   if (criteria.targetDte !== undefined && criteria.targetDte > 0) {
     const dteDiff = Math.abs(dte - criteria.targetDte) / criteria.targetDte;
@@ -105,13 +110,17 @@ function computeScore(
   return score;
 }
 
+function normalizeType(value: string | OptionType | undefined): string {
+  return String(value ?? '').toLowerCase().trim();
+}
+
 function evaluateContract(
   marketDate: string,
   contract: HistoricalOptionContract,
   criteria: OptionContractSelectionCriteria,
   enforceDteRange: boolean,
 ): SelectedOptionContract | null {
-  if (contract.type !== criteria.type) return null;
+  if (normalizeType(contract.type) !== normalizeType(criteria.type)) return null;
   if (!contract.expiration) return null;
 
   const dte = daysBetween(marketDate, contract.expiration);
