@@ -1,5 +1,10 @@
 # Changelog
 
+## [2026-08-15]
+
+### Added
+- [Options Strategy Engine — Hybrid Quote Provider] 114-121_BE-IMPL-HYBRID-QUOTE-PROVIDER: Add AV EOD provider, nightly selection orchestrator, OCC→RH instrument map service, and closed-form Black-Scholes simulator (checkpoint)
+
 ## [2026-08-14]
 
 ### Added
