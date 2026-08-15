@@ -11,8 +11,8 @@ import { logger } from 'firebase-functions/v2';
 
 import type { StrategyAdapter, StrategyConfig, StrategyInput, StrategyOutput, StrategyOutputMetadata, ExitConfig, OHLCV, UnderlyingPositionSelection } from '../strategies/base-strategy';
 import type { HistoricalOptionContract } from '../../types/partner';
-import { selectOptionContract, selectOptionSpread, daysBetween } from '../strategies/option-contract-selection';
-import type { OptionSpreadLegSelection } from '../strategies/option-contract-selection';
+import { selectOptionContract, selectOptionSpread, daysBetween } from '../../common/option-contract-selection';
+import type { OptionSpreadLegSelection } from '../../common/option-contract-selection';
 import type { OptionsChainCache } from './backtest-data-loader';
 import { computeMetrics } from './backtest-metrics';
 import type { BacktestEquityPoint, BacktestTrade, BacktestTradeLeg, BacktestMetrics } from './backtest-types';

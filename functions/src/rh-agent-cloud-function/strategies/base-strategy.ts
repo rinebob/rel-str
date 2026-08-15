@@ -6,7 +6,7 @@
  */
 
 import { StSignalDirection } from '../rh-agent-signals';
-import type { OptionSpreadLegSelection } from './option-contract-selection';
+import type { OptionSpreadLegSelection } from '../../common/option-contract-selection';
 
 // =============================================================================
 // STRATEGY INPUT (What the worker provides to every strategy)
