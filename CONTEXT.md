@@ -175,3 +175,19 @@ The filtered contract catalog table in the spread builder dialog (left column). 
 ## Position List
 
 A session-working list of backtest positions produced by a backtest run for the Spread Time Series Viewer's backtest plotting mode. Each entry is a position object carrying its spread definition, entry date, exit date, provenance (run reference), and other trade metadata. Loaded from backtest output, not constructed manually.
+
+## Hybrid Quote Provider
+
+A provider abstraction in the Options Position Strategy Engine that supplies normalized option quotes from more than one upstream source. The engine consumes a single `OptionQuote` shape and does not know whether the quote came from Alpha Vantage EOD data or Robinhood MCP real-time data. Lets the strategy use cheap EOD data for contract selection and free RH MCP data for live marks on open positions.
+
+## OptionQuote
+
+The normalized option quote consumed by the Options Position Strategy Engine. Contains the fields needed to select a contract, value a position, and update P&L: contract identifier, expiration, strike, type, side, mark, bid, ask, last, volume, open interest, Greeks (delta, gamma, theta, vega), implied volatility, source, and timestamp. Source-specific adapters map upstream responses into this shape.
+
+## OCC → RH Instrument Map
+
+A persisted lookup from an OCC contract ID to the Robinhood MCP instrument UUID that represents the same contract. Built once when a candidate contract is identified from AV EOD data, then reused for live `get_option_quotes` calls while the position is open. Stored globally so any strategy instance can reuse the mapping for the same contract.
+
+## Overnight Delta Simulation
+
+A pre-entry analysis step that runs a Black-Scholes estimate of delta, mark, and theta for a candidate contract across a grid of hypothetical next-day underlying prices. Used to decide whether the contract still meets the strategy's target delta after an overnight move in the underlying. The grid covers ±10% of the prior close in 0.5% increments.
