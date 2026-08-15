@@ -6,6 +6,53 @@
 **Created:** 2026-08-15  
 **Last Updated:** 2026-08-15
 
+# Interim Review — 2026-08-15 (Task #124)
+
+## Standards
+
+- `@topic #114` tag present on new file `options-strategy-passes.ts`. ✅
+- File size: 320 lines — slightly over 300-line target but under 400. Acceptable for a 4-export Cloud Functions wiring file. ✅
+- No `any` types or silent production defaults. ✅
+- Entrypoint file pattern is clean: parses input, calls domain helpers, returns responses. ✅ (guideline §4)
+- **[FIXED] Minor — misleading docstring on `getMarketDatePT`.** Local `getMarketDatePT` removed entirely; now imports the existing `getMarketDatePT` from `common/pt-date-utils.ts`.
+- **[FIXED] Minor — misleading docstring on `getUnderlyingClose`.** Docstring updated to accurately describe that it reads `currentPrice` from `symbol-data/{symbol}` (no false "daily bar fallback" claim).
+- **[FIXED] Minor — `optionsMarkPassManual` callable has no auth check.** Added `request.auth` check that throws `HttpsError('unauthenticated')` if not signed in, matching the `rhAgentManualRun` pattern. Also added `cors: RH_AGENT_ALLOWED_ORIGINS`.
+
+## Spec
+
+- ✅ `optionsSelectionPass` scheduled after market close (7:00 PM PT, `0 2 * * 2-6`).
+- ✅ `optionsOpenPass` scheduled shortly after market open (6:45 AM PT, `45 13 * * 1-5`).
+- ✅ `optionsMarkPass` scheduled during market hours (every 30 min, 6:50 AM–1:00 PM PT, `*/30 13-20 * * 1-5`).
+- ✅ Functions wired to Firestore collections via pass functions that use `OPTIONS_STRATEGY_INSTANCES_COLLECTION`, `OPTIONS_STRATEGY_POSITIONS_COLLECTION`, and `SYMBOL_DATA_COLLECTION`.
+- **[FIXED] Minor — no unit tests for the wiring file.** Added `options-strategy-passes.test.ts` with 7 tests covering `toSharedConfig` (4 tests: phases conversion, first-phase selection, empty phases, undefined phases) and `spreadTypeToOptionSide` (3 tests: CASH_SECURED_PUT → PUT/SHORT, COVERED_CALL → CALL/SHORT, unsupported type throws).
+
+## Thermo-nuclear
+
+- **[FIXED] Minor — duplicated mark pass setup.** Extracted `runMarkPassForAllInstances(provider)` helper that iterates instances, converts configs, runs the mark pass, logs per-instance outcomes, and returns a summary record. Both `optionsMarkPass` and `optionsMarkPassManual` now call this helper.
+- **[FIXED] Minor — `getMarketDatePT` duplicated from `common/pt-date-utils.ts`.** Removed local implementation; now imports from `common/pt-date-utils.ts`.
+- **[FIXED] Nit — `let manager` without type annotation.** Both `optionsMarkPass` and `optionsMarkPassManual` now declare `let manager: RobinhoodMcpSessionManager | undefined`.
+
+## Test results
+
+24/24 tests pass (7 new config-bridge tests + 6 open-pass + 11 mark-pass). Typecheck clean. Build clean.
+
+## Advisory findings
+
+All findings have been addressed:
+
+- **[FIXED]** Misleading docstrings — `getMarketDatePT` removed (imported instead), `getUnderlyingClose` docstring corrected
+- **[FIXED]** `optionsMarkPassManual` auth check — added `request.auth` check + CORS restriction
+- **[FIXED]** Duplicated mark pass setup — extracted `runMarkPassForAllInstances` helper
+- **[FIXED]** `getMarketDatePT` duplication — now imports from `common/pt-date-utils.ts`
+- **[FIXED]** No unit tests for config bridge — added 7 tests for `toSharedConfig` and `spreadTypeToOptionSide`
+- **[FIXED]** `let manager` type annotation — typed as `RobinhoodMcpSessionManager | undefined`
+
+## Status
+
+Advisory — no gate. All findings are now [FIXED]. Ready for final `/proj review` when implementation is complete.
+
+---
+
 # Interim Review — 2026-08-15 (Task #123)
 
 ## Standards
