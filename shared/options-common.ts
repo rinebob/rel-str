@@ -1,11 +1,22 @@
 /**
- * Canonical source for OptionType enum and OCC contract ID helpers,
- * shared between the options contract viewer and the spread viewer.
+ * Canonical source for option-related enums and OCC contract ID helpers,
+ * shared between the options contract viewer, spread viewer, and position
+ * strategy engine.
  */
 
 export enum OptionType {
   CALL = 'call',
   PUT = 'put',
+}
+
+export enum PositionSpreadType {
+  CASH_SECURED_PUT = 'CASH_SECURED_PUT',
+  COVERED_CALL = 'COVERED_CALL',
+}
+
+export enum StrategyFrequency {
+  DAILY = 'DAILY',
+  WEEKLY = 'WEEKLY',
 }
 
 export interface ParsedOccContractId {
