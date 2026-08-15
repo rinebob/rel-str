@@ -141,3 +141,11 @@ export { rhCloudCredentialProof } from './rh-agent-mcp/diagnostics/cloud-credent
 
 // RH Agent MCP — option quote tool discovery (hybrid options strategy engine)
 export { rhOptionQuoteDiscovery } from './rh-agent-mcp/diagnostics/option-quote-discovery-function';
+
+// Options strategy engine — scheduled passes
+export {
+  optionsSelectionPass,
+  optionsOpenPass,
+  optionsMarkPass,
+  optionsMarkPassManual,
+} from './options-strategy-engine/options-strategy-passes';
