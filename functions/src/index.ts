@@ -135,3 +135,9 @@ export { processSymbolAdded } from './symbol-data-sync/symbol-data-symbol-added'
 // Spread Time Series Viewer — orchestrator + worker
 export { submitSpreadRun } from './spread-run-orchestrator';
 export { spreadRunWorker } from './spread-run-worker';
+
+// RH Agent MCP — cloud credential proof (Phase 4 read test)
+export { rhCloudCredentialProof } from './rh-agent-mcp/diagnostics/cloud-credential-proof-function';
+
+// RH Agent MCP — option quote tool discovery (hybrid options strategy engine)
+export { rhOptionQuoteDiscovery } from './rh-agent-mcp/diagnostics/option-quote-discovery-function';
