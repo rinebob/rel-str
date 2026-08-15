@@ -42,6 +42,7 @@ export interface OptionQuote extends OptionContractRef {
   rho?: number;                // Optional; included when upstream provides it
   source: OptionQuoteSource;   // AV_EOD | RH_MCP | AV_REALTIME
   asOf: string;                // ISO timestamp the quote represents
+  interpolatedClose?: boolean; // True when close.price was interpolated by upstream
 }
 
 /**
