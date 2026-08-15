@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { type RobinhoodToolDefinition } from '@rh-agent-mcp/contracts';
+import toolCatalogJson from '../../../.rh-mcp-tool-catalog.json' with { type: 'json' };
 
 const TOOL_CATALOG_PATH = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -128,8 +129,15 @@ export async function loadToolCatalog(): Promise<ToolCatalog> {
   if (cachedCatalog) {
     return cachedCatalog;
   }
-  const raw = await readFile(TOOL_CATALOG_PATH, 'utf-8');
-  const parsed = JSON.parse(raw) as ToolCatalog;
+  let parsed: ToolCatalog;
+  try {
+    const raw = await readFile(TOOL_CATALOG_PATH, 'utf-8');
+    parsed = JSON.parse(raw) as ToolCatalog;
+  } catch {
+    // Fallback to the bundled import (needed when deployed as a bundle
+    // without the catalog file on disk, e.g. Cloud Functions).
+    parsed = toolCatalogJson as ToolCatalog;
+  }
   if (!Array.isArray(parsed.tools)) {
     throw new Error('Tool catalog is missing tools array');
   }
