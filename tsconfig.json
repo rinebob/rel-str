@@ -1,3 +1,4 @@
+/* @topic #114 — Options Strategy Engine — Hybrid Quote Provider */
 /* To learn more about this file see: https://angular.io/config/tsconfig. */
 {
   "compileOnSave": false,
@@ -33,7 +34,7 @@
       "dom"
     ]
   },
-  "exclude": ["functions"],
+  "exclude": ["functions", "**/*.spec.ts"],
   "angularCompilerOptions": {
     "enableI18nLegacyMessageIdFormat": false,
     "strictInjectionParameters": true,

@@ -1,4 +1,6 @@
 /**
+ * @topic #114 — Options Strategy Engine — Hybrid Quote Provider
+ *
  * Canonical source for option-related enums and OCC contract ID helpers,
  * shared between the options contract viewer, spread viewer, and position
  * strategy engine.
@@ -7,6 +9,12 @@
 export enum OptionType {
   CALL = 'call',
   PUT = 'put',
+}
+
+export enum OptionQuoteSource {
+  AV_EOD = 'AV_EOD',
+  RH_MCP = 'RH_MCP',
+  AV_REALTIME = 'AV_REALTIME',
 }
 
 export enum PositionSpreadType {

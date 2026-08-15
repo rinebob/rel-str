@@ -1,0 +1,6 @@
+/* @topic #114 — Options Strategy Engine — Hybrid Quote Provider */
+{
+  "extends": "../tsconfig.spec.json",
+  "include": ["**/*.spec.ts", "**/*.d.ts"],
+  "exclude": []
+}

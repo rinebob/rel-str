@@ -1,0 +1,162 @@
+/**
+ * @topic #114 — Options Strategy Engine — Hybrid Quote Provider
+ */
+
+import { OptionType, OptionQuoteSource, parseOccContractId, buildOccContractId } from './options-common';
+import { TradeSide } from './common';
+import {
+  OptionQuote,
+  OccRhInstrumentMapEntry,
+  OvernightDeltaGridPoint,
+  OvernightDeltaSimulation,
+  StrategyInstanceConfig,
+} from './options-strategy-engine-contracts';
+
+describe('options-strategy-engine-contracts', () => {
+  describe('OptionQuote', () => {
+    it('accepts a minimal AV_EOD quote', () => {
+      const quote: OptionQuote = {
+        contractID: 'SPY250817P00770000',
+        symbol: 'SPY',
+        expiration: '2025-08-17',
+        strike: 770,
+        type: OptionType.PUT,
+        side: TradeSide.LONG,
+        mark: 1.23,
+        source: OptionQuoteSource.AV_EOD,
+        asOf: '2025-08-16T20:00:00Z',
+      };
+      expect(quote.source).toBe(OptionQuoteSource.AV_EOD);
+    });
+
+    it('accepts a full RH_MCP quote with optional Greeks and rho', () => {
+      const quote: OptionQuote = {
+        contractID: 'SPY250817C00450000',
+        symbol: 'SPY',
+        expiration: '2025-08-17',
+        strike: 450,
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+        mark: 0.02,
+        bid: 0.01,
+        ask: 0.03,
+        last: 0.02,
+        volume: 100,
+        openInterest: 1000,
+        impliedVolatility: 0.25,
+        delta: 0.55,
+        gamma: 0.01,
+        theta: -0.02,
+        vega: 0.12,
+        rho: 0.001,
+        source: OptionQuoteSource.RH_MCP,
+        asOf: '2025-08-17T20:00:00Z',
+      };
+      expect(quote.rho).toBe(0.001);
+    });
+  });
+
+  describe('OccRhInstrumentMapEntry', () => {
+    it('accepts a complete entry', () => {
+      const entry: OccRhInstrumentMapEntry = {
+        occId: 'SPY250817P00770000',
+        instrumentId: 'abc-123',
+        chainId: 'chain-123',
+        chainSymbol: 'SPY',
+        expiration: '2025-08-17',
+        strike: 770,
+        type: OptionType.PUT,
+        firstTradedDate: '2025-01-15',
+        createdAt: '2025-08-16T20:00:00Z',
+        expiresAt: '2025-11-17T20:00:00Z',
+      };
+      expect(entry.instrumentId).toBe('abc-123');
+    });
+  });
+
+  describe('OvernightDeltaSimulation', () => {
+    it('produces a symmetric grid for default range and step', () => {
+      const rangePct = 0.025;
+      const stepPct = 0.005;
+      const stepCount = Math.round(rangePct / stepPct);
+      const grid: OvernightDeltaGridPoint[] = [];
+      for (let i = -stepCount; i <= stepCount; i++) {
+        const p = Number((i * stepPct).toFixed(4));
+        grid.push({
+          underlyingMovePct: p,
+          underlyingPrice: 100 * (1 + p),
+          delta: 0,
+          mark: 0,
+          theta: 0,
+        });
+      }
+      const simulation: OvernightDeltaSimulation = {
+        baseUnderlyingPrice: 100,
+        baseContractID: 'SPY250817P00770000',
+        rangePct,
+        stepPct,
+        grid,
+        computedAt: '2025-08-16T20:00:00Z',
+      };
+      expect(simulation.grid.length).toBe(11);
+      expect(simulation.grid[0].underlyingMovePct).toBeCloseTo(-0.025, 4);
+      expect(simulation.grid[simulation.grid.length - 1].underlyingMovePct).toBeCloseTo(0.025, 4);
+    });
+  });
+
+  describe('StrategyInstanceConfig', () => {
+    it('accepts a config with maxOvernightMovePct disabled', () => {
+      const config: StrategyInstanceConfig = {
+        symbol: 'SPY',
+        optionType: OptionType.PUT,
+        side: TradeSide.LONG,
+        maxOvernightMovePct: null,
+      };
+      expect(config.maxOvernightMovePct).toBeNull();
+    });
+  });
+
+  describe('OCC contract ID round-trip', () => {
+    it('round-trips a put', () => {
+      const original = 'SPY250817P00770000';
+      const parsed = parseOccContractId(original)!;
+      expect(parsed.optionType).toBe(OptionType.PUT);
+      expect(parsed.strike).toBe(770);
+      expect(buildOccContractId(parsed.symbol, parsed.expiration, parsed.optionType, parsed.strike)).toBe(original);
+    });
+
+    it('round-trips a call', () => {
+      const original = 'QQQ240719C00450000';
+      const parsed = parseOccContractId(original)!;
+      expect(parsed.optionType).toBe(OptionType.CALL);
+      expect(parsed.strike).toBe(450);
+      expect(buildOccContractId(parsed.symbol, parsed.expiration, parsed.optionType, parsed.strike)).toBe(original);
+    });
+
+    it('round-trips a decimal strike', () => {
+      const original = 'AAPL250117P00187500';
+      const parsed = parseOccContractId(original)!;
+      expect(parsed.optionType).toBe(OptionType.PUT);
+      expect(parsed.strike).toBe(187.5);
+      expect(buildOccContractId(parsed.symbol, parsed.expiration, parsed.optionType, parsed.strike)).toBe(original);
+    });
+
+    it('rejects a malformed OCC ID', () => {
+      expect(parseOccContractId('not-an-occ-id')).toBeNull();
+    });
+  });
+
+  describe('buildOccContractId validation', () => {
+    it('throws on empty symbol', () => {
+      expect(() => buildOccContractId('', '2025-08-17', OptionType.CALL, 100)).toThrow('symbol must be non-empty');
+    });
+
+    it('throws on invalid expiration format', () => {
+      expect(() => buildOccContractId('SPY', '08-17-2025', OptionType.CALL, 100)).toThrow('expiration must be YYYY-MM-DD');
+    });
+
+    it('throws on negative strike', () => {
+      expect(() => buildOccContractId('SPY', '2025-08-17', OptionType.CALL, -1)).toThrow('strike must be non-negative');
+    });
+  });
+});
