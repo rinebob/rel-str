@@ -4,7 +4,67 @@
 **Type:** CODE-REVIEW  
 **Status:** Draft  
 **Created:** 2026-08-15  
-**Last Updated:** 2026-08-15  
+**Last Updated:** 2026-08-15
+
+# Interim Review — 2026-08-15 (Task #123)
+
+## Standards
+
+- **[FIXED] Minor — non-atomic mark pass writes.** `mark-pass.ts:172,175` called `writeRawQuote` then `updatePosition` as separate Firestore writes. Fixed by adding `markPosition` helper to `position-repository.ts` that batches both writes, and updating mark pass to use it via the `markPosition` dependency.
+- **[FALSE POSITIVE] Minor — `createLogger` called with argument it doesn't accept.** `logging.ts` was updated in a prior session to accept `label: string`. Both `createLogger('OpenPass')` and `createLogger('MarkPass')` work correctly.
+- **[FIXED] Nit — `findPrimaryLeg` redundant null coalescing.** `mark-pass.ts:73-75` returned `legs.find(...) ?? null`. Fixed by changing return type to `PositionLeg | undefined` and removing the `?? null`.
+- All new files have `@topic #114` tags. ✅
+- File sizes are well under 300 lines. ✅
+- No `any` types or silent production defaults. ✅
+- Dependency injection pattern is consistent with `eod-orchestrator.ts`. ✅
+
+## Spec
+
+- **[FIXED] Minor — `interpolatedClose` always hardcoded to `false`.** Added `interpolatedClose?: boolean` to `OptionQuote` in `shared/options-strategy-engine-contracts.ts`. Populated in `rh-mcp-option-quote-provider.ts` `mapQuote` from `close.interpolated`. Mark pass now reads `quote.interpolatedClose ?? false`.
+- **[FIXED] Minor — no test for interpolated close flag.** Added test "surfaces interpolatedClose flag from quote" verifying the flag is passed through and P&L is still computed from mark. Added test "defaults interpolatedClose to false when not set on quote".
+- **[FIXED] Minor — no test for missing `close.price` at mark pass level.** Added test "records data-quality error when quote provider throws for missing close.price" verifying the error is surfaced with the close.price message.
+- **[FIXED] Minor — no test for batch size ≤20 at mark pass level.** Added test "passes all contract IDs to quote provider in a single batch call" verifying all contract IDs are sent in one `getQuotes` call (batching is delegated to the provider).
+- Open pass: reads `daily-analysis/{date}`, selects nearest grid point, records overnight move, skips existing positions, `maxOvernightMovePct` disabled by default. ✅
+- Mark pass: lists open positions, batches quotes, writes `raw-quotes`, updates P&L. ✅
+
+## Thermo-nuclear
+
+- **[FIXED] Minor — duplicated `OpenPassResult` construction.** Extracted `buildOpenPassResult` helper in `open-pass.ts`. All three result construction sites now call the helper.
+- **[FIXED] Minor — sequential leg fetching in mark pass.** `mark-pass.ts:102-105` now uses `Promise.all` to fetch legs for all positions in parallel.
+- **[FIXED] Minor — non-atomic mark writes (same as Standards finding).** Now uses `markPosition` batch helper.
+- **[FIXED] Nit — open pass trusts `buildPositionId` matches `createPosition` internal ID.** Open pass now uses `created.id` from the `createPosition` return value instead of pre-computing the ID. Removed unused `buildPositionId` import.
+- No files approaching 1k lines. ✅
+- No spaghetti growth or ad-hoc conditionals in existing code. ✅
+- No unnecessary abstractions — `BatchQuoteProvider` is a minimal interface for the mark pass's needs. ✅
+- Code is direct and legible. ✅
+
+## Test results
+
+- `npx tsx --test ../tests/functions/options-strategy-engine/*.test.ts` — **63 passed, 0 failed**.
+- `npm --prefix functions run typecheck` — **clean**.
+- `npm --prefix functions run build` — **clean**.
+- `git diff --check` — **clean** (only CRLF warning on `position-repository.ts`).
+
+## Advisory findings
+
+All findings have been addressed:
+
+- **[FIXED]** Non-atomic mark pass writes — added `markPosition` batch helper
+- **[FALSE POSITIVE]** `createLogger` signature — already accepts `label: string`
+- **[FIXED]** `interpolatedClose` contract gap — added field to `OptionQuote`, populated in provider
+- **[FIXED]** No test for interpolated close flag — added 2 tests
+- **[FIXED]** No test for missing `close.price` at mark pass level — added test
+- **[FIXED]** No test for batch size ≤20 at mark pass level — added test
+- **[FIXED]** Duplicated `OpenPassResult` construction — extracted `buildOpenPassResult` helper
+- **[FIXED]** Sequential leg fetching — parallelized with `Promise.all`
+- **[FIXED]** `findPrimaryLeg` redundant `?? null` — changed to `undefined` return
+- **[FIXED]** Open pass trusts `buildPositionId` — now uses `createPosition` return value
+
+## Status
+
+Advisory — no gate. All findings are now [FIXED] or [FALSE POSITIVE]. Ready for final `/proj review` when implementation is complete.
+
+> **Note:** The interim review for Task #122 was written to a separate doc — see `docs/CODE-REVIEW-options-hybrid-quote-provider-122.md`. It should have been accumulated here instead.
 
 # Interim Review — 2026-08-15 (Task #121)
 
