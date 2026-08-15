@@ -1,3 +1,4 @@
+/* @topic #114 */
 {
   "compilerOptions": {
     "noImplicitReturns": true,
@@ -15,7 +16,8 @@
       "@options-contract/contracts": ["../shared/options-contract-contracts.ts"],
       "@options/common": ["../shared/options-common.ts"],
       "@common": ["../shared/common.ts"],
-      "@spread/contracts": ["../shared/spread-contracts.ts"]
+      "@spread/contracts": ["../shared/spread-contracts.ts"],
+      "@options-strategy-engine/contracts": ["../shared/options-strategy-engine-contracts.ts"]
     },
     "esModuleInterop": true,
     "isolatedModules": true,
