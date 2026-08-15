@@ -144,6 +144,29 @@ describe('options-strategy-engine-contracts', () => {
     it('rejects a malformed OCC ID', () => {
       expect(parseOccContractId('not-an-occ-id')).toBeNull();
     });
+
+    it('round-trips a far-future expiration', () => {
+      const original = 'SPY301215C00055000';
+      const parsed = parseOccContractId(original)!;
+      expect(parsed.expiration).toBe('2030-12-15');
+      expect(parsed.strike).toBe(55);
+      expect(buildOccContractId(parsed.symbol, parsed.expiration, parsed.optionType, parsed.strike)).toBe(original);
+    });
+
+    it('round-trips a leap-day expiration', () => {
+      const original = 'QQQ240229P00123450';
+      const parsed = parseOccContractId(original)!;
+      expect(parsed.expiration).toBe('2024-02-29');
+      expect(parsed.strike).toBe(123.45);
+      expect(buildOccContractId(parsed.symbol, parsed.expiration, parsed.optionType, parsed.strike)).toBe(original);
+    });
+
+    it('round-trips a zero strike', () => {
+      const original = 'SPY250817C00000000';
+      const parsed = parseOccContractId(original)!;
+      expect(parsed.strike).toBe(0);
+      expect(buildOccContractId(parsed.symbol, parsed.expiration, parsed.optionType, 0)).toBe(original);
+    });
   });
 
   describe('buildOccContractId validation', () => {
@@ -157,6 +180,16 @@ describe('options-strategy-engine-contracts', () => {
 
     it('throws on negative strike', () => {
       expect(() => buildOccContractId('SPY', '2025-08-17', OptionType.CALL, -1)).toThrow('strike must be non-negative');
+    });
+
+    it('throws on an empty symbol with only whitespace', () => {
+      expect(() => buildOccContractId('   ', '2025-08-17', OptionType.CALL, 100)).toThrow('symbol must be non-empty');
+    });
+
+    it('builds an OCC ID for a long symbol', () => {
+      const id = buildOccContractId('SPXW', '2025-12-19', OptionType.PUT, 3875.5);
+      expect(id).toBe('SPXW251219P03875500');
+      expect(parseOccContractId(id)?.strike).toBe(3875.5);
     });
   });
 });
