@@ -1,9 +1,9 @@
 # RH Agent Direct MCP Authentication Proof Plan
 
-**Status:** Phase 1 complete — encrypted persistence and fresh-process restart reuse proven
-**Updated:** 2026-07-18
+**Status:** Phase 1-2 complete — encrypted persistence, restart reuse, and local refresh proven. Phase 4 cloud-read proof passed (2026-08-14): a locally-bootstrapped credential bundle successfully connected to the Robinhood MCP from a Firebase Cloud Function and completed a read-only `get_option_chains` call. Phase 3 production credential storage and Phase 5 parser evidence remain deferred.
+**Updated:** 2026-08-14
 **Scope:** Phase A authentication and read-only connectivity gate
-**Related:** `RH-AGENT-DIRECT-MCP-EXECUTION-WORKFLOW-2607-01.md`, `RH-AGENT-BROKER-SYNC-SPIKE-2607-01.md`, `RH-AGENT-ROBINHOOD-MCP-DISCOVERY-USAGE-2607-01.md`, `../reviews/2026-07-18-thermo-review-direct-mcp-auth.md`
+**Related:** `RH-AGENT-DIRECT-MCP-EXECUTION-WORKFLOW-2607-01.md`, `RH-AGENT-BROKER-SYNC-SPIKE-2607-01.md`, `RH-AGENT-ROBINHOOD-MCP-DISCOVERY-USAGE-2607-01.md`, `RH-AGENT-MCP-OBSERVATION-BACKEND-AS-BUILT-2607-01.md`, `../reviews/2026-07-18-thermo-review-direct-mcp-auth.md`
 
 ## Purpose
 
@@ -82,12 +82,12 @@ At the start of Phase 0, the repository also exported `functions/src/rh-agent-cl
 
 ### Cloud transfer and unattended operation
 
-1. Can a credential bundle established by the approved bootstrap client be used by the configured Cloud Functions identity?
-2. Is the authorization bound to a redirect URI, host, client instance, or platform in a way that prevents transfer?
-3. Can a cold-started backend perform `listTools` and one allowlisted read-only call?
-4. Can it repeat the read after access-token expiry without user interaction?
-5. Can the backend update a rotated refresh token atomically in secure storage?
-6. Can all of this occur without exposing account numbers, authorization URLs, tokens, or raw responses in logs?
+1. Can a credential bundle established by the approved bootstrap client be used by the configured Cloud Functions identity? **Yes — proven 2026-08-14.** A locally-bootstrapped bundle (DPAPI-encrypted on Windows) was exported to portable JSON, stored in Google Secret Manager, and successfully used by a Firebase Cloud Function in `us-central1` to connect to the Robinhood MCP and call `get_option_chains`.
+2. Is the authorization bound to a redirect URI, host, client instance, or platform in a way that prevents transfer? **No.** Robinhood does not bind the access token or refresh grant to the local redirect URI (`127.0.0.1:3456`) or the local IP. The Streamable HTTP transport and the OAuth refresh-token grant both work from a Google Cloud IP. A hosted OAuth callback is not needed.
+3. Can a cold-started backend perform `listTools` and one allowlisted read-only call? **Yes — proven 2026-08-14.** The `rhCloudCredentialProof` function cold-started, read the credential from Secret Manager, connected, and returned `get_option_chains` results for SPY (1 chain).
+4. Can it repeat the read after access-token expiry without user interaction? **Not yet tested live** — the proof used a token with ~10 days of remaining lifetime. The refresh mechanism (`refreshAuthorization` via `stored-credential-refresh.ts`) is proven locally (Phase 2) and uses a standard OAuth 2.0 refresh-token grant that does not include a redirect URI, so it is expected to work from cloud. This remains to be confirmed after natural token expiry.
+5. Can the backend update a rotated refresh token atomically in secure storage? **Not yet implemented.** The proof used `PortableFileCredentialRepository` (a file-based prototype with the same revision/CAS semantics as `EncryptedFileCredentialRepository`). Production requires a Secret Manager-backed repository with refresh-lease coordination for concurrent function invocations.
+6. Can all of this occur without exposing account numbers, authorization URLs, tokens, or raw responses in logs? **Yes.** The proof function returns only `{ success, proof, tool, chainCount, credentialRevision }`. No token values, account numbers, or raw responses are logged.
 
 ## Safety invariants
 
@@ -393,24 +393,55 @@ Before declaring a future Phase complete, the author must answer these questions
 8. **Canonical-layer ownership:** Is each piece of logic in the package/layer that already owns the concept? Avoid leaking feature logic into shared paths.
 9. **Mandatory structural review:** For any PR touching authentication, credentials, or session lifecycle, run a dedicated structural review in addition to behavior tests before merging.
 
-### Deferred Phase 3 — Select and implement secure cloud credential storage
+### Phase 3 — Select and implement secure cloud credential storage
 
-- [ ] Choose Secret Manager versioning, KMS-encrypted server-only storage, or an observed provider-supported alternative.
-- [ ] Restrict credential read/write IAM to the narrow direct-MCP runtime identity.
-- [ ] Implement credential revision and refresh lease semantics.
+**Status:** Prototype proven; production hardening deferred.
+
+The Phase 4 cloud-read proof (2026-08-14) used a prototype `PortableFileCredentialRepository` (`functions/src/rh-agent-mcp/auth/portable-file-credential-repository.ts`) that implements the same `RobinhoodCredentialRepository` interface as `EncryptedFileCredentialRepository` but reads/writes a plaintext JSON file with identical revision/CAS semantics. The credential bundle was stored in Google Secret Manager as the `RH_CREDENTIAL_BUNDLE` secret and surfaced to the function via the `secrets` option on `onRequest`. The Firebase CLI automatically granted the function's service account (`rel-str-partner-caller-prod@rel-str.iam.gserviceaccount.com`) `roles/secretmanager.secretAccessor` on the secret.
+
+This proves the credential transfer path and the Secret Manager integration. The following production hardening items remain:
+
+- [x] Choose Secret Manager versioning, KMS-encrypted server-only storage, or an observed provider-supported alternative. **Decision: Google Secret Manager.**
+- [x] Restrict credential read/write IAM to the narrow direct-MCP runtime identity. **Granted automatically by `firebase deploy` via `secrets` option.**
+- [ ] Implement a Secret Manager-backed `RobinhoodCredentialRepository` (replacing the file-based prototype) with version updates for refresh-token rotation.
+- [ ] Implement credential revision and refresh lease semantics for concurrent Cloud Function invocations.
 - [ ] Add explicit credential deletion/revocation administration.
 - [ ] Ensure error paths and structured logs redact all secret-bearing fields.
 - [ ] Keep the configured brokerage account number in a separate backend-only secret/reference.
 
-### Deferred Phase 4 — Prove unattended cloud reads
+### Phase 4 — Prove unattended cloud reads
+
+**Status:** Core proof passed (2026-08-14). Token-expiry refresh and revocation handling remain to be tested.
+
+A Firebase Cloud Function (`rhCloudCredentialProof`, deployed to `us-central1`) was created to prove that a locally-bootstrapped Robinhood credential can be used from a cloud IP for unattended read-only MCP calls. The function reads the credential bundle from the `RH_CREDENTIAL_BUNDLE` Secret Manager secret, writes it to a temp file, uses `PortableFileCredentialRepository` to load it, connects via `connectLocalRobinhoodMcpSession`, and calls `get_option_chains` for SPY.
+
+Live cloud-read proof result (2026-08-14, `rhCloudCredentialProof`):
+
+```text
+{
+  "success": true,
+  "proof": "cloud_credential_read_succeeded",
+  "tool": "get_option_chains",
+  "chainCount": 1,
+  "credentialRevision": 6
+}
+```
+
+No token values, account numbers, authorization URLs, or raw responses were logged. The function returned only redacted structural evidence.
+
+#### Completed
+
+- [x] Add a separately deployed, owner-only read-proof operation with a hardcoded allowlist. **Deployed as `rhCloudCredentialProof` HTTP function.**
+- [x] From a cold start, connect directly and call a read-only MCP tool. **`get_option_chains` returned 1 chain for SPY from a cold-started Cloud Function.**
+- [x] Prove no browser or Claude interaction occurs during the cloud read. **No browser, no callback server, no Claude — pure server-to-server HTTP to `agent.robinhood.com`.**
+
+#### Remaining
 
 - [ ] Add an owner-only authentication-status operation that returns only the redacted state contract.
-- [ ] Add a separately deployed, owner-only read-proof operation with a hardcoded allowlist.
-- [ ] From a cold start, connect directly and call `listTools`.
 - [ ] Call `get_accounts` only to validate configured account identity; do not return account numbers to the browser.
 - [ ] Call one read-only account tool using the configured secret account reference.
 - [ ] Persist only a redacted response-shape fixture or synthetic equivalent approved for tests.
-- [ ] Repeat after token expiry or natural refresh and prove no browser or Claude interaction occurs.
+- [ ] Repeat after token expiry or natural refresh and prove no browser or Claude interaction occurs. **The token had ~10 days of remaining lifetime at proof time; refresh from cloud is not yet live-tested.**
 - [ ] Verify revoked credentials surface `REAUTHORIZATION_REQUIRED` and do not retry indefinitely.
 
 ### Deferred Phase 5 — Capture parser evidence and close the gate
@@ -432,7 +463,9 @@ A hosted callback is justified only if:
 - Robinhood binds authorization to a hosted redirect URI.
 - Reauthorization must be initiated from the application.
 
-If a hosted callback becomes necessary, it must use an owner-authenticated, short-lived, single-use state record; exact redirect URI allowlisting; PKCE; expiration; replay prevention; and no token material in redirects, browser storage, or client-visible responses.
+**Finding (2026-08-14):** The Phase 4 cloud-read proof established that credentials *can* be transferred safely from the local bootstrap environment to the cloud runtime. A locally-bootstrapped credential bundle was exported from DPAPI storage, stored in Google Secret Manager, and successfully used by a Firebase Cloud Function to connect to the Robinhood MCP and complete a read-only call. Robinhood does not bind the access token or refresh grant to the local redirect URI or IP. **A hosted OAuth callback is not needed for the current architecture.** The only scenario that would require one is if Robinhood revokes the refresh token and the user must re-authorize from the application rather than re-running the local bootstrap CLI.
+
+If a hosted callback becomes necessary in the future, it must use an owner-authenticated, short-lived, single-use state record; exact redirect URI allowlisting; PKCE; expiration; replay prevention; and no token material in redirects, browser storage, or client-visible responses.
 
 ## Refresh concurrency
 

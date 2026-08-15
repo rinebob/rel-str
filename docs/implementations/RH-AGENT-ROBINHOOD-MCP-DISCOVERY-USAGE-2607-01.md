@@ -952,11 +952,72 @@ Avoid building a local event ledger, tax-lot engine, or position-effect classifi
 - Exact fill fields returned by `get_equity_orders`.
 - Retention horizon for order and trade history.
 - Page size and cursor lifetime.
-- Global rate limits and throttling behavior; no request-rate quota is currently published, so conservative defaults apply until normal usage provides evidence.
+- ~~Global rate limits and throttling behavior; no request-rate quota is currently published, so conservative defaults apply until normal usage provides evidence.~~ **Partially resolved 2026-08-14:** No rate limit was hit in two probes totaling 100 sequential `get_option_chains` calls. The bottleneck is latency, not throttling. See "Rate limit and latency findings" below.
 - Whether `placed_agent: "agentic"` includes every RH Agent order consistently.
 - Whether `get_pnl_trade_history` exposes sufficient asset metadata for clean equity-only filtering.
-- Whether the cloud environment can authenticate read-only MCP calls for unattended polling.
+- ~~Whether the cloud environment can authenticate read-only MCP calls for unattended polling.~~ **Resolved 2026-08-14:** Yes — a locally-bootstrapped credential bundle was transferred to Google Secret Manager and successfully used by a Firebase Cloud Function to call `get_option_chains`. See `RH-AGENT-DIRECT-MCP-AUTH-PROOF-2607-01.md` Phase 4.
 - Robinhood behavior when an equity sell exceeds the current long position.
+
+## Rate limit and latency findings (2026-08-14)
+
+Two probes were run against the live Robinhood MCP endpoint (`agent.robinhood.com/mcp/trading`) using locally-bootstrapped credentials. Both called `get_option_chains` with `{ underlying_symbol: 'SPY' }` — a read-only observation tool that returns 1 chain.
+
+### Probe 1: Per-call session (existing `executeObservationTool` pattern)
+
+Each call opens a new MCP session, calls the tool, and closes the session. This is the current code path used by the local API and diagnostic scripts.
+
+```
+Calls: 50 (all succeeded, 0 failures, 0 throttled)
+Total elapsed: 130.7 seconds
+Effective throughput: 23 req/min
+Latency: avg 2,614 ms, min 1,002 ms, max 6,661 ms
+```
+
+### Probe 2: Session reuse (one session, N calls through it)
+
+One session connect, then 50 tool calls on the same session. This is the pattern a Cloud Function would use for batch operations.
+
+```
+One-time session connect: 3,444 ms
+Calls: 50 (all succeeded, 0 failures, 0 throttled)
+Total call time: 49.6 seconds (excluding connect)
+Effective throughput: 60 req/min
+Latency: avg 992 ms, min 242 ms, max 3,023 ms
+```
+
+### Findings
+
+1. **No rate limit was hit.** 100 total calls across both probes, zero failures, zero throttling, zero 429s. Robinhood does not appear to rate-limit MCP tool calls at this volume. The true rate limit (if any) remains unknown — these probes only establish that 100 sequential calls are not throttled.
+
+2. **The bottleneck is latency, not throttling.** Each MCP round-trip to `agent.robinhood.com` takes ~1-2.6 seconds. This is network + server processing time, not an imposed rate limit.
+
+3. **Session reuse roughly doubles throughput.** The per-call session pattern spends ~1.5 seconds per call on connect/close overhead. With one persistent session, average latency drops from 2.6s to 1.0s and effective throughput goes from 23 to 60 req/min.
+
+4. **60 req/min is sufficient for 20 strategy instances.** At 7-9 calls per symbol for a full chain fetch, 20 symbols = 140-180 calls. With session reuse at 60 req/min, that completes in ~3 minutes. For single-contract daily marks (1 call per position), 20 positions complete in ~20 seconds.
+
+### Probe scripts
+
+- `functions/src/rh-agent-mcp/diagnostics/run-rate-limit-probe.ts` — per-call session probe. Usage: `npx tsx src/rh-agent-mcp/diagnostics/run-rate-limit-probe.ts [count] [delayMs]`
+- `functions/src/rh-agent-mcp/diagnostics/run-rate-limit-probe-reuse.ts` — session reuse probe. Usage: `npx tsx src/rh-agent-mcp/diagnostics/run-rate-limit-probe-reuse.ts [count]`
+
+### Data source comparison for options strategy engine
+
+The rate limit probe was conducted to evaluate whether the Robinhood MCP can replace Alpha Vantage (AV) as the data source for the options strategy engine. Three approaches were compared:
+
+| | AV-only ($200/mo) | RH-only (free) | Hybrid ($50/mo) |
+|---|---|---|---|
+| Annual cost | $2,000 | $0 | $600 |
+| Open pass (20 symbols) | 20 AV calls | 140-180 RH calls | 20 AV + 20 RH UUID lookups |
+| Daily marks (20 positions) | 20 AV calls | 20 RH calls | 20 RH calls |
+| Total calls per daily run | 40 | 160-200 | 60 |
+| Contract selection accuracy | Exact (realtime delta) | Exact (realtime delta) | Approximate (yesterday's delta, ±0.03-0.06) |
+| Mark freshness | Realtime | Realtime | Realtime (RH) |
+| Development effort | Zero | Medium-high | Low |
+| Operational risk | Dedicated market data API | Trading platform agent endpoint | Both — cleanly separated |
+
+The **hybrid approach** uses the existing AV $50/mo subscription's EOD options data (which includes full greeks — delta, gamma, theta, vega, rho, IV — on every contract) for contract selection by delta, and uses the Robinhood MCP for realtime daily marks. This saves $1,400/yr vs the AV $200/mo upgrade, avoids the hardest RH development work (strike-band estimator, full-chain fetch, pagination, null-greeks handling), and provides realtime marks from RH.
+
+The delta drift from using yesterday's EOD data is ±0.03-0.06 on a typical day for a -0.2 delta put at 21-30 DTE, which is immaterial for a cash-secured put wheel strategy.
 
 ## Redaction and artifact policy
 

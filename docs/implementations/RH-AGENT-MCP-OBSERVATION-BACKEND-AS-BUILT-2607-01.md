@@ -24,6 +24,7 @@ The backend needs a Robinhood OAuth access token before it can call the Robinhoo
 - **Tool catalog** — a local JSON file that lists all known Robinhood MCP tools; the backend uses it to decide which tools are read-only and safe for observation.
 - **Tool executor** — the function that validates a tool name, opens an MCP session, calls the tool, parses the result, and redacts sensitive fields.
 - **Local API** — a small loopback-only HTTP server that exposes `GET /api/rh/tools` and `POST /api/rh/tools/{toolName}` so the frontend can call the executor without holding credentials.
+- **Cloud credential proof** — a Firebase Cloud Function (`rhCloudCredentialProof`) and supporting diagnostic scripts that prove a locally-bootstrapped credential can be transferred to Google Secret Manager and used from a cloud IP for unattended read-only MCP calls. Proven 2026-08-14.
 
 ### 2. First-time authentication (OAuth bootstrap)
 
@@ -140,6 +141,27 @@ This part repeats the narrative above but points to the exact files and function
   - `POST /api/rh/tools/{toolName}` -> `handleExecuteTool` -> validates `toolName` consistency, validates `extraRedactFields`, then `executeObservationTool`.
 - Responses are built with `sendJson`.
 
+### Cloud credential proof (Phase 4)
+
+The cloud credential proof proves that a locally-bootstrapped Robinhood credential can be used from a Firebase Cloud Function for unattended read-only MCP calls. This was proven on 2026-08-14. See `RH-AGENT-DIRECT-MCP-AUTH-PROOF-2607-01.md` Phase 4 for the full proof record.
+
+The proof uses three new components:
+
+- **Credential export** — `diagnostics/export-credential-bundle.ts` decrypts the local DPAPI credential file and writes a portable JSON bundle to a caller-specified path. Usage: `npx tsx src/rh-agent-mcp/diagnostics/export-credential-bundle.ts <output-path>`. The output contains live OAuth tokens; it must never be committed and should be deleted after the cloud proof is complete.
+- **Portable credential repository** — `auth/portable-file-credential-repository.ts` implements `RobinhoodCredentialRepository` using a plaintext JSON file with the same revision/CAS semantics as `EncryptedFileCredentialRepository`, but without DPAPI or Windows dependencies. This is the prototype for the eventual Secret Manager-backed repository.
+- **Cloud proof function** — `diagnostics/cloud-credential-proof-function.ts` is a Firebase HTTP function (`rhCloudCredentialProof`) that reads the `RH_CREDENTIAL_BUNDLE` Secret Manager secret, writes it to a temp file, uses `PortableFileCredentialRepository` to load it, connects via `connectLocalRobinhoodMcpSession`, and calls `get_option_chains`. Returns only `{ success, proof, tool, chainCount, credentialRevision }`.
+
+The tool catalog loading in `tools/robinhood-tools.ts` was also updated to fall back to a static JSON import (`import toolCatalogJson from '../../../.rh-mcp-tool-catalog.json'`) when the catalog file is not found on disk. This is needed because Cloud Functions bundles code with esbuild and the `.rh-mcp-tool-catalog.json` file is not present in the deployment package.
+
+### Rate limit and latency probes (2026-08-14)
+
+Two diagnostic scripts were added to probe the Robinhood MCP rate limit and latency characteristics. See `RH-AGENT-ROBINHOOD-MCP-DISCOVERY-USAGE-2607-01.md` "Rate limit and latency findings" for the full results.
+
+- `diagnostics/run-rate-limit-probe.ts` — makes N sequential `get_option_chains` calls using the per-call session pattern (each call opens/closes its own session). Usage: `npx tsx src/rh-agent-mcp/diagnostics/run-rate-limit-probe.ts [count] [delayMs]`
+- `diagnostics/run-rate-limit-probe-reuse.ts` — makes N `get_option_chains` calls through a single reused MCP session. Usage: `npx tsx src/rh-agent-mcp/diagnostics/run-rate-limit-probe-reuse.ts [count]`
+
+Key findings: no rate limit was hit at 100 total calls; the bottleneck is latency (~1-2.6s per call); session reuse doubles throughput from 23 to 60 req/min.
+
 ---
 
 ## Part 3 — Implementation reference
@@ -172,7 +194,7 @@ All paths are relative to `functions/src/rh-agent-mcp/`:
 | --- | --- |
 | Constants | `contracts/robinhood-mcp.ts` |
 | Types | `contracts/authentication.ts`, `shared/robinhood-mcp-contracts.ts` |
-| Credential store | `auth/credential-repository.ts`, `auth/local-credential-repository.ts`, `auth/encrypted-file-credential-repository.ts`, `auth/dpapi-credential-cipher.ts` |
+| Credential store | `auth/credential-repository.ts`, `auth/local-credential-repository.ts`, `auth/encrypted-file-credential-repository.ts`, `auth/dpapi-credential-cipher.ts`, `auth/portable-file-credential-repository.ts` |
 | OAuth provider | `auth/repository-oauth-provider.ts` |
 | Callback server | `auth/local-oauth-callback-server.ts` |
 | Browser launcher | `auth/open-authorization-url.ts` |
@@ -180,12 +202,13 @@ All paths are relative to `functions/src/rh-agent-mcp/`:
 | Bootstrap orchestration | `auth/local-oauth-bootstrap.ts` |
 | Session connection | `client/robinhood-mcp-session.ts` |
 | Connection helper | `auth/robinhood-mcp-connection.ts` |
-| Tool catalog/allowlist | `tools/robinhood-tools.ts`, `functions/.rh-mcp-tool-catalog.json` (functions package root) |
+| Tool catalog/allowlist | `tools/robinhood-tools.ts`, `functions/.rh-mcp-tool-catalog.json` (functions package root, also bundled via static JSON import for Cloud Functions) |
 | Tool executor | `tools/robinhood-tool-executor.ts` |
 | Response redaction | `tools/robinhood-response-redactor.ts` |
 | Shared contracts/utilities | `shared/robinhood-mcp-contracts.ts`, `shared/robinhood-mcp-utils.ts` |
 | Local API | `local-api/robinhood-observation-api.ts`, `local-api/start-observation-api.ts` |
-| Diagnostic scripts | `diagnostics/run-local-oauth-bootstrap.ts`, `diagnostics/run-tool-observation.ts` |
+| Diagnostic scripts | `diagnostics/run-local-oauth-bootstrap.ts`, `diagnostics/run-tool-observation.ts`, `diagnostics/export-credential-bundle.ts`, `diagnostics/run-cloud-credential-proof.ts`, `diagnostics/run-rate-limit-probe.ts`, `diagnostics/run-rate-limit-probe-reuse.ts` |
+| Cloud proof function | `diagnostics/cloud-credential-proof-function.ts` |
 | Error classification | `auth/authentication-error-classifier.ts` |
 | Evidence builder | `auth/bootstrap-evidence.ts` |
 
