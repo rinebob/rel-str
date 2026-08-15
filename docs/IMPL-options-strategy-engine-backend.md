@@ -3,7 +3,7 @@
 **Domain:** OPTIONS  
 **Area:** BE  
 **Type:** Implementation Plan  
-**Status:** Draft  
+**Status:** Draft — WIP. Phase A (types/registry/repository/SA realtime client stub) complete.  
 **Created:** 2026-08-13
 
 # Implementation Plan: Options Position Strategy Engine (BE)
@@ -108,15 +108,15 @@ max-drawdown display, separate from the per-position detail in `options-strategy
 
 ## Data Source Notes
 
-- Open pass requires SA's real-time options quote endpoint — **pending**, blocks go-live only. This wraps Alpha Vantage's `REALTIME_OPTIONS` endpoint (https://www.alphavantage.co/documentation/#realtime-options) called with `require_greeks=true` for the full-chain contract-selection query.
-- Nightly pass's per-contract mark uses the same underlying AV `REALTIME_OPTIONS` endpoint, queried with its optional `contract={contractID}` parameter to fetch a single already-selected contract instead of the full chain — SA has confirmed this will be implemented and available, so no fallback/spike is needed.
-- AV's `REALTIME_OPTIONS` response uses the **same per-contract schema as `HISTORICAL_OPTIONS`**, which this codebase already models as `HistoricalOptionContract` (`@c:\aa\projects\rel-str\functions\src\types\partner.ts:50-71` — `contractID`, `expiration`, `strike`, `type`, `mark`, `delta`, etc., all optional strings). `sa-quote-client.ts` should type its response as `HistoricalOptionContract[]` directly rather than inventing a new shape — the "adapter" work in B2 should be trivial to none, assuming SA's response passes this schema through unchanged.
+- The `sa-quote-client.ts` stub wraps Alpha Vantage's `REALTIME_OPTIONS` endpoint (https://www.alphavantage.co/documentation/#realtime-options) and is **kept for a future paid AV upgrade**. It is not the planned go-live path.
+- **Pivot (2026-08-14):** Go-live data strategy is now **hybrid** — AV EOD historical options (existing $50/mo plan) for contract selection, Robinhood MCP (free) for real-time marks on open positions. This is a separate follow-up topic; this plan is being left in WIP state.
 - Underlying closing price for settlement comes from the existing `symbol-data/{symbol}/daily` sync — no new dependency.
 - Contract selection reuses the existing `selectOptionContract`/`selectOptionSpread` helpers in `@c:\aa\projects\rel-str\functions\src\common\option-contract-selection.ts`. This module is pure/stateless (operates only on `HistoricalOptionContract[]`, no RH-Agent-specific state) and has been relocated to a neutral shared location so the new engine does not reach into `rh-agent-cloud-function/strategies/`. Existing RH Agent `strategies/` and `backtest/` code now import from the new location (`@c:\aa\projects\rel-str\functions\src\rh-agent-cloud-function\backtest\backtest-simulator.ts:14-15`, `@c:\aa\projects\rel-str\functions\src\rh-agent-cloud-function\strategies\base-strategy.ts:9`).
 
 ## Key Risks
 
-- SA's real-time quote endpoint's exact response is unconfirmed until delivered, though it should follow AV's documented `REALTIME_OPTIONS`/`HistoricalOptionContract` schema — `sa-quote-client.ts` should still isolate the HTTP call behind a narrow interface so only this one module needs revision if SA's actual response deviates.
+- AV `REALTIME_OPTIONS` requires a subscription upgrade ~4x current cost; `sa-quote-client.ts` is a future path only.
+- Robinhood MCP real-time option-quote shapes are still being discovered and will be addressed in the follow-up hybrid topic.
 - Firestore write costs: subcollections (`legs`, `daily-updates`, `raw-quotes`) per position are per-day-per-position — acceptable at planned scale (1 position/day, one symbol initially).
 
 ## Out of Scope (BE, this phase)
