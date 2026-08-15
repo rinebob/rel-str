@@ -41,6 +41,7 @@ export enum PartnerEndpointPath {
   LIST_CONTRACTS_V2 = 'partnerListContractsV2',
   CONTRACT_CATALOG_V2 = 'partnerContractCatalogV2',
   SPREAD_TIME_SERIES = 'partnerSpreadTimeSeries',
+  REALTIME_OPTIONS = 'partnerRealtimeOptions',
 }
 
 import { OptionType } from '@options/common';
