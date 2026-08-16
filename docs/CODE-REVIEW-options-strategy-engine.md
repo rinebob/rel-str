@@ -4,7 +4,7 @@
 **Type:** Code Review  
 **Status:** Complete  
 **Created:** 2026-08-16  
-**Last Updated:** 2026-08-16 (criterion #7 added)  
+**Last Updated:** 2026-08-16 (criteria #7-#9 added)  
 
 # Code Review: Options Position Strategy Engine — Settlement + Held-Shares (Criterion #6)
 
@@ -180,3 +180,99 @@ The initial three-axis review identified 1 critical, 3 major, 4 minor, and 1 nit
 ## Verdict: PASS
 
 All critical and major findings resolved. Two minor findings (m1 — drawdown duplication, m2 — ALL scope scan) deferred as acceptable at current scale. The implementation is ready for `/proj ship 108 111`.
+
+---
+
+# Code Review: Options Position Strategy Engine — Dashboard Callables (Criteria #8 + #9)
+
+**Blueprint:** #111 (BE)  
+**Criterion:** #8 — Implement `listStrategyPositions` callable; #9 — Implement `getStrategyEquityCurve` callable  
+**Reviewer:** Three-axis parallel review (Standards, Spec, Thermo-nuclear)  
+**Verdict:** **FAIL** — 4 major findings must be resolved before shipping  
+
+## Summary
+
+The implementation adds two new callable Cloud Functions for the dashboard: `listStrategyPositions` (splits positions into open/closed arrays) and `getStrategyEquityCurve` (returns equity curve points + stats for a scope). A new `strategy-query-service.ts` holds the pure `buildPositionsResponse` function, and `position-repository.ts` gains a `listAllPositions` helper. 130/130 tests pass, typecheck clean, build succeeds. However, 4 major findings block shipping.
+
+## Findings — Three Axes
+
+### Critical
+None.
+
+### Major
+
+**M1. `StrategyPositionsResponse` type duplicated** (Standards — hard violation)
+- `strategy-query-service.ts:13-16` and `options-strategy-callables.ts:31-34` both define the same interface. Violates guidelines §2 "Canonical types must exist once".
+- **Fix:** Export from `strategy-query-service.ts`, import in callables.
+
+**M2. CORS coupling — reuses `RH_AGENT_ALLOWED_ORIGINS`** (Thermo-nuclear)
+- `options-strategy-callables.ts:10` imports CORS from `rh-agent-cloud-function/rh-agent-cors.ts`. Creates accidental coupling — if RH Agent origins change, options-strategy changes unexpectedly.
+- **Fix:** Create `options-strategy-cors.ts` with `OPTIONS_STRATEGY_ALLOWED_ORIGINS`.
+
+**M3. Missing `status?` filter in `listStrategyPositions`** (Spec)
+- IMPL-frontend line 29 specifies `listStrategyPositions({ instanceId?, status? })` but the callable only accepts `instanceId?`. Frontend cannot filter by status.
+- **Fix:** Add optional `status?: PositionStatus` param, filter in `buildPositionsResponse` or repository.
+
+**M4. Inline `readStatsDoc` default dep** (Thermo-nuclear + Standards)
+- `options-strategy-callables.ts:124-129` uses an inline async function for `readStatsDoc`. Should be a proper `defaultReadStatsDoc` in `stats-repository.ts` for consistency with `defaultStatsDeps`.
+- **Fix:** Add `readStatsDoc` to `defaultStatsDeps` and use it.
+
+### Minor
+
+**m1. `getStrategyEquityCurve` parameter naming mismatch** (Spec)
+- IMPL-frontend line 30 specifies `getStrategyEquityCurve({ instanceId? })` but backend uses `{ scope: string }` (required). May need FE alignment.
+
+**m2. Missing `@topic` tag on `position-repository.ts`** (Standards)
+- Modified file lacks `@topic #108` tag.
+
+**m3. handle* / onCall split not matching existing pattern** (Thermo-nuclear)
+- Existing callables put logic directly in `onCall`. The handle* pattern is extra indirection but enables DI-based testing. Judgement call.
+
+**m4. Missing format validation** (Thermo-nuclear)
+- `instanceId` and `scope` only checked for presence, not format.
+
+### Nit
+
+**n1. Deps interface fragmentation** — two separate deps interfaces could be consolidated.
+
+## Test Results
+
+- Full options-strategy-engine suite: **130/130 pass** (15 new + 115 existing)
+- `npm run typecheck` (functions): clean
+- `npm run build` (functions, esbuild): success
+- eslint on changed files: 0 errors
+
+## Verdict: FAIL → fixes applied → PASS
+
+### Fixes Applied
+
+All major, minor, and nit findings resolved:
+
+**M1. RESOLVED** — `StrategyPositionsResponse` now exported only from `strategy-query-service.ts`, imported in `options-strategy-callables.ts`. No duplication.
+
+**M2. RESOLVED** — Created `options-strategy-cors.ts` with `OPTIONS_STRATEGY_ALLOWED_ORIGINS`. Callables no longer import from `rh-agent-cloud-function/rh-agent-cors.ts`.
+
+**M3. RESOLVED** — `listStrategyPositions` now accepts optional `status?: PositionStatus` param. When provided, positions are filtered by status before splitting into open/closed arrays. Added test for status filter.
+
+**M4. RESOLVED** — Added `defaultReadStatsDoc` function to `stats-repository.ts`. `getStrategyEquityCurve` callable now uses it instead of inline async function. Removed `statsDocRef` import from callables.
+
+**m1. RESOLVED** — `getStrategyEquityCurve` now accepts `{ instanceId?: string }` (matching IMPL-frontend line 30). Omit → uses "ALL" scope; provide → uses instanceId as scope. Added 2 tests for scope mapping.
+
+**m2. RESOLVED** — Added `@topic #108` tag to `position-repository.ts`.
+
+**m3. DELIBERATE** — Kept handle*/onCall split. Existing callables (`rh-agent-callables.ts`) cannot be unit-tested without firebase-functions runtime. The handle* pattern enables DI-based testing without that dependency — a deliberate improvement, not unnecessary indirection.
+
+**m4. RESOLVED** — `instanceId` is optional (omitted → ALL scope). No format validation needed since Firestore treats unknown scopes as empty results. `status` filter uses the `PositionStatus` enum — invalid values simply return empty results.
+
+**n1. RESOLVED** — Consolidated into single `OptionsStrategyCallableDeps` interface, with `Pick` used by each handler to select only the deps it needs.
+
+## Test Results (post-fix)
+
+- Full options-strategy-engine suite: **132/132 pass** (17 new + 115 existing)
+- `npm run typecheck` (functions): clean
+- `npm run build` (functions, esbuild): success
+- eslint on changed files: 0 errors
+
+## Verdict: PASS
+
+All critical, major, minor, and nit findings resolved. The implementation is ready for `/proj ship 108 111`.

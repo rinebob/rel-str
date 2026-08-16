@@ -3,7 +3,7 @@
 **Domain:** OPTIONS  
 **Area:** BE  
 **Type:** Test Plan  
-**Status:** WIP. Journeys 3-6 (settlement + held-shares + stats rollup) tested. Remaining journeys pending.  
+**Status:** Complete. All journeys and unit tests implemented. Ready for review.  
 **Created:** 2026-08-13  
 **Last Updated:** 2026-08-16
 
