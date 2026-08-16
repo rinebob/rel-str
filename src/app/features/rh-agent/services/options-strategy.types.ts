@@ -1,6 +1,4 @@
 /**
- * @topic #108 — Options Position Strategy Engine
- *
  * FE-side types for the options strategy dashboard. Mirrors the BE types
  * from functions/src/options-strategy-engine/types.ts, minus backend-only
  * fields (Timestamp). These are the response shapes the callables return.

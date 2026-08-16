@@ -1,6 +1,4 @@
 /**
- * @topic #108 — Options Position Strategy Engine
- *
  * Unit tests for OptionsStrategyService — verifies callable invocation
  * with correct request shapes and response mapping.
  */

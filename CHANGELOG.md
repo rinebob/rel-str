@@ -3,6 +3,12 @@
 ## [2026-08-16]
 
 ### Added
+- [Options Position Strategy Engine] 108-112_FE-IMPL-OPTIONS: Add options strategy FE types and status labels
+- [Options Position Strategy Engine] 108-112_FE-IMPL-OPTIONS: Add options strategy callable wrapper service
+- [Options Position Strategy Engine] 108-112_FE-IMPL-OPTIONS: Register options strategy dashboard route
+- [Options Position Strategy Engine] 108-112_FE-IMPL-OPTIONS: Add options strategy dashboard SignalStore
+- [Options Position Strategy Engine] 108-112_FE-IMPL-OPTIONS: Add options strategy dashboard component
+- [Options Position Strategy Engine] 108-112_DOCS-DOCS-OPTIONS: Add FE code review and update impl/test doc status
 - [Options Position Strategy Engine] 108-111_BE-IMPL-OPTIONS: Add strategy query service and listAllPositions repository helper
 - [Options Position Strategy Engine] 108-111_BE-IMPL-OPTIONS: Add listStrategyPositions and getStrategyEquityCurve callables
 - [Options Position Strategy Engine] 108-111_DOCS-DOCS-OPTIONS: Add three-axis code review for dashboard callables + update doc status

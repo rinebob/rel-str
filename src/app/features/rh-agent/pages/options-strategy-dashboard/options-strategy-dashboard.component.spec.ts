@@ -1,6 +1,4 @@
 /**
- * @topic #108 — Options Position Strategy Engine
- *
  * Component tests for OptionsStrategyDashboardComponent — verifies
  * loading/error/empty states, table rendering, and store interaction
  * with a mocked store.

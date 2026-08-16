@@ -1,6 +1,4 @@
 /**
- * @topic #108 — Options Position Strategy Engine
- *
  * Angular wrapper around the options strategy BE callables.
  * Uses the same httpsCallable + runInInjectionContext pattern as other
  * RH Agent services.

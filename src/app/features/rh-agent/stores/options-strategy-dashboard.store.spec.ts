@@ -1,6 +1,4 @@
 /**
- * @topic #108 — Options Position Strategy Engine
- *
  * Unit tests for OptionsStrategyDashboardStore — state transitions,
  * loading/error states, filter changes triggering refetches.
  * Service dependencies are mocked via TestBed providers.

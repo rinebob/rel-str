@@ -1,6 +1,4 @@
 /**
- * @topic #108 — Options Position Strategy Engine
- *
  * Signal-based store for the options strategy dashboard. Holds positions,
  * equity curve, stats, and loading/error state. Follows the existing
  * RhAgentStore pattern with NgRx SignalStore.

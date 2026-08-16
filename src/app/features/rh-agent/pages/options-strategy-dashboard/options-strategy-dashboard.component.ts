@@ -1,6 +1,4 @@
 /**
- * @topic #108 — Options Position Strategy Engine
- *
  * Dashboard component for the options strategy engine. Shows open/closed
  * position tables and an equity curve chart with per-symbol/combined toggle.
  * Follows the existing RhAgentDashboardComponent pattern.
