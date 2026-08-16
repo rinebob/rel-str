@@ -1,5 +1,4 @@
 /**
- * @topic #108 — Options Position Strategy Engine
  *
  * Unit tests for the stats pass: recomputes per-instance and ALL-scope stats
  * from positions, writing stats docs + equity-curve points.

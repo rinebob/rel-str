@@ -1,5 +1,4 @@
 /**
- * @topic #108 — Options Position Strategy Engine
  *
  * Firestore read/write helpers for the options strategy stats rollup.
  *
