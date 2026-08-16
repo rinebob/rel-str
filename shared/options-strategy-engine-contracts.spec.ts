@@ -54,10 +54,25 @@ describe('options-strategy-engine-contracts', () => {
       };
       expect(quote.rho).toBe(0.001);
     });
+
+    it('accepts a minimal AV_REALTIME quote', () => {
+      const quote: OptionQuote = {
+        contractID: 'QQQ250919C00450000',
+        symbol: 'QQQ',
+        expiration: '2025-09-19',
+        strike: 450,
+        type: OptionType.CALL,
+        side: TradeSide.LONG,
+        mark: 2.50,
+        source: OptionQuoteSource.AV_REALTIME,
+        asOf: '2025-09-15T15:30:00Z',
+      };
+      expect(quote.source).toBe(OptionQuoteSource.AV_REALTIME);
+    });
   });
 
   describe('OccRhInstrumentMapEntry', () => {
-    it('accepts a complete entry', () => {
+    it('accepts a complete entry with firstTradedDate', () => {
       const entry: OccRhInstrumentMapEntry = {
         occId: 'SPY250817P00770000',
         instrumentId: 'abc-123',
@@ -71,6 +86,22 @@ describe('options-strategy-engine-contracts', () => {
         expiresAt: '2025-11-17T20:00:00Z',
       };
       expect(entry.instrumentId).toBe('abc-123');
+    });
+
+    it('accepts an entry without firstTradedDate', () => {
+      const entry: OccRhInstrumentMapEntry = {
+        occId: 'SPY250817P00770000',
+        instrumentId: 'abc-123',
+        chainId: 'chain-123',
+        chainSymbol: 'SPY',
+        expiration: '2025-08-17',
+        strike: 770,
+        type: OptionType.PUT,
+        createdAt: '2025-08-16T20:00:00Z',
+        expiresAt: '2025-11-17T20:00:00Z',
+      };
+      expect(entry.firstTradedDate).toBeUndefined();
+      expect(entry.expiresAt).toBe('2025-11-17T20:00:00Z');
     });
   });
 
@@ -101,6 +132,35 @@ describe('options-strategy-engine-contracts', () => {
       expect(simulation.grid.length).toBe(11);
       expect(simulation.grid[0].underlyingMovePct).toBeCloseTo(-0.025, 4);
       expect(simulation.grid[simulation.grid.length - 1].underlyingMovePct).toBeCloseTo(0.025, 4);
+    });
+
+    it('stores baseUnderlyingPrice, baseContractID, and computedAt', () => {
+      const simulation: OvernightDeltaSimulation = {
+        baseUnderlyingPrice: 425.50,
+        baseContractID: 'QQQM250919P00400000',
+        rangePct: 0.025,
+        stepPct: 0.005,
+        grid: [],
+        computedAt: '2025-08-16T22:00:00Z',
+      };
+      expect(simulation.baseUnderlyingPrice).toBe(425.50);
+      expect(simulation.baseContractID).toBe('QQQM250919P00400000');
+      expect(simulation.computedAt).toBe('2025-08-16T22:00:00Z');
+    });
+
+    it('verifies grid point field shapes', () => {
+      const point: OvernightDeltaGridPoint = {
+        underlyingMovePct: -0.01,
+        underlyingPrice: 99.0,
+        delta: -0.22,
+        mark: 1.50,
+        theta: -0.05,
+      };
+      expect(point.underlyingMovePct).toBe(-0.01);
+      expect(point.underlyingPrice).toBe(99.0);
+      expect(point.delta).toBe(-0.22);
+      expect(point.mark).toBe(1.50);
+      expect(point.theta).toBe(-0.05);
     });
   });
 
