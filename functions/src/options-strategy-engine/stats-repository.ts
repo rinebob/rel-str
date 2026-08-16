@@ -1,4 +1,5 @@
 /**
+ * @topic #108 — Options Position Strategy Engine
  *
  * Firestore read/write helpers for the options strategy stats rollup.
  *
@@ -110,6 +111,15 @@ export const defaultStatsDeps: StatsRepositoryDependencies = {
     await batch.commit();
   },
 };
+
+/**
+ * Default Firestore reader for the stats doc. Used by callables that need
+ * to read stats without the full recompute deps.
+ */
+export async function defaultReadStatsDoc(scope: string): Promise<StrategyStats | null> {
+  const snap = await statsDocRef(scope).get();
+  return snap.exists ? (snap.data() as StrategyStats) : null;
+}
 
 // ── Incremental update (open pass) ───────────────────────────────────────────
 

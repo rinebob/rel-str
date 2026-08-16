@@ -152,3 +152,9 @@ export {
   optionsSettlementPass,
   optionsSettlementPassManual,
 } from './options-strategy-engine/options-strategy-passes';
+
+// Options strategy engine — dashboard callables
+export {
+  listStrategyPositions,
+  getStrategyEquityCurve,
+} from './options-strategy-engine/options-strategy-callables';
