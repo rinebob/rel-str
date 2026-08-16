@@ -1,4 +1,5 @@
 /**
+ * @topic #108 — Options Position Strategy Engine (opened 2026-08-13)
  *
  * Scheduled Cloud Functions wiring for the hybrid options strategy passes.
  *
@@ -8,6 +9,9 @@
  *   night's daily-analysis and opens positions.
  * - `optionsMarkPass` — scheduled periodically during market hours, fetches
  *   live quotes and updates unrealized P&L for open positions.
+ * - `optionsSettlementPass` — scheduled nightly after the symbol-data sync,
+ *   settles expiring positions and marks held-shares positions with the day's
+ *   underlying close.
  */
 
 import { onSchedule } from 'firebase-functions/v2/scheduler';
@@ -18,7 +22,11 @@ import { OptionType, PositionSpreadType } from '@options/common';
 import { TradeSide } from '@common';
 
 import { db } from '../firebase-admin-init';
-import { SYMBOL_DATA_COLLECTION } from '../webhooks/webhooks-config';
+import {
+  SYMBOL_DATA_COLLECTION,
+  SYMBOL_BARS_DAILY_SUBCOL,
+} from '../webhooks/webhooks-config';
+import type { OhlcBar } from '../common/market-data-types';
 import { RH_AGENT_ALLOWED_ORIGINS } from '../rh-agent-cloud-function/rh-agent-cors';
 import { getMarketDatePT } from '../common/pt-date-utils';
 import { STRATEGY_INSTANCES } from './strategy-instance-registry';
@@ -26,6 +34,8 @@ import type { StrategyInstanceConfig as RegistryConfig } from './types';
 import { runEodNightlySelection } from './eod-orchestrator';
 import { runOpenPass } from './passes/open-pass';
 import { runMarkPass } from './passes/mark-pass';
+import { runSettlementPass } from './passes/settlement-pass';
+import { runHeldSharesMarkPass } from './passes/held-shares-pass';
 import { RobinhoodMcpOptionQuoteProvider } from './quote-providers/rh-mcp-option-quote-provider';
 import type { RobinhoodMcpSessionManager } from './mcp/robinhood-mcp-session-manager';
 import { createRobinhoodMcpSessionManagerFromEnv } from './mcp/robinhood-mcp-session-manager';
@@ -83,6 +93,30 @@ async function getUnderlyingClose(symbol: string): Promise<number | null> {
   if (!doc.exists) return null;
   const data = doc.data() as { currentPrice?: number };
   return data.currentPrice ?? null;
+}
+
+/**
+ * Read the underlying closing price for a specific market date from the
+ * year-sharded daily bars: symbol-data/{symbol}/daily/{YYYY} (bars[].c where
+ * bars[].d === date). Returns null when no bar exists for the date (holiday,
+ * data delay) so callers can defer settlement rather than resolve with stale
+ * data.
+ */
+async function getUnderlyingCloseForDate(
+  symbol: string,
+  date: string,
+): Promise<number | null> {
+  const year = date.slice(0, 4);
+  const doc = await db
+    .collection(SYMBOL_DATA_COLLECTION)
+    .doc(symbol)
+    .collection(SYMBOL_BARS_DAILY_SUBCOL)
+    .doc(year)
+    .get();
+  if (!doc.exists) return null;
+  const data = doc.data() as { bars?: OhlcBar[] };
+  const bar = (data.bars ?? []).find((b) => b.d === date);
+  return bar ? bar.c : null;
 }
 
 // ── Scheduled Cloud Functions ───────────────────────────────────────────────
@@ -310,5 +344,110 @@ export const optionsMarkPassManual = onCall(
     } finally {
       await manager.close();
     }
+  },
+);
+
+// ── Settlement + held-shares nightly pass ───────────────────────────────────
+
+type SettlementPassSummary = {
+  settled: number;
+  held: number;
+  deferred: number;
+  errors: number;
+};
+
+/**
+ * Run settlement and held-shares marking for every registered strategy
+ * instance against the given market date. Settlement reads the date-specific
+ * underlying close from the year-sharded daily bars; positions whose closing
+ * bar is not yet available are deferred to a later run.
+ */
+async function runSettlementForAllInstances(
+  marketDate: string,
+): Promise<Record<string, SettlementPassSummary | { error: string }>> {
+  const results: Record<string, SettlementPassSummary | { error: string }> = {};
+
+  for (const instance of STRATEGY_INSTANCES) {
+    const config = toSharedConfig(instance);
+    if (!config) {
+      log.warn(`No phase configured for ${instance.id}`);
+      continue;
+    }
+
+    const getClose = (symbol: string, date: string) => getUnderlyingCloseForDate(symbol, date);
+    const deps = { getUnderlyingClose: getClose };
+
+    try {
+      // Settlement (OPEN positions) and held-shares marking
+      // (ASSIGNED_HOLDING_SHARES) operate on disjoint position sets — run in
+      // parallel to reduce nightly pass latency.
+      const [settlement, held] = await Promise.all([
+        runSettlementPass(instance.id, marketDate, config, deps),
+        runHeldSharesMarkPass(instance.id, marketDate, config, deps),
+      ]);
+      log.info(
+        `Settlement for ${instance.id}/${marketDate}: ${settlement.settled.length} settled, ` +
+          `${settlement.deferred.length} deferred, ${settlement.errors.length} error(s); ` +
+          `${held.marked.length} held-shares marked`,
+      );
+      results[instance.id] = {
+        settled: settlement.settled.length,
+        held: held.marked.length,
+        deferred: settlement.deferred.length + held.deferred.length,
+        errors: settlement.errors.length + held.errors.length,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      log.error(`Settlement pass failed for ${instance.id}: ${message}`);
+      results[instance.id] = { error: message };
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Settlement pass — runs nightly after the symbol-data sync has landed the
+ * day's closing bars. Settles expiring OPEN positions and marks
+ * ASSIGNED_HOLDING_SHARES positions with the day's underlying close.
+ *
+ * Schedule: 9:00 PM PT (04:00 UTC) — after the nightly symbol-data sync window.
+ */
+export const optionsSettlementPass = onSchedule(
+  {
+    schedule: '0 4 * * 2-6',
+    timeZone: 'Etc/UTC',
+    memory: '512MiB',
+    timeoutSeconds: 180,
+  },
+  async () => {
+    const marketDate = getMarketDatePT();
+    log.info(`Settlement pass starting for ${marketDate}`);
+
+    await runSettlementForAllInstances(marketDate);
+
+    log.info('Settlement pass complete');
+  },
+);
+
+/**
+ * HTTP-callable trigger for manual settlement pass execution.
+ * Requires an authenticated Firebase user. Useful for testing without
+ * waiting for the schedule.
+ */
+export const optionsSettlementPassManual = onCall(
+  { cors: RH_AGENT_ALLOWED_ORIGINS, memory: '512MiB', timeoutSeconds: 180 },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Must be signed in to trigger a manual settlement pass');
+    }
+
+    const marketDate =
+      typeof request.data?.marketDate === 'string'
+        ? request.data.marketDate
+        : getMarketDatePT();
+    log.info(`Manual settlement pass triggered by ${request.auth.uid} for ${marketDate}`);
+
+    return await runSettlementForAllInstances(marketDate);
   },
 );

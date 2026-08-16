@@ -1,3 +1,4 @@
+/** @topic #108 — Options Position Strategy Engine */
 import './init';
 
 export {partnerProxyTest, getTrackedSymbols} from './partner-proxy';
@@ -148,4 +149,6 @@ export {
   optionsOpenPass,
   optionsMarkPass,
   optionsMarkPassManual,
+  optionsSettlementPass,
+  optionsSettlementPassManual,
 } from './options-strategy-engine/options-strategy-passes';
