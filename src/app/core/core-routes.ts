@@ -1,3 +1,4 @@
+/** @topic #108 — Options Position Strategy Engine */
 import { Route } from "@angular/router";
 import { CoreComponent } from "./core.component";
 import { HomeComponent } from "./comps/home/home.component";
@@ -140,6 +141,11 @@ import { authGuard } from './auth/auth.guard';
             {path: AppRoutes.SPREAD_CHART,
                 loadComponent: () => import('../features/rh-agent/pages/spread-chart/spread-chart-page.component')
                 .then(mod => mod.SpreadChartPageComponent),
+                canActivate: [authGuard],
+            },
+            {path: AppRoutes.OPTIONS_STRATEGY_DASHBOARD,
+                loadComponent: () => import('../features/rh-agent/pages/options-strategy-dashboard/options-strategy-dashboard.component')
+                .then(mod => mod.OptionsStrategyDashboardComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.LOGOUT, redirectTo: '/', pathMatch: 'full'},

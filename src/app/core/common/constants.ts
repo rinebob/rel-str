@@ -1,3 +1,4 @@
+/** @topic #108 — Options Position Strategy Engine */
 import { NavItem } from "./interfaces";
 
 export const NAV_MENU_ITEMS: NavItem[] = [
@@ -207,6 +208,10 @@ export enum CallableName {
   QUERY_CONTRACT_CATALOG = 'queryContractCatalog',
   /** Spread viewer: submit a batch of spreads for time series loading */
   SUBMIT_SPREAD_RUN = 'submitSpreadRun',
+  /** Options strategy dashboard: list open/closed positions */
+  LIST_STRATEGY_POSITIONS = 'listStrategyPositions',
+  /** Options strategy dashboard: equity curve + stats for a scope */
+  GET_STRATEGY_EQUITY_CURVE = 'getStrategyEquityCurve',
 }
 
 /** Top-level Firestore collections used by the FE. */

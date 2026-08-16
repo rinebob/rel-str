@@ -1,3 +1,4 @@
+/** @topic #108 — Options Position Strategy Engine */
 export enum AppRoutes {
 	LOGIN = 'login',
 	LOGOUT = 'logout',
@@ -45,6 +46,7 @@ export enum AppRoutes {
 	SIGNAL_HISTORY = 'signal-history',
 	OPTION_CHART = 'option-chart',
 	SPREAD_CHART = 'spread-chart',
+	OPTIONS_STRATEGY_DASHBOARD = 'options-strategy-dashboard',
 }
 
 export enum AuthLevel {
