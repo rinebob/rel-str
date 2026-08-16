@@ -276,3 +276,126 @@ All major, minor, and nit findings resolved:
 ## Verdict: PASS
 
 All critical, major, minor, and nit findings resolved. The implementation is ready for `/proj ship 108 111`.
+
+---
+
+# Code Review: Options Position Strategy Engine — FE Dashboard (Task #112)
+
+**Blueprint:** #112 (FE)
+**Task:** All 4 acceptance criteria (service+route, store, tables, equity curve)
+**Reviewer:** Three-axis parallel review (Standards, Spec, Thermo-nuclear)
+**Verdict:** **FAIL** — 1 critical, 5 major findings must be resolved before shipping
+
+## Summary
+
+The FE implementation adds an Angular standalone component dashboard for the options strategy engine, with a callable wrapper service, NgRx SignalStore, open/closed position tables, and an equity curve chart with scope toggle. 29/29 FE tests pass, build succeeds. However, 1 critical and 5 major findings block shipping.
+
+## Findings — Three Axes
+
+### Critical
+
+**C1. Race condition in `selectInstance()`** (Thermo-nuclear)
+- `options-strategy-dashboard.store.ts:161-164` — rapid calls trigger parallel `loadAll()` without cancellation. Previous requests complete after new ones, causing state corruption.
+- **Fix:** Use `switchMap` or track and cancel previous subscriptions.
+
+### Major
+
+**M1. Missing columns in open positions table** (Spec)
+- IMPL plan requires: instance, symbol, **strike**, **expiration**, **DTE remaining**, premium collected, current value, unrealized P&L.
+- Missing: `strike`, `expiration`, `DTE remaining`. The `dteRemaining()` helper exists in the component but is never called in the template.
+- **Fix:** Add strike/expiration columns (from `pos.legs[0]`), add DTE column using `dteRemaining()`.
+
+**M2. Missing columns in closed positions table** (Spec)
+- IMPL plan requires: outcome, **realized P&L**, **resulting share position** with live unrealized P&L.
+- Missing: `realized P&L` (shows `unrealizedPnl` instead), `resulting share position` column. The `Position` type has `assignment` and `shares` fields but they're not rendered.
+- **Fix:** Add realized P&L column, add share position column showing `pos.shares` with its unrealized P&L.
+
+**M3. Hardcoded instance toggle** (Spec + Thermo-nuclear)
+- `options-strategy-dashboard.component.html:14-15` — scope toggle hardcodes `'QQQM-WHEEL'`. Won't scale if more strategy instances are added.
+- **Fix:** Dynamically render toggle buttons from available instances (either from positions data or a separate instance list).
+
+**M4. Missing `@topic` tags on modified files** (Standards)
+- `constants.ts`, `interfaces.ts`, `core-routes.ts` — all modified but lack `@topic #108` tags.
+- **Fix:** Add `@topic #108` tags to each modified file.
+
+**M5. Missing `standalone: true`** (Standards)
+- `options-strategy-dashboard.component.ts` omits `standalone: true` in `@Component` decorator. Other RH Agent components declare it explicitly.
+- **Fix:** Add `standalone: true` to the `@Component` decorator.
+
+### Minor
+
+**m1. Generic error handling** (Thermo-nuclear)
+- All errors show generic "Failed to load positions/equity curve". No distinction between network errors, permission denied, or malformed responses.
+
+**m2. `as any` cast in service test** (Thermo-nuclear + Standards)
+- `service.spec.ts:62` uses `status: 'OPEN' as any`. Should use `PositionStatus.OPEN`.
+
+**m3. Accessibility gaps** (Thermo-nuclear)
+- Scope toggle buttons lack `aria-pressed`. Table headers missing `scope="col"`.
+
+**m4. PositionStatus enum name collision** (Standards — judgement call)
+- Same name as `fe-position.types.ts` enum but different domain (options strategy vs RS trading). Consider renaming to `OptionsPositionStatus`.
+
+**m5. Extra columns not in IMPL plan** (Spec — scope creep)
+- Open table: `Status`, `Capital Required`, `Open Date`. Closed table: `Instance`, `Symbol`, `Premium Collected`, `Open Date`, `Current Value`. Stats strip: `Total Premium`.
+
+### Nit
+
+**n1. Chart transform in component** — `toChartPoints()` is presentation logic that could be a pure utility.
+**n2. No runtime validation of BE response shape** — types claim to mirror BE but no runtime check.
+
+## Test Results
+
+- FE test suite: **29/29 pass** (4 service + 15 store + 10 component)
+- `npm run build` (Angular CLI): success
+
+## Verdict: FAIL
+
+1 critical (C1) and 5 major findings (M1-M5) must be resolved before shipping. Fix and re-run `/proj review 108 112`.
+
+---
+
+## Re-Review — 2026-08-16
+
+All findings from the initial review have been resolved:
+
+### Critical — Resolved
+
+**C1. Race condition in `selectInstance()`** — Fixed. Store now tracks `positionsSub` and `equitySub` subscriptions and unsubscribes before starting new requests, preventing stale state corruption from rapid toggle clicks.
+
+### Major — Resolved
+
+**M1. Missing columns in open positions table** — Fixed. Open table now has Strike, Expiration, and DTE columns, sourced from `primaryLeg(pos)`. The `dteRemaining()` helper is now called in the template.
+
+**M2. Missing columns in closed positions table** — Fixed. Closed table now has Realized P&L and Share Position columns. `realizedPnl()` helper derives from `pos.realizedPnl ?? pos.premiumCollected`. Share position renders `pos.shares.quantity` and `pos.shares.costBasis`.
+
+**M3. Hardcoded instance toggle** — Fixed. Scope toggle now dynamically renders from `store.availableInstances()` computed signal, which derives unique instance IDs from loaded positions. No hardcoded strings.
+
+**M4. Missing `@topic` tags** — Fixed. `@topic #108` tags added to `constants.ts`, `interfaces.ts`, `core-routes.ts`.
+
+**M5. Missing `standalone: true`** — Fixed. `standalone: true` added to `@Component` decorator.
+
+### Minor — Resolved
+
+**m1. Generic error handling** — Improved. Error messages now distinguish `unauthenticated` errors from generic failures.
+
+**m2. `as any` cast** — Fixed. Test now uses `OptionsPositionStatus.OPEN` enum value.
+
+**m3. Accessibility gaps** — Fixed. Toggle buttons have `aria-pressed`. Table headers have `scope="col"`. Error banner has `role="alert"`.
+
+**m4. PositionStatus enum name collision** — Fixed. Renamed to `OptionsPositionStatus` and `OPTIONS_POSITION_STATUS_LABELS`.
+
+**m5. Extra columns (scope creep)** — Fixed. Removed `Status`, `Capital Required`, `Open Date` from open table. Removed `Premium Collected`, `Open Date`, `Current Value` from closed table. Removed `Total Premium` stat card. Tables now match IMPL plan exactly.
+
+### Nit — Resolved
+
+**n1. Chart transform** — `toChartPoints()` is now an exported pure function, used via `computed()` in the component.
+
+### Test Results (Re-Review)
+
+- FE test suite: **29/29 pass** (4 service + 15 store + 10 component)
+- `npm run build` (Angular CLI): success (15.6s)
+
+## Verdict: PASS
+
+All critical, major, minor, and nit findings resolved. The implementation is ready for `/proj ship 108 112`.
