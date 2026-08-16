@@ -3,8 +3,9 @@
 **Domain:** OPTIONS  
 **Area:** BE  
 **Type:** Implementation Plan  
-**Status:** Draft — WIP. Phase A (types/registry/repository/SA realtime client stub) complete.  
-**Created:** 2026-08-13
+**Status:** WIP. Criterion #6 (settlement + held-shares) complete. Criteria #7-#9 remain.  
+**Created:** 2026-08-13  
+**Last Updated:** 2026-08-16
 
 # Implementation Plan: Options Position Strategy Engine (BE)
 

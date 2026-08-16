@@ -3,8 +3,9 @@
 **Domain:** OPTIONS  
 **Area:** BE  
 **Type:** Test Plan  
-**Status:** Draft  
-**Created:** 2026-08-13
+**Status:** WIP. Journeys 3-5 (settlement + held-shares) tested. Remaining journeys pending.  
+**Created:** 2026-08-13  
+**Last Updated:** 2026-08-16
 
 # Test Plan: Options Position Strategy Engine (BE)
 
