@@ -1,5 +1,4 @@
 /**
- * @topic #108 — Options Position Strategy Engine
  *
  * Settlement pass — settles OPEN positions whose primary leg expires on the
  * run date. For the phase-1 cash-secured-put (short PUT) strategy, a position

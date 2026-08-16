@@ -1,5 +1,4 @@
 /**
- * @topic #108 — Options Position Strategy Engine
  *
  * Unit tests for the held-shares mark pass: daily marks for positions in
  * ASSIGNED_HOLDING_SHARES status, tracking the underlying close (not the

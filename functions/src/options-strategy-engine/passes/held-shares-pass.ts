@@ -1,5 +1,4 @@
 /**
- * @topic #108 — Options Position Strategy Engine
  *
  * Held-shares mark pass — daily marks for positions in
  * ASSIGNED_HOLDING_SHARES status. The position's current value tracks the

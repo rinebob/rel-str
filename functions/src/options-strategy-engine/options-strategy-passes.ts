@@ -1,5 +1,4 @@
 /**
- * @topic #108 — Options Position Strategy Engine (opened 2026-08-13)
  *
  * Scheduled Cloud Functions wiring for the hybrid options strategy passes.
  *

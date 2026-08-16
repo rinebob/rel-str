@@ -1,5 +1,4 @@
 /**
- * @topic #108 — Options Position Strategy Engine
  *
  * Unit tests for the settlement pass: settles OPEN positions whose primary leg
  * expires on the run date into EXPIRED_WORTHLESS or ASSIGNED_HOLDING_SHARES.

@@ -1,6 +1,4 @@
 /**
- * @topic #108 — Options Position Strategy Engine
- *
  * Shared types and enums for the options position strategy engine backend.
  *
  * Reuses `OptionType` from `@options/common` and `TradeSide` from the universal

@@ -1,5 +1,4 @@
 /**
- * @topic #108 — Options Position Strategy Engine
  *
  * Firestore read/write helpers for options strategy positions and their
  * subcollections (legs, daily-updates, raw-quotes).
