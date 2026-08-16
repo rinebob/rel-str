@@ -1,5 +1,4 @@
 /**
- * @topic #108 — Options Position Strategy Engine
  *
  * Unit tests for the listStrategyPositions callable handler — auth check,
  * delegates to listAllPositions + buildPositionsResponse, filters by

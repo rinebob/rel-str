@@ -1,4 +1,4 @@
-/** @topic #108 — Options Position Strategy Engine */
+/** */
 import './init';
 
 export {partnerProxyTest, getTrackedSymbols} from './partner-proxy';

@@ -1,5 +1,4 @@
 /**
- * @topic #108 — Options Position Strategy Engine
  *
  * Query service for the options strategy dashboard — pure functions that
  * transform position data into dashboard-ready response shapes.

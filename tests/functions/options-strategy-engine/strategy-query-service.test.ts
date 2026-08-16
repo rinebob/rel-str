@@ -1,5 +1,4 @@
 /**
- * @topic #108 — Options Position Strategy Engine
  *
  * Unit tests for buildPositionsResponse — splits a flat position list into
  * open and closed arrays for the dashboard.

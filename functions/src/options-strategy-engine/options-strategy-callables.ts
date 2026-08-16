@@ -1,5 +1,4 @@
 /**
- * @topic #108 — Options Position Strategy Engine
  *
  * Callable Cloud Functions for the options strategy dashboard —
  * listStrategyPositions (open/closed position tables) and

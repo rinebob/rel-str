@@ -1,5 +1,4 @@
 /**
- * @topic #108 — Options Position Strategy Engine
  *
  * Unit tests for the getStrategyEquityCurve callable handler — auth check,
  * instanceId → scope mapping, returns equity curve points + stats.

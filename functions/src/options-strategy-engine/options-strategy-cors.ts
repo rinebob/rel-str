@@ -1,5 +1,4 @@
 /**
- * @topic #108 — Options Position Strategy Engine
  *
  * Centralized CORS allowlist for options strategy callable functions.
  *
