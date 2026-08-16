@@ -3,7 +3,7 @@
 **Domain:** OPTIONS  
 **Area:** BE  
 **Type:** Implementation Plan  
-**Status:** WIP. Criterion #6 (settlement + held-shares) complete. Criteria #7-#9 remain.  
+**Status:** WIP. Criteria #6-#7 (settlement + held-shares + stats rollup) complete. Criteria #8-#9 remain.  
 **Created:** 2026-08-13  
 **Last Updated:** 2026-08-16
 
