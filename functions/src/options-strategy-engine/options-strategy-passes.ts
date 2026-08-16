@@ -1,4 +1,5 @@
 /**
+ * @topic #108 — Options Position Strategy Engine
  *
  * Scheduled Cloud Functions wiring for the hybrid options strategy passes.
  *
@@ -35,6 +36,7 @@ import { runOpenPass } from './passes/open-pass';
 import { runMarkPass } from './passes/mark-pass';
 import { runSettlementPass } from './passes/settlement-pass';
 import { runHeldSharesMarkPass } from './passes/held-shares-pass';
+import { runStatsPass, createDefaultStatsPassDeps } from './passes/stats-pass';
 import { RobinhoodMcpOptionQuoteProvider } from './quote-providers/rh-mcp-option-quote-provider';
 import type { RobinhoodMcpSessionManager } from './mcp/robinhood-mcp-session-manager';
 import { createRobinhoodMcpSessionManagerFromEnv } from './mcp/robinhood-mcp-session-manager';
@@ -395,6 +397,19 @@ async function runSettlementForAllInstances(
         deferred: settlement.deferred.length + held.deferred.length,
         errors: settlement.errors.length + held.errors.length,
       };
+
+      // Recompute stats (per-instance + ALL scope) after settlement + held-shares.
+      try {
+        const statsDeps = createDefaultStatsPassDeps();
+        const statsResult = await runStatsPass(instance.id, marketDate, statsDeps);
+        log.info(
+          `Stats pass for ${instance.id}/${marketDate}: wrote ${statsResult.scopesWritten.join(', ')}`,
+        );
+      } catch (err) {
+        log.error(
+          `Stats pass failed for ${instance.id}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       log.error(`Settlement pass failed for ${instance.id}: ${message}`);

@@ -1,4 +1,5 @@
 /**
+ * @topic #108 — Options Position Strategy Engine
  *
  * Next-day open pass for the hybrid options quote provider.
  *
@@ -22,6 +23,7 @@ import {
   listOpenPositions,
   createPosition,
 } from '../position-repository';
+import { incrementStatsOnOpen } from '../stats-repository';
 import type { Position, PositionLeg, RawQuote } from '../types';
 import { PositionStatus } from '../types';
 import { createLogger } from '../logging';
@@ -254,7 +256,10 @@ export async function runOpenPass(
 
   const created = await create(position, [leg], rawQuote);
 
-  // 8. Write result and return
+  // 8. Incrementally update stats (premium + open count) for per-instance + ALL
+  await incrementStatsOnOpen(instanceId, premiumCollected);
+
+  // 9. Write result and return
   const result = buildOpenPassResult(
     simulation,
     currentUnderlyingPrice,
