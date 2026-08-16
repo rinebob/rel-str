@@ -1,4 +1,5 @@
 /**
+ * @topic #108 — Options Position Strategy Engine
  *
  * Firestore read/write helpers for options strategy positions and their
  * subcollections (legs, daily-updates, raw-quotes).
@@ -93,6 +94,19 @@ export async function listPositionsByInstance(instanceId: string): Promise<Posit
     .where('instanceId', '==', instanceId)
     .orderBy('openDate', 'desc')
     .get();
+  return snap.docs.map((doc) => ({ id: doc.id, ...(doc.data() as Omit<Position, 'id'>) }));
+}
+
+/**
+ * List all positions across all instances, ordered by open date (newest first).
+ * Optionally filter by instanceId. Used by the dashboard callable.
+ */
+export async function listAllPositions(instanceId?: string): Promise<Position[]> {
+  const collection = db.collection(OPTIONS_STRATEGY_POSITIONS_COLLECTION);
+  const query = instanceId
+    ? collection.where('instanceId', '==', instanceId)
+    : collection;
+  const snap = await query.orderBy('openDate', 'desc').get();
   return snap.docs.map((doc) => ({ id: doc.id, ...(doc.data() as Omit<Position, 'id'>) }));
 }
 
