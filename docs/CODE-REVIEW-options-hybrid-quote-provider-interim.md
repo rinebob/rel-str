@@ -6,6 +6,100 @@
 **Created:** 2026-08-15  
 **Last Updated:** 2026-08-15
 
+# Gate Review — 2026-08-15 (Tasks #129 + #130)
+
+## Summary
+
+Gate review of two test tasks:
+- **Task #129** — adds 4 new unit tests to `shared/options-strategy-engine-contracts.spec.ts` (17 → 21 tests)
+- **Task #130** — adds new integration test file `tests/functions/options-strategy-engine/hybrid-quote-provider-integration.test.ts` (5 tests, 438 lines)
+
+## Task #129 — Shared unit tests
+
+### Standards
+
+- `@topic #114` tag present. ✅
+- Tests follow existing jest patterns (`describe`/`it`/`expect`). ✅
+- No code style issues, no dead code, no security concerns. ✅
+- **No issues found.**
+
+### Spec
+
+| Criterion | Status | Notes |
+|-----------|--------|-------|
+| Round-trip tests for parseOccContractId / buildOccContractId | **MET** | 7 round-trip + 5 validation tests (pre-existing) |
+| Construct valid OptionQuote objects for each source | **MET** | All 3 sources: AV_EOD, RH_MCP, AV_REALTIME |
+| Verify OvernightDeltaSimulation grid symmetry and field shapes | **MET** | Grid symmetry + field shape + grid point shape tests |
+
+All test plan items covered. Cross-project type checking verified via `npm --prefix functions run typecheck` (clean).
+
+### Thermo-nuclear
+
+- **[ACCEPTED] Minor — tautological assertions in contract tests.** Lines 58-71, 137-149, 151-164 assign values then assert them back. Acceptable for contract/smoke tests where the primary value is TypeScript compilation verification. No fix needed.
+- **[ACCEPTED] Nit — structural duplication between AV_EOD and AV_REALTIME minimal tests.** Lines 17-30 vs 58-71. Acceptable for contract tests — inline construction improves independent readability. No fix needed.
+
+### Test results (#129)
+
+- `npx jest --config jest.config.js shared/options-strategy-engine-contracts.spec.ts` — **21 passed, 0 failed**
+- Typecheck clean (cross-project type checking verified)
+
+## Task #130 — BE integration tests
+
+### Standards
+
+- `@topic #114` tag present on new file. ✅
+- Tests follow existing `node:test` patterns (`describe`/`it`, `assert`). ✅
+- Imports consistent with other test files. ✅
+- File size: 438 lines for 5 integration tests — reasonable. ✅
+- No security concerns. ✅
+- **No issues found.**
+
+### Spec
+
+| Criterion | Status | Notes |
+|-----------|--------|-------|
+| Quote providers tested against AV EOD and RH MCP sample fixtures | **MET** | Via existing unit tests + integration test uses mocked providers at the correct boundary |
+| Selection/open/mark passes tested end-to-end with mocked external calls | **MET** | Test 1 chains all three passes with mocked AV EOD and RH MCP |
+| Retry, batching, missing close, and existing-position screening | **MET** | Retry: covered by `occ-rh-instrument-map-service.test.ts` (chain_id fallback). Batching: test 4. Missing close: test 3. Existing-position: test 2. |
+
+Test plan integration section:
+- ✅ Selection pass: mocked AV EOD, delta/DTE selection, daily-analysis write, instrument map write
+- ✅ Open pass: mocked underlying price, daily-analysis read, nearest grid point, existing position screening
+- ✅ Mark pass: mocked positions, mocked quotes, raw-quotes + P&L, batching, missing close.price, interpolated close
+
+### Thermo-nuclear
+
+- **[ACCEPTED] Minor — tests 2-5 overlap with existing unit tests.** Tests 2-5 test the same scenarios as existing unit tests (`open-pass.test.ts:69`, `mark-pass.test.ts:241,257,212`) but from the integration perspective using the actual pass function signatures with mocked external boundaries. Kept as-is — they provide integration context value and trace the full path with realistic DI mocks.
+- **[FIXED] Minor — mapEntries not asserted in end-to-end test.** Added `assert.equal(mapEntries.size, 1)` and `assert.ok(mapEntries.has('SPY250817P00100000'))` after the selection pass assertions to verify instrument map persistence.
+- **[FIXED] Minor — missing integration test for null selection result.** Added test "handles null selection result gracefully in the full flow" — mocks empty AV EOD response, verifies selection returns null, then verifies open pass returns null when no simulation exists.
+- **[FIXED] Minor — missing integration test for maxOvernightMovePct skip.** Added test "skips open pass when maxOvernightMovePct is exceeded" — configures 1% max move, sets current price to +5%, verifies open pass skips with `max_overnight_move_exceeded` reason.
+- **[ACCEPTED] Nit — fixture duplication across test files.** `makeConfig`, `makeAvContract`, and position/leg fixtures are duplicated from existing unit test files. Acceptable at current test suite size — extract to shared fixtures if it grows significantly.
+- **[ACCEPTED] Nit — end-to-end test is 138 lines.** Reasonable for a full selection → open → mark flow covering three passes with setup and assertions.
+- **[FALSE POSITIVE] — "unused import OptionQuoteSource".** Subagent flagged this as unused, but it IS used on lines 162, 355, and 414. No action needed.
+
+### Test results (#130)
+
+- `npx tsx --test hybrid-quote-provider-integration.test.ts` — **7 passed, 0 failed** (5 original + 2 new)
+- Full BE test suite: **77 passed, 0 failed** (70 existing + 7 integration)
+- Typecheck clean, build clean
+
+## Combined findings by severity
+
+| Severity | Count | Description |
+|----------|-------|-------------|
+| Critical | 0 | — |
+| Major | 0 | — |
+| Minor | 6 | [ACCEPTED] Tautological assertions (#129); [ACCEPTED] tests 2-5 overlap (#130); [FIXED] mapEntries not asserted (#130); [FIXED] missing null selection integration (#130); [FIXED] missing maxOvernightMovePct integration (#130); [ACCEPTED] fixture duplication (#130) |
+| Nit | 3 | [ACCEPTED] Structural duplication (#129); [ACCEPTED] end-to-end test length (#130); [FALSE POSITIVE] unused import (#130) |
+
+## Verdict
+
+**PASS**
+
+All acceptance criteria met for both tasks. No critical or major findings. 3 minor findings fixed (mapEntries assertion, null selection integration test, maxOvernightMovePct integration test). 3 minor findings accepted as-is (tautological assertions, test overlap, fixture duplication — all acceptable patterns). All tests pass (21 SHARED + 77 BE = 98 total). Typecheck and build clean.
+
+---
+
 # Interim Review — 2026-08-15 (Task #124)
 
 ## Standards
