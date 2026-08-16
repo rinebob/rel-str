@@ -128,3 +128,25 @@ export interface EquityCurvePoint {
   date: string;
   cumulativePnl: number;
 }
+
+// ── Settlement types ────────────────────────────────────────────────────────
+
+/** Shares per options contract (the ×100 multiplier in P&L formulas). */
+export const SHARES_PER_CONTRACT = 100;
+
+/** Settlement data written to a position document at expiration. */
+export interface SettlementData {
+  status: PositionStatus.EXPIRED_WORTHLESS | PositionStatus.ASSIGNED_HOLDING_SHARES;
+  currentValue: number;
+  currentValueAsOf: string;
+  unrealizedPnl: number;
+  assignment?: PositionAssignment;
+  shares?: PositionShares;
+}
+
+/** Leg outcome update written to each leg document at settlement. */
+export interface LegOutcomeUpdate {
+  legId: string;
+  outcome: LegOutcome;
+  closeDate: string;
+}

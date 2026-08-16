@@ -15,6 +15,8 @@ import type {
   Position,
   PositionLeg,
   RawQuote,
+  SettlementData,
+  LegOutcomeUpdate,
 } from './types';
 
 // ── ID helpers ───────────────────────────────────────────────────────────────
@@ -31,6 +33,13 @@ export function buildLegId(
   const normalizedStrike = strike.toFixed(2);
   const typeLabel = type === OptionType.CALL ? 'CALL' : 'PUT';
   return `${typeLabel}-${normalizedStrike}-${expiration}`;
+}
+
+// ── Leg helpers ──────────────────────────────────────────────────────────────
+
+/** Find the primary leg (the one with a contractID) from a position's legs. */
+export function findPrimaryLeg(legs: PositionLeg[]): PositionLeg | undefined {
+  return legs.find((leg) => leg.contractID);
 }
 
 // ── References ───────────────────────────────────────────────────────────────
@@ -85,6 +94,21 @@ export async function listPositionsByInstance(instanceId: string): Promise<Posit
     .where('instanceId', '==', instanceId)
     .orderBy('openDate', 'desc')
     .get();
+  return snap.docs.map((doc) => ({ id: doc.id, ...(doc.data() as Omit<Position, 'id'>) }));
+}
+
+export async function listHeldSharesPositions(
+  instanceId?: string,
+): Promise<Position[]> {
+  let query = db
+    .collection(OPTIONS_STRATEGY_POSITIONS_COLLECTION)
+    .where('status', '==', 'ASSIGNED_HOLDING_SHARES');
+
+  if (instanceId) {
+    query = query.where('instanceId', '==', instanceId);
+  }
+
+  const snap = await query.get();
   return snap.docs.map((doc) => ({ id: doc.id, ...(doc.data() as Omit<Position, 'id'>) }));
 }
 
@@ -156,15 +180,9 @@ export async function markPosition(
 
 export async function markPositionSettled(
   positionId: string,
-  settlement: {
-    status: 'EXPIRED_WORTHLESS' | 'ASSIGNED_HOLDING_SHARES';
-    currentValue: number;
-    currentValueAsOf: string;
-    unrealizedPnl: number;
-    assignment?: { strikePrice: number; underlyingCloseAtExpiration: number; assignedAt: string };
-    shares?: { quantity: number; costBasis: number };
-  },
-  legOutcomes: { legId: string; outcome: string; closeDate: string }[],
+  settlement: SettlementData,
+  legOutcomes: LegOutcomeUpdate[],
+  dailyUpdate?: DailyUpdate,
 ): Promise<void> {
   const positionRef = positionDocRef(positionId);
 
@@ -182,5 +200,25 @@ export async function markPositionSettled(
       const legRef = legsCollectionRef(positionId).doc(legId);
       transaction.update(legRef, { outcome, closeDate });
     }
+
+    if (dailyUpdate) {
+      const dailyUpdateRef = dailyUpdatesCollectionRef(positionId).doc(dailyUpdate.date);
+      transaction.set(dailyUpdateRef, dailyUpdate, { merge: true });
+    }
   });
+}
+
+/**
+ * Atomically update a held-shares position's mark and write its daily-update
+ * record in a single batch — mirrors the `markPosition` pattern.
+ */
+export async function markHeldSharesPosition(
+  positionId: string,
+  update: Partial<Position>,
+  dailyUpdate: DailyUpdate,
+): Promise<void> {
+  const batch = db.batch();
+  batch.update(positionDocRef(positionId), update);
+  batch.set(dailyUpdatesCollectionRef(positionId).doc(dailyUpdate.date), dailyUpdate, { merge: true });
+  await batch.commit();
 }

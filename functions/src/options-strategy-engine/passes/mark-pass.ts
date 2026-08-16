@@ -1,4 +1,5 @@
 /**
+ * @topic #108 — Options Position Strategy Engine
  *
  * Periodic mark pass for open options strategy positions.
  *
@@ -16,6 +17,7 @@ import {
   listOpenPositions,
   getLegs,
   markPosition,
+  findPrimaryLeg,
 } from '../position-repository';
 import type { Position, PositionLeg, RawQuote } from '../types';
 import { createLogger } from '../logging';
@@ -65,10 +67,6 @@ function computeUnrealizedPnl(
     return premiumCollected - currentValue;
   }
   return currentValue - capitalRequired;
-}
-
-function findPrimaryLeg(legs: PositionLeg[]): PositionLeg | undefined {
-  return legs.find((leg) => leg.contractID);
 }
 
 // ── Main ────────────────────────────────────────────────────────────────────
