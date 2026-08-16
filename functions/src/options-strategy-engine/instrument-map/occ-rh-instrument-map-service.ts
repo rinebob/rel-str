@@ -1,5 +1,4 @@
 /**
- * @topic #114 — Options Strategy Engine — Hybrid Quote Provider
  *
  * Service that builds, reads, and backfills an OCC → Robinhood MCP instrument
  * map entry for a selected EOD candidate or an open position mark lookup.

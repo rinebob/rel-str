@@ -1,5 +1,4 @@
 /**
- * @topic #114 — Options Strategy Engine — Hybrid Quote Provider
  *
  * End-to-end nightly EOD selection orchestrator.
  *

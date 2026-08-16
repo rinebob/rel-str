@@ -1,5 +1,4 @@
 /**
- * @topic #114 — Options Strategy Engine — Hybrid Quote Provider
  *
  * Shared TypeScript contracts for the hybrid options quote provider.
  */

@@ -1,5 +1,4 @@
 /**
- * @topic #114 — Options Strategy Engine — Hybrid Quote Provider
  *
  * Robinhood MCP resolver for OCC → RH instrument map entries.
  *

@@ -1,5 +1,4 @@
 /**
- * @topic #114 — Options Strategy Engine — Hybrid Quote Provider
  *
  * Canonical source for option-related enums and OCC contract ID helpers,
  * shared between the options contract viewer, spread viewer, and position

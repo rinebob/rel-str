@@ -1,5 +1,4 @@
 /**
- * @topic #114 — Options Strategy Engine — Hybrid Quote Provider
  *
  * Closed-form Black-Scholes option pricing and Greeks.
  *

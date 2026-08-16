@@ -1,5 +1,4 @@
 /**
- * @topic #114 — Options Strategy Engine — Hybrid Quote Provider
  *
  * Persistence for the overnight delta simulation on a strategy instance's
  * daily-analysis document.

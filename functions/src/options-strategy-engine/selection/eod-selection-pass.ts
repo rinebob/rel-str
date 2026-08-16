@@ -1,5 +1,4 @@
 /**
- * @topic #114 — Options Strategy Engine — Hybrid Quote Provider
  *
  * Nightly AV EOD selection pass for the hybrid options quote provider.
  *

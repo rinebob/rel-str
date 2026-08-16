@@ -1,5 +1,4 @@
 /**
- * @topic #114 — Options Strategy Engine — Hybrid Quote Provider
  *
  * Types and interfaces for the OCC → Robinhood MCP instrument map.
  */

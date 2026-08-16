@@ -1,5 +1,4 @@
 /**
- * @topic #114 — Options Strategy Engine — Hybrid Quote Provider
  *
  * Backend quote-provider abstraction consumed by the options strategy engine.
  */

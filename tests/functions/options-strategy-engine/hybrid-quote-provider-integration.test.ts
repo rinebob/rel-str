@@ -1,5 +1,4 @@
 /**
- * @topic #114 — Options Strategy Engine — Hybrid Quote Provider
  *
  * Integration tests covering the full selection → open → mark flow with
  * mocked AV EOD and RH MCP external calls.

@@ -1,5 +1,4 @@
 /**
- * @topic #114 — Options Strategy Engine — Hybrid Quote Provider
  *
  * Writer for the global OCC → Robinhood MCP instrument map.
  */

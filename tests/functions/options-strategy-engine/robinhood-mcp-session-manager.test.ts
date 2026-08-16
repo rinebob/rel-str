@@ -1,4 +1,3 @@
-/** @topic #114 */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { ConnectedRobinhoodMcpSession } from '../../../functions/src/rh-agent-mcp/auth/robinhood-mcp-connection';

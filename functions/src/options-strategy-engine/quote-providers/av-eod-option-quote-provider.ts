@@ -1,5 +1,4 @@
 /**
- * @topic #114 — Options Strategy Engine — Hybrid Quote Provider
  *
  * Alpha Vantage EOD quote provider for the options strategy engine.
  *

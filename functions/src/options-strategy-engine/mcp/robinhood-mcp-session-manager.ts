@@ -1,5 +1,4 @@
 /**
- * @topic #114 — Options Strategy Engine — Hybrid Quote Provider
  *
  * Robinhood MCP session manager for a single Cloud Function invocation.
  *

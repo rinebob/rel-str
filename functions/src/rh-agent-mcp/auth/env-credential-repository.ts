@@ -1,5 +1,4 @@
 /**
- * @topic #114 — Options Strategy Engine — Hybrid Quote Provider
  *
  * In-memory Robinhood credential repository backed by the `RH_CREDENTIAL_BUNDLE`
  * environment variable. Used by a Cloud Function that already has the secret

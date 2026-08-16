@@ -1,4 +1,3 @@
-/** @topic #114 */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { runEodNightlySelection } from '../../../functions/src/options-strategy-engine/eod-orchestrator';

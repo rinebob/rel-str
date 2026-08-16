@@ -1,5 +1,4 @@
 /**
- * @topic #114 — Options Strategy Engine — Hybrid Quote Provider
  *
  * Scheduled Cloud Functions wiring for the hybrid options strategy passes.
  *
