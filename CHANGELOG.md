@@ -3,6 +3,7 @@
 ## [2026-08-16]
 
 ### Added
+- [Strategy Builder UI] 137-137_DOCS-STRAT-BUILD-UI: Add PRD, IMPL, and TEST docs for Strategy Builder UI (checkpoint)
 - [Options Position Strategy Engine] 108-112_FE-IMPL-OPTIONS: Add options strategy FE types and status labels
 - [Options Position Strategy Engine] 108-112_FE-IMPL-OPTIONS: Add options strategy callable wrapper service
 - [Options Position Strategy Engine] 108-112_FE-IMPL-OPTIONS: Register options strategy dashboard route
