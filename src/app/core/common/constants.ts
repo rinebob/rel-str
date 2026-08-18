@@ -1,4 +1,7 @@
-/** @topic #108 — Options Position Strategy Engine */
+/**
+ * @topic #108 — Options Position Strategy Engine
+ * @topic #137 — Strategy Builder UI
+ */
 import { NavItem } from "./interfaces";
 
 export const NAV_MENU_ITEMS: NavItem[] = [
@@ -232,6 +235,7 @@ export enum Collection {
   RH_RUNS = 'rh-agent-runs',
   SPREAD_RUNS = 'spread-runs',
   SPREAD_LISTS = 'spread-lists',
+  OPTIONS_STRATEGY_INSTANCES = 'options-strategy-instances',
 }
 
 /** Known subcollection names under a user document. */
