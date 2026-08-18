@@ -265,6 +265,17 @@ service cloud.firestore {
       allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
     }
 
+    // @topic #137 — Strategy Builder UI
+    // Options strategy instances — user-scoped reads/writes.
+    // `resource == null` fallback allows collection list queries, which have no
+    // resource object; the client must filter by userId server-side or locally.
+    match /options-strategy-instances/{instanceId} {
+      allow read: if request.auth != null && (resource == null || request.auth.uid == resource.data.userId);
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
     // Default deny for all other collections
     match /{document=**} {
       allow read, write: if false;
