@@ -1,6 +1,3 @@
-/**
- * @topic #137 — Strategy Builder UI
- */
 module.exports = {
   preset: 'jest-preset-angular',
   setupFilesAfterEnv: ['<rootDir>/setup-jest.ts'],

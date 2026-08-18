@@ -1,6 +1,4 @@
 /**
- * @topic #137 — Strategy Builder UI
- *
  * Signal-based store for the Strategy Builder. Manages strategy instances,
  * loading/error state, and selected instance for editing.
  */

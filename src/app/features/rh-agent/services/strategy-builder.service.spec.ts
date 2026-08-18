@@ -1,7 +1,5 @@
 /// <reference types="jest" />
 /**
- * @topic #137 — Strategy Builder UI
- *
  * Unit tests for StrategyBuilderService — verifies Firestore CRUD operations,
  * userId scoping, and error handling.
  */

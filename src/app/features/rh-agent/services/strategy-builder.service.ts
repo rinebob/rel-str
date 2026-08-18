@@ -1,6 +1,4 @@
 /**
- * @topic #137 — Strategy Builder UI
- *
  * Firestore CRUD service for options strategy instances. Direct writes via the
  * Angular Firestore SDK, scoped to the authenticated user's userId.
  */

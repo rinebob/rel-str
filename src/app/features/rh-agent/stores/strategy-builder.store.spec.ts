@@ -1,7 +1,5 @@
 /// <reference types="jest" />
 /**
- * @topic #137 — Strategy Builder UI
- *
  * Tests for StrategyBuilderStore. Mocks StrategyBuilderService so the seam
  * is the store's public interface.
  */

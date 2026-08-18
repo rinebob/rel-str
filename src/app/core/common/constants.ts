@@ -1,7 +1,4 @@
-/**
- * @topic #108 — Options Position Strategy Engine
- * @topic #137 — Strategy Builder UI
- */
+/** @topic #108 — Options Position Strategy Engine */
 import { NavItem } from "./interfaces";
 
 export const NAV_MENU_ITEMS: NavItem[] = [
