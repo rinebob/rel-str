@@ -1,5 +1,22 @@
 # Changelog
 
+## [2026-08-17]
+
+### Added
+- [Strategy Builder UI] 137-145_SHARED-IMPL-STRAT-BUILD-UI: Unified types, enums, and ID generator
+- [Strategy Builder UI] 137-145_SHARED-TESTS-STRAT-BUILD-UI: Add tests for ID generator and unified contracts
+- [Strategy Builder UI] 137-145_BE-TESTS-STRAT-BUILD-UI: Add spreadTypeToOptionSide and config shape tests
+
+### Changed
+- [Strategy Builder UI] 137-145_BE-IMPL-STRAT-BUILD-UI: Migrate BE to unified shared types
+- [Strategy Builder UI] 137-145_DOCS-DOCS-STRAT-BUILD-UI: Update PRD, IMPL, TEST, and CODE-REVIEW docs
+
+### Fixed
+- [Strategy Builder UI] 137-145_BE-IMPL-STRAT-BUILD-UI: Populate flat fields in registry seed instance
+
+### Changed
+- [Strategy Builder UI] 137-145_CHORE-CHORE-STRAT-BUILD-UI: Remove @topic file locks after ship
+
 ## [2026-08-16]
 
 ### Added

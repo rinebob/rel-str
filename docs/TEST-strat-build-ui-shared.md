@@ -3,9 +3,9 @@
 **Domain:** STRAT-BUILD-UI  
 **Type:** TEST  
 **Area:** SHARED  
-**Status:** Draft  
+**Status:** Complete  
 **Created:** 2026-08-16  
-**Last Updated:** 2026-08-16  
+**Last Updated:** 2026-08-17  
 
 ## E2E journeys
 
