@@ -1,7 +1,12 @@
 /**
+ * @topic #137 — Strategy Builder UI
+ *
+ * Unit tests for the unified options-strategy-engine shared contracts:
+ * OptionQuote, OccRhInstrumentMapEntry, OvernightDeltaSimulation,
+ * StrategyInstanceConfig, and OCC contract ID round-trip helpers.
  */
 
-import { OptionType, OptionQuoteSource, parseOccContractId, buildOccContractId } from './options-common';
+import { OptionType, OptionQuoteSource, PositionSpreadType, StrategyFrequency, parseOccContractId, buildOccContractId } from './options-common';
 import { TradeSide } from './common';
 import {
   OptionQuote,
@@ -9,6 +14,7 @@ import {
   OvernightDeltaGridPoint,
   OvernightDeltaSimulation,
   StrategyInstanceConfig,
+  LifecycleState,
 } from './options-strategy-engine-contracts';
 
 describe('options-strategy-engine-contracts', () => {
@@ -166,10 +172,22 @@ describe('options-strategy-engine-contracts', () => {
   describe('StrategyInstanceConfig', () => {
     it('accepts a config with maxOvernightMovePct disabled', () => {
       const config: StrategyInstanceConfig = {
+        id: 'TEST-CSP',
         symbol: 'SPY',
         optionType: OptionType.PUT,
-        side: TradeSide.LONG,
+        side: TradeSide.SHORT,
+        targetDelta: 0.2,
+        dteMin: 21,
+        dteMax: 30,
+        phases: [{ spreadType: PositionSpreadType.CASH_SECURED_PUT, targetDelta: 0.2, dteMin: 21, dteMax: 30 }],
+        frequency: StrategyFrequency.DAILY,
+        openTimePT: '12:00',
+        exitPolicies: [],
+        lifecycleState: LifecycleState.ACTIVE,
+        userId: 'test-user',
         maxOvernightMovePct: null,
+        createdAt: '2025-08-16T00:00:00Z',
+        updatedAt: '2025-08-16T00:00:00Z',
       };
       expect(config.maxOvernightMovePct).toBeNull();
     });
