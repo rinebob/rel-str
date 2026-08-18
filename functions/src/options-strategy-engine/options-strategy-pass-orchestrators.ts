@@ -1,6 +1,5 @@
 /**
  * @topic #108 — Options Position Strategy Engine
- * @topic #137 — Strategy Builder UI
  *
  * Orchestrator functions shared by the scheduled Cloud Functions and manual
  * HTTP callables. Each orchestrator loads strategy instances, runs the

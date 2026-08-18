@@ -1,4 +1,4 @@
-<!-- @topic #137 — Strategy Builder UI -->
+
 **Topic:** Strategy Builder UI
 **Issue:** #137
 **Task:** #146 — BE: Migrate registry to Firestore repository

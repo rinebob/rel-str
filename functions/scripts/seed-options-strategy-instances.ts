@@ -1,6 +1,5 @@
 /**
  * @topic #108 — Options Position Strategy Engine
- * @topic #137 — Strategy Builder UI
  *
  * One-time seed script for the options strategy instance registry migration.
  *

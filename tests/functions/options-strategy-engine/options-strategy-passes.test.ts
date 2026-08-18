@@ -1,6 +1,5 @@
 /**
  * @topic #108 — Options Position Strategy Engine
- * @topic #137 — Strategy Builder UI
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';

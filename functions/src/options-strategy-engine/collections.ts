@@ -1,6 +1,5 @@
 /**
  * @topic #108 — Options Position Strategy Engine
- * @topic #137 — Strategy Builder UI
  *
  * Firestore collection names for the options position strategy engine.
  */

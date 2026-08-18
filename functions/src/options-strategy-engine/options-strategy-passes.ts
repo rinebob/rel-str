@@ -1,6 +1,5 @@
 /**
  * @topic #108 — Options Position Strategy Engine
- * @topic #137 — Strategy Builder UI
  *
  * Scheduled Cloud Functions and manual HTTP-callable triggers for the hybrid
  * options strategy passes. The pass orchestration logic lives in

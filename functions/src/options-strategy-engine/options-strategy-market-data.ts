@@ -1,6 +1,5 @@
 /**
  * @topic #108 — Options Position Strategy Engine
- * @topic #137 — Strategy Builder UI
  *
  * Helpers for reading underlying price data used by the options strategy passes.
  */

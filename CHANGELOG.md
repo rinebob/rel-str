@@ -3,11 +3,18 @@
 ## [2026-08-17]
 
 ### Added
+- [Strategy Builder UI] 137-146_BE-IMPL-STRAT-BUILD-UI: Add Firestore-backed strategy instance repository
+- [Strategy Builder UI] 137-146_BE-REFACTOR-STRAT-BUILD-UI: Migrate pass orchestrators to repository and split modules
+- [Strategy Builder UI] 137-146_BE-CONFIG-STRAT-BUILD-UI: Add user-scoped Firestore rules for options-strategy-instances
+- [Strategy Builder UI] 137-146_BE-CONFIG-STRAT-BUILD-UI: Add seed script for legacy QQQM-WHEEL instance
+- [Strategy Builder UI] 137-146_DOCS-STRAT-BUILD-UI: Add code review document for Task #146
 - [Strategy Builder UI] 137-145_SHARED-IMPL-STRAT-BUILD-UI: Unified types, enums, and ID generator
 - [Strategy Builder UI] 137-145_SHARED-TESTS-STRAT-BUILD-UI: Add tests for ID generator and unified contracts
 - [Strategy Builder UI] 137-145_BE-TESTS-STRAT-BUILD-UI: Add spreadTypeToOptionSide and config shape tests
 
 ### Changed
+- [Strategy Builder UI] 137-146_CHORE-CHORE-STRAT-BUILD-UI: Add missing @topic tag to options-strategy-engine collections
+- [Strategy Builder UI] 137-146_CHORE-CHORE-STRAT-BUILD-UI: Remove @topic file locks after ship
 - [Strategy Builder UI] 137-145_BE-IMPL-STRAT-BUILD-UI: Migrate BE to unified shared types
 - [Strategy Builder UI] 137-145_DOCS-DOCS-STRAT-BUILD-UI: Update PRD, IMPL, TEST, and CODE-REVIEW docs
 

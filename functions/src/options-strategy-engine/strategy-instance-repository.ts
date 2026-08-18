@@ -1,6 +1,5 @@
 /**
  * @topic #108 — Options Position Strategy Engine
- * @topic #137 — Strategy Builder UI
  *
  * Firestore-backed strategy instance repository. Replaces the hardcoded
  * STRATEGY_INSTANCES array so instances can be created and managed through the
