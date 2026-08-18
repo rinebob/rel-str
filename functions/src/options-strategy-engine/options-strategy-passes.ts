@@ -1,5 +1,6 @@
 /**
  * @topic #108 — Options Position Strategy Engine
+ * @topic #137 — Strategy Builder UI
  *
  * Scheduled Cloud Functions wiring for the hybrid options strategy passes.
  *
@@ -17,7 +18,6 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 
-import type { StrategyInstanceConfig as SharedConfig } from '@options-strategy-engine/contracts';
 import { OptionType, PositionSpreadType } from '@options/common';
 import { TradeSide } from '@common';
 
@@ -30,7 +30,6 @@ import type { OhlcBar } from '../common/market-data-types';
 import { RH_AGENT_ALLOWED_ORIGINS } from '../rh-agent-cloud-function/rh-agent-cors';
 import { getMarketDatePT } from '../common/pt-date-utils';
 import { STRATEGY_INSTANCES } from './strategy-instance-registry';
-import type { StrategyInstanceConfig as RegistryConfig } from './types';
 import { runEodNightlySelection } from './eod-orchestrator';
 import { runOpenPass } from './passes/open-pass';
 import { runMarkPass } from './passes/mark-pass';
@@ -44,31 +43,7 @@ import { createLogger } from './logging';
 
 const log = createLogger('OptionsStrategyPasses');
 
-// ── Config bridge ───────────────────────────────────────────────────────────
-
-/**
- * Convert a registry StrategyInstanceConfig (with phases, frequency, openTimePT)
- * into the shared StrategyInstanceConfig consumed by the pass functions.
- *
- * Uses the first phase's spread type to derive optionType and side.
- */
-export function toSharedConfig(
-  instance: RegistryConfig,
-): SharedConfig | null {
-  const phase = instance.phases?.[0];
-  if (!phase) return null;
-
-  const { optionType, side } = spreadTypeToOptionSide(phase.spreadType);
-
-  return {
-    symbol: instance.symbol,
-    optionType,
-    side,
-    dteMin: phase.dteMin,
-    dteMax: phase.dteMax,
-    targetDelta: phase.targetDelta,
-  };
-}
+// ── Helpers ─────────────────────────────────────────────────────────────────
 
 export function spreadTypeToOptionSide(
   spreadType: PositionSpreadType,
@@ -140,8 +115,7 @@ export const optionsSelectionPass = onSchedule(
     log.info(`Selection pass starting for ${marketDate}`);
 
     for (const instance of STRATEGY_INSTANCES) {
-      const config = toSharedConfig(instance);
-      if (!config) {
+      if (!instance.phases?.[0]) {
         log.warn(`No phase configured for ${instance.id}`);
         continue;
       }
@@ -155,7 +129,7 @@ export const optionsSelectionPass = onSchedule(
       try {
         const result = await runEodNightlySelection(
           marketDate,
-          config,
+          instance,
           underlyingClose,
           instance.id,
         );
@@ -195,8 +169,7 @@ export const optionsOpenPass = onSchedule(
     log.info(`Open pass starting for ${marketDate}`);
 
     for (const instance of STRATEGY_INSTANCES) {
-      const config = toSharedConfig(instance);
-      if (!config) {
+      if (!instance.phases?.[0]) {
         log.warn(`No phase configured for ${instance.id}`);
         continue;
       }
@@ -211,7 +184,7 @@ export const optionsOpenPass = onSchedule(
         const result = await runOpenPass(
           instance.id,
           marketDate,
-          config,
+          instance,
           currentPrice,
         );
         if (result) {
@@ -243,14 +216,13 @@ async function runMarkPassForAllInstances(
   const results: Record<string, { positions: number; errors: number } | { error: string }> = {};
 
   for (const instance of STRATEGY_INSTANCES) {
-    const config = toSharedConfig(instance);
-    if (!config) {
+    if (!instance.phases?.[0]) {
       log.warn(`No phase configured for ${instance.id}`);
       continue;
     }
 
     try {
-      const result = await runMarkPass(instance.id, config, {
+      const result = await runMarkPass(instance.id, instance, {
         quoteProvider: provider,
       });
       log.info(
@@ -369,8 +341,7 @@ async function runSettlementForAllInstances(
   const results: Record<string, SettlementPassSummary | { error: string }> = {};
 
   for (const instance of STRATEGY_INSTANCES) {
-    const config = toSharedConfig(instance);
-    if (!config) {
+    if (!instance.phases?.[0]) {
       log.warn(`No phase configured for ${instance.id}`);
       continue;
     }
@@ -383,8 +354,8 @@ async function runSettlementForAllInstances(
       // (ASSIGNED_HOLDING_SHARES) operate on disjoint position sets — run in
       // parallel to reduce nightly pass latency.
       const [settlement, held] = await Promise.all([
-        runSettlementPass(instance.id, marketDate, config, deps),
-        runHeldSharesMarkPass(instance.id, marketDate, config, deps),
+        runSettlementPass(instance.id, marketDate, instance, deps),
+        runHeldSharesMarkPass(instance.id, marketDate, instance, deps),
       ]);
       log.info(
         `Settlement for ${instance.id}/${marketDate}: ${settlement.settled.length} settled, ` +

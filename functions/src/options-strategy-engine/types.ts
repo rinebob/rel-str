@@ -1,4 +1,6 @@
 /**
+ * @topic #137 — Strategy Builder UI
+ *
  * Shared types and enums for the options position strategy engine backend.
  *
  * Reuses `OptionType` from `@options/common` and `TradeSide` from the universal
@@ -10,9 +12,17 @@ import type { Timestamp } from 'firebase-admin/firestore';
 import { TradeSide } from '@common';
 import {
   OptionType,
-  PositionSpreadType,
-  StrategyFrequency,
 } from '@options/common';
+
+// Re-export unified types from shared contracts so existing BE imports work.
+export type {
+  StrategyInstanceConfig,
+  StrategyInstancePhase,
+  ExitPolicy,
+  ExitPolicyConfig,
+  LifecycleState,
+  MarketRegime,
+} from '@options-strategy-engine/contracts';
 
 // ── Enums ──────────────────────────────────────────────────────────────────
 
@@ -24,33 +34,9 @@ export enum PositionStatus {
   CLOSED = 'CLOSED',
 }
 
-// ── Strategy instance config (read-only registry entry) ────────────────────
-
-export interface StrategyInstancePhase {
-  spreadType: PositionSpreadType;
-  targetDelta: number;
-  dteMin: number;
-  dteMax: number;
-}
-
 export enum LegOutcome {
   EXPIRED_WORTHLESS = 'EXPIRED_WORTHLESS',
   ASSIGNED = 'ASSIGNED',
-}
-
-export interface StrategyInstanceConfig {
-  id: string;
-  symbol: string;
-  /** Active phase selection criteria. If absent, the top-level legacy fields are used. */
-  phases?: StrategyInstancePhase[];
-  /** Phase 1 legacy fields — retained for backward compatibility until all instances migrate to `phases`. */
-  spreadType?: PositionSpreadType;
-  targetDelta?: number;
-  dteMin?: number;
-  dteMax?: number;
-  frequency: StrategyFrequency;
-  openTimePT: string;
-  exitCriteria: null;
 }
 
 // ── Position lifecycle documents ───────────────────────────────────────────
