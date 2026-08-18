@@ -1,5 +1,16 @@
 # Changelog
 
+## [2026-08-18]
+
+### Added
+- [Strategy Builder UI] 137-147_FE-CONFIG-STRAT-BUILD-UI: Add path aliases and collection constant
+- [Strategy Builder UI] 137-147_FE-FEATURE-STRAT-BUILD-UI: Add Strategy Builder Firestore service
+- [Strategy Builder UI] 137-147_FE-FEATURE-STRAT-BUILD-UI: Add Strategy Builder SignalStore
+- [Strategy Builder UI] 137-147_DOCS-STRAT-BUILD-UI: Add code review document for Task #147
+
+### Changed
+- [Strategy Builder UI] 137-147_CHORE-STRAT-BUILD-UI: Remove @topic file locks after ship
+
 ## [2026-08-17]
 
 ### Added
