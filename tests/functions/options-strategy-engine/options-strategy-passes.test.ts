@@ -1,11 +1,14 @@
+/**
+ * @topic #137 — Strategy Builder UI
+ */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  toSharedConfig,
   spreadTypeToOptionSide,
 } from '../../../functions/src/options-strategy-engine/options-strategy-passes';
 import { PositionSpreadType, StrategyFrequency, OptionType } from '../../../shared/options-common';
 import { TradeSide } from '../../../shared/common';
+import { LifecycleState } from '../../../shared/options-strategy-engine-contracts';
 import type { StrategyInstanceConfig } from '../../../functions/src/options-strategy-engine/types';
 
 function makeInstance(overrides: Partial<StrategyInstanceConfig> = {}): StrategyInstanceConfig {
@@ -22,7 +25,11 @@ function makeInstance(overrides: Partial<StrategyInstanceConfig> = {}): Strategy
     ],
     frequency: StrategyFrequency.DAILY,
     openTimePT: '12:00',
-    exitCriteria: null,
+    exitPolicies: [],
+    lifecycleState: LifecycleState.ACTIVE,
+    userId: 'test-user',
+    createdAt: '2025-08-16T00:00:00Z',
+    updatedAt: '2025-08-16T00:00:00Z',
     ...overrides,
   };
 }
@@ -53,25 +60,26 @@ describe('spreadTypeToOptionSide', () => {
   });
 });
 
-// ── toSharedConfig ──────────────────────────────────────────────────────────
+// ── StrategyInstanceConfig shape ────────────────────────────────────────────
 
-describe('toSharedConfig', () => {
-  it('converts a registry config with phases to shared config', () => {
+describe('StrategyInstanceConfig', () => {
+  it('accepts a config with phases and unified fields', () => {
     const instance = makeInstance();
-    const config = toSharedConfig(instance);
-
-    assert.ok(config);
-    assert.equal(config!.symbol, 'QQQM');
-    assert.equal(config!.optionType, OptionType.PUT);
-    assert.equal(config!.side, TradeSide.SHORT);
-    assert.equal(config!.targetDelta, 0.2);
-    assert.equal(config!.dteMin, 21);
-    assert.equal(config!.dteMax, 30);
+    assert.equal(instance.symbol, 'QQQM');
+    assert.equal(instance.phases[0].spreadType, PositionSpreadType.CASH_SECURED_PUT);
+    assert.equal(instance.phases[0].targetDelta, 0.2);
+    assert.equal(instance.lifecycleState, LifecycleState.ACTIVE);
   });
 
-  it('uses the first phase', () => {
+  it('accepts a multi-phase (wheel) config', () => {
     const instance = makeInstance({
       phases: [
+        {
+          spreadType: PositionSpreadType.CASH_SECURED_PUT,
+          targetDelta: 0.2,
+          dteMin: 21,
+          dteMax: 30,
+        },
         {
           spreadType: PositionSpreadType.COVERED_CALL,
           targetDelta: 0.3,
@@ -80,24 +88,7 @@ describe('toSharedConfig', () => {
         },
       ],
     });
-    const config = toSharedConfig(instance);
-
-    assert.ok(config);
-    assert.equal(config!.optionType, OptionType.CALL);
-    assert.equal(config!.targetDelta, 0.3);
-    assert.equal(config!.dteMin, 7);
-    assert.equal(config!.dteMax, 14);
-  });
-
-  it('returns null when no phases are configured', () => {
-    const instance = makeInstance({ phases: [] });
-    const config = toSharedConfig(instance);
-    assert.equal(config, null);
-  });
-
-  it('returns null when phases is undefined', () => {
-    const instance = makeInstance({ phases: undefined });
-    const config = toSharedConfig(instance);
-    assert.equal(config, null);
+    assert.equal(instance.phases.length, 2);
+    assert.equal(instance.phases[1].spreadType, PositionSpreadType.COVERED_CALL);
   });
 });
