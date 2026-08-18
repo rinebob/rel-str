@@ -72,12 +72,17 @@ The architecture is extensible — new spread types added by Topic #139 (Extend 
 
 ### Unified StrategyInstanceConfig Type
 
-Standardize on the BE `StrategyInstanceConfig` shape (from `functions/src/options-strategy-engine/types.ts`) as the single canonical type, extended with fields from the shared contracts. This replaces both the BE registry type and the shared contracts type. The `toSharedConfig` bridge in `options-strategy-passes.ts` remains as an internal BE concern — the passes still receive the narrow shape, but the Firestore doc and FE use the full unified type.
+Standardize on the BE `StrategyInstanceConfig` shape (from `functions/src/options-strategy-engine/types.ts`) as the single canonical type, extended with fields from the shared contracts. This replaces both the BE registry type and the shared contracts type. The passes read the flat fields (`optionType`, `side`, `targetDelta`, `dteMin`, `dteMax`) directly from the unified type — no bridge function needed.
 
 The unified type includes:
 - `id`: string — auto-generated from naming convention
 - `symbol`: string
-- `phases`: StrategyInstancePhase[] — wheel phases (phase 1: CSP, phase 2: CC)
+- `optionType`: OptionType — single-phase config (consumed by passes)
+- `side`: TradeSide — single-phase config (consumed by passes)
+- `targetDelta`: number — single-phase config (consumed by passes)
+- `dteMin`: number — single-phase config (consumed by passes)
+- `dteMax`: number — single-phase config (consumed by passes)
+- `phases`: StrategyInstancePhase[] — wheel phases (phase 1: CSP, phase 2: CC); phases[0] mirrors flat fields
 - `frequency`: StrategyFrequency — DAILY or WEEKLY
 - `openTimePT`: string
 - `exitCriteria`: ExitPolicy[] — array of exit policies with associated config fields
@@ -127,7 +132,7 @@ Strategy instances stored in Firestore `options-strategy-instances/{instanceId}`
 
 ### BE Registry Migration
 
-The BE `STRATEGY_INSTANCES` hardcoded array is replaced with a Firestore query: `collection('options-strategy-instances').where('lifecycleState', '==', 'ACTIVE')`. The `strategy-instance-registry.ts` file is repurposed as a Firestore repository. The `toSharedConfig` bridge remains unchanged — it transforms the unified config into the narrow shape the passes consume.
+The BE `STRATEGY_INSTANCES` hardcoded array is replaced with a Firestore query: `collection('options-strategy-instances').where('lifecycleState', '==', 'ACTIVE')`. The `strategy-instance-registry.ts` file is repurposed as a Firestore repository. The passes read the flat fields directly from the unified config — no bridge function needed.
 
 ### Route
 
@@ -162,7 +167,7 @@ New route `/strategy-builder` registered in `core-routes.ts` with `authGuard`, l
 ## Further Notes
 
 - The existing `shared/spread-contracts.ts` has a `SpreadType` enum (VERTICAL, STRADDLE, STRANGLE, IRON_CONDOR, CUSTOM) used by the spread viewer. This is separate from `PositionSpreadType` (CASH_SECURED_PUT, COVERED_CALL) used by the strategy engine. Topic #139 will reconcile these.
-- The existing `shared/options-strategy-engine-contracts.ts` has a `StrategyInstanceConfig` with `optionType`/`side` fields. This is the shape the BE passes consume (via `toSharedConfig` bridge). The unified type standardizes on the BE registry shape and the bridge extracts `optionType`/`side` from the first phase's `spreadType`.
+- The existing `shared/options-strategy-engine-contracts.ts` has a `StrategyInstanceConfig` with `optionType`/`side` fields. This is the shape the BE passes consume directly. The unified type keeps these flat fields as the primary config for single-phase strategies and adds `phases` for wheel strategies.
 - The existing `StrategyContext.marketRegime` in `functions/src/rh-agent-cloud-function/strategies/base-strategy.ts` defines `bull | bear | neutral | volatile` — the same values are used for the strategy instance market regime filter.
 - The existing `ExitConfig` in `base-strategy.ts` has `targetGainPct`, `stopLossPct`, `trailingStopPct`, `maxHoldDays` — these field names are reused for the exit policy parameters.
 

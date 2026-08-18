@@ -29,7 +29,7 @@ interface StrategyInstanceConfig {
   lifecycleState: LifecycleState;
   marketRegime?: MarketRegime;
   userId: string;
-  // Pass-level fields (consumed by BE passes via toSharedConfig bridge)
+  // Pass-level fields (consumed by BE passes directly)
   deltaTolerance?: number;
   overnightGridRangePct?: number;
   overnightGridStepPct?: number;
@@ -112,17 +112,16 @@ No changes in v1. The enum stays as `CASH_SECURED_PUT` and `COVERED_CALL`. Topic
 
 ## Cross-area boundaries
 
-- **BE** imports the unified type from `shared/options-strategy-engine-contracts.ts`. The `toSharedConfig` bridge in `options-strategy-passes.ts` extracts `optionType`/`side` from the first phase's `spreadType` — unchanged.
+- **BE** imports the unified type from `shared/options-strategy-engine-contracts.ts`. The passes read the flat fields (`optionType`, `side`, `targetDelta`, `dteMin`, `dteMax`) directly — no bridge function needed.
 - **FE** imports the unified type, `ExitPolicy`, `LifecycleState`, and the ID generator from shared.
-- The BE registry type in `functions/src/options-strategy-engine/types.ts` is removed — all imports point to shared.
+- The BE registry type in `functions/src/options-strategy-engine/types.ts` re-exports from shared — all imports point to shared.
 
 ## Technical risks
 
-- **Breaking change:** Replacing the shared `StrategyInstanceConfig` changes the shape the BE passes consume. The `toSharedConfig` bridge must be updated to read from `phases[0]` instead of the flat fields.
-- **Two type sources:** The BE `types.ts` currently re-exports `StrategyInstanceConfig`. All BE imports must be updated to point to shared.
+- **Breaking change:** Replacing the shared `StrategyInstanceConfig` changes the shape the BE passes consume. The flat fields remain on the unified type so passes read them directly — no bridge needed.
+- **Two type sources:** The BE `types.ts` re-exports `StrategyInstanceConfig` from shared. All BE imports point to shared.
 
 ## Testing
 
 - Unit tests for the ID generator covering all spread types, delta formats, DTE values, and frequencies.
-- Unit tests for the `toSharedConfig` bridge with the unified type shape.
 - Type-level tests: the unified type must be assignable to both the old BE and old FE usages.

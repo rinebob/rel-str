@@ -18,7 +18,7 @@
 
 - `listActiveInstances()` queries Firestore `options-strategy-instances` collection
 - Pass orchestrator calls `listActiveInstances()` and iterates results
-- `toSharedConfig` bridge transforms unified config → pass-level config
+- Passes read flat fields (`optionType`, `side`, `targetDelta`, `dteMin`, `dteMax`) directly from the unified config
 
 ## Unit test targets
 
@@ -46,4 +46,4 @@
 - Firestore collection doesn't exist → returns empty array, not an error
 - Instance doc missing required fields → repository should filter or throw
 - Multiple instances with same symbol → all processed independently
-- Instance with no phases → `toSharedConfig` returns null, pass logs warning and skips
+- Instance with no phases → pass logs warning and skips (phases required for wheel strategies)

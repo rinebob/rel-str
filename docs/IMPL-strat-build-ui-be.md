@@ -21,7 +21,7 @@ Replace `functions/src/options-strategy-engine/strategy-instance-registry.ts` wi
 - `listAllInstances()`: queries all instances (for admin/debugging)
 - `getInstance(id)`: fetches a single instance by doc ID
 
-The hardcoded `STRATEGY_INSTANCES` array and `getStrategyInstance()` function are removed. The `toSharedConfig` bridge stays — it transforms the unified config into the narrow shape the passes consume.
+The hardcoded `STRATEGY_INSTANCES` array and `getStrategyInstance()` function are removed. The passes read the flat fields directly from the unified config — no bridge function needed.
 
 ### 2. Pass orchestrator migration
 
@@ -55,7 +55,7 @@ Migrate the current `QQQM-WHEEL` hardcoded instance to a Firestore doc. The inst
 ## Cross-area boundaries
 
 - Depends on **SHARED** unified type (`StrategyInstanceConfig`, `LifecycleState`).
-- The `toSharedConfig` bridge reads `phases[0].spreadType` to derive `optionType`/`side` — unchanged from current behavior.
+- The passes read the flat fields (`optionType`, `side`, `targetDelta`, `dteMin`, `dteMax`) directly from the unified config — no bridge function needed.
 - FE writes instances to the same Firestore collection — BE reads them.
 
 ## Technical risks
