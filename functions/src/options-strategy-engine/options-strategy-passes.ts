@@ -1,6 +1,5 @@
 /**
  * @topic #108 — Options Position Strategy Engine
- * @topic #137 — Strategy Builder UI
  *
  * Scheduled Cloud Functions wiring for the hybrid options strategy passes.
  *

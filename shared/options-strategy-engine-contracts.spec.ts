@@ -1,5 +1,4 @@
 /**
- * @topic #137 — Strategy Builder UI
  *
  * Unit tests for the unified options-strategy-engine shared contracts:
  * OptionQuote, OccRhInstrumentMapEntry, OvernightDeltaSimulation,

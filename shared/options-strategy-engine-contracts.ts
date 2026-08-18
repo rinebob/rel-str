@@ -1,5 +1,4 @@
 /**
- * @topic #137 — Strategy Builder UI
  *
  * Shared TypeScript contracts for the hybrid options quote provider.
  */

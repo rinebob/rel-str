@@ -1,5 +1,4 @@
 /**
- * @topic #137 — Strategy Builder UI
  *
  * Tests for the strategy instance ID generator.
  */

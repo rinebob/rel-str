@@ -1,5 +1,4 @@
 /**
- * @topic #137 — Strategy Builder UI
  *
  * Generates strategy instance IDs from config using the naming convention:
  * YYMMDD-{SYMBOL}-{STRATEGY}-{DELTA}-{DTE}-{FREQ}

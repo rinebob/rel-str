@@ -1,5 +1,4 @@
 /**
- * @topic #137 — Strategy Builder UI
  *
  * Shared types and enums for the options position strategy engine backend.
  *
