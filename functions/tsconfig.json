@@ -1,3 +1,6 @@
+/*
+ * @topic #137 — Strategy Builder UI
+ */
 {
   "compilerOptions": {
     "noImplicitReturns": true,
@@ -26,6 +29,7 @@
   "compileOnSave": true,
   "include": [
     "src",
-    "scripts/backtest-qqq-underlying.ts"
+    "scripts/backtest-qqq-underlying.ts",
+    "scripts/seed-options-strategy-instances.ts"
   ]
 }
