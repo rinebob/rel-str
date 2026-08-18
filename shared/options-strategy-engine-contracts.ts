@@ -1,9 +1,10 @@
 /**
+ * @topic #137 — Strategy Builder UI
  *
  * Shared TypeScript contracts for the hybrid options quote provider.
  */
 
-import { OptionType, OptionQuoteSource } from './options-common';
+import { OptionType, OptionQuoteSource, PositionSpreadType, StrategyFrequency } from './options-common';
 import { TradeSide } from './common';
 
 /**
@@ -87,20 +88,124 @@ export interface OvernightDeltaSimulation {
   computedAt: string;              // ISO timestamp
 }
 
+// ── Strategy instance phase ─────────────────────────────────────────────────
+
 /**
- * Configurable knobs for the hybrid options strategy instance.
+ * A single phase in a strategy instance's lifecycle (e.g., phase 1 = CSP,
+ * phase 2 = covered call for the wheel). The open pass uses the first phase
+ * to select options; the settlement pass transitions between phases.
+ */
+export interface StrategyInstancePhase {
+  spreadType: PositionSpreadType;
+  targetDelta: number;
+  dteMin: number;
+  dteMax: number;
+}
+
+// ── Exit policy ─────────────────────────────────────────────────────────────
+
+/**
+ * Post-open exit/management policy. Decoupled from spread type so any
+ * strategy can combine any set of policies. Evaluated in array order —
+ * first match wins.
  *
- * Stored on `options-strategy-instances/{instanceId}`.
+ * v1: ROLL and EXIT_AND_REPLACE are config-only (stored but not enforced
+ * by the BE). Enforcement arrives in Topic #139.
+ */
+export enum ExitPolicy {
+  HOLD_TO_EXPIRATION = 'HOLD_TO_EXPIRATION',
+  WHEEL_IF_ASSIGNED = 'WHEEL_IF_ASSIGNED',
+  CLOSE_AT_TARGET_GAIN = 'CLOSE_AT_TARGET_GAIN',
+  CLOSE_AT_DTE_THRESHOLD = 'CLOSE_AT_DTE_THRESHOLD',
+  TRAILING_STOP = 'TRAILING_STOP',
+  STOP_LOSS = 'STOP_LOSS',
+  HOLD_SHARES_IF_ASSIGNED = 'HOLD_SHARES_IF_ASSIGNED',
+  ROLL = 'ROLL',
+  EXIT_AND_REPLACE = 'EXIT_AND_REPLACE',
+}
+
+/**
+ * A single exit policy entry with its optional parameters.
+ * Only the fields relevant to the selected `policy` are populated.
+ */
+export interface ExitPolicyConfig {
+  policy: ExitPolicy;
+  targetGainPct?: number;
+  dteExitThreshold?: number;
+  stopLossPct?: number;
+  trailingStopPct?: number;
+  rollDteThreshold?: number;
+  rollTargetDelta?: number;
+}
+
+// ── Lifecycle state ─────────────────────────────────────────────────────────
+
+/**
+ * Three-state lifecycle for strategy instances.
+ *
+ * - ACTIVE: passes process this instance normally (open new positions, manage existing)
+ * - PAUSED: no new positions opened; existing positions are still managed (marked, settled)
+ * - STOPPED: no new positions; existing positions are still managed until they close
+ *           (v1: STOPPED behaves identically to PAUSED)
+ */
+export enum LifecycleState {
+  ACTIVE = 'ACTIVE',
+  PAUSED = 'PAUSED',
+  STOPPED = 'STOPPED',
+}
+
+// ── Market regime filter ────────────────────────────────────────────────────
+
+/**
+ * Trend-based market regime filter. v1: config stored only, not enforced by BE.
+ * Volatility regime (volatile/calm) deferred until a volatility source is identified.
+ */
+export enum MarketRegime {
+  BULL = 'BULL',
+  BEAR = 'BEAR',
+  NEUTRAL = 'NEUTRAL',
+}
+
+// ── Unified strategy instance config ────────────────────────────────────────
+
+/**
+ * Canonical strategy instance config stored on `options-strategy-instances/{instanceId}`.
+ *
+ * Used by both BE (registry, passes) and FE (Strategy Builder UI CRUD).
+ *
+ * Two field groups serve different strategy shapes:
+ * - **Flat fields** (`optionType`, `side`, `targetDelta`, `dteMin`, `dteMax`):
+ *   the config for single-phase strategies. Passes read these directly.
+ * - **`phases` array**: the source of truth for multi-phase (wheel) strategies.
+ *   For wheel strategies, `phases[0]` mirrors the flat fields and subsequent
+ *   phases describe later legs (e.g., covered call after assignment).
+ *
+ * When exit policy enforcement arrives in Topic #139, passes will also read
+ * `exitPolicies` directly.
  */
 export interface StrategyInstanceConfig {
+  id: string;
   symbol: string;
+  // Single-phase config (consumed by pass functions)
   optionType: OptionType;
   side: TradeSide;
+  targetDelta?: number;
   dteMin?: number;
   dteMax?: number;
-  targetDelta?: number;
+  // Multi-phase config (wheel strategies; phases[0] mirrors flat fields)
+  phases: StrategyInstancePhase[];
+  // Instance-level config
+  frequency: StrategyFrequency;
+  openTimePT: string;
+  exitPolicies: ExitPolicyConfig[];
+  lifecycleState: LifecycleState;
+  marketRegime?: MarketRegime;
+  userId: string;
+  // Pass-level tuning knobs
   deltaTolerance?: number;
-  overnightGridRangePct?: number;  // default 0.025
-  overnightGridStepPct?: number;   // default 0.005
-  maxOvernightMovePct?: number | null; // disabled by default for data gathering
+  overnightGridRangePct?: number;
+  overnightGridStepPct?: number;
+  maxOvernightMovePct?: number | null;
+  createdAt: string;
+  updatedAt: string;
 }
