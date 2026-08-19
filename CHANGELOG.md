@@ -3,12 +3,18 @@
 ## [2026-08-18]
 
 ### Added
+- [Strategy Builder UI] 137-148_FE-FEATURE-STRAT-BUILD-UI: Add Strategy Builder list component
+- [Strategy Builder UI] 137-148_FE-FEATURE-STRAT-BUILD-UI: Add Strategy Builder component tests
+- [Strategy Builder UI] 137-148_FE-FEATURE-STRAT-BUILD-UI: Register Strategy Builder routes
+- [Strategy Builder UI] 137-148_FE-FEATURE-STRAT-BUILD-UI: Add Manage Strategies link to dashboard
+- [Strategy Builder UI] 137-148_DOCS-STRAT-BUILD-UI: Add code review document for Task #148
 - [Strategy Builder UI] 137-147_FE-CONFIG-STRAT-BUILD-UI: Add path aliases and collection constant
 - [Strategy Builder UI] 137-147_FE-FEATURE-STRAT-BUILD-UI: Add Strategy Builder Firestore service
 - [Strategy Builder UI] 137-147_FE-FEATURE-STRAT-BUILD-UI: Add Strategy Builder SignalStore
 - [Strategy Builder UI] 137-147_DOCS-STRAT-BUILD-UI: Add code review document for Task #147
 
 ### Changed
+- [Strategy Builder UI] 137-148_CHORE-STRAT-BUILD-UI: Remove @topic file locks after ship
 - [Strategy Builder UI] 137-147_CHORE-STRAT-BUILD-UI: Remove @topic file locks after ship
 
 ## [2026-08-17]
