@@ -1,0 +1,105 @@
+/* @topic #137 — Strategy Builder UI (opened 2026-08-16) */
+.strategy-builder {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.builder-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.header-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 500;
+}
+
+.error-banner {
+  background-color: #ffebee;
+  color: #c62828;
+  padding: 12px 16px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  padding: 48px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px;
+  color: rgba(0, 0, 0, 0.54);
+}
+
+.empty-state p {
+  font-size: 16px;
+  margin-bottom: 16px;
+}
+
+.demo-btn {
+  margin-top: 8px;
+}
+
+.create-btn {
+  margin-left: auto;
+}
+
+.instances-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.instances-table th {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 2px solid #e0e0e0;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.54);
+}
+
+.instances-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 14px;
+}
+
+.lifecycle-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.lifecycle-badge.active {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.lifecycle-badge.paused {
+  background-color: #fff8e1;
+  color: #f57f17;
+}
+
+.lifecycle-badge.stopped {
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+.actions-cell {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  font-size: 12px;
+}

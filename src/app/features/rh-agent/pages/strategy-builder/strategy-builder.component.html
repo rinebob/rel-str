@@ -1,0 +1,64 @@
+<!-- @topic #137 — Strategy Builder UI (opened 2026-08-16) -->
+<div class="strategy-builder">
+  <div class="builder-header">
+    <h1 class="header-title">Strategy Builder</h1>
+    <button mat-flat-button color="primary" (click)="createNew()" class="create-btn">
+      Create New Strategy
+    </button>
+  </div>
+
+  @if (store.error()) {
+    <div class="error-banner" role="alert">{{ store.error() }}</div>
+  }
+
+  @if (store.isLoading()) {
+    <div class="loading-container">
+      <mat-spinner diameter="40"></mat-spinner>
+    </div>
+  } @else if (store.instances().length === 0) {
+    <div class="empty-state">
+      <p>No strategies yet. Click "Create New Strategy" to add one.</p>
+    </div>
+  } @else {
+    <table class="instances-table">
+      <thead>
+        <tr>
+          <th scope="col">Instance ID</th>
+          <th scope="col">Symbol</th>
+          <th scope="col">Spread Type</th>
+          <th scope="col">Frequency</th>
+          <th scope="col">Lifecycle State</th>
+          <th scope="col">Exit Policies</th>
+          <th scope="col">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (instance of store.instances(); track instance.id) {
+          <tr>
+            <td>{{ instance.id }}</td>
+            <td>{{ instance.symbol }}</td>
+            <td>{{ spreadType(instance) }}</td>
+            <td>{{ instance.frequency }}</td>
+            <td>
+              <span
+                class="lifecycle-badge"
+                [class.active]="instance.lifecycleState === lifecycleState.ACTIVE"
+                [class.paused]="instance.lifecycleState === lifecycleState.PAUSED"
+                [class.stopped]="instance.lifecycleState === lifecycleState.STOPPED"
+              >
+                {{ instance.lifecycleState }}
+              </span>
+            </td>
+            <td>{{ exitPolicyNames(instance) }}</td>
+            <td class="actions-cell">
+              <button mat-stroked-button (click)="edit(instance)" class="action-btn edit-btn">Edit</button>
+              <button mat-stroked-button (click)="toggleLifecycle(instance)" class="action-btn toggle-lifecycle-btn">Toggle Lifecycle</button>
+              <button mat-stroked-button (click)="delete(instance)" class="action-btn delete-btn">Delete</button>
+              <button mat-stroked-button (click)="viewInDashboard(instance)" class="action-btn view-dashboard-btn">View in Dashboard</button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>
