@@ -1,25 +1,31 @@
+<!-- @topic #137 — Strategy Builder UI -->
 <div class="options-strategy-dashboard">
   <div class="dashboard-header">
     <h1 class="header-title">Options Strategy Dashboard</h1>
-    <div class="scope-toggle">
-      <button
-        mat-stroked-button
-        [class.active]="store.selectedInstanceId() === null"
-        [attr.aria-pressed]="store.selectedInstanceId() === null"
-        (click)="store.selectInstance(null)"
-      >
-        Combined
-      </button>
-      @for (instance of store.availableInstances(); track instance) {
+    <div class="header-actions">
+      <div class="scope-toggle">
         <button
           mat-stroked-button
-          [class.active]="store.selectedInstanceId() === instance"
-          [attr.aria-pressed]="store.selectedInstanceId() === instance"
-          (click)="store.selectInstance(instance)"
+          [class.active]="store.selectedInstanceId() === null"
+          [attr.aria-pressed]="store.selectedInstanceId() === null"
+          (click)="store.selectInstance(null)"
         >
-          {{ instance }}
+          Combined
         </button>
-      }
+        @for (instance of store.availableInstances(); track instance) {
+          <button
+            mat-stroked-button
+            [class.active]="store.selectedInstanceId() === instance"
+            [attr.aria-pressed]="store.selectedInstanceId() === instance"
+            (click)="store.selectInstance(instance)"
+          >
+            {{ instance }}
+          </button>
+        }
+      </div>
+      <a mat-flat-button color="primary" [routerLink]="'/' + appRoutes.STRATEGY_BUILDER" class="manage-strategies-btn">
+        Manage Strategies
+      </a>
     </div>
   </div>
 

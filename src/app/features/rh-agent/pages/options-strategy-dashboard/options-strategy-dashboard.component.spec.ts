@@ -1,4 +1,6 @@
 /**
+ * @topic #137 — Strategy Builder UI
+ *
  * Component tests for OptionsStrategyDashboardComponent — verifies
  * loading/error/empty states, table rendering, and store interaction
  * with a mocked store.
@@ -18,6 +20,7 @@ jest.mock('@angular/fire/auth', () => ({
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { signal, ɵresolveComponentResources } from '@angular/core';
+import { provideRouter } from '@angular/router';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 
@@ -141,6 +144,7 @@ describe('OptionsStrategyDashboardComponent', () => {
       imports: [OptionsStrategyDashboardComponent],
       providers: [
         provideNoopAnimations(),
+        provideRouter([]),
         { provide: OptionsStrategyDashboardStore, useValue: mockStore },
       ],
     }).compileComponents();
@@ -243,5 +247,12 @@ describe('OptionsStrategyDashboardComponent', () => {
     // buttons[0] = Combined, buttons[1] = QQQM-WHEEL (dynamic)
     buttons[1].click();
     expect(mockStore.selectInstance).toHaveBeenCalledWith('QQQM-WHEEL');
+  });
+
+  it('renders "Manage Strategies" link to the strategy builder', async () => {
+    await configureWithStore({ isEmpty: false });
+    const link = fixture.nativeElement.querySelector('.manage-strategies-btn');
+    expect(link?.textContent).toContain('Manage Strategies');
+    expect(link?.getAttribute('href')).toContain('/strategy-builder');
   });
 });

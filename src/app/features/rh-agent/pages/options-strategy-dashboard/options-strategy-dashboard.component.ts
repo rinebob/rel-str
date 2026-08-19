@@ -1,4 +1,6 @@
 /**
+ * @topic #137 — Strategy Builder UI
+ *
  * Dashboard component for the options strategy engine. Shows open/closed
  * position tables and an equity curve chart with per-symbol/combined toggle.
  * Follows the existing RhAgentDashboardComponent pattern.
@@ -8,6 +10,7 @@ import { Component, ChangeDetectionStrategy, inject, OnInit, computed } from '@a
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { RouterLink } from '@angular/router';
 import {
   ChartModule,
   LineSeriesService,
@@ -17,6 +20,7 @@ import {
 } from '@syncfusion/ej2-angular-charts';
 
 import { OptionsStrategyDashboardStore } from '../../stores/options-strategy-dashboard.store';
+import { AppRoutes } from '../../../../core/common/interfaces';
 import {
   OPTIONS_POSITION_STATUS_LABELS,
   type Position,
@@ -49,6 +53,7 @@ export function toChartPoints(
     CommonModule,
     MatButtonModule,
     MatProgressSpinnerModule,
+    RouterLink,
     ChartModule,
   ],
   providers: [
@@ -62,6 +67,7 @@ export function toChartPoints(
 })
 export class OptionsStrategyDashboardComponent implements OnInit {
   readonly store = inject(OptionsStrategyDashboardStore);
+  protected readonly appRoutes = AppRoutes;
 
   // Chart config
   readonly primaryXAxis = {
