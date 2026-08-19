@@ -1,4 +1,4 @@
-/** @topic #108 — Options Position Strategy Engine */
+/** @topic #108 — Options Position Strategy Engine | @topic #137 — Strategy Builder UI */
 export enum AppRoutes {
 	LOGIN = 'login',
 	LOGOUT = 'logout',
@@ -47,6 +47,7 @@ export enum AppRoutes {
 	OPTION_CHART = 'option-chart',
 	SPREAD_CHART = 'spread-chart',
 	OPTIONS_STRATEGY_DASHBOARD = 'options-strategy-dashboard',
+	STRATEGY_BUILDER = 'strategy-builder',
 }
 
 export enum AuthLevel {

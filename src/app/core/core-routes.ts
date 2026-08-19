@@ -1,4 +1,4 @@
-/** @topic #108 — Options Position Strategy Engine */
+/** @topic #108 — Options Position Strategy Engine | @topic #137 — Strategy Builder UI */
 import { Route } from "@angular/router";
 import { CoreComponent } from "./core.component";
 import { HomeComponent } from "./comps/home/home.component";
@@ -146,6 +146,21 @@ import { authGuard } from './auth/auth.guard';
             {path: AppRoutes.OPTIONS_STRATEGY_DASHBOARD,
                 loadComponent: () => import('../features/rh-agent/pages/options-strategy-dashboard/options-strategy-dashboard.component')
                 .then(mod => mod.OptionsStrategyDashboardComponent),
+                canActivate: [authGuard],
+            },
+            {path: AppRoutes.STRATEGY_BUILDER,
+                loadComponent: () => import('../features/rh-agent/pages/strategy-builder/strategy-builder.component')
+                .then(mod => mod.StrategyBuilderComponent),
+                canActivate: [authGuard],
+            },
+            {path: `${AppRoutes.STRATEGY_BUILDER}/new`,
+                loadComponent: () => import('../features/rh-agent/pages/strategy-builder/strategy-builder.component')
+                .then(mod => mod.StrategyBuilderComponent),
+                canActivate: [authGuard],
+            },
+            {path: `${AppRoutes.STRATEGY_BUILDER}/edit/:id`,
+                loadComponent: () => import('../features/rh-agent/pages/strategy-builder/strategy-builder.component')
+                .then(mod => mod.StrategyBuilderComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.LOGOUT, redirectTo: '/', pathMatch: 'full'},
