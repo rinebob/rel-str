@@ -1,6 +1,4 @@
 /**
- * @topic #137 — Strategy Builder UI (opened 2026-08-16)
- *
  * Component tests for StrategyBuilderComponent — verifies list rendering,
  * empty/loading/error states, lifecycle badges, action button dispatch, and
  * navigation. The store is mocked so the seam is the component's public

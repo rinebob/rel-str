@@ -1,6 +1,4 @@
 /**
- * @topic #137 — Strategy Builder UI (opened 2026-08-16)
- *
  * List view for strategy instances. Shows a table with lifecycle badges and
  * action buttons per row. Delegates all state to StrategyBuilderStore.
  */
