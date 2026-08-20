@@ -48,7 +48,7 @@ All 14 acceptance criteria from issue #148 are MET:
 
 ### Test plan gaps (deferred)
 - E2E journeys (Cypress) not covered — deferred to integration test phase.
-- Stepper form tests — deferred to Task #149 (form component not yet built).
+- Dialog form tests — deferred to Task #149 (form component not yet built).
 
 ## Thermo-nuclear
 

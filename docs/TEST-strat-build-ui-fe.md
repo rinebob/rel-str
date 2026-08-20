@@ -10,8 +10,8 @@
 ## E2E journeys
 
 - Navigate to `/strategy-builder` → see list of instances (empty state if none)
-- Click "Create New Strategy" → stepper opens → complete all steps → save → instance appears in list
-- Click "Edit" on an instance → stepper pre-filled → modify → save → list updates
+- Click "Create New Strategy" → dialog opens → fill in fields → save → instance appears in list
+- Click "Edit" on an instance → dialog pre-filled → modify → save → list updates
 - Click lifecycle toggle → state cycles ACTIVE → PAUSED → STOPPED → ACTIVE → badge color changes
 - Click "View in Dashboard" → navigates to `/options-strategy-dashboard` filtered by instance
 - Click "Delete" → confirmation dialog → confirm → instance removed from list
@@ -22,7 +22,7 @@
 - Service → Firestore (direct writes via Angular Firestore SDK)
 - Store → Service (Observable subscriptions with DestroyRef cleanup)
 - Component → Store (signals)
-- Stepper form → reactive forms with FormArray for phases and exit policies
+- Dialog form → reactive forms with FormArray for phases and exit policies
 
 ## Unit test targets
 
@@ -54,18 +54,15 @@
 - Action buttons present per row
 - "Create New Strategy" button navigates to form
 
-### Stepper Form Component
-- Step 1: spread type dropdown populated from enum
-- Step 1: instance ID preview updates live as user types
-- Step 2: phase fields render per phase
-- Step 2: "Add Phase" button adds new phase row
-- Step 2: DTE max must be > DTE min (validation)
-- Step 3: exit policy multi-select shows conditional fields
-- Step 3: trailing stop defaults to stop loss value
-- Step 4: market regime dropdown optional
-- Step 5: review summary shows all values
-- Step 5: save calls store.create() or store.update()
-- Edit mode: all steps pre-filled from selectedInstance
+### Dialog Form Component
+- Spread type dropdown populated from enum
+- Instance ID preview updates live as user types
+- Phase fields render (target delta, DTE min, DTE max)
+- DTE max must be > DTE min (validation)
+- Exit policy multi-select shows conditional fields
+- Trailing stop defaults to stop loss value
+- Save calls store.create() or store.update()
+- Edit mode: all fields pre-filled from selectedInstance
 - Form invalid → save button disabled
 
 ### ID Generator
@@ -76,7 +73,7 @@
 - Service: mock Firestore with spy functions
 - Store: mock service, test state transitions
 - Component: `ɵresolveComponentResources` for external templates (follow options-strategy-dashboard pattern)
-- Stepper: Material Stepper test harness
+- Dialog form: Material MatDialog test harness
 
 ## Edge cases
 

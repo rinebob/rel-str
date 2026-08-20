@@ -4,7 +4,7 @@
 **Type:** PRD  
 **Status:** Approved  
 **Created:** 2026-08-16  
-**Last Updated:** 2026-08-17  
+**Last Updated:** 2026-08-19  
 
 ## Problem Statement
 
@@ -55,10 +55,20 @@ The architecture is extensible — new spread types added by Topic #139 (Extend 
 24. As a trader, I want to link from a strategy instance to the Options Strategy Dashboard filtered to that instance, so that I can see the positions and equity curve for a specific strategy
 25. As a trader, I want to navigate to the Strategy Builder from the Options Strategy Dashboard, so that I can manage strategies when I see an empty or underperforming dashboard
 
+### Dashboard Layout
+
+26. As a trader, I want to see the positions table and equity curve side-by-side on the Options Strategy Dashboard, so that I can view position details and performance trends simultaneously without scrolling
+27. As a trader, I want to select a strategy from a dropdown on the dashboard, so that I can switch between strategies when managing many simultaneous instances
+28. As a trader, I want the equity curve to reflect the selected strategy scope (combined or per-instance), so that I see the right performance data for my selection
+
+### Manual Position Opening
+
+29. As a trader, I want to trigger an "Open Now" action from the Options Strategy Dashboard, so that I can open a position for a strategy instance immediately without waiting for the scheduled open pass
+
 ### Wheel Strategy Support
 
-26. As a trader, I want to configure a cash-secured put with WHEEL_IF_ASSIGNED exit policy, so that the engine automatically sells covered calls against shares if assigned
-27. As a trader, I want to configure a covered call phase with its own delta and DTE parameters, so that the wheel's second phase uses different option selection criteria than the first phase
+30. As a trader, I want to configure a cash-secured put with WHEEL_IF_ASSIGNED exit policy, so that the engine automatically sells covered calls against shares if assigned
+31. As a trader, I want to configure a covered call phase with its own delta and DTE parameters, so that the wheel's second phase uses different option selection criteria than the first phase
 
 ## Implementation Decisions
 
@@ -92,15 +102,16 @@ The unified type includes:
 
 ### Instance ID Naming Convention
 
-Auto-generated from creation date and config: `YYMMDD-{SYMBOL}-{STRATEGY}-{DELTA}-{DTE}-{FREQ}`
+Auto-generated from creation date and config: `YYMMDD-{SYMBOL}-{STRATEGY}-{DELTA}-{DTE}-{FREQ}-{TIME}`
 - Date: creation date (YYMMDD)
 - Symbol: underlying ticker (e.g., QQQM, NVDA, SPY)
 - Strategy: short code (CSP, CC, WHEEL, IC, STRANGLE, etc.)
 - Delta: 3 digits, decimal removed (020 = 0.20)
 - DTE: max DTE from config
+- Time: open time PT (HHMM, e.g., 0730, 1200)
 - Freq: D (daily) or W (weekly)
 
-Examples: `250816-QQQM-WHEEL-020-28-D`, `250816-NVDA-CSP-018-15-D`
+Examples: `250816-QQQM-WHEEL-020-28-D-1200`, `250816-NVDA-CSP-018-15-D-0730`
 
 ### Exit Policy Enum
 
@@ -140,9 +151,10 @@ New route `/strategy-builder` registered in `core-routes.ts` with `authGuard`, l
 
 ### UI Layout
 
-- **List view**: table of all instances (ID, symbol, spread type, frequency, lifecycle state, exit policies). Sortable by lifecycle state. Action buttons per row: edit, toggle lifecycle, delete, view in dashboard.
-- **Create/edit form**: spread type dropdown (from enum), symbol input, phase config (delta, DTE min/max per phase), frequency dropdown, open time input, exit policy multi-select with conditional parameter fields, market regime dropdown (optional).
+- **List view**: table of all instances (ID, symbol, spread type, target delta, frequency, lifecycle state, exit policies). Sortable by lifecycle state. Compact rows with icon action buttons per row: edit, toggle lifecycle, delete, view in dashboard.
+- **Create/edit dialog**: compact single-screen dialog with small fields organized in rows — spread type, symbol, frequency, open time, target delta, DTE min/max, exit policy multi-select with conditional parameter fields. Live ID preview in dialog footer. No stepper, no market regime field in v1.
 - **Lifecycle toggle**: three-state toggle (ACTIVE/PAUSED/STOPPED) on each row.
+- **Options Strategy Dashboard**: split layout with positions table on the left and equity curve chart on the right. Strategy scope dropdown (Combined or per-instance) in the header, scales to 50+ strategies. Stats strip above the split. Equity curve reflects the selected scope.
 
 ## Testing Decisions
 
@@ -190,6 +202,7 @@ flowchart TD
 
     subgraph BE["Backend (Firebase Functions)"]
         OP["Open Pass"]
+        OPM["optionsOpenPassManual callable"]
         MP["Mark Pass"]
         SP["Settlement Pass"]
         STP["Stats Pass"]
@@ -200,6 +213,8 @@ flowchart TD
     SB --> SS --> SBS
     SBS -->|"CRUD: setDoc/updateDoc/deleteDoc"| SIC
     SB -->|"link to dashboard filtered by instance"| OD
+    OD -->|"Open Now button: httpsCallable"| OPM
+    OPM -->|"runs open pass for instance"| OP
 
     OP -->|"query where lifecycleState=ACTIVE"| SIC
     OP -->|"creates"| POS

@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026-08-19]
+
+### Changed
+- [Strategy Builder UI] 137-149_SHARED-IMPL-STRAT-BUILD-UI: Include openTimePT in strategy instance ID to prevent collisions for strategies with identical symbol/delta/DTE but different opening times
+- [Strategy Builder UI] 137-149_SHARED-TESTS-STRAT-BUILD-UI: Update ID generator tests and docs for new `TIME` segment in naming convention
+
 ## [2026-08-18]
 
 ### Added
