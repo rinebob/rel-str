@@ -10,6 +10,8 @@ import { Component, ChangeDetectionStrategy, inject, OnInit, computed } from '@a
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSelectModule } from '@angular/material/select';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { RouterLink } from '@angular/router';
 import {
   ChartModule,
@@ -53,6 +55,8 @@ export function toChartPoints(
     CommonModule,
     MatButtonModule,
     MatProgressSpinnerModule,
+    MatSelectModule,
+    MatFormFieldModule,
     RouterLink,
     ChartModule,
   ],
@@ -98,6 +102,15 @@ export class OptionsStrategyDashboardComponent implements OnInit {
     const now = new Date();
     const diffMs = exp.getTime() - now.getTime();
     return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  }
+
+  /** Format expiration as "Fri 09/12" instead of full ISO string. */
+  formatDate(expiration: string | undefined): string {
+    if (!expiration) return '—';
+    const d = new Date(expiration);
+    const dow = d.toLocaleDateString('en-US', { weekday: 'short' });
+    const date = d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
+    return `${dow} ${date}`;
   }
 
   /** Format currency for display. */

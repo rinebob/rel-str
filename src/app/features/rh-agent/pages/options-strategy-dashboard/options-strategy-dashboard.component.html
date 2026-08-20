@@ -1,28 +1,33 @@
 <!-- @topic #137 — Strategy Builder UI -->
 <div class="options-strategy-dashboard">
   <div class="dashboard-header">
-    <h1 class="header-title">Options Strategy Dashboard</h1>
-    <div class="header-actions">
-      <div class="scope-toggle">
-        <button
-          mat-stroked-button
-          [class.active]="store.selectedInstanceId() === null"
-          [attr.aria-pressed]="store.selectedInstanceId() === null"
-          (click)="store.selectInstance(null)"
-        >
-          Combined
-        </button>
-        @for (instance of store.availableInstances(); track instance) {
-          <button
-            mat-stroked-button
-            [class.active]="store.selectedInstanceId() === instance"
-            [attr.aria-pressed]="store.selectedInstanceId() === instance"
-            (click)="store.selectInstance(instance)"
-          >
-            {{ instance }}
-          </button>
-        }
+    <div class="header-left">
+      <h1 class="header-title">Options Strategy Dashboard</h1>
+      <div class="header-stats">
+        <div class="stat-card">
+          <span class="stat-label">Open</span>
+          <span class="stat-value">{{ store.openCount() }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Closed</span>
+          <span class="stat-value">{{ store.closedCount() }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Max DD</span>
+          <span class="stat-value">{{ currency(store.maxDrawdown()) }}</span>
+        </div>
       </div>
+    </div>
+    <div class="header-actions">
+      <mat-form-field appearance="outline" class="scope-select">
+        <mat-label>Strategy</mat-label>
+        <mat-select [value]="store.selectedInstanceId()" (selectionChange)="store.selectInstance($event.value)">
+          <mat-option [value]="null">All Strategies (Combined)</mat-option>
+          @for (instance of store.availableInstances(); track instance) {
+            <mat-option [value]="instance">{{ instance }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
       <a mat-flat-button color="primary" [routerLink]="'/' + appRoutes.STRATEGY_BUILDER" class="manage-strategies-btn">
         Manage Strategies
       </a>
@@ -42,126 +47,122 @@
       <p>No positions yet. The dashboard will populate after the first scheduled strategy run.</p>
     </div>
   } @else {
-    <!-- Stats strip -->
-    <div class="stats-strip">
-      <div class="stat-card">
-        <span class="stat-label">Open Positions</span>
-        <span class="stat-value">{{ store.openCount() }}</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Closed Positions</span>
-        <span class="stat-value">{{ store.closedCount() }}</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Max Drawdown</span>
-        <span class="stat-value">{{ currency(store.maxDrawdown()) }}</span>
-      </div>
-    </div>
+    <!-- Split layout: positions left, equity curve right -->
+    <div class="dashboard-split">
+      <!-- Left: positions tables -->
+      <div class="positions-panel">
+        <!-- Open positions table -->
+        <div class="table-section">
+          <h2 class="section-title">Open Positions</h2>
+          @if (store.openPositions().length === 0) {
+            <p class="empty-table-message">No open positions.</p>
+          } @else {
+            <table class="positions-table">
+              <thead>
+                <tr>
+                  <th scope="col">Instance</th>
+                  <th scope="col">Symbol</th>
+                  <th scope="col">Strike</th>
+                  <th scope="col">Expiration</th>
+                  <th scope="col">DTE</th>
+                  <th scope="col">Premium</th>
+                  <th scope="col">Capital</th>
+                  <th scope="col">Current</th>
+                  <th scope="col">Unrealized</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (pos of store.openPositions(); track pos.id) {
+                  <tr>
+                    <td>{{ pos.instanceId }}</td>
+                    <td>{{ pos.symbol }}</td>
+                    <td>{{ primaryLeg(pos)?.strike ?? '—' }}</td>
+                    <td>{{ formatDate(primaryLeg(pos)?.expiration) }}</td>
+                    <td>{{ dteRemaining(primaryLeg(pos)?.expiration) ?? '—' }}</td>
+                    <td>{{ currency(pos.premiumCollected) }}</td>
+                    <td>{{ currency(pos.capitalRequired) }}</td>
+                    <td>{{ currency(pos.currentValue) }}</td>
+                    <td [class.positive]="pos.unrealizedPnl > 0" [class.negative]="pos.unrealizedPnl < 0">
+                      {{ currency(pos.unrealizedPnl) }}
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </div>
 
-    <!-- Equity curve chart -->
-    @if (store.equityCurve().length > 0) {
-      <div class="chart-section">
-        <h2 class="section-title">Equity Curve</h2>
-        <ejs-chart
-          [primaryXAxis]="primaryXAxis"
-          [primaryYAxis]="primaryYAxis"
-          [tooltip]="tooltip"
-        >
-          <e-series-collection>
-            <e-series
-              type="Line"
-              [dataSource]="chartPoints()"
-              xName="date"
-              yName="value"
-              name="Cumulative P&L"
-              [width]="2"
-              [animation]="animation"
-            ></e-series>
-          </e-series-collection>
-        </ejs-chart>
+        <!-- Closed positions table -->
+        <div class="table-section">
+          <h2 class="section-title">Closed / Assigned Positions</h2>
+          @if (store.closedPositions().length === 0) {
+            <p class="empty-table-message">No closed positions.</p>
+          } @else {
+            <table class="positions-table">
+              <thead>
+                <tr>
+                  <th scope="col">Instance</th>
+                  <th scope="col">Symbol</th>
+                  <th scope="col">Outcome</th>
+                  <th scope="col">Realized</th>
+                  <th scope="col">Capital</th>
+                  <th scope="col">Shares</th>
+                  <th scope="col">Unrealized</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (pos of store.closedPositions(); track pos.id) {
+                  <tr>
+                    <td>{{ pos.instanceId }}</td>
+                    <td>{{ pos.symbol }}</td>
+                    <td>{{ statusLabel(pos) }}</td>
+                    <td [class.positive]="realizedPnl(pos) > 0" [class.negative]="realizedPnl(pos) < 0">
+                      {{ currency(realizedPnl(pos)) }}
+                    </td>
+                    <td>{{ currency(pos.capitalRequired) }}</td>
+                    <td>
+                      @if (pos.shares) {
+                        {{ pos.shares.quantity }} @ {{ currency(pos.shares.costBasis) }}
+                      } @else {
+                        —
+                      }
+                    </td>
+                    <td [class.positive]="pos.unrealizedPnl > 0" [class.negative]="pos.unrealizedPnl < 0">
+                      {{ currency(pos.unrealizedPnl) }}
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </div>
       </div>
-    }
 
-    <!-- Open positions table -->
-    <div class="table-section">
-      <h2 class="section-title">Open Positions</h2>
-      @if (store.openPositions().length === 0) {
-        <p class="empty-table-message">No open positions.</p>
-      } @else {
-        <table class="positions-table">
-          <thead>
-            <tr>
-              <th scope="col">Instance</th>
-              <th scope="col">Symbol</th>
-              <th scope="col">Strike</th>
-              <th scope="col">Expiration</th>
-              <th scope="col">DTE</th>
-              <th scope="col">Premium Collected</th>
-              <th scope="col">Current Value</th>
-              <th scope="col">Unrealized P&L</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (pos of store.openPositions(); track pos.id) {
-              <tr>
-                <td>{{ pos.instanceId }}</td>
-                <td>{{ pos.symbol }}</td>
-                <td>{{ primaryLeg(pos)?.strike ?? '—' }}</td>
-                <td>{{ primaryLeg(pos)?.expiration ?? '—' }}</td>
-                <td>{{ dteRemaining(primaryLeg(pos)?.expiration) ?? '—' }}</td>
-                <td>{{ currency(pos.premiumCollected) }}</td>
-                <td>{{ currency(pos.currentValue) }}</td>
-                <td [class.positive]="pos.unrealizedPnl > 0" [class.negative]="pos.unrealizedPnl < 0">
-                  {{ currency(pos.unrealizedPnl) }}
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      }
-    </div>
-
-    <!-- Closed positions table -->
-    <div class="table-section">
-      <h2 class="section-title">Closed / Assigned Positions</h2>
-      @if (store.closedPositions().length === 0) {
-        <p class="empty-table-message">No closed positions.</p>
-      } @else {
-        <table class="positions-table">
-          <thead>
-            <tr>
-              <th scope="col">Instance</th>
-              <th scope="col">Symbol</th>
-              <th scope="col">Outcome</th>
-              <th scope="col">Realized P&L</th>
-              <th scope="col">Share Position</th>
-              <th scope="col">Unrealized P&L</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (pos of store.closedPositions(); track pos.id) {
-              <tr>
-                <td>{{ pos.instanceId }}</td>
-                <td>{{ pos.symbol }}</td>
-                <td>{{ statusLabel(pos) }}</td>
-                <td [class.positive]="realizedPnl(pos) > 0" [class.negative]="realizedPnl(pos) < 0">
-                  {{ currency(realizedPnl(pos)) }}
-                </td>
-                <td>
-                  @if (pos.shares) {
-                    {{ pos.shares.quantity }} shares @ {{ currency(pos.shares.costBasis) }}
-                  } @else {
-                    —
-                  }
-                </td>
-                <td [class.positive]="pos.unrealizedPnl > 0" [class.negative]="pos.unrealizedPnl < 0">
-                  {{ currency(pos.unrealizedPnl) }}
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      }
+      <!-- Right: equity curve chart -->
+      <div class="chart-panel">
+        @if (store.equityCurve().length > 0) {
+          <h2 class="section-title">Equity Curve</h2>
+          <ejs-chart
+            [primaryXAxis]="primaryXAxis"
+            [primaryYAxis]="primaryYAxis"
+            [tooltip]="tooltip"
+          >
+            <e-series-collection>
+              <e-series
+                type="Line"
+                [dataSource]="chartPoints()"
+                xName="date"
+                yName="value"
+                name="Cumulative P&L"
+                [width]="2"
+                [animation]="animation"
+              ></e-series>
+            </e-series-collection>
+          </ejs-chart>
+        } @else {
+          <p class="empty-table-message">No equity curve data yet.</p>
+        }
+      </div>
     </div>
   }
 </div>
