@@ -1,0 +1,137 @@
+<!-- @topic #137 — Strategy Builder UI -->
+<div class="strategy-form-dialog">
+  <h2 mat-dialog-title>{{ isEditMode() ? 'Edit Strategy' : 'Create New Strategy' }}</h2>
+
+  <mat-dialog-content>
+    @if (store.error()) {
+      <div class="error-banner" role="alert">{{ store.error() }}</div>
+    }
+
+    <form [formGroup]="form" class="compact-form">
+      <!-- Section: Identity -->
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="field-sm">
+          <mat-label>Spread Type</mat-label>
+          <mat-select formControlName="spreadType">
+            @for (st of spreadTypes; track st) {
+              <mat-option [value]="st">{{ st }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="field-sm" floatLabel="always">
+          <mat-label>Symbol</mat-label>
+          <input matInput formControlName="symbol" placeholder="QQQM" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="field-sm">
+          <mat-label>Frequency</mat-label>
+          <mat-select formControlName="frequency">
+            @for (freq of frequencies; track freq) {
+              <mat-option [value]="freq">{{ freq }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="field-sm">
+          <mat-label>Open Time PT</mat-label>
+          <input matInput formControlName="openTimePT" placeholder="HH:MM" />
+        </mat-form-field>
+      </div>
+
+      <!-- Section: Phase config -->
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="field-sm">
+          <mat-label>Target Delta</mat-label>
+          <input matInput type="number" formControlName="targetDelta" step="0.01" min="0.01" max="1" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="field-sm">
+          <mat-label>DTE Min</mat-label>
+          <input matInput type="number" formControlName="dteMin" min="0" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="field-sm">
+          <mat-label>DTE Max</mat-label>
+          <input matInput type="number" formControlName="dteMax" min="0" />
+        </mat-form-field>
+      </div>
+
+      @if (form.errors?.['dteRange']) {
+        <div class="validation-error">DTE Max must be greater than DTE Min</div>
+      }
+
+      <!-- Section: Exit policies -->
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="field-sm" data-testid="exit-policy-select">
+          <mat-label>Exit Policies</mat-label>
+          <mat-select [value]="selectedExitPolicies()" (selectionChange)="onExitPoliciesChange($event.value)" multiple>
+            @for (policy of exitPolicies; track policy) {
+              <mat-option [value]="policy">{{ policy }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      @if (exitPolicyError()) {
+        <div class="validation-error" data-testid="exit-policy-error">{{ exitPolicyError() }}</div>
+      }
+
+      <div class="form-row policy-params">
+        @if (isPolicySelected(exitPolicy.CLOSE_AT_TARGET_GAIN)) {
+          <mat-form-field appearance="outline" class="field-sm">
+            <mat-label>Target Gain %</mat-label>
+            <input matInput type="number" formControlName="targetGainPct" step="0.1" />
+          </mat-form-field>
+        }
+        @if (isPolicySelected(exitPolicy.CLOSE_AT_DTE_THRESHOLD)) {
+          <mat-form-field appearance="outline" class="field-sm">
+            <mat-label>DTE Exit</mat-label>
+            <input matInput type="number" formControlName="dteExitThreshold" />
+          </mat-form-field>
+        }
+        @if (isPolicySelected(exitPolicy.STOP_LOSS)) {
+          <mat-form-field appearance="outline" class="field-sm">
+            <mat-label>Stop Loss %</mat-label>
+            <input matInput type="number" formControlName="stopLossPct" step="0.1" />
+          </mat-form-field>
+        }
+        @if (isPolicySelected(exitPolicy.TRAILING_STOP)) {
+          <mat-form-field appearance="outline" class="field-sm">
+            <mat-label>Trailing Stop %</mat-label>
+            <input matInput type="number" formControlName="trailingStopPct" step="0.1" />
+          </mat-form-field>
+        }
+        @if (isPolicySelected(exitPolicy.ROLL)) {
+          <mat-form-field appearance="outline" class="field-sm">
+            <mat-label>Roll DTE</mat-label>
+            <input matInput type="number" formControlName="rollDteThreshold" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="field-sm">
+            <mat-label>Roll Delta</mat-label>
+            <input matInput type="number" formControlName="rollTargetDelta" step="0.01" />
+          </mat-form-field>
+        }
+      </div>
+
+      <!-- ID preview -->
+      <div class="id-preview">
+        <span class="id-label">ID:</span>
+        <span data-testid="id-preview" class="id-value">{{ idPreview() }}</span>
+      </div>
+    </form>
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end">
+    <button mat-button (click)="cancel()">Cancel</button>
+    <button
+      mat-flat-button
+      color="primary"
+      data-testid="save-btn"
+      [disabled]="form.invalid || !!exitPolicyError()"
+      (click)="save()"
+    >
+      {{ isEditMode() ? 'Update' : 'Create' }}
+    </button>
+  </mat-dialog-actions>
+</div>
