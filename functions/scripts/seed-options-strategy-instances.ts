@@ -39,6 +39,7 @@ const instanceId = generateInstanceId(
   symbol,
   phases,
   StrategyFrequency.DAILY,
+  '12:00',
 );
 
 const instance = {

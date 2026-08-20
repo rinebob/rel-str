@@ -32,7 +32,7 @@ type RepoDb = Parameters<typeof listActiveInstances>[0];
 
 function makeInstance(overrides: Partial<StrategyInstanceConfig> = {}): StrategyInstanceConfig {
   return {
-    id: '250816-QQQM-CSP-020-28-D',
+    id: '250816-QQQM-CSP-020-30-D-1200',
     symbol: 'QQQM',
     optionType: OptionType.PUT,
     side: TradeSide.SHORT,
