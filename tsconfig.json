@@ -1,6 +1,7 @@
 /* @topic #114 — Options Strategy Engine — Hybrid Quote Provider */
 /* To learn more about this file see: https://angular.io/config/tsconfig. */
 {
+  "$schema": "https://json.schemastore.org/tsconfig.json",
   "compileOnSave": false,
   "compilerOptions": {
     "outDir": "./dist/out-tsc",
