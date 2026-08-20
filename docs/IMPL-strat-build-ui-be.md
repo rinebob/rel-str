@@ -5,7 +5,7 @@
 **Area:** BE  
 **Status:** Complete  
 **Created:** 2026-08-16  
-**Last Updated:** 2026-08-17  
+**Last Updated:** 2026-08-19  
 
 ## Overview
 
@@ -50,7 +50,19 @@ Follows the established pattern for user-scoped CRUD collections (spread-lists, 
 
 ### 4. Seed existing instance
 
-Migrate the current `QQQM-WHEEL` hardcoded instance to a Firestore doc. The instance is a CSP with WHEEL_IF_ASSIGNED exit policy (not a separate "WHEEL" spread type). The doc ID follows the naming convention generated from the first phase's spread type: `250816-QQQM-CSP-020-28-D`. Phase 1 = CASH_SECURED_PUT (delta 0.2, DTE 21-30), Phase 2 = COVERED_CALL (delta 0.3, DTE 21-30) for the post-assignment covered call leg.
+Migrate the current `QQQM-WHEEL` hardcoded instance to a Firestore doc. The instance is a CSP with WHEEL_IF_ASSIGNED exit policy (not a separate "WHEEL" spread type). The doc ID follows the naming convention generated from the first phase's spread type: `250816-QQQM-CSP-020-30-D-1200`. Phase 1 = CASH_SECURED_PUT (delta 0.2, DTE 21-30), Phase 2 = COVERED_CALL (delta 0.3, DTE 21-30) for the post-assignment covered call leg.
+
+### 5. Manual open pass callable
+
+Add `optionsOpenPassManual` callable function in `options-strategy-passes.ts`, following the `optionsMarkPassManual` pattern:
+
+- `onCall` with `cors: OPTIONS_STRATEGY_ALLOWED_ORIGINS`, `memory: '1GiB'`, `timeoutSeconds: 180`
+- Requires authenticated Firebase user
+- Accepts optional `instanceId` parameter — if provided, runs the open pass for that instance only; if omitted, runs for all active instances
+- Creates a `RobinhoodMcpOptionQuoteProvider` session (same as mark pass manual)
+- Calls `runOpenPass` for the target instance(s)
+- Returns per-instance results
+- Exported in `functions/src/index.ts`
 
 ## Cross-area boundaries
 

@@ -5,7 +5,7 @@
 **Area:** SHARED  
 **Status:** Complete  
 **Created:** 2026-08-16  
-**Last Updated:** 2026-08-17  
+**Last Updated:** 2026-08-19  
 
 ## E2E journeys
 
@@ -19,10 +19,10 @@ N/A — SHARED layer has no UI. Tested via BE and FE E2E.
 ## Unit test targets
 
 ### Instance ID generator
-- CSP strategy: `250816-QQQM-CSP-020-28-D`
-- Covered call: `250816-QQQM-CC-030-21-D`
-- Wheel (multi-phase): uses first phase for delta/DTE → `250816-QQQM-CSP-020-28-D`
-- Weekly frequency: `250816-SPY-CSP-018-7-W`
+- CSP strategy: `250816-QQQM-CSP-020-28-D-1200`
+- Covered call: `250816-QQQM-CC-030-21-D-1200`
+- Wheel (multi-phase): uses first phase for delta/DTE → `250816-QQQM-CSP-020-28-D-1200`
+- Weekly frequency: `250816-SPY-CSP-018-07-W-1200`
 - Delta formatting: 0.20 → 020, 0.05 → 005, 0.30 → 030
 - DTE from max of first phase's dteMax
 
@@ -43,3 +43,4 @@ N/A — SHARED layer has no UI. Tested via BE and FE E2E.
 - DTE min = DTE max → valid (single DTE target)
 - No phases → generator throws or returns empty string
 - Symbol with special characters → sanitize or reject
+- Same symbol/delta/DTE with different `openTimePT` values → must produce different IDs (e.g., `...-D-0730` vs `...-D-1200`)

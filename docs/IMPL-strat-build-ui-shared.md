@@ -5,7 +5,7 @@
 **Area:** SHARED  
 **Status:** Complete  
 **Created:** 2026-08-16  
-**Last Updated:** 2026-08-17  
+**Last Updated:** 2026-08-19  
 
 ## Overview
 
@@ -97,14 +97,14 @@ Trend-only for v1. Volatility regime (volatile/calm) is deferred until a volatil
 ### 5. Instance ID generator
 
 Pure function that generates the ID from config:
-`YYMMDD-{SYMBOL}-{STRATEGY}-{DELTA}-{DTE}-{FREQ}`
+`YYMMDD-{SYMBOL}-{STRATEGY}-{DELTA}-{DTE}-{FREQ}-{TIME}`
 
 Strategy code mapping from `PositionSpreadType`:
 - CASH_SECURED_PUT → CSP
 - COVERED_CALL → CC
 - (future: WHEEL, IC, STRANGLE, etc.)
 
-Delta: 3 digits, decimal removed (0.20 → 020). DTE: max DTE from first phase. Freq: D (daily) or W (weekly).
+Delta: 3 digits, decimal removed (0.20 → 020). DTE: max DTE from first phase. Time: open time PT with colon removed (07:30 → 0730, 12:00 → 1200). Freq: D (daily) or W (weekly).
 
 ### 6. PositionSpreadType enum extension
 
