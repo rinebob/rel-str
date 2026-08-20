@@ -157,6 +157,22 @@
         { "fieldPath": "date", "order": "ASCENDING" },
         { "fieldPath": "symbol", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "options-strategy-positions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "instanceId", "order": "ASCENDING" },
+        { "fieldPath": "openDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "options-strategy-positions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "instanceId", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

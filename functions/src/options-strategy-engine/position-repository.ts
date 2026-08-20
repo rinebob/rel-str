@@ -100,6 +100,8 @@ export async function listPositionsByInstance(instanceId: string): Promise<Posit
 /**
  * List all positions across all instances, ordered by open date (newest first).
  * Optionally filter by instanceId. Used by the dashboard callable.
+ * Fetches legs subcollection for each position so the dashboard can display
+ * strike, expiration, and DTE.
  */
 export async function listAllPositions(instanceId?: string): Promise<Position[]> {
   const collection = db.collection(OPTIONS_STRATEGY_POSITIONS_COLLECTION);
@@ -107,7 +109,18 @@ export async function listAllPositions(instanceId?: string): Promise<Position[]>
     ? collection.where('instanceId', '==', instanceId)
     : collection;
   const snap = await query.orderBy('openDate', 'desc').get();
-  return snap.docs.map((doc) => ({ id: doc.id, ...(doc.data() as Omit<Position, 'id'>) }));
+
+  const positions = snap.docs.map((doc) => ({ id: doc.id, ...(doc.data() as Omit<Position, 'id'>) }));
+
+  // Fetch legs for each position in parallel.
+  const positionsWithLegs = await Promise.all(
+    positions.map(async (pos) => {
+      const legs = await getLegs(pos.id);
+      return { ...pos, legs };
+    }),
+  );
+
+  return positionsWithLegs;
 }
 
 export async function listHeldSharesPositions(
