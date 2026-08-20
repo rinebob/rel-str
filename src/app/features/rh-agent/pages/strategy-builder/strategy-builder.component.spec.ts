@@ -18,6 +18,7 @@ import { signal, ɵresolveComponentResources } from '@angular/core';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { Router } from '@angular/router';
+import { MatDialog } from '@angular/material/dialog';
 
 import { StrategyBuilderComponent } from './strategy-builder.component';
 import { StrategyBuilderStore } from '../../stores/strategy-builder.store';
@@ -71,7 +72,7 @@ function createMockStore(overrides: Record<string, any> = {}) {
 
 function makeInstance(overrides: Partial<StrategyInstanceConfig> = {}): StrategyInstanceConfig {
   return {
-    id: '250816-QQQM-CSP-020-28-D',
+    id: '250816-QQQM-CSP-020-30-D-1200',
     symbol: 'QQQM',
     optionType: OptionType.PUT,
     side: TradeSide.SHORT,
@@ -104,10 +105,12 @@ describe('StrategyBuilderComponent', () => {
   let component: StrategyBuilderComponent;
   let mockStore: ReturnType<typeof createMockStore>;
   let mockRouter: { navigate: jest.Mock };
+  let mockDialog: { open: jest.Mock };
 
   async function configureWithStore(storeOverrides: Record<string, any> = {}) {
     mockStore = createMockStore(storeOverrides);
     mockRouter = { navigate: jest.fn().mockResolvedValue(true) };
+    mockDialog = { open: jest.fn() };
 
     await TestBed.configureTestingModule({
       imports: [StrategyBuilderComponent],
@@ -115,6 +118,7 @@ describe('StrategyBuilderComponent', () => {
         provideNoopAnimations(),
         { provide: StrategyBuilderStore, useValue: mockStore },
         { provide: Router, useValue: mockRouter },
+        { provide: MatDialog, useValue: mockDialog },
       ],
     }).compileComponents();
 
@@ -161,13 +165,14 @@ describe('StrategyBuilderComponent', () => {
     const rows = fixture.nativeElement.querySelectorAll('.instances-table tbody tr');
     expect(rows.length).toBe(1);
     const cells = rows[0].querySelectorAll('td');
-    // Columns: Instance ID, Symbol, Spread Type, Frequency, Lifecycle, Exit Policies, Actions
-    expect(cells[0].textContent).toContain('250816-QQQM-CSP-020-28-D');
+    // Columns: Instance ID, Symbol, Spread Type, Target Delta, Frequency, Lifecycle, Exit Policies, Actions
+    expect(cells[0].textContent).toContain('250816-QQQM-CSP-020-30-D-1200');
     expect(cells[1].textContent).toContain('QQQM');
     expect(cells[2].textContent).toContain('CASH_SECURED_PUT');
-    expect(cells[3].textContent).toContain('DAILY');
-    expect(cells[4].textContent).toContain('ACTIVE');
-    expect(cells[5].textContent).toContain('HOLD_TO_EXPIRATION');
+    expect(cells[3].textContent).toContain('0.20');
+    expect(cells[4].textContent).toContain('DAILY');
+    expect(cells[5].textContent).toContain('ACTIVE');
+    expect(cells[6].textContent).toContain('HOLD_TO_EXPIRATION');
   });
 
   it('renders em-dash for spread type when phases array is empty', async () => {
@@ -181,7 +186,7 @@ describe('StrategyBuilderComponent', () => {
     const instance = makeInstance({ exitPolicies: [] });
     await configureWithStore({ instances: [instance] });
     const cells = fixture.nativeElement.querySelectorAll('.instances-table tbody tr td');
-    expect(cells[5].textContent.trim()).toBe('');
+    expect(cells[6].textContent.trim()).toBe('');
   });
 
   it('applies lifecycle badge class based on state', async () => {
@@ -205,20 +210,21 @@ describe('StrategyBuilderComponent', () => {
     expect(btn?.textContent).toContain('Create New Strategy');
   });
 
-  it('navigates to the new form when "Create New Strategy" is clicked', async () => {
+  it('opens dialog when "Create New Strategy" is clicked', async () => {
     await configureWithStore();
     const btn = fixture.nativeElement.querySelector('.create-btn');
     btn.click();
-    expect(mockRouter.navigate).toHaveBeenCalledWith(['/' + AppRoutes.STRATEGY_BUILDER, 'new']);
+    expect(mockDialog.open).toHaveBeenCalled();
+    expect(mockDialog.open.mock.calls[0][1].data).toEqual({ instance: null });
   });
 
-  it('calls store.selectForEdit and navigates when Edit is clicked', async () => {
+  it('opens dialog with instance when Edit is clicked', async () => {
     const instance = makeInstance({ id: 'inst-1' });
     await configureWithStore({ instances: [instance] });
     const editBtn = fixture.nativeElement.querySelector('.edit-btn');
     editBtn.click();
-    expect(mockStore.selectForEdit).toHaveBeenCalledWith(instance);
-    expect(mockRouter.navigate).toHaveBeenCalledWith(['/' + AppRoutes.STRATEGY_BUILDER, 'edit', 'inst-1']);
+    expect(mockDialog.open).toHaveBeenCalled();
+    expect(mockDialog.open.mock.calls[0][1].data).toEqual({ instance });
   });
 
   it('calls store.toggleLifecycle when Toggle Lifecycle is clicked', async () => {

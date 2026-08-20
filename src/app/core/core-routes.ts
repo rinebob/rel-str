@@ -153,16 +153,6 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.StrategyBuilderComponent),
                 canActivate: [authGuard],
             },
-            {path: `${AppRoutes.STRATEGY_BUILDER}/new`,
-                loadComponent: () => import('../features/rh-agent/pages/strategy-builder/strategy-builder.component')
-                .then(mod => mod.StrategyBuilderComponent),
-                canActivate: [authGuard],
-            },
-            {path: `${AppRoutes.STRATEGY_BUILDER}/edit/:id`,
-                loadComponent: () => import('../features/rh-agent/pages/strategy-builder/strategy-builder.component')
-                .then(mod => mod.StrategyBuilderComponent),
-                canActivate: [authGuard],
-            },
             {path: AppRoutes.LOGOUT, redirectTo: '/', pathMatch: 'full'},
         ]
     },

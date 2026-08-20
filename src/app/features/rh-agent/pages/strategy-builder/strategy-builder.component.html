@@ -25,6 +25,7 @@
           <th scope="col">Instance ID</th>
           <th scope="col">Symbol</th>
           <th scope="col">Spread Type</th>
+          <th scope="col">Target Delta</th>
           <th scope="col">Frequency</th>
           <th scope="col">Lifecycle State</th>
           <th scope="col">Exit Policies</th>
@@ -37,6 +38,7 @@
             <td>{{ instance.id }}</td>
             <td>{{ instance.symbol }}</td>
             <td>{{ spreadType(instance) }}</td>
+            <td>{{ targetDelta(instance) }}</td>
             <td>{{ instance.frequency }}</td>
             <td>
               <span
@@ -50,10 +52,18 @@
             </td>
             <td>{{ exitPolicyNames(instance) }}</td>
             <td class="actions-cell">
-              <button mat-stroked-button (click)="edit(instance)" class="action-btn edit-btn">Edit</button>
-              <button mat-stroked-button (click)="toggleLifecycle(instance)" class="action-btn toggle-lifecycle-btn">Toggle Lifecycle</button>
-              <button mat-stroked-button (click)="delete(instance)" class="action-btn delete-btn">Delete</button>
-              <button mat-stroked-button (click)="viewInDashboard(instance)" class="action-btn view-dashboard-btn">View in Dashboard</button>
+              <button mat-icon-button (click)="edit(instance)" matTooltip="Edit" class="action-btn edit-btn">
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button mat-icon-button (click)="toggleLifecycle(instance)" matTooltip="Toggle Lifecycle" class="action-btn toggle-lifecycle-btn">
+                <mat-icon>power_settings_new</mat-icon>
+              </button>
+              <button mat-icon-button (click)="delete(instance)" matTooltip="Delete" class="action-btn delete-btn">
+                <mat-icon>delete</mat-icon>
+              </button>
+              <button mat-icon-button (click)="viewInDashboard(instance)" matTooltip="View in Dashboard" class="action-btn view-dashboard-btn">
+                <mat-icon>visibility</mat-icon>
+              </button>
             </td>
           </tr>
         }
