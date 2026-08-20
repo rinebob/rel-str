@@ -161,7 +161,7 @@ describe('StrategyBuilderService', () => {
 
       expect(doc).toHaveBeenCalledWith(
         expect.anything(),
-        `${Collection.OPTIONS_STRATEGY_INSTANCES}/250816-QQQM-CSP-020-30-D`,
+        `${Collection.OPTIONS_STRATEGY_INSTANCES}/250816-QQQM-CSP-020-30-D-1200`,
       );
       expect(setDoc).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'unused' }),

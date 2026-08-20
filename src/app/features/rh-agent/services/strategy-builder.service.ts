@@ -67,7 +67,7 @@ export class StrategyBuilderService {
   async createInstance(config: Omit<StrategyInstanceConfig, 'id' | 'userId' | 'createdAt' | 'updatedAt'>): Promise<void> {
     const uid = this.requireUserId();
     const now = new Date();
-    const id = generateInstanceId(now, config.symbol, config.phases, config.frequency);
+    const id = generateInstanceId(now, config.symbol, config.phases, config.frequency, config.openTimePT);
     const ref = doc(this.firestore, `${Collection.OPTIONS_STRATEGY_INSTANCES}/${id}`);
 
     await setDoc(ref, {

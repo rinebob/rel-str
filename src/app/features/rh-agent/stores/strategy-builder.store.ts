@@ -12,7 +12,7 @@ import {
   patchState,
 } from '@ngrx/signals';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { catchError, finalize, of, Subscription } from 'rxjs';
+import { catchError, of, Subscription } from 'rxjs';
 
 import { StrategyBuilderService } from '../services/strategy-builder.service';
 import type { StrategyInstanceConfig } from '@options-strategy-engine/contracts';
@@ -75,14 +75,13 @@ export const StrategyBuilderStore = signalStore(
                 const msg = err?.code === 'unauthenticated'
                   ? 'Authentication required'
                   : 'Failed to load strategy instances';
-                patchState(state, { error: msg });
+                patchState(state, { error: msg, isLoading: false });
                 return of([]);
               }),
-              finalize(() => patchState(state, { isLoading: false })),
               takeUntilDestroyed(destroyRef),
             )
             .subscribe({
-              next: (instances) => patchState(state, { instances }),
+              next: (instances) => patchState(state, { instances, isLoading: false }),
             });
         },
 
