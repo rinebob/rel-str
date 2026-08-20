@@ -2,9 +2,17 @@
 
 ## [2026-08-19]
 
+### Added
+- [Strategy Builder UI] 137-149_FE-IMPL-STRAT-BUILD-UI: Add compact dialog form for creating and editing strategy instances
+- [Strategy Builder UI] 137-149_FE-IMPL-STRAT-BUILD-UI: Add exit policy compatibility validation and openTimePT format validation
+- [Strategy Builder UI] 137-149_FE-IMPL-STRAT-BUILD-UI: Add 32 component tests for form validation, ID preview, exit policies, and edit pre-fill
+
 ### Changed
-- [Strategy Builder UI] 137-149_SHARED-IMPL-STRAT-BUILD-UI: Include openTimePT in strategy instance ID to prevent collisions for strategies with identical symbol/delta/DTE but different opening times
-- [Strategy Builder UI] 137-149_SHARED-TESTS-STRAT-BUILD-UI: Update ID generator tests and docs for new `TIME` segment in naming convention
+- [Strategy Builder UI] 137-149_SHARED-BUG-STRAT-BUILD-UI: Include openTimePT in strategy instance ID to prevent collisions for strategies with identical symbol/delta/DTE but different opening times
+- [Strategy Builder UI] 137-149_FE-REFACTOR-STRAT-BUILD-UI: Switch list component from route-based create/edit to MatDialog
+- [Strategy Builder UI] 137-149_FE-REFACTOR-STRAT-BUILD-UI: Replace text action buttons with icon buttons, add Target Delta column
+- [Strategy Builder UI] 137-149_FE-REFACTOR-STRAT-BUILD-UI: Pass openTimePT to generateInstanceId, clean up store finalize import
+- [Strategy Builder UI] 137-149_DOCS-STRAT-BUILD-UI: Update docs to reflect dialog design (stepper abandoned) and openTimePT ID format
 
 ## [2026-08-18]
 
