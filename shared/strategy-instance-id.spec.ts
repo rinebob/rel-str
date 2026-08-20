@@ -10,6 +10,8 @@ import {
 import { generateInstanceId } from './strategy-instance-id';
 import type { StrategyInstancePhase } from './options-strategy-engine-contracts';
 
+const DEFAULT_OPEN_TIME = '12:00';
+
 function makePhase(
   spreadType: PositionSpreadType,
   targetDelta: number,
@@ -26,8 +28,9 @@ describe('generateInstanceId', () => {
       'QQQM',
       [makePhase(PositionSpreadType.CASH_SECURED_PUT, 0.2, 28)],
       StrategyFrequency.DAILY,
+      DEFAULT_OPEN_TIME,
     );
-    expect(id).toBe('250816-QQQM-CSP-020-28-D');
+    expect(id).toBe('250816-QQQM-CSP-020-28-D-1200');
   });
 
   it('generates ID for covered call, daily', () => {
@@ -36,8 +39,9 @@ describe('generateInstanceId', () => {
       'QQQM',
       [makePhase(PositionSpreadType.COVERED_CALL, 0.3, 21)],
       StrategyFrequency.DAILY,
+      DEFAULT_OPEN_TIME,
     );
-    expect(id).toBe('250816-QQQM-CC-030-21-D');
+    expect(id).toBe('250816-QQQM-CC-030-21-D-1200');
   });
 
   it('uses first phase for delta and DTE in multi-phase (wheel) config', () => {
@@ -49,8 +53,9 @@ describe('generateInstanceId', () => {
         makePhase(PositionSpreadType.COVERED_CALL, 0.3, 21),
       ],
       StrategyFrequency.DAILY,
+      DEFAULT_OPEN_TIME,
     );
-    expect(id).toBe('250816-QQQM-CSP-020-28-D');
+    expect(id).toBe('250816-QQQM-CSP-020-28-D-1200');
   });
 
   it('generates ID for weekly frequency', () => {
@@ -59,8 +64,9 @@ describe('generateInstanceId', () => {
       'SPY',
       [makePhase(PositionSpreadType.CASH_SECURED_PUT, 0.18, 7)],
       StrategyFrequency.WEEKLY,
+      DEFAULT_OPEN_TIME,
     );
-    expect(id).toBe('250816-SPY-CSP-018-07-W');
+    expect(id).toBe('250816-SPY-CSP-018-07-W-1200');
   });
 
   it('formats delta as 3 digits with leading zeros', () => {
@@ -69,8 +75,9 @@ describe('generateInstanceId', () => {
       'NVDA',
       [makePhase(PositionSpreadType.CASH_SECURED_PUT, 0.05, 14)],
       StrategyFrequency.DAILY,
+      DEFAULT_OPEN_TIME,
     );
-    expect(id).toBe('250816-NVDA-CSP-005-14-D');
+    expect(id).toBe('250816-NVDA-CSP-005-14-D-1200');
   });
 
   it('formats DTE as 2 digits with leading zero', () => {
@@ -79,8 +86,9 @@ describe('generateInstanceId', () => {
       'SPY',
       [makePhase(PositionSpreadType.CASH_SECURED_PUT, 0.2, 7)],
       StrategyFrequency.DAILY,
+      DEFAULT_OPEN_TIME,
     );
-    expect(id).toBe('250816-SPY-CSP-020-07-D');
+    expect(id).toBe('250816-SPY-CSP-020-07-D-1200');
   });
 
   it('throws on empty phases', () => {
@@ -90,6 +98,7 @@ describe('generateInstanceId', () => {
         'QQQM',
         [],
         StrategyFrequency.DAILY,
+        DEFAULT_OPEN_TIME,
       ),
     ).toThrow('phases must be non-empty');
   });
@@ -100,8 +109,9 @@ describe('generateInstanceId', () => {
       'qqqm',
       [makePhase(PositionSpreadType.CASH_SECURED_PUT, 0.2, 28)],
       StrategyFrequency.DAILY,
+      DEFAULT_OPEN_TIME,
     );
-    expect(id).toBe('250816-QQQM-CSP-020-28-D');
+    expect(id).toBe('250816-QQQM-CSP-020-28-D-1200');
   });
 
   it('formats delta = 0 as 000', () => {
@@ -110,8 +120,9 @@ describe('generateInstanceId', () => {
       'SPY',
       [makePhase(PositionSpreadType.CASH_SECURED_PUT, 0, 28)],
       StrategyFrequency.DAILY,
+      DEFAULT_OPEN_TIME,
     );
-    expect(id).toBe('250816-SPY-CSP-000-28-D');
+    expect(id).toBe('250816-SPY-CSP-000-28-D-1200');
   });
 
   it('formats delta > 1 without rejection (form validation handles rejection)', () => {
@@ -120,9 +131,10 @@ describe('generateInstanceId', () => {
       'SPY',
       [makePhase(PositionSpreadType.CASH_SECURED_PUT, 1.5, 28)],
       StrategyFrequency.DAILY,
+      DEFAULT_OPEN_TIME,
     );
     // 1.5 * 100 = 150, formatted as 150
-    expect(id).toBe('250816-SPY-CSP-150-28-D');
+    expect(id).toBe('250816-SPY-CSP-150-28-D-1200');
   });
 
   it('accepts dteMin = dteMax (single DTE target)', () => {
@@ -131,7 +143,28 @@ describe('generateInstanceId', () => {
       'SPY',
       [{ spreadType: PositionSpreadType.CASH_SECURED_PUT, targetDelta: 0.2, dteMin: 14, dteMax: 14 }],
       StrategyFrequency.DAILY,
+      DEFAULT_OPEN_TIME,
     );
-    expect(id).toBe('250816-SPY-CSP-020-14-D');
+    expect(id).toBe('250816-SPY-CSP-020-14-D-1200');
+  });
+
+  it('includes open time in the ID to distinguish same-day strategies', () => {
+    const id0730 = generateInstanceId(
+      new Date('2026-08-19'),
+      'SCHB',
+      [makePhase(PositionSpreadType.CASH_SECURED_PUT, 0.3, 45)],
+      StrategyFrequency.DAILY,
+      '07:30',
+    );
+    const id1200 = generateInstanceId(
+      new Date('2026-08-19'),
+      'SCHB',
+      [makePhase(PositionSpreadType.CASH_SECURED_PUT, 0.3, 45)],
+      StrategyFrequency.DAILY,
+      '12:00',
+    );
+    expect(id0730).toBe('260819-SCHB-CSP-030-45-D-0730');
+    expect(id1200).toBe('260819-SCHB-CSP-030-45-D-1200');
+    expect(id0730).not.toBe(id1200);
   });
 });

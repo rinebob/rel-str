@@ -1,7 +1,7 @@
 /**
  *
  * Generates strategy instance IDs from config using the naming convention:
- * YYMMDD-{SYMBOL}-{STRATEGY}-{DELTA}-{DTE}-{FREQ}
+ * YYMMDD-{SYMBOL}-{STRATEGY}-{DELTA}-{DTE}-{FREQ}-{TIME}
  *
  * Strategy codes are derived from PositionSpreadType:
  * - CASH_SECURED_PUT → CSP
@@ -26,7 +26,8 @@ const SPREAD_TYPE_CODES: Record<PositionSpreadType, string> = {
  * @param symbol      Underlying ticker symbol (case-insensitive, normalized to uppercase).
  * @param phases      Strategy phases — the first phase determines the strategy code, delta, and DTE.
  * @param frequency   How often new positions are opened.
- * @returns           The generated ID, e.g. "250816-QQQM-CSP-020-28-D".
+ * @param openTimePT  Local time of day to open new positions (HH:MM), e.g. "07:30" or "12:00".
+ * @returns           The generated ID, e.g. "250816-QQQM-CSP-020-28-D-1200".
  * @throws            If phases is empty.
  */
 export function generateInstanceId(
@@ -34,6 +35,7 @@ export function generateInstanceId(
   symbol: string,
   phases: StrategyInstancePhase[],
   frequency: StrategyFrequency,
+  openTimePT: string,
 ): string {
   if (phases.length === 0) {
     throw new Error('phases must be non-empty');
@@ -45,9 +47,14 @@ export function generateInstanceId(
   const strategyPart = SPREAD_TYPE_CODES[phase.spreadType] ?? phase.spreadType;
   const deltaPart = formatDelta(phase.targetDelta);
   const dtePart = formatDte(phase.dteMax);
+  const timePart = formatOpenTime(openTimePT);
   const freqPart = frequency === StrategyFrequency.DAILY ? 'D' : 'W';
 
-  return `${datePart}-${symbolPart}-${strategyPart}-${deltaPart}-${dtePart}-${freqPart}`;
+  return `${datePart}-${symbolPart}-${strategyPart}-${deltaPart}-${dtePart}-${freqPart}-${timePart}`;
+}
+
+function formatOpenTime(openTimePT: string): string {
+  return openTimePT.replace(':', '');
 }
 
 function formatDatePart(date: Date): string {
