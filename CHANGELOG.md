@@ -1,5 +1,10 @@
 # Changelog
 
+## [2026-08-23]
+
+### Added
+- [Data Pipeline PDR Migration] 159-161_DOCS-DATA-PIPELINE-PDR-MIGRATION: Add blueprint docs for PDR migration (checkpoint)
+
 ## [2026-08-19]
 
 ### Added
