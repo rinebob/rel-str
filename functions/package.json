@@ -15,7 +15,7 @@
     "test:rh-agent-mcp-refresh": "tsx --test ../tests/functions/rh-agent-mcp-token-refresh.test.ts ../tests/functions/rh-agent-mcp-token-refresh-failures.test.ts",
     "test:rh-agent-mcp-tools": "tsx --test ../tests/functions/rh-agent-mcp-tool-registry.test.ts ../tests/functions/rh-agent-mcp-redactor.test.ts ../tests/functions/rh-agent-mcp-tool-executor.test.ts",
     "test:rh-agent-mcp-api": "tsx --test ../tests/functions/rh-agent-mcp-observation-api.test.ts",
-    "test:sds": "tsx --test ../tests/functions/sds-pdr-parser.test.ts ../tests/functions/sds-core.test.ts ../tests/functions/sds-worker-core.test.ts ../tests/functions/sds-completion.test.ts",
+    "test:sds": "tsx --test ../tests/functions/sds-pdr-parser.test.ts ../tests/functions/sds-core.test.ts ../tests/functions/sds-worker-core.test.ts ../tests/functions/sds-completion.test.ts ../tests/functions/sds-fallback.test.ts",
     "probe:rh-agent-mcp-auth": "tsx src/rh-agent-mcp/diagnostics/run-local-oauth-bootstrap.ts",
     "probe:rh-agent-mcp-tool": "tsx src/rh-agent-mcp/diagnostics/run-tool-observation.ts",
     "serve:observation": "tsx src/rh-agent-mcp/local-api/start-observation-api.ts",
