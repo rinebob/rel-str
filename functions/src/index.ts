@@ -86,7 +86,7 @@ export { backfillSymbolDataFromTradesAdmin } from './admin/backfill-symbol-data-
 export { cleanupRsBackfillRuns } from './scheduled/cleanup-rs-backfill-runs';
 
 // RH Agent (Robinhood Trading Agent) exports - Event-driven daily scan architecture
-export { rhAgentPdrTrigger, rhAgentTriggerDaily } from './rh-agent-cloud-function/rh-agent-trigger';
+export { rhAgentTriggerDaily } from './rh-agent-cloud-function/rh-agent-trigger';
 export { rhAgentProcessSymbol } from './rh-agent-cloud-function/rh-agent-worker';
 
 // RH Agent Admin utilities
@@ -129,6 +129,8 @@ export { getHistoricalOptionsContract, listOptionsContracts, getOptionsContractI
 // SDS — PDR-triggered symbol data sync (replaces symbolDataSyncNightly)
 export { symbolDataSync } from './symbol-data-sync/sds';
 export { symbolDataSyncWorker } from './symbol-data-sync/sds-worker';
+export { sdsWatchdog } from './symbol-data-sync/sds-watchdog';
+export { sdsConsumerDispatch } from './symbol-data-sync/sds-consumer-dispatch';
 // Admin HTTP + onboarding consumer kept from old module
 export { symbolDataSyncAdminHttp, symbolDataSyncSymbol } from './symbol-data-sync/symbol-data-sync';
 
