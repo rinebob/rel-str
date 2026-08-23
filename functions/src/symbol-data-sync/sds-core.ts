@@ -21,6 +21,8 @@ import { checkIntradayRunCompletion, type SdsCompletionDeps, type RunContext } f
 const SDS_RUNS_COLLECTION = 'symbol-data-sync-runs';
 const SDS_SEQUENCES_COLLECTION = 'symbol-data-sync-sequences';
 
+export { SDS_RUNS_COLLECTION, SDS_SEQUENCES_COLLECTION };
+
 const TERMINAL_STATUSES = ['completed', 'failed', 'completed_with_errors', 'forced_complete'] as const;
 
 export interface SdsTaskPayload {
@@ -92,7 +94,26 @@ export async function handlePdrMessage(
     return await handleIntradayRun(ctx, symbols, deps, runRef);
   }
 
-  // POST runs: create/update sequence doc atomically, enqueue per-symbol tasks
+  // POST runs: create/update sequence doc, enqueue per-symbol tasks
+  return await createPostRun(ctx, symbols, sequenceRunId, deps, runRef);
+}
+
+/**
+ * Create a POST run: sequence doc + per-symbol task enqueue.
+ *
+ * Shared between the PDR subscriber (handlePdrMessage) and the fallback timer
+ * (sds-fallback.ts). Both callers need the same sequence-doc transaction and
+ * per-symbol enqueue loop — extracting this avoids fabricating synthetic PDR
+ * attributes in the fallback.
+ */
+export async function createPostRun(
+  ctx: PdrContext,
+  symbols: string[],
+  sequenceRunId: string | undefined,
+  deps: SdsDeps,
+  runRef: FirebaseFirestore.DocumentReference,
+): Promise<SdsResult> {
+  // Create/update sequence doc atomically
   if (sequenceRunId) {
     const seqRef = deps.db.collection(SDS_SEQUENCES_COLLECTION).doc(sequenceRunId);
     await deps.db.runTransaction(async (t) => {
