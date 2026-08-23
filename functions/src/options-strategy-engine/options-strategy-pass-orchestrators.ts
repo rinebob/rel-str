@@ -109,13 +109,13 @@ export async function runOptionsOpenPass(
 
   for (const instance of instances) {
     if (!instance.phases?.[0]) {
-      log.warn(`No phase configured for ${instance.id}`);
+      log.error(`Open pass: no phase configured for ${instance.id}`);
       continue;
     }
 
     const currentPrice = await getClose(instance.symbol);
     if (currentPrice === null) {
-      log.warn(`No current price for ${instance.symbol}`);
+      log.error(`Open pass: no current price for ${instance.symbol} — sync may have failed`);
       continue;
     }
 
@@ -131,7 +131,7 @@ export async function runOptionsOpenPass(
           `Open pass for ${instance.id}/${marketDate}: skipped=${result.skipped}, positionId=${result.positionId}`,
         );
       } else {
-        log.info(`No daily-analysis for ${instance.id}/${marketDate}`);
+        log.error(`Open pass: no daily-analysis/latest for ${instance.id} — selection pass may have failed`);
       }
     } catch (err) {
       log.error(
@@ -214,15 +214,13 @@ export async function runMarkPassForAllInstances(
 type SettlementPassSummary = {
   settled: number;
   held: number;
-  deferred: number;
   errors: number;
 };
 
 /**
  * Run settlement and held-shares marking for every manageable strategy
- * instance against the given market date. Settlement reads the date-specific
- * underlying close from the year-sharded daily bars; positions whose closing
- * bar is not yet available are deferred to a later run.
+ * instance against the given market date. Triggered from
+ * `checkSyncRunCompletion` after all nightly closing bars are available.
  */
 export async function runSettlementForAllInstances(
   marketDate: string,
@@ -262,7 +260,6 @@ export async function runSettlementForAllInstances(
       const summary: SettlementPassSummary = {
         settled: settlement.settled.length,
         held: held.marked.length,
-        deferred: settlement.deferred.length + held.deferred.length,
         errors: settlement.errors.length + held.errors.length,
       };
 

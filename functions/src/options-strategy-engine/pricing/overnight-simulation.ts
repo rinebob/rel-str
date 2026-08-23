@@ -4,7 +4,7 @@
  *
  * Builds a symmetric grid of underlying price moves and runs closed-form
  * Black-Scholes at each point. The result is stored on the strategy instance's
- * `daily-analysis/{date}` document.
+ * `daily-analysis/latest` document (and archived to `daily-analysis/{date}`).
  */
 
 import type {

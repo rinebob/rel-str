@@ -10,9 +10,9 @@ import { runHeldSharesMarkPass } from '../../../functions/src/options-strategy-e
 import type {
   HeldSharesMarkPassDependencies,
 } from '../../../functions/src/options-strategy-engine/passes/held-shares-pass';
-import { OptionType } from '../../../shared/options-common';
+import { OptionType, PositionSpreadType, StrategyFrequency } from '../../../shared/options-common';
 import { TradeSide } from '../../../shared/common';
-import type { StrategyInstanceConfig } from '../../../shared/options-strategy-engine-contracts';
+import { ExitPolicy, LifecycleState, type StrategyInstanceConfig } from '../../../shared/options-strategy-engine-contracts';
 import type { Position, DailyUpdate } from '../../../functions/src/options-strategy-engine/types';
 import { PositionStatus } from '../../../functions/src/options-strategy-engine/types';
 
@@ -20,12 +20,28 @@ function makeConfig(
   overrides: Partial<StrategyInstanceConfig> = {},
 ): StrategyInstanceConfig {
   return {
+    id: 'inst-1',
     symbol: 'SPY',
     optionType: OptionType.PUT,
     side: TradeSide.SHORT,
     dteMin: 2,
     dteMax: 5,
     targetDelta: 0.3,
+    phases: [
+      {
+        spreadType: PositionSpreadType.CASH_SECURED_PUT,
+        targetDelta: 0.3,
+        dteMin: 2,
+        dteMax: 5,
+      },
+    ],
+    frequency: StrategyFrequency.DAILY,
+    openTimePT: '12:00',
+    exitPolicies: [{ policy: ExitPolicy.HOLD_TO_EXPIRATION }],
+    lifecycleState: LifecycleState.ACTIVE,
+    userId: 'test-user',
+    createdAt: '2025-08-16T00:00:00Z',
+    updatedAt: '2025-08-16T00:00:00Z',
     ...overrides,
   };
 }
@@ -117,7 +133,7 @@ describe('runHeldSharesMarkPass', () => {
     assert.deepEqual(deps.markCalls[0].dailyUpdate, { date: '2025-08-18', underlyingClose: 97 });
   });
 
-  it('defers when no underlying closing bar is available for the date', async () => {
+  it('errors when no underlying closing bar is available for the date', async () => {
     const deps = makeHeldDeps({
       getUnderlyingClose: async () => null,
     });
@@ -125,8 +141,8 @@ describe('runHeldSharesMarkPass', () => {
     const result = await runHeldSharesMarkPass('inst-1', '2025-08-18', makeConfig(), deps);
 
     assert.equal(result.marked.length, 0);
-    assert.equal(result.deferred.length, 1);
-    assert.match(result.deferred[0].reason, /No underlying closing bar/);
+    assert.equal(result.errors.length, 1);
+    assert.match(result.errors[0].error, /No underlying closing bar/);
     assert.equal(deps.markCalls.length, 0);
   });
 

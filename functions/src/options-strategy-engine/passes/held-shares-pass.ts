@@ -85,9 +85,9 @@ export async function runHeldSharesMarkPass(
 
       const underlyingClose = await getClose(config.symbol, date);
       if (underlyingClose === null) {
-        deferred.push({
+        errors.push({
           positionId: pos.id,
-          reason: `No underlying closing bar for ${config.symbol}/${date}`,
+          error: `No underlying closing bar for ${config.symbol}/${date} — symbol-data sync may have failed`,
         });
         continue;
       }
