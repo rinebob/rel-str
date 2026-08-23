@@ -82,8 +82,7 @@ export {
 } from './cleanup.callables';
 
 export { backfillSymbolDataFromPairsAdmin } from './admin/backfill-symbol-data-from-pairs';
-export { backfillSymbolDataFromTradesAdmin, backfillSymbolDataForTradesDaily } from './admin/backfill-symbol-data-from-trades';
-export { syncTrackedSymbolsDaily } from './scheduled/sync-tracked-symbols';
+export { backfillSymbolDataFromTradesAdmin } from './admin/backfill-symbol-data-from-trades';
 export { cleanupRsBackfillRuns } from './scheduled/cleanup-rs-backfill-runs';
 
 // RH Agent (Robinhood Trading Agent) exports - Event-driven daily scan architecture
@@ -127,8 +126,11 @@ export { rhAgentOverviewSyncSymbol } from './rh-agent-cloud-function/rh-agent-ov
 // Options contract viewer callables
 export { getHistoricalOptionsContract, listOptionsContracts, getOptionsContractIndex, queryContractCatalog } from './options-contract.callables';
 
-// Symbol-data nightly sync — single source of truth for OHLCV bars
-export { symbolDataSyncNightly, symbolDataSyncAdminHttp, symbolDataSyncSymbol } from './symbol-data-sync/symbol-data-sync';
+// SDS — PDR-triggered symbol data sync (replaces symbolDataSyncNightly)
+export { symbolDataSync } from './symbol-data-sync/sds';
+export { symbolDataSyncWorker } from './symbol-data-sync/sds-worker';
+// Admin HTTP + onboarding consumer kept from old module
+export { symbolDataSyncAdminHttp, symbolDataSyncSymbol } from './symbol-data-sync/symbol-data-sync';
 
 // Symbol-data onboarding consumer — backfills new symbols emitted by partner
 export { processSymbolAdded } from './symbol-data-sync/symbol-data-symbol-added';
@@ -145,11 +147,9 @@ export { rhOptionQuoteDiscovery } from './rh-agent-mcp/diagnostics/option-quote-
 
 // Options strategy engine — scheduled passes
 export {
-  optionsSelectionPass,
   optionsOpenPass,
   optionsMarkPass,
   optionsMarkPassManual,
-  optionsSettlementPass,
   optionsSettlementPassManual,
 } from './options-strategy-engine/options-strategy-passes';
 
