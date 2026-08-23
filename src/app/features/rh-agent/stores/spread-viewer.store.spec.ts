@@ -34,7 +34,7 @@ import { SpreadService } from '../services/spread.service';
 import { SpreadRunService } from '../services/spread-run.service';
 import { SpreadListService } from '../services/spread-list.service';
 import { OptionsContractService } from '../services/options-contract.service';
-import { RsBarsService } from '../../services/rs-bars.service';
+import { LocalBarReadService } from '../../../core/services/local-bar-read.service';
 import { SpreadStatus, SpreadType, type Spread, type SpreadDefinition } from '@spread/contracts';
 
 // ── Mock factories ───────────────────────────────────────────────────────────
@@ -76,7 +76,7 @@ describe('SpreadViewerStore — ADR-004 enhancements (#98)', () => {
           deleteList: jest.fn(),
         }},
         { provide: OptionsContractService, useValue: { getContractIndex$: jest.fn() } },
-        { provide: RsBarsService, useValue: { getDailyBars$: jest.fn() } },
+        { provide: LocalBarReadService, useValue: { getDailyBarsForRange$: jest.fn() } },
       ],
     });
     store = TestBed.inject(SpreadViewerStore);

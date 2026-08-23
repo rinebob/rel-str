@@ -19,7 +19,9 @@ import { SpreadService } from '../services/spread.service';
 import { SpreadRunService, type SpreadRunDocData, type SpreadJobDocData } from '../services/spread-run.service';
 import { SpreadListService } from '../services/spread-list.service';
 import { OptionsContractService } from '../services/options-contract.service';
-import { RsBarsService } from '../../services/rs-bars.service';
+import { LocalBarReadService } from '../../../core/services/local-bar-read.service';
+import { getMarketDatePT } from '../../../core/common/pt-date-utils';
+import { toOHLCDatum } from '../utils/ohlc-datum.utils';
 import { cloneSpreadDefinition } from '../utils/spread-definition.utils';
 import type { OHLCDatum } from '../../shared/types/rs.interfaces';
 import type { OptionsContractIndexResponse } from '@options-contract/contracts';
@@ -198,7 +200,7 @@ export const SpreadViewerStore = signalStore(
     const spreadRunService = inject(SpreadRunService);
     const spreadListService = inject(SpreadListService);
     const optionsContractService = inject(OptionsContractService);
-    const rsBarsService = inject(RsBarsService);
+    const localBarReadService = inject(LocalBarReadService);
 
     let runSub: Subscription | null = null;
     let jobsSub: Subscription | null = null;
@@ -212,8 +214,10 @@ export const SpreadViewerStore = signalStore(
       underlyingSub?.unsubscribe();
       patchState(store, { underlyingStatus: 'loading' });
       // ADR-004: fetch full dataset, filter client-side to chartDateRange
-      underlyingSub = rsBarsService.getDailyBars$(symbol).subscribe({
-        next: (bars) => patchState(store, { underlyingBars: bars, underlyingStatus: 'loaded' }),
+      // Use PT to match backend bar dates; range mirrors old default (2019-01-01 → today)
+      const to = getMarketDatePT();
+      underlyingSub = localBarReadService.getDailyBarsForRange$(symbol, '2019-01-01', to).subscribe({
+        next: (bars) => patchState(store, { underlyingBars: toOHLCDatum(bars), underlyingStatus: 'loaded' }),
         error: () => patchState(store, { underlyingBars: [], underlyingStatus: 'error' }),
       });
     }
