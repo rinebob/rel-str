@@ -77,11 +77,6 @@ export const PARTNER_DATA_READY_TOPIC =
  * so that it matches the topics created via gcloud and listed by the
  * Pub/Sub emulator. In production we use the cross-project topic name.
  */
-export const PARTNER_SYMBOLS_READY_TOPIC =
-  process.env.FUNCTIONS_EMULATOR === 'true'
-    ? 'projects/rel-str/topics/partner-symbols-ready'
-    : 'projects/alpha-vantage-proxy-api/topics/partner-symbols-ready';
-
 /**
  * Pub/Sub topic for symbol-onboarding notifications. Fires after a new symbol
  * has been added to the partner's tracked-symbols list and its full D/W/M
@@ -295,15 +290,6 @@ export const ALLOWED_RUN_TYPES = new Set<string>(Object.values(RunType));
 export const FIXED_INTERVAL: PartnerInterval = 'DAILY';
 export const FIXED_LIMIT = Number(process.env.RS_LIMIT || process.env.PARTNER_LIMIT || 30);
 export const FIXED_DAYS = Number(process.env.RS_DAYS || 30);
-
-/**
- * When true, treat partner-data-ready as a lightweight finalizer and rely on
- * the symbol-driven pipeline (partner-symbols-ready + rs-symbol-cache) for
- * fetching bars and computing RS. When false, run the legacy pair-centric
- * fetch + RS loop inside processDataReadyRunV2.
- */
-export const USE_SYMBOL_DRIVEN_PIPELINE =
-  String(process.env.USE_SYMBOL_DRIVEN_PIPELINE || '').toLowerCase() === 'true';
 
 /**
  * Normalized baseline–target key used through the pipeline.

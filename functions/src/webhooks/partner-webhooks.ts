@@ -10,19 +10,17 @@
  * values as the single source of truth for RS, not recompute RS from price
  * ratios.
  *
- * This file currently implements a **symbol-driven** ingestion path
- * (processDataReadyRunV2 + processSymbolsReady). See
- * docs/planning/UNIFIED_INGESTION_ENGINE.md for the target **run-driven**
- * TS_UNIVERSE-based ingestion engine. Future work should add a TS_UNIVERSE
- * subscriber here that delegates to runUnifiedIngestion and gradually retire
- * the symbol-driven pipeline once parity is validated.
+ * This file implements the **run-driven** ingestion path
+ * (processDataReadyRunV2). The old symbol-driven path (processSymbolsReady)
+ * has been deleted — canonical RS ingestion is now exclusively driven by
+ * partner-data-ready messages, with symbol-data sync handled by the SDS
+ * pipeline (functions/src/symbol-data-sync/).
  */
 import { onMessagePublished } from 'firebase-functions/v2/pubsub';
-import { onRequest } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 import { Timestamp } from 'firebase-admin/firestore';
 import { db, FieldValue } from '../firebase-admin-init';
-import { fetchDailyBarsRange, fetchAndCacheSymbolSeries } from './symbol-fetch';
+import { fetchDailyBarsRange } from './symbol-fetch';
 import { buildPhaseSeries } from './rs-series';
 import { createOrUpdateRealtimeJobForRun } from '../rs/time-series/rs-time-series-jobs.helper';
 import { writeUnifiedSeries } from './pairs-writer';
@@ -32,12 +30,10 @@ import { applyRsEventsForPair } from './rs-events-consumer';
 import { toKebabRunType, formatPtSegment, computeEventDocId, markProcessing } from './partner-events';
 import {
   PARTNER_DATA_READY_TOPIC,
-  PARTNER_SYMBOLS_READY_TOPIC,
   EVENTS_COLLECTION,
   FIXED_INTERVAL,
   FIXED_LIMIT,
   FIXED_DAYS,
-  USE_SYMBOL_DRIVEN_PIPELINE,
   type ProcessErrorSample,
   RunType,
   RsCloudFunctionName,
@@ -50,7 +46,6 @@ import {
   type PhaseSeriesPoint,
   ARCHIVE_COLLECTION_PREFIX,
   PAIRS_COLLECTION,
-  SYMBOL_DATA_COLLECTION,
   DISABLE_SIGNALS_ACTIVITY_POSITIONS,
 } from './webhooks-config';
 import { RsRealtimeRunStatus, rsRealtimeRunDocPath } from '../rs/time-series/rs-time-series-jobs.model';
@@ -65,29 +60,7 @@ import { persistWarning } from '../logging/warn';
 // Firebase Admin and Firestore are initialized in ../firebase-admin-init
 // Shared constants and enums have been moved to ./webhooks-config
 
-interface CurrentPricePayload {
-  price: number;
-  date: string; // 'YYYY-MM-DD'
-  time: string; // 'HH:mm'
-}
-
 const REALTIME_TASKS_ENABLED = process.env.RS_REALTIME_TASKS_ENABLED === 'true';
-
-export async function upsertSymbolCurrentPrice(symbol: string, payload: CurrentPricePayload): Promise<void> {
-  const symbolId = symbol.trim().toUpperCase();
-  const symbolDocRef = db.collection(SYMBOL_DATA_COLLECTION).doc(symbolId);
-
-  await symbolDocRef.set(
-    {
-      currentPrice: {
-        price: payload.price,
-        date: payload.date,
-        time: payload.time,
-      },
-    },
-    { merge: true },
-  );
-}
 
 /**
  * Partner Data-Ready Subscriber (V2) — Orchestrator
@@ -276,379 +249,6 @@ function resolveRunContext(message: any, payload: Record<string, any>): {
   return { runType, isHeartbeat, runId };
 }
 
-function normalizeInterval(raw: any): Interval | undefined {
-  if (typeof raw !== 'string') return undefined;
-  const v = raw.toUpperCase();
-  if (v === Interval.DAILY || v === Interval.WEEKLY || v === Interval.MONTHLY) return v as Interval;
-  return undefined;
-}
-
-async function runSymbolsReadyCore(
-  marketDate: string,
-  runId: string | undefined,
-  symbols: string[],
-  interval: Interval,
-): Promise<void> {
-  const days = FIXED_DAYS;
-  const symbolCount = symbols.length;
-  logger.info('==========================================================');
-  logger.info(
-    `processSymbolsReady_start marketDate=${marketDate} runId=${runId || 'n/a'} symbols=${symbolCount}`,
-    { marketDate, runId, symbolCount },
-  );
-
-    // Load registered pairs once per message and build a target->baselines map so that
-    // when a symbol becomes ready we can compute RS for all pairs where it is the target.
-  const registeredPairs = await listRegisteredPairs();
-  const targetToBaselines = new Map<string, string[]>();
-  for (const { baseline, target } of registeredPairs) {
-    const t = String(target || '').trim().toUpperCase();
-    const b = String(baseline || '').trim().toUpperCase();
-    if (!t || !b) continue;
-    const existing = targetToBaselines.get(t) || [];
-    existing.push(b);
-    targetToBaselines.set(t, existing);
-  }
-
-  const SYMBOL_CONCURRENCY = Number(process.env.PARTNER_SYMBOL_CONCURRENCY || 5);
-
-  await forEachWithConcurrency(symbols, Math.max(1, SYMBOL_CONCURRENCY), async (sym) => {
-    try {
-      logger.info('==========================');
-      logger.info(
-        `PROCESSING SYMBOL: ${sym} marketDate=${marketDate} runId=${runId || 'n/a'}`,
-        { symbol: sym, marketDate, runId },
-      );
-      logger.info('==========================');
-
-      const cacheDoc = await fetchAndCacheSymbolSeries(marketDate, sym, days, runId, interval as any);
-
-        // Best-effort currentPrice update from latest DAILY bar in cache
-      try {
-        const dailyBars = cacheDoc.dailyBars || [];
-        if (Array.isArray(dailyBars) && dailyBars.length > 0) {
-          let lastBar = dailyBars[dailyBars.length - 1] as any;
-            // Prefer the last bar with a defined day label if possible
-          for (let i = dailyBars.length - 1; i >= 0; i--) {
-            const b = dailyBars[i] as any;
-            if (b?.d) { lastBar = b; break; }
-          }
-
-          const day = String(lastBar?.d || '');
-          const ts = Number(lastBar?.t);
-          const close = Number(lastBar?.ac ?? lastBar?.c ?? 0);
-
-          if (day && Number.isFinite(ts) && Number.isFinite(close) && close > 0) {
-            const iso = new Date(ts).toISOString();
-            const date = iso.slice(0, 10);
-            const time = iso.slice(11, 16);
-
-            await upsertSymbolCurrentPrice(sym, { price: close, date, time });
-          }
-        }
-      } catch (e: any) {
-        logger.warn(
-          `processSymbolsReady_current_price_failed symbol=${sym} marketDate=${marketDate} msg=${e?.message || 'unknown'}`,
-          {
-            symbol: sym,
-            marketDate,
-            message: e?.message,
-          },
-        );
-      }
-
-        // === Incremental RS computation for pairs where this symbol is the target ===
-      const baselines = targetToBaselines.get(sym) || [];
-      if (baselines.length === 0) {
-        return;
-      }
-
-      const dailyTargetBars = interval === Interval.DAILY ? cacheDoc.dailyBars || [] : [];
-      const weeklyTargetBars = interval === Interval.WEEKLY ? cacheDoc.weeklyBars || [] : [];
-      const monthlyTargetBars = interval === Interval.MONTHLY ? cacheDoc.monthlyBars || [] : [];
-
-      for (const baseline of baselines) {
-        try {
-          const baselineSnap = await db
-            .collection('rs-symbol-cache')
-            .doc(marketDate)
-            .collection('symbols')
-            .doc(baseline)
-            .get();
-
-          if (!baselineSnap.exists) {
-            logger.warn(
-              `processSymbolsReady_missing_baseline_cache baseline=${baseline} target=${sym} marketDate=${marketDate}`,
-              { baseline, target: sym, marketDate },
-            );
-            continue;
-          }
-
-          const baselineDoc = baselineSnap.data() as any;
-          const dailyBaseBars = (baselineDoc?.dailyBars as any[]) || [];
-          const weeklyBaseBars = (baselineDoc?.weeklyBars as any[]) || [];
-          const monthlyBaseBars = (baselineDoc?.monthlyBars as any[]) || [];
-
-          if (interval === Interval.DAILY) {
-            logger.info(
-              `PROCESSING INTERVAL: DAILY baseline=${baseline} target=${sym} marketDate=${marketDate}`,
-              { interval: 'DAILY', baseline, target: sym, marketDate },
-            );
-            try {
-              const dailySeries = buildPhaseSeries(dailyBaseBars, dailyTargetBars, RsPhase.POST, baseline, sym, logger);
-              if (dailySeries.length > 0) {
-                await writeUnifiedSeries(baseline, sym, RsPhase.POST, dailySeries, dailyBaseBars, dailyTargetBars, Interval.DAILY);
-              }
-            } catch (e: any) {
-              logger.warn(
-                `processSymbolsReady_daily_rs_failed baseline=${baseline} target=${sym} marketDate=${marketDate} msg=${e?.message || 'unknown'}`,
-                { baseline, target: sym, marketDate, message: e?.message },
-              );
-            }
-          }
-
-          if (interval === Interval.WEEKLY) {
-            logger.info(
-              `PROCESSING INTERVAL: WEEKLY baseline=${baseline} target=${sym} marketDate=${marketDate}`,
-              { interval: 'WEEKLY', baseline, target: sym, marketDate },
-            );
-            try {
-              if (weeklyBaseBars.length > 0 && weeklyTargetBars.length > 0) {
-                const weeklySeries = buildPhaseSeries(weeklyBaseBars, weeklyTargetBars, RsPhase.POST, baseline, sym, logger);
-                if (weeklySeries.length > 0) {
-                  const windowToDay = weeklySeries.length > 0
-                    ? String(weeklySeries[weeklySeries.length - 1].day).slice(0, 10)
-                    : undefined;
-                  await writeUnifiedSeries(baseline, sym, RsPhase.POST, weeklySeries, weeklyBaseBars, weeklyTargetBars, Interval.WEEKLY, windowToDay);
-                }
-              }
-            } catch (e: any) {
-              logger.warn(
-                `processSymbolsReady_weekly_rs_failed baseline=${baseline} target=${sym} marketDate=${marketDate} msg=${e?.message || 'unknown'}`,
-                { baseline, target: sym, marketDate, message: e?.message },
-              );
-            }
-          }
-
-          if (interval === Interval.MONTHLY) {
-            logger.info(
-              `PROCESSING INTERVAL: MONTHLY baseline=${baseline} target=${sym} marketDate=${marketDate}`,
-              { interval: 'MONTHLY', baseline, target: sym, marketDate },
-            );
-            try {
-              if (monthlyBaseBars.length > 0 && monthlyTargetBars.length > 0) {
-                const monthlySeries = buildPhaseSeries(monthlyBaseBars, monthlyTargetBars, RsPhase.POST, baseline, sym, logger);
-                if (monthlySeries.length > 0) {
-                  const windowToDay = monthlySeries.length > 0
-                    ? String(monthlySeries[monthlySeries.length - 1].day).slice(0, 10)
-                    : undefined;
-                  await writeUnifiedSeries(baseline, sym, RsPhase.POST, monthlySeries, monthlyBaseBars, monthlyTargetBars, Interval.MONTHLY, windowToDay);
-                }
-              }
-            } catch (e: any) {
-              logger.warn(
-                `processSymbolsReady_monthly_rs_failed baseline=${baseline} target=${sym} marketDate=${marketDate} msg=${e?.message || 'unknown'}`,
-                { baseline, target: sym, marketDate, message: e?.message },
-              );
-            }
-          }
-        } catch (e: any) {
-          logger.warn(
-            `processSymbolsReady_pair_rs_failed baseline=${baseline} target=${sym} marketDate=${marketDate} msg=${e?.message || 'unknown'}`,
-            { baseline, target: sym, marketDate, message: e?.message },
-          );
-        }
-      }
-    } catch (e: any) {
-      logger.warn(
-        `processSymbolsReady_symbol_failed symbol=${sym} marketDate=${marketDate} msg=${e?.message || 'unknown'}`,
-        {
-          symbol: sym,
-          marketDate,
-          message: e?.message,
-        },
-      );
-    }
-  });
-
-  logger.info(
-    `processSymbolsReady_done marketDate=${marketDate} runId=${runId || 'n/a'} symbols=${symbolCount}`,
-    { marketDate, runId, symbolCount },
-  );
-  logger.info('==========================================================');
-}
-/**
- * Partner Symbols-Ready Subscriber (DISABLED)
- *
- * This subscriber previously consumed the partner-symbols-ready topic and drove a
- * symbol-driven RS ingestion pipeline. That path caused sync/ordering issues and
- * we have reverted to the partner-data-ready run-driven pipeline.
- *
- * The handler remains deployed for potential future reuse, but when
- * USE_SYMBOL_DRIVEN_PIPELINE is false it will return early without performing
- * any work. Canonical RS ingestion is now exclusively driven by
- * partner-data-ready messages.
- */
-export const processSymbolsReady = onMessagePublished(
-  { topic: PARTNER_SYMBOLS_READY_TOPIC, region: 'us-central1' },
-  async (event) => {
-    const message = event.data.message as any;
-
-    let rawString: string | undefined;
-    let payload: any = {};
-    if (message?.json && typeof message.json === 'object') {
-      payload = message.json;
-      try {
-        rawString = JSON.stringify(message.json);
-      } catch {
-        rawString = undefined;
-      }
-    } else {
-      try {
-        rawString = typeof message?.data === 'string'
-          ? Buffer.from(message.data, 'base64').toString('utf8')
-          : '{}';
-        payload = JSON.parse(rawString || '{}');
-      } catch {
-        payload = {};
-      }
-    }
-
-    const attrs: any = (message?.attributes as any) || {};
-    const marketDate: string | undefined =
-      (payload.marketDate as string | undefined)
-      || (attrs.marketDate as string | undefined);
-    const runId: string | undefined =
-      (attrs.runId as string | undefined)
-      || (payload.runId as string | undefined)
-      || (payload.run_id as string | undefined);
-
-    const symbols: string[] = Array.isArray(payload.symbols)
-      ? (payload.symbols as any[]).map((s) => String(s).trim().toUpperCase()).filter((s) => !!s)
-      : [];
-
-    const reason: string | undefined =
-      (payload.reason as string | undefined)
-      || (attrs.reason as string | undefined);
-
-    const rawInterval: string | undefined =
-      (payload.interval as string | undefined)
-      || (attrs.interval as string | undefined);
-    const interval = normalizeInterval(rawInterval);
-
-    // When USE_SYMBOL_DRIVEN_PIPELINE is false, keep this subscriber parked and
-    // rely solely on the partner-data-ready run-driven pipeline.
-    if (!USE_SYMBOL_DRIVEN_PIPELINE) {
-      logger.info('processSymbolsReady_disabled_by_use_symbol_driven_pipeline_flag', {
-        marketDate: marketDate || 'unknown',
-        interval: interval || 'unknown',
-        symbols,
-        symbolCount: symbols.length,
-      });
-      return;
-    }
-
-    if (symbols.length === 0) {
-      logger.error(
-        `psr_verbose_received_missing_symbol marketDate=${marketDate || 'unknown'}`,
-        {
-          marketDate: marketDate || 'unknown',
-          reason: reason || 'unknown',
-          rawPayload: payload,
-          attributes: attrs,
-        },
-      );
-    } else {
-      const symbolsStr = symbols.join(',');
-
-      logger.info(
-        `psr_verbose_received symbols=${symbolsStr} marketDate=${marketDate || 'unknown'} interval=${interval || 'unknown'}`,
-        {
-          marketDate: marketDate || 'unknown',
-          reason: reason || 'unknown',
-          interval: interval || 'unknown',
-          symbols,
-          symbolCount: symbols.length,
-          version: (payload.version as string | undefined) || (attrs.version as string | undefined),
-          attributes: attrs,
-        },
-      );
-    }
-
-    if (!interval) {
-      logger.warn(
-        `processSymbolsReady_invalid_interval interval=${rawInterval || 'missing'} symbols=${symbols.join(',')}`,
-        {
-          rawInterval,
-          marketDate,
-          symbolsCount: symbols.length,
-          attributes: message?.attributes,
-        },
-      );
-      return;
-    }
-
-    if (!marketDate || symbols.length === 0) {
-      logger.warn(
-        `processSymbolsReady_invalid_payload marketDate=${marketDate || 'missing'} symbolsCount=${symbols.length}`,
-        {
-          marketDate,
-          symbolsCount: symbols.length,
-          attributes: message?.attributes,
-        },
-      );
-      return;
-    }
-
-    await runSymbolsReadyCore(marketDate, runId, symbols, interval as Interval);
-  },
-);
-
-export const processSymbolsReadyHttpTest = onRequest({ region: 'us-central1' }, async (req, res) => {
-  if (req.method !== 'POST') {
-    res.status(405).send('Only POST is allowed');
-    return;
-  }
-
-  const body: any = req.body || {};
-  const marketDate = typeof body.marketDate === 'string' ? body.marketDate : undefined;
-  const runId = typeof body.runId === 'string' ? body.runId : undefined;
-  const rawInterval = typeof body.interval === 'string' ? body.interval : undefined;
-  const interval = normalizeInterval(rawInterval);
-  const symbolsRaw = Array.isArray(body.symbols) ? body.symbols : [];
-  const symbols = symbolsRaw.map((s: any) => String(s).trim().toUpperCase()).filter((s: string) => !!s);
-
-  if (!interval || !marketDate || symbols.length === 0) {
-    res.status(400).json({
-      error: 'invalid_payload',
-      marketDate,
-      interval: rawInterval || null,
-      symbolsCount: symbols.length,
-    });
-    return;
-  }
-
-  try {
-    await runSymbolsReadyCore(marketDate, runId, symbols, interval);
-    res.status(200).json({
-      ok: true,
-      marketDate,
-      runId: runId || null,
-      symbolsCount: symbols.length,
-    });
-  } catch (e: any) {
-    logger.error('processSymbolsReadyHttpTest_failed', {
-      marketDate,
-      runId,
-      symbolsCount: symbols.length,
-      message: e?.message,
-    });
-    res.status(500).json({
-      error: 'internal_error',
-      message: e?.message || String(e),
-    });
-  }
-});
 
 /**
  * Process a single baseline–target pair using live partner fetches.
@@ -700,33 +300,6 @@ export async function processPairLive(
       return;
     }
     await writeUnifiedSeries(baseline, target, phase, series, baseBars, targetBars, Interval.DAILY);
-
-    // Best-effort: upsert latest target price into symbol-data/{TARGET}.currentPrice
-    try {
-      if (Array.isArray(targetBars) && targetBars.length > 0) {
-        const lastBar = targetBars[targetBars.length - 1] as any;
-        const day = String(lastBar?.d || '');
-        const ts = Number(lastBar?.t);
-        const close = Number(lastBar?.ac ?? lastBar?.c ?? 0);
-
-        if (day && Number.isFinite(ts) && Number.isFinite(close) && close > 0) {
-          const iso = new Date(ts).toISOString();
-          const date = iso.slice(0, 10); // 'YYYY-MM-DD'
-          const time = iso.slice(11, 16); // 'HH:mm'
-
-          await upsertSymbolCurrentPrice(target, {
-            price: close,
-            date,
-            time,
-          });
-        }
-      }
-    } catch (e: any) {
-      logger.warn('symbol_data_current_price_upsert_failed', {
-        target,
-        message: e?.message,
-      });
-    }
 
     // Weekly and Monthly series: fetch from partner using corresponding intervals.
     // We do this for both PRE and POST to keep intraday updates flowing for all intervals.
@@ -1136,51 +709,6 @@ export const processDataReadyRunV2 = onMessagePublished(
           }
         }
       } catch {}
-
-      // If symbol-driven pipeline is enabled, treat this handler as a
-      // lightweight finalizer and skip the heavy pair-centric fetch loop.
-      if (USE_SYMBOL_DRIVEN_PIPELINE) {
-        const preview = typeof rawString === 'string' ? rawString.slice(0, 200) : undefined;
-        logger.info(
-          `processDataReadyRunV2 symbol-driven finalizer enabled; skipping pair fetch loop runId=${effectiveRunId || 'n/a'} phase=${phase} eventType=${eventType}`,
-          {
-            runId: effectiveRunId,
-            phase,
-            eventType,
-            payloadPreview: preview,
-          },
-        );
-
-        if (eventRef) {
-          await eventRef.set({
-            status: 'completed',
-            endTime: FieldValue.serverTimestamp(),
-            pairsProcessed: 0,
-            pairsFailed: 0,
-            phase,
-            ...(trigger ? { trigger } : {}),
-            runType: eventType,
-          }, { merge: true });
-        }
-
-        if (!isHeartbeat) {
-          const rawPayload: any = parsedPayload as any;
-          const attrs: any = (message?.attributes as any) || {};
-          const nextSrc: any = rawPayload?.nextRefreshAt
-            ?? rawPayload?.nextRefreshAtUTC
-            ?? rawPayload?.NextRefreshAt
-            ?? attrs?.NextRefreshAt
-            ?? attrs?.nextRefreshAtUTC
-            ?? attrs?.nextRefreshAt;
-          const nextTs = toTimestampOrUndefined(nextSrc);
-          await upsertRefreshStatus({
-            runStatus: 'completed',
-            endTimeUTC: FieldValue.serverTimestamp(),
-            ...(nextTs ? { nextRefreshAtUTC: nextTs } : { nextRefreshAtUTC: null }),
-          });
-        }
-        return;
-      }
 
       // Load registered pairs
       let pairs = await listRegisteredPairs();

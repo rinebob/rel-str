@@ -1,25 +1,6 @@
-/** */
 import './init';
 
 export {partnerProxyTest, getTrackedSymbols} from './partner-proxy';
-
-/**
- * Cloud Functions below are intentionally commented out.
- *
- * - processSymbolsReady and processSymbolsReadyHttpTest implement the
- *   symbol-driven RS ingestion pipeline based on partner-symbols-ready
- *   notifications.
- * - That pipeline previously caused ordering/sync issues and has been
- *   parked in favor of the pair-centric, partner-data-ready driven
- *   processDataReadyRunV2 path.
- * - The .env flag USE_SYMBOL_DRIVEN_PIPELINE is currently set to false;
- *   re-enabling this symbol-driven pipeline would require both uncommenting
- *   these exports and setting USE_SYMBOL_DRIVEN_PIPELINE=true.
- *
- * The exports are left here (commented) to make re-enabling explicit if we
- * ever decide to revive the symbol-driven pipeline in the future.
- */
-// export { processDataReadyRunV2, processSymbolsReady, processSymbolsReadyHttpTest } from "./webhooks/partner-webhooks";
 
 export { processDataReadyRunV2 } from './webhooks/partner-webhooks';
 
