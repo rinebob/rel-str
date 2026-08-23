@@ -16,8 +16,6 @@ import { TradeSide } from '@common';
 import { OPTIONS_STRATEGY_ALLOWED_ORIGINS } from './options-strategy-cors';
 import { getMarketDatePT } from '../common/pt-date-utils';
 import {
-  runOptionsSelectionPass,
-  runOptionsOpenPass,
   runMarkPassForAllInstances,
   runSettlementForAllInstances,
 } from './options-strategy-pass-orchestrators';
@@ -46,40 +44,22 @@ export function spreadTypeToOptionSide(
 // ── Scheduled Cloud Functions ───────────────────────────────────────────────
 
 /**
- * Selection pass — runs after market close to select contracts and
- * run overnight delta simulation for each strategy instance.
- *
- * Schedule: 7:00 PM PT (02:00 UTC) — gives AV time to publish EOD data.
+ * Selection pass — triggered by SDS sequence completion (Task #167) so it
+ * always has fresh underlying prices. The previous `syncTrackedSymbolsDaily`
+ * scheduled function was deleted; SDS now owns currentPrice writes and
+ * downstream consumer triggering.
  */
-export const optionsSelectionPass = onSchedule(
-  {
-    schedule: '0 2 * * 2-6',
-    timeZone: 'Etc/UTC',
-    memory: '512MiB',
-    timeoutSeconds: 120,
-  },
-  async () => {
-    await runOptionsSelectionPass();
-  },
-);
 
 /**
- * Open pass — runs shortly after market open to open new positions
- * based on the prior night's daily-analysis.
+ * Open pass — replaced by `openPassTimer` in `passes/open-pass-timer.ts`.
  *
- * Schedule: 6:45 AM PT (13:45 UTC) — 15 min after market open.
+ * The old single-cron at 6:45 AM has been replaced with a 5-minute periodic
+ * timer that queries instances by openTimePT slot. This ensures instances
+ * with different open times are handled correctly.
+ *
+ * `runOptionsOpenPass` is still available in `options-strategy-pass-orchestrators.ts`
+ * for manual/testing use.
  */
-export const optionsOpenPass = onSchedule(
-  {
-    schedule: '45 13 * * 1-5',
-    timeZone: 'Etc/UTC',
-    memory: '512MiB',
-    timeoutSeconds: 120,
-  },
-  async () => {
-    await runOptionsOpenPass();
-  },
-);
 
 /**
  * Mark pass — runs periodically during market hours to update
@@ -93,6 +73,7 @@ export const optionsMarkPass = onSchedule(
     timeZone: 'Etc/UTC',
     memory: '1GiB',
     timeoutSeconds: 180,
+    secrets: ['RH_CREDENTIAL_BUNDLE'],
   },
   async () => {
     log.info('Mark pass starting');
@@ -122,28 +103,15 @@ export const optionsMarkPass = onSchedule(
 );
 
 /**
- * Settlement pass — runs nightly after the symbol-data sync has landed the
- * day's closing bars. Settles expiring OPEN positions and marks
- * ASSIGNED_HOLDING_SHARES positions with the day's underlying close.
+ * Settlement pass — now triggered from `checkSyncRunCompletion` in
+ * `symbol-data-sync.ts` after all nightly closing bars are guaranteed
+ * to be in Firestore. SDS sequence completion (Task #167) triggers this
+ * pass as a downstream consumer.
  *
- * Schedule: 9:00 PM PT (04:00 UTC) — after the nightly symbol-data sync window.
+ * The previous standalone onSchedule was removed because it raced with
+ * the symbol-data sync — if closing bars weren't written yet, positions
+ * were "deferred" and never retried.
  */
-export const optionsSettlementPass = onSchedule(
-  {
-    schedule: '0 4 * * 2-6',
-    timeZone: 'Etc/UTC',
-    memory: '512MiB',
-    timeoutSeconds: 180,
-  },
-  async () => {
-    const marketDate = getMarketDatePT();
-    log.info(`Settlement pass starting for ${marketDate}`);
-
-    await runSettlementForAllInstances(marketDate);
-
-    log.info('Settlement pass complete');
-  },
-);
 
 // ── Manual triggers (for testing) ─────────────────────────────────────────────
 
@@ -153,7 +121,7 @@ export const optionsSettlementPass = onSchedule(
  * waiting for the schedule.
  */
 export const optionsMarkPassManual = onCall(
-  { cors: OPTIONS_STRATEGY_ALLOWED_ORIGINS, memory: '1GiB', timeoutSeconds: 180 },
+  { cors: OPTIONS_STRATEGY_ALLOWED_ORIGINS, memory: '1GiB', timeoutSeconds: 180, secrets: ['RH_CREDENTIAL_BUNDLE'] },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Must be signed in to trigger a manual mark pass');

@@ -131,6 +131,7 @@ export { symbolDataSync } from './symbol-data-sync/sds';
 export { symbolDataSyncWorker } from './symbol-data-sync/sds-worker';
 export { sdsWatchdog } from './symbol-data-sync/sds-watchdog';
 export { sdsConsumerDispatch } from './symbol-data-sync/sds-consumer-dispatch';
+export { sdsFallback } from './symbol-data-sync/sds-fallback';
 // Admin HTTP + onboarding consumer kept from old module
 export { symbolDataSyncAdminHttp, symbolDataSyncSymbol } from './symbol-data-sync/symbol-data-sync';
 
@@ -149,11 +150,11 @@ export { rhOptionQuoteDiscovery } from './rh-agent-mcp/diagnostics/option-quote-
 
 // Options strategy engine — scheduled passes
 export {
-  optionsOpenPass,
   optionsMarkPass,
   optionsMarkPassManual,
   optionsSettlementPassManual,
 } from './options-strategy-engine/options-strategy-passes';
+export { openPassTimer } from './options-strategy-engine/passes/open-pass-timer';
 
 // Options strategy engine — dashboard callables
 export {
