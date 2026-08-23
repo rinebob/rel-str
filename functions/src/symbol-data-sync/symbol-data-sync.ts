@@ -1,21 +1,20 @@
 /**
- * Symbol-Data Nightly Sync
+ * Symbol-Data Sync (legacy admin/worker — SDS Pub/Sub subscriber is the canonical path)
  *
- * Fetches full D/W/M price history from SavantAPI for all tracked symbols
- * and writes to symbol-data/{SYMBOL} subcollections in Firestore.
+ * Provides the HTTP admin trigger and task worker for on-demand symbol-data backfill.
+ * The nightly scheduled function (symbolDataSyncNightly) has been deleted — canonical
+ * D/W/M sync is now handled by the SDS Pub/Sub subscriber (sds.ts) triggered by
+ * partner-data-ready messages.
  *
  * Architecture:
- *   - symbolDataSyncAdminHttp (HTTP request) / symbolDataSyncNightly (scheduler)
+ *   - symbolDataSyncAdminHttp (HTTP request)
  *       → loads all symbols, enqueues one Cloud Task per symbol, returns immediately
  *   - symbolDataSyncSymbol (task worker)
  *       → fetches D/W/M bars from SA for one symbol, writes to symbol-data subcollections
  *   - processSymbolAdded (Pub/Sub consumer on partner-symbol-added)
  *       → backfills a single newly-added symbol as soon as the partner notifies RS
  *
- * The core per-symbol backfill logic lives in symbol-data-backfill.ts and is shared
- * by both the task worker and the Pub/Sub consumer.
- *
- * Firebase Cloud Function identifiers: symbolDataSyncNightly, symbolDataSyncAdminHttp,
+ * Firebase Cloud Function identifiers: symbolDataSyncAdminHttp,
  * symbolDataSyncSymbol, processSymbolAdded.
  */
 import { onRequest } from 'firebase-functions/v2/https';

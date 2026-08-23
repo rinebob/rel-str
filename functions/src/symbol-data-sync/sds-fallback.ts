@@ -36,9 +36,9 @@ export const sdsFallback = onSchedule(
     region: 'us-central1',
   },
   async () => {
-    logger.info('sds_fallback_start');
+    const marketDate = getMarketDatePT();
+    logger.info('sds_fallback_start', { marketDate });
     try {
-      const marketDate = getMarketDatePT();
 
       // Check for existing POST A sequence
       const seqSnap = await db.collection(SDS_SEQUENCES_COLLECTION)

@@ -16,10 +16,10 @@ The retired Claude bridge and executor prototypes are preserved in archive docum
 ## Architecture
 
 ```
-partner-data-ready Pub/Sub (runType: intraday-snapshot)
+SDS completion (sds-consumer-dispatch.ts)
     │
     ▼
-rhAgentPdrTrigger
+rhAgentTriggerDaily (manual) / SDS consumer dispatch (automatic)
     ├─ callPartnerIntradaySnapshotV2(symbols)  [one bulk POST]
     ├─ createDailyRun(marketDate, 'pdr')
     └─ createJobAndEnqueue(symbol, intraday)   [× N symbols]
@@ -50,7 +50,7 @@ rhAgentPdrTrigger
 | `rh-agent-opportunities.ts` | `RhTradeAction` | Trade action and opportunity types |
 | `rh-agent-shared-types.ts` | `SymbolJobPayload`, `IntradaySnapshot` | Cross-cutting payloads and snapshots |
 | `rh-agent-shared.ts` | `getMarketDate`, `getDeadlineISO`, `loadEnabledSymbols`, `createDailyRun`, `createJobAndEnqueue`, `fetchIntradaySnapshots` | Shared helpers used by triggers and manual callable |
-| `rh-agent-trigger.ts` | `rhAgentPdrTrigger`, `rhAgentTriggerDaily` | PDR Pub/Sub trigger; HTTP admin trigger with `?date` override |
+| `rh-agent-trigger.ts` | `rhAgentTriggerDaily` | HTTP admin trigger with `?date` override (PDR Pub/Sub trigger deleted — RH Agent now triggered by SDS completion via sds-consumer-dispatch.ts) |
 | `rh-agent-worker.ts` | `rhAgentProcessSymbol` | Cloud Tasks worker: reads bars, executes strategy, persists signals |
 | `rh-agent-callables.ts` | `rhAgentManualRun` | HTTPS callable for dashboard "Run Now" button |
 | `rh-agent-dashboard-callables.ts` | `rhAgentGetStatus`, `rhAgentGetRunHistory`, `rhAgentGetSymbolsWithSignals` | Dashboard status, run history, and grouped-review symbol query |
@@ -127,7 +127,7 @@ Canonical compact OHLCV bar used by `symbol-data` storage and all indicator/sign
 | `c` | `number` | Close price |
 | `v` | `number` | *(Optional)* Volume |
 
-The nightly `symbolDataSyncNightly` function populates `symbol-data/{symbol}` subcollections with D/W/M `OhlcBar` data. Workers read these and never mutate the stored bars; intraday snapshots are injected in-memory only at worker read time.
+The SDS pipeline (`symbolDataSync` Pub/Sub subscriber) populates `symbol-data/{symbol}` subcollections with D/W/M `OhlcBar` data. Workers read these and never mutate the stored bars; intraday snapshots are injected in-memory only at worker read time.
 
 ## Security Model
 
@@ -135,7 +135,6 @@ The nightly `symbolDataSyncNightly` function populates `symbol-data/{symbol}` su
 |---------------|----------|----------------|
 | `onCall` dashboard callables | `rhAgentGetSymbolsWithSignals`, `rhAgentGetSymbolIndicatorSeries`, `rhAgentManualRun` | Require a signed-in Firebase Auth user. CORS is restricted to `RH_AGENT_ALLOWED_ORIGINS`. |
 | `onRequest` admin endpoints | `rhAgentTriggerDaily`, `clearRhAgentSymbolsAdmin`, `seedAllSymbolsFromPartner` | HTTP endpoints intended for admin/internal use. Protect at the network layer (IP allowlist, Cloud IAM, or admin token) before exposing them. |
-| Pub/Sub triggers | `rhAgentPdrTrigger` | Invoked by Google Cloud Pub/Sub; no direct external access. |
 | Scheduled functions | `rhAgentOverviewSync` | Invoked by Cloud Scheduler; no direct external access. |
 
 ## Local Development

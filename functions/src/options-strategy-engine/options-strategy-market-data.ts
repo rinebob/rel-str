@@ -13,9 +13,9 @@ import type { OhlcBar } from '../common/market-data-types';
 
 /**
  * Read the most recent underlying price from symbol-data/{symbol}.
- * Uses the `currentPrice` field written by the symbol-data-sync pipeline.
+ * Uses the `currentPrice` field written by the symbol-data-sync (SDS) pipeline.
  *
- * NOTE: `currentPrice` is written by `upsertSymbolCurrentPrice` as an object
+ * NOTE: `currentPrice` is written by SDS as an object
  * `{ price, date, time }`, not a bare number. This helper extracts `.price`.
  */
 export async function getUnderlyingClose(symbol: string): Promise<number | null> {
