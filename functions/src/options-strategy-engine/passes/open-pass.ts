@@ -3,7 +3,7 @@
  *
  * Next-day open pass for the hybrid options quote provider.
  *
- * Reads the prior night's `daily-analysis/{date}` document, looks up the
+ * Reads the prior night's `daily-analysis/latest` document, looks up the
  * current underlying price, selects the nearest grid point from the overnight
  * delta simulation, records the actual overnight move, and opens a position
  * if no existing open position is found for the same strategy instance.
@@ -18,8 +18,10 @@ import { parseOccContractId } from '@options/common';
 import { TradeSide } from '@common';
 import { db } from '../../firebase-admin-init';
 import { OPTIONS_STRATEGY_INSTANCES_COLLECTION } from '../collections';
+import { LATEST_DAILY_ANALYSIS_DOC_ID } from '../pricing/overnight-simulation-writer';
 import {
   buildLegId,
+  buildPositionId,
   listOpenPositions,
   createPosition,
 } from '../position-repository';
@@ -55,13 +57,40 @@ export type OpenPassResultWriter = (
   result: OpenPassResult,
 ) => Promise<void>;
 
+/**
+ * Places a brokerage order for the option contract. Called BEFORE the position
+ * is written to Firestore — if the order fails, no position is created.
+ *
+ * TODO: Implement with RH MCP `place_option_order` tool. For now this is a
+ * stub that returns a mock order ID so the open pass flow can be exercised.
+ */
+export type BrokerageOrderPlacer = (
+  instanceId: string,
+  leg: PositionLeg,
+  config: StrategyInstanceConfig,
+  mark: number,
+) => Promise<{ orderId: string; fillPrice: number }>;
+
+/** Stub implementation — does not place a real order. */
+async function stubBrokerageOrderPlacer(
+  _instanceId: string,
+  _leg: PositionLeg,
+  _config: StrategyInstanceConfig,
+  mark: number,
+): Promise<{ orderId: string; fillPrice: number }> {
+  logger.warn('Brokerage order placement is a STUB — no real order will be placed');
+  return { orderId: 'STUB-ORDER-ID', fillPrice: mark };
+}
+
 export interface OpenPassDependencies {
   readDailyAnalysis?: DailyAnalysisReader;
   listOpenPositions?: (instanceId: string) => Promise<Position[]>;
+  placeBrokerageOrder?: BrokerageOrderPlacer;
   createPosition?: (
     position: Omit<Position, 'id'>,
     legs: PositionLeg[],
     rawQuote: RawQuote,
+    positionId?: string,
   ) => Promise<Position>;
   writeOpenPassResult?: OpenPassResultWriter;
 }
@@ -69,12 +98,12 @@ export interface OpenPassDependencies {
 // ── Default readers/writers ─────────────────────────────────────────────────
 
 function createDefaultDailyAnalysisReader(): DailyAnalysisReader {
-  return async (instanceId, date) => {
+  return async (instanceId) => {
     const snap = await db
       .collection(OPTIONS_STRATEGY_INSTANCES_COLLECTION)
       .doc(instanceId)
       .collection('daily-analysis')
-      .doc(date)
+      .doc(LATEST_DAILY_ANALYSIS_DOC_ID)
       .get();
     if (!snap.exists) {
       return null;
@@ -85,12 +114,12 @@ function createDefaultDailyAnalysisReader(): DailyAnalysisReader {
 }
 
 function createDefaultOpenPassResultWriter(): OpenPassResultWriter {
-  return async (instanceId, date, result) => {
+  return async (instanceId, _date, result) => {
     await db
       .collection(OPTIONS_STRATEGY_INSTANCES_COLLECTION)
       .doc(instanceId)
       .collection('daily-analysis')
-      .doc(date)
+      .doc(LATEST_DAILY_ANALYSIS_DOC_ID)
       .set({ openPassResult: result }, { merge: true });
   };
 }
@@ -142,14 +171,15 @@ export async function runOpenPass(
   const readDailyAnalysis =
     deps.readDailyAnalysis ?? createDefaultDailyAnalysisReader();
   const listOpen = deps.listOpenPositions ?? listOpenPositions;
+  const placeOrder = deps.placeBrokerageOrder ?? stubBrokerageOrderPlacer;
   const create = deps.createPosition ?? createPosition;
   const writeResult =
     deps.writeOpenPassResult ?? createDefaultOpenPassResultWriter();
 
-  // 1. Read the prior night's simulation
+  // 1. Read the prior night's simulation from the latest doc
   const simulation = await readDailyAnalysis(instanceId, date);
   if (!simulation) {
-    logger.info(`No daily-analysis found for ${instanceId}/${date}`);
+    logger.error(`No daily-analysis/latest found for ${instanceId} — selection pass may have failed`);
     return null;
   }
 
@@ -254,7 +284,15 @@ export async function runOpenPass(
     },
   };
 
-  const created = await create(position, [leg], rawQuote);
+  // 7. Place brokerage order BEFORE creating the position in Firestore.
+  //    If the order fails, no position is created.
+  const positionId = buildPositionId(config, date);
+  const order = await placeOrder(instanceId, leg, config, mark);
+  logger.info(
+    `Brokerage order placed for ${instanceId}/${date}: orderId=${order.orderId}, fillPrice=${order.fillPrice}`,
+  );
+
+  const created = await create(position, [leg], rawQuote, positionId);
 
   // 8. Incrementally update stats (premium + open count) for per-instance + ALL
   await incrementStatsOnOpen(instanceId, premiumCollected);

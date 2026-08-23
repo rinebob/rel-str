@@ -9,7 +9,8 @@ import { db } from '../firebase-admin-init';
 import {
   OPTIONS_STRATEGY_POSITIONS_COLLECTION,
 } from './collections';
-import { OptionType } from '@options/common';
+import { OptionType, StrategyFrequency } from '@options/common';
+import { TradeSide } from '@common';
 import type {
   DailyUpdate,
   Position,
@@ -21,8 +22,45 @@ import type {
 
 // ── ID helpers ───────────────────────────────────────────────────────────────
 
-export function buildPositionId(instanceId: string, openDate: string): string {
-  return `${instanceId}-${openDate}`;
+/**
+ * Minimal config shape needed to build a position ID.
+ * Avoids importing the full StrategyInstanceConfig to prevent a circular dep.
+ */
+export interface PositionIdConfig {
+  symbol: string;
+  optionType: OptionType;
+  side: TradeSide;
+  targetDelta?: number;
+  dteMax?: number;
+  frequency: StrategyFrequency;
+  openTimePT: string;
+}
+
+/**
+ * Build a position ID from the strategy config and the opening date.
+ *
+ * Format: YYMMDD-SYMBOL-STRATTYPE-DELTA-DTE-FREQ-HHMM
+ *   e.g. 260820-QQQM-CSP-020-30-D-1200
+ *
+ * The date is the trade opening date (not the instance creation date).
+ * The time is the configured openTimePT (e.g. "12:00" → "1200").
+ */
+export function buildPositionId(
+  config: PositionIdConfig,
+  openDate: string,
+): string {
+  const datePart = openDate.slice(2).replace(/-/g, ''); // 2026-08-20 → 260820
+  const stratType =
+    config.side === TradeSide.SHORT && config.optionType === OptionType.PUT
+      ? 'CSP'
+      : config.side === TradeSide.LONG && config.optionType === OptionType.CALL
+        ? 'CC'
+        : 'UNK';
+  const delta = String(Math.round((config.targetDelta ?? 0) * 100)).padStart(3, '0');
+  const dte = String(config.dteMax ?? 0);
+  const freq = config.frequency === StrategyFrequency.DAILY ? 'D' : 'W';
+  const time = config.openTimePT.replace(':', '');
+  return `${datePart}-${config.symbol}-${stratType}-${delta}-${dte}-${freq}-${time}`;
 }
 
 export function buildLegId(
@@ -144,28 +182,29 @@ export async function createPosition(
   position: Omit<Position, 'id'>,
   legs: PositionLeg[],
   rawQuote: RawQuote,
+  positionId?: string,
 ): Promise<Position> {
-  const positionId = buildPositionId(position.instanceId, position.openDate);
-  const positionRef = positionDocRef(positionId);
+  const id = positionId ?? `${position.instanceId}-${position.openDate}`;
+  const positionRef = positionDocRef(id);
 
   await db.runTransaction(async (transaction) => {
     const existing = await transaction.get(positionRef);
     if (existing.exists) {
-      throw new Error(`Position ${positionId} already exists`);
+      throw new Error(`Position ${id} already exists`);
     }
 
     transaction.set(positionRef, position);
 
     for (const leg of legs) {
-      const legRef = legsCollectionRef(positionId).doc(leg.id);
+      const legRef = legsCollectionRef(id).doc(leg.id);
       transaction.set(legRef, leg);
     }
 
-    const rawQuoteRef = rawQuotesCollectionRef(positionId).doc(rawQuote.date);
+    const rawQuoteRef = rawQuotesCollectionRef(id).doc(rawQuote.date);
     transaction.set(rawQuoteRef, rawQuote);
   });
 
-  return { id: positionId, ...position };
+  return { id, ...position };
 }
 
 export async function updatePosition(
