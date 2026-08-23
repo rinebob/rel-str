@@ -144,3 +144,33 @@ node scripts/verify-sds.js --phase post --sequence A --interval DAILY --dry-run
 | `--market-date` | today ET | Override marketDate |
 | `--wait-seconds` | `120` | Max seconds to poll for results |
 | `--dry-run` | false | Print message without publishing |
+
+## verify-sds-completion.js
+
+- **Purpose**: Verify the SDS completion pipeline (Task #167) — per-interval completion, sequence fan-in, downstream consumer dispatch, and watchdog. Creates test run/sequence docs in Firestore with completed status and verifies the watchdog picks them up and fires sequence completion.
+
+### Prerequisites
+- `gcloud auth login` and `gcloud config set project rel-str`
+- SDS functions deployed (`sdsWatchdog`, `sdsConsumerDispatch`)
+
+### Usage examples
+
+Verify sequence completion for POST A with all 3 intervals:
+```bash
+node scripts/verify-sds-completion.js --phase post --sequence A --intervals DAILY,WEEKLY,MONTHLY
+```
+
+Verify watchdog is running:
+```bash
+node scripts/verify-sds-completion.js --watchdog
+```
+
+### Options
+| Flag | Default | Description |
+|---|---|---|
+| `--phase` | `post` | PDR phase |
+| `--sequence` | `A` | POST sequence (`A`, `B`, `C`) |
+| `--intervals` | `DAILY,WEEKLY,MONTHLY` | Comma-separated intervals to complete |
+| `--watchdog` | false | Run watchdog verification only |
+| `--symbols` | `AAPL,MSFT` | Comma-separated symbols to simulate |
+| `--marketDate` | today PT | Override market date |
