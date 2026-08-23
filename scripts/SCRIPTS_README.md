@@ -101,3 +101,46 @@ Add to the root `package.json` if you want a shortcut:
 
 ### Notes
 - Emulator data persists across runs if you export on exit or use `emulators:export` per the project setup. Otherwise, re-run the seeder as needed.
+
+## verify-sds.js
+
+- **Purpose**: Verify the SDS (symbolDataSync) PDR-triggered pipeline end-to-end against prod. Publishes a crafted PDR message to the `partner-data-ready` topic, then polls Firestore for the expected run doc, sequence doc, and symbol-data writes.
+
+### Prerequisites
+- `gcloud auth login` and `gcloud config set project rel-str`
+- SDS functions deployed (`symbolDataSync`, `symbolDataSyncWorker`)
+- `firebase-admin` installed in `functions/` (for Firestore verification polling)
+
+### Usage examples
+
+POST A DAILY (full universe minus excludeSymbols):
+```bash
+node scripts/verify-sds.js --phase post --sequence A --interval DAILY --exclude AAPL
+```
+
+POST B DAILY (only includeSymbols):
+```bash
+node scripts/verify-sds.js --phase post --sequence B --interval DAILY --symbols AAPL,MSFT
+```
+
+Intraday PRE (bulk snapshot):
+```bash
+node scripts/verify-sds.js --phase pre
+```
+
+Dry run (print message without publishing):
+```bash
+node scripts/verify-sds.js --phase post --sequence A --interval DAILY --dry-run
+```
+
+### Options
+| Flag | Default | Description |
+|---|---|---|
+| `--phase` | `post` | PDR phase (`post` or `pre`) |
+| `--sequence` | `A` | POST sequence (`A`, `B`, `C`) |
+| `--interval` | `DAILY` | POST interval (`DAILY`, `WEEKLY`, `MONTHLY`) |
+| `--symbols` | `AAPL` | Comma-separated symbols for `includeSymbols` (B/C) |
+| `--exclude` | (empty) | Comma-separated symbols for `excludeSymbols` (A) |
+| `--market-date` | today ET | Override marketDate |
+| `--wait-seconds` | `120` | Max seconds to poll for results |
+| `--dry-run` | false | Print message without publishing |
