@@ -22,6 +22,9 @@
 - [Data Pipeline PDR Migration] 159-171_FE-IMPL-DATA-PIPELINE: Migrate option chart to local bar store
 - [Data Pipeline PDR Migration] 159-171_FE-CHORE-DATA-PIPELINE: Add verification script for option chart migration
 - [Data Pipeline PDR Migration] 159-171_DOCS-DATA-PIPELINE: Add code review doc for option chart migration
+- [Data Pipeline PDR Migration] 159-172_FE-IMPL-DATA-PIPELINE: Migrate spread chart to local bar store
+- [Data Pipeline PDR Migration] 159-172_FE-CHORE-DATA-PIPELINE: Add verification script for spread chart migration
+- [Data Pipeline PDR Migration] 159-172_DOCS-DATA-PIPELINE: Add code review doc for spread chart migration
 
 ### Changed
 - [Data Pipeline PDR Migration] 159-167_BE-REFACTOR-DATA-PIPELINE-PDR-MIGRATION: Delete rhAgentPdrTrigger and wire SDS exports
