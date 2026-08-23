@@ -1,5 +1,18 @@
 # Changelog
 
+## [2026-08-24]
+
+### Added
+- [Data Pipeline PDR Migration] 159-167_BE-IMPL-DATA-PIPELINE-PDR-MIGRATION: Add SDS completion detection with set-based schema
+- [Data Pipeline PDR Migration] 159-167_BE-IMPL-DATA-PIPELINE-PDR-MIGRATION: Add SDS watchdog for stale runs and sequences
+- [Data Pipeline PDR Migration] 159-167_BE-IMPL-DATA-PIPELINE-PDR-MIGRATION: Add SDS downstream consumer dispatch
+- [Data Pipeline PDR Migration] 159-167_BE-IMPL-DATA-PIPELINE-PDR-MIGRATION: Add SDS completion unit tests (52 tests)
+- [Data Pipeline PDR Migration] 159-167_BE-CHORE-DATA-PIPELINE-PDR-MIGRATION: Add SDS completion verification script
+- [Data Pipeline PDR Migration] 159-167_DOCS-DATA-PIPELINE-PDR-MIGRATION: Add ADR-005, code review, and task order docs
+
+### Changed
+- [Data Pipeline PDR Migration] 159-167_BE-REFACTOR-DATA-PIPELINE-PDR-MIGRATION: Delete rhAgentPdrTrigger and wire SDS exports
+
 ## [2026-08-23]
 
 ### Added
