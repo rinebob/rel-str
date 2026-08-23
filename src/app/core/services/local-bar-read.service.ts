@@ -5,6 +5,10 @@
  * via the Firestore client SDK. Follows the pattern in `rel-str-db-v2.service.ts`
  * — `doc()`, `getDoc()` with Angular zone wrapper.
  *
+ * IMPORTANT: All bars are SPLIT-ADJUSTED (no separate raw stream).
+ * The SDS pipeline fetches from SA with adjusted=true and writes to Firestore.
+ * Callers that need raw/unadjusted prices must use a different data source.
+ *
  * Firestore structure (written by SDS pipeline):
  *   symbol-data/{SYMBOL}/daily/{year}   — doc with { bars: OhlcBar[] }
  *   symbol-data/{SYMBOL}/weekly/all     — doc with { bars: OhlcBar[] }
@@ -16,7 +20,7 @@ import { Observable, from, of, defer } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
 
 import { Collection } from '../common/constants';
-import { getMarketDatePT, getPtYear, daysAgoPT } from '../common/pt-date-utils';
+import { getPtYear, daysAgoPT } from '../common/pt-date-utils';
 import type { OhlcBar, OhlcBarsDoc } from '../models/market-data.types';
 
 export type { OhlcBar };
@@ -149,6 +153,53 @@ export class LocalBarReadService {
     }))).pipe(
       catchError(err => {
         console.error('[LocalBarReadService] getRecentDailyBars$ error', { symbol: sym, days, err });
+        return of([] as OhlcBar[]);
+      }),
+    );
+  }
+
+  /**
+   * Read daily bars within a [from, to] date range (inclusive).
+   * Reads all year shards that overlap the range and filters in memory.
+   * Uses Promise.allSettled so a single missing/failed shard doesn't lose all data.
+   *
+   * @param symbol Stock symbol
+   * @param from Start date YYYY-MM-DD (inclusive)
+   * @param to End date YYYY-MM-DD (inclusive)
+   * @returns Observable of bars in [from, to], sorted ascending by date
+   */
+  getDailyBarsForRange$(symbol: string, fromDate: string, toDate: string): Observable<OhlcBar[]> {
+    const sym = String(symbol || '').trim().toUpperCase();
+    if (!sym || !fromDate || !toDate) return of([]);
+
+    return defer(() => from(this.inCtx(async () => {
+      const fromYear = Number(fromDate.slice(0, 4));
+      const toYear = Number(toDate.slice(0, 4));
+      if (!Number.isFinite(fromYear) || !Number.isFinite(toYear) || fromYear > toYear) return [];
+
+      const years: number[] = [];
+      for (let y = fromYear; y <= toYear; y++) years.push(y);
+
+      const yearPromises = years.map(y => {
+        const ref = doc(this.firestore, Collection.SYMBOL_DATA, sym, 'daily', String(y));
+        return this.zone.run(() => getDoc(ref));
+      });
+      const results = await Promise.allSettled(yearPromises);
+
+      const allBars: OhlcBar[] = [];
+      for (const result of results) {
+        if (result.status !== 'fulfilled') continue;
+        const snap = result.value;
+        if (!snap.exists()) continue;
+        allBars.push(...extractBars(snap.data()));
+      }
+
+      return allBars
+        .filter(b => b.d >= fromDate && b.d <= toDate)
+        .sort((a, b) => a.d.localeCompare(b.d));
+    }))).pipe(
+      catchError(err => {
+        console.error('[LocalBarReadService] getDailyBarsForRange$ error', { symbol: sym, fromDate, toDate, err });
         return of([] as OhlcBar[]);
       }),
     );

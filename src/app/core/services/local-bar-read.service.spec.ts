@@ -340,6 +340,109 @@ describe('LocalBarReadService', () => {
     });
   });
 
+  // ── getDailyBarsForRange$ ──────────────────────────────────────────────────
+
+  describe('getDailyBarsForRange$', () => {
+    it('returns bars within the date range from a single year shard', (done) => {
+      const bars = [
+        mockBar('2026-01-05'),
+        mockBar('2026-03-15'),
+        mockBar('2026-06-20'),
+        mockBar('2026-09-10'),
+      ];
+      mockGetDoc.mockResolvedValue(mockDocSnap(bars));
+
+      service.getDailyBarsForRange$('SPY', '2026-02-01', '2026-07-01').subscribe(result => {
+        expect(result).toHaveLength(2);
+        expect(result[0].d).toBe('2026-03-15');
+        expect(result[1].d).toBe('2026-06-20');
+        done();
+      });
+    });
+
+    it('reads multiple year shards for a cross-year range', (done) => {
+      const bars2025 = [mockBar('2025-12-15'), mockBar('2025-12-30')];
+      const bars2026 = [mockBar('2026-01-05'), mockBar('2026-06-20')];
+
+      mockGetDoc
+        .mockResolvedValueOnce(mockDocSnap(bars2025))
+        .mockResolvedValueOnce(mockDocSnap(bars2026));
+
+      service.getDailyBarsForRange$('SPY', '2025-11-01', '2026-07-01').subscribe(result => {
+        expect(result).toHaveLength(4);
+        expect(result[0].d).toBe('2025-12-15');
+        expect(result[3].d).toBe('2026-06-20');
+        done();
+      });
+    });
+
+    it('includes bars on the boundary dates (inclusive)', (done) => {
+      const bars = [mockBar('2026-01-01'), mockBar('2026-06-30'), mockBar('2026-07-01')];
+      mockGetDoc.mockResolvedValue(mockDocSnap(bars));
+
+      service.getDailyBarsForRange$('SPY', '2026-01-01', '2026-06-30').subscribe(result => {
+        expect(result).toHaveLength(2);
+        expect(result[0].d).toBe('2026-01-01');
+        expect(result[1].d).toBe('2026-06-30');
+        done();
+      });
+    });
+
+    it('returns empty array when no bars in range', (done) => {
+      const bars = [mockBar('2026-01-05'), mockBar('2026-06-20')];
+      mockGetDoc.mockResolvedValue(mockDocSnap(bars));
+
+      service.getDailyBarsForRange$('SPY', '2026-07-01', '2026-12-31').subscribe(result => {
+        expect(result).toEqual([]);
+        done();
+      });
+    });
+
+    it('returns empty array for empty symbol', (done) => {
+      service.getDailyBarsForRange$('', '2026-01-01', '2026-12-31').subscribe(result => {
+        expect(result).toEqual([]);
+        done();
+      });
+    });
+
+    it('returns empty array for missing from/to', (done) => {
+      service.getDailyBarsForRange$('SPY', '', '2026-12-31').subscribe(result => {
+        expect(result).toEqual([]);
+        done();
+      });
+    });
+
+    it('returns empty array when from > to', (done) => {
+      service.getDailyBarsForRange$('SPY', '2026-12-31', '2026-01-01').subscribe(result => {
+        expect(result).toEqual([]);
+        done();
+      });
+    });
+
+    it('survives partial shard failure via Promise.allSettled', (done) => {
+      const bars2026 = [mockBar('2026-01-05'), mockBar('2026-06-20')];
+
+      mockGetDoc
+        .mockRejectedValueOnce(new Error('2025 shard failed'))
+        .mockResolvedValueOnce(mockDocSnap(bars2026));
+
+      service.getDailyBarsForRange$('SPY', '2025-11-01', '2026-07-01').subscribe(result => {
+        expect(result).toHaveLength(2);
+        expect(result[0].d).toBe('2026-01-05');
+        done();
+      });
+    });
+
+    it('returns empty array on Firestore error', (done) => {
+      mockGetDoc.mockRejectedValue(new Error('Firestore error'));
+
+      service.getDailyBarsForRange$('SPY', '2026-01-01', '2026-12-31').subscribe(result => {
+        expect(result).toEqual([]);
+        done();
+      });
+    });
+  });
+
   // ── Error handling ─────────────────────────────────────────────────────────
 
   describe('error handling', () => {

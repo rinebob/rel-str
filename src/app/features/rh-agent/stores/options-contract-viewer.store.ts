@@ -14,7 +14,9 @@ import {
 } from '@ngrx/signals';
 
 import { OptionsContractService } from '../services/options-contract.service';
-import { RsBarsService } from '../../services/rs-bars.service';
+import { LocalBarReadService } from '../../../core/services/local-bar-read.service';
+import { getMarketDatePT, daysAgoPT } from '../../../core/common/pt-date-utils';
+import type { OhlcBar } from '../../../core/models/market-data.types';
 import type { OHLCDatum } from '../../shared/types/rs.interfaces';
 import type {
   PartnerHistoricalOptionsContractV2Response,
@@ -35,6 +37,7 @@ import {
   countNaNIV,
   countZeroVolume,
 } from '../utils/contract-observation.utils';
+import { toOHLCDatum } from '../utils/ohlc-datum.utils';
 
 export type { ParsedObservation };
 
@@ -154,12 +157,12 @@ export const OptionsContractViewerStore = signalStore(
 
   withCatalogMethods(),
 
-  withMethods((store, optionsContractService = inject(OptionsContractService), rsBarsService = inject(RsBarsService)) => {
-    /** Fetch underlying bars and update store loading state. */
+  withMethods((store, optionsContractService = inject(OptionsContractService), localBarReadService = inject(LocalBarReadService)) => {
+    /** Fetch underlying bars from local Firestore and update store loading state. */
     function fetchUnderlyingBars(symbol: string, from: string, to: string): void {
       patchState(store, { underlyingLoading: true });
-      rsBarsService.getDailyBars$(symbol, { from, to }).subscribe({
-        next: (bars) => patchState(store, { underlyingBars: bars, underlyingLoading: false }),
+      localBarReadService.getDailyBarsForRange$(symbol, from, to).subscribe({
+        next: (bars) => patchState(store, { underlyingBars: toOHLCDatum(bars), underlyingLoading: false }),
         error: () => patchState(store, { underlyingBars: [], underlyingLoading: false }),
       });
     }
@@ -197,8 +200,9 @@ export const OptionsContractViewerStore = signalStore(
     loadUnderlyingBars(symbol: string): void {
       const sym = String(symbol || '').trim().toUpperCase();
       if (!sym) return;
-      const to = new Date().toISOString().slice(0, 10);
-      const from = new Date(Date.now() - 730 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      // Use PT to match backend bar dates (UTC would cause off-by-one at boundaries)
+      const to = getMarketDatePT();
+      const from = daysAgoPT(730);
       fetchUnderlyingBars(sym, from, to);
     },
 
@@ -206,8 +210,8 @@ export const OptionsContractViewerStore = signalStore(
     loadUnderlyingBarsFullHistory(symbol: string): void {
       const sym = String(symbol || '').trim().toUpperCase();
       if (!sym) return;
-      const to = new Date().toISOString().slice(0, 10);
-      const from = new Date(Date.now() - 3650 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const to = getMarketDatePT();
+      const from = daysAgoPT(3650);
       fetchUnderlyingBars(sym, from, to);
     },
 
