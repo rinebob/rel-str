@@ -16,6 +16,9 @@
 - [Data Pipeline PDR Migration] 159-168_DOCS-DATA-PIPELINE-PDR-MIGRATION: Add code review doc for fallback and open pass timer
 - [Data Pipeline PDR Migration] 159-169_BE-CHORE-DATA-PIPELINE: Add verification script for PDRv2 cleanup
 - [Data Pipeline PDR Migration] 159-169_DOCS-DATA-PIPELINE: Add code review, monitoring doc, update task order
+- [Data Pipeline PDR Migration] 159-170_FE-IMPL-DATA-PIPELINE: Add LocalBarReadService with PT date math and shared OhlcBar type
+- [Data Pipeline PDR Migration] 159-170_FE-CHORE-DATA-PIPELINE: Add verification script for local bar-read service
+- [Data Pipeline PDR Migration] 159-170_DOCS-DATA-PIPELINE: Add code review doc for local bar-read service
 
 ### Changed
 - [Data Pipeline PDR Migration] 159-167_BE-REFACTOR-DATA-PIPELINE-PDR-MIGRATION: Delete rhAgentPdrTrigger and wire SDS exports
