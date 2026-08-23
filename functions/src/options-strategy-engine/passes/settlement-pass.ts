@@ -1,12 +1,14 @@
 /**
  *
  * Settlement pass — settles OPEN positions whose primary leg expires on the
- * run date. For the phase-1 cash-secured-put (short PUT) strategy, a position
- * is assigned when the underlying closes at or below `strike - 0.01` (the OCC
- * $0.01 auto-exercise threshold) and expires worthless otherwise.
+ * run date. Queries Robinhood for the actual outcome (assignment, expiration,
+ * or cash settlement) rather than computing it locally from the underlying
+ * close.
  *
- * Tested directly with injected dependencies (see settlement-pass.test.ts),
- * mirroring the runMarkPass seam pattern.
+ * The pass is triggered from `checkSyncRunCompletion` in
+ * `symbol-data-sync.ts` after all nightly closing bars are guaranteed to be
+ * in Firestore, so there is no "deferred" state — if a closing bar is
+ * missing, that's an error.
  */
 
 import type { StrategyInstanceConfig } from '@options-strategy-engine/contracts';
@@ -29,9 +31,6 @@ import { createLogger } from '../logging';
 
 const logger = createLogger('SettlementPass');
 
-/** Per-share auto-exercise threshold (OCC rule). */
-const AUTO_EXERCISE_THRESHOLD = 0.01;
-
 // ── Types ──────────────────────────────────────────────────────────────────
 
 export interface SettlementPassPositionResult {
@@ -44,16 +43,10 @@ export interface SettlementPassPositionResult {
   settledAt: string;
 }
 
-export interface SettlementPassDeferred {
-  positionId: string;
-  reason: string;
-}
-
 export interface SettlementPassResult {
   instanceId: string;
   date: string;
   settled: SettlementPassPositionResult[];
-  deferred: SettlementPassDeferred[];
   errors: { positionId: string; error: string }[];
 }
 
@@ -62,32 +55,38 @@ export type UnderlyingCloseReader = (
   date: string,
 ) => Promise<number | null>;
 
+/**
+ * Queries Robinhood for the actual outcome of an expired option position.
+ * Returns whether the position was assigned (shares delivered) or expired
+ * worthless.
+ *
+ * Implementation should:
+ * 1. Call `get_equity_positions` to check if shares of the underlying were
+ *    delivered (assignment).
+ * 2. Call `get_option_positions` to check if the option position still exists
+ *    (if gone with no shares, it expired worthless).
+ * 3. Call `get_accounts` / `get_realized_pnl` to detect cash settlement
+ *    (large debit).
+ */
+export interface BrokerageOutcomeChecker {
+  (
+    config: StrategyInstanceConfig,
+    leg: PositionLeg,
+    position: Position,
+  ): Promise<{ assigned: boolean; sharesQuantity?: number }>;
+}
+
 export interface SettlementPassDependencies {
   listOpenPositions?: (instanceId: string) => Promise<Position[]>;
   getLegs?: (positionId: string) => Promise<PositionLeg[]>;
   getUnderlyingClose?: UnderlyingCloseReader;
+  checkBrokerageOutcome?: BrokerageOutcomeChecker;
   markPositionSettled?: (
     positionId: string,
     settlement: SettlementData,
     legOutcomes: LegOutcomeUpdate[],
     dailyUpdate?: DailyUpdate,
   ) => Promise<void>;
-}
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-/**
- * For a short PUT, the position is assigned (auto-exercised) when the
- * underlying closes at or below `strike - 0.01` on the position's expiration
- * day. This helper is only evaluated by the settlement pass on expiration;
- * early assignment is explicitly out of scope (see PRD "Limitations"). Returns
- * true when assigned.
- */
-export function isShortPutAssigned(
-  strike: number,
-  underlyingClose: number,
-): boolean {
-  return underlyingClose <= strike - AUTO_EXERCISE_THRESHOLD;
 }
 
 // ── Main ────────────────────────────────────────────────────────────────────
@@ -101,16 +100,16 @@ export async function runSettlementPass(
   const listOpen = deps.listOpenPositions ?? listOpenPositions;
   const getLegsForPosition = deps.getLegs ?? getLegs;
   const getClose = deps.getUnderlyingClose;
+  const checkOutcome = deps.checkBrokerageOutcome;
   const settle = deps.markPositionSettled ?? markPositionSettled;
 
   const settled: SettlementPassPositionResult[] = [];
-  const deferred: SettlementPassDeferred[] = [];
   const errors: { positionId: string; error: string }[] = [];
 
   const openPositions = await listOpen(instanceId);
   if (openPositions.length === 0) {
     logger.info(`No open positions for ${instanceId}`);
-    return { instanceId, date, settled, deferred, errors };
+    return { instanceId, date, settled, errors };
   }
 
   for (const pos of openPositions) {
@@ -123,11 +122,9 @@ export async function runSettlementPass(
       }
 
       if (leg.type !== OptionType.PUT) {
-        deferred.push({
-          positionId: pos.id,
-          reason: `Settlement for ${leg.type} legs not implemented in phase 1`,
-        });
-        continue;
+        throw new Error(
+          `Settlement for ${leg.type} legs not implemented`,
+        );
       }
 
       if (!getClose) {
@@ -135,11 +132,24 @@ export async function runSettlementPass(
       }
       const underlyingClose = await getClose(config.symbol, date);
       if (underlyingClose === null) {
-        deferred.push({
-          positionId: pos.id,
-          reason: `No underlying closing bar for ${config.symbol}/${date}`,
-        });
-        continue;
+        throw new Error(
+          `No underlying closing bar for ${config.symbol}/${date} — symbol-data sync may have failed`,
+        );
+      }
+
+      // Query RH for the actual outcome instead of computing it locally.
+      let assigned = false;
+      let sharesQuantity = 1;
+      if (checkOutcome) {
+        const outcome = await checkOutcome(config, leg, pos);
+        assigned = outcome.assigned;
+        if (outcome.sharesQuantity !== undefined) {
+          sharesQuantity = outcome.sharesQuantity;
+        }
+      } else {
+        logger.warn(
+          `No brokerage outcome checker provided for ${pos.id} — skipping RH query`,
+        );
       }
 
       const settledAt = new Date().toISOString();
@@ -148,8 +158,8 @@ export async function runSettlementPass(
         underlyingClose,
       };
 
-      if (!isShortPutAssigned(leg.strike, underlyingClose)) {
-        // OTM — expire worthless, retain full premium.
+      if (!assigned) {
+        // Expired worthless — retain full premium.
         const unrealizedPnl = pos.premiumCollected;
         await settle(
           pos.id,
@@ -173,13 +183,10 @@ export async function runSettlementPass(
           settledAt,
         });
       } else {
-        // ITM — assigned, take delivery of shares at the strike price.
-        // quantity is in contracts (1 this phase); ×100 is shares per contract.
-        // PRD story 8: unrealizedPnl = (close - strike) × 100 × quantity.
-        const quantity = 1;
-        const currentValue = underlyingClose * SHARES_PER_CONTRACT * quantity;
+        // Assigned — take delivery of shares at the strike price.
+        const currentValue = underlyingClose * SHARES_PER_CONTRACT * sharesQuantity;
         const unrealizedPnl =
-          (underlyingClose - leg.strike) * SHARES_PER_CONTRACT * quantity;
+          (underlyingClose - leg.strike) * SHARES_PER_CONTRACT * sharesQuantity;
         await settle(
           pos.id,
           {
@@ -192,7 +199,7 @@ export async function runSettlementPass(
               underlyingCloseAtExpiration: underlyingClose,
               assignedAt: date,
             },
-            shares: { quantity, costBasis: leg.strike },
+            shares: { quantity: sharesQuantity, costBasis: leg.strike },
           },
           [{ legId: leg.id, outcome: LegOutcome.ASSIGNED, closeDate: date }],
           dailyUpdate,
@@ -217,7 +224,7 @@ export async function runSettlementPass(
   }
 
   logger.info(
-    `Settled ${settled.length}, deferred ${deferred.length}, ${errors.length} error(s) for ${instanceId}/${date}`,
+    `Settled ${settled.length}, ${errors.length} error(s) for ${instanceId}/${date}`,
   );
-  return { instanceId, date, settled, deferred, errors };
+  return { instanceId, date, settled, errors };
 }
