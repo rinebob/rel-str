@@ -18,7 +18,6 @@
  * Firebase Cloud Function identifiers: symbolDataSyncNightly, symbolDataSyncAdminHttp,
  * symbolDataSyncSymbol, processSymbolAdded.
  */
-import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { onRequest } from 'firebase-functions/v2/https';
 import { onTaskDispatched } from 'firebase-functions/v2/tasks';
 import { getFunctions } from 'firebase-admin/functions';
@@ -33,6 +32,9 @@ import {
   getRunIdPT,
 } from '../common/pt-date-utils';
 import { syncSymbolToSymbolData, todayIso } from './symbol-data-backfill';
+import { runSettlementForAllInstances } from '../options-strategy-engine/options-strategy-pass-orchestrators';
+import { getMarketDatePT } from '../common/pt-date-utils';
+import { createRobinhoodMcpSessionManagerFromEnv } from '../options-strategy-engine/mcp/robinhood-mcp-session-manager';
 
 // ============================================================================
 // Constants
@@ -141,20 +143,6 @@ export const symbolDataSyncSymbol = onTaskDispatched<SymbolDataSyncPayload>(
 );
 
 // ============================================================================
-// Scheduled trigger — runs nightly Mon-Fri at 6 PM PT (01:00 UTC next day)
-// ============================================================================
-
-export const symbolDataSyncNightly = onSchedule({
-  schedule: '0 1 * * 2-6', // 1:00 AM UTC Tue-Sat = 6 PM PT Mon-Fri
-  timeZone: 'Etc/UTC',
-  timeoutSeconds: 60,
-  memory: '256MiB',
-}, async () => {
-  logger.info('symbol_data_sync_nightly_triggered');
-  await enqueueAllSymbols(false, undefined, true); // true = trigger agent run when done
-});
-
-// ============================================================================
 // Admin HTTP request — manual trigger for backfill or re-sync, returns immediately
 // ============================================================================
 
@@ -221,6 +209,20 @@ async function checkSyncRunCompletion(
       logger.info('symbol_data_sync_agent_run_triggered', { syncRunId, marketDate });
     } catch (err: any) {
       logger.error('symbol_data_sync_agent_run_failed', { syncRunId, marketDate, error: err?.message });
+    }
+
+    // Run the options settlement pass now that all closing bars are available.
+    try {
+      const settlementDate = getMarketDatePT();
+      const manager = await createRobinhoodMcpSessionManagerFromEnv();
+      try {
+        await runSettlementForAllInstances(settlementDate);
+        logger.info('symbol_data_sync_settlement_pass_complete', { syncRunId, settlementDate });
+      } finally {
+        await manager.close();
+      }
+    } catch (err: any) {
+      logger.error('symbol_data_sync_settlement_pass_failed', { syncRunId, error: err?.message });
     }
   }
 }
