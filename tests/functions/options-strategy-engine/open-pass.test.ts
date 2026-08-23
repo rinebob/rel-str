@@ -2,12 +2,9 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { runOpenPass } from '../../../functions/src/options-strategy-engine/passes/open-pass';
 import type { OpenPassResult } from '../../../functions/src/options-strategy-engine/passes/open-pass';
-import { OptionType, OptionQuoteSource } from '../../../shared/options-common';
+import { OptionType, OptionQuoteSource, PositionSpreadType, StrategyFrequency } from '../../../shared/options-common';
 import { TradeSide } from '../../../shared/common';
-import type {
-  StrategyInstanceConfig,
-  OvernightDeltaSimulation,
-} from '../../../shared/options-strategy-engine-contracts';
+import { ExitPolicy, LifecycleState, type StrategyInstanceConfig, type OvernightDeltaSimulation } from '../../../shared/options-strategy-engine-contracts';
 import type { Position, PositionLeg, RawQuote } from '../../../functions/src/options-strategy-engine/types';
 import { PositionStatus } from '../../../functions/src/options-strategy-engine/types';
 
@@ -15,12 +12,28 @@ function makeConfig(
   overrides: Partial<StrategyInstanceConfig> = {},
 ): StrategyInstanceConfig {
   return {
+    id: 'inst-1',
     symbol: 'SPY',
     optionType: OptionType.PUT,
     side: TradeSide.SHORT,
     dteMin: 2,
     dteMax: 5,
     targetDelta: 0.3,
+    phases: [
+      {
+        spreadType: PositionSpreadType.CASH_SECURED_PUT,
+        targetDelta: 0.3,
+        dteMin: 2,
+        dteMax: 5,
+      },
+    ],
+    frequency: StrategyFrequency.DAILY,
+    openTimePT: '12:00',
+    exitPolicies: [{ policy: ExitPolicy.HOLD_TO_EXPIRATION }],
+    lifecycleState: LifecycleState.ACTIVE,
+    userId: 'test-user',
+    createdAt: '2025-08-16T00:00:00Z',
+    updatedAt: '2025-08-16T00:00:00Z',
     overnightGridRangePct: 0.025,
     overnightGridStepPct: 0.005,
     ...overrides,

@@ -9,13 +9,9 @@ import { runEodNightlySelection } from '../../../functions/src/options-strategy-
 import { runOpenPass } from '../../../functions/src/options-strategy-engine/passes/open-pass';
 import { runMarkPass } from '../../../functions/src/options-strategy-engine/passes/mark-pass';
 import type { BatchQuoteProvider } from '../../../functions/src/options-strategy-engine/passes/mark-pass';
-import { OptionType, OptionQuoteSource } from '../../../shared/options-common';
+import { OptionType, OptionQuoteSource, PositionSpreadType, StrategyFrequency } from '../../../shared/options-common';
 import { TradeSide } from '../../../shared/common';
-import type {
-  StrategyInstanceConfig,
-  OptionQuote,
-  OvernightDeltaSimulation,
-} from '../../../shared/options-strategy-engine-contracts';
+import { ExitPolicy, LifecycleState, type StrategyInstanceConfig, type OptionQuote, type OvernightDeltaSimulation } from '../../../shared/options-strategy-engine-contracts';
 import type { HistoricalOptionContract } from '../../../functions/src/types/partner';
 import type { Position, PositionLeg, RawQuote } from '../../../functions/src/options-strategy-engine/types';
 import { PositionStatus } from '../../../functions/src/options-strategy-engine/types';
@@ -32,12 +28,28 @@ const CURRENT_PRICE = 100.5; // +0.5% overnight move
 
 function makeConfig(overrides: Partial<StrategyInstanceConfig> = {}): StrategyInstanceConfig {
   return {
+    id: INSTANCE_ID,
     symbol: SYMBOL,
     optionType: OptionType.PUT,
     side: TradeSide.SHORT,
     dteMin: 2,
     dteMax: 5,
     targetDelta: 0.3,
+    phases: [
+      {
+        spreadType: PositionSpreadType.CASH_SECURED_PUT,
+        targetDelta: 0.3,
+        dteMin: 2,
+        dteMax: 5,
+      },
+    ],
+    frequency: StrategyFrequency.DAILY,
+    openTimePT: '12:00',
+    exitPolicies: [{ policy: ExitPolicy.HOLD_TO_EXPIRATION }],
+    lifecycleState: LifecycleState.ACTIVE,
+    userId: 'test-user',
+    createdAt: '2025-08-14T00:00:00Z',
+    updatedAt: '2025-08-14T00:00:00Z',
     overnightGridRangePct: 0.025,
     overnightGridStepPct: 0.005,
     ...overrides,
