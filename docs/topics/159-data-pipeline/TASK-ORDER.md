@@ -2,14 +2,11 @@
 
 Methodical execution order for remaining tasks. Check off as shipped.
 
-## BE (3 remaining)
+## BE (0 remaining)
 
-1. [ ] **#167** — Completion signal, watchdog, downstream consumers (IMPL)
-   - Next after #166. Adds completion detection to SDS run docs, watchdog for stuck runs, and downstream consumer notification.
-2. [ ] **#168** — Fallback timer and open pass timer (IMPL)
-   - Safety net timers: fallback PDR if partner doesn't fire, open pass timer for options.
-3. [ ] **#169** — PDRv2 cleanup, dead code, logging, monitoring (CHORE)
-   - Final cleanup pass after all BE impl is done.
+1. [x] **#167** — Completion signal, watchdog, downstream consumers (shipped)
+2. [x] **#168** — Fallback timer and open pass timer (shipped)
+3. [x] **#169** — PDRv2 cleanup, dead code, logging, monitoring (QA #175)
 
 ## FE (3 remaining)
 
