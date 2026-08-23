@@ -9,9 +9,15 @@
 - [Data Pipeline PDR Migration] 159-167_BE-IMPL-DATA-PIPELINE-PDR-MIGRATION: Add SDS completion unit tests (52 tests)
 - [Data Pipeline PDR Migration] 159-167_BE-CHORE-DATA-PIPELINE-PDR-MIGRATION: Add SDS completion verification script
 - [Data Pipeline PDR Migration] 159-167_DOCS-DATA-PIPELINE-PDR-MIGRATION: Add ADR-005, code review, and task order docs
+- [Data Pipeline PDR Migration] 159-168_BE-IMPL-DATA-PIPELINE-PDR-MIGRATION: Add SDS fallback timer with createPostRun extraction
+- [Data Pipeline PDR Migration] 159-168_BE-IMPL-DATA-PIPELINE-PDR-MIGRATION: Add open pass timer with 5-minute slot computation
+- [Data Pipeline PDR Migration] 159-168_BE-IMPL-DATA-PIPELINE-PDR-MIGRATION: Add fallback and open pass timer unit tests (17 tests)
+- [Data Pipeline PDR Migration] 159-168_BE-CHORE-DATA-PIPELINE-PDR-MIGRATION: Add fallback and open pass timer verification scripts
+- [Data Pipeline PDR Migration] 159-168_DOCS-DATA-PIPELINE-PDR-MIGRATION: Add code review doc for fallback and open pass timer
 
 ### Changed
 - [Data Pipeline PDR Migration] 159-167_BE-REFACTOR-DATA-PIPELINE-PDR-MIGRATION: Delete rhAgentPdrTrigger and wire SDS exports
+- [Data Pipeline PDR Migration] 159-168_BE-REFACTOR-DATA-PIPELINE-PDR-MIGRATION: Delete old optionsOpenPass cron and wire new exports
 
 ## [2026-08-23]
 
