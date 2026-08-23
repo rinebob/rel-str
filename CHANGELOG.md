@@ -19,6 +19,9 @@
 - [Data Pipeline PDR Migration] 159-170_FE-IMPL-DATA-PIPELINE: Add LocalBarReadService with PT date math and shared OhlcBar type
 - [Data Pipeline PDR Migration] 159-170_FE-CHORE-DATA-PIPELINE: Add verification script for local bar-read service
 - [Data Pipeline PDR Migration] 159-170_DOCS-DATA-PIPELINE: Add code review doc for local bar-read service
+- [Data Pipeline PDR Migration] 159-171_FE-IMPL-DATA-PIPELINE: Migrate option chart to local bar store
+- [Data Pipeline PDR Migration] 159-171_FE-CHORE-DATA-PIPELINE: Add verification script for option chart migration
+- [Data Pipeline PDR Migration] 159-171_DOCS-DATA-PIPELINE: Add code review doc for option chart migration
 
 ### Changed
 - [Data Pipeline PDR Migration] 159-167_BE-REFACTOR-DATA-PIPELINE-PDR-MIGRATION: Delete rhAgentPdrTrigger and wire SDS exports
