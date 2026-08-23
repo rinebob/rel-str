@@ -11,31 +11,19 @@ import { Observable, from, of } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
 
 import { BarsInterval } from '../../../core/models/partner.types';
+import type { OhlcBar, OhlcBarsDoc } from '../../../core/models/market-data.types';
 import type { ChartDataset, PriceBar } from '../../heatmap-chart/heatmap-chart.types';
 import { toDatePt } from '../utils/rh-agent.utils';
 
 // ============================================================================
-// Types (mirrors canonical backend OhlcBar in functions/src/rh-agent-cloud-function/rh-agent-types.ts)
+// Types
 // ============================================================================
-
-interface OhlcBar {
-  d: string;   // YYYY-MM-DD
-  o: number;
-  h: number;
-  l: number;
-  c: number;
-  v?: number;
-}
 
 interface SymbolBarsResult {
   daily: OhlcBar[];
   weekly: OhlcBar[];
   monthly: OhlcBar[];
   version: string;
-}
-
-interface OhlcBarsDoc {
-  bars: OhlcBar[];
 }
 
 interface SymbolDataRootDoc {
