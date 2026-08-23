@@ -78,7 +78,7 @@ Build a new PDR-triggered `symbolDataSync` (SDS) as a parallel Pub/Sub subscribe
   - DAILY message → fetch DAILY bars via `callPartnerTimeSeries({ interval: 'DAILY' })`, write `daily/{YYYY}` shard, write `currentPrice` on root doc.
   - WEEKLY message → fetch WEEKLY bars, write `weekly/all` doc. Does NOT write `currentPrice` (same close as DAILY, redundant).
   - MONTHLY message → fetch MONTHLY bars, write `monthly/all` doc. Does NOT write `currentPrice`.
-- **Intraday runs (PRE):** single message per tick, not per-interval. SDS fetches DAILY bars (sufficient to get intraday fields on the latest bar), extracts intraday fields (`ip`, `ipc`, `io`, `it`, `ic`), writes only the intraday doc (`symbol-data/{SYMBOL}/intraday/latest`) and `currentPrice`. EOD year shards are NOT written on intraday runs.
+- **Intraday runs (PRE):** single message per tick, not per-interval. SDS makes one bulk call to `callPartnerIntradaySnapshotV2(allSymbols)` — a bulk endpoint that returns `{ ip, ipc, io, it, ic }` per symbol in a single response. SDS writes the intraday doc (`symbol-data/{SYMBOL}/intraday/latest`) and `currentPrice` for each symbol directly from the subscriber — no per-symbol Cloud Tasks needed for intraday. EOD year shards are NOT written on intraday runs. Completion fires directly (no fan-in).
 - **A vs B/C distinction:** the `runType` Pub/Sub attribute is `ts-post-all-intervals` for ALL POST runs (A, B, and C). SDS distinguishes A from B/C by checking for `excludeSymbols` (A only) vs `includeSymbols` (B/C only) presence in the message body, or by parsing the `runId` sequence segment (`-A-` vs `-B-`/`-C-`).
 - **Idempotency:** SDS uses the PDR message's `runId` directly as the sync run ID (e.g., `2026-01-24-FRI-POST-A-1335-DAILY`). Before enqueuing tasks, it checks if `symbol-data-sync-runs/{runId}` already exists with a terminal status. If so, the PDR is a duplicate (Pub/Sub at-least-once delivery) and is skipped. Same pattern as PDRv2's `partner-events` idempotency check.
 - **POST A (initial):** syncs all tracked symbols minus `excludeSymbols` for the message's interval. `excludeSymbols` are per-interval — a symbol could be stale for DAILY but fresh for WEEKLY.
@@ -273,8 +273,9 @@ Build a new PDR-triggered `symbolDataSync` (SDS) as a parallel Pub/Sub subscribe
               WRITES (POST MONTHLY msg):
                 monthly/all doc (merge:true)
               WRITES (intraday PRE msg):
-                intraday/latest (ip/ipc/io/it/ic only)
-                currentPrice on root doc
+                bulk callPartnerIntradaySnapshotV2(allSymbols)
+                → intraday/latest (ip/ipc/io/it/ic only)
+                → currentPrice on root doc
                     |
                     |
               SDS completion callback

@@ -37,7 +37,7 @@ Cloud Task handler. Per symbol, per interval:
 - POST DAILY: writes `daily/{YYYY}` shard using `set({ merge: true })`, writes `currentPrice` on root doc
 - POST WEEKLY: writes `weekly/all` doc using `set({ merge: true })`. Does NOT write `currentPrice`.
 - POST MONTHLY: writes `monthly/all` doc using `set({ merge: true })`. Does NOT write `currentPrice`.
-- Intraday PRE: fetches DAILY bars, extracts intraday fields from latest bar, writes only `intraday/latest` doc with `ip/ipc/io/it/ic/marketDate`, writes `currentPrice` on root doc
+- Intraday PRE: bulk fetch via `callPartnerIntradaySnapshotV2(allSymbols)` in the subscriber itself — no per-symbol tasks. Writes `intraday/latest` doc with `ip/ipc/io/it/ic/marketDate` and `currentPrice` on root doc for each symbol. Completion fires directly.
 - Increments `processedCount` in `finally` block (always, success or failure)
 - On success: increments `successCount`. On failure: increments `failedCount`, appends to `failedSymbols`
 - Calls `checkSyncRunCompletion` after incrementing (per-interval completion)

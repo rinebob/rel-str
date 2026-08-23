@@ -14,7 +14,7 @@
 ## E2E User Journeys
 
 - **Journey 1:** SA publishes POST A DAILY PDR → SDS fetches DAILY, writes daily shards + currentPrice. SA publishes POST A WEEKLY → SDS fetches WEEKLY, writes weekly doc. SA publishes POST A MONTHLY → SDS fetches MONTHLY, writes monthly doc. All 3 interval runs complete → sequence fan-in fires → selection, settlement, RH Agent nightly tasks enqueue.
-- **Journey 2:** SA publishes intraday PRE PDR → SDS fetches DAILY, extracts intraday fields, writes intraday doc + currentPrice → completion fires → RH Agent intraday task enqueues.
+- **Journey 2:** SA publishes intraday PRE PDR → SDS bulk fetches via callPartnerIntradaySnapshotV2, writes intraday docs + currentPrice for all symbols → completion fires → RH Agent intraday task enqueues.
 - **Journey 3:** SA publishes POST B DAILY/WEEKLY/MONTHLY PDRs with includeSymbols → SDS syncs only those symbols per interval → all 3 complete → sequence fan-in fires → settlement + RH Agent scoped retries enqueue.
 - **Journey 4:** No POST A arrives by 3 PM PT → fallback timer creates 3 interval runs + sequence doc → all 3 complete → sequence completion fires.
 - **Journey 5:** Open pass timer fires every 5 min from 6:30 AM to 1 PM PT. At the 09:30 tick, queries instances with openTimePT="09:30" → runs open pass for matching instances only. Other ticks with no matching instances are no-ops.
@@ -24,7 +24,7 @@
 - **SDS subscriber + PDR message parsing:** verify correct symbol set resolution for POST A (all minus excludeSymbols, per-interval), POST B/C (includeSymbols only, skip if empty), intraday (all tracked)
 - **Per-interval processing:** verify DAILY message fetches DAILY and writes daily shard + currentPrice; WEEKLY fetches WEEKLY and writes weekly doc only (no currentPrice); MONTHLY fetches MONTHLY and writes monthly doc only (no currentPrice)
 - **A vs B/C distinction:** verify SDS correctly identifies A runs (excludeSymbols present) vs B/C runs (includeSymbols present) despite all having `runType=ts-post-all-intervals`
-- **SDS worker + SA fetch + Firestore write:** verify POST DAILY writes daily shard with `set({ merge: true })` and `currentPrice`; verify intraday PRE writes only intraday doc and `currentPrice`
+- **SDS worker + SA fetch + Firestore write:** verify POST DAILY writes daily shard with `set({ merge: true })` and `currentPrice`; verify intraday PRE bulk fetches via callPartnerIntradaySnapshotV2 and writes intraday doc + currentPrice
 - **Sequence fan-in:** verify 3 interval runs for a POST sequence trigger sequence completion only when all 3 report; verify failed symbols are merged across intervals
 - **Completion + downstream enqueue:** verify sequence completion callback enqueues separate Cloud Tasks for each consumer; verify `completionEnqueued` flag set only after all enqueues succeed
 - **Watchdog + stale run forcing:** verify watchdog forces per-interval completion for runs older than 15 min; verify watchdog forces sequence completion for sequences older than 20 min; verify watchdog retries enqueue for `completed_but_not_dispatched` runs/sequences
