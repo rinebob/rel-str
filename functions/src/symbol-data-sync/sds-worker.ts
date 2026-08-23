@@ -2,7 +2,7 @@
  * SDS task worker — Cloud Task handler for per-symbol, per-interval sync.
  *
  * Thin entry point: delegates to processSymbolInterval with real GCP deps.
- * Completion tracking (processedCount increment) is handled here in a finally
+ * Completion tracking (processedSymbols arrayUnion) is handled here in a finally
  * block with a single transactional write.
  */
 
@@ -14,8 +14,16 @@ import { callPartnerTimeSeries } from '../partner-proxy';
 import { normalizeBar } from './symbol-data-bar-helpers';
 import type { OhlcBar } from '../common/market-data-types';
 import { processSymbolInterval, type SdsWorkerPayload, type SdsWorkerDeps, type SdsWorkerResult } from './sds-worker-core';
+import { checkSyncRunCompletion, type RunContext } from './sds-completion';
+import { createCompletionDeps } from './sds-completion-deps';
 
 const SDS_RUNS_COLLECTION = 'symbol-data-sync-runs';
+
+/** Extract sequence letter (A/B/C) from a sequenceRunId like '2026-08-22-POST-A'. */
+function extractSequence(sequenceRunId: string): string | undefined {
+  const match = sequenceRunId.match(/-POST-([ABC])$/);
+  return match ? match[1] : undefined;
+}
 
 /** Raw SA time-series response shape. */
 interface SaTimeSeriesResponse {
@@ -52,21 +60,28 @@ export const symbolDataSyncWorker = onTaskDispatched<SdsWorkerPayload>(
       result = await processSymbolInterval(payload, deps);
       logger.info('sds_worker_complete', { ...result, runId: payload.runId });
     } finally {
-      // Always increment processedCount — even on error — so the run can complete.
-      // Single transactional write for all counter updates.
+      // Always mark the symbol as processed — even on error — so the run can
+      // reach completion. arrayUnion is idempotent, so retries don't inflate.
       const runRef = db.collection(SDS_RUNS_COLLECTION).doc(payload.runId);
       await db.runTransaction(async (t) => {
         const updates: Record<string, unknown> = {
-          processedCount: FieldValue.increment(1),
+          processedSymbols: FieldValue.arrayUnion(payload.symbol),
+          lastActivityAt: FieldValue.serverTimestamp(),
         };
-        if (result?.status === 'ok') {
-          updates.successCount = FieldValue.increment(1);
-        } else if (result?.status === 'error') {
-          updates.failedCount = FieldValue.increment(1);
-          updates.failedSymbols = FieldValue.arrayUnion(payload.symbol);
-        }
         t.set(runRef, updates, { merge: true });
       });
+
+      // Check if this interval run is complete → fire sequence fan-in
+      const completionDeps = createCompletionDeps();
+      const runCtx: RunContext = {
+        runId: payload.runId,
+        sequenceRunId: payload.sequenceRunId,
+        interval: payload.interval,
+        sequence: payload.sequenceRunId ? extractSequence(payload.sequenceRunId) : undefined,
+        marketDate: payload.marketDate,
+        phase: 'post',
+      };
+      await checkSyncRunCompletion(runCtx, completionDeps);
     }
   },
 );

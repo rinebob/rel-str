@@ -12,6 +12,7 @@ import { db } from '../firebase-admin-init';
 import { callPartnerTrackedSymbols, callPartnerIntradaySnapshotV2 } from '../partner-proxy';
 import { PARTNER_DATA_READY_TOPIC } from '../webhooks/webhooks-config';
 import { handlePdrMessage, type SdsTaskPayload } from './sds-core';
+import { createCompletionDeps } from './sds-completion-deps';
 
 interface PubSubMessage {
   messageId?: string;
@@ -48,6 +49,8 @@ export const symbolDataSync = onMessagePublished(
     const attributes: Record<string, string | undefined> = { ...message.attributes };
 
     const queue = getFunctions().taskQueue('symbolDataSyncWorker');
+    const completionDeps = createCompletionDeps();
+
     const deps = {
       db,
       async enqueueTask(payload: SdsTaskPayload) {
@@ -69,6 +72,7 @@ export const symbolDataSync = onMessagePublished(
           ic: s.ic,
         }));
       },
+      completionDeps,
     };
 
     const result = await handlePdrMessage(attributes, parsedPayload, deps);

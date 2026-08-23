@@ -22,8 +22,8 @@ export interface SdsWorkerPayload {
   interval: string;
   runId: string;
   sequenceRunId: string | undefined;
+  sequence: string | undefined;
   marketDate: string;
-  totalSymbols: number;
 }
 
 export interface SdsWorkerResult {

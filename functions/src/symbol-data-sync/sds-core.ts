@@ -16,6 +16,7 @@ import {
   type PdrContext,
 } from './sds-pdr-parser';
 import { SYMBOL_DATA_COLLECTION } from '../webhooks/webhooks-config';
+import { checkIntradayRunCompletion, type SdsCompletionDeps, type RunContext } from './sds-completion';
 
 const SDS_RUNS_COLLECTION = 'symbol-data-sync-runs';
 const SDS_SEQUENCES_COLLECTION = 'symbol-data-sync-sequences';
@@ -27,8 +28,8 @@ export interface SdsTaskPayload {
   interval: string;
   runId: string;
   sequenceRunId: string | undefined;
+  sequence: string | undefined;
   marketDate: string;
-  totalSymbols: number;
 }
 
 export interface SdsDeps {
@@ -36,6 +37,8 @@ export interface SdsDeps {
   enqueueTask: (payload: SdsTaskPayload) => Promise<void>;
   getTrackedSymbols: () => Promise<string[]>;
   fetchIntradaySnapshot: (symbols: string[]) => Promise<Array<{ symbol: string; ip: number; ipc: number; io: number; it: string; ic: number }>>;
+  /** Completion deps — used for intraday run completion dispatch. */
+  completionDeps?: SdsCompletionDeps;
 }
 
 export interface SdsResult {
@@ -77,11 +80,8 @@ export async function handlePdrMessage(
     interval: ctx.interval,
     sequence: ctx.sequence ?? null,
     sequenceRunId: sequenceRunId ?? null,
-    totalSymbols: symbols.length,
-    processedCount: 0,
-    successCount: 0,
-    failedCount: 0,
-    failedSymbols: [],
+    symbols,
+    processedSymbols: [],
     status: 'processing',
     completionEnqueued: false,
     startedAt: FieldValue.serverTimestamp(),
@@ -104,7 +104,6 @@ export async function handlePdrMessage(
           sequence: ctx.sequence,
           intervalRunIds: { [ctx.interval]: ctx.runId },
           completedIntervals: [],
-          failedSymbols: [],
           status: 'processing',
           completionEnqueued: false,
           startedAt: FieldValue.serverTimestamp(),
@@ -129,8 +128,8 @@ export async function handlePdrMessage(
         interval: ctx.interval,
         runId: ctx.runId,
         sequenceRunId: sequenceRunId ?? undefined,
+        sequence: ctx.sequence,
         marketDate: ctx.marketDate,
-        totalSymbols: symbols.length,
       });
       enqueued++;
     } catch (err: any) {
@@ -140,13 +139,11 @@ export async function handlePdrMessage(
     }
   }
 
-  // If some tasks failed to enqueue, update totalSymbols to match actual enqueued
-  // count so the run can reach completion. Record failed symbols.
+  // If some tasks failed to enqueue, mark them as processed so the run can
+  // reach completion. They won't have data, but downstream consumers handle gaps.
   if (errors > 0) {
     await runRef.set({
-      totalSymbols: enqueued,
-      failedSymbols: FieldValue.arrayUnion(...failedEnqueueSymbols),
-      failedCount: errors,
+      processedSymbols: FieldValue.arrayUnion(...failedEnqueueSymbols),
     }, { merge: true });
   }
 
@@ -162,17 +159,14 @@ async function handleIntradayRun(
 ): Promise<SdsResult> {
   let success = 0;
   let failed = 0;
-  const failedSymbols: string[] = [];
 
   let snapshots: Array<{ symbol: string; ip: number; ipc: number; io: number; it: string; ic: number }> = [];
   try {
     snapshots = await deps.fetchIntradaySnapshot(symbols);
   } catch (err: any) {
     logger.error('sds_intraday_fetch_failed', { runId: ctx.runId, error: err?.message });
-    // Fetch failed entirely — all symbols failed
     failed = symbols.length;
-    failedSymbols.push(...symbols);
-    await markIntradayRunComplete(runRef, symbols.length, success, failed, failedSymbols);
+    await markIntradayRunComplete(runRef, symbols);
     return { skipped: false, enqueued: 0, errors: failed };
   }
 
@@ -180,7 +174,6 @@ async function handleIntradayRun(
   const snapshotSymbols = new Set(snapshots.map((s) => s.symbol));
   for (const sym of symbols) {
     if (!snapshotSymbols.has(sym)) {
-      failedSymbols.push(sym);
       failed++;
     }
   }
@@ -208,29 +201,35 @@ async function handleIntradayRun(
     await batch.commit();
   } catch (err: any) {
     logger.error('sds_intraday_batch_commit_failed', { runId: ctx.runId, error: err?.message });
-    // Batch failed — none of the writes landed
     failed += snapshots.length;
-    failedSymbols.push(...snapshots.map((s) => s.symbol));
     success = 0;
   }
 
-  await markIntradayRunComplete(runRef, symbols.length, success, failed, failedSymbols);
+  await markIntradayRunComplete(runRef, symbols);
   logger.info('sds_intraday_complete', { runId: ctx.runId, success, failed });
+
+  // Fire intraday completion dispatch (RH Agent intraday)
+  if (deps.completionDeps) {
+    const runCtx: RunContext = {
+      runId: ctx.runId,
+      sequenceRunId: undefined,
+      interval: 'INTRADAY',
+      sequence: undefined,
+      marketDate: ctx.marketDate,
+      phase: 'pre',
+    };
+    await checkIntradayRunCompletion(runCtx, deps.completionDeps);
+  }
+
   return { skipped: false, enqueued: success, errors: failed };
 }
 
 async function markIntradayRunComplete(
   runRef: FirebaseFirestore.DocumentReference,
-  total: number,
-  success: number,
-  failed: number,
-  failedSymbols: string[],
+  symbols: string[],
 ): Promise<void> {
   await runRef.set({
-    processedCount: total,
-    successCount: success,
-    failedCount: failed,
-    failedSymbols,
+    processedSymbols: symbols,
     status: 'completed',
     completionEnqueued: false,
     completedAt: FieldValue.serverTimestamp(),
