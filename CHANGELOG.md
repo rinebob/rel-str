@@ -3,7 +3,17 @@
 ## [2026-08-23]
 
 ### Added
+- [Data Pipeline PDR Migration] 159-166_DOCS-DATA-PIPELINE-PDR-MIGRATION: Update PRD, IMPL, TEST for intraday design revision
+- [Data Pipeline PDR Migration] 159-166_DOCS-DATA-PIPELINE-PDR-MIGRATION: Add code review doc for SDS core
+- [Data Pipeline PDR Migration] 159-166_BE-IMPL-DATA-PIPELINE-PDR-MIGRATION: Add PDR parser with interval normalization
+- [Data Pipeline PDR Migration] 159-166_BE-IMPL-DATA-PIPELINE-PDR-MIGRATION: Add SDS core message handler with run/sequence management
+- [Data Pipeline PDR Migration] 159-166_BE-IMPL-DATA-PIPELINE-PDR-MIGRATION: Add SDS worker with transactional counter updates
+- [Data Pipeline PDR Migration] 159-166_BE-IMPL-DATA-PIPELINE-PDR-MIGRATION: Add SDS Pub/Sub subscriber and wire exports
+- [Data Pipeline PDR Migration] 159-166_BE-CHORE-DATA-PIPELINE-PDR-MIGRATION: Add SDS verification scripts and test runner
 - [Data Pipeline PDR Migration] 159-161_DOCS-DATA-PIPELINE-PDR-MIGRATION: Add blueprint docs for PDR migration (checkpoint)
+
+### Changed
+- [Data Pipeline PDR Migration] 159-166_BE-REFACTOR-DATA-PIPELINE-PDR-MIGRATION: Delete syncTrackedSymbolsDaily and fix tracked symbol extraction
 
 ## [2026-08-19]
 
