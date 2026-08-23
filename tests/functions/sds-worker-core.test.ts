@@ -95,7 +95,6 @@ describe('processSymbolInterval — POST DAILY', () => {
       runId: '2026-01-24-FRI-POST-A-1335-DAILY',
       sequenceRunId: '2026-01-24-POST-A',
       marketDate: '2026-01-24',
-      totalSymbols: 100,
     }, deps);
 
     assert.equal(result.status, 'ok');
@@ -120,7 +119,6 @@ describe('processSymbolInterval — POST DAILY', () => {
       runId: '2026-01-24-FRI-POST-A-1335-DAILY',
       sequenceRunId: '2026-01-24-POST-A',
       marketDate: '2026-01-24',
-      totalSymbols: 100,
     }, deps);
 
     assert.ok(!db.docs.has('symbol-data/AAPL/weekly/all'));
@@ -139,7 +137,6 @@ describe('processSymbolInterval — POST WEEKLY', () => {
       runId: '2026-01-24-FRI-POST-A-1335-WEEKLY',
       sequenceRunId: '2026-01-24-POST-A',
       marketDate: '2026-01-24',
-      totalSymbols: 100,
     }, deps);
 
     assert.equal(result.status, 'ok');
@@ -169,7 +166,6 @@ describe('processSymbolInterval — POST MONTHLY', () => {
       runId: '2026-01-24-FRI-POST-A-1335-MONTHLY',
       sequenceRunId: '2026-01-24-POST-A',
       marketDate: '2026-01-24',
-      totalSymbols: 100,
     }, deps);
 
     assert.equal(result.status, 'ok');
@@ -196,7 +192,6 @@ describe('processSymbolInterval — edge cases', () => {
       runId: '2026-01-24-FRI-POST-A-1335-DAILY',
       sequenceRunId: '2026-01-24-POST-A',
       marketDate: '2026-01-24',
-      totalSymbols: 100,
     }, deps);
 
     assert.equal(result.status, 'skipped');
@@ -216,10 +211,10 @@ describe('processSymbolInterval — edge cases', () => {
       runId: '2026-01-02-FRI-POST-A-1335-DAILY',
       sequenceRunId: '2026-01-02-POST-A',
       marketDate: '2026-01-02',
-      totalSymbols: 100,
     }, deps);
 
     assert.ok(db.docs.has('symbol-data/AAPL/daily/2025'));
     assert.ok(db.docs.has('symbol-data/AAPL/daily/2026'));
   });
 });
+

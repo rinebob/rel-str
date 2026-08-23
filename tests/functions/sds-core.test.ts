@@ -270,7 +270,6 @@ describe('handlePdrMessage — intraday PRE', () => {
     // Run doc should be marked completed
     const runDoc = db.docs.get('symbol-data-sync-runs/2026-01-24-FRI-LIVE-0800');
     assert.equal(runDoc?.status, 'completed');
-    assert.equal(runDoc?.successCount, 5);
-    assert.equal(runDoc?.failedCount, 0);
+    assert.equal((runDoc?.processedSymbols as string[])?.length, 5);
   });
 });
