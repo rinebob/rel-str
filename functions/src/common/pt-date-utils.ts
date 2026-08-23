@@ -144,3 +144,24 @@ export function normalizeMarketDate(
 
   return formatDateToPtCalendarString(parsed);
 }
+
+/**
+ * Compute the current 5-minute slot in HH:MM format (PT).
+ * Truncates the minutes to the nearest 5-minute boundary.
+ *
+ * Examples: 09:32 → "09:30", 09:35 → "09:35", 09:59 → "09:55"
+ *
+ * Used by the open pass timer to query strategy instances by openTimePT.
+ */
+export function computeOpenPassSlot(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: PT_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(now);
+  const hours = parts.find(p => p.type === 'hour')!.value.padStart(2, '0');
+  const minutes = parts.find(p => p.type === 'minute')!.value;
+  const truncated = Math.floor(Number(minutes) / 5) * 5;
+  return `${hours}:${String(truncated).padStart(2, '0')}`;
+}
