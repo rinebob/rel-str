@@ -32,13 +32,14 @@ function makeQuote(overrides: Partial<OptionQuote> = {}): OptionQuote {
 
 function makeConfig(overrides: Partial<StrategyInstanceConfig> = {}): StrategyInstanceConfig {
   return {
+    id: 'test',
     symbol: 'SPY',
     optionType: OptionType.PUT,
     side: TradeSide.SHORT,
     overnightGridRangePct: 0.025,
     overnightGridStepPct: 0.005,
     ...overrides,
-  };
+  } as StrategyInstanceConfig;
 }
 
 describe('normalCdf', () => {

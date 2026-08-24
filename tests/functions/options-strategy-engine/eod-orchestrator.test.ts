@@ -31,6 +31,7 @@ function makeContract(
 
 function makeConfig(overrides: Partial<StrategyInstanceConfig> = {}): StrategyInstanceConfig {
   return {
+    id: 'test',
     symbol: 'SPY',
     optionType: OptionType.PUT,
     side: TradeSide.SHORT,
@@ -40,7 +41,7 @@ function makeConfig(overrides: Partial<StrategyInstanceConfig> = {}): StrategyIn
     overnightGridRangePct: 0.025,
     overnightGridStepPct: 0.005,
     ...overrides,
-  };
+  } as StrategyInstanceConfig;
 }
 
 const defaultProvider = {

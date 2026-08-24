@@ -5,7 +5,7 @@ import {
   mapAvContractToOptionQuote,
   type FetchEodChainFn,
 } from '../../../functions/src/options-strategy-engine/quote-providers/av-eod-option-quote-provider';
-import { OptionQuoteSource } from '../../../shared/options-common';
+import { OptionQuoteSource, OptionType } from '../../../shared/options-common';
 import { TradeSide } from '../../../shared/common';
 import type { PartnerHistoricalOptionsResponse } from '../../../functions/src/types/partner';
 
@@ -50,7 +50,7 @@ function makeContract(
     symbol: 'SPY',
     expiration: '2025-08-17',
     strike: '77',
-    type: 'put',
+    type: OptionType.PUT,
     last: '0.65',
     mark: '0.70',
     bid: '0.68',

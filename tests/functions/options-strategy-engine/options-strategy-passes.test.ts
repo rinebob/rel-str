@@ -19,6 +19,8 @@ function makeInstance(overrides: Partial<StrategyInstanceConfig> = {}): Strategy
   return {
     id: 'TEST-WHEEL',
     symbol: 'QQQM',
+    optionType: OptionType.PUT,
+    side: TradeSide.SHORT,
     phases: [
       {
         spreadType: PositionSpreadType.CASH_SECURED_PUT,

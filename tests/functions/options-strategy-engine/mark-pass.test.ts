@@ -12,6 +12,7 @@ function makeConfig(
   overrides: Partial<StrategyInstanceConfig> = {},
 ): StrategyInstanceConfig {
   return {
+    id: 'test',
     symbol: 'SPY',
     optionType: OptionType.PUT,
     side: TradeSide.SHORT,
@@ -19,7 +20,7 @@ function makeConfig(
     dteMax: 5,
     targetDelta: 0.3,
     ...overrides,
-  };
+  } as StrategyInstanceConfig;
 }
 
 function makePosition(
