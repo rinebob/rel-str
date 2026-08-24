@@ -16,16 +16,15 @@
     "declaration": false,
     "experimentalDecorators": true,
     "moduleResolution": "bundler",
-    "baseUrl": ".",
     "paths": {
-      "@rh-agent-mcp/contracts": ["shared/robinhood-mcp-contracts.ts"],
-      "@rh-agent-mcp/utils": ["shared/robinhood-mcp-utils.ts"],
-      "@options-contract/contracts": ["shared/options-contract-contracts.ts"],
-      "@options/common": ["shared/options-common.ts"],
-      "@common": ["shared/common.ts"],
-      "@options-strategy-engine/contracts": ["shared/options-strategy-engine-contracts.ts"],
-      "@options-strategy-engine/id": ["shared/strategy-instance-id.ts"],
-      "@spread/contracts": ["shared/spread-contracts.ts"]
+      "@rh-agent-mcp/contracts": ["./shared/robinhood-mcp-contracts.ts"],
+      "@rh-agent-mcp/utils": ["./shared/robinhood-mcp-utils.ts"],
+      "@options-contract/contracts": ["./shared/options-contract-contracts.ts"],
+      "@options/common": ["./shared/options-common.ts"],
+      "@common": ["./shared/common.ts"],
+      "@options-strategy-engine/contracts": ["./shared/options-strategy-engine-contracts.ts"],
+      "@options-strategy-engine/id": ["./shared/strategy-instance-id.ts"],
+      "@spread/contracts": ["./shared/spread-contracts.ts"]
     },
     "importHelpers": true,
     "target": "ES2022",
@@ -37,7 +36,7 @@
       "dom"
     ]
   },
-  "exclude": ["functions", "**/*.spec.ts"],
+  "exclude": ["functions", "cypress", "cypress.config.ts", "dist", "tests/functions", "tests/shared"],
   "angularCompilerOptions": {
     "enableI18nLegacyMessageIdFormat": false,
     "strictInjectionParameters": true,

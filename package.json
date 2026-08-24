@@ -67,7 +67,7 @@
     "@angular/compiler-cli": "^21.2.17",
     "@types/jasmine": "~5.1.0",
     "@types/javascript-color-gradient": "^2.4.2",
-    "@types/jest": "^29.5.14",
+    "@types/jest": "^30.0.0",
     "@types/node": "^18.18.0",
     "dotenv": "^17.2.2",
     "jasmine-core": "~5.1.0",
