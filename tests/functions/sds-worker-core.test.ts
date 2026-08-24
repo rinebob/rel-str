@@ -94,19 +94,20 @@ describe('processSymbolInterval — POST DAILY', () => {
       interval: 'DAILY',
       runId: '2026-01-24-FRI-POST-A-1335-DAILY',
       sequenceRunId: '2026-01-24-POST-A',
+      sequence: 'A',
       marketDate: '2026-01-24',
     }, deps);
 
     assert.equal(result.status, 'ok');
 
     // Daily shard should exist for 2026
-    const shard = db.docs.get('symbol-data/AAPL/daily/2026');
+    const shard = db.docs.get('symbol-data/AAPL/daily/2026') as { interval: string; bars: OhlcBar[] } | undefined;
     assert.ok(shard);
     assert.equal(shard.interval, 'daily');
     assert.equal(shard.bars.length, 5);
 
     // currentPrice should be written from latest bar close
-    const root = db.docs.get('symbol-data/AAPL');
+    const root = db.docs.get('symbol-data/AAPL') as { currentPrice?: { price: number; date: string } } | undefined;
     assert.ok(root?.currentPrice);
     assert.equal(root.currentPrice.price, 114);
     assert.equal(root.currentPrice.date, '2026-01-24');
@@ -118,6 +119,7 @@ describe('processSymbolInterval — POST DAILY', () => {
       interval: 'DAILY',
       runId: '2026-01-24-FRI-POST-A-1335-DAILY',
       sequenceRunId: '2026-01-24-POST-A',
+      sequence: 'A',
       marketDate: '2026-01-24',
     }, deps);
 
@@ -136,12 +138,13 @@ describe('processSymbolInterval — POST WEEKLY', () => {
       interval: 'WEEKLY',
       runId: '2026-01-24-FRI-POST-A-1335-WEEKLY',
       sequenceRunId: '2026-01-24-POST-A',
+      sequence: 'A',
       marketDate: '2026-01-24',
     }, deps);
 
     assert.equal(result.status, 'ok');
 
-    const weekly = db.docs.get('symbol-data/AAPL/weekly/all');
+    const weekly = db.docs.get('symbol-data/AAPL/weekly/all') as { interval: string; bars: OhlcBar[] } | undefined;
     assert.ok(weekly);
     assert.equal(weekly.interval, 'weekly');
     assert.equal(weekly.bars.length, 5);
@@ -165,12 +168,13 @@ describe('processSymbolInterval — POST MONTHLY', () => {
       interval: 'MONTHLY',
       runId: '2026-01-24-FRI-POST-A-1335-MONTHLY',
       sequenceRunId: '2026-01-24-POST-A',
+      sequence: 'A',
       marketDate: '2026-01-24',
     }, deps);
 
     assert.equal(result.status, 'ok');
 
-    const monthly = db.docs.get('symbol-data/AAPL/monthly/all');
+    const monthly = db.docs.get('symbol-data/AAPL/monthly/all') as { interval: string; bars: OhlcBar[] } | undefined;
     assert.ok(monthly);
     assert.equal(monthly.interval, 'monthly');
     assert.equal(monthly.bars.length, 5);
@@ -191,6 +195,7 @@ describe('processSymbolInterval — edge cases', () => {
       interval: 'DAILY',
       runId: '2026-01-24-FRI-POST-A-1335-DAILY',
       sequenceRunId: '2026-01-24-POST-A',
+      sequence: 'A',
       marketDate: '2026-01-24',
     }, deps);
 
@@ -210,6 +215,7 @@ describe('processSymbolInterval — edge cases', () => {
       interval: 'DAILY',
       runId: '2026-01-02-FRI-POST-A-1335-DAILY',
       sequenceRunId: '2026-01-02-POST-A',
+      sequence: 'A',
       marketDate: '2026-01-02',
     }, deps);
 
