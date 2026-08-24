@@ -7,7 +7,7 @@ import { Router } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
 
 describe('AuthStore', () => {
-  let store: AuthStore;
+  let store: InstanceType<typeof AuthStore>;
 
   const user$ = new BehaviorSubject<User | null>(null);
 
