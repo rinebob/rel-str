@@ -14,22 +14,23 @@ const TEST_DEFINITION: SpreadDefinition = {
   spreadType: SpreadType.VERTICAL,
   symbol: 'QQQ',
   legs: [
-    { optionType: OptionType.CALL, strike: 450, expiration: '2024-07-19', side: 'long' },
-    { optionType: OptionType.CALL, strike: 455, expiration: '2024-07-19', side: 'short' },
+    { optionType: OptionType.CALL, strike: 450, expiration: '2024-07-19', direction: 'long' },
+    { optionType: OptionType.CALL, strike: 455, expiration: '2024-07-19', direction: 'short' },
   ],
   startDate: '2024-01-01',
   endDate: '2024-07-19',
 };
 
 const TEST_RESPONSE: SpreadTimeSeriesResponse = {
+  ok: true,
   symbol: 'QQQ',
   spreadType: SpreadType.VERTICAL,
   debitOrCredit: DebitOrCredit.DEBIT,
   legs: [
-    { contractId: 'QQQ240719C00450000', optionType: OptionType.CALL, strike: 450, expiration: '2024-07-19', side: 'long' },
-    { contractId: 'QQQ240719C00455000', optionType: OptionType.CALL, strike: 455, expiration: '2024-07-19', side: 'short' },
+    { contractID: 'QQQ240719C00450000', optionType: OptionType.CALL, strike: 450, expiration: '2024-07-19', direction: 'long' },
+    { contractID: 'QQQ240719C00455000', optionType: OptionType.CALL, strike: 455, expiration: '2024-07-19', direction: 'short' },
   ],
-  series: [{ date: '2024-01-01', spreadPrice: 2.5, legMarks: [5.0, 2.5] }],
+  series: [{ date: '2024-01-01', price: 2.5 }],
   gaps: [],
   startDate: '2024-01-01',
   endDate: '2024-07-19',
