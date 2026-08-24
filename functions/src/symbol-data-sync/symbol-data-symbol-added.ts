@@ -101,7 +101,7 @@ export const processSymbolAdded = onMessagePublished(
 
     logger.info('symbol_data_symbol_added_received', {
       symbolCount: symbols.length,
-      createdAtUTC: body.createdAtUTC,
+      addedAtUTC: body.addedAtUTC,
       availableIntervals: body.availableIntervals,
       attributes,
     });
@@ -143,7 +143,7 @@ export const processSymbolAdded = onMessagePublished(
             source,
           };
           if (!existingData?.createdAt) {
-            symbolDoc.createdAt = body.createdAtUTC || new Date().toISOString();
+            symbolDoc.createdAt = body.addedAtUTC || new Date().toISOString();
           }
           await symbolDocRef.set(symbolDoc, { merge: true });
 

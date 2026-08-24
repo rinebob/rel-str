@@ -38,7 +38,7 @@ describe('validateSymbolAddedPayload', () => {
   const validPayload: import('../../functions/src/common/rh-agent-symbol-added-helpers').SymbolAddedPayloadV1 = {
     version: 'v1',
     symbols: ['AAPL', 'TSLA'],
-    createdAtUTC: '2026-07-13T20:00:00Z',
+    addedAtUTC: '2026-07-13T20:00:00Z',
     status: 'ready',
     availableIntervals: ['DAILY'],
     source: RhAgentSymbolSource.MANUAL_ADD,
@@ -71,13 +71,13 @@ describe('validateSymbolAddedPayload', () => {
     expect(reason).toContain('malformed symbols');
   });
 
-  it('rejects missing createdAtUTC', () => {
+  it('rejects missing addedAtUTC', () => {
     const { body, reason } = validateSymbolAddedPayload({
       ...validPayload,
-      createdAtUTC: '',
+      addedAtUTC: '',
     });
     expect(body).toBeNull();
-    expect(reason).toContain('createdAtUTC');
+    expect(reason).toContain('addedAtUTC');
   });
 
   it('allows optional source to be omitted', () => {
@@ -90,7 +90,7 @@ describe('decodeSymbolAddedMessage', () => {
   const validPayload: SymbolAddedPayloadV1 = {
     version: 'v1',
     symbols: ['AAPL'],
-    createdAtUTC: '2026-07-13T20:00:00Z',
+    addedAtUTC: '2026-07-13T20:00:00Z',
     status: 'ready',
     availableIntervals: ['DAILY'],
   };

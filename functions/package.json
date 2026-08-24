@@ -24,7 +24,9 @@
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
-    "seed:rh-agent": "npx tsx scripts/seed-rh-agent-from-prod.ts"
+    "seed:rh-agent": "npx tsx scripts/seed-rh-agent-from-prod.ts",
+    "replay:missing-symbols": "npx tsx scripts/replay-missing-symbols.ts",
+    "replay:missing-symbols:run": "npx tsx scripts/replay-missing-symbols.ts --replay"
   },
   "type": "module",
   "engines": {

@@ -10,7 +10,7 @@ import { RhAgentSymbolSource } from './rh-agent-collections';
 export interface SymbolAddedPayloadV1 {
   version: 'v1';
   symbols: string[];
-  createdAtUTC: string;
+  addedAtUTC: string;
   status: 'ready';
   availableIntervals: string[];
   /** Optional source hint from the partner; normalized to a canonical enum value. */
@@ -65,8 +65,8 @@ export function validateSymbolAddedPayload(
   if (!Array.isArray(body.symbols) || body.symbols.some((s) => typeof s !== 'string' || s.length === 0)) {
     return { body: null, reason: 'malformed symbols' };
   }
-  if (typeof body.createdAtUTC !== 'string' || body.createdAtUTC.length === 0) {
-    return { body: null, reason: 'missing or malformed createdAtUTC' };
+  if (typeof body.addedAtUTC !== 'string' || body.addedAtUTC.length === 0) {
+    return { body: null, reason: 'missing or malformed addedAtUTC' };
   }
   if (!Array.isArray(body.availableIntervals)) {
     return { body: null, reason: 'malformed availableIntervals' };
@@ -75,7 +75,7 @@ export function validateSymbolAddedPayload(
     body: {
       version: 'v1',
       symbols: body.symbols,
-      createdAtUTC: body.createdAtUTC,
+      addedAtUTC: body.addedAtUTC,
       status: 'ready',
       availableIntervals: body.availableIntervals,
       source: typeof body.source === 'string' ? body.source : undefined,

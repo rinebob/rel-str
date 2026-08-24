@@ -29,6 +29,7 @@
   "include": [
     "src",
     "scripts/backtest-qqq-underlying.ts",
-    "scripts/seed-options-strategy-instances.ts"
+    "scripts/seed-options-strategy-instances.ts",
+    "scripts/replay-missing-symbols.ts"
   ]
 }
