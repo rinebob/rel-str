@@ -31,6 +31,7 @@ function makePermutation(partial: Partial<BacktestPermutationUi> = {}): Backtest
     strategyId: 'leap-drop',
     config: {},
     status: 'success',
+    reportTier: 'summary',
     runType: 'allData',
     initialCash: 10000,
     finalEquity: 11000,
