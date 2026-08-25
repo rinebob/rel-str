@@ -12,6 +12,7 @@
 - [Savant Trader] 176-197_DOCS-DOCS-SAVANT-TRADER: Add code review doc for FE-B2 order execution service
 - [Savant Trader] 176-198_DOCS-DOCS-SAVANT-TRADER: Add code review doc for FE-B3 account number preference
 - [Savant Trader] 176-199_DOCS-DOCS-SAVANT-TRADER: Add code review doc for FE-C1a signal order screen
+- [Savant Trader] 176-200_DOCS-DOCS-SAVANT-TRADER: Add code review doc for FE-C1b order ticket
 
 ### Changed
 - [Savant Trader] 176-188_SHARED-REFACTOR-SAVANT-TRADER: Rename services/ files and classes, fix callable names
@@ -26,6 +27,7 @@
 - [Savant Trader] 176-197_FE-IMPL-SAVANT-TRADER: Add OrderExecutionService for equity order placement and reconciliation
 - [Savant Trader] 176-198_FE-IMPL-SAVANT-TRADER: Add TradingConfigService for account number preference
 - [Savant Trader] 176-199_FE-IMPL-SAVANT-TRADER: Add signal order screen with master-detail queue layout
+- [Savant Trader] 176-200_FE-IMPL-SAVANT-TRADER: Add order ticket component with confirmation dialog
 
 ## [2026-08-24]
 
