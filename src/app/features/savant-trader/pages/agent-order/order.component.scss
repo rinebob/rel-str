@@ -1,4 +1,4 @@
-.order-page {
+.signal-order-page {
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -37,100 +37,76 @@
 
 .header-spacer { flex: 1; }
 
-.pill-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 12px;
-  border: 1px solid var(--mat-sys-outline-variant);
-  background: var(--mat-sys-surface-container);
-  color: var(--mat-sys-on-surface-variant);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+// ========================================
+// MASTER-DETAIL LAYOUT
+// ========================================
+.master-detail {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 1px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--mat-sys-outline-variant);
 
-  mat-icon { font-size: 12px; width: 12px; height: 12px; }
-
-  &:hover:not(:disabled) {
-    background: var(--mat-sys-surface-container-high);
-    border-color: var(--mat-sys-outline);
-  }
-
-  &:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
+  @media (max-width: 1200px) {
+    grid-template-columns: 300px 1fr;
   }
 }
 
-.loading-overlay,
-.empty-state {
+.queue-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--mat-sys-surface-container);
+}
+
+.ticket-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--mat-sys-surface-container);
+}
+
+// ========================================
+// LOADING / PLACEHOLDER STATES
+// ========================================
+.loading-state,
+.error-state,
+.ticket-placeholder {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  flex: 1;
   gap: 12px;
   color: var(--mat-sys-on-surface-variant);
 
-  mat-icon { font-size: 48px; width: 48px; height: 48px; }
-  p { margin: 0; font-size: 14px; }
-  .hint { font-size: 12px; opacity: 0.7; }
-}
-
-.order-body {
-  flex: 1;
-  overflow: auto;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.trade-table {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--mat-sys-outline-variant);
-  border-radius: 8px;
-  overflow: hidden;
-  background: var(--mat-sys-surface-container);
-}
-
-.batch-prompt {
-  border: 1px solid var(--mat-sys-outline-variant);
-  border-radius: 8px;
-  background: var(--mat-sys-surface-container);
-  overflow: hidden;
-
-  .batch-prompt-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 12px;
-    background: var(--mat-sys-surface-container-high);
-    border-bottom: 1px solid var(--mat-sys-outline-variant);
-
-    .batch-title {
-      font-weight: 600;
-      font-size: 13px;
-    }
-
-    .batch-meta {
-      font-size: 11px;
-      color: var(--mat-sys-on-surface-variant);
-    }
+  mat-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
   }
 
-  pre {
+  p {
     margin: 0;
-    padding: 12px;
+    font-size: 14px;
+  }
+
+  .hint {
     font-size: 12px;
-    line-height: 1.5;
-    white-space: pre-wrap;
-    color: var(--mat-sys-on-surface);
-    max-height: 300px;
-    overflow: auto;
+    opacity: 0.7;
+    text-align: center;
+    max-width: 320px;
+  }
+}
+
+.error-state {
+  mat-icon {
+    color: var(--mat-sys-error);
   }
 }

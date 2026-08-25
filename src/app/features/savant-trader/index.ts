@@ -87,6 +87,7 @@ export { StatusSummaryChipsComponent } from './components/status-summary-chips/s
 export { QuickChartsPanelComponent } from './components/quick-charts-panel/quick-charts-panel.component';
 export { ReviewHeaderComponent } from './components/review-header/review-header.component';
 export { TradeRowComponent, TradeRow } from './components/trade-row/trade-row.component';
+export { OrderQueueComponent } from './components/order-queue/order-queue.component';
 export { ChartToolbarComponent } from './components/chart-toolbar/chart-toolbar.component';
 export { IndicatorMenuComponent } from './components/indicator-menu/indicator-menu.component';
 export { SignalTableComponent, SignalTableRow } from './components/signal-table/signal-table.component';

@@ -1,77 +1,63 @@
-<div class="order-page">
+<div class="signal-order-page">
   <!-- Header -->
   <div class="order-header">
-    <button mat-icon-button class="back-btn" (click)="goBack()" matTooltip="Back to grouped review">
+    <button mat-icon-button class="back-btn" (click)="goBack()" matTooltip="Back to signal review">
       <mat-icon>arrow_back</mat-icon>
     </button>
 
     <h1 class="order-title">
       <mat-icon>account_balance</mat-icon>
-      Order
+      Signal Order
     </h1>
 
     <span class="order-subtitle">
-      {{ occurrenceStore.acceptedCount() }} accepted symbol{{ occurrenceStore.acceptedCount() === 1 ? '' : 's' }}
+      {{ intentCount() }} intent{{ intentCount() === 1 ? '' : 's' }}
     </span>
 
     <div class="header-spacer"></div>
-
-    <button type="button" class="pill-btn review"
-      [disabled]="triageStore.reviewCount() === 0"
-      (click)="goToReview()"
-      matTooltip="Back to review">
-      <mat-icon>visibility</mat-icon>
-      Review {{ triageStore.reviewCount() }}
-    </button>
   </div>
 
-  <!-- Empty -->
-  @if (tradeRows().length === 0) {
-    <div class="empty-state">
-      <mat-icon>inbox</mat-icon>
-      <p>No accepted symbols</p>
-      <p class="hint">Accept symbols in Grouped Review or Review, then return here.</p>
-    </div>
-  }
+  <!-- Master-Detail Layout -->
+  <div class="master-detail">
+    <!-- Left: Queue -->
+    <app-order-queue
+      class="queue-wrapper"
+      [intents]="allIntents()"
+      [selectedId]="selectedIntentId()"
+      (intentSelected)="onIntentSelected($event)"
+      (removeIntents)="onRemoveIntents($event)">
+    </app-order-queue>
 
-  <!-- Trade table -->
-  @if (tradeRows().length > 0) {
-    <div class="order-body">
-      <div class="trade-table">
-        <div class="trade-row header">
-          <span class="col-go">Go</span>
-          <span class="col-symbol">Symbol</span>
-          <span class="col-direction">Direction</span>
-          <span class="col-signal">Signal</span>
-          <span class="col-size">Size ($)</span>
-          <span class="col-stop">Stop %</span>
-          <span class="col-total">Total</span>
-          <span class="col-actions"></span>
+    <!-- Right: Ticket placeholder (FE-C1b) -->
+    <div class="ticket-wrapper">
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-icon>hourglass_empty</mat-icon>
+          <p>Loading intents…</p>
         </div>
-
-        @for (row of tradeRows(); track row.symbol) {
-          <app-trade-row
-            [row]="row"
-            [maxPositionSize]="maxTradeAmount"
-            [isActionableRun]="isActionableRun()"
-            (toggleEnabled)="onToggleEnabled($event)"
-            (positionSizeChange)="onPositionSizeChange($event)"
-            (stopLossChange)="onStopLossChange($event)"
-            (remove)="onRemoveSymbol($event)">
-          </app-trade-row>
-        }
-
-        <div class="trade-row footer">
-          <span class="col-go"></span>
-          <span class="col-symbol"></span>
-          <span class="col-direction"></span>
-          <span class="col-signal"></span>
-          <span class="col-size"></span>
-          <span class="col-stop">Enabled total</span>
-          <span class="col-total">${{ totalAmount() }}</span>
-          <span class="col-actions"></span>
+      } @else if (error()) {
+        <div class="error-state">
+          <mat-icon>error_outline</mat-icon>
+          <p>Failed to load orders</p>
+          <p class="hint">{{ error() }}</p>
         </div>
-      </div>
+      } @else if (selectedIntent()) {
+        <div class="ticket-placeholder">
+          <mat-icon>receipt_long</mat-icon>
+          <p>Order Ticket</p>
+          <p class="hint">
+            Selected: {{ selectedIntent()?.side }} {{ selectedIntent()?.orderType }}
+            {{ selectedIntent()?.id?.slice(0, 8) }}
+          </p>
+          <p class="hint">Ticket component (FE-C1b) will be implemented in the next task.</p>
+        </div>
+      } @else {
+        <div class="ticket-placeholder">
+          <mat-icon>pan_tool</mat-icon>
+          <p>Select an order from the queue</p>
+          <p class="hint">Click a row on the left to configure and submit an order.</p>
+        </div>
+      }
     </div>
-  }
+  </div>
 </div>
