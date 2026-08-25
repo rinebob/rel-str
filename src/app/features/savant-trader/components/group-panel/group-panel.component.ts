@@ -10,8 +10,8 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RhSymbolGroup, RhSymbolRow } from '../../stores/rh-agent-group.store';
-import { RhSymbolListName, SignalDirection } from '../../common/rh-agent.constants';
-import { rowHasDirection } from '../../utils/rh-agent.utils';
+import { RhSymbolListName, SignalDirection } from '../../common/constants';
+import { rowHasDirection } from '../../utils/utils';
 import { SymbolRowComponent } from '../symbol-row/symbol-row.component';
 
 @Component({

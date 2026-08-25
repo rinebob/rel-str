@@ -8,7 +8,7 @@ import { Component, ChangeDetectionStrategy, computed, input } from '@angular/co
 import { CommonModule } from '@angular/common';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { RhSymbolRow } from '../../stores/rh-agent-group.store';
-import { SignalStatus } from '../../common/rh-agent.constants';
+import { SignalStatus } from '../../common/constants';
 
 @Component({
   selector: 'app-symbol-signal-history',

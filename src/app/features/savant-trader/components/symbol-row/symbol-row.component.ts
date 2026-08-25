@@ -11,8 +11,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatBadgeModule } from '@angular/material/badge';
 import { RhSymbolRow } from '../../stores/rh-agent-group.store';
-import { RhSymbolListName, RhAgentReviewDecision } from '../../common/rh-agent.constants';
-import { tierLabel } from '../../utils/rh-agent.utils';
+import { RhSymbolListName, ReviewDecision } from '../../common/constants';
+import { tierLabel } from '../../utils/utils';
 import { SymbolAcrActionsComponent } from '../symbol-acr-actions/symbol-acr-actions.component';
 import { SymbolListActionsComponent } from '../symbol-list-actions/symbol-list-actions.component';
 import { SymbolSignalHistoryComponent } from '../symbol-signal-history/symbol-signal-history.component';
@@ -44,7 +44,7 @@ export class SymbolRowComponent {
   activeListFilter = input.required<RhSymbolListName | 'ALL'>();
   /** When false, ACR mutation controls are disabled for this historical row. */
   isActionableRun = input(true);
-  readonly Status = RhAgentReviewDecision;
+  readonly Status = ReviewDecision;
   readonly ListName = RhSymbolListName;
 
   /** Expose helper to template. */

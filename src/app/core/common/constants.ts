@@ -227,6 +227,7 @@ export enum Collection {
   ST_OCCURRENCE_DECISIONS = 'savant-trader/data/occurrence-decisions',
   ST_REVIEW_LIST = 'savant-trader/data/review-list',
   ST_SYMBOL_LISTS = 'savant-trader/data/symbol-lists',
+  ST_SYMBOLS = 'savant-trader/data/symbols',
   ST_SYMBOL_META = 'savant-trader/data/symbol-meta',
   ST_RUNS = 'savant-trader/data/runs',
   ST_ORDER_INTENTS = 'savant-trader/data/order-intents',
@@ -269,14 +270,3 @@ export enum TradeStatus {
 /** Helper to produce the lists collection path for a user. */
 export const userListsPath = (uid: string) => `${Collection.USERS}/${uid}/${Subcollection.LISTS}`;
 
-// =============================
-// Savant Trader path helpers
-// =============================
-
-export const stOccurrenceDecisionsPath = () => Collection.ST_OCCURRENCE_DECISIONS;
-export const stOrderIntentsPath = () => Collection.ST_ORDER_INTENTS;
-export const stSymbolListsPath = () => Collection.ST_SYMBOL_LISTS;
-export const stSymbolMetaPath = () => Collection.ST_SYMBOL_META;
-export const stRunsPath = () => Collection.ST_RUNS;
-export const stReviewListDocPath = () => Collection.ST_REVIEW_LIST;
-export const stTradingConfigDocPath = () => Collection.ST_TRADING_CONFIG;

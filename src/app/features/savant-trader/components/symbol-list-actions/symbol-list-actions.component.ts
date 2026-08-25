@@ -8,7 +8,7 @@ import { Component, ChangeDetectionStrategy, input, output } from '@angular/core
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { RhSymbolListName, ALL_SYMBOL_LIST_NAMES } from '../../common/rh-agent.constants';
+import { RhSymbolListName, ALL_SYMBOL_LIST_NAMES } from '../../common/constants';
 
 @Component({
   selector: 'app-symbol-list-actions',

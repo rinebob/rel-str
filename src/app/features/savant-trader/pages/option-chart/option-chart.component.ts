@@ -27,7 +27,7 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { OptionsContractViewerStore } from '../../stores/options-contract-viewer.store';
 import { OptionsContractChartComponent } from '../../components/options-contract-chart/options-contract-chart.component';
 import { UiStateService } from '../../../../core/services/ui-state.service';
-import { formatUtcDate } from '../../utils/rh-agent.utils';
+import { formatUtcDate } from '../../utils/utils';
 import {
   groupLengthBuckets,
   getLengthLabel,

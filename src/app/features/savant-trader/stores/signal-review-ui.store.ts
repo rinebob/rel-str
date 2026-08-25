@@ -20,7 +20,7 @@ import {
   SIGNAL_FILTER_ALL,
   SignalTimeframe,
   SignalDirection,
-} from '../common/rh-agent.constants';
+} from '../common/constants';
 
 export interface SignalReviewUiState {
   /** Active timeframe + direction filter for the signal review page. */

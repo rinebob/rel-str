@@ -12,7 +12,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { AppRoutes } from '../../../../core/common/interfaces';
 import { RhSelectMenuComponent, RhSelectOption } from '../rh-select-menu/rh-select-menu.component';
-import { RhSymbolListName, ViewportMode } from '../../common/rh-agent.constants';
+import { RhSymbolListName, ViewportMode } from '../../common/constants';
 
 const LIST_OPTIONS: RhSelectOption[] = [
   { value: RhSymbolListName.NONE,           label: 'None' },

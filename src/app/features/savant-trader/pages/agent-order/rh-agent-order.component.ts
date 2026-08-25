@@ -28,7 +28,7 @@ import { RhAgentTriageStore } from '../../stores/rh-agent-triage.store';
 import { RhAgentOccurrenceDecisionStore } from '../../stores/rh-agent-occurrence-decision.store';
 import { RhAgentStore } from '../../stores/rh-agent.store';
 
-import { RhAgentOccurrenceDecision, RH_AGENT_MAX_TRADE_AMOUNT } from '../../services/rh-agent.types';
+import { AgentOccurrenceDecision, RH_AGENT_MAX_TRADE_AMOUNT } from '../../services/types';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { TradeRowComponent, TradeRow } from '../../components/trade-row/trade-row.component';
 
@@ -93,7 +93,7 @@ export class RhAgentOrderComponent {
     const existing = untracked(() => this.tradeRows());
     const existingBySymbol = new Map(existing.map((r) => [r.symbol, r]));
 
-    const decisionBySymbol = new Map<string, RhAgentOccurrenceDecision>();
+    const decisionBySymbol = new Map<string, AgentOccurrenceDecision>();
     for (const d of decisions) {
       const current = decisionBySymbol.get(d.symbol);
       if (!current || d.barDate > current.barDate) {

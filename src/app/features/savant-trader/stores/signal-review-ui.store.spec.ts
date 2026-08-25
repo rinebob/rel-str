@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { SignalReviewUiStore } from './signal-review-ui.store';
-import { SIGNAL_FILTER_ALL, SignalTimeframe, SignalDirection } from '../common/rh-agent.constants';
+import { SIGNAL_FILTER_ALL, SignalTimeframe, SignalDirection } from '../common/constants';
 
 describe('SignalReviewUiStore', () => {
   let store: InstanceType<typeof SignalReviewUiStore>;

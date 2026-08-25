@@ -26,17 +26,18 @@ import { AppRoutes } from '../../../../core/common/interfaces';
 import { Observable, of } from 'rxjs';
 
 import { Firestore, doc, getDoc } from '@angular/fire/firestore';
-import type { RhAgentSignalItem } from '../../services/rh-agent.types';
+import { Collection } from '../../../../core/common/constants';
+import type { AgentSignalItem } from '../../services/types';
 import { RhAgentTriageStore } from '../../stores/rh-agent-triage.store';
 import { RhAgentOccurrenceDecisionStore } from '../../stores/rh-agent-occurrence-decision.store';
 import { RhAgentGroupStore } from '../../stores/rh-agent-group.store';
 import { RhAgentSymbolListStore } from '../../stores/rh-agent-symbol-list.store';
 import { RhAgentSymbolHistoryStore } from '../../stores/rh-agent-symbol-history.store';
-import { RhAgentSignalService } from '../../services/rh-agent-signal.service';
-import { RhAgentReviewDecision, RhSymbolListName } from '../../common/rh-agent.constants';
+import { SignalService } from '../../services/signal.service';
+import { ReviewDecision, RhSymbolListName } from '../../common/constants';
 import { ChartReviewViewportService } from '../../services/chart-review-viewport.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
-import { todayDate } from '../../utils/rh-agent.utils';
+import { todayDate } from '../../utils/utils';
 import { SignalListComponent } from '../../components/signal-list/signal-list.component';
 import { SignalDetailComponent } from '../../components/signal-detail/signal-detail.component';
 import { ReviewHeaderComponent } from '../../components/review-header/review-header.component';
@@ -65,7 +66,7 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
   readonly groupStore = inject(RhAgentGroupStore);
   readonly symbolListStore = inject(RhAgentSymbolListStore);
   readonly historyStore = inject(RhAgentSymbolHistoryStore);
-  readonly signalService = inject(RhAgentSignalService);
+  readonly signalService = inject(SignalService);
   readonly viewportService = inject(ChartReviewViewportService);
   readonly uiStateService = inject(UiStateService);
   private readonly router = inject(Router);
@@ -147,7 +148,7 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
       if (symbol in cache) return;
       this.symbolNameCache.update(c => ({ ...c, [symbol]: null }));
       runInInjectionContext(this.injector, () =>
-        getDoc(doc(this.firestore, 'rh-agent-symbols', symbol))
+        getDoc(doc(this.firestore, Collection.ST_SYMBOLS, symbol))
       ).then(snap => {
         const name: string | null = snap.exists() ? (snap.data()['name'] ?? null) : null;
         this.symbolNameCache.update(c => ({ ...c, [symbol]: name }));
@@ -171,7 +172,7 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
   }
 
   /** Return the current-run signal occurrences for a symbol, using the cache if available. */
-  private currentRunSignals(symbol: string): Observable<RhAgentSignalItem[]> {
+  private currentRunSignals(symbol: string): Observable<AgentSignalItem[]> {
     const runId = this.groupStore.activeRunId();
     if (!runId) return of([]);
     return this.signalService.getCurrentRunSignalsForSymbol(symbol, runId, this.historyStore.signalHistoryCache());
@@ -194,7 +195,7 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
       if (signals.length === 0) return;
       const runId = this.groupStore.activeRunId()!;
       this.occurrenceStore.acceptSignals(signals, runId, marketDate);
-      this.triageStore.setStatus(symbol, RhAgentReviewDecision.ACCEPT);
+      this.triageStore.setStatus(symbol, ReviewDecision.ACCEPT);
       this.advanceReviewQueue(symbol);
     });
   }
@@ -218,7 +219,7 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
       if (signals.length === 0) return;
       const runId = this.groupStore.activeRunId()!;
       this.occurrenceStore.rejectSignals(signals, runId, marketDate);
-      this.triageStore.setStatus(symbol, RhAgentReviewDecision.REJECT);
+      this.triageStore.setStatus(symbol, ReviewDecision.REJECT);
       this.advanceReviewQueue(symbol);
     });
   }
@@ -305,7 +306,7 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** Handle list dropdown change — purely a viewport filter, no triage mutations. */
+  /** Handle list dropdown change â€” purely a viewport filter, no triage mutations. */
   onListChange(listName: string): void {
     this.viewportService.setActiveViewportList(listName);
     this.manualSymbol.set(null);

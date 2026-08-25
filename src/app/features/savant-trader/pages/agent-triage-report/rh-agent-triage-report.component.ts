@@ -29,15 +29,15 @@ import { MatTableModule } from '@angular/material/table';
 import { Router } from '@angular/router';
 
 import { UiStateService } from '../../../../core/services/ui-state.service';
-import { RhAgentReviewDecision } from '../../common/rh-agent.constants';
-import { RhAgentOccurrenceDecisionService } from '../../services/rh-agent-occurrence-decision.service';
-import { RhAgentOccurrenceDecision, DurableDecisionType } from '../../services/rh-agent.types';
+import { ReviewDecision } from '../../common/constants';
+import { OccurrenceDecisionService } from '../../services/occurrence-decision.service';
+import { AgentOccurrenceDecision, DurableDecisionType } from '../../services/types';
 
 type DecisionCounts = Record<DurableDecisionType, number>;
 
 const DURABLE_DECISION_STATUSES: DurableDecisionType[] = [
-  RhAgentReviewDecision.ACCEPT,
-  RhAgentReviewDecision.REJECT,
+  ReviewDecision.ACCEPT,
+  ReviewDecision.REJECT,
 ];
 
 @Component({
@@ -61,7 +61,7 @@ const DURABLE_DECISION_STATUSES: DurableDecisionType[] = [
   styleUrl: './rh-agent-triage-report.component.scss',
 })
 export class RhAgentTriageReportComponent implements OnInit {
-  readonly occurrenceService = inject(RhAgentOccurrenceDecisionService);
+  readonly occurrenceService = inject(OccurrenceDecisionService);
   readonly uiState = inject(UiStateService);
   private readonly router = inject(Router);
 
@@ -79,7 +79,7 @@ export class RhAgentTriageReportComponent implements OnInit {
   /** Error message. */
   readonly error = signal<string | null>(null);
   /** Raw occurrence decisions loaded from Firestore. */
-  readonly decisions = signal<RhAgentOccurrenceDecision[]>([]);
+  readonly decisions = signal<AgentOccurrenceDecision[]>([]);
 
   /** Decisions filtered by selected status. */
   readonly filteredDecisions = computed(() => {

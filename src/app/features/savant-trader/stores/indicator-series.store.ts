@@ -23,7 +23,7 @@ import {
   IndicatorFamily,
   StrategyFamily,
   SymbolIndicatorSeriesResponse,
-} from '../common/rh-agent-indicator.types';
+} from '../common/indicator.types';
 
 export interface IndicatorSeriesState {
   /** Cache keyed by symbol|version|intervals|indicators|strategies */
@@ -89,7 +89,7 @@ export const IndicatorSeriesStore = signalStore(
         StrategyFamily.TREND_STRENGTH,
       ],
     ): void {
-      const callableName = 'rhAgentGetSymbolIndicatorSeriesV2';
+      const callableName = 'stGetSymbolIndicatorSeriesV2';
       const key = cacheKey(callableName, symbol, version, intervals, indicators, strategies);
 
       if (state.cache()[key] !== undefined) return;
@@ -110,7 +110,7 @@ export const IndicatorSeriesStore = signalStore(
       runInInjectionContext(injector, () => {
         const callable = httpsCallable<GetIndicatorSeriesRequest, SymbolIndicatorSeriesResponse>(
           functions,
-          'rhAgentGetSymbolIndicatorSeriesV2',
+          'stGetSymbolIndicatorSeriesV2',
         );
         return from(callable(request));
       })
@@ -164,7 +164,7 @@ export const IndicatorSeriesStore = signalStore(
       intervals: ChartInterval[],
       indicators: IndicatorFamily[],
       strategies: StrategyFamily[],
-    ) => state.cache()[cacheKey('rhAgentGetSymbolIndicatorSeriesV2', symbol, version, intervals, indicators, strategies)],
+    ) => state.cache()[cacheKey('stGetSymbolIndicatorSeriesV2', symbol, version, intervals, indicators, strategies)],
 
     /**
      * Returns a function that looks up the loading flag for a given filter set.
@@ -175,7 +175,7 @@ export const IndicatorSeriesStore = signalStore(
       intervals: ChartInterval[],
       indicators: IndicatorFamily[],
       strategies: StrategyFamily[],
-    ) => state.loading()[cacheKey('rhAgentGetSymbolIndicatorSeriesV2', symbol, version, intervals, indicators, strategies)] ?? false,
+    ) => state.loading()[cacheKey('stGetSymbolIndicatorSeriesV2', symbol, version, intervals, indicators, strategies)] ?? false,
 
     /**
      * Returns a function that looks up the error for a given filter set.
@@ -186,6 +186,6 @@ export const IndicatorSeriesStore = signalStore(
       intervals: ChartInterval[],
       indicators: IndicatorFamily[],
       strategies: StrategyFamily[],
-    ) => state.error()[cacheKey('rhAgentGetSymbolIndicatorSeriesV2', symbol, version, intervals, indicators, strategies)] ?? null,
+    ) => state.error()[cacheKey('stGetSymbolIndicatorSeriesV2', symbol, version, intervals, indicators, strategies)] ?? null,
   })),
 );

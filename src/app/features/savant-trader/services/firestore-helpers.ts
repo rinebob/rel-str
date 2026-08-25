@@ -47,7 +47,7 @@ export interface CreatedAtDoc {
 }
 
 /** Build a stable doc id for an occurrence-level decision. */
-export function buildRhAgentOccurrenceDecisionId(
+export function buildAgentOccurrenceDecisionId(
   runId: string,
   symbol: string,
   timeframe: string,

@@ -37,18 +37,18 @@ import { ChartToolbarComponent } from '../chart-toolbar/chart-toolbar.component'
 import { SymbolListActionsComponent } from '../symbol-list-actions/symbol-list-actions.component';
 import {
   buildBaseIndicators,
-  addRhAgentExtras,
-  createRhAgentExtrasSignals,
+  addChartExtras,
+  createExtrasSignals,
   ST_ZONE_WINDOW_MONTHLY_INDICATOR,
   ST_ZONE_WINDOW_WEEKLY_INDICATOR,
   ST_ZONE_V1_UPTICK_DOTS_INDICATOR,
   ST_ZONE_V2_UPTICK_DOTS_INDICATOR,
   injectCallableIndicatorData,
-} from '../../utils/rh-agent-chart-indicators';
+} from '../../utils/chart-indicators';
 import { RhAgentSymbolHistoryStore } from '../../stores/rh-agent-symbol-history.store';
 import { IndicatorSeriesStore } from '../../stores/indicator-series.store';
-import type { SymbolIndicatorSeriesResponse } from '../../common/rh-agent-indicator.types';
-import { RhSymbolListName } from '../../common/rh-agent.constants';
+import type { SymbolIndicatorSeriesResponse } from '../../common/indicator.types';
+import { RhSymbolListName } from '../../common/constants';
 
 /** RH Agent indicator menu options: shared ST base + RH Agent-specific HTF zone windows. */
 const RH_AGENT_INDICATOR_OPTIONS: IndicatorOption[] = [
@@ -386,16 +386,16 @@ export class SignalDetailComponent {
     );
   });
 
-  /** Daily interval slice of the callable response — fed into `createRhAgentExtrasSignals`. */
+  /** Daily interval slice of the callable response — fed into `createExtrasSignals`. */
   private dailyIntervalData = computed(() => this.indicatorResponse()?.intervals?.daily);
-  /** Weekly interval slice of the callable response — fed into `createRhAgentExtrasSignals`. */
+  /** Weekly interval slice of the callable response — fed into `createExtrasSignals`. */
   private weeklyIntervalData = computed(() => this.indicatorResponse()?.intervals?.weekly);
 
   /** Derived computed signals for all backend-supplied extras (HTF windows, signal dots,
    *  uptick dots). Centralised here so daily and weekly charts share the same conversions.
    *  Must be declared after `dailyIntervalData` and `weeklyIntervalData`.
    */
-  private readonly extras = createRhAgentExtrasSignals(this.dailyIntervalData, this.weeklyIntervalData);
+  private readonly extras = createExtrasSignals(this.dailyIntervalData, this.weeklyIntervalData);
 
   // ==========================================================================
   // Per-interval indicator config computeds (daily / weekly / monthly)
@@ -406,7 +406,7 @@ export class SignalDetailComponent {
    */
   private dailyIndicators = computed<IndicatorConfig[]>(() => {
     const sel = this.selectedIdsByInterval()[ChartIntervalKey.DAILY];
-    return addRhAgentExtras(SignalDetailComponent.baseIndicatorsFor(
+    return addChartExtras(SignalDetailComponent.baseIndicatorsFor(
       ChartIntervalKey.DAILY, sel, this.indicatorResponse(), this.chartData()?.bars,
     ), {
       htfWindow: sel.has(ST_ZONE_WINDOW_WEEKLY_INDICATOR.id)
@@ -423,7 +423,7 @@ export class SignalDetailComponent {
    */
   private weeklyIndicators = computed<IndicatorConfig[]>(() => {
     const sel = this.selectedIdsByInterval()[ChartIntervalKey.WEEKLY];
-    return addRhAgentExtras(SignalDetailComponent.baseIndicatorsFor(
+    return addChartExtras(SignalDetailComponent.baseIndicatorsFor(
       ChartIntervalKey.WEEKLY, sel, this.indicatorResponse(), this.chartDataWeekly()?.bars,
     ), {
       htfWindow: sel.has(ST_ZONE_WINDOW_MONTHLY_INDICATOR.id)

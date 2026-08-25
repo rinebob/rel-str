@@ -19,9 +19,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-import { RhAgentSignalService } from '../../services/rh-agent-signal.service';
+import { SignalService } from '../../services/signal.service';
 import { RhAgentSymbolListStore } from '../../stores/rh-agent-symbol-list.store';
-import { RhAgentSymbolProfile } from '../../services/rh-agent.types';
+import { AgentSymbolProfile } from '../../services/types';
 
 /** Search modes available in the new-symbols dialog. */
 export enum SearchMode {
@@ -48,7 +48,7 @@ export enum SearchMode {
 })
 export class NewSymbolsDialogComponent implements OnInit {
   private readonly dialogRef = inject(MatDialogRef<NewSymbolsDialogComponent, string[] | undefined>);
-  private readonly signalService = inject(RhAgentSignalService);
+  private readonly signalService = inject(SignalService);
   private readonly symbolListStore = inject(RhAgentSymbolListStore);
 
   /** SearchMode enum exposed for the template. */
@@ -67,7 +67,7 @@ export class NewSymbolsDialogComponent implements OnInit {
   error = signal<string | null>(null);
 
   /** Symbols returned by the last query, sorted by createdAt descending. */
-  symbols = signal<RhAgentSymbolProfile[]>([]);
+  symbols = signal<AgentSymbolProfile[]>([]);
 
   /** Symbols the user has selected for adding to the review queue. */
   selectedSymbols = signal<Set<string>>(new Set());
@@ -93,7 +93,7 @@ export class NewSymbolsDialogComponent implements OnInit {
         : this.signalService.getUnbackfilledSymbols(this.listSymbols());
 
     query$.subscribe({
-      next: (profiles: RhAgentSymbolProfile[]) => {
+      next: (profiles: AgentSymbolProfile[]) => {
         const sorted = [...profiles].sort((a, b) =>
           (b.createdAt ?? '').localeCompare(a.createdAt ?? '')
         );

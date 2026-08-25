@@ -10,10 +10,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 import {
-  RhAgentRunTriggerFilter,
-  RhAgentRunDateFilter,
-  RhAgentRunStatusFilter,
-} from '../../common/rh-agent.constants';
+  RunTriggerFilter,
+  RunDateFilter,
+  RunStatusFilter,
+} from '../../common/constants';
 
 @Component({
   selector: 'app-run-control-card',
@@ -29,38 +29,38 @@ import {
 })
 export class RunControlCardComponent {
   readonly isRunning    = input<boolean>(false);
-  readonly triggerFilter = input<RhAgentRunTriggerFilter>(RhAgentRunTriggerFilter.ALL);
-  readonly dateFilter    = input<RhAgentRunDateFilter>(RhAgentRunDateFilter.TODAY);
-  readonly statusFilter  = input<RhAgentRunStatusFilter>(RhAgentRunStatusFilter.ALL);
+  readonly triggerFilter = input<RunTriggerFilter>(RunTriggerFilter.ALL);
+  readonly dateFilter    = input<RunDateFilter>(RunDateFilter.TODAY);
+  readonly statusFilter  = input<RunStatusFilter>(RunStatusFilter.ALL);
 
   readonly runNow           = output<void>();
-  readonly triggerFilterChange = output<RhAgentRunTriggerFilter>();
-  readonly dateFilterChange    = output<RhAgentRunDateFilter>();
-  readonly statusFilterChange  = output<RhAgentRunStatusFilter>();
+  readonly triggerFilterChange = output<RunTriggerFilter>();
+  readonly dateFilterChange    = output<RunDateFilter>();
+  readonly statusFilterChange  = output<RunStatusFilter>();
   readonly refresh          = output<void>();
 
-  readonly TriggerFilter = RhAgentRunTriggerFilter;
-  readonly DateFilter    = RhAgentRunDateFilter;
-  readonly StatusFilter  = RhAgentRunStatusFilter;
+  readonly TriggerFilter = RunTriggerFilter;
+  readonly DateFilter    = RunDateFilter;
+  readonly StatusFilter  = RunStatusFilter;
 
-  readonly triggerOptions: { label: string; value: RhAgentRunTriggerFilter }[] = [
-    { label: 'All',     value: RhAgentRunTriggerFilter.ALL },
-    { label: 'Manual',  value: RhAgentRunTriggerFilter.MANUAL },
-    { label: 'PDR',     value: RhAgentRunTriggerFilter.PDR },
-    { label: 'Nightly', value: RhAgentRunTriggerFilter.NIGHTLY },
+  readonly triggerOptions: { label: string; value: RunTriggerFilter }[] = [
+    { label: 'All',     value: RunTriggerFilter.ALL },
+    { label: 'Manual',  value: RunTriggerFilter.MANUAL },
+    { label: 'PDR',     value: RunTriggerFilter.PDR },
+    { label: 'Nightly', value: RunTriggerFilter.NIGHTLY },
   ];
 
-  readonly dateOptions: { label: string; value: RhAgentRunDateFilter }[] = [
-    { label: 'Today',   value: RhAgentRunDateFilter.TODAY },
-    { label: '7 Days',  value: RhAgentRunDateFilter.WEEK },
-    { label: 'All',     value: RhAgentRunDateFilter.ALL },
+  readonly dateOptions: { label: string; value: RunDateFilter }[] = [
+    { label: 'Today',   value: RunDateFilter.TODAY },
+    { label: '7 Days',  value: RunDateFilter.WEEK },
+    { label: 'All',     value: RunDateFilter.ALL },
   ];
 
-  readonly statusOptions: { label: string; value: RhAgentRunStatusFilter }[] = [
-    { label: 'All',     value: RhAgentRunStatusFilter.ALL },
-    { label: 'Running', value: RhAgentRunStatusFilter.RUNNING },
-    { label: 'Success', value: RhAgentRunStatusFilter.SUCCESS },
-    { label: 'Partial', value: RhAgentRunStatusFilter.PARTIAL },
-    { label: 'Failed',  value: RhAgentRunStatusFilter.FAILED },
+  readonly statusOptions: { label: string; value: RunStatusFilter }[] = [
+    { label: 'All',     value: RunStatusFilter.ALL },
+    { label: 'Running', value: RunStatusFilter.RUNNING },
+    { label: 'Success', value: RunStatusFilter.SUCCESS },
+    { label: 'Partial', value: RunStatusFilter.PARTIAL },
+    { label: 'Failed',  value: RunStatusFilter.FAILED },
   ];
 }

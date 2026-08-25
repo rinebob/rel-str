@@ -4,7 +4,7 @@
  * In-memory source of truth for ephemeral RACR (Review/Accept/Consider/Reject/etc.)
  * UI state across all RH Agent pages: Grouped Review, Review, and Order.
  *
- * Review flags are persisted via RhAgentTriageService. ACR statuses are purely
+ * Review flags are persisted via TriageService. ACR statuses are purely
  * local UI feedback; durable ACCEPT/REJECT decisions live in
  * RhAgentOccurrenceDecisionStore.
  *
@@ -22,10 +22,10 @@ import {
 
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-import { RhAgentReviewDecision, ALL_REVIEW_STATUSES, StatusCounts, RhSymbolListName, ViewportMode } from '../common/rh-agent.constants';
-import { RhAgentTriageService } from '../services/rh-agent-triage.service';
+import { ReviewDecision, ALL_REVIEW_STATUSES, StatusCounts, RhSymbolListName, ViewportMode } from '../common/constants';
+import { TriageService } from '../services/triage.service';
 
-const ReviewStatus = RhAgentReviewDecision;
+const ReviewStatus = ReviewDecision;
 
 // ---------------------------------------------------------------------------
 // State
@@ -33,8 +33,8 @@ const ReviewStatus = RhAgentReviewDecision;
 
 export interface RhAgentTriageState {
   /** Per-symbol ACR status. Key = symbol ticker. Values: PENDING/ACCEPT/CONSIDER/REJECT/WATCH/etc. */
-  statuses: Record<string, RhAgentReviewDecision>;
-  /** Per-symbol review flag — "I want to look at this symbol's chart." Independent of ACR. */
+  statuses: Record<string, ReviewDecision>;
+  /** Per-symbol review flag â€” "I want to look at this symbol's chart." Independent of ACR. */
   reviewFlags: Record<string, boolean>;
   /** Viewport mode: 'signals' = show only review-flagged symbols, 'browse' = show all list symbols. */
   viewportMode: ViewportMode;
@@ -65,14 +65,14 @@ export const RhAgentTriageStore = signalStore(
   withState(initialState),
 
   withComputed((state) => ({
-    /** Symbols flagged for review — feeds the Review page sidebar. */
+    /** Symbols flagged for review â€” feeds the Review page sidebar. */
     reviewSymbols: computed((): string[] =>
       Object.entries(state.reviewFlags())
         .filter(([_, flagged]) => flagged)
         .map(([symbol]) => symbol)
     ),
 
-    /** Symbols with ACCEPT status — local ephemeral status for UI feedback. */
+    /** Symbols with ACCEPT status â€” local ephemeral status for UI feedback. */
     acceptedSymbols: computed((): string[] =>
       Object.entries(state.statuses())
         .filter(([_, status]) => status === ReviewStatus.ACCEPT)
@@ -92,7 +92,7 @@ export const RhAgentTriageStore = signalStore(
     /** True while review flags are still loading. */
     loading: computed((): boolean => state.reviewFlagsLoading()),
 
-    /** Full status counts — useful for summary chips. */
+    /** Full status counts â€” useful for summary chips. */
     statusCounts: computed((): StatusCounts => {
       const values = Object.values(state.statuses());
       const counts = Object.fromEntries(
@@ -106,24 +106,24 @@ export const RhAgentTriageStore = signalStore(
 
   withMethods((
     state,
-    triageService = inject(RhAgentTriageService),
+    triageService = inject(TriageService),
     snackBar = inject(MatSnackBar),
   ) => ({
     /** Set a single symbol's ACR status in ephemeral in-memory state. */
-    setStatus(symbol: string, status: RhAgentReviewDecision): void {
+    setStatus(symbol: string, status: ReviewDecision): void {
       patchState(state, {
         statuses: { ...state.statuses(), [symbol]: status },
       });
     },
 
     /** Replace the ephemeral ACR status map in one shot. */
-    setStatuses(statuses: Record<string, RhAgentReviewDecision>): void {
+    setStatuses(statuses: Record<string, ReviewDecision>): void {
       patchState(state, { statuses });
     },
 
     /** Set PACR status for multiple symbols in ephemeral in-memory state. */
-    setGroupStatus(symbols: string[], status: RhAgentReviewDecision): void {
-      const updates: Record<string, RhAgentReviewDecision> = {};
+    setGroupStatus(symbols: string[], status: ReviewDecision): void {
+      const updates: Record<string, ReviewDecision> = {};
       for (const symbol of symbols) {
         updates[symbol] = status;
       }
@@ -151,7 +151,7 @@ export const RhAgentTriageStore = signalStore(
       });
     },
 
-    /** Clear review flags — unflag all symbols from the review queue (in-memory only). */
+    /** Clear review flags â€” unflag all symbols from the review queue (in-memory only). */
     clearReviewFlags(): void {
       patchState(state, { reviewFlags: {} });
     },
@@ -185,7 +185,7 @@ export const RhAgentTriageStore = signalStore(
     /** Drop ephemeral screening state (review flags and non-durable statuses) while keeping durable ACCEPT/REJECT decisions in memory. */
     clearEphemeralScreeningState(): void {
       const statuses = state.statuses();
-      const durableOnly: Record<string, RhAgentReviewDecision> = {};
+      const durableOnly: Record<string, ReviewDecision> = {};
       for (const [symbol, status] of Object.entries(statuses)) {
         if (isDurableDecision(status)) durableOnly[symbol] = status;
       }
@@ -228,7 +228,7 @@ export const RhAgentTriageStore = signalStore(
 );
 
 /** True for statuses that represent a durable source-specific decision. */
-function isDurableDecision(status: RhAgentReviewDecision): boolean {
+function isDurableDecision(status: ReviewDecision): boolean {
   return (
     status === ReviewStatus.ACCEPT ||
     status === ReviewStatus.REJECT

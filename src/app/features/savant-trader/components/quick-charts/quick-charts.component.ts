@@ -31,11 +31,11 @@ import { ChartIntervalKey } from '../../../shared/components/flex-chart/flex-cha
 import {
   buildBaseIndicators,
   injectCallableIndicatorData,
-  addRhAgentExtras,
-  createRhAgentExtrasSignals,
+  addChartExtras,
+  createExtrasSignals,
   ST_ZONE_WINDOW_MONTHLY_INDICATOR,
   ST_ZONE_WINDOW_WEEKLY_INDICATOR,
-} from '../../utils/rh-agent-chart-indicators';
+} from '../../utils/chart-indicators';
 
 const QUICK_BARS = 100;
 
@@ -77,7 +77,7 @@ export class QuickChartsComponent {
   private readonly monthlyIntervalData = computed(() => this.indicatorResponse()?.intervals?.monthly);
 
   // ── Derived extras (HTF windows, signal dots, uptick dots) ──────────────────
-  private readonly extras = createRhAgentExtrasSignals(this.dailyIntervalData, this.weeklyIntervalData);
+  private readonly extras = createExtrasSignals(this.dailyIntervalData, this.weeklyIntervalData);
 
   // ── Chart configs ──────────────────────────────────────────────────────────
   private buildQuickChartConfig(interval: ChartIntervalKey, indicators: IndicatorConfig[]): FlexChartConfig {
@@ -101,7 +101,7 @@ export class QuickChartsComponent {
   });
 
   readonly weeklyConfig = computed<FlexChartConfig>(() => {
-    const indicators = addRhAgentExtras(
+    const indicators = addChartExtras(
       injectCallableIndicatorData(
         buildBaseIndicators(ChartIntervalKey.WEEKLY),
         this.weeklyIntervalData(),
@@ -118,7 +118,7 @@ export class QuickChartsComponent {
   });
 
   readonly dailyConfig = computed<FlexChartConfig>(() => {
-    const indicators = addRhAgentExtras(
+    const indicators = addChartExtras(
       injectCallableIndicatorData(
         buildBaseIndicators(ChartIntervalKey.DAILY),
         this.dailyIntervalData(),

@@ -1,11 +1,11 @@
 /**
  * RH Agent shared types and constants.
  *
- * These were extracted from rh-agent.service.ts so the new focused services
+ * These were extracted from agent.service.ts so the new focused services
  * can share them without circular dependencies.
  */
 
-import { RhAgentReviewDecision, SignalDirection, SignalStatus, SignalTimeframe } from '../common/rh-agent.constants';
+import { ReviewDecision, SignalDirection, SignalStatus, SignalTimeframe } from '../common/constants';
 
 /**
  * Cron expression for the RH Agent daily scheduler (UTC).
@@ -18,7 +18,7 @@ export const RH_AGENT_SCHEDULE_CRON = '0 1 * * 2-6'; // 1 AM UTC = 6 PM PT, Mon-
  */
 export const RH_AGENT_MAX_TRADE_AMOUNT = 100;
 
-export interface RhAgentStatus {
+export interface AgentStatus {
   isEnabled: boolean;
   lastRunAt?: string;
   lastRunStatus?: string;
@@ -28,7 +28,7 @@ export interface RhAgentStatus {
   schedule?: string;
 }
 
-export interface RhAgentRun {
+export interface AgentRun {
   id: string;
   status: string;
   startedAt: string;
@@ -46,24 +46,24 @@ export interface RhAgentRun {
 /** Market cap tiers derived from SA overview data. */
 export type MarketCapTier = 'mega' | 'large' | 'mid' | 'small' | 'micro';
 
-export { SignalDirection } from '../common/rh-agent.constants';
+export { SignalDirection } from '../common/constants';
 
 /** Known source values for how a symbol entered the RH Agent tracked universe. */
-export enum RhAgentSymbolSource {
+export enum AgentSymbolSource {
   MANUAL_ADD = 'manual-add',
   PARTNER_UNIVERSE = 'partner-universe',
 }
 
 /**
- * Symbol profile returned by rhAgentGetSymbolsWithSignals.
+ * Symbol profile returned by stGetSymbolsWithSignals.
  * Includes config fields and company overview (after Phase 1 sync).
  */
-export interface RhAgentSymbolProfile {
+export interface AgentSymbolProfile {
   symbol: string;
   enabled: boolean;
   createdAt: string;
-  /** How this symbol entered the tracked universe (one of RhAgentSymbolSource). */
-  source?: RhAgentSymbolSource;
+  /** How this symbol entered the tracked universe (one of AgentSymbolSource). */
+  source?: AgentSymbolSource;
   lastAnalyzedAt?: string;
   lastDailySignalDate?: string;
   lastWeeklySignalDate?: string;
@@ -88,11 +88,11 @@ export interface RhAgentSymbolProfile {
 /**
  * A single signal entry stored in run-ids or signal-history docs.
  */
-export interface RhAgentSignalItem {
+export interface AgentSignalItem {
   id: string; // barDate (doc ID)
   symbol: string;
-  barDate: string; // YYYY-MM-DD — the bar that fired
-  marketDate: string; // YYYY-MM-DD — the run date
+  barDate: string; // YYYY-MM-DD â€” the bar that fired
+  marketDate: string; // YYYY-MM-DD â€” the run date
   runId: string;
   timeframe: SignalTimeframe;
   direction: SignalDirection;
@@ -105,10 +105,10 @@ export interface RhAgentSignalItem {
 
 /** Subset of review decisions that are persisted as durable occurrence decisions. */
 export type DurableDecisionType =
-  | RhAgentReviewDecision.ACCEPT
-  | RhAgentReviewDecision.REJECT;
+  | ReviewDecision.ACCEPT
+  | ReviewDecision.REJECT;
 
-export interface RhAgentOccurrenceDecision {
+export interface AgentOccurrenceDecision {
   /** Stable identity for the decision doc. */
   id: string;
   /** User who made the decision. Optional when the object is built optimistically; the service stamps it. */

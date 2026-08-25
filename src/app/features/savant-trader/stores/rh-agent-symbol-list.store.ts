@@ -8,7 +8,7 @@
  * - Toggle/add/remove symbols in named lists
  *
  * The store owns the local reactive state; persistence is delegated to
- * RhAgentSymbolListService.
+ * SymbolListService.
  */
 import { inject } from '@angular/core';
 import {
@@ -19,15 +19,15 @@ import {
 } from '@ngrx/signals';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-import { RhAgentSymbolListService } from '../services/rh-agent-symbol-list.service';
-import { RhSymbolListName, ALL_SYMBOL_LIST_NAMES } from '../common/rh-agent.constants';
+import { SymbolListService } from '../services/symbol-list.service';
+import { RhSymbolListName, ALL_SYMBOL_LIST_NAMES } from '../common/constants';
 
 export interface RhAgentSymbolListState {
   /** User-defined symbol lists: listName -> symbols[]. */
   symbolLists: Record<string, string[]>;
   /** Loading state for symbol lists. */
   symbolListsLoading: boolean;
-  /** Active list filter — 'ALL' shows everything. */
+  /** Active list filter â€” 'ALL' shows everything. */
   activeListFilter: RhSymbolListName | 'ALL';
 }
 
@@ -42,7 +42,7 @@ export const RhAgentSymbolListStore = signalStore(
   withState(initialState),
   withMethods((
     state,
-    listService = inject(RhAgentSymbolListService),
+    listService = inject(SymbolListService),
     snackBar = inject(MatSnackBar),
   ) => ({
     /** Load all user-defined symbol lists from Firestore. */

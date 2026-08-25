@@ -10,7 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { AppRoutes } from '../../../../core/common/interfaces';
-import { RhSymbolListName, StatusCounts, GroupDimension, SignalTimeframe, SignalDirection } from '../../common/rh-agent.constants';
+import { RhSymbolListName, StatusCounts, GroupDimension, SignalTimeframe, SignalDirection } from '../../common/constants';
 import { StatusSummaryChipsComponent } from '../status-summary-chips/status-summary-chips.component';
 import { SignalFilterPillsComponent } from '../signal-filter-pills/signal-filter-pills.component';
 import { RhSelectMenuComponent, RhSelectOption } from '../rh-select-menu/rh-select-menu.component';

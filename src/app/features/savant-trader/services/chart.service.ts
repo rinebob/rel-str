@@ -13,7 +13,7 @@ import { map, catchError } from 'rxjs/operators';
 import { BarsInterval } from '../../../core/models/partner.types';
 import type { OhlcBar, OhlcBarsDoc } from '../../../core/models/market-data.types';
 import type { ChartDataset, PriceBar } from '../../heatmap-chart/heatmap-chart.types';
-import { toDatePt } from '../utils/rh-agent.utils';
+import { toDatePt } from '../utils/utils';
 
 // ============================================================================
 // Types
@@ -53,7 +53,7 @@ function toPrice(b: OhlcBar): PriceBar {
 // ============================================================================
 
 @Injectable({ providedIn: 'root' })
-export class RhAgentChartService {
+export class ChartService {
   private readonly firestore = inject(Firestore);
   private readonly injector = inject(EnvironmentInjector);
 

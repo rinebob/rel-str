@@ -23,13 +23,13 @@ import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { RhAgentStore } from '../../stores/rh-agent.store';
 import { RhAgentDashboardStore } from '../../stores/rh-agent-dashboard.store';
 import { RhAgentGroupStore } from '../../stores/rh-agent-group.store';
-import { RhAgentRun } from '../../services/rh-agent.types';
-import { RhAgentOverviewService } from '../../services/rh-agent-overview.service';
+import { AgentRun } from '../../services/types';
+import { OverviewService } from '../../services/overview.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { Router, RouterLink } from '@angular/router';
 import { AppRoutes } from '../../../../core/common/interfaces';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { getScheduleDescription, formatTimestampPT, formatTimePt, getNextPdrWindowPt, getNextNightlyPt, todayDate } from '../../utils/rh-agent.utils';
+import { getScheduleDescription, formatTimestampPT, formatTimePt, getNextPdrWindowPt, getNextNightlyPt, todayDate } from '../../utils/utils';
 import { AgentStatusBarComponent } from '../../components/agent-status-bar/agent-status-bar.component';
 import { RunHistoryPanelComponent } from '../../components/run-history-panel/run-history-panel.component';
 import { RunControlCardComponent } from '../../components/run-control-card/run-control-card.component';
@@ -62,7 +62,7 @@ export class RhAgentDashboardComponent implements OnInit, OnDestroy {
   private readonly uiState = inject(UiStateService);
   private readonly router = inject(Router);
   protected readonly appRoutes = AppRoutes;
-  private readonly overviewService = inject(RhAgentOverviewService);
+  private readonly overviewService = inject(OverviewService);
   private readonly snackBar = inject(MatSnackBar);
 
   readonly isSyncingOverview = signal(false);
@@ -88,7 +88,7 @@ export class RhAgentDashboardComponent implements OnInit, OnDestroy {
     if (nextNightly) nextParts.push(`${formatRunTime(nextNightly)} (nightly)`);
     if (nextParts.length) parts.push(`Next: ${nextParts.join(', ')}`);
 
-    return parts.join(' • ') || getScheduleDescription();
+    return parts.join(' â€¢ ') || getScheduleDescription();
   });
 
   /**
@@ -120,7 +120,7 @@ export class RhAgentDashboardComponent implements OnInit, OnDestroy {
     this.uiState.setFullscreen(false);
   }
 
-  /** Refresh status — runs update automatically via the realtime listener. */
+  /** Refresh status â€” runs update automatically via the realtime listener. */
   refreshData(): void {
     this.store.refreshStatus();
   }
@@ -143,7 +143,7 @@ export class RhAgentDashboardComponent implements OnInit, OnDestroy {
   }
 
   /** Review signals for a specific run selected from the run history panel. */
-  onRunSelected(run: RhAgentRun): void {
+  onRunSelected(run: AgentRun): void {
     this.uiStore.selectRun(run.id);
     if (run.id && run.marketDate) {
       this.groupStore.setActiveRun(run.id, run.marketDate);

@@ -19,19 +19,19 @@ import {
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import {
-  RhAgentOccurrenceDecisionService,
-} from '../services/rh-agent-occurrence-decision.service';
+  OccurrenceDecisionService,
+} from '../services/occurrence-decision.service';
 import {
-  RhAgentSignalItem,
-  RhAgentOccurrenceDecision,
+  AgentSignalItem,
+  AgentOccurrenceDecision,
   DurableDecisionType,
-} from '../services/rh-agent.types';
-import { RhAgentReviewDecision } from '../common/rh-agent.constants';
-import { buildRhAgentOccurrenceDecisionId } from '../services/rh-agent-firestore-helpers';
+} from '../services/types';
+import { ReviewDecision } from '../common/constants';
+import { buildAgentOccurrenceDecisionId } from '../services/firestore-helpers';
 
 export interface RhAgentOccurrenceDecisionState {
   /** Durable occurrence-level decisions keyed by decision id. */
-  occurrenceDecisions: Record<string, RhAgentOccurrenceDecision>;
+  occurrenceDecisions: Record<string, AgentOccurrenceDecision>;
   /** True while decisions for the active run are loading. */
   decisionsLoading: boolean;
   /** Error from loading or persisting decisions. */
@@ -45,15 +45,15 @@ const initialState: RhAgentOccurrenceDecisionState = {
 };
 
 function decisionId(runId: string, symbol: string, timeframe: string, signalType: string): string {
-  return buildRhAgentOccurrenceDecisionId(runId, symbol, timeframe, signalType);
+  return buildAgentOccurrenceDecisionId(runId, symbol, timeframe, signalType);
 }
 
 function buildDecision(
   runId: string,
   marketDate: string,
-  signal: RhAgentSignalItem,
+  signal: AgentSignalItem,
   decisionType: DurableDecisionType,
-): RhAgentOccurrenceDecision {
+): AgentOccurrenceDecision {
   return {
     id: decisionId(runId, signal.symbol, signal.timeframe, signal.signalType),
     runId,
@@ -80,17 +80,17 @@ export const RhAgentOccurrenceDecisionStore = signalStore(
       Array.from(
         new Set(
           Object.values(state.occurrenceDecisions())
-            .filter((d) => d.decisionType === RhAgentReviewDecision.ACCEPT && d.isCurrentInLatestRun)
+            .filter((d) => d.decisionType === ReviewDecision.ACCEPT && d.isCurrentInLatestRun)
             .map((d) => d.symbol)
         )
       )
     );
 
-    const activeOrderDecisions = computed((): RhAgentOccurrenceDecision[] =>
+    const activeOrderDecisions = computed((): AgentOccurrenceDecision[] =>
       Object.values(state.occurrenceDecisions())
         .filter(
           (d) =>
-            d.decisionType === RhAgentReviewDecision.ACCEPT &&
+            d.decisionType === ReviewDecision.ACCEPT &&
             d.isCurrentInLatestRun
         )
         .sort((a, b) => a.symbol.localeCompare(b.symbol))
@@ -119,21 +119,21 @@ export const RhAgentOccurrenceDecisionStore = signalStore(
 
   withMethods((
     state,
-    occurrenceService = inject(RhAgentOccurrenceDecisionService),
+    occurrenceService = inject(OccurrenceDecisionService),
     snackBar = inject(MatSnackBar),
   ) => ({
     /** Persist ACCEPT decisions for the given signal occurrences in the active run. */
-    acceptSignals(signals: RhAgentSignalItem[], runId: string, marketDate: string): void {
-      this.persistSignalDecisions(signals, runId, marketDate, RhAgentReviewDecision.ACCEPT);
+    acceptSignals(signals: AgentSignalItem[], runId: string, marketDate: string): void {
+      this.persistSignalDecisions(signals, runId, marketDate, ReviewDecision.ACCEPT);
     },
 
     /** Persist REJECT decisions for the given signal occurrences in the active run. */
-    rejectSignals(signals: RhAgentSignalItem[], runId: string, marketDate: string): void {
-      this.persistSignalDecisions(signals, runId, marketDate, RhAgentReviewDecision.REJECT);
+    rejectSignals(signals: AgentSignalItem[], runId: string, marketDate: string): void {
+      this.persistSignalDecisions(signals, runId, marketDate, ReviewDecision.REJECT);
     },
 
     /** Delete durable decisions for the given signal occurrences. */
-    resetSignals(signals: RhAgentSignalItem[], runId: string): void {
+    resetSignals(signals: AgentSignalItem[], runId: string): void {
       if (signals.length === 0) return;
       const previousDecisions = state.occurrenceDecisions();
       const next = { ...previousDecisions };
@@ -150,7 +150,7 @@ export const RhAgentOccurrenceDecisionStore = signalStore(
           console.error('[OccurrenceDecisionStore] Failed to reset decisions:', err);
           const message = err instanceof Error ? err.message : String(err ?? 'Reset failed');
           patchState(state, { occurrenceDecisions: previousDecisions, decisionsError: message });
-          snackBar.open('Failed to reset decisions — reverted', 'Dismiss', { duration: 4000 });
+          snackBar.open('Failed to reset decisions â€” reverted', 'Dismiss', { duration: 4000 });
         },
       });
     },
@@ -175,7 +175,7 @@ export const RhAgentOccurrenceDecisionStore = signalStore(
           console.error('[OccurrenceDecisionStore] Failed to reset symbol:', err);
           const message = err instanceof Error ? err.message : String(err ?? 'Reset failed');
           patchState(state, { occurrenceDecisions: previousDecisions, decisionsError: message });
-          snackBar.open('Failed to reset decisions — reverted', 'Dismiss', { duration: 4000 });
+          snackBar.open('Failed to reset decisions â€” reverted', 'Dismiss', { duration: 4000 });
         },
       });
     },
@@ -185,7 +185,7 @@ export const RhAgentOccurrenceDecisionStore = signalStore(
       patchState(state, { decisionsLoading: true, decisionsError: null });
       occurrenceService.loadDecisionsForRun(runId).subscribe({
         next: (decisions) => {
-          const map: Record<string, RhAgentOccurrenceDecision> = {};
+          const map: Record<string, AgentOccurrenceDecision> = {};
           for (const d of decisions) {
             map[d.id] = d;
           }
@@ -202,7 +202,7 @@ export const RhAgentOccurrenceDecisionStore = signalStore(
     /** Mark every decision for the given source run as no longer current in the latest run. */
     markRunNotCurrent(runId: string): void {
       const previousDecisions = state.occurrenceDecisions();
-      const next: Record<string, RhAgentOccurrenceDecision> = {};
+      const next: Record<string, AgentOccurrenceDecision> = {};
       for (const [id, d] of Object.entries(previousDecisions)) {
         if (d.runId === runId) {
           next[id] = { ...d, isCurrentInLatestRun: false };
@@ -226,7 +226,7 @@ export const RhAgentOccurrenceDecisionStore = signalStore(
     },
 
     persistSignalDecisions(
-      signals: RhAgentSignalItem[],
+      signals: AgentSignalItem[],
       runId: string,
       marketDate: string,
       decisionType: DurableDecisionType

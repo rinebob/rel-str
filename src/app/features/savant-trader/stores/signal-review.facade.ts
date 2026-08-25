@@ -20,8 +20,8 @@ import { RhAgentSymbolListStore } from './rh-agent-symbol-list.store';
 import { RhAgentSymbolHistoryStore } from './rh-agent-symbol-history.store';
 import { RhAgentStore } from './rh-agent.store';
 import { SignalReviewUiStore } from './signal-review-ui.store';
-import { RhAgentSignalService } from '../services/rh-agent-signal.service';
-import type { RhAgentSignalItem } from '../services/rh-agent.types';
+import { SignalService } from '../services/signal.service';
+import type { AgentSignalItem } from '../services/types';
 import { UiStateService } from '../../../core/services/ui-state.service';
 import { ScrollTargetService } from '../services/scroll-target.service';
 import {
@@ -29,9 +29,9 @@ import {
   RhSymbolListName,
   SignalTimeframe,
   SignalDirection,
-  RhAgentReviewDecision,
-} from '../common/rh-agent.constants';
-import type { RhAgentRun } from '../services/rh-agent.types';
+  ReviewDecision,
+} from '../common/constants';
+import type { AgentRun } from '../services/types';
 
 @Injectable({ providedIn: 'root' })
 export class SignalReviewFacade {
@@ -40,7 +40,7 @@ export class SignalReviewFacade {
   private readonly occurrenceStore = inject(RhAgentOccurrenceDecisionStore);
   private readonly symbolListStore = inject(RhAgentSymbolListStore);
   private readonly historyStore = inject(RhAgentSymbolHistoryStore);
-  private readonly signalService = inject(RhAgentSignalService);
+  private readonly signalService = inject(SignalService);
   private readonly uiStore = inject(SignalReviewUiStore);
   private readonly agentStore = inject(RhAgentStore);
   private readonly uiState = inject(UiStateService);
@@ -84,7 +84,7 @@ export class SignalReviewFacade {
   readonly quickChartSymbol = computed(() => this.groupStore.quickChartSymbol());
 
   /** Active-run context for header / eligibility. */
-  readonly viewedRun = computed((): RhAgentRun | null => this.groupStore.viewedRun());
+  readonly viewedRun = computed((): AgentRun | null => this.groupStore.viewedRun());
   readonly isActionableRun = computed(() => this.groupStore.isActionableRun());
 
   /** Fullscreen state for the header. */
@@ -118,7 +118,7 @@ export class SignalReviewFacade {
     if (runId) {
       this.groupStore.loadSymbolsWithSignals();
     } else {
-      // Direct page reload — activeRunId not yet set. Start runs stream;
+      // Direct page reload â€” activeRunId not yet set. Start runs stream;
       // the constructor effect will auto-select the most recent run when it arrives.
       this.agentStore.loadData();
     }
@@ -176,14 +176,14 @@ export class SignalReviewFacade {
   }
 
   /** Expand/collapse a group and preload signal history when expanding. */
-  groupExpandChanged(group: { key: string; rows: { profile: { symbol: string }; signals?: RhAgentSignalItem[] }[] }, expand: boolean): void {
+  groupExpandChanged(group: { key: string; rows: { profile: { symbol: string }; signals?: AgentSignalItem[] }[] }, expand: boolean): void {
     this.uiStore.setGroupExpanded(group.key, expand);
     if (expand) {
       this._preloadHistoryForGroup(group);
     }
   }
 
-  private _preloadHistoryForGroup(group: { rows: { profile: { symbol: string }; signals?: RhAgentSignalItem[] }[] }): void {
+  private _preloadHistoryForGroup(group: { rows: { profile: { symbol: string }; signals?: AgentSignalItem[] }[] }): void {
     const runId = this.groupStore.activeRunId();
     if (!runId) return;
     for (const row of group.rows) {
@@ -193,7 +193,7 @@ export class SignalReviewFacade {
     }
   }
 
-  preloadHistoryForGroups(groups: { key: string; rows: { profile: { symbol: string }; signals?: RhAgentSignalItem[] }[] }[]): void {
+  preloadHistoryForGroups(groups: { key: string; rows: { profile: { symbol: string }; signals?: AgentSignalItem[] }[] }[]): void {
     for (const g of groups) {
       this._preloadHistoryForGroup(g);
     }
@@ -231,7 +231,7 @@ export class SignalReviewFacade {
   }
 
   /** Return the current-run signal occurrences for a symbol, using the cache if available. */
-  private currentRunSignals(symbol: string): Observable<RhAgentSignalItem[]> {
+  private currentRunSignals(symbol: string): Observable<AgentSignalItem[]> {
     const runId = this.groupStore.activeRunId();
     if (!runId) return of([]);
     return this.signalService.getCurrentRunSignalsForSymbol(symbol, runId, this.historyStore.signalHistoryCache());
@@ -249,7 +249,7 @@ export class SignalReviewFacade {
       this.currentRunSignals(symbol).subscribe((signals) => {
         if (signals.length === 0) return;
         this.occurrenceStore.acceptSignals(signals, runId, marketDate);
-        this.triageStore.setStatus(symbol, RhAgentReviewDecision.ACCEPT);
+        this.triageStore.setStatus(symbol, ReviewDecision.ACCEPT);
       });
     });
   }
@@ -266,7 +266,7 @@ export class SignalReviewFacade {
       this.currentRunSignals(symbol).subscribe((signals) => {
         if (signals.length === 0) return;
         this.occurrenceStore.rejectSignals(signals, runId, marketDate);
-        this.triageStore.setStatus(symbol, RhAgentReviewDecision.REJECT);
+        this.triageStore.setStatus(symbol, ReviewDecision.REJECT);
       });
     });
   }
@@ -276,7 +276,7 @@ export class SignalReviewFacade {
       const runId = this.groupStore.activeRunId();
       if (!runId) return;
       this.occurrenceStore.resetSymbol(symbol, runId);
-      this.triageStore.setStatus(symbol, RhAgentReviewDecision.PENDING);
+      this.triageStore.setStatus(symbol, ReviewDecision.PENDING);
     });
   }
 

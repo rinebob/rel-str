@@ -26,9 +26,9 @@ import {
 import { Observable, from, of } from 'rxjs';
 import { map, switchMap, take } from 'rxjs/operators';
 
-import { SymbolType } from '../common/rh-agent.constants';
+import { SymbolType } from '../common/constants';
 import { Collection } from '../../../core/common/constants';
-import { requireUserId, chunkArray, getDocData } from './rh-agent-firestore-helpers';
+import { requireUserId, chunkArray, getDocData } from './firestore-helpers';
 
 export interface RhSymbolMeta {
   symbol: string;
@@ -57,7 +57,7 @@ export interface RhSymbolMetaInput {
 @Injectable({
   providedIn: 'root',
 })
-export class RhAgentSymbolMetaService {
+export class SymbolMetaService {
   private readonly firestore = inject(Firestore);
   private readonly auth = inject(Auth);
   private readonly injector = inject(EnvironmentInjector);

@@ -1,7 +1,7 @@
 /**
  * Backtest run service.
  *
- * Wraps the `rhAgentBacktestStart` and `rhAgentBacktestStrategies` callables
+ * Wraps the `stBacktestStart` and `stBacktestStrategies` callables
  * plus realtime Firestore listeners for `backtest-runs` and `backtest-permutations`.
  */
 
@@ -37,7 +37,7 @@ export class BacktestRunService {
     return from(runInInjectionContext(this.injector, () => {
       const callable = httpsCallable<void, { strategies: BacktestStrategyMetadata[] }>(
         this.functions,
-        'rhAgentBacktestStrategies'
+        'stBacktestStrategies'
       );
       return callable();
     })).pipe(map((result) => result.data.strategies));
@@ -50,7 +50,7 @@ export class BacktestRunService {
     return from(runInInjectionContext(this.injector, () => {
       const callable = httpsCallable<StartBacktestRequest, StartBacktestResponse>(
         this.functions,
-        'rhAgentBacktestStart'
+        'stBacktestStart'
       );
       return callable(request);
     })).pipe(map((result) => result.data));

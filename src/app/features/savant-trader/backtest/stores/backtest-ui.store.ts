@@ -16,7 +16,7 @@ import type {
   BacktestRunUi,
 } from '../common/backtest.types';
 import { toBacktestPtDate } from '../utils/backtest.utils';
-import { todayDate, daysAgoPt } from '../../utils/rh-agent.utils';
+import { todayDate, daysAgoPt } from '../../utils/utils';
 
 export interface BacktestUiState {
   statusFilter: BacktestStatusFilter;

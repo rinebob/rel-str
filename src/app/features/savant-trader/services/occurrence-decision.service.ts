@@ -1,5 +1,5 @@
 /**
- * RH Agent Occurrence Decision Service
+ * Savant Trader Occurrence Decision Service
  *
  * Persists durable user decisions (ACCEPT / REJECT) for specific signal
  * occurrences.
@@ -26,17 +26,17 @@ import { map, switchMap, take } from 'rxjs/operators';
 
 import { Collection } from '../../../core/common/constants';
 import {
-  RhAgentSignalItem,
-  RhAgentOccurrenceDecision,
+  AgentSignalItem,
+  AgentOccurrenceDecision,
   DurableDecisionType,
-} from './rh-agent.types';
-import { requireUserId, buildRhAgentOccurrenceDecisionId } from './rh-agent-firestore-helpers';
-import { RhAgentReviewDecision, SignalDirection, SignalTimeframe } from '../common/rh-agent.constants';
+} from './types';
+import { requireUserId, buildAgentOccurrenceDecisionId } from './firestore-helpers';
+import { ReviewDecision, SignalDirection, SignalTimeframe } from '../common/constants';
 
 export interface PersistOccurrenceDecisionInput {
   runId: string;
   marketDate: string;
-  signal: RhAgentSignalItem;
+  signal: AgentSignalItem;
   decisionType: DurableDecisionType;
   notes?: string;
 }
@@ -44,7 +44,7 @@ export interface PersistOccurrenceDecisionInput {
 @Injectable({
   providedIn: 'root',
 })
-export class RhAgentOccurrenceDecisionService {
+export class OccurrenceDecisionService {
   private readonly firestore = inject(Firestore);
   private readonly auth = inject(Auth);
   private readonly injector = inject(EnvironmentInjector);
@@ -57,7 +57,7 @@ export class RhAgentOccurrenceDecisionService {
       take(1),
       switchMap((userId) => runInInjectionContext(this.injector, async () => {
         const symbol = input.signal.symbol.toUpperCase();
-        const id = buildRhAgentOccurrenceDecisionId(input.runId, symbol, input.signal.timeframe, input.signal.signalType);
+        const id = buildAgentOccurrenceDecisionId(input.runId, symbol, input.signal.timeframe, input.signal.signalType);
         const docRef = doc(this.firestore, Collection.ST_OCCURRENCE_DECISIONS, id);
 
         const nowIso = new Date().toISOString();
@@ -86,7 +86,7 @@ export class RhAgentOccurrenceDecisionService {
   }
 
   /** Persist the same decision type for multiple signal occurrences in one batch. */
-  persistDecisionsBatch(runId: string, marketDate: string, signals: RhAgentSignalItem[], decisionType: DurableDecisionType): Observable<void> {
+  persistDecisionsBatch(runId: string, marketDate: string, signals: AgentSignalItem[], decisionType: DurableDecisionType): Observable<void> {
     if (signals.length === 0) return of(undefined);
     return requireUserId(this.auth, this.injector).pipe(
       take(1),
@@ -95,7 +95,7 @@ export class RhAgentOccurrenceDecisionService {
         const batch = writeBatch(this.firestore);
         for (const signal of signals) {
           const symbol = signal.symbol.toUpperCase();
-          const id = buildRhAgentOccurrenceDecisionId(runId, symbol, signal.timeframe, signal.signalType);
+          const id = buildAgentOccurrenceDecisionId(runId, symbol, signal.timeframe, signal.signalType);
           const docRef = doc(this.firestore, Collection.ST_OCCURRENCE_DECISIONS, id);
           batch.set(docRef, {
             userId,
@@ -154,7 +154,7 @@ export class RhAgentOccurrenceDecisionService {
         const batch = writeBatch(this.firestore);
         for (const key of keys) {
           const symbol = key.symbol.toUpperCase();
-          const id = buildRhAgentOccurrenceDecisionId(runId, symbol, key.timeframe, key.signalType);
+          const id = buildAgentOccurrenceDecisionId(runId, symbol, key.timeframe, key.signalType);
           const docRef = doc(this.firestore, Collection.ST_OCCURRENCE_DECISIONS, id);
           batch.delete(docRef);
         }
@@ -165,7 +165,7 @@ export class RhAgentOccurrenceDecisionService {
   }
 
   /** Load all occurrence decisions for a specific source run, sorted by symbol/timeframe/signalType. */
-  loadDecisionsForRun(runId: string): Observable<RhAgentOccurrenceDecision[]> {
+  loadDecisionsForRun(runId: string): Observable<AgentOccurrenceDecision[]> {
     return requireUserId(this.auth, this.injector).pipe(
       take(1),
       switchMap((userId) => {
@@ -181,7 +181,7 @@ export class RhAgentOccurrenceDecisionService {
   }
 
   /** Load all decisions that are still current in the latest completed run, optionally filtered by symbol. */
-  loadCurrentDecisions(symbol?: string): Observable<RhAgentOccurrenceDecision[]> {
+  loadCurrentDecisions(symbol?: string): Observable<AgentOccurrenceDecision[]> {
     return requireUserId(this.auth, this.injector).pipe(
       take(1),
       switchMap((userId) => {
@@ -225,7 +225,7 @@ export class RhAgentOccurrenceDecisionService {
   }
 
   /** Load occurrence decisions across a market-date range. */
-  loadDecisionsForDateRange(startDate: string, endDate: string): Observable<RhAgentOccurrenceDecision[]> {
+  loadDecisionsForDateRange(startDate: string, endDate: string): Observable<AgentOccurrenceDecision[]> {
     return requireUserId(this.auth, this.injector).pipe(
       take(1),
       switchMap((userId) => {
@@ -242,7 +242,7 @@ export class RhAgentOccurrenceDecisionService {
   }
 
   /** Subscribe to real-time updates for decisions in a specific run. */
-  listenToDecisionsForRun(runId: string): Observable<RhAgentOccurrenceDecision[]> {
+  listenToDecisionsForRun(runId: string): Observable<AgentOccurrenceDecision[]> {
     return requireUserId(this.auth, this.injector).pipe(
       switchMap((userId) => {
         const q = query(
@@ -250,7 +250,7 @@ export class RhAgentOccurrenceDecisionService {
           where('userId', '==', userId),
           where('runId', '==', runId)
         );
-        return new Observable<RhAgentOccurrenceDecision[]>((subscriber) => {
+        return new Observable<AgentOccurrenceDecision[]>((subscriber) => {
           const unsubscribe = onSnapshot(q, (snapshot) => {
             subscriber.next(this.toDecisions(snapshot.docs).sort(this.sortDecisions));
           }, (error) => subscriber.error(error));
@@ -260,7 +260,7 @@ export class RhAgentOccurrenceDecisionService {
     );
   }
 
-  private sortDecisions(a: RhAgentOccurrenceDecision, b: RhAgentOccurrenceDecision): number {
+  private sortDecisions(a: AgentOccurrenceDecision, b: AgentOccurrenceDecision): number {
     return (
       a.symbol.localeCompare(b.symbol) ||
       a.timeframe.localeCompare(b.timeframe) ||
@@ -268,19 +268,19 @@ export class RhAgentOccurrenceDecisionService {
     );
   }
 
-  private runQuery(q: Query<DocumentData>): Observable<RhAgentOccurrenceDecision[]> {
+  private runQuery(q: Query<DocumentData>): Observable<AgentOccurrenceDecision[]> {
     return from(runInInjectionContext(this.injector, () => getDocs(q))).pipe(
       map((snapshot) => this.toDecisions(snapshot.docs))
     );
   }
 
-  private toDecisions(docs: QueryDocumentSnapshot<DocumentData>[]): RhAgentOccurrenceDecision[] {
+  private toDecisions(docs: QueryDocumentSnapshot<DocumentData>[]): AgentOccurrenceDecision[] {
     return docs.map((d) => parseOccurrenceDecision(d.data(), d.id));
   }
 }
 
 function isDurableDecisionType(value: unknown): value is DurableDecisionType {
-  return value === RhAgentReviewDecision.ACCEPT || value === RhAgentReviewDecision.REJECT;
+  return value === ReviewDecision.ACCEPT || value === ReviewDecision.REJECT;
 }
 
 function isIndicatorRecord(value: unknown): value is Record<string, number | string | null> {
@@ -290,7 +290,7 @@ function isIndicatorRecord(value: unknown): value is Record<string, number | str
   );
 }
 
-function parseOccurrenceDecision(data: DocumentData, id: string): RhAgentOccurrenceDecision {
+function parseOccurrenceDecision(data: DocumentData, id: string): AgentOccurrenceDecision {
   const requireString = (field: string) => {
     const value = data[field];
     if (typeof value !== 'string' || value.length === 0) {

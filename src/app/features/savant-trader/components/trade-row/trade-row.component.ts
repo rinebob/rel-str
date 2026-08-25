@@ -10,8 +10,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { SignalDirection } from '../../services/rh-agent.types';
-import { SignalTimeframe } from '../../common/rh-agent.constants';
+import { SignalDirection } from '../../services/types';
+import { SignalTimeframe } from '../../common/constants';
 
 export interface TradeRow {
   symbol: string;

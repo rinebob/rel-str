@@ -16,15 +16,15 @@ import { of, catchError, finalize, map, Subscription } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import {
-  type RhAgentStatus,
-  type RhAgentRun,
-} from '../services/rh-agent.types';
-import { RhAgentRunService } from '../services/rh-agent-run.service';
+  type AgentStatus,
+  type AgentRun,
+} from '../services/types';
+import { RunService } from '../services/run.service';
 
 // State interface
 export interface RhAgentState {
-  status: RhAgentStatus | null;
-  runs: RhAgentRun[];
+  status: AgentStatus | null;
+  runs: AgentRun[];
   isLoading: boolean;
   runsStreaming: boolean;
 }
@@ -52,7 +52,7 @@ export const RhAgentStore = signalStore(
     /** The latest completed actionable run (SUCCESS or PARTIAL with a completedAt timestamp). */
     latestCompletedRun: computed(() => {
       const runs = state.runs();
-      const status = (r: RhAgentRun) => r.status?.toUpperCase();
+      const status = (r: AgentRun) => r.status?.toUpperCase();
       return (
         runs.find((r) => {
           const s = status(r);
@@ -66,7 +66,7 @@ export const RhAgentStore = signalStore(
   })),
 
   // Methods
-  withMethods((state, runService = inject(RhAgentRunService), snackBar = inject(MatSnackBar), destroyRef = inject(DestroyRef)) => {
+  withMethods((state, runService = inject(RunService), snackBar = inject(MatSnackBar), destroyRef = inject(DestroyRef)) => {
     let runsSubscription: Subscription | null = null;
 
     return {
@@ -89,7 +89,7 @@ export const RhAgentStore = signalStore(
         next: (status) => patchState(state, { status }),
       });
 
-      // Start realtime runs stream (idempotent — only one listener at a time)
+      // Start realtime runs stream (idempotent â€” only one listener at a time)
       if (!runsSubscription) {
         patchState(state, { runsStreaming: true });
         runsSubscription = runService.watchRecentRunsRealtime(100).pipe(
@@ -108,7 +108,7 @@ export const RhAgentStore = signalStore(
     },
 
     /**
-     * Refresh status only — runs update automatically via the realtime listener.
+     * Refresh status only â€” runs update automatically via the realtime listener.
      */
     refreshStatus(): void {
       patchState(state, { isLoading: true });
@@ -125,7 +125,7 @@ export const RhAgentStore = signalStore(
     },
 
     /**
-     * Trigger a manual agent run via the rhAgentManualRun callable.
+     * Trigger a manual agent run via the stManualRun callable.
      * Enqueues Cloud Tasks like the PDR scheduler; workers process asynchronously.
      * @param date Optional market date override (YYYY-MM-DD).
      */
@@ -156,7 +156,7 @@ export const RhAgentStore = signalStore(
      * Displays a snackbar with the total enqueued and error counts.
      */
     triggerBarsBackfill(): void {
-      snackBar.open('Starting bars backfill for all symbols…', 'Dismiss', { duration: 4000 });
+      snackBar.open('Starting bars backfill for all symbolsâ€¦', 'Dismiss', { duration: 4000 });
       runService.triggerBarsBackfill()
         .pipe(takeUntilDestroyed(destroyRef))
         .subscribe({

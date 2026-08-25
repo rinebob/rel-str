@@ -27,7 +27,7 @@ import {
 import { Observable, from, of } from 'rxjs';
 import { map, switchMap, take } from 'rxjs/operators';
 
-import { requireUserId } from './rh-agent-firestore-helpers';
+import { requireUserId } from './firestore-helpers';
 import { Collection } from '../../../core/common/constants';
 
 export interface RhSymbolList {
@@ -39,7 +39,7 @@ export interface RhSymbolList {
 }
 
 @Injectable({ providedIn: 'root' })
-export class RhAgentSymbolListService {
+export class SymbolListService {
   private readonly firestore = inject(Firestore);
   private readonly auth = inject(Auth);
   private readonly injector = inject(EnvironmentInjector);

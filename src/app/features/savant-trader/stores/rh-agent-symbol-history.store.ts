@@ -20,12 +20,12 @@ import {
 } from '@ngrx/signals';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
-import { type RhAgentSignalItem } from '../services/rh-agent.types';
-import { RhAgentSignalService } from '../services/rh-agent-signal.service';
+import { type AgentSignalItem } from '../services/types';
+import { SignalService } from '../services/signal.service';
 
 export interface RhAgentSymbolHistoryState {
-  /** Per-symbol signal history cache: symbol → signals[] */
-  signalHistoryCache: Record<string, RhAgentSignalItem[]>;
+  /** Per-symbol signal history cache: symbol â†’ signals[] */
+  signalHistoryCache: Record<string, AgentSignalItem[]>;
   /** Per-symbol loading flags. */
   signalHistoryLoading: Record<string, boolean>;
 }
@@ -39,10 +39,10 @@ export const RhAgentSymbolHistoryStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
 
-  withMethods((state, signalService = inject(RhAgentSignalService), destroyRef = inject(DestroyRef), injector = inject(EnvironmentInjector)) => ({
+  withMethods((state, signalService = inject(SignalService), destroyRef = inject(DestroyRef), injector = inject(EnvironmentInjector)) => ({
     /**
      * Load signals for a symbol from a specific run (run-ids/{runId}).
-     * Used by signal review — shows only signals from the active run.
+     * Used by signal review â€” shows only signals from the active run.
      * Cache key: `${symbol}::${runId}` to avoid conflicts with all-history cache.
      */
     loadSignalHistoryForRun(symbol: string, runId: string): void {

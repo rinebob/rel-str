@@ -10,10 +10,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule, MatIconButton } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-import { RhAgentSignalItem } from '../../services/rh-agent.types';
-import { RhAgentSignalService } from '../../services/rh-agent-signal.service';
+import { AgentSignalItem } from '../../services/types';
+import { SignalService } from '../../services/signal.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
-import { SignalDirection, SignalTimeframe } from '../../common/rh-agent.constants';
+import { SignalDirection, SignalTimeframe } from '../../common/constants';
 
 @Component({
   selector: 'app-signal-list',
@@ -30,7 +30,7 @@ import { SignalDirection, SignalTimeframe } from '../../common/rh-agent.constant
   styleUrl: './signal-list.component.scss',
 })
 export class SignalListComponent {
-  readonly signalService = inject(RhAgentSignalService);
+  readonly signalService = inject(SignalService);
   readonly uiStateService = inject(UiStateService);
   readonly SignalDirection = SignalDirection;
   readonly SignalTimeframe = SignalTimeframe;
@@ -38,10 +38,10 @@ export class SignalListComponent {
   /** Currently selected symbol (passed in from parent) */
   selectedSymbol = input<string | null>(null);
 
-  /** Manual symbol override — when set, show this symbol's signal history instead of triage queue */
+  /** Manual symbol override â€” when set, show this symbol's signal history instead of triage queue */
   manualSymbol = input<string | null>(null);
 
-  /** Viewport symbols — the parent-computed list of symbols to display in the sidebar. */
+  /** Viewport symbols â€” the parent-computed list of symbols to display in the sidebar. */
   symbols = input<string[]>([]);
 
   /** Symbols that were just added via the new-symbols dialog; shown with a NEW chip. */
@@ -49,8 +49,8 @@ export class SignalListComponent {
 
   symbolSelected = output<string>();
 
-  /** Signal history cache keyed by symbol — reactive so items() computed re-runs on load */
-  private signalHistoryCache = signal<Record<string, RhAgentSignalItem[]>>({});
+  /** Signal history cache keyed by symbol â€” reactive so items() computed re-runs on load */
+  private signalHistoryCache = signal<Record<string, AgentSignalItem[]>>({});
 
   /** Timeframe filter for history mode: 'all' | daily | weekly */
   timeframeFilter = signal<'all' | SignalTimeframe>('all');
@@ -67,7 +67,7 @@ export class SignalListComponent {
         trackId: `${manual}-${s.runId}-${s.barDate}-${s.timeframe}-${s.signalType}`,
         symbol: manual,
         latestSignal: s,
-        recentSignals: [] as RhAgentSignalItem[],
+        recentSignals: [] as AgentSignalItem[],
         isHistoryRow: true,
       }));
     }

@@ -28,7 +28,7 @@ import {
 
 import type { OHLCDatum } from '../../../shared/types/rs.interfaces';
 import type { ParsedObservation } from '../../stores/options-contract-viewer.store';
-import { formatUtcDate } from '../../utils/rh-agent.utils';
+import { formatUtcDate } from '../../utils/utils';
 
 interface UnderlyingPoint {
   date: string;

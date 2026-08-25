@@ -24,11 +24,11 @@ import { forkJoin } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import {
-  type RhAgentSymbolProfile,
-  type RhAgentSignalItem,
-  type RhAgentRun,
-} from '../services/rh-agent.types';
-import { RhAgentSignalService } from '../services/rh-agent-signal.service';
+  type AgentSymbolProfile,
+  type AgentSignalItem,
+  type AgentRun,
+} from '../services/types';
+import { SignalService } from '../services/signal.service';
 import { RhAgentStore } from './rh-agent.store';
 import { RhAgentTriageStore } from './rh-agent-triage.store';
 import { RhAgentSymbolListStore } from './rh-agent-symbol-list.store';
@@ -36,35 +36,35 @@ import { RhAgentSymbolHistoryStore } from './rh-agent-symbol-history.store';
 import { RhAgentOccurrenceDecisionStore } from './rh-agent-occurrence-decision.store';
 import {
   GroupDimension,
-  RhAgentReviewDecision,
+  ReviewDecision,
   SignalTimeframe,
   SignalDirection,
-} from '../common/rh-agent.constants';
+} from '../common/constants';
 import {
   buildFilteredCandidates,
   buildSymbolGroups,
   computeProfileCounts,
   profileMatchesSignalFilter,
-} from '../utils/rh-agent.utils';
+} from '../utils/utils';
 import { SignalReviewUiStore } from './signal-review-ui.store';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-/** A symbol row in the grouped list — profile + triage state. */
+/** A symbol row in the grouped list â€” profile + triage state. */
 export interface RhSymbolRow {
-  profile: RhAgentSymbolProfile;
+  profile: AgentSymbolProfile;
   /** True if the symbol has a signal for the active run. */
   hasSignal: boolean;
-  signals?: RhAgentSignalItem[];
+  signals?: AgentSignalItem[];
   signalsLoading?: boolean;
-  reviewStatus: RhAgentReviewDecision;
+  reviewStatus: ReviewDecision;
 }
 
 /** A rendered group in the expansion panel list. */
 export interface RhSymbolGroup {
-  /** Group key — e.g. 'Technology', 'large', 'NASDAQ' */
+  /** Group key â€” e.g. 'Technology', 'large', 'NASDAQ' */
   key: string;
   rows: RhSymbolRow[];
   /** Long signal count for the active timeframe. */
@@ -85,7 +85,7 @@ export interface RhAgentGroupState {
   /** Current grouping dimension. */
   groupDimension: GroupDimension;
   /** All signal symbols returned from the callable (W + D merged). */
-  signalSymbols: RhAgentSymbolProfile[];
+  signalSymbols: AgentSymbolProfile[];
   /** Loading state for the main symbol list query. */
   symbolsLoading: boolean;
   symbolsError: string | null;
@@ -95,8 +95,8 @@ export interface RhAgentGroupState {
   quickChartSymbol: string | null;
   /** Whether the "show all symbols" mode is active. */
   showAllSymbols: boolean;
-  /** All enabled symbols — loaded on demand when showAllSymbols is toggled on. */
-  allSymbols: RhAgentSymbolProfile[];
+  /** All enabled symbols â€” loaded on demand when showAllSymbols is toggled on. */
+  allSymbols: AgentSymbolProfile[];
   /** Loading state for the all-symbols query. */
   allSymbolsLoading: boolean;
 }
@@ -125,7 +125,7 @@ export const RhAgentGroupStore = signalStore(
 
   withMethods((
     state,
-    signalService = inject(RhAgentSignalService),
+    signalService = inject(SignalService),
     snackBar = inject(MatSnackBar),
     destroyRef = inject(DestroyRef),
     triageStore = inject(RhAgentTriageStore),
@@ -142,15 +142,15 @@ export const RhAgentGroupStore = signalStore(
       this.loadSymbolsWithSignals();
     },
 
-    /** Change group dimension (no reload needed — regrouping is computed). */
+    /** Change group dimension (no reload needed â€” regrouping is computed). */
     setGroupDimension(dimension: GroupDimension): void {
       patchState(state, { groupDimension: dimension });
     },
 
     /**
-     * Load signal symbols for current marketDate — fetches both W and D,
+     * Load signal symbols for current marketDate â€” fetches both W and D,
      * merges by symbol (union). A symbol appears if it has either timeframe signal.
-     * Profile fields from the W result take precedence (arbitrary — they're the same doc).
+     * Profile fields from the W result take precedence (arbitrary â€” they're the same doc).
      */
     loadSymbolsWithSignals(): void {
       const runId = state.activeRunId();
@@ -166,7 +166,7 @@ export const RhAgentGroupStore = signalStore(
         .subscribe({
           next: ([weeklySymbols, dailySymbols]) => {
             // Merge: build map keyed by symbol, W first then D overlay
-            const map = new Map<string, RhAgentSymbolProfile>();
+            const map = new Map<string, AgentSymbolProfile>();
             for (const s of weeklySymbols) map.set(s.symbol, s);
             for (const s of dailySymbols) {
               if (!map.has(s.symbol)) map.set(s.symbol, s);
@@ -189,7 +189,7 @@ export const RhAgentGroupStore = signalStore(
         });
     },
 
-    /** Select a symbol — delegates signal history loading to the history store. */
+    /** Select a symbol â€” delegates signal history loading to the history store. */
     selectSymbol(symbol: string): void {
       patchState(state, { selectedSymbol: symbol });
       historyStore.loadSignalHistory(symbol);
@@ -235,8 +235,8 @@ export const RhAgentGroupStore = signalStore(
 
   withComputed((state, triageStore = inject(RhAgentTriageStore), symbolListStore = inject(RhAgentSymbolListStore), historyStore = inject(RhAgentSymbolHistoryStore), uiStore = inject(SignalReviewUiStore)) => ({
     /**
-     * Grouped view — groups built from signalSymbols, sorted by marketCap desc within group.
-     * Reads signalFilter directly from SignalReviewUiStore — single source of truth, no copy.
+     * Grouped view â€” groups built from signalSymbols, sorted by marketCap desc within group.
+     * Reads signalFilter directly from SignalReviewUiStore â€” single source of truth, no copy.
      * When showAllSymbols is true, non-signal symbols are included; otherwise only signal symbols.
      */
     groups: computed((): RhSymbolGroup[] =>
@@ -262,7 +262,7 @@ export const RhAgentGroupStore = signalStore(
      * Kept separate from the history-backed `groups()` so header counts and the
      * flat symbol list are stable while per-symbol signal histories finish loading.
      */
-    filteredProfiles: computed((): RhAgentSymbolProfile[] => {
+    filteredProfiles: computed((): AgentSymbolProfile[] => {
       const candidates = buildFilteredCandidates({
         signalSymbols: state.signalSymbols(),
         allSymbols: state.allSymbols(),
@@ -308,14 +308,14 @@ export const RhAgentGroupStore = signalStore(
     shortCount: computed(() => state.filteredProfileCounts().short),
 
     /** Currently selected symbol's loaded signals (from the history store cache). */
-    selectedSymbolSignals: computed((): RhAgentSignalItem[] => {
+    selectedSymbolSignals: computed((): AgentSignalItem[] => {
       const sym = state.selectedSymbol();
       if (!sym) return [];
       return historyStore.signalHistoryCache()[sym] ?? [];
     }),
 
     /** Profile of the currently selected symbol. */
-    selectedSymbolProfile: computed((): RhAgentSymbolProfile | null => {
+    selectedSymbolProfile: computed((): AgentSymbolProfile | null => {
       const sym = state.selectedSymbol();
       if (!sym) return null;
       return state.signalSymbols().find((p) => p.symbol === sym) ?? null;
@@ -324,7 +324,7 @@ export const RhAgentGroupStore = signalStore(
 
   withComputed((state, agentStore = inject(RhAgentStore)) => ({
     /** The full run document for the currently viewed run, if available in the runs stream. */
-    viewedRun: computed((): RhAgentRun | null => {
+    viewedRun: computed((): AgentRun | null => {
       const id = state.activeRunId();
       if (!id) return null;
       return agentStore.runs().find((r) => r.id === id) ?? null;
@@ -387,8 +387,8 @@ export const RhAgentGroupStore = signalStore(
 
           // Aggregate per-symbol status from possibly multiple occurrences.
           // ACCEPT wins over REJECT.
-          const ranked = [RhAgentReviewDecision.ACCEPT, RhAgentReviewDecision.REJECT];
-          const statusMap: Record<string, RhAgentReviewDecision> = {};
+          const ranked = [ReviewDecision.ACCEPT, ReviewDecision.REJECT];
+          const statusMap: Record<string, ReviewDecision> = {};
           for (const decision of Object.values(decisions)) {
             if (decision.runId !== runId) continue;
             const current = statusMap[decision.symbol];

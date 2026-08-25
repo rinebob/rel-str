@@ -10,7 +10,7 @@
  */
 import { Injectable, inject, computed } from '@angular/core';
 
-import { RhSymbolListName, ViewportMode } from '../common/rh-agent.constants';
+import { RhSymbolListName, ViewportMode } from '../common/constants';
 import { RhAgentTriageStore } from '../stores/rh-agent-triage.store';
 import { RhAgentSymbolListStore } from '../stores/rh-agent-symbol-list.store';
 

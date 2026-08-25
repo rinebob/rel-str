@@ -28,7 +28,7 @@ import { detectZoneSignals } from '../../../shared/components/flex-chart/signals
 import { detectTrendStrengthSignals } from '../../../shared/components/flex-chart/signals/st-trend-strength.signals';
 import type { SignalMarker } from '../../../shared/components/flex-chart/signals/signal.types';
 import { SignalTableComponent, SignalTableRow } from '../../components/signal-table/signal-table.component';
-import { SignalDirection } from '../../common/rh-agent.constants';
+import { SignalDirection } from '../../common/constants';
 
 interface TimeframeSignals {
   interval: string;

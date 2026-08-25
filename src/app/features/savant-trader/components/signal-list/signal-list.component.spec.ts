@@ -3,16 +3,16 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { of } from 'rxjs';
 
 import { UiStateService } from '../../../../core/services/ui-state.service';
-import { SignalDirection, SignalStatus, SignalTimeframe } from '../../common/rh-agent.constants';
-import { RhAgentSignalService } from '../../services/rh-agent-signal.service';
-import { RhAgentSignalItem } from '../../services/rh-agent.types';
+import { SignalDirection, SignalStatus, SignalTimeframe } from '../../common/constants';
+import { SignalService } from '../../services/signal.service';
+import { AgentSignalItem } from '../../services/types';
 import { SignalListComponent } from './signal-list.component';
 
 describe('SignalListComponent', () => {
   let fixture: ComponentFixture<SignalListComponent>;
   let component: SignalListComponent;
 
-  const signals: RhAgentSignalItem[] = [
+  const signals: AgentSignalItem[] = [
     {
       id: '2026-07-16',
       symbol: 'AAPL',
@@ -45,7 +45,7 @@ describe('SignalListComponent', () => {
       providers: [
         provideNoopAnimations(),
         {
-          provide: RhAgentSignalService,
+          provide: SignalService,
           useValue: {
             getSymbolSignalHistoryFromHistory: jasmine.createSpy().and.returnValue(of(signals)),
           },

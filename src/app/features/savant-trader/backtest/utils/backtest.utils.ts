@@ -5,7 +5,7 @@
  * Material icons/colors. Kept in the backtest sub-feature.
  */
 import type { BacktestPermutationStatus, BacktestPermutationUi, BacktestRunStatus } from '../common/backtest.types';
-import { formatTimestampPT } from '../../utils/rh-agent.utils';
+import { formatTimestampPT } from '../../utils/utils';
 
 export interface BacktestStatusVisuals {
   color: string;

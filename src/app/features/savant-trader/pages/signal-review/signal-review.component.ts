@@ -16,7 +16,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-import { GroupDimension, RhSymbolListName } from '../../common/rh-agent.constants';
+import { GroupDimension, RhSymbolListName } from '../../common/constants';
 import { RhSymbolGroup } from '../../stores/rh-agent-group.store';
 import { SignalReviewFacade } from '../../stores/signal-review.facade';
 import { SignalReviewHeaderComponent } from '../../components/signal-review-header/signal-review-header.component';

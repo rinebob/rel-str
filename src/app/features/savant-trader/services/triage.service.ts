@@ -3,7 +3,7 @@
  *
  * Persists dateless review flags (`rh-agent-review-flags`).
  * Durable ACCEPT/REJECT decisions for signal occurrences live in
- * RhAgentOccurrenceDecisionService.
+ * OccurrenceDecisionService.
  */
 import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import { Auth } from '@angular/fire/auth';
@@ -23,12 +23,12 @@ import { Observable, from, of } from 'rxjs';
 import { map, switchMap, take } from 'rxjs/operators';
 
 import { Collection } from '../../../core/common/constants';
-import { requireUserId } from './rh-agent-firestore-helpers';
+import { requireUserId } from './firestore-helpers';
 
 @Injectable({
   providedIn: 'root',
 })
-export class RhAgentTriageService {
+export class TriageService {
   private readonly firestore = inject(Firestore);
   private readonly auth = inject(Auth);
   private readonly injector = inject(EnvironmentInjector);

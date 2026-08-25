@@ -6,8 +6,8 @@ import {
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 
-import { RhAgentRun } from '../../services/rh-agent.service';
-import { getRunStatusColor, getRunStatusIcon, todayDate } from '../../utils/rh-agent.utils';
+import { AgentRun } from '../../services/agent.service';
+import { getRunStatusColor, getRunStatusIcon, todayDate } from '../../utils/utils';
 
 @Component({
   selector: 'app-run-metrics-strip',
@@ -17,8 +17,8 @@ import { getRunStatusColor, getRunStatusIcon, todayDate } from '../../utils/rh-a
   styleUrl: './run-metrics-strip.component.scss',
 })
 export class RunMetricsStripComponent {
-  readonly selectedRun = input<RhAgentRun | null>(null);
-  readonly allRuns     = input<RhAgentRun[]>([]);
+  readonly selectedRun = input<AgentRun | null>(null);
+  readonly allRuns     = input<AgentRun[]>([]);
 
   readonly getRunStatusColor = getRunStatusColor;
   readonly getRunStatusIcon  = getRunStatusIcon;
@@ -31,13 +31,13 @@ export class RunMetricsStripComponent {
     return this.allRuns().filter((r) => r.marketDate === todayDate()).length;
   }
 
-  get latestRun(): RhAgentRun | null {
+  get latestRun(): AgentRun | null {
     const runs = this.allRuns();
     return runs.length > 0 ? runs[0] : null;
   }
 
-  formatDuration(run: RhAgentRun): string {
-    if (!run.startedAt || !run.completedAt) return '—';
+  formatDuration(run: AgentRun): string {
+    if (!run.startedAt || !run.completedAt) return 'â€”';
     const ms = new Date(run.completedAt).getTime() - new Date(run.startedAt).getTime();
     const s = Math.round(ms / 1000);
     if (s < 60) return `${s}s`;

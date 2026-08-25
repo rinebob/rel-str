@@ -8,20 +8,20 @@ import { inject, computed } from '@angular/core';
 import { signalStore, withState, withComputed, withMethods, patchState } from '@ngrx/signals';
 import { RhAgentStore } from './rh-agent.store';
 import {
-  RhAgentRunTriggerFilter,
-  RhAgentRunDateFilter,
-  RhAgentRunStatusFilter,
-} from '../common/rh-agent.constants';
-import { RhAgentRun } from '../services/rh-agent.service';
-import { todayDate, daysAgoPt } from '../utils/rh-agent.utils';
+  RunTriggerFilter,
+  RunDateFilter,
+  RunStatusFilter,
+} from '../common/constants';
+import { AgentRun } from '../services/agent.service';
+import { todayDate, daysAgoPt } from '../utils/utils';
 
 // State interface
 export interface DashboardUiState {
   showAllRuns: boolean;
   currentRunOpen: boolean;
-  triggerFilter: RhAgentRunTriggerFilter;
-  dateFilter: RhAgentRunDateFilter;
-  statusFilter: RhAgentRunStatusFilter;
+  triggerFilter: RunTriggerFilter;
+  dateFilter: RunDateFilter;
+  statusFilter: RunStatusFilter;
   selectedRunId: string | null;
 }
 
@@ -29,9 +29,9 @@ export interface DashboardUiState {
 const initialState: DashboardUiState = {
   showAllRuns: false,
   currentRunOpen: true,
-  triggerFilter: RhAgentRunTriggerFilter.ALL,
-  dateFilter: RhAgentRunDateFilter.WEEK,
-  statusFilter: RhAgentRunStatusFilter.ALL,
+  triggerFilter: RunTriggerFilter.ALL,
+  dateFilter: RunDateFilter.WEEK,
+  statusFilter: RunStatusFilter.ALL,
   selectedRunId: null,
 };
 
@@ -40,25 +40,25 @@ export const RhAgentDashboardStore = signalStore(
 
   withComputed((state, dataStore = inject(RhAgentStore)) => ({
     /** Run matching the selectedRunId (for metrics strip). */
-    selectedRun: computed((): RhAgentRun | null => {
+    selectedRun: computed((): AgentRun | null => {
       const id = state.selectedRunId();
       if (!id) return null;
       return dataStore.runs().find((r) => r.id === id) ?? null;
     }),
 
     /** Runs filtered by the active trigger, date, and status filters. */
-    filteredRuns: computed((): RhAgentRun[] => {
+    filteredRuns: computed((): AgentRun[] => {
       const runs = dataStore.runs();
       const trigger = state.triggerFilter();
       const date = state.dateFilter();
       const status = state.statusFilter();
 
       return runs.filter((r) => {
-        if (trigger !== RhAgentRunTriggerFilter.ALL && r.triggeredBy !== trigger) return false;
-        if (status !== RhAgentRunStatusFilter.ALL && r.status?.toLowerCase() !== status) return false;
-        if (date === RhAgentRunDateFilter.TODAY) {
+        if (trigger !== RunTriggerFilter.ALL && r.triggeredBy !== trigger) return false;
+        if (status !== RunStatusFilter.ALL && r.status?.toLowerCase() !== status) return false;
+        if (date === RunDateFilter.TODAY) {
           if ((r.marketDate ?? '') !== todayDate()) return false;
-        } else if (date === RhAgentRunDateFilter.WEEK) {
+        } else if (date === RunDateFilter.WEEK) {
           if ((r.marketDate ?? '') < daysAgoPt(7)) return false;
         }
         return true;
@@ -90,17 +90,17 @@ export const RhAgentDashboardStore = signalStore(
     },
 
     /** Set trigger filter. */
-    setTriggerFilter(filter: RhAgentRunTriggerFilter): void {
+    setTriggerFilter(filter: RunTriggerFilter): void {
       patchState(state, { triggerFilter: filter });
     },
 
     /** Set date filter. */
-    setDateFilter(filter: RhAgentRunDateFilter): void {
+    setDateFilter(filter: RunDateFilter): void {
       patchState(state, { dateFilter: filter });
     },
 
     /** Set status filter. */
-    setStatusFilter(filter: RhAgentRunStatusFilter): void {
+    setStatusFilter(filter: RunStatusFilter): void {
       patchState(state, { statusFilter: filter });
     },
 

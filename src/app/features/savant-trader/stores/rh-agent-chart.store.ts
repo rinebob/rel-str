@@ -4,7 +4,7 @@
  * Shared chart state for the RH Agent chart views.
  *
  * Responsibilities:
- * - Load D/W/M chart data via RhAgentChartService.
+ * - Load D/W/M chart data via ChartService.
  * - Track loading/error state and the symbol-data bars version.
  * - Trigger the indicator-series callable once the version is known.
  *
@@ -15,13 +15,13 @@ import { inject, DestroyRef } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { type ChartDataset } from '../../heatmap-chart/heatmap-chart.types';
-import { RhAgentChartService } from '../services/rh-agent-chart.service';
+import { ChartService } from '../services/chart.service';
 import { IndicatorSeriesStore } from './indicator-series.store';
 import {
   ChartInterval,
   IndicatorFamily,
   StrategyFamily,
-} from '../common/rh-agent-indicator.types';
+} from '../common/indicator.types';
 
 /** Default filters used when fetching indicator series for a chart view. */
 export const DEFAULT_CHART_INTERVALS = [
@@ -76,7 +76,7 @@ export const RhAgentChartStore = signalStore(
 
   withMethods((
     state,
-    chartService = inject(RhAgentChartService),
+    chartService = inject(ChartService),
     indicatorStore = inject(IndicatorSeriesStore),
     destroyRef = inject(DestroyRef),
   ) => ({

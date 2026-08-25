@@ -6,7 +6,7 @@
  */
 import { Component, ChangeDetectionStrategy, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { SignalTimeframe, SignalDirection } from '../../common/rh-agent.constants';
+import { SignalTimeframe, SignalDirection } from '../../common/constants';
 
 @Component({
   selector: 'app-signal-filter-pills',

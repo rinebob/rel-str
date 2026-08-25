@@ -1,28 +1,28 @@
 /**
- * RH Agent Feature
+ * Savant Trader Feature
  *
  * Robinhood Trading Agent integration for SavantTrader.
  *
  * Usage:
  * ```typescript
- * import { RhAgentService, RhAgentDashboardComponent } from './rh-agent';
+ * import { AgentService, RhAgentDashboardComponent } from './savant-trader';
  * ```
  */
 
 // Services
-export { RhAgentService } from './services/rh-agent.service';
-export { RhAgentRunService } from './services/rh-agent-run.service';
-export { RhAgentSignalService } from './services/rh-agent-signal.service';
-export { RhAgentOverviewService } from './services/rh-agent-overview.service';
-export { RhAgentChartService } from './services/rh-agent-chart.service';
+export { AgentService } from './services/agent.service';
+export { RunService } from './services/run.service';
+export { SignalService } from './services/signal.service';
+export { OverviewService } from './services/overview.service';
+export { ChartService } from './services/chart.service';
 export { RobinhoodMcpObservationService } from './services/robinhood-mcp-observation.service';
 
 export {
-  type RhAgentStatus,
-  type RhAgentRun,
-  type RhAgentSymbolProfile,
-  type RhAgentSignalItem,
-  type RhAgentOccurrenceDecision,
+  type AgentStatus,
+  type AgentRun,
+  type AgentSymbolProfile,
+  type AgentSignalItem,
+  type AgentOccurrenceDecision,
   type DurableDecisionType,
   type MarketCapTier,
   type SignalDirection,
@@ -30,9 +30,9 @@ export {
   type ManualRunResponse,
   RH_AGENT_SCHEDULE_CRON,
   RH_AGENT_MAX_TRADE_AMOUNT,
-} from './services/rh-agent.types';
+} from './services/types';
 
-// Group Store (Phase 4 — symbol-centric grouped review)
+// Group Store (Phase 4 â€” symbol-centric grouped review)
 export {
   RhAgentGroupStore,
   RhSymbolRow,
@@ -40,24 +40,24 @@ export {
 } from './stores/rh-agent-group.store';
 
 export {
-  RhAgentReviewDecision,
+  ReviewDecision,
   ALL_REVIEW_STATUSES,
   RhSymbolListName,
   ALL_SYMBOL_LIST_NAMES,
   SymbolType,
   GroupDimension,
-} from './common/rh-agent.constants';
+} from './common/constants';
 
-// Triage Store (Phase 5B — shared PACR state across pages)
+// Triage Store (Phase 5B â€” shared PACR state across pages)
 export { RhAgentTriageStore } from './stores/rh-agent-triage.store';
 
-// Symbol List Store (Phase 0 — extracted list management)
+// Symbol List Store (Phase 0 â€” extracted list management)
 export { RhAgentSymbolListStore } from './stores/rh-agent-symbol-list.store';
 
-// Symbol History Store (Phase 5 — extracted signal history cache)
+// Symbol History Store (Phase 5 â€” extracted signal history cache)
 export { RhAgentSymbolHistoryStore } from './stores/rh-agent-symbol-history.store';
 
-// Chart Store (Phase 6 — shared chart data loading)
+// Chart Store (Phase 6 â€” shared chart data loading)
 export {
   RhAgentChartStore,
   DEFAULT_CHART_INTERVALS,
@@ -65,16 +65,16 @@ export {
   DEFAULT_CHART_STRATEGIES,
 } from './stores/rh-agent-chart.store';
 
-// Chart Indicator Builder (Phase 1 — shared indicator configuration)
-export * as RhAgentChartIndicators from './utils/rh-agent-chart-indicators';
+// Chart Indicator Builder (Phase 1 â€” shared indicator configuration)
+export * as RhAgentChartIndicators from './utils/chart-indicators';
 
-// Shared Firestore Helpers (Phase 6B — centralize duplicated utilities)
-export { requireUserId, chunkArray, getDocData, CreatedAtDoc } from './services/rh-agent-firestore-helpers';
+// Shared Firestore Helpers (Phase 6B â€” centralize duplicated utilities)
+export { requireUserId, chunkArray, getDocData, CreatedAtDoc } from './services/firestore-helpers';
 
 // Persistence & Universe Services (Phase 5C)
-export { RhAgentTriageService } from './services/rh-agent-triage.service';
-export { RhAgentSymbolMetaService, RhSymbolMeta, RhSymbolMetaInput } from './services/rh-agent-symbol-meta.service';
-export { RhAgentSymbolListService, RhSymbolList } from './services/rh-agent-symbol-list.service';
+export { TriageService } from './services/triage.service';
+export { SymbolMetaService, RhSymbolMeta, RhSymbolMetaInput } from './services/symbol-meta.service';
+export { SymbolListService, RhSymbolList } from './services/symbol-list.service';
 
 // Components
 export { SignalReviewHeaderComponent } from './components/signal-review-header/signal-review-header.component';
