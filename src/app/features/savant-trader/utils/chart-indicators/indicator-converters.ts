@@ -7,8 +7,8 @@
 import type { IndicatorConfig, PriceBar } from '../../../../features/shared/components/flex-chart/flex-chart.types';
 import { StIndicator } from '../../../../features/shared/components/flex-chart/flex-chart.types';
 import type { BandSeriesData } from '../../../../features/shared/components/flex-chart/indicators/st-trend-bands.indicator';
-import type { IntervalData, TrendBandsPoint, TrendStrengthPoint, ZoneV1Point, ZoneV2Point } from '../../common/rh-agent-indicator.types';
-import { toDatePt } from '../../utils/rh-agent.utils';
+import type { IntervalData, TrendBandsPoint, TrendStrengthPoint, ZoneV1Point, ZoneV2Point } from '../../common/indicator.types';
+import { toDatePt } from '../../utils/utils';
 import type { ChartScatterPoint } from './base-indicators';
 
 function toDate(d: string): Date {

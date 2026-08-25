@@ -7,7 +7,7 @@
  */
 import { computed, Signal } from '@angular/core';
 import { ChartIntervalKey } from '../../../../features/shared/components/flex-chart/flex-chart.types';
-import type { IntervalData } from '../../common/rh-agent-indicator.types';
+import type { IntervalData } from '../../common/indicator.types';
 import type { ChartScatterPoint } from './base-indicators';
 import {
   convertHtfWindowData,
@@ -16,7 +16,7 @@ import {
 } from './signal-marker-converters';
 
 /** Derived signal bundle for RH Agent chart extras (HTF windows, signal dots, uptick dots). */
-export interface RhAgentExtrasSignals {
+export interface ExtrasSignals {
   windowDataWeeklyOnDaily: Signal<ChartScatterPoint[]>;
   windowDataMonthlyOnWeekly: Signal<ChartScatterPoint[]>;
   dailySignalDots: Signal<ChartScatterPoint[]>;
@@ -32,10 +32,10 @@ export interface RhAgentExtrasSignals {
  * Centralizes the daily→weekly and weekly→monthly HTF window relationships so
  * signal-detail and quick-charts don't duplicate the same eight computed signals.
  */
-export function createRhAgentExtrasSignals(
+export function createExtrasSignals(
   dailyIntervalData: Signal<IntervalData | undefined>,
   weeklyIntervalData: Signal<IntervalData | undefined>,
-): RhAgentExtrasSignals {
+): ExtrasSignals {
   return {
     windowDataWeeklyOnDaily: computed(() =>
       convertHtfWindowData(dailyIntervalData(), ChartIntervalKey.WEEKLY)),

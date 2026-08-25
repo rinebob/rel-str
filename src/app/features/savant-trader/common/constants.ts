@@ -1,5 +1,5 @@
 /**
- * Shared RH Agent constants and enums.
+ * Shared Savant Trader constants and enums.
  *
  * Keep cross-cutting RH Agent types here so they can be imported by
  * stores, services, and components without circular dependencies.
@@ -9,7 +9,7 @@ import { SignalDirection } from '../../shared/constants/signal-direction';
 export { SignalDirection };
 
 /** Daily PACR review status for a symbol. */
-export enum RhAgentReviewDecision {
+export enum ReviewDecision {
   PENDING        = 'PENDING',
   REVIEW         = 'REVIEW',
   ACCEPT         = 'ACCEPT',
@@ -21,15 +21,15 @@ export enum RhAgentReviewDecision {
 }
 
 /** All PACR review statuses in display order. */
-export const ALL_REVIEW_STATUSES: RhAgentReviewDecision[] = [
-  RhAgentReviewDecision.PENDING,
-  RhAgentReviewDecision.REVIEW,
-  RhAgentReviewDecision.ACCEPT,
-  RhAgentReviewDecision.CONSIDER,
-  RhAgentReviewDecision.REJECT,
-  RhAgentReviewDecision.EXCLUDE,
-  RhAgentReviewDecision.LOW_TRADABILITY,
-  RhAgentReviewDecision.WATCH,
+export const ALL_REVIEW_STATUSES: ReviewDecision[] = [
+  ReviewDecision.PENDING,
+  ReviewDecision.REVIEW,
+  ReviewDecision.ACCEPT,
+  ReviewDecision.CONSIDER,
+  ReviewDecision.REJECT,
+  ReviewDecision.EXCLUDE,
+  ReviewDecision.LOW_TRADABILITY,
+  ReviewDecision.WATCH,
 ];
 
 /** Concrete count shape so templates can use dot access (e.g. counts.REVIEW). */
@@ -100,7 +100,7 @@ export const SIGNAL_FILTER_ALL: SignalFilter = {
 };
 
 /** Filter by who triggered the run. */
-export enum RhAgentRunTriggerFilter {
+export enum RunTriggerFilter {
   ALL      = 'all',
   MANUAL   = 'manual',
   PDR      = 'pdr',
@@ -108,14 +108,14 @@ export enum RhAgentRunTriggerFilter {
 }
 
 /** Filter by run date range. */
-export enum RhAgentRunDateFilter {
+export enum RunDateFilter {
   TODAY = 'today',
   WEEK  = 'week',
   ALL   = 'all',
 }
 
 /** Filter by run status. */
-export enum RhAgentRunStatusFilter {
+export enum RunStatusFilter {
   ALL     = 'all',
   RUNNING = 'running',
   SUCCESS = 'success',

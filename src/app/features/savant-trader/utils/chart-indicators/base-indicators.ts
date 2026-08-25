@@ -110,7 +110,7 @@ export function addUptickDots(
 }
 
 /** Bundle of optional RH Agent extras to attach to a base indicator list. */
-export interface RhAgentChartExtras {
+export interface ChartExtras {
   htfWindow?: { option: IndicatorOption; data: ChartScatterPoint[] };
   signalDots?: ChartScatterPoint[];
   uptickDotsV1?: ChartScatterPoint[];
@@ -118,9 +118,9 @@ export interface RhAgentChartExtras {
 }
 
 /** Conditionally add HTF windows, signal dots, and uptick dots, returning a new indicator list. */
-export function addRhAgentExtras(
+export function addChartExtras(
   indicators: IndicatorConfig[],
-  extras: RhAgentChartExtras,
+  extras: ChartExtras,
 ): IndicatorConfig[] {
   let result = indicators;
   if (extras.htfWindow) {

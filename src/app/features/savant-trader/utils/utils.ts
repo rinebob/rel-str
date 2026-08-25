@@ -3,9 +3,9 @@
  *
  * Small, pure helpers used across the RH Agent feature components.
  */
-import { MarketCapTier, RhAgentSignalItem, RhAgentSymbolProfile, RH_AGENT_SCHEDULE_CRON, RhAgentSymbolSource } from '../services/rh-agent.types';
+import { MarketCapTier, AgentSignalItem, AgentSymbolProfile, RH_AGENT_SCHEDULE_CRON, AgentSymbolSource } from '../services/types';
 import { RhSymbolRow, RhSymbolGroup } from '../stores/rh-agent-group.store';
-import { GroupDimension, RhAgentReviewDecision, SignalFilter, SignalTimeframe, SignalDirection } from '../common/rh-agent.constants';
+import { GroupDimension, ReviewDecision, SignalFilter, SignalTimeframe, SignalDirection } from '../common/constants';
 
 /** Format a YYYY-MM-DD date string as a UTC date with the given Intl options. */
 export function formatUtcDate(dateStr: string, options: Intl.DateTimeFormatOptions): string {
@@ -62,9 +62,9 @@ function getOptionalMarketCapTier(raw: Record<string, unknown>): MarketCapTier |
   return undefined;
 }
 
-function getOptionalSource(raw: Record<string, unknown>): RhAgentSymbolSource | undefined {
+function getOptionalSource(raw: Record<string, unknown>): AgentSymbolSource | undefined {
   const value = raw['source'];
-  if (value === RhAgentSymbolSource.MANUAL_ADD || value === RhAgentSymbolSource.PARTNER_UNIVERSE) {
+  if (value === AgentSymbolSource.MANUAL_ADD || value === AgentSymbolSource.PARTNER_UNIVERSE) {
     return value;
   }
   return undefined;
@@ -74,7 +74,7 @@ function getOptionalSource(raw: Record<string, unknown>): RhAgentSymbolSource | 
  * Map a raw Firestore rh-agent-symbols doc into the client symbol profile shape.
  * Timestamp fields are converted to ISO strings; missing fields are left undefined.
  */
-export function mapSymbolProfile(raw: Record<string, unknown>): RhAgentSymbolProfile {
+export function mapSymbolProfile(raw: Record<string, unknown>): AgentSymbolProfile {
   return {
     symbol: String(raw.symbol ?? ''),
     enabled: Boolean(raw.enabled ?? true),
@@ -110,7 +110,7 @@ export function todayDate(): string {
 export const UNKNOWN_GROUP = '(Unknown)';
 
 /** Build the group key for a symbol profile under the chosen dimension. */
-export function getGroupKey(profile: RhAgentSymbolProfile, dimension: GroupDimension): string {
+export function getGroupKey(profile: AgentSymbolProfile, dimension: GroupDimension): string {
   switch (dimension) {
     case GroupDimension.SECTOR:        return profile.sector        || UNKNOWN_GROUP;
     case GroupDimension.INDUSTRY:      return profile.industry      || UNKNOWN_GROUP;
@@ -133,13 +133,13 @@ export function shouldShowInListFilter(symbol: string, lists: Record<string, str
 /** Market cap tier display label. */
 export function tierLabel(tier: string | undefined): string {
   const map: Record<string, string> = {
-    mega: 'MEGA', large: 'LG', mid: 'MID', small: 'SM', micro: 'µ',
+    mega: 'MEGA', large: 'LG', mid: 'MID', small: 'SM', micro: 'Âµ',
   };
   return tier ? (map[tier] ?? tier.toUpperCase()) : '';
 }
 
 /** Direction label from signal items. */
-export function signalDirections(signals: RhAgentSignalItem[] | undefined): string {
+export function signalDirections(signals: AgentSignalItem[] | undefined): string {
   if (!signals?.length) return '';
   const dirs = [...new Set(signals.map((s) => s.direction))];
   return dirs.join('/');
@@ -149,7 +149,7 @@ export function signalDirections(signals: RhAgentSignalItem[] | undefined): stri
  * Returns true if a signal passes the active timeframe and direction filter.
  */
 export function matchesSignalFilter(
-  signal: RhAgentSignalItem,
+  signal: AgentSignalItem,
   filter: SignalFilter
 ): boolean {
   const { timeframe: tf, direction: dir } = filter;
@@ -163,9 +163,9 @@ export function matchesSignalFilter(
  * Filter an array of signals by timeframe and direction.
  */
 export function filterSignals(
-  signals: RhAgentSignalItem[],
+  signals: AgentSignalItem[],
   filter: SignalFilter
-): RhAgentSignalItem[] {
+): AgentSignalItem[] {
   return signals.filter((s) => matchesSignalFilter(s, filter));
 }
 
@@ -174,7 +174,7 @@ export function filterSignals(
  * Treats the symbol profile's last known signal directions as a signal proxy.
  */
 export function profileMatchesSignalFilter(
-  profile: RhAgentSymbolProfile,
+  profile: AgentSymbolProfile,
   filter: SignalFilter
 ): boolean {
   const { timeframe: tf, direction: dir } = filter;
@@ -199,8 +199,8 @@ export function profileMatchesSignalFilter(
  * Uses loaded signals when available, otherwise falls back to profile fields.
  */
 export function symbolMatchesSignalFilter(
-  profile: RhAgentSymbolProfile,
-  signals: RhAgentSignalItem[] | undefined,
+  profile: AgentSymbolProfile,
+  signals: AgentSignalItem[] | undefined,
   filter: SignalFilter
 ): boolean {
   if (signals?.length) {
@@ -455,7 +455,7 @@ function profileDirectionMatches(
 
 /** Compute header counts from a profile list already filtered by profileMatchesSignalFilter. */
 export function computeProfileCounts(
-  profiles: RhAgentSymbolProfile[],
+  profiles: AgentSymbolProfile[],
   filter: SignalFilter
 ): { total: number; weekly: number; daily: number; long: number; short: number } {
   const counts = { total: profiles.length, weekly: 0, daily: 0, long: 0, short: 0 };
@@ -488,8 +488,8 @@ export function computeProfileCounts(
 
 /** Input shape for building the list of candidate profiles before signal/list filtering. */
 export interface BuildFilteredCandidatesInput {
-  signalSymbols: RhAgentSymbolProfile[];
-  allSymbols: RhAgentSymbolProfile[];
+  signalSymbols: AgentSymbolProfile[];
+  allSymbols: AgentSymbolProfile[];
   showAll: boolean;
   symbolLists: Record<string, string[]>;
   activeListFilter: string | 'ALL';
@@ -500,7 +500,7 @@ export interface BuildFilteredCandidatesInput {
  * Returns signal symbols plus optional non-signal symbols, filtered by the active list filter.
  * Pure function: no store access.
  */
-export function buildFilteredCandidates(input: BuildFilteredCandidatesInput): RhAgentSymbolProfile[] {
+export function buildFilteredCandidates(input: BuildFilteredCandidatesInput): AgentSymbolProfile[] {
   const { signalSymbols, allSymbols, showAll, symbolLists, activeListFilter } = input;
   const signalSet = new Set(signalSymbols.map((s) => s.symbol));
   const candidates = [
@@ -510,16 +510,16 @@ export function buildFilteredCandidates(input: BuildFilteredCandidatesInput): Rh
   return candidates.filter((p) => shouldShowInListFilter(p.symbol, symbolLists, activeListFilter));
 }
 
-/** Input shape for building a grouped view — kept generic so it can be computed from store state. */
+/** Input shape for building a grouped view â€” kept generic so it can be computed from store state. */
 export interface BuildSymbolGroupsInput {
-  signalSymbols: RhAgentSymbolProfile[];
-  allSymbols: RhAgentSymbolProfile[];
+  signalSymbols: AgentSymbolProfile[];
+  allSymbols: AgentSymbolProfile[];
   showAll: boolean;
   dimension: GroupDimension;
   symbolLists: Record<string, string[]>;
   activeListFilter: string | 'ALL';
-  statuses: Record<string, RhAgentReviewDecision>;
-  historyCache: Record<string, RhAgentSignalItem[]>;
+  statuses: Record<string, ReviewDecision>;
+  historyCache: Record<string, AgentSignalItem[]>;
   historyLoading: Record<string, boolean>;
   activeRunId: string | null;
   signalFilter: SignalFilter;
@@ -554,7 +554,7 @@ export function buildSymbolGroups(input: BuildSymbolGroupsInput): RhSymbolGroup[
     activeListFilter,
   });
 
-  const groupMap = new Map<string, Array<{ profile: RhAgentSymbolProfile; hasSignal: boolean }>>();
+  const groupMap = new Map<string, Array<{ profile: AgentSymbolProfile; hasSignal: boolean }>>();
   for (const profile of candidates) {
     const hasSignal = signalSet.has(profile.symbol);
     if (!showAll && !hasSignal) continue;
@@ -590,7 +590,7 @@ export function buildSymbolGroups(input: BuildSymbolGroupsInput): RhSymbolGroup[
         hasSignal: item.hasSignal,
         signals,
         signalsLoading: historyLoading[cacheKey] ?? false,
-        reviewStatus: statuses[item.profile.symbol] ?? RhAgentReviewDecision.PENDING,
+        reviewStatus: statuses[item.profile.symbol] ?? ReviewDecision.PENDING,
       };
     });
 

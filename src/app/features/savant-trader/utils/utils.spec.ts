@@ -1,5 +1,5 @@
-import { SignalTimeframe, SignalDirection, SignalStatus, SIGNAL_FILTER_ALL, RhAgentReviewDecision, GroupDimension } from '../common/rh-agent.constants';
-import type { RhAgentSignalItem, RhAgentSymbolProfile } from '../services/rh-agent.types';
+import { SignalTimeframe, SignalDirection, SignalStatus, SIGNAL_FILTER_ALL, ReviewDecision, GroupDimension } from '../common/constants';
+import type { AgentSignalItem, AgentSymbolProfile } from '../services/types';
 import type { RhSymbolGroup } from '../stores/rh-agent-group.store';
 import {
   matchesSignalFilter,
@@ -10,12 +10,12 @@ import {
   buildSymbolGroups,
   BuildSymbolGroupsInput,
   mapSymbolProfile,
-} from './rh-agent.utils';
-import { RhAgentSymbolSource } from '../services/rh-agent.types';
+} from './utils';
+import { AgentSymbolSource } from '../services/types';
 
 const mockSignal = (
-  overrides: Partial<RhAgentSignalItem> = {}
-): RhAgentSignalItem => ({
+  overrides: Partial<AgentSignalItem> = {}
+): AgentSignalItem => ({
   id: '2026-07-10',
   symbol: 'AAPL',
   barDate: '2026-07-10',
@@ -33,8 +33,8 @@ const TEST_CREATED_AT = '2026-01-01T00:00:00.000Z';
 
 const mockProfile = (
   createdAt: string,
-  overrides: Partial<Omit<RhAgentSymbolProfile, 'createdAt'>> = {}
-): RhAgentSymbolProfile => ({
+  overrides: Partial<Omit<AgentSymbolProfile, 'createdAt'>> = {}
+): AgentSymbolProfile => ({
   symbol: 'AAPL',
   name: 'Apple Inc.',
   sector: 'Technology',
@@ -105,7 +105,7 @@ describe('rowHasDirection', () => {
       profile: mockProfile(TEST_CREATED_AT),
       hasSignal: true,
       signals: [mockSignal({ direction: SignalDirection.SHORT })],
-      reviewStatus: RhAgentReviewDecision.PENDING,
+      reviewStatus: ReviewDecision.PENDING,
     };
     expect(rowHasDirection(row, SignalDirection.SHORT)).toBe(true);
     expect(rowHasDirection(row, SignalDirection.LONG)).toBe(false);
@@ -116,7 +116,7 @@ describe('rowHasDirection', () => {
       profile: mockProfile(TEST_CREATED_AT, { lastDailySignalDirection: SignalDirection.LONG }),
       hasSignal: true,
       signals: undefined,
-      reviewStatus: RhAgentReviewDecision.PENDING,
+      reviewStatus: ReviewDecision.PENDING,
     };
     expect(rowHasDirection(row, SignalDirection.LONG)).toBe(true);
     expect(rowHasDirection(row, SignalDirection.SHORT)).toBe(false);
@@ -218,7 +218,7 @@ describe('mapSymbolProfile', () => {
     const raw: Record<string, unknown> = {
       symbol: 'AAPL',
       createdAt: '2026-07-13T20:00:00Z',
-      source: RhAgentSymbolSource.PARTNER_UNIVERSE,
+      source: AgentSymbolSource.PARTNER_UNIVERSE,
       name: 'Apple Inc.',
       sector: 'Technology',
       marketCap: 3000e9,
@@ -228,7 +228,7 @@ describe('mapSymbolProfile', () => {
     expect(profile.symbol).toBe('AAPL');
     expect(profile.enabled).toBe(true);
     expect(profile.createdAt).toBe('2026-07-13T20:00:00Z');
-    expect(profile.source).toBe(RhAgentSymbolSource.PARTNER_UNIVERSE);
+    expect(profile.source).toBe(AgentSymbolSource.PARTNER_UNIVERSE);
     expect(profile.name).toBe('Apple Inc.');
     expect(profile.marketCap).toBe(3000e9);
     expect(profile.marketCapTier).toBe('mega');

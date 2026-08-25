@@ -6,14 +6,14 @@
  * so callers do not need to know the internal module layout.
  */
 
-export type { ChartScatterPoint, RhAgentChartExtras } from './chart-indicators/base-indicators';
-export type { RhAgentExtrasSignals } from './chart-indicators/extras-signals';
+export type { ChartScatterPoint, ChartExtras } from './chart-indicators/base-indicators';
+export type { ExtrasSignals } from './chart-indicators/extras-signals';
 export {
   buildBaseIndicators,
   addHtfZoneWindow,
   addSignalDots,
   addUptickDots,
-  addRhAgentExtras,
+  addChartExtras,
   UptickDotColors,
 } from './chart-indicators/base-indicators';
 
@@ -29,7 +29,7 @@ export {
   injectCallableIndicatorData,
 } from './chart-indicators/indicator-converters';
 
-export { createRhAgentExtrasSignals } from './chart-indicators/extras-signals';
+export { createExtrasSignals } from './chart-indicators/extras-signals';
 
 export { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR } from './chart-indicators/base-indicators';
 export { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR } from './chart-indicators/base-indicators';
