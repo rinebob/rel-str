@@ -94,62 +94,62 @@ import { authGuard } from './auth/auth.guard';
                 canActivate: [authGuard],
             },
             {path: AppRoutes.RUN_DASHBOARD,
-                loadComponent: () => import('../features/rh-agent/pages/agent-dashboard/rh-agent-dashboard.component')
+                loadComponent: () => import('../features/savant-trader/pages/agent-dashboard/rh-agent-dashboard.component')
                 .then(mod => mod.RhAgentDashboardComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.CHART_REVIEW,
-                loadComponent: () => import('../features/rh-agent/pages/chart-review/chart-review.component')
+                loadComponent: () => import('../features/savant-trader/pages/chart-review/chart-review.component')
                 .then(mod => mod.ChartReviewComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.SIGNAL_REVIEW,
-                loadComponent: () => import('../features/rh-agent/pages/signal-review/signal-review.component')
+                loadComponent: () => import('../features/savant-trader/pages/signal-review/signal-review.component')
                 .then(mod => mod.SignalReviewComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.SIGNAL_ORDER,
-                loadComponent: () => import('../features/rh-agent/pages/agent-order/rh-agent-order.component')
+                loadComponent: () => import('../features/savant-trader/pages/agent-order/rh-agent-order.component')
                 .then(mod => mod.RhAgentOrderComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.SIGNAL_ACTION_REPORT,
-                loadComponent: () => import('../features/rh-agent/pages/agent-triage-report/rh-agent-triage-report.component')
+                loadComponent: () => import('../features/savant-trader/pages/agent-triage-report/rh-agent-triage-report.component')
                 .then(mod => mod.RhAgentTriageReportComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.RH_ACCOUNT_INQUIRY,
-                loadComponent: () => import('../features/rh-agent/pages/observation-dashboard/observation-dashboard.component')
+                loadComponent: () => import('../features/savant-trader/pages/observation-dashboard/observation-dashboard.component')
                 .then(mod => mod.ObservationDashboardComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.STRATEGY_BACKTEST,
-                loadComponent: () => import('../features/rh-agent/backtest/pages/backtest-dashboard/backtest-dashboard.component')
+                loadComponent: () => import('../features/savant-trader/backtest/pages/backtest-dashboard/backtest-dashboard.component')
                 .then(mod => mod.BacktestDashboardComponent),
                 canActivate: [authGuard],
             },
-            {path: AppRoutes.SIGNAL_HISTORY, 
-                loadComponent: () => import('../features/rh-agent/pages/signal-history/signal-history.component')
+            {path: AppRoutes.SIGNAL_HISTORY,
+                loadComponent: () => import('../features/savant-trader/pages/signal-history/signal-history.component')
                 .then(mod => mod.SignalHistoryComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.OPTION_CHART,
-                loadComponent: () => import('../features/rh-agent/pages/option-chart/option-chart.component')
+                loadComponent: () => import('../features/savant-trader/pages/option-chart/option-chart.component')
                 .then(mod => mod.OptionChartComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.SPREAD_CHART,
-                loadComponent: () => import('../features/rh-agent/pages/spread-chart/spread-chart-page.component')
+                loadComponent: () => import('../features/savant-trader/pages/spread-chart/spread-chart-page.component')
                 .then(mod => mod.SpreadChartPageComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.OPTIONS_STRATEGY_DASHBOARD,
-                loadComponent: () => import('../features/rh-agent/pages/options-strategy-dashboard/options-strategy-dashboard.component')
+                loadComponent: () => import('../features/savant-trader/pages/options-strategy-dashboard/options-strategy-dashboard.component')
                 .then(mod => mod.OptionsStrategyDashboardComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.STRATEGY_BUILDER,
-                loadComponent: () => import('../features/rh-agent/pages/strategy-builder/strategy-builder.component')
+                loadComponent: () => import('../features/savant-trader/pages/strategy-builder/strategy-builder.component')
                 .then(mod => mod.StrategyBuilderComponent),
                 canActivate: [authGuard],
             },

@@ -20,9 +20,9 @@ const retiredImplementationUrls = [
   new URL("functions/src/rh-agent", repoRootUrl),
   new URL("functions/src/rh-agent-cloud-function/rh-agent-executor.ts", repoRootUrl),
   new URL("functions/lib/rh-agent", repoRootUrl),
-  new URL("src/app/features/rh-agent/services/trade-bridge-client.service.ts", repoRootUrl),
-  new URL("src/app/features/rh-agent/services/trade-bridge-client.service.spec.ts", repoRootUrl),
-  new URL("src/app/features/rh-agent/components/execution-panel", repoRootUrl),
+  new URL("src/app/features/savant-trader/services/trade-bridge-client.service.ts", repoRootUrl),
+  new URL("src/app/features/savant-trader/services/trade-bridge-client.service.spec.ts", repoRootUrl),
+  new URL("src/app/features/savant-trader/components/execution-panel", repoRootUrl),
   new URL("src/app/features/rs", repoRootUrl),
 ];
 const retiredRuntimeMarkers = [
