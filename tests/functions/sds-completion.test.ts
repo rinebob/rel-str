@@ -213,7 +213,7 @@ function createDeps(
     },
     async runSelectionPass(marketDate: string) {},
     async runSettlementPass(marketDate: string, symbols?: string[]) {},
-    async startRhAgentRun(marketDate: string, triggeredBy: string) {},
+    async startStRun(marketDate: string, triggeredBy: string) {},
     _dispatched: dispatched,
   } as any;
 }
@@ -441,7 +441,7 @@ describe('fireSequenceCompletion — sequence fan-in', () => {
       async enqueueConsumer() { throw new Error('enqueue failed'); },
       async runSelectionPass() {},
       async runSettlementPass() {},
-      async startRhAgentRun() {},
+      async startStRun() {},
     };
     const ctx: SequenceContext = {
       sequenceRunId: 'seq-1',
@@ -479,7 +479,7 @@ describe('fireSequenceCompletion — POST A consumers', () => {
     await fireSequenceCompletion(ctx, deps);
     assert.ok(deps._dispatched.includes('selection'));
     assert.ok(deps._dispatched.includes('settlement'));
-    assert.ok(deps._dispatched.includes('rh-agent-nightly'));
+    assert.ok(deps._dispatched.includes('st-nightly'));
   });
 });
 
@@ -506,7 +506,7 @@ describe('fireSequenceCompletion — POST B/C consumers', () => {
     };
     await fireSequenceCompletion(ctx, deps);
     assert.ok(deps._dispatched.includes('settlement-scoped'));
-    assert.ok(deps._dispatched.includes('rh-agent-nightly-scoped'));
+    assert.ok(deps._dispatched.includes('st-nightly-scoped'));
     assert.ok(!deps._dispatched.includes('selection'));
   });
 
@@ -522,7 +522,7 @@ describe('fireSequenceCompletion — POST B/C consumers', () => {
     };
     await fireSequenceCompletion(ctx, deps);
     assert.ok(deps._dispatched.includes('settlement-scoped'));
-    assert.ok(deps._dispatched.includes('rh-agent-nightly-scoped'));
+    assert.ok(deps._dispatched.includes('st-nightly-scoped'));
     assert.ok(!deps._dispatched.includes('selection'));
   });
 });
@@ -557,7 +557,7 @@ describe('checkIntradayRunCompletion', () => {
     await checkIntradayRunCompletion(ctx, deps);
     const runDoc = db.docs.get(`${SDS_RUNS}/intraday-run-1`)!;
     assert.equal(runDoc.status, 'completed');
-    assert.ok(deps._dispatched.includes('rh-agent-intraday'));
+    assert.ok(deps._dispatched.includes('st-intraday'));
   });
 
   it('does not dispatch if intraday run not yet complete', async () => {
@@ -698,7 +698,7 @@ describe('runWatchdog', () => {
     });
     await runWatchdog(deps);
     const runDoc = db.docs.get(`${SDS_RUNS}/intraday-stuck`)!;
-    assert.ok(deps._dispatched.includes('rh-agent-intraday'), 'intraday consumer should be retried');
+    assert.ok(deps._dispatched.includes('st-intraday'), 'intraday consumer should be retried');
   });
 });
 
@@ -786,15 +786,15 @@ describe('concurrent completion — no duplicate dispatch', () => {
     ]);
 
     // The sequence should be completed, and consumers should be dispatched
-    // exactly once (3 consumers for POST A: selection, settlement, rh-agent-nightly)
+    // exactly once (3 consumers for POST A: selection, settlement, st-nightly)
     const seqDoc = db.docs.get(`${SDS_SEQUENCES}/seq-1`)!;
     assert.equal(seqDoc.status, 'completed');
     // Count consumer dispatches — should be exactly 1 each, not 2
     const selectionCount = deps._dispatched.filter((c: string) => c === 'selection').length;
     const settlementCount = deps._dispatched.filter((c: string) => c === 'settlement').length;
-    const rhAgentCount = deps._dispatched.filter((c: string) => c === 'rh-agent-nightly').length;
+    const stNightlyCount = deps._dispatched.filter((c: string) => c === 'st-nightly').length;
     assert.equal(selectionCount, 1, 'selection should be dispatched exactly once');
     assert.equal(settlementCount, 1, 'settlement should be dispatched exactly once');
-    assert.equal(rhAgentCount, 1, 'rh-agent-nightly should be dispatched exactly once');
+    assert.equal(stNightlyCount, 1, 'st-nightly should be dispatched exactly once');
   });
 });

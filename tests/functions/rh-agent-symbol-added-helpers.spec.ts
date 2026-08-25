@@ -3,45 +3,45 @@ import {
   normalizeSource,
   validateSymbolAddedPayload,
   type SymbolAddedPayloadV1,
-} from '../../functions/src/common/rh-agent-symbol-added-helpers';
-import { RhAgentSymbolSource } from '../../functions/src/common/rh-agent-collections';
+} from '../../functions/src/common/st-symbol-added-helpers';
+import { StSymbolSource } from '../../functions/src/common/st-collections';
 
 describe('normalizeSource', () => {
   it('returns PARTNER_UNIVERSE for the canonical partner value', () => {
-    expect(normalizeSource(RhAgentSymbolSource.PARTNER_UNIVERSE)).toBe(
-      RhAgentSymbolSource.PARTNER_UNIVERSE,
+    expect(normalizeSource(StSymbolSource.PARTNER_UNIVERSE)).toBe(
+      StSymbolSource.PARTNER_UNIVERSE,
     );
   });
 
   it('returns MANUAL_ADD for the canonical manual value', () => {
-    expect(normalizeSource(RhAgentSymbolSource.MANUAL_ADD)).toBe(
-      RhAgentSymbolSource.MANUAL_ADD,
+    expect(normalizeSource(StSymbolSource.MANUAL_ADD)).toBe(
+      StSymbolSource.MANUAL_ADD,
     );
   });
 
   it('falls back to MANUAL_ADD for undefined', () => {
-    expect(normalizeSource(undefined)).toBe(RhAgentSymbolSource.MANUAL_ADD);
+    expect(normalizeSource(undefined)).toBe(StSymbolSource.MANUAL_ADD);
   });
 
   it('falls back to MANUAL_ADD for legacy or arbitrary values', () => {
     expect(normalizeSource('partner-universe-260713')).toBe(
-      RhAgentSymbolSource.MANUAL_ADD,
+      StSymbolSource.MANUAL_ADD,
     );
     expect(normalizeSource('manual-add-backfill_26-0713')).toBe(
-      RhAgentSymbolSource.MANUAL_ADD,
+      StSymbolSource.MANUAL_ADD,
     );
-    expect(normalizeSource('something-else')).toBe(RhAgentSymbolSource.MANUAL_ADD);
+    expect(normalizeSource('something-else')).toBe(StSymbolSource.MANUAL_ADD);
   });
 });
 
 describe('validateSymbolAddedPayload', () => {
-  const validPayload: import('../../functions/src/common/rh-agent-symbol-added-helpers').SymbolAddedPayloadV1 = {
+  const validPayload: import('../../functions/src/common/st-symbol-added-helpers').SymbolAddedPayloadV1 = {
     version: 'v1',
     symbols: ['AAPL', 'TSLA'],
     addedAtUTC: '2026-07-13T20:00:00Z',
     status: 'ready',
     availableIntervals: ['DAILY'],
-    source: RhAgentSymbolSource.MANUAL_ADD,
+    source: StSymbolSource.MANUAL_ADD,
   };
 
   it('returns a normalized body for a valid payload', () => {
