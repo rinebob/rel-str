@@ -5,7 +5,7 @@
  * Supports target delta, target DTE, DTE bounds, and mark availability.
  * All AV market-data fields are optional strings, so helpers parse defensively.
  *
- * Originally lived in rh-agent-cloud-function/strategies; relocated to common/
+ * Originally lived in st-cloud-function/strategies; relocated to common/
  * so the new options-strategy-engine (a separate subsystem) can share it without
  * reaching across subsystem boundaries.
  */

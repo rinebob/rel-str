@@ -4,7 +4,7 @@ import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 
 import { callPartnerHistoricalOptionsContractV2, callPartnerListContractsV2, callPartnerContractCatalogV2 } from './options-contract-proxy';
-import { RH_AGENT_ALLOWED_ORIGINS } from './rh-agent-cloud-function/rh-agent-cors';
+import { ST_ALLOWED_ORIGINS } from './st-cloud-function/cors';
 import type {
   GetHistoricalOptionsContractRequest,
   PartnerHistoricalOptionsContractV2Response,
@@ -45,7 +45,7 @@ function getSaFirestore(): Firestore {
  * to surface SA data issues directly.
  */
 export const getHistoricalOptionsContract = onCall(
-  { region: 'us-central1', cors: RH_AGENT_ALLOWED_ORIGINS },
+  { region: 'us-central1', cors: ST_ALLOWED_ORIGINS },
   async (req): Promise<PartnerHistoricalOptionsContractV2Response> => {
     const { symbol, contractID, length } = (req.data || {}) as GetHistoricalOptionsContractRequest;
     const sym = String(symbol || '').trim().toUpperCase();
@@ -94,7 +94,7 @@ export const getHistoricalOptionsContract = onCall(
  * SA endpoint contract.
  */
 export const listOptionsContracts = onCall(
-  { region: 'us-central1', cors: RH_AGENT_ALLOWED_ORIGINS },
+  { region: 'us-central1', cors: ST_ALLOWED_ORIGINS },
   async (req): Promise<PartnerListContractsV2Response> => {
     const { symbol, expiration, strike, type } = (req.data || {}) as GetListContractsRequest;
     const sym = String(symbol || '').trim().toUpperCase();
@@ -149,7 +149,7 @@ export const listOptionsContracts = onCall(
  * Returns the data needed by the frontend to populate dropdowns with cross-filtering.
  */
 export const getOptionsContractIndex = onCall(
-  { region: 'us-central1', cors: RH_AGENT_ALLOWED_ORIGINS },
+  { region: 'us-central1', cors: ST_ALLOWED_ORIGINS },
   async (req): Promise<OptionsContractIndexResponse> => {
     const { symbol } = (req.data || {}) as GetOptionsContractIndexRequest;
     const sym = String(symbol || '').trim().toUpperCase();
@@ -234,7 +234,7 @@ export const getOptionsContractIndex = onCall(
  * error surfaces to the caller.
  */
 export const queryContractCatalog = onCall(
-  { region: 'us-central1', cors: RH_AGENT_ALLOWED_ORIGINS },
+  { region: 'us-central1', cors: ST_ALLOWED_ORIGINS },
   async (req): Promise<ContractCatalogResponse | ContractSummaryResponse> => {
     const data = (req.data || {}) as QueryContractCatalogRequest;
     const sym = String(data.symbol || '').trim().toUpperCase();

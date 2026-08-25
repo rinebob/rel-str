@@ -66,43 +66,43 @@ export { backfillSymbolDataFromPairsAdmin } from './admin/backfill-symbol-data-f
 export { backfillSymbolDataFromTradesAdmin } from './admin/backfill-symbol-data-from-trades';
 export { cleanupRsBackfillRuns } from './scheduled/cleanup-rs-backfill-runs';
 
-// RH Agent (Robinhood Trading Agent) exports - Event-driven daily scan architecture
-export { rhAgentTriggerDaily } from './rh-agent-cloud-function/rh-agent-trigger';
-export { rhAgentProcessSymbol } from './rh-agent-cloud-function/rh-agent-worker';
+// ST (Savant Trader) exports - Event-driven daily scan architecture
+export { stTriggerDaily } from './st-cloud-function/trigger';
+export { stProcessSymbol } from './st-cloud-function/worker';
 
-// RH Agent Admin utilities
+// ST Admin utilities
 export {
-  clearRhAgentSymbolsAdmin,
+  clearStSymbolsAdmin,
   seedAllSymbolsFromPartner,
-} from './rh-agent-cloud-function/rh-agent-seed-admin';
+} from './st-cloud-function/seed-admin';
 
-// RH Agent Callables (for frontend dashboard)
+// ST Callables (for frontend dashboard)
 export {
-  rhAgentGetSymbolsWithSignals,
-  rhAgentGetSymbolSignalHistory,
-} from './rh-agent-cloud-function/rh-agent-dashboard-callables';
+  stGetSymbolsWithSignals,
+  stGetSymbolSignalHistory,
+} from './st-cloud-function/dashboard-callables';
 
-// RH Agent Indicator Series callable
-export { rhAgentGetSymbolIndicatorSeriesV2 } from './rh-agent-cloud-function/rh-agent-indicator-series';
+// ST Indicator Series callable
+export { stGetSymbolIndicatorSeriesV2 } from './st-cloud-function/indicator-series';
 
-// RH Agent Manual Run + status + run history callables
+// ST Manual Run + status + run history callables
 export {
-  rhAgentManualRun,
-  rhAgentGetStatus,
-  rhAgentGetRunHistory,
-} from './rh-agent-cloud-function/rh-agent-callables';
+  stManualRun,
+  stGetStatus,
+  stGetRunHistory,
+} from './st-cloud-function/callables';
 
-// RH Agent Backtest (Cloud Task worker + orchestrator + strategy discovery)
-export { rhAgentBacktestStart } from './rh-agent-cloud-function/backtest/backtest-orchestrator';
-export { rhAgentBacktestStrategies } from './rh-agent-cloud-function/backtest/backtest-strategies-callable';
-export { rhAgentBacktestPermutation } from './rh-agent-cloud-function/backtest/backtest-worker';
+// ST Backtest (Cloud Task worker + orchestrator + strategy discovery)
+export { stBacktestStart } from './st-cloud-function/backtest/backtest-orchestrator';
+export { stBacktestStrategies } from './st-cloud-function/backtest/backtest-strategies-callable';
+export { stBacktestPermutation } from './st-cloud-function/backtest/backtest-worker';
 
-// RH Agent Company Overview Sync (Phase 1)
+// ST Company Overview Sync (Phase 1)
 export {
-  rhAgentOverviewSyncWeekly,
-  rhAgentOverviewSyncAdmin,
-} from './rh-agent-cloud-function/rh-agent-overview-sync-orchestrator';
-export { rhAgentOverviewSyncSymbol } from './rh-agent-cloud-function/rh-agent-overview-sync-worker';
+  stOverviewSyncWeekly,
+  stOverviewSyncAdmin,
+} from './st-cloud-function/overview-sync-orchestrator';
+export { stOverviewSyncSymbol } from './st-cloud-function/overview-sync-worker';
 
 // Options contract viewer callables
 export { getHistoricalOptionsContract, listOptionsContracts, getOptionsContractIndex, queryContractCatalog } from './options-contract.callables';

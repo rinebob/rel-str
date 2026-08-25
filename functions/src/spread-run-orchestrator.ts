@@ -10,13 +10,13 @@ import { getFunctions } from 'firebase-admin/functions';
 import { logger } from 'firebase-functions/v2';
 
 import { db, FieldValue } from './firebase-admin-init';
-import { RH_AGENT_ALLOWED_ORIGINS } from './rh-agent-cloud-function/rh-agent-cors';
+import { ST_ALLOWED_ORIGINS } from './st-cloud-function/cors';
 import { SPREAD_RUNS_COLLECTION, SpreadRunStatus } from './spread-run-model';
 import { SPREAD_RUN_WORKER_QUEUE } from './spread-run-worker';
 import type { SubmitSpreadRunRequest, SubmitSpreadRunResponse } from '@spread/contracts';
 
 export const submitSpreadRun = onCall<SubmitSpreadRunRequest, Promise<SubmitSpreadRunResponse>>(
-  { region: 'us-central1', cors: RH_AGENT_ALLOWED_ORIGINS },
+  { region: 'us-central1', cors: ST_ALLOWED_ORIGINS },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new Error('Authentication required');

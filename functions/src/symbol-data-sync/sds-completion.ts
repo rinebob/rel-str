@@ -8,11 +8,11 @@
  *
  * - fireSequenceCompletion: when all 3 intervals (DAILY, WEEKLY, MONTHLY)
  *   in a POST sequence complete, enqueues downstream consumers
- *   (selection, settlement, RH Agent) as separate Cloud Tasks.
+ *   (selection, settlement, ST) as separate Cloud Tasks.
  *   Uses a conditional transaction to guarantee only one caller fires.
  *
  * - checkIntradayRunCompletion: intraday runs have no fan-in — completion
- *   fires directly on the run doc and dispatches RH Agent intraday.
+ *   fires directly on the run doc and dispatches ST intraday.
  */
 
 import { FieldValue } from 'firebase-admin/firestore';
@@ -47,9 +47,9 @@ export type ConsumerName =
   | 'selection'
   | 'settlement'
   | 'settlement-scoped'
-  | 'rh-agent-nightly'
-  | 'rh-agent-nightly-scoped'
-  | 'rh-agent-intraday';
+  | 'st-nightly'
+  | 'st-nightly-scoped'
+  | 'st-intraday';
 
 /**
  * RS extension point — defined per acceptance criterion #10 but not wired.
@@ -68,8 +68,8 @@ export interface SdsCompletionDeps {
   runSelectionPass(marketDate: string): Promise<void>;
   /** Direct call to settlement pass. */
   runSettlementPass(marketDate: string, symbols?: string[]): Promise<void>;
-  /** Start RH Agent run. */
-  startRhAgentRun(marketDate: string, triggeredBy: 'manual' | 'pdr' | 'nightly' | 'symbol-added'): Promise<void>;
+  /** Start ST run. */
+  startStRun(marketDate: string, triggeredBy: 'manual' | 'pdr' | 'nightly' | 'symbol-added'): Promise<void>;
   /** Optional RS extension — not wired (AC #10). */
   rsExtension?: RsExtensionPoint;
 }
@@ -255,10 +255,10 @@ export async function fireSequenceCompletion(
   if (ctx.sequence === 'A') {
     consumers.push({ name: 'selection', payload: consumerPayload });
     consumers.push({ name: 'settlement', payload: consumerPayload });
-    consumers.push({ name: 'rh-agent-nightly', payload: consumerPayload });
+    consumers.push({ name: 'st-nightly', payload: consumerPayload });
   } else {
     consumers.push({ name: 'settlement-scoped', payload: consumerPayload });
-    consumers.push({ name: 'rh-agent-nightly-scoped', payload: consumerPayload });
+    consumers.push({ name: 'st-nightly-scoped', payload: consumerPayload });
   }
 
   // Enqueue all consumers — if any fails, mark as completed_but_not_dispatched
@@ -304,7 +304,7 @@ export async function fireSequenceCompletion(
 
 /**
  * Intraday runs have no fan-in — completion fires directly on the run doc.
- * Dispatches RH Agent intraday consumer.
+ * Dispatches ST intraday consumer.
  */
 export async function checkIntradayRunCompletion(
   ctx: RunContext,
@@ -341,9 +341,9 @@ export async function checkIntradayRunCompletion(
     completedAt: FieldValue.serverTimestamp(),
   }, { merge: true });
 
-  // Dispatch RH Agent intraday
+  // Dispatch ST intraday
   try {
-    await deps.enqueueConsumer('rh-agent-intraday', {
+    await deps.enqueueConsumer('st-intraday', {
       runId: ctx.runId,
       marketDate: ctx.marketDate,
     });

@@ -14,7 +14,7 @@
 
 import { onTaskDispatched } from 'firebase-functions/v2/tasks';
 import { logger } from 'firebase-functions';
-import { startRhAgentRun } from '../common/rh-agent-orchestration';
+import { startStRun } from '../common/st-orchestration';
 import {
   runOptionsSelectionPass,
   runSettlementForAllInstances,
@@ -55,16 +55,16 @@ export const sdsConsumerDispatch = onTaskDispatched<ConsumerDispatchPayload>(
         logger.info('sds_consumer_dispatch_settlement_done', { consumer, marketDate });
         break;
 
-      case 'rh-agent-nightly':
-      case 'rh-agent-nightly-scoped':
+      case 'st-nightly':
+      case 'st-nightly-scoped':
         // Scoped variant runs full nightly for now.
-        await startRhAgentRun(marketDate, 'nightly');
-        logger.info('sds_consumer_dispatch_rh_agent_nightly_done', { consumer, marketDate });
+        await startStRun(marketDate, 'nightly');
+        logger.info('sds_consumer_dispatch_st_nightly_done', { consumer, marketDate });
         break;
 
-      case 'rh-agent-intraday':
-        await startRhAgentRun(marketDate, 'pdr');
-        logger.info('sds_consumer_dispatch_rh_agent_intraday_done', { marketDate });
+      case 'st-intraday':
+        await startStRun(marketDate, 'pdr');
+        logger.info('sds_consumer_dispatch_st_intraday_done', { marketDate });
         break;
 
       default:

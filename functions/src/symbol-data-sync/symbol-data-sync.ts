@@ -25,7 +25,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { OAuth2Client } from 'google-auth-library';
 import { db } from '../firebase-admin-init';
 import { callPartnerTrackedSymbols } from '../partner-proxy';
-import { startRhAgentRun } from '../common/rh-agent-orchestration';
+import { startStRun } from '../common/st-orchestration';
 import {
   getRunDatePT,
   getRunIdPT,
@@ -204,7 +204,7 @@ async function checkSyncRunCompletion(
     logger.info('symbol_data_sync_run_complete', { syncRunId, marketDate });
     await runRef.set({ completedAt: FieldValue.serverTimestamp() }, { merge: true });
     try {
-      await startRhAgentRun(marketDate, 'nightly');
+      await startStRun(marketDate, 'nightly');
       logger.info('symbol_data_sync_agent_run_triggered', { syncRunId, marketDate });
     } catch (err: any) {
       logger.error('symbol_data_sync_agent_run_failed', { syncRunId, marketDate, error: err?.message });

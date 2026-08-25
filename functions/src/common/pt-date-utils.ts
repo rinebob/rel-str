@@ -9,7 +9,7 @@
  * etc.) and intentionally live in common/ to avoid circular dependencies between
  * feature modules.
  */
-import { RhAgentTriggeredBy } from './rh-agent-runs';
+import { StTriggeredBy } from './st-runs';
 
 const PT_TIMEZONE = 'America/Los_Angeles';
 
@@ -66,7 +66,7 @@ function getDayOfWeekPt(dateStr: string): string {
  */
 export function getRunIdPT(
   runDate: string,
-  trigger: RhAgentTriggeredBy,
+  trigger: StTriggeredBy,
   now = new Date()
 ): string {
   const dow = getDayOfWeekPt(runDate);

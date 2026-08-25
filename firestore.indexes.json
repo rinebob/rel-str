@@ -51,6 +51,39 @@
       ]
     },
     {
+      "collectionGroup": "symbols",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "enabled", "order": "ASCENDING" },
+        { "fieldPath": "lastDailySignalDate", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "symbols",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "enabled", "order": "ASCENDING" },
+        { "fieldPath": "lastWeeklySignalDate", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "symbols",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "enabled", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "symbols",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "enabled", "order": "ASCENDING" },
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "signals",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
@@ -86,6 +119,14 @@
     },
     {
       "collectionGroup": "rh-agent-symbol-meta",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "symbol", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "symbol-meta",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "userId", "order": "ASCENDING" },
@@ -135,7 +176,57 @@
       ]
     },
     {
+      "collectionGroup": "occurrence-decisions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "runId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "occurrence-decisions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "runId", "order": "ASCENDING" },
+        { "fieldPath": "isCurrentInLatestRun", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "occurrence-decisions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "isCurrentInLatestRun", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "occurrence-decisions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "symbol", "order": "ASCENDING" },
+        { "fieldPath": "isCurrentInLatestRun", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "occurrence-decisions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "marketDate", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "rh-agent-symbol-lists",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "name", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "symbol-lists",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "userId", "order": "ASCENDING" },

@@ -4,8 +4,8 @@
  * Listens to the partner `partner-symbol-added` Pub/Sub topic. When a new symbol
  * is added to the partner's tracked-symbols list and its full D/W/M history has
  * been backfilled by the partner, this consumer fetches the symbol's full
- * history into `symbol-data/{symbol}`, enables it in `rh-agent-symbols`, and
- * triggers a single-symbol RH Agent run so the new symbol is immediately
+ * history into `symbol-data/{symbol}`, enables it in `symbol-meta`, and
+ * triggers a single-symbol ST run so the new symbol is immediately
  * reviewable.
  *
  * This keeps RS self-sufficient: a symbol added during the trading day is ready
@@ -15,8 +15,8 @@
 import { onMessagePublished } from 'firebase-functions/v2/pubsub';
 import { logger } from 'firebase-functions';
 import { PARTNER_SYMBOL_ADDED_TOPIC } from '../webhooks/webhooks-config';
-import { createDailyRun, getDeadlineISO } from '../common/rh-agent-run-creation';
-import { createJobAndEnqueue } from '../common/rh-agent-job-enqueueing';
+import { createDailyRun, getDeadlineISO } from '../common/st-run-creation';
+import { createJobAndEnqueue } from '../common/st-job-enqueueing';
 import {
   getMarketDatePT,
   getRunDatePT,
@@ -26,25 +26,25 @@ import { syncSymbolToSymbolData } from './symbol-data-backfill';
 import { db, FieldValue } from '../firebase-admin-init';
 import {
   DEFAULT_SYMBOL_LIST_NAME,
-  RH_AGENT_SYMBOLS_COLLECTION,
-  RH_AGENT_SYMBOL_LISTS_COLLECTION,
-  RhAgentSymbol,
-} from '../common/rh-agent-collections';
-import { fetchAndWriteSymbolOverview } from '../common/rh-agent-overview-helper';
-import { decodeSymbolAddedMessage, normalizeSource } from '../common/rh-agent-symbol-added-helpers';
+  ST_SYMBOLS_COLLECTION,
+  ST_SYMBOL_LISTS_COLLECTION,
+  StSymbol,
+} from '../common/st-collections';
+import { fetchAndWriteSymbolOverview } from '../common/st-overview-helper';
+import { decodeSymbolAddedMessage, normalizeSource } from '../common/st-symbol-added-helpers';
 
-/** Deadline for the single-symbol RH Agent run triggered after onboarding. */
+/** Deadline for the single-symbol ST run triggered after onboarding. */
 const RUN_DEADLINE_MINUTES = 30;
 
 /** Add a symbol to the default PRIMARY watchlist. */
 async function addSymbolToDefaultList(symbol: string): Promise<void> {
-  await db.collection(RH_AGENT_SYMBOL_LISTS_COLLECTION).doc(DEFAULT_SYMBOL_LIST_NAME).set(
+  await db.collection(ST_SYMBOL_LISTS_COLLECTION).doc(DEFAULT_SYMBOL_LIST_NAME).set(
     { name: DEFAULT_SYMBOL_LIST_NAME, symbols: FieldValue.arrayUnion(symbol) },
     { merge: true },
   );
 }
 
-/** Trigger a single-symbol RH Agent run for a newly onboarded symbol. */
+/** Trigger a single-symbol ST run for a newly onboarded symbol. */
 async function triggerSymbolAddedRun(symbol: string): Promise<void> {
   const marketDate = getMarketDatePT();
   const runStartedAt = new Date().toISOString();
@@ -68,10 +68,10 @@ async function triggerSymbolAddedRun(symbol: string): Promise<void> {
  *
  * For each symbol in the payload:
  *   1. Runs a full backfill into symbol-data.
- *   2. Enables the symbol for RH Agent scanning.
+ *   2. Enables the symbol for ST scanning.
  *   3. Adds the symbol to the default PRIMARY watchlist.
  *   4. Fetches company overview so the symbol is reviewable right away.
- *   5. Creates a one-symbol RH Agent run and enqueues the worker task so the
+ *   5. Creates a one-symbol ST run and enqueues the worker task so the
  *      symbol is immediately reviewable.
  *
  * Failures for one symbol do not block processing of the others, and the
@@ -125,9 +125,9 @@ export const processSymbolAdded = onMessagePublished(
 
           // Create/enable the symbol with the same doc shape as the seed path.
           // Preserve an existing createdAt so a redelivery cannot reset it.
-          const symbolDocRef = db.collection(RH_AGENT_SYMBOLS_COLLECTION).doc(symbol);
+          const symbolDocRef = db.collection(ST_SYMBOLS_COLLECTION).doc(symbol);
           const existingSnap = await symbolDocRef.get();
-          const existingData = existingSnap.data() as Partial<RhAgentSymbol> | undefined;
+          const existingData = existingSnap.data() as Partial<StSymbol> | undefined;
           const source = normalizeSource(body.source);
           if (body.source && source !== body.source) {
             logger.warn('symbol_data_symbol_added_source_normalized', {
@@ -137,7 +137,7 @@ export const processSymbolAdded = onMessagePublished(
             });
           }
 
-          const symbolDoc: Partial<RhAgentSymbol> = {
+          const symbolDoc: Partial<StSymbol> = {
             symbol,
             enabled: true,
             source,

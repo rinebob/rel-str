@@ -18,7 +18,7 @@ const sourceArchiveUrl = new URL(
 const sourceArchiveSha256 = "a00475631a67969220080f8d7b3a495cea219925d1652677ba10c5164ea5bae2";
 const retiredImplementationUrls = [
   new URL("functions/src/rh-agent", repoRootUrl),
-  new URL("functions/src/rh-agent-cloud-function/rh-agent-executor.ts", repoRootUrl),
+  new URL("functions/src/st-cloud-function/rh-agent-executor.ts", repoRootUrl),
   new URL("functions/lib/rh-agent", repoRootUrl),
   new URL("src/app/features/savant-trader/services/trade-bridge-client.service.ts", repoRootUrl),
   new URL("src/app/features/savant-trader/services/trade-bridge-client.service.spec.ts", repoRootUrl),
