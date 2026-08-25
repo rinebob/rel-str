@@ -224,12 +224,13 @@ export enum Collection {
   APP = 'app',
   POSITIONS = 'positions',
   SYMBOL_DATA = 'symbol-data',
-  RH_TRIAGE_DECISIONS = 'rh-agent-triage-decisions',
-  RH_OCCURRENCE_DECISIONS = 'rh-agent-occurrence-decisions',
-  RH_REVIEW_FLAGS = 'rh-agent-review-flags',
-  RH_SYMBOL_LISTS = 'rh-agent-symbol-lists',
-  RH_SYMBOL_META = 'rh-agent-symbol-meta',
-  RH_RUNS = 'rh-agent-runs',
+  ST_OCCURRENCE_DECISIONS = 'savant-trader/data/occurrence-decisions',
+  ST_REVIEW_LIST = 'savant-trader/data/review-list',
+  ST_SYMBOL_LISTS = 'savant-trader/data/symbol-lists',
+  ST_SYMBOL_META = 'savant-trader/data/symbol-meta',
+  ST_RUNS = 'savant-trader/data/runs',
+  ST_ORDER_INTENTS = 'savant-trader/data/order-intents',
+  ST_TRADING_CONFIG = 'savant-trader/data/trading-config',
   SPREAD_RUNS = 'spread-runs',
   SPREAD_LISTS = 'spread-lists',
   OPTIONS_STRATEGY_INSTANCES = 'options-strategy-instances',
@@ -267,3 +268,15 @@ export enum TradeStatus {
 
 /** Helper to produce the lists collection path for a user. */
 export const userListsPath = (uid: string) => `${Collection.USERS}/${uid}/${Subcollection.LISTS}`;
+
+// =============================
+// Savant Trader path helpers
+// =============================
+
+export const stOccurrenceDecisionsPath = () => Collection.ST_OCCURRENCE_DECISIONS;
+export const stOrderIntentsPath = () => Collection.ST_ORDER_INTENTS;
+export const stSymbolListsPath = () => Collection.ST_SYMBOL_LISTS;
+export const stSymbolMetaPath = () => Collection.ST_SYMBOL_META;
+export const stRunsPath = () => Collection.ST_RUNS;
+export const stReviewListDocPath = () => Collection.ST_REVIEW_LIST;
+export const stTradingConfigDocPath = () => Collection.ST_TRADING_CONFIG;

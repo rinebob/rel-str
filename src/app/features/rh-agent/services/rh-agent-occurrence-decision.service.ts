@@ -49,7 +49,7 @@ export class RhAgentOccurrenceDecisionService {
   private readonly auth = inject(Auth);
   private readonly injector = inject(EnvironmentInjector);
 
-  private readonly decisionsCollection = collection(this.firestore, Collection.RH_OCCURRENCE_DECISIONS);
+  private readonly decisionsCollection = collection(this.firestore, Collection.ST_OCCURRENCE_DECISIONS);
 
   /** Persist a decision for a single signal occurrence. */
   persistDecision(input: PersistOccurrenceDecisionInput): Observable<void> {
@@ -58,7 +58,7 @@ export class RhAgentOccurrenceDecisionService {
       switchMap((userId) => runInInjectionContext(this.injector, async () => {
         const symbol = input.signal.symbol.toUpperCase();
         const id = buildRhAgentOccurrenceDecisionId(input.runId, symbol, input.signal.timeframe, input.signal.signalType);
-        const docRef = doc(this.firestore, Collection.RH_OCCURRENCE_DECISIONS, id);
+        const docRef = doc(this.firestore, Collection.ST_OCCURRENCE_DECISIONS, id);
 
         const nowIso = new Date().toISOString();
 
@@ -96,7 +96,7 @@ export class RhAgentOccurrenceDecisionService {
         for (const signal of signals) {
           const symbol = signal.symbol.toUpperCase();
           const id = buildRhAgentOccurrenceDecisionId(runId, symbol, signal.timeframe, signal.signalType);
-          const docRef = doc(this.firestore, Collection.RH_OCCURRENCE_DECISIONS, id);
+          const docRef = doc(this.firestore, Collection.ST_OCCURRENCE_DECISIONS, id);
           batch.set(docRef, {
             userId,
             runId,
@@ -133,7 +133,7 @@ export class RhAgentOccurrenceDecisionService {
       switchMap(() => runInInjectionContext(this.injector, async () => {
         const batch = writeBatch(this.firestore);
         for (const id of ids) {
-          const docRef = doc(this.firestore, Collection.RH_OCCURRENCE_DECISIONS, id);
+          const docRef = doc(this.firestore, Collection.ST_OCCURRENCE_DECISIONS, id);
           batch.delete(docRef);
         }
         await batch.commit();
@@ -155,7 +155,7 @@ export class RhAgentOccurrenceDecisionService {
         for (const key of keys) {
           const symbol = key.symbol.toUpperCase();
           const id = buildRhAgentOccurrenceDecisionId(runId, symbol, key.timeframe, key.signalType);
-          const docRef = doc(this.firestore, Collection.RH_OCCURRENCE_DECISIONS, id);
+          const docRef = doc(this.firestore, Collection.ST_OCCURRENCE_DECISIONS, id);
           batch.delete(docRef);
         }
         await batch.commit();

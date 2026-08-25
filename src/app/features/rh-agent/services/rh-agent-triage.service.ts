@@ -38,7 +38,7 @@ export class RhAgentTriageService {
   // ---------------------------------------------------------------------------
 
   private get reviewFlagCollection() {
-    return collection(this.firestore, Collection.RH_REVIEW_FLAGS);
+    return collection(this.firestore, Collection.ST_REVIEW_LIST);
   }
 
   /** Persist a review flag for a symbol (dateless). Doc existence = flagged. */
@@ -47,7 +47,7 @@ export class RhAgentTriageService {
       take(1),
       switchMap((userId) => runInInjectionContext(this.injector, async () => {
         const normalized = symbol.toUpperCase();
-        const docRef = doc(this.firestore, Collection.RH_REVIEW_FLAGS, normalized);
+        const docRef = doc(this.firestore, Collection.ST_REVIEW_LIST, normalized);
         await setDoc(docRef, {
           symbol: normalized,
           userId,
@@ -64,7 +64,7 @@ export class RhAgentTriageService {
       take(1),
       switchMap(() => runInInjectionContext(this.injector, async () => {
         const normalized = symbol.toUpperCase();
-        const docRef = doc(this.firestore, Collection.RH_REVIEW_FLAGS, normalized);
+        const docRef = doc(this.firestore, Collection.ST_REVIEW_LIST, normalized);
         await deleteDoc(docRef);
       })),
       map(() => undefined)
@@ -80,7 +80,7 @@ export class RhAgentTriageService {
         const batch = writeBatch(this.firestore);
         for (const symbol of symbols) {
           const normalized = symbol.toUpperCase();
-          const docRef = doc(this.firestore, Collection.RH_REVIEW_FLAGS, normalized);
+          const docRef = doc(this.firestore, Collection.ST_REVIEW_LIST, normalized);
           if (flagged) {
             batch.set(docRef, {
               symbol: normalized,

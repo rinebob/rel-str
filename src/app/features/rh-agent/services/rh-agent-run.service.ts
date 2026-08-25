@@ -31,7 +31,7 @@ export class RhAgentRunService {
 
   private readonly adminHttpUrl = 'https://us-central1-rel-str.cloudfunctions.net/symbolDataSyncAdminHttp';
 
-  private readonly runsCollection = Collection.RH_RUNS;
+  private readonly runsCollection = Collection.ST_RUNS;
   private readonly statusDoc = 'rh-agent-status/current';
 
   /**

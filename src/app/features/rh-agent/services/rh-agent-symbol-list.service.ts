@@ -44,7 +44,7 @@ export class RhAgentSymbolListService {
   private readonly auth = inject(Auth);
   private readonly injector = inject(EnvironmentInjector);
 
-  private readonly listsCollection = collection(this.firestore, Collection.RH_SYMBOL_LISTS);
+  private readonly listsCollection = collection(this.firestore, Collection.ST_SYMBOL_LISTS);
 
   /** Load a single named list for the current user. */
   loadList(name: string): Observable<RhSymbolList> {
@@ -52,7 +52,7 @@ export class RhAgentSymbolListService {
       take(1),
       switchMap((userId) => runInInjectionContext(this.injector, async () => {
         const docId = this.listId(userId, name);
-        const snap = await getDoc(doc(this.firestore, Collection.RH_SYMBOL_LISTS, docId));
+        const snap = await getDoc(doc(this.firestore, Collection.ST_SYMBOL_LISTS, docId));
         return snap.exists() ? this.toList(snap.id, snap.data()) : { name, symbols: [], userId };
       }))
     );
@@ -76,7 +76,7 @@ export class RhAgentSymbolListService {
       take(1),
       switchMap((userId) => runInInjectionContext(this.injector, async () => {
         const docId = this.listId(userId, name);
-        const docRef = doc(this.firestore, Collection.RH_SYMBOL_LISTS, docId);
+        const docRef = doc(this.firestore, Collection.ST_SYMBOL_LISTS, docId);
         const existing = await getDoc(docRef);
         await setDoc(
           docRef,
@@ -100,7 +100,7 @@ export class RhAgentSymbolListService {
       take(1),
       switchMap((userId) => runInInjectionContext(this.injector, async () => {
         const docId = this.listId(userId, name);
-        const docRef = doc(this.firestore, Collection.RH_SYMBOL_LISTS, docId);
+        const docRef = doc(this.firestore, Collection.ST_SYMBOL_LISTS, docId);
         const existing = await getDoc(docRef);
         const normalized = symbol.toUpperCase();
         const current = existing.exists() ? (existing.data()['symbols'] as string[] ?? []) : [];
@@ -127,7 +127,7 @@ export class RhAgentSymbolListService {
       take(1),
       switchMap((userId) => runInInjectionContext(this.injector, async () => {
         const docId = this.listId(userId, name);
-        const docRef = doc(this.firestore, Collection.RH_SYMBOL_LISTS, docId);
+        const docRef = doc(this.firestore, Collection.ST_SYMBOL_LISTS, docId);
         const existing = await getDoc(docRef);
         if (!existing.exists()) return;
         const normalized = symbol.toUpperCase();
@@ -179,7 +179,7 @@ export class RhAgentSymbolListService {
         // Read all list docs in parallel to avoid sequential round-trips.
         const reads = allListNames.map(async (listName) => {
           const docId = this.listId(userId, listName);
-          const docRef = doc(this.firestore, Collection.RH_SYMBOL_LISTS, docId);
+          const docRef = doc(this.firestore, Collection.ST_SYMBOL_LISTS, docId);
           const existing = await getDoc(docRef);
           return { listName, docRef, existing };
         });
