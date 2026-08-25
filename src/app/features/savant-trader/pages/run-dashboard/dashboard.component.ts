@@ -1,5 +1,5 @@
 /**
- * RH Agent Dashboard Component
+ * Savant Trader Dashboard Component
  *
  * UI for viewing agent status, triggering manual runs, and displaying trade signal history.
  * Uses NgRx SignalStore for state management.
@@ -20,23 +20,23 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 
-import { RhAgentStore } from '../../stores/rh-agent.store';
-import { RhAgentDashboardStore } from '../../stores/rh-agent-dashboard.store';
-import { RhAgentGroupStore } from '../../stores/rh-agent-group.store';
-import { AgentRun } from '../../services/types';
+import { StStore } from '../../stores/st.store';
+import { DashboardStore } from '../../stores/dashboard.store';
+import { GroupStore } from '../../stores/group.store';
+import { StRun } from '../../services/types';
 import { OverviewService } from '../../services/overview.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { Router, RouterLink } from '@angular/router';
 import { AppRoutes } from '../../../../core/common/interfaces';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { getScheduleDescription, formatTimestampPT, formatTimePt, getNextPdrWindowPt, getNextNightlyPt, todayDate } from '../../utils/utils';
-import { AgentStatusBarComponent } from '../../components/agent-status-bar/agent-status-bar.component';
+import { RunStatusBarComponent } from '../../components/run-status-bar/run-status-bar.component';
 import { RunHistoryPanelComponent } from '../../components/run-history-panel/run-history-panel.component';
 import { RunControlCardComponent } from '../../components/run-control-card/run-control-card.component';
 import { RunMetricsStripComponent } from '../../components/run-metrics-strip/run-metrics-strip.component';
 
 @Component({
-  selector: 'app-rh-agent-dashboard',
+  selector: 'app-run-dashboard',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
@@ -45,20 +45,20 @@ import { RunMetricsStripComponent } from '../../components/run-metrics-strip/run
     MatProgressSpinnerModule,
     MatSnackBarModule,
     RouterLink,
-    AgentStatusBarComponent,
+    RunStatusBarComponent,
     RunHistoryPanelComponent,
     RunControlCardComponent,
     RunMetricsStripComponent,
   ],
-  templateUrl: './rh-agent-dashboard.component.html',
-  styleUrl: './rh-agent-dashboard.component.scss',
-  providers: [RhAgentDashboardStore],
+  templateUrl: './dashboard.component.html',
+  styleUrl: './dashboard.component.scss',
+  providers: [DashboardStore],
 })
-export class RhAgentDashboardComponent implements OnInit, OnDestroy {
+export class DashboardComponent implements OnInit, OnDestroy {
   // Inject the data store - manages all business logic and API calls
-  readonly store = inject(RhAgentStore);
-  readonly uiStore = inject(RhAgentDashboardStore);
-  private readonly groupStore = inject(RhAgentGroupStore);
+  readonly store = inject(StStore);
+  readonly uiStore = inject(DashboardStore);
+  private readonly groupStore = inject(GroupStore);
   private readonly uiState = inject(UiStateService);
   private readonly router = inject(Router);
   protected readonly appRoutes = AppRoutes;
@@ -143,7 +143,7 @@ export class RhAgentDashboardComponent implements OnInit, OnDestroy {
   }
 
   /** Review signals for a specific run selected from the run history panel. */
-  onRunSelected(run: AgentRun): void {
+  onRunSelected(run: StRun): void {
     this.uiStore.selectRun(run.id);
     if (run.id && run.marketDate) {
       this.groupStore.setActiveRun(run.id, run.marketDate);

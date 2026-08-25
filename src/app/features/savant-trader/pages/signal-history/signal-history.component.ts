@@ -123,7 +123,7 @@ export class SignalHistoryComponent {
     };
   });
 
-  /** Navigate back to the RH Agent dashboard. */
+  /** Navigate back to the Savant Trader dashboard. */
   goBack(): void {
     this.router.navigate(['/run-dashboard']);
   }

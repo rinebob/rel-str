@@ -5,14 +5,14 @@ import { of } from 'rxjs';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { SignalDirection, SignalStatus, SignalTimeframe } from '../../common/constants';
 import { SignalService } from '../../services/signal.service';
-import { AgentSignalItem } from '../../services/types';
+import { StSignalItem } from '../../services/types';
 import { SignalListComponent } from './signal-list.component';
 
 describe('SignalListComponent', () => {
   let fixture: ComponentFixture<SignalListComponent>;
   let component: SignalListComponent;
 
-  const signals: AgentSignalItem[] = [
+  const signals: StSignalItem[] = [
     {
       id: '2026-07-16',
       symbol: 'AAPL',

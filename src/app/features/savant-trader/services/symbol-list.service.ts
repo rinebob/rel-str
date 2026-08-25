@@ -1,11 +1,11 @@
 /**
- * RH Agent Symbol List Service
+ * Savant Trader Symbol List Service
  *
  * Manages user-defined symbol lists (watchlists) in Firestore.
  * A symbol can belong to many lists simultaneously. Lists are independent
  * of PACR daily decisions and of any single symbol classification.
  *
- * Collection: rh-agent-symbol-lists
+ * Collection: savant-trader/data/symbol-lists
  * Document ID: {listName}
  */
 import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
@@ -30,7 +30,7 @@ import { map, switchMap, take } from 'rxjs/operators';
 import { requireUserId } from './firestore-helpers';
 import { Collection } from '../../../core/common/constants';
 
-export interface RhSymbolList {
+export interface SymbolList {
   name: string;
   symbols: string[];
   userId?: string;
@@ -47,7 +47,7 @@ export class SymbolListService {
   private readonly listsCollection = collection(this.firestore, Collection.ST_SYMBOL_LISTS);
 
   /** Load a single named list for the current user. */
-  loadList(name: string): Observable<RhSymbolList> {
+  loadList(name: string): Observable<SymbolList> {
     return requireUserId(this.auth, this.injector).pipe(
       take(1),
       switchMap((userId) => runInInjectionContext(this.injector, async () => {
@@ -59,7 +59,7 @@ export class SymbolListService {
   }
 
   /** Load all lists for the current user. */
-  loadAllLists(): Observable<RhSymbolList[]> {
+  loadAllLists(): Observable<SymbolList[]> {
     return requireUserId(this.auth, this.injector).pipe(
       take(1),
       switchMap((userId) => runInInjectionContext(this.injector, async () => {
@@ -217,8 +217,8 @@ export class SymbolListService {
     return name;
   }
 
-  /** Convert a Firestore document into the typed RhSymbolList shape. */
-  private toList(id: string, data: DocumentData): RhSymbolList {
+  /** Convert a Firestore document into the typed SymbolList shape. */
+  private toList(id: string, data: DocumentData): SymbolList {
     return {
       name: data['name'] ?? id,
       symbols: data['symbols'] ?? [],

@@ -4,7 +4,7 @@
  * Page-local UI state for the grouped signal review page.
  * Owns filters and expansion state.
  * Domain data (symbols, groups, selected symbol, quick chart, showAllSymbols) stays in
- * RhAgentGroupStore.
+ * GroupStore.
  */
 import { computed } from '@angular/core';
 import {

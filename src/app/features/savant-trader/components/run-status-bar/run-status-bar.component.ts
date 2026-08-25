@@ -9,13 +9,13 @@ import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 
 @Component({
-  selector: 'app-agent-status-bar',
+  selector: 'app-run-status-bar',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, MatIconModule],
-  templateUrl: './agent-status-bar.component.html',
-  styleUrl: './agent-status-bar.component.scss',
+  templateUrl: './run-status-bar.component.html',
+  styleUrl: './run-status-bar.component.scss',
 })
-export class AgentStatusBarComponent {
+export class RunStatusBarComponent {
   lastRunAt = input<string | Date | null | undefined>(undefined);
   lastRunStatus = input<string | null | undefined>(undefined);
   triggeredBy = input<string | null | undefined>(undefined);

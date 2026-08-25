@@ -1,5 +1,5 @@
 /**
- * RH Agent Backtest sub-feature barrel.
+ * Savant Trader Backtest sub-feature barrel.
  *
  * Public exports for the strategy backtest run management UI.
  */

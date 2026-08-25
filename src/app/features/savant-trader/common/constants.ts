@@ -1,7 +1,7 @@
 /**
  * Shared Savant Trader constants and enums.
  *
- * Keep cross-cutting RH Agent types here so they can be imported by
+ * Keep cross-cutting Savant Trader types here so they can be imported by
  * stores, services, and components without circular dependencies.
  */
 
@@ -45,7 +45,7 @@ export type StatusCounts = {
 };
 
 /** Canonical names for the built-in user-managed symbol lists. */
-export enum RhSymbolListName {
+export enum SymbolListName {
   NONE = 'NONE',
   PRIMARY = 'PRIMARY',
   SECONDARY = 'SECONDARY',
@@ -56,13 +56,13 @@ export enum RhSymbolListName {
 }
 
 /** All built-in symbol list names in display order. */
-export const ALL_SYMBOL_LIST_NAMES: RhSymbolListName[] = [
-  RhSymbolListName.PRIMARY,
-  RhSymbolListName.SECONDARY,
-  RhSymbolListName.NEUTRAL,
-  RhSymbolListName.AVOID,
-  RhSymbolListName.HIDE,
-  RhSymbolListName.PAST_SIGNALS,
+export const ALL_SYMBOL_LIST_NAMES: SymbolListName[] = [
+  SymbolListName.PRIMARY,
+  SymbolListName.SECONDARY,
+  SymbolListName.NEUTRAL,
+  SymbolListName.AVOID,
+  SymbolListName.HIDE,
+  SymbolListName.PAST_SIGNALS,
 ];
 
 /** Symbol type classification for the trading universe. */

@@ -1,5 +1,5 @@
 /**
- * RH Agent Symbol History Store
+ * Savant Trader Symbol History Store
  *
  * Owns per-symbol signal history loading and caching.
  * Decoupled from the signal-review store so any page can load a symbol's
@@ -20,22 +20,22 @@ import {
 } from '@ngrx/signals';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
-import { type AgentSignalItem } from '../services/types';
+import { type StSignalItem } from '../services/types';
 import { SignalService } from '../services/signal.service';
 
-export interface RhAgentSymbolHistoryState {
+export interface SymbolHistoryState {
   /** Per-symbol signal history cache: symbol â†’ signals[] */
-  signalHistoryCache: Record<string, AgentSignalItem[]>;
+  signalHistoryCache: Record<string, StSignalItem[]>;
   /** Per-symbol loading flags. */
   signalHistoryLoading: Record<string, boolean>;
 }
 
-const initialState: RhAgentSymbolHistoryState = {
+const initialState: SymbolHistoryState = {
   signalHistoryCache: {},
   signalHistoryLoading: {},
 };
 
-export const RhAgentSymbolHistoryStore = signalStore(
+export const SymbolHistoryStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
 
@@ -68,7 +68,7 @@ export const RhAgentSymbolHistoryStore = signalStore(
               signalHistoryCache: { ...state.signalHistoryCache(), [cacheKey]: [] },
               signalHistoryLoading: { ...state.signalHistoryLoading(), [cacheKey]: false },
             });
-            console.error(`[RhAgentSymbolHistoryStore] Failed to load run signals for ${symbol}:`, err);
+            console.error(`[SymbolHistoryStore] Failed to load run signals for ${symbol}:`, err);
           },
         });
     },
@@ -100,7 +100,7 @@ export const RhAgentSymbolHistoryStore = signalStore(
               signalHistoryCache: { ...state.signalHistoryCache(), [symbol]: [] },
               signalHistoryLoading: { ...state.signalHistoryLoading(), [symbol]: false },
             });
-            console.error(`[RhAgentSymbolHistoryStore] Failed to load signal history for ${symbol}:`, err);
+            console.error(`[SymbolHistoryStore] Failed to load signal history for ${symbol}:`, err);
           },
         });
     },

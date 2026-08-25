@@ -3,7 +3,7 @@
  *
  * Dashboard component for the options strategy engine. Shows open/closed
  * position tables and an equity curve chart with per-symbol/combined toggle.
- * Follows the existing RhAgentDashboardComponent pattern.
+ * Follows the existing DashboardComponent pattern.
  */
 
 import { Component, ChangeDetectionStrategy, inject, OnInit, computed } from '@angular/core';

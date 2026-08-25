@@ -1,5 +1,5 @@
 /**
- * RH Agent Chart Indicators — Base configuration and attachment helpers
+ * Savant Trader Chart Indicators — Base configuration and attachment helpers
  *
  * Builds the base ST indicator configurations used by the signal detail
  * and quick-charts panels, plus the helpers that attach HTF zone windows,
@@ -109,7 +109,7 @@ export function addUptickDots(
   return [...indicators, cfg];
 }
 
-/** Bundle of optional RH Agent extras to attach to a base indicator list. */
+/** Bundle of optional Savant Trader extras to attach to a base indicator list. */
 export interface ChartExtras {
   htfWindow?: { option: IndicatorOption; data: ChartScatterPoint[] };
   signalDots?: ChartScatterPoint[];

@@ -1,12 +1,12 @@
 /**
- * RH Agent Occurrence Decision Store
+ * Savant Trader Occurrence Decision Store
  *
  * Durable source-specific ACCEPT / REJECT decisions for individual signal
  * occurrences. Decisions are keyed by runId + symbol + timeframe + signalType
  * so multiple intraday occurrences do not overwrite one another.
  *
  * This store is intentionally separate from the ephemeral screening state in
- * RhAgentTriageStore.
+ * TriageStore.
  */
 import { computed, inject } from '@angular/core';
 import {
@@ -22,38 +22,38 @@ import {
   OccurrenceDecisionService,
 } from '../services/occurrence-decision.service';
 import {
-  AgentSignalItem,
-  AgentOccurrenceDecision,
+  StSignalItem,
+  StOccurrenceDecision,
   DurableDecisionType,
 } from '../services/types';
 import { ReviewDecision } from '../common/constants';
-import { buildAgentOccurrenceDecisionId } from '../services/firestore-helpers';
+import { buildStOccurrenceDecisionId } from '../services/firestore-helpers';
 
-export interface RhAgentOccurrenceDecisionState {
+export interface OccurrenceDecisionState {
   /** Durable occurrence-level decisions keyed by decision id. */
-  occurrenceDecisions: Record<string, AgentOccurrenceDecision>;
+  occurrenceDecisions: Record<string, StOccurrenceDecision>;
   /** True while decisions for the active run are loading. */
   decisionsLoading: boolean;
   /** Error from loading or persisting decisions. */
   decisionsError: string | null;
 }
 
-const initialState: RhAgentOccurrenceDecisionState = {
+const initialState: OccurrenceDecisionState = {
   occurrenceDecisions: {},
   decisionsLoading: false,
   decisionsError: null,
 };
 
 function decisionId(runId: string, symbol: string, timeframe: string, signalType: string): string {
-  return buildAgentOccurrenceDecisionId(runId, symbol, timeframe, signalType);
+  return buildStOccurrenceDecisionId(runId, symbol, timeframe, signalType);
 }
 
 function buildDecision(
   runId: string,
   marketDate: string,
-  signal: AgentSignalItem,
+  signal: StSignalItem,
   decisionType: DurableDecisionType,
-): AgentOccurrenceDecision {
+): StOccurrenceDecision {
   return {
     id: decisionId(runId, signal.symbol, signal.timeframe, signal.signalType),
     runId,
@@ -70,7 +70,7 @@ function buildDecision(
   };
 }
 
-export const RhAgentOccurrenceDecisionStore = signalStore(
+export const OccurrenceDecisionStore = signalStore(
   { providedIn: 'root' },
 
   withState(initialState),
@@ -86,7 +86,7 @@ export const RhAgentOccurrenceDecisionStore = signalStore(
       )
     );
 
-    const activeOrderDecisions = computed((): AgentOccurrenceDecision[] =>
+    const activeOrderDecisions = computed((): StOccurrenceDecision[] =>
       Object.values(state.occurrenceDecisions())
         .filter(
           (d) =>
@@ -123,17 +123,17 @@ export const RhAgentOccurrenceDecisionStore = signalStore(
     snackBar = inject(MatSnackBar),
   ) => ({
     /** Persist ACCEPT decisions for the given signal occurrences in the active run. */
-    acceptSignals(signals: AgentSignalItem[], runId: string, marketDate: string): void {
+    acceptSignals(signals: StSignalItem[], runId: string, marketDate: string): void {
       this.persistSignalDecisions(signals, runId, marketDate, ReviewDecision.ACCEPT);
     },
 
     /** Persist REJECT decisions for the given signal occurrences in the active run. */
-    rejectSignals(signals: AgentSignalItem[], runId: string, marketDate: string): void {
+    rejectSignals(signals: StSignalItem[], runId: string, marketDate: string): void {
       this.persistSignalDecisions(signals, runId, marketDate, ReviewDecision.REJECT);
     },
 
     /** Delete durable decisions for the given signal occurrences. */
-    resetSignals(signals: AgentSignalItem[], runId: string): void {
+    resetSignals(signals: StSignalItem[], runId: string): void {
       if (signals.length === 0) return;
       const previousDecisions = state.occurrenceDecisions();
       const next = { ...previousDecisions };
@@ -185,7 +185,7 @@ export const RhAgentOccurrenceDecisionStore = signalStore(
       patchState(state, { decisionsLoading: true, decisionsError: null });
       occurrenceService.loadDecisionsForRun(runId).subscribe({
         next: (decisions) => {
-          const map: Record<string, AgentOccurrenceDecision> = {};
+          const map: Record<string, StOccurrenceDecision> = {};
           for (const d of decisions) {
             map[d.id] = d;
           }
@@ -202,7 +202,7 @@ export const RhAgentOccurrenceDecisionStore = signalStore(
     /** Mark every decision for the given source run as no longer current in the latest run. */
     markRunNotCurrent(runId: string): void {
       const previousDecisions = state.occurrenceDecisions();
-      const next: Record<string, AgentOccurrenceDecision> = {};
+      const next: Record<string, StOccurrenceDecision> = {};
       for (const [id, d] of Object.entries(previousDecisions)) {
         if (d.runId === runId) {
           next[id] = { ...d, isCurrentInLatestRun: false };
@@ -226,7 +226,7 @@ export const RhAgentOccurrenceDecisionStore = signalStore(
     },
 
     persistSignalDecisions(
-      signals: AgentSignalItem[],
+      signals: StSignalItem[],
       runId: string,
       marketDate: string,
       decisionType: DurableDecisionType

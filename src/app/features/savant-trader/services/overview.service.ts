@@ -2,7 +2,7 @@
  * Savant Trader Overview Service
  *
  * Focused service for company overview backfill operations.
- * Extracted from the monolithic AgentService.
+ * Extracted from the monolithic StService.
  */
 import { Injectable, inject } from '@angular/core';
 import { Functions, httpsCallable } from '@angular/fire/functions';

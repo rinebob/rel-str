@@ -1,7 +1,7 @@
 /**
  * Backtest Dashboard Component
  *
- * Phase 2 dashboard for the RH Agent strategy backtest run management UI.
+ * Phase 2 dashboard for the Savant Trader strategy backtest run management UI.
  * Wires the run store, UI store, control strip, and run list together.
  */
 import { Component, computed, inject, ChangeDetectionStrategy, OnInit, OnDestroy } from '@angular/core';

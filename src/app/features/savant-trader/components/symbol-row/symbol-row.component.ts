@@ -10,8 +10,8 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatBadgeModule } from '@angular/material/badge';
-import { RhSymbolRow } from '../../stores/rh-agent-group.store';
-import { RhSymbolListName, ReviewDecision } from '../../common/constants';
+import { SymbolRow } from '../../stores/group.store';
+import { SymbolListName, ReviewDecision } from '../../common/constants';
 import { tierLabel } from '../../utils/utils';
 import { SymbolAcrActionsComponent } from '../symbol-acr-actions/symbol-acr-actions.component';
 import { SymbolListActionsComponent } from '../symbol-list-actions/symbol-list-actions.component';
@@ -36,16 +36,16 @@ import { ScrollIntoViewDirective } from '../../directives/scroll-into-view.direc
   styleUrl: './symbol-row.component.scss',
 })
 export class SymbolRowComponent {
-  row = input.required<RhSymbolRow>();
+  row = input.required<SymbolRow>();
   isSelected = input(false);
   isChartActive = input(false);
   expanded = input(false);
   symbolLists = input.required<Record<string, string[]>>();
-  activeListFilter = input.required<RhSymbolListName | 'ALL'>();
+  activeListFilter = input.required<SymbolListName | 'ALL'>();
   /** When false, ACR mutation controls are disabled for this historical row. */
   isActionableRun = input(true);
   readonly Status = ReviewDecision;
-  readonly ListName = RhSymbolListName;
+  readonly ListName = SymbolListName;
 
   /** Expose helper to template. */
   readonly tierLabel = tierLabel;
@@ -57,6 +57,6 @@ export class SymbolRowComponent {
   consider = output<string>();
   reject = output<string>();
   reset = output<string>();
-  toggleList = output<{ symbol: string; listName: RhSymbolListName }>();
+  toggleList = output<{ symbol: string; listName: SymbolListName }>();
   monitor = output<string>();
 }

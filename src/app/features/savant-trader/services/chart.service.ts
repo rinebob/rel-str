@@ -1,5 +1,5 @@
 /**
- * RH Agent Chart Service
+ * Savant Trader Chart Service
  *
  * Reads OHLC bars for a symbol from the `symbol-data/{symbol}` Firestore subcollections.
  * SA writes full intraday OHLCV bars on every PDR run, so symbol-data always contains

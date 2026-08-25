@@ -2,7 +2,7 @@
  * Backtest Run Control Component
  *
  * Filter and sort strip for the backtest run list. Reuses the compact pill
- * button pattern from the existing RH Agent dashboard.
+ * button pattern from the existing Savant Trader dashboard.
  */
 import { Component, input, output, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';

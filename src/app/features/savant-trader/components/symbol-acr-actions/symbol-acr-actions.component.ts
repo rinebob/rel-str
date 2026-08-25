@@ -8,7 +8,7 @@ import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ReviewDecision } from '../../common/constants';
-import { RhSymbolRow } from '../../stores/rh-agent-group.store';
+import { SymbolRow } from '../../stores/group.store';
 
 @Component({
   selector: 'app-symbol-acr-actions',
@@ -18,7 +18,7 @@ import { RhSymbolRow } from '../../stores/rh-agent-group.store';
   styleUrl: './symbol-acr-actions.component.scss',
 })
 export class SymbolAcrActionsComponent {
-  row = input.required<RhSymbolRow>();
+  row = input.required<SymbolRow>();
   /** When true, all ACR mutation buttons are disabled. */
   disabled = input(false, { transform: booleanAttribute });
   readonly Status = ReviewDecision;

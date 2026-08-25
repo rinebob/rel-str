@@ -2,7 +2,7 @@
  * Savant Trader Signal Service
  *
  * Focused service for symbol profiles, signal queries, and signal history.
- * Extracted from the monolithic AgentService.
+ * Extracted from the monolithic StService.
  */
 import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import { Functions, httpsCallable } from '@angular/fire/functions';
@@ -10,8 +10,8 @@ import { Firestore, collection, collectionData, query, where, doc, getDoc, getDo
 import { Observable, from, of, map, take } from 'rxjs';
 
 import {
-  type AgentSymbolProfile,
-  type AgentSignalItem,
+  type StSymbolProfile,
+  type StSignalItem,
 } from './types';
 import { SignalDirection, SignalStatus, SignalTimeframe } from '../common/constants';
 import { mapSymbolProfile } from '../utils/utils';
@@ -62,7 +62,7 @@ function collectSignalEntries(data: DocumentData): Record<string, unknown>[] {
   return entries;
 }
 
-function parseSignalEntry(raw: unknown, ctx: SignalEntryContext): AgentSignalItem | null {
+function parseSignalEntry(raw: unknown, ctx: SignalEntryContext): StSignalItem | null {
   if (!raw || typeof raw !== 'object') return null;
   const e = raw as Record<string, unknown>;
   const signalType = e['signalType'];
@@ -116,9 +116,9 @@ export class SignalService {
    * Primary grouped review query â€” run-centric.
    * Returns symbol profiles with a signal produced by the given runId for the given timeframe.
    */
-  getSymbolsWithSignals(runId: string, timeframe: SignalTimeframe): Observable<AgentSymbolProfile[]> {
+  getSymbolsWithSignals(runId: string, timeframe: SignalTimeframe): Observable<StSymbolProfile[]> {
     return from(runInInjectionContext(this.injector, () => {
-      const callable = httpsCallable<{ runId: string; timeframe: SignalTimeframe }, { symbols: AgentSymbolProfile[] }>(this.functions, 'stGetSymbolsWithSignals');
+      const callable = httpsCallable<{ runId: string; timeframe: SignalTimeframe }, { symbols: StSymbolProfile[] }>(this.functions, 'stGetSymbolsWithSignals');
       return callable({ runId, timeframe });
     })).pipe(map((r) => r.data.symbols));
   }
@@ -127,7 +127,7 @@ export class SignalService {
    * All enabled tracked symbols â€” direct Firestore read, no callable.
    * Used for the "Show all symbols" toggle in grouped review.
    */
-  getAllSymbols(): Observable<AgentSymbolProfile[]> {
+  getAllSymbols(): Observable<StSymbolProfile[]> {
     const ref = collection(this.firestore, Collection.ST_SYMBOLS);
     const q = query(ref, where('enabled', '==', true));
     // Raw Firestore docs contain Timestamp fields; we map them to strings below.
@@ -137,15 +137,15 @@ export class SignalService {
   }
 
   /**
-   * Enabled symbols added to rh-agent-symbols within the last N days. Used by
+   * Enabled symbols added to savant-trader/data/symbols within the last N days. Used by
    * chart-review to surface newly tracked symbols for quick review.
    *
    * createdAt is stored as an ISO string, so the cutoff is also an ISO string.
    *
-   * Source is now normalized to AgentSymbolSource at write time, so no extra
+   * Source is now normalized to StSymbolSource at write time, so no extra
    * client-side source filter is required.
    */
-  getSymbolsAddedSince(daysAgo: number): Observable<AgentSymbolProfile[]> {
+  getSymbolsAddedSince(daysAgo: number): Observable<StSymbolProfile[]> {
     const ref = collection(this.firestore, Collection.ST_SYMBOLS);
     const cutoff = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000).toISOString();
     const q = query(ref, where('enabled', '==', true), where('createdAt', '>=', cutoff));
@@ -159,7 +159,7 @@ export class SignalService {
    * and are not present in any of the supplied list symbol sets. This surfaces
    * manually added symbols that have not yet been backfilled/organized.
    */
-  getUnbackfilledSymbols(excludedSymbols: string[]): Observable<AgentSymbolProfile[]> {
+  getUnbackfilledSymbols(excludedSymbols: string[]): Observable<StSymbolProfile[]> {
     const ref = collection(this.firestore, Collection.ST_SYMBOLS);
     const q = query(ref, where('enabled', '==', true));
     const excluded = new Set(excludedSymbols.map((s) => s.toUpperCase()));
@@ -173,16 +173,16 @@ export class SignalService {
   }
 
   /**
-   * Signals for a specific run from rh-agent-symbols/{symbol}/run-ids/{runId}.
+   * Signals for a specific run from savant-trader/data/symbols/{symbol}/run-ids/{runId}.
    * Used by grouped review to show only the signals produced by the active run.
    */
-  getSymbolSignalsForRun(symbol: string, runId: string): Observable<AgentSignalItem[]> {
+  getSymbolSignalsForRun(symbol: string, runId: string): Observable<StSignalItem[]> {
     const runDocRef = doc(this.firestore, Collection.ST_SYMBOLS, symbol, 'run-ids', runId);
     return from(runInInjectionContext(this.injector, () => getDoc(runDocRef))).pipe(
       map((snap) => {
         if (!snap.exists()) return [];
         const d = snap.data();
-        const signals: AgentSignalItem[] = [];
+        const signals: StSignalItem[] = [];
         const marketDate = d['marketDate'];
         if (typeof marketDate !== 'string' || marketDate.length === 0) {
           throw new Error(`[SignalService] Run doc ${runId} for ${symbol} is missing marketDate`);
@@ -214,8 +214,8 @@ export class SignalService {
   getCurrentRunSignalsForSymbol(
     symbol: string,
     runId: string,
-    historyCache: Record<string, AgentSignalItem[]>
-  ): Observable<AgentSignalItem[]> {
+    historyCache: Record<string, StSignalItem[]>
+  ): Observable<StSignalItem[]> {
     const runKey = `${symbol.toUpperCase()}::${runId}`;
     if (historyCache[runKey]?.length) {
       return of(historyCache[runKey]!);
@@ -225,17 +225,17 @@ export class SignalService {
 
   /**
    * Per-symbol signal history from the canonical signal-history subcollection.
-   * Reads directly from Firestore: rh-agent-symbols/{symbol}/signal-history/*
+   * Reads directly from Firestore: savant-trader/data/symbols/{symbol}/signal-history/*
    * Returns all signals sorted by barDate desc.
    */
-  getSymbolSignalHistoryFromHistory(symbol: string): Observable<AgentSignalItem[]> {
+  getSymbolSignalHistoryFromHistory(symbol: string): Observable<StSignalItem[]> {
     const symbolDocRef = doc(this.firestore, Collection.ST_SYMBOLS, symbol);
     const signalHistoryRef = collection(symbolDocRef, 'signal-history');
 
     const recentQuery = query(signalHistoryRef, orderBy('date', 'desc'));
     return from(runInInjectionContext(this.injector, () => getDocs(recentQuery))).pipe(
       map((snapshot) => {
-        const signals: AgentSignalItem[] = [];
+        const signals: StSignalItem[] = [];
         for (const docSnap of snapshot.docs) {
           const d = docSnap.data();
           const runId = typeof d['sourceRunId'] === 'string'

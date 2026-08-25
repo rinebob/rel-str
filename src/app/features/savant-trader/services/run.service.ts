@@ -2,7 +2,7 @@
  * Savant Trader Run Service
  *
  * Focused service for manual runs, agent status, and run history.
- * Extracted from the monolithic AgentService.
+ * Extracted from the monolithic StService.
  */
 import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
@@ -12,8 +12,8 @@ import { Firestore, collection, collectionData, query, where, orderBy, limit } f
 import { Observable, from, map, switchMap } from 'rxjs';
 
 import {
-  type AgentStatus,
-  type AgentRun,
+  type StStatus,
+  type StRun,
   type ManualRunRequest,
   type ManualRunResponse,
 } from './types';
@@ -62,9 +62,9 @@ export class RunService {
   /**
    * Get the current agent status.
    */
-  getStatus(): Observable<AgentStatus> {
+  getStatus(): Observable<StStatus> {
     return from(runInInjectionContext(this.injector, () => {
-      const callable = httpsCallable<void, AgentStatus>(this.functions, 'stGetStatus');
+      const callable = httpsCallable<void, StStatus>(this.functions, 'stGetStatus');
       return callable();
     })).pipe(map((result) => result.data));
   }
@@ -72,18 +72,18 @@ export class RunService {
   /**
    * Get recent run history.
    */
-  getRunHistory(limitCount = 20): Observable<AgentRun[]> {
+  getRunHistory(limitCount = 20): Observable<StRun[]> {
     return from(runInInjectionContext(this.injector, () => {
-      const callable = httpsCallable<{ limit: number }, { runs: AgentRun[] }>(this.functions, 'stGetRunHistory');
+      const callable = httpsCallable<{ limit: number }, { runs: StRun[] }>(this.functions, 'stGetRunHistory');
       return callable({ limit: limitCount });
     })).pipe(map((result) => result.data.runs));
   }
 
   /**
    * Subscribe to recent runs from Firestore (realtime updates).
-   * Maps Firestore Timestamps to ISO strings so consumers receive plain AgentRun objects.
+   * Maps Firestore Timestamps to ISO strings so consumers receive plain StRun objects.
    */
-  watchRecentRunsRealtime(count = 20): Observable<AgentRun[]> {
+  watchRecentRunsRealtime(count = 20): Observable<StRun[]> {
     const runsRef = collection(this.firestore, this.runsCollection);
     const runsQuery = query(runsRef, orderBy('startedAt', 'desc'), limit(count));
     return (runInInjectionContext(this.injector, () => collectionData(runsQuery, { idField: 'id' })) as Observable<any[]>).pipe(
@@ -100,7 +100,7 @@ export class RunService {
         signalsGenerated: d['signalsGenerated'],
         summary: d['summary'],
         strategy: d['strategy'],
-      } as AgentRun)))
+      } as StRun)))
     );
   }
 }

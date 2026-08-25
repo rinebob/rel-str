@@ -1,8 +1,8 @@
 /**
- * RH Agent Symbol Meta Service
+ * Savant Trader Symbol Meta Service
  *
  * Manages persistent symbol-level classifications in the
- * `rh-agent-symbol-meta` collection. Used for universe management:
+ * `savant-trader/data/symbol-meta` collection. Used for universe management:
  * exclude, demote, mark preferred, classify as ETF, etc.
  */
 import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
@@ -30,7 +30,7 @@ import { SymbolType } from '../common/constants';
 import { Collection } from '../../../core/common/constants';
 import { requireUserId, chunkArray, getDocData } from './firestore-helpers';
 
-export interface RhSymbolMeta {
+export interface SymbolMeta {
   symbol: string;
   symbolType: SymbolType;
   tags: string[];
@@ -43,7 +43,7 @@ export interface RhSymbolMeta {
   metadata?: Record<string, unknown>;
 }
 
-export interface RhSymbolMetaInput {
+export interface SymbolMetaInput {
   symbol?: string;
   symbolType?: SymbolType;
   tags?: string[];
@@ -65,14 +65,14 @@ export class SymbolMetaService {
   private readonly metaCollection = collection(this.firestore, Collection.ST_SYMBOL_META);
 
   /** Load meta for a specific list of symbols. */
-  loadSymbolMeta(symbols: string[]): Observable<Record<string, RhSymbolMeta>> {
+  loadSymbolMeta(symbols: string[]): Observable<Record<string, SymbolMeta>> {
     if (symbols.length === 0) return of({});
 
     return requireUserId(this.auth, this.injector).pipe(
       switchMap((userId) => runInInjectionContext(this.injector, async () => {
         const normalized = symbols.map((s) => s.toUpperCase());
         const chunks = chunkArray(normalized, 30);
-        const map: Record<string, RhSymbolMeta> = {};
+        const map: Record<string, SymbolMeta> = {};
 
         for (const chunk of chunks) {
           const q = query(
@@ -94,7 +94,7 @@ export class SymbolMetaService {
   }
 
   /** Load all symbol meta for the user. */
-  loadAllSymbolMeta(): Observable<RhSymbolMeta[]> {
+  loadAllSymbolMeta(): Observable<SymbolMeta[]> {
     return requireUserId(this.auth, this.injector).pipe(
       switchMap((userId) => {
         const q = query(
@@ -161,7 +161,7 @@ export class SymbolMetaService {
   }
 
   /** Full update of a symbol's meta record. */
-  updateMeta(symbol: string, input: RhSymbolMetaInput): Observable<void> {
+  updateMeta(symbol: string, input: SymbolMetaInput): Observable<void> {
     return requireUserId(this.auth, this.injector).pipe(
       take(1),
       switchMap((userId) => runInInjectionContext(this.injector, async () => {
@@ -175,7 +175,7 @@ export class SymbolMetaService {
          * already contain Timestamp instances. Exclude the typed Timestamp fields from the
          * base Partial and re-add them as a union so the payload accepts both.
          */
-        const payload: Omit<Partial<RhSymbolMeta>, 'createdAt' | 'updatedAt'> & { updatedAt: FieldValue | Timestamp; createdAt?: FieldValue | Timestamp } = {
+        const payload: Omit<Partial<SymbolMeta>, 'createdAt' | 'updatedAt'> & { updatedAt: FieldValue | Timestamp; createdAt?: FieldValue | Timestamp } = {
           symbol: normalized,
           userId,
           updatedAt: now,
@@ -201,7 +201,7 @@ export class SymbolMetaService {
   }
 
   /** Listen to real-time changes for all symbol meta. */
-  listenToAllSymbolMeta(): Observable<RhSymbolMeta[]> {
+  listenToAllSymbolMeta(): Observable<SymbolMeta[]> {
     return requireUserId(this.auth, this.injector).pipe(
       switchMap((userId) => {
         const q = query(
@@ -210,7 +210,7 @@ export class SymbolMetaService {
           orderBy('symbol', 'asc')
         );
 
-        return new Observable<RhSymbolMeta[]>((subscriber) => {
+        return new Observable<SymbolMeta[]>((subscriber) => {
           const unsubscribe = onSnapshot(q, (snapshot) => {
             subscriber.next(snapshot.docs.map((d) => this.toMeta(d.id, d.data())));
           }, (error) => {
@@ -223,8 +223,8 @@ export class SymbolMetaService {
     );
   }
 
-  /** Convert a Firestore document into the typed RhSymbolMeta shape. */
-  private toMeta(id: string, data: DocumentData): RhSymbolMeta {
+  /** Convert a Firestore document into the typed SymbolMeta shape. */
+  private toMeta(id: string, data: DocumentData): SymbolMeta {
     return {
       symbol: data['symbol'] ?? id,
       symbolType: data['symbolType'] ?? 'STOCK',

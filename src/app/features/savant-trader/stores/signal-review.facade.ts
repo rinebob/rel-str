@@ -13,36 +13,36 @@
 import { computed, effect, inject, Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import { Observable, of } from 'rxjs';
-import { RhAgentGroupStore } from './rh-agent-group.store';
-import { RhAgentTriageStore } from './rh-agent-triage.store';
-import { RhAgentOccurrenceDecisionStore } from './rh-agent-occurrence-decision.store';
-import { RhAgentSymbolListStore } from './rh-agent-symbol-list.store';
-import { RhAgentSymbolHistoryStore } from './rh-agent-symbol-history.store';
-import { RhAgentStore } from './rh-agent.store';
+import { GroupStore } from './group.store';
+import { TriageStore } from './triage.store';
+import { OccurrenceDecisionStore } from './occurrence-decision.store';
+import { SymbolListStore } from './symbol-list.store';
+import { SymbolHistoryStore } from './symbol-history.store';
+import { StStore } from './st.store';
 import { SignalReviewUiStore } from './signal-review-ui.store';
 import { SignalService } from '../services/signal.service';
-import type { AgentSignalItem } from '../services/types';
+import type { StSignalItem } from '../services/types';
 import { UiStateService } from '../../../core/services/ui-state.service';
 import { ScrollTargetService } from '../services/scroll-target.service';
 import {
   GroupDimension,
-  RhSymbolListName,
+  SymbolListName,
   SignalTimeframe,
   SignalDirection,
   ReviewDecision,
 } from '../common/constants';
-import type { AgentRun } from '../services/types';
+import type { StRun } from '../services/types';
 
 @Injectable({ providedIn: 'root' })
 export class SignalReviewFacade {
-  private readonly groupStore = inject(RhAgentGroupStore);
-  private readonly triageStore = inject(RhAgentTriageStore);
-  private readonly occurrenceStore = inject(RhAgentOccurrenceDecisionStore);
-  private readonly symbolListStore = inject(RhAgentSymbolListStore);
-  private readonly historyStore = inject(RhAgentSymbolHistoryStore);
+  private readonly groupStore = inject(GroupStore);
+  private readonly triageStore = inject(TriageStore);
+  private readonly occurrenceStore = inject(OccurrenceDecisionStore);
+  private readonly symbolListStore = inject(SymbolListStore);
+  private readonly historyStore = inject(SymbolHistoryStore);
   private readonly signalService = inject(SignalService);
   private readonly uiStore = inject(SignalReviewUiStore);
-  private readonly agentStore = inject(RhAgentStore);
+  private readonly agentStore = inject(StStore);
   private readonly uiState = inject(UiStateService);
   private readonly scrollTarget = inject(ScrollTargetService);
   private readonly router = inject(Router);
@@ -84,7 +84,7 @@ export class SignalReviewFacade {
   readonly quickChartSymbol = computed(() => this.groupStore.quickChartSymbol());
 
   /** Active-run context for header / eligibility. */
-  readonly viewedRun = computed((): AgentRun | null => this.groupStore.viewedRun());
+  readonly viewedRun = computed((): StRun | null => this.groupStore.viewedRun());
   readonly isActionableRun = computed(() => this.groupStore.isActionableRun());
 
   /** Fullscreen state for the header. */
@@ -137,7 +137,7 @@ export class SignalReviewFacade {
     this.groupStore.setGroupDimension(dim);
   }
 
-  setActiveListFilter(filter: RhSymbolListName | 'ALL'): void {
+  setActiveListFilter(filter: SymbolListName | 'ALL'): void {
     this.symbolListStore.setActiveListFilter(filter);
   }
 
@@ -176,14 +176,14 @@ export class SignalReviewFacade {
   }
 
   /** Expand/collapse a group and preload signal history when expanding. */
-  groupExpandChanged(group: { key: string; rows: { profile: { symbol: string }; signals?: AgentSignalItem[] }[] }, expand: boolean): void {
+  groupExpandChanged(group: { key: string; rows: { profile: { symbol: string }; signals?: StSignalItem[] }[] }, expand: boolean): void {
     this.uiStore.setGroupExpanded(group.key, expand);
     if (expand) {
       this._preloadHistoryForGroup(group);
     }
   }
 
-  private _preloadHistoryForGroup(group: { rows: { profile: { symbol: string }; signals?: AgentSignalItem[] }[] }): void {
+  private _preloadHistoryForGroup(group: { rows: { profile: { symbol: string }; signals?: StSignalItem[] }[] }): void {
     const runId = this.groupStore.activeRunId();
     if (!runId) return;
     for (const row of group.rows) {
@@ -193,7 +193,7 @@ export class SignalReviewFacade {
     }
   }
 
-  preloadHistoryForGroups(groups: { key: string; rows: { profile: { symbol: string }; signals?: AgentSignalItem[] }[] }[]): void {
+  preloadHistoryForGroups(groups: { key: string; rows: { profile: { symbol: string }; signals?: StSignalItem[] }[] }[]): void {
     for (const g of groups) {
       this._preloadHistoryForGroup(g);
     }
@@ -220,7 +220,7 @@ export class SignalReviewFacade {
     this.groupStore.setQuickChartSymbol(current === symbol ? null : symbol);
   }
 
-  toggleSymbolInList(symbol: string, listName: RhSymbolListName): void {
+  toggleSymbolInList(symbol: string, listName: SymbolListName): void {
     this.symbolListStore.toggleSymbolInList(symbol, listName);
   }
 
@@ -231,7 +231,7 @@ export class SignalReviewFacade {
   }
 
   /** Return the current-run signal occurrences for a symbol, using the cache if available. */
-  private currentRunSignals(symbol: string): Observable<AgentSignalItem[]> {
+  private currentRunSignals(symbol: string): Observable<StSignalItem[]> {
     const runId = this.groupStore.activeRunId();
     if (!runId) return of([]);
     return this.signalService.getCurrentRunSignalsForSymbol(symbol, runId, this.historyStore.signalHistoryCache());
@@ -281,10 +281,10 @@ export class SignalReviewFacade {
   }
 
   toggleMonitor(symbol: string): void {
-    if (this.symbolListStore.activeListFilter() === RhSymbolListName.PAST_SIGNALS) {
-      this.symbolListStore.removeSymbolFromList(symbol, RhSymbolListName.PAST_SIGNALS);
+    if (this.symbolListStore.activeListFilter() === SymbolListName.PAST_SIGNALS) {
+      this.symbolListStore.removeSymbolFromList(symbol, SymbolListName.PAST_SIGNALS);
     } else {
-      this.symbolListStore.addSymbolToList(symbol, RhSymbolListName.PAST_SIGNALS);
+      this.symbolListStore.addSymbolToList(symbol, SymbolListName.PAST_SIGNALS);
     }
   }
 

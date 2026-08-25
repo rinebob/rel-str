@@ -1,5 +1,5 @@
 /**
- * RH Agent SignalStore
+ * Savant Trader SignalStore
  *
  * Manages agent state, runs, and signals using NgRx Signals.
  */
@@ -16,28 +16,28 @@ import { of, catchError, finalize, map, Subscription } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import {
-  type AgentStatus,
-  type AgentRun,
+  type StStatus,
+  type StRun,
 } from '../services/types';
 import { RunService } from '../services/run.service';
 
 // State interface
-export interface RhAgentState {
-  status: AgentStatus | null;
-  runs: AgentRun[];
+export interface StState {
+  status: StStatus | null;
+  runs: StRun[];
   isLoading: boolean;
   runsStreaming: boolean;
 }
 
 // Initial state
-const initialState: RhAgentState = {
+const initialState: StState = {
   status: null,
   runs: [],
   isLoading: false,
   runsStreaming: false,
 };
 
-export const RhAgentStore = signalStore(
+export const StStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
 
@@ -52,7 +52,7 @@ export const RhAgentStore = signalStore(
     /** The latest completed actionable run (SUCCESS or PARTIAL with a completedAt timestamp). */
     latestCompletedRun: computed(() => {
       const runs = state.runs();
-      const status = (r: AgentRun) => r.status?.toUpperCase();
+      const status = (r: StRun) => r.status?.toUpperCase();
       return (
         runs.find((r) => {
           const s = status(r);

@@ -9,8 +9,8 @@ import { CommonModule } from '@angular/common';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { RhSymbolGroup, RhSymbolRow } from '../../stores/rh-agent-group.store';
-import { RhSymbolListName, SignalDirection } from '../../common/constants';
+import { SymbolGroup, SymbolRow } from '../../stores/group.store';
+import { SymbolListName, SignalDirection } from '../../common/constants';
 import { rowHasDirection } from '../../utils/utils';
 import { SymbolRowComponent } from '../symbol-row/symbol-row.component';
 
@@ -28,11 +28,11 @@ import { SymbolRowComponent } from '../symbol-row/symbol-row.component';
   styleUrl: './group-panel.component.scss',
 })
 export class GroupPanelComponent {
-  group = input.required<RhSymbolGroup>();
+  group = input.required<SymbolGroup>();
   expanded = input(false);
-  visibleRows = input.required<RhSymbolRow[]>();
+  visibleRows = input.required<SymbolRow[]>();
   symbolLists = input.required<Record<string, string[]>>();
-  activeListFilter = input.required<RhSymbolListName | 'ALL'>();
+  activeListFilter = input.required<SymbolListName | 'ALL'>();
   selectedSymbol = input<string | null>(null);
   quickChartSymbol = input<string | null>(null);
   /** When false, ACR mutation controls are disabled for all rows in this group. */
@@ -48,7 +48,7 @@ export class GroupPanelComponent {
   );
 
   opened = output<void>();
-  expandAll = output<{ group: RhSymbolGroup; expand: boolean }>();
+  expandAll = output<{ group: SymbolGroup; expand: boolean }>();
 
   rowSelect = output<string>();
   rowViewQuickCharts = output<string>();
@@ -57,7 +57,7 @@ export class GroupPanelComponent {
   rowConsider = output<string>();
   rowReject = output<string>();
   rowReset = output<string>();
-  rowToggleList = output<{ symbol: string; listName: RhSymbolListName }>();
+  rowToggleList = output<{ symbol: string; listName: SymbolListName }>();
   rowMonitor = output<string>();
 
   onExpandAll(event: Event): void {

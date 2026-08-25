@@ -10,14 +10,14 @@
  */
 import { Injectable, inject, computed } from '@angular/core';
 
-import { RhSymbolListName, ViewportMode } from '../common/constants';
-import { RhAgentTriageStore } from '../stores/rh-agent-triage.store';
-import { RhAgentSymbolListStore } from '../stores/rh-agent-symbol-list.store';
+import { SymbolListName, ViewportMode } from '../common/constants';
+import { TriageStore } from '../stores/triage.store';
+import { SymbolListStore } from '../stores/symbol-list.store';
 
 @Injectable({ providedIn: 'root' })
 export class ChartReviewViewportService {
-  private readonly triageStore = inject(RhAgentTriageStore);
-  private readonly symbolListStore = inject(RhAgentSymbolListStore);
+  private readonly triageStore = inject(TriageStore);
+  private readonly symbolListStore = inject(SymbolListStore);
 
   /** Current viewport mode (delegates to store state). */
   readonly viewportMode = computed(() => this.triageStore.viewportMode());
@@ -37,7 +37,7 @@ export class ChartReviewViewportService {
     const listName = this.triageStore.activeViewportList();
     const reviewSymbols = this.triageStore.reviewSymbols();
 
-    if (listName === RhSymbolListName.NONE) {
+    if (listName === SymbolListName.NONE) {
       return reviewSymbols;
     }
 

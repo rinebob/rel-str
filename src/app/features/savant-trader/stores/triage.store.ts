@@ -1,12 +1,12 @@
 /**
- * RH Agent Triage Store
+ * Savant Trader Triage Store
  *
  * In-memory source of truth for ephemeral RACR (Review/Accept/Consider/Reject/etc.)
- * UI state across all RH Agent pages: Grouped Review, Review, and Order.
+ * UI state across all Savant Trader pages: Grouped Review, Review, and Order.
  *
  * Review flags are persisted via TriageService. ACR statuses are purely
  * local UI feedback; durable ACCEPT/REJECT decisions live in
- * RhAgentOccurrenceDecisionStore.
+ * OccurrenceDecisionStore.
  *
  * providedIn: 'root' so state survives route navigation.
  */
@@ -22,7 +22,7 @@ import {
 
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-import { ReviewDecision, ALL_REVIEW_STATUSES, StatusCounts, RhSymbolListName, ViewportMode } from '../common/constants';
+import { ReviewDecision, ALL_REVIEW_STATUSES, StatusCounts, SymbolListName, ViewportMode } from '../common/constants';
 import { TriageService } from '../services/triage.service';
 
 const ReviewStatus = ReviewDecision;
@@ -31,7 +31,7 @@ const ReviewStatus = ReviewDecision;
 // State
 // ---------------------------------------------------------------------------
 
-export interface RhAgentTriageState {
+export interface TriageState {
   /** Per-symbol ACR status. Key = symbol ticker. Values: PENDING/ACCEPT/CONSIDER/REJECT/WATCH/etc. */
   statuses: Record<string, ReviewDecision>;
   /** Per-symbol review flag â€” "I want to look at this symbol's chart." Independent of ACR. */
@@ -46,11 +46,11 @@ export interface RhAgentTriageState {
   reviewFlagsError: string | null;
 }
 
-const initialState: RhAgentTriageState = {
+const initialState: TriageState = {
   statuses: {},
   reviewFlags: {},
   viewportMode: 'signals',
-  activeViewportList: RhSymbolListName.NONE,
+  activeViewportList: SymbolListName.NONE,
   reviewFlagsLoading: false,
   reviewFlagsError: null,
 };
@@ -59,7 +59,7 @@ const initialState: RhAgentTriageState = {
 // Store
 // ---------------------------------------------------------------------------
 
-export const RhAgentTriageStore = signalStore(
+export const TriageStore = signalStore(
   { providedIn: 'root' },
 
   withState(initialState),

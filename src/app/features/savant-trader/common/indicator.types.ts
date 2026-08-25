@@ -2,7 +2,7 @@
  * Frontend mirror of the backend indicator series callable types.
  *
  * These types intentionally duplicate the backend types in
- * functions/src/rh-agent-cloud-function/rh-agent-indicator-computation.ts
+ * functions/src/st-cloud-function/indicator-computation.ts
  * to avoid the shared-library build issues we have hit in other projects.
  * Keep them in sync with the backend.
  */

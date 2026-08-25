@@ -1,18 +1,18 @@
 /**
- * RH Agent Dashboard UI State Store
+ * Savant Trader Dashboard UI State Store
  *
  * Manages UI state for the runs-only dashboard: run expansion, show-all toggle.
  * Signal triage has moved to the Grouped Review / Review / Order pipeline.
  */
 import { inject, computed } from '@angular/core';
 import { signalStore, withState, withComputed, withMethods, patchState } from '@ngrx/signals';
-import { RhAgentStore } from './rh-agent.store';
+import { StStore } from './st.store';
 import {
   RunTriggerFilter,
   RunDateFilter,
   RunStatusFilter,
 } from '../common/constants';
-import { AgentRun } from '../services/agent.service';
+import { StRun } from '../services/st.service';
 import { todayDate, daysAgoPt } from '../utils/utils';
 
 // State interface
@@ -35,19 +35,19 @@ const initialState: DashboardUiState = {
   selectedRunId: null,
 };
 
-export const RhAgentDashboardStore = signalStore(
+export const DashboardStore = signalStore(
   withState(initialState),
 
-  withComputed((state, dataStore = inject(RhAgentStore)) => ({
+  withComputed((state, dataStore = inject(StStore)) => ({
     /** Run matching the selectedRunId (for metrics strip). */
-    selectedRun: computed((): AgentRun | null => {
+    selectedRun: computed((): StRun | null => {
       const id = state.selectedRunId();
       if (!id) return null;
       return dataStore.runs().find((r) => r.id === id) ?? null;
     }),
 
     /** Runs filtered by the active trigger, date, and status filters. */
-    filteredRuns: computed((): AgentRun[] => {
+    filteredRuns: computed((): StRun[] => {
       const runs = dataStore.runs();
       const trigger = state.triggerFilter();
       const date = state.dateFilter();
@@ -65,7 +65,7 @@ export const RhAgentDashboardStore = signalStore(
       });
     }),
 
-    /** Most recent run from the shared RhAgentStore. */
+    /** Most recent run from the shared StStore. */
     currentRun: computed(() => {
       const runs = dataStore.runs();
       return runs.length > 0 ? runs[0] : null;

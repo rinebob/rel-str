@@ -1,10 +1,10 @@
 /**
- * RH Agent Triage Report Component
+ * Savant Trader Triage Report Component
  *
  * Lists durable occurrence-level decisions from Firestore with filtering by
  * market-date range and decision type. Supports CSV export.
  *
- * URL: /rh-agent-triage-report
+ * URL: /signal-action-report
  */
 import {
   Component,
@@ -31,7 +31,7 @@ import { Router } from '@angular/router';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { ReviewDecision } from '../../common/constants';
 import { OccurrenceDecisionService } from '../../services/occurrence-decision.service';
-import { AgentOccurrenceDecision, DurableDecisionType } from '../../services/types';
+import { StOccurrenceDecision, DurableDecisionType } from '../../services/types';
 
 type DecisionCounts = Record<DurableDecisionType, number>;
 
@@ -41,7 +41,7 @@ const DURABLE_DECISION_STATUSES: DurableDecisionType[] = [
 ];
 
 @Component({
-  selector: 'app-rh-agent-triage-report',
+  selector: 'app-signal-action-report',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
@@ -57,10 +57,10 @@ const DURABLE_DECISION_STATUSES: DurableDecisionType[] = [
     MatTooltipModule,
     MatTableModule,
   ],
-  templateUrl: './rh-agent-triage-report.component.html',
-  styleUrl: './rh-agent-triage-report.component.scss',
+  templateUrl: './triage-report.component.html',
+  styleUrl: './triage-report.component.scss',
 })
-export class RhAgentTriageReportComponent implements OnInit {
+export class TriageReportComponent implements OnInit {
   readonly occurrenceService = inject(OccurrenceDecisionService);
   readonly uiState = inject(UiStateService);
   private readonly router = inject(Router);
@@ -79,7 +79,7 @@ export class RhAgentTriageReportComponent implements OnInit {
   /** Error message. */
   readonly error = signal<string | null>(null);
   /** Raw occurrence decisions loaded from Firestore. */
-  readonly decisions = signal<AgentOccurrenceDecision[]>([]);
+  readonly decisions = signal<StOccurrenceDecision[]>([]);
 
   /** Decisions filtered by selected status. */
   readonly filteredDecisions = computed(() => {

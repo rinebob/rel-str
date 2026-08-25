@@ -1,10 +1,10 @@
 /**
- * RH Agent UI Utilities
+ * Savant Trader UI Utilities
  *
- * Small, pure helpers used across the RH Agent feature components.
+ * Small, pure helpers used across the Savant Trader feature components.
  */
-import { MarketCapTier, AgentSignalItem, AgentSymbolProfile, RH_AGENT_SCHEDULE_CRON, AgentSymbolSource } from '../services/types';
-import { RhSymbolRow, RhSymbolGroup } from '../stores/rh-agent-group.store';
+import { MarketCapTier, StSignalItem, StSymbolProfile, ST_SCHEDULE_CRON, StSymbolSource } from '../services/types';
+import { SymbolRow, SymbolGroup } from '../stores/group.store';
 import { GroupDimension, ReviewDecision, SignalFilter, SignalTimeframe, SignalDirection } from '../common/constants';
 
 /** Format a YYYY-MM-DD date string as a UTC date with the given Intl options. */
@@ -62,19 +62,19 @@ function getOptionalMarketCapTier(raw: Record<string, unknown>): MarketCapTier |
   return undefined;
 }
 
-function getOptionalSource(raw: Record<string, unknown>): AgentSymbolSource | undefined {
+function getOptionalSource(raw: Record<string, unknown>): StSymbolSource | undefined {
   const value = raw['source'];
-  if (value === AgentSymbolSource.MANUAL_ADD || value === AgentSymbolSource.PARTNER_UNIVERSE) {
+  if (value === StSymbolSource.MANUAL_ADD || value === StSymbolSource.PARTNER_UNIVERSE) {
     return value;
   }
   return undefined;
 }
 
 /**
- * Map a raw Firestore rh-agent-symbols doc into the client symbol profile shape.
+ * Map a raw Firestore savant-trader/data/symbols doc into the client symbol profile shape.
  * Timestamp fields are converted to ISO strings; missing fields are left undefined.
  */
-export function mapSymbolProfile(raw: Record<string, unknown>): AgentSymbolProfile {
+export function mapSymbolProfile(raw: Record<string, unknown>): StSymbolProfile {
   return {
     symbol: String(raw.symbol ?? ''),
     enabled: Boolean(raw.enabled ?? true),
@@ -110,7 +110,7 @@ export function todayDate(): string {
 export const UNKNOWN_GROUP = '(Unknown)';
 
 /** Build the group key for a symbol profile under the chosen dimension. */
-export function getGroupKey(profile: AgentSymbolProfile, dimension: GroupDimension): string {
+export function getGroupKey(profile: StSymbolProfile, dimension: GroupDimension): string {
   switch (dimension) {
     case GroupDimension.SECTOR:        return profile.sector        || UNKNOWN_GROUP;
     case GroupDimension.INDUSTRY:      return profile.industry      || UNKNOWN_GROUP;
@@ -139,7 +139,7 @@ export function tierLabel(tier: string | undefined): string {
 }
 
 /** Direction label from signal items. */
-export function signalDirections(signals: AgentSignalItem[] | undefined): string {
+export function signalDirections(signals: StSignalItem[] | undefined): string {
   if (!signals?.length) return '';
   const dirs = [...new Set(signals.map((s) => s.direction))];
   return dirs.join('/');
@@ -149,7 +149,7 @@ export function signalDirections(signals: AgentSignalItem[] | undefined): string
  * Returns true if a signal passes the active timeframe and direction filter.
  */
 export function matchesSignalFilter(
-  signal: AgentSignalItem,
+  signal: StSignalItem,
   filter: SignalFilter
 ): boolean {
   const { timeframe: tf, direction: dir } = filter;
@@ -163,9 +163,9 @@ export function matchesSignalFilter(
  * Filter an array of signals by timeframe and direction.
  */
 export function filterSignals(
-  signals: AgentSignalItem[],
+  signals: StSignalItem[],
   filter: SignalFilter
-): AgentSignalItem[] {
+): StSignalItem[] {
   return signals.filter((s) => matchesSignalFilter(s, filter));
 }
 
@@ -174,7 +174,7 @@ export function filterSignals(
  * Treats the symbol profile's last known signal directions as a signal proxy.
  */
 export function profileMatchesSignalFilter(
-  profile: AgentSymbolProfile,
+  profile: StSymbolProfile,
   filter: SignalFilter
 ): boolean {
   const { timeframe: tf, direction: dir } = filter;
@@ -199,8 +199,8 @@ export function profileMatchesSignalFilter(
  * Uses loaded signals when available, otherwise falls back to profile fields.
  */
 export function symbolMatchesSignalFilter(
-  profile: AgentSymbolProfile,
-  signals: AgentSignalItem[] | undefined,
+  profile: StSymbolProfile,
+  signals: StSignalItem[] | undefined,
   filter: SignalFilter
 ): boolean {
   if (signals?.length) {
@@ -214,7 +214,7 @@ export function symbolMatchesSignalFilter(
  * Uses loaded signals when available, otherwise falls back to profile fields.
  */
 export function rowMatchesSignalFilter(
-  row: RhSymbolRow,
+  row: SymbolRow,
   filter: SignalFilter
 ): boolean {
   return symbolMatchesSignalFilter(row.profile, row.signals, filter);
@@ -226,7 +226,7 @@ export function rowMatchesSignalFilter(
  * the row's signal history has not been loaded.
  */
 export function rowHasDirection(
-  row: RhSymbolRow,
+  row: SymbolRow,
   direction: SignalDirection
 ): boolean {
   const signals = row.signals;
@@ -393,10 +393,10 @@ export function expandDateRange(start: Date, end: Date): string[] {
 }
 
 /** Human-readable description of the agent cron schedule. */
-export function getScheduleDescription(cron = RH_AGENT_SCHEDULE_CRON): string {
+export function getScheduleDescription(cron = ST_SCHEDULE_CRON): string {
   if (!cron) return 'Not scheduled';
 
-  // Known RH Agent schedules: 1 AM UTC Tue-Sat == 6 PM PT Mon-Fri (PDT).
+  // Known Savant Trader schedules: 1 AM UTC Tue-Sat == 6 PM PT Mon-Fri (PDT).
   if (cron === '0 1 * * 2-6') return '6 PM PT, Monday-Friday';
 
   const parts = cron.split(' ');
@@ -455,7 +455,7 @@ function profileDirectionMatches(
 
 /** Compute header counts from a profile list already filtered by profileMatchesSignalFilter. */
 export function computeProfileCounts(
-  profiles: AgentSymbolProfile[],
+  profiles: StSymbolProfile[],
   filter: SignalFilter
 ): { total: number; weekly: number; daily: number; long: number; short: number } {
   const counts = { total: profiles.length, weekly: 0, daily: 0, long: 0, short: 0 };
@@ -488,8 +488,8 @@ export function computeProfileCounts(
 
 /** Input shape for building the list of candidate profiles before signal/list filtering. */
 export interface BuildFilteredCandidatesInput {
-  signalSymbols: AgentSymbolProfile[];
-  allSymbols: AgentSymbolProfile[];
+  signalSymbols: StSymbolProfile[];
+  allSymbols: StSymbolProfile[];
   showAll: boolean;
   symbolLists: Record<string, string[]>;
   activeListFilter: string | 'ALL';
@@ -500,7 +500,7 @@ export interface BuildFilteredCandidatesInput {
  * Returns signal symbols plus optional non-signal symbols, filtered by the active list filter.
  * Pure function: no store access.
  */
-export function buildFilteredCandidates(input: BuildFilteredCandidatesInput): AgentSymbolProfile[] {
+export function buildFilteredCandidates(input: BuildFilteredCandidatesInput): StSymbolProfile[] {
   const { signalSymbols, allSymbols, showAll, symbolLists, activeListFilter } = input;
   const signalSet = new Set(signalSymbols.map((s) => s.symbol));
   const candidates = [
@@ -512,14 +512,14 @@ export function buildFilteredCandidates(input: BuildFilteredCandidatesInput): Ag
 
 /** Input shape for building a grouped view â€” kept generic so it can be computed from store state. */
 export interface BuildSymbolGroupsInput {
-  signalSymbols: AgentSymbolProfile[];
-  allSymbols: AgentSymbolProfile[];
+  signalSymbols: StSymbolProfile[];
+  allSymbols: StSymbolProfile[];
   showAll: boolean;
   dimension: GroupDimension;
   symbolLists: Record<string, string[]>;
   activeListFilter: string | 'ALL';
   statuses: Record<string, ReviewDecision>;
-  historyCache: Record<string, AgentSignalItem[]>;
+  historyCache: Record<string, StSignalItem[]>;
   historyLoading: Record<string, boolean>;
   activeRunId: string | null;
   signalFilter: SignalFilter;
@@ -529,7 +529,7 @@ export interface BuildSymbolGroupsInput {
  * Build the grouped view used by the grouped review page.
  * Pure function: no store access, just transforms the supplied state into groups.
  */
-export function buildSymbolGroups(input: BuildSymbolGroupsInput): RhSymbolGroup[] {
+export function buildSymbolGroups(input: BuildSymbolGroupsInput): SymbolGroup[] {
   const {
     signalSymbols,
     allSymbols,
@@ -554,7 +554,7 @@ export function buildSymbolGroups(input: BuildSymbolGroupsInput): RhSymbolGroup[
     activeListFilter,
   });
 
-  const groupMap = new Map<string, Array<{ profile: AgentSymbolProfile; hasSignal: boolean }>>();
+  const groupMap = new Map<string, Array<{ profile: StSymbolProfile; hasSignal: boolean }>>();
   for (const profile of candidates) {
     const hasSignal = signalSet.has(profile.symbol);
     if (!showAll && !hasSignal) continue;
@@ -581,7 +581,7 @@ export function buildSymbolGroups(input: BuildSymbolGroupsInput): RhSymbolGroup[
       (a, b) => (b.profile.marketCap ?? 0) - (a.profile.marketCap ?? 0)
     );
 
-    const rows: RhSymbolRow[] = sorted.map((item) => {
+    const rows: SymbolRow[] = sorted.map((item) => {
       const cacheKey = getCacheKey(item.profile.symbol, activeRunId);
       const rawSignals = historyCache[cacheKey];
       const signals = rawSignals ? filterSignals(rawSignals, signalFilter) : undefined;

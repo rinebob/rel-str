@@ -19,12 +19,12 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { IndicatorSeriesStore } from '../../stores/indicator-series.store';
-import { RhAgentChartStore } from '../../stores/rh-agent-chart.store';
+import { ChartStore } from '../../stores/chart.store';
 import {
   DEFAULT_CHART_INTERVALS,
   DEFAULT_CHART_INDICATORS,
   DEFAULT_CHART_STRATEGIES,
-} from '../../stores/rh-agent-chart.store';
+} from '../../stores/chart.store';
 import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-chart.component';
 import type { FlexChartConfig, IndicatorConfig } from '../../../shared/components/flex-chart/flex-chart.types';
 import { ChartIntervalKey } from '../../../shared/components/flex-chart/flex-chart.types';
@@ -47,7 +47,7 @@ const QUICK_BARS = 100;
   styleUrl: './quick-charts.component.scss',
 })
 export class QuickChartsComponent {
-  readonly chartStore = inject(RhAgentChartStore);
+  readonly chartStore = inject(ChartStore);
   private readonly indicatorStore = inject(IndicatorSeriesStore);
 
   /** Symbol to display. When null/undefined, shows the empty placeholder. */

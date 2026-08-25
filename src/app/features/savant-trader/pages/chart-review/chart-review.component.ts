@@ -27,14 +27,14 @@ import { Observable, of } from 'rxjs';
 
 import { Firestore, doc, getDoc } from '@angular/fire/firestore';
 import { Collection } from '../../../../core/common/constants';
-import type { AgentSignalItem } from '../../services/types';
-import { RhAgentTriageStore } from '../../stores/rh-agent-triage.store';
-import { RhAgentOccurrenceDecisionStore } from '../../stores/rh-agent-occurrence-decision.store';
-import { RhAgentGroupStore } from '../../stores/rh-agent-group.store';
-import { RhAgentSymbolListStore } from '../../stores/rh-agent-symbol-list.store';
-import { RhAgentSymbolHistoryStore } from '../../stores/rh-agent-symbol-history.store';
+import type { StSignalItem } from '../../services/types';
+import { TriageStore } from '../../stores/triage.store';
+import { OccurrenceDecisionStore } from '../../stores/occurrence-decision.store';
+import { GroupStore } from '../../stores/group.store';
+import { SymbolListStore } from '../../stores/symbol-list.store';
+import { SymbolHistoryStore } from '../../stores/symbol-history.store';
 import { SignalService } from '../../services/signal.service';
-import { ReviewDecision, RhSymbolListName } from '../../common/constants';
+import { ReviewDecision, SymbolListName } from '../../common/constants';
 import { ChartReviewViewportService } from '../../services/chart-review-viewport.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { todayDate } from '../../utils/utils';
@@ -61,11 +61,11 @@ import { NewSymbolsDialogService } from '../../services/new-symbols-dialog.servi
   styleUrl: './chart-review.component.scss',
 })
 export class ChartReviewComponent implements OnInit, OnDestroy {
-  readonly triageStore = inject(RhAgentTriageStore);
-  readonly occurrenceStore = inject(RhAgentOccurrenceDecisionStore);
-  readonly groupStore = inject(RhAgentGroupStore);
-  readonly symbolListStore = inject(RhAgentSymbolListStore);
-  readonly historyStore = inject(RhAgentSymbolHistoryStore);
+  readonly triageStore = inject(TriageStore);
+  readonly occurrenceStore = inject(OccurrenceDecisionStore);
+  readonly groupStore = inject(GroupStore);
+  readonly symbolListStore = inject(SymbolListStore);
+  readonly historyStore = inject(SymbolHistoryStore);
   readonly signalService = inject(SignalService);
   readonly viewportService = inject(ChartReviewViewportService);
   readonly uiStateService = inject(UiStateService);
@@ -172,7 +172,7 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
   }
 
   /** Return the current-run signal occurrences for a symbol, using the cache if available. */
-  private currentRunSignals(symbol: string): Observable<AgentSignalItem[]> {
+  private currentRunSignals(symbol: string): Observable<StSignalItem[]> {
     const runId = this.groupStore.activeRunId();
     if (!runId) return of([]);
     return this.signalService.getCurrentRunSignalsForSymbol(symbol, runId, this.historyStore.signalHistoryCache());
@@ -239,7 +239,7 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     this.router.navigate(['/' + AppRoutes.SIGNAL_HISTORY]);
   }
 
-  /** Open a dialog to find symbols added to rh-agent-symbols in the last N days. */
+  /** Open a dialog to find symbols added to savant-trader/data/symbols in the last N days. */
   openNewSymbolsDialog(): void {
     this.newSymbolsDialog.open().subscribe((symbols) => {
       if (!symbols || symbols.length === 0) return;
@@ -258,16 +258,16 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
   }
 
   /** Toggle the active symbol's membership in a named list. */
-  onToggleList(event: { symbol: string; listName: RhSymbolListName }): void {
+  onToggleList(event: { symbol: string; listName: SymbolListName }): void {
     this.symbolListStore.toggleSymbolInList(event.symbol, event.listName);
   }
 
   /** Toggle the active symbol's membership in the PAST_SIGNALS monitor list. */
   onMonitor(symbol: string): void {
-    if (this.symbolListStore.activeListFilter() === RhSymbolListName.PAST_SIGNALS) {
-      this.symbolListStore.removeSymbolFromList(symbol, RhSymbolListName.PAST_SIGNALS);
+    if (this.symbolListStore.activeListFilter() === SymbolListName.PAST_SIGNALS) {
+      this.symbolListStore.removeSymbolFromList(symbol, SymbolListName.PAST_SIGNALS);
     } else {
-      this.symbolListStore.addSymbolToList(symbol, RhSymbolListName.PAST_SIGNALS);
+      this.symbolListStore.addSymbolToList(symbol, SymbolListName.PAST_SIGNALS);
     }
   }
 

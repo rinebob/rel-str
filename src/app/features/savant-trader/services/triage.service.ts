@@ -1,7 +1,7 @@
 /**
- * RH Agent Triage Service
+ * Savant Trader Triage Service
  *
- * Persists dateless review flags (`rh-agent-review-flags`).
+ * Persists dateless review flags (`savant-trader/data/review-flags`).
  * Durable ACCEPT/REJECT decisions for signal occurrences live in
  * OccurrenceDecisionService.
  */

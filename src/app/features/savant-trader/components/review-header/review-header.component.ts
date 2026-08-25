@@ -1,7 +1,7 @@
 /**
  * Review Header
  *
- * Top bar of the RH Agent review page: back/history navigation, selected-symbol
+ * Top bar of the Savant Trader review page: back/history navigation, selected-symbol
  * ACR actions, page title, and the manual symbol input.
  */
 import { Component, ChangeDetectionStrategy, input, output } from '@angular/core';
@@ -12,15 +12,15 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { AppRoutes } from '../../../../core/common/interfaces';
 import { RhSelectMenuComponent, RhSelectOption } from '../rh-select-menu/rh-select-menu.component';
-import { RhSymbolListName, ViewportMode } from '../../common/constants';
+import { SymbolListName, ViewportMode } from '../../common/constants';
 
 const LIST_OPTIONS: RhSelectOption[] = [
-  { value: RhSymbolListName.NONE,           label: 'None' },
-  { value: RhSymbolListName.PRIMARY,       label: 'Primary' },
-  { value: RhSymbolListName.SECONDARY,     label: 'Secondary' },
-  { value: RhSymbolListName.NEUTRAL,       label: 'Neutral' },
-  { value: RhSymbolListName.AVOID,         label: 'Avoid' },
-  { value: RhSymbolListName.PAST_SIGNALS,  label: 'Monitor' },
+  { value: SymbolListName.NONE,           label: 'None' },
+  { value: SymbolListName.PRIMARY,       label: 'Primary' },
+  { value: SymbolListName.SECONDARY,     label: 'Secondary' },
+  { value: SymbolListName.NEUTRAL,       label: 'Neutral' },
+  { value: SymbolListName.AVOID,         label: 'Avoid' },
+  { value: SymbolListName.PAST_SIGNALS,  label: 'Monitor' },
 ];
 
 @Component({
@@ -38,7 +38,7 @@ export class ReviewHeaderComponent {
   manualSymbol = input<string | null>(null);
   companyName = input<string | null>(null);
   status = input('PENDING');
-  activeList = input<string>(RhSymbolListName.NONE);
+  activeList = input<string>(SymbolListName.NONE);
   viewportMode = input<ViewportMode>('signals');
   /** When false, ACR and queue mutation controls are disabled for the viewed historical run. */
   isActionableRun = input(true);

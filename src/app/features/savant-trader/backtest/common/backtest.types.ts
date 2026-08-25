@@ -2,7 +2,7 @@
  * Backtest UI types.
  *
  * UI-facing mirrors of the backend `backtest-runs` and `backtest-permutations`
- * collections. Stored in the `backtest/` sub-feature so the `rh-agent` root
+ * collections. Stored in the `backtest/` sub-feature so the `savant-trader` root
  * does not accumulate new directories.
  */
 

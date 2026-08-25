@@ -1,7 +1,7 @@
 /**
- * RH Agent Chart Indicators
+ * Savant Trader Chart Indicators
  *
- * Public barrel for RH Agent chart indicator utilities. Implementation lives in
+ * Public barrel for Savant Trader chart indicator utilities. Implementation lives in
  * the `chart-indicators/` directory; this file re-exports the stable public API
  * so callers do not need to know the internal module layout.
  */

@@ -1,7 +1,7 @@
 /**
  * Signal-based store for the options strategy dashboard. Holds positions,
  * equity curve, stats, and loading/error state. Follows the existing
- * RhAgentStore pattern with NgRx SignalStore.
+ * StStore pattern with NgRx SignalStore.
  */
 
 import { computed, inject, DestroyRef } from '@angular/core';

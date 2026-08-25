@@ -1,9 +1,9 @@
-<div class="rh-agent-dashboard">
+<div class="run-dashboard">
 <div class="dashboard-content">
   <div class="dashboard-header">
     <div class="header-left">
       <mat-icon class="header-icon">smart_toy</mat-icon>
-      <h1 class="header-title">RH Agent</h1>
+      <h1 class="header-title">Savant Trader</h1>
       <span class="enabled-badge" [class.enabled]="store.status()?.isEnabled">
         {{ store.status()?.isEnabled ? 'Enabled' : 'Disabled' }}
       </span>
@@ -35,12 +35,12 @@
   </div>
 
   @if (store.status()) {
-    <app-agent-status-bar
+    <app-run-status-bar
       [lastRunAt]="store.status()?.lastRunAt"
       [lastRunStatus]="store.status()?.lastRunStatus"
       [triggeredBy]="store.latestCompletedRun()?.triggeredBy"
       [scheduleDescription]="scheduleSummary()">
-    </app-agent-status-bar>
+    </app-run-status-bar>
   }
 
   <app-run-control-card

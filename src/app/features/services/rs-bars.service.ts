@@ -26,10 +26,10 @@ import { environment } from '../../../environments/environment';
  * @techdebt PRICE-BAR-SERVICE
  * This service is the right foundation for an app-wide `SaDataService` (or `PriceBarService`)
  * that should live in `src/app/core/services/`. Currently `HeatmapChartDataService` wraps this
- * inside the heatmap feature, and `rh-agent` reaches into heatmap just to get OHLC bars.
+ * inside the heatmap feature, and `savant-trader` reaches into heatmap just to get OHLC bars.
  * The intended refactor:
  *   1. Create `src/app/core/services/sa-data.service.ts` — wraps this service + aggregation utils.
- *   2. Wire rh-agent (signal-detail) to use it first.
+ *   2. Wire savant-trader (signal-detail) to use it first.
  *   3. Migrate heatmap-chart to use it, then remove the wrapper from `HeatmapChartDataService`.
  */
 const EMULATOR_YEARS_BACK = 2;

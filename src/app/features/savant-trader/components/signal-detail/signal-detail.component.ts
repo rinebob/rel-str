@@ -19,12 +19,12 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-import { RhAgentChartStore } from '../../stores/rh-agent-chart.store';
+import { ChartStore } from '../../stores/chart.store';
 import {
   DEFAULT_CHART_INTERVALS,
   DEFAULT_CHART_INDICATORS,
   DEFAULT_CHART_STRATEGIES,
-} from '../../stores/rh-agent-chart.store';
+} from '../../stores/chart.store';
 import type { ChartDataset } from '../../../heatmap-chart/heatmap-chart.types';
 import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-chart.component';
 import { BarsInterval } from '../../../../core/models/partner.types';
@@ -45,13 +45,13 @@ import {
   ST_ZONE_V2_UPTICK_DOTS_INDICATOR,
   injectCallableIndicatorData,
 } from '../../utils/chart-indicators';
-import { RhAgentSymbolHistoryStore } from '../../stores/rh-agent-symbol-history.store';
+import { SymbolHistoryStore } from '../../stores/symbol-history.store';
 import { IndicatorSeriesStore } from '../../stores/indicator-series.store';
 import type { SymbolIndicatorSeriesResponse } from '../../common/indicator.types';
-import { RhSymbolListName } from '../../common/constants';
+import { SymbolListName } from '../../common/constants';
 
-/** RH Agent indicator menu options: shared ST base + RH Agent-specific HTF zone windows. */
-const RH_AGENT_INDICATOR_OPTIONS: IndicatorOption[] = [
+/** Savant Trader indicator menu options: shared ST base + Savant Trader-specific HTF zone windows. */
+const ST_EXTRA_INDICATOR_OPTIONS: IndicatorOption[] = [
   ...ST_INDICATOR_OPTIONS,
   ST_ZONE_WINDOW_WEEKLY_INDICATOR,
   ST_ZONE_WINDOW_MONTHLY_INDICATOR,
@@ -177,11 +177,11 @@ export class SignalDetailComponent {
   // ==========================================================================
 
   /** @internal */
-  readonly chartStore = inject(RhAgentChartStore);
+  readonly chartStore = inject(ChartStore);
   /** @internal */
   readonly uiStateService = inject(UiStateService);
   /** @internal */
-  readonly historyStore = inject(RhAgentSymbolHistoryStore);
+  readonly historyStore = inject(SymbolHistoryStore);
   /** @internal */
   readonly indicatorStore = inject(IndicatorSeriesStore);
 
@@ -198,7 +198,7 @@ export class SignalDetailComponent {
   /** Map of list name -> symbols in that list. */
   symbolLists = input<Record<string, string[]>>({});
   /** Active list filter from the symbol list store. */
-  activeListFilter = input<RhSymbolListName | 'ALL'>('ALL');
+  activeListFilter = input<SymbolListName | 'ALL'>('ALL');
   /** 0-based index of this symbol within the review queue, or -1 when not in queue. */
   symbolIndex = input<number>(-1);
   /** Total number of symbols in the review queue. */
@@ -211,7 +211,7 @@ export class SignalDetailComponent {
   /** Emits the signal ID when the user marks a signal as rejected (R key / button). */
   signalRejected = output<string>();
   /** Emits when the user toggles the active symbol's list membership. */
-  toggleList = output<{ symbol: string; listName: RhSymbolListName }>();
+  toggleList = output<{ symbol: string; listName: SymbolListName }>();
   /** Emits when the user toggles the active symbol's monitor status. */
   monitor = output<string>();
   /** Emits when the user clicks the previous-symbol nav button. */
@@ -343,7 +343,7 @@ export class SignalDetailComponent {
     const allowed = new Set(this.indicatorScope().flatMap(
       k => SignalDetailComponent.INDICATORS_BY_INTERVAL[k]
     ));
-    return RH_AGENT_INDICATOR_OPTIONS.filter(o => allowed.has(o.id));
+    return ST_EXTRA_INDICATOR_OPTIONS.filter(o => allowed.has(o.id));
   });
 
   /** Selected indicator IDs for the menu.
@@ -353,7 +353,7 @@ export class SignalDetailComponent {
     const scope = this.indicatorScope();
     const current = this.selectedIdsByInterval();
     return new Set(
-      RH_AGENT_INDICATOR_OPTIONS
+      ST_EXTRA_INDICATOR_OPTIONS
         .filter(o => {
           const supportingKeys = scope.filter(
             k => SignalDetailComponent.INDICATORS_BY_INTERVAL[k].includes(o.id)

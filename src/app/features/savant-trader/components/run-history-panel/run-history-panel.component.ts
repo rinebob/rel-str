@@ -9,7 +9,7 @@ import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { AgentRun } from '../../services/agent.service';
+import { StRun } from '../../services/st.service';
 import { getRunStatusColor, getRunStatusIcon } from '../../utils/utils';
 
 @Component({
@@ -20,10 +20,10 @@ import { getRunStatusColor, getRunStatusIcon } from '../../utils/utils';
   styleUrl: './run-history-panel.component.scss',
 })
 export class RunHistoryPanelComponent {
-  readonly runs        = input<AgentRun[]>([]);
+  readonly runs        = input<StRun[]>([]);
   readonly selectedRunId = input<string | null>(null);
 
-  readonly runSelected  = output<AgentRun>();
+  readonly runSelected  = output<StRun>();
   readonly runDeselected = output<void>();
 
   readonly getRunStatusColor = getRunStatusColor;
@@ -32,16 +32,16 @@ export class RunHistoryPanelComponent {
   /** Tracks which run row is expanded for detail view. */
   readonly expandedRunId = signal<string | null>(null);
 
-  toggleExpand(run: AgentRun): void {
+  toggleExpand(run: StRun): void {
     this.expandedRunId.set(this.expandedRunId() === run.id ? null : run.id);
   }
 
-  reviewSignals(run: AgentRun, event: MouseEvent): void {
+  reviewSignals(run: StRun, event: MouseEvent): void {
     event.stopPropagation();
     this.runSelected.emit(run);
   }
 
-  formatDuration(run: AgentRun): string {
+  formatDuration(run: StRun): string {
     if (!run.startedAt || !run.completedAt) return 'â€”';
     const ms = new Date(run.completedAt).getTime() - new Date(run.startedAt).getTime();
     const s = Math.round(ms / 1000);

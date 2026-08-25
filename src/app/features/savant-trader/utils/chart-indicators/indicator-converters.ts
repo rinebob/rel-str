@@ -1,5 +1,5 @@
 /**
- * RH Agent Chart Indicators — Callable indicator data conversion
+ * Savant Trader Chart Indicators — Callable indicator data conversion
  *
  * Converts backend indicator data (zones, trend-strength, trend-bands) into
  * the chart-ready shapes expected by the flex-chart indicator configs.

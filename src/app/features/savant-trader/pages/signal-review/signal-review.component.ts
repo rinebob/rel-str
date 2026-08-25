@@ -16,8 +16,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-import { GroupDimension, RhSymbolListName } from '../../common/constants';
-import { RhSymbolGroup } from '../../stores/rh-agent-group.store';
+import { GroupDimension, SymbolListName } from '../../common/constants';
+import { SymbolGroup } from '../../stores/group.store';
 import { SignalReviewFacade } from '../../stores/signal-review.facade';
 import { SignalReviewHeaderComponent } from '../../components/signal-review-header/signal-review-header.component';
 import { GroupPanelComponent } from '../../components/group-panel/group-panel.component';
@@ -81,11 +81,11 @@ export class SignalReviewComponent implements OnInit, OnDestroy {
 
   /** Apply a list filter to the signal review. */
   onListFilter(filter: string): void {
-    this.facade.setActiveListFilter(filter as RhSymbolListName | 'ALL');
+    this.facade.setActiveListFilter(filter as SymbolListName | 'ALL');
   }
 
   /** Toggle a symbol's membership in a named list. */
-  onToggleList(event: { symbol: string; listName: RhSymbolListName }): void {
+  onToggleList(event: { symbol: string; listName: SymbolListName }): void {
     this.facade.toggleSymbolInList(event.symbol, event.listName);
   }
 
@@ -100,7 +100,7 @@ export class SignalReviewComponent implements OnInit, OnDestroy {
   }
 
   /** Expand/collapse a group and preload history when expanding. */
-  onGroupExpandChanged(event: { group: RhSymbolGroup; expand: boolean }): void {
+  onGroupExpandChanged(event: { group: SymbolGroup; expand: boolean }): void {
     this.facade.groupExpandChanged(event.group, event.expand);
   }
 
@@ -144,7 +144,7 @@ export class SignalReviewComponent implements OnInit, OnDestroy {
     this.facade.toggleQuickChart(symbol);
   }
 
-  /** Navigate back to the RH Agent dashboard. */
+  /** Navigate back to the Savant Trader dashboard. */
   goBack(): void {
     this.facade.goBack();
   }

@@ -1,24 +1,24 @@
 /**
- * RH Agent shared types and constants.
+ * Savant Trader shared types and constants.
  *
- * These were extracted from agent.service.ts so the new focused services
+ * These were extracted from st.service.ts so the new focused services
  * can share them without circular dependencies.
  */
 
 import { ReviewDecision, SignalDirection, SignalStatus, SignalTimeframe } from '../common/constants';
 
 /**
- * Cron expression for the RH Agent daily scheduler (UTC).
- * Must stay in sync with functions/src/rh-agent-cloud-function/rh-agent-trigger.ts
+ * Cron expression for the Savant Trader daily scheduler (UTC).
+ * Must stay in sync with functions/src/st-cloud-function/trigger.ts
  */
-export const RH_AGENT_SCHEDULE_CRON = '0 1 * * 2-6'; // 1 AM UTC = 6 PM PT, Mon-Fri
+export const ST_SCHEDULE_CRON = '0 1 * * 2-6'; // 1 AM UTC = 6 PM PT, Mon-Fri
 
 /**
  * Maximum dollar amount per trade to prevent oversized positions.
  */
-export const RH_AGENT_MAX_TRADE_AMOUNT = 100;
+export const ST_MAX_TRADE_AMOUNT = 100;
 
-export interface AgentStatus {
+export interface StStatus {
   isEnabled: boolean;
   lastRunAt?: string;
   lastRunStatus?: string;
@@ -28,7 +28,7 @@ export interface AgentStatus {
   schedule?: string;
 }
 
-export interface AgentRun {
+export interface StRun {
   id: string;
   status: string;
   startedAt: string;
@@ -48,8 +48,8 @@ export type MarketCapTier = 'mega' | 'large' | 'mid' | 'small' | 'micro';
 
 export { SignalDirection } from '../common/constants';
 
-/** Known source values for how a symbol entered the RH Agent tracked universe. */
-export enum AgentSymbolSource {
+/** Known source values for how a symbol entered the Savant Trader tracked universe. */
+export enum StSymbolSource {
   MANUAL_ADD = 'manual-add',
   PARTNER_UNIVERSE = 'partner-universe',
 }
@@ -58,12 +58,12 @@ export enum AgentSymbolSource {
  * Symbol profile returned by stGetSymbolsWithSignals.
  * Includes config fields and company overview (after Phase 1 sync).
  */
-export interface AgentSymbolProfile {
+export interface StSymbolProfile {
   symbol: string;
   enabled: boolean;
   createdAt: string;
-  /** How this symbol entered the tracked universe (one of AgentSymbolSource). */
-  source?: AgentSymbolSource;
+  /** How this symbol entered the tracked universe (one of StSymbolSource). */
+  source?: StSymbolSource;
   lastAnalyzedAt?: string;
   lastDailySignalDate?: string;
   lastWeeklySignalDate?: string;
@@ -88,7 +88,7 @@ export interface AgentSymbolProfile {
 /**
  * A single signal entry stored in run-ids or signal-history docs.
  */
-export interface AgentSignalItem {
+export interface StSignalItem {
   id: string; // barDate (doc ID)
   symbol: string;
   barDate: string; // YYYY-MM-DD â€” the bar that fired
@@ -108,7 +108,7 @@ export type DurableDecisionType =
   | ReviewDecision.ACCEPT
   | ReviewDecision.REJECT;
 
-export interface AgentOccurrenceDecision {
+export interface StOccurrenceDecision {
   /** Stable identity for the decision doc. */
   id: string;
   /** User who made the decision. Optional when the object is built optimistically; the service stamps it. */

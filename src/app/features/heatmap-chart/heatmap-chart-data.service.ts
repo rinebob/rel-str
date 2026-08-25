@@ -13,11 +13,11 @@ import { aggregateDailyToWeekly, aggregateDailyToMonthly } from './heatmap-chart
 /**
  * @techdebt PRICE-BAR-SERVICE
  * `fetchChartData$` belongs in an app-wide `SaDataService` (or `PriceBarService`) in
- * `src/app/core/services/`, not here. Currently `rh-agent` crosses into this heatmap-feature
+ * `src/app/core/services/`, not here. Currently `savant-trader` crosses into this heatmap-feature
  * service just to fetch OHLC bars for chart rendering. The fix:
  *   1. Create `src/app/core/services/sa-data.service.ts` wrapping `RsBarsService.getDailyBars$`
  *      + the daily→weekly/monthly aggregation helpers.
- *   2. Consume it in rh-agent first (signal-detail.component.ts).
+ *   2. Consume it in savant-trader first (signal-detail.component.ts).
  *   3. Refactor heatmap-chart to use the shared service, then remove `fetchChartData$` from here.
  * Until then, `signal-detail` deliberately imports `HeatmapChartStore` for its price bar data.
  */

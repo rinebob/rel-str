@@ -1,12 +1,12 @@
 /**
- * RH Agent Chart Indicators â€” Callable signal marker conversion
+ * Savant Trader Chart Indicators â€” Callable signal marker conversion
  *
  * Converts backend pre-computed signal markers (trend-strength dots, zone
  * uptick dots, HTF zone windows) into chart-ready scatter-point arrays.
  */
 import { ChartIntervalKey } from '../../../../features/shared/components/flex-chart/flex-chart.types';
 import { ST_SIGNAL_DOTS_INDICATOR } from '../../../../features/shared/components/flex-chart/indicators/st-signal-dots.indicator';
-import type { AgentSignalItem } from '../../services/agent.service';
+import type { StSignalItem } from '../../services/st.service';
 import type { IntervalData } from '../../common/indicator.types';
 import { toDatePt } from '../../utils/utils';
 import type { ChartScatterPoint } from './base-indicators';
@@ -16,12 +16,12 @@ const SIGNAL_DOT_LONG_COLOR = '#4caf50';
 const SIGNAL_DOT_SHORT_COLOR = '#f44336';
 
 /**
- * Convert AgentSignalItem[] from signal-history into chart dot points.
+ * Convert StSignalItem[] from signal-history into chart dot points.
  * Matches each signal's barDate to a price bar to get the y-coordinate (close price).
  * Filters by signalType prefix (e.g. 'D_ZONE_V1' for V1 daily dots).
  */
 export function uptickDotsFromHistory(
-  signals: AgentSignalItem[],
+  signals: StSignalItem[],
   bars: { x: Date; close?: number; c?: number }[],
   signalTypePrefix: string,
   longColor: string,

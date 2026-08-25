@@ -2,23 +2,23 @@
  * Savant Trader Agent Service
  *
  * Thin facade that re-exports shared types and delegates to the focused
- * services introduced in T10. Consumers may still inject AgentService for
+ * services introduced in T10. Consumers may still inject StService for
  * convenience, or inject the focused services directly.
  */
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import {
-  type AgentStatus,
-  type AgentRun,
-  type AgentSymbolProfile,
-  type AgentSignalItem,
+  type StStatus,
+  type StRun,
+  type StSymbolProfile,
+  type StSignalItem,
   type ManualRunRequest,
   type ManualRunResponse,
   type MarketCapTier,
   type SignalDirection,
-  RH_AGENT_SCHEDULE_CRON,
-  RH_AGENT_MAX_TRADE_AMOUNT,
+  ST_SCHEDULE_CRON,
+  ST_MAX_TRADE_AMOUNT,
 } from './types';
 import { SignalTimeframe } from '../common/constants';
 
@@ -27,22 +27,22 @@ import { SignalService } from './signal.service';
 import { OverviewService } from './overview.service';
 
 export {
-  type AgentStatus,
-  type AgentRun,
-  type AgentSymbolProfile,
-  type AgentSignalItem,
+  type StStatus,
+  type StRun,
+  type StSymbolProfile,
+  type StSignalItem,
   type ManualRunRequest,
   type ManualRunResponse,
   type MarketCapTier,
   type SignalDirection,
-  RH_AGENT_SCHEDULE_CRON,
-  RH_AGENT_MAX_TRADE_AMOUNT,
+  ST_SCHEDULE_CRON,
+  ST_MAX_TRADE_AMOUNT,
 };
 
 @Injectable({
   providedIn: 'root',
 })
-export class AgentService {
+export class StService {
   private runService = inject(RunService);
   private signalService = inject(SignalService);
   private overviewService = inject(OverviewService);
@@ -55,31 +55,31 @@ export class AgentService {
     return this.runService.triggerManualRun(request);
   }
 
-  getStatus(): Observable<AgentStatus> {
+  getStatus(): Observable<StStatus> {
     return this.runService.getStatus();
   }
 
-  getRunHistory(limitCount = 20): Observable<AgentRun[]> {
+  getRunHistory(limitCount = 20): Observable<StRun[]> {
     return this.runService.getRunHistory(limitCount);
   }
 
-  watchRecentRunsRealtime(count = 20): Observable<AgentRun[]> {
+  watchRecentRunsRealtime(count = 20): Observable<StRun[]> {
     return this.runService.watchRecentRunsRealtime(count);
   }
 
-  getSymbolsWithSignals(runId: string, timeframe: SignalTimeframe): Observable<AgentSymbolProfile[]> {
+  getSymbolsWithSignals(runId: string, timeframe: SignalTimeframe): Observable<StSymbolProfile[]> {
     return this.signalService.getSymbolsWithSignals(runId, timeframe);
   }
 
-  getAllSymbols(): Observable<AgentSymbolProfile[]> {
+  getAllSymbols(): Observable<StSymbolProfile[]> {
     return this.signalService.getAllSymbols();
   }
 
-  getSymbolSignalsForRun(symbol: string, runId: string): Observable<AgentSignalItem[]> {
+  getSymbolSignalsForRun(symbol: string, runId: string): Observable<StSignalItem[]> {
     return this.signalService.getSymbolSignalsForRun(symbol, runId);
   }
 
-  getSymbolSignalHistoryFromHistory(symbol: string): Observable<AgentSignalItem[]> {
+  getSymbolSignalHistoryFromHistory(symbol: string): Observable<StSignalItem[]> {
     return this.signalService.getSymbolSignalHistoryFromHistory(symbol);
   }
 

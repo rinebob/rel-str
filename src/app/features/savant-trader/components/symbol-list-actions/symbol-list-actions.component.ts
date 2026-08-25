@@ -8,7 +8,7 @@ import { Component, ChangeDetectionStrategy, input, output } from '@angular/core
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { RhSymbolListName, ALL_SYMBOL_LIST_NAMES } from '../../common/constants';
+import { SymbolListName, ALL_SYMBOL_LIST_NAMES } from '../../common/constants';
 
 @Component({
   selector: 'app-symbol-list-actions',
@@ -22,10 +22,10 @@ export class SymbolListActionsComponent {
   /** Map of list name -> symbols in that list. */
   symbolLists = input.required<Record<string, string[]>>();
   /** Active list filter from the symbol list store. */
-  activeListFilter = input.required<RhSymbolListName | 'ALL'>();
-  readonly ListName = RhSymbolListName;
+  activeListFilter = input.required<SymbolListName | 'ALL'>();
+  readonly ListName = SymbolListName;
 
-  toggleList = output<{ symbol: string; listName: RhSymbolListName }>();
+  toggleList = output<{ symbol: string; listName: SymbolListName }>();
   monitor = output<string>();
 
   isInList(listName: string): boolean {

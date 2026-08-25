@@ -1,7 +1,7 @@
 /**
  * Trade Row
  *
- * A single row in the RH Agent order page: toggle, symbol, direction, signal,
+ * A single row in the Savant Trader order page: toggle, symbol, direction, signal,
  * editable size/stop, and row actions.
  */
 import { Component, inject, ChangeDetectionStrategy, input, output } from '@angular/core';

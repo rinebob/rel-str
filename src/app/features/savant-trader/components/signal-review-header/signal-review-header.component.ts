@@ -10,7 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { AppRoutes } from '../../../../core/common/interfaces';
-import { RhSymbolListName, StatusCounts, GroupDimension, SignalTimeframe, SignalDirection } from '../../common/constants';
+import { SymbolListName, StatusCounts, GroupDimension, SignalTimeframe, SignalDirection } from '../../common/constants';
 import { StatusSummaryChipsComponent } from '../status-summary-chips/status-summary-chips.component';
 import { SignalFilterPillsComponent } from '../signal-filter-pills/signal-filter-pills.component';
 import { RhSelectMenuComponent, RhSelectOption } from '../rh-select-menu/rh-select-menu.component';
@@ -23,12 +23,12 @@ const DIMENSION_OPTIONS: RhSelectOption[] = [
 
 const LIST_FILTER_OPTIONS: RhSelectOption[] = [
   { value: 'ALL',                          label: 'All' },
-  { value: RhSymbolListName.PRIMARY,       label: 'Primary' },
-  { value: RhSymbolListName.SECONDARY,     label: 'Secondary' },
-  { value: RhSymbolListName.NEUTRAL,       label: 'Neutral' },
-  { value: RhSymbolListName.AVOID,         label: 'Avoid' },
-  { value: RhSymbolListName.HIDE,          label: 'Hidden' },
-  { value: RhSymbolListName.PAST_SIGNALS,  label: 'Monitor' },
+  { value: SymbolListName.PRIMARY,       label: 'Primary' },
+  { value: SymbolListName.SECONDARY,     label: 'Secondary' },
+  { value: SymbolListName.NEUTRAL,       label: 'Neutral' },
+  { value: SymbolListName.AVOID,         label: 'Avoid' },
+  { value: SymbolListName.HIDE,          label: 'Hidden' },
+  { value: SymbolListName.PAST_SIGNALS,  label: 'Monitor' },
 ];
 
 @Component({
@@ -60,7 +60,7 @@ export class SignalReviewHeaderComponent {
   reviewCount = input(0);
   acceptedCount = input(0);
   groupDimension = input<GroupDimension>(GroupDimension.SECTOR);
-  activeListFilter = input<RhSymbolListName | 'ALL'>('ALL');
+  activeListFilter = input<SymbolListName | 'ALL'>('ALL');
   timeframe = input<SignalTimeframe>(SignalTimeframe.ALL);
   direction = input<SignalDirection>(SignalDirection.ALL);
   showAllSymbols = input(false);

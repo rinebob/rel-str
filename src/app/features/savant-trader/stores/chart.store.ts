@@ -1,7 +1,7 @@
 /**
- * RH Agent Chart Store
+ * Savant Trader Chart Store
  *
- * Shared chart state for the RH Agent chart views.
+ * Shared chart state for the Savant Trader chart views.
  *
  * Responsibilities:
  * - Load D/W/M chart data via ChartService.
@@ -43,7 +43,7 @@ export const DEFAULT_CHART_STRATEGIES = [
   StrategyFamily.TREND_STRENGTH,
 ];
 
-export interface RhAgentChartState {
+export interface ChartState {
   /** Currently selected symbol for chart loading. */
   selectedSymbol: string | null;
   /** Loading state for the chart data fetch. */
@@ -60,7 +60,7 @@ export interface RhAgentChartState {
   symbolDataVersion: string;
 }
 
-const initialState: RhAgentChartState = {
+const initialState: ChartState = {
   selectedSymbol: null,
   loading: false,
   error: null,
@@ -70,7 +70,7 @@ const initialState: RhAgentChartState = {
   symbolDataVersion: '',
 };
 
-export const RhAgentChartStore = signalStore(
+export const ChartStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
 

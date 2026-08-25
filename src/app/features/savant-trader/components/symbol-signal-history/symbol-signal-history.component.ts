@@ -7,7 +7,7 @@
 import { Component, ChangeDetectionStrategy, computed, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { RhSymbolRow } from '../../stores/rh-agent-group.store';
+import { SymbolRow } from '../../stores/group.store';
 import { SignalStatus } from '../../common/constants';
 
 @Component({
@@ -18,7 +18,7 @@ import { SignalStatus } from '../../common/constants';
   styleUrl: './symbol-signal-history.component.scss',
 })
 export class SymbolSignalHistoryComponent {
-  row = input.required<RhSymbolRow>();
+  row = input.required<SymbolRow>();
   readonly SignalStatus = SignalStatus;
 
   readonly recentSignals = computed(() =>

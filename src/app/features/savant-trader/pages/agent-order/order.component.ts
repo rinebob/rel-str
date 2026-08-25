@@ -1,9 +1,9 @@
 /**
- * RH Agent Order Component
+ * Savant Trader Order Component
  *
  * Final trade parameter configuration for ACCEPTED symbols.
- * Reads accepted occurrences from the shared RhAgentOccurrenceDecisionStore.
- * URL: /rh-agent/order
+ * Reads accepted occurrences from the shared OccurrenceDecisionStore.
+ * URL: /signal-order
  */
 import {
   Component,
@@ -24,30 +24,30 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
 
-import { RhAgentTriageStore } from '../../stores/rh-agent-triage.store';
-import { RhAgentOccurrenceDecisionStore } from '../../stores/rh-agent-occurrence-decision.store';
-import { RhAgentStore } from '../../stores/rh-agent.store';
+import { TriageStore } from '../../stores/triage.store';
+import { OccurrenceDecisionStore } from '../../stores/occurrence-decision.store';
+import { StStore } from '../../stores/st.store';
 
-import { AgentOccurrenceDecision, RH_AGENT_MAX_TRADE_AMOUNT } from '../../services/types';
+import { StOccurrenceDecision, ST_MAX_TRADE_AMOUNT } from '../../services/types';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { TradeRowComponent, TradeRow } from '../../components/trade-row/trade-row.component';
 
 @Component({
-  selector: 'app-rh-agent-order',
+  selector: 'app-signal-order',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule, MatSlideToggleModule, MatTooltipModule, TradeRowComponent],
-  templateUrl: './rh-agent-order.component.html',
-  styleUrl: './rh-agent-order.component.scss',
+  templateUrl: './order.component.html',
+  styleUrl: './order.component.scss',
 })
-export class RhAgentOrderComponent {
-  readonly triageStore = inject(RhAgentTriageStore);
-  readonly occurrenceStore = inject(RhAgentOccurrenceDecisionStore);
-  readonly agentStore = inject(RhAgentStore);
+export class OrderComponent {
+  readonly triageStore = inject(TriageStore);
+  readonly occurrenceStore = inject(OccurrenceDecisionStore);
+  readonly agentStore = inject(StStore);
   readonly uiState = inject(UiStateService);
   private readonly router = inject(Router);
 
   readonly tradeRows = signal<TradeRow[]>([]);
-  readonly maxTradeAmount = RH_AGENT_MAX_TRADE_AMOUNT;
+  readonly maxTradeAmount = ST_MAX_TRADE_AMOUNT;
 
   /** Tracks the last run whose decisions were loaded so we don't reload on every signal change. */
   private loadedRunId: string | null = null;
@@ -93,7 +93,7 @@ export class RhAgentOrderComponent {
     const existing = untracked(() => this.tradeRows());
     const existingBySymbol = new Map(existing.map((r) => [r.symbol, r]));
 
-    const decisionBySymbol = new Map<string, AgentOccurrenceDecision>();
+    const decisionBySymbol = new Map<string, StOccurrenceDecision>();
     for (const d of decisions) {
       const current = decisionBySymbol.get(d.symbol);
       if (!current || d.barDate > current.barDate) {
@@ -107,7 +107,7 @@ export class RhAgentOrderComponent {
       if (row) return row;
       const decision = decisionBySymbol.get(symbol);
       if (!decision) {
-        throw new Error(`[RhAgentOrderComponent] No accepted occurrence decision for symbol ${symbol}`);
+        throw new Error(`[OrderComponent] No accepted occurrence decision for symbol ${symbol}`);
       }
       return {
         symbol,
@@ -115,7 +115,7 @@ export class RhAgentOrderComponent {
         signalType: decision.signalType,
         barDate: decision.barDate,
         timeframe: decision.timeframe,
-        positionSize: RH_AGENT_MAX_TRADE_AMOUNT,
+        positionSize: ST_MAX_TRADE_AMOUNT,
         stopLossPercent: 8,
         enabled: true,
       };

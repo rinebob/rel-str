@@ -1,6 +1,6 @@
 import { SignalTimeframe, SignalDirection, SignalStatus, SIGNAL_FILTER_ALL, ReviewDecision, GroupDimension } from '../common/constants';
-import type { AgentSignalItem, AgentSymbolProfile } from '../services/types';
-import type { RhSymbolGroup } from '../stores/rh-agent-group.store';
+import type { StSignalItem, StSymbolProfile } from '../services/types';
+import type { SymbolGroup } from '../stores/group.store';
 import {
   matchesSignalFilter,
   filterSignals,
@@ -11,11 +11,11 @@ import {
   BuildSymbolGroupsInput,
   mapSymbolProfile,
 } from './utils';
-import { AgentSymbolSource } from '../services/types';
+import { StSymbolSource } from '../services/types';
 
 const mockSignal = (
-  overrides: Partial<AgentSignalItem> = {}
-): AgentSignalItem => ({
+  overrides: Partial<StSignalItem> = {}
+): StSignalItem => ({
   id: '2026-07-10',
   symbol: 'AAPL',
   barDate: '2026-07-10',
@@ -33,8 +33,8 @@ const TEST_CREATED_AT = '2026-01-01T00:00:00.000Z';
 
 const mockProfile = (
   createdAt: string,
-  overrides: Partial<Omit<AgentSymbolProfile, 'createdAt'>> = {}
-): AgentSymbolProfile => ({
+  overrides: Partial<Omit<StSymbolProfile, 'createdAt'>> = {}
+): StSymbolProfile => ({
   symbol: 'AAPL',
   name: 'Apple Inc.',
   sector: 'Technology',
@@ -151,11 +151,11 @@ describe('buildSymbolGroups', () => {
     const groups = buildSymbolGroups(input);
     expect(groups.length).toBe(2);
 
-    const technology = groups.find((g: RhSymbolGroup) => g.key === 'Technology');
+    const technology = groups.find((g: SymbolGroup) => g.key === 'Technology');
     expect(technology?.rows.length).toBe(2);
     expect(technology?.rows[0].profile.symbol).toBe('AAPL');
 
-    const energy = groups.find((g: RhSymbolGroup) => g.key === 'Energy');
+    const energy = groups.find((g: SymbolGroup) => g.key === 'Energy');
     expect(energy?.rows.length).toBe(1);
   });
 
@@ -218,7 +218,7 @@ describe('mapSymbolProfile', () => {
     const raw: Record<string, unknown> = {
       symbol: 'AAPL',
       createdAt: '2026-07-13T20:00:00Z',
-      source: AgentSymbolSource.PARTNER_UNIVERSE,
+      source: StSymbolSource.PARTNER_UNIVERSE,
       name: 'Apple Inc.',
       sector: 'Technology',
       marketCap: 3000e9,
@@ -228,7 +228,7 @@ describe('mapSymbolProfile', () => {
     expect(profile.symbol).toBe('AAPL');
     expect(profile.enabled).toBe(true);
     expect(profile.createdAt).toBe('2026-07-13T20:00:00Z');
-    expect(profile.source).toBe(AgentSymbolSource.PARTNER_UNIVERSE);
+    expect(profile.source).toBe(StSymbolSource.PARTNER_UNIVERSE);
     expect(profile.name).toBe('Apple Inc.');
     expect(profile.marketCap).toBe(3000e9);
     expect(profile.marketCapTier).toBe('mega');

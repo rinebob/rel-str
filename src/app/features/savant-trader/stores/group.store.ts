@@ -1,5 +1,5 @@
 /**
- * RH Agent Group Store
+ * Savant Trader Group Store
  *
  * Manages the symbol-centric grouped review state.
  * Primary data model for Phase 5 grouped review UI.
@@ -24,16 +24,16 @@ import { forkJoin } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import {
-  type AgentSymbolProfile,
-  type AgentSignalItem,
-  type AgentRun,
+  type StSymbolProfile,
+  type StSignalItem,
+  type StRun,
 } from '../services/types';
 import { SignalService } from '../services/signal.service';
-import { RhAgentStore } from './rh-agent.store';
-import { RhAgentTriageStore } from './rh-agent-triage.store';
-import { RhAgentSymbolListStore } from './rh-agent-symbol-list.store';
-import { RhAgentSymbolHistoryStore } from './rh-agent-symbol-history.store';
-import { RhAgentOccurrenceDecisionStore } from './rh-agent-occurrence-decision.store';
+import { StStore } from './st.store';
+import { TriageStore } from './triage.store';
+import { SymbolListStore } from './symbol-list.store';
+import { SymbolHistoryStore } from './symbol-history.store';
+import { OccurrenceDecisionStore } from './occurrence-decision.store';
 import {
   GroupDimension,
   ReviewDecision,
@@ -53,20 +53,20 @@ import { SignalReviewUiStore } from './signal-review-ui.store';
 // ---------------------------------------------------------------------------
 
 /** A symbol row in the grouped list â€” profile + triage state. */
-export interface RhSymbolRow {
-  profile: AgentSymbolProfile;
+export interface SymbolRow {
+  profile: StSymbolProfile;
   /** True if the symbol has a signal for the active run. */
   hasSignal: boolean;
-  signals?: AgentSignalItem[];
+  signals?: StSignalItem[];
   signalsLoading?: boolean;
   reviewStatus: ReviewDecision;
 }
 
 /** A rendered group in the expansion panel list. */
-export interface RhSymbolGroup {
+export interface SymbolGroup {
   /** Group key â€” e.g. 'Technology', 'large', 'NASDAQ' */
   key: string;
-  rows: RhSymbolRow[];
+  rows: SymbolRow[];
   /** Long signal count for the active timeframe. */
   longCount: number;
   /** Short signal count for the active timeframe. */
@@ -77,7 +77,7 @@ export interface RhSymbolGroup {
 // State
 // ---------------------------------------------------------------------------
 
-export interface RhAgentGroupState {
+export interface GroupState {
   /** Active run ID being reviewed. */
   activeRunId: string | null;
   /** Cached market date of the active run (YYYY-MM-DD). Prefer the canonical value from viewedRun(). */
@@ -85,7 +85,7 @@ export interface RhAgentGroupState {
   /** Current grouping dimension. */
   groupDimension: GroupDimension;
   /** All signal symbols returned from the callable (W + D merged). */
-  signalSymbols: AgentSymbolProfile[];
+  signalSymbols: StSymbolProfile[];
   /** Loading state for the main symbol list query. */
   symbolsLoading: boolean;
   symbolsError: string | null;
@@ -96,12 +96,12 @@ export interface RhAgentGroupState {
   /** Whether the "show all symbols" mode is active. */
   showAllSymbols: boolean;
   /** All enabled symbols â€” loaded on demand when showAllSymbols is toggled on. */
-  allSymbols: AgentSymbolProfile[];
+  allSymbols: StSymbolProfile[];
   /** Loading state for the all-symbols query. */
   allSymbolsLoading: boolean;
 }
 
-const initialState: RhAgentGroupState = {
+const initialState: GroupState = {
   activeRunId: null,
   _activeRunMarketDate: null,
   groupDimension: GroupDimension.SECTOR,
@@ -119,7 +119,7 @@ const initialState: RhAgentGroupState = {
 // Store
 // ---------------------------------------------------------------------------
 
-export const RhAgentGroupStore = signalStore(
+export const GroupStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
 
@@ -128,10 +128,10 @@ export const RhAgentGroupStore = signalStore(
     signalService = inject(SignalService),
     snackBar = inject(MatSnackBar),
     destroyRef = inject(DestroyRef),
-    triageStore = inject(RhAgentTriageStore),
-    occurrenceStore = inject(RhAgentOccurrenceDecisionStore),
-    symbolListStore = inject(RhAgentSymbolListStore),
-    historyStore = inject(RhAgentSymbolHistoryStore),
+    triageStore = inject(TriageStore),
+    occurrenceStore = inject(OccurrenceDecisionStore),
+    symbolListStore = inject(SymbolListStore),
+    historyStore = inject(SymbolHistoryStore),
   ) => ({
     /** Set the active run, clear in-memory triage state, load durable occurrence decisions, and reload symbols. */
     setActiveRun(runId: string, marketDate: string): void {
@@ -166,7 +166,7 @@ export const RhAgentGroupStore = signalStore(
         .subscribe({
           next: ([weeklySymbols, dailySymbols]) => {
             // Merge: build map keyed by symbol, W first then D overlay
-            const map = new Map<string, AgentSymbolProfile>();
+            const map = new Map<string, StSymbolProfile>();
             for (const s of weeklySymbols) map.set(s.symbol, s);
             for (const s of dailySymbols) {
               if (!map.has(s.symbol)) map.set(s.symbol, s);
@@ -222,7 +222,7 @@ export const RhAgentGroupStore = signalStore(
           error: (err: unknown) => {
             patchState(state, { allSymbolsLoading: false });
             snackBar.open('Failed to load all symbols', 'Dismiss', { duration: 5000 });
-            console.error('[RhAgentGroupStore] Failed to load all symbols:', err);
+            console.error('[GroupStore] Failed to load all symbols:', err);
           },
         });
     },
@@ -233,13 +233,13 @@ export const RhAgentGroupStore = signalStore(
     },
   })),
 
-  withComputed((state, triageStore = inject(RhAgentTriageStore), symbolListStore = inject(RhAgentSymbolListStore), historyStore = inject(RhAgentSymbolHistoryStore), uiStore = inject(SignalReviewUiStore)) => ({
+  withComputed((state, triageStore = inject(TriageStore), symbolListStore = inject(SymbolListStore), historyStore = inject(SymbolHistoryStore), uiStore = inject(SignalReviewUiStore)) => ({
     /**
      * Grouped view â€” groups built from signalSymbols, sorted by marketCap desc within group.
      * Reads signalFilter directly from SignalReviewUiStore â€” single source of truth, no copy.
      * When showAllSymbols is true, non-signal symbols are included; otherwise only signal symbols.
      */
-    groups: computed((): RhSymbolGroup[] =>
+    groups: computed((): SymbolGroup[] =>
       buildSymbolGroups({
         signalSymbols: state.signalSymbols(),
         allSymbols: state.allSymbols(),
@@ -256,13 +256,13 @@ export const RhAgentGroupStore = signalStore(
     ),
   })),
 
-  withComputed((state, symbolListStore = inject(RhAgentSymbolListStore), uiStore = inject(SignalReviewUiStore)) => ({
+  withComputed((state, symbolListStore = inject(SymbolListStore), uiStore = inject(SignalReviewUiStore)) => ({
     /**
      * Profiles that pass the active list and signal filters, using profile data.
      * Kept separate from the history-backed `groups()` so header counts and the
      * flat symbol list are stable while per-symbol signal histories finish loading.
      */
-    filteredProfiles: computed((): AgentSymbolProfile[] => {
+    filteredProfiles: computed((): StSymbolProfile[] => {
       const candidates = buildFilteredCandidates({
         signalSymbols: state.signalSymbols(),
         allSymbols: state.allSymbols(),
@@ -292,7 +292,7 @@ export const RhAgentGroupStore = signalStore(
     ),
   })),
 
-  withComputed((state, historyStore = inject(RhAgentSymbolHistoryStore)) => ({
+  withComputed((state, historyStore = inject(SymbolHistoryStore)) => ({
     /** Total visible symbol count across all groups. */
     totalSignalCount: computed(() => state.filteredProfileCounts().total),
 
@@ -308,30 +308,30 @@ export const RhAgentGroupStore = signalStore(
     shortCount: computed(() => state.filteredProfileCounts().short),
 
     /** Currently selected symbol's loaded signals (from the history store cache). */
-    selectedSymbolSignals: computed((): AgentSignalItem[] => {
+    selectedSymbolSignals: computed((): StSignalItem[] => {
       const sym = state.selectedSymbol();
       if (!sym) return [];
       return historyStore.signalHistoryCache()[sym] ?? [];
     }),
 
     /** Profile of the currently selected symbol. */
-    selectedSymbolProfile: computed((): AgentSymbolProfile | null => {
+    selectedSymbolProfile: computed((): StSymbolProfile | null => {
       const sym = state.selectedSymbol();
       if (!sym) return null;
       return state.signalSymbols().find((p) => p.symbol === sym) ?? null;
     }),
   })),
 
-  withComputed((state, agentStore = inject(RhAgentStore)) => ({
+  withComputed((state, agentStore = inject(StStore)) => ({
     /** The full run document for the currently viewed run, if available in the runs stream. */
-    viewedRun: computed((): AgentRun | null => {
+    viewedRun: computed((): StRun | null => {
       const id = state.activeRunId();
       if (!id) return null;
       return agentStore.runs().find((r) => r.id === id) ?? null;
     }),
   })),
 
-  withComputed((state, agentStore = inject(RhAgentStore)) => ({
+  withComputed((state, agentStore = inject(StStore)) => ({
     /**
      * Market date of the viewed run.
      * Derived from canonical run metadata when available; falls back to the cached value set by setActiveRun.
@@ -348,7 +348,7 @@ export const RhAgentGroupStore = signalStore(
     }),
   })),
 
-  withHooks((store, agentStore = inject(RhAgentStore), uiStore = inject(SignalReviewUiStore), triageStore = inject(RhAgentTriageStore), occurrenceStore = inject(RhAgentOccurrenceDecisionStore)) => {
+  withHooks((store, agentStore = inject(StStore), uiStore = inject(SignalReviewUiStore), triageStore = inject(TriageStore), occurrenceStore = inject(OccurrenceDecisionStore)) => {
     /** Tracks the previous latest completed run ID to detect new-run transitions. */
     let previousLatestRunId: string | null = null;
 

@@ -1,7 +1,7 @@
 /**
- * RH Agent Firestore Helpers
+ * Savant Trader Firestore Helpers
  *
- * Shared, low-level helpers used by the RH Agent frontend services.
+ * Shared, low-level helpers used by the Savant Trader frontend services.
  * These were duplicated across triage, symbol-list, and symbol-meta services.
  */
 import { EnvironmentInjector, runInInjectionContext } from '@angular/core';
@@ -47,7 +47,7 @@ export interface CreatedAtDoc {
 }
 
 /** Build a stable doc id for an occurrence-level decision. */
-export function buildAgentOccurrenceDecisionId(
+export function buildStOccurrenceDecisionId(
   runId: string,
   symbol: string,
   timeframe: string,

@@ -1,7 +1,7 @@
 /**
- * RhAgentSymbolListStore
+ * SymbolListStore
  *
- * Manages user-defined symbol lists for the RH Agent grouped review.
+ * Manages user-defined symbol lists for the Savant Trader grouped review.
  * Responsibilities:
  * - Load symbol lists from Firestore
  * - Track active list filter
@@ -20,24 +20,24 @@ import {
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { SymbolListService } from '../services/symbol-list.service';
-import { RhSymbolListName, ALL_SYMBOL_LIST_NAMES } from '../common/constants';
+import { SymbolListName, ALL_SYMBOL_LIST_NAMES } from '../common/constants';
 
-export interface RhAgentSymbolListState {
+export interface SymbolListState {
   /** User-defined symbol lists: listName -> symbols[]. */
   symbolLists: Record<string, string[]>;
   /** Loading state for symbol lists. */
   symbolListsLoading: boolean;
   /** Active list filter â€” 'ALL' shows everything. */
-  activeListFilter: RhSymbolListName | 'ALL';
+  activeListFilter: SymbolListName | 'ALL';
 }
 
-const initialState: RhAgentSymbolListState = {
+const initialState: SymbolListState = {
   symbolLists: {},
   symbolListsLoading: false,
   activeListFilter: 'ALL',
 };
 
-export const RhAgentSymbolListStore = signalStore(
+export const SymbolListStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
   withMethods((
@@ -58,7 +58,7 @@ export const RhAgentSymbolListStore = signalStore(
           patchState(state, { symbolLists: record, symbolListsLoading: false });
         },
         error: (err: unknown) => {
-          console.error('[RhAgentSymbolListStore] Failed to load symbol lists:', err);
+          console.error('[SymbolListStore] Failed to load symbol lists:', err);
           patchState(state, { symbolListsLoading: false });
           snackBar.open('Failed to load symbol lists', 'Dismiss', { duration: 5000 });
         },
@@ -66,7 +66,7 @@ export const RhAgentSymbolListStore = signalStore(
     },
 
     /** Set the active list filter for the grouped review. */
-    setActiveListFilter(filter: RhSymbolListName | 'ALL'): void {
+    setActiveListFilter(filter: SymbolListName | 'ALL'): void {
       patchState(state, { activeListFilter: filter });
     },
 
@@ -75,7 +75,7 @@ export const RhAgentSymbolListStore = signalStore(
      * List membership is exclusive: a symbol can only be in one list at a time.
      * Uses an atomic Firestore batch write to guarantee consistency.
      */
-    toggleSymbolInList(symbol: string, listName: string | RhSymbolListName): void {
+    toggleSymbolInList(symbol: string, listName: string | SymbolListName): void {
       const normalized = symbol.toUpperCase();
       const previousLists = state.symbolLists();
       const isInList = (previousLists[listName] ?? []).includes(normalized);
@@ -105,7 +105,7 @@ export const RhAgentSymbolListStore = signalStore(
       listService.moveToList(symbol, targetList, ALL_SYMBOL_LIST_NAMES.map(n => n as string)).subscribe({
         error: (err: unknown) => {
           const message = err instanceof Error ? err.message : 'Unknown error';
-          console.error(`[RhAgentSymbolListStore] Failed to toggle ${symbol} in ${listName}:`, err);
+          console.error(`[SymbolListStore] Failed to toggle ${symbol} in ${listName}:`, err);
           snackBar.open(`Failed to save ${symbol} to ${listName}: ${message}`, 'Dismiss', {
             duration: 5000,
           });
@@ -116,7 +116,7 @@ export const RhAgentSymbolListStore = signalStore(
     },
 
     /** Add a symbol to a named list. */
-    addSymbolToList(symbol: string, listName: string | RhSymbolListName): void {
+    addSymbolToList(symbol: string, listName: string | SymbolListName): void {
       const normalized = symbol.toUpperCase();
       const current = { ...state.symbolLists() };
       const list = current[listName] ?? [];
@@ -126,7 +126,7 @@ export const RhAgentSymbolListStore = signalStore(
 
       listService.addToList(symbol, listName).subscribe({
         error: (err: unknown) => {
-          console.error(`[RhAgentSymbolListStore] Failed to add ${symbol} to ${listName}:`, err);
+          console.error(`[SymbolListStore] Failed to add ${symbol} to ${listName}:`, err);
           patchState(state, {
             symbolLists: {
               ...state.symbolLists(),
@@ -138,7 +138,7 @@ export const RhAgentSymbolListStore = signalStore(
     },
 
     /** Remove a symbol from a named list. */
-    removeSymbolFromList(symbol: string, listName: string | RhSymbolListName): void {
+    removeSymbolFromList(symbol: string, listName: string | SymbolListName): void {
       const normalized = symbol.toUpperCase();
       const current = { ...state.symbolLists() };
       const list = current[listName] ?? [];
@@ -147,7 +147,7 @@ export const RhAgentSymbolListStore = signalStore(
 
       listService.removeFromList(symbol, listName).subscribe({
         error: (err: unknown) => {
-          console.error(`[RhAgentSymbolListStore] Failed to remove ${symbol} from ${listName}:`, err);
+          console.error(`[SymbolListStore] Failed to remove ${symbol} from ${listName}:`, err);
           patchState(state, {
             symbolLists: {
               ...state.symbolLists(),

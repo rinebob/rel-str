@@ -1,7 +1,7 @@
 /**
  * Angular wrapper around the options strategy BE callables.
  * Uses the same httpsCallable + runInInjectionContext pattern as other
- * RH Agent services.
+ * Savant Trader services.
  */
 
 import { inject, Injectable, EnvironmentInjector, runInInjectionContext } from '@angular/core';

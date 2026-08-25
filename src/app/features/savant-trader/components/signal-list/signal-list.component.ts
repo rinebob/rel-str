@@ -10,7 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule, MatIconButton } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-import { AgentSignalItem } from '../../services/types';
+import { StSignalItem } from '../../services/types';
 import { SignalService } from '../../services/signal.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { SignalDirection, SignalTimeframe } from '../../common/constants';
@@ -50,7 +50,7 @@ export class SignalListComponent {
   symbolSelected = output<string>();
 
   /** Signal history cache keyed by symbol â€” reactive so items() computed re-runs on load */
-  private signalHistoryCache = signal<Record<string, AgentSignalItem[]>>({});
+  private signalHistoryCache = signal<Record<string, StSignalItem[]>>({});
 
   /** Timeframe filter for history mode: 'all' | daily | weekly */
   timeframeFilter = signal<'all' | SignalTimeframe>('all');
@@ -67,7 +67,7 @@ export class SignalListComponent {
         trackId: `${manual}-${s.runId}-${s.barDate}-${s.timeframe}-${s.signalType}`,
         symbol: manual,
         latestSignal: s,
-        recentSignals: [] as AgentSignalItem[],
+        recentSignals: [] as StSignalItem[],
         isHistoryRow: true,
       }));
     }

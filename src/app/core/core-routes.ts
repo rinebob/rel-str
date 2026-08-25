@@ -94,8 +94,8 @@ import { authGuard } from './auth/auth.guard';
                 canActivate: [authGuard],
             },
             {path: AppRoutes.RUN_DASHBOARD,
-                loadComponent: () => import('../features/savant-trader/pages/agent-dashboard/rh-agent-dashboard.component')
-                .then(mod => mod.RhAgentDashboardComponent),
+                loadComponent: () => import('../features/savant-trader/pages/run-dashboard/dashboard.component')
+                .then(mod => mod.DashboardComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.CHART_REVIEW,
@@ -109,17 +109,17 @@ import { authGuard } from './auth/auth.guard';
                 canActivate: [authGuard],
             },
             {path: AppRoutes.SIGNAL_ORDER,
-                loadComponent: () => import('../features/savant-trader/pages/agent-order/rh-agent-order.component')
-                .then(mod => mod.RhAgentOrderComponent),
+                loadComponent: () => import('../features/savant-trader/pages/agent-order/order.component')
+                .then(mod => mod.OrderComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.SIGNAL_ACTION_REPORT,
-                loadComponent: () => import('../features/savant-trader/pages/agent-triage-report/rh-agent-triage-report.component')
-                .then(mod => mod.RhAgentTriageReportComponent),
+                loadComponent: () => import('../features/savant-trader/pages/signal-action-report/triage-report.component')
+                .then(mod => mod.TriageReportComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.RH_ACCOUNT_INQUIRY,
-                loadComponent: () => import('../features/savant-trader/pages/observation-dashboard/observation-dashboard.component')
+                loadComponent: () => import('../features/savant-trader/pages/rh-account-inquiry/observation-dashboard.component')
                 .then(mod => mod.ObservationDashboardComponent),
                 canActivate: [authGuard],
             },
