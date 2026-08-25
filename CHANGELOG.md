@@ -5,11 +5,15 @@
 ### Added
 - [Savant Trader] 176-192_SHARED-IMPL-SAVANT-TRADER: Add OrderIntent discriminated union type model
 - [Savant Trader] 176-177_DOCS-DOCS-SAVANT-TRADER: Add code review doc for Savant Trader rename
+- [Savant Trader] 176-189-190_DOCS-DOCS-SAVANT-TRADER: Add code review doc for S1f/S1g store and page rename
 
 ### Changed
 - [Savant Trader] 176-188_SHARED-REFACTOR-SAVANT-TRADER: Rename services/ files and classes, fix callable names
 - [Savant Trader] 176-191_SHARED-REFACTOR-SAVANT-TRADER: Rename utils/ and common/ files and classes
 - [Savant Trader] 176-193_BE-REFACTOR-SAVANT-TRADER: Rename BE directory, files, classes, collection constants, and firestore rules
+- [Savant Trader] 176-189-190_BE-REFACTOR-SAVANT-TRADER: Fix broken BE script imports and update st-cloud-function README
+- [Savant Trader] 176-189-190_SHARED-REFACTOR-SAVANT-TRADER: Rename stores, pages, components, services, types, and constants
+- [Savant Trader] 176-189-190_TESTS-REFACTOR-SAVANT-TRADER: Update test imports and mock methods for st- rename
 
 ## [2026-08-24]
 
