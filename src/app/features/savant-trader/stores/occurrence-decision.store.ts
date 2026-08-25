@@ -26,7 +26,7 @@ import {
   StOccurrenceDecision,
   DurableDecisionType,
 } from '../services/types';
-import { ReviewDecision } from '../common/constants';
+import { ReviewDecision, ALL_REVIEW_STATUSES, StatusCounts } from '../common/constants';
 import { buildStOccurrenceDecisionId } from '../services/firestore-helpers';
 
 export interface OccurrenceDecisionState {
@@ -46,6 +46,14 @@ const initialState: OccurrenceDecisionState = {
 
 function decisionId(runId: string, symbol: string, timeframe: string, signalType: string): string {
   return buildStOccurrenceDecisionId(runId, symbol, timeframe, signalType);
+}
+
+const DURABLE_RANKED = [ReviewDecision.ACCEPT, ReviewDecision.REJECT];
+
+/** Pick the higher-priority durable status. ACCEPT wins over REJECT. */
+function rankDurable(current: ReviewDecision | null, next: ReviewDecision): ReviewDecision {
+  if (!current) return next;
+  return DURABLE_RANKED.indexOf(next) < DURABLE_RANKED.indexOf(current) ? next : current;
 }
 
 function buildDecision(
@@ -114,6 +122,31 @@ export const OccurrenceDecisionStore = signalStore(
 
       /** True while decisions are loading. */
       loading: computed((): boolean => state.decisionsLoading()),
+
+      /** Per-symbol durable decision status (ACCEPT/REJECT) for the current run. */
+      statusBySymbol: computed((): Record<string, ReviewDecision> => {
+        const map: Record<string, ReviewDecision> = {};
+        for (const d of Object.values(state.occurrenceDecisions())) {
+          if (!d.isCurrentInLatestRun) continue;
+          map[d.symbol] = rankDurable(map[d.symbol] ?? null, d.decisionType);
+        }
+        return map;
+      }),
+
+      /** Counts of durable decision statuses (ACCEPT/REJECT) for the current run. */
+      durableStatusCounts: computed((): StatusCounts => {
+        const counts = Object.fromEntries(
+          ALL_REVIEW_STATUSES.map((s) => [s, 0])
+        ) as StatusCounts;
+        const seen = new Set<string>();
+        for (const d of Object.values(state.occurrenceDecisions())) {
+          if (!d.isCurrentInLatestRun) continue;
+          if (seen.has(d.symbol)) continue;
+          seen.add(d.symbol);
+          counts[d.decisionType]++;
+        }
+        return counts;
+      }),
     };
   }),
 
@@ -122,6 +155,18 @@ export const OccurrenceDecisionStore = signalStore(
     occurrenceService = inject(OccurrenceDecisionService),
     snackBar = inject(MatSnackBar),
   ) => ({
+    /** Returns the durable decision status for a symbol in the current run, or PENDING if none. */
+    statusForSymbol(symbol: string): ReviewDecision {
+      const normalized = symbol.toUpperCase();
+      let result: ReviewDecision | null = null;
+      for (const d of Object.values(state.occurrenceDecisions())) {
+        if (!d.isCurrentInLatestRun) continue;
+        if (d.symbol !== normalized) continue;
+        result = rankDurable(result, d.decisionType);
+      }
+      return result ?? ReviewDecision.PENDING;
+    },
+
     /** Persist ACCEPT decisions for the given signal occurrences in the active run. */
     acceptSignals(signals: StSignalItem[], runId: string, marketDate: string): void {
       this.persistSignalDecisions(signals, runId, marketDate, ReviewDecision.ACCEPT);

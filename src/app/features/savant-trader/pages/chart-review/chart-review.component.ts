@@ -115,7 +115,7 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
   /** Status of the currently selected review symbol. */
   selectedSymbolStatus = computed(() => {
     const symbol = this.selectedReviewSymbol();
-    return symbol ? (this.triageStore.statuses()[symbol] ?? 'PENDING') : 'PENDING';
+    return symbol ? this.occurrenceStore.statusForSymbol(symbol) : ReviewDecision.PENDING;
   });
 
   /** Expose the actionable-run predicate from the group store for the template. */
@@ -195,7 +195,6 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
       if (signals.length === 0) return;
       const runId = this.groupStore.activeRunId()!;
       this.occurrenceStore.acceptSignals(signals, runId, marketDate);
-      this.triageStore.setStatus(symbol, ReviewDecision.ACCEPT);
       this.advanceReviewQueue(symbol);
     });
   }
@@ -205,7 +204,7 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     if (!this.isActionableRun()) return;
     const symbol = this.selectedReviewSymbol();
     if (!symbol) return;
-    this.triageStore.watchSymbol(symbol);
+    this.triageStore.setScreeningStatus(symbol, ReviewDecision.WATCH);
     this.advanceReviewQueue(symbol);
   }
 
@@ -219,7 +218,6 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
       if (signals.length === 0) return;
       const runId = this.groupStore.activeRunId()!;
       this.occurrenceStore.rejectSignals(signals, runId, marketDate);
-      this.triageStore.setStatus(symbol, ReviewDecision.REJECT);
       this.advanceReviewQueue(symbol);
     });
   }

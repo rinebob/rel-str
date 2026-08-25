@@ -233,7 +233,7 @@ export const GroupStore = signalStore(
     },
   })),
 
-  withComputed((state, triageStore = inject(TriageStore), symbolListStore = inject(SymbolListStore), historyStore = inject(SymbolHistoryStore), uiStore = inject(SignalReviewUiStore)) => ({
+  withComputed((state, triageStore = inject(TriageStore), occurrenceStore = inject(OccurrenceDecisionStore), symbolListStore = inject(SymbolListStore), historyStore = inject(SymbolHistoryStore), uiStore = inject(SignalReviewUiStore)) => ({
     /**
      * Grouped view â€” groups built from signalSymbols, sorted by marketCap desc within group.
      * Reads signalFilter directly from SignalReviewUiStore â€” single source of truth, no copy.
@@ -247,7 +247,7 @@ export const GroupStore = signalStore(
         dimension: state.groupDimension(),
         symbolLists: symbolListStore.symbolLists(),
         activeListFilter: symbolListStore.activeListFilter(),
-        statuses: triageStore.statuses(),
+        statuses: { ...triageStore.screeningStatuses(), ...occurrenceStore.statusBySymbol() },
         historyCache: historyStore.signalHistoryCache(),
         historyLoading: historyStore.signalHistoryLoading(),
         activeRunId: state.activeRunId(),
@@ -377,29 +377,7 @@ export const GroupStore = signalStore(
           uiStore.setDirectionFilter(SignalDirection.ALL);
           uiStore.setAllExpanded(false, []);
           patchState(store, { selectedSymbol: null, quickChartSymbol: null });
-          triageStore.clearEphemeralScreeningState();
-        });
-
-        effect(() => {
-          const runId = store.activeRunId();
-          const decisions = occurrenceStore.occurrenceDecisions();
-          if (!runId) return;
-
-          // Aggregate per-symbol status from possibly multiple occurrences.
-          // ACCEPT wins over REJECT.
-          const ranked = [ReviewDecision.ACCEPT, ReviewDecision.REJECT];
-          const statusMap: Record<string, ReviewDecision> = {};
-          for (const decision of Object.values(decisions)) {
-            if (decision.runId !== runId) continue;
-            const current = statusMap[decision.symbol];
-            const next = decision.decisionType;
-            if (!current) {
-              statusMap[decision.symbol] = next;
-            } else if (ranked.indexOf(next) < ranked.indexOf(current)) {
-              statusMap[decision.symbol] = next;
-            }
-          }
-          triageStore.setStatuses(statusMap);
+          triageStore.clearScreeningStatuses();
         });
       },
     };

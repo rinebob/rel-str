@@ -5,6 +5,7 @@ import { of, throwError } from 'rxjs';
 
 import { TriageStore } from './triage.store';
 import { TriageService } from '../services/triage.service';
+import { ReviewDecision } from '../common/constants';
 
 describe('TriageStore', () => {
   let store: InstanceType<typeof TriageStore>;
@@ -115,6 +116,36 @@ describe('TriageStore', () => {
   describe('reviewFlagsLoading', () => {
     it('initializes with loading false after load completes', () => {
       expect(store.loading()).toBe(false);
+    });
+  });
+
+  describe('screeningStatuses', () => {
+    it('initializes empty', () => {
+      expect(store.screeningStatuses()).toEqual({});
+    });
+
+    it('setScreeningStatus sets CONSIDER for a symbol', () => {
+      store.setScreeningStatus('AAPL', ReviewDecision.CONSIDER);
+      expect(store.screeningStatuses()['AAPL']).toBe(ReviewDecision.CONSIDER);
+    });
+
+    it('setScreeningStatus sets WATCH for a symbol', () => {
+      store.setScreeningStatus('MSFT', ReviewDecision.WATCH);
+      expect(store.screeningStatuses()['MSFT']).toBe(ReviewDecision.WATCH);
+    });
+
+    it('clearScreeningStatuses removes all screening statuses', () => {
+      store.setScreeningStatus('AAPL', ReviewDecision.CONSIDER);
+      store.setScreeningStatus('MSFT', ReviewDecision.WATCH);
+      store.clearScreeningStatuses();
+      expect(store.screeningStatuses()).toEqual({});
+    });
+
+    it('resetForRun clears both review flags and screening statuses', () => {
+      store.setScreeningStatus('AAPL', ReviewDecision.CONSIDER);
+      store.resetForRun();
+      expect(store.screeningStatuses()).toEqual({});
+      expect(store.reviewFlags()).toEqual({});
     });
   });
 });

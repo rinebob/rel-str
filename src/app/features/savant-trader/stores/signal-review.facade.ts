@@ -30,6 +30,8 @@ import {
   SignalTimeframe,
   SignalDirection,
   ReviewDecision,
+  ALL_REVIEW_STATUSES,
+  StatusCounts,
 } from '../common/constants';
 import type { StRun } from '../services/types';
 
@@ -68,7 +70,24 @@ export class SignalReviewFacade {
   readonly symbolLists = computed(() => this.symbolListStore.symbolLists());
 
   /** Triage state. */
-  readonly statusCounts = computed(() => this.triageStore.statusCounts());
+  readonly statusCounts = computed((): StatusCounts => {
+    const durable = this.occurrenceStore.durableStatusCounts();
+    const screening = this.triageStore.screeningStatuses();
+    const counts = Object.fromEntries(
+      ALL_REVIEW_STATUSES.map((s) => [s, 0])
+    ) as StatusCounts;
+    // Copy durable counts (ACCEPT/REJECT)
+    counts.ACCEPT = durable.ACCEPT;
+    counts.REJECT = durable.REJECT;
+    // Count screening statuses (CONSIDER/WATCH)
+    for (const status of Object.values(screening)) {
+      if (status === ReviewDecision.CONSIDER) counts.CONSIDER++;
+      else if (status === ReviewDecision.WATCH) counts.WATCH++;
+    }
+    // Review count from flags
+    counts.REVIEW = this.triageStore.reviewCount();
+    return counts;
+  });
   readonly reviewCount = computed(() => this.triageStore.reviewCount());
   readonly acceptedCount = computed(() => this.occurrenceStore.acceptedCount());
 
@@ -249,13 +268,16 @@ export class SignalReviewFacade {
       this.currentRunSignals(symbol).subscribe((signals) => {
         if (signals.length === 0) return;
         this.occurrenceStore.acceptSignals(signals, runId, marketDate);
-        this.triageStore.setStatus(symbol, ReviewDecision.ACCEPT);
       });
     });
   }
 
   considerSymbol(symbol: string): void {
-    this.runIfActionable(() => this.triageStore.considerSymbol(symbol));
+    this.runIfActionable(() => this.triageStore.setScreeningStatus(symbol, ReviewDecision.CONSIDER));
+  }
+
+  watchSymbol(symbol: string): void {
+    this.runIfActionable(() => this.triageStore.setScreeningStatus(symbol, ReviewDecision.WATCH));
   }
 
   rejectSymbol(symbol: string): void {
@@ -266,7 +288,6 @@ export class SignalReviewFacade {
       this.currentRunSignals(symbol).subscribe((signals) => {
         if (signals.length === 0) return;
         this.occurrenceStore.rejectSignals(signals, runId, marketDate);
-        this.triageStore.setStatus(symbol, ReviewDecision.REJECT);
       });
     });
   }
@@ -276,7 +297,6 @@ export class SignalReviewFacade {
       const runId = this.groupStore.activeRunId();
       if (!runId) return;
       this.occurrenceStore.resetSymbol(symbol, runId);
-      this.triageStore.setStatus(symbol, ReviewDecision.PENDING);
     });
   }
 
