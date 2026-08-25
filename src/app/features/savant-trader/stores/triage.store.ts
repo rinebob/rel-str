@@ -10,7 +10,8 @@
  *
  * providedIn: 'root' so state survives route navigation.
  */
-import { computed, inject } from '@angular/core';
+import { computed, inject, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   signalStore,
   withState,
@@ -108,6 +109,7 @@ export const TriageStore = signalStore(
     state,
     triageService = inject(TriageService),
     snackBar = inject(MatSnackBar),
+    destroyRef = inject(DestroyRef),
   ) => ({
     /** Set a single symbol's ACR status in ephemeral in-memory state. */
     setStatus(symbol: string, status: ReviewDecision): void {
@@ -153,28 +155,70 @@ export const TriageStore = signalStore(
 
     /** Clear review flags â€” unflag all symbols from the review queue (in-memory only). */
     clearReviewFlags(): void {
+      const prev = state.reviewFlags();
+      const flaggedSymbols = Object.entries(prev).filter(([, f]) => f).map(([s]) => s);
       patchState(state, { reviewFlags: {} });
+      if (flaggedSymbols.length === 0) return;
+      triageService.setReviewFlagsBatch(flaggedSymbols, false)
+        .pipe(takeUntilDestroyed(destroyRef))
+        .subscribe({
+          error: (err: unknown) => {
+            patchState(state, { reviewFlags: prev, reviewFlagsError: err instanceof Error ? err.message : String(err) });
+            snackBar.open('Failed to clear review flags', 'Dismiss', { duration: 3000 });
+            console.error('[TriageStore] clearReviewFlags failed:', err);
+          },
+        });
     },
 
     // --- Review flag methods (independent of ACR, dateless) ---
 
     /** Flag a symbol for review ("I want to look at this chart"). */
     markForReview(symbol: string): void {
-      patchState(state, { reviewFlags: { ...state.reviewFlags(), [symbol]: true } });
+      const prev = state.reviewFlags();
+      patchState(state, { reviewFlags: { ...prev, [symbol]: true } });
+      triageService.setReviewFlag(symbol)
+        .pipe(takeUntilDestroyed(destroyRef))
+        .subscribe({
+          error: (err: unknown) => {
+            patchState(state, { reviewFlags: prev, reviewFlagsError: err instanceof Error ? err.message : String(err) });
+            snackBar.open('Failed to flag symbol for review', 'Dismiss', { duration: 3000 });
+            console.error('[TriageStore] markForReview failed:', err);
+          },
+        });
     },
 
     /** Unflag a symbol from review. */
     unmarkFromReview(symbol: string): void {
-      const next = { ...state.reviewFlags() };
+      const prev = state.reviewFlags();
+      const next = { ...prev };
       delete next[symbol];
       patchState(state, { reviewFlags: next });
+      triageService.clearReviewFlag(symbol)
+        .pipe(takeUntilDestroyed(destroyRef))
+        .subscribe({
+          error: (err: unknown) => {
+            patchState(state, { reviewFlags: prev, reviewFlagsError: err instanceof Error ? err.message : String(err) });
+            snackBar.open('Failed to unflag symbol', 'Dismiss', { duration: 3000 });
+            console.error('[TriageStore] unmarkFromReview failed:', err);
+          },
+        });
     },
 
     /** Flag multiple symbols for review at once. */
     markGroupForReview(symbols: string[]): void {
-      const flags = { ...state.reviewFlags() };
+      const prev = state.reviewFlags();
+      const flags = { ...prev };
       for (const s of symbols) { flags[s] = true; }
       patchState(state, { reviewFlags: flags });
+      triageService.setReviewFlagsBatch(symbols, true)
+        .pipe(takeUntilDestroyed(destroyRef))
+        .subscribe({
+          error: (err: unknown) => {
+            patchState(state, { reviewFlags: prev, reviewFlagsError: err instanceof Error ? err.message : String(err) });
+            snackBar.open('Failed to flag symbols for review', 'Dismiss', { duration: 3000 });
+            console.error('[TriageStore] markGroupForReview failed:', err);
+          },
+        });
     },
 
     /** Drop all in-memory statuses and review flags. Use when switching to a different run; durable decisions for the target date will be reloaded. */
