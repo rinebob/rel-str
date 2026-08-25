@@ -8,6 +8,7 @@
 - [Savant Trader] 176-189-190_DOCS-DOCS-SAVANT-TRADER: Add code review doc for S1f/S1g store and page rename
 - [Savant Trader] 176-194_DOCS-DOCS-SAVANT-TRADER: Add code review doc for FE-A1 review flag wiring
 - [Savant Trader] 176-195_DOCS-DOCS-SAVANT-TRADER: Add code review doc for FE-A2 ephemeral status collapse
+- [Savant Trader] 176-196_DOCS-DOCS-SAVANT-TRADER: Add code review doc for FE-B1 order intent service + staging store
 
 ### Changed
 - [Savant Trader] 176-188_SHARED-REFACTOR-SAVANT-TRADER: Rename services/ files and classes, fix callable names
@@ -18,6 +19,7 @@
 - [Savant Trader] 176-189-190_TESTS-REFACTOR-SAVANT-TRADER: Update test imports and mock methods for st- rename
 - [Savant Trader] 176-194_FE-IMPL-SAVANT-TRADER: Wire TriageStore review flag methods to TriageService
 - [Savant Trader] 176-195_FE-IMPL-SAVANT-TRADER: Collapse ephemeral decision status into durable store
+- [Savant Trader] 176-196_FE-IMPL-SAVANT-TRADER: Add OrderIntentService and OrderStagingStore
 
 ## [2026-08-24]
 
