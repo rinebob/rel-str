@@ -1,10 +1,13 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Router } from '@angular/router';
+import { MatDialog } from '@angular/material/dialog';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { of } from 'rxjs';
 
 import { OrderComponent } from './order.component';
 import { OrderStagingStore } from '../../stores/order-staging.store';
+import { TradingConfigService } from '../../services/trading-config.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import {
   OrderIntent,
@@ -63,6 +66,9 @@ describe('OrderComponent', () => {
         { provide: OrderStagingStore, useValue: storeMock },
         { provide: UiStateService, useValue: uiStateMock },
         { provide: Router, useValue: routerMock },
+        { provide: TradingConfigService, useValue: { loadConfig: jasmine.createSpy('loadConfig').and.returnValue(of(null)) } },
+        { provide: MatDialog, useValue: { open: jasmine.createSpy('open').and.returnValue({ afterClosed: () => of(false) }) } },
+        { provide: MatSnackBar, useValue: { open: jasmine.createSpy('open') } },
       ],
     }).compileComponents();
 
@@ -146,24 +152,24 @@ describe('OrderComponent', () => {
     expect(routerMock.navigate).toHaveBeenCalledWith(['/signal-review']);
   });
 
-  it('shows empty placeholder when no intent is selected', () => {
+  it('shows no-selection message when no intent is selected', () => {
     storeMock.intents.set({ '1': makeIntent('1', 'AAPL') });
     fixture.detectChanges();
 
-    const placeholder = fixture.nativeElement.querySelector('.ticket-placeholder');
-    expect(placeholder).toBeTruthy();
-    expect(placeholder.textContent).toContain('Select an order');
+    const noSelection = fixture.nativeElement.querySelector('.no-selection');
+    expect(noSelection).toBeTruthy();
+    expect(noSelection.textContent).toContain('Select an order');
   });
 
-  it('shows ticket placeholder with intent info when an intent is selected', () => {
+  it('shows ticket content when an intent is selected', () => {
     const intent = makeIntent('1', 'AAPL');
     storeMock.intents.set({ '1': intent });
     component.selectedIntentId.set('1');
     fixture.detectChanges();
 
-    const placeholder = fixture.nativeElement.querySelector('.ticket-placeholder');
-    expect(placeholder).toBeTruthy();
-    expect(placeholder.textContent).toContain('Order Ticket');
+    const ticketContent = fixture.nativeElement.querySelector('.ticket-content');
+    expect(ticketContent).toBeTruthy();
+    expect(ticketContent.textContent).toContain('AAPL');
   });
 
   it('shows loading state when store is loading', () => {

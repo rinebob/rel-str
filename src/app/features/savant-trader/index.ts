@@ -88,6 +88,8 @@ export { QuickChartsPanelComponent } from './components/quick-charts-panel/quick
 export { ReviewHeaderComponent } from './components/review-header/review-header.component';
 export { TradeRowComponent, TradeRow } from './components/trade-row/trade-row.component';
 export { OrderQueueComponent } from './components/order-queue/order-queue.component';
+export { OrderTicketComponent } from './components/order-ticket/order-ticket.component';
+export { OrderConfirmDialogComponent } from './components/order-confirm-dialog/order-confirm-dialog.component';
 export { ChartToolbarComponent } from './components/chart-toolbar/chart-toolbar.component';
 export { IndicatorMenuComponent } from './components/indicator-menu/indicator-menu.component';
 export { SignalTableComponent, SignalTableRow } from './components/signal-table/signal-table.component';

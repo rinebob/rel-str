@@ -23,13 +23,14 @@ import { Router } from '@angular/router';
 
 import { OrderStagingStore } from '../../stores/order-staging.store';
 import { OrderQueueComponent } from '../../components/order-queue/order-queue.component';
+import { OrderTicketComponent } from '../../components/order-ticket/order-ticket.component';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { OrderIntent } from '../../services/order-intent.types';
 
 @Component({
   selector: 'app-signal-order',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatButtonModule, MatIconModule, MatTooltipModule, OrderQueueComponent],
+  imports: [CommonModule, MatButtonModule, MatIconModule, MatTooltipModule, OrderQueueComponent, OrderTicketComponent],
   templateUrl: './order.component.html',
   styleUrl: './order.component.scss',
 })

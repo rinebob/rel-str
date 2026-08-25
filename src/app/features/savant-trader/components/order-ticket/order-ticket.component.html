@@ -1,0 +1,172 @@
+<div class="order-ticket">
+  @if (!intent()) {
+    <!-- No selection -->
+    <div class="no-selection">
+      <mat-icon>pan_tool</mat-icon>
+      <p>Select an order from the queue</p>
+      <p class="hint">Click a row on the left to configure and submit an order.</p>
+    </div>
+  } @else {
+    <!-- Ticket content -->
+    <div class="ticket-content">
+      <!-- Header -->
+      <div class="ticket-header">
+        <div class="ticket-symbol">
+          <span class="symbol">{{ symbol() }}</span>
+          <span class="side" [class.buy]="intent()?.side === 'buy'" [class.sell]="intent()?.side === 'sell'">
+            {{ intent()?.side | uppercase }}
+          </span>
+        </div>
+        <div class="ticket-actions">
+          <button mat-icon-button (click)="onNewManualOrder()" matTooltip="New manual order">
+            <mat-icon>add</mat-icon>
+          </button>
+        </div>
+      </div>
+
+      <!-- Account number -->
+      <div class="account-section">
+        @if (hasAccount()) {
+          <span class="account-label">Account:</span>
+          <span class="account-value">{{ tradingConfig()?.accountNumber }}</span>
+        } @else {
+          <div class="account-warning">
+            <mat-icon>warning</mat-icon>
+            <span>No account number configured. Set one in settings to submit orders.</span>
+          </div>
+        }
+      </div>
+
+      <!-- Status feedback -->
+      <div class="status-section" [class]="'status-' + intent()?.status">
+        <mat-icon>{{ statusIcon() }}</mat-icon>
+        <span>{{ intent()?.status | uppercase }}</span>
+        @if (intent()?.result?.orderId) {
+          <span class="order-id">Order ID: {{ intent()?.result?.orderId?.slice(0, 8) }}…</span>
+        }
+      </div>
+
+      <!-- Error display -->
+      @if (intentError()) {
+        <div class="error-section">
+          <mat-icon>error_outline</mat-icon>
+          <div class="error-details">
+            <p class="error-message">{{ intentError()?.message }}</p>
+            @if (isRetryable()) {
+              <p class="error-hint">This error is retryable. You can retry the order.</p>
+            } @else {
+              <p class="error-hint">This error is not retryable. Edit the order and try again.</p>
+            }
+          </div>
+        </div>
+      }
+
+      <!-- Editable form -->
+      @if (isEditable()) {
+        <div class="form-section">
+          <h3>Order Parameters</h3>
+
+          <div class="form-row">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Order Type</mat-label>
+              <mat-select [value]="orderType()" (selectionChange)="orderType.set($event.value)">
+                <mat-option value="market">Market</mat-option>
+                <mat-option value="limit">Limit</mat-option>
+                <mat-option value="stop_market">Stop Market</mat-option>
+                <mat-option value="stop_limit">Stop Limit</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <div class="form-row">
+            <mat-form-field appearance="outline">
+              <mat-label>Quantity (shares)</mat-label>
+              <input matInput [value]="quantity()" (input)="quantity.set($any($event.target).value)" placeholder="100">
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Dollar Amount ($)</mat-label>
+              <input matInput [value]="dollarAmount()" (input)="dollarAmount.set($any($event.target).value)" placeholder="1000">
+            </mat-form-field>
+          </div>
+
+          @if (showLimitPrice()) {
+            <div class="form-row">
+              <mat-form-field appearance="outline">
+                <mat-label>Limit Price ($)</mat-label>
+                <input matInput [value]="limitPrice()" (input)="limitPrice.set($any($event.target).value)" placeholder="0.00">
+              </mat-form-field>
+            </div>
+          }
+
+          @if (showStopPrice()) {
+            <div class="form-row">
+              <mat-form-field appearance="outline">
+                <mat-label>Stop Price ($)</mat-label>
+                <input matInput [value]="stopPrice()" (input)="stopPrice.set($any($event.target).value)" placeholder="0.00">
+              </mat-form-field>
+            </div>
+          }
+
+          <div class="form-row">
+            <mat-form-field appearance="outline">
+              <mat-label>Time in Force</mat-label>
+              <mat-select [value]="timeInForce()" (selectionChange)="timeInForce.set($event.value)">
+                <mat-option value="gfd">Day (GFD)</mat-option>
+                <mat-option value="gtc">Good til Cancelled (GTC)</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Market Hours</mat-label>
+              <mat-select [value]="marketHours()" (selectionChange)="marketHours.set($event.value)">
+                <mat-option value="regular_hours">Regular Hours</mat-option>
+                <mat-option value="extended_hours">Extended Hours</mat-option>
+                <mat-option value="all_day_hours">All Day Hours</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+        </div>
+      }
+
+      <!-- Live preview -->
+      @if (preview()) {
+        <div class="preview-section">
+          <h3>Preview</h3>
+          <pre class="preview-json">{{ preview() | json }}</pre>
+        </div>
+      }
+
+      <!-- Action buttons -->
+      <div class="action-section">
+        @if (isEditable()) {
+          <button mat-flat-button color="primary" (click)="onSubmit()" [disabled]="!hasAccount()">
+            <mat-icon>send</mat-icon>
+            Submit Order
+          </button>
+        }
+
+        @if (intent()?.status === OrderIntentStatus.FAILED && isRetryable()) {
+          <button mat-stroked-button color="primary" (click)="onRetry()">
+            <mat-icon>refresh</mat-icon>
+            Retry
+          </button>
+        }
+
+        @if (isSubmitted()) {
+          <button mat-stroked-button color="warn" (click)="onCancel()">
+            <mat-icon>cancel</mat-icon>
+            Cancel Order
+          </button>
+        }
+
+        @if (isSubmitting()) {
+          <div class="submitting-indicator">
+            <mat-icon>hourglass_empty</mat-icon>
+            <span>Submitting…</span>
+          </div>
+        }
+      </div>
+    </div>
+  }
+</div>

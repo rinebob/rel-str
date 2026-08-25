@@ -28,7 +28,7 @@
       (removeIntents)="onRemoveIntents($event)">
     </app-order-queue>
 
-    <!-- Right: Ticket placeholder (FE-C1b) -->
+    <!-- Right: Ticket -->
     <div class="ticket-wrapper">
       @if (loading()) {
         <div class="loading-state">
@@ -41,22 +41,8 @@
           <p>Failed to load orders</p>
           <p class="hint">{{ error() }}</p>
         </div>
-      } @else if (selectedIntent()) {
-        <div class="ticket-placeholder">
-          <mat-icon>receipt_long</mat-icon>
-          <p>Order Ticket</p>
-          <p class="hint">
-            Selected: {{ selectedIntent()?.side }} {{ selectedIntent()?.orderType }}
-            {{ selectedIntent()?.id?.slice(0, 8) }}
-          </p>
-          <p class="hint">Ticket component (FE-C1b) will be implemented in the next task.</p>
-        </div>
       } @else {
-        <div class="ticket-placeholder">
-          <mat-icon>pan_tool</mat-icon>
-          <p>Select an order from the queue</p>
-          <p class="hint">Click a row on the left to configure and submit an order.</p>
-        </div>
+        <app-order-ticket [intent]="selectedIntent()"></app-order-ticket>
       }
     </div>
   </div>

@@ -1,0 +1,59 @@
+<h2 mat-dialog-title>
+  <mat-icon>warning_amber</mat-icon>
+  Confirm Order
+</h2>
+
+<mat-dialog-content>
+  <div class="confirm-summary">
+    <div class="confirm-row">
+      <span class="label">Symbol</span>
+      <span class="value">{{ symbol() }}</span>
+    </div>
+    <div class="confirm-row">
+      <span class="label">Side</span>
+      <span class="value" [class.buy]="intent().side === 'buy'" [class.sell]="intent().side === 'sell'">
+        {{ intent().side | uppercase }}
+      </span>
+    </div>
+    <div class="confirm-row">
+      <span class="label">Order Type</span>
+      <span class="value">{{ intent().orderType | uppercase }}</span>
+    </div>
+    <div class="confirm-row">
+      <span class="label">Quantity</span>
+      <span class="value">{{ quantity() }}</span>
+    </div>
+    @if (limitPrice()) {
+      <div class="confirm-row">
+        <span class="label">Limit Price</span>
+        <span class="value">${{ limitPrice() }}</span>
+      </div>
+    }
+    @if (stopPrice()) {
+      <div class="confirm-row">
+        <span class="label">Stop Price</span>
+        <span class="value">${{ stopPrice() }}</span>
+      </div>
+    }
+    <div class="confirm-row">
+      <span class="label">Time in Force</span>
+      <span class="value">{{ intent().timeInForce | uppercase }}</span>
+    </div>
+    <div class="confirm-row">
+      <span class="label">Market Hours</span>
+      <span class="value">{{ intent().marketHours }}</span>
+    </div>
+    <div class="confirm-row">
+      <span class="label">Account</span>
+      <span class="value">{{ intent().accountNumber }}</span>
+    </div>
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="onCancel()">Cancel</button>
+  <button mat-flat-button color="primary" (click)="onConfirm()">
+    <mat-icon>send</mat-icon>
+    Submit Order
+  </button>
+</mat-dialog-actions>

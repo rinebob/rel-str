@@ -1,0 +1,229 @@
+.order-ticket {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--mat-sys-surface-container);
+}
+
+// ========================================
+// NO SELECTION
+// ========================================
+.no-selection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--mat-sys-on-surface-variant);
+
+  mat-icon { font-size: 48px; width: 48px; height: 48px; }
+  p { margin: 0; font-size: 14px; }
+  .hint { font-size: 12px; opacity: 0.7; text-align: center; max-width: 280px; }
+}
+
+// ========================================
+// TICKET CONTENT
+// ========================================
+.ticket-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+// ========================================
+// HEADER
+// ========================================
+.ticket-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  .ticket-symbol {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .symbol {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .side {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 3px;
+
+      &.buy { background: #1b5e2033; color: #2e7d32; }
+      &.sell { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
+    }
+  }
+}
+
+// ========================================
+// ACCOUNT
+// ========================================
+.account-section {
+  font-size: 12px;
+
+  .account-label {
+    color: var(--mat-sys-on-surface-variant);
+    margin-right: 4px;
+  }
+
+  .account-value {
+    font-weight: 600;
+    font-family: monospace;
+  }
+
+  .account-warning {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px;
+    border-radius: 6px;
+    background: var(--mat-sys-tertiary-container);
+    color: var(--mat-sys-on-tertiary-container);
+    font-size: 11px;
+
+    mat-icon { font-size: 16px; width: 16px; height: 16px; }
+  }
+}
+
+// ========================================
+// STATUS
+// ========================================
+.status-section {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  background: var(--mat-sys-surface-container-high);
+
+  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+
+  .order-id {
+    margin-left: auto;
+    font-family: monospace;
+    font-size: 10px;
+    opacity: 0.7;
+  }
+
+  &.status-staged, &.status-ready { color: var(--mat-sys-on-tertiary-container); }
+  &.status-submitting { color: #e65100; }
+  &.status-submitted { color: var(--mat-sys-primary); }
+  &.status-filled { color: #1b5e20; }
+  &.status-failed { color: var(--mat-sys-error); }
+  &.status-cancelled { color: var(--mat-sys-on-surface-variant); }
+}
+
+// ========================================
+// ERROR
+// ========================================
+.error-section {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 6px;
+  background: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
+
+  mat-icon { font-size: 20px; width: 20px; height: 20px; flex-shrink: 0; }
+
+  .error-details {
+    .error-message { margin: 0; font-size: 12px; font-weight: 600; }
+    .error-hint { margin: 4px 0 0; font-size: 11px; opacity: 0.8; }
+  }
+}
+
+// ========================================
+// FORM
+// ========================================
+.form-section {
+  h3 {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--mat-sys-on-surface-variant);
+    margin: 0 0 8px;
+  }
+}
+
+.form-row {
+  display: flex;
+  gap: 12px;
+
+  mat-form-field {
+    flex: 1;
+
+    &.full-width { width: 100%; }
+  }
+}
+
+// ========================================
+// PREVIEW
+// ========================================
+.preview-section {
+  h3 {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--mat-sys-on-surface-variant);
+    margin: 0 0 4px;
+  }
+
+  .preview-json {
+    margin: 0;
+    padding: 10px;
+    font-size: 11px;
+    line-height: 1.5;
+    background: var(--mat-sys-surface-container-high);
+    border-radius: 6px;
+    overflow-x: auto;
+    font-family: monospace;
+  }
+}
+
+// ========================================
+// ACTIONS
+// ========================================
+.action-section {
+  display: flex;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--mat-sys-outline-variant);
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+
+    mat-icon { font-size: 16px; width: 16px; height: 16px; }
+  }
+
+  .submitting-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--mat-sys-on-surface-variant);
+    font-size: 12px;
+
+    mat-icon { font-size: 16px; width: 16px; height: 16px; animation: spin 1s linear infinite; }
+  }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

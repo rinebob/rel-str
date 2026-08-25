@@ -1,0 +1,45 @@
+h2[mat-dialog-title] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+
+  mat-icon { font-size: 20px; width: 20px; height: 20px; color: var(--mat-sys-tertiary); }
+}
+
+.confirm-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 0;
+  min-width: 320px;
+}
+
+.confirm-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+
+  .label {
+    color: var(--mat-sys-on-surface-variant);
+    font-weight: 500;
+  }
+
+  .value {
+    font-weight: 600;
+
+    &.buy { color: #2e7d32; }
+    &.sell { color: var(--mat-sys-error); }
+  }
+}
+
+mat-dialog-actions {
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+
+    mat-icon { font-size: 16px; width: 16px; height: 16px; }
+  }
+}
