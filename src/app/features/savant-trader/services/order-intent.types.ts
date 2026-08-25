@@ -139,3 +139,20 @@ export interface OptionOrderIntent extends BaseOrderIntent {
 // =============================
 
 export type OrderIntent = EquityOrderIntent | EtfOrderIntent | OptionOrderIntent;
+
+// =============================
+// Trading config
+// =============================
+
+/** User's trading configuration stored at savant-trader/data/trading-config. */
+export interface TradingConfig {
+  accountNumber: string;
+  updatedAt: string;
+}
+
+/** Account info returned by get_accounts MCP tool, filtered to agentic-allowed. */
+export interface AccountInfo {
+  accountNumber: string;
+  accountType: string;
+  agenticAllowed: boolean;
+}
