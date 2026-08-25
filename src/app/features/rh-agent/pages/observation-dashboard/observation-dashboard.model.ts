@@ -1,7 +1,7 @@
 import type {
   RobinhoodToolDefinition,
   ToolExecutionResult,
-} from '@rh-agent-mcp/contracts';
+} from '@robinhood-mcp/contracts';
 
 export interface CallHistoryEntry {
   tool: string;
@@ -213,7 +213,7 @@ export function parseArray(value: string): string[] {
     .filter(Boolean);
 }
 
-export { maskAccountNumber } from '@rh-agent-mcp/utils';
+export { maskAccountNumber } from '@robinhood-mcp/utils';
 
 export function selectDefaultAccount(accounts: AccountInfo[]): string {
   const agentic = accounts.find((a) => a.agentic_allowed);

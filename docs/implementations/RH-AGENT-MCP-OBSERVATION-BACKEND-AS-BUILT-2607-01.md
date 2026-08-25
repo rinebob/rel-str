@@ -127,8 +127,8 @@ This part repeats the narrative above but points to the exact files and function
 - `toServerToolName` and the observation allowlist live in `functions/src/rh-agent-mcp/tools/robinhood-tools.ts`.
 - The raw MCP result is parsed by `parseToolResult` in `robinhood-tool-executor.ts`, which expects `result.content[0].text` to be a JSON string.
 - The parsed result is redacted by `redactResponse` in `functions/src/rh-agent-mcp/tools/robinhood-response-redactor.ts`.
-- `maskAccountNumber` is imported from the shared utility `@rh-agent-mcp/utils` (`shared/robinhood-mcp-utils.ts`).
-- The result is returned as a `ToolExecutionResult` defined in the shared contract `@rh-agent-mcp/contracts` (`shared/robinhood-mcp-contracts.ts`).
+- `maskAccountNumber` is imported from the shared utility `@robinhood-mcp/utils` (`shared/robinhood-mcp-utils.ts`).
+- The result is returned as a `ToolExecutionResult` defined in the shared contract `@robinhood-mcp/contracts` (`shared/robinhood-mcp-contracts.ts`).
 
 ### Local HTTP API
 

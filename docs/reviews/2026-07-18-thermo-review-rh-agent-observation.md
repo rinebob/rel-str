@@ -342,7 +342,7 @@ Re-reviewed the shared contracts package, backend local API/tool executor, front
 
 ### Verdict
 
-The dashboard is now type-safe and robust enough for local use. The shared `@rh-agent-mcp/*` path aliases are working in both frontend and backend builds/tests. No remaining blockers.
+The dashboard is now type-safe and robust enough for local use. The shared `@robinhood-mcp/*` path aliases are working in both frontend and backend builds/tests. No remaining blockers.
 
 ### Blockers found and resolved in this round
 
@@ -398,7 +398,7 @@ Re-reviewed the entire RH Agent MCP observation surface again after Round 6. The
 
 ### Verdict
 
-No functional blockers remain in the currently allowlisted observation tools. The shared `@rh-agent-mcp/*` package, local API hardening, and frontend form rendering are all verified and working.
+No functional blockers remain in the currently allowlisted observation tools. The shared `@robinhood-mcp/*` package, local API hardening, and frontend form rendering are all verified and working.
 
 ### Blockers found and resolved in this round
 

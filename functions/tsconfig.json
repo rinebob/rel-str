@@ -12,8 +12,8 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "paths": {
-      "@rh-agent-mcp/contracts": ["../shared/robinhood-mcp-contracts.ts"],
-      "@rh-agent-mcp/utils": ["../shared/robinhood-mcp-utils.ts"],
+      "@robinhood-mcp/contracts": ["../shared/robinhood-mcp-contracts.ts"],
+      "@robinhood-mcp/utils": ["../shared/robinhood-mcp-utils.ts"],
       "@options-contract/contracts": ["../shared/options-contract-contracts.ts"],
       "@options/common": ["../shared/options-common.ts"],
       "@common": ["../shared/common.ts"],

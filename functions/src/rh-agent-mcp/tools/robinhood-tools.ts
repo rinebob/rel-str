@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { type RobinhoodToolDefinition } from '@rh-agent-mcp/contracts';
+import { type RobinhoodToolDefinition } from '@robinhood-mcp/contracts';
 import toolCatalogJson from '../../../.rh-mcp-tool-catalog.json' with { type: 'json' };
 
 const TOOL_CATALOG_PATH = join(

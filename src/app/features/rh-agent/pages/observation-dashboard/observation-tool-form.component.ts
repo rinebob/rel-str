@@ -7,7 +7,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import type { RobinhoodToolDefinition } from '@rh-agent-mcp/contracts';
+import type { RobinhoodToolDefinition } from '@robinhood-mcp/contracts';
 import type { AccountInfo, ToolArgProperty } from './observation-dashboard.model';
 import {
   argsValid,

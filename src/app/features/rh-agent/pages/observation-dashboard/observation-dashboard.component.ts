@@ -11,7 +11,7 @@ import {
   type RobinhoodToolDefinition,
   type ToolExecutionResult,
   type ToolExecutionSuccess,
-} from '@rh-agent-mcp/contracts';
+} from '@robinhood-mcp/contracts';
 import { ObservationToolFormComponent } from './observation-tool-form.component';
 import { ObservationResultPanelComponent } from './observation-result-panel.component';
 import {

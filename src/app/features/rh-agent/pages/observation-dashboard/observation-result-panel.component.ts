@@ -8,7 +8,7 @@ import type {
   ToolExecutionResult,
   ToolExecutionSuccess,
   ToolExecutionFailure,
-} from '@rh-agent-mcp/contracts';
+} from '@robinhood-mcp/contracts';
 
 @Component({
   selector: 'app-observation-result-panel',

@@ -5,7 +5,7 @@ import {
   type RobinhoodToolDefinition,
   type ToolExecutionRequest,
   type ToolExecutionResult,
-} from '@rh-agent-mcp/contracts';
+} from '@robinhood-mcp/contracts';
 
 @Injectable({ providedIn: 'root' })
 export class RobinhoodMcpObservationService {

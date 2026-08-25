@@ -1,4 +1,4 @@
-import { maskAccountNumber } from '@rh-agent-mcp/utils';
+import { maskAccountNumber } from '@robinhood-mcp/utils';
 
 /**
  * Redaction philosophy:

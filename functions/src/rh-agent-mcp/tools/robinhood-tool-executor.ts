@@ -19,7 +19,7 @@ import {
   ToolExecutionErrorCategory,
   type ToolExecutionError,
   type ToolExecutionResult,
-} from '@rh-agent-mcp/contracts';
+} from '@robinhood-mcp/contracts';
 
 export interface ExecuteObservationToolOptions {
   transportFactory?: RobinhoodMcpTransportFactory;

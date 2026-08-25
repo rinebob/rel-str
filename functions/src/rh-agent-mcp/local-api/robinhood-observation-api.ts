@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { URL } from 'node:url';
-import { isStringArray } from '@rh-agent-mcp/utils';
+import { isStringArray } from '@robinhood-mcp/utils';
 import { listObservationTools } from '../tools/robinhood-tools';
 import {
   executeObservationTool,

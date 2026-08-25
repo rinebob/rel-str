@@ -15,8 +15,8 @@ module.exports = {
   collectCoverage: true,
   coverageDirectory: 'coverage',
   moduleNameMapper: {
-    '^@rh-agent-mcp/contracts$': '<rootDir>/shared/robinhood-mcp-contracts.ts',
-    '^@rh-agent-mcp/utils$': '<rootDir>/shared/robinhood-mcp-utils.ts',
+    '^@robinhood-mcp/contracts$': '<rootDir>/shared/robinhood-mcp-contracts.ts',
+    '^@robinhood-mcp/utils$': '<rootDir>/shared/robinhood-mcp-utils.ts',
     '^@options-contract/contracts$': '<rootDir>/shared/options-contract-contracts.ts',
     '^@options/common$': '<rootDir>/shared/options-common.ts',
     '^@common$': '<rootDir>/shared/common.ts',
