@@ -93,12 +93,12 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.HistoryComponent),
                 canActivate: [authGuard],
             },
-            {path: AppRoutes.RH_AGENT, 
+            {path: AppRoutes.RUN_DASHBOARD,
                 loadComponent: () => import('../features/rh-agent/pages/agent-dashboard/rh-agent-dashboard.component')
                 .then(mod => mod.RhAgentDashboardComponent),
                 canActivate: [authGuard],
             },
-            {path: AppRoutes.CHART_REVIEW, 
+            {path: AppRoutes.CHART_REVIEW,
                 loadComponent: () => import('../features/rh-agent/pages/chart-review/chart-review.component')
                 .then(mod => mod.ChartReviewComponent),
                 canActivate: [authGuard],
@@ -108,22 +108,22 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.SignalReviewComponent),
                 canActivate: [authGuard],
             },
-            {path: AppRoutes.RH_AGENT_ORDER,
+            {path: AppRoutes.SIGNAL_ORDER,
                 loadComponent: () => import('../features/rh-agent/pages/agent-order/rh-agent-order.component')
                 .then(mod => mod.RhAgentOrderComponent),
                 canActivate: [authGuard],
             },
-            {path: AppRoutes.RH_AGENT_TRIAGE_REPORT,
+            {path: AppRoutes.SIGNAL_ACTION_REPORT,
                 loadComponent: () => import('../features/rh-agent/pages/agent-triage-report/rh-agent-triage-report.component')
                 .then(mod => mod.RhAgentTriageReportComponent),
                 canActivate: [authGuard],
             },
-            {path: AppRoutes.RH_AGENT_OBSERVATION,
+            {path: AppRoutes.RH_ACCOUNT_INQUIRY,
                 loadComponent: () => import('../features/rh-agent/pages/observation-dashboard/observation-dashboard.component')
                 .then(mod => mod.ObservationDashboardComponent),
                 canActivate: [authGuard],
             },
-            {path: AppRoutes.RH_AGENT_BACKTEST,
+            {path: AppRoutes.STRATEGY_BACKTEST,
                 loadComponent: () => import('../features/rh-agent/backtest/pages/backtest-dashboard/backtest-dashboard.component')
                 .then(mod => mod.BacktestDashboardComponent),
                 canActivate: [authGuard],

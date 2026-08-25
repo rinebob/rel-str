@@ -301,7 +301,7 @@ export class SignalReviewFacade {
   // -------------------------------------------------------------------------
 
   goBack(): void {
-    this.router.navigate(['/rh-agent']);
+    this.router.navigate(['/run-dashboard']);
   }
 
   goToReview(): void {
@@ -310,10 +310,10 @@ export class SignalReviewFacade {
 
   goToOrder(): void {
     if (this.occurrenceStore.acceptedCount() === 0) return;
-    this.router.navigate(['/rh-agent-order']);
+    this.router.navigate(['/signal-order']);
   }
 
   goToTriageReport(): void {
-    this.router.navigate(['/rh-agent-triage-report']);
+    this.router.navigate(['/signal-action-report']);
   }
 }

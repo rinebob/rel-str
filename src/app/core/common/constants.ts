@@ -132,9 +132,9 @@ export const NAV_MENU_ITEMS: NavItem[] = [
         target: '_self',
     },
     {
-        name: 'rh-agent',
-        text: 'RH Agent',
-        href: 'rh-agent',
+        name: 'run-dashboard',
+        text: 'Run Dashboard',
+        href: 'run-dashboard',
         mobileOnly: false,
         external: false,
         target: '_self',

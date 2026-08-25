@@ -125,7 +125,7 @@ export class SignalHistoryComponent {
 
   /** Navigate back to the RH Agent dashboard. */
   goBack(): void {
-    this.router.navigate(['/rh-agent']);
+    this.router.navigate(['/run-dashboard']);
   }
 
   /** Load D/W/M chart data and generate signals for the current symbol input. */
