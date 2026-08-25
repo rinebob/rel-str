@@ -5,7 +5,7 @@
  * Cloud Task by fireSequenceCompletion. This handler dispatches to the
  * appropriate function based on the consumer name.
  *
- * Scoped consumers (settlement-scoped, rh-agent-nightly-scoped) currently
+ * Scoped consumers (settlement-scoped, st-nightly-scoped) currently
  * run the full unscoped implementation. Scoped filtering will be
  * implemented when the downstream consumers support symbol-scoped
  * execution. The consumer names are distinct so the dispatch path is

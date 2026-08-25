@@ -2,7 +2,7 @@
  * Delete Signal-Dates Collections
  *
  * One-time cleanup script: deletes every document in the `signal-dates`
- * subcollection for every rh-agent symbol, then verifies nothing remains.
+ * subcollection for every savant-trader symbol, then verifies nothing remains.
  *
  * Usage (from functions/ dir):
  *   npx tsx scripts/delete-signal-dates.ts [--dry-run] [--symbol <ticker>]
@@ -66,7 +66,7 @@ const db = initFirestore();
 // Constants
 // ---------------------------------------------------------------------------
 
-const SYMBOLS_COLLECTION = 'rh-agent-symbols';
+const SYMBOLS_COLLECTION = 'savant-trader/data/symbols';
 const SIGNAL_DATES_SUB   = 'signal-dates';
 const BATCH_SIZE         = 400;
 

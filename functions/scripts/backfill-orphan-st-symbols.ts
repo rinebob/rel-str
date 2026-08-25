@@ -1,33 +1,33 @@
 /**
- * Backfill orphan rh-agent-symbols docs directly.
+ * Backfill orphan savant-trader/data/symbols docs directly.
  *
  * Orphan = doc has only { symbol, enabled } (no createdAt/source/etc).
  * For each orphan:
- *   1. Set source to RhAgentSymbolSource.MANUAL_ADD and createdAt in rh-agent-symbols
+ *   1. Set source to StSymbolSource.MANUAL_ADD and createdAt in savant-trader/data/symbols
  *   2. Trigger symbolDataSyncAdminHttp for D/W/M bars
  *   3. Trigger rhAgentOverviewSyncAdmin for company overview
  *
  * Usage (from functions/ dir):
- *   npx tsx scripts/backfill-orphan-rh-agent-symbols.ts [source]
+ *   npx tsx scripts/backfill-orphan-savant-trader/data/symbols.ts [source]
  *
- * Override source (defaults to RhAgentSymbolSource.MANUAL_ADD):
+ * Override source (defaults to StSymbolSource.MANUAL_ADD):
  *   $env:SOURCE="custom-backfill"
- *   npx tsx scripts/backfill-orphan-rh-agent-symbols.ts
+ *   npx tsx scripts/backfill-orphan-savant-trader/data/symbols.ts
  *
  * Dry-run (just list targets):
  *   $env:DRY_RUN="true"
- *   npx tsx scripts/backfill-orphan-rh-agent-symbols.ts
+ *   npx tsx scripts/backfill-orphan-savant-trader/data/symbols.ts
  */
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getFunctions } from 'firebase-admin/functions';
 import { execSync } from 'child_process';
-import { RhAgentSymbol, RhAgentSymbolSource } from '../src/common/rh-agent-collections';
+import { StSymbol, StSymbolSource } from '../src/common/st-collections';
 
-const COLLECTION = 'rh-agent-symbols';
+const COLLECTION = 'savant-trader/data/symbols';
 // Source can be overridden via CLI arg or env var so this script is reusable.
 // Default to the canonical enum value so the frontend source filter works.
-const SOURCE = process.argv[2] || process.env.SOURCE || RhAgentSymbolSource.MANUAL_ADD;
+const SOURCE = process.argv[2] || process.env.SOURCE || StSymbolSource.MANUAL_ADD;
 const BARS_URL = 'https://us-central1-rel-str.cloudfunctions.net/symbolDataSyncAdminHttp';
 const OVERVIEW_QUEUE = 'rhAgentOverviewSyncSymbol';
 const serviceAccount = process.env.IMPERSONATE_SERVICE_ACCOUNT ?? '145446780542-compute@developer.gserviceaccount.com';
@@ -105,8 +105,8 @@ async function main(): Promise<void> {
   const batch = db.batch();
   for (const symbol of orphans) {
     const ref = db.collection(COLLECTION).doc(symbol);
-    const data = (await ref.get()).data() as Partial<RhAgentSymbol> | undefined;
-    const update: Partial<RhAgentSymbol> = { source: SOURCE as RhAgentSymbol['source'] };
+    const data = (await ref.get()).data() as Partial<StSymbol> | undefined;
+    const update: Partial<StSymbol> = { source: SOURCE as StSymbol['source'] };
     if (!hasCreatedAt(data ?? {})) {
       update.createdAt = createdAt;
     }
@@ -129,7 +129,7 @@ async function main(): Promise<void> {
   console.log(`Enqueued ${orphans.length} overview sync tasks.`);
 
   // 4. Fallback enrichment: copy basic fields from symbol-data (bars sync writes
-  // name, type, marketOpen/Close etc.) into rh-agent-symbols so the UI has a
+  // name, type, marketOpen/Close etc.) into savant-trader/data/symbols so the UI has a
   // display name even when partner overview API doesn't know the symbol.
   console.log('Enriching from symbol-data fallback...');
   const fallbackData = await Promise.all(
@@ -145,7 +145,7 @@ async function main(): Promise<void> {
     const fallback = symbolData as { name?: unknown; type?: unknown; region?: unknown } | undefined;
     if (typeof fallback?.name === 'string') {
       const ref = db.collection(COLLECTION).doc(symbol);
-      const update: Partial<RhAgentSymbol> = {
+      const update: Partial<StSymbol> = {
         name: fallback.name,
         assetType: typeof fallback.type === 'string' ? fallback.type : undefined,
         exchange: typeof fallback.region === 'string' ? fallback.region : undefined,

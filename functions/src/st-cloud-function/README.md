@@ -1,4 +1,4 @@
-﻿# RH Agent Cloud Function
+# Savant Trader Cloud Function
 
 Firebase Cloud Functions for the Robinhood AI Trading Agent.
 
@@ -17,26 +17,26 @@ The retired Claude bridge and executor prototypes are preserved in archive docum
 
 ```
 SDS completion (sds-consumer-dispatch.ts)
-    │
-    ▼
-rhAgentTriggerDaily (manual) / SDS consumer dispatch (automatic)
-    ├─ callPartnerIntradaySnapshotV2(symbols)  [one bulk POST]
-    ├─ createDailyRun(marketDate, 'pdr')
-    └─ createJobAndEnqueue(symbol, intraday)   [× N symbols]
-            │
-            ▼
+    �
+    ?
+stTriggerDaily (manual) / SDS consumer dispatch (automatic)
+    +- callPartnerIntradaySnapshotV2(symbols)  [one bulk POST]
+    +- createDailyRun(marketDate, 'pdr')
+    +- createJobAndEnqueue(symbol, intraday)   [� N symbols]
+            �
+            ?
     Cloud Tasks Queue (max 20 concurrent)
-            │
-            ▼
-    rhAgentProcessSymbol (per symbol)
-            ├─ loadSymbolBars(symbol, marketDate)  [symbol-data]
-            ├─ inject intraday snapshot as partial bar  [in-memory only]
-            ├─ executeStrategy('st-trend-rider')  // ST Trend Rider
-            │      ├─ compute V1/V2 zone signals
-            │      └─ return LONG/SHORT signals
-            └─ persistSignals()  [savant-trader/data/symbols/{symbol}/run-ids/{runId}, savant-trader/data/symbols/{symbol}/signal-history/{barDate}]
-                        │
-                        ▼
+            �
+            ?
+    stProcessSymbol (per symbol)
+            +- loadSymbolBars(symbol, marketDate)  [symbol-data]
+            +- inject intraday snapshot as partial bar  [in-memory only]
+            +- executeStrategy('st-trend-rider')  // ST Trend Rider
+            �      +- compute V1/V2 zone signals
+            �      +- return LONG/SHORT signals
+            +- persistSignals()  [savant-trader/data/symbols/{symbol}/run-ids/{runId}, savant-trader/data/symbols/{symbol}/signal-history/{barDate}]
+                        �
+                        ?
             Angular Dashboard (grouped review / triage)
 ```
 
@@ -44,19 +44,19 @@ rhAgentTriggerDaily (manual) / SDS consumer dispatch (automatic)
 
 | File | Exports | Purpose |
 |------|---------|---------|
-| `rh-agent-collections.ts` | Collection constants, `RhAgentSymbol`, `RhAgentSymbolProfile`, `RhAgentOverviewFields` | Firestore paths and symbol document shapes |
-| `rh-agent-signals.ts` | `StSignalType`, `StSignalDirection`, `RhAgentSignalEntry`, `RhAgentSignalHistoryDoc`, `RhAgentRunIdDoc` | Signal enums and signal document shapes |
-| `rh-agent-runs.ts` | `RhAgentRunStatus`, `RhAgentJobStatus`, `RhAgentDailyRun`, `RhAgentJob`, `RhAgentStatus`, `RhWatchedSymbol`, `RhAgentTriggeredBy` | Run/job status and run record types |
-| `rh-agent-opportunities.ts` | `RhTradeAction` | Trade action and opportunity types |
-| `rh-agent-shared-types.ts` | `SymbolJobPayload`, `IntradaySnapshot` | Cross-cutting payloads and snapshots |
-| `rh-agent-shared.ts` | `getMarketDate`, `getDeadlineISO`, `loadEnabledSymbols`, `createDailyRun`, `createJobAndEnqueue`, `fetchIntradaySnapshots` | Shared helpers used by triggers and manual callable |
-| `rh-agent-trigger.ts` | `rhAgentTriggerDaily` | HTTP admin trigger with `?date` override (PDR Pub/Sub trigger deleted — RH Agent now triggered by SDS completion via sds-consumer-dispatch.ts) |
-| `rh-agent-worker.ts` | `rhAgentProcessSymbol` | Cloud Tasks worker: reads bars, executes strategy, persists signals |
-| `rh-agent-callables.ts` | `rhAgentManualRun` | HTTPS callable for dashboard "Run Now" button |
-| `rh-agent-dashboard-callables.ts` | `rhAgentGetStatus`, `rhAgentGetRunHistory`, `rhAgentGetSymbolsWithSignals` | Dashboard status, run history, and grouped-review symbol query |
-| `rh-agent-signal-date-writer.ts` | `SignalDateWriter` | Persists signal entries under `savant-trader/data/symbols/{symbol}/run-ids` and `savant-trader/data/symbols/{symbol}/signal-history` |
-| `rh-agent-overview-sync-orchestrator.ts` / `rh-agent-overview-sync-worker.ts` | `rhAgentOverviewSync`, `rhAgentOverviewSyncSymbol` | Enqueues company-overview backfill tasks |
-| `rh-agent-seed-admin.ts` | `clearRhAgentSymbolsAdmin`, `seedAllSymbolsFromPartner` | Symbol list management |
+| `st-collections.ts` | Collection constants, `StSymbol`, `StSymbolProfile`, `StOverviewFields` | Firestore paths and symbol document shapes |
+| `signals.ts` | `StSignalType`, `StSignalDirection`, `StSignalEntry`, `StSignalHistoryDoc`, `StRunIdDoc` | Signal enums and signal document shapes |
+| `st-runs.ts` | `StRunStatus`, `StJobStatus`, `StDailyRun`, `StJob`, `StStatus`, `StWatchedSymbol`, `StTriggeredBy` | Run/job status and run record types |
+| `opportunities.ts` | `StTradeAction` | Trade action and opportunity types |
+| `st-shared-types.ts` | `SymbolJobPayload`, `IntradaySnapshot` | Cross-cutting payloads and snapshots |
+| `st-shared.ts` | `getMarketDate`, `getDeadlineISO`, `loadEnabledSymbols`, `createDailyRun`, `createJobAndEnqueue`, `fetchIntradaySnapshots` | Shared helpers used by triggers and manual callable |
+| `trigger.ts` | `stTriggerDaily` | HTTP admin trigger with `?date` override (PDR Pub/Sub trigger deleted � Savant Trader now triggered by SDS completion via sds-consumer-dispatch.ts) |
+| `worker.ts` | `stProcessSymbol` | Cloud Tasks worker: reads bars, executes strategy, persists signals |
+| `callables.ts` | `stManualRun` | HTTPS callable for dashboard "Run Now" button |
+| `dashboard-callables.ts` | `stGetStatus`, `stGetRunHistory`, `stGetSymbolsWithSignals` | Dashboard status, run history, and grouped-review symbol query |
+| `signal-date-writer.ts` | `SignalDateWriter` | Persists signal entries under `savant-trader/data/symbols/{symbol}/run-ids` and `savant-trader/data/symbols/{symbol}/signal-history` |
+| `overview-sync-orchestrator.ts` / `overview-sync-worker.ts` | `stOverviewSync`, `stOverviewSyncSymbol` | Enqueues company-overview backfill tasks |
+| `seed-admin.ts` | `clearStSymbolsAdmin`, `seedAllSymbolsFromPartner` | Symbol list management |
 | `strategies/` | `base-strategy`, `signal-detection`, `st-trend-rider.strategy` | Strategy adapter, signal state machine, and concrete trend-rider strategy |
 
 ## Firestore Collections
@@ -79,7 +79,7 @@ rhAgentTriggerDaily (manual) / SDS consumer dispatch (automatic)
 
 Clear existing symbols, then seed the full universe from SavantAPI:
 ```bash
-curl -X POST https://<region>-rel-str.cloudfunctions.net/clearRhAgentSymbolsAdmin
+curl -X POST https://<region>-rel-str.cloudfunctions.net/clearStSymbolsAdmin
 curl -X POST https://<region>-rel-str.cloudfunctions.net/seedAllSymbolsFromPartner
 ```
 
@@ -101,10 +101,10 @@ curl "https://rhagenttriggerdaily-<hash>-uc.a.run.app?date=2026-06-13"
 
 ## Signal Strategy
 
-**ST Trend Rider** — fires when the ST zone crosses into a higher (lower) zone on the same timeframe:
+**ST Trend Rider** � fires when the ST zone crosses into a higher (lower) zone on the same timeframe:
 - **Daily** zone V1/V2 context
 - **Weekly** zone V1/V2 context
-- Both V1 (±3) and V2 (±4) zone classifications are computed; a signal can fire independently from each
+- Both V1 (�3) and V2 (�4) zone classifications are computed; a signal can fire independently from each
 
 A signal is generated when the last bar completes a zone transition:
 - **LONG** uptick: same-timeframe zone rises and is already positive
@@ -133,9 +133,9 @@ The SDS pipeline (`symbolDataSync` Pub/Sub subscriber) populates `symbol-data/{s
 
 | Function Type | Examples | Authentication |
 |---------------|----------|----------------|
-| `onCall` dashboard callables | `rhAgentGetSymbolsWithSignals`, `rhAgentGetSymbolIndicatorSeries`, `rhAgentManualRun` | Require a signed-in Firebase Auth user. CORS is restricted to `RH_AGENT_ALLOWED_ORIGINS`. |
-| `onRequest` admin endpoints | `rhAgentTriggerDaily`, `clearRhAgentSymbolsAdmin`, `seedAllSymbolsFromPartner` | HTTP endpoints intended for admin/internal use. Protect at the network layer (IP allowlist, Cloud IAM, or admin token) before exposing them. |
-| Scheduled functions | `rhAgentOverviewSync` | Invoked by Cloud Scheduler; no direct external access. |
+| `onCall` dashboard callables | `stGetSymbolsWithSignals`, `rhAgentGetSymbolIndicatorSeries`, `stManualRun` | Require a signed-in Firebase Auth user. CORS is restricted to `RH_AGENT_ALLOWED_ORIGINS`. |
+| `onRequest` admin endpoints | `stTriggerDaily`, `clearStSymbolsAdmin`, `seedAllSymbolsFromPartner` | HTTP endpoints intended for admin/internal use. Protect at the network layer (IP allowlist, Cloud IAM, or admin token) before exposing them. |
+| Scheduled functions | `stOverviewSync` | Invoked by Cloud Scheduler; no direct external access. |
 
 ## Local Development
 
@@ -152,6 +152,6 @@ ng serve
 
 ## Status
 
-- **Signal generation** — active through the event-driven Cloud Functions architecture
-- **Direct Robinhood MCP authentication and execution** — planned under the Phase A workflow; not yet implemented
-- **Legacy Claude bridge and executor** — executable source removed and preserved in archive documents
+- **Signal generation** � active through the event-driven Cloud Functions architecture
+- **Direct Robinhood MCP authentication and execution** � planned under the Phase A workflow; not yet implemented
+- **Legacy Claude bridge and executor** � executable source removed and preserved in archive documents

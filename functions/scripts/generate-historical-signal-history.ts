@@ -2,12 +2,12 @@
  * Generate Historical Signal History
  *
  * One-time backfill script: computes the full ST Trend Rider indicator series
- * for each rh-agent symbol exactly like the chart callable does, then writes
+ * for each savant-trader symbol exactly like the chart callable does, then writes
  * every signal to signal-history/{barDate}. This guarantees the left-side signal
  * list and the right-side chart dots are generated from the exact same source.
  *
  * Source:  symbol-data/{symbol}/daily/{YYYY}, weekly/all, monthly/all
- * Target:  rh-agent-symbols/{symbol}/signal-history/{barDate}
+ * Target:  savant-trader/data/symbols/{symbol}/signal-history/{barDate}
  *
  * Usage (from functions/ dir):
  *   npx tsx scripts/generate-historical-signal-history.ts [options]
@@ -28,10 +28,10 @@ import { getFirestore, Firestore, FieldValue } from 'firebase-admin/firestore';
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { computeSymbolIndicatorSeries } from '../src/rh-agent-cloud-function/rh-agent-indicator-computation';
+import { computeSymbolIndicatorSeries } from '../src/st-cloud-function/indicator-computation';
 import type { OhlcBar as CallableOhlcBar } from '../src/common/market-data-types';
-import { StSignalDirection } from '../src/rh-agent-cloud-function/rh-agent-signals';
-import type { StrategyOutput } from '../src/rh-agent-cloud-function/strategies/base-strategy';
+import { StSignalDirection } from '../src/st-cloud-function/signals';
+import type { StrategyOutput } from '../src/st-cloud-function/strategies/base-strategy';
 
 // ---------------------------------------------------------------------------
 // CLI args
@@ -55,7 +55,7 @@ const TO_DATE       = argValue('--to')   ?? new Date().toISOString().slice(0, 10
 // Constants
 // ---------------------------------------------------------------------------
 
-const SYMBOLS_COLLECTION      = 'rh-agent-symbols';
+const SYMBOLS_COLLECTION      = 'savant-trader/data/symbols';
 const SYMBOL_DATA_COLLECTION  = 'symbol-data';
 const SIGNAL_HISTORY_SUB      = 'signal-history';
 const BATCH_SIZE              = 400;

@@ -8,7 +8,7 @@
  *
  * Usage:
  *   cd functions
- *   npx tsx scripts/seed-rh-agent-from-prod.ts
+ *   npx tsx scripts/seed-st-from-prod.ts
  *
  * Prerequisites:
  *   - Service account key with prod Firestore read access
@@ -160,11 +160,11 @@ async function fetchBarData(prodDb: any, symbols: string[], marketDate: string) 
 async function seedEmulator(emuDb: any, metadata: any[], barData: Record<string, any>, marketDate: string) {
   console.log('🌱 Seeding emulator Firestore...');
 
-  // 1. Create rh-agent-symbols collection
-  console.log('   Creating rh-agent-symbols...');
+  // 1. Create savant-trader/data/symbols collection
+  console.log('   Creating savant-trader/data/symbols...');
   for (let i = 0; i < metadata.length; i++) {
     const meta = metadata[i];
-    await emuDb.collection('rh-agent-symbols').doc(meta.symbol).set({
+    await emuDb.collection('savant-trader/data/symbols').doc(meta.symbol).set({
       symbol: meta.symbol,
       name: meta.name || meta.symbol,
       enabled: true,
@@ -172,7 +172,7 @@ async function seedEmulator(emuDb: any, metadata: any[], barData: Record<string,
       createdAt: new Date().toISOString(),
     });
   }
-  console.log(`   ✓ ${metadata.length} symbols in rh-agent-symbols`);
+  console.log(`   ✓ ${metadata.length} symbols in savant-trader/data/symbols`);
 
   // 2. Create rs-symbol-cache/{marketDate}/symbols/{symbol}
   console.log(`   Creating rs-symbol-cache/${marketDate}...`);

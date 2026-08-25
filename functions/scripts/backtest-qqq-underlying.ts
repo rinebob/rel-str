@@ -24,11 +24,11 @@
  * symbol-data collection.
  */
 
-import { StrategyConfig } from '../src/rh-agent-cloud-function/strategies/base-strategy';
+import { StrategyConfig } from '../src/st-cloud-function/strategies/base-strategy';
 
-import { runBacktestSimulation } from '../src/rh-agent-cloud-function/backtest/backtest-simulator';
-import { loadAllBars, OptionsChainCache } from '../src/rh-agent-cloud-function/backtest/backtest-data-loader';
-import { adapter as leapDrop } from '../src/rh-agent-cloud-function/strategies/leap-drop/leap-drop.strategy';
+import { runBacktestSimulation } from '../src/st-cloud-function/backtest/backtest-simulator';
+import { loadAllBars, OptionsChainCache } from '../src/st-cloud-function/backtest/backtest-data-loader';
+import { adapter as leapDrop } from '../src/st-cloud-function/strategies/leap-drop/leap-drop.strategy';
 
 function parseNumberFlag(name: string, defaultValue: number, min = Number.NEGATIVE_INFINITY): number {
   const idx = process.argv.indexOf(name);

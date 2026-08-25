@@ -11,7 +11,7 @@
  * cause the Firebase Console to become unresponsive.
  *
  * Usage (from functions/ dir):
- *   npx tsx scripts/delete-old-rh-agent-collections.ts [--dry-run] [--collection <name>]
+ *   npx tsx scripts/delete-old-st-collections.ts [--dry-run] [--collection <name>]
  *
  * Options:
  *   --dry-run                Print what would be deleted, no Firestore writes.

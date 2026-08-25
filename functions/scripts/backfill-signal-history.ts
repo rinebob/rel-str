@@ -2,11 +2,11 @@
  * Backfill Signal History from Signal Dates
  *
  * One-time migration script: copies existing signal-dates docs into signal-history
- * for all rh-agent-symbols. This seeds historical chart markers so the chart rendering
+ * for all savant-trader/data/symbols. This seeds historical chart markers so the chart rendering
  * step (step 4) can switch over without leaving historical bars blank.
  *
- * Source:  rh-agent-symbols/{symbol}/signal-dates/{barDate}
- * Target:  rh-agent-symbols/{symbol}/signal-history/{barDate}
+ * Source:  savant-trader/data/symbols/{symbol}/signal-dates/{barDate}
+ * Target:  savant-trader/data/symbols/{symbol}/signal-history/{barDate}
  *
  * Usage:
  *   cd functions
@@ -29,7 +29,7 @@ const DRY_RUN = process.argv.includes('--dry-run');
 const SYMBOL_ARG_IDX = process.argv.indexOf('--symbol');
 const SINGLE_SYMBOL = SYMBOL_ARG_IDX !== -1 ? process.argv[SYMBOL_ARG_IDX + 1] : null;
 
-const SYMBOLS_COLLECTION = 'rh-agent-symbols';
+const SYMBOLS_COLLECTION = 'savant-trader/data/symbols';
 const SIGNAL_DATES_SUB = 'signal-dates';
 const SIGNAL_HISTORY_SUB = 'signal-history';
 
