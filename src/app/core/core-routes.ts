@@ -109,7 +109,7 @@ import { authGuard } from './auth/auth.guard';
                 canActivate: [authGuard],
             },
             {path: AppRoutes.SIGNAL_ORDER,
-                loadComponent: () => import('../features/savant-trader/pages/agent-order/order.component')
+                loadComponent: () => import('../features/savant-trader/pages/signal-order/order.component')
                 .then(mod => mod.OrderComponent),
                 canActivate: [authGuard],
             },

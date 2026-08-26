@@ -99,7 +99,7 @@ export { RunHistoryPanelComponent } from './components/run-history-panel/run-his
 export { DashboardComponent } from './pages/run-dashboard/dashboard.component';
 export { SignalReviewComponent } from './pages/signal-review/signal-review.component';
 export { ChartReviewComponent } from './pages/chart-review/chart-review.component';
-export { OrderComponent } from './pages/agent-order/order.component';
+export { OrderComponent } from './pages/signal-order/order.component';
 export { TriageReportComponent } from './pages/signal-action-report/triage-report.component';
 export { ObservationDashboardComponent } from './pages/rh-account-inquiry/observation-dashboard.component';
 export { OptionChartComponent } from './pages/option-chart/option-chart.component';

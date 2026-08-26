@@ -160,8 +160,8 @@ The order workspace reads the config on load and pre-fills the account number in
 
 ### 9. Delete old code
 
-- Delete `pages/agent-order/` (the old `RhAgentOrderComponent`) — replaced by order workspace
-- Delete the `RhAgentService` facade (`rh-agent.service.ts` / `service.ts` after rename) — thin delegation layer with no unique logic. Update any consumers to inject focused services directly.
+- Rename `pages/agent-order/` → `pages/signal-order/` (the old `RhAgentOrderComponent` was rewritten in-place during FE-C1a/C1b/D1 as the new signal-order screen; directory name aligned to match the `/signal-order` route)
+- Delete the `RhAgentService` facade (`rh-agent.service.ts` / `service.ts` after rename) — already removed during S1 rename tasks. No consumers remain.
 
 ## Dependencies
 
