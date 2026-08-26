@@ -14,6 +14,7 @@
 - [Savant Trader] 176-199_DOCS-DOCS-SAVANT-TRADER: Add code review doc for FE-C1a signal order screen
 - [Savant Trader] 176-200_DOCS-DOCS-SAVANT-TRADER: Add code review doc for FE-C1b order ticket
 - [Savant Trader] 176-201_DOCS-DOCS-SAVANT-TRADER: Add code review doc for FE-D1 signal pipeline wiring
+- [Savant Trader] 176-202_DOCS-DOCS-SAVANT-TRADER: Add code review doc for FE-D2a agent-order rename
 
 ### Changed
 - [Savant Trader] 176-188_SHARED-REFACTOR-SAVANT-TRADER: Rename services/ files and classes, fix callable names
@@ -30,6 +31,7 @@
 - [Savant Trader] 176-199_FE-IMPL-SAVANT-TRADER: Add signal order screen with master-detail queue layout
 - [Savant Trader] 176-200_FE-IMPL-SAVANT-TRADER: Add order ticket component with confirmation dialog
 - [Savant Trader] 176-201_FE-IMPL-SAVANT-TRADER: Wire signal pipeline to stage accepted intents
+- [Savant Trader] 176-202_FE-IMPL-SAVANT-TRADER: Rename agent-order directory to signal-order
 
 ## [2026-08-24]
 
