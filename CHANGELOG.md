@@ -15,6 +15,7 @@
 - [Savant Trader] 176-200_DOCS-DOCS-SAVANT-TRADER: Add code review doc for FE-C1b order ticket
 - [Savant Trader] 176-201_DOCS-DOCS-SAVANT-TRADER: Add code review doc for FE-D1 signal pipeline wiring
 - [Savant Trader] 176-202_DOCS-DOCS-SAVANT-TRADER: Add code review doc for FE-D2a agent-order rename
+- [Savant Trader] 176-203_DOCS-DOCS-SAVANT-TRADER: Verify Robinhood simultaneous resting orders
 
 ### Changed
 - [Savant Trader] 176-188_SHARED-REFACTOR-SAVANT-TRADER: Rename services/ files and classes, fix callable names
