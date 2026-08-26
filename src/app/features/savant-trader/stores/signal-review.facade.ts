@@ -12,7 +12,7 @@
  */
 import { computed, effect, inject, Injectable } from '@angular/core';
 import { Router } from '@angular/router';
-import { Observable, of } from 'rxjs';
+import { Observable, of, firstValueFrom } from 'rxjs';
 import { GroupStore } from './group.store';
 import { TriageStore } from './triage.store';
 import { OccurrenceDecisionStore } from './occurrence-decision.store';
@@ -20,10 +20,13 @@ import { SymbolListStore } from './symbol-list.store';
 import { SymbolHistoryStore } from './symbol-history.store';
 import { StStore } from './st.store';
 import { SignalReviewUiStore } from './signal-review-ui.store';
+import { OrderStagingStore } from './order-staging.store';
 import { SignalService } from '../services/signal.service';
+import { TradingConfigService } from '../services/trading-config.service';
 import type { StSignalItem } from '../services/types';
 import { UiStateService } from '../../../core/services/ui-state.service';
 import { ScrollTargetService } from '../services/scroll-target.service';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import {
   GroupDimension,
   SymbolListName,
@@ -34,6 +37,13 @@ import {
   StatusCounts,
 } from '../common/constants';
 import type { StRun } from '../services/types';
+import {
+  OrderIntent,
+  OrderIntentStatus,
+  OrderSource,
+  InstrumentType,
+  EquityOrderIntent,
+} from '../services/order-intent.types';
 
 @Injectable({ providedIn: 'root' })
 export class SignalReviewFacade {
@@ -48,6 +58,9 @@ export class SignalReviewFacade {
   private readonly uiState = inject(UiStateService);
   private readonly scrollTarget = inject(ScrollTargetService);
   private readonly router = inject(Router);
+  private readonly stagingStore = inject(OrderStagingStore);
+  private readonly tradingConfigService = inject(TradingConfigService);
+  private readonly snackBar = inject(MatSnackBar);
 
   /** Grouped, filtered rows. */
   readonly groups = computed(() => this.groupStore.groups());
@@ -328,9 +341,94 @@ export class SignalReviewFacade {
     this.router.navigate(['/chart-review']);
   }
 
-  goToOrder(): void {
-    if (this.occurrenceStore.acceptedCount() === 0) return;
+  /**
+   * Stage all accepted occurrence decisions as equity OrderIntents, then
+   * navigate to /signal-order. Each accepted decision becomes an
+   * EquityOrderIntent with source: SIGNAL_PIPELINE, signalContext populated,
+   * side from direction, accountNumber from trading-config preference.
+   *
+   * ID format: {SYMBOL}-{SIDE}-{YYMMDD}-{DOW}-{HHMM}PT
+   * The decision id is attached via sourceRef and signalContext.decisionId.
+   * Deduplicates by symbol+side — if two decisions have the same symbol and
+   * side, only the first is staged.
+   */
+  async stageAcceptedIntents(): Promise<void> {
+    const decisions = this.occurrenceStore.activeOrderDecisions();
+    if (decisions.length === 0) return;
+
+    let accountNumber: string;
+    try {
+      const config = await firstValueFrom(this.tradingConfigService.loadConfig());
+      accountNumber = config?.accountNumber ?? '';
+    } catch (err) {
+      console.error('[SignalReviewFacade] Failed to load trading config for staging:', err);
+      this.snackBar.open('Failed to load account config — staging aborted', 'Dismiss', { duration: 4000 });
+      return;
+    }
+
+    const now = new Date();
+    const seen = new Set<string>();
+
+    for (const decision of decisions) {
+      const side = decision.direction === SignalDirection.SHORT ? 'sell' : 'buy';
+      const dedupKey = `${decision.symbol}-${side}`;
+      if (seen.has(dedupKey)) continue;
+      seen.add(dedupKey);
+
+      const id = this.buildIntentId(decision.symbol, side, now);
+      const intent: EquityOrderIntent = {
+        id,
+        refId: id,
+        source: OrderSource.SIGNAL_PIPELINE,
+        sourceRef: { type: 'occurrence_decision', id: decision.id },
+        status: OrderIntentStatus.STAGED,
+        accountNumber,
+        side,
+        orderType: 'market',
+        timeInForce: 'gfd',
+        marketHours: 'regular_hours',
+        instrumentType: InstrumentType.EQUITY,
+        symbol: decision.symbol,
+        signalContext: {
+          signalType: decision.signalType,
+          barDate: decision.barDate,
+          timeframe: decision.timeframe,
+          direction: decision.direction,
+          decisionId: decision.id,
+        },
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      };
+      this.stagingStore.stageIntent(intent);
+    }
+
     this.router.navigate(['/signal-order']);
+  }
+
+  /**
+   * Build a human-readable intent id: {SYMBOL}-{SIDE}-{YYMMDD}-{DOW}-{HHMM}PT
+   * e.g., AAPL-BUY-260825-MON-1430PT
+   */
+  private buildIntentId(symbol: string, side: string, now: Date): string {
+    const pt = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Los_Angeles',
+      year: '2-digit',
+      month: '2-digit',
+      day: '2-digit',
+      weekday: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    const parts = pt.formatToParts(now);
+    const get = (type: string) => parts.find(p => p.type === type)?.value ?? '';
+    const yy = get('year');
+    const mm = get('month');
+    const dd = get('day');
+    const dow = get('weekday').toUpperCase();
+    const hh = get('hour') === '24' ? '00' : get('hour');
+    const min = get('minute');
+    return `${symbol.toUpperCase()}-${side.toUpperCase()}-${yy}${mm}${dd}-${dow}-${hh}${min}PT`;
   }
 
   goToTriageReport(): void {
