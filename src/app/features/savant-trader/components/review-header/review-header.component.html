@@ -84,6 +84,14 @@
       <mat-icon>new_releases</mat-icon>
     </button>
 
+    <button type="button" class="stage-accepted-btn"
+      [disabled]="acceptedCount() === 0 || !isActionableRun()"
+      (click)="stageAccepted.emit()"
+      matTooltip="Stage accepted symbols for ordering">
+      <mat-icon>account_balance</mat-icon>
+      Stage <span class="pill-count">{{ acceptedCount() }}</span>
+    </button>
+
     <div class="manual-symbol-input">
       <input
         #symbolInput

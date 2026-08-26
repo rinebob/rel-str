@@ -43,6 +43,7 @@ import { SignalDetailComponent } from '../../components/signal-detail/signal-det
 import { ReviewHeaderComponent } from '../../components/review-header/review-header.component';
 import { RunMetricsStripComponent } from '../../components/run-metrics-strip/run-metrics-strip.component';
 import { NewSymbolsDialogService } from '../../services/new-symbols-dialog.service';
+import { SignalReviewFacade } from '../../stores/signal-review.facade';
 
 @Component({
   selector: 'app-chart-review',
@@ -70,6 +71,7 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
   readonly viewportService = inject(ChartReviewViewportService);
   readonly uiStateService = inject(UiStateService);
   private readonly router = inject(Router);
+  private readonly reviewFacade = inject(SignalReviewFacade);
   private readonly newSymbolsDialog = inject(NewSymbolsDialogService);
   private readonly firestore = inject(Firestore);
   private readonly injector = inject(EnvironmentInjector);
@@ -295,6 +297,11 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
   /** Navigate back to the signal review page. */
   goToSignalReview(): void {
     this.router.navigate(['/' + AppRoutes.SIGNAL_REVIEW]);
+  }
+
+  /** Stage all accepted occurrence decisions as order intents. */
+  stageAcceptedIntents(): void {
+    this.reviewFacade.stageAcceptedIntents();
   }
 
   /** Handle Enter key in the manual symbol input. */

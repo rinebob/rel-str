@@ -42,6 +42,8 @@ export class ReviewHeaderComponent {
   viewportMode = input<ViewportMode>('signals');
   /** When false, ACR and queue mutation controls are disabled for the viewed historical run. */
   isActionableRun = input(true);
+  /** Count of accepted symbols available for staging. */
+  acceptedCount = input(0);
 
   back = output<void>();
   history = output<void>();
@@ -56,4 +58,6 @@ export class ReviewHeaderComponent {
   listChange = output<string>();
   /** Emits when the user toggles viewport mode (signals / browse). */
   modeChange = output<void>();
+  /** Emits when the user clicks "Stage Accepted" to stage all accepted orders. */
+  stageAccepted = output<void>();
 }

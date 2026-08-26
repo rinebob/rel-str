@@ -262,6 +262,43 @@
     align-items: center;
     min-width: 0;
 
+    .stage-accepted-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0 8px;
+      height: 28px;
+      border: 1px solid var(--mat-sys-outline);
+      border-radius: 14px;
+      background: var(--mat-sys-surface);
+      color: var(--mat-sys-on-surface);
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.15s;
+
+      &:hover:not(:disabled) {
+        background: var(--mat-sys-surface-container-high);
+      }
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+      }
+
+      .pill-count {
+        font-weight: 600;
+        font-size: 11px;
+        min-width: 16px;
+        text-align: center;
+      }
+    }
+
     .manual-symbol-input {
       display: flex;
       align-items: center;
