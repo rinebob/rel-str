@@ -40,11 +40,11 @@
       Review <span class="pill-count">{{ reviewCount() }}</span>
     </button>
     <button type="button" class="pill-btn accept"
-      [disabled]="acceptedCount() === 0"
-      (click)="goToOrder.emit()"
-      matTooltip="Order accepted symbols">
+      [disabled]="acceptedCount() === 0 || !isActionableRun()"
+      (click)="stageAccepted.emit()"
+      matTooltip="Stage accepted symbols for ordering">
       <mat-icon>account_balance</mat-icon>
-      Order <span class="pill-count">{{ acceptedCount() }}</span>
+      Stage <span class="pill-count">{{ acceptedCount() }}</span>
     </button>
     <button type="button" class="pill-btn"
       (click)="goToTriageReport.emit()"

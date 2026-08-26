@@ -154,9 +154,9 @@ export class SignalReviewComponent implements OnInit, OnDestroy {
     this.facade.goToReview();
   }
 
-  /** Navigate to the order page if there are ACCEPT symbols. */
-  goToOrder(): void {
-    this.facade.goToOrder();
+  /** Stage all accepted occurrence decisions as order intents, then navigate. */
+  stageAcceptedIntents(): void {
+    this.facade.stageAcceptedIntents();
   }
 
   /** Navigate to the triage report page. */

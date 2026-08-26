@@ -74,7 +74,7 @@ export class SignalReviewHeaderComponent {
 
   back = output<void>();
   goToReview = output<void>();
-  goToOrder = output<void>();
+  stageAccepted = output<void>();
   goToTriageReport = output<void>();
   dimensionChange = output<string>();
   listFilterChange = output<string>();
