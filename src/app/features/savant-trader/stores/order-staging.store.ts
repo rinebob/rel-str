@@ -17,12 +17,18 @@ import {
   patchState,
 } from '@ngrx/signals';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { from } from 'rxjs';
 
 import { OrderIntentService } from '../services/order-intent.service';
+import { OrderExecutionService } from '../services/order-execution.service';
 import {
   OrderIntent,
   OrderIntentStatus,
+  InstrumentType,
+  EquityOrderIntent,
+  OrderIntentError,
 } from '../services/order-intent.types';
+import { ExecutionResult, ReconciliationResult } from '../services/order-execution.service';
 
 export interface OrderStagingState {
   /** Order intents keyed by intent id. */
@@ -93,6 +99,7 @@ export const OrderStagingStore = signalStore(
   withMethods((
     state,
     intentService = inject(OrderIntentService),
+    orderExecution = inject(OrderExecutionService),
     snackBar = inject(MatSnackBar),
     destroyRef = inject(DestroyRef),
   ) => ({
@@ -106,6 +113,7 @@ export const OrderStagingStore = signalStore(
             const map: Record<string, OrderIntent> = {};
             for (const i of intents) { map[i.id] = i; }
             patchState(state, { intents: map, loading: false });
+            this.reconcileStuckIntents();
           },
           error: (err: unknown) => {
             const message = err instanceof Error ? err.message : String(err ?? 'Load failed');
@@ -167,14 +175,33 @@ export const OrderStagingStore = signalStore(
         });
     },
 
-    /** Submit an intent to the broker. Transitions to SUBMITTING, then SUBMITTED or FAILED. */
+    /** Submit an intent to the broker. Transitions to SUBMITTING, then SUBMITTED/FAILED/FILLED. */
     submitIntent(id: string): void {
       const prev = state.intents();
       const existing = prev[id];
       if (!existing) return;
+      this.transitionAndExecute(id, existing, prev, existing.status);
+    },
+
+    /**
+     * Set SUBMITTING optimistically, persist the status, then call the broker execution service.
+     * On success, status is derived from the broker's returned state.
+     */
+    transitionAndExecute(
+      id: string,
+      existing: OrderIntent,
+      prev: Record<string, OrderIntent>,
+      previousStatus: OrderIntentStatus,
+    ): void {
+      if (existing.instrumentType === InstrumentType.OPTION) {
+        this.markFailed(id, prev, { message: 'Option orders are not yet supported', retryable: false });
+        return;
+      }
+
       const submitting: OrderIntent = {
         ...existing,
         status: OrderIntentStatus.SUBMITTING,
+        error: undefined,
         updatedAt: new Date().toISOString(),
       };
       patchState(state, { intents: { ...prev, [id]: submitting } });
@@ -184,11 +211,104 @@ export const OrderStagingStore = signalStore(
           error: (err: unknown) => {
             patchState(state, { intents: prev, error: err instanceof Error ? err.message : String(err) });
             snackBar.open('Failed to submit order intent', 'Dismiss', { duration: 4000 });
-            console.error('[OrderStagingStore] submitIntent failed:', err);
+            console.error('[OrderStagingStore] submitIntent status update failed:', err);
           },
         });
-      // The actual broker submission + transition to SUBMITTED/FAILED
-      // is handled by the OrderExecutionService (FE-B2, #197).
+
+      from(orderExecution.submitEquityOrder(existing as EquityOrderIntent))
+        .pipe(takeUntilDestroyed(destroyRef))
+        .subscribe({
+          next: (result) => this.applyExecutionResult(id, prev, result, previousStatus),
+          error: (err: unknown) => {
+            this.markFailed(id, prev, {
+              message: err instanceof Error ? err.message : String(err),
+              retryable: true,
+            });
+          },
+        });
+    },
+
+    /** Apply the broker's result, mapping the returned state to an OrderIntentStatus. */
+    applyExecutionResult(
+      id: string,
+      prev: Record<string, OrderIntent>,
+      result: ExecutionResult,
+      previousStatus: OrderIntentStatus,
+    ): void {
+      const existing = state.intents()[id];
+      if (!existing) return;
+
+      if (!result.success) {
+        const error = result.error ?? { message: 'Broker rejected order', retryable: false };
+        this.markFailed(id, prev, error);
+        return;
+      }
+
+      const brokerState = (result.result?.state ?? '').toLowerCase();
+      let nextStatus: OrderIntentStatus;
+      if (brokerState === 'filled') {
+        nextStatus = OrderIntentStatus.FILLED;
+      } else if (brokerState === 'cancelled' || brokerState === 'canceled') {
+        nextStatus = OrderIntentStatus.CANCELLED;
+      } else if (brokerState === 'failed') {
+        nextStatus = OrderIntentStatus.FAILED;
+      } else {
+        nextStatus = OrderIntentStatus.SUBMITTED;
+      }
+
+      const next: OrderIntent = {
+        ...existing,
+        status: nextStatus,
+        result: result.result
+          ? {
+              orderId: result.result.orderId,
+              state: result.result.state,
+              fillPrice: result.result.fillPrice,
+              filledQuantity: result.result.filledQuantity,
+            }
+          : existing.result,
+        updatedAt: new Date().toISOString(),
+      };
+      patchState(state, { intents: { ...prev, [id]: next } });
+      intentService.updateIntent(id, {
+        status: nextStatus,
+        result: next.result,
+        updatedAt: next.updatedAt,
+      })
+        .pipe(takeUntilDestroyed(destroyRef))
+        .subscribe({
+          error: (err: unknown) => {
+            patchState(state, { intents: prev, error: err instanceof Error ? err.message : String(err) });
+            snackBar.open('Failed to persist broker result', 'Dismiss', { duration: 4000 });
+            console.error('[OrderStagingStore] applyExecutionResult persist failed:', err);
+          },
+        });
+    },
+
+    /** Mark an intent as FAILED and persist. */
+    markFailed(
+      id: string,
+      prev: Record<string, OrderIntent>,
+      error: OrderIntentError,
+    ): void {
+      const existing = state.intents()[id];
+      if (!existing) return;
+      const failed: OrderIntent = {
+        ...existing,
+        status: OrderIntentStatus.FAILED,
+        error,
+        updatedAt: new Date().toISOString(),
+      };
+      patchState(state, { intents: { ...prev, [id]: failed } });
+      intentService.updateIntent(id, { status: OrderIntentStatus.FAILED, error })
+        .pipe(takeUntilDestroyed(destroyRef))
+        .subscribe({
+          error: (err: unknown) => {
+            patchState(state, { intents: prev, error: err instanceof Error ? err.message : String(err) });
+            snackBar.open('Failed to persist order failure', 'Dismiss', { duration: 4000 });
+            console.error('[OrderStagingStore] markFailed persist failed:', err);
+          },
+        });
     },
 
     /** Retry a failed intent. Re-submits with the same refId. */
@@ -197,42 +317,109 @@ export const OrderStagingStore = signalStore(
       const existing = prev[id];
       if (!existing) return;
       if (existing.status !== OrderIntentStatus.FAILED) return;
-      const retrying: OrderIntent = {
-        ...existing,
-        status: OrderIntentStatus.SUBMITTING,
-        error: undefined,
-        updatedAt: new Date().toISOString(),
+      this.transitionAndExecute(id, existing, prev, existing.status);
+    },
+
+    /** Modify a submitted intent — cancels broker order and reverts to STAGED for editing. */
+    modifyIntent(id: string): void {
+      const prev = state.intents();
+      const existing = prev[id];
+      if (!existing) return;
+      if (existing.status !== OrderIntentStatus.SUBMITTED) return;
+
+      const persistModification = () => {
+        const modified: OrderIntent = {
+          ...existing,
+          status: OrderIntentStatus.STAGED,
+          result: undefined,
+          error: undefined,
+          updatedAt: new Date().toISOString(),
+        };
+        patchState(state, { intents: { ...prev, [id]: modified } });
+        intentService.updateIntent(id, { status: OrderIntentStatus.STAGED, result: undefined, error: undefined, updatedAt: modified.updatedAt })
+          .pipe(takeUntilDestroyed(destroyRef))
+          .subscribe({
+            error: (err: unknown) => {
+              patchState(state, { intents: prev, error: err instanceof Error ? err.message : String(err) });
+              snackBar.open('Failed to modify order intent', 'Dismiss', { duration: 4000 });
+              console.error('[OrderStagingStore] modifyIntent persist failed:', err);
+            },
+          });
       };
-      patchState(state, { intents: { ...prev, [id]: retrying } });
-      intentService.updateIntent(id, { status: OrderIntentStatus.SUBMITTING, error: undefined })
+
+      const orderId = existing.result?.orderId;
+      if (!orderId) {
+        persistModification();
+        return;
+      }
+
+      from(orderExecution.cancelEquityOrder(existing.accountNumber, orderId))
         .pipe(takeUntilDestroyed(destroyRef))
         .subscribe({
+          next: (result) => {
+            if (result.success) {
+              persistModification();
+            } else {
+              this.markFailed(id, prev, result.error ?? { message: 'Broker modify/cancel failed', retryable: false });
+            }
+          },
           error: (err: unknown) => {
-            patchState(state, { intents: prev, error: err instanceof Error ? err.message : String(err) });
-            snackBar.open('Failed to retry order intent', 'Dismiss', { duration: 4000 });
-            console.error('[OrderStagingStore] retryIntent failed:', err);
+            this.markFailed(id, prev, {
+              message: err instanceof Error ? err.message : String(err),
+              retryable: true,
+            });
           },
         });
     },
 
-    /** Cancel an intent. Transitions to CANCELLED. */
+    /** Cancel an intent. Cancels the broker order when an orderId is present, then transitions to CANCELLED. */
     cancelIntent(id: string): void {
       const prev = state.intents();
       const existing = prev[id];
       if (!existing) return;
-      const cancelled: OrderIntent = {
-        ...existing,
-        status: OrderIntentStatus.CANCELLED,
-        updatedAt: new Date().toISOString(),
+
+      const persistCancel = (next: OrderIntent) => {
+        patchState(state, { intents: { ...prev, [id]: next } });
+        intentService.updateIntent(id, { status: next.status, error: next.error, updatedAt: next.updatedAt })
+          .pipe(takeUntilDestroyed(destroyRef))
+          .subscribe({
+            error: (err: unknown) => {
+              patchState(state, { intents: prev, error: err instanceof Error ? err.message : String(err) });
+              snackBar.open('Failed to cancel order intent', 'Dismiss', { duration: 4000 });
+              console.error('[OrderStagingStore] cancelIntent persist failed:', err);
+            },
+          });
       };
-      patchState(state, { intents: { ...prev, [id]: cancelled } });
-      intentService.updateIntent(id, { status: OrderIntentStatus.CANCELLED })
+
+      const orderId = existing.result?.orderId;
+      if (!orderId) {
+        persistCancel({
+          ...existing,
+          status: OrderIntentStatus.CANCELLED,
+          updatedAt: new Date().toISOString(),
+        });
+        return;
+      }
+
+      from(orderExecution.cancelEquityOrder(existing.accountNumber, orderId))
         .pipe(takeUntilDestroyed(destroyRef))
         .subscribe({
+          next: (result) => {
+            if (result.success) {
+              persistCancel({
+                ...existing,
+                status: OrderIntentStatus.CANCELLED,
+                updatedAt: new Date().toISOString(),
+              });
+            } else {
+              this.markFailed(id, prev, result.error ?? { message: 'Broker cancel failed', retryable: false });
+            }
+          },
           error: (err: unknown) => {
-            patchState(state, { intents: prev, error: err instanceof Error ? err.message : String(err) });
-            snackBar.open('Failed to cancel order intent', 'Dismiss', { duration: 4000 });
-            console.error('[OrderStagingStore] cancelIntent failed:', err);
+            this.markFailed(id, prev, {
+              message: err instanceof Error ? err.message : String(err),
+              retryable: true,
+            });
           },
         });
     },
@@ -243,34 +430,69 @@ export const OrderStagingStore = signalStore(
         (i) => i.status === OrderIntentStatus.SUBMITTING
       );
       if (stuck.length === 0) return;
-      // The actual reconciliation queries the broker via OrderExecutionService
-      // (FE-B2, #197). For now, mark stuck intents as FAILED so the user can retry.
-      const prev = state.intents();
-      const next = { ...prev };
+
       for (const intent of stuck) {
-        next[intent.id] = {
-          ...intent,
-          status: OrderIntentStatus.FAILED,
-          error: { message: 'Submission timed out — stuck in SUBMITTING', retryable: true },
-          updatedAt: new Date().toISOString(),
-        };
-      }
-      patchState(state, { intents: next });
-      // Persist the reconciliation — rollback to prev on failure
-      for (const intent of stuck) {
-        intentService.updateIntent(intent.id, {
-          status: OrderIntentStatus.FAILED,
-          error: { message: 'Submission timed out — stuck in SUBMITTING', retryable: true },
-        })
+        from(orderExecution.reconcileOrder(intent.accountNumber, intent.refId))
           .pipe(takeUntilDestroyed(destroyRef))
           .subscribe({
+            next: (recon) => this.applyReconciliationResult(intent.id, state.intents(), recon),
             error: (err: unknown) => {
-              patchState(state, { intents: prev, error: err instanceof Error ? err.message : String(err) });
-              snackBar.open('Failed to reconcile stuck intents — reverted', 'Dismiss', { duration: 4000 });
-              console.error('[OrderStagingStore] reconcileStuckIntents persist failed:', err);
+              this.markFailed(intent.id, state.intents(), {
+                message: err instanceof Error ? err.message : String(err),
+                retryable: true,
+              });
             },
           });
       }
+    },
+
+    /** Map a ReconciliationResult to the appropriate OrderIntentStatus. */
+    applyReconciliationResult(
+      id: string,
+      prev: Record<string, OrderIntent>,
+      recon: ReconciliationResult,
+    ): void {
+      const existing = state.intents()[id];
+      if (!existing) return;
+
+      if (!recon.found || !recon.state) {
+        this.markFailed(id, prev, { message: 'Order not found at broker — assume submission failed', retryable: true });
+        return;
+      }
+
+      const stateLower = recon.state.toLowerCase();
+      let nextStatus: OrderIntentStatus;
+      if (stateLower === 'filled') {
+        nextStatus = OrderIntentStatus.FILLED;
+      } else if (stateLower === 'cancelled' || stateLower === 'canceled') {
+        nextStatus = OrderIntentStatus.CANCELLED;
+      } else if (stateLower === 'failed') {
+        nextStatus = OrderIntentStatus.FAILED;
+      } else {
+        nextStatus = OrderIntentStatus.SUBMITTED;
+      }
+
+      const next: OrderIntent = {
+        ...existing,
+        status: nextStatus,
+        result: {
+          ...existing.result,
+          orderId: recon.orderId,
+          state: recon.state,
+          fillPrice: recon.fillPrice,
+          filledQuantity: recon.filledQuantity,
+        },
+        updatedAt: new Date().toISOString(),
+      };
+      patchState(state, { intents: { ...prev, [id]: next } });
+      intentService.updateIntent(id, { status: nextStatus, result: next.result, updatedAt: next.updatedAt })
+        .pipe(takeUntilDestroyed(destroyRef))
+        .subscribe({
+          error: (err: unknown) => {
+            patchState(state, { intents: prev, error: err instanceof Error ? err.message : String(err) });
+            console.error('[OrderStagingStore] applyReconciliationResult persist failed:', err);
+          },
+        });
     },
   })),
 );

@@ -193,7 +193,7 @@ export class OrderExecutionService {
       type: intent.orderType,
     };
     if (intent.quantity) args['quantity'] = intent.quantity;
-    if (intent.dollarAmount) args['dollar_amount'] = intent.dollarAmount;
+    else if (intent.dollarAmount) args['dollar_amount'] = intent.dollarAmount;
     if (intent.limitPrice) args['limit_price'] = intent.limitPrice;
     if (intent.stopPrice) args['stop_price'] = intent.stopPrice;
     if (intent.timeInForce) args['time_in_force'] = intent.timeInForce;

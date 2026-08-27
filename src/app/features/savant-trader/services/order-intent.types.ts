@@ -147,6 +147,12 @@ export type OrderIntent = EquityOrderIntent | EtfOrderIntent | OptionOrderIntent
 /** User's trading configuration stored at savant-trader/data/trading-config. */
 export interface TradingConfig {
   accountNumber: string;
+  /** Target dollar value per trade. Default 100. */
+  defaultDollarAmount?: number;
+  /** Guardrail on total open exposure in units. Default 200. */
+  maxUnits?: number;
+  /** Max percentage of account value allocatable to positions. Default 80. */
+  maxAllocationPercent?: number;
   updatedAt: string;
 }
 

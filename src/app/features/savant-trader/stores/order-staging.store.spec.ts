@@ -5,6 +5,7 @@ import { of, throwError } from 'rxjs';
 
 import { OrderStagingStore } from './order-staging.store';
 import { OrderIntentService } from '../services/order-intent.service';
+import { OrderExecutionService } from '../services/order-execution.service';
 import {
   OrderIntent,
   OrderIntentStatus,
@@ -16,6 +17,7 @@ import {
 describe('OrderStagingStore', () => {
   let store: InstanceType<typeof OrderStagingStore>;
   let intentService: any;
+  let orderExecution: any;
   let snackBar: any;
 
   function mockEquityIntent(overrides: Partial<EquityOrderIntent> = {}): EquityOrderIntent {
@@ -48,11 +50,17 @@ describe('OrderStagingStore', () => {
     };
 
     snackBar = { open: jasmine.createSpy('open') };
+    orderExecution = {
+      submitEquityOrder: jasmine.createSpy('submitEquityOrder').and.returnValue(Promise.resolve({ success: true, result: { orderId: 'o1', state: 'confirmed' } })),
+      cancelEquityOrder: jasmine.createSpy('cancelEquityOrder').and.returnValue(Promise.resolve({ success: true })),
+      reconcileOrder: jasmine.createSpy('reconcileOrder').and.returnValue(Promise.resolve({ found: false, state: null })),
+    };
 
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
         { provide: OrderIntentService, useValue: intentService },
+        { provide: OrderExecutionService, useValue: orderExecution },
         { provide: MatSnackBar, useValue: snackBar },
         OrderStagingStore,
       ],
@@ -171,7 +179,7 @@ describe('OrderStagingStore', () => {
       store.cancelIntent('intent-1');
 
       expect(store.intents()['intent-1'].status).toBe(OrderIntentStatus.CANCELLED);
-      expect(intentService.updateIntent).toHaveBeenCalledWith('intent-1', { status: OrderIntentStatus.CANCELLED });
+      expect(intentService.updateIntent).toHaveBeenCalledWith('intent-1', jasmine.objectContaining({ status: OrderIntentStatus.CANCELLED }));
     });
   });
 
@@ -201,9 +209,10 @@ describe('OrderStagingStore', () => {
   });
 
   describe('reconcileStuckIntents', () => {
-    it('marks stuck SUBMITTING intents as FAILED', () => {
+    it('marks stuck SUBMITTING intents as FAILED when not found at broker', () => {
       intentService.createIntent.and.returnValue(of(undefined));
       intentService.updateIntent.and.returnValue(of(undefined));
+      orderExecution.reconcileOrder.and.returnValue(of({ found: false, state: null }));
       store.stageIntent(mockEquityIntent({ id: 'stuck-1', status: OrderIntentStatus.SUBMITTING }));
 
       store.reconcileStuckIntents();
@@ -211,6 +220,19 @@ describe('OrderStagingStore', () => {
       const intent = store.intents()['stuck-1'];
       expect(intent.status).toBe(OrderIntentStatus.FAILED);
       expect(intent.error?.retryable).toBe(true);
+    });
+
+    it('promotes a stuck SUBMITTING intent to SUBMITTED when found at broker', () => {
+      intentService.createIntent.and.returnValue(of(undefined));
+      intentService.updateIntent.and.returnValue(of(undefined));
+      orderExecution.reconcileOrder.and.returnValue(of({ found: true, state: 'confirmed', orderId: 'o1' }));
+      store.stageIntent(mockEquityIntent({ id: 'stuck-1', status: OrderIntentStatus.SUBMITTING }));
+
+      store.reconcileStuckIntents();
+
+      const intent = store.intents()['stuck-1'];
+      expect(intent.status).toBe(OrderIntentStatus.SUBMITTED);
+      expect(intent.result?.orderId).toBe('o1');
     });
 
     it('does nothing when no stuck intents exist', () => {

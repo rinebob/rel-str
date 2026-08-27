@@ -83,6 +83,19 @@ describe('OrderExecutionService', () => {
       expect((placeCall[1].args as any).ref_id).toBe('ref-abc-123');
     });
 
+    it('sends quantity instead of stale dollar amount when both are present', async () => {
+      mcpService.executeTool.and.resolveTo({ success: true, parsed: {}, redacted: {}, tool: 'test' });
+
+      await service.submitEquityOrder(mockIntent({ quantity: '3', dollarAmount: '500' }));
+
+      const reviewArgs = mcpService.executeTool.calls.argsFor(0)[1].args;
+      const placeArgs = mcpService.executeTool.calls.argsFor(1)[1].args;
+      expect(reviewArgs.quantity).toBe('3');
+      expect(reviewArgs.dollar_amount).toBeUndefined();
+      expect(placeArgs.quantity).toBe('3');
+      expect(placeArgs.dollar_amount).toBeUndefined();
+    });
+
     it('returns failure when review preflight fails (retryable)', async () => {
       mcpService.executeTool.and.resolveTo({
         success: false,
