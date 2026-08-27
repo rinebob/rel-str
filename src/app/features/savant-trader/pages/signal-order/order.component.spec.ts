@@ -8,6 +8,9 @@ import { of } from 'rxjs';
 import { OrderComponent } from './order.component';
 import { OrderStagingStore } from '../../stores/order-staging.store';
 import { TradingConfigService } from '../../services/trading-config.service';
+import { EquityPriceService } from '../../services/equity-price.service';
+import { PortfolioService } from '../../services/portfolio.service';
+import { RobinhoodMcpObservationService } from '../../services/robinhood-mcp-observation.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import {
   OrderIntent,
@@ -45,6 +48,8 @@ describe('OrderComponent', () => {
   beforeEach(async () => {
     storeMock = {
       intents: signal({}),
+      activeIntents: signal([]),
+      terminalIntents: signal([]),
       loading: signal(false),
       error: signal(null),
       loadIntents: jasmine.createSpy('loadIntents'),
@@ -67,6 +72,9 @@ describe('OrderComponent', () => {
         { provide: UiStateService, useValue: uiStateMock },
         { provide: Router, useValue: routerMock },
         { provide: TradingConfigService, useValue: { loadConfig: jasmine.createSpy('loadConfig').and.returnValue(of(null)) } },
+        { provide: EquityPriceService, useValue: { prices: signal({}), loading: signal(false), fetchPrices: jasmine.createSpy('fetchPrices') } },
+        { provide: PortfolioService, useValue: { getSnapshot: jasmine.createSpy('getSnapshot').and.returnValue(Promise.resolve(null)) } },
+        { provide: RobinhoodMcpObservationService, useValue: { reauthenticate: jasmine.createSpy('reauthenticate') } },
         { provide: MatDialog, useValue: { open: jasmine.createSpy('open').and.returnValue({ afterClosed: () => of(false) }) } },
         { provide: MatSnackBar, useValue: { open: jasmine.createSpy('open') } },
       ],
@@ -147,18 +155,36 @@ describe('OrderComponent', () => {
     expect(component.selectedIntentId()).toBe('3');
   });
 
+  it('renders scoreboard values from the canonical account snapshot', () => {
+    component.tradingConfig.set({
+      accountNumber: 'agentic-account', defaultDollarAmount: 100, maxUnits: 200,
+      maxAllocationPercent: 80, updatedAt: '2026-08-25T12:00:00Z',
+    });
+    component.accountSnapshot.set({
+      accountValue: 24964.02642795, exposure: 163.80642795, cash: 24800.22,
+      positionCount: 2, units: 1.64,
+    });
+    fixture.detectChanges();
+
+    const scoreboard = fixture.nativeElement.querySelector('.scoreboard').textContent;
+    expect(scoreboard).toContain('$24,964.03');
+    expect(scoreboard).toContain('$163.81');
+    expect(scoreboard).toContain('$24,800.22');
+    expect(scoreboard).toContain('2');
+    expect(scoreboard).toContain('1.64');
+  });
+
   it('navigates back to signal-review on goBack', () => {
     component.goBack();
     expect(routerMock.navigate).toHaveBeenCalledWith(['/signal-review']);
   });
 
-  it('shows no-selection message when no intent is selected', () => {
+  it('selects the first loaded intent automatically', () => {
     storeMock.intents.set({ '1': makeIntent('1', 'AAPL') });
     fixture.detectChanges();
 
-    const noSelection = fixture.nativeElement.querySelector('.no-selection');
-    expect(noSelection).toBeTruthy();
-    expect(noSelection.textContent).toContain('Select an order');
+    expect(component.selectedIntentId()).toBe('1');
+    expect(fixture.nativeElement.querySelector('.ticket-content').textContent).toContain('AAPL');
   });
 
   it('shows ticket content when an intent is selected', () => {

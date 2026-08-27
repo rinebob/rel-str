@@ -10,11 +10,53 @@
       Signal Order
     </h1>
 
-    <span class="order-subtitle">
-      {{ intentCount() }} intent{{ intentCount() === 1 ? '' : 's' }}
-    </span>
+    <!-- Scoreboard -->
+    <div class="scoreboard">
+      <span class="sb-item">
+        <span class="sb-label">Acct</span>
+        <span class="sb-value">{{ accountName() }}</span>
+      </span>
+      <span class="sb-sep">|</span>
+      <span class="sb-item">
+        <span class="sb-label">Value</span>
+        <span class="sb-value">{{ accountValue() | currency }}</span>
+      </span>
+      <span class="sb-sep">|</span>
+      <span class="sb-item">
+        <span class="sb-label">Alloc</span>
+        <span class="sb-value">{{ currentExposure() | currency }} / {{ allocationCap() | currency }} ({{ allocationPercent() }}%)</span>
+      </span>
+      <span class="sb-sep">|</span>
+      <span class="sb-item">
+        <span class="sb-label">Pos</span>
+        <span class="sb-value">{{ positionCount() }}</span>
+      </span>
+      <span class="sb-sep">|</span>
+      <span class="sb-item">
+        <span class="sb-label">Units</span>
+        <span class="sb-value">{{ currentUnits() }} / {{ maxUnits() }}</span>
+      </span>
+      <span class="sb-sep">|</span>
+      <span class="sb-item">
+        <span class="sb-label">Cash</span>
+        <span class="sb-value">{{ availableCash() | currency }}</span>
+      </span>
+    </div>
 
     <div class="header-spacer"></div>
+
+    <button mat-icon-button (click)="onOpenConfig()" matTooltip="Trading settings">
+      <mat-icon>settings</mat-icon>
+    </button>
+
+    <button
+      mat-icon-button
+      class="reauth-btn"
+      (click)="onReauth()"
+      [disabled]="reauthing()"
+      [matTooltip]="reauthing() ? 'Re-authenticating Robinhood…' : 'Re-authenticate Robinhood'">
+      <mat-icon [class.spinning]="reauthing()">sync_lock</mat-icon>
+    </button>
   </div>
 
   <!-- Master-Detail Layout -->
@@ -24,6 +66,7 @@
       class="queue-wrapper"
       [intents]="allIntents()"
       [selectedId]="selectedIntentId()"
+      [prices]="prices()"
       (intentSelected)="onIntentSelected($event)"
       (removeIntents)="onRemoveIntents($event)">
     </app-order-queue>
@@ -42,7 +85,12 @@
           <p class="hint">{{ error() }}</p>
         </div>
       } @else {
-        <app-order-ticket [intent]="selectedIntent()"></app-order-ticket>
+        <app-order-ticket
+          [intent]="selectedIntent()"
+          [price]="selectedPrice()"
+          [tradingConfig]="tradingConfig()"
+          [guardrailContext]="guardrailContext()">
+        </app-order-ticket>
       }
     </div>
   </div>

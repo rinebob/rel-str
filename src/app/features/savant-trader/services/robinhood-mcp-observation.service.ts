@@ -36,4 +36,13 @@ export class RobinhoodMcpObservationService {
       ),
     );
   }
+
+  async reauthenticate(): Promise<{ success: boolean; state?: string; category?: string; error?: string }> {
+    return firstValueFrom(
+      this.http.post<{ success: boolean; state?: string; category?: string; error?: string }>(
+        `${this.baseUrl}/auth/reauth`,
+        {},
+      ),
+    );
+  }
 }
