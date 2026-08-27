@@ -196,7 +196,7 @@ describe('TradingConfigService', () => {
 
   describe('saveConfig', () => {
     it('returns an observable that completes', (done) => {
-      service.saveConfig('123456789').subscribe({
+      service.saveConfig({ accountNumber: '123456789' }).subscribe({
         next: () => {
           expect(true).toBe(true);
           done();

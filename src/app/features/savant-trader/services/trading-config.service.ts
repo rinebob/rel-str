@@ -38,10 +38,19 @@ export class TradingConfigService {
         const docRef = doc(this.firestore, Collection.ST_TRADING_CONFIG, userId);
         const snap = await getDoc(docRef);
         if (!snap.exists()) return null;
-        const data = snap.data() as { accountNumber?: string; updatedAt?: string };
+        const data = snap.data() as {
+          accountNumber?: string;
+          updatedAt?: string;
+          defaultDollarAmount?: number;
+          maxUnits?: number;
+          maxAllocationPercent?: number;
+        };
         if (!data.accountNumber) return null;
         return {
           accountNumber: data.accountNumber,
+          defaultDollarAmount: data.defaultDollarAmount,
+          maxUnits: data.maxUnits,
+          maxAllocationPercent: data.maxAllocationPercent,
           updatedAt: data.updatedAt ?? new Date().toISOString(),
         };
       })),
@@ -49,18 +58,22 @@ export class TradingConfigService {
     );
   }
 
-  /** Save the user's trading config (account number preference). */
-  saveConfig(accountNumber: string): Observable<void> {
+  /** Save the user's trading config. */
+  saveConfig(config: Partial<TradingConfig> & { accountNumber: string }): Observable<void> {
     return requireUserId(this.auth, this.injector).pipe(
       take(1),
       switchMap((userId) => runInInjectionContext(this.injector, async () => {
         const docRef = doc(this.firestore, Collection.ST_TRADING_CONFIG, userId);
         const nowIso = new Date().toISOString();
-        await setDoc(docRef, {
+        const payload: Record<string, unknown> = {
           userId,
-          accountNumber,
+          accountNumber: config.accountNumber,
           updatedAt: nowIso,
-        }, { merge: true });
+        };
+        if (config.defaultDollarAmount !== undefined) payload.defaultDollarAmount = config.defaultDollarAmount;
+        if (config.maxUnits !== undefined) payload.maxUnits = config.maxUnits;
+        if (config.maxAllocationPercent !== undefined) payload.maxAllocationPercent = config.maxAllocationPercent;
+        await setDoc(docRef, payload, { merge: true });
       })),
       map(() => undefined)
     );
