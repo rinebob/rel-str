@@ -27,6 +27,16 @@ import { type PdrContext } from './sds-pdr-parser';
 import { createCompletionDeps } from './sds-completion-deps';
 import { shouldFallbackRun, type SequenceSummary } from './sds-fallback-logic';
 
+/** The partner API may return either strings or objects with a .symbol property. */
+type RawTrackedSymbol = string | { symbol: string };
+
+/** Normalize the partner API's tracked-symbols response to string[]. */
+export function normalizeTrackedSymbols(raw: RawTrackedSymbol[] | undefined): string[] {
+  return (raw ?? [])
+    .map((s) => (typeof s === 'string' ? s : s?.symbol))
+    .filter(Boolean);
+}
+
 export const sdsFallback = onSchedule(
   {
     schedule: '0 15 * * 1-5', // 3 PM PT, Mon–Fri
@@ -62,9 +72,11 @@ export const sdsFallback = onSchedule(
 
       logger.info('sds_fallback_creating', { marketDate });
 
-      // Get tracked symbols — fallback syncs all, no excludeSymbols filtering
+      // Get tracked symbols — fallback syncs all, no excludeSymbols filtering.
+      // The partner API may return either plain strings or objects with a
+      // .symbol property — normalize to string[].
       const resp = await callPartnerTrackedSymbols();
-      const trackedSymbols = resp.symbols ?? [];
+      const trackedSymbols: string[] = normalizeTrackedSymbols(resp.symbols);
 
       // Build deps — no intraday fetch needed for POST runs
       const queue = getFunctions().taskQueue('symbolDataSyncWorker');

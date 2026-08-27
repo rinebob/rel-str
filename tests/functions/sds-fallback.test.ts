@@ -10,6 +10,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { computeOpenPassSlot } from '../../functions/src/common/pt-date-utils';
 import { shouldFallbackRun } from '../../functions/src/symbol-data-sync/sds-fallback-logic';
+import { normalizeTrackedSymbols } from '../../functions/src/symbol-data-sync/sds-fallback';
 
 describe('computeOpenPassSlot', () => {
   it('truncates to 5-minute boundary', () => {
@@ -111,5 +112,30 @@ describe('shouldFallbackRun', () => {
       { marketDate: today, sequence: 'B', status: 'processing' },
     ];
     assert.equal(shouldFallbackRun(sequences, today), true);
+  });
+});
+
+describe('normalizeTrackedSymbols', () => {
+  it('passes through plain string symbols unchanged', () => {
+    assert.deepEqual(normalizeTrackedSymbols(['AAPL', 'MSFT', 'GOOGL']), ['AAPL', 'MSFT', 'GOOGL']);
+  });
+
+  it('extracts .symbol from object responses', () => {
+    const raw = [{ symbol: 'AAPL' }, { symbol: 'MSFT' }, { symbol: 'GOOGL' }];
+    assert.deepEqual(normalizeTrackedSymbols(raw as any), ['AAPL', 'MSFT', 'GOOGL']);
+  });
+
+  it('handles mixed string and object responses', () => {
+    const raw = ['AAPL', { symbol: 'MSFT' }, 'GOOGL'];
+    assert.deepEqual(normalizeTrackedSymbols(raw as any), ['AAPL', 'MSFT', 'GOOGL']);
+  });
+
+  it('returns empty array for undefined input', () => {
+    assert.deepEqual(normalizeTrackedSymbols(undefined), []);
+  });
+
+  it('filters out falsy values', () => {
+    const raw = ['AAPL', '', { symbol: '' }, { symbol: 'MSFT' }, null as any];
+    assert.deepEqual(normalizeTrackedSymbols(raw as any), ['AAPL', 'MSFT']);
   });
 });
