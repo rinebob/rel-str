@@ -50,6 +50,9 @@ export class OrderQueueComponent {
   /** Currently selected intent id. */
   selectedId = input<string | null>(null);
 
+  /** Price map: symbol → price. */
+  prices = input<Record<string, number>>({});
+
   /** Emitted when a row is clicked. */
   intentSelected = output<string>();
 
@@ -132,6 +135,12 @@ export class OrderQueueComponent {
       return intent.quantity;
     }
     return intent.quantity ?? intent.dollarAmount ?? '—';
+  }
+
+  /** Price for the intent's symbol, or null if not loaded. */
+  priceFor(intent: OrderIntent): number | null {
+    const sym = this.symbolFor(intent);
+    return this.prices()[sym.toUpperCase()] ?? null;
   }
 
   /** CSS class for status badge. */

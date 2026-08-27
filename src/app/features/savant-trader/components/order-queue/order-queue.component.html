@@ -24,7 +24,7 @@
     <div class="empty-state">
       <mat-icon>inbox</mat-icon>
       <p>No staged orders</p>
-      <p class="hint">Stage orders from the signal review to see them here.</p>
+      <p class="hint">Accept signals from the signal review to see them here.</p>
     </div>
   }
 
@@ -55,16 +55,17 @@
             <div class="item-main">
               <div class="item-line-1">
                 <span class="item-symbol">{{ symbolFor(intent) }}</span>
+                <span class="status-badge" [class]="statusClass(intent)">{{ intent.status }}</span>
+                @if (priceFor(intent)) {
+                  <span class="item-price">{{ priceFor(intent) | currency }}</span>
+                }
                 <span class="item-side" [class.side-buy]="intent.side === 'buy'" [class.side-sell]="intent.side === 'sell'">
                   {{ intent.side | uppercase }}
                 </span>
-              </div>
-              <div class="item-line-2">
                 <span class="item-type">{{ intent.orderType | uppercase }}</span>
                 <span class="item-qty">{{ quantityFor(intent) }}</span>
               </div>
             </div>
-            <span class="status-badge" [class]="statusClass(intent)">{{ intent.status }}</span>
           </div>
         }
       </div>

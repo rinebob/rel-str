@@ -48,11 +48,22 @@
       <span class="value">{{ intent().accountNumber }}</span>
     </div>
   </div>
+
+  @if (warnings().length > 0) {
+    <div class="warnings">
+      @for (w of warnings(); track w.message) {
+        <div class="warning-item" [class.blocked]="w.severity === 'block'">
+          <mat-icon>{{ w.severity === 'block' ? 'block' : 'warning' }}</mat-icon>
+          <span>{{ w.message }}</span>
+        </div>
+      }
+    </div>
+  }
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
   <button mat-button (click)="onCancel()">Cancel</button>
-  <button mat-flat-button color="primary" (click)="onConfirm()">
+  <button mat-flat-button color="primary" (click)="onConfirm()" [disabled]="isBlocked()">
     <mat-icon>send</mat-icon>
     Submit Order
   </button>

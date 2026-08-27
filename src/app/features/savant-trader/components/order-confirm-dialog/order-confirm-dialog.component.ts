@@ -11,6 +11,13 @@ import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/materia
 import { MatIconModule } from '@angular/material/icon';
 
 import { OrderIntent, InstrumentType } from '../../services/order-intent.types';
+import { GuardrailWarning } from '../../utils/order-guardrails.util';
+
+/** Data injected into the confirm dialog. */
+export interface OrderConfirmDialogData {
+  intent: OrderIntent;
+  warnings?: GuardrailWarning[];
+}
 
 @Component({
   selector: 'app-order-confirm-dialog',
@@ -23,10 +30,16 @@ export class OrderConfirmDialogComponent {
   private readonly dialogRef = inject(MatDialogRef<OrderConfirmDialogComponent, boolean>);
 
   /** The intent data injected via MAT_DIALOG_DATA. */
-  readonly data = inject(MAT_DIALOG_DATA) as { intent: OrderIntent };
+  readonly data = inject(MAT_DIALOG_DATA) as OrderConfirmDialogData;
 
   /** The intent to confirm. */
   readonly intent = computed(() => this.data.intent);
+
+  /** Guardrail warnings. */
+  readonly warnings = computed(() => this.data.warnings ?? []);
+
+  /** Whether the submit is blocked (hard stop). */
+  readonly isBlocked = computed(() => this.warnings().some((w) => w.severity === 'block'));
 
   /** Display symbol for the intent. */
   readonly symbol = computed(() => {

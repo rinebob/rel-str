@@ -117,13 +117,13 @@
 .queue-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
+  gap: 6px;
+  padding: 3px 8px;
   cursor: pointer;
   border-bottom: 1px solid var(--mat-sys-outline-variant);
-  font-size: 13px;
+  font-size: 12px;
   transition: background 0.15s;
-  min-height: 44px;
+  min-height: 32px;
 
   &:hover { background: var(--mat-sys-surface-container-high); }
 
@@ -169,22 +169,29 @@
         font-weight: 600;
         padding: 1px 4px;
         border-radius: 3px;
+        flex-shrink: 0;
 
         &.side-buy { background: #1b5e2033; color: #2e7d32; }
         &.side-sell { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
       }
-    }
 
-    .item-line-2 {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 10px;
-      color: var(--mat-sys-on-surface-variant);
-      margin-top: 1px;
+      .item-type {
+        font-size: 10px;
+        text-transform: uppercase;
+        color: var(--mat-sys-on-surface-variant);
+      }
 
-      .item-type { text-transform: uppercase; }
-      .item-qty { font-weight: 500; }
+      .item-qty {
+        font-size: 10px;
+        font-weight: 500;
+        color: var(--mat-sys-on-surface-variant);
+      }
+
+      .item-price {
+        font-size: 10px;
+        font-family: monospace;
+        font-weight: 600;
+      }
     }
   }
 
