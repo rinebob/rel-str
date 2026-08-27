@@ -6,6 +6,7 @@ import {
   executeObservationTool,
   type ExecuteObservationToolOptions,
 } from '../tools/robinhood-tool-executor';
+import { runLocalOAuthBootstrapWithDependencies } from '../auth/local-oauth-bootstrap';
 
 const PORT = Number(process.env.RH_OBSERVATION_API_PORT ?? 3456);
 const HOST = process.env.RH_OBSERVATION_API_HOST ?? '127.0.0.1';
@@ -126,6 +127,24 @@ async function handleExecuteTool(
   sendJson(response, 200, result);
 }
 
+async function handleReauth(response: ServerResponse): Promise<void> {
+  try {
+    const result = await runLocalOAuthBootstrapWithDependencies({ forceRefresh: true });
+    sendJson(response, 200, {
+      success: result.state === 'CONNECTED',
+      state: result.state,
+      category: result.evidence.resultCategory,
+      evidence: result.evidence,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    sendJson(response, 500, {
+      success: false,
+      error: message,
+    });
+  }
+}
+
 interface Route {
   method: 'GET' | 'POST';
   pattern: RegExp;
@@ -144,6 +163,11 @@ export function createRobinhoodObservationApi(
       method: 'GET',
       pattern: /^\/api\/rh\/tools$/,
       handler: async (_request, response) => handleListTools(response),
+    },
+    {
+      method: 'POST',
+      pattern: /^\/api\/rh\/auth\/reauth$/,
+      handler: async (_request, response) => handleReauth(response),
     },
     {
       method: 'POST',
