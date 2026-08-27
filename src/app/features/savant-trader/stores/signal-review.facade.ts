@@ -45,6 +45,57 @@ import {
   EquityOrderIntent,
 } from '../services/order-intent.types';
 
+/** Context needed to turn a set of signals for one symbol into order intents. */
+export interface SignalOrderStagingContext {
+  runId: string;
+  accountNumber: string;
+  now: Date;
+  buildId: (symbol: string, side: string, now: Date) => string;
+  buildRefId: () => string;
+}
+
+export function buildSignalOrderIntents(
+  symbol: string,
+  signals: StSignalItem[],
+  context: SignalOrderStagingContext,
+): EquityOrderIntent[] {
+  const { runId, accountNumber, now, buildId, buildRefId } = context;
+  const seen = new Set<string>();
+  const intents: EquityOrderIntent[] = [];
+  for (const signal of signals) {
+    const side = signal.direction === SignalDirection.SHORT ? 'sell' : 'buy';
+    const dedupKey = `${symbol}-${side}`;
+    if (seen.has(dedupKey)) continue;
+    seen.add(dedupKey);
+    const id = buildId(symbol, side, now);
+    const decisionId = `${runId}-${symbol}-${signal.timeframe}-${signal.signalType}`;
+    intents.push({
+      id,
+      refId: buildRefId(),
+      source: OrderSource.SIGNAL_PIPELINE,
+      sourceRef: { type: 'occurrence_decision', id: decisionId },
+      status: OrderIntentStatus.STAGED,
+      accountNumber,
+      side,
+      orderType: 'market',
+      timeInForce: 'gfd',
+      marketHours: 'regular_hours',
+      instrumentType: InstrumentType.EQUITY,
+      symbol,
+      signalContext: {
+        signalType: signal.signalType,
+        barDate: signal.barDate,
+        timeframe: signal.timeframe,
+        direction: signal.direction,
+        decisionId,
+      },
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    });
+  }
+  return intents;
+}
+
 @Injectable({ providedIn: 'root' })
 export class SignalReviewFacade {
   private readonly groupStore = inject(GroupStore);
@@ -278,9 +329,19 @@ export class SignalReviewFacade {
       const runId = this.groupStore.activeRunId();
       const marketDate = this.groupStore.activeRunMarketDate();
       if (!runId || !marketDate) return;
+
+      // Toggle: if already accepted, de-accept and remove the staged intent.
+      const isAccepted = this.occurrenceStore.acceptedSymbols().includes(symbol.toUpperCase());
+      if (isAccepted) {
+        this.occurrenceStore.resetSymbol(symbol, runId);
+        this.removeStagedIntentForSymbol(symbol);
+        return;
+      }
+
       this.currentRunSignals(symbol).subscribe((signals) => {
         if (signals.length === 0) return;
         this.occurrenceStore.acceptSignals(signals, runId, marketDate);
+        this.stageIntentForSymbol(symbol, signals, runId);
       });
     });
   }
@@ -301,6 +362,7 @@ export class SignalReviewFacade {
       this.currentRunSignals(symbol).subscribe((signals) => {
         if (signals.length === 0) return;
         this.occurrenceStore.rejectSignals(signals, runId, marketDate);
+        this.removeStagedIntentForSymbol(symbol);
       });
     });
   }
@@ -341,68 +403,53 @@ export class SignalReviewFacade {
     this.router.navigate(['/chart-review']);
   }
 
-  /**
-   * Stage all accepted occurrence decisions as equity OrderIntents, then
-   * navigate to /signal-order. Each accepted decision becomes an
-   * EquityOrderIntent with source: SIGNAL_PIPELINE, signalContext populated,
-   * side from direction, accountNumber from trading-config preference.
-   *
-   * ID format: {SYMBOL}-{SIDE}-{YYMMDD}-{DOW}-{HHMM}PT
-   * The decision id is attached via sourceRef and signalContext.decisionId.
-   * Deduplicates by symbol+side — if two decisions have the same symbol and
-   * side, only the first is staged.
-   */
-  async stageAcceptedIntents(): Promise<void> {
-    const decisions = this.occurrenceStore.activeOrderDecisions();
-    if (decisions.length === 0) return;
+  /** Navigate to the signal order page. */
+  async goToSignalOrder(): Promise<void> {
+    this.router.navigate(['/signal-order']);
+  }
 
+  /**
+   * Stage a single equity order intent for the given symbol immediately
+   * after accept. Loads account config, deduplicates by symbol+side.
+   */
+  private async stageIntentForSymbol(symbol: string, signals: StSignalItem[], runId: string): Promise<void> {
     let accountNumber: string;
     try {
       const config = await firstValueFrom(this.tradingConfigService.loadConfig());
       accountNumber = config?.accountNumber ?? '';
+      if (!accountNumber) {
+        this.snackBar.open('Failed to auto-stage order — configure the agentic account first', 'Dismiss', { duration: 4000 });
+        return;
+      }
     } catch (err) {
-      console.error('[SignalReviewFacade] Failed to load trading config for staging:', err);
-      this.snackBar.open('Failed to load account config — staging aborted', 'Dismiss', { duration: 4000 });
+      console.error('[SignalReviewFacade] Failed to load trading config for auto-staging:', err);
+      this.snackBar.open('Failed to auto-stage order — check account config', 'Dismiss', { duration: 4000 });
       return;
     }
 
     const now = new Date();
-    const seen = new Set<string>();
-
-    for (const decision of decisions) {
-      const side = decision.direction === SignalDirection.SHORT ? 'sell' : 'buy';
-      const dedupKey = `${decision.symbol}-${side}`;
-      if (seen.has(dedupKey)) continue;
-      seen.add(dedupKey);
-
-      const id = this.buildIntentId(decision.symbol, side, now);
-      const intent: EquityOrderIntent = {
-        id,
-        refId: id,
-        source: OrderSource.SIGNAL_PIPELINE,
-        sourceRef: { type: 'occurrence_decision', id: decision.id },
-        status: OrderIntentStatus.STAGED,
-        accountNumber,
-        side,
-        orderType: 'market',
-        timeInForce: 'gfd',
-        marketHours: 'regular_hours',
-        instrumentType: InstrumentType.EQUITY,
-        symbol: decision.symbol,
-        signalContext: {
-          signalType: decision.signalType,
-          barDate: decision.barDate,
-          timeframe: decision.timeframe,
-          direction: decision.direction,
-          decisionId: decision.id,
-        },
-        createdAt: now.toISOString(),
-        updatedAt: now.toISOString(),
-      };
+    const intents = buildSignalOrderIntents(symbol, signals, {
+      runId,
+      accountNumber,
+      now,
+      buildId: (intentSymbol, side, createdAt) => this.buildIntentId(intentSymbol, side, createdAt),
+      buildRefId: () => crypto.randomUUID(),
+    });
+    for (const intent of intents) {
       this.stagingStore.stageIntent(intent);
     }
+  }
 
-    this.router.navigate(['/signal-order']);
+  /** Remove any staged intents for the given symbol (used on de-accept/reject). */
+  private removeStagedIntentForSymbol(symbol: string): void {
+    const normalized = symbol.toUpperCase();
+    const bySymbol = this.stagingStore.intentsBySymbol();
+    const intents = bySymbol[normalized] ?? [];
+    for (const intent of intents) {
+      if (intent.status === OrderIntentStatus.STAGED || intent.status === OrderIntentStatus.READY) {
+        this.stagingStore.removeIntent(intent.id);
+      }
+    }
   }
 
   /**
