@@ -5,6 +5,7 @@
  * - checkSyncRunCompletion: transaction-wrapped per-interval check.
  *   When processedSymbols.length >= symbols.length, marks the interval run
  *   complete and updates the parent sequence doc's completedIntervals.
+ *   Uses arrayUnion (idempotent) so retries don't inflate the set (ADR-005).
  *
  * - fireSequenceCompletion: when all 3 intervals (DAILY, WEEKLY, MONTHLY)
  *   in a POST sequence complete, enqueues downstream consumers

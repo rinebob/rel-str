@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 import { describe, it, beforeEach } from 'node:test';
 
 import { handlePdrMessage, type SdsDeps, type SdsTaskPayload } from '../../functions/src/symbol-data-sync/sds-core';
+import { shouldUseIntradayCompletion } from '../../functions/src/symbol-data-sync/sds-worker';
 import type { PdrContext } from '../../functions/src/symbol-data-sync/sds-pdr-parser';
 
 // ── Mock infrastructure ──────────────────────────────────────────────
@@ -267,9 +268,66 @@ describe('handlePdrMessage — intraday PRE', () => {
     const seqDocs = Array.from(db.docs.keys()).filter((k) => k.startsWith('symbol-data-sync-sequences/'));
     assert.equal(seqDocs.length, 0);
 
-    // Run doc should be marked completed
+    // Run doc should be marked completed (completionDeps not set → else branch)
     const runDoc = db.docs.get('symbol-data-sync-runs/2026-01-24-FRI-LIVE-0800');
     assert.equal(runDoc?.status, 'completed');
     assert.equal((runDoc?.processedSymbols as string[])?.length, 5);
+  });
+
+  it('dispatches st-intraday consumer when completionDeps is provided', async () => {
+    const db = createMockDb();
+    const intradaySnaps = TRACKED.map((s, i) => ({
+      symbol: s,
+      ip: 100 + i,
+      ipc: 0.5 + i * 0.1,
+      io: 1737720000000 + i * 1000,
+      it: '08:00',
+      ic: 0.5,
+    }));
+    const dispatched: string[] = [];
+    const completionDeps = {
+      db: db as any,
+      async enqueueConsumer(name: string) { dispatched.push(name); },
+      async runSelectionPass() {},
+      async runSettlementPass() {},
+      async startStRun() {},
+    };
+    const deps = createDeps(db, TRACKED, intradaySnaps) as any;
+    deps.completionDeps = completionDeps;
+
+    await handlePdrMessage(
+      {
+        runId: '2026-01-24-FRI-LIVE-0800',
+        phase: 'pre',
+        marketDate: '2026-01-24',
+        runType: 'intraday-snapshot',
+        clockPt: '0800',
+      },
+      {},
+      deps,
+    );
+
+    const runDoc = db.docs.get('symbol-data-sync-runs/2026-01-24-FRI-LIVE-0800');
+    assert.equal(runDoc?.status, 'completed');
+    assert.equal(runDoc?.completionEnqueued, true);
+    assert.ok(dispatched.includes('st-intraday'), 'st-intraday consumer should be dispatched');
+  });
+});
+
+describe('shouldUseIntradayCompletion', () => {
+  it('returns true for intraday payload with no sequenceRunId', () => {
+    assert.equal(shouldUseIntradayCompletion({ sequenceRunId: undefined, interval: 'intraday' }), true);
+  });
+
+  it('returns false for POST payload with sequenceRunId', () => {
+    assert.equal(shouldUseIntradayCompletion({ sequenceRunId: '2026-01-24-POST-A', interval: 'DAILY' }), false);
+  });
+
+  it('returns false for intraday payload that has a sequenceRunId', () => {
+    assert.equal(shouldUseIntradayCompletion({ sequenceRunId: '2026-01-24-POST-A', interval: 'intraday' }), false);
+  });
+
+  it('returns false for POST interval with no sequenceRunId', () => {
+    assert.equal(shouldUseIntradayCompletion({ sequenceRunId: undefined, interval: 'DAILY' }), false);
   });
 });

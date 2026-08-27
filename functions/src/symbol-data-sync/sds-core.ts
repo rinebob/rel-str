@@ -187,7 +187,11 @@ async function handleIntradayRun(
   } catch (err: any) {
     logger.error('sds_intraday_fetch_failed', { runId: ctx.runId, error: err?.message });
     failed = symbols.length;
-    await markIntradayRunComplete(runRef, symbols);
+    await runRef.set({
+      processedSymbols: symbols,
+      status: 'failed',
+      completedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
     return { skipped: false, enqueued: 0, errors: failed };
   }
 
@@ -226,7 +230,7 @@ async function handleIntradayRun(
     success = 0;
   }
 
-  await markIntradayRunComplete(runRef, symbols);
+  await runRef.set({ processedSymbols: symbols }, { merge: true });
   logger.info('sds_intraday_complete', { runId: ctx.runId, success, failed });
 
   // Fire intraday completion dispatch (RH Agent intraday)
@@ -240,19 +244,13 @@ async function handleIntradayRun(
       phase: 'pre',
     };
     await checkIntradayRunCompletion(runCtx, deps.completionDeps);
+  } else {
+    // No completion deps (e.g. tests) — mark completed directly
+    await runRef.set({
+      status: 'completed',
+      completedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
   }
 
   return { skipped: false, enqueued: success, errors: failed };
-}
-
-async function markIntradayRunComplete(
-  runRef: FirebaseFirestore.DocumentReference,
-  symbols: string[],
-): Promise<void> {
-  await runRef.set({
-    processedSymbols: symbols,
-    status: 'completed',
-    completionEnqueued: false,
-    completedAt: FieldValue.serverTimestamp(),
-  }, { merge: true });
 }

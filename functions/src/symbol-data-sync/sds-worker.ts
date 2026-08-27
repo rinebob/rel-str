@@ -3,7 +3,8 @@
  *
  * Thin entry point: delegates to processSymbolInterval with real GCP deps.
  * Completion tracking (processedSymbols arrayUnion) is handled here in a finally
- * block with a single transactional write.
+ * block with a single transactional write. arrayUnion is idempotent so retries
+ * don't inflate the set (ADR-005).
  */
 
 import { onTaskDispatched } from 'firebase-functions/v2/tasks';
@@ -14,10 +15,20 @@ import { callPartnerTimeSeries } from '../partner-proxy';
 import { normalizeBar } from './symbol-data-bar-helpers';
 import type { OhlcBar } from '../common/market-data-types';
 import { processSymbolInterval, type SdsWorkerPayload, type SdsWorkerDeps, type SdsWorkerResult } from './sds-worker-core';
-import { checkSyncRunCompletion, type RunContext } from './sds-completion';
+import { checkSyncRunCompletion, checkIntradayRunCompletion, type RunContext } from './sds-completion';
 import { createCompletionDeps } from './sds-completion-deps';
 
 const SDS_RUNS_COLLECTION = 'symbol-data-sync-runs';
+const INTRADAY_INTERVAL = 'intraday' as const;
+
+/**
+ * Determine which completion check to run based on the worker payload.
+ * Intraday runs (no sequenceRunId) use checkIntradayRunCompletion.
+ * POST runs (with sequenceRunId) use checkSyncRunCompletion (sequence fan-in).
+ */
+export function shouldUseIntradayCompletion(payload: { sequenceRunId?: string; interval: string }): boolean {
+  return !payload.sequenceRunId && payload.interval === INTRADAY_INTERVAL;
+}
 
 /** Extract sequence letter (A/B/C) from a sequenceRunId like '2026-08-22-POST-A'. */
 function extractSequence(sequenceRunId: string): string | undefined {
@@ -61,7 +72,8 @@ export const symbolDataSyncWorker = onTaskDispatched<SdsWorkerPayload>(
       logger.info('sds_worker_complete', { ...result, runId: payload.runId });
     } finally {
       // Always mark the symbol as processed — even on error — so the run can
-      // reach completion. arrayUnion is idempotent, so retries don't inflate.
+      // reach completion. arrayUnion is idempotent, so retries don't inflate
+      // the set (ADR-005).
       const runRef = db.collection(SDS_RUNS_COLLECTION).doc(payload.runId);
       await db.runTransaction(async (t) => {
         const updates: Record<string, unknown> = {
@@ -71,7 +83,7 @@ export const symbolDataSyncWorker = onTaskDispatched<SdsWorkerPayload>(
         t.set(runRef, updates, { merge: true });
       });
 
-      // Check if this interval run is complete → fire sequence fan-in
+      // Check if this interval run is complete → fire sequence fan-in or intraday dispatch
       const completionDeps = createCompletionDeps();
       const runCtx: RunContext = {
         runId: payload.runId,
@@ -81,7 +93,14 @@ export const symbolDataSyncWorker = onTaskDispatched<SdsWorkerPayload>(
         marketDate: payload.marketDate,
         phase: 'post',
       };
-      await checkSyncRunCompletion(runCtx, completionDeps);
+
+      // Intraday runs have no sequence — dispatch st-intraday consumer directly.
+      // POST runs have a sequenceRunId — use sequence fan-in completion.
+      if (shouldUseIntradayCompletion(payload)) {
+        await checkIntradayRunCompletion(runCtx, completionDeps);
+      } else {
+        await checkSyncRunCompletion(runCtx, completionDeps);
+      }
     }
   },
 );
