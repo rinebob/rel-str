@@ -154,9 +154,9 @@ export class SignalReviewComponent implements OnInit, OnDestroy {
     this.facade.goToReview();
   }
 
-  /** Stage all accepted occurrence decisions as order intents, then navigate. */
-  stageAcceptedIntents(): void {
-    this.facade.stageAcceptedIntents();
+  /** Navigate to signal order page. */
+  goToSignalOrder(): void {
+    this.facade.goToSignalOrder();
   }
 
   /** Navigate to the triage report page. */
