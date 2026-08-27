@@ -1,5 +1,14 @@
 # Changelog
 
+## [2026-08-27]
+
+### Fixed
+- [Data Pipeline] 159-210_BE-BUG-DATA-PIPELINE: Fix intraday run completion path
+- [Data Pipeline] 159-210_BE-BUG-DATA-PIPELINE: Fix fallback symbol normalization
+
+### Added
+- [Data Pipeline] 159-210_DOCS-DOCS-DATA-PIPELINE: Add code review doc for intraday fix
+
 ## [2026-08-25]
 
 ### Added
