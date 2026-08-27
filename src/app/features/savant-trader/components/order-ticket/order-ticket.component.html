@@ -13,37 +13,25 @@
       <div class="ticket-header">
         <div class="ticket-symbol">
           <span class="symbol">{{ symbol() }}</span>
+          <span class="header-price">
+            <span class="hp-label">Price</span>
+            <span class="hp-value">{{ currentPrice() ? (currentPrice() | currency) : '—' }}</span>
+          </span>
           <span class="side" [class.buy]="intent()?.side === 'buy'" [class.sell]="intent()?.side === 'sell'">
             {{ intent()?.side | uppercase }}
           </span>
+          <span class="status-badge" [class]="'status-' + intent()?.status">
+            {{ intent()?.status | uppercase }}
+          </span>
         </div>
         <div class="ticket-actions">
+          @if (intent()?.result?.orderId) {
+            <span class="order-id">ID: {{ intent()?.result?.orderId?.slice(0, 8) }}…</span>
+          }
           <button mat-icon-button (click)="onNewManualOrder()" matTooltip="New manual order">
             <mat-icon>add</mat-icon>
           </button>
         </div>
-      </div>
-
-      <!-- Account number -->
-      <div class="account-section">
-        @if (hasAccount()) {
-          <span class="account-label">Account:</span>
-          <span class="account-value">{{ tradingConfig()?.accountNumber }}</span>
-        } @else {
-          <div class="account-warning">
-            <mat-icon>warning</mat-icon>
-            <span>No account number configured. Set one in settings to submit orders.</span>
-          </div>
-        }
-      </div>
-
-      <!-- Status feedback -->
-      <div class="status-section" [class]="'status-' + intent()?.status">
-        <mat-icon>{{ statusIcon() }}</mat-icon>
-        <span>{{ intent()?.status | uppercase }}</span>
-        @if (intent()?.result?.orderId) {
-          <span class="order-id">Order ID: {{ intent()?.result?.orderId?.slice(0, 8) }}…</span>
-        }
       </div>
 
       <!-- Error display -->
@@ -61,83 +49,184 @@
         </div>
       }
 
-      <!-- Editable form -->
+      <!-- Entry: editable form OR read-only confirmation -->
       @if (isEditable()) {
         <div class="form-section">
-          <h3>Order Parameters</h3>
-
+          <!-- Type toggle pills -->
           <div class="form-row">
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Order Type</mat-label>
-              <mat-select [value]="orderType()" (selectionChange)="orderType.set($event.value)">
-                <mat-option value="market">Market</mat-option>
-                <mat-option value="limit">Limit</mat-option>
-                <mat-option value="stop_market">Stop Market</mat-option>
-                <mat-option value="stop_limit">Stop Limit</mat-option>
-              </mat-select>
-            </mat-form-field>
+            <span class="field-label">Type</span>
+            <div class="pill-group">
+              <button type="button" class="pill" [class.active]="orderType() === 'market'" (click)="orderType.set('market')">Mkt</button>
+              <button type="button" class="pill" [class.active]="orderType() === 'limit'" (click)="orderType.set('limit')">Limit</button>
+              <button type="button" class="pill" [class.active]="orderType() === 'stop_market'" (click)="orderType.set('stop_market')">Stop Mkt</button>
+              <button type="button" class="pill" [class.active]="orderType() === 'stop_limit'" (click)="orderType.set('stop_limit')">Stop Lmt</button>
+            </div>
           </div>
 
+          <!-- Qty / Limit / Stop / Cost / Units -->
           <div class="form-row">
-            <mat-form-field appearance="outline">
-              <mat-label>Quantity (shares)</mat-label>
-              <input matInput [value]="quantity()" (input)="quantity.set($any($event.target).value)" placeholder="100">
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Dollar Amount ($)</mat-label>
-              <input matInput [value]="dollarAmount()" (input)="dollarAmount.set($any($event.target).value)" placeholder="1000">
-            </mat-form-field>
+            <div class="compact-field">
+              <span class="cf-label">Qty</span>
+              <div class="stepper">
+                <button type="button" class="step-btn" (click)="qtyDown()">&#9660;</button>
+                <input class="cf-input" inputmode="numeric" pattern="[0-9]*" [value]="quantity()" (input)="onQuantityInput($event)" placeholder="100">
+                <button type="button" class="step-btn" (click)="qtyUp()">&#9650;</button>
+              </div>
+            </div>
+            @if (showLimitPrice()) {
+              <div class="compact-field">
+                <span class="cf-label">Limit $</span>
+                <div class="stepper">
+                  <button type="button" class="step-btn" (click)="limitDown()">&#9660;</button>
+                  <input class="cf-input" [value]="limitPrice()" (input)="setInputValue(limitPrice, $event)" placeholder="0.00">
+                  <button type="button" class="step-btn" (click)="limitUp()">&#9650;</button>
+                </div>
+              </div>
+            }
+            @if (showStopPrice()) {
+              <div class="compact-field">
+                <span class="cf-label">Stop $</span>
+                <div class="stepper">
+                  <button type="button" class="step-btn" (click)="stopDown()">&#9660;</button>
+                  <input class="cf-input" [value]="stopPrice()" (input)="setInputValue(stopPrice, $event)" placeholder="0.00">
+                  <button type="button" class="step-btn" (click)="stopUp()">&#9650;</button>
+                </div>
+              </div>
+            }
+            <div class="inline-stat">
+              <span class="stat-label">Cost</span>
+              <span class="stat-value">{{ currentPrice() ? (actualCost() | currency) : '—' }}</span>
+            </div>
+            <div class="inline-stat">
+              <span class="stat-label">Units</span>
+              <span class="stat-value">{{ currentPrice() ? computedUnits() : '—' }}</span>
+            </div>
           </div>
 
-          @if (showLimitPrice()) {
-            <div class="form-row">
-              <mat-form-field appearance="outline">
-                <mat-label>Limit Price ($)</mat-label>
-                <input matInput [value]="limitPrice()" (input)="limitPrice.set($any($event.target).value)" placeholder="0.00">
-              </mat-form-field>
-            </div>
-          }
-
-          @if (showStopPrice()) {
-            <div class="form-row">
-              <mat-form-field appearance="outline">
-                <mat-label>Stop Price ($)</mat-label>
-                <input matInput [value]="stopPrice()" (input)="stopPrice.set($any($event.target).value)" placeholder="0.00">
-              </mat-form-field>
-            </div>
-          }
-
+          <!-- TIF toggle pills -->
           <div class="form-row">
-            <mat-form-field appearance="outline">
-              <mat-label>Time in Force</mat-label>
-              <mat-select [value]="timeInForce()" (selectionChange)="timeInForce.set($event.value)">
-                <mat-option value="gfd">Day (GFD)</mat-option>
-                <mat-option value="gtc">Good til Cancelled (GTC)</mat-option>
-              </mat-select>
-            </mat-form-field>
+            <span class="field-label">TIF</span>
+            <div class="pill-group">
+              <button type="button" class="pill" [class.active]="timeInForce() === 'gfd'" (click)="timeInForce.set('gfd')">Day</button>
+              <button type="button" class="pill" [class.active]="timeInForce() === 'gtc'" (click)="timeInForce.set('gtc')">GTC</button>
+            </div>
+          </div>
 
-            <mat-form-field appearance="outline">
-              <mat-label>Market Hours</mat-label>
-              <mat-select [value]="marketHours()" (selectionChange)="marketHours.set($event.value)">
-                <mat-option value="regular_hours">Regular Hours</mat-option>
-                <mat-option value="extended_hours">Extended Hours</mat-option>
-                <mat-option value="all_day_hours">All Day Hours</mat-option>
-              </mat-select>
-            </mat-form-field>
+          <!-- Hours toggle pills -->
+          <div class="form-row">
+            <span class="field-label">Hours</span>
+            <div class="pill-group">
+              <button type="button" class="pill" [class.active]="marketHours() === 'regular_hours'" (click)="marketHours.set('regular_hours')">Regular</button>
+              <button type="button" class="pill" [class.active]="marketHours() === 'extended_hours'" (click)="marketHours.set('extended_hours')">Extended</button>
+              <button type="button" class="pill" [class.active]="marketHours() === 'all_day_hours'" (click)="marketHours.set('all_day_hours')">All Day</button>
+            </div>
+          </div>
+        </div>
+      } @else if (entryConfirmation()) {
+        <div class="confirmation-section">
+          <div class="conf-row">
+            <span class="conf-label">Type</span>
+            <span class="conf-value">{{ entryConfirmation()?.orderType }}</span>
+          </div>
+          <div class="conf-row">
+            <span class="conf-label">Qty</span>
+            <span class="conf-value">{{ entryConfirmation()?.quantity }}</span>
+          </div>
+          @if (entryConfirmation()?.fillPrice) {
+            <div class="conf-row">
+              <span class="conf-label">Fill</span>
+              <span class="conf-value">{{ entryConfirmation()?.fillPrice | currency }}</span>
+            </div>
+          }
+          @if (entryConfirmation()?.limitPrice) {
+            <div class="conf-row">
+              <span class="conf-label">Limit</span>
+              <span class="conf-value">{{ entryConfirmation()?.limitPrice | currency }}</span>
+            </div>
+          }
+          <div class="conf-row">
+            <span class="conf-label">TIF</span>
+            <span class="conf-value">{{ entryConfirmation()?.timeInForce }}</span>
+          </div>
+          @if (entryConfirmation()?.orderId) {
+            <div class="conf-row">
+              <span class="conf-label">Order ID</span>
+              <span class="conf-value mono">{{ entryConfirmation()?.orderId?.slice(0, 12) }}…</span>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Stop loss form — compact, one row -->
+      @if (showStopLossSection()) {
+        <div class="stop-loss-section">
+          <span class="sl-title">Stop Loss</span>
+          <div class="sl-fields-row">
+            <div class="sl-field">
+              <span class="sl-label">$</span>
+              <div class="stepper">
+                <button type="button" class="step-btn" (click)="stopPriceDown()">&#9660;</button>
+                <input class="sl-input" [value]="stopLossPrice()" (input)="onStopPriceChange($event)" placeholder="0.00">
+                <button type="button" class="step-btn" (click)="stopPriceUp()">&#9650;</button>
+              </div>
+            </div>
+            <div class="sl-field">
+              <span class="sl-label">%</span>
+              <div class="stepper">
+                <button type="button" class="step-btn" (click)="stopPercentDown()">&#9660;</button>
+                <input class="sl-input" [value]="stopLossPercent()" (input)="onStopPercentChange($event)" placeholder="8.0">
+                <button type="button" class="step-btn" (click)="stopPercentUp()">&#9650;</button>
+              </div>
+            </div>
+            <div class="sl-stat">
+              <span class="sl-label">Risk</span>
+              <span class="sl-risk-value">{{ stopLossRisk() | currency }}</span>
+            </div>
           </div>
         </div>
       }
 
-      <!-- Live preview -->
-      @if (preview()) {
+      <!-- Stop loss confirmation (below entry confirmation) -->
+      @if (stopLossConfirmation()) {
+        <div class="confirmation-section sl-confirmation">
+          <div class="conf-row">
+            <span class="conf-label">SL Stop</span>
+            <span class="conf-value">{{ stopLossConfirmation()?.stopPrice | currency }}</span>
+          </div>
+          <div class="conf-row">
+            <span class="conf-label">SL Qty</span>
+            <span class="conf-value">{{ stopLossConfirmation()?.quantity }}</span>
+          </div>
+          @if (stopLossConfirmation()?.fillPrice) {
+            <div class="conf-row">
+              <span class="conf-label">SL Fill</span>
+              <span class="conf-value">{{ stopLossConfirmation()?.fillPrice | currency }}</span>
+            </div>
+          }
+          @if (stopLossConfirmation()?.orderId) {
+            <div class="conf-row">
+              <span class="conf-label">SL ID</span>
+              <span class="conf-value mono">{{ stopLossConfirmation()?.orderId?.slice(0, 12) }}…</span>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Contextual preview -->
+      @if (!isEntryFilled() && preview()) {
         <div class="preview-section">
-          <h3>Preview</h3>
+          <h3>Order Preview</h3>
           <pre class="preview-json">{{ preview() | json }}</pre>
         </div>
       }
+      @if (isEntryFilled() && !stopLossExists() && stopLossPreview()) {
+        <div class="preview-section">
+          <h3>Stop Loss Preview</h3>
+          <pre class="preview-json">{{ stopLossPreview() | json }}</pre>
+        </div>
+      }
 
-      <!-- Action buttons -->
+      <!-- Contextual action buttons -->
       <div class="action-section">
         @if (isEditable()) {
           <button mat-flat-button color="primary" (click)="onSubmit()" [disabled]="!hasAccount()">
@@ -154,9 +243,13 @@
         }
 
         @if (isSubmitted()) {
+          <button mat-stroked-button color="primary" (click)="onModify()">
+            <mat-icon>edit</mat-icon>
+            Modify
+          </button>
           <button mat-stroked-button color="warn" (click)="onCancel()">
             <mat-icon>cancel</mat-icon>
-            Cancel Order
+            Cancel
           </button>
         }
 
@@ -164,6 +257,27 @@
           <div class="submitting-indicator">
             <mat-icon>hourglass_empty</mat-icon>
             <span>Submitting…</span>
+          </div>
+        }
+
+        @if (isEntryFilled() && !stopLossExists() && canPlaceStopLoss()) {
+          <button mat-flat-button color="warn" (click)="onPlaceStopLoss()">
+            <mat-icon>shield</mat-icon>
+            Submit Stop Loss Order
+          </button>
+        }
+
+        @if (isStopLossSubmitted()) {
+          <button mat-stroked-button color="warn" (click)="onCancelStopLoss()">
+            <mat-icon>cancel</mat-icon>
+            Cancel Stop Loss
+          </button>
+        }
+
+        @if (isStopLossSubmitting()) {
+          <div class="submitting-indicator">
+            <mat-icon>hourglass_empty</mat-icon>
+            <span>Stop loss submitting…</span>
           </div>
         }
       </div>

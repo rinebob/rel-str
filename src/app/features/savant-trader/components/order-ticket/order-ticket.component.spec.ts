@@ -2,388 +2,173 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { signal } from '@angular/core';
 import { of } from 'rxjs';
 
 import { OrderTicketComponent } from './order-ticket.component';
 import { OrderStagingStore } from '../../stores/order-staging.store';
-import { TradingConfigService } from '../../services/trading-config.service';
-import {
-  OrderIntent,
-  OrderIntentStatus,
-  OrderSource,
-  InstrumentType,
-} from '../../services/order-intent.types';
+import { InstrumentType, OrderIntent, OrderIntentStatus, OrderSource, TradingConfig } from '../../services/order-intent.types';
 
-function makeIntent(
-  id: string,
-  status: OrderIntentStatus = OrderIntentStatus.STAGED,
-  overrides: Partial<OrderIntent> = {},
-): OrderIntent {
+function makeIntent(id: string, symbol = 'AAPL', overrides: Partial<OrderIntent> = {}): OrderIntent {
   return {
     id,
     refId: `ref-${id}`,
     source: OrderSource.SIGNAL_PIPELINE,
-    status,
-    accountNumber: '123456789',
+    status: OrderIntentStatus.STAGED,
+    accountNumber: 'agentic-account',
     side: 'buy',
     orderType: 'market',
     timeInForce: 'gfd',
     marketHours: 'regular_hours',
     instrumentType: InstrumentType.EQUITY,
-    symbol: 'AAPL',
-    quantity: '100',
+    symbol,
+    quantity: '2',
     createdAt: '2026-08-25T12:00:00Z',
     updatedAt: '2026-08-25T12:00:00Z',
     ...overrides,
   } as OrderIntent;
 }
 
+const config: TradingConfig = {
+  accountNumber: 'agentic-account',
+  defaultDollarAmount: 100,
+  maxUnits: 200,
+  maxAllocationPercent: 80,
+  updatedAt: '2026-08-25T12:00:00Z',
+};
+
 describe('OrderTicketComponent', () => {
   let fixture: ComponentFixture<OrderTicketComponent>;
   let component: OrderTicketComponent;
-  let storeMock: any;
-  let configServiceMock: any;
-  let dialogMock: any;
-  let snackBarMock: any;
+  let store: {
+    intents: ReturnType<typeof signal<Record<string, OrderIntent>>>;
+    submitIntent: jasmine.Spy;
+    retryIntent: jasmine.Spy;
+    cancelIntent: jasmine.Spy;
+    modifyIntent: jasmine.Spy;
+    updateIntent: jasmine.Spy;
+    stageIntent: jasmine.Spy;
+  };
+  let dialog: { open: jasmine.Spy };
 
   beforeEach(async () => {
-    storeMock = {
+    store = {
+      intents: signal<Record<string, OrderIntent>>({}),
       submitIntent: jasmine.createSpy('submitIntent'),
       retryIntent: jasmine.createSpy('retryIntent'),
       cancelIntent: jasmine.createSpy('cancelIntent'),
+      modifyIntent: jasmine.createSpy('modifyIntent'),
       updateIntent: jasmine.createSpy('updateIntent'),
+      stageIntent: jasmine.createSpy('stageIntent'),
     };
-
-    configServiceMock = {
-      loadConfig: jasmine.createSpy('loadConfig').and.returnValue(of({ accountNumber: '123456789', updatedAt: '2026-08-25T12:00:00Z' })),
-    };
-
-    dialogMock = {
-      open: jasmine.createSpy('open').and.returnValue({
-        afterClosed: () => of(true),
-      }),
-    };
-
-    snackBarMock = {
-      open: jasmine.createSpy('open'),
+    dialog = {
+      open: jasmine.createSpy('open').and.returnValue({ afterClosed: () => of(true) }),
     };
 
     await TestBed.configureTestingModule({
       imports: [OrderTicketComponent],
       providers: [
         provideNoopAnimations(),
-        { provide: OrderStagingStore, useValue: storeMock },
-        { provide: TradingConfigService, useValue: configServiceMock },
-        { provide: MatDialog, useValue: dialogMock },
-        { provide: MatSnackBar, useValue: snackBarMock },
+        { provide: OrderStagingStore, useValue: store },
+        { provide: MatDialog, useValue: dialog },
+        { provide: MatSnackBar, useValue: { open: jasmine.createSpy('open') } },
       ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(OrderTicketComponent);
     component = fixture.componentInstance;
-  });
-
-  it('creates', () => {
-    expect(component).toBeTruthy();
-  });
-
-  it('loads trading config on init', () => {
-    component.ngOnInit();
-    expect(configServiceMock.loadConfig).toHaveBeenCalledTimes(1);
-  });
-
-  describe('no selection', () => {
-    it('shows no-selection message when intent is null', () => {
-      fixture.componentRef.setInput('intent', null);
-      fixture.detectChanges();
-
-      const noSelection = fixture.nativeElement.querySelector('.no-selection');
-      expect(noSelection).toBeTruthy();
-      expect(noSelection.textContent).toContain('Select an order');
+    fixture.componentRef.setInput('tradingConfig', config);
+    fixture.componentRef.setInput('guardrailContext', {
+      currentExposure: 1000,
+      currentUnits: 10,
+      availableCash: 9000,
+      allocationCap: 8000,
+      maxUnits: 200,
     });
   });
 
-  describe('ticket rendering', () => {
-    it('shows symbol and side when intent is provided', () => {
-      fixture.componentRef.setInput('intent', makeIntent('1'));
-      fixture.detectChanges();
+  it('renders compact whole-share controls without a dollar amount field', () => {
+    fixture.componentRef.setInput('intent', makeIntent('1'));
+    fixture.componentRef.setInput('price', 50);
+    fixture.detectChanges();
 
-      const header = fixture.nativeElement.querySelector('.ticket-header');
-      expect(header.textContent).toContain('AAPL');
-      expect(header.textContent).toContain('BUY');
-    });
-
-    it('shows account number when configured', () => {
-      fixture.componentRef.setInput('intent', makeIntent('1'));
-      component.ngOnInit();
-      fixture.detectChanges();
-
-      const account = fixture.nativeElement.querySelector('.account-section');
-      expect(account.textContent).toContain('123456789');
-    });
-
-    it('shows account warning when not configured', () => {
-      configServiceMock.loadConfig.and.returnValue(of(null));
-      fixture.componentRef.setInput('intent', makeIntent('1'));
-      component.ngOnInit();
-      fixture.detectChanges();
-
-      const warning = fixture.nativeElement.querySelector('.account-warning');
-      expect(warning).toBeTruthy();
-      expect(warning.textContent).toContain('No account number configured');
-    });
-
-    it('shows editable form when intent is STAGED', () => {
-      fixture.componentRef.setInput('intent', makeIntent('1', OrderIntentStatus.STAGED));
-      fixture.detectChanges();
-
-      const form = fixture.nativeElement.querySelector('.form-section');
-      expect(form).toBeTruthy();
-    });
-
-    it('hides editable form when intent is SUBMITTED', () => {
-      fixture.componentRef.setInput('intent', makeIntent('1', OrderIntentStatus.SUBMITTED));
-      fixture.detectChanges();
-
-      const form = fixture.nativeElement.querySelector('.form-section');
-      expect(form).toBeFalsy();
-    });
-
-    it('shows live preview section', () => {
-      fixture.componentRef.setInput('intent', makeIntent('1'));
-      fixture.detectChanges();
-
-      const preview = fixture.nativeElement.querySelector('.preview-section');
-      expect(preview).toBeTruthy();
-    });
-
-    it('shows submit button when editable', () => {
-      fixture.componentRef.setInput('intent', makeIntent('1', OrderIntentStatus.STAGED));
-      fixture.detectChanges();
-
-      const submitBtn = fixture.nativeElement.querySelector('button[color="primary"]');
-      expect(submitBtn).toBeTruthy();
-      expect(submitBtn.textContent).toContain('Submit Order');
-    });
-
-    it('shows status section with current status', () => {
-      fixture.componentRef.setInput('intent', makeIntent('1', OrderIntentStatus.SUBMITTED));
-      fixture.detectChanges();
-
-      const status = fixture.nativeElement.querySelector('.status-section');
-      expect(status).toBeTruthy();
-      expect(status.textContent).toContain('SUBMITTED');
-    });
+    expect(fixture.nativeElement.querySelector('.compact-field').textContent).toContain('Qty');
+    expect(fixture.nativeElement.textContent).not.toContain('$ Amt');
+    expect(fixture.nativeElement.querySelector('.pill-group')).toBeTruthy();
   });
 
-  describe('submit flow', () => {
-    it('opens confirmation dialog and submits on confirm', async () => {
-      const intent = makeIntent('1', OrderIntentStatus.STAGED);
-      fixture.componentRef.setInput('intent', intent);
-      component.ngOnInit();
-      fixture.detectChanges();
+  it('derives an 8% stop price from the selected symbol price', () => {
+    fixture.componentRef.setInput('intent', makeIntent('1'));
+    fixture.componentRef.setInput('price', 100);
+    fixture.detectChanges();
 
-      await component.onSubmit();
-
-      expect(dialogMock.open).toHaveBeenCalledTimes(1);
-      expect(storeMock.submitIntent).toHaveBeenCalledWith('1');
-    });
-
-    it('does not submit when dialog is cancelled', async () => {
-      dialogMock.open.and.returnValue({
-        afterClosed: () => of(false),
-      });
-      fixture.componentRef.setInput('intent', makeIntent('1', OrderIntentStatus.STAGED));
-      component.ngOnInit();
-      fixture.detectChanges();
-
-      await component.onSubmit();
-
-      expect(dialogMock.open).toHaveBeenCalledTimes(1);
-      expect(storeMock.submitIntent).not.toHaveBeenCalled();
-    });
-
-    it('shows snackbar and does not submit when no account configured', async () => {
-      configServiceMock.loadConfig.and.returnValue(of(null));
-      fixture.componentRef.setInput('intent', makeIntent('1', OrderIntentStatus.STAGED));
-      component.ngOnInit();
-      fixture.detectChanges();
-
-      await component.onSubmit();
-
-      expect(snackBarMock.open).toHaveBeenCalled();
-      expect(storeMock.submitIntent).not.toHaveBeenCalled();
-    });
-
-    it('saves edits before submitting', async () => {
-      const intent = makeIntent('1', OrderIntentStatus.STAGED);
-      fixture.componentRef.setInput('intent', intent);
-      component.ngOnInit();
-      fixture.detectChanges();
-
-      component.orderType.set('limit');
-      component.limitPrice.set('150.00');
-
-      await component.onSubmit();
-
-      expect(storeMock.updateIntent).toHaveBeenCalledWith('1', jasmine.objectContaining({
-        orderType: 'limit',
-        limitPrice: '150.00',
-      }));
-    });
-
-    it('passes edited values to confirmation dialog', async () => {
-      const intent = makeIntent('1', OrderIntentStatus.STAGED);
-      fixture.componentRef.setInput('intent', intent);
-      component.ngOnInit();
-      fixture.detectChanges();
-
-      component.orderType.set('limit');
-      component.limitPrice.set('175.50');
-      component.quantity.set('200');
-
-      await component.onSubmit();
-
-      expect(dialogMock.open).toHaveBeenCalled();
-      const dialogData = dialogMock.open.calls.mostRecent().args[1].data;
-      expect(dialogData.intent.orderType).toBe('limit');
-      expect(dialogData.intent.limitPrice).toBe('175.50');
-      expect(dialogData.intent.quantity).toBe('200');
-    });
+    expect(component.stopLossPercent()).toBe('8');
+    expect(component.stopLossPrice()).toBe('92.00');
+    expect(fixture.nativeElement.querySelector('.stop-loss-section')).toBeTruthy();
   });
 
-  describe('retry', () => {
-    it('calls retryIntent for retryable FAILED intent', () => {
-      const intent = makeIntent('1', OrderIntentStatus.FAILED, {
-        error: { message: 'Network error', retryable: true },
-      });
-      fixture.componentRef.setInput('intent', intent);
-      fixture.detectChanges();
+  it('recalculates the default stop when selection changes', () => {
+    fixture.componentRef.setInput('intent', makeIntent('1', 'AAPL'));
+    fixture.componentRef.setInput('price', 100);
+    fixture.detectChanges();
+    component.stopLossPrice.set('95.00');
 
-      component.onRetry();
+    fixture.componentRef.setInput('intent', makeIntent('2', 'DELL'));
+    fixture.componentRef.setInput('price', 200);
+    fixture.detectChanges();
 
-      expect(storeMock.retryIntent).toHaveBeenCalledWith('1');
-    });
-
-    it('does not call retryIntent for non-retryable FAILED intent', () => {
-      const intent = makeIntent('1', OrderIntentStatus.FAILED, {
-        error: { message: 'Insufficient buying power', retryable: false },
-      });
-      fixture.componentRef.setInput('intent', intent);
-      fixture.detectChanges();
-
-      component.onRetry();
-
-      expect(storeMock.retryIntent).not.toHaveBeenCalled();
-    });
-
-    it('does not call retryIntent for non-FAILED intent', () => {
-      fixture.componentRef.setInput('intent', makeIntent('1', OrderIntentStatus.STAGED));
-      fixture.detectChanges();
-
-      component.onRetry();
-
-      expect(storeMock.retryIntent).not.toHaveBeenCalled();
-    });
-
-    it('shows retry button for retryable FAILED intent', () => {
-      const intent = makeIntent('1', OrderIntentStatus.FAILED, {
-        error: { message: 'Network error', retryable: true },
-      });
-      fixture.componentRef.setInput('intent', intent);
-      fixture.detectChanges();
-
-      const retryBtn = fixture.nativeElement.querySelector('button[color="primary"]');
-      // The retry button is a stroked button, not flat — check by text
-      const buttons = fixture.nativeElement.querySelectorAll('button');
-      const retryBtnText = Array.from(buttons).find((b: any) => b.textContent.includes('Retry'));
-      expect(retryBtnText).toBeTruthy();
-    });
-
-    it('shows error section with message for FAILED intent', () => {
-      const intent = makeIntent('1', OrderIntentStatus.FAILED, {
-        error: { message: 'Insufficient buying power', retryable: false },
-      });
-      fixture.componentRef.setInput('intent', intent);
-      fixture.detectChanges();
-
-      const error = fixture.nativeElement.querySelector('.error-section');
-      expect(error).toBeTruthy();
-      expect(error.textContent).toContain('Insufficient buying power');
-      expect(error.textContent).toContain('not retryable');
-    });
+    expect(component.stopLossPrice()).toBe('184.00');
+    expect(component.stopLossPercent()).toBe('8');
   });
 
-  describe('cancel', () => {
-    it('calls cancelIntent for SUBMITTED intent', () => {
-      fixture.componentRef.setInput('intent', makeIntent('1', OrderIntentStatus.SUBMITTED));
-      fixture.detectChanges();
+  it('removes stale notional amount from the saved whole-share intent', () => {
+    fixture.componentRef.setInput('intent', makeIntent('1', 'AAPL', { dollarAmount: '500' }));
+    fixture.componentRef.setInput('price', 50);
+    fixture.detectChanges();
 
-      component.onCancel();
+    component.saveEdits();
 
-      expect(storeMock.cancelIntent).toHaveBeenCalledWith('1');
-    });
-
-    it('calls cancelIntent for SUBMITTING intent', () => {
-      fixture.componentRef.setInput('intent', makeIntent('1', OrderIntentStatus.SUBMITTING));
-      fixture.detectChanges();
-
-      component.onCancel();
-
-      expect(storeMock.cancelIntent).toHaveBeenCalledWith('1');
-    });
-
-    it('does not call cancelIntent for STAGED intent', () => {
-      fixture.componentRef.setInput('intent', makeIntent('1', OrderIntentStatus.STAGED));
-      fixture.detectChanges();
-
-      component.onCancel();
-
-      expect(storeMock.cancelIntent).not.toHaveBeenCalled();
-    });
-
-    it('shows cancel button for SUBMITTED intent', () => {
-      fixture.componentRef.setInput('intent', makeIntent('1', OrderIntentStatus.SUBMITTED));
-      fixture.detectChanges();
-
-      const buttons = fixture.nativeElement.querySelectorAll('button');
-      const cancelBtn = Array.from(buttons).find((b: any) => b.textContent.includes('Cancel Order'));
-      expect(cancelBtn).toBeTruthy();
-    });
+    expect(store.updateIntent).toHaveBeenCalledWith('1', jasmine.objectContaining({
+      quantity: '2',
+      dollarAmount: undefined,
+    }));
   });
 
-  describe('new manual order', () => {
-    it('shows snackbar placeholder', () => {
-      component.onNewManualOrder();
-      expect(snackBarMock.open).toHaveBeenCalledWith(
-        'Manual order creation coming soon',
-        'Dismiss',
-        { duration: 3000 },
-      );
-    });
+  it('shows price and status beside the symbol', () => {
+    fixture.componentRef.setInput('intent', makeIntent('1'));
+    fixture.componentRef.setInput('price', 123.45);
+    fixture.detectChanges();
+
+    const header = fixture.nativeElement.querySelector('.ticket-symbol');
+    expect(header.textContent).toContain('AAPL');
+    expect(header.textContent).toContain('$123.45');
+    expect(header.textContent).toContain('STAGED');
   });
 
-  describe('order type field visibility', () => {
-    it('shows limit price when order type is limit', () => {
-      fixture.componentRef.setInput('intent', makeIntent('1', OrderIntentStatus.STAGED));
-      fixture.detectChanges();
+  it('opens confirmation and submits using the configured account', async () => {
+    fixture.componentRef.setInput('intent', makeIntent('1'));
+    fixture.componentRef.setInput('price', 50);
+    fixture.detectChanges();
 
-      component.orderType.set('limit');
-      fixture.detectChanges();
-      // Wait for the @if block to render
-      fixture.detectChanges();
+    await component.onSubmit();
 
-      expect(component.showLimitPrice()).toBe(true);
-    });
+    expect(dialog.open).toHaveBeenCalled();
+    expect(store.submitIntent).toHaveBeenCalledWith('1');
+  });
 
-    it('hides limit price when order type is market', () => {
-      fixture.componentRef.setInput('intent', makeIntent('1', OrderIntentStatus.STAGED));
-      fixture.detectChanges();
+  it('stages a same-quantity stop loss after the entry fills', () => {
+    const entry = makeIntent('1', 'AAPL', { status: OrderIntentStatus.FILLED, result: { fillPrice: '100' } });
+    fixture.componentRef.setInput('intent', entry);
+    fixture.componentRef.setInput('price', 100);
+    fixture.detectChanges();
 
-      component.orderType.set('market');
-      fixture.detectChanges();
+    component.onPlaceStopLoss();
 
-      expect(component.showLimitPrice()).toBe(false);
-    });
+    expect(store.stageIntent).toHaveBeenCalledWith(jasmine.objectContaining({
+      side: 'sell',
+      quantity: '2',
+      stopPrice: '92.00',
+      timeInForce: 'gtc',
+    }));
   });
 });
