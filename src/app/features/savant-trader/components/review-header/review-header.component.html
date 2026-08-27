@@ -86,10 +86,10 @@
 
     <button type="button" class="stage-accepted-btn"
       [disabled]="acceptedCount() === 0 || !isActionableRun()"
-      (click)="stageAccepted.emit()"
-      matTooltip="Stage accepted symbols for ordering">
-      <mat-icon>account_balance</mat-icon>
-      Stage <span class="pill-count">{{ acceptedCount() }}</span>
+      (click)="goToOrder.emit()"
+      matTooltip="Go to signal order page">
+      <mat-icon>shopping_cart</mat-icon>
+      Order <span class="pill-count">{{ acceptedCount() }}</span>
     </button>
 
     <div class="manual-symbol-input">

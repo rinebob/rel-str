@@ -191,14 +191,9 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
   onAcceptReview(): void {
     if (!this.isActionableRun()) return;
     const symbol = this.selectedReviewSymbol();
-    const marketDate = this.currentMarketDate();
     if (!symbol) return;
-    this.currentRunSignals(symbol).subscribe((signals) => {
-      if (signals.length === 0) return;
-      const runId = this.groupStore.activeRunId()!;
-      this.occurrenceStore.acceptSignals(signals, runId, marketDate);
-      this.advanceReviewQueue(symbol);
-    });
+    this.reviewFacade.acceptSymbol(symbol);
+    this.advanceReviewQueue(symbol);
   }
 
   /** Watch the currently selected review symbol and advance the queue. */
@@ -214,14 +209,9 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
   onRejectReview(): void {
     if (!this.isActionableRun()) return;
     const symbol = this.selectedReviewSymbol();
-    const marketDate = this.currentMarketDate();
     if (!symbol) return;
-    this.currentRunSignals(symbol).subscribe((signals) => {
-      if (signals.length === 0) return;
-      const runId = this.groupStore.activeRunId()!;
-      this.occurrenceStore.rejectSignals(signals, runId, marketDate);
-      this.advanceReviewQueue(symbol);
-    });
+    this.reviewFacade.rejectSymbol(symbol);
+    this.advanceReviewQueue(symbol);
   }
 
   /** Move the selection to the next symbol in the viewport after a decision. */
@@ -299,9 +289,9 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     this.router.navigate(['/' + AppRoutes.SIGNAL_REVIEW]);
   }
 
-  /** Stage all accepted occurrence decisions as order intents. */
-  stageAcceptedIntents(): void {
-    this.reviewFacade.stageAcceptedIntents();
+  /** Navigate to signal order, staging accepted decisions if any. */
+  goToSignalOrder(): void {
+    this.reviewFacade.goToSignalOrder();
   }
 
   /** Handle Enter key in the manual symbol input. */

@@ -58,6 +58,6 @@ export class ReviewHeaderComponent {
   listChange = output<string>();
   /** Emits when the user toggles viewport mode (signals / browse). */
   modeChange = output<void>();
-  /** Emits when the user clicks "Stage Accepted" to stage all accepted orders. */
-  stageAccepted = output<void>();
+  /** Emits when the user clicks the Order button to go to the order page. */
+  goToOrder = output<void>();
 }
