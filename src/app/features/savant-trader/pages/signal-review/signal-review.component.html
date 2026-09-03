@@ -90,6 +90,7 @@
             (rowConsider)="onConsider($event)"
             (rowReject)="onReject($event)"
             (rowReset)="onReset($event)"
+            (rowClearHistory)="onClearHistory($event)"
             (rowToggleList)="onToggleList($event)"
             (rowMonitor)="onMonitor($event)">
           </app-group-panel>
@@ -99,7 +100,7 @@
 
       <app-quick-charts-panel
         [symbol]="facade.quickChartSymbol()"
-        (close)="facade.setQuickChartSymbol(null)">
+        [profile]="facade.quickChartProfile()">
       </app-quick-charts-panel>
     </div>
   }

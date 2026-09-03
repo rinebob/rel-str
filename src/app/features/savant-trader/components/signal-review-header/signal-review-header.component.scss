@@ -91,9 +91,19 @@
 
   &.review {
     &:hover:not(:disabled) { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); border-color: var(--mat-sys-tertiary); }
+    &.active {
+      background: #7b1fa233;
+      color: #7b1fa2;
+      border-color: #7b1fa2;
+    }
   }
   &.accept {
     &:hover:not(:disabled) { background: #1b5e2033; color: #1b5e20; border-color: #2e7d32; }
+    &.active {
+      background: #1b5e2033;
+      color: #1b5e20;
+      border-color: #2e7d32;
+    }
   }
 
   &.small { font-size: 8px; padding: 2px 4px; border-radius: 8px; }

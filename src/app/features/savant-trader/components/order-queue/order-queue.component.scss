@@ -30,26 +30,17 @@
   }
 
   .header-spacer { flex: 1; }
-
-  .remove-btn {
-    width: 28px;
-    height: 28px;
-    line-height: 28px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-
-    mat-icon { font-size: 18px; width: 18px; height: 18px; }
-  }
 }
 
 .batch-bar {
   display: flex;
+  align-items: center;
   gap: 12px;
   padding: 4px 12px;
   border-bottom: 1px solid var(--mat-sys-outline-variant);
   flex-shrink: 0;
+
+  .batch-spacer { flex: 1; }
 
   .batch-link {
     background: none;
@@ -58,9 +49,16 @@
     font-size: 11px;
     cursor: pointer;
     padding: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+
+    mat-icon { font-size: 14px; width: 14px; height: 14px; }
 
     &:hover { text-decoration: underline; }
     &:disabled { color: var(--mat-sys-on-surface-variant); cursor: not-allowed; opacity: 0.5; }
+
+    &.remove { color: var(--mat-sys-error); }
   }
 }
 

@@ -24,6 +24,7 @@ export class RunHistoryPanelComponent {
   readonly selectedRunId = input<string | null>(null);
 
   readonly runSelected  = output<StRun>();
+  readonly runClicked   = output<StRun>();
   readonly runDeselected = output<void>();
 
   readonly getRunStatusColor = getRunStatusColor;
@@ -34,6 +35,7 @@ export class RunHistoryPanelComponent {
 
   toggleExpand(run: StRun): void {
     this.expandedRunId.set(this.expandedRunId() === run.id ? null : run.id);
+    this.runClicked.emit(run);
   }
 
   reviewSignals(run: StRun, event: MouseEvent): void {

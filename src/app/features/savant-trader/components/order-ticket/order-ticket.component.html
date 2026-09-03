@@ -5,6 +5,10 @@
       <mat-icon>pan_tool</mat-icon>
       <p>Select an order from the queue</p>
       <p class="hint">Click a row on the left to configure and submit an order.</p>
+      <button mat-stroked-button (click)="onNewManualOrder()">
+        <mat-icon>add</mat-icon>
+        New manual order
+      </button>
     </div>
   } @else {
     <!-- Ticket content -->
@@ -28,8 +32,9 @@
           @if (intent()?.result?.orderId) {
             <span class="order-id">ID: {{ intent()?.result?.orderId?.slice(0, 8) }}…</span>
           }
-          <button mat-icon-button (click)="onNewManualOrder()" matTooltip="New manual order">
+          <button mat-stroked-button (click)="onNewManualOrder()">
             <mat-icon>add</mat-icon>
+            New manual order
           </button>
         </div>
       </div>

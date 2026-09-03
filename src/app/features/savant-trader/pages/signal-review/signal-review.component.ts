@@ -129,6 +129,11 @@ export class SignalReviewComponent implements OnInit, OnDestroy {
     this.facade.resetSymbol(symbol);
   }
 
+  /** Clear all decision history for a symbol across all runs. */
+  onClearHistory(symbol: string): void {
+    this.facade.clearSymbolHistory(symbol);
+  }
+
   /** Clear all review flags from the queue. */
   onClearReviewFlags(): void {
     this.facade.clearReviewFlags();

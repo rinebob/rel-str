@@ -4,9 +4,6 @@
     <div class="header-left">
       <mat-icon class="header-icon">smart_toy</mat-icon>
       <h1 class="header-title">Savant Trader</h1>
-      <span class="enabled-badge" [class.enabled]="store.status()?.isEnabled">
-        {{ store.status()?.isEnabled ? 'Enabled' : 'Disabled' }}
-      </span>
     </div>
     <div class="header-actions">
       <button mat-stroked-button class="review-latest-btn" (click)="goToSignalReview()"
@@ -63,7 +60,8 @@
   <app-run-history-panel
     [runs]="uiStore.filteredRuns()"
     [selectedRunId]="uiStore.selectedRunId()"
-    (runSelected)="onRunSelected($event)">
+    (runSelected)="onRunSelected($event)"
+    (runClicked)="onRunClicked($event)">
   </app-run-history-panel>
 </div>
 </div>

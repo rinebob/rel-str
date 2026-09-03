@@ -4,11 +4,6 @@
     <span class="queue-title">Order Queue</span>
     <span class="queue-count">{{ totalCount() }}</span>
     <div class="header-spacer"></div>
-    @if (hasChecked()) {
-      <button mat-icon-button (click)="removeChecked()" matTooltip="Remove selected" class="remove-btn">
-        <mat-icon>delete_outline</mat-icon>
-      </button>
-    }
   </div>
 
   <!-- Batch actions bar -->
@@ -16,6 +11,13 @@
     <div class="batch-bar">
       <button type="button" class="batch-link" (click)="selectAll()">Select all</button>
       <button type="button" class="batch-link" (click)="clearSelection()" [disabled]="!hasChecked()">Clear</button>
+      <div class="batch-spacer"></div>
+      @if (hasChecked()) {
+        <button type="button" class="batch-link remove" (click)="removeChecked()">
+          <mat-icon>delete_outline</mat-icon>
+          Remove selected
+        </button>
+      }
     </div>
   }
 

@@ -19,6 +19,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { StStore } from '../../stores/st.store';
 import { DashboardStore } from '../../stores/dashboard.store';
@@ -44,6 +45,7 @@ import { RunMetricsStripComponent } from '../../components/run-metrics-strip/run
     MatIconModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
+    MatTooltipModule,
     RouterLink,
     RunStatusBarComponent,
     RunHistoryPanelComponent,
@@ -140,6 +142,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.groupStore.setActiveRun(latest.id, latest.marketDate);
     }
     this.router.navigate(['/' + AppRoutes.SIGNAL_REVIEW]);
+  }
+
+  /** Select a run from the history table without navigating away. */
+  onRunClicked(run: StRun): void {
+    this.uiStore.selectRun(run.id);
   }
 
   /** Review signals for a specific run selected from the run history panel. */

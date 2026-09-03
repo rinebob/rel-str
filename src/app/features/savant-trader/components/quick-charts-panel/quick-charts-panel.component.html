@@ -1,9 +1,15 @@
 <div class="quick-charts-panel">
   <div class="qcp-body">
     @if (symbol()) {
-      <button type="button" class="qcp-close" (click)="close.emit()" matTooltip="Close">
-        <mat-icon>close</mat-icon>
-      </button>
+      @if (profile()) {
+        <div class="qcp-meta">
+          <span class="qcp-symbol">{{ symbol() }}</span>
+          <span class="qcp-name">{{ profile()?.name }}</span>
+          <span class="qcp-sector">{{ profile()?.sector }}</span>
+          <span class="qcp-industry">{{ profile()?.industry }}</span>
+          <span class="qpc-mktcap">{{ marketCapLabel() }}</span>
+        </div>
+      }
       <app-quick-charts [symbol]="symbol()"></app-quick-charts>
     } @else {
       <div class="qcp-placeholder">

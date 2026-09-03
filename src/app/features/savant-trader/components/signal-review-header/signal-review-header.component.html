@@ -34,12 +34,14 @@
 
   <div class="pipeline-actions">
     <button type="button" class="pill-btn review"
+      [class.active]="reviewCount() > 0"
       (click)="goToReview.emit()"
       matTooltip="Review symbols">
       <mat-icon>visibility</mat-icon>
       Review <span class="pill-count">{{ reviewCount() }}</span>
     </button>
     <button type="button" class="pill-btn accept"
+      [class.active]="acceptedCount() > 0"
       [disabled]="acceptedCount() === 0 || !isActionableRun()"
       (click)="goToOrder.emit()"
       matTooltip="Go to signal order page">
@@ -89,12 +91,6 @@
     [disabled]="!quickChartSymbol() || flatSymbols().indexOf(quickChartSymbol()!) >= flatSymbols().length - 1"
     matTooltip="Next symbol">
     <mat-icon>chevron_right</mat-icon>
-  </button>
-
-  <button mat-icon-button (click)="toggleShowAllSymbols.emit()"
-    [class.active-toggle]="showAllSymbols()"
-    [matTooltip]="showAllSymbols() ? 'Signal symbols only' : 'Show all symbols'">
-    <mat-icon>{{ showAllSymbols() ? 'filter_list_off' : 'filter_list' }}</mat-icon>
   </button>
 
   <button mat-icon-button (click)="toggleExpandAll.emit()"
