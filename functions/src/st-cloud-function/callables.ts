@@ -38,7 +38,6 @@ interface ManualRunResponse {
 }
 
 interface AgentStatusResponse {
-  isEnabled: boolean;
   lastRunAt?: string;
   lastRunStatus?: string;
   totalRuns: number;
@@ -161,7 +160,6 @@ export const stGetStatus = onCall<void, Promise<AgentStatusResponse>>(
 
     if (!doc.exists) {
       return {
-        isEnabled: true,
         totalRuns: 0,
         totalSignalsGenerated: 0,
         symbolsMonitored,
@@ -179,7 +177,6 @@ export const stGetStatus = onCall<void, Promise<AgentStatusResponse>>(
       : undefined;
 
     return {
-      isEnabled: status.isEnabled,
       lastRunAt,
       lastRunStatus: status.lastRunStatus,
       totalRuns: status.totalRuns,

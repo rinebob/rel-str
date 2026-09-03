@@ -72,8 +72,11 @@ export async function persistSymbolSignals(
  * Build a signal entry for the run-ids and signal-history maps.
  *
  * barStatus is authoritative for interim vs. historical:
- *   - barStatus === 1  → historical (CONFIRMED), keep the strategy's period-end barDate.
- *   - barStatus === -1 or 0 or undefined → interim (INTERIM), barDate = marketDate.
+ *   - barStatus === 1  → historical (CONFIRMED).
+ *   - barStatus === -1 or 0 or undefined → interim (INTERIM).
+ *
+ * barDate is always the date of the bar that fired the signal (from the strategy
+ * output), never the run date. The run date is captured separately in marketDate.
  */
 function createSignalEntry(
   marketDate: string,
@@ -83,7 +86,7 @@ function createSignalEntry(
   const timeframe = deriveTimeframe(result.signalType);
   const barStatus = barStatusByTimeframe?.[timeframe];
   const isHistorical = barStatus === 1;
-  const barDate = isHistorical ? (result.barDate || marketDate) : marketDate;
+  const barDate = result.barDate || marketDate;
   const status: StSignalStatus = isHistorical ? 'CONFIRMED' : 'INTERIM';
   return {
     signalType: result.signalType,

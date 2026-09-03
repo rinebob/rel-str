@@ -43,7 +43,6 @@ export interface StStatus {
   lastRunStatus?: StRunStatus;
   totalRuns: number;
   totalSignalsGenerated: number;
-  isEnabled: boolean;
   schedule?: string;
   symbolsMonitored: string[];
   updatedAt: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;

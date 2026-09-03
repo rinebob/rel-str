@@ -65,6 +65,7 @@ export {
 export { backfillSymbolDataFromPairsAdmin } from './admin/backfill-symbol-data-from-pairs';
 export { backfillSymbolDataFromTradesAdmin } from './admin/backfill-symbol-data-from-trades';
 export { cleanupRsBackfillRuns } from './scheduled/cleanup-rs-backfill-runs';
+export { cleanupStOccurrenceDecisions } from './scheduled/cleanup-st-occurrence-decisions';
 
 // ST (Savant Trader) exports - Event-driven daily scan architecture
 export { stTriggerDaily } from './st-cloud-function/trigger';

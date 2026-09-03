@@ -19,7 +19,6 @@ export const ST_SCHEDULE_CRON = '0 1 * * 2-6'; // 1 AM UTC = 6 PM PT, Mon-Fri
 export const ST_MAX_TRADE_AMOUNT = 100;
 
 export interface StStatus {
-  isEnabled: boolean;
   lastRunAt?: string;
   lastRunStatus?: string;
   totalRuns: number;
