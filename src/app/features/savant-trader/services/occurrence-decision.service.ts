@@ -241,6 +241,57 @@ export class OccurrenceDecisionService {
     );
   }
 
+  /**
+   * Load all occurrence decisions made within the last `days` days (based on
+   * `decidedAt` ISO timestamp). Used by the signal review UI to show cross-run
+   * decision history so accepts/rejects from prior days remain visible.
+   *
+   * Fetches all user decisions and filters by date in memory to avoid needing
+   * a composite Firestore index on (userId, decidedAt). This is safe because
+   * the TTL cleanup keeps the total doc count modest.
+   */
+  loadDecisionsForLastNDays(days: number): Observable<StOccurrenceDecision[]> {
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    return requireUserId(this.auth, this.injector).pipe(
+      take(1),
+      switchMap((userId) => {
+        const q = query(
+          this.decisionsCollection,
+          where('userId', '==', userId)
+        );
+        return this.runQuery(q);
+      }),
+      map((decisions) =>
+        decisions
+          .filter((d) => d.decidedAt >= cutoff)
+          .sort(this.sortDecisions)
+      )
+    );
+  }
+
+  /**
+   * Delete all occurrence decisions for a specific symbol across all runs.
+   * Used by the manual "clear history" action in the signal review UI.
+   */
+  deleteAllDecisionsForSymbol(symbol: string): Observable<void> {
+    return requireUserId(this.auth, this.injector).pipe(
+      take(1),
+      switchMap((userId) => runInInjectionContext(this.injector, async () => {
+        const q = query(
+          this.decisionsCollection,
+          where('userId', '==', userId),
+          where('symbol', '==', symbol.toUpperCase())
+        );
+        const snapshot = await getDocs(q);
+        if (snapshot.empty) return;
+        const batch = writeBatch(this.firestore);
+        snapshot.docs.forEach((d) => batch.delete(d.ref));
+        await batch.commit();
+      })),
+      map(() => undefined)
+    );
+  }
+
   /** Subscribe to real-time updates for decisions in a specific run. */
   listenToDecisionsForRun(runId: string): Observable<StOccurrenceDecision[]> {
     return requireUserId(this.auth, this.injector).pipe(
@@ -299,7 +350,7 @@ function parseOccurrenceDecision(data: DocumentData, id: string): StOccurrenceDe
   };
   const optionalString = (field: string) => {
     const value = data[field];
-    if (value !== undefined && (typeof value !== 'string' || value.length === 0)) {
+    if (value !== undefined && value !== null && (typeof value !== 'string' || value.length === 0)) {
       throw new Error(`[OccurrenceDecisionService] Decision doc ${id} has invalid optional field "${field}"`);
     }
   };

@@ -106,6 +106,7 @@ describe('rowHasDirection', () => {
       hasSignal: true,
       signals: [mockSignal({ direction: SignalDirection.SHORT })],
       reviewStatus: ReviewDecision.PENDING,
+      isReviewed: false,
     };
     expect(rowHasDirection(row, SignalDirection.SHORT)).toBe(true);
     expect(rowHasDirection(row, SignalDirection.LONG)).toBe(false);
@@ -117,6 +118,7 @@ describe('rowHasDirection', () => {
       hasSignal: true,
       signals: undefined,
       reviewStatus: ReviewDecision.PENDING,
+      isReviewed: false,
     };
     expect(rowHasDirection(row, SignalDirection.LONG)).toBe(true);
     expect(rowHasDirection(row, SignalDirection.SHORT)).toBe(false);
@@ -132,6 +134,7 @@ describe('buildSymbolGroups', () => {
     symbolLists: {},
     activeListFilter: 'ALL',
     statuses: {},
+    reviewFlagSymbols: new Set<string>(),
     historyCache: {},
     historyLoading: {},
     activeRunId: 'run-1',

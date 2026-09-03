@@ -5,6 +5,11 @@
  * occurrences. Decisions are keyed by runId + symbol + timeframe + signalType
  * so multiple intraday occurrences do not overwrite one another.
  *
+ * The store loads decisions across a configurable time window (default 3 days)
+ * so that accepts/rejects from prior runs remain visible in the signal review
+ * UI. The UI shows the latest decision per symbol with a staleness indicator
+ * when the decision's market date differs from the active run's market date.
+ *
  * This store is intentionally separate from the ephemeral screening state in
  * TriageStore.
  */
@@ -26,13 +31,13 @@ import {
   StOccurrenceDecision,
   DurableDecisionType,
 } from '../services/types';
-import { ReviewDecision, ALL_REVIEW_STATUSES, StatusCounts } from '../common/constants';
+import { ReviewDecision, ALL_REVIEW_STATUSES, StatusCounts, DECISION_FETCH_DAYS } from '../common/constants';
 import { buildStOccurrenceDecisionId } from '../services/firestore-helpers';
 
 export interface OccurrenceDecisionState {
   /** Durable occurrence-level decisions keyed by decision id. */
   occurrenceDecisions: Record<string, StOccurrenceDecision>;
-  /** True while decisions for the active run are loading. */
+  /** True while decisions are loading. */
   decisionsLoading: boolean;
   /** Error from loading or persisting decisions. */
   decisionsError: string | null;
@@ -48,12 +53,21 @@ function decisionId(runId: string, symbol: string, timeframe: string, signalType
   return buildStOccurrenceDecisionId(runId, symbol, timeframe, signalType);
 }
 
-const DURABLE_RANKED = [ReviewDecision.ACCEPT, ReviewDecision.REJECT];
-
-/** Pick the higher-priority durable status. ACCEPT wins over REJECT. */
-function rankDurable(current: ReviewDecision | null, next: ReviewDecision): ReviewDecision {
-  if (!current) return next;
-  return DURABLE_RANKED.indexOf(next) < DURABLE_RANKED.indexOf(current) ? next : current;
+/**
+ * Pick the latest decision per symbol by `decidedAt` timestamp.
+ * Returns a map of symbol → decision.
+ */
+function latestDecisionBySymbol(
+  decisions: Record<string, StOccurrenceDecision>,
+): Record<string, StOccurrenceDecision> {
+  const map: Record<string, StOccurrenceDecision> = {};
+  for (const d of Object.values(decisions)) {
+    const existing = map[d.symbol];
+    if (!existing || d.decidedAt > existing.decidedAt) {
+      map[d.symbol] = d;
+    }
+  }
+  return map;
 }
 
 function buildDecision(
@@ -84,23 +98,24 @@ export const OccurrenceDecisionStore = signalStore(
   withState(initialState),
 
   withComputed((state) => {
+    /** Latest decision per symbol (by decidedAt) across all loaded runs. */
+    const latestBySymbol = computed((): Record<string, StOccurrenceDecision> =>
+      latestDecisionBySymbol(state.occurrenceDecisions())
+    );
+
     const acceptedSymbols = computed((): string[] =>
       Array.from(
         new Set(
-          Object.values(state.occurrenceDecisions())
-            .filter((d) => d.decisionType === ReviewDecision.ACCEPT && d.isCurrentInLatestRun)
+          Object.values(latestBySymbol())
+            .filter((d) => d.decisionType === ReviewDecision.ACCEPT)
             .map((d) => d.symbol)
         )
       )
     );
 
     const activeOrderDecisions = computed((): StOccurrenceDecision[] =>
-      Object.values(state.occurrenceDecisions())
-        .filter(
-          (d) =>
-            d.decisionType === ReviewDecision.ACCEPT &&
-            d.isCurrentInLatestRun
-        )
+      Object.values(latestBySymbol())
+        .filter((d) => d.decisionType === ReviewDecision.ACCEPT)
         .sort((a, b) => a.symbol.localeCompare(b.symbol))
     );
 
@@ -111,38 +126,42 @@ export const OccurrenceDecisionStore = signalStore(
     return {
       acceptedSymbols,
 
-      /** Accepted, current-run occurrence decisions. */
+      /** Accepted occurrence decisions (latest per symbol). */
       activeOrderDecisions,
 
-      /** Accepted symbols suitable for the active Order page. */
+      /** Accepted symbols suitable for the Order page. */
       activeOrderSymbols,
 
-      /** Count of symbols with an accepted current-run occurrence. */
+      /** Count of symbols with an accepted latest decision. */
       acceptedCount: computed((): number => acceptedSymbols().length),
 
       /** True while decisions are loading. */
       loading: computed((): boolean => state.decisionsLoading()),
 
-      /** Per-symbol durable decision status (ACCEPT/REJECT) for the current run. */
+      /**
+       * Latest decision per symbol (by decidedAt) across all loaded runs.
+       * Exposed for the UI to display staleness and decision date.
+       */
+      latestBySymbol,
+
+      /**
+       * Per-symbol durable decision status based on the latest decision.
+       * Returns ACCEPT or REJECT if a decision exists, PENDING otherwise.
+       */
       statusBySymbol: computed((): Record<string, ReviewDecision> => {
         const map: Record<string, ReviewDecision> = {};
-        for (const d of Object.values(state.occurrenceDecisions())) {
-          if (!d.isCurrentInLatestRun) continue;
-          map[d.symbol] = rankDurable(map[d.symbol] ?? null, d.decisionType);
+        for (const d of Object.values(latestBySymbol())) {
+          map[d.symbol] = d.decisionType;
         }
         return map;
       }),
 
-      /** Counts of durable decision statuses (ACCEPT/REJECT) for the current run. */
+      /** Counts of durable decision statuses (ACCEPT/REJECT) based on latest per symbol. */
       durableStatusCounts: computed((): StatusCounts => {
         const counts = Object.fromEntries(
           ALL_REVIEW_STATUSES.map((s) => [s, 0])
         ) as StatusCounts;
-        const seen = new Set<string>();
-        for (const d of Object.values(state.occurrenceDecisions())) {
-          if (!d.isCurrentInLatestRun) continue;
-          if (seen.has(d.symbol)) continue;
-          seen.add(d.symbol);
+        for (const d of Object.values(latestBySymbol())) {
           counts[d.decisionType]++;
         }
         return counts;
@@ -155,16 +174,11 @@ export const OccurrenceDecisionStore = signalStore(
     occurrenceService = inject(OccurrenceDecisionService),
     snackBar = inject(MatSnackBar),
   ) => ({
-    /** Returns the durable decision status for a symbol in the current run, or PENDING if none. */
+    /** Returns the latest durable decision status for a symbol, or PENDING if none. */
     statusForSymbol(symbol: string): ReviewDecision {
       const normalized = symbol.toUpperCase();
-      let result: ReviewDecision | null = null;
-      for (const d of Object.values(state.occurrenceDecisions())) {
-        if (!d.isCurrentInLatestRun) continue;
-        if (d.symbol !== normalized) continue;
-        result = rankDurable(result, d.decisionType);
-      }
-      return result ?? ReviewDecision.PENDING;
+      const latest = latestDecisionBySymbol(state.occurrenceDecisions())[normalized];
+      return latest?.decisionType ?? ReviewDecision.PENDING;
     },
 
     /** Persist ACCEPT decisions for the given signal occurrences in the active run. */
@@ -195,7 +209,7 @@ export const OccurrenceDecisionStore = signalStore(
           console.error('[OccurrenceDecisionStore] Failed to reset decisions:', err);
           const message = err instanceof Error ? err.message : String(err ?? 'Reset failed');
           patchState(state, { occurrenceDecisions: previousDecisions, decisionsError: message });
-          snackBar.open('Failed to reset decisions â€” reverted', 'Dismiss', { duration: 4000 });
+          snackBar.open('Failed to reset decisions — reverted', 'Dismiss', { duration: 4000 });
         },
       });
     },
@@ -220,12 +234,40 @@ export const OccurrenceDecisionStore = signalStore(
           console.error('[OccurrenceDecisionStore] Failed to reset symbol:', err);
           const message = err instanceof Error ? err.message : String(err ?? 'Reset failed');
           patchState(state, { occurrenceDecisions: previousDecisions, decisionsError: message });
-          snackBar.open('Failed to reset decisions â€” reverted', 'Dismiss', { duration: 4000 });
+          snackBar.open('Failed to reset decisions — reverted', 'Dismiss', { duration: 4000 });
         },
       });
     },
 
-    /** Load durable decisions for a specific source run. */
+    /**
+     * Delete ALL occurrence decisions for a symbol across all runs (manual
+     * "clear history" action). Removes from local state and Firestore.
+     */
+    clearSymbolHistory(symbol: string): void {
+      const previousDecisions = state.occurrenceDecisions();
+      const next = { ...previousDecisions };
+      const normalized = symbol.toUpperCase();
+      for (const [id, d] of Object.entries(previousDecisions)) {
+        if (d.symbol === normalized) {
+          delete next[id];
+        }
+      }
+      patchState(state, { occurrenceDecisions: next });
+
+      occurrenceService.deleteAllDecisionsForSymbol(normalized).subscribe({
+        error: (err: unknown) => {
+          console.error('[OccurrenceDecisionStore] Failed to clear symbol history:', err);
+          const message = err instanceof Error ? err.message : String(err ?? 'Clear failed');
+          patchState(state, { occurrenceDecisions: previousDecisions, decisionsError: message });
+          snackBar.open('Failed to clear decision history — reverted', 'Dismiss', { duration: 4000 });
+        },
+      });
+    },
+
+    /**
+     * Load decisions for a specific source run (legacy — kept for backward
+     * compatibility). Prefer loadRecentDecisions for cross-run UI.
+     */
     loadDecisionsForRun(runId: string): void {
       patchState(state, { decisionsLoading: true, decisionsError: null });
       occurrenceService.loadDecisionsForRun(runId).subscribe({
@@ -238,6 +280,30 @@ export const OccurrenceDecisionStore = signalStore(
         },
         error: (err: unknown) => {
           console.error('[OccurrenceDecisionStore] Failed to load decisions:', err);
+          const message = err instanceof Error ? err.message : String(err ?? 'Load failed');
+          patchState(state, { decisionsLoading: false, decisionsError: message });
+        },
+      });
+    },
+
+    /**
+     * Load all decisions made within the last `days` days (default
+     * DECISION_FETCH_DAYS). This is the primary load method for the signal
+     * review UI — it surfaces cross-run decisions so accepts/rejects from
+     * prior days remain visible.
+     */
+    loadRecentDecisions(days: number = DECISION_FETCH_DAYS): void {
+      patchState(state, { decisionsLoading: true, decisionsError: null });
+      occurrenceService.loadDecisionsForLastNDays(days).subscribe({
+        next: (decisions) => {
+          const map: Record<string, StOccurrenceDecision> = {};
+          for (const d of decisions) {
+            map[d.id] = d;
+          }
+          patchState(state, { occurrenceDecisions: map, decisionsLoading: false });
+        },
+        error: (err: unknown) => {
+          console.error('[OccurrenceDecisionStore] Failed to load recent decisions:', err);
           const message = err instanceof Error ? err.message : String(err ?? 'Load failed');
           patchState(state, { decisionsLoading: false, decisionsError: message });
         },

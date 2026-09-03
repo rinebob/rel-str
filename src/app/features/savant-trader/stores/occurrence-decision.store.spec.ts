@@ -55,7 +55,9 @@ describe('OccurrenceDecisionStore', () => {
       persistDecisionsBatch: jasmine.createSpy('persistDecisionsBatch').and.returnValue(of(undefined)),
       deleteDecisionsBatch: jasmine.createSpy('deleteDecisionsBatch').and.returnValue(of(undefined)),
       deleteDecisionIds: jasmine.createSpy('deleteDecisionIds').and.returnValue(of(undefined)),
+      deleteAllDecisionsForSymbol: jasmine.createSpy('deleteAllDecisionsForSymbol').and.returnValue(of(undefined)),
       loadDecisionsForRun: jasmine.createSpy('loadDecisionsForRun').and.returnValue(of([])),
+      loadDecisionsForLastNDays: jasmine.createSpy('loadDecisionsForLastNDays').and.returnValue(of([])),
     };
 
     snackBar = { open: jasmine.createSpy('open') };
@@ -104,21 +106,30 @@ describe('OccurrenceDecisionStore', () => {
       expect(store.statusForSymbol('AAPL')).toBe(ReviewDecision.ACCEPT);
     });
 
-    it('ignores decisions not current in latest run', () => {
+    it('includes decisions regardless of isCurrentInLatestRun flag', () => {
       occurrenceService.loadDecisionsForRun.and.returnValue(of([
         mockDecision({ isCurrentInLatestRun: false, decisionType: ReviewDecision.ACCEPT }),
       ]));
       store.loadDecisionsForRun(RUN_ID);
-      expect(store.statusForSymbol('AAPL')).toBe(ReviewDecision.PENDING);
+      expect(store.statusForSymbol('AAPL')).toBe(ReviewDecision.ACCEPT);
     });
 
-    it('ACCEPT wins over REJECT when both exist for the same symbol', () => {
+    it('latest decision by decidedAt wins when both ACCEPT and REJECT exist', () => {
       occurrenceService.loadDecisionsForRun.and.returnValue(of([
-        mockDecision({ id: 'd1', signalType: 'D_ZONE_V1_UPTICK', decisionType: ReviewDecision.REJECT }),
-        mockDecision({ id: 'd2', signalType: 'D_ZONE_V1_DOWNTICK', decisionType: ReviewDecision.ACCEPT }),
+        mockDecision({ id: 'd1', signalType: 'D_ZONE_V1_UPTICK', decisionType: ReviewDecision.REJECT, decidedAt: '2026-08-25T10:00:00.000Z' }),
+        mockDecision({ id: 'd2', signalType: 'D_ZONE_V1_DOWNTICK', decisionType: ReviewDecision.ACCEPT, decidedAt: '2026-08-25T12:00:00.000Z' }),
       ]));
       store.loadDecisionsForRun(RUN_ID);
       expect(store.statusForSymbol('AAPL')).toBe(ReviewDecision.ACCEPT);
+    });
+
+    it('earlier decision loses to a later one even if ACCEPT came first', () => {
+      occurrenceService.loadDecisionsForRun.and.returnValue(of([
+        mockDecision({ id: 'd1', signalType: 'D_ZONE_V1_UPTICK', decisionType: ReviewDecision.ACCEPT, decidedAt: '2026-08-25T10:00:00.000Z' }),
+        mockDecision({ id: 'd2', signalType: 'D_ZONE_V1_DOWNTICK', decisionType: ReviewDecision.REJECT, decidedAt: '2026-08-25T12:00:00.000Z' }),
+      ]));
+      store.loadDecisionsForRun(RUN_ID);
+      expect(store.statusForSymbol('AAPL')).toBe(ReviewDecision.REJECT);
     });
   });
 
@@ -139,12 +150,14 @@ describe('OccurrenceDecisionStore', () => {
       });
     });
 
-    it('excludes decisions not current in latest run', () => {
+    it('includes decisions regardless of isCurrentInLatestRun flag', () => {
       occurrenceService.loadDecisionsForRun.and.returnValue(of([
         mockDecision({ id: 'd1', symbol: 'AAPL', isCurrentInLatestRun: false }),
       ]));
       store.loadDecisionsForRun(RUN_ID);
-      expect(store.statusBySymbol()).toEqual({});
+      expect(store.statusBySymbol()).toEqual({
+        AAPL: ReviewDecision.ACCEPT,
+      });
     });
   });
 

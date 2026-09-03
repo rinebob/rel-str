@@ -109,6 +109,15 @@ export function todayDate(): string {
 /** Fallback group name for symbols missing the active dimension value. */
 export const UNKNOWN_GROUP = '(Unknown)';
 
+/** Market cap tier sort order (largest first). */
+const MARKET_CAP_TIER_ORDER: Record<string, number> = {
+  mega: 0,
+  large: 1,
+  mid: 2,
+  small: 3,
+  micro: 4,
+};
+
 /** Build the group key for a symbol profile under the chosen dimension. */
 export function getGroupKey(profile: StSymbolProfile, dimension: GroupDimension): string {
   switch (dimension) {
@@ -116,6 +125,12 @@ export function getGroupKey(profile: StSymbolProfile, dimension: GroupDimension)
     case GroupDimension.INDUSTRY:      return profile.industry      || UNKNOWN_GROUP;
     case GroupDimension.MARKET_CAP_TIER: return profile.marketCapTier || UNKNOWN_GROUP;
   }
+}
+
+/** Build the display label for a group key under the chosen dimension. */
+export function getGroupLabel(key: string, dimension: GroupDimension): string {
+  if (key === UNKNOWN_GROUP) return UNKNOWN_GROUP;
+  return dimension === GroupDimension.MARKET_CAP_TIER ? key.toUpperCase() : key;
 }
 
 /**
@@ -519,10 +534,16 @@ export interface BuildSymbolGroupsInput {
   symbolLists: Record<string, string[]>;
   activeListFilter: string | 'ALL';
   statuses: Record<string, ReviewDecision>;
+  /** Set of symbols flagged for review (bookmark), independent of accept/reject. */
+  reviewFlagSymbols: Set<string>;
   historyCache: Record<string, StSignalItem[]>;
   historyLoading: Record<string, boolean>;
   activeRunId: string | null;
   signalFilter: SignalFilter;
+  /** Latest decision per symbol (by decidedAt) for staleness display. */
+  latestDecisions?: Record<string, { marketDate: string; runId: string }>;
+  /** Market date of the active run, for staleness comparison. */
+  activeRunMarketDate?: string | null;
 }
 
 /**
@@ -538,10 +559,13 @@ export function buildSymbolGroups(input: BuildSymbolGroupsInput): SymbolGroup[] 
     symbolLists,
     activeListFilter,
     statuses,
+    reviewFlagSymbols,
     historyCache,
     historyLoading,
     activeRunId,
     signalFilter,
+    latestDecisions,
+    activeRunMarketDate,
   } = input;
 
   const signalSet = new Set(signalSymbols.map((s) => s.symbol));
@@ -572,6 +596,9 @@ export function buildSymbolGroups(input: BuildSymbolGroupsInput): SymbolGroup[] 
   const sortedKeys = [...groupMap.keys()].sort((a, b) => {
     if (a === UNKNOWN_GROUP) return 1;
     if (b === UNKNOWN_GROUP) return -1;
+    if (dimension === GroupDimension.MARKET_CAP_TIER) {
+      return (MARKET_CAP_TIER_ORDER[a] ?? 99) - (MARKET_CAP_TIER_ORDER[b] ?? 99);
+    }
     return a.localeCompare(b);
   });
 
@@ -585,12 +612,18 @@ export function buildSymbolGroups(input: BuildSymbolGroupsInput): SymbolGroup[] 
       const cacheKey = getCacheKey(item.profile.symbol, activeRunId);
       const rawSignals = historyCache[cacheKey];
       const signals = rawSignals ? filterSignals(rawSignals, signalFilter) : undefined;
+      const latest = latestDecisions?.[item.profile.symbol];
+      const decisionMarketDate = latest?.marketDate ?? null;
+      const decisionStale = !!latest && !!activeRunMarketDate && latest.marketDate !== activeRunMarketDate;
       return {
         profile: item.profile,
         hasSignal: item.hasSignal,
         signals,
         signalsLoading: historyLoading[cacheKey] ?? false,
         reviewStatus: statuses[item.profile.symbol] ?? ReviewDecision.PENDING,
+        isReviewed: reviewFlagSymbols.has(item.profile.symbol),
+        decisionMarketDate,
+        decisionStale,
       };
     });
 
@@ -599,6 +632,7 @@ export function buildSymbolGroups(input: BuildSymbolGroupsInput): SymbolGroup[] 
 
     return {
       key,
+      label: getGroupLabel(key, dimension),
       rows,
       longCount,
       shortCount,
