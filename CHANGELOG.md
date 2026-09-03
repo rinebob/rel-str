@@ -1,5 +1,16 @@
 # Changelog
 
+## [2026-09-02]
+
+### Added
+- [Savant Trader] 176-212_BE-CHORE-SAVANT-TRADER: Remove isEnabled field and add occurrence decision TTL cleanup (checkpoint)
+- [Savant Trader] 176-212_SHARED-IMPL-SAVANT-TRADER: Add cross-run decision loading and staleness display (checkpoint)
+- [Savant Trader] 176-212_FE-IMPL-SAVANT-TRADER: Fix persistence, prev/next navigation, and review/accept separation (checkpoint)
+- [Savant Trader] 176-212_FE-IMPL-SAVANT-TRADER: UI cleanup for order queue, ticket, quick-charts, and dashboard (checkpoint)
+- [Savant Trader] 176-212_BE-CHORE-SAVANT-TRADER: Add backfill-overview and migrate-st-collections scripts (checkpoint)
+- [Savant Trader] 176-212_DOCS-DOCS-SAVANT-TRADER: Add UAT results, decision pipeline PRD, ADR-006, and code review (checkpoint)
+- [Savant Trader] 176-212_CONFIG-CONFIG-PROJ: Update .devin/skills submodule pointer (checkpoint)
+
 ## [2026-08-27]
 
 ### Fixed
