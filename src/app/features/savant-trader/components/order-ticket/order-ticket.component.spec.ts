@@ -92,13 +92,16 @@ describe('OrderTicketComponent', () => {
     fixture.componentRef.setInput('price', 50);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.compact-field').textContent).toContain('Qty');
+    expect(fixture.nativeElement.textContent).toContain('Qty');
     expect(fixture.nativeElement.textContent).not.toContain('$ Amt');
     expect(fixture.nativeElement.querySelector('.pill-group')).toBeTruthy();
   });
 
-  it('derives an 8% stop price from the selected symbol price', () => {
-    fixture.componentRef.setInput('intent', makeIntent('1'));
+  it('derives an 8% stop price from the fill price after entry fills', () => {
+    fixture.componentRef.setInput('intent', makeIntent('1', 'AAPL', {
+      status: OrderIntentStatus.FILLED,
+      result: { fillPrice: '100.00', filledQuantity: '2' },
+    }));
     fixture.componentRef.setInput('price', 100);
     fixture.detectChanges();
 
@@ -108,12 +111,18 @@ describe('OrderTicketComponent', () => {
   });
 
   it('recalculates the default stop when selection changes', () => {
-    fixture.componentRef.setInput('intent', makeIntent('1', 'AAPL'));
+    fixture.componentRef.setInput('intent', makeIntent('1', 'AAPL', {
+      status: OrderIntentStatus.FILLED,
+      result: { fillPrice: '100.00', filledQuantity: '2' },
+    }));
     fixture.componentRef.setInput('price', 100);
     fixture.detectChanges();
     component.stopLossPrice.set('95.00');
 
-    fixture.componentRef.setInput('intent', makeIntent('2', 'DELL'));
+    fixture.componentRef.setInput('intent', makeIntent('2', 'DELL', {
+      status: OrderIntentStatus.FILLED,
+      result: { fillPrice: '200.00', filledQuantity: '2' },
+    }));
     fixture.componentRef.setInput('price', 200);
     fixture.detectChanges();
 

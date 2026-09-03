@@ -57,7 +57,7 @@
       <!-- Entry: editable form OR read-only confirmation -->
       @if (isEditable()) {
         <div class="form-section">
-          <!-- Type toggle pills -->
+          <!-- 1. Type -->
           <div class="form-row">
             <span class="field-label">Type</span>
             <div class="pill-group">
@@ -68,47 +68,49 @@
             </div>
           </div>
 
-          <!-- Qty / Limit / Stop / Cost / Units -->
+          <!-- 2. Quantity -->
           <div class="form-row">
-            <div class="compact-field">
-              <span class="cf-label">Qty</span>
-              <div class="stepper">
-                <button type="button" class="step-btn" (click)="qtyDown()">&#9660;</button>
-                <input class="cf-input" inputmode="numeric" pattern="[0-9]*" [value]="quantity()" (input)="onQuantityInput($event)" placeholder="100">
-                <button type="button" class="step-btn" (click)="qtyUp()">&#9650;</button>
-              </div>
-            </div>
-            @if (showLimitPrice()) {
-              <div class="compact-field">
-                <span class="cf-label">Limit $</span>
-                <div class="stepper">
-                  <button type="button" class="step-btn" (click)="limitDown()">&#9660;</button>
-                  <input class="cf-input" [value]="limitPrice()" (input)="setInputValue(limitPrice, $event)" placeholder="0.00">
-                  <button type="button" class="step-btn" (click)="limitUp()">&#9650;</button>
-                </div>
-              </div>
-            }
-            @if (showStopPrice()) {
-              <div class="compact-field">
-                <span class="cf-label">Stop $</span>
-                <div class="stepper">
-                  <button type="button" class="step-btn" (click)="stopDown()">&#9660;</button>
-                  <input class="cf-input" [value]="stopPrice()" (input)="setInputValue(stopPrice, $event)" placeholder="0.00">
-                  <button type="button" class="step-btn" (click)="stopUp()">&#9650;</button>
-                </div>
-              </div>
-            }
-            <div class="inline-stat">
-              <span class="stat-label">Cost</span>
-              <span class="stat-value">{{ currentPrice() ? (actualCost() | currency) : '—' }}</span>
-            </div>
-            <div class="inline-stat">
-              <span class="stat-label">Units</span>
-              <span class="stat-value">{{ currentPrice() ? computedUnits() : '—' }}</span>
+            <span class="field-label">Qty</span>
+            <div class="stepper">
+              <button type="button" class="step-btn" (click)="qtyDown()">&#9660;</button>
+              <input class="cf-input" inputmode="numeric" pattern="[0-9]*" [value]="quantity()" (input)="onQuantityInput($event)" placeholder="100">
+              <button type="button" class="step-btn" (click)="qtyUp()">&#9650;</button>
             </div>
           </div>
 
-          <!-- TIF toggle pills -->
+          <!-- 3. Cost / Units -->
+          <div class="form-row">
+            <span class="field-label">Cost</span>
+            <span class="stat-value">{{ currentPrice() ? (actualCost() | currency) : '—' }}</span>
+            <span class="field-label" style="margin-left: 16px;">Units</span>
+            <span class="stat-value">{{ currentPrice() ? computedUnits() : '—' }}</span>
+          </div>
+
+          <!-- 4. Limit price -->
+          @if (showLimitPrice()) {
+            <div class="form-row">
+              <span class="field-label">Limit $</span>
+              <div class="stepper">
+                <button type="button" class="step-btn" (click)="limitDown()">&#9660;</button>
+                <input class="cf-input" [value]="limitPrice()" (input)="setInputValue(limitPrice, $event)" placeholder="0.00">
+                <button type="button" class="step-btn" (click)="limitUp()">&#9650;</button>
+              </div>
+            </div>
+          }
+
+          <!-- 5. Stop price -->
+          @if (showStopPrice()) {
+            <div class="form-row">
+              <span class="field-label">Stop $</span>
+              <div class="stepper">
+                <button type="button" class="step-btn" (click)="stopDown()">&#9660;</button>
+                <input class="cf-input" [value]="stopPrice()" (input)="setInputValue(stopPrice, $event)" placeholder="0.00">
+                <button type="button" class="step-btn" (click)="stopUp()">&#9650;</button>
+              </div>
+            </div>
+          }
+
+          <!-- 6. TIF -->
           <div class="form-row">
             <span class="field-label">TIF</span>
             <div class="pill-group">
@@ -117,7 +119,7 @@
             </div>
           </div>
 
-          <!-- Hours toggle pills -->
+          <!-- 7. Hours -->
           <div class="form-row">
             <span class="field-label">Hours</span>
             <div class="pill-group">
@@ -162,32 +164,33 @@
         </div>
       }
 
-      <!-- Stop loss form — compact, one row -->
+      <!-- Stop loss form — shown only after entry is filled -->
       @if (showStopLossSection()) {
         <div class="stop-loss-section">
-          <span class="sl-title">Stop Loss</span>
-          <div class="sl-fields-row">
-            <div class="sl-field">
-              <span class="sl-label">$</span>
-              <div class="stepper">
-                <button type="button" class="step-btn" (click)="stopPriceDown()">&#9660;</button>
-                <input class="sl-input" [value]="stopLossPrice()" (input)="onStopPriceChange($event)" placeholder="0.00">
-                <button type="button" class="step-btn" (click)="stopPriceUp()">&#9650;</button>
-              </div>
-            </div>
-            <div class="sl-field">
-              <span class="sl-label">%</span>
-              <div class="stepper">
-                <button type="button" class="step-btn" (click)="stopPercentDown()">&#9660;</button>
-                <input class="sl-input" [value]="stopLossPercent()" (input)="onStopPercentChange($event)" placeholder="8.0">
-                <button type="button" class="step-btn" (click)="stopPercentUp()">&#9650;</button>
-              </div>
-            </div>
-            <div class="sl-stat">
-              <span class="sl-label">Risk</span>
-              <span class="sl-risk-value">{{ stopLossRisk() | currency }}</span>
+          <div class="sl-header">
+            <span class="sl-title">Stop Loss</span>
+            <span class="sl-risk">Risk: {{ stopLossRisk() | currency }}</span>
+          </div>
+          <div class="sl-field">
+            <span class="sl-label">$</span>
+            <div class="stepper">
+              <button type="button" class="step-btn" (click)="stopPriceDown()">&#9660;</button>
+              <input class="sl-input" [value]="stopLossPrice()" (input)="onStopPriceChange($event)" placeholder="0.00">
+              <button type="button" class="step-btn" (click)="stopPriceUp()">&#9650;</button>
             </div>
           </div>
+          <div class="sl-field">
+            <span class="sl-label">%</span>
+            <div class="stepper">
+              <button type="button" class="step-btn" (click)="stopPercentDown()">&#9660;</button>
+              <input class="sl-input" [value]="stopLossPercent()" (input)="onStopPercentChange($event)" placeholder="8.0">
+              <button type="button" class="step-btn" (click)="stopPercentUp()">&#9650;</button>
+            </div>
+          </div>
+          <button mat-flat-button color="warn" (click)="onPlaceStopLoss()" [disabled]="!canPlaceStopLoss()">
+            <mat-icon>shield</mat-icon>
+            Submit Stop Loss
+          </button>
         </div>
       }
 
@@ -263,13 +266,6 @@
             <mat-icon>hourglass_empty</mat-icon>
             <span>Submitting…</span>
           </div>
-        }
-
-        @if (isEntryFilled() && !stopLossExists() && canPlaceStopLoss()) {
-          <button mat-flat-button color="warn" (click)="onPlaceStopLoss()">
-            <mat-icon>shield</mat-icon>
-            Submit Stop Loss Order
-          </button>
         }
 
         @if (isStopLossSubmitted()) {

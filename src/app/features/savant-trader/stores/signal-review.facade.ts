@@ -49,6 +49,7 @@ import {
 export interface SignalOrderStagingContext {
   runId: string;
   accountNumber: string;
+  defaultDollarAmount: number;
   now: Date;
   buildId: (symbol: string, side: string, now: Date) => string;
   buildRefId: () => string;
@@ -59,7 +60,7 @@ export function buildSignalOrderIntents(
   signals: StSignalItem[],
   context: SignalOrderStagingContext,
 ): EquityOrderIntent[] {
-  const { runId, accountNumber, now, buildId, buildRefId } = context;
+  const { runId, accountNumber, defaultDollarAmount, now, buildId, buildRefId } = context;
   const seen = new Set<string>();
   const intents: EquityOrderIntent[] = [];
   for (const signal of signals) {
@@ -82,6 +83,7 @@ export function buildSignalOrderIntents(
       marketHours: 'regular_hours',
       instrumentType: InstrumentType.EQUITY,
       symbol,
+      dollarAmount: String(defaultDollarAmount),
       signalContext: {
         signalType: signal.signalType,
         barDate: signal.barDate,
@@ -442,9 +444,11 @@ export class SignalReviewFacade {
    */
   private async stageIntentForSymbol(symbol: string, signals: StSignalItem[], runId: string): Promise<void> {
     let accountNumber: string;
+    let defaultDollarAmount: number;
     try {
       const config = await firstValueFrom(this.tradingConfigService.loadConfig());
       accountNumber = config?.accountNumber ?? '';
+      defaultDollarAmount = config?.defaultDollarAmount ?? 100;
       if (!accountNumber) {
         this.snackBar.open('Failed to auto-stage order — configure the agentic account first', 'Dismiss', { duration: 4000 });
         return;
@@ -459,6 +463,7 @@ export class SignalReviewFacade {
     const intents = buildSignalOrderIntents(symbol, signals, {
       runId,
       accountNumber,
+      defaultDollarAmount,
       now,
       buildId: (intentSymbol, side, createdAt) => this.buildIntentId(intentSymbol, side, createdAt),
       buildRefId: () => crypto.randomUUID(),

@@ -90,10 +90,13 @@ export class OrderComponent implements OnInit {
   readonly accountNumber = computed(() => this.tradingConfig()?.accountNumber ?? '');
   readonly accountValue = computed(() => this.accountSnapshot()?.accountValue ?? 0);
 
-  /** Account display name (type + number). */
+  /** Account display name (type + redacted number). */
   readonly accountName = computed(() => {
     const num = this.accountNumber();
-    return num ? `agentic ${num}` : '—';
+    if (!num) return '—';
+    // Show only last 4 digits in dashboards
+    const tail = num.length > 4 ? num.slice(-4) : num;
+    return `agentic ••••${tail}`;
   });
 
   readonly maxAllocationPercent = computed(() => this.tradingConfig()?.maxAllocationPercent ?? 80);

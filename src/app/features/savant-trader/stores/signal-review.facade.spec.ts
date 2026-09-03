@@ -48,6 +48,7 @@ describe('buildSignalOrderIntents', () => {
     const intents = buildSignalOrderIntents('AAPL', signals, {
       runId: 'run-1',
       accountNumber: 'agentic-account',
+      defaultDollarAmount: 100,
       now: new Date('2026-08-26T12:00:00Z'),
       buildId: (_symbol, side) => `AAPL-${side}`,
       buildRefId: () => '550e8400-e29b-41d4-a716-446655440000',
@@ -57,6 +58,7 @@ describe('buildSignalOrderIntents', () => {
     expect(intents.map((intent) => intent.side)).toEqual(['buy', 'sell']);
     expect(intents.every((intent) => intent.accountNumber === 'agentic-account')).toBe(true);
     expect(intents.every((intent) => intent.refId === '550e8400-e29b-41d4-a716-446655440000')).toBe(true);
+    expect(intents.every((intent) => intent.dollarAmount === '100')).toBe(true);
   });
 });
 

@@ -96,6 +96,18 @@
   position: sticky;
   top: 0;
   z-index: 1;
+  cursor: pointer;
+  user-select: none;
+
+  &:hover { background: var(--mat-sys-surface-container-highest); }
+
+  .group-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--mat-sys-on-surface-variant);
+  }
 
   .group-label {
     font-size: 10px;
@@ -110,7 +122,23 @@
     font-weight: 600;
     color: var(--mat-sys-on-surface-variant);
   }
+
+  .group-chevron {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: var(--mat-sys-on-surface-variant);
+    margin-left: auto;
+  }
 }
+
+// Status group dot colors
+.group-staged .group-dot { background: var(--mat-sys-tertiary); }
+.group-submitting .group-dot { background: #e65100; }
+.group-submitted .group-dot { background: var(--mat-sys-primary); }
+.group-filled .group-dot { background: #1b5e20; }
+.group-failed .group-dot { background: var(--mat-sys-error); }
+.group-cancelled .group-dot { background: var(--mat-sys-on-surface-variant); opacity: 0.4; }
 
 .queue-item {
   display: flex;
@@ -132,6 +160,14 @@
 
   .item-check {
     flex-shrink: 0;
+  }
+
+  .item-date {
+    font-size: 10px;
+    font-family: monospace;
+    color: var(--mat-sys-on-surface-variant);
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 
   .source-badge {
@@ -191,24 +227,5 @@
         font-weight: 600;
       }
     }
-  }
-
-  .status-badge {
-    font-size: 9px;
-    padding: 1px 5px;
-    border-radius: 3px;
-    text-transform: uppercase;
-    font-weight: 500;
-    flex-shrink: 0;
-    background: var(--mat-sys-surface-container-highest);
-    color: var(--mat-sys-on-surface-variant);
-
-    &.status-staged { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
-    &.status-ready { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
-    &.status-submitting { background: #f57c0033; color: #e65100; }
-    &.status-submitted { background: var(--mat-sys-primary-container); color: var(--mat-sys-primary); }
-    &.status-filled { background: #1b5e2033; color: #1b5e20; }
-    &.status-failed { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
-    &.status-cancelled { background: var(--mat-sys-surface-container-highest); color: var(--mat-sys-on-surface-variant); }
   }
 }

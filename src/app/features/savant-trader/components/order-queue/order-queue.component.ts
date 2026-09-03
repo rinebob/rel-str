@@ -53,6 +53,9 @@ export class OrderQueueComponent {
   /** Price map: symbol → price. */
   prices = input<Record<string, number>>({});
 
+  /** Default dollar amount from trading config, used as fallback display. */
+  defaultDollarAmount = input<number>(100);
+
   /** Emitted when a row is clicked. */
   intentSelected = output<string>();
 
@@ -62,47 +65,72 @@ export class OrderQueueComponent {
   /** Track selected checkbox state per intent id. */
   private checkedIds = signal<Set<string>>(new Set());
 
+  /** Track which group labels are collapsed. */
+  private collapsedGroups = signal<Set<string>>(new Set());
+
   /** Whether any checkboxes are checked (controls remove button visibility). */
   hasChecked = computed(() => this.checkedIds().size > 0);
 
-  /** Intents grouped by status category, in display order. */
+  /** Toggle a group's expand/collapse state. */
+  toggleGroup(label: string): void {
+    this.collapsedGroups.update((set) => {
+      const next = new Set(set);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  }
+
+  /** Check if a group is collapsed. */
+  isGroupCollapsed(label: string): boolean {
+    return this.collapsedGroups().has(label);
+  }
+
+  /** Intents grouped by status category, in display order. Within each group, sorted by direction (buy first) then createdAt. */
   groups = computed<StatusGroup[]>(() => {
     const all = this.intents();
+    const sortIntents = (intents: OrderIntent[]) =>
+      [...intents].sort((a, b) => {
+        // Buy before sell
+        if (a.side !== b.side) return a.side === 'buy' ? -1 : 1;
+        // Then by createdAt ascending (oldest first)
+        return a.createdAt.localeCompare(b.createdAt);
+      });
     return [
       {
         label: 'Staged',
         status: [OrderIntentStatus.STAGED, OrderIntentStatus.READY],
-        intents: all.filter((i) => i.status === OrderIntentStatus.STAGED || i.status === OrderIntentStatus.READY),
+        intents: sortIntents(all.filter((i) => i.status === OrderIntentStatus.STAGED || i.status === OrderIntentStatus.READY)),
         cssClass: 'group-staged',
       },
       {
         label: 'Submitting',
         status: [OrderIntentStatus.SUBMITTING],
-        intents: all.filter((i) => i.status === OrderIntentStatus.SUBMITTING),
+        intents: sortIntents(all.filter((i) => i.status === OrderIntentStatus.SUBMITTING)),
         cssClass: 'group-submitting',
       },
       {
         label: 'Submitted',
         status: [OrderIntentStatus.SUBMITTED],
-        intents: all.filter((i) => i.status === OrderIntentStatus.SUBMITTED),
+        intents: sortIntents(all.filter((i) => i.status === OrderIntentStatus.SUBMITTED)),
         cssClass: 'group-submitted',
       },
       {
         label: 'Filled',
         status: [OrderIntentStatus.FILLED],
-        intents: all.filter((i) => i.status === OrderIntentStatus.FILLED),
+        intents: sortIntents(all.filter((i) => i.status === OrderIntentStatus.FILLED)),
         cssClass: 'group-filled',
       },
       {
         label: 'Failed',
         status: [OrderIntentStatus.FAILED],
-        intents: all.filter((i) => i.status === OrderIntentStatus.FAILED),
+        intents: sortIntents(all.filter((i) => i.status === OrderIntentStatus.FAILED)),
         cssClass: 'group-failed',
       },
       {
         label: 'Cancelled',
         status: [OrderIntentStatus.CANCELLED],
-        intents: all.filter((i) => i.status === OrderIntentStatus.CANCELLED),
+        intents: sortIntents(all.filter((i) => i.status === OrderIntentStatus.CANCELLED)),
         cssClass: 'group-cancelled',
       },
     ].filter((g) => g.intents.length > 0);
@@ -129,12 +157,14 @@ export class OrderQueueComponent {
     }
   }
 
-  /** Quantity display string. */
+  /** Quantity or dollar amount display string. Shows shares when available, otherwise dollar amount. */
   quantityFor(intent: OrderIntent): string {
     if (intent.instrumentType === InstrumentType.OPTION) {
       return intent.quantity;
     }
-    return intent.quantity ?? intent.dollarAmount ?? '—';
+    if (intent.quantity) return intent.quantity;
+    if (intent.dollarAmount) return `$${intent.dollarAmount}`;
+    return `$${this.defaultDollarAmount()}`;
   }
 
   /** Price for the intent's symbol, or null if not loaded. */
@@ -143,9 +173,11 @@ export class OrderQueueComponent {
     return this.prices()[sym.toUpperCase()] ?? null;
   }
 
-  /** CSS class for status badge. */
-  statusClass(intent: OrderIntent): string {
-    return `status-${intent.status}`;
+  /** Date display: signal bar date if signal-sourced, otherwise createdAt date. */
+  dateFor(intent: OrderIntent): string {
+    const signalDate = intent.signalContext?.barDate;
+    if (signalDate) return signalDate;
+    return intent.createdAt?.slice(0, 10) ?? '—';
   }
 
   /** Row click handler. */

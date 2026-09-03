@@ -140,8 +140,8 @@
 .form-section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 6px 8px;
+  gap: 2px;
+  padding: 4px 8px;
   background: var(--mat-sys-surface-container-high);
   border-radius: 4px;
 }
@@ -199,7 +199,7 @@
 }
 
 .cf-input {
-  width: 30px;
+  width: 75px;
   height: 24px;
   border: 1px solid var(--mat-sys-outline-variant);
   border-radius: 2px;
@@ -283,6 +283,12 @@
   background: var(--mat-sys-surface-container-high);
   border-radius: 4px;
 
+  .sl-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
   .sl-title {
     font-size: 11px;
     font-weight: 600;
@@ -291,17 +297,17 @@
     color: var(--mat-sys-on-surface-variant);
   }
 
-  .sl-fields-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: nowrap;
+  .sl-risk {
+    font-size: 11px;
+    font-weight: 600;
+    font-family: monospace;
+    color: var(--mat-sys-error);
   }
 
   .sl-field {
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: 4px;
   }
 
   .sl-label {
@@ -309,20 +315,7 @@
     color: var(--mat-sys-on-surface-variant);
     font-weight: 500;
     white-space: nowrap;
-  }
-
-  .sl-stat {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    margin-left: 4px;
-  }
-
-  .sl-risk-value {
-    font-size: 12px;
-    font-weight: 600;
-    font-family: monospace;
-    color: var(--mat-sys-error);
+    width: 20px;
   }
 
   .sl-input {

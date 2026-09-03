@@ -34,10 +34,15 @@
   <div class="queue-body">
     @for (group of groups(); track group.label) {
       <div class="status-group" [class]="group.cssClass">
-        <div class="group-header">
+        <div class="group-header" (click)="toggleGroup(group.label)">
+          <span class="group-dot"></span>
           <span class="group-label">{{ group.label }}</span>
           <span class="group-count">{{ group.intents.length }}</span>
+          <mat-icon class="group-chevron" [class.collapsed]="isGroupCollapsed(group.label)">
+            {{ isGroupCollapsed(group.label) ? 'expand_more' : 'expand_less' }}
+          </mat-icon>
         </div>
+        @if (!isGroupCollapsed(group.label)) {
         @for (intent of group.intents; track intent.id) {
           <div
             class="queue-item"
@@ -49,6 +54,7 @@
               (change)="toggleCheck(intent.id, $event.checked)"
               (click)="$event.stopPropagation()">
             </mat-checkbox>
+            <span class="item-date">{{ dateFor(intent) }}</span>
             <span class="source-badge" [class.source-signal]="intent.source === 'signal_pipeline'"
               [class.source-manual]="intent.source === 'manual'"
               [class.source-position]="intent.source === 'position_management'">
@@ -57,7 +63,6 @@
             <div class="item-main">
               <div class="item-line-1">
                 <span class="item-symbol">{{ symbolFor(intent) }}</span>
-                <span class="status-badge" [class]="statusClass(intent)">{{ intent.status }}</span>
                 @if (priceFor(intent)) {
                   <span class="item-price">{{ priceFor(intent) | currency }}</span>
                 }
@@ -69,6 +74,7 @@
               </div>
             </div>
           </div>
+        }
         }
       </div>
     }

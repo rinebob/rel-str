@@ -86,6 +86,9 @@ export class OrderTicketComponent {
   readonly stopLossPrice = signal<string>('');
   readonly stopLossPercent = signal<string>(String(DEFAULT_STOP_PERCENT));
 
+  /** Tracks which intent the stop loss was last initialized for. */
+  private lastStopLossIntentId: string | null = null;
+
   /** Expose enum for template. */
   readonly OrderIntentStatus = OrderIntentStatus;
 
@@ -151,13 +154,13 @@ export class OrderTicketComponent {
     return this.intent()?.status === OrderIntentStatus.FILLED;
   });
 
-  /** Whether to show the stop loss section — only for equity buy orders. */
+  /** Whether to show the stop loss section — only for equity buy orders that have been filled. */
   readonly showStopLossSection = computed(() => {
     const i = this.intent();
     if (!i) return false;
     if (i.side !== 'buy') return false;
     if (i.instrumentType !== InstrumentType.EQUITY && i.instrumentType !== InstrumentType.ETF) return false;
-    return true;
+    return this.isEntryFilled() && !this.stopLossExists();
   });
 
   /** Whether the stop loss can be placed — entry must be filled, qty must be positive, and stop loss price must be valid. */
@@ -197,7 +200,7 @@ export class OrderTicketComponent {
     this.stopLossIntent()?.status === OrderIntentStatus.SUBMITTED,
   );
 
-  /** Preview of the stop loss order object. */
+  /** Preview of the stop loss order object (shows real account number — what will actually be sent). */
   readonly stopLossPreview = computed(() => {
     const i = this.intent();
     if (!i || !this.showStopLossSection()) return null;
@@ -302,7 +305,7 @@ export class OrderTicketComponent {
     }
   });
 
-  /** Live preview of the order to be submitted. */
+  /** Live preview of the order to be submitted (shows real account number — what will actually be sent). */
   readonly preview = computed(() => {
     const i = this.intent();
     if (!i) return null;
@@ -355,23 +358,47 @@ export class OrderTicketComponent {
       });
     });
 
-    // Reset stop-loss to the default percent whenever the selected intent changes
+    // Default limit/stop price to current price when the field becomes visible and is empty
     effect(() => {
-      const id = this.intent()?.id;
+      const price = this.price();
+      const showLimit = this.showLimitPrice();
+      const showStop = this.showStopPrice();
       untracked(() => {
-        if (!id) return;
-        this.stopLossPercent.set(String(DEFAULT_STOP_PERCENT));
-        this.stopLossPrice.set('');
+        if (!price || price <= 0) return;
+        if (showLimit && !this.limitPrice()) {
+          this.limitPrice.set(price.toFixed(2));
+        }
+        if (showStop && !this.stopPrice()) {
+          this.stopPrice.set(price.toFixed(2));
+        }
       });
     });
 
-    // Recompute stop price from the current percent whenever the live price changes
+    // When entry fills or selection changes to a filled intent, initialize stop loss
+    // from the fill price and default percent. Recalculates directly on intent change.
     effect(() => {
-      const price = this.price();
-      const percent = parseFloat(this.stopLossPercent());
+      const i = this.intent();
+      const fillPrice = this.entryFillPrice();
       untracked(() => {
-        if (price && price > 0 && !isNaN(percent) && percent > 0) {
-          this.stopLossPrice.set(stopPriceFromPercent(price, percent).toFixed(2));
+        if (!i || !fillPrice || fillPrice <= 0) return;
+        // Only initialize when the intent changes — preserve user edits otherwise
+        if (this.lastStopLossIntentId === i.id) return;
+        this.lastStopLossIntentId = i.id;
+        this.stopLossPercent.set(String(DEFAULT_STOP_PERCENT));
+        this.stopLossPrice.set(stopPriceFromPercent(fillPrice, DEFAULT_STOP_PERCENT).toFixed(2));
+      });
+    });
+
+    // Recompute stop price from percent when the user changes the percent field
+    // (uses fill price if available, otherwise live price)
+    effect(() => {
+      const percent = parseFloat(this.stopLossPercent());
+      const fillPrice = this.entryFillPrice();
+      const livePrice = this.price();
+      const refPrice = fillPrice ?? livePrice;
+      untracked(() => {
+        if (refPrice && refPrice > 0 && !isNaN(percent) && percent > 0) {
+          this.stopLossPrice.set(stopPriceFromPercent(refPrice, percent).toFixed(2));
         }
       });
     });
@@ -530,15 +557,20 @@ export class OrderTicketComponent {
     this.quantity.set(String(Math.max(0, current - 1)));
   }
 
-  limitUp(): void { this.stepPrice(this.limitPrice, 0.05); }
-  limitDown(): void { this.stepPrice(this.limitPrice, -0.05); }
-  stopUp(): void { this.stepPrice(this.stopPrice, 0.05); }
-  stopDown(): void { this.stepPrice(this.stopPrice, -0.05); }
+  limitUp(): void { this.stepPrice(this.limitPrice, 0.25); }
+  limitDown(): void { this.stepPrice(this.limitPrice, -0.25); }
+  stopUp(): void { this.stepPrice(this.stopPrice, 0.25); }
+  stopDown(): void { this.stepPrice(this.stopPrice, -0.25); }
 
-  /** Stepper for price fields — increment by delta, rounded to 2 decimals. */
+  /** Stepper for price fields — increment by delta, avoid round endings (0 or 5). */
   private stepPrice(field: WritableSignal<string>, delta: number): void {
     const current = parseFloat(field()) || 0;
-    const next = Math.max(0, Math.round((current + delta) * 100) / 100);
+    let next = Math.max(0, Math.round((current + delta) * 100) / 100);
+    // Nudge to avoid hundredths ending in 0 or 5 (round-looking prices)
+    const cents = Math.round(next * 100) % 10;
+    if (cents === 0 || cents === 5) {
+      next = Math.max(0, Math.round((next + 0.02) * 100) / 100);
+    }
     field.set(next.toFixed(2));
   }
 
@@ -577,15 +609,15 @@ export class OrderTicketComponent {
     }
   }
 
-  /** Stepper up on stop loss price — increment by $0.05. */
+  /** Stepper up on stop loss price — increment by $0.25. */
   stopPriceUp(): void {
-    this.stepPrice(this.stopLossPrice, 0.05);
+    this.stepPrice(this.stopLossPrice, 0.25);
     this.onStopPriceInput();
   }
 
-  /** Stepper down on stop loss price — decrement by $0.05. */
+  /** Stepper down on stop loss price — decrement by $0.25. */
   stopPriceDown(): void {
-    this.stepPrice(this.stopLossPrice, -0.05);
+    this.stepPrice(this.stopLossPrice, -0.25);
     this.onStopPriceInput();
   }
 

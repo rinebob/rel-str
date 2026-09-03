@@ -245,7 +245,7 @@ export const GroupStore = signalStore(
 
   withComputed((state, triageStore = inject(TriageStore), occurrenceStore = inject(OccurrenceDecisionStore), symbolListStore = inject(SymbolListStore), historyStore = inject(SymbolHistoryStore), uiStore = inject(SignalReviewUiStore)) => ({
     /**
-     * Grouped view â€” groups built from signalSymbols, sorted by marketCap desc within group.
+     * Grouped view groups built from signalSymbols, sorted by marketCap desc within group.
      * Reads signalFilter directly from SignalReviewUiStore â€” single source of truth, no copy.
      * When showAllSymbols is true, non-signal symbols are included; otherwise only signal symbols.
      */
