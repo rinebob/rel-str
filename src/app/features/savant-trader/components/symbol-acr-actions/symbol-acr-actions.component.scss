@@ -1,9 +1,18 @@
 .acr-actions {
   display: flex;
   gap: 1px;
+  align-items: center;
   flex-shrink: 0;
 
   &.disabled { opacity: 0.25; pointer-events: none; }
+}
+
+.decision-stale {
+  font-size: 9px;
+  color: var(--mat-sys-on-surface-variant);
+  opacity: 0.6;
+  padding: 0 2px;
+  white-space: nowrap;
 }
 
 .acr-btn {
@@ -28,11 +37,12 @@
 
   &.review.active   { background: #7b1fa233; color: #7b1fa2; }
   &.accept.active   { background: #1b5e2033; color: #1b5e20; }
+  &.accept.active.stale { background: #1b5e2018; color: #1b5e20; opacity: 0.5; }
   &.consider.active { background: #f57c0033; color: #f57c00; }
   &.reject.active   { background: #d32f2f33; color: #d32f2f; }
+  &.reject.active.stale { background: #d32f2f18; color: #d32f2f; opacity: 0.5; }
   &.reset.active    { background: #61616133; color: #616161; }
   &.monitor.active  { background: #00695c33; color: #00695c; }
-
   &.primary.active {
     background: #1976d233;
     color: #1976d2;

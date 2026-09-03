@@ -1,6 +1,11 @@
 <div class="acr-actions" (click)="$event.stopPropagation()">
+  @if (row().decisionStale && row().decisionMarketDate) {
+    <span class="decision-stale" matTooltip="Decision from {{ row().decisionMarketDate }}">
+      {{ row().decisionMarketDate }}
+    </span>
+  }
   <button type="button" class="acr-btn review"
-    [class.active]="row().reviewStatus === Status.REVIEW"
+    [class.active]="row().isReviewed"
     [disabled]="disabled()"
     (click)="markForReview.emit(row().profile.symbol)"
     matTooltip="Review">
@@ -8,6 +13,7 @@
   </button>
   <button type="button" class="acr-btn accept"
     [class.active]="row().reviewStatus === Status.ACCEPT"
+    [class.stale]="row().decisionStale && row().reviewStatus === Status.ACCEPT"
     [disabled]="disabled()"
     (click)="accept.emit(row().profile.symbol)"
     matTooltip="Accept">
@@ -22,6 +28,7 @@
   </button>
   <button type="button" class="acr-btn reject"
     [class.active]="row().reviewStatus === Status.REJECT"
+    [class.stale]="row().decisionStale && row().reviewStatus === Status.REJECT"
     [disabled]="disabled()"
     (click)="reject.emit(row().profile.symbol)"
     matTooltip="Reject">

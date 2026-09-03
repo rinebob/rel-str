@@ -126,13 +126,22 @@ export const TriageStore = signalStore(
 
     /** Flag a symbol for review ("I want to look at this chart"). Optimistic + persisted. */
     markForReview(symbol: string): void {
-      const prev = state.reviewFlags();
-      patchState(state, { reviewFlags: { ...prev, [symbol]: true } });
-      triageService.setReviewFlag(symbol)
+      const sym = symbol.toUpperCase();
+      const prevFlags = state.reviewFlags();
+      const prevStatuses = state.screeningStatuses();
+      patchState(state, {
+        reviewFlags: { ...prevFlags, [sym]: true },
+        screeningStatuses: { ...prevStatuses, [sym]: ReviewDecision.REVIEW },
+      });
+      triageService.setReviewFlag(sym)
         .pipe(takeUntilDestroyed(destroyRef))
         .subscribe({
           error: (err: unknown) => {
-            patchState(state, { reviewFlags: prev, reviewFlagsError: err instanceof Error ? err.message : String(err) });
+            patchState(state, {
+              reviewFlags: prevFlags,
+              screeningStatuses: prevStatuses,
+              reviewFlagsError: err instanceof Error ? err.message : String(err),
+            });
             snackBar.open('Failed to flag symbol for review', 'Dismiss', { duration: 3000 });
             console.error('[TriageStore] markForReview failed:', err);
           },
@@ -141,15 +150,23 @@ export const TriageStore = signalStore(
 
     /** Unflag a symbol from review. Optimistic + persisted. */
     unmarkFromReview(symbol: string): void {
-      const prev = state.reviewFlags();
-      const next = { ...prev };
-      delete next[symbol];
-      patchState(state, { reviewFlags: next });
-      triageService.clearReviewFlag(symbol)
+      const sym = symbol.toUpperCase();
+      const prevFlags = state.reviewFlags();
+      const prevStatuses = state.screeningStatuses();
+      const nextFlags = { ...prevFlags };
+      delete nextFlags[sym];
+      const nextStatuses = { ...prevStatuses };
+      delete nextStatuses[sym];
+      patchState(state, { reviewFlags: nextFlags, screeningStatuses: nextStatuses });
+      triageService.clearReviewFlag(sym)
         .pipe(takeUntilDestroyed(destroyRef))
         .subscribe({
           error: (err: unknown) => {
-            patchState(state, { reviewFlags: prev, reviewFlagsError: err instanceof Error ? err.message : String(err) });
+            patchState(state, {
+              reviewFlags: prevFlags,
+              screeningStatuses: prevStatuses,
+              reviewFlagsError: err instanceof Error ? err.message : String(err),
+            });
             snackBar.open('Failed to unflag symbol', 'Dismiss', { duration: 3000 });
             console.error('[TriageStore] unmarkFromReview failed:', err);
           },
@@ -187,9 +204,9 @@ export const TriageStore = signalStore(
       patchState(state, { screeningStatuses: {} });
     },
 
-    /** Drop all ephemeral state (review flags + screening statuses). Use when switching runs. */
+    /** Drop ephemeral screening state when switching runs. Review flags are dateless and survive run switches. */
     resetForRun(): void {
-      patchState(state, { reviewFlags: {}, screeningStatuses: {} });
+      patchState(state, { screeningStatuses: {} });
     },
 
     // --- Viewport methods ---

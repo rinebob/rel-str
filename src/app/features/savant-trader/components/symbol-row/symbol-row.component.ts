@@ -57,6 +57,7 @@ export class SymbolRowComponent {
   consider = output<string>();
   reject = output<string>();
   reset = output<string>();
+  clearHistory = output<string>();
   toggleList = output<{ symbol: string; listName: SymbolListName }>();
   monitor = output<string>();
 }

@@ -2,6 +2,7 @@
  * Symbol ACR Actions
  *
  * Review / Accept / Consider / Reject / Reset buttons for a single symbol row.
+ * Shows a staleness indicator when the latest decision is from a different run.
  */
 import { Component, ChangeDetectionStrategy, booleanAttribute, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -28,4 +29,5 @@ export class SymbolAcrActionsComponent {
   consider = output<string>();
   reject = output<string>();
   reset = output<string>();
+  clearHistory = output<string>();
 }

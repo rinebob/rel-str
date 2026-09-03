@@ -57,6 +57,7 @@ export class GroupPanelComponent {
   rowConsider = output<string>();
   rowReject = output<string>();
   rowReset = output<string>();
+  rowClearHistory = output<string>();
   rowToggleList = output<{ symbol: string; listName: SymbolListName }>();
   rowMonitor = output<string>();
 

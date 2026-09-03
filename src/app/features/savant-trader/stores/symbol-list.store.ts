@@ -34,7 +34,7 @@ export interface SymbolListState {
 const initialState: SymbolListState = {
   symbolLists: {},
   symbolListsLoading: false,
-  activeListFilter: 'ALL',
+  activeListFilter: SymbolListName.PRIMARY,
 };
 
 export const SymbolListStore = signalStore(

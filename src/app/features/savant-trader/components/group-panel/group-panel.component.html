@@ -2,7 +2,7 @@
 
   <mat-expansion-panel-header class="group-header">
     <mat-panel-title class="group-title">
-      <span class="group-key">{{ group().key }}</span>
+      <span class="group-key">{{ group().label }}</span>
       <span class="group-summary">
         {{ visibleSymbolCount() }} symbols
         @if (visibleLongCount() > 0) {
@@ -38,6 +38,7 @@
         (consider)="rowConsider.emit($event)"
         (reject)="rowReject.emit($event)"
         (reset)="rowReset.emit($event)"
+        (clearHistory)="rowClearHistory.emit($event)"
         (toggleList)="rowToggleList.emit($event)"
         (monitor)="rowMonitor.emit($event)">
       </app-symbol-row>

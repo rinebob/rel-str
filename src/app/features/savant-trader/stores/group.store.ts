@@ -60,12 +60,20 @@ export interface SymbolRow {
   signals?: StSignalItem[];
   signalsLoading?: boolean;
   reviewStatus: ReviewDecision;
+  /** True if the symbol is flagged for review (bookmark), independent of accept/reject. */
+  isReviewed: boolean;
+  /** Market date of the latest decision for this symbol, or null if no decision. */
+  decisionMarketDate?: string | null;
+  /** True when the latest decision is from a different run than the active run. */
+  decisionStale?: boolean;
 }
 
 /** A rendered group in the expansion panel list. */
 export interface SymbolGroup {
   /** Group key â€” e.g. 'Technology', 'large', 'NASDAQ' */
   key: string;
+  /** Display label â€” e.g. 'Technology', 'LARGE', '(Unknown)' */
+  label: string;
   rows: SymbolRow[];
   /** Long signal count for the active timeframe. */
   longCount: number;
@@ -104,7 +112,7 @@ export interface GroupState {
 const initialState: GroupState = {
   activeRunId: null,
   _activeRunMarketDate: null,
-  groupDimension: GroupDimension.SECTOR,
+  groupDimension: GroupDimension.INDUSTRY,
   signalSymbols: [],
   symbolsLoading: false,
   symbolsError: null,
@@ -133,12 +141,14 @@ export const GroupStore = signalStore(
     symbolListStore = inject(SymbolListStore),
     historyStore = inject(SymbolHistoryStore),
   ) => ({
-    /** Set the active run, clear in-memory triage state, load durable occurrence decisions, and reload symbols. */
+    /** Set the active run, clear in-memory triage state, load recent occurrence decisions, and reload symbols. */
     setActiveRun(runId: string, marketDate: string): void {
       patchState(state, { activeRunId: runId, _activeRunMarketDate: marketDate, signalSymbols: [], selectedSymbol: null });
       triageStore.resetForRun();
-      occurrenceStore.clearDecisions();
-      occurrenceStore.loadDecisionsForRun(runId);
+      triageStore.loadReviewFlags();
+      // Don't clear decisions before loading — loadRecentDecisions replaces state
+      // on success, avoiding a flash of empty accepted/review lists.
+      occurrenceStore.loadRecentDecisions();
       this.loadSymbolsWithSignals();
     },
 
@@ -247,11 +257,21 @@ export const GroupStore = signalStore(
         dimension: state.groupDimension(),
         symbolLists: symbolListStore.symbolLists(),
         activeListFilter: symbolListStore.activeListFilter(),
-        statuses: { ...triageStore.screeningStatuses(), ...occurrenceStore.statusBySymbol() },
+        statuses: {
+          ...triageStore.screeningStatuses(),
+          ...occurrenceStore.statusBySymbol(),
+        },
+        reviewFlagSymbols: new Set(
+          Object.entries(triageStore.reviewFlags())
+            .filter(([, f]) => f)
+            .map(([s]) => s)
+        ),
         historyCache: historyStore.signalHistoryCache(),
         historyLoading: historyStore.signalHistoryLoading(),
         activeRunId: state.activeRunId(),
         signalFilter: uiStore.signalFilter(),
+        latestDecisions: occurrenceStore.latestBySymbol(),
+        activeRunMarketDate: state._activeRunMarketDate(),
       })
     ),
   })),
@@ -285,11 +305,14 @@ export const GroupStore = signalStore(
 
     /**
      * Stable flat list of visible symbols for prev/next navigation.
-     * Derived from profile-filtered data so it does not flicker while histories load.
+     * Follows grouped list order (top-to-bottom) so prev/next doesn't jump
+     * across groups alphabetically.
      */
-    flatFilteredSymbols: computed((): string[] =>
-      state.filteredProfiles().map((p) => p.symbol).sort()
-    ),
+    flatFilteredSymbols: computed((): string[] => {
+      // Read groups() so this recomputes when grouping/filters change.
+      const groups = state.groups();
+      return groups.flatMap((g) => g.rows.map((r) => r.profile.symbol));
+    }),
   })),
 
   withComputed((state, historyStore = inject(SymbolHistoryStore)) => ({

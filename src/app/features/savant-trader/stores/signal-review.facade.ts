@@ -166,6 +166,13 @@ export class SignalReviewFacade {
   readonly selectedSymbol = computed(() => this.groupStore.selectedSymbol());
   readonly quickChartSymbol = computed(() => this.groupStore.quickChartSymbol());
 
+  /** Profile for the currently selected quick-chart symbol, for the meta header. */
+  readonly quickChartProfile = computed(() => {
+    const sym = this.groupStore.quickChartSymbol();
+    if (!sym) return null;
+    return this.groupStore.filteredProfiles().find((p) => p.symbol === sym) ?? null;
+  });
+
   /** Active-run context for header / eligibility. */
   readonly viewedRun = computed((): StRun | null => this.groupStore.viewedRun());
   readonly isActionableRun = computed(() => this.groupStore.isActionableRun());
@@ -194,14 +201,20 @@ export class SignalReviewFacade {
     });
   }
 
-  /** Enter the signal-review page: fullscreen, active run, load symbols. */
+  /** Enter the signal-review page: fullscreen, active run, load symbols and decisions. */
   enterPage(): void {
     this.uiState.setFullscreen(true);
     const runId = this.groupStore.activeRunId();
     if (runId) {
-      this.groupStore.loadSymbolsWithSignals();
+      // Only load if not already loading (setActiveRun may have already triggered this).
+      if (!this.groupStore.symbolsLoading()) {
+        this.groupStore.loadSymbolsWithSignals();
+      }
+      if (!this.occurrenceStore.loading()) {
+        this.occurrenceStore.loadRecentDecisions();
+      }
     } else {
-      // Direct page reload â€” activeRunId not yet set. Start runs stream;
+      // Direct page reload — activeRunId not yet set. Start runs stream;
       // the constructor effect will auto-select the most recent run when it arrives.
       this.agentStore.loadData();
     }
@@ -321,7 +334,14 @@ export class SignalReviewFacade {
   }
 
   markForReview(symbol: string): void {
-    this.runIfActionable(() => this.triageStore.markForReview(symbol));
+    this.runIfActionable(() => {
+      const isReviewed = this.triageStore.reviewFlags()[symbol.toUpperCase()] === true;
+      if (isReviewed) {
+        this.triageStore.unmarkFromReview(symbol);
+      } else {
+        this.triageStore.markForReview(symbol);
+      }
+    });
   }
 
   acceptSymbol(symbol: string): void {
@@ -372,6 +392,14 @@ export class SignalReviewFacade {
       const runId = this.groupStore.activeRunId();
       if (!runId) return;
       this.occurrenceStore.resetSymbol(symbol, runId);
+    });
+  }
+
+  /** Clear all decision history for a symbol across all runs. */
+  clearSymbolHistory(symbol: string): void {
+    this.runIfActionable(() => {
+      this.occurrenceStore.clearSymbolHistory(symbol);
+      this.removeStagedIntentForSymbol(symbol);
     });
   }
 
