@@ -1,4 +1,4 @@
-# RH Agent Domain Glossary
+# Savant Trader Domain Glossary
 
 ## Signal Occurrence
 
@@ -6,27 +6,40 @@ One detected signal identified by its source run, symbol, timeframe, and signal 
 
 ## ACCEPT
 
-A durable decision that a signal occurrence is a worthwhile trading candidate. `ACCEPT` does not authorize or imply a broker order.
+A durable decision that a signal occurrence is a worthwhile trading candidate. Accepting creates an Order Ticket. Toggling accept off deletes the ticket.
+_Avoid_: Approve, confirm
 
-## REJECT
+## Order Ticket
 
-A durable decision that a signal occurrence is not a worthwhile trading candidate. It applies only to that occurrence.
-
-## Order Draft
-
-Editable proposed order terms. An order draft has no broker side effect and consumes no allocation capacity.
+The document created when a user accepts a signal. Carries signal context (symbol, direction, signalType, barDate, runId, timeframe) and proposed order terms (side, quantity, order type — defaults filled from signal). Source of truth for "is this symbol accepted." Lives in `savant-trader/data/order-tickets` with a 3-day TTL. Toggled on/off by the accept button.
+_Avoid_: Order Intent, Order Draft, staged order
 
 ## Preflight
 
 A side-effect-free evaluation of exact proposed order terms, applicable risk and capacity rules, and the broker review. A material edit or expiration invalidates preflight.
 
-## Order Intent
-
-A finalized snapshot of proposed broker instructions with durable identity and provenance. Authorization applies to an exact order intent.
-
 ## Order Authorization
 
-Permission to dispatch one exact preflighted order intent. It is distinct from accepting a signal occurrence.
+Permission to dispatch one exact preflighted order ticket. It is distinct from accepting a signal occurrence.
+
+## Review Flag
+
+A dateless bookmark indicating the user wants to look at a symbol's chart. Independent of the accept/ticket lifecycle. Persists across runs.
+_Avoid_: Review status, review decision
+
+## Monitor
+
+A non-exclusive symbol list (PAST_SIGNALS) for tracking symbols the user wants to keep an eye on. Can coexist with any exclusive list assignment.
+_Avoid_: Watch, watchlist
+
+## Symbol List (Exclusive)
+
+One of Primary, Secondary, Neutral, or Avoid. A symbol is in at most one exclusive list at a time. Avoid absorbs the former Hide list. Mutually exclusive with each other but not with Review Flag or Monitor.
+_Avoid_: Category, tag, bucket
+
+## Stale Ticket
+
+An order ticket whose `runId` or `marketDate` does not match the currently viewed run. Shown dimmed in the UI. Clicking accept on a stale ticket replaces it with a fresh ticket for the current run.
 
 ## Standing Exit Authorization
 
