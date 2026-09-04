@@ -254,9 +254,9 @@ function seedSequenceDoc(
     marketDate: '2026-08-22',
     sequence: 'A',
     intervalRunIds: {
-      DAILY: '2026-08-22-SAT-POST-A-1335-DAILY',
-      WEEKLY: '2026-08-22-SAT-POST-A-1335-WEEKLY',
-      MONTHLY: '2026-08-22-SAT-POST-A-1335-MONTHLY',
+      DAILY: '2026-08-22-SAT-A-DAILY-LIVE-POST-1335',
+      WEEKLY: '2026-08-22-SAT-A-WEEKLY-LIVE-POST-1335',
+      MONTHLY: '2026-08-22-SAT-A-MONTHLY-LIVE-POST-1335',
     },
     completedIntervals: [],
     status: 'processing',

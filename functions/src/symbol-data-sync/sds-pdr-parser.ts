@@ -58,7 +58,11 @@ export function resolvePdrContext(
 }
 
 export function resolveSequence(runId: string): PdrSequence | undefined {
-  const match = runId.match(/-POST-([ABC])-/);
+  // RunIdFactory.createRealtime() format:
+  //   {marketDate}-{dow}-{sequence}-{interval}-LIVE|MANUAL-POST-{clockPt}
+  //   e.g., 2026-01-24-FRI-A-DAILY-LIVE-POST-1335
+  // The sequence is a single char (A/B/C) between the dow and interval.
+  const match = runId.match(/-[A-Z]{3}-([ABC])-(?:DAILY|WEEKLY|MONTHLY)-/);
   return match ? (match[1] as PdrSequence) : undefined;
 }
 

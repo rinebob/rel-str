@@ -142,7 +142,7 @@ describe('handlePdrMessage — POST A DAILY', () => {
   it('creates run doc and enqueues tasks for all tracked minus excludeSymbols', async () => {
     const result = await handlePdrMessage(
       {
-        runId: '2026-01-24-FRI-POST-A-1335-DAILY',
+        runId: '2026-01-24-FRI-A-DAILY-LIVE-POST-1335',
         phase: 'post',
         marketDate: '2026-01-24',
         runType: 'ts-post-all-intervals',
@@ -160,14 +160,14 @@ describe('handlePdrMessage — POST A DAILY', () => {
     const payloads = deps._enqueued.map((p: SdsTaskPayload) => p.symbol).sort();
     assert.deepEqual(payloads, ['GOOGL', 'NVDA', 'TSLA']);
     assert.equal(deps._enqueued[0].interval, 'DAILY');
-    assert.equal(deps._enqueued[0].runId, '2026-01-24-FRI-POST-A-1335-DAILY');
+    assert.equal(deps._enqueued[0].runId, '2026-01-24-FRI-A-DAILY-LIVE-POST-1335');
     assert.equal(deps._enqueued[0].sequenceRunId, '2026-01-24-POST-A');
   });
 
   it('creates sequence doc for POST run', async () => {
     await handlePdrMessage(
       {
-        runId: '2026-01-24-FRI-POST-A-1335-DAILY',
+        runId: '2026-01-24-FRI-A-DAILY-LIVE-POST-1335',
         phase: 'post',
         marketDate: '2026-01-24',
         runType: 'ts-post-all-intervals',
@@ -188,14 +188,14 @@ describe('handlePdrMessage — idempotency', () => {
   it('skips if run doc already exists with terminal status', async () => {
     const db = createMockDb();
     // Pre-populate a completed run doc
-    db.docs.set('symbol-data-sync-runs/2026-01-24-FRI-POST-A-1335-DAILY', {
+    db.docs.set('symbol-data-sync-runs/2026-01-24-FRI-A-DAILY-LIVE-POST-1335', {
       status: 'completed',
     });
     const deps = createDeps(db, TRACKED) as any;
 
     const result = await handlePdrMessage(
       {
-        runId: '2026-01-24-FRI-POST-A-1335-DAILY',
+        runId: '2026-01-24-FRI-A-DAILY-LIVE-POST-1335',
         phase: 'post',
         marketDate: '2026-01-24',
         runType: 'ts-post-all-intervals',
@@ -217,7 +217,7 @@ describe('handlePdrMessage — POST B with empty includeSymbols', () => {
 
     const result = await handlePdrMessage(
       {
-        runId: '2026-01-24-FRI-POST-B-1800-DAILY',
+        runId: '2026-01-24-FRI-B-DAILY-LIVE-POST-1800',
         phase: 'post',
         marketDate: '2026-01-24',
         runType: 'ts-post-all-intervals',
@@ -230,7 +230,7 @@ describe('handlePdrMessage — POST B with empty includeSymbols', () => {
     assert.equal(result.skipped, false);
     assert.equal(result.enqueued, 0);
     // Run doc should still be created
-    const runDoc = db.docs.get('symbol-data-sync-runs/2026-01-24-FRI-POST-B-1800-DAILY');
+    const runDoc = db.docs.get('symbol-data-sync-runs/2026-01-24-FRI-B-DAILY-LIVE-POST-1800');
     assert.ok(runDoc);
   });
 });

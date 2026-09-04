@@ -92,7 +92,7 @@ describe('processSymbolInterval — POST DAILY', () => {
     const result = await processSymbolInterval({
       symbol: 'AAPL',
       interval: 'DAILY',
-      runId: '2026-01-24-FRI-POST-A-1335-DAILY',
+      runId: '2026-01-24-FRI-A-DAILY-LIVE-POST-1335',
       sequenceRunId: '2026-01-24-POST-A',
       sequence: 'A',
       marketDate: '2026-01-24',
@@ -117,7 +117,7 @@ describe('processSymbolInterval — POST DAILY', () => {
     await processSymbolInterval({
       symbol: 'AAPL',
       interval: 'DAILY',
-      runId: '2026-01-24-FRI-POST-A-1335-DAILY',
+      runId: '2026-01-24-FRI-A-DAILY-LIVE-POST-1335',
       sequenceRunId: '2026-01-24-POST-A',
       sequence: 'A',
       marketDate: '2026-01-24',
@@ -136,7 +136,7 @@ describe('processSymbolInterval — POST WEEKLY', () => {
     const result = await processSymbolInterval({
       symbol: 'AAPL',
       interval: 'WEEKLY',
-      runId: '2026-01-24-FRI-POST-A-1335-WEEKLY',
+      runId: '2026-01-24-FRI-A-WEEKLY-LIVE-POST-1335',
       sequenceRunId: '2026-01-24-POST-A',
       sequence: 'A',
       marketDate: '2026-01-24',
@@ -166,7 +166,7 @@ describe('processSymbolInterval — POST MONTHLY', () => {
     const result = await processSymbolInterval({
       symbol: 'AAPL',
       interval: 'MONTHLY',
-      runId: '2026-01-24-FRI-POST-A-1335-MONTHLY',
+      runId: '2026-01-24-FRI-A-MONTHLY-LIVE-POST-1335',
       sequenceRunId: '2026-01-24-POST-A',
       sequence: 'A',
       marketDate: '2026-01-24',
@@ -193,7 +193,7 @@ describe('processSymbolInterval — edge cases', () => {
     const result = await processSymbolInterval({
       symbol: 'AAPL',
       interval: 'DAILY',
-      runId: '2026-01-24-FRI-POST-A-1335-DAILY',
+      runId: '2026-01-24-FRI-A-DAILY-LIVE-POST-1335',
       sequenceRunId: '2026-01-24-POST-A',
       sequence: 'A',
       marketDate: '2026-01-24',
@@ -213,7 +213,7 @@ describe('processSymbolInterval — edge cases', () => {
     await processSymbolInterval({
       symbol: 'AAPL',
       interval: 'DAILY',
-      runId: '2026-01-02-FRI-POST-A-1335-DAILY',
+      runId: '2026-01-02-FRI-A-DAILY-LIVE-POST-1335',
       sequenceRunId: '2026-01-02-POST-A',
       sequence: 'A',
       marketDate: '2026-01-02',

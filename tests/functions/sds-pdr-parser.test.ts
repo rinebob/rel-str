@@ -15,7 +15,7 @@ import {
 describe('resolvePdrContext', () => {
   it('parses POST A DAILY message', () => {
     const attributes = {
-      runId: '2026-01-24-FRI-POST-A-1335-DAILY',
+      runId: '2026-01-24-FRI-A-DAILY-LIVE-POST-1335',
       phase: 'post',
       marketDate: '2026-01-24',
       runType: 'ts-post-all-intervals',
@@ -24,7 +24,7 @@ describe('resolvePdrContext', () => {
       permanentFailures: '0',
     };
     const payload = {
-      runId: '2026-01-24-FRI-POST-A-1335-DAILY',
+      runId: '2026-01-24-FRI-A-DAILY-LIVE-POST-1335',
       phase: 'post',
       intervals: ['daily'],
       marketDate: '2026-01-24',
@@ -36,7 +36,7 @@ describe('resolvePdrContext', () => {
 
     assert.equal(ctx.runType, 'ts-post-all-intervals');
     assert.equal(ctx.phase, 'post');
-    assert.equal(ctx.runId, '2026-01-24-FRI-POST-A-1335-DAILY');
+    assert.equal(ctx.runId, '2026-01-24-FRI-A-DAILY-LIVE-POST-1335');
     assert.equal(ctx.marketDate, '2026-01-24');
     assert.equal(ctx.interval, 'DAILY');
     assert.equal(ctx.sequence, 'A');
@@ -46,7 +46,7 @@ describe('resolvePdrContext', () => {
 
   it('parses POST B WEEKLY message with includeSymbols', () => {
     const attributes = {
-      runId: '2026-01-24-FRI-POST-B-1800-WEEKLY',
+      runId: '2026-01-24-FRI-B-WEEKLY-LIVE-POST-1800',
       phase: 'post',
       marketDate: '2026-01-24',
       runType: 'ts-post-all-intervals',
@@ -55,7 +55,7 @@ describe('resolvePdrContext', () => {
       permanentFailures: '0',
     };
     const payload = {
-      runId: '2026-01-24-FRI-POST-B-1800-WEEKLY',
+      runId: '2026-01-24-FRI-B-WEEKLY-LIVE-POST-1800',
       phase: 'post',
       intervals: ['weekly'],
       marketDate: '2026-01-24',
@@ -101,7 +101,7 @@ describe('resolvePdrContext', () => {
 
   it('parses POST C MONTHLY with permanentFailures', () => {
     const attributes = {
-      runId: '2026-01-25-SAT-POST-C-0400-MONTHLY',
+      runId: '2026-01-25-SAT-C-MONTHLY-LIVE-POST-0400',
       phase: 'post',
       marketDate: '2026-01-24',
       runType: 'ts-post-all-intervals',
@@ -110,7 +110,7 @@ describe('resolvePdrContext', () => {
       permanentFailures: '1',
     };
     const payload = {
-      runId: '2026-01-25-SAT-POST-C-0400-MONTHLY',
+      runId: '2026-01-25-SAT-C-MONTHLY-LIVE-POST-0400',
       phase: 'post',
       intervals: ['monthly'],
       marketDate: '2026-01-24',
@@ -128,15 +128,15 @@ describe('resolvePdrContext', () => {
 
 describe('resolveSequence', () => {
   it('extracts A from POST A runId', () => {
-    assert.equal(resolveSequence('2026-01-24-FRI-POST-A-1335-DAILY'), 'A');
+    assert.equal(resolveSequence('2026-01-24-FRI-A-DAILY-LIVE-POST-1335'), 'A');
   });
 
   it('extracts B from POST B runId', () => {
-    assert.equal(resolveSequence('2026-01-24-FRI-POST-B-1800-WEEKLY'), 'B');
+    assert.equal(resolveSequence('2026-01-24-FRI-B-WEEKLY-LIVE-POST-1800'), 'B');
   });
 
   it('extracts C from POST C runId', () => {
-    assert.equal(resolveSequence('2026-01-25-SAT-POST-C-0400-MONTHLY'), 'C');
+    assert.equal(resolveSequence('2026-01-25-SAT-C-MONTHLY-LIVE-POST-0400'), 'C');
   });
 
   it('returns undefined for intraday runId', () => {
@@ -147,21 +147,21 @@ describe('resolveSequence', () => {
 describe('computeSequenceRunId', () => {
   it('derives sequence ID from POST A DAILY runId', () => {
     assert.equal(
-      computeSequenceRunId('2026-01-24-FRI-POST-A-1335-DAILY', '2026-01-24'),
+      computeSequenceRunId('2026-01-24-FRI-A-DAILY-LIVE-POST-1335', '2026-01-24'),
       '2026-01-24-POST-A',
     );
   });
 
   it('derives sequence ID from POST B WEEKLY runId', () => {
     assert.equal(
-      computeSequenceRunId('2026-01-24-FRI-POST-B-1800-WEEKLY', '2026-01-24'),
+      computeSequenceRunId('2026-01-24-FRI-B-WEEKLY-LIVE-POST-1800', '2026-01-24'),
       '2026-01-24-POST-B',
     );
   });
 
   it('derives sequence ID from POST C MONTHLY runId (next-day run, same marketDate)', () => {
     assert.equal(
-      computeSequenceRunId('2026-01-25-SAT-POST-C-0400-MONTHLY', '2026-01-24'),
+      computeSequenceRunId('2026-01-25-SAT-C-MONTHLY-LIVE-POST-0400', '2026-01-24'),
       '2026-01-24-POST-C',
     );
   });
@@ -177,7 +177,7 @@ describe('resolveSymbolSet', () => {
   it('POST A: all tracked minus excludeSymbols', () => {
     const ctx = resolvePdrContext(
       {
-        runId: '2026-01-24-FRI-POST-A-1335-DAILY',
+        runId: '2026-01-24-FRI-A-DAILY-LIVE-POST-1335',
         phase: 'post',
         marketDate: '2026-01-24',
         runType: 'ts-post-all-intervals',
@@ -191,7 +191,7 @@ describe('resolveSymbolSet', () => {
   it('POST B: only includeSymbols', () => {
     const ctx = resolvePdrContext(
       {
-        runId: '2026-01-24-FRI-POST-B-1800-DAILY',
+        runId: '2026-01-24-FRI-B-DAILY-LIVE-POST-1800',
         phase: 'post',
         marketDate: '2026-01-24',
         runType: 'ts-post-all-intervals',
@@ -205,7 +205,7 @@ describe('resolveSymbolSet', () => {
   it('POST B with empty includeSymbols: returns empty', () => {
     const ctx = resolvePdrContext(
       {
-        runId: '2026-01-24-FRI-POST-B-1800-DAILY',
+        runId: '2026-01-24-FRI-B-DAILY-LIVE-POST-1800',
         phase: 'post',
         marketDate: '2026-01-24',
         runType: 'ts-post-all-intervals',
@@ -219,7 +219,7 @@ describe('resolveSymbolSet', () => {
   it('POST B with missing includeSymbols: returns empty', () => {
     const ctx = resolvePdrContext(
       {
-        runId: '2026-01-24-FRI-POST-B-1800-DAILY',
+        runId: '2026-01-24-FRI-B-DAILY-LIVE-POST-1800',
         phase: 'post',
         marketDate: '2026-01-24',
         runType: 'ts-post-all-intervals',
