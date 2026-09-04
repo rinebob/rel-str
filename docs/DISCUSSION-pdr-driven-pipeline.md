@@ -57,7 +57,7 @@ These are the only two categories of PDR runs. Both should support all RH Agent 
 - `runType=ts-post-all-intervals` (same for all three sequences)
 - `phase=post`
 - `interval=daily` / `weekly` / `monthly` (one message per interval)
-- `runId` pattern: `{date}-{dow}-POST-{seq}-{clockEt}-{interval}` where seq is A/B/C
+- `runId` pattern: `{date}-{dow}-{seq}-{interval}-LIVE-POST-{clockPt}` where seq is A/B/C
 - Sequence A: `excludeSymbols` (symbols that are NOT fresh — stale or failed — in this run; should not be re-fetched)
 - Sequence B/C: `includeSymbols` (only symbols that became fresh in this retry pass)
 - No `clockPt` attribute
