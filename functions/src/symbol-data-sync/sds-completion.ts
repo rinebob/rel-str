@@ -130,6 +130,13 @@ export async function checkSyncRunCompletion(
       return;
     }
 
+    // Read the sequence before writing the interval run. Firestore requires all
+    // transaction reads to happen before any transaction writes.
+    const seqRef = ctx.sequenceRunId
+      ? deps.db.collection(SDS_SEQUENCES_COLLECTION).doc(ctx.sequenceRunId)
+      : undefined;
+    const seqData = seqRef ? (await t.get(seqRef)).data() : undefined;
+
     // Mark interval run complete
     t.set(runRef, {
       status: 'completed',
@@ -137,10 +144,7 @@ export async function checkSyncRunCompletion(
     }, { merge: true });
 
     // Update sequence doc if this is a POST run
-    if (ctx.sequenceRunId) {
-      const seqRef = deps.db.collection(SDS_SEQUENCES_COLLECTION).doc(ctx.sequenceRunId);
-      const seqSnap = await t.get(seqRef);
-      const seqData = seqSnap.data();
+    if (seqRef) {
       if (!seqData) {
         logger.warn('sds_completion_seq_not_found', { sequenceRunId: ctx.sequenceRunId });
         return;

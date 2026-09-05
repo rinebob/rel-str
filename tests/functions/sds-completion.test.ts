@@ -175,12 +175,17 @@ function createMockDb(): MockDb {
         await new Promise<void>((resolve) => txQueue.push(resolve));
       }
       txInProgress = true;
+      let hasWritten = false;
       const t = {
         async get(ref: any) {
+          if (hasWritten) {
+            throw new Error('Firestore transactions require all reads to be executed before all writes.');
+          }
           const existing = docs.get(ref._path);
           return { data: () => existing, exists: !!existing };
         },
         set(ref: any, data: Record<string, unknown>, opts?: { merge?: boolean }) {
+          hasWritten = true;
           const merge = opts?.merge ?? false;
           if (merge) {
             mergeDoc(ref._path, data);

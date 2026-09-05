@@ -111,7 +111,9 @@ export { getHistoricalOptionsContract, listOptionsContracts, getOptionsContractI
 // SDS — PDR-triggered symbol data sync (replaces symbolDataSyncNightly)
 export { symbolDataSync } from './symbol-data-sync/sds';
 export { symbolDataSyncWorker } from './symbol-data-sync/sds-worker';
-export { sdsWatchdog } from './symbol-data-sync/sds-watchdog';
+// sdsWatchdog disabled — crashing with grpc-js ChannelImplementation error.
+// Re-enable after investigating the module loading issue.
+// export { sdsWatchdog } from './symbol-data-sync/sds-watchdog';
 export { sdsConsumerDispatch } from './symbol-data-sync/sds-consumer-dispatch';
 export { sdsFallback } from './symbol-data-sync/sds-fallback';
 // Admin HTTP + onboarding consumer kept from old module

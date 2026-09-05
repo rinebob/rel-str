@@ -180,6 +180,7 @@ async function handleIntradayRun(
 ): Promise<SdsResult> {
   let success = 0;
   let failed = 0;
+  let failedSymbols: string[] = [];
 
   let snapshots: Array<{ symbol: string; ip: number; ipc: number; io: number; it: string; ic: number }> = [];
   try {
@@ -187,8 +188,10 @@ async function handleIntradayRun(
   } catch (err: any) {
     logger.error('sds_intraday_fetch_failed', { runId: ctx.runId, error: err?.message });
     failed = symbols.length;
+    failedSymbols = symbols;
     await runRef.set({
       processedSymbols: symbols,
+      failedSymbols,
       status: 'failed',
       completedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
@@ -197,11 +200,8 @@ async function handleIntradayRun(
 
   // Track which symbols we got snapshots for
   const snapshotSymbols = new Set(snapshots.map((s) => s.symbol));
-  for (const sym of symbols) {
-    if (!snapshotSymbols.has(sym)) {
-      failed++;
-    }
-  }
+  failedSymbols = symbols.filter((sym) => !snapshotSymbols.has(sym));
+  failed = failedSymbols.length;
 
   // Write each symbol's intraday doc + currentPrice in a batch
   try {
@@ -226,12 +226,18 @@ async function handleIntradayRun(
     await batch.commit();
   } catch (err: any) {
     logger.error('sds_intraday_batch_commit_failed', { runId: ctx.runId, error: err?.message });
-    failed += snapshots.length;
+    failedSymbols = symbols;
+    failed = symbols.length;
     success = 0;
   }
 
-  await runRef.set({ processedSymbols: symbols }, { merge: true });
-  logger.info('sds_intraday_complete', { runId: ctx.runId, success, failed });
+  await runRef.set({ processedSymbols: symbols, failedSymbols }, { merge: true });
+  logger.info('sds_intraday_complete', {
+    runId: ctx.runId,
+    success,
+    failed,
+    failedSymbols,
+  });
 
   // Fire intraday completion dispatch (RH Agent intraday)
   if (deps.completionDeps) {

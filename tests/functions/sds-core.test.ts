@@ -274,6 +274,36 @@ describe('handlePdrMessage — intraday PRE', () => {
     assert.equal((runDoc?.processedSymbols as string[])?.length, 5);
   });
 
+  it('records the symbols missing from a partial snapshot response', async () => {
+    const db = createMockDb();
+    const intradaySnaps = TRACKED.slice(0, 3).map((symbol, i) => ({
+      symbol,
+      ip: 100 + i,
+      ipc: 0.5,
+      io: 1737720000000,
+      it: '08:00',
+      ic: 0.5,
+    }));
+    const deps = createDeps(db, TRACKED, intradaySnaps) as any;
+
+    const result = await handlePdrMessage(
+      {
+        runId: '2026-01-24-FRI-LIVE-1000',
+        phase: 'pre',
+        marketDate: '2026-01-24',
+        runType: 'intraday-snapshot',
+        clockPt: '1000',
+      },
+      {},
+      deps,
+    );
+
+    assert.equal(result.enqueued, 3);
+    assert.equal(result.errors, 2);
+    const runDoc = db.docs.get('symbol-data-sync-runs/2026-01-24-FRI-LIVE-1000');
+    assert.deepEqual(runDoc?.failedSymbols, ['TSLA', 'NVDA']);
+  });
+
   it('dispatches st-intraday consumer when completionDeps is provided', async () => {
     const db = createMockDb();
     const intradaySnaps = TRACKED.map((s, i) => ({
