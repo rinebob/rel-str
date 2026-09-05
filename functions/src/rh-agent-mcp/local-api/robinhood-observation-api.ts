@@ -11,6 +11,7 @@ import { runLocalOAuthBootstrapWithDependencies } from '../auth/local-oauth-boot
 const PORT = Number(process.env.RH_OBSERVATION_API_PORT ?? 3456);
 const HOST = process.env.RH_OBSERVATION_API_HOST ?? '127.0.0.1';
 const MAX_BODY_SIZE = 1024 * 1024; // 1 MB
+const REQUEST_TIMEOUT_MS = 60_000; // 60s — longer than the MCP call timeout (45s)
 
 interface JsonRequest {
   toolName?: string;
@@ -178,6 +179,13 @@ export function createRobinhoodObservationApi(
   ];
 
   return createServer(async (request, response) => {
+    // Force-close the underlying socket if the handler doesn't respond in time.
+    request.setTimeout(REQUEST_TIMEOUT_MS, () => {
+      if (!response.headersSent) {
+        sendJson(response, 504, { success: false, error: 'Gateway timeout' });
+      }
+      response.destroy();
+    });
     if (isNotLocalEnvironment()) {
       sendJson(response, 403, {
         success: false,

@@ -26,6 +26,20 @@ export interface ExecuteObservationToolOptions {
   repository?: ConnectLocalRobinhoodMcpSessionOptions['repository'];
 }
 
+/** Timeout for individual MCP tool calls (45 seconds — longer than the frontend 30s). */
+const MCP_CALL_TIMEOUT_MS = 45_000;
+
+/** Reject a promise if it does not settle within timeoutMs. */
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
 interface McpToolContentItem {
   type: string;
   text?: string;
@@ -104,7 +118,11 @@ export async function executeObservationTool(
       transportFactory: options.transportFactory,
       repository: options.repository,
     });
-    const mcpResult = await connection.session.callTool(stripServerPrefix(toolName), validation.args);
+    const mcpResult = await withTimeout(
+      connection.session.callTool(stripServerPrefix(toolName), validation.args),
+      MCP_CALL_TIMEOUT_MS,
+      `MCP callTool timed out after ${MCP_CALL_TIMEOUT_MS / 1000}s for tool "${toolName}"`,
+    );
     const parsed = parseToolResult(mcpResult);
     return {
       success: true,
