@@ -24,7 +24,8 @@
       "@common": ["./shared/common.ts"],
       "@options-strategy-engine/contracts": ["./shared/options-strategy-engine-contracts.ts"],
       "@options-strategy-engine/id": ["./shared/strategy-instance-id.ts"],
-      "@spread/contracts": ["./shared/spread-contracts.ts"]
+      "@spread/contracts": ["./shared/spread-contracts.ts"],
+      "@trading-case/contracts": ["./shared/trading-case-contracts.ts"]
     },
     "importHelpers": true,
     "target": "ES2022",

@@ -4,7 +4,7 @@
     "types": ["jasmine", "node"]
   },
   "files": [
-    "src/app/features/rh-agent/components/signal-list/signal-list.component.spec.ts"
+    "src/app/features/savant-trader/components/signal-list/signal-list.component.spec.ts"
   ],
   "include": [
     "**/*.d.ts"

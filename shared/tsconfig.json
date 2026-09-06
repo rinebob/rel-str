@@ -1,6 +1,10 @@
 /* @topic #114 — Options Strategy Engine — Hybrid Quote Provider */
 {
   "extends": "../tsconfig.spec.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "types": ["jest", "node"]
+  },
   "include": ["**/*.spec.ts", "**/*.d.ts"],
   "exclude": []
 }
