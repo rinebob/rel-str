@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026-09-06]
+
+### Added
+- [Export ST indicators to PineScript for TradingView] 221-231_SHARED-IMPL-SAVANT-TRADER: Port ST Trend Bands and zones
+- [Export ST indicators to PineScript for TradingView] 221-231_DOCS-DOCS-SAVANT-TRADER: Record Trend Bands and zones review
+
 ## [2026-09-05]
 
 ### Added
