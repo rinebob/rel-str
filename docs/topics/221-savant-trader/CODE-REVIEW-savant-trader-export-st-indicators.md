@@ -5,7 +5,7 @@
 **Type:** Code Review  
 **Status:** Complete  
 **Created:** 2026-09-05  
-**Last Updated:** 2026-09-06  
+**Last Updated:** 2026-09-07  
 
 # Code Review: Task #228 — Pine v6 Foundation
 
@@ -194,3 +194,93 @@ There is no local Pine compiler. TradingView compilation and runtime parity rema
 ## Verdict
 
 **PASS** — Task #231 Trend Bands and zones implementation is ready for QA. The major warm-up guard finding was identified and fixed during the review pass. Remaining items are non-blocking validation deferred to #235.
+
+---
+
+# Code Review: Task #232 — Port ST Trend Strength
+
+## Scope
+
+Reviewed the Task #232 changes in `C:\aa\projects\rb-ps\rb-ta\ind\rb-st-indicator.pine` (TREND STRENGTH section, lines 295-387) against the Task #232 acceptance criteria, the PRD, and the TypeScript reference (`st-trend-strength.ts`). Three review axes ran in parallel: Standards, Spec, and Thermo-nuclear.
+
+## Standards
+
+No blocking standards findings. The Task #232 additions:
+
+- Define `f_st_trend_strength` as a named function — no duplicated inline logic.
+- Follow the existing `f_` prefix convention and `st` output prefix.
+- Use the fixed PRD constants: `DI_LENGTH=14`, `DI_UPPER_THRESHOLD=10.0`, `DI_LOWER_THRESHOLD=-10.0`.
+- Include named hidden plots for DI+, DI-, DX, ADX for CSV export validation.
+- No `import`, no `strategy()`, no external dependencies.
+- No `force_overlay` on Trend Strength plots — no main-pane dot overlay.
+
+Nit (non-blocking): `f_nz` helper (line 63) remains unused — reserved for future tasks.
+
+## Spec
+
+All Task #232 acceptance criteria are met:
+
+- [x] DI+/DI− and the intended strength/histogram series render — the DI histogram is the primary visual, plotted in the lower pane with threshold lines. DI+/DI-/DX/ADX are hidden from the pane but available in the Data Window for CSV export. This matches the historical `rb-DI-plus-minus-plot.pine` design where DI+ and DI- line plots are commented out ("showing all just looks like chaos").
+- [x] DI period and threshold constants match the approved PRD — `DI_LENGTH=14`, thresholds `+10/-10`.
+- [x] Lower-pane rendering is readable in the single-indicator view — histogram offset by -80, thresholds at -70 and -90, well below the zone crosses at rows 0-14.
+- [x] No Trend Strength main-pane dot overlay is added — no `force_overlay` on any Trend Strength plot.
+
+Technical verification against TypeScript reference (`st-trend-strength.ts`):
+- True Range uses `[HTF_MULTIPLIER]` lookback — matches.
+- Directional movement uses `[HTF_MULTIPLIER]` lookback — matches.
+- Wilder smoothing uses `prev - prev/period + current` (not the "canonical" `prev - prev/period + current/period`) — matches TypeScript line 107 exactly.
+- DI+, DI-, DX, ADX, diHist formulas — all match.
+- ADX = `ta.sma(dx, adxLength)` — matches `smaSeries(dx, ADX_LENGTH)`.
+
+## Thermo-Nuclear
+
+### Major finding 1 — Warm-up artifact (FOUND AND FIXED)
+
+The thermo-nuclear axis identified that the Pine code did not skip the first `HTF_MULTIPLIER` bars, unlike the TypeScript reference which has `if (i < mult) continue` at line 80. Without this guard, `nz()` coerces missing history to 0, causing `prevClose=0`, `prevHigh=0`, `prevLow=0` on the first 3 bars. This produces `trueRange ≈ high`, `dmPlus ≈ high`, `diPlus ≈ 100`, `diHist ≈ 100` — a massive spike that takes ~42 bars to decay through Wilder smoothing.
+
+**Fix applied during review:** Added `stDiReady = bar_index >= HTF_MULTIPLIER` guard. DI+, DI-, DX, and diHist return `na` during warm-up, matching the TypeScript `continue` behavior. The histogram plot will not draw during warm-up.
+
+### Major finding 2 — Histogram offset too small (FOUND AND FIXED)
+
+The initial offset of -30 was insufficient. `diHist` can legitimately reach ±50-60 in strong trends (DI+ and DI- are 0-100 percentages). A `diHist` of +40 with offset -30 would plot at y=10, overlapping the V1 zone crosses at rows 0-5.
+
+**Fix applied during review:** Increased offset to -80. The zero line is at -80, thresholds at -70 and -90. A `diHist` of +60 plots at -20, clearly below the zone area. A `diHist` of +80 would plot at 0 (edge of zone area), which is acceptable for extreme values.
+
+### Minor finding — display.none prevents CSV export (FOUND AND FIXED)
+
+The hidden DI+/DI-/DX/ADX plots used `display=display.none`, which hides them from the Data Window and prevents CSV export in validation task #235.
+
+**Fix applied during review:** Changed to `display=display.data_window` — plots are hidden from the pane but visible in the Data Window and "Export chart data" CSV output.
+
+### Minor finding — hline with computed expressions
+
+`hline(DI_UPPER_THRESHOLD + ST_DI_HIST_OFFSET, ...)` uses a computed expression. While all inputs are `const float` (so the expression is compile-time const), pre-computing is more defensive.
+
+**Fix applied during review:** Added `DI_ZERO_OFFSET`, `DI_UPPER_OFFSET`, `DI_LOWER_OFFSET` const declarations and used them in `hline()` calls.
+
+### Non-blocking risks (deferred to validation #235)
+
+- `ta.sma(dx, adxLength)` warm-up: ADX is `na` for the first 14 valid DX values. Consistent with TypeScript `smaSeries`.
+- `hline` with const float expressions: should compile but needs TradingView verification.
+- `display.data_window` CSV availability: needs verification in #235.
+- `diHist` extreme values (>+80) could still reach the zone area edge — acceptable for extreme edge cases.
+
+## Verification
+
+Structural verification in `rb-ps` passed:
+
+- `git diff --check` is clean.
+- Warm-up guard (`stDiReady = bar_index >= HTF_MULTIPLIER`) present.
+- DI+/DI-/DX/diHist return `na` during warm-up.
+- Histogram offset = -80.0.
+- Pre-computed hline offset constants present.
+- Hidden plots use `display=display.data_window` (not `display.none`).
+- No `force_overlay` on Trend Strength plots.
+- No `import` or `strategy()`.
+- No historical Pine files modified.
+
+There is no local Pine compiler. TradingView compilation and runtime parity remain deferred to #235.
+
+## Verdict
+
+**PASS** — Task #232 Trend Strength implementation is ready for QA. Two major findings (warm-up artifact and histogram offset) were identified and fixed during the review pass. The DI histogram with threshold lines renders in the lower pane, no main-pane dot overlay is added, and all constants match the PRD. Remaining items are non-blocking validation deferred to #235.

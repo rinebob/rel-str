@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026-09-07]
+
+### Added
+- [Export ST indicators to PineScript for TradingView] 221-232_SHARED-IMPL-SAVANT-TRADER: Port ST Trend Strength
+- [Export ST indicators to PineScript for TradingView] 221-232_DOCS-DOCS-SAVANT-TRADER: Record Trend Strength review
+
 ## [2026-09-06]
 
 ### Added
