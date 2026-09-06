@@ -56,3 +56,58 @@ There is no local Pine compiler or automated Pine test suite in `rb-ps`. Trading
 ## Verdict
 
 **PASS** — Task #228 foundation is ready for the next implementation task.
+
+---
+
+# Code Review: Task #229 — Shared ST Math and State
+
+## Scope
+
+Reviewed the Task #229 changes in `C:\aa\projects\rb-ps\rb-ta\ind\rb-st-indicator.pine` against the Task #229 acceptance criteria, the selected TypeScript references, the original Pine engines, and the SHARED implementation/test plans.
+
+## Standards
+
+- No blocking standards findings.
+- Shared math is kept behind named Pine functions rather than duplicated in later plot sections.
+- The file remains self-contained, read-only, and free of app, broker, Firebase, or external-library dependencies.
+- The hidden output keeps the foundation loadable before visible indicator plots are added.
+- The HTF tuple now documents continuous versus stepped values, and the Pine/TypeScript HTF source-model difference is documented near the request boundary.
+
+## Spec
+
+Task #229 acceptance criteria are met:
+
+- [x] EMA recurrence and SMA seed are represented.
+- [x] Missing-value carry-forward and warm-up behavior are explicit.
+- [x] Crossover/crossunder behavior matches the TypeScript primitive.
+- [x] CTF and HTF recursive smoothed-Heikin-Ashi state are implemented.
+- [x] HTF stepped carry guards against replacing valid state with warm-up `na` values.
+- [x] HTF cross triggers and direction flags use stepped values, matching the TypeScript BandResult target.
+- [x] Developing HTF boundary data is requested without a confirmed-bar offset.
+- [x] The chart-OHLC/scaled-length HTF model and irregular-session boundary limitation are documented.
+
+The visible Trend Bands, Zone V1/V2, Trend Strength, and event-overlay plots remain correctly deferred to later tasks.
+
+## Thermo-Nuclear
+
+The main structural risk was mixing requested HTF OHLC with the TypeScript chart-OHLC/scaled-length model. The current implementation avoids that double-scaling by requesting only the HTF boundary and feeding chart OHLC into the shared HTF engine. It also separates continuous and stepped return values so later consumers have an explicit contract.
+
+Remaining non-blocking risks are Pine's `ta.sma` behavior for non-standard `na` gaps and exact wall-clock boundary matching on irregular sessions. Both are documented validation items and do not affect contiguous chart OHLC foundation behavior.
+
+## Verification
+
+Structural verification in `rb-ps` passed:
+
+- `git diff --check` is clean.
+- Shared EMA, crossover/crossunder, CTF, and HTF functions are present.
+- HTF request uses `lookahead_off` without a `[1]` offset.
+- Only HTF `time_close` is requested; chart OHLC feeds the scaled HTF engine.
+- Stepped crossover and carry-guard logic are present.
+- Hidden foundation plot is present.
+- No `import` or `strategy(...)` declaration exists.
+
+TradingView compilation and runtime parity remain deferred to the visual validation workflow because no local Pine compiler is available.
+
+## Verdict
+
+**PASS** — Task #229 shared math/state implementation is ready for the next implementation task.
