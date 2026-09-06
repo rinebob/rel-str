@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026-09-05]
+
+### Added
+- [Export ST indicators to PineScript for TradingView] 221-228_SHARED-IMPL-SAVANT-TRADER: Add Pine v6 indicator foundation
+- [Export ST indicators to PineScript for TradingView] 221-228_DOCS-DOCS-SAVANT-TRADER: Record Pine foundation planning and review
+
 ## [2026-09-02]
 
 ### Added
