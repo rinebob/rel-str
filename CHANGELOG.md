@@ -5,6 +5,8 @@
 ### Added
 - [Export ST indicators to PineScript for TradingView] 221-228_SHARED-IMPL-SAVANT-TRADER: Add Pine v6 indicator foundation
 - [Export ST indicators to PineScript for TradingView] 221-228_DOCS-DOCS-SAVANT-TRADER: Record Pine foundation planning and review
+- [Export ST indicators to PineScript for TradingView] 221-229_SHARED-IMPL-SAVANT-TRADER: Translate shared ST math and state behavior
+- [Export ST indicators to PineScript for TradingView] 221-229_DOCS-DOCS-SAVANT-TRADER: Record shared ST math review
 
 ## [2026-09-02]
 
