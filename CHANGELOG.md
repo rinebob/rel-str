@@ -3,6 +3,11 @@
 ## [2026-09-07]
 
 ### Added
+- [Robinhood Trading UI] 176-239_SHARED-IMPL-SAVANT-TRADER: Define Trading Case and reconciliation contracts
+- [Robinhood Trading UI] 176-239_SHARED-IMPL-SAVANT-TRADER: Add Trading Case contract tests
+- [Robinhood Trading UI] 176-239_DOCS-DOCS-SAVANT-TRADER: Document broker-authoritative reconciliation architecture
+### Changed
+- [Robinhood Trading UI] 176-239_CONFIG-CONFIG-SAVANT-TRADER: Wire Trading Case test infrastructure
 - [Export ST indicators to PineScript for TradingView] 221-232_SHARED-IMPL-SAVANT-TRADER: Port ST Trend Strength
 - [Export ST indicators to PineScript for TradingView] 221-232_DOCS-DOCS-SAVANT-TRADER: Record Trend Strength review
 
