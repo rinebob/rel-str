@@ -10,6 +10,8 @@
 - [Robinhood Trading UI] 176-239_CONFIG-CONFIG-SAVANT-TRADER: Wire Trading Case test infrastructure
 - [Export ST indicators to PineScript for TradingView] 221-232_SHARED-IMPL-SAVANT-TRADER: Port ST Trend Strength
 - [Export ST indicators to PineScript for TradingView] 221-232_DOCS-DOCS-SAVANT-TRADER: Record Trend Strength review
+- [Export ST indicators to PineScript for TradingView] 221-233_SHARED-IMPL-SAVANT-TRADER: Add Zone V1/V2 price-pane event overlay
+- [Export ST indicators to PineScript for TradingView] 221-233_DOCS-DOCS-SAVANT-TRADER: Record Zone V1/V2 event overlay review
 
 ## [2026-09-06]
 

@@ -284,3 +284,96 @@ There is no local Pine compiler. TradingView compilation and runtime parity rema
 ## Verdict
 
 **PASS** — Task #232 Trend Strength implementation is ready for QA. Two major findings (warm-up artifact and histogram offset) were identified and fixed during the review pass. The DI histogram with threshold lines renders in the lower pane, no main-pane dot overlay is added, and all constants match the PRD. Remaining items are non-blocking validation deferred to #235.
+
+---
+
+# Code Review: Task #233 — Add Zone V1/V2 price-pane event overlay
+
+## Scope
+
+Reviewed the Task #233 changes in `C:\aa\projects\rb-ps\rb-ta\ind\rb-st-indicator.pine` (MAIN-PANE EVENT OVERLAY section, lines 387-485) against the Task #233 acceptance criteria, the PRD Story 2, and the TypeScript reference (`st-trend-rider-dots.indicator.ts`). Three review axes ran in parallel: Standards, Spec, and Thermo-nuclear.
+
+## Standards
+
+No blocking standards findings. The Task #233 additions:
+
+- Follow neighboring Pine conventions (MPL header, v6 declaration, section block style).
+- V1 and V2 state machines are necessary mirror blocks — each requires its own persistent `var` state.
+- No dead code — all event flags and offset variables are used by the dot plots.
+- Consistent naming (`st*` prefix, camelCase), spacing, and comment style.
+- Named plots for CSV export: `V1 Long`, `V1 Short`, `V2 Long`, `V2 Short`.
+- No `import`, no `strategy()`, no external calls in the new section.
+- `force_overlay=true` on all 4 dot plots.
+- No strategy side effects — only `plot()` calls.
+
+### Finding 1 (fixed): Comment/code mismatch — minor
+
+The header comment said "No repeat until zone falls **or goes flat**, then upticks again" but the code only resets on `delta < 0` (long) / `delta > 0` (short), leaving flat bars (`delta == 0`) as no state change. The thermo-nuclear review confirmed the **code** matches the TypeScript (`delta === 0: no state change` at line 180). The comment was wrong, not the code.
+
+**Fix applied during review:** Updated the comment to remove "or goes flat" and explicitly note that flat bars do not change state.
+
+### Finding 2 (fixed): Type nit — nit
+
+`stV1PrevZone`, `stV1Delta`, `stV2PrevZone`, `stV2Delta` were declared `float` but `stZoneV1`/`stZoneV2` are `int`. Pine implicitly casts, but `int` is tighter.
+
+**Fix applied during review:** Changed all four declarations to `int`.
+
+## Spec
+
+All Task #233 acceptance criteria are met:
+
+- [x] V1 and V2 event dots are plotted only on signal events — conditional on `stV1LongEvent`, `stV1ShortEvent`, `stV2LongEvent`, `stV2ShortEvent`.
+- [x] Long events appear below the candle and short events above it — `low - stDotOffset` for longs, `high + stDotOffset` for shorts.
+- [x] Placement uses the equivalent of the existing `2.5 × ATR` offset — `ta.atr(14) * 2.5`.
+- [x] V1 and V2 are visually distinguishable — V1 uses `plot.style_circles`, V2 uses `plot.style_cross`; V1 uses green/red, V2 uses lime/orange.
+- [x] Long and short directions are visually distinguishable — placement above/below candle plus opposing colors.
+- [x] The overlay does not place orders or create strategy side effects — `indicator()` declaration, no `strategy.*` calls.
+
+Technical verification against TypeScript reference (`st-trend-rider-dots.indicator.ts`):
+- State machine (READY/FIRED) matches `longState`/`shortState` — `var int` with 0=READY, 1=FIRED.
+- Window open check uses V2 zone > 0 for longs, V2 zone < 0 for shorts.
+- V1 dots use V1 zone for transitions (delta), V2 zone for window check.
+- V2 dots use V2 zone for both transitions and window check.
+- `prevZone >= 1` for longs, `prevZone <= -1` for shorts.
+- Reset on opposite delta only; flat bars leave state unchanged (matches TS line 180).
+- ATR(14) * 2.5 offset matches `computeATR(bars, 14) * ATR_OFFSET_MULT`.
+- Pine `ta.atr` uses Wilder's RMA with SMA seed, equivalent to TypeScript's SMA seed + EMA-style smoothing.
+
+## Thermo-Nuclear
+
+No critical or major findings. The implementation is a faithful port of the TypeScript state machine.
+
+### Verified safety properties
+
+- **State machine initialization**: `var int` starts at 0 (READY). On bar 0, `nz(stZoneV1[1], 0)` returns 0, delta is 0, no event fires. Correct.
+- **`nz` fallback to 0**: Only matters at bar 0. Suppresses first 0→+1 uptick because `prevZone >= 1` is false. Matches TypeScript requirement that prior zone already be in positive territory.
+- **`ta.atr` warm-up**: Returns `na` for first 14 bars, but zone warm-up guards (from Task #231) prevent non-zero zones before ATR is valid. `low - na = na` cannot occur on an actual dot.
+- **V1/V2 state independence**: Separate `var int` state machines, matching TypeScript's separate detector instances.
+- **`var` persistence**: Reinitializes on reload, then Pine re-executes from first bar forward, rebuilding state trajectory. Equivalent to TypeScript processing the full array.
+- **Multiple events on same bar**: Long and short are mutually exclusive (V2 zone > 0 vs < 0). V1 and V2 can fire together if both zones uptick/downtick in the same direction. Consistent with TypeScript.
+
+### Non-blocking risks (deferred to validation #235)
+
+- `plot.style_circles` and `plot.style_cross` are valid Pine v6 plot styles per docs, but need compile verification.
+- `force_overlay=true` on `plot()` is documented for Pine v5/v6, but needs compile verification (same risk as Task #231's `plotcandle`).
+- V1 long `color.green` and V2 long `color.lime` are close on the chart; different shapes (circle vs cross) are the primary differentiator. May want more separated colors if visual clutter is an issue.
+- Real-time forming-bar behavior: dots use current bar's `low`/`high` and current `ta.atr(14)`, so markers can shift while a candle is forming. Acceptable for v1 per developing-HTF design.
+
+## Verification
+
+Structural verification in `rb-ps` passed:
+
+- `git diff --check` is clean.
+- Comment/code mismatch fixed — comment now correctly describes reset on `delta < 0`/`delta > 0` only, with flat bars leaving state unchanged.
+- Type nit fixed — `stV1PrevZone`, `stV1Delta`, `stV2PrevZone`, `stV2Delta` are now `int`.
+- All 4 dot plots use `force_overlay=true`.
+- V1 uses `plot.style_circles`, V2 uses `plot.style_cross`.
+- Named plots: `V1 Long`, `V1 Short`, `V2 Long`, `V2 Short`.
+- No `import` or `strategy()`.
+- No historical Pine files modified.
+
+There is no local Pine compiler. TradingView compilation and runtime parity remain deferred to #235.
+
+## Verdict
+
+**PASS** — Task #233 Zone V1/V2 price-pane event overlay is ready for QA. The implementation faithfully ports the ST Trend Rider signal-event dots from `st-trend-rider-dots.indicator.ts`. All acceptance criteria are met. Two minor findings (comment mismatch and type nit) were identified and fixed during the review pass. Remaining items are non-blocking compile/visual validation deferred to #235.
