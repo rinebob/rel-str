@@ -20,6 +20,7 @@ import {
   type ToolExecutionError,
   type ToolExecutionResult,
 } from '@robinhood-mcp/contracts';
+import { isPlainObject } from '@robinhood-mcp/utils';
 
 export interface ExecuteObservationToolOptions {
   transportFactory?: RobinhoodMcpTransportFactory;
@@ -47,10 +48,6 @@ interface McpToolContentItem {
 
 interface McpToolResultShape {
   content?: McpToolContentItem[];
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function hasTextContent(value: unknown): value is McpToolResultShape {

@@ -17,6 +17,7 @@ import type { RobinhoodCredentialRepository } from '../../rh-agent-mcp/auth/cred
 import { EnvCredentialRepository } from '../../rh-agent-mcp/auth/env-credential-repository';
 import type { RobinhoodCredentialBundle } from '../../rh-agent-mcp/contracts/authentication';
 import { stripServerPrefix } from '../../rh-agent-mcp/tools/robinhood-tools';
+import { isPlainObject } from '@robinhood-mcp/utils';
 
 export interface RobinhoodMcpSessionManagerOptions {
   repository: RobinhoodCredentialRepository;
@@ -24,10 +25,6 @@ export interface RobinhoodMcpSessionManagerOptions {
   connect?: (
     options: ConnectLocalRobinhoodMcpSessionOptions,
   ) => Promise<ConnectedRobinhoodMcpSession>;
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 interface McpToolContentItem {

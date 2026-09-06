@@ -14,6 +14,7 @@
     "test:rh-agent-mcp-credentials": "tsx --test ../tests/functions/rh-agent-mcp-credential-repository.test.ts",
     "test:rh-agent-mcp-refresh": "tsx --test ../tests/functions/rh-agent-mcp-token-refresh.test.ts ../tests/functions/rh-agent-mcp-token-refresh-failures.test.ts",
     "test:rh-agent-mcp-tools": "tsx --test ../tests/functions/rh-agent-mcp-tool-registry.test.ts ../tests/functions/rh-agent-mcp-redactor.test.ts ../tests/functions/rh-agent-mcp-tool-executor.test.ts",
+    "test:broker-order-normalizer": "tsx --test ../tests/functions/broker-order-normalizer.test.ts ../tests/functions/broker-position-normalizer.test.ts ../tests/functions/broker-order-adapter-integration.test.ts ../tests/functions/broker-position-adapter-integration.test.ts",
     "test:rh-agent-mcp-api": "tsx --test ../tests/functions/rh-agent-mcp-observation-api.test.ts",
     "test:sds": "tsx --test ../tests/functions/sds-pdr-parser.test.ts ../tests/functions/sds-core.test.ts ../tests/functions/sds-worker-core.test.ts ../tests/functions/sds-completion.test.ts ../tests/functions/sds-fallback.test.ts",
     "probe:rh-agent-mcp-auth": "tsx src/rh-agent-mcp/diagnostics/run-local-oauth-bootstrap.ts",

@@ -16,6 +16,7 @@ import type { OptionQuoteProvider } from './option-quote-provider';
 import { OccRhInstrumentMapService } from '../instrument-map/occ-rh-instrument-map-service';
 import { McpOccRhInstrumentMapResolver } from '../instrument-map/mcp-instrument-map-resolver';
 import { createLogger } from '../logging';
+import { isPlainObject } from '@robinhood-mcp/utils';
 
 export type RobinhoodMcpToolCaller = (
   name: string,
@@ -70,10 +71,6 @@ interface RhQuoteItem {
   id?: string;
   quote?: RhQuote;
   close?: RhClose;
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function parseNumber(value: unknown): number | undefined {
