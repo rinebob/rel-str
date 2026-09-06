@@ -142,11 +142,15 @@ export interface ReconciliationSnapshot {
 export interface BrokerOrderPage {
   orders: RawBrokerOrder[];
   nextCursor?: string;
+  /** Count of items that failed normalization and were skipped. */
+  skipped?: number;
 }
 
 export interface RawSymbolPositionPage {
   positions: RawSymbolPosition[];
   nextCursor?: string;
+  /** Count of items that failed normalization and were skipped. */
+  skipped?: number;
 }
 
 // ---------------------------------------------------------------------------
