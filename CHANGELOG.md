@@ -3,6 +3,10 @@
 ## [2026-09-07]
 
 ### Added
+- [Robinhood Trading UI] 176-240_SHARED-IMPL-SAVANT-TRADER: Add isPlainObject utility and skipped field to broker contracts
+- [Robinhood Trading UI] 176-240_BE-IMPL-SAVANT-TRADER: Add Robinhood broker order and position normalizer
+- [Robinhood Trading UI] 176-240_BE-IMPL-SAVANT-TRADER: Add broker order and position normalizer/adapter tests
+- [Robinhood Trading UI] 176-240_DOCS-DOCS-SAVANT-TRADER: Add broker order verification scripts and code review
 - [Robinhood Trading UI] 176-239_SHARED-IMPL-SAVANT-TRADER: Define Trading Case and reconciliation contracts
 - [Robinhood Trading UI] 176-239_SHARED-IMPL-SAVANT-TRADER: Add Trading Case contract tests
 - [Robinhood Trading UI] 176-239_DOCS-DOCS-SAVANT-TRADER: Document broker-authoritative reconciliation architecture
