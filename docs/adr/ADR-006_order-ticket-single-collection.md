@@ -1,6 +1,8 @@
 # Single Order Ticket collection replaces occurrence-decisions and order-intents
 
-**Status:** Accepted
+**Status:** Superseded by ADR-007
+
+ADR-007 replaces this collection-only lifecycle model with Trading Case aggregates. The historical decision remains useful for explaining the original consolidation, but new work must follow the broker-authoritative Trading Case model.
 
 The signal-review decision pipeline used two Firestore collections — `occurrence-decisions` (the durable ACCEPT/REJECT decision) and `order-intents` (the proposed broker order) — created together on accept but with independent lifecycles. They diverged: resets deleted decisions but not intents, TTL cleaned up decisions after 7 days but intents persisted indefinitely, and different load paths meant the signal review status and the order page list could show different things for the same symbol.
 

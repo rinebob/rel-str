@@ -11,8 +11,23 @@ _Avoid_: Approve, confirm
 
 ## Order Ticket
 
-The document created when a user accepts a signal. Carries signal context (symbol, direction, signalType, barDate, runId, timeframe) and proposed order terms (side, quantity, order type — defaults filled from signal). Source of truth for "is this symbol accepted." Lives in `savant-trader/data/order-tickets` with a 3-day TTL. Toggled on/off by the accept button.
+The root local order record created when a user accepts a signal or starts a manual order. It carries signal/provenance context, a stable `refId`, proposed order terms, and optional authorization. It is the local source of truth for the proposed order before Robinhood submission and is the root record within a Trading Case. After broker submission, Robinhood is authoritative for Broker Order lifecycle and fills.
 _Avoid_: Order Intent, Order Draft, staged order
+
+## Trading Case
+
+The durable lifecycle aggregate created when one signal is accepted. Its Order Ticket is the aggregate boundary and root of local provenance. The case contains the broker submission, Broker Order mirrors, Fill, Protective Stop, exits, replacement attempts, and current lifecycle metadata for that one accepted signal. Symbol history is obtained by querying all Trading Cases for the symbol.
+_Avoid_: Trade, Order, Position, symbol history
+
+## Case Summary
+
+The mutable metadata and progress projection stored on a Trading Case. It records the latest known lifecycle state, current outcome, active broker order IDs, last observed time, entry/protective-stop/exit states, filled and remaining quantities, and case progress. It is updated with the latest broker information; repeated identical observations do not create separate records.
+_Avoid_: broker event log, observation collection
+
+## Symbol Position
+
+The aggregate broker-reported holding for one account and symbol. A Symbol Position can be contributed to by multiple independent Trading Cases and owns aggregate quantity, exposure, protection coverage, and position-level exit management. When protection covers less than the aggregate quantity, the Symbol Position is protection-drifted and requires explicit user action to update the Protective Stop. It is distinct from each Trading Case and from each Broker Order.
+_Avoid_: case position, entry position, order
 
 ## Preflight
 
