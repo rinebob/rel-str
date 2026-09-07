@@ -21,10 +21,12 @@ import { from } from 'rxjs';
 
 import { OrderIntentService } from '../services/order-intent.service';
 import { OrderExecutionService } from '../services/order-execution.service';
+import { BrokerPosition } from '../services/portfolio.service';
 import {
   OrderIntent,
   OrderIntentStatus,
   InstrumentType,
+  OrderSource,
   EquityOrderIntent,
   OrderIntentError,
 } from '../services/order-intent.types';
@@ -44,6 +46,24 @@ const initialState: OrderStagingState = {
   loading: false,
   error: null,
 };
+
+function statusFromBrokerState(intent: OrderIntent, brokerState: string): OrderIntentStatus {
+  switch (brokerState.toLowerCase()) {
+    case 'filled': return OrderIntentStatus.FILLED;
+    case 'cancelled':
+    case 'canceled': return OrderIntentStatus.CANCELLED;
+    case 'failed':
+    case 'rejected':
+    case 'voided': return OrderIntentStatus.FAILED;
+    case 'queued': return OrderIntentStatus.QUEUED;
+    case 'confirmed':
+    case 'partially_filled':
+      return intent.sourceRef?.type === 'stop_loss' || intent.orderType !== 'market'
+        ? OrderIntentStatus.RESTING
+        : OrderIntentStatus.SUBMITTED;
+    default: return OrderIntentStatus.SUBMITTED;
+  }
+}
 
 export const OrderStagingStore = signalStore(
   { providedIn: 'root' },
@@ -68,7 +88,8 @@ export const OrderStagingStore = signalStore(
     /** Intents submitted and awaiting fill. */
     activeIntents: computed((): OrderIntent[] =>
       Object.values(state.intents()).filter(
-        (i) => i.status === OrderIntentStatus.SUBMITTED
+        (i) => i.status === OrderIntentStatus.SUBMITTED ||
+          i.status === OrderIntentStatus.QUEUED || i.status === OrderIntentStatus.RESTING
       )
     ),
 
@@ -123,6 +144,154 @@ export const OrderStagingStore = signalStore(
         });
     },
 
+    /**
+     * Add whole-share broker positions as selectable filled rows.
+     * These are session projections, not new Firestore order intents.
+     */
+    hydrateBrokerPositions(accountNumber: string, positions: BrokerPosition[]): void {
+      const current = state.intents();
+      const now = new Date().toISOString();
+      const additions: Record<string, OrderIntent> = {};
+      const updates: Record<string, OrderIntent> = {};
+      const removals = new Set<string>();
+
+      for (const position of positions) {
+        const quantity = Number(position.quantity);
+        const fillPrice = Number(position.averageBuyPrice);
+        if (!position.symbol || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(fillPrice) || fillPrice <= 0) {
+          continue;
+        }
+        const sharesHeldForSells = Number(position.sharesHeldForSells);
+        const linkedStopLosses = Object.values(current).filter((intent) =>
+          intent.sourceRef?.type === 'stop_loss' && 'symbol' in intent &&
+          intent.symbol === position.symbol && intent.status === OrderIntentStatus.FAILED &&
+          intent.error?.message.includes('Order not found at broker'),
+        );
+        for (const stopLoss of linkedStopLosses) {
+          const requestedQuantity = Number(stopLoss.quantity ?? '0');
+          if (Number.isFinite(sharesHeldForSells) && sharesHeldForSells >= requestedQuantity && requestedQuantity > 0) {
+            updates[stopLoss.id] = {
+              ...stopLoss,
+              status: OrderIntentStatus.RESTING,
+              error: undefined,
+              result: {
+                ...stopLoss.result,
+                state: 'confirmed',
+                filledQuantity: stopLoss.quantity,
+              },
+              updatedAt: now,
+            };
+          }
+        }
+
+        const entries = Object.values(current).filter((intent) =>
+          'symbol' in intent && intent.symbol === position.symbol && intent.side === 'buy' &&
+          intent.status !== OrderIntentStatus.CANCELLED,
+        );
+        // The broker position is authoritative for a matching failed buy intent.
+        // This also handles older persisted failures whose error serialization
+        // differs from the original reconciliation message.
+        const falseFailure = entries.find((intent) => intent.status === OrderIntentStatus.FAILED);
+        const existingEntry = falseFailure ?? entries.find((intent) =>
+          intent.sourceRef?.type !== 'broker_position',
+        );
+        if (existingEntry?.status === OrderIntentStatus.FILLED) {
+          const existingFilledQuantity = existingEntry.result?.filledQuantity ?? existingEntry.quantity;
+          if (existingFilledQuantity !== position.quantity) {
+            updates[existingEntry.id] = {
+              ...existingEntry,
+              quantity: position.quantity,
+              result: {
+                ...existingEntry.result,
+                state: 'filled',
+                fillPrice: position.averageBuyPrice,
+                filledQuantity: position.quantity,
+              },
+              updatedAt: now,
+            };
+          }
+          continue;
+        }
+
+        if (existingEntry?.status === OrderIntentStatus.SUBMITTED ||
+            existingEntry?.status === OrderIntentStatus.SUBMITTING ||
+            existingEntry?.status === OrderIntentStatus.FAILED) {
+          const reconciled: OrderIntent = {
+            ...existingEntry,
+            status: OrderIntentStatus.FILLED,
+            error: undefined,
+            result: {
+              ...existingEntry.result,
+              state: 'filled',
+              fillPrice: position.averageBuyPrice,
+              filledQuantity: position.quantity,
+            },
+            updatedAt: now,
+          };
+          updates[existingEntry.id] = reconciled;
+          const projection = current[`broker-position-${position.symbol}`];
+          if (projection) removals.add(projection.id);
+          continue;
+        }
+
+        const id = `broker-position-${position.symbol}`;
+        additions[id] = {
+          id,
+          refId: `broker-position-${position.symbol}`,
+          source: OrderSource.POSITION_MANAGEMENT,
+          sourceRef: { type: 'broker_position', id: position.symbol },
+          status: OrderIntentStatus.FILLED,
+          accountNumber,
+          side: 'buy',
+          orderType: 'market',
+          timeInForce: 'gtc',
+          marketHours: 'regular_hours',
+          instrumentType: InstrumentType.EQUITY,
+          symbol: position.symbol,
+          quantity: position.quantity,
+          result: {
+            state: 'filled',
+            fillPrice: position.averageBuyPrice,
+            filledQuantity: position.quantity,
+          },
+          createdAt: now,
+          updatedAt: now,
+        };
+      }
+
+      const reconciledIntents = { ...current, ...updates, ...additions };
+      for (const id of removals) delete reconciledIntents[id];
+      if (Object.keys(updates).length > 0 || Object.keys(additions).length > 0 || removals.size > 0) {
+        patchState(state, { intents: reconciledIntents });
+      }
+
+      for (const intent of Object.values(updates)) {
+        intentService.updateIntent(intent.id, {
+          status: intent.status,
+          error: undefined,
+          result: intent.result,
+          updatedAt: intent.updatedAt,
+        })
+          .pipe(takeUntilDestroyed(destroyRef))
+          .subscribe({
+            error: (err: unknown) => console.error('[OrderStagingStore] broker position reconciliation persist failed:', err),
+          });
+      }
+    },
+
+    /** Archive failed fractional-close attempts before creating a replacement. */
+    archiveFailedFractionalCloseIntents(parentId: string): void {
+      const prev = state.intents();
+      for (const intent of Object.values(prev)) {
+        if (intent.sourceRef?.type !== 'fractional_close' || intent.sourceRef.id !== parentId || intent.status !== OrderIntentStatus.FAILED) continue;
+        const archived = { ...intent, status: OrderIntentStatus.CANCELLED, error: undefined, updatedAt: new Date().toISOString() } as OrderIntent;
+        patchState(state, { intents: { ...state.intents(), [intent.id]: archived } });
+        intentService.updateIntent(intent.id, { status: archived.status, error: undefined, updatedAt: archived.updatedAt })
+          .pipe(takeUntilDestroyed(destroyRef))
+          .subscribe({ error: (err: unknown) => console.error('[OrderStagingStore] failed fractional-close archive failed:', err) });
+      }
+    },
+
     /** Stage a new order intent. Optimistic + persisted. */
     stageIntent(intent: OrderIntent): void {
       const prev = state.intents();
@@ -136,6 +305,46 @@ export const OrderStagingStore = signalStore(
             patchState(state, { intents: next, error: err instanceof Error ? err.message : String(err) });
             snackBar.open('Failed to stage order intent', 'Dismiss', { duration: 4000 });
             console.error('[OrderStagingStore] stageIntent failed:', err);
+          },
+        });
+    },
+
+    /** Persist a new intent, then submit it after the create write succeeds. */
+    stageAndSubmitIntent(intent: OrderIntent): void {
+      const prev = state.intents();
+      patchState(state, { intents: { ...prev, [intent.id]: intent } });
+      intentService.createIntent(intent)
+        .pipe(takeUntilDestroyed(destroyRef))
+        .subscribe({
+          next: () => {
+            const current = state.intents()[intent.id];
+            if (current) this.transitionAndExecute(intent.id, current, state.intents(), intent.status);
+          },
+          error: (err: unknown) => {
+            const next = { ...state.intents() };
+            delete next[intent.id];
+            patchState(state, { intents: next, error: err instanceof Error ? err.message : String(err) });
+            snackBar.open('Failed to stage stop loss', 'Dismiss', { duration: 4000 });
+            console.error('[OrderStagingStore] stageAndSubmitIntent failed:', err);
+          },
+        });
+    },
+
+    /** Persist edits to a staged intent, then submit it after the update succeeds. */
+    updateAndSubmitIntent(id: string, partial: Partial<Omit<OrderIntent, 'instrumentType'>>): void {
+      const prev = state.intents();
+      const existing = prev[id];
+      if (!existing || existing.status !== OrderIntentStatus.STAGED) return;
+      const updated = { ...existing, ...partial, updatedAt: new Date().toISOString() } as OrderIntent;
+      patchState(state, { intents: { ...prev, [id]: updated } });
+      intentService.updateIntent(id, partial)
+        .pipe(takeUntilDestroyed(destroyRef))
+        .subscribe({
+          next: () => this.transitionAndExecute(id, state.intents()[id]!, state.intents(), existing.status),
+          error: (err: unknown) => {
+            patchState(state, { intents: prev, error: err instanceof Error ? err.message : String(err) });
+            snackBar.open('Failed to save stop-loss changes', 'Dismiss', { duration: 4000 });
+            console.error('[OrderStagingStore] updateAndSubmitIntent failed:', err);
           },
         });
     },
@@ -245,26 +454,18 @@ export const OrderStagingStore = signalStore(
       }
 
       const brokerState = (result.result?.state ?? '').toLowerCase();
-      let nextStatus: OrderIntentStatus;
-      if (brokerState === 'filled') {
-        nextStatus = OrderIntentStatus.FILLED;
-      } else if (brokerState === 'cancelled' || brokerState === 'canceled') {
-        nextStatus = OrderIntentStatus.CANCELLED;
-      } else if (brokerState === 'failed') {
-        nextStatus = OrderIntentStatus.FAILED;
-      } else {
-        nextStatus = OrderIntentStatus.SUBMITTED;
-      }
+      const nextStatus = statusFromBrokerState(existing, brokerState);
 
       const next: OrderIntent = {
         ...existing,
         status: nextStatus,
         result: result.result
           ? {
-              orderId: result.result.orderId,
-              state: result.result.state,
-              fillPrice: result.result.fillPrice,
-              filledQuantity: result.result.filledQuantity,
+              ...(result.result.orderId !== undefined && { orderId: result.result.orderId }),
+              ...(result.result.state !== undefined && { state: result.result.state }),
+              ...(result.result.fillPrice !== undefined && { fillPrice: result.result.fillPrice }),
+              ...(result.result.filledQuantity !== undefined && { filledQuantity: result.result.filledQuantity }),
+              ...(result.result.brokerOrder !== undefined && { brokerOrder: result.result.brokerOrder }),
             }
           : existing.result,
         updatedAt: new Date().toISOString(),
@@ -325,7 +526,7 @@ export const OrderStagingStore = signalStore(
       const prev = state.intents();
       const existing = prev[id];
       if (!existing) return;
-      if (existing.status !== OrderIntentStatus.SUBMITTED) return;
+      if (existing.status !== OrderIntentStatus.SUBMITTED && existing.status !== OrderIntentStatus.RESTING) return;
 
       const persistModification = () => {
         const modified: OrderIntent = {
@@ -424,26 +625,43 @@ export const OrderStagingStore = signalStore(
         });
     },
 
-    /** Reconcile stuck SUBMITTING intents on load. Queries broker for actual state. */
+    /** Reconcile stuck SUBMITTING or SUBMITTED intents on load. Queries broker for actual state. */
     reconcileStuckIntents(): void {
       const stuck = Object.values(state.intents()).filter(
-        (i) => i.status === OrderIntentStatus.SUBMITTING
+        (i) => i.status === OrderIntentStatus.SUBMITTING ||
+          i.status === OrderIntentStatus.SUBMITTED || i.status === OrderIntentStatus.QUEUED ||
+          i.status === OrderIntentStatus.RESTING
       );
       if (stuck.length === 0) return;
 
       for (const intent of stuck) {
-        from(orderExecution.reconcileOrder(intent.accountNumber, intent.refId))
-          .pipe(takeUntilDestroyed(destroyRef))
-          .subscribe({
-            next: (recon) => this.applyReconciliationResult(intent.id, state.intents(), recon),
-            error: (err: unknown) => {
-              this.markFailed(intent.id, state.intents(), {
-                message: err instanceof Error ? err.message : String(err),
-                retryable: true,
-              });
-            },
-          });
+        this.reconcileIntent(intent.id);
       }
+    },
+
+    /** Reconcile a single intent by querying the broker for its actual state. */
+    reconcileIntent(id: string): void {
+      const prev = state.intents();
+      const existing = prev[id];
+      if (!existing) return;
+      if (existing.instrumentType === InstrumentType.OPTION) return;
+
+      from(orderExecution.reconcileOrder(existing.accountNumber, existing.refId, existing.result?.orderId))
+        .pipe(takeUntilDestroyed(destroyRef))
+        .subscribe({
+          next: (recon) => {
+            // A submitted order remains broker-authoritative if a later list query
+            // cannot match it; do not turn a known submission into a false failure.
+            if (!recon.found && (existing.status === OrderIntentStatus.SUBMITTED || existing.status === OrderIntentStatus.QUEUED || existing.status === OrderIntentStatus.RESTING)) return;
+            this.applyReconciliationResult(id, prev, recon);
+          },
+          error: (err: unknown) => {
+            this.markFailed(id, prev, {
+              message: err instanceof Error ? err.message : String(err),
+              retryable: true,
+            });
+          },
+        });
     },
 
     /** Map a ReconciliationResult to the appropriate OrderIntentStatus. */
@@ -456,31 +674,22 @@ export const OrderStagingStore = signalStore(
       if (!existing) return;
 
       if (!recon.found || !recon.state) {
+        if (existing.status === OrderIntentStatus.SUBMITTED || existing.status === OrderIntentStatus.QUEUED || existing.status === OrderIntentStatus.RESTING) return;
         this.markFailed(id, prev, { message: 'Order not found at broker — assume submission failed', retryable: true });
         return;
       }
 
-      const stateLower = recon.state.toLowerCase();
-      let nextStatus: OrderIntentStatus;
-      if (stateLower === 'filled') {
-        nextStatus = OrderIntentStatus.FILLED;
-      } else if (stateLower === 'cancelled' || stateLower === 'canceled') {
-        nextStatus = OrderIntentStatus.CANCELLED;
-      } else if (stateLower === 'failed') {
-        nextStatus = OrderIntentStatus.FAILED;
-      } else {
-        nextStatus = OrderIntentStatus.SUBMITTED;
-      }
+      const nextStatus = statusFromBrokerState(existing, recon.state);
 
       const next: OrderIntent = {
         ...existing,
         status: nextStatus,
         result: {
           ...existing.result,
-          orderId: recon.orderId,
-          state: recon.state,
-          fillPrice: recon.fillPrice,
-          filledQuantity: recon.filledQuantity,
+          ...(recon.orderId !== undefined && { orderId: recon.orderId }),
+          ...(recon.state !== undefined && { state: recon.state }),
+          ...(recon.fillPrice !== undefined && { fillPrice: recon.fillPrice }),
+          ...(recon.filledQuantity !== undefined && { filledQuantity: recon.filledQuantity }),
         },
         updatedAt: new Date().toISOString(),
       };

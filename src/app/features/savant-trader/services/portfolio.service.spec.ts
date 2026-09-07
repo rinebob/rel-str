@@ -51,6 +51,10 @@ describe('PortfolioService', () => {
       cash: 24800.22,
       positionCount: 2,
       units: 1.64,
+      positions: [
+        { symbol: 'SNDK', quantity: '0.049734', averageBuyPrice: '2010.700000', sharesHeldForSells: '0' },
+        { symbol: 'BTSG', quantity: '1.484780', averageBuyPrice: '67.350000', sharesHeldForSells: '0' },
+      ],
     });
     expect(mcp.executeTool).toHaveBeenCalledWith('get_portfolio', { args: { account_number: 'agentic-account' } });
     expect(mcp.executeTool).toHaveBeenCalledWith('get_equity_positions', { args: { account_number: 'agentic-account' } });
