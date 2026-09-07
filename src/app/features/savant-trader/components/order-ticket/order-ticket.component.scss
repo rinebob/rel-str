@@ -24,6 +24,102 @@
 }
 
 // ========================================
+// STOP LOSS TICKET
+// ========================================
+.stop-loss-ticket {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.stop-loss-ticket-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+
+  .ticket-kicker {
+    display: block;
+    color: var(--mat-sys-error);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+  }
+
+  h2 {
+    margin: 2px 0 0;
+    font-size: 16px;
+  }
+}
+
+.protected-position,
+.stop-loss-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.protected-position {
+  flex-wrap: wrap;
+  padding: 8px;
+  background: var(--mat-sys-surface-container-high);
+  border-left: 3px solid var(--mat-sys-error);
+  border-radius: 4px;
+  color: var(--mat-sys-on-surface-variant);
+
+  strong { color: var(--mat-sys-on-surface); }
+}
+
+.stop-loss-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  background: var(--mat-sys-surface-container-high);
+  border-radius: 4px;
+
+  .stop-loss-detail-row {
+    span { color: var(--mat-sys-on-surface-variant); }
+    strong { font-family: monospace; }
+    .mono { font-size: 10px; overflow-wrap: anywhere; text-align: right; }
+  }
+}
+
+.stop-loss-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  background: var(--mat-sys-surface-container-high);
+  border-radius: 4px;
+}
+
+.broker-id-warning {
+  color: var(--mat-sys-error);
+  font-size: 11px;
+}
+
+.stop-loss-ticket-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+}
+
+// ========================================
 // TICKET CONTENT
 // ========================================
 .ticket-content {
@@ -76,6 +172,8 @@
       &.status-staged, &.status-ready { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
       &.status-submitting { background: #f57c0033; color: #e65100; }
       &.status-submitted { background: var(--mat-sys-primary-container); color: var(--mat-sys-primary); }
+      &.status-queued { background: #1565c033; color: #0d47a1; }
+      &.status-resting { background: #7b1fa233; color: #6a1b9a; }
       &.status-filled { background: #1b5e2033; color: #1b5e20; }
       &.status-failed { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
       &.status-cancelled { background: var(--mat-sys-surface-container-highest); color: var(--mat-sys-on-surface-variant); }
@@ -273,6 +371,30 @@
 }
 
 // ========================================
+// FRACTIONAL POSITION WARNING
+// ========================================
+.fractional-warning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border-left: 3px solid var(--mat-sys-tertiary);
+  background: var(--mat-sys-tertiary-container);
+  color: var(--mat-sys-on-tertiary-container);
+  font-size: 11px;
+
+  mat-icon { font-size: 16px; width: 16px; height: 16px; flex-shrink: 0; }
+
+  button {
+    margin-left: auto;
+    flex-shrink: 0;
+    min-height: 28px;
+    padding: 0 8px;
+    font-size: 11px;
+  }
+}
+
+// ========================================
 // STOP LOSS
 // ========================================
 .stop-loss-section {
@@ -377,6 +499,68 @@
       font-size: 10px;
       opacity: 0.8;
     }
+  }
+}
+
+// ========================================
+// PROTECTED BY
+// ========================================
+.protected-by-section {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px;
+  border-left: 3px solid #7b1fa2;
+  background: #7b1fa21a;
+  border-radius: 4px;
+  font-size: 11px;
+
+  .protected-by-header,
+  .protected-by-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .protected-by-header {
+    color: #6a1b9a;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .protected-by-row {
+    span { color: var(--mat-sys-on-surface-variant); }
+    strong { font-family: monospace; }
+    .mono { font-size: 10px; overflow-wrap: anywhere; text-align: right; }
+  }
+}
+
+// ========================================
+// BROKER ORDER RESPONSE
+// ========================================
+.broker-order-section {
+  h3 {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--mat-sys-on-surface-variant);
+    margin: 0 0 4px;
+  }
+
+  .broker-order-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 11px;
+    line-height: 1.5;
+    font-family: monospace;
+  }
+
+  .preview-json {
+    font-size: 11px;
+    line-height: 1.5;
   }
 }
 

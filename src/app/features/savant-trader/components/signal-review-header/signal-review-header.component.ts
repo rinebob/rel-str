@@ -87,4 +87,5 @@ export class SignalReviewHeaderComponent {
   refresh = output<void>();
   clearReviewFlags = output<void>();
   toggleFullscreen = output<void>();
+  exportList = output<void>();
 }

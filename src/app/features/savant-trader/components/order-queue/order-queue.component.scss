@@ -136,6 +136,8 @@
 .group-staged .group-dot { background: var(--mat-sys-tertiary); }
 .group-submitting .group-dot { background: #e65100; }
 .group-submitted .group-dot { background: var(--mat-sys-primary); }
+.group-queued .group-dot { background: #1565c0; }
+.group-resting .group-dot { background: #7b1fa2; }
 .group-filled .group-dot { background: #1b5e20; }
 .group-failed .group-dot { background: var(--mat-sys-error); }
 .group-cancelled .group-dot { background: var(--mat-sys-on-surface-variant); opacity: 0.4; }
@@ -182,6 +184,16 @@
     &.source-signal { background: var(--mat-sys-primary-container); color: var(--mat-sys-primary); }
     &.source-manual { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
     &.source-position { background: var(--mat-sys-secondary-container); color: var(--mat-sys-on-secondary-container); }
+  }
+
+  .protected-badge {
+    font-size: 8px;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: var(--mat-sys-secondary-container);
+    color: var(--mat-sys-on-secondary-container);
+    flex-shrink: 0;
   }
 
   .item-main {

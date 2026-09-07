@@ -12,6 +12,7 @@ import {
   Component,
   inject,
   input,
+  output,
   computed,
   signal,
   WritableSignal,
@@ -30,7 +31,10 @@ import { firstValueFrom } from 'rxjs';
 import { OrderStagingStore } from '../../stores/order-staging.store';
 import { OrderConfirmDialogComponent } from '../order-confirm-dialog/order-confirm-dialog.component';
 import { evaluateOrderGuardrails, GuardrailContext } from '../../utils/order-guardrails.util';
-import { buildStopLossIntent } from '../../utils/stop-loss-intent.util';
+import {
+  buildFractionalCloseIntent,
+  buildStopLossIntent,
+} from '../../utils/stop-loss-intent.util';
 import {
   OrderIntent,
   OrderIntentStatus,
@@ -73,6 +77,9 @@ export class OrderTicketComponent {
 
   /** Guardrail context from the page (current exposure, units, cash). */
   guardrailContext = input<GuardrailContext | null>(null);
+
+  /** Emitted when a new position-management intent is staged for ticket editing. */
+  readonly intentStaged = output<string>();
 
   /** Local editable copy of the intent fields. */
   readonly orderType = signal<'market' | 'limit' | 'stop_market' | 'stop_limit'>('market');
@@ -128,6 +135,41 @@ export class OrderTicketComponent {
     return i.symbol;
   });
 
+  /** Whether the selected intent is a linked stop-loss order. */
+  readonly isStopLossIntent = computed(() => this.intent()?.sourceRef?.type === 'stop_loss');
+
+  /** Whether the selected intent closes a fractional remainder. */
+  readonly isFractionalCloseIntent = computed(() => this.intent()?.sourceRef?.type === 'fractional_close');
+
+  /** Stop price for the selected stop-loss intent. */
+  readonly selectedStopPrice = computed(() => {
+    const i = this.intent();
+    return i && 'stopPrice' in i ? i.stopPrice ?? null : null;
+  });
+
+  /** Price used to calculate the stop-loss percentage. */
+  readonly stopLossReferencePrice = computed<number | null>(() =>
+    this.entryFillPrice() ?? (() => {
+      const fill = this.protectedEntry()?.result?.fillPrice;
+      const parsed = fill ? parseFloat(fill) : NaN;
+      return Number.isFinite(parsed) ? parsed : this.currentPrice();
+    })(),
+  );
+
+  /** Whether the selected staged stop-loss has valid controls for submission. */
+  readonly canSubmitStopLossIntent = computed(() => {
+    const i = this.intent();
+    return this.isStopLossIntent() && i?.status === OrderIntentStatus.STAGED &&
+      this.wholeQuantity() > 0 && parseFloat(this.stopLossPrice()) > 0;
+  });
+
+  /** The entry/position protected by the selected stop-loss intent. */
+  readonly protectedEntry = computed<OrderIntent | null>(() => {
+    const parentId = this.intent()?.sourceRef?.id;
+    if (!parentId) return null;
+    return this.stagingStore.intents()[parentId] ?? null;
+  });
+
   /** Whether the intent is in an editable state. */
   readonly isEditable = computed(() => {
     const s = this.intent()?.status;
@@ -140,7 +182,7 @@ export class OrderTicketComponent {
   /** Whether the intent is submitted and awaiting fill (or submitting). */
   readonly isSubmitted = computed(() => {
     const s = this.intent()?.status;
-    return s === OrderIntentStatus.SUBMITTED || s === OrderIntentStatus.SUBMITTING;
+    return s === OrderIntentStatus.SUBMITTED || s === OrderIntentStatus.QUEUED || s === OrderIntentStatus.RESTING || s === OrderIntentStatus.SUBMITTING;
   });
 
   /** Whether the intent is in a terminal state. */
@@ -154,22 +196,40 @@ export class OrderTicketComponent {
     return this.intent()?.status === OrderIntentStatus.FILLED;
   });
 
-  /** Whether to show the stop loss section — only for equity buy orders that have been filled. */
+  /** Fractional positions cannot use Robinhood equity stop-loss orders. */
+  readonly isFractionalEntry = computed(() => {
+    const i = this.intent();
+    const rawQuantity = i?.result?.filledQuantity ?? i?.quantity;
+    const quantity = rawQuantity ? Number(rawQuantity) : 0;
+    return quantity > 0 && Number.isFinite(quantity) && !Number.isInteger(quantity);
+  });
+
+  /** Fractional remainder to sell to leave an integer-share position. */
+  readonly fractionalQuantity = computed(() => {
+    const i = this.intent();
+    const rawQuantity = i?.result?.filledQuantity ?? i?.quantity;
+    const quantity = rawQuantity ? Number(rawQuantity) : 0;
+    if (!Number.isFinite(quantity) || quantity <= 0 || Number.isInteger(quantity)) return '0';
+    return (quantity - Math.floor(quantity)).toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+  });
+
+  /** Whether to show the stop loss section — only for whole-share equity buys that have been filled. */
   readonly showStopLossSection = computed(() => {
     const i = this.intent();
     if (!i) return false;
     if (i.side !== 'buy') return false;
     if (i.instrumentType !== InstrumentType.EQUITY && i.instrumentType !== InstrumentType.ETF) return false;
-    return this.isEntryFilled() && !this.stopLossExists();
+    return this.isEntryFilled() && !this.isFractionalEntry() && !this.stopLossExists();
   });
 
   /** Whether the stop loss can be placed — entry must be filled, qty must be positive, and stop loss price must be valid. */
   readonly canPlaceStopLoss = computed(() => {
     if (!this.isEntryFilled()) return false;
     const i = this.intent();
-    const qty = Math.max(0, parseInt(i?.result?.filledQuantity ?? i?.quantity ?? '0', 10) || 0);
+    const rawQuantity = i?.result?.filledQuantity ?? i?.quantity ?? '0';
+    const quantity = Number(rawQuantity);
     const slPrice = parseFloat(this.stopLossPrice());
-    return qty > 0 && !isNaN(slPrice) && slPrice > 0;
+    return Number.isInteger(quantity) && quantity > 0 && !isNaN(slPrice) && slPrice > 0;
   });
 
   /** The stop loss intent from the store (linked via sourceRef), if any. */
@@ -180,6 +240,12 @@ export class OrderTicketComponent {
     return Object.values(all).find(
       (intent) => intent.sourceRef?.type === 'stop_loss' && intent.sourceRef?.id === i.id,
     ) ?? null;
+  });
+
+  /** Stop price from the linked stop-loss intent. */
+  readonly protectedStopPrice = computed(() => {
+    const stopLoss = this.stopLossIntent();
+    return stopLoss && 'stopPrice' in stopLoss ? stopLoss.stopPrice ?? null : null;
   });
 
   /** Whether a stop loss intent exists in the store. */
@@ -197,7 +263,9 @@ export class OrderTicketComponent {
 
   /** Whether the stop loss is submitted and awaiting fill. */
   readonly isStopLossSubmitted = computed(() =>
-    this.stopLossIntent()?.status === OrderIntentStatus.SUBMITTED,
+    this.stopLossIntent()?.status === OrderIntentStatus.SUBMITTED ||
+    this.stopLossIntent()?.status === OrderIntentStatus.QUEUED ||
+    this.stopLossIntent()?.status === OrderIntentStatus.RESTING,
   );
 
   /** Preview of the stop loss order object (shows real account number — what will actually be sent). */
@@ -298,6 +366,7 @@ export class OrderTicketComponent {
       case OrderIntentStatus.READY: return 'check_circle_outline';
       case OrderIntentStatus.SUBMITTING: return 'hourglass_empty';
       case OrderIntentStatus.SUBMITTED: return 'pending_actions';
+      case OrderIntentStatus.QUEUED: return 'schedule';
       case OrderIntentStatus.FILLED: return 'task_alt';
       case OrderIntentStatus.FAILED: return 'error_outline';
       case OrderIntentStatus.CANCELLED: return 'cancel';
@@ -330,7 +399,7 @@ export class OrderTicketComponent {
       const i = this.intent();
       untracked(() => {
         if (!i) return;
-        this.orderType.set(i.orderType);
+        this.orderType.set(i.orderType === 'stop_loss' ? 'stop_market' : i.orderType);
         this.timeInForce.set(i.timeInForce);
         this.marketHours.set(i.marketHours);
         if (i.instrumentType === InstrumentType.OPTION) {
@@ -348,7 +417,7 @@ export class OrderTicketComponent {
       const price = this.price();
       const i = this.intent();
       untracked(() => {
-        if (!price || price <= 0 || !i) return;
+        if (!price || price <= 0 || !i || this.isFractionalCloseIntent()) return;
         // Only auto-calc if the user hasn't set a quantity yet
         const currentQty = this.wholeQuantity();
         if (currentQty > 0) return;
@@ -389,17 +458,29 @@ export class OrderTicketComponent {
       });
     });
 
-    // Recompute stop price from percent when the user changes the percent field
-    // (uses fill price if available, otherwise live price)
+    // Recompute the entry stop price from percent when the user edits an entry ticket.
+    // A selected stop-loss ticket owns its persisted stop price and initializes below.
     effect(() => {
       const percent = parseFloat(this.stopLossPercent());
-      const fillPrice = this.entryFillPrice();
-      const livePrice = this.price();
-      const refPrice = fillPrice ?? livePrice;
+      const refPrice = this.stopLossReferencePrice();
+      const isStopLoss = this.isStopLossIntent();
       untracked(() => {
-        if (refPrice && refPrice > 0 && !isNaN(percent) && percent > 0) {
+        if (!isStopLoss && refPrice && refPrice > 0 && !isNaN(percent) && percent > 0) {
           this.stopLossPrice.set(stopPriceFromPercent(refPrice, percent).toFixed(2));
         }
+      });
+    });
+
+    // Initialize the dedicated stop-loss controls from the persisted stop price.
+    effect(() => {
+      const i = this.intent();
+      const refPrice = this.stopLossReferencePrice();
+      untracked(() => {
+        if (!i || !this.isStopLossIntent() || !refPrice || refPrice <= 0) return;
+        const persistedStop = 'stopPrice' in i ? i.stopPrice : undefined;
+        if (persistedStop) this.stopLossPrice.set(persistedStop);
+        const percent = persistedStop ? stopPercentFromPrice(refPrice, parseFloat(persistedStop)) : DEFAULT_STOP_PERCENT;
+        if (Number.isFinite(percent) && percent > 0) this.stopLossPercent.set(String(percent));
       });
     });
   }
@@ -415,8 +496,10 @@ export class OrderTicketComponent {
     };
     if (i.instrumentType === InstrumentType.EQUITY || i.instrumentType === InstrumentType.ETF) {
       const q = this.wholeQuantity();
-      partial.quantity = q > 0 ? String(q) : undefined;
-      partial.dollarAmount = undefined;
+      partial.quantity = this.isFractionalCloseIntent() ? this.quantity() : q > 0 ? String(q) : undefined;
+      // Clear dollarAmount with null (not undefined) so Firestore actually removes it.
+      // undefined gets stripped by stripUndefined, leaving the stale value in Firestore.
+      partial.dollarAmount = null;
       if (this.showLimitPrice()) partial.limitPrice = this.limitPrice() || undefined;
       if (this.showStopPrice()) partial.stopPrice = this.stopPrice() || undefined;
     }
@@ -433,8 +516,21 @@ export class OrderTicketComponent {
       this.snackBar.open('No account number configured. Set one in settings.', 'Dismiss', { duration: 4000 });
       return;
     }
-    if (this.wholeQuantity() <= 0) {
-      this.snackBar.open('Quantity must be a positive whole number of shares', 'Dismiss', { duration: 4000 });
+    if (this.isFractionalCloseIntent() && this.marketHours() !== 'regular_hours') {
+      this.snackBar.open('Fractional orders are only allowed during regular hours', 'Dismiss', { duration: 5000 });
+      return;
+    }
+
+    const numericQuantity = Number(this.quantity());
+    const quantityValid = this.isFractionalCloseIntent()
+      ? Number.isFinite(numericQuantity) && numericQuantity > 0
+      : this.wholeQuantity() > 0;
+    if (!quantityValid) {
+      this.snackBar.open(
+        this.isFractionalCloseIntent() ? 'Quantity must be positive' : 'Quantity must be a positive whole number of shares',
+        'Dismiss',
+        { duration: 4000 },
+      );
       return;
     }
 
@@ -462,6 +558,23 @@ export class OrderTicketComponent {
     }
   }
 
+  /** Confirm and submit an existing staged stop-loss intent. */
+  async onSubmitStopLossIntent(): Promise<void> {
+    const i = this.intent();
+    if (!i || !this.isStopLossIntent() || i.status !== OrderIntentStatus.STAGED) return;
+    const confirmed = await firstValueFrom(
+      this.dialog
+        .open(OrderConfirmDialogComponent, {
+          data: { intent: i, warnings: [] },
+          width: '400px',
+        })
+        .afterClosed(),
+    );
+    if (confirmed) {
+      this.stagingStore.updateAndSubmitIntent(i.id, { stopPrice: this.stopLossPrice() });
+    }
+  }
+
   /** Retry a failed intent. */
   onRetry(): void {
     const i = this.intent();
@@ -474,14 +587,28 @@ export class OrderTicketComponent {
   onCancel(): void {
     const i = this.intent();
     if (!i) return;
-    if (i.status !== OrderIntentStatus.SUBMITTED && i.status !== OrderIntentStatus.SUBMITTING) return;
+    if (i.status !== OrderIntentStatus.SUBMITTED && i.status !== OrderIntentStatus.QUEUED && i.status !== OrderIntentStatus.RESTING && i.status !== OrderIntentStatus.SUBMITTING) return;
     this.stagingStore.cancelIntent(i.id);
+  }
+
+  /** Manually reconcile an intent by querying the broker. */
+  onReconcile(): void {
+    const i = this.intent();
+    if (!i) return;
+    const canReconcile = i.status === OrderIntentStatus.SUBMITTED ||
+      i.status === OrderIntentStatus.QUEUED ||
+      i.status === OrderIntentStatus.RESTING ||
+      i.status === OrderIntentStatus.SUBMITTING ||
+      (i.status === OrderIntentStatus.FAILED && !!i.result?.orderId);
+    if (!canReconcile) return;
+    this.snackBar.open('Checking broker for latest status…', '', { duration: 3000 });
+    this.stagingStore.reconcileIntent(i.id);
   }
 
   /** Modify a submitted intent — reverts to STAGED so the user can edit and resubmit. */
   onModify(): void {
     const i = this.intent();
-    if (!i || i.status !== OrderIntentStatus.SUBMITTED) return;
+    if (!i || (i.status !== OrderIntentStatus.SUBMITTED && i.status !== OrderIntentStatus.QUEUED && i.status !== OrderIntentStatus.RESTING)) return;
     this.stagingStore.modifyIntent(i.id);
   }
 
@@ -489,7 +616,7 @@ export class OrderTicketComponent {
   onCancelStopLoss(): void {
     const sl = this.stopLossIntent();
     if (!sl) return;
-    if (sl.status !== OrderIntentStatus.SUBMITTED && sl.status !== OrderIntentStatus.SUBMITTING) return;
+    if (sl.status !== OrderIntentStatus.SUBMITTED && sl.status !== OrderIntentStatus.QUEUED && sl.status !== OrderIntentStatus.RESTING && sl.status !== OrderIntentStatus.SUBMITTING) return;
     this.stagingStore.cancelIntent(sl.id);
   }
 
@@ -498,8 +625,26 @@ export class OrderTicketComponent {
     this.snackBar.open('Manual order creation coming soon', 'Dismiss', { duration: 3000 });
   }
 
-  /** Stage and submit a stop loss order for the current entry. */
-  onPlaceStopLoss(): void {
+  /** Stage a market sell for the fractional remainder in the editable order ticket. */
+  onCloseFractionalShare(): void {
+    const i = this.intent();
+    const quantity = this.fractionalQuantity();
+    if (!i || !this.isEntryFilled() || !this.isFractionalEntry() || quantity === '0') return;
+
+    const closeIntent = buildFractionalCloseIntent(
+      i,
+      this.symbol(),
+      quantity,
+      this.tradingConfig()?.accountNumber ?? i.accountNumber,
+    );
+    this.stagingStore.archiveFailedFractionalCloseIntents(i.id);
+    this.stagingStore.stageIntent(closeIntent);
+    this.intentStaged.emit(closeIntent.id);
+    this.snackBar.open(`Fractional close staged for ${quantity} shares — choose order hours`, 'Dismiss', { duration: 3000 });
+  }
+
+  /** Confirm, persist, and submit a stop loss order for the current entry. */
+  async onPlaceStopLoss(): Promise<void> {
     const i = this.intent();
     if (!i || !this.canPlaceStopLoss()) return;
 
@@ -517,9 +662,18 @@ export class OrderTicketComponent {
       slPrice,
       this.tradingConfig()?.accountNumber ?? i.accountNumber,
     );
+    const confirmed = await firstValueFrom(
+      this.dialog
+        .open(OrderConfirmDialogComponent, {
+          data: { intent: stopLossIntent, warnings: [] },
+          width: '400px',
+        })
+        .afterClosed(),
+    );
+    if (!confirmed) return;
 
-    this.stagingStore.stageIntent(stopLossIntent);
-    this.snackBar.open('Stop loss order staged — review in queue', 'Dismiss', { duration: 3000 });
+    this.stagingStore.stageAndSubmitIntent(stopLossIntent);
+    this.snackBar.open('Stop loss order submitted', 'Dismiss', { duration: 3000 });
   }
 
   // ========================================
@@ -533,6 +687,11 @@ export class OrderTicketComponent {
   /** Whole-share quantity input — keep only non-negative integers. */
   onQuantityInput(event: Event): void {
     const raw = (event.target as HTMLInputElement).value;
+    if (this.isFractionalCloseIntent()) {
+      const qty = Number(raw);
+      this.quantity.set(Number.isFinite(qty) && qty >= 0 ? raw : '');
+      return;
+    }
     const qty = Math.max(0, parseInt(raw, 10) || 0);
     this.quantity.set(String(qty));
   }
@@ -591,7 +750,7 @@ export class OrderTicketComponent {
 
   /** User typed in the stop loss price field — update percent. */
   onStopPriceInput(): void {
-    const price = this.currentPrice();
+    const price = this.stopLossReferencePrice();
     const slPrice = parseFloat(this.stopLossPrice());
     if (price && price > 0 && !isNaN(slPrice)) {
       const pct = stopPercentFromPrice(price, slPrice);
@@ -601,7 +760,7 @@ export class OrderTicketComponent {
 
   /** User typed in the stop loss percent field — update price. */
   onStopPercentInput(): void {
-    const price = this.currentPrice();
+    const price = this.stopLossReferencePrice();
     const pct = parseFloat(this.stopLossPercent());
     if (price && price > 0 && !isNaN(pct)) {
       const slPrice = stopPriceFromPercent(price, pct);

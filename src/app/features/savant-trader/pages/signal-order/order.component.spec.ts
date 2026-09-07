@@ -162,7 +162,7 @@ describe('OrderComponent', () => {
     });
     component.accountSnapshot.set({
       accountValue: 24964.02642795, exposure: 163.80642795, cash: 24800.22,
-      positionCount: 2, units: 1.64,
+      positionCount: 2, units: 1.64, positions: [],
     });
     fixture.detectChanges();
 

@@ -71,9 +71,13 @@
                 </span>
                 <span class="item-type">{{ intent.orderType | uppercase }}</span>
                 <span class="item-qty">{{ quantityFor(intent) }}</span>
+                @if (intent.side === 'buy' && hasLinkedStopLoss(intent.id)) {
+                  <span class="protected-badge">PROTECTED</span>
+                }
               </div>
             </div>
           </div>
+
         }
         }
       </div>

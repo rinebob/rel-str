@@ -45,6 +45,11 @@
 
     <div class="header-spacer"></div>
 
+    <button mat-stroked-button class="manual-order-btn" (click)="onNewManualOrder()">
+      <mat-icon>add</mat-icon>
+      New manual order
+    </button>
+
     <button mat-icon-button (click)="onOpenConfig()" matTooltip="Trading settings">
       <mat-icon>settings</mat-icon>
     </button>
@@ -90,7 +95,8 @@
           [intent]="selectedIntent()"
           [price]="selectedPrice()"
           [tradingConfig]="tradingConfig()"
-          [guardrailContext]="guardrailContext()">
+          [guardrailContext]="guardrailContext()"
+          (intentStaged)="onIntentSelected($event)">
         </app-order-ticket>
       }
     </div>

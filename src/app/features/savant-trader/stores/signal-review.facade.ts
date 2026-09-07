@@ -37,6 +37,7 @@ import {
   StatusCounts,
 } from '../common/constants';
 import type { StRun } from '../services/types';
+import { formatTradingViewWatchlist } from '../utils/utils';
 import {
   OrderIntent,
   OrderIntentStatus,
@@ -184,6 +185,42 @@ export class SignalReviewFacade {
 
   toggleFullscreen(): void {
     this.uiState.toggleFullscreen();
+  }
+
+  /** Download the currently selected symbol list in TradingView's TXT format. */
+  async exportSelectedList(): Promise<void> {
+    const listName = this.activeListFilter();
+    if (listName === 'ALL') return;
+
+    const symbols = this.symbolLists()[listName] ?? [];
+    if (symbols.length === 0) {
+      this.snackBar.open(`${listName} is empty`, 'Dismiss', { duration: 3000 });
+      return;
+    }
+
+    try {
+      const profiles = await firstValueFrom(this.signalService.getAllSymbols());
+      const { content, unresolved } = formatTradingViewWatchlist(symbols, profiles);
+      if (!content) {
+        this.snackBar.open(`No ${listName} symbols have exchange metadata`, 'Dismiss', { duration: 5000 });
+        return;
+      }
+
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `ST-${listName}.txt`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+
+      if (unresolved.length > 0) {
+        this.snackBar.open(`Exported ${listName}; skipped ${unresolved.length} symbol(s) without exchange metadata`, 'Dismiss', { duration: 6000 });
+      }
+    } catch (err) {
+      console.error(`[SignalReviewFacade] Failed to export ${listName}:`, err);
+      this.snackBar.open(`Failed to export ${listName}`, 'Dismiss', { duration: 5000 });
+    }
   }
 
   /** Stable flat list of visible symbols for prev/next navigation. */

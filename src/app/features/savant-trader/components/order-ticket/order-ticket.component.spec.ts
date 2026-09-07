@@ -48,6 +48,7 @@ describe('OrderTicketComponent', () => {
     modifyIntent: jasmine.Spy;
     updateIntent: jasmine.Spy;
     stageIntent: jasmine.Spy;
+    stageAndSubmitIntent: jasmine.Spy;
   };
   let dialog: { open: jasmine.Spy };
 
@@ -60,6 +61,7 @@ describe('OrderTicketComponent', () => {
       modifyIntent: jasmine.createSpy('modifyIntent'),
       updateIntent: jasmine.createSpy('updateIntent'),
       stageIntent: jasmine.createSpy('stageIntent'),
+      stageAndSubmitIntent: jasmine.createSpy('stageAndSubmitIntent'),
     };
     dialog = {
       open: jasmine.createSpy('open').and.returnValue({ afterClosed: () => of(true) }),
@@ -139,7 +141,7 @@ describe('OrderTicketComponent', () => {
 
     expect(store.updateIntent).toHaveBeenCalledWith('1', jasmine.objectContaining({
       quantity: '2',
-      dollarAmount: undefined,
+      dollarAmount: null,
     }));
   });
 
@@ -165,15 +167,16 @@ describe('OrderTicketComponent', () => {
     expect(store.submitIntent).toHaveBeenCalledWith('1');
   });
 
-  it('stages a same-quantity stop loss after the entry fills', () => {
+  it('confirms, stages, and submits a same-quantity stop loss after the entry fills', async () => {
     const entry = makeIntent('1', 'AAPL', { status: OrderIntentStatus.FILLED, result: { fillPrice: '100' } });
     fixture.componentRef.setInput('intent', entry);
     fixture.componentRef.setInput('price', 100);
     fixture.detectChanges();
 
-    component.onPlaceStopLoss();
+    await component.onPlaceStopLoss();
 
-    expect(store.stageIntent).toHaveBeenCalledWith(jasmine.objectContaining({
+    expect(dialog.open).toHaveBeenCalled();
+    expect(store.stageAndSubmitIntent).toHaveBeenCalledWith(jasmine.objectContaining({
       side: 'sell',
       quantity: '2',
       stopPrice: '92.00',

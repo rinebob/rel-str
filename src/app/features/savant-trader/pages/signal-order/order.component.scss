@@ -93,10 +93,30 @@
 .ticket-wrapper {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   height: 100%;
   min-height: 0;
   overflow: hidden;
   background: var(--mat-sys-surface-container);
+}
+
+// Keep the ticket readable instead of stretching it across the entire detail pane.
+.ticket-wrapper > app-order-ticket {
+  width: min(100%, 340px);
+  flex: 0 1 340px;
+  min-width: 0;
+  height: 100%;
+}
+
+@media (max-width: 720px) {
+  .ticket-wrapper {
+    align-items: stretch;
+  }
+
+  .ticket-wrapper > app-order-ticket {
+    width: 100%;
+    flex-basis: auto;
+  }
 }
 
 // ========================================

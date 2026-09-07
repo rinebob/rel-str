@@ -82,6 +82,13 @@
     (valueChange)="listFilterChange.emit($event)">
   </app-rh-select-menu>
 
+  <button mat-icon-button
+    [disabled]="activeListFilter() === 'ALL'"
+    (click)="exportList.emit()"
+    matTooltip="Export selected list">
+    <mat-icon>download</mat-icon>
+  </button>
+
   <button mat-icon-button (click)="prev.emit()"
     [disabled]="!quickChartSymbol() || flatSymbols().indexOf(quickChartSymbol()!) <= 0"
     matTooltip="Previous symbol">

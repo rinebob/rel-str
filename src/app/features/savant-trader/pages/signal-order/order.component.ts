@@ -35,6 +35,7 @@ import { TradingConfigService } from '../../services/trading-config.service';
 import { EquityPriceService } from '../../services/equity-price.service';
 import { AccountSnapshot, PortfolioService } from '../../services/portfolio.service';
 import { RobinhoodMcpObservationService } from '../../services/robinhood-mcp-observation.service';
+import { OrderIntentService } from '../../services/order-intent.service';
 import { OrderIntent, TradingConfig, InstrumentType } from '../../services/order-intent.types';
 import { formatError } from '../../utils/format-error.util';
 
@@ -52,6 +53,7 @@ export class OrderComponent implements OnInit {
   private readonly configService = inject(TradingConfigService);
   private readonly priceService = inject(EquityPriceService);
   private readonly portfolioService = inject(PortfolioService);
+  private readonly intentService = inject(OrderIntentService);
   private readonly mcpService = inject(RobinhoodMcpObservationService);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
@@ -134,7 +136,19 @@ export class OrderComponent implements OnInit {
 
   ngOnInit(): void {
     this.uiState.setFullscreen(true);
-    this.stagingStore.loadIntents();
+    this.intentService.migrateLegacyStopLossIntent().subscribe({
+      next: () => this.intentService.recoverKnownKmemFractionalClose().subscribe({
+        next: () => this.stagingStore.loadIntents(),
+        error: (err) => {
+          console.error('[OrderComponent] KMEM fractional-close recovery failed:', err);
+          this.stagingStore.loadIntents();
+        },
+      }),
+      error: (err) => {
+        console.error('[OrderComponent] Legacy stop-loss migration failed:', err);
+        this.stagingStore.loadIntents();
+      },
+    });
     this.loadConfig();
   }
 
@@ -152,11 +166,11 @@ export class OrderComponent implements OnInit {
       });
     });
 
-    // Refresh the canonical account snapshot when the account or live order states change
+    // Load the canonical account snapshot when the configured account changes.
+    // Do not depend on order counts: hydration itself updates those counts and
+    // would otherwise create an account-fetch/hydration infinite loop.
     effect(() => {
       const accountNumber = this.accountNumber();
-      const activeCount = this.stagingStore.activeIntents().length;
-      const terminalCount = this.stagingStore.terminalIntents().length;
       if (accountNumber) {
         this.fetchAccountSnapshot(accountNumber);
       }
@@ -178,7 +192,11 @@ export class OrderComponent implements OnInit {
   /** Fetch the canonical Robinhood account snapshot used by the scoreboard and guardrails. */
   private async fetchAccountSnapshot(accountNumber: string): Promise<void> {
     try {
-      this.accountSnapshot.set(await this.portfolioService.getSnapshot(accountNumber, this.defaultDollarAmount()));
+      const snapshot = await this.portfolioService.getSnapshot(accountNumber, this.defaultDollarAmount());
+      this.accountSnapshot.set(snapshot);
+      if (snapshot) {
+        this.stagingStore.hydrateBrokerPositions(accountNumber, snapshot.positions);
+      }
     } catch (err) {
       console.error('[OrderComponent] Failed to fetch account snapshot:', err);
     }
@@ -268,6 +286,11 @@ export class OrderComponent implements OnInit {
     } finally {
       this.reauthing.set(false);
     }
+  }
+
+  /** New Manual Order placeholder. */
+  onNewManualOrder(): void {
+    this.snackBar.open('Manual order creation coming soon', 'Dismiss', { duration: 3000 });
   }
 
   /** Navigate back to the signal review page. */

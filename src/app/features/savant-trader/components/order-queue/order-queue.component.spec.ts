@@ -89,6 +89,20 @@ describe('OrderQueueComponent', () => {
       expect(groups[3].label).toBe('Failed');
     });
 
+    it('places accepted non-market orders in the Resting group', () => {
+      const limit = makeIntent('1', OrderIntentStatus.SUBMITTED, 'AAPL');
+      limit.orderType = 'limit';
+      const market = makeIntent('2', OrderIntentStatus.SUBMITTED, 'MSFT');
+
+      fixture.componentRef.setInput('intents', [limit, market]);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      const groups = component.groups();
+      expect(groups.find((group) => group.label === 'Resting')?.intents).toEqual([limit]);
+      expect(groups.find((group) => group.label === 'Submitted')?.intents).toEqual([market]);
+    });
+
     it('combines STAGED and READY into one group', () => {
       const intents = [
         makeIntent('1', OrderIntentStatus.STAGED, 'AAPL'),

@@ -11,6 +11,121 @@
       </button>
     </div>
   } @else {
+    @if (isStopLossIntent()) {
+      <div class="stop-loss-ticket">
+        <div class="stop-loss-ticket-header">
+          <div>
+            <span class="ticket-kicker">Position protection</span>
+            <h2>Stop Loss — {{ symbol() }}</h2>
+          </div>
+          <span class="status-badge" [class]="'status-' + intent()?.status">
+            {{ intent()?.status | uppercase }}
+          </span>
+        </div>
+
+        <div class="protected-position">
+          <span>Protecting</span>
+          <strong>{{ symbol() }}</strong>
+          <span>{{ protectedEntry()?.result?.filledQuantity ?? intent()?.quantity }} shares</span>
+          @if (protectedEntry()?.result?.fillPrice) {
+            <span>Entry {{ protectedEntry()?.result?.fillPrice | currency }}</span>
+          }
+        </div>
+
+        <div class="stop-loss-details">
+          <div class="stop-loss-detail-row">
+            <span>Stop price</span>
+            <strong>{{ selectedStopPrice() | currency }}</strong>
+          </div>
+          <div class="stop-loss-detail-row">
+            <span>Quantity</span>
+            <strong>{{ intent()?.quantity }} shares</strong>
+          </div>
+          <div class="stop-loss-detail-row">
+            <span>Time in force</span>
+            <strong>{{ intent()?.timeInForce | uppercase }}</strong>
+          </div>
+          @if (intent()?.result?.orderId) {
+            <div class="stop-loss-detail-row">
+              <span>Broker order ID</span>
+              <strong class="mono">{{ intent()?.result?.orderId }}</strong>
+            </div>
+          }
+        </div>
+
+        @if (intent()?.status === OrderIntentStatus.STAGED) {
+          <div class="stop-loss-controls">
+            <div class="form-row">
+              <span class="field-label">Stop $</span>
+              <div class="stepper">
+                <button type="button" class="step-btn" (click)="stopPriceDown()">&#9660;</button>
+                <input class="cf-input" [value]="stopLossPrice()" (input)="onStopPriceChange($event)">
+                <button type="button" class="step-btn" (click)="stopPriceUp()">&#9650;</button>
+              </div>
+            </div>
+            <div class="form-row">
+              <span class="field-label">Risk %</span>
+              <div class="stepper">
+                <button type="button" class="step-btn" (click)="stopPercentDown()">&#9660;</button>
+                <input class="cf-input" [value]="stopLossPercent()" (input)="onStopPercentChange($event)">
+                <button type="button" class="step-btn" (click)="stopPercentUp()">&#9650;</button>
+              </div>
+            </div>
+          </div>
+        }
+
+        @if (intentError()) {
+          <div class="error-section">
+            <mat-icon>error_outline</mat-icon>
+            <div class="error-details">
+              <p class="error-message">{{ intentError()?.message }}</p>
+              <p class="error-hint">This stop-loss can be retried after correcting the issue.</p>
+            </div>
+          </div>
+        }
+
+        <div class="stop-loss-ticket-actions">
+          @if (intent()?.status === OrderIntentStatus.STAGED) {
+            <button mat-flat-button color="warn" (click)="onSubmitStopLossIntent()" [disabled]="!canSubmitStopLossIntent()">
+              <mat-icon>shield</mat-icon>
+              Submit Stop Loss
+            </button>
+          }
+          @if (intent()?.status === OrderIntentStatus.FAILED && isRetryable()) {
+            <button mat-stroked-button color="primary" (click)="onRetry()">
+              <mat-icon>refresh</mat-icon>
+              Retry Stop Loss
+            </button>
+          }
+          @if (intent()?.status === OrderIntentStatus.FAILED && intent()?.result?.orderId) {
+            <button mat-stroked-button color="primary" (click)="onReconcile()">
+              <mat-icon>sync</mat-icon>
+              Refresh from Broker
+            </button>
+          }
+          @if (isSubmitting()) {
+            <div class="submitting-indicator">
+              <mat-icon>hourglass_empty</mat-icon>
+              <span>Submitting stop loss…</span>
+            </div>
+          }
+          @if (isSubmitted()) {
+            <button mat-stroked-button color="primary" (click)="onReconcile()">
+              <mat-icon>sync</mat-icon>
+              Refresh from Broker
+            </button>
+            @if (intent()?.result?.orderId) {
+              <button mat-stroked-button color="warn" (click)="onCancel()">
+                <mat-icon>cancel</mat-icon>
+                Cancel Stop Loss
+              </button>
+            } @else {
+              <span class="broker-id-warning">Broker order ID unavailable; refresh before cancelling.</span>
+            }
+          }
+        </div>
+      </div>
+    } @else {
     <!-- Ticket content -->
     <div class="ticket-content">
       <!-- Header -->
@@ -27,15 +142,6 @@
           <span class="status-badge" [class]="'status-' + intent()?.status">
             {{ intent()?.status | uppercase }}
           </span>
-        </div>
-        <div class="ticket-actions">
-          @if (intent()?.result?.orderId) {
-            <span class="order-id">ID: {{ intent()?.result?.orderId?.slice(0, 8) }}…</span>
-          }
-          <button mat-stroked-button (click)="onNewManualOrder()">
-            <mat-icon>add</mat-icon>
-            New manual order
-          </button>
         </div>
       </div>
 
@@ -124,8 +230,8 @@
             <span class="field-label">Hours</span>
             <div class="pill-group">
               <button type="button" class="pill" [class.active]="marketHours() === 'regular_hours'" (click)="marketHours.set('regular_hours')">Regular</button>
-              <button type="button" class="pill" [class.active]="marketHours() === 'extended_hours'" (click)="marketHours.set('extended_hours')">Extended</button>
-              <button type="button" class="pill" [class.active]="marketHours() === 'all_day_hours'" (click)="marketHours.set('all_day_hours')">All Day</button>
+              <button type="button" class="pill" [class.active]="marketHours() === 'extended_hours'" [disabled]="isFractionalCloseIntent()" (click)="marketHours.set('extended_hours')">Extended</button>
+              <button type="button" class="pill" [class.active]="marketHours() === 'all_day_hours'" [disabled]="isFractionalCloseIntent()" (click)="marketHours.set('all_day_hours')">All Day</button>
             </div>
           </div>
         </div>
@@ -164,7 +270,17 @@
         </div>
       }
 
-      <!-- Stop loss form — shown only after entry is filled -->
+      @if (isEntryFilled() && isFractionalEntry()) {
+        <div class="fractional-warning">
+          <mat-icon>info</mat-icon>
+          <span>Fractional position — stop-loss orders are unavailable for fractional shares.</span>
+          <button mat-stroked-button color="warn" (click)="onCloseFractionalShare()">
+            Close fractional share
+          </button>
+        </div>
+      }
+
+      <!-- Stop loss form — shown only after entry is filled and whole-share -->
       @if (showStopLossSection()) {
         <div class="stop-loss-section">
           <div class="sl-header">
@@ -194,6 +310,33 @@
         </div>
       }
 
+      @if (!isStopLossIntent() && stopLossIntent()) {
+        <div class="protected-by-section">
+          <div class="protected-by-header">
+            <span>Protected by</span>
+            <strong>{{ stopLossIntent()?.status === OrderIntentStatus.RESTING ? 'RESTING' : (stopLossIntent()?.status | uppercase) }}</strong>
+          </div>
+          <div class="protected-by-row">
+            <span>Order type</span>
+            <strong>{{ stopLossIntent()?.orderType | uppercase }}</strong>
+          </div>
+          <div class="protected-by-row">
+            <span>Stop price</span>
+            <strong>{{ protectedStopPrice() | currency }}</strong>
+          </div>
+          <div class="protected-by-row">
+            <span>Quantity</span>
+            <strong>{{ stopLossIntent()?.quantity }}</strong>
+          </div>
+          @if (stopLossIntent()?.result?.orderId) {
+            <div class="protected-by-row">
+              <span>Broker order ID</span>
+              <strong class="mono">{{ stopLossIntent()?.result?.orderId }}</strong>
+            </div>
+          }
+        </div>
+      }
+
       <!-- Stop loss confirmation (below entry confirmation) -->
       @if (stopLossConfirmation()) {
         <div class="confirmation-section sl-confirmation">
@@ -220,8 +363,20 @@
         </div>
       }
 
+      @if (intent()?.result?.brokerOrder) {
+        <div class="broker-order-section">
+          <h3>Broker Order</h3>
+          <div class="broker-order-summary">
+            <span>ID: <strong>{{ intent()?.result?.brokerOrder?.id }}</strong></span>
+            <span>State: <strong>{{ intent()?.result?.brokerOrder?.state | uppercase }}</strong></span>
+            <span>Qty: <strong>{{ intent()?.result?.brokerOrder?.quantity }}</strong></span>
+          </div>
+          <pre class="preview-json">{{ intent()?.result?.brokerOrder | json }}</pre>
+        </div>
+      }
+
       <!-- Contextual preview -->
-      @if (!isEntryFilled() && preview()) {
+      @if ((intent()?.status === OrderIntentStatus.STAGED || intent()?.status === OrderIntentStatus.READY) && preview()) {
         <div class="preview-section">
           <h3>Order Preview</h3>
           <pre class="preview-json">{{ preview() | json }}</pre>
@@ -251,6 +406,10 @@
         }
 
         @if (isSubmitted()) {
+          <button mat-stroked-button color="primary" (click)="onReconcile()">
+            <mat-icon>sync</mat-icon>
+            Refresh from Broker
+          </button>
           <button mat-stroked-button color="primary" (click)="onModify()">
             <mat-icon>edit</mat-icon>
             Modify
@@ -266,6 +425,10 @@
             <mat-icon>hourglass_empty</mat-icon>
             <span>Submitting…</span>
           </div>
+          <button mat-stroked-button color="primary" (click)="onReconcile()">
+            <mat-icon>sync</mat-icon>
+            Refresh from Broker
+          </button>
         }
 
         @if (isStopLossSubmitted()) {
@@ -283,5 +446,6 @@
         }
       </div>
     </div>
+    }
   }
 </div>

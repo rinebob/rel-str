@@ -86,9 +86,32 @@ export class OrderQueueComponent {
     return this.collapsedGroups().has(label);
   }
 
-  /** Intents grouped by status category, in display order. Within each group, sorted by direction (buy first) then createdAt. */
+  /** Whether an intent is a stop loss linked to an entry position. */
+  isStopLoss(intent: OrderIntent): boolean {
+    return intent.sourceRef?.type === 'stop_loss';
+  }
+
+  /** Stop losses linked to a parent entry intent. */
+  linkedStopLosses(parentId: string): OrderIntent[] {
+    return this.intents().filter((intent) => this.isStopLoss(intent) && intent.sourceRef?.id === parentId);
+  }
+
+  /** Accepted orders that remain at Robinhood waiting for a trigger or price. */
+  isResting(intent: OrderIntent): boolean {
+    return intent.status === OrderIntentStatus.RESTING ||
+      (intent.status === OrderIntentStatus.SUBMITTED &&
+        (this.isStopLoss(intent) || intent.orderType !== 'market'));
+  }
+
+  /** Whether an entry has a linked stop-loss intent. */
+  hasLinkedStopLoss(parentId: string): boolean {
+    return this.linkedStopLosses(parentId).length > 0;
+  }
+
+  /** Intents grouped by status category, in display order. Every broker intent appears once. */
   groups = computed<StatusGroup[]>(() => {
     const all = this.intents();
+    const topLevel = all;
     const sortIntents = (intents: OrderIntent[]) =>
       [...intents].sort((a, b) => {
         // Buy before sell
@@ -100,37 +123,49 @@ export class OrderQueueComponent {
       {
         label: 'Staged',
         status: [OrderIntentStatus.STAGED, OrderIntentStatus.READY],
-        intents: sortIntents(all.filter((i) => i.status === OrderIntentStatus.STAGED || i.status === OrderIntentStatus.READY)),
+        intents: sortIntents(topLevel.filter((i) => i.status === OrderIntentStatus.STAGED || i.status === OrderIntentStatus.READY)),
         cssClass: 'group-staged',
       },
       {
         label: 'Submitting',
         status: [OrderIntentStatus.SUBMITTING],
-        intents: sortIntents(all.filter((i) => i.status === OrderIntentStatus.SUBMITTING)),
+        intents: sortIntents(topLevel.filter((i) => i.status === OrderIntentStatus.SUBMITTING)),
         cssClass: 'group-submitting',
       },
       {
         label: 'Submitted',
         status: [OrderIntentStatus.SUBMITTED],
-        intents: sortIntents(all.filter((i) => i.status === OrderIntentStatus.SUBMITTED)),
+        intents: sortIntents(topLevel.filter((i) => i.status === OrderIntentStatus.SUBMITTED && !this.isResting(i))),
         cssClass: 'group-submitted',
+      },
+      {
+        label: 'Queued',
+        status: [OrderIntentStatus.QUEUED],
+        intents: sortIntents(topLevel.filter((i) => i.status === OrderIntentStatus.QUEUED)),
+        cssClass: 'group-queued',
+      },
+      {
+        label: 'Resting',
+        status: [OrderIntentStatus.SUBMITTED],
+        intents: sortIntents(topLevel.filter((i) => this.isResting(i))),
+        cssClass: 'group-resting',
       },
       {
         label: 'Filled',
         status: [OrderIntentStatus.FILLED],
-        intents: sortIntents(all.filter((i) => i.status === OrderIntentStatus.FILLED)),
+        intents: sortIntents(topLevel.filter((i) => i.status === OrderIntentStatus.FILLED)),
         cssClass: 'group-filled',
       },
       {
         label: 'Failed',
         status: [OrderIntentStatus.FAILED],
-        intents: sortIntents(all.filter((i) => i.status === OrderIntentStatus.FAILED)),
+        intents: sortIntents(topLevel.filter((i) => i.status === OrderIntentStatus.FAILED)),
         cssClass: 'group-failed',
       },
       {
         label: 'Cancelled',
         status: [OrderIntentStatus.CANCELLED],
-        intents: sortIntents(all.filter((i) => i.status === OrderIntentStatus.CANCELLED)),
+        intents: sortIntents(topLevel.filter((i) => i.status === OrderIntentStatus.CANCELLED)),
         cssClass: 'group-cancelled',
       },
     ].filter((g) => g.intents.length > 0);
