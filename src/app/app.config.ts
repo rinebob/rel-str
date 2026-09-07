@@ -1,7 +1,8 @@
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { ApplicationConfig } from '@angular/core';
 import { PreloadAllModules, provideRouter, withPreloading } from '@angular/router';
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { httpTimeoutInterceptor } from './core/common/http-timeout.interceptor';
 
 import { APP_ROUTES } from './app.routes';
 import { initializeApp, provideFirebaseApp } from '@angular/fire/app';
@@ -23,7 +24,7 @@ export const appConfig: ApplicationConfig = {
     providers: [
         provideRouter(APP_ROUTES, withPreloading(PreloadAllModules)),
         provideAnimationsAsync(),
-        provideHttpClient(),
+        provideHttpClient(withInterceptors([httpTimeoutInterceptor])),
 
         // IMPORTANT: Initialize Firebase app BEFORE other AngularFire providers
         provideFirebaseApp(() => initializeApp(environment.firebase)),
