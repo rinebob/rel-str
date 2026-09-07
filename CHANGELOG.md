@@ -3,6 +3,11 @@
 ## [2026-09-07]
 
 ### Added
+- [Robinhood Trading UI] 176-212_FE-IMPL-SAVANT-TRADER: Add HTTP timeout interceptor for MCP calls (checkpoint)
+- [Robinhood Trading UI] 176-212_FE-IMPL-SAVANT-TRADER: Add QUEUED/RESTING states and broker order parsing (checkpoint)
+- [Robinhood Trading UI] 176-212_FE-IMPL-SAVANT-TRADER: Add broker position hydration and stop-loss reconciliation (checkpoint)
+- [Robinhood Trading UI] 176-212_FE-IMPL-SAVANT-TRADER: Add fractional close intent builder and utils (checkpoint)
+- [Robinhood Trading UI] 176-212_FE-IMPL-SAVANT-TRADER: Update order workspace UI for UAT (checkpoint)
 - [Robinhood Trading UI] 176-240_SHARED-IMPL-SAVANT-TRADER: Add isPlainObject utility and skipped field to broker contracts
 - [Robinhood Trading UI] 176-240_BE-IMPL-SAVANT-TRADER: Add Robinhood broker order and position normalizer
 - [Robinhood Trading UI] 176-240_BE-IMPL-SAVANT-TRADER: Add broker order and position normalizer/adapter tests
