@@ -26,6 +26,8 @@ export enum OrderIntentStatus {
   READY = 'ready',
   SUBMITTING = 'submitting',
   SUBMITTED = 'submitted',
+  QUEUED = 'queued',
+  RESTING = 'resting',
   FILLED = 'filled',
   FAILED = 'failed',
   CANCELLED = 'cancelled',
@@ -64,12 +66,36 @@ export interface OrderIntentError {
   retryable: boolean;
 }
 
+/** Broker-authoritative order snapshot returned after submission. */
+export interface BrokerOrderSnapshot {
+  id: string;
+  instrumentId?: string;
+  symbol: string;
+  side: string;
+  type: string;
+  state: string;
+  quantity?: string;
+  cumulativeQuantity?: string;
+  price?: string | null;
+  stopPrice?: string | null;
+  fees?: string;
+  dollarBasedAmount?: string | null;
+  timeInForce?: string;
+  marketHours?: string;
+  trigger?: string;
+  placedAgent?: string;
+  createdAt?: string;
+  lastTransactionAt?: string;
+  executions?: unknown[];
+}
+
 /** Result details after submission. */
 export interface OrderIntentResult {
   orderId?: string;
   state?: string;
   fillPrice?: string;
   filledQuantity?: string;
+  brokerOrder?: BrokerOrderSnapshot;
 }
 
 /** Tax lot selection for sell orders specifying lots. */
@@ -90,7 +116,7 @@ export interface BaseOrderIntent {
   status: OrderIntentStatus;
   accountNumber: string;
   side: 'buy' | 'sell';
-  orderType: 'market' | 'limit' | 'stop_market' | 'stop_limit';
+  orderType: 'market' | 'limit' | 'stop_market' | 'stop_limit' | 'stop_loss';
   timeInForce: 'gfd' | 'gtc';
   marketHours: 'regular_hours' | 'extended_hours' | 'all_day_hours';
   signalContext?: OrderIntentSignalContext;

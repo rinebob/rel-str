@@ -18,6 +18,7 @@ import { Injectable, inject } from '@angular/core';
 
 import { RobinhoodMcpObservationService } from './robinhood-mcp-observation.service';
 import {
+  BrokerOrderSnapshot,
   EquityOrderIntent,
   OrderIntentError,
   OrderIntentResult,
@@ -83,10 +84,11 @@ export class OrderExecutionService {
       const reviewResult = await this.mcpService.executeTool('review_equity_order', {
         args: this.buildReviewArgs(intent),
       });
-      if (!reviewResult.success) {
+      const reviewError = this.extractToolError(reviewResult);
+      if (reviewError) {
         return {
           success: false,
-          error: this.classifyError(reviewResult.error),
+          error: this.classifyError(reviewError),
         };
       }
     } catch (err) {
@@ -105,21 +107,32 @@ export class OrderExecutionService {
       const placeResult = await this.mcpService.executeTool('place_equity_order', {
         args: this.buildPlaceArgs(intent),
       });
-      if (!placeResult.success) {
+      const placeError = this.extractToolError(placeResult);
+      if (placeError) {
         return {
           success: false,
-          error: this.classifyError(placeResult.error),
+          error: this.classifyError(placeError),
         };
       }
-      const parsed = placeResult.parsed as Record<string, unknown> | undefined;
+      const parsed = (placeResult as { parsed?: unknown }).parsed;
+      const brokerOrder = this.parseBrokerOrder(parsed);
+      const direct = parsed && typeof parsed === 'object' ? parsed as Record<string, unknown> : undefined;
       return {
         success: true,
-        result: {
-          orderId: parsed?.['id'] as string | undefined,
-          state: parsed?.['state'] as string | undefined,
-          fillPrice: parsed?.['average_price'] as string | undefined,
-          filledQuantity: parsed?.['filled_quantity'] as string | undefined,
-        },
+        result: brokerOrder
+          ? {
+              orderId: brokerOrder.id,
+              state: brokerOrder.state,
+              fillPrice: brokerOrder.price ?? undefined,
+              filledQuantity: brokerOrder.cumulativeQuantity ?? brokerOrder.quantity,
+              brokerOrder,
+            }
+          : {
+              orderId: direct?.['id'] as string | undefined,
+              state: direct?.['state'] as string | undefined,
+              fillPrice: direct?.['average_price'] as string | undefined,
+              filledQuantity: direct?.['filled_quantity'] as string | undefined,
+            },
       };
     } catch (err) {
       return {
@@ -156,22 +169,28 @@ export class OrderExecutionService {
     }
   }
 
-  /** Reconcile a stuck SUBMITTING intent by querying the broker for actual state. */
-  async reconcileOrder(accountNumber: string, refId: string): Promise<ReconciliationResult> {
+  /** Reconcile an intent by broker order ID when available, otherwise by ref_id. */
+  async reconcileOrder(accountNumber: string, refId: string, orderId?: string): Promise<ReconciliationResult> {
     try {
-      const result = await this.mcpService.executeTool('get_equity_orders', {
-        args: { account_number: accountNumber },
-      });
+      const args: Record<string, string> = { account_number: accountNumber };
+      if (orderId) args['order_id'] = orderId;
+      const result = await this.mcpService.executeTool('get_equity_orders', { args });
       if (!result.success) {
         return { state: null, found: false };
       }
-      const parsed = result.parsed as { results?: Array<Record<string, unknown>> } | undefined;
-      const orders = parsed?.results ?? [];
-      // Find the order matching our ref_id
-      const match = orders.find((o) => o['ref_id'] === refId);
-      if (!match) {
-        return { state: null, found: false };
-      }
+      const parsed = result.parsed as Record<string, unknown> | undefined;
+      const data = parsed?.['data'];
+      const orders = Array.isArray(parsed?.['results'])
+        ? parsed['results'] as Array<Record<string, unknown>>
+        : data && typeof data === 'object' && Array.isArray((data as Record<string, unknown>)['results'])
+          ? (data as Record<string, unknown>)['results'] as Array<Record<string, unknown>>
+          : data && typeof data === 'object' && Array.isArray((data as Record<string, unknown>)['orders'])
+            ? (data as Record<string, unknown>)['orders'] as Array<Record<string, unknown>>
+            : [];
+      const match = orders.find((candidate) =>
+        orderId ? candidate['id'] === orderId : candidate['ref_id'] === refId,
+      );
+      if (!match) return { state: null, found: false };
       return {
         state: match['state'] as string | null,
         found: true,
@@ -190,10 +209,14 @@ export class OrderExecutionService {
       account_number: intent.accountNumber,
       symbol: intent.symbol,
       side: intent.side,
-      type: intent.orderType,
+      type: intent.orderType === 'stop_loss' ? 'stop_market' : intent.orderType,
     };
-    if (intent.quantity) args['quantity'] = intent.quantity;
-    else if (intent.dollarAmount) args['dollar_amount'] = intent.dollarAmount;
+    // Always send whole-share quantity — never dollar_amount (causes fractional shares,
+    // which can't have stop loss orders). The ticket component computes quantity from
+    // dollarAmount × price before submission.
+    if (intent.quantity) {
+      args['quantity'] = intent.quantity;
+    }
     if (intent.limitPrice) args['limit_price'] = intent.limitPrice;
     if (intent.stopPrice) args['stop_price'] = intent.stopPrice;
     if (intent.timeInForce) args['time_in_force'] = intent.timeInForce;
@@ -207,6 +230,59 @@ export class OrderExecutionService {
     const args = this.buildReviewArgs(intent);
     args['ref_id'] = intent.refId;
     return args;
+  }
+
+  /** Normalize the nested or direct broker order response into the persisted shape. */
+  private parseBrokerOrder(parsed: unknown): BrokerOrderSnapshot | null {
+    if (!parsed || typeof parsed !== 'object') return null;
+    const root = parsed as Record<string, unknown>;
+    const data = root['data'];
+    const dataRecord = data && typeof data === 'object' ? data as Record<string, unknown> : undefined;
+    const order = dataRecord?.['order'] ?? root['order'] ?? parsed;
+    if (!order || typeof order !== 'object') return null;
+    const value = order as Record<string, unknown>;
+    if (typeof value['id'] !== 'string' || typeof value['symbol'] !== 'string' || typeof value['state'] !== 'string') return null;
+    return {
+      id: value['id'],
+      instrumentId: value['instrument_id'] as string | undefined,
+      symbol: value['symbol'],
+      side: String(value['side'] ?? ''),
+      type: String(value['type'] ?? ''),
+      state: value['state'],
+      quantity: value['quantity'] as string | undefined,
+      cumulativeQuantity: value['cumulative_quantity'] as string | undefined,
+      price: value['price'] as string | null | undefined,
+      stopPrice: value['stop_price'] as string | null | undefined,
+      fees: value['fees'] as string | undefined,
+      dollarBasedAmount: value['dollar_based_amount'] as string | null | undefined,
+      timeInForce: value['time_in_force'] as string | undefined,
+      marketHours: value['market_hours'] as string | undefined,
+      trigger: value['trigger'] as string | undefined,
+      placedAgent: value['placed_agent'] as string | undefined,
+      createdAt: value['created_at'] as string | undefined,
+      lastTransactionAt: value['last_transaction_at'] as string | undefined,
+      executions: Array.isArray(value['executions']) ? value['executions'] : undefined,
+    };
+  }
+
+  /** Extract MCP tool errors embedded in an otherwise successful transport response. */
+  private extractToolError(result: {
+    success: boolean;
+    error?: string;
+    redacted?: unknown;
+  }): string | null {
+    if (!result.success) return result.error ?? 'Robinhood tool execution failed';
+    if (!result.redacted || typeof result.redacted !== 'object') return null;
+    const redacted = result.redacted as Record<string, unknown>;
+    if (redacted['isError'] !== true) return null;
+    const content = redacted['content'];
+    if (Array.isArray(content)) {
+      const text = content.find((item) =>
+        item && typeof item === 'object' && typeof (item as Record<string, unknown>)['text'] === 'string',
+      ) as Record<string, unknown> | undefined;
+      if (typeof text?.['text'] === 'string') return text['text'];
+    }
+    return 'Robinhood rejected the order request';
   }
 
   /** Classify a ToolExecutionFailure error string as retryable or non-retryable. */
