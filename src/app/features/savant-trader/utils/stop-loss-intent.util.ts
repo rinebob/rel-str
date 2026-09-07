@@ -6,6 +6,54 @@ import {
   OrderSource,
 } from '../services/order-intent.types';
 
+function formatIntentTimestamp(now: Date): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles',
+    year: '2-digit',
+    month: '2-digit',
+    day: '2-digit',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(now).reduce<Record<string, string>>((values, part) => {
+    values[part.type] = part.value;
+    return values;
+  }, {});
+  const hour = parts.hour === '24' ? '00' : parts.hour;
+  return `${parts.year}${parts.month}${parts.day}-${parts.weekday.toUpperCase()}-${hour}${parts.minute}PT`;
+}
+
+function buildStopLossId(symbol: string, now: Date): string {
+  return `${symbol.toUpperCase()}-STOP_LOSS-${formatIntentTimestamp(now)}`;
+}
+
+export function buildFractionalCloseIntent(
+  entry: OrderIntent,
+  symbol: string,
+  quantity: string,
+  accountNumber: string,
+  now = new Date(),
+): EquityOrderIntent {
+  return {
+    id: `${symbol.toUpperCase()}-CLOSE_FRACTIONAL-${formatIntentTimestamp(now)}`,
+    refId: crypto.randomUUID(),
+    source: OrderSource.POSITION_MANAGEMENT,
+    sourceRef: { type: 'fractional_close', id: entry.id },
+    status: OrderIntentStatus.STAGED,
+    accountNumber,
+    side: 'sell',
+    orderType: 'market',
+    timeInForce: 'gfd',
+    marketHours: 'regular_hours',
+    instrumentType: InstrumentType.EQUITY,
+    symbol,
+    quantity,
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+  };
+}
+
 export function buildStopLossIntent(
   entry: OrderIntent,
   symbol: string,
@@ -15,14 +63,14 @@ export function buildStopLossIntent(
   now = new Date(),
 ): EquityOrderIntent {
   return {
-    id: `${entry.id}-SL`,
+    id: buildStopLossId(symbol, now),
     refId: crypto.randomUUID(),
     source: OrderSource.POSITION_MANAGEMENT,
     sourceRef: { type: 'stop_loss', id: entry.id },
     status: OrderIntentStatus.STAGED,
     accountNumber,
     side: 'sell',
-    orderType: 'stop_market',
+    orderType: 'stop_loss',
     timeInForce: 'gtc',
     marketHours: 'regular_hours',
     instrumentType: InstrumentType.EQUITY,

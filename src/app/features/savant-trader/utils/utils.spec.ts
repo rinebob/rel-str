@@ -10,6 +10,7 @@ import {
   buildSymbolGroups,
   BuildSymbolGroupsInput,
   mapSymbolProfile,
+  formatTradingViewWatchlist,
 } from './utils';
 import { StSymbolSource } from '../services/types';
 
@@ -44,6 +45,31 @@ const mockProfile = (
   enabled: true,
   createdAt,
   ...overrides,
+});
+
+describe('formatTradingViewWatchlist', () => {
+  it('formats selected symbols with exchange prefixes', () => {
+    const profiles = [
+      mockProfile(TEST_CREATED_AT, { symbol: 'AAPL', exchange: 'NASDAQ' }),
+      mockProfile(TEST_CREATED_AT, { symbol: 'T', exchange: 'NYSE' }),
+    ];
+
+    expect(formatTradingViewWatchlist(['aapl', 'T'], profiles)).toEqual({
+      content: 'NASDAQ:AAPL,NYSE:T',
+      unresolved: [],
+    });
+  });
+
+  it('reports symbols without exchange metadata instead of exporting raw symbols', () => {
+    const result = formatTradingViewWatchlist(['AAPL', 'MSFT'], [
+      mockProfile(TEST_CREATED_AT, { symbol: 'AAPL', exchange: 'NASDAQ' }),
+    ]);
+
+    expect(result).toEqual({
+      content: 'NASDAQ:AAPL',
+      unresolved: ['MSFT'],
+    });
+  });
 });
 
 describe('matchesSignalFilter', () => {

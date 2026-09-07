@@ -101,6 +101,31 @@ export function mapSymbolProfile(raw: Record<string, unknown>): StSymbolProfile 
   };
 }
 
+/** Format a selected symbol list for TradingView's comma-separated TXT importer. */
+export function formatTradingViewWatchlist(
+  symbols: string[],
+  profiles: StSymbolProfile[],
+): { content: string; unresolved: string[] } {
+  const exchangeBySymbol = new Map(
+    profiles.map((profile) => [profile.symbol.toUpperCase(), profile.exchange?.trim().toUpperCase()]),
+  );
+  const unresolved: string[] = [];
+  const formatted: string[] = [];
+
+  for (const rawSymbol of symbols) {
+    const symbol = rawSymbol.trim().toUpperCase();
+    if (!symbol) continue;
+    const exchange = exchangeBySymbol.get(symbol);
+    if (!exchange) {
+      unresolved.push(symbol);
+      continue;
+    }
+    formatted.push(`${exchange}:${symbol}`);
+  }
+
+  return { content: formatted.join(','), unresolved };
+}
+
 /** Today in Pacific Time as YYYY-MM-DD. */
 export function todayDate(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date());
