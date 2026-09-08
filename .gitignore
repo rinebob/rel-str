@@ -83,3 +83,6 @@ bulk-import.enriched_XL-non-spy-qqq.json
 robinhood-support-request.md
 functions/scripts/options-contract-matrix.json
 functions/scripts/qqq-monthly.csv
+
+# RH MCP sampling output — contains redacted-sensitive account data
+scripts/verify/samples/
