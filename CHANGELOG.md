@@ -1,5 +1,17 @@
 # Changelog
 
+## [2026-09-08]
+
+### Added
+- [Robinhood Trading UI] 176-241_SHARED-IMPL-SAVANT-TRADER: Remove Trading Case contracts, add broker-types
+- [Robinhood Trading UI] 176-241_BE-IMPL-SAVANT-TRADER: Update broker normalizer/adapter for broker-types
+- [Robinhood Trading UI] 176-241_FE-IMPL-SAVANT-TRADER: Order Ticket write-once model + intent→ticket rename
+- [Robinhood Trading UI] 176-241_BE-CHORE-SAVANT-TRADER: Add broker MCP verification scripts
+- [Robinhood Trading UI] 176-241_DOCS-DOCS-SAVANT-TRADER: Add ADR-008, review docs, and update domain model
+
+### Changed
+- [Robinhood Trading UI] 176-241_CONFIG-CONFIG-SAVANT-TRADER: Remove trading-case alias, exclude scripts/verify
+
 ## [2026-09-07]
 
 ### Added
