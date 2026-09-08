@@ -14,7 +14,7 @@
 import type {
   RawSymbolPosition,
   RawSymbolPositionPage,
-} from '@trading-case/contracts';
+} from '../../../../shared/broker-types';
 import { isPlainObject } from '@robinhood-mcp/utils';
 import { BrokerAdapterError } from './broker-adapter-errors';
 import {

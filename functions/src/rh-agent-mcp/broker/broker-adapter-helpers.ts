@@ -6,8 +6,8 @@
  * and keeps each normalizer file focused on its entity.
  */
 
-import type { TradingInstrumentType } from '@trading-case/contracts';
-import { TradingInstrumentType as InstrumentType } from '@trading-case/contracts';
+import type { TradingInstrumentType } from '../../../../shared/broker-types';
+import { TradingInstrumentType as InstrumentType } from '../../../../shared/broker-types';
 
 /** Return the string if it's a string, otherwise undefined. */
 export function optionalString(value: unknown): string | undefined {

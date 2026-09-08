@@ -24,8 +24,7 @@ import type {
   RawBrokerOrder,
   BrokerOrderPage,
   RawSymbolPositionPage,
-  ReconciliationOptions,
-} from '@trading-case/contracts';
+} from '../../../../shared/broker-types';
 import {
   executeObservationTool,
   type ExecuteObservationToolOptions,
@@ -54,7 +53,7 @@ export interface BrokerOrderAdapterOptions {
   executorOptions?: ExecuteObservationToolOptions;
 }
 
-type ListPositionsOptions = Pick<ReconciliationOptions, 'cursor'> & BrokerOrderAdapterOptions;
+type ListPositionsOptions = { cursor?: string } & BrokerOrderAdapterOptions;
 
 // ---------------------------------------------------------------------------
 // Timeout helper
@@ -119,7 +118,7 @@ async function executeAdapterTool(
  */
 export async function listOrders(
   accountNumber: string,
-  options?: ReconciliationOptions & BrokerOrderAdapterOptions,
+  options?: { cursor?: string; brokerOrderId?: string; state?: string; symbol?: string; agent?: string } & BrokerOrderAdapterOptions,
 ): Promise<BrokerOrderPage> {
   const args: Record<string, unknown> = { account_number: accountNumber };
 

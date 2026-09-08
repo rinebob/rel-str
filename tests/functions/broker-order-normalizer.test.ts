@@ -3,10 +3,10 @@ import { describe, it } from 'node:test';
 
 import {
   TradingInstrumentType,
-} from '../../shared/trading-case-contracts.ts';
+} from '../../shared/broker-types.ts';
 import type {
   RawBrokerOrder,
-} from '../../shared/trading-case-contracts.ts';
+} from '../../shared/broker-types.ts';
 import {
   normalizeBrokerOrder,
   normalizeOrderListResponse,
