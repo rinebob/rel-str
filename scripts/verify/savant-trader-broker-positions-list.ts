@@ -12,7 +12,7 @@
  *   npx tsx scripts/verify/savant-trader-broker-positions-list.ts <accountNumber>
  */
 
-import { listPositions } from '../functions/src/rh-agent-mcp/broker/broker-order-adapter.ts';
+import { listPositions } from '../functions/src/rh-agent-mcp/broker/broker-order-adapter';
 
 async function main(): Promise<void> {
   const accountNumber = process.argv[2];

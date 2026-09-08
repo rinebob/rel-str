@@ -11,7 +11,7 @@
  *   npx tsx scripts/verify/savant-trader-broker-orders-get.ts <accountNumber> <brokerOrderId>
  */
 
-import { getOrder } from '../functions/src/rh-agent-mcp/broker/broker-order-adapter.ts';
+import { getOrder } from '../functions/src/rh-agent-mcp/broker/broker-order-adapter';
 
 async function main(): Promise<void> {
   const accountNumber = process.argv[2];

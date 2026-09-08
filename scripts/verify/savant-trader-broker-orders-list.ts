@@ -14,7 +14,7 @@
  * If accountNumber is omitted, the first account from get_accounts is used.
  */
 
-import { listOrders } from '../functions/src/rh-agent-mcp/broker/broker-order-adapter.ts';
+import { listOrders } from '../functions/src/rh-agent-mcp/broker/broker-order-adapter';
 
 async function main(): Promise<void> {
   const accountNumber = process.argv[2];
