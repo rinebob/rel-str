@@ -1,16 +1,13 @@
 /**
  * Savant Trader Order Execution Service
  *
- * Wraps RobinhoodMcpObservationService for equity order placement, cancellation,
- * and reconciliation. Does NOT handle user-facing confirmation dialogs — that is
- * the UI's responsibility. The review_equity_order preflight is a simulation, not
- * a confirmation gate.
+ * Wraps RobinhoodMcpObservationService for equity order placement and cancellation.
+ * Does NOT handle user-facing confirmation dialogs — that is the UI's responsibility.
+ * The review_equity_order preflight is a simulation, not a confirmation gate.
  *
  * submitEquityOrder: review_equity_order (simulation preflight) → place_equity_order
  *   with ref_id idempotency. Classifies errors as retryable vs non-retryable.
  * cancelEquityOrder: calls cancel_equity_order.
- * reconcileOrder: queries get_equity_orders with ref_id to determine actual state
- *   of a stuck SUBMITTING intent.
  *
  * Ref: IMPL-savant-trader-order-placement-fe.md §5 (Order execution service)
  */
@@ -19,29 +16,16 @@ import { Injectable, inject } from '@angular/core';
 import { RobinhoodMcpObservationService } from './robinhood-mcp-observation.service';
 import {
   BrokerOrderSnapshot,
-  EquityOrderIntent,
-  OrderIntentError,
-  OrderIntentResult,
-} from './order-intent.types';
+  EquityOrderTicket,
+  OrderTicketError,
+  OrderTicketResult,
+} from './order-ticket.types';
 
 /** Result of a submit attempt. */
 export interface ExecutionResult {
   success: boolean;
-  result?: OrderIntentResult;
-  error?: OrderIntentError;
-}
-
-/** Result of a reconciliation query. */
-export interface ReconciliationResult {
-  /** The actual state at the broker, or null if not found. */
-  state: string | null;
-  /** Whether the order was found at the broker. */
-  found: boolean;
-  /** Order ID if found. */
-  orderId?: string;
-  /** Fill details if filled. */
-  fillPrice?: string;
-  filledQuantity?: string;
+  result?: OrderTicketResult;
+  error?: OrderTicketError;
 }
 
 /** Known non-retryable error substrings from Robinhood. */
@@ -78,11 +62,11 @@ export class OrderExecutionService {
   private readonly mcpService = inject(RobinhoodMcpObservationService);
 
   /** Submit an equity order: preflight review, then place with ref_id idempotency. */
-  async submitEquityOrder(intent: EquityOrderIntent): Promise<ExecutionResult> {
+  async submitEquityOrder(ticket: EquityOrderTicket): Promise<ExecutionResult> {
     // Preflight: review_equity_order (simulation)
     try {
       const reviewResult = await this.mcpService.executeTool('review_equity_order', {
-        args: this.buildReviewArgs(intent),
+        args: this.buildReviewArgs(ticket),
       });
       const reviewError = this.extractToolError(reviewResult);
       if (reviewError) {
@@ -105,7 +89,7 @@ export class OrderExecutionService {
     // Place the real order with ref_id idempotency
     try {
       const placeResult = await this.mcpService.executeTool('place_equity_order', {
-        args: this.buildPlaceArgs(intent),
+        args: this.buildPlaceArgs(ticket),
       });
       const placeError = this.extractToolError(placeResult);
       if (placeError) {
@@ -169,66 +153,32 @@ export class OrderExecutionService {
     }
   }
 
-  /** Reconcile an intent by broker order ID when available, otherwise by ref_id. */
-  async reconcileOrder(accountNumber: string, refId: string, orderId?: string): Promise<ReconciliationResult> {
-    try {
-      const args: Record<string, string> = { account_number: accountNumber };
-      if (orderId) args['order_id'] = orderId;
-      const result = await this.mcpService.executeTool('get_equity_orders', { args });
-      if (!result.success) {
-        return { state: null, found: false };
-      }
-      const parsed = result.parsed as Record<string, unknown> | undefined;
-      const data = parsed?.['data'];
-      const orders = Array.isArray(parsed?.['results'])
-        ? parsed['results'] as Array<Record<string, unknown>>
-        : data && typeof data === 'object' && Array.isArray((data as Record<string, unknown>)['results'])
-          ? (data as Record<string, unknown>)['results'] as Array<Record<string, unknown>>
-          : data && typeof data === 'object' && Array.isArray((data as Record<string, unknown>)['orders'])
-            ? (data as Record<string, unknown>)['orders'] as Array<Record<string, unknown>>
-            : [];
-      const match = orders.find((candidate) =>
-        orderId ? candidate['id'] === orderId : candidate['ref_id'] === refId,
-      );
-      if (!match) return { state: null, found: false };
-      return {
-        state: match['state'] as string | null,
-        found: true,
-        orderId: match['id'] as string | undefined,
-        fillPrice: match['average_price'] as string | undefined,
-        filledQuantity: match['filled_quantity'] as string | undefined,
-      };
-    } catch {
-      return { state: null, found: false };
-    }
-  }
-
-  /** Build the args for review_equity_order from an EquityOrderIntent. */
-  private buildReviewArgs(intent: EquityOrderIntent): Record<string, unknown> {
+  /** Build the args for review_equity_order from an EquityOrderTicket. */
+  private buildReviewArgs(ticket: EquityOrderTicket): Record<string, unknown> {
     const args: Record<string, unknown> = {
-      account_number: intent.accountNumber,
-      symbol: intent.symbol,
-      side: intent.side,
-      type: intent.orderType === 'stop_loss' ? 'stop_market' : intent.orderType,
+      account_number: ticket.accountNumber,
+      symbol: ticket.symbol,
+      side: ticket.side,
+      type: ticket.orderType === 'stop_loss' ? 'stop_market' : ticket.orderType,
     };
     // Always send whole-share quantity — never dollar_amount (causes fractional shares,
     // which can't have stop loss orders). The ticket component computes quantity from
     // dollarAmount × price before submission.
-    if (intent.quantity) {
-      args['quantity'] = intent.quantity;
+    if (ticket.quantity) {
+      args['quantity'] = ticket.quantity;
     }
-    if (intent.limitPrice) args['limit_price'] = intent.limitPrice;
-    if (intent.stopPrice) args['stop_price'] = intent.stopPrice;
-    if (intent.timeInForce) args['time_in_force'] = intent.timeInForce;
-    if (intent.marketHours) args['market_hours'] = intent.marketHours;
-    if (intent.taxLots) args['tax_lots'] = intent.taxLots;
+    if (ticket.limitPrice) args['limit_price'] = ticket.limitPrice;
+    if (ticket.stopPrice) args['stop_price'] = ticket.stopPrice;
+    if (ticket.timeInForce) args['time_in_force'] = ticket.timeInForce;
+    if (ticket.marketHours) args['market_hours'] = ticket.marketHours;
+    if (ticket.taxLots) args['tax_lots'] = ticket.taxLots;
     return args;
   }
 
-  /** Build the args for place_equity_order from an EquityOrderIntent. */
-  private buildPlaceArgs(intent: EquityOrderIntent): Record<string, unknown> {
-    const args = this.buildReviewArgs(intent);
-    args['ref_id'] = intent.refId;
+  /** Build the args for place_equity_order from an EquityOrderTicket. */
+  private buildPlaceArgs(ticket: EquityOrderTicket): Record<string, unknown> {
+    const args = this.buildReviewArgs(ticket);
+    args['ref_id'] = ticket.refId;
     return args;
   }
 
@@ -286,7 +236,7 @@ export class OrderExecutionService {
   }
 
   /** Classify a ToolExecutionFailure error string as retryable or non-retryable. */
-  private classifyError(error: string): OrderIntentError {
+  private classifyError(error: string): OrderTicketError {
     const lower = error.toLowerCase();
     for (const pattern of NON_RETRYABLE_PATTERNS) {
       if (lower.includes(pattern)) {
@@ -299,7 +249,7 @@ export class OrderExecutionService {
       }
     }
     // Default: unknown errors are retryable (safer — user can decide).
-    // Callers (OrderStagingStore) MUST implement retry limits to prevent infinite loops.
+    // Callers (OrderTicketStore) MUST implement retry limits to prevent infinite loops.
     return { message: error, retryable: true };
   }
 

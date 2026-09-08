@@ -2,7 +2,7 @@
  * Savant Trader Signal Order Component
  *
  * Master-detail layout for the signal order screen.
- * Left panel: OrderQueueComponent (staged intents grouped by status).
+ * Left panel: OrderQueueComponent (staged tickets grouped by status).
  * Right panel: ticket placeholder (FE-C1b will replace with OrderTicketComponent).
  *
  * URL: /signal-order
@@ -26,18 +26,21 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
-import { OrderStagingStore } from '../../stores/order-staging.store';
+import { OrderTicketStore } from '../../stores/order-ticket.store';
 import { OrderQueueComponent } from '../../components/order-queue/order-queue.component';
 import { OrderTicketComponent } from '../../components/order-ticket/order-ticket.component';
 import { TradingConfigDialogComponent } from '../../components/trading-config-dialog/trading-config-dialog.component';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { TradingConfigService } from '../../services/trading-config.service';
 import { EquityPriceService } from '../../services/equity-price.service';
-import { AccountSnapshot, PortfolioService } from '../../services/portfolio.service';
+import { AccountSnapshot, BrokerPosition, PortfolioService } from '../../services/portfolio.service';
 import { RobinhoodMcpObservationService } from '../../services/robinhood-mcp-observation.service';
-import { OrderIntentService } from '../../services/order-intent.service';
-import { OrderIntent, TradingConfig, InstrumentType } from '../../services/order-intent.types';
+import { OrderExecutionService } from '../../services/order-execution.service';
+import { OrderTicketService } from '../../services/order-ticket.service';
+import { OrderTicket, OrderTicketStatus, OrderSource, TradingConfig, InstrumentType } from '../../services/order-ticket.types';
+import { BrokerOrderSnapshot } from '../../services/order-ticket.types';
 import { formatError } from '../../utils/format-error.util';
+import { parseEquityOrdersResponse, findActiveStopLoss } from '../../utils/broker-order.util';
 
 @Component({
   selector: 'app-signal-order',
@@ -47,32 +50,77 @@ import { formatError } from '../../utils/format-error.util';
   styleUrl: './order.component.scss',
 })
 export class OrderComponent implements OnInit {
-  readonly stagingStore = inject(OrderStagingStore);
+  readonly stagingStore = inject(OrderTicketStore);
   readonly uiState = inject(UiStateService);
   private readonly router = inject(Router);
   private readonly configService = inject(TradingConfigService);
   private readonly priceService = inject(EquityPriceService);
   private readonly portfolioService = inject(PortfolioService);
-  private readonly intentService = inject(OrderIntentService);
+  private readonly ticketService = inject(OrderTicketService);
   private readonly mcpService = inject(RobinhoodMcpObservationService);
+  private readonly orderExecution = inject(OrderExecutionService);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
 
-  /** Currently selected intent id. */
-  readonly selectedIntentId = signal<string | null>(null);
+  /** Currently selected ticket id. */
+  readonly selectedTicketId = signal<string | null>(null);
 
-  /** All intents from the store. */
-  readonly allIntents = computed(() => Object.values(this.stagingStore.intents()));
+  /** Open RH positions — shown so the user can place protective stops. */
+  readonly brokerPositions = signal<BrokerPosition[]>([]);
 
-  /** The currently selected intent object. */
-  readonly selectedIntent = computed<OrderIntent | null>(() => {
-    const id = this.selectedIntentId();
-    if (!id) return null;
-    return this.stagingStore.intents()[id] ?? null;
+  /** RH orders keyed by order ID — authoritative for order lifecycle state.
+   *  Fetched on page load and after any submit/cancel/stop action. */
+  readonly rhOrders = signal<Record<string, BrokerOrderSnapshot>>({});
+
+  /** RH orders as a list (for the order-ticket to search for stops by symbol). */
+  readonly rhOrdersList = computed<BrokerOrderSnapshot[]>(() => Object.values(this.rhOrders()));
+
+  /**
+   * All signal entries for display, merged with RH order state.
+   *
+   * Local docs provide provenance (signal context, refId). RH orders provide
+   * authoritative lifecycle state (queued, filled, cancelled, etc.). For each
+   * local doc that has a rhOrderId, the status is overridden from the RH order.
+   *
+   * Open RH positions are also shown so the user can place stops on them.
+   * When a broker position exists for a symbol, local filled entries for that
+   * symbol are suppressed to avoid duplicate rows.
+   */
+  readonly allTickets = computed<OrderTicket[]>(() => {
+    const positionSymbols = new Set(
+      this.brokerPositions()
+        .filter((p) => Number(p.quantity) > 0)
+        .map((p) => p.symbol),
+    );
+    const rhOrders = this.rhOrders();
+
+    // Merge local docs with RH order state
+    const localEntries = Object.values(this.stagingStore.tickets())
+      .map((ticket) => this.mergeWithRhOrder(ticket, rhOrders))
+      .filter((ticket) => !this.isSupported(ticket, rhOrders))
+      .filter((ticket) => {
+        // Suppress local filled entries when a broker position already
+        // represents that symbol. Non-filled entries are always kept.
+        if (ticket.status !== OrderTicketStatus.FILLED) return true;
+        if (ticket.instrumentType !== InstrumentType.EQUITY && ticket.instrumentType !== InstrumentType.ETF) return true;
+        return !positionSymbols.has(ticket.symbol);
+      });
+
+    const positionRows = this.brokerPositions()
+      .filter((p) => Number(p.quantity) > 0)
+      .map((p) => this.positionToTicket(p));
+    return [...localEntries, ...positionRows];
   });
 
-  /** Total intent count for header. */
-  readonly intentCount = computed(() => this.allIntents().length);
+  /** The currently selected ticket object (merged with RH order state). */
+  readonly selectedTicket = computed<OrderTicket | null>(() => {
+    const id = this.selectedTicketId();
+    if (!id) return null;
+    return this.allTickets().find((i) => i.id === id) ?? null;
+  });
+
+  /** Total ticket count for header. */
+  readonly ticketCount = computed(() => this.allTickets().length);
 
   /** Loading state from store. */
   readonly loading = computed(() => this.stagingStore.loading());
@@ -136,43 +184,30 @@ export class OrderComponent implements OnInit {
 
   ngOnInit(): void {
     this.uiState.setFullscreen(true);
-    this.intentService.migrateLegacyStopLossIntent().subscribe({
-      next: () => this.intentService.recoverKnownKmemFractionalClose().subscribe({
-        next: () => this.stagingStore.loadIntents(),
-        error: (err) => {
-          console.error('[OrderComponent] KMEM fractional-close recovery failed:', err);
-          this.stagingStore.loadIntents();
-        },
-      }),
-      error: (err) => {
-        console.error('[OrderComponent] Legacy stop-loss migration failed:', err);
-        this.stagingStore.loadIntents();
-      },
-    });
+    this.stagingStore.loadTickets();
     this.loadConfig();
   }
 
   constructor() {
-    // Fetch prices when intents are loaded or change
+    // Fetch prices when tickets are loaded or change
     effect(() => {
-      const intents = this.allIntents();
+      const tickets = this.allTickets();
       untracked(() => {
-        if (intents.length > 0) {
+        if (tickets.length > 0) {
           this.fetchPrices();
-          if (!this.selectedIntentId()) {
-            this.selectedIntentId.set(intents[0].id);
+          if (!this.selectedTicketId()) {
+            this.selectedTicketId.set(tickets[0].id);
           }
         }
       });
     });
 
-    // Load the canonical account snapshot when the configured account changes.
-    // Do not depend on order counts: hydration itself updates those counts and
-    // would otherwise create an account-fetch/hydration infinite loop.
+    // Load the canonical account snapshot and RH orders when the configured account changes.
     effect(() => {
       const accountNumber = this.accountNumber();
       if (accountNumber) {
         this.fetchAccountSnapshot(accountNumber);
+        this.refreshRhOrders(accountNumber);
       }
     });
   }
@@ -195,16 +230,32 @@ export class OrderComponent implements OnInit {
       const snapshot = await this.portfolioService.getSnapshot(accountNumber, this.defaultDollarAmount());
       this.accountSnapshot.set(snapshot);
       if (snapshot) {
-        this.stagingStore.hydrateBrokerPositions(accountNumber, snapshot.positions);
+        this.brokerPositions.set(snapshot.positions);
       }
     } catch (err) {
       console.error('[OrderComponent] Failed to fetch account snapshot:', err);
     }
   }
 
+  /** Fetch RH orders and update the rhOrders signal. Called on page load
+   *  and after any submit/cancel/stop action to refresh order state. */
+  async refreshRhOrders(accountNumber?: string): Promise<void> {
+    const acct = accountNumber ?? this.accountNumber();
+    if (!acct) return;
+    try {
+      const result = await this.mcpService.executeTool('get_equity_orders', {
+        args: { account_number: acct },
+      });
+      if (!result.success) return;
+      this.rhOrders.set(parseEquityOrdersResponse(result.parsed));
+    } catch (err) {
+      console.error('[OrderComponent] Failed to fetch RH orders:', err);
+    }
+  }
+
   /** Fetch prices for all unique symbols in the queue. */
   private fetchPrices(): void {
-    const symbols = this.allIntents()
+    const symbols = this.allTickets()
       .filter((i) => i.instrumentType === InstrumentType.EQUITY || i.instrumentType === InstrumentType.ETF)
       .map((i) => i.symbol)
       .filter((s): s is string => !!s);
@@ -214,23 +265,32 @@ export class OrderComponent implements OnInit {
   }
 
   /** Handle row selection from the queue. */
-  onIntentSelected(id: string): void {
-    this.selectedIntentId.set(id);
+  onTicketSelected(id: string): void {
+    this.selectedTicketId.set(id);
   }
 
   /** Handle batch remove from the queue. */
-  onRemoveIntents(ids: string[]): void {
+  onRemoveTickets(ids: string[]): void {
     for (const id of ids) {
-      this.stagingStore.removeIntent(id);
+      this.stagingStore.removeTicket(id);
     }
-    if (this.selectedIntentId() && ids.includes(this.selectedIntentId()!)) {
-      this.selectedIntentId.set(null);
+    if (this.selectedTicketId() && ids.includes(this.selectedTicketId()!)) {
+      this.selectedTicketId.set(null);
     }
   }
 
-  /** Price for the currently selected intent as a reactive computed signal. */
+  /** Refresh RH orders and positions after a ticket action. */
+  onRefreshRequested(): void {
+    const acct = this.accountNumber();
+    if (acct) {
+      this.refreshRhOrders(acct);
+      this.fetchAccountSnapshot(acct);
+    }
+  }
+
+  /** Price for the currently selected ticket as a reactive computed signal. */
   readonly selectedPrice = computed<number | null>(() => {
-    const i = this.selectedIntent();
+    const i = this.selectedTicket();
     if (!i) return null;
     if (i.instrumentType !== InstrumentType.EQUITY && i.instrumentType !== InstrumentType.ETF) return null;
     const p = this.prices()[i.symbol.toUpperCase()];
@@ -296,5 +356,91 @@ export class OrderComponent implements OnInit {
   /** Navigate back to the signal review page. */
   goBack(): void {
     this.router.navigate(['/signal-review']);
+  }
+
+  /**
+   * Merge a local Signal Entry Record with its RH order state.
+   *
+   * If the local doc has a rhOrderId and the RH order is found, the status
+   * and result fields are overridden from RH. This is a read-only merge for
+   * display — the local Firestore doc is never updated.
+   */
+  private mergeWithRhOrder(ticket: OrderTicket, rhOrders: Record<string, BrokerOrderSnapshot>): OrderTicket {
+    const orderId = ticket.result?.orderId;
+    if (!orderId) return ticket;
+    const rhOrder = rhOrders[orderId];
+    if (!rhOrder) return ticket;
+
+    const brokerState = rhOrder.state.toLowerCase();
+    let mergedStatus: OrderTicketStatus;
+    switch (brokerState) {
+      case 'filled': mergedStatus = OrderTicketStatus.FILLED; break;
+      case 'cancelled':
+      case 'canceled': mergedStatus = OrderTicketStatus.CANCELLED; break;
+      case 'failed':
+      case 'rejected':
+      case 'voided': mergedStatus = OrderTicketStatus.FAILED; break;
+      case 'queued': mergedStatus = OrderTicketStatus.QUEUED; break;
+      case 'confirmed':
+      case 'partially_filled':
+        mergedStatus = ticket.orderType !== 'market'
+          ? OrderTicketStatus.RESTING
+          : OrderTicketStatus.SUBMITTED;
+        break;
+      default: mergedStatus = OrderTicketStatus.SUBMITTED; break;
+    }
+
+    return {
+      ...ticket,
+      status: mergedStatus,
+      result: {
+        ...ticket.result,
+        orderId: rhOrder.id,
+        state: rhOrder.state,
+        fillPrice: rhOrder.price ?? ticket.result?.fillPrice,
+        filledQuantity: rhOrder.cumulativeQuantity ?? rhOrder.quantity ?? ticket.result?.filledQuantity,
+        brokerOrder: rhOrder,
+      },
+    };
+  }
+
+  /**
+   * An entry is "supported" when the entry order is filled AND a protective
+   * stop has been placed at RH. Supported entries graduate off this page.
+   *
+   * Stops are detected from RH orders — a stop order (type stop_market or
+   * stop_limit, side sell) for the same symbol that is not cancelled/failed.
+   */
+  private isSupported(ticket: OrderTicket, rhOrders: Record<string, BrokerOrderSnapshot>): boolean {
+    if (ticket.status !== OrderTicketStatus.FILLED) return false;
+    if (ticket.instrumentType !== InstrumentType.EQUITY && ticket.instrumentType !== InstrumentType.ETF) return false;
+    return findActiveStopLoss(rhOrders, ticket.symbol) !== null;
+  }
+
+  /** Convert a broker position to a display row for the queue. */
+  private positionToTicket(p: BrokerPosition): OrderTicket {
+    const id = `broker-position-${p.symbol}`;
+    return {
+      id,
+      refId: id,
+      source: OrderSource.POSITION_MANAGEMENT,
+      sourceRef: { type: 'broker_position', id: p.symbol },
+      status: OrderTicketStatus.FILLED,
+      accountNumber: this.accountNumber(),
+      side: 'buy',
+      orderType: 'market',
+      timeInForce: 'gtc',
+      marketHours: 'regular_hours',
+      instrumentType: InstrumentType.EQUITY,
+      symbol: p.symbol,
+      quantity: p.quantity,
+      result: {
+        state: 'filled',
+        fillPrice: p.averageBuyPrice,
+        filledQuantity: p.quantity,
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    } as OrderTicket;
   }
 }

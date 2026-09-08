@@ -6,20 +6,21 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { of } from 'rxjs';
 
 import { OrderComponent } from './order.component';
-import { OrderStagingStore } from '../../stores/order-staging.store';
+import { OrderTicketStore } from '../../stores/order-ticket.store';
 import { TradingConfigService } from '../../services/trading-config.service';
 import { EquityPriceService } from '../../services/equity-price.service';
 import { PortfolioService } from '../../services/portfolio.service';
 import { RobinhoodMcpObservationService } from '../../services/robinhood-mcp-observation.service';
+import { OrderTicketService } from '../../services/order-ticket.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import {
-  OrderIntent,
-  OrderIntentStatus,
+  OrderTicket,
+  OrderTicketStatus,
   OrderSource,
   InstrumentType,
-} from '../../services/order-intent.types';
+} from '../../services/order-ticket.types';
 
-function makeIntent(id: string, symbol: string, status: OrderIntentStatus = OrderIntentStatus.STAGED): OrderIntent {
+function makeTicket(id: string, symbol: string, status: OrderTicketStatus = OrderTicketStatus.STAGED): OrderTicket {
   return {
     id,
     refId: `ref-${id}`,
@@ -35,7 +36,7 @@ function makeIntent(id: string, symbol: string, status: OrderIntentStatus = Orde
     quantity: '100',
     createdAt: '2026-08-25T12:00:00Z',
     updatedAt: '2026-08-25T12:00:00Z',
-  } as OrderIntent;
+  } as OrderTicket;
 }
 
 describe('OrderComponent', () => {
@@ -47,13 +48,11 @@ describe('OrderComponent', () => {
 
   beforeEach(async () => {
     storeMock = {
-      intents: signal({}),
-      activeIntents: signal([]),
-      terminalIntents: signal([]),
+      tickets: signal({}),
       loading: signal(false),
       error: signal(null),
-      loadIntents: jasmine.createSpy('loadIntents'),
-      removeIntent: jasmine.createSpy('removeIntent'),
+      loadTickets: jasmine.createSpy('loadTickets'),
+      removeTicket: jasmine.createSpy('removeTicket'),
     };
 
     uiStateMock = {
@@ -68,13 +67,14 @@ describe('OrderComponent', () => {
       imports: [OrderComponent],
       providers: [
         provideNoopAnimations(),
-        { provide: OrderStagingStore, useValue: storeMock },
+        { provide: OrderTicketStore, useValue: storeMock },
         { provide: UiStateService, useValue: uiStateMock },
         { provide: Router, useValue: routerMock },
         { provide: TradingConfigService, useValue: { loadConfig: jasmine.createSpy('loadConfig').and.returnValue(of(null)) } },
         { provide: EquityPriceService, useValue: { prices: signal({}), loading: signal(false), fetchPrices: jasmine.createSpy('fetchPrices') } },
         { provide: PortfolioService, useValue: { getSnapshot: jasmine.createSpy('getSnapshot').and.returnValue(Promise.resolve(null)) } },
         { provide: RobinhoodMcpObservationService, useValue: { reauthenticate: jasmine.createSpy('reauthenticate') } },
+        { provide: OrderTicketService, useValue: {} },
         { provide: MatDialog, useValue: { open: jasmine.createSpy('open').and.returnValue({ afterClosed: () => of(false) }) } },
         { provide: MatSnackBar, useValue: { open: jasmine.createSpy('open') } },
       ],
@@ -88,71 +88,71 @@ describe('OrderComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('loads intents and sets fullscreen on init', () => {
+  it('loads tickets and sets fullscreen on init', () => {
     component.ngOnInit();
 
-    expect(storeMock.loadIntents).toHaveBeenCalledTimes(1);
+    expect(storeMock.loadTickets).toHaveBeenCalledTimes(1);
     expect(uiStateMock.setFullscreen).toHaveBeenCalledWith(true);
   });
 
-  it('computes allIntents from store', () => {
-    const intent = makeIntent('1', 'AAPL');
-    storeMock.intents.set({ '1': intent });
+  it('computes allTickets from store', () => {
+    const ticket = makeTicket('1', 'AAPL');
+    storeMock.tickets.set({ '1': ticket });
     fixture.detectChanges();
 
-    expect(component.allIntents().length).toBe(1);
-    expect(component.allIntents()[0].id).toBe('1');
+    expect(component.allTickets().length).toBe(1);
+    expect(component.allTickets()[0].id).toBe('1');
   });
 
-  it('computes intentCount from allIntents', () => {
-    storeMock.intents.set({
-      '1': makeIntent('1', 'AAPL'),
-      '2': makeIntent('2', 'NVDA'),
+  it('computes ticketCount from allTickets', () => {
+    storeMock.tickets.set({
+      '1': makeTicket('1', 'AAPL'),
+      '2': makeTicket('2', 'NVDA'),
     });
     fixture.detectChanges();
 
-    expect(component.intentCount()).toBe(2);
+    expect(component.ticketCount()).toBe(2);
   });
 
-  it('sets selectedIntentId on selection', () => {
-    component.onIntentSelected('abc-123');
-    expect(component.selectedIntentId()).toBe('abc-123');
+  it('sets selectedTicketId on selection', () => {
+    component.onTicketSelected('abc-123');
+    expect(component.selectedTicketId()).toBe('abc-123');
   });
 
-  it('computes selectedIntent from store', () => {
-    const intent = makeIntent('1', 'AAPL');
-    storeMock.intents.set({ '1': intent });
-    component.selectedIntentId.set('1');
+  it('computes selectedTicket from store', () => {
+    const ticket = makeTicket('1', 'AAPL');
+    storeMock.tickets.set({ '1': ticket });
+    component.selectedTicketId.set('1');
     fixture.detectChanges();
 
-    expect(component.selectedIntent()?.id).toBe('1');
+    expect(component.selectedTicket()?.id).toBe('1');
   });
 
-  it('returns null selectedIntent when no selection', () => {
-    expect(component.selectedIntent()).toBeNull();
+  it('returns null selectedTicket when no selection', () => {
+    expect(component.selectedTicket()).toBeNull();
   });
 
-  it('calls removeIntent for each id in batch remove', () => {
-    component.onRemoveIntents(['1', '2', '3']);
+  it('calls removeTicket for each id in batch remove', () => {
+    component.onRemoveTickets(['1', '2', '3']);
 
-    expect(storeMock.removeIntent).toHaveBeenCalledTimes(3);
-    expect(storeMock.removeIntent).toHaveBeenCalledWith('1');
-    expect(storeMock.removeIntent).toHaveBeenCalledWith('2');
-    expect(storeMock.removeIntent).toHaveBeenCalledWith('3');
+    expect(storeMock.removeTicket).toHaveBeenCalledTimes(3);
+    expect(storeMock.removeTicket).toHaveBeenCalledWith('1');
+    expect(storeMock.removeTicket).toHaveBeenCalledWith('2');
+    expect(storeMock.removeTicket).toHaveBeenCalledWith('3');
   });
 
-  it('clears selection when selected intent is removed', () => {
-    component.selectedIntentId.set('2');
-    component.onRemoveIntents(['1', '2']);
+  it('clears selection when selected ticket is removed', () => {
+    component.selectedTicketId.set('2');
+    component.onRemoveTickets(['1', '2']);
 
-    expect(component.selectedIntentId()).toBeNull();
+    expect(component.selectedTicketId()).toBeNull();
   });
 
-  it('does not clear selection when removed intents do not include selection', () => {
-    component.selectedIntentId.set('3');
-    component.onRemoveIntents(['1', '2']);
+  it('does not clear selection when removed tickets do not include selection', () => {
+    component.selectedTicketId.set('3');
+    component.onRemoveTickets(['1', '2']);
 
-    expect(component.selectedIntentId()).toBe('3');
+    expect(component.selectedTicketId()).toBe('3');
   });
 
   it('renders scoreboard values from the canonical account snapshot', () => {
@@ -179,18 +179,18 @@ describe('OrderComponent', () => {
     expect(routerMock.navigate).toHaveBeenCalledWith(['/signal-review']);
   });
 
-  it('selects the first loaded intent automatically', () => {
-    storeMock.intents.set({ '1': makeIntent('1', 'AAPL') });
+  it('selects the first loaded ticket automatically', () => {
+    storeMock.tickets.set({ '1': makeTicket('1', 'AAPL') });
     fixture.detectChanges();
 
-    expect(component.selectedIntentId()).toBe('1');
+    expect(component.selectedTicketId()).toBe('1');
     expect(fixture.nativeElement.querySelector('.ticket-content').textContent).toContain('AAPL');
   });
 
-  it('shows ticket content when an intent is selected', () => {
-    const intent = makeIntent('1', 'AAPL');
-    storeMock.intents.set({ '1': intent });
-    component.selectedIntentId.set('1');
+  it('shows ticket content when an ticket is selected', () => {
+    const ticket = makeTicket('1', 'AAPL');
+    storeMock.tickets.set({ '1': ticket });
+    component.selectedTicketId.set('1');
     fixture.detectChanges();
 
     const ticketContent = fixture.nativeElement.querySelector('.ticket-content');
@@ -208,13 +208,13 @@ describe('OrderComponent', () => {
   });
 
   it('shows error state when store has error', () => {
-    storeMock.error.set('Failed to load intents');
+    storeMock.error.set('Failed to load tickets');
     fixture.detectChanges();
 
     const error = fixture.nativeElement.querySelector('.error-state');
     expect(error).toBeTruthy();
     expect(error.textContent).toContain('Failed to load orders');
-    expect(error.textContent).toContain('Failed to load intents');
+    expect(error.textContent).toContain('Failed to load tickets');
   });
 });
 

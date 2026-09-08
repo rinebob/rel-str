@@ -2,7 +2,7 @@
  * Order Ticket Component
  *
  * Right panel of the signal order screen. Full order configuration for the
- * selected intent. All Robinhood parameters editable. Live preview of what
+ * selected ticket. All Robinhood parameters editable. Live preview of what
  * will be sent. Submit with confirmation dialog. Execution status feedback
  * with error display and retry. Cancel for submitted orders.
  *
@@ -28,19 +28,24 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { firstValueFrom } from 'rxjs';
 
-import { OrderStagingStore } from '../../stores/order-staging.store';
+import { OrderTicketStore } from '../../stores/order-ticket.store';
+import { OrderExecutionService } from '../../services/order-execution.service';
 import { OrderConfirmDialogComponent } from '../order-confirm-dialog/order-confirm-dialog.component';
 import { evaluateOrderGuardrails, GuardrailContext } from '../../utils/order-guardrails.util';
 import {
-  buildFractionalCloseIntent,
-  buildStopLossIntent,
-} from '../../utils/stop-loss-intent.util';
+  buildFractionalCloseTicket,
+  buildStopLossTicket,
+} from '../../utils/stop-loss-ticket.util';
+import { findActiveStopLoss } from '../../utils/broker-order.util';
 import {
-  OrderIntent,
-  OrderIntentStatus,
+  OrderTicket,
+  OrderTicketStatus,
+  OrderSource,
   InstrumentType,
   TradingConfig,
-} from '../../services/order-intent.types';
+  EquityOrderTicket,
+  BrokerOrderSnapshot,
+} from '../../services/order-ticket.types';
 import {
   computePositionSize,
   computeUnits,
@@ -62,14 +67,15 @@ import {
   styleUrl: './order-ticket.component.scss',
 })
 export class OrderTicketComponent {
-  private readonly stagingStore = inject(OrderStagingStore);
+  private readonly stagingStore = inject(OrderTicketStore);
+  private readonly orderExecution = inject(OrderExecutionService);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
 
-  /** The selected intent to configure. */
-  intent = input<OrderIntent | null>(null);
+  /** The selected ticket to configure. */
+  ticket = input<OrderTicket | null>(null);
 
-  /** Current price for the intent's symbol (from price service). */
+  /** Current price for the ticket's symbol (from price service). */
   price = input<number | null>(null);
 
   /** Trading config (passed from parent page). */
@@ -78,10 +84,24 @@ export class OrderTicketComponent {
   /** Guardrail context from the page (current exposure, units, cash). */
   guardrailContext = input<GuardrailContext | null>(null);
 
-  /** Emitted when a new position-management intent is staged for ticket editing. */
-  readonly intentStaged = output<string>();
+  /** RH orders from the parent page — used to find stop-loss orders by symbol. */
+  rhOrders = input<BrokerOrderSnapshot[]>([]);
 
-  /** Local editable copy of the intent fields. */
+  /** RH orders keyed by order ID for efficient lookup. */
+  readonly rhOrdersMap = computed<Record<string, BrokerOrderSnapshot>>(() => {
+    const map: Record<string, BrokerOrderSnapshot> = {};
+    for (const o of this.rhOrders()) map[o.id] = o;
+    return map;
+  });
+
+  /** Emitted when a new position-management ticket is staged for ticket editing. */
+  readonly ticketStaged = output<string>();
+
+  /** Emitted after any RH action (cancel, stop, fractional close) so the
+   *  parent page can refresh RH orders and positions. */
+  readonly refreshRequested = output<void>();
+
+  /** Local editable copy of the ticket fields. */
   readonly orderType = signal<'market' | 'limit' | 'stop_market' | 'stop_limit'>('market');
   readonly quantity = signal<string>('');
   readonly limitPrice = signal<string>('');
@@ -93,11 +113,11 @@ export class OrderTicketComponent {
   readonly stopLossPrice = signal<string>('');
   readonly stopLossPercent = signal<string>(String(DEFAULT_STOP_PERCENT));
 
-  /** Tracks which intent the stop loss was last initialized for. */
-  private lastStopLossIntentId: string | null = null;
+  /** Tracks which ticket the stop loss was last initialized for. */
+  private lastStopLossTicketId: string | null = null;
 
   /** Expose enum for template. */
-  readonly OrderIntentStatus = OrderIntentStatus;
+  readonly OrderTicketStatus = OrderTicketStatus;
 
   /** Default dollar amount from config. */
   readonly defaultDollarAmount = computed(() => this.tradingConfig()?.defaultDollarAmount ?? 100);
@@ -127,23 +147,23 @@ export class OrderTicketComponent {
     return Math.round(qty * price * 100) / 100;
   });
 
-  /** Display symbol for the intent. */
+  /** Display symbol for the ticket. */
   readonly symbol = computed(() => {
-    const i = this.intent();
+    const i = this.ticket();
     if (!i) return '';
     if (i.instrumentType === InstrumentType.OPTION) return i.legs[0]?.symbol ?? '?';
     return i.symbol;
   });
 
-  /** Whether the selected intent is a linked stop-loss order. */
-  readonly isStopLossIntent = computed(() => this.intent()?.sourceRef?.type === 'stop_loss');
+  /** Whether the selected ticket is a linked stop-loss order. */
+  readonly isStopLossTicket = computed(() => this.ticket()?.sourceRef?.type === 'stop_loss');
 
-  /** Whether the selected intent closes a fractional remainder. */
-  readonly isFractionalCloseIntent = computed(() => this.intent()?.sourceRef?.type === 'fractional_close');
+  /** Whether the selected ticket closes a fractional remainder. */
+  readonly isFractionalCloseTicket = computed(() => this.ticket()?.sourceRef?.type === 'fractional_close');
 
-  /** Stop price for the selected stop-loss intent. */
+  /** Stop price for the selected stop-loss ticket. */
   readonly selectedStopPrice = computed(() => {
-    const i = this.intent();
+    const i = this.ticket();
     return i && 'stopPrice' in i ? i.stopPrice ?? null : null;
   });
 
@@ -157,48 +177,48 @@ export class OrderTicketComponent {
   );
 
   /** Whether the selected staged stop-loss has valid controls for submission. */
-  readonly canSubmitStopLossIntent = computed(() => {
-    const i = this.intent();
-    return this.isStopLossIntent() && i?.status === OrderIntentStatus.STAGED &&
+  readonly canSubmitStopLossTicket = computed(() => {
+    const i = this.ticket();
+    return this.isStopLossTicket() && i?.status === OrderTicketStatus.STAGED &&
       this.wholeQuantity() > 0 && parseFloat(this.stopLossPrice()) > 0;
   });
 
-  /** The entry/position protected by the selected stop-loss intent. */
-  readonly protectedEntry = computed<OrderIntent | null>(() => {
-    const parentId = this.intent()?.sourceRef?.id;
+  /** The entry/position protected by the selected stop-loss ticket. */
+  readonly protectedEntry = computed<OrderTicket | null>(() => {
+    const parentId = this.ticket()?.sourceRef?.id;
     if (!parentId) return null;
-    return this.stagingStore.intents()[parentId] ?? null;
+    return this.stagingStore.tickets()[parentId] ?? null;
   });
 
-  /** Whether the intent is in an editable state. */
+  /** Whether the ticket is in an editable state. */
   readonly isEditable = computed(() => {
-    const s = this.intent()?.status;
-    return s === OrderIntentStatus.STAGED || s === OrderIntentStatus.READY || s === OrderIntentStatus.FAILED;
+    const s = this.ticket()?.status;
+    return s === OrderTicketStatus.STAGED || s === OrderTicketStatus.FAILED;
   });
 
-  /** Whether the intent is currently being submitted. */
-  readonly isSubmitting = computed(() => this.intent()?.status === OrderIntentStatus.SUBMITTING);
+  /** Whether the ticket is currently being submitted. */
+  readonly isSubmitting = computed(() => this.ticket()?.status === OrderTicketStatus.SUBMITTING);
 
-  /** Whether the intent is submitted and awaiting fill (or submitting). */
+  /** Whether the ticket is submitted and awaiting fill (or submitting). */
   readonly isSubmitted = computed(() => {
-    const s = this.intent()?.status;
-    return s === OrderIntentStatus.SUBMITTED || s === OrderIntentStatus.QUEUED || s === OrderIntentStatus.RESTING || s === OrderIntentStatus.SUBMITTING;
+    const s = this.ticket()?.status;
+    return s === OrderTicketStatus.SUBMITTED || s === OrderTicketStatus.QUEUED || s === OrderTicketStatus.RESTING || s === OrderTicketStatus.SUBMITTING;
   });
 
-  /** Whether the intent is in a terminal state. */
+  /** Whether the ticket is in a terminal state. */
   readonly isTerminal = computed(() => {
-    const s = this.intent()?.status;
-    return s === OrderIntentStatus.FILLED || s === OrderIntentStatus.CANCELLED;
+    const s = this.ticket()?.status;
+    return s === OrderTicketStatus.FILLED || s === OrderTicketStatus.CANCELLED;
   });
 
   /** Whether the entry order has been filled (enables stop loss placement). */
   readonly isEntryFilled = computed(() => {
-    return this.intent()?.status === OrderIntentStatus.FILLED;
+    return this.ticket()?.status === OrderTicketStatus.FILLED;
   });
 
   /** Fractional positions cannot use Robinhood equity stop-loss orders. */
   readonly isFractionalEntry = computed(() => {
-    const i = this.intent();
+    const i = this.ticket();
     const rawQuantity = i?.result?.filledQuantity ?? i?.quantity;
     const quantity = rawQuantity ? Number(rawQuantity) : 0;
     return quantity > 0 && Number.isFinite(quantity) && !Number.isInteger(quantity);
@@ -206,7 +226,7 @@ export class OrderTicketComponent {
 
   /** Fractional remainder to sell to leave an integer-share position. */
   readonly fractionalQuantity = computed(() => {
-    const i = this.intent();
+    const i = this.ticket();
     const rawQuantity = i?.result?.filledQuantity ?? i?.quantity;
     const quantity = rawQuantity ? Number(rawQuantity) : 0;
     if (!Number.isFinite(quantity) || quantity <= 0 || Number.isInteger(quantity)) return '0';
@@ -215,7 +235,7 @@ export class OrderTicketComponent {
 
   /** Whether to show the stop loss section — only for whole-share equity buys that have been filled. */
   readonly showStopLossSection = computed(() => {
-    const i = this.intent();
+    const i = this.ticket();
     if (!i) return false;
     if (i.side !== 'buy') return false;
     if (i.instrumentType !== InstrumentType.EQUITY && i.instrumentType !== InstrumentType.ETF) return false;
@@ -225,52 +245,80 @@ export class OrderTicketComponent {
   /** Whether the stop loss can be placed — entry must be filled, qty must be positive, and stop loss price must be valid. */
   readonly canPlaceStopLoss = computed(() => {
     if (!this.isEntryFilled()) return false;
-    const i = this.intent();
+    const i = this.ticket();
     const rawQuantity = i?.result?.filledQuantity ?? i?.quantity ?? '0';
     const quantity = Number(rawQuantity);
     const slPrice = parseFloat(this.stopLossPrice());
     return Number.isInteger(quantity) && quantity > 0 && !isNaN(slPrice) && slPrice > 0;
   });
 
-  /** The stop loss intent from the store (linked via sourceRef), if any. */
-  readonly stopLossIntent = computed<OrderIntent | null>(() => {
-    const i = this.intent();
+  /** The stop loss order from RH (found by symbol in the RH orders list). */
+  readonly stopLossTicket = computed<OrderTicket | null>(() => {
+    const i = this.ticket();
     if (!i) return null;
-    const all = this.stagingStore.intents();
-    return Object.values(all).find(
-      (intent) => intent.sourceRef?.type === 'stop_loss' && intent.sourceRef?.id === i.id,
-    ) ?? null;
+    if (i.instrumentType !== InstrumentType.EQUITY && i.instrumentType !== InstrumentType.ETF) return null;
+    const symbol = i.symbol;
+    const rhStop = findActiveStopLoss(this.rhOrdersMap(), symbol);
+    if (!rhStop) return null;
+    // Map RH order to an OrderTicket-like object for the template
+    return {
+      id: rhStop.id,
+      refId: rhStop.id,
+      source: OrderSource.POSITION_MANAGEMENT,
+      sourceRef: { type: 'stop_loss', id: i.id },
+      status: rhStop.state.toLowerCase() === 'filled' ? OrderTicketStatus.FILLED
+        : rhStop.state.toLowerCase() === 'queued' ? OrderTicketStatus.QUEUED
+        : OrderTicketStatus.SUBMITTED,
+      accountNumber: i.accountNumber,
+      side: 'sell',
+      orderType: 'stop_loss',
+      timeInForce: rhStop.timeInForce ?? 'gtc',
+      marketHours: rhStop.marketHours ?? 'regular_hours',
+      instrumentType: InstrumentType.EQUITY,
+      symbol,
+      quantity: rhStop.quantity ?? '',
+      stopPrice: rhStop.stopPrice ?? undefined,
+      result: {
+        orderId: rhStop.id,
+        state: rhStop.state,
+        fillPrice: rhStop.price ?? undefined,
+        filledQuantity: rhStop.cumulativeQuantity ?? rhStop.quantity,
+        brokerOrder: rhStop,
+      },
+      createdAt: rhStop.createdAt ?? new Date().toISOString(),
+      updatedAt: rhStop.lastTransactionAt ?? new Date().toISOString(),
+    } as EquityOrderTicket;
   });
 
-  /** Stop price from the linked stop-loss intent. */
+  /** Stop price from the linked stop-loss ticket. */
   readonly protectedStopPrice = computed(() => {
-    const stopLoss = this.stopLossIntent();
+    const stopLoss = this.stopLossTicket();
     return stopLoss && 'stopPrice' in stopLoss ? stopLoss.stopPrice ?? null : null;
   });
 
-  /** Whether a stop loss intent exists in the store. */
-  readonly stopLossExists = computed(() => this.stopLossIntent() !== null);
+  /** Whether a stop loss ticket exists in the store. */
+  readonly stopLossExists = computed(() => this.stopLossTicket() !== null);
 
   /** Whether the stop loss order has been filled. */
   readonly isStopLossFilled = computed(() =>
-    this.stopLossIntent()?.status === OrderIntentStatus.FILLED,
+    this.stopLossTicket()?.status === OrderTicketStatus.FILLED,
   );
 
   /** Whether the stop loss is currently submitting. */
   readonly isStopLossSubmitting = computed(() =>
-    this.stopLossIntent()?.status === OrderIntentStatus.SUBMITTING,
+    this.stopLossTicket()?.status === OrderTicketStatus.SUBMITTING,
   );
 
   /** Whether the stop loss is submitted and awaiting fill. */
   readonly isStopLossSubmitted = computed(() =>
-    this.stopLossIntent()?.status === OrderIntentStatus.SUBMITTED ||
-    this.stopLossIntent()?.status === OrderIntentStatus.QUEUED ||
-    this.stopLossIntent()?.status === OrderIntentStatus.RESTING,
+    this.stopLossTicket()?.status === OrderTicketStatus.SUBMITTED ||
+    this.stopLossTicket()?.status === OrderTicketStatus.QUEUED ||
+    this.stopLossTicket()?.status === OrderTicketStatus.RESTING,
   );
 
   /** Preview of the stop loss order object (shows real account number — what will actually be sent). */
   readonly stopLossPreview = computed(() => {
-    const i = this.intent();
+    const i = this.ticket();
     if (!i || !this.showStopLossSection()) return null;
     const qty = (i.result?.filledQuantity ?? i.quantity) || '0';
     return {
@@ -289,8 +337,8 @@ export class OrderTicketComponent {
 
   /** Dollar risk = shares × (fill price − stop loss price). Uses fill price after fill, current price before. */
   readonly stopLossRisk = computed(() => {
-    const i = this.intent();
-    const rawQty = i?.status === OrderIntentStatus.FILLED ? i.result?.filledQuantity : this.quantity();
+    const i = this.ticket();
+    const rawQty = i?.status === OrderTicketStatus.FILLED ? i.result?.filledQuantity : this.quantity();
     const qty = Math.max(0, parseInt(rawQty ?? '0', 10) || 0);
     const slPrice = parseFloat(this.stopLossPrice());
     if (qty <= 0 || isNaN(slPrice) || slPrice <= 0) return 0;
@@ -301,15 +349,15 @@ export class OrderTicketComponent {
 
   /** Fill price from the entry order result, if filled. */
   readonly entryFillPrice = computed<number | null>(() => {
-    const i = this.intent();
-    if (!i || i.status !== OrderIntentStatus.FILLED) return null;
+    const i = this.ticket();
+    if (!i || i.status !== OrderTicketStatus.FILLED) return null;
     const fp = i.result?.fillPrice;
     return fp ? parseFloat(fp) : null;
   });
 
   /** Compact entry confirmation data for read-only display. */
   readonly entryConfirmation = computed(() => {
-    const i = this.intent();
+    const i = this.ticket();
     if (!i) return null;
     return {
       status: i.status,
@@ -326,7 +374,7 @@ export class OrderTicketComponent {
 
   /** Compact stop loss confirmation data for read-only display. */
   readonly stopLossConfirmation = computed(() => {
-    const sl = this.stopLossIntent();
+    const sl = this.stopLossTicket();
     if (!sl) return null;
     return {
       status: sl.status,
@@ -337,11 +385,11 @@ export class OrderTicketComponent {
     };
   });
 
-  /** Error from the intent (if FAILED). */
-  readonly intentError = computed(() => this.intent()?.error ?? null);
+  /** Error from the ticket (if FAILED). */
+  readonly ticketError = computed(() => this.ticket()?.error ?? null);
 
   /** Whether the error is retryable. */
-  readonly isRetryable = computed(() => this.intentError()?.retryable === true);
+  readonly isRetryable = computed(() => this.ticketError()?.retryable === true);
 
   /** Whether limit price field should be shown. */
   readonly showLimitPrice = computed(() => {
@@ -360,23 +408,22 @@ export class OrderTicketComponent {
 
   /** Icon for the current status. */
   readonly statusIcon = computed(() => {
-    const s = this.intent()?.status;
+    const s = this.ticket()?.status;
     switch (s) {
-      case OrderIntentStatus.STAGED: return 'edit_note';
-      case OrderIntentStatus.READY: return 'check_circle_outline';
-      case OrderIntentStatus.SUBMITTING: return 'hourglass_empty';
-      case OrderIntentStatus.SUBMITTED: return 'pending_actions';
-      case OrderIntentStatus.QUEUED: return 'schedule';
-      case OrderIntentStatus.FILLED: return 'task_alt';
-      case OrderIntentStatus.FAILED: return 'error_outline';
-      case OrderIntentStatus.CANCELLED: return 'cancel';
+      case OrderTicketStatus.STAGED: return 'edit_note';
+      case OrderTicketStatus.SUBMITTING: return 'hourglass_empty';
+      case OrderTicketStatus.SUBMITTED: return 'pending_actions';
+      case OrderTicketStatus.QUEUED: return 'schedule';
+      case OrderTicketStatus.FILLED: return 'task_alt';
+      case OrderTicketStatus.FAILED: return 'error_outline';
+      case OrderTicketStatus.CANCELLED: return 'cancel';
       default: return 'help_outline';
     }
   });
 
   /** Live preview of the order to be submitted (shows real account number — what will actually be sent). */
   readonly preview = computed(() => {
-    const i = this.intent();
+    const i = this.ticket();
     if (!i) return null;
     return {
       symbol: this.symbol(),
@@ -394,9 +441,9 @@ export class OrderTicketComponent {
   });
 
   constructor() {
-    // Sync local editable fields when the intent changes
+    // Sync local editable fields when the ticket changes
     effect(() => {
-      const i = this.intent();
+      const i = this.ticket();
       untracked(() => {
         if (!i) return;
         this.orderType.set(i.orderType === 'stop_loss' ? 'stop_market' : i.orderType);
@@ -415,9 +462,9 @@ export class OrderTicketComponent {
     // Auto-calc shares when price loads (if quantity is empty)
     effect(() => {
       const price = this.price();
-      const i = this.intent();
+      const i = this.ticket();
       untracked(() => {
-        if (!price || price <= 0 || !i || this.isFractionalCloseIntent()) return;
+        if (!price || price <= 0 || !i || this.isFractionalCloseTicket()) return;
         // Only auto-calc if the user hasn't set a quantity yet
         const currentQty = this.wholeQuantity();
         if (currentQty > 0) return;
@@ -443,16 +490,16 @@ export class OrderTicketComponent {
       });
     });
 
-    // When entry fills or selection changes to a filled intent, initialize stop loss
-    // from the fill price and default percent. Recalculates directly on intent change.
+    // When entry fills or selection changes to a filled ticket, initialize stop loss
+    // from the fill price and default percent. Recalculates directly on ticket change.
     effect(() => {
-      const i = this.intent();
+      const i = this.ticket();
       const fillPrice = this.entryFillPrice();
       untracked(() => {
         if (!i || !fillPrice || fillPrice <= 0) return;
-        // Only initialize when the intent changes — preserve user edits otherwise
-        if (this.lastStopLossIntentId === i.id) return;
-        this.lastStopLossIntentId = i.id;
+        // Only initialize when the ticket changes — preserve user edits otherwise
+        if (this.lastStopLossTicketId === i.id) return;
+        this.lastStopLossTicketId = i.id;
         this.stopLossPercent.set(String(DEFAULT_STOP_PERCENT));
         this.stopLossPrice.set(stopPriceFromPercent(fillPrice, DEFAULT_STOP_PERCENT).toFixed(2));
       });
@@ -463,7 +510,7 @@ export class OrderTicketComponent {
     effect(() => {
       const percent = parseFloat(this.stopLossPercent());
       const refPrice = this.stopLossReferencePrice();
-      const isStopLoss = this.isStopLossIntent();
+      const isStopLoss = this.isStopLossTicket();
       untracked(() => {
         if (!isStopLoss && refPrice && refPrice > 0 && !isNaN(percent) && percent > 0) {
           this.stopLossPrice.set(stopPriceFromPercent(refPrice, percent).toFixed(2));
@@ -473,10 +520,10 @@ export class OrderTicketComponent {
 
     // Initialize the dedicated stop-loss controls from the persisted stop price.
     effect(() => {
-      const i = this.intent();
+      const i = this.ticket();
       const refPrice = this.stopLossReferencePrice();
       untracked(() => {
-        if (!i || !this.isStopLossIntent() || !refPrice || refPrice <= 0) return;
+        if (!i || !this.isStopLossTicket() || !refPrice || refPrice <= 0) return;
         const persistedStop = 'stopPrice' in i ? i.stopPrice : undefined;
         if (persistedStop) this.stopLossPrice.set(persistedStop);
         const percent = persistedStop ? stopPercentFromPrice(refPrice, parseFloat(persistedStop)) : DEFAULT_STOP_PERCENT;
@@ -485,30 +532,29 @@ export class OrderTicketComponent {
     });
   }
 
-  /** Update the intent in the store with the edited fields. */
+  /** Update the ticket in the store with the edited fields. */
   saveEdits(): void {
-    const i = this.intent();
+    const i = this.ticket();
     if (!i || !this.isEditable()) return;
-    const partial: Record<string, unknown> = {
+    const partial: Partial<EquityOrderTicket> = {
       orderType: this.orderType(),
       timeInForce: this.timeInForce(),
       marketHours: this.marketHours(),
     };
     if (i.instrumentType === InstrumentType.EQUITY || i.instrumentType === InstrumentType.ETF) {
       const q = this.wholeQuantity();
-      partial.quantity = this.isFractionalCloseIntent() ? this.quantity() : q > 0 ? String(q) : undefined;
-      // Clear dollarAmount with null (not undefined) so Firestore actually removes it.
-      // undefined gets stripped by stripUndefined, leaving the stale value in Firestore.
-      partial.dollarAmount = null;
+      partial.quantity = this.isFractionalCloseTicket() ? this.quantity() : q > 0 ? String(q) : undefined;
+      // Clear dollarAmount — the service converts undefined to deleteField().
+      partial.dollarAmount = undefined;
       if (this.showLimitPrice()) partial.limitPrice = this.limitPrice() || undefined;
       if (this.showStopPrice()) partial.stopPrice = this.stopPrice() || undefined;
     }
-    this.stagingStore.updateIntent(i.id, partial);
+    this.stagingStore.updateTicket(i.id, partial);
   }
 
   /** Open confirmation dialog, then submit if confirmed. */
   async onSubmit(): Promise<void> {
-    const i = this.intent();
+    const i = this.ticket();
     if (!i) return;
 
     // Check account and quantity before saving edits
@@ -516,18 +562,18 @@ export class OrderTicketComponent {
       this.snackBar.open('No account number configured. Set one in settings.', 'Dismiss', { duration: 4000 });
       return;
     }
-    if (this.isFractionalCloseIntent() && this.marketHours() !== 'regular_hours') {
+    if (this.isFractionalCloseTicket() && this.marketHours() !== 'regular_hours') {
       this.snackBar.open('Fractional orders are only allowed during regular hours', 'Dismiss', { duration: 5000 });
       return;
     }
 
     const numericQuantity = Number(this.quantity());
-    const quantityValid = this.isFractionalCloseIntent()
+    const quantityValid = this.isFractionalCloseTicket()
       ? Number.isFinite(numericQuantity) && numericQuantity > 0
       : this.wholeQuantity() > 0;
     if (!quantityValid) {
       this.snackBar.open(
-        this.isFractionalCloseIntent() ? 'Quantity must be positive' : 'Quantity must be a positive whole number of shares',
+        this.isFractionalCloseTicket() ? 'Quantity must be positive' : 'Quantity must be a positive whole number of shares',
         'Dismiss',
         { duration: 4000 },
       );
@@ -547,77 +593,101 @@ export class OrderTicketComponent {
     const confirmed = await firstValueFrom(
       this.dialog
         .open(OrderConfirmDialogComponent, {
-          data: { intent: { ...i, ...snapshot }, warnings },
+          data: { ticket: { ...i, ...snapshot }, warnings },
           width: '400px',
         })
         .afterClosed(),
     );
 
     if (confirmed) {
-      this.stagingStore.submitIntent(i.id);
+      this.stagingStore.submitTicket(i.id);
     }
   }
 
-  /** Confirm and submit an existing staged stop-loss intent. */
-  async onSubmitStopLossIntent(): Promise<void> {
-    const i = this.intent();
-    if (!i || !this.isStopLossIntent() || i.status !== OrderIntentStatus.STAGED) return;
+  /** Confirm and submit an existing staged stop-loss ticket. */
+  async onSubmitStopLossTicket(): Promise<void> {
+    const i = this.ticket();
+    if (!i || !this.isStopLossTicket() || i.status !== OrderTicketStatus.STAGED) return;
     const confirmed = await firstValueFrom(
       this.dialog
         .open(OrderConfirmDialogComponent, {
-          data: { intent: i, warnings: [] },
+          data: { ticket: i, warnings: [] },
           width: '400px',
         })
         .afterClosed(),
     );
     if (confirmed) {
-      this.stagingStore.updateAndSubmitIntent(i.id, { stopPrice: this.stopLossPrice() });
+      this.stagingStore.updateTicket(i.id, { stopPrice: this.stopLossPrice() });
+      this.stagingStore.submitTicket(i.id);
     }
   }
 
-  /** Retry a failed intent. */
+  /** Retry a failed ticket — re-submits with the same refId (idempotent at RH). */
   onRetry(): void {
-    const i = this.intent();
-    if (!i || i.status !== OrderIntentStatus.FAILED || !this.isRetryable()) return;
+    const i = this.ticket();
+    if (!i || i.status !== OrderTicketStatus.FAILED || !this.isRetryable()) return;
     this.saveEdits();
-    this.stagingStore.retryIntent(i.id);
+    this.stagingStore.submitTicket(i.id);
   }
 
-  /** Cancel a submitted or submitting intent. */
-  onCancel(): void {
-    const i = this.intent();
+  /** Cancel a submitted or submitting ticket — calls RH directly. */
+  async onCancel(): Promise<void> {
+    const i = this.ticket();
     if (!i) return;
-    if (i.status !== OrderIntentStatus.SUBMITTED && i.status !== OrderIntentStatus.QUEUED && i.status !== OrderIntentStatus.RESTING && i.status !== OrderIntentStatus.SUBMITTING) return;
-    this.stagingStore.cancelIntent(i.id);
+    if (i.status !== OrderTicketStatus.SUBMITTED && i.status !== OrderTicketStatus.QUEUED && i.status !== OrderTicketStatus.RESTING && i.status !== OrderTicketStatus.SUBMITTING) return;
+    const orderId = i.result?.orderId;
+    if (!orderId) return;
+    this.snackBar.open('Cancelling order…', '', { duration: 3000 });
+    const result = await this.orderExecution.cancelEquityOrder(i.accountNumber, orderId);
+    if (result.success) {
+      this.snackBar.open('Order cancelled', 'Dismiss', { duration: 3000 });
+      this.refreshRequested.emit();
+    } else {
+      const msg = result.error?.message ?? 'Cancel failed';
+      this.snackBar.open(`Cancel failed: ${msg}`, 'Dismiss', { duration: 5000 });
+    }
   }
 
-  /** Manually reconcile an intent by querying the broker. */
+  /** Manually refresh RH order state. */
   onReconcile(): void {
-    const i = this.intent();
-    if (!i) return;
-    const canReconcile = i.status === OrderIntentStatus.SUBMITTED ||
-      i.status === OrderIntentStatus.QUEUED ||
-      i.status === OrderIntentStatus.RESTING ||
-      i.status === OrderIntentStatus.SUBMITTING ||
-      (i.status === OrderIntentStatus.FAILED && !!i.result?.orderId);
-    if (!canReconcile) return;
-    this.snackBar.open('Checking broker for latest status…', '', { duration: 3000 });
-    this.stagingStore.reconcileIntent(i.id);
+    this.snackBar.open('Refreshing broker state…', '', { duration: 3000 });
+    this.refreshRequested.emit();
   }
 
-  /** Modify a submitted intent — reverts to STAGED so the user can edit and resubmit. */
-  onModify(): void {
-    const i = this.intent();
-    if (!i || (i.status !== OrderIntentStatus.SUBMITTED && i.status !== OrderIntentStatus.QUEUED && i.status !== OrderIntentStatus.RESTING)) return;
-    this.stagingStore.modifyIntent(i.id);
+  /** Modify a submitted ticket — cancels at RH, then reverts to STAGED for editing. */
+  async onModify(): Promise<void> {
+    const i = this.ticket();
+    if (!i || (i.status !== OrderTicketStatus.SUBMITTED && i.status !== OrderTicketStatus.QUEUED && i.status !== OrderTicketStatus.RESTING)) return;
+    const orderId = i.result?.orderId;
+    if (!orderId) return;
+    this.snackBar.open('Cancelling order for modification…', '', { duration: 3000 });
+    const result = await this.orderExecution.cancelEquityOrder(i.accountNumber, orderId);
+    if (result.success) {
+      // Revert to STAGED so the user can edit and resubmit
+      this.stagingStore.updateTicket(i.id, { status: OrderTicketStatus.STAGED, result: undefined, error: undefined });
+      this.refreshRequested.emit();
+    } else {
+      const msg = result.error?.message ?? 'Cancel failed';
+      this.snackBar.open(`Modify failed: ${msg}`, 'Dismiss', { duration: 5000 });
+    }
   }
 
-  /** Cancel a submitted stop loss intent. */
-  onCancelStopLoss(): void {
-    const sl = this.stopLossIntent();
+  /** Cancel a submitted stop loss order — calls RH directly. */
+  async onCancelStopLoss(): Promise<void> {
+    const sl = this.stopLossTicket();
     if (!sl) return;
-    if (sl.status !== OrderIntentStatus.SUBMITTED && sl.status !== OrderIntentStatus.QUEUED && sl.status !== OrderIntentStatus.RESTING && sl.status !== OrderIntentStatus.SUBMITTING) return;
-    this.stagingStore.cancelIntent(sl.id);
+    if (sl.status !== OrderTicketStatus.SUBMITTED && sl.status !== OrderTicketStatus.QUEUED && sl.status !== OrderTicketStatus.RESTING && sl.status !== OrderTicketStatus.SUBMITTING) return;
+    const orderId = sl.result?.orderId;
+    if (!orderId) return;
+    this.snackBar.open('Cancelling stop loss…', '', { duration: 3000 });
+    const result = await this.orderExecution.cancelEquityOrder(sl.accountNumber, orderId);
+    if (result.success) {
+      this.snackBar.open('Stop loss cancelled', 'Dismiss', { duration: 3000 });
+      this.refreshRequested.emit();
+    } else {
+      const msg = result.error?.message ?? 'Cancel failed';
+      this.snackBar.open(`Cancel failed: ${msg}`, 'Dismiss', { duration: 5000 });
+    }
   }
 
   /** New Manual Order placeholder. */
@@ -625,27 +695,42 @@ export class OrderTicketComponent {
     this.snackBar.open('Manual order creation coming soon', 'Dismiss', { duration: 3000 });
   }
 
-  /** Stage a market sell for the fractional remainder in the editable order ticket. */
-  onCloseFractionalShare(): void {
-    const i = this.intent();
+  /** Submit a market sell for the fractional remainder directly to RH. */
+  async onCloseFractionalShare(): Promise<void> {
+    const i = this.ticket();
     const quantity = this.fractionalQuantity();
     if (!i || !this.isEntryFilled() || !this.isFractionalEntry() || quantity === '0') return;
 
-    const closeIntent = buildFractionalCloseIntent(
+    const closeTicket = buildFractionalCloseTicket(
       i,
       this.symbol(),
       quantity,
       this.tradingConfig()?.accountNumber ?? i.accountNumber,
     );
-    this.stagingStore.archiveFailedFractionalCloseIntents(i.id);
-    this.stagingStore.stageIntent(closeIntent);
-    this.intentStaged.emit(closeIntent.id);
-    this.snackBar.open(`Fractional close staged for ${quantity} shares — choose order hours`, 'Dismiss', { duration: 3000 });
+    const confirmed = await firstValueFrom(
+      this.dialog
+        .open(OrderConfirmDialogComponent, {
+          data: { ticket: closeTicket, warnings: [] },
+          width: '400px',
+        })
+        .afterClosed(),
+    );
+    if (!confirmed) return;
+
+    this.snackBar.open('Submitting fractional close…', '', { duration: 3000 });
+    const result = await this.orderExecution.submitEquityOrder(closeTicket as EquityOrderTicket);
+    if (result.success) {
+      this.snackBar.open('Fractional close submitted', 'Dismiss', { duration: 3000 });
+      this.refreshRequested.emit();
+    } else {
+      const msg = result.error?.message ?? 'Submit failed';
+      this.snackBar.open(`Fractional close failed: ${msg}`, 'Dismiss', { duration: 5000 });
+    }
   }
 
-  /** Confirm, persist, and submit a stop loss order for the current entry. */
+  /** Confirm and submit a stop loss order directly to RH (no local doc). */
   async onPlaceStopLoss(): Promise<void> {
-    const i = this.intent();
+    const i = this.ticket();
     if (!i || !this.canPlaceStopLoss()) return;
 
     const slPrice = parseFloat(this.stopLossPrice());
@@ -655,7 +740,7 @@ export class OrderTicketComponent {
     }
 
     const quantity = (i.result?.filledQuantity ?? i.quantity) || '0';
-    const stopLossIntent = buildStopLossIntent(
+    const stopLossTicket = buildStopLossTicket(
       i,
       this.symbol(),
       quantity,
@@ -665,15 +750,22 @@ export class OrderTicketComponent {
     const confirmed = await firstValueFrom(
       this.dialog
         .open(OrderConfirmDialogComponent, {
-          data: { intent: stopLossIntent, warnings: [] },
+          data: { ticket: stopLossTicket, warnings: [] },
           width: '400px',
         })
         .afterClosed(),
     );
     if (!confirmed) return;
 
-    this.stagingStore.stageAndSubmitIntent(stopLossIntent);
-    this.snackBar.open('Stop loss order submitted', 'Dismiss', { duration: 3000 });
+    this.snackBar.open('Submitting stop loss…', '', { duration: 3000 });
+    const result = await this.orderExecution.submitEquityOrder(stopLossTicket as EquityOrderTicket);
+    if (result.success) {
+      this.snackBar.open('Stop loss order submitted', 'Dismiss', { duration: 3000 });
+      this.refreshRequested.emit();
+    } else {
+      const msg = result.error?.message ?? 'Submit failed';
+      this.snackBar.open(`Stop loss failed: ${msg}`, 'Dismiss', { duration: 5000 });
+    }
   }
 
   // ========================================
@@ -687,7 +779,7 @@ export class OrderTicketComponent {
   /** Whole-share quantity input — keep only non-negative integers. */
   onQuantityInput(event: Event): void {
     const raw = (event.target as HTMLInputElement).value;
-    if (this.isFractionalCloseIntent()) {
+    if (this.isFractionalCloseTicket()) {
       const qty = Number(raw);
       this.quantity.set(Number.isFinite(qty) && qty >= 0 ? raw : '');
       return;
@@ -740,7 +832,7 @@ export class OrderTicketComponent {
   /** Compute guardrail warnings for the current order. */
   private computeWarnings() {
     const context = this.guardrailContext();
-    const side = this.intent()?.side ?? 'buy';
+    const side = this.ticket()?.side ?? 'buy';
     return context ? evaluateOrderGuardrails(context, this.actualCost(), this.computedUnits(), side) : [];
   }
 

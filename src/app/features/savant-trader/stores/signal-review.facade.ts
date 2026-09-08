@@ -20,7 +20,7 @@ import { SymbolListStore } from './symbol-list.store';
 import { SymbolHistoryStore } from './symbol-history.store';
 import { StStore } from './st.store';
 import { SignalReviewUiStore } from './signal-review-ui.store';
-import { OrderStagingStore } from './order-staging.store';
+import { OrderTicketStore } from './order-ticket.store';
 import { SignalService } from '../services/signal.service';
 import { TradingConfigService } from '../services/trading-config.service';
 import type { StSignalItem } from '../services/types';
@@ -39,14 +39,14 @@ import {
 import type { StRun } from '../services/types';
 import { formatTradingViewWatchlist } from '../utils/utils';
 import {
-  OrderIntent,
-  OrderIntentStatus,
+  OrderTicket,
+  OrderTicketStatus,
   OrderSource,
   InstrumentType,
-  EquityOrderIntent,
-} from '../services/order-intent.types';
+  EquityOrderTicket,
+} from '../services/order-ticket.types';
 
-/** Context needed to turn a set of signals for one symbol into order intents. */
+/** Context needed to turn a set of signals for one symbol into order tickets. */
 export interface SignalOrderStagingContext {
   runId: string;
   accountNumber: string;
@@ -56,14 +56,14 @@ export interface SignalOrderStagingContext {
   buildRefId: () => string;
 }
 
-export function buildSignalOrderIntents(
+export function buildSignalOrderTickets(
   symbol: string,
   signals: StSignalItem[],
   context: SignalOrderStagingContext,
-): EquityOrderIntent[] {
+): EquityOrderTicket[] {
   const { runId, accountNumber, defaultDollarAmount, now, buildId, buildRefId } = context;
   const seen = new Set<string>();
-  const intents: EquityOrderIntent[] = [];
+  const tickets: EquityOrderTicket[] = [];
   for (const signal of signals) {
     const side = signal.direction === SignalDirection.SHORT ? 'sell' : 'buy';
     const dedupKey = `${symbol}-${side}`;
@@ -71,12 +71,12 @@ export function buildSignalOrderIntents(
     seen.add(dedupKey);
     const id = buildId(symbol, side, now);
     const decisionId = `${runId}-${symbol}-${signal.timeframe}-${signal.signalType}`;
-    intents.push({
+    tickets.push({
       id,
       refId: buildRefId(),
       source: OrderSource.SIGNAL_PIPELINE,
       sourceRef: { type: 'occurrence_decision', id: decisionId },
-      status: OrderIntentStatus.STAGED,
+      status: OrderTicketStatus.STAGED,
       accountNumber,
       side,
       orderType: 'market',
@@ -96,7 +96,7 @@ export function buildSignalOrderIntents(
       updatedAt: now.toISOString(),
     });
   }
-  return intents;
+  return tickets;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -112,7 +112,7 @@ export class SignalReviewFacade {
   private readonly uiState = inject(UiStateService);
   private readonly scrollTarget = inject(ScrollTargetService);
   private readonly router = inject(Router);
-  private readonly stagingStore = inject(OrderStagingStore);
+  private readonly stagingStore = inject(OrderTicketStore);
   private readonly tradingConfigService = inject(TradingConfigService);
   private readonly snackBar = inject(MatSnackBar);
 
@@ -389,18 +389,18 @@ export class SignalReviewFacade {
       const marketDate = this.groupStore.activeRunMarketDate();
       if (!runId || !marketDate) return;
 
-      // Toggle: if already accepted, de-accept and remove the staged intent.
+      // Toggle: if already accepted, de-accept and remove the staged ticket.
       const isAccepted = this.occurrenceStore.acceptedSymbols().includes(symbol.toUpperCase());
       if (isAccepted) {
         this.occurrenceStore.resetSymbol(symbol, runId);
-        this.removeStagedIntentForSymbol(symbol);
+        this.removeStagedTicketForSymbol(symbol);
         return;
       }
 
       this.currentRunSignals(symbol).subscribe((signals) => {
         if (signals.length === 0) return;
         this.occurrenceStore.acceptSignals(signals, runId, marketDate);
-        this.stageIntentForSymbol(symbol, signals, runId);
+        this.stageTicketForSymbol(symbol, signals, runId);
       });
     });
   }
@@ -421,7 +421,7 @@ export class SignalReviewFacade {
       this.currentRunSignals(symbol).subscribe((signals) => {
         if (signals.length === 0) return;
         this.occurrenceStore.rejectSignals(signals, runId, marketDate);
-        this.removeStagedIntentForSymbol(symbol);
+        this.removeStagedTicketForSymbol(symbol);
       });
     });
   }
@@ -438,7 +438,7 @@ export class SignalReviewFacade {
   clearSymbolHistory(symbol: string): void {
     this.runIfActionable(() => {
       this.occurrenceStore.clearSymbolHistory(symbol);
-      this.removeStagedIntentForSymbol(symbol);
+      this.removeStagedTicketForSymbol(symbol);
     });
   }
 
@@ -476,10 +476,10 @@ export class SignalReviewFacade {
   }
 
   /**
-   * Stage a single equity order intent for the given symbol immediately
+   * Stage a single equity order ticket for the given symbol immediately
    * after accept. Loads account config, deduplicates by symbol+side.
    */
-  private async stageIntentForSymbol(symbol: string, signals: StSignalItem[], runId: string): Promise<void> {
+  private async stageTicketForSymbol(symbol: string, signals: StSignalItem[], runId: string): Promise<void> {
     let accountNumber: string;
     let defaultDollarAmount: number;
     try {
@@ -497,36 +497,36 @@ export class SignalReviewFacade {
     }
 
     const now = new Date();
-    const intents = buildSignalOrderIntents(symbol, signals, {
+    const tickets = buildSignalOrderTickets(symbol, signals, {
       runId,
       accountNumber,
       defaultDollarAmount,
       now,
-      buildId: (intentSymbol, side, createdAt) => this.buildIntentId(intentSymbol, side, createdAt),
+      buildId: (ticketSymbol, side, createdAt) => this.buildTicketId(ticketSymbol, side, createdAt),
       buildRefId: () => crypto.randomUUID(),
     });
-    for (const intent of intents) {
-      this.stagingStore.stageIntent(intent);
+    for (const ticket of tickets) {
+      this.stagingStore.stageTicket(ticket);
     }
   }
 
-  /** Remove any staged intents for the given symbol (used on de-accept/reject). */
-  private removeStagedIntentForSymbol(symbol: string): void {
+  /** Remove any staged tickets for the given symbol (used on de-accept/reject). */
+  private removeStagedTicketForSymbol(symbol: string): void {
     const normalized = symbol.toUpperCase();
-    const bySymbol = this.stagingStore.intentsBySymbol();
-    const intents = bySymbol[normalized] ?? [];
-    for (const intent of intents) {
-      if (intent.status === OrderIntentStatus.STAGED || intent.status === OrderIntentStatus.READY) {
-        this.stagingStore.removeIntent(intent.id);
+    const bySymbol = this.stagingStore.ticketsBySymbol();
+    const tickets = bySymbol[normalized] ?? [];
+    for (const ticket of tickets) {
+      if (ticket.status === OrderTicketStatus.STAGED) {
+        this.stagingStore.removeTicket(ticket.id);
       }
     }
   }
 
   /**
-   * Build a human-readable intent id: {SYMBOL}-{SIDE}-{YYMMDD}-{DOW}-{HHMM}PT
+   * Build a human-readable ticket id: {SYMBOL}-{SIDE}-{YYMMDD}-{DOW}-{HHMM}PT
    * e.g., AAPL-BUY-260825-MON-1430PT
    */
-  private buildIntentId(symbol: string, side: string, now: Date): string {
+  private buildTicketId(symbol: string, side: string, now: Date): string {
     const pt = new Intl.DateTimeFormat('en-US', {
       timeZone: 'America/Los_Angeles',
       year: '2-digit',

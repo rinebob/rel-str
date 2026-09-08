@@ -1,5 +1,5 @@
 <div class="order-ticket">
-  @if (!intent()) {
+  @if (!ticket()) {
     <!-- No selection -->
     <div class="no-selection">
       <mat-icon>pan_tool</mat-icon>
@@ -11,22 +11,22 @@
       </button>
     </div>
   } @else {
-    @if (isStopLossIntent()) {
+    @if (isStopLossTicket()) {
       <div class="stop-loss-ticket">
         <div class="stop-loss-ticket-header">
           <div>
             <span class="ticket-kicker">Position protection</span>
             <h2>Stop Loss — {{ symbol() }}</h2>
           </div>
-          <span class="status-badge" [class]="'status-' + intent()?.status">
-            {{ intent()?.status | uppercase }}
+          <span class="status-badge" [class]="'status-' + ticket()?.status">
+            {{ ticket()?.status | uppercase }}
           </span>
         </div>
 
         <div class="protected-position">
           <span>Protecting</span>
           <strong>{{ symbol() }}</strong>
-          <span>{{ protectedEntry()?.result?.filledQuantity ?? intent()?.quantity }} shares</span>
+          <span>{{ protectedEntry()?.result?.filledQuantity ?? ticket()?.quantity }} shares</span>
           @if (protectedEntry()?.result?.fillPrice) {
             <span>Entry {{ protectedEntry()?.result?.fillPrice | currency }}</span>
           }
@@ -39,21 +39,21 @@
           </div>
           <div class="stop-loss-detail-row">
             <span>Quantity</span>
-            <strong>{{ intent()?.quantity }} shares</strong>
+            <strong>{{ ticket()?.quantity }} shares</strong>
           </div>
           <div class="stop-loss-detail-row">
             <span>Time in force</span>
-            <strong>{{ intent()?.timeInForce | uppercase }}</strong>
+            <strong>{{ ticket()?.timeInForce | uppercase }}</strong>
           </div>
-          @if (intent()?.result?.orderId) {
+          @if (ticket()?.result?.orderId) {
             <div class="stop-loss-detail-row">
               <span>Broker order ID</span>
-              <strong class="mono">{{ intent()?.result?.orderId }}</strong>
+              <strong class="mono">{{ ticket()?.result?.orderId }}</strong>
             </div>
           }
         </div>
 
-        @if (intent()?.status === OrderIntentStatus.STAGED) {
+        @if (ticket()?.status === OrderTicketStatus.STAGED) {
           <div class="stop-loss-controls">
             <div class="form-row">
               <span class="field-label">Stop $</span>
@@ -74,30 +74,30 @@
           </div>
         }
 
-        @if (intentError()) {
+        @if (ticketError()) {
           <div class="error-section">
             <mat-icon>error_outline</mat-icon>
             <div class="error-details">
-              <p class="error-message">{{ intentError()?.message }}</p>
+              <p class="error-message">{{ ticketError()?.message }}</p>
               <p class="error-hint">This stop-loss can be retried after correcting the issue.</p>
             </div>
           </div>
         }
 
         <div class="stop-loss-ticket-actions">
-          @if (intent()?.status === OrderIntentStatus.STAGED) {
-            <button mat-flat-button color="warn" (click)="onSubmitStopLossIntent()" [disabled]="!canSubmitStopLossIntent()">
+          @if (ticket()?.status === OrderTicketStatus.STAGED) {
+            <button mat-flat-button color="warn" (click)="onSubmitStopLossTicket()" [disabled]="!canSubmitStopLossTicket()">
               <mat-icon>shield</mat-icon>
               Submit Stop Loss
             </button>
           }
-          @if (intent()?.status === OrderIntentStatus.FAILED && isRetryable()) {
+          @if (ticket()?.status === OrderTicketStatus.FAILED && isRetryable()) {
             <button mat-stroked-button color="primary" (click)="onRetry()">
               <mat-icon>refresh</mat-icon>
               Retry Stop Loss
             </button>
           }
-          @if (intent()?.status === OrderIntentStatus.FAILED && intent()?.result?.orderId) {
+          @if (ticket()?.status === OrderTicketStatus.FAILED && ticket()?.result?.orderId) {
             <button mat-stroked-button color="primary" (click)="onReconcile()">
               <mat-icon>sync</mat-icon>
               Refresh from Broker
@@ -114,7 +114,7 @@
               <mat-icon>sync</mat-icon>
               Refresh from Broker
             </button>
-            @if (intent()?.result?.orderId) {
+            @if (ticket()?.result?.orderId) {
               <button mat-stroked-button color="warn" (click)="onCancel()">
                 <mat-icon>cancel</mat-icon>
                 Cancel Stop Loss
@@ -136,21 +136,21 @@
             <span class="hp-label">Price</span>
             <span class="hp-value">{{ currentPrice() ? (currentPrice() | currency) : '—' }}</span>
           </span>
-          <span class="side" [class.buy]="intent()?.side === 'buy'" [class.sell]="intent()?.side === 'sell'">
-            {{ intent()?.side | uppercase }}
+          <span class="side" [class.buy]="ticket()?.side === 'buy'" [class.sell]="ticket()?.side === 'sell'">
+            {{ ticket()?.side | uppercase }}
           </span>
-          <span class="status-badge" [class]="'status-' + intent()?.status">
-            {{ intent()?.status | uppercase }}
+          <span class="status-badge" [class]="'status-' + ticket()?.status">
+            {{ ticket()?.status | uppercase }}
           </span>
         </div>
       </div>
 
       <!-- Error display -->
-      @if (intentError()) {
+      @if (ticketError()) {
         <div class="error-section">
           <mat-icon>error_outline</mat-icon>
           <div class="error-details">
-            <p class="error-message">{{ intentError()?.message }}</p>
+            <p class="error-message">{{ ticketError()?.message }}</p>
             @if (isRetryable()) {
               <p class="error-hint">This error is retryable. You can retry the order.</p>
             } @else {
@@ -230,8 +230,8 @@
             <span class="field-label">Hours</span>
             <div class="pill-group">
               <button type="button" class="pill" [class.active]="marketHours() === 'regular_hours'" (click)="marketHours.set('regular_hours')">Regular</button>
-              <button type="button" class="pill" [class.active]="marketHours() === 'extended_hours'" [disabled]="isFractionalCloseIntent()" (click)="marketHours.set('extended_hours')">Extended</button>
-              <button type="button" class="pill" [class.active]="marketHours() === 'all_day_hours'" [disabled]="isFractionalCloseIntent()" (click)="marketHours.set('all_day_hours')">All Day</button>
+              <button type="button" class="pill" [class.active]="marketHours() === 'extended_hours'" [disabled]="isFractionalCloseTicket()" (click)="marketHours.set('extended_hours')">Extended</button>
+              <button type="button" class="pill" [class.active]="marketHours() === 'all_day_hours'" [disabled]="isFractionalCloseTicket()" (click)="marketHours.set('all_day_hours')">All Day</button>
             </div>
           </div>
         </div>
@@ -310,15 +310,15 @@
         </div>
       }
 
-      @if (!isStopLossIntent() && stopLossIntent()) {
+      @if (!isStopLossTicket() && stopLossTicket()) {
         <div class="protected-by-section">
           <div class="protected-by-header">
             <span>Protected by</span>
-            <strong>{{ stopLossIntent()?.status === OrderIntentStatus.RESTING ? 'RESTING' : (stopLossIntent()?.status | uppercase) }}</strong>
+            <strong>{{ stopLossTicket()?.status === OrderTicketStatus.RESTING ? 'RESTING' : (stopLossTicket()?.status | uppercase) }}</strong>
           </div>
           <div class="protected-by-row">
             <span>Order type</span>
-            <strong>{{ stopLossIntent()?.orderType | uppercase }}</strong>
+            <strong>{{ stopLossTicket()?.orderType | uppercase }}</strong>
           </div>
           <div class="protected-by-row">
             <span>Stop price</span>
@@ -326,12 +326,12 @@
           </div>
           <div class="protected-by-row">
             <span>Quantity</span>
-            <strong>{{ stopLossIntent()?.quantity }}</strong>
+            <strong>{{ stopLossTicket()?.quantity }}</strong>
           </div>
-          @if (stopLossIntent()?.result?.orderId) {
+          @if (stopLossTicket()?.result?.orderId) {
             <div class="protected-by-row">
               <span>Broker order ID</span>
-              <strong class="mono">{{ stopLossIntent()?.result?.orderId }}</strong>
+              <strong class="mono">{{ stopLossTicket()?.result?.orderId }}</strong>
             </div>
           }
         </div>
@@ -363,20 +363,20 @@
         </div>
       }
 
-      @if (intent()?.result?.brokerOrder) {
+      @if (ticket()?.result?.brokerOrder) {
         <div class="broker-order-section">
           <h3>Broker Order</h3>
           <div class="broker-order-summary">
-            <span>ID: <strong>{{ intent()?.result?.brokerOrder?.id }}</strong></span>
-            <span>State: <strong>{{ intent()?.result?.brokerOrder?.state | uppercase }}</strong></span>
-            <span>Qty: <strong>{{ intent()?.result?.brokerOrder?.quantity }}</strong></span>
+            <span>ID: <strong>{{ ticket()?.result?.brokerOrder?.id }}</strong></span>
+            <span>State: <strong>{{ ticket()?.result?.brokerOrder?.state | uppercase }}</strong></span>
+            <span>Qty: <strong>{{ ticket()?.result?.brokerOrder?.quantity }}</strong></span>
           </div>
-          <pre class="preview-json">{{ intent()?.result?.brokerOrder | json }}</pre>
+          <pre class="preview-json">{{ ticket()?.result?.brokerOrder | json }}</pre>
         </div>
       }
 
       <!-- Contextual preview -->
-      @if ((intent()?.status === OrderIntentStatus.STAGED || intent()?.status === OrderIntentStatus.READY) && preview()) {
+      @if (ticket()?.status === OrderTicketStatus.STAGED && preview()) {
         <div class="preview-section">
           <h3>Order Preview</h3>
           <pre class="preview-json">{{ preview() | json }}</pre>
@@ -398,7 +398,7 @@
           </button>
         }
 
-        @if (intent()?.status === OrderIntentStatus.FAILED && isRetryable()) {
+        @if (ticket()?.status === OrderTicketStatus.FAILED && isRetryable()) {
           <button mat-stroked-button color="primary" (click)="onRetry()">
             <mat-icon>refresh</mat-icon>
             Retry

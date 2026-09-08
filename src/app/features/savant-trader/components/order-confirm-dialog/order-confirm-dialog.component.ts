@@ -10,12 +10,12 @@ import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 
-import { OrderIntent, InstrumentType } from '../../services/order-intent.types';
+import { OrderTicket, InstrumentType } from '../../services/order-ticket.types';
 import { GuardrailWarning } from '../../utils/order-guardrails.util';
 
 /** Data injected into the confirm dialog. */
 export interface OrderConfirmDialogData {
-  intent: OrderIntent;
+  ticket: OrderTicket;
   warnings?: GuardrailWarning[];
 }
 
@@ -29,11 +29,11 @@ export interface OrderConfirmDialogData {
 export class OrderConfirmDialogComponent {
   private readonly dialogRef = inject(MatDialogRef<OrderConfirmDialogComponent, boolean>);
 
-  /** The intent data injected via MAT_DIALOG_DATA. */
+  /** The ticket data injected via MAT_DIALOG_DATA. */
   readonly data = inject(MAT_DIALOG_DATA) as OrderConfirmDialogData;
 
-  /** The intent to confirm. */
-  readonly intent = computed(() => this.data.intent);
+  /** The ticket to confirm. */
+  readonly ticket = computed(() => this.data.ticket);
 
   /** Guardrail warnings. */
   readonly warnings = computed(() => this.data.warnings ?? []);
@@ -41,30 +41,30 @@ export class OrderConfirmDialogComponent {
   /** Whether the submit is blocked (hard stop). */
   readonly isBlocked = computed(() => this.warnings().some((w) => w.severity === 'block'));
 
-  /** Display symbol for the intent. */
+  /** Display symbol for the ticket. */
   readonly symbol = computed(() => {
-    const i = this.intent();
+    const i = this.ticket();
     if (i.instrumentType === InstrumentType.OPTION) return i.legs[0]?.symbol ?? '?';
     return i.symbol;
   });
 
   /** Quantity display. */
   readonly quantity = computed(() => {
-    const i = this.intent();
+    const i = this.ticket();
     if (i.instrumentType === InstrumentType.OPTION) return i.quantity;
     return i.quantity ?? i.dollarAmount ?? '—';
   });
 
   /** Limit price (equity/etf only). */
   readonly limitPrice = computed(() => {
-    const i = this.intent();
+    const i = this.ticket();
     if (i.instrumentType === InstrumentType.OPTION) return undefined;
     return i.limitPrice;
   });
 
   /** Stop price (equity/etf only). */
   readonly stopPrice = computed(() => {
-    const i = this.intent();
+    const i = this.ticket();
     if (i.instrumentType === InstrumentType.OPTION) return undefined;
     return i.stopPrice;
   });

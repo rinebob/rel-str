@@ -1,9 +1,9 @@
 /**
  * Order Queue Component
  *
- * Left panel of the signal order screen. Lists all staged intents grouped
+ * Left panel of the signal order screen. Lists all staged tickets grouped
  * by status. Each row shows source badge, symbol, side, order type, quantity,
- * and status. Clicking a row selects it (emits intent id). Batch select with
+ * and status. Clicking a row selects it (emits ticket id). Batch select with
  * checkboxes + remove action.
  *
  * Ref: IMPL-savant-trader-order-placement-fe.md §8 (Signal order screen)
@@ -23,16 +23,16 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 import {
-  OrderIntent,
-  OrderIntentStatus,
+  OrderTicket,
+  OrderTicketStatus,
   OrderSource,
   InstrumentType,
-} from '../../services/order-intent.types';
+} from '../../services/order-ticket.types';
 
 interface StatusGroup {
   label: string;
-  status: OrderIntentStatus[];
-  intents: OrderIntent[];
+  status: OrderTicketStatus[];
+  tickets: OrderTicket[];
   cssClass: string;
 }
 
@@ -44,10 +44,10 @@ interface StatusGroup {
   styleUrl: './order-queue.component.scss',
 })
 export class OrderQueueComponent {
-  /** All intents to display in the queue. */
-  intents = input<OrderIntent[]>([]);
+  /** All tickets to display in the queue. */
+  tickets = input<OrderTicket[]>([]);
 
-  /** Currently selected intent id. */
+  /** Currently selected ticket id. */
   selectedId = input<string | null>(null);
 
   /** Price map: symbol → price. */
@@ -57,12 +57,12 @@ export class OrderQueueComponent {
   defaultDollarAmount = input<number>(100);
 
   /** Emitted when a row is clicked. */
-  intentSelected = output<string>();
+  ticketSelected = output<string>();
 
-  /** Emitted when the user batch-removes selected intents. */
-  removeIntents = output<string[]>();
+  /** Emitted when the user batch-removes selected tickets. */
+  removeTickets = output<string[]>();
 
-  /** Track selected checkbox state per intent id. */
+  /** Track selected checkbox state per ticket id. */
   private checkedIds = signal<Set<string>>(new Set());
 
   /** Track which group labels are collapsed. */
@@ -86,34 +86,34 @@ export class OrderQueueComponent {
     return this.collapsedGroups().has(label);
   }
 
-  /** Whether an intent is a stop loss linked to an entry position. */
-  isStopLoss(intent: OrderIntent): boolean {
-    return intent.sourceRef?.type === 'stop_loss';
+  /** Whether an ticket is a stop loss linked to an entry position. */
+  isStopLoss(ticket: OrderTicket): boolean {
+    return ticket.sourceRef?.type === 'stop_loss';
   }
 
-  /** Stop losses linked to a parent entry intent. */
-  linkedStopLosses(parentId: string): OrderIntent[] {
-    return this.intents().filter((intent) => this.isStopLoss(intent) && intent.sourceRef?.id === parentId);
+  /** Stop losses linked to a parent entry ticket. */
+  linkedStopLosses(parentId: string): OrderTicket[] {
+    return this.tickets().filter((ticket) => this.isStopLoss(ticket) && ticket.sourceRef?.id === parentId);
   }
 
   /** Accepted orders that remain at Robinhood waiting for a trigger or price. */
-  isResting(intent: OrderIntent): boolean {
-    return intent.status === OrderIntentStatus.RESTING ||
-      (intent.status === OrderIntentStatus.SUBMITTED &&
-        (this.isStopLoss(intent) || intent.orderType !== 'market'));
+  isResting(ticket: OrderTicket): boolean {
+    return ticket.status === OrderTicketStatus.RESTING ||
+      (ticket.status === OrderTicketStatus.SUBMITTED &&
+        (this.isStopLoss(ticket) || ticket.orderType !== 'market'));
   }
 
-  /** Whether an entry has a linked stop-loss intent. */
+  /** Whether an entry has a linked stop-loss ticket. */
   hasLinkedStopLoss(parentId: string): boolean {
     return this.linkedStopLosses(parentId).length > 0;
   }
 
-  /** Intents grouped by status category, in display order. Every broker intent appears once. */
+  /** tickets grouped by status category, in display order. Every broker ticket appears once. */
   groups = computed<StatusGroup[]>(() => {
-    const all = this.intents();
+    const all = this.tickets();
     const topLevel = all;
-    const sortIntents = (intents: OrderIntent[]) =>
-      [...intents].sort((a, b) => {
+    const sortTickets = (tickets: OrderTicket[]) =>
+      [...tickets].sort((a, b) => {
         // Buy before sell
         if (a.side !== b.side) return a.side === 'buy' ? -1 : 1;
         // Then by createdAt ascending (oldest first)
@@ -122,69 +122,69 @@ export class OrderQueueComponent {
     return [
       {
         label: 'Staged',
-        status: [OrderIntentStatus.STAGED, OrderIntentStatus.READY],
-        intents: sortIntents(topLevel.filter((i) => i.status === OrderIntentStatus.STAGED || i.status === OrderIntentStatus.READY)),
+        status: [OrderTicketStatus.STAGED],
+        tickets: sortTickets(topLevel.filter((i) => i.status === OrderTicketStatus.STAGED)),
         cssClass: 'group-staged',
       },
       {
         label: 'Submitting',
-        status: [OrderIntentStatus.SUBMITTING],
-        intents: sortIntents(topLevel.filter((i) => i.status === OrderIntentStatus.SUBMITTING)),
+        status: [OrderTicketStatus.SUBMITTING],
+        tickets: sortTickets(topLevel.filter((i) => i.status === OrderTicketStatus.SUBMITTING)),
         cssClass: 'group-submitting',
       },
       {
         label: 'Submitted',
-        status: [OrderIntentStatus.SUBMITTED],
-        intents: sortIntents(topLevel.filter((i) => i.status === OrderIntentStatus.SUBMITTED && !this.isResting(i))),
+        status: [OrderTicketStatus.SUBMITTED],
+        tickets: sortTickets(topLevel.filter((i) => i.status === OrderTicketStatus.SUBMITTED && !this.isResting(i))),
         cssClass: 'group-submitted',
       },
       {
         label: 'Queued',
-        status: [OrderIntentStatus.QUEUED],
-        intents: sortIntents(topLevel.filter((i) => i.status === OrderIntentStatus.QUEUED)),
+        status: [OrderTicketStatus.QUEUED],
+        tickets: sortTickets(topLevel.filter((i) => i.status === OrderTicketStatus.QUEUED)),
         cssClass: 'group-queued',
       },
       {
         label: 'Resting',
-        status: [OrderIntentStatus.SUBMITTED],
-        intents: sortIntents(topLevel.filter((i) => this.isResting(i))),
+        status: [OrderTicketStatus.SUBMITTED],
+        tickets: sortTickets(topLevel.filter((i) => this.isResting(i))),
         cssClass: 'group-resting',
       },
       {
-        label: 'Filled',
-        status: [OrderIntentStatus.FILLED],
-        intents: sortIntents(topLevel.filter((i) => i.status === OrderIntentStatus.FILLED)),
+        label: 'Open Positions',
+        status: [OrderTicketStatus.FILLED],
+        tickets: sortTickets(topLevel.filter((i) => i.status === OrderTicketStatus.FILLED)),
         cssClass: 'group-filled',
       },
       {
         label: 'Failed',
-        status: [OrderIntentStatus.FAILED],
-        intents: sortIntents(topLevel.filter((i) => i.status === OrderIntentStatus.FAILED)),
+        status: [OrderTicketStatus.FAILED],
+        tickets: sortTickets(topLevel.filter((i) => i.status === OrderTicketStatus.FAILED)),
         cssClass: 'group-failed',
       },
       {
         label: 'Cancelled',
-        status: [OrderIntentStatus.CANCELLED],
-        intents: sortIntents(topLevel.filter((i) => i.status === OrderIntentStatus.CANCELLED)),
+        status: [OrderTicketStatus.CANCELLED],
+        tickets: sortTickets(topLevel.filter((i) => i.status === OrderTicketStatus.CANCELLED)),
         cssClass: 'group-cancelled',
       },
-    ].filter((g) => g.intents.length > 0);
+    ].filter((g) => g.tickets.length > 0);
   });
 
   /** Total count for header. */
-  totalCount = computed(() => this.intents().length);
+  totalCount = computed(() => this.tickets().length);
 
-  /** Extract the display symbol from an intent (equity/etf: symbol, option: first leg symbol). */
-  symbolFor(intent: OrderIntent): string {
-    if (intent.instrumentType === InstrumentType.OPTION) {
-      return intent.legs[0]?.symbol ?? '?';
+  /** Extract the display symbol from an ticket (equity/etf: symbol, option: first leg symbol). */
+  symbolFor(ticket: OrderTicket): string {
+    if (ticket.instrumentType === InstrumentType.OPTION) {
+      return ticket.legs[0]?.symbol ?? '?';
     }
-    return intent.symbol;
+    return ticket.symbol;
   }
 
   /** Short source badge text. */
-  sourceBadge(intent: OrderIntent): string {
-    switch (intent.source) {
+  sourceBadge(ticket: OrderTicket): string {
+    switch (ticket.source) {
       case OrderSource.SIGNAL_PIPELINE: return 'SIG';
       case OrderSource.MANUAL: return 'MAN';
       case OrderSource.POSITION_MANAGEMENT: return 'POS';
@@ -193,36 +193,36 @@ export class OrderQueueComponent {
   }
 
   /** Quantity or dollar amount display string. Shows shares when available, otherwise dollar amount. */
-  quantityFor(intent: OrderIntent): string {
-    if (intent.instrumentType === InstrumentType.OPTION) {
-      return intent.quantity;
+  quantityFor(ticket: OrderTicket): string {
+    if (ticket.instrumentType === InstrumentType.OPTION) {
+      return ticket.quantity;
     }
-    if (intent.quantity) return intent.quantity;
-    if (intent.dollarAmount) return `$${intent.dollarAmount}`;
+    if (ticket.quantity) return ticket.quantity;
+    if (ticket.dollarAmount) return `$${ticket.dollarAmount}`;
     return `$${this.defaultDollarAmount()}`;
   }
 
-  /** Price for the intent's symbol, or null if not loaded. */
-  priceFor(intent: OrderIntent): number | null {
-    const sym = this.symbolFor(intent);
+  /** Price for the ticket's symbol, or null if not loaded. */
+  priceFor(ticket: OrderTicket): number | null {
+    const sym = this.symbolFor(ticket);
     return this.prices()[sym.toUpperCase()] ?? null;
   }
 
   /** Date display: signal bar date if signal-sourced, otherwise createdAt date. */
-  dateFor(intent: OrderIntent): string {
-    const signalDate = intent.signalContext?.barDate;
+  dateFor(ticket: OrderTicket): string {
+    const signalDate = ticket.signalContext?.barDate;
     if (signalDate) return signalDate;
-    return intent.createdAt?.slice(0, 10) ?? '—';
+    return ticket.createdAt?.slice(0, 10) ?? '—';
   }
 
   /** Row click handler. */
-  onRowClick(intent: OrderIntent, event: Event): void {
+  onRowClick(ticket: OrderTicket, event: Event): void {
     // Don't select when clicking the checkbox
     if ((event.target as HTMLElement).closest('mat-checkbox')) return;
-    this.intentSelected.emit(intent.id);
+    this.ticketSelected.emit(ticket.id);
   }
 
-  /** Toggle checkbox for an intent. */
+  /** Toggle checkbox for an ticket. */
   toggleCheck(id: string, checked: boolean): void {
     this.checkedIds.update((set) => {
       const next = new Set(set);
@@ -232,14 +232,14 @@ export class OrderQueueComponent {
     });
   }
 
-  /** Check if an intent id is checked. */
+  /** Check if an ticket id is checked. */
   isChecked(id: string): boolean {
     return this.checkedIds().has(id);
   }
 
-  /** Select all intents. */
+  /** Select all tickets. */
   selectAll(): void {
-    this.checkedIds.set(new Set(this.intents().map((i) => i.id)));
+    this.checkedIds.set(new Set(this.tickets().map((i) => i.id)));
   }
 
   /** Clear all checkboxes. */
@@ -247,11 +247,11 @@ export class OrderQueueComponent {
     this.checkedIds.set(new Set());
   }
 
-  /** Emit remove event for all checked intents. */
+  /** Emit remove event for all checked tickets. */
   removeChecked(): void {
     const ids = Array.from(this.checkedIds());
     if (ids.length === 0) return;
-    this.removeIntents.emit(ids);
+    this.removeTickets.emit(ids);
     this.checkedIds.set(new Set());
   }
 }

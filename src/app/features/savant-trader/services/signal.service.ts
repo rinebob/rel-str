@@ -238,22 +238,22 @@ export class SignalService {
         const signals: StSignalItem[] = [];
         for (const docSnap of snapshot.docs) {
           const d = docSnap.data();
-          const runId = typeof d['sourceRunId'] === 'string'
-            ? d['sourceRunId']
-            : typeof d['runId'] === 'string'
-              ? d['runId']
-              : undefined;
-          if (typeof runId !== 'string' || runId.length === 0) {
-            throw new Error(`[SignalService] Signal history doc ${docSnap.id} for ${symbol} is missing runId`);
-          }
-          const marketDate = d['marketDate'];
-          if (typeof marketDate !== 'string' || marketDate.length === 0) {
-            throw new Error(`[SignalService] Signal history doc ${docSnap.id} for ${symbol} is missing marketDate`);
-          }
 
           for (const entry of collectSignalEntries(d)) {
             const barDate = entry['barDate'];
             if (typeof barDate !== 'string' || barDate.length === 0) continue;
+            const runId = typeof entry['sourceRunId'] === 'string'
+              ? entry['sourceRunId']
+              : typeof entry['runId'] === 'string'
+                ? entry['runId']
+                : undefined;
+            if (typeof runId !== 'string' || runId.length === 0) {
+              throw new Error(`[SignalService] Signal entry in doc ${docSnap.id} for ${symbol} is missing runId`);
+            }
+            const marketDate = entry['marketDate'];
+            if (typeof marketDate !== 'string' || marketDate.length === 0) {
+              throw new Error(`[SignalService] Signal entry in doc ${docSnap.id} for ${symbol} is missing marketDate`);
+            }
             const signal = parseSignalEntry(entry, {
               id: docSnap.id,
               symbol,

@@ -4,7 +4,7 @@ import { Router } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { of } from 'rxjs';
 
-import { SignalReviewFacade, buildSignalOrderIntents } from './signal-review.facade';
+import { SignalReviewFacade, buildSignalOrderTickets } from './signal-review.facade';
 import { GroupStore } from './group.store';
 import { TriageStore } from './triage.store';
 import { OccurrenceDecisionStore } from './occurrence-decision.store';
@@ -12,13 +12,13 @@ import { SymbolListStore } from './symbol-list.store';
 import { SymbolHistoryStore } from './symbol-history.store';
 import { StStore } from './st.store';
 import { SignalReviewUiStore } from './signal-review-ui.store';
-import { OrderStagingStore } from './order-staging.store';
+import { OrderTicketStore } from './order-ticket.store';
 import { SignalService } from '../services/signal.service';
 import { TradingConfigService } from '../services/trading-config.service';
 import { UiStateService } from '../../../core/services/ui-state.service';
 import { ScrollTargetService } from '../services/scroll-target.service';
 import { SignalDirection, SignalTimeframe, ReviewDecision } from '../common/constants';
-import { OrderIntentStatus, OrderSource, InstrumentType } from '../services/order-intent.types';
+import { OrderTicketStatus, OrderSource, InstrumentType } from '../services/order-ticket.types';
 import type { StSignalItem, StOccurrenceDecision } from '../services/types';
 
 function signal<T>(initial: T) {
@@ -37,15 +37,15 @@ function makeSignal(direction: SignalDirection = SignalDirection.LONG): StSignal
   } as StSignalItem;
 }
 
-describe('buildSignalOrderIntents', () => {
-  it('stages one intent per symbol and side with a stable UUID ref id', () => {
+describe('buildSignalOrderTickets', () => {
+  it('stages one ticket per symbol and side with a stable UUID ref id', () => {
     const signals = [
       makeSignal(SignalDirection.LONG),
       { ...makeSignal(SignalDirection.LONG), timeframe: SignalTimeframe.WEEKLY },
       makeSignal(SignalDirection.SHORT),
     ] as StSignalItem[];
 
-    const intents = buildSignalOrderIntents('AAPL', signals, {
+    const tickets = buildSignalOrderTickets('AAPL', signals, {
       runId: 'run-1',
       accountNumber: 'agentic-account',
       defaultDollarAmount: 100,
@@ -54,11 +54,11 @@ describe('buildSignalOrderIntents', () => {
       buildRefId: () => '550e8400-e29b-41d4-a716-446655440000',
     });
 
-    expect(intents.length).toBe(2);
-    expect(intents.map((intent) => intent.side)).toEqual(['buy', 'sell']);
-    expect(intents.every((intent) => intent.accountNumber === 'agentic-account')).toBe(true);
-    expect(intents.every((intent) => intent.refId === '550e8400-e29b-41d4-a716-446655440000')).toBe(true);
-    expect(intents.every((intent) => intent.dollarAmount === '100')).toBe(true);
+    expect(tickets.length).toBe(2);
+    expect(tickets.map((ticket) => ticket.side)).toEqual(['buy', 'sell']);
+    expect(tickets.every((ticket) => ticket.accountNumber === 'agentic-account')).toBe(true);
+    expect(tickets.every((ticket) => ticket.refId === '550e8400-e29b-41d4-a716-446655440000')).toBe(true);
+    expect(tickets.every((ticket) => ticket.dollarAmount === '100')).toBe(true);
   });
 });
 
@@ -75,9 +75,9 @@ describe('SignalReviewFacade', () => {
 
   beforeEach(async () => {
     stagingStoreMock = {
-      stageIntent: jasmine.createSpy('stageIntent'),
-      removeIntent: jasmine.createSpy('removeIntent'),
-      intentsBySymbol: signal({}),
+      stageTicket: jasmine.createSpy('stageTicket'),
+      removeTicket: jasmine.createSpy('removeTicket'),
+      ticketsBySymbol: signal({}),
     };
 
     configServiceMock = {
@@ -132,7 +132,7 @@ describe('SignalReviewFacade', () => {
         { provide: SymbolHistoryStore, useValue: { signalHistoryCache: signal({}) } },
         { provide: StStore, useValue: {} },
         { provide: SignalReviewUiStore, useValue: {} },
-        { provide: OrderStagingStore, useValue: stagingStoreMock },
+        { provide: OrderTicketStore, useValue: stagingStoreMock },
         { provide: SignalService, useValue: signalServiceMock },
         { provide: TradingConfigService, useValue: configServiceMock },
         { provide: UiStateService, useValue: { setFullscreen: jasmine.createSpy('setFullscreen'), fullscreen: signal(false) } },
@@ -146,20 +146,20 @@ describe('SignalReviewFacade', () => {
   });
 
   describe('acceptSymbol', () => {
-    it('stages a buy intent for a LONG signal', fakeAsync(() => {
+    it('stages a buy ticket for a LONG signal', fakeAsync(() => {
       facade.acceptSymbol('AAPL');
       tick();
 
       expect(occurrenceStoreMock.acceptSignals).toHaveBeenCalled();
-      expect(stagingStoreMock.stageIntent).toHaveBeenCalledTimes(1);
-      const intent = stagingStoreMock.stageIntent.calls.mostRecent().args[0];
-      expect(intent.side).toBe('buy');
-      expect(intent.instrumentType).toBe(InstrumentType.EQUITY);
-      expect(intent.source).toBe(OrderSource.SIGNAL_PIPELINE);
-      expect(intent.status).toBe(OrderIntentStatus.STAGED);
+      expect(stagingStoreMock.stageTicket).toHaveBeenCalledTimes(1);
+      const ticket = stagingStoreMock.stageTicket.calls.mostRecent().args[0];
+      expect(ticket.side).toBe('buy');
+      expect(ticket.instrumentType).toBe(InstrumentType.EQUITY);
+      expect(ticket.source).toBe(OrderSource.SIGNAL_PIPELINE);
+      expect(ticket.status).toBe(OrderTicketStatus.STAGED);
     }));
 
-    it('stages a sell intent for a SHORT signal', fakeAsync(() => {
+    it('stages a sell ticket for a SHORT signal', fakeAsync(() => {
       signalServiceMock.getCurrentRunSignalsForSymbol.and.returnValue(
         of([makeSignal(SignalDirection.SHORT)]),
       );
@@ -167,8 +167,8 @@ describe('SignalReviewFacade', () => {
       facade.acceptSymbol('NVDA');
       tick();
 
-      const intent = stagingStoreMock.stageIntent.calls.mostRecent().args[0];
-      expect(intent.side).toBe('sell');
+      const ticket = stagingStoreMock.stageTicket.calls.mostRecent().args[0];
+      expect(ticket.side).toBe('sell');
     }));
 
     it('deduplicates multiple signals with the same direction for one symbol', fakeAsync(() => {
@@ -182,14 +182,14 @@ describe('SignalReviewFacade', () => {
       facade.acceptSymbol('AAPL');
       tick();
 
-      expect(stagingStoreMock.stageIntent).toHaveBeenCalledTimes(1);
+      expect(stagingStoreMock.stageTicket).toHaveBeenCalledTimes(1);
     }));
 
-    it('removes the staged intent and resets the occurrence when re-accepting an accepted symbol', fakeAsync(() => {
+    it('removes the staged ticket and resets the occurrence when re-accepting an accepted symbol', fakeAsync(() => {
       occurrenceStoreMock.acceptedSymbols.set(['AAPL']);
-      stagingStoreMock.intentsBySymbol.set({
+      stagingStoreMock.ticketsBySymbol.set({
         AAPL: [
-          { id: 'i1', symbol: 'AAPL', status: OrderIntentStatus.STAGED },
+          { id: 'i1', symbol: 'AAPL', status: OrderTicketStatus.STAGED },
         ],
       });
 
@@ -197,9 +197,9 @@ describe('SignalReviewFacade', () => {
       tick();
 
       expect(occurrenceStoreMock.resetSymbol).toHaveBeenCalledWith('AAPL', 'run-daily');
-      expect(stagingStoreMock.removeIntent).toHaveBeenCalledWith('i1');
+      expect(stagingStoreMock.removeTicket).toHaveBeenCalledWith('i1');
       expect(occurrenceStoreMock.acceptSignals).not.toHaveBeenCalled();
-      expect(stagingStoreMock.stageIntent).not.toHaveBeenCalled();
+      expect(stagingStoreMock.stageTicket).not.toHaveBeenCalled();
     }));
 
     it('does not stage when config load fails', fakeAsync(() => {
@@ -208,7 +208,7 @@ describe('SignalReviewFacade', () => {
       facade.acceptSymbol('AAPL');
       tick();
 
-      expect(stagingStoreMock.stageIntent).not.toHaveBeenCalled();
+      expect(stagingStoreMock.stageTicket).not.toHaveBeenCalled();
       expect(snackBarMock.open).toHaveBeenCalled();
     }));
 
@@ -218,15 +218,15 @@ describe('SignalReviewFacade', () => {
       facade.acceptSymbol('AAPL');
 
       expect(occurrenceStoreMock.acceptSignals).not.toHaveBeenCalled();
-      expect(stagingStoreMock.stageIntent).not.toHaveBeenCalled();
+      expect(stagingStoreMock.stageTicket).not.toHaveBeenCalled();
     });
   });
 
   describe('rejectSymbol', () => {
-    it('rejects signals and removes any staged intent', fakeAsync(() => {
-      stagingStoreMock.intentsBySymbol.set({
+    it('rejects signals and removes any staged ticket', fakeAsync(() => {
+      stagingStoreMock.ticketsBySymbol.set({
         AAPL: [
-          { id: 'i1', symbol: 'AAPL', status: OrderIntentStatus.STAGED },
+          { id: 'i1', symbol: 'AAPL', status: OrderTicketStatus.STAGED },
         ],
       });
 
@@ -234,7 +234,7 @@ describe('SignalReviewFacade', () => {
       tick();
 
       expect(occurrenceStoreMock.rejectSignals).toHaveBeenCalled();
-      expect(stagingStoreMock.removeIntent).toHaveBeenCalledWith('i1');
+      expect(stagingStoreMock.removeTicket).toHaveBeenCalledWith('i1');
     }));
   });
 

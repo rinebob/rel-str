@@ -14,7 +14,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 
-import { TradingConfig, AccountInfo } from '../../services/order-intent.types';
+import { TradingConfig, AccountInfo } from '../../services/order-ticket.types';
 import { TradingConfigService } from '../../services/trading-config.service';
 
 @Component({

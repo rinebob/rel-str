@@ -5,21 +5,21 @@ import { OrderExecutionService } from './order-execution.service';
 import { RobinhoodMcpObservationService } from './robinhood-mcp-observation.service';
 import {
   OrderSource,
-  OrderIntentStatus,
+  OrderTicketStatus,
   InstrumentType,
-  EquityOrderIntent,
-} from './order-intent.types';
+  EquityOrderTicket,
+} from './order-ticket.types';
 
 describe('OrderExecutionService', () => {
   let service: OrderExecutionService;
   let mcpService: any;
 
-  function mockIntent(overrides: Partial<EquityOrderIntent> = {}): EquityOrderIntent {
+  function mockTicket(overrides: Partial<EquityOrderTicket> = {}): EquityOrderTicket {
     return {
-      id: 'intent-1',
+      id: 'ticket-1',
       refId: 'ref-abc-123',
       source: OrderSource.SIGNAL_PIPELINE,
-      status: OrderIntentStatus.SUBMITTING,
+      status: OrderTicketStatus.SUBMITTING,
       accountNumber: '123456789',
       side: 'buy',
       orderType: 'market',
@@ -67,7 +67,7 @@ describe('OrderExecutionService', () => {
         return Promise.resolve({ success: false, error: 'Unknown tool' });
       });
 
-      const result = await service.submitEquityOrder(mockIntent());
+      const result = await service.submitEquityOrder(mockTicket());
 
       expect(result.success).toBe(true);
       expect(result.result?.orderId).toBe('order-123');
@@ -86,7 +86,7 @@ describe('OrderExecutionService', () => {
     it('sends quantity instead of stale dollar amount when both are present', async () => {
       mcpService.executeTool.and.resolveTo({ success: true, parsed: {}, redacted: {}, tool: 'test' });
 
-      await service.submitEquityOrder(mockIntent({ quantity: '3', dollarAmount: '500' }));
+      await service.submitEquityOrder(mockTicket({ quantity: '3', dollarAmount: '500' }));
 
       const reviewArgs = mcpService.executeTool.calls.argsFor(0)[1].args;
       const placeArgs = mcpService.executeTool.calls.argsFor(1)[1].args;
@@ -103,7 +103,7 @@ describe('OrderExecutionService', () => {
         category: 'MCP',
       });
 
-      const result = await service.submitEquityOrder(mockIntent());
+      const result = await service.submitEquityOrder(mockTicket());
 
       expect(result.success).toBe(false);
       expect(result.error?.retryable).toBe(true);
@@ -124,7 +124,7 @@ describe('OrderExecutionService', () => {
         });
       });
 
-      const result = await service.submitEquityOrder(mockIntent());
+      const result = await service.submitEquityOrder(mockTicket());
 
       expect(result.success).toBe(false);
       expect(result.error?.retryable).toBe(false);
@@ -143,7 +143,7 @@ describe('OrderExecutionService', () => {
         return Promise.resolve({ success: true, redacted: {}, tool: name });
       });
 
-      const result = await service.submitEquityOrder(mockIntent());
+      const result = await service.submitEquityOrder(mockTicket());
 
       expect(result.success).toBe(false);
       expect(result.error?.retryable).toBe(false);
@@ -160,7 +160,7 @@ describe('OrderExecutionService', () => {
         return Promise.resolve({ success: false, error: 'noop' });
       });
 
-      const result = await service.submitEquityOrder(mockIntent());
+      const result = await service.submitEquityOrder(mockTicket());
 
       expect(result.success).toBe(false);
       expect(result.error?.retryable).toBe(true);
@@ -170,7 +170,7 @@ describe('OrderExecutionService', () => {
     it('returns retryable failure for preflight exception', async () => {
       mcpService.executeTool.and.rejectWith(new Error('Network error'));
 
-      const result = await service.submitEquityOrder(mockIntent());
+      const result = await service.submitEquityOrder(mockTicket());
 
       expect(result.success).toBe(false);
       expect(result.error?.retryable).toBe(true);
@@ -186,13 +186,13 @@ describe('OrderExecutionService', () => {
         });
       });
 
-      const intent = mockIntent({
+      const ticket = mockTicket({
         orderType: 'stop_limit',
         limitPrice: '150.00',
         stopPrice: '145.00',
       });
 
-      await service.submitEquityOrder(intent);
+      await service.submitEquityOrder(ticket);
 
       const reviewArgs = mcpService.executeTool.calls.argsFor(0)[1].args;
       expect(reviewArgs.limit_price).toBe('150.00');
@@ -237,83 +237,6 @@ describe('OrderExecutionService', () => {
     });
   });
 
-  describe('reconcileOrder', () => {
-    it('returns found=true with state when order matches ref_id', async () => {
-      mcpService.executeTool.and.resolveTo({
-        success: true,
-        parsed: {
-          results: [
-            { id: 'order-789', ref_id: 'ref-abc-123', state: 'filled', average_price: '150.25', filled_quantity: '10' },
-            { id: 'order-999', ref_id: 'ref-other', state: 'cancelled' },
-          ],
-        },
-        redacted: {},
-        tool: 'get_equity_orders',
-      });
-
-      const result = await service.reconcileOrder('123456789', 'ref-abc-123');
-
-      expect(result.found).toBe(true);
-      expect(result.state).toBe('filled');
-      expect(result.orderId).toBe('order-789');
-      expect(result.fillPrice).toBe('150.25');
-      expect(result.filledQuantity).toBe('10');
-    });
-
-    it('returns found=false when no order matches ref_id', async () => {
-      mcpService.executeTool.and.resolveTo({
-        success: true,
-        parsed: {
-          results: [
-            { id: 'order-1', ref_id: 'ref-different', state: 'cancelled' },
-          ],
-        },
-        redacted: {},
-        tool: 'get_equity_orders',
-      });
-
-      const result = await service.reconcileOrder('123456789', 'ref-abc-123');
-
-      expect(result.found).toBe(false);
-      expect(result.state).toBeNull();
-    });
-
-    it('returns found=false when query fails', async () => {
-      mcpService.executeTool.and.resolveTo({
-        success: false,
-        error: 'Query failed',
-        category: 'MCP',
-      });
-
-      const result = await service.reconcileOrder('123456789', 'ref-abc-123');
-
-      expect(result.found).toBe(false);
-      expect(result.state).toBeNull();
-    });
-
-    it('returns found=false on exception', async () => {
-      mcpService.executeTool.and.rejectWith(new Error('Network error'));
-
-      const result = await service.reconcileOrder('123456789', 'ref-abc-123');
-
-      expect(result.found).toBe(false);
-      expect(result.state).toBeNull();
-    });
-
-    it('returns found=false when results array is empty', async () => {
-      mcpService.executeTool.and.resolveTo({
-        success: true,
-        parsed: { results: [] },
-        redacted: {},
-        tool: 'get_equity_orders',
-      });
-
-      const result = await service.reconcileOrder('123456789', 'ref-abc-123');
-
-      expect(result.found).toBe(false);
-    });
-  });
-
   describe('error classification', () => {
     it('classifies PDT violation as non-retryable', async () => {
       mcpService.executeTool.and.resolveTo({
@@ -322,7 +245,7 @@ describe('OrderExecutionService', () => {
         category: 'MCP',
       });
 
-      const result = await service.submitEquityOrder(mockIntent());
+      const result = await service.submitEquityOrder(mockTicket());
 
       expect(result.error?.retryable).toBe(false);
     });
@@ -334,7 +257,7 @@ describe('OrderExecutionService', () => {
         category: 'MCP',
       });
 
-      const result = await service.submitEquityOrder(mockIntent());
+      const result = await service.submitEquityOrder(mockTicket());
 
       expect(result.error?.retryable).toBe(true);
     });
@@ -346,7 +269,7 @@ describe('OrderExecutionService', () => {
         category: 'AUTH',
       });
 
-      const result = await service.submitEquityOrder(mockIntent());
+      const result = await service.submitEquityOrder(mockTicket());
 
       expect(result.error?.retryable).toBe(false);
     });
@@ -358,7 +281,7 @@ describe('OrderExecutionService', () => {
         category: 'UNKNOWN',
       });
 
-      const result = await service.submitEquityOrder(mockIntent());
+      const result = await service.submitEquityOrder(mockTicket());
 
       expect(result.error?.retryable).toBe(true);
     });

@@ -3,18 +3,18 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 
 import { OrderQueueComponent } from './order-queue.component';
 import {
-  OrderIntent,
-  OrderIntentStatus,
+  OrderTicket,
+  OrderTicketStatus,
   OrderSource,
   InstrumentType,
-} from '../../services/order-intent.types';
+} from '../../services/order-ticket.types';
 
-function makeIntent(
+function makeTicket(
   id: string,
-  status: OrderIntentStatus,
+  status: OrderTicketStatus,
   symbol: string,
   side: 'buy' | 'sell' = 'buy',
-): OrderIntent {
+): OrderTicket {
   return {
     id,
     refId: `ref-${id}`,
@@ -30,7 +30,7 @@ function makeIntent(
     quantity: '100',
     createdAt: '2026-08-25T12:00:00Z',
     updatedAt: '2026-08-25T12:00:00Z',
-  } as OrderIntent;
+  } as OrderTicket;
 }
 
 describe('OrderQueueComponent', () => {
@@ -48,8 +48,8 @@ describe('OrderQueueComponent', () => {
   });
 
   describe('empty state', () => {
-    it('shows empty state message when no intents', () => {
-      fixture.componentRef.setInput('intents', []);
+    it('shows empty state message when no tickets', () => {
+      fixture.componentRef.setInput('tickets', []);
       fixture.componentRef.setInput('selectedId', null);
       fixture.detectChanges();
 
@@ -58,8 +58,8 @@ describe('OrderQueueComponent', () => {
       expect(empty.textContent).toContain('No staged orders');
     });
 
-    it('does not show empty state when intents exist', () => {
-      fixture.componentRef.setInput('intents', [makeIntent('1', OrderIntentStatus.STAGED, 'AAPL')]);
+    it('does not show empty state when tickets exist', () => {
+      fixture.componentRef.setInput('tickets', [makeTicket('1', OrderTicketStatus.STAGED, 'AAPL')]);
       fixture.componentRef.setInput('selectedId', null);
       fixture.detectChanges();
 
@@ -69,58 +69,58 @@ describe('OrderQueueComponent', () => {
   });
 
   describe('grouping', () => {
-    it('groups intents by status', () => {
-      const intents = [
-        makeIntent('1', OrderIntentStatus.STAGED, 'AAPL'),
-        makeIntent('2', OrderIntentStatus.SUBMITTED, 'NVDA'),
-        makeIntent('3', OrderIntentStatus.FILLED, 'MSFT'),
-        makeIntent('4', OrderIntentStatus.FAILED, 'TSLA'),
+    it('groups tickets by status', () => {
+      const tickets = [
+        makeTicket('1', OrderTicketStatus.STAGED, 'AAPL'),
+        makeTicket('2', OrderTicketStatus.SUBMITTED, 'NVDA'),
+        makeTicket('3', OrderTicketStatus.FILLED, 'MSFT'),
+        makeTicket('4', OrderTicketStatus.FAILED, 'TSLA'),
       ];
-      fixture.componentRef.setInput('intents', intents);
+      fixture.componentRef.setInput('tickets', tickets);
       fixture.componentRef.setInput('selectedId', null);
       fixture.detectChanges();
 
       const groups = component.groups();
       expect(groups.length).toBe(4);
       expect(groups[0].label).toBe('Staged');
-      expect(groups[0].intents.length).toBe(1);
+      expect(groups[0].tickets.length).toBe(1);
       expect(groups[1].label).toBe('Submitted');
-      expect(groups[2].label).toBe('Filled');
+      expect(groups[2].label).toBe('Open Positions');
       expect(groups[3].label).toBe('Failed');
     });
 
     it('places accepted non-market orders in the Resting group', () => {
-      const limit = makeIntent('1', OrderIntentStatus.SUBMITTED, 'AAPL');
+      const limit = makeTicket('1', OrderTicketStatus.SUBMITTED, 'AAPL');
       limit.orderType = 'limit';
-      const market = makeIntent('2', OrderIntentStatus.SUBMITTED, 'MSFT');
+      const market = makeTicket('2', OrderTicketStatus.SUBMITTED, 'MSFT');
 
-      fixture.componentRef.setInput('intents', [limit, market]);
+      fixture.componentRef.setInput('tickets', [limit, market]);
       fixture.componentRef.setInput('selectedId', null);
       fixture.detectChanges();
 
       const groups = component.groups();
-      expect(groups.find((group) => group.label === 'Resting')?.intents).toEqual([limit]);
-      expect(groups.find((group) => group.label === 'Submitted')?.intents).toEqual([market]);
+      expect(groups.find((group) => group.label === 'Resting')?.tickets).toEqual([limit]);
+      expect(groups.find((group) => group.label === 'Submitted')?.tickets).toEqual([market]);
     });
 
-    it('combines STAGED and READY into one group', () => {
-      const intents = [
-        makeIntent('1', OrderIntentStatus.STAGED, 'AAPL'),
-        makeIntent('2', OrderIntentStatus.READY, 'NVDA'),
+    it('groups STAGED tickets together', () => {
+      const tickets = [
+        makeTicket('1', OrderTicketStatus.STAGED, 'AAPL'),
+        makeTicket('2', OrderTicketStatus.STAGED, 'NVDA'),
       ];
-      fixture.componentRef.setInput('intents', intents);
+      fixture.componentRef.setInput('tickets', tickets);
       fixture.componentRef.setInput('selectedId', null);
       fixture.detectChanges();
 
       const groups = component.groups();
       expect(groups.length).toBe(1);
       expect(groups[0].label).toBe('Staged');
-      expect(groups[0].intents.length).toBe(2);
+      expect(groups[0].tickets.length).toBe(2);
     });
 
-    it('hides groups with no intents', () => {
-      const intents = [makeIntent('1', OrderIntentStatus.STAGED, 'AAPL')];
-      fixture.componentRef.setInput('intents', intents);
+    it('hides groups with no tickets', () => {
+      const tickets = [makeTicket('1', OrderTicketStatus.STAGED, 'AAPL')];
+      fixture.componentRef.setInput('tickets', tickets);
       fixture.componentRef.setInput('selectedId', null);
       fixture.detectChanges();
 
@@ -130,30 +130,30 @@ describe('OrderQueueComponent', () => {
     });
 
     it('renders group headers in the DOM', () => {
-      const intents = [
-        makeIntent('1', OrderIntentStatus.STAGED, 'AAPL'),
-        makeIntent('2', OrderIntentStatus.FILLED, 'NVDA'),
+      const tickets = [
+        makeTicket('1', OrderTicketStatus.STAGED, 'AAPL'),
+        makeTicket('2', OrderTicketStatus.FILLED, 'NVDA'),
       ];
-      fixture.componentRef.setInput('intents', intents);
+      fixture.componentRef.setInput('tickets', tickets);
       fixture.componentRef.setInput('selectedId', null);
       fixture.detectChanges();
 
       const headers = fixture.nativeElement.querySelectorAll('.group-label');
       expect(headers.length).toBe(2);
       expect(headers[0].textContent).toContain('Staged');
-      expect(headers[1].textContent).toContain('Filled');
+      expect(headers[1].textContent).toContain('Open Positions');
     });
   });
 
   describe('selection', () => {
-    it('emits intentSelected when a row is clicked', () => {
-      const intents = [makeIntent('1', OrderIntentStatus.STAGED, 'AAPL')];
-      fixture.componentRef.setInput('intents', intents);
+    it('emits ticketSelected when a row is clicked', () => {
+      const tickets = [makeTicket('1', OrderTicketStatus.STAGED, 'AAPL')];
+      fixture.componentRef.setInput('tickets', tickets);
       fixture.componentRef.setInput('selectedId', null);
       fixture.detectChanges();
 
       let emittedId: string | null = null;
-      component.intentSelected.subscribe((id) => (emittedId = id));
+      component.ticketSelected.subscribe((id) => (emittedId = id));
 
       const row = fixture.nativeElement.querySelector('.queue-item');
       row.click();
@@ -163,11 +163,11 @@ describe('OrderQueueComponent', () => {
     });
 
     it('applies selected class to the selected row', () => {
-      const intents = [
-        makeIntent('1', OrderIntentStatus.STAGED, 'AAPL'),
-        makeIntent('2', OrderIntentStatus.STAGED, 'NVDA'),
+      const tickets = [
+        makeTicket('1', OrderTicketStatus.STAGED, 'AAPL'),
+        makeTicket('2', OrderTicketStatus.STAGED, 'NVDA'),
       ];
-      fixture.componentRef.setInput('intents', intents);
+      fixture.componentRef.setInput('tickets', tickets);
       fixture.componentRef.setInput('selectedId', '2');
       fixture.detectChanges();
 
@@ -177,13 +177,13 @@ describe('OrderQueueComponent', () => {
     });
 
     it('does not emit selection when clicking checkbox', () => {
-      const intents = [makeIntent('1', OrderIntentStatus.STAGED, 'AAPL')];
-      fixture.componentRef.setInput('intents', intents);
+      const tickets = [makeTicket('1', OrderTicketStatus.STAGED, 'AAPL')];
+      fixture.componentRef.setInput('tickets', tickets);
       fixture.componentRef.setInput('selectedId', null);
       fixture.detectChanges();
 
       let emitted = false;
-      component.intentSelected.subscribe(() => (emitted = true));
+      component.ticketSelected.subscribe(() => (emitted = true));
 
       const checkbox = fixture.nativeElement.querySelector('mat-checkbox');
       checkbox.click();
@@ -194,17 +194,17 @@ describe('OrderQueueComponent', () => {
   });
 
   describe('batch select + remove', () => {
-    it('emits removeIntents with checked ids', () => {
-      const intents = [
-        makeIntent('1', OrderIntentStatus.STAGED, 'AAPL'),
-        makeIntent('2', OrderIntentStatus.STAGED, 'NVDA'),
+    it('emits removeTickets with checked ids', () => {
+      const tickets = [
+        makeTicket('1', OrderTicketStatus.STAGED, 'AAPL'),
+        makeTicket('2', OrderTicketStatus.STAGED, 'NVDA'),
       ];
-      fixture.componentRef.setInput('intents', intents);
+      fixture.componentRef.setInput('tickets', tickets);
       fixture.componentRef.setInput('selectedId', null);
       fixture.detectChanges();
 
       let removedIds: string[] | null = null;
-      component.removeIntents.subscribe((ids) => (removedIds = ids));
+      component.removeTickets.subscribe((ids) => (removedIds = ids));
 
       // Check both checkboxes
       component.toggleCheck('1', true);
@@ -217,12 +217,12 @@ describe('OrderQueueComponent', () => {
       expect(removedIds).toEqual(['1', '2']);
     });
 
-    it('selects all intents', () => {
-      const intents = [
-        makeIntent('1', OrderIntentStatus.STAGED, 'AAPL'),
-        makeIntent('2', OrderIntentStatus.FILLED, 'NVDA'),
+    it('selects all tickets', () => {
+      const tickets = [
+        makeTicket('1', OrderTicketStatus.STAGED, 'AAPL'),
+        makeTicket('2', OrderTicketStatus.FILLED, 'NVDA'),
       ];
-      fixture.componentRef.setInput('intents', intents);
+      fixture.componentRef.setInput('tickets', tickets);
       fixture.componentRef.setInput('selectedId', null);
       fixture.detectChanges();
 
@@ -235,8 +235,8 @@ describe('OrderQueueComponent', () => {
     });
 
     it('clears selection', () => {
-      const intents = [makeIntent('1', OrderIntentStatus.STAGED, 'AAPL')];
-      fixture.componentRef.setInput('intents', intents);
+      const tickets = [makeTicket('1', OrderTicketStatus.STAGED, 'AAPL')];
+      fixture.componentRef.setInput('tickets', tickets);
       fixture.componentRef.setInput('selectedId', null);
       fixture.detectChanges();
 
@@ -249,27 +249,27 @@ describe('OrderQueueComponent', () => {
     });
 
     it('shows remove button only when checkboxes are checked', () => {
-      fixture.componentRef.setInput('intents', [makeIntent('1', OrderIntentStatus.STAGED, 'AAPL')]);
+      fixture.componentRef.setInput('tickets', [makeTicket('1', OrderTicketStatus.STAGED, 'AAPL')]);
       fixture.componentRef.setInput('selectedId', null);
       fixture.detectChanges();
 
       // No remove button initially
-      expect(fixture.nativeElement.querySelector('.remove-btn')).toBeFalsy();
+      expect(fixture.nativeElement.querySelector('.batch-link.remove')).toBeFalsy();
 
       // Check the box
       component.toggleCheck('1', true);
       fixture.detectChanges();
 
-      expect(fixture.nativeElement.querySelector('.remove-btn')).toBeTruthy();
+      expect(fixture.nativeElement.querySelector('.batch-link.remove')).toBeTruthy();
     });
   });
 
   describe('row display', () => {
     it('shows symbol, side, order type, and quantity', () => {
-      const intent = makeIntent('1', OrderIntentStatus.STAGED, 'AAPL', 'sell');
-      intent.orderType = 'limit';
-      intent.quantity = '50';
-      fixture.componentRef.setInput('intents', [intent]);
+      const ticket = makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'sell');
+      ticket.orderType = 'limit';
+      ticket.quantity = '50';
+      fixture.componentRef.setInput('tickets', [ticket]);
       fixture.componentRef.setInput('selectedId', null);
       fixture.detectChanges();
 
@@ -281,8 +281,8 @@ describe('OrderQueueComponent', () => {
     });
 
     it('shows source badge', () => {
-      const intent = makeIntent('1', OrderIntentStatus.STAGED, 'AAPL');
-      fixture.componentRef.setInput('intents', [intent]);
+      const ticket = makeTicket('1', OrderTicketStatus.STAGED, 'AAPL');
+      fixture.componentRef.setInput('tickets', [ticket]);
       fixture.componentRef.setInput('selectedId', null);
       fixture.detectChanges();
 
@@ -290,14 +290,15 @@ describe('OrderQueueComponent', () => {
       expect(badge.textContent).toContain('SIG');
     });
 
-    it('shows status badge', () => {
-      const intent = makeIntent('1', OrderIntentStatus.SUBMITTED, 'AAPL');
-      fixture.componentRef.setInput('intents', [intent]);
+    it('shows status in group header', () => {
+      const ticket = makeTicket('1', OrderTicketStatus.SUBMITTED, 'AAPL');
+      fixture.componentRef.setInput('tickets', [ticket]);
       fixture.componentRef.setInput('selectedId', null);
       fixture.detectChanges();
 
-      const badge = fixture.nativeElement.querySelector('.status-badge');
-      expect(badge.textContent).toContain('submitted');
+      const header = fixture.nativeElement.querySelector('.group-label');
+      expect(header).toBeTruthy();
+      expect(header.textContent).toContain('Submitted');
     });
   });
 });

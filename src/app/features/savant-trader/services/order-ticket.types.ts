@@ -1,29 +1,28 @@
 /**
- * Savant Trader OrderIntent type model.
+ * Savant Trader OrderTicket type model.
  *
- * Discriminated union on InstrumentType for equity, ETF, and option order intents.
- * Equity and ETF intents are implemented; OptionOrderIntent is defined but not wired
+ * Discriminated union on InstrumentType for equity, ETF, and option order tickets.
+ * Equity and ETF tickets are implemented; OptionOrderTicket is defined but not wired
  * — extension point for future option order work.
  *
- * Ref: PRD-savant-trader-order-placement-refactor.md §Order intent data model
- * Ref: IMPL-savant-trader-order-placement-shared.md §4 (OrderIntent type model)
+ * Ref: PRD-savant-trader-order-placement-refactor.md §Order ticket data model
+ * Ref: IMPL-savant-trader-order-placement-shared.md §4 (OrderTicket type model)
  */
 
 // =============================
 // Enums
 // =============================
 
-/** Instrument type discriminant for the OrderIntent union. */
+/** Instrument type discriminant for the OrderTicket union. */
 export enum InstrumentType {
   EQUITY = 'equity',
   ETF = 'etf',
   OPTION = 'option',
 }
 
-/** Lifecycle status of an order intent. */
-export enum OrderIntentStatus {
+/** Lifecycle status of an order ticket. */
+export enum OrderTicketStatus {
   STAGED = 'staged',
-  READY = 'ready',
   SUBMITTING = 'submitting',
   SUBMITTED = 'submitted',
   QUEUED = 'queued',
@@ -33,7 +32,7 @@ export enum OrderIntentStatus {
   CANCELLED = 'cancelled',
 }
 
-/** Origin of the order intent. */
+/** Origin of the order ticket. */
 export enum OrderSource {
   SIGNAL_PIPELINE = 'signal_pipeline',
   MANUAL = 'manual',
@@ -45,13 +44,13 @@ export enum OrderSource {
 // =============================
 
 /** Link to the originating entity (e.g., an occurrence decision id). */
-export interface OrderIntentSourceRef {
+export interface OrderTicketSourceRef {
   type: string;
   id: string;
 }
 
 /** Signal context present when source = SIGNAL_PIPELINE. */
-export interface OrderIntentSignalContext {
+export interface OrderTicketSignalContext {
   signalType: string;
   barDate: string;
   timeframe: string;
@@ -60,7 +59,7 @@ export interface OrderIntentSignalContext {
 }
 
 /** Error details when submission fails. */
-export interface OrderIntentError {
+export interface OrderTicketError {
   message: string;
   code?: string;
   retryable: boolean;
@@ -90,7 +89,7 @@ export interface BrokerOrderSnapshot {
 }
 
 /** Result details after submission. */
-export interface OrderIntentResult {
+export interface OrderTicketResult {
   orderId?: string;
   state?: string;
   fillPrice?: string;
@@ -108,25 +107,25 @@ export interface TaxLotSelection {
 // Base + variant interfaces
 // =============================
 
-export interface BaseOrderIntent {
+export interface BaseOrderTicket {
   id: string;                    // UUID
   refId: string;                 // Robinhood idempotency key — generated at staging, reused on retry
   source: OrderSource;
-  sourceRef?: OrderIntentSourceRef;
-  status: OrderIntentStatus;
+  sourceRef?: OrderTicketSourceRef;
+  status: OrderTicketStatus;
   accountNumber: string;
   side: 'buy' | 'sell';
   orderType: 'market' | 'limit' | 'stop_market' | 'stop_limit' | 'stop_loss';
   timeInForce: 'gfd' | 'gtc';
   marketHours: 'regular_hours' | 'extended_hours' | 'all_day_hours';
-  signalContext?: OrderIntentSignalContext;
+  signalContext?: OrderTicketSignalContext;
   createdAt: string;
   updatedAt: string;
-  error?: OrderIntentError;
-  result?: OrderIntentResult;
+  error?: OrderTicketError;
+  result?: OrderTicketResult;
 }
 
-export interface EquityOrderIntent extends BaseOrderIntent {
+export interface EquityOrderTicket extends BaseOrderTicket {
   instrumentType: InstrumentType.EQUITY;
   symbol: string;
   quantity?: string;             // shares (decimal string)
@@ -136,7 +135,7 @@ export interface EquityOrderIntent extends BaseOrderIntent {
   taxLots?: TaxLotSelection[];
 }
 
-export interface EtfOrderIntent extends BaseOrderIntent {
+export interface EtfOrderTicket extends BaseOrderTicket {
   instrumentType: InstrumentType.ETF;
   symbol: string;
   quantity?: string;
@@ -152,7 +151,7 @@ export interface OptionLeg {
   quantity: string;              // contracts (positive integer string)
 }
 
-export interface OptionOrderIntent extends BaseOrderIntent {
+export interface OptionOrderTicket extends BaseOrderTicket {
   instrumentType: InstrumentType.OPTION;
   legs: OptionLeg[];
   quantity: string;              // contracts (positive integer string)
@@ -164,7 +163,7 @@ export interface OptionOrderIntent extends BaseOrderIntent {
 // Discriminated union
 // =============================
 
-export type OrderIntent = EquityOrderIntent | EtfOrderIntent | OptionOrderIntent;
+export type OrderTicket = EquityOrderTicket | EtfOrderTicket | OptionOrderTicket;
 
 // =============================
 // Trading config

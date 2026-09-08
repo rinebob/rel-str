@@ -1,12 +1,12 @@
 import {
-  EquityOrderIntent,
+  EquityOrderTicket,
   InstrumentType,
-  OrderIntent,
-  OrderIntentStatus,
+  OrderTicket,
+  OrderTicketStatus,
   OrderSource,
-} from '../services/order-intent.types';
+} from '../services/order-ticket.types';
 
-function formatIntentTimestamp(now: Date): string {
+function formatTicketTimestamp(now: Date): string {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/Los_Angeles',
     year: '2-digit',
@@ -25,22 +25,22 @@ function formatIntentTimestamp(now: Date): string {
 }
 
 function buildStopLossId(symbol: string, now: Date): string {
-  return `${symbol.toUpperCase()}-STOP_LOSS-${formatIntentTimestamp(now)}`;
+  return `${symbol.toUpperCase()}-STOP_LOSS-${formatTicketTimestamp(now)}`;
 }
 
-export function buildFractionalCloseIntent(
-  entry: OrderIntent,
+export function buildFractionalCloseTicket(
+  entry: OrderTicket,
   symbol: string,
   quantity: string,
   accountNumber: string,
   now = new Date(),
-): EquityOrderIntent {
+): EquityOrderTicket {
   return {
-    id: `${symbol.toUpperCase()}-CLOSE_FRACTIONAL-${formatIntentTimestamp(now)}`,
+    id: `${symbol.toUpperCase()}-CLOSE_FRACTIONAL-${formatTicketTimestamp(now)}`,
     refId: crypto.randomUUID(),
     source: OrderSource.POSITION_MANAGEMENT,
     sourceRef: { type: 'fractional_close', id: entry.id },
-    status: OrderIntentStatus.STAGED,
+    status: OrderTicketStatus.STAGED,
     accountNumber,
     side: 'sell',
     orderType: 'market',
@@ -54,20 +54,20 @@ export function buildFractionalCloseIntent(
   };
 }
 
-export function buildStopLossIntent(
-  entry: OrderIntent,
+export function buildStopLossTicket(
+  entry: OrderTicket,
   symbol: string,
   quantity: string,
   stopPrice: number,
   accountNumber: string,
   now = new Date(),
-): EquityOrderIntent {
+): EquityOrderTicket {
   return {
     id: buildStopLossId(symbol, now),
     refId: crypto.randomUUID(),
     source: OrderSource.POSITION_MANAGEMENT,
     sourceRef: { type: 'stop_loss', id: entry.id },
-    status: OrderIntentStatus.STAGED,
+    status: OrderTicketStatus.STAGED,
     accountNumber,
     side: 'sell',
     orderType: 'stop_loss',

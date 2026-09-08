@@ -6,15 +6,16 @@ import { signal } from '@angular/core';
 import { of } from 'rxjs';
 
 import { OrderTicketComponent } from './order-ticket.component';
-import { OrderStagingStore } from '../../stores/order-staging.store';
-import { InstrumentType, OrderIntent, OrderIntentStatus, OrderSource, TradingConfig } from '../../services/order-intent.types';
+import { OrderTicketStore } from '../../stores/order-ticket.store';
+import { OrderExecutionService } from '../../services/order-execution.service';
+import { InstrumentType, OrderTicket, OrderTicketStatus, OrderSource, TradingConfig } from '../../services/order-ticket.types';
 
-function makeIntent(id: string, symbol = 'AAPL', overrides: Partial<OrderIntent> = {}): OrderIntent {
+function makeTicket(id: string, symbol = 'AAPL', overrides: Partial<OrderTicket> = {}): OrderTicket {
   return {
     id,
     refId: `ref-${id}`,
     source: OrderSource.SIGNAL_PIPELINE,
-    status: OrderIntentStatus.STAGED,
+    status: OrderTicketStatus.STAGED,
     accountNumber: 'agentic-account',
     side: 'buy',
     orderType: 'market',
@@ -26,7 +27,7 @@ function makeIntent(id: string, symbol = 'AAPL', overrides: Partial<OrderIntent>
     createdAt: '2026-08-25T12:00:00Z',
     updatedAt: '2026-08-25T12:00:00Z',
     ...overrides,
-  } as OrderIntent;
+  } as OrderTicket;
 }
 
 const config: TradingConfig = {
@@ -41,37 +42,39 @@ describe('OrderTicketComponent', () => {
   let fixture: ComponentFixture<OrderTicketComponent>;
   let component: OrderTicketComponent;
   let store: {
-    intents: ReturnType<typeof signal<Record<string, OrderIntent>>>;
-    submitIntent: jasmine.Spy;
-    retryIntent: jasmine.Spy;
-    cancelIntent: jasmine.Spy;
-    modifyIntent: jasmine.Spy;
-    updateIntent: jasmine.Spy;
-    stageIntent: jasmine.Spy;
-    stageAndSubmitIntent: jasmine.Spy;
+    tickets: ReturnType<typeof signal<Record<string, OrderTicket>>>;
+    submitTicket: jasmine.Spy;
+    updateTicket: jasmine.Spy;
+    stageTicket: jasmine.Spy;
   };
   let dialog: { open: jasmine.Spy };
+  let orderExecution: any;
 
   beforeEach(async () => {
     store = {
-      intents: signal<Record<string, OrderIntent>>({}),
-      submitIntent: jasmine.createSpy('submitIntent'),
-      retryIntent: jasmine.createSpy('retryIntent'),
-      cancelIntent: jasmine.createSpy('cancelIntent'),
-      modifyIntent: jasmine.createSpy('modifyIntent'),
-      updateIntent: jasmine.createSpy('updateIntent'),
-      stageIntent: jasmine.createSpy('stageIntent'),
-      stageAndSubmitIntent: jasmine.createSpy('stageAndSubmitIntent'),
+      tickets: signal<Record<string, OrderTicket>>({}),
+      submitTicket: jasmine.createSpy('submitTicket'),
+      updateTicket: jasmine.createSpy('updateTicket'),
+      stageTicket: jasmine.createSpy('stageTicket'),
     };
     dialog = {
       open: jasmine.createSpy('open').and.returnValue({ afterClosed: () => of(true) }),
+    };
+    orderExecution = {
+      submitEquityOrder: jasmine.createSpy('submitEquityOrder').and.returnValue(
+        Promise.resolve({ success: true, result: { orderId: 'sl-1', state: 'confirmed' } }),
+      ),
+      cancelEquityOrder: jasmine.createSpy('cancelEquityOrder').and.returnValue(
+        Promise.resolve({ success: true }),
+      ),
     };
 
     await TestBed.configureTestingModule({
       imports: [OrderTicketComponent],
       providers: [
         provideNoopAnimations(),
-        { provide: OrderStagingStore, useValue: store },
+        { provide: OrderTicketStore, useValue: store },
+        { provide: OrderExecutionService, useValue: orderExecution },
         { provide: MatDialog, useValue: dialog },
         { provide: MatSnackBar, useValue: { open: jasmine.createSpy('open') } },
       ],
@@ -90,7 +93,7 @@ describe('OrderTicketComponent', () => {
   });
 
   it('renders compact whole-share controls without a dollar amount field', () => {
-    fixture.componentRef.setInput('intent', makeIntent('1'));
+    fixture.componentRef.setInput('ticket', makeTicket('1'));
     fixture.componentRef.setInput('price', 50);
     fixture.detectChanges();
 
@@ -100,8 +103,8 @@ describe('OrderTicketComponent', () => {
   });
 
   it('derives an 8% stop price from the fill price after entry fills', () => {
-    fixture.componentRef.setInput('intent', makeIntent('1', 'AAPL', {
-      status: OrderIntentStatus.FILLED,
+    fixture.componentRef.setInput('ticket', makeTicket('1', 'AAPL', {
+      status: OrderTicketStatus.FILLED,
       result: { fillPrice: '100.00', filledQuantity: '2' },
     }));
     fixture.componentRef.setInput('price', 100);
@@ -113,16 +116,16 @@ describe('OrderTicketComponent', () => {
   });
 
   it('recalculates the default stop when selection changes', () => {
-    fixture.componentRef.setInput('intent', makeIntent('1', 'AAPL', {
-      status: OrderIntentStatus.FILLED,
+    fixture.componentRef.setInput('ticket', makeTicket('1', 'AAPL', {
+      status: OrderTicketStatus.FILLED,
       result: { fillPrice: '100.00', filledQuantity: '2' },
     }));
     fixture.componentRef.setInput('price', 100);
     fixture.detectChanges();
     component.stopLossPrice.set('95.00');
 
-    fixture.componentRef.setInput('intent', makeIntent('2', 'DELL', {
-      status: OrderIntentStatus.FILLED,
+    fixture.componentRef.setInput('ticket', makeTicket('2', 'DELL', {
+      status: OrderTicketStatus.FILLED,
       result: { fillPrice: '200.00', filledQuantity: '2' },
     }));
     fixture.componentRef.setInput('price', 200);
@@ -132,21 +135,21 @@ describe('OrderTicketComponent', () => {
     expect(component.stopLossPercent()).toBe('8');
   });
 
-  it('removes stale notional amount from the saved whole-share intent', () => {
-    fixture.componentRef.setInput('intent', makeIntent('1', 'AAPL', { dollarAmount: '500' }));
+  it('removes stale notional amount from the saved whole-share ticket', () => {
+    fixture.componentRef.setInput('ticket', makeTicket('1', 'AAPL', { dollarAmount: '500' }));
     fixture.componentRef.setInput('price', 50);
     fixture.detectChanges();
 
     component.saveEdits();
 
-    expect(store.updateIntent).toHaveBeenCalledWith('1', jasmine.objectContaining({
+    expect(store.updateTicket).toHaveBeenCalledWith('1', jasmine.objectContaining({
       quantity: '2',
-      dollarAmount: null,
+      dollarAmount: undefined,
     }));
   });
 
   it('shows price and status beside the symbol', () => {
-    fixture.componentRef.setInput('intent', makeIntent('1'));
+    fixture.componentRef.setInput('ticket', makeTicket('1'));
     fixture.componentRef.setInput('price', 123.45);
     fixture.detectChanges();
 
@@ -157,26 +160,26 @@ describe('OrderTicketComponent', () => {
   });
 
   it('opens confirmation and submits using the configured account', async () => {
-    fixture.componentRef.setInput('intent', makeIntent('1'));
+    fixture.componentRef.setInput('ticket', makeTicket('1'));
     fixture.componentRef.setInput('price', 50);
     fixture.detectChanges();
 
     await component.onSubmit();
 
     expect(dialog.open).toHaveBeenCalled();
-    expect(store.submitIntent).toHaveBeenCalledWith('1');
+    expect(store.submitTicket).toHaveBeenCalledWith('1');
   });
 
-  it('confirms, stages, and submits a same-quantity stop loss after the entry fills', async () => {
-    const entry = makeIntent('1', 'AAPL', { status: OrderIntentStatus.FILLED, result: { fillPrice: '100' } });
-    fixture.componentRef.setInput('intent', entry);
+  it('confirms and submits a stop loss directly to RH after the entry fills', async () => {
+    const entry = makeTicket('1', 'AAPL', { status: OrderTicketStatus.FILLED, result: { fillPrice: '100', filledQuantity: '2' } });
+    fixture.componentRef.setInput('ticket', entry);
     fixture.componentRef.setInput('price', 100);
     fixture.detectChanges();
 
     await component.onPlaceStopLoss();
 
     expect(dialog.open).toHaveBeenCalled();
-    expect(store.stageAndSubmitIntent).toHaveBeenCalledWith(jasmine.objectContaining({
+    expect(orderExecution.submitEquityOrder).toHaveBeenCalledWith(jasmine.objectContaining({
       side: 'sell',
       quantity: '2',
       stopPrice: '92.00',

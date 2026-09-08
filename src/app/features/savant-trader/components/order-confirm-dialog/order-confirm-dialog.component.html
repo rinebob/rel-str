@@ -11,13 +11,13 @@
     </div>
     <div class="confirm-row">
       <span class="label">Side</span>
-      <span class="value" [class.buy]="intent().side === 'buy'" [class.sell]="intent().side === 'sell'">
-        {{ intent().side | uppercase }}
+      <span class="value" [class.buy]="ticket().side === 'buy'" [class.sell]="ticket().side === 'sell'">
+        {{ ticket().side | uppercase }}
       </span>
     </div>
     <div class="confirm-row">
       <span class="label">Order Type</span>
-      <span class="value">{{ intent().orderType | uppercase }}</span>
+      <span class="value">{{ ticket().orderType | uppercase }}</span>
     </div>
     <div class="confirm-row">
       <span class="label">Quantity</span>
@@ -37,15 +37,15 @@
     }
     <div class="confirm-row">
       <span class="label">Time in Force</span>
-      <span class="value">{{ intent().timeInForce | uppercase }}</span>
+      <span class="value">{{ ticket().timeInForce | uppercase }}</span>
     </div>
     <div class="confirm-row">
       <span class="label">Market Hours</span>
-      <span class="value">{{ intent().marketHours }}</span>
+      <span class="value">{{ ticket().marketHours }}</span>
     </div>
     <div class="confirm-row">
       <span class="label">Account</span>
-      <span class="value">{{ intent().accountNumber }}</span>
+      <span class="value">{{ ticket().accountNumber }}</span>
     </div>
   </div>
 

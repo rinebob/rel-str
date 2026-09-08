@@ -69,12 +69,12 @@
     <!-- Left: Queue -->
     <app-order-queue
       class="queue-wrapper"
-      [intents]="allIntents()"
-      [selectedId]="selectedIntentId()"
+      [tickets]="allTickets()"
+      [selectedId]="selectedTicketId()"
       [prices]="prices()"
       [defaultDollarAmount]="defaultDollarAmount()"
-      (intentSelected)="onIntentSelected($event)"
-      (removeIntents)="onRemoveIntents($event)">
+      (ticketSelected)="onTicketSelected($event)"
+      (removeTickets)="onRemoveTickets($event)">
     </app-order-queue>
 
     <!-- Right: Ticket -->
@@ -82,7 +82,7 @@
       @if (loading()) {
         <div class="loading-state">
           <mat-icon>hourglass_empty</mat-icon>
-          <p>Loading intents…</p>
+          <p>Loading tickets…</p>
         </div>
       } @else if (error()) {
         <div class="error-state">
@@ -92,11 +92,13 @@
         </div>
       } @else {
         <app-order-ticket
-          [intent]="selectedIntent()"
+          [ticket]="selectedTicket()"
           [price]="selectedPrice()"
           [tradingConfig]="tradingConfig()"
           [guardrailContext]="guardrailContext()"
-          (intentStaged)="onIntentSelected($event)">
+          [rhOrders]="rhOrdersList()"
+          (ticketStaged)="onTicketSelected($event)"
+          (refreshRequested)="onRefreshRequested()">
         </app-order-ticket>
       }
     </div>
