@@ -4,9 +4,15 @@
 **domain:** savant-trader  
 **type:** implementation plan  
 **area:** be  
-**status:** approved  
+**status:** implemented (task #240, LIVE) — BE normalization remains valid under ADR-008  
 **created:** 2026-09-05  
-**last updated:** 2026-09-06
+**last updated:** 2026-09-07
+
+---
+
+> **Note on ADR-008:** The BE normalization work described in this plan (task #240) is **still valid** and remains LIVE. ADR-008 supersedes the Trading Case / reconciliation module model on the frontend, but the BE broker adapter that normalizes RH order and position responses is independent of that model and continues to be used.
+>
+> The only BE-side change implied by ADR-008 is that the FE no longer sends Trading Case IDs or reconciliation context to the BE. The BE normalization adapter is called the same way — it normalizes RH responses and returns them to the FE.
 
 ---
 

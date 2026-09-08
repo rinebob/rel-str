@@ -3,9 +3,32 @@
 **topic parent:** #176  
 **domain:** savant-trader  
 **type:** prd  
-**status:** approved  
+**status:** superseded by ADR-008 (Signal Entry Record model)  
 **created:** 2026-09-05  
-**last updated:** 2026-09-05
+**last updated:** 2026-09-07
+
+---
+
+> **⚠ SUPERSEDED by [ADR-008](../../adr/ADR-008_signal-entry-record.md)**
+>
+> The Trading Case aggregate, broker order mirrors, reconciliation module, and projection adapter described in this PRD were superseded on 2026-09-07. The model introduced complexity that exceeded the value of per-signal lifecycle tracking.
+>
+> The replacement is a lightweight **Signal Entry Record** — one Firestore document per accepted signal that results in an order. RH remains authoritative for orders, positions, fills, and stops. Firestore stores only the signal-to-order link for provenance.
+>
+> **What is retained from this PRD:**
+> - RH is authoritative for Broker Order identity, lifecycle, fills, and Positions.
+> - Signal provenance is preserved locally.
+> - The signal-order page handles staging through submission.
+>
+> **What is removed:**
+> - Trading Case aggregate and root Order Ticket model.
+> - Case Summary lifecycle tracking.
+> - Broker Order Mirror repository and subcollections.
+> - Reconciliation module and projection adapter.
+> - Broker-position adoption workflow.
+> - Migration from `st_order_intents` to Trading Cases.
+>
+> The detailed sections below remain as historical context for the decision. New work follows ADR-008.
 
 ---
 

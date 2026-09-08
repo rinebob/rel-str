@@ -4,9 +4,17 @@
 **domain:** savant-trader  
 **type:** implementation plan  
 **area:** fe  
-**status:** approved  
+**status:** superseded by ADR-008 (Signal Entry Record model)  
 **created:** 2026-09-05  
-**last updated:** 2026-09-06
+**last updated:** 2026-09-07
+
+---
+
+> **⚠ SUPERSEDED by [ADR-008](../../adr/ADR-008_signal-entry-record.md)**
+>
+> The Trading Case repository, broker order mirror repository, reconciliation module, and projection adapter described in this plan were superseded on 2026-09-07. The replacement model uses a lightweight Signal Entry Record and reads RH directly for positions and orders.
+>
+> The sections below remain as historical context. New implementation follows ADR-008 and the updated task #241 scope.
 
 ---
 

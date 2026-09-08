@@ -4,9 +4,28 @@
 **domain:** savant-trader  
 **type:** implementation plan  
 **area:** shared, fe, be  
-**status:** approved  
+**status:** superseded by ADR-008 (Signal Entry Record model)  
 **created:** 2026-09-05  
-**last updated:** 2026-09-06
+**last updated:** 2026-09-07
+
+---
+
+> **⚠ SUPERSEDED by [ADR-008](../../adr/ADR-008_signal-entry-record.md)**
+>
+> The reconciliation module, Broker Order mirrors, and Trading Case aggregate described in this overview plan were superseded on 2026-09-07. The replacement uses a lightweight Signal Entry Record and reads RH directly for positions and orders.
+>
+> **What remains valid from this plan:**
+> - BE normalization of RH order and position responses (task #240, already LIVE).
+> - RH is authoritative for order state, fills, and positions.
+> - Signal provenance is preserved locally.
+>
+> **What is removed:**
+> - Reconciliation module and `ReconciliationSnapshot` projection.
+> - Broker Order Mirror repository.
+> - Trading Case aggregate and Case Summary.
+> - Projection adapter mapping snapshot to legacy intents.
+>
+> The detailed sections below remain as historical context. New work follows ADR-008.
 
 ---
 

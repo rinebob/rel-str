@@ -4,9 +4,13 @@
 **domain:** savant-trader  
 **type:** test plan  
 **area:** be  
-**status:** approved  
+**status:** implemented (task #240, LIVE) — BE normalization tests remain valid under ADR-008  
 **created:** 2026-09-05  
-**last updated:** 2026-09-06
+**last updated:** 2026-09-07
+
+---
+
+> **Note on ADR-008:** The BE normalization tests described in this plan (task #240) are **still valid** and remain LIVE. ADR-008 supersedes the Trading Case / reconciliation module model on the frontend, but the BE broker adapter normalization tests are independent of that model.
 
 ---
 

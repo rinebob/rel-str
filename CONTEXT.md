@@ -11,18 +11,29 @@ _Avoid_: Approve, confirm
 
 ## Order Ticket
 
-The root local order record created when a user accepts a signal or starts a manual order. It carries signal/provenance context, a stable `refId`, proposed order terms, and optional authorization. It is the local source of truth for the proposed order before Robinhood submission and is the root record within a Trading Case. After broker submission, Robinhood is authoritative for Broker Order lifecycle and fills.
+The root local order record created when a user accepts a signal or starts a manual order. It carries signal/provenance context, a stable `refId`, proposed order terms, and optional authorization. It is the local source of truth for the proposed order before Robinhood submission. After broker submission, Robinhood is authoritative for Broker Order lifecycle and fills.
 _Avoid_: Order Intent, Order Draft, staged order
+
+> **Note:** As of ADR-008, the Order Ticket concept is implemented as a **Order Ticket** — a lightweight Firestore document that preserves the signal-to-order link. It does not track broker lifecycle; RH is authoritative for order state, fills, and positions after submission.
 
 ## Trading Case
 
-The durable lifecycle aggregate created when one signal is accepted. Its Order Ticket is the aggregate boundary and root of local provenance. The case contains the broker submission, Broker Order mirrors, Fill, Protective Stop, exits, replacement attempts, and current lifecycle metadata for that one accepted signal. Symbol history is obtained by querying all Trading Cases for the symbol.
+**Superseded by ADR-008.** The Trading Case was the durable lifecycle aggregate created when one signal was accepted. Its Order Ticket was the aggregate boundary and root of local provenance. The case contained the broker submission, Broker Order mirrors, Fill, Protective Stop, exits, replacement attempts, and current lifecycle metadata for that one accepted signal.
+
+The replacement model uses a Order Ticket (one Firestore document per accepted signal that results in an order) and reads RH directly for positions, orders, fills, and stops. See ADR-008 for details.
 _Avoid_: Trade, Order, Position, symbol history
 
 ## Case Summary
 
-The mutable metadata and progress projection stored on a Trading Case. It records the latest known lifecycle state, current outcome, active broker order IDs, last observed time, entry/protective-stop/exit states, filled and remaining quantities, and case progress. It is updated with the latest broker information; repeated identical observations do not create separate records.
+**Superseded by ADR-008.** The mutable metadata and progress projection stored on a Trading Case. It recorded the latest known lifecycle state, current outcome, active broker order IDs, last observed time, entry/protective-stop/exit states, filled and remaining quantities, and case progress.
+
+The replacement model does not track lifecycle state locally. RH is authoritative for order state, fills, and positions. The Order Ticket stores fill results for convenience but does not maintain a mutable lifecycle summary.
 _Avoid_: broker event log, observation collection
+
+## Order Ticket
+
+One Firestore document per accepted signal that results in an order submission. Written once at staging, updated once to record the RH order ID after submission, then never touched again. Stores only the signal-to-order link: signal context, refId (idempotency key), RH order ID, symbol, side, and account. Does not track broker lifecycle, fill results, or stop order IDs — RH is authoritative for all order state. Queryable by signal type, date, and symbol for signal success analysis. See ADR-008.
+_Avoid_: Trading Case, Order Intent, Order Ticket
 
 ## Symbol Position
 

@@ -4,9 +4,28 @@
 **domain:** savant-trader  
 **type:** implementation plan  
 **area:** shared  
-**status:** approved  
+**status:** superseded by ADR-008 (Signal Entry Record model)  
 **created:** 2026-09-05  
-**last updated:** 2026-09-06
+**last updated:** 2026-09-07
+
+---
+
+> **⚠ SUPERSEDED by [ADR-008](../../adr/ADR-008_signal-entry-record.md)**
+>
+> The Trading Case model, Broker Order Mirror contracts, and reconciliation snapshot types defined in this plan were superseded on 2026-09-07. The replacement uses a lightweight Signal Entry Record with no reconciliation projection.
+>
+> **What remains valid from this plan:**
+> - BE normalization of RH order and position responses (task #240, already LIVE).
+> - Raw broker state evidence table and lifecycle semantics (RH states are still RH states).
+> - Instrument-neutral broker order normalization.
+>
+> **What is removed:**
+> - Trading Case, Case Summary, and Order Ticket shared types.
+> - Broker Order Mirror contracts.
+> - ReconciliationSnapshot and related projection types.
+> - `deriveBrokerOrderState` and lifecycle state derivation (RH raw state is displayed directly).
+>
+> The detailed sections below remain as historical context. New work follows ADR-008.
 
 ---
 

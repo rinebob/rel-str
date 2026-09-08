@@ -1,10 +1,12 @@
 # ADR-007: Broker-authoritative order reconciliation
 
-**status:** accepted  
+**status:** Superseded by ADR-008  
 **issue:** #212  
 **topic parent:** #176  
 **date:** 2026-09-05  
 **decision owners:** savant-trader
+
+> **Superseded by [ADR-008](ADR-008_signal-entry-record.md)** — the Trading Case aggregate, broker order mirrors, reconciliation module, and projection adapter introduced complexity that exceeded the value of per-signal lifecycle tracking. ADR-008 replaces this model with a lightweight Signal Entry Record that preserves signal provenance without duplicating RH-authoritative state. The RH-authoritative principle from this ADR is retained; the Trading Case aggregate is not.
 
 ## context
 

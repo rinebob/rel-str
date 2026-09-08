@@ -3,9 +3,13 @@
 **topic parent:** #176  
 **domain:** savant-trader  
 **type:** code review  
-**status:** complete  
+**status:** complete — reviewed code is superseded by ADR-008  
 **created:** 2026-09-06  
-**last updated:** 2026-09-06  
+**last updated:** 2026-09-07
+
+---
+
+> **Note on ADR-008:** The Trading Case and reconciliation contracts reviewed in this document were superseded by [ADR-008](../../adr/ADR-008_signal-entry-record.md) on 2026-09-07. The review verdict and findings remain as a historical record of the code review pass. The reviewed code (shared Trading Case types, broker order mirrors, reconciliation snapshot) will be removed from the codebase as part of the ADR-008 implementation.  
 
 ---
 

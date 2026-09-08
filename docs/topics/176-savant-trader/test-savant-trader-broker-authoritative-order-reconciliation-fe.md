@@ -4,9 +4,25 @@
 **domain:** savant-trader  
 **type:** test plan  
 **area:** fe  
-**status:** approved  
+**status:** superseded by ADR-008 (Signal Entry Record model)  
 **created:** 2026-09-05  
-**last updated:** 2026-09-06
+**last updated:** 2026-09-07
+
+---
+
+> **⚠ SUPERSEDED by [ADR-008](../../adr/ADR-008_signal-entry-record.md)**
+>
+> The test plan below was written for the Trading Case / reconciliation module model. The replacement Signal Entry Record model has a simpler test surface:
+>
+> - Signal Entry Record creation on signal acceptance.
+> - Order submission records the RH order ID on the entry record.
+> - Fill results are copied from RH to the entry record.
+> - Stop order placement records the RH stop order ID on the entry record.
+> - An entry graduates from the signal-order page when filled + stop placed.
+> - RH positions and orders are read directly for the Position Management page.
+> - Signal success analysis queries entry records and cross-references RH order history.
+>
+> The detailed sections below remain as historical context.
 
 ---
 

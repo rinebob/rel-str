@@ -3,11 +3,15 @@
 **topic parent:** #176  
 **domain:** savant-trader  
 **type:** code review  
-**status:** complete  
+**status:** complete — reviewed BE normalization remains valid under ADR-008  
 **verdict:** PASS  
 **review pass:** 2 (re-review after fixes)  
 **created:** 2026-09-06  
-**last updated:** 2026-09-06
+**last updated:** 2026-09-07
+
+---
+
+> **Note on ADR-008:** The BE normalization adapter reviewed in this document (task #240) **remains valid** under [ADR-008](../../adr/ADR-008_signal-entry-record.md). ADR-008 supersedes the Trading Case / reconciliation module model on the frontend, but the BE broker adapter that normalizes RH order and position responses is independent and continues to be used.
 
 ---
 

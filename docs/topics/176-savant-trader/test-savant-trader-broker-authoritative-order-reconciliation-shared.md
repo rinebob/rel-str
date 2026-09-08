@@ -4,9 +4,21 @@
 **domain:** savant-trader  
 **type:** test plan  
 **area:** shared  
-**status:** approved  
+**status:** superseded by ADR-008 (Signal Entry Record model)  
 **created:** 2026-09-05  
-**last updated:** 2026-09-06
+**last updated:** 2026-09-07
+
+---
+
+> **⚠ SUPERSEDED by [ADR-008](../../adr/ADR-008_signal-entry-record.md)**
+>
+> The Trading Case and Broker Order Mirror contract tests described in this plan were superseded on 2026-09-07. The replacement test surface covers:
+>
+> - BE normalization of RH order and position responses (already LIVE, task #240).
+> - Signal Entry Record creation and field preservation.
+> - RH order state display (raw state shown directly, no derived lifecycle mapping).
+>
+> The detailed sections below remain as historical context.
 
 ---
 
