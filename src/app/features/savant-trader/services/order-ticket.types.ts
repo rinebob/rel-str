@@ -121,6 +121,9 @@ export interface BaseOrderTicket {
   signalContext?: OrderTicketSignalContext;
   createdAt: string;
   updatedAt: string;
+  /** RH-derived timestamp when the broker order reached a terminal state.
+   *  Set by reconciliation, used for the 24-hour cancelled recency filter. */
+  terminalAt?: string;
   error?: OrderTicketError;
   result?: OrderTicketResult;
 }
