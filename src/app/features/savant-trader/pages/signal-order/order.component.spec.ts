@@ -19,6 +19,7 @@ import {
   OrderSource,
   InstrumentType,
 } from '../../services/order-ticket.types';
+import { BrokerOrderSnapshot } from '../../services/order-ticket.types';
 
 function makeTicket(id: string, symbol: string, status: OrderTicketStatus = OrderTicketStatus.STAGED): OrderTicket {
   return {
@@ -53,6 +54,8 @@ describe('OrderComponent', () => {
       error: signal(null),
       loadTickets: jasmine.createSpy('loadTickets'),
       removeTicket: jasmine.createSpy('removeTicket'),
+      updateTicket: jasmine.createSpy('updateTicket'),
+      reconcileTerminalStatuses: jasmine.createSpy('reconcileTerminalStatuses'),
     };
 
     uiStateMock = {
@@ -215,6 +218,208 @@ describe('OrderComponent', () => {
     expect(error).toBeTruthy();
     expect(error.textContent).toContain('Failed to load orders');
     expect(error.textContent).toContain('Failed to load tickets');
+  });
+
+  describe('RH stop-loss orders in allTickets', () => {
+    function makeStopOrder(id: string, symbol: string, state = 'confirmed'): BrokerOrderSnapshot {
+      return {
+        id, symbol, side: 'sell', type: 'market', state,
+        quantity: '100', stopPrice: '95.00',
+        trigger: 'stop',
+        createdAt: '2026-09-08T12:00:00Z',
+        lastTransactionAt: '2026-09-08T12:00:00Z',
+      };
+    }
+
+    it('includes RH stop-loss orders as resting rows', () => {
+      component.rhOrders.set({ 'rh-stop-1': makeStopOrder('rh-stop-1', 'AAPL') });
+      component.rhOrdersLoaded.set(true);
+      fixture.detectChanges();
+
+      const all = component.allTickets();
+      const stopRow = all.find((t) => t.id === 'rh-stop-rh-stop-1');
+      expect(stopRow).toBeTruthy();
+      expect(stopRow!.side).toBe('sell');
+      expect(stopRow!.orderType).toBe('stop_loss');
+      expect(stopRow!.status).toBe(OrderTicketStatus.RESTING);
+    });
+
+    it('filters out non-signal local tickets (only SIGNAL_PIPELINE tickets are shown)', () => {
+      const signalTicket = makeTicket('1', 'AAPL', OrderTicketStatus.SUBMITTED);
+      signalTicket.source = OrderSource.SIGNAL_PIPELINE;
+      const manualTicket = makeTicket('2', 'NVDA', OrderTicketStatus.SUBMITTED);
+      manualTicket.source = OrderSource.MANUAL;
+      const posMgmtTicket = makeTicket('3', 'TSLA', OrderTicketStatus.SUBMITTED);
+      posMgmtTicket.source = OrderSource.POSITION_MANAGEMENT;
+      storeMock.tickets.set({ '1': signalTicket, '2': manualTicket, '3': posMgmtTicket });
+      component.rhOrdersLoaded.set(true);
+      fixture.detectChanges();
+
+      const all = component.allTickets();
+      const symbols = all.filter((t) => 'symbol' in t).map((t) => (t as any).symbol);
+      expect(symbols).toContain('AAPL');
+      expect(symbols).not.toContain('NVDA');
+      expect(symbols).not.toContain('TSLA');
+    });
+
+    it('hides local submitted/queued tickets until RH orders are loaded', () => {
+      const ticket = makeTicket('1', 'AAPL', OrderTicketStatus.SUBMITTED);
+      ticket.result = { orderId: 'rh-1', state: 'confirmed' };
+      storeMock.tickets.set({ '1': ticket });
+      fixture.detectChanges();
+
+      // RH orders not loaded yet — submitted ticket should be hidden
+      expect(component.allTickets().length).toBe(0);
+
+      // RH orders loaded — ticket should now appear
+      component.rhOrdersLoaded.set(true);
+      fixture.detectChanges();
+      expect(component.allTickets().length).toBe(1);
+    });
+
+    it('shows staged tickets even before RH orders are loaded', () => {
+      storeMock.tickets.set({ '1': makeTicket('1', 'AAPL', OrderTicketStatus.STAGED) });
+      fixture.detectChanges();
+
+      expect(component.allTickets().length).toBe(1);
+    });
+
+    it('computes protectedSymbols from RH orders', () => {
+      component.rhOrders.set({
+        'rh-stop-1': makeStopOrder('rh-stop-1', 'AAPL'),
+        'rh-stop-2': makeStopOrder('rh-stop-2', 'NVDA'),
+        'rh-cancelled': { ...makeStopOrder('rh-cancelled', 'TSLA'), state: 'cancelled' },
+      });
+      fixture.detectChanges();
+
+      const protectedSyms = component.protectedSymbols();
+      expect(protectedSyms.has('AAPL')).toBe(true);
+      expect(protectedSyms.has('NVDA')).toBe(true);
+      expect(protectedSyms.has('TSLA')).toBe(false);
+    });
+  });
+
+  describe('terminal-state reconciliation', () => {
+    it('calls reconcileTerminalStatuses when RH reports cancelled', () => {
+      const ticket = makeTicket('1', 'AAPL', OrderTicketStatus.SUBMITTED);
+      ticket.result = { orderId: 'rh-1', state: 'confirmed' };
+      storeMock.tickets.set({ '1': ticket });
+      component.rhOrders.set({
+        'rh-1': { id: 'rh-1', symbol: 'AAPL', side: 'buy', type: 'market', state: 'cancelled', trigger: 'immediate' },
+      });
+      component.rhOrdersLoaded.set(true);
+      fixture.detectChanges();
+
+      expect(storeMock.reconcileTerminalStatuses).toHaveBeenCalledWith(jasmine.objectContaining({
+        'rh-1': jasmine.objectContaining({ state: 'cancelled' }),
+      }));
+    });
+
+    it('calls reconcileTerminalStatuses when RH reports filled', () => {
+      const ticket = makeTicket('1', 'AAPL', OrderTicketStatus.SUBMITTED);
+      ticket.result = { orderId: 'rh-1', state: 'confirmed' };
+      storeMock.tickets.set({ '1': ticket });
+      component.rhOrders.set({
+        'rh-1': { id: 'rh-1', symbol: 'AAPL', side: 'buy', type: 'market', state: 'filled', trigger: 'immediate' },
+      });
+      component.rhOrdersLoaded.set(true);
+      fixture.detectChanges();
+
+      expect(storeMock.reconcileTerminalStatuses).toHaveBeenCalled();
+    });
+
+    it('still calls reconcileTerminalStatuses when RH reports non-terminal state', () => {
+      const ticket = makeTicket('1', 'AAPL', OrderTicketStatus.SUBMITTED);
+      ticket.result = { orderId: 'rh-1', state: 'confirmed' };
+      storeMock.tickets.set({ '1': ticket });
+      component.rhOrders.set({
+        'rh-1': { id: 'rh-1', symbol: 'AAPL', side: 'buy', type: 'market', state: 'confirmed', trigger: 'immediate' },
+      });
+      component.rhOrdersLoaded.set(true);
+      fixture.detectChanges();
+
+      // The store method is always called; it decides whether to write.
+      expect(storeMock.reconcileTerminalStatuses).toHaveBeenCalled();
+    });
+
+    it('does not call reconcileTerminalStatuses before RH orders are loaded', () => {
+      const ticket = makeTicket('1', 'AAPL', OrderTicketStatus.SUBMITTED);
+      ticket.result = { orderId: 'rh-1', state: 'confirmed' };
+      storeMock.tickets.set({ '1': ticket });
+      component.rhOrders.set({
+        'rh-1': { id: 'rh-1', symbol: 'AAPL', side: 'buy', type: 'market', state: 'cancelled', trigger: 'immediate' },
+      });
+      // rhOrdersLoaded is false
+      fixture.detectChanges();
+
+      expect(storeMock.reconcileTerminalStatuses).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('cancelled ticket recency filter', () => {
+    it('shows cancelled tickets within the last 24 hours (terminalAt)', () => {
+      const recent = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(); // 2h ago
+      const ticket = makeTicket('1', 'AAPL', OrderTicketStatus.CANCELLED);
+      ticket.terminalAt = recent;
+      storeMock.tickets.set({ '1': ticket });
+      component.rhOrdersLoaded.set(true);
+      fixture.detectChanges();
+
+      const all = component.allTickets();
+      expect(all.some((t) => t.id === '1')).toBe(true);
+    });
+
+    it('hides cancelled tickets older than 24 hours (terminalAt)', () => {
+      const old = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(); // 48h ago
+      const ticket = makeTicket('1', 'AAPL', OrderTicketStatus.CANCELLED);
+      ticket.terminalAt = old;
+      storeMock.tickets.set({ '1': ticket });
+      component.rhOrdersLoaded.set(true);
+      fixture.detectChanges();
+
+      const all = component.allTickets();
+      expect(all.some((t) => t.id === '1')).toBe(false);
+    });
+
+    it('falls back to updatedAt when terminalAt is missing', () => {
+      const recent = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(); // 2h ago
+      const ticket = makeTicket('1', 'AAPL', OrderTicketStatus.CANCELLED);
+      ticket.updatedAt = recent;
+      storeMock.tickets.set({ '1': ticket });
+      component.rhOrdersLoaded.set(true);
+      fixture.detectChanges();
+
+      const all = component.allTickets();
+      expect(all.some((t) => t.id === '1')).toBe(true);
+    });
+  });
+
+  describe('requeue', () => {
+    it('moves a cancelled ticket back to STAGED', async () => {
+      const ticket = makeTicket('1', 'AAPL', OrderTicketStatus.CANCELLED);
+      ticket.terminalAt = new Date().toISOString();
+      storeMock.tickets.set({ '1': ticket });
+      fixture.detectChanges();
+
+      await component.onRequeueTicket('1');
+
+      expect(storeMock.updateTicket).toHaveBeenCalledWith('1', jasmine.objectContaining({
+        status: OrderTicketStatus.STAGED,
+        result: undefined,
+        error: undefined,
+      }));
+      expect(component.selectedTicketId()).toBe('1');
+    });
+
+    it('does not requeue a non-cancelled ticket', async () => {
+      const ticket = makeTicket('1', 'AAPL', OrderTicketStatus.SUBMITTED);
+      storeMock.tickets.set({ '1': ticket });
+      fixture.detectChanges();
+
+      await component.onRequeueTicket('1');
+
+      expect(storeMock.updateTicket).not.toHaveBeenCalled();
+    });
   });
 });
 

@@ -40,7 +40,7 @@ import { OrderTicketService } from '../../services/order-ticket.service';
 import { OrderTicket, OrderTicketStatus, OrderSource, TradingConfig, InstrumentType } from '../../services/order-ticket.types';
 import { BrokerOrderSnapshot } from '../../services/order-ticket.types';
 import { formatError } from '../../utils/format-error.util';
-import { parseEquityOrdersResponse, findActiveStopLoss } from '../../utils/broker-order.util';
+import { parseEquityOrdersResponse, isActiveStopLoss, rhStateToTerminalStatus, rhStateToDisplayStatus } from '../../utils/broker-order.util';
 
 @Component({
   selector: 'app-signal-order',
@@ -72,8 +72,21 @@ export class OrderComponent implements OnInit {
    *  Fetched on page load and after any submit/cancel/stop action. */
   readonly rhOrders = signal<Record<string, BrokerOrderSnapshot>>({});
 
+  /** Whether RH orders have been fetched at least once. */
+  readonly rhOrdersLoaded = signal(false);
+
   /** RH orders as a list (for the order-ticket to search for stops by symbol). */
   readonly rhOrdersList = computed<BrokerOrderSnapshot[]>(() => Object.values(this.rhOrders()));
+
+  /** Set of symbols that have an active protective stop-loss order at RH.
+   *  Used by the queue to show the PROTECTED badge on open positions. */
+  readonly protectedSymbols = computed<Set<string>>(() => {
+    const symbols = new Set<string>();
+    for (const o of Object.values(this.rhOrders())) {
+      if (isActiveStopLoss(o, o.symbol)) symbols.add(o.symbol);
+    }
+    return symbols;
+  });
 
   /**
    * All signal entries for display, merged with RH order state.
@@ -93,23 +106,55 @@ export class OrderComponent implements OnInit {
         .map((p) => p.symbol),
     );
     const rhOrders = this.rhOrders();
+    const rhLoaded = this.rhOrdersLoaded();
 
-    // Merge local docs with RH order state
+    // Local Firestore tickets are provenance records for accepted signals only.
+    // Positions, stop losses, and all order lifecycle state come from RH.
+    // Submitted/queued tickets are hidden until RH orders are loaded to avoid
+    // showing stale statuses that don't match RH.
     const localEntries = Object.values(this.stagingStore.tickets())
+      .filter((ticket) => ticket.source === OrderSource.SIGNAL_PIPELINE)
       .map((ticket) => this.mergeWithRhOrder(ticket, rhOrders))
-      .filter((ticket) => !this.isSupported(ticket, rhOrders))
+      .filter((ticket) => !this.isSupported(ticket))
       .filter((ticket) => {
         // Suppress local filled entries when a broker position already
         // represents that symbol. Non-filled entries are always kept.
         if (ticket.status !== OrderTicketStatus.FILLED) return true;
         if (ticket.instrumentType !== InstrumentType.EQUITY && ticket.instrumentType !== InstrumentType.ETF) return true;
         return !positionSymbols.has(ticket.symbol);
+      })
+      .filter((ticket) => {
+        // Hide cancelled tickets older than 24 hours — they're stale and
+        // can't be requeued. Recent cancellations stay visible for requeue.
+        // Uses terminalAt (the RH order's lastTransactionAt) so the recency
+        // window is anchored to the actual broker event, not to local writes.
+        if (ticket.status !== OrderTicketStatus.CANCELLED) return true;
+        const ts = ticket.terminalAt ?? ticket.updatedAt;
+        const terminalTime = new Date(ts).getTime();
+        if (isNaN(terminalTime)) return true;
+        return Date.now() - terminalTime < 24 * 60 * 60 * 1000;
+      })
+      .filter((ticket) => {
+        // Don't show submitted/queued tickets until RH orders are loaded
+        // — the local status may be stale (e.g. cancelled at RH)
+        if (!rhLoaded) {
+          return ticket.status === OrderTicketStatus.STAGED ||
+            ticket.status === OrderTicketStatus.FAILED;
+        }
+        return true;
       });
 
     const positionRows = this.brokerPositions()
       .filter((p) => Number(p.quantity) > 0)
       .map((p) => this.positionToTicket(p));
-    return [...localEntries, ...positionRows];
+
+    // Add RH stop-loss orders as synthetic rows. Stop losses have no local
+    // ticket — they are read directly from RH.
+    const rhStopRows = Object.values(rhOrders)
+      .filter((o) => isActiveStopLoss(o, o.symbol))
+      .map((o) => this.rhStopToTicket(o));
+
+    return [...localEntries, ...positionRows, ...rhStopRows];
   });
 
   /** The currently selected ticket object (merged with RH order state). */
@@ -210,6 +255,18 @@ export class OrderComponent implements OnInit {
         this.refreshRhOrders(accountNumber);
       }
     });
+
+    // Terminal-state reconciliation: when RH orders are loaded, batch-update
+    // local signal tickets whose broker order has reached a terminal state
+    // (cancelled, filled, failed, rejected, voided). This is the only lifecycle
+    // state written locally — intermediate states still come from RH.
+    // The store commits all terminal updates in a single Firestore batch and
+    // uses the RH order's lastTransactionAt as the terminalAt timestamp.
+    effect(() => {
+      const rhOrders = this.rhOrders();
+      if (!this.rhOrdersLoaded()) return;
+      untracked(() => this.stagingStore.reconcileTerminalStatuses(rhOrders));
+    });
   }
 
   /** Load trading config and account info. */
@@ -248,6 +305,7 @@ export class OrderComponent implements OnInit {
       });
       if (!result.success) return;
       this.rhOrders.set(parseEquityOrdersResponse(result.parsed));
+      this.rhOrdersLoaded.set(true);
     } catch (err) {
       console.error('[OrderComponent] Failed to fetch RH orders:', err);
     }
@@ -286,6 +344,27 @@ export class OrderComponent implements OnInit {
       this.refreshRhOrders(acct);
       this.fetchAccountSnapshot(acct);
     }
+  }
+
+  /** Move a cancelled signal ticket back to STAGED so the user can edit
+   *  and re-submit it. Clears the stale broker result so the ticket form
+   *  becomes editable again. Provenance (signal context, refId) is preserved. */
+  async onRequeueTicket(id: string): Promise<void> {
+    const ticket = this.stagingStore.tickets()[id];
+    if (!ticket) return;
+    if (ticket.status !== OrderTicketStatus.CANCELLED) return;
+
+    this.stagingStore.updateTicket(id, {
+      status: OrderTicketStatus.STAGED,
+      result: undefined,
+      error: undefined,
+      terminalAt: undefined,
+      updatedAt: new Date().toISOString(),
+    });
+
+    this.selectedTicketId.set(id);
+    const symbol = 'symbol' in ticket ? ticket.symbol : 'Order';
+    this.snackBar.open(`${symbol} moved to staged`, 'Dismiss', { duration: 3000 });
   }
 
   /** Price for the currently selected ticket as a reactive computed signal. */
@@ -371,28 +450,14 @@ export class OrderComponent implements OnInit {
     const rhOrder = rhOrders[orderId];
     if (!rhOrder) return ticket;
 
-    const brokerState = rhOrder.state.toLowerCase();
-    let mergedStatus: OrderTicketStatus;
-    switch (brokerState) {
-      case 'filled': mergedStatus = OrderTicketStatus.FILLED; break;
-      case 'cancelled':
-      case 'canceled': mergedStatus = OrderTicketStatus.CANCELLED; break;
-      case 'failed':
-      case 'rejected':
-      case 'voided': mergedStatus = OrderTicketStatus.FAILED; break;
-      case 'queued': mergedStatus = OrderTicketStatus.QUEUED; break;
-      case 'confirmed':
-      case 'partially_filled':
-        mergedStatus = ticket.orderType !== 'market'
-          ? OrderTicketStatus.RESTING
-          : OrderTicketStatus.SUBMITTED;
-        break;
-      default: mergedStatus = OrderTicketStatus.SUBMITTED; break;
-    }
+    const isMarket = ticket.orderType === 'market';
+    const mergedStatus = rhStateToDisplayStatus(rhOrder.state, isMarket);
+    const terminal = rhStateToTerminalStatus(rhOrder.state);
 
     return {
       ...ticket,
       status: mergedStatus,
+      terminalAt: terminal ? (rhOrder.lastTransactionAt ?? ticket.terminalAt) : ticket.terminalAt,
       result: {
         ...ticket.result,
         orderId: rhOrder.id,
@@ -411,10 +476,10 @@ export class OrderComponent implements OnInit {
    * Stops are detected from RH orders — a stop order (type stop_market or
    * stop_limit, side sell) for the same symbol that is not cancelled/failed.
    */
-  private isSupported(ticket: OrderTicket, rhOrders: Record<string, BrokerOrderSnapshot>): boolean {
+  private isSupported(ticket: OrderTicket): boolean {
     if (ticket.status !== OrderTicketStatus.FILLED) return false;
     if (ticket.instrumentType !== InstrumentType.EQUITY && ticket.instrumentType !== InstrumentType.ETF) return false;
-    return findActiveStopLoss(rhOrders, ticket.symbol) !== null;
+    return this.protectedSymbols().has(ticket.symbol);
   }
 
   /** Convert a broker position to a display row for the queue. */
@@ -441,6 +506,36 @@ export class OrderComponent implements OnInit {
       },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+    } as OrderTicket;
+  }
+
+  /** Convert a RH stop-loss order to a display row for the queue. */
+  private rhStopToTicket(o: BrokerOrderSnapshot): OrderTicket {
+    const status = rhStateToDisplayStatus(o.state, false); // stop orders are trigger-based, never market
+    return {
+      id: `rh-stop-${o.id}`,
+      refId: o.id,
+      source: OrderSource.POSITION_MANAGEMENT,
+      sourceRef: { type: 'stop_loss', id: o.id },
+      status,
+      accountNumber: this.accountNumber(),
+      side: 'sell',
+      orderType: 'stop_loss',
+      timeInForce: (o.timeInForce === 'gfd' ? 'gfd' : 'gtc'),
+      marketHours: (o.marketHours === 'extended_hours' ? 'extended_hours'
+        : o.marketHours === 'all_day_hours' ? 'all_day_hours' : 'regular_hours'),
+      instrumentType: InstrumentType.EQUITY,
+      symbol: o.symbol,
+      quantity: o.quantity ?? '',
+      stopPrice: o.stopPrice ?? undefined,
+      result: {
+        orderId: o.id,
+        state: o.state,
+        filledQuantity: o.cumulativeQuantity ?? o.quantity,
+        brokerOrder: o,
+      },
+      createdAt: o.createdAt ?? new Date().toISOString(),
+      updatedAt: o.lastTransactionAt ?? new Date().toISOString(),
     } as OrderTicket;
   }
 }

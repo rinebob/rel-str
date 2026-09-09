@@ -19,12 +19,12 @@
       <span class="sb-sep">|</span>
       <span class="sb-item">
         <span class="sb-label">Value</span>
-        <span class="sb-value">{{ accountValue() | currency }}</span>
+        <span class="sb-value">{{ accountValue() | currency:'USD':'symbol':'1.2-2' }}</span>
       </span>
       <span class="sb-sep">|</span>
       <span class="sb-item">
         <span class="sb-label">Alloc</span>
-        <span class="sb-value">{{ currentExposure() | currency }} / {{ allocationCap() | currency }} ({{ allocationPercent() }}%)</span>
+        <span class="sb-value">{{ currentExposure() | currency:'USD':'symbol':'1.2-2' }} / {{ allocationCap() | currency:'USD':'symbol':'1.2-2' }} ({{ allocationPercent() }}%)</span>
       </span>
       <span class="sb-sep">|</span>
       <span class="sb-item">
@@ -39,7 +39,7 @@
       <span class="sb-sep">|</span>
       <span class="sb-item">
         <span class="sb-label">Cash</span>
-        <span class="sb-value">{{ availableCash() | currency }}</span>
+        <span class="sb-value">{{ availableCash() | currency:'USD':'symbol':'1.2-2' }}</span>
       </span>
     </div>
 
@@ -73,8 +73,10 @@
       [selectedId]="selectedTicketId()"
       [prices]="prices()"
       [defaultDollarAmount]="defaultDollarAmount()"
+      [protectedSymbols]="protectedSymbols()"
       (ticketSelected)="onTicketSelected($event)"
-      (removeTickets)="onRemoveTickets($event)">
+      (removeTickets)="onRemoveTickets($event)"
+      (requeueTicket)="onRequeueTicket($event)">
     </app-order-queue>
 
     <!-- Right: Ticket -->
@@ -97,7 +99,6 @@
           [tradingConfig]="tradingConfig()"
           [guardrailContext]="guardrailContext()"
           [rhOrders]="rhOrdersList()"
-          (ticketStaged)="onTicketSelected($event)"
           (refreshRequested)="onRefreshRequested()">
         </app-order-ticket>
       }
