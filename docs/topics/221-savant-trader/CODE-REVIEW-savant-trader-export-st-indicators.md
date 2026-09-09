@@ -377,3 +377,152 @@ There is no local Pine compiler. TradingView compilation and runtime parity rema
 ## Verdict
 
 **PASS** — Task #233 Zone V1/V2 price-pane event overlay is ready for QA. The implementation faithfully ports the ST Trend Rider signal-event dots from `st-trend-rider-dots.indicator.ts`. All acceptance criteria are met. Two minor findings (comment mismatch and type nit) were identified and fixed during the review pass. Remaining items are non-blocking compile/visual validation deferred to #235.
+
+---
+
+# Code Review: Task #235 — Validate Pine view and record handoff
+
+## Scope
+
+Reviewed the current three-file Pine layout and handoff documentation after the user validated all indicators in TradingView:
+
+- `rb-ps/rb-ta/ind/rb-st-trend-bands.pine` — main-pane Trend Bands.
+- `rb-ps/rb-ta/ind/rb-st-zones.pine` — lower-pane Zone V1/V2 connected lines and dot markers, plus main-pane signal dots.
+- `rb-ps/rb-ta/ind/rb-st-trend-strength.pine` — separate lower-pane DI histogram and thresholds.
+- `docs/topics/221-savant-trader/HANDOFF-savant-trader-export-st-indicators.md` — validation and handoff record.
+
+Three review axes ran: Standards, Spec, and Thermo-nuclear.
+
+## Findings and resolutions
+
+### Major — Trend Strength warm-up accumulator artifact (FOUND AND FIXED)
+
+The Trend Strength output guard previously hid the first bar but still updated the recursive smoothers using `nz()`-coerced missing history. That could seed an artificial startup spike.
+
+**Fix:** Wrapped the true-range, directional-movement, smoothing, DI, DX, and histogram calculations in the `stDiReady` guard. The accumulators now remain at their initial zero state until the one-bar lookback is valid.
+
+### Major — stale split-file references (FOUND AND FIXED)
+
+The new Bands and Trend Strength files referenced the legacy `rb-st-indicator.pine` file in comments.
+
+**Fix:** Updated those references to `rb-st-zones.pine`.
+
+### Minor — source-of-truth divergence (DOCUMENTED)
+
+The TypeScript Trend Strength implementation uses the shared HTF multiplier of 3, while the historical visible `rbDI` chart plot uses a one-bar lookback because it passes chart timeframe seconds to the library.
+
+**Decision:** `rb-st-trend-strength.pine` intentionally uses `DI_LOOKBACK=1` to match the user-selected historical visual reference. The handoff and PRD now document this deliberate divergence.
+
+### Minor — unused helpers and tuple values (FOUND AND FIXED)
+
+The dedicated Bands and Zones scripts retained crossover helpers and unused cross-return values from the original combined implementation.
+
+**Fix:** Removed unused crossover helpers and unused cross-return values from the dedicated scripts.
+
+### Accepted design — connected Zone lines
+
+The Zones script maps active zone values to their historical rows and plots a connected line plus circle markers. Transitions between rows therefore connect geometrically between the row levels. This is intentional and matches the user's requested connected-line visualization.
+
+### Non-blocking items
+
+- Data Window/CSV export, light-theme visibility, and developing-HTF behavior remain optional follow-up validation items.
+- The legacy tracked `rb-st-indicator.pine` remains outside the intended three-file handoff and must not be staged with the final ship.
+- No local Pine compiler is available; the user performed the TradingView compile and visual validation.
+
+## Verification
+
+- Structural checks pass for the three intended Pine files.
+- `git diff --check` is clean for the edited tracked Pine file.
+- User confirmed all three indicators compile and look correct in TradingView.
+- Handoff metadata renders as separate Markdown list lines.
+- Unrelated Topic #176 files remain unstaged.
+
+## Verdict
+
+**PASS** — Task #235 validation and handoff are ready for QA. The three-file layout matches TradingView's pane model, the user has confirmed the indicators compile and look correct, the Trend Strength warm-up artifact was fixed, and the intentional DI lookback divergence is documented. Task #235 remains open until the user explicitly authorizes final shipping.
+
+---
+
+# Code Review: Task #251 — Add HTF Trend Strength histogram
+
+## Scope
+
+Reviewed the Phase 4 Task #251 changes across the Pine indicator, local TypeScript calculator/renderer, and backend indicator contract:
+
+- `rb-ps/rb-ta/ind/rb-st-trend-strength.pine`
+- `functions/src/indicators/st-trend-strength.ts`
+- `functions/src/st-cloud-function/indicator-computation.ts`
+- `src/app/features/shared/components/flex-chart/indicators/st-trend-strength.indicator.ts`
+- `src/app/features/shared/components/flex-chart/flex-chart.component.html`
+- `src/app/features/shared/components/flex-chart/flex-chart.types.ts`
+- `src/app/features/savant-trader/common/indicator.types.ts`
+- `src/app/features/savant-trader/utils/chart-indicators/indicator-converters.ts`
+
+Three review axes ran: Standards, Spec, and Thermo-nuclear.
+
+## Findings and resolutions
+
+### Major — delayed legacy backend overwrite (FOUND AND FIXED)
+
+The local chart initially rendered the corrected CTF + HTF calculator, then delayed callable data could replace it with an older Trend Strength series. This produced the appearance of a third/spiky histogram.
+
+**Fix:** Trend Strength is now deliberately kept on the local TradingView-aligned calculator path. The callable converter no longer injects a competing Trend Strength series.
+
+### Major — ADX NaN propagation (FOUND AND FIXED)
+
+The backend `smaSeries` behavior could permanently propagate warm-up `NaN` values into ADX, unlike Pine `ta.sma`.
+
+**Fix:** Added a Pine-equivalent NaN-aware SMA helper for Trend Strength ADX calculation.
+
+### Minor — HTF visibility toggle created an empty secondary series (FOUND AND FIXED)
+
+The frontend emitted `y2=NaN` even when HTF was disabled, causing the renderer to instantiate an empty HTF column series.
+
+**Fix:** HTF `y2`/`y2Color` are now emitted only when the HTF toggle is enabled and a real value exists.
+
+### Minor — histogram borders (FOUND AND FIXED)
+
+The local column renderer did not explicitly guarantee borderless histogram columns.
+
+**Fix:** Added zero-width borders to both HTF and CTF column series.
+
+### Minor — ignored period configuration (FOUND AND FIXED)
+
+The frontend exposed a period parameter but hard-coded the smoothing period.
+
+**Fix:** The calculator now reads the configured period value.
+
+### Minor — dead backend chart conversion (FOUND AND FIXED)
+
+The backend Trend Strength chart conversion became unreachable after TradingView was selected as the chart source of truth.
+
+**Fix:** Removed the dead Trend Strength conversion path while retaining the backend `htfDiHist` contract for non-chart consumers.
+
+## Acceptance criteria
+
+| Criterion | Status |
+|---|---|
+| HTF histogram is added alongside CTF histogram | MET |
+| HTF multiplier is 3 | MET |
+| HTF value is stepped/held between 3-period boundaries | MET |
+| Both histograms render in the same pane | MET |
+| CTF colors remain bright blue/yellow | MET |
+| HTF colors are darker and distinct | MET |
+| Histogram columns have no borders | MET |
+| HTF can be toggled off | MET |
+| Local TS and Pine implementations are updated | MET |
+| No strategy/order/broker behavior added | MET |
+
+## Verification
+
+- `npx tsc --noEmit -p tsconfig.json` passed.
+- `npm run build` in `functions` passed.
+- Pine structural checks passed for both histograms, toggle, colors, and multiplier.
+- User visually validated the updated TradingView indicator and local chart behavior.
+- Final re-review fixed the local `y2` discovery bug: the renderer now checks any data point, not only the first warm-up point.
+- Final re-review added explicit zero-width borders to both histogram column series.
+- Unrelated Topic #176 files remain unstaged.
+
+## Verdict
+
+**PASS** — Task #251 is ready for QA. The HTF histogram is stepped, visually distinct, toggleable, rendered behind CTF, and the delayed legacy series path that caused the duplicate/spiky overlay has been removed.

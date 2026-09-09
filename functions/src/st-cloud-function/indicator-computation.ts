@@ -60,6 +60,7 @@ export interface IndicatorDataPoint {
   diPlus: number | null;
   diMinus: number | null;
   diHist: number | null;
+  htfDiHist: number | null;
   adx: number | null;
   bands: BandPoint[];
   htfZoneV2: number | null;     // HTF zone V2 context for this bar
@@ -82,6 +83,7 @@ export interface TrendStrengthPoint {
   diPlus: number | null;
   diMinus: number | null;
   diHist: number | null;
+  htfDiHist: number | null;
   adx: number | null;
 }
 
@@ -263,6 +265,7 @@ function computeIndicatorInterval(bars: OhlcBar[]): IndicatorIntervalData {
       diPlus: null,
       diMinus: null,
       diHist: null,
+      htfDiHist: null,
       adx: null,
       bands: [],
       htfZoneV2: null,
@@ -282,6 +285,7 @@ function computeIndicatorInterval(bars: OhlcBar[]): IndicatorIntervalData {
     diPlus: toNullable(strength.diPlus[i]),
     diMinus: toNullable(strength.diMinus[i]),
     diHist: toNullable(strength.diHist[i]),
+    htfDiHist: toNullable(strength.htfDiHist[i]),
     adx: toNullable(strength.adx[i]),
     bands: [
       buildBandPoint(1, bands.band1, i),
@@ -307,6 +311,7 @@ function splitIndicatorInterval(data: IndicatorIntervalData): {
       diPlus: p.diPlus,
       diMinus: p.diMinus,
       diHist: p.diHist,
+      htfDiHist: p.htfDiHist,
       adx: p.adx,
     })),
     trendBands: data.map(p => ({ d: p.d, bands: p.bands })),

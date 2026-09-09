@@ -102,6 +102,7 @@ export interface TrendStrengthPoint {
   diPlus: number | null;
   diMinus: number | null;
   diHist: number | null;
+  htfDiHist: number | null;
   adx: number | null;
 }
 
@@ -135,6 +136,7 @@ export interface IndicatorDataPoint {
   diPlus: number | null;
   diMinus: number | null;
   diHist: number | null;
+  htfDiHist: number | null;
   adx: number | null;
   bands: BandPoint[];
   htfZoneV2: number | null;

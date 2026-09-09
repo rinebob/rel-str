@@ -11,7 +11,13 @@
 
 ## Deliverable
 
-Create one standalone, read-only Pine v6 indicator in `C:\aa\projects\rb-ps` that can be copied into TradingView and attached to a chart. It contains all four ST indicator families and the Zone V1/V2 price-pane event overlay.
+Create three self-contained, read-only Pine v6 indicators in `C:\aa\projects\rb-ps` that can be copied into TradingView and attached to the same chart:
+
+- `rb-st-trend-bands.pine` — main-pane Trend Bands.
+- `rb-st-zones.pine` — lower-pane Zone V1/V2 markers/lines plus main-pane event dots.
+- `rb-st-trend-strength.pine` — separate lower-pane DI histogram and thresholds.
+
+TradingView cannot place normal plots from one script into two separate lower panes, so the three-file split is intentional.
 
 The indicator uses Pine's `indicator(...)` declaration, not `strategy(...)`. It performs no order placement, broker calls, app calls, persistence, or runtime dependency on `rel-str`.
 
@@ -28,7 +34,7 @@ The comparison seam is visual behavior: the selected TypeScript implementation i
 
 ## Phase 1: Standalone Pine foundation
 
-Create a new final-indicator working file in `rb-ps` without modifying the historical scripts. Prefer a self-contained script so local copy/paste does not depend on published TradingView library imports.
+Create the three final-indicator working files in `rb-ps` without modifying the historical scripts. Keep each script self-contained so local copy/paste does not depend on published TradingView library imports.
 
 Translate the shared math and state behavior needed by all families:
 
@@ -53,7 +59,7 @@ Port the four families in dependency order:
 
 Use developing higher-timeframe values so active interim bars paint immediately. Do not substitute confirmed-only values merely to avoid repainting.
 
-The final script must provide the intended lower-pane plots and main-pane overlays from one file, with fixed v1 parameters and no required inputs beyond what is necessary for the single indicator to compile and render.
+The three final scripts must provide the intended main-pane and lower-pane plots with fixed v1 parameters and no required inputs beyond what is necessary for each indicator to compile and render.
 
 ## Phase 3: Visual validation and handoff
 

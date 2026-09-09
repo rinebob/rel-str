@@ -11,13 +11,13 @@
 
 ## Summary
 
-Create a standalone Pine Script v6 indicator that ports a selected, stable version of the Savant Trader (ST) indicator system for local use in TradingView. The script will display the four existing ST indicator families and reproduce the useful Zone V1/V2 signal-event dots in the main price pane.
+Create a small set of self-contained Pine Script v6 indicators that ports a selected, stable version of the Savant Trader (ST) indicator system for local use in TradingView. The scripts together display the four existing ST indicator families and reproduce the useful Zone V1/V2 signal-event dots in the main price pane.
 
 The Pine script is a deliberate point-in-time port, not a permanently synchronized second implementation. TypeScript remains the active implementation during normal ST development and experimentation. When the ST behavior is considered ready for TradingView, the selected behavior is frozen, manually translated to Pine, and validated through visual comparison and exported data comparison.
 
 ## Goals
 
-- Make the four ST indicator families available as one local TradingView indicator.
+- Make the four ST indicator families available as three coordinated local TradingView indicators.
 - Preserve the current ST calculations and fixed defaults at the point of porting.
 - Show Zone V1/V2 signal-event dots directly on the main price pane.
 - Paint developing higher-timeframe values on interim bars instead of waiting for higher-timeframe candle confirmation.
@@ -37,7 +37,7 @@ The Pine script is a deliberate point-in-time port, not a permanently synchroniz
 
 ## Scope
 
-The single Pine indicator will contain:
+The three Pine indicators will contain:
 
 1. **ST-Trend-Bands** — four smoothed Heikin-Ashi-derived bands overlaid on price.
 2. **ST-Zone V1** — zone classification plotted in a lower pane.
@@ -45,13 +45,14 @@ The single Pine indicator will contain:
 4. **ST-Trend-Strength** — DI+/DI− and related strength plots in a lower pane.
 5. **Zone signal-event overlay** — V1 and V2 long/short event dots plotted on the main price pane.
 
-The first port uses the established fixed parameters:
+The first port uses the established fixed parameters. Trend Bands and Zones use `HTF_MULTIPLIER=3`; Trend Strength intentionally uses `DI_LOOKBACK=1` to match the visible historical `rbDI` plot:
 
 | Parameter | Value |
 |---|---:|
 | CTF fast length | 5 |
 | CTF slow length | 10 |
-| HTF multiplier | 3 |
+| HTF multiplier for Bands/Zones | 3 |
+| DI lookback for Trend Strength | 1 bar |
 | DI period | 14 |
 | DI upper threshold | +10 |
 | DI lower threshold | -10 |
@@ -66,8 +67,8 @@ As a Savant Trader user, I want one local Pine indicator containing the ST indic
 
 **Acceptance criteria**
 
-- The checked-in Pine file compiles in TradingView Pine v6.
-- A user can add the one script to a TradingView chart.
+- The three checked-in Pine files compile in TradingView Pine v6.
+- A user can add all three scripts to the same TradingView chart.
 - Trend Bands render in the main price pane.
 - Zone V1 and Zone V2 render their discrete zone series in a lower pane.
 - Trend Strength renders its intended DI/strength series in a lower pane.

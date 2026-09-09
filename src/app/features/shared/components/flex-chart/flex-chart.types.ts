@@ -122,7 +122,7 @@ export interface IndicatorConfig {
   };
 
   /** Pre-calculated indicator data (optional - if not provided, will be calculated from price bars) */
-  data?: { x: Date; y: number; y2?: number }[];
+  data?: { x: Date; y: number; y2?: number; y2Color?: string; y3?: number; color?: string }[];
 
   /** Pre-calculated band candle data for indicators rendered as multiple bands (e.g. ST-Trend-Bands) */
   bandData?: BandSeriesData[];
@@ -183,7 +183,7 @@ export interface FlexChartConfig {
 export interface ComputedIndicatorSeries {
   id: string;
   config: IndicatorConfig;
-  data: { x?: Date; index?: number; y: number; y2?: number; y3?: number; bandHigh?: number; bandLow?: number; up?: boolean }[];
+  data: { x?: Date; index?: number; y: number; y2?: number; y2Color?: string; y3?: number; bandHigh?: number; bandLow?: number; up?: boolean; color?: string }[];
 }
 
 /** Parameter definition for indicator config dialogs */
@@ -211,4 +211,4 @@ export interface IndicatorOption {
 export type IndicatorCalculator = (
   bars: PriceBar[],
   params: Record<string, number | string | boolean>
-) => { x: Date; y: number; y2?: number; y3?: number; bandHigh?: number; bandLow?: number; up?: boolean }[];
+) => { x: Date; y: number; y2?: number; y2Color?: string; y3?: number; bandHigh?: number; bandLow?: number; up?: boolean }[];

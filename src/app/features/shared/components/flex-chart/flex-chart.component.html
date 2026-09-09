@@ -101,7 +101,25 @@
         @for (pane of lowerPanes(); track pane.id) {
           @for (indicator of pane.series; track indicator.id) {
             @if (indicator.config.seriesType === 'column') {
-              <!-- Histogram (column) series -->
+              <!-- Draw the optional secondary/HTF histogram first so the
+                   primary chart-timeframe series renders in the foreground. -->
+              @if (indicator.data.some(point => point.y2 !== undefined)) {
+                <e-series
+                  [dataSource]="indicator.data"
+                  type="Column"
+                  xName="index"
+                  yName="y2"
+                  [yAxisName]="pane.axisName"
+                  [name]="(indicator.config.options.name || indicator.config.type.toUpperCase()) + ' HTF'"
+                  [fill]="indicator.config.options.color2 || '#0d47a1'"
+                  pointColorMapping="y2Color"
+                  [columnWidth]="0.75"
+                  [border]="{ width: 0 }"
+                  [enableTooltip]="true"
+                  [animation]="noAnimation">
+                </e-series>
+              }
+              <!-- Primary chart-timeframe histogram is intentionally last. -->
               <e-series
                 [dataSource]="indicator.data"
                 type="Column"
@@ -112,6 +130,7 @@
                 [fill]="indicator.config.options.color || '#26a69a'"
                 pointColorMapping="color"
                 [columnWidth]="1.0"
+                [border]="{ width: 0 }"
                 [enableTooltip]="true"
                 [animation]="noAnimation">
               </e-series>
@@ -147,7 +166,7 @@
               </e-series>
             } @else if (indicator.config.seriesType === 'line') {
               <!-- Histogram (column) behind line series -->
-              @if (indicator.config.options.showHistogram && indicator.data.length > 0 && indicator.data[0].y3 !== undefined) {
+              @if (indicator.config.options.showHistogram && indicator.data.some(point => point.y3 !== undefined)) {
                 <e-series
                   [dataSource]="indicator.data"
                   type="Column"
@@ -176,7 +195,7 @@
                 [animation]="noAnimation">
               </e-series>
               <!-- Secondary line (signal) -->
-              @if (indicator.data.length > 0 && indicator.data[0].y2 !== undefined) {
+              @if (indicator.data.some(point => point.y2 !== undefined)) {
                 <e-series
                   [dataSource]="indicator.data"
                   type="Line"

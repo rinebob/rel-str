@@ -2,13 +2,13 @@
  * ST-Trend-Strength — Savant Trader Trend Strength (DI+/-)
  *
  * Directional trend strength indicator using DI+, DI-, and histogram.
- * All lookbacks use HTF_MULTIPLIER (3) — this is the native timeframe
- * for this indicator per the source PineScript.
+ * The visible historical DI reference uses a one-bar lookback. This is kept
+ * separate from the shared HTF_MULTIPLIER used by Trend Bands and Zones.
  *
  * Ported from rb-DI-plus-minus-lib.pine.
  */
 
-import { smaSeries, crossoverValue, crossunderValue, nz, HTF_MULTIPLIER } from './primitives';
+import { crossoverValue, crossunderValue, nz } from './primitives';
 import type { OHLCV } from './st-trend-bands';
 
 // =============================================================================
@@ -19,6 +19,7 @@ export interface TrendStrengthResult {
   diPlus: number[];        // DI+ series
   diMinus: number[];       // DI- series
   diHist: number[];        // DI+ - DI- histogram
+  htfDiHist: number[];     // stepped 3-period HTF DI+ - DI- histogram
   dx: number[];            // Directional Index
   adx: number[];           // Average Directional Index (SMA of DX)
   crossesZero: boolean[];            // diHist crosses zero in either direction
@@ -36,29 +37,86 @@ export interface TrendStrengthResult {
 // SYSTEM CONSTANTS
 // =============================================================================
 
+const DI_LOOKBACK = 1;
 const ADX_LENGTH = 14;
 const UPPER_THRESHOLD = 10;
 const LOWER_THRESHOLD = -10;
+
+function smaIgnoringNaN(values: number[], period: number): number[] {
+  const result = new Array<number>(values.length).fill(NaN);
+  const window: number[] = [];
+  let sum = 0;
+
+  for (let i = 0; i < values.length; i++) {
+    const value = values[i];
+    if (!Number.isNaN(value)) {
+      window.push(value);
+      sum += value;
+      if (window.length > period) sum -= window.shift()!;
+    }
+    if (window.length === period) result[i] = sum / period;
+  }
+  return result;
+}
 
 // =============================================================================
 // MAIN COMPUTATION
 // =============================================================================
 
+/** Compute a stepped DI histogram using the supplied lookback. */
+function computeSteppedDiHist(bars: OHLCV[], lookback: number): number[] {
+  const rawHist = new Array<number>(bars.length).fill(NaN);
+  const smoothedTR = new Array<number>(bars.length).fill(0);
+  const smoothedDMPlus = new Array<number>(bars.length).fill(0);
+  const smoothedDMMinus = new Array<number>(bars.length).fill(0);
+
+  for (let i = lookback; i < bars.length; i++) {
+    const h = bars[i].high;
+    const l = bars[i].low;
+    const prevClose = nz(bars[i - lookback]?.close);
+    const prevHigh = nz(bars[i - lookback]?.high);
+    const prevLow = nz(bars[i - lookback]?.low);
+    const trueRange = Math.max(h - l, Math.abs(h - prevClose), Math.abs(l - prevClose));
+    const upMove = h - prevHigh;
+    const downMove = prevLow - l;
+    const dmPlus = upMove > downMove && upMove > 0 ? upMove : 0;
+    const dmMinus = downMove > upMove && downMove > 0 ? downMove : 0;
+    const prevTR = smoothedTR[i - lookback] ?? 0;
+    const prevDMPlus = smoothedDMPlus[i - lookback] ?? 0;
+    const prevDMMinus = smoothedDMMinus[i - lookback] ?? 0;
+
+    smoothedTR[i] = prevTR - prevTR / ADX_LENGTH + trueRange;
+    smoothedDMPlus[i] = prevDMPlus - prevDMPlus / ADX_LENGTH + dmPlus;
+    smoothedDMMinus[i] = prevDMMinus - prevDMMinus / ADX_LENGTH + dmMinus;
+    rawHist[i] = smoothedTR[i] !== 0
+      ? ((smoothedDMPlus[i] - smoothedDMMinus[i]) / smoothedTR[i]) * 100
+      : 0;
+  }
+
+  const stepped = new Array<number>(bars.length).fill(NaN);
+  let last = NaN;
+  for (let i = 0; i < bars.length; i++) {
+    if (i >= lookback && (i + 1) % lookback === 0) last = rawHist[i];
+    stepped[i] = last;
+  }
+  return stepped;
+}
+
 /**
  * Compute ST-Trend-Strength (DI+/-) indicator.
  * Direct port of rb_di_plus_minus from rb-DI-plus-minus-lib.pine.
  *
- * All lookbacks use HTF_MULTIPLIER (3):
- * - True range compares against close[i-3]
- * - Directional movement compares high[i] vs high[i-3], low[i-3] vs low[i]
- * - Wilder smoothing uses smoothed[i-3] for carry-forward
+ * The visible historical DI reference uses DI_LOOKBACK=1:
+ * - True range compares against close[i-1]
+ * - Directional movement compares high[i] vs high[i-1], low[i-1] vs low[i]
+ * - Wilder smoothing uses smoothed[i-1] for carry-forward
  *
  * @param bars - OHLCV input bars
  * @returns TrendStrengthResult with all DI values and signals
  */
 export function computeStTrendStrength(bars: OHLCV[]): TrendStrengthResult {
   const len = bars.length;
-  const mult = HTF_MULTIPLIER;
+  const mult = DI_LOOKBACK;
 
   const rawHigh = bars.map(b => b.high);
   const rawLow = bars.map(b => b.low);
@@ -129,8 +187,10 @@ export function computeStTrendStrength(bars: OHLCV[]): TrendStrengthResult {
     diHist[i] = diPlus[i] - diMinus[i];
   }
 
-  // ADX = SMA(DX, ADX_LENGTH)
-  const adx = smaSeries(dx, ADX_LENGTH);
+  const htfDiHist = computeSteppedDiHist(bars, 3);
+
+  // ADX = Pine-equivalent SMA(DX, ADX_LENGTH), ignoring warm-up NaN values.
+  const adx = smaIgnoringNaN(dx, ADX_LENGTH);
 
   // ==========================================================================
   // SIGNAL GENERATION
@@ -163,6 +223,7 @@ export function computeStTrendStrength(bars: OHLCV[]): TrendStrengthResult {
     diPlus,
     diMinus,
     diHist,
+    htfDiHist,
     dx,
     adx,
     crossesZero,

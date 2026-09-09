@@ -11,17 +11,17 @@
 
 ## E2E User Journeys
 
-- Maintainer opens the standalone Pine file from `rb-ps`, copies it into TradingView, and adds it to an OHLC chart.
-- User sees Trend Bands in the main price pane, Zone V1/V2 and Trend Strength in lower panes, and Zone V1/V2 event dots over price.
+- Maintainer opens the three self-contained Pine files from `rb-ps`, copies each into TradingView, and adds all three to an OHLC chart.
+- User sees Trend Bands in the main price pane, Zone V1/V2 markers/lines in one lower pane, Trend Strength in a separate lower pane, and Zone V1/V2 event dots over price.
 - User watches an active higher-timeframe candle and sees interim bars update using current developing values.
 - Maintainer compares the Pine display against the existing TypeScript ST behavior and records any intentional differences.
 
 ## Integration Tests
 
-- The single Pine file compiles in Pine v6 without imports that require the app or a local TypeScript runtime.
-- The indicator renders all four ST families from one chart attachment.
-- Main-pane Trend Bands and Zone V1/V2 event dots coexist with the lower-pane series.
-- The script remains read-only: it does not place orders, call a broker, call the app, or persist data.
+- All three Pine files compile in Pine v6 without imports that require the app or a local TypeScript runtime.
+- The three indicators render all four ST families from one chart attachment.
+- Main-pane Trend Bands and Zone V1/V2 event dots coexist with the separate lower-pane series.
+- All scripts remain read-only: they do not place orders, call a broker, call the app, or persist data.
 - Optional TradingView chart-data CSV export exposes enough named plots to investigate a visual discrepancy.
 
 ## Unit-level verification targets
@@ -36,7 +36,7 @@
 
 ## Test Seams
 
-- Highest seam: one-file TradingView chart rendering and visual comparison against the existing ST chart behavior.
+- Highest seam: three-file TradingView chart rendering and visual comparison against the existing ST chart behavior.
 - Lower seam: named Pine plots and optional TradingView CSV values for the affected calculation.
 - Reference seam: pure TypeScript indicator behavior in `rel-str` and the original Pine sources in `rb-ps`.
 

@@ -7,7 +7,7 @@
 import type { IndicatorConfig, PriceBar } from '../../../../features/shared/components/flex-chart/flex-chart.types';
 import { StIndicator } from '../../../../features/shared/components/flex-chart/flex-chart.types';
 import type { BandSeriesData } from '../../../../features/shared/components/flex-chart/indicators/st-trend-bands.indicator';
-import type { IntervalData, TrendBandsPoint, TrendStrengthPoint, ZoneV1Point, ZoneV2Point } from '../../common/indicator.types';
+import type { IntervalData, TrendBandsPoint, ZoneV1Point, ZoneV2Point } from '../../common/indicator.types';
 import { toDatePt } from '../../utils/utils';
 import type { ChartScatterPoint } from './base-indicators';
 
@@ -38,23 +38,6 @@ function zoneToChartData(
     .map(p => {
       const zone = p.zone as number;
       return { x: toDate(p.d), y: zone, color: zoneColor(zone) };
-    });
-}
-
-function trendStrengthToChartData(
-  points: TrendStrengthPoint[],
-): { x: Date; y: number; y2: number; y3: number; color: string }[] {
-  return points
-    .filter(p => p.diPlus !== null && p.diMinus !== null && p.diHist !== null)
-    .map(p => {
-      const diHist = p.diHist as number;
-      return {
-        x: toDate(p.d),
-        y: diHist,
-        y2: p.diPlus as number,
-        y3: p.diMinus as number,
-        color: diHist >= 0 ? '#2196f3' : '#ffeb3b',
-      };
     });
 }
 
@@ -101,26 +84,23 @@ export function convertIntervalIndicators(
 ): {
   zoneV1: ChartScatterPoint[];
   zoneV2: ChartScatterPoint[];
-  trendStrength: { x: Date; y: number; y2: number; y3: number; color: string }[];
   trendBands: BandSeriesData[];
 } {
   const zoneV1 = intervalData?.indicators?.zoneV1 ?? [];
   const zoneV2 = intervalData?.indicators?.zoneV2 ?? [];
-  const trendStrength = intervalData?.indicators?.trendStrength ?? [];
   const trendBands = intervalData?.indicators?.trendBands ?? [];
   return {
     zoneV1: zoneToChartData(zoneV1),
     zoneV2: zoneToChartData(zoneV2),
-    trendStrength: trendStrengthToChartData(trendStrength),
     trendBands: trendBandsToChartData(trendBands, bars),
   };
 }
 
 /**
  * Inject callable indicator data into the base indicator configs for a single interval.
- * Always overwrites the config data with the backend response, even when empty, so the
- * flex chart never silently falls back to its inline calculator. If backend data is missing
- * the chart will show an empty series and the gap is visible.
+ * Trend Strength is only overwritten when the backend includes the current HTF series;
+ * older deployed responses are ignored so they cannot replace the corrected local calculator
+ * with the legacy single-histogram implementation.
  */
 export function injectCallableIndicatorData(
   indicators: IndicatorConfig[],
@@ -128,6 +108,7 @@ export function injectCallableIndicatorData(
   bars: PriceBar[],
 ): IndicatorConfig[] {
   const converted = convertIntervalIndicators(intervalData, bars);
+
   return indicators.map(cfg => {
     switch (cfg.type) {
       case StIndicator.ZONE:
@@ -135,7 +116,10 @@ export function injectCallableIndicatorData(
       case StIndicator.ZONE_V2:
         return { ...cfg, data: converted.zoneV2 };
       case StIndicator.TREND_STRENGTH:
-        return { ...cfg, data: converted.trendStrength };
+        // TradingView is authoritative for Trend Strength. Keep the inline
+        // CTF + stepped HTF calculator data; never overlay a delayed backend
+        // series that may use an older calculation revision.
+        return cfg;
       case StIndicator.TREND_BANDS:
         return { ...cfg, bandData: converted.trendBands };
       default:

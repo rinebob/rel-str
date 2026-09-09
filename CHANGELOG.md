@@ -11,6 +11,7 @@
 
 ### Changed
 - [Robinhood Trading UI] 176-241_CONFIG-CONFIG-SAVANT-TRADER: Remove trading-case alias, exclude scripts/verify
+- [Export ST indicators to PineScript for TradingView] 221-251_SHARED-IMPL-SAVANT-TRADER: Add stepped HTF Trend Strength histogram to Pine and local indicators
 
 ## [2026-09-07]
 
