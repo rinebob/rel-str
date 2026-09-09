@@ -1,10 +1,12 @@
-import { BrokerOrderSnapshot } from '../services/order-ticket.types';
+import { BrokerOrderSnapshot, OrderTicketStatus } from '../services/order-ticket.types';
 import {
   extractOrdersFromResponse,
   normalizeToBrokerOrderSnapshot,
   parseEquityOrdersResponse,
   isActiveStopLoss,
   findActiveStopLoss,
+  rhStateToTerminalStatus,
+  rhStateToDisplayStatus,
 } from './broker-order.util';
 
 describe('broker-order.util', () => {
@@ -34,9 +36,11 @@ describe('broker-order.util', () => {
     ...orderRaw,
     id: 'stop-1',
     side: 'sell',
-    type: 'stop_market',
+    type: 'market',
+    trigger: 'stop',
     state: 'confirmed',
     symbol: 'AAPL',
+    stop_price: '140.00',
   };
 
   describe('extractOrdersFromResponse', () => {
@@ -92,28 +96,32 @@ describe('broker-order.util', () => {
       const map = parseEquityOrdersResponse(parsed);
       expect(Object.keys(map).length).toBe(2);
       expect(map['order-1'].symbol).toBe('AAPL');
-      expect(map['stop-1'].type).toBe('stop_market');
+      expect(map['stop-1'].type).toBe('market');
     });
   });
 
   describe('isActiveStopLoss', () => {
     const stopOrder: BrokerOrderSnapshot = {
-      id: 'stop-1', symbol: 'AAPL', side: 'sell', type: 'stop_market', state: 'confirmed',
+      id: 'stop-1', symbol: 'AAPL', side: 'sell', type: 'market', state: 'confirmed',
       quantity: '10', cumulativeQuantity: '0', price: null, stopPrice: '140',
       fees: '0', dollarBasedAmount: null, timeInForce: 'gtc', marketHours: 'regular_hours',
       trigger: 'stop', placedAgent: 'agentic', createdAt: '', lastTransactionAt: '',
     };
 
-    it('returns true for an active stop-loss sell order', () => {
+    it('returns true for an active stop-loss sell order (trigger=stop)', () => {
       expect(isActiveStopLoss(stopOrder, 'AAPL')).toBe(true);
+    });
+
+    it('returns true for a stop-loss with type=market and trigger=stop (real RH shape)', () => {
+      expect(isActiveStopLoss({ ...stopOrder, type: 'market', trigger: 'stop' }, 'AAPL')).toBe(true);
     });
 
     it('returns false for a buy-side stop order', () => {
       expect(isActiveStopLoss({ ...stopOrder, side: 'buy' }, 'AAPL')).toBe(false);
     });
 
-    it('returns false for a non-stop order type', () => {
-      expect(isActiveStopLoss({ ...stopOrder, type: 'market' }, 'AAPL')).toBe(false);
+    it('returns false for a market order without stop trigger', () => {
+      expect(isActiveStopLoss({ ...stopOrder, trigger: 'immediate' }, 'AAPL')).toBe(false);
     });
 
     it('returns false for a cancelled stop order', () => {
@@ -125,6 +133,10 @@ describe('broker-order.util', () => {
       expect(isActiveStopLoss({ ...stopOrder, state: 'rejected' }, 'AAPL')).toBe(false);
     });
 
+    it('returns false for a filled stop order', () => {
+      expect(isActiveStopLoss({ ...stopOrder, state: 'filled' }, 'AAPL')).toBe(false);
+    });
+
     it('returns false for a different symbol', () => {
       expect(isActiveStopLoss(stopOrder, 'MSFT')).toBe(false);
     });
@@ -132,7 +144,7 @@ describe('broker-order.util', () => {
 
   describe('findActiveStopLoss', () => {
     const stopOrder: BrokerOrderSnapshot = {
-      id: 'stop-1', symbol: 'AAPL', side: 'sell', type: 'stop_limit', state: 'confirmed',
+      id: 'stop-1', symbol: 'AAPL', side: 'sell', type: 'market', state: 'confirmed',
       quantity: '10', cumulativeQuantity: '0', price: null, stopPrice: '140',
       fees: '0', dollarBasedAmount: null, timeInForce: 'gtc', marketHours: 'regular_hours',
       trigger: 'stop', placedAgent: 'agentic', createdAt: '', lastTransactionAt: '',
@@ -153,6 +165,57 @@ describe('broker-order.util', () => {
 
     it('returns null for an empty map', () => {
       expect(findActiveStopLoss({}, 'AAPL')).toBeNull();
+    });
+  });
+
+  describe('rhStateToTerminalStatus', () => {
+    it('maps filled to FILLED', () => {
+      expect(rhStateToTerminalStatus('filled')).toBe(OrderTicketStatus.FILLED);
+    });
+
+    it('maps cancelled to CANCELLED (case-insensitive)', () => {
+      expect(rhStateToTerminalStatus('cancelled')).toBe(OrderTicketStatus.CANCELLED);
+      expect(rhStateToTerminalStatus('CANCELLED')).toBe(OrderTicketStatus.CANCELLED);
+      expect(rhStateToTerminalStatus('Canceled')).toBe(OrderTicketStatus.CANCELLED);
+    });
+
+    it('maps failed/rejected/voided to FAILED', () => {
+      expect(rhStateToTerminalStatus('failed')).toBe(OrderTicketStatus.FAILED);
+      expect(rhStateToTerminalStatus('rejected')).toBe(OrderTicketStatus.FAILED);
+      expect(rhStateToTerminalStatus('voided')).toBe(OrderTicketStatus.FAILED);
+    });
+
+    it('returns null for non-terminal states', () => {
+      expect(rhStateToTerminalStatus('confirmed')).toBeNull();
+      expect(rhStateToTerminalStatus('queued')).toBeNull();
+      expect(rhStateToTerminalStatus('partially_filled')).toBeNull();
+    });
+  });
+
+  describe('rhStateToDisplayStatus', () => {
+    it('maps terminal states via rhStateToTerminalStatus', () => {
+      expect(rhStateToDisplayStatus('filled', true)).toBe(OrderTicketStatus.FILLED);
+      expect(rhStateToDisplayStatus('cancelled', true)).toBe(OrderTicketStatus.CANCELLED);
+    });
+
+    it('maps queued to QUEUED', () => {
+      expect(rhStateToDisplayStatus('queued', false)).toBe(OrderTicketStatus.QUEUED);
+    });
+
+    it('maps confirmed to SUBMITTED for market orders', () => {
+      expect(rhStateToDisplayStatus('confirmed', true)).toBe(OrderTicketStatus.SUBMITTED);
+    });
+
+    it('maps confirmed to RESTING for non-market orders', () => {
+      expect(rhStateToDisplayStatus('confirmed', false)).toBe(OrderTicketStatus.RESTING);
+    });
+
+    it('maps partially_filled to SUBMITTED for market orders', () => {
+      expect(rhStateToDisplayStatus('partially_filled', true)).toBe(OrderTicketStatus.SUBMITTED);
+    });
+
+    it('maps partially_filled to RESTING for non-market orders', () => {
+      expect(rhStateToDisplayStatus('partially_filled', false)).toBe(OrderTicketStatus.RESTING);
     });
   });
 });

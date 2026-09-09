@@ -6,7 +6,7 @@
  * component so they don't duplicate the same response-shape traversal and
  * stop-loss predicate logic.
  */
-import { BrokerOrderSnapshot } from '../services/order-ticket.types';
+import { BrokerOrderSnapshot, OrderTicketStatus } from '../services/order-ticket.types';
 
 /**
  * Extract the orders array from an MCP `get_equity_orders` response.
@@ -77,20 +77,60 @@ export function parseEquityOrdersResponse(parsed: unknown): Record<string, Broke
 }
 
 /** Terminal states that indicate an order is no longer active. */
-const TERMINAL_STATES = new Set(['cancelled', 'canceled', 'failed', 'rejected', 'voided']);
+const TERMINAL_STATES = new Set(['filled', 'cancelled', 'canceled', 'failed', 'rejected', 'voided']);
 
-/** Stop order types recognized by Robinhood. */
-const STOP_ORDER_TYPES = new Set(['stop', 'stop_market', 'stop_limit']);
+/**
+ * Map a Robinhood order state to a terminal `OrderTicketStatus`, or null if
+ * the state is not terminal. Used by reconciliation and display merging so
+ * the mapping lives in one place.
+ */
+export function rhStateToTerminalStatus(rhState: string): OrderTicketStatus | null {
+  switch (rhState.toLowerCase()) {
+    case 'filled': return OrderTicketStatus.FILLED;
+    case 'cancelled':
+    case 'canceled': return OrderTicketStatus.CANCELLED;
+    case 'failed':
+    case 'rejected':
+    case 'voided': return OrderTicketStatus.FAILED;
+    default: return null;
+  }
+}
+
+/**
+ * Map a Robinhood order state to a display `OrderTicketStatus`. Non-terminal
+ * states map to QUEUED, RESTING (for non-market orders waiting on the book),
+ * or SUBMITTED (for market orders). RESTING is a display-only derivation —
+ * it is never persisted to Firestore.
+ */
+export function rhStateToDisplayStatus(rhState: string, isMarket: boolean = true): OrderTicketStatus {
+  const terminal = rhStateToTerminalStatus(rhState);
+  if (terminal) return terminal;
+  switch (rhState.toLowerCase()) {
+    case 'queued': return OrderTicketStatus.QUEUED;
+    case 'confirmed':
+    case 'partially_filled':
+      return isMarket ? OrderTicketStatus.SUBMITTED : OrderTicketStatus.RESTING;
+    default: return OrderTicketStatus.SUBMITTED;
+  }
+}
 
 /**
  * Check if a broker order is an active (non-terminal) protective stop-loss
  * sell order for the given symbol.
+ *
+ * Robinhood represents stop orders with `trigger: 'stop'` — the `type` field
+ * is still 'market' or 'limit', not 'stop_market'. We detect stop-loss orders
+ * by checking the trigger field, falling back to type for safety.
  */
 export function isActiveStopLoss(order: BrokerOrderSnapshot, symbol: string): boolean {
-  return order.symbol === symbol &&
-    order.side === 'sell' &&
-    STOP_ORDER_TYPES.has(order.type) &&
-    !TERMINAL_STATES.has(order.state);
+  if (order.symbol !== symbol) return false;
+  if (order.side !== 'sell') return false;
+  if (TERMINAL_STATES.has(order.state.toLowerCase())) return false;
+  // RH uses trigger='stop' for stop orders; type stays 'market' or 'limit'
+  return order.trigger === 'stop' ||
+    order.type === 'stop' ||
+    order.type === 'stop_market' ||
+    order.type === 'stop_limit';
 }
 
 /**
