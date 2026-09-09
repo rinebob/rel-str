@@ -56,11 +56,18 @@ export class OrderQueueComponent {
   /** Default dollar amount from trading config, used as fallback display. */
   defaultDollarAmount = input<number>(100);
 
+  /** Set of symbols that have an active protective stop-loss at RH.
+   *  Used to show the PROTECTED badge on open positions. */
+  protectedSymbols = input<Set<string>>(new Set());
+
   /** Emitted when a row is clicked. */
   ticketSelected = output<string>();
 
   /** Emitted when the user batch-removes selected tickets. */
   removeTickets = output<string[]>();
+
+  /** Emitted when the user clicks "Requeue" on a cancelled ticket. */
+  requeueTicket = output<string>();
 
   /** Track selected checkbox state per ticket id. */
   private checkedIds = signal<Set<string>>(new Set());
@@ -86,32 +93,15 @@ export class OrderQueueComponent {
     return this.collapsedGroups().has(label);
   }
 
-  /** Whether an ticket is a stop loss linked to an entry position. */
-  isStopLoss(ticket: OrderTicket): boolean {
-    return ticket.sourceRef?.type === 'stop_loss';
-  }
-
-  /** Stop losses linked to a parent entry ticket. */
-  linkedStopLosses(parentId: string): OrderTicket[] {
-    return this.tickets().filter((ticket) => this.isStopLoss(ticket) && ticket.sourceRef?.id === parentId);
-  }
-
-  /** Accepted orders that remain at Robinhood waiting for a trigger or price. */
-  isResting(ticket: OrderTicket): boolean {
-    return ticket.status === OrderTicketStatus.RESTING ||
-      (ticket.status === OrderTicketStatus.SUBMITTED &&
-        (this.isStopLoss(ticket) || ticket.orderType !== 'market'));
-  }
-
-  /** Whether an entry has a linked stop-loss ticket. */
-  hasLinkedStopLoss(parentId: string): boolean {
-    return this.linkedStopLosses(parentId).length > 0;
+  /** Whether an entry has an active RH stop order protecting it. */
+  hasProtection(ticket: OrderTicket): boolean {
+    const sym = this.symbolFor(ticket);
+    return this.protectedSymbols().has(sym);
   }
 
   /** tickets grouped by status category, in display order. Every broker ticket appears once. */
   groups = computed<StatusGroup[]>(() => {
     const all = this.tickets();
-    const topLevel = all;
     const sortTickets = (tickets: OrderTicket[]) =>
       [...tickets].sort((a, b) => {
         // Buy before sell
@@ -123,49 +113,49 @@ export class OrderQueueComponent {
       {
         label: 'Staged',
         status: [OrderTicketStatus.STAGED],
-        tickets: sortTickets(topLevel.filter((i) => i.status === OrderTicketStatus.STAGED)),
+        tickets: sortTickets(all.filter((i) => i.status === OrderTicketStatus.STAGED)),
         cssClass: 'group-staged',
       },
       {
         label: 'Submitting',
         status: [OrderTicketStatus.SUBMITTING],
-        tickets: sortTickets(topLevel.filter((i) => i.status === OrderTicketStatus.SUBMITTING)),
+        tickets: sortTickets(all.filter((i) => i.status === OrderTicketStatus.SUBMITTING)),
         cssClass: 'group-submitting',
       },
       {
         label: 'Submitted',
         status: [OrderTicketStatus.SUBMITTED],
-        tickets: sortTickets(topLevel.filter((i) => i.status === OrderTicketStatus.SUBMITTED && !this.isResting(i))),
+        tickets: sortTickets(all.filter((i) => i.status === OrderTicketStatus.SUBMITTED)),
         cssClass: 'group-submitted',
       },
       {
         label: 'Queued',
         status: [OrderTicketStatus.QUEUED],
-        tickets: sortTickets(topLevel.filter((i) => i.status === OrderTicketStatus.QUEUED)),
+        tickets: sortTickets(all.filter((i) => i.status === OrderTicketStatus.QUEUED)),
         cssClass: 'group-queued',
       },
       {
         label: 'Resting',
-        status: [OrderTicketStatus.SUBMITTED],
-        tickets: sortTickets(topLevel.filter((i) => this.isResting(i))),
+        status: [OrderTicketStatus.RESTING],
+        tickets: sortTickets(all.filter((i) => i.status === OrderTicketStatus.RESTING)),
         cssClass: 'group-resting',
       },
       {
         label: 'Open Positions',
         status: [OrderTicketStatus.FILLED],
-        tickets: sortTickets(topLevel.filter((i) => i.status === OrderTicketStatus.FILLED)),
+        tickets: sortTickets(all.filter((i) => i.status === OrderTicketStatus.FILLED)),
         cssClass: 'group-filled',
       },
       {
         label: 'Failed',
         status: [OrderTicketStatus.FAILED],
-        tickets: sortTickets(topLevel.filter((i) => i.status === OrderTicketStatus.FAILED)),
+        tickets: sortTickets(all.filter((i) => i.status === OrderTicketStatus.FAILED)),
         cssClass: 'group-failed',
       },
       {
         label: 'Cancelled',
         status: [OrderTicketStatus.CANCELLED],
-        tickets: sortTickets(topLevel.filter((i) => i.status === OrderTicketStatus.CANCELLED)),
+        tickets: sortTickets(all.filter((i) => i.status === OrderTicketStatus.CANCELLED)),
         cssClass: 'group-cancelled',
       },
     ].filter((g) => g.tickets.length > 0);
@@ -197,7 +187,11 @@ export class OrderQueueComponent {
     if (ticket.instrumentType === InstrumentType.OPTION) {
       return ticket.quantity;
     }
-    if (ticket.quantity) return ticket.quantity;
+    if (ticket.quantity) {
+      const n = Number(ticket.quantity);
+      if (!isNaN(n)) return parseFloat(n.toFixed(2)).toString();
+      return ticket.quantity;
+    }
     if (ticket.dollarAmount) return `$${ticket.dollarAmount}`;
     return `$${this.defaultDollarAmount()}`;
   }

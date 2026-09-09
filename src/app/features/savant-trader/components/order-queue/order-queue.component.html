@@ -64,15 +64,24 @@
               <div class="item-line-1">
                 <span class="item-symbol">{{ symbolFor(ticket) }}</span>
                 @if (priceFor(ticket)) {
-                  <span class="item-price">{{ priceFor(ticket) | currency }}</span>
+                  <span class="item-price">{{ priceFor(ticket) | currency:'USD':'symbol':'1.2-2' }}</span>
                 }
                 <span class="item-side" [class.side-buy]="ticket.side === 'buy'" [class.side-sell]="ticket.side === 'sell'">
                   {{ ticket.side | uppercase }}
                 </span>
                 <span class="item-type">{{ ticket.orderType | uppercase }}</span>
                 <span class="item-qty">{{ quantityFor(ticket) }}</span>
-                @if (ticket.side === 'buy' && hasLinkedStopLoss(ticket.id)) {
+                @if (ticket.side === 'buy' && hasProtection(ticket)) {
                   <span class="protected-badge">PROTECTED</span>
+                }
+                @if (ticket.status === 'cancelled') {
+                  <button
+                    type="button"
+                    class="requeue-btn"
+                    (click)="requeueTicket.emit(ticket.id); $event.stopPropagation()">
+                    <mat-icon>replay</mat-icon>
+                    Requeue
+                  </button>
                 }
               </div>
             </div>
