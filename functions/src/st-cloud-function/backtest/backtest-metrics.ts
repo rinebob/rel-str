@@ -6,34 +6,32 @@
  */
 
 import type { BacktestEquityPoint, BacktestMetrics, BacktestTrade } from './backtest-types';
+import { safeDiv, stdDev, TRADING_DAYS_PER_YEAR } from './backtest-math-helpers';
 
-function safeDiv(a: number, b: number): number {
-  return b === 0 || !Number.isFinite(b) ? 0 : a / b;
-}
-
-function stdDev(values: number[]): number {
-  if (values.length < 2) return 0;
-  const mean = values.reduce((s, v) => s + v, 0) / values.length;
-  const variance = values.reduce((s, v) => s + (v - mean) ** 2, 0) / values.length;
-  return Math.sqrt(variance);
-}
-
-export function computeMetrics(
+/**
+ * Shared metrics core — computes BacktestMetrics from a P&L series and an
+ * equity curve. Both computeMetrics (trade-based) and computeDailyReturnMetrics
+ * (return-based) delegate to this.
+ *
+ * The equity curve should include the initial-cash point as its first element
+ * so the first daily return is included in the Sharpe calculation.
+ */
+export function computeMetricsCore(
+  pnlSeries: number[],
+  equityCurve: { date: string; equity: number }[],
   initialCash: number,
-  equityCurve: BacktestEquityPoint[],
-  closedTrades: BacktestTrade[],
 ): BacktestMetrics {
-  const tradeCount = closedTrades.length;
+  const tradeCount = pnlSeries.length;
 
-  const wins = closedTrades.filter((t) => t.pnl > 0);
-  const losses = closedTrades.filter((t) => t.pnl < 0);
+  const wins = pnlSeries.filter((p) => p > 0);
+  const losses = pnlSeries.filter((p) => p < 0);
   const winCount = wins.length;
   const lossCount = losses.length;
 
-  const grossProfit = wins.reduce((s, t) => s + t.pnl, 0);
-  const grossLoss = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
+  const grossProfit = wins.reduce((s, p) => s + p, 0);
+  const grossLoss = Math.abs(losses.reduce((s, p) => s + p, 0));
 
-  const totalNetProfit = closedTrades.reduce((s, t) => s + t.pnl, 0);
+  const totalNetProfit = pnlSeries.reduce((s, p) => s + p, 0);
 
   const averageTrade = safeDiv(totalNetProfit, tradeCount);
   const averageWin = safeDiv(grossProfit, winCount);
@@ -58,7 +56,7 @@ export function computeMetrics(
     }
   }
 
-  // Sharpe ratio from daily returns.
+  // Sharpe ratio from daily returns derived from equity curve.
   let sharpeRatio = 0;
   if (equityCurve.length >= 2) {
     const dailyReturns: number[] = [];
@@ -71,7 +69,7 @@ export function computeMetrics(
     }
     const meanReturn = dailyReturns.reduce((s, v) => s + v, 0) / Math.max(1, dailyReturns.length);
     const sd = stdDev(dailyReturns);
-    sharpeRatio = sd === 0 ? 0 : (meanReturn / sd) * Math.sqrt(252);
+    sharpeRatio = sd === 0 ? 0 : (meanReturn / sd) * Math.sqrt(TRADING_DAYS_PER_YEAR);
   }
 
   // Calmar ratio = total return / max drawdown.
@@ -96,4 +94,18 @@ export function computeMetrics(
     winCount,
     lossCount,
   };
+}
+
+/**
+ * Compute metrics from closed trades and an equity curve.
+ *
+ * Maps closed-trade P&L to a P&L series and delegates to computeMetricsCore.
+ */
+export function computeMetrics(
+  initialCash: number,
+  equityCurve: BacktestEquityPoint[],
+  closedTrades: BacktestTrade[],
+): BacktestMetrics {
+  const pnlSeries = closedTrades.map((t) => t.pnl);
+  return computeMetricsCore(pnlSeries, equityCurve, initialCash);
 }
