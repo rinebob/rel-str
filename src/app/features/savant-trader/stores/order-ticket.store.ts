@@ -32,10 +32,12 @@ import { OrderExecutionService } from '../services/order-execution.service';
 import {
   OrderTicket,
   OrderTicketStatus,
+  OrderSource,
   InstrumentType,
   EquityOrderTicket,
 } from '../services/order-ticket.types';
 import { ExecutionResult } from '../services/order-execution.service';
+import { rhStateToTerminalStatus } from '../utils/broker-order.util';
 
 export interface OrderTicketState {
   /** Signal Entry Records keyed by id. */
@@ -211,6 +213,7 @@ export const OrderTicketStore = signalStore(
             ticketService.updateTicket(id, {
               status: OrderTicketStatus.SUBMITTED,
               result: submitted.result,
+              error: undefined,
               updatedAt: submitted.updatedAt,
             })
               .pipe(takeUntilDestroyed(destroyRef))
@@ -249,6 +252,43 @@ export const OrderTicketStore = signalStore(
             patchState(state, { tickets: prev, error: err instanceof Error ? err.message : String(err) });
             snackBar.open('Failed to remove signal entry', 'Dismiss', { duration: 4000 });
             console.error('[OrderTicketStore] removeTicket failed:', err);
+          },
+        });
+    },
+
+    /** Reconcile terminal broker states in a single batched write.
+     *  Given a map of RH orders, find local signal tickets whose broker order
+     *  has reached a terminal state and update them all in one Firestore commit.
+     *  Uses the RH order's lastTransactionAt as the terminalAt timestamp so
+     *  the 24-hour recency filter is anchored to the actual broker event. */
+    reconcileTerminalStatuses(rhOrders: Record<string, import('../services/order-ticket.types').BrokerOrderSnapshot>): void {
+      const tickets = state.tickets();
+      const updates: Array<{ id: string; status: OrderTicketStatus; terminalAt: string }> = [];
+      const patchedTickets: Record<string, OrderTicket> = {};
+      for (const ticket of Object.values(tickets)) {
+        if (ticket.source !== OrderSource.SIGNAL_PIPELINE) continue;
+        const orderId = ticket.result?.orderId;
+        if (!orderId) continue;
+        const rhOrder = rhOrders[orderId];
+        if (!rhOrder) continue;
+        const terminal = rhStateToTerminalStatus(rhOrder.state);
+        if (!terminal || ticket.status === terminal) continue;
+        const terminalAt = rhOrder.lastTransactionAt ?? new Date().toISOString();
+        updates.push({ id: ticket.id, status: terminal, terminalAt });
+        patchedTickets[ticket.id] = {
+          ...ticket,
+          status: terminal,
+          terminalAt,
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      if (updates.length === 0) return;
+      patchState(state, { tickets: { ...tickets, ...patchedTickets } });
+      ticketService.batchUpdateTerminalStatus(updates)
+        .pipe(takeUntilDestroyed(destroyRef))
+        .subscribe({
+          error: (err: unknown) => {
+            console.error('[OrderTicketStore] reconcileTerminalStatuses failed:', err);
           },
         });
     },

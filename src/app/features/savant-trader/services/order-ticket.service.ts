@@ -29,11 +29,12 @@ import {
 
 /**
  * Statuses that should not be loaded on page hydration.
- * FILLED and FAILED orders are loaded so users can place stop losses, retry,
- * or reconcile an ambiguous broker result. Only CANCELLED is excluded.
+ * FILLED orders are excluded — they are represented by broker positions.
+ * CANCELLED orders are loaded so the user can requeue recent cancellations;
+ * old cancelled orders are filtered out in memory by the page.
  */
 const EXCLUDED_STATUSES: OrderTicketStatus[] = [
-  OrderTicketStatus.CANCELLED,
+  OrderTicketStatus.FILLED,
 ];
 
 /**
@@ -105,6 +106,24 @@ export class OrderTicketService {
     );
   }
 
+  /** Batch-update terminal status on multiple tickets in a single Firestore
+   *  writeBatch. Used by reconciliation to avoid N independent commits. */
+  batchUpdateTerminalStatus(updates: Array<{ id: string; status: OrderTicketStatus; terminalAt: string }>): Observable<void> {
+    return requireUserId(this.auth, this.injector).pipe(
+      take(1),
+      switchMap(() => runInInjectionContext(this.injector, async () => {
+        if (updates.length === 0) return;
+        const batch = writeBatch(this.firestore);
+        for (const { id, status, terminalAt } of updates) {
+          const docRef = doc(this.firestore, Collection.ST_ORDER_INTENTS, id);
+          batch.update(docRef, { status, terminalAt, updatedAt: new Date().toISOString() });
+        }
+        await batch.commit();
+      })),
+      map(() => undefined)
+    );
+  }
+
   /** Delete a ticket document. */
   deleteTicket(id: string): Observable<void> {
     return requireUserId(this.auth, this.injector).pipe(
@@ -119,7 +138,9 @@ export class OrderTicketService {
     );
   }
 
-  /** Load all active tickets for the current user, including FILLED (for stop loss placement). */
+  /** Load all active tickets for the current user.
+   *  FILLED is excluded (filled orders are represented by broker positions).
+   *  CANCELLED is loaded so recent cancellations can be requeued. */
   loadAllTickets(): Observable<OrderTicket[]> {
     return requireUserId(this.auth, this.injector).pipe(
       take(1),
