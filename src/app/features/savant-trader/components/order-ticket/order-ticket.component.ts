@@ -36,7 +36,7 @@ import {
   buildFractionalCloseTicket,
   buildStopLossTicket,
 } from '../../utils/stop-loss-ticket.util';
-import { findActiveStopLoss } from '../../utils/broker-order.util';
+import { findActiveStopLoss, rhStateToDisplayStatus } from '../../utils/broker-order.util';
 import {
   OrderTicket,
   OrderTicketStatus,
@@ -93,9 +93,6 @@ export class OrderTicketComponent {
     for (const o of this.rhOrders()) map[o.id] = o;
     return map;
   });
-
-  /** Emitted when a new position-management ticket is staged for ticket editing. */
-  readonly ticketStaged = output<string>();
 
   /** Emitted after any RH action (cancel, stop, fractional close) so the
    *  parent page can refresh RH orders and positions. */
@@ -205,12 +202,6 @@ export class OrderTicketComponent {
     return s === OrderTicketStatus.SUBMITTED || s === OrderTicketStatus.QUEUED || s === OrderTicketStatus.RESTING || s === OrderTicketStatus.SUBMITTING;
   });
 
-  /** Whether the ticket is in a terminal state. */
-  readonly isTerminal = computed(() => {
-    const s = this.ticket()?.status;
-    return s === OrderTicketStatus.FILLED || s === OrderTicketStatus.CANCELLED;
-  });
-
   /** Whether the entry order has been filled (enables stop loss placement). */
   readonly isEntryFilled = computed(() => {
     return this.ticket()?.status === OrderTicketStatus.FILLED;
@@ -266,9 +257,7 @@ export class OrderTicketComponent {
       refId: rhStop.id,
       source: OrderSource.POSITION_MANAGEMENT,
       sourceRef: { type: 'stop_loss', id: i.id },
-      status: rhStop.state.toLowerCase() === 'filled' ? OrderTicketStatus.FILLED
-        : rhStop.state.toLowerCase() === 'queued' ? OrderTicketStatus.QUEUED
-        : OrderTicketStatus.SUBMITTED,
+      status: rhStateToDisplayStatus(rhStop.state, false), // stop orders are trigger-based, never market
       accountNumber: i.accountNumber,
       side: 'sell',
       orderType: 'stop_loss',
@@ -298,11 +287,6 @@ export class OrderTicketComponent {
 
   /** Whether a stop loss ticket exists in the store. */
   readonly stopLossExists = computed(() => this.stopLossTicket() !== null);
-
-  /** Whether the stop loss order has been filled. */
-  readonly isStopLossFilled = computed(() =>
-    this.stopLossTicket()?.status === OrderTicketStatus.FILLED,
-  );
 
   /** Whether the stop loss is currently submitting. */
   readonly isStopLossSubmitting = computed(() =>
@@ -372,19 +356,6 @@ export class OrderTicketComponent {
     };
   });
 
-  /** Compact stop loss confirmation data for read-only display. */
-  readonly stopLossConfirmation = computed(() => {
-    const sl = this.stopLossTicket();
-    if (!sl) return null;
-    return {
-      status: sl.status,
-      stopPrice: sl.stopPrice ?? null,
-      quantity: sl.quantity ?? null,
-      fillPrice: sl.result?.fillPrice ?? null,
-      orderId: sl.result?.orderId ?? null,
-    };
-  });
-
   /** Error from the ticket (if FAILED). */
   readonly ticketError = computed(() => this.ticket()?.error ?? null);
 
@@ -405,21 +376,6 @@ export class OrderTicketComponent {
 
   /** Whether account is configured. */
   readonly hasAccount = computed(() => !!this.tradingConfig()?.accountNumber);
-
-  /** Icon for the current status. */
-  readonly statusIcon = computed(() => {
-    const s = this.ticket()?.status;
-    switch (s) {
-      case OrderTicketStatus.STAGED: return 'edit_note';
-      case OrderTicketStatus.SUBMITTING: return 'hourglass_empty';
-      case OrderTicketStatus.SUBMITTED: return 'pending_actions';
-      case OrderTicketStatus.QUEUED: return 'schedule';
-      case OrderTicketStatus.FILLED: return 'task_alt';
-      case OrderTicketStatus.FAILED: return 'error_outline';
-      case OrderTicketStatus.CANCELLED: return 'cancel';
-      default: return 'help_outline';
-    }
-  });
 
   /** Live preview of the order to be submitted (shows real account number — what will actually be sent). */
   readonly preview = computed(() => {

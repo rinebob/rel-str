@@ -28,14 +28,14 @@
           <strong>{{ symbol() }}</strong>
           <span>{{ protectedEntry()?.result?.filledQuantity ?? ticket()?.quantity }} shares</span>
           @if (protectedEntry()?.result?.fillPrice) {
-            <span>Entry {{ protectedEntry()?.result?.fillPrice | currency }}</span>
+            <span>Entry {{ protectedEntry()?.result?.fillPrice | currency:'USD':'symbol':'1.2-2' }}</span>
           }
         </div>
 
         <div class="stop-loss-details">
           <div class="stop-loss-detail-row">
             <span>Stop price</span>
-            <strong>{{ selectedStopPrice() | currency }}</strong>
+            <strong>{{ selectedStopPrice() | currency:'USD':'symbol':'1.2-2' }}</strong>
           </div>
           <div class="stop-loss-detail-row">
             <span>Quantity</span>
@@ -134,7 +134,7 @@
           <span class="symbol">{{ symbol() }}</span>
           <span class="header-price">
             <span class="hp-label">Price</span>
-            <span class="hp-value">{{ currentPrice() ? (currentPrice() | currency) : '—' }}</span>
+            <span class="hp-value">{{ currentPrice() ? (currentPrice() | currency:'USD':'symbol':'1.2-2') : '—' }}</span>
           </span>
           <span class="side" [class.buy]="ticket()?.side === 'buy'" [class.sell]="ticket()?.side === 'sell'">
             {{ ticket()?.side | uppercase }}
@@ -187,7 +187,7 @@
           <!-- 3. Cost / Units -->
           <div class="form-row">
             <span class="field-label">Cost</span>
-            <span class="stat-value">{{ currentPrice() ? (actualCost() | currency) : '—' }}</span>
+            <span class="stat-value">{{ currentPrice() ? (actualCost() | currency:'USD':'symbol':'1.2-2') : '—' }}</span>
             <span class="field-label" style="margin-left: 16px;">Units</span>
             <span class="stat-value">{{ currentPrice() ? computedUnits() : '—' }}</span>
           </div>
@@ -248,13 +248,13 @@
           @if (entryConfirmation()?.fillPrice) {
             <div class="conf-row">
               <span class="conf-label">Fill</span>
-              <span class="conf-value">{{ entryConfirmation()?.fillPrice | currency }}</span>
+              <span class="conf-value">{{ entryConfirmation()?.fillPrice | currency:'USD':'symbol':'1.2-2' }}</span>
             </div>
           }
           @if (entryConfirmation()?.limitPrice) {
             <div class="conf-row">
               <span class="conf-label">Limit</span>
-              <span class="conf-value">{{ entryConfirmation()?.limitPrice | currency }}</span>
+              <span class="conf-value">{{ entryConfirmation()?.limitPrice | currency:'USD':'symbol':'1.2-2' }}</span>
             </div>
           }
           <div class="conf-row">
@@ -285,7 +285,7 @@
         <div class="stop-loss-section">
           <div class="sl-header">
             <span class="sl-title">Stop Loss</span>
-            <span class="sl-risk">Risk: {{ stopLossRisk() | currency }}</span>
+            <span class="sl-risk">Risk: {{ stopLossRisk() | currency:'USD':'symbol':'1.2-2' }}</span>
           </div>
           <div class="sl-field">
             <span class="sl-label">$</span>
@@ -314,7 +314,7 @@
         <div class="protected-by-section">
           <div class="protected-by-header">
             <span>Protected by</span>
-            <strong>{{ stopLossTicket()?.status === OrderTicketStatus.RESTING ? 'RESTING' : (stopLossTicket()?.status | uppercase) }}</strong>
+            <strong>{{ stopLossTicket()?.status | uppercase }}</strong>
           </div>
           <div class="protected-by-row">
             <span>Order type</span>
@@ -322,7 +322,7 @@
           </div>
           <div class="protected-by-row">
             <span>Stop price</span>
-            <strong>{{ protectedStopPrice() | currency }}</strong>
+            <strong>{{ protectedStopPrice() | currency:'USD':'symbol':'1.2-2' }}</strong>
           </div>
           <div class="protected-by-row">
             <span>Quantity</span>
@@ -332,32 +332,6 @@
             <div class="protected-by-row">
               <span>Broker order ID</span>
               <strong class="mono">{{ stopLossTicket()?.result?.orderId }}</strong>
-            </div>
-          }
-        </div>
-      }
-
-      <!-- Stop loss confirmation (below entry confirmation) -->
-      @if (stopLossConfirmation()) {
-        <div class="confirmation-section sl-confirmation">
-          <div class="conf-row">
-            <span class="conf-label">SL Stop</span>
-            <span class="conf-value">{{ stopLossConfirmation()?.stopPrice | currency }}</span>
-          </div>
-          <div class="conf-row">
-            <span class="conf-label">SL Qty</span>
-            <span class="conf-value">{{ stopLossConfirmation()?.quantity }}</span>
-          </div>
-          @if (stopLossConfirmation()?.fillPrice) {
-            <div class="conf-row">
-              <span class="conf-label">SL Fill</span>
-              <span class="conf-value">{{ stopLossConfirmation()?.fillPrice | currency }}</span>
-            </div>
-          }
-          @if (stopLossConfirmation()?.orderId) {
-            <div class="conf-row">
-              <span class="conf-label">SL ID</span>
-              <span class="conf-value mono">{{ stopLossConfirmation()?.orderId?.slice(0, 12) }}…</span>
             </div>
           }
         </div>
