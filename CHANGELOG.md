@@ -3,6 +3,9 @@
 ## [2026-09-09]
 
 ### Added
+- [Trading Strategy Library] 106-258_BE-IMPL-BACKTEST: Add open-close strategy comparison script runner
+- [Trading Strategy Library] 106-258_BE-CHORE-BACKTEST: Add verification scripts for script runner
+- [Trading Strategy Library] 106-258_DOCS-DOCS-STRAT-LIB: Add code review doc for #258 script runner
 - [Trading Strategy Library] 106-257_BE-IMPL-BACKTEST: Add open-close return computation module
 - [Trading Strategy Library] 106-257_BE-CHORE-BACKTEST: Add verification scripts for compute module
 - [Trading Strategy Library] 106-257_DOCS-DOCS-STRAT-LIB: Add Topic #106 strategy library docs
