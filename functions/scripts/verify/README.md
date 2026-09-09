@@ -22,8 +22,9 @@ npx tsx scripts/verify/{script-name}.ts
 | Task | Script | Pipeline stage | Guide |
 |---|---|---|---|
 | #257 | `strat-lib-257-compute.ts` | Return computation + metrics | [strat-lib-257.md](strat-lib-257.md) |
+| #258 | `strat-lib-258-comparison.ts` | Script runner pipeline (Firestore → compute → JSON) | [strat-lib-258.md](strat-lib-258.md) |
 
 ## Order across tasks
 
 1. **#257** — `strat-lib-257-compute.ts` (return computation module)
-2. Future tasks will be appended here in dependency order.
+2. **#258** — `strat-lib-258-comparison.ts` (script runner pipeline)
