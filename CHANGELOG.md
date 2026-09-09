@@ -1,5 +1,16 @@
 # Changelog
 
+## [2026-09-09]
+
+### Added
+- [Robinhood Trading UI] 176-212_SHARED-IMPL-SAVANT-TRADER: Add terminalAt field to OrderTicket type (checkpoint)
+- [Robinhood Trading UI] 176-212_SHARED-IMPL-SAVANT-TRADER: Centralize RH state mapping and fix isActiveStopLoss (checkpoint)
+- [Robinhood Trading UI] 176-212_SHARED-IMPL-SAVANT-TRADER: Batch terminal reconciliation in service and store (checkpoint)
+- [Robinhood Trading UI] 176-212_FE-IMPL-SAVANT-TRADER: Signal order page RH merge and requeue guard (checkpoint)
+- [Robinhood Trading UI] 176-212_FE-IMPL-SAVANT-TRADER: Order queue restore Resting group and remove dead helpers (checkpoint)
+- [Robinhood Trading UI] 176-212_FE-IMPL-SAVANT-TRADER: Order ticket remove dead code and restore RESTING cancel guards (checkpoint)
+- [Robinhood Trading UI] 176-212_DOCS-DOCS-SAVANT-TRADER: Code review for #212 order UI cleanup (checkpoint)
+
 ## [2026-09-08]
 
 ### Added
