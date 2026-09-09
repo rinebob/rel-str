@@ -3,6 +3,9 @@
 ## [2026-09-09]
 
 ### Added
+- [Trading Strategy Library] 106-257_BE-IMPL-BACKTEST: Add open-close return computation module
+- [Trading Strategy Library] 106-257_BE-CHORE-BACKTEST: Add verification scripts for compute module
+- [Trading Strategy Library] 106-257_DOCS-DOCS-STRAT-LIB: Add Topic #106 strategy library docs
 - [Robinhood Trading UI] 176-212_SHARED-IMPL-SAVANT-TRADER: Add terminalAt field to OrderTicket type (checkpoint)
 - [Robinhood Trading UI] 176-212_SHARED-IMPL-SAVANT-TRADER: Centralize RH state mapping and fix isActiveStopLoss (checkpoint)
 - [Robinhood Trading UI] 176-212_SHARED-IMPL-SAVANT-TRADER: Batch terminal reconciliation in service and store (checkpoint)
