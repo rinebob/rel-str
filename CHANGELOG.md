@@ -3,6 +3,8 @@
 ## [2026-09-09]
 
 ### Added
+- [Trading Indicator Library] 261-267_BE-IMPL-INDICATOR-LIB: Std Dev Lines computation engine + unit tests
+- [Trading Indicator Library] 261-267_DOCS-DOCS-INDICATOR-LIB: Std Dev Lines PRD, plans, and code review
 - [Trading Strategy Library] 106-258_BE-IMPL-BACKTEST: Add open-close strategy comparison script runner
 - [Trading Strategy Library] 106-258_BE-CHORE-BACKTEST: Add verification scripts for script runner
 - [Trading Strategy Library] 106-258_DOCS-DOCS-STRAT-LIB: Add code review doc for #258 script runner
