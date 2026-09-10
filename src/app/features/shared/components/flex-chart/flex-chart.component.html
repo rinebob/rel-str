@@ -68,9 +68,42 @@
           </e-series>
         }
 
+        <!-- Std Dev Lines fill zones (combined mode RangeArea) -->
+        @for (fill of stdDevLineSeries().fills; track fill.name) {
+          <e-series
+            [dataSource]="fill.data"
+            type="RangeArea"
+            xName="index"
+            high="high"
+            low="low"
+            [name]="fill.name"
+            [fill]="fill.color"
+            [opacity]="fill.opacity"
+            [border]="{ width: 0 }"
+            [enableTooltip]="false"
+            [animation]="noAnimation">
+          </e-series>
+        }
+
+        <!-- Std Dev Lines (center line + regular/fib bands) -->
+        @for (line of stdDevLineSeries().lines; track line.key) {
+          <e-series
+            [dataSource]="line.data"
+            type="Line"
+            xName="index"
+            yName="y"
+            [name]="line.name"
+            [fill]="line.color"
+            [width]="line.width"
+            [dashArray]="line.dashArray"
+            [enableTooltip]="true"
+            [animation]="noAnimation">
+          </e-series>
+        }
+
         <!-- Main pane indicators (overlay on price) -->
         @for (indicator of mainPaneSeries(); track indicator.id) {
-          @if (indicator.config.type !== StIndicator.TREND_BANDS && indicator.config.seriesType === 'line') {
+          @if (indicator.config.type !== StIndicator.TREND_BANDS && indicator.config.type !== StIndicator.STD_DEV_LINES && indicator.config.seriesType === 'line') {
             <e-series
               [dataSource]="indicator.data"
               type="Line"
