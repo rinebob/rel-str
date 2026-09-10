@@ -14,6 +14,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const scripts = [
   'strat-lib-257-compute.ts',
   'strat-lib-258-comparison.ts',
+  'indicator-lib-268-engine.ts',
 ];
 
 let passed = 0;
