@@ -8,6 +8,7 @@ import type {
 import { StIndicator } from '../flex-chart.types';
 import { computeIndicators, groupIndicatorsByPane } from '../flex-chart-calculations';
 import { computeAllBands, type BandSeriesData } from '../indicators/st-trend-bands.indicator';
+import { computeStdDevLinesSeries, type StdDevLineSeriesData } from '../indicators/std-dev-lines.indicator';
 
 export interface LowerPaneView {
   /** The pane slot ID (e.g. 'lower-1'). */
@@ -173,6 +174,23 @@ export class ChartDataAdapter {
     }
 
     return this.fallbackBandData();
+  });
+
+  /** Std Dev Lines series — computes all line series + fill zones from bars
+   *  using the indicator's params. Only active when a STD_DEV_LINES indicator
+   *  is in the config.
+   */
+  stdDevLineSeries = computed<StdDevLineSeriesData>(() => {
+    const data = this.chartData();
+    const cfg = this.config();
+    if (!data || data.bars.length === 0) return { lines: [], fills: [] };
+
+    const stdDevConfig = cfg.indicators.find(
+      (i) => i.type === StIndicator.STD_DEV_LINES,
+    );
+    if (!stdDevConfig) return { lines: [], fills: [] };
+
+    return computeStdDevLinesSeries(data.bars, stdDevConfig.params);
   });
 
   /** Fixed set of lower-pane slot IDs — always emitted so Syncfusion never sees a

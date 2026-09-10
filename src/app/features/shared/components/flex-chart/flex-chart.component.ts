@@ -136,6 +136,7 @@ export class FlexChartComponent implements OnDestroy {
   computedSeries = this.dataAdapter.computedSeries;
   mainPaneSeries = this.dataAdapter.mainPaneSeries;
   trendBandSeries = this.dataAdapter.trendBandSeries;
+  stdDevLineSeries = this.dataAdapter.stdDevLineSeries;
   lowerPanes = this.dataAdapter.lowerPanes;
   chartAxes = this.dataAdapter.chartAxes;
   chartRows = this.dataAdapter.chartRows;
