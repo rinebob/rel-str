@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026-09-10]
+
+### Added
+- [Trading Indicator Library] 261-268_BE-CHORE-INDICATOR-LIB: Std Dev Lines verification script + guide
+- [Trading Indicator Library] 261-268_DOCS-DOCS-INDICATOR-LIB: Code review for Std Dev Lines verification script
+
 ## [2026-09-09]
 
 ### Added
