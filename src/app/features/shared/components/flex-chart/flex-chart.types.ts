@@ -37,6 +37,7 @@ export enum StIndicator {
   ZONE_UPTICK_DOTS = 'st-zone-uptick-dots',
   TRIGGER_BAND     = 'st-trigger-band',
   TREND_BAND_WIDTH = 'st-trend-band-width',
+  STD_DEV_LINES    = 'std-dev-lines',
 }
 
 /** Chart data interval enum — replaces 'daily' | 'weekly' | 'monthly' magic strings */
@@ -190,9 +191,12 @@ export interface ComputedIndicatorSeries {
 export interface IndicatorParamDef {
   key: string;
   label: string;
-  default: number;
-  min: number;
-  max: number;
+  default: number | string | boolean;
+  /** Min/max for numeric params (ignored for string/boolean) */
+  min?: number;
+  max?: number;
+  /** For string params: list of allowed values for dropdown rendering */
+  options?: string[];
 }
 
 /** Available indicator definition — each indicator type exports one of these */
