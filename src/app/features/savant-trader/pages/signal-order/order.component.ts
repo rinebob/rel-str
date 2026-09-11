@@ -34,7 +34,7 @@ import { UiStateService } from '../../../../core/services/ui-state.service';
 import { TradingConfigService } from '../../services/trading-config.service';
 import { EquityPriceService } from '../../services/equity-price.service';
 import { AccountSnapshot, BrokerPosition, PortfolioService } from '../../services/portfolio.service';
-import { RobinhoodMcpObservationService } from '../../services/robinhood-mcp-observation.service';
+import { RobinhoodMcpObservationService } from '../../../../core/robinhood-mcp/robinhood-mcp-observation.service';
 import { OrderExecutionService } from '../../services/order-execution.service';
 import { OrderTicketService } from '../../services/order-ticket.service';
 import { OrderTicket, OrderTicketStatus, OrderSource, TradingConfig, InstrumentType } from '../../services/order-ticket.types';

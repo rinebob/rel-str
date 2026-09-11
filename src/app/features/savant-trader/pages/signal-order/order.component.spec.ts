@@ -10,7 +10,7 @@ import { OrderTicketStore } from '../../stores/order-ticket.store';
 import { TradingConfigService } from '../../services/trading-config.service';
 import { EquityPriceService } from '../../services/equity-price.service';
 import { PortfolioService } from '../../services/portfolio.service';
-import { RobinhoodMcpObservationService } from '../../services/robinhood-mcp-observation.service';
+import { RobinhoodMcpObservationService } from '../../../../core/robinhood-mcp/robinhood-mcp-observation.service';
 import { OrderTicketService } from '../../services/order-ticket.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import {

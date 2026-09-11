@@ -4,7 +4,7 @@
  * Fetches the canonical account snapshot used by the order workspace.
  */
 import { Injectable, inject } from '@angular/core';
-import { RobinhoodMcpObservationService } from './robinhood-mcp-observation.service';
+import { RobinhoodMcpObservationService } from '../../../core/robinhood-mcp/robinhood-mcp-observation.service';
 import { getNestedNumber } from '../utils/mcp-response.util';
 
 export interface BrokerPosition {

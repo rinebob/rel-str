@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
 
 import { OrderExecutionService } from './order-execution.service';
-import { RobinhoodMcpObservationService } from './robinhood-mcp-observation.service';
+import { RobinhoodMcpObservationService } from '../../../core/robinhood-mcp/robinhood-mcp-observation.service';
 import {
   OrderSource,
   OrderTicketStatus,

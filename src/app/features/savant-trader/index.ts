@@ -15,7 +15,7 @@ export { RunService } from './services/run.service';
 export { SignalService } from './services/signal.service';
 export { OverviewService } from './services/overview.service';
 export { ChartService } from './services/chart.service';
-export { RobinhoodMcpObservationService } from './services/robinhood-mcp-observation.service';
+export { RobinhoodMcpObservationService } from '../../core/robinhood-mcp/robinhood-mcp-observation.service';
 
 export {
   type StStatus,

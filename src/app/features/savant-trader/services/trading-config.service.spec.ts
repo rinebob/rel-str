@@ -5,7 +5,7 @@ import { Firestore } from '@angular/fire/firestore';
 import { of } from 'rxjs';
 
 import { TradingConfigService } from './trading-config.service';
-import { RobinhoodMcpObservationService } from './robinhood-mcp-observation.service';
+import { RobinhoodMcpObservationService } from '../../../core/robinhood-mcp/robinhood-mcp-observation.service';
 
 describe('TradingConfigService', () => {
   let service: TradingConfigService;

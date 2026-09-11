@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpContext } from '@angular/common/http';
 import { firstValueFrom, timeout } from 'rxjs';
-import { HTTP_TIMEOUT_TOKEN } from '../../../core/common/http-timeout.token';
+import { HTTP_TIMEOUT_TOKEN } from '../common/http-timeout.token';
 import {
   type RobinhoodToolDefinition,
   type ToolExecutionRequest,

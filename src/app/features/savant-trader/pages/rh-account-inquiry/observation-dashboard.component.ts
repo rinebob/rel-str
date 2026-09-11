@@ -6,7 +6,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { RouterLink } from '@angular/router';
 import { AppRoutes } from '../../../../core/common/interfaces';
 import { UiStateService } from '../../../../core/services/ui-state.service';
-import { RobinhoodMcpObservationService } from '../../services/robinhood-mcp-observation.service';
+import { RobinhoodMcpObservationService } from '../../../../core/robinhood-mcp/robinhood-mcp-observation.service';
 import {
   type RobinhoodToolDefinition,
   type ToolExecutionResult,

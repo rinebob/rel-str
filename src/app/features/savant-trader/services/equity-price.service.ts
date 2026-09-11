@@ -6,7 +6,7 @@
  */
 import { Injectable, inject } from '@angular/core';
 import { signal, Signal } from '@angular/core';
-import { RobinhoodMcpObservationService } from './robinhood-mcp-observation.service';
+import { RobinhoodMcpObservationService } from '../../../core/robinhood-mcp/robinhood-mcp-observation.service';
 import { getNestedNumber, getNestedString, extractNumber } from '../utils/mcp-response.util';
 
 @Injectable({ providedIn: 'root' })

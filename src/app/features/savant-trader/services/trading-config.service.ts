@@ -20,7 +20,7 @@ import { map, switchMap, take } from 'rxjs/operators';
 
 import { Collection } from '../../../core/common/constants';
 import { requireUserId } from './firestore-helpers';
-import { RobinhoodMcpObservationService } from './robinhood-mcp-observation.service';
+import { RobinhoodMcpObservationService } from '../../../core/robinhood-mcp/robinhood-mcp-observation.service';
 import { TradingConfig, AccountInfo } from './order-ticket.types';
 
 @Injectable({ providedIn: 'root' })

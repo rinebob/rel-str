@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 
 import { PortfolioService } from './portfolio.service';
-import { RobinhoodMcpObservationService } from './robinhood-mcp-observation.service';
+import { RobinhoodMcpObservationService } from '../../../core/robinhood-mcp/robinhood-mcp-observation.service';
 
 describe('PortfolioService', () => {
   let service: PortfolioService;

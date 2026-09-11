@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 
 import { EquityPriceService } from './equity-price.service';
-import { RobinhoodMcpObservationService } from './robinhood-mcp-observation.service';
+import { RobinhoodMcpObservationService } from '../../../core/robinhood-mcp/robinhood-mcp-observation.service';
 
 describe('EquityPriceService', () => {
   it('extracts nested quotes and suppresses duplicate symbol-set requests', async () => {
