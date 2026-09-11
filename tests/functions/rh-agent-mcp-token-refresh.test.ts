@@ -180,6 +180,55 @@ describe("local OAuth token refresh", () => {
     }
   });
 
+  it("starts interactive authorization when forceReauthorization is requested", async () => {
+    const now = new Date("2026-07-18T19:00:00.000Z");
+    const repository = new InMemoryCredentialRepository(storedCredential({
+      accessToken: "synthetic-valid-access",
+      refreshToken: "synthetic-valid-refresh",
+      lastTokenResponseAt: "2026-07-18T18:30:00.000Z",
+      discoveryState: MINIMAL_DISCOVERY_STATE,
+    }));
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const server = new McpServer({ name: "synthetic-server", version: "1.0.0" });
+    server.registerTool("read_only_probe", {}, async () => ({ content: [] }));
+    await server.connect(serverTransport);
+    let authorizationCalls = 0;
+
+    try {
+      const result = await runLocalOAuthBootstrapWithDependencies({
+        repository,
+        now: () => now,
+        forceReauthorization: true,
+        authorize: async (provider, authorizationCode) => {
+          authorizationCalls += 1;
+          if (!authorizationCode) {
+            await provider.redirectToAuthorization(new URL("https://example.test/authorize"));
+            void fetch(`${provider.redirectUrl}?code=synthetic-code&state=${encodeURIComponent(provider.state())}`);
+            return "REDIRECT";
+          }
+          assert.equal(authorizationCode, "synthetic-code");
+          await provider.saveTokens({
+            access_token: "synthetic-reauthorized-access",
+            refresh_token: "synthetic-reauthorized-refresh",
+            token_type: "Bearer",
+          });
+          return "AUTHORIZED";
+        },
+        openAuthorizationUrl: async () => undefined,
+        transportFactory: () => clientTransport,
+        callbackPort: 0,
+        callbackTimeoutMs: 2_000,
+      });
+
+      assert.equal(result.state, "CONNECTED");
+      assert.equal(result.evidence.resultCategory, "BOOTSTRAP_SUCCEEDED");
+      assert.equal(authorizationCalls, 2);
+      assert.equal(repository.current()?.revision, 8);
+    } finally {
+      await server.close();
+    }
+  });
+
   it("refreshes a still-valid token when forceRefresh is requested", async () => {
     const now = new Date("2026-07-18T19:00:00.000Z");
     const repository = new InMemoryCredentialRepository(storedCredential({

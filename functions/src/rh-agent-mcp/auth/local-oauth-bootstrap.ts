@@ -56,6 +56,7 @@ export interface LocalOAuthBootstrapDependencies {
   now?: () => Date;
   refreshFetch?: OAuthRefreshFetch;
   forceRefresh?: boolean;
+  forceReauthorization?: boolean;
   refreshPolicy?: TokenRefreshPolicy;
 }
 
@@ -92,6 +93,10 @@ export async function runLocalOAuthBootstrapWithDependencies(
     },
   );
   const authorize = options.authorize ?? sdkAuthorize;
+
+  if (options.forceReauthorization) {
+    await provider.prepareForAuthorization();
+  }
 
   try {
     const currentTime = now();

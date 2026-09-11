@@ -20,6 +20,7 @@ export interface RepositoryOAuthProviderOptions {
 export class RepositoryOAuthProvider implements OAuthClientProvider {
   private loaded = false;
   private bundle: RobinhoodCredentialBundle | null = null;
+  private storedRevision: number | undefined;
   private pendingClientInformation: OAuthClientInformationMixed | undefined;
   private pendingDiscoveryState: OAuthDiscoveryState | undefined;
   private verifier: string | undefined;
@@ -118,13 +119,23 @@ export class RepositoryOAuthProvider implements OAuthClientProvider {
     this.verifier = undefined;
   }
 
+  async prepareForAuthorization(): Promise<void> {
+    await this.ensureLoaded();
+    if (!this.bundle) return;
+
+    this.storedRevision = this.bundle.revision;
+    this.pendingClientInformation = this.bundle.clientInformation;
+    this.pendingDiscoveryState = this.bundle.discoveryState;
+    this.bundle = null;
+  }
+
   async currentBundle(): Promise<RobinhoodCredentialBundle | null> {
     await this.ensureLoaded();
     return this.bundle;
   }
 
   currentRevision(): number | undefined {
-    return this.bundle?.revision;
+    return this.bundle?.revision ?? this.storedRevision;
   }
 
   pkceVerifierGenerated(): boolean {
@@ -133,7 +144,7 @@ export class RepositoryOAuthProvider implements OAuthClientProvider {
 
   private async persistTokens(tokens: OAuthTokens): Promise<void> {
     await this.ensureLoaded();
-    const expectedRevision = this.bundle?.revision ?? null;
+    const expectedRevision = this.bundle?.revision ?? this.storedRevision ?? null;
     const lastTokenResponseAt = (this.options.now ?? (() => new Date()))().toISOString();
     this.bundle = await this.repository.store({
       schemaVersion: 1,

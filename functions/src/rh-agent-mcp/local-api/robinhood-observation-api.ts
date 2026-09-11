@@ -130,7 +130,7 @@ async function handleExecuteTool(
 
 async function handleReauth(response: ServerResponse): Promise<void> {
   try {
-    const result = await runLocalOAuthBootstrapWithDependencies({ forceRefresh: true });
+    const result = await runLocalOAuthBootstrapWithDependencies({ forceReauthorization: true });
     sendJson(response, 200, {
       success: result.state === 'CONNECTED',
       state: result.state,
