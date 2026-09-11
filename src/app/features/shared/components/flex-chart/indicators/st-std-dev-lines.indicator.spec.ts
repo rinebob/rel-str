@@ -1,4 +1,4 @@
-import { calculateStdDevLines, computeStdDevLinesSeries, STD_DEV_LINES_INDICATOR } from './std-dev-lines.indicator';
+import { calculateStdDevLines, computeStdDevLinesSeries, ST_STD_DEV_LINES_INDICATOR } from './st-std-dev-lines.indicator';
 import type { PriceBar } from '../flex-chart.types';
 import { StIndicator } from '../flex-chart.types';
 
@@ -37,27 +37,27 @@ const SQRT_2_3 = Math.sqrt(2 / 3);
 // Tests
 // =============================================================================
 
-describe('STD_DEV_LINES_INDICATOR', () => {
+describe('ST_STD_DEV_LINES_INDICATOR', () => {
   it('has correct id, type, and pane', () => {
-    expect(STD_DEV_LINES_INDICATOR.id).toBe('std-dev-lines');
-    expect(STD_DEV_LINES_INDICATOR.type).toBe(StIndicator.STD_DEV_LINES);
-    expect(STD_DEV_LINES_INDICATOR.defaultPane).toBe('overlay');
-    expect(STD_DEV_LINES_INDICATOR.axisScale).toBe('price');
+    expect(ST_STD_DEV_LINES_INDICATOR.id).toBe('st-std-dev-lines');
+    expect(ST_STD_DEV_LINES_INDICATOR.type).toBe(StIndicator.ST_STD_DEV_LINES);
+    expect(ST_STD_DEV_LINES_INDICATOR.defaultPane).toBe('overlay');
+    expect(ST_STD_DEV_LINES_INDICATOR.axisScale).toBe('price');
   });
 
   it('has period, maType, and displayMode params', () => {
-    const keys = STD_DEV_LINES_INDICATOR.params.map(p => p.key);
+    const keys = ST_STD_DEV_LINES_INDICATOR.params.map(p => p.key);
     expect(keys).toContain('period');
     expect(keys).toContain('maType');
     expect(keys).toContain('displayMode');
   });
 
   it('defaults to period 50, sma, combined', () => {
-    const period = STD_DEV_LINES_INDICATOR.params.find(p => p.key === 'period')!;
+    const period = ST_STD_DEV_LINES_INDICATOR.params.find(p => p.key === 'period')!;
     expect(period.default).toBe(50);
-    const maType = STD_DEV_LINES_INDICATOR.params.find(p => p.key === 'maType')!;
+    const maType = ST_STD_DEV_LINES_INDICATOR.params.find(p => p.key === 'maType')!;
     expect(maType.default).toBe('sma');
-    const displayMode = STD_DEV_LINES_INDICATOR.params.find(p => p.key === 'displayMode')!;
+    const displayMode = ST_STD_DEV_LINES_INDICATOR.params.find(p => p.key === 'displayMode')!;
     expect(displayMode.default).toBe('combined');
   });
 });

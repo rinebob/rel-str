@@ -37,7 +37,7 @@ export enum StIndicator {
   ZONE_UPTICK_DOTS = 'st-zone-uptick-dots',
   TRIGGER_BAND     = 'st-trigger-band',
   TREND_BAND_WIDTH = 'st-trend-band-width',
-  STD_DEV_LINES    = 'std-dev-lines',
+  ST_STD_DEV_LINES = 'st-std-dev-lines',
 }
 
 /** Chart data interval enum — replaces 'daily' | 'weekly' | 'monthly' magic strings */

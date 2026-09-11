@@ -103,7 +103,7 @@
 
         <!-- Main pane indicators (overlay on price) -->
         @for (indicator of mainPaneSeries(); track indicator.id) {
-          @if (indicator.config.type !== StIndicator.TREND_BANDS && indicator.config.type !== StIndicator.STD_DEV_LINES && indicator.config.seriesType === 'line') {
+          @if (indicator.config.type !== StIndicator.TREND_BANDS && indicator.config.type !== StIndicator.ST_STD_DEV_LINES && indicator.config.seriesType === 'line') {
             <e-series
               [dataSource]="indicator.data"
               type="Line"

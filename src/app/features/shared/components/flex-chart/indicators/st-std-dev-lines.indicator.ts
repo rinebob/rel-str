@@ -29,10 +29,10 @@ import { StIndicator } from '../flex-chart.types';
 // 1. CHART CONFIGURATION
 // =============================================================================
 
-export const STD_DEV_LINES_INDICATOR: IndicatorOption = {
-  id: 'std-dev-lines',
-  label: 'Std Dev Lines',
-  type: StIndicator.STD_DEV_LINES,
+export const ST_STD_DEV_LINES_INDICATOR: IndicatorOption = {
+  id: 'st-std-dev-lines',
+  label: 'ST StdDevLines',
+  type: StIndicator.ST_STD_DEV_LINES,
   defaultPane: 'overlay',
   axisScale: 'price',
   params: [

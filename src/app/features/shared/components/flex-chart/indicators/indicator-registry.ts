@@ -17,8 +17,8 @@ export { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR, comp
 export { ST_SIGNAL_DOTS_INDICATOR, computeSignalDots } from './st-signal-dots.indicator';
 export { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, detectZoneUptickDots } from './st-trend-rider-dots.indicator';
 export { ST_TREND_BAND_WIDTH_INDICATOR, calculateStTrendBandWidth, computeBandWidthDots } from './st-trend-band-width.indicator';
-export { STD_DEV_LINES_INDICATOR, calculateStdDevLines, computeStdDevLinesSeries } from './std-dev-lines.indicator';
-export type { StdDevLineSeriesData, StdDevLineSeries, StdDevFillZone } from './std-dev-lines.indicator';
+export { ST_STD_DEV_LINES_INDICATOR, calculateStdDevLines, computeStdDevLinesSeries } from './st-std-dev-lines.indicator';
+export type { StdDevLineSeriesData, StdDevLineSeries, StdDevFillZone } from './st-std-dev-lines.indicator';
 
 import type { IndicatorOption, IndicatorCalculator, IndicatorConfig, SeriesType, IndicatorType } from '../flex-chart.types';
 import { StIndicator } from '../flex-chart.types';
@@ -33,7 +33,7 @@ import { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR } fro
 import { ST_SIGNAL_DOTS_INDICATOR } from './st-signal-dots.indicator';
 import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR } from './st-trend-rider-dots.indicator';
 import { ST_TREND_BAND_WIDTH_INDICATOR, calculateStTrendBandWidth } from './st-trend-band-width.indicator';
-import { STD_DEV_LINES_INDICATOR, calculateStdDevLines } from './std-dev-lines.indicator';
+import { ST_STD_DEV_LINES_INDICATOR, calculateStdDevLines } from './st-std-dev-lines.indicator';
 
 /** ST-only indicators for the checkbox toggle menu */
 export const ST_INDICATOR_OPTIONS: IndicatorOption[] = [
@@ -44,7 +44,7 @@ export const ST_INDICATOR_OPTIONS: IndicatorOption[] = [
   ST_SIGNAL_DOTS_INDICATOR,
   ST_ZONE_V1_UPTICK_DOTS_INDICATOR,
   ST_ZONE_V2_UPTICK_DOTS_INDICATOR,
-  STD_DEV_LINES_INDICATOR,
+  ST_STD_DEV_LINES_INDICATOR,
 ];
 
 /** Calculator map — keyed by IndicatorType, used by computeIndicators() */
@@ -57,7 +57,7 @@ export const indicatorCalculators: Record<string, IndicatorCalculator> = {
   [StIndicator.ZONE_V2]:        calculateStZoneV2,
   [StIndicator.TREND_STRENGTH]:   calculateStTrendStrength,
   [StIndicator.TREND_BAND_WIDTH]:  calculateStTrendBandWidth,
-  [StIndicator.STD_DEV_LINES]:    calculateStdDevLines,
+  [StIndicator.ST_STD_DEV_LINES]:    calculateStdDevLines,
 };
 
 /** Default series type per indicator type */
@@ -70,7 +70,7 @@ const SERIES_TYPE_MAP: Partial<Record<IndicatorType, SeriesType>> = {
   [StIndicator.SIGNAL_DOTS]:      'scatter',
   [StIndicator.ZONE_UPTICK_DOTS]:  'scatter',
   [StIndicator.TREND_BAND_WIDTH]:   'column',
-  [StIndicator.STD_DEV_LINES]:      'line',
+  [StIndicator.ST_STD_DEV_LINES]:      'line',
 };
 
 /** Build an IndicatorConfig from an IndicatorOption using its declared defaults */
