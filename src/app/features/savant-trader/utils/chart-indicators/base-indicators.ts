@@ -71,6 +71,12 @@ export function buildBaseIndicators(interval: ChartIntervalKey): IndicatorConfig
     .filter((cfg): cfg is IndicatorConfig => cfg !== undefined);
 }
 
+/** Build a config for any registered indicator by its ID, or undefined if not registered. */
+export function buildConfigForId(id: string): IndicatorConfig | undefined {
+  const cfg = BASE_CONFIGS.get(id);
+  return cfg ? { ...cfg } : undefined;
+}
+
 /** Add a zone-window indicator, returning a new indicator list. */
 export function addHtfZoneWindow(
   indicators: IndicatorConfig[],

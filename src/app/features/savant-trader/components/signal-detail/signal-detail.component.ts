@@ -37,6 +37,7 @@ import { ChartToolbarComponent } from '../chart-toolbar/chart-toolbar.component'
 import { SymbolListActionsComponent } from '../symbol-list-actions/symbol-list-actions.component';
 import {
   buildBaseIndicators,
+  buildConfigForId,
   addChartExtras,
   createExtrasSignals,
   ST_ZONE_WINDOW_MONTHLY_INDICATOR,
@@ -89,6 +90,7 @@ export class SignalDetailComponent {
       StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2,
       ST_SIGNAL_DOTS_INDICATOR.id, ST_ZONE_V1_UPTICK_DOTS_INDICATOR.id,
       ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id, ST_ZONE_WINDOW_WEEKLY_INDICATOR.id,
+      StIndicator.ST_STD_DEV_LINES,
     ],
     [ChartIntervalKey.WEEKLY]: [
       StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2,
@@ -146,8 +148,15 @@ export class SignalDetailComponent {
     bars: PriceBar[] | undefined,
   ): IndicatorConfig[] {
     const base = buildBaseIndicators(key).filter(cfg => ids.has(cfg.type));
-    if (!response || !bars || bars.length === 0) return base;
-    return injectCallableIndicatorData(base, response.intervals[key], bars);
+    // Add configs for selected non-default indicators (e.g. STD_DEV_LINES)
+    const defaultIds = new Set(base.map(cfg => cfg.type as string));
+    const extras = [...ids]
+      .filter(id => !defaultIds.has(id))
+      .map(id => buildConfigForId(id))
+      .filter((cfg): cfg is IndicatorConfig => cfg !== undefined);
+    const all = [...base, ...extras];
+    if (!response || !bars || bars.length === 0) return all;
+    return injectCallableIndicatorData(all, response.intervals[key], bars);
   }
 
   /** Pure function: assembles a `FlexChartConfig` for one chart in triple mode.

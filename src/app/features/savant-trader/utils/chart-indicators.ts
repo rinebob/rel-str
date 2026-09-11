@@ -10,6 +10,7 @@ export type { ChartScatterPoint, ChartExtras } from './chart-indicators/base-ind
 export type { ExtrasSignals } from './chart-indicators/extras-signals';
 export {
   buildBaseIndicators,
+  buildConfigForId,
   addHtfZoneWindow,
   addSignalDots,
   addUptickDots,
