@@ -25,6 +25,7 @@ const SDS_SEQUENCES_COLLECTION = 'symbol-data-sync-sequences';
 const TERMINAL_RUN_STATUSES = ['completed', 'failed', 'completed_with_errors', 'forced_complete', 'completed_but_not_dispatched'] as const;
 const TERMINAL_SEQ_STATUSES = ['completed', 'completed_but_not_dispatched', 'forced_complete'] as const;
 const REQUIRED_INTERVALS = ['DAILY', 'WEEKLY', 'MONTHLY'] as const;
+const INTRADAY_MAX_FAILURE_RATIO = 0.5;
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -327,6 +328,7 @@ export async function checkIntradayRunCompletion(
 
   const processedSymbols: string[] = (runData.processedSymbols as string[]) ?? [];
   const symbols: string[] = (runData.symbols as string[]) ?? [];
+  const failedSymbols: string[] = (runData.failedSymbols as string[]) ?? [];
 
   // Guard: empty symbol set — vacuously complete, but skip dispatch
   if (symbols.length === 0) {
@@ -339,6 +341,23 @@ export async function checkIntradayRunCompletion(
   }
 
   if (processedSymbols.length < symbols.length) return;
+
+  const failureRatio = failedSymbols.length / symbols.length;
+  if (failureRatio >= INTRADAY_MAX_FAILURE_RATIO) {
+    logger.warn('sds_intraday_quality_gate_blocked', {
+      runId: ctx.runId,
+      success: symbols.length - failedSymbols.length,
+      failed: failedSymbols.length,
+      total: symbols.length,
+      failureRatio,
+    });
+    await runRef.set({
+      status: 'completed_but_not_dispatched',
+      completionEnqueued: false,
+      completedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    return;
+  }
 
   // Mark run complete
   await runRef.set({

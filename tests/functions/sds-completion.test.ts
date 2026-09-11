@@ -565,6 +565,30 @@ describe('checkIntradayRunCompletion', () => {
     assert.ok(deps._dispatched.includes('st-intraday'));
   });
 
+  it('does not dispatch when most intraday symbols are missing', async () => {
+    seedRunDoc(db, 'intraday-run-1', {
+      symbols: ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'NVDA'],
+      processedSymbols: ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'NVDA'],
+      failedSymbols: ['AAPL', 'MSFT', 'GOOG', 'TSLA'],
+      phase: 'pre',
+      interval: 'INTRADAY',
+      sequenceRunId: null,
+    });
+    const ctx: RunContext = {
+      runId: 'intraday-run-1',
+      sequenceRunId: undefined,
+      interval: 'INTRADAY',
+      sequence: undefined,
+      marketDate: '2026-08-22',
+      phase: 'pre',
+    };
+    await checkIntradayRunCompletion(ctx, deps);
+    const runDoc = db.docs.get(`${SDS_RUNS}/intraday-run-1`)!;
+    assert.equal(runDoc.status, 'completed_but_not_dispatched');
+    assert.equal(runDoc.completionEnqueued, false);
+    assert.equal(deps._dispatched.length, 0);
+  });
+
   it('does not dispatch if intraday run not yet complete', async () => {
     seedRunDoc(db, 'intraday-run-1', {
       symbols: ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'NVDA'],
