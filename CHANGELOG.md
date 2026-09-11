@@ -1,5 +1,14 @@
 # Changelog
 
+## [2026-09-11]
+
+### Added
+- [Portfolio Dashboard] 219-282_FE-IMPL-PORTFOLIO: Add RobinhoodMcpClient typed wrapper with quote batching
+- [Portfolio Dashboard] 219-282_DOCS-PORTFOLIO: Add portfolio dashboard planning and review docs
+
+### Changed
+- [Portfolio Dashboard] 219-282_FE-REFACTOR-PORTFOLIO: Move RobinhoodMcpObservationService to core
+
 ## [2026-09-10]
 
 ### Added
