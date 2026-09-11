@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 /**
  * List all ST_ORDER_INTENTS documents for the current user.
  * Usage: npx tsx scripts/verify/list-firestore-intents.ts
@@ -25,7 +27,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 async function main() {
-  const colRef = collection(db, 'st_order_intents');
+  const colRef = collection(db, 'savant-trader/data/order-intents');
   const snap = await getDocs(colRef);
   console.log(`\n=== ${snap.size} documents in st_order_intents ===\n`);
   for (const doc of snap.docs) {
