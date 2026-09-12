@@ -48,6 +48,7 @@ export enum AppRoutes {
 	SPREAD_CHART = 'spread-chart',
 	OPTIONS_STRATEGY_DASHBOARD = 'options-strategy-dashboard',
 	STRATEGY_BUILDER = 'strategy-builder',
+	PORTFOLIO_DASHBOARD = 'portfolio-dashboard',
 }
 
 export enum AuthLevel {

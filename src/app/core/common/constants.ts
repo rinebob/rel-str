@@ -84,6 +84,14 @@ export const NAV_MENU_ITEMS: NavItem[] = [
         target: '_self',
     },
     {
+        name: 'portfolio-dashboard',
+        text: 'Portfolio Dashboard',
+        href: 'portfolio-dashboard',
+        mobileOnly: false,
+        external: false,
+        target: '_self',
+    },
+    {
         name: 'trade-journal',
         text: 'trade journal',
         href: 'trade-journal',

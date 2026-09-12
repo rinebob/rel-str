@@ -8,7 +8,7 @@
  * Error policy: loadAccounts rethrows (caller decides how to surface a total
  * account-load failure). loadPhase1/loadPhase2 swallow per-section errors into
  * SectionData.error so partial dashboard data remains visible. refresh()
- * catches top-level failures and sets globalLoading false.
+ * catches top-level failures, sets loadError, and ensures globalLoading is false.
  */
 
 import { computed, inject } from '@angular/core';
@@ -59,6 +59,7 @@ const initialState: DashboardState = {
   showClosedPositions: false,
   showOrderHistory: false,
   globalLoading: false,
+  loadError: null,
 };
 
 function errMessage(err: unknown): string {
@@ -329,10 +330,13 @@ export const PortfolioDashboardStore = signalStore(
     async function refresh(): Promise<void> {
       if (refreshing) return;
       refreshing = true;
+      patchState(store, { loadError: null });
       try {
         await loadAccounts();
         await loadPhase1();
         await loadPhase2();
+      } catch (err) {
+        patchState(store, { loadError: errMessage(err), globalLoading: false });
       } finally {
         refreshing = false;
       }

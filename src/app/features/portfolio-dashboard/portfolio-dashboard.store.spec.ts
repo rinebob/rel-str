@@ -36,6 +36,7 @@ describe('PortfolioDashboardStore', () => {
       expect(store.showClosedPositions()).toBe(false);
       expect(store.showOrderHistory()).toBe(false);
       expect(store.globalLoading()).toBe(false);
+      expect(store.loadError()).toBeNull();
       expect(store.selectedAccount()).toBeNull();
       expect(store.aggregateSummary()).toEqual({
         totalValue: null,
@@ -309,6 +310,35 @@ describe('PortfolioDashboardStore', () => {
 
       // Only one full sequence should have run
       expect(client.getAccounts).toHaveBeenCalledTimes(1);
+    });
+
+    it('sets loadError and clears globalLoading when loadAccounts fails', async () => {
+      client.getAccounts.and.returnValue(reject('Network error'));
+
+      await store.refresh();
+
+      expect(store.loadError()).toBe('Network error');
+      expect(store.globalLoading()).toBe(false);
+    });
+
+    it('clears loadError on successful refresh after failure', async () => {
+      // First refresh fails
+      client.getAccounts.and.returnValue(reject('Network error'));
+      await store.refresh();
+      expect(store.loadError()).toBe('Network error');
+
+      // Second refresh succeeds
+      client.getAccounts.and.returnValue(resolve([makeAccount()]));
+      client.getPortfolio.and.returnValue(resolve(makePortfolio()));
+      client.getEquityPositions.and.returnValue(resolve([]));
+      client.getOptionPositions.and.returnValue(resolve([]));
+      client.getEquityQuotes.and.returnValue(resolve(new Map()));
+      client.getOptionQuotes.and.returnValue(resolve(new Map()));
+      client.getEquityOrders.and.returnValue(resolve([]));
+      client.getOptionOrders.and.returnValue(resolve([]));
+
+      await store.refresh();
+      expect(store.loadError()).toBeNull();
     });
   });
 

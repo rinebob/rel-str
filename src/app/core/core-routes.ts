@@ -9,7 +9,7 @@ import { authGuard } from './auth/auth.guard';
     { path: '', component: CoreComponent,
         children: [
             {path: '', 
-                redirectTo: AppRoutes.POSITIONS_VIEW, pathMatch: 'full',
+                redirectTo: AppRoutes.PORTFOLIO_DASHBOARD, pathMatch: 'full',
             },
             {path: AppRoutes.DOCUMENTATION, 
                 loadComponent: () => import('./comps/documentation/documentation.component')
@@ -71,6 +71,11 @@ import { authGuard } from './auth/auth.guard';
             {path: AppRoutes.POSITIONS_VIEW,
                 loadComponent: () => import('../features/positions-view/positions-view.component')
                 .then(mod => mod.PositionsViewComponent),
+                canActivate: [authGuard],
+            },
+            {path: AppRoutes.PORTFOLIO_DASHBOARD,
+                loadComponent: () => import('../features/portfolio-dashboard/portfolio-dashboard.component')
+                .then(mod => mod.PortfolioDashboardComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.TRADE_JOURNAL,

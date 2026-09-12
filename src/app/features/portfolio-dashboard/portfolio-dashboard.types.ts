@@ -41,6 +41,7 @@ export interface DashboardState {
   showClosedPositions: boolean;
   showOrderHistory: boolean;
   globalLoading: boolean;
+  loadError: string | null;
 }
 
 /** Equity position enriched with current price and PnL. */

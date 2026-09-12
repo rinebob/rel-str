@@ -1,0 +1,90 @@
+<div class="pd-root">
+
+  <!-- Header: title + refresh -->
+  <header class="pd-header">
+    <h1 class="pd-title">Portfolio Dashboard</h1>
+    <button
+      mat-icon-button
+      class="pd-refresh"
+      (click)="onRefresh()"
+      [disabled]="globalLoading()"
+      aria-label="Refresh dashboard"
+      matTooltip="Refresh all data"
+    >
+      <mat-icon>refresh</mat-icon>
+    </button>
+  </header>
+
+  <!-- Global loading spinner -->
+  @if (globalLoading()) {
+    <div class="pd-global-loading" aria-live="polite" aria-atomic="true">
+      <mat-progress-spinner diameter="32" mode="indeterminate" aria-label="Loading portfolio dashboard" />
+      <span>Loading…</span>
+    </div>
+  }
+
+  <!-- Error banner -->
+  @if (loadError(); as error) {
+    <div class="pd-error-banner" aria-live="polite" aria-atomic="true">
+      <mat-icon class="pd-error-icon">error</mat-icon>
+      <span class="pd-error-text">{{ error }}</span>
+      <button mat-stroked-button (click)="onRefresh()" [disabled]="globalLoading()">Retry</button>
+    </div>
+  }
+
+  <!-- No accounts empty state -->
+  @if (!hasAccounts() && !globalLoading() && !loadError()) {
+    <div class="pd-empty" aria-live="polite" aria-atomic="true">
+      <mat-icon class="pd-empty-icon">account_balance</mat-icon>
+      <p>No Robinhood accounts available.</p>
+    </div>
+  }
+
+  <!-- Aggregate summary bar -->
+  @if (hasAccounts()) {
+    <section class="pd-summary-bar" aria-label="Aggregate summary">
+      <div class="pd-summary-item">
+        <span class="pd-summary-label">Total Value</span>
+        <span class="pd-summary-value">{{ formatCurrency(summary().totalValue) }}</span>
+      </div>
+      <div class="pd-summary-item">
+        <span class="pd-summary-label">Exposure</span>
+        <span class="pd-summary-value">{{ formatCurrency(summary().totalExposure) }}</span>
+      </div>
+      <div class="pd-summary-item">
+        <span class="pd-summary-label">Cash</span>
+        <span class="pd-summary-value">{{ formatCurrency(summary().totalCash) }}</span>
+      </div>
+      <div class="pd-summary-item">
+        <span class="pd-summary-label">Buying Power</span>
+        <span class="pd-summary-value">{{ formatCurrency(summary().totalBuyingPower) }}</span>
+      </div>
+      <div class="pd-summary-item">
+        <span class="pd-summary-label">Unrealized PnL</span>
+        <span class="pd-summary-value" [class.pd-negative]="summary().totalPnL !== null && (summary().totalPnL ?? 0) < 0">
+          {{ formatCurrency(summary().totalPnL) }}
+        </span>
+      </div>
+    </section>
+  }
+
+  <!-- Account tabs -->
+  @if (hasAccounts()) {
+    <mat-tab-group
+      class="pd-tabs"
+      [selectedIndex]="selectedAccountIndex()"
+      (selectedTabChange)="onTabChange($event.index)"
+      animationDuration="0ms"
+    >
+      @for (acct of accounts(); track acct.accountNumber) {
+        <mat-tab [label]="acct.accountName + ' (' + acct.accountNumber + ')'">
+          <div class="pd-tab-content">
+            <!-- Section components will be wired in Task #286 -->
+            <p class="pd-tab-placeholder">Account sections loading…</p>
+          </div>
+        </mat-tab>
+      }
+    </mat-tab-group>
+  }
+
+</div>
