@@ -49,6 +49,8 @@ export interface EquityPositionWithPnL extends EquityPosition {
   currentPrice: number | null;
   pnl: number | null;
   pnlPercent: number | null;
+  /** True when position is closed (quantity === 0). */
+  closed: boolean;
 }
 
 /** Option position enriched with current price and PnL. */

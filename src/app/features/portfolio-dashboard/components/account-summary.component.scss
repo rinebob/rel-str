@@ -1,0 +1,60 @@
+.pd-account-summary {
+  padding: 12px 0;
+}
+
+.pd-summary-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.pd-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pd-summary-label {
+  font-size: 0.75rem;
+  color: rgba(0, 0, 0, 0.54);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pd-summary-value {
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.pd-section-loading,
+.pd-section-error,
+.pd-section-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  color: rgba(0, 0, 0, 0.54);
+}
+
+.pd-section-loading mat-progress-spinner {
+  flex-shrink: 0;
+}
+
+.pd-section-error {
+  color: #721c24;
+}
+
+.pd-section-error-icon {
+  flex-shrink: 0;
+}
+
+.pd-section-error-text {
+  flex: 1;
+  font-size: 0.9rem;
+}
+
+.pd-section-empty mat-icon {
+  font-size: 24px;
+  width: 24px;
+  height: 24px;
+}

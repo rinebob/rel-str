@@ -150,12 +150,14 @@ export const PortfolioDashboardStore = signalStore(
 
       return positions.map((p) => {
         const currentPrice = quotes?.get(p.symbol)?.lastTradePrice ?? null;
-        if (p.quantity === null || p.quantity === 0 || currentPrice === null) {
-          return { ...p, currentPrice, pnl: null, pnlPercent: null };
+        const qty = p.quantity;
+        const closed = qty === null || qty === 0;
+        if (closed || currentPrice === null) {
+          return { ...p, currentPrice, pnl: null, pnlPercent: null, closed };
         }
-        const isShort = p.quantity < 0;
-        const result = computePnL(p.averageBuyPrice, currentPrice, Math.abs(p.quantity), isShort);
-        return { ...p, currentPrice, pnl: result.pnl, pnlPercent: result.pnlPercent };
+        const isShort = qty < 0;
+        const result = computePnL(p.averageBuyPrice, currentPrice, Math.abs(qty), isShort);
+        return { ...p, currentPrice, pnl: result.pnl, pnlPercent: result.pnlPercent, closed };
       });
     }),
 

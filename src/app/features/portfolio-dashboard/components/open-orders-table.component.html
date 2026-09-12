@@ -1,0 +1,58 @@
+<div class="pd-section">
+  @if (loading()) {
+    <div class="pd-section-loading" aria-live="polite" aria-atomic="true">
+      <mat-progress-spinner diameter="24" mode="indeterminate" aria-label="Loading open orders" />
+      <span>Loading…</span>
+    </div>
+  } @else if (error(); as err) {
+    <div class="pd-section-error" aria-live="polite" aria-atomic="true">
+      <mat-icon class="pd-section-error-icon" aria-hidden="true">error</mat-icon>
+      <span class="pd-section-error-text">{{ err }}</span>
+      <button type="button" mat-stroked-button class="pd-section-retry" (click)="retry.emit()">Retry</button>
+    </div>
+  } @else if (hasOrders()) {
+    <h3 class="pd-section-title">Open Orders</h3>
+    <table class="pd-table">
+      <thead>
+        <tr>
+          <th scope="col">Symbol</th>
+          <th scope="col">Side</th>
+          <th scope="col">Type</th>
+          <th scope="col">State</th>
+          <th scope="col">Qty</th>
+          <th scope="col">Price</th>
+          <th scope="col">Stop</th>
+          <th scope="col">Created</th>
+          <th scope="col">Protection</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (order of orders(); track order.orderId) {
+          <tr>
+            <td class="pd-symbol">{{ order.symbol ?? '—' }}</td>
+            <td>{{ order.side }}</td>
+            <td>{{ order.type }}</td>
+            <td>{{ order.state }}</td>
+            <td>{{ formatNumber(order.quantity) }}</td>
+            <td>{{ formatCurrency(order.price) }}</td>
+            <td>{{ formatCurrency(order.stopPrice) }}</td>
+            <td>{{ formatDate(order.createdAt) }}</td>
+            <td>
+              @if (isProtected(order)) {
+                <span class="pd-stop-loss" matTooltip="Stop-loss order protecting an open position">
+                  <mat-icon aria-hidden="true">shield</mat-icon>
+                  Stop-loss
+                </span>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  } @else {
+    <div class="pd-section-empty" aria-live="polite">
+      <mat-icon aria-hidden="true">inbox</mat-icon>
+      <span>No open orders</span>
+    </div>
+  }
+</div>

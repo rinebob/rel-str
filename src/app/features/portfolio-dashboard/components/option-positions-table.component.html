@@ -1,0 +1,55 @@
+<div class="pd-section">
+  @if (loading()) {
+    <div class="pd-section-loading" aria-live="polite" aria-atomic="true">
+      <mat-progress-spinner diameter="24" mode="indeterminate" aria-label="Loading option positions" />
+      <span>Loading…</span>
+    </div>
+  } @else if (error(); as err) {
+    <div class="pd-section-error" aria-live="polite" aria-atomic="true">
+      <mat-icon class="pd-section-error-icon" aria-hidden="true">error</mat-icon>
+      <span class="pd-section-error-text">{{ err }}</span>
+      <button type="button" mat-stroked-button class="pd-section-retry" (click)="retry.emit()">Retry</button>
+    </div>
+  } @else if (hasPositions()) {
+    <h3 class="pd-section-title">Option Positions</h3>
+    <table class="pd-table">
+      <thead>
+        <tr>
+          <th scope="col">Underlying</th>
+          <th scope="col">Type</th>
+          <th scope="col">Strike</th>
+          <th scope="col">Expiration</th>
+          <th scope="col">Qty</th>
+          <th scope="col">Avg Cost</th>
+          <th scope="col">Current</th>
+          <th scope="col">PnL</th>
+          <th scope="col">PnL%</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (pos of positions(); track pos.instrumentId) {
+          <tr>
+            <td class="pd-symbol">{{ pos.chainSymbol }}</td>
+            <td>{{ pos.optionType }}</td>
+            <td>{{ formatCurrency(pos.strikePrice) }}</td>
+            <td>{{ pos.expirationDate }}</td>
+            <td>{{ formatNumber(pos.quantity) }}</td>
+            <td>{{ formatCurrency(pos.averageCost) }}</td>
+            <td>{{ formatCurrency(pos.currentPrice) }}</td>
+            <td class="pd-pnl" [class.pd-positive]="pos.pnl !== null && pos.pnl >= 0" [class.pd-negative]="pos.pnl !== null && pos.pnl < 0">
+              {{ formatPnl(pos.pnl) }}
+            </td>
+            <td [class.pd-positive]="pos.pnlPercent !== null && pos.pnlPercent >= 0" [class.pd-negative]="pos.pnlPercent !== null && pos.pnlPercent < 0">
+              {{ formatPnlPercent(pos.pnlPercent) }}
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  } @else {
+    <div class="pd-section-empty" aria-live="polite">
+      <mat-icon aria-hidden="true">inbox</mat-icon>
+      <span>No option positions</span>
+    </div>
+  }
+</div>

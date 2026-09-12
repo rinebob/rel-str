@@ -1,0 +1,49 @@
+<div class="pd-section">
+  @if (loading()) {
+    <div class="pd-section-loading" aria-live="polite" aria-atomic="true">
+      <mat-progress-spinner diameter="24" mode="indeterminate" aria-label="Loading order history" />
+      <span>Loading…</span>
+    </div>
+  } @else if (error(); as err) {
+    <div class="pd-section-error" aria-live="polite" aria-atomic="true">
+      <mat-icon class="pd-section-error-icon" aria-hidden="true">error</mat-icon>
+      <span class="pd-section-error-text">{{ err }}</span>
+      <button type="button" mat-stroked-button class="pd-section-retry" (click)="retry.emit()">Retry</button>
+    </div>
+  } @else if (hasOrders()) {
+    <h3 class="pd-section-title">Order History</h3>
+    <table class="pd-table">
+      <thead>
+        <tr>
+          <th scope="col">Symbol</th>
+          <th scope="col">Side</th>
+          <th scope="col">Type</th>
+          <th scope="col">State</th>
+          <th scope="col">Qty</th>
+          <th scope="col">Fill Qty</th>
+          <th scope="col">Avg Fill</th>
+          <th scope="col">Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (order of orders(); track order.orderId) {
+          <tr>
+            <td class="pd-symbol">{{ order.symbol ?? '—' }}</td>
+            <td>{{ order.side }}</td>
+            <td>{{ order.type }}</td>
+            <td>{{ order.state }}</td>
+            <td>{{ formatNumber(order.quantity) }}</td>
+            <td>{{ formatNumber(order.cumulativeQuantity) }}</td>
+            <td>{{ formatCurrency(order.averageFillPrice) }}</td>
+            <td>{{ formatDate(order.createdAt) }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  } @else {
+    <div class="pd-section-empty" aria-live="polite">
+      <mat-icon aria-hidden="true">history</mat-icon>
+      <span>No order history</span>
+    </div>
+  }
+</div>

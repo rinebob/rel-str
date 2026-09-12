@@ -1,0 +1,83 @@
+.pd-section {
+  padding: 8px 0;
+}
+
+.pd-section-title {
+  font-size: 1rem;
+  font-weight: 500;
+  margin: 0 0 8px 0;
+}
+
+.pd-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.pd-table th {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 2px solid rgba(0, 0, 0, 0.12);
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.54);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pd-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.pd-table tbody tr:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.pd-symbol {
+  font-weight: 600;
+}
+
+.pd-stop-loss {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: #1565c0;
+  font-weight: 500;
+}
+
+.pd-stop-loss mat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+}
+
+.pd-section-loading,
+.pd-section-error,
+.pd-section-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  color: rgba(0, 0, 0, 0.54);
+}
+
+.pd-section-error {
+  color: #721c24;
+}
+
+.pd-section-error-icon {
+  flex-shrink: 0;
+}
+
+.pd-section-error-text {
+  flex: 1;
+  font-size: 0.9rem;
+}
+
+.pd-section-empty mat-icon {
+  font-size: 24px;
+  width: 24px;
+  height: 24px;
+}
