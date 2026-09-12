@@ -6,6 +6,7 @@
  */
 
 import { BrokerOrder, EquityPosition, OrderType } from '../../../core/robinhood-mcp/types/robinhood-mcp.types';
+import { TERMINAL_ORDER_STATES } from './order-states.util';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -22,11 +23,6 @@ export interface PnLResult {
 
 const STOP_ORDER_TYPES: ReadonlySet<OrderType> = new Set<OrderType>(['stop_market', 'stop_limit']);
 
-/** Terminal states that indicate an order is no longer active. */
-const TERMINAL_STATES: ReadonlySet<string> = new Set([
-  'filled', 'cancelled', 'canceled', 'failed', 'rejected', 'voided',
-]);
-
 /**
  * Check whether an order is an active (non-terminal) protective stop-loss
  * sell order. Used by both `isStopLossProtecting` and `computeProtectedSymbols`
@@ -36,7 +32,7 @@ function isProtectiveStopOrder(order: BrokerOrder): boolean {
   if (!STOP_ORDER_TYPES.has(order.type)) return false;
   if (order.side !== 'sell') return false;
   if (order.symbol === null) return false;
-  if (TERMINAL_STATES.has(order.state)) return false;
+  if (TERMINAL_ORDER_STATES.has(order.state)) return false;
   return true;
 }
 
