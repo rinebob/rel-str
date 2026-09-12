@@ -46,7 +46,7 @@ describe('RobinhoodMcpClient', () => {
   // ===========================================================================
 
   describe('getAccounts', () => {
-    it('returns agentic-allowed accounts from { data: { accounts: [...] } } shape', async () => {
+    it('returns all accounts from { data: { accounts: [...] } } shape', async () => {
       mockResolve({
         success: true,
         parsed: {
@@ -64,7 +64,7 @@ describe('RobinhoodMcpClient', () => {
 
       const accounts = await client.getAccounts();
 
-      expect(accounts.length).toBe(2);
+      expect(accounts.length).toBe(3);
       expect(accounts[0]).toEqual({
         accountNumber: '123456789',
         accountName: 'Main',
@@ -72,6 +72,12 @@ describe('RobinhoodMcpClient', () => {
         agenticAllowed: true,
       } satisfies AccountInfo);
       expect(accounts[1]).toEqual({
+        accountNumber: '987654321',
+        accountName: '',
+        accountType: 'retirement',
+        agenticAllowed: false,
+      } satisfies AccountInfo);
+      expect(accounts[2]).toEqual({
         accountNumber: '555444333',
         accountName: 'Margin',
         accountType: 'margin',
@@ -79,7 +85,7 @@ describe('RobinhoodMcpClient', () => {
       } satisfies AccountInfo);
     });
 
-    it('returns agentic-allowed accounts from { accounts: [...] } shape', async () => {
+    it('returns all accounts from { accounts: [...] } shape', async () => {
       mockResolve({
         success: true,
         parsed: {
@@ -98,7 +104,7 @@ describe('RobinhoodMcpClient', () => {
       expect(accounts[0].accountName).toBe('');
     });
 
-    it('returns agentic-allowed accounts from bare array shape', async () => {
+    it('returns all accounts from bare array shape', async () => {
       mockResolve({
         success: true,
         parsed: [
@@ -115,7 +121,7 @@ describe('RobinhoodMcpClient', () => {
       expect(accounts[0].accountName).toBe('Acct');
     });
 
-    it('returns empty array when no accounts are agentic-allowed', async () => {
+    it('returns accounts even when none are agentic-allowed', async () => {
       mockResolve({
         success: true,
         parsed: {
@@ -131,7 +137,8 @@ describe('RobinhoodMcpClient', () => {
 
       const accounts = await client.getAccounts();
 
-      expect(accounts.length).toBe(0);
+      expect(accounts.length).toBe(1);
+      expect(accounts[0].agenticAllowed).toBe(false);
     });
 
     it('throws RobinhoodMcpError when MCP call fails', async () => {

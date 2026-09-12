@@ -50,14 +50,12 @@ export class RobinhoodMcpClient {
     }
 
     const raw = this.extractAccountList(result.parsed);
-    return raw
-      .filter((a) => a['agentic_allowed'] === true)
-      .map((a) => ({
-        accountNumber: String(a['account_number'] ?? ''),
-        accountName: String(a['nickname'] ?? ''),
-        accountType: String(a['type'] ?? ''),
-        agenticAllowed: true,
-      }));
+    return raw.map((a) => ({
+      accountNumber: String(a['account_number'] ?? ''),
+      accountName: String(a['nickname'] ?? ''),
+      accountType: String(a['type'] ?? ''),
+      agenticAllowed: a['agentic_allowed'] === true,
+    }));
   }
 
   // ---------------------------------------------------------------------------
