@@ -3,6 +3,8 @@
 ## [2026-09-12]
 
 ### Added
+- [Portfolio Dashboard] 219-285_FE-IMPL-PORTFOLIO: Add Portfolio Dashboard routing and shell component
+- [Portfolio Dashboard] 219-285_DOCS-PORTFOLIO: Add Task #285 code review document
 - [Portfolio Dashboard] 219-284_FE-IMPL-PORTFOLIO: Add PortfolioDashboardStore with state, selectors, and load methods
 - [Portfolio Dashboard] 219-284_DOCS-PORTFOLIO: Add code review doc for Task #284 PortfolioDashboardStore
 - [Portfolio Dashboard] 219-283_FE-IMPL-PORTFOLIO: Add pure PnL and stop-loss protection utilities
