@@ -4,7 +4,9 @@
 **Blueprint:** #281
 **Thread:** #274
 **Task:** #286 — Section components (AccountSummary, EquityPositionsTable, OptionPositionsTable, OpenOrdersTable, OrderHistoryTable)
-**Stage:** 6_REVIEW
+**Stage:** 8_LIVE
+**Status:** Complete
+**Last Updated:** 2026-09-12
 **Date:** 2026-09-12
 
 ## Review axes
