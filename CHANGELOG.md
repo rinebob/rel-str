@@ -3,12 +3,17 @@
 ## [2026-09-12]
 
 ### Added
+- [Portfolio Dashboard] 219-286_FE-IMPL-PORTFOLIO: Add 5 portfolio dashboard section components
+- [Portfolio Dashboard] 219-286_DOCS-PORTFOLIO: Add code review doc for Task #286 section components
 - [Portfolio Dashboard] 219-285_FE-IMPL-PORTFOLIO: Add Portfolio Dashboard routing and shell component
 - [Portfolio Dashboard] 219-285_DOCS-PORTFOLIO: Add Task #285 code review document
 - [Portfolio Dashboard] 219-284_FE-IMPL-PORTFOLIO: Add PortfolioDashboardStore with state, selectors, and load methods
 - [Portfolio Dashboard] 219-284_DOCS-PORTFOLIO: Add code review doc for Task #284 PortfolioDashboardStore
 - [Portfolio Dashboard] 219-283_FE-IMPL-PORTFOLIO: Add pure PnL and stop-loss protection utilities
 - [Portfolio Dashboard] 219-283_DOCS-PORTFOLIO: Add code review doc for Task #283 pure utilities
+
+### Fixed
+- [Portfolio Dashboard] 219-286_FE-BUG-PORTFOLIO: Show all Robinhood accounts instead of filtering to agentic-allowed
 
 ## [2026-09-11]
 
