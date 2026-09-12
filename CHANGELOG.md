@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026-09-12]
+
+### Added
+- [Portfolio Dashboard] 219-283_FE-IMPL-PORTFOLIO: Add pure PnL and stop-loss protection utilities
+- [Portfolio Dashboard] 219-283_DOCS-PORTFOLIO: Add code review doc for Task #283 pure utilities
+
 ## [2026-09-11]
 
 ### Added
