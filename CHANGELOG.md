@@ -1,5 +1,12 @@
 # Changelog
 
+## [2026-09-13]
+
+### Added
+- [Portfolio Dashboard] 219-293_SHARED-IMPL-PORTFOLIO: Extract StopLossFormComponent for reuse
+- [Portfolio Dashboard] 219-293_FE-IMPL-PORTFOLIO: Embed StopLossFormComponent in OrderTicketComponent
+- [Portfolio Dashboard] 219-293_DOCS-PORTFOLIO: Add planning and review docs for Task #293
+
 ## [2026-09-12]
 
 ### Added
