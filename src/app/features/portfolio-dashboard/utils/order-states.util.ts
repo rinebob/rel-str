@@ -13,6 +13,7 @@ export const LIVE_ORDER_STATES: ReadonlySet<OrderState> = new Set([
   'new',
   'queued',
   'confirmed',
+  'unconfirmed',
   'partially_filled',
   'pending_cancelled',
 ]);
