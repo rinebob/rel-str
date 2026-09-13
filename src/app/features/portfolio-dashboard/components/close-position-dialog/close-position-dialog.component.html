@@ -1,0 +1,113 @@
+<h2 mat-dialog-title>
+  <mat-icon>sell</mat-icon>
+  Close Position — {{ symbol() }}
+</h2>
+
+<mat-dialog-content>
+  @switch (state()) {
+    @case ('editing') {
+      <div class="form-section">
+        <div class="field-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Symbol</mat-label>
+            <input matInput [value]="symbol()" readonly>
+          </mat-form-field>
+        </div>
+
+        <div class="field-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Quantity (max {{ positionQuantity() }})</mat-label>
+            <input matInput type="number" [value]="quantity()" (input)="quantity.set($any($event.target).value)">
+          </mat-form-field>
+        </div>
+
+        <div class="field-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Order Type</mat-label>
+            <mat-select [value]="orderType()" (selectionChange)="onOrderTypeChange($event.value)">
+              <mat-option value="market">Market</mat-option>
+              <mat-option value="limit">Limit</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        @if (isLimit()) {
+          <div class="field-row">
+            <mat-form-field appearance="outline">
+              <mat-label>Limit Price</mat-label>
+              <input matInput type="number" [value]="limitPrice()" (input)="limitPrice.set($any($event.target).value)">
+            </mat-form-field>
+          </div>
+        }
+      </div>
+    }
+
+    @case ('submitting') {
+      <div class="status-section">
+        <mat-icon class="spinner">progress_activity</mat-icon>
+        <p>Submitting order...</p>
+      </div>
+    }
+
+    @case ('success') {
+      <div class="status-section success">
+        <mat-icon>check_circle</mat-icon>
+        <h3>Order Filled</h3>
+        <div class="result-row">
+          <span class="label">Order ID</span>
+          <span class="value">{{ result()?.result?.orderId ?? '—' }}</span>
+        </div>
+        <div class="result-row">
+          <span class="label">Fill Price</span>
+          <span class="value">${{ result()?.result?.fillPrice ?? '—' }}</span>
+        </div>
+        <div class="result-row">
+          <span class="label">Quantity Filled</span>
+          <span class="value">{{ result()?.result?.filledQuantity ?? '—' }}</span>
+        </div>
+        <div class="result-row">
+          <span class="label">State</span>
+          <span class="value">{{ result()?.result?.state ?? '—' }}</span>
+        </div>
+      </div>
+    }
+
+    @case ('error') {
+      <div class="status-section error">
+        <mat-icon>error</mat-icon>
+        <h3>Order Failed</h3>
+        <p class="error-message">{{ error() }}</p>
+      </div>
+    }
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  @switch (state()) {
+    @case ('editing') {
+      <button mat-button (click)="onCancel()">Cancel</button>
+      <button mat-flat-button color="warn" (click)="onSubmit()" [disabled]="!canSubmit()">
+        <mat-icon>send</mat-icon>
+        Submit
+      </button>
+    }
+    @case ('submitting') {
+      <button mat-button disabled>Submitting...</button>
+    }
+    @case ('success') {
+      <button mat-flat-button color="primary" (click)="onDone()">
+        <mat-icon>done</mat-icon>
+        Done
+      </button>
+    }
+    @case ('error') {
+      <button mat-button (click)="onCancel()">Cancel</button>
+      @if (canRetry()) {
+        <button mat-flat-button color="primary" (click)="onRetry()">
+          <mat-icon>refresh</mat-icon>
+          Retry
+        </button>
+      }
+    }
+  }
+</mat-dialog-actions>
