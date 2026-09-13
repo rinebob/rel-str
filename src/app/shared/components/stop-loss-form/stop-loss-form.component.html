@@ -1,0 +1,33 @@
+<div class="stop-loss-section">
+  <div class="sl-header">
+    <span class="sl-title">Stop Loss</span>
+    <span class="sl-risk">Risk: {{ dollarRisk() | currency:'USD':'symbol':'1.2-2' }}</span>
+  </div>
+  <div class="sl-field">
+    <span class="sl-label">$</span>
+    <div class="stepper">
+      <button type="button" class="step-btn" aria-label="stop-price-down" (click)="stopPriceDown()">&#9660;</button>
+      <input class="sl-input" [value]="stopLossPrice()" (input)="onStopPriceChange($event)" placeholder="0.00" [disabled]="disabled()">
+      <button type="button" class="step-btn" aria-label="stop-price-up" (click)="stopPriceUp()">&#9650;</button>
+    </div>
+  </div>
+  <div class="sl-field">
+    <span class="sl-label">%</span>
+    <div class="stepper">
+      <button type="button" class="step-btn" aria-label="stop-percent-down" (click)="stopPercentDown()">&#9660;</button>
+      <input class="sl-input" [value]="stopLossPercent()" (input)="onStopPercentChange($event)" placeholder="8.0" [disabled]="disabled()">
+      <button type="button" class="step-btn" aria-label="stop-percent-up" (click)="stopPercentUp()">&#9650;</button>
+    </div>
+  </div>
+  <button mat-flat-button color="warn" (click)="onPlace()" [disabled]="!canPlace() || disabled()">
+    <mat-icon>shield</mat-icon>
+    Submit Stop Loss
+  </button>
+
+  @if (canPlace()) {
+    <div class="sl-preview">
+      <h4>Preview</h4>
+      <pre>{{ preview() | json }}</pre>
+    </div>
+  }
+</div>

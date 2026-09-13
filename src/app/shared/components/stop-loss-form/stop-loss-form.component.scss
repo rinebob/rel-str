@@ -1,0 +1,89 @@
+:host {
+  display: block;
+}
+
+.stop-loss-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  background: var(--mat-sys-surface-container-high);
+  border-radius: 4px;
+
+  .sl-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .sl-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  .sl-risk {
+    font-size: 11px;
+    font-weight: 600;
+    font-family: monospace;
+    color: var(--mat-sys-error);
+  }
+
+  .sl-field {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .sl-label {
+    font-size: 11px;
+    color: var(--mat-sys-on-surface-variant);
+    font-weight: 500;
+    text-align: right;
+    width: 20px;
+  }
+
+  .sl-input {
+    width: 50px;
+    height: 24px;
+    border: 1px solid var(--mat-sys-outline-variant);
+    border-radius: 2px;
+    text-align: center;
+    font-size: 11px;
+    font-family: monospace;
+    background: var(--mat-sys-surface);
+    color: var(--mat-sys-on-surface);
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.step-btn {
+  width: 20px;
+  height: 24px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface-variant);
+  border-radius: 2px;
+  cursor: pointer;
+  font-size: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+
+  &:hover {
+    background: var(--mat-sys-surface-container);
+  }
+}
