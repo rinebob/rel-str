@@ -53,6 +53,7 @@ import {
   stopPercentFromPrice,
   DEFAULT_STOP_PERCENT,
 } from '../../utils/position-sizing.util';
+import { StopLossFormComponent } from '../../../../shared/components/stop-loss-form/stop-loss-form.component';
 
 @Component({
   selector: 'app-order-ticket',
@@ -62,6 +63,7 @@ import {
     MatButtonModule,
     MatIconModule,
     MatTooltipModule,
+    StopLossFormComponent,
   ],
   templateUrl: './order-ticket.component.html',
   styleUrl: './order-ticket.component.scss',
@@ -243,6 +245,18 @@ export class OrderTicketComponent {
     return Number.isInteger(quantity) && quantity > 0 && !isNaN(slPrice) && slPrice > 0;
   });
 
+  /** Quantity for the StopLossFormComponent — filled quantity or ticket quantity. */
+  readonly stopLossQuantity = computed(() => {
+    const i = this.ticket();
+    return (i?.result?.filledQuantity ?? i?.quantity) || '0';
+  });
+
+  /** Account number for the StopLossFormComponent. */
+  readonly stopLossAccountNumber = computed(() => {
+    const i = this.ticket();
+    return this.tradingConfig()?.accountNumber ?? i?.accountNumber ?? '';
+  });
+
   /** The stop loss order from RH (found by symbol in the RH orders list). */
   readonly stopLossTicket = computed<OrderTicket | null>(() => {
     const i = this.ticket();
@@ -299,37 +313,6 @@ export class OrderTicketComponent {
     this.stopLossTicket()?.status === OrderTicketStatus.QUEUED ||
     this.stopLossTicket()?.status === OrderTicketStatus.RESTING,
   );
-
-  /** Preview of the stop loss order object (shows real account number — what will actually be sent). */
-  readonly stopLossPreview = computed(() => {
-    const i = this.ticket();
-    if (!i || !this.showStopLossSection()) return null;
-    const qty = (i.result?.filledQuantity ?? i.quantity) || '0';
-    return {
-      symbol: this.symbol(),
-      side: 'sell',
-      orderType: 'stop_market',
-      quantity: qty,
-      stopPrice: this.stopLossPrice() || undefined,
-      stopLossPercent: this.stopLossPercent() || undefined,
-      timeInForce: 'gtc',
-      marketHours: 'regular_hours',
-      accountNumber: this.tradingConfig()?.accountNumber ?? i.accountNumber,
-      refId: i.refId + '-SL',
-    };
-  });
-
-  /** Dollar risk = shares × (fill price − stop loss price). Uses fill price after fill, current price before. */
-  readonly stopLossRisk = computed(() => {
-    const i = this.ticket();
-    const rawQty = i?.status === OrderTicketStatus.FILLED ? i.result?.filledQuantity : this.quantity();
-    const qty = Math.max(0, parseInt(rawQty ?? '0', 10) || 0);
-    const slPrice = parseFloat(this.stopLossPrice());
-    if (qty <= 0 || isNaN(slPrice) || slPrice <= 0) return 0;
-    const refPrice = this.entryFillPrice() ?? this.currentPrice();
-    if (!refPrice || refPrice <= 0) return 0;
-    return Math.round(qty * (refPrice - slPrice) * 100) / 100;
-  });
 
   /** Fill price from the entry order result, if filled. */
   readonly entryFillPrice = computed<number | null>(() => {
@@ -685,11 +668,15 @@ export class OrderTicketComponent {
   }
 
   /** Confirm and submit a stop loss order directly to RH (no local doc). */
-  async onPlaceStopLoss(): Promise<void> {
+  async onPlaceStopLoss(stopPrice?: number): Promise<void> {
     const i = this.ticket();
-    if (!i || !this.canPlaceStopLoss()) return;
+    if (!i) return;
 
-    const slPrice = parseFloat(this.stopLossPrice());
+    // When stopPrice is provided from StopLossFormComponent, skip canPlaceStopLoss
+    // (the component already validates before emitting). Otherwise check locally.
+    if (stopPrice === undefined && !this.canPlaceStopLoss()) return;
+
+    const slPrice = stopPrice ?? parseFloat(this.stopLossPrice());
     if (isNaN(slPrice) || slPrice <= 0) {
       this.snackBar.open('Invalid stop loss price', 'Dismiss', { duration: 4000 });
       return;

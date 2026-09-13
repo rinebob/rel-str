@@ -282,32 +282,13 @@
 
       <!-- Stop loss form — shown only after entry is filled and whole-share -->
       @if (showStopLossSection()) {
-        <div class="stop-loss-section">
-          <div class="sl-header">
-            <span class="sl-title">Stop Loss</span>
-            <span class="sl-risk">Risk: {{ stopLossRisk() | currency:'USD':'symbol':'1.2-2' }}</span>
-          </div>
-          <div class="sl-field">
-            <span class="sl-label">$</span>
-            <div class="stepper">
-              <button type="button" class="step-btn" (click)="stopPriceDown()">&#9660;</button>
-              <input class="sl-input" [value]="stopLossPrice()" (input)="onStopPriceChange($event)" placeholder="0.00">
-              <button type="button" class="step-btn" (click)="stopPriceUp()">&#9650;</button>
-            </div>
-          </div>
-          <div class="sl-field">
-            <span class="sl-label">%</span>
-            <div class="stepper">
-              <button type="button" class="step-btn" (click)="stopPercentDown()">&#9660;</button>
-              <input class="sl-input" [value]="stopLossPercent()" (input)="onStopPercentChange($event)" placeholder="8.0">
-              <button type="button" class="step-btn" (click)="stopPercentUp()">&#9650;</button>
-            </div>
-          </div>
-          <button mat-flat-button color="warn" (click)="onPlaceStopLoss()" [disabled]="!canPlaceStopLoss()">
-            <mat-icon>shield</mat-icon>
-            Submit Stop Loss
-          </button>
-        </div>
+        <app-stop-loss-form
+          [symbol]="symbol()"
+          [quantity]="stopLossQuantity()"
+          [referencePrice]="stopLossReferencePrice()"
+          [accountNumber]="stopLossAccountNumber()"
+          (placeStopLoss)="onPlaceStopLoss($event.stopPrice)"
+        />
       }
 
       @if (!isStopLossTicket() && stopLossTicket()) {
@@ -356,13 +337,6 @@
           <pre class="preview-json">{{ preview() | json }}</pre>
         </div>
       }
-      @if (isEntryFilled() && !stopLossExists() && stopLossPreview()) {
-        <div class="preview-section">
-          <h3>Stop Loss Preview</h3>
-          <pre class="preview-json">{{ stopLossPreview() | json }}</pre>
-        </div>
-      }
-
       <!-- Contextual action buttons -->
       <div class="action-section">
         @if (isEditable()) {
