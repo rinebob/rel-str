@@ -112,7 +112,7 @@ export class RobinhoodMcpClient {
       throw new RobinhoodMcpError(result.error, 'get_option_positions', result.category);
     }
 
-    const raw = this.extractList(result.parsed);
+    const raw = this.extractList(result.parsed, 'results', 'option_positions');
     return raw.map((p) => ({
       instrumentId: String(p['instrument_id'] ?? ''),
       chainSymbol: String(p['chain_symbol'] ?? ''),
@@ -134,12 +134,15 @@ export class RobinhoodMcpClient {
       'get_equity_quotes',
       'symbols',
       (q) => {
-        const symbol = String(q['symbol'] ?? '');
+        // Results may be flat ({ symbol, last_trade_price }) or nested
+        // ({ quote: { symbol, last_trade_price } }).
+        const raw = (q['quote'] && typeof q['quote'] === 'object') ? q['quote'] as Record<string, unknown> : q;
+        const symbol = String(raw['symbol'] ?? '');
         if (!symbol) return null;
         return {
           symbol,
-          lastTradePrice: this.toNumber(q['last_trade_price']),
-          previousClose: this.toNumber(q['previous_close']),
+          lastTradePrice: this.toNumber(raw['last_trade_price']),
+          previousClose: this.toNumber(raw['previous_close']),
         };
       },
       (quote) => quote.symbol,
@@ -152,12 +155,14 @@ export class RobinhoodMcpClient {
       'get_option_quotes',
       'instrument_ids',
       (q) => {
-        const id = String(q['instrument_id'] ?? '');
+        // Results may be flat or nested under a `quote` key.
+        const raw = (q['quote'] && typeof q['quote'] === 'object') ? q['quote'] as Record<string, unknown> : q;
+        const id = String(raw['instrument_id'] ?? '');
         if (!id) return null;
         return {
           instrumentId: id,
-          lastTradePrice: this.toNumber(q['last_trade_price']),
-          previousClose: this.toNumber(q['previous_close']),
+          lastTradePrice: this.toNumber(raw['last_trade_price']),
+          previousClose: this.toNumber(raw['previous_close']),
         };
       },
       (quote) => quote.instrumentId,
@@ -177,7 +182,7 @@ export class RobinhoodMcpClient {
       throw new RobinhoodMcpError(result.error, 'get_equity_orders', result.category);
     }
 
-    const raw = this.extractList(result.parsed);
+    const raw = this.extractList(result.parsed, 'orders');
     return this.normalizeOrders(raw, accountNumber, 'equity');
   }
 
@@ -190,7 +195,7 @@ export class RobinhoodMcpClient {
       throw new RobinhoodMcpError(result.error, 'get_option_orders', result.category);
     }
 
-    const raw = this.extractList(result.parsed);
+    const raw = this.extractList(result.parsed, 'orders');
     return this.normalizeOrders(raw, accountNumber, 'option');
   }
 
@@ -237,7 +242,7 @@ export class RobinhoodMcpClient {
       type: this.parseOrderType(raw['type']),
       state: this.parseOrderState(raw['state']),
       quantity: this.toNumber(raw['quantity']),
-      cumulativeQuantity: this.toNumber(raw['cumulative_quantity']),
+      cumulativeQuantity: this.toNumber(raw['cumulative_quantity'] ?? raw['processed_quantity']),
       price: this.toNumber(raw['price']),
       stopPrice: this.toNumber(raw['stop_price']),
       averageFillPrice: this.toNumber(raw['average_price']),

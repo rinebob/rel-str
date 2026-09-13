@@ -660,6 +660,28 @@ describe('RobinhoodMcpClient', () => {
       expect(mcp.executeTool).not.toHaveBeenCalled();
     });
 
+    it('parses nested quote objects ({ quote: { ... } })', async () => {
+      mockResolve({
+        success: true,
+        parsed: {
+          data: {
+            results: [
+              { quote: { symbol: 'AAPL', last_trade_price: '155.00', previous_close: '150.00' } },
+              { quote: { symbol: 'NVDA', last_trade_price: '810.00', previous_close: '800.00' } },
+            ],
+          },
+        },
+        redacted: {},
+        tool: 'get_equity_quotes',
+      });
+
+      const quotes = await client.getEquityQuotes(['AAPL', 'NVDA']);
+
+      expect(quotes.size).toBe(2);
+      expect(quotes.get('AAPL')!.lastTradePrice).toBe(155);
+      expect(quotes.get('NVDA')!.lastTradePrice).toBe(810);
+    });
+
     it('throws RobinhoodMcpError when a batch fails', async () => {
       mcp.executeTool.and.callFake(() => Promise.resolve({
         success: false,
