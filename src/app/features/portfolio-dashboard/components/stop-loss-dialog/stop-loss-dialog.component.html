@@ -1,0 +1,79 @@
+<h2 mat-dialog-title>
+  <mat-icon>shield</mat-icon>
+  Add Stop Loss — {{ symbol() }}
+</h2>
+
+<mat-dialog-content>
+  @switch (state()) {
+    @case ('editing') {
+      <app-stop-loss-form
+        [symbol]="symbol()"
+        [quantity]="quantity()"
+        [referencePrice]="currentPrice()"
+        [accountNumber]="accountNumber()"
+        [disabled]="state() !== 'editing'"
+        (placeStopLoss)="onSubmit($event)"
+      />
+    }
+
+    @case ('submitting') {
+      <div class="status-section">
+        <mat-icon class="spinner">progress_activity</mat-icon>
+        <p>Submitting stop loss...</p>
+      </div>
+    }
+
+    @case ('success') {
+      <div class="status-section success">
+        <mat-icon>check_circle</mat-icon>
+        <h3>Stop Loss Placed</h3>
+        <div class="result-row">
+          <span class="label">Order ID</span>
+          <span class="value">{{ result()?.result?.orderId ?? '—' }}</span>
+        </div>
+        <div class="result-row">
+          <span class="label">Stop Price</span>
+          <span class="value">${{ result()?.result?.brokerOrder?.stopPrice ?? lastStopPrice().toFixed(2) }}</span>
+        </div>
+        <div class="result-row">
+          <span class="label">State</span>
+          <span class="value">{{ result()?.result?.state ?? '—' }}</span>
+        </div>
+      </div>
+    }
+
+    @case ('error') {
+      <div class="status-section error">
+        <mat-icon>error</mat-icon>
+        <h3>Stop Loss Failed</h3>
+        <p class="error-message">{{ error() }}</p>
+      </div>
+    }
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  @switch (state()) {
+    @case ('editing') {
+      <button mat-button (click)="onCancel()">Cancel</button>
+    }
+    @case ('submitting') {
+      <button mat-button disabled>Submitting...</button>
+    }
+    @case ('success') {
+      <button mat-flat-button color="primary" (click)="onDone()">
+        <mat-icon>done</mat-icon>
+        Done
+      </button>
+    }
+    @case ('error') {
+      <button mat-button (click)="onCancel()">Cancel</button>
+      @if (canRetry()) {
+        <button mat-flat-button color="primary" (click)="onRetry()">
+          <mat-icon>refresh</mat-icon>
+          Retry
+        </button>
+      }
+    }
+  }
+</mat-dialog-actions>

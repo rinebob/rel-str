@@ -62,11 +62,53 @@ export function buildStopLossTicket(
   accountNumber: string,
   now = new Date(),
 ): EquityOrderTicket {
+  return buildStopLossTicketBase(
+    { type: 'stop_loss', id: entry.id },
+    symbol,
+    quantity,
+    stopPrice,
+    accountNumber,
+    now,
+  );
+}
+
+/**
+ * Build a stop-loss ticket for a portfolio position (no entry order ticket required).
+ *
+ * Mirrors buildStopLossTicket() but uses the position symbol as the sourceRef id,
+ * since the stop-loss is protecting a position rather than an entry order.
+ */
+export function buildPositionStopLossTicket(
+  symbol: string,
+  quantity: string,
+  stopPrice: number,
+  accountNumber: string,
+  now = new Date(),
+): EquityOrderTicket {
+  return buildStopLossTicketBase(
+    { type: 'stop_loss', id: symbol },
+    symbol,
+    quantity,
+    stopPrice,
+    accountNumber,
+    now,
+  );
+}
+
+/** Shared base for stop-loss ticket builders. Only sourceRef differs between variants. */
+function buildStopLossTicketBase(
+  sourceRef: { type: string; id: string },
+  symbol: string,
+  quantity: string,
+  stopPrice: number,
+  accountNumber: string,
+  now: Date,
+): EquityOrderTicket {
   return {
     id: buildStopLossId(symbol, now),
     refId: crypto.randomUUID(),
     source: OrderSource.POSITION_MANAGEMENT,
-    sourceRef: { type: 'stop_loss', id: entry.id },
+    sourceRef,
     status: OrderTicketStatus.STAGED,
     accountNumber,
     side: 'sell',
