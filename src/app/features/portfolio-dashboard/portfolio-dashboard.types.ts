@@ -58,6 +58,8 @@ export interface OptionPositionWithPnL extends OptionPosition {
   currentPrice: number | null;
   pnl: number | null;
   pnlPercent: number | null;
+  /** True when position is closed (quantity === 0). */
+  closed: boolean;
 }
 
 /** Cross-account aggregate summary. */
@@ -77,4 +79,5 @@ export type SectionName =
   | 'equityQuotes'
   | 'optionQuotes'
   | 'equityOrders'
-  | 'optionOrders';
+  | 'optionOrders'
+  | 'orders';

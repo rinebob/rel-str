@@ -16,6 +16,7 @@ function makeOption(overrides: Partial<OptionPositionWithPnL> = {}): OptionPosit
     currentPrice: 7.50,
     pnl: 250.00,
     pnlPercent: 50.00,
+    closed: false,
     ...overrides,
   };
 }

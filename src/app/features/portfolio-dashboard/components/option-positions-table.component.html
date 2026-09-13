@@ -10,42 +10,73 @@
       <span class="pd-section-error-text">{{ err }}</span>
       <button type="button" mat-stroked-button class="pd-section-retry" (click)="retry.emit()">Retry</button>
     </div>
-  } @else if (hasPositions()) {
-    <h3 class="pd-section-title">Option Positions</h3>
-    <table class="pd-table">
-      <thead>
-        <tr>
-          <th scope="col">Underlying</th>
-          <th scope="col">Type</th>
-          <th scope="col">Strike</th>
-          <th scope="col">Expiration</th>
-          <th scope="col">Qty</th>
-          <th scope="col">Avg Cost</th>
-          <th scope="col">Current</th>
-          <th scope="col">PnL</th>
-          <th scope="col">PnL%</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (pos of positions(); track pos.instrumentId) {
+  } @else if (hasAnyPositions()) {
+    <div class="pd-section-header">
+      <h3 class="pd-section-title">Option Positions</h3>
+      <button type="button" mat-stroked-button class="pd-toggle-closed" (click)="toggleClosed.emit()">
+        {{ showClosed() ? 'Hide Closed' : 'Show Closed' }}
+      </button>
+    </div>
+    @if (hasPositions()) {
+      <table class="pd-table">
+        <thead>
           <tr>
-            <td class="pd-symbol">{{ pos.chainSymbol }}</td>
-            <td>{{ pos.optionType }}</td>
-            <td>{{ formatCurrency(pos.strikePrice) }}</td>
-            <td>{{ pos.expirationDate }}</td>
-            <td>{{ formatNumber(pos.quantity) }}</td>
-            <td>{{ formatCurrency(pos.averageCost) }}</td>
-            <td>{{ formatCurrency(pos.currentPrice) }}</td>
-            <td class="pd-pnl" [class.pd-positive]="pos.pnl !== null && pos.pnl >= 0" [class.pd-negative]="pos.pnl !== null && pos.pnl < 0">
-              {{ formatPnl(pos.pnl) }}
+            <th scope="col">Underlying</th>
+            <th scope="col">Type</th>
+            <th scope="col">Strike</th>
+            <th scope="col">Expiration</th>
+            <th scope="col">Qty</th>
+            <th scope="col">Avg Cost</th>
+            <th scope="col">Cost Basis</th>
+            <th scope="col">Current</th>
+            <th scope="col">Value</th>
+            <th scope="col">PnL</th>
+            <th scope="col">PnL%</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (pos of visiblePositions(); track pos.instrumentId) {
+            <tr [class.pd-closed]="pos.closed">
+              <td class="pd-symbol">{{ pos.chainSymbol }}</td>
+              <td>{{ pos.optionType }}</td>
+              <td>{{ formatCurrency(pos.strikePrice) }}</td>
+              <td>{{ pos.expirationDate }}</td>
+              <td>{{ formatNumber(pos.quantity) }}</td>
+              <td>{{ formatCurrency(pos.averageCost) }}</td>
+              <td>{{ formatCurrency(costBasis(pos)) }}</td>
+              <td>{{ formatCurrency(pos.currentPrice) }}</td>
+              <td>{{ formatCurrency(currentValue(pos)) }}</td>
+              <td class="pd-pnl" [class.pd-positive]="pos.pnl != null && pos.pnl >= 0" [class.pd-negative]="pos.pnl != null && pos.pnl < 0">
+                {{ formatPnl(pos.pnl) }}
+              </td>
+              <td [class.pd-positive]="pos.pnlPercent != null && pos.pnlPercent >= 0" [class.pd-negative]="pos.pnlPercent != null && pos.pnlPercent < 0">
+                {{ formatPnlPercent(pos.pnlPercent) }}
+              </td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr class="pd-totals">
+            <td colspan="5">Totals</td>
+            <td></td>
+            <td>{{ formatCurrency(totalCostBasis()) }}</td>
+            <td></td>
+            <td>{{ formatCurrency(totalValue()) }}</td>
+            <td [class.pd-positive]="totalPnL() != null && totalPnL()! >= 0" [class.pd-negative]="totalPnL() != null && totalPnL()! < 0">
+              {{ formatPnl(totalPnL()) }}
             </td>
-            <td [class.pd-positive]="pos.pnlPercent !== null && pos.pnlPercent >= 0" [class.pd-negative]="pos.pnlPercent !== null && pos.pnlPercent < 0">
-              {{ formatPnlPercent(pos.pnlPercent) }}
+            <td [class.pd-positive]="avgPnlPercent() != null && avgPnlPercent()! >= 0" [class.pd-negative]="avgPnlPercent() != null && avgPnlPercent()! < 0">
+              {{ formatPnlPercent(avgPnlPercent()) }}
             </td>
           </tr>
-        }
-      </tbody>
-    </table>
+        </tfoot>
+      </table>
+    } @else {
+      <div class="pd-section-empty" aria-live="polite">
+        <mat-icon aria-hidden="true">inbox</mat-icon>
+        <span>No open option positions — toggle "Show Closed" to view closed positions</span>
+      </div>
+    }
   } @else {
     <div class="pd-section-empty" aria-live="polite">
       <mat-icon aria-hidden="true">inbox</mat-icon>

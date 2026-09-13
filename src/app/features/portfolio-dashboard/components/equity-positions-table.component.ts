@@ -37,6 +37,7 @@ export class EquityPositionsTableComponent {
   });
 
   readonly hasPositions = computed(() => this.visiblePositions().length > 0);
+  readonly hasAnyPositions = computed(() => this.positions().length > 0);
 
   private readonly currencyFormatter = new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -69,4 +70,56 @@ export class EquityPositionsTableComponent {
     const sign = value >= 0 ? '+' : '';
     return sign + value.toFixed(2) + '%';
   }
+
+  /** Cost basis = average buy price × |quantity|. */
+  costBasis(pos: EquityPositionWithPnL): number | null {
+    if (pos.averageBuyPrice == null || pos.quantity == null) return null;
+    return pos.averageBuyPrice * Math.abs(pos.quantity);
+  }
+
+  /** Current value = current price × |quantity|. */
+  currentValue(pos: EquityPositionWithPnL): number | null {
+    if (pos.currentPrice == null || pos.quantity == null) return null;
+    return pos.currentPrice * Math.abs(pos.quantity);
+  }
+
+  /** Sum of cost basis across visible positions. */
+  readonly totalCostBasis = computed(() => {
+    let total = 0;
+    let has = false;
+    for (const p of this.visiblePositions()) {
+      const cb = this.costBasis(p);
+      if (cb != null) { total += cb; has = true; }
+    }
+    return has ? total : null;
+  });
+
+  /** Sum of current value across visible positions. */
+  readonly totalValue = computed(() => {
+    let total = 0;
+    let has = false;
+    for (const p of this.visiblePositions()) {
+      const cv = this.currentValue(p);
+      if (cv != null) { total += cv; has = true; }
+    }
+    return has ? total : null;
+  });
+
+  /** Sum of PnL across visible positions. */
+  readonly totalPnL = computed(() => {
+    let total = 0;
+    let has = false;
+    for (const p of this.visiblePositions()) {
+      if (p.pnl != null) { total += p.pnl; has = true; }
+    }
+    return has ? total : null;
+  });
+
+  /** Weighted-average PnL% = total PnL / total cost basis. */
+  readonly avgPnlPercent = computed(() => {
+    const pnl = this.totalPnL();
+    const cost = this.totalCostBasis();
+    if (pnl == null || cost == null || cost === 0) return null;
+    return (pnl / cost) * 100;
+  });
 }
