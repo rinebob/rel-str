@@ -179,4 +179,34 @@ describe('EquityPositionsTableComponent', () => {
     const row = fixture.nativeElement.querySelector('tbody tr');
     expect(row.classList.contains('pd-closed')).toBe(true);
   });
+
+  it('shows Close action on open position rows', () => {
+    fixture.componentRef.setInput('positions', [makePosition({ symbol: 'AAPL', quantity: 100, closed: false })]);
+    fixture.detectChanges();
+
+    const closeBtn = fixture.nativeElement.querySelector('.pd-close-action');
+    expect(closeBtn).toBeTruthy();
+    expect(closeBtn.textContent).toContain('Close');
+  });
+
+  it('does not show Close action on closed positions', () => {
+    fixture.componentRef.setInput('positions', [makePosition({ symbol: 'CLOSED1', quantity: 0, closed: true })]);
+    fixture.componentRef.setInput('showClosed', true);
+    fixture.detectChanges();
+
+    const closeBtn = fixture.nativeElement.querySelector('.pd-close-action');
+    expect(closeBtn).toBeNull();
+  });
+
+  it('emits closePosition with the position when Close clicked', () => {
+    const pos = makePosition({ symbol: 'AAPL', quantity: 100, closed: false });
+    fixture.componentRef.setInput('positions', [pos]);
+    fixture.detectChanges();
+
+    const spy = jasmine.createSpy('closePosition');
+    component.closePosition.subscribe(spy);
+
+    fixture.nativeElement.querySelector('.pd-close-action').click();
+    expect(spy).toHaveBeenCalledWith(pos);
+  });
 });

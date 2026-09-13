@@ -14,6 +14,7 @@
  */
 import { ChangeDetectionStrategy, Component, computed, inject, OnInit } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTabsModule } from '@angular/material/tabs';
@@ -26,6 +27,8 @@ import { EquityPositionsTableComponent } from './components/equity-positions-tab
 import { OptionPositionsTableComponent } from './components/option-positions-table.component';
 import { OpenOrdersTableComponent } from './components/open-orders-table.component';
 import { OrderHistoryTableComponent } from './components/order-history-table.component';
+import { ClosePositionDialogComponent, ClosePositionDialogData } from './components/close-position-dialog/close-position-dialog.component';
+import { EquityPositionWithPnL } from './portfolio-dashboard.types';
 
 @Component({
   selector: 'app-portfolio-dashboard',
@@ -48,6 +51,7 @@ import { OrderHistoryTableComponent } from './components/order-history-table.com
 })
 export class PortfolioDashboardComponent implements OnInit {
   readonly store = inject(PortfolioDashboardStore);
+  private readonly dialog = inject(MatDialog);
 
   readonly summary = this.store.aggregateSummary;
   readonly accounts = this.store.accounts;
@@ -105,6 +109,24 @@ export class PortfolioDashboardComponent implements OnInit {
 
   onRetrySection(section: SectionName): void {
     this.store.retrySection(this.selectedAccountIndex(), section);
+  }
+
+  onClosePosition(position: EquityPositionWithPnL): void {
+    const account = this.selectedAccount();
+    if (!account) return;
+    const data: ClosePositionDialogData = {
+      position,
+      currentPrice: position.currentPrice ?? 0,
+      accountNumber: account.accountNumber,
+    };
+    this.dialog
+      .open(ClosePositionDialogComponent, { data })
+      .afterClosed()
+      .subscribe((result) => {
+        if (result === true) {
+          this.store.refresh().catch(() => {});
+        }
+      });
   }
 
   formatCurrency(value: number | null): string {

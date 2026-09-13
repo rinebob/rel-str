@@ -28,6 +28,7 @@ export class EquityPositionsTableComponent {
   readonly showClosed = input(false);
   readonly retry = output<void>();
   readonly toggleClosed = output<void>();
+  readonly closePosition = output<EquityPositionWithPnL>();
 
   /** Positions filtered by closed state — closed positions hidden unless showClosed is true. */
   readonly visiblePositions = computed(() => {

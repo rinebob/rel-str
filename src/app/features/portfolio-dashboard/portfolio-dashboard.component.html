@@ -97,6 +97,7 @@
                 [showClosed]="showClosedPositions()"
                 (retry)="onRetrySection('equityPositions')"
                 (toggleClosed)="onToggleClosedPositions()"
+                (closePosition)="onClosePosition($event)"
               />
 
               <!-- Option Positions -->

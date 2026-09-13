@@ -1,6 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { signal, computed } from '@angular/core';
+import { MatDialog } from '@angular/material/dialog';
+import { of } from 'rxjs';
 
 import { PortfolioDashboardComponent } from './portfolio-dashboard.component';
 import { PortfolioDashboardStore } from './portfolio-dashboard.store';
@@ -11,6 +13,21 @@ import {
   OptionPositionWithPnL,
 } from './portfolio-dashboard.types';
 import { BrokerOrder } from '../../core/robinhood-mcp/types/robinhood-mcp.types';
+import { ClosePositionDialogComponent, ClosePositionDialogData } from './components/close-position-dialog/close-position-dialog.component';
+
+function makeEquityPosition(overrides: Partial<EquityPositionWithPnL> = {}): EquityPositionWithPnL {
+  return {
+    symbol: 'AAPL',
+    quantity: 100,
+    averageBuyPrice: 150,
+    sharesHeldForSells: 0,
+    currentPrice: 175,
+    pnl: 2500,
+    pnlPercent: 16.67,
+    closed: false,
+    ...overrides,
+  };
+}
 
 function makeAccountState(name: string, number: string, overrides: Partial<AccountState> = {}): AccountState {
   const empty = { data: null, loading: false, error: null };
@@ -104,14 +121,21 @@ describe('PortfolioDashboardComponent', () => {
   let fixture: ComponentFixture<PortfolioDashboardComponent>;
   let component: PortfolioDashboardComponent;
   let store: StoreMock;
+  let dialog: { open: jasmine.Spy };
 
   beforeEach(async () => {
     store = makeStoreMock();
+    dialog = {
+      open: jasmine.createSpy('open').and.returnValue({
+        afterClosed: () => of(true),
+      }),
+    };
     await TestBed.configureTestingModule({
       imports: [PortfolioDashboardComponent],
       providers: [
         provideNoopAnimations(),
         { provide: PortfolioDashboardStore, useValue: store },
+        { provide: MatDialog, useValue: dialog },
       ],
     }).compileComponents();
 
@@ -410,5 +434,49 @@ describe('PortfolioDashboardComponent', () => {
     fixture.detectChanges();
 
     expect(toggle.textContent).toContain('Hide History');
+  });
+
+  it('opens ClosePositionDialogComponent with position data when closePosition emitted', () => {
+    const pos = makeEquityPosition({ symbol: 'AAPL', quantity: 100, currentPrice: 175 });
+    store._setAccounts([makeAccountState('Account A', '123456')]);
+    store._setEquityPositions([pos]);
+    fixture.detectChanges();
+
+    const equity = fixture.debugElement.query((el) => el.name === 'app-equity-positions-table');
+    equity.triggerEventHandler('closePosition', pos);
+
+    expect(dialog.open).toHaveBeenCalledTimes(1);
+    const args = dialog.open.calls.mostRecent().args;
+    expect(args[0]).toBe(ClosePositionDialogComponent);
+    const data = args[1]?.data as ClosePositionDialogData;
+    expect(data.position.symbol).toBe('AAPL');
+    expect(data.position.quantity).toBe(100);
+    expect(data.currentPrice).toBe(175);
+    expect(data.accountNumber).toBe('123456');
+  });
+
+  it('calls store.refresh() after close-position dialog dismisses with success', () => {
+    const pos = makeEquityPosition({ symbol: 'AAPL', quantity: 100, currentPrice: 175 });
+    store._setAccounts([makeAccountState('Account A', '123456')]);
+    store._setEquityPositions([pos]);
+    fixture.detectChanges();
+
+    store.refresh.calls.reset();
+    component.onClosePosition(pos);
+
+    expect(store.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call store.refresh() when dialog dismissed without success', () => {
+    const pos = makeEquityPosition({ symbol: 'AAPL', quantity: 100, currentPrice: 175 });
+    store._setAccounts([makeAccountState('Account A', '123456')]);
+    store._setEquityPositions([pos]);
+    fixture.detectChanges();
+
+    dialog.open.and.returnValue({ afterClosed: () => of(false) });
+    store.refresh.calls.reset();
+    component.onClosePosition(pos);
+
+    expect(store.refresh).not.toHaveBeenCalled();
   });
 });
