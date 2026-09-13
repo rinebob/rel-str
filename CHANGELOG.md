@@ -3,6 +3,8 @@
 ## [2026-09-13]
 
 ### Added
+- [Indicator Library] 261-273_SHARED-IMPL-INDICATOR-LIB: Export ST StdDevLines to PineScript
+- [Indicator Library] 261-273_DOCS-INDICATOR-LIB: Add code review doc for Pine export
 - [Portfolio Dashboard] 219-293_SHARED-IMPL-PORTFOLIO: Extract StopLossFormComponent for reuse
 - [Portfolio Dashboard] 219-293_FE-IMPL-PORTFOLIO: Embed StopLossFormComponent in OrderTicketComponent
 - [Portfolio Dashboard] 219-293_DOCS-PORTFOLIO: Add planning and review docs for Task #293
