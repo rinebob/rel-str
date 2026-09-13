@@ -5,6 +5,8 @@
 ### Added
 - [Indicator Library] 261-273_SHARED-IMPL-INDICATOR-LIB: Export ST StdDevLines to PineScript
 - [Indicator Library] 261-273_DOCS-INDICATOR-LIB: Add code review doc for Pine export
+- [Portfolio Dashboard] 219-296_FE-IMPL-PORTFOLIO: Add stop-loss dialog component
+- [Portfolio Dashboard] 219-296_DOCS-PORTFOLIO: Add code review doc for Task #296
 - [Portfolio Dashboard] 219-295_FE-IMPL-PORTFOLIO: Wire close-position action into equity positions table
 - [Portfolio Dashboard] 219-295_DOCS-PORTFOLIO: Add code review doc for Task #295
 - [Portfolio Dashboard] 219-294_FE-IMPL-PORTFOLIO: Add close-position utility and dialog component
