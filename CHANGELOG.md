@@ -3,6 +3,9 @@
 ## [2026-09-12]
 
 ### Added
+- [Portfolio Dashboard] 219-287_FE-IMPL-PORTFOLIO: Add Cost Basis, Value columns, totals footer, and closed-position toggle to position tables
+- [Portfolio Dashboard] 219-287_FE-IMPL-PORTFOLIO: Wire section components into dashboard shell with store signals
+- [Portfolio Dashboard] 219-287_DOCS-PORTFOLIO: Add code review doc for Task #287 integration + wiring
 - [Portfolio Dashboard] 219-286_FE-IMPL-PORTFOLIO: Add 5 portfolio dashboard section components
 - [Portfolio Dashboard] 219-286_DOCS-PORTFOLIO: Add code review doc for Task #286 section components
 - [Portfolio Dashboard] 219-285_FE-IMPL-PORTFOLIO: Add Portfolio Dashboard routing and shell component
@@ -13,6 +16,8 @@
 - [Portfolio Dashboard] 219-283_DOCS-PORTFOLIO: Add code review doc for Task #283 pure utilities
 
 ### Fixed
+- [Portfolio Dashboard] 219-287_FE-BUG-PORTFOLIO: Fix quote, order, and option position parsing
+- [Portfolio Dashboard] 219-287_FE-BUG-PORTFOLIO: Add unconfirmed to LIVE_ORDER_STATES
 - [Portfolio Dashboard] 219-286_FE-BUG-PORTFOLIO: Show all Robinhood accounts instead of filtering to agentic-allowed
 
 ## [2026-09-11]
