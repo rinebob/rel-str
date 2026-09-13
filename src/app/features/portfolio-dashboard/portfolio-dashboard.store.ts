@@ -126,7 +126,7 @@ export const PortfolioDashboardStore = signalStore(
           hasBuyingPower = true;
         }
         const acctPnL = computeAccountPnL(acct);
-        if (acctPnL !== 0 || (acct.equityQuotes.data && acct.optionQuotes.data)) {
+        if (acctPnL !== 0 || acct.equityQuotes.data || acct.optionQuotes.data) {
           totalPnL += acctPnL;
           hasPnL = true;
         }
@@ -170,12 +170,14 @@ export const PortfolioDashboardStore = signalStore(
 
       return positions.map((p) => {
         const currentPrice = quotes?.get(p.instrumentId)?.lastTradePrice ?? null;
-        if (p.quantity === null || p.quantity === 0 || currentPrice === null) {
-          return { ...p, currentPrice, pnl: null, pnlPercent: null };
+        const qty = p.quantity;
+        const closed = qty === null || qty === 0;
+        if (closed || currentPrice === null) {
+          return { ...p, currentPrice, pnl: null, pnlPercent: null, closed };
         }
-        const isShort = p.quantity < 0;
-        const result = computePnL(p.averageCost, currentPrice, Math.abs(p.quantity), isShort);
-        return { ...p, currentPrice, pnl: result.pnl, pnlPercent: result.pnlPercent };
+        const isShort = qty < 0;
+        const result = computePnL(p.averageCost, currentPrice, Math.abs(qty), isShort);
+        return { ...p, currentPrice, pnl: result.pnl, pnlPercent: result.pnlPercent, closed };
       });
     }),
 
@@ -209,24 +211,16 @@ export const PortfolioDashboardStore = signalStore(
     let refreshing = false;
 
     async function loadAccounts(): Promise<void> {
-      patchState(store, { globalLoading: true });
-      try {
-        const accounts = await client.getAccounts();
-        patchState(store, {
-          accounts: accounts.map(createAccountState),
-          selectedAccountIndex: 0,
-          globalLoading: false,
-        });
-      } catch (err) {
-        patchState(store, { globalLoading: false });
-        throw err;
-      }
+      const accounts = await client.getAccounts();
+      patchState(store, {
+        accounts: accounts.map(createAccountState),
+        selectedAccountIndex: 0,
+      });
     }
 
     async function loadPhase1(): Promise<void> {
       const accounts = store.accounts();
       patchState(store, {
-        globalLoading: true,
         accounts: accounts.map((a) => ({
           ...a,
           portfolio: loadingSection(a.portfolio),
@@ -257,8 +251,6 @@ export const PortfolioDashboardStore = signalStore(
           })),
         });
       }));
-
-      patchState(store, { globalLoading: false });
     }
 
     async function loadPhase2(): Promise<void> {
@@ -267,7 +259,6 @@ export const PortfolioDashboardStore = signalStore(
       const optionInstrumentIds = collectAllOptionInstrumentIds(accounts);
 
       patchState(store, {
-        globalLoading: true,
         accounts: accounts.map((a) => ({
           ...a,
           equityQuotes: loadingSection(a.equityQuotes),
@@ -325,21 +316,20 @@ export const PortfolioDashboardStore = signalStore(
           })),
         });
       }));
-
-      patchState(store, { globalLoading: false });
     }
 
     async function refresh(): Promise<void> {
       if (refreshing) return;
       refreshing = true;
-      patchState(store, { loadError: null });
+      patchState(store, { loadError: null, globalLoading: true });
       try {
         await loadAccounts();
         await loadPhase1();
         await loadPhase2();
       } catch (err) {
-        patchState(store, { loadError: errMessage(err), globalLoading: false });
+        patchState(store, { loadError: errMessage(err) });
       } finally {
+        patchState(store, { globalLoading: false });
         refreshing = false;
       }
     }
@@ -347,6 +337,34 @@ export const PortfolioDashboardStore = signalStore(
     async function retrySection(accountIndex: number, section: SectionName): Promise<void> {
       const acct = store.accounts()[accountIndex];
       if (!acct) return;
+
+      // 'orders' is a combined retry for both equityOrders and optionOrders.
+      if (section === 'orders') {
+        patchState(store, {
+          accounts: updateAccount(store.accounts(), accountIndex, (a) => ({
+            ...a,
+            equityOrders: loadingSection(a.equityOrders),
+            optionOrders: loadingSection(a.optionOrders),
+          })),
+        });
+        const results = await Promise.allSettled([
+          client.getEquityOrders(acct.accountNumber),
+          client.getOptionOrders(acct.accountNumber),
+        ]);
+        const [equityR, optionR] = results;
+        patchState(store, {
+          accounts: updateAccount(store.accounts(), accountIndex, (a) => ({
+            ...a,
+            equityOrders: equityR.status === 'fulfilled'
+              ? dataSection(equityR.value)
+              : errorSection(a.equityOrders, errMessage(equityR.reason)),
+            optionOrders: optionR.status === 'fulfilled'
+              ? dataSection(optionR.value)
+              : errorSection(a.optionOrders, errMessage(optionR.reason)),
+          })),
+        });
+        return;
+      }
 
       patchState(store, {
         accounts: updateAccount(store.accounts(), accountIndex, (a) => ({

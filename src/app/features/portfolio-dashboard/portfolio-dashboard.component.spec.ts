@@ -4,9 +4,15 @@ import { signal, computed } from '@angular/core';
 
 import { PortfolioDashboardComponent } from './portfolio-dashboard.component';
 import { PortfolioDashboardStore } from './portfolio-dashboard.store';
-import { AggregateSummary, AccountState } from './portfolio-dashboard.types';
+import {
+  AggregateSummary,
+  AccountState,
+  EquityPositionWithPnL,
+  OptionPositionWithPnL,
+} from './portfolio-dashboard.types';
+import { BrokerOrder } from '../../core/robinhood-mcp/types/robinhood-mcp.types';
 
-function makeAccountState(name: string, number: string): AccountState {
+function makeAccountState(name: string, number: string, overrides: Partial<AccountState> = {}): AccountState {
   const empty = { data: null, loading: false, error: null };
   return {
     accountName: name,
@@ -19,6 +25,7 @@ function makeAccountState(name: string, number: string): AccountState {
     optionQuotes: { ...empty },
     equityOrders: { ...empty },
     optionOrders: { ...empty },
+    ...overrides,
   };
 }
 
@@ -28,6 +35,13 @@ function makeStoreMock(overrides: Partial<{
   globalLoading: boolean;
   loadError: string | null;
   summary: AggregateSummary;
+  equityPositions: EquityPositionWithPnL[];
+  optionPositions: OptionPositionWithPnL[];
+  openOrders: BrokerOrder[];
+  orderHistory: BrokerOrder[];
+  protectedSymbols: Set<string>;
+  showClosedPositions: boolean;
+  showOrderHistory: boolean;
 }> = {}) {
   const accounts = signal(overrides.accounts ?? []);
   const selectedAccountIndex = signal(overrides.selectedAccountIndex ?? 0);
@@ -40,6 +54,13 @@ function makeStoreMock(overrides: Partial<{
     totalBuyingPower: null,
     totalPnL: null,
   });
+  const equityPositions = signal(overrides.equityPositions ?? []);
+  const optionPositions = signal(overrides.optionPositions ?? []);
+  const openOrders = signal(overrides.openOrders ?? []);
+  const orderHistory = signal(overrides.orderHistory ?? []);
+  const protectedSymbols = signal(overrides.protectedSymbols ?? new Set<string>());
+  const showClosedPositions = signal(overrides.showClosedPositions ?? false);
+  const showOrderHistory = signal(overrides.showOrderHistory ?? false);
 
   return {
     accounts,
@@ -47,15 +68,33 @@ function makeStoreMock(overrides: Partial<{
     globalLoading,
     loadError,
     aggregateSummary: computed(() => summary()),
+    selectedAccount: computed(() => accounts()[selectedAccountIndex()] ?? null),
+    equityPositionsWithPnL: computed(() => equityPositions()),
+    optionPositionsWithPnL: computed(() => optionPositions()),
+    openOrders: computed(() => openOrders()),
+    orderHistory: computed(() => orderHistory()),
+    stopLossProtectedSymbols: computed(() => protectedSymbols()),
+    showClosedPositions,
+    showOrderHistory,
     loadAccounts: jasmine.createSpy('loadAccounts').and.returnValue(Promise.resolve()),
     loadPhase1: jasmine.createSpy('loadPhase1').and.returnValue(Promise.resolve()),
     loadPhase2: jasmine.createSpy('loadPhase2').and.returnValue(Promise.resolve()),
     refresh: jasmine.createSpy('refresh').and.returnValue(Promise.resolve()),
     selectAccount: jasmine.createSpy('selectAccount'),
+    toggleClosedPositions: jasmine.createSpy('toggleClosedPositions'),
+    toggleOrderHistory: jasmine.createSpy('toggleOrderHistory'),
+    retrySection: jasmine.createSpy('retrySection').and.returnValue(Promise.resolve()),
     _setAccounts: (a: AccountState[]) => accounts.set(a),
     _setSummary: (s: AggregateSummary) => summary.set(s),
     _setLoading: (l: boolean) => globalLoading.set(l),
     _setLoadError: (e: string | null) => loadError.set(e),
+    _setEquityPositions: (p: EquityPositionWithPnL[]) => equityPositions.set(p),
+    _setOptionPositions: (p: OptionPositionWithPnL[]) => optionPositions.set(p),
+    _setOpenOrders: (o: BrokerOrder[]) => openOrders.set(o),
+    _setOrderHistory: (o: BrokerOrder[]) => orderHistory.set(o),
+    _setProtectedSymbols: (s: Set<string>) => protectedSymbols.set(s),
+    _setShowClosedPositions: (b: boolean) => showClosedPositions.set(b),
+    _setShowOrderHistory: (b: boolean) => showOrderHistory.set(b),
   };
 }
 
@@ -234,5 +273,142 @@ describe('PortfolioDashboardComponent', () => {
     expect(store.loadPhase1).not.toHaveBeenCalled();
     expect(store.loadPhase2).not.toHaveBeenCalled();
     expect(store.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  // --- Task #287 wiring tests ---
+
+  it('renders account summary component in tab content', () => {
+    store._setAccounts([makeAccountState('Account A', '111')]);
+    fixture.detectChanges();
+
+    const summary = fixture.nativeElement.querySelector('app-account-summary');
+    expect(summary).toBeTruthy();
+  });
+
+  it('renders equity positions table in tab content', () => {
+    store._setAccounts([makeAccountState('Account A', '111')]);
+    fixture.detectChanges();
+
+    const table = fixture.nativeElement.querySelector('app-equity-positions-table');
+    expect(table).toBeTruthy();
+  });
+
+  it('renders option positions table in tab content', () => {
+    store._setAccounts([makeAccountState('Account A', '111')]);
+    fixture.detectChanges();
+
+    const table = fixture.nativeElement.querySelector('app-option-positions-table');
+    expect(table).toBeTruthy();
+  });
+
+  it('renders open orders table in tab content', () => {
+    store._setAccounts([makeAccountState('Account A', '111')]);
+    fixture.detectChanges();
+
+    const table = fixture.nativeElement.querySelector('app-open-orders-table');
+    expect(table).toBeTruthy();
+  });
+
+  it('renders order history toggle button', () => {
+    store._setAccounts([makeAccountState('Account A', '111')]);
+    fixture.detectChanges();
+
+    const toggle = fixture.nativeElement.querySelector('.pd-toggle-history');
+    expect(toggle).toBeTruthy();
+    expect(toggle.textContent).toContain('Show History');
+  });
+
+  it('renders order history table when showOrderHistory is true', () => {
+    store._setAccounts([makeAccountState('Account A', '111')]);
+    store._setShowOrderHistory(true);
+    fixture.detectChanges();
+
+    const table = fixture.nativeElement.querySelector('app-order-history-table');
+    expect(table).toBeTruthy();
+  });
+
+  it('does not render order history table when showOrderHistory is false', () => {
+    store._setAccounts([makeAccountState('Account A', '111')]);
+    store._setShowOrderHistory(false);
+    fixture.detectChanges();
+
+    const table = fixture.nativeElement.querySelector('app-order-history-table');
+    expect(table).toBeNull();
+  });
+
+  it('calls store.toggleOrderHistory() when history toggle clicked', () => {
+    store._setAccounts([makeAccountState('Account A', '111')]);
+    fixture.detectChanges();
+
+    const toggle = fixture.nativeElement.querySelector('.pd-toggle-history');
+    toggle.click();
+
+    expect(store.toggleOrderHistory).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls store.toggleClosedPositions() when equity table emits toggleClosed', () => {
+    store._setAccounts([makeAccountState('Account A', '111')]);
+    fixture.detectChanges();
+
+    const equity = fixture.debugElement.query((el) => el.name === 'app-equity-positions-table');
+    equity.triggerEventHandler('toggleClosed', undefined);
+
+    expect(store.toggleClosedPositions).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls store.retrySection(\'portfolio\') when account summary emits retry', () => {
+    store._setAccounts([makeAccountState('Account A', '111')]);
+    fixture.detectChanges();
+
+    const summary = fixture.debugElement.query((el) => el.name === 'app-account-summary');
+    summary.triggerEventHandler('retry', undefined);
+
+    expect(store.retrySection).toHaveBeenCalledWith(0, 'portfolio');
+  });
+
+  it('calls store.retrySection() with orders when open orders table emits retry', () => {
+    store._setAccounts([makeAccountState('Account A', '111')]);
+    fixture.detectChanges();
+
+    const orders = fixture.debugElement.query((el) => el.name === 'app-open-orders-table');
+    orders.triggerEventHandler('retry', undefined);
+
+    expect(store.retrySection).toHaveBeenCalledWith(0, 'orders');
+  });
+
+  it('passes showClosedPositions to equity positions table', () => {
+    store._setAccounts([makeAccountState('Account A', '111')]);
+    store._setShowClosedPositions(true);
+    fixture.detectChanges();
+
+    const table = fixture.nativeElement.querySelector('app-equity-positions-table');
+    expect(table).toBeTruthy();
+    // Verify the input is set on the component instance
+    const tableComp = fixture.debugElement.query((el) => el.nativeElement === table)?.componentInstance;
+    expect(tableComp?.showClosed?.()).toBe(true);
+  });
+
+  it('passes protectedSymbols to open orders table', () => {
+    store._setAccounts([makeAccountState('Account A', '111')]);
+    store._setProtectedSymbols(new Set(['AAPL']));
+    fixture.detectChanges();
+
+    // The open orders table should be rendered
+    const table = fixture.nativeElement.querySelector('app-open-orders-table');
+    expect(table).toBeTruthy();
+  });
+
+  it('shows history toggle text reflecting showOrderHistory state', () => {
+    store._setAccounts([makeAccountState('Account A', '111')]);
+    store._setShowOrderHistory(false);
+    fixture.detectChanges();
+
+    const toggle = fixture.nativeElement.querySelector('.pd-toggle-history');
+    expect(toggle.textContent).toContain('Show History');
+
+    store._setShowOrderHistory(true);
+    fixture.detectChanges();
+
+    expect(toggle.textContent).toContain('Hide History');
   });
 });

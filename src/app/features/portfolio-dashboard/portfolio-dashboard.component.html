@@ -4,6 +4,7 @@
   <header class="pd-header">
     <h1 class="pd-title">Portfolio Dashboard</h1>
     <button
+      type="button"
       mat-icon-button
       class="pd-refresh"
       (click)="onRefresh()"
@@ -26,16 +27,16 @@
   <!-- Error banner -->
   @if (loadError(); as error) {
     <div class="pd-error-banner" aria-live="polite" aria-atomic="true">
-      <mat-icon class="pd-error-icon">error</mat-icon>
+      <mat-icon class="pd-error-icon" aria-hidden="true">error</mat-icon>
       <span class="pd-error-text">{{ error }}</span>
-      <button mat-stroked-button (click)="onRefresh()" [disabled]="globalLoading()">Retry</button>
+      <button type="button" mat-stroked-button (click)="onRefresh()" [disabled]="globalLoading()">Retry</button>
     </div>
   }
 
   <!-- No accounts empty state -->
   @if (!hasAccounts() && !globalLoading() && !loadError()) {
     <div class="pd-empty" aria-live="polite" aria-atomic="true">
-      <mat-icon class="pd-empty-icon">account_balance</mat-icon>
+      <mat-icon class="pd-empty-icon" aria-hidden="true">account_balance</mat-icon>
       <p>No Robinhood accounts available.</p>
     </div>
   }
@@ -79,8 +80,68 @@
       @for (acct of accounts(); track acct.accountNumber) {
         <mat-tab [label]="acct.accountName + ' (' + acct.accountNumber + ')'">
           <div class="pd-tab-content">
-            <!-- Section components will be wired in Task #286 -->
-            <p class="pd-tab-placeholder">Account sections loading…</p>
+            @if (selectedAccount(); as sel) {
+              <!-- Account Summary -->
+              <app-account-summary
+                [snapshot]="sel.portfolio.data"
+                [loading]="sel.portfolio.loading"
+                [error]="sel.portfolio.error"
+                (retry)="onRetrySection('portfolio')"
+              />
+
+              <!-- Equity Positions -->
+              <app-equity-positions-table
+                [positions]="equityPositions()"
+                [loading]="sel.equityPositions.loading"
+                [error]="sel.equityPositions.error"
+                [showClosed]="showClosedPositions()"
+                (retry)="onRetrySection('equityPositions')"
+                (toggleClosed)="onToggleClosedPositions()"
+              />
+
+              <!-- Option Positions -->
+              <app-option-positions-table
+                [positions]="optionPositions()"
+                [loading]="sel.optionPositions.loading"
+                [error]="sel.optionPositions.error"
+                [showClosed]="showClosedPositions()"
+                (retry)="onRetrySection('optionPositions')"
+                (toggleClosed)="onToggleClosedPositions()"
+              />
+
+              <!-- Open Orders -->
+              <app-open-orders-table
+                [orders]="openOrders()"
+                [protectedSymbols]="protectedSymbols()"
+                [loading]="ordersLoading()"
+                [error]="ordersError()"
+                (retry)="onRetrySection('orders')"
+              />
+
+              <!-- Order History toggle + table -->
+              <div class="pd-history-section">
+                <button
+                  type="button"
+                  mat-stroked-button
+                  class="pd-toggle-history"
+                  (click)="onToggleOrderHistory()"
+                  [attr.aria-expanded]="showOrderHistory()"
+                  [attr.aria-pressed]="showOrderHistory()"
+                >
+                  {{ showOrderHistory() ? 'Hide History' : 'Show History' }}
+                </button>
+                @if (showOrderHistory()) {
+                  <app-order-history-table
+                    [orders]="orderHistory()"
+                    [loading]="ordersLoading()"
+                    [error]="ordersError()"
+                    (retry)="onRetrySection('orders')"
+                  />
+                }
+              </div>
+            } @else {
+              <p class="pd-tab-placeholder">No account selected.</p>
+            }
           </div>
         </mat-tab>
       }
