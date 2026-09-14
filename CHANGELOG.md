@@ -3,6 +3,8 @@
 ## [2026-09-14]
 
 ### Added
+- [Indicator Library] 261-319_BE-IMPL-INDICATOR-LIB: Add zero-cross detection to BE signal pipeline
+- [Indicator Library] 261-319_DOCS-INDICATOR-LIB: Add PRD, IMPL, TEST, and code review docs for Task #319
 - [Portfolio Dashboard] 219-314_SHARED-IMPL-PORTFOLIO: Add PnlTrade types and getPnlTradeHistory client method
 - [Portfolio Dashboard] 219-314_FE-IMPL-PORTFOLIO: Wire closed trades into portfolio dashboard store and component
 - [Portfolio Dashboard] 219-314_FE-IMPL-PORTFOLIO: Add tests for closed trades dashboard wiring
