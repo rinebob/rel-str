@@ -6,11 +6,13 @@
  */
 import { ChartIntervalKey } from '../../../../features/shared/components/flex-chart/flex-chart.types';
 import { ST_SIGNAL_DOTS_INDICATOR } from '../../../../features/shared/components/flex-chart/indicators/st-signal-dots.indicator';
+import { detectZoneZeroCrossDots } from '../../../../features/shared/components/flex-chart/indicators/st-trend-rider-dots.indicator';
+import type { PriceBar } from '../../../../features/shared/components/flex-chart/flex-chart.types';
 import type { StSignalItem } from '../../services/st.service';
 import type { IntervalData } from '../../common/indicator.types';
 import { toDatePt } from '../../utils/utils';
 import type { ChartScatterPoint } from './base-indicators';
-import { UptickDotColors } from './base-indicators';
+import { UptickDotColors, ZeroCrossDotColors } from './base-indicators';
 
 const SIGNAL_DOT_LONG_COLOR = '#4caf50';
 const SIGNAL_DOT_SHORT_COLOR = '#f44336';
@@ -92,4 +94,45 @@ export function convertHtfWindowData(
     ? intervalData?.htfWindows?.weekly
     : intervalData?.htfWindows?.monthly;
   return (markers ?? []).map((m) => ({ x: toDatePt(m.d), y: m.y, color: m.color }));
+}
+
+/**
+ * Compute Trend Rider Zero Cross dots client-side from zone indicator data.
+ * Fires when the zone value flips sign between consecutive bars. Unlike the
+ * Trend Rider confirmation dots (which come from backend pre-computed
+ * dotMarkers), zero-cross dots are derived from the raw zone series because
+ * the backend does not compute them.
+ *
+ * Null/missing zone values break the sequence — a cross is only detected
+ * between two consecutive bars that both have defined zone values.
+ *
+ * @param intervalData  - Backend interval data containing zoneV1/zoneV2 series
+ * @param bars          - Price bars for ATR-based dot placement
+ * @param v1            - true for V1, false for V2
+ */
+export function computeZeroCrossDots(
+  intervalData: IntervalData | undefined,
+  bars: PriceBar[],
+  v1: boolean,
+): ChartScatterPoint[] {
+  const zonePoints = v1
+    ? intervalData?.indicators?.zoneV1
+    : intervalData?.indicators?.zoneV2;
+  if (!zonePoints || zonePoints.length === 0 || bars.length === 0) return [];
+
+  // Build zone data in { x: Date, y: number } format, preserving nulls as
+  // undefined so detectZoneZeroCrossDots can break the sequence on gaps
+  const zoneData: { x: Date; y: number | undefined }[] = [];
+  for (const p of zonePoints) {
+    zoneData.push({ x: toDatePt(p.d), y: p.zone ?? undefined });
+  }
+  if (zoneData.length === 0) return [];
+
+  const dots = detectZoneZeroCrossDots(
+    zoneData,
+    bars,
+    ZeroCrossDotColors.long,
+    ZeroCrossDotColors.short,
+  );
+  return dots.map(d => ({ x: d.x, y: d.y, color: d.color }));
 }

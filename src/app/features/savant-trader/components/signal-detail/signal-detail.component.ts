@@ -44,6 +44,8 @@ import {
   ST_ZONE_WINDOW_WEEKLY_INDICATOR,
   ST_ZONE_V1_UPTICK_DOTS_INDICATOR,
   ST_ZONE_V2_UPTICK_DOTS_INDICATOR,
+  ST_ZONE_V1_ZERO_CROSS_DOTS_INDICATOR,
+  ST_ZONE_V2_ZERO_CROSS_DOTS_INDICATOR,
   injectCallableIndicatorData,
 } from '../../utils/chart-indicators';
 import { SymbolHistoryStore } from '../../stores/symbol-history.store';
@@ -89,13 +91,17 @@ export class SignalDetailComponent {
     [ChartIntervalKey.DAILY]: [
       StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2,
       ST_SIGNAL_DOTS_INDICATOR.id, ST_ZONE_V1_UPTICK_DOTS_INDICATOR.id,
-      ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id, ST_ZONE_WINDOW_WEEKLY_INDICATOR.id,
+      ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id,
+      ST_ZONE_V1_ZERO_CROSS_DOTS_INDICATOR.id, ST_ZONE_V2_ZERO_CROSS_DOTS_INDICATOR.id,
+      ST_ZONE_WINDOW_WEEKLY_INDICATOR.id,
       StIndicator.ST_STD_DEV_LINES,
     ],
     [ChartIntervalKey.WEEKLY]: [
       StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2,
       ST_SIGNAL_DOTS_INDICATOR.id, ST_ZONE_V1_UPTICK_DOTS_INDICATOR.id,
-      ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id, ST_ZONE_WINDOW_MONTHLY_INDICATOR.id,
+      ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id,
+      ST_ZONE_V1_ZERO_CROSS_DOTS_INDICATOR.id, ST_ZONE_V2_ZERO_CROSS_DOTS_INDICATOR.id,
+      ST_ZONE_WINDOW_MONTHLY_INDICATOR.id,
     ],
     [ChartIntervalKey.MONTHLY]: [
       StIndicator.TREND_BANDS, StIndicator.TREND_STRENGTH, StIndicator.ZONE, StIndicator.ZONE_V2,
@@ -400,11 +406,18 @@ export class SignalDetailComponent {
   /** Weekly interval slice of the callable response — fed into `createExtrasSignals`. */
   private weeklyIntervalData = computed(() => this.indicatorResponse()?.intervals?.weekly);
 
+  /** Daily price bars as a signal — fed into `createExtrasSignals` for zero-cross ATR placement. */
+  private dailyBars = computed(() => this.chartData()?.bars ?? []);
+  /** Weekly price bars as a signal — fed into `createExtrasSignals` for zero-cross ATR placement. */
+  private weeklyBars = computed(() => this.chartDataWeekly()?.bars ?? []);
+
   /** Derived computed signals for all backend-supplied extras (HTF windows, signal dots,
-   *  uptick dots). Centralised here so daily and weekly charts share the same conversions.
-   *  Must be declared after `dailyIntervalData` and `weeklyIntervalData`.
+   *  uptick dots, zero-cross dots). Centralised here so daily and weekly charts share the same conversions.
+   *  Must be declared after `dailyIntervalData`, `weeklyIntervalData`, `dailyBars`, and `weeklyBars`.
    */
-  private readonly extras = createExtrasSignals(this.dailyIntervalData, this.weeklyIntervalData);
+  private readonly extras = createExtrasSignals(
+    this.dailyIntervalData, this.weeklyIntervalData, this.dailyBars, this.weeklyBars,
+  );
 
   // ==========================================================================
   // Per-interval indicator config computeds (daily / weekly / monthly)
@@ -424,6 +437,8 @@ export class SignalDetailComponent {
       signalDots: sel.has(ST_SIGNAL_DOTS_INDICATOR.id) ? this.extras.dailySignalDots() : undefined,
       uptickDotsV1: sel.has(ST_ZONE_V1_UPTICK_DOTS_INDICATOR.id) ? this.extras.dailyUptickDotsV1() : undefined,
       uptickDotsV2: sel.has(ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id) ? this.extras.dailyUptickDotsV2() : undefined,
+      zeroCrossDotsV1: sel.has(ST_ZONE_V1_ZERO_CROSS_DOTS_INDICATOR.id) ? this.extras.dailyZeroCrossDotsV1() : undefined,
+      zeroCrossDotsV2: sel.has(ST_ZONE_V2_ZERO_CROSS_DOTS_INDICATOR.id) ? this.extras.dailyZeroCrossDotsV2() : undefined,
     });
   });
 
@@ -441,6 +456,8 @@ export class SignalDetailComponent {
       signalDots: sel.has(ST_SIGNAL_DOTS_INDICATOR.id) ? this.extras.weeklySignalDots() : undefined,
       uptickDotsV1: sel.has(ST_ZONE_V1_UPTICK_DOTS_INDICATOR.id) ? this.extras.weeklyUptickDotsV1() : undefined,
       uptickDotsV2: sel.has(ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id) ? this.extras.weeklyUptickDotsV2() : undefined,
+      zeroCrossDotsV1: sel.has(ST_ZONE_V1_ZERO_CROSS_DOTS_INDICATOR.id) ? this.extras.weeklyZeroCrossDotsV1() : undefined,
+      zeroCrossDotsV2: sel.has(ST_ZONE_V2_ZERO_CROSS_DOTS_INDICATOR.id) ? this.extras.weeklyZeroCrossDotsV2() : undefined,
     });
   });
 
