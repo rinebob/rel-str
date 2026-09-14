@@ -3,6 +3,10 @@
 ## [2026-09-14]
 
 ### Added
+- [Portfolio Dashboard] 219-314_SHARED-IMPL-PORTFOLIO: Add PnlTrade types and getPnlTradeHistory client method
+- [Portfolio Dashboard] 219-314_FE-IMPL-PORTFOLIO: Wire closed trades into portfolio dashboard store and component
+- [Portfolio Dashboard] 219-314_FE-IMPL-PORTFOLIO: Add tests for closed trades dashboard wiring
+- [Portfolio Dashboard] 219-314_DOCS-PORTFOLIO: Add code review doc and update changelog for Task #314
 - [Indicator Library] 261-311_SHARED-IMPL-INDICATOR-LIB: Add Trend Rider Zero Cross plots to ST Zones Pine
 - [Indicator Library] 261-311_DOCS-INDICATOR-LIB: Add code review doc for Task #311
 - [Indicator Library] 261-310_SHARED-IMPL-INDICATOR-LIB: Add Trend Rider Zero Cross detector and indicator options
