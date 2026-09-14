@@ -141,3 +141,61 @@ export function detectAllStTrendRiderSignals(
 
   return signals;
 }
+
+/**
+ * Detect all zone zero-cross signals across a full zone array.
+ *
+ * Fires on every sign flip between consecutive bars — no state machine gate,
+ * no confirmation delay. Zero is neutral (transitions to/from zero do not
+ * fire). NaN breaks the sequence (no cross fabricated across a gap).
+ *
+ * @param ltfZone   - Zone values per LTF bar (V1: -3/+3, V2: -4/+4), NaN for null
+ * @param ltfBars   - LTF OHLCV bars (for date alignment)
+ * @param version   - 'V1' or 'V2' for signal type naming
+ * @param timeframe - 'D' or 'W' for signal type prefix
+ */
+export function detectAllZoneZeroCrossSignals(
+  ltfZone: number[],
+  ltfBars: OHLCV[],
+  version: 'V1' | 'V2',
+  timeframe: 'D' | 'W',
+): ZoneSignal[] {
+  if (ltfZone.length < 2) return [];
+
+  const signals: ZoneSignal[] = [];
+
+  for (let i = 1; i < ltfZone.length; i++) {
+    const prevZone = ltfZone[i - 1];
+    const currZone = ltfZone[i];
+
+    // NaN breaks the sequence (null zones from BE become NaN)
+    if (Number.isNaN(prevZone) || Number.isNaN(currZone)) continue;
+
+    // Zero is neutral — transitions to/from zero do not fire
+    if (prevZone < 0 && currZone > 0) {
+      signals.push({
+        action: StSignalDirection.LONG,
+        signalType: `${timeframe}_ST_TREND_RIDER_${version}_LONG`,
+        reason: `ST Trend Rider: ${version} zone crossed zero ${prevZone}→${currZone}`,
+        index: i,
+        indicators: {
+          [`zone${version}`]: currZone,
+          [`zone${version}Prev`]: prevZone,
+        },
+      });
+    } else if (prevZone > 0 && currZone < 0) {
+      signals.push({
+        action: StSignalDirection.SHORT,
+        signalType: `${timeframe}_ST_TREND_RIDER_${version}_SHORT`,
+        reason: `ST Trend Rider: ${version} zone crossed zero ${prevZone}→${currZone}`,
+        index: i,
+        indicators: {
+          [`zone${version}`]: currZone,
+          [`zone${version}Prev`]: prevZone,
+        },
+      });
+    }
+  }
+
+  return signals;
+}

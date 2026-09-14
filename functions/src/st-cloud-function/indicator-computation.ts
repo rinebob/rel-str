@@ -9,7 +9,7 @@ import { computeStTrendBands } from '../indicators/st-trend-bands';
 import { computeStZone } from '../indicators/st-zone';
 import { computeStZoneV2 } from '../indicators/st-zone-v2';
 import { computeStTrendStrength } from '../indicators/st-trend-strength';
-import { detectAllStTrendRiderSignals } from './strategies/signal-detection';
+import { detectAllStTrendRiderSignals, detectAllZoneZeroCrossSignals } from './strategies/signal-detection';
 import { StSignalDirection } from './signals';
 import type { OHLCV } from '../indicators/st-trend-bands';
 import type { OhlcBar } from '../common/market-data-types';
@@ -338,7 +338,9 @@ function generateZoneSignals(
   const windowV2Numbers = windowV2.map((z: number | null) => (z === null ? NaN : z));
   const ohlcv = data.map((p: IndicatorDataPoint) => ({ open: 0, high: 0, low: 0, close: 0, date: p.d }));
 
-  const signals = detectAllStTrendRiderSignals(zoneNumbers, windowV2Numbers, ohlcv, version, timeframe);
+  const confirmationSignals = detectAllStTrendRiderSignals(zoneNumbers, windowV2Numbers, ohlcv, version, timeframe);
+  const zeroCrossSignals = detectAllZoneZeroCrossSignals(zoneNumbers, ohlcv, version, timeframe);
+  const signals = [...confirmationSignals, ...zeroCrossSignals].sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
   if (signals.length === 0) return [];
 
   return signals.map(signal => {
