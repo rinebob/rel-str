@@ -25,6 +25,8 @@ export interface AccountState {
   accountNumber: string;
   accountName: string;
   accountType: string;
+  /** Whether this account is allowed for agentic (agent-driven) order placement. */
+  agenticAllowed: boolean;
   portfolio: SectionData<PortfolioSnapshot>;
   equityPositions: SectionData<EquityPosition[]>;
   optionPositions: SectionData<OptionPosition[]>;

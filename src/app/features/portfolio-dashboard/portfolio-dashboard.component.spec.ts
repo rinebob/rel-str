@@ -14,6 +14,7 @@ import {
 } from './portfolio-dashboard.types';
 import { BrokerOrder } from '../../core/robinhood-mcp/types/robinhood-mcp.types';
 import { ClosePositionDialogComponent, ClosePositionDialogData } from './components/close-position-dialog/close-position-dialog.component';
+import { StopLossDialogComponent, StopLossDialogData } from './components/stop-loss-dialog/stop-loss-dialog.component';
 
 function makeEquityPosition(overrides: Partial<EquityPositionWithPnL> = {}): EquityPositionWithPnL {
   return {
@@ -35,6 +36,7 @@ function makeAccountState(name: string, number: string, overrides: Partial<Accou
     accountName: name,
     accountNumber: number,
     accountType: 'margin',
+    agenticAllowed: true,
     portfolio: { ...empty },
     equityPositions: { ...empty },
     optionPositions: { ...empty },
@@ -476,6 +478,50 @@ describe('PortfolioDashboardComponent', () => {
     dialog.open.and.returnValue({ afterClosed: () => of(false) });
     store.refresh.calls.reset();
     component.onClosePosition(pos);
+
+    expect(store.refresh).not.toHaveBeenCalled();
+  });
+
+  it('opens StopLossDialogComponent with position data when addStopLoss emitted', () => {
+    const pos = makeEquityPosition({ symbol: 'AAPL', quantity: 100, currentPrice: 175 });
+    store._setAccounts([makeAccountState('Account A', '123456')]);
+    store._setEquityPositions([pos]);
+    fixture.detectChanges();
+
+    const equity = fixture.debugElement.query((el) => el.name === 'app-equity-positions-table');
+    equity.triggerEventHandler('addStopLoss', pos);
+
+    expect(dialog.open).toHaveBeenCalledTimes(1);
+    const args = dialog.open.calls.mostRecent().args;
+    expect(args[0]).toBe(StopLossDialogComponent);
+    const data = args[1]?.data as StopLossDialogData;
+    expect(data.position.symbol).toBe('AAPL');
+    expect(data.position.quantity).toBe(100);
+    expect(data.currentPrice).toBe(175);
+    expect(data.accountNumber).toBe('123456');
+  });
+
+  it('calls store.refresh() after stop-loss dialog dismisses with success', () => {
+    const pos = makeEquityPosition({ symbol: 'AAPL', quantity: 100, currentPrice: 175 });
+    store._setAccounts([makeAccountState('Account A', '123456')]);
+    store._setEquityPositions([pos]);
+    fixture.detectChanges();
+
+    store.refresh.calls.reset();
+    component.onAddStopLoss(pos);
+
+    expect(store.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call store.refresh() when stop-loss dialog dismissed without success', () => {
+    const pos = makeEquityPosition({ symbol: 'AAPL', quantity: 100, currentPrice: 175 });
+    store._setAccounts([makeAccountState('Account A', '123456')]);
+    store._setEquityPositions([pos]);
+    fixture.detectChanges();
+
+    dialog.open.and.returnValue({ afterClosed: () => of(false) });
+    store.refresh.calls.reset();
+    component.onAddStopLoss(pos);
 
     expect(store.refresh).not.toHaveBeenCalled();
   });

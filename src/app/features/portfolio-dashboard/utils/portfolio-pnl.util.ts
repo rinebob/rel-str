@@ -27,13 +27,19 @@ const STOP_ORDER_TYPES: ReadonlySet<OrderType> = new Set<OrderType>(['stop_marke
  * Check whether an order is an active (non-terminal) protective stop-loss
  * sell order. Used by both `isStopLossProtecting` and `computeProtectedSymbols`
  * to keep the predicate in one place.
+ *
+ * Robinhood may return stop orders with `type: 'market'` or `type: 'limit'`
+ * alongside a non-null `stopPrice`. Such orders are treated as protective
+ * stops in addition to the explicit `stop_market`/`stop_limit` types.
  */
 function isProtectiveStopOrder(order: BrokerOrder): boolean {
-  if (!STOP_ORDER_TYPES.has(order.type)) return false;
   if (order.side !== 'sell') return false;
   if (order.symbol === null) return false;
   if (TERMINAL_ORDER_STATES.has(order.state)) return false;
-  return true;
+  // Explicit stop order types, or any sell order with a stop price set.
+  if (STOP_ORDER_TYPES.has(order.type)) return true;
+  if (order.stopPrice != null) return true;
+  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -83,7 +89,9 @@ export function computePnL(
  * Check whether an open stop-loss order protects a long position.
  *
  * Returns true when:
- * - Order type is `stop_market` or `stop_limit`
+ * - Order type is `stop_market` or `stop_limit`, OR the order has a non-null
+ *   `stopPrice` (Robinhood may return stop orders as `type: 'market'` with a
+ *   stop price set)
  * - Order side is `sell` (closing direction for a long)
  * - Order is not in a terminal state (filled, cancelled, rejected, etc.)
  * - Order symbol matches a position with non-zero quantity
@@ -108,7 +116,8 @@ export function isStopLossProtecting(order: BrokerOrder, positions: EquityPositi
  *
  * Single-pass O(n + m): build a Set of position symbols with non-zero quantity,
  * then iterate orders and collect symbols where an active stop-loss sell order
- * matches an open position.
+ * (explicit `stop_market`/`stop_limit` type, or any sell order with a non-null
+ * `stopPrice`) matches an open position.
  */
 export function computeProtectedSymbols(
   orders: BrokerOrder[],

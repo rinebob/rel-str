@@ -161,11 +161,25 @@ describe('isStopLossProtecting', () => {
     expect(isStopLossProtecting(order, positions)).toBe(true);
   });
 
-  it('returns false when order type is not a stop type', () => {
-    const order = makeOrder({ type: 'limit', side: 'sell', symbol: 'AAPL' });
+  it('returns false when order type is not a stop type and has no stop price', () => {
+    const order = makeOrder({ type: 'limit', side: 'sell', symbol: 'AAPL', stopPrice: null });
     const positions = [makePosition({ symbol: 'AAPL', quantity: 100 })];
 
     expect(isStopLossProtecting(order, positions)).toBe(false);
+  });
+
+  it('returns true when market sell order has a stop price (Robinhood stop order)', () => {
+    const order = makeOrder({ type: 'market', side: 'sell', symbol: 'AAPL', stopPrice: 150.00 });
+    const positions = [makePosition({ symbol: 'AAPL', quantity: 100 })];
+
+    expect(isStopLossProtecting(order, positions)).toBe(true);
+  });
+
+  it('returns true when limit sell order has a stop price (Robinhood stop-limit)', () => {
+    const order = makeOrder({ type: 'limit', side: 'sell', symbol: 'AAPL', stopPrice: 150.00 });
+    const positions = [makePosition({ symbol: 'AAPL', quantity: 100 })];
+
+    expect(isStopLossProtecting(order, positions)).toBe(true);
   });
 
   it('returns false when order side is buy (buy stop does not protect a long)', () => {
@@ -202,8 +216,8 @@ describe('isStopLossProtecting', () => {
     expect(isStopLossProtecting(order, positions)).toBe(false);
   });
 
-  it('returns false for unknown order type', () => {
-    const order = makeOrder({ type: 'unknown', side: 'sell', symbol: 'AAPL' });
+  it('returns false for unknown order type with no stop price', () => {
+    const order = makeOrder({ type: 'unknown', side: 'sell', symbol: 'AAPL', stopPrice: null });
     const positions = [makePosition({ symbol: 'AAPL', quantity: 100 })];
 
     expect(isStopLossProtecting(order, positions)).toBe(false);
@@ -240,7 +254,7 @@ describe('computeProtectedSymbols', () => {
     const orders = [
       makeOrder({ orderId: '1', type: 'stop_market', side: 'sell', symbol: 'AAPL' }),
       makeOrder({ orderId: '2', type: 'stop_limit', side: 'sell', symbol: 'NVDA' }),
-      makeOrder({ orderId: '3', type: 'limit', side: 'sell', symbol: 'GOOG' }),
+      makeOrder({ orderId: '3', type: 'limit', side: 'sell', symbol: 'GOOG', stopPrice: null }),
     ];
     const positions = [
       makePosition({ symbol: 'AAPL', quantity: 100 }),
@@ -258,8 +272,8 @@ describe('computeProtectedSymbols', () => {
 
   it('returns empty set when no orders are stop-loss orders', () => {
     const orders = [
-      makeOrder({ orderId: '1', type: 'market', side: 'sell', symbol: 'AAPL' }),
-      makeOrder({ orderId: '2', type: 'limit', side: 'sell', symbol: 'NVDA' }),
+      makeOrder({ orderId: '1', type: 'market', side: 'sell', symbol: 'AAPL', stopPrice: null }),
+      makeOrder({ orderId: '2', type: 'limit', side: 'sell', symbol: 'NVDA', stopPrice: null }),
     ];
     const positions = [makePosition({ symbol: 'AAPL', quantity: 100 })];
 
@@ -368,6 +382,23 @@ describe('computeProtectedSymbols', () => {
     const orders = [
       makeOrder({ orderId: '1', type: 'stop_market', side: 'sell', symbol: 'AAPL', state: 'confirmed' }),
       makeOrder({ orderId: '2', type: 'stop_market', side: 'sell', symbol: 'NVDA', state: 'filled' }),
+    ];
+    const positions = [
+      makePosition({ symbol: 'AAPL', quantity: 100 }),
+      makePosition({ symbol: 'NVDA', quantity: 50 }),
+    ];
+
+    const result = computeProtectedSymbols(orders, positions);
+
+    expect(result.size).toBe(1);
+    expect(result.has('AAPL')).toBe(true);
+    expect(result.has('NVDA')).toBe(false);
+  });
+
+  it('detects market sell orders with stop prices as protective (Robinhood stop orders)', () => {
+    const orders = [
+      makeOrder({ orderId: '1', type: 'market', side: 'sell', symbol: 'AAPL', stopPrice: 150.00 }),
+      makeOrder({ orderId: '2', type: 'market', side: 'sell', symbol: 'NVDA', stopPrice: null }),
     ];
     const positions = [
       makePosition({ symbol: 'AAPL', quantity: 100 }),

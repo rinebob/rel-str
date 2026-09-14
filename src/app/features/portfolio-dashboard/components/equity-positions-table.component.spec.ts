@@ -209,4 +209,67 @@ describe('EquityPositionsTableComponent', () => {
     fixture.nativeElement.querySelector('.pd-close-action').click();
     expect(spy).toHaveBeenCalledWith(pos);
   });
+
+  it('shows Add Stop action on unprotected open position rows', () => {
+    fixture.componentRef.setInput('positions', [makePosition({ symbol: 'AAPL', quantity: 100, closed: false })]);
+    fixture.componentRef.setInput('protectedSymbols', new Set<string>());
+    fixture.detectChanges();
+
+    const addStopBtn = fixture.nativeElement.querySelector('.pd-add-stop-action');
+    expect(addStopBtn).toBeTruthy();
+    expect(addStopBtn.textContent).toContain('Add Stop');
+  });
+
+  it('disables Add Stop action on protected positions', () => {
+    fixture.componentRef.setInput('positions', [makePosition({ symbol: 'AAPL', quantity: 100, closed: false })]);
+    fixture.componentRef.setInput('protectedSymbols', new Set<string>(['AAPL']));
+    fixture.detectChanges();
+
+    const addStopBtn = fixture.nativeElement.querySelector('.pd-add-stop-action');
+    expect(addStopBtn).toBeTruthy();
+    expect(addStopBtn.disabled).toBe(true);
+  });
+
+  it('does not disable Add Stop action on unprotected positions', () => {
+    fixture.componentRef.setInput('positions', [makePosition({ symbol: 'AAPL', quantity: 100, closed: false })]);
+    fixture.componentRef.setInput('protectedSymbols', new Set<string>());
+    fixture.detectChanges();
+
+    const addStopBtn = fixture.nativeElement.querySelector('.pd-add-stop-action');
+    expect(addStopBtn).toBeTruthy();
+    expect(addStopBtn.disabled).toBe(false);
+  });
+
+  it('does not show Add Stop action on closed positions', () => {
+    fixture.componentRef.setInput('positions', [makePosition({ symbol: 'CLOSED1', quantity: 0, closed: true })]);
+    fixture.componentRef.setInput('showClosed', true);
+    fixture.componentRef.setInput('protectedSymbols', new Set<string>());
+    fixture.detectChanges();
+
+    const addStopBtn = fixture.nativeElement.querySelector('.pd-add-stop-action');
+    expect(addStopBtn).toBeNull();
+  });
+
+  it('emits addStopLoss with the position when Add Stop clicked', () => {
+    const pos = makePosition({ symbol: 'AAPL', quantity: 100, closed: false });
+    fixture.componentRef.setInput('positions', [pos]);
+    fixture.componentRef.setInput('protectedSymbols', new Set<string>());
+    fixture.detectChanges();
+
+    const spy = jasmine.createSpy('addStopLoss');
+    component.addStopLoss.subscribe(spy);
+
+    fixture.nativeElement.querySelector('.pd-add-stop-action').click();
+    expect(spy).toHaveBeenCalledWith(pos);
+  });
+
+  it('does not show Close or Add Stop actions when account is not agent-enabled', () => {
+    fixture.componentRef.setInput('positions', [makePosition({ symbol: 'AAPL', quantity: 100, closed: false })]);
+    fixture.componentRef.setInput('protectedSymbols', new Set<string>());
+    fixture.componentRef.setInput('agenticAllowed', false);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.pd-close-action')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.pd-add-stop-action')).toBeNull();
+  });
 });

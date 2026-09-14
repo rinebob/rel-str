@@ -10,13 +10,14 @@ import { ChangeDetectionStrategy, Component, computed, input, output } from '@an
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { EquityPositionWithPnL } from '../portfolio-dashboard.types';
 
 @Component({
   selector: 'app-equity-positions-table',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [MatButtonModule, MatIconModule, MatProgressSpinnerModule, MatTooltipModule],
   templateUrl: './equity-positions-table.component.html',
   styleUrl: './equity-positions-table.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -26,9 +27,15 @@ export class EquityPositionsTableComponent {
   readonly loading = input(false);
   readonly error = input<string | null>(null);
   readonly showClosed = input(false);
+  /** Symbols with active stop-loss protection — disables the Add Stop button. */
+  readonly protectedSymbols = input<Set<string>>(new Set());
+  /** Whether the selected account is agent-enabled (controls action button visibility). */
+  readonly agenticAllowed = input(true);
   readonly retry = output<void>();
   readonly toggleClosed = output<void>();
   readonly closePosition = output<EquityPositionWithPnL>();
+  /** Emits the position when the user clicks Add Stop. */
+  readonly addStopLoss = output<EquityPositionWithPnL>();
 
   /** Positions filtered by closed state — closed positions hidden unless showClosed is true. */
   readonly visiblePositions = computed(() => {

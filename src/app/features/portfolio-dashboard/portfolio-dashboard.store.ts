@@ -53,6 +53,9 @@ import {
   updateAccount,
 } from './portfolio-dashboard.helpers';
 
+/** Primary agentic account number — sorted to the first tab in the dashboard. */
+const PRIMARY_AGENTIC_ACCOUNT_NUMBER = '677616245';
+
 const initialState: DashboardState = {
   accounts: [],
   selectedAccountIndex: 0,
@@ -212,8 +215,14 @@ export const PortfolioDashboardStore = signalStore(
 
     async function loadAccounts(): Promise<void> {
       const accounts = await client.getAccounts();
+      // Sort the primary agentic account to the first tab.
+      const sorted = [...accounts].sort((a, b) => {
+        if (a.accountNumber === PRIMARY_AGENTIC_ACCOUNT_NUMBER) return -1;
+        if (b.accountNumber === PRIMARY_AGENTIC_ACCOUNT_NUMBER) return 1;
+        return 0;
+      });
       patchState(store, {
-        accounts: accounts.map(createAccountState),
+        accounts: sorted.map(createAccountState),
         selectedAccountIndex: 0,
       });
     }

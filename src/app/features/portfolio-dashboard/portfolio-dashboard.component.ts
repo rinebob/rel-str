@@ -28,6 +28,7 @@ import { OptionPositionsTableComponent } from './components/option-positions-tab
 import { OpenOrdersTableComponent } from './components/open-orders-table.component';
 import { OrderHistoryTableComponent } from './components/order-history-table.component';
 import { ClosePositionDialogComponent, ClosePositionDialogData } from './components/close-position-dialog/close-position-dialog.component';
+import { StopLossDialogComponent, StopLossDialogData } from './components/stop-loss-dialog/stop-loss-dialog.component';
 import { EquityPositionWithPnL } from './portfolio-dashboard.types';
 
 @Component({
@@ -67,6 +68,8 @@ export class PortfolioDashboardComponent implements OnInit {
   readonly protectedSymbols = this.store.stopLossProtectedSymbols;
   readonly showClosedPositions = this.store.showClosedPositions;
   readonly showOrderHistory = this.store.showOrderHistory;
+  /** Whether the selected account is agent-enabled (controls action button visibility). */
+  readonly agenticAllowed = computed(() => this.selectedAccount()?.agenticAllowed ?? false);
 
   readonly hasAccounts = computed(() => this.accounts().length > 0);
 
@@ -121,6 +124,24 @@ export class PortfolioDashboardComponent implements OnInit {
     };
     this.dialog
       .open(ClosePositionDialogComponent, { data })
+      .afterClosed()
+      .subscribe((result) => {
+        if (result === true) {
+          this.store.refresh().catch(() => {});
+        }
+      });
+  }
+
+  onAddStopLoss(position: EquityPositionWithPnL): void {
+    const account = this.selectedAccount();
+    if (!account) return;
+    const data: StopLossDialogData = {
+      position,
+      currentPrice: position.currentPrice ?? 0,
+      accountNumber: account.accountNumber,
+    };
+    this.dialog
+      .open(StopLossDialogComponent, { data })
       .afterClosed()
       .subscribe((result) => {
         if (result === true) {

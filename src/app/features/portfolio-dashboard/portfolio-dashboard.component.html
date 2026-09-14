@@ -95,9 +95,12 @@
                 [loading]="sel.equityPositions.loading"
                 [error]="sel.equityPositions.error"
                 [showClosed]="showClosedPositions()"
+                [protectedSymbols]="protectedSymbols()"
+                [agenticAllowed]="agenticAllowed()"
                 (retry)="onRetrySection('equityPositions')"
                 (toggleClosed)="onToggleClosedPositions()"
                 (closePosition)="onClosePosition($event)"
+                (addStopLoss)="onAddStopLoss($event)"
               />
 
               <!-- Option Positions -->

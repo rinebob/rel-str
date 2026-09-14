@@ -29,7 +29,9 @@
             <th scope="col">Value</th>
             <th scope="col">PnL</th>
             <th scope="col">PnL%</th>
-            <th scope="col">Actions</th>
+            @if (agenticAllowed()) {
+              <th scope="col">Actions</th>
+            }
           </tr>
         </thead>
         <tbody>
@@ -47,18 +49,43 @@
               <td [class.pd-positive]="pos.pnlPercent != null && pos.pnlPercent >= 0" [class.pd-negative]="pos.pnlPercent != null && pos.pnlPercent < 0">
                 {{ formatPnlPercent(pos.pnlPercent) }}
               </td>
-              <td>
-                @if (!pos.closed && pos.quantity != null && pos.quantity > 0) {
-                  <button
-                    type="button"
-                    mat-stroked-button
-                    class="pd-close-action"
-                    (click)="closePosition.emit(pos)"
-                  >
-                    Close
-                  </button>
-                }
-              </td>
+              @if (agenticAllowed()) {
+                <td>
+                  @if (!pos.closed && pos.quantity != null && pos.quantity > 0) {
+                    <div class="pd-actions">
+                      <button
+                        type="button"
+                        mat-stroked-button
+                        class="pd-close-action"
+                        (click)="closePosition.emit(pos)"
+                      >
+                        Close
+                      </button>
+                      @if (!protectedSymbols().has(pos.symbol)) {
+                        <button
+                          type="button"
+                          mat-stroked-button
+                          class="pd-add-stop-action"
+                          (click)="addStopLoss.emit(pos)"
+                        >
+                          Add Stop
+                        </button>
+                      } @else {
+                        <span matTooltip="Stop-loss already protecting this position">
+                          <button
+                            type="button"
+                            mat-stroked-button
+                            class="pd-add-stop-action"
+                            disabled
+                          >
+                            Add Stop
+                          </button>
+                        </span>
+                      }
+                    </div>
+                  }
+                </td>
+              }
             </tr>
           }
         </tbody>
@@ -74,7 +101,9 @@
             <td [class.pd-positive]="avgPnlPercent() != null && avgPnlPercent()! >= 0" [class.pd-negative]="avgPnlPercent() != null && avgPnlPercent()! < 0">
               {{ formatPnlPercent(avgPnlPercent()) }}
             </td>
-            <td></td>
+            @if (agenticAllowed()) {
+              <td></td>
+            }
           </tr>
         </tfoot>
       </table>

@@ -22,6 +22,7 @@ export function createAccountState(account: AccountInfo): AccountState {
     accountNumber: account.accountNumber,
     accountName: account.accountName,
     accountType: account.accountType,
+    agenticAllowed: account.agenticAllowed,
     portfolio: { ...empty } as SectionData<never>,
     equityPositions: { ...empty } as SectionData<never>,
     optionPositions: { ...empty } as SectionData<never>,
