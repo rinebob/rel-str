@@ -3,6 +3,9 @@
 ## [2026-09-14]
 
 ### Added
+- [Indicator Library] 261-310_SHARED-IMPL-INDICATOR-LIB: Add Trend Rider Zero Cross detector and indicator options
+- [Indicator Library] 261-310_FE-IMPL-INDICATOR-LIB: Wire zero-cross dots into ST chart extras
+- [Indicator Library] 261-310_DOCS-INDICATOR-LIB: Add Trend Rider Zero Cross PRD, IMPL, TEST, and code review docs
 - [Portfolio Dashboard] 219-297_FE-IMPL-PORTFOLIO: Wire stop-loss action into equity positions table
 - [Portfolio Dashboard] 219-297_DOCS-PORTFOLIO: Add code review doc for Task #297
 
