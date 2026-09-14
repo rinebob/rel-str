@@ -11,6 +11,7 @@ import {
   EquityQuote,
   OptionQuote,
   BrokerOrder,
+  PnlTrade,
 } from '../../core/robinhood-mcp/types/robinhood-mcp.types';
 
 /** Generic per-section wrapper with independent loading/error state. */
@@ -34,6 +35,8 @@ export interface AccountState {
   optionQuotes: SectionData<Map<string, OptionQuote>>;
   equityOrders: SectionData<BrokerOrder[]>;
   optionOrders: SectionData<BrokerOrder[]>;
+  /** Closed/realizing trade history (loaded on-demand when Show Closed is toggled). */
+  closedTrades: SectionData<PnlTrade[]>;
 }
 
 /** Top-level dashboard state. */
@@ -51,7 +54,7 @@ export interface EquityPositionWithPnL extends EquityPosition {
   currentPrice: number | null;
   pnl: number | null;
   pnlPercent: number | null;
-  /** True when position is closed (quantity === 0). */
+  /** True when the position is closed (quantity === 0) or this is a closed trade from history. */
   closed: boolean;
 }
 
@@ -82,4 +85,5 @@ export type SectionName =
   | 'optionQuotes'
   | 'equityOrders'
   | 'optionOrders'
-  | 'orders';
+  | 'orders'
+  | 'closedTrades';

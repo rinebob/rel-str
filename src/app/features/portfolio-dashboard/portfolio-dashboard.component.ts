@@ -61,7 +61,7 @@ export class PortfolioDashboardComponent implements OnInit {
   readonly globalLoading = this.store.globalLoading;
   readonly loadError = this.store.loadError;
 
-  readonly equityPositions = this.store.equityPositionsWithPnL;
+  readonly equityPositions = this.store.displayedEquityPositions;
   readonly optionPositions = this.store.optionPositionsWithPnL;
   readonly openOrders = this.store.openOrders;
   readonly orderHistory = this.store.orderHistory;

@@ -30,6 +30,7 @@ export function createAccountState(account: AccountInfo): AccountState {
     optionQuotes: { ...empty } as SectionData<never>,
     equityOrders: { ...empty } as SectionData<never>,
     optionOrders: { ...empty } as SectionData<never>,
+    closedTrades: { ...empty } as SectionData<never>,
   };
 }
 
