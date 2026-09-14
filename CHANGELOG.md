@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026-09-14]
+
+### Added
+- [Portfolio Dashboard] 219-297_FE-IMPL-PORTFOLIO: Wire stop-loss action into equity positions table
+- [Portfolio Dashboard] 219-297_DOCS-PORTFOLIO: Add code review doc for Task #297
+
 ## [2026-09-13]
 
 ### Added
