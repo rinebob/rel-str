@@ -11,6 +11,8 @@ import {
   EquityQuote,
   OptionQuote,
   BrokerOrder,
+  PnlTrade,
+  PnlTradeHistory,
   RobinhoodMcpError,
 } from './types/robinhood-mcp.types';
 import { ToolExecutionErrorCategory, type ToolExecutionResult } from '@robinhood-mcp/contracts';
@@ -796,6 +798,187 @@ describe('RobinhoodMcpClient', () => {
         expect(err).toBeInstanceOf(RobinhoodMcpError);
         expect((err as RobinhoodMcpError).tool).toBe('get_option_quotes');
       }
+    });
+  });
+
+  // ===========================================================================
+  // getPnlTradeHistory
+  // ===========================================================================
+
+  describe('getPnlTradeHistory', () => {
+    it('returns normalized trade history from { data: { trades: [...] } } shape', async () => {
+      mockResolve({
+        success: true,
+        parsed: {
+          data: {
+            account_number: '123456789',
+            span: 'week',
+            trades: [
+              {
+                timestamp: '2026-09-14T13:30:03Z',
+                symbol: 'AAPL',
+                side: 'sell',
+                quantity: '10',
+                price: '175.00',
+                realized_gain: '250.00',
+              },
+              {
+                timestamp: '2026-09-08T13:30:00Z',
+                symbol: 'GOOG',
+                side: 'sell',
+                quantity: '5',
+                price: '140.00',
+                realized_gain: '-50.00',
+              },
+            ],
+            next_cursor: '',
+          },
+        },
+        redacted: {},
+        tool: 'get_pnl_trade_history',
+      });
+
+      const history = await client.getPnlTradeHistory('123456789');
+
+      expect(history).toEqual({
+        accountNumber: '123456789',
+        span: 'week',
+        trades: [
+          {
+            timestamp: '2026-09-14T13:30:03Z',
+            symbol: 'AAPL',
+            side: 'sell',
+            quantity: 10,
+            price: 175,
+            realizedGain: 250,
+          },
+          {
+            timestamp: '2026-09-08T13:30:00Z',
+            symbol: 'GOOG',
+            side: 'sell',
+            quantity: 5,
+            price: 140,
+            realizedGain: -50,
+          },
+        ],
+        nextCursor: '',
+      } satisfies PnlTradeHistory);
+    });
+
+    it('returns empty trades array when no trades in window', async () => {
+      mockResolve({
+        success: true,
+        parsed: {
+          data: {
+            account_number: '123456789',
+            span: 'week',
+            trades: [],
+            next_cursor: '',
+          },
+        },
+        redacted: {},
+        tool: 'get_pnl_trade_history',
+      });
+
+      const history = await client.getPnlTradeHistory('123456789');
+
+      expect(history.trades).toEqual([]);
+      expect(history.nextCursor).toBe('');
+    });
+
+    it('preserves next_cursor for pagination', async () => {
+      mockResolve({
+        success: true,
+        parsed: {
+          data: {
+            account_number: '123456789',
+            span: 'all',
+            trades: [{ timestamp: '2026-01-01T00:00:00Z', symbol: 'AAPL', side: 'sell', quantity: '1', price: '100', realized_gain: '10' }],
+            next_cursor: 'cursor-abc-123',
+          },
+        },
+        redacted: {},
+        tool: 'get_pnl_trade_history',
+      });
+
+      const history = await client.getPnlTradeHistory('123456789', 'all');
+
+      expect(history.nextCursor).toBe('cursor-abc-123');
+    });
+
+    it('passes span arg when provided', async () => {
+      mockResolve({
+        success: true,
+        parsed: { data: { account_number: '123456789', span: '3month', trades: [], next_cursor: '' } },
+        redacted: {},
+        tool: 'get_pnl_trade_history',
+      });
+
+      await client.getPnlTradeHistory('123456789', '3month');
+
+      expect(mcp.executeTool).toHaveBeenCalledWith('get_pnl_trade_history', { args: { account_number: '123456789', span: '3month' } });
+    });
+
+    it('omits span arg when not provided', async () => {
+      mockResolve({
+        success: true,
+        parsed: { data: { account_number: '123456789', span: 'week', trades: [], next_cursor: '' } },
+        redacted: {},
+        tool: 'get_pnl_trade_history',
+      });
+
+      await client.getPnlTradeHistory('123456789');
+
+      expect(mcp.executeTool).toHaveBeenCalledWith('get_pnl_trade_history', { args: { account_number: '123456789' } });
+    });
+
+    it('throws RobinhoodMcpError on failure', async () => {
+      mockFailure('MCP error', ToolExecutionErrorCategory.MCP);
+
+      try {
+        await client.getPnlTradeHistory('123456789');
+        fail('Expected throw');
+      } catch (err) {
+        expect(err).toBeInstanceOf(RobinhoodMcpError);
+        expect((err as RobinhoodMcpError).tool).toBe('get_pnl_trade_history');
+      }
+    });
+
+    it('handles missing trades array gracefully', async () => {
+      mockResolve({
+        success: true,
+        parsed: { data: { account_number: '123456789', span: 'week' } },
+        redacted: {},
+        tool: 'get_pnl_trade_history',
+      });
+
+      const history = await client.getPnlTradeHistory('123456789');
+
+      expect(history.trades).toEqual([]);
+      expect(history.nextCursor).toBe('');
+    });
+
+    it('handles empty-side trades (options assignments)', async () => {
+      mockResolve({
+        success: true,
+        parsed: {
+          data: {
+            account_number: '123456789',
+            span: 'all',
+            trades: [
+              { timestamp: '2026-01-01T00:00:00Z', symbol: 'AAPL', side: '', quantity: '10', price: '150', realized_gain: '0' },
+            ],
+            next_cursor: '',
+          },
+        },
+        redacted: {},
+        tool: 'get_pnl_trade_history',
+      });
+
+      const history = await client.getPnlTradeHistory('123456789');
+
+      expect(history.trades.length).toBe(1);
+      expect(history.trades[0].side).toBe('');
     });
   });
 });

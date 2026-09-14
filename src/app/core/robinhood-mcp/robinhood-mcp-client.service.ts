@@ -25,6 +25,9 @@ import {
   BrokerOrder,
   OrderState,
   OrderType,
+  PnlTrade,
+  PnlTradeHistory,
+  PnlTradeSpan,
   RobinhoodMcpError,
 } from './types/robinhood-mcp.types';
 import { ToolExecutionErrorCategory, type ToolExecutionResult } from '@robinhood-mcp/contracts';
@@ -197,6 +200,39 @@ export class RobinhoodMcpClient {
 
     const raw = this.extractList(result.parsed, 'orders');
     return this.normalizeOrders(raw, accountNumber, 'option');
+  }
+
+  // ---------------------------------------------------------------------------
+  // PnL Trade History
+  // ---------------------------------------------------------------------------
+
+  async getPnlTradeHistory(
+    accountNumber: string,
+    span?: PnlTradeSpan,
+  ): Promise<PnlTradeHistory> {
+    const args: Record<string, unknown> = { account_number: accountNumber };
+    if (span) args['span'] = span;
+
+    const result = await this.mcp.executeTool('get_pnl_trade_history', { args });
+    if (!result.success) {
+      throw new RobinhoodMcpError(result.error, 'get_pnl_trade_history', result.category);
+    }
+
+    const data = this.extractNested(result.parsed, 'data');
+    const rawTrades = Array.isArray(data['trades']) ? data['trades'] as Record<string, unknown>[] : [];
+    return {
+      accountNumber: String(data['account_number'] ?? accountNumber),
+      span: String(data['span'] ?? span ?? 'week') as PnlTradeSpan,
+      trades: rawTrades.map((t): PnlTrade => ({
+        timestamp: String(t['timestamp'] ?? ''),
+        symbol: String(t['symbol'] ?? ''),
+        side: String(t['side'] ?? ''),
+        quantity: this.toNumber(t['quantity']),
+        price: this.toNumber(t['price']),
+        realizedGain: this.toNumber(t['realized_gain']),
+      })),
+      nextCursor: String(data['next_cursor'] ?? ''),
+    };
   }
 
   // ---------------------------------------------------------------------------
