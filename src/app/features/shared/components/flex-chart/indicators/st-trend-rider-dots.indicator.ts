@@ -49,6 +49,28 @@ export const ST_ZONE_V2_UPTICK_DOTS_INDICATOR: IndicatorOption = {
   },
 };
 
+export const ST_ZONE_V1_ZERO_CROSS_DOTS_INDICATOR: IndicatorOption = {
+  id: 'st-zone-v1-zero-cross-dots',
+  label: 'ST Zero Cross V1',
+  type: StIndicator.ZONE_ZERO_CROSS_DOTS,
+  defaultPane: 'overlay',
+  params: [],
+  defaultOptions: {
+    name: 'ST Zero Cross V1',
+  },
+};
+
+export const ST_ZONE_V2_ZERO_CROSS_DOTS_INDICATOR: IndicatorOption = {
+  id: 'st-zone-v2-zero-cross-dots',
+  label: 'ST Zero Cross V2',
+  type: StIndicator.ZONE_ZERO_CROSS_DOTS,
+  defaultPane: 'overlay',
+  params: [],
+  defaultOptions: {
+    name: 'ST Zero Cross V2',
+  },
+};
+
 // =============================================================================
 // 2. SIGNAL DETECTION + DOT COMPUTATION
 // =============================================================================
@@ -91,6 +113,20 @@ function computeATR(bars: PriceBar[], period = 14): number[] {
 
 const ATR_OFFSET_MULT = 2.5;
 
+/** Shared bar lookup + ATR offset context for dot placement. */
+interface DotPlacementContext {
+  barMap: Map<number, { bar: PriceBar; idx: number }>;
+  atr: number[];
+}
+
+/** Build the bar lookup map and ATR array used by both uptick and zero-cross dot detection. */
+function buildDotPlacementContext(bars: PriceBar[]): DotPlacementContext {
+  const barMap = new Map<number, { bar: PriceBar; idx: number }>();
+  bars.forEach((bar, idx) => barMap.set(bar.x.getTime(), { bar, idx }));
+  const atr = computeATR(bars);
+  return { barMap, atr };
+}
+
 
 /**
  * Detect ST Trend Rider signals and return scatter dot points for the main chart.
@@ -110,12 +146,8 @@ export function detectZoneUptickDots(
 ): UptickDotPoint[] {
   if (ltfZoneData.length === 0 || htfZoneData.length === 0 || ltfBars.length === 0) return [];
 
-  // Build bar lookup by date for price data and ATR
-  const barMap = new Map<number, { bar: PriceBar; idx: number }>();
-  ltfBars.forEach((bar, idx) => barMap.set(bar.x.getTime(), { bar, idx }));
-
-  // Compute ATR for offset
-  const atr = computeATR(ltfBars);
+  // Build bar lookup + ATR offset context
+  const { barMap, atr } = buildDotPlacementContext(ltfBars);
 
   // Map HTF zone per LTF zone data point (by date, not index)
   const sortedHtf = [...htfZoneData].sort((a, b) => a.x.getTime() - b.x.getTime());
@@ -205,6 +237,60 @@ export function detectZoneUptickDots(
     } else {
       // HTF not negative, reset short state
       shortState = 'READY';
+    }
+  }
+
+  return dots;
+}
+
+/**
+ * Detect Trend Rider Zero Cross signals and return scatter dot points for the
+ * main chart. Fires when the zone value flips sign between consecutive bars —
+ * no state machine, no confirmation delay. The earliest Trend Rider entry
+ * signal: the moment the regime shifts.
+ *
+ * @param zoneData    - Zone indicator output (V1 or V2)
+ * @param bars        - Price bars for dot Y placement (high/low ± ATR offset)
+ * @param longColor   - Dot color for bullish zero-cross (sign flip negative→positive)
+ * @param shortColor  - Dot color for bearish zero-cross (sign flip positive→negative)
+ */
+export function detectZoneZeroCrossDots(
+  zoneData: { x: Date; y: number | undefined }[],
+  bars: PriceBar[],
+  longColor: string,
+  shortColor: string,
+): UptickDotPoint[] {
+  if (zoneData.length === 0 || bars.length === 0) return [];
+
+  // Build bar lookup + ATR offset context
+  const { barMap, atr } = buildDotPlacementContext(bars);
+
+  const dots: UptickDotPoint[] = [];
+
+  for (let i = 1; i < zoneData.length; i++) {
+    const prevZone = zoneData[i - 1].y;
+    const currZone = zoneData[i].y;
+
+    // Skip if either zone is missing (null/undefined) — breaks the sequence
+    // so a cross is only detected between two consecutive defined values
+    if (prevZone === undefined || currZone === undefined) continue;
+
+    // Sign flip detection — zero is treated as neutral and does not trigger
+    const bullishCross = prevZone < 0 && currZone > 0;
+    const bearishCross = prevZone > 0 && currZone < 0;
+    if (!bullishCross && !bearishCross) continue;
+
+    const zoneTime = zoneData[i].x.getTime();
+    const entry = barMap.get(zoneTime);
+    if (!entry) continue;
+    const { bar, idx } = entry;
+
+    const offset = atr[idx] * ATR_OFFSET_MULT;
+
+    if (bullishCross) {
+      dots.push({ x: bar.x, y: bar.low - offset, color: longColor });
+    } else {
+      dots.push({ x: bar.x, y: bar.high + offset, color: shortColor });
     }
   }
 

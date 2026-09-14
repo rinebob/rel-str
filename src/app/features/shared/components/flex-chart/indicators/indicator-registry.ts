@@ -15,7 +15,7 @@ export { ST_ZONE_V2_INDICATOR, calculateStZoneV2 } from './st-zone-v2.indicator'
 export { ST_TREND_STRENGTH_INDICATOR, calculateStTrendStrength } from './st-trend-strength.indicator';
 export { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR, computeZoneWindowData } from './st-zone-window.indicator';
 export { ST_SIGNAL_DOTS_INDICATOR, computeSignalDots } from './st-signal-dots.indicator';
-export { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, detectZoneUptickDots } from './st-trend-rider-dots.indicator';
+export { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, ST_ZONE_V1_ZERO_CROSS_DOTS_INDICATOR, ST_ZONE_V2_ZERO_CROSS_DOTS_INDICATOR, detectZoneUptickDots, detectZoneZeroCrossDots } from './st-trend-rider-dots.indicator';
 export { ST_TREND_BAND_WIDTH_INDICATOR, calculateStTrendBandWidth, computeBandWidthDots } from './st-trend-band-width.indicator';
 export { ST_STD_DEV_LINES_INDICATOR, calculateStdDevLines, computeStdDevLinesSeries } from './st-std-dev-lines.indicator';
 export type { StdDevLineSeriesData, StdDevLineSeries, StdDevFillZone } from './st-std-dev-lines.indicator';
@@ -31,7 +31,7 @@ import { ST_ZONE_V2_INDICATOR, calculateStZoneV2 } from './st-zone-v2.indicator'
 import { ST_TREND_STRENGTH_INDICATOR, calculateStTrendStrength } from './st-trend-strength.indicator';
 import { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR } from './st-zone-window.indicator';
 import { ST_SIGNAL_DOTS_INDICATOR } from './st-signal-dots.indicator';
-import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR } from './st-trend-rider-dots.indicator';
+import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, ST_ZONE_V1_ZERO_CROSS_DOTS_INDICATOR, ST_ZONE_V2_ZERO_CROSS_DOTS_INDICATOR } from './st-trend-rider-dots.indicator';
 import { ST_TREND_BAND_WIDTH_INDICATOR, calculateStTrendBandWidth } from './st-trend-band-width.indicator';
 import { ST_STD_DEV_LINES_INDICATOR, calculateStdDevLines } from './st-std-dev-lines.indicator';
 
@@ -44,6 +44,8 @@ export const ST_INDICATOR_OPTIONS: IndicatorOption[] = [
   ST_SIGNAL_DOTS_INDICATOR,
   ST_ZONE_V1_UPTICK_DOTS_INDICATOR,
   ST_ZONE_V2_UPTICK_DOTS_INDICATOR,
+  ST_ZONE_V1_ZERO_CROSS_DOTS_INDICATOR,
+  ST_ZONE_V2_ZERO_CROSS_DOTS_INDICATOR,
   ST_STD_DEV_LINES_INDICATOR,
 ];
 
@@ -68,7 +70,8 @@ const SERIES_TYPE_MAP: Partial<Record<IndicatorType, SeriesType>> = {
   [StIndicator.ZONE_V2]:          'scatter',
   [StIndicator.ZONE_WINDOW]:      'scatter',
   [StIndicator.SIGNAL_DOTS]:      'scatter',
-  [StIndicator.ZONE_UPTICK_DOTS]:  'scatter',
+  [StIndicator.ZONE_UPTICK_DOTS]:      'scatter',
+  [StIndicator.ZONE_ZERO_CROSS_DOTS]:   'scatter',
   [StIndicator.TREND_BAND_WIDTH]:   'column',
   [StIndicator.ST_STD_DEV_LINES]:      'line',
 };
