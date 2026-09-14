@@ -11,6 +11,8 @@ import {
   makeOrder,
   makeOptionOrder,
   makePortfolio,
+  makePnlTrade,
+  makePnlTradeHistory,
   resolve,
   reject,
   setupStore,
@@ -402,6 +404,101 @@ describe('PortfolioDashboardStore', () => {
       expect(store.showClosedPositions()).toBe(true);
       store.toggleClosedPositions();
       expect(store.showClosedPositions()).toBe(false);
+    });
+
+    it('loads closed trades on-demand when toggling on', async () => {
+      client.getAccounts.and.returnValue(resolve([makeAccount({ accountNumber: '111' })]));
+      await store.loadAccounts();
+
+      client.getPnlTradeHistory.and.returnValue(resolve(makePnlTradeHistory({
+        accountNumber: '111',
+        trades: [makePnlTrade({ symbol: 'AAPL', side: 'sell' })],
+      })));
+
+      store.toggleClosedPositions();
+      await new Promise((r) => setTimeout(r, 0));
+
+      expect(client.getPnlTradeHistory).toHaveBeenCalledWith('111', '3month');
+      const acct = store.accounts()[0];
+      expect(acct.closedTrades.data).toEqual([makePnlTrade({ symbol: 'AAPL', side: 'sell' })]);
+      expect(acct.closedTrades.loading).toBe(false);
+      expect(acct.closedTrades.error).toBeNull();
+    });
+
+    it('does not reload closed trades if already loaded', async () => {
+      client.getAccounts.and.returnValue(resolve([makeAccount({ accountNumber: '111' })]));
+      await store.loadAccounts();
+
+      client.getPnlTradeHistory.and.returnValue(resolve(makePnlTradeHistory()));
+      store.toggleClosedPositions();
+      await new Promise((r) => setTimeout(r, 0));
+      expect(client.getPnlTradeHistory).toHaveBeenCalledTimes(1);
+
+      // Toggle off then on again — should not reload
+      store.toggleClosedPositions();
+      store.toggleClosedPositions();
+      await new Promise((r) => setTimeout(r, 0));
+      expect(client.getPnlTradeHistory).toHaveBeenCalledTimes(1);
+    });
+
+    it('filters to sell-side equity trades only', async () => {
+      client.getAccounts.and.returnValue(resolve([makeAccount({ accountNumber: '111' })]));
+      await store.loadAccounts();
+
+      client.getPnlTradeHistory.and.returnValue(resolve(makePnlTradeHistory({
+        trades: [
+          makePnlTrade({ symbol: 'AAPL', side: 'sell' }),
+          makePnlTrade({ symbol: 'GOOG', side: 'buy' }),
+          makePnlTrade({ symbol: '', side: 'sell' }),
+          makePnlTrade({ symbol: 'TSLA', side: '' }),
+        ],
+      })));
+
+      store.toggleClosedPositions();
+      await new Promise((r) => setTimeout(r, 0));
+
+      const trades = store.accounts()[0].closedTrades.data ?? [];
+      expect(trades.length).toBe(1);
+      expect(trades[0].symbol).toBe('AAPL');
+    });
+
+    it('sets error on closedTrades when getPnlTradeHistory fails', async () => {
+      client.getAccounts.and.returnValue(resolve([makeAccount({ accountNumber: '111' })]));
+      await store.loadAccounts();
+
+      client.getPnlTradeHistory.and.returnValue(reject('MCP error'));
+      store.toggleClosedPositions();
+      await new Promise((r) => setTimeout(r, 0));
+
+      const acct = store.accounts()[0];
+      expect(acct.closedTrades.data).toBeNull();
+      expect(acct.closedTrades.error).toBe('MCP error');
+    });
+  });
+
+  describe('closedTradesWithPnL', () => {
+    it('maps closed trades to EquityPositionWithPnL with pnl and pnlPercent', async () => {
+      client.getAccounts.and.returnValue(resolve([makeAccount({ accountNumber: '111' })]));
+      await store.loadAccounts();
+
+      client.getPnlTradeHistory.and.returnValue(resolve(makePnlTradeHistory({
+        trades: [makePnlTrade({ symbol: 'AAPL', quantity: 10, price: 175, realizedGain: 250 })],
+      })));
+
+      store.toggleClosedPositions();
+      await new Promise((r) => setTimeout(r, 0));
+
+      const closed = store.closedTradesWithPnL();
+      expect(closed.length).toBe(1);
+      expect(closed[0].symbol).toBe('AAPL');
+      expect(closed[0].quantity).toBe(10);
+      expect(closed[0].currentPrice).toBe(175);
+      expect(closed[0].pnl).toBe(250);
+      expect(closed[0].closed).toBe(true);
+      // cost basis = (175 * 10) - 250 = 1500; avgBuyPrice = 1500 / 10 = 150
+      expect(closed[0].averageBuyPrice).toBe(150);
+      // pnlPercent = 250/1500 * 100 = 16.67
+      expect(closed[0].pnlPercent).toBeCloseTo(16.67, 1);
     });
   });
 

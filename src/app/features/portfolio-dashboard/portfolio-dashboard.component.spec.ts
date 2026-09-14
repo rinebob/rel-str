@@ -44,6 +44,7 @@ function makeAccountState(name: string, number: string, overrides: Partial<Accou
     optionQuotes: { ...empty },
     equityOrders: { ...empty },
     optionOrders: { ...empty },
+    closedTrades: { ...empty },
     ...overrides,
   };
 }
@@ -74,6 +75,7 @@ function makeStoreMock(overrides: Partial<{
     totalPnL: null,
   });
   const equityPositions = signal(overrides.equityPositions ?? []);
+  const closedTrades = signal<EquityPositionWithPnL[]>([]);
   const optionPositions = signal(overrides.optionPositions ?? []);
   const openOrders = signal(overrides.openOrders ?? []);
   const orderHistory = signal(overrides.orderHistory ?? []);
@@ -89,6 +91,12 @@ function makeStoreMock(overrides: Partial<{
     aggregateSummary: computed(() => summary()),
     selectedAccount: computed(() => accounts()[selectedAccountIndex()] ?? null),
     equityPositionsWithPnL: computed(() => equityPositions()),
+    closedTradesWithPnL: computed(() => closedTrades()),
+    displayedEquityPositions: computed(() => {
+      const open = equityPositions();
+      if (!showClosedPositions()) return open;
+      return [...open, ...closedTrades()];
+    }),
     optionPositionsWithPnL: computed(() => optionPositions()),
     openOrders: computed(() => openOrders()),
     orderHistory: computed(() => orderHistory()),
@@ -108,6 +116,7 @@ function makeStoreMock(overrides: Partial<{
     _setLoading: (l: boolean) => globalLoading.set(l),
     _setLoadError: (e: string | null) => loadError.set(e),
     _setEquityPositions: (p: EquityPositionWithPnL[]) => equityPositions.set(p),
+    _setClosedTrades: (t: EquityPositionWithPnL[]) => closedTrades.set(t),
     _setOptionPositions: (p: OptionPositionWithPnL[]) => optionPositions.set(p),
     _setOpenOrders: (o: BrokerOrder[]) => openOrders.set(o),
     _setOrderHistory: (o: BrokerOrder[]) => orderHistory.set(o),
@@ -412,6 +421,37 @@ describe('PortfolioDashboardComponent', () => {
     // Verify the input is set on the component instance
     const tableComp = fixture.debugElement.query((el) => el.nativeElement === table)?.componentInstance;
     expect(tableComp?.showClosed?.()).toBe(true);
+  });
+
+  it('merges open positions with closed trades when showClosedPositions is true', () => {
+    const openPos = makeEquityPosition({ symbol: 'AAPL', quantity: 100, closed: false });
+    const closedTrade = makeEquityPosition({ symbol: 'GOOG', quantity: 10, closed: true, pnl: 250 });
+    store._setAccounts([makeAccountState('Account A', '111')]);
+    store._setEquityPositions([openPos]);
+    store._setClosedTrades([closedTrade]);
+    store._setShowClosedPositions(true);
+    fixture.detectChanges();
+
+    const tableComp = fixture.debugElement.query((el) => el.name === 'app-equity-positions-table')?.componentInstance;
+    const positions = tableComp?.positions?.() ?? [];
+    expect(positions.length).toBe(2);
+    expect(positions[0].symbol).toBe('AAPL');
+    expect(positions[1].symbol).toBe('GOOG');
+  });
+
+  it('does not merge closed trades when showClosedPositions is false', () => {
+    const openPos = makeEquityPosition({ symbol: 'AAPL', quantity: 100, closed: false });
+    const closedTrade = makeEquityPosition({ symbol: 'GOOG', quantity: 10, closed: true, pnl: 250 });
+    store._setAccounts([makeAccountState('Account A', '111')]);
+    store._setEquityPositions([openPos]);
+    store._setClosedTrades([closedTrade]);
+    store._setShowClosedPositions(false);
+    fixture.detectChanges();
+
+    const tableComp = fixture.debugElement.query((el) => el.name === 'app-equity-positions-table')?.componentInstance;
+    const positions = tableComp?.positions?.() ?? [];
+    expect(positions.length).toBe(1);
+    expect(positions[0].symbol).toBe('AAPL');
   });
 
   it('passes protectedSymbols to open orders table', () => {

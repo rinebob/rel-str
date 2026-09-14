@@ -15,6 +15,8 @@ import {
   EquityQuote,
   OptionQuote,
   BrokerOrder,
+  PnlTrade,
+  PnlTradeHistory,
 } from '../../core/robinhood-mcp/types/robinhood-mcp.types';
 
 // ---------------------------------------------------------------------------
@@ -106,6 +108,28 @@ export function makeOptionOrder(overrides: Partial<BrokerOrder> = {}): BrokerOrd
   return makeOrder({ instrumentType: 'option', ...overrides });
 }
 
+export function makePnlTrade(overrides: Partial<PnlTrade> = {}): PnlTrade {
+  return {
+    timestamp: '2026-09-14T13:30:03Z',
+    symbol: 'AAPL',
+    side: 'sell',
+    quantity: 10,
+    price: 175,
+    realizedGain: 250,
+    ...overrides,
+  };
+}
+
+export function makePnlTradeHistory(overrides: Partial<PnlTradeHistory> = {}): PnlTradeHistory {
+  return {
+    accountNumber: '123456789',
+    span: '3month',
+    trades: [makePnlTrade()],
+    nextCursor: '',
+    ...overrides,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Mock client
 // ---------------------------------------------------------------------------
@@ -119,6 +143,7 @@ export type MockClient = {
   getOptionQuotes: jasmine.Spy;
   getEquityOrders: jasmine.Spy;
   getOptionOrders: jasmine.Spy;
+  getPnlTradeHistory: jasmine.Spy;
 };
 
 export function createMockClient(): MockClient {
@@ -131,6 +156,7 @@ export function createMockClient(): MockClient {
     getOptionQuotes: jasmine.createSpy('getOptionQuotes'),
     getEquityOrders: jasmine.createSpy('getEquityOrders'),
     getOptionOrders: jasmine.createSpy('getOptionOrders'),
+    getPnlTradeHistory: jasmine.createSpy('getPnlTradeHistory'),
   };
 }
 
