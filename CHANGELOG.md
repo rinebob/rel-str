@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026-09-16]
+
+### Added
+- [Option Chain Pct Change Grid] 326-343_SHARED-IMPL-OPTIONS: Add chain snapshot shared types and promote historical options types
+- [Option Chain Pct Change Grid] 326-343_DOCS-OPTIONS: Add code review doc for Task #343
+
 ## [2026-09-15]
 
 ### Added
