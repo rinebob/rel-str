@@ -13,6 +13,8 @@
 - [Option Chain Pct Change Grid] 326-343_DOCS-OPTIONS: Add code review doc for Task #343
 - [Option Chain Pct Change Grid] 326-344_BE-IMPL-OPTIONS: Add getHistoricalOptionsChain callable
 - [Option Chain Pct Change Grid] 326-344_DOCS-OPTIONS: Add code review doc for Task #344
+- [Option Chain Pct Change Grid] 326-345_FE-IMPL-OPTIONS: Add computePctChange + pctChangeToColor utilities — 36 tests
+- [Option Chain Pct Change Grid] 326-345_DOCS-OPTIONS: Add code review doc for Task #345
 
 ## [2026-09-15]
 
