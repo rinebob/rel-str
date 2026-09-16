@@ -3,6 +3,9 @@
 ## [2026-09-16]
 
 ### Added
+- [Trading Indicator Library] 261-333_FE-IMPL-INDICATOR-LIB: Add ZigZag chart indicator + registry integration
+- [Trading Indicator Library] 261-333_FE-IMPL-INDICATOR-LIB: Add ZigZag indicator test suite — 19 tests
+- [Trading Indicator Library] 261-333_DOCS-INDICATOR-LIB: Add code review doc for ZigZag chart indicator (PASS)
 - [Trading Indicator Library] 261-332_FE-IMPL-INDICATOR-LIB: Add ZigZag pure engine — pivots, swings, stats
 - [Trading Indicator Library] 261-332_FE-IMPL-INDICATOR-LIB: Add ZigZag engine test suite — 40 tests across 4 specs
 - [Trading Indicator Library] 261-332_DOCS-INDICATOR-LIB: Add code review doc for ZigZag engine (PASS)
