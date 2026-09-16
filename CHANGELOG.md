@@ -1,5 +1,14 @@
 # Changelog
 
+## [2026-09-15]
+
+### Added
+- [Indicator Library] 261-325_DOCS-INDICATOR-LIB: Add ZigZag PRD, implementation plans, test plans, and reference source (checkpoint)
+- [Indicator Library] 261-320_DOCS-INDICATOR-LIB: Add code review doc for Trend Rider Zero Cross FE BE-dots migration (checkpoint)
+
+### Changed
+- [Indicator Library] 261-320_FE-IMPL-INDICATOR-LIB: Remove client-side zero-cross dot detection, use BE dots (checkpoint)
+
 ## [2026-09-14]
 
 ### Added
