@@ -17,6 +17,8 @@
 - [Option Chain Pct Change Grid] 326-345_DOCS-OPTIONS: Add code review doc for Task #345
 - [Option Chain Pct Change Grid] 326-346_FE-IMPL-OPTIONS: Add getHistoricalOptionsChain$ service method + OptionChainPctChangeStore — 20 tests
 - [Option Chain Pct Change Grid] 326-346_DOCS-OPTIONS: Add code review doc for Task #346
+- [Option Chain Pct Change Grid] 326-347_FE-IMPL-OPTIONS: Add pct change grid component + page + routing — 22 tests
+- [Option Chain Pct Change Grid] 326-347_DOCS-OPTIONS: Add code review doc for Task #347
 
 ## [2026-09-15]
 
