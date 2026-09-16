@@ -18,6 +18,7 @@ import { forkJoin, Subscription } from 'rxjs';
 import { map } from 'rxjs/operators';
 
 import { OptionsContractService } from '../../services/options-contract.service';
+import { LocalBarReadService } from '../../../../core/services/local-bar-read.service';
 import { OptionType } from '@options-contract/contracts';
 import type { HistoricalOptionContract } from '@options-contract/contracts';
 import {
@@ -49,11 +50,14 @@ export interface OptionChainPctChangeState {
   /** Cached snapshots (keyed by date) — kept in-memory for filter recompute. */
   startSnapshot: HistoricalOptionContract[] | null;
   targetSnapshots: Record<string, HistoricalOptionContract[]>;
+
+  /** Underlying close prices keyed by date (YYYY-MM-DD). */
+  underlyingPrices: Record<string, number>;
 }
 
 const initialState: OptionChainPctChangeState = {
-  symbol: '',
-  startDate: '',
+  symbol: 'QQQ',
+  startDate: '2025-04-07',
   targetDates: [],
   type: OptionType.CALL,
   filter: { type: OptionType.CALL },
@@ -61,6 +65,7 @@ const initialState: OptionChainPctChangeState = {
   error: null,
   startSnapshot: null,
   targetSnapshots: {},
+  underlyingPrices: {},
 };
 
 // ---------------------------------------------------------------------------
@@ -86,8 +91,17 @@ export const OptionChainPctChangeStore = signalStore(
 
       if (!startSnapshot) return [];
 
+      const underlyingPrices = state.underlyingPrices();
       return targetDates.map((dt) =>
-        computePctChange(startSnapshot, targetSnapshots[dt] ?? [], startDate, dt, filter),
+        computePctChange(
+          startSnapshot,
+          targetSnapshots[dt] ?? [],
+          startDate,
+          dt,
+          filter,
+          underlyingPrices[startDate] ?? null,
+          underlyingPrices[dt] ?? null,
+        ),
       );
     }),
   })),
@@ -105,7 +119,7 @@ export const OptionChainPctChangeStore = signalStore(
     }),
   })),
 
-  withMethods((store, optionsContractService = inject(OptionsContractService)) => {
+  withMethods((store, optionsContractService = inject(OptionsContractService), barReadService = inject(LocalBarReadService)) => {
     // Track the in-flight runAnalysis subscription so we can cancel stale
     // requests when runAnalysis is called again before the previous one
     // completes, or when reset is called mid-flight.
@@ -186,6 +200,7 @@ export const OptionChainPctChangeStore = signalStore(
           error: null,
           startSnapshot: null,
           targetSnapshots: {},
+          underlyingPrices: {},
         });
 
         // Fetch start + all targets in parallel.
@@ -194,27 +209,49 @@ export const OptionChainPctChangeStore = signalStore(
           optionsContractService.getHistoricalOptionsChain$(symbol, dt),
         );
 
+        // Fetch underlying daily bars covering the full date range.
+        const allDates = [startDate, ...targetDates].sort();
+        const barFrom = allDates[0];
+        const barTo = allDates[allDates.length - 1];
+        const bars$ = barReadService.getDailyBarsForRange$(symbol, barFrom, barTo);
+
         runSub = forkJoin({
           start: start$,
           targets: forkJoin(targetReqs),
+          bars: bars$,
         })
           .pipe(
-            map(({ start, targets }) => {
+            map(({ start, targets, bars }) => {
               const startSnapshot = start.data?.data ?? [];
               const targetSnapshots: Record<string, HistoricalOptionContract[]> = {};
               targetDates.forEach((dt, i) => {
                 targetSnapshots[dt] = targets[i]?.data?.data ?? [];
               });
-              return { startSnapshot, targetSnapshots };
+
+              // Extract close prices for start + target dates.
+              // If the exact date isn't a trading day, use the closest prior bar.
+              const underlyingPrices: Record<string, number> = {};
+              const sortedBars = [...bars].sort((a, b) => a.d.localeCompare(b.d));
+              for (const dt of [startDate, ...targetDates]) {
+                const bar = sortedBars
+                  .filter((b) => b.d <= dt)
+                  .pop();
+                if (bar) {
+                  underlyingPrices[dt] = bar.c;
+                }
+              }
+
+              return { startSnapshot, targetSnapshots, underlyingPrices };
             }),
           )
           .subscribe({
-            next: ({ startSnapshot, targetSnapshots }) => {
+            next: ({ startSnapshot, targetSnapshots, underlyingPrices }) => {
               patchState(store, {
                 loading: false,
                 error: null,
                 startSnapshot,
                 targetSnapshots,
+                underlyingPrices,
               });
               runSub = null;
             },
@@ -225,6 +262,7 @@ export const OptionChainPctChangeStore = signalStore(
                 error: `Failed to fetch chain snapshots: ${msg}`,
                 startSnapshot: null,
                 targetSnapshots: {},
+                underlyingPrices: {},
               });
               runSub = null;
             },
