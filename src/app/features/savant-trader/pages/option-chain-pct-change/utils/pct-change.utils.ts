@@ -21,7 +21,11 @@ export interface PctChangeCell {
 /** A complete grid for one target date. */
 export interface PctChangeGrid {
   targetDate: string;
+  startDate: string;
   durationDays: number;
+  atmStrike: number | null;
+  startUnderlyingPrice: number | null;
+  targetUnderlyingPrice: number | null;
   strikes: number[];
   expirations: string[];
   cells: Map<string, PctChangeCell>;
@@ -50,6 +54,37 @@ export function toNum(v: string | undefined): number | undefined {
   if (v == null || v === '') return undefined;
   const n = Number(v);
   return Number.isFinite(n) ? n : undefined;
+}
+
+/**
+ * Resolve a usable price from a historical contract, falling back when
+ * `mark` is missing. Mirrors the `resolveMark` logic in the backend
+ * `av-eod-option-quote-provider.ts`: mark → bid/ask midpoint → last.
+ */
+function resolvePrice(c: HistoricalOptionContract): number | undefined {
+  const mark = toNum(c.mark);
+  if (mark != null) return mark;
+
+  const bid = toNum(c.bid);
+  const ask = toNum(c.ask);
+  if (bid != null && ask != null) return (bid + ask) / 2;
+
+  const last = toNum(c.last);
+  if (last != null) return last;
+
+  return undefined;
+}
+
+/**
+ * Normalize an option type value to the canonical OptionType enum.
+ * The AV API may return 'Call', 'C', 'call', etc.
+ */
+function normalizeType(v: string | OptionType | undefined): OptionType | undefined {
+  if (v == null) return undefined;
+  const raw = String(v).toLowerCase().trim();
+  if (raw === 'call' || raw === 'c') return OptionType.CALL;
+  if (raw === 'put' || raw === 'p') return OptionType.PUT;
+  return undefined;
 }
 
 /** Days between two YYYY-MM-DD dates. */
@@ -83,6 +118,8 @@ export function computePctChange(
   startDate: string,
   targetDate: string,
   filter: PctChangeFilter,
+  startUnderlyingPrice: number | null = null,
+  targetUnderlyingPrice: number | null = null,
 ): PctChangeGrid {
   const startMap = new Map<string, HistoricalOptionContract>();
   for (const c of startChain) {
@@ -98,8 +135,8 @@ export function computePctChange(
     const start = startMap.get(target.contractID);
     if (!start) continue;
 
-    const startMark = toNum(start.mark);
-    const targetMark = toNum(target.mark);
+    const startMark = resolvePrice(start);
+    const targetMark = resolvePrice(target);
     if (startMark == null || targetMark == null) continue;
     if (startMark === 0) continue; // avoid division by zero
 
@@ -108,8 +145,9 @@ export function computePctChange(
     const delta = toNum(start.delta);
     if (strike == null || !expiration) continue;
 
-    // Type filter
-    if (filter.type !== start.type) continue;
+    // Type filter (normalize — AV may return 'Call', 'C', 'call', etc.)
+    const startType = normalizeType(start.type);
+    if (startType == null || filter.type !== startType) continue;
 
     // Duration filter (days from start date to expiration)
     const duration = daysBetween(startDate, expiration);
@@ -150,13 +188,30 @@ export function computePctChange(
     cellMap.set(cellKey(c.strike, c.expiration), c);
   }
 
+  // ATM strike: the strike closest to the start underlying price.
+  let atmStrike: number | null = null;
+  if (startUnderlyingPrice != null) {
+    let bestDiff = Infinity;
+    for (const strike of strikes) {
+      const diff = Math.abs(strike - startUnderlyingPrice);
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        atmStrike = strike;
+      }
+    }
+  }
+
   const sortedPct = cells.map((c) => c.pctChange).sort((a, b) => a - b);
   const p5 = percentile(sortedPct, 5);
   const p95 = percentile(sortedPct, 95);
 
   return {
     targetDate,
+    startDate,
     durationDays: daysBetween(startDate, targetDate),
+    atmStrike,
+    startUnderlyingPrice,
+    targetUnderlyingPrice,
     strikes,
     expirations,
     cells: cellMap,

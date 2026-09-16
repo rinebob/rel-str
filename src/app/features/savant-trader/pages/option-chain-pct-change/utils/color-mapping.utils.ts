@@ -2,19 +2,21 @@
  * Color mapping utility for the option chain pct change grid.
  *
  * Maps a pctChange value to a CSS color on a diverging red-neutral-green
- * scale, clipped to the [p5, p95] percentile range.
+ * scale anchored at zero. Positive values go from white → green (brighter
+ * with magnitude). Negative values go from white → red (brighter with
+ * magnitude). No red-green mixing.
  *
  * Pure function — no Angular dependencies, no side effects.
  */
 
-/** Neutral (white-ish) color for zero change or degenerate ranges. */
-const NEUTRAL_COLOR = 'rgb(245, 245, 245)';
+/** Neutral (white) color for zero change. */
+const NEUTRAL_COLOR = 'rgb(255, 255, 255)';
 
-/** Max red for the most-negative percentile. */
-const RED = { r: 255, g: 0, b: 0 };
+/** Max green for the most positive value. */
+const GREEN = { r: 0, g: 140, b: 60 };
 
-/** Max green for the most-positive percentile. */
-const GREEN = { r: 0, g: 255, b: 0 };
+/** Max red for the most negative value. */
+const RED = { r: 200, g: 0, b: 0 };
 
 /** Linearly interpolate a single channel. */
 function lerp(a: number, b: number, t: number): number {
@@ -29,37 +31,38 @@ function rgb(r: number, g: number, b: number): string {
 /**
  * Map a pctChange value to a CSS color string.
  *
- * - Clips pctChange to [p5, p95].
- * - When the range straddles 0 (p5 < 0 < p95): three-anchor scale with
- *   p5 → max red, 0 → neutral, p95 → max green.
- * - When the range is one-sided (all positive or all negative): direct
- *   red-to-green interpolation with p5 → max red and p95 → max green.
- * - Interpolates linearly between anchor points.
+ * - Zero → white (neutral).
+ * - Positive → white to green, intensity scaled by magnitude.
+ * - Negative → white to red, intensity scaled by magnitude.
+ * - `scale` controls how fast the color saturates: at `scale`, the
+ *   color reaches full saturation. Values beyond `scale` stay saturated.
  *
- * @returns CSS color string, e.g. `rgb(255, 0, 0)`.
+ * @returns CSS color string, e.g. `rgb(200, 0, 0)`.
  */
 export function pctChangeToColor(pctChange: number, p5: number, p95: number): string {
-  // Clip to the percentile range.
-  const clipped = Math.max(p5, Math.min(p95, pctChange));
-
-  // Handle degenerate ranges.
-  if (p5 === p95) {
+  // Use the larger of |p5| and |p95| as the saturation scale, so the
+  // most extreme values in the grid reach full color.
+  const scale = Math.max(Math.abs(p5), Math.abs(p95));
+  if (scale === 0) {
     return NEUTRAL_COLOR;
   }
 
-  // When 0 is inside [p5, p95], use a three-anchor diverging scale.
-  if (p5 < 0 && p95 > 0) {
-    if (clipped <= 0) {
-      // Red → neutral: t=0 at p5, t=1 at 0.
-      const t = (clipped - p5) / (0 - p5);
-      return rgb(lerp(RED.r, 245, t), lerp(RED.g, 245, t), lerp(RED.b, 245, t));
-    }
-    // Neutral → green: t=0 at 0, t=1 at p95.
-    const t = clipped / p95;
-    return rgb(lerp(245, GREEN.r, t), lerp(245, GREEN.g, t), lerp(245, GREEN.b, t));
-  }
+  // Clamp intensity to [0, 1].
+  const intensity = Math.min(Math.abs(pctChange) / scale, 1);
 
-  // One-sided range: direct red-to-green interpolation.
-  const t = (clipped - p5) / (p95 - p5);
-  return rgb(lerp(RED.r, GREEN.r, t), lerp(RED.g, GREEN.g, t), lerp(RED.b, GREEN.b, t));
+  if (pctChange > 0) {
+    return rgb(
+      lerp(255, GREEN.r, intensity),
+      lerp(255, GREEN.g, intensity),
+      lerp(255, GREEN.b, intensity),
+    );
+  }
+  if (pctChange < 0) {
+    return rgb(
+      lerp(255, RED.r, intensity),
+      lerp(255, RED.g, intensity),
+      lerp(255, RED.b, intensity),
+    );
+  }
+  return NEUTRAL_COLOR;
 }
