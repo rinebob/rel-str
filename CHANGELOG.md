@@ -2,7 +2,15 @@
 
 ## [2026-09-16]
 
+### Changed
+- [Option Chain Pct Change Grid] 326-345_FE-IMPL-OPTIONS: Add resolvePrice fallback, normalizeType, underlying price fields, and rewritten color mapping (checkpoint)
+- [Option Chain Pct Change Grid] 326-346_FE-IMPL-OPTIONS: Add underlying price fetch, default QQQ/2025-04-07, and pass prices to grid computation (checkpoint)
+- [Option Chain Pct Change Grid] 326-347_FE-IMPL-OPTIONS: Extract external templates/styles, add fullscreen, sticky headers, delta/ATM/underlying display, and shrink cells (checkpoint)
+
 ### Added
+- [Trading Indicator Library] 261-334_FE-IMPL-INDICATOR-LIB: Add swing analysis store (SignalStore) + Firestore service
+- [Trading Indicator Library] 261-334_DOCS-INDICATOR-LIB: Add code review doc for swing analysis store (PASS)
+- [Trading Indicator Library] 261-334_DOCS-INDICATOR-LIB: Add Firestore round-trip verification script for swing analysis
 - [Trading Indicator Library] 261-333_FE-IMPL-INDICATOR-LIB: Add ZigZag chart indicator + registry integration
 - [Trading Indicator Library] 261-333_FE-IMPL-INDICATOR-LIB: Add ZigZag indicator test suite — 19 tests
 - [Trading Indicator Library] 261-333_DOCS-INDICATOR-LIB: Add code review doc for ZigZag chart indicator (PASS)
