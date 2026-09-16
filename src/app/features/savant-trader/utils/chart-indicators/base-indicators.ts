@@ -9,7 +9,7 @@ import type { IndicatorConfig, IndicatorOption } from '../../../../features/shar
 import { ChartIntervalKey, StIndicator } from '../../../../features/shared/components/flex-chart/flex-chart.types';
 import { ST_INDICATOR_OPTIONS, buildDefaultConfig } from '../../../../features/shared/components/flex-chart/indicators/indicator-registry';
 import { ST_SIGNAL_DOTS_INDICATOR } from '../../../../features/shared/components/flex-chart/indicators/st-signal-dots.indicator';
-import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, ST_ZONE_V1_ZERO_CROSS_DOTS_INDICATOR, ST_ZONE_V2_ZERO_CROSS_DOTS_INDICATOR } from '../../../../features/shared/components/flex-chart/indicators/st-trend-rider-dots.indicator';
+import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR } from '../../../../features/shared/components/flex-chart/indicators/st-trend-rider-dots.indicator';
 import { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR } from '../../../../features/shared/components/flex-chart/indicators/st-zone-window.indicator';
 
 /** Single scatter/dot point used for signal dots, uptick dots, and HTF window markers. */
@@ -58,12 +58,6 @@ export const UptickDotColors = {
   v1Short: '#f44336',
   v2Long:  '#8bc34a',
   v2Short: '#ff9800',
-} as const;
-
-/** Colors for Trend Rider Zero Cross dots — visually distinct from Trend Rider confirmation dots. */
-export const ZeroCrossDotColors = {
-  long:  '#009688',  // teal
-  short: '#ff9800',  // orange
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -127,11 +121,9 @@ export interface ChartExtras {
   signalDots?: ChartScatterPoint[];
   uptickDotsV1?: ChartScatterPoint[];
   uptickDotsV2?: ChartScatterPoint[];
-  zeroCrossDotsV1?: ChartScatterPoint[];
-  zeroCrossDotsV2?: ChartScatterPoint[];
 }
 
-/** Conditionally add HTF windows, signal dots, uptick dots, and zero-cross dots, returning a new indicator list. */
+/** Conditionally add HTF windows, signal dots, and uptick dots, returning a new indicator list. */
 export function addChartExtras(
   indicators: IndicatorConfig[],
   extras: ChartExtras,
@@ -149,12 +141,6 @@ export function addChartExtras(
   if (extras.uptickDotsV2) {
     result = addUptickDots(result, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, extras.uptickDotsV2);
   }
-  if (extras.zeroCrossDotsV1) {
-    result = addUptickDots(result, ST_ZONE_V1_ZERO_CROSS_DOTS_INDICATOR, extras.zeroCrossDotsV1);
-  }
-  if (extras.zeroCrossDotsV2) {
-    result = addUptickDots(result, ST_ZONE_V2_ZERO_CROSS_DOTS_INDICATOR, extras.zeroCrossDotsV2);
-  }
   return result;
 }
 
@@ -163,4 +149,4 @@ export function addChartExtras(
 // ---------------------------------------------------------------------------
 
 export { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR };
-export { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, ST_ZONE_V1_ZERO_CROSS_DOTS_INDICATOR, ST_ZONE_V2_ZERO_CROSS_DOTS_INDICATOR };
+export { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR };

@@ -35,7 +35,6 @@ export enum StIndicator {
   ZONE_WINDOW      = 'st-zone-window',
   SIGNAL_DOTS      = 'st-signal-dots',
   ZONE_UPTICK_DOTS      = 'st-zone-uptick-dots',
-  ZONE_ZERO_CROSS_DOTS  = 'st-zone-zero-cross-dots',
   TRIGGER_BAND     = 'st-trigger-band',
   TREND_BAND_WIDTH = 'st-trend-band-width',
   ST_STD_DEV_LINES = 'st-std-dev-lines',

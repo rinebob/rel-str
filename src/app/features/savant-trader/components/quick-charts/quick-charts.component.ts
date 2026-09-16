@@ -76,13 +76,9 @@ export class QuickChartsComponent {
   private readonly weeklyIntervalData = computed(() => this.indicatorResponse()?.intervals?.weekly);
   private readonly monthlyIntervalData = computed(() => this.indicatorResponse()?.intervals?.monthly);
 
-  // ── Price bars as signals (for zero-cross ATR placement) ─────────────────
-  private readonly dailyBars = computed(() => this.chartStore.dailyData()?.bars ?? []);
-  private readonly weeklyBars = computed(() => this.chartStore.weeklyData()?.bars ?? []);
-
-  // ── Derived extras (HTF windows, signal dots, uptick dots, zero-cross dots) ─
+  // ── Derived extras (HTF windows, signal dots, uptick dots) ────────────────
   private readonly extras = createExtrasSignals(
-    this.dailyIntervalData, this.weeklyIntervalData, this.dailyBars, this.weeklyBars,
+    this.dailyIntervalData, this.weeklyIntervalData,
   );
 
   // ── Chart configs ──────────────────────────────────────────────────────────
@@ -118,8 +114,6 @@ export class QuickChartsComponent {
         signalDots: this.extras.weeklySignalDots(),
         uptickDotsV1: this.extras.weeklyUptickDotsV1(),
         uptickDotsV2: this.extras.weeklyUptickDotsV2(),
-        zeroCrossDotsV1: this.extras.weeklyZeroCrossDotsV1(),
-        zeroCrossDotsV2: this.extras.weeklyZeroCrossDotsV2(),
       },
     );
     return this.buildQuickChartConfig(ChartIntervalKey.WEEKLY, indicators);
@@ -137,8 +131,6 @@ export class QuickChartsComponent {
         signalDots: this.extras.dailySignalDots(),
         uptickDotsV1: this.extras.dailyUptickDotsV1(),
         uptickDotsV2: this.extras.dailyUptickDotsV2(),
-        zeroCrossDotsV1: this.extras.dailyZeroCrossDotsV1(),
-        zeroCrossDotsV2: this.extras.dailyZeroCrossDotsV2(),
       },
     );
     return this.buildQuickChartConfig(ChartIntervalKey.DAILY, indicators);

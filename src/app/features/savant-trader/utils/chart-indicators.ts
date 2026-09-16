@@ -16,7 +16,6 @@ export {
   addUptickDots,
   addChartExtras,
   UptickDotColors,
-  ZeroCrossDotColors,
 } from './chart-indicators/base-indicators';
 
 export {
@@ -35,4 +34,3 @@ export { createExtrasSignals } from './chart-indicators/extras-signals';
 
 export { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR } from './chart-indicators/base-indicators';
 export { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR } from './chart-indicators/base-indicators';
-export { ST_ZONE_V1_ZERO_CROSS_DOTS_INDICATOR, ST_ZONE_V2_ZERO_CROSS_DOTS_INDICATOR } from './chart-indicators/base-indicators';
