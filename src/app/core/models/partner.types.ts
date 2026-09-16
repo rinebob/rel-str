@@ -71,3 +71,17 @@ export type {
   ContractSummaryResponse,
   QueryContractCatalogRequest,
 } from '@options-contract/contracts';
+
+// ==========================
+// Historical Options Chain Snapshot DTOs
+// Single source of truth: shared/options-contract-contracts.ts
+// ==========================
+
+export type {
+  HistoricalOptionContract,
+  HistoricalOptionsAnalysisSummary,
+  HistoricalOptionsExpirationGroup,
+  HistoricalOptionsStrikeGroup,
+  GetHistoricalOptionsChainRequest,
+  GetHistoricalOptionsChainResponse,
+} from '@options-contract/contracts';

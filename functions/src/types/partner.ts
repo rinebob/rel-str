@@ -47,63 +47,12 @@ export enum PartnerEndpointPath {
 import { OptionType } from '@options/common';
 export { OptionType } from '@options/common';
 
-/** One Alpha Vantage historical option contract. All market-data values are optional strings. */
-export interface HistoricalOptionContract {
-  contractID?: string;
-  symbol?: string;
-  expiration?: string; // YYYY-MM-DD
-  strike?: string;
-  type?: OptionType;
-  last?: string;
-  mark?: string;
-  bid?: string;
-  bid_size?: string;
-  ask?: string;
-  ask_size?: string;
-  volume?: string;
-  open_interest?: string;
-  date?: string;
-  implied_volatility?: string;
-  delta?: string;
-  gamma?: string;
-  theta?: string;
-  vega?: string;
-  rho?: string;
-}
-
-/** Aggregate analysis summary returned by partnerHistoricalOptionsV2. */
-export interface HistoricalOptionsAnalysisSummary {
-  totalContracts: number;
-  totalVolume: number;
-  totalOpenInterest: number;
-  callContracts: number;
-  putContracts: number;
-  uniqueStrikes: number;
-  avgVolumePerContract: number;
-  avgOpenInterest: number;
-}
-
-/** Expiration-level breakdown in the options analysis. */
-export interface HistoricalOptionsExpirationGroup {
-  expiration: string;
-  contractCount: number;
-  timeUntilExpiration: string;
-  callVolume: number;
-  putVolume: number;
-  callOpenInterest: number;
-  putOpenInterest: number;
-}
-
-/** Strike-level breakdown in the options analysis. */
-export interface HistoricalOptionsStrikeGroup {
-  strike: string;
-  callVolume: number;
-  putVolume: number;
-  callOpenInterest: number;
-  putOpenInterest: number;
-  totalVolume: number;
-  totalOpenInterest: number;
-}
+import type {
+  HistoricalOptionContract,
+  HistoricalOptionsAnalysisSummary,
+  HistoricalOptionsExpirationGroup,
+  HistoricalOptionsStrikeGroup,
+} from '@options-contract/contracts';
 
 /** Response shape for partnerHistoricalOptionsV2 endpoint. */
 export interface PartnerHistoricalOptionsResponse {
@@ -138,6 +87,12 @@ export type {
   ContractCatalogResponse,
   ContractSummaryResponse,
   QueryContractCatalogRequest,
+  HistoricalOptionContract,
+  HistoricalOptionsAnalysisSummary,
+  HistoricalOptionsExpirationGroup,
+  HistoricalOptionsStrikeGroup,
+  GetHistoricalOptionsChainRequest,
+  GetHistoricalOptionsChainResponse,
 } from '@options-contract/contracts';
 
 /** Raw AV data fields from company overview — all values are strings. */

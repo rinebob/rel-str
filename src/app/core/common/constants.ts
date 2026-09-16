@@ -214,6 +214,8 @@ export enum CallableName {
   GET_OPTIONS_CONTRACT_INDEX = 'getOptionsContractIndex',
   /** Options contract viewer: query contract catalog with metadata, filters, pagination */
   QUERY_CONTRACT_CATALOG = 'queryContractCatalog',
+  /** Options chain snapshot: fetch full chain snapshot for a symbol+date */
+  GET_HISTORICAL_OPTIONS_CHAIN = 'getHistoricalOptionsChain',
   /** Spread viewer: submit a batch of spreads for time series loading */
   SUBMIT_SPREAD_RUN = 'submitSpreadRun',
   /** Options strategy dashboard: list open/closed positions */

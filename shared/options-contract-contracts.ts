@@ -5,6 +5,8 @@
  * be imported by both the Firebase functions backend and the Angular frontend.
  */
 
+import { OptionType } from './options-common';
+
 export { OptionType, parseOccContractId, buildOccContractId } from './options-common';
 export type { ParsedOccContractId } from './options-common';
 
@@ -185,4 +187,93 @@ export interface QueryContractCatalogRequest {
   sortOrder?: 'asc' | 'desc';
   pageSize?: number;
   pageToken?: string;
+}
+
+// ==========================
+// Historical Options Chain Snapshot (partnerHistoricalOptionsV2)
+// ==========================
+
+/** One Alpha Vantage historical option contract. All market-data values are optional strings. */
+export interface HistoricalOptionContract {
+  contractID?: string;
+  symbol?: string;
+  expiration?: string; // YYYY-MM-DD
+  strike?: string;
+  type?: OptionType;
+  last?: string;
+  mark?: string;
+  bid?: string;
+  bid_size?: string;
+  ask?: string;
+  ask_size?: string;
+  volume?: string;
+  open_interest?: string;
+  date?: string;
+  implied_volatility?: string;
+  delta?: string;
+  gamma?: string;
+  theta?: string;
+  vega?: string;
+  rho?: string;
+}
+
+/** Aggregate analysis summary returned by partnerHistoricalOptionsV2. */
+export interface HistoricalOptionsAnalysisSummary {
+  totalContracts: number;
+  totalVolume: number;
+  totalOpenInterest: number;
+  callContracts: number;
+  putContracts: number;
+  uniqueStrikes: number;
+  avgVolumePerContract: number;
+  avgOpenInterest: number;
+}
+
+/** Expiration-level breakdown in the options analysis. */
+export interface HistoricalOptionsExpirationGroup {
+  expiration: string;
+  contractCount: number;
+  timeUntilExpiration: string;
+  callVolume: number;
+  putVolume: number;
+  callOpenInterest: number;
+  putOpenInterest: number;
+}
+
+/** Strike-level breakdown in the options analysis. */
+export interface HistoricalOptionsStrikeGroup {
+  strike: string;
+  callVolume: number;
+  putVolume: number;
+  callOpenInterest: number;
+  putOpenInterest: number;
+  totalVolume: number;
+  totalOpenInterest: number;
+}
+
+/** Request shape for the getHistoricalOptionsChain callable. */
+export interface GetHistoricalOptionsChainRequest {
+  symbol: string;
+  date: string; // YYYY-MM-DD
+}
+
+/** Response shape for the getHistoricalOptionsChain callable — raw pass-through of PartnerHistoricalOptionsResponse. */
+export interface GetHistoricalOptionsChainResponse {
+  ok: boolean;
+  symbol: string;
+  date: string | null;
+  source?: string;
+  endpoint: string;
+  data: {
+    endpoint?: string;
+    message?: string;
+    data: HistoricalOptionContract[];
+  };
+  analysis: {
+    summary: HistoricalOptionsAnalysisSummary;
+    expirations: HistoricalOptionsExpirationGroup[];
+    strikes: HistoricalOptionsStrikeGroup[];
+  };
+  timestamp: string;
+  processingTimeMs: number;
 }
