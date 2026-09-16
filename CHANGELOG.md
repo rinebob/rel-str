@@ -3,6 +3,10 @@
 ## [2026-09-15]
 
 ### Added
+- [Option Chain Pct Change Grid] 326-326_DOCS-OPTIONS: Add PRD and SA caching proposal for option chain pct change grid (checkpoint)
+- [Option Chain Pct Change Grid] 326-326_SHARED-DOCS-OPTIONS: Add implementation and test plans for shared chain snapshot types (checkpoint)
+- [Option Chain Pct Change Grid] 326-326_BE-DOCS-OPTIONS: Add implementation and test plans for chain snapshot callable (checkpoint)
+- [Option Chain Pct Change Grid] 326-326_FE-DOCS-OPTIONS: Add implementation and test plans for pct change grid feature (checkpoint)
 - [Indicator Library] 261-325_DOCS-INDICATOR-LIB: Add ZigZag PRD, implementation plans, test plans, and reference source (checkpoint)
 - [Indicator Library] 261-320_DOCS-INDICATOR-LIB: Add code review doc for Trend Rider Zero Cross FE BE-dots migration (checkpoint)
 
