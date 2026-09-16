@@ -156,6 +156,14 @@ export const NAV_MENU_ITEMS: NavItem[] = [
         target: '_self',
     },
     {
+        name: 'option-chain-pct-change',
+        text: 'Option Chain % Change',
+        href: 'option-chain-pct-change',
+        mobileOnly: false,
+        external: false,
+        target: '_self',
+    },
+    {
         name: 'logout',
         text: 'logout',
         href: '',

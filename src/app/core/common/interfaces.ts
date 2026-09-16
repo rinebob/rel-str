@@ -49,6 +49,7 @@ export enum AppRoutes {
 	OPTIONS_STRATEGY_DASHBOARD = 'options-strategy-dashboard',
 	STRATEGY_BUILDER = 'strategy-builder',
 	PORTFOLIO_DASHBOARD = 'portfolio-dashboard',
+	OPTION_CHAIN_PCT_CHANGE = 'option-chain-pct-change',
 }
 
 export enum AuthLevel {

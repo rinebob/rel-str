@@ -46,7 +46,7 @@ export function cellKey(strike: number, expiration: string): string {
 }
 
 /** Parse a string market-data value to a finite number, or return undefined. */
-function toNum(v: string | undefined): number | undefined {
+export function toNum(v: string | undefined): number | undefined {
   if (v == null || v === '') return undefined;
   const n = Number(v);
   return Number.isFinite(n) ? n : undefined;

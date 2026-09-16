@@ -158,6 +158,11 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.StrategyBuilderComponent),
                 canActivate: [authGuard],
             },
+            {path: AppRoutes.OPTION_CHAIN_PCT_CHANGE,
+                loadComponent: () => import('../features/savant-trader/pages/option-chain-pct-change/option-chain-pct-change.component')
+                .then(mod => mod.OptionChainPctChangeComponent),
+                canActivate: [authGuard],
+            },
             {path: AppRoutes.LOGOUT, redirectTo: '/', pathMatch: 'full'},
         ]
     },
