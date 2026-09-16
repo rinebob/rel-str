@@ -11,6 +11,8 @@
 - [Trading Indicator Library] 261-332_DOCS-INDICATOR-LIB: Add code review doc for ZigZag engine (PASS)
 - [Option Chain Pct Change Grid] 326-343_SHARED-IMPL-OPTIONS: Add chain snapshot shared types and promote historical options types
 - [Option Chain Pct Change Grid] 326-343_DOCS-OPTIONS: Add code review doc for Task #343
+- [Option Chain Pct Change Grid] 326-344_BE-IMPL-OPTIONS: Add getHistoricalOptionsChain callable
+- [Option Chain Pct Change Grid] 326-344_DOCS-OPTIONS: Add code review doc for Task #344
 
 ## [2026-09-15]
 
