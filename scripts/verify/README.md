@@ -11,6 +11,7 @@ deliberately, on-demand.
 | Task | Guide | Pipeline Stage | Scripts |
 |---|---|---|---|
 | #240 — BE Normalize Robinhood Orders | [savant-trader-broker-orders.md](savant-trader-broker-orders.md) | MCP call → normalize → output | `savant-trader-broker-orders-list.ts`, `savant-trader-broker-orders-get.ts`, `savant-trader-broker-positions-list.ts` |
+| #334 — FE Swing Analysis Store | [indicator-lib-swing-analysis.md](indicator-lib-swing-analysis.md) | Firestore path construction + round-trip | `indicator-lib-swing-analysis-store.ts` |
 
 ## Run All
 
