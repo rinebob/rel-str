@@ -26,131 +26,8 @@ interface GridRow {
   standalone: true,
   imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <div class="grid-header">
-      {{ grid().targetDate }} ({{ grid().durationDays }}d from start)
-    </div>
-    @if (grid().cells.size === 0) {
-      <div class="no-data">No contracts matched the current filters.</div>
-    } @else {
-      <div class="grid-scroll">
-        <div
-          class="grid-body"
-          [style.grid-template-columns]="'auto repeat(' + grid().expirations.length + ', minmax(80px, 1fr))'"
-        >
-          <!-- Header row: empty corner + expiration columns -->
-          <div class="grid-cell header-cell"></div>
-          @for (exp of grid().expirations; track exp) {
-            <div class="grid-cell header-cell">{{ exp }}</div>
-          }
-
-          <!-- Body rows: one per strike -->
-          @for (row of rows(); track row.strike) {
-            <div class="grid-cell row-header">{{ row.strike }}</div>
-            @for (cell of row.cells; track $index) {
-              @if (cell) {
-                <div
-                  class="grid-cell data-cell"
-                  [style.background-color]="cellColor(cell)"
-                  [title]="cellTooltip(cell)"
-                >
-                  <span class="pct-change">{{ formatPct(cell.pctChange) }}</span>
-                  <span class="price-detail">{{ formatPrice(cell.startPrice) }} → {{ formatPrice(cell.targetPrice) }}</span>
-                </div>
-              } @else {
-                <div class="grid-cell empty-cell" title="No contract at this strike/expiration"></div>
-              }
-            }
-          }
-        </div>
-      </div>
-    }
-  `,
-  styles: [`
-    :host {
-      display: block;
-      border: 1px solid #e0e0e0;
-      border-radius: 4px;
-      overflow: hidden;
-      margin-bottom: 1rem;
-    }
-
-    .grid-header {
-      padding: 0.5rem 0.75rem;
-      font-weight: 600;
-      font-size: 0.875rem;
-      background: #f5f5f5;
-      border-bottom: 1px solid #e0e0e0;
-    }
-
-    .grid-scroll {
-      overflow-x: auto;
-    }
-
-    .grid-body {
-      display: grid;
-      gap: 1px;
-      background: #e0e0e0;
-      min-width: max-content;
-    }
-
-    .grid-cell {
-      padding: 0.4rem 0.5rem;
-      font-size: 0.75rem;
-      background: #fff;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      min-height: 48px;
-    }
-
-    .header-cell {
-      font-weight: 600;
-      background: #f5f5f5;
-      text-align: center;
-    }
-
-    .row-header {
-      font-weight: 600;
-      background: #f5f5f5;
-      text-align: right;
-      justify-content: center;
-      align-items: flex-end;
-      padding-right: 0.6rem;
-    }
-
-    .data-cell {
-      cursor: default;
-      transition: opacity 0.15s;
-    }
-
-    .data-cell:hover {
-      opacity: 0.85;
-    }
-
-    .empty-cell {
-      background: #fafafa;
-    }
-
-    .pct-change {
-      font-weight: 700;
-      font-size: 0.85rem;
-    }
-
-    .price-detail {
-      font-size: 0.65rem;
-      opacity: 0.8;
-      margin-top: 2px;
-    }
-
-    .no-data {
-      padding: 1.5rem;
-      text-align: center;
-      color: #999;
-      font-size: 0.85rem;
-    }
-  `],
+  templateUrl: './pct-change-grid.component.html',
+  styleUrl: './pct-change-grid.component.scss',
 })
 export class PctChangeGridComponent {
   /** The grid to render. */
@@ -164,6 +41,49 @@ export class PctChangeGridComponent {
       cells: g.expirations.map((exp) => g.cells.get(cellKey(strike, exp)) ?? null),
     }));
   });
+
+  /** Underlying price pct change from start to target. */
+  underlyingPctChange(): number | null {
+    const g = this.grid();
+    if (g.startUnderlyingPrice == null || g.targetUnderlyingPrice == null) return null;
+    if (g.startUnderlyingPrice === 0) return null;
+    return ((g.targetUnderlyingPrice - g.startUnderlyingPrice) / g.startUnderlyingPrice) * 100;
+  }
+
+  /** Days from the start date to the given expiration. */
+  daysFromStart(expiration: string): number {
+    const s = new Date(this.grid().startDate + 'T00:00:00Z');
+    const e = new Date(expiration + 'T00:00:00Z');
+    return Math.round((e.getTime() - s.getTime()) / 86_400_000);
+  }
+
+  /** Amount difference from ATM strike. */
+  atmDiff(strike: number): number | null {
+    const atm = this.grid().atmStrike;
+    if (atm == null) return null;
+    return strike - atm;
+  }
+
+  /** Percentage difference from ATM strike. */
+  atmPctDiff(strike: number): number | null {
+    const atm = this.grid().atmStrike;
+    if (atm == null || atm === 0) return null;
+    return ((strike - atm) / atm) * 100;
+  }
+
+  /** Format a delta for display in a cell. */
+  formatDelta(delta: number | null): string {
+    if (delta == null) return '';
+    return delta.toFixed(2);
+  }
+
+  /** Format the ATM diff: amount and percentage. */
+  formatAtmDiff(diff: number): string {
+    const pct = this.atmPctDiff(this.grid().atmStrike! + diff);
+    const sign = diff > 0 ? '+' : '';
+    const pctStr = pct != null ? ` (${sign}${pct.toFixed(1)}%)` : '';
+    return `${sign}${diff.toFixed(0)}${pctStr}`;
+  }
 
   /** Compute the background color for a cell. */
   cellColor(cell: PctChangeCell): string {
