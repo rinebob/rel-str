@@ -13,6 +13,8 @@ import type {
   QueryContractCatalogRequest,
   ContractCatalogResponse,
   ContractSummaryResponse,
+  GetHistoricalOptionsChainRequest,
+  GetHistoricalOptionsChainResponse,
 } from '@options-contract/contracts';
 import { parseOccContractId } from '@options-contract/contracts';
 
@@ -143,6 +145,30 @@ export class OptionsContractService {
       return callable({ ...params, symbol: sym });
     }))).pipe(
       map((res) => res.data as ContractCatalogResponse),
+    );
+  }
+
+  /** Fetch the full historical options chain snapshot for a symbol+date. */
+  getHistoricalOptionsChain$(
+    symbol: string,
+    date: string,
+  ): Observable<GetHistoricalOptionsChainResponse> {
+    const sym = String(symbol || '').trim().toUpperCase();
+    const dt = String(date || '').trim();
+
+    if (!sym || !dt) {
+      return throwError(() => new Error('symbol and date are required'));
+    }
+
+    return defer(() => from(this.inCtx(() => {
+      const callable = httpsCallable<GetHistoricalOptionsChainRequest, GetHistoricalOptionsChainResponse>(
+        this.functions,
+        CallableName.GET_HISTORICAL_OPTIONS_CHAIN,
+      );
+      const req: GetHistoricalOptionsChainRequest = { symbol: sym, date: dt };
+      return callable(req);
+    }))).pipe(
+      map((res) => res.data as GetHistoricalOptionsChainResponse),
     );
   }
 }
