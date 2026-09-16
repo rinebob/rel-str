@@ -3,6 +3,9 @@
 ## [2026-09-16]
 
 ### Added
+- [Trading Indicator Library] 261-332_FE-IMPL-INDICATOR-LIB: Add ZigZag pure engine — pivots, swings, stats
+- [Trading Indicator Library] 261-332_FE-IMPL-INDICATOR-LIB: Add ZigZag engine test suite — 40 tests across 4 specs
+- [Trading Indicator Library] 261-332_DOCS-INDICATOR-LIB: Add code review doc for ZigZag engine (PASS)
 - [Option Chain Pct Change Grid] 326-343_SHARED-IMPL-OPTIONS: Add chain snapshot shared types and promote historical options types
 - [Option Chain Pct Change Grid] 326-343_DOCS-OPTIONS: Add code review doc for Task #343
 
