@@ -9,6 +9,7 @@ import { StIndicator } from '../flex-chart.types';
 import { computeIndicators, groupIndicatorsByPane } from '../flex-chart-calculations';
 import { computeAllBands, type BandSeriesData } from '../indicators/st-trend-bands.indicator';
 import { computeStdDevLinesSeries, type StdDevLineSeriesData } from '../indicators/st-std-dev-lines.indicator';
+import { computeZigZagSeries, type ZigZagChartSeries } from '../indicators/st-zigzag.indicator';
 
 export interface LowerPaneView {
   /** The pane slot ID (e.g. 'lower-1'). */
@@ -191,6 +192,23 @@ export class ChartDataAdapter {
     if (!stdDevConfig) return { lines: [], fills: [] };
 
     return computeStdDevLinesSeries(data.bars, stdDevConfig.params);
+  });
+
+  /** ZigZag series — computes solid confirmed-pivot segments + dashed projected
+   *  segment from bars using the indicator's params. Only active when a
+   *  ST_ZIGZAG indicator is in the config.
+   */
+  zigZagSeries = computed<ZigZagChartSeries>(() => {
+    const data = this.chartData();
+    const cfg = this.config();
+    if (!data || !cfg || data.bars.length === 0) return { lines: [] };
+
+    const zigZagConfig = cfg.indicators.find(
+      (i) => i.type === StIndicator.ST_ZIGZAG,
+    );
+    if (!zigZagConfig) return { lines: [] };
+
+    return computeZigZagSeries(data.bars, zigZagConfig.params);
   });
 
   /** Fixed set of lower-pane slot IDs — always emitted so Syncfusion never sees a

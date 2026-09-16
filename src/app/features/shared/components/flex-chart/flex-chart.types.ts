@@ -38,6 +38,7 @@ export enum StIndicator {
   TRIGGER_BAND     = 'st-trigger-band',
   TREND_BAND_WIDTH = 'st-trend-band-width',
   ST_STD_DEV_LINES = 'st-std-dev-lines',
+  ST_ZIGZAG       = 'st-zigzag',
 }
 
 /** Chart data interval enum — replaces 'daily' | 'weekly' | 'monthly' magic strings */

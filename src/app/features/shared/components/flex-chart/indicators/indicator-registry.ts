@@ -19,6 +19,8 @@ export { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, det
 export { ST_TREND_BAND_WIDTH_INDICATOR, calculateStTrendBandWidth, computeBandWidthDots } from './st-trend-band-width.indicator';
 export { ST_STD_DEV_LINES_INDICATOR, calculateStdDevLines, computeStdDevLinesSeries } from './st-std-dev-lines.indicator';
 export type { StdDevLineSeriesData, StdDevLineSeries, StdDevFillZone } from './st-std-dev-lines.indicator';
+export { ST_ZIGZAG_INDICATOR, calculateZigZag, computeZigZagSeries } from './st-zigzag.indicator';
+export type { ZigZagChartSeries, ZigZagLineSeries } from './st-zigzag.indicator';
 
 import type { IndicatorOption, IndicatorCalculator, IndicatorConfig, SeriesType, IndicatorType } from '../flex-chart.types';
 import { StIndicator } from '../flex-chart.types';
@@ -34,6 +36,7 @@ import { ST_SIGNAL_DOTS_INDICATOR } from './st-signal-dots.indicator';
 import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR } from './st-trend-rider-dots.indicator';
 import { ST_TREND_BAND_WIDTH_INDICATOR, calculateStTrendBandWidth } from './st-trend-band-width.indicator';
 import { ST_STD_DEV_LINES_INDICATOR, calculateStdDevLines } from './st-std-dev-lines.indicator';
+import { ST_ZIGZAG_INDICATOR, calculateZigZag } from './st-zigzag.indicator';
 
 /** ST-only indicators for the checkbox toggle menu */
 export const ST_INDICATOR_OPTIONS: IndicatorOption[] = [
@@ -45,6 +48,7 @@ export const ST_INDICATOR_OPTIONS: IndicatorOption[] = [
   ST_ZONE_V1_UPTICK_DOTS_INDICATOR,
   ST_ZONE_V2_UPTICK_DOTS_INDICATOR,
   ST_STD_DEV_LINES_INDICATOR,
+  ST_ZIGZAG_INDICATOR,
 ];
 
 /** Calculator map — keyed by IndicatorType, used by computeIndicators() */
@@ -58,6 +62,7 @@ export const indicatorCalculators: Record<string, IndicatorCalculator> = {
   [StIndicator.TREND_STRENGTH]:   calculateStTrendStrength,
   [StIndicator.TREND_BAND_WIDTH]:  calculateStTrendBandWidth,
   [StIndicator.ST_STD_DEV_LINES]:    calculateStdDevLines,
+  [StIndicator.ST_ZIGZAG]:          calculateZigZag,
 };
 
 /** Default series type per indicator type */
@@ -71,6 +76,7 @@ const SERIES_TYPE_MAP: Partial<Record<IndicatorType, SeriesType>> = {
   [StIndicator.ZONE_UPTICK_DOTS]:      'scatter',
   [StIndicator.TREND_BAND_WIDTH]:   'column',
   [StIndicator.ST_STD_DEV_LINES]:      'line',
+  [StIndicator.ST_ZIGZAG]:             'line',
 };
 
 /** Build an IndicatorConfig from an IndicatorOption using its declared defaults */

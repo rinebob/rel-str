@@ -101,9 +101,41 @@
           </e-series>
         }
 
+        <!-- ZigZag (solid confirmed-pivot segments) -->
+        @for (line of zigZagSeries().lines; track line.key) {
+          <e-series
+            [dataSource]="line.data"
+            type="Line"
+            xName="index"
+            yName="y"
+            [name]="line.name"
+            [fill]="line.color"
+            [width]="line.width"
+            [dashArray]="line.dashArray"
+            [enableTooltip]="true"
+            [animation]="noAnimation">
+          </e-series>
+        }
+
+        <!-- ZigZag (dashed projected-pivot segment) -->
+        @if (zigZagSeries().projectedLine; as projLine) {
+          <e-series
+            [dataSource]="projLine.data"
+            type="Line"
+            xName="index"
+            yName="y"
+            [name]="projLine.name"
+            [fill]="projLine.color"
+            [width]="projLine.width"
+            [dashArray]="projLine.dashArray"
+            [enableTooltip]="true"
+            [animation]="noAnimation">
+          </e-series>
+        }
+
         <!-- Main pane indicators (overlay on price) -->
         @for (indicator of mainPaneSeries(); track indicator.id) {
-          @if (indicator.config.type !== StIndicator.TREND_BANDS && indicator.config.type !== StIndicator.ST_STD_DEV_LINES && indicator.config.seriesType === 'line') {
+          @if (indicator.config.type !== StIndicator.TREND_BANDS && indicator.config.type !== StIndicator.ST_STD_DEV_LINES && indicator.config.type !== StIndicator.ST_ZIGZAG && indicator.config.seriesType === 'line') {
             <e-series
               [dataSource]="indicator.data"
               type="Line"
