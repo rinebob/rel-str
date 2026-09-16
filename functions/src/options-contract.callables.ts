@@ -3,7 +3,7 @@ import * as logger from 'firebase-functions/logger';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 
-import { callPartnerHistoricalOptionsContractV2, callPartnerListContractsV2, callPartnerContractCatalogV2 } from './options-contract-proxy';
+import { callPartnerHistoricalOptionsContractV2, callPartnerListContractsV2, callPartnerContractCatalogV2, callPartnerHistoricalOptions } from './options-contract-proxy';
 import { ST_ALLOWED_ORIGINS } from './st-cloud-function/cors';
 import type {
   GetHistoricalOptionsContractRequest,
@@ -18,6 +18,8 @@ import type {
   ContractCatalogResponse,
   ContractSummaryResponse,
   ContractCatalogEntry,
+  GetHistoricalOptionsChainRequest,
+  GetHistoricalOptionsChainResponse,
 } from '@options-contract/contracts';
 
 const SA_PROJECT_ID = process.env.SA_PROJECT_ID || 'alpha-vantage-proxy-api';
@@ -324,6 +326,54 @@ export const queryContractCatalog = onCall(
       logger.error('queryContractCatalog_error', {
         symbol: sym,
         summary: params.summary ?? false,
+        message: e instanceof Error ? e.message : String(e),
+        stack: e instanceof Error ? e.stack : undefined,
+        error: e,
+      });
+      throw e;
+    }
+  },
+);
+
+/**
+ * getHistoricalOptionsChain — Fetch the full historical options chain
+ * snapshot for a symbol on a specific date via the Savant Partner API.
+ *
+ * Wraps `callPartnerHistoricalOptions` behind a callable so the FE
+ * never calls the partner API directly. Live fetch from Alpha Vantage
+ * every request — no caching (SA may add GCS caching in the future;
+ * see docs/topics/326-options/326-327-329-PROPOSAL-OPTIONS-savantapi-chain-snapshot-caching-option-chain-pct-change-grid-initial-impl.md).
+ */
+export const getHistoricalOptionsChain = onCall(
+  { region: 'us-central1', cors: ST_ALLOWED_ORIGINS },
+  async (req): Promise<GetHistoricalOptionsChainResponse> => {
+    const { symbol, date } = (req.data || {}) as GetHistoricalOptionsChainRequest;
+    const sym = String(symbol || '').trim().toUpperCase();
+    const dt = String(date || '').trim();
+
+    if (!sym) {
+      throw new Error('symbol is required');
+    }
+    if (!dt) {
+      throw new Error('date is required');
+    }
+
+    logger.info('getHistoricalOptionsChain', { symbol: sym, date: dt });
+
+    try {
+      const data = await callPartnerHistoricalOptions({ symbol: sym, date: dt });
+
+      logger.info('getHistoricalOptionsChain_response', {
+        symbol: data.symbol,
+        date: data.date,
+        contractCount: data.data.data.length,
+      });
+
+      return data;
+    } catch (e: unknown) {
+      logger.error('getHistoricalOptionsChain_error', {
+        symbol: sym,
+        date: dt,
         message: e instanceof Error ? e.message : String(e),
         stack: e instanceof Error ? e.stack : undefined,
         error: e,
