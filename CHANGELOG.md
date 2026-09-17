@@ -14,6 +14,8 @@
 - [Option Chain Pct Change Grid] 326-368_DOCS-OPTIONS: Add code review doc for Task #368
 - [Option Chain Pct Change Grid] 326-369_BE-IMPL-OPTIONS: Add Firestore rules for configs collection
 - [Option Chain Pct Change Grid] 326-369_DOCS-OPTIONS: Add code review doc for Task #369
+- [Option Chain Pct Change Grid] 326-370_FE-IMPL-OPTIONS: Add pct-change config pure functions
+- [Option Chain Pct Change Grid] 326-370_DOCS-OPTIONS: Add code review doc for pct-change config pure functions
 
 ## [2026-09-16]
 
