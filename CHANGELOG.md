@@ -4,6 +4,8 @@
 
 ### Added
 - [Option Chain Pct Change Grid] 326-361_DOCS-OPTIONS: Add blueprint docs for save param configuration Thread (checkpoint)
+- [Option Chain Pct Change Grid] 326-368_SHARED-IMPL-OPTIONS: Add pct-change config shared types
+- [Option Chain Pct Change Grid] 326-368_DOCS-OPTIONS: Add code review doc for Task #368
 
 ## [2026-09-16]
 
