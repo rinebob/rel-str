@@ -18,6 +18,8 @@
 - [Option Chain Pct Change Grid] 326-370_DOCS-OPTIONS: Add code review doc for pct-change config pure functions
 - [Option Chain Pct Change Grid] 326-371_FE-IMPL-OPTIONS: Add pct-change config service
 - [Option Chain Pct Change Grid] 326-371_DOCS-OPTIONS: Add code review doc for Task #371
+- [Option Chain Pct Change Grid] 326-372_FE-IMPL-OPTIONS: Add target type selector component
+- [Option Chain Pct Change Grid] 326-372_DOCS-OPTIONS: Add code review doc for Task #372
 - [Trading Indicator Library] 261-339_SHARED-IMPL-INDICATOR-LIB: Port ZigZag to standalone Pine with leftDepth/rightDepth split
 - [Trading Indicator Library] 261-339_DOCS-INDICATOR-LIB: Add code review doc for ZigZag Pine export
 
