@@ -1,13 +1,35 @@
+// Mock @angular/fire modules to avoid Node.js Response error from transitive imports
+jest.mock('@angular/fire/auth', () => ({
+  Auth: class {},
+  authState: jest.fn(),
+}));
+jest.mock('@angular/fire/functions', () => ({
+  Functions: class {},
+  httpsCallable: jest.fn(),
+}));
+jest.mock('@angular/fire/firestore', () => ({
+  Firestore: class {},
+  collection: jest.fn(),
+  doc: jest.fn(),
+  setDoc: jest.fn(),
+  getDocs: jest.fn(),
+  deleteDoc: jest.fn(),
+}));
+
 import { TestBed } from '@angular/core/testing';
 import { of, Subject, throwError } from 'rxjs';
 
 import { OptionChainPctChangeStore } from './option-chain-pct-change.store';
 import { OptionsContractService } from '../../services/options-contract.service';
+import { PctChangeConfigService } from './services/pct-change-config.service';
+import type { PctChangeConfigWithId } from './services/pct-change-config.service';
+import { Firestore } from '@angular/fire/firestore';
 import { OptionType } from '@options-contract/contracts';
 import type {
   GetHistoricalOptionsChainResponse,
   HistoricalOptionContract,
 } from '@options-contract/contracts';
+import type { PctChangeConfigDoc } from '@shared/pct-change-config-contracts';
 
 // =============================================================================
 // Test fixtures
@@ -67,12 +89,39 @@ function mockService(
   } as Partial<OptionsContractService>;
 }
 
+function makeConfigDoc(overrides: Partial<PctChangeConfigDoc> = {}): PctChangeConfigDoc {
+  return {
+    symbol: 'QQQ',
+    startDate: '2025-04-07',
+    type: OptionType.CALL,
+    targetType: 'pct-change',
+    targetDates: ['2025-04-10', '2025-04-15'],
+    pctMode: 'list',
+    pctValues: [-3, 5, 10],
+    filter: { type: OptionType.CALL },
+    ...overrides,
+  };
+}
+
+function mockConfigService(
+  savedConfigs: PctChangeConfigWithId[] = [],
+): Partial<PctChangeConfigService> {
+  return {
+    loadConfigs: () => of(savedConfigs),
+    saveConfig: () => of(undefined),
+    deleteConfig: () => of(undefined),
+  } as Partial<PctChangeConfigService>;
+}
+
 function setupStore(
   service: Partial<OptionsContractService> = mockService(),
+  configService: Partial<PctChangeConfigService> = mockConfigService(),
 ): InstanceType<typeof OptionChainPctChangeStore> {
   TestBed.configureTestingModule({
     providers: [
       { provide: OptionsContractService, useValue: service },
+      { provide: PctChangeConfigService, useValue: configService },
+      { provide: Firestore, useValue: {} },
       OptionChainPctChangeStore,
     ],
   });
@@ -84,10 +133,10 @@ function setupStore(
 // =============================================================================
 
 describe('OptionChainPctChangeStore', () => {
-  it('initializes with empty state', () => {
+  it('initializes with default state', () => {
     const store = setupStore();
-    expect(store.symbol()).toBe('');
-    expect(store.startDate()).toBe('');
+    expect(store.symbol()).toBe('QQQ');
+    expect(store.startDate()).toBe('2025-04-07');
     expect(store.targetDates()).toEqual([]);
     expect(store.loading()).toBe(false);
     expect(store.error()).toBeNull();
@@ -165,6 +214,7 @@ describe('OptionChainPctChangeStore', () => {
   describe('canRun computed', () => {
     it('returns false when symbol is empty', () => {
       const store = setupStore();
+      store.setSymbol('');
       store.setStartDate('2024-01-15');
       store.addTargetDate('2024-02-15');
       expect(store.canRun()).toBe(false);
@@ -173,6 +223,7 @@ describe('OptionChainPctChangeStore', () => {
     it('returns false when startDate is empty', () => {
       const store = setupStore();
       store.setSymbol('QQQ');
+      store.setStartDate('');
       store.addTargetDate('2024-02-15');
       expect(store.canRun()).toBe(false);
     });
@@ -324,8 +375,8 @@ describe('OptionChainPctChangeStore', () => {
       // Reset while in-flight.
       store.reset();
 
-      expect(store.symbol()).toBe('');
-      expect(store.startDate()).toBe('');
+      expect(store.symbol()).toBe('QQQ');
+      expect(store.startDate()).toBe('2025-04-07');
       expect(store.targetDates()).toEqual([]);
       expect(store.grids()).toEqual([]);
       expect(store.startSnapshot()).toBeNull();
@@ -341,6 +392,255 @@ describe('OptionChainPctChangeStore', () => {
         expect(store.grids()).toEqual([]);
         done();
       }, 50);
+    });
+  });
+
+  // ===========================================================================
+  // Config state
+  // ===========================================================================
+
+  describe('config state', () => {
+    it('initializes with default config state', () => {
+      const store = setupStore();
+      expect(store.targetType()).toBe('pct-change');
+      expect(store.pctMode()).toBe('list');
+      expect(store.pctValues()).toEqual([]);
+      expect(store.pctStep()).toBe(5);
+      expect(store.pctCount()).toBe(4);
+      expect(store.pctDirection()).toBe('up');
+      expect(store.userDatesMode()).toBe('manual');
+      expect(store.intervalCount()).toBe(5);
+      expect(store.intervalDays()).toBe(5);
+      expect(store.savedConfigs()).toEqual([]);
+      expect(store.selectedConfigId()).toBeNull();
+    });
+
+    it('setTargetType updates targetType', () => {
+      const store = setupStore();
+      store.setTargetType('user-dates');
+      expect(store.targetType()).toBe('user-dates');
+    });
+
+    it('setPctMode updates pctMode', () => {
+      const store = setupStore();
+      store.setPctMode('gradation');
+      expect(store.pctMode()).toBe('gradation');
+    });
+
+    it('setPctValues updates pctValues', () => {
+      const store = setupStore();
+      store.setPctValues([-3, 5, 10]);
+      expect(store.pctValues()).toEqual([-3, 5, 10]);
+    });
+
+    it('setPctGradation updates step, count, direction', () => {
+      const store = setupStore();
+      store.setPctGradation(2, 6, 'down');
+      expect(store.pctStep()).toBe(2);
+      expect(store.pctCount()).toBe(6);
+      expect(store.pctDirection()).toBe('down');
+    });
+
+    it('setUserDatesMode updates userDatesMode', () => {
+      const store = setupStore();
+      store.setUserDatesMode('interval');
+      expect(store.userDatesMode()).toBe('interval');
+    });
+
+    it('setIntervalParams updates count and intervalDays', () => {
+      const store = setupStore();
+      store.setIntervalParams(3, 7);
+      expect(store.intervalCount()).toBe(3);
+      expect(store.intervalDays()).toBe(7);
+    });
+  });
+
+  // ===========================================================================
+  // loadSavedConfigs
+  // ===========================================================================
+
+  describe('loadSavedConfigs', () => {
+    it('loads saved configs into state', () => {
+      const cfg: PctChangeConfigWithId = {
+        id: 'QQQ-2025-04-07-2-pct-change-abc',
+        ...makeConfigDoc(),
+      };
+      const configService = mockConfigService([cfg]);
+      const store = setupStore(mockService(), configService);
+      store.loadSavedConfigs();
+      expect(store.savedConfigs().length).toBe(1);
+      expect(store.savedConfigs()[0].id).toBe('QQQ-2025-04-07-2-pct-change-abc');
+    });
+
+    it('handles empty config list', () => {
+      const store = setupStore();
+      store.loadSavedConfigs();
+      expect(store.savedConfigs()).toEqual([]);
+    });
+  });
+
+  // ===========================================================================
+  // selectConfig
+  // ===========================================================================
+
+  describe('selectConfig', () => {
+    it('populates all inputs from saved config', () => {
+      const cfg: PctChangeConfigWithId = {
+        id: 'QQQ-2025-04-07-2-pct-change-abc',
+        ...makeConfigDoc({
+          symbol: 'SPY',
+          startDate: '2025-03-01',
+          type: OptionType.PUT,
+          targetType: 'user-dates',
+          targetDates: ['2025-03-05', '2025-03-10'],
+          pctMode: 'gradation',
+          pctStep: 2,
+          pctCount: 6,
+          pctDirection: 'down',
+          pctValues: [-3, 5],
+          userDatesMode: 'interval',
+          intervalCount: 2,
+          intervalDays: 5,
+          filter: { type: OptionType.PUT, strikeGte: 100 },
+        }),
+      };
+      const configService = mockConfigService([cfg]);
+      const store = setupStore(mockService(), configService);
+      store.loadSavedConfigs();
+      store.selectConfig('QQQ-2025-04-07-2-pct-change-abc');
+      expect(store.symbol()).toBe('SPY');
+      expect(store.startDate()).toBe('2025-03-01');
+      expect(store.type()).toBe(OptionType.PUT);
+      expect(store.filter().type).toBe(OptionType.PUT);
+      expect(store.filter().strikeGte).toBe(100);
+      expect(store.targetType()).toBe('user-dates');
+      expect(store.targetDates()).toEqual(['2025-03-05', '2025-03-10']);
+      expect(store.pctMode()).toBe('gradation');
+      expect(store.pctValues()).toEqual([-3, 5]);
+      expect(store.pctStep()).toBe(2);
+      expect(store.pctCount()).toBe(6);
+      expect(store.pctDirection()).toBe('down');
+      expect(store.userDatesMode()).toBe('interval');
+      expect(store.intervalCount()).toBe(2);
+      expect(store.intervalDays()).toBe(5);
+      expect(store.selectedConfigId()).toBe('QQQ-2025-04-07-2-pct-change-abc');
+      expect(store.startSnapshot()).toBeNull();
+      expect(store.underlyingPrices()).toEqual({});
+    });
+
+    it('is a no-op when configId not found', () => {
+      const store = setupStore();
+      store.setSymbol('QQQ');
+      store.selectConfig('nonexistent');
+      expect(store.symbol()).toBe('QQQ');
+      expect(store.selectedConfigId()).toBeNull();
+    });
+  });
+
+  // ===========================================================================
+  // saveCurrentConfig
+  // ===========================================================================
+
+  describe('saveCurrentConfig', () => {
+    it('builds a doc and calls service.saveConfig', () => {
+      const saveSpy = jest.fn().mockReturnValue(of(undefined));
+      const configService = { ...mockConfigService(), saveConfig: saveSpy as never };
+      const store = setupStore(mockService(), configService);
+      store.setSymbol('QQQ');
+      store.setStartDate('2025-04-07');
+      store.setTargetType('pct-change');
+      store.setPctValues([-3, 5, 10]);
+      store.addTargetDate('2025-04-10');
+      store.saveCurrentConfig();
+      expect(saveSpy).toHaveBeenCalledTimes(1);
+      const savedArg = saveSpy.mock.calls[0][0] as PctChangeConfigWithId;
+      expect(savedArg.symbol).toBe('QQQ');
+      expect(savedArg.startDate).toBe('2025-04-07');
+      expect(savedArg.targetType).toBe('pct-change');
+      expect(savedArg.pctValues).toEqual([-3, 5, 10]);
+      expect(savedArg.targetDates).toEqual(['2025-04-10']);
+      expect(savedArg.id).toBeTruthy();
+    });
+
+    it('adds the saved config to savedConfigs and sets selectedConfigId', () => {
+      const saveSpy = jest.fn().mockReturnValue(of(undefined));
+      const configService = { ...mockConfigService(), saveConfig: saveSpy as never };
+      const store = setupStore(mockService(), configService);
+      store.setSymbol('QQQ');
+      store.setStartDate('2025-04-07');
+      store.addTargetDate('2025-04-10');
+      store.saveCurrentConfig();
+      expect(store.savedConfigs().length).toBe(1);
+      expect(store.selectedConfigId()).toBe(store.savedConfigs()[0].id);
+    });
+
+    it('sets error state when save fails', () => {
+      const saveSpy = jest.fn().mockReturnValue(throwError(() => new Error('save failed')));
+      const configService = { ...mockConfigService(), saveConfig: saveSpy as never };
+      const store = setupStore(mockService(), configService);
+      store.setSymbol('QQQ');
+      store.setStartDate('2025-04-07');
+      store.addTargetDate('2025-04-10');
+      store.saveCurrentConfig();
+      expect(store.error()).toContain('Failed to save config');
+    });
+  });
+
+  // ===========================================================================
+  // deleteConfig
+  // ===========================================================================
+
+  describe('deleteConfig', () => {
+    it('calls service.deleteConfig and removes from savedConfigs', () => {
+      const deleteSpy = jest.fn().mockReturnValue(of(undefined));
+      const cfg: PctChangeConfigWithId = {
+        id: 'QQQ-2025-04-07-2-pct-change-abc',
+        ...makeConfigDoc(),
+      };
+      const configService = {
+        ...mockConfigService([cfg]),
+        deleteConfig: deleteSpy as never,
+      };
+      const store = setupStore(mockService(), configService);
+      store.loadSavedConfigs();
+      expect(store.savedConfigs().length).toBe(1);
+      store.deleteConfig('QQQ-2025-04-07-2-pct-change-abc');
+      expect(deleteSpy).toHaveBeenCalledWith('QQQ-2025-04-07-2-pct-change-abc');
+      expect(store.savedConfigs().length).toBe(0);
+    });
+
+    it('deselects when deleting the currently selected config', () => {
+      const deleteSpy = jest.fn().mockReturnValue(of(undefined));
+      const cfg: PctChangeConfigWithId = {
+        id: 'QQQ-2025-04-07-2-pct-change-abc',
+        ...makeConfigDoc(),
+      };
+      const configService = {
+        ...mockConfigService([cfg]),
+        deleteConfig: deleteSpy as never,
+      };
+      const store = setupStore(mockService(), configService);
+      store.loadSavedConfigs();
+      store.selectConfig('QQQ-2025-04-07-2-pct-change-abc');
+      expect(store.selectedConfigId()).toBe('QQQ-2025-04-07-2-pct-change-abc');
+      store.deleteConfig('QQQ-2025-04-07-2-pct-change-abc');
+      expect(store.selectedConfigId()).toBeNull();
+    });
+
+    it('sets error state when delete fails', () => {
+      const deleteSpy = jest.fn().mockReturnValue(throwError(() => new Error('delete failed')));
+      const cfg: PctChangeConfigWithId = {
+        id: 'QQQ-2025-04-07-2-pct-change-abc',
+        ...makeConfigDoc(),
+      };
+      const configService = {
+        ...mockConfigService([cfg]),
+        deleteConfig: deleteSpy as never,
+      };
+      const store = setupStore(mockService(), configService);
+      store.loadSavedConfigs();
+      store.deleteConfig('QQQ-2025-04-07-2-pct-change-abc');
+      expect(store.error()).toContain('Failed to delete config');
     });
   });
 });

@@ -19,13 +19,22 @@ import { map } from 'rxjs/operators';
 
 import { OptionsContractService } from '../../services/options-contract.service';
 import { LocalBarReadService } from '../../../../core/services/local-bar-read.service';
+import { PctChangeConfigService } from './services/pct-change-config.service';
+import type { PctChangeConfigWithId } from './services/pct-change-config.service';
 import { OptionType } from '@options-contract/contracts';
 import type { HistoricalOptionContract } from '@options-contract/contracts';
+import type {
+  TargetType,
+  PctMode,
+  UserDatesMode,
+  PctDirection,
+} from '@shared/pct-change-config-contracts';
 import {
   computePctChange,
   type PctChangeGrid,
   type PctChangeFilter,
 } from './utils/pct-change.utils';
+import { buildConfigId } from './utils/pct-change-config.utils';
 
 // ---------------------------------------------------------------------------
 // State
@@ -42,6 +51,30 @@ export interface OptionChainPctChangeState {
   type: OptionType;
   /** Input: filter applied to matched contracts. */
   filter: PctChangeFilter;
+
+  /** Config: target type selection. */
+  targetType: TargetType;
+  /** Config: pct-change sub-mode. */
+  pctMode: PctMode;
+  /** Config: pct values (list mode). */
+  pctValues: number[];
+  /** Config: pct step (gradation mode). */
+  pctStep: number;
+  /** Config: pct count (gradation mode). */
+  pctCount: number;
+  /** Config: pct direction (gradation mode). */
+  pctDirection: PctDirection;
+  /** Config: user-dates sub-mode. */
+  userDatesMode: UserDatesMode;
+  /** Config: interval count (user-dates interval mode). */
+  intervalCount: number;
+  /** Config: interval days (user-dates interval mode). */
+  intervalDays: number;
+
+  /** Saved configs loaded from Firestore. */
+  savedConfigs: PctChangeConfigWithId[];
+  /** Currently selected config id, or null. */
+  selectedConfigId: string | null;
 
   /** Fetch state. */
   loading: boolean;
@@ -61,6 +94,17 @@ const initialState: OptionChainPctChangeState = {
   targetDates: [],
   type: OptionType.CALL,
   filter: { type: OptionType.CALL },
+  targetType: 'pct-change',
+  pctMode: 'list',
+  pctValues: [],
+  pctStep: 5,
+  pctCount: 4,
+  pctDirection: 'up',
+  userDatesMode: 'manual',
+  intervalCount: 5,
+  intervalDays: 5,
+  savedConfigs: [],
+  selectedConfigId: null,
   loading: false,
   error: null,
   startSnapshot: null,
@@ -119,7 +163,7 @@ export const OptionChainPctChangeStore = signalStore(
     }),
   })),
 
-  withMethods((store, optionsContractService = inject(OptionsContractService), barReadService = inject(LocalBarReadService)) => {
+  withMethods((store, optionsContractService = inject(OptionsContractService), barReadService = inject(LocalBarReadService), configService = inject(PctChangeConfigService)) => {
     // Track the in-flight runAnalysis subscription so we can cancel stale
     // requests when runAnalysis is called again before the previous one
     // completes, or when reset is called mid-flight.
@@ -274,6 +318,135 @@ export const OptionChainPctChangeStore = signalStore(
         runSub?.unsubscribe();
         runSub = null;
         patchState(store, { ...initialState });
+      },
+
+      // -----------------------------------------------------------------
+      // Config state setters
+      // -----------------------------------------------------------------
+
+      /** Set the target type selection. */
+      setTargetType(targetType: TargetType): void {
+        patchState(store, { targetType });
+      },
+
+      /** Set the pct-change sub-mode. */
+      setPctMode(mode: PctMode): void {
+        patchState(store, { pctMode: mode });
+      },
+
+      /** Set pct values (list mode). */
+      setPctValues(values: number[]): void {
+        patchState(store, { pctValues: values });
+      },
+
+      /** Set pct gradation params (gradation mode). */
+      setPctGradation(step: number, count: number, direction: PctDirection): void {
+        patchState(store, { pctStep: step, pctCount: count, pctDirection: direction });
+      },
+
+      /** Set the user-dates sub-mode. */
+      setUserDatesMode(mode: UserDatesMode): void {
+        patchState(store, { userDatesMode: mode });
+      },
+
+      /** Set interval params (user-dates interval mode). */
+      setIntervalParams(count: number, intervalDays: number): void {
+        patchState(store, { intervalCount: count, intervalDays });
+      },
+
+      // -----------------------------------------------------------------
+      // Saved config CRUD
+      // -----------------------------------------------------------------
+
+      /** Load all saved configs from Firestore into state. */
+      loadSavedConfigs(): void {
+        configService.loadConfigs().subscribe({
+          next: (configs) => patchState(store, { savedConfigs: configs }),
+          error: () => patchState(store, { savedConfigs: [] }),
+        });
+      },
+
+      /** Select a saved config by id and populate all inputs from it. */
+      selectConfig(configId: string): void {
+        const cfg = store.savedConfigs().find((c) => c.id === configId);
+        if (!cfg) return;
+        patchState(store, {
+          selectedConfigId: configId,
+          symbol: cfg.symbol,
+          startDate: cfg.startDate,
+          type: cfg.type,
+          filter: cfg.filter,
+          targetType: cfg.targetType,
+          targetDates: cfg.targetDates,
+          pctMode: cfg.pctMode ?? 'list',
+          pctValues: cfg.pctValues ?? [],
+          pctStep: cfg.pctStep ?? 5,
+          pctCount: cfg.pctCount ?? 4,
+          pctDirection: cfg.pctDirection ?? 'up',
+          userDatesMode: cfg.userDatesMode ?? 'manual',
+          intervalCount: cfg.intervalCount ?? 5,
+          intervalDays: cfg.intervalDays ?? 5,
+          startSnapshot: null,
+          targetSnapshots: {},
+          underlyingPrices: {},
+        });
+      },
+
+      /** Build a config doc from current state and save it via the service. */
+      saveCurrentConfig(): void {
+        const symbol = store.symbol().trim().toUpperCase();
+        const startDate = store.startDate().trim();
+        const targetDates = store.targetDates();
+        const targetType = store.targetType();
+        const uid = typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+        const id = buildConfigId(symbol, startDate, targetDates.length, targetType, uid);
+        const doc: PctChangeConfigWithId = {
+          id,
+          symbol,
+          startDate,
+          type: store.type(),
+          targetType,
+          targetDates,
+          pctMode: store.pctMode(),
+          pctValues: store.pctValues(),
+          pctStep: store.pctStep(),
+          pctCount: store.pctCount(),
+          pctDirection: store.pctDirection(),
+          userDatesMode: store.userDatesMode(),
+          intervalCount: store.intervalCount(),
+          intervalDays: store.intervalDays(),
+          filter: store.filter(),
+        };
+        configService.saveConfig(doc).subscribe({
+          next: () => {
+            const existing = store.savedConfigs().filter((c) => c.id !== id);
+            patchState(store, { savedConfigs: [...existing, doc], selectedConfigId: id });
+          },
+          error: (err: unknown) => {
+            const msg = err instanceof Error ? err.message : String(err);
+            patchState(store, { error: `Failed to save config: ${msg}` });
+          },
+        });
+      },
+
+      /** Delete a saved config by id via the service and remove from state. */
+      deleteConfig(configId: string): void {
+        configService.deleteConfig(configId).subscribe({
+          next: () => {
+            const remaining = store.savedConfigs().filter((c) => c.id !== configId);
+            const selected = store.selectedConfigId();
+            patchState(store, {
+              savedConfigs: remaining,
+              selectedConfigId: selected === configId ? null : selected,
+            });
+          },
+          error: (err: unknown) => {
+            const msg = err instanceof Error ? err.message : String(err);
+            patchState(store, { error: `Failed to delete config: ${msg}` });
+          },
+        });
       },
     };
   }),
