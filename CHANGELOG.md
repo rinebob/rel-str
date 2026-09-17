@@ -3,9 +3,17 @@
 ## [2026-09-17]
 
 ### Added
+- [Trading Indicator Library] 261-336_FE-IMPL-INDICATOR-LIB: Add swing table component for ZigZag swing analysis
+- [Trading Indicator Library] 261-337_FE-IMPL-INDICATOR-LIB: Add stats panel component for ZigZag swing analysis
+- [Trading Indicator Library] 261-338_FE-IMPL-INDICATOR-LIB: Add swing analysis page + route (page shell)
+- [Trading Indicator Library] 261-336_DOCS-INDICATOR-LIB: Add code review and UAT docs for swing table
+- [Trading Indicator Library] 261-337_DOCS-INDICATOR-LIB: Add code review doc for stats panel
+- [Trading Indicator Library] 261-338_DOCS-INDICATOR-LIB: Add code review doc for swing analysis page
 - [Option Chain Pct Change Grid] 326-361_DOCS-OPTIONS: Add blueprint docs for save param configuration Thread (checkpoint)
 - [Option Chain Pct Change Grid] 326-368_SHARED-IMPL-OPTIONS: Add pct-change config shared types
 - [Option Chain Pct Change Grid] 326-368_DOCS-OPTIONS: Add code review doc for Task #368
+- [Option Chain Pct Change Grid] 326-369_BE-IMPL-OPTIONS: Add Firestore rules for configs collection
+- [Option Chain Pct Change Grid] 326-369_DOCS-OPTIONS: Add code review doc for Task #369
 
 ## [2026-09-16]
 
