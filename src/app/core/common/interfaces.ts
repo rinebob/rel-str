@@ -50,6 +50,7 @@ export enum AppRoutes {
 	STRATEGY_BUILDER = 'strategy-builder',
 	PORTFOLIO_DASHBOARD = 'portfolio-dashboard',
 	OPTION_CHAIN_PCT_CHANGE = 'option-chain-pct-change',
+	SWING_ANALYSIS = 'savant-trader/swing-analysis',
 }
 
 export enum AuthLevel {

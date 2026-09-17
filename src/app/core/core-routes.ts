@@ -163,6 +163,11 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.OptionChainPctChangeComponent),
                 canActivate: [authGuard],
             },
+            {path: AppRoutes.SWING_ANALYSIS,
+                loadComponent: () => import('../features/savant-trader/swing-analysis/swing-analysis-page.component')
+                .then(mod => mod.SwingAnalysisPageComponent),
+                canActivate: [authGuard],
+            },
             {path: AppRoutes.LOGOUT, redirectTo: '/', pathMatch: 'full'},
         ]
     },

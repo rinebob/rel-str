@@ -119,6 +119,26 @@ export const SwingAnalysisStore = signalStore(
 
       return {
         /**
+         * Reset the store to initial state (except savedAnalyses).
+         * Called by the page on init to avoid stale data from prior visits.
+         */
+        resetState(): void {
+          barsSub?.unsubscribe();
+          barsSub = null;
+          patchState(store, {
+            symbol: '',
+            config: { ...DEFAULT_CONFIG },
+            bars: [],
+            pivots: [],
+            projection: null,
+            swings: [],
+            stats: null,
+            loading: false,
+            error: null,
+          });
+        },
+
+        /**
          * Set the symbol and trigger bar load + recompute.
          */
         setSymbol(symbol: string): void {
