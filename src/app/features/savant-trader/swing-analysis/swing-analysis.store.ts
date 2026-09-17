@@ -22,7 +22,7 @@ import { computed } from '@angular/core';
 import { ChartService } from '../services/chart.service';
 import { SwingAnalysisService } from './swing-analysis.service';
 import { deriveParamsId } from './swing-analysis.types';
-import type { SwingAnalysisDoc } from './swing-analysis.types';
+import type { SwingAnalysisDoc, SwingAnalysisInput } from './swing-analysis.types';
 import {
   computeZigZagPivots,
   deriveSwings,
@@ -213,8 +213,7 @@ export const SwingAnalysisStore = signalStore(
 
           if (!symbol || !stats) return;
 
-          const doc: SwingAnalysisDoc = {
-            id: paramsId,
+          const doc: SwingAnalysisInput = {
             symbol,
             paramsId,
             config,

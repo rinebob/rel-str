@@ -1,33 +1,41 @@
 /**
- * Swing Analysis Service — minimal Firestore persistence.
+ * Swing Analysis Service — Firestore persistence with user-scoping.
  *
  * Reads and writes saved swing analyses under
  * `zig-zags/{symbol}/analyses/{paramsId}`.
- * Task #335 will add security rules and hardening.
+ * Security rules enforce that users can only read/write their own analyses
+ * (matched by the `userId` field on each doc).
  */
 
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, EnvironmentInjector } from '@angular/core';
+import { Auth } from '@angular/fire/auth';
 import {
   Firestore,
   collection,
-  collectionData,
   doc,
   setDoc,
   getDoc,
+  getDocs,
 } from '@angular/fire/firestore';
 import { Observable, from, of } from 'rxjs';
-import { map, catchError } from 'rxjs/operators';
+import { map, switchMap, take } from 'rxjs/operators';
 
-import type { SwingAnalysisDoc } from './swing-analysis.types';
+import { requireUserId } from '../services/firestore-helpers';
+import type { SwingAnalysisDoc, SwingAnalysisInput } from './swing-analysis.types';
 
 const ZIG_ZAGS_COLLECTION = 'zig-zags';
 const ANALYSES_SUBCOLLECTION = 'analyses';
 
+/** Fields persisted to Firestore (excludes the synthetic `id`). */
+type PersistedAnalysis = Omit<SwingAnalysisDoc, 'id'>;
+
 @Injectable({ providedIn: 'root' })
 export class SwingAnalysisService {
   private readonly firestore = inject(Firestore);
+  private readonly auth = inject(Auth);
+  private readonly injector = inject(EnvironmentInjector);
 
-  /** Load all saved analyses for a symbol. */
+  /** Load all saved analyses for a symbol (one-shot). */
   loadSavedAnalyses(symbol: string): Observable<SwingAnalysisDoc[]> {
     const sym = String(symbol || '').trim().toUpperCase();
     if (!sym) return of([]);
@@ -38,33 +46,40 @@ export class SwingAnalysisService {
       sym,
       ANALYSES_SUBCOLLECTION,
     ).withConverter<SwingAnalysisDoc>({
-      toFirestore: (v: SwingAnalysisDoc) => ({ ...v }),
+      toFirestore: (v: SwingAnalysisDoc) => {
+        const { id, ...data } = v;
+        return data;
+      },
       fromFirestore: (snap) => ({
-        ...(snap.data() as Omit<SwingAnalysisDoc, 'id'>),
+        ...(snap.data() as PersistedAnalysis),
         id: snap.id,
       }),
     });
-    return collectionData(coll).pipe(
-      catchError(() => of([] as SwingAnalysisDoc[])),
+    return from(getDocs(coll)).pipe(
+      map((snap) => snap.docs.map((d) => d.data())),
     );
   }
 
-  /** Save (or overwrite) an analysis document. */
-  saveAnalysis(analysis: SwingAnalysisDoc): Observable<void> {
-    return from(
-      setDoc(
-        doc(
-          this.firestore,
-          ZIG_ZAGS_COLLECTION,
-          analysis.symbol,
-          ANALYSES_SUBCOLLECTION,
-          analysis.paramsId,
-        ),
-        analysis,
-      ),
-    ).pipe(
-      map(() => undefined),
-      catchError(() => of(undefined)),
+  /** Save (or overwrite) an analysis document. Stamps userId from auth. */
+  saveAnalysis(analysis: SwingAnalysisInput): Observable<void> {
+    return requireUserId(this.auth, this.injector).pipe(
+      switchMap((userId) => {
+        const sym = String(analysis.symbol || '').trim().toUpperCase();
+        const { ...payload } = analysis;
+        const stamped: PersistedAnalysis = { ...payload, userId, symbol: sym };
+        return from(
+          setDoc(
+            doc(
+              this.firestore,
+              ZIG_ZAGS_COLLECTION,
+              sym,
+              ANALYSES_SUBCOLLECTION,
+              analysis.paramsId,
+            ),
+            stamped,
+          ),
+        );
+      }),
     );
   }
 
@@ -87,12 +102,11 @@ export class SwingAnalysisService {
       map((snap) =>
         snap.exists()
           ? ({
-              ...(snap.data() as Omit<SwingAnalysisDoc, 'id'>),
+              ...(snap.data() as PersistedAnalysis),
               id: snap.id,
             })
           : null,
       ),
-      catchError(() => of(null)),
     );
   }
 }

@@ -7,10 +7,8 @@
 
 import type { ZigZagConfig, Pivot, Swing, SwingStats, PriceBar } from '../../shared/components/flex-chart/indicators/st-zigzag.engine';
 
-/** A persisted swing analysis document in Firestore. */
-export interface SwingAnalysisDoc {
-  /** Firestore document id (same as paramsId). */
-  id: string;
+/** Input for saving a swing analysis — built by the store, no auth fields. */
+export interface SwingAnalysisInput {
   /** Symbol the analysis was saved for. */
   symbol: string;
   /** Hash of the ZigZagConfig params — used as the Firestore doc id. */
@@ -31,18 +29,28 @@ export interface SwingAnalysisDoc {
   savedAt: string;
 }
 
+/** A persisted swing analysis document in Firestore (read shape). */
+export interface SwingAnalysisDoc extends SwingAnalysisInput {
+  /** Firestore document id (same as paramsId). Added client-side on read. */
+  id: string;
+  /** Owner of this analysis — stamped by the service from auth. Required by Firestore security rules. */
+  userId: string;
+}
+
 /**
  * Derive a stable paramsId from a ZigZagConfig.
  * Used as the Firestore document id under
  * `zig-zags/{symbol}/analyses/{paramsId}`.
+ *
+ * Format: dev{N}_L{N}_R{N}_1bar{Y|N}_proj{Y|N}
  */
 export function deriveParamsId(config: ZigZagConfig): string {
   const parts = [
     `dev${config.devThreshold}`,
-    `l${config.leftDepth}`,
-    `r${config.rightDepth}`,
-    `a${config.allowZigZagOnOneBar ? 1 : 0}`,
-    `p${config.projectionPivots ? 1 : 0}`,
+    `L${config.leftDepth}`,
+    `R${config.rightDepth}`,
+    `1bar${config.allowZigZagOnOneBar ? 'Y' : 'N'}`,
+    `proj${config.projectionPivots ? 'Y' : 'N'}`,
   ];
-  return parts.join('-');
+  return parts.join('_');
 }

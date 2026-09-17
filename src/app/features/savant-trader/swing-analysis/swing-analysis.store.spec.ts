@@ -13,6 +13,10 @@ jest.mock('@angular/fire/firestore', () => ({
   getDoc: jest.fn(),
   getDocs: jest.fn(),
 }));
+jest.mock('@angular/fire/auth', () => ({
+  Auth: class {},
+  authState: jest.fn(() => of({ uid: 'user-123' })),
+}));
 
 import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
@@ -99,9 +103,10 @@ function makeSwingStats(): SwingStats {
 
 function makeSwingAnalysisDoc(overrides: Partial<SwingAnalysisDoc> = {}): SwingAnalysisDoc {
   return {
-    id: 'dev5-l5-r5-a1-p1',
+    id: 'dev5_L5_R5_1barY_projY',
+    userId: 'user-123',
     symbol: 'AAPL',
-    paramsId: 'dev5-l5-r5-a1-p1',
+    paramsId: 'dev5_L5_R5_1barY_projY',
     config: { ...DEFAULT_CONFIG },
     bars: [],
     pivots: [],
@@ -125,6 +130,8 @@ function mockChartService(bars: PriceBar[]): Partial<ChartService> {
   };
 }
 
+type ServiceMock = ReturnType<typeof mockSwingAnalysisService>;
+
 function mockSwingAnalysisService(
   docs: SwingAnalysisDoc[] = [],
 ): Partial<SwingAnalysisService> & {
@@ -141,12 +148,15 @@ function mockSwingAnalysisService(
   };
 }
 
+interface StoreSetup {
+  store: InstanceType<typeof SwingAnalysisStore>;
+  service: ServiceMock;
+}
+
 function setupStore(
   bars: PriceBar[] = makeBars(40),
   savedDocs: SwingAnalysisDoc[] = [],
-): InstanceType<typeof SwingAnalysisStore> & {
-  _service: ReturnType<typeof mockSwingAnalysisService>;
-} {
+): StoreSetup {
   const service = mockSwingAnalysisService(savedDocs);
   TestBed.configureTestingModule({
     providers: [
@@ -156,11 +166,7 @@ function setupStore(
       SwingAnalysisStore,
     ],
   });
-  const store = TestBed.inject(SwingAnalysisStore) as InstanceType<
-    typeof SwingAnalysisStore
-  > & { _service: ReturnType<typeof mockSwingAnalysisService> };
-  (store as unknown as { _service: unknown })._service = service;
-  return store;
+  return { store: TestBed.inject(SwingAnalysisStore), service };
 }
 
 // =============================================================================
@@ -169,7 +175,7 @@ function setupStore(
 
 describe('SwingAnalysisStore — initial state', () => {
   it('has empty initial state', () => {
-    const store = setupStore();
+    const { store } = setupStore();
     expect(store.symbol()).toBe('');
     expect(store.config()).toEqual(DEFAULT_CONFIG);
     expect(store.pivots()).toEqual([]);
@@ -188,7 +194,7 @@ describe('SwingAnalysisStore — initial state', () => {
 
 describe('SwingAnalysisStore.setSymbol', () => {
   it('updates the symbol', () => {
-    const store = setupStore();
+    const { store } = setupStore();
     store.setSymbol('AAPL');
     expect(store.symbol()).toBe('AAPL');
   });
@@ -215,31 +221,25 @@ describe('SwingAnalysisStore.setSymbol', () => {
     subject.complete();
   });
 
-  it('computes pivots, swings, and stats after bar load completes', (done) => {
-    const store = setupStore(makeBars(40));
+  it('computes pivots, swings, and stats after bar load completes', () => {
+    // mockChartService returns of(...) which completes synchronously,
+    // so state is ready immediately after setSymbol returns.
+    const { store } = setupStore(makeBars(40));
     store.setSymbol('AAPL');
-    setTimeout(() => {
-      expect(store.loading()).toBe(false);
-      expect(store.pivots().length).toBeGreaterThan(0);
-      expect(store.swings().length).toBeGreaterThan(0);
-      expect(store.stats()).not.toBeNull();
-      expect(store.error()).toBeNull();
-      done();
-    }, 50);
+    expect(store.loading()).toBe(false);
+    expect(store.pivots().length).toBeGreaterThan(0);
+    expect(store.swings().length).toBeGreaterThan(0);
+    expect(store.stats()).not.toBeNull();
+    expect(store.error()).toBeNull();
   });
 
-  it('clears previous analysis when symbol changes', (done) => {
-    const store = setupStore(makeBars(40));
+  it('clears previous analysis when symbol changes', () => {
+    const { store } = setupStore(makeBars(40));
     store.setSymbol('AAPL');
-    setTimeout(() => {
-      expect(store.pivots().length).toBeGreaterThan(0);
-      store.setSymbol('MSFT');
-      expect(store.symbol()).toBe('MSFT');
-      setTimeout(() => {
-        expect(store.pivots().length).toBeGreaterThan(0);
-        done();
-      }, 50);
-    }, 50);
+    expect(store.pivots().length).toBeGreaterThan(0);
+    store.setSymbol('MSFT');
+    expect(store.symbol()).toBe('MSFT');
+    expect(store.pivots().length).toBeGreaterThan(0);
   });
 
   it('cancels stale bar load when symbol changes rapidly', () => {
@@ -274,32 +274,26 @@ describe('SwingAnalysisStore.setSymbol', () => {
 
 describe('SwingAnalysisStore.updateConfig', () => {
   it('updates the config', () => {
-    const store = setupStore();
+    const { store } = setupStore();
     store.updateConfig({ devThreshold: 10 });
     expect(store.config().devThreshold).toBe(10);
   });
 
-  it('recomputes pivots/swings/stats from loaded bars', (done) => {
-    const store = setupStore(makeBars(40));
+  it('recomputes pivots/swings/stats from loaded bars', () => {
+    const { store } = setupStore(makeBars(40));
     store.setSymbol('AAPL');
-    setTimeout(() => {
-      const pivotCountBefore = store.pivots().length;
-      store.updateConfig({ devThreshold: 15 });
-      expect(store.pivots().length).toBeLessThanOrEqual(pivotCountBefore);
-      expect(store.stats()).not.toBeNull();
-      done();
-    }, 50);
+    const pivotCountBefore = store.pivots().length;
+    store.updateConfig({ devThreshold: 15 });
+    expect(store.pivots().length).toBeLessThanOrEqual(pivotCountBefore);
+    expect(store.stats()).not.toBeNull();
   });
 
-  it('does not reload bars', (done) => {
-    const store = setupStore(makeBars(40));
+  it('does not reload bars', () => {
+    const { store } = setupStore(makeBars(40));
     store.setSymbol('AAPL');
-    setTimeout(() => {
-      const barsBefore = store.bars();
-      store.updateConfig({ leftDepth: 3 });
-      expect(store.bars()).toBe(barsBefore);
-      done();
-    }, 50);
+    const barsBefore = store.bars();
+    store.updateConfig({ leftDepth: 3 });
+    expect(store.bars()).toBe(barsBefore);
   });
 });
 
@@ -309,9 +303,10 @@ describe('SwingAnalysisStore.updateConfig', () => {
 
 describe('SwingAnalysisStore.saveAnalysis', () => {
   it('does nothing when no symbol is set', () => {
-    const store = setupStore();
-    expect(() => store.saveAnalysis()).not.toThrow();
-    expect(store._service.saveAnalysis).not.toHaveBeenCalled();
+    const { store, service } = setupStore();
+    store.saveAnalysis();
+    expect(service.saveAnalysis).not.toHaveBeenCalled();
+    expect(store.error()).toBeNull();
   });
 
   it('does nothing when no stats are computed', () => {
@@ -334,42 +329,37 @@ describe('SwingAnalysisStore.saveAnalysis', () => {
     });
     const store = TestBed.inject(SwingAnalysisStore);
     store.setSymbol('AAPL');
-    expect(() => store.saveAnalysis()).not.toThrow();
+    store.saveAnalysis();
     expect(service.saveAnalysis).not.toHaveBeenCalled();
     subject.complete();
   });
 
-  it('calls service with correct paramsId and doc payload', (done) => {
-    const store = setupStore(makeBars(40));
+  it('calls service with correct paramsId and doc payload', () => {
+    const { store, service } = setupStore(makeBars(40));
     store.setSymbol('AAPL');
-    setTimeout(() => {
-      store.saveAnalysis();
-      expect(store._service.saveAnalysis).toHaveBeenCalledTimes(1);
-      const arg = store._service.saveAnalysis.mock.calls[0][0] as SwingAnalysisDoc;
-      expect(arg.paramsId).toBe(store.paramsId());
-      expect(arg.symbol).toBe('AAPL');
-      expect(arg.config).toEqual(store.config());
-      expect(arg.pivots).toEqual(store.pivots());
-      expect(arg.swings).toEqual(store.swings());
-      expect(arg.stats).toEqual(store.stats());
-      expect(arg.bars).toEqual(store.bars());
-      expect(arg.savedAt).toBeDefined();
-      done();
-    }, 50);
+    store.saveAnalysis();
+    expect(service.saveAnalysis).toHaveBeenCalledTimes(1);
+    const arg = service.saveAnalysis.mock.calls[0][0];
+    expect(arg.paramsId).toBe(store.paramsId());
+    expect(arg.symbol).toBe('AAPL');
+    expect(arg.config).toEqual(store.config());
+    expect(arg.pivots).toEqual(store.pivots());
+    expect(arg.swings).toEqual(store.swings());
+    expect(arg.stats).toEqual(store.stats());
+    expect(arg.bars).toEqual(store.bars());
+    expect(arg.savedAt).toBeDefined();
   });
 
-  it('refreshes saved analyses after a successful save', (done) => {
-    const store = setupStore(makeBars(40), [makeSwingAnalysisDoc()]);
+  it('refreshes saved analyses after a successful save', () => {
+    const doc = makeSwingAnalysisDoc();
+    const { store, service } = setupStore(makeBars(40), [doc]);
     store.setSymbol('AAPL');
-    setTimeout(() => {
-      store._service.loadSavedAnalyses.mockClear();
-      store.saveAnalysis();
-      setTimeout(() => {
-        expect(store._service.loadSavedAnalyses).toHaveBeenCalledTimes(1);
-        done();
-      }, 50);
-    }, 50);
-  }, 10000);
+    service.loadSavedAnalyses.mockClear();
+    store.saveAnalysis();
+    // saveAnalysis completes synchronously (of(undefined)),
+    // then the refresh loadSavedAnalyses fires synchronously too.
+    expect(service.loadSavedAnalyses).toHaveBeenCalledTimes(1);
+  });
 });
 
 // =============================================================================
@@ -377,23 +367,19 @@ describe('SwingAnalysisStore.saveAnalysis', () => {
 // =============================================================================
 
 describe('SwingAnalysisStore.loadSavedAnalyses', () => {
-  it('populates savedAnalyses from the service', (done) => {
-    const doc = makeSwingAnalysisDoc({ id: 'dev5-l5-r5-a1-p1' });
-    const store = setupStore(makeBars(40), [doc]);
+  it('populates savedAnalyses from the service', () => {
+    const doc = makeSwingAnalysisDoc({ id: 'dev5_L5_R5_1barY_projY' });
+    const { store } = setupStore(makeBars(40), [doc]);
     store.setSymbol('AAPL');
-    setTimeout(() => {
-      store.loadSavedAnalyses();
-      setTimeout(() => {
-        expect(store.savedAnalyses().length).toBe(1);
-        expect(store.savedAnalyses()[0].id).toBe('dev5-l5-r5-a1-p1');
-        done();
-      }, 50);
-    }, 50);
-  }, 10000);
+    store.loadSavedAnalyses();
+    expect(store.savedAnalyses().length).toBe(1);
+    expect(store.savedAnalyses()[0].id).toBe('dev5_L5_R5_1barY_projY');
+  });
 
   it('does nothing when no symbol is set', () => {
-    const store = setupStore();
-    expect(() => store.loadSavedAnalyses()).not.toThrow();
+    const { store, service } = setupStore();
+    store.loadSavedAnalyses();
+    expect(service.loadSavedAnalyses).not.toHaveBeenCalled();
   });
 });
 
@@ -402,33 +388,29 @@ describe('SwingAnalysisStore.loadSavedAnalyses', () => {
 // =============================================================================
 
 describe('SwingAnalysisStore.loadAnalysis', () => {
-  it('loads config, pivots, swings, and stats from a saved doc', (done) => {
+  it('loads config, pivots, swings, and stats from a saved doc', () => {
     const mockConfig = { ...DEFAULT_CONFIG, devThreshold: 10 };
     const mockBars = makeBars(20);
     const mockDoc = makeSwingAnalysisDoc({
-      id: 'dev10-l5-r5-a1-p1',
-      paramsId: 'dev10-l5-r5-a1-p1',
+      id: 'dev10_L5_R5_1barY_projY',
+      paramsId: 'dev10_L5_R5_1barY_projY',
       config: mockConfig,
       bars: mockBars,
     });
-    const store = setupStore(makeBars(40), [mockDoc]);
+    const { store } = setupStore(makeBars(40), [mockDoc]);
     store.setSymbol('AAPL');
-    setTimeout(() => {
-      store.loadAnalysis('dev10-l5-r5-a1-p1');
-      setTimeout(() => {
-        expect(store.config().devThreshold).toBe(10);
-        expect(store.bars()).toEqual(mockBars);
-        expect(store.pivots()).toEqual(mockDoc.pivots);
-        expect(store.swings()).toEqual(mockDoc.swings);
-        expect(store.stats()).toEqual(mockDoc.stats);
-        done();
-      }, 50);
-    }, 50);
-  }, 10000);
+    store.loadAnalysis('dev10_L5_R5_1barY_projY');
+    expect(store.config().devThreshold).toBe(10);
+    expect(store.bars()).toEqual(mockBars);
+    expect(store.pivots()).toEqual(mockDoc.pivots);
+    expect(store.swings()).toEqual(mockDoc.swings);
+    expect(store.stats()).toEqual(mockDoc.stats);
+  });
 
   it('does nothing when no symbol is set', () => {
-    const store = setupStore();
-    expect(() => store.loadAnalysis('some-id')).not.toThrow();
+    const { store, service } = setupStore();
+    store.loadAnalysis('some-id');
+    expect(service.loadAnalysis).not.toHaveBeenCalled();
   });
 });
 
@@ -438,13 +420,13 @@ describe('SwingAnalysisStore.loadAnalysis', () => {
 
 describe('SwingAnalysisStore.paramsId', () => {
   it('derives paramsId from the current config', () => {
-    const store = setupStore();
-    expect(store.paramsId()).toBe('dev5-l5-r5-a1-p1');
+    const { store } = setupStore();
+    expect(store.paramsId()).toBe('dev5_L5_R5_1barY_projY');
   });
 
   it('updates when config changes', () => {
-    const store = setupStore();
+    const { store } = setupStore();
     store.updateConfig({ devThreshold: 10 });
-    expect(store.paramsId()).toBe('dev10-l5-r5-a1-p1');
+    expect(store.paramsId()).toBe('dev10_L5_R5_1barY_projY');
   });
 });
