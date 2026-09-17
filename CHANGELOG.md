@@ -20,6 +20,8 @@
 - [Option Chain Pct Change Grid] 326-371_DOCS-OPTIONS: Add code review doc for Task #371
 - [Option Chain Pct Change Grid] 326-372_FE-IMPL-OPTIONS: Add target type selector component
 - [Option Chain Pct Change Grid] 326-372_DOCS-OPTIONS: Add code review doc for Task #372
+- [Option Chain Pct Change Grid] 326-373_FE-IMPL-OPTIONS: Add config state to store
+- [Option Chain Pct Change Grid] 326-373_DOCS-OPTIONS: Add code review doc for Task #373
 - [Trading Indicator Library] 261-339_SHARED-IMPL-INDICATOR-LIB: Port ZigZag to standalone Pine with leftDepth/rightDepth split
 - [Trading Indicator Library] 261-339_DOCS-INDICATOR-LIB: Add code review doc for ZigZag Pine export
 
