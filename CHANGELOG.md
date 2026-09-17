@@ -16,6 +16,8 @@
 - [Option Chain Pct Change Grid] 326-369_DOCS-OPTIONS: Add code review doc for Task #369
 - [Option Chain Pct Change Grid] 326-370_FE-IMPL-OPTIONS: Add pct-change config pure functions
 - [Option Chain Pct Change Grid] 326-370_DOCS-OPTIONS: Add code review doc for pct-change config pure functions
+- [Option Chain Pct Change Grid] 326-371_FE-IMPL-OPTIONS: Add pct-change config service
+- [Option Chain Pct Change Grid] 326-371_DOCS-OPTIONS: Add code review doc for Task #371
 
 ## [2026-09-16]
 
