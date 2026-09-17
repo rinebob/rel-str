@@ -339,6 +339,23 @@ service cloud.firestore {
       }
     }
 
+    // Saved user configurations — authenticated CRUD, no user-scoping.
+    // This is a single-user app (one developer account), so all authenticated
+    // users are the owner. Path: configs/{feature-name}/configs/{configId}
+    // Intermediate doc is denied; leaf docs allow authenticated read/write.
+    // The wildcard {featureDoc} is intentional — any feature may store configs
+    // under this root collection without adding a new rule block.
+    match /configs/{featureDoc} {
+      allow read: if false; // intermediate doc — no direct reads
+      allow write: if false; // intermediate doc — no direct writes
+      match /configs/{configId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null;
+        allow update: if request.auth != null;
+        allow delete: if request.auth != null;
+      }
+    }
+
     // Default deny for all other collections
     match /{document=**} {
       allow read, write: if false;
