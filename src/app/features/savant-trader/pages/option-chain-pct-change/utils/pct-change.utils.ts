@@ -6,6 +6,9 @@
 
 import { OptionType } from '@options-contract/contracts';
 import type { HistoricalOptionContract } from '@options-contract/contracts';
+import { PctChangeFilter } from '@shared/pct-change-config-contracts';
+
+export { PctChangeFilter } from '@shared/pct-change-config-contracts';
 
 /** One cell in the pct change grid — a matched contract pair. */
 export interface PctChangeCell {
@@ -13,6 +16,7 @@ export interface PctChangeCell {
   strike: number;
   expiration: string;
   delta: number | null;
+  targetDelta: number | null;
   startPrice: number;
   targetPrice: number;
   pctChange: number;
@@ -31,17 +35,6 @@ export interface PctChangeGrid {
   cells: Map<string, PctChangeCell>;
   p5: number;
   p95: number;
-}
-
-/** Filter applied to matched contracts before building the grid. */
-export interface PctChangeFilter {
-  type: OptionType;
-  durationGteDays?: number;
-  durationLteDays?: number;
-  strikeGte?: number;
-  strikeLte?: number;
-  deltaGte?: number;
-  deltaLte?: number;
 }
 
 /** Build the Map key for a cell by strike and expiration. */
@@ -108,9 +101,10 @@ function percentile(sorted: number[], p: number): number {
 /**
  * Compute the pct change grid from a start and target chain snapshot.
  *
- * Matches contracts by `contractID`, computes percentage price change
- * from start `mark` to target `mark`, applies filters, and returns a
- * grid with sorted strikes/expirations and p5/p95 percentiles.
+ * Matches contracts by economic identity (symbol + expiration + strike + type),
+ * computes percentage price change from start price to target price, applies
+ * filters, and returns a grid with sorted strikes/expirations and p5/p95
+ * percentiles. Only contracts present in both snapshots are included.
  */
 export function computePctChange(
   startChain: HistoricalOptionContract[],
@@ -121,18 +115,39 @@ export function computePctChange(
   startUnderlyingPrice: number | null = null,
   targetUnderlyingPrice: number | null = null,
 ): PctChangeGrid {
+  /** Build a stable identity key from a contract's economic attributes. */
+  function contractKey(c: HistoricalOptionContract): string | null {
+    const symbol = (c.symbol ?? '').trim().toUpperCase();
+    const expiration = c.expiration ?? '';
+    const strike = toNum(c.strike);
+    const type = normalizeType(c.type);
+    if (!symbol || !expiration || strike == null || type == null) return null;
+    return `${symbol}-${expiration}-${strike}-${type}`;
+  }
+
   const startMap = new Map<string, HistoricalOptionContract>();
   for (const c of startChain) {
-    if (c.contractID) startMap.set(c.contractID, c);
+    const key = contractKey(c);
+    if (key) startMap.set(key, c);
+  }
+
+  const targetMap = new Map<string, HistoricalOptionContract>();
+  for (const c of targetChain) {
+    const key = contractKey(c);
+    if (key) targetMap.set(key, c);
   }
 
   const cells: PctChangeCell[] = [];
   const strikeSet = new Set<number>();
   const expSet = new Set<string>();
 
+  // Iterate over target-chain contracts; only include contracts present in
+  // both snapshots (matched by economic identity).
   for (const target of targetChain) {
-    if (!target.contractID) continue;
-    const start = startMap.get(target.contractID);
+    const key = contractKey(target);
+    if (!key) continue;
+
+    const start = startMap.get(key);
     if (!start) continue;
 
     const startMark = resolvePrice(start);
@@ -168,11 +183,14 @@ export function computePctChange(
 
     const pctChange = ((targetMark - startMark) / startMark) * 100;
 
+    const targetDelta = toNum(target.delta);
+
     cells.push({
-      contractID: target.contractID,
+      contractID: target.contractID ?? key,
       strike,
       expiration,
       delta: delta ?? null,
+      targetDelta: targetDelta ?? null,
       startPrice: startMark,
       targetPrice: targetMark,
       pctChange,
