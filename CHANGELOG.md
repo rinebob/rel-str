@@ -10,6 +10,12 @@
 ### Added
 - [Option Chain Pct Change Grid] 326-355_DOCS-OPTIONS: Add AS-BUILT doc for Topic #326 ship
 
+### Changed
+- [Trading Indicator Library] 261-335_FE-IMPL-INDICATOR-LIB: Harden swing analysis Firestore service + security rules
+
+### Added
+- [Trading Indicator Library] 261-335_DOCS-INDICATOR-LIB: Add code review doc + update verification script for swing analysis service
+
 ### Added
 - [Trading Indicator Library] 261-334_FE-IMPL-INDICATOR-LIB: Add swing analysis store (SignalStore) + Firestore service
 - [Trading Indicator Library] 261-334_DOCS-INDICATOR-LIB: Add code review doc for swing analysis store (PASS)
