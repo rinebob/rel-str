@@ -1,5 +1,10 @@
 # Changelog
 
+## [2026-09-17]
+
+### Added
+- [Option Chain Pct Change Grid] 326-361_DOCS-OPTIONS: Add blueprint docs for save param configuration Thread (checkpoint)
+
 ## [2026-09-16]
 
 ### Changed
