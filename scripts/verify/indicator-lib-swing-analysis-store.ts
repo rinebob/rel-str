@@ -1,3 +1,6 @@
+// @ts-nocheck — Verification script runs via tsx with NODE_PATH=functions/node_modules.
+// The root tsconfig excludes scripts/verify; the functions tsconfig includes it but the
+// IDE resolves against the root config, so firebase-admin types are not visible here.
 /**
  * Verification script: SwingAnalysisService Firestore round-trip.
  *
@@ -34,7 +37,7 @@ import { getFirestore, Firestore } from 'firebase-admin/firestore';
 const ZIG_ZAGS_COLLECTION = 'zig-zags';
 const ANALYSES_SUBCOLLECTION = 'analyses';
 const TEST_SYMBOL = 'VERIFY-TEST';
-const TEST_PARAMS_ID = 'dev5-l5-r5-a1-p1';
+const TEST_PARAMS_ID = 'dev5_L5_R5_1barY_projY';
 const TEST_COLLECTION_PATH = `${ZIG_ZAGS_COLLECTION}/${TEST_SYMBOL}/${ANALYSES_SUBCOLLECTION}`;
 const TEST_DOC_PATH = `${TEST_COLLECTION_PATH}/${TEST_PARAMS_ID}`;
 
