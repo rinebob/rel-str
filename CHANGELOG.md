@@ -3,9 +3,12 @@
 ## [2026-09-16]
 
 ### Changed
-- [Option Chain Pct Change Grid] 326-345_FE-IMPL-OPTIONS: Add resolvePrice fallback, normalizeType, underlying price fields, and rewritten color mapping (checkpoint)
-- [Option Chain Pct Change Grid] 326-346_FE-IMPL-OPTIONS: Add underlying price fetch, default QQQ/2025-04-07, and pass prices to grid computation (checkpoint)
-- [Option Chain Pct Change Grid] 326-347_FE-IMPL-OPTIONS: Extract external templates/styles, add fullscreen, sticky headers, delta/ATM/underlying display, and shrink cells (checkpoint)
+- [Option Chain Pct Change Grid] 326-345_FE-IMPL-OPTIONS: Add resolvePrice fallback, normalizeType, underlying price fields, and rewritten color mapping
+- [Option Chain Pct Change Grid] 326-346_FE-IMPL-OPTIONS: Add underlying price fetch, default QQQ/2025-04-07, and pass prices to grid computation
+- [Option Chain Pct Change Grid] 326-347_FE-IMPL-OPTIONS: Extract external templates/styles, add fullscreen, sticky headers, delta/ATM/underlying display, and shrink cells
+
+### Added
+- [Option Chain Pct Change Grid] 326-355_DOCS-OPTIONS: Add AS-BUILT doc for Topic #326 ship
 
 ### Added
 - [Trading Indicator Library] 261-334_FE-IMPL-INDICATOR-LIB: Add swing analysis store (SignalStore) + Firestore service
