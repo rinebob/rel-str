@@ -5,6 +5,8 @@ import {
   resolvePctChangeTargets,
   generateIntervalDates,
   buildConfigId,
+  buildPercentages,
+  computeForwardEndDate,
 } from './pct-change-config.utils';
 
 describe('pct-change-config.utils', () => {
@@ -149,6 +151,49 @@ describe('pct-change-config.utils', () => {
     it('handles swing-extremes target type', () => {
       const id = buildConfigId('QQQ', '2025-04-07', 2, 'swing-extremes', 'def456');
       expect(id).toBe('QQQ-2025-04-07-2-swing-extremes-def456');
+    });
+  });
+
+  describe('buildPercentages', () => {
+    it('returns values as-is in list mode', () => {
+      expect(buildPercentages('list', [-3, 5, 10])).toEqual([-3, 5, 10]);
+    });
+
+    it('returns empty array for empty list mode values', () => {
+      expect(buildPercentages('list', [])).toEqual([]);
+    });
+
+    it('generates upward gradation with defaults', () => {
+      expect(buildPercentages('gradation', [], 5, 4, 'up')).toEqual([5, 10, 15, 20]);
+    });
+
+    it('generates downward gradation (negated)', () => {
+      expect(buildPercentages('gradation', [], 5, 4, 'down')).toEqual([-5, -10, -15, -20]);
+    });
+
+    it('uses defaults when step/count/direction are missing', () => {
+      // step=1, count=1, direction='up'
+      expect(buildPercentages('gradation', [])).toEqual([1]);
+    });
+
+    it('handles step=1, count=3, up', () => {
+      expect(buildPercentages('gradation', [], 1, 3, 'up')).toEqual([1, 2, 3]);
+    });
+  });
+
+  describe('computeForwardEndDate', () => {
+    it('returns start date + 1 year', () => {
+      expect(computeForwardEndDate('2025-04-07')).toBe('2026-04-07');
+    });
+
+    it('crosses calendar year boundary', () => {
+      expect(computeForwardEndDate('2025-12-15')).toBe('2026-12-15');
+    });
+
+    it('handles leap day start date (rolls to March 1 in non-leap year)', () => {
+      // 2024-02-29 + 1 year = 2025-02-29, but 2025 is not a leap year,
+      // so JavaScript's Date rolls it over to 2025-03-01.
+      expect(computeForwardEndDate('2024-02-29')).toBe('2025-03-01');
     });
   });
 });
