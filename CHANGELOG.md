@@ -26,8 +26,12 @@
 - [Option Chain Pct Change Grid] 326-404_DOCS-OPTIONS: Add contract chart popup lifecycle docs
 - [Option Chain Pct Change Grid] 326-406_FE-IMPL-OPTIONS: Add contract selection state for chart popup
 - [Option Chain Pct Change Grid] 326-406_DOCS-OPTIONS: Add Task #406 code review doc
+- [Option Chain Pct Change Grid] 326-405_FE-IMPL-OPTIONS: Add ContractMiniChartComponent
+- [Option Chain Pct Change Grid] 326-405_DOCS-OPTIONS: Add Task #405 review doc + IMPL sync
 - [Trading Indicator Library] 261-394_FE-IMPL-INDICATOR-LIB: Add nested tree swing table
 - [Trading Indicator Library] 261-394_DOCS-INDICATOR-LIB: Add review doc and update plan docs for Task #394 ship
+- [Trading Indicator Library] 261-395_FE-IMPL-INDICATOR-LIB: Add stats panel large/small/all toggle
+- [Trading Indicator Library] 261-395_DOCS-INDICATOR-LIB: Add code review doc for Task #395
 
 ## [2026-09-17]
 
