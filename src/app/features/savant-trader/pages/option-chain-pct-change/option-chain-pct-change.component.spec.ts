@@ -404,4 +404,51 @@ describe('OptionChainPctChangeComponent', () => {
       expect(spy).toHaveBeenCalledWith(request);
     });
   });
+
+  // ===========================================================================
+  // Chart popup — outside-click dismissal
+  // ===========================================================================
+
+  describe('contract chart popup dismissal', () => {
+    it('clears a pinned selection when clicking outside the overlay', () => {
+      const { fixture, store } = setupComponent();
+      store.pinContract(
+        { contractID: 'TEST', strike: 100, expiration: '2024-03-15' },
+        '2024-02-15',
+      );
+      expect(store.isContractPinned()).toBe(true);
+      document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect(store.selectedCell()).toBeNull();
+      expect(store.isContractPinned()).toBe(false);
+    });
+
+    it('does not clear the selection when the click lands inside the chart pane', () => {
+      const { fixture, store } = setupComponent();
+      store.pinContract(
+        { contractID: 'TEST', strike: 100, expiration: '2024-03-15' },
+        '2024-02-15',
+      );
+      const pane = document.createElement('div');
+      pane.className = 'cdk-overlay-pane contract-chart-pane';
+      document.body.appendChild(pane);
+      pane.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect(store.selectedCell()).not.toBeNull();
+      expect(store.isContractPinned()).toBe(true);
+      pane.remove();
+    });
+
+    it('clears the selection when the click lands inside a different overlay pane', () => {
+      const { fixture, store } = setupComponent();
+      store.pinContract(
+        { contractID: 'TEST', strike: 100, expiration: '2024-03-15' },
+        '2024-02-15',
+      );
+      const foreignPane = document.createElement('div');
+      foreignPane.className = 'cdk-overlay-pane mat-select-panel';
+      document.body.appendChild(foreignPane);
+      foreignPane.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect(store.selectedCell()).toBeNull();
+      foreignPane.remove();
+    });
+  });
 });

@@ -1,6 +1,29 @@
-import { TestBed } from '@angular/core/testing';
+// Mock @angular/fire modules — the store's config service transitively imports them.
+jest.mock('@angular/fire/auth', () => ({
+  Auth: class {},
+  authState: jest.fn(),
+}));
+jest.mock('@angular/fire/functions', () => ({
+  Functions: class {},
+  httpsCallable: jest.fn(),
+}));
+jest.mock('@angular/fire/firestore', () => ({
+  Firestore: class {},
+  collection: jest.fn(),
+  doc: jest.fn(),
+  setDoc: jest.fn(),
+  getDoc: jest.fn(),
+  getDocs: jest.fn(),
+  deleteDoc: jest.fn(),
+}));
+
+import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 
 import { PctChangeGridComponent } from './pct-change-grid.component';
+import { OptionChainPctChangeStore } from '../option-chain-pct-change.store';
+import { OptionsContractService } from '../../../services/options-contract.service';
+import { PctChangeConfigService } from '../services/pct-change-config.service';
+import { LocalBarReadService } from '../../../../../core/services/local-bar-read.service';
 import type { PctChangeGrid, PctChangeCell } from '../utils/pct-change.utils';
 import { cellKey } from '../utils/pct-change.utils';
 
@@ -60,6 +83,13 @@ describe('PctChangeGridComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [PctChangeGridComponent],
+      providers: [
+        // The grid injects the store for selection events; these leaf
+        // services are never invoked by the popup wiring under test.
+        { provide: OptionsContractService, useValue: {} },
+        { provide: LocalBarReadService, useValue: {} },
+        { provide: PctChangeConfigService, useValue: {} },
+      ],
     }).compileComponents();
   });
 
@@ -190,5 +220,181 @@ describe('PctChangeGridComponent', () => {
     const pctEl = fixture.nativeElement.querySelector('.pct-change');
     expect(pctEl.textContent).toContain('0.0%');
     expect(pctEl.textContent).not.toContain('+');
+  });
+
+  // ===========================================================================
+  // Chart popup — icon, selection wiring, overlay
+  // ===========================================================================
+
+  describe('chart popup', () => {
+    let store: InstanceType<typeof OptionChainPctChangeStore>;
+
+    const iconOf = (f: import('@angular/core/testing').ComponentFixture<PctChangeGridComponent>) =>
+      f.nativeElement.querySelector('.chart-icon-btn') as HTMLElement;
+    const overlayChart = () =>
+      document.querySelector('.cdk-overlay-pane app-contract-mini-chart');
+
+    beforeEach(() => {
+      store = TestBed.inject(OptionChainPctChangeStore);
+    });
+
+    afterEach(() => {
+      store.clearContractSelection();
+      document.querySelectorAll('.cdk-overlay-pane, .cdk-overlay-container').forEach((el) => el.remove());
+    });
+
+    it('renders a chart icon on populated cells but not on empty cells', () => {
+      const cells = new Map<string, PctChangeCell>();
+      cells.set(cellKey(100, '2024-03-15'), makeCell());
+      const grid = makeGrid({
+        strikes: [100, 110],
+        expirations: ['2024-03-15', '2024-04-19'],
+        cells,
+      });
+      const { fixture } = setupComponent(grid);
+      const dataCell = fixture.nativeElement.querySelector('.data-cell') as HTMLElement;
+      const emptyCell = fixture.nativeElement.querySelector('.empty-cell') as HTMLElement;
+      expect(dataCell.querySelector('.chart-icon-btn')).toBeTruthy();
+      expect(emptyCell.querySelector('.chart-icon-btn')).toBeNull();
+    });
+
+    it('nests the icon inside the data cell (no extra grid element)', () => {
+      const { fixture } = setupComponent();
+      const dataCell = fixture.nativeElement.querySelector('.data-cell') as HTMLElement;
+      // Icon is a child of the cell, absolutely positioned via CSS — it
+      // does not add a row/column element that would shift the layout.
+      expect(dataCell.contains(iconOf(fixture))).toBe(true);
+      expect(iconOf(fixture).parentElement).toBe(dataCell);
+    });
+
+    it('hovering the icon selects the contract for this grid', () => {
+      const { fixture } = setupComponent();
+      iconOf(fixture).dispatchEvent(new MouseEvent('mouseenter'));
+      expect(store.selectedCell()).toEqual({
+        contractID: 'TEST',
+        strike: 100,
+        expiration: '2024-03-15',
+        targetDate: '2024-02-15',
+      });
+      expect(store.isContractPinned()).toBe(false);
+    });
+
+    it('leaving the icon clears the selection after the grace delay when not pinned', fakeAsync(() => {
+      const { fixture } = setupComponent();
+      const icon = iconOf(fixture);
+      icon.dispatchEvent(new MouseEvent('mouseenter'));
+      expect(store.selectedCell()).not.toBeNull();
+      icon.dispatchEvent(new MouseEvent('mouseleave', { relatedTarget: fixture.nativeElement }));
+      expect(store.selectedCell()).not.toBeNull(); // still within grace window
+      tick(250);
+      expect(store.selectedCell()).toBeNull();
+    }));
+
+    it('leaving the icon into the overlay keeps the preview', () => {
+      const { fixture } = setupComponent();
+      const icon = iconOf(fixture);
+      icon.dispatchEvent(new MouseEvent('mouseenter'));
+      fixture.detectChanges();
+      const pane = document.querySelector('.contract-chart-pane') as HTMLElement;
+      expect(pane).toBeTruthy();
+      icon.dispatchEvent(new MouseEvent('mouseleave', { relatedTarget: pane }));
+      expect(store.selectedCell()).not.toBeNull();
+    });
+
+    it('entering the pane within the grace delay cancels the pending clear', fakeAsync(() => {
+      const { fixture } = setupComponent();
+      const icon = iconOf(fixture);
+      icon.dispatchEvent(new MouseEvent('mouseenter'));
+      fixture.detectChanges();
+      const chart = overlayChart() as HTMLElement;
+      // Pointer crosses the gap to a non-pane element first (grace starts)…
+      icon.dispatchEvent(new MouseEvent('mouseleave', { relatedTarget: fixture.nativeElement }));
+      tick(50);
+      // …then enters the chart before the delay expires → preview kept.
+      chart.dispatchEvent(new MouseEvent('mouseenter'));
+      tick(250);
+      expect(store.selectedCell()).not.toBeNull();
+    }));
+
+    it('sweeping from one icon to another does not wipe the new selection', fakeAsync(() => {
+      const cells = new Map<string, PctChangeCell>();
+      cells.set(cellKey(100, '2024-03-15'), makeCell());
+      cells.set(cellKey(110, '2024-03-15'), makeCell({ contractID: 'OTHER', strike: 110 }));
+      const grid = makeGrid({ strikes: [100, 110], cells });
+      const { fixture } = setupComponent(grid);
+      const icons = fixture.nativeElement.querySelectorAll('.chart-icon-btn') as NodeListOf<HTMLElement>;
+      icons[0].dispatchEvent(new MouseEvent('mouseenter'));
+      icons[0].dispatchEvent(new MouseEvent('mouseleave', { relatedTarget: icons[1] }));
+      icons[1].dispatchEvent(new MouseEvent('mouseenter'));
+      tick(250); // A's pending clear must not wipe B's preview.
+      expect(store.selectedCell()!.contractID).toBe('OTHER');
+    }));
+
+    it('leaving the icon does not clear a pinned selection', () => {
+      const { fixture } = setupComponent();
+      const icon = iconOf(fixture);
+      icon.dispatchEvent(new MouseEvent('click'));
+      expect(store.isContractPinned()).toBe(true);
+      icon.dispatchEvent(new MouseEvent('mouseleave', { relatedTarget: fixture.nativeElement }));
+      expect(store.selectedCell()).not.toBeNull();
+      expect(store.isContractPinned()).toBe(true);
+    });
+
+    it('clicking the icon pins the selection', () => {
+      const { fixture } = setupComponent();
+      iconOf(fixture).dispatchEvent(new MouseEvent('click'));
+      expect(store.selectedCell()!.contractID).toBe('TEST');
+      expect(store.isContractPinned()).toBe(true);
+    });
+
+    it('shows the mini chart overlay only for the selected cell', () => {
+      const { fixture } = setupComponent();
+      expect(overlayChart()).toBeNull();
+      iconOf(fixture).dispatchEvent(new MouseEvent('mouseenter'));
+      fixture.detectChanges();
+      expect(overlayChart()).toBeTruthy();
+    });
+
+    it('does not show the overlay when the selection targets a different grid', () => {
+      const { fixture } = setupComponent();
+      store.previewContract(makeCell(), '2024-03-15'); // different targetDate
+      fixture.detectChanges();
+      expect(overlayChart()).toBeNull();
+    });
+
+    it('leaving the overlay clears a non-pinned selection after the grace delay', fakeAsync(() => {
+      const { fixture } = setupComponent();
+      iconOf(fixture).dispatchEvent(new MouseEvent('mouseenter'));
+      fixture.detectChanges();
+      const chart = overlayChart() as HTMLElement;
+      expect(chart).toBeTruthy();
+      chart.dispatchEvent(new MouseEvent('mouseleave'));
+      expect(store.selectedCell()).not.toBeNull(); // grace window
+      tick(250);
+      expect(store.selectedCell()).toBeNull();
+    }));
+
+    it('leaving the overlay keeps a pinned selection', () => {
+      const { fixture } = setupComponent();
+      iconOf(fixture).dispatchEvent(new MouseEvent('click'));
+      fixture.detectChanges();
+      const chart = overlayChart() as HTMLElement;
+      expect(chart).toBeTruthy();
+      chart.dispatchEvent(new MouseEvent('mouseleave'));
+      expect(store.selectedCell()).not.toBeNull();
+      expect(store.isContractPinned()).toBe(true);
+    });
+
+    it('hovering another icon while pinned does not change the selection', () => {
+      const cells = new Map<string, PctChangeCell>();
+      cells.set(cellKey(100, '2024-03-15'), makeCell());
+      cells.set(cellKey(110, '2024-03-15'), makeCell({ contractID: 'OTHER', strike: 110 }));
+      const grid = makeGrid({ strikes: [100, 110], cells });
+      const { fixture } = setupComponent(grid);
+      const icons = fixture.nativeElement.querySelectorAll('.chart-icon-btn') as NodeListOf<HTMLElement>;
+      icons[0].dispatchEvent(new MouseEvent('click'));
+      icons[1].dispatchEvent(new MouseEvent('mouseenter'));
+      expect(store.selectedCell()!.contractID).toBe('TEST');
+    });
   });
 });

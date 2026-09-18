@@ -6,7 +6,7 @@
  *
  * Follows the existing options-strategy-dashboard.component pattern.
  */
-import { Component, ChangeDetectionStrategy, inject, OnInit, OnDestroy } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -372,6 +372,21 @@ export class OptionChainPctChangeComponent implements OnInit, OnDestroy {
   /** Restore header when leaving the page. */
   ngOnDestroy(): void {
     this.ui.setFullscreen(false);
+  }
+
+  /**
+   * Contract chart popup dismissal: any click outside the chart's overlay
+   * pane clears the contract selection (and thus a pinned popup). Clicks
+   * inside `.contract-chart-pane` are left alone so users can interact
+   * with the chart; clicks inside *other* CDK panes (dialogs, selects)
+   * count as outside. The grid's icon click stops propagation, so pinning
+   * isn't undone by this listener.
+   */
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest?.('.contract-chart-pane')) return;
+    this.store.clearContractSelection();
   }
 
   /** Read a string value from an input event. */

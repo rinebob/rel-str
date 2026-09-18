@@ -9,11 +9,15 @@
  * Follows the existing heatmap-chart-heatmap.component pattern (divs with
  * [style.background-color]).
  */
-import { Component, input, computed, ChangeDetectionStrategy } from '@angular/core';
+import { Component, input, computed, inject, ChangeDetectionStrategy, OnDestroy } from '@angular/core';
+import { CdkConnectedOverlay, CdkOverlayOrigin, Overlay, type ConnectedPosition } from '@angular/cdk/overlay';
+import { MatIconModule } from '@angular/material/icon';
 
 import type { PctChangeGrid, PctChangeCell } from '../utils/pct-change.utils';
 import { cellKey } from '../utils/pct-change.utils';
 import { pctChangeToColor } from '../utils/color-mapping.utils';
+import { ContractMiniChartComponent } from './contract-mini-chart.component';
+import { OptionChainPctChangeStore } from '../option-chain-pct-change.store';
 
 /** A precomputed row: strike + ordered cells (null where no contract). */
 interface GridRow {
@@ -24,7 +28,7 @@ interface GridRow {
 @Component({
   selector: 'app-pct-change-grid',
   standalone: true,
-  imports: [],
+  imports: [CdkConnectedOverlay, CdkOverlayOrigin, MatIconModule, ContractMiniChartComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="grid-header">
@@ -72,6 +76,36 @@ interface GridRow {
                   @if (cell.delta != null || cell.targetDelta != null) {
                     <span class="delta-detail">Δ{{ formatDelta(cell.delta) }} → Δ{{ formatDelta(cell.targetDelta) }}</span>
                   }
+                  <button
+                    type="button"
+                    class="chart-icon-btn"
+                    cdkOverlayOrigin
+                    #cellIcon="cdkOverlayOrigin"
+                    aria-label="Show contract price/delta chart"
+                    (mouseenter)="onIconEnter(cell)"
+                    (mouseleave)="onIconLeave($event)"
+                    (click)="onIconClick($event, cell)"
+                  >
+                    <mat-icon>show_chart</mat-icon>
+                  </button>
+                  <ng-template
+                    cdkConnectedOverlay
+                    [cdkConnectedOverlayOrigin]="cellIcon"
+                    [cdkConnectedOverlayOpen]="isSelected(cell)"
+                    [cdkConnectedOverlayPositions]="overlayPositions"
+                    [cdkConnectedOverlayScrollStrategy]="scrollStrategy"
+                    [cdkConnectedOverlayPanelClass]="'contract-chart-pane'"
+                  >
+                    <app-contract-mini-chart
+                      [contractID]="cell.contractID"
+                      [strike]="cell.strike"
+                      [expiration]="cell.expiration"
+                      [type]="store.type()"
+                      [series]="store.selectedContractSeries()"
+                      (mouseenter)="onOverlayEnter()"
+                      (mouseleave)="onOverlayLeave()"
+                    />
+                  </ng-template>
                 </div>
               } @else {
                 <div class="grid-cell empty-cell" title="No contract at this strike/expiration"></div>
@@ -183,9 +217,36 @@ interface GridRow {
       }
       .data-cell {
         cursor: default;
+        position: relative;
       }
       .data-cell:hover {
         opacity: 0.85;
+      }
+      .chart-icon-btn {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 10px;
+        height: 10px;
+        padding: 0;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        opacity: 0.3;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #444;
+      }
+      .data-cell:hover .chart-icon-btn,
+      .chart-icon-btn:focus-visible {
+        opacity: 1;
+      }
+      .chart-icon-btn mat-icon {
+        font-size: 8px;
+        width: 8px;
+        height: 8px;
+        line-height: 8px;
       }
       .empty-cell {
         background: #fafafa;
@@ -211,9 +272,34 @@ interface GridRow {
     `,
   ],
 })
-export class PctChangeGridComponent {
+export class PctChangeGridComponent implements OnDestroy {
   /** The grid to render. */
   readonly grid = input.required<PctChangeGrid>();
+
+  /** Store — event emission only (icon hover/click → selection methods);
+   *  the overlay reads selectedCell/selectedContractSeries/type directly. */
+  readonly store = inject(OptionChainPctChangeStore);
+  private readonly overlay = inject(Overlay);
+
+  /**
+   * Grace delay before a leave clears the preview. The pane attaches on the
+   * next CD pass and sits a few px from the icon, so a pointer moving
+   * icon → gap → pane must not snap the preview shut mid-transit. Cancelled
+   * by entering the pane or any icon.
+   */
+  private static readonly CLEAR_DELAY_MS = 200;
+  private clearTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Keep the chart popup tracking its cell while the grid scrolls. */
+  readonly scrollStrategy = this.overlay.scrollStrategies.reposition();
+
+  /** Prefer below-right of the icon, flip above or left when cramped. */
+  readonly overlayPositions: ConnectedPosition[] = [
+    { originX: 'end', originY: 'bottom', overlayX: 'end', overlayY: 'top', offsetY: 4 },
+    { originX: 'end', originY: 'top', overlayX: 'end', overlayY: 'bottom', offsetY: -4 },
+    { originX: 'start', originY: 'bottom', overlayX: 'start', overlayY: 'top', offsetY: 4 },
+    { originX: 'start', originY: 'top', overlayX: 'start', overlayY: 'bottom', offsetY: -4 },
+  ];
 
   /** Precomputed row matrix: one row per strike, cells ordered by expiration. */
   readonly rows = computed<GridRow[]>(() => {
@@ -267,6 +353,74 @@ export class PctChangeGridComponent {
     const sign = diff > 0 ? '+' : '';
     const pctStr = pct != null ? ` (${sign}${pct.toFixed(1)}%)` : '';
     return `${sign}${diff.toFixed(0)}${pctStr}`;
+  }
+
+  /** Whether this cell is the store's selected contract in this grid. */
+  isSelected(cell: PctChangeCell): boolean {
+    const sel = this.store.selectedCell();
+    return (
+      sel != null &&
+      sel.contractID === cell.contractID &&
+      sel.strike === cell.strike &&
+      sel.expiration === cell.expiration &&
+      sel.targetDate === this.grid().targetDate
+    );
+  }
+
+  ngOnDestroy(): void {
+    this.cancelPendingClear();
+  }
+
+  /** Icon hover — transient preview (store ignores it while pinned).
+   *  Cancels any pending clear so a leave→enter sweep can't wipe the
+   *  new selection when the delayed timer fires. */
+  onIconEnter(cell: PctChangeCell): void {
+    this.cancelPendingClear();
+    this.store.previewContract(cell, this.grid().targetDate);
+  }
+
+  /** Icon leave — schedule a clear unless pinned or the pointer moved
+   *  straight into this grid's chart pane. The grace delay covers the
+   *  attach gap and the few px between icon and pane. */
+  onIconLeave(event: MouseEvent): void {
+    if (this.store.isContractPinned()) return;
+    const to = event.relatedTarget as HTMLElement | null;
+    if (to?.closest?.('.contract-chart-pane')) return;
+    this.scheduleClear();
+  }
+
+  /** Icon click — pin the overlay open. Stops propagation so the page's
+   *  document-click dismissal doesn't immediately close it. */
+  onIconClick(event: MouseEvent, cell: PctChangeCell): void {
+    event.stopPropagation();
+    this.cancelPendingClear();
+    this.store.pinContract(cell, this.grid().targetDate);
+  }
+
+  /** Pointer entering the chart pane cancels a pending clear. */
+  onOverlayEnter(): void {
+    this.cancelPendingClear();
+  }
+
+  /** Pointer leaving the chart pane schedules a clear unless pinned —
+   *  the delay lets a pane → icon move re-enter without a flicker. */
+  onOverlayLeave(): void {
+    if (!this.store.isContractPinned()) this.scheduleClear();
+  }
+
+  private scheduleClear(): void {
+    this.cancelPendingClear();
+    this.clearTimer = setTimeout(() => {
+      this.clearTimer = null;
+      if (!this.store.isContractPinned()) this.store.clearContractSelection();
+    }, PctChangeGridComponent.CLEAR_DELAY_MS);
+  }
+
+  private cancelPendingClear(): void {
+    if (this.clearTimer != null) {
+      clearTimeout(this.clearTimer);
+      this.clearTimer = null;
+    }
   }
 
   /** Compute the background color for a cell. */
