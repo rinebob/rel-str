@@ -18,6 +18,10 @@
 - [Trading Indicator Library] 261-390_DOCS-INDICATOR-LIB: Add code review doc for Task #390
 - [Trading Indicator Library] 261-391_FE-IMPL-INDICATOR-LIB: Remove bars from saved analyses
 - [Trading Indicator Library] 261-391_DOCS-INDICATOR-LIB: Add code review doc for Task #391
+- [Trading Indicator Library] 261-392_FE-IMPL-INDICATOR-LIB: Refactor SwingAnalysisStore to configs array
+- [Trading Indicator Library] 261-392_DOCS-INDICATOR-LIB: Add code review doc for Task #392
+- [Trading Indicator Library] 261-393_FE-IMPL-INDICATOR-LIB: Add dual-mode toggle and config UI
+- [Trading Indicator Library] 261-393_DOCS-INDICATOR-LIB: Add review doc and update changelog for Task #393 ship
 
 ## [2026-09-17]
 
