@@ -14,6 +14,10 @@
 - [Trading Indicator Library] 261-389_SHARED-IMPL-INDICATOR-LIB: Add lineColor to ZigZagConfig type
 - [Trading Indicator Library] 261-389_FE-IMPL-INDICATOR-LIB: Pass lineColor through buildZigZagIndicator
 - [Trading Indicator Library] 261-389_DOCS-INDICATOR-LIB: Add code review doc for Task #389
+- [Trading Indicator Library] 261-390_SHARED-IMPL-INDICATOR-LIB: Multi-ZigZag rendering in flex-chart
+- [Trading Indicator Library] 261-390_DOCS-INDICATOR-LIB: Add code review doc for Task #390
+- [Trading Indicator Library] 261-391_FE-IMPL-INDICATOR-LIB: Remove bars from saved analyses
+- [Trading Indicator Library] 261-391_DOCS-INDICATOR-LIB: Add code review doc for Task #391
 
 ## [2026-09-17]
 
