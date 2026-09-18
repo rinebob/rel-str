@@ -19,6 +19,8 @@ export interface ZigZagConfig {
   allowZigZagOnOneBar: boolean;
   /** Calculate a projected (unconfirmed) pivot for the developing swing. Default true. */
   projectionPivots: boolean;
+  /** Line color for chart rendering (hex). Default '#1976d2'. */
+  lineColor: string;
 }
 
 /** A single pivot point — a confirmed or projected local extreme. */
@@ -101,6 +103,7 @@ export const DEFAULT_CONFIG: ZigZagConfig = {
   rightDepth: 5,
   allowZigZagOnOneBar: true,
   projectionPivots: true,
+  lineColor: '#1976d2',
 };
 
 /** Re-export PriceBar for convenience. */

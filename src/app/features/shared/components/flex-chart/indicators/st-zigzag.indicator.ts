@@ -33,6 +33,7 @@ export const ST_ZIGZAG_INDICATOR: IndicatorOption = {
     { key: 'rightDepth', label: 'Right Depth', default: DEFAULT_CONFIG.rightDepth, min: 2, max: 100 },
     { key: 'allowZigZagOnOneBar', label: 'Allow on One Bar', default: DEFAULT_CONFIG.allowZigZagOnOneBar },
     { key: 'projectionPivots', label: 'Projection Pivots', default: DEFAULT_CONFIG.projectionPivots },
+    { key: 'lineColor', label: 'Line Color', default: DEFAULT_CONFIG.lineColor },
   ],
 };
 
@@ -83,6 +84,7 @@ function extractConfig(params: Record<string, number | string | boolean>): ZigZa
     rightDepth: Math.max(2, Math.floor(Number(params['rightDepth'] ?? DEFAULT_CONFIG.rightDepth))),
     allowZigZagOnOneBar: toBool(params['allowZigZagOnOneBar'], DEFAULT_CONFIG.allowZigZagOnOneBar),
     projectionPivots: toBool(params['projectionPivots'], DEFAULT_CONFIG.projectionPivots),
+    lineColor: typeof params['lineColor'] === 'string' ? params['lineColor'] : DEFAULT_CONFIG.lineColor,
   };
 }
 

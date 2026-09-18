@@ -38,6 +38,7 @@ describe('ZigZag engine end-to-end', () => {
       rightDepth: 2,
       allowZigZagOnOneBar: true,
       projectionPivots: false,
+      lineColor: '#1976d2',
     };
 
     // Step 1: Compute pivots
@@ -73,6 +74,7 @@ describe('ZigZag engine end-to-end', () => {
     const config: ZigZagConfig = {
       devThreshold: 5.0, leftDepth: 2, rightDepth: 2,
       allowZigZagOnOneBar: true, projectionPivots: true,
+      lineColor: '#1976d2',
     };
 
     const { pivots, projection } = computeZigZagPivots(bars, config);

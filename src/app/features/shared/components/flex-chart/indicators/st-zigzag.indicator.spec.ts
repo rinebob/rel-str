@@ -47,10 +47,10 @@ describe('ST_ZIGZAG_INDICATOR', () => {
     expect(ST_ZIGZAG_INDICATOR.axisScale).toBe('price');
   });
 
-  it('has 5 params with correct keys and defaults matching DEFAULT_CONFIG', () => {
+  it('has 6 params with correct keys and defaults matching DEFAULT_CONFIG', () => {
     const keys = ST_ZIGZAG_INDICATOR.params.map(p => p.key);
     expect(keys).toEqual([
-      'devThreshold', 'leftDepth', 'rightDepth', 'allowZigZagOnOneBar', 'projectionPivots',
+      'devThreshold', 'leftDepth', 'rightDepth', 'allowZigZagOnOneBar', 'projectionPivots', 'lineColor',
     ]);
 
     const byKey = Object.fromEntries(ST_ZIGZAG_INDICATOR.params.map(p => [p.key, p.default]));
@@ -59,6 +59,13 @@ describe('ST_ZIGZAG_INDICATOR', () => {
     expect(byKey['rightDepth']).toBe(DEFAULT_CONFIG.rightDepth);
     expect(byKey['allowZigZagOnOneBar']).toBe(DEFAULT_CONFIG.allowZigZagOnOneBar);
     expect(byKey['projectionPivots']).toBe(DEFAULT_CONFIG.projectionPivots);
+    expect(byKey['lineColor']).toBe(DEFAULT_CONFIG.lineColor);
+  });
+
+  it('lineColor param is a string with default #1976d2', () => {
+    const lineColorParam = ST_ZIGZAG_INDICATOR.params.find(p => p.key === 'lineColor')!;
+    expect(typeof lineColorParam.default).toBe('string');
+    expect(lineColorParam.default).toBe('#1976d2');
   });
 
   it('has min/max constraints on numeric params', () => {
@@ -84,6 +91,16 @@ describe('ST_ZIGZAG_INDICATOR', () => {
 
     const projPivots = ST_ZIGZAG_INDICATOR.params.find((p: IndicatorParamDef) => p.key === 'projectionPivots')!;
     expect(typeof projPivots.default).toBe('boolean');
+  });
+});
+
+// =============================================================================
+// DEFAULT_CONFIG
+// =============================================================================
+
+describe('DEFAULT_CONFIG', () => {
+  it('includes lineColor with default #1976d2', () => {
+    expect(DEFAULT_CONFIG.lineColor).toBe('#1976d2');
   });
 });
 

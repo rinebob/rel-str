@@ -38,6 +38,7 @@ const TEST_CONFIG: ZigZagConfig = {
   rightDepth: 2,
   allowZigZagOnOneBar: true,
   projectionPivots: false,
+  lineColor: '#1976d2',
 };
 
 // =============================================================================
@@ -192,6 +193,7 @@ describe('computeZigZagPivots', () => {
     const config: ZigZagConfig = {
       devThreshold: 5.0, leftDepth: 3, rightDepth: 1,
       allowZigZagOnOneBar: true, projectionPivots: false,
+      lineColor: '#1976d2',
     };
     const result = computeZigZagPivots(bars, config);
     // Should find exactly 1 high pivot at bar 9 (the peak)
@@ -249,6 +251,7 @@ describe('computeZigZagPivots — projection', () => {
     const config: ZigZagConfig = {
       devThreshold: 5.0, leftDepth: 2, rightDepth: 2,
       allowZigZagOnOneBar: true, projectionPivots: true,
+      lineColor: '#1976d2',
     };
     const result = computeZigZagPivots(bars, config);
     // Should find the confirmed high pivot at bar 7
@@ -278,6 +281,7 @@ describe('computeZigZagPivots — projection', () => {
     const config: ZigZagConfig = {
       devThreshold: 5.0, leftDepth: 3, rightDepth: 2,
       allowZigZagOnOneBar: true, projectionPivots: true,
+      lineColor: '#1976d2',
     };
     const result = computeZigZagPivots(bars, config);
     // The projection, if found, must have at least leftDepth bars before it
@@ -305,6 +309,7 @@ describe('computeZigZagPivots — projection', () => {
     const config: ZigZagConfig = {
       devThreshold: 5.0, leftDepth: 2, rightDepth: 2,
       allowZigZagOnOneBar: true, projectionPivots: true,
+      lineColor: '#1976d2',
     };
     const result = computeZigZagPivots(bars, config);
 
