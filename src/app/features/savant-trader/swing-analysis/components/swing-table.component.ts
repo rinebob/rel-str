@@ -6,15 +6,32 @@
  * The last row (projected swing, `confirmed: false`) has distinct styling.
  * Pure signal-based sorting and filtering — no external library.
  *
+ * Dual mode: when `smallSwings` is non-null the table renders a nested
+ * tree — large swings are parent rows, small swings are children assigned
+ * to the parent active at their start (see `buildTreeSwings`). Parents
+ * expand/collapse individually; an expand-all/collapse-all button appears
+ * when any parent has children. Small swings outside every parent's range
+ * render as orphan top-level rows. Sorting applies to top-level rows;
+ * children stay chronological. Filters apply to top-level rows — a
+ * filtered-out parent hides its children with it.
+ *
  * Note: `input()` signals are not recognized in this repo's Jest setup
  * (jest-preset-angular). Inputs use `@Input()` decorators mirrored into
  * private signals via `OnChanges` so `computed()` reactivity works.
+ *
+ * File-size note: this file exceeds the ~400-line guideline because it
+ * hosts two table presentations (flat + nested tree) sharing one filter,
+ * sort, and cell-render pipeline. Splitting tree rows into a second
+ * component would force duplicating that shared pipeline; the shared
+ * `#swingCells` template keeps the actual markup single-sourced.
  */
+import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, Input, OnChanges, signal, SimpleChanges } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import type { Swing } from '../../../shared/components/flex-chart/indicators/st-zigzag.types';
+import { buildTreeSwings, type TreeSwingRow } from './swing-tree.utils';
 
 type SortKey =
   | 'index'
@@ -32,10 +49,20 @@ type DirectionFilter = 'all' | 'up' | 'down';
 
 type ViewSwing = Swing & { _index: number };
 
+/** A top-level tree row with display bookkeeping. */
+type ViewTreeRow = TreeSwingRow & {
+  /** Position in the chronological merged list — used for 'index' sort,
+   *  row tracking, and as the collapse-state key (unique per row even
+   *  when two swings share a start.time). */
+  _order: number;
+  /** Display index: 1..N among large swings, or among orphans. */
+  _index: number;
+};
+
 @Component({
   selector: 'app-swing-table',
   standalone: true,
-  imports: [MatIconModule, MatProgressSpinnerModule],
+  imports: [NgTemplateOutlet, MatIconModule, MatProgressSpinnerModule],
   template: `
 <div class="swing-table-section">
   @if (isLoading()) {
@@ -50,6 +77,16 @@ type ViewSwing = Swing & { _index: number };
     </div>
   } @else if (hasSwings()) {
     <div class="swing-table-filters">
+      @if (isTreeMode() && hasExpandableRows()) {
+        <button
+          type="button"
+          class="expand-collapse-all"
+          data-testid="expand-collapse-all"
+          (click)="onToggleAll()"
+        >
+          {{ allCollapsed() ? 'Expand All' : 'Collapse All' }}
+        </button>
+      }
       <label class="filter">
         Direction
         <select (change)="onDirectionFilter($event)">
@@ -84,9 +121,30 @@ type ViewSwing = Swing & { _index: number };
       </label>
     </div>
 
+    <ng-template #swingCells let-s>
+      <td>
+        <span class="direction-badge" [class.up]="s.direction === 'up'" [class.down]="s.direction === 'down'">
+          {{ s.direction === 'up' ? '▲' : '▼' }} {{ s.direction }}
+        </span>
+      </td>
+      <td>{{ formatDate(s.start.time) }}</td>
+      <td>{{ formatDate(s.end.time) }}</td>
+      <td>{{ s.duration }}</td>
+      <td [class.positive]="s.magnitudePercent >= 0" [class.negative]="s.magnitudePercent < 0">
+        {{ formatMagnitudePercent(s.magnitudePercent) }}
+      </td>
+      <td>{{ formatMagnitudeAbsolute(s.magnitudeAbsolute) }}</td>
+      <td>{{ formatPrice(s.start.price) }}</td>
+      <td>{{ formatPrice(s.end.price) }}</td>
+      <td>{{ formatVolume(s.volume) }}</td>
+    </ng-template>
+
     <table class="swing-table">
       <thead>
         <tr>
+          @if (isTreeMode()) {
+            <th class="expander-col" aria-label="expand"></th>
+          }
           <th class="sortable" (click)="onSort('index')"># @if (sortIcon('index')) { <mat-icon>{{ sortIcon('index') }}</mat-icon> }</th>
           <th class="sortable" (click)="onSort('direction')">Direction @if (sortIcon('direction')) { <mat-icon>{{ sortIcon('direction') }}</mat-icon> }</th>
           <th class="sortable" (click)="onSort('startDate')">Start Date @if (sortIcon('startDate')) { <mat-icon>{{ sortIcon('startDate') }}</mat-icon> }</th>
@@ -100,25 +158,46 @@ type ViewSwing = Swing & { _index: number };
         </tr>
       </thead>
       <tbody>
-        @for (swing of viewSwings(); track swing._index) {
-          <tr [class.projected]="!swing.confirmed">
-            <td>{{ swing._index }}</td>
-            <td>
-              <span class="direction-badge" [class.up]="swing.direction === 'up'" [class.down]="swing.direction === 'down'">
-                {{ swing.direction === 'up' ? '▲' : '▼' }} {{ swing.direction }}
-              </span>
-            </td>
-            <td>{{ formatDate(swing.start.time) }}</td>
-            <td>{{ formatDate(swing.end.time) }}</td>
-            <td>{{ swing.duration }}</td>
-            <td [class.positive]="swing.magnitudePercent >= 0" [class.negative]="swing.magnitudePercent < 0">
-              {{ formatMagnitudePercent(swing.magnitudePercent) }}
-            </td>
-            <td>{{ formatMagnitudeAbsolute(swing.magnitudeAbsolute) }}</td>
-            <td>{{ formatPrice(swing.start.price) }}</td>
-            <td>{{ formatPrice(swing.end.price) }}</td>
-            <td>{{ formatVolume(swing.volume) }}</td>
-          </tr>
+        @if (isTreeMode()) {
+          @for (row of viewTreeRows(); track row._order) {
+            <tr
+              class="parent-row"
+              [class.orphan-row]="row.isOrphan"
+              [class.projected]="!row.confirmed"
+            >
+              <td class="expander-cell">
+                @if (row.children.length > 0) {
+                  <button
+                    type="button"
+                    class="expander-btn"
+                    [attr.data-testid]="'expander-' + row._order"
+                    [attr.aria-expanded]="!isCollapsed(row)"
+                    (click)="toggleRow(row)"
+                  >
+                    <mat-icon>{{ isCollapsed(row) ? 'chevron_right' : 'expand_more' }}</mat-icon>
+                  </button>
+                }
+              </td>
+              <td>{{ row.isOrphan ? 'S' + row._index : row._index }}</td>
+              <ng-container *ngTemplateOutlet="swingCells; context: { $implicit: row }" />
+            </tr>
+            @if (row.children.length > 0 && !isCollapsed(row)) {
+              @for (child of row.children; track $index; let ci = $index) {
+                <tr class="child-row" [class.projected]="!child.confirmed">
+                  <td class="expander-cell"></td>
+                  <td class="child-index">{{ row._index }}.{{ ci + 1 }}</td>
+                  <ng-container *ngTemplateOutlet="swingCells; context: { $implicit: child }" />
+                </tr>
+              }
+            }
+          }
+        } @else {
+          @for (swing of viewSwings(); track swing._index) {
+            <tr [class.projected]="!swing.confirmed">
+              <td>{{ swing._index }}</td>
+              <ng-container *ngTemplateOutlet="swingCells; context: { $implicit: swing }" />
+            </tr>
+          }
         }
       </tbody>
     </table>
@@ -138,17 +217,25 @@ type ViewSwing = Swing & { _index: number };
   styles: [`
     :host { display: block; }
     .swing-table-section { display: flex; flex-direction: column; gap: 12px; }
-    .swing-table-filters { display: flex; flex-wrap: wrap; gap: 12px; padding: 8px 0; }
+    .swing-table-filters { display: flex; flex-wrap: wrap; gap: 12px; padding: 8px 0; align-items: flex-end; }
     .swing-table-filters .filter { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--mat-sys-on-surface-variant); text-transform: uppercase; }
     .swing-table-filters select, .swing-table-filters input { font-size: 13px; padding: 4px 8px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 4px; background: var(--mat-sys-surface); color: var(--mat-sys-on-surface); }
+    .expand-collapse-all { font-size: 12px; padding: 4px 10px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 4px; background: var(--mat-sys-surface); color: var(--mat-sys-on-surface); cursor: pointer; }
+    .expand-collapse-all:hover { background: var(--mat-sys-surface-container); }
     .swing-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .swing-table th { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--mat-sys-outline-variant); color: var(--mat-sys-on-surface-variant); font-weight: 600; white-space: nowrap; }
     .swing-table th.sortable { cursor: pointer; user-select: none; }
     .swing-table th.sortable:hover { color: var(--mat-sys-on-surface); }
     .swing-table th.sortable mat-icon { font-size: 14px; width: 14px; height: 14px; vertical-align: middle; }
+    .swing-table th.expander-col { width: 32px; padding: 8px 4px; }
     .swing-table td { padding: 8px 12px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
+    .swing-table td.expander-cell { width: 32px; padding: 4px; }
+    .swing-table td.child-index { color: var(--mat-sys-on-surface-variant); }
+    .expander-btn { display: inline-flex; align-items: center; justify-content: center; border: none; background: transparent; cursor: pointer; padding: 0; color: var(--mat-sys-on-surface-variant); }
+    .expander-btn mat-icon { font-size: 18px; width: 18px; height: 18px; }
     .swing-table tbody tr:hover { background: var(--mat-sys-surface-container); }
     .swing-table tbody tr.projected { font-style: italic; color: var(--mat-sys-on-surface-variant); border-left: 3px dashed var(--mat-sys-outline-variant); }
+    .swing-table tbody tr.child-row { background: var(--mat-sys-surface-container-low); font-size: 12px; }
     .swing-table .positive { color: var(--mat-sys-success); }
     .swing-table .negative { color: var(--mat-sys-error); }
     .swing-table .direction-badge { display: inline-flex; align-items: center; gap: 4px; font-weight: 500; }
@@ -161,10 +248,12 @@ type ViewSwing = Swing & { _index: number };
 })
 export class SwingTableComponent implements OnChanges {
   @Input() swings: Swing[] = [];
+  @Input() smallSwings: Swing[] | null = null;
   @Input() loading = false;
   @Input() error: string | null = null;
 
   private readonly swingsSignal = signal<Swing[]>([]);
+  private readonly smallSwingsSignal = signal<Swing[] | null>(null);
   private readonly loadingSignal = signal(false);
   private readonly errorSignal = signal<string | null>(null);
 
@@ -178,8 +267,20 @@ export class SwingTableComponent implements OnChanges {
   private readonly magnitudeMin = signal<number | null>(null);
   private readonly magnitudeMax = signal<number | null>(null);
 
+  /** Collapsed row keys (parent `_order` values) — empty = all expanded.
+   *  Cleared whenever the dataset changes so stale keys can't silently
+   *  collapse a different row at the same timestamp on a new symbol. */
+  private readonly collapsedKeys = signal<ReadonlySet<number>>(new Set());
+
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['swings']) this.swingsSignal.set(this.swings);
+    if (changes['swings']) {
+      this.swingsSignal.set(this.swings);
+      this.collapsedKeys.set(new Set());
+    }
+    if (changes['smallSwings']) {
+      this.smallSwingsSignal.set(this.smallSwings);
+      this.collapsedKeys.set(new Set());
+    }
     if (changes['loading']) this.loadingSignal.set(this.loading);
     if (changes['error']) this.errorSignal.set(this.error);
   }
@@ -187,15 +288,78 @@ export class SwingTableComponent implements OnChanges {
   readonly isLoading = computed(() => this.loadingSignal());
   readonly errorMessage = computed(() => this.errorSignal());
 
-  /** Filtered + sorted swings ready for rendering. */
-  readonly viewSwings = computed<ViewSwing[]>(() => {
-    let rows = this.swingsSignal().map((s, i) => ({ ...s, _index: i + 1 }));
+  /** Tree mode when a smallSwings array is bound (dual mode on). */
+  readonly isTreeMode = computed(() => this.smallSwingsSignal() != null);
 
-    // Direction filter
+  /** Filtered + sorted swings ready for rendering (flat mode). */
+  readonly viewSwings = computed<ViewSwing[]>(() => {
+    const rows = this.applyFilters(this.swingsSignal().map((s, i) => ({ ...s, _index: i + 1 })));
+    return this.applySort(rows);
+  });
+
+  /** Filtered + sorted top-level tree rows (tree mode). Children stay chronological. */
+  readonly viewTreeRows = computed<ViewTreeRow[]>(() => {
+    const merged = buildTreeSwings(this.swingsSignal(), this.smallSwingsSignal() ?? []);
+    let parentIdx = 0;
+    let orphanIdx = 0;
+    const rows: ViewTreeRow[] = merged.map((r, i) => ({
+      ...r,
+      _order: i,
+      _index: r.isOrphan ? ++orphanIdx : ++parentIdx,
+    }));
+    return this.applySort(this.applyFilters(rows));
+  });
+
+  readonly hasSwings = computed(() =>
+    this.isTreeMode() ? this.viewTreeRows().length > 0 : this.viewSwings().length > 0,
+  );
+  readonly hasData = computed(
+    () => this.swingsSignal().length > 0 || (this.smallSwingsSignal()?.length ?? 0) > 0,
+  );
+
+  // -------------------------------------------------------------------------
+  // Tree expand/collapse
+  // -------------------------------------------------------------------------
+
+  readonly hasExpandableRows = computed(() => this.viewTreeRows().some((r) => r.children.length > 0));
+
+  readonly allCollapsed = computed(() => {
+    const expandable = this.viewTreeRows().filter((r) => r.children.length > 0);
+    return expandable.length > 0 && expandable.every((r) => this.collapsedKeys().has(r._order));
+  });
+
+  isCollapsed(row: ViewTreeRow): boolean {
+    return this.collapsedKeys().has(row._order);
+  }
+
+  toggleRow(row: ViewTreeRow): void {
+    this.collapsedKeys.update((keys) => {
+      const next = new Set(keys);
+      if (next.has(row._order)) next.delete(row._order);
+      else next.add(row._order);
+      return next;
+    });
+  }
+
+  onToggleAll(): void {
+    if (this.allCollapsed()) {
+      this.collapsedKeys.set(new Set());
+    } else {
+      const all = this.viewTreeRows()
+        .filter((r) => r.children.length > 0)
+        .map((r) => r._order);
+      this.collapsedKeys.set(new Set(all));
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Filter + sort (shared by both modes)
+  // -------------------------------------------------------------------------
+
+  private applyFilters<T extends Swing>(rows: T[]): T[] {
     const dir = this.directionFilter();
     if (dir !== 'all') rows = rows.filter((s) => s.direction === dir);
 
-    // Date range filter
     const from = this.dateFrom();
     const to = this.dateTo();
     if (from) {
@@ -208,25 +372,28 @@ export class SwingTableComponent implements OnChanges {
       if (!Number.isNaN(toMs)) rows = rows.filter((s) => s.end.time <= toMs + 86_400_000 - 1);
     }
 
-    // Duration range filter
     const dMin = this.durationMin();
     const dMax = this.durationMax();
     if (dMin != null) rows = rows.filter((s) => s.duration >= dMin);
     if (dMax != null) rows = rows.filter((s) => s.duration <= dMax);
 
-    // Magnitude range filter (uses absolute magnitude)
     const mMin = this.magnitudeMin();
     const mMax = this.magnitudeMax();
     if (mMin != null) rows = rows.filter((s) => s.magnitudeAbsolute >= mMin);
     if (mMax != null) rows = rows.filter((s) => s.magnitudeAbsolute <= mMax);
 
-    // Sort
+    return rows;
+  }
+
+  private applySort<T extends Swing & { _index: number; _order?: number }>(rows: T[]): T[] {
     const key = this.sortBy();
     const direction = this.sortDirection();
-    rows = [...rows].sort((a, b) => {
+    return [...rows].sort((a, b) => {
       let cmp = 0;
       switch (key) {
-        case 'index': cmp = a._index - b._index; break;
+        // In tree mode _order is the chronological merged position; in flat
+        // mode _order is absent and _index IS the chronological position.
+        case 'index': cmp = (a._order ?? a._index) - (b._order ?? b._index); break;
         case 'direction': cmp = a.direction.localeCompare(b.direction); break;
         case 'startDate': cmp = a.start.time - b.start.time; break;
         case 'endDate': cmp = a.end.time - b.end.time; break;
@@ -239,16 +406,7 @@ export class SwingTableComponent implements OnChanges {
       }
       return direction === 'asc' ? cmp : -cmp;
     });
-
-    return rows;
-  });
-
-  readonly hasSwings = computed(() => this.viewSwings().length > 0);
-  readonly hasData = computed(() => this.swingsSignal().length > 0);
-
-  // -------------------------------------------------------------------------
-  // Sort
-  // -------------------------------------------------------------------------
+  }
 
   onSort(key: SortKey): void {
     if (this.sortBy() === key) {

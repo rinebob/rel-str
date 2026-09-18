@@ -23,10 +23,11 @@ function makeSwing(overrides: Partial<Swing> = {}): Swing {
 @Component({
   standalone: true,
   imports: [SwingTableComponent],
-  template: `<app-swing-table [swings]="swings" [loading]="loading" [error]="error" />`,
+  template: `<app-swing-table [swings]="swings" [smallSwings]="smallSwings" [loading]="loading" [error]="error" />`,
 })
 class HostComponent {
   @Input() swings: Swing[] = [];
+  @Input() smallSwings: Swing[] | null = null;
   @Input() loading = false;
   @Input() error: string | null = null;
 }
@@ -576,5 +577,202 @@ describe('SwingTableComponent', () => {
     const emptyState = fixture.nativeElement.querySelector('.swing-table-empty');
     expect(emptyState).toBeTruthy();
     expect(emptyState.textContent).toContain('enter a symbol');
+  });
+
+  // =========================================================================
+  // Tree mode (dual mode) — nested parents + children
+  // =========================================================================
+
+  /** Standard tree fixture: 3 large swings, 3 small swings, 1 orphan. */
+  function setupTree(): void {
+    host.swings = [
+      makeSwing({ start: { time: 0, price: 100, barIndex: 0 }, end: { time: 1000, price: 110, barIndex: 10 } }),
+      makeSwing({ direction: 'down', start: { time: 1000, price: 110, barIndex: 10 }, end: { time: 2000, price: 100, barIndex: 20 } }),
+      makeSwing({ start: { time: 2000, price: 100, barIndex: 20 }, end: { time: 3000, price: 115, barIndex: 30 }, confirmed: false }),
+    ];
+    host.smallSwings = [
+      makeSwing({ start: { time: 200, price: 100, barIndex: 2 }, end: { time: 400, price: 103, barIndex: 4 }, duration: 2, magnitudePercent: 3 }),
+      makeSwing({ direction: 'down', start: { time: 1200, price: 108, barIndex: 12 }, end: { time: 1400, price: 105, barIndex: 14 }, duration: 2, magnitudePercent: -2.7 }),
+      makeSwing({ start: { time: 1500, price: 105, barIndex: 15 }, end: { time: 1700, price: 108, barIndex: 17 }, duration: 2, magnitudePercent: 2.8 }),
+      makeSwing({ start: { time: 3500, price: 115, barIndex: 35 }, end: { time: 3800, price: 118, barIndex: 38 }, duration: 3 }), // orphan — after last parent
+    ];
+    fixture.detectChanges();
+  }
+
+  const parentRows = () => fixture.nativeElement.querySelectorAll('tr.parent-row') as NodeListOf<HTMLElement>;
+  const childRows = () => fixture.nativeElement.querySelectorAll('tr.child-row') as NodeListOf<HTMLElement>;
+
+  it('renders tree mode when smallSwings is bound — parent rows + expander column', () => {
+    setupTree();
+    expect(parentRows().length).toBe(4); // 3 parents + 1 orphan
+    expect(fixture.nativeElement.querySelector('th.expander-col')).toBeTruthy();
+    expect(fixture.nativeElement.querySelectorAll('.expander-btn').length).toBe(2); // parents 1 and 2 have children
+  });
+
+  it('renders child rows under expanded parents by default', () => {
+    setupTree();
+    expect(childRows().length).toBe(3); // 1 child under parent 1, 2 under parent 2
+    // Child numbering: parent.child
+    const childIndexes = Array.from(childRows()).map((r) => r.querySelectorAll('td')[1].textContent!.trim());
+    expect(childIndexes).toEqual(['1.1', '2.1', '2.2']);
+  });
+
+  it('collapses a parent row to hide its children, expands to restore', () => {
+    setupTree();
+    // Parent 2 (start.time=1000) is at merged position 1.
+    const expander = fixture.nativeElement.querySelector('[data-testid="expander-1"]') as HTMLButtonElement;
+    expect(expander).toBeTruthy();
+
+    expander.click();
+    fixture.detectChanges();
+    expect(childRows().length).toBe(1); // parent 2's 2 children hidden
+
+    expander.click();
+    fixture.detectChanges();
+    expect(childRows().length).toBe(3);
+  });
+
+  it('collapse-all hides all children; expand-all restores them', () => {
+    setupTree();
+    const toggleAll = fixture.nativeElement.querySelector('[data-testid="expand-collapse-all"]') as HTMLButtonElement;
+    expect(toggleAll).toBeTruthy();
+    expect(toggleAll.textContent).toContain('Collapse All');
+
+    toggleAll.click();
+    fixture.detectChanges();
+    expect(childRows().length).toBe(0);
+    expect(toggleAll.textContent).toContain('Expand All');
+
+    toggleAll.click();
+    fixture.detectChanges();
+    expect(childRows().length).toBe(3);
+    expect(toggleAll.textContent).toContain('Collapse All');
+  });
+
+  it('does not render the expand-all button when no parent has children', () => {
+    host.swings = [makeSwing({ start: { time: 0, price: 100, barIndex: 0 }, end: { time: 1000, price: 110, barIndex: 10 } })];
+    host.smallSwings = []; // tree mode but no children at all
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="expand-collapse-all"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.expander-btn')).toBeNull();
+  });
+
+  it('renders orphan small swings as top-level rows with S index and no expander', () => {
+    setupTree();
+    const orphan = fixture.nativeElement.querySelector('tr.orphan-row') as HTMLElement;
+    expect(orphan).toBeTruthy();
+    const cells = orphan.querySelectorAll('td');
+    expect(cells[1].textContent!.trim()).toBe('S1');
+    expect(orphan.querySelector('.expander-btn')).toBeNull();
+  });
+
+  it('sorts top-level rows only — children stay chronological under their parent', () => {
+    setupTree();
+    // Sort by magnitude % desc (col index 6 in tree mode: expander=0, #=1, dir=2, start=3, end=4, dur=5, mag%=6)
+    const headers = fixture.nativeElement.querySelectorAll('thead th');
+    (headers[6] as HTMLElement).click();
+    fixture.detectChanges();
+
+    const rows = Array.from(fixture.nativeElement.querySelectorAll('tbody tr')) as HTMLElement[];
+    // Parent order by magnitudePercent desc: +10 (parent1), 0-ish (orphan +10%? orphan has magnitudePercent 10 default)
+    // Large swings: +10, -10 (down), +15 (unconfirmed). Orphan: +10.
+    // Just verify every child row immediately follows its parent and children keep [1200,1500] order.
+    const parent2Idx = rows.findIndex((r) => r.querySelectorAll('td')[1].textContent!.trim() === '2');
+    expect(rows[parent2Idx + 1].classList.contains('child-row')).toBe(true);
+    expect(rows[parent2Idx + 2].classList.contains('child-row')).toBe(true);
+    const childTimes = [rows[parent2Idx + 1], rows[parent2Idx + 2]].map(
+      (r) => r.querySelectorAll('td')[1].textContent!.trim(),
+    );
+    expect(childTimes).toEqual(['2.1', '2.2']);
+  });
+
+  it('applies direction filter to top-level rows only — children stay attached', () => {
+    setupTree();
+    const select = fixture.nativeElement.querySelector('select') as HTMLSelectElement;
+    select.value = 'up';
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    // Up parents: parent1 (up), parent3 (up, unconfirmed), orphan (up). Parent2 (down) filtered out — its children too.
+    expect(parentRows().length).toBe(3);
+    expect(childRows().length).toBe(1); // only parent1's child
+  });
+
+  it('marks unconfirmed child rows with projected styling', () => {
+    host.swings = [makeSwing({ start: { time: 0, price: 100, barIndex: 0 }, end: { time: 1000, price: 110, barIndex: 10 } })];
+    host.smallSwings = [
+      makeSwing({ start: { time: 200, price: 100, barIndex: 2 }, end: { time: 400, price: 103, barIndex: 4 }, confirmed: true }),
+      makeSwing({ start: { time: 500, price: 103, barIndex: 5 }, end: { time: 800, price: 108, barIndex: 8 }, confirmed: false }),
+    ];
+    fixture.detectChanges();
+
+    const children = childRows();
+    expect(children.length).toBe(2);
+    expect(children[0].classList.contains('projected')).toBe(false);
+    expect(children[1].classList.contains('projected')).toBe(true);
+  });
+
+  it('reverts to flat view when smallSwings returns to null', () => {
+    setupTree();
+    expect(fixture.nativeElement.querySelector('th.expander-col')).toBeTruthy();
+
+    // setInput marks the host view dirty — a plain field mutation doesn't
+    // notify zoneless CD and trips NG0100 on checkNoChanges.
+    fixture.componentRef.setInput('smallSwings', null);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('th.expander-col')).toBeNull();
+    expect(childRows().length).toBe(0);
+    const rows = fixture.nativeElement.querySelectorAll('tbody tr');
+    expect(rows.length).toBe(3); // flat — just the 3 large swings
+  });
+
+  it('renders orphan-only tree when there are no large swings', () => {
+    host.swings = [];
+    host.smallSwings = [makeSwing({ start: { time: 100, price: 100, barIndex: 1 }, end: { time: 300, price: 105, barIndex: 3 } })];
+    fixture.detectChanges();
+    const rows = fixture.nativeElement.querySelectorAll('tbody tr');
+    expect(rows.length).toBe(1);
+    expect(rows[0].classList.contains('orphan-row')).toBe(true);
+  });
+
+  it('clears collapse state when the swings dataset changes', () => {
+    setupTree();
+    const expander = fixture.nativeElement.querySelector('[data-testid="expander-1"]') as HTMLButtonElement;
+    expander.click();
+    fixture.detectChanges();
+    expect(childRows().length).toBe(1); // parent 2 collapsed
+
+    // Simulate a new dataset (e.g., symbol switch) — same timestamps, new array.
+    fixture.componentRef.setInput('swings', [
+      makeSwing({ start: { time: 0, price: 100, barIndex: 0 }, end: { time: 1000, price: 110, barIndex: 10 } }),
+      makeSwing({ direction: 'down', start: { time: 1000, price: 110, barIndex: 10 }, end: { time: 2000, price: 100, barIndex: 20 } }),
+      makeSwing({ start: { time: 2000, price: 100, barIndex: 20 }, end: { time: 3000, price: 115, barIndex: 30 }, confirmed: false }),
+    ]);
+    fixture.detectChanges();
+
+    // The parent at the same position must NOT inherit the old collapsed state.
+    expect(childRows().length).toBe(3);
+  });
+
+  it('renders zero-duration parents sharing a start.time without crashing', () => {
+    // allowZigZagOnOneBar can produce a pivot high+low on the same bar →
+    // a zero-duration swing whose start.time equals the next swing's start.
+    // Rows must stay distinct (no NG0955 duplicate track keys).
+    host.swings = [
+      makeSwing({ start: { time: 0, price: 100, barIndex: 0 }, end: { time: 1000, price: 110, barIndex: 10 } }),
+      makeSwing({ direction: 'down', start: { time: 1000, price: 110, barIndex: 10 }, end: { time: 1000, price: 105, barIndex: 10 }, duration: 0 }),
+      makeSwing({ start: { time: 1000, price: 105, barIndex: 10 }, end: { time: 2000, price: 115, barIndex: 20 } }),
+    ];
+    host.smallSwings = [
+      makeSwing({ start: { time: 1000, price: 105, barIndex: 10 }, end: { time: 1100, price: 108, barIndex: 11 } }),
+    ];
+    fixture.detectChanges();
+
+    // Two parents share start.time=1000 — both render as distinct rows.
+    expect(parentRows().length).toBe(3);
+    // The small at t=1000 assigns to the LATER parent (index 2 in merged order).
+    const expander = fixture.nativeElement.querySelector('[data-testid="expander-2"]');
+    expect(expander).toBeTruthy();
+    expect(childRows().length).toBe(1);
   });
 });

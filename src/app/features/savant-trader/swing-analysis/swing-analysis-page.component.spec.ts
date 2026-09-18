@@ -59,10 +59,11 @@ class MockFlexChartComponent {
 @Component({
   selector: 'app-swing-table',
   standalone: true,
-  template: `<div class="mock-swing-table" [attr.data-loading]="loading" [attr.data-swing-count]="swings.length"></div>`,
+  template: `<div class="mock-swing-table" [attr.data-loading]="loading" [attr.data-swing-count]="swings.length" [attr.data-small-swing-count]="smallSwings === null ? 'null' : smallSwings.length"></div>`,
 })
 class MockSwingTableComponent {
   @Input() swings: Swing[] = [];
+  @Input() smallSwings: Swing[] | null = null;
   @Input() loading = false;
   @Input() error: string | null = null;
 }
@@ -319,6 +320,23 @@ describe('SwingAnalysisPageComponent', () => {
     fixture.detectChanges();
     const table = fixture.nativeElement.querySelector('.mock-swing-table');
     expect(table.getAttribute('data-loading')).toBe('false');
+  });
+
+  it('passes null smallSwings to the swing table in single mode', async () => {
+    const { fixture, store } = await setupPage();
+    store.setSymbol('AAPL');
+    fixture.detectChanges();
+    const table = fixture.nativeElement.querySelector('.mock-swing-table');
+    expect(table.getAttribute('data-small-swing-count')).toBe('null');
+  });
+
+  it('passes swings()[1] as smallSwings to the swing table in dual mode', async () => {
+    const { fixture, store } = await setupPage();
+    store.setSymbol('AAPL');
+    store.toggleDualMode();
+    fixture.detectChanges();
+    const table = fixture.nativeElement.querySelector('.mock-swing-table');
+    expect(table.getAttribute('data-small-swing-count')).toBe(String(store.swings()[1].length));
   });
 
   it('renders the stats panel with store stats', async () => {

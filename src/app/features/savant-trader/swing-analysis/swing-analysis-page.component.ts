@@ -7,10 +7,11 @@
  *
  * The page owns no calculation or persistence — it delegates to the store.
  *
- * When dual mode is on, the chart renders two ZigZag instances and each
- * config section has its own controls and save button. The swing table
- * and stats panel still show config 0's results only — the nested tree
- * table (B4) and stats toggle (B5) are later tasks.
+ * When dual mode is on, the chart renders two ZigZag instances, each
+ * config section has its own controls and save button, and the swing
+ * table renders a nested tree (large-swing parents, small-swing
+ * children). The stats panel still shows config 0's results only —
+ * the large/small/all stats toggle (B5) is a later task.
  */
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
@@ -224,6 +225,7 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
   <section class="swing-analysis-table">
     <app-swing-table
       [swings]="swings()"
+      [smallSwings]="smallSwings()"
       [loading]="loading()"
       [error]="error()"
     />
@@ -369,6 +371,8 @@ export class SwingAnalysisPageComponent {
   readonly configs = this.store.configs;
   readonly dualMode = this.store.dualMode;
   readonly swings = computed(() => this.store.swings()[0] ?? []);
+  /** Small swings for the nested tree table — null in single mode (flat view). */
+  readonly smallSwings = computed(() => (this.dualMode() ? this.store.swings()[1] ?? [] : null));
   readonly stats = computed(() => this.store.stats()[0] ?? null);
   readonly loading = this.store.loading;
   readonly error = this.store.error;
