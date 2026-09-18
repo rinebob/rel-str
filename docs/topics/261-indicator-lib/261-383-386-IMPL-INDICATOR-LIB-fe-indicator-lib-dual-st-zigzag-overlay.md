@@ -115,13 +115,18 @@ Covers US-1, US-2, US-3, US-5, US-6, US-7 from the PRD.
 - The "current swing" for each config is the last row at its level.
 - Sorting applies to parent rows; children stay chronological.
 - When dual mode is off, the table reverts to flat single-config view.
+- Implemented deviation (Task #394): small swings outside every parent's
+  range (before the first parent starts, after the last ends) render as
+  orphan top-level rows (`isOrphan`, `S{n}` index) so no data is dropped.
+  `TreeSwingRow` extends `Swing` with `children: Swing[]` + `isOrphan`;
+  expand state is tracked in a `Set` keyed by row position rather than
+  embedded on the row.
 
 **New type:**
 ```typescript
-interface TreeSwingRow {
-  parent: Swing;           // large swing
+interface TreeSwingRow extends Swing {
   children: Swing[];        // small swings within this large swing
-  expanded: boolean;        // UI state
+  isOrphan: boolean;        // unassigned small swing, rendered top-level
 }
 ```
 

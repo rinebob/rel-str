@@ -99,7 +99,10 @@
   at small swing's start.
 - No small swings within a large swing → parent row has no children, expand
   is no-op.
-- No large swings (empty pivots) → tree is empty.
+- No large swings (empty pivots) → all small swings render as orphan
+  top-level rows (`S{n}`) — implemented deviation (Task #394): orphans are
+  kept so no data is dropped; a small swing outside every parent's range
+  also renders as an orphan row interleaved chronologically.
 - Config with identical params → same paramsId (save overwrites).
 - Loading a saved analysis when dual mode is off → loads into config 0.
 - Loading a saved analysis when dual mode is on → loads into the selected
