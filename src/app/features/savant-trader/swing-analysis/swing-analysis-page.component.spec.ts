@@ -29,7 +29,7 @@ import { TestBed } from '@angular/core/testing';
 import { of, Subject } from 'rxjs';
 
 import { SwingAnalysisPageComponent } from './swing-analysis-page.component';
-import { SwingAnalysisStore, LARGE_CONFIG } from './swing-analysis.store';
+import { SwingAnalysisStore, LARGE_CONFIG, SMALL_CONFIG } from './swing-analysis.store';
 import { ChartService } from '../services/chart.service';
 import { SwingAnalysisService } from './swing-analysis.service';
 import { StIndicator } from '../../shared/components/flex-chart/flex-chart.types';
@@ -196,29 +196,36 @@ describe('SwingAnalysisPageComponent', () => {
     expect(input.value).toBe('AAPL');
   });
 
-  it('renders param controls for devThreshold, leftDepth, rightDepth, allowZigZagOnOneBar, projectionPivots', async () => {
+  it('renders param controls for devThreshold, leftDepth, rightDepth, lineColor, allowZigZagOnOneBar', async () => {
     const { fixture } = await setupPage();
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('[data-testid="param-devThreshold"]')).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('[data-testid="param-leftDepth"]')).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('[data-testid="param-rightDepth"]')).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('[data-testid="param-allowZigZagOnOneBar"]')).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('[data-testid="param-projectionPivots"]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[data-testid="param-devThreshold-0"]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[data-testid="param-leftDepth-0"]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[data-testid="param-rightDepth-0"]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[data-testid="param-lineColor-0"]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[data-testid="param-allowZigZagOnOneBar-0"]')).toBeTruthy();
+  });
+
+  it('does not render a projectionPivots toggle', async () => {
+    const { fixture } = await setupPage();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="param-projectionPivots-0"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="param-projectionPivots-1"]')).toBeNull();
   });
 
   it('reflects default config values in param controls', async () => {
     const { fixture } = await setupPage();
     fixture.detectChanges();
-    const dev = fixture.nativeElement.querySelector('[data-testid="param-devThreshold"]') as HTMLInputElement;
-    const left = fixture.nativeElement.querySelector('[data-testid="param-leftDepth"]') as HTMLInputElement;
-    const right = fixture.nativeElement.querySelector('[data-testid="param-rightDepth"]') as HTMLInputElement;
-    const oneBar = fixture.nativeElement.querySelector('[data-testid="param-allowZigZagOnOneBar"]') as HTMLInputElement;
-    const proj = fixture.nativeElement.querySelector('[data-testid="param-projectionPivots"]') as HTMLInputElement;
+    const dev = fixture.nativeElement.querySelector('[data-testid="param-devThreshold-0"]') as HTMLInputElement;
+    const left = fixture.nativeElement.querySelector('[data-testid="param-leftDepth-0"]') as HTMLInputElement;
+    const right = fixture.nativeElement.querySelector('[data-testid="param-rightDepth-0"]') as HTMLInputElement;
+    const color = fixture.nativeElement.querySelector('[data-testid="param-lineColor-0"]') as HTMLInputElement;
+    const oneBar = fixture.nativeElement.querySelector('[data-testid="param-allowZigZagOnOneBar-0"]') as HTMLInputElement;
     expect(Number(dev.value)).toBe(LARGE_CONFIG.devThreshold);
     expect(Number(left.value)).toBe(LARGE_CONFIG.leftDepth);
     expect(Number(right.value)).toBe(LARGE_CONFIG.rightDepth);
+    expect(color.value).toBe(LARGE_CONFIG.lineColor);
     expect(oneBar.checked).toBe(LARGE_CONFIG.allowZigZagOnOneBar);
-    expect(proj.checked).toBe(LARGE_CONFIG.projectionPivots);
   });
 
   it('calls store.setSymbol when symbol input changes', async () => {
@@ -233,18 +240,18 @@ describe('SwingAnalysisPageComponent', () => {
   it('calls store.updateConfig when a numeric param changes', async () => {
     const { fixture, store } = await setupPage();
     fixture.detectChanges();
-    const dev = fixture.nativeElement.querySelector('[data-testid="param-devThreshold"]') as HTMLInputElement;
+    const dev = fixture.nativeElement.querySelector('[data-testid="param-devThreshold-0"]') as HTMLInputElement;
     dev.value = '7.5';
-    dev.dispatchEvent(new Event('input'));
+    dev.dispatchEvent(new Event('change'));
     expect(store.configs()[0].devThreshold).toBe(7.5);
   });
 
   it('clamps numeric param to minimum', async () => {
     const { fixture, store } = await setupPage();
     fixture.detectChanges();
-    const dev = fixture.nativeElement.querySelector('[data-testid="param-devThreshold"]') as HTMLInputElement;
+    const dev = fixture.nativeElement.querySelector('[data-testid="param-devThreshold-0"]') as HTMLInputElement;
     dev.value = '0.01';
-    dev.dispatchEvent(new Event('input'));
+    dev.dispatchEvent(new Event('change'));
     expect(store.configs()[0].devThreshold).toBe(0.1);
   });
 
@@ -252,16 +259,16 @@ describe('SwingAnalysisPageComponent', () => {
     const { fixture, store } = await setupPage();
     fixture.detectChanges();
     const original = store.configs()[0].devThreshold;
-    const dev = fixture.nativeElement.querySelector('[data-testid="param-devThreshold"]') as HTMLInputElement;
+    const dev = fixture.nativeElement.querySelector('[data-testid="param-devThreshold-0"]') as HTMLInputElement;
     dev.value = '';
-    dev.dispatchEvent(new Event('input'));
+    dev.dispatchEvent(new Event('change'));
     expect(store.configs()[0].devThreshold).toBe(original);
   });
 
   it('calls store.updateConfig when a boolean param toggles', async () => {
     const { fixture, store } = await setupPage();
     fixture.detectChanges();
-    const oneBar = fixture.nativeElement.querySelector('[data-testid="param-allowZigZagOnOneBar"]') as HTMLInputElement;
+    const oneBar = fixture.nativeElement.querySelector('[data-testid="param-allowZigZagOnOneBar-0"]') as HTMLInputElement;
     oneBar.checked = false;
     oneBar.dispatchEvent(new Event('change'));
     expect(store.configs()[0].allowZigZagOnOneBar).toBe(false);
@@ -326,9 +333,9 @@ describe('SwingAnalysisPageComponent', () => {
   it('renders a Save Analysis button', async () => {
     const { fixture } = await setupPage();
     fixture.detectChanges();
-    const btn = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn"]');
+    const btn = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn-0"]');
     expect(btn).toBeTruthy();
-    expect(btn.textContent).toContain('Save Analysis');
+    expect(btn.textContent).toContain('Save');
   });
 
   it('calls store.saveAnalysis when Save button clicked', async () => {
@@ -336,16 +343,16 @@ describe('SwingAnalysisPageComponent', () => {
     store.setSymbol('AAPL');
     fixture.detectChanges();
     const saveSpy = jest.spyOn(store, 'saveAnalysis');
-    const btn = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn"]');
+    const btn = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn-0"]');
     btn.click();
-    expect(saveSpy).toHaveBeenCalled();
+    expect(saveSpy).toHaveBeenCalledWith(0);
   });
 
   it('Save button click reaches SwingAnalysisService.saveAnalysis', async () => {
     const { fixture, store, service } = await setupPage();
     store.setSymbol('AAPL');
     fixture.detectChanges();
-    const btn = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn"]');
+    const btn = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn-0"]');
     btn.click();
     expect(service.saveAnalysis).toHaveBeenCalled();
   });
@@ -353,7 +360,7 @@ describe('SwingAnalysisPageComponent', () => {
   it('disables Save button when no symbol or no stats', async () => {
     const { fixture } = await setupPage();
     fixture.detectChanges();
-    const btn = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn"]') as HTMLButtonElement;
+    const btn = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn-0"]') as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
   });
 
@@ -361,7 +368,7 @@ describe('SwingAnalysisPageComponent', () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
     fixture.detectChanges();
-    const btn = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn"]') as HTMLButtonElement;
+    const btn = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn-0"]') as HTMLButtonElement;
     expect(btn.disabled).toBe(false);
   });
 
@@ -411,5 +418,178 @@ describe('SwingAnalysisPageComponent', () => {
     expect(store.loading()).toBe(true);
     const loadingEl = fixture.nativeElement.querySelector('[data-testid="loading-indicator"]');
     expect(loadingEl).toBeTruthy();
+  });
+
+  // =========================================================================
+  // Dual mode — toggle, collapsible config sections, unique indicator ids
+  // =========================================================================
+
+  it('renders a dual-mode toggle control', async () => {
+    const { fixture } = await setupPage();
+    fixture.detectChanges();
+    const toggle = fixture.nativeElement.querySelector('[data-testid="dual-mode-toggle"]');
+    expect(toggle).toBeTruthy();
+  });
+
+  it('shows one config section when dual mode is off', async () => {
+    const { fixture } = await setupPage();
+    fixture.detectChanges();
+    const sections = fixture.nativeElement.querySelectorAll('.config-section');
+    expect(sections.length).toBe(1);
+  });
+
+  it('shows two config sections when dual mode is on', async () => {
+    const { fixture, store } = await setupPage();
+    store.setSymbol('AAPL');
+    store.toggleDualMode();
+    fixture.detectChanges();
+    const sections = fixture.nativeElement.querySelectorAll('.config-section');
+    expect(sections.length).toBe(2);
+  });
+
+  it('labels config sections as Large Swings and Small Swings', async () => {
+    const { fixture, store } = await setupPage();
+    store.setSymbol('AAPL');
+    store.toggleDualMode();
+    fixture.detectChanges();
+    const labels = fixture.nativeElement.querySelectorAll('.config-section-label');
+    expect(labels[0].textContent.trim()).toBe('Large Swings');
+    expect(labels[1].textContent.trim()).toBe('Small Swings');
+  });
+
+  it('calls store.toggleDualMode when the toggle is clicked', async () => {
+    const { fixture, store } = await setupPage();
+    store.setSymbol('AAPL');
+    fixture.detectChanges();
+    const toggleSpy = jest.spyOn(store, 'toggleDualMode');
+    const toggle = fixture.nativeElement.querySelector('[data-testid="dual-mode-toggle"]') as HTMLInputElement;
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event('change'));
+    expect(toggleSpy).toHaveBeenCalled();
+  });
+
+  it('builds chartConfig with one IndicatorConfig when dual mode off', async () => {
+    const { fixture } = await setupPage();
+    fixture.detectChanges();
+    const chartComp = fixture.debugElement.query((el: any) => el.nativeElement.classList?.contains('mock-flex-chart'));
+    const config = chartComp.componentInstance.config;
+    expect(config.indicators.length).toBe(1);
+    expect(config.indicators[0].id).toBe('st-zigzag-0');
+    expect(config.indicators[0].type).toBe(StIndicator.ST_ZIGZAG);
+  });
+
+  it('builds chartConfig with two IndicatorConfigs with unique ids when dual mode on', async () => {
+    const { fixture, store } = await setupPage();
+    store.setSymbol('AAPL');
+    store.toggleDualMode();
+    fixture.detectChanges();
+    const chartComp = fixture.debugElement.query((el: any) => el.nativeElement.classList?.contains('mock-flex-chart'));
+    const config = chartComp.componentInstance.config;
+    expect(config.indicators.length).toBe(2);
+    expect(config.indicators[0].id).toBe('st-zigzag-0');
+    expect(config.indicators[1].id).toBe('st-zigzag-1');
+    expect(config.indicators[0].type).toBe(StIndicator.ST_ZIGZAG);
+    expect(config.indicators[1].type).toBe(StIndicator.ST_ZIGZAG);
+  });
+
+  it('passes per-config params to each chart indicator', async () => {
+    const { fixture, store } = await setupPage();
+    store.setSymbol('AAPL');
+    store.toggleDualMode();
+    store.updateConfig(1, { devThreshold: 7 });
+    fixture.detectChanges();
+    const chartComp = fixture.debugElement.query((el: any) => el.nativeElement.classList?.contains('mock-flex-chart'));
+    const params0 = chartComp.componentInstance.config.indicators[0].params;
+    const params1 = chartComp.componentInstance.config.indicators[1].params;
+    expect(params0['devThreshold']).toBe(LARGE_CONFIG.devThreshold);
+    expect(params1['devThreshold']).toBe(7);
+    expect(params0['lineColor']).toBe(LARGE_CONFIG.lineColor);
+    expect(params1['lineColor']).toBe(SMALL_CONFIG.lineColor);
+  });
+
+  it('calls store.updateConfig with the correct index when a param changes', async () => {
+    const { fixture, store } = await setupPage();
+    store.setSymbol('AAPL');
+    store.toggleDualMode();
+    fixture.detectChanges();
+    const dev = fixture.nativeElement.querySelector('[data-testid="param-devThreshold-1"]') as HTMLInputElement;
+    dev.value = '7.5';
+    dev.dispatchEvent(new Event('change'));
+    expect(store.configs()[1].devThreshold).toBe(7.5);
+    expect(store.configs()[0].devThreshold).toBe(LARGE_CONFIG.devThreshold);
+  });
+
+  it('calls store.updateConfig when lineColor changes', async () => {
+    const { fixture, store } = await setupPage();
+    store.setSymbol('AAPL');
+    store.toggleDualMode();
+    fixture.detectChanges();
+    const color = fixture.nativeElement.querySelector('[data-testid="param-lineColor-1"]') as HTMLInputElement;
+    color.value = '#ff0000';
+    color.dispatchEvent(new Event('input'));
+    expect(store.configs()[1].lineColor).toBe('#ff0000');
+  });
+
+  it('calls store.saveAnalysis with the correct index when a save button is clicked', async () => {
+    const { fixture, store } = await setupPage();
+    store.setSymbol('AAPL');
+    store.toggleDualMode();
+    fixture.detectChanges();
+    const saveSpy = jest.spyOn(store, 'saveAnalysis');
+    const btn = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn-1"]');
+    btn.click();
+    expect(saveSpy).toHaveBeenCalledWith(1);
+  });
+
+  it('enables each save button independently based on that config\'s stats', async () => {
+    const { fixture, store } = await setupPage();
+    store.setSymbol('AAPL');
+    store.toggleDualMode();
+    fixture.detectChanges();
+    const btn0 = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn-0"]') as HTMLButtonElement;
+    const btn1 = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn-1"]') as HTMLButtonElement;
+    expect(btn0.disabled).toBe(false);
+    expect(btn1.disabled).toBe(false);
+  });
+
+  it('restores single config section and one indicator when toggled off', async () => {
+    const { fixture, store } = await setupPage();
+    store.setSymbol('AAPL');
+    store.toggleDualMode();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('.config-section').length).toBe(2);
+
+    store.toggleDualMode();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('.config-section').length).toBe(1);
+    const chartComp = fixture.debugElement.query((el: any) => el.nativeElement.classList?.contains('mock-flex-chart'));
+    expect(chartComp.componentInstance.config.indicators.length).toBe(1);
+  });
+
+  it('renders collapsible config sections via details/summary', async () => {
+    const { fixture, store } = await setupPage();
+    store.setSymbol('AAPL');
+    store.toggleDualMode();
+    fixture.detectChanges();
+    const sections = fixture.nativeElement.querySelectorAll('details.config-section');
+    expect(sections.length).toBe(2);
+    sections.forEach((section: HTMLDetailsElement) => {
+      expect(section.tagName).toBe('DETAILS');
+      expect(section.open).toBe(true);
+      const summary = section.querySelector('summary.config-section-header');
+      expect(summary).toBeTruthy();
+    });
+  });
+
+  it('disables save button when that config has no stats', async () => {
+    const { fixture, store } = await setupPage();
+    // No setSymbol — stats are null for both configs.
+    fixture.detectChanges();
+    const btn0 = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn-0"]') as HTMLButtonElement;
+    expect(btn0.disabled).toBe(true);
+    store.toggleDualMode();
+    fixture.detectChanges();
+    const btn1 = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn-1"]') as HTMLButtonElement;
+    expect(btn1.disabled).toBe(true);
   });
 });

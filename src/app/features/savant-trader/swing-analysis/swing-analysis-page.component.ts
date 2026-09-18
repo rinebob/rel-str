@@ -3,9 +3,14 @@
  *
  * Wires the SwingAnalysisStore, param controls (symbol + ZigZagConfig),
  * an isolated flex-chart with only ST_ZIGZAG enabled, the swing table,
- * the stats panel, and a Save Analysis button.
+ * the stats panel, and per-config Save Analysis buttons.
  *
  * The page owns no calculation or persistence — it delegates to the store.
+ *
+ * When dual mode is on, the chart renders two ZigZag instances and each
+ * config section has its own controls and save button. The swing table
+ * and stats panel still show config 0's results only — the nested tree
+ * table (B4) and stats toggle (B5) are later tasks.
  */
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
@@ -28,7 +33,7 @@ import type { ZigZagConfig } from '../../shared/components/flex-chart/indicators
 type NumericParam = 'devThreshold' | 'leftDepth' | 'rightDepth';
 
 /** Boolean ZigZagConfig keys that accept boolean values. */
-type BoolParam = 'allowZigZagOnOneBar' | 'projectionPivots';
+type BoolParam = 'allowZigZagOnOneBar';
 
 /** Per-param validation bounds for numeric inputs. */
 const NUMERIC_BOUNDS: Record<NumericParam, { min: number; max: number }> = {
@@ -37,13 +42,16 @@ const NUMERIC_BOUNDS: Record<NumericParam, { min: number; max: number }> = {
   rightDepth: { min: 2, max: 100 },
 };
 
+/** Labels for each config section — index 0 is the large/primary config. */
+const CONFIG_LABELS = ['Large Swings', 'Small Swings'] as const;
+
 /**
  * Build the isolated ST_ZIGZAG IndicatorConfig from the store's ZigZagConfig.
- * The chart only renders ST_ZIGZAG — no other indicators are loaded.
+ * Each config gets a unique `id` so the chart can render multiple instances.
  */
-function buildZigZagIndicator(config: ZigZagConfig): IndicatorConfig {
+function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorConfig {
   return {
-    id: 'st-zigzag-swing-analysis',
+    id: `st-zigzag-${index}`,
     type: StIndicator.ST_ZIGZAG,
     pane: 'overlay',
     seriesType: 'line',
@@ -56,7 +64,7 @@ function buildZigZagIndicator(config: ZigZagConfig): IndicatorConfig {
       lineColor: config.lineColor,
     },
     options: {
-      name: 'ST-ZIGZAG',
+      name: `ST-ZIGZAG-${index}`,
     },
   };
 }
@@ -104,71 +112,105 @@ function buildZigZagIndicator(config: ZigZagConfig): IndicatorConfig {
       />
     </label>
 
-    <label class="control">
-      <span class="control-label">Dev Threshold</span>
-      <input
-        data-testid="param-devThreshold"
-        type="number"
-        min="0.1"
-        step="0.1"
-        [value]="config().devThreshold"
-        (input)="onNumberParam('devThreshold', $event)"
-      />
-    </label>
-
-    <label class="control">
-      <span class="control-label">Left Depth</span>
-      <input
-        data-testid="param-leftDepth"
-        type="number"
-        min="2"
-        step="1"
-        [value]="config().leftDepth"
-        (input)="onNumberParam('leftDepth', $event)"
-      />
-    </label>
-
-    <label class="control">
-      <span class="control-label">Right Depth</span>
-      <input
-        data-testid="param-rightDepth"
-        type="number"
-        min="2"
-        step="1"
-        [value]="config().rightDepth"
-        (input)="onNumberParam('rightDepth', $event)"
-      />
-    </label>
-
     <label class="control control-checkbox">
       <input
-        data-testid="param-allowZigZagOnOneBar"
+        data-testid="dual-mode-toggle"
         type="checkbox"
-        [checked]="config().allowZigZagOnOneBar"
-        (change)="onBoolParam('allowZigZagOnOneBar', $event)"
+        [checked]="dualMode()"
+        (change)="onToggleDualMode($event)"
       />
-      <span class="control-label">Allow ZigZag on One Bar</span>
+      <span class="control-label">Dual Mode</span>
     </label>
+  </section>
 
-    <label class="control control-checkbox">
-      <input
-        data-testid="param-projectionPivots"
-        type="checkbox"
-        [checked]="config().projectionPivots"
-        (change)="onBoolParam('projectionPivots', $event)"
-      />
-      <span class="control-label">Projection Pivots</span>
-    </label>
+  <section class="config-sections">
+    @for (cfg of configs(); track $index; let i = $index) {
+      <details
+        class="config-section"
+        [attr.data-testid]="'config-section-' + i"
+        open
+      >
+        <summary class="config-section-header">
+          <span class="config-section-label">{{ configLabel(i) }}</span>
+          <span
+            class="config-section-swatch"
+            [style.background-color]="cfg.lineColor"
+            aria-hidden="true"
+          ></span>
+        </summary>
 
-    <button
-      data-testid="save-analysis-btn"
-      mat-raised-button
-      color="primary"
-      [disabled]="!canSave()"
-      (click)="onSave()"
-    >
-      Save Analysis
-    </button>
+        <div class="config-controls">
+          <label class="control">
+            <span class="control-label">Dev Threshold</span>
+            <input
+              [attr.data-testid]="'param-devThreshold-' + i"
+              type="number"
+              [attr.min]="numericBounds('devThreshold').min"
+              [attr.max]="numericBounds('devThreshold').max"
+              step="0.1"
+              [value]="cfg.devThreshold"
+              (change)="onNumberParam(i, 'devThreshold', $event)"
+            />
+          </label>
+
+          <label class="control">
+            <span class="control-label">Left Depth</span>
+            <input
+              [attr.data-testid]="'param-leftDepth-' + i"
+              type="number"
+              [attr.min]="numericBounds('leftDepth').min"
+              [attr.max]="numericBounds('leftDepth').max"
+              step="1"
+              [value]="cfg.leftDepth"
+              (change)="onNumberParam(i, 'leftDepth', $event)"
+            />
+          </label>
+
+          <label class="control">
+            <span class="control-label">Right Depth</span>
+            <input
+              [attr.data-testid]="'param-rightDepth-' + i"
+              type="number"
+              [attr.min]="numericBounds('rightDepth').min"
+              [attr.max]="numericBounds('rightDepth').max"
+              step="1"
+              [value]="cfg.rightDepth"
+              (change)="onNumberParam(i, 'rightDepth', $event)"
+            />
+          </label>
+
+          <label class="control">
+            <span class="control-label">Line Color</span>
+            <input
+              [attr.data-testid]="'param-lineColor-' + i"
+              type="color"
+              [value]="cfg.lineColor"
+              (input)="onColorParam(i, 'lineColor', $event)"
+            />
+          </label>
+
+          <label class="control control-checkbox">
+            <input
+              [attr.data-testid]="'param-allowZigZagOnOneBar-' + i"
+              type="checkbox"
+              [checked]="cfg.allowZigZagOnOneBar"
+              (change)="onBoolParam(i, 'allowZigZagOnOneBar', $event)"
+            />
+            <span class="control-label">Allow ZigZag on One Bar</span>
+          </label>
+
+          <button
+            [attr.data-testid]="'save-analysis-btn-' + i"
+            mat-raised-button
+            color="primary"
+            [disabled]="!canSave(i)"
+            (click)="onSave(i)"
+          >
+            Save {{ configLabel(i) }}
+          </button>
+        </div>
+      </details>
+    }
   </section>
 
   <section class="swing-analysis-chart">
@@ -238,6 +280,45 @@ function buildZigZagIndicator(config: ZigZagConfig): IndicatorConfig {
       border-bottom: 1px solid #eee;
       margin-bottom: 16px;
     }
+    .config-sections {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .config-section {
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .config-section-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #f5f5f5;
+      cursor: pointer;
+      user-select: none;
+    }
+    .config-section-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .config-section-swatch {
+      width: 16px;
+      height: 16px;
+      border-radius: 2px;
+      border: 1px solid #999;
+    }
+    .config-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: flex-end;
+      padding: 12px;
+    }
     .control {
       display: flex;
       flex-direction: column;
@@ -261,6 +342,14 @@ function buildZigZagIndicator(config: ZigZagConfig): IndicatorConfig {
       border-radius: 4px;
       width: 100px;
     }
+    .control input[type="color"] {
+      padding: 0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      width: 40px;
+      height: 28px;
+      cursor: pointer;
+    }
     .swing-analysis-chart {
       margin-bottom: 16px;
     }
@@ -276,9 +365,9 @@ export class SwingAnalysisPageComponent {
   readonly store = inject(SwingAnalysisStore);
 
   // Re-expose store signals for template binding.
-  // The page currently uses config 0 only — dual-mode UI is added in a later task.
   readonly symbol = this.store.symbol;
-  readonly config = computed(() => this.store.configs()[0]);
+  readonly configs = this.store.configs;
+  readonly dualMode = this.store.dualMode;
   readonly swings = computed(() => this.store.swings()[0] ?? []);
   readonly stats = computed(() => this.store.stats()[0] ?? null);
   readonly loading = this.store.loading;
@@ -296,22 +385,32 @@ export class SwingAnalysisPageComponent {
     };
   });
 
-  /** Isolated chart config — only ST_ZIGZAG, no other indicators. */
+  /** Isolated chart config — one or two ST_ZIGZAG indicators, unique id each. */
   readonly chartConfig = computed<FlexChartConfig>(() => ({
-    indicators: [buildZigZagIndicator(this.config())],
+    indicators: this.configs().map((c, i) => buildZigZagIndicator(c, i)),
     showCrosshair: true,
     showZoomToolbar: true,
     interval: ChartIntervalKey.DAILY,
   }));
 
-  /** Save is enabled only when a symbol is set and stats exist. */
-  readonly canSave = computed(() => {
-    return this.symbol().length > 0 && this.stats() !== null && !this.loading();
-  });
-
   /** Reset store state on construction to avoid stale data from prior visits. */
   constructor() {
     this.store.resetState();
+  }
+
+  /** Label for a config section — "Large Swings" or "Small Swings". */
+  configLabel(index: number): string {
+    return CONFIG_LABELS[index] ?? `Config ${index}`;
+  }
+
+  /** Numeric bounds for a param — single source of truth for template and handler. */
+  numericBounds(key: NumericParam): { min: number; max: number } {
+    return NUMERIC_BOUNDS[key];
+  }
+
+  /** Save is enabled for a config when a symbol is set and stats exist. */
+  canSave(index: number): boolean {
+    return this.symbol().length > 0 && this.store.stats()[index] != null && !this.loading();
   }
 
   onSymbol(event: Event): void {
@@ -319,22 +418,34 @@ export class SwingAnalysisPageComponent {
     this.store.setSymbol(value);
   }
 
-  onNumberParam(key: NumericParam, event: Event): void {
+  onToggleDualMode(event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    if (checked !== this.store.dualMode()) {
+      this.store.toggleDualMode();
+    }
+  }
+
+  onNumberParam(index: number, key: NumericParam, event: Event): void {
     const raw = (event.target as HTMLInputElement).value;
     if (raw === '') return;
     const value = Number(raw);
     if (!Number.isFinite(value)) return;
     const bounds = NUMERIC_BOUNDS[key];
     const clamped = Math.min(bounds.max, Math.max(bounds.min, value));
-    this.store.updateConfig(0, { [key]: clamped });
+    this.store.updateConfig(index, { [key]: clamped });
   }
 
-  onBoolParam(key: BoolParam, event: Event): void {
+  onBoolParam(index: number, key: BoolParam, event: Event): void {
     const checked = (event.target as HTMLInputElement).checked;
-    this.store.updateConfig(0, { [key]: checked });
+    this.store.updateConfig(index, { [key]: checked });
   }
 
-  onSave(): void {
-    this.store.saveAnalysis(0);
+  onColorParam(index: number, key: 'lineColor', event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.store.updateConfig(index, { [key]: value });
+  }
+
+  onSave(index: number): void {
+    this.store.saveAnalysis(index);
   }
 }
