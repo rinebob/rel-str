@@ -115,12 +115,17 @@ readonly series = input.required<ContractSeriesPoint[]>();
 
 Renders:
 - Header: contractID, strike, expiration, type badge
-- SVG sparkline (~220×80px):
-  - Two polylines: price (primary color) + delta (secondary color)
-  - Price axis: left edge, 2-3 tick labels (min, mid, max)
-  - Delta axis: right edge, 2-3 tick labels (-1, 0, +1 range)
+- SVG sparkline (~240×104px viewBox):
+  - Two polylines: price (primary color) + delta (secondary color, dashed)
+  - Vertex dots on both series
+  - Price axis: left edge, min/mid/max tick labels (data-driven, actual values)
+  - Delta axis: right edge, min/mid/max tick labels (data-driven — actual
+    delta values per PRD, not a fixed -1/0/+1 range); ticks deduped by label
+  - Delta polyline splits into contiguous runs at null-delta points — the
+    line never bridges a gap
   - Start/end value annotations on each series
-  - Small legend (price color swatch + "Price", delta swatch + "Δ")
+  - Small legend (price color swatch + "Price", delta swatch + "Delta")
+  - First/last date labels below the chart
 - Thin border, subtle shadow, white background
 
 No store injection — takes all data via inputs.
