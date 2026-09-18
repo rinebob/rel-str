@@ -29,10 +29,9 @@ import { TestBed } from '@angular/core/testing';
 import { of, Subject } from 'rxjs';
 
 import { SwingAnalysisPageComponent } from './swing-analysis-page.component';
-import { SwingAnalysisStore } from './swing-analysis.store';
+import { SwingAnalysisStore, LARGE_CONFIG } from './swing-analysis.store';
 import { ChartService } from '../services/chart.service';
 import { SwingAnalysisService } from './swing-analysis.service';
-import { DEFAULT_CONFIG } from '../../shared/components/flex-chart/indicators/st-zigzag.engine';
 import { StIndicator } from '../../shared/components/flex-chart/flex-chart.types';
 import { BarsInterval } from '../../../core/models/partner.types';
 import { FlexChartComponent } from '../../shared/components/flex-chart/flex-chart.component';
@@ -84,13 +83,16 @@ class MockStatsPanelComponent {
 
 function makeBars(n: number): PriceBar[] {
   const bars: PriceBar[] = [];
+  // Phase length must exceed LARGE_CONFIG's leftDepth/rightDepth (10).
+  const phaseLen = 15;
   for (let i = 0; i < n; i++) {
-    const phase = Math.floor(i / 5) % 2;
-    const stepInPhase = i % 5;
-    const delta = phase === 0 ? stepInPhase * 10 : -stepInPhase * 10;
+    const phase = Math.floor(i / phaseLen) % 2;
+    const stepInPhase = i % phaseLen;
+    const delta = phase === 0 ? stepInPhase * 5 : -stepInPhase * 5;
+    const d = new Date(2026, 0, i + 1);
     bars.push({
-      date: `2026-01-${String(i + 1).padStart(2, '0')}`,
-      x: new Date(2026, 0, i + 1),
+      date: d.toISOString().slice(0, 10),
+      x: d,
       open: 100 + delta,
       high: 105 + delta,
       low: 95 + delta,
@@ -181,7 +183,7 @@ describe('SwingAnalysisPageComponent', () => {
     const { store } = await setupPage();
     expect(store.symbol()).toBe('');
     expect(store.bars()).toEqual([]);
-    expect(store.stats()).toBeNull();
+    expect(store.stats()[0]).toBeNull();
   });
 
   it('renders a symbol input bound to store symbol', async () => {
@@ -212,11 +214,11 @@ describe('SwingAnalysisPageComponent', () => {
     const right = fixture.nativeElement.querySelector('[data-testid="param-rightDepth"]') as HTMLInputElement;
     const oneBar = fixture.nativeElement.querySelector('[data-testid="param-allowZigZagOnOneBar"]') as HTMLInputElement;
     const proj = fixture.nativeElement.querySelector('[data-testid="param-projectionPivots"]') as HTMLInputElement;
-    expect(Number(dev.value)).toBe(DEFAULT_CONFIG.devThreshold);
-    expect(Number(left.value)).toBe(DEFAULT_CONFIG.leftDepth);
-    expect(Number(right.value)).toBe(DEFAULT_CONFIG.rightDepth);
-    expect(oneBar.checked).toBe(DEFAULT_CONFIG.allowZigZagOnOneBar);
-    expect(proj.checked).toBe(DEFAULT_CONFIG.projectionPivots);
+    expect(Number(dev.value)).toBe(LARGE_CONFIG.devThreshold);
+    expect(Number(left.value)).toBe(LARGE_CONFIG.leftDepth);
+    expect(Number(right.value)).toBe(LARGE_CONFIG.rightDepth);
+    expect(oneBar.checked).toBe(LARGE_CONFIG.allowZigZagOnOneBar);
+    expect(proj.checked).toBe(LARGE_CONFIG.projectionPivots);
   });
 
   it('calls store.setSymbol when symbol input changes', async () => {
@@ -234,7 +236,7 @@ describe('SwingAnalysisPageComponent', () => {
     const dev = fixture.nativeElement.querySelector('[data-testid="param-devThreshold"]') as HTMLInputElement;
     dev.value = '7.5';
     dev.dispatchEvent(new Event('input'));
-    expect(store.config().devThreshold).toBe(7.5);
+    expect(store.configs()[0].devThreshold).toBe(7.5);
   });
 
   it('clamps numeric param to minimum', async () => {
@@ -243,17 +245,17 @@ describe('SwingAnalysisPageComponent', () => {
     const dev = fixture.nativeElement.querySelector('[data-testid="param-devThreshold"]') as HTMLInputElement;
     dev.value = '0.01';
     dev.dispatchEvent(new Event('input'));
-    expect(store.config().devThreshold).toBe(0.1);
+    expect(store.configs()[0].devThreshold).toBe(0.1);
   });
 
   it('rejects empty numeric input', async () => {
     const { fixture, store } = await setupPage();
     fixture.detectChanges();
-    const original = store.config().devThreshold;
+    const original = store.configs()[0].devThreshold;
     const dev = fixture.nativeElement.querySelector('[data-testid="param-devThreshold"]') as HTMLInputElement;
     dev.value = '';
     dev.dispatchEvent(new Event('input'));
-    expect(store.config().devThreshold).toBe(original);
+    expect(store.configs()[0].devThreshold).toBe(original);
   });
 
   it('calls store.updateConfig when a boolean param toggles', async () => {
@@ -262,7 +264,7 @@ describe('SwingAnalysisPageComponent', () => {
     const oneBar = fixture.nativeElement.querySelector('[data-testid="param-allowZigZagOnOneBar"]') as HTMLInputElement;
     oneBar.checked = false;
     oneBar.dispatchEvent(new Event('change'));
-    expect(store.config().allowZigZagOnOneBar).toBe(false);
+    expect(store.configs()[0].allowZigZagOnOneBar).toBe(false);
   });
 
   it('renders the flex-chart with chartData from store bars', async () => {
@@ -287,7 +289,7 @@ describe('SwingAnalysisPageComponent', () => {
 
   it('passes store config params to the chart indicator', async () => {
     const { fixture, store } = await setupPage();
-    store.updateConfig({ devThreshold: 8, leftDepth: 7 });
+    store.updateConfig(0, { devThreshold: 8, leftDepth: 7 });
     fixture.detectChanges();
     const chartComp = fixture.debugElement.query((el: any) => el.nativeElement.classList?.contains('mock-flex-chart'));
     const params = chartComp.componentInstance.config.indicators[0].params;
@@ -301,7 +303,7 @@ describe('SwingAnalysisPageComponent', () => {
     fixture.detectChanges();
     const table = fixture.nativeElement.querySelector('.mock-swing-table');
     expect(table).toBeTruthy();
-    expect(Number(table.getAttribute('data-swing-count'))).toBe(store.swings().length);
+    expect(Number(table.getAttribute('data-swing-count'))).toBe(store.swings()[0].length);
   });
 
   it('passes loading state to the swing table', async () => {
@@ -318,7 +320,7 @@ describe('SwingAnalysisPageComponent', () => {
     fixture.detectChanges();
     const panel = fixture.nativeElement.querySelector('.mock-stats-panel');
     expect(panel).toBeTruthy();
-    expect(panel.getAttribute('data-has-stats')).toBe(String(store.stats() !== null));
+    expect(panel.getAttribute('data-has-stats')).toBe(String(store.stats()[0] !== null));
   });
 
   it('renders a Save Analysis button', async () => {

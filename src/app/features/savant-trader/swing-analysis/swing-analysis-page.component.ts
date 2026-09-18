@@ -275,11 +275,12 @@ function buildZigZagIndicator(config: ZigZagConfig): IndicatorConfig {
 export class SwingAnalysisPageComponent {
   readonly store = inject(SwingAnalysisStore);
 
-  // Re-expose store signals for template binding
+  // Re-expose store signals for template binding.
+  // The page currently uses config 0 only — dual-mode UI is added in a later task.
   readonly symbol = this.store.symbol;
-  readonly config = this.store.config;
-  readonly swings = this.store.swings;
-  readonly stats = this.store.stats;
+  readonly config = computed(() => this.store.configs()[0]);
+  readonly swings = computed(() => this.store.swings()[0] ?? []);
+  readonly stats = computed(() => this.store.stats()[0] ?? null);
   readonly loading = this.store.loading;
   readonly error = this.store.error;
 
@@ -325,15 +326,15 @@ export class SwingAnalysisPageComponent {
     if (!Number.isFinite(value)) return;
     const bounds = NUMERIC_BOUNDS[key];
     const clamped = Math.min(bounds.max, Math.max(bounds.min, value));
-    this.store.updateConfig({ [key]: clamped });
+    this.store.updateConfig(0, { [key]: clamped });
   }
 
   onBoolParam(key: BoolParam, event: Event): void {
     const checked = (event.target as HTMLInputElement).checked;
-    this.store.updateConfig({ [key]: checked });
+    this.store.updateConfig(0, { [key]: checked });
   }
 
   onSave(): void {
-    this.store.saveAnalysis();
+    this.store.saveAnalysis(0);
   }
 }
