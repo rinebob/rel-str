@@ -3,6 +3,14 @@
 ## [2026-09-18]
 
 ### Added
+- [Option Chain Pct Change Grid] 326-374_CONFIG-CONFIG-OPTIONS: Switch Jest to jest-preset-angular transformer
+- [Option Chain Pct Change Grid] 326-374_SHARED-IMPL-OPTIONS: Harden pct-change-config pure utils
+- [Option Chain Pct Change Grid] 326-374_FE-IMPL-OPTIONS: Add ConfirmDialogComponent
+- [Option Chain Pct Change Grid] 326-374_FE-IMPL-OPTIONS: Fix grid component self-reference and color test
+- [Option Chain Pct Change Grid] 326-374_FE-IMPL-OPTIONS: Harden target type selector sync and input handling
+- [Option Chain Pct Change Grid] 326-374_FE-IMPL-OPTIONS: Harden pct-change store state management
+- [Option Chain Pct Change Grid] 326-374_FE-IMPL-OPTIONS: Integrate config UI into page
+- [Option Chain Pct Change Grid] 326-374_DOCS-DOCS-OPTIONS: Add code review doc for Task #374
 - [Trading Indicator Library] 261-389_SHARED-IMPL-INDICATOR-LIB: Add lineColor to ZigZagConfig type
 - [Trading Indicator Library] 261-389_FE-IMPL-INDICATOR-LIB: Pass lineColor through buildZigZagIndicator
 - [Trading Indicator Library] 261-389_DOCS-INDICATOR-LIB: Add code review doc for Task #389
