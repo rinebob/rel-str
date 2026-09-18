@@ -22,6 +22,8 @@
 - [Trading Indicator Library] 261-392_DOCS-INDICATOR-LIB: Add code review doc for Task #392
 - [Trading Indicator Library] 261-393_FE-IMPL-INDICATOR-LIB: Add dual-mode toggle and config UI
 - [Trading Indicator Library] 261-393_DOCS-INDICATOR-LIB: Add review doc and update changelog for Task #393 ship
+- [Option Chain Pct Change Grid] 326-404_FE-IMPL-OPTIONS: Add extractContractSeries util for contract chart popup
+- [Option Chain Pct Change Grid] 326-404_DOCS-OPTIONS: Add contract chart popup lifecycle docs
 
 ## [2026-09-17]
 
