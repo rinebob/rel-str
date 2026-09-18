@@ -8,10 +8,10 @@
  * The page owns no calculation or persistence — it delegates to the store.
  *
  * When dual mode is on, the chart renders two ZigZag instances, each
- * config section has its own controls and save button, and the swing
+ * config section has its own controls and save button, the swing
  * table renders a nested tree (large-swing parents, small-swing
- * children). The stats panel still shows config 0's results only —
- * the large/small/all stats toggle (B5) is a later task.
+ * children), and the stats panel shows a Large / Small / All toggle
+ * driven by `statsSets` ([large, small, all]).
  */
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
@@ -19,7 +19,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { SwingAnalysisStore } from './swing-analysis.store';
 import { SwingTableComponent } from './components/swing-table.component';
-import { StatsPanelComponent } from './components/stats-panel.component';
+import { StatsPanelComponent, StatsSets } from './components/stats-panel.component';
 import { FlexChartComponent } from '../../shared/components/flex-chart/flex-chart.component';
 import { ChartIntervalKey, StIndicator } from '../../shared/components/flex-chart/flex-chart.types';
 import type {
@@ -234,6 +234,7 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
   <section class="swing-analysis-stats">
     <app-stats-panel
       [stats]="stats()"
+      [statsSets]="statsSets()"
       [loading]="loading()"
     />
   </section>
@@ -374,6 +375,10 @@ export class SwingAnalysisPageComponent {
   /** Small swings for the nested tree table — null in single mode (flat view). */
   readonly smallSwings = computed(() => (this.dualMode() ? this.store.swings()[1] ?? [] : null));
   readonly stats = computed(() => this.store.stats()[0] ?? null);
+  /** [large, small, all] stats for the panel toggle — null in single mode. */
+  readonly statsSets = computed<StatsSets | null>(() =>
+    this.dualMode() ? [this.store.stats()[0] ?? null, this.store.stats()[1] ?? null, this.store.allStats()] : null,
+  );
   readonly loading = this.store.loading;
   readonly error = this.store.error;
 

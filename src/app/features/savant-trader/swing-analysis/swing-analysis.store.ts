@@ -158,6 +158,20 @@ export const SwingAnalysisStore = signalStore(
     paramsIds: computed(() => store.configs().map((c) => deriveParamsId(c))),
     /** Whether dual mode is active — derived from configs array length. */
     dualMode: computed(() => store.configs().length === 2),
+    /**
+     * Combined stats across all config swing arrays (dual mode's "All"
+     * stats view). Recomputed from the merged swings — computeSwingStats
+     * is order-insensitive (filters confirmed, aggregates by direction),
+     * so no sort is needed. Null when not dual mode or no swings exist.
+     */
+    allStats: computed(() => {
+      // Same guard as dualMode — sibling computeds aren't visible to each
+      // other inside a single withComputed block, so configs().length is
+      // read directly here.
+      if (store.configs().length !== 2) return null;
+      const merged = [...(store.swings()[0] ?? []), ...(store.swings()[1] ?? [])];
+      return merged.length > 0 ? computeSwingStats(merged) : null;
+    }),
   })),
 
   withMethods(

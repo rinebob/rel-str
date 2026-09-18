@@ -26,6 +26,7 @@ jest.mock('@angular/fire/auth', () => ({
 
 import { Component, Input } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { of, Subject } from 'rxjs';
 
 import { SwingAnalysisPageComponent } from './swing-analysis-page.component';
@@ -71,10 +72,11 @@ class MockSwingTableComponent {
 @Component({
   selector: 'app-stats-panel',
   standalone: true,
-  template: `<div class="mock-stats-panel" [attr.data-loading]="loading" [attr.data-has-stats]="stats !== null"></div>`,
+  template: `<div class="mock-stats-panel" [attr.data-loading]="loading" [attr.data-has-stats]="stats !== null" [attr.data-stats-sets]="statsSets === null ? 'null' : statsSets.length"></div>`,
 })
 class MockStatsPanelComponent {
   @Input() stats: SwingStats | null = null;
+  @Input() statsSets: (SwingStats | null)[] | null = null;
   @Input() loading = false;
 }
 
@@ -337,6 +339,29 @@ describe('SwingAnalysisPageComponent', () => {
     fixture.detectChanges();
     const table = fixture.nativeElement.querySelector('.mock-swing-table');
     expect(table.getAttribute('data-small-swing-count')).toBe(String(store.swings()[1].length));
+  });
+
+  it('passes null statsSets to the stats panel in single mode', async () => {
+    const { fixture, store } = await setupPage();
+    store.setSymbol('AAPL');
+    fixture.detectChanges();
+    const panel = fixture.nativeElement.querySelector('.mock-stats-panel');
+    expect(panel.getAttribute('data-stats-sets')).toBe('null');
+  });
+
+  it('passes [large, small, all] statsSets to the stats panel in dual mode', async () => {
+    const { fixture, store } = await setupPage();
+    store.setSymbol('AAPL');
+    store.toggleDualMode();
+    fixture.detectChanges();
+    const panel = fixture.nativeElement.querySelector('.mock-stats-panel');
+    expect(panel.getAttribute('data-stats-sets')).toBe('3');
+    // Assert content identity, not just length — [large, small, all] order.
+    const panelComp = fixture.debugElement.query(By.directive(MockStatsPanelComponent)).componentInstance as MockStatsPanelComponent;
+    expect(panelComp.statsSets?.[0]).toBe(store.stats()[0]);
+    expect(panelComp.statsSets?.[1]).toBe(store.stats()[1]);
+    expect(panelComp.statsSets?.[2]).toBe(store.allStats());
+    expect(store.allStats()).not.toBeNull();
   });
 
   it('renders the stats panel with store stats', async () => {

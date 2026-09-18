@@ -1,7 +1,7 @@
 import { Component, Input, provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { StatsPanelComponent } from './stats-panel.component';
+import { StatsPanelComponent, StatsSets } from './stats-panel.component';
 import type { SwingStats } from '../../../shared/components/flex-chart/indicators/st-zigzag.types';
 
 function makeStats(overrides: Partial<SwingStats> = {}): SwingStats {
@@ -41,14 +41,16 @@ function readFieldMap(fixture: ComponentFixture<HostComponent>, selector: string
 }
 
 /** Host component that binds inputs via template — needed because jest-preset-angular
- *  doesn't support ComponentRef.setInput() with signal-based input(). */
+ *  doesn't support ComponentRef.setInput() with signal-based input(). (setInput
+ *  DOES work on the host's own decorator inputs — used in the revert test.) */
 @Component({
   standalone: true,
   imports: [StatsPanelComponent],
-  template: `<app-stats-panel [stats]="stats" [loading]="loading" />`,
+  template: `<app-stats-panel [stats]="stats" [statsSets]="statsSets" [loading]="loading" />`,
 })
 class HostComponent {
   @Input() stats: SwingStats | null = null;
+  @Input() statsSets: StatsSets | null = null;
   @Input() loading = false;
 }
 
@@ -376,5 +378,135 @@ describe('StatsPanelComponent', () => {
     const content = fixture.nativeElement.querySelector('.stats-panel-content');
     expect(empty).toBeTruthy();
     expect(content).toBeFalsy();
+  });
+
+  // =========================================================================
+  // Dual mode — Large / Small / All toggle
+  // =========================================================================
+
+  /** Stats fixture with distinct counts per set so the active set is identifiable.
+   *  Empty histogram bins — ejs-chart is skipped via the bins.length @if gate.
+   *  Syncfusion's ngAfterContentChecked crashes in Jest when a chart's
+   *  [dataSource] changes after init; histogram rendering is covered by the
+   *  single-mode tests above, so dual-mode fixtures bypass charts. */
+  function makeStatsWithCounts(upCount: number, downCount: number): SwingStats {
+    const s = makeStats();
+    s.up.count = upCount;
+    s.down.count = downCount;
+    s.up.magnitudeHistogram = { bins: [] };
+    s.up.durationHistogram = { bins: [] };
+    s.down.magnitudeHistogram = { bins: [] };
+    s.down.durationHistogram = { bins: [] };
+    return s;
+  }
+
+  const LARGE_STATS = () => makeStatsWithCounts(3, 2);
+  const SMALL_STATS = () => makeStatsWithCounts(10, 7);
+  const ALL_STATS = () => makeStatsWithCounts(13, 9);
+
+  function setupDual(): void {
+    host.stats = null;
+    host.statsSets = [LARGE_STATS(), SMALL_STATS(), ALL_STATS()];
+    fixture.detectChanges();
+  }
+
+  /** "Up (N)" count rendered in the up-direction section title. */
+  const upCountText = () =>
+    (fixture.nativeElement.querySelector('.stats-direction-up .stats-direction-title') as HTMLElement)
+      ?.textContent?.trim() ?? '';
+
+  it('does not render the toggle in single mode', () => {
+    host.stats = makeStats();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.stats-toggle')).toBeNull();
+  });
+
+  it('renders the segmented toggle in dual mode', () => {
+    setupDual();
+    const btns = fixture.nativeElement.querySelectorAll('.stats-toggle-btn');
+    expect(btns.length).toBe(3);
+    expect(btns[0].textContent.trim()).toBe('Large');
+    expect(btns[1].textContent.trim()).toBe('Small');
+    expect(btns[2].textContent.trim()).toBe('All');
+    expect(btns[0].classList.contains('active')).toBe(true); // Large default
+  });
+
+  it('shows large (config 0) stats by default', () => {
+    setupDual();
+    expect(upCountText()).toBe('Up (3)');
+  });
+
+  it('shows small stats when Small is clicked', () => {
+    setupDual();
+    (fixture.nativeElement.querySelector('[data-testid="stats-mode-small"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(upCountText()).toBe('Up (10)');
+    const btns = fixture.nativeElement.querySelectorAll('.stats-toggle-btn');
+    expect(btns[1].classList.contains('active')).toBe(true);
+    expect(btns[0].classList.contains('active')).toBe(false);
+  });
+
+  it('shows combined stats when All is clicked', () => {
+    setupDual();
+    (fixture.nativeElement.querySelector('[data-testid="stats-mode-all"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(upCountText()).toBe('Up (13)');
+  });
+
+  it('switches back to Large after Small', () => {
+    setupDual();
+    (fixture.nativeElement.querySelector('[data-testid="stats-mode-small"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('[data-testid="stats-mode-large"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(upCountText()).toBe('Up (3)');
+  });
+
+  it('keeps the toggle visible when the active set is null', () => {
+    host.statsSets = [LARGE_STATS(), null, LARGE_STATS()];
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('[data-testid="stats-mode-small"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    // Small set is null → empty state, but toggle must remain usable.
+    expect(fixture.nativeElement.querySelector('.stats-panel-empty')).toBeTruthy();
+    const toggle = fixture.nativeElement.querySelector('.stats-toggle');
+    expect(toggle).toBeTruthy();
+    (fixture.nativeElement.querySelector('[data-testid="stats-mode-large"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(upCountText()).toBe('Up (3)');
+  });
+
+  it('reverts to single-mode display when statsSets returns to null', () => {
+    setupDual();
+    expect(fixture.nativeElement.querySelector('.stats-toggle')).toBeTruthy();
+
+    fixture.componentRef.setInput('statsSets', null);
+    fixture.componentRef.setInput('stats', makeStatsWithCounts(5, 4));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.stats-toggle')).toBeNull();
+    expect(upCountText()).toBe('Up (5)');
+  });
+
+  it('prefers statsSets over stats when both are bound (dual mode)', () => {
+    // The page always binds both inputs; statsSets must win in dual mode.
+    host.stats = makeStatsWithCounts(99, 98);
+    host.statsSets = [LARGE_STATS(), SMALL_STATS(), ALL_STATS()];
+    fixture.detectChanges();
+    expect(upCountText()).toBe('Up (3)'); // statsSets[0], not stats
+  });
+
+  it('remembers statsMode across dual off→on (component-state persistence)', () => {
+    setupDual();
+    (fixture.nativeElement.querySelector('[data-testid="stats-mode-small"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(upCountText()).toBe('Up (10)');
+
+    // Dual off → on: statsSets goes null then a new array.
+    fixture.componentRef.setInput('statsSets', null);
+    fixture.detectChanges();
+    fixture.componentRef.setInput('statsSets', [LARGE_STATS(), SMALL_STATS(), ALL_STATS()]);
+    fixture.detectChanges();
+    // statsMode is component state — it survives the off→on transition.
+    expect(upCountText()).toBe('Up (10)');
   });
 });

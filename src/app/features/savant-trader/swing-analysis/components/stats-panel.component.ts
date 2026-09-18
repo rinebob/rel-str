@@ -6,6 +6,11 @@
  * column charts. Only confirmed swings are included (stats are pre-filtered
  * by computeSwingStats).
  *
+ * Dual mode: when `statsSets` is non-null the panel shows a Large / Small /
+ * All segmented toggle. `statsSets` is `[large, small, all]` — indices 0/1
+ * are the per-config stats, index 2 is the precomputed combined stats.
+ * The toggle selection is component state only (not persisted).
+ *
  * Note: `input()` signals are not recognized in this repo's Jest setup
  * (jest-preset-angular). Inputs use `@Input()` decorators mirrored into
  * private signals via `OnChanges` so `computed()` reactivity works.
@@ -27,6 +32,15 @@ interface HistogramPoint {
   count: number;
 }
 
+/** Stats source in dual mode — maps to StatsSets via STATS_MODE_INDEX. */
+export type StatsMode = 'large' | 'small' | 'all';
+
+/** Dual-mode stats sets — [large, small, all]. Index 0/1 are per-config
+ *  stats, index 2 is the combined stats recomputed from merged swings. */
+export type StatsSets = [SwingStats | null, SwingStats | null, SwingStats | null];
+
+const STATS_MODE_INDEX: Record<StatsMode, 0 | 1 | 2> = { large: 0, small: 1, all: 2 };
+
 @Component({
   selector: 'app-stats-panel',
   standalone: true,
@@ -35,12 +49,40 @@ interface HistogramPoint {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="stats-panel-section">
+  @if (isDualMode()) {
+    <div class="stats-toggle" role="group" aria-label="Stats source">
+      <button
+        type="button"
+        class="stats-toggle-btn"
+        [class.active]="statsMode() === 'large'"
+        [attr.aria-pressed]="statsMode() === 'large'"
+        data-testid="stats-mode-large"
+        (click)="setStatsMode('large')"
+      >Large</button>
+      <button
+        type="button"
+        class="stats-toggle-btn"
+        [class.active]="statsMode() === 'small'"
+        [attr.aria-pressed]="statsMode() === 'small'"
+        data-testid="stats-mode-small"
+        (click)="setStatsMode('small')"
+      >Small</button>
+      <button
+        type="button"
+        class="stats-toggle-btn"
+        [class.active]="statsMode() === 'all'"
+        [attr.aria-pressed]="statsMode() === 'all'"
+        data-testid="stats-mode-all"
+        (click)="setStatsMode('all')"
+      >All</button>
+    </div>
+  }
   @if (isLoading()) {
     <div class="stats-panel-loading" aria-live="polite">
       <mat-progress-spinner diameter="24" mode="indeterminate" />
       <span>Computing stats…</span>
     </div>
-  } @else if (!statsSignal() || !hasSwings()) {
+  } @else if (!activeStats() || !hasSwings()) {
     <div class="stats-panel-empty" aria-live="polite">
       <span>No stats — enter a symbol to compute pivots</span>
     </div>
@@ -143,6 +185,11 @@ interface HistogramPoint {
 `,
   styles: [`
 .stats-panel-section { padding: 8px 0; }
+.stats-toggle { display: inline-flex; border: 1px solid var(--mat-sys-outline-variant); border-radius: 4px; overflow: hidden; margin-bottom: 12px; }
+.stats-toggle-btn { border: none; background: transparent; padding: 4px 14px; font-size: 12px; cursor: pointer; color: var(--mat-sys-on-surface-variant); border-right: 1px solid var(--mat-sys-outline-variant); }
+.stats-toggle-btn:last-child { border-right: none; }
+.stats-toggle-btn:hover { background: var(--mat-sys-surface-container); }
+.stats-toggle-btn.active { background: var(--mat-sys-primary); color: var(--mat-sys-on-primary); }
 .stats-panel-loading, .stats-panel-empty {
   display: flex; align-items: center; gap: 8px; padding: 24px; color: #666;
 }
@@ -167,31 +214,52 @@ interface HistogramPoint {
 })
 export class StatsPanelComponent implements OnChanges {
   @Input() stats: SwingStats | null = null;
+  /** Dual mode: [large, small, all] — null means single-config mode. */
+  @Input() statsSets: StatsSets | null = null;
   @Input() loading = false;
 
   readonly statsSignal = signal<SwingStats | null>(null);
+  private readonly statsSetsSignal = signal<StatsSets | null>(null);
   private readonly loadingSignal = signal(false);
+  /** Selected stats source — component state only, not persisted. */
+  readonly statsMode = signal<StatsMode>('large');
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['stats']) this.statsSignal.set(this.stats);
+    if (changes['statsSets']) this.statsSetsSignal.set(this.statsSets);
     if (changes['loading']) this.loadingSignal.set(this.loading);
   }
 
   readonly isLoading = computed(() => this.loadingSignal());
+  readonly isDualMode = computed(() => this.statsSetsSignal() != null);
+
+  /** The stats to display — selected set in dual mode, `stats` otherwise. */
+  readonly activeStats = computed<SwingStats | null>(() => {
+    const sets = this.statsSetsSignal();
+    if (sets != null) {
+      return sets[STATS_MODE_INDEX[this.statsMode()]] ?? null;
+    }
+    return this.statsSignal();
+  });
+
   readonly hasSwings = computed(() => {
-    const s = this.statsSignal();
+    const s = this.activeStats();
     if (!s) return false;
     return s.up.count > 0 || s.down.count > 0;
   });
 
   readonly directions = computed(() => {
-    const s = this.statsSignal();
+    const s = this.activeStats();
     if (!s) return [];
     return [
       this.toDirectionView('up', 'Up', s.up),
       this.toDirectionView('down', 'Down', s.down),
     ];
   });
+
+  setStatsMode(mode: StatsMode): void {
+    this.statsMode.set(mode);
+  }
 
   private toDirectionView(key: 'up' | 'down', label: string, ds: DirectionStats & { magnitudeHistogram: Histogram; durationHistogram: Histogram }) {
     return {

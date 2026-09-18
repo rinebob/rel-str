@@ -413,6 +413,49 @@ describe('SwingAnalysisStore.toggleDualMode', () => {
 });
 
 // =============================================================================
+// allStats - combined stats across both configs (dual mode "All" view)
+// =============================================================================
+
+describe('SwingAnalysisStore.allStats', () => {
+  it('is null in single mode', () => {
+    const { store } = setupStore(makeBars(40));
+    store.setSymbol('AAPL');
+    expect(store.stats()[0]).not.toBeNull();
+    expect(store.allStats()).toBeNull();
+  });
+
+  it('is null in dual mode with no swings', () => {
+    const { store } = setupStore(); // no bars
+    store.toggleDualMode();
+    expect(store.dualMode()).toBe(true);
+    expect(store.allStats()).toBeNull();
+  });
+
+  it('recomputes combined stats from both configs in dual mode', () => {
+    const { store } = setupStore(makeBars(40));
+    store.setSymbol('AAPL');
+    store.toggleDualMode();
+
+    const all = store.allStats();
+    expect(all).not.toBeNull();
+    // Combined confirmed-swing count = sum of both configs' counts.
+    const large = store.stats()[0]!;
+    const small = store.stats()[1]!;
+    const expectedCount = large.up.count + large.down.count + small.up.count + small.down.count;
+    expect(all!.up.count + all!.down.count).toBe(expectedCount);
+  });
+
+  it('returns to null when dual mode is toggled off', () => {
+    const { store } = setupStore(makeBars(40));
+    store.setSymbol('AAPL');
+    store.toggleDualMode();
+    expect(store.allStats()).not.toBeNull();
+    store.toggleDualMode();
+    expect(store.allStats()).toBeNull();
+  });
+});
+
+// =============================================================================
 // saveAnalysis — calls Firestore service for one config
 // =============================================================================
 
