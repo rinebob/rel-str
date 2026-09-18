@@ -14,6 +14,7 @@ function makeCell(overrides: Partial<PctChangeCell> = {}): PctChangeCell {
     strike: 100,
     expiration: '2024-03-15',
     delta: 0.5,
+    targetDelta: 0.6,
     startPrice: 10,
     targetPrice: 15,
     pctChange: 50,
@@ -27,7 +28,11 @@ function makeGrid(overrides: Partial<PctChangeGrid> = {}): PctChangeGrid {
   cells.set(cellKey(cell.strike, cell.expiration), cell);
   return {
     targetDate: '2024-02-15',
+    startDate: '2024-01-15',
     durationDays: 31,
+    atmStrike: 100,
+    startUnderlyingPrice: 100,
+    targetUnderlyingPrice: 105,
     strikes: [100],
     expirations: ['2024-03-15'],
     cells,
@@ -41,9 +46,6 @@ function setupComponent(grid: PctChangeGrid = makeGrid()): {
   fixture: import('@angular/core/testing').ComponentFixture<PctChangeGridComponent>;
   component: PctChangeGridComponent;
 } {
-  TestBed.configureTestingModule({
-    imports: [PctChangeGridComponent],
-  });
   const fixture = TestBed.createComponent(PctChangeGridComponent);
   fixture.componentRef.setInput('grid', grid);
   fixture.detectChanges();
@@ -55,6 +57,12 @@ function setupComponent(grid: PctChangeGrid = makeGrid()): {
 // =============================================================================
 
 describe('PctChangeGridComponent', () => {
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [PctChangeGridComponent],
+    }).compileComponents();
+  });
+
   it('renders the grid header with target date and duration', () => {
     const { fixture } = setupComponent(makeGrid({ targetDate: '2024-02-15', durationDays: 31 }));
     const headerEl = fixture.nativeElement.querySelector('.grid-header');
@@ -107,8 +115,8 @@ describe('PctChangeGridComponent', () => {
   it('applies background color from pctChangeToColor', () => {
     const { fixture } = setupComponent();
     const dataCell = fixture.nativeElement.querySelector('.data-cell') as HTMLElement;
-    // pctChange=50, p5=-10, p95=50 → clipped to p95 → max green
-    expect(dataCell.style.backgroundColor).toBe('rgb(0, 255, 0)');
+    // pctChange=50, p5=-10, p95=50 → intensity=1 → full GREEN (0, 140, 60)
+    expect(dataCell.style.backgroundColor).toBe('rgb(0, 140, 60)');
   });
 
   it('renders empty cell when no contract at strike/expiration', () => {
