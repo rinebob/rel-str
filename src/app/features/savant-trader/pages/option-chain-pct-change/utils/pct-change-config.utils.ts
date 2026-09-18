@@ -3,10 +3,8 @@
  *
  * No Angular dependencies, no side effects.
  */
-import type { TargetType } from '@shared/pct-change-config-contracts';
+import type { TargetType, PctMode, PctDirection } from '@shared/pct-change-config-contracts';
 import type { OhlcBar } from '../../../../../core/models/market-data.types';
-
-export type { TargetType } from '@shared/pct-change-config-contracts';
 
 /** A daily bar with date and close price (subset of OhlcBar). */
 type DailyBar = Pick<OhlcBar, 'd' | 'c'>;
@@ -120,4 +118,47 @@ function formatDate(d: Date): string {
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+/**
+ * Build a percentages array from a pct-change resolve request.
+ *
+ * - List mode: returns the values as-is.
+ * - Gradation mode: generates `count` percentages spaced by `step`,
+ *   negated if direction is 'down'.
+ *
+ * @param mode 'list' or 'gradation'.
+ * @param values The explicit percentage list (list mode).
+ * @param step Step between each percentage (gradation mode).
+ * @param count Number of percentages to generate (gradation mode).
+ * @param direction 'up' or 'down' (gradation mode).
+ * @returns Array of percentages (empty if invalid).
+ */
+export function buildPercentages(
+  mode: PctMode,
+  values: number[],
+  step?: number,
+  count?: number,
+  direction?: PctDirection,
+): number[] {
+  if (mode === 'list') return [...values];
+  const s = step ?? 1;
+  const c = count ?? 1;
+  const dir = direction ?? 'up';
+  return Array.from({ length: c }, (_, i) => {
+    const pct = s * (i + 1);
+    return dir === 'down' ? -pct : pct;
+  });
+}
+
+/**
+ * Compute a forward end date (start + 1 year) for bar fetching.
+ *
+ * @param startDate The start date (YYYY-MM-DD).
+ * @returns An end date (YYYY-MM-DD) one year after the start date.
+ */
+export function computeForwardEndDate(startDate: string): string {
+  const [y, m, d] = startDate.split('-').map(Number);
+  const end = new Date(y + 1, m - 1, d);
+  return formatDate(end);
 }
