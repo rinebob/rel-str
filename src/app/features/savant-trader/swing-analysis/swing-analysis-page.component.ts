@@ -53,6 +53,7 @@ function buildZigZagIndicator(config: ZigZagConfig): IndicatorConfig {
       rightDepth: config.rightDepth,
       allowZigZagOnOneBar: config.allowZigZagOnOneBar,
       projectionPivots: config.projectionPivots,
+      lineColor: config.lineColor,
     },
     options: {
       name: 'ST-ZIGZAG',

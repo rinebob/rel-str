@@ -54,6 +54,7 @@ const DEFAULT_CONFIG: ZigZagConfig = {
   rightDepth: 5,
   allowZigZagOnOneBar: true,
   projectionPivots: true,
+  lineColor: '#1976d2',
 };
 
 function makeStats(): SwingStats {
