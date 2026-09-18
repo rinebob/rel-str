@@ -1,4 +1,4 @@
-import { computePctChange, cellKey, type PctChangeFilter } from './pct-change.utils';
+import { computePctChange, cellKey, extractContractSeries, type PctChangeFilter } from './pct-change.utils';
 import { OptionType } from '@options-contract/contracts';
 import type { HistoricalOptionContract } from '@options-contract/contracts';
 
@@ -277,5 +277,164 @@ describe('computePctChange', () => {
     expect(grid.strikes.length).toBe(1);
     expect(grid.expirations.length).toBe(1);
     expect(grid.cells.size).toBe(1);
+  });
+});
+
+describe('extractContractSeries', () => {
+  const IDENTITY = { contractID: 'A', symbol: 'QQQ', strike: 100, expiration: '2024-03-15' };
+
+  it('returns chronological series across start and target snapshots', () => {
+    const start = [makeContract({ contractID: 'A', mark: '10.00', delta: '0.5' })];
+    const targets: Record<string, HistoricalOptionContract[]> = {
+      '2024-02-15': [makeContract({ contractID: 'A', mark: '12.00', delta: '0.6' })],
+      '2024-01-20': [makeContract({ contractID: 'A', mark: '11.00', delta: '0.55' })],
+    };
+    const series = extractContractSeries(IDENTITY, OptionType.CALL, START_DATE, start, targets);
+    expect(series).toEqual([
+      { date: '2024-01-15', price: 10, delta: 0.5 },
+      { date: '2024-01-20', price: 11, delta: 0.55 },
+      { date: '2024-02-15', price: 12, delta: 0.6 },
+    ]);
+  });
+
+  it('skips snapshots where the contract is absent (partial series)', () => {
+    const start = [makeContract({ contractID: 'A', mark: '10.00' })];
+    const targets: Record<string, HistoricalOptionContract[]> = {
+      '2024-01-20': [],
+      '2024-02-15': [makeContract({ contractID: 'A', mark: '12.00' })],
+    };
+    const series = extractContractSeries(IDENTITY, OptionType.CALL, START_DATE, start, targets);
+    expect(series).toEqual([
+      { date: '2024-01-15', price: 10, delta: 0.5 },
+      { date: '2024-02-15', price: 12, delta: 0.5 },
+    ]);
+  });
+
+  it('returns empty array when the contract is in no snapshots', () => {
+    const start = [makeContract({ contractID: 'B', mark: '10.00', strike: '200' })];
+    const targets: Record<string, HistoricalOptionContract[]> = {
+      '2024-02-15': [makeContract({ contractID: 'C', mark: '12.00', strike: '150' })],
+    };
+    const series = extractContractSeries(IDENTITY, OptionType.CALL, START_DATE, start, targets);
+    expect(series).toEqual([]);
+  });
+
+  it('falls back to bid/ask midpoint when mark is missing', () => {
+    const start = [makeContract({ contractID: 'A', mark: undefined, bid: '10.00', ask: '11.00' })];
+    const series = extractContractSeries(IDENTITY, OptionType.CALL, START_DATE, start, {});
+    expect(series).toEqual([{ date: '2024-01-15', price: 10.5, delta: 0.5 }]);
+  });
+
+  it('falls back to last when mark and bid/ask are missing', () => {
+    const start = [
+      makeContract({ contractID: 'A', mark: undefined, bid: undefined, ask: undefined, last: '9.50' }),
+    ];
+    const series = extractContractSeries(IDENTITY, OptionType.CALL, START_DATE, start, {});
+    expect(series).toEqual([{ date: '2024-01-15', price: 9.5, delta: 0.5 }]);
+  });
+
+  it('skips points with unresolvable price', () => {
+    const start = [
+      makeContract({ contractID: 'A', mark: undefined, bid: undefined, ask: undefined, last: undefined }),
+    ];
+    const targets: Record<string, HistoricalOptionContract[]> = {
+      '2024-02-15': [makeContract({ contractID: 'A', mark: '12.00' })],
+    };
+    const series = extractContractSeries(IDENTITY, OptionType.CALL, START_DATE, start, targets);
+    expect(series).toEqual([{ date: '2024-02-15', price: 12, delta: 0.5 }]);
+  });
+
+  it('returns delta null when delta is missing or unparseable', () => {
+    const start = [makeContract({ contractID: 'A', mark: '10.00', delta: undefined })];
+    const targets: Record<string, HistoricalOptionContract[]> = {
+      '2024-02-15': [makeContract({ contractID: 'A', mark: '12.00', delta: 'N/A' })],
+    };
+    const series = extractContractSeries(IDENTITY, OptionType.CALL, START_DATE, start, targets);
+    expect(series).toEqual([
+      { date: '2024-01-15', price: 10, delta: null },
+      { date: '2024-02-15', price: 12, delta: null },
+    ]);
+  });
+
+  it('matches by economic identity when contractID is absent in a snapshot', () => {
+    // Cell's contractID is a real OCC-style ID; the start snapshot's copy
+    // of the contract lacks contractID entirely — symbol+strike+expiration+type
+    // identity should still match it.
+    const start = [
+      makeContract({ contractID: undefined, mark: '10.00', strike: '100', expiration: '2024-03-15' }),
+    ];
+    const targets: Record<string, HistoricalOptionContract[]> = {
+      '2024-02-15': [makeContract({ contractID: 'A', mark: '12.00' })],
+    };
+    const series = extractContractSeries(IDENTITY, OptionType.CALL, START_DATE, start, targets);
+    expect(series).toEqual([
+      { date: '2024-01-15', price: 10, delta: 0.5 },
+      { date: '2024-02-15', price: 12, delta: 0.5 },
+    ]);
+  });
+
+  it('does not identity-match a contract for a different symbol', () => {
+    const start = [
+      makeContract({ contractID: undefined, mark: '10.00', symbol: 'TQQQ' }),
+    ];
+    const series = extractContractSeries(IDENTITY, OptionType.CALL, START_DATE, start, {});
+    expect(series).toEqual([]);
+  });
+
+  it('matches contractID case-insensitively (mirrors backend provider)', () => {
+    const start = [makeContract({ contractID: 'a', mark: '10.00' })];
+    const series = extractContractSeries(IDENTITY, OptionType.CALL, START_DATE, start, {});
+    expect(series).toEqual([{ date: '2024-01-15', price: 10, delta: 0.5 }]);
+  });
+
+  it('does not emit a duplicate point when startDate is also a target snapshot key', () => {
+    const start = [makeContract({ contractID: 'A', mark: '10.00' })];
+    const targets: Record<string, HistoricalOptionContract[]> = {
+      '2024-01-15': [makeContract({ contractID: 'A', mark: '10.00' })],
+      '2024-02-15': [makeContract({ contractID: 'A', mark: '12.00' })],
+    };
+    const series = extractContractSeries(IDENTITY, OptionType.CALL, START_DATE, start, targets);
+    expect(series).toEqual([
+      { date: '2024-01-15', price: 10, delta: 0.5 },
+      { date: '2024-02-15', price: 12, delta: 0.5 },
+    ]);
+  });
+
+  it('distinguishes call from put at the same strike/expiration via identity match', () => {
+    const identity = { contractID: 'QQQ-2024-03-15-100-CALL', symbol: 'QQQ', strike: 100, expiration: '2024-03-15' };
+    const start = [
+      makeContract({ contractID: undefined, mark: '10.00', type: OptionType.CALL }),
+      makeContract({ contractID: undefined, mark: '7.00', type: OptionType.PUT }),
+    ];
+    const series = extractContractSeries(identity, OptionType.CALL, START_DATE, start, {});
+    expect(series).toEqual([{ date: '2024-01-15', price: 10, delta: 0.5 }]);
+  });
+
+  it('handles a 2-point series (start + one target)', () => {
+    const start = [makeContract({ contractID: 'A', mark: '10.00' })];
+    const targets: Record<string, HistoricalOptionContract[]> = {
+      '2024-02-15': [makeContract({ contractID: 'A', mark: '12.00' })],
+    };
+    const series = extractContractSeries(IDENTITY, OptionType.CALL, START_DATE, start, targets);
+    expect(series.length).toBe(2);
+  });
+
+  it('handles very low prices ($0.01)', () => {
+    const start = [makeContract({ contractID: 'A', mark: '0.01' })];
+    const targets: Record<string, HistoricalOptionContract[]> = {
+      '2024-02-15': [makeContract({ contractID: 'A', mark: '0.02' })],
+    };
+    const series = extractContractSeries(IDENTITY, OptionType.CALL, START_DATE, start, targets);
+    expect(series[0].price).toBe(0.01);
+    expect(series[1].price).toBe(0.02);
+  });
+
+  it('does not mutate input snapshots', () => {
+    const start = [makeContract({ contractID: 'A', mark: '10.00' })];
+    const targetArr = [makeContract({ contractID: 'A', mark: '12.00' })];
+    const targets: Record<string, HistoricalOptionContract[]> = { '2024-02-15': targetArr };
+    const before = JSON.stringify({ start, targets });
+    extractContractSeries(IDENTITY, OptionType.CALL, START_DATE, start, targets);
+    expect(JSON.stringify({ start, targets })).toBe(before);
   });
 });

@@ -42,6 +42,69 @@ export function cellKey(strike: number, expiration: string): string {
   return `${strike}-${expiration}`;
 }
 
+/** A single point in a contract's time series for the chart popup. */
+export interface ContractSeriesPoint {
+  /** Snapshot date (YYYY-MM-DD). */
+  date: string;
+  /** Resolved price (mark → bid/ask midpoint → last). */
+  price: number;
+  /** Contract delta, or null when missing/unparseable. */
+  delta: number | null;
+}
+
+/** Identity of the contract to extract — from the clicked grid cell. */
+export interface ContractSeriesIdentity {
+  contractID: string;
+  symbol: string;
+  strike: number;
+  expiration: string;
+}
+
+/**
+ * Extract one contract's price/delta series across the start and target
+ * snapshots. Matches by contractID when present, falling back to economic
+ * identity (symbol + expiration + strike + type) — the same identity the
+ * grid uses to match contracts. Snapshots where the contract is absent
+ * are skipped, so contracts that expire mid-window produce a shorter
+ * series.
+ */
+export function extractContractSeries(
+  contract: ContractSeriesIdentity,
+  type: OptionType,
+  startDate: string,
+  startSnapshot: HistoricalOptionContract[],
+  targetSnapshots: Record<string, HistoricalOptionContract[]>,
+): ContractSeriesPoint[] {
+  const targetId = contract.contractID.trim().toUpperCase();
+  const targetSymbol = contract.symbol.trim().toUpperCase();
+
+  const points: ContractSeriesPoint[] = [];
+  const addPoint = (date: string, snapshot: HistoricalOptionContract[]): void => {
+    const found =
+      snapshot.find(
+        (c) => c.contractID != null && c.contractID.trim().toUpperCase() === targetId,
+      ) ??
+      snapshot.find(
+        (c) =>
+          (c.symbol ?? '').trim().toUpperCase() === targetSymbol &&
+          c.expiration === contract.expiration &&
+          toNum(c.strike) === contract.strike &&
+          normalizeType(c.type) === type,
+      );
+    if (!found) return;
+    const price = resolvePrice(found);
+    if (price == null) return;
+    points.push({ date, price, delta: toNum(found.delta) ?? null });
+  };
+
+  addPoint(startDate, startSnapshot);
+  for (const date of Object.keys(targetSnapshots).sort()) {
+    if (date === startDate) continue;
+    addPoint(date, targetSnapshots[date]);
+  }
+  return points;
+}
+
 /** Parse a string market-data value to a finite number, or return undefined. */
 export function toNum(v: string | undefined): number | undefined {
   if (v == null || v === '') return undefined;
