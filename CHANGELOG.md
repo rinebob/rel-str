@@ -24,6 +24,8 @@
 - [Option Chain Pct Change Grid] 326-373_DOCS-OPTIONS: Add code review doc for Task #373
 - [Trading Indicator Library] 261-339_SHARED-IMPL-INDICATOR-LIB: Port ZigZag to standalone Pine with leftDepth/rightDepth split
 - [Trading Indicator Library] 261-339_DOCS-INDICATOR-LIB: Add code review doc for ZigZag Pine export
+- [Trading Indicator Library] 261-383_DOCS-INDICATOR-LIB: Add PRD and blueprint docs for Dual ST ZigZag Overlay (checkpoint)
+- [Trading Indicator Library] 261-261_DOCS-INDICATOR-LIB: Add project workflow conventions to AGENTS.md (checkpoint)
 
 ## [2026-09-16]
 
