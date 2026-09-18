@@ -1,5 +1,12 @@
 # Changelog
 
+## [2026-09-18]
+
+### Added
+- [Trading Indicator Library] 261-389_SHARED-IMPL-INDICATOR-LIB: Add lineColor to ZigZagConfig type
+- [Trading Indicator Library] 261-389_FE-IMPL-INDICATOR-LIB: Pass lineColor through buildZigZagIndicator
+- [Trading Indicator Library] 261-389_DOCS-INDICATOR-LIB: Add code review doc for Task #389
+
 ## [2026-09-17]
 
 ### Added
