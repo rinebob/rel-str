@@ -195,20 +195,28 @@ export class ChartDataAdapter {
   });
 
   /** ZigZag series — computes solid confirmed-pivot segments + dashed projected
-   *  segment from bars using the indicator's params. Only active when a
-   *  ST_ZIGZAG indicator is in the config.
+   *  segment from bars for each ST_ZIGZAG indicator config. Returns an array
+   *  to support multiple ZigZag instances (e.g. large + small swings).
+   *  Empty array when no ST_ZIGZAG indicator is configured.
    */
-  zigZagSeries = computed<ZigZagChartSeries>(() => {
+  zigZagSeries = computed<ZigZagChartSeries[]>(() => {
     const data = this.chartData();
     const cfg = this.config();
-    if (!data || !cfg || data.bars.length === 0) return { lines: [] };
+    if (!data || !cfg || data.bars.length === 0) return [];
 
-    const zigZagConfig = cfg.indicators.find(
+    const zigZagConfigs = cfg.indicators.filter(
       (i) => i.type === StIndicator.ST_ZIGZAG,
     );
-    if (!zigZagConfig) return { lines: [] };
+    if (zigZagConfigs.length === 0) return [];
 
-    return computeZigZagSeries(data.bars, zigZagConfig.params);
+    return zigZagConfigs.map((zigZagConfig) =>
+      computeZigZagSeries(data.bars, zigZagConfig.params, {
+        instanceId: zigZagConfig.id,
+        lineColor: typeof zigZagConfig.params['lineColor'] === 'string'
+          ? zigZagConfig.params['lineColor'] as string
+          : undefined,
+      }),
+    );
   });
 
   /** Fixed set of lower-pane slot IDs — always emitted so Syncfusion never sees a

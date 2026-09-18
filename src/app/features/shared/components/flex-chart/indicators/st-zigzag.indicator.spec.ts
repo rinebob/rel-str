@@ -260,3 +260,96 @@ describe('computeZigZagSeries', () => {
     expect(result.lines.length + (result.projectedLine ? 1 : 0)).toBeGreaterThanOrEqual(1);
   });
 });
+
+// =============================================================================
+// computeZigZagSeries — instanceId and lineColor (multi-instance support)
+// =============================================================================
+
+describe('computeZigZagSeries — multi-instance', () => {
+  function makeMultiPeakBars(): PriceBar[] {
+    const prices: { o: number; h: number; l: number; c: number; v?: number }[] = [];
+    for (let i = 0; i < 5; i++) prices.push({ o: 10 + i * 10, h: 15 + i * 10, l: 5 + i * 10, c: 10 + i * 10, v: 1000 });
+    for (let i = 0; i < 5; i++) prices.push({ o: 45 - i * 10, h: 50 - i * 10, l: 40 - i * 10, c: 45 - i * 10, v: 1000 });
+    for (let i = 0; i < 5; i++) prices.push({ o: 10 + i * 10, h: 15 + i * 10, l: 5 + i * 10, c: 10 + i * 10, v: 1000 });
+    for (let i = 0; i < 5; i++) prices.push({ o: 45 - i * 10, h: 50 - i * 10, l: 40 - i * 10, c: 45 - i * 10, v: 1000 });
+    return makeBars(prices);
+  }
+
+  it('prefixes line keys with instanceId when provided', () => {
+    const bars = makeMultiPeakBars();
+    const params = { devThreshold: 20, leftDepth: 2, rightDepth: 2, allowZigZagOnOneBar: true, projectionPivots: false, lineColor: '#1976d2' };
+    const result = computeZigZagSeries(bars, params, { instanceId: 'zz1' });
+
+    expect(result.lines.length).toBeGreaterThanOrEqual(1);
+    for (const line of result.lines) {
+      expect(line.key.startsWith('zz1-')).toBe(true);
+    }
+  });
+
+  it('uses un-prefixed keys when instanceId is not provided (backward compat)', () => {
+    const bars = makeMultiPeakBars();
+    const params = { devThreshold: 20, leftDepth: 2, rightDepth: 2, allowZigZagOnOneBar: true, projectionPivots: false, lineColor: '#1976d2' };
+    const result = computeZigZagSeries(bars, params);
+
+    expect(result.lines.length).toBeGreaterThanOrEqual(1);
+    for (const line of result.lines) {
+      expect(line.key.startsWith('zz1-')).toBe(false);
+    }
+  });
+
+  it('uses the provided lineColor for all line segments', () => {
+    const bars = makeMultiPeakBars();
+    const params = { devThreshold: 20, leftDepth: 2, rightDepth: 2, allowZigZagOnOneBar: true, projectionPivots: false, lineColor: '#1976d2' };
+    const result = computeZigZagSeries(bars, params, { instanceId: 'zz1', lineColor: '#ff0000' });
+
+    for (const line of result.lines) {
+      expect(line.color).toBe('#ff0000');
+    }
+  });
+
+  it('falls back to config.params.lineColor when options.lineColor is not provided', () => {
+    const bars = makeMultiPeakBars();
+    const params = { devThreshold: 20, leftDepth: 2, rightDepth: 2, allowZigZagOnOneBar: true, projectionPivots: false, lineColor: '#00ff00' };
+    const result = computeZigZagSeries(bars, params, { instanceId: 'zz1' });
+
+    for (const line of result.lines) {
+      expect(line.color).toBe('#00ff00');
+    }
+  });
+
+  it('falls back to DEFAULT_CONFIG.lineColor when neither options.lineColor nor params.lineColor is provided', () => {
+    const bars = makeMultiPeakBars();
+    const params = { devThreshold: 20, leftDepth: 2, rightDepth: 2, allowZigZagOnOneBar: true, projectionPivots: false };
+    const result = computeZigZagSeries(bars, params, { instanceId: 'zz1' });
+
+    for (const line of result.lines) {
+      expect(line.color).toBe('#1976d2');
+    }
+  });
+
+  it('prefixes projected line key with instanceId', () => {
+    const prices: { o: number; h: number; l: number; c: number; v?: number }[] = [];
+    for (let i = 0; i < 8; i++) prices.push({ o: 100 + i * 5, h: 105 + i * 5, l: 95 + i * 5, c: 100 + i * 5, v: 1000 });
+    for (let i = 0; i < 3; i++) prices.push({ o: 135 - i * 5, h: 140 - i * 5, l: 130 - i * 5, c: 135 - i * 5, v: 1000 });
+    const bars = makeBars(prices);
+    const params = { devThreshold: 5, leftDepth: 2, rightDepth: 2, allowZigZagOnOneBar: true, projectionPivots: true, lineColor: '#1976d2' };
+    const result = computeZigZagSeries(bars, params, { instanceId: 'zz2', lineColor: '#ff0000' });
+
+    expect(result.projectedLine).toBeDefined();
+    expect(result.projectedLine!.key.startsWith('zz2-')).toBe(true);
+    expect(result.projectedLine!.color).toBe('#ff0000');
+  });
+
+  it('produces distinct keys for two different instanceIds', () => {
+    const bars = makeMultiPeakBars();
+    const params = { devThreshold: 20, leftDepth: 2, rightDepth: 2, allowZigZagOnOneBar: true, projectionPivots: false, lineColor: '#1976d2' };
+    const result1 = computeZigZagSeries(bars, params, { instanceId: 'zz1' });
+    const result2 = computeZigZagSeries(bars, params, { instanceId: 'zz2' });
+
+    const keys1 = new Set(result1.lines.map(l => l.key));
+    const keys2 = new Set(result2.lines.map(l => l.key));
+    for (const k of keys1) {
+      expect(keys2.has(k)).toBe(false);
+    }
+  });
+});

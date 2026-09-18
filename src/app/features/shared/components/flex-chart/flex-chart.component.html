@@ -101,36 +101,37 @@
           </e-series>
         }
 
-        <!-- ZigZag (solid confirmed-pivot segments) -->
-        @for (line of zigZagSeries().lines; track line.key) {
-          <e-series
-            [dataSource]="line.data"
-            type="Line"
-            xName="index"
-            yName="y"
-            [name]="line.name"
-            [fill]="line.color"
-            [width]="line.width"
-            [dashArray]="line.dashArray"
-            [enableTooltip]="true"
-            [animation]="noAnimation">
-          </e-series>
-        }
+        <!-- ZigZag (solid confirmed-pivot segments + dashed projected segment) -->
+        @for (zz of zigZagSeries(); track $index) {
+          @for (line of zz.lines; track line.key) {
+            <e-series
+              [dataSource]="line.data"
+              type="Line"
+              xName="index"
+              yName="y"
+              [name]="line.name"
+              [fill]="line.color"
+              [width]="line.width"
+              [dashArray]="line.dashArray"
+              [enableTooltip]="true"
+              [animation]="noAnimation">
+            </e-series>
+          }
 
-        <!-- ZigZag (dashed projected-pivot segment) -->
-        @if (zigZagSeries().projectedLine; as projLine) {
-          <e-series
-            [dataSource]="projLine.data"
-            type="Line"
-            xName="index"
-            yName="y"
-            [name]="projLine.name"
-            [fill]="projLine.color"
-            [width]="projLine.width"
-            [dashArray]="projLine.dashArray"
-            [enableTooltip]="true"
-            [animation]="noAnimation">
-          </e-series>
+          @if (zz.projectedLine; as projLine) {
+            <e-series
+              [dataSource]="projLine.data"
+              type="Line"
+              xName="index"
+              yName="y"
+              [name]="projLine.name"
+              [fill]="projLine.color"
+              [width]="projLine.width"
+              [dashArray]="projLine.dashArray"
+              [enableTooltip]="true"
+              [animation]="noAnimation">
+            </e-series>
+          }
         }
 
         <!-- Main pane indicators (overlay on price) -->

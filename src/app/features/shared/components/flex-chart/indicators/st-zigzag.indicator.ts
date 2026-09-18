@@ -124,17 +124,28 @@ export const calculateZigZag: IndicatorCalculator = (bars, params) => {
 // 5. FULL SERIES COMPUTATION (for chart rendering)
 // =============================================================================
 
-const ZIGZAG_COLOR = '#1976d2';
 const ZIGZAG_WIDTH = 1.5;
 const PROJECTED_DASH = '5,3';
+
+/** Options for multi-instance ZigZag rendering. */
+export interface ComputeZigZagSeriesOptions {
+  /** Unique instance ID used to namespace line keys and names. */
+  instanceId?: string;
+  /** Override line color; falls back to config.params.lineColor, then DEFAULT_CONFIG.lineColor. */
+  lineColor?: string;
+}
 
 /**
  * Compute ZigZag chart series: solid segments connecting confirmed pivots
  * + a dashed segment from the last confirmed pivot to the projected pivot.
+ *
+ * When `options.instanceId` is provided, line keys and names are namespaced
+ * to support multiple ZigZag instances on the same chart.
  */
 export function computeZigZagSeries(
   bars: PriceBar[],
   params: Record<string, number | string | boolean>,
+  options?: ComputeZigZagSeriesOptions,
 ): ZigZagChartSeries {
   if (bars.length === 0) return { lines: [] };
 
@@ -145,6 +156,12 @@ export function computeZigZagSeries(
     return { lines: [] };
   }
 
+  const instanceId = options?.instanceId;
+  const prefix = instanceId ? `${instanceId}-` : '';
+  const lineColor = options?.lineColor ?? config.lineColor;
+  const baseName = instanceId ? `ZigZag (${instanceId})` : 'ZigZag';
+  const projectedName = instanceId ? `ZigZag (${instanceId}, projected)` : 'ZigZag (projected)';
+
   const lines: ZigZagLineSeries[] = [];
 
   // Build solid segments between consecutive confirmed pivots.
@@ -153,9 +170,9 @@ export function computeZigZagSeries(
     const start = pivots[i];
     const end = pivots[i + 1];
     lines.push(buildSegment(
-      `zigzag-${start.barIndex}-${end.barIndex}`,
-      'ZigZag',
-      ZIGZAG_COLOR,
+      `${prefix}zigzag-${start.barIndex}-${end.barIndex}`,
+      baseName,
+      lineColor,
       ZIGZAG_WIDTH,
       '',
       start,
@@ -168,9 +185,9 @@ export function computeZigZagSeries(
   if (projection && pivots.length > 0) {
     const lastConfirmed = pivots[pivots.length - 1];
     projectedLine = buildSegment(
-      'zigzag-projected',
-      'ZigZag (projected)',
-      ZIGZAG_COLOR,
+      `${prefix}zigzag-projected`,
+      projectedName,
+      lineColor,
       ZIGZAG_WIDTH,
       PROJECTED_DASH,
       lastConfirmed,
