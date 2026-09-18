@@ -20,6 +20,7 @@ import { TestBed } from '@angular/core/testing';
 import { of, Subject, throwError } from 'rxjs';
 
 import { OptionChainPctChangeStore } from './option-chain-pct-change.store';
+import type { PctChangeCell } from './utils/pct-change.utils';
 import { OptionsContractService } from '../../services/options-contract.service';
 import { PctChangeConfigService } from './services/pct-change-config.service';
 import type { PctChangeConfigWithId } from './services/pct-change-config.service';
@@ -794,6 +795,230 @@ describe('OptionChainPctChangeStore', () => {
       store.loadSavedConfigs();
       store.deleteConfig('QQQ-2025-04-07-2-pct-change-abc');
       expect(store.error()).toContain('Failed to delete config');
+    });
+  });
+
+  // ===========================================================================
+  // Contract selection (chart popup)
+  // ===========================================================================
+
+  describe('contract selection', () => {
+    const CELL: PctChangeCell = {
+      contractID: 'A',
+      strike: 100,
+      expiration: '2024-03-15',
+      delta: 0.5,
+      targetDelta: 0.6,
+      startPrice: 10,
+      targetPrice: 15,
+      pctChange: 50,
+    };
+    const CELL_B: PctChangeCell = { ...CELL, contractID: 'B' };
+
+    it('initializes with no selection and not pinned', () => {
+      const store = setupStore();
+      expect(store.selectedCell()).toBeNull();
+      expect(store.isContractPinned()).toBe(false);
+      expect(store.selectedContractSeries()).toEqual([]);
+    });
+
+    it('previewContract sets selectedCell without pinning', () => {
+      const store = setupStore();
+      store.previewContract(CELL, '2024-02-15');
+      expect(store.selectedCell()).toEqual({
+        contractID: 'A',
+        strike: 100,
+        expiration: '2024-03-15',
+        targetDate: '2024-02-15',
+      });
+      expect(store.isContractPinned()).toBe(false);
+    });
+
+    it('previewContract updates selection on successive hovers', () => {
+      const store = setupStore();
+      store.previewContract(CELL, '2024-02-15');
+      store.previewContract(CELL_B, '2024-02-15');
+      expect(store.selectedCell()!.contractID).toBe('B');
+    });
+
+    it('pinContract sets selectedCell and isContractPinned', () => {
+      const store = setupStore();
+      store.pinContract(CELL, '2024-02-15');
+      expect(store.selectedCell()!.contractID).toBe('A');
+      expect(store.isContractPinned()).toBe(true);
+    });
+
+    it('ignores previewContract while a contract is pinned', () => {
+      const store = setupStore();
+      store.pinContract(CELL, '2024-02-15');
+      store.previewContract(CELL_B, '2024-03-15');
+      expect(store.selectedCell()!.contractID).toBe('A');
+      expect(store.selectedCell()!.targetDate).toBe('2024-02-15');
+      expect(store.isContractPinned()).toBe(true);
+    });
+
+    it('ignores pinContract while a contract is pinned', () => {
+      const store = setupStore();
+      store.pinContract(CELL, '2024-02-15');
+      store.pinContract(CELL_B, '2024-03-15');
+      expect(store.selectedCell()!.contractID).toBe('A');
+      expect(store.selectedCell()!.targetDate).toBe('2024-02-15');
+    });
+
+    it('clearContractSelection resets selection and pin', () => {
+      const store = setupStore();
+      store.pinContract(CELL, '2024-02-15');
+      store.clearContractSelection();
+      expect(store.selectedCell()).toBeNull();
+      expect(store.isContractPinned()).toBe(false);
+      expect(store.selectedContractSeries()).toEqual([]);
+    });
+
+    it('allows new selection after clearing a pin', () => {
+      const store = setupStore();
+      store.pinContract(CELL, '2024-02-15');
+      store.clearContractSelection();
+      store.previewContract(CELL_B, '2024-03-15');
+      expect(store.selectedCell()!.contractID).toBe('B');
+      expect(store.isContractPinned()).toBe(false);
+    });
+
+    it('selectedContractSeries returns the contract series across all snapshots', (done) => {
+      const store = setupStore();
+      store.setSymbol('QQQ');
+      store.setStartDate('2024-01-15');
+      store.addTargetDate('2024-02-15');
+      store.runAnalysis();
+
+      setTimeout(() => {
+        store.previewContract(CELL, '2024-02-15');
+        const series = store.selectedContractSeries();
+        expect(series).toEqual([
+          { date: '2024-01-15', price: 10, delta: 0.5 },
+          { date: '2024-02-15', price: 15, delta: 0.5 },
+        ]);
+        done();
+      }, 50);
+    });
+
+    it('selectedContractSeries spans all target snapshots, not just the clicked grid', (done) => {
+      const store = setupStore(mockService(
+        [makeContract({ contractID: 'A', mark: '10.00' })],
+        {
+          '2024-02-15': [makeContract({ contractID: 'A', mark: '15.00' })],
+          '2024-03-15': [makeContract({ contractID: 'A', mark: '20.00' })],
+        },
+      ));
+      store.setSymbol('QQQ');
+      store.setStartDate('2024-01-15');
+      store.addTargetDate('2024-02-15');
+      store.addTargetDate('2024-03-15');
+      store.runAnalysis();
+
+      setTimeout(() => {
+        // Cell selected in the FIRST grid — series still spans both targets.
+        store.previewContract(CELL, '2024-02-15');
+        const series = store.selectedContractSeries();
+        expect(series).toEqual([
+          { date: '2024-01-15', price: 10, delta: 0.5 },
+          { date: '2024-02-15', price: 15, delta: 0.5 },
+          { date: '2024-03-15', price: 20, delta: 0.5 },
+        ]);
+        done();
+      }, 50);
+    });
+
+    it('selectedContractSeries returns [] when snapshots are cleared', () => {
+      const store = setupStore();
+      store.previewContract(CELL, '2024-02-15');
+      expect(store.selectedContractSeries()).toEqual([]);
+    });
+
+    it('clears selection when setSymbol invalidates snapshots', () => {
+      const store = setupStore();
+      store.pinContract(CELL, '2024-02-15');
+      store.setSymbol('SPY');
+      expect(store.selectedCell()).toBeNull();
+      expect(store.isContractPinned()).toBe(false);
+    });
+
+    it('clears selection when setType changes the contract universe', () => {
+      const store = setupStore();
+      store.pinContract(CELL, '2024-02-15');
+      store.setType(OptionType.PUT);
+      expect(store.selectedCell()).toBeNull();
+      expect(store.isContractPinned()).toBe(false);
+    });
+
+    it('clears selection when runAnalysis refreshes snapshots', () => {
+      const store = setupStore();
+      store.pinContract(CELL, '2024-02-15');
+      store.setSymbol('QQQ');
+      store.setStartDate('2024-01-15');
+      store.addTargetDate('2024-02-15');
+      store.runAnalysis();
+      expect(store.selectedCell()).toBeNull();
+      expect(store.isContractPinned()).toBe(false);
+    });
+
+    it('clears selection when selectConfig changes inputs', () => {
+      const cfg: PctChangeConfigWithId = {
+        id: 'QQQ-2025-04-07-2-pct-change-abc',
+        ...makeConfigDoc(),
+      };
+      const configService = mockConfigService([cfg]);
+      const store = setupStore(mockService(), configService);
+      store.loadSavedConfigs();
+      store.pinContract(CELL, '2024-02-15');
+      store.selectConfig('QQQ-2025-04-07-2-pct-change-abc');
+      expect(store.selectedCell()).toBeNull();
+      expect(store.isContractPinned()).toBe(false);
+    });
+
+    it('clears selection when the selected cell\u2019s target date is removed', () => {
+      const store = setupStore();
+      store.addTargetDate('2024-02-15');
+      store.addTargetDate('2024-03-15');
+      store.pinContract(CELL, '2024-02-15');
+      store.removeTargetDate('2024-02-15');
+      expect(store.selectedCell()).toBeNull();
+      expect(store.isContractPinned()).toBe(false);
+    });
+
+    it('keeps selection when a different target date is removed', () => {
+      const store = setupStore();
+      store.addTargetDate('2024-02-15');
+      store.addTargetDate('2024-03-15');
+      store.pinContract(CELL, '2024-02-15');
+      store.removeTargetDate('2024-03-15');
+      expect(store.selectedCell()!.contractID).toBe('A');
+      expect(store.isContractPinned()).toBe(true);
+    });
+
+    it('clears selection when runAnalysis fetch fails (no zombie pin)', (done) => {
+      const failingService: Partial<OptionsContractService> = {
+        getHistoricalOptionsChain$: () => throwError(() => new Error('Network error')),
+      } as Partial<OptionsContractService>;
+      const store = setupStore(failingService);
+      store.pinContract(CELL, '2024-02-15');
+      store.setSymbol('QQQ');
+      store.setStartDate('2024-01-15');
+      store.addTargetDate('2024-02-15');
+      store.runAnalysis();
+
+      setTimeout(() => {
+        expect(store.selectedCell()).toBeNull();
+        expect(store.isContractPinned()).toBe(false);
+        done();
+      }, 50);
+    });
+
+    it('reset clears selection', () => {
+      const store = setupStore();
+      store.pinContract(CELL, '2024-02-15');
+      store.reset();
+      expect(store.selectedCell()).toBeNull();
+      expect(store.isContractPinned()).toBe(false);
     });
   });
 });

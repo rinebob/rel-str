@@ -31,14 +31,39 @@ import type {
 } from '@shared/pct-change-config-contracts';
 import {
   computePctChange,
+  extractContractSeries,
+  type PctChangeCell,
   type PctChangeGrid,
   type PctChangeFilter,
+  type ContractSeriesPoint,
 } from './utils/pct-change.utils';
 import { buildConfigId, resolvePctChangeTargets as resolvePctChangeDatesFromBars, buildPercentages, computeForwardEndDate } from './utils/pct-change-config.utils';
 
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
+
+/** Identity of the grid cell whose contract is selected for the chart popup. */
+export interface SelectedContractCell {
+  contractID: string;
+  strike: number;
+  expiration: string;
+  /** The target date of the grid the cell was selected in. */
+  targetDate: string;
+}
+
+/** The contract identity a cell carries — a PctChangeCell is assignable to this. */
+export type ContractCellRef = Pick<PctChangeCell, 'contractID' | 'strike' | 'expiration'>;
+
+/** Build the stored selection from a cell ref + its grid's target date.
+ *  Picks fields explicitly — callers may pass a full PctChangeCell whose
+ *  extra fields must not leak into state. */
+const toSelectedCell = (cell: ContractCellRef, targetDate: string): SelectedContractCell => ({
+  contractID: cell.contractID,
+  strike: cell.strike,
+  expiration: cell.expiration,
+  targetDate,
+});
 
 export interface OptionChainPctChangeState {
   /** Input: symbol to analyze. */
@@ -86,7 +111,19 @@ export interface OptionChainPctChangeState {
 
   /** Underlying close prices keyed by date (YYYY-MM-DD). */
   underlyingPrices: Record<string, number>;
+
+  /** Chart popup: the selected contract cell, or null. */
+  selectedCell: SelectedContractCell | null;
+  /** Chart popup: true while the overlay is pinned open (blocks other selections). */
+  isContractPinned: boolean;
 }
+
+/** Selection-clearing patch — spread into any patchState that invalidates
+ *  the contract universe (snapshots, symbol, type, or the grid set). */
+const SELECTION_CLEARED: Pick<OptionChainPctChangeState, 'selectedCell' | 'isContractPinned'> = {
+  selectedCell: null,
+  isContractPinned: false,
+};
 
 const initialState: OptionChainPctChangeState = {
   symbol: 'QQQ',
@@ -110,6 +147,8 @@ const initialState: OptionChainPctChangeState = {
   startSnapshot: null,
   targetSnapshots: {},
   underlyingPrices: {},
+  selectedCell: null,
+  isContractPinned: false,
 };
 
 // ---------------------------------------------------------------------------
@@ -161,6 +200,29 @@ export const OptionChainPctChangeStore = signalStore(
       const targets = state.targetDates();
       return sym.length > 0 && start.length > 0 && targets.length > 0;
     }),
+
+    /**
+     * The selected contract's price/delta series across the cached
+     * start + target snapshots — drives the chart popup. Empty when no
+     * cell is selected or no snapshots are loaded.
+     */
+    selectedContractSeries: computed((): ContractSeriesPoint[] => {
+      const sel = state.selectedCell();
+      const startSnapshot = state.startSnapshot();
+      if (!sel || !startSnapshot) return [];
+      return extractContractSeries(
+        {
+          contractID: sel.contractID,
+          symbol: state.symbol(),
+          strike: sel.strike,
+          expiration: sel.expiration,
+        },
+        state.type(),
+        state.startDate().trim(),
+        startSnapshot,
+        state.targetSnapshots(),
+      );
+    }),
   })),
 
   withMethods((store, optionsContractService = inject(OptionsContractService), barReadService = inject(LocalBarReadService), configService = inject(PctChangeConfigService)) => {
@@ -180,6 +242,7 @@ export const OptionChainPctChangeStore = signalStore(
           startSnapshot: null,
           targetSnapshots: {},
           underlyingPrices: {},
+          ...SELECTION_CLEARED,
         });
       },
 
@@ -189,6 +252,7 @@ export const OptionChainPctChangeStore = signalStore(
           startDate: String(date || '').trim(),
           startSnapshot: null,
           underlyingPrices: {},
+          ...SELECTION_CLEARED,
         });
       },
 
@@ -201,10 +265,15 @@ export const OptionChainPctChangeStore = signalStore(
         patchState(store, { targetDates: [...existing, dt] });
       },
 
-      /** Remove a target date. */
+      /** Remove a target date. Clears selection if the selected cell's
+       *  grid was removed (its overlay anchor no longer exists). */
       removeTargetDate(date: string): void {
         const dt = String(date || '').trim();
-        patchState(store, { targetDates: store.targetDates().filter((d) => d !== dt) });
+        const sel = store.selectedCell();
+        patchState(store, {
+          targetDates: store.targetDates().filter((d) => d !== dt),
+          ...(sel?.targetDate === dt ? SELECTION_CLEARED : {}),
+        });
       },
 
       /** Replace all target dates at once (used by target-type-selector). */
@@ -213,6 +282,7 @@ export const OptionChainPctChangeStore = signalStore(
           targetDates: dates.map((d) => String(d || '').trim()).filter((d) => d),
           targetSnapshots: {},
           underlyingPrices: {},
+          ...SELECTION_CLEARED,
         });
       },
 
@@ -221,6 +291,7 @@ export const OptionChainPctChangeStore = signalStore(
         patchState(store, {
           type,
           filter: { ...store.filter(), type },
+          ...SELECTION_CLEARED,
         });
       },
 
@@ -229,6 +300,36 @@ export const OptionChainPctChangeStore = signalStore(
         patchState(store, {
           filter: { ...store.filter(), ...partial },
         });
+      },
+
+      // -----------------------------------------------------------------
+      // Contract selection (chart popup)
+      // -----------------------------------------------------------------
+
+      /**
+       * Transient hover selection — shows the contract's chart while the
+       * icon is hovered. Ignored while a contract is pinned.
+       */
+      previewContract(cell: ContractCellRef, targetDate: string): void {
+        if (store.isContractPinned()) return;
+        patchState(store, { selectedCell: toSelectedCell(cell, targetDate) });
+      },
+
+      /**
+       * Click selection — pins the overlay open until cleared. Ignored
+       * while a contract is already pinned.
+       */
+      pinContract(cell: ContractCellRef, targetDate: string): void {
+        if (store.isContractPinned()) return;
+        patchState(store, {
+          selectedCell: toSelectedCell(cell, targetDate),
+          isContractPinned: true,
+        });
+      },
+
+      /** Clear the selection and unpin — called on outside-click. */
+      clearContractSelection(): void {
+        patchState(store, { selectedCell: null, isContractPinned: false });
       },
 
       /**
@@ -241,6 +342,7 @@ export const OptionChainPctChangeStore = signalStore(
             error: 'symbol, startDate, and at least one target date are required',
             startSnapshot: null,
             targetSnapshots: {},
+            ...SELECTION_CLEARED,
           });
           return;
         }
@@ -259,6 +361,7 @@ export const OptionChainPctChangeStore = signalStore(
           startSnapshot: null,
           targetSnapshots: {},
           underlyingPrices: {},
+          ...SELECTION_CLEARED,
         });
 
         // Fetch start + all targets in parallel.
@@ -321,6 +424,7 @@ export const OptionChainPctChangeStore = signalStore(
                 startSnapshot: null,
                 targetSnapshots: {},
                 underlyingPrices: {},
+                ...SELECTION_CLEARED,
               });
               runSub = null;
             },
@@ -413,6 +517,7 @@ export const OptionChainPctChangeStore = signalStore(
           startSnapshot: null,
           targetSnapshots: {},
           underlyingPrices: {},
+          ...SELECTION_CLEARED,
           error: null,
           loading: false,
         });
@@ -527,7 +632,7 @@ export const OptionChainPctChangeStore = signalStore(
               return;
             }
             const resolved = resolvePctChangeDatesFromBars(bars, startDate, startBar.c, percentages);
-            patchState(store, { targetDates: resolved, error: null });
+            patchState(store, { targetDates: resolved, error: null, ...SELECTION_CLEARED });
             resolveSub = null;
           },
           error: (err: unknown) => {
