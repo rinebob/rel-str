@@ -108,7 +108,6 @@ function makeSwingAnalysisDoc(overrides: Partial<SwingAnalysisDoc> = {}): SwingA
     symbol: 'AAPL',
     paramsId: 'dev5_L5_R5_1barY_projY',
     config: { ...DEFAULT_CONFIG },
-    bars: [],
     pivots: [],
     projection: null,
     swings: [],
@@ -346,7 +345,7 @@ describe('SwingAnalysisStore.saveAnalysis', () => {
     expect(arg.pivots).toEqual(store.pivots());
     expect(arg.swings).toEqual(store.swings());
     expect(arg.stats).toEqual(store.stats());
-    expect(arg.bars).toEqual(store.bars());
+    expect(arg.bars).toBeUndefined();
     expect(arg.savedAt).toBeDefined();
   });
 
@@ -388,23 +387,116 @@ describe('SwingAnalysisStore.loadSavedAnalyses', () => {
 // =============================================================================
 
 describe('SwingAnalysisStore.loadAnalysis', () => {
-  it('loads config, pivots, swings, and stats from a saved doc', () => {
+  it('loads config and recomputes pivots/swings/stats from existing bars', () => {
     const mockConfig = { ...DEFAULT_CONFIG, devThreshold: 10 };
-    const mockBars = makeBars(20);
     const mockDoc = makeSwingAnalysisDoc({
       id: 'dev10_L5_R5_1barY_projY',
       paramsId: 'dev10_L5_R5_1barY_projY',
       config: mockConfig,
-      bars: mockBars,
     });
-    const { store } = setupStore(makeBars(40), [mockDoc]);
+    const setupBars = makeBars(40);
+    const { store } = setupStore(setupBars, [mockDoc]);
     store.setSymbol('AAPL');
     store.loadAnalysis('dev10_L5_R5_1barY_projY');
     expect(store.config().devThreshold).toBe(10);
-    expect(store.bars()).toEqual(mockBars);
-    expect(store.pivots()).toEqual(mockDoc.pivots);
-    expect(store.swings()).toEqual(mockDoc.swings);
-    expect(store.stats()).toEqual(mockDoc.stats);
+    // Bars come from the chart service (via setSymbol), not from the doc.
+    expect(store.bars()).toEqual(setupBars);
+    // Pivots/swings/stats are recomputed from bars + loaded config.
+    expect(store.pivots().length).toBeGreaterThan(0);
+    expect(store.swings().length).toBeGreaterThan(0);
+    expect(store.stats()).not.toBeNull();
+  });
+
+  it('fetches bars from chart service when not yet loaded, then recomputes', () => {
+    const mockConfig = { ...DEFAULT_CONFIG, devThreshold: 10 };
+    const mockDoc = makeSwingAnalysisDoc({
+      id: 'dev10_L5_R5_1barY_projY',
+      paramsId: 'dev10_L5_R5_1barY_projY',
+      config: mockConfig,
+    });
+    const fetchBars = makeBars(40);
+    const barsSubject = new Subject<{
+      daily: ChartDataset;
+      weekly: ChartDataset;
+      monthly: ChartDataset;
+      version: string;
+    }>();
+    const service = mockSwingAnalysisService([mockDoc]);
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        { provide: ChartService, useValue: { loadBars$: () => barsSubject.asObservable() } },
+        { provide: SwingAnalysisService, useValue: service },
+        SwingAnalysisStore,
+      ],
+    });
+    const store = TestBed.inject(SwingAnalysisStore);
+    // Set symbol so loadAnalysis has a symbol to work with, but bars won't load
+    // because the Subject hasn't emitted.
+    store.setSymbol('AAPL');
+    expect(store.bars()).toEqual([]); // bars not yet loaded
+
+    // Now loadAnalysis should fetch bars via chart service.
+    store.loadAnalysis('dev10_L5_R5_1barY_projY');
+    expect(store.loading()).toBe(true);
+    expect(store.config().devThreshold).toBe(10);
+
+    // Emit bars through the Subject — loadAnalysis's fetch should complete.
+    barsSubject.next({
+      daily: makeChartDataset(fetchBars),
+      weekly: makeChartDataset(fetchBars),
+      monthly: makeChartDataset(fetchBars),
+      version: 'test',
+    });
+    expect(store.loading()).toBe(false);
+    expect(store.bars()).toEqual(fetchBars);
+    expect(store.pivots().length).toBeGreaterThan(0);
+    expect(store.swings().length).toBeGreaterThan(0);
+    expect(store.stats()).not.toBeNull();
+    barsSubject.complete();
+  });
+
+  it('cancels stale loadAnalysis when setSymbol is called during fetch', () => {
+    const mockDoc = makeSwingAnalysisDoc({
+      id: 'dev5_L5_R5_1barY_projY',
+      config: { ...DEFAULT_CONFIG, devThreshold: 5 },
+    });
+    const analysisSubject = new Subject<SwingAnalysisDoc | null>();
+    const barsSubject = new Subject<{
+      daily: ChartDataset;
+      weekly: ChartDataset;
+      monthly: ChartDataset;
+      version: string;
+    }>();
+    const service = {
+      loadSavedAnalyses: jest.fn(() => of([])),
+      saveAnalysis: jest.fn(() => of(undefined)),
+      loadAnalysis: jest.fn(() => analysisSubject.asObservable()),
+    };
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        { provide: ChartService, useValue: { loadBars$: () => barsSubject.asObservable() } },
+        { provide: SwingAnalysisService, useValue: service },
+        SwingAnalysisStore,
+      ],
+    });
+    const store = TestBed.inject(SwingAnalysisStore);
+    store.setSymbol('AAPL');
+    // Start loadAnalysis — analysis doc request is pending.
+    store.loadAnalysis('dev5_L5_R5_1barY_projY');
+    expect(store.loading()).toBe(true);
+
+    // User changes symbol before the analysis doc arrives.
+    store.setSymbol('MSFT');
+    expect(store.symbol()).toBe('MSFT');
+
+    // The stale analysis doc arrives — it should NOT overwrite MSFT state.
+    analysisSubject.next(mockDoc);
+    expect(store.symbol()).toBe('MSFT');
+    expect(store.config().devThreshold).toBe(DEFAULT_CONFIG.devThreshold);
+    analysisSubject.complete();
+    barsSubject.complete();
   });
 
   it('does nothing when no symbol is set', () => {

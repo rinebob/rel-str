@@ -116,6 +116,65 @@ export const SwingAnalysisStore = signalStore(
       // requests when setSymbol is called again before the previous one
       // completes.
       let barsSub: Subscription | null = null;
+      // Track the in-flight analysis-document-load subscription so that
+      // setSymbol/resetState can cancel a stale loadAnalysis request before
+      // its result overwrites newer state.
+      let analysisSub: Subscription | null = null;
+
+      /**
+       * Shared bar-load + recompute helper. Cancels any in-flight bar load,
+       * fetches bars for `symbol`, recomputes pivots/swings/stats with
+       * `config`, and patches the store. `clearOnError` controls whether
+       * the error handler resets derived state (setSymbol) or only sets
+       * `error` (loadAnalysis, which has already patched config).
+       */
+      function loadBarsAndRecompute(
+        symbol: string,
+        config: ZigZagConfig,
+        clearOnError: boolean,
+      ): void {
+        barsSub?.unsubscribe();
+        barsSub = chartService
+          .loadBars$(symbol)
+          .pipe(takeUntilDestroyed(destroyRef))
+          .subscribe({
+            next: (result) => {
+              const bars = result.daily.bars;
+              const { pivots, projection, swings, stats } = recompute(bars, config);
+              patchState(store, {
+                bars,
+                pivots,
+                projection,
+                swings,
+                stats,
+                loading: false,
+                error: null,
+              });
+              barsSub = null;
+            },
+            error: (err: unknown) => {
+              const msg = err instanceof Error ? err.message : String(err);
+              console.error(
+                '[SwingAnalysisStore] Failed to load bars for',
+                symbol,
+                err,
+              );
+              const patch: Partial<SwingAnalysisState> = {
+                loading: false,
+                error: `Failed to load bars: ${msg}`,
+              };
+              if (clearOnError) {
+                patch.bars = [];
+                patch.pivots = [];
+                patch.projection = null;
+                patch.swings = [];
+                patch.stats = null;
+              }
+              patchState(store, patch);
+              barsSub = null;
+            },
+          });
+      }
 
       return {
         /**
@@ -125,6 +184,8 @@ export const SwingAnalysisStore = signalStore(
         resetState(): void {
           barsSub?.unsubscribe();
           barsSub = null;
+          analysisSub?.unsubscribe();
+          analysisSub = null;
           patchState(store, {
             symbol: '',
             config: { ...DEFAULT_CONFIG },
@@ -143,6 +204,9 @@ export const SwingAnalysisStore = signalStore(
          */
         setSymbol(symbol: string): void {
           const sym = String(symbol || '').trim().toUpperCase();
+          // Cancel any in-flight analysis load to prevent stale overwrites.
+          analysisSub?.unsubscribe();
+          analysisSub = null;
           patchState(store, {
             symbol: sym,
             loading: true,
@@ -163,46 +227,7 @@ export const SwingAnalysisStore = signalStore(
             return;
           }
 
-          barsSub = chartService
-            .loadBars$(sym)
-            .pipe(takeUntilDestroyed(destroyRef))
-            .subscribe({
-              next: (result) => {
-                const bars = result.daily.bars;
-                const { pivots, projection, swings, stats } = recompute(
-                  bars,
-                  store.config(),
-                );
-                patchState(store, {
-                  bars,
-                  pivots,
-                  projection,
-                  swings,
-                  stats,
-                  loading: false,
-                  error: null,
-                });
-                barsSub = null;
-              },
-              error: (err: unknown) => {
-                const msg = err instanceof Error ? err.message : String(err);
-                console.error(
-                  '[SwingAnalysisStore] Failed to load bars for',
-                  sym,
-                  err,
-                );
-                patchState(store, {
-                  loading: false,
-                  error: `Failed to load bars: ${msg}`,
-                  bars: [],
-                  pivots: [],
-                  projection: null,
-                  swings: [],
-                  stats: null,
-                });
-                barsSub = null;
-              },
-            });
+          loadBarsAndRecompute(sym, store.config(), true);
         },
 
         /**
@@ -237,7 +262,6 @@ export const SwingAnalysisStore = signalStore(
             symbol,
             paramsId,
             config,
-            bars: store.bars(),
             pivots: store.pivots(),
             projection: store.projection(),
             swings: store.swings(),
@@ -308,28 +332,49 @@ export const SwingAnalysisStore = signalStore(
 
         /**
          * Load a saved analysis into the store.
+         *
+         * Bars are NOT persisted in the doc — they are loaded from the chart
+         * service (same path as setSymbol). If bars are already loaded, the
+         * config from the doc is applied and pivots/swings/stats are
+         * recomputed from the existing bars. If bars are not yet loaded,
+         * bars are fetched from the chart service first, then the config
+         * is applied and results are recomputed.
          */
         loadAnalysis(docId: string): void {
           const symbol = store.symbol();
           if (!symbol || !docId) return;
 
-          swingAnalysisService
+          // Cancel any prior in-flight analysis load to prevent stale overwrites.
+          analysisSub?.unsubscribe();
+          analysisSub = swingAnalysisService
             .loadAnalysis(symbol, docId)
             .pipe(takeUntilDestroyed(destroyRef))
             .subscribe({
               next: (doc) => {
+                analysisSub = null;
                 if (!doc) return;
-                patchState(store, {
-                  config: doc.config,
-                  bars: doc.bars ?? [],
-                  pivots: doc.pivots,
-                  projection: doc.projection ?? null,
-                  swings: doc.swings,
-                  stats: doc.stats,
-                  error: null,
-                });
+                const config = doc.config;
+                const bars = store.bars();
+
+                if (bars.length > 0) {
+                  // Bars already loaded — recompute with the loaded config.
+                  const { pivots, projection, swings, stats } = recompute(bars, config);
+                  patchState(store, {
+                    config,
+                    pivots,
+                    projection,
+                    swings,
+                    stats,
+                    error: null,
+                  });
+                } else {
+                  // No bars loaded — fetch from chart service, then recompute.
+                  patchState(store, { config, loading: true, error: null });
+                  loadBarsAndRecompute(symbol, config, false);
+                }
               },
               error: (err: unknown) => {
+                analysisSub = null;
                 const msg = err instanceof Error ? err.message : String(err);
                 console.error(
                   '[SwingAnalysisStore] Failed to load analysis',

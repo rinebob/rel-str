@@ -84,7 +84,6 @@ function makeInput(overrides: Partial<SwingAnalysisInput> = {}): SwingAnalysisIn
     symbol: 'AAPL',
     paramsId: deriveParamsId(DEFAULT_CONFIG),
     config: { ...DEFAULT_CONFIG },
-    bars: [],
     pivots: [],
     projection: null,
     swings: [],
@@ -102,7 +101,6 @@ function makeFirestoreDoc(overrides: Partial<SwingAnalysisInput & { id: string; 
     symbol: 'AAPL',
     paramsId: deriveParamsId(DEFAULT_CONFIG),
     config: { ...DEFAULT_CONFIG },
-    bars: [],
     pivots: [],
     projection: null,
     swings: [],
@@ -212,6 +210,12 @@ describe('SwingAnalysisService', () => {
       expect(payload.symbol).toBe('AAPL');
       expect(payload.paramsId).toBe(deriveParamsId(DEFAULT_CONFIG));
       expect(payload.id).toBeUndefined();
+    });
+
+    it('does not persist bars in the saved document', async () => {
+      await firstValueFrom(service.saveAnalysis(makeInput()));
+      const payload = fsMock.setDoc.mock.calls[0][1];
+      expect(payload.bars).toBeUndefined();
     });
 
     it('stamps userId from the authenticated user', async () => {

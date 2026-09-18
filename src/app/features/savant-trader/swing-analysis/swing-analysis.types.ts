@@ -5,7 +5,7 @@
  * No runtime logic beyond the paramsId derivation.
  */
 
-import type { ZigZagConfig, Pivot, Swing, SwingStats, PriceBar } from '../../shared/components/flex-chart/indicators/st-zigzag.engine';
+import type { ZigZagConfig, Pivot, Swing, SwingStats } from '../../shared/components/flex-chart/indicators/st-zigzag.engine';
 
 /** Input for saving a swing analysis — built by the store, no auth fields. */
 export interface SwingAnalysisInput {
@@ -15,8 +15,6 @@ export interface SwingAnalysisInput {
   paramsId: string;
   /** The config used to compute this analysis. */
   config: ZigZagConfig;
-  /** Price bars used for the analysis — kept so updateConfig can recompute. */
-  bars: PriceBar[];
   /** Confirmed pivots. */
   pivots: Pivot[];
   /** Projected pivot (if any). */
