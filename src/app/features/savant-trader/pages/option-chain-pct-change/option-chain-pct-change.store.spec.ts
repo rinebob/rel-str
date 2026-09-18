@@ -23,6 +23,7 @@ import { OptionChainPctChangeStore } from './option-chain-pct-change.store';
 import { OptionsContractService } from '../../services/options-contract.service';
 import { PctChangeConfigService } from './services/pct-change-config.service';
 import type { PctChangeConfigWithId } from './services/pct-change-config.service';
+import { LocalBarReadService } from '../../../../core/services/local-bar-read.service';
 import { Firestore } from '@angular/fire/firestore';
 import { OptionType } from '@options-contract/contracts';
 import type {
@@ -30,6 +31,7 @@ import type {
   HistoricalOptionContract,
 } from '@options-contract/contracts';
 import type { PctChangeConfigDoc } from '@shared/pct-change-config-contracts';
+import type { OhlcBar } from '../../../../core/models/market-data.types';
 
 // =============================================================================
 // Test fixtures
@@ -116,16 +118,24 @@ function mockConfigService(
 function setupStore(
   service: Partial<OptionsContractService> = mockService(),
   configService: Partial<PctChangeConfigService> = mockConfigService(),
+  barReadService: Partial<LocalBarReadService> = mockBarReadService(),
 ): InstanceType<typeof OptionChainPctChangeStore> {
   TestBed.configureTestingModule({
     providers: [
       { provide: OptionsContractService, useValue: service },
       { provide: PctChangeConfigService, useValue: configService },
+      { provide: LocalBarReadService, useValue: barReadService },
       { provide: Firestore, useValue: {} },
       OptionChainPctChangeStore,
     ],
   });
   return TestBed.inject(OptionChainPctChangeStore);
+}
+
+function mockBarReadService(bars: OhlcBar[] = []): Partial<LocalBarReadService> {
+  return {
+    getDailyBarsForRange$: () => of(bars),
+  } as Partial<LocalBarReadService>;
 }
 
 // =============================================================================
@@ -396,6 +406,87 @@ describe('OptionChainPctChangeStore', () => {
   });
 
   // ===========================================================================
+  // resolvePctChangeTargets
+  // ===========================================================================
+
+  describe('resolvePctChangeTargets', () => {
+    function makeBar(date: string, close: number): OhlcBar {
+      return { d: date, o: close, h: close, l: close, c: close, v: 0 };
+    }
+
+    it('resolves target dates from bars in list mode', (done) => {
+      const bars: OhlcBar[] = [
+        makeBar('2025-04-07', 100),
+        makeBar('2025-04-08', 101),
+        makeBar('2025-04-09', 105), // +5% from 100
+        makeBar('2025-04-10', 110), // +10% from 100
+      ];
+      const barRead = mockBarReadService(bars);
+      const store = setupStore(mockService(), mockConfigService(), barRead);
+      store.setSymbol('QQQ');
+      store.setStartDate('2025-04-07');
+      store.resolvePctChangeTargets({ mode: 'list', values: [5, 10] });
+
+      setTimeout(() => {
+        expect(store.targetDates().length).toBe(2);
+        expect(store.targetDates()).toContain('2025-04-09');
+        expect(store.targetDates()).toContain('2025-04-10');
+        done();
+      }, 50);
+    });
+
+    it('resolves target dates across calendar year boundary', (done) => {
+      // Start date late in the year; +10% target reached in the following year.
+      const bars: OhlcBar[] = [
+        makeBar('2025-12-15', 100),
+        makeBar('2025-12-30', 101),
+        makeBar('2026-01-05', 110), // +10% from 100, in the next year
+      ];
+      const barRead = mockBarReadService(bars);
+      const store = setupStore(mockService(), mockConfigService(), barRead);
+      store.setSymbol('QQQ');
+      store.setStartDate('2025-12-15');
+      store.resolvePctChangeTargets({ mode: 'list', values: [10] });
+
+      setTimeout(() => {
+        expect(store.targetDates()).toContain('2026-01-05');
+        done();
+      }, 50);
+    });
+
+    it('cancels in-flight resolution when reset is called', (done) => {
+      const subject = new Subject<OhlcBar[]>();
+      const barRead: Partial<LocalBarReadService> = {
+        getDailyBarsForRange$: () => subject.asObservable(),
+      } as Partial<LocalBarReadService>;
+      const store = setupStore(mockService(), mockConfigService(), barRead);
+      store.setSymbol('QQQ');
+      store.setStartDate('2025-04-07');
+      store.resolvePctChangeTargets({ mode: 'list', values: [5] });
+
+      // Reset while in-flight.
+      store.reset();
+
+      // Emit a late response — should not repopulate targetDates.
+      subject.next([makeBar('2025-04-07', 100), makeBar('2025-04-09', 105)]);
+      subject.complete();
+
+      setTimeout(() => {
+        expect(store.targetDates()).toEqual([]);
+        done();
+      }, 50);
+    });
+
+    it('sets error when symbol and start date are missing', () => {
+      const store = setupStore();
+      store.setSymbol('');
+      store.setStartDate('');
+      store.resolvePctChangeTargets({ mode: 'list', values: [5] });
+      expect(store.error()).toContain('required');
+    });
+  });
+
+  // ===========================================================================
   // Config state
   // ===========================================================================
 
@@ -477,6 +568,19 @@ describe('OptionChainPctChangeStore', () => {
       store.loadSavedConfigs();
       expect(store.savedConfigs()).toEqual([]);
     });
+
+    it('sets error message when config load fails', () => {
+      const configService: Partial<PctChangeConfigService> = {
+        loadConfigs: () => throwError(() => new Error('network down')),
+        saveConfig: () => of(undefined),
+        deleteConfig: () => of(undefined),
+      };
+      const store = setupStore(mockService(), configService);
+      store.loadSavedConfigs();
+      expect(store.savedConfigs()).toEqual([]);
+      expect(store.error()).toContain('Failed to load saved configs');
+      expect(store.error()).toContain('network down');
+    });
   });
 
   // ===========================================================================
@@ -534,6 +638,55 @@ describe('OptionChainPctChangeStore', () => {
       store.selectConfig('nonexistent');
       expect(store.symbol()).toBe('QQQ');
       expect(store.selectedConfigId()).toBeNull();
+    });
+
+    it('applies defaults for missing optional fields', () => {
+      // Only required fields — pctMode, pctValues, pctStep, pctCount,
+      // pctDirection, userDatesMode, intervalCount, intervalDays are omitted.
+      const cfg: PctChangeConfigWithId = {
+        id: 'QQQ-2025-04-07-2-pct-change-abc',
+        symbol: 'SPY',
+        startDate: '2025-03-01',
+        type: OptionType.CALL,
+        targetType: 'pct-change',
+        targetDates: ['2025-03-05'],
+        filter: { type: OptionType.CALL },
+      } as PctChangeConfigWithId;
+      const configService = mockConfigService([cfg]);
+      const store = setupStore(mockService(), configService);
+      store.loadSavedConfigs();
+      store.selectConfig('QQQ-2025-04-07-2-pct-change-abc');
+      expect(store.pctMode()).toBe('list');
+      expect(store.pctValues()).toEqual([]);
+      expect(store.pctStep()).toBe(5);
+      expect(store.pctCount()).toBe(4);
+      expect(store.pctDirection()).toBe('up');
+      expect(store.userDatesMode()).toBe('manual');
+      expect(store.intervalCount()).toBe(5);
+      expect(store.intervalDays()).toBe(5);
+    });
+  });
+
+  // ===========================================================================
+  // deselectConfig
+  // ===========================================================================
+
+  describe('deselectConfig', () => {
+    it('clears selectedConfigId only (preserves inputs)', () => {
+      const cfg: PctChangeConfigWithId = {
+        id: 'QQQ-2025-04-07-2-pct-change-abc',
+        ...makeConfigDoc({ symbol: 'SPY', startDate: '2025-03-01' }),
+      };
+      const configService = mockConfigService([cfg]);
+      const store = setupStore(mockService(), configService);
+      store.loadSavedConfigs();
+      store.selectConfig('QQQ-2025-04-07-2-pct-change-abc');
+      expect(store.selectedConfigId()).toBe('QQQ-2025-04-07-2-pct-change-abc');
+      store.deselectConfig();
+      expect(store.selectedConfigId()).toBeNull();
+      // Inputs are preserved — only the selection is cleared.
+      expect(store.symbol()).toBe('SPY');
+      expect(store.startDate()).toBe('2025-03-01');
     });
   });
 

@@ -15,7 +15,7 @@ import {
   patchState,
 } from '@ngrx/signals';
 import { forkJoin, Subscription } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { map, take } from 'rxjs/operators';
 
 import { OptionsContractService } from '../../services/options-contract.service';
 import { LocalBarReadService } from '../../../../core/services/local-bar-read.service';
@@ -34,7 +34,7 @@ import {
   type PctChangeGrid,
   type PctChangeFilter,
 } from './utils/pct-change.utils';
-import { buildConfigId } from './utils/pct-change-config.utils';
+import { buildConfigId, resolvePctChangeTargets as resolvePctChangeDatesFromBars, buildPercentages, computeForwardEndDate } from './utils/pct-change-config.utils';
 
 // ---------------------------------------------------------------------------
 // State
@@ -168,6 +168,9 @@ export const OptionChainPctChangeStore = signalStore(
     // requests when runAnalysis is called again before the previous one
     // completes, or when reset is called mid-flight.
     let runSub: Subscription | null = null;
+    // Track the in-flight resolvePctChangeTargets subscription so reset
+    // can cancel it mid-flight.
+    let resolveSub: Subscription | null = null;
 
     return {
       /** Set the symbol input. Invalidates cached snapshots. */
@@ -176,6 +179,7 @@ export const OptionChainPctChangeStore = signalStore(
           symbol: String(symbol || '').trim().toUpperCase(),
           startSnapshot: null,
           targetSnapshots: {},
+          underlyingPrices: {},
         });
       },
 
@@ -184,6 +188,7 @@ export const OptionChainPctChangeStore = signalStore(
         patchState(store, {
           startDate: String(date || '').trim(),
           startSnapshot: null,
+          underlyingPrices: {},
         });
       },
 
@@ -200,6 +205,15 @@ export const OptionChainPctChangeStore = signalStore(
       removeTargetDate(date: string): void {
         const dt = String(date || '').trim();
         patchState(store, { targetDates: store.targetDates().filter((d) => d !== dt) });
+      },
+
+      /** Replace all target dates at once (used by target-type-selector). */
+      setTargetDates(dates: string[]): void {
+        patchState(store, {
+          targetDates: dates.map((d) => String(d || '').trim()).filter((d) => d),
+          targetSnapshots: {},
+          underlyingPrices: {},
+        });
       },
 
       /** Set the call/put type filter. Also updates the filter.type field. */
@@ -317,6 +331,8 @@ export const OptionChainPctChangeStore = signalStore(
       reset(): void {
         runSub?.unsubscribe();
         runSub = null;
+        resolveSub?.unsubscribe();
+        resolveSub = null;
         patchState(store, { ...initialState });
       },
 
@@ -344,6 +360,11 @@ export const OptionChainPctChangeStore = signalStore(
         patchState(store, { pctStep: step, pctCount: count, pctDirection: direction });
       },
 
+      /** Set all pct params at once (values + gradation) — avoids double patchState. */
+      setPctParams(values: number[], step: number, count: number, direction: PctDirection): void {
+        patchState(store, { pctValues: values, pctStep: step, pctCount: count, pctDirection: direction });
+      },
+
       /** Set the user-dates sub-mode. */
       setUserDatesMode(mode: UserDatesMode): void {
         patchState(store, { userDatesMode: mode });
@@ -360,9 +381,12 @@ export const OptionChainPctChangeStore = signalStore(
 
       /** Load all saved configs from Firestore into state. */
       loadSavedConfigs(): void {
-        configService.loadConfigs().subscribe({
+        configService.loadConfigs().pipe(take(1)).subscribe({
           next: (configs) => patchState(store, { savedConfigs: configs }),
-          error: () => patchState(store, { savedConfigs: [] }),
+          error: (err: unknown) => {
+            const msg = err instanceof Error ? err.message : String(err);
+            patchState(store, { savedConfigs: [], error: `Failed to load saved configs: ${msg}` });
+          },
         });
       },
 
@@ -375,9 +399,9 @@ export const OptionChainPctChangeStore = signalStore(
           symbol: cfg.symbol,
           startDate: cfg.startDate,
           type: cfg.type,
-          filter: cfg.filter,
+          filter: { ...cfg.filter },
           targetType: cfg.targetType,
-          targetDates: cfg.targetDates,
+          targetDates: [...cfg.targetDates],
           pctMode: cfg.pctMode ?? 'list',
           pctValues: cfg.pctValues ?? [],
           pctStep: cfg.pctStep ?? 5,
@@ -389,11 +413,22 @@ export const OptionChainPctChangeStore = signalStore(
           startSnapshot: null,
           targetSnapshots: {},
           underlyingPrices: {},
+          error: null,
+          loading: false,
         });
+      },
+
+      /** Deselect the current saved config (clears selectedConfigId only). */
+      deselectConfig(): void {
+        patchState(store, { selectedConfigId: null });
       },
 
       /** Build a config doc from current state and save it via the service. */
       saveCurrentConfig(): void {
+        if (!store.canRun()) {
+          patchState(store, { error: 'Cannot save config: symbol, startDate, and at least one target date are required' });
+          return;
+        }
         const symbol = store.symbol().trim().toUpperCase();
         const startDate = store.startDate().trim();
         const targetDates = store.targetDates();
@@ -419,7 +454,7 @@ export const OptionChainPctChangeStore = signalStore(
           intervalDays: store.intervalDays(),
           filter: store.filter(),
         };
-        configService.saveConfig(doc).subscribe({
+        configService.saveConfig(doc).pipe(take(1)).subscribe({
           next: () => {
             const existing = store.savedConfigs().filter((c) => c.id !== id);
             patchState(store, { savedConfigs: [...existing, doc], selectedConfigId: id });
@@ -433,7 +468,7 @@ export const OptionChainPctChangeStore = signalStore(
 
       /** Delete a saved config by id via the service and remove from state. */
       deleteConfig(configId: string): void {
-        configService.deleteConfig(configId).subscribe({
+        configService.deleteConfig(configId).pipe(take(1)).subscribe({
           next: () => {
             const remaining = store.savedConfigs().filter((c) => c.id !== configId);
             const selected = store.selectedConfigId();
@@ -445,6 +480,60 @@ export const OptionChainPctChangeStore = signalStore(
           error: (err: unknown) => {
             const msg = err instanceof Error ? err.message : String(err);
             patchState(store, { error: `Failed to delete config: ${msg}` });
+          },
+        });
+      },
+
+      /**
+       * Resolve pct-change target dates from daily bars.
+       * Fetches bars, finds the start price, builds percentages, and
+       * calls resolvePctChangeTargets. Patches resolved dates into targetDates.
+       */
+      resolvePctChangeTargets(request: {
+        mode: PctMode;
+        values: number[];
+        step?: number;
+        count?: number;
+        direction?: PctDirection;
+      }): void {
+        const symbol = store.symbol().trim().toUpperCase();
+        const startDate = store.startDate().trim();
+        if (!symbol || !startDate) {
+          patchState(store, { error: 'Symbol and start date are required to resolve pct-change targets' });
+          return;
+        }
+
+        // Build percentages from the request using the pure utility.
+        const percentages = buildPercentages(
+          request.mode,
+          request.values,
+          request.step,
+          request.count,
+          request.direction,
+        );
+        if (percentages.length === 0) return;
+
+        // Cancel any in-flight resolution before starting a new one.
+        resolveSub?.unsubscribe();
+
+        // Fetch bars covering ~1 year forward from startDate for resolution.
+        const toDate = computeForwardEndDate(startDate);
+        resolveSub = barReadService.getDailyBarsForRange$(symbol, startDate, toDate).subscribe({
+          next: (bars) => {
+            const startBar = [...bars].sort((a, b) => a.d.localeCompare(b.d)).find((b) => b.d >= startDate);
+            if (!startBar) {
+              patchState(store, { error: 'No bar data available for the start date' });
+              resolveSub = null;
+              return;
+            }
+            const resolved = resolvePctChangeDatesFromBars(bars, startDate, startBar.c, percentages);
+            patchState(store, { targetDates: resolved, error: null });
+            resolveSub = null;
+          },
+          error: (err: unknown) => {
+            const msg = err instanceof Error ? err.message : String(err);
+            patchState(store, { error: `Failed to fetch bars for pct-change resolution: ${msg}` });
+            resolveSub = null;
           },
         });
       },
