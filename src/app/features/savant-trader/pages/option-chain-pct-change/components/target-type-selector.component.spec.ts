@@ -33,7 +33,7 @@ describe('TargetTypeSelectorComponent', () => {
     });
 
     it('defaults to pct-change target type', () => {
-      expect(component.targetType()).toBe('pct-change');
+      expect(component.targetTypeSig()).toBe('pct-change');
     });
 
     it('emits targetTypeChange when a button is clicked', () => {
@@ -43,7 +43,7 @@ describe('TargetTypeSelectorComponent', () => {
       buttons[1].nativeElement.click(); // Swing Extremes
       fixture.detectChanges();
       expect(emitted).toEqual(['swing-extremes']);
-      expect(component.targetType()).toBe('swing-extremes');
+      expect(component.targetTypeSig()).toBe('swing-extremes');
     });
 
     it('marks the active button', () => {
@@ -68,14 +68,14 @@ describe('TargetTypeSelectorComponent', () => {
     });
 
     it('defaults to list mode', () => {
-      expect(component.pctMode()).toBe('list');
+      expect(component.pctModeSig()).toBe('list');
     });
 
     it('switches to gradation mode', () => {
       const gradationBtn = fixture.debugElement.query(By.css('[data-testid="pct-mode-gradation"]'));
       gradationBtn.nativeElement.click();
       fixture.detectChanges();
-      expect(component.pctMode()).toBe('gradation');
+      expect(component.pctModeSig()).toBe('gradation');
     });
 
     it('shows pct values input in list mode', () => {
@@ -182,7 +182,7 @@ describe('TargetTypeSelectorComponent', () => {
     });
 
     it('defaults to manual mode', () => {
-      expect(component.userDatesMode()).toBe('manual');
+      expect(component.userDatesModeSig()).toBe('manual');
     });
 
     it('shows manual date input + Add button in manual mode', () => {
@@ -257,7 +257,7 @@ describe('TargetTypeSelectorComponent', () => {
 
   describe('editable target dates', () => {
     it('renders the current target dates as editable inputs', () => {
-      component.targetDates = ['2025-04-10', '2025-04-15'];
+      fixture.componentRef.setInput('targetDates', ['2025-04-10', '2025-04-15']);
       fixture.detectChanges();
       const dateInputs = fixture.debugElement.queryAll(By.css('[data-testid^="target-date-input-"]'));
       expect(dateInputs.length).toBe(2);
@@ -266,7 +266,7 @@ describe('TargetTypeSelectorComponent', () => {
     it('emits targetDatesChange when a date is edited', () => {
       const emitted: string[][] = [];
       component.targetDatesChange.subscribe((d: string[]) => emitted.push(d));
-      component.targetDates = ['2025-04-10'];
+      fixture.componentRef.setInput('targetDates', ['2025-04-10']);
       fixture.detectChanges();
       const input = fixture.debugElement.query(By.css('[data-testid="target-date-input-0"]'));
       input.nativeElement.value = '2025-04-12';
@@ -279,7 +279,7 @@ describe('TargetTypeSelectorComponent', () => {
     it('allows removing a target date', () => {
       const emitted: string[][] = [];
       component.targetDatesChange.subscribe((d: string[]) => emitted.push(d));
-      component.targetDates = ['2025-04-10', '2025-04-15'];
+      fixture.componentRef.setInput('targetDates', ['2025-04-10', '2025-04-15']);
       fixture.detectChanges();
       const removeBtn = fixture.debugElement.query(By.css('[data-testid="remove-target-date-0"]'));
       removeBtn.nativeElement.click();

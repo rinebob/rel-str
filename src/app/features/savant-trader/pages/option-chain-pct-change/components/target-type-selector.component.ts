@@ -27,6 +27,27 @@ export interface ResolvePctChangeRequest {
   direction?: PctDirection;
 }
 
+/** Payload emitted when pct-change sub-mode params change. */
+export interface PctParamsChange {
+  mode: PctMode;
+  values: number[];
+  step: number;
+  count: number;
+  direction: PctDirection;
+}
+
+/** Payload emitted when user-dates interval params change. */
+export interface IntervalParamsChange {
+  count: number;
+  intervalDays: number;
+}
+
+/** Parse a positive number from an input event. Returns null if invalid. */
+function parsePositiveNumber(event: Event): number | null {
+  const v = Number((event.target as HTMLInputElement).value);
+  return Number.isFinite(v) && v > 0 ? v : null;
+}
+
 @Component({
   selector: 'app-target-type-selector',
   standalone: true,
@@ -40,7 +61,7 @@ export interface ResolvePctChangeRequest {
           <button
             type="button"
             mat-stroked-button
-            [class.active]="targetType() === opt.value"
+            [class.active]="targetTypeSig() === opt.value"
             [attr.data-testid]="'target-type-btn-' + opt.value"
             (click)="selectTargetType(opt.value)"
           >
@@ -50,13 +71,13 @@ export interface ResolvePctChangeRequest {
       </div>
 
       <!-- Pct Change mode -->
-      @if (targetType() === 'pct-change') {
+      @if (targetTypeSig() === 'pct-change') {
         <div class="sub-mode">
           <div class="mode-toggle" data-testid="pct-mode-toggle">
             <button
               type="button"
               mat-stroked-button
-              [class.active]="pctMode() === 'list'"
+              [class.active]="pctModeSig() === 'list'"
               data-testid="pct-mode-list"
               (click)="selectPctMode('list')"
             >
@@ -65,7 +86,7 @@ export interface ResolvePctChangeRequest {
             <button
               type="button"
               mat-stroked-button
-              [class.active]="pctMode() === 'gradation'"
+              [class.active]="pctModeSig() === 'gradation'"
               data-testid="pct-mode-gradation"
               (click)="selectPctMode('gradation')"
             >
@@ -73,13 +94,13 @@ export interface ResolvePctChangeRequest {
             </button>
           </div>
 
-          @if (pctMode() === 'list') {
+          @if (pctModeSig() === 'list') {
             <div class="form-group">
               <label for="pct-values">Percentages (comma-separated)</label>
               <input
                 id="pct-values"
                 type="text"
-                [value]="pctValuesInput()"
+                [value]="pctValuesInputSig()"
                 data-testid="pct-values-input"
                 (change)="onPctValuesInput($event)"
                 placeholder="-3, 5, 10"
@@ -91,7 +112,7 @@ export interface ResolvePctChangeRequest {
               <input
                 id="pct-step"
                 type="number"
-                [value]="pctStep()"
+                [value]="pctStepSig()"
                 data-testid="pct-step-input"
                 (change)="onPctStepInput($event)"
               />
@@ -101,7 +122,7 @@ export interface ResolvePctChangeRequest {
               <input
                 id="pct-count"
                 type="number"
-                [value]="pctCount()"
+                [value]="pctCountSig()"
                 data-testid="pct-count-input"
                 (change)="onPctCountInput($event)"
               />
@@ -110,7 +131,7 @@ export interface ResolvePctChangeRequest {
               <label for="pct-direction">Direction</label>
               <select
                 id="pct-direction"
-                [value]="pctDirection()"
+                [value]="pctDirectionSig()"
                 data-testid="pct-direction-input"
                 (change)="onPctDirectionInput($event)"
               >
@@ -132,7 +153,7 @@ export interface ResolvePctChangeRequest {
       }
 
       <!-- Swing Extremes mode -->
-      @if (targetType() === 'swing-extremes') {
+      @if (targetTypeSig() === 'swing-extremes') {
         <div class="sub-mode">
           <div class="form-group">
             <label for="swing-count">Swing Count</label>
@@ -185,13 +206,13 @@ export interface ResolvePctChangeRequest {
       }
 
       <!-- User Dates mode -->
-      @if (targetType() === 'user-dates') {
+      @if (targetTypeSig() === 'user-dates') {
         <div class="sub-mode">
           <div class="mode-toggle" data-testid="user-dates-mode-toggle">
             <button
               type="button"
               mat-stroked-button
-              [class.active]="userDatesMode() === 'manual'"
+              [class.active]="userDatesModeSig() === 'manual'"
               data-testid="user-dates-mode-manual"
               (click)="selectUserDatesMode('manual')"
             >
@@ -200,7 +221,7 @@ export interface ResolvePctChangeRequest {
             <button
               type="button"
               mat-stroked-button
-              [class.active]="userDatesMode() === 'interval'"
+              [class.active]="userDatesModeSig() === 'interval'"
               data-testid="user-dates-mode-interval"
               (click)="selectUserDatesMode('interval')"
             >
@@ -208,7 +229,7 @@ export interface ResolvePctChangeRequest {
             </button>
           </div>
 
-          @if (userDatesMode() === 'manual') {
+          @if (userDatesModeSig() === 'manual') {
             <div class="add-date-row">
               <input
                 #newDate
@@ -230,7 +251,7 @@ export interface ResolvePctChangeRequest {
               <input
                 id="interval-count"
                 type="number"
-                [value]="intervalCount()"
+                [value]="intervalCountSig()"
                 data-testid="interval-count-input"
                 (change)="onIntervalCountInput($event)"
               />
@@ -240,7 +261,7 @@ export interface ResolvePctChangeRequest {
               <input
                 id="interval-days"
                 type="number"
-                [value]="intervalDays()"
+                [value]="intervalDaysSig()"
                 data-testid="interval-days-input"
                 (change)="onIntervalDaysInput($event)"
               />
@@ -258,10 +279,10 @@ export interface ResolvePctChangeRequest {
       }
 
       <!-- Editable target dates -->
-      @if (targetDatesSignal().length > 0) {
+      @if (targetDatesSig().length > 0) {
         <div class="target-dates-list">
           <label>Target Dates</label>
-          @for (dt of targetDatesSignal(); track $index) {
+          @for (dt of targetDatesSig(); track $index) {
             <div class="target-date-row">
               <input
                 type="date"
@@ -392,39 +413,57 @@ export interface ResolvePctChangeRequest {
 export class TargetTypeSelectorComponent implements OnChanges {
   // Inputs (mirrored to signals for OnPush reactivity)
   @Input() startDate = '';
-  @Input() set targetDates(value: string[]) {
-    this._targetDates.set(value ?? []);
-  }
-  get targetDates(): string[] {
-    return this._targetDates();
-  }
+  @Input() targetDates: string[] = [];
+
+  // Config-driven inputs — allow the parent to restore a saved config's
+  // sub-mode state into the selector UI.
+  @Input() targetType: TargetType = 'pct-change';
+  @Input() pctMode: PctMode = 'list';
+  @Input() pctValues: number[] = [];
+  @Input() pctStep = 5;
+  @Input() pctCount = 4;
+  @Input() pctDirection: PctDirection = 'up';
+  @Input() userDatesMode: UserDatesMode = 'manual';
+  @Input() intervalCount = 5;
+  @Input() intervalDays = 5;
 
   @Output() targetTypeChange = new EventEmitter<TargetType>();
   @Output() targetDatesChange = new EventEmitter<string[]>();
   @Output() resolvePctChangeRequest = new EventEmitter<ResolvePctChangeRequest>();
+  @Output() pctModeChange = new EventEmitter<PctMode>();
+  @Output() pctParamsChange = new EventEmitter<PctParamsChange>();
+  @Output() userDatesModeChange = new EventEmitter<UserDatesMode>();
+  @Output() intervalParamsChange = new EventEmitter<IntervalParamsChange>();
 
-  // Internal signals
-  readonly targetType = signal<TargetType>('pct-change');
-  readonly pctMode = signal<PctMode>('list');
-  readonly userDatesMode = signal<UserDatesMode>('manual');
+  // Internal signals (writable — driven by ngOnChanges and user interaction)
+  private readonly _targetType = signal<TargetType>('pct-change');
+  private readonly _pctMode = signal<PctMode>('list');
+  private readonly _userDatesMode = signal<UserDatesMode>('manual');
   private readonly _targetDates = signal<string[]>([]);
-  readonly targetDatesSignal = this._targetDates.asReadonly();
-
-  // Pct-change inputs
-  readonly pctValuesInput = signal('-3, 5, 10');
-  readonly pctStep = signal(5);
-  readonly pctCount = signal(4);
-  readonly pctDirection = signal<PctDirection>('up');
-
-  // User-dates interval inputs
-  readonly intervalCount = signal(5);
-  readonly intervalDays = signal(5);
+  private readonly _pctValuesInput = signal('');
+  private readonly _pctStep = signal(5);
+  private readonly _pctCount = signal(4);
+  private readonly _pctDirection = signal<PctDirection>('up');
+  private readonly _intervalCount = signal(5);
+  private readonly _intervalDays = signal(5);
 
   // Swing-extremes inputs (disabled — coming soon)
   readonly swingCount = signal(3);
   readonly swingDeviation = signal(5);
   readonly swingDepth = signal(5);
   readonly swingBackstep = signal(5);
+
+  // Read-only views for the template
+  readonly targetTypeSig = this._targetType.asReadonly();
+  readonly pctModeSig = this._pctMode.asReadonly();
+  readonly userDatesModeSig = this._userDatesMode.asReadonly();
+  readonly targetDatesSig = this._targetDates.asReadonly();
+  readonly pctValuesInputSig = this._pctValuesInput.asReadonly();
+  readonly pctStepSig = this._pctStep.asReadonly();
+  readonly pctCountSig = this._pctCount.asReadonly();
+  readonly pctDirectionSig = this._pctDirection.asReadonly();
+  readonly intervalCountSig = this._intervalCount.asReadonly();
+  readonly intervalDaysSig = this._intervalDays.asReadonly();
 
   /** Options for the segmented target type button group. */
   readonly targetTypeOptions: ReadonlyArray<{ value: TargetType; label: string }> = [
@@ -433,8 +472,51 @@ export class TargetTypeSelectorComponent implements OnChanges {
     { value: 'user-dates', label: 'User Dates' },
   ];
 
-  ngOnChanges(_changes: SimpleChanges): void {
-    // Inputs are mirrored via setters; no additional sync needed.
+  ngOnChanges(changes: SimpleChanges): void {
+    // Use presence checks (`changes['x']`) consistently — truthy checks
+    // silently drop falsy-but-valid values like empty arrays or 0.
+    if (changes['targetDates']) {
+      const incoming = changes['targetDates'].currentValue as string[] | undefined;
+      // Don't echo back if value-equal — avoids clobbering user edits.
+      if (incoming && JSON.stringify(incoming) !== JSON.stringify(this._targetDates())) {
+        this._targetDates.set(incoming);
+      }
+    }
+    if (changes['targetType']) {
+      this._targetType.set(changes['targetType'].currentValue);
+    }
+    if (changes['pctMode']) {
+      this._pctMode.set(changes['pctMode'].currentValue);
+    }
+    if (changes['pctValues']) {
+      // Only reformat the text input on external changes (e.g. config load),
+      // not when the store echoes back our own emitted values.
+      const incoming = changes['pctValues'].currentValue as number[] | undefined;
+      if (incoming) {
+        const formatted = incoming.join(', ');
+        if (formatted !== this._pctValuesInput()) {
+          this._pctValuesInput.set(formatted);
+        }
+      }
+    }
+    if (changes['pctStep']) {
+      this._pctStep.set(changes['pctStep'].currentValue);
+    }
+    if (changes['pctCount']) {
+      this._pctCount.set(changes['pctCount'].currentValue);
+    }
+    if (changes['pctDirection']) {
+      this._pctDirection.set(changes['pctDirection'].currentValue);
+    }
+    if (changes['userDatesMode']) {
+      this._userDatesMode.set(changes['userDatesMode'].currentValue);
+    }
+    if (changes['intervalCount']) {
+      this._intervalCount.set(changes['intervalCount'].currentValue);
+    }
+    if (changes['intervalDays']) {
+      this._intervalDays.set(changes['intervalDays'].currentValue);
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -442,7 +524,7 @@ export class TargetTypeSelectorComponent implements OnChanges {
   // -------------------------------------------------------------------------
 
   selectTargetType(type: TargetType): void {
-    this.targetType.set(type);
+    this._targetType.set(type);
     this.targetTypeChange.emit(type);
   }
 
@@ -451,38 +533,60 @@ export class TargetTypeSelectorComponent implements OnChanges {
   // -------------------------------------------------------------------------
 
   selectPctMode(mode: PctMode): void {
-    this.pctMode.set(mode);
+    this._pctMode.set(mode);
+    this.pctModeChange.emit(mode);
   }
 
   onPctValuesInput(event: Event): void {
-    this.pctValuesInput.set((event.target as HTMLInputElement).value);
+    this._pctValuesInput.set((event.target as HTMLInputElement).value);
+    this.emitPctParamsChange();
   }
 
   onPctStepInput(event: Event): void {
-    const v = Number((event.target as HTMLInputElement).value);
-    if (Number.isFinite(v) && v > 0) this.pctStep.set(v);
+    const v = parsePositiveNumber(event);
+    if (v !== null) {
+      this._pctStep.set(v);
+      this.emitPctParamsChange();
+    }
   }
 
   onPctCountInput(event: Event): void {
-    const v = Number((event.target as HTMLInputElement).value);
-    if (Number.isFinite(v) && v > 0) this.pctCount.set(v);
+    const v = parsePositiveNumber(event);
+    if (v !== null) {
+      this._pctCount.set(v);
+      this.emitPctParamsChange();
+    }
   }
 
   onPctDirectionInput(event: Event): void {
     const v = (event.target as HTMLSelectElement).value as PctDirection;
-    if (v === 'up' || v === 'down') this.pctDirection.set(v);
+    if (v === 'up' || v === 'down') {
+      this._pctDirection.set(v);
+      this.emitPctParamsChange();
+    }
+  }
+
+  /** Emit the current pct-change params so the parent store can persist them. */
+  private emitPctParamsChange(): void {
+    this.pctParamsChange.emit({
+      mode: this._pctMode(),
+      values: this.parsePctValues(this._pctValuesInput()),
+      step: this._pctStep(),
+      count: this._pctCount(),
+      direction: this._pctDirection(),
+    });
   }
 
   /** Parse pct values and emit a resolve request for the store to fulfill. */
   resolvePctChange(): void {
-    if (this.pctMode() === 'list') {
-      const values = this.parsePctValues(this.pctValuesInput());
+    if (this._pctMode() === 'list') {
+      const values = this.parsePctValues(this._pctValuesInput());
       if (values.length === 0) return;
       this.resolvePctChangeRequest.emit({ mode: 'list', values });
     } else {
-      const step = this.pctStep();
-      const count = this.pctCount();
-      const direction = this.pctDirection();
+      const step = this._pctStep();
+      const count = this._pctCount();
+      const direction = this._pctDirection();
       if (step <= 0 || count <= 0) return;
       this.resolvePctChangeRequest.emit({ mode: 'gradation', values: [], step, count, direction });
     }
@@ -503,23 +607,23 @@ export class TargetTypeSelectorComponent implements OnChanges {
   // -------------------------------------------------------------------------
 
   onSwingCountInput(event: Event): void {
-    const v = Number((event.target as HTMLInputElement).value);
-    if (Number.isFinite(v) && v > 0) this.swingCount.set(v);
+    const v = parsePositiveNumber(event);
+    if (v !== null) this.swingCount.set(v);
   }
 
   onSwingDeviationInput(event: Event): void {
-    const v = Number((event.target as HTMLInputElement).value);
-    if (Number.isFinite(v) && v > 0) this.swingDeviation.set(v);
+    const v = parsePositiveNumber(event);
+    if (v !== null) this.swingDeviation.set(v);
   }
 
   onSwingDepthInput(event: Event): void {
-    const v = Number((event.target as HTMLInputElement).value);
-    if (Number.isFinite(v) && v > 0) this.swingDepth.set(v);
+    const v = parsePositiveNumber(event);
+    if (v !== null) this.swingDepth.set(v);
   }
 
   onSwingBackstepInput(event: Event): void {
-    const v = Number((event.target as HTMLInputElement).value);
-    if (Number.isFinite(v) && v > 0) this.swingBackstep.set(v);
+    const v = parsePositiveNumber(event);
+    if (v !== null) this.swingBackstep.set(v);
   }
 
   // -------------------------------------------------------------------------
@@ -527,17 +631,32 @@ export class TargetTypeSelectorComponent implements OnChanges {
   // -------------------------------------------------------------------------
 
   selectUserDatesMode(mode: UserDatesMode): void {
-    this.userDatesMode.set(mode);
+    this._userDatesMode.set(mode);
+    this.userDatesModeChange.emit(mode);
   }
 
   onIntervalCountInput(event: Event): void {
-    const v = Number((event.target as HTMLInputElement).value);
-    if (Number.isFinite(v) && v > 0) this.intervalCount.set(v);
+    const v = parsePositiveNumber(event);
+    if (v !== null) {
+      this._intervalCount.set(v);
+      this.emitIntervalParamsChange();
+    }
   }
 
   onIntervalDaysInput(event: Event): void {
-    const v = Number((event.target as HTMLInputElement).value);
-    if (Number.isFinite(v) && v > 0) this.intervalDays.set(v);
+    const v = parsePositiveNumber(event);
+    if (v !== null) {
+      this._intervalDays.set(v);
+      this.emitIntervalParamsChange();
+    }
+  }
+
+  /** Emit the current interval params so the parent store can persist them. */
+  private emitIntervalParamsChange(): void {
+    this.intervalParamsChange.emit({
+      count: this._intervalCount(),
+      intervalDays: this._intervalDays(),
+    });
   }
 
   /** Generate interval dates from the start date input. */
@@ -545,8 +664,8 @@ export class TargetTypeSelectorComponent implements OnChanges {
     if (!this.startDate) return;
     const dates = generateIntervalDates(
       this.startDate,
-      this.intervalCount(),
-      this.intervalDays(),
+      this._intervalCount(),
+      this._intervalDays(),
     );
     this._targetDates.set(dates);
     this.targetDatesChange.emit(dates);
@@ -568,10 +687,15 @@ export class TargetTypeSelectorComponent implements OnChanges {
 
   onTargetDateInput(index: number, event: Event): void {
     const value = (event.target as HTMLInputElement).value;
+    // Update local signal immediately for responsive UI, but only emit
+    // non-empty values to the store — the store filters empties, which
+    // would cause the row to disappear mid-edit via the round-trip.
     const dates = [...this._targetDates()];
     dates[index] = value;
     this._targetDates.set(dates);
-    this.targetDatesChange.emit(dates);
+    if (value) {
+      this.targetDatesChange.emit(dates);
+    }
   }
 
   removeTargetDate(index: number): void {
