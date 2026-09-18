@@ -141,23 +141,37 @@ No store injection — takes all data via inputs.
   - `mat-icon` with `show_chart` icon, ~8px, `opacity: 0.3` at rest,
     `opacity: 1` on cell hover
   - The icon element is the `cdkOverlayOrigin` anchor
-  - `(mouseenter)` → `store.previewContract(cell.contractID, grid().targetDate)`
-  - `(mouseleave)` → `store.clearContractSelection()` (only if not pinned)
-  - `(click)` → `store.pinContract(cell.contractID, grid().targetDate)`
+  - `(mouseenter)` → `store.previewContract(cell, grid().targetDate)`
+    (as-built: methods take `ContractCellRef` = contractID+strike+expiration)
+  - `(mouseleave)` → schedule `store.clearContractSelection()` after a
+    ~200ms grace delay unless pinned OR the pointer moved straight into
+    the chart pane. The delay covers the overlay's async attach and the
+    few px between icon and pane (PRD's "small grace delay"); it's
+    cancelled by entering the pane or any icon.
+  - `(click)` → `store.pinContract(cell, grid().targetDate)` +
+    `stopPropagation()` (so the page's outside-click dismissal doesn't
+    immediately close the just-pinned overlay)
+  - Overlay `(mouseenter)` → cancel pending clear;
+    `(mouseleave)` → schedule clear unless pinned
 - Add a `cdkConnectedOverlay` template bound to the icon origin,
-  containing `<app-contract-mini-chart>`. Shown only when
-  `store.selectedCell()?.contractID === cell.contractID &&
-  store.selectedCell()?.targetDate === grid().targetDate`.
-- The grid injects the store (it already does for reading grid data) —
-  this is event emission, not data assembly.
+  containing `<app-contract-mini-chart>`. Shown only when the store's
+  selectedCell matches the cell's contractID+strike+expiration AND the
+  grid's targetDate.
+- The pane is tagged `cdkConnectedOverlayPanelClass="contract-chart-pane"`
+  so leave/click guards can distinguish it from other CDK panes
+  (dialogs, selects, tooltips).
+- The grid injects the store — this is event emission, not data assembly.
+- Scroll strategy: `repositionScrollStrategy` so the popup tracks its
+  cell while the grid scrolls.
 
 ### 5. Page integration
 
 **File:** `src/app/features/savant-trader/pages/option-chain-pct-change/option-chain-pct-change.component.ts` (minimal)
 
-- Add a `(document:click)` listener (or use CDK overlay's backdrop
-  click) to call `store.clearContractSelection()` when the click is
-  outside a pinned overlay.
+- Add a `(document:click)` `@HostListener` calling
+  `store.clearContractSelection()` when the click lands outside
+  `.contract-chart-pane` — clicks inside other CDK panes (dialogs,
+  selects) count as outside and dismiss the popup.
 - No other page changes needed — the grid handles everything.
 
 ## Dependencies
