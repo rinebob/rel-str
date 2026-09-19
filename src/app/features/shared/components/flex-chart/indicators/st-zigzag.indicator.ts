@@ -14,7 +14,7 @@
 
 import type { IndicatorOption, IndicatorCalculator, PriceBar } from '../flex-chart.types';
 import { StIndicator } from '../flex-chart.types';
-import { computeZigZagPivots, DEFAULT_CONFIG } from './st-zigzag.engine';
+import { computeZigZagPivots, computeTriggerPoints, DEFAULT_CONFIG } from './st-zigzag.engine';
 import type { ZigZagConfig, Pivot } from './st-zigzag.engine';
 
 // =============================================================================
@@ -34,6 +34,7 @@ export const ST_ZIGZAG_INDICATOR: IndicatorOption = {
     { key: 'allowZigZagOnOneBar', label: 'Allow on One Bar', default: DEFAULT_CONFIG.allowZigZagOnOneBar },
     { key: 'projectionPivots', label: 'Projection Pivots', default: DEFAULT_CONFIG.projectionPivots },
     { key: 'lineColor', label: 'Line Color', default: DEFAULT_CONFIG.lineColor },
+    { key: 'showTriggerDots', label: 'Trigger Dots', default: true },
   ],
 };
 
@@ -57,12 +58,25 @@ export interface ZigZagLineSeries {
   data: { index: number; y: number }[];
 }
 
+/** Scatter series of reversal-trigger dots — one dot per pivot at the
+ *  bar where price first crossed the deviation threshold. */
+export interface ZigZagTriggerSeries {
+  /** Unique key for this series. */
+  key: string;
+  /** Display name for legend/tooltip. */
+  name: string;
+  /** Scatter points: trigger bar index, threshold price level, series color. */
+  data: { index: number; y: number; color: string }[];
+}
+
 /** Complete chart-ready output for the ZigZag indicator. */
 export interface ZigZagChartSeries {
   /** Solid line segments connecting confirmed pivots. */
   lines: ZigZagLineSeries[];
   /** Dashed line from last confirmed pivot to projected pivot (undefined if no projection). */
   projectedLine?: ZigZagLineSeries;
+  /** Reversal-trigger dots on the bars that crossed the deviation threshold. */
+  triggers?: ZigZagTriggerSeries;
 }
 
 // =============================================================================
@@ -85,6 +99,7 @@ function extractConfig(params: Record<string, number | string | boolean>): ZigZa
     allowZigZagOnOneBar: toBool(params['allowZigZagOnOneBar'], DEFAULT_CONFIG.allowZigZagOnOneBar),
     projectionPivots: toBool(params['projectionPivots'], DEFAULT_CONFIG.projectionPivots),
     lineColor: typeof params['lineColor'] === 'string' ? params['lineColor'] : DEFAULT_CONFIG.lineColor,
+    showTriggerDots: toBool(params['showTriggerDots'], true),
   };
 }
 
@@ -195,7 +210,22 @@ export function computeZigZagSeries(
     );
   }
 
-  return { lines, projectedLine };
+  // Reversal-trigger dots — one per pivot, on the bar that first crossed
+  // the deviation threshold (the bar that flipped the switch). Disabled
+  // via the showTriggerDots config flag.
+  const triggerPoints = config.showTriggerDots === false
+    ? []
+    : computeTriggerPoints(bars, pivots, config.devThreshold);
+  let triggers: ZigZagTriggerSeries | undefined;
+  if (triggerPoints.length > 0) {
+    triggers = {
+      key: `${prefix}zigzag-triggers`,
+      name: `${baseName} triggers`,
+      data: triggerPoints.map((t) => ({ index: t.barIndex, y: t.price, color: lineColor })),
+    };
+  }
+
+  return { lines, projectedLine, triggers };
 }
 
 /** Build a ZigZagLineSeries from two pivot endpoints. */

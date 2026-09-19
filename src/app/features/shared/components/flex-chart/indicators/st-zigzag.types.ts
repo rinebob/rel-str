@@ -21,6 +21,9 @@ export interface ZigZagConfig {
   projectionPivots: boolean;
   /** Line color for chart rendering (hex). Default '#1976d2'. */
   lineColor: string;
+  /** Show reversal-trigger dots on the bars that crossed the deviation
+   *  threshold. Optional — treated as true when unset. */
+  showTriggerDots?: boolean;
 }
 
 /** A single pivot point — a confirmed or projected local extreme. */

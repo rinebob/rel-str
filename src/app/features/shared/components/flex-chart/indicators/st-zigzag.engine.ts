@@ -12,6 +12,7 @@
  */
 
 export { computeZigZagPivots } from './st-zigzag.pivots';
+export { computeTriggerPoints, type TriggerPoint } from './st-zigzag.triggers';
 export { calcDev } from './st-zigzag.utils';
 export { deriveSwings } from './st-zigzag.swings';
 export { computeSwingStats } from './st-zigzag.stats';

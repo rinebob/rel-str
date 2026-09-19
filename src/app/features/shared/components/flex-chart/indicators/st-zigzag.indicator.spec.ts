@@ -47,10 +47,11 @@ describe('ST_ZIGZAG_INDICATOR', () => {
     expect(ST_ZIGZAG_INDICATOR.axisScale).toBe('price');
   });
 
-  it('has 6 params with correct keys and defaults matching DEFAULT_CONFIG', () => {
+  it('has 7 params with correct keys and defaults matching DEFAULT_CONFIG', () => {
     const keys = ST_ZIGZAG_INDICATOR.params.map(p => p.key);
     expect(keys).toEqual([
       'devThreshold', 'leftDepth', 'rightDepth', 'allowZigZagOnOneBar', 'projectionPivots', 'lineColor',
+      'showTriggerDots',
     ]);
 
     const byKey = Object.fromEntries(ST_ZIGZAG_INDICATOR.params.map(p => [p.key, p.default]));
@@ -60,6 +61,7 @@ describe('ST_ZIGZAG_INDICATOR', () => {
     expect(byKey['allowZigZagOnOneBar']).toBe(DEFAULT_CONFIG.allowZigZagOnOneBar);
     expect(byKey['projectionPivots']).toBe(DEFAULT_CONFIG.projectionPivots);
     expect(byKey['lineColor']).toBe(DEFAULT_CONFIG.lineColor);
+    expect(byKey['showTriggerDots']).toBe(true);
   });
 
   it('lineColor param is a string with default #1976d2', () => {
@@ -258,6 +260,37 @@ describe('computeZigZagSeries', () => {
     const result = computeZigZagSeries(bars, {});
     // With DEFAULT_CONFIG, should find the peak at bar 7
     expect(result.lines.length + (result.projectedLine ? 1 : 0)).toBeGreaterThanOrEqual(1);
+  });
+
+  it('emits a triggers scatter series by default', () => {
+    const prices: { o: number; h: number; l: number; c: number; v?: number }[] = [];
+    for (let i = 0; i < 5; i++) prices.push({ o: 10 + i * 10, h: 15 + i * 10, l: 5 + i * 10, c: 10 + i * 10, v: 1000 });
+    for (let i = 0; i < 5; i++) prices.push({ o: 45 - i * 10, h: 50 - i * 10, l: 40 - i * 10, c: 45 - i * 10, v: 1000 });
+    for (let i = 0; i < 5; i++) prices.push({ o: 10 + i * 10, h: 15 + i * 10, l: 5 + i * 10, c: 10 + i * 10, v: 1000 });
+    const bars = makeBars(prices);
+    const params = { devThreshold: 20, leftDepth: 2, rightDepth: 2, allowZigZagOnOneBar: true, projectionPivots: false, lineColor: '#abc' };
+    const result = computeZigZagSeries(bars, params);
+
+    expect(result.triggers).toBeDefined();
+    expect(result.triggers!.data.length).toBeGreaterThan(0);
+    for (const pt of result.triggers!.data) {
+      expect(typeof pt.index).toBe('number');
+      expect(typeof pt.y).toBe('number');
+      expect(pt.color).toBe('#abc');
+    }
+  });
+
+  it('omits the triggers series when showTriggerDots is false', () => {
+    const prices: { o: number; h: number; l: number; c: number; v?: number }[] = [];
+    for (let i = 0; i < 5; i++) prices.push({ o: 10 + i * 10, h: 15 + i * 10, l: 5 + i * 10, c: 10 + i * 10, v: 1000 });
+    for (let i = 0; i < 5; i++) prices.push({ o: 45 - i * 10, h: 50 - i * 10, l: 40 - i * 10, c: 45 - i * 10, v: 1000 });
+    for (let i = 0; i < 5; i++) prices.push({ o: 10 + i * 10, h: 15 + i * 10, l: 5 + i * 10, c: 10 + i * 10, v: 1000 });
+    const bars = makeBars(prices);
+    const params = { devThreshold: 20, leftDepth: 2, rightDepth: 2, allowZigZagOnOneBar: true, projectionPivots: false, showTriggerDots: false };
+    const result = computeZigZagSeries(bars, params);
+
+    expect(result.lines.length).toBeGreaterThanOrEqual(1); // lines still emitted
+    expect(result.triggers).toBeUndefined();
   });
 });
 

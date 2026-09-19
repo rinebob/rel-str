@@ -132,6 +132,21 @@
               [animation]="noAnimation">
             </e-series>
           }
+
+          <!-- Reversal-trigger dots on the bars that crossed the dev threshold -->
+          @if (zz.triggers; as trig) {
+            <e-series
+              [dataSource]="trig.data"
+              type="Scatter"
+              xName="index"
+              yName="y"
+              [name]="trig.name"
+              pointColorMapping="color"
+              [marker]="{ visible: true, shape: 'Circle', width: 6, height: 6 }"
+              [enableTooltip]="true"
+              [animation]="noAnimation">
+            </e-series>
+          }
         }
 
         <!-- Main pane indicators (overlay on price) -->
