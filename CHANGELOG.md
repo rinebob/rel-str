@@ -30,6 +30,8 @@
 - [Option Chain Pct Change Grid] 326-405_DOCS-OPTIONS: Add Task #405 review doc + IMPL sync
 - [Option Chain Pct Change Grid] 326-407_FE-IMPL-OPTIONS: Wire contract chart popup into the grid
 - [Option Chain Pct Change Grid] 326-407_DOCS-OPTIONS: Add Task #407 review doc + IMPL sync
+- [Option Chain Pct Change Grid] 326-412_FE-IMPL-OPTIONS: Fix chart popup overlay crash + per-point annotations
+- [Option Chain Pct Change Grid] 326-412_DOCS-OPTIONS: Add Task #412 code review doc
 - [Trading Indicator Library] 261-394_FE-IMPL-INDICATOR-LIB: Add nested tree swing table
 - [Trading Indicator Library] 261-394_DOCS-INDICATOR-LIB: Add review doc and update plan docs for Task #394 ship
 - [Trading Indicator Library] 261-395_FE-IMPL-INDICATOR-LIB: Add stats panel large/small/all toggle

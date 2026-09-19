@@ -88,13 +88,17 @@ describe('ContractMiniChartComponent', () => {
     expect(legend).toContain('Delta');
   });
 
-  it('annotates start and end values on each series', () => {
+  it('annotates every data point on each series', () => {
     const fixture = setupComponent();
     const annotations = els(fixture, '.value-annotation').map((t) => text(t));
-    // Price series: start 10, end 20. Delta series: start 0.50, end 0.70.
+    // Price verts: 10, 15, 20 → 3 labels; delta verts: 0.50, 0.60, 0.70 → 3.
+    expect(els(fixture, '.price-annot').length).toBe(3);
+    expect(els(fixture, '.delta-annot').length).toBe(3);
     expect(annotations).toContain('10.00');
+    expect(annotations).toContain('15.00');
     expect(annotations).toContain('20.00');
     expect(annotations).toContain('0.50');
+    expect(annotations).toContain('0.60');
     expect(annotations).toContain('0.70');
   });
 

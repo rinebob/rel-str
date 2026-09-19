@@ -357,9 +357,38 @@ describe('PctChangeGridComponent', () => {
 
     it('does not show the overlay when the selection targets a different grid', () => {
       const { fixture } = setupComponent();
-      store.previewContract(makeCell(), '2024-03-15'); // different targetDate
+      // Anchor the shared overlay via a real icon hover (this grid's date),
+      // then replace the selection with a foreign targetDate — the pane
+      // must close because sel.targetDate no longer matches this grid.
+      iconOf(fixture).dispatchEvent(new MouseEvent('mouseenter'));
+      fixture.detectChanges();
+      expect(overlayChart()).toBeTruthy();
+      store.previewContract(makeCell(), '2024-03-15');
       fixture.detectChanges();
       expect(overlayChart()).toBeNull();
+    });
+
+    it('uses a single shared overlay — at most one pane exists regardless of cell count', () => {
+      const cells = new Map<string, PctChangeCell>();
+      cells.set(cellKey(100, '2024-03-15'), makeCell());
+      cells.set(cellKey(110, '2024-03-15'), makeCell({ contractID: 'B', strike: 110 }));
+      cells.set(cellKey(100, '2024-04-19'), makeCell({ contractID: 'C', expiration: '2024-04-19' }));
+      cells.set(cellKey(110, '2024-04-19'), makeCell({ contractID: 'D', strike: 110, expiration: '2024-04-19' }));
+      const grid = makeGrid({
+        strikes: [100, 110],
+        expirations: ['2024-03-15', '2024-04-19'],
+        cells,
+      });
+      const { fixture } = setupComponent(grid);
+      const icons = fixture.nativeElement.querySelectorAll('.chart-icon-btn') as NodeListOf<HTMLElement>;
+      expect(icons.length).toBe(4);
+      icons[0].dispatchEvent(new MouseEvent('mouseenter'));
+      fixture.detectChanges();
+      // One overlay per grid — re-anchored, never multiplied per cell.
+      expect(document.querySelectorAll('.contract-chart-pane').length).toBe(1);
+      icons[1].dispatchEvent(new MouseEvent('mouseenter'));
+      fixture.detectChanges();
+      expect(document.querySelectorAll('.contract-chart-pane').length).toBe(1);
     });
 
     it('leaving the overlay clears a non-pinned selection after the grace delay', fakeAsync(() => {

@@ -9,7 +9,7 @@
  * Follows the existing heatmap-chart-heatmap.component pattern (divs with
  * [style.background-color]).
  */
-import { Component, input, computed, inject, ChangeDetectionStrategy, OnDestroy } from '@angular/core';
+import { Component, input, computed, inject, signal, effect, ChangeDetectionStrategy, OnDestroy } from '@angular/core';
 import { CdkConnectedOverlay, CdkOverlayOrigin, Overlay, type ConnectedPosition } from '@angular/cdk/overlay';
 import { MatIconModule } from '@angular/material/icon';
 
@@ -82,30 +82,12 @@ interface GridRow {
                     cdkOverlayOrigin
                     #cellIcon="cdkOverlayOrigin"
                     aria-label="Show contract price/delta chart"
-                    (mouseenter)="onIconEnter(cell)"
+                    (mouseenter)="onIconEnter(cell, cellIcon)"
                     (mouseleave)="onIconLeave($event)"
-                    (click)="onIconClick($event, cell)"
+                    (click)="onIconClick($event, cell, cellIcon)"
                   >
                     <mat-icon>show_chart</mat-icon>
                   </button>
-                  <ng-template
-                    cdkConnectedOverlay
-                    [cdkConnectedOverlayOrigin]="cellIcon"
-                    [cdkConnectedOverlayOpen]="isSelected(cell)"
-                    [cdkConnectedOverlayPositions]="overlayPositions"
-                    [cdkConnectedOverlayScrollStrategy]="scrollStrategy"
-                    [cdkConnectedOverlayPanelClass]="'contract-chart-pane'"
-                  >
-                    <app-contract-mini-chart
-                      [contractID]="cell.contractID"
-                      [strike]="cell.strike"
-                      [expiration]="cell.expiration"
-                      [type]="store.type()"
-                      [series]="store.selectedContractSeries()"
-                      (mouseenter)="onOverlayEnter()"
-                      (mouseleave)="onOverlayLeave()"
-                    />
-                  </ng-template>
                 </div>
               } @else {
                 <div class="grid-cell empty-cell" title="No contract at this strike/expiration"></div>
@@ -114,6 +96,32 @@ interface GridRow {
           }
         </div>
       </div>
+    }
+    <!-- One overlay per grid (not per cell — an OverlayRef per cell would
+         create thousands of position strategies on large grids). It re-
+         anchors to whichever icon last opened it. Deferred by @if so the
+         overlay is never built with a null origin. -->
+    @if (activeOrigin(); as origin) {
+      <ng-template
+        cdkConnectedOverlay
+        [cdkConnectedOverlayOrigin]="origin"
+        [cdkConnectedOverlayOpen]="overlayOpen()"
+        [cdkConnectedOverlayPositions]="overlayPositions"
+        [cdkConnectedOverlayScrollStrategy]="scrollStrategy"
+        [cdkConnectedOverlayPanelClass]="CHART_PANE_CLASS"
+      >
+        @if (overlayCell(); as oc) {
+          <app-contract-mini-chart
+            [contractID]="oc.contractID"
+            [strike]="oc.strike"
+            [expiration]="oc.expiration"
+            [type]="store.type()"
+            [series]="store.selectedContractSeries()"
+            (mouseenter)="onOverlayEnter()"
+            (mouseleave)="onOverlayLeave()"
+          />
+        }
+      </ng-template>
     }
   `,
   styles: [
@@ -288,6 +296,9 @@ export class PctChangeGridComponent implements OnDestroy {
    * by entering the pane or any icon.
    */
   private static readonly CLEAR_DELAY_MS = 200;
+  /** CDK panel class for the chart popup — shared by the overlay config
+   *  and the leave/dismiss guards. */
+  readonly CHART_PANE_CLASS = 'contract-chart-pane';
   private clearTimer: ReturnType<typeof setTimeout> | null = null;
 
   /** Keep the chart popup tracking its cell while the grid scrolls. */
@@ -355,27 +366,49 @@ export class PctChangeGridComponent implements OnDestroy {
     return `${sign}${diff.toFixed(0)}${pctStr}`;
   }
 
-  /** Whether this cell is the store's selected contract in this grid. */
-  isSelected(cell: PctChangeCell): boolean {
+  /** Overlay anchor + content: the icon (and its cell) that last opened
+   *  the shared overlay. Signals so template bindings re-evaluate. */
+  readonly activeOrigin = signal<CdkOverlayOrigin | null>(null);
+  readonly overlayCell = signal<PctChangeCell | null>(null);
+
+  /** Shared overlay is open when the store's selection matches the cell
+   *  that opened it AND belongs to this grid's target date. */
+  readonly overlayOpen = computed(() => {
     const sel = this.store.selectedCell();
+    const c = this.overlayCell();
     return (
       sel != null &&
-      sel.contractID === cell.contractID &&
-      sel.strike === cell.strike &&
-      sel.expiration === cell.expiration &&
+      c != null &&
+      sel.contractID === c.contractID &&
+      sel.strike === c.strike &&
+      sel.expiration === c.expiration &&
       sel.targetDate === this.grid().targetDate
     );
-  }
+  });
 
   ngOnDestroy(): void {
     this.cancelPendingClear();
   }
 
-  /** Icon hover — transient preview (store ignores it while pinned).
-   *  Cancels any pending clear so a leave→enter sweep can't wipe the
-   *  new selection when the delayed timer fires. */
-  onIconEnter(cell: PctChangeCell): void {
+  constructor() {
+    // A grid() change re-renders the cells and destroys the icon elements —
+    // drop the captured anchor so the shared overlay can't bind to a dead
+    // origin (the store clears the selection on grid changes too).
+    effect(() => {
+      this.grid();
+      this.activeOrigin.set(null);
+      this.overlayCell.set(null);
+    });
+  }
+
+  /** Icon hover — anchor the shared overlay here and preview (both are
+   *  no-ops while pinned: the pinned cell keeps its anchor). Cancels any
+   *  pending clear so a leave→enter sweep can't wipe the new selection. */
+  onIconEnter(cell: PctChangeCell, origin: CdkOverlayOrigin): void {
     this.cancelPendingClear();
+    if (this.store.isContractPinned()) return;
+    this.activeOrigin.set(origin);
+    this.overlayCell.set(cell);
     this.store.previewContract(cell, this.grid().targetDate);
   }
 
@@ -385,15 +418,18 @@ export class PctChangeGridComponent implements OnDestroy {
   onIconLeave(event: MouseEvent): void {
     if (this.store.isContractPinned()) return;
     const to = event.relatedTarget as HTMLElement | null;
-    if (to?.closest?.('.contract-chart-pane')) return;
+    if (to?.closest?.(`.${this.CHART_PANE_CLASS}`)) return;
     this.scheduleClear();
   }
 
-  /** Icon click — pin the overlay open. Stops propagation so the page's
-   *  document-click dismissal doesn't immediately close it. */
-  onIconClick(event: MouseEvent, cell: PctChangeCell): void {
+  /** Icon click — pin the overlay open on this cell. Stops propagation
+   *  so the page's document-click dismissal doesn't close it. */
+  onIconClick(event: MouseEvent, cell: PctChangeCell, origin: CdkOverlayOrigin): void {
     event.stopPropagation();
     this.cancelPendingClear();
+    if (this.store.isContractPinned()) return;
+    this.activeOrigin.set(origin);
+    this.overlayCell.set(cell);
     this.store.pinContract(cell, this.grid().targetDate);
   }
 

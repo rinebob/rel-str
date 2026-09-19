@@ -73,10 +73,9 @@ function makeTicks(verts: Vertex[], scale: (v: number) => number): Tick[] {
   return out;
 }
 
-/** Endpoint annotation for a vertex set — {x, y, label} or null. */
-function edgeAnnot(verts: Vertex[], edge: 'first' | 'last'): { x: number; y: number; label: string } | null {
-  const v = edge === 'first' ? verts[0] : verts[verts.length - 1];
-  return v ? { x: v.x, y: v.y, label: fmt(v.value) } : null;
+/** Value annotation for every vertex — {x, y, label}. */
+function pointAnnots(verts: Vertex[]): { x: number; y: number; label: string }[] {
+  return verts.map((v) => ({ x: v.x, y: v.y, label: fmt(v.value) }));
 }
 
 @Component({
@@ -125,18 +124,12 @@ function edgeAnnot(verts: Vertex[], edge: 'first' | 'last'): { x: number; y: num
             <circle class="delta-dot" [attr.cx]="v.x" [attr.cy]="v.y" r="1.5" />
           }
 
-          <!-- Start/end value annotations -->
-          @if (firstPrice(); as fp) {
-            <text class="value-annotation price-annot" [attr.x]="fp.x + 2" [attr.y]="fp.y - 4">{{ fp.label }}</text>
+          <!-- Value annotations on every data point (price above, delta below) -->
+          @for (a of priceAnnots(); track $index) {
+            <text class="value-annotation price-annot" [attr.x]="a.x" [attr.y]="a.y - 4" text-anchor="middle">{{ a.label }}</text>
           }
-          @if (lastPrice(); as lp) {
-            <text class="value-annotation price-annot" [attr.x]="lp.x - 2" [attr.y]="lp.y - 4" text-anchor="end">{{ lp.label }}</text>
-          }
-          @if (firstDelta(); as fd) {
-            <text class="value-annotation delta-annot" [attr.x]="fd.x + 2" [attr.y]="fd.y + 9">{{ fd.label }}</text>
-          }
-          @if (lastDelta(); as ld) {
-            <text class="value-annotation delta-annot" [attr.x]="ld.x - 2" [attr.y]="ld.y + 9" text-anchor="end">{{ ld.label }}</text>
+          @for (a of deltaAnnots(); track $index) {
+            <text class="value-annotation delta-annot" [attr.x]="a.x" [attr.y]="a.y + 9" text-anchor="middle">{{ a.label }}</text>
           }
         </svg>
 
@@ -241,8 +234,6 @@ export class ContractMiniChartComponent {
   readonly priceTicks = computed(() => makeTicks(this.priceVerts(), this.priceYScale()));
   readonly deltaTicks = computed(() => makeTicks(this.deltaVerts(), this.deltaYScale()));
 
-  readonly firstPrice = computed(() => edgeAnnot(this.priceVerts(), 'first'));
-  readonly lastPrice = computed(() => (this.priceVerts().length > 1 ? edgeAnnot(this.priceVerts(), 'last') : null));
-  readonly firstDelta = computed(() => edgeAnnot(this.deltaVerts(), 'first'));
-  readonly lastDelta = computed(() => (this.deltaVerts().length > 1 ? edgeAnnot(this.deltaVerts(), 'last') : null));
+  readonly priceAnnots = computed(() => pointAnnots(this.priceVerts()));
+  readonly deltaAnnots = computed(() => pointAnnots(this.deltaVerts()));
 }
