@@ -30,12 +30,14 @@
 - [Option Chain Pct Change Grid] 326-405_DOCS-OPTIONS: Add Task #405 review doc + IMPL sync
 - [Option Chain Pct Change Grid] 326-407_FE-IMPL-OPTIONS: Wire contract chart popup into the grid
 - [Option Chain Pct Change Grid] 326-407_DOCS-OPTIONS: Add Task #407 review doc + IMPL sync
-- [Option Chain Pct Change Grid] 326-412_FE-IMPL-OPTIONS: Fix chart popup overlay crash + per-point annotations
-- [Option Chain Pct Change Grid] 326-412_DOCS-OPTIONS: Add Task #412 code review doc
+- [Option Chain Pct Change Grid] 326-412_FE-IMPL-OPTIONS: Fix chart popup overlay crash + per-point annotations (checkpoint)
+- [Option Chain Pct Change Grid] 326-412_DOCS-OPTIONS: Add Task #412 code review doc (checkpoint)
 - [Trading Indicator Library] 261-394_FE-IMPL-INDICATOR-LIB: Add nested tree swing table
 - [Trading Indicator Library] 261-394_DOCS-INDICATOR-LIB: Add review doc and update plan docs for Task #394 ship
 - [Trading Indicator Library] 261-395_FE-IMPL-INDICATOR-LIB: Add stats panel large/small/all toggle
 - [Trading Indicator Library] 261-395_DOCS-INDICATOR-LIB: Add code review doc for Task #395
+- [Trading Indicator Library] 261-261_SHARED-IMPL-INDICATOR-LIB: Add reversal-trigger dots to ZigZag chart series (checkpoint)
+- [Trading Indicator Library] 261-261_FE-IMPL-INDICATOR-LIB: Tune swing-analysis defaults, layout, and fullscreen (checkpoint)
 
 ## [2026-09-17]
 

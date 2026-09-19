@@ -35,6 +35,7 @@ import { ChartService } from '../services/chart.service';
 import { SwingAnalysisService } from './swing-analysis.service';
 import { StIndicator } from '../../shared/components/flex-chart/flex-chart.types';
 import { BarsInterval } from '../../../core/models/partner.types';
+import { UiStateService } from '../../../core/services/ui-state.service';
 import { FlexChartComponent } from '../../shared/components/flex-chart/flex-chart.component';
 import { SwingTableComponent } from './components/swing-table.component';
 import { StatsPanelComponent } from './components/stats-panel.component';
@@ -182,11 +183,21 @@ describe('SwingAnalysisPageComponent', () => {
     expect(fixture.componentInstance.store).toBe(store);
   });
 
-  it('resets store state on init', async () => {
+  it('resets store state then loads the default QQQ symbol on init', async () => {
     const { store } = await setupPage();
-    expect(store.symbol()).toBe('');
-    expect(store.bars()).toEqual([]);
-    expect(store.stats()[0]).toBeNull();
+    expect(store.symbol()).toBe('QQQ');
+    expect(store.bars().length).toBeGreaterThan(0);
+    expect(store.stats()[0]).not.toBeNull();
+  });
+
+  it('enters fullscreen on init and restores the app header on destroy', async () => {
+    const { fixture } = await setupPage();
+    const ui = TestBed.inject(UiStateService);
+    expect(ui.fullscreen()).toBe(true);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.classList.contains('fullscreen')).toBe(true);
+    fixture.destroy();
+    expect(ui.fullscreen()).toBe(false);
   });
 
   it('renders a symbol input bound to store symbol', async () => {
@@ -293,7 +304,7 @@ describe('SwingAnalysisPageComponent', () => {
     expect(chartComp).toBeTruthy();
     const config = chartComp.componentInstance.config;
     expect(config).toBeTruthy();
-    expect(config.indicators.length).toBe(1);
+    expect(config.indicators.length).toBe(2); // dual mode is the default
     expect(config.indicators[0].type).toBe(StIndicator.ST_ZIGZAG);
   });
 
@@ -327,6 +338,7 @@ describe('SwingAnalysisPageComponent', () => {
   it('passes null smallSwings to the swing table in single mode', async () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
+    store.toggleDualMode(); // dual is the default — turn off for single mode
     fixture.detectChanges();
     const table = fixture.nativeElement.querySelector('.mock-swing-table');
     expect(table.getAttribute('data-small-swing-count')).toBe('null');
@@ -334,8 +346,7 @@ describe('SwingAnalysisPageComponent', () => {
 
   it('passes swings()[1] as smallSwings to the swing table in dual mode', async () => {
     const { fixture, store } = await setupPage();
-    store.setSymbol('AAPL');
-    store.toggleDualMode();
+    store.setSymbol('AAPL'); // dual is the default — slot 1 already computed
     fixture.detectChanges();
     const table = fixture.nativeElement.querySelector('.mock-swing-table');
     expect(table.getAttribute('data-small-swing-count')).toBe(String(store.swings()[1].length));
@@ -344,6 +355,7 @@ describe('SwingAnalysisPageComponent', () => {
   it('passes null statsSets to the stats panel in single mode', async () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
+    store.toggleDualMode(); // dual is the default — turn off for single mode
     fixture.detectChanges();
     const panel = fixture.nativeElement.querySelector('.mock-stats-panel');
     expect(panel.getAttribute('data-stats-sets')).toBe('null');
@@ -351,8 +363,7 @@ describe('SwingAnalysisPageComponent', () => {
 
   it('passes [large, small, all] statsSets to the stats panel in dual mode', async () => {
     const { fixture, store } = await setupPage();
-    store.setSymbol('AAPL');
-    store.toggleDualMode();
+    store.setSymbol('AAPL'); // dual is the default
     fixture.detectChanges();
     const panel = fixture.nativeElement.querySelector('.mock-stats-panel');
     expect(panel.getAttribute('data-stats-sets')).toBe('3');
@@ -401,7 +412,8 @@ describe('SwingAnalysisPageComponent', () => {
   });
 
   it('disables Save button when no symbol or no stats', async () => {
-    const { fixture } = await setupPage();
+    const { fixture, store } = await setupPage();
+    store.resetState(); // clear the auto-loaded QQQ analysis
     fixture.detectChanges();
     const btn = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn-0"]') as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
@@ -475,16 +487,16 @@ describe('SwingAnalysisPageComponent', () => {
   });
 
   it('shows one config section when dual mode is off', async () => {
-    const { fixture } = await setupPage();
+    const { fixture, store } = await setupPage();
+    store.toggleDualMode(); // dual is the default — turn off
     fixture.detectChanges();
     const sections = fixture.nativeElement.querySelectorAll('.config-section');
     expect(sections.length).toBe(1);
   });
 
-  it('shows two config sections when dual mode is on', async () => {
+  it('shows two config sections by default (dual mode)', async () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
-    store.toggleDualMode();
     fixture.detectChanges();
     const sections = fixture.nativeElement.querySelectorAll('.config-section');
     expect(sections.length).toBe(2);
@@ -493,7 +505,6 @@ describe('SwingAnalysisPageComponent', () => {
   it('labels config sections as Large Swings and Small Swings', async () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
-    store.toggleDualMode();
     fixture.detectChanges();
     const labels = fixture.nativeElement.querySelectorAll('.config-section-label');
     expect(labels[0].textContent.trim()).toBe('Large Swings');
@@ -506,13 +517,16 @@ describe('SwingAnalysisPageComponent', () => {
     fixture.detectChanges();
     const toggleSpy = jest.spyOn(store, 'toggleDualMode');
     const toggle = fixture.nativeElement.querySelector('[data-testid="dual-mode-toggle"]') as HTMLInputElement;
-    toggle.checked = true;
+    // Dual is the default — unchecking differs from dualMode() so the
+    // handler's guard passes and toggleDualMode is invoked.
+    toggle.checked = false;
     toggle.dispatchEvent(new Event('change'));
     expect(toggleSpy).toHaveBeenCalled();
   });
 
   it('builds chartConfig with one IndicatorConfig when dual mode off', async () => {
-    const { fixture } = await setupPage();
+    const { fixture, store } = await setupPage();
+    store.toggleDualMode(); // dual is the default — turn off
     fixture.detectChanges();
     const chartComp = fixture.debugElement.query((el: any) => el.nativeElement.classList?.contains('mock-flex-chart'));
     const config = chartComp.componentInstance.config;
@@ -524,7 +538,6 @@ describe('SwingAnalysisPageComponent', () => {
   it('builds chartConfig with two IndicatorConfigs with unique ids when dual mode on', async () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
-    store.toggleDualMode();
     fixture.detectChanges();
     const chartComp = fixture.debugElement.query((el: any) => el.nativeElement.classList?.contains('mock-flex-chart'));
     const config = chartComp.componentInstance.config;
@@ -538,7 +551,6 @@ describe('SwingAnalysisPageComponent', () => {
   it('passes per-config params to each chart indicator', async () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
-    store.toggleDualMode();
     store.updateConfig(1, { devThreshold: 7 });
     fixture.detectChanges();
     const chartComp = fixture.debugElement.query((el: any) => el.nativeElement.classList?.contains('mock-flex-chart'));
@@ -553,7 +565,6 @@ describe('SwingAnalysisPageComponent', () => {
   it('calls store.updateConfig with the correct index when a param changes', async () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
-    store.toggleDualMode();
     fixture.detectChanges();
     const dev = fixture.nativeElement.querySelector('[data-testid="param-devThreshold-1"]') as HTMLInputElement;
     dev.value = '7.5';
@@ -565,7 +576,6 @@ describe('SwingAnalysisPageComponent', () => {
   it('calls store.updateConfig when lineColor changes', async () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
-    store.toggleDualMode();
     fixture.detectChanges();
     const color = fixture.nativeElement.querySelector('[data-testid="param-lineColor-1"]') as HTMLInputElement;
     color.value = '#ff0000';
@@ -576,7 +586,6 @@ describe('SwingAnalysisPageComponent', () => {
   it('calls store.saveAnalysis with the correct index when a save button is clicked', async () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
-    store.toggleDualMode();
     fixture.detectChanges();
     const saveSpy = jest.spyOn(store, 'saveAnalysis');
     const btn = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn-1"]');
@@ -587,7 +596,6 @@ describe('SwingAnalysisPageComponent', () => {
   it('enables each save button independently based on that config\'s stats', async () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
-    store.toggleDualMode();
     fixture.detectChanges();
     const btn0 = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn-0"]') as HTMLButtonElement;
     const btn1 = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn-1"]') as HTMLButtonElement;
@@ -598,11 +606,10 @@ describe('SwingAnalysisPageComponent', () => {
   it('restores single config section and one indicator when toggled off', async () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
-    store.toggleDualMode();
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelectorAll('.config-section').length).toBe(2);
 
-    store.toggleDualMode();
+    store.toggleDualMode(); // dual is the default — this turns it off
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelectorAll('.config-section').length).toBe(1);
     const chartComp = fixture.debugElement.query((el: any) => el.nativeElement.classList?.contains('mock-flex-chart'));
@@ -612,7 +619,6 @@ describe('SwingAnalysisPageComponent', () => {
   it('renders collapsible config sections via details/summary', async () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
-    store.toggleDualMode();
     fixture.detectChanges();
     const sections = fixture.nativeElement.querySelectorAll('details.config-section');
     expect(sections.length).toBe(2);
@@ -624,14 +630,43 @@ describe('SwingAnalysisPageComponent', () => {
     });
   });
 
+  it('renders a Trigger Dots checkbox per config section', async () => {
+    const { fixture } = await setupPage();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="param-showTriggerDots-0"]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[data-testid="param-showTriggerDots-1"]')).toBeTruthy();
+  });
+
+  it('calls updateConfig when the Trigger Dots checkbox toggles', async () => {
+    const { fixture, store } = await setupPage();
+    store.setSymbol('AAPL');
+    fixture.detectChanges();
+    const cb = fixture.nativeElement.querySelector('[data-testid="param-showTriggerDots-1"]') as HTMLInputElement;
+    cb.checked = false;
+    cb.dispatchEvent(new Event('change'));
+    expect(store.configs()[1].showTriggerDots).toBe(false);
+    // Other config untouched.
+    expect(store.configs()[0].showTriggerDots).toBeUndefined();
+  });
+
+  it('passes showTriggerDots=false into the chart indicator params', async () => {
+    const { fixture, store } = await setupPage();
+    store.setSymbol('AAPL');
+    store.updateConfig(1, { showTriggerDots: false });
+    fixture.detectChanges();
+    const chartComp = fixture.debugElement.query((el: any) => el.nativeElement.classList?.contains('mock-flex-chart'));
+    const indicators = chartComp.componentInstance.config.indicators;
+    expect(indicators[0].params['showTriggerDots']).toBe(true);
+    expect(indicators[1].params['showTriggerDots']).toBe(false);
+  });
+
   it('disables save button when that config has no stats', async () => {
     const { fixture, store } = await setupPage();
-    // No setSymbol — stats are null for both configs.
+    store.resetState(); // clear the auto-loaded QQQ analysis
     fixture.detectChanges();
     const btn0 = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn-0"]') as HTMLButtonElement;
     expect(btn0.disabled).toBe(true);
-    store.toggleDualMode();
-    fixture.detectChanges();
+    // Dual is the default — config 1's button already exists after reset.
     const btn1 = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn-1"]') as HTMLButtonElement;
     expect(btn1.disabled).toBe(true);
   });

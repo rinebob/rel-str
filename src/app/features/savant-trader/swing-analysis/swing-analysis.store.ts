@@ -43,9 +43,9 @@ import type {
 
 /** Primary config — identifies larger swings. */
 export const LARGE_CONFIG: ZigZagConfig = {
-  devThreshold: 10,
-  leftDepth: 10,
-  rightDepth: 10,
+  devThreshold: 5,
+  leftDepth: 5,
+  rightDepth: 5,
   allowZigZagOnOneBar: true,
   projectionPivots: true,
   lineColor: '#1976d2',
@@ -53,9 +53,9 @@ export const LARGE_CONFIG: ZigZagConfig = {
 
 /** Secondary config — identifies smaller swings. Only used in dual mode. */
 export const SMALL_CONFIG: ZigZagConfig = {
-  devThreshold: 3,
-  leftDepth: 3,
-  rightDepth: 3,
+  devThreshold: 2,
+  leftDepth: 2,
+  rightDepth: 2,
   allowZigZagOnOneBar: true,
   projectionPivots: true,
   lineColor: '#e65100',
@@ -87,12 +87,13 @@ export interface SwingAnalysisState {
 
 const initialState: SwingAnalysisState = {
   symbol: '',
-  configs: [{ ...LARGE_CONFIG }],
+  // Dual mode is the default — large + small configs both present.
+  configs: [{ ...LARGE_CONFIG }, { ...SMALL_CONFIG }],
   bars: [],
-  pivots: [[]],
-  projections: [null],
-  swings: [[]],
-  stats: [null],
+  pivots: [[], []],
+  projections: [null, null],
+  swings: [[], []],
+  stats: [null, null],
   loading: false,
   error: null,
   savedAnalyses: [],
@@ -289,12 +290,12 @@ export const SwingAnalysisStore = signalStore(
           analysisSub = null;
           patchState(store, {
             symbol: '',
-            configs: [{ ...LARGE_CONFIG }],
+            configs: [{ ...LARGE_CONFIG }, { ...SMALL_CONFIG }],
             bars: [],
-            pivots: [[]],
-            projections: [null],
-            swings: [[]],
-            stats: [null],
+            pivots: [[], []],
+            projections: [null, null],
+            swings: [[], []],
+            stats: [null, null],
             loading: false,
             error: null,
           });

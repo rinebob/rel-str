@@ -177,16 +177,16 @@ function setupStore(
 // =============================================================================
 
 describe('SwingAnalysisStore — initial state', () => {
-  it('has one config (large defaults) and dualMode off', () => {
+  it('has two configs (large + small) and dualMode on by default', () => {
     const { store } = setupStore();
     expect(store.symbol()).toBe('');
-    expect(store.configs()).toEqual([{ ...LARGE_CONFIG }]);
-    expect(store.dualMode()).toBe(false);
+    expect(store.configs()).toEqual([{ ...LARGE_CONFIG }, { ...SMALL_CONFIG }]);
+    expect(store.dualMode()).toBe(true);
     expect(store.bars()).toEqual([]);
-    expect(store.pivots()).toEqual([[]]);
-    expect(store.projections()).toEqual([null]);
-    expect(store.swings()).toEqual([[]]);
-    expect(store.stats()).toEqual([null]);
+    expect(store.pivots()).toEqual([[], []]);
+    expect(store.projections()).toEqual([null, null]);
+    expect(store.swings()).toEqual([[], []]);
+    expect(store.stats()).toEqual([null, null]);
     expect(store.loading()).toBe(false);
     expect(store.error()).toBeNull();
     expect(store.savedAnalyses()).toEqual([]);
@@ -194,7 +194,7 @@ describe('SwingAnalysisStore — initial state', () => {
 
   it('derives paramsIds from configs', () => {
     const { store } = setupStore();
-    expect(store.paramsIds()).toEqual([deriveParamsId(LARGE_CONFIG)]);
+    expect(store.paramsIds()).toEqual([deriveParamsId(LARGE_CONFIG), deriveParamsId(SMALL_CONFIG)]);
   });
 
   it('hasProjection is false when no projections exist', () => {
@@ -311,7 +311,7 @@ describe('SwingAnalysisStore.updateConfig', () => {
   it('updates only the specified config in dual mode', () => {
     const { store } = setupStore(makeBars(40));
     store.setSymbol('AAPL');
-    store.toggleDualMode();
+    // Dual mode is the default — config 1 already exists.
     store.updateConfig(1, { devThreshold: 7 });
     expect(store.configs()[0].devThreshold).toBe(LARGE_CONFIG.devThreshold);
     expect(store.configs()[1].devThreshold).toBe(7);
@@ -320,7 +320,6 @@ describe('SwingAnalysisStore.updateConfig', () => {
   it('leaves other config untouched when recomputing one slot', () => {
     const { store } = setupStore(makeBars(40));
     store.setSymbol('AAPL');
-    store.toggleDualMode();
     const pivotsBefore = store.pivots()[1].length;
     const swingsBefore = store.swings()[1].length;
     const statsBefore = store.stats()[1];
@@ -344,19 +343,23 @@ describe('SwingAnalysisStore.updateConfig', () => {
 // =============================================================================
 
 describe('SwingAnalysisStore.toggleDualMode', () => {
-  it('adds a second config with small defaults when turning on', () => {
+  // Dual mode is the default — the first toggle() call turns it OFF.
+
+  it('re-adds the second config with small defaults when toggled back on', () => {
     const { store } = setupStore(makeBars(40));
     store.setSymbol('AAPL');
-    store.toggleDualMode();
+    store.toggleDualMode(); // off
+    store.toggleDualMode(); // back on
     expect(store.dualMode()).toBe(true);
     expect(store.configs().length).toBe(2);
     expect(store.configs()[1]).toEqual({ ...SMALL_CONFIG });
   });
 
-  it('recomputes the second config from loaded bars', () => {
+  it('recomputes the second config from loaded bars when toggled back on', () => {
     const { store } = setupStore(makeBars(40));
     store.setSymbol('AAPL');
-    store.toggleDualMode();
+    store.toggleDualMode(); // off — slot 1 removed
+    store.toggleDualMode(); // on — recomputed from loaded bars
     expect(store.pivots()[1].length).toBeGreaterThan(0);
     expect(store.swings()[1].length).toBeGreaterThan(0);
     expect(store.stats()[1]).not.toBeNull();
@@ -365,26 +368,25 @@ describe('SwingAnalysisStore.toggleDualMode', () => {
   it('removes the second config when turning off', () => {
     const { store } = setupStore(makeBars(40));
     store.setSymbol('AAPL');
-    store.toggleDualMode();
-    expect(store.configs().length).toBe(2);
-    store.toggleDualMode();
+    store.toggleDualMode(); // off
     expect(store.dualMode()).toBe(false);
     expect(store.configs().length).toBe(1);
     expect(store.configs()[0]).toEqual({ ...LARGE_CONFIG });
   });
 
-  it('preserves the first config when turning off', () => {
+  it('preserves the first config across an off→on cycle', () => {
     const { store } = setupStore(makeBars(40));
     store.setSymbol('AAPL');
     store.updateConfig(0, { devThreshold: 20 });
-    store.toggleDualMode();
-    store.toggleDualMode();
+    store.toggleDualMode(); // off
+    store.toggleDualMode(); // on
     expect(store.configs()[0].devThreshold).toBe(20);
   });
 
-  it('produces aligned length-2 arrays when turning on with empty bars', () => {
+  it('produces aligned length-2 arrays when toggled back on with empty bars', () => {
     const { store } = setupStore();
-    // No setSymbol — bars are empty.
+    // No setSymbol — bars are empty. Dual is on by default; cycle off→on.
+    store.toggleDualMode();
     store.toggleDualMode();
     expect(store.dualMode()).toBe(true);
     expect(store.configs().length).toBe(2);
@@ -402,9 +404,8 @@ describe('SwingAnalysisStore.toggleDualMode', () => {
   it('truncates derived arrays to length 1 when turning off', () => {
     const { store } = setupStore(makeBars(40));
     store.setSymbol('AAPL');
-    store.toggleDualMode();
     expect(store.pivots().length).toBe(2);
-    store.toggleDualMode();
+    store.toggleDualMode(); // off
     expect(store.pivots().length).toBe(1);
     expect(store.projections().length).toBe(1);
     expect(store.swings().length).toBe(1);
@@ -420,21 +421,20 @@ describe('SwingAnalysisStore.allStats', () => {
   it('is null in single mode', () => {
     const { store } = setupStore(makeBars(40));
     store.setSymbol('AAPL');
+    store.toggleDualMode(); // dual is the default — turn off for single mode
     expect(store.stats()[0]).not.toBeNull();
     expect(store.allStats()).toBeNull();
   });
 
   it('is null in dual mode with no swings', () => {
-    const { store } = setupStore(); // no bars
-    store.toggleDualMode();
+    const { store } = setupStore(); // no bars — dual is the default
     expect(store.dualMode()).toBe(true);
     expect(store.allStats()).toBeNull();
   });
 
   it('recomputes combined stats from both configs in dual mode', () => {
     const { store } = setupStore(makeBars(40));
-    store.setSymbol('AAPL');
-    store.toggleDualMode();
+    store.setSymbol('AAPL'); // dual is the default — both slots computed
 
     const all = store.allStats();
     expect(all).not.toBeNull();
@@ -448,9 +448,8 @@ describe('SwingAnalysisStore.allStats', () => {
   it('returns to null when dual mode is toggled off', () => {
     const { store } = setupStore(makeBars(40));
     store.setSymbol('AAPL');
-    store.toggleDualMode();
     expect(store.allStats()).not.toBeNull();
-    store.toggleDualMode();
+    store.toggleDualMode(); // off
     expect(store.allStats()).toBeNull();
   });
 });
@@ -509,8 +508,7 @@ describe('SwingAnalysisStore.saveAnalysis', () => {
 
   it('saves config 1 independently under its own paramsId in dual mode', () => {
     const { store, service } = setupStore(makeBars(40));
-    store.setSymbol('AAPL');
-    store.toggleDualMode();
+    store.setSymbol('AAPL'); // dual is the default — config 1 exists
     store.saveAnalysis(1);
     expect(service.saveAnalysis).toHaveBeenCalledTimes(1);
     const arg = service.saveAnalysis.mock.calls[0][0];
@@ -581,8 +579,7 @@ describe('SwingAnalysisStore.loadAnalysis', () => {
     });
     const setupBars = makeBars(40);
     const { store } = setupStore(setupBars, [mockDoc]);
-    store.setSymbol('AAPL');
-    store.toggleDualMode();
+    store.setSymbol('AAPL'); // dual is the default — slot 1 exists
     store.loadAnalysis(deriveParamsId(mockConfig), 1);
     expect(store.configs()[1].devThreshold).toBe(7);
     expect(store.pivots()[1].length).toBeGreaterThan(0);
@@ -709,24 +706,25 @@ describe('SwingAnalysisStore.loadAnalysis', () => {
     });
     const store = TestBed.inject(SwingAnalysisStore);
     store.setSymbol('AAPL');
-    // Bar load is in flight (1 config). Toggle dual mode on.
+    // Bar load is in flight (2 configs — dual is the default).
+    // Toggle dual mode OFF mid-flight.
     store.toggleDualMode();
-    expect(store.configs().length).toBe(2);
-    expect(store.pivots().length).toBe(2);
+    expect(store.configs().length).toBe(1);
+    expect(store.pivots().length).toBe(1);
 
-    // Bars arrive — recomputeAll reads store.configs() fresh (length 2).
+    // Bars arrive — recomputeAll reads store.configs() fresh (length 1).
     barsSubject.next({
       daily: makeChartDataset(makeBars(40)),
       weekly: makeChartDataset(makeBars(40)),
       monthly: makeChartDataset(makeBars(40)),
       version: 'test',
     });
-    // All parallel arrays must be length 2 — no desync.
-    expect(store.configs().length).toBe(2);
-    expect(store.pivots().length).toBe(2);
-    expect(store.projections().length).toBe(2);
-    expect(store.swings().length).toBe(2);
-    expect(store.stats().length).toBe(2);
+    // All parallel arrays must be length 1 — no desync.
+    expect(store.configs().length).toBe(1);
+    expect(store.pivots().length).toBe(1);
+    expect(store.projections().length).toBe(1);
+    expect(store.swings().length).toBe(1);
+    expect(store.stats().length).toBe(1);
     barsSubject.complete();
   });
 
@@ -757,18 +755,17 @@ describe('SwingAnalysisStore.loadAnalysis', () => {
     });
     const store = TestBed.inject(SwingAnalysisStore);
     store.setSymbol('AAPL');
-    // Start loadAnalysis — analysis doc request is pending (1 config).
+    // Start loadAnalysis — analysis doc request is pending (2 configs —
+    // dual is the default). Toggle dual mode OFF while fetch is in flight.
     store.loadAnalysis(deriveParamsId(LARGE_CONFIG), 0);
-
-    // Toggle dual mode on while fetch is in flight.
     store.toggleDualMode();
-    expect(store.configs().length).toBe(2);
+    expect(store.configs().length).toBe(1);
 
-    // Doc arrives — next handler re-reads store.configs() fresh (length 2),
-    // so it does NOT overwrite the second config.
+    // Doc arrives — next handler re-reads store.configs() fresh (length 1),
+    // so it applies to slot 0 without resurrecting the removed config.
     analysisSubject.next(mockDoc);
-    expect(store.configs().length).toBe(2);
-    expect(store.dualMode()).toBe(true);
+    expect(store.configs().length).toBe(1);
+    expect(store.dualMode()).toBe(false);
     analysisSubject.complete();
     barsSubject.complete();
   });
@@ -781,7 +778,7 @@ describe('SwingAnalysisStore.loadAnalysis', () => {
 describe('SwingAnalysisStore.paramsIds', () => {
   it('derives paramsIds from configs', () => {
     const { store } = setupStore();
-    expect(store.paramsIds()).toEqual([deriveParamsId(LARGE_CONFIG)]);
+    expect(store.paramsIds()).toEqual([deriveParamsId(LARGE_CONFIG), deriveParamsId(SMALL_CONFIG)]);
   });
 
   it('updates when config changes', () => {
@@ -790,9 +787,8 @@ describe('SwingAnalysisStore.paramsIds', () => {
     expect(store.paramsIds()[0]).toBe(deriveParamsId({ ...LARGE_CONFIG, devThreshold: 20 }));
   });
 
-  it('has two entries in dual mode', () => {
+  it('has two entries by default (dual mode)', () => {
     const { store } = setupStore();
-    store.toggleDualMode();
     expect(store.paramsIds().length).toBe(2);
     expect(store.paramsIds()[0]).toBe(deriveParamsId(LARGE_CONFIG));
     expect(store.paramsIds()[1]).toBe(deriveParamsId(SMALL_CONFIG));
