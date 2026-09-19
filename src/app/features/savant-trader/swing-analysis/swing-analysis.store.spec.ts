@@ -533,7 +533,7 @@ describe('SwingAnalysisStore.saveAnalysis', () => {
 });
 
 // =============================================================================
-// loadSavedAnalyses — reads zig-zags/{symbol}/analyses
+// loadSavedAnalyses — reads swing-sets filtered by symbol
 // =============================================================================
 
 describe('SwingAnalysisStore.loadSavedAnalyses', () => {

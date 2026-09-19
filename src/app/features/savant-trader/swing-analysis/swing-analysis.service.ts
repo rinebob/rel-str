@@ -1,10 +1,9 @@
 /**
  * Swing Analysis Service — Firestore persistence with user-scoping.
  *
- * Reads and writes saved swing analyses under
- * `zig-zags/{symbol}/analyses/{paramsId}`.
- * Security rules enforce that users can only read/write their own analyses
- * (matched by the `userId` field on each doc).
+ * Reads and writes saved swing sets in a flat `swing-sets/{docId}` collection
+ * where docId is `{symbol}_{paramsId}`. Security rules enforce that users can
+ * only read/write their own docs (matched by the `userId` field).
  */
 
 import { Injectable, inject, EnvironmentInjector } from '@angular/core';
@@ -16,6 +15,8 @@ import {
   setDoc,
   getDoc,
   getDocs,
+  query,
+  where,
 } from '@angular/fire/firestore';
 import { Observable, from, of } from 'rxjs';
 import { map, switchMap, take } from 'rxjs/operators';
@@ -23,8 +24,7 @@ import { map, switchMap, take } from 'rxjs/operators';
 import { requireUserId } from '../services/firestore-helpers';
 import type { SwingAnalysisDoc, SwingAnalysisInput } from './swing-analysis.types';
 
-const ZIG_ZAGS_COLLECTION = 'zig-zags';
-const ANALYSES_SUBCOLLECTION = 'analyses';
+const SWING_SETS_COLLECTION = 'swing-sets';
 
 /** Fields persisted to Firestore (excludes the synthetic `id`). */
 type PersistedAnalysis = Omit<SwingAnalysisDoc, 'id'>;
@@ -35,32 +35,43 @@ export class SwingAnalysisService {
   private readonly auth = inject(Auth);
   private readonly injector = inject(EnvironmentInjector);
 
-  /** Load all saved analyses for a symbol (one-shot). */
+  /** Composite doc id for a symbol + paramsId. */
+  private docId(symbol: string, paramsId: string): string {
+    return `${symbol}_${paramsId}`;
+  }
+
+  /** Load every saved swing set (one-shot). */
+  loadAllSwingSets(): Observable<SwingAnalysisDoc[]> {
+    return from(getDocs(collection(this.firestore, SWING_SETS_COLLECTION))).pipe(
+      map((snap) =>
+        snap.docs.map((d) => ({
+          ...(d.data() as PersistedAnalysis),
+          id: d.id,
+        })),
+      ),
+    );
+  }
+
+  /** Load all saved swing sets for a symbol (one-shot). */
   loadSavedAnalyses(symbol: string): Observable<SwingAnalysisDoc[]> {
     const sym = String(symbol || '').trim().toUpperCase();
     if (!sym) return of([]);
 
-    const coll = collection(
-      this.firestore,
-      ZIG_ZAGS_COLLECTION,
-      sym,
-      ANALYSES_SUBCOLLECTION,
-    ).withConverter<SwingAnalysisDoc>({
-      toFirestore: (v: SwingAnalysisDoc) => {
-        const { id, ...data } = v;
-        return data;
-      },
-      fromFirestore: (snap) => ({
-        ...(snap.data() as PersistedAnalysis),
-        id: snap.id,
-      }),
-    });
-    return from(getDocs(coll)).pipe(
-      map((snap) => snap.docs.map((d) => d.data())),
+    const q = query(
+      collection(this.firestore, SWING_SETS_COLLECTION),
+      where('symbol', '==', sym),
+    );
+    return from(getDocs(q)).pipe(
+      map((snap) =>
+        snap.docs.map((d) => ({
+          ...(d.data() as PersistedAnalysis),
+          id: d.id,
+        })),
+      ),
     );
   }
 
-  /** Save (or overwrite) an analysis document. Stamps userId from auth. */
+  /** Save (or overwrite) a swing set doc. Stamps userId from auth. */
   saveAnalysis(analysis: SwingAnalysisInput): Observable<void> {
     return requireUserId(this.auth, this.injector).pipe(
       switchMap((userId) => {
@@ -69,13 +80,7 @@ export class SwingAnalysisService {
         const stamped: PersistedAnalysis = { ...payload, userId, symbol: sym };
         return from(
           setDoc(
-            doc(
-              this.firestore,
-              ZIG_ZAGS_COLLECTION,
-              sym,
-              ANALYSES_SUBCOLLECTION,
-              analysis.paramsId,
-            ),
+            doc(this.firestore, SWING_SETS_COLLECTION, this.docId(sym, analysis.paramsId)),
             stamped,
           ),
         );
@@ -83,21 +88,13 @@ export class SwingAnalysisService {
     );
   }
 
-  /** Load a single saved analysis by doc id. */
+  /** Load a single saved swing set by symbol + paramsId. */
   loadAnalysis(symbol: string, docId: string): Observable<SwingAnalysisDoc | null> {
     const sym = String(symbol || '').trim().toUpperCase();
     if (!sym || !docId) return of(null);
 
     return from(
-      getDoc(
-        doc(
-          this.firestore,
-          ZIG_ZAGS_COLLECTION,
-          sym,
-          ANALYSES_SUBCOLLECTION,
-          docId,
-        ),
-      ),
+      getDoc(doc(this.firestore, SWING_SETS_COLLECTION, this.docId(sym, docId))),
     ).pipe(
       map((snap) =>
         snap.exists()

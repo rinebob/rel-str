@@ -325,18 +325,15 @@ service cloud.firestore {
       allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
     }
 
-    // ZigZag swing analyses — user-scoped CRUD under zig-zags/{symbol}/analyses/{paramsId}
+    // ZigZag swing sets — flat collection, user-scoped CRUD under
+    // swing-sets/{symbol}_{paramsId}
     // - Collection list queries have no resource object; client filters by userId locally.
     // - Single-doc reads/writes enforce userId ownership.
-    match /zig-zags/{symbol} {
-      allow read: if false; // intermediate doc — no direct reads
-      allow write: if false; // intermediate doc — no direct writes
-      match /analyses/{paramsId} {
-        allow read: if request.auth != null && (resource == null || request.auth.uid == resource.data.userId);
-        allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-        allow update: if request.auth != null && request.auth.uid == resource.data.userId;
-        allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
-      }
+    match /swing-sets/{docId} {
+      allow read: if request.auth != null && (resource == null || request.auth.uid == resource.data.userId);
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
     }
 
     // Saved user configurations — authenticated CRUD, no user-scoping.

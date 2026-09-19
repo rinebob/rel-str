@@ -25,6 +25,8 @@ const fsMock = {
     id: '',
   }),
   getDocs: jest.fn().mockResolvedValue({ docs: [] }),
+  query: jest.fn((ref: unknown, ...constraints: unknown[]) => ({ ref, constraints })),
+  where: jest.fn((field: string, op: string, value: unknown) => ({ field, op, value })),
   collectionData: jest.fn(),
 };
 
@@ -149,23 +151,22 @@ describe('SwingAnalysisService', () => {
   // -------------------------------------------------------------------------
 
   describe('loadSavedAnalyses', () => {
-    it('constructs collection path zig-zags/{symbol}/analyses', async () => {
+    it('queries the flat swing-sets collection filtered by symbol', async () => {
       await firstValueFrom(service.loadSavedAnalyses('AAPL'));
       expect(fsMock.collection).toHaveBeenCalledTimes(1);
       const args = fsMock.collection.mock.calls[0];
-      expect(args.slice(1)).toEqual(['zig-zags', 'AAPL', 'analyses']);
+      expect(args.slice(1)).toEqual(['swing-sets']);
+      expect(fsMock.where).toHaveBeenCalledWith('symbol', '==', 'AAPL');
     });
 
     it('normalizes symbol to uppercase', async () => {
       await firstValueFrom(service.loadSavedAnalyses('aapl'));
-      const args = fsMock.collection.mock.calls[0];
-      expect(args.slice(1)).toEqual(['zig-zags', 'AAPL', 'analyses']);
+      expect(fsMock.where).toHaveBeenCalledWith('symbol', '==', 'AAPL');
     });
 
     it('trims whitespace from symbol', async () => {
       await firstValueFrom(service.loadSavedAnalyses('  AAPL  '));
-      const args = fsMock.collection.mock.calls[0];
-      expect(args.slice(1)).toEqual(['zig-zags', 'AAPL', 'analyses']);
+      expect(fsMock.where).toHaveBeenCalledWith('symbol', '==', 'AAPL');
     });
 
     it('returns empty array for empty symbol', async () => {
@@ -191,12 +192,12 @@ describe('SwingAnalysisService', () => {
   // -------------------------------------------------------------------------
 
   describe('saveAnalysis', () => {
-    it('constructs doc path zig-zags/{symbol}/analyses/{paramsId}', async () => {
+    it('constructs doc path swing-sets/{symbol}_{paramsId}', async () => {
       await firstValueFrom(service.saveAnalysis(makeInput()));
       expect(fsMock.doc).toHaveBeenCalledTimes(1);
       const args = fsMock.doc.mock.calls[0];
       expect(args.slice(1)).toEqual([
-        'zig-zags', 'AAPL', 'analyses', deriveParamsId(DEFAULT_CONFIG),
+        'swing-sets', `AAPL_${deriveParamsId(DEFAULT_CONFIG)}`,
       ]);
     });
 
@@ -205,7 +206,7 @@ describe('SwingAnalysisService', () => {
       await firstValueFrom(service.saveAnalysis(input));
       expect(fsMock.setDoc).toHaveBeenCalledTimes(1);
       const [ref, payload] = fsMock.setDoc.mock.calls[0];
-      expect(ref.path).toBe(`zig-zags/AAPL/analyses/${deriveParamsId(DEFAULT_CONFIG)}`);
+      expect(ref.path).toBe(`swing-sets/AAPL_${deriveParamsId(DEFAULT_CONFIG)}`);
       expect(payload.userId).toBe('user-123');
       expect(payload.symbol).toBe('AAPL');
       expect(payload.paramsId).toBe(deriveParamsId(DEFAULT_CONFIG));
@@ -228,7 +229,7 @@ describe('SwingAnalysisService', () => {
       await firstValueFrom(service.saveAnalysis(makeInput({ symbol: 'msft' })));
       const args = fsMock.doc.mock.calls[0];
       expect(args.slice(1)).toEqual([
-        'zig-zags', 'MSFT', 'analyses', deriveParamsId(DEFAULT_CONFIG),
+        'swing-sets', `MSFT_${deriveParamsId(DEFAULT_CONFIG)}`,
       ]);
     });
 
@@ -263,12 +264,12 @@ describe('SwingAnalysisService', () => {
   // -------------------------------------------------------------------------
 
   describe('loadAnalysis', () => {
-    it('constructs doc path zig-zags/{symbol}/analyses/{docId}', async () => {
+    it('constructs doc path swing-sets/{symbol}_{docId}', async () => {
       await firstValueFrom(service.loadAnalysis('AAPL', 'dev5_L5_R5_1barY_projY'));
       expect(fsMock.doc).toHaveBeenCalledTimes(1);
       const args = fsMock.doc.mock.calls[0];
       expect(args.slice(1)).toEqual([
-        'zig-zags', 'AAPL', 'analyses', 'dev5_L5_R5_1barY_projY',
+        'swing-sets', 'AAPL_dev5_L5_R5_1barY_projY',
       ]);
     });
 
@@ -276,7 +277,7 @@ describe('SwingAnalysisService', () => {
       await firstValueFrom(service.loadAnalysis('aapl', 'dev5_L5_R5_1barY_projY'));
       const args = fsMock.doc.mock.calls[0];
       expect(args.slice(1)).toEqual([
-        'zig-zags', 'AAPL', 'analyses', 'dev5_L5_R5_1barY_projY',
+        'swing-sets', 'AAPL_dev5_L5_R5_1barY_projY',
       ]);
     });
 
@@ -331,22 +332,47 @@ describe('SwingAnalysisService', () => {
   // -------------------------------------------------------------------------
 
   describe('path segment counts', () => {
-    it('collection() receives exactly 3 path segments (odd = valid CollectionReference)', async () => {
+    it('collection() receives exactly 1 path segment (odd = valid CollectionReference)', async () => {
       await firstValueFrom(service.loadSavedAnalyses('AAPL'));
       const pathArgs = fsMock.collection.mock.calls[0].slice(1);
-      expect(pathArgs.length).toBe(3);
+      expect(pathArgs.length).toBe(1);
     });
 
-    it('doc() in saveAnalysis receives exactly 4 path segments (even = valid DocumentReference)', async () => {
+    it('doc() in saveAnalysis receives exactly 2 path segments (even = valid DocumentReference)', async () => {
       await firstValueFrom(service.saveAnalysis(makeInput()));
       const pathArgs = fsMock.doc.mock.calls[0].slice(1);
-      expect(pathArgs.length).toBe(4);
+      expect(pathArgs.length).toBe(2);
     });
 
-    it('doc() in loadAnalysis receives exactly 4 path segments (even = valid DocumentReference)', async () => {
+    it('doc() in loadAnalysis receives exactly 2 path segments (even = valid DocumentReference)', async () => {
       await firstValueFrom(service.loadAnalysis('AAPL', 'dev5_L5_R5_1barY_projY'));
       const pathArgs = fsMock.doc.mock.calls[0].slice(1);
-      expect(pathArgs.length).toBe(4);
+      expect(pathArgs.length).toBe(2);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // loadAllSwingSets — flat collection enumeration for the saved-sets browser
+  // -------------------------------------------------------------------------
+
+  describe('loadAllSwingSets', () => {
+    it('reads the flat swing-sets collection', async () => {
+      await firstValueFrom(service.loadAllSwingSets());
+      const args = fsMock.collection.mock.calls[0];
+      expect(args.slice(1)).toEqual(['swing-sets']);
+      expect(fsMock.getDocs).toHaveBeenCalledTimes(1);
+    });
+
+    it('maps docs to SwingAnalysisDoc with id', async () => {
+      fsMock.getDocs.mockResolvedValue({
+        docs: [
+          { data: () => makeFirestoreDoc(), id: 'AAPL_dev5_L5_R5_1barY_projY' },
+        ],
+      });
+      const result = await firstValueFrom(service.loadAllSwingSets());
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('AAPL_dev5_L5_R5_1barY_projY');
+      expect(result[0].symbol).toBe('AAPL');
     });
   });
 });
