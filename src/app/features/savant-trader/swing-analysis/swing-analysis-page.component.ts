@@ -498,8 +498,14 @@ export class SwingAnalysisPageComponent implements OnDestroy {
     this.ui.setFullscreen(true);
   }
 
+  /** Pending lineColor update awaiting the debounce window. */
+  private pendingColor: { index: number; value: string } | null = null;
+  /** Handle for the active debounce timer; null when no update is in flight. */
+  private colorDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
   /** Restore the app header when leaving the page. */
   ngOnDestroy(): void {
+    if (this.colorDebounceTimer !== null) clearTimeout(this.colorDebounceTimer);
     this.ui.setFullscreen(false);
   }
 
@@ -545,9 +551,20 @@ export class SwingAnalysisPageComponent implements OnDestroy {
     this.store.updateConfig(index, { [key]: checked });
   }
 
+  /** Debounce the native color picker — it fires `input` continuously while
+   *  dragging, and each event triggers a full pivots/swings/stats recompute
+   *  in updateConfig. Hold the latest value for 300 ms (same window as the
+   *  indicator-menu debounce) and apply once. */
   onColorParam(index: number, key: 'lineColor', event: Event): void {
     const value = (event.target as HTMLInputElement).value;
-    this.store.updateConfig(index, { [key]: value });
+    this.pendingColor = { index, value };
+    if (this.colorDebounceTimer !== null) clearTimeout(this.colorDebounceTimer);
+    this.colorDebounceTimer = setTimeout(() => {
+      this.colorDebounceTimer = null;
+      const pending = this.pendingColor;
+      this.pendingColor = null;
+      if (pending) this.store.updateConfig(pending.index, { [key]: pending.value });
+    }, 300);
   }
 
   onSave(index: number): void {

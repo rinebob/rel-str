@@ -38,6 +38,7 @@
 - [Trading Indicator Library] 261-395_DOCS-INDICATOR-LIB: Add code review doc for Task #395
 - [Trading Indicator Library] 261-261_SHARED-IMPL-INDICATOR-LIB: Add reversal-trigger dots to ZigZag chart series (checkpoint)
 - [Trading Indicator Library] 261-261_FE-IMPL-INDICATOR-LIB: Tune swing-analysis defaults, layout, and fullscreen (checkpoint)
+- [Trading Indicator Library] 261-414_FE-IMPL-INDICATOR-LIB: Debounce lineColor picker and default small swings to black (checkpoint)
 
 ## [2026-09-17]
 

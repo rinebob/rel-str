@@ -58,7 +58,7 @@ export const SMALL_CONFIG: ZigZagConfig = {
   rightDepth: 2,
   allowZigZagOnOneBar: true,
   projectionPivots: true,
-  lineColor: '#e65100',
+  lineColor: '#000000',
 };
 
 // =============================================================================

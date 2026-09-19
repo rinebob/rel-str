@@ -573,14 +573,47 @@ describe('SwingAnalysisPageComponent', () => {
     expect(store.configs()[0].devThreshold).toBe(LARGE_CONFIG.devThreshold);
   });
 
-  it('calls store.updateConfig when lineColor changes', async () => {
+  it('debounces store.updateConfig when lineColor changes', async () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
     fixture.detectChanges();
-    const color = fixture.nativeElement.querySelector('[data-testid="param-lineColor-1"]') as HTMLInputElement;
-    color.value = '#ff0000';
-    color.dispatchEvent(new Event('input'));
-    expect(store.configs()[1].lineColor).toBe('#ff0000');
+    jest.useFakeTimers();
+    try {
+      const updateSpy = jest.spyOn(store, 'updateConfig');
+      const color = fixture.nativeElement.querySelector('[data-testid="param-lineColor-1"]') as HTMLInputElement;
+      color.value = '#ff0000';
+      color.dispatchEvent(new Event('input'));
+      // The update is held until the debounce window closes.
+      expect(updateSpy).not.toHaveBeenCalled();
+      jest.advanceTimersByTime(300);
+      expect(store.configs()[1].lineColor).toBe('#ff0000');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('collapses rapid lineColor input events into a single update with the latest value', async () => {
+    const { fixture, store } = await setupPage();
+    store.setSymbol('AAPL');
+    fixture.detectChanges();
+    jest.useFakeTimers();
+    try {
+      const updateSpy = jest.spyOn(store, 'updateConfig');
+      const color = fixture.nativeElement.querySelector('[data-testid="param-lineColor-1"]') as HTMLInputElement;
+      color.value = '#ff0000';
+      color.dispatchEvent(new Event('input'));
+      jest.advanceTimersByTime(100);
+      color.value = '#00ff00';
+      color.dispatchEvent(new Event('input'));
+      jest.advanceTimersByTime(100);
+      color.value = '#0000ff';
+      color.dispatchEvent(new Event('input'));
+      jest.advanceTimersByTime(300);
+      expect(updateSpy).toHaveBeenCalledTimes(1);
+      expect(store.configs()[1].lineColor).toBe('#0000ff');
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('calls store.saveAnalysis with the correct index when a save button is clicked', async () => {

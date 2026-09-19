@@ -197,6 +197,12 @@ describe('SwingAnalysisStore — initial state', () => {
     expect(store.paramsIds()).toEqual([deriveParamsId(LARGE_CONFIG), deriveParamsId(SMALL_CONFIG)]);
   });
 
+  it('defaults the small swing line color to black', () => {
+    const { store } = setupStore();
+    expect(SMALL_CONFIG.lineColor).toBe('#000000');
+    expect(store.configs()[1].lineColor).toBe('#000000');
+  });
+
   it('hasProjection is false when no projections exist', () => {
     const { store } = setupStore();
     expect(store.hasProjection()).toBe(false);
