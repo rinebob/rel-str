@@ -13,6 +13,8 @@ import type {
   Swing,
   SwingStats,
 } from '../../../../shared/components/flex-chart/indicators/st-zigzag.types';
+import { OptionType } from '@options-contract/contracts';
+import type { HistoricalOptionContract } from '@options-contract/contracts';
 import type { StSignalItem } from '../../../services/types';
 import {
   SignalDirection,
@@ -113,6 +115,22 @@ export function makeSignalFixture(
     status: SignalStatus.INTERIM,
     indicators: {},
     closePrice: 100,
+    ...overrides,
+  };
+}
+
+/** Minimal historical option contract for snapshot caches. */
+export function makeContractFixture(
+  overrides: Partial<HistoricalOptionContract> = {},
+): HistoricalOptionContract {
+  return {
+    contractID: 'TEST',
+    symbol: 'QQQ',
+    expiration: '2024-03-15',
+    strike: '100',
+    type: OptionType.CALL,
+    mark: '5.00',
+    delta: '0.5',
     ...overrides,
   };
 }

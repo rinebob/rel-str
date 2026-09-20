@@ -19,7 +19,7 @@ import { OptionChainPctChangeStore } from './option-chain-pct-change.store';
 import { PctChangeGridComponent } from './components/pct-change-grid.component';
 import { TargetTypeSelectorComponent } from './components/target-type-selector.component';
 import { ConfirmDialogComponent } from './components/confirm-dialog.component';
-import { toNum, cellKey, CONTRACT_CHART_PANE_CLASS } from './utils/pct-change.utils';
+import { toNum, CONTRACT_CHART_PANE_CLASS } from './utils/pct-change.utils';
 import { DEFAULT_CELL_TEXT_MODE, type CellTextMode } from './utils/color-mapping.utils';
 import { OptionType } from '@options-contract/contracts';
 import { take } from 'rxjs';
@@ -259,7 +259,7 @@ import { take } from 'rxjs';
               <app-pct-change-grid
                 [grid]="grid"
                 [contrastMode]="contrastMode()"
-                [linkedKey]="linkedKey()"
+                [linkedKey]="store.highlightedKey()"
               />
             }
           } @else {
@@ -541,10 +541,7 @@ export class OptionChainPctChangeComponent implements OnInit, OnDestroy {
   /** The contract key (strike-expiration) of the highlighted contract —
    *  every grid outlines the matching cell, including the one that was
    *  clicked. Null when nothing is highlighted. */
-  readonly linkedKey = computed(() => {
-    const h = this.store.highlightedContract();
-    return h ? cellKey(h.strike, h.expiration) : null;
-  });
+
 
   /** Handle config dropdown selection change. Picking a saved config
    *  collapses the config panels so the loaded state is visible. */

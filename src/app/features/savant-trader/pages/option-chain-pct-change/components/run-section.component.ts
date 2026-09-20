@@ -1,17 +1,33 @@
 /**
- * RunSection — one collapsible pct-change run. Task #424 ships the shell:
- * collapsed-by-default <details> with a run summary header; every expand
- * calls ensureSnapshots() to fill the shared snapshot cache for the run's
- * dates (the store dedupes cached/in-flight dates, so repeat expands are
- * no-ops). Task #425 adds the lazy pct-change grids inside.
+ * RunSection — one collapsible pct-change run. Collapsed by default;
+ * expanding fills the shared snapshot cache (ensureSnapshots dedupes
+ * cached/in-flight dates) and lazily renders one PctChangeGridComponent
+ * per target date. Grids recompute live from the cache, so a second
+ * expand after the fetch resolves just renders.
+ *
+ * The run's dates/type flow to the chart popup via seriesScope so a
+ * run-grid cell charts the run's own start/target snapshots, not the
+ * main-flow inputs.
  */
-import { ChangeDetectionStrategy, Component, inject, input, output } from '@angular/core';
-import { OptionChainPctChangeStore } from '../option-chain-pct-change.store';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
+import { OptionChainPctChangeStore, type SeriesScope } from '../option-chain-pct-change.store';
+import { PctChangeGridComponent } from './pct-change-grid.component';
+import { buildGrids } from '../utils/pct-change.utils';
+import type { PctChangeGrid } from '../utils/pct-change.utils';
 import type { SwingCompareRun } from '../utils/swing-compare.utils';
 
 @Component({
   selector: 'app-run-section',
   standalone: true,
+  imports: [PctChangeGridComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="run-section">
@@ -29,11 +45,22 @@ import type { SwingCompareRun } from '../utils/swing-compare.utils';
         >✕</button>
       </div>
       <details class="run-details" data-testid="run-details" (toggle)="onToggle($event)">
-        <summary class="run-summary">grids</summary>
-        <div class="run-body">
-          <!-- #425: lazy pct-change grids per target date -->
-          <p class="run-placeholder">grids load on expand (Task #425)</p>
-        </div>
+        <summary class="run-summary">grids ({{ run().targetDates.length }})</summary>
+        @if (open()) {
+          <div class="run-body">
+            @if (!snapshotsReady()) {
+              <p class="run-placeholder" data-testid="run-loading">loading snapshots…</p>
+            } @else {
+              @for (grid of runGrids(); track grid.targetDate) {
+                <app-pct-change-grid
+                  [grid]="grid"
+                  [linkedKey]="store.highlightedKey()"
+                  [seriesScope]="scope()"
+                />
+              }
+            }
+          </div>
+        }
       </details>
     </div>
   `,
@@ -65,12 +92,50 @@ export class RunSectionComponent {
   /** Emits the run id — parent calls store.removeRun. */
   readonly removed = output<string>();
 
-  private readonly store = inject(OptionChainPctChangeStore);
+  readonly store = inject(OptionChainPctChangeStore);
+
+  /** Details open state — grids mount on expand and unmount on collapse
+   *  (N runs × grids would be heavy if all stayed in the DOM). */
+  readonly open = signal(false);
+
+  /** The run's chart-popup scope — start/targets/type feed the mini-chart
+   *  series instead of the main-flow inputs. */
+  readonly scope = computed<SeriesScope>(() => ({
+    startDate: this.run().startDate,
+    targetDates: this.run().targetDates,
+    type: this.run().type,
+  }));
+
+  /** True once the run's start date has landed in the shared cache —
+   *  distinguishes "still fetching" from "fetched but empty". */
+  readonly snapshotsReady = computed(
+    () => this.run().startDate in this.store.snapshotCache(),
+  );
+
+  /** One pct-change grid per run target — pure recompute off the shared
+   *  snapshot cache. Global filters apply (duration/strike/delta); the
+   *  run's own option type overrides the main-flow filter type. */
+  readonly runGrids = computed<PctChangeGrid[]>(() => {
+    if (!this.open()) return [];
+    const r = this.run();
+    const filter = this.store.filter();
+    return buildGrids(
+      this.store.snapshotCache(),
+      this.store.underlyingPrices(),
+      { ...filter, type: r.type },
+      r.startDate,
+      r.targetDates,
+    );
+  });
 
   /** Fill the shared cache on every expand — ensureSnapshots dedupes
    *  cached and in-flight dates, so repeat opens are no-ops. */
   onToggle(event: Event): void {
-    if (!(event.target as HTMLDetailsElement).open) return;
+    if (!(event.target as HTMLDetailsElement).open) {
+      this.open.set(false);
+      return;
+    }
+    this.open.set(true);
     const r = this.run();
     this.store.ensureSnapshots([r.startDate, ...r.targetDates]);
   }

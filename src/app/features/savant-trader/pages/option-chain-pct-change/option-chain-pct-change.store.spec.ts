@@ -44,6 +44,7 @@ import type {
 } from '../../../shared/components/flex-chart/indicators/st-zigzag.engine';
 import {
   fixtureMs,
+  makeContractFixture,
   makePivotFixture,
   makeSwingAnalysisDocFixture,
   makeSignalFixture,
@@ -80,23 +81,10 @@ function makeChain(contracts: HistoricalOptionContract[]): GetHistoricalOptionsC
   };
 }
 
-function makeContract(overrides: Partial<HistoricalOptionContract> = {}): HistoricalOptionContract {
-  return {
-    contractID: 'TEST',
-    symbol: 'QQQ',
-    expiration: '2024-03-15',
-    strike: '100',
-    type: OptionType.CALL,
-    mark: '5.00',
-    delta: '0.5',
-    ...overrides,
-  };
-}
-
 function mockService(
-  startChain: HistoricalOptionContract[] = [makeContract({ contractID: 'A', mark: '10.00' })],
+  startChain: HistoricalOptionContract[] = [makeContractFixture({ contractID: 'A', mark: '10.00' })],
   targetChains: Record<string, HistoricalOptionContract[]> = {
-    '2024-02-15': [makeContract({ contractID: 'A', mark: '15.00' })],
+    '2024-02-15': [makeContractFixture({ contractID: 'A', mark: '15.00' })],
   },
 ): Partial<OptionsContractService> {
   return {
@@ -386,12 +374,12 @@ describe('OptionChainPctChangeStore', () => {
       store.runAnalysis();
 
       // Complete the first subject (simulating a late response).
-      firstSubject.next(makeChain([makeContract({ contractID: 'STALE', mark: '999.00' })]));
+      firstSubject.next(makeChain([makeContractFixture({ contractID: 'STALE', mark: '999.00' })]));
       firstSubject.complete();
 
       // Now complete the second subject.
-      secondSubject.next(makeChain([makeContract({ contractID: 'FRESH', mark: '10.00' })]));
-      secondSubject.next(makeChain([makeContract({ contractID: 'FRESH', mark: '10.00' })]));
+      secondSubject.next(makeChain([makeContractFixture({ contractID: 'FRESH', mark: '10.00' })]));
+      secondSubject.next(makeChain([makeContractFixture({ contractID: 'FRESH', mark: '10.00' })]));
       secondSubject.complete();
 
       // The stale first response should not have overwritten the fresh one.
@@ -428,7 +416,7 @@ describe('OptionChainPctChangeStore', () => {
       expect(store.error()).toBeNull();
 
       // Emit a late response — should not repopulate the store.
-      subject.next(makeChain([makeContract({ contractID: 'LATE', mark: '999.00' })]));
+      subject.next(makeChain([makeContractFixture({ contractID: 'LATE', mark: '999.00' })]));
       subject.complete();
 
       expect(store.snapshotCache()).toEqual({});
@@ -961,10 +949,10 @@ describe('OptionChainPctChangeStore', () => {
 
     it('selectedContractSeries spans all target snapshots, not just the clicked grid', () => {
       const store = setupStore(mockService(
-        [makeContract({ contractID: 'A', mark: '10.00' })],
+        [makeContractFixture({ contractID: 'A', mark: '10.00' })],
         {
-          '2024-02-15': [makeContract({ contractID: 'A', mark: '15.00' })],
-          '2024-03-15': [makeContract({ contractID: 'A', mark: '20.00' })],
+          '2024-02-15': [makeContractFixture({ contractID: 'A', mark: '15.00' })],
+          '2024-03-15': [makeContractFixture({ contractID: 'A', mark: '20.00' })],
         },
       ));
       store.setSymbol('QQQ');
@@ -1381,6 +1369,41 @@ describe('OptionChainPctChangeStore', () => {
       expect(store.frameSwing()).toBeNull();
       expect(store.runs()).toEqual([]);
       expect(store.snapshotCache()).toEqual({});
+    });
+
+    it('selectedContractSeries uses the run scope for run-grid selections', () => {
+      // Seed the run-scope snapshots into the shared cache.
+      const svc = mockService(
+        [makeContractFixture({ contractID: 'A', mark: '10.00' })],
+        {
+          '2025-04-01': [makeContractFixture({ contractID: 'A', mark: '10.00' })],
+          '2025-04-10': [makeContractFixture({ contractID: 'A', mark: '15.00' })],
+        },
+      );
+      const store = setupStore(
+        svc,
+        mockConfigService(),
+        mockBarReadService(),
+        mockSwingAnalysisService([frameDoc()]),
+        mockHistoryStore(),
+      );
+      store.setSymbol('MSFT');
+      store.ensureSnapshots(['2025-04-01', '2025-04-10']);
+      expect(store.snapshotCache()['2025-04-01']).toBeDefined();
+
+      // Pin as a run grid does — the run's own start/target dates + type.
+      // The main flow's startDate ('2025-04-07') has no cached snapshot, so
+      // a non-scoped selection would produce an empty series — a non-empty
+      // result proves the scope was used.
+      store.pinContract(
+        { contractID: 'A', strike: 100, expiration: '2024-03-15' },
+        '2025-04-10',
+        { startDate: '2025-04-01', targetDates: ['2025-04-10'], type: OptionType.CALL },
+      );
+
+      const series = store.selectedContractSeries();
+      expect(series.map((p) => p.date)).toEqual(['2025-04-01', '2025-04-10']);
+      expect(series.map((p) => p.price)).toEqual([10, 15]);
     });
   });
 });

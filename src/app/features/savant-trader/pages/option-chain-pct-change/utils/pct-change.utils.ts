@@ -339,3 +339,31 @@ export function closestPriorCloses(
   }
   return out;
 }
+
+/**
+ * Build one PctChangeGrid per target date from a date-keyed snapshot
+ * cache -- shared by the main flow's `grids` computed and run sections.
+ * Missing start snapshot -> []. Missing/empty targets still produce a
+ * grid (empty cells) so the column skeleton renders.
+ */
+export function buildGrids(
+  cache: Record<string, HistoricalOptionContract[]>,
+  underlyingPrices: Record<string, number>,
+  filter: PctChangeFilter,
+  startDate: string,
+  targetDates: string[],
+): PctChangeGrid[] {
+  const startSnapshot = cache[startDate];
+  if (!startSnapshot) return [];
+  return targetDates.map((dt) =>
+    computePctChange(
+      startSnapshot,
+      cache[dt] ?? [],
+      startDate,
+      dt,
+      filter,
+      underlyingPrices[startDate] ?? null,
+      underlyingPrices[dt] ?? null,
+    ),
+  );
+}

@@ -19,6 +19,7 @@ import { pctChangeToCellColors, DEFAULT_CELL_TEXT_MODE, type CellTextMode } from
 import { DAYS } from '../../../../shared/utils/date.util';
 import { ContractMiniChartComponent } from './contract-mini-chart.component';
 import { OptionChainPctChangeStore, sameSelectedCell } from '../option-chain-pct-change.store';
+import type { SeriesScope } from '../option-chain-pct-change.store';
 
 /** Cell render data — color, tooltip, and display strings are computed once
  *  per grid change so hover-driven change detection is property reads only. */
@@ -153,7 +154,7 @@ interface ExpHeader {
             [contractID]="oc.contractID"
             [strike]="oc.strike"
             [expiration]="oc.expiration"
-            [type]="store.type()"
+            [type]="seriesScope()?.type ?? store.type()"
             [series]="store.selectedContractSeries()"
             (mouseenter)="onOverlayEnter()"
             (mouseleave)="onOverlayLeave()"
@@ -341,6 +342,11 @@ export class PctChangeGridComponent implements OnDestroy {
    *  the matching cell here gets a blue outline. Null = no highlight. */
   readonly linkedKey = input<string | null>(null);
 
+  /** Run-grid scope — when set (swing-compare run sections), the chart
+   *  popup's series + type come from the run's dates/type instead of the
+   *  main-flow inputs. */
+  readonly seriesScope = input<SeriesScope | null>(null);
+
   /** Store — event emission only (icon hover/click → selection methods);
    *  the overlay reads selectedCell/selectedContractSeries/type directly. */
   readonly store = inject(OptionChainPctChangeStore);
@@ -482,12 +488,21 @@ export class PctChangeGridComponent implements OnDestroy {
     const c = this.overlayCell();
     return (
       c != null &&
-      sameSelectedCell(this.store.selectedCell(), c, this.grid().targetDate)
+      sameSelectedCell(
+        this.store.selectedCell(),
+        c,
+        this.grid().targetDate,
+        this.seriesScope() ?? undefined,
+      )
     );
   });
 
   ngOnDestroy(): void {
     this.cancelPendingClear();
+    // A destroyed grid can't host its popup — if our cell owns the
+    // selection (e.g. a pinned run grid collapsed), release it so other
+    // grids aren't stuck behind a dead pin.
+    if (this.overlayCell() != null) this.store.clearContractSelection();
   }
 
   constructor() {
@@ -522,12 +537,12 @@ export class PctChangeGridComponent implements OnDestroy {
       if (this.store.isContractPinned()) return;
       // Skip re-patching when this cell is already the selection — the
       // bubbling mouseover refires on every internal move within the icon.
-      if (sameSelectedCell(this.store.selectedCell(), cell, this.grid().targetDate)) {
+      if (sameSelectedCell(this.store.selectedCell(), cell, this.grid().targetDate, this.seriesScope() ?? undefined)) {
         return;
       }
       this.activeOrigin.set(cellEl);
       this.overlayCell.set(cell);
-      this.store.previewContract(cell, this.grid().targetDate);
+      this.store.previewContract(cell, this.grid().targetDate, this.seriesScope() ?? undefined);
       return;
     }
 
@@ -585,7 +600,7 @@ export class PctChangeGridComponent implements OnDestroy {
       if (this.store.isContractPinned()) return;
       this.activeOrigin.set(cellEl);
       this.overlayCell.set(cell);
-      this.store.pinContract(cell, this.grid().targetDate);
+      this.store.pinContract(cell, this.grid().targetDate, this.seriesScope() ?? undefined);
     } else {
       // Plain cell click: reveal the icon and highlight this contract
       // across all grids. stopPropagation keeps the page's outside-click

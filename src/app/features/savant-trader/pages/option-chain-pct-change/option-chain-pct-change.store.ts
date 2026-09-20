@@ -35,7 +35,8 @@ import type {
   ResolvePctChangeRequest,
 } from '@shared/pct-change-config-contracts';
 import {
-  computePctChange,
+  buildGrids,
+  cellKey,
   extractContractSeries,
   chainContracts,
   closestPriorCloses,
@@ -57,6 +58,15 @@ import type { Swing } from '../../../shared/components/flex-chart/indicators/st-
 // State
 // ---------------------------------------------------------------------------
 
+/** The snapshot scope a chart-popup series is computed over — absent on
+ *  main-flow selections (main startDate/targetDates/type apply); present
+ *  on run-grid selections (the run's own dates + option type). */
+export interface SeriesScope {
+  startDate: string;
+  targetDates: string[];
+  type: OptionType;
+}
+
 /** Identity of the grid cell whose contract is selected for the chart popup. */
 export interface SelectedContractCell {
   contractID: string;
@@ -64,6 +74,9 @@ export interface SelectedContractCell {
   expiration: string;
   /** The target date of the grid the cell was selected in. */
   targetDate: string;
+  /** Run-grid scope — when present the chart series uses these dates/type
+   *  instead of the main flow's. */
+  seriesScope?: SeriesScope;
 }
 
 /** The contract identity a cell carries — a PctChangeCell is assignable to this. */
@@ -72,26 +85,46 @@ export type ContractCellRef = Pick<PctChangeCell, 'contractID' | 'strike' | 'exp
 /** Build the stored selection from a cell ref + its grid's target date.
  *  Picks fields explicitly — callers may pass a full PctChangeCell whose
  *  extra fields must not leak into state. */
-const toSelectedCell = (cell: ContractCellRef, targetDate: string): SelectedContractCell => ({
+const toSelectedCell = (
+  cell: ContractCellRef,
+  targetDate: string,
+  seriesScope?: SeriesScope,
+): SelectedContractCell => ({
   contractID: cell.contractID,
   strike: cell.strike,
   expiration: cell.expiration,
   targetDate,
+  ...(seriesScope ? { seriesScope } : {}),
 });
+
+/** Scope equality — undefined/main-flow scopes and identical run scopes
+ *  both count as the same selection. */
+const sameScope = (a?: SeriesScope, b?: SeriesScope): boolean => {
+  if (!a || !b) return a === b;
+  return (
+    a.startDate === b.startDate &&
+    a.type === b.type &&
+    a.targetDates.join(',') === b.targetDates.join(',')
+  );
+};
 
 /** Field-for-field identity check between the stored selection and a cell
  *  ref in a given grid. The canonical field set lives here so it can't
- *  drift across call sites. */
+ *  drift across call sites. `seriesScope` must match too — a run-grid
+ *  cell sharing targetDate/contract with a main-flow selection is a
+ *  different cell. */
 export const sameSelectedCell = (
   sel: SelectedContractCell | null,
   cell: ContractCellRef,
   targetDate: string,
+  seriesScope?: SeriesScope,
 ): sel is SelectedContractCell =>
   sel != null &&
   sel.contractID === cell.contractID &&
   sel.strike === cell.strike &&
   sel.expiration === cell.expiration &&
-  sel.targetDate === targetDate;
+  sel.targetDate === targetDate &&
+  sameScope(sel.seriesScope, seriesScope);
 
 export interface OptionChainPctChangeState {
   /** Input: symbol to analyze. */
@@ -225,27 +258,21 @@ export const OptionChainPctChangeStore = signalStore(
      * Grids are a pure function of cached snapshots + current inputs.
      * Auto-recomputes when filters, target dates, or cached snapshots change.
      */
-    grids: computed((): PctChangeGrid[] => {
-      const cache = state.snapshotCache();
-      const startDate = state.startDate().trim();
-      const startSnapshot = cache[startDate];
-      const targetDates = state.targetDates();
-      const filter = state.filter();
+    grids: computed((): PctChangeGrid[] =>
+      buildGrids(
+        state.snapshotCache(),
+        state.underlyingPrices(),
+        state.filter(),
+        state.startDate().trim(),
+        state.targetDates(),
+      ),
+    ),
 
-      if (!startSnapshot) return [];
-
-      const underlyingPrices = state.underlyingPrices();
-      return targetDates.map((dt) =>
-        computePctChange(
-          startSnapshot,
-          cache[dt] ?? [],
-          startDate,
-          dt,
-          filter,
-          underlyingPrices[startDate] ?? null,
-          underlyingPrices[dt] ?? null,
-        ),
-      );
+    /** Key (strike-expiration) of the cross-grid highlighted contract —
+     *  grids outline the matching cell. Shared with run sections. */
+    highlightedKey: computed(() => {
+      const h = state.highlightedContract();
+      return h ? cellKey(h.strike, h.expiration) : null;
     }),
   })),
 
@@ -278,13 +305,17 @@ export const OptionChainPctChangeStore = signalStore(
     selectedContractSeries: computed((): ContractSeriesPoint[] => {
       const sel = state.selectedCell();
       const cache = state.snapshotCache();
-      const startDate = state.startDate().trim();
+      // Run-grid cells carry their own date/type scope; main-flow cells
+      // use the main inputs. Either way, only that scope's target dates
+      // feed the series — unrelated cache entries can't leak in.
+      const scope = sel?.seriesScope;
+      const startDate = scope?.startDate ?? state.startDate().trim();
       const startSnapshot = cache[startDate];
       if (!sel || !startSnapshot) return [];
-      // Only the main-flow target dates — run-section cache entries must
-      // not leak into the chart popup's series.
       const targetSnapshots: Record<string, HistoricalOptionContract[]> = {};
-      for (const dt of state.targetDates()) targetSnapshots[dt] = cache[dt] ?? [];
+      for (const dt of scope?.targetDates ?? state.targetDates()) {
+        targetSnapshots[dt] = cache[dt] ?? [];
+      }
       return extractContractSeries(
         {
           contractID: sel.contractID,
@@ -292,7 +323,7 @@ export const OptionChainPctChangeStore = signalStore(
           strike: sel.strike,
           expiration: sel.expiration,
         },
-        state.type(),
+        scope?.type ?? state.type(),
         startDate,
         startSnapshot,
         targetSnapshots,
@@ -468,19 +499,19 @@ export const OptionChainPctChangeStore = signalStore(
        * Transient hover selection — shows the contract's chart while the
        * icon is hovered. Ignored while a contract is pinned.
        */
-      previewContract(cell: ContractCellRef, targetDate: string): void {
+      previewContract(cell: ContractCellRef, targetDate: string, seriesScope?: SeriesScope): void {
         if (store.isContractPinned()) return;
-        patchState(store, { selectedCell: toSelectedCell(cell, targetDate) });
+        patchState(store, { selectedCell: toSelectedCell(cell, targetDate, seriesScope) });
       },
 
       /**
        * Click selection — pins the overlay open until cleared. Ignored
        * while a contract is already pinned.
        */
-      pinContract(cell: ContractCellRef, targetDate: string): void {
+      pinContract(cell: ContractCellRef, targetDate: string, seriesScope?: SeriesScope): void {
         if (store.isContractPinned()) return;
         patchState(store, {
-          selectedCell: toSelectedCell(cell, targetDate),
+          selectedCell: toSelectedCell(cell, targetDate, seriesScope),
           isContractPinned: true,
         });
       },
