@@ -13,6 +13,8 @@
 ## [2026-09-19]
 
 ### Added
+- [Option Chain Pct Change Grid] 326-425_FE-IMPL-OPTIONS: RunSection lazy grids + run-scope chart popup (checkpoint)
+- [Option Chain Pct Change Grid] 326-425_DOCS-OPTIONS: Add Task #425 code review (PASS) (checkpoint)
 - [Option Chain Pct Change Grid] 326-424_FE-IMPL-OPTIONS: SwingCompare container + RunSection shell (checkpoint)
 - [Option Chain Pct Change Grid] 326-424_DOCS-OPTIONS: Add Task #424 code review (PASS) (checkpoint)
 - [Option Chain Pct Change Grid] 326-423_FE-IMPL-OPTIONS: SwingSetPicker component + zigzag geometry (checkpoint)
