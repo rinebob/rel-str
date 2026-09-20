@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026-09-19]
+
+### Added
+- [Trading Indicator Library] 261-428_FE-IMPL-INDICATOR-LIB: Add store-owned batch sweep for swing analyses
+- [Trading Indicator Library] 261-428_DOCS-DOCS-INDICATOR-LIB: Blueprint IMPL/TEST docs and #428 code review
+
 ## [2026-09-18]
 
 ### Added
