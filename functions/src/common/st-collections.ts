@@ -5,6 +5,7 @@
  * across the ST cloud function and related modules such as symbol-data-sync.
  * Keeping these in one place prevents typos and makes renames easy.
  */
+import type { FieldValue, Timestamp } from 'firebase-admin/firestore';
 
 /** Root collection for agent run records (metadata, status, summary). */
 export const ST_RUNS_COLLECTION = 'savant-trader/data/runs';
@@ -61,10 +62,10 @@ export const ST_REVIEW_LIST_COLLECTION = 'savant-trader/data/review-list';
 export interface StSymbol {
   symbol: string;
   enabled: boolean;
-  createdAt: string | FirebaseFirestore.Timestamp;
+  createdAt: string | Timestamp;
   /** How this symbol was added to the tracked universe (one of StSymbolSource). */
   source?: StSymbolSource;
-  lastAnalyzedAt?: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
+  lastAnalyzedAt?: Timestamp | FieldValue;
   // Denormalized signal gate fields (written by worker on each signal)
   lastDailySignalDate?: string;   // YYYY-MM-DD
   lastWeeklySignalDate?: string;  // YYYY-MM-DD
@@ -87,7 +88,7 @@ export interface StSymbol {
   analystTarget?: number;
   analystBuys?: number;
   analystSells?: number;
-  overviewFetchedAt?: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
+  overviewFetchedAt?: Timestamp | FieldValue;
 }
 
 /**
