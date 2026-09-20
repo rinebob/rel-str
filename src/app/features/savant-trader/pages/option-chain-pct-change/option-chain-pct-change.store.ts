@@ -18,6 +18,10 @@ import { forkJoin, Subscription } from 'rxjs';
 import { map, take } from 'rxjs/operators';
 
 import { OptionsContractService } from '../../services/options-contract.service';
+import { SignalService } from '../../services/signal.service';
+import type { StSignalItem } from '../../services/types';
+import { SwingAnalysisService } from '../../swing-analysis/swing-analysis.service';
+import type { SwingAnalysisDoc } from '../../swing-analysis/swing-analysis.types';
 import { LocalBarReadService } from '../../../../core/services/local-bar-read.service';
 import { PctChangeConfigService } from './services/pct-change-config.service';
 import type { PctChangeConfigWithId } from './services/pct-change-config.service';
@@ -114,6 +118,11 @@ export interface OptionChainPctChangeState {
   /** Saved configs loaded from Firestore. */
   savedConfigs: PctChangeConfigWithId[];
 
+  /** Saved swing sets for the current symbol (flat `swing-sets` docs). */
+  savedAnalyses: SwingAnalysisDoc[];
+  /** Signal history for the current symbol. */
+  signals: StSignalItem[];
+
   /** Currently selected config id, or null. */
   selectedConfigId: string | null;
 
@@ -169,6 +178,8 @@ const initialState: OptionChainPctChangeState = {
   intervalCount: 5,
   intervalDays: 5,
   savedConfigs: [],
+  savedAnalyses: [],
+  signals: [],
   selectedConfigId: null,
   loading: false,
   error: null,
@@ -255,7 +266,7 @@ export const OptionChainPctChangeStore = signalStore(
     }),
   })),
 
-  withMethods((store, optionsContractService = inject(OptionsContractService), barReadService = inject(LocalBarReadService), configService = inject(PctChangeConfigService)) => {
+  withMethods((store, optionsContractService = inject(OptionsContractService), barReadService = inject(LocalBarReadService), configService = inject(PctChangeConfigService), swingAnalysisService = inject(SwingAnalysisService), signalService = inject(SignalService)) => {
     // Track the in-flight runAnalysis subscription so we can cancel stale
     // requests when runAnalysis is called again before the previous one
     // completes, or when reset is called mid-flight.
@@ -264,16 +275,53 @@ export const OptionChainPctChangeStore = signalStore(
     // can cancel it mid-flight.
     let resolveSub: Subscription | null = null;
 
+    /** Shared impl — sibling methods aren't visible on `store` inside
+     *  withMethods, so setSymbol and the public method both call this. */
+    const loadSwingDataImpl = (): void => {
+      const symbol = store.symbol().trim().toUpperCase();
+      if (!symbol) {
+        patchState(store, { savedAnalyses: [], signals: [] });
+        return;
+      }
+      swingAnalysisService.loadSavedAnalyses(symbol).pipe(take(1)).subscribe({
+        next: (docs) => patchState(store, { savedAnalyses: docs }),
+        error: (err: unknown) => {
+          patchState(store, { savedAnalyses: [] });
+          console.error(`[PctChangeStore] Failed to load swing sets for ${symbol}:`, err);
+        },
+      });
+      signalService.getSymbolSignalHistoryFromHistory(symbol).pipe(take(1)).subscribe({
+        next: (items) => patchState(store, { signals: items }),
+        error: (err: unknown) => {
+          patchState(store, { signals: [] });
+          console.error(`[PctChangeStore] Failed to load signal history for ${symbol}:`, err);
+        },
+      });
+    };
+
     return {
-      /** Set the symbol input. Invalidates cached snapshots. */
+      /** Set the symbol input. Invalidates cached snapshots and reloads
+       *  swing data (saved swing sets + signal history) for the new symbol. */
       setSymbol(symbol: string): void {
         patchState(store, {
           symbol: String(symbol || '').trim().toUpperCase(),
           startSnapshot: null,
           targetSnapshots: {},
           underlyingPrices: {},
+          savedAnalyses: [],
+          signals: [],
           ...SELECTION_CLEARED,
         });
+        loadSwingDataImpl();
+      },
+
+      /**
+       * Load saved swing sets + signal history for the current symbol.
+       * Feeds the swing-compare section — independent of the main analysis
+       * flow, so failures only empty the lists (logged), never set `error`.
+       */
+      loadSwingData(): void {
+        loadSwingDataImpl();
       },
 
       /** Set the start date input. Invalidates cached start snapshot. */

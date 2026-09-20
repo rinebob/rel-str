@@ -24,6 +24,8 @@ import { PctChangeGridComponent } from './pct-change-grid.component';
 import { OptionChainPctChangeStore } from '../option-chain-pct-change.store';
 import { OptionsContractService } from '../../../services/options-contract.service';
 import { PctChangeConfigService } from '../services/pct-change-config.service';
+import { SwingAnalysisService } from '../../../swing-analysis/swing-analysis.service';
+import { SignalService } from '../../../services/signal.service';
 import { LocalBarReadService } from '../../../../../core/services/local-bar-read.service';
 import type { PctChangeGrid, PctChangeCell } from '../utils/pct-change.utils';
 import { cellKey } from '../utils/pct-change.utils';
@@ -90,6 +92,8 @@ describe('PctChangeGridComponent', () => {
         { provide: OptionsContractService, useValue: {} },
         { provide: LocalBarReadService, useValue: {} },
         { provide: PctChangeConfigService, useValue: {} },
+        { provide: SwingAnalysisService, useValue: { loadSavedAnalyses: () => of([]) } },
+        { provide: SignalService, useValue: { getSymbolSignalHistoryFromHistory: () => of([]) } },
       ],
     }).compileComponents();
   });

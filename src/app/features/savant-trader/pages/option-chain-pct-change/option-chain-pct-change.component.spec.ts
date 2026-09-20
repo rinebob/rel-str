@@ -25,6 +25,8 @@ import { OptionChainPctChangeComponent } from './option-chain-pct-change.compone
 import { OptionChainPctChangeStore } from './option-chain-pct-change.store';
 import { OptionsContractService } from '../../services/options-contract.service';
 import { PctChangeConfigService } from './services/pct-change-config.service';
+import { SwingAnalysisService } from '../../swing-analysis/swing-analysis.service';
+import { SignalService } from '../../services/signal.service';
 import { LocalBarReadService } from '../../../../core/services/local-bar-read.service';
 import { Firestore } from '@angular/fire/firestore';
 import { OptionType } from '@options-contract/contracts';
@@ -131,6 +133,8 @@ function setupComponent(
       { provide: OptionsContractService, useValue: mockService() },
       { provide: PctChangeConfigService, useValue: configService },
       { provide: LocalBarReadService, useValue: barReadService },
+      { provide: SwingAnalysisService, useValue: { loadSavedAnalyses: () => of([]) } },
+      { provide: SignalService, useValue: { getSymbolSignalHistoryFromHistory: () => of([]) } },
       { provide: Firestore, useValue: {} },
       { provide: MatDialog, useValue: dialog },
       OptionChainPctChangeStore,
@@ -241,6 +245,8 @@ describe('OptionChainPctChangeComponent', () => {
         { provide: OptionsContractService, useValue: failingService },
         { provide: PctChangeConfigService, useValue: mockConfigService() },
         { provide: LocalBarReadService, useValue: mockBarReadService() },
+        { provide: SwingAnalysisService, useValue: { loadSavedAnalyses: () => of([]) } },
+        { provide: SignalService, useValue: { getSymbolSignalHistoryFromHistory: () => of([]) } },
         { provide: Firestore, useValue: {} },
         { provide: MatDialog, useValue: mockDialog() },
         OptionChainPctChangeStore,

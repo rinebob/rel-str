@@ -33,7 +33,10 @@ import type {
 } from '@options-contract/contracts';
 import type { PctChangeConfigDoc } from '@shared/pct-change-config-contracts';
 import type { OhlcBar } from '../../../../core/models/market-data.types';
-
+import { SwingAnalysisService } from '../../swing-analysis/swing-analysis.service';
+import type { SwingAnalysisDoc } from '../../swing-analysis/swing-analysis.types';
+import { SignalService } from '../../services/signal.service';
+import type { StSignalItem } from '../../services/types';
 
 // =============================================================================
 // Test fixtures
@@ -117,16 +120,76 @@ function mockConfigService(
   } as Partial<PctChangeConfigService>;
 }
 
+function makeSwingAnalysisDoc(overrides: Partial<SwingAnalysisDoc> = {}): SwingAnalysisDoc {
+  return {
+    id: 'QQQ_dev5_L5_R5_1barY_projY',
+    userId: 'user-1',
+    symbol: 'QQQ',
+    paramsId: 'dev5_L5_R5_1barY_projY',
+    config: {
+      devThreshold: 5,
+      leftDepth: 5,
+      rightDepth: 5,
+      allowZigZagOnOneBar: true,
+      projectionPivots: true,
+      lineColor: '#000',
+    },
+    pivots: [],
+    projection: null,
+    swings: [],
+    stats: {} as SwingAnalysisDoc['stats'],
+    savedAt: '2026-09-18T00:00:00Z',
+    ...overrides,
+  };
+}
+
+function makeSignal(overrides: Partial<StSignalItem> = {}): StSignalItem {
+  return {
+    id: '2025-04-08',
+    symbol: 'QQQ',
+    barDate: '2025-04-08',
+    marketDate: '2025-04-08',
+    runId: 'run-1',
+    timeframe: 'D',
+    direction: 'LONG',
+    signalType: 'D_ZONE_V1_UPTICK',
+    status: 'open',
+    indicators: {},
+    closePrice: 100,
+    ...overrides,
+  } as StSignalItem;
+}
+
+function mockSwingAnalysisService(
+  docs: SwingAnalysisDoc[] = [makeSwingAnalysisDoc()],
+): Partial<SwingAnalysisService> {
+  return {
+    loadSavedAnalyses: jest.fn(() => of(docs)),
+  } as Partial<SwingAnalysisService>;
+}
+
+function mockSignalService(
+  items: StSignalItem[] = [makeSignal()],
+): Partial<SignalService> {
+  return {
+    getSymbolSignalHistoryFromHistory: jest.fn(() => of(items)),
+  } as Partial<SignalService>;
+}
+
 function setupStore(
   service: Partial<OptionsContractService> = mockService(),
   configService: Partial<PctChangeConfigService> = mockConfigService(),
   barReadService: Partial<LocalBarReadService> = mockBarReadService(),
+  swingAnalysisService: Partial<SwingAnalysisService> = mockSwingAnalysisService(),
+  signalService: Partial<SignalService> = mockSignalService(),
 ): InstanceType<typeof OptionChainPctChangeStore> {
   TestBed.configureTestingModule({
     providers: [
       { provide: OptionsContractService, useValue: service },
       { provide: PctChangeConfigService, useValue: configService },
       { provide: LocalBarReadService, useValue: barReadService },
+      { provide: SwingAnalysisService, useValue: swingAnalysisService },
+      { provide: SignalService, useValue: signalService },
       { provide: Firestore, useValue: {} },
       OptionChainPctChangeStore,
     ],
@@ -1028,6 +1091,85 @@ describe('OptionChainPctChangeStore', () => {
       store.reset();
       expect(store.selectedCell()).toBeNull();
       expect(store.isContractPinned()).toBe(false);
+    });
+  });
+
+  // ===========================================================================
+  // loadSwingData — saved swing sets + signal history per symbol
+  // ===========================================================================
+
+  describe('loadSwingData', () => {
+    it('fetches swing sets + signals for the current symbol and patches state', () => {
+      const swingSvc = mockSwingAnalysisService([makeSwingAnalysisDoc({ paramsId: 'p1' })]);
+      const signalSvc = mockSignalService([makeSignal(), makeSignal({ barDate: '2025-04-09' })]);
+      const store = setupStore(mockService(), mockConfigService(), mockBarReadService(), swingSvc, signalSvc);
+
+      store.setSymbol('QQQ');
+      store.loadSwingData();
+
+      expect(swingSvc.loadSavedAnalyses).toHaveBeenCalledWith('QQQ');
+      expect(signalSvc.getSymbolSignalHistoryFromHistory).toHaveBeenCalledWith('QQQ');
+      expect(store.savedAnalyses()).toHaveLength(1);
+      expect(store.savedAnalyses()[0].paramsId).toBe('p1');
+      expect(store.signals()).toHaveLength(2);
+    });
+
+    it('auto-loads on setSymbol', () => {
+      const swingSvc = mockSwingAnalysisService();
+      const signalSvc = mockSignalService();
+      const store = setupStore(mockService(), mockConfigService(), mockBarReadService(), swingSvc, signalSvc);
+
+      store.setSymbol('MSFT');
+
+      expect(swingSvc.loadSavedAnalyses).toHaveBeenCalledWith('MSFT');
+      expect(signalSvc.getSymbolSignalHistoryFromHistory).toHaveBeenCalledWith('MSFT');
+    });
+
+    it('clears savedAnalyses + signals on symbol change', () => {
+      const swingSvc = mockSwingAnalysisService([makeSwingAnalysisDoc()]);
+      const signalSvc = mockSignalService([makeSignal()]);
+      const store = setupStore(mockService(), mockConfigService(), mockBarReadService(), swingSvc, signalSvc);
+      store.setSymbol('QQQ');
+      expect(store.savedAnalyses()).toHaveLength(1);
+      expect(store.signals()).toHaveLength(1);
+
+      (swingSvc.loadSavedAnalyses as jest.Mock).mockReturnValue(of([]));
+      (signalSvc.getSymbolSignalHistoryFromHistory as jest.Mock).mockReturnValue(of([]));
+      store.setSymbol('MSFT');
+
+      expect(store.savedAnalyses()).toEqual([]);
+      expect(store.signals()).toEqual([]);
+    });
+
+    it('patches empty arrays on fetch error without throwing', () => {
+      const swingSvc: Partial<SwingAnalysisService> = {
+        loadSavedAnalyses: jest.fn(() => throwError(() => new Error('fs fail'))),
+      } as Partial<SwingAnalysisService>;
+      const signalSvc: Partial<SignalService> = {
+        getSymbolSignalHistoryFromHistory: jest.fn(() => throwError(() => new Error('fs fail'))),
+      } as Partial<SignalService>;
+      const store = setupStore(mockService(), mockConfigService(), mockBarReadService(), swingSvc, signalSvc);
+
+      expect(() => {
+        store.setSymbol('QQQ');
+        store.loadSwingData();
+      }).not.toThrow();
+      expect(store.savedAnalyses()).toEqual([]);
+      expect(store.signals()).toEqual([]);
+    });
+
+    it('clears both lists and skips fetch when symbol is empty', () => {
+      const swingSvc = mockSwingAnalysisService();
+      const signalSvc = mockSignalService();
+      const store = setupStore(mockService(), mockConfigService(), mockBarReadService(), swingSvc, signalSvc);
+
+      store.setSymbol('');
+      store.loadSwingData();
+
+      expect(swingSvc.loadSavedAnalyses).not.toHaveBeenCalled();
+      expect(signalSvc.getSymbolSignalHistoryFromHistory).not.toHaveBeenCalled();
+      expect(store.savedAnalyses()).toEqual([]);
+      expect(store.signals()).toEqual([]);
     });
   });
 });
