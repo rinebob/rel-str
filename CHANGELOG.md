@@ -3,6 +3,8 @@
 ## [2026-09-18]
 
 ### Added
+- [Option Chain Pct Change Grid] 326-431_FE-IMPL-OPTIONS: Misc grid UI fixes — layout, contrast modes, highlights, selector refactor
+- [Option Chain Pct Change Grid] 326-431_DOCS-DOCS-OPTIONS: Code review for misc grid UI fixes batch
 - [Option Chain Pct Change Grid] 326-374_CONFIG-CONFIG-OPTIONS: Switch Jest to jest-preset-angular transformer
 - [Option Chain Pct Change Grid] 326-374_SHARED-IMPL-OPTIONS: Harden pct-change-config pure utils
 - [Option Chain Pct Change Grid] 326-374_FE-IMPL-OPTIONS: Add ConfirmDialogComponent
