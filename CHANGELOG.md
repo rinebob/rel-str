@@ -1,5 +1,15 @@
 # Changelog
 
+## [2026-09-20]
+
+### Changed
+- [Signal Pipeline Maintenance] 433-439_FE-IMPL-SIGNAL-REVIEW: Enable actions on any completed run; fix isCurrentInLatestRun
+- [Signal Pipeline Maintenance] 433-447_FE-IMPL-SIGNAL-REVIEW: Repair specs for jest-30 â€” Firebase stubs, required inputs, spec drift
+- [Signal Pipeline Maintenance] 433-447_BE-IMPL-SIGNAL-REVIEW: Explicit firebase-admin type imports in st-collections
+- [Signal Pipeline Maintenance] 433-447_CONFIG-CHORE-SIGNAL-REVIEW: Extend jasmine shim for jest-30 CallData + transform jose
+- [Signal Pipeline Maintenance] 433-447_DOCS-DOCS-SIGNAL-REVIEW: Document jest-30 testing patterns + code review
+- [Signal Pipeline Maintenance] 433-439_DOCS-DOCS-SIGNAL-REVIEW: Misc-fixes topic docs + #439 code review
+
 ## [2026-09-19]
 
 ### Added
@@ -9,7 +19,7 @@
 - [Option Chain Pct Change Grid] 326-423_DOCS-OPTIONS: Add Task #423 code review (PASS) (checkpoint)
 - [Option Chain Pct Change Grid] 326-422_FE-IMPL-OPTIONS: Swing-compare state + date-list utilities (checkpoint)
 - [Option Chain Pct Change Grid] 326-422_DOCS-OPTIONS: Add Task #422 code review (PASS) (checkpoint)
-- [Option Chain Pct Change Grid] 326-421_FE-IMPL-OPTIONS: Review fixes — shared signal cache, stale-fetch cancellation, lifecycle guards (checkpoint)
+- [Option Chain Pct Change Grid] 326-421_FE-IMPL-OPTIONS: Review fixes ï¿½ shared signal cache, stale-fetch cancellation, lifecycle guards (checkpoint)
 - [Option Chain Pct Change Grid] 326-421_DOCS-OPTIONS: Add Task #421 code review (PASS) (checkpoint)
 - [Option Chain Pct Change Grid] 326-421_FE-IMPL-OPTIONS: Load saved swing sets + signal history into the store (checkpoint)
 - [Option Chain Pct Change Grid] 326-418_DOCS-OPTIONS: Add PRD, IMPL, and TEST docs for pivot-signal selector (checkpoint)
