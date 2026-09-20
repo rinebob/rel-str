@@ -42,6 +42,8 @@ import { SignalDirection, SignalStatus, SignalTimeframe } from '../../common/con
 import type {
   DistributionSummary,
   Histogram,
+  Pivot,
+  Swing,
   SwingStats,
 } from '../../../shared/components/flex-chart/indicators/st-zigzag.engine';
 
@@ -251,7 +253,7 @@ describe('OptionChainPctChangeStore', () => {
     expect(store.loading()).toBe(false);
     expect(store.error()).toBeNull();
     expect(store.grids()).toEqual([]);
-    expect(store.startSnapshot()).toBeNull();
+    expect(store.snapshotCache()).toEqual({});
     expect(store.hasResults()).toBe(false);
     expect(store.canRun()).toBe(false);
   });
@@ -271,8 +273,8 @@ describe('OptionChainPctChangeStore', () => {
       store.runAnalysis();
       // After fetch, startSnapshot is populated. Changing symbol should clear it.
       store.setSymbol('SPY');
-      expect(store.startSnapshot()).toBeNull();
-      expect(Object.keys(store.targetSnapshots()).length).toBe(0);
+      expect(store.snapshotCache()).toEqual({});
+      expect(Object.keys(store.snapshotCache()).length).toBe(0);
     });
 
     it('setStartDate trims and invalidates start snapshot', () => {
@@ -282,7 +284,7 @@ describe('OptionChainPctChangeStore', () => {
       store.addTargetDate('2024-02-15');
       store.runAnalysis();
       store.setStartDate('2024-01-16');
-      expect(store.startSnapshot()).toBeNull();
+      expect(store.snapshotCache()).toEqual({});
     });
 
     it('addTargetDate adds a new date', () => {
@@ -391,7 +393,7 @@ describe('OptionChainPctChangeStore', () => {
       expect(store.error()).toBeNull();
       expect(store.grids().length).toBe(1);
       expect(store.hasResults()).toBe(true);
-      expect(store.startSnapshot()).not.toBeNull();
+      expect(store.snapshotCache()['2024-01-15']).toBeDefined();
     });
 
     it('sets error message on fetch failure', () => {
@@ -415,7 +417,7 @@ describe('OptionChainPctChangeStore', () => {
       store.runAnalysis();
       expect(store.error()).toContain('required');
       expect(store.loading()).toBe(false);
-      expect(store.startSnapshot()).toBeNull();
+      expect(store.snapshotCache()).toEqual({});
       expect(store.grids()).toEqual([]);
     });
 
@@ -451,9 +453,9 @@ describe('OptionChainPctChangeStore', () => {
 
       // The stale first response should not have overwritten the fresh one.
       expect(store.loading()).toBe(false);
-      expect(store.startSnapshot()).not.toBeNull();
+      expect(store.snapshotCache()['2024-01-15']).toBeDefined();
       // The fresh snapshot should contain FRESH, not STALE.
-      const snapshot = store.startSnapshot()!;
+      const snapshot = store.snapshotCache()['2024-01-15'];
       expect(snapshot.some((c) => c.contractID === 'FRESH')).toBe(true);
       expect(snapshot.some((c) => c.contractID === 'STALE')).toBe(false);
     });
@@ -478,7 +480,7 @@ describe('OptionChainPctChangeStore', () => {
       expect(store.startDate()).toBe('2025-04-07');
       expect(store.targetDates()).toEqual([]);
       expect(store.grids()).toEqual([]);
-      expect(store.startSnapshot()).toBeNull();
+      expect(store.snapshotCache()).toEqual({});
       expect(store.loading()).toBe(false);
       expect(store.error()).toBeNull();
 
@@ -486,7 +488,7 @@ describe('OptionChainPctChangeStore', () => {
       subject.next(makeChain([makeContract({ contractID: 'LATE', mark: '999.00' })]));
       subject.complete();
 
-      expect(store.startSnapshot()).toBeNull();
+      expect(store.snapshotCache()).toEqual({});
       expect(store.grids()).toEqual([]);
     });
   });
@@ -727,7 +729,7 @@ describe('OptionChainPctChangeStore', () => {
       expect(store.intervalCount()).toBe(2);
       expect(store.intervalDays()).toBe(5);
       expect(store.selectedConfigId()).toBe('QQQ-2025-04-07-2-pct-change-abc');
-      expect(store.startSnapshot()).toBeNull();
+      expect(store.snapshotCache()).toEqual({});
       expect(store.underlyingPrices()).toEqual({});
     });
 
@@ -1266,6 +1268,186 @@ describe('OptionChainPctChangeStore', () => {
       expect(swingSvc.loadSavedAnalyses).not.toHaveBeenCalled();
       expect(history.loadSignalHistory).not.toHaveBeenCalled();
       expect(store.savedAnalyses()).toEqual([]);
+    });
+  });
+
+  // ===========================================================================
+  // Swing-compare state — frame/extremes sets, date list, runs, snapshot cache
+  // ===========================================================================
+
+  describe('swing-compare state', () => {
+    const ms = (d: string) => new Date(d + 'T00:00:00.000Z').getTime();
+    const mkPivot = (time: string, isHigh = false, confirmed = true): Pivot => ({
+      barIndex: 0, time: ms(time), price: 100, isHigh, confirmed,
+    });
+    const mkSwing = (start: string, end: string, direction: 'up' | 'down' = 'up'): Swing => ({
+      direction,
+      start: { time: ms(start), price: 100, barIndex: 0 },
+      end: { time: ms(end), price: 110, barIndex: 10 },
+      magnitudePercent: 10,
+      magnitudeAbsolute: 10,
+      duration: 10,
+      volume: 0,
+      confirmed: true,
+    });
+
+    const frameDoc = () =>
+      makeSwingAnalysisDoc({
+        id: 'QQQ_frame',
+        paramsId: 'frame-p',
+        swings: [mkSwing('2025-04-01', '2025-04-30')],
+      });
+    const extremesDoc = () =>
+      makeSwingAnalysisDoc({
+        id: 'QQQ_extremes',
+        paramsId: 'extremes-p',
+        pivots: [
+          mkPivot('2025-04-10', true),
+          mkPivot('2025-04-15', false),
+          mkPivot('2025-04-20', true, false), // unconfirmed — excluded
+          mkPivot('2025-05-10', true),        // outside frame — excluded
+        ],
+      });
+
+    function setupSwingStore(): InstanceType<typeof OptionChainPctChangeStore> {
+      const swingSvc = mockSwingAnalysisService([frameDoc(), extremesDoc()]);
+      const history = mockHistoryStore({
+        MSFT: [makeSignal({ barDate: '2025-04-12' })],
+      });
+      const store = setupStore(mockService(), mockConfigService(), mockBarReadService(), swingSvc, history);
+      store.setSymbol('MSFT'); // loads savedAnalyses (frame + extremes docs)
+      return store;
+    }
+
+    it('selectFrameSet / selectExtremesSet / selectFrameSwing patch state', () => {
+      const store = setupSwingStore();
+      store.selectFrameSet('QQQ_frame');
+      store.selectExtremesSet('QQQ_extremes');
+      const swing = store.frameSwings()[0];
+      store.selectFrameSwing(swing);
+      expect(store.frameSetId()).toBe('QQQ_frame');
+      expect(store.extremesSetId()).toBe('QQQ_extremes');
+      expect(store.frameSwing()).toBe(swing);
+    });
+
+    it('frameSwings returns the selected frame set swings; empty without selection', () => {
+      const store = setupSwingStore();
+      expect(store.frameSwings()).toEqual([]);
+      store.selectFrameSet('QQQ_frame');
+      expect(store.frameSwings()).toHaveLength(1);
+    });
+
+    it('dateList merges extremes pivots + signals inside the frame + frame start', () => {
+      const store = setupSwingStore();
+      store.selectFrameSet('QQQ_frame');
+      store.selectExtremesSet('QQQ_extremes');
+      store.selectFrameSwing(store.frameSwings()[0]);
+
+      const list = store.dateList();
+      // frame start + confirmed in-frame pivots + the signal
+      expect(list.map((d) => d.date)).toEqual([
+        '2025-04-01', '2025-04-10', '2025-04-12', '2025-04-15',
+      ]);
+      expect(list[0].labels).toContain('frame-start');
+      expect(list[3].labels).toContain('swing-low');
+    });
+
+    it('dateList is empty until a frame swing is selected', () => {
+      const store = setupSwingStore();
+      store.selectFrameSet('QQQ_frame');
+      store.selectExtremesSet('QQQ_extremes');
+      expect(store.dateList()).toEqual([]);
+    });
+
+    it('targetCandidates returns only dates after the chosen start', () => {
+      const store = setupSwingStore();
+      store.selectFrameSet('QQQ_frame');
+      store.selectExtremesSet('QQQ_extremes');
+      store.selectFrameSwing(store.frameSwings()[0]);
+
+      const cands = store.targetCandidates('2025-04-10');
+      expect(cands.map((d) => d.date)).toEqual(['2025-04-12', '2025-04-15']);
+    });
+
+    it('addRun appends with a unique id; removeRun deletes by id', () => {
+      const store = setupSwingStore();
+      store.addRun('2025-04-01', ['2025-04-10'], OptionType.CALL);
+      store.addRun('2025-04-10', ['2025-04-15'], OptionType.PUT);
+      expect(store.runs()).toHaveLength(2);
+      expect(store.runs()[0].id).not.toBe(store.runs()[1].id);
+      expect(store.runs()[0].type).toBe(OptionType.CALL);
+
+      store.removeRun(store.runs()[0].id);
+      expect(store.runs()).toHaveLength(1);
+      expect(store.runs()[0].startDate).toBe('2025-04-10');
+    });
+
+    it('changing the frame swing clears runs built against the old bounds', () => {
+      const store = setupSwingStore();
+      store.selectFrameSet('QQQ_frame');
+      store.selectFrameSwing(store.frameSwings()[0]);
+      store.addRun('2025-04-01', ['2025-04-10'], OptionType.CALL);
+
+      store.selectFrameSwing(mkSwing('2025-05-01', '2025-05-20'));
+      expect(store.runs()).toEqual([]);
+    });
+
+    it('changing the frame set clears the selected swing and runs', () => {
+      const store = setupSwingStore();
+      store.selectFrameSet('QQQ_frame');
+      store.selectFrameSwing(store.frameSwings()[0]);
+      store.addRun('2025-04-01', ['2025-04-10'], OptionType.CALL);
+
+      store.selectFrameSet('QQQ_extremes');
+      expect(store.frameSwing()).toBeNull();
+      expect(store.runs()).toEqual([]);
+    });
+
+    it('ensureSnapshots fetches only missing dates and skips cached on repeat', () => {
+      const svc = mockService();
+      const spy = jest.spyOn(
+        svc as OptionsContractService,
+        'getHistoricalOptionsChain$',
+      );
+      const store = setupStore(
+        svc,
+        mockConfigService(),
+        mockBarReadService(),
+        mockSwingAnalysisService([frameDoc(), extremesDoc()]),
+        mockHistoryStore(),
+      );
+      store.setSymbol('MSFT');
+
+      store.ensureSnapshots(['2025-04-10', '2025-04-15']);
+      expect(spy).toHaveBeenCalledTimes(2);
+      expect(store.snapshotCache()['2025-04-10']).toBeDefined();
+      expect(store.snapshotCache()['2025-04-15']).toBeDefined();
+
+      // Repeat — both cached, no refetch.
+      store.ensureSnapshots(['2025-04-10', '2025-04-15']);
+      expect(spy).toHaveBeenCalledTimes(2);
+
+      // One new date → only that one fetched.
+      store.ensureSnapshots(['2025-04-10', '2025-04-20']);
+      expect(spy).toHaveBeenCalledTimes(3);
+      expect(spy).toHaveBeenLastCalledWith('MSFT', '2025-04-20');
+    });
+
+    it('setSymbol clears swing-compare state and snapshot cache', () => {
+      const store = setupSwingStore();
+      store.selectFrameSet('QQQ_frame');
+      store.selectExtremesSet('QQQ_extremes');
+      store.selectFrameSwing(store.frameSwings()[0]);
+      store.addRun('2025-04-01', ['2025-04-10'], OptionType.CALL);
+      store.ensureSnapshots(['2025-04-10']);
+
+      store.setSymbol('QQQ');
+
+      expect(store.frameSetId()).toBeNull();
+      expect(store.extremesSetId()).toBeNull();
+      expect(store.frameSwing()).toBeNull();
+      expect(store.runs()).toEqual([]);
+      expect(store.snapshotCache()).toEqual({});
     });
   });
 });

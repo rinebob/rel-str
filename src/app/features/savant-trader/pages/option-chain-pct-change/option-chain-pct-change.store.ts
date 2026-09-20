@@ -37,12 +37,21 @@ import type {
 import {
   computePctChange,
   extractContractSeries,
+  chainContracts,
+  closestPriorCloses,
+  newId,
   type PctChangeCell,
   type PctChangeGrid,
   type PctChangeFilter,
   type ContractSeriesPoint,
 } from './utils/pct-change.utils';
 import { buildConfigId, resolvePctChangeTargets as resolvePctChangeDatesFromBars, buildPercentages, computeForwardEndDate } from './utils/pct-change-config.utils';
+import type { SwingCompareRun } from './utils/swing-compare.utils';
+import {
+  swingCompareComputedBlock,
+  swingCompareMethods,
+} from './swing-compare.feature';
+import type { Swing } from '../../../shared/components/flex-chart/indicators/st-zigzag.types';
 
 // ---------------------------------------------------------------------------
 // State
@@ -118,8 +127,22 @@ export interface OptionChainPctChangeState {
   /** Saved configs loaded from Firestore. */
   savedConfigs: PctChangeConfigWithId[];
 
-  /** Saved swing sets for the current symbol (flat `swing-sets` docs). */
+  /** Saved swing sets for the current symbol (flat `st-swing-sets` docs). */
   savedAnalyses: SwingAnalysisDoc[];
+
+  /** Swing-compare: the set defining the analysis frame (large swings). */
+  frameSetId: string | null;
+  /** Swing-compare: the set supplying target-date pivots (small swings). */
+  extremesSetId: string | null;
+  /** Swing-compare: the selected frame swing — its [start,end] bounds the
+   *  date list. */
+  frameSwing: Swing | null;
+  /** Swing-compare: saved run definitions, rendered side by side. */
+  runs: SwingCompareRun[];
+  /** Shared date → chain-snapshot cache — the single-analysis flow and
+   *  run sections read from the same map; `ensureSnapshots` is the
+   *  incremental filler, `runAnalysis` writes start+targets wholesale. */
+  snapshotCache: Record<string, HistoricalOptionContract[]>;
 
   /** Currently selected config id, or null. */
   selectedConfigId: string | null;
@@ -127,10 +150,6 @@ export interface OptionChainPctChangeState {
   /** Fetch state. */
   loading: boolean;
   error: string | null;
-
-  /** Cached snapshots (keyed by date) — kept in-memory for filter recompute. */
-  startSnapshot: HistoricalOptionContract[] | null;
-  targetSnapshots: Record<string, HistoricalOptionContract[]>;
 
   /** Underlying close prices keyed by date (YYYY-MM-DD). */
   underlyingPrices: Record<string, number>;
@@ -177,11 +196,14 @@ const initialState: OptionChainPctChangeState = {
   intervalDays: 5,
   savedConfigs: [],
   savedAnalyses: [],
+  frameSetId: null,
+  extremesSetId: null,
+  frameSwing: null,
+  runs: [],
+  snapshotCache: {},
   selectedConfigId: null,
   loading: false,
   error: null,
-  startSnapshot: null,
-  targetSnapshots: {},
   underlyingPrices: {},
   selectedCell: null,
   highlightedContract: null,
@@ -204,9 +226,9 @@ export const OptionChainPctChangeStore = signalStore(
      * Auto-recomputes when filters, target dates, or cached snapshots change.
      */
     grids: computed((): PctChangeGrid[] => {
-      const startSnapshot = state.startSnapshot();
-      const targetSnapshots = state.targetSnapshots();
+      const cache = state.snapshotCache();
       const startDate = state.startDate().trim();
+      const startSnapshot = cache[startDate];
       const targetDates = state.targetDates();
       const filter = state.filter();
 
@@ -216,7 +238,7 @@ export const OptionChainPctChangeStore = signalStore(
       return targetDates.map((dt) =>
         computePctChange(
           startSnapshot,
-          targetSnapshots[dt] ?? [],
+          cache[dt] ?? [],
           startDate,
           dt,
           filter,
@@ -255,8 +277,14 @@ export const OptionChainPctChangeStore = signalStore(
      */
     selectedContractSeries: computed((): ContractSeriesPoint[] => {
       const sel = state.selectedCell();
-      const startSnapshot = state.startSnapshot();
+      const cache = state.snapshotCache();
+      const startDate = state.startDate().trim();
+      const startSnapshot = cache[startDate];
       if (!sel || !startSnapshot) return [];
+      // Only the main-flow target dates — run-section cache entries must
+      // not leak into the chart popup's series.
+      const targetSnapshots: Record<string, HistoricalOptionContract[]> = {};
+      for (const dt of state.targetDates()) targetSnapshots[dt] = cache[dt] ?? [];
       return extractContractSeries(
         {
           contractID: sel.contractID,
@@ -265,12 +293,16 @@ export const OptionChainPctChangeStore = signalStore(
           expiration: sel.expiration,
         },
         state.type(),
-        state.startDate().trim(),
+        startDate,
         startSnapshot,
-        state.targetSnapshots(),
+        targetSnapshots,
       );
     }),
   })),
+
+  // Swing-compare computeds live in swing-compare.feature.ts — keeps this
+  // file under the size guideline.
+  withComputed((state) => swingCompareComputedBlock(state)),
 
   withMethods((store, optionsContractService = inject(OptionsContractService), barReadService = inject(LocalBarReadService), configService = inject(PctChangeConfigService), swingAnalysisService = inject(SwingAnalysisService), historyStore = inject(SymbolHistoryStore)) => {
     // Track the in-flight runAnalysis subscription so we can cancel stale
@@ -285,6 +317,12 @@ export const OptionChainPctChangeStore = signalStore(
     // state. Signals don't need this — they're derived from the shared
     // SymbolHistoryStore cache keyed by symbol.
     let swingSub: Subscription | null = null;
+    // Dates with an in-flight ensureSnapshots fetch — prevents duplicate
+    // requests when several run sections expand before the first resolves.
+    const pendingSnapshotDates = new Set<string>();
+    // In-flight ensureSnapshots subscriptions — cancelled on symbol
+    // change/reset so a late result can't repopulate a cleared cache.
+    const snapshotSubs = new Set<Subscription>();
 
     /** Shared impl — sibling methods aren't visible on `store` inside
      *  withMethods, so setSymbol/selectConfig and the public method both
@@ -314,6 +352,14 @@ export const OptionChainPctChangeStore = signalStore(
     };
 
     return {
+      // Swing-compare methods — implementation in swing-compare.feature.ts.
+      ...swingCompareMethods(store, {
+        optionsContractService,
+        barReadService,
+        pending: pendingSnapshotDates,
+        subs: snapshotSubs,
+      }),
+
       /** Set the symbol input. Invalidates cached snapshots. When the
        *  symbol actually changes, also clears + reloads swing data
        *  (saved swing sets + signal history). */
@@ -322,13 +368,25 @@ export const OptionChainPctChangeStore = signalStore(
         const symbolChanged = sym !== store.symbol();
         patchState(store, {
           symbol: sym,
-          startSnapshot: null,
-          targetSnapshots: {},
+          snapshotCache: {},
           underlyingPrices: {},
-          ...(symbolChanged ? { savedAnalyses: [] } : {}),
+          ...(symbolChanged
+            ? {
+                savedAnalyses: [],
+                frameSetId: null,
+                extremesSetId: null,
+                frameSwing: null,
+                runs: [],
+              }
+            : {}),
           ...SELECTION_CLEARED,
         });
-        if (symbolChanged) loadSwingDataImpl();
+        if (symbolChanged) {
+          snapshotSubs.forEach((s) => s.unsubscribe());
+          snapshotSubs.clear();
+          pendingSnapshotDates.clear();
+          loadSwingDataImpl();
+        }
       },
 
       /**
@@ -340,11 +398,14 @@ export const OptionChainPctChangeStore = signalStore(
         loadSwingDataImpl();
       },
 
-      /** Set the start date input. Invalidates cached start snapshot. */
+      // Swing-compare methods live in swing-compare.feature.ts — keeps this
+      // file under the size guideline.
+
+      /** Set the start date input. Invalidates cached snapshots. */
       setStartDate(date: string): void {
         patchState(store, {
           startDate: String(date || '').trim(),
-          startSnapshot: null,
+          snapshotCache: {},
           underlyingPrices: {},
           ...SELECTION_CLEARED,
         });
@@ -356,7 +417,7 @@ export const OptionChainPctChangeStore = signalStore(
         if (!dt || store.targetDates().includes(dt)) return;
         patchState(store, {
           targetDates: [...store.targetDates(), dt],
-          targetSnapshots: {},
+          snapshotCache: {},
           underlyingPrices: {},
           ...SELECTION_CLEARED,
         });
@@ -367,7 +428,7 @@ export const OptionChainPctChangeStore = signalStore(
         const dt = String(date || '').trim();
         patchState(store, {
           targetDates: store.targetDates().filter((d) => d !== dt),
-          targetSnapshots: {},
+          snapshotCache: {},
           underlyingPrices: {},
           ...SELECTION_CLEARED,
         });
@@ -377,7 +438,7 @@ export const OptionChainPctChangeStore = signalStore(
       setTargetDates(dates: string[]): void {
         patchState(store, {
           targetDates: dates.map((d) => String(d || '').trim()).filter((d) => d),
-          targetSnapshots: {},
+          snapshotCache: {},
           underlyingPrices: {},
           ...SELECTION_CLEARED,
         });
@@ -453,8 +514,7 @@ export const OptionChainPctChangeStore = signalStore(
         if (!store.canRun()) {
           patchState(store, {
             error: 'symbol, startDate, and at least one target date are required',
-            startSnapshot: null,
-            targetSnapshots: {},
+            snapshotCache: {},
             ...SELECTION_CLEARED,
           });
           return;
@@ -471,8 +531,7 @@ export const OptionChainPctChangeStore = signalStore(
         patchState(store, {
           loading: true,
           error: null,
-          startSnapshot: null,
-          targetSnapshots: {},
+          snapshotCache: {},
           underlyingPrices: {},
           ...SELECTION_CLEARED,
         });
@@ -496,35 +555,23 @@ export const OptionChainPctChangeStore = signalStore(
         })
           .pipe(
             map(({ start, targets, bars }) => {
-              const startSnapshot = start.data?.data ?? [];
-              const targetSnapshots: Record<string, HistoricalOptionContract[]> = {};
+              const snapshotCache: Record<string, HistoricalOptionContract[]> = {
+                [startDate]: chainContracts(start),
+              };
               targetDates.forEach((dt, i) => {
-                targetSnapshots[dt] = targets[i]?.data?.data ?? [];
+                snapshotCache[dt] = chainContracts(targets[i]);
               });
-
-              // Extract close prices for start + target dates.
-              // If the exact date isn't a trading day, use the closest prior bar.
-              const underlyingPrices: Record<string, number> = {};
-              const sortedBars = [...bars].sort((a, b) => a.d.localeCompare(b.d));
-              for (const dt of [startDate, ...targetDates]) {
-                const bar = sortedBars
-                  .filter((b) => b.d <= dt)
-                  .pop();
-                if (bar) {
-                  underlyingPrices[dt] = bar.c;
-                }
-              }
-
-              return { startSnapshot, targetSnapshots, underlyingPrices };
+              // Closest prior bar close for each requested date.
+              const underlyingPrices = closestPriorCloses(bars, [startDate, ...targetDates]);
+              return { snapshotCache, underlyingPrices };
             }),
           )
           .subscribe({
-            next: ({ startSnapshot, targetSnapshots, underlyingPrices }) => {
+            next: ({ snapshotCache, underlyingPrices }) => {
               patchState(store, {
                 loading: false,
                 error: null,
-                startSnapshot,
-                targetSnapshots,
+                snapshotCache,
                 underlyingPrices,
               });
               runSub = null;
@@ -534,8 +581,7 @@ export const OptionChainPctChangeStore = signalStore(
               patchState(store, {
                 loading: false,
                 error: `Failed to fetch chain snapshots: ${msg}`,
-                startSnapshot: null,
-                targetSnapshots: {},
+                snapshotCache: {},
                 underlyingPrices: {},
                 ...SELECTION_CLEARED,
               });
@@ -552,6 +598,9 @@ export const OptionChainPctChangeStore = signalStore(
         resolveSub = null;
         swingSub?.unsubscribe();
         swingSub = null;
+        snapshotSubs.forEach((s) => s.unsubscribe());
+        snapshotSubs.clear();
+        pendingSnapshotDates.clear();
         // Keep the loaded config list — it's persisted data, not analysis
         // state. The selection resets with the inputs it populated.
         patchState(store, { ...initialState, savedConfigs: store.savedConfigs() });
@@ -624,8 +673,7 @@ export const OptionChainPctChangeStore = signalStore(
           userDatesMode: cfg.userDatesMode ?? 'manual',
           intervalCount: cfg.intervalCount ?? 5,
           intervalDays: cfg.intervalDays ?? 5,
-          startSnapshot: null,
-          targetSnapshots: {},
+          snapshotCache: {},
           underlyingPrices: {},
           ...(symbolChanged ? { savedAnalyses: [] } : {}),
           ...SELECTION_CLEARED,
@@ -650,9 +698,7 @@ export const OptionChainPctChangeStore = signalStore(
         const startDate = store.startDate().trim();
         const targetDates = store.targetDates();
         const targetType = store.targetType();
-        const uid = typeof crypto !== 'undefined' && crypto.randomUUID
-          ? crypto.randomUUID()
-          : Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+        const uid = newId();
         const id = buildConfigId(symbol, startDate, targetDates.length, targetType, uid);
         const doc: PctChangeConfigWithId = {
           id,
@@ -757,7 +803,7 @@ export const OptionChainPctChangeStore = signalStore(
             patchState(store, {
               targetDates: resolved,
               error: null,
-              targetSnapshots: {},
+              snapshotCache: {},
               underlyingPrices: {},
               resolveNonce: store.resolveNonce() + 1,
               ...SELECTION_CLEARED,

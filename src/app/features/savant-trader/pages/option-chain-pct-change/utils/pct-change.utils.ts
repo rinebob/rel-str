@@ -5,7 +5,11 @@
  */
 
 import { OptionType } from '@options-contract/contracts';
-import type { HistoricalOptionContract } from '@options-contract/contracts';
+import type {
+  HistoricalOptionContract,
+  GetHistoricalOptionsChainResponse,
+} from '@options-contract/contracts';
+import type { OhlcBar } from '../../../../../core/models/market-data.types';
 import { PctChangeFilter } from '@shared/pct-change-config-contracts';
 
 export { PctChangeFilter } from '@shared/pct-change-config-contracts';
@@ -303,4 +307,35 @@ export function computePctChange(
     p5,
     p95,
   };
+}
+
+/** Unique id for runs/config docs — crypto.randomUUID when available. */
+export function newId(): string {
+  return typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+/** Unwrap a getHistoricalOptionsChain$ callable response to its contract
+ *  array (empty when absent � a date with no snapshot is not an error). */
+export function chainContracts(
+  res: GetHistoricalOptionsChainResponse | null | undefined,
+): HistoricalOptionContract[] {
+  return res?.data?.data ?? [];
+}
+
+/** Map each date to the close of the closest bar on or before it. Bars are
+ *  sorted internally; dates absent from market days fall back to the prior
+ *  trading day's close. */
+export function closestPriorCloses(
+  bars: OhlcBar[],
+  dates: string[],
+): Record<string, number> {
+  const sorted = [...bars].sort((a, b) => a.d.localeCompare(b.d));
+  const out: Record<string, number> = {};
+  for (const dt of dates) {
+    const bar = sorted.filter((b) => b.d <= dt).pop();
+    if (bar) out[dt] = bar.c;
+  }
+  return out;
 }
