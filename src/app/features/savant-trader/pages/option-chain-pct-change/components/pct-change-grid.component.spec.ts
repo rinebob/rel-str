@@ -18,6 +18,7 @@ jest.mock('@angular/fire/firestore', () => ({
 }));
 
 import { TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { signal } from '@angular/core';
 import { of } from 'rxjs';
 
 import { PctChangeGridComponent } from './pct-change-grid.component';
@@ -25,7 +26,7 @@ import { OptionChainPctChangeStore } from '../option-chain-pct-change.store';
 import { OptionsContractService } from '../../../services/options-contract.service';
 import { PctChangeConfigService } from '../services/pct-change-config.service';
 import { SwingAnalysisService } from '../../../swing-analysis/swing-analysis.service';
-import { SignalService } from '../../../services/signal.service';
+import { SymbolHistoryStore } from '../../../stores/symbol-history.store';
 import { LocalBarReadService } from '../../../../../core/services/local-bar-read.service';
 import type { PctChangeGrid, PctChangeCell } from '../utils/pct-change.utils';
 import { cellKey } from '../utils/pct-change.utils';
@@ -93,7 +94,7 @@ describe('PctChangeGridComponent', () => {
         { provide: LocalBarReadService, useValue: {} },
         { provide: PctChangeConfigService, useValue: {} },
         { provide: SwingAnalysisService, useValue: { loadSavedAnalyses: () => of([]) } },
-        { provide: SignalService, useValue: { getSymbolSignalHistoryFromHistory: () => of([]) } },
+        { provide: SymbolHistoryStore, useValue: { signalHistoryCache: signal({}), loadSignalHistory: () => {} } },
       ],
     }).compileComponents();
   });

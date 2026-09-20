@@ -18,8 +18,8 @@ import { forkJoin, Subscription } from 'rxjs';
 import { map, take } from 'rxjs/operators';
 
 import { OptionsContractService } from '../../services/options-contract.service';
-import { SignalService } from '../../services/signal.service';
 import type { StSignalItem } from '../../services/types';
+import { SymbolHistoryStore } from '../../stores/symbol-history.store';
 import { SwingAnalysisService } from '../../swing-analysis/swing-analysis.service';
 import type { SwingAnalysisDoc } from '../../swing-analysis/swing-analysis.types';
 import { LocalBarReadService } from '../../../../core/services/local-bar-read.service';
@@ -120,8 +120,6 @@ export interface OptionChainPctChangeState {
 
   /** Saved swing sets for the current symbol (flat `swing-sets` docs). */
   savedAnalyses: SwingAnalysisDoc[];
-  /** Signal history for the current symbol. */
-  signals: StSignalItem[];
 
   /** Currently selected config id, or null. */
   selectedConfigId: string | null;
@@ -179,7 +177,6 @@ const initialState: OptionChainPctChangeState = {
   intervalDays: 5,
   savedConfigs: [],
   savedAnalyses: [],
-  signals: [],
   selectedConfigId: null,
   loading: false,
   error: null,
@@ -230,9 +227,18 @@ export const OptionChainPctChangeStore = signalStore(
     }),
   })),
 
-  withComputed((state) => ({
+  withComputed((state, historyStore = inject(SymbolHistoryStore)) => ({
     /** True when grids have been computed. */
     hasResults: computed(() => state.grids().length > 0),
+
+    /**
+     * Signal history for the current symbol — derived from the shared
+     * SymbolHistoryStore cache (keyed by symbol), not local state, so a
+     * late-resolving fetch can never land under the wrong symbol.
+     */
+    signals: computed((): StSignalItem[] =>
+      historyStore.signalHistoryCache()[state.symbol()] ?? [],
+    ),
 
     /** True when symbol, startDate, and at least one target date are set. */
     canRun: computed(() => {
@@ -266,7 +272,7 @@ export const OptionChainPctChangeStore = signalStore(
     }),
   })),
 
-  withMethods((store, optionsContractService = inject(OptionsContractService), barReadService = inject(LocalBarReadService), configService = inject(PctChangeConfigService), swingAnalysisService = inject(SwingAnalysisService), signalService = inject(SignalService)) => {
+  withMethods((store, optionsContractService = inject(OptionsContractService), barReadService = inject(LocalBarReadService), configService = inject(PctChangeConfigService), swingAnalysisService = inject(SwingAnalysisService), historyStore = inject(SymbolHistoryStore)) => {
     // Track the in-flight runAnalysis subscription so we can cancel stale
     // requests when runAnalysis is called again before the previous one
     // completes, or when reset is called mid-flight.
@@ -274,45 +280,55 @@ export const OptionChainPctChangeStore = signalStore(
     // Track the in-flight resolvePctChangeTargets subscription so reset
     // can cancel it mid-flight.
     let resolveSub: Subscription | null = null;
+    // Track the in-flight saved-analyses fetch so setSymbol/selectConfig/
+    // reset can cancel a stale request before its result overwrites newer
+    // state. Signals don't need this — they're derived from the shared
+    // SymbolHistoryStore cache keyed by symbol.
+    let swingSub: Subscription | null = null;
 
     /** Shared impl — sibling methods aren't visible on `store` inside
-     *  withMethods, so setSymbol and the public method both call this. */
+     *  withMethods, so setSymbol/selectConfig and the public method both
+     *  call this. Signals load through the shared SymbolHistoryStore cache
+     *  (deduped per symbol); saved analyses go through swingSub so a stale
+     *  fetch can be cancelled on symbol change. */
     const loadSwingDataImpl = (): void => {
       const symbol = store.symbol().trim().toUpperCase();
+      swingSub?.unsubscribe();
+      swingSub = null;
       if (!symbol) {
-        patchState(store, { savedAnalyses: [], signals: [] });
+        patchState(store, { savedAnalyses: [] });
         return;
       }
-      swingAnalysisService.loadSavedAnalyses(symbol).pipe(take(1)).subscribe({
-        next: (docs) => patchState(store, { savedAnalyses: docs }),
+      swingSub = swingAnalysisService.loadSavedAnalyses(symbol).pipe(take(1)).subscribe({
+        next: (docs) => {
+          patchState(store, { savedAnalyses: docs });
+          swingSub = null;
+        },
         error: (err: unknown) => {
           patchState(store, { savedAnalyses: [] });
           console.error(`[PctChangeStore] Failed to load swing sets for ${symbol}:`, err);
+          swingSub = null;
         },
       });
-      signalService.getSymbolSignalHistoryFromHistory(symbol).pipe(take(1)).subscribe({
-        next: (items) => patchState(store, { signals: items }),
-        error: (err: unknown) => {
-          patchState(store, { signals: [] });
-          console.error(`[PctChangeStore] Failed to load signal history for ${symbol}:`, err);
-        },
-      });
+      historyStore.loadSignalHistory(symbol);
     };
 
     return {
-      /** Set the symbol input. Invalidates cached snapshots and reloads
-       *  swing data (saved swing sets + signal history) for the new symbol. */
+      /** Set the symbol input. Invalidates cached snapshots. When the
+       *  symbol actually changes, also clears + reloads swing data
+       *  (saved swing sets + signal history). */
       setSymbol(symbol: string): void {
+        const sym = String(symbol || '').trim().toUpperCase();
+        const symbolChanged = sym !== store.symbol();
         patchState(store, {
-          symbol: String(symbol || '').trim().toUpperCase(),
+          symbol: sym,
           startSnapshot: null,
           targetSnapshots: {},
           underlyingPrices: {},
-          savedAnalyses: [],
-          signals: [],
+          ...(symbolChanged ? { savedAnalyses: [] } : {}),
           ...SELECTION_CLEARED,
         });
-        loadSwingDataImpl();
+        if (symbolChanged) loadSwingDataImpl();
       },
 
       /**
@@ -534,6 +550,8 @@ export const OptionChainPctChangeStore = signalStore(
         runSub = null;
         resolveSub?.unsubscribe();
         resolveSub = null;
+        swingSub?.unsubscribe();
+        swingSub = null;
         // Keep the loaded config list — it's persisted data, not analysis
         // state. The selection resets with the inputs it populated.
         patchState(store, { ...initialState, savedConfigs: store.savedConfigs() });
@@ -583,10 +601,13 @@ export const OptionChainPctChangeStore = signalStore(
         });
       },
 
-      /** Select a saved config by id and populate all inputs from it. */
+      /** Select a saved config by id and populate all inputs from it.
+       *  Reloads swing data when the config's symbol differs — this path
+       *  bypasses setSymbol, so it must trigger the load itself. */
       selectConfig(configId: string): void {
         const cfg = store.savedConfigs().find((c) => c.id === configId);
         if (!cfg) return;
+        const symbolChanged = cfg.symbol !== store.symbol();
         patchState(store, {
           selectedConfigId: configId,
           symbol: cfg.symbol,
@@ -606,10 +627,12 @@ export const OptionChainPctChangeStore = signalStore(
           startSnapshot: null,
           targetSnapshots: {},
           underlyingPrices: {},
+          ...(symbolChanged ? { savedAnalyses: [] } : {}),
           ...SELECTION_CLEARED,
           error: null,
           loading: false,
         });
+        if (symbolChanged) loadSwingDataImpl();
       },
 
       /** Deselect the current saved config (clears selectedConfigId only). */

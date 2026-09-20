@@ -17,6 +17,7 @@ jest.mock('@angular/fire/firestore', () => ({
 }));
 
 import { TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
 import { of, Subject, throwError } from 'rxjs';
 
 import { OptionChainPctChangeStore } from './option-chain-pct-change.store';
@@ -35,8 +36,14 @@ import type { PctChangeConfigDoc } from '@shared/pct-change-config-contracts';
 import type { OhlcBar } from '../../../../core/models/market-data.types';
 import { SwingAnalysisService } from '../../swing-analysis/swing-analysis.service';
 import type { SwingAnalysisDoc } from '../../swing-analysis/swing-analysis.types';
-import { SignalService } from '../../services/signal.service';
+import { SymbolHistoryStore } from '../../stores/symbol-history.store';
 import type { StSignalItem } from '../../services/types';
+import { SignalDirection, SignalStatus, SignalTimeframe } from '../../common/constants';
+import type {
+  DistributionSummary,
+  Histogram,
+  SwingStats,
+} from '../../../shared/components/flex-chart/indicators/st-zigzag.engine';
 
 // =============================================================================
 // Test fixtures
@@ -120,6 +127,29 @@ function mockConfigService(
   } as Partial<PctChangeConfigService>;
 }
 
+function makeDistributionSummary(): DistributionSummary {
+  return {
+    mean: 0, median: 0, stdDev: 0, min: 0, max: 0,
+    p10: 0, p25: 0, p50: 0, p75: 0, p90: 0,
+  };
+}
+
+function makeHistogram(): Histogram {
+  return { bins: [] };
+}
+
+function makeSwingStats(): SwingStats {
+  const dir = () => ({
+    count: 0,
+    magnitudePercent: makeDistributionSummary(),
+    magnitudeAbsolute: makeDistributionSummary(),
+    duration: makeDistributionSummary(),
+    magnitudeHistogram: makeHistogram(),
+    durationHistogram: makeHistogram(),
+  });
+  return { up: dir(), down: dir() };
+}
+
 function makeSwingAnalysisDoc(overrides: Partial<SwingAnalysisDoc> = {}): SwingAnalysisDoc {
   return {
     id: 'QQQ_dev5_L5_R5_1barY_projY',
@@ -137,7 +167,7 @@ function makeSwingAnalysisDoc(overrides: Partial<SwingAnalysisDoc> = {}): SwingA
     pivots: [],
     projection: null,
     swings: [],
-    stats: {} as SwingAnalysisDoc['stats'],
+    stats: makeSwingStats(),
     savedAt: '2026-09-18T00:00:00Z',
     ...overrides,
   };
@@ -150,14 +180,14 @@ function makeSignal(overrides: Partial<StSignalItem> = {}): StSignalItem {
     barDate: '2025-04-08',
     marketDate: '2025-04-08',
     runId: 'run-1',
-    timeframe: 'D',
-    direction: 'LONG',
+    timeframe: SignalTimeframe.DAILY,
+    direction: SignalDirection.LONG,
     signalType: 'D_ZONE_V1_UPTICK',
-    status: 'open',
+    status: SignalStatus.INTERIM,
     indicators: {},
     closePrice: 100,
     ...overrides,
-  } as StSignalItem;
+  };
 }
 
 function mockSwingAnalysisService(
@@ -168,12 +198,17 @@ function mockSwingAnalysisService(
   } as Partial<SwingAnalysisService>;
 }
 
-function mockSignalService(
-  items: StSignalItem[] = [makeSignal()],
-): Partial<SignalService> {
+/** Minimal SymbolHistoryStore stand-in — the store only reads
+ *  `signalHistoryCache` and calls `loadSignalHistory`. Tests write to the
+ *  `signalHistoryCache` signal to simulate a populated cache. */
+function mockHistoryStore(initial: Record<string, StSignalItem[]> = {}) {
   return {
-    getSymbolSignalHistoryFromHistory: jest.fn(() => of(items)),
-  } as Partial<SignalService>;
+    signalHistoryCache: signal<Record<string, StSignalItem[]>>(initial),
+    signalHistoryLoading: signal<Record<string, boolean>>({}),
+    loadSignalHistory: jest.fn(),
+    loadSignalHistoryForRun: jest.fn(),
+    clearSymbolHistory: jest.fn(),
+  };
 }
 
 function setupStore(
@@ -181,7 +216,7 @@ function setupStore(
   configService: Partial<PctChangeConfigService> = mockConfigService(),
   barReadService: Partial<LocalBarReadService> = mockBarReadService(),
   swingAnalysisService: Partial<SwingAnalysisService> = mockSwingAnalysisService(),
-  signalService: Partial<SignalService> = mockSignalService(),
+  historyStore: ReturnType<typeof mockHistoryStore> = mockHistoryStore(),
 ): InstanceType<typeof OptionChainPctChangeStore> {
   TestBed.configureTestingModule({
     providers: [
@@ -189,7 +224,7 @@ function setupStore(
       { provide: PctChangeConfigService, useValue: configService },
       { provide: LocalBarReadService, useValue: barReadService },
       { provide: SwingAnalysisService, useValue: swingAnalysisService },
-      { provide: SignalService, useValue: signalService },
+      { provide: SymbolHistoryStore, useValue: historyStore },
       { provide: Firestore, useValue: {} },
       OptionChainPctChangeStore,
     ],
@@ -1099,77 +1134,138 @@ describe('OptionChainPctChangeStore', () => {
   // ===========================================================================
 
   describe('loadSwingData', () => {
-    it('fetches swing sets + signals for the current symbol and patches state', () => {
+    it('fetches swing sets + requests signal history for the current symbol', () => {
       const swingSvc = mockSwingAnalysisService([makeSwingAnalysisDoc({ paramsId: 'p1' })]);
-      const signalSvc = mockSignalService([makeSignal(), makeSignal({ barDate: '2025-04-09' })]);
-      const store = setupStore(mockService(), mockConfigService(), mockBarReadService(), swingSvc, signalSvc);
+      const history = mockHistoryStore();
+      const store = setupStore(mockService(), mockConfigService(), mockBarReadService(), swingSvc, history);
 
-      store.setSymbol('QQQ');
+      store.setSymbol('MSFT');
       store.loadSwingData();
 
-      expect(swingSvc.loadSavedAnalyses).toHaveBeenCalledWith('QQQ');
-      expect(signalSvc.getSymbolSignalHistoryFromHistory).toHaveBeenCalledWith('QQQ');
+      expect(swingSvc.loadSavedAnalyses).toHaveBeenCalledWith('MSFT');
+      expect(history.loadSignalHistory).toHaveBeenCalledWith('MSFT');
       expect(store.savedAnalyses()).toHaveLength(1);
       expect(store.savedAnalyses()[0].paramsId).toBe('p1');
-      expect(store.signals()).toHaveLength(2);
     });
 
-    it('auto-loads on setSymbol', () => {
+    it('derives signals from the shared per-symbol history cache', () => {
+      const history = mockHistoryStore();
+      const store = setupStore(mockService(), mockConfigService(), mockBarReadService(), mockSwingAnalysisService(), history);
+      store.setSymbol('MSFT');
+
+      // Populate the shared cache — signals() reflects it for that symbol.
+      history.signalHistoryCache.set({ MSFT: [makeSignal(), makeSignal({ barDate: '2025-04-09' })] });
+      expect(store.signals()).toHaveLength(2);
+
+      // A different symbol's cache entry never leaks into this symbol's view.
+      store.setSymbol('QQQ');
+      history.signalHistoryCache.set({ MSFT: [makeSignal()], QQQ: [makeSignal(), makeSignal(), makeSignal()] });
+      expect(store.signals()).toHaveLength(3);
+      expect(store.signals().every((s) => s.symbol === 'QQQ')).toBe(true);
+    });
+
+    it('auto-loads on setSymbol when the symbol changes', () => {
       const swingSvc = mockSwingAnalysisService();
-      const signalSvc = mockSignalService();
-      const store = setupStore(mockService(), mockConfigService(), mockBarReadService(), swingSvc, signalSvc);
+      const history = mockHistoryStore();
+      const store = setupStore(mockService(), mockConfigService(), mockBarReadService(), swingSvc, history);
 
       store.setSymbol('MSFT');
 
       expect(swingSvc.loadSavedAnalyses).toHaveBeenCalledWith('MSFT');
-      expect(signalSvc.getSymbolSignalHistoryFromHistory).toHaveBeenCalledWith('MSFT');
+      expect(history.loadSignalHistory).toHaveBeenCalledWith('MSFT');
     });
 
-    it('clears savedAnalyses + signals on symbol change', () => {
-      const swingSvc = mockSwingAnalysisService([makeSwingAnalysisDoc()]);
-      const signalSvc = mockSignalService([makeSignal()]);
-      const store = setupStore(mockService(), mockConfigService(), mockBarReadService(), swingSvc, signalSvc);
-      store.setSymbol('QQQ');
-      expect(store.savedAnalyses()).toHaveLength(1);
-      expect(store.signals()).toHaveLength(1);
+    it('does not refetch when setSymbol is called with the same symbol', () => {
+      const swingSvc = mockSwingAnalysisService();
+      const history = mockHistoryStore();
+      const store = setupStore(mockService(), mockConfigService(), mockBarReadService(), swingSvc, history);
 
-      (swingSvc.loadSavedAnalyses as jest.Mock).mockReturnValue(of([]));
-      (signalSvc.getSymbolSignalHistoryFromHistory as jest.Mock).mockReturnValue(of([]));
+      // Initial symbol is 'QQQ' — setting it again must not fetch.
+      store.setSymbol('QQQ');
+      expect(swingSvc.loadSavedAnalyses).not.toHaveBeenCalled();
+
+      store.setSymbol('MSFT');
+      store.setSymbol('MSFT');
+      expect(swingSvc.loadSavedAnalyses).toHaveBeenCalledTimes(1);
+      expect(history.loadSignalHistory).toHaveBeenCalledTimes(1);
+    });
+
+    it('clears savedAnalyses synchronously on symbol change, even with a fetch in flight', () => {
+      const pending = new Subject<SwingAnalysisDoc[]>();
+      const swingSvc: Partial<SwingAnalysisService> = {
+        loadSavedAnalyses: jest.fn(() => pending.asObservable()),
+      } as Partial<SwingAnalysisService>;
+      const store = setupStore(mockService(), mockConfigService(), mockBarReadService(), swingSvc);
+      store.setSymbol('MSFT');
+      // Force-populate so we can observe the clear (patch wouldn't otherwise
+      // be distinguishable from "never loaded").
+      store.setSymbol('QQQ'); // clears + fires a second pending fetch
+      expect(store.savedAnalyses()).toEqual([]);
+    });
+
+    it('discards a stale swing-set result when the symbol changes mid-flight', () => {
+      const msft$ = new Subject<SwingAnalysisDoc[]>();
+      const qqq$ = new Subject<SwingAnalysisDoc[]>();
+      const swingSvc: Partial<SwingAnalysisService> = {
+        loadSavedAnalyses: jest.fn((sym: string) => (sym === 'MSFT' ? msft$ : qqq$)),
+      } as Partial<SwingAnalysisService>;
+      const store = setupStore(mockService(), mockConfigService(), mockBarReadService(), swingSvc);
+
+      store.setSymbol('MSFT');
+      store.setSymbol('QQQ');
+
+      qqq$.next([makeSwingAnalysisDoc({ symbol: 'QQQ', paramsId: 'qqq-fresh' })]);
+      qqq$.complete();
+      // MSFT fetch resolves last — its result must be discarded, not overwrite.
+      msft$.next([makeSwingAnalysisDoc({ symbol: 'MSFT', paramsId: 'msft-stale' })]);
+      msft$.complete();
+
+      expect(store.savedAnalyses()).toHaveLength(1);
+      expect(store.savedAnalyses()[0].paramsId).toBe('qqq-fresh');
+    });
+
+    it('reset cancels an in-flight swing-set fetch', () => {
+      const pending = new Subject<SwingAnalysisDoc[]>();
+      const swingSvc: Partial<SwingAnalysisService> = {
+        loadSavedAnalyses: jest.fn(() => pending.asObservable()),
+      } as Partial<SwingAnalysisService>;
+      const store = setupStore(mockService(), mockConfigService(), mockBarReadService(), swingSvc);
       store.setSymbol('MSFT');
 
+      store.reset();
+      pending.next([makeSwingAnalysisDoc()]);
+      pending.complete();
+
       expect(store.savedAnalyses()).toEqual([]);
-      expect(store.signals()).toEqual([]);
     });
 
-    it('patches empty arrays on fetch error without throwing', () => {
+    it('patches empty savedAnalyses on fetch error and does not set error state', () => {
+      const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
       const swingSvc: Partial<SwingAnalysisService> = {
         loadSavedAnalyses: jest.fn(() => throwError(() => new Error('fs fail'))),
       } as Partial<SwingAnalysisService>;
-      const signalSvc: Partial<SignalService> = {
-        getSymbolSignalHistoryFromHistory: jest.fn(() => throwError(() => new Error('fs fail'))),
-      } as Partial<SignalService>;
-      const store = setupStore(mockService(), mockConfigService(), mockBarReadService(), swingSvc, signalSvc);
+      const store = setupStore(mockService(), mockConfigService(), mockBarReadService(), swingSvc);
 
-      expect(() => {
-        store.setSymbol('QQQ');
-        store.loadSwingData();
-      }).not.toThrow();
+      store.setSymbol('MSFT');
+      store.loadSwingData();
+
       expect(store.savedAnalyses()).toEqual([]);
-      expect(store.signals()).toEqual([]);
+      expect(store.error()).toBeNull();
+      expect(errSpy).toHaveBeenCalled();
+      errSpy.mockRestore();
     });
 
-    it('clears both lists and skips fetch when symbol is empty', () => {
+    it('clears the list and skips fetch when symbol is empty', () => {
       const swingSvc = mockSwingAnalysisService();
-      const signalSvc = mockSignalService();
-      const store = setupStore(mockService(), mockConfigService(), mockBarReadService(), swingSvc, signalSvc);
+      const history = mockHistoryStore();
+      const store = setupStore(mockService(), mockConfigService(), mockBarReadService(), swingSvc, history);
 
       store.setSymbol('');
       store.loadSwingData();
 
       expect(swingSvc.loadSavedAnalyses).not.toHaveBeenCalled();
-      expect(signalSvc.getSymbolSignalHistoryFromHistory).not.toHaveBeenCalled();
+      expect(history.loadSignalHistory).not.toHaveBeenCalled();
       expect(store.savedAnalyses()).toEqual([]);
-      expect(store.signals()).toEqual([]);
     });
   });
 });

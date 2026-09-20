@@ -501,6 +501,9 @@ export class OptionChainPctChangeComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.ui.setFullscreen(true);
     this.store.loadSavedConfigs();
+    // Load swing sets + signal history for the initial symbol — setSymbol
+    // only fires on input change, so the starting symbol needs this.
+    this.store.loadSwingData();
   }
 
   /** Restore header when leaving the page. */
