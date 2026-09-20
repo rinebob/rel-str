@@ -28,12 +28,19 @@ import {
   OrderSource,
   InstrumentType,
 } from '../../services/order-ticket.types';
+import { computePositionSize } from '../../utils/position-sizing.util';
 
 interface StatusGroup {
   label: string;
   status: OrderTicketStatus[];
   tickets: OrderTicket[];
   cssClass: string;
+}
+
+interface StagedAggregate {
+  shares: number;
+  units: number;
+  dollars: number;
 }
 
 @Component({
@@ -164,7 +171,36 @@ export class OrderQueueComponent {
   /** Total count for header. */
   totalCount = computed(() => this.tickets().length);
 
-  /** Extract the display symbol from an ticket (equity/etf: symbol, option: first leg symbol). */
+  /** Enums for template comparisons. */
+  protected readonly TicketStatus = OrderTicketStatus;
+  protected readonly Source = OrderSource;
+
+  /** Staged-group aggregates shown in the Staged group header, split by
+   *  side so staged sells never inflate the buy total. Only tickets with
+   *  real data (quantity or dollarAmount) contribute — a ticket carrying
+   *  neither would add a pure default-dollar estimate. Option tickets
+   *  excluded (quantity is contracts, not shares/dollars). */
+  stagedAggregate = computed<{ buy: StagedAggregate; sell: StagedAggregate }>(() => {
+    const zero = (): StagedAggregate => ({ shares: 0, units: 0, dollars: 0 });
+    const buy = zero();
+    const sell = zero();
+    for (const t of this.tickets()) {
+      if (t.status !== OrderTicketStatus.STAGED || t.instrumentType === InstrumentType.OPTION) continue;
+      if (this.num(t.quantity) == null && this.num(t.dollarAmount) == null) continue;
+      const bucket = t.side === 'sell' ? sell : buy;
+      bucket.shares += this.sharesFor(t) ?? 0;
+      bucket.dollars += this.dollarsFor(t) ?? 0;
+    }
+    const def = this.defaultDollarAmount();
+    for (const b of [buy, sell]) {
+      b.units = def > 0 ? Math.round((b.dollars / def) * 100) / 100 : 0;
+      b.shares = Math.round(b.shares * 100) / 100;
+      b.dollars = Math.round(b.dollars * 100) / 100;
+    }
+    return { buy, sell };
+  });
+
+  /** Extract the display symbol from a ticket (equity/etf: symbol, option: first leg symbol). */
   symbolFor(ticket: OrderTicket): string {
     if (ticket.instrumentType === InstrumentType.OPTION) {
       return ticket.legs[0]?.symbol ?? '?';
@@ -172,28 +208,77 @@ export class OrderQueueComponent {
     return ticket.symbol;
   }
 
-  /** Short source badge text. */
-  sourceBadge(ticket: OrderTicket): string {
+  /** Short source badge text; null when the source is unrecognized (badge omitted). */
+  sourceBadge(ticket: OrderTicket): string | null {
     switch (ticket.source) {
       case OrderSource.SIGNAL_PIPELINE: return 'SIG';
       case OrderSource.MANUAL: return 'MAN';
       case OrderSource.POSITION_MANAGEMENT: return 'POS';
-      default: return '???';
+      default: return null;
     }
   }
 
-  /** Quantity or dollar amount display string. Shows shares when available, otherwise dollar amount. */
-  quantityFor(ticket: OrderTicket): string {
-    if (ticket.instrumentType === InstrumentType.OPTION) {
-      return ticket.quantity;
+  /** Parse a ticket numeric field; null when absent or NaN. */
+  private num(v: string | undefined): number | null {
+    const n = parseFloat(v ?? '');
+    return isNaN(n) ? null : n;
+  }
+
+  /** Contract count for option tickets; null otherwise. */
+  contractsFor(ticket: OrderTicket): string | null {
+    if (ticket.instrumentType !== InstrumentType.OPTION) return null;
+    return `${ticket.quantity} contract${ticket.quantity === '1' ? '' : 's'}`;
+  }
+
+  /** Share count — the ticket's quantity verbatim (fractional shares are
+   *  real: fractional_close tickets, DRIP positions), else the whole-share
+   *  sizing (computePositionSize) of its dollarAmount target at the
+   *  current price. Null for options or when uncomputable. */
+  sharesFor(ticket: OrderTicket): number | null {
+    if (ticket.instrumentType === InstrumentType.OPTION) return null;
+    const q = this.num(ticket.quantity);
+    if (q != null) return q;
+    const price = this.priceFor(ticket);
+    const target = this.num(ticket.dollarAmount) ?? this.defaultDollarAmount();
+    if (price == null || price <= 0) return null;
+    return computePositionSize(price, target).shares;
+  }
+
+  /** Order dollar amount — quantity × price when both exist (what the
+   *  share order would cost now), else whole-share cost of the
+   *  dollarAmount target, else the stored dollarAmount itself. Null for
+   *  options or when nothing is computable. */
+  dollarsFor(ticket: OrderTicket): number | null {
+    if (ticket.instrumentType === InstrumentType.OPTION) return null;
+    const q = this.num(ticket.quantity);
+    const price = this.priceFor(ticket);
+    if (q != null && price != null && price > 0) {
+      return Math.round(q * price * 100) / 100;
     }
-    if (ticket.quantity) {
-      const n = Number(ticket.quantity);
-      if (!isNaN(n)) return parseFloat(n.toFixed(2)).toString();
-      return ticket.quantity;
+    if (q == null && price != null && price > 0) {
+      const target = this.num(ticket.dollarAmount) ?? this.defaultDollarAmount();
+      return computePositionSize(price, target).actualCost;
     }
-    if (ticket.dollarAmount) return `$${ticket.dollarAmount}`;
-    return `$${this.defaultDollarAmount()}`;
+    return this.num(ticket.dollarAmount);
+  }
+
+  /** Units for equity/ETF tickets: notional / defaultDollarAmount. */
+  unitsFor(ticket: OrderTicket): number | null {
+    const d = this.dollarsFor(ticket);
+    const def = this.defaultDollarAmount();
+    if (d == null || def <= 0) return null;
+    return Math.round((d / def) * 100) / 100;
+  }
+
+  /** True when every displayed field derives from the configured default
+   *  dollar amount — the ticket carries neither quantity nor dollarAmount,
+   *  so all three values are estimates, not ticket data. */
+  isDefaultEstimate(ticket: OrderTicket): boolean {
+    return (
+      ticket.instrumentType !== InstrumentType.OPTION &&
+      this.num(ticket.quantity) == null &&
+      this.num(ticket.dollarAmount) == null
+    );
   }
 
   /** Price for the ticket's symbol, or null if not loaded. */
@@ -202,11 +287,11 @@ export class OrderQueueComponent {
     return this.prices()[sym.toUpperCase()] ?? null;
   }
 
-  /** Date display: signal bar date if signal-sourced, otherwise createdAt date. */
-  dateFor(ticket: OrderTicket): string {
+  /** Date display: signal bar date if signal-sourced, otherwise createdAt date; null when neither exists. */
+  dateFor(ticket: OrderTicket): string | null {
     const signalDate = ticket.signalContext?.barDate;
     if (signalDate) return signalDate;
-    return ticket.createdAt?.slice(0, 10) ?? '—';
+    return ticket.createdAt?.slice(0, 10) || null;
   }
 
   /** Row click handler. */
@@ -216,7 +301,7 @@ export class OrderQueueComponent {
     this.ticketSelected.emit(ticket.id);
   }
 
-  /** Toggle checkbox for an ticket. */
+  /** Toggle checkbox for a ticket. */
   toggleCheck(id: string, checked: boolean): void {
     this.checkedIds.update((set) => {
       const next = new Set(set);
@@ -226,7 +311,7 @@ export class OrderQueueComponent {
     });
   }
 
-  /** Check if an ticket id is checked. */
+  /** Check if a ticket id is checked. */
   isChecked(id: string): boolean {
     return this.checkedIds().has(id);
   }

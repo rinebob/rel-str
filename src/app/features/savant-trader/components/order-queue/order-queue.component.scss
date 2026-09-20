@@ -123,6 +123,16 @@
     color: var(--mat-sys-on-surface-variant);
   }
 
+  .staged-agg {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--mat-sys-tertiary);
+    white-space: nowrap;
+    margin-left: 4px;
+
+    .staged-agg-sell { color: var(--mat-sys-error); }
+  }
+
   .group-chevron {
     font-size: 16px;
     width: 16px;
@@ -229,41 +239,69 @@
     .item-line-1 {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
 
       .item-symbol {
         font-weight: 600;
-        flex-shrink: 0;
-      }
-
-      .item-side {
-        font-size: 10px;
-        font-weight: 600;
-        padding: 1px 4px;
-        border-radius: 3px;
-        flex-shrink: 0;
-
-        &.side-buy { background: #1b5e2033; color: #2e7d32; }
-        &.side-sell { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
-      }
-
-      .item-type {
-        font-size: 10px;
-        text-transform: uppercase;
-        color: var(--mat-sys-on-surface-variant);
-      }
-
-      .item-qty {
-        font-size: 10px;
-        font-weight: 500;
-        color: var(--mat-sys-on-surface-variant);
+        flex: 1;
+        min-width: 44px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       .item-price {
         font-size: 10px;
         font-family: monospace;
         font-weight: 600;
+        flex-shrink: 0;
+        width: 46px;
+        text-align: right;
       }
+
+      .item-side {
+        font-size: 9px;
+        font-weight: 600;
+        padding: 1px 3px;
+        border-radius: 3px;
+        flex-shrink: 0;
+        width: 28px;
+        text-align: center;
+
+        &.side-buy { background: #1b5e2033; color: #2e7d32; }
+        &.side-sell { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
+      }
+
+      .item-shares {
+        font-size: 10px;
+        font-weight: 500;
+        color: var(--mat-sys-on-surface-variant);
+        white-space: nowrap;
+        flex-shrink: 0;
+        width: 56px;
+        text-align: right;
+      }
+
+      .item-units {
+        font-size: 10px;
+        font-weight: 500;
+        color: var(--mat-sys-on-surface-variant);
+        white-space: nowrap;
+        flex-shrink: 0;
+        width: 30px;
+        text-align: right;
+      }
+
+      .item-dollars {
+        font-size: 10px;
+        font-weight: 600;
+        font-family: monospace;
+        flex-shrink: 0;
+        width: 54px;
+        text-align: right;
+      }
+
+      .estimated { opacity: 0.7; font-style: italic; }
     }
   }
 }

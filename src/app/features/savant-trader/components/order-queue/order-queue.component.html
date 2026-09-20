@@ -38,6 +38,21 @@
           <span class="group-dot"></span>
           <span class="group-label">{{ group.label }}</span>
           <span class="group-count">{{ group.tickets.length }}</span>
+          @if (group.status.includes(TicketStatus.STAGED)) {
+            @if (stagedAggregate().buy.dollars > 0 || stagedAggregate().sell.dollars > 0) {
+              <span class="staged-agg"
+                matTooltip="Staged totals — shares · units (notional ÷ default) · dollars, split by side">
+                {{ stagedAggregate().buy.shares }} sh · {{ stagedAggregate().buy.units }}u ·
+                {{ stagedAggregate().buy.dollars | currency:'USD':'symbol':'1.0-0' }}
+                @if (stagedAggregate().sell.dollars > 0) {
+                  <span class="staged-agg-sell">
+                    · sell {{ stagedAggregate().sell.shares }} sh · {{ stagedAggregate().sell.units }}u ·
+                    {{ stagedAggregate().sell.dollars | currency:'USD':'symbol':'1.0-0' }}
+                  </span>
+                }
+              </span>
+            }
+          }
           <mat-icon class="group-chevron" [class.collapsed]="isGroupCollapsed(group.label)">
             {{ isGroupCollapsed(group.label) ? 'expand_more' : 'expand_less' }}
           </mat-icon>
@@ -54,35 +69,59 @@
               (change)="toggleCheck(ticket.id, $event.checked)"
               (click)="$event.stopPropagation()">
             </mat-checkbox>
-            <span class="item-date">{{ dateFor(ticket) }}</span>
-            <span class="source-badge" [class.source-signal]="ticket.source === 'signal_pipeline'"
-              [class.source-manual]="ticket.source === 'manual'"
-              [class.source-position]="ticket.source === 'position_management'">
-              {{ sourceBadge(ticket) }}
-            </span>
+            @if (dateFor(ticket); as date) {
+              <span class="item-date">{{ date }}</span>
+            }
+            @if (sourceBadge(ticket); as badge) {
+              <span class="source-badge" [class.source-signal]="ticket.source === Source.SIGNAL_PIPELINE"
+                [class.source-manual]="ticket.source === Source.MANUAL"
+                [class.source-position]="ticket.source === Source.POSITION_MANAGEMENT">
+                {{ badge }}
+              </span>
+            }
             <div class="item-main">
               <div class="item-line-1">
-                <span class="item-symbol">{{ symbolFor(ticket) }}</span>
-                @if (priceFor(ticket)) {
-                  <span class="item-price">{{ priceFor(ticket) | currency:'USD':'symbol':'1.2-2' }}</span>
-                }
-                <span class="item-side" [class.side-buy]="ticket.side === 'buy'" [class.side-sell]="ticket.side === 'sell'">
-                  {{ ticket.side | uppercase }}
-                </span>
-                <span class="item-type">{{ ticket.orderType | uppercase }}</span>
-                <span class="item-qty">{{ quantityFor(ticket) }}</span>
+                <span class="item-symbol" [matTooltip]="symbolFor(ticket)">{{ symbolFor(ticket) }}</span>
                 @if (ticket.side === 'buy' && hasProtection(ticket)) {
                   <span class="protected-badge">PROTECTED</span>
                 }
-                @if (ticket.status === 'cancelled') {
+                @if (ticket.status === TicketStatus.CANCELLED) {
                   <button
                     type="button"
                     class="requeue-btn"
                     (click)="requeueTicket.emit(ticket.id); $event.stopPropagation()">
-                    <mat-icon>replay</mat-icon>
-                    Requeue
+                    <mat-icon>replay</mat-icon>Requeue
                   </button>
                 }
+                <!-- Everything after the symbol is a fixed-width column;
+                     the symbol flexes, so the columns anchor at the same
+                     right-side offsets on every row. -->
+                <span class="item-price">
+                  @if (priceFor(ticket); as price) {
+                    {{ price | currency:'USD':'symbol':'1.2-2' }}
+                  }
+                </span>
+                <span class="item-side" [class.side-buy]="ticket.side === 'buy'" [class.side-sell]="ticket.side === 'sell'">
+                  {{ ticket.side | uppercase }}
+                </span>
+                <span class="item-shares" [class.estimated]="isDefaultEstimate(ticket)">
+                  @if (contractsFor(ticket); as contracts) {
+                    {{ contracts }}
+                  } @else if (sharesFor(ticket); as shares) {
+                    {{ isDefaultEstimate(ticket) ? '~' : '' }}{{ shares }} sh
+                  }
+                </span>
+                <span class="item-units" [class.estimated]="isDefaultEstimate(ticket)">
+                  @if (unitsFor(ticket); as units) {
+                    {{ isDefaultEstimate(ticket) ? '~' : '' }}{{ units }}u
+                  }
+                </span>
+                <span class="item-dollars" [class.estimated]="isDefaultEstimate(ticket)"
+                  [matTooltip]="isDefaultEstimate(ticket) ? 'Estimated from configured default dollar amount' : null">
+                  @if (dollarsFor(ticket); as dollars) {
+                    {{ isDefaultEstimate(ticket) ? '~' : '' }}{{ dollars | currency:'USD':'symbol':'1.0-0' }}
+                  }
+                </span>
               </div>
             </div>
           </div>

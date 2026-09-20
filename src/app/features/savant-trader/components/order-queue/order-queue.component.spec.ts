@@ -7,14 +7,26 @@ import {
   OrderTicketStatus,
   OrderSource,
   InstrumentType,
+  EquityOrderTicket,
+  OptionLeg,
 } from '../../services/order-ticket.types';
+
+/** Typed fixture overrides — every key exists on a real ticket shape
+ *  (equity fields + the option discriminant/legs). */
+type TicketOverrides = Partial<Omit<EquityOrderTicket, 'instrumentType'>> & {
+  instrumentType?: InstrumentType;
+  legs?: OptionLeg[];
+};
 
 function makeTicket(
   id: string,
   status: OrderTicketStatus,
   symbol: string,
   side: 'buy' | 'sell' = 'buy',
+  overrides: TicketOverrides = {},
 ): OrderTicket {
+  // The base literal is equity-shaped; option fixtures override
+  // instrumentType + legs. The cast narrows the merged object to the union.
   return {
     id,
     refId: `ref-${id}`,
@@ -30,6 +42,7 @@ function makeTicket(
     quantity: '100',
     createdAt: '2026-08-25T12:00:00Z',
     updatedAt: '2026-08-25T12:00:00Z',
+    ...overrides,
   } as OrderTicket;
 }
 
@@ -89,7 +102,7 @@ describe('OrderQueueComponent', () => {
       expect(groups[3].label).toBe('Failed');
     });
 
-    it('places submitted non-market orders in the Resting group and market orders in Submitted', () => {
+    it('keeps locally-submitted tickets in Submitted until the RH merge derives Resting', () => {
       const limit = makeTicket('1', OrderTicketStatus.SUBMITTED, 'AAPL');
       limit.orderType = 'limit';
       const market = makeTicket('2', OrderTicketStatus.SUBMITTED, 'MSFT');
@@ -98,10 +111,12 @@ describe('OrderQueueComponent', () => {
       fixture.componentRef.setInput('selectedId', null);
       fixture.detectChanges();
 
+      // Resting is derived by the page's RH merge — local SUBMITTED stays
+      // Submitted here regardless of order type.
       const groups = component.groups();
-      // When merged with RH, limit orders derive RESTING; but locally SUBMITTED limit orders
-      // stay in Submitted until RH is loaded. This test uses local status directly.
-      expect(groups.find((group) => group.label === 'Submitted')?.tickets).toContain(market);
+      const submitted = groups.find((group) => group.label === 'Submitted');
+      expect(submitted?.tickets).toContain(market);
+      expect(submitted?.tickets).toContain(limit);
     });
 
     it('places RESTING tickets in the Resting group', () => {
@@ -277,20 +292,217 @@ describe('OrderQueueComponent', () => {
     });
   });
 
-  describe('row display', () => {
-    it('shows symbol, side, order type, and quantity', () => {
-      const ticket = makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'sell');
-      ticket.orderType = 'limit';
-      ticket.quantity = '50';
+  describe('staged group aggregates', () => {
+    it('sums shares, units, and dollars across staged tickets in the group header', () => {
+      const tickets = [
+        makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'buy', { quantity: '10', dollarAmount: '1000' }),
+        makeTicket('2', OrderTicketStatus.STAGED, 'NVDA', 'buy', { quantity: '5', dollarAmount: '500' }),
+      ];
+      fixture.componentRef.setInput('tickets', tickets);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.componentRef.setInput('defaultDollarAmount', 100);
+      fixture.detectChanges();
+
+      const stagedHeader = fixture.nativeElement.querySelector('.group-staged .group-header');
+      const agg = stagedHeader.querySelector('.staged-agg');
+      expect(agg).toBeTruthy();
+      expect(agg.textContent).toContain('15 sh');
+      expect(agg.textContent).toContain('15u'); // (1000+500)/100
+      expect(agg.textContent).toContain('$1,500');
+    });
+
+    it('excludes option tickets and non-staged tickets from the staged aggregates', () => {
+      const optionTicket = makeTicket('opt', OrderTicketStatus.STAGED, 'QQQ', 'buy', {
+        instrumentType: InstrumentType.OPTION,
+        legs: [{ type: 'buy', symbol: 'QQQ  260320C00500000', quantity: '2' }],
+        quantity: '2',
+        dollarAmount: '9999',
+      });
+      const tickets = [
+        makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'buy', { quantity: '10', dollarAmount: '1500' }),
+        optionTicket,
+        makeTicket('3', OrderTicketStatus.SUBMITTED, 'MSFT', 'buy', { quantity: '4', dollarAmount: '999' }),
+      ];
+      fixture.componentRef.setInput('tickets', tickets);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.componentRef.setInput('defaultDollarAmount', 100);
+      fixture.detectChanges();
+
+      const agg = fixture.nativeElement.querySelector('.group-staged .staged-agg');
+      expect(agg.textContent).toContain('10 sh');
+      expect(agg.textContent).toContain('15u');
+      expect(agg.textContent).toContain('$1,500');
+    });
+
+    it('does not show the aggregate when the staged group is empty', () => {
+      fixture.componentRef.setInput('tickets', [makeTicket('1', OrderTicketStatus.FILLED, 'AAPL')]);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.staged-agg')).toBeNull();
+    });
+
+    it('reports staged sells in a separate bucket instead of inflating the buy total', () => {
+      const tickets = [
+        makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'buy', { quantity: '10', dollarAmount: '1500' }),
+        makeTicket('2', OrderTicketStatus.STAGED, 'NVDA', 'sell', { quantity: '4', dollarAmount: '500' }),
+      ];
+      fixture.componentRef.setInput('tickets', tickets);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.componentRef.setInput('defaultDollarAmount', 100);
+      fixture.detectChanges();
+
+      const agg = fixture.nativeElement.querySelector('.group-staged .staged-agg');
+      expect(agg.textContent).toContain('10 sh');
+      expect(agg.textContent).toContain('15u');
+      expect(agg.textContent).toContain('$1,500');
+      const sell = agg.querySelector('.staged-agg-sell');
+      expect(sell.textContent).toContain('4 sh');
+      expect(sell.textContent).toContain('5u');
+      expect(sell.textContent).toContain('$500');
+    });
+
+    it('excludes tickets with neither quantity nor dollarAmount — no default-dollar estimates in the total', () => {
+      const tickets = [
+        makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'buy', { quantity: '10', dollarAmount: '1000' }),
+        makeTicket('2', OrderTicketStatus.STAGED, 'NVDA', 'buy', { quantity: undefined, dollarAmount: undefined }),
+      ];
+      fixture.componentRef.setInput('tickets', tickets);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.componentRef.setInput('defaultDollarAmount', 100);
+      fixture.detectChanges();
+
+      const agg = fixture.nativeElement.querySelector('.group-staged .staged-agg');
+      expect(agg.textContent).toContain('10 sh');
+      expect(agg.textContent).toContain('10u');
+      expect(agg.textContent).toContain('$1,000');
+    });
+
+    it('hides the aggregate when staged tickets carry nothing computable', () => {
+      const ticket = makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'buy', {
+        quantity: undefined,
+        dollarAmount: undefined,
+      });
       fixture.componentRef.setInput('tickets', [ticket]);
       fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.staged-agg')).toBeNull();
+    });
+
+    it('skips NaN ticket fields — a malformed ticket contributes nothing', () => {
+      const tickets = [
+        makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'buy', { quantity: '10', dollarAmount: '1000' }),
+        makeTicket('2', OrderTicketStatus.STAGED, 'NVDA', 'buy', { quantity: 'abc', dollarAmount: 'xyz' }),
+      ];
+      fixture.componentRef.setInput('tickets', tickets);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.componentRef.setInput('defaultDollarAmount', 100);
+      fixture.detectChanges();
+
+      const agg = fixture.nativeElement.querySelector('.group-staged .staged-agg');
+      expect(agg.textContent).toContain('10 sh');
+      expect(agg.textContent).toContain('$1,000');
+    });
+  });
+
+  describe('row display', () => {
+    it('shows symbol, side, shares, units, and dollar amount', () => {
+      const ticket = makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'sell', {
+        quantity: '50',
+        dollarAmount: '5000',
+      });
+      fixture.componentRef.setInput('tickets', [ticket]);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.componentRef.setInput('defaultDollarAmount', 100);
       fixture.detectChanges();
 
       const row = fixture.nativeElement.querySelector('.queue-item');
       expect(row.textContent).toContain('AAPL');
       expect(row.textContent).toContain('SELL');
-      expect(row.textContent).toContain('LIMIT');
-      expect(row.textContent).toContain('50');
+      expect(row.textContent).toContain('50 sh');
+      expect(row.textContent).toContain('50u'); // $5000 / $100 default
+      expect(row.textContent).toContain('$5,000');
+    });
+
+    it('computes whole-share count and real cost from dollarAmount when quantity is absent', () => {
+      const ticket = makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'buy', {
+        quantity: undefined,
+        dollarAmount: '500',
+      });
+      fixture.componentRef.setInput('tickets', [ticket]);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.componentRef.setInput('prices', { AAPL: 120 });
+      fixture.detectChanges();
+
+      const row = fixture.nativeElement.querySelector('.queue-item');
+      expect(row.textContent).toContain('4 sh'); // round(500/120)
+      expect(row.textContent).toContain('$480'); // 4 × 120
+      expect(row.textContent).toContain('4.8u'); // 480 / 100 default
+    });
+
+    it('shows fractional quantity verbatim — never rounded to zero', () => {
+      const ticket = makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'sell', {
+        quantity: '0.33',
+        dollarAmount: undefined,
+      });
+      fixture.componentRef.setInput('tickets', [ticket]);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.componentRef.setInput('prices', { AAPL: 200 });
+      fixture.detectChanges();
+
+      const row = fixture.nativeElement.querySelector('.queue-item');
+      expect(row.textContent).toContain('0.33 sh');
+      expect(row.textContent).toContain('$66');
+    });
+
+    it('prefers quantity × price over the stored dollarAmount when both exist', () => {
+      const ticket = makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'buy', {
+        quantity: '10',
+        dollarAmount: '1500',
+      });
+      fixture.componentRef.setInput('tickets', [ticket]);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.componentRef.setInput('prices', { AAPL: 120 });
+      fixture.componentRef.setInput('defaultDollarAmount', 100);
+      fixture.detectChanges();
+
+      const row = fixture.nativeElement.querySelector('.queue-item');
+      expect(row.textContent).toContain('10 sh');
+      expect(row.textContent).toContain('$1,200'); // 10 × 120 — not the stale stored 1500
+      expect(row.textContent).toContain('12u');
+    });
+
+    it('marks default-dollar-derived fields as estimates', () => {
+      const ticket = makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'buy', {
+        quantity: undefined,
+        dollarAmount: undefined,
+      });
+      fixture.componentRef.setInput('tickets', [ticket]);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.componentRef.setInput('prices', { AAPL: 200 });
+      fixture.componentRef.setInput('defaultDollarAmount', 400);
+      fixture.detectChanges();
+
+      const dollars = fixture.nativeElement.querySelector('.item-dollars');
+      expect(dollars.textContent).toContain('~$400'); // sizing: 2 sh × 200
+      expect(dollars.classList.contains('estimated')).toBe(true);
+      const shares = fixture.nativeElement.querySelector('.item-shares');
+      expect(shares.textContent).toContain('~');
+    });
+
+    it('shows contract count for option tickets instead of share math', () => {
+      const ticket = makeTicket('1', OrderTicketStatus.STAGED, 'QQQ', 'buy', {
+        instrumentType: InstrumentType.OPTION,
+        legs: [{ type: 'buy', symbol: 'QQQ  260320C00500000', quantity: '2' }],
+        quantity: '2',
+      });
+      fixture.componentRef.setInput('tickets', [ticket]);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      const row = fixture.nativeElement.querySelector('.queue-item');
+      expect(row.textContent).toContain('2 contracts');
     });
 
     it('shows source badge', () => {
@@ -301,6 +513,63 @@ describe('OrderQueueComponent', () => {
 
       const badge = fixture.nativeElement.querySelector('.source-badge');
       expect(badge.textContent).toContain('SIG');
+    });
+
+    it('omits the source badge for an unrecognized source instead of showing ???', () => {
+      const ticket = makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'buy', {
+        source: 'legacy_feed' as OrderSource,
+      });
+      fixture.componentRef.setInput('tickets', [ticket]);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      const badge = fixture.nativeElement.querySelector('.source-badge');
+      expect(badge).toBeNull();
+    });
+
+    it('omits the date span when the ticket has no signalContext or createdAt date', () => {
+      const ticket = makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'buy', {
+        signalContext: undefined,
+        createdAt: '',
+      });
+      fixture.componentRef.setInput('tickets', [ticket]);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.item-date')).toBeNull();
+    });
+
+    it('omits shares and dollars when nothing on the ticket is computable (no price, no quantity)', () => {
+      const ticket = makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'buy', {
+        quantity: undefined,
+        dollarAmount: undefined,
+      });
+      fixture.componentRef.setInput('tickets', [ticket]);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      const row = fixture.nativeElement.querySelector('.queue-item');
+      // Column spans stay rendered for alignment but render empty.
+      expect(row.querySelector('.item-shares').textContent.trim()).toBe('');
+      expect(row.querySelector('.item-units').textContent.trim()).toBe('');
+      expect(row.querySelector('.item-dollars').textContent.trim()).toBe('');
+    });
+
+    it('shows quantity, notional, and units for worked tickets (integer shares, varying amount)', () => {
+      const ticket = makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'buy', {
+        quantity: '7',
+        dollarAmount: undefined,
+      });
+      fixture.componentRef.setInput('tickets', [ticket]);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.componentRef.setInput('prices', { AAPL: 200 });
+      fixture.componentRef.setInput('defaultDollarAmount', 500);
+      fixture.detectChanges();
+
+      const row = fixture.nativeElement.querySelector('.queue-item');
+      expect(row.textContent).toContain('7 sh');
+      expect(row.textContent).toContain('$1,400'); // 7 × 200
+      expect(row.textContent).toContain('2.8u'); // 1400 / 500
     });
 
     it('shows status in group header', () => {
