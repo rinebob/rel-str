@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Swing-compare pure utilities — merge pivot/signal dates into a labeled
  * candidate list for the run builder, and derive the default option type
  * for a chosen start date.
@@ -8,7 +8,7 @@
  */
 import { OptionType } from '@options-contract/contracts';
 import { SignalDirection } from '../../../common/constants';
-import type { Pivot } from '../../../../shared/components/flex-chart/indicators/st-zigzag.types';
+import type { Pivot, Swing } from '../../../../shared/components/flex-chart/indicators/st-zigzag.types';
 import type { StSignalItem } from '../../../services/types';
 
 /** A saved comparison run — one start date, one or more target dates,
@@ -99,4 +99,65 @@ export function defaultTypeForStart(item: SwingCompareDateItem): OptionType {
     !item.signalDirections.includes(SignalDirection.LONG)
     ? OptionType.PUT
     : OptionType.CALL;
+}
+
+// ===========================================================================
+// Mini zigzag chart geometry -- normalized SVG coordinates for the picker
+// expando. x maps time linearly, y maps price (inverted: higher price ->
+// smaller y). Y is padded 10% so extreme points don't touch the edges.
+// ===========================================================================
+
+/** One rendered swing segment in viewbox coordinates. */
+export interface SwingSegment {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  swing: Swing;
+}
+
+/** Shared normalization -- returns mappers for the union of all endpoint
+ *  times/prices. Returns null when there are no points to map. */
+function chartMappers(
+  points: { time: number; price: number }[],
+  width: number,
+  height: number,
+): { toX: (t: number) => number; toY: (p: number) => number } | null {
+  if (points.length === 0) return null;
+  const tMin = Math.min(...points.map((p) => p.time));
+  const tMax = Math.max(...points.map((p) => p.time));
+  const pMin = Math.min(...points.map((p) => p.price));
+  const pMax = Math.max(...points.map((p) => p.price));
+  const pad = (pMax - pMin) * 0.1 || 1;
+  const lo = pMin - pad;
+  const hi = pMax + pad;
+  const tSpan = tMax - tMin || 1;
+  return {
+    toX: (t) => ((t - tMin) / tSpan) * width,
+    toY: (p) => height - ((p - lo) / (hi - lo)) * height,
+  };
+}
+
+/** Polyline points string ("x,y x,y ...") for a pivot sequence. */
+export function swingPolyline(pivots: Pivot[], width: number, height: number): string {
+  const m = chartMappers(pivots, width, height);
+  if (!m) return '';
+  return pivots.map((p) => `${m.toX(p.time).toFixed(2)},${m.toY(p.price).toFixed(2)}`).join(' ');
+}
+
+/** One segment per swing with normalized endpoints, for clickable hits. */
+export function swingSegments(swings: Swing[], width: number, height: number): SwingSegment[] {
+  const m = chartMappers(
+    swings.flatMap((s) => [s.start, s.end]),
+    width,
+    height,
+  );
+  if (!m) return [];
+  return swings.map((swing) => ({
+    x1: m.toX(swing.start.time),
+    y1: m.toY(swing.start.price),
+    x2: m.toX(swing.end.time),
+    y2: m.toY(swing.end.price),
+    swing,
+  }));
 }

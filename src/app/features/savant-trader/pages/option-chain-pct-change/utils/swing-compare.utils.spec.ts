@@ -2,47 +2,19 @@ import {
   mergeDateList,
   defaultTypeForStart,
   toUtcDateString,
+  swingPolyline,
+  swingSegments,
   type SwingCompareDateItem,
 } from './swing-compare.utils';
 import { OptionType } from '@options-contract/contracts';
 import { SignalDirection } from '../../../common/constants';
-import type { Pivot } from '../../../../shared/components/flex-chart/indicators/st-zigzag.types';
 import type { StSignalItem } from '../../../services/types';
-import { SignalStatus, SignalTimeframe } from '../../../common/constants';
-
-// =============================================================================
-// Fixtures
-// =============================================================================
-
-const ms = (dateStr: string): number => new Date(dateStr + 'T00:00:00.000Z').getTime();
-
-function makePivot(overrides: Partial<Pivot> = {}): Pivot {
-  return {
-    barIndex: 0,
-    time: ms('2025-04-07'),
-    price: 100,
-    isHigh: false,
-    confirmed: true,
-    ...overrides,
-  };
-}
-
-function makeSignal(overrides: Partial<StSignalItem> = {}): StSignalItem {
-  return {
-    id: 's1',
-    symbol: 'QQQ',
-    barDate: '2025-04-08',
-    marketDate: '2025-04-08',
-    runId: 'run-1',
-    timeframe: SignalTimeframe.DAILY,
-    direction: SignalDirection.LONG,
-    signalType: 'D_ZONE_V1_UPTICK',
-    status: SignalStatus.INTERIM,
-    indicators: {},
-    closePrice: 100,
-    ...overrides,
-  };
-}
+import {
+  fixtureMs as ms,
+  makePivotFixture as makePivot,
+  makeSignalFixture as makeSignal,
+  makeSwingFixture,
+} from '../testing/swing-fixtures';
 
 // =============================================================================
 // pivotDate
@@ -181,5 +153,52 @@ describe('defaultTypeForStart', () => {
     expect(
       defaultTypeForStart(item({ pivotIsHigh: false, signalDirections: [SignalDirection.SHORT] })),
     ).toBe(OptionType.CALL);
+  });
+});
+
+// =============================================================================
+// Mini-chart geometry — swingPolyline / swingSegments
+// =============================================================================
+
+const mkSwing = (start: string, sPrice: number, end: string, ePrice: number, dir: 'up' | 'down' = 'up') =>
+  makeSwingFixture(start, end, dir, sPrice, ePrice);
+
+describe('swingPolyline', () => {
+  it('returns empty string for no pivots', () => {
+    expect(swingPolyline([], 100, 40)).toBe('');
+  });
+
+  it('returns a points string normalized into the viewbox for multi-pivot sets', () => {
+    const pivots = [
+      makePivot({ time: ms('2025-04-01'), price: 100, isHigh: false }),
+      makePivot({ time: ms('2025-04-10'), price: 120, isHigh: true }),
+      makePivot({ time: ms('2025-04-20'), price: 90, isHigh: false }),
+    ];
+    const pts = swingPolyline(pivots, 100, 40);
+    const pairs = pts.trim().split(' ').map((p) => p.split(',').map(Number));
+    expect(pairs).toHaveLength(3);
+    // x ascending, within [0,100]; y within [0,40]; higher price = lower y
+    expect(pairs[0][0]).toBeLessThan(pairs[1][0]);
+    expect(pairs[1][0]).toBeLessThan(pairs[2][0]);
+    expect(pairs.every(([x, y]) => x >= 0 && x <= 100 && y >= 0 && y <= 40)).toBe(true);
+    expect(pairs[1][1]).toBeLessThan(pairs[0][1]); // 120 > 100 → smaller y
+  });
+});
+
+describe('swingSegments', () => {
+  it('returns empty for no swings', () => {
+    expect(swingSegments([], 100, 40)).toEqual([]);
+  });
+
+  it('produces one segment per swing with normalized endpoints', () => {
+    const swings = [
+      mkSwing('2025-04-01', 100, '2025-04-10', 120, 'up'),
+      mkSwing('2025-04-10', 120, '2025-04-20', 90, 'down'),
+    ];
+    const segs = swingSegments(swings, 100, 40);
+    expect(segs).toHaveLength(2);
+    expect(segs[0].swing).toBe(swings[0]);
+    expect(segs[0].x2).toBe(segs[1].x1); // contiguous
+    expect(segs[1].y2).toBeGreaterThan(segs[1].y1); // down swing → larger y at end
   });
 });

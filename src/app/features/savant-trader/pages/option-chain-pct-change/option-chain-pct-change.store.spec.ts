@@ -38,14 +38,17 @@ import { SwingAnalysisService } from '../../swing-analysis/swing-analysis.servic
 import type { SwingAnalysisDoc } from '../../swing-analysis/swing-analysis.types';
 import { SymbolHistoryStore } from '../../stores/symbol-history.store';
 import type { StSignalItem } from '../../services/types';
-import { SignalDirection, SignalStatus, SignalTimeframe } from '../../common/constants';
 import type {
-  DistributionSummary,
-  Histogram,
   Pivot,
   Swing,
-  SwingStats,
 } from '../../../shared/components/flex-chart/indicators/st-zigzag.engine';
+import {
+  fixtureMs,
+  makePivotFixture,
+  makeSwingAnalysisDocFixture,
+  makeSignalFixture,
+  makeSwingFixture,
+} from './testing/swing-fixtures';
 
 // =============================================================================
 // Test fixtures
@@ -129,68 +132,8 @@ function mockConfigService(
   } as Partial<PctChangeConfigService>;
 }
 
-function makeDistributionSummary(): DistributionSummary {
-  return {
-    mean: 0, median: 0, stdDev: 0, min: 0, max: 0,
-    p10: 0, p25: 0, p50: 0, p75: 0, p90: 0,
-  };
-}
-
-function makeHistogram(): Histogram {
-  return { bins: [] };
-}
-
-function makeSwingStats(): SwingStats {
-  const dir = () => ({
-    count: 0,
-    magnitudePercent: makeDistributionSummary(),
-    magnitudeAbsolute: makeDistributionSummary(),
-    duration: makeDistributionSummary(),
-    magnitudeHistogram: makeHistogram(),
-    durationHistogram: makeHistogram(),
-  });
-  return { up: dir(), down: dir() };
-}
-
-function makeSwingAnalysisDoc(overrides: Partial<SwingAnalysisDoc> = {}): SwingAnalysisDoc {
-  return {
-    id: 'QQQ_dev5_L5_R5_1barY_projY',
-    userId: 'user-1',
-    symbol: 'QQQ',
-    paramsId: 'dev5_L5_R5_1barY_projY',
-    config: {
-      devThreshold: 5,
-      leftDepth: 5,
-      rightDepth: 5,
-      allowZigZagOnOneBar: true,
-      projectionPivots: true,
-      lineColor: '#000',
-    },
-    pivots: [],
-    projection: null,
-    swings: [],
-    stats: makeSwingStats(),
-    savedAt: '2026-09-18T00:00:00Z',
-    ...overrides,
-  };
-}
-
-function makeSignal(overrides: Partial<StSignalItem> = {}): StSignalItem {
-  return {
-    id: '2025-04-08',
-    symbol: 'QQQ',
-    barDate: '2025-04-08',
-    marketDate: '2025-04-08',
-    runId: 'run-1',
-    timeframe: SignalTimeframe.DAILY,
-    direction: SignalDirection.LONG,
-    signalType: 'D_ZONE_V1_UPTICK',
-    status: SignalStatus.INTERIM,
-    indicators: {},
-    closePrice: 100,
-    ...overrides,
-  };
-}
+const makeSwingAnalysisDoc = makeSwingAnalysisDocFixture;
+const makeSignal = makeSignalFixture;
 
 function mockSwingAnalysisService(
   docs: SwingAnalysisDoc[] = [makeSwingAnalysisDoc()],
@@ -1276,20 +1219,10 @@ describe('OptionChainPctChangeStore', () => {
   // ===========================================================================
 
   describe('swing-compare state', () => {
-    const ms = (d: string) => new Date(d + 'T00:00:00.000Z').getTime();
-    const mkPivot = (time: string, isHigh = false, confirmed = true): Pivot => ({
-      barIndex: 0, time: ms(time), price: 100, isHigh, confirmed,
-    });
-    const mkSwing = (start: string, end: string, direction: 'up' | 'down' = 'up'): Swing => ({
-      direction,
-      start: { time: ms(start), price: 100, barIndex: 0 },
-      end: { time: ms(end), price: 110, barIndex: 10 },
-      magnitudePercent: 10,
-      magnitudeAbsolute: 10,
-      duration: 10,
-      volume: 0,
-      confirmed: true,
-    });
+    const mkPivot = (time: string, isHigh = false, confirmed = true): Pivot =>
+      makePivotFixture({ time: fixtureMs(time), isHigh, confirmed });
+    const mkSwing = (start: string, end: string, direction: 'up' | 'down' = 'up'): Swing =>
+      makeSwingFixture(start, end, direction);
 
     const frameDoc = () =>
       makeSwingAnalysisDoc({
