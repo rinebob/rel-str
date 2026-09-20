@@ -65,3 +65,11 @@ This Thread is an open-ended maintenance lane, not a bounded feature. Blueprint 
 
 - `dollarAmount` is a string field â€” parse and guard NaN.
 - Option tickets (multi-leg) have no dollar amount; keep them out of the staged-$ total rather than fabricating a number.
+
+### As built (#440, shipped)
+
+The design was redirected during implementation — header chips and the top-header staged total were dropped. Final shape:
+
+- Each row shows `shares / units / dollars` as fixed-width columns: integer `quantity` verbatim (fractional values preserved — fractional_close tickets), else whole-share sizing via `computePositionSize(price, dollarAmount ?? default)`; `$` = `shares × price` else stored `dollarAmount`; `u` = notional ÷ `defaultDollarAmount`. Options show `N contracts`. Missing fields render as empty columns, never placeholders.
+- Aggregates render in the **Staged group header** (`.staged-agg`), split by side (`buy`/`sell` buckets) so sells never inflate the buy total; pure default-estimate tickets are excluded from totals and marked `~` in the row.
+- `???` badge and `—` date → omitted via `null` returns.
