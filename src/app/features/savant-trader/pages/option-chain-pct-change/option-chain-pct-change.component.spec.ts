@@ -32,6 +32,7 @@ import type {
   GetHistoricalOptionsChainResponse,
   HistoricalOptionContract,
 } from '@options-contract/contracts';
+import type { OhlcBar } from '../../../../core/models/market-data.types';
 import { of, throwError } from 'rxjs';
 import { toNum } from './utils/pct-change.utils';
 
@@ -104,15 +105,16 @@ function mockConfigService(): Partial<PctChangeConfigService> {
   } as Partial<PctChangeConfigService>;
 }
 
-function mockBarReadService(): Partial<LocalBarReadService> {
+function mockBarReadService(bars: OhlcBar[] = []): Partial<LocalBarReadService> {
   return {
-    getDailyBarsForRange$: () => of([]),
+    getDailyBarsForRange$: () => of(bars),
   } as Partial<LocalBarReadService>;
 }
 
 function setupComponent(
   configService: Partial<PctChangeConfigService> = mockConfigService(),
   dialogResult: boolean | null = null,
+  barReadService: Partial<LocalBarReadService> = mockBarReadService(),
 ): {
   fixture: import('@angular/core/testing').ComponentFixture<OptionChainPctChangeComponent>;
   component: OptionChainPctChangeComponent;
@@ -128,7 +130,7 @@ function setupComponent(
     providers: [
       { provide: OptionsContractService, useValue: mockService() },
       { provide: PctChangeConfigService, useValue: configService },
-      { provide: LocalBarReadService, useValue: mockBarReadService() },
+      { provide: LocalBarReadService, useValue: barReadService },
       { provide: Firestore, useValue: {} },
       { provide: MatDialog, useValue: dialog },
       OptionChainPctChangeStore,
@@ -181,6 +183,39 @@ describe('OptionChainPctChangeComponent', () => {
     expect(labelTexts.some((t: string) => t.includes('Duration'))).toBe(true);
     expect(labelTexts.some((t: string) => t.includes('Strike'))).toBe(true);
     expect(labelTexts.some((t: string) => t.includes('Delta'))).toBe(true);
+  });
+
+  it('collapses and expands the input panel via the toolbar button', () => {
+    const { fixture } = setupComponent();
+    const panel = fixture.nativeElement.querySelector('.input-panel') as HTMLElement;
+    const btn = fixture.nativeElement.querySelector('.panel-collapse-btn') as HTMLElement;
+    expect(panel.classList.contains('collapsed')).toBe(false);
+    btn.click();
+    fixture.detectChanges();
+    expect(panel.classList.contains('collapsed')).toBe(true);
+    btn.click();
+    fixture.detectChanges();
+    expect(panel.classList.contains('collapsed')).toBe(false);
+  });
+
+  it('collapses the config panels when a saved config is selected', () => {
+    const { fixture, store } = setupComponent();
+    jest.spyOn(store, 'selectConfig');
+    const component = fixture.componentInstance;
+    component.targetDatesExpanded.set(true);
+    component.filtersExpanded.set(true);
+    // Dispatch a real change event so ev.target carries a real .value.
+    // (An input, not a bare select — a select with no matching option
+    // would report value === ''.)
+    const el = document.createElement('input');
+    el.value = 'cfg-1';
+    let captured: Event | null = null;
+    el.addEventListener('change', (e) => (captured = e));
+    el.dispatchEvent(new Event('change'));
+    component.onConfigSelect(captured!);
+    expect(store.selectConfig).toHaveBeenCalledWith('cfg-1');
+    expect(component.targetDatesExpanded()).toBe(false);
+    expect(component.filtersExpanded()).toBe(false);
   });
 
   it('renders grids after runAnalysis completes', fakeAsync(() => {
@@ -348,60 +383,19 @@ describe('OptionChainPctChangeComponent', () => {
       expect(oldSection).toBeNull();
     });
 
-    it('calls setTargetType when targetTypeChange fires', () => {
-      const { fixture, store } = setupComponent();
-      const spy = jest.spyOn(store, 'setTargetType');
-      fixture.componentInstance.onTargetTypeChange('user-dates');
-      expect(spy).toHaveBeenCalledWith('user-dates');
-    });
-
-    it('calls setTargetDates when targetDatesChange fires', () => {
-      const { fixture, store } = setupComponent();
-      const spy = jest.spyOn(store, 'setTargetDates');
-      fixture.componentInstance.onTargetDatesChange(['2025-04-10', '2025-04-15']);
-      expect(spy).toHaveBeenCalledWith(['2025-04-10', '2025-04-15']);
-    });
-
-    it('calls setPctMode when pctModeChange fires', () => {
-      const { fixture, store } = setupComponent();
-      const spy = jest.spyOn(store, 'setPctMode');
-      fixture.componentInstance.onPctModeChange('gradation');
-      expect(spy).toHaveBeenCalledWith('gradation');
-    });
-
-    it('calls setPctParams when pctParamsChange fires', () => {
-      const { fixture, store } = setupComponent();
-      const spy = jest.spyOn(store, 'setPctParams');
-      fixture.componentInstance.onPctParamsChange({
-        mode: 'gradation',
-        values: [-3, 5],
-        step: 2,
-        count: 6,
-        direction: 'down',
-      });
-      expect(spy).toHaveBeenCalledWith([-3, 5], 2, 6, 'down');
-    });
-
-    it('calls setUserDatesMode when userDatesModeChange fires', () => {
-      const { fixture, store } = setupComponent();
-      const spy = jest.spyOn(store, 'setUserDatesMode');
-      fixture.componentInstance.onUserDatesModeChange('interval');
-      expect(spy).toHaveBeenCalledWith('interval');
-    });
-
-    it('calls setIntervalParams when intervalParamsChange fires', () => {
-      const { fixture, store } = setupComponent();
-      const spy = jest.spyOn(store, 'setIntervalParams');
-      fixture.componentInstance.onIntervalParamsChange({ count: 3, intervalDays: 7 });
-      expect(spy).toHaveBeenCalledWith(3, 7);
-    });
-
-    it('calls resolvePctChangeTargets when resolvePctChangeRequest fires', () => {
-      const { fixture, store } = setupComponent();
-      const spy = jest.spyOn(store, 'resolvePctChangeTargets');
-      const request = { mode: 'list' as const, values: [-3, 5, 10] };
-      fixture.componentInstance.onResolvePctChangeRequest(request);
-      expect(spy).toHaveBeenCalledWith(request);
+    it('reopens the Target Dates panel when a resolve lands', () => {
+      const bars: OhlcBar[] = [
+        { d: '2025-04-07', o: 100, h: 100, l: 100, c: 100, v: 0 },
+        { d: '2025-04-08', o: 105, h: 105, l: 105, c: 105, v: 0 },
+      ];
+      const { fixture, store } = setupComponent(mockConfigService(), null, mockBarReadService(bars));
+      const component = fixture.componentInstance;
+      component.targetDatesExpanded.set(false);
+      // of() emits synchronously — the nonce bumps before this returns.
+      store.resolvePctChangeTargets({ mode: 'list', values: [5] });
+      fixture.detectChanges();
+      expect(store.resolveNonce()).toBe(1);
+      expect(component.targetDatesExpanded()).toBe(true);
     });
   });
 

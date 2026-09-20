@@ -34,6 +34,7 @@ import type {
 import type { PctChangeConfigDoc } from '@shared/pct-change-config-contracts';
 import type { OhlcBar } from '../../../../core/models/market-data.types';
 
+
 // =============================================================================
 // Test fixtures
 // =============================================================================
@@ -264,25 +265,23 @@ describe('OptionChainPctChangeStore', () => {
       expect(store.grids()).toEqual([]);
     });
 
-    it('auto-recomputes when filter changes after fetch', (done) => {
+    it('auto-recomputes when filter changes after fetch', () => {
       const store = setupStore();
       store.setSymbol('QQQ');
       store.setStartDate('2024-01-15');
       store.addTargetDate('2024-02-15');
       store.runAnalysis();
 
-      setTimeout(() => {
-        expect(store.grids().length).toBe(1);
-        // Change filter — grids should auto-recompute without re-fetching.
-        store.setFilter({ strikeGte: 50 });
-        expect(store.grids().length).toBe(1);
-        done();
-      }, 50);
+      // of() emits synchronously — results are already patched.
+      expect(store.grids().length).toBe(1);
+      // Change filter — grids should auto-recompute without re-fetching.
+      store.setFilter({ strikeGte: 50 });
+      expect(store.grids().length).toBe(1);
     });
   });
 
   describe('runAnalysis', () => {
-    it('fetches, caches snapshots, and computes grids', (done) => {
+    it('fetches, caches snapshots, and computes grids', () => {
       const store = setupStore();
       store.setSymbol('QQQ');
       store.setStartDate('2024-01-15');
@@ -290,17 +289,14 @@ describe('OptionChainPctChangeStore', () => {
 
       store.runAnalysis();
 
-      setTimeout(() => {
-        expect(store.loading()).toBe(false);
-        expect(store.error()).toBeNull();
-        expect(store.grids().length).toBe(1);
-        expect(store.hasResults()).toBe(true);
-        expect(store.startSnapshot()).not.toBeNull();
-        done();
-      }, 50);
+      expect(store.loading()).toBe(false);
+      expect(store.error()).toBeNull();
+      expect(store.grids().length).toBe(1);
+      expect(store.hasResults()).toBe(true);
+      expect(store.startSnapshot()).not.toBeNull();
     });
 
-    it('sets error message on fetch failure', (done) => {
+    it('sets error message on fetch failure', () => {
       const failingService: Partial<OptionsContractService> = {
         getHistoricalOptionsChain$: () => throwError(() => new Error('Network error')),
       } as Partial<OptionsContractService>;
@@ -311,12 +307,9 @@ describe('OptionChainPctChangeStore', () => {
 
       store.runAnalysis();
 
-      setTimeout(() => {
-        expect(store.loading()).toBe(false);
-        expect(store.error()).toContain('Network error');
-        expect(store.grids()).toEqual([]);
-        done();
-      }, 50);
+      expect(store.loading()).toBe(false);
+      expect(store.error()).toContain('Network error');
+      expect(store.grids()).toEqual([]);
     });
 
     it('sets error and clears stale results when inputs are incomplete', () => {
@@ -328,7 +321,7 @@ describe('OptionChainPctChangeStore', () => {
       expect(store.grids()).toEqual([]);
     });
 
-    it('cancels stale in-flight request when called twice rapidly', (done) => {
+    it('cancels stale in-flight request when called twice rapidly', () => {
       // Use Subjects so the first request stays pending while the second fires.
       const firstSubject = new Subject<GetHistoricalOptionsChainResponse>();
       const secondSubject = new Subject<GetHistoricalOptionsChainResponse>();
@@ -358,21 +351,18 @@ describe('OptionChainPctChangeStore', () => {
       secondSubject.next(makeChain([makeContract({ contractID: 'FRESH', mark: '10.00' })]));
       secondSubject.complete();
 
-      setTimeout(() => {
-        // The stale first response should not have overwritten the fresh one.
-        expect(store.loading()).toBe(false);
-        expect(store.startSnapshot()).not.toBeNull();
-        // The fresh snapshot should contain FRESH, not STALE.
-        const snapshot = store.startSnapshot()!;
-        expect(snapshot.some((c) => c.contractID === 'FRESH')).toBe(true);
-        expect(snapshot.some((c) => c.contractID === 'STALE')).toBe(false);
-        done();
-      }, 50);
+      // The stale first response should not have overwritten the fresh one.
+      expect(store.loading()).toBe(false);
+      expect(store.startSnapshot()).not.toBeNull();
+      // The fresh snapshot should contain FRESH, not STALE.
+      const snapshot = store.startSnapshot()!;
+      expect(snapshot.some((c) => c.contractID === 'FRESH')).toBe(true);
+      expect(snapshot.some((c) => c.contractID === 'STALE')).toBe(false);
     });
   });
 
   describe('reset', () => {
-    it('clears all state and cancels in-flight fetch', (done) => {
+    it('clears all state and cancels in-flight fetch', () => {
       const subject = new Subject<GetHistoricalOptionsChainResponse>();
       const service: Partial<OptionsContractService> = {
         getHistoricalOptionsChain$: () => subject.asObservable(),
@@ -398,11 +388,8 @@ describe('OptionChainPctChangeStore', () => {
       subject.next(makeChain([makeContract({ contractID: 'LATE', mark: '999.00' })]));
       subject.complete();
 
-      setTimeout(() => {
-        expect(store.startSnapshot()).toBeNull();
-        expect(store.grids()).toEqual([]);
-        done();
-      }, 50);
+      expect(store.startSnapshot()).toBeNull();
+      expect(store.grids()).toEqual([]);
     });
   });
 
@@ -415,7 +402,7 @@ describe('OptionChainPctChangeStore', () => {
       return { d: date, o: close, h: close, l: close, c: close, v: 0 };
     }
 
-    it('resolves target dates from bars in list mode', (done) => {
+    it('resolves target dates from bars in list mode', () => {
       const bars: OhlcBar[] = [
         makeBar('2025-04-07', 100),
         makeBar('2025-04-08', 101),
@@ -428,15 +415,13 @@ describe('OptionChainPctChangeStore', () => {
       store.setStartDate('2025-04-07');
       store.resolvePctChangeTargets({ mode: 'list', values: [5, 10] });
 
-      setTimeout(() => {
-        expect(store.targetDates().length).toBe(2);
-        expect(store.targetDates()).toContain('2025-04-09');
-        expect(store.targetDates()).toContain('2025-04-10');
-        done();
-      }, 50);
+      expect(store.targetDates().length).toBe(2);
+      expect(store.targetDates()).toContain('2025-04-09');
+      expect(store.targetDates()).toContain('2025-04-10');
+      expect(store.resolveNonce()).toBe(1);
     });
 
-    it('resolves target dates across calendar year boundary', (done) => {
+    it('resolves target dates across calendar year boundary', () => {
       // Start date late in the year; +10% target reached in the following year.
       const bars: OhlcBar[] = [
         makeBar('2025-12-15', 100),
@@ -449,13 +434,10 @@ describe('OptionChainPctChangeStore', () => {
       store.setStartDate('2025-12-15');
       store.resolvePctChangeTargets({ mode: 'list', values: [10] });
 
-      setTimeout(() => {
-        expect(store.targetDates()).toContain('2026-01-05');
-        done();
-      }, 50);
+      expect(store.targetDates()).toContain('2026-01-05');
     });
 
-    it('cancels in-flight resolution when reset is called', (done) => {
+    it('cancels in-flight resolution when reset is called', () => {
       const subject = new Subject<OhlcBar[]>();
       const barRead: Partial<LocalBarReadService> = {
         getDailyBarsForRange$: () => subject.asObservable(),
@@ -472,10 +454,7 @@ describe('OptionChainPctChangeStore', () => {
       subject.next([makeBar('2025-04-07', 100), makeBar('2025-04-09', 105)]);
       subject.complete();
 
-      setTimeout(() => {
-        expect(store.targetDates()).toEqual([]);
-        done();
-      }, 50);
+      expect(store.targetDates()).toEqual([]);
     });
 
     it('sets error when symbol and start date are missing', () => {
@@ -484,6 +463,32 @@ describe('OptionChainPctChangeStore', () => {
       store.setStartDate('');
       store.resolvePctChangeTargets({ mode: 'list', values: [5] });
       expect(store.error()).toContain('required');
+    });
+
+    it('sets error when the request produces no percentages', () => {
+      const store = setupStore();
+      store.setSymbol('QQQ');
+      store.setStartDate('2025-04-07');
+      store.resolvePctChangeTargets({ mode: 'list', values: [] });
+      expect(store.error()).toContain('Nothing to resolve');
+    });
+
+    it('sets error and keeps existing dates when no percentage resolves', () => {
+      // +50% is never reached — the resolve must surface an error instead
+      // of silently clearing/emptying the date list.
+      const bars: OhlcBar[] = [
+        makeBar('2025-04-07', 100),
+        makeBar('2025-04-09', 105),
+      ];
+      const barRead = mockBarReadService(bars);
+      const store = setupStore(mockService(), mockConfigService(), barRead);
+      store.setSymbol('QQQ');
+      store.setStartDate('2025-04-07');
+      store.setTargetDates(['2025-05-01']);
+      store.resolvePctChangeTargets({ mode: 'list', values: [50] });
+
+      expect(store.error()).toContain('No dates resolved');
+      expect(store.targetDates()).toEqual(['2025-05-01']);
     });
   });
 
@@ -519,15 +524,10 @@ describe('OptionChainPctChangeStore', () => {
       expect(store.pctMode()).toBe('gradation');
     });
 
-    it('setPctValues updates pctValues', () => {
+    it('setPctParams updates values, step, count, direction in one patch', () => {
       const store = setupStore();
-      store.setPctValues([-3, 5, 10]);
+      store.setPctParams([-3, 5, 10], 2, 6, 'down');
       expect(store.pctValues()).toEqual([-3, 5, 10]);
-    });
-
-    it('setPctGradation updates step, count, direction', () => {
-      const store = setupStore();
-      store.setPctGradation(2, 6, 'down');
       expect(store.pctStep()).toBe(2);
       expect(store.pctCount()).toBe(6);
       expect(store.pctDirection()).toBe('down');
@@ -703,7 +703,7 @@ describe('OptionChainPctChangeStore', () => {
       store.setSymbol('QQQ');
       store.setStartDate('2025-04-07');
       store.setTargetType('pct-change');
-      store.setPctValues([-3, 5, 10]);
+      store.setPctParams([-3, 5, 10], 5, 4, 'up');
       store.addTargetDate('2025-04-10');
       store.saveCurrentConfig();
       expect(saveSpy).toHaveBeenCalledTimes(1);
@@ -874,6 +874,24 @@ describe('OptionChainPctChangeStore', () => {
       expect(store.selectedContractSeries()).toEqual([]);
     });
 
+    it('highlightContract sets the cross-grid highlight, overwritten by the next click', () => {
+      const store = setupStore();
+      store.highlightContract(CELL);
+      expect(store.highlightedContract()).toEqual({ strike: 100, expiration: '2024-03-15' });
+      store.highlightContract({ ...CELL_B, strike: 105 });
+      expect(store.highlightedContract()).toEqual({ strike: 105, expiration: '2024-03-15' });
+    });
+
+    it('clearHighlight clears only the highlight, not the selection', () => {
+      const store = setupStore();
+      store.pinContract(CELL, '2024-02-15');
+      store.highlightContract(CELL);
+      store.clearHighlight();
+      expect(store.highlightedContract()).toBeNull();
+      expect(store.selectedCell()!.contractID).toBe('A');
+      expect(store.isContractPinned()).toBe(true);
+    });
+
     it('allows new selection after clearing a pin', () => {
       const store = setupStore();
       store.pinContract(CELL, '2024-02-15');
@@ -883,25 +901,22 @@ describe('OptionChainPctChangeStore', () => {
       expect(store.isContractPinned()).toBe(false);
     });
 
-    it('selectedContractSeries returns the contract series across all snapshots', (done) => {
+    it('selectedContractSeries returns the contract series across all snapshots', () => {
       const store = setupStore();
       store.setSymbol('QQQ');
       store.setStartDate('2024-01-15');
       store.addTargetDate('2024-02-15');
       store.runAnalysis();
 
-      setTimeout(() => {
-        store.previewContract(CELL, '2024-02-15');
-        const series = store.selectedContractSeries();
-        expect(series).toEqual([
-          { date: '2024-01-15', price: 10, delta: 0.5 },
-          { date: '2024-02-15', price: 15, delta: 0.5 },
-        ]);
-        done();
-      }, 50);
+      store.previewContract(CELL, '2024-02-15');
+      const series = store.selectedContractSeries();
+      expect(series).toEqual([
+        { date: '2024-01-15', price: 10, delta: 0.5 },
+        { date: '2024-02-15', price: 15, delta: 0.5 },
+      ]);
     });
 
-    it('selectedContractSeries spans all target snapshots, not just the clicked grid', (done) => {
+    it('selectedContractSeries spans all target snapshots, not just the clicked grid', () => {
       const store = setupStore(mockService(
         [makeContract({ contractID: 'A', mark: '10.00' })],
         {
@@ -915,17 +930,14 @@ describe('OptionChainPctChangeStore', () => {
       store.addTargetDate('2024-03-15');
       store.runAnalysis();
 
-      setTimeout(() => {
-        // Cell selected in the FIRST grid — series still spans both targets.
-        store.previewContract(CELL, '2024-02-15');
-        const series = store.selectedContractSeries();
-        expect(series).toEqual([
-          { date: '2024-01-15', price: 10, delta: 0.5 },
-          { date: '2024-02-15', price: 15, delta: 0.5 },
-          { date: '2024-03-15', price: 20, delta: 0.5 },
-        ]);
-        done();
-      }, 50);
+      // Cell selected in the FIRST grid — series still spans both targets.
+      store.previewContract(CELL, '2024-02-15');
+      const series = store.selectedContractSeries();
+      expect(series).toEqual([
+        { date: '2024-01-15', price: 10, delta: 0.5 },
+        { date: '2024-02-15', price: 15, delta: 0.5 },
+        { date: '2024-03-15', price: 20, delta: 0.5 },
+      ]);
     });
 
     it('selectedContractSeries returns [] when snapshots are cleared', () => {
@@ -985,17 +997,17 @@ describe('OptionChainPctChangeStore', () => {
       expect(store.isContractPinned()).toBe(false);
     });
 
-    it('keeps selection when a different target date is removed', () => {
+    it('clears selection when any target date is removed (universe invalidated)', () => {
       const store = setupStore();
       store.addTargetDate('2024-02-15');
       store.addTargetDate('2024-03-15');
       store.pinContract(CELL, '2024-02-15');
       store.removeTargetDate('2024-03-15');
-      expect(store.selectedCell()!.contractID).toBe('A');
-      expect(store.isContractPinned()).toBe(true);
+      expect(store.selectedCell()).toBeNull();
+      expect(store.isContractPinned()).toBe(false);
     });
 
-    it('clears selection when runAnalysis fetch fails (no zombie pin)', (done) => {
+    it('clears selection when runAnalysis fetch fails (no zombie pin)', () => {
       const failingService: Partial<OptionsContractService> = {
         getHistoricalOptionsChain$: () => throwError(() => new Error('Network error')),
       } as Partial<OptionsContractService>;
@@ -1006,11 +1018,8 @@ describe('OptionChainPctChangeStore', () => {
       store.addTargetDate('2024-02-15');
       store.runAnalysis();
 
-      setTimeout(() => {
-        expect(store.selectedCell()).toBeNull();
-        expect(store.isContractPinned()).toBe(false);
-        done();
-      }, 50);
+      expect(store.selectedCell()).toBeNull();
+      expect(store.isContractPinned()).toBe(false);
     });
 
     it('reset clears selection', () => {

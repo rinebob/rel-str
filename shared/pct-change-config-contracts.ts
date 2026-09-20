@@ -21,6 +21,15 @@ export type UserDatesMode = 'manual' | 'interval';
 /** Direction for gradation pct-change mode. */
 export type PctDirection = 'up' | 'down';
 
+/** Request to resolve target dates from percentage moves (list or gradation). */
+export interface ResolvePctChangeRequest {
+  mode: PctMode;
+  values: number[];
+  step?: number;
+  count?: number;
+  direction?: PctDirection;
+}
+
 /**
  * Filter applied to matched contracts before building the grid.
  * Shared between FE utils and config docs.

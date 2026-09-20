@@ -28,6 +28,7 @@ import type {
   PctMode,
   UserDatesMode,
   PctDirection,
+  ResolvePctChangeRequest,
 } from '@shared/pct-change-config-contracts';
 import {
   computePctChange,
@@ -65,6 +66,20 @@ const toSelectedCell = (cell: ContractCellRef, targetDate: string): SelectedCont
   targetDate,
 });
 
+/** Field-for-field identity check between the stored selection and a cell
+ *  ref in a given grid. The canonical field set lives here so it can't
+ *  drift across call sites. */
+export const sameSelectedCell = (
+  sel: SelectedContractCell | null,
+  cell: ContractCellRef,
+  targetDate: string,
+): sel is SelectedContractCell =>
+  sel != null &&
+  sel.contractID === cell.contractID &&
+  sel.strike === cell.strike &&
+  sel.expiration === cell.expiration &&
+  sel.targetDate === targetDate;
+
 export interface OptionChainPctChangeState {
   /** Input: symbol to analyze. */
   symbol: string;
@@ -98,6 +113,7 @@ export interface OptionChainPctChangeState {
 
   /** Saved configs loaded from Firestore. */
   savedConfigs: PctChangeConfigWithId[];
+
   /** Currently selected config id, or null. */
   selectedConfigId: string | null;
 
@@ -114,14 +130,26 @@ export interface OptionChainPctChangeState {
 
   /** Chart popup: the selected contract cell, or null. */
   selectedCell: SelectedContractCell | null;
+  /** Cross-grid contract highlight — set by clicking a cell body. Cleared
+   *  on outside click or when the analysis inputs change. */
+  highlightedContract: { strike: number; expiration: string } | null;
   /** Chart popup: true while the overlay is pinned open (blocks other selections). */
   isContractPinned: boolean;
+
+  /** Monotonic counter bumped on each successful pct-change resolve —
+   *  lets the page reopen the Target Dates panel only on resolve, not on
+   *  config select or manual date edits. */
+  resolveNonce: number;
 }
 
 /** Selection-clearing patch — spread into any patchState that invalidates
  *  the contract universe (snapshots, symbol, type, or the grid set). */
-const SELECTION_CLEARED: Pick<OptionChainPctChangeState, 'selectedCell' | 'isContractPinned'> = {
+const SELECTION_CLEARED: Pick<
+  OptionChainPctChangeState,
+  'selectedCell' | 'isContractPinned' | 'highlightedContract'
+> = {
   selectedCell: null,
+  highlightedContract: null,
   isContractPinned: false,
 };
 
@@ -148,7 +176,9 @@ const initialState: OptionChainPctChangeState = {
   targetSnapshots: {},
   underlyingPrices: {},
   selectedCell: null,
+  highlightedContract: null,
   isContractPinned: false,
+  resolveNonce: 0,
 };
 
 // ---------------------------------------------------------------------------
@@ -259,20 +289,23 @@ export const OptionChainPctChangeStore = signalStore(
       /** Add a target date. No-op if already present. */
       addTargetDate(date: string): void {
         const dt = String(date || '').trim();
-        if (!dt) return;
-        const existing = store.targetDates();
-        if (existing.includes(dt)) return;
-        patchState(store, { targetDates: [...existing, dt] });
+        if (!dt || store.targetDates().includes(dt)) return;
+        patchState(store, {
+          targetDates: [...store.targetDates(), dt],
+          targetSnapshots: {},
+          underlyingPrices: {},
+          ...SELECTION_CLEARED,
+        });
       },
 
-      /** Remove a target date. Clears selection if the selected cell's
-       *  grid was removed (its overlay anchor no longer exists). */
+      /** Remove a target date. */
       removeTargetDate(date: string): void {
         const dt = String(date || '').trim();
-        const sel = store.selectedCell();
         patchState(store, {
           targetDates: store.targetDates().filter((d) => d !== dt),
-          ...(sel?.targetDate === dt ? SELECTION_CLEARED : {}),
+          targetSnapshots: {},
+          underlyingPrices: {},
+          ...SELECTION_CLEARED,
         });
       },
 
@@ -330,6 +363,22 @@ export const OptionChainPctChangeStore = signalStore(
       /** Clear the selection and unpin — called on outside-click. */
       clearContractSelection(): void {
         patchState(store, { selectedCell: null, isContractPinned: false });
+      },
+
+      /**
+       * Deliberate cell-click selection — highlights the contract across
+       * every grid (including the source) until cleared or overwritten.
+       * Independent of the popup's preview/pin lifecycle.
+       */
+      highlightContract(cell: ContractCellRef): void {
+        patchState(store, {
+          highlightedContract: { strike: cell.strike, expiration: cell.expiration },
+        });
+      },
+
+      /** Clear the cross-grid highlight — called on outside-click. */
+      clearHighlight(): void {
+        patchState(store, { highlightedContract: null });
       },
 
       /**
@@ -437,7 +486,9 @@ export const OptionChainPctChangeStore = signalStore(
         runSub = null;
         resolveSub?.unsubscribe();
         resolveSub = null;
-        patchState(store, { ...initialState });
+        // Keep the loaded config list — it's persisted data, not analysis
+        // state. The selection resets with the inputs it populated.
+        patchState(store, { ...initialState, savedConfigs: store.savedConfigs() });
       },
 
       // -----------------------------------------------------------------
@@ -452,16 +503,6 @@ export const OptionChainPctChangeStore = signalStore(
       /** Set the pct-change sub-mode. */
       setPctMode(mode: PctMode): void {
         patchState(store, { pctMode: mode });
-      },
-
-      /** Set pct values (list mode). */
-      setPctValues(values: number[]): void {
-        patchState(store, { pctValues: values });
-      },
-
-      /** Set pct gradation params (gradation mode). */
-      setPctGradation(step: number, count: number, direction: PctDirection): void {
-        patchState(store, { pctStep: step, pctCount: count, pctDirection: direction });
       },
 
       /** Set all pct params at once (values + gradation) — avoids double patchState. */
@@ -594,13 +635,7 @@ export const OptionChainPctChangeStore = signalStore(
        * Fetches bars, finds the start price, builds percentages, and
        * calls resolvePctChangeTargets. Patches resolved dates into targetDates.
        */
-      resolvePctChangeTargets(request: {
-        mode: PctMode;
-        values: number[];
-        step?: number;
-        count?: number;
-        direction?: PctDirection;
-      }): void {
+      resolvePctChangeTargets(request: ResolvePctChangeRequest): void {
         const symbol = store.symbol().trim().toUpperCase();
         const startDate = store.startDate().trim();
         if (!symbol || !startDate) {
@@ -616,7 +651,12 @@ export const OptionChainPctChangeStore = signalStore(
           request.count,
           request.direction,
         );
-        if (percentages.length === 0) return;
+        if (percentages.length === 0) {
+          patchState(store, {
+            error: 'Nothing to resolve — enter percentage values (list) or a valid step and count (gradation)',
+          });
+          return;
+        }
 
         // Cancel any in-flight resolution before starting a new one.
         resolveSub?.unsubscribe();
@@ -632,7 +672,25 @@ export const OptionChainPctChangeStore = signalStore(
               return;
             }
             const resolved = resolvePctChangeDatesFromBars(bars, startDate, startBar.c, percentages);
-            patchState(store, { targetDates: resolved, error: null, ...SELECTION_CLEARED });
+            if (resolved.length === 0) {
+              // Don't clobber existing dates on a zero-result resolve —
+              // surface why nothing appeared instead.
+              patchState(store, {
+                error: `No dates resolved — none of the percentage targets were reached within a year of ${startDate}`,
+              });
+              resolveSub = null;
+              return;
+            }
+            // Same invalidation as setTargetDates — the contract universe
+            // changed, so stale snapshots must not linger.
+            patchState(store, {
+              targetDates: resolved,
+              error: null,
+              targetSnapshots: {},
+              underlyingPrices: {},
+              resolveNonce: store.resolveNonce() + 1,
+              ...SELECTION_CLEARED,
+            });
             resolveSub = null;
           },
           error: (err: unknown) => {

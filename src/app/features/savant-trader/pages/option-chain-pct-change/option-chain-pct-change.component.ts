@@ -6,21 +6,22 @@
  *
  * Follows the existing options-strategy-dashboard.component pattern.
  */
-import { Component, ChangeDetectionStrategy, inject, OnInit, OnDestroy, HostListener } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, effect, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialog } from '@angular/material/dialog';
+import { MatExpansionModule } from '@angular/material/expansion';
 
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { OptionChainPctChangeStore } from './option-chain-pct-change.store';
 import { PctChangeGridComponent } from './components/pct-change-grid.component';
-import { TargetTypeSelectorComponent, type ResolvePctChangeRequest, type PctParamsChange, type IntervalParamsChange } from './components/target-type-selector.component';
+import { TargetTypeSelectorComponent } from './components/target-type-selector.component';
 import { ConfirmDialogComponent } from './components/confirm-dialog.component';
-import { toNum } from './utils/pct-change.utils';
+import { toNum, cellKey, CONTRACT_CHART_PANE_CLASS } from './utils/pct-change.utils';
+import { DEFAULT_CELL_TEXT_MODE, type CellTextMode } from './utils/color-mapping.utils';
 import { OptionType } from '@options-contract/contracts';
-import type { TargetType, PctMode, UserDatesMode } from '@shared/pct-change-config-contracts';
 import { take } from 'rxjs';
 
 @Component({
@@ -31,6 +32,7 @@ import { take } from 'rxjs';
     MatIconModule,
     MatTooltipModule,
     MatProgressSpinnerModule,
+    MatExpansionModule,
     PctChangeGridComponent,
     TargetTypeSelectorComponent,
   ],
@@ -39,17 +41,39 @@ import { take } from 'rxjs';
     <div class="pct-change-page" [class.fullscreen]="ui.fullscreen()">
       <div class="page-header">
         <h2>Option Chain % Change Grid</h2>
-        <button
-          mat-icon-button
-          (click)="ui.toggleFullscreen()"
-          [matTooltip]="ui.fullscreen() ? 'Exit fullscreen' : 'Fullscreen'"
-        >
-          <mat-icon>{{ ui.fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
-        </button>
+        <div class="header-actions">
+          <label class="contrast-picker">
+            Cell text
+            <select [value]="contrastMode()" (change)="onContrastModeChange($event)">
+              <option value="adaptive">Adaptive</option>
+              <option value="bright">Bright</option>
+              <option value="halo">Halo</option>
+            </select>
+          </label>
+          <button
+            mat-icon-button
+            (click)="ui.toggleFullscreen()"
+            [matTooltip]="ui.fullscreen() ? 'Exit fullscreen' : 'Fullscreen'"
+          >
+            <mat-icon>{{ ui.fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
+          </button>
+        </div>
       </div>
 
       <div class="page-body">
-        <div class="input-panel">
+        <div class="input-panel" [class.collapsed]="panelCollapsed()">
+          <div class="panel-toolbar">
+            <button
+              type="button"
+              mat-icon-button
+              class="panel-collapse-btn"
+              (click)="panelCollapsed.set(!panelCollapsed())"
+              [matTooltip]="panelCollapsed() ? 'Expand panel' : 'Collapse panel'"
+              aria-label="Toggle input panel"
+            >
+              <mat-icon>{{ panelCollapsed() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+            </button>
+          </div>
           <div class="form-group config-section">
             <label for="configSelect">Saved Config</label>
             <div class="config-controls">
@@ -82,47 +106,28 @@ import { take } from 'rxjs';
             </div>
           </div>
 
-          <div class="form-group">
-            <label for="symbol">Symbol</label>
-            <input
-              id="symbol"
-              type="text"
-              [value]="store.symbol()"
-              (change)="store.setSymbol(inputValue($event))"
-              placeholder="QQQ"
-            />
-          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="symbol">Symbol</label>
+              <input
+                id="symbol"
+                type="text"
+                [value]="store.symbol()"
+                (change)="store.setSymbol(inputValue($event))"
+                placeholder="QQQ"
+              />
+            </div>
 
-          <div class="form-group">
-            <label for="startDate">Start Date</label>
-            <input
-              id="startDate"
-              type="date"
-              [value]="store.startDate()"
-              (change)="store.setStartDate(inputValue($event))"
-            />
+            <div class="form-group">
+              <label for="startDate">Start Date</label>
+              <input
+                id="startDate"
+                type="date"
+                [value]="store.startDate()"
+                (change)="store.setStartDate(inputValue($event))"
+              />
+            </div>
           </div>
-
-          <app-target-type-selector
-            [startDate]="store.startDate()"
-            [targetDates]="store.targetDates()"
-            [targetType]="store.targetType()"
-            [pctMode]="store.pctMode()"
-            [pctValues]="store.pctValues()"
-            [pctStep]="store.pctStep()"
-            [pctCount]="store.pctCount()"
-            [pctDirection]="store.pctDirection()"
-            [userDatesMode]="store.userDatesMode()"
-            [intervalCount]="store.intervalCount()"
-            [intervalDays]="store.intervalDays()"
-            (targetTypeChange)="onTargetTypeChange($event)"
-            (targetDatesChange)="onTargetDatesChange($event)"
-            (resolvePctChangeRequest)="onResolvePctChangeRequest($event)"
-            (pctModeChange)="onPctModeChange($event)"
-            (pctParamsChange)="onPctParamsChange($event)"
-            (userDatesModeChange)="onUserDatesModeChange($event)"
-            (intervalParamsChange)="onIntervalParamsChange($event)"
-          />
 
           <div class="form-group">
             <label>Type</label>
@@ -145,6 +150,29 @@ import { take } from 'rxjs';
               </button>
             </div>
           </div>
+
+          <mat-expansion-panel
+            class="panel-section"
+            [expanded]="targetDatesExpanded()"
+            (opened)="targetDatesExpanded.set(true)"
+            (closed)="targetDatesExpanded.set(false)"
+          >
+            <mat-expansion-panel-header>
+              <mat-panel-title>Target Dates</mat-panel-title>
+            </mat-expansion-panel-header>
+
+            <app-target-type-selector />
+          </mat-expansion-panel>
+
+          <mat-expansion-panel
+            class="panel-section"
+            [expanded]="filtersExpanded()"
+            (opened)="filtersExpanded.set(true)"
+            (closed)="filtersExpanded.set(false)"
+          >
+            <mat-expansion-panel-header>
+              <mat-panel-title>Filters</mat-panel-title>
+            </mat-expansion-panel-header>
 
           <div class="form-group">
             <label>Duration Range (days)</label>
@@ -204,6 +232,7 @@ import { take } from 'rxjs';
               />
             </div>
           </div>
+          </mat-expansion-panel>
 
           <div class="actions">
             <button
@@ -227,7 +256,11 @@ import { take } from 'rxjs';
             <div class="error">{{ store.error() }}</div>
           } @else if (store.hasResults()) {
             @for (grid of store.grids(); track grid.targetDate) {
-              <app-pct-change-grid [grid]="grid" />
+              <app-pct-change-grid
+                [grid]="grid"
+                [contrastMode]="contrastMode()"
+                [linkedKey]="linkedKey()"
+              />
             }
           } @else {
             <div class="placeholder">
@@ -262,6 +295,25 @@ import { take } from 'rxjs';
         margin: 0;
         font-size: 1.1rem;
       }
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+      .contrast-picker {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.75rem;
+        color: #555;
+      }
+      .contrast-picker select {
+        padding: 0.15rem 0.35rem;
+        font-size: 0.75rem;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background: #fff;
+      }
       .page-body {
         display: flex;
         gap: 1.5rem;
@@ -271,15 +323,44 @@ import { take } from 'rxjs';
         overflow: hidden;
       }
       .input-panel {
-        width: 280px;
+        width: 320px;
         flex-shrink: 0;
         padding: 1rem;
         background: #f9f9f9;
         border-radius: 6px;
         overflow-y: auto;
       }
+      .panel-toolbar {
+        display: flex;
+        justify-content: flex-end;
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        margin: -0.5rem -0.5rem 0.25rem;
+      }
+      .panel-collapse-btn {
+        --mdc-icon-button-state-layer-size: 28px;
+      }
+      .input-panel.collapsed {
+        width: 36px;
+        padding: 0.25rem;
+        overflow: hidden;
+      }
+      .input-panel.collapsed > :not(.panel-toolbar) {
+        display: none;
+      }
       .form-group {
         margin-bottom: 1rem;
+      }
+      /* Side-by-side field row — symbol + start date are narrow enough to
+         share a line; labels stay stacked above their inputs. */
+      .form-row {
+        display: flex;
+        gap: 0.75rem;
+        align-items: flex-start;
+      }
+      .form-row .form-group {
+        flex: 0 0 auto;
       }
       .form-group label {
         display: block;
@@ -291,11 +372,20 @@ import { take } from 'rxjs';
       .form-group input[type="text"],
       .form-group input[type="date"],
       .form-group input[type="number"] {
+        box-sizing: border-box;
         width: 100%;
         padding: 0.35rem 0.5rem;
         border: 1px solid #ccc;
         border-radius: 4px;
         font-size: 0.85rem;
+      }
+      /* Symbol and start date only need a few characters — don't stretch
+         them across the full panel width. */
+      .form-group input#symbol {
+        width: 100px;
+      }
+      .form-group input[type="date"] {
+        width: 160px;
       }
       .config-section .config-controls {
         display: flex;
@@ -304,18 +394,43 @@ import { take } from 'rxjs';
       }
       .config-section select {
         flex: 1;
+        /* A select's intrinsic min-width is its longest <option> — override
+           the flexbox min-width:auto default so a long config id shrinks the
+           select instead of pushing Save/Delete out and scrolling. */
+        min-width: 0;
         padding: 0.35rem 0.5rem;
         border: 1px solid #ccc;
         border-radius: 4px;
         font-size: 0.85rem;
       }
+      .config-section .config-controls button {
+        flex-shrink: 0;
+      }
       .type-toggle {
         display: flex;
-        gap: 0.25rem;
+        gap: 0.5rem;
+        width: 100%;
+      }
+      .type-toggle button {
+        flex: 1;
+        /* ~33% shorter than the default 40px outlined-button height */
+        --mdc-outlined-button-container-height: 27px;
+        padding: 0 8px;
       }
       .type-toggle button.active {
         background: #1976d2;
         color: white;
+      }
+      .panel-section {
+        margin-bottom: 1rem;
+      }
+      .panel-section ::ng-deep .mat-expansion-panel-body {
+        padding: 0 0.75rem 0.75rem;
+      }
+      .panel-section mat-expansion-panel-header {
+        padding: 0 0.75rem;
+        --mat-expansion-header-collapsed-state-height: 40px;
+        --mat-expansion-header-expanded-state-height: 40px;
       }
       .range-inputs {
         display: flex;
@@ -359,6 +474,25 @@ export class OptionChainPctChangeComponent implements OnInit, OnDestroy {
   readonly store = inject(OptionChainPctChangeStore);
   readonly ui = inject(UiStateService);
   private readonly dialog = inject(MatDialog);
+  /** Whether the left input panel is collapsed to a slim rail. */
+  readonly panelCollapsed = signal(false);
+  /** Cell-text contrast mode — adaptive white text, brighter ramp
+   *  endpoints, or a halo behind dark text on dark cells. */
+  readonly contrastMode = signal<CellTextMode>(DEFAULT_CELL_TEXT_MODE);
+  /** Expanded state for the Target Dates config panel. */
+  readonly targetDatesExpanded = signal(true);
+  /** Expanded state for the Filters config panel. */
+  readonly filtersExpanded = signal(false);
+
+  constructor() {
+    // Reopen the Target Dates panel when a resolve lands — the nonce only
+    // bumps on a successful resolve, so config select and manual edits
+    // don't fight a user's collapsed panel.
+    effect(() => {
+      this.store.resolveNonce();
+      this.targetDatesExpanded.set(true);
+    });
+  }
   protected readonly optionTypeCall = OptionType.CALL;
   protected readonly optionTypePut = OptionType.PUT;
   protected readonly toNum = toNum;
@@ -385,8 +519,9 @@ export class OptionChainPctChangeComponent implements OnInit, OnDestroy {
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
     const target = event.target as HTMLElement | null;
-    if (target?.closest?.('.contract-chart-pane')) return;
+    if (target?.closest?.(`.${CONTRACT_CHART_PANE_CLASS}`)) return;
     this.store.clearContractSelection();
+    this.store.clearHighlight();
   }
 
   /** Read a string value from an input event. */
@@ -394,46 +529,28 @@ export class OptionChainPctChangeComponent implements OnInit, OnDestroy {
     return (ev.target as HTMLInputElement | null)?.value ?? '';
   }
 
-  /** Handle target type change from the selector. */
-  onTargetTypeChange(type: TargetType): void {
-    this.store.setTargetType(type);
+  /** Switch the grid's cell-text contrast mode. */
+  onContrastModeChange(ev: Event): void {
+    const v = this.inputValue(ev);
+    if (v === 'adaptive' || v === 'bright' || v === 'halo') this.contrastMode.set(v);
   }
 
-  /** Handle target dates change from the selector. */
-  onTargetDatesChange(dates: string[]): void {
-    this.store.setTargetDates(dates);
-  }
+  /** The contract key (strike-expiration) of the highlighted contract —
+   *  every grid outlines the matching cell, including the one that was
+   *  clicked. Null when nothing is highlighted. */
+  readonly linkedKey = computed(() => {
+    const h = this.store.highlightedContract();
+    return h ? cellKey(h.strike, h.expiration) : null;
+  });
 
-  /** Handle pct-change resolve request from the selector. */
-  onResolvePctChangeRequest(request: ResolvePctChangeRequest): void {
-    this.store.resolvePctChangeTargets(request);
-  }
-
-  /** Handle pct mode change from the selector. */
-  onPctModeChange(mode: PctMode): void {
-    this.store.setPctMode(mode);
-  }
-
-  /** Handle pct params change from the selector. */
-  onPctParamsChange(params: PctParamsChange): void {
-    this.store.setPctParams(params.values, params.step, params.count, params.direction);
-  }
-
-  /** Handle user-dates mode change from the selector. */
-  onUserDatesModeChange(mode: UserDatesMode): void {
-    this.store.setUserDatesMode(mode);
-  }
-
-  /** Handle interval params change from the selector. */
-  onIntervalParamsChange(params: IntervalParamsChange): void {
-    this.store.setIntervalParams(params.count, params.intervalDays);
-  }
-
-  /** Handle config dropdown selection change. */
+  /** Handle config dropdown selection change. Picking a saved config
+   *  collapses the config panels so the loaded state is visible. */
   onConfigSelect(ev: Event): void {
     const value = (ev.target as HTMLSelectElement | null)?.value ?? '';
     if (value) {
       this.store.selectConfig(value);
+      this.targetDatesExpanded.set(false);
+      this.filtersExpanded.set(false);
     } else {
       this.store.deselectConfig();
     }

@@ -1,22 +1,64 @@
 import { TestBed, ComponentFixture } from '@angular/core/testing';
-import { provideZonelessChangeDetection } from '@angular/core';
+import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { By } from '@angular/platform-browser';
 
-import { TargetTypeSelectorComponent, ResolvePctChangeRequest } from './target-type-selector.component';
-import type { TargetType } from '@shared/pct-change-config-contracts';
+import { TargetTypeSelectorComponent } from './target-type-selector.component';
+import { OptionChainPctChangeStore } from '../option-chain-pct-change.store';
+import type { TargetType, PctMode, UserDatesMode, PctDirection } from '@shared/pct-change-config-contracts';
+
+/**
+ * Mock store — state as writable signals, methods as jest.fn()s that patch
+ * the same signals the real store would. This keeps UI tests honest: a
+ * click both calls the store AND re-renders from store state, like prod.
+ */
+function makeMockStore() {
+  const state = {
+    targetType: signal<TargetType>('pct-change'),
+    pctMode: signal<PctMode>('list'),
+    pctValues: signal<number[]>([]),
+    pctStep: signal(5),
+    pctCount: signal(4),
+    pctDirection: signal<PctDirection>('up'),
+    userDatesMode: signal<UserDatesMode>('manual'),
+    intervalCount: signal(5),
+    intervalDays: signal(5),
+    startDate: signal('2025-04-07'),
+    targetDates: signal<string[]>([]),
+  };
+  return {
+    ...state,
+    setTargetType: jest.fn((t: TargetType): void => { state.targetType.set(t); }),
+    setPctMode: jest.fn((m: PctMode): void => { state.pctMode.set(m); }),
+    setPctParams: jest.fn((values: number[], step: number, count: number, direction: PctDirection): void => {
+      state.pctValues.set(values);
+      state.pctStep.set(step);
+      state.pctCount.set(count);
+      state.pctDirection.set(direction);
+    }),
+    setUserDatesMode: jest.fn((m: UserDatesMode): void => { state.userDatesMode.set(m); }),
+    setIntervalParams: jest.fn((count: number, days: number): void => {
+      state.intervalCount.set(count);
+      state.intervalDays.set(days);
+    }),
+    setTargetDates: jest.fn((d: string[]): void => { state.targetDates.set(d); }),
+    resolvePctChangeTargets: jest.fn(),
+  };
+}
 
 describe('TargetTypeSelectorComponent', () => {
   let fixture: ComponentFixture<TargetTypeSelectorComponent>;
-  let component: TargetTypeSelectorComponent;
+  let store: ReturnType<typeof makeMockStore>;
 
   beforeEach(() => {
+    store = makeMockStore();
     TestBed.configureTestingModule({
-      providers: [provideZonelessChangeDetection()],
+      providers: [
+        provideZonelessChangeDetection(),
+        { provide: OptionChainPctChangeStore, useValue: store },
+      ],
       imports: [TargetTypeSelectorComponent],
     });
     fixture = TestBed.createComponent(TargetTypeSelectorComponent);
-    component = fixture.componentInstance;
-    component.startDate = '2025-04-07';
     fixture.detectChanges();
   });
 
@@ -33,17 +75,15 @@ describe('TargetTypeSelectorComponent', () => {
     });
 
     it('defaults to pct-change target type', () => {
-      expect(component.targetTypeSig()).toBe('pct-change');
+      expect(store.targetType()).toBe('pct-change');
     });
 
-    it('emits targetTypeChange when a button is clicked', () => {
-      const emitted: TargetType[] = [];
-      component.targetTypeChange.subscribe((t: TargetType) => emitted.push(t));
+    it('calls store.setTargetType when a button is clicked', () => {
       const buttons = fixture.debugElement.queryAll(By.css('[data-testid^="target-type-btn-"]'));
       buttons[1].nativeElement.click(); // Swing Extremes
       fixture.detectChanges();
-      expect(emitted).toEqual(['swing-extremes']);
-      expect(component.targetTypeSig()).toBe('swing-extremes');
+      expect(store.setTargetType).toHaveBeenCalledWith('swing-extremes');
+      expect(store.targetType()).toBe('swing-extremes');
     });
 
     it('marks the active button', () => {
@@ -68,14 +108,15 @@ describe('TargetTypeSelectorComponent', () => {
     });
 
     it('defaults to list mode', () => {
-      expect(component.pctModeSig()).toBe('list');
+      expect(store.pctMode()).toBe('list');
     });
 
-    it('switches to gradation mode', () => {
+    it('switches to gradation mode via the store', () => {
       const gradationBtn = fixture.debugElement.query(By.css('[data-testid="pct-mode-gradation"]'));
       gradationBtn.nativeElement.click();
       fixture.detectChanges();
-      expect(component.pctModeSig()).toBe('gradation');
+      expect(store.setPctMode).toHaveBeenCalledWith('gradation');
+      expect(store.pctMode()).toBe('gradation');
     });
 
     it('shows pct values input in list mode', () => {
@@ -92,10 +133,7 @@ describe('TargetTypeSelectorComponent', () => {
       expect(fixture.debugElement.query(By.css('[data-testid="pct-direction-input"]'))).toBeTruthy();
     });
 
-    it('emits resolvePctChangeRequest with parsed list values when Resolve is clicked', () => {
-      const emitted: ResolvePctChangeRequest[] = [];
-      component.resolvePctChangeRequest.subscribe((r: ResolvePctChangeRequest) => emitted.push(r));
-      // Set a known pct values string
+    it('calls resolvePctChangeTargets with parsed list values when Resolve is clicked', () => {
       const input = fixture.debugElement.query(By.css('[data-testid="pct-values-input"]'));
       input.nativeElement.value = '-3, 5, 10';
       input.nativeElement.dispatchEvent(new Event('change'));
@@ -103,30 +141,29 @@ describe('TargetTypeSelectorComponent', () => {
       const resolveBtn = fixture.debugElement.query(By.css('[data-testid="pct-resolve-btn"]'));
       resolveBtn.nativeElement.click();
       fixture.detectChanges();
-      expect(emitted.length).toBe(1);
-      expect(emitted[0].mode).toBe('list');
-      expect(emitted[0].values).toEqual([-3, 5, 10]);
+      expect(store.resolvePctChangeTargets).toHaveBeenCalledWith({
+        mode: 'list',
+        values: [-3, 5, 10],
+      });
     });
 
-    it('emits resolvePctChangeRequest with gradation params when Resolve is clicked in gradation mode', () => {
-      const emitted: ResolvePctChangeRequest[] = [];
-      component.resolvePctChangeRequest.subscribe((r: ResolvePctChangeRequest) => emitted.push(r));
+    it('calls resolvePctChangeTargets with gradation params in gradation mode', () => {
       const gradationBtn = fixture.debugElement.query(By.css('[data-testid="pct-mode-gradation"]'));
       gradationBtn.nativeElement.click();
       fixture.detectChanges();
       const resolveBtn = fixture.debugElement.query(By.css('[data-testid="pct-resolve-btn"]'));
       resolveBtn.nativeElement.click();
       fixture.detectChanges();
-      expect(emitted.length).toBe(1);
-      expect(emitted[0].mode).toBe('gradation');
-      expect(emitted[0].step).toBe(5);
-      expect(emitted[0].count).toBe(4);
-      expect(emitted[0].direction).toBe('up');
+      expect(store.resolvePctChangeTargets).toHaveBeenCalledWith({
+        mode: 'gradation',
+        values: [],
+        step: 5,
+        count: 4,
+        direction: 'up',
+      });
     });
 
-    it('does not emit when pct values are empty in list mode', () => {
-      const emitted: ResolvePctChangeRequest[] = [];
-      component.resolvePctChangeRequest.subscribe((r: ResolvePctChangeRequest) => emitted.push(r));
+    it('resolves with empty values so the store can surface an error', () => {
       const input = fixture.debugElement.query(By.css('[data-testid="pct-values-input"]'));
       input.nativeElement.value = '';
       input.nativeElement.dispatchEvent(new Event('change'));
@@ -134,7 +171,18 @@ describe('TargetTypeSelectorComponent', () => {
       const resolveBtn = fixture.debugElement.query(By.css('[data-testid="pct-resolve-btn"]'));
       resolveBtn.nativeElement.click();
       fixture.detectChanges();
-      expect(emitted.length).toBe(0);
+      expect(store.resolvePctChangeTargets).toHaveBeenCalledWith({
+        mode: 'list',
+        values: [],
+      });
+    });
+
+    it('pushes pct params to the store when inputs change', () => {
+      const input = fixture.debugElement.query(By.css('[data-testid="pct-values-input"]'));
+      input.nativeElement.value = '2, 4';
+      input.nativeElement.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      expect(store.setPctParams).toHaveBeenCalledWith([2, 4], 5, 4, 'up');
     });
   });
 
@@ -153,15 +201,6 @@ describe('TargetTypeSelectorComponent', () => {
       const msg = fixture.debugElement.query(By.css('[data-testid="swing-coming-soon"]'));
       expect(msg).toBeTruthy();
       expect(msg.nativeElement.textContent).toContain('Coming soon');
-    });
-
-    it('renders disabled count, deviation, depth, backstep inputs', () => {
-      expect(fixture.debugElement.query(By.css('[data-testid="swing-count-input"]'))).toBeTruthy();
-      expect(fixture.debugElement.query(By.css('[data-testid="swing-deviation-input"]'))).toBeTruthy();
-      expect(fixture.debugElement.query(By.css('[data-testid="swing-depth-input"]'))).toBeTruthy();
-      expect(fixture.debugElement.query(By.css('[data-testid="swing-backstep-input"]'))).toBeTruthy();
-      const countInput = fixture.debugElement.query(By.css('[data-testid="swing-count-input"]')).nativeElement;
-      expect(countInput.disabled).toBe(true);
     });
   });
 
@@ -182,7 +221,7 @@ describe('TargetTypeSelectorComponent', () => {
     });
 
     it('defaults to manual mode', () => {
-      expect(component.userDatesModeSig()).toBe('manual');
+      expect(store.userDatesMode()).toBe('manual');
     });
 
     it('shows manual date input + Add button in manual mode', () => {
@@ -190,25 +229,20 @@ describe('TargetTypeSelectorComponent', () => {
       expect(fixture.debugElement.query(By.css('[data-testid="manual-add-btn"]'))).toBeTruthy();
     });
 
-    it('emits targetDatesChange when a manual date is added', () => {
-      const emitted: string[][] = [];
-      component.targetDatesChange.subscribe((d: string[]) => emitted.push(d));
+    it('calls setTargetDates when a manual date is added', () => {
       const input = fixture.debugElement.query(By.css('[data-testid="manual-date-input"]'));
       input.nativeElement.value = '2025-04-15';
       const addBtn = fixture.debugElement.query(By.css('[data-testid="manual-add-btn"]'));
       addBtn.nativeElement.click();
       fixture.detectChanges();
-      expect(emitted.length).toBe(1);
-      expect(emitted[0]).toEqual(['2025-04-15']);
+      expect(store.setTargetDates).toHaveBeenCalledWith(['2025-04-15']);
     });
 
-    it('does not emit when manual date is empty', () => {
-      const emitted: string[][] = [];
-      component.targetDatesChange.subscribe((d: string[]) => emitted.push(d));
+    it('does not call setTargetDates when manual date is empty', () => {
       const addBtn = fixture.debugElement.query(By.css('[data-testid="manual-add-btn"]'));
       addBtn.nativeElement.click();
       fixture.detectChanges();
-      expect(emitted.length).toBe(0);
+      expect(store.setTargetDates).not.toHaveBeenCalled();
     });
 
     it('shows interval inputs when Interval is selected', () => {
@@ -220,34 +254,30 @@ describe('TargetTypeSelectorComponent', () => {
       expect(fixture.debugElement.query(By.css('[data-testid="interval-generate-btn"]'))).toBeTruthy();
     });
 
-    it('emits targetDatesChange with generated interval dates when Generate is clicked', () => {
-      const emitted: string[][] = [];
-      component.targetDatesChange.subscribe((d: string[]) => emitted.push(d));
+    it('calls setTargetDates with generated interval dates when Generate is clicked', () => {
       const intervalBtn = fixture.debugElement.query(By.css('[data-testid="user-dates-mode-interval"]'));
       intervalBtn.nativeElement.click();
       fixture.detectChanges();
       const generateBtn = fixture.debugElement.query(By.css('[data-testid="interval-generate-btn"]'));
       generateBtn.nativeElement.click();
       fixture.detectChanges();
-      expect(emitted.length).toBe(1);
       // startDate is 2025-04-07, count 5, days 5
-      expect(emitted[0].length).toBe(5);
-      expect(emitted[0][0]).toBe('2025-04-07');
-      expect(emitted[0][1]).toBe('2025-04-12');
+      const dates = store.setTargetDates.mock.calls[0][0] as string[];
+      expect(dates.length).toBe(5);
+      expect(dates[0]).toBe('2025-04-07');
+      expect(dates[1]).toBe('2025-04-12');
     });
 
-    it('does not emit when startDate is empty in interval mode', () => {
-      component.startDate = '';
+    it('does not generate when startDate is empty in interval mode', () => {
+      store.startDate.set('');
       fixture.detectChanges();
       const intervalBtn = fixture.debugElement.query(By.css('[data-testid="user-dates-mode-interval"]'));
       intervalBtn.nativeElement.click();
       fixture.detectChanges();
-      const emitted: string[][] = [];
-      component.targetDatesChange.subscribe((d: string[]) => emitted.push(d));
       const generateBtn = fixture.debugElement.query(By.css('[data-testid="interval-generate-btn"]'));
       generateBtn.nativeElement.click();
       fixture.detectChanges();
-      expect(emitted.length).toBe(0);
+      expect(store.setTargetDates).not.toHaveBeenCalled();
     });
   });
 
@@ -257,34 +287,42 @@ describe('TargetTypeSelectorComponent', () => {
 
   describe('editable target dates', () => {
     it('renders the current target dates as editable inputs', () => {
-      fixture.componentRef.setInput('targetDates', ['2025-04-10', '2025-04-15']);
+      store.targetDates.set(['2025-04-10', '2025-04-15']);
       fixture.detectChanges();
       const dateInputs = fixture.debugElement.queryAll(By.css('[data-testid^="target-date-input-"]'));
       expect(dateInputs.length).toBe(2);
     });
 
-    it('emits targetDatesChange when a date is edited', () => {
-      const emitted: string[][] = [];
-      component.targetDatesChange.subscribe((d: string[]) => emitted.push(d));
-      fixture.componentRef.setInput('targetDates', ['2025-04-10']);
+    it('calls setTargetDates when a date is edited', () => {
+      store.targetDates.set(['2025-04-10']);
       fixture.detectChanges();
       const input = fixture.debugElement.query(By.css('[data-testid="target-date-input-0"]'));
       input.nativeElement.value = '2025-04-12';
       input.nativeElement.dispatchEvent(new Event('change'));
       fixture.detectChanges();
-      expect(emitted.length).toBe(1);
-      expect(emitted[0]).toEqual(['2025-04-12']);
+      expect(store.setTargetDates).toHaveBeenCalledWith(['2025-04-12']);
     });
 
     it('allows removing a target date', () => {
-      const emitted: string[][] = [];
-      component.targetDatesChange.subscribe((d: string[]) => emitted.push(d));
-      fixture.componentRef.setInput('targetDates', ['2025-04-10', '2025-04-15']);
+      store.targetDates.set(['2025-04-10', '2025-04-15']);
       fixture.detectChanges();
       const removeBtn = fixture.debugElement.query(By.css('[data-testid="remove-target-date-0"]'));
       removeBtn.nativeElement.click();
       fixture.detectChanges();
-      expect(emitted[0]).toEqual(['2025-04-15']);
+      expect(store.setTargetDates).toHaveBeenCalledWith(['2025-04-15']);
+    });
+
+    it('clears all target dates via Clear All', () => {
+      store.targetDates.set(['2025-04-10', '2025-04-15']);
+      fixture.detectChanges();
+      const clearBtn = fixture.debugElement.query(By.css('[data-testid="clear-target-dates"]'));
+      expect(clearBtn).not.toBeNull();
+      clearBtn.nativeElement.click();
+      fixture.detectChanges();
+      expect(store.setTargetDates).toHaveBeenCalledWith([]);
+      // The list — including the Clear All button — disappears.
+      expect(fixture.debugElement.query(By.css('[data-testid="clear-target-dates"]'))).toBeNull();
+      expect(fixture.debugElement.queryAll(By.css('[data-testid^="target-date-input-"]')).length).toBe(0);
     });
   });
 });

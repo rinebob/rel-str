@@ -37,6 +37,10 @@ export interface PctChangeGrid {
   p95: number;
 }
 
+/** CDK panel class for the contract chart popup — shared by the grid's
+ *  overlay config and the page's outside-click dismissal guard. */
+export const CONTRACT_CHART_PANE_CLASS = 'contract-chart-pane';
+
 /** Build the Map key for a cell by strike and expiration. */
 export function cellKey(strike: number, expiration: string): string {
   return `${strike}-${expiration}`;
