@@ -7,16 +7,16 @@
 **Topic Parent:** #433  
 **Domain:** SIGNAL-REVIEW  
 **Type:** TEST  
-**Status:** Draft  
+**Status:** Complete  
 **Created:** 2026-09-19  
-**Last Updated:** 2026-09-19  
+**Last Updated:** 2026-09-20  
 
-# Test Plan — FE: Misc fixes lane
+# Test Plan â€” FE: Misc fixes lane
 
 ## E2E User Journeys
 
-- Journey 1: User views a prior (non-latest) run on signal-review → ACR buttons enabled → Accept a symbol → staged ticket appears in order queue with the viewed run's context.
-- Journey 2: User opens signal-order → header shows per-group counts and staged dollar total → row fields render real data.
+- Journey 1: User views a prior (non-latest) run on signal-review â†’ ACR buttons enabled â†’ Accept a symbol â†’ staged ticket appears in order queue with the viewed run's context.
+- Journey 2: User opens signal-order â†’ header shows per-group counts and staged dollar total â†’ row fields render real data.
 
 ## Integration Tests
 
@@ -30,20 +30,20 @@
 
 ## Test Seams
 
-- Highest seam: component TestBed specs (`order-queue.component.spec.ts`, signal-review page spec) — render real inputs, assert DOM.
-- Lower seams: facade/store specs (`signal-review.facade.spec.ts`) with mocked stores/services — assert mutation paths and ticket staging.
+- Highest seam: component TestBed specs (`order-queue.component.spec.ts`, signal-review page spec) â€” render real inputs, assert DOM.
+- Lower seams: facade/store specs (`signal-review.facade.spec.ts`) with mocked stores/services â€” assert mutation paths and ticket staging.
 
 ## Existing Test Coverage
 
-- `order-queue.component.spec.ts` — existing spec file to extend for header aggregates + row fields.
-- `signal-review.facade.spec.ts` — existing spec to extend for prior-run mutations.
-- `group.store` specs — extend for the redefined actionable gate.
+- `order-queue.component.spec.ts` â€” existing spec file to extend for header aggregates + row fields.
+- `signal-review.facade.spec.ts` â€” existing spec to extend for prior-run mutations.
+- `group.store` specs â€” extend for the redefined actionable gate.
 
 ## Edge Cases
 
-- No completed runs / no viewed run → actions remain disabled.
-- Viewed run still in progress → actions disabled.
+- No completed runs / no viewed run â†’ actions remain disabled.
+- Viewed run still in progress â†’ actions disabled.
 - De-accept on prior run removes the staged ticket.
-- All groups empty → header shows zero states sensibly; empty-state body unchanged.
-- Ticket with missing `dollarAmount`/`quantity` → no fabricated values; staged-$ total unaffected.
-- Non-standard `ticket.source` → badge renders real source or is omitted, never `???`.
+- All groups empty â†’ header shows zero states sensibly; empty-state body unchanged.
+- Ticket with missing `dollarAmount`/`quantity` â†’ no fabricated values; staged-$ total unaffected.
+- Non-standard `ticket.source` â†’ badge renders real source or is omitted, never `???`.
