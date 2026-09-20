@@ -20,7 +20,7 @@ jest.mock('@angular/fire/auth', () => ({
 
 import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
-import { of, Subject } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 
 import { SwingAnalysisStore, LARGE_CONFIG, SMALL_CONFIG } from './swing-analysis.store';
 import { ChartService } from '../services/chart.service';
@@ -34,7 +34,7 @@ import type {
   DistributionSummary,
   Histogram,
 } from '../../shared/components/flex-chart/indicators/st-zigzag.engine';
-import type { SwingAnalysisDoc } from './swing-analysis.types';
+import type { SwingAnalysisDoc, SwingAnalysisInput } from './swing-analysis.types';
 
 // =============================================================================
 // Test fixtures
@@ -798,5 +798,245 @@ describe('SwingAnalysisStore.paramsIds', () => {
     expect(store.paramsIds().length).toBe(2);
     expect(store.paramsIds()[0]).toBe(deriveParamsId(LARGE_CONFIG));
     expect(store.paramsIds()[1]).toBe(deriveParamsId(SMALL_CONFIG));
+  });
+});
+
+// =============================================================================
+// runBatch — serial per-symbol sweep: bars -> per-config compute -> save
+// =============================================================================
+
+describe('SwingAnalysisStore.runBatch', () => {
+  interface BatchSetupOpts {
+    barsBySymbol?: Record<string, PriceBar[]>;
+    errorSymbols?: string[];
+    saveFailFor?: string[];
+    pending?: boolean;
+  }
+
+  function setupBatch(opts: BatchSetupOpts = {}): {
+    store: InstanceType<typeof SwingAnalysisStore>;
+    service: ServiceMock;
+    chart: { loadBars$: jest.Mock };
+    pendingSubject?: Subject<unknown>;
+  } {
+    const service = mockSwingAnalysisService([]);
+    const pendingSubject = opts.pending ? new Subject<unknown>() : undefined;
+    const chart = {
+      loadBars$: jest.fn((symbol: string) => {
+        // NOTE: production loadBars$ swallows fetch errors into empty
+        // datasets (chart.service.ts) — it never errors. This throwError
+        // path exercises the store's defensive catchError; the realistic
+        // failure mode (empty bars) is covered by the empty-bars test.
+        if (opts.errorSymbols?.includes(symbol)) {
+          return throwError(() => new Error(`bars fail for ${symbol}`));
+        }
+        if (pendingSubject) {
+          return pendingSubject.asObservable();
+        }
+        const bars = opts.barsBySymbol?.[symbol] ?? makeBars(40);
+        return of({
+          daily: makeChartDataset(bars),
+          weekly: makeChartDataset(bars),
+          monthly: makeChartDataset(bars),
+          version: 'test',
+        });
+      }),
+    };
+    if (opts.saveFailFor?.length) {
+      const failSet = new Set(opts.saveFailFor);
+      service.saveAnalysis.mockImplementation((input: { symbol: string }) =>
+        failSet.has(input.symbol)
+          ? throwError(() => new Error('save fail'))
+          : of(undefined),
+      );
+    }
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        { provide: ChartService, useValue: chart },
+        { provide: SwingAnalysisService, useValue: service },
+        SwingAnalysisStore,
+      ],
+    });
+    return { store: TestBed.inject(SwingAnalysisStore), service, chart, pendingSubject };
+  }
+
+  const savedSymbols = (service: ServiceMock) =>
+    service.saveAnalysis.mock.calls.map((c) => (c[0] as SwingAnalysisInput).symbol);
+
+  it('saves one doc per active config per symbol (dual mode -> 2 saves per symbol)', () => {
+    const { store, service } = setupBatch();
+    store.runBatch('AAPL, MSFT');
+    expect(service.saveAnalysis).toHaveBeenCalledTimes(4);
+    expect(savedSymbols(service)).toEqual(['AAPL', 'AAPL', 'MSFT', 'MSFT']);
+    // Each config saved under its own paramsId.
+    const params = service.saveAnalysis.mock.calls.map((c) => c[0].paramsId);
+    expect(params).toEqual([
+      deriveParamsId(LARGE_CONFIG), deriveParamsId(SMALL_CONFIG),
+      deriveParamsId(LARGE_CONFIG), deriveParamsId(SMALL_CONFIG),
+    ]);
+  });
+
+  it('saves once per symbol in single mode', () => {
+    const { store, service } = setupBatch();
+    store.toggleDualMode(); // off -> 1 config
+    store.runBatch('AAPL, MSFT');
+    expect(service.saveAnalysis).toHaveBeenCalledTimes(2);
+    expect(savedSymbols(service)).toEqual(['AAPL', 'MSFT']);
+  });
+
+  it('normalizes the symbol list — trims, uppercases, dedupes, splits on comma/space/newline', () => {
+    const { store, service } = setupBatch();
+    store.toggleDualMode();
+    store.runBatch('aapl, msft\n  QQQ  aapl MSFT');
+    expect(savedSymbols(service)).toEqual(['AAPL', 'MSFT', 'QQQ']);
+  });
+
+  it('does not disturb displayed state — symbol, bars, derived arrays untouched', () => {
+    const { store } = setupBatch();
+    store.setSymbol('AAPL');
+    const bars = store.bars();
+    const pivots = store.pivots();
+    const stats = store.stats();
+    store.runBatch('MSFT, QQQ');
+    expect(store.symbol()).toBe('AAPL');
+    expect(store.bars()).toBe(bars);
+    expect(store.pivots()).toBe(pivots);
+    expect(store.stats()).toBe(stats);
+  });
+
+  it('records progress and results; batchRunning clears at the end', () => {
+    const { store } = setupBatch();
+    store.runBatch('AAPL, MSFT, QQQ');
+    expect(store.batchRunning()).toBe(false);
+    expect(store.batchProgress()).toEqual({ done: 3, total: 3, current: null });
+    expect(store.batchResults()).toEqual([
+      { symbol: 'AAPL', ok: true },
+      { symbol: 'MSFT', ok: true },
+      { symbol: 'QQQ', ok: true },
+    ]);
+  });
+
+  it('continues past a failed symbol and records the error', () => {
+    const { store } = setupBatch({ errorSymbols: ['BAD'] });
+    store.runBatch('AAPL, BAD, QQQ');
+    const results = store.batchResults();
+    expect(results[0]).toEqual({ symbol: 'AAPL', ok: true });
+    expect(results[1].symbol).toBe('BAD');
+    expect(results[1].ok).toBe(false);
+    expect(results[1].error).toContain('bars fail');
+    expect(results[2]).toEqual({ symbol: 'QQQ', ok: true });
+    expect(store.batchProgress().done).toBe(3);
+  });
+
+  it('records save failures per symbol and continues', () => {
+    const { store, service } = setupBatch({ saveFailFor: ['MSFT'] });
+    store.toggleDualMode();
+    store.runBatch('AAPL, MSFT, QQQ');
+    const results = store.batchResults();
+    expect(results[1].symbol).toBe('MSFT');
+    expect(results[1].ok).toBe(false);
+    expect(results[2].ok).toBe(true);
+    expect(service.saveAnalysis).toHaveBeenCalledTimes(3);
+  });
+
+  it('marks a symbol failed when bars come back empty', () => {
+    const { store } = setupBatch({ barsBySymbol: { EMPTY: [] } });
+    store.toggleDualMode();
+    store.runBatch('AAPL, EMPTY, QQQ');
+    const results = store.batchResults();
+    expect(results[1].symbol).toBe('EMPTY');
+    expect(results[1].ok).toBe(false);
+  });
+
+  it('no-ops on empty or whitespace input', () => {
+    const { store, service, chart } = setupBatch();
+    store.runBatch('   ');
+    store.runBatch('');
+    expect(chart.loadBars$).not.toHaveBeenCalled();
+    expect(service.saveAnalysis).not.toHaveBeenCalled();
+    expect(store.batchRunning()).toBe(false);
+  });
+
+  it('ignores a second run while one is in flight', () => {
+    const { store, service } = setupBatch({ pending: true });
+    store.runBatch('AAPL');
+    expect(store.batchRunning()).toBe(true);
+    store.runBatch('MSFT');
+    expect(service.saveAnalysis).not.toHaveBeenCalled();
+    expect(store.batchProgress().total).toBe(1);
+  });
+
+  it('uses the config snapshot taken at run start — mid-run edits do not leak into saves', () => {
+    const { store, service, pendingSubject } = setupBatch({ pending: true });
+    store.runBatch('AAPL');
+    // Change devThreshold mid-flight — the in-flight run must still save
+    // the snapshot's paramsId.
+    store.updateConfig(0, { devThreshold: 20 });
+    pendingSubject!.next({
+      daily: makeChartDataset(makeBars(40)),
+      weekly: makeChartDataset(makeBars(40)),
+      monthly: makeChartDataset(makeBars(40)),
+      version: 'test',
+    });
+    const params = service.saveAnalysis.mock.calls.map(
+      (c) => (c[0] as SwingAnalysisInput).paramsId,
+    );
+    expect(params).toEqual([
+      deriveParamsId(LARGE_CONFIG), // dev 5 — the snapshot, not dev 20
+      deriveParamsId(SMALL_CONFIG),
+    ]);
+  });
+
+  it('fetches bars exactly once per symbol', () => {
+    const { store, chart } = setupBatch();
+    store.toggleDualMode();
+    store.runBatch('AAPL, MSFT, QQQ');
+    expect(chart.loadBars$).toHaveBeenCalledTimes(3);
+    expect(chart.loadBars$.mock.calls.map((c) => c[0])).toEqual(['AAPL', 'MSFT', 'QQQ']);
+  });
+
+  it('reports mid-run progress as each symbol completes', () => {
+    const { store, pendingSubject } = setupBatch({ pending: true });
+    store.runBatch('AAPL, MSFT');
+    expect(store.batchProgress()).toEqual({ done: 0, total: 2, current: 'AAPL' });
+    // Bars for AAPL arrive — serial concatMap moves on to MSFT.
+    pendingSubject!.next({
+      daily: makeChartDataset(makeBars(40)),
+      weekly: makeChartDataset(makeBars(40)),
+      monthly: makeChartDataset(makeBars(40)),
+      version: 'test',
+    });
+    expect(store.batchProgress()).toEqual({ done: 1, total: 2, current: 'MSFT' });
+  });
+
+  it('supports consecutive runs — a second run after completion starts clean', () => {
+    const { store, service } = setupBatch();
+    store.toggleDualMode();
+    store.runBatch('AAPL');
+    store.runBatch('MSFT');
+    expect(store.batchResults()).toEqual([{ symbol: 'MSFT', ok: true }]);
+    expect(service.saveAnalysis).toHaveBeenCalledTimes(2);
+  });
+
+  it('cancelBatch aborts an in-flight sweep and clears batchRunning', () => {
+    const { store, service } = setupBatch({ pending: true });
+    store.runBatch('AAPL, MSFT');
+    expect(store.batchRunning()).toBe(true);
+    store.cancelBatch();
+    expect(store.batchRunning()).toBe(false);
+    expect(service.saveAnalysis).not.toHaveBeenCalled();
+    // A new run is unblocked after cancel.
+    store.runBatch('QQQ');
+  });
+
+  it('resetState aborts an in-flight batch and clears batch fields', () => {
+    const { store } = setupBatch({ pending: true });
+    store.runBatch('AAPL');
+    expect(store.batchRunning()).toBe(true);
+    store.resetState();
+    expect(store.batchRunning()).toBe(false);
+    expect(store.batchResults()).toEqual([]);
+    expect(store.batchProgress()).toEqual({ done: 0, total: 0, current: null });
   });
 });

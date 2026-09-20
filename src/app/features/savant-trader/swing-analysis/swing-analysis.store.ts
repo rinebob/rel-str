@@ -22,6 +22,7 @@ import { computed } from '@angular/core';
 
 import { ChartService } from '../services/chart.service';
 import { SwingAnalysisService } from './swing-analysis.service';
+import { buildBatchSweep, parseSymbols } from './swing-batch';
 import { deriveParamsId } from './swing-analysis.types';
 import type { SwingAnalysisDoc, SwingAnalysisInput } from './swing-analysis.types';
 import {
@@ -83,6 +84,10 @@ export interface SwingAnalysisState {
   /** Last error message from bar load or persistence — null when idle. */
   error: string | null;
   savedAnalyses: SwingAnalysisDoc[];
+  /** Batch sweep state — progress and per-symbol results of runBatch. */
+  batchRunning: boolean;
+  batchProgress: { done: number; total: number; current: string | null };
+  batchResults: { symbol: string; ok: boolean; error?: string }[];
 }
 
 const initialState: SwingAnalysisState = {
@@ -97,6 +102,9 @@ const initialState: SwingAnalysisState = {
   loading: false,
   error: null,
   savedAnalyses: [],
+  batchRunning: false,
+  batchProgress: { done: 0, total: 0, current: null },
+  batchResults: [],
 };
 
 // =============================================================================
@@ -190,6 +198,10 @@ export const SwingAnalysisStore = signalStore(
       // setSymbol/resetState can cancel a stale loadAnalysis request before
       // its result overwrites newer state.
       let analysisSub: Subscription | null = null;
+      // Track the in-flight batch sweep so cancelBatch/resetState can abort
+      // it — takeUntilDestroyed only fires on store teardown, and a root
+      // store outlives any page visit.
+      let batchSub: Subscription | null = null;
 
       /**
        * Shared bar-load + recompute helper. Cancels any in-flight bar load,
@@ -288,6 +300,10 @@ export const SwingAnalysisStore = signalStore(
           barsSub = null;
           analysisSub?.unsubscribe();
           analysisSub = null;
+          // Abort any in-flight batch too — otherwise a zombie sweep keeps
+          // writing batchResults into the "reset" store after page re-entry.
+          batchSub?.unsubscribe();
+          batchSub = null;
           patchState(store, {
             symbol: '',
             configs: [{ ...LARGE_CONFIG }, { ...SMALL_CONFIG }],
@@ -298,6 +314,9 @@ export const SwingAnalysisStore = signalStore(
             stats: [null, null],
             loading: false,
             error: null,
+            batchRunning: false,
+            batchProgress: { done: 0, total: 0, current: null },
+            batchResults: [],
           });
         },
 
@@ -534,6 +553,72 @@ export const SwingAnalysisStore = signalStore(
                 patchState(store, { error: `Failed to load analysis: ${msg}` });
               },
             });
+        },
+
+        /**
+         * Batch sweep — analyze a pasted symbol list with the current
+         * configs and save each result to `swing-sets/{symbol}_{paramsId}`.
+         *
+         * Runs strictly in the background: symbols are processed serially
+         * (see buildBatchSweep in swing-batch.ts), bars are fetched through
+         * ChartService directly, and the displayed symbol/bars/derived state
+         * is never touched. Configs are snapshotted at run start; per-symbol
+         * failures are recorded in batchResults and the sweep continues.
+         * A per-symbol `ok:false` means at least one save failed — sibling
+         * config docs may already be persisted.
+         */
+        runBatch(symbolsText: string): void {
+          if (store.batchRunning()) return;
+          const symbols = parseSymbols(symbolsText);
+          if (symbols.length === 0) return;
+
+          const configs = store.configs(); // snapshot — mid-run edits don't leak in
+          patchState(store, {
+            batchRunning: true,
+            batchProgress: { done: 0, total: symbols.length, current: symbols[0] },
+            batchResults: [],
+          });
+
+          batchSub = buildBatchSweep(
+            chartService,
+            swingAnalysisService,
+            configs,
+            symbols,
+          )
+            .pipe(takeUntilDestroyed(destroyRef))
+            .subscribe({
+              next: (res) => {
+                const results = [...store.batchResults(), res];
+                patchState(store, {
+                  batchResults: results,
+                  batchProgress: {
+                    done: results.length,
+                    total: symbols.length,
+                    current: symbols[results.length] ?? null,
+                  },
+                });
+              },
+              // Outer stream dying must not latch batchRunning — the guard
+              // at the top would brick runBatch for the whole session.
+              error: () => {
+                batchSub = null;
+                patchState(store, { batchRunning: false });
+              },
+              complete: () => {
+                batchSub = null;
+                patchState(store, { batchRunning: false });
+              },
+            });
+        },
+
+        /** Abort an in-flight batch sweep — unsubscribes and clears the
+         *  running flag; batchResults keeps whatever completed so far. */
+        cancelBatch(): void {
+          batchSub?.unsubscribe();
+          batchSub = null;
+          if (store.batchRunning()) {
+            patchState(store, { batchRunning: false });
+          }
         },
       };
     },
