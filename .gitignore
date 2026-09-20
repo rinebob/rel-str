@@ -6,6 +6,9 @@
 /out-tsc
 /bazel-out
 
+# Agent scratch files (commit messages, gql bodies, test captures)
+.devin/tmp/
+
 # Node
 /node_modules
 npm-debug.log
