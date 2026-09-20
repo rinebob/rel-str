@@ -1,4 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Firestore } from '@angular/fire/firestore';
+import { Auth } from '@angular/fire/auth';
+import { Functions } from '@angular/fire/functions';
 
 import { StockListFormComponent } from './stock-list-form.component';
 
@@ -8,7 +11,8 @@ describe('StockListFormComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [StockListFormComponent]
+      imports: [StockListFormComponent],
+      providers: [{ provide: Firestore, useValue: {} }, { provide: Auth, useValue: {} }, { provide: Functions, useValue: {} }]
     })
     .compileComponents();
     

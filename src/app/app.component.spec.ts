@@ -18,8 +18,8 @@ describe('AppComponent', () => {
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    // Replace 'main' with your actual root element/tag if different
-    expect(compiled.querySelector('main, app-root')).toBeTruthy();
+    // The app shell renders a bare router outlet
+    expect(compiled.querySelector('router-outlet')).toBeTruthy();
   });
 
   // Add more tests as needed for inputs, outputs, or template content

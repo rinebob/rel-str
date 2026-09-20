@@ -72,7 +72,7 @@ describe('SpreadViewerStore — ADR-004 enhancements (#98)', () => {
           loadNamedLists$: jest.fn(),
           loadRecentList$: jest.fn(),
           saveList: jest.fn(),
-          addToRecent: jest.fn(),
+          addToRecent: jest.fn().mockResolvedValue(undefined),
           deleteList: jest.fn(),
         }},
         { provide: OptionsContractService, useValue: { getContractIndex$: jest.fn() } },

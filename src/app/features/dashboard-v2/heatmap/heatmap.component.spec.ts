@@ -1,4 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Firestore } from '@angular/fire/firestore';
+import { Auth } from '@angular/fire/auth';
+import { Functions } from '@angular/fire/functions';
 
 import { HeatmapComponent } from './heatmap.component';
 
@@ -8,7 +11,8 @@ describe('HeatmapComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [HeatmapComponent]
+      imports: [HeatmapComponent],
+      providers: [{ provide: Firestore, useValue: {} }, { provide: Auth, useValue: {} }, { provide: Functions, useValue: {} }]
     })
     .compileComponents();
     

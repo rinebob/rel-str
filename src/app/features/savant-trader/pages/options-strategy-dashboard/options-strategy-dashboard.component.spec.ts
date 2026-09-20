@@ -21,6 +21,8 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { signal, ɵresolveComponentResources } from '@angular/core';
 import { provideRouter } from '@angular/router';
+import { By } from '@angular/platform-browser';
+import { MatSelect } from '@angular/material/select';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 
@@ -196,9 +198,9 @@ describe('OptionsStrategyDashboardComponent', () => {
     });
     const statCards = fixture.nativeElement.querySelectorAll('.stat-card');
     expect(statCards.length).toBe(3);
-    expect(statCards[0].textContent).toContain('Open Positions');
-    expect(statCards[1].textContent).toContain('Closed Positions');
-    expect(statCards[2].textContent).toContain('Max Drawdown');
+    expect(statCards[0].textContent).toContain('Open');
+    expect(statCards[1].textContent).toContain('Closed');
+    expect(statCards[2].textContent).toContain('Max DD');
   });
 
   it('renders open positions in the open table', async () => {
@@ -237,15 +239,14 @@ describe('OptionsStrategyDashboardComponent', () => {
     expect(messages[0]?.textContent).toContain('No open positions');
   });
 
-  it('calls store.selectInstance when scope toggle button is clicked', async () => {
+  it('calls store.selectInstance when a scope option is selected', async () => {
     await configureWithStore({
       isEmpty: false,
       selectedInstanceId: null,
       availableInstances: ['QQQM-WHEEL'],
     });
-    const buttons = fixture.nativeElement.querySelectorAll('.scope-toggle button');
-    // buttons[0] = Combined, buttons[1] = QQQM-WHEEL (dynamic)
-    buttons[1].click();
+    const select = fixture.debugElement.query(By.directive(MatSelect)).componentInstance as MatSelect;
+    select.selectionChange.emit({ value: 'QQQM-WHEEL', source: select });
     expect(mockStore.selectInstance).toHaveBeenCalledWith('QQQM-WHEEL');
   });
 

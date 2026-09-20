@@ -1,4 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Firestore } from '@angular/fire/firestore';
+import { Auth } from '@angular/fire/auth';
+import { Functions } from '@angular/fire/functions';
 
 import { RsChartViewComponent } from './rs-chart-view.component';
 
@@ -9,6 +12,7 @@ describe('RsChartViewComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [RsChartViewComponent],
+      providers: [{ provide: Firestore, useValue: {} }, { provide: Auth, useValue: {} }, { provide: Functions, useValue: {} }],
     }).compileComponents();
 
     fixture = TestBed.createComponent(RsChartViewComponent);

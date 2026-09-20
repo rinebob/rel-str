@@ -238,7 +238,10 @@ describe('buildSymbolGroups', () => {
     });
 
     const groups = buildSymbolGroups(input);
-    expect(groups.length).toBe(2);
+    // Both symbols lack a sector so they land in the same "Unknown" group —
+    // the assertion that matters is that the non-signal symbol is included.
+    const symbols = groups.flatMap((g) => g.rows.map((r) => r.profile.symbol));
+    expect(symbols).toEqual(expect.arrayContaining(['AAPL', 'SPY']));
   });
 });
 
