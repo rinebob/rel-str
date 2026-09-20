@@ -359,7 +359,8 @@ export class SignalReviewFacade {
     this.symbolListStore.toggleSymbolInList(symbol, listName);
   }
 
-  /** Guard helper: mutation actions are only allowed for the latest completed run. */
+  /** Guard helper: mutation actions require the viewed run to be a completed run
+   *  (any vintage — prior-run signals remain actionable). */
   private runIfActionable<T>(fn: () => T): T | undefined {
     if (!this.groupStore.isActionableRun()) return;
     return fn();

@@ -26,6 +26,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import {
   OccurrenceDecisionService,
 } from '../services/occurrence-decision.service';
+import { StStore } from './st.store';
 import {
   StSignalItem,
   StOccurrenceDecision,
@@ -75,6 +76,7 @@ function buildDecision(
   marketDate: string,
   signal: StSignalItem,
   decisionType: DurableDecisionType,
+  isCurrentInLatestRun: boolean,
 ): StOccurrenceDecision {
   return {
     id: decisionId(runId, signal.symbol, signal.timeframe, signal.signalType),
@@ -87,7 +89,7 @@ function buildDecision(
     barDate: signal.barDate,
     decisionType,
     decidedAt: new Date().toISOString(),
-    isCurrentInLatestRun: true,
+    isCurrentInLatestRun,
     indicators: signal.indicators ?? {},
   };
 }
@@ -173,6 +175,7 @@ export const OccurrenceDecisionStore = signalStore(
     state,
     occurrenceService = inject(OccurrenceDecisionService),
     snackBar = inject(MatSnackBar),
+    stStore = inject(StStore),
   ) => ({
     /** Returns the latest durable decision status for a symbol, or PENDING if none. */
     statusForSymbol(symbol: string): ReviewDecision {
@@ -343,16 +346,19 @@ export const OccurrenceDecisionStore = signalStore(
       decisionType: DurableDecisionType
     ): void {
       if (signals.length === 0) return;
+      // Decisions against a prior run are not "current in latest run" — the flag
+      // is queried by loadCurrentDecisions, so it must reflect reality at write time.
+      const isCurrent = runId === stStore.latestCompletedRun()?.id;
       // userId is provided by the service, so the optimistic local object leaves it empty.
       const previousDecisions = state.occurrenceDecisions();
       const next = { ...previousDecisions };
       for (const signal of signals) {
-        const d = buildDecision(runId, marketDate, signal, decisionType);
+        const d = buildDecision(runId, marketDate, signal, decisionType, isCurrent);
         next[d.id] = d;
       }
       patchState(state, { occurrenceDecisions: next });
 
-      occurrenceService.persistDecisionsBatch(runId, marketDate, signals, decisionType).subscribe({
+      occurrenceService.persistDecisionsBatch(runId, marketDate, signals, decisionType, isCurrent).subscribe({
         error: (err: unknown) => {
           console.error('[OccurrenceDecisionStore] Failed to persist decisions:', err);
           const message = err instanceof Error ? err.message : String(err ?? 'Persist failed');

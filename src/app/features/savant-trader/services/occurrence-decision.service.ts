@@ -38,6 +38,8 @@ export interface PersistOccurrenceDecisionInput {
   marketDate: string;
   signal: StSignalItem;
   decisionType: DurableDecisionType;
+  /** Whether the target run is currently the latest completed run. */
+  isCurrentInLatestRun: boolean;
   notes?: string;
 }
 
@@ -74,7 +76,7 @@ export class OccurrenceDecisionService {
             barDate: input.signal.barDate,
             decisionType: input.decisionType,
             decidedAt: nowIso,
-            isCurrentInLatestRun: true,
+            isCurrentInLatestRun: input.isCurrentInLatestRun,
             notes: input.notes ?? null,
             indicators: input.signal.indicators ?? {},
             updatedAt: nowIso,
@@ -85,8 +87,10 @@ export class OccurrenceDecisionService {
     );
   }
 
-  /** Persist the same decision type for multiple signal occurrences in one batch. */
-  persistDecisionsBatch(runId: string, marketDate: string, signals: StSignalItem[], decisionType: DurableDecisionType): Observable<void> {
+  /** Persist the same decision type for multiple signal occurrences in one batch.
+   *  `isCurrentInLatestRun` must be true only when `runId` is the latest completed
+   *  run — prior-run decisions (allowed since #439) are not "current". */
+  persistDecisionsBatch(runId: string, marketDate: string, signals: StSignalItem[], decisionType: DurableDecisionType, isCurrentInLatestRun: boolean): Observable<void> {
     if (signals.length === 0) return of(undefined);
     return requireUserId(this.auth, this.injector).pipe(
       take(1),
@@ -108,7 +112,7 @@ export class OccurrenceDecisionService {
             barDate: signal.barDate,
             decisionType,
             decidedAt: nowIso,
-            isCurrentInLatestRun: true,
+            isCurrentInLatestRun,
             notes: null,
             indicators: signal.indicators ?? {},
             updatedAt: nowIso,

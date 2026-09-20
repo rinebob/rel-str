@@ -1,18 +1,20 @@
 import { TestBed } from '@angular/core/testing';
-import { provideZonelessChangeDetection } from '@angular/core';
+import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { of } from 'rxjs';
 
 import { OccurrenceDecisionStore } from './occurrence-decision.store';
 import { OccurrenceDecisionService } from '../services/occurrence-decision.service';
+import { StStore } from './st.store';
 import { ReviewDecision } from '../common/constants';
-import { SignalTimeframe, SignalDirection } from '../common/constants';
+import { SignalTimeframe, SignalDirection, SignalStatus } from '../common/constants';
 import type { StSignalItem, StOccurrenceDecision } from '../services/types';
 
 describe('OccurrenceDecisionStore', () => {
   let store: InstanceType<typeof OccurrenceDecisionStore>;
   let occurrenceService: any;
   let snackBar: any;
+  let stStoreMock: any;
 
   const RUN_ID = 'run-2026-08-25';
   const MARKET_DATE = '2026-08-25';
@@ -27,7 +29,7 @@ describe('OccurrenceDecisionStore', () => {
       timeframe: SignalTimeframe.WEEKLY,
       direction: SignalDirection.LONG,
       signalType: 'D_ZONE_V1_UPTICK',
-      status: 'ACTIVE' as any,
+      status: SignalStatus.CONFIRMED,
       indicators: {},
       ...overrides,
     };
@@ -61,12 +63,14 @@ describe('OccurrenceDecisionStore', () => {
     };
 
     snackBar = { open: jasmine.createSpy('open') };
+    stStoreMock = { latestCompletedRun: signal<{ id: string } | null>({ id: RUN_ID }) };
 
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
         { provide: OccurrenceDecisionService, useValue: occurrenceService },
         { provide: MatSnackBar, useValue: snackBar },
+        { provide: StStore, useValue: stStoreMock },
         OccurrenceDecisionStore,
       ],
     });
@@ -130,6 +134,32 @@ describe('OccurrenceDecisionStore', () => {
       ]));
       store.loadDecisionsForRun(RUN_ID);
       expect(store.statusForSymbol('AAPL')).toBe(ReviewDecision.REJECT);
+    });
+  });
+
+  // isCurrentInLatestRun must reflect whether the target run is actually the
+  // latest completed run — prior-run decisions (#439) are not "current".
+  describe('persistSignalDecisions — isCurrentInLatestRun', () => {
+    it('flags decisions as current when the target run is the latest completed run', () => {
+      stStoreMock.latestCompletedRun.set({ id: RUN_ID });
+
+      store.acceptSignals([mockSignal()], RUN_ID, MARKET_DATE);
+
+      const args = occurrenceService.persistDecisionsBatch.calls.mostRecent().args;
+      expect(args[4]).toBe(true);
+      const decision = Object.values(store.occurrenceDecisions())[0];
+      expect(decision.isCurrentInLatestRun).toBe(true);
+    });
+
+    it('flags decisions as NOT current when the target run is a prior run', () => {
+      stStoreMock.latestCompletedRun.set({ id: 'run-newer' });
+
+      store.acceptSignals([mockSignal()], RUN_ID, MARKET_DATE);
+
+      const args = occurrenceService.persistDecisionsBatch.calls.mostRecent().args;
+      expect(args[4]).toBe(false);
+      const decision = Object.values(store.occurrenceDecisions())[0];
+      expect(decision.isCurrentInLatestRun).toBe(false);
     });
   });
 

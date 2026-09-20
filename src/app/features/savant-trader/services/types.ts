@@ -42,6 +42,13 @@ export interface StRun {
   triggeredBy?: 'manual' | 'pdr' | 'nightly' | 'symbol-added';
 }
 
+/** True when a run finished with usable output (SUCCESS or PARTIAL + completedAt). */
+export function isCompletedRun(run: Pick<StRun, 'status' | 'completedAt'> | null | undefined): boolean {
+  if (!run?.completedAt) return false;
+  const s = run.status?.toUpperCase();
+  return s === 'SUCCESS' || s === 'PARTIAL';
+}
+
 /** Market cap tiers derived from SA overview data. */
 export type MarketCapTier = 'mega' | 'large' | 'mid' | 'small' | 'micro';
 

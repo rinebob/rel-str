@@ -27,6 +27,7 @@ import {
   type StSymbolProfile,
   type StSignalItem,
   type StRun,
+  isCompletedRun,
 } from '../services/types';
 import { SignalService } from '../services/signal.service';
 import { StStore } from './st.store';
@@ -354,7 +355,7 @@ export const GroupStore = signalStore(
     }),
   })),
 
-  withComputed((state, agentStore = inject(StStore)) => ({
+  withComputed((state) => ({
     /**
      * Market date of the viewed run.
      * Derived from canonical run metadata when available; falls back to the cached value set by setActiveRun.
@@ -363,12 +364,10 @@ export const GroupStore = signalStore(
       state.viewedRun()?.marketDate ?? state._activeRunMarketDate()
     ),
 
-    /** True when the viewed run is the latest completed actionable run. */
-    isActionableRun: computed(() => {
-      const viewedId = state.activeRunId();
-      const latestId = agentStore.latestCompletedRun()?.id;
-      return !!viewedId && !!latestId && viewedId === latestId;
-    }),
+    /** True when the viewed run is a completed run (SUCCESS/PARTIAL with
+     *  completedAt). Run age is not a restriction — prior-run signals remain
+     *  actionable for triage and order staging. */
+    isActionableRun: computed(() => isCompletedRun(state.viewedRun())),
   })),
 
   withHooks((store, agentStore = inject(StStore), uiStore = inject(SignalReviewUiStore), triageStore = inject(TriageStore), occurrenceStore = inject(OccurrenceDecisionStore)) => {
