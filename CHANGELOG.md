@@ -3,6 +3,8 @@
 ## [2026-09-20]
 
 ### Changed
+- [Signal Pipeline Maintenance] 433-440_FE-IMPL-SIGNAL-REVIEW: Order queue row data (shares/units/$) + staged group aggregates
+- [Signal Pipeline Maintenance] 433-440_DOCS-DOCS-SIGNAL-REVIEW: #440 code review (PASS) + IMPL as-built note
 - [Signal Pipeline Maintenance] 433-439_FE-IMPL-SIGNAL-REVIEW: Enable actions on any completed run; fix isCurrentInLatestRun
 - [Signal Pipeline Maintenance] 433-447_FE-IMPL-SIGNAL-REVIEW: Repair specs for jest-30 — Firebase stubs, required inputs, spec drift
 - [Signal Pipeline Maintenance] 433-447_BE-IMPL-SIGNAL-REVIEW: Explicit firebase-admin type imports in st-collections
