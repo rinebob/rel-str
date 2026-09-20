@@ -3,6 +3,8 @@
 ## [2026-09-19]
 
 ### Added
+- [Option Chain Pct Change Grid] 326-424_FE-IMPL-OPTIONS: SwingCompare container + RunSection shell (checkpoint)
+- [Option Chain Pct Change Grid] 326-424_DOCS-OPTIONS: Add Task #424 code review (PASS) (checkpoint)
 - [Option Chain Pct Change Grid] 326-423_FE-IMPL-OPTIONS: SwingSetPicker component + zigzag geometry (checkpoint)
 - [Option Chain Pct Change Grid] 326-423_DOCS-OPTIONS: Add Task #423 code review (PASS) (checkpoint)
 - [Option Chain Pct Change Grid] 326-422_FE-IMPL-OPTIONS: Swing-compare state + date-list utilities (checkpoint)
