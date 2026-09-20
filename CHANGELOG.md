@@ -3,6 +3,8 @@
 ## [2026-09-19]
 
 ### Added
+- [Option Chain Pct Change Grid] 326-423_FE-IMPL-OPTIONS: SwingSetPicker component + zigzag geometry (checkpoint)
+- [Option Chain Pct Change Grid] 326-423_DOCS-OPTIONS: Add Task #423 code review (PASS) (checkpoint)
 - [Option Chain Pct Change Grid] 326-422_FE-IMPL-OPTIONS: Swing-compare state + date-list utilities (checkpoint)
 - [Option Chain Pct Change Grid] 326-422_DOCS-OPTIONS: Add Task #422 code review (PASS) (checkpoint)
 - [Option Chain Pct Change Grid] 326-421_FE-IMPL-OPTIONS: Review fixes — shared signal cache, stale-fetch cancellation, lifecycle guards (checkpoint)
