@@ -22,6 +22,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { SwingAnalysisStore } from './swing-analysis.store';
 import { SwingTableComponent } from './components/swing-table.component';
 import { StatsPanelComponent, StatsSets } from './components/stats-panel.component';
+import { BatchSweepComponent } from './components/batch-sweep.component';
 import { FlexChartComponent } from '../../shared/components/flex-chart/flex-chart.component';
 import { ChartIntervalKey, StIndicator } from '../../shared/components/flex-chart/flex-chart.types';
 import type {
@@ -92,6 +93,7 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
     FlexChartComponent,
     SwingTableComponent,
     StatsPanelComponent,
+    BatchSweepComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -248,6 +250,9 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
     }
     </section>
   </div>
+
+  <!-- Batch sweep — see BatchSweepComponent; orchestration is the store's. -->
+  <app-batch-sweep />
 
   <section class="swing-analysis-chart">
     <app-flex-chart

@@ -5,7 +5,7 @@
  * observable flow (bars → recompute → serial saves → per-symbol result).
  */
 
-import { Observable, from, of, forkJoin } from 'rxjs';
+import { Observable, from, of } from 'rxjs';
 import { concatMap, map, catchError, take, toArray } from 'rxjs/operators';
 
 import type { ChartService } from '../services/chart.service';

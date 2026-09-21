@@ -38,7 +38,7 @@ export interface SwingAnalysisDoc extends SwingAnalysisInput {
 /**
  * Derive a stable paramsId from a ZigZagConfig.
  * Combined with the symbol to form the Firestore document id:
- * `swing-sets/{symbol}_{paramsId}`.
+ * `st-swing-sets/{symbol}_{paramsId}`.
  *
  * Format: dev{N}_L{N}_R{N}_1bar{Y|N}_proj{Y|N}
  */

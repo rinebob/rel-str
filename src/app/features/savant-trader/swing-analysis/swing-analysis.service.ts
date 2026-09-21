@@ -1,7 +1,7 @@
 /**
  * Swing Analysis Service — Firestore persistence with user-scoping.
  *
- * Reads and writes saved swing sets in a flat `swing-sets/{docId}` collection
+ * Reads and writes saved swing sets in a flat `st-swing-sets/{docId}` collection
  * where docId is `{symbol}_{paramsId}`. Security rules enforce that users can
  * only read/write their own docs (matched by the `userId` field).
  */
@@ -24,7 +24,7 @@ import { map, switchMap, take } from 'rxjs/operators';
 import { requireUserId } from '../services/firestore-helpers';
 import type { SwingAnalysisDoc, SwingAnalysisInput } from './swing-analysis.types';
 
-const SWING_SETS_COLLECTION = 'swing-sets';
+const SWING_SETS_COLLECTION = 'st-swing-sets';
 
 /** Fields persisted to Firestore (excludes the synthetic `id`). */
 type PersistedAnalysis = Omit<SwingAnalysisDoc, 'id'>;
@@ -40,9 +40,22 @@ export class SwingAnalysisService {
     return `${symbol}_${paramsId}`;
   }
 
-  /** Load every saved swing set (one-shot). */
+  /** Load every saved swing set for the current user (one-shot). The
+   *  userId where-clause is required — the rule evaluates
+   *  resource.data.userId == auth.uid per doc, so a list query must
+   *  constrain userId for the engine to prove ownership up front. */
   loadAllSwingSets(): Observable<SwingAnalysisDoc[]> {
-    return from(getDocs(collection(this.firestore, SWING_SETS_COLLECTION))).pipe(
+    return requireUserId(this.auth, this.injector).pipe(
+      switchMap((userId) =>
+        from(
+          getDocs(
+            query(
+              collection(this.firestore, SWING_SETS_COLLECTION),
+              where('userId', '==', userId),
+            ),
+          ),
+        ),
+      ),
       map((snap) =>
         snap.docs.map((d) => ({
           ...(d.data() as PersistedAnalysis),
@@ -52,16 +65,25 @@ export class SwingAnalysisService {
     );
   }
 
-  /** Load all saved swing sets for a symbol (one-shot). */
+  /** Load all saved swing sets for a symbol, scoped to the current user.
+   *  Same requirement as loadAllSwingSets — the query must constrain
+   *  userId or the rules deny it outright. */
   loadSavedAnalyses(symbol: string): Observable<SwingAnalysisDoc[]> {
     const sym = String(symbol || '').trim().toUpperCase();
     if (!sym) return of([]);
 
-    const q = query(
-      collection(this.firestore, SWING_SETS_COLLECTION),
-      where('symbol', '==', sym),
-    );
-    return from(getDocs(q)).pipe(
+    return requireUserId(this.auth, this.injector).pipe(
+      switchMap((userId) =>
+        from(
+          getDocs(
+            query(
+              collection(this.firestore, SWING_SETS_COLLECTION),
+              where('symbol', '==', sym),
+              where('userId', '==', userId),
+            ),
+          ),
+        ),
+      ),
       map((snap) =>
         snap.docs.map((d) => ({
           ...(d.data() as PersistedAnalysis),

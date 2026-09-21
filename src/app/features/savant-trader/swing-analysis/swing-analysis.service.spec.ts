@@ -151,12 +151,15 @@ describe('SwingAnalysisService', () => {
   // -------------------------------------------------------------------------
 
   describe('loadSavedAnalyses', () => {
-    it('queries the flat swing-sets collection filtered by symbol', async () => {
+    it('queries the flat st-swing-sets collection filtered by symbol and userId', async () => {
       await firstValueFrom(service.loadSavedAnalyses('AAPL'));
       expect(fsMock.collection).toHaveBeenCalledTimes(1);
       const args = fsMock.collection.mock.calls[0];
-      expect(args.slice(1)).toEqual(['swing-sets']);
+      expect(args.slice(1)).toEqual(['st-swing-sets']);
       expect(fsMock.where).toHaveBeenCalledWith('symbol', '==', 'AAPL');
+      // Required for the deployed rules — list queries must constrain
+      // userId so the rules engine can prove ownership on every result.
+      expect(fsMock.where).toHaveBeenCalledWith('userId', '==', 'user-123');
     });
 
     it('normalizes symbol to uppercase', async () => {
@@ -192,12 +195,12 @@ describe('SwingAnalysisService', () => {
   // -------------------------------------------------------------------------
 
   describe('saveAnalysis', () => {
-    it('constructs doc path swing-sets/{symbol}_{paramsId}', async () => {
+    it('constructs doc path st-swing-sets/{symbol}_{paramsId}', async () => {
       await firstValueFrom(service.saveAnalysis(makeInput()));
       expect(fsMock.doc).toHaveBeenCalledTimes(1);
       const args = fsMock.doc.mock.calls[0];
       expect(args.slice(1)).toEqual([
-        'swing-sets', `AAPL_${deriveParamsId(DEFAULT_CONFIG)}`,
+        'st-swing-sets', `AAPL_${deriveParamsId(DEFAULT_CONFIG)}`,
       ]);
     });
 
@@ -206,7 +209,7 @@ describe('SwingAnalysisService', () => {
       await firstValueFrom(service.saveAnalysis(input));
       expect(fsMock.setDoc).toHaveBeenCalledTimes(1);
       const [ref, payload] = fsMock.setDoc.mock.calls[0];
-      expect(ref.path).toBe(`swing-sets/AAPL_${deriveParamsId(DEFAULT_CONFIG)}`);
+      expect(ref.path).toBe(`st-swing-sets/AAPL_${deriveParamsId(DEFAULT_CONFIG)}`);
       expect(payload.userId).toBe('user-123');
       expect(payload.symbol).toBe('AAPL');
       expect(payload.paramsId).toBe(deriveParamsId(DEFAULT_CONFIG));
@@ -229,7 +232,7 @@ describe('SwingAnalysisService', () => {
       await firstValueFrom(service.saveAnalysis(makeInput({ symbol: 'msft' })));
       const args = fsMock.doc.mock.calls[0];
       expect(args.slice(1)).toEqual([
-        'swing-sets', `MSFT_${deriveParamsId(DEFAULT_CONFIG)}`,
+        'st-swing-sets', `MSFT_${deriveParamsId(DEFAULT_CONFIG)}`,
       ]);
     });
 
@@ -264,12 +267,12 @@ describe('SwingAnalysisService', () => {
   // -------------------------------------------------------------------------
 
   describe('loadAnalysis', () => {
-    it('constructs doc path swing-sets/{symbol}_{docId}', async () => {
+    it('constructs doc path st-swing-sets/{symbol}_{docId}', async () => {
       await firstValueFrom(service.loadAnalysis('AAPL', 'dev5_L5_R5_1barY_projY'));
       expect(fsMock.doc).toHaveBeenCalledTimes(1);
       const args = fsMock.doc.mock.calls[0];
       expect(args.slice(1)).toEqual([
-        'swing-sets', 'AAPL_dev5_L5_R5_1barY_projY',
+        'st-swing-sets', 'AAPL_dev5_L5_R5_1barY_projY',
       ]);
     });
 
@@ -277,7 +280,7 @@ describe('SwingAnalysisService', () => {
       await firstValueFrom(service.loadAnalysis('aapl', 'dev5_L5_R5_1barY_projY'));
       const args = fsMock.doc.mock.calls[0];
       expect(args.slice(1)).toEqual([
-        'swing-sets', 'AAPL_dev5_L5_R5_1barY_projY',
+        'st-swing-sets', 'AAPL_dev5_L5_R5_1barY_projY',
       ]);
     });
 
@@ -356,11 +359,12 @@ describe('SwingAnalysisService', () => {
   // -------------------------------------------------------------------------
 
   describe('loadAllSwingSets', () => {
-    it('reads the flat swing-sets collection', async () => {
+    it('reads the flat st-swing-sets collection scoped to the current user', async () => {
       await firstValueFrom(service.loadAllSwingSets());
       const args = fsMock.collection.mock.calls[0];
-      expect(args.slice(1)).toEqual(['swing-sets']);
+      expect(args.slice(1)).toEqual(['st-swing-sets']);
       expect(fsMock.getDocs).toHaveBeenCalledTimes(1);
+      expect(fsMock.where).toHaveBeenCalledWith('userId', '==', 'user-123');
     });
 
     it('maps docs to SwingAnalysisDoc with id', async () => {

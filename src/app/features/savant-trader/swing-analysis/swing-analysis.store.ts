@@ -557,7 +557,7 @@ export const SwingAnalysisStore = signalStore(
 
         /**
          * Batch sweep — analyze a pasted symbol list with the current
-         * configs and save each result to `swing-sets/{symbol}_{paramsId}`.
+         * configs and save each result to `st-swing-sets/{symbol}_{paramsId}`.
          *
          * Runs strictly in the background: symbols are processed serially
          * (see buildBatchSweep in swing-batch.ts), bars are fetched through
@@ -611,13 +611,20 @@ export const SwingAnalysisStore = signalStore(
             });
         },
 
-        /** Abort an in-flight batch sweep — unsubscribes and clears the
-         *  running flag; batchResults keeps whatever completed so far. */
+        /** Abort an in-flight batch sweep — unsubscribes, clears the
+         *  running flag, and drops the in-progress symbol from the
+         *  progress line (done/total remain as a post-mortem). Caveat:
+         *  a save already in flight inside the pipeline is a promise —
+         *  it can't be un-written, so a doc may land after cancel with
+         *  no result row recorded for it. */
         cancelBatch(): void {
           batchSub?.unsubscribe();
           batchSub = null;
           if (store.batchRunning()) {
-            patchState(store, { batchRunning: false });
+            patchState(store, {
+              batchRunning: false,
+              batchProgress: { ...store.batchProgress(), current: null },
+            });
           }
         },
       };

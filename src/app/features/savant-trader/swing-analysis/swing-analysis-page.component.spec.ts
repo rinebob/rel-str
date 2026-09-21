@@ -25,9 +25,9 @@ jest.mock('@angular/fire/auth', () => ({
 }));
 
 import { Component, Input } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { of, Subject } from 'rxjs';
+import { of, Subject, Observable } from 'rxjs';
 
 import { SwingAnalysisPageComponent } from './swing-analysis-page.component';
 import { SwingAnalysisStore, LARGE_CONFIG, SMALL_CONFIG } from './swing-analysis.store';
@@ -144,14 +144,17 @@ function mockSwingAnalysisService(docs: SwingAnalysisDoc[] = []): Partial<SwingA
 interface PageSetup {
   store: InstanceType<typeof SwingAnalysisStore>;
   service: ReturnType<typeof mockSwingAnalysisService>;
-  fixture: any;
+  fixture: ComponentFixture<SwingAnalysisPageComponent>;
 }
 
-async function setupPage(bars: PriceBar[] = makeBars(40)): Promise<PageSetup> {
+async function setupPage(
+  bars: PriceBar[] = makeBars(40),
+  chart?: Partial<ChartService>,
+): Promise<PageSetup> {
   const service = mockSwingAnalysisService([]);
   TestBed.configureTestingModule({
     providers: [
-      { provide: ChartService, useValue: mockChartService(bars) },
+      { provide: ChartService, useValue: chart ?? mockChartService(bars) },
       { provide: SwingAnalysisService, useValue: service },
       SwingAnalysisStore,
     ],
@@ -429,20 +432,10 @@ describe('SwingAnalysisPageComponent', () => {
 
   it('renders an error message when store has an error', async () => {
     const barsSubject = new Subject<{ daily: ChartDataset; weekly: ChartDataset; monthly: ChartDataset; version: string }>();
-    TestBed.configureTestingModule({
-      providers: [
-        { provide: ChartService, useValue: { loadBars$: () => barsSubject.asObservable() } },
-        { provide: SwingAnalysisService, useValue: mockSwingAnalysisService([]) },
-        SwingAnalysisStore,
-      ],
-    });
-    TestBed.overrideComponent(SwingAnalysisPageComponent, {
-      remove: { imports: [FlexChartComponent, SwingTableComponent, StatsPanelComponent] },
-      add: { imports: [MockFlexChartComponent, MockSwingTableComponent, MockStatsPanelComponent] },
-    });
-    await TestBed.compileComponents();
-    const store = TestBed.inject(SwingAnalysisStore);
-    const fixture = TestBed.createComponent(SwingAnalysisPageComponent);
+    const { fixture, store } = await setupPage(
+      makeBars(40),
+      { loadBars$: () => barsSubject.asObservable() } as Partial<ChartService>,
+    );
     store.setSymbol('BAD');
     fixture.detectChanges();
     barsSubject.error(new Error('Failed to load bars'));
@@ -454,20 +447,10 @@ describe('SwingAnalysisPageComponent', () => {
 
   it('shows loading indicator while bars are loading', async () => {
     const barsSubject = new Subject<{ daily: ChartDataset; weekly: ChartDataset; monthly: ChartDataset; version: string }>();
-    TestBed.configureTestingModule({
-      providers: [
-        { provide: ChartService, useValue: { loadBars$: () => barsSubject.asObservable() } },
-        { provide: SwingAnalysisService, useValue: mockSwingAnalysisService([]) },
-        SwingAnalysisStore,
-      ],
-    });
-    TestBed.overrideComponent(SwingAnalysisPageComponent, {
-      remove: { imports: [FlexChartComponent, SwingTableComponent, StatsPanelComponent] },
-      add: { imports: [MockFlexChartComponent, MockSwingTableComponent, MockStatsPanelComponent] },
-    });
-    await TestBed.compileComponents();
-    const store = TestBed.inject(SwingAnalysisStore);
-    const fixture = TestBed.createComponent(SwingAnalysisPageComponent);
+    const { fixture, store } = await setupPage(
+      makeBars(40),
+      { loadBars$: () => barsSubject.asObservable() } as Partial<ChartService>,
+    );
     store.setSymbol('AAPL');
     fixture.detectChanges();
     expect(store.loading()).toBe(true);
@@ -702,5 +685,119 @@ describe('SwingAnalysisPageComponent', () => {
     // Dual is the default — config 1's button already exists after reset.
     const btn1 = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn-1"]') as HTMLButtonElement;
     expect(btn1.disabled).toBe(true);
+  });
+});
+
+// =============================================================================
+// Batch sweep UI — textarea + Run + progress + results (#429)
+// =============================================================================
+
+describe('SwingAnalysisPageComponent — batch sweep UI', () => {
+  type LoadBarsResult = { daily: ChartDataset; weekly: ChartDataset; monthly: ChartDataset; version: string };
+  const pendingChart = (): Partial<ChartService> => ({
+    loadBars$: jest.fn((): Observable<LoadBarsResult> => new Subject<LoadBarsResult>().asObservable()),
+  });
+
+  it('renders a collapsed batch section with textarea and disabled Run button', async () => {
+    const { fixture } = await setupPage();
+    fixture.detectChanges();
+    const section = fixture.nativeElement.querySelector('[data-testid="batch-section"]') as HTMLDetailsElement;
+    expect(section).toBeTruthy();
+    expect(section.open).toBe(false);
+    expect(fixture.nativeElement.querySelector('[data-testid="batch-symbols"]')).toBeTruthy();
+    const runBtn = fixture.nativeElement.querySelector('[data-testid="run-batch-btn"]') as HTMLButtonElement;
+    expect(runBtn.disabled).toBe(true);
+  });
+
+  it('enables Run only when the textarea has non-whitespace text', async () => {
+    const { fixture } = await setupPage();
+    fixture.detectChanges();
+    const ta = fixture.nativeElement.querySelector('[data-testid="batch-symbols"]') as HTMLTextAreaElement;
+    const runBtn = fixture.nativeElement.querySelector('[data-testid="run-batch-btn"]') as HTMLButtonElement;
+    ta.value = '   ';
+    ta.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(runBtn.disabled).toBe(true);
+    // Separators-only parses to zero symbols — Run must stay disabled
+    // (canRunBatch uses parseSymbols, matching the store's no-op guard).
+    ta.value = ', , ,';
+    ta.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(runBtn.disabled).toBe(true);
+    ta.value = 'AAPL, MSFT';
+    ta.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(runBtn.disabled).toBe(false);
+  });
+
+  it('clicking Run calls store.runBatch with the pasted text', async () => {
+    const { fixture, store } = await setupPage();
+    const spy = jest.spyOn(store, 'runBatch');
+    fixture.detectChanges();
+    const ta = fixture.nativeElement.querySelector('[data-testid="batch-symbols"]') as HTMLTextAreaElement;
+    ta.value = 'aapl, msft';
+    ta.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('[data-testid="run-batch-btn"]') as HTMLButtonElement).click();
+    expect(spy).toHaveBeenCalledWith('aapl, msft');
+  });
+
+  it('shows progress and a Cancel button while a batch is running; Run disabled', async () => {
+    const { fixture } = await setupPage(makeBars(40), pendingChart());
+    fixture.detectChanges();
+    const ta = fixture.nativeElement.querySelector('[data-testid="batch-symbols"]') as HTMLTextAreaElement;
+    ta.value = 'AAPL, MSFT';
+    ta.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('[data-testid="run-batch-btn"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const progress = fixture.nativeElement.querySelector('[data-testid="batch-progress"]') as HTMLElement;
+    expect(progress.textContent).toContain('0/2');
+    expect(progress.textContent).toContain('AAPL');
+    expect((fixture.nativeElement.querySelector('[data-testid="run-batch-btn"]') as HTMLButtonElement).disabled).toBe(true);
+    expect(fixture.nativeElement.querySelector('[data-testid="cancel-batch-btn"]')).toBeTruthy();
+  });
+
+  it('Cancel calls store.cancelBatch and re-enables Run', async () => {
+    const { fixture, store } = await setupPage(makeBars(40), pendingChart());
+    const spy = jest.spyOn(store, 'cancelBatch');
+    fixture.detectChanges();
+    const ta = fixture.nativeElement.querySelector('[data-testid="batch-symbols"]') as HTMLTextAreaElement;
+    ta.value = 'AAPL';
+    ta.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('[data-testid="run-batch-btn"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('[data-testid="cancel-batch-btn"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(spy).toHaveBeenCalled();
+    expect((fixture.nativeElement.querySelector('[data-testid="run-batch-btn"]') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('renders per-symbol results with ok/fail markers after a run', async () => {
+    // EMPTY returns no bars -> recorded as failed.
+    const chart = {
+      loadBars$: jest.fn((symbol: string) => of({
+        daily: makeChartDataset(symbol === 'EMPTY' ? [] : makeBars(40)),
+        weekly: makeChartDataset([]),
+        monthly: makeChartDataset([]),
+        version: 'test',
+      })),
+    };
+    const { fixture } = await setupPage(makeBars(40), chart);
+    fixture.detectChanges();
+    const ta = fixture.nativeElement.querySelector('[data-testid="batch-symbols"]') as HTMLTextAreaElement;
+    ta.value = 'AAPL, EMPTY';
+    ta.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('[data-testid="run-batch-btn"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const rows = fixture.nativeElement.querySelectorAll('[data-testid="batch-results"] li');
+    expect(rows.length).toBe(2);
+    expect(rows[0].textContent).toContain('AAPL');
+    expect(rows[0].classList.contains('ok')).toBe(true);
+    expect(rows[1].textContent).toContain('EMPTY');
+    expect(rows[1].classList.contains('fail')).toBe(true);
+    expect(rows[1].textContent).toContain('no bars');
   });
 });
