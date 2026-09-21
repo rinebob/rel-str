@@ -3,6 +3,9 @@
 ## [2026-09-21]
 
 ### Added
+- [Option Chain Pct Change Grid] 326-426_BE-IMPL-OPTIONS: Map upstream HTTP status to callable error codes
+- [Option Chain Pct Change Grid] 326-426_FE-IMPL-OPTIONS: Dialog-based swing-compare builder + per-date snapshot resilience
+- [Option Chain Pct Change Grid] 326-426_DOCS-DOCS-OPTIONS: Phase code review doc + doc status updates
 - [Trading Indicator Library] 261-429_FE-IMPL-INDICATOR-LIB: Add batch sweep UI and scope swing-set reads to the user
 - [Trading Indicator Library] 261-446_CONFIG-IMPL-INDICATOR-LIB: Add bulk swing seed script (921 symbols x 4 configs swept)
 - [Trading Indicator Library] 261-429_DOCS-DOCS-INDICATOR-LIB: Update docs for st-swing-sets and add batch-UI code review
