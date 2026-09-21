@@ -64,5 +64,5 @@
 
 ## E2E / manual UAT
 
-- Run a real 3-symbol batch against the emulator or live Firestore; confirm docs appear as `swing-sets/{symbol}_{paramsId}`
+- Run a real 3-symbol batch against the emulator or live Firestore; confirm docs appear as `st-swing-sets/{symbol}_{paramsId}`
 - Load 3 saved sets for one symbol — three overlays render on the chart

@@ -64,7 +64,7 @@ batchResults: { symbol: string; ok: boolean; error?: string }[];
    - Per-symbol errors (bars failure, save failure) are caught, recorded in `batchResults`, and the loop continues.
 3. `patchState` progress after each symbol; final state `batchRunning: false`.
 
-Cancellation: `takeUntilDestroyed` only for now — no explicit Cancel button in v1.
+Cancellation: `cancelBatch()` aborts the sweep subscription (Cancel button while running); done/total remain as a post-mortem, `current` clears. An in-flight save is a promise — it may land after cancel.
 
 ### Saved-sets browser state + methods
 

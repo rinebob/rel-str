@@ -38,7 +38,7 @@ Batch-run swing analysis over a user-provided symbol list using the page's curre
 As an analyst, I paste a symbol list into a text box and click **Run batch** so that each symbol is analyzed and saved without babysitting.
 
 - Symbols are entered as comma-, space-, or newline-separated tickers; the list is normalized (trim, uppercase, dedupe) before the run.
-- For each symbol the batch fetches bars, computes pivots/swings/stats for every config currently active on the page, and saves one doc per config to `swing-sets/{symbol}_{paramsId}` (overwrite semantics; `savedAt` records freshness).
+- For each symbol the batch fetches bars, computes pivots/swings/stats for every config currently active on the page, and saves one doc per config to `st-swing-sets/{symbol}_{paramsId}` (overwrite semantics; `savedAt` records freshness).
 - Dual mode active → two docs per symbol; single mode → one doc per symbol. Different param sets coexist — `dev5_L5_R5...` and `dev10_L3_R3...` are separate docs under the same symbol.
 - The run does not disturb the displayed symbol — batch compute runs in the background via service + pure engine calls; the current chart/table/stats remain on the current symbol.
 - A progress line shows `n/total — SYMBOL` as each save completes.
@@ -65,7 +65,7 @@ As an analyst, I load a saved analysis into a config slot so I can view its char
 
 ## Technical Context
 
-- **Persistence shape:** flat collection `swing-sets/{symbol}_{paramsId}` (e.g. `swing-sets/QQQ_dev5_L5_R5_1barY_projY`). Bars are never persisted; docs store config + pivots + swings + stats + savedAt + userId.
+- **Persistence shape:** flat collection `st-swing-sets/{symbol}_{paramsId}` (e.g. `st-swing-sets/QQQ_dev5_L5_R5_1barY_projY`). Bars are never persisted; docs store config + pivots + swings + stats + savedAt + userId.
 - **Symbol enumeration:** the flat collection makes this free — one `getDocs` returns all docs (~1K docs max at ~100 symbols × ~10 params); the browser groups by `symbol` client-side. No parent-doc materialization needed.
 - **Batch runs are frontend-serial** — symbols processed one at a time; bars API calls are sequential. Expect roughly 1–3 s per symbol; a 20-symbol sweep takes under a minute. The browser tab must stay open during the run.
 - **Analysis freshness:** an analysis reflects the bars available at save time. Re-running a batch refreshes docs in place (overwrite); it does not accumulate history.
@@ -87,7 +87,7 @@ flowchart LR
 
   subgraph Data["Services / Firestore"]
     BARS["Chart data svc<br/>(bars)"]
-    FS["swing-sets/<br/>{symbol}_{paramsId}"]
+    FS["st-swing-sets/<br/>{symbol}_{paramsId}"]
   end
 
   LOOP --> BARS --> Engine
