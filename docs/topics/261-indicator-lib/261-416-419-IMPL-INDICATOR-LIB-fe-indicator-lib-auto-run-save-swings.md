@@ -9,7 +9,7 @@
 **Type:** IMPL  
 **Status:** Complete  
 **Created:** 2026-09-19  
-**Last Updated:** 2026-09-19
+**Last Updated:** 2026-09-21
 
 # IMPL — FE: Auto run/save swings
 
