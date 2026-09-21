@@ -88,6 +88,11 @@ export interface SwingAnalysisState {
   batchRunning: boolean;
   batchProgress: { done: number; total: number; current: string | null };
   batchResults: { symbol: string; ok: boolean; error?: string }[];
+  /** All saved swing sets across symbols — the saved-sets browser's
+   *  source. Populated lazily by loadSwingSets() (whole-collection read —
+   *  deliberately NOT on page init). */
+  savedSets: SwingAnalysisDoc[];
+  savedSetsLoading: boolean;
 }
 
 const initialState: SwingAnalysisState = {
@@ -105,6 +110,8 @@ const initialState: SwingAnalysisState = {
   batchRunning: false,
   batchProgress: { done: 0, total: 0, current: null },
   batchResults: [],
+  savedSets: [],
+  savedSetsLoading: false,
 };
 
 // =============================================================================
@@ -165,20 +172,21 @@ export const SwingAnalysisStore = signalStore(
     hasProjection: computed(() => store.projections().some((p) => p !== null)),
     /** paramsIds for all configs — each used as its own Firestore doc id. */
     paramsIds: computed(() => store.configs().map((c) => deriveParamsId(c))),
-    /** Whether dual mode is active — derived from configs array length. */
-    dualMode: computed(() => store.configs().length === 2),
+    /** Multi-config mode — N>1 configs (the N-slot load from saved sets
+     *  makes N>2 possible; the UI treats "dual" as "more than one"). */
+    dualMode: computed(() => store.configs().length > 1),
     /**
-     * Combined stats across all config swing arrays (dual mode's "All"
+     * Combined stats across ALL config swing arrays (multi mode's "All"
      * stats view). Recomputed from the merged swings — computeSwingStats
      * is order-insensitive (filters confirmed, aggregates by direction),
-     * so no sort is needed. Null when not dual mode or no swings exist.
+     * so no sort is needed. Null in single-config mode or no swings.
      */
     allStats: computed(() => {
       // Same guard as dualMode — sibling computeds aren't visible to each
       // other inside a single withComputed block, so configs().length is
       // read directly here.
-      if (store.configs().length !== 2) return null;
-      const merged = [...(store.swings()[0] ?? []), ...(store.swings()[1] ?? [])];
+      if (store.configs().length < 2) return null;
+      const merged = store.swings().flat();
       return merged.length > 0 ? computeSwingStats(merged) : null;
     }),
   })),
@@ -202,6 +210,9 @@ export const SwingAnalysisStore = signalStore(
       // it — takeUntilDestroyed only fires on store teardown, and a root
       // store outlives any page visit.
       let batchSub: Subscription | null = null;
+      // Track the saved-sets collection load so resetState can't leave a
+      // zombie load patching savedSets after page re-entry.
+      let setsSub: Subscription | null = null;
 
       /**
        * Shared bar-load + recompute helper. Cancels any in-flight bar load,
@@ -290,6 +301,42 @@ export const SwingAnalysisStore = signalStore(
         };
       }
 
+      /**
+       * The setSymbol flow — normalize the symbol, clear derived state,
+       * kick off the bar load. Hoisted so loadSwingSetsIntoSlots can run
+       * it after patching configs (the in-flight bar load's recomputeAll
+       * reads store.configs() fresh, so the N loaded slots are the ones
+       * recomputed when bars arrive).
+       */
+      function applySymbol(symbol: string): void {
+        const sym = String(symbol || '').trim().toUpperCase();
+        // Cancel any in-flight analysis load to prevent stale overwrites.
+        analysisSub?.unsubscribe();
+        analysisSub = null;
+        const configs = store.configs();
+        patchState(store, {
+          symbol: sym,
+          loading: true,
+          error: null,
+          bars: [],
+          pivots: configs.map(() => []),
+          projections: configs.map(() => null),
+          swings: configs.map(() => []),
+          stats: configs.map(() => null),
+        });
+
+        // Cancel any in-flight bar load to prevent stale overwrites.
+        barsSub?.unsubscribe();
+        barsSub = null;
+
+        if (!sym) {
+          patchState(store, { loading: false });
+          return;
+        }
+
+        loadBarsAndRecompute(sym, true);
+      }
+
       return {
         /**
          * Reset the store to initial state (except savedAnalyses).
@@ -304,6 +351,8 @@ export const SwingAnalysisStore = signalStore(
           // writing batchResults into the "reset" store after page re-entry.
           batchSub?.unsubscribe();
           batchSub = null;
+          setsSub?.unsubscribe();
+          setsSub = null;
           patchState(store, {
             symbol: '',
             configs: [{ ...LARGE_CONFIG }, { ...SMALL_CONFIG }],
@@ -317,6 +366,8 @@ export const SwingAnalysisStore = signalStore(
             batchRunning: false,
             batchProgress: { done: 0, total: 0, current: null },
             batchResults: [],
+            savedSets: [],
+            savedSetsLoading: false,
           });
         },
 
@@ -324,32 +375,7 @@ export const SwingAnalysisStore = signalStore(
          * Set the symbol and trigger bar load + recompute for all configs.
          */
         setSymbol(symbol: string): void {
-          const sym = String(symbol || '').trim().toUpperCase();
-          // Cancel any in-flight analysis load to prevent stale overwrites.
-          analysisSub?.unsubscribe();
-          analysisSub = null;
-          const configs = store.configs();
-          patchState(store, {
-            symbol: sym,
-            loading: true,
-            error: null,
-            bars: [],
-            pivots: configs.map(() => []),
-            projections: configs.map(() => null),
-            swings: configs.map(() => []),
-            stats: configs.map(() => null),
-          });
-
-          // Cancel any in-flight bar load to prevent stale overwrites.
-          barsSub?.unsubscribe();
-          barsSub = null;
-
-          if (!sym) {
-            patchState(store, { loading: false });
-            return;
-          }
-
-          loadBarsAndRecompute(sym, true);
+          applySymbol(symbol);
         },
 
         /**
@@ -380,8 +406,10 @@ export const SwingAnalysisStore = signalStore(
          */
         toggleDualMode(): void {
           const configs = store.configs();
-          if (configs.length === 2) {
-            // Turn off — remove second config.
+          if (configs.length > 1) {
+            // Turn off — collapse to the first config. From N>2 loaded
+            // slots this discards slots 2+ — the toggle is explicitly a
+            // "single vs multi" switch, not a resize.
             patchState(store, {
               configs: [configs[0]],
               pivots: [store.pivots()[0]],
@@ -390,7 +418,9 @@ export const SwingAnalysisStore = signalStore(
               stats: [store.stats()[0]],
             });
           } else {
-            // Turn on — add second config with small defaults.
+            // Turn on — add a second config with small defaults (from
+            // single mode; from N>2 the toggle reads "on" so this branch
+            // only runs when configs.length === 1).
             const bars = store.bars();
             const r = recompute(bars, { ...SMALL_CONFIG });
             patchState(store, {
@@ -626,6 +656,79 @@ export const SwingAnalysisStore = signalStore(
               batchProgress: { ...store.batchProgress(), current: null },
             });
           }
+        },
+
+        /**
+         * Populate `savedSets` — the saved-sets browser's source. Lazy:
+         * called when the panel expands, never on page init (it's a
+         * whole-collection read). The component only invokes it when
+         * savedSets is empty — so re-expand after a failure (or a
+         * genuinely empty collection) retries. In-flight re-entry ignored.
+         */
+        loadSwingSets(): void {
+          if (store.savedSetsLoading()) return;
+          setsSub?.unsubscribe();
+          patchState(store, { savedSetsLoading: true });
+          setsSub = swingAnalysisService
+            .loadAllSwingSets()
+            .pipe(takeUntilDestroyed(destroyRef))
+            .subscribe({
+              next: (docs) => {
+                setsSub = null;
+                patchState(store, {
+                  savedSets: docs,
+                  savedSetsLoading: false,
+                });
+              },
+              error: (err: unknown) => {
+                setsSub = null;
+                const msg = err instanceof Error ? err.message : String(err);
+                patchState(store, {
+                  savedSetsLoading: false,
+                  error: `Failed to load swing sets: ${msg}`,
+                });
+              },
+            });
+        },
+
+        /**
+         * Load N saved docs into N config slots. Replaces `configs` with
+         * the docs' configs and recomputes every slot on the current bars.
+         * Same-symbol guard re-validates the UI's constraint; a different
+         * symbol runs the setSymbol flow (the bar load recomputes the new
+         * N configs when bars arrive). Nothing is re-saved — the docs are
+         * already persisted snapshots.
+         */
+        loadSwingSetsIntoSlots(docs: SwingAnalysisDoc[]): void {
+          if (docs.length === 0) return;
+          // Cancel an in-flight loadAnalysis — its next handler re-reads
+          // configs() and would overwrite one just-loaded slot.
+          analysisSub?.unsubscribe();
+          analysisSub = null;
+          const symbols = new Set(
+            docs.map((d) => d.symbol.trim().toUpperCase()),
+          );
+          if (symbols.size !== 1) return; // same-symbol guard
+          const sym = [...symbols][0];
+          const configs = docs.map((d) => ({ ...d.config }));
+
+          if (sym !== store.symbol()) {
+            patchState(store, { configs, error: null });
+            applySymbol(sym); // recompute happens on bar arrival
+            return;
+          }
+          const { pivots, projections, swings, stats } = recomputeAll(
+            store.bars(),
+            configs,
+          );
+          patchState(store, {
+            configs,
+            pivots,
+            projections,
+            swings,
+            stats,
+            error: null,
+          });
         },
       };
     },

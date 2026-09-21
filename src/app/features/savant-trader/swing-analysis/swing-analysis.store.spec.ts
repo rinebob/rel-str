@@ -137,13 +137,16 @@ type ServiceMock = ReturnType<typeof mockSwingAnalysisService>;
 
 function mockSwingAnalysisService(
   docs: SwingAnalysisDoc[] = [],
+  allSets: SwingAnalysisDoc[] = docs,
 ): Partial<SwingAnalysisService> & {
   saveAnalysis: jest.Mock;
   loadSavedAnalyses: jest.Mock;
+  loadAllSwingSets: jest.Mock;
   loadAnalysis: jest.Mock;
 } {
   return {
     loadSavedAnalyses: jest.fn(() => of(docs)),
+    loadAllSwingSets: jest.fn(() => of(allSets)),
     saveAnalysis: jest.fn(() => of(undefined)),
     loadAnalysis: jest.fn((_symbol: string, docId: string) =>
       of(docs.find((d) => d.id === docId) ?? null),
@@ -1038,5 +1041,242 @@ describe('SwingAnalysisStore.runBatch', () => {
     expect(store.batchRunning()).toBe(false);
     expect(store.batchResults()).toEqual([]);
     expect(store.batchProgress()).toEqual({ done: 0, total: 0, current: null });
+  });
+});
+
+// =============================================================================
+// loadSwingSets / loadSwingSetsIntoSlots — saved-sets browser
+// =============================================================================
+
+describe('SwingAnalysisStore.loadSwingSets', () => {
+  it('patches savedSets from the service result and clears loading', () => {
+    const allSets = [
+      makeSwingAnalysisDoc({ id: 'a1', symbol: 'AAPL' }),
+      makeSwingAnalysisDoc({ id: 'm1', symbol: 'MSFT' }),
+    ];
+    const service = mockSwingAnalysisService([], allSets);
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        { provide: ChartService, useValue: mockChartService(makeBars(40)) },
+        { provide: SwingAnalysisService, useValue: service },
+        SwingAnalysisStore,
+      ],
+    });
+    const store = TestBed.inject(SwingAnalysisStore);
+
+    store.loadSwingSets();
+
+    expect(service.loadAllSwingSets).toHaveBeenCalled();
+    expect(store.savedSets()).toEqual(allSets);
+    expect(store.savedSetsLoading()).toBe(false);
+  });
+
+  it('a service error sets error and clears loading', () => {
+    const service = mockSwingAnalysisService();
+    service.loadAllSwingSets.mockReturnValue(throwError(() => new Error('rules deny')));
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        { provide: ChartService, useValue: mockChartService(makeBars(40)) },
+        { provide: SwingAnalysisService, useValue: service },
+        SwingAnalysisStore,
+      ],
+    });
+    const store = TestBed.inject(SwingAnalysisStore);
+
+    store.loadSwingSets();
+
+    expect(store.savedSets()).toEqual([]);
+    expect(store.savedSetsLoading()).toBe(false);
+    expect(store.error()).toContain('rules deny');
+  });
+});
+
+describe('SwingAnalysisStore.loadSwingSetsIntoSlots', () => {
+  const docFor = (symbol: string, dev: number, id: string) =>
+    makeSwingAnalysisDoc({
+      id,
+      symbol,
+      config: { ...LARGE_CONFIG, devThreshold: dev },
+    });
+
+  it('same-symbol: replaces configs with N doc configs and recomputes all slots on current bars', () => {
+    const { store } = setupStore();
+    store.setSymbol('AAPL');
+    const before = store.configs().length;
+    expect(before).toBe(2);
+
+    store.loadSwingSetsIntoSlots([
+      docFor('AAPL', 10, 's10'),
+      docFor('AAPL', 3, 's3'),
+      docFor('AAPL', 1, 's1'),
+    ]);
+
+    expect(store.configs().length).toBe(3);
+    expect(store.configs().map((c) => c.devThreshold)).toEqual([10, 3, 1]);
+    // All three parallel arrays grew to N slots and hold real recompute output.
+    expect(store.pivots().length).toBe(3);
+    expect(store.swings().length).toBe(3);
+    expect(store.stats().length).toBe(3);
+    expect(store.symbol()).toBe('AAPL');
+  });
+
+  it('different symbol: runs the setSymbol flow — the N configs recompute on the new bars', () => {
+    const { store, service } = setupStore();
+    store.setSymbol('AAPL');
+
+    store.loadSwingSetsIntoSlots([
+      docFor('MSFT', 10, 'm10'),
+      docFor('MSFT', 4, 'm4'),
+    ]);
+
+    expect(store.symbol()).toBe('MSFT');
+    expect(store.configs().map((c) => c.devThreshold)).toEqual([10, 4]);
+    expect(store.bars().length).toBeGreaterThan(0);
+    expect(store.pivots().length).toBe(2);
+    expect(store.swings().length).toBe(2);
+    expect(service.saveAnalysis).not.toHaveBeenCalled();
+  });
+
+  it('N>2 slots: dualMode reads true and allStats merges every slot', () => {
+    const { store } = setupStore();
+    store.setSymbol('AAPL');
+
+    store.loadSwingSetsIntoSlots([
+      docFor('AAPL', 10, 's10'),
+      docFor('AAPL', 3, 's3'),
+      docFor('AAPL', 1, 's1'),
+    ]);
+
+    expect(store.dualMode()).toBe(true);
+    expect(store.allStats()).not.toBeNull();
+    // allStats merges every slot's swings — its count equals the sum of
+    // the per-slot stats counts (computeSwingStats filters unconfirmed
+    // swings, so compare against stats, not raw swing arrays).
+    const perSlot = store.stats()
+      .reduce((n, s) => n + (s?.up.count ?? 0) + (s?.down.count ?? 0), 0);
+    expect(store.allStats()!.up.count + store.allStats()!.down.count)
+      .toBe(perSlot);
+  });
+
+  it('toggleDualMode from N>2 collapses to the first config', () => {
+    const { store } = setupStore();
+    store.setSymbol('AAPL');
+    store.loadSwingSetsIntoSlots([
+      docFor('AAPL', 10, 's10'),
+      docFor('AAPL', 3, 's3'),
+      docFor('AAPL', 1, 's1'),
+    ]);
+    expect(store.configs().length).toBe(3);
+
+    store.toggleDualMode();
+
+    expect(store.configs().length).toBe(1);
+    expect(store.configs()[0].devThreshold).toBe(10);
+    expect(store.dualMode()).toBe(false);
+  });
+
+  it('cancels an in-flight loadAnalysis so it cannot overwrite a loaded slot', () => {
+    const barsSubject = new Subject<{
+      daily: ChartDataset;
+      weekly: ChartDataset;
+      monthly: ChartDataset;
+      version: string;
+    }>();
+    const analysisSubject = new Subject<SwingAnalysisDoc | null>();
+    const staleDoc = makeSwingAnalysisDoc({
+      config: { ...LARGE_CONFIG, devThreshold: 99 },
+    });
+    const service = {
+      loadSavedAnalyses: jest.fn(() => of([])),
+      loadAllSwingSets: jest.fn(() => of([])),
+      saveAnalysis: jest.fn(() => of(undefined)),
+      loadAnalysis: jest.fn(() => analysisSubject.asObservable()),
+    };
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        { provide: ChartService, useValue: { loadBars$: () => barsSubject.asObservable() } },
+        { provide: SwingAnalysisService, useValue: service },
+        SwingAnalysisStore,
+      ],
+    });
+    const store = TestBed.inject(SwingAnalysisStore);
+    store.setSymbol('AAPL');
+    barsSubject.next({
+      daily: makeChartDataset(makeBars(40)),
+      weekly: makeChartDataset(makeBars(40)),
+      monthly: makeChartDataset(makeBars(40)),
+      version: 't',
+    });
+    // Start an analysis load, then load N sets before it resolves.
+    store.loadAnalysis(deriveParamsId(LARGE_CONFIG), 0);
+    store.loadSwingSetsIntoSlots([docFor('AAPL', 10, 's10'), docFor('AAPL', 3, 's3')]);
+    expect(store.configs().map((c) => c.devThreshold)).toEqual([10, 3]);
+
+    // The stale response lands — must not clobber a loaded slot.
+    analysisSubject.next(staleDoc);
+    analysisSubject.complete();
+    expect(store.configs().map((c) => c.devThreshold)).toEqual([10, 3]);
+  });
+
+  it('resetState clears savedSets and aborts an in-flight loadSwingSets', () => {
+    const setsSubject = new Subject<SwingAnalysisDoc[]>();
+    const service = mockSwingAnalysisService();
+    service.loadAllSwingSets.mockReturnValue(setsSubject.asObservable());
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        { provide: ChartService, useValue: mockChartService(makeBars(40)) },
+        { provide: SwingAnalysisService, useValue: service },
+        SwingAnalysisStore,
+      ],
+    });
+    const store = TestBed.inject(SwingAnalysisStore);
+
+    store.loadSwingSets();
+    expect(store.savedSetsLoading()).toBe(true);
+    store.resetState();
+    expect(store.savedSets()).toEqual([]);
+    expect(store.savedSetsLoading()).toBe(false);
+
+    // Zombie check — a late response must not patch the reset store.
+    setsSubject.next([makeSwingAnalysisDoc()]);
+    setsSubject.complete();
+    expect(store.savedSets()).toEqual([]);
+  });
+
+  it('a selection spanning symbols is rejected — no state change', () => {
+    const { store } = setupStore();
+    store.setSymbol('AAPL');
+    const before = store.configs();
+
+    store.loadSwingSetsIntoSlots([
+      docFor('AAPL', 10, 'a'),
+      docFor('MSFT', 5, 'm'),
+    ]);
+
+    expect(store.configs()).toEqual(before);
+    expect(store.symbol()).toBe('AAPL');
+  });
+
+  it('an empty selection is a no-op', () => {
+    const { store } = setupStore();
+    store.setSymbol('AAPL');
+    const before = store.configs();
+
+    store.loadSwingSetsIntoSlots([]);
+
+    expect(store.configs()).toEqual(before);
+  });
+
+  it('never re-saves the loaded docs', () => {
+    const { store, service } = setupStore();
+    store.setSymbol('AAPL');
+
+    store.loadSwingSetsIntoSlots([docFor('AAPL', 10, 's10')]);
+
+    expect(service.saveAnalysis).not.toHaveBeenCalled();
   });
 });

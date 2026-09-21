@@ -6,6 +6,7 @@
 - [Trading Indicator Library] 261-429_FE-IMPL-INDICATOR-LIB: Add batch sweep UI and scope swing-set reads to the user
 - [Trading Indicator Library] 261-446_CONFIG-IMPL-INDICATOR-LIB: Add bulk swing seed script (921 symbols x 4 configs swept)
 - [Trading Indicator Library] 261-429_DOCS-DOCS-INDICATOR-LIB: Update docs for st-swing-sets and add batch-UI code review
+- [Trading Indicator Library] 261-430_FE-IMPL-INDICATOR-LIB: Saved-sets browser — lazy load, symbol filter, N-slot multi-load
 
 ### Changed
 - [Trading Indicator Library] 261-429_CONFIG-CONFIG-INDICATOR-LIB: Rename swing sets to st-swing-sets and tighten list rule

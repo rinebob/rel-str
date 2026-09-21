@@ -129,13 +129,18 @@ function mockChartService(bars: PriceBar[]): Partial<ChartService> {
   };
 }
 
-function mockSwingAnalysisService(docs: SwingAnalysisDoc[] = []): Partial<SwingAnalysisService> & {
+function mockSwingAnalysisService(
+  docs: SwingAnalysisDoc[] = [],
+  allSets: SwingAnalysisDoc[] = docs,
+): Partial<SwingAnalysisService> & {
   saveAnalysis: jest.Mock;
   loadSavedAnalyses: jest.Mock;
+  loadAllSwingSets: jest.Mock;
   loadAnalysis: jest.Mock;
 } {
   return {
     loadSavedAnalyses: jest.fn(() => of(docs)),
+    loadAllSwingSets: jest.fn(() => of(allSets)),
     saveAnalysis: jest.fn(() => of(undefined)),
     loadAnalysis: jest.fn(() => of(null)),
   };
@@ -150,11 +155,13 @@ interface PageSetup {
 async function setupPage(
   bars: PriceBar[] = makeBars(40),
   chart?: Partial<ChartService>,
+  service: ReturnType<typeof mockSwingAnalysisService> = mockSwingAnalysisService([]),
 ): Promise<PageSetup> {
-  const service = mockSwingAnalysisService([]);
   TestBed.configureTestingModule({
     providers: [
       { provide: ChartService, useValue: chart ?? mockChartService(bars) },
+      // Symbol-nav deps ΓÇö the store injects these unconditionally; mocks
+      // satisfy DI without driving any nav behavior in these tests.
       { provide: SwingAnalysisService, useValue: service },
       SwingAnalysisStore,
     ],
@@ -799,5 +806,128 @@ describe('SwingAnalysisPageComponent — batch sweep UI', () => {
     expect(rows[1].textContent).toContain('EMPTY');
     expect(rows[1].classList.contains('fail')).toBe(true);
     expect(rows[1].textContent).toContain('no bars');
+  });
+});
+
+// =============================================================================
+// Saved-sets browser — lazy collection load, filter, multi-select, N-slot load
+// =============================================================================
+
+function makeStats(): SwingStats {
+  const ds = { mean: 0, median: 0, stdDev: 0, min: 0, max: 0, p10: 0, p25: 0, p50: 0, p75: 0, p90: 0 };
+  const side = () => ({
+    count: 1, magnitudePercent: { ...ds }, magnitudeAbsolute: { ...ds },
+    duration: { ...ds }, magnitudeHistogram: { bins: [] }, durationHistogram: { bins: [] },
+  });
+  return { up: side(), down: side() };
+}
+
+function makeSetDoc(id: string, symbol: string, dev: number, savedAt: string): SwingAnalysisDoc {
+  return {
+    id, userId: 'u', symbol, paramsId: `dev${dev}_L5_R5`,
+    config: { ...LARGE_CONFIG, devThreshold: dev },
+    pivots: [], projection: null, swings: [], stats: makeStats(), savedAt,
+  };
+}
+
+describe('SwingAnalysisPageComponent — saved-sets browser', () => {
+  const sets = () => [
+    makeSetDoc('AAPL_dev10', 'AAPL', 10, '2026-09-20T10:00:00Z'),
+    makeSetDoc('AAPL_dev3', 'AAPL', 3, '2026-09-21T10:00:00Z'),
+    makeSetDoc('MSFT_dev5', 'MSFT', 5, '2026-09-19T10:00:00Z'),
+    makeSetDoc('AAPL_dev2', 'AAPL', 2, '2026-09-18T10:00:00Z'),
+  ];
+
+  async function setupWithSets() {
+    const service = mockSwingAnalysisService([], sets());
+    const { fixture, store } = await setupPage(makeBars(40), undefined, service);
+    return { fixture, store, service };
+  }
+
+  function expandPanel(fixture: ComponentFixture<SwingAnalysisPageComponent>): void {
+    const details = fixture.nativeElement.querySelector('[data-testid="saved-sets-section"]') as HTMLDetailsElement;
+    details.open = true;
+    details.dispatchEvent(new Event('toggle'));
+    fixture.detectChanges();
+  }
+
+  it('lazy-loads saved sets on first expand only', async () => {
+    const { fixture, service } = await setupWithSets();
+    expect(service.loadAllSwingSets).not.toHaveBeenCalled();
+
+    expandPanel(fixture);
+    expect(service.loadAllSwingSets).toHaveBeenCalledTimes(1);
+    expect(fixture.nativeElement.querySelectorAll('[data-testid="saved-set-row"]').length).toBe(4);
+
+    // Second expand does not refetch.
+    const details = fixture.nativeElement.querySelector('[data-testid="saved-sets-section"]') as HTMLDetailsElement;
+    details.open = false;
+    details.dispatchEvent(new Event('toggle'));
+    fixture.detectChanges();
+    details.open = true;
+    details.dispatchEvent(new Event('toggle'));
+    fixture.detectChanges();
+    expect(service.loadAllSwingSets).toHaveBeenCalledTimes(1);
+  });
+
+  it('symbol filter narrows the doc list; newest savedAt first', async () => {
+    const { fixture } = await setupWithSets();
+    expandPanel(fixture);
+
+    const select = fixture.nativeElement.querySelector('[data-testid="saved-sets-filter"]') as HTMLSelectElement;
+    select.value = 'AAPL';
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    const rows = fixture.nativeElement.querySelectorAll('[data-testid="saved-set-row"]');
+    expect(rows.length).toBe(3);
+    // Newest-first: dev3 (09-21), dev10 (09-20), dev2 (09-18).
+    expect(rows[0].textContent).toContain('dev3_L5_R5');
+    expect(rows[1].textContent).toContain('dev10_L5_R5');
+    expect(rows[2].textContent).toContain('dev2_L5_R5');
+  });
+
+  it('Load is disabled with zero checked or a cross-symbol selection', async () => {
+    const { fixture } = await setupWithSets();
+    expandPanel(fixture);
+    const btn = () => fixture.nativeElement.querySelector('[data-testid="load-sets-btn"]') as HTMLButtonElement;
+    expect(btn().disabled).toBe(true);
+
+    const boxes = () => fixture.nativeElement.querySelectorAll('[data-testid="saved-set-checkbox"]') as NodeListOf<HTMLInputElement>;
+    // Check AAPL + MSFT — cross-symbol stays disabled.
+    boxes()[0].click();
+    boxes()[2].click();
+    fixture.detectChanges();
+    expect(btn().disabled).toBe(true);
+
+    // Uncheck MSFT — same-symbol selection enables.
+    boxes()[2].click();
+    fixture.detectChanges();
+    expect(btn().disabled).toBe(false);
+  });
+
+  it('Load calls loadSwingSetsIntoSlots with the checked docs; N slots render N config sections', async () => {
+    const { fixture, store } = await setupWithSets();
+    expandPanel(fixture);
+    const spy = jest.spyOn(store, 'loadSwingSetsIntoSlots');
+
+    // Rows sorted newest-first: 0=dev3, 1=dev10, 2=MSFT, 3=dev2.
+    const boxes = fixture.nativeElement.querySelectorAll('[data-testid="saved-set-checkbox"]') as NodeListOf<HTMLInputElement>;
+    boxes[0].click();
+    boxes[1].click();
+    boxes[3].click(); // all three AAPL docs
+    fixture.detectChanges();
+
+    fixture.nativeElement.querySelector('[data-testid="load-sets-btn"]').click();
+    fixture.detectChanges();
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    const docs = spy.mock.calls[0][0] as SwingAnalysisDoc[];
+    expect(docs.map((d) => d.id)).toEqual(['AAPL_dev3', 'AAPL_dev10', 'AAPL_dev2']);
+    expect(store.configs().length).toBe(3);
+    expect(store.configs().map((c) => c.devThreshold)).toEqual([3, 10, 2]);
+    // N>2 actually renders N config sections + N chart overlays.
+    expect(fixture.nativeElement.querySelectorAll('[data-testid^="config-section-"]').length).toBe(3);
+    expect(fixture.componentInstance.chartConfig().indicators.length).toBe(3);
   });
 });

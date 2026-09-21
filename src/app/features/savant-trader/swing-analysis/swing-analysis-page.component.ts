@@ -23,6 +23,7 @@ import { SwingAnalysisStore } from './swing-analysis.store';
 import { SwingTableComponent } from './components/swing-table.component';
 import { StatsPanelComponent, StatsSets } from './components/stats-panel.component';
 import { BatchSweepComponent } from './components/batch-sweep.component';
+import { SavedSetsComponent } from './components/saved-sets.component';
 import { FlexChartComponent } from '../../shared/components/flex-chart/flex-chart.component';
 import { ChartIntervalKey, StIndicator } from '../../shared/components/flex-chart/flex-chart.types';
 import type {
@@ -94,6 +95,7 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
     SwingTableComponent,
     StatsPanelComponent,
     BatchSweepComponent,
+    SavedSetsComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -253,6 +255,9 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
 
   <!-- Batch sweep — see BatchSweepComponent; orchestration is the store's. -->
   <app-batch-sweep />
+
+  <!-- Saved-sets browser — lazy whole-collection load on first expand. -->
+  <app-saved-sets />
 
   <section class="swing-analysis-chart">
     <app-flex-chart
@@ -463,13 +468,24 @@ export class SwingAnalysisPageComponent implements OnDestroy {
   readonly configs = this.store.configs;
   readonly dualMode = this.store.dualMode;
   readonly swings = computed(() => this.store.swings()[0] ?? []);
-  /** Small swings for the nested tree table — null in single mode (flat view). */
-  readonly smallSwings = computed(() => (this.dualMode() ? this.store.swings()[1] ?? [] : null));
-  readonly stats = computed(() => this.store.stats()[0] ?? null);
-  /** [large, small, all] stats for the panel toggle — null in single mode. */
-  readonly statsSets = computed<StatsSets | null>(() =>
-    this.dualMode() ? [this.store.stats()[0] ?? null, this.store.stats()[1] ?? null, this.store.allStats()] : null,
+  /** Small swings for the nested tree table — only meaningful for the
+   *  exact-2 (dual) layout; N>2 loaded sets show the flat slot-0 view. */
+  readonly smallSwings = computed(() =>
+    this.store.configs().length === 2 ? this.store.swings()[1] ?? [] : null,
   );
+  readonly stats = computed(() => this.store.stats()[0] ?? null);
+  /** [large, small, all] stats for the panel toggle — null in single mode.
+   *  For N>2 loaded sets: slot 0 stats + merged allStats; the "small"
+   *  seat is null (there's no canonical second). */
+  readonly statsSets = computed<StatsSets | null>(() => {
+    const n = this.store.configs().length;
+    if (n < 2) return null;
+    return [
+      this.store.stats()[0] ?? null,
+      n === 2 ? this.store.stats()[1] ?? null : null,
+      this.store.allStats(),
+    ];
+  });
   readonly loading = this.store.loading;
   readonly error = this.store.error;
 
