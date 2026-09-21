@@ -15,6 +15,7 @@
  */
 import { ChangeDetectionStrategy, Component, computed, HostBinding, inject, OnDestroy } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -22,8 +23,9 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { SwingAnalysisStore } from './swing-analysis.store';
 import { SwingTableComponent } from './components/swing-table.component';
 import { StatsPanelComponent, StatsSets } from './components/stats-panel.component';
-import { BatchSweepComponent } from './components/batch-sweep.component';
 import { SavedSetsComponent } from './components/saved-sets.component';
+import { SymbolNavComponent } from './components/symbol-nav.component';
+import { SwingSettingsDialogComponent } from './components/swing-settings-dialog.component';
 import { FlexChartComponent } from '../../shared/components/flex-chart/flex-chart.component';
 import { ChartIntervalKey, StIndicator } from '../../shared/components/flex-chart/flex-chart.types';
 import type {
@@ -34,22 +36,6 @@ import type {
 import { BarsInterval } from '../../../core/models/partner.types';
 import { UiStateService } from '../../../core/services/ui-state.service';
 import type { ZigZagConfig } from '../../shared/components/flex-chart/indicators/st-zigzag.types';
-
-/** Numeric ZigZagConfig keys that accept number values. */
-type NumericParam = 'devThreshold' | 'leftDepth' | 'rightDepth';
-
-/** Boolean ZigZagConfig keys that accept boolean values. */
-type BoolParam = 'allowZigZagOnOneBar' | 'showTriggerDots';
-
-/** Per-param validation bounds for numeric inputs. */
-const NUMERIC_BOUNDS: Record<NumericParam, { min: number; max: number }> = {
-  devThreshold: { min: 0.1, max: 100 },
-  leftDepth: { min: 2, max: 100 },
-  rightDepth: { min: 2, max: 100 },
-};
-
-/** Labels for each config section — index 0 is the large/primary config. */
-const CONFIG_LABELS = ['Large Swings', 'Small Swings'] as const;
 
 /** Default symbol loaded when the page opens. */
 const DEFAULT_SYMBOL = 'QQQ';
@@ -91,11 +77,12 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
     MatIconModule,
     MatProgressSpinnerModule,
     MatTooltipModule,
+    MatDialogModule,
     FlexChartComponent,
     SwingTableComponent,
     StatsPanelComponent,
-    BatchSweepComponent,
     SavedSetsComponent,
+    SymbolNavComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -105,14 +92,27 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
       <h1>Swing Analysis</h1>
       <p class="subtitle">ZigZag pivot indicator — historical swing magnitude & duration</p>
     </div>
-    <button
-      mat-icon-button
-      (click)="ui.toggleFullscreen()"
-      [matTooltip]="ui.fullscreen() ? 'Exit fullscreen' : 'Fullscreen'"
-    >
-      <mat-icon>{{ ui.fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
-    </button>
+    <div class="header-actions">
+      <button
+        mat-icon-button
+        data-testid="settings-btn"
+        matTooltip="Swing settings"
+        (click)="openSettings()"
+      >
+        <mat-icon>settings</mat-icon>
+      </button>
+      <button
+        mat-icon-button
+        (click)="ui.toggleFullscreen()"
+        [matTooltip]="ui.fullscreen() ? 'Exit fullscreen' : 'Fullscreen'"
+      >
+        <mat-icon>{{ ui.fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
+      </button>
+    </div>
   </header>
+
+  <!-- Symbol nav — prev/next through the tracked universe or a watchlist. -->
+  <app-symbol-nav />
 
   @if (loading()) {
     <div class="swing-analysis-loading" data-testid="loading-indicator" aria-live="polite">
@@ -127,136 +127,7 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
     </div>
   }
 
-  <div class="controls-row">
-    <section class="swing-analysis-controls">
-      <label class="control control-symbol">
-        <span class="control-label symbol-label">Symbol</span>
-        <input
-          data-testid="symbol-input"
-          class="symbol-input"
-          type="text"
-          [value]="symbol()"
-          (input)="onSymbol($event)"
-          placeholder="AAPL"
-        />
-      </label>
-
-      <label class="control control-checkbox">
-        <input
-          data-testid="dual-mode-toggle"
-          type="checkbox"
-          [checked]="dualMode()"
-          (change)="onToggleDualMode($event)"
-        />
-        <span class="control-label">Dual Mode</span>
-      </label>
-    </section>
-
-    <section class="config-sections">
-    @for (cfg of configs(); track $index; let i = $index) {
-      <details
-        class="config-section"
-        [attr.data-testid]="'config-section-' + i"
-        open
-      >
-        <summary class="config-section-header">
-          <span class="config-section-label">{{ configLabel(i) }}</span>
-          <span
-            class="config-section-swatch"
-            [style.background-color]="cfg.lineColor"
-            aria-hidden="true"
-          ></span>
-        </summary>
-
-        <div class="config-controls">
-          <label class="control">
-            <span class="control-label">Dev Threshold</span>
-            <input
-              [attr.data-testid]="'param-devThreshold-' + i"
-              type="number"
-              [attr.min]="numericBounds('devThreshold').min"
-              [attr.max]="numericBounds('devThreshold').max"
-              step="0.1"
-              [value]="cfg.devThreshold"
-              (change)="onNumberParam(i, 'devThreshold', $event)"
-            />
-          </label>
-
-          <label class="control">
-            <span class="control-label">Left Depth</span>
-            <input
-              [attr.data-testid]="'param-leftDepth-' + i"
-              type="number"
-              [attr.min]="numericBounds('leftDepth').min"
-              [attr.max]="numericBounds('leftDepth').max"
-              step="1"
-              [value]="cfg.leftDepth"
-              (change)="onNumberParam(i, 'leftDepth', $event)"
-            />
-          </label>
-
-          <label class="control">
-            <span class="control-label">Right Depth</span>
-            <input
-              [attr.data-testid]="'param-rightDepth-' + i"
-              type="number"
-              [attr.min]="numericBounds('rightDepth').min"
-              [attr.max]="numericBounds('rightDepth').max"
-              step="1"
-              [value]="cfg.rightDepth"
-              (change)="onNumberParam(i, 'rightDepth', $event)"
-            />
-          </label>
-
-          <label class="control">
-            <span class="control-label">Line Color</span>
-            <input
-              [attr.data-testid]="'param-lineColor-' + i"
-              type="color"
-              [value]="cfg.lineColor"
-              (input)="onColorParam(i, 'lineColor', $event)"
-            />
-          </label>
-
-          <label class="control control-checkbox">
-            <input
-              [attr.data-testid]="'param-allowZigZagOnOneBar-' + i"
-              type="checkbox"
-              [checked]="cfg.allowZigZagOnOneBar"
-              (change)="onBoolParam(i, 'allowZigZagOnOneBar', $event)"
-            />
-            <span class="control-label">Allow ZigZag on One Bar</span>
-          </label>
-
-          <label class="control control-checkbox">
-            <input
-              [attr.data-testid]="'param-showTriggerDots-' + i"
-              type="checkbox"
-              [checked]="cfg.showTriggerDots !== false"
-              (change)="onBoolParam(i, 'showTriggerDots', $event)"
-            />
-            <span class="control-label">Trigger Dots</span>
-          </label>
-
-          <button
-            [attr.data-testid]="'save-analysis-btn-' + i"
-            mat-raised-button
-            color="primary"
-            [disabled]="!canSave(i)"
-            (click)="onSave(i)"
-          >
-            Save {{ configLabel(i) }}
-          </button>
-        </div>
-      </details>
-    }
-    </section>
-  </div>
-
-  <!-- Batch sweep — see BatchSweepComponent; orchestration is the store's. -->
-  <app-batch-sweep />
-
-  <!-- Saved-sets browser — lazy whole-collection load on first expand. -->
+  <!-- Saved-sets browser — symbol-first picker, N-slot load. -->
   <app-saved-sets />
 
   <section class="swing-analysis-chart">
@@ -309,6 +180,10 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
       margin: 0 0 4px;
       font-size: 1.5rem;
     }
+    .header-actions {
+      display: flex;
+      gap: 4px;
+    }
     .swing-analysis-header .subtitle {
       margin: 0 0 16px;
       color: #666;
@@ -328,119 +203,6 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
       border-radius: 4px;
       margin-bottom: 12px;
     }
-    /* Symbol + dual-mode on the left, config cards stretched to the right —
-       all on one line above the chart. */
-    .controls-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 16px;
-      align-items: center;
-      border-bottom: 1px solid #eee;
-      padding-bottom: 12px;
-      margin-bottom: 16px;
-    }
-    .swing-analysis-controls {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      align-items: flex-start;
-      padding: 12px 0;
-      flex-shrink: 0;
-    }
-    /* Symbol control — the page's primary input, styled prominent. */
-    .control-symbol .symbol-label {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: #333;
-    }
-    .control-symbol .symbol-input {
-      font-size: 1.15rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      padding: 6px 10px;
-      width: 140px;
-    }
-    .config-sections {
-      display: flex;
-      flex-direction: row;
-      flex-wrap: wrap;
-      gap: 8px;
-      flex: 1;
-      justify-content: flex-end;
-    }
-    .config-section {
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      overflow: hidden;
-      flex: 1 1 420px;
-    }
-    .config-section-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      background: #f5f5f5;
-      cursor: pointer;
-      user-select: none;
-    }
-    .config-section-label {
-      font-size: 0.85rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-    .config-section-swatch {
-      width: 16px;
-      height: 16px;
-      border-radius: 2px;
-      border: 1px solid #999;
-    }
-    .visibility-toggle {
-      margin-left: auto;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      cursor: pointer;
-    }
-    .config-controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      align-items: flex-end;
-      padding: 12px;
-    }
-    .control {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .control-checkbox {
-      flex-direction: row;
-      align-items: center;
-      gap: 6px;
-    }
-    .control-label {
-      font-size: 0.75rem;
-      color: #666;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-    .control input[type="text"],
-    .control input[type="number"] {
-      padding: 4px 8px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      width: 100px;
-    }
-    .control input[type="color"] {
-      padding: 0;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      width: 40px;
-      height: 28px;
-      cursor: pointer;
-    }
     .swing-analysis-chart {
       margin-bottom: 16px;
     }
@@ -455,6 +217,7 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
 export class SwingAnalysisPageComponent implements OnDestroy {
   readonly store = inject(SwingAnalysisStore);
   readonly ui = inject(UiStateService);
+  private readonly dialog = inject(MatDialog);
 
   /** Reflects global fullscreen state on the host so CSS can claim the
    *  full viewport height when the app header is hidden. */
@@ -517,78 +280,19 @@ export class SwingAnalysisPageComponent implements OnDestroy {
     this.store.resetState();
     this.store.setSymbol(DEFAULT_SYMBOL);
     this.ui.setFullscreen(true);
+    // Tracked-symbols universe — feeds the nav sequence and the saved-sets
+    // symbol picker. Guarded no-op once loaded.
+    this.store.loadTrackedSymbols();
   }
 
-  /** Pending lineColor update awaiting the debounce window. */
-  private pendingColor: { index: number; value: string } | null = null;
-  /** Handle for the active debounce timer; null when no update is in flight. */
-  private colorDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Open the settings dialog — symbol, dual-mode, N config sections,
+   *  and the batch sweep live there now (seeded sets made them secondary). */
+  openSettings(): void {
+    this.dialog.open(SwingSettingsDialogComponent, { width: '720px' });
+  }
 
   /** Restore the app header when leaving the page. */
   ngOnDestroy(): void {
-    if (this.colorDebounceTimer !== null) clearTimeout(this.colorDebounceTimer);
     this.ui.setFullscreen(false);
-  }
-
-  /** Label for a config section — "Large Swings" or "Small Swings". */
-  configLabel(index: number): string {
-    return CONFIG_LABELS[index] ?? `Config ${index}`;
-  }
-
-  /** Numeric bounds for a param — single source of truth for template and handler. */
-  numericBounds(key: NumericParam): { min: number; max: number } {
-    return NUMERIC_BOUNDS[key];
-  }
-
-  /** Save is enabled for a config when a symbol is set and stats exist. */
-  canSave(index: number): boolean {
-    return this.symbol().length > 0 && this.store.stats()[index] != null && !this.loading();
-  }
-
-  onSymbol(event: Event): void {
-    const value = (event.target as HTMLInputElement).value;
-    this.store.setSymbol(value);
-  }
-
-  onToggleDualMode(event: Event): void {
-    const checked = (event.target as HTMLInputElement).checked;
-    if (checked !== this.store.dualMode()) {
-      this.store.toggleDualMode();
-    }
-  }
-
-  onNumberParam(index: number, key: NumericParam, event: Event): void {
-    const raw = (event.target as HTMLInputElement).value;
-    if (raw === '') return;
-    const value = Number(raw);
-    if (!Number.isFinite(value)) return;
-    const bounds = NUMERIC_BOUNDS[key];
-    const clamped = Math.min(bounds.max, Math.max(bounds.min, value));
-    this.store.updateConfig(index, { [key]: clamped });
-  }
-
-  onBoolParam(index: number, key: BoolParam, event: Event): void {
-    const checked = (event.target as HTMLInputElement).checked;
-    this.store.updateConfig(index, { [key]: checked });
-  }
-
-  /** Debounce the native color picker — it fires `input` continuously while
-   *  dragging, and each event triggers a full pivots/swings/stats recompute
-   *  in updateConfig. Hold the latest value for 300 ms (same window as the
-   *  indicator-menu debounce) and apply once. */
-  onColorParam(index: number, key: 'lineColor', event: Event): void {
-    const value = (event.target as HTMLInputElement).value;
-    this.pendingColor = { index, value };
-    if (this.colorDebounceTimer !== null) clearTimeout(this.colorDebounceTimer);
-    this.colorDebounceTimer = setTimeout(() => {
-      this.colorDebounceTimer = null;
-      const pending = this.pendingColor;
-      this.pendingColor = null;
-      if (pending) this.store.updateConfig(pending.index, { [key]: pending.value });
-    }, 300);
-  }
-
-  onSave(index: number): void {
-    this.store.saveAnalysis(index);
   }
 }

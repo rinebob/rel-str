@@ -21,8 +21,15 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { computed } from '@angular/core';
 
 import { ChartService } from '../services/chart.service';
+import { RelStrDbV2Service } from '../../services/rel-str-db-v2.service';
+import { SymbolListStore } from '../stores/symbol-list.store';
 import { SwingAnalysisService } from './swing-analysis.service';
 import { buildBatchSweep, parseSymbols } from './swing-batch';
+import {
+  symbolNavComputedBlock,
+  symbolNavMethods,
+  type NavFilter,
+} from './symbol-nav.feature';
 import { deriveParamsId } from './swing-analysis.types';
 import type { SwingAnalysisDoc, SwingAnalysisInput } from './swing-analysis.types';
 import {
@@ -42,24 +49,27 @@ import type {
 // Defaults — large (primary) and small (secondary) ZigZag configs
 // =============================================================================
 
-/** Primary config — identifies larger swings. */
+/** Primary config — identifies larger swings. Matches the seeded 10/10/10
+ *  swing set so the default view lines up with saved analyses. */
 export const LARGE_CONFIG: ZigZagConfig = {
-  devThreshold: 5,
-  leftDepth: 5,
-  rightDepth: 5,
+  devThreshold: 10,
+  leftDepth: 10,
+  rightDepth: 10,
   allowZigZagOnOneBar: true,
   projectionPivots: true,
   lineColor: '#1976d2',
 };
 
-/** Secondary config — identifies smaller swings. Only used in dual mode. */
+/** Secondary config — identifies smaller swings. Only used in dual mode.
+ *  Matches the seeded 3/3/3 swing set. */
 export const SMALL_CONFIG: ZigZagConfig = {
-  devThreshold: 2,
-  leftDepth: 2,
-  rightDepth: 2,
+  devThreshold: 3,
+  leftDepth: 3,
+  rightDepth: 3,
   allowZigZagOnOneBar: true,
   projectionPivots: true,
   lineColor: '#000000',
+  showTriggerDots: false,
 };
 
 // =============================================================================
@@ -93,6 +103,10 @@ export interface SwingAnalysisState {
    *  deliberately NOT on page init). */
   savedSets: SwingAnalysisDoc[];
   savedSetsLoading: boolean;
+  /** Tracked-symbols universe for prev/next nav — sorted A–Z on load. */
+  trackedSymbols: string[];
+  /** Watchlist filter narrowing the nav sequence; 'ALL' = all tracked. */
+  navFilter: NavFilter;
 }
 
 const initialState: SwingAnalysisState = {
@@ -112,6 +126,8 @@ const initialState: SwingAnalysisState = {
   batchResults: [],
   savedSets: [],
   savedSetsLoading: false,
+  trackedSymbols: [],
+  navFilter: 'ALL',
 };
 
 // =============================================================================
@@ -660,17 +676,21 @@ export const SwingAnalysisStore = signalStore(
 
         /**
          * Populate `savedSets` — the saved-sets browser's source. Lazy:
-         * called when the panel expands, never on page init (it's a
-         * whole-collection read). The component only invokes it when
-         * savedSets is empty — so re-expand after a failure (or a
-         * genuinely empty collection) retries. In-flight re-entry ignored.
+         * called when the panel expands, never on page init. With a symbol
+         * it reads that symbol's docs only (small); without it falls back
+         * to the whole-collection read (slow — thousands of pivot/swings
+         * docs — avoid in the UI). Re-invocation for another symbol
+         * refetches; in-flight re-entry for the same call is ignored.
          */
-        loadSwingSets(): void {
+        loadSwingSets(symbol?: string): void {
           if (store.savedSetsLoading()) return;
           setsSub?.unsubscribe();
-          patchState(store, { savedSetsLoading: true });
-          setsSub = swingAnalysisService
-            .loadAllSwingSets()
+          patchState(store, { savedSets: [], savedSetsLoading: true });
+          const sym = String(symbol || '').trim().toUpperCase();
+          const src$ = sym
+            ? swingAnalysisService.loadSavedAnalyses(sym)
+            : swingAnalysisService.loadAllSwingSets();
+          setsSub = src$
             .pipe(takeUntilDestroyed(destroyRef))
             .subscribe({
               next: (docs) => {
@@ -710,7 +730,14 @@ export const SwingAnalysisStore = signalStore(
           );
           if (symbols.size !== 1) return; // same-symbol guard
           const sym = [...symbols][0];
-          const configs = docs.map((d) => ({ ...d.config }));
+          // Slot styling is positional, never from the doc: slot 0 renders
+          // as the large config (blue, trigger dots); slots 1+ render as
+          // small — black line, no trigger dots.
+          const configs = docs.map((d, i) => ({
+            ...d.config,
+            lineColor: i === 0 ? LARGE_CONFIG.lineColor : SMALL_CONFIG.lineColor,
+            showTriggerDots: i === 0 ? LARGE_CONFIG.showTriggerDots ?? true : false,
+          }));
 
           if (sym !== store.symbol()) {
             patchState(store, { configs, error: null });
@@ -732,5 +759,19 @@ export const SwingAnalysisStore = signalStore(
         },
       };
     },
+  ),
+
+  // Symbol navigation — see symbol-nav.feature.ts. Appended after the
+  // main blocks so `store` already carries setSymbol and the signals.
+  withComputed((store, symbolListStore = inject(SymbolListStore)) =>
+    symbolNavComputedBlock(store, symbolListStore),
+  ),
+
+  withMethods(
+    (
+      store,
+      relStrDbV2 = inject(RelStrDbV2Service),
+      destroyRef = inject(DestroyRef),
+    ) => symbolNavMethods(store, { relStrDbV2, destroyRef }),
   ),
 );

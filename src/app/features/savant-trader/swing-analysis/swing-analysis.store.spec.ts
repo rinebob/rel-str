@@ -19,12 +19,14 @@ jest.mock('@angular/fire/auth', () => ({
 }));
 
 import { TestBed } from '@angular/core/testing';
-import { provideZonelessChangeDetection } from '@angular/core';
+import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { of, Subject, throwError } from 'rxjs';
 
 import { SwingAnalysisStore, LARGE_CONFIG, SMALL_CONFIG } from './swing-analysis.store';
 import { ChartService } from '../services/chart.service';
 import { SwingAnalysisService } from './swing-analysis.service';
+import { RelStrDbV2Service } from '../../services/rel-str-db-v2.service';
+import { SymbolListStore } from '../stores/symbol-list.store';
 import { deriveParamsId } from './swing-analysis.types';
 import { BarsInterval } from '../../../core/models/partner.types';
 import type { ChartDataset } from '../../heatmap-chart/heatmap-chart.types';
@@ -168,6 +170,8 @@ function setupStore(
     providers: [
       provideZonelessChangeDetection(),
       { provide: ChartService, useValue: mockChartService(bars) },
+      { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of([])) } },
+      { provide: SymbolListStore, useValue: { symbolLists: signal<Record<string, string[]>>({}) } },
       { provide: SwingAnalysisService, useValue: service },
       SwingAnalysisStore,
     ],
@@ -235,6 +239,8 @@ describe('SwingAnalysisStore.setSymbol', () => {
       providers: [
         provideZonelessChangeDetection(),
         { provide: ChartService, useValue: chartMock },
+      { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of([])) } },
+      { provide: SymbolListStore, useValue: { symbolLists: signal<Record<string, string[]>>({}) } },
         { provide: SwingAnalysisService, useValue: mockSwingAnalysisService([]) },
         SwingAnalysisStore,
       ],
@@ -276,6 +282,8 @@ describe('SwingAnalysisStore.setSymbol', () => {
       providers: [
         provideZonelessChangeDetection(),
         { provide: ChartService, useValue: chartMock },
+      { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of([])) } },
+      { provide: SymbolListStore, useValue: { symbolLists: signal<Record<string, string[]>>({}) } },
         { provide: SwingAnalysisService, useValue: mockSwingAnalysisService([]) },
         SwingAnalysisStore,
       ],
@@ -488,6 +496,8 @@ describe('SwingAnalysisStore.saveAnalysis', () => {
       providers: [
         provideZonelessChangeDetection(),
         { provide: ChartService, useValue: chartMock },
+      { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of([])) } },
+      { provide: SymbolListStore, useValue: { symbolLists: signal<Record<string, string[]>>({}) } },
         { provide: SwingAnalysisService, useValue: service },
         SwingAnalysisStore,
       ],
@@ -612,6 +622,8 @@ describe('SwingAnalysisStore.loadAnalysis', () => {
       providers: [
         provideZonelessChangeDetection(),
         { provide: ChartService, useValue: { loadBars$: () => barsSubject.asObservable() } },
+        { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of([])) } },
+        { provide: SymbolListStore, useValue: { symbolLists: signal<Record<string, string[]>>({}) } },
         { provide: SwingAnalysisService, useValue: service },
         SwingAnalysisStore,
       ],
@@ -657,6 +669,8 @@ describe('SwingAnalysisStore.loadAnalysis', () => {
       providers: [
         provideZonelessChangeDetection(),
         { provide: ChartService, useValue: { loadBars$: () => barsSubject.asObservable() } },
+        { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of([])) } },
+        { provide: SymbolListStore, useValue: { symbolLists: signal<Record<string, string[]>>({}) } },
         { provide: SwingAnalysisService, useValue: service },
         SwingAnalysisStore,
       ],
@@ -709,6 +723,8 @@ describe('SwingAnalysisStore.loadAnalysis', () => {
       providers: [
         provideZonelessChangeDetection(),
         { provide: ChartService, useValue: { loadBars$: () => barsSubject.asObservable() } },
+        { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of([])) } },
+        { provide: SymbolListStore, useValue: { symbolLists: signal<Record<string, string[]>>({}) } },
         { provide: SwingAnalysisService, useValue: service },
         SwingAnalysisStore,
       ],
@@ -758,6 +774,8 @@ describe('SwingAnalysisStore.loadAnalysis', () => {
       providers: [
         provideZonelessChangeDetection(),
         { provide: ChartService, useValue: { loadBars$: () => barsSubject.asObservable() } },
+        { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of([])) } },
+        { provide: SymbolListStore, useValue: { symbolLists: signal<Record<string, string[]>>({}) } },
         { provide: SwingAnalysisService, useValue: service },
         SwingAnalysisStore,
       ],
@@ -857,6 +875,8 @@ describe('SwingAnalysisStore.runBatch', () => {
       providers: [
         provideZonelessChangeDetection(),
         { provide: ChartService, useValue: chart },
+        { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of([])) } },
+        { provide: SymbolListStore, useValue: { symbolLists: signal<Record<string, string[]>>({}) } },
         { provide: SwingAnalysisService, useValue: service },
         SwingAnalysisStore,
       ],
@@ -1059,6 +1079,8 @@ describe('SwingAnalysisStore.loadSwingSets', () => {
       providers: [
         provideZonelessChangeDetection(),
         { provide: ChartService, useValue: mockChartService(makeBars(40)) },
+        { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of([])) } },
+        { provide: SymbolListStore, useValue: { symbolLists: signal<Record<string, string[]>>({}) } },
         { provide: SwingAnalysisService, useValue: service },
         SwingAnalysisStore,
       ],
@@ -1072,6 +1094,28 @@ describe('SwingAnalysisStore.loadSwingSets', () => {
     expect(store.savedSetsLoading()).toBe(false);
   });
 
+  it('with a symbol uses the scoped loadSavedAnalyses query, not the collection sweep', () => {
+    const aapl = [makeSwingAnalysisDoc({ id: 'a1', symbol: 'AAPL' })];
+    const service = mockSwingAnalysisService(aapl, []);
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        { provide: ChartService, useValue: mockChartService(makeBars(40)) },
+        { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of([])) } },
+        { provide: SymbolListStore, useValue: { symbolLists: signal<Record<string, string[]>>({}) } },
+        { provide: SwingAnalysisService, useValue: service },
+        SwingAnalysisStore,
+      ],
+    });
+    const store = TestBed.inject(SwingAnalysisStore);
+
+    store.loadSwingSets('AAPL');
+
+    expect(service.loadSavedAnalyses).toHaveBeenCalledWith('AAPL');
+    expect(service.loadAllSwingSets).not.toHaveBeenCalled();
+    expect(store.savedSets()).toEqual(aapl);
+  });
+
   it('a service error sets error and clears loading', () => {
     const service = mockSwingAnalysisService();
     service.loadAllSwingSets.mockReturnValue(throwError(() => new Error('rules deny')));
@@ -1079,6 +1123,8 @@ describe('SwingAnalysisStore.loadSwingSets', () => {
       providers: [
         provideZonelessChangeDetection(),
         { provide: ChartService, useValue: mockChartService(makeBars(40)) },
+        { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of([])) } },
+        { provide: SymbolListStore, useValue: { symbolLists: signal<Record<string, string[]>>({}) } },
         { provide: SwingAnalysisService, useValue: service },
         SwingAnalysisStore,
       ],
@@ -1120,6 +1166,22 @@ describe('SwingAnalysisStore.loadSwingSetsIntoSlots', () => {
     expect(store.swings().length).toBe(3);
     expect(store.stats().length).toBe(3);
     expect(store.symbol()).toBe('AAPL');
+  });
+
+  it('slot styling is positional — doc lineColor/showTriggerDots are ignored', () => {
+    const { store } = setupStore();
+    store.setSymbol('AAPL');
+
+    store.loadSwingSetsIntoSlots([
+      makeSwingAnalysisDoc({ id: 's10', symbol: 'AAPL', config: { ...LARGE_CONFIG, devThreshold: 10, lineColor: '#ff0000', showTriggerDots: false } }),
+      makeSwingAnalysisDoc({ id: 's3', symbol: 'AAPL', config: { ...LARGE_CONFIG, devThreshold: 3, lineColor: '#00ff00', showTriggerDots: true } }),
+    ]);
+
+    // Slot 0 → large styling; slot 1 → small styling, regardless of the doc.
+    expect(store.configs()[0].lineColor).toBe(LARGE_CONFIG.lineColor);
+    expect(store.configs()[0].showTriggerDots).toBe(true);
+    expect(store.configs()[1].lineColor).toBe(SMALL_CONFIG.lineColor);
+    expect(store.configs()[1].showTriggerDots).toBe(false);
   });
 
   it('different symbol: runs the setSymbol flow — the N configs recompute on the new bars', () => {
@@ -1198,6 +1260,8 @@ describe('SwingAnalysisStore.loadSwingSetsIntoSlots', () => {
       providers: [
         provideZonelessChangeDetection(),
         { provide: ChartService, useValue: { loadBars$: () => barsSubject.asObservable() } },
+        { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of([])) } },
+        { provide: SymbolListStore, useValue: { symbolLists: signal<Record<string, string[]>>({}) } },
         { provide: SwingAnalysisService, useValue: service },
         SwingAnalysisStore,
       ],
@@ -1229,6 +1293,8 @@ describe('SwingAnalysisStore.loadSwingSetsIntoSlots', () => {
       providers: [
         provideZonelessChangeDetection(),
         { provide: ChartService, useValue: mockChartService(makeBars(40)) },
+        { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of([])) } },
+        { provide: SymbolListStore, useValue: { symbolLists: signal<Record<string, string[]>>({}) } },
         { provide: SwingAnalysisService, useValue: service },
         SwingAnalysisStore,
       ],

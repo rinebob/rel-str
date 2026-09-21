@@ -24,15 +24,18 @@ jest.mock('@angular/fire/auth', () => ({
   authState: jest.fn(() => of({ uid: 'user-123' })),
 }));
 
-import { Component, Input } from '@angular/core';
+import { Component, Input, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatDialog } from '@angular/material/dialog';
 import { By } from '@angular/platform-browser';
-import { of, Subject, Observable } from 'rxjs';
+import { of, Subject, Observable, throwError } from 'rxjs';
 
 import { SwingAnalysisPageComponent } from './swing-analysis-page.component';
 import { SwingAnalysisStore, LARGE_CONFIG, SMALL_CONFIG } from './swing-analysis.store';
 import { ChartService } from '../services/chart.service';
 import { SwingAnalysisService } from './swing-analysis.service';
+import { RelStrDbV2Service } from '../../services/rel-str-db-v2.service';
+import { SymbolListStore } from '../stores/symbol-list.store';
 import { StIndicator } from '../../shared/components/flex-chart/flex-chart.types';
 import { BarsInterval } from '../../../core/models/partner.types';
 import { UiStateService } from '../../../core/services/ui-state.service';
@@ -42,6 +45,8 @@ import { StatsPanelComponent } from './components/stats-panel.component';
 import type { PriceBar, Swing, SwingStats } from '../../shared/components/flex-chart/indicators/st-zigzag.engine';
 import type { ChartDataset } from '../../heatmap-chart/heatmap-chart.types';
 import type { SwingAnalysisDoc } from './swing-analysis.types';
+import { deriveParamsId } from './swing-analysis.types';
+import type { ZigZagConfig } from '../../shared/components/flex-chart/indicators/st-zigzag.types';
 
 // =============================================================================
 // Mock child components — capture inputs so the page test can assert wiring
@@ -152,16 +157,40 @@ interface PageSetup {
   fixture: ComponentFixture<SwingAnalysisPageComponent>;
 }
 
+/** The settings overlay — the dialog renders outside fixture.nativeElement.
+ *  Returns `any` deliberately: the pre-dialog queries went through
+ *  `nativeElement` (any) and cast at the call site — same contract. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function dlg(): any {
+  return document.querySelector('.cdk-overlay-container');
+}
+
+/** Open the settings dialog via the header gear button. */
+function openSettings(fixture: ComponentFixture<SwingAnalysisPageComponent>): void {
+  (fixture.nativeElement.querySelector('[data-testid="settings-btn"]') as HTMLButtonElement).click();
+  fixture.detectChanges();
+}
 async function setupPage(
   bars: PriceBar[] = makeBars(40),
   chart?: Partial<ChartService>,
   service: ReturnType<typeof mockSwingAnalysisService> = mockSwingAnalysisService([]),
+  navSymbols: string[] = [],
+  navLists: Record<string, string[]> = {},
 ): Promise<PageSetup> {
   TestBed.configureTestingModule({
     providers: [
       { provide: ChartService, useValue: chart ?? mockChartService(bars) },
-      // Symbol-nav deps ΓÇö the store injects these unconditionally; mocks
+      // Symbol-nav deps — the store injects these unconditionally; mocks
       // satisfy DI without driving any nav behavior in these tests.
+      { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of(navSymbols.map((s) => ({ symbol: s })))) } },
+      { provide: SymbolListStore, useValue: {
+        symbolLists: signal<Record<string, string[]>>(navLists),
+        activeListFilter: signal('ALL'),
+        loadSymbolLists: jest.fn(),
+        toggleSymbolInList: jest.fn(),
+        addSymbolToList: jest.fn(),
+        removeSymbolFromList: jest.fn(),
+      } },
       { provide: SwingAnalysisService, useValue: service },
       SwingAnalysisStore,
     ],
@@ -181,7 +210,10 @@ async function setupPage(
 // =============================================================================
 
 describe('SwingAnalysisPageComponent', () => {
-  afterEach(() => TestBed.resetTestingModule());
+  afterEach(() => {
+    try { TestBed.inject(MatDialog).closeAll(); } catch { /* TestBed already torn down */ }
+    TestBed.resetTestingModule();
+  });
 
   it('creates', async () => {
     const { fixture } = await setupPage();
@@ -215,7 +247,8 @@ describe('SwingAnalysisPageComponent', () => {
     store.setSymbol('AAPL');
     expect(store.symbol()).toBe('AAPL');
     fixture.detectChanges();
-    const input = fixture.nativeElement.querySelector('input[data-testid="symbol-input"]') as HTMLInputElement;
+    openSettings(fixture);
+    const input = dlg().querySelector('input[data-testid="symbol-input"]') as HTMLInputElement;
     expect(input).toBeTruthy();
     expect(input.value).toBe('AAPL');
   });
@@ -223,28 +256,31 @@ describe('SwingAnalysisPageComponent', () => {
   it('renders param controls for devThreshold, leftDepth, rightDepth, lineColor, allowZigZagOnOneBar', async () => {
     const { fixture } = await setupPage();
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('[data-testid="param-devThreshold-0"]')).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('[data-testid="param-leftDepth-0"]')).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('[data-testid="param-rightDepth-0"]')).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('[data-testid="param-lineColor-0"]')).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('[data-testid="param-allowZigZagOnOneBar-0"]')).toBeTruthy();
+    openSettings(fixture);
+    expect(dlg().querySelector('[data-testid="param-devThreshold-0"]')).toBeTruthy();
+    expect(dlg().querySelector('[data-testid="param-leftDepth-0"]')).toBeTruthy();
+    expect(dlg().querySelector('[data-testid="param-rightDepth-0"]')).toBeTruthy();
+    expect(dlg().querySelector('[data-testid="param-lineColor-0"]')).toBeTruthy();
+    expect(dlg().querySelector('[data-testid="param-allowZigZagOnOneBar-0"]')).toBeTruthy();
   });
 
   it('does not render a projectionPivots toggle', async () => {
     const { fixture } = await setupPage();
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('[data-testid="param-projectionPivots-0"]')).toBeNull();
-    expect(fixture.nativeElement.querySelector('[data-testid="param-projectionPivots-1"]')).toBeNull();
+    openSettings(fixture);
+    expect(dlg().querySelector('[data-testid="param-projectionPivots-0"]')).toBeNull();
+    expect(dlg().querySelector('[data-testid="param-projectionPivots-1"]')).toBeNull();
   });
 
   it('reflects default config values in param controls', async () => {
     const { fixture } = await setupPage();
     fixture.detectChanges();
-    const dev = fixture.nativeElement.querySelector('[data-testid="param-devThreshold-0"]') as HTMLInputElement;
-    const left = fixture.nativeElement.querySelector('[data-testid="param-leftDepth-0"]') as HTMLInputElement;
-    const right = fixture.nativeElement.querySelector('[data-testid="param-rightDepth-0"]') as HTMLInputElement;
-    const color = fixture.nativeElement.querySelector('[data-testid="param-lineColor-0"]') as HTMLInputElement;
-    const oneBar = fixture.nativeElement.querySelector('[data-testid="param-allowZigZagOnOneBar-0"]') as HTMLInputElement;
+    openSettings(fixture);
+    const dev = dlg().querySelector('[data-testid="param-devThreshold-0"]') as HTMLInputElement;
+    const left = dlg().querySelector('[data-testid="param-leftDepth-0"]') as HTMLInputElement;
+    const right = dlg().querySelector('[data-testid="param-rightDepth-0"]') as HTMLInputElement;
+    const color = dlg().querySelector('[data-testid="param-lineColor-0"]') as HTMLInputElement;
+    const oneBar = dlg().querySelector('[data-testid="param-allowZigZagOnOneBar-0"]') as HTMLInputElement;
     expect(Number(dev.value)).toBe(LARGE_CONFIG.devThreshold);
     expect(Number(left.value)).toBe(LARGE_CONFIG.leftDepth);
     expect(Number(right.value)).toBe(LARGE_CONFIG.rightDepth);
@@ -255,7 +291,8 @@ describe('SwingAnalysisPageComponent', () => {
   it('calls store.setSymbol when symbol input changes', async () => {
     const { fixture, store } = await setupPage();
     fixture.detectChanges();
-    const input = fixture.nativeElement.querySelector('[data-testid="symbol-input"]') as HTMLInputElement;
+    openSettings(fixture);
+    const input = dlg().querySelector('[data-testid="symbol-input"]') as HTMLInputElement;
     input.value = 'MSFT';
     input.dispatchEvent(new Event('input'));
     expect(store.symbol()).toBe('MSFT');
@@ -264,7 +301,8 @@ describe('SwingAnalysisPageComponent', () => {
   it('calls store.updateConfig when a numeric param changes', async () => {
     const { fixture, store } = await setupPage();
     fixture.detectChanges();
-    const dev = fixture.nativeElement.querySelector('[data-testid="param-devThreshold-0"]') as HTMLInputElement;
+    openSettings(fixture);
+    const dev = dlg().querySelector('[data-testid="param-devThreshold-0"]') as HTMLInputElement;
     dev.value = '7.5';
     dev.dispatchEvent(new Event('change'));
     expect(store.configs()[0].devThreshold).toBe(7.5);
@@ -273,7 +311,8 @@ describe('SwingAnalysisPageComponent', () => {
   it('clamps numeric param to minimum', async () => {
     const { fixture, store } = await setupPage();
     fixture.detectChanges();
-    const dev = fixture.nativeElement.querySelector('[data-testid="param-devThreshold-0"]') as HTMLInputElement;
+    openSettings(fixture);
+    const dev = dlg().querySelector('[data-testid="param-devThreshold-0"]') as HTMLInputElement;
     dev.value = '0.01';
     dev.dispatchEvent(new Event('change'));
     expect(store.configs()[0].devThreshold).toBe(0.1);
@@ -283,7 +322,8 @@ describe('SwingAnalysisPageComponent', () => {
     const { fixture, store } = await setupPage();
     fixture.detectChanges();
     const original = store.configs()[0].devThreshold;
-    const dev = fixture.nativeElement.querySelector('[data-testid="param-devThreshold-0"]') as HTMLInputElement;
+    openSettings(fixture);
+    const dev = dlg().querySelector('[data-testid="param-devThreshold-0"]') as HTMLInputElement;
     dev.value = '';
     dev.dispatchEvent(new Event('change'));
     expect(store.configs()[0].devThreshold).toBe(original);
@@ -292,7 +332,8 @@ describe('SwingAnalysisPageComponent', () => {
   it('calls store.updateConfig when a boolean param toggles', async () => {
     const { fixture, store } = await setupPage();
     fixture.detectChanges();
-    const oneBar = fixture.nativeElement.querySelector('[data-testid="param-allowZigZagOnOneBar-0"]') as HTMLInputElement;
+    openSettings(fixture);
+    const oneBar = dlg().querySelector('[data-testid="param-allowZigZagOnOneBar-0"]') as HTMLInputElement;
     oneBar.checked = false;
     oneBar.dispatchEvent(new Event('change'));
     expect(store.configs()[0].allowZigZagOnOneBar).toBe(false);
@@ -397,7 +438,8 @@ describe('SwingAnalysisPageComponent', () => {
   it('renders a Save Analysis button', async () => {
     const { fixture } = await setupPage();
     fixture.detectChanges();
-    const btn = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn-0"]');
+    openSettings(fixture);
+    const btn = dlg().querySelector('[data-testid="save-analysis-btn-0"]');
     expect(btn).toBeTruthy();
     expect(btn.textContent).toContain('Save');
   });
@@ -407,7 +449,8 @@ describe('SwingAnalysisPageComponent', () => {
     store.setSymbol('AAPL');
     fixture.detectChanges();
     const saveSpy = jest.spyOn(store, 'saveAnalysis');
-    const btn = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn-0"]');
+    openSettings(fixture);
+    const btn = dlg().querySelector('[data-testid="save-analysis-btn-0"]');
     btn.click();
     expect(saveSpy).toHaveBeenCalledWith(0);
   });
@@ -416,7 +459,8 @@ describe('SwingAnalysisPageComponent', () => {
     const { fixture, store, service } = await setupPage();
     store.setSymbol('AAPL');
     fixture.detectChanges();
-    const btn = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn-0"]');
+    openSettings(fixture);
+    const btn = dlg().querySelector('[data-testid="save-analysis-btn-0"]');
     btn.click();
     expect(service.saveAnalysis).toHaveBeenCalled();
   });
@@ -425,7 +469,8 @@ describe('SwingAnalysisPageComponent', () => {
     const { fixture, store } = await setupPage();
     store.resetState(); // clear the auto-loaded QQQ analysis
     fixture.detectChanges();
-    const btn = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn-0"]') as HTMLButtonElement;
+    openSettings(fixture);
+    const btn = dlg().querySelector('[data-testid="save-analysis-btn-0"]') as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
   });
 
@@ -433,7 +478,8 @@ describe('SwingAnalysisPageComponent', () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
     fixture.detectChanges();
-    const btn = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn-0"]') as HTMLButtonElement;
+    openSettings(fixture);
+    const btn = dlg().querySelector('[data-testid="save-analysis-btn-0"]') as HTMLButtonElement;
     expect(btn.disabled).toBe(false);
   });
 
@@ -472,7 +518,8 @@ describe('SwingAnalysisPageComponent', () => {
   it('renders a dual-mode toggle control', async () => {
     const { fixture } = await setupPage();
     fixture.detectChanges();
-    const toggle = fixture.nativeElement.querySelector('[data-testid="dual-mode-toggle"]');
+    openSettings(fixture);
+    const toggle = dlg().querySelector('[data-testid="dual-mode-toggle"]');
     expect(toggle).toBeTruthy();
   });
 
@@ -480,7 +527,8 @@ describe('SwingAnalysisPageComponent', () => {
     const { fixture, store } = await setupPage();
     store.toggleDualMode(); // dual is the default — turn off
     fixture.detectChanges();
-    const sections = fixture.nativeElement.querySelectorAll('.config-section');
+    openSettings(fixture);
+    const sections = dlg().querySelectorAll('.config-section');
     expect(sections.length).toBe(1);
   });
 
@@ -488,7 +536,8 @@ describe('SwingAnalysisPageComponent', () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
     fixture.detectChanges();
-    const sections = fixture.nativeElement.querySelectorAll('.config-section');
+    openSettings(fixture);
+    const sections = dlg().querySelectorAll('.config-section');
     expect(sections.length).toBe(2);
   });
 
@@ -496,7 +545,8 @@ describe('SwingAnalysisPageComponent', () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
     fixture.detectChanges();
-    const labels = fixture.nativeElement.querySelectorAll('.config-section-label');
+    openSettings(fixture);
+    const labels = dlg().querySelectorAll('.config-section-label');
     expect(labels[0].textContent.trim()).toBe('Large Swings');
     expect(labels[1].textContent.trim()).toBe('Small Swings');
   });
@@ -506,7 +556,8 @@ describe('SwingAnalysisPageComponent', () => {
     store.setSymbol('AAPL');
     fixture.detectChanges();
     const toggleSpy = jest.spyOn(store, 'toggleDualMode');
-    const toggle = fixture.nativeElement.querySelector('[data-testid="dual-mode-toggle"]') as HTMLInputElement;
+    openSettings(fixture);
+    const toggle = dlg().querySelector('[data-testid="dual-mode-toggle"]') as HTMLInputElement;
     // Dual is the default — unchecking differs from dualMode() so the
     // handler's guard passes and toggleDualMode is invoked.
     toggle.checked = false;
@@ -556,7 +607,8 @@ describe('SwingAnalysisPageComponent', () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
     fixture.detectChanges();
-    const dev = fixture.nativeElement.querySelector('[data-testid="param-devThreshold-1"]') as HTMLInputElement;
+    openSettings(fixture);
+    const dev = dlg().querySelector('[data-testid="param-devThreshold-1"]') as HTMLInputElement;
     dev.value = '7.5';
     dev.dispatchEvent(new Event('change'));
     expect(store.configs()[1].devThreshold).toBe(7.5);
@@ -570,7 +622,8 @@ describe('SwingAnalysisPageComponent', () => {
     jest.useFakeTimers();
     try {
       const updateSpy = jest.spyOn(store, 'updateConfig');
-      const color = fixture.nativeElement.querySelector('[data-testid="param-lineColor-1"]') as HTMLInputElement;
+      openSettings(fixture);
+      const color = dlg().querySelector('[data-testid="param-lineColor-1"]') as HTMLInputElement;
       color.value = '#ff0000';
       color.dispatchEvent(new Event('input'));
       // The update is held until the debounce window closes.
@@ -589,7 +642,8 @@ describe('SwingAnalysisPageComponent', () => {
     jest.useFakeTimers();
     try {
       const updateSpy = jest.spyOn(store, 'updateConfig');
-      const color = fixture.nativeElement.querySelector('[data-testid="param-lineColor-1"]') as HTMLInputElement;
+      openSettings(fixture);
+      const color = dlg().querySelector('[data-testid="param-lineColor-1"]') as HTMLInputElement;
       color.value = '#ff0000';
       color.dispatchEvent(new Event('input'));
       jest.advanceTimersByTime(100);
@@ -611,7 +665,8 @@ describe('SwingAnalysisPageComponent', () => {
     store.setSymbol('AAPL');
     fixture.detectChanges();
     const saveSpy = jest.spyOn(store, 'saveAnalysis');
-    const btn = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn-1"]');
+    openSettings(fixture);
+    const btn = dlg().querySelector('[data-testid="save-analysis-btn-1"]');
     btn.click();
     expect(saveSpy).toHaveBeenCalledWith(1);
   });
@@ -620,8 +675,9 @@ describe('SwingAnalysisPageComponent', () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
     fixture.detectChanges();
-    const btn0 = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn-0"]') as HTMLButtonElement;
-    const btn1 = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn-1"]') as HTMLButtonElement;
+    openSettings(fixture);
+    const btn0 = dlg().querySelector('[data-testid="save-analysis-btn-0"]') as HTMLButtonElement;
+    const btn1 = dlg().querySelector('[data-testid="save-analysis-btn-1"]') as HTMLButtonElement;
     expect(btn0.disabled).toBe(false);
     expect(btn1.disabled).toBe(false);
   });
@@ -630,11 +686,12 @@ describe('SwingAnalysisPageComponent', () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelectorAll('.config-section').length).toBe(2);
+    openSettings(fixture);
+    expect(dlg().querySelectorAll('.config-section').length).toBe(2);
 
     store.toggleDualMode(); // dual is the default — this turns it off
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelectorAll('.config-section').length).toBe(1);
+    expect(dlg().querySelectorAll('.config-section').length).toBe(1);
     const chartComp = fixture.debugElement.query((el: any) => el.nativeElement.classList?.contains('mock-flex-chart'));
     expect(chartComp.componentInstance.config.indicators.length).toBe(1);
   });
@@ -643,7 +700,8 @@ describe('SwingAnalysisPageComponent', () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
     fixture.detectChanges();
-    const sections = fixture.nativeElement.querySelectorAll('details.config-section');
+    openSettings(fixture);
+    const sections = dlg().querySelectorAll('details.config-section');
     expect(sections.length).toBe(2);
     sections.forEach((section: HTMLDetailsElement) => {
       expect(section.tagName).toBe('DETAILS');
@@ -656,18 +714,21 @@ describe('SwingAnalysisPageComponent', () => {
   it('renders a Trigger Dots checkbox per config section', async () => {
     const { fixture } = await setupPage();
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('[data-testid="param-showTriggerDots-0"]')).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('[data-testid="param-showTriggerDots-1"]')).toBeTruthy();
+    openSettings(fixture);
+    expect(dlg().querySelector('[data-testid="param-showTriggerDots-0"]')).toBeTruthy();
+    expect(dlg().querySelector('[data-testid="param-showTriggerDots-1"]')).toBeTruthy();
   });
 
   it('calls updateConfig when the Trigger Dots checkbox toggles', async () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
     fixture.detectChanges();
-    const cb = fixture.nativeElement.querySelector('[data-testid="param-showTriggerDots-1"]') as HTMLInputElement;
-    cb.checked = false;
+    openSettings(fixture);
+    // SMALL_CONFIG defaults showTriggerDots=false — toggling sets true.
+    const cb = dlg().querySelector('[data-testid="param-showTriggerDots-1"]') as HTMLInputElement;
+    cb.checked = true;
     cb.dispatchEvent(new Event('change'));
-    expect(store.configs()[1].showTriggerDots).toBe(false);
+    expect(store.configs()[1].showTriggerDots).toBe(true);
     // Other config untouched.
     expect(store.configs()[0].showTriggerDots).toBeUndefined();
   });
@@ -687,10 +748,11 @@ describe('SwingAnalysisPageComponent', () => {
     const { fixture, store } = await setupPage();
     store.resetState(); // clear the auto-loaded QQQ analysis
     fixture.detectChanges();
-    const btn0 = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn-0"]') as HTMLButtonElement;
+    openSettings(fixture);
+    const btn0 = dlg().querySelector('[data-testid="save-analysis-btn-0"]') as HTMLButtonElement;
     expect(btn0.disabled).toBe(true);
     // Dual is the default — config 1's button already exists after reset.
-    const btn1 = fixture.nativeElement.querySelector('[data-testid="save-analysis-btn-1"]') as HTMLButtonElement;
+    const btn1 = dlg().querySelector('[data-testid="save-analysis-btn-1"]') as HTMLButtonElement;
     expect(btn1.disabled).toBe(true);
   });
 });
@@ -708,19 +770,21 @@ describe('SwingAnalysisPageComponent — batch sweep UI', () => {
   it('renders a collapsed batch section with textarea and disabled Run button', async () => {
     const { fixture } = await setupPage();
     fixture.detectChanges();
-    const section = fixture.nativeElement.querySelector('[data-testid="batch-section"]') as HTMLDetailsElement;
+    openSettings(fixture);
+    const section = dlg().querySelector('[data-testid="batch-section"]') as HTMLDetailsElement;
     expect(section).toBeTruthy();
     expect(section.open).toBe(false);
-    expect(fixture.nativeElement.querySelector('[data-testid="batch-symbols"]')).toBeTruthy();
-    const runBtn = fixture.nativeElement.querySelector('[data-testid="run-batch-btn"]') as HTMLButtonElement;
+    expect(dlg().querySelector('[data-testid="batch-symbols"]')).toBeTruthy();
+    const runBtn = dlg().querySelector('[data-testid="run-batch-btn"]') as HTMLButtonElement;
     expect(runBtn.disabled).toBe(true);
   });
 
   it('enables Run only when the textarea has non-whitespace text', async () => {
     const { fixture } = await setupPage();
     fixture.detectChanges();
-    const ta = fixture.nativeElement.querySelector('[data-testid="batch-symbols"]') as HTMLTextAreaElement;
-    const runBtn = fixture.nativeElement.querySelector('[data-testid="run-batch-btn"]') as HTMLButtonElement;
+    openSettings(fixture);
+    const ta = dlg().querySelector('[data-testid="batch-symbols"]') as HTMLTextAreaElement;
+    const runBtn = dlg().querySelector('[data-testid="run-batch-btn"]') as HTMLButtonElement;
     ta.value = '   ';
     ta.dispatchEvent(new Event('input'));
     fixture.detectChanges();
@@ -741,44 +805,47 @@ describe('SwingAnalysisPageComponent — batch sweep UI', () => {
     const { fixture, store } = await setupPage();
     const spy = jest.spyOn(store, 'runBatch');
     fixture.detectChanges();
-    const ta = fixture.nativeElement.querySelector('[data-testid="batch-symbols"]') as HTMLTextAreaElement;
+    openSettings(fixture);
+    const ta = dlg().querySelector('[data-testid="batch-symbols"]') as HTMLTextAreaElement;
     ta.value = 'aapl, msft';
     ta.dispatchEvent(new Event('input'));
     fixture.detectChanges();
-    (fixture.nativeElement.querySelector('[data-testid="run-batch-btn"]') as HTMLButtonElement).click();
+    (dlg().querySelector('[data-testid="run-batch-btn"]') as HTMLButtonElement).click();
     expect(spy).toHaveBeenCalledWith('aapl, msft');
   });
 
   it('shows progress and a Cancel button while a batch is running; Run disabled', async () => {
     const { fixture } = await setupPage(makeBars(40), pendingChart());
     fixture.detectChanges();
-    const ta = fixture.nativeElement.querySelector('[data-testid="batch-symbols"]') as HTMLTextAreaElement;
+    openSettings(fixture);
+    const ta = dlg().querySelector('[data-testid="batch-symbols"]') as HTMLTextAreaElement;
     ta.value = 'AAPL, MSFT';
     ta.dispatchEvent(new Event('input'));
     fixture.detectChanges();
-    (fixture.nativeElement.querySelector('[data-testid="run-batch-btn"]') as HTMLButtonElement).click();
+    (dlg().querySelector('[data-testid="run-batch-btn"]') as HTMLButtonElement).click();
     fixture.detectChanges();
-    const progress = fixture.nativeElement.querySelector('[data-testid="batch-progress"]') as HTMLElement;
+    const progress = dlg().querySelector('[data-testid="batch-progress"]') as HTMLElement;
     expect(progress.textContent).toContain('0/2');
     expect(progress.textContent).toContain('AAPL');
-    expect((fixture.nativeElement.querySelector('[data-testid="run-batch-btn"]') as HTMLButtonElement).disabled).toBe(true);
-    expect(fixture.nativeElement.querySelector('[data-testid="cancel-batch-btn"]')).toBeTruthy();
+    expect((dlg().querySelector('[data-testid="run-batch-btn"]') as HTMLButtonElement).disabled).toBe(true);
+    expect(dlg().querySelector('[data-testid="cancel-batch-btn"]')).toBeTruthy();
   });
 
   it('Cancel calls store.cancelBatch and re-enables Run', async () => {
     const { fixture, store } = await setupPage(makeBars(40), pendingChart());
     const spy = jest.spyOn(store, 'cancelBatch');
     fixture.detectChanges();
-    const ta = fixture.nativeElement.querySelector('[data-testid="batch-symbols"]') as HTMLTextAreaElement;
+    openSettings(fixture);
+    const ta = dlg().querySelector('[data-testid="batch-symbols"]') as HTMLTextAreaElement;
     ta.value = 'AAPL';
     ta.dispatchEvent(new Event('input'));
     fixture.detectChanges();
-    (fixture.nativeElement.querySelector('[data-testid="run-batch-btn"]') as HTMLButtonElement).click();
+    (dlg().querySelector('[data-testid="run-batch-btn"]') as HTMLButtonElement).click();
     fixture.detectChanges();
-    (fixture.nativeElement.querySelector('[data-testid="cancel-batch-btn"]') as HTMLButtonElement).click();
+    (dlg().querySelector('[data-testid="cancel-batch-btn"]') as HTMLButtonElement).click();
     fixture.detectChanges();
     expect(spy).toHaveBeenCalled();
-    expect((fixture.nativeElement.querySelector('[data-testid="run-batch-btn"]') as HTMLButtonElement).disabled).toBe(false);
+    expect((dlg().querySelector('[data-testid="run-batch-btn"]') as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('renders per-symbol results with ok/fail markers after a run', async () => {
@@ -793,13 +860,14 @@ describe('SwingAnalysisPageComponent — batch sweep UI', () => {
     };
     const { fixture } = await setupPage(makeBars(40), chart);
     fixture.detectChanges();
-    const ta = fixture.nativeElement.querySelector('[data-testid="batch-symbols"]') as HTMLTextAreaElement;
+    openSettings(fixture);
+    const ta = dlg().querySelector('[data-testid="batch-symbols"]') as HTMLTextAreaElement;
     ta.value = 'AAPL, EMPTY';
     ta.dispatchEvent(new Event('input'));
     fixture.detectChanges();
-    (fixture.nativeElement.querySelector('[data-testid="run-batch-btn"]') as HTMLButtonElement).click();
+    (dlg().querySelector('[data-testid="run-batch-btn"]') as HTMLButtonElement).click();
     fixture.detectChanges();
-    const rows = fixture.nativeElement.querySelectorAll('[data-testid="batch-results"] li');
+    const rows = dlg().querySelectorAll('[data-testid="batch-results"] li');
     expect(rows.length).toBe(2);
     expect(rows[0].textContent).toContain('AAPL');
     expect(rows[0].classList.contains('ok')).toBe(true);
@@ -822,25 +890,35 @@ function makeStats(): SwingStats {
   return { up: side(), down: side() };
 }
 
-function makeSetDoc(id: string, symbol: string, dev: number, savedAt: string): SwingAnalysisDoc {
+function makeSetDoc(id: string, symbol: string, config: ZigZagConfig, savedAt: string): SwingAnalysisDoc {
   return {
-    id, userId: 'u', symbol, paramsId: `dev${dev}_L5_R5`,
-    config: { ...LARGE_CONFIG, devThreshold: dev },
+    id, userId: 'u', symbol, paramsId: deriveParamsId(config),
+    config,
     pivots: [], projection: null, swings: [], stats: makeStats(), savedAt,
   };
 }
 
 describe('SwingAnalysisPageComponent — saved-sets browser', () => {
+  // The page opens on QQQ — the panel fetches the current symbol's sets.
   const sets = () => [
-    makeSetDoc('AAPL_dev10', 'AAPL', 10, '2026-09-20T10:00:00Z'),
-    makeSetDoc('AAPL_dev3', 'AAPL', 3, '2026-09-21T10:00:00Z'),
-    makeSetDoc('MSFT_dev5', 'MSFT', 5, '2026-09-19T10:00:00Z'),
-    makeSetDoc('AAPL_dev2', 'AAPL', 2, '2026-09-18T10:00:00Z'),
+    // dev10 + dev3 match the live default slots (LARGE_CONFIG/SMALL_CONFIG)
+    // → their rows render checked when the panel opens.
+    makeSetDoc('QQQ_dev10', 'QQQ', { ...LARGE_CONFIG }, '2026-09-20T10:00:00Z'),
+    makeSetDoc('QQQ_dev3', 'QQQ', { ...SMALL_CONFIG }, '2026-09-21T10:00:00Z'),
+    makeSetDoc('QQQ_dev2', 'QQQ', { ...SMALL_CONFIG, devThreshold: 2, leftDepth: 2, rightDepth: 2 }, '2026-09-18T10:00:00Z'),
+    makeSetDoc('MSFT_dev5', 'MSFT', { ...LARGE_CONFIG, devThreshold: 5, leftDepth: 5, rightDepth: 5 }, '2026-09-19T10:00:00Z'),
   ];
 
   async function setupWithSets() {
-    const service = mockSwingAnalysisService([], sets());
-    const { fixture, store } = await setupPage(makeBars(40), undefined, service);
+    const allSets = sets();
+    const service = mockSwingAnalysisService([], allSets);
+    // Symbol-scoped fetch — mirror the real query's where(symbol==).
+    service.loadSavedAnalyses.mockImplementation((sym: string) =>
+      of(allSets.filter((d) => d.symbol === sym)),
+    );
+    const { fixture, store } = await setupPage(
+      makeBars(40), undefined, service, ['QQQ', 'MSFT', 'AAPL'],
+    );
     return { fixture, store, service };
   }
 
@@ -851,13 +929,15 @@ describe('SwingAnalysisPageComponent — saved-sets browser', () => {
     fixture.detectChanges();
   }
 
-  it('lazy-loads saved sets on first expand only', async () => {
+  it('lazy-loads the current symbol\'s sets on first expand only — never the whole collection', async () => {
     const { fixture, service } = await setupWithSets();
+    expect(service.loadSavedAnalyses).not.toHaveBeenCalled();
     expect(service.loadAllSwingSets).not.toHaveBeenCalled();
 
     expandPanel(fixture);
-    expect(service.loadAllSwingSets).toHaveBeenCalledTimes(1);
-    expect(fixture.nativeElement.querySelectorAll('[data-testid="saved-set-row"]').length).toBe(4);
+    expect(service.loadSavedAnalyses).toHaveBeenCalledWith('QQQ');
+    expect(service.loadAllSwingSets).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelectorAll('[data-testid="saved-set-row"]').length).toBe(3);
 
     // Second expand does not refetch.
     const details = fixture.nativeElement.querySelector('[data-testid="saved-sets-section"]') as HTMLDetailsElement;
@@ -867,43 +947,64 @@ describe('SwingAnalysisPageComponent — saved-sets browser', () => {
     details.open = true;
     details.dispatchEvent(new Event('toggle'));
     fixture.detectChanges();
-    expect(service.loadAllSwingSets).toHaveBeenCalledTimes(1);
+    expect(service.loadSavedAnalyses).toHaveBeenCalledTimes(1);
   });
 
-  it('symbol filter narrows the doc list; newest savedAt first', async () => {
-    const { fixture } = await setupWithSets();
+  it('switching the symbol picker refetches that symbol\'s sets, newest-first', async () => {
+    const { fixture, service } = await setupWithSets();
     expandPanel(fixture);
 
-    const select = fixture.nativeElement.querySelector('[data-testid="saved-sets-filter"]') as HTMLSelectElement;
-    select.value = 'AAPL';
+    const select = fixture.nativeElement.querySelector('[data-testid="saved-sets-symbol"]') as HTMLSelectElement;
+    select.value = 'MSFT';
     select.dispatchEvent(new Event('change'));
     fixture.detectChanges();
+
+    expect(service.loadSavedAnalyses).toHaveBeenCalledWith('MSFT');
+    const rows = fixture.nativeElement.querySelectorAll('[data-testid="saved-set-row"]');
+    expect(rows.length).toBe(1);
+    expect(rows[0].textContent).toContain('dev5_L5_R5');
+  });
+
+  it('doc rows sort newest savedAt first', async () => {
+    const { fixture } = await setupWithSets();
+    expandPanel(fixture);
 
     const rows = fixture.nativeElement.querySelectorAll('[data-testid="saved-set-row"]');
     expect(rows.length).toBe(3);
     // Newest-first: dev3 (09-21), dev10 (09-20), dev2 (09-18).
-    expect(rows[0].textContent).toContain('dev3_L5_R5');
-    expect(rows[1].textContent).toContain('dev10_L5_R5');
-    expect(rows[2].textContent).toContain('dev2_L5_R5');
+    expect(rows[0].textContent).toContain('dev3_L3_R3');
+    expect(rows[1].textContent).toContain('dev10_L10_R10');
+    expect(rows[2].textContent).toContain('dev2_L2_R2');
   });
 
-  it('Load is disabled with zero checked or a cross-symbol selection', async () => {
+  it('docs matching the live config slots are checked by default', async () => {
+    const { fixture } = await setupWithSets();
+    expandPanel(fixture);
+
+    const boxes = fixture.nativeElement.querySelectorAll('[data-testid="saved-set-checkbox"]') as NodeListOf<HTMLInputElement>;
+    // Rows newest-first: dev3 (slot 1), dev10 (slot 0) checked; dev2 not.
+    expect(boxes[0].checked).toBe(true);
+    expect(boxes[1].checked).toBe(true);
+    expect(boxes[2].checked).toBe(false);
+    const btn = fixture.nativeElement.querySelector('[data-testid="load-sets-btn"]') as HTMLButtonElement;
+    expect(btn.disabled).toBe(false);
+    expect(btn.textContent).toContain('Load 2 selected');
+  });
+
+  it('unchecking an auto-checked slot doc removes it; Load disables when none checked', async () => {
     const { fixture } = await setupWithSets();
     expandPanel(fixture);
     const btn = () => fixture.nativeElement.querySelector('[data-testid="load-sets-btn"]') as HTMLButtonElement;
-    expect(btn().disabled).toBe(true);
-
     const boxes = () => fixture.nativeElement.querySelectorAll('[data-testid="saved-set-checkbox"]') as NodeListOf<HTMLInputElement>;
-    // Check AAPL + MSFT — cross-symbol stays disabled.
-    boxes()[0].click();
-    boxes()[2].click();
+
+    boxes()[0].click(); // uncheck dev3
+    fixture.detectChanges();
+    expect(boxes()[0].checked).toBe(false);
+    expect(btn().disabled).toBe(false); // dev10 still checked
+
+    boxes()[1].click(); // uncheck dev10
     fixture.detectChanges();
     expect(btn().disabled).toBe(true);
-
-    // Uncheck MSFT — same-symbol selection enables.
-    boxes()[2].click();
-    fixture.detectChanges();
-    expect(btn().disabled).toBe(false);
   });
 
   it('Load calls loadSwingSetsIntoSlots with the checked docs; N slots render N config sections', async () => {
@@ -911,11 +1012,10 @@ describe('SwingAnalysisPageComponent — saved-sets browser', () => {
     expandPanel(fixture);
     const spy = jest.spyOn(store, 'loadSwingSetsIntoSlots');
 
-    // Rows sorted newest-first: 0=dev3, 1=dev10, 2=MSFT, 3=dev2.
+    // dev3 + dev10 are already auto-checked (they match the live slots) —
+    // checking dev2 yields all three QQQ docs.
     const boxes = fixture.nativeElement.querySelectorAll('[data-testid="saved-set-checkbox"]') as NodeListOf<HTMLInputElement>;
-    boxes[0].click();
-    boxes[1].click();
-    boxes[3].click(); // all three AAPL docs
+    boxes[2].click();
     fixture.detectChanges();
 
     fixture.nativeElement.querySelector('[data-testid="load-sets-btn"]').click();
@@ -923,11 +1023,136 @@ describe('SwingAnalysisPageComponent — saved-sets browser', () => {
 
     expect(spy).toHaveBeenCalledTimes(1);
     const docs = spy.mock.calls[0][0] as SwingAnalysisDoc[];
-    expect(docs.map((d) => d.id)).toEqual(['AAPL_dev3', 'AAPL_dev10', 'AAPL_dev2']);
+    expect(docs.map((d) => d.id)).toEqual(['QQQ_dev3', 'QQQ_dev10', 'QQQ_dev2']);
     expect(store.configs().length).toBe(3);
     expect(store.configs().map((c) => c.devThreshold)).toEqual([3, 10, 2]);
     // N>2 actually renders N config sections + N chart overlays.
-    expect(fixture.nativeElement.querySelectorAll('[data-testid^="config-section-"]').length).toBe(3);
+    openSettings(fixture);
+    expect(dlg().querySelectorAll('[data-testid^="config-section-"]').length).toBe(3);
     expect(fixture.componentInstance.chartConfig().indicators.length).toBe(3);
+  });
+});
+
+describe('SwingAnalysisPageComponent — symbol nav', () => {
+  it('renders prev/next, current symbol, and position in the nav sequence', async () => {
+    const { fixture } = await setupPage(makeBars(40), undefined, mockSwingAnalysisService([]), ['AAPL', 'MSFT', 'QQQ']);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="nav-symbol"]').textContent).toContain('QQQ');
+    // Sorted sequence [AAPL, MSFT, QQQ] — QQQ is last.
+    expect(fixture.nativeElement.querySelector('[data-testid="nav-position"]').textContent).toContain('3 of 3');
+  });
+
+  it('next/prev step through the sequence and wrap at the ends', async () => {
+    const { fixture, store } = await setupPage(makeBars(40), undefined, mockSwingAnalysisService([]), ['AAPL', 'MSFT', 'QQQ']);
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('[data-testid="nav-next"]') as HTMLButtonElement).click();
+    expect(store.symbol()).toBe('AAPL'); // wrapped past the end
+
+    (fixture.nativeElement.querySelector('[data-testid="nav-next"]') as HTMLButtonElement).click();
+    expect(store.symbol()).toBe('MSFT');
+
+    (fixture.nativeElement.querySelector('[data-testid="nav-prev"]') as HTMLButtonElement).click();
+    expect(store.symbol()).toBe('AAPL');
+  });
+
+  it('disables prev/next when the tracked-symbols universe is empty', async () => {
+    const { fixture } = await setupPage(); // navSymbols defaults to []
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement.querySelector('[data-testid="nav-prev"]') as HTMLButtonElement).disabled).toBe(true);
+    expect((fixture.nativeElement.querySelector('[data-testid="nav-next"]') as HTMLButtonElement).disabled).toBe(true);
+    expect(fixture.nativeElement.querySelector('[data-testid="nav-position"]').textContent).toContain('of 0');
+  });
+
+  it('watchlist filter narrows the nav sequence to list members', async () => {
+    const { fixture, store } = await setupPage(
+      makeBars(40), undefined, mockSwingAnalysisService([]),
+      ['AAPL', 'MSFT', 'QQQ', 'TSLA'],
+      { 'My Watch': ['MSFT', 'QQQ'] },
+    );
+    fixture.detectChanges();
+
+    const sel = fixture.nativeElement.querySelector('[data-testid="nav-filter"]') as HTMLSelectElement;
+    sel.value = 'My Watch';
+    sel.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    // QQQ is 2nd in the narrowed [MSFT, QQQ] sequence.
+    expect(fixture.nativeElement.querySelector('[data-testid="nav-position"]').textContent).toContain('2 of 2');
+    (fixture.nativeElement.querySelector('[data-testid="nav-next"]') as HTMLButtonElement).click();
+    expect(store.symbol()).toBe('MSFT'); // wraps within the watchlist, not all tracked
+  });
+
+  it('watchlist filter select lists ALL plus Symbol List names', async () => {
+    const { fixture } = await setupPage(
+      makeBars(40), undefined, mockSwingAnalysisService([]), ['QQQ'],
+      { 'My Watch': ['QQQ'], 'Second': ['AAPL'] },
+    );
+    fixture.detectChanges();
+
+    const options = fixture.nativeElement.querySelectorAll('[data-testid="nav-filter"] option');
+    const values = [...options].map((o) => (o as HTMLOptionElement).value);
+    expect(values).toEqual(['ALL', 'My Watch', 'Second']);
+  });
+
+  it('renders the watchlist chip row bound to the current symbol', async () => {
+    const { fixture } = await setupPage(
+      makeBars(40), undefined, mockSwingAnalysisService([]), ['QQQ'],
+      { 'PRIMARY': ['QQQ'] },
+    );
+    fixture.detectChanges();
+
+    const chips = fixture.nativeElement.querySelector('[data-testid="nav-list-actions"]');
+    expect(chips).toBeTruthy();
+    // PRIMARY chip reflects QQQ's membership.
+    const primary = chips.querySelector('[class*="active"]');
+    expect(primary?.textContent).toBeTruthy();
+  });
+
+  it('chip toggle delegates to SymbolListStore.toggleSymbolInList', async () => {
+    const { fixture } = await setupPage(
+      makeBars(40), undefined, mockSwingAnalysisService([]), ['QQQ'], { 'PRIMARY': [] },
+    );
+    fixture.detectChanges();
+    const listStore = TestBed.inject(SymbolListStore) as unknown as { toggleSymbolInList: jest.Mock };
+
+    // Click the first chip (PRIMARY) in the actions row.
+    const chip = fixture.nativeElement.querySelector('[data-testid="nav-list-actions"] button') as HTMLButtonElement;
+    chip.click();
+    expect(listStore.toggleSymbolInList).toHaveBeenCalledWith('QQQ', 'PRIMARY');
+  });
+
+  it('loads symbol lists on mount when cold', async () => {
+    await setupPage();
+    const listStore = TestBed.inject(SymbolListStore) as unknown as { loadSymbolLists: jest.Mock };
+    expect(listStore.loadSymbolLists).toHaveBeenCalled();
+  });
+
+  it('navigating onto a failed symbol shows the error state and nav stays usable', async () => {
+    const chart = {
+      loadBars$: jest.fn((symbol: string) =>
+        symbol === 'BAD'
+          ? throwError(() => new Error('Failed to load bars'))
+          : of({ daily: makeChartDataset(makeBars(40)), weekly: makeChartDataset([]), monthly: makeChartDataset([]), version: 'test' }),
+      ),
+    };
+    // Sequence [AAPL, BAD, QQQ] — QQQ is current; prev lands on BAD.
+    const { fixture, store } = await setupPage(makeBars(40), chart, mockSwingAnalysisService([]), ['AAPL', 'BAD', 'QQQ']);
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('[data-testid="nav-prev"]') as HTMLButtonElement).click();
+    await new Promise<void>((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+
+    expect(store.symbol()).toBe('BAD');
+    expect(store.error()).toContain('Failed to load bars');
+    expect(fixture.nativeElement.querySelector('[data-testid="error-message"]')).toBeTruthy();
+
+    // Nav stays usable — next continues to QQQ.
+    (fixture.nativeElement.querySelector('[data-testid="nav-next"]') as HTMLButtonElement).click();
+    await new Promise<void>((r) => setTimeout(r, 0));
+    expect(store.symbol()).toBe('QQQ');
   });
 });

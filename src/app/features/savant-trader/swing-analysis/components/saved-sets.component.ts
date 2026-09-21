@@ -1,18 +1,17 @@
 /**
  * SavedSetsComponent — the collapsed "Saved Sets" browser.
  *
- * Lazy-loads every st-swing-sets doc on first expand (whole-collection
- * read — deliberately not wired into page init), offers a symbol filter
- * and checkbox multi-select, then loads the checked docs into N config
- * slots via store.loadSwingSetsIntoSlots. Nothing is re-saved — the docs
- * are already persisted snapshots.
+ * Symbol-first: the picker comes from the tracked-symbols universe and
+ * expanding the panel fetches only the selected symbol's swing sets
+ * (a few docs — the whole-collection read was too heavy to load up
+ * front). Checkbox multi-select loads the checked docs into N config
+ * slots via store.loadSwingSetsIntoSlots. Nothing is re-saved — the
+ * docs are already persisted snapshots.
  */
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 
 import { SwingAnalysisStore } from '../swing-analysis.store';
-
-const ALL = 'ALL';
 
 @Component({
   selector: 'app-saved-sets',
@@ -32,13 +31,14 @@ const ALL = 'ALL';
     <div class="saved-sets-controls">
       <select
         class="saved-sets-filter"
-        data-testid="saved-sets-filter"
-        [value]="filterSymbol()"
-        (change)="onFilter($event)"
+        data-testid="saved-sets-symbol"
+        (change)="onSymbolChange($event)"
       >
-        <option [value]="allValue">All symbols</option>
-        @for (s of symbols(); track s) {
-          <option [value]="s">{{ s }}</option>
+        <!-- [attr.selected] per-option instead of [value] on the select —
+             the SelectControlValueAccessor path can hit setAttribute on a
+             null option while options are still materializing. -->
+        @for (s of symbolOptions(); track s) {
+          <option [value]="s" [attr.selected]="s === effectiveSymbol() ? '' : null">{{ s }}</option>
         }
       </select>
       <button
@@ -52,13 +52,13 @@ const ALL = 'ALL';
       </button>
     </div>
     <ul class="set-list" data-testid="saved-sets-list">
-      @for (d of filteredDocs(); track d.id) {
+      @for (d of sortedDocs(); track d.id) {
         <li class="set-row" data-testid="saved-set-row">
           <label>
             <input
               type="checkbox"
               data-testid="saved-set-checkbox"
-              [checked]="checked().has(d.id)"
+              [checked]="effectiveChecked().has(d.id)"
               (change)="onCheck(d.id, $event)"
             />
             <span class="set-symbol">{{ d.symbol }}</span>
@@ -164,31 +164,56 @@ export class SavedSetsComponent {
 
   readonly savedSets = this.store.savedSets;
   readonly savedSetsLoading = this.store.savedSetsLoading;
-  readonly allValue = ALL;
 
-  /** Symbol filter — 'ALL' shows every doc. */
-  readonly filterSymbol = signal(ALL);
-  /** Checked doc ids — the multi-select. */
+  /** The symbol whose sets are being browsed — defaults to the page's
+   *  current symbol when the panel first opens. */
+  readonly selectedSymbol = signal('');
+  /** Checked doc ids — the user's explicit multi-select. */
   readonly checked = signal<ReadonlySet<string>>(new Set());
+  /** Docs the user explicitly UNchecked — overrides the auto-check so a
+   *  live-slot row can be opted out of the next Load. */
+  private readonly unchecked = signal<ReadonlySet<string>>(new Set());
 
-  /** Distinct symbols across saved docs, sorted — the filter options. */
-  readonly symbols = computed(() =>
-    [...new Set(this.savedSets().map((d) => d.symbol))].sort(),
+  /** Effective checked ids: explicit checks ∪ docs whose paramsId matches
+   *  a live config slot for the current symbol (so the default 10/3 slots
+   *  and any loaded N-set rows show checked), minus explicit unchecks. */
+  readonly effectiveChecked = computed<ReadonlySet<string>>(() => {
+    const ids = new Set(this.checked());
+    const slots = new Set(this.store.paramsIds());
+    const sym = this.store.symbol();
+    for (const d of this.savedSets()) {
+      if (d.symbol === sym && slots.has(d.paramsId)) ids.add(d.id);
+    }
+    for (const id of this.unchecked()) ids.delete(id);
+    return ids;
+  });
+
+  /** The symbol whose sets are shown — explicit selection or the page's
+   *  current symbol. */
+  readonly effectiveSymbol = computed(
+    () => this.selectedSymbol() || this.store.symbol(),
   );
 
-  /** Docs matching the filter, newest savedAt first. */
-  readonly filteredDocs = computed(() => {
-    const f = this.filterSymbol();
-    return this.savedSets()
-      .filter((d) => f === ALL || d.symbol === f)
-      .sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+  /** Picker options — the tracked-symbols universe (nav-populated); falls
+   *  back to the current symbol when that list hasn't loaded. The current
+   *  symbol is always present. */
+  readonly symbolOptions = computed(() => {
+    const cur = this.store.symbol();
+    const tracked = this.store.trackedSymbols();
+    const list = tracked.length ? tracked : cur ? [cur] : [];
+    return cur && !list.includes(cur) ? [cur, ...list] : list;
   });
+
+  /** Docs for the selected symbol, newest savedAt first. */
+  readonly sortedDocs = computed(() =>
+    [...this.savedSets()].sort((a, b) => b.savedAt.localeCompare(a.savedAt)),
+  );
 
   /** The checked docs — newest-first like the visible list, so the
    *  loaded slot order matches what the user saw. Checks survive filter
    *  changes (a doc outside the filter stays selected). */
   readonly checkedDocs = computed(() => {
-    const ids = this.checked();
+    const ids = this.effectiveChecked();
     return this.savedSets()
       .filter((d) => ids.has(d.id))
       .sort((a, b) => b.savedAt.localeCompare(a.savedAt));
@@ -204,22 +229,39 @@ export class SavedSetsComponent {
   onToggle(event: Event): void {
     const open = (event.target as HTMLDetailsElement).open;
     // Load only when there's nothing to show — a failed load (or a
-    // genuinely empty collection) retries on the next expand.
-    if (open && !this.savedSetsLoading() && this.savedSets().length === 0) {
-      this.store.loadSwingSets();
+    // genuinely empty result) retries on the next expand.
+    if (open) {
+      // Populate the symbol picker — no-op once trackedSymbols is loaded.
+      this.store.loadTrackedSymbols();
+      if (!this.savedSetsLoading() && this.savedSets().length === 0) {
+        const sym = this.selectedSymbol() || this.store.symbol();
+        if (sym) this.store.loadSwingSets(sym);
+      }
     }
   }
 
-  onFilter(event: Event): void {
-    this.filterSymbol.set((event.target as HTMLSelectElement).value);
+  /** Symbol switch — refetch that symbol's sets and drop stale checks. */
+  onSymbolChange(event: Event): void {
+    const sym = (event.target as HTMLSelectElement).value;
+    this.selectedSymbol.set(sym);
+    this.checked.set(new Set());
+    this.unchecked.set(new Set());
+    this.store.loadSwingSets(sym);
   }
 
   onCheck(id: string, event: Event): void {
     const on = (event.target as HTMLInputElement).checked;
     const next = new Set(this.checked());
-    if (on) next.add(id);
-    else next.delete(id);
+    const un = new Set(this.unchecked());
+    if (on) {
+      next.add(id);
+      un.delete(id);
+    } else {
+      next.delete(id);
+      un.add(id); // may be an auto-checked live-slot doc — remember the opt-out
+    }
     this.checked.set(next);
+    this.unchecked.set(un);
   }
 
   onLoad(): void {

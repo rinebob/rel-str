@@ -230,3 +230,13 @@ A persisted lookup from an OCC contract ID to the Robinhood MCP instrument UUID 
 ## Overnight Delta Simulation
 
 A pre-entry analysis step that runs a Black-Scholes estimate of delta, mark, and theta for a candidate contract across a grid of hypothetical next-day underlying prices. Used to decide whether the contract still meets the strategy's target delta after an overnight move in the underlying. The grid covers ±10% of the prior close in 0.5% increments.
+
+## Saved Swing Config
+
+A persisted ZigZagConfig (the five detection params: devThreshold, leftDepth, rightDepth, allowZigZagOnOneBar, projectionPivots) stored as a flat `st-swing-configs` document keyed by `paramsId`. Selectable per slot (Large/Small) on the swing-analysis page; a config may be flagged as the per-slot default applied on page load. Colors are not persisted - slot colors are hardcoded in the UI. Distinct from a saved swing analysis (`st-swing-sets`), which stores computed results keyed `{symbol}_{paramsId}`.
+_Avoid_: swing preset, named config, saved analysis
+
+## Symbol List
+
+A named, Firestore-backed grouping that classifies a tracked symbol for triage: PRIMARY, SECONDARY, NEUTRAL, AVOID, HIDE, or PAST_SIGNALS (plus the NONE unlisted state). Membership is exclusive - a symbol belongs to at most one list; moving it is an atomic remove-from-others/add-to-target write. Managed by SymbolListStore / SymbolListService and toggled via the SymbolListActionsComponent chip row. Used as a review filter in signal-review and as the swing-analysis nav-sequence filter.
+_Avoid_: watchlist (ambiguous - the lists ARE the watchlists), tag, folder
