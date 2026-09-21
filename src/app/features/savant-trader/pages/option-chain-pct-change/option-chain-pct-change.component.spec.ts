@@ -1,3 +1,11 @@
+import { provideRouter } from '@angular/router';
+import { AppRoutes } from '../../../../core/common/interfaces';
+import { FrameSwingPickerDialogComponent } from './components/frame-swing-dialog.component';
+import {
+  makeSwingAnalysisDocFixture,
+  makeSwingFixture,
+} from './testing/swing-fixtures';
+
 // Mock @angular/fire modules to avoid Node.js Response error from transitive imports
 jest.mock('@angular/fire/auth', () => ({
   Auth: class {},
@@ -39,16 +47,18 @@ import type { OhlcBar } from '../../../../core/models/market-data.types';
 import { of, throwError } from 'rxjs';
 import { toNum } from './utils/pct-change.utils';
 
-/** Mock MatDialog that returns a configurable afterClosed() stream. */
-function mockDialog(): MatDialog & { _afterClosed$: Subject<boolean | null> } {
-  const afterClosed$ = new Subject<boolean | null>();
+/** Mock MatDialog that returns a configurable afterClosed() stream.
+ *  The subject is `unknown` — different dialogs close with different
+ *  payload types (boolean for confirm, Swing for the frame picker). */
+function mockDialog(): MatDialog & { _afterClosed$: Subject<unknown> } {
+  const afterClosed$ = new Subject<unknown>();
   const dialog = {
     open: jest.fn(() => ({
       afterClosed: () => afterClosed$.asObservable(),
     })),
     _afterClosed$: afterClosed$,
   };
-  return dialog as unknown as MatDialog & { _afterClosed$: Subject<boolean | null> };
+  return dialog as unknown as MatDialog & { _afterClosed$: Subject<unknown> };
 }
 
 type Store = InstanceType<typeof OptionChainPctChangeStore>;
@@ -118,11 +128,12 @@ function setupComponent(
   configService: Partial<PctChangeConfigService> = mockConfigService(),
   dialogResult: boolean | null = null,
   barReadService: Partial<LocalBarReadService> = mockBarReadService(),
+  swingService: Partial<SwingAnalysisService> = { loadSavedAnalyses: () => of([]) },
 ): {
   fixture: import('@angular/core/testing').ComponentFixture<OptionChainPctChangeComponent>;
   component: OptionChainPctChangeComponent;
   store: Store;
-  dialog: MatDialog & { _afterClosed$: Subject<boolean | null> };
+  dialog: MatDialog & { _afterClosed$: Subject<unknown> };
 } {
   const dialog = mockDialog();
   if (dialogResult !== null) {
@@ -134,10 +145,11 @@ function setupComponent(
       { provide: OptionsContractService, useValue: mockService() },
       { provide: PctChangeConfigService, useValue: configService },
       { provide: LocalBarReadService, useValue: barReadService },
-      { provide: SwingAnalysisService, useValue: { loadSavedAnalyses: () => of([]) } },
+      { provide: SwingAnalysisService, useValue: swingService },
       { provide: SymbolHistoryStore, useValue: { signalHistoryCache: signal({}), loadSignalHistory: () => {} } },
       { provide: Firestore, useValue: {} },
       { provide: MatDialog, useValue: dialog },
+      provideRouter([]),
       OptionChainPctChangeStore,
     ],
   });
@@ -160,11 +172,59 @@ describe('OptionChainPctChangeComponent', () => {
     expect(startDateInput).not.toBeNull();
   });
 
-  it('renders the placeholder message when no results', () => {
+  it('renders no placeholder when there are no results', () => {
     const { fixture } = setupComponent();
-    const placeholder = fixture.nativeElement.querySelector('.placeholder');
-    expect(placeholder).not.toBeNull();
-    expect(placeholder.textContent).toContain('Enter a symbol');
+    // The "Enter a symbol…" placeholder was removed — results area stays
+    // empty so the Swing Compare section gets maximum space.
+    expect(fixture.nativeElement.querySelector('.placeholder')).toBeNull();
+  });
+
+  it('renders the Swing Compare panel with a pick-frame button; dialog picks set + swing', () => {
+    const frameDoc = makeSwingAnalysisDocFixture({
+      id: 'QQQ_frame',
+      swings: [makeSwingFixture('2025-04-01', '2025-04-30')],
+    });
+    const { fixture, dialog, store } = setupComponent(
+      mockConfigService(),
+      null,
+      mockBarReadService(),
+      { loadSavedAnalyses: () => of([frameDoc]) },
+    );
+    const btn = fixture.nativeElement.querySelector('[data-testid="pick-frame-btn"]');
+    expect(btn).not.toBeNull();
+    // The button lives in the left input panel — outside .results-panel.
+    const resultsPanel = fixture.nativeElement.querySelector('.results-panel');
+    expect(resultsPanel.contains(btn)).toBe(false);
+
+    btn.click();
+    fixture.detectChanges();
+    expect(dialog.open).toHaveBeenCalledWith(
+      FrameSwingPickerDialogComponent,
+      expect.objectContaining({
+        data: expect.objectContaining({ sets: [frameDoc], selectedSetId: null }),
+      }),
+    );
+
+    // The dialog commits picks to the store itself — simulate the result
+    // state a baseline + frame pick would leave behind.
+    store.selectBaselineSet('QQQ_frame');
+    store.selectFrameSwing(frameDoc.swings[0]);
+    fixture.detectChanges();
+    expect(store.baselineSetId()).toBe('QQQ_frame');
+    expect(store.frameSwing()).toBe(frameDoc.swings[0]);
+    const summary = fixture.nativeElement.querySelector('[data-testid="frame-summary"]');
+    expect(summary.textContent).toContain('2025-04-01');
+    expect(summary.textContent).toContain('2025-04-30');
+  });
+
+  it('shows the swing-compare empty state when no saved analyses exist', () => {
+    const { fixture } = setupComponent();
+    const empty = fixture.nativeElement.querySelector('[data-testid="swing-compare-empty"]');
+    expect(empty).not.toBeNull();
+    expect(empty.textContent).toContain('swing analysis');
+    const link = empty.querySelector('a');
+    expect(link.getAttribute('href')).toBe(`/${AppRoutes.SWING_ANALYSIS}`);
+    expect(fixture.nativeElement.querySelector('[data-testid="pick-frame-btn"]')).toBeNull();
   });
 
   it('renders the Run button disabled when canRun is false', () => {
@@ -250,6 +310,7 @@ describe('OptionChainPctChangeComponent', () => {
         { provide: SymbolHistoryStore, useValue: { signalHistoryCache: signal({}), loadSignalHistory: () => {} } },
         { provide: Firestore, useValue: {} },
         { provide: MatDialog, useValue: mockDialog() },
+        provideRouter([]),
         OptionChainPctChangeStore,
       ],
     });

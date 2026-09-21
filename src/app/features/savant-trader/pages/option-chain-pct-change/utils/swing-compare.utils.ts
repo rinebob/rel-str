@@ -31,6 +31,9 @@ export interface SwingCompareDateItem {
   labels: SwingCompareLabel[];
   /** Pivot kind when a confirmed pivot sits on this date; null = signal-only. */
   pivotIsHigh: boolean | null;
+  /** The pivot's price — the swing extreme value on this date.
+   *  Null for signal-only items. */
+  pivotPrice: number | null;
   /** Signal directions on this date (empty when pivot-only). */
   signalDirections: SignalDirection[];
 }
@@ -55,7 +58,7 @@ export function mergeDateList(
   const get = (date: string): SwingCompareDateItem => {
     let item = byDate.get(date);
     if (!item) {
-      item = { date, labels: [], pivotIsHigh: null, signalDirections: [] };
+      item = { date, labels: [], pivotIsHigh: null, pivotPrice: null, signalDirections: [] };
       byDate.set(date, item);
     }
     return item;
@@ -67,6 +70,7 @@ export function mergeDateList(
     if (date < frameStart || date > frameEnd) continue;
     const item = get(date);
     item.pivotIsHigh = p.isHigh;
+    item.pivotPrice = p.price;
     const label: SwingCompareLabel = p.isHigh ? 'swing-high' : 'swing-low';
     if (!item.labels.includes(label)) item.labels.push(label);
   }
@@ -160,4 +164,58 @@ export function swingSegments(swings: Swing[], width: number, height: number): S
     y2: m.toY(swing.end.price),
     swing,
   }));
+}
+
+/** A pivot marker for the frame-clipped target chart — vertical hairline
+ *  position plus its date label. */
+export interface SwingPivotMark {
+  x: number;
+  date: string;
+  isHigh: boolean;
+}
+
+/** Everything the frame-clipped target chart needs, sharing one scale:
+ *  x maps the frame's [start,end] window (the chart is the frame, not
+ *  the whole doc); y maps the in-frame pivot price range. Segments are
+ *  clipped to swings fully inside the frame; marks carry confirmed
+ *  in-frame pivots for the hairline + date label. */
+export function frameChartGeometry(
+  frameStart: number,
+  frameEnd: number,
+  pivots: Pivot[],
+  swings: Swing[],
+  width: number,
+  height: number,
+): { segments: SwingSegment[]; polyline: string; marks: SwingPivotMark[] } {
+  const empty = { segments: [] as SwingSegment[], polyline: '', marks: [] as SwingPivotMark[] };
+  const inFramePivots = pivots.filter(
+    (p) => p.time >= frameStart && p.time <= frameEnd,
+  );
+  if (inFramePivots.length === 0) return empty;
+
+  const pMin = Math.min(...inFramePivots.map((p) => p.price));
+  const pMax = Math.max(...inFramePivots.map((p) => p.price));
+  const pad = (pMax - pMin) * 0.1 || 1;
+  const tSpan = frameEnd - frameStart || 1;
+  const toX = (t: number) => ((t - frameStart) / tSpan) * width;
+  const toY = (p: number) => height - ((p - (pMin - pad)) / (pMax - pMin + pad * 2)) * height;
+
+  const inFrameSwings = swings.filter(
+    (s) => s.start.time >= frameStart && s.end.time <= frameEnd,
+  );
+  return {
+    segments: inFrameSwings.map((swing) => ({
+      x1: toX(swing.start.time),
+      y1: toY(swing.start.price),
+      x2: toX(swing.end.time),
+      y2: toY(swing.end.price),
+      swing,
+    })),
+    polyline: inFramePivots
+      .map((p) => `${toX(p.time).toFixed(2)},${toY(p.price).toFixed(2)}`)
+      .join(' '),
+    marks: inFramePivots
+      .filter((p) => p.confirmed)
+      .map((p) => ({ x: toX(p.time), date: toUtcDateString(p.time), isHigh: p.isHigh })),
+  };
 }

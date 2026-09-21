@@ -163,10 +163,12 @@ export interface OptionChainPctChangeState {
   /** Saved swing sets for the current symbol (flat `st-swing-sets` docs). */
   savedAnalyses: SwingAnalysisDoc[];
 
-  /** Swing-compare: the set defining the analysis frame (large swings). */
-  frameSetId: string | null;
-  /** Swing-compare: the set supplying target-date pivots (small swings). */
-  extremesSetId: string | null;
+  /** Swing-compare: the 'Baseline Set' — large swings bounding the frame
+   *  (picked in the frame-swing dialog). */
+  baselineSetId: string | null;
+  /** Swing-compare: the 'Target Set' — small-swing pivots feeding the
+   *  date list (picked in the compare section). */
+  targetSetId: string | null;
   /** Swing-compare: the selected frame swing — its [start,end] bounds the
    *  date list. */
   frameSwing: Swing | null;
@@ -176,6 +178,11 @@ export interface OptionChainPctChangeState {
    *  run sections read from the same map; `ensureSnapshots` is the
    *  incremental filler, `runAnalysis` writes start+targets wholesale. */
   snapshotCache: Record<string, HistoricalOptionContract[]>;
+  /** Per-date fetch failures from `ensureSnapshots` (e.g. a partner 502
+   *  on a missing corpus date) — lets run sections show "unavailable"
+   *  instead of loading forever. Symbol-scoped: cleared on symbol change
+   *  and reset; a successful refetch deletes the key. */
+  snapshotErrors: Record<string, string>;
 
   /** Currently selected config id, or null. */
   selectedConfigId: string | null;
@@ -200,6 +207,21 @@ export interface OptionChainPctChangeState {
    *  config select or manual date edits. */
   resolveNonce: number;
 }
+
+/** Swing-compare-clearing patch — spread into every patchState that
+ *  empties `savedAnalyses` for a symbol change (setSymbol, selectConfig),
+ *  so the set selections, frame swing, and built runs can't dangle. */
+const SWING_COMPARE_CLEARED: Pick<
+  OptionChainPctChangeState,
+  'savedAnalyses' | 'baselineSetId' | 'targetSetId' | 'frameSwing' | 'runs' | 'snapshotErrors'
+> = {
+  savedAnalyses: [],
+  baselineSetId: null,
+  targetSetId: null,
+  frameSwing: null,
+  runs: [],
+  snapshotErrors: {},
+};
 
 /** Selection-clearing patch — spread into any patchState that invalidates
  *  the contract universe (snapshots, symbol, type, or the grid set). */
@@ -229,11 +251,12 @@ const initialState: OptionChainPctChangeState = {
   intervalDays: 5,
   savedConfigs: [],
   savedAnalyses: [],
-  frameSetId: null,
-  extremesSetId: null,
+  baselineSetId: null,
+  targetSetId: null,
   frameSwing: null,
   runs: [],
   snapshotCache: {},
+  snapshotErrors: {},
   selectedConfigId: null,
   loading: false,
   error: null,
@@ -401,15 +424,7 @@ export const OptionChainPctChangeStore = signalStore(
           symbol: sym,
           snapshotCache: {},
           underlyingPrices: {},
-          ...(symbolChanged
-            ? {
-                savedAnalyses: [],
-                frameSetId: null,
-                extremesSetId: null,
-                frameSwing: null,
-                runs: [],
-              }
-            : {}),
+          ...(symbolChanged ? SWING_COMPARE_CLEARED : {}),
           ...SELECTION_CLEARED,
         });
         if (symbolChanged) {
@@ -694,7 +709,10 @@ export const OptionChainPctChangeStore = signalStore(
           startDate: cfg.startDate,
           type: cfg.type,
           filter: { ...cfg.filter },
-          targetType: cfg.targetType,
+          // Legacy configs may carry 'swing-extremes' — the selector no
+          // longer offers it (swing-compare replaced it), so normalize to
+          // user-dates to avoid a modeless selector.
+          targetType: cfg.targetType === 'swing-extremes' ? 'user-dates' : cfg.targetType,
           targetDates: [...cfg.targetDates],
           pctMode: cfg.pctMode ?? 'list',
           pctValues: cfg.pctValues ?? [],
@@ -706,12 +724,17 @@ export const OptionChainPctChangeStore = signalStore(
           intervalDays: cfg.intervalDays ?? 5,
           snapshotCache: {},
           underlyingPrices: {},
-          ...(symbolChanged ? { savedAnalyses: [] } : {}),
+          ...(symbolChanged ? SWING_COMPARE_CLEARED : {}),
           ...SELECTION_CLEARED,
           error: null,
           loading: false,
         });
-        if (symbolChanged) loadSwingDataImpl();
+        if (symbolChanged) {
+          snapshotSubs.forEach((s) => s.unsubscribe());
+          snapshotSubs.clear();
+          pendingSnapshotDates.clear();
+          loadSwingDataImpl();
+        }
       },
 
       /** Deselect the current saved config (clears selectedConfigId only). */

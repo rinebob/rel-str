@@ -67,11 +67,11 @@ describe('TargetTypeSelectorComponent', () => {
   // -------------------------------------------------------------------------
 
   describe('segmented button group', () => {
-    it('renders three target type buttons', () => {
+    it('renders two target type buttons', () => {
       const buttons = fixture.debugElement.queryAll(By.css('[data-testid^="target-type-btn-"]'));
-      expect(buttons.length).toBe(3);
+      expect(buttons.length).toBe(2);
       const labels = buttons.map(b => b.nativeElement.textContent.trim());
-      expect(labels).toEqual(['Pct Change', 'Swing Extremes', 'User Dates']);
+      expect(labels).toEqual(['Pct Change', 'User Dates']);
     });
 
     it('defaults to pct-change target type', () => {
@@ -80,19 +80,19 @@ describe('TargetTypeSelectorComponent', () => {
 
     it('calls store.setTargetType when a button is clicked', () => {
       const buttons = fixture.debugElement.queryAll(By.css('[data-testid^="target-type-btn-"]'));
-      buttons[1].nativeElement.click(); // Swing Extremes
+      buttons[1].nativeElement.click(); // User Dates
       fixture.detectChanges();
-      expect(store.setTargetType).toHaveBeenCalledWith('swing-extremes');
-      expect(store.targetType()).toBe('swing-extremes');
+      expect(store.setTargetType).toHaveBeenCalledWith('user-dates');
+      expect(store.targetType()).toBe('user-dates');
     });
 
     it('marks the active button', () => {
       const buttons = fixture.debugElement.queryAll(By.css('[data-testid^="target-type-btn-"]'));
       expect(buttons[0].nativeElement.classList.contains('active')).toBe(true);
-      buttons[2].nativeElement.click(); // User Dates
+      buttons[1].nativeElement.click(); // User Dates
       fixture.detectChanges();
       const updated = fixture.debugElement.queryAll(By.css('[data-testid^="target-type-btn-"]'));
-      expect(updated[2].nativeElement.classList.contains('active')).toBe(true);
+      expect(updated[1].nativeElement.classList.contains('active')).toBe(true);
       expect(updated[0].nativeElement.classList.contains('active')).toBe(false);
     });
   });
@@ -183,24 +183,6 @@ describe('TargetTypeSelectorComponent', () => {
       input.nativeElement.dispatchEvent(new Event('change'));
       fixture.detectChanges();
       expect(store.setPctParams).toHaveBeenCalledWith([2, 4], 5, 4, 'up');
-    });
-  });
-
-  // -------------------------------------------------------------------------
-  // Swing Extremes mode
-  // -------------------------------------------------------------------------
-
-  describe('swing-extremes mode', () => {
-    beforeEach(() => {
-      const swingBtn = fixture.debugElement.query(By.css('[data-testid="target-type-btn-swing-extremes"]'));
-      swingBtn.nativeElement.click();
-      fixture.detectChanges();
-    });
-
-    it('shows "Coming soon" message', () => {
-      const msg = fixture.debugElement.query(By.css('[data-testid="swing-coming-soon"]'));
-      expect(msg).toBeTruthy();
-      expect(msg.nativeElement.textContent).toContain('Coming soon');
     });
   });
 

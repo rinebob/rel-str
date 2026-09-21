@@ -3,8 +3,10 @@
  *
  * Segmented button group for selecting the target date resolution mode:
  * - Pct Change: resolve target dates from percentage moves (list/gradation)
- * - Swing Extremes: stubbed, displays "Coming soon"
  * - User Dates: manual entry or interval generation
+ *
+ * (Swing-extremes moved to the SwingCompare section — the 'swing-extremes'
+ * TargetType stays in the shared contract for saved-config back-compat.)
  *
  * Reads and writes the OptionChainPctChangeStore directly — the store is
  * the single source of truth for all config state. The only local state is
@@ -128,16 +130,6 @@ function parsePositiveNumber(event: Event): number | null {
           >
             Resolve
           </button>
-        </div>
-      }
-
-      <!-- Swing Extremes mode — stub until the ZigZag integration lands;
-           the real param set isn't decided yet. -->
-      @if (store.targetType() === 'swing-extremes') {
-        <div class="sub-mode">
-          <div class="coming-soon" data-testid="swing-coming-soon">
-            Coming soon — ZigZag swing-extremes integration pending.
-          </div>
         </div>
       }
 
@@ -333,13 +325,6 @@ function parsePositiveNumber(event: Event): number | null {
       color: var(--mat-sys-on-surface);
     }
 
-    .coming-soon {
-      padding: 12px;
-      text-align: center;
-      color: var(--mat-sys-on-surface-variant);
-      font-style: italic;
-    }
-
     .target-dates-list {
       display: flex;
       flex-direction: column;
@@ -396,7 +381,6 @@ export class TargetTypeSelectorComponent {
   /** Options for the segmented target type button group. */
   readonly targetTypeOptions: ReadonlyArray<{ value: TargetType; label: string }> = [
     { value: 'pct-change', label: 'Pct Change' },
-    { value: 'swing-extremes', label: 'Swing Extremes' },
     { value: 'user-dates', label: 'User Dates' },
   ];
 

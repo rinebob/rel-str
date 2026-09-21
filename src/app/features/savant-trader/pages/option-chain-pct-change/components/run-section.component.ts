@@ -51,6 +51,22 @@ import type { SwingCompareRun } from '../utils/swing-compare.utils';
             @if (!snapshotsReady()) {
               <p class="run-placeholder" data-testid="run-loading">loading snapshots…</p>
             } @else {
+              @if (startError(); as msg) {
+                <p class="run-error" data-testid="run-start-error">
+                  Start snapshot unavailable — {{ msg }}
+                </p>
+              }
+              @for (d of failedDates(); track d) {
+                <p class="run-error" data-testid="run-date-error">
+                  {{ d }}: snapshot unavailable — {{ store.snapshotErrors()[d] }}
+                  <button
+                    type="button"
+                    class="retry-btn"
+                    data-testid="run-retry-btn"
+                    (click)="store.ensureSnapshots([d])"
+                  >retry</button>
+                </p>
+              }
               @for (grid of runGrids(); track grid.targetDate) {
                 <app-pct-change-grid
                   [grid]="grid"
@@ -83,6 +99,12 @@ import type { SwingCompareRun } from '../utils/swing-compare.utils';
       }
       .run-body { padding: 8px 10px; }
       .run-placeholder { color: #999; font-size: 0.8rem; margin: 0; }
+      .run-error { color: #c62828; font-size: 0.8rem; margin: 0 0 4px; }
+      .retry-btn {
+        font-size: 0.7rem; padding: 0 6px; margin-left: 6px;
+        cursor: pointer; border: 1px solid #ccc; border-radius: 4px;
+        background: #fff;
+      }
     `,
   ],
 })
@@ -106,25 +128,45 @@ export class RunSectionComponent {
     type: this.run().type,
   }));
 
-  /** True once the run's start date has landed in the shared cache —
-   *  distinguishes "still fetching" from "fetched but empty". */
+  /** True once the run's start date has resolved — landed in the shared
+   *  cache OR recorded a fetch failure (distinguishes "still fetching"
+   *  from "fetched" either way). */
   readonly snapshotsReady = computed(
-    () => this.run().startDate in this.store.snapshotCache(),
+    () =>
+      this.run().startDate in this.store.snapshotCache() ||
+      this.run().startDate in this.store.snapshotErrors(),
+  );
+
+  /** Start-date fetch failure message, if the start snapshot errored. */
+  readonly startError = computed(
+    () => this.store.snapshotErrors()[this.run().startDate] ?? null,
+  );
+
+  /** Target dates whose fetch failed — shown as error lines instead of
+   *  an empty-skeleton grid. */
+  readonly failedDates = computed(() =>
+    this.run().targetDates.filter(
+      (d) => !(d in this.store.snapshotCache()) && d in this.store.snapshotErrors(),
+    ),
   );
 
   /** One pct-change grid per run target — pure recompute off the shared
    *  snapshot cache. Global filters apply (duration/strike/delta); the
-   *  run's own option type overrides the main-flow filter type. */
+   *  run's own option type overrides the main-flow filter type. Errored
+   *  target dates are excluded — they render as error lines instead. */
   readonly runGrids = computed<PctChangeGrid[]>(() => {
     if (!this.open()) return [];
     const r = this.run();
     const filter = this.store.filter();
+    const errors = this.store.snapshotErrors();
+    const cache = this.store.snapshotCache();
+    const targets = r.targetDates.filter((d) => d in cache || !(d in errors));
     return buildGrids(
-      this.store.snapshotCache(),
+      cache,
       this.store.underlyingPrices(),
       { ...filter, type: r.type },
       r.startDate,
-      r.targetDates,
+      targets,
     );
   });
 

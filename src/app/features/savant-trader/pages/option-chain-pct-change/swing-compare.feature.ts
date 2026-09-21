@@ -9,7 +9,7 @@
  * so `setSymbol`/`reset` can cancel in-flight snapshot fetches.
  */
 import { computed } from '@angular/core';
-import { forkJoin, Subscription } from 'rxjs';
+import { catchError, forkJoin, from, map, mergeMap, of, Subscription, toArray } from 'rxjs';
 import { patchState, WritableStateSource } from '@ngrx/signals';
 import { OptionType } from '@options-contract/contracts';
 import type { HistoricalOptionContract } from '@options-contract/contracts';
@@ -32,20 +32,22 @@ import type { OptionChainPctChangeState } from './option-chain-pct-change.store'
 export interface SwingCompareStoreApi
   extends WritableStateSource<OptionChainPctChangeState> {
   symbol(): string;
-  frameSetId(): string | null;
+  baselineSetId(): string | null;
+  targetSetId(): string | null;
   frameSwing(): Swing | null;
   runs(): SwingCompareRun[];
   savedAnalyses(): SwingAnalysisDoc[];
   signals(): StSignalItem[];
   snapshotCache(): Record<string, HistoricalOptionContract[]>;
+  snapshotErrors(): Record<string, string>;
   underlyingPrices(): Record<string, number>;
   dateList(): SwingCompareDateItem[];
 }
 
 /** Minimal view of the store's state signals for the computeds. */
 interface SwingCompareComputedInput {
-  frameSetId(): string | null;
-  extremesSetId(): string | null;
+  baselineSetId(): string | null;
+  targetSetId(): string | null;
   frameSwing(): Swing | null;
   savedAnalyses(): SwingAnalysisDoc[];
   signals(): StSignalItem[];
@@ -60,15 +62,46 @@ export interface SwingCompareDeps {
   subs: Set<Subscription>;
 }
 
+/** Id→doc lookup helper for the computeds. */
+function findDoc(
+  docs: SwingAnalysisDoc[],
+  id: string | null,
+): SwingAnalysisDoc | null {
+  return docs.find((d) => d.id === id) ?? null;
+}
+
 /** Computeds to spread into a `withComputed` block. */
 export function swingCompareComputedBlock(state: SwingCompareComputedInput) {
   return {
-    /** Swings of the selected frame set — the pickable frame choices. */
-    frameSwings: computed((): Swing[] => {
-      const id = state.frameSetId();
-      if (!id) return [];
-      return state.savedAnalyses().find((d) => d.id === id)?.swings ?? [];
+    /** Baseline doc — the user-picked set whose large swings bound the
+     *  frame (chosen in the frame-swing dialog). */
+    baselineDoc: computed((): SwingAnalysisDoc | null =>
+      findDoc(state.savedAnalyses(), state.baselineSetId()),
+    ),
+
+    /** Target doc — the user-picked set whose confirmed pivots become
+     *  date-list items. */
+    targetDoc: computed((): SwingAnalysisDoc | null =>
+      findDoc(state.savedAnalyses(), state.targetSetId()),
+    ),
+
+    /** Target-set choices: saved analyses with a smaller devThreshold
+     *  than the baseline. When nothing is finer (or no baseline picked),
+     *  the baseline itself is the only choice — a single analysis can
+     *  supply both roles (PRD US-1/US-2). */
+    targetSetChoices: computed((): SwingAnalysisDoc[] => {
+      const baseline = findDoc(state.savedAnalyses(), state.baselineSetId());
+      if (!baseline) return [];
+      const finer = state.savedAnalyses().filter(
+        (d) => d.config.devThreshold < baseline.config.devThreshold,
+      );
+      return finer.length > 0 ? finer : [baseline];
     }),
+
+    /** Swings of the baseline doc — the pickable frame choices. */
+    frameSwings: computed((): Swing[] =>
+      findDoc(state.savedAnalyses(), state.baselineSetId())?.swings ?? [],
+    ),
 
     /**
      * Merged, sorted, labeled candidate dates: confirmed pivots from the
@@ -79,9 +112,9 @@ export function swingCompareComputedBlock(state: SwingCompareComputedInput) {
     dateList: computed((): SwingCompareDateItem[] => {
       const swing = state.frameSwing();
       if (!swing) return [];
-      const extremesDoc = state.savedAnalyses().find((d) => d.id === state.extremesSetId());
+      const targetDoc = findDoc(state.savedAnalyses(), state.targetSetId());
       return mergeDateList(
-        extremesDoc?.pivots ?? [],
+        targetDoc?.pivots ?? [],
         state.signals(),
         toUtcDateString(swing.start.time),
         toUtcDateString(swing.end.time),
@@ -93,15 +126,32 @@ export function swingCompareComputedBlock(state: SwingCompareComputedInput) {
 /** Methods to spread into the store's `withMethods` block. */
 export function swingCompareMethods(store: SwingCompareStoreApi, deps: SwingCompareDeps) {
   return {
-    /** Pick the set that supplies frame swings. Clears the selected
-     *  swing and all runs — they were built against the old frame. */
-    selectFrameSet(id: string | null): void {
-      patchState(store, { frameSetId: id, frameSwing: null, runs: [] });
+    /** Pick the baseline set (the dialog's 'Baseline Set' dropdown).
+     *  Clears the selected swing and runs — they were built against the
+     *  old frame. Also defaults the target set to the finest finer set,
+     *  or the baseline itself when nothing is finer. */
+    selectBaselineSet(id: string | null): void {
+      const docs = store.savedAnalyses();
+      const baseline = docs.find((d) => d.id === id) ?? null;
+      const finer = baseline
+        ? docs.filter((d) => d.config.devThreshold < baseline.config.devThreshold)
+        : [];
+      const target = finer.reduce(
+        (min, d) => (d.config.devThreshold < min.config.devThreshold ? d : min),
+        finer[0] ?? baseline,
+      );
+      patchState(store, {
+        baselineSetId: id,
+        frameSwing: null,
+        runs: [],
+        targetSetId: target?.id ?? null,
+      });
     },
 
-    /** Pick the set that supplies target-date pivots. */
-    selectExtremesSet(id: string | null): void {
-      patchState(store, { extremesSetId: id });
+    /** Pick the target set (the results-side 'Target Set' dropdown) —
+     *  its confirmed pivots feed the date list. */
+    selectTargetSet(id: string | null): void {
+      patchState(store, { targetSetId: id });
     },
 
     /** Pick the frame swing — its [start,end] bounds the date list.
@@ -145,40 +195,94 @@ export function swingCompareMethods(store: SwingCompareStoreApi, deps: SwingComp
       if (missing.length === 0) return;
       missing.forEach((d) => deps.pending.add(d));
 
+      // Clear stale errors for the dates being (re)fetched — a retry
+      // should flip the date back to a loading state, not sit on the old
+      // message looking dead.
+      if (missing.some((d) => d in store.snapshotErrors())) {
+        const snapshotErrors = { ...store.snapshotErrors() };
+        missing.forEach((d) => delete snapshotErrors[d]);
+        patchState(store, { snapshotErrors });
+      }
+
       const sorted = [...missing].sort();
-      const reqs = missing.map((d) =>
-        deps.optionsContractService.getHistoricalOptionsChain$(symbol, d),
-      );
-      const bars$ = deps.barReadService.getDailyBarsForRange$(
-        symbol,
-        sorted[0],
-        sorted[sorted.length - 1],
-      );
+      // Per-date catch — one upstream failure (a partner 502 on a date
+      // with no vendor data) must not sink the batch. Results carry an
+      // error string; failures land in `snapshotErrors` so the UI can
+      // show "unavailable" instead of loading forever.
+      //
+      // Concurrency is capped — every call is a live Alpha Vantage fetch
+      // upstream (75 req/min on our key). Runs are typically ≤15 dates,
+      // so 8 keeps batches fast while leaving headroom for several run
+      // sections fetching at once.
+      const CONCURRENCY = 8;
+      // Callable errors carry a `functions/<code>` — keep it in the
+      // message so the UI can distinguish rate-limit (resource-exhausted)
+      // from upstream gaps (unavailable) vs generic failures. The
+      // partner's own {"code":"..."} gets extracted when present — the
+      // raw JSON body is too noisy to render inline.
+      const describeError = (err: unknown): string => {
+        const code = (err as { code?: string })?.code?.replace('functions/', '');
+        const msg = err instanceof Error ? err.message : String(err);
+        const partnerCode = /"code"\s*:\s*"([^"]+)"/.exec(msg)?.[1];
+        const detail = partnerCode ?? (msg.length > 120 ? `${msg.slice(0, 120)}…` : msg);
+        return code ? `${code}: ${detail}` : detail;
+      };
+      const fetchOne = (d: string) =>
+        deps.optionsContractService.getHistoricalOptionsChain$(symbol, d).pipe(
+          map((r) => ({ date: d, contracts: chainContracts(r), error: null as string | null })),
+          catchError((err: unknown) =>
+            of({
+              date: d,
+              contracts: [] as HistoricalOptionContract[],
+              error: describeError(err),
+            }),
+          ),
+        );
+      const results$ = from(missing).pipe(mergeMap(fetchOne, CONCURRENCY), toArray());
+      // Bars are auxiliary (atm-diff display) — never sink the batch.
+      const bars$ = deps.barReadService
+        .getDailyBarsForRange$(symbol, sorted[0], sorted[sorted.length - 1])
+        .pipe(catchError(() => of([])));
 
       // Pre-create the container: mocks that emit synchronously fire `next`
       // during .subscribe(), so the sub must exist before then.
       const sub = new Subscription();
       deps.subs.add(sub);
       sub.add(
-        forkJoin({ chains: forkJoin(reqs), bars: bars$ }).subscribe({
-          next: ({ chains, bars }) => {
+        forkJoin({ results: results$, bars: bars$ }).subscribe({
+          next: ({ results, bars }) => {
             deps.subs.delete(sub);
           missing.forEach((d) => deps.pending.delete(d));
           if (store.symbol().trim().toUpperCase() !== symbol) return;
 
             const snapshotCache = { ...store.snapshotCache() };
-            missing.forEach((d, i) => {
-              snapshotCache[d] = chainContracts(chains[i]);
-            });
+            const snapshotErrors = { ...store.snapshotErrors() };
+            const okDates: string[] = [];
+            for (const r of results) {
+              if (r.error === null) {
+                snapshotCache[r.date] = r.contracts;
+                delete snapshotErrors[r.date];
+                okDates.push(r.date);
+              } else {
+                snapshotErrors[r.date] = r.error;
+              }
+            }
             const underlyingPrices = {
               ...store.underlyingPrices(),
-              ...closestPriorCloses(bars, missing),
+              ...closestPriorCloses(bars, okDates),
             };
-            patchState(store, { snapshotCache, underlyingPrices });
+            patchState(store, { snapshotCache, underlyingPrices, snapshotErrors });
           },
           error: (err: unknown) => {
+            // Defensive — every inner stream is caught above, so this only
+            // fires on a forkJoin-level failure (e.g. subscription bug).
             deps.subs.delete(sub);
             missing.forEach((d) => deps.pending.delete(d));
+            const snapshotErrors = { ...store.snapshotErrors() };
+            missing.forEach((d) => {
+              snapshotErrors[d] = 'batch fetch failed';
+            });
+            patchState(store, { snapshotErrors });
             console.error(`[PctChangeStore] ensureSnapshots failed for ${symbol}:`, err);
           },
         }),

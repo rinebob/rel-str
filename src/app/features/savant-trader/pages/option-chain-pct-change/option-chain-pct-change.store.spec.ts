@@ -1216,12 +1216,14 @@ describe('OptionChainPctChangeStore', () => {
       makeSwingAnalysisDoc({
         id: 'QQQ_frame',
         paramsId: 'frame-p',
+        config: { ...makeSwingAnalysisDoc().config, devThreshold: 10 }, // coarsest
         swings: [mkSwing('2025-04-01', '2025-04-30')],
       });
     const extremesDoc = () =>
       makeSwingAnalysisDoc({
         id: 'QQQ_extremes',
         paramsId: 'extremes-p',
+        config: { ...makeSwingAnalysisDoc().config, devThreshold: 2 }, // finest
         pivots: [
           mkPivot('2025-04-10', true),
           mkPivot('2025-04-15', false),
@@ -1240,28 +1242,67 @@ describe('OptionChainPctChangeStore', () => {
       return store;
     }
 
-    it('selectFrameSet / selectExtremesSet / selectFrameSwing patch state', () => {
+    it('baseline/target sets resolve by id; baseline pick defaults target to finest finer set', () => {
       const store = setupSwingStore();
-      store.selectFrameSet('QQQ_frame');
-      store.selectExtremesSet('QQQ_extremes');
+      expect(store.baselineDoc()).toBeNull();
+      expect(store.targetDoc()).toBeNull();
+
+      store.selectBaselineSet('QQQ_frame');
       const swing = store.frameSwings()[0];
       store.selectFrameSwing(swing);
-      expect(store.frameSetId()).toBe('QQQ_frame');
-      expect(store.extremesSetId()).toBe('QQQ_extremes');
+
+      expect(store.baselineDoc()?.id).toBe('QQQ_frame');
+      expect(store.targetDoc()?.id).toBe('QQQ_extremes'); // finest finer set
       expect(store.frameSwing()).toBe(swing);
     });
 
-    it('frameSwings returns the selected frame set swings; empty without selection', () => {
+    it('a single saved analysis supplies both baseline and target', () => {
+      const only = makeSwingAnalysisDoc({
+        id: 'QQQ_only',
+        swings: [mkSwing('2025-04-01', '2025-04-30')],
+        pivots: [mkPivot('2025-04-10', true)],
+      });
+      const store = setupStore(
+        mockService(),
+        mockConfigService(),
+        mockBarReadService(),
+        mockSwingAnalysisService([only]),
+        mockHistoryStore({ MSFT: [] }),
+      );
+      store.setSymbol('MSFT');
+      store.selectBaselineSet('QQQ_only');
+      expect(store.targetSetId()).toBe('QQQ_only'); // nothing finer → itself
+      expect(store.targetSetChoices().map((d) => d.id)).toEqual(['QQQ_only']);
+    });
+
+    it('targetSetChoices lists only sets finer than the baseline', () => {
+      const midDoc = makeSwingAnalysisDoc({
+        id: 'QQQ_mid',
+        config: { ...makeSwingAnalysisDoc().config, devThreshold: 7 },
+      });
+      const store = setupStore(
+        mockService(),
+        mockConfigService(),
+        mockBarReadService(),
+        mockSwingAnalysisService([frameDoc(), midDoc, extremesDoc()]),
+        mockHistoryStore({ MSFT: [] }),
+      );
+      store.setSymbol('MSFT');
+      store.selectBaselineSet('QQQ_frame'); // dev 10 → finer: mid(7), extremes(2)
+      expect(store.targetSetChoices().map((d) => d.id)).toEqual(['QQQ_mid', 'QQQ_extremes']);
+      expect(store.targetSetId()).toBe('QQQ_extremes'); // defaulted to finest
+    });
+
+    it('frameSwings returns the baseline doc swings; empty without a baseline', () => {
       const store = setupSwingStore();
       expect(store.frameSwings()).toEqual([]);
-      store.selectFrameSet('QQQ_frame');
+      store.selectBaselineSet('QQQ_frame');
       expect(store.frameSwings()).toHaveLength(1);
     });
 
-    it('dateList merges extremes pivots + signals inside the frame + frame start', () => {
+    it('dateList merges target-set pivots + signals inside the frame + frame start', () => {
       const store = setupSwingStore();
-      store.selectFrameSet('QQQ_frame');
-      store.selectExtremesSet('QQQ_extremes');
+      store.selectBaselineSet('QQQ_frame');
       store.selectFrameSwing(store.frameSwings()[0]);
 
       const list = store.dateList();
@@ -1275,15 +1316,12 @@ describe('OptionChainPctChangeStore', () => {
 
     it('dateList is empty until a frame swing is selected', () => {
       const store = setupSwingStore();
-      store.selectFrameSet('QQQ_frame');
-      store.selectExtremesSet('QQQ_extremes');
       expect(store.dateList()).toEqual([]);
     });
 
     it('targetCandidates returns only dates after the chosen start', () => {
       const store = setupSwingStore();
-      store.selectFrameSet('QQQ_frame');
-      store.selectExtremesSet('QQQ_extremes');
+      store.selectBaselineSet('QQQ_frame');
       store.selectFrameSwing(store.frameSwings()[0]);
 
       const cands = store.targetCandidates('2025-04-10');
@@ -1303,24 +1341,24 @@ describe('OptionChainPctChangeStore', () => {
       expect(store.runs()[0].startDate).toBe('2025-04-10');
     });
 
+    it('changing the baseline set clears the selected swing and runs', () => {
+      const store = setupSwingStore();
+      store.selectBaselineSet('QQQ_frame');
+      store.selectFrameSwing(store.frameSwings()[0]);
+      store.addRun('2025-04-01', ['2025-04-10'], OptionType.CALL);
+
+      store.selectBaselineSet('QQQ_extremes');
+      expect(store.frameSwing()).toBeNull();
+      expect(store.runs()).toEqual([]);
+    });
+
     it('changing the frame swing clears runs built against the old bounds', () => {
       const store = setupSwingStore();
-      store.selectFrameSet('QQQ_frame');
+      store.selectBaselineSet('QQQ_frame');
       store.selectFrameSwing(store.frameSwings()[0]);
       store.addRun('2025-04-01', ['2025-04-10'], OptionType.CALL);
 
       store.selectFrameSwing(mkSwing('2025-05-01', '2025-05-20'));
-      expect(store.runs()).toEqual([]);
-    });
-
-    it('changing the frame set clears the selected swing and runs', () => {
-      const store = setupSwingStore();
-      store.selectFrameSet('QQQ_frame');
-      store.selectFrameSwing(store.frameSwings()[0]);
-      store.addRun('2025-04-01', ['2025-04-10'], OptionType.CALL);
-
-      store.selectFrameSet('QQQ_extremes');
-      expect(store.frameSwing()).toBeNull();
       expect(store.runs()).toEqual([]);
     });
 
@@ -1354,21 +1392,110 @@ describe('OptionChainPctChangeStore', () => {
       expect(spy).toHaveBeenLastCalledWith('MSFT', '2025-04-20');
     });
 
+    it('a failing date lands in snapshotErrors without sinking the rest of the batch', () => {
+      const svc = mockService();
+      svc.getHistoricalOptionsChain$ = jest.fn((_s: string, date: string) =>
+        date === '2025-04-12'
+          ? throwError(() => new Error('INTERNAL'))
+          : of({ ok: true, data: { data: [] } }),
+      ) as never;
+      const store = setupStore(
+        svc,
+        mockConfigService(),
+        mockBarReadService(),
+        mockSwingAnalysisService([frameDoc(), extremesDoc()]),
+        mockHistoryStore(),
+      );
+      store.setSymbol('MSFT');
+
+      store.ensureSnapshots(['2025-04-10', '2025-04-12', '2025-04-15']);
+
+      // Good dates cached; the bad one is marked failed — not stuck loading.
+      expect(store.snapshotCache()['2025-04-10']).toBeDefined();
+      expect(store.snapshotCache()['2025-04-15']).toBeDefined();
+      expect(store.snapshotErrors()['2025-04-12']).toBe('INTERNAL');
+    });
+
+    it('retrying a failed date clears its error and re-caches on success', () => {
+      const svc = mockService();
+      let calls = 0;
+      svc.getHistoricalOptionsChain$ = jest.fn(() =>
+        calls++ === 0
+          ? throwError(() => new Error('INTERNAL'))
+          : of({ ok: true, data: { data: [] } }),
+      ) as never;
+      const store = setupStore(svc, mockConfigService(), mockBarReadService(), mockSwingAnalysisService(), mockHistoryStore());
+      store.setSymbol('MSFT');
+
+      store.ensureSnapshots(['2025-04-10']);
+      expect(store.snapshotErrors()['2025-04-10']).toBe('INTERNAL');
+      expect(store.snapshotCache()['2025-04-10']).toBeUndefined();
+
+      store.ensureSnapshots(['2025-04-10']); // retry succeeds
+      expect(store.snapshotErrors()['2025-04-10']).toBeUndefined();
+      expect(store.snapshotCache()['2025-04-10']).toBeDefined();
+    });
+
     it('setSymbol clears swing-compare state and snapshot cache', () => {
       const store = setupSwingStore();
-      store.selectFrameSet('QQQ_frame');
-      store.selectExtremesSet('QQQ_extremes');
+      store.selectBaselineSet('QQQ_frame');
       store.selectFrameSwing(store.frameSwings()[0]);
       store.addRun('2025-04-01', ['2025-04-10'], OptionType.CALL);
       store.ensureSnapshots(['2025-04-10']);
 
       store.setSymbol('QQQ');
 
-      expect(store.frameSetId()).toBeNull();
-      expect(store.extremesSetId()).toBeNull();
+      expect(store.baselineSetId()).toBeNull();
+      expect(store.targetSetId()).toBeNull();
       expect(store.frameSwing()).toBeNull();
       expect(store.runs()).toEqual([]);
       expect(store.snapshotCache()).toEqual({});
+    });
+
+    it('selectConfig on a different symbol clears swing-compare state too', () => {
+      const cfg: PctChangeConfigWithId = {
+        id: 'AAPL-cfg',
+        ...makeConfigDoc({ symbol: 'AAPL', startDate: '2025-05-01' }),
+      };
+      const configSvc = mockConfigService([cfg]);
+      const swingSvc = mockSwingAnalysisService([frameDoc(), extremesDoc()]);
+      const store = setupStore(
+        mockService(),
+        configSvc,
+        mockBarReadService(),
+        swingSvc,
+        mockHistoryStore({ MSFT: [] }),
+      );
+      store.setSymbol('MSFT');
+      store.loadSavedConfigs();
+      store.selectBaselineSet('QQQ_frame');
+      store.selectFrameSwing(store.frameSwings()[0]);
+      store.addRun('2025-04-01', ['2025-04-10'], OptionType.CALL);
+
+      store.selectConfig('AAPL-cfg');
+
+      expect(store.symbol()).toBe('AAPL');
+      expect(store.baselineSetId()).toBeNull();
+      expect(store.frameSwing()).toBeNull();
+      expect(store.runs()).toEqual([]);
+    });
+
+    it('selectConfig normalizes a legacy swing-extremes targetType to user-dates', () => {
+      const cfg: PctChangeConfigWithId = {
+        id: 'legacy-swing',
+        ...makeConfigDoc({ targetType: 'swing-extremes' }),
+      };
+      const configSvc = mockConfigService([cfg]);
+      const store = setupStore(
+        mockService(),
+        configSvc,
+        mockBarReadService(),
+        mockSwingAnalysisService(),
+        mockHistoryStore(),
+      );
+      store.loadSavedConfigs();
+      store.selectConfig('legacy-swing');
+      expect(store.targetType()).toBe('user-dates');
     });
 
     it('selectedContractSeries uses the run scope for run-grid selections', () => {

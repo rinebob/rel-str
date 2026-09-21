@@ -127,6 +127,7 @@ describe('defaultTypeForStart', () => {
     date: '2025-04-10',
     labels: [],
     pivotIsHigh: null,
+    pivotPrice: null,
     signalDirections: [],
     ...over,
   });

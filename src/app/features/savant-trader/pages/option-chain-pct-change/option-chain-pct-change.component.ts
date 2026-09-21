@@ -16,10 +16,16 @@ import { MatExpansionModule } from '@angular/material/expansion';
 
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { OptionChainPctChangeStore } from './option-chain-pct-change.store';
+import { RouterLink } from '@angular/router';
 import { PctChangeGridComponent } from './components/pct-change-grid.component';
+import { SwingCompareComponent } from './components/swing-compare.component';
+import { FrameSwingPickerDialogComponent } from './components/frame-swing-dialog.component';
 import { TargetTypeSelectorComponent } from './components/target-type-selector.component';
+import { AppRoutes } from '../../../../core/common/interfaces';
 import { ConfirmDialogComponent } from './components/confirm-dialog.component';
 import { toNum, CONTRACT_CHART_PANE_CLASS } from './utils/pct-change.utils';
+import { toUtcDateString } from './utils/swing-compare.utils';
+import type { Swing } from '../../../shared/components/flex-chart/indicators/st-zigzag.types';
 import { DEFAULT_CELL_TEXT_MODE, type CellTextMode } from './utils/color-mapping.utils';
 import { OptionType } from '@options-contract/contracts';
 import { take } from 'rxjs';
@@ -34,6 +40,8 @@ import { take } from 'rxjs';
     MatProgressSpinnerModule,
     MatExpansionModule,
     PctChangeGridComponent,
+    RouterLink,
+    SwingCompareComponent,
     TargetTypeSelectorComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -153,6 +161,46 @@ import { take } from 'rxjs';
 
           <mat-expansion-panel
             class="panel-section"
+            [expanded]="swingCompareExpanded()"
+            (opened)="swingCompareExpanded.set(true)"
+            (closed)="swingCompareExpanded.set(false)"
+          >
+            <mat-expansion-panel-header>
+              <mat-panel-title>Swing Compare</mat-panel-title>
+            </mat-expansion-panel-header>
+
+            @if (store.savedAnalyses().length === 0) {
+              <p class="swing-empty" data-testid="swing-compare-empty">
+                No saved swing analyses for {{ store.symbol() || 'this symbol' }} —
+                run a <a [routerLink]="swingAnalysisLink">swing analysis</a>
+                first, then compare it here.
+              </p>
+            } @else {
+              <div class="swing-frame">
+                @if (store.frameSwing(); as frame) {
+                  <span class="frame-summary" data-testid="frame-summary">
+                    {{ store.baselineDoc()?.paramsId }} —
+                    {{ frameRange(frame) }}
+                    ({{ frame.direction === 'up' ? 'up' : 'down' }},
+                    {{ frame.magnitudePercent.toFixed(1) }}%)
+                  </span>
+                } @else {
+                  <span class="frame-summary none">No frame swing picked.</span>
+                }
+                <button
+                  type="button"
+                  mat-stroked-button
+                  data-testid="pick-frame-btn"
+                  (click)="openFrameDialog()"
+                >
+                  Pick frame swing
+                </button>
+              </div>
+            }
+          </mat-expansion-panel>
+
+          <mat-expansion-panel
+            class="panel-section"
             [expanded]="targetDatesExpanded()"
             (opened)="targetDatesExpanded.set(true)"
             (closed)="targetDatesExpanded.set(false)"
@@ -262,11 +310,9 @@ import { take } from 'rxjs';
                 [linkedKey]="store.highlightedKey()"
               />
             }
-          } @else {
-            <div class="placeholder">
-              Enter a symbol, start date, and at least one target date, then click Run.
-            </div>
           }
+
+          <app-swing-compare />
         </div>
       </div>
     </div>
@@ -316,8 +362,8 @@ import { take } from 'rxjs';
       }
       .page-body {
         display: flex;
-        gap: 1.5rem;
-        padding: 1rem;
+        gap: 0.5rem;
+        padding: 0;
         flex: 1;
         min-height: 0;
         overflow: hidden;
@@ -325,7 +371,7 @@ import { take } from 'rxjs';
       .input-panel {
         width: 320px;
         flex-shrink: 0;
-        padding: 1rem;
+        padding: 0.25rem;
         background: #f9f9f9;
         border-radius: 6px;
         overflow-y: auto;
@@ -336,7 +382,7 @@ import { take } from 'rxjs';
         position: sticky;
         top: 0;
         z-index: 2;
-        margin: -0.5rem -0.5rem 0.25rem;
+        margin: 0 0 0.25rem;
       }
       .panel-collapse-btn {
         --mdc-icon-button-state-layer-size: 28px;
@@ -422,7 +468,7 @@ import { take } from 'rxjs';
         color: white;
       }
       .panel-section {
-        margin-bottom: 1rem;
+        margin-bottom: 0.25rem;
       }
       .panel-section ::ng-deep .mat-expansion-panel-body {
         padding: 0 0.75rem 0.75rem;
@@ -431,6 +477,18 @@ import { take } from 'rxjs';
         padding: 0 0.75rem;
         --mat-expansion-header-collapsed-state-height: 40px;
         --mat-expansion-header-expanded-state-height: 40px;
+      }
+      .swing-frame {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .frame-summary { font-size: 0.85rem; }
+      .frame-summary.none { color: var(--mat-sys-on-surface-variant); font-style: italic; }
+      .swing-empty {
+        margin: 0;
+        font-size: 0.8rem;
+        color: var(--mat-sys-on-surface-variant);
       }
       .range-inputs {
         display: flex;
@@ -452,19 +510,13 @@ import { take } from 'rxjs';
       .results-panel {
         flex: 1;
         overflow-y: auto;
-        padding: 0.5rem;
+        padding: 0;
       }
       .error {
         padding: 1rem;
         color: #d32f2f;
         background: #ffebee;
         border-radius: 4px;
-        font-size: 0.85rem;
-      }
-      .placeholder {
-        padding: 2rem;
-        text-align: center;
-        color: #999;
         font-size: 0.85rem;
       }
     `,
@@ -483,6 +535,13 @@ export class OptionChainPctChangeComponent implements OnInit, OnDestroy {
   readonly targetDatesExpanded = signal(true);
   /** Expanded state for the Filters config panel. */
   readonly filtersExpanded = signal(false);
+  /** Expanded state for the Swing Compare input panel — open by default;
+   *  it's the swing-comparison entry point. */
+  readonly swingCompareExpanded = signal(true);
+  /** Route segments for the empty-state pointer — derived from
+   *  AppRoutes.SWING_ANALYSIS (a multi-segment path; routerLink needs one
+   *  element per segment). */
+  readonly swingAnalysisLink = ['/', ...AppRoutes.SWING_ANALYSIS.split('/')];
 
   constructor() {
     // Reopen the Target Dates panel when a resolve lands — the nonce only
@@ -538,11 +597,6 @@ export class OptionChainPctChangeComponent implements OnInit, OnDestroy {
     if (v === 'adaptive' || v === 'bright' || v === 'halo') this.contrastMode.set(v);
   }
 
-  /** The contract key (strike-expiration) of the highlighted contract —
-   *  every grid outlines the matching cell, including the one that was
-   *  clicked. Null when nothing is highlighted. */
-
-
   /** Handle config dropdown selection change. Picking a saved config
    *  collapses the config panels so the loaded state is visible. */
   onConfigSelect(ev: Event): void {
@@ -559,6 +613,25 @@ export class OptionChainPctChangeComponent implements OnInit, OnDestroy {
   /** Save the current configuration. */
   saveConfig(): void {
     this.store.saveCurrentConfig();
+  }
+
+  /** Open the swing-compare dialog — Baseline/Target set dropdowns, the
+   *  big zigzag charts, and the run builder. The dialog commits picks and
+   *  runs straight to the store; nothing to do on close. */
+  openFrameDialog(): void {
+    this.dialog.open(FrameSwingPickerDialogComponent, {
+      width: '860px',
+      data: {
+        sets: this.store.savedAnalyses(),
+        selectedSetId: this.store.baselineSetId(),
+        selectedSwing: this.store.frameSwing(),
+      },
+    });
+  }
+
+  /** Display range for the selected frame swing. */
+  frameRange(swing: Swing): string {
+    return `${toUtcDateString(swing.start.time)} → ${toUtcDateString(swing.end.time)}`;
   }
 
   /** Delete the currently selected configuration (with confirm dialog). */
