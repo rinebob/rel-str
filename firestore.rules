@@ -326,11 +326,13 @@ service cloud.firestore {
     }
 
     // ZigZag swing sets — flat collection, user-scoped CRUD under
-    // swing-sets/{symbol}_{paramsId}
-    // - Collection list queries have no resource object; client filters by userId locally.
-    // - Single-doc reads/writes enforce userId ownership.
-    match /swing-sets/{docId} {
-      allow read: if request.auth != null && (resource == null || request.auth.uid == resource.data.userId);
+    // st-swing-sets/{symbol}_{paramsId}
+    // - List queries must constrain userId (where('userId','==',uid)) or
+    //   the rules engine cannot prove every returned doc is owned — the
+    //   query is denied outright. No resource == null escape hatch.
+    // - Single-doc reads/writes enforce userId ownership per doc.
+    match /st-swing-sets/{docId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
       allow update: if request.auth != null && request.auth.uid == resource.data.userId;
       allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
