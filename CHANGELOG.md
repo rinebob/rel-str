@@ -7,6 +7,15 @@
 - [Option Chain Pct Change Grid] 326-472_FE-IMPL-OPTIONS: Swing-compare entry at sidebar top; manual controls collapsed; shared Filters panel
 - [Option Chain Pct Change Grid] 326-483_FE-IMPL-OPTIONS: Delineate run containers; suppress cell tooltips during chart popup; penny-cell exclusion
 - [Option Chain Pct Change Grid] 326-357_DOCS-DOCS-OPTIONS: Code review docs for misc-fixes batch (472/473/483)
+- [Watchlist management] 465-466_FE-IMPL-SAVANT-TRADER: Rename PAST_SIGNALS to MONITOR and add canonical list-filter constants (checkpoint)
+- [Watchlist management] 465-466_FE-IMPL-SAVANT-TRADER: Wire canonical list filters and membership-driven Monitor across review surfaces (checkpoint)
+- [Watchlist management] 465-466_DOCS-SAVANT-TRADER: Add watchlist misc-issues PRD and code review doc (checkpoint)
+
+### Changed
+- [Watchlist management] 465-466_FE-REFACTOR-SAVANT-TRADER: Consolidate list state ownership in SymbolListStore (checkpoint)
+
+### Fixed
+- [Watchlist management] 465-466_FE-BUG-SAVANT-TRADER: Fix nav position, filter-jump, and saved-sets sync (checkpoint)
 
 ## [2026-09-21]
 
