@@ -14,6 +14,8 @@
 - [Current option pricing] 486-497_DOCS-OPTIONS: PRD, FE impl/test plans, code review doc, and glossary terms
 - [Current option pricing] 486-498_FE-IMPL-OPTIONS: Session-resolution utils (1PM PT boundary, weekend/holiday walk-back, 7-day cap)
 - [Current option pricing] 486-498_DOCS-OPTIONS: Code review doc for session-resolution utils
+- [Current option pricing] 486-499_FE-IMPL-OPTIONS: Option-chain store data pipeline (session+prior snapshots, underlying closes, priorError isolation)
+- [Current option pricing] 486-499_DOCS-OPTIONS: Code review doc for chain store
 - [Trading Indicator Library] 261-506_DOCS-DOCS-INDICATOR-LIB: Symbol picker + company info header — PRD, IMPL, TEST (checkpoint)
 - [Trading Indicator Library] 261-444_DOCS-DOCS-INDICATOR-LIB: PRD — persist swing configurations (checkpoint)
 - [Flex Chart Maintenance] 468-477_FE-IMPL-FLEX-CHART: Auth-guarded flex-chart sandbox page (symbol, D/W/M, log toggle, debug readout)
