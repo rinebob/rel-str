@@ -261,6 +261,6 @@ _Avoid_: percent change grid (that is the analysis tool), option chain table
 
 ## Session Resolution
 
-The rule that maps "today" to an actual trading-session date for the Option Chain Grid. Intraday (before the current session's EOD snapshot exists) resolves to the prior trading session; post-session it tries today's date and falls back to prior sessions when no snapshot exists. Resolution walks back over weekends/holidays to the most recent session with a snapshot.
+The rule that maps "today" to an actual trading-session date for the Option Chain Grid. Before 1:00 PM PT (market close — the app standardizes on Pacific Time) resolves to the prior trading session; after 1 PM PT it tries today's date and falls back to prior sessions when no snapshot exists. Resolution walks back over weekends/holidays to the most recent session with a snapshot (cap: 7 calendar days).
 
 _Avoid_: current day, today's date (a calendar date is not necessarily a trading session)
