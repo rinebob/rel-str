@@ -21,6 +21,8 @@
 - [Flex Chart Maintenance] 468-477_FE-IMPL-FLEX-CHART: Auth-guarded flex-chart sandbox page (symbol, D/W/M, log toggle, debug readout)
 - [Flex Chart Maintenance] 468-479_FE-IMPL-FLEX-CHART: Manual log-scale Y-axis — log10 transform on Double axis, visible-range extents, exact-position stripLine ticks + gutter labels
 - [Flex Chart Maintenance] 468-476_DOCS-FLEX-CHART: Log Y-axis PRD, IMPL/TEST plans, and code review doc
+- [Flex Chart Maintenance] 468-478_FE-IMPL-FLEX-CHART: Synthetic data mode + edge-case presets (100x range, penny, bad-tick) for the sandbox
+- [Flex Chart Maintenance] 468-478_DOCS-FLEX-CHART: Code review doc for synthetic data mode
 
 ### Changed
 - [Watchlist management] 465-466_FE-REFACTOR-SAVANT-TRADER: Consolidate list state ownership in SymbolListStore (checkpoint)
