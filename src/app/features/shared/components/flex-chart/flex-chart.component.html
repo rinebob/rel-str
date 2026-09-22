@@ -3,6 +3,9 @@
     <div class="crosshair-date-label">{{ hoveredDate() }}</div>
   }
   <div class="crosshair-price-label">{{ hoveredPrice() }}</div>
+  @for (l of logAxisLabels(); track l.price) {
+    <div class="log-axis-label" [style.top.px]="l.top" [style.left.px]="l.left">{{ l.text }}</div>
+  }
   <div class="crosshair-line-v"></div>
   <div class="crosshair-line-h"></div>
   @if (chartKey(); as key) {
@@ -16,6 +19,7 @@
       [primaryXAxis]="primaryXAxis()"
       [primaryYAxis]="primaryYAxis()"
       [zoomSettings]="zoomSettings()"
+      [tooltip]="{ enable: !!config().showTooltips }"
       [crosshair]="crosshair"
       [legendSettings]="{ visible: false }"
       [axes]="chartAxes()"
@@ -27,6 +31,7 @@
       (zoomComplete)="onZoomComplete($event)"
       (scrollEnd)="onScrollEnd()"
       (axisLabelRender)="onAxisLabelRender($event)"
+      (tooltipRender)="onTooltipRender($event)"
       (chartMouseMove)="onChartMouseMove($event)"
       (chartMouseLeave)="onChartMouseLeave()">
 
@@ -303,5 +308,5 @@
   } @else {
     <div class="no-data">Select a signal to view chart</div>
   }
-  <app-chart-sync-overlay [bars]="categoryBars()"></app-chart-sync-overlay>
+  <app-chart-sync-overlay [bars]="categoryBars()" [logScale]="!!config().logScale"></app-chart-sync-overlay>
 </div>

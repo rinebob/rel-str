@@ -21,18 +21,14 @@ import {
 /** Lifecycle of the Syncfusion chart wrapper */
 export type ChartLifecycleState = 'initializing' | 'ready';
 
-/** Y-axis viewport descriptor produced by the active scale strategy */
+/** Y-axis viewport descriptor produced by the active scale strategy.
+ *  Always a plain Double-axis min/max — axis units are price for linear,
+ *  log10(price) for log (series data is transformed upstream). */
 export interface ChartYAxisViewport {
-  /** Syncfusion axis value type */
-  valueType: 'Logarithmic' | 'Double';
-  /** Suggested minimum */
+  /** Axis minimum in axis units */
   min: number;
-  /** Suggested maximum */
+  /** Axis maximum in axis units */
   max: number;
-  /** Optional zoom factor for auto-ranged axes (logarithmic mode) */
-  zoomFactor?: number;
-  /** Optional zoom position for auto-ranged axes (logarithmic mode) */
-  zoomPosition?: number;
 }
 
 /** State shape for the chart viewport store */
@@ -45,6 +41,9 @@ export interface ChartViewportState {
   crosshairPrice: number | null;
   /** Current Y-axis viewport computed from the visible bars */
   yAxisViewport: ChartYAxisViewport | null;
+  /** Round-price ticks drawn as gridlines in log mode — the single source for
+   *  both the stripLine positions and the gutter label divs. */
+  logTicks: number[];
   /** Current lifecycle state of the Syncfusion wrapper */
   lifecycle: ChartLifecycleState;
   /** Last recorded mouse Y pixel position for the hovered price overlay */
@@ -56,6 +55,7 @@ const initialState: ChartViewportState = {
   crosshairDate: null,
   crosshairPrice: null,
   yAxisViewport: null,
+  logTicks: [],
   lifecycle: 'initializing',
   hoveredPriceTop: null,
 };
@@ -115,6 +115,11 @@ export const ChartViewportStore = signalStore(
       patchState(state, { yAxisViewport: viewport });
     },
 
+    /** Set the round-price ticks for log-mode gridlines + gutter labels */
+    setLogTicks(ticks: number[]): void {
+      patchState(state, { logTicks: ticks });
+    },
+
     /** Update the lifecycle state of the chart wrapper */
     setLifecycle(lifecycle: ChartLifecycleState): void {
       patchState(state, { lifecycle });
@@ -125,13 +130,16 @@ export const ChartViewportStore = signalStore(
       patchState(state, { hoveredPriceTop: pixel });
     },
 
-    /** Reset all viewport state (e.g., when the chart data changes) */
+    /** Reset per-dataset UI state (crosshair/hover/lifecycle). Deliberately does
+     *  NOT clear yAxisViewport/logTicks — those are owned by the facade's zoom
+     *  effect, which always writes a fresh viewport on dataset change; clearing
+     *  them here would race that write (this reset runs after it).
+     */
     resetViewport(): void {
       patchState(state, {
         hovered: false,
         crosshairDate: null,
         crosshairPrice: null,
-        yAxisViewport: null,
         lifecycle: 'initializing',
         hoveredPriceTop: null,
       });

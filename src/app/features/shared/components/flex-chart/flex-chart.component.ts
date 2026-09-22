@@ -33,21 +33,23 @@ import {
   ScrollBarService,
   LegendService,
   StripLineService,
-  LogarithmicService,
+  TooltipService,
   IZoomCompleteEventArgs,
   IMouseEventArgs,
+  ITooltipRenderEventArgs,
 } from '@syncfusion/ej2-angular-charts';
 
 import type {
   FlexChartDataset,
   FlexChartConfig,
 } from './flex-chart.types';
-import { ChartIntervalKey, StIndicator } from './flex-chart.types';
+import { StIndicator } from './flex-chart.types';
 import { ChartViewportStore } from './store/chart-viewport.store';
 import { ChartYAxisViewportController } from './services/chart-y-axis-viewport-controller.service';
 import { ChartLifecycleFacade } from './services/chart-lifecycle-facade.service';
 import { ChartDataAdapter } from './services/chart-data-adapter.service';
-import type { SfAxisLabelRenderArgs, SfChartInstance } from './services/chart-instance.types';
+import type { ChartDebugSnapshot, SfAxisLabelRenderArgs, SfChartInstance } from './services/chart-instance.types';
+import { ChartAxisLabelService } from './services/chart-axis-label.service';
 import { ChartSyncOverlayComponent } from './components/chart-sync-overlay.component';
 
 @Component({
@@ -59,8 +61,8 @@ import { ChartSyncOverlayComponent } from './components/chart-sync-overlay.compo
     ChartYAxisViewportController,
     ChartLifecycleFacade,
     ChartDataAdapter,
+    ChartAxisLabelService,
     CandleSeriesService,
-    LogarithmicService,
     LineSeriesService,
     AreaSeriesService,
     ColumnSeriesService,
@@ -72,6 +74,7 @@ import { ChartSyncOverlayComponent } from './components/chart-sync-overlay.compo
     ScrollBarService,
     LegendService,
     StripLineService,
+    TooltipService,
   ],
   templateUrl: './flex-chart.component.html',
   styleUrl: './flex-chart.component.scss',
@@ -86,6 +89,7 @@ export class FlexChartComponent implements OnDestroy {
   private readonly yAxisController = inject(ChartYAxisViewportController);
   private readonly lifecycleFacade = inject(ChartLifecycleFacade);
   private readonly dataAdapter = inject(ChartDataAdapter);
+  private readonly axisLabels = inject(ChartAxisLabelService);
   private resizeObserver: ResizeObserver | null = null;
 
   private readonly chart = viewChild<SfChartComponent>('chart');
@@ -122,9 +126,16 @@ export class FlexChartComponent implements OnDestroy {
   // Outputs
   crosshairDateChange = output<Date | null>();
   crosshairPriceChange = output<number | null>();
+  /** Debug/testing seam — emits whenever the computed viewport or captured
+   *  axis state changes, so host pages can inspect axis extents. */
+  debugStateChange = output<ChartDebugSnapshot>();
 
   // Disable all series animations
   noAnimation = { enable: false };
+
+  // Log-mode gutter labels — owned by ChartAxisLabelService (exact-position
+  // divs matching the stripLine gridlines).
+  logAxisLabels = this.axisLabels.logAxisLabels;
 
   // Store-derived helpers (kept as aliases for readability inside the component)
   hoveredDate = this.viewport.crosshairDateLabel;
@@ -160,30 +171,15 @@ export class FlexChartComponent implements OnDestroy {
   });
 
   onAxisLabelRender(args: SfAxisLabelRenderArgs): void {
-    if (args.axis.name === 'primaryXAxis') {
-      const data = this.chartData();
-      const idx = Math.round(Number(args.value));
-      if (!data || Number.isNaN(idx) || !data.bars[idx]) return;
-
-      const date = data.bars[idx].x;
-      const interval = this.config().interval;
-      const format: Intl.DateTimeFormatOptions = interval === ChartIntervalKey.MONTHLY
-        ? { month: 'short', year: '2-digit' }
-        : { month: 'short', day: 'numeric' };
-      args.text = date.toLocaleDateString('en-US', format);
-      return;
-    }
-
-    if (args.axis.name === 'primaryYAxis') {
-      const value = Number(args.value);
-      if (Number.isNaN(value)) return;
-
-      args.text = this.yAxisController.formatLabel(args.axis.valueType === 'Logarithmic', value);
-    }
+    this.axisLabels.renderAxisLabel(args);
   }
 
-  // primaryYAxis declarative config. The actual min/max (or zoomFactor/zoomPosition for log)
-  // are applied imperatively by the lifecycle facade so the component does not mutate the chart.
+  onTooltipRender(args: ITooltipRenderEventArgs): void {
+    this.axisLabels.renderTooltip(args);
+  }
+
+  // primaryYAxis declarative config. The actual min/max are applied imperatively
+  // by the lifecycle facade so the component does not mutate the chart.
   primaryYAxis = computed(() =>
     this.yAxisController.buildAxisConfig(!!this.config().logScale, this.lowerPanes().length),
   );
@@ -228,6 +224,7 @@ export class FlexChartComponent implements OnDestroy {
 
     this.lifecycleFacade.connectAndActivate(this.typedChart, this.chartData, this.config, this.dataAdapter.computedSeries);
     this.dataAdapter.connect(this.chartData, this.config);
+    this.axisLabels.connect(this.chartData, this.config);
 
     // Sync incoming crosshair values (from parent input/output binding) into the store
     // so the overlay component can render them. Skip when this chart is hovered.
@@ -247,6 +244,15 @@ export class FlexChartComponent implements OnDestroy {
         this.lastCrosshairIdx = -1;
         this.lastCrosshairPriceRounded = null;
       }
+    });
+
+    // Debug seam for host pages — emits on every viewport/axis-state change.
+    effect(() => {
+      this.debugStateChange.emit({
+        viewport: this.viewport.yAxisViewport(),
+        axis: this.lifecycleFacade.chartState(),
+        logTicks: this.viewport.logTicks(),
+      });
     });
 
     // Watch for container resize (e.g. fullscreen toggle) and refresh chart.
@@ -302,7 +308,7 @@ export class FlexChartComponent implements OnDestroy {
       const insidePrimaryY = pixelY >= 0 && pixelY <= yAxis.rect.height;
       if (insidePrimaryY) {
         crosshairPrice = this.yAxisController.priceFromPixel(
-          yAxis.valueType === 'Logarithmic',
+          !!this.config().logScale,
           pixelY,
           yAxis.rect,
           yAxis.visibleRange,

@@ -1,94 +1,81 @@
 /**
  * Logarithmic Scale Strategy
  *
- * Logarithmic price-axis scaling using Syncfusion's built-in log axis. The
- * built-in log axis does not support arbitrary min/max ranges; it snaps labels
- * to powers of 10. This strategy keeps the full-data auto-range and uses
- * `zoomFactor`/`zoomPosition` to zoom the Y-axis to the visible log range.
+ * Manual log transform on a plain `Double` axis. Syncfusion's built-in
+ * `Logarithmic` valueType snaps labels/extents to powers of 10 and ignores
+ * arbitrary min/max, so instead the series data is transformed upstream
+ * (ChartDataAdapter applies `transformValue` to every primary-pane value)
+ * and this strategy drives the axis with ordinary log-space min/max —
+ * the same mechanism that already works for the linear axis.
  *
- * The strategy is retained for future work. The toolbar toggle is reachable,
- * but the built-in log axis will not render a correctly-snapped Y-axis until a
- * manual log implementation is added.
+ * Values at or below zero clamp to LOG_AXIS_FLOOR — log is undefined for
+ * non-positive inputs.
  */
-
 import type { PriceBar } from '../flex-chart.types';
-import type { AxisRect, ScaleStrategy, VisibleRange } from './scale-strategy.types';
+import type { AxisRect, AxisStyleConfig, ScaleStrategy, VisibleRange } from './scale-strategy.types';
 import type { ChartYAxisViewport } from '../store/chart-viewport.store';
+import { toLogAxis, fromLogAxis } from './log-transform';
+import { formatPrice } from './price-format';
 
 export class LogarithmicScaleStrategy implements ScaleStrategy {
-  readonly valueType: 'Logarithmic' = 'Logarithmic';
-  readonly axisConfig: Record<string, unknown> = {
-    edgeLabelPlacement: 'Shift',
-    interval: 1,
+  /**
+   * Generated gridlines are hidden in log mode — they sit at uniform
+   * log-space positions that don't correspond to round prices. Real
+   * gridlines+labels are drawn as stripLines at exact log10(tick) positions
+   * by the lifecycle facade instead.
+   */
+  readonly axisConfig: AxisStyleConfig = {
+    majorGridLines: { width: 0 },
+    majorTickLines: { width: 0 },
   };
 
-  private static readonly MIN_LOG_VALUE = 0.001;
-  private static readonly PAD_FACTOR = 1.03;
+  /** Same 3% padding as the linear strategy, applied in log space. */
+  private static readonly PAD_FACTOR = 0.03;
+  /** Fallback half-width in log units for a flat (single-price) range. */
+  private static readonly FLAT_PAD = 0.01;
 
-  computeViewport(allBars: PriceBar[], visibleBars: PriceBar[]): ChartYAxisViewport {
-    if (visibleBars.length === 0 || allBars.length === 0) {
-      return {
-        valueType: this.valueType,
-        min: LogarithmicScaleStrategy.MIN_LOG_VALUE,
-        max: 1,
-      };
+  transformValue(price: number): number {
+    return toLogAxis(price);
+  }
+
+  invertValue(axisValue: number): number {
+    return fromLogAxis(axisValue);
+  }
+
+  computeViewport(visibleBars: PriceBar[]): ChartYAxisViewport {
+    if (visibleBars.length === 0) {
+      return { min: 0, max: 1 };
     }
-
-    const fullMin = Math.min(...allBars.map(b => b.low));
-    const fullMax = Math.max(...allBars.map(b => b.high));
     const rawMin = Math.min(...visibleBars.map(b => b.low));
     const rawMax = Math.max(...visibleBars.map(b => b.high));
-
-    if (fullMin <= 0 || fullMax <= 0 || rawMin <= 0 || rawMax <= 0) {
-      return {
-        valueType: this.valueType,
-        min: LogarithmicScaleStrategy.MIN_LOG_VALUE,
-        max: fullMax,
-      };
-    }
-
-    const fullLogMin = Math.log10(fullMin);
-    const fullLogMax = Math.log10(fullMax);
-    const visibleLogMin = Math.log10(
-      Math.max(LogarithmicScaleStrategy.MIN_LOG_VALUE, rawMin / LogarithmicScaleStrategy.PAD_FACTOR)
-    );
-    const visibleLogMax = Math.log10(rawMax * LogarithmicScaleStrategy.PAD_FACTOR);
-
-    const fullLogRange = fullLogMax - fullLogMin;
-    const visibleLogRange = visibleLogMax - visibleLogMin;
-
-    if (fullLogRange <= 0 || visibleLogRange <= 0) {
-      return {
-        valueType: this.valueType,
-        min: fullMin,
-        max: fullMax,
-      };
-    }
-
+    const lo = toLogAxis(rawMin);
+    const hi = toLogAxis(rawMax);
+    const pad = hi - lo > 0
+      ? (hi - lo) * LogarithmicScaleStrategy.PAD_FACTOR
+      : LogarithmicScaleStrategy.FLAT_PAD;
     return {
-      valueType: this.valueType,
-      min: fullMin,
-      max: fullMax,
-      zoomFactor: visibleLogRange / fullLogRange,
-      zoomPosition: (visibleLogMin - fullLogMin) / fullLogRange,
+      min: lo - pad,
+      max: hi + pad,
     };
   }
 
+  /** Axis labels arrive in log units — invert to real price for display. */
   formatLabel(value: number): string {
-    // Built-in Syncfusion log axis passes actual prices to the label formatter.
-    return `$${Math.round(value).toLocaleString('en-US')}`;
+    return formatPrice(this.invertValue(value));
   }
 
+  /** Pixel → price: the axis is linear in log space, so interpolate then invert. */
   priceFromPixel(pixelY: number, yRect: AxisRect, range: VisibleRange): number {
+    if (range.delta <= 0) return this.invertValue(range.max);
     const ratio = pixelY / yRect.height;
-    const maxLog = Math.log10(range.max);
-    const minLog = Math.log10(range.min);
-    return Math.pow(10, maxLog - ratio * (maxLog - minLog));
+    return this.invertValue(range.max - ratio * range.delta);
   }
 
+  /** Price → pixel: transform to log space, then linear-position in the range. */
   pixelFromPrice(price: number, yRect: AxisRect, range: VisibleRange): number {
-    if (range.min <= 0 || price <= 0) return yRect.y;
-    const ratio = Math.log10(range.max / price) / Math.log10(range.max / range.min);
+    if (range.delta <= 0) return yRect.y;
+    const v = this.transformValue(price);
+    const ratio = (range.max - v) / range.delta;
     return yRect.y + ratio * yRect.height;
   }
 }

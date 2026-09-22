@@ -44,6 +44,9 @@ export class ChartSyncOverlayComponent {
   /** Category bars, used for O(log n) date-to-index lookup */
   bars = input.required<OverlayBar[]>();
 
+  /** Whether the primary axis is log-scaled — controls the price→pixel transform. */
+  logScale = input(false);
+
   private readonly el = inject(ElementRef);
   private readonly zone = inject(NgZone);
   private readonly viewport = inject(ChartViewportStore);
@@ -83,7 +86,7 @@ export class ChartSyncOverlayComponent {
       const closestIdx = this.findClosestIndex(syncDate.getTime());
       const pixelX = xAxis.rect.x + ((closestIdx - xAxis.visibleRange.min) / xAxis.visibleRange.delta) * xAxis.rect.width;
       const pixelY = this.yAxisController.pixelFromPrice(
-        yAxis.valueType === 'Logarithmic',
+        this.logScale(),
         syncPrice,
         yAxis.rect,
         yAxis.visibleRange,

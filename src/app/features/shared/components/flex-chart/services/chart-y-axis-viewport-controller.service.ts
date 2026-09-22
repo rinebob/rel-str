@@ -2,8 +2,9 @@
  * Chart Y-Axis Viewport Controller
  *
  * Computes the primary Y-axis viewport for the visible bar slice and applies
- * scale-specific strategy (linear padding vs logarithmic zoom). Hides the
- * Syncfusion log-axis quirk behind a single typed `ChartYAxisViewport` object.
+ * the scale-specific strategy (linear vs logarithmic). Both strategies emit a
+ * plain Double-axis min/max — the log scale transforms the data upstream and
+ * treats the axis as linear over log10(price) values.
  */
 
 import { Injectable } from '@angular/core';
@@ -19,7 +20,8 @@ import {
 
 export interface PrimaryYAxisConfig {
   labelFormat: string;
-  valueType: 'Logarithmic' | 'Double';
+  /** Always 'Double' — the log scale is a manual transform, not a native axis. */
+  valueType: 'Double';
   opposedPosition: boolean;
   rowIndex: number;
   majorGridLines: { width: number };
@@ -38,32 +40,40 @@ export class ChartYAxisViewportController {
   }
 
   /**
-   * Compute the Y-axis viewport for the given visible bars.
-   * For linear, the viewport carries exact min/max. For log, the viewport
-   * carries the full-data range plus zoomFactor/zoomPosition to zoom to the
-   * visible log range.
+   * Compute the Y-axis viewport for the given visible bars. The returned
+   * min/max are in the strategy's axis units — price units for linear,
+   * log10(price) for log.
    */
-  computeViewport(logScale: boolean, allBars: PriceBar[], visibleBars: PriceBar[]): ChartYAxisViewport {
-    return this.strategy(logScale).computeViewport(allBars, visibleBars);
+  computeViewport(logScale: boolean, visibleBars: PriceBar[]): ChartYAxisViewport {
+    return this.strategy(logScale).computeViewport(visibleBars);
+  }
+
+  /** Transform a price into the strategy's axis units (identity for linear). */
+  transformValue(logScale: boolean, price: number): number {
+    return this.strategy(logScale).transformValue(price);
+  }
+
+  /** Invert an axis-unit value back to a real price (identity for linear). */
+  invertValue(logScale: boolean, axisValue: number): number {
+    return this.strategy(logScale).invertValue(axisValue);
   }
 
   /**
    * Build the Syncfusion primaryYAxis declarative config (valueType, rowIndex, etc.).
-   * The actual range (min/max or zoomFactor/zoomPosition) is applied imperatively
-   * by the lifecycle facade from the current `ChartYAxisViewport`.
+   * The actual min/max are applied imperatively by the lifecycle facade from the
+   * current `ChartYAxisViewport`.
    */
   buildAxisConfig(logScale: boolean, rowIndex: number): PrimaryYAxisConfig {
-    const strategy = this.strategy(logScale);
     const base: PrimaryYAxisConfig = {
       labelFormat: '{value}',
-      valueType: strategy.valueType,
+      valueType: 'Double',
       opposedPosition: true,
       rowIndex,
       majorGridLines: { width: 1 },
       crosshairTooltip: { enable: false },
     };
 
-    return { ...base, ...strategy.axisConfig } as PrimaryYAxisConfig;
+    return { ...base, ...this.strategy(logScale).axisConfig };
   }
 
   /** Format a numeric axis value for display using the active scale strategy */

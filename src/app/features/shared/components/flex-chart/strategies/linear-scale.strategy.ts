@@ -5,39 +5,48 @@
  */
 
 import type { PriceBar } from '../flex-chart.types';
-import type { AxisRect, ScaleStrategy, VisibleRange } from './scale-strategy.types';
+import type { AxisRect, AxisStyleConfig, ScaleStrategy, VisibleRange } from './scale-strategy.types';
 import type { ChartYAxisViewport } from '../store/chart-viewport.store';
+import { formatPrice } from './price-format';
 
 export class LinearScaleStrategy implements ScaleStrategy {
-  readonly valueType: 'Double' = 'Double';
-  readonly axisConfig: Record<string, unknown> = {};
+  readonly axisConfig: AxisStyleConfig = {};
 
   private static readonly PAD_FACTOR = 0.03;
 
-  computeViewport(_allBars: PriceBar[], visibleBars: PriceBar[]): ChartYAxisViewport {
+  transformValue(price: number): number {
+    return price;
+  }
+
+  invertValue(axisValue: number): number {
+    return axisValue;
+  }
+
+  computeViewport(visibleBars: PriceBar[]): ChartYAxisViewport {
     if (visibleBars.length === 0) {
-      return { valueType: this.valueType, min: 0, max: 1 };
+      return { min: 0, max: 1 };
     }
     const rawMin = Math.min(...visibleBars.map(b => b.low));
     const rawMax = Math.max(...visibleBars.map(b => b.high));
     const pad = (rawMax - rawMin) * LinearScaleStrategy.PAD_FACTOR;
     return {
-      valueType: this.valueType,
       min: Math.max(0, rawMin - pad),
       max: rawMax + pad,
     };
   }
 
   formatLabel(value: number): string {
-    return `$${Math.round(value).toLocaleString('en-US')}`;
+    return formatPrice(value);
   }
 
   priceFromPixel(pixelY: number, yRect: AxisRect, range: VisibleRange): number {
+    if (range.delta <= 0) return range.max;
     const ratio = pixelY / yRect.height;
     return range.max - ratio * range.delta;
   }
 
   pixelFromPrice(price: number, yRect: AxisRect, range: VisibleRange): number {
+    if (range.delta <= 0) return yRect.y;
     const ratio = (range.max - price) / range.delta;
     return yRect.y + ratio * yRect.height;
   }

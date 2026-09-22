@@ -24,19 +24,35 @@ export interface VisibleRange {
   delta: number;
 }
 
-export interface ScaleStrategy {
-  /** Syncfusion valueType for this scale */
-  readonly valueType: 'Logarithmic' | 'Double';
+/** Axis style overrides a scale strategy may contribute to primaryYAxis
+ *  (e.g. the log scale hides generated gridlines/ticks because stripLines
+ *  draw the real ticks). */
+export interface AxisStyleConfig {
+  majorGridLines?: { width: number };
+  majorTickLines?: { width: number };
+  edgeLabelPlacement?: 'Shift' | 'None';
+  interval?: number;
+}
 
-  /** Extra axis properties that belong to this scale (e.g. interval, edgeLabelPlacement) */
-  readonly axisConfig: Record<string, unknown>;
+export interface ScaleStrategy {
+  /** Extra axis style properties that belong to this scale. */
+  readonly axisConfig: AxisStyleConfig;
+
+  /**
+   * Transform a price into axis units — the value bound to primary-pane
+   * series and applied as axis min/max. Identity for linear; log10(price)
+   * with a positive floor for log.
+   */
+  transformValue(price: number): number;
+
+  /** Invert an axis-unit value back to a real price. */
+  invertValue(axisValue: number): number;
 
   /**
    * Compute the Y-axis viewport for the visible bars.
-   * @param allBars Full dataset, used for log-scale auto-range reference.
    * @param visibleBars Bars currently visible on the X-axis.
    */
-  computeViewport(allBars: PriceBar[], visibleBars: PriceBar[]): ChartYAxisViewport;
+  computeViewport(visibleBars: PriceBar[]): ChartYAxisViewport;
 
   /** Format a numeric axis value for display */
   formatLabel(value: number): string;

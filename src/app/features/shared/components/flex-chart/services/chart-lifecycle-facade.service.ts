@@ -2,6 +2,7 @@ import { Injectable, Signal, effect, inject, signal, untracked } from '@angular/
 import type { ComputedIndicatorSeries, FlexChartConfig, FlexChartDataset, PriceBar } from '../flex-chart.types';
 import { ChartViewportStore } from '../store/chart-viewport.store';
 import { ChartYAxisViewportController } from './chart-y-axis-viewport-controller.service';
+import { fromLogAxis, nicePriceTicks, toLogAxis } from '../strategies/log-transform';
 import type { ChartAxisState, SfChartInstance } from './chart-instance.types';
 
 /**
@@ -31,6 +32,15 @@ export class ChartLifecycleFacade {
    *  indicator configs change (same dataset, same interval, same zoom days).
    */
   private readonly lastZoomKey = signal<string | null>(null);
+  /** Last dataset object the initial zoom ran on — a new object identity (symbol
+   *  or interval change) re-applies zoom even when the key happens to match.
+   */
+  private lastZoomDataset: FlexChartDataset | null = null;
+  /** Last chart instance the initial zoom ran on — the ejs-chart is destroyed and
+   *  recreated on chartKey change, so a new instance must re-apply the zoom even
+   *  when the dataset and key are unchanged.
+   */
+  private lastZoomChart: SfChartInstance | null = null;
   /** Last chartData reference seen by the dataBind effect — used to skip dataBind
    *  on a fresh dataset change and only call it for async series updates on the same dataset.
    */
@@ -39,6 +49,10 @@ export class ChartLifecycleFacade {
    *  chart refresh only fires when the setting actually flips, not on every config read.
    */
   private readonly lastShowToolbar = signal<boolean | null>(null);
+  /** Last-seen value of `logScale` — guards the scale-change effect so the Y-axis
+   *  re-snaps only when the scale mode actually flips.
+   */
+  private readonly lastLogScale = signal<boolean | null>(null);
   /** Writable backing signal for `chartState`; updated after every dataBind/viewport change. */
   private readonly chartStateSignal = signal<ChartAxisState | null>(null);
   static readonly RIGHT_MARGIN_BARS = 5;
@@ -69,7 +83,16 @@ export class ChartLifecycleFacade {
       if (!chart || !data || data.bars.length === 0) return;
 
       const key = `${config.initialZoomDays ?? 0}-${config.interval ?? ''}-${data.bars.length}`;
-      if (untracked(this.lastZoomKey) === key) return;
+      // Re-apply when the dataset object, the chart instance, or the zoom key
+      // changed. A new chart instance alone (chartKey recreation on symbol
+      // change) must re-apply — the previous run may have applied zoom to the
+      // old, now-destroyed chart before the reset effect cleared the viewport.
+      const stale = chart !== this.lastZoomChart
+        || data !== this.lastZoomDataset
+        || untracked(this.lastZoomKey) !== key;
+      if (!stale) return;
+      this.lastZoomChart = chart;
+      this.lastZoomDataset = data;
       this.lastZoomKey.set(key);
 
       this.applyInitialZoom();
@@ -115,29 +138,63 @@ export class ChartLifecycleFacade {
       chart.refresh();
     });
 
+    // Re-snaps the Y-axis to the visible range when the scale mode flips —
+    // axis units change (price vs log10 of price), so the previous extents
+    // are meaningless and must be recomputed immediately.
+    effect(() => {
+      const logScale = !!this.config().logScale;
+      const last = untracked(this.lastLogScale);
+      this.lastLogScale.set(logScale);
+      if (last === null || last === logScale) return;
+      if (!this.chartSignal()) return;
+      this.snapYAxisToCurrentVisibleRange();
+    });
+
     // Applies Y-axis viewport changes imperatively and rebinds. This is the single
-    // place where Y-axis min/max or zoomFactor/zoomPosition are written to the
-    // Syncfusion instance.
+    // place where Y-axis min/max are written to the Syncfusion instance.
     effect(() => {
       const chart = this.chartSignal();
       const viewport = this.viewport.yAxisViewport();
       if (!chart || !viewport) return;
 
       if (chart.primaryYAxis) {
-        if (viewport.valueType === 'Double') {
-          chart.primaryYAxis.minimum = viewport.min;
-          chart.primaryYAxis.maximum = viewport.max;
-        } else if (
-          viewport.zoomFactor !== undefined &&
-          viewport.zoomPosition !== undefined
-        ) {
-          chart.primaryYAxis.zoomFactor = viewport.zoomFactor;
-          chart.primaryYAxis.zoomPosition = viewport.zoomPosition;
+        chart.primaryYAxis.minimum = viewport.min;
+        chart.primaryYAxis.maximum = viewport.max;
+
+        // Log mode draws real gridlines+labels as stripLines at exact
+        // log10(roundPrice) positions — the generated uniform ticks are
+        // hidden, so a label always matches its gridline's true value.
+        const logScale = !!untracked(this.config).logScale;
+        if (logScale) {
+          const priceLo = fromLogAxis(viewport.min);
+          const priceHi = fromLogAxis(viewport.max);
+          const ticks = nicePriceTicks(priceLo, priceHi);
+          // Single tick source — the gutter label divs read the same list.
+          this.viewport.setLogTicks(ticks);
+          chart.primaryYAxis.stripLines = ticks.map((price) => ({
+            start: toLogAxis(price),
+            size: 1,
+            sizeType: 'Pixel' as const,
+            color: 'rgba(158,158,158,0.35)',
+            visible: true,
+            opacity: 1,
+            zIndex: 'Over' as const,
+            horizontalAlignment: 'End' as const,
+            verticalAlignment: 'Middle' as const,
+          }));
+        } else {
+          this.viewport.setLogTicks([]);
+          if (chart.primaryYAxis.stripLines?.length) {
+            chart.primaryYAxis.stripLines = [];
+          }
         }
       }
 
       chart.animateSeries = false;
-      chart.dataBind();
+      // Syncfusion can throw on dataBind while its DOM is mid-rebuild (e.g.
+      // blanked axis labels on a symbol switch) — never let that abort the
+      // effect before chartState is refreshed.
+      try { chart.dataBind(); } catch { /* suppress residual Syncfusion race */ }
 
       // Re-captures axis rects/ranges so overlay and crosshair logic can react
       // to the updated viewport without reading the chart instance directly.
@@ -163,7 +220,7 @@ export class ChartLifecycleFacade {
     const margin = ChartLifecycleFacade.RIGHT_MARGIN_BARS;
     const totalCategories = data.bars.length + margin;
     const initialDays = config.initialZoomDays ?? 60;
-    const visibleCount = Math.max(1, Math.min(initialDays, data.bars.length - 1));
+    const visibleCount = Math.max(1, Math.min(initialDays, data.bars.length));
     const visibleRange = visibleCount + margin;
     const zoomFactor = visibleRange / totalCategories;
     const zoomPosition = (data.bars.length - visibleCount) / totalCategories;
@@ -177,7 +234,7 @@ export class ChartLifecycleFacade {
 
     const visibleStart = Math.max(0, data.bars.length - visibleCount);
     const visibleBars = data.bars.slice(visibleStart);
-    this.setYAxisViewport(data.bars, !!config.logScale, visibleBars);
+    this.setYAxisViewport(!!config.logScale, visibleBars);
   }
 
   /** Snap the Y-axis to the visible bar range after zoom/scroll. */
@@ -189,7 +246,7 @@ export class ChartLifecycleFacade {
     const maxIdx = Math.min(data.bars.length - 1, Math.ceil(rangeMax));
     const visibleBars = data.bars.slice(minIdx, maxIdx + 1);
     const config = this.config();
-    this.setYAxisViewport(data.bars, !!config.logScale, visibleBars);
+    this.setYAxisViewport(!!config.logScale, visibleBars);
   }
 
   /** Snap the Y-axis to whatever the chart's current X-axis visible range is. */
@@ -242,9 +299,8 @@ export class ChartLifecycleFacade {
   }
 
 
-  private setYAxisViewport(allBars: PriceBar[], logScale: boolean, visibleBars: PriceBar[]): void {
-    if (allBars.length === 0) return;
-    const viewport = this.yAxisController.computeViewport(logScale, allBars, visibleBars);
+  private setYAxisViewport(logScale: boolean, visibleBars: PriceBar[]): void {
+    const viewport = this.yAxisController.computeViewport(logScale, visibleBars);
     this.viewport.setYAxisViewport(viewport);
   }
 }

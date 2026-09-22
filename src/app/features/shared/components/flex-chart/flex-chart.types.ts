@@ -179,6 +179,10 @@ export interface FlexChartConfig {
 
   /** Use logarithmic scale for the price Y-axis */
   logScale?: boolean;
+
+  /** Enable Syncfusion series tooltips (off by default — most surfaces rely
+   *  on the crosshair overlay instead) */
+  showTooltips?: boolean;
 }
 
 /** Computed indicator series - supports both Date (DateTime) and index (Category) x values */

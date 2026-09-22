@@ -10,6 +10,7 @@ import { computeIndicators, groupIndicatorsByPane } from '../flex-chart-calculat
 import { computeAllBands, type BandSeriesData } from '../indicators/st-trend-bands.indicator';
 import { computeStdDevLinesSeries, type StdDevLineSeriesData } from '../indicators/st-std-dev-lines.indicator';
 import { computeZigZagSeries, type ZigZagChartSeries } from '../indicators/st-zigzag.indicator';
+import { toLogAxis } from '../strategies/log-transform';
 
 export interface LowerPaneView {
   /** The pane slot ID (e.g. 'lower-1'). */
@@ -78,6 +79,37 @@ export class ChartDataAdapter {
   private chartData: Signal<FlexChartDataset | null> = signal(null);
   private config: Signal<FlexChartConfig> = signal({ indicators: [] });
 
+  /** Price→axis-unit transform for the active scale (identity when linear).
+   *  Every value bound to a primary-pane series goes through this so the
+   *  log axis is just a Double axis over log10 prices. */
+  private transformY(v: number): number {
+    return this.config().logScale ? toLogAxis(v) : v;
+  }
+
+  /** Map the named price fields on a point through the scale transform. */
+  private mapFields<T extends object>(p: T, fields: readonly (keyof T)[]): T {
+    const out = { ...p };
+    for (const f of fields) {
+      const v = out[f];
+      if (typeof v === 'number') (out as Record<keyof T, unknown>)[f] = this.transformY(v);
+    }
+    return out;
+  }
+
+  private mapY<T extends { y: number }>(p: T): T {
+    return { ...p, y: this.transformY(p.y) };
+  }
+
+  private mapOhlc<T extends { open: number; high: number; low: number; close: number }>(p: T): T {
+    return {
+      ...p,
+      open: this.transformY(p.open),
+      high: this.transformY(p.high),
+      low: this.transformY(p.low),
+      close: this.transformY(p.close),
+    };
+  }
+
   /** Bind the adapter to the component's input signals once. */
   connect(
     chartData: Signal<FlexChartDataset | null>,
@@ -100,16 +132,7 @@ export class ChartDataAdapter {
         year: 'numeric',
         timeZone: 'UTC',
       });
-      return {
-        index,
-        open: bar.open,
-        high: bar.high,
-        low: bar.low,
-        close: bar.close,
-        volume: bar.volume,
-        date: bar.x,
-        label,
-      };
+      return { index, ...this.mapOhlc(bar), date: bar.x, label };
     });
   });
 
@@ -135,16 +158,24 @@ export class ChartDataAdapter {
     const originalSeries = computeIndicators(data.bars, cfg.indicators);
     const dateToIndex = this.dateToIndex();
 
-    return originalSeries.map((series) => ({
-      ...series,
-      data: series.data
-        .map((point) => {
-          if (!point.x) return { ...point, index: -1 };
-          const index = dateToIndex.get(point.x.getTime());
-          return { ...point, index: index ?? -1 };
-        })
-        .filter((p) => p.index >= 0),
-    }));
+    return originalSeries.map((series) => {
+      // 'overlay' renders on the main price pane — every numeric value field
+      // on a main-pane series is a price and transforms to axis units.
+      const isPrimaryPane = series.config.pane === 'main' || series.config.pane === 'overlay';
+      return {
+        ...series,
+        data: series.data
+          .map((point) => {
+            if (!point.x) return { ...point, index: -1 };
+            const index = dateToIndex.get(point.x.getTime());
+            const p = { ...point, index: index ?? -1 };
+            return isPrimaryPane
+              ? this.mapFields(p, ['y', 'y2', 'y3', 'bandHigh', 'bandLow'])
+              : p;
+          })
+          .filter((p) => p.index >= 0),
+      };
+    });
   });
 
   /** Computed series grouped by pane ID — shared source for `mainPaneSeries` and `lowerPanes`. */
@@ -170,11 +201,14 @@ export class ChartDataAdapter {
     const trendBands = mainSeries.find((s) => s.config.type === StIndicator.TREND_BANDS);
     if (!trendBands) return [];
 
-    if (trendBands.config.bandData && trendBands.config.bandData.length > 0) {
-      return trendBands.config.bandData;
-    }
+    const bands = trendBands.config.bandData && trendBands.config.bandData.length > 0
+      ? trendBands.config.bandData
+      : this.fallbackBandData();
 
-    return this.fallbackBandData();
+    return bands.map((band) => ({
+      ...band,
+      data: band.data.map((p) => this.mapOhlc(p)),
+    }));
   });
 
   /** Std Dev Lines series — computes all line series + fill zones from bars
@@ -191,7 +225,17 @@ export class ChartDataAdapter {
     );
     if (!stdDevConfig) return { lines: [], fills: [] };
 
-    return computeStdDevLinesSeries(data.bars, stdDevConfig.params);
+    const series = computeStdDevLinesSeries(data.bars, stdDevConfig.params);
+    return {
+      lines: series.lines.map((line) => ({
+        ...line,
+        data: line.data.map((p) => this.mapY(p)),
+      })),
+      fills: series.fills.map((fill) => ({
+        ...fill,
+        data: fill.data.map((p) => this.mapFields(p, ['high', 'low'])),
+      })),
+    };
   });
 
   /** ZigZag series — computes solid confirmed-pivot segments + dashed projected
@@ -209,14 +253,33 @@ export class ChartDataAdapter {
     );
     if (zigZagConfigs.length === 0) return [];
 
-    return zigZagConfigs.map((zigZagConfig) =>
-      computeZigZagSeries(data.bars, zigZagConfig.params, {
+    return zigZagConfigs.map((zigZagConfig) => {
+      const zz = computeZigZagSeries(data.bars, zigZagConfig.params, {
         instanceId: zigZagConfig.id,
         lineColor: typeof zigZagConfig.params['lineColor'] === 'string'
           ? zigZagConfig.params['lineColor'] as string
           : undefined,
-      }),
-    );
+      });
+      return {
+        ...zz,
+        lines: zz.lines.map((line) => ({
+          ...line,
+          data: line.data.map((p) => this.mapY(p)),
+        })),
+        projectedLine: zz.projectedLine
+          ? {
+              ...zz.projectedLine,
+              data: zz.projectedLine.data.map((p) => this.mapY(p)),
+            }
+          : undefined,
+        triggers: zz.triggers
+          ? {
+              ...zz.triggers,
+              data: zz.triggers.data.map((p) => this.mapY(p)),
+            }
+          : undefined,
+      };
+    });
   });
 
   /** Fixed set of lower-pane slot IDs — always emitted so Syncfusion never sees a
