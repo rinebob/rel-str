@@ -2,8 +2,10 @@
  * Savant Trader Symbol List Service
  *
  * Manages user-defined symbol lists (watchlists) in Firestore.
- * A symbol can belong to many lists simultaneously. Lists are independent
- * of PACR daily decisions and of any single symbol classification.
+ * Triage-list membership is exclusive (moveToList removes the symbol from
+ * every other list); MONITOR is the exception — the Monitor action is a
+ * non-exclusive add/remove. Lists are independent of PACR daily decisions
+ * and of any single symbol classification.
  *
  * Collection: savant-trader/data/symbol-lists
  * Document ID: {listName}
@@ -29,6 +31,7 @@ import { map, switchMap, take } from 'rxjs/operators';
 
 import { requireUserId } from './firestore-helpers';
 import { Collection } from '../../../core/common/constants';
+import { SymbolListName } from '../common/constants';
 
 export interface SymbolList {
   name: string;
@@ -38,6 +41,9 @@ export interface SymbolList {
   updatedAt?: Timestamp;
 }
 
+/** Legacy Firestore doc id for the Monitor list — migrated to MONITOR on load. */
+const LEGACY_MONITOR_LIST_NAME = 'PAST_SIGNALS';
+
 @Injectable({ providedIn: 'root' })
 export class SymbolListService {
   private readonly firestore = inject(Firestore);
@@ -46,18 +52,6 @@ export class SymbolListService {
 
   private readonly listsCollection = collection(this.firestore, Collection.ST_SYMBOL_LISTS);
 
-  /** Load a single named list for the current user. */
-  loadList(name: string): Observable<SymbolList> {
-    return requireUserId(this.auth, this.injector).pipe(
-      take(1),
-      switchMap((userId) => runInInjectionContext(this.injector, async () => {
-        const docId = this.listId(userId, name);
-        const snap = await getDoc(doc(this.firestore, Collection.ST_SYMBOL_LISTS, docId));
-        return snap.exists() ? this.toList(snap.id, snap.data()) : { name, symbols: [], userId };
-      }))
-    );
-  }
-
   /** Load all lists for the current user. */
   loadAllLists(): Observable<SymbolList[]> {
     return requireUserId(this.auth, this.injector).pipe(
@@ -65,33 +59,45 @@ export class SymbolListService {
       switchMap((userId) => runInInjectionContext(this.injector, async () => {
         const q = query(this.listsCollection, where('userId', '==', userId));
         const snapshot = await getDocs(q);
-        return snapshot.docs.map((d) => this.toList(d.id, d.data()));
+        const lists = snapshot.docs.map((d) => this.toList(d.id, d.data()));
+        return this.migrateLegacyMonitorList(userId, lists);
       }))
     );
   }
 
-  /** Replace a list with a full set of symbols. */
-  setList(name: string, symbols: string[]): Observable<void> {
-    return requireUserId(this.auth, this.injector).pipe(
-      take(1),
-      switchMap((userId) => runInInjectionContext(this.injector, async () => {
-        const docId = this.listId(userId, name);
-        const docRef = doc(this.firestore, Collection.ST_SYMBOL_LISTS, docId);
-        const existing = await getDoc(docRef);
-        await setDoc(
-          docRef,
-          {
-            name,
-            symbols: symbols.map((s) => s.toUpperCase()),
-            userId,
-            updatedAt: serverTimestamp(),
-            createdAt: existing.exists() ? (existing.data()['createdAt'] ?? serverTimestamp()) : serverTimestamp(),
-          },
-          { merge: true }
-        );
-      })),
-      map(() => undefined)
-    );
+  /**
+   * Rename the legacy PAST_SIGNALS doc to MONITOR in place of the loaded
+   * list. Merges into an existing MONITOR doc if one somehow exists, then
+   * deletes the legacy doc — the two writes commit atomically via batch.
+   * A write failure leaves the unmigrated lists intact (still correct to
+   * read); migration retries on the next load. No-op when no legacy doc
+   * is present.
+   */
+  private async migrateLegacyMonitorList(userId: string, lists: SymbolList[]): Promise<SymbolList[]> {
+    const legacy = lists.find((l) => l.name === LEGACY_MONITOR_LIST_NAME);
+    if (!legacy) return lists;
+
+    const monitor = lists.find((l) => l.name === SymbolListName.MONITOR);
+    const merged = [...new Set([...(monitor?.symbols ?? []), ...legacy.symbols])];
+    try {
+      const batch = writeBatch(this.firestore);
+      batch.set(doc(this.firestore, Collection.ST_SYMBOL_LISTS, SymbolListName.MONITOR), {
+        name: SymbolListName.MONITOR,
+        symbols: merged,
+        userId,
+        updatedAt: serverTimestamp(),
+        createdAt: monitor?.createdAt ?? legacy.createdAt ?? serverTimestamp(),
+      });
+      batch.delete(doc(this.firestore, Collection.ST_SYMBOL_LISTS, LEGACY_MONITOR_LIST_NAME));
+      await batch.commit();
+    } catch (err) {
+      console.error('[SymbolListService] legacy PAST_SIGNALS migration failed', err);
+      return lists;
+    }
+
+    return lists
+      .filter((l) => l.name !== LEGACY_MONITOR_LIST_NAME && l.name !== SymbolListName.MONITOR)
+      .concat({ ...(monitor ?? legacy), name: SymbolListName.MONITOR, symbols: merged });
   }
 
   /** Add a symbol to a list if it is not already present. */
@@ -145,22 +151,6 @@ export class SymbolListService {
         );
       })),
       map(() => undefined)
-    );
-  }
-
-  /** Toggle a symbol in a list. */
-  toggleInList(symbol: string, name: string): Observable<boolean> {
-    return this.loadList(name).pipe(
-      take(1),
-      switchMap((list) => {
-        const normalized = symbol.toUpperCase();
-        const isInList = list.symbols.includes(normalized);
-        if (isInList) {
-          return this.removeFromList(symbol, name).pipe(map(() => false));
-        } else {
-          return this.addToList(symbol, name).pipe(map(() => true));
-        }
-      })
     );
   }
 

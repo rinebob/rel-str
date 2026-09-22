@@ -52,7 +52,7 @@ export enum SymbolListName {
   NEUTRAL = 'NEUTRAL',
   AVOID = 'AVOID',
   HIDE = 'HIDE',
-  PAST_SIGNALS = 'PAST_SIGNALS',
+  MONITOR = 'MONITOR',
 }
 
 /** All built-in symbol list names in display order. */
@@ -62,7 +62,34 @@ export const ALL_SYMBOL_LIST_NAMES: SymbolListName[] = [
   SymbolListName.NEUTRAL,
   SymbolListName.AVOID,
   SymbolListName.HIDE,
-  SymbolListName.PAST_SIGNALS,
+  SymbolListName.MONITOR,
+];
+
+/**
+ * Filter value for the "No memberships" option — symbols that belong to
+ * zero lists. Distinct from SymbolListName.NONE, which some surfaces use
+ * to mean "no list filter applied" (i.e., show everything).
+ */
+export const NO_MEMBERSHIP = 'NO_MEMBERSHIP';
+
+/** Union of every value a list-filter dropdown can emit. */
+export type SymbolListFilter = SymbolListName | 'ALL' | typeof NO_MEMBERSHIP;
+
+/**
+ * Canonical ordered options shared by every list-filter dropdown.
+ * Each surface prepends its own "show everything" option (All / None).
+ */
+export const SYMBOL_LIST_FILTER_OPTIONS: ReadonlyArray<{
+  value: SymbolListName | typeof NO_MEMBERSHIP;
+  label: string;
+}> = [
+  { value: SymbolListName.PRIMARY,      label: 'Primary' },
+  { value: SymbolListName.SECONDARY,    label: 'Secondary' },
+  { value: SymbolListName.NEUTRAL,      label: 'Neutral' },
+  { value: SymbolListName.AVOID,        label: 'Avoid' },
+  { value: SymbolListName.HIDE,         label: 'Hidden' },
+  { value: NO_MEMBERSHIP,               label: 'No memberships' },
+  { value: SymbolListName.MONITOR,      label: 'Monitor' },
 ];
 
 /** Symbol type classification for the trading universe. */

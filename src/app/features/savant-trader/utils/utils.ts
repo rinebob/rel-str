@@ -4,8 +4,9 @@
  * Small, pure helpers used across the Savant Trader feature components.
  */
 import { MarketCapTier, StSignalItem, StSymbolProfile, ST_SCHEDULE_CRON, StSymbolSource } from '../services/types';
-import { SymbolRow, SymbolGroup } from '../stores/group.store';
-import { GroupDimension, ReviewDecision, SignalFilter, SignalTimeframe, SignalDirection } from '../common/constants';
+import type { SymbolRow, SymbolGroup } from '../stores/group.store';
+import { GroupDimension, NO_MEMBERSHIP, ReviewDecision, SignalFilter, SignalTimeframe, SignalDirection, type SymbolListFilter } from '../common/constants';
+import type { Company } from '../../shared/types/rs.interfaces';
 
 /** Format a YYYY-MM-DD date string as a UTC date with the given Intl options. */
 export function formatUtcDate(dateStr: string, options: Intl.DateTimeFormatOptions): string {
@@ -158,14 +159,31 @@ export function getGroupLabel(key: string, dimension: GroupDimension): string {
   return dimension === GroupDimension.MARKET_CAP_TIER ? key.toUpperCase() : key;
 }
 
+/** True when the symbol belongs to no list (list contents are uppercased). */
+export function isUnlisted(symbol: string, lists: Record<string, string[]>): boolean {
+  const normalized = symbol.toUpperCase();
+  return !Object.values(lists).some((members) => members.includes(normalized));
+}
+
+/** Normalize the GET_TRACKED_SYMBOLS callable response — uppercased, deduped, sorted. */
+export function normalizeTrackedSymbols(companies: Company[]): string[] {
+  return [
+    ...new Set(
+      companies.map((c) => String(c.symbol || '').trim().toUpperCase()).filter(Boolean),
+    ),
+  ].sort();
+}
+
 /**
  * Determine whether a symbol should appear under the active list filter.
  *
- * 'ALL' shows every symbol. Any other filter value shows only symbols that
- * belong to that named list.
+ * 'ALL' shows every symbol. NO_MEMBERSHIP shows only symbols that belong
+ * to zero lists. Any other filter value shows only symbols that belong to
+ * that named list.
  */
-export function shouldShowInListFilter(symbol: string, lists: Record<string, string[]>, filter: string | 'ALL'): boolean {
+export function shouldShowInListFilter(symbol: string, lists: Record<string, string[]>, filter: SymbolListFilter): boolean {
   if (filter === 'ALL') return true;
+  if (filter === NO_MEMBERSHIP) return isUnlisted(symbol, lists);
   const list = lists[filter] ?? [];
   return list.includes(symbol.toUpperCase());
 }
@@ -173,7 +191,7 @@ export function shouldShowInListFilter(symbol: string, lists: Record<string, str
 /** Market cap tier display label. */
 export function tierLabel(tier: string | undefined): string {
   const map: Record<string, string> = {
-    mega: 'MEGA', large: 'LG', mid: 'MID', small: 'SM', micro: 'Âµ',
+    mega: 'MEGA', large: 'LG', mid: 'MID', small: 'SM', micro: 'µ',
   };
   return tier ? (map[tier] ?? tier.toUpperCase()) : '';
 }
@@ -532,7 +550,7 @@ export interface BuildFilteredCandidatesInput {
   allSymbols: StSymbolProfile[];
   showAll: boolean;
   symbolLists: Record<string, string[]>;
-  activeListFilter: string | 'ALL';
+  activeListFilter: SymbolListFilter;
 }
 
 /**
@@ -557,7 +575,7 @@ export interface BuildSymbolGroupsInput {
   showAll: boolean;
   dimension: GroupDimension;
   symbolLists: Record<string, string[]>;
-  activeListFilter: string | 'ALL';
+  activeListFilter: SymbolListFilter;
   statuses: Record<string, ReviewDecision>;
   /** Set of symbols flagged for review (bookmark), independent of accept/reject. */
   reviewFlagSymbols: Set<string>;

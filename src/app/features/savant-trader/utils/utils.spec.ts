@@ -1,4 +1,4 @@
-import { SignalTimeframe, SignalDirection, SignalStatus, SIGNAL_FILTER_ALL, ReviewDecision, GroupDimension } from '../common/constants';
+import { SignalTimeframe, SignalDirection, SignalStatus, SIGNAL_FILTER_ALL, ReviewDecision, GroupDimension, NO_MEMBERSHIP, SymbolListName } from '../common/constants';
 import type { StSignalItem, StSymbolProfile } from '../services/types';
 import type { SymbolGroup } from '../stores/group.store';
 import {
@@ -11,6 +11,8 @@ import {
   BuildSymbolGroupsInput,
   mapSymbolProfile,
   formatTradingViewWatchlist,
+  isUnlisted,
+  shouldShowInListFilter,
 } from './utils';
 import { StSymbolSource } from '../services/types';
 
@@ -290,5 +292,42 @@ describe('mapSymbolProfile', () => {
     expect(profile.name).toBeUndefined();
     expect(profile.marketCap).toBeUndefined();
     expect(profile.createdAt).toBe('');
+  });
+});
+
+describe('isUnlisted', () => {
+  const lists = { PRIMARY: ['AAPL', 'MSFT'], AVOID: ['TSLA'] };
+
+  it('returns true for a symbol in no list', () => {
+    expect(isUnlisted('NVDA', lists)).toBe(true);
+  });
+
+  it('returns false for a symbol in any list, case-insensitive on the input', () => {
+    expect(isUnlisted('aapl', lists)).toBe(false);
+    expect(isUnlisted('TSLA', lists)).toBe(false);
+  });
+
+  it('counts MONITOR membership as listed', () => {
+    expect(isUnlisted('MSFT', { MONITOR: ['MSFT'] })).toBe(false);
+  });
+});
+
+describe('shouldShowInListFilter', () => {
+  const lists = { PRIMARY: ['AAPL', 'MSFT'], AVOID: ['TSLA'] };
+
+  it('ALL shows every symbol', () => {
+    expect(shouldShowInListFilter('NVDA', lists, 'ALL')).toBe(true);
+    expect(shouldShowInListFilter('AAPL', lists, 'ALL')).toBe(true);
+  });
+
+  it('a named list shows only its members', () => {
+    expect(shouldShowInListFilter('AAPL', lists, SymbolListName.PRIMARY)).toBe(true);
+    expect(shouldShowInListFilter('TSLA', lists, SymbolListName.PRIMARY)).toBe(false);
+  });
+
+  it('NO_MEMBERSHIP shows only symbols in zero lists', () => {
+    expect(shouldShowInListFilter('NVDA', lists, NO_MEMBERSHIP)).toBe(true);
+    expect(shouldShowInListFilter('AAPL', lists, NO_MEMBERSHIP)).toBe(false);
+    expect(shouldShowInListFilter('TSLA', lists, NO_MEMBERSHIP)).toBe(false);
   });
 });
