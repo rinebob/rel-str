@@ -163,9 +163,19 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.OptionChainPctChangeComponent),
                 canActivate: [authGuard],
             },
+            {path: AppRoutes.OPTION_CHAIN,
+                loadComponent: () => import('../features/savant-trader/pages/option-chain/option-chain.component')
+                .then(mod => mod.OptionChainComponent),
+                canActivate: [authGuard],
+            },
             {path: AppRoutes.SWING_ANALYSIS,
                 loadComponent: () => import('../features/savant-trader/swing-analysis/swing-analysis-page.component')
                 .then(mod => mod.SwingAnalysisPageComponent),
+                canActivate: [authGuard],
+            },
+            {path: AppRoutes.FLEX_CHART_SANDBOX,
+                loadComponent: () => import('../features/savant-trader/pages/flex-chart-sandbox/flex-chart-sandbox.component')
+                .then(mod => mod.FlexChartSandboxComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.LOGOUT, redirectTo: '/', pathMatch: 'full'},

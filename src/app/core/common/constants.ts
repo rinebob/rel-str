@@ -164,6 +164,14 @@ export const NAV_MENU_ITEMS: NavItem[] = [
         target: '_self',
     },
     {
+        name: 'option-chain',
+        text: 'Option Chain',
+        href: 'savant-trader/option-chain',
+        mobileOnly: false,
+        external: false,
+        target: '_self',
+    },
+    {
         name: 'logout',
         text: 'logout',
         href: '',
