@@ -16,6 +16,9 @@
 - [Current option pricing] 486-498_DOCS-OPTIONS: Code review doc for session-resolution utils
 - [Trading Indicator Library] 261-506_DOCS-DOCS-INDICATOR-LIB: Symbol picker + company info header — PRD, IMPL, TEST (checkpoint)
 - [Trading Indicator Library] 261-444_DOCS-DOCS-INDICATOR-LIB: PRD — persist swing configurations (checkpoint)
+- [Flex Chart Maintenance] 468-477_FE-IMPL-FLEX-CHART: Auth-guarded flex-chart sandbox page (symbol, D/W/M, log toggle, debug readout)
+- [Flex Chart Maintenance] 468-479_FE-IMPL-FLEX-CHART: Manual log-scale Y-axis — log10 transform on Double axis, visible-range extents, exact-position stripLine ticks + gutter labels
+- [Flex Chart Maintenance] 468-476_DOCS-FLEX-CHART: Log Y-axis PRD, IMPL/TEST plans, and code review doc
 
 ### Changed
 - [Watchlist management] 465-466_FE-REFACTOR-SAVANT-TRADER: Consolidate list state ownership in SymbolListStore (checkpoint)
