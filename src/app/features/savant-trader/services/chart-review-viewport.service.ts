@@ -10,7 +10,8 @@
  */
 import { Injectable, inject, computed } from '@angular/core';
 
-import { SymbolListName, ViewportMode } from '../common/constants';
+import { NO_MEMBERSHIP, SymbolListName, ViewportMode, type SymbolListFilter } from '../common/constants';
+import { isUnlisted } from '../utils/utils';
 import { TriageStore } from '../stores/triage.store';
 import { SymbolListStore } from '../stores/symbol-list.store';
 
@@ -41,6 +42,14 @@ export class ChartReviewViewportService {
       return reviewSymbols;
     }
 
+    if (listName === NO_MEMBERSHIP) {
+      if (mode === 'signals') {
+        return reviewSymbols.filter((s) => isUnlisted(s, this.symbolListStore.symbolLists()));
+      }
+      // browse — the full unlisted tracked universe.
+      return this.symbolListStore.unlistedSymbols();
+    }
+
     const listSymbols = this.symbolListStore.symbolLists()[listName] ?? [];
 
     if (mode === 'signals') {
@@ -58,7 +67,11 @@ export class ChartReviewViewportService {
   }
 
   /** Set the active list filter. */
-  setActiveViewportList(listName: string): void {
+  setActiveViewportList(listName: SymbolListFilter): void {
+    // "No memberships" needs the tracked-symbols universe — load it lazily.
+    if (listName === NO_MEMBERSHIP) {
+      this.symbolListStore.loadTrackedSymbols();
+    }
     this.triageStore.setActiveViewportList(listName);
   }
 }

@@ -74,7 +74,7 @@
       label="List"
       [options]="listOptions"
       [value]="activeList()"
-      (valueChange)="listChange.emit($event)">
+      (valueChange)="onListPicked($event)">
     </app-rh-select-menu>
 
     <button mat-icon-button

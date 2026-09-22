@@ -12,15 +12,11 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { AppRoutes } from '../../../../core/common/interfaces';
 import { RhSelectMenuComponent, RhSelectOption } from '../rh-select-menu/rh-select-menu.component';
-import { SymbolListName, ViewportMode } from '../../common/constants';
+import { SymbolListName, SYMBOL_LIST_FILTER_OPTIONS, ViewportMode, type SymbolListFilter } from '../../common/constants';
 
 const LIST_OPTIONS: RhSelectOption[] = [
-  { value: SymbolListName.NONE,           label: 'None' },
-  { value: SymbolListName.PRIMARY,       label: 'Primary' },
-  { value: SymbolListName.SECONDARY,     label: 'Secondary' },
-  { value: SymbolListName.NEUTRAL,       label: 'Neutral' },
-  { value: SymbolListName.AVOID,         label: 'Avoid' },
-  { value: SymbolListName.PAST_SIGNALS,  label: 'Monitor' },
+  { value: SymbolListName.NONE, label: 'None' },
+  ...SYMBOL_LIST_FILTER_OPTIONS,
 ];
 
 @Component({
@@ -38,7 +34,7 @@ export class ReviewHeaderComponent {
   manualSymbol = input<string | null>(null);
   companyName = input<string | null>(null);
   status = input('PENDING');
-  activeList = input<string>(SymbolListName.NONE);
+  activeList = input<SymbolListFilter>(SymbolListName.NONE);
   viewportMode = input<ViewportMode>('signals');
   /** When false, ACR and queue mutation controls are disabled for the viewed historical run. */
   isActionableRun = input(true);
@@ -55,9 +51,14 @@ export class ReviewHeaderComponent {
   /** Emits when the user opens the "new symbols" dialog. */
   newSymbols = output<void>();
   /** Emits the selected list name when user picks a symbol list to review. */
-  listChange = output<string>();
+  listChange = output<SymbolListFilter>();
   /** Emits when the user toggles viewport mode (signals / browse). */
   modeChange = output<void>();
   /** Emits when the user clicks the Order button to go to the order page. */
   goToOrder = output<void>();
+
+  /** Narrow the string-typed select emission to the filter union. */
+  onListPicked(value: string): void {
+    this.listChange.emit(value as SymbolListFilter);
+  }
 }

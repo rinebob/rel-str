@@ -32,7 +32,6 @@ export class GroupPanelComponent {
   expanded = input(false);
   visibleRows = input.required<SymbolRow[]>();
   symbolLists = input.required<Record<string, string[]>>();
-  activeListFilter = input.required<SymbolListName | 'ALL'>();
   selectedSymbol = input<string | null>(null);
   quickChartSymbol = input<string | null>(null);
   /** When false, ACR mutation controls are disabled for all rows in this group. */

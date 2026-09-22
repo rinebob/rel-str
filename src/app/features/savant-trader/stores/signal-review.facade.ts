@@ -30,6 +30,8 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import {
   GroupDimension,
   SymbolListName,
+  SymbolListFilter,
+  NO_MEMBERSHIP,
   SignalTimeframe,
   SignalDirection,
   ReviewDecision,
@@ -191,18 +193,30 @@ export class SignalReviewFacade {
   async exportSelectedList(): Promise<void> {
     const listName = this.activeListFilter();
     if (listName === 'ALL') return;
+    const label = listName === NO_MEMBERSHIP ? 'No memberships' : listName;
 
-    const symbols = this.symbolLists()[listName] ?? [];
-    if (symbols.length === 0) {
-      this.snackBar.open(`${listName} is empty`, 'Dismiss', { duration: 3000 });
+    // Named lists short-circuit before the profiles fetch; NO_MEMBERSHIP
+    // uses the canonical unlisted universe (tracked symbols in zero lists)
+    // — the same set the nav and chart-review browse mode show.
+    const named = listName === NO_MEMBERSHIP ? null : (this.symbolLists()[listName] ?? []);
+    if (named && named.length === 0) {
+      this.snackBar.open(`${label} is empty`, 'Dismiss', { duration: 3000 });
       return;
     }
 
     try {
+      if (listName === NO_MEMBERSHIP) {
+        await this.symbolListStore.loadTrackedSymbols();
+      }
       const profiles = await firstValueFrom(this.signalService.getAllSymbols());
+      const symbols = named ?? this.symbolListStore.unlistedSymbols();
+      if (symbols.length === 0) {
+        this.snackBar.open(`${label} is empty`, 'Dismiss', { duration: 3000 });
+        return;
+      }
       const { content, unresolved } = formatTradingViewWatchlist(symbols, profiles);
       if (!content) {
-        this.snackBar.open(`No ${listName} symbols have exchange metadata`, 'Dismiss', { duration: 5000 });
+        this.snackBar.open(`No ${label} symbols have exchange metadata`, 'Dismiss', { duration: 5000 });
         return;
       }
 
@@ -215,11 +229,11 @@ export class SignalReviewFacade {
       URL.revokeObjectURL(url);
 
       if (unresolved.length > 0) {
-        this.snackBar.open(`Exported ${listName}; skipped ${unresolved.length} symbol(s) without exchange metadata`, 'Dismiss', { duration: 6000 });
+        this.snackBar.open(`Exported ${label}; skipped ${unresolved.length} symbol(s) without exchange metadata`, 'Dismiss', { duration: 6000 });
       }
     } catch (err) {
       console.error(`[SignalReviewFacade] Failed to export ${listName}:`, err);
-      this.snackBar.open(`Failed to export ${listName}`, 'Dismiss', { duration: 5000 });
+      this.snackBar.open(`Failed to export ${label}`, 'Dismiss', { duration: 5000 });
     }
   }
 
@@ -272,7 +286,7 @@ export class SignalReviewFacade {
     this.groupStore.setGroupDimension(dim);
   }
 
-  setActiveListFilter(filter: SymbolListName | 'ALL'): void {
+  setActiveListFilter(filter: SymbolListFilter): void {
     this.symbolListStore.setActiveListFilter(filter);
   }
 
@@ -443,12 +457,9 @@ export class SignalReviewFacade {
     });
   }
 
+  /** Toggle MONITOR membership — delegates to the store's membership-driven toggle. */
   toggleMonitor(symbol: string): void {
-    if (this.symbolListStore.activeListFilter() === SymbolListName.PAST_SIGNALS) {
-      this.symbolListStore.removeSymbolFromList(symbol, SymbolListName.PAST_SIGNALS);
-    } else {
-      this.symbolListStore.addSymbolToList(symbol, SymbolListName.PAST_SIGNALS);
-    }
+    this.symbolListStore.toggleMonitor(symbol);
   }
 
   // -------------------------------------------------------------------------

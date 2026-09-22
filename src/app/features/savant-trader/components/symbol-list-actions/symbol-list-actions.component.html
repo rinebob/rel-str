@@ -30,9 +30,9 @@
     <mat-icon>block</mat-icon>
   </button>
   <button type="button" class="acr-btn monitor"
-    [class.active]="isInList(ListName.PAST_SIGNALS)"
+    [class.active]="isInList(ListName.MONITOR)"
     (click)="monitor.emit(symbol())"
-    [matTooltip]="activeListFilter() === ListName.PAST_SIGNALS ? 'Stop monitoring' : 'Monitor'">
-    <mat-icon>{{ activeListFilter() === ListName.PAST_SIGNALS ? 'history_off' : 'history' }}</mat-icon>
+    [matTooltip]="isInList(ListName.MONITOR) ? 'Stop monitoring' : 'Monitor'">
+    <mat-icon>{{ isInList(ListName.MONITOR) ? 'history_off' : 'history' }}</mat-icon>
   </button>
 </div>

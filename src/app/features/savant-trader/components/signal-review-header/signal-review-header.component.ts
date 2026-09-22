@@ -10,7 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { AppRoutes } from '../../../../core/common/interfaces';
-import { SymbolListName, StatusCounts, GroupDimension, SignalTimeframe, SignalDirection } from '../../common/constants';
+import { SymbolListFilter, SYMBOL_LIST_FILTER_OPTIONS, StatusCounts, GroupDimension, SignalTimeframe, SignalDirection } from '../../common/constants';
 import { StatusSummaryChipsComponent } from '../status-summary-chips/status-summary-chips.component';
 import { SignalFilterPillsComponent } from '../signal-filter-pills/signal-filter-pills.component';
 import { RhSelectMenuComponent, RhSelectOption } from '../rh-select-menu/rh-select-menu.component';
@@ -22,13 +22,8 @@ const DIMENSION_OPTIONS: RhSelectOption[] = [
 ];
 
 const LIST_FILTER_OPTIONS: RhSelectOption[] = [
-  { value: 'ALL',                          label: 'All' },
-  { value: SymbolListName.PRIMARY,       label: 'Primary' },
-  { value: SymbolListName.SECONDARY,     label: 'Secondary' },
-  { value: SymbolListName.NEUTRAL,       label: 'Neutral' },
-  { value: SymbolListName.AVOID,         label: 'Avoid' },
-  { value: SymbolListName.HIDE,          label: 'Hidden' },
-  { value: SymbolListName.PAST_SIGNALS,  label: 'Monitor' },
+  { value: 'ALL', label: 'All' },
+  ...SYMBOL_LIST_FILTER_OPTIONS,
 ];
 
 @Component({
@@ -60,7 +55,7 @@ export class SignalReviewHeaderComponent {
   reviewCount = input(0);
   acceptedCount = input(0);
   groupDimension = input<GroupDimension>(GroupDimension.SECTOR);
-  activeListFilter = input<SymbolListName | 'ALL'>('ALL');
+  activeListFilter = input<SymbolListFilter>('ALL');
   timeframe = input<SignalTimeframe>(SignalTimeframe.ALL);
   direction = input<SignalDirection>(SignalDirection.ALL);
   showAllSymbols = input(false);

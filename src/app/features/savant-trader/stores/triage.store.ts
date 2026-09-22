@@ -23,7 +23,7 @@ import {
 
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-import { ReviewDecision, SymbolListName, ViewportMode } from '../common/constants';
+import { ReviewDecision, SymbolListName, ViewportMode, type SymbolListFilter } from '../common/constants';
 import { TriageService } from '../services/triage.service';
 
 // ---------------------------------------------------------------------------
@@ -38,7 +38,7 @@ export interface TriageState {
   /** Viewport mode: 'signals' = show only review-flagged symbols, 'browse' = show all list symbols. */
   viewportMode: ViewportMode;
   /** Currently selected list for viewport filtering. */
-  activeViewportList: string;
+  activeViewportList: SymbolListFilter;
   /** True while review flags are loading from Firestore. */
   reviewFlagsLoading: boolean;
   /** Error from loading review flags. */
@@ -217,7 +217,7 @@ export const TriageStore = signalStore(
     },
 
     /** Set the active list filter for viewport. */
-    setActiveViewportList(listName: string): void {
+    setActiveViewportList(listName: SymbolListFilter): void {
       patchState(state, { activeViewportList: listName });
     },
   })),

@@ -16,7 +16,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-import { GroupDimension, SymbolListName } from '../../common/constants';
+import { GroupDimension, SymbolListName, SymbolListFilter } from '../../common/constants';
 import { SymbolGroup } from '../../stores/group.store';
 import { SignalReviewFacade } from '../../stores/signal-review.facade';
 import { SignalReviewHeaderComponent } from '../../components/signal-review-header/signal-review-header.component';
@@ -81,7 +81,7 @@ export class SignalReviewComponent implements OnInit, OnDestroy {
 
   /** Apply a list filter to the signal review. */
   onListFilter(filter: string): void {
-    this.facade.setActiveListFilter(filter as SymbolListName | 'ALL');
+    this.facade.setActiveListFilter(filter as SymbolListFilter);
   }
 
   /** Toggle a symbol's membership in a named list. */
@@ -139,7 +139,7 @@ export class SignalReviewComponent implements OnInit, OnDestroy {
     this.facade.clearReviewFlags();
   }
 
-  /** Toggle a symbol's membership in the PAST_SIGNALS monitor list. */
+  /** Toggle a symbol's membership in the MONITOR list. */
   onMonitor(symbol: string): void {
     this.facade.toggleMonitor(symbol);
   }

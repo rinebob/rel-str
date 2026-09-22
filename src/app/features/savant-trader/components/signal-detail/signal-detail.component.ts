@@ -208,8 +208,6 @@ export class SignalDetailComponent {
   manualSymbol = input<string | null>(null);
   /** Map of list name -> symbols in that list. */
   symbolLists = input<Record<string, string[]>>({});
-  /** Active list filter from the symbol list store. */
-  activeListFilter = input<SymbolListName | 'ALL'>('ALL');
   /** 0-based index of this symbol within the review queue, or -1 when not in queue. */
   symbolIndex = input<number>(-1);
   /** Total number of symbols in the review queue. */

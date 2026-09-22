@@ -1,14 +1,14 @@
 /**
  * Symbol List Actions
  *
- * Primary / secondary / neutral / avoid / hide / past-signals toggle buttons
+ * Primary / secondary / neutral / avoid / hide / monitor toggle buttons
  * for a single symbol.
  */
 import { Component, ChangeDetectionStrategy, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { SymbolListName, ALL_SYMBOL_LIST_NAMES } from '../../common/constants';
+import { SymbolListName } from '../../common/constants';
 
 @Component({
   selector: 'app-symbol-list-actions',
@@ -21,8 +21,6 @@ export class SymbolListActionsComponent {
   symbol = input.required<string>();
   /** Map of list name -> symbols in that list. */
   symbolLists = input.required<Record<string, string[]>>();
-  /** Active list filter from the symbol list store. */
-  activeListFilter = input.required<SymbolListName | 'ALL'>();
   readonly ListName = SymbolListName;
 
   toggleList = output<{ symbol: string; listName: SymbolListName }>();
