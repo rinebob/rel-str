@@ -5,10 +5,11 @@
  * the manual log-scale Y-axis work (Topic #468 / Thread #469). Auth-guarded
  * URL-only route; intentionally not in the nav menu.
  *
- * Hosts one FlexChartComponent fed by the real IndicatorSeriesStore path
- * (same as quick-charts), a D/W/M interval switcher, a linear/log toggle,
- * and a debug readout comparing the computed Y-axis viewport against the
- * visible-range high/low of the loaded bars.
+ * Hosts one FlexChartComponent fed by the real ChartStore path (same as
+ * quick-charts) or by a deterministic synthetic generator (mode toggle) for
+ * axis-stressing presets: 100x ranges, sub-$1 prices, corrupt ≤0 prints.
+ * Plus a D/W/M interval switcher, a linear/log toggle, and a debug readout
+ * comparing the computed Y-axis viewport against the visible-range high/low.
  */
 import {
   Component,
@@ -29,10 +30,24 @@ import type {
 } from '../../../shared/components/flex-chart/flex-chart.types';
 import { ChartIntervalKey } from '../../../shared/components/flex-chart/flex-chart.types';
 import type { ChartDebugSnapshot } from '../../../shared/components/flex-chart/services/chart-instance.types';
+import { BarsInterval } from '../../../../core/models/partner.types';
+import {
+  generateSyntheticBars,
+  SYNTHETIC_PRESETS,
+  type SyntheticPreset,
+} from './synthetic-data';
 
 const DEFAULT_SYMBOL = 'QQQ';
 /** Sentinel — clamped to the loaded bar count, so "all of history". */
 const SHOW_ALL_BARS = 1_000_000;
+
+type DataMode = 'real' | 'synthetic';
+
+const INTERVAL_TO_BARS: Record<ChartIntervalKey, BarsInterval> = {
+  [ChartIntervalKey.DAILY]: BarsInterval.DAILY,
+  [ChartIntervalKey.WEEKLY]: BarsInterval.WEEKLY,
+  [ChartIntervalKey.MONTHLY]: BarsInterval.MONTHLY,
+};
 
 @Component({
   selector: 'app-flex-chart-sandbox',
@@ -49,9 +64,27 @@ export class FlexChartSandboxComponent {
   readonly symbol = signal(DEFAULT_SYMBOL);
   readonly interval = signal<ChartIntervalKey>(ChartIntervalKey.DAILY);
   readonly logScale = signal(true);
+  readonly dataMode = signal<DataMode>('real');
+  readonly preset = signal<SyntheticPreset>('wide-ratio');
+  readonly presets = SYNTHETIC_PRESETS;
   readonly debugState = signal<ChartDebugSnapshot>({ viewport: null, axis: null, logTicks: [] });
 
+  /** Memoized by the computed — bars regenerate only when the preset changes,
+   *  so an unrelated signal flip doesn't produce a fresh array identity. */
+  private readonly syntheticBars = computed(() => generateSyntheticBars(this.preset()));
+
   readonly chartData = computed<FlexChartDataset | null>(() => {
+    if (this.dataMode() === 'synthetic') {
+      // Synthetic mode bypasses ChartStore entirely — same FlexChartDataset
+      // shape, so the chart exercises the identical config/adapter path.
+      // Bars are daily cadence; the interval label stays honest by disabling
+      // the D/W/M buttons in synthetic mode.
+      return {
+        symbol: `SYN-${this.preset().toUpperCase()}`,
+        interval: INTERVAL_TO_BARS[this.interval()],
+        bars: this.syntheticBars(),
+      };
+    }
     switch (this.interval()) {
       case ChartIntervalKey.WEEKLY: return this.chartStore.weeklyData();
       case ChartIntervalKey.MONTHLY: return this.chartStore.monthlyData();
@@ -111,15 +144,28 @@ export class FlexChartSandboxComponent {
     return `${visibleLow.toFixed(2)} – ${visibleHigh.toFixed(2)}`;
   });
 
+  readonly debugSourceText = computed(() =>
+    this.dataMode() === 'synthetic' ? `synthetic:${this.preset()}` : `real:${this.symbol()}`,
+  );
+
   constructor() {
     effect(() => {
       const sym = this.symbol();
-      if (!sym) {
+      if (this.dataMode() === 'synthetic' || !sym) {
         this.chartStore.clearCharts();
         return;
       }
       this.chartStore.loadCharts(sym);
     });
+  }
+
+  setDataMode(mode: DataMode): void {
+    this.dataMode.set(mode);
+  }
+
+  onPresetChange(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value as SyntheticPreset;
+    this.preset.set(value);
   }
 
   onSymbolChange(event: Event): void {

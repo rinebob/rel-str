@@ -42,6 +42,7 @@ import type {
 } from '../../../shared/components/flex-chart/flex-chart.types';
 import type { ChartAxisState, ChartDebugSnapshot } from '../../../shared/components/flex-chart/services/chart-instance.types';
 import { BarsInterval } from '../../../../core/models/partner.types';
+import { SYNTHETIC_BAR_COUNT } from './synthetic-data';
 import CORE_ROUTES from '../../../../core/core-routes';
 import { AppRoutes } from '../../../../core/common/interfaces';
 import { authGuard } from '../../../../core/auth/auth.guard';
@@ -243,6 +244,45 @@ describe('FlexChartSandboxComponent', () => {
     // Visible window is now bars 0-4: low 90, high 104.
     const vis = fixture.nativeElement.querySelector('[data-testid="dbg-visible"]').textContent;
     expect(vis).toContain('104.00');
+  });
+
+  it('synthetic mode feeds generated bars through the same chart input — no backend call', async () => {
+    const { fixture, chart, chartService } = await setup();
+    (chartService.loadBars$ as jest.Mock).mockClear();
+
+    fixture.nativeElement.querySelector('[data-testid="mode-synthetic"]').click();
+    fixture.detectChanges();
+
+    expect(chartService.loadBars$).not.toHaveBeenCalled();
+    expect(chart.chartData?.symbol).toBe('SYN-WIDE-RATIO');
+    expect(chart.chartData?.bars.length).toBe(SYNTHETIC_BAR_COUNT);
+
+    const src = fixture.nativeElement.querySelector('[data-testid="dbg-source"]').textContent;
+    expect(src).toContain('synthetic:wide-ratio');
+  });
+
+  it('preset select swaps the synthetic dataset', async () => {
+    const { fixture, chart } = await setup();
+    fixture.nativeElement.querySelector('[data-testid="mode-synthetic"]').click();
+    fixture.detectChanges();
+
+    const select = fixture.nativeElement.querySelector('[data-testid="preset-select"]') as HTMLSelectElement;
+    select.value = 'penny';
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    expect(chart.chartData?.symbol).toBe('SYN-PENNY');
+  });
+
+  it('switching back to real restores the store dataset', async () => {
+    const { fixture, chart } = await setup();
+    fixture.nativeElement.querySelector('[data-testid="mode-synthetic"]').click();
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector('[data-testid="mode-real"]').click();
+    fixture.detectChanges();
+
+    expect(chart.chartData?.symbol).toBe('QQQ');
+    expect(chart.chartData?.bars.length).toBe(10);
   });
 });
 

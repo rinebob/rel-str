@@ -1,32 +1,60 @@
 <div class="sandbox">
   <header class="sandbox-header">
     <h2>Flex Chart Sandbox</h2>
+    <div class="interval-btns" role="group" aria-label="Data source">
+      <button
+        type="button"
+        data-testid="mode-real"
+        [class.active]="dataMode() === 'real'"
+        (click)="setDataMode('real')"
+      >Real</button>
+      <button
+        type="button"
+        data-testid="mode-synthetic"
+        [class.active]="dataMode() === 'synthetic'"
+        (click)="setDataMode('synthetic')"
+      >Synthetic</button>
+    </div>
     <label class="field">
       Symbol
       <input
         type="text"
         data-testid="symbol-input"
         [value]="symbol()"
+        [disabled]="dataMode() === 'synthetic'"
         (change)="onSymbolChange($event)"
       />
     </label>
+    @if (dataMode() === 'synthetic') {
+      <label class="field">
+        Preset
+        <select data-testid="preset-select" [value]="preset()" (change)="onPresetChange($event)">
+          @for (p of presets; track p.value) {
+            <option [value]="p.value">{{ p.label }}</option>
+          }
+        </select>
+      </label>
+    }
     <div class="interval-btns" role="group" aria-label="Chart interval">
       <button
         type="button"
         data-testid="interval-daily"
         [class.active]="interval() === ChartIntervalKey.DAILY"
+        [disabled]="dataMode() === 'synthetic'"
         (click)="setInterval(ChartIntervalKey.DAILY)"
       >D</button>
       <button
         type="button"
         data-testid="interval-weekly"
         [class.active]="interval() === ChartIntervalKey.WEEKLY"
+        [disabled]="dataMode() === 'synthetic'"
         (click)="setInterval(ChartIntervalKey.WEEKLY)"
       >W</button>
       <button
         type="button"
         data-testid="interval-monthly"
         [class.active]="interval() === ChartIntervalKey.MONTHLY"
+        [disabled]="dataMode() === 'synthetic'"
         (click)="setInterval(ChartIntervalKey.MONTHLY)"
       >M</button>
     </div>
@@ -42,6 +70,7 @@
   </header>
 
   <div class="debug-readout" data-testid="debug-readout">
+    <span data-testid="dbg-source">source: {{ debugSourceText() }}</span>
     <span data-testid="dbg-scale">scale: {{ logScale() ? 'log' : 'linear' }}</span>
     <span data-testid="dbg-viewport">viewport: {{ debugViewportText() }}</span>
     <span data-testid="dbg-axis">axis: {{ debugAxisText() }}</span>
@@ -49,10 +78,10 @@
     <span data-testid="dbg-ticks">log ticks: {{ debugTicksText() }}</span>
   </div>
 
-  @if (chartStore.loading()) {
+  @if (dataMode() === 'real' && chartStore.loading()) {
     <mat-progress-spinner [diameter]="36" />
   }
-  @if (chartStore.error(); as err) {
+  @if (dataMode() === 'real' && chartStore.error(); as err) {
     <p class="error">{{ err }}</p>
   }
   @if (chartData(); as data) {
