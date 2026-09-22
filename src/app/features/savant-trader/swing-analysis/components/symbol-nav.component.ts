@@ -4,7 +4,7 @@
  * sequencing lives in the store's symbol-nav feature slice; this is the
  * thin binding layer.
  */
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -12,7 +12,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { SwingAnalysisStore } from '../swing-analysis.store';
 import { SymbolListStore } from '../../stores/symbol-list.store';
 import { SymbolListActionsComponent } from '../../components/symbol-list-actions/symbol-list-actions.component';
-import { SymbolListName } from '../../common/constants';
+import { SymbolListName, SYMBOL_LIST_FILTER_OPTIONS } from '../../common/constants';
 import type { NavFilter } from '../symbol-nav.feature';
 
 @Component({
@@ -50,9 +50,9 @@ import type { NavFilter } from '../symbol-nav.feature';
   >
     <!-- [attr.selected] per-option — see saved-sets.component for why not
          [value] on the select. -->
-    @for (f of filterOptions(); track f) {
-      <option [value]="f" [attr.selected]="f === store.navFilter() ? '' : null">
-        {{ f === 'ALL' ? 'All symbols' : f }}
+    @for (f of filterOptions; track f.value) {
+      <option [value]="f.value" [attr.selected]="f.value === store.navFilter() ? '' : null">
+        {{ f.label }}
       </option>
     }
   </select>
@@ -62,7 +62,6 @@ import type { NavFilter } from '../symbol-nav.feature';
   data-testid="nav-list-actions"
   [symbol]="store.symbol()"
   [symbolLists]="lists.symbolLists()"
-  [activeListFilter]="store.navFilter()"
   (toggleList)="onToggleList($event)"
   (monitor)="onMonitor($event)"
 />
@@ -108,10 +107,11 @@ export class SymbolNavComponent {
     }
   }
 
-  /** 'ALL' plus the user's Symbol Lists, sorted — the filter options. */
-  readonly filterOptions = computed<NavFilter[]>(
-    () => ['ALL', ...(Object.keys(this.lists.symbolLists()).sort() as NavFilter[])],
-  );
+  /** 'All symbols' plus the canonical shared list-filter options. */
+  readonly filterOptions = [
+    { value: 'ALL', label: 'All symbols' },
+    ...SYMBOL_LIST_FILTER_OPTIONS,
+  ] as const;
 
   onFilter(event: Event): void {
     this.store.setNavFilter((event.target as HTMLSelectElement).value as NavFilter);
@@ -122,12 +122,8 @@ export class SymbolNavComponent {
     this.lists.toggleSymbolInList(event.symbol, event.listName);
   }
 
-  /** Monitor chip → PAST_SIGNALS membership (mirrors chart-review). */
+  /** Monitor chip → membership-driven MONITOR toggle (mirrors chart-review). */
   onMonitor(symbol: string): void {
-    if (this.lists.activeListFilter() === SymbolListName.PAST_SIGNALS) {
-      this.lists.removeSymbolFromList(symbol, SymbolListName.PAST_SIGNALS);
-    } else {
-      this.lists.addSymbolToList(symbol, SymbolListName.PAST_SIGNALS);
-    }
+    this.lists.toggleMonitor(symbol);
   }
 }

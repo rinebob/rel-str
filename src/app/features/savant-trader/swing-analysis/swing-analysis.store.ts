@@ -21,7 +21,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { computed } from '@angular/core';
 
 import { ChartService } from '../services/chart.service';
-import { RelStrDbV2Service } from '../../services/rel-str-db-v2.service';
 import { SymbolListStore } from '../stores/symbol-list.store';
 import { SwingAnalysisService } from './swing-analysis.service';
 import { buildBatchSweep, parseSymbols } from './swing-batch';
@@ -103,8 +102,6 @@ export interface SwingAnalysisState {
    *  deliberately NOT on page init). */
   savedSets: SwingAnalysisDoc[];
   savedSetsLoading: boolean;
-  /** Tracked-symbols universe for prev/next nav — sorted A–Z on load. */
-  trackedSymbols: string[];
   /** Watchlist filter narrowing the nav sequence; 'ALL' = all tracked. */
   navFilter: NavFilter;
 }
@@ -126,7 +123,6 @@ const initialState: SwingAnalysisState = {
   batchResults: [],
   savedSets: [],
   savedSetsLoading: false,
-  trackedSymbols: [],
   navFilter: 'ALL',
 };
 
@@ -767,11 +763,7 @@ export const SwingAnalysisStore = signalStore(
     symbolNavComputedBlock(store, symbolListStore),
   ),
 
-  withMethods(
-    (
-      store,
-      relStrDbV2 = inject(RelStrDbV2Service),
-      destroyRef = inject(DestroyRef),
-    ) => symbolNavMethods(store, { relStrDbV2, destroyRef }),
+  withMethods((store, symbolListStore = inject(SymbolListStore)) =>
+    symbolNavMethods(store, { lists: symbolListStore }),
   ),
 );

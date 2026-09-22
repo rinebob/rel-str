@@ -1,8 +1,10 @@
 /**
  * Symbol-nav feature slice for SwingAnalysisStore — prev/next navigation
  * across the tracked-symbols universe, optionally narrowed to a watchlist.
- * State fragments (`trackedSymbols`, `navFilter`) live on the main store;
- * this file owns the nav computeds and methods so the store file stays
+ * State fragments (`navFilter`) live on the main store; the tracked-symbols
+ * universe is owned by SymbolListStore and read through the `lists` input —
+ * one canonical universe for nav, chart-review browse, and export.
+ * This file owns the nav computeds and methods so the store file stays
  * under the size guideline.
  *
  * The store spreads `symbolNavComputedBlock(state, listStore)` into a
@@ -12,26 +14,24 @@
  */
 import { computed } from '@angular/core';
 import { patchState, WritableStateSource } from '@ngrx/signals';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import type { DestroyRef } from '@angular/core';
 
-import type { RelStrDbV2Service } from '../../services/rel-str-db-v2.service';
-import { SymbolListName } from '../common/constants';
+import { NO_MEMBERSHIP, SymbolListFilter } from '../common/constants';
 import type { SwingAnalysisState } from './swing-analysis.store';
 
-/** Nav filter: all tracked symbols, or one Symbol List name. */
-export type NavFilter = 'ALL' | SymbolListName;
+/** Nav filter: all tracked symbols, one Symbol List name, or NO_MEMBERSHIP. */
+export type NavFilter = SymbolListFilter;
 
 /** Minimal view of the store's signals the nav computeds read. */
 export interface SymbolNavComputedInput {
   symbol(): string;
-  trackedSymbols(): string[];
   navFilter(): NavFilter;
 }
 
 /** Minimal view of SymbolListStore the nav sequence reads. */
 export interface SymbolNavListsInput {
   symbolLists(): Record<string, string[]>;
+  trackedSymbols(): string[];
+  unlistedSymbols(): string[];
 }
 
 /** Store API the nav methods need — state + the nav computeds + setSymbol. */
@@ -44,8 +44,7 @@ export interface SymbolNavStoreApi
 }
 
 export interface SymbolNavDeps {
-  relStrDbV2: RelStrDbV2Service;
-  destroyRef: DestroyRef;
+  lists: SymbolNavListsInput & { loadTrackedSymbols(): Promise<string[]> };
 }
 
 /** Computeds to spread into a `withComputed` block. */
@@ -54,14 +53,16 @@ export function symbolNavComputedBlock(
   lists: SymbolNavListsInput,
 ) {
   /**
-   * Ordered nav sequence — alphabetical tracked symbols for ALL, or the
+   * Ordered nav sequence — alphabetical tracked symbols for ALL, the
    * watchlist's stored order filtered to tracked symbols (drops stale
-   * list entries that are no longer tracked).
+   * list entries that are no longer tracked), or the canonical unlisted
+   * set for NO_MEMBERSHIP.
    */
   const navSequence = computed((): string[] => {
-    const tracked = state.trackedSymbols();
+    const tracked = lists.trackedSymbols();
     const filter = state.navFilter();
     if (filter === 'ALL') return tracked;
+    if (filter === NO_MEMBERSHIP) return lists.unlistedSymbols();
     const trackedSet = new Set(tracked);
     return (lists.symbolLists()[filter] ?? []).filter((s) => trackedSet.has(s));
   });
@@ -71,6 +72,8 @@ export function symbolNavComputedBlock(
   return {
     navSequence,
     navIndex,
+    /** Passthrough to the canonical tracked-symbols universe. */
+    trackedSymbols: lists.trackedSymbols,
     /** Position label — "N of M" in sequence, "— of M" outside it. */
     navPosition: computed(() => {
       const i = navIndex();
@@ -100,37 +103,24 @@ export function symbolNavMethods(store: SymbolNavStoreApi, deps: SymbolNavDeps) 
 
   return {
     /**
-     * Load the tracked-symbols universe once (guarded — the callable is
-     * TTL-cached and the list doesn't change intra-session). Symbols are
-     * normalized to uppercase, deduped, and sorted for the ALL sequence.
+     * Load the tracked-symbols universe (delegates to SymbolListStore,
+     * the canonical owner — TTL-cached upstream, guarded there).
      */
-    loadTrackedSymbols(): void {
-      if (store.trackedSymbols().length > 0) return;
-      deps.relStrDbV2
-        .getTrackedSymbols$()
-        .pipe(takeUntilDestroyed(deps.destroyRef))
-        .subscribe({
-          next: (companies) => {
-            const symbols = [
-              ...new Set(
-                companies
-                  .map((c) => String(c.symbol || '').trim().toUpperCase())
-                  .filter(Boolean),
-              ),
-            ].sort();
-            patchState(store, { trackedSymbols: symbols });
-          },
-          // getTrackedSymbols$ already logs and maps errors to [] — this
-          // path is a belt for mocks/subscriber-level failures only.
-          error: (err: unknown) => {
-            console.error('[SwingAnalysisStore] getTrackedSymbols$ failed', err);
-          },
-        });
+    loadTrackedSymbols(): Promise<string[]> {
+      return deps.lists.loadTrackedSymbols();
     },
 
-    /** Narrow the nav sequence to a Symbol List (or 'ALL'). */
+    /**
+     * Narrow the nav sequence to a Symbol List (or 'ALL'). Jumps to the
+     * new sequence's first symbol so position reads "1 of N" — without
+     * this the stale symbol sits outside the list and shows "— of N".
+     */
     setNavFilter(filter: NavFilter): void {
       patchState(store, { navFilter: filter });
+      const seq = store.navSequence();
+      if (seq.length > 0 && store.symbol() !== seq[0]) {
+        store.setSymbol(seq[0]);
+      }
     },
 
     /** Advance to the next symbol in the sequence — wraps to first. */

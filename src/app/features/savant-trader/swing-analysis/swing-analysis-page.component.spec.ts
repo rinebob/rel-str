@@ -24,7 +24,7 @@ jest.mock('@angular/fire/auth', () => ({
   authState: jest.fn(() => of({ uid: 'user-123' })),
 }));
 
-import { Component, Input, signal } from '@angular/core';
+import { Component, Input, computed, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MatDialog } from '@angular/material/dialog';
 import { By } from '@angular/platform-browser';
@@ -46,6 +46,8 @@ import type { PriceBar, Swing, SwingStats } from '../../shared/components/flex-c
 import type { ChartDataset } from '../../heatmap-chart/heatmap-chart.types';
 import type { SwingAnalysisDoc } from './swing-analysis.types';
 import { deriveParamsId } from './swing-analysis.types';
+import { NO_MEMBERSHIP } from '../common/constants';
+import { isUnlisted } from '../utils/utils';
 import type { ZigZagConfig } from '../../shared/components/flex-chart/indicators/st-zigzag.types';
 
 // =============================================================================
@@ -177,17 +179,26 @@ async function setupPage(
   navSymbols: string[] = [],
   navLists: Record<string, string[]> = {},
 ): Promise<PageSetup> {
+  const tracked = signal<string[]>([]);
   TestBed.configureTestingModule({
     providers: [
       { provide: ChartService, useValue: chart ?? mockChartService(bars) },
-      // Symbol-nav deps — the store injects these unconditionally; mocks
-      // satisfy DI without driving any nav behavior in these tests.
       { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of(navSymbols.map((s) => ({ symbol: s })))) } },
+      // SymbolListStore owns the tracked-symbols universe — the mock
+      // reproduces its loadTrackedSymbols/unlistedSymbols contract so the
+      // nav sequence can read it.
       { provide: SymbolListStore, useValue: {
         symbolLists: signal<Record<string, string[]>>(navLists),
         activeListFilter: signal('ALL'),
+        trackedSymbols: tracked,
+        unlistedSymbols: computed(() => tracked().filter((s) => isUnlisted(s, navLists))),
+        loadTrackedSymbols: jest.fn(() => {
+          if (tracked().length === 0) tracked.set([...navSymbols].sort());
+          return Promise.resolve(tracked());
+        }),
         loadSymbolLists: jest.fn(),
         toggleSymbolInList: jest.fn(),
+        toggleMonitor: jest.fn(),
         addSymbolToList: jest.fn(),
         removeSymbolFromList: jest.fn(),
       } },
@@ -965,6 +976,30 @@ describe('SwingAnalysisPageComponent — saved-sets browser', () => {
     expect(rows[0].textContent).toContain('dev5_L5_R5');
   });
 
+  it('follows nav — symbol change refetches that symbol\'s sets and resyncs picker + checks', async () => {
+    const { fixture, store, service } = await setupWithSets();
+    expandPanel(fixture);
+    expect(service.loadSavedAnalyses).toHaveBeenCalledWith('QQQ');
+
+    store.setSymbol('MSFT');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    // Refetched for the new symbol — dropdown follows, rows show MSFT docs.
+    expect(service.loadSavedAnalyses).toHaveBeenCalledWith('MSFT');
+    const select = fixture.nativeElement.querySelector('[data-testid="saved-sets-symbol"]') as HTMLSelectElement;
+    expect(select.value).toBe('MSFT');
+    const rows = fixture.nativeElement.querySelectorAll('[data-testid="saved-set-row"]');
+    expect(rows.length).toBe(1);
+    expect(rows[0].textContent).toContain('dev5_L5_R5');
+
+    // Checks reflect the CURRENT symbol's configs — dev5 matches no live
+    // slot, so the row is unchecked (no stale QQQ checks carried over).
+    const box = rows[0].querySelector('[data-testid="saved-set-checkbox"]') as HTMLInputElement;
+    expect(box.checked).toBe(false);
+  });
+
   it('doc rows sort newest savedAt first', async () => {
     const { fixture } = await setupWithSets();
     expandPanel(fixture);
@@ -1070,31 +1105,51 @@ describe('SwingAnalysisPageComponent — symbol nav', () => {
     const { fixture, store } = await setupPage(
       makeBars(40), undefined, mockSwingAnalysisService([]),
       ['AAPL', 'MSFT', 'QQQ', 'TSLA'],
-      { 'My Watch': ['MSFT', 'QQQ'] },
+      { 'PRIMARY': ['MSFT', 'QQQ'] },
     );
     fixture.detectChanges();
 
     const sel = fixture.nativeElement.querySelector('[data-testid="nav-filter"]') as HTMLSelectElement;
-    sel.value = 'My Watch';
+    sel.value = 'PRIMARY';
     sel.dispatchEvent(new Event('change'));
     fixture.detectChanges();
 
-    // QQQ is 2nd in the narrowed [MSFT, QQQ] sequence.
-    expect(fixture.nativeElement.querySelector('[data-testid="nav-position"]').textContent).toContain('2 of 2');
+    // Filter change jumps to the first member — MSFT in [MSFT, QQQ].
+    expect(store.symbol()).toBe('MSFT');
+    expect(fixture.nativeElement.querySelector('[data-testid="nav-position"]').textContent).toContain('1 of 2');
     (fixture.nativeElement.querySelector('[data-testid="nav-next"]') as HTMLButtonElement).click();
-    expect(store.symbol()).toBe('MSFT'); // wraps within the watchlist, not all tracked
+    expect(store.symbol()).toBe('QQQ'); // wraps within the watchlist, not all tracked
   });
 
-  it('watchlist filter select lists ALL plus Symbol List names', async () => {
+  it('No memberships filter navs to tracked symbols in zero lists', async () => {
+    const { fixture, store } = await setupPage(
+      makeBars(40), undefined, mockSwingAnalysisService([]),
+      ['AAPL', 'MSFT', 'QQQ', 'TSLA'],
+      { 'PRIMARY': ['MSFT', 'QQQ', 'TSLA'] },
+    );
+    fixture.detectChanges();
+
+    const sel = fixture.nativeElement.querySelector('[data-testid="nav-filter"]') as HTMLSelectElement;
+    sel.value = NO_MEMBERSHIP;
+    sel.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    // AAPL is the only tracked symbol in zero lists.
+    expect(store.symbol()).toBe('AAPL');
+    expect(fixture.nativeElement.querySelector('[data-testid="nav-position"]').textContent).toContain('1 of 1');
+  });
+
+  it('watchlist filter select lists the canonical options in fixed order', async () => {
     const { fixture } = await setupPage(
       makeBars(40), undefined, mockSwingAnalysisService([]), ['QQQ'],
-      { 'My Watch': ['QQQ'], 'Second': ['AAPL'] },
     );
     fixture.detectChanges();
 
     const options = fixture.nativeElement.querySelectorAll('[data-testid="nav-filter"] option');
     const values = [...options].map((o) => (o as HTMLOptionElement).value);
-    expect(values).toEqual(['ALL', 'My Watch', 'Second']);
+    expect(values).toEqual(['ALL', 'PRIMARY', 'SECONDARY', 'NEUTRAL', 'AVOID', 'HIDE', 'NO_MEMBERSHIP', 'MONITOR']);
+    const labels = [...options].map((o) => (o as HTMLOptionElement).textContent.trim());
+    expect(labels).toContain('No memberships');
   });
 
   it('renders the watchlist chip row bound to the current symbol', async () => {

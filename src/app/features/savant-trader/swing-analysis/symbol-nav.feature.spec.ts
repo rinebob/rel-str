@@ -36,7 +36,7 @@ import { SwingAnalysisService } from './swing-analysis.service';
 import { RelStrDbV2Service } from '../../services/rel-str-db-v2.service';
 import { SymbolListService } from '../services/symbol-list.service';
 import { SymbolListStore } from '../stores/symbol-list.store';
-import { SymbolListName } from '../common/constants';
+import { NO_MEMBERSHIP, SymbolListName } from '../common/constants';
 import type { Company } from '../../shared/types/rs.interfaces';
 
 // =============================================================================
@@ -52,6 +52,12 @@ interface NavSetup {
   listStore: InstanceType<typeof SymbolListStore>;
   db: { getTrackedSymbols$: jest.Mock };
   chart: { loadBars$: jest.Mock };
+  listService: {
+    loadAllLists: jest.Mock;
+    moveToList: jest.Mock;
+    addToList: jest.Mock;
+    removeFromList: jest.Mock;
+  };
 }
 
 function setupNav(
@@ -100,6 +106,7 @@ function setupNav(
     listStore: TestBed.inject(SymbolListStore),
     db,
     chart,
+    listService,
   };
 }
 
@@ -160,6 +167,38 @@ describe('SwingAnalysisStore nav sequence', () => {
     // GHOST is in the list but not tracked — dropped.
     expect(store.navSequence()).toEqual(['NVDA', 'MSFT']);
     expect(store.navFilter()).toBe(SymbolListName.PRIMARY);
+  });
+
+  it('NO_MEMBERSHIP returns tracked symbols that belong to zero lists', () => {
+    const { store, listStore } = setupNav(companies, [
+      { name: SymbolListName.PRIMARY, symbols: ['NVDA'] },
+      { name: SymbolListName.AVOID, symbols: ['MSFT'] },
+    ]);
+    listStore.loadSymbolLists();
+    store.loadTrackedSymbols();
+    store.setNavFilter(NO_MEMBERSHIP);
+    expect(store.navSequence()).toEqual(['AAA', 'BBB']);
+  });
+
+  it('setNavFilter jumps to the new sequence\'s first symbol', () => {
+    const { store, listStore } = setupNav(companies, [
+      { name: SymbolListName.PRIMARY, symbols: ['MSFT', 'NVDA'] },
+    ]);
+    listStore.loadSymbolLists();
+    store.loadTrackedSymbols();
+    store.setSymbol('AAA');
+    store.setNavFilter(SymbolListName.PRIMARY);
+    expect(store.symbol()).toBe('MSFT');
+    expect(store.navPosition()).toBe('1 of 2');
+  });
+
+  it('setNavFilter keeps the current symbol when the new sequence is empty', () => {
+    const { store } = setupNav(companies);
+    store.loadTrackedSymbols();
+    store.setSymbol('AAA');
+    store.setNavFilter(SymbolListName.PRIMARY); // no list docs → empty sequence
+    expect(store.symbol()).toBe('AAA');
+    expect(store.navPosition()).toBe('— of 0');
   });
 
   it('navIndex and navPosition reflect the current symbol position', () => {
@@ -258,5 +297,42 @@ describe('SwingAnalysisStore next/prev navigation', () => {
 
     store.nextSymbol();
     expect(store.symbol()).toBe('AAA');
+  });
+});
+
+// =============================================================================
+// MONITOR coexistence — non-exclusive list survives triage re-filing
+// =============================================================================
+
+describe('SymbolListStore MONITOR coexistence', () => {
+  it('filing into a triage list preserves MONITOR membership', () => {
+    const { listStore, listService } = setupNav([], [
+      { name: SymbolListName.MONITOR, symbols: ['AAPL'] },
+    ]);
+    listStore.loadSymbolLists();
+
+    listStore.toggleSymbolInList('AAPL', SymbolListName.PRIMARY);
+
+    expect(listStore.symbolLists()[SymbolListName.MONITOR]).toEqual(['AAPL']);
+    expect(listStore.symbolLists()[SymbolListName.PRIMARY]).toEqual(['AAPL']);
+    // Persisted batch targets exclusive lists only — MONITOR is never written.
+    expect(listService.moveToList).toHaveBeenCalledWith('AAPL', SymbolListName.PRIMARY, [
+      'PRIMARY', 'SECONDARY', 'NEUTRAL', 'AVOID', 'HIDE',
+    ]);
+  });
+
+  it('toggleSymbolInList(MONITOR) routes through the non-exclusive toggle', () => {
+    const { listStore, listService } = setupNav([], [
+      { name: SymbolListName.PRIMARY, symbols: ['AAPL'] },
+    ]);
+    listStore.loadSymbolLists();
+
+    listStore.toggleSymbolInList('AAPL', SymbolListName.MONITOR);
+
+    // Membership-driven add — never an exclusive move.
+    expect(listService.moveToList).not.toHaveBeenCalled();
+    expect(listService.addToList).toHaveBeenCalledWith('AAPL', SymbolListName.MONITOR);
+    expect(listStore.symbolLists()[SymbolListName.MONITOR]).toEqual(['AAPL']);
+    expect(listStore.symbolLists()[SymbolListName.PRIMARY]).toEqual(['AAPL']);
   });
 });

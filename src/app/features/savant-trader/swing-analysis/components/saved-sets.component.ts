@@ -8,7 +8,7 @@
  * slots via store.loadSwingSetsIntoSlots. Nothing is re-saved — the
  * docs are already persisted snapshots.
  */
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 
 import { SwingAnalysisStore } from '../swing-analysis.store';
@@ -63,7 +63,7 @@ import { SwingAnalysisStore } from '../swing-analysis.store';
             />
             <span class="set-symbol">{{ d.symbol }}</span>
             <span class="set-params">{{ d.paramsId }}</span>
-            <span class="set-date">{{ d.savedAt?.slice(0, 10) }}</span>
+            <span class="set-date">{{ d.savedAt.slice(0, 10) }}</span>
           </label>
         </li>
       } @empty {
@@ -173,6 +173,34 @@ export class SavedSetsComponent {
   /** Docs the user explicitly UNchecked — overrides the auto-check so a
    *  live-slot row can be opted out of the next Load. */
   private readonly unchecked = signal<ReadonlySet<string>>(new Set());
+  /** Open state of the <details> panel — drives whether a symbol change refetches. */
+  private readonly panelOpen = signal(false);
+  /** The symbol the loaded savedSets docs were fetched for — detects staleness. */
+  private readonly browsedSymbol = signal('');
+  /** Last page symbol the panel reacted to — the effect's change detector. */
+  private readonly lastPageSymbol = signal('');
+
+  constructor() {
+    // Follow the page's symbol: nav (or any other path) moving the chart
+    // resyncs the picker, drops stale checks, and refetches that symbol's
+    // sets while the panel is open.
+    effect(() => {
+      const sym = this.store.symbol();
+      if (sym === this.lastPageSymbol()) return;
+      this.lastPageSymbol.set(sym);
+      if (!sym) return;
+      this.selectedSymbol.set('');
+      this.checked.set(new Set());
+      this.unchecked.set(new Set());
+      // Refetch only when the loaded docs are for a different symbol —
+      // onToggle may have already fetched this one while the page's
+      // symbol assignment was still settling.
+      if (this.panelOpen() && this.browsedSymbol() !== sym) {
+        this.browsedSymbol.set(sym);
+        this.store.loadSwingSets(sym);
+      }
+    });
+  }
 
   /** Effective checked ids: explicit checks ∪ docs whose paramsId matches
    *  a live config slot for the current symbol (so the default 10/3 slots
@@ -228,15 +256,18 @@ export class SavedSetsComponent {
 
   onToggle(event: Event): void {
     const open = (event.target as HTMLDetailsElement).open;
-    // Load only when there's nothing to show — a failed load (or a
-    // genuinely empty result) retries on the next expand.
-    if (open) {
-      // Populate the symbol picker — no-op once trackedSymbols is loaded.
-      this.store.loadTrackedSymbols();
-      if (!this.savedSetsLoading() && this.savedSets().length === 0) {
-        const sym = this.selectedSymbol() || this.store.symbol();
-        if (sym) this.store.loadSwingSets(sym);
-      }
+    this.panelOpen.set(open);
+    if (!open) return;
+    // Populate the symbol picker — no-op once trackedSymbols is loaded.
+    this.store.loadTrackedSymbols();
+    const sym = this.selectedSymbol() || this.store.symbol();
+    // Load when there's nothing to show (a failed load or genuinely
+    // empty result retries on the next expand) or when the loaded docs
+    // are stale — nav moved the symbol while the panel was closed.
+    const stale = this.browsedSymbol() !== sym;
+    if (sym && !this.savedSetsLoading() && (this.savedSets().length === 0 || stale)) {
+      this.browsedSymbol.set(sym);
+      this.store.loadSwingSets(sym);
     }
   }
 
@@ -246,6 +277,7 @@ export class SavedSetsComponent {
     this.selectedSymbol.set(sym);
     this.checked.set(new Set());
     this.unchecked.set(new Set());
+    this.browsedSymbol.set(sym);
     this.store.loadSwingSets(sym);
   }
 
