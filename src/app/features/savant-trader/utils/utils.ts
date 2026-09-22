@@ -127,9 +127,16 @@ export function formatTradingViewWatchlist(
   return { content: formatted.join(','), unresolved };
 }
 
+const ptDateFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' });
+
+/** Pacific-Time calendar date (YYYY-MM-DD) for an instant. */
+export function ptDateString(d: Date): string {
+  return ptDateFmt.format(d);
+}
+
 /** Today in Pacific Time as YYYY-MM-DD. */
 export function todayDate(): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date());
+  return ptDateString(new Date());
 }
 
 /** Fallback group name for symbols missing the active dimension value. */
@@ -375,7 +382,7 @@ export function formatTimePt(ts: Date | string | number): string {
 }
 
 /** Day-of-week (0=Sun...6=Sat) for a PT calendar date string. */
-function getPtDayOfWeek(dateStr: string): number {
+export function getPtDayOfWeek(dateStr: string): number {
   const [year, month, day] = dateStr.split('-').map(Number);
   return new Date(Date.UTC(year, month - 1, day, 12, 0, 0)).getUTCDay();
 }
