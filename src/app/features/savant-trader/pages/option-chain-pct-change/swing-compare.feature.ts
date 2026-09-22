@@ -19,7 +19,7 @@ import type { StSignalItem } from '../../services/types';
 import type { LocalBarReadService } from '../../../../core/services/local-bar-read.service';
 import type { SwingAnalysisDoc } from '../../swing-analysis/swing-analysis.types';
 import type { Swing } from '../../../shared/components/flex-chart/indicators/st-zigzag.types';
-import { chainContracts, closestPriorCloses, newId } from './utils/pct-change.utils';
+import { chainContracts, closestPriorCloses, newId, SNAPSHOT_FETCH_CONCURRENCY } from './utils/pct-change.utils';
 import {
   mergeDateList,
   toUtcDateString,
@@ -210,11 +210,10 @@ export function swingCompareMethods(store: SwingCompareStoreApi, deps: SwingComp
       // error string; failures land in `snapshotErrors` so the UI can
       // show "unavailable" instead of loading forever.
       //
-      // Concurrency is capped — every call is a live Alpha Vantage fetch
-      // upstream (75 req/min on our key). Runs are typically ≤15 dates,
-      // so 8 keeps batches fast while leaving headroom for several run
-      // sections fetching at once.
-      const CONCURRENCY = 8;
+      // Concurrency is capped (SNAPSHOT_FETCH_CONCURRENCY) — every call
+      // is a live Alpha Vantage fetch upstream; 8 was fine for the 75
+      // req/min rate limit but the partner rejects concurrent bursts
+      // with fast 502s, so the window stays small.
       // Callable errors carry a `functions/<code>` — keep it in the
       // message so the UI can distinguish rate-limit (resource-exhausted)
       // from upstream gaps (unavailable) vs generic failures. The
@@ -238,7 +237,7 @@ export function swingCompareMethods(store: SwingCompareStoreApi, deps: SwingComp
             }),
           ),
         );
-      const results$ = from(missing).pipe(mergeMap(fetchOne, CONCURRENCY), toArray());
+      const results$ = from(missing).pipe(mergeMap(fetchOne, SNAPSHOT_FETCH_CONCURRENCY), toArray());
       // Bars are auxiliary (atm-diff display) — never sink the batch.
       const bars$ = deps.barReadService
         .getDailyBarsForRange$(symbol, sorted[0], sorted[sorted.length - 1])

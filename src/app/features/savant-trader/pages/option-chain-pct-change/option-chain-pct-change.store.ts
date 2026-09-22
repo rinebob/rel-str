@@ -14,7 +14,7 @@ import {
   withMethods,
   patchState,
 } from '@ngrx/signals';
-import { forkJoin, Subscription } from 'rxjs';
+import { forkJoin, from, mergeMap, Subscription, toArray } from 'rxjs';
 import { map, take } from 'rxjs/operators';
 
 import { OptionsContractService } from '../../services/options-contract.service';
@@ -26,7 +26,7 @@ import { LocalBarReadService } from '../../../../core/services/local-bar-read.se
 import { PctChangeConfigService } from './services/pct-change-config.service';
 import type { PctChangeConfigWithId } from './services/pct-change-config.service';
 import { OptionType } from '@options-contract/contracts';
-import type { HistoricalOptionContract } from '@options-contract/contracts';
+import type { HistoricalOptionContract, GetHistoricalOptionsChainResponse } from '@options-contract/contracts';
 import type {
   TargetType,
   PctMode,
@@ -41,6 +41,7 @@ import {
   chainContracts,
   closestPriorCloses,
   newId,
+  SNAPSHOT_FETCH_CONCURRENCY,
   type PctChangeCell,
   type PctChangeGrid,
   type PctChangeFilter,
@@ -234,12 +235,26 @@ const SELECTION_CLEARED: Pick<
   isContractPinned: false,
 };
 
+/** Default delta band — |delta| ≤ 0.6 keeps deep-ITM noise out by
+ *  default (calls cap at +0.6, puts floor at −0.6 since put deltas are
+ *  negative; the filter compares |delta|, so deltaGte=-0.6 is a no-op
+ *  bound and deltaLte does the work). Applies to both manual and
+ *  swing-compare runs. */
+export const DEFAULT_DELTA_FILTER = { deltaGte: -0.6, deltaLte: 0.6 };
+
+/** Drop undefined-valued keys — Firestore setDoc rejects undefined. */
+function stripUndefinedFilter(filter: PctChangeFilter): PctChangeFilter {
+  return Object.fromEntries(
+    Object.entries(filter).filter(([, v]) => v !== undefined),
+  ) as PctChangeFilter;
+}
+
 const initialState: OptionChainPctChangeState = {
   symbol: 'QQQ',
   startDate: '2025-04-07',
   targetDates: [],
   type: OptionType.CALL,
-  filter: { type: OptionType.CALL },
+  filter: { type: OptionType.CALL, ...DEFAULT_DELTA_FILTER },
   targetType: 'pct-change',
   pctMode: 'list',
   pctValues: [],
@@ -582,10 +597,25 @@ export const OptionChainPctChangeStore = signalStore(
           ...SELECTION_CLEARED,
         });
 
-        // Fetch start + all targets in parallel.
+        // Fetch start + all targets, capped — the partner rejects
+        // concurrent bursts with fast 502s (same rationale as
+        // swing-compare's ensureSnapshots). mergeMap emits in completion
+        // order, so carry the input index and re-sort on the way out.
         const start$ = optionsContractService.getHistoricalOptionsChain$(symbol, startDate);
-        const targetReqs = targetDates.map((dt) =>
-          optionsContractService.getHistoricalOptionsChain$(symbol, dt),
+        const targetReqs$ = from(targetDates).pipe(
+          mergeMap(
+            (dt, i) =>
+              optionsContractService.getHistoricalOptionsChain$(symbol, dt).pipe(
+                map((res) => ({ i, res })),
+              ),
+            SNAPSHOT_FETCH_CONCURRENCY,
+          ),
+          toArray(),
+          map((indexed) => {
+            const ordered: GetHistoricalOptionsChainResponse[] = new Array(indexed.length);
+            for (const { i, res } of indexed) ordered[i] = res;
+            return ordered;
+          }),
         );
 
         // Fetch underlying daily bars covering the full date range.
@@ -596,7 +626,7 @@ export const OptionChainPctChangeStore = signalStore(
 
         runSub = forkJoin({
           start: start$,
-          targets: forkJoin(targetReqs),
+          targets: targetReqs$,
           bars: bars$,
         })
           .pipe(
@@ -708,7 +738,12 @@ export const OptionChainPctChangeStore = signalStore(
           symbol: cfg.symbol,
           startDate: cfg.startDate,
           type: cfg.type,
-          filter: { ...cfg.filter },
+          // Merge onto the delta defaults — configs saved before the band
+          // existed (no delta keys) still get it; configs with explicit
+          // delta values override. `type` backstops legacy docs whose
+          // filter predates the field — without it the type check drops
+          // every contract.
+          filter: { ...DEFAULT_DELTA_FILTER, ...cfg.filter, type: cfg.filter?.type ?? cfg.type },
           // Legacy configs may carry 'swing-extremes' — the selector no
           // longer offers it (swing-compare replaced it), so normalize to
           // user-dates to avoid a modeless selector.
@@ -769,7 +804,10 @@ export const OptionChainPctChangeStore = signalStore(
           userDatesMode: store.userDatesMode(),
           intervalCount: store.intervalCount(),
           intervalDays: store.intervalDays(),
-          filter: store.filter(),
+          // Strip undefined keys — clearing a filter input produces
+          // `deltaGte: undefined` etc., and Firestore's setDoc rejects
+          // undefined field values outright.
+          filter: stripUndefinedFilter(store.filter()),
         };
         configService.saveConfig(doc).pipe(take(1)).subscribe({
           next: () => {

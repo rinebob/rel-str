@@ -45,6 +45,17 @@ export interface PctChangeGrid {
  *  overlay config and the page's outside-click dismissal guard. */
 export const CONTRACT_CHART_PANE_CLASS = 'contract-chart-pane';
 
+/** Minimum contract price for a cell to count toward the color scale and
+ *  top-5 highlights — penny-priced contracts produce meaningless pct
+ *  changes that wreck both. */
+export const MIN_CELL_PRICE = 0.02;
+
+/** Cap on concurrent chain-snapshot fetches — every call is a live Alpha
+ *  Vantage fetch upstream; the partner rejects concurrent bursts with
+ *  fast 502s, so keep the window small. Shared by runAnalysis and
+ *  swing-compare's ensureSnapshots. */
+export const SNAPSHOT_FETCH_CONCURRENCY = 3;
+
 /** Build the Map key for a cell by strike and expiration. */
 export function cellKey(strike: number, expiration: string): string {
   return `${strike}-${expiration}`;
@@ -290,7 +301,14 @@ export function computePctChange(
     }
   }
 
-  const sortedPct = cells.map((c) => c.pctChange).sort((a, b) => a - b);
+  // Penny-priced cells (either endpoint < $0.02) show degenerate pct
+  // changes — a $0.01→$0.30 contract reads +2900% — so they're excluded
+  // from the percentile range to keep the color ramp legible. They still
+  // render in the grid; they just don't set the scale.
+  const sortedPct = cells
+    .filter((c) => c.startPrice >= MIN_CELL_PRICE && c.targetPrice >= MIN_CELL_PRICE)
+    .map((c) => c.pctChange)
+    .sort((a, b) => a - b);
   const p5 = percentile(sortedPct, 5);
   const p95 = percentile(sortedPct, 95);
 

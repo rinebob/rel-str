@@ -148,6 +148,27 @@ describe('computePctChange', () => {
     expect(grid.cells.has(cellKey(100, '2024-03-15'))).toBe(true);
   });
 
+  it('excludes penny-priced cells from the p5/p95 color scale', () => {
+    // 20 normal cells at +50% plus one $0.01→$0.50 cell at +4900% —
+    // without exclusion the penny cell would own p95 and flatten the ramp.
+    const start: HistoricalOptionContract[] = [];
+    const target: HistoricalOptionContract[] = [];
+    for (let i = 0; i < 20; i++) {
+      const strike = String(90 + i);
+      start.push(makeContract({ contractID: `N${i}`, strike, mark: '10.00' }));
+      target.push(makeContract({ contractID: `N${i}`, strike, mark: '15.00' }));
+    }
+    start.push(makeContract({ contractID: 'PENNY', strike: '200', mark: '0.01' }));
+    target.push(makeContract({ contractID: 'PENNY', strike: '200', mark: '0.50' }));
+
+    const grid = computePctChange(start, target, START_DATE, TARGET_DATE, CALL_FILTER);
+    // Penny cell still renders in the grid…
+    expect(grid.cells.has(cellKey(200, '2024-03-15'))).toBe(true);
+    // …but the scale is computed from the 20 normal cells only.
+    expect(grid.p95).toBeCloseTo(50, 5);
+    expect(grid.p5).toBeCloseTo(50, 5);
+  });
+
   it('excludes contracts with missing delta when a delta filter is set', () => {
     const start = [makeContract({ contractID: 'A', mark: '10.00', delta: undefined })];
     const target = [makeContract({ contractID: 'A', mark: '12.00', delta: undefined })];

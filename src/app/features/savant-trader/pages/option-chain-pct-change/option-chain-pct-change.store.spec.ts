@@ -664,6 +664,47 @@ describe('OptionChainPctChangeStore', () => {
       expect(store.underlyingPrices()).toEqual({});
     });
 
+    it('merges the default delta band onto configs saved without delta keys', () => {
+      const cfg: PctChangeConfigWithId = {
+        id: 'cfg-1',
+        ...makeConfigDoc({ filter: { type: OptionType.CALL, strikeGte: 100 } }),
+      };
+      const store = setupStore(mockService(), mockConfigService([cfg]));
+      store.loadSavedConfigs();
+      store.selectConfig('cfg-1');
+      expect(store.filter().deltaGte).toBe(-0.6);
+      expect(store.filter().deltaLte).toBe(0.6);
+      expect(store.filter().strikeGte).toBe(100);
+    });
+
+    it('preserves explicit config delta values over the defaults', () => {
+      const cfg: PctChangeConfigWithId = {
+        id: 'cfg-1',
+        ...makeConfigDoc({
+          filter: { type: OptionType.CALL, deltaGte: -0.3, deltaLte: 0.3 },
+        }),
+      };
+      const store = setupStore(mockService(), mockConfigService([cfg]));
+      store.loadSavedConfigs();
+      store.selectConfig('cfg-1');
+      expect(store.filter().deltaGte).toBe(-0.3);
+      expect(store.filter().deltaLte).toBe(0.3);
+    });
+
+    it('backstops filter.type from the config type when absent', () => {
+      const cfg: PctChangeConfigWithId = {
+        id: 'cfg-1',
+        ...makeConfigDoc({
+          type: OptionType.PUT,
+          filter: { strikeGte: 100 } as PctChangeConfigDoc['filter'],
+        }),
+      };
+      const store = setupStore(mockService(), mockConfigService([cfg]));
+      store.loadSavedConfigs();
+      store.selectConfig('cfg-1');
+      expect(store.filter().type).toBe(OptionType.PUT);
+    });
+
     it('is a no-op when configId not found', () => {
       const store = setupStore();
       store.setSymbol('QQQ');
@@ -757,6 +798,21 @@ describe('OptionChainPctChangeStore', () => {
       store.saveCurrentConfig();
       expect(store.savedConfigs().length).toBe(1);
       expect(store.selectedConfigId()).toBe(store.savedConfigs()[0].id);
+    });
+
+    it('strips undefined filter keys — Firestore rejects undefined values', () => {
+      const saveSpy = jest.fn().mockReturnValue(of(undefined));
+      const configService = { ...mockConfigService(), saveConfig: saveSpy as never };
+      const store = setupStore(mockService(), configService);
+      store.setSymbol('QQQ');
+      store.setStartDate('2025-04-07');
+      store.addTargetDate('2025-04-10');
+      // Clear the default lower bound — leaves deltaGte: undefined on state.
+      store.setFilter({ deltaGte: undefined });
+      store.saveCurrentConfig();
+      const savedArg = saveSpy.mock.calls[0][0] as PctChangeConfigWithId;
+      expect('deltaGte' in savedArg.filter).toBe(false);
+      expect(savedArg.filter.deltaLte).toBe(0.6);
     });
 
     it('sets error state when save fails', () => {
