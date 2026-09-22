@@ -1,0 +1,66 @@
+<div class="sandbox">
+  <header class="sandbox-header">
+    <h2>Flex Chart Sandbox</h2>
+    <label class="field">
+      Symbol
+      <input
+        type="text"
+        data-testid="symbol-input"
+        [value]="symbol()"
+        (change)="onSymbolChange($event)"
+      />
+    </label>
+    <div class="interval-btns" role="group" aria-label="Chart interval">
+      <button
+        type="button"
+        data-testid="interval-daily"
+        [class.active]="interval() === ChartIntervalKey.DAILY"
+        (click)="setInterval(ChartIntervalKey.DAILY)"
+      >D</button>
+      <button
+        type="button"
+        data-testid="interval-weekly"
+        [class.active]="interval() === ChartIntervalKey.WEEKLY"
+        (click)="setInterval(ChartIntervalKey.WEEKLY)"
+      >W</button>
+      <button
+        type="button"
+        data-testid="interval-monthly"
+        [class.active]="interval() === ChartIntervalKey.MONTHLY"
+        (click)="setInterval(ChartIntervalKey.MONTHLY)"
+      >M</button>
+    </div>
+    <label class="field">
+      <input
+        type="checkbox"
+        data-testid="log-toggle"
+        [checked]="logScale()"
+        (change)="onLogToggle($event)"
+      />
+      Log Y
+    </label>
+  </header>
+
+  <div class="debug-readout" data-testid="debug-readout">
+    <span data-testid="dbg-scale">scale: {{ logScale() ? 'log' : 'linear' }}</span>
+    <span data-testid="dbg-viewport">viewport: {{ debugViewportText() }}</span>
+    <span data-testid="dbg-axis">axis: {{ debugAxisText() }}</span>
+    <span data-testid="dbg-visible">visible hi/lo: {{ debugVisibleText() }}</span>
+    <span data-testid="dbg-ticks">log ticks: {{ debugTicksText() }}</span>
+  </div>
+
+  @if (chartStore.loading()) {
+    <mat-progress-spinner [diameter]="36" />
+  }
+  @if (chartStore.error(); as err) {
+    <p class="error">{{ err }}</p>
+  }
+  @if (chartData(); as data) {
+    <app-flex-chart
+      [chartData]="data"
+      [config]="config()"
+      height="calc(100vh - 160px)"
+      (debugStateChange)="onDebugStateChange($event)"
+    />
+  }
+</div>
