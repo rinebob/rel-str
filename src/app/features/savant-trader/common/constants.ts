@@ -6,6 +6,7 @@
  */
 
 import { SignalDirection } from '../../shared/constants/signal-direction';
+import { SYSTEM_LIST_DEFS, SYSTEM_LIST_KEYS } from './symbol-list-defs';
 export { SignalDirection };
 
 /** Daily PACR review status for a symbol. */
@@ -66,9 +67,19 @@ export const ALL_SYMBOL_LIST_NAMES: SymbolListName[] = [
 ];
 
 /**
- * Filter value for the "No memberships" option — symbols that belong to
- * zero lists. Distinct from SymbolListName.NONE, which some surfaces use
- * to mean "no list filter applied" (i.e., show everything).
+ * The exclusive triage lists — a symbol belongs to at most one of these at a
+ * time. MONITOR and future user-created lists are non-exclusive and are never
+ * stripped by an exclusive move.
+ */
+export const EXCLUSIVE_SYMBOL_LIST_NAMES: SymbolListName[] =
+  ALL_SYMBOL_LIST_NAMES.filter((n) => n !== SymbolListName.MONITOR);
+
+/**
+ * Filter value for the "No memberships" option — symbols that belong to zero
+ * EXCLUSIVE (triage) lists, i.e. untriaged. Membership in non-exclusive lists
+ * (MONITOR, user lists) does not count: the filter exists to feed the triage
+ * review loop. Distinct from SymbolListName.NONE, which some surfaces use to
+ * mean "no list filter applied" (i.e., show everything).
  */
 export const NO_MEMBERSHIP = 'NO_MEMBERSHIP';
 
@@ -76,20 +87,18 @@ export const NO_MEMBERSHIP = 'NO_MEMBERSHIP';
 export type SymbolListFilter = SymbolListName | 'ALL' | typeof NO_MEMBERSHIP;
 
 /**
- * Canonical ordered options shared by every list-filter dropdown.
+ * Canonical ordered options shared by every list-filter dropdown — derived
+ * from SYSTEM_LIST_DEFS so labels/order have one source of truth.
  * Each surface prepends its own "show everything" option (All / None).
  */
 export const SYMBOL_LIST_FILTER_OPTIONS: ReadonlyArray<{
   value: SymbolListName | typeof NO_MEMBERSHIP;
   label: string;
 }> = [
-  { value: SymbolListName.PRIMARY,      label: 'Primary' },
-  { value: SymbolListName.SECONDARY,    label: 'Secondary' },
-  { value: SymbolListName.NEUTRAL,      label: 'Neutral' },
-  { value: SymbolListName.AVOID,        label: 'Avoid' },
-  { value: SymbolListName.HIDE,         label: 'Hidden' },
-  { value: NO_MEMBERSHIP,               label: 'No memberships' },
-  { value: SymbolListName.MONITOR,      label: 'Monitor' },
+  ...SYSTEM_LIST_DEFS.filter((d) => d.key !== SYSTEM_LIST_KEYS.MONITOR)
+    .map((d) => ({ value: d.key as SymbolListName, label: d.label })),
+  { value: NO_MEMBERSHIP, label: 'Not triaged' },
+  { value: SymbolListName.MONITOR, label: 'Monitor' },
 ];
 
 /** Symbol type classification for the trading universe. */
