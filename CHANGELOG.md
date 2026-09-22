@@ -1,5 +1,13 @@
 # Changelog
 
+## [2026-09-22]
+
+### Added
+- [Option Chain Pct Change Grid] 326-473_FE-IMPL-OPTIONS: Shared delta-default filter, config merge, and capped snapshot fetches
+- [Option Chain Pct Change Grid] 326-472_FE-IMPL-OPTIONS: Swing-compare entry at sidebar top; manual controls collapsed; shared Filters panel
+- [Option Chain Pct Change Grid] 326-483_FE-IMPL-OPTIONS: Delineate run containers; suppress cell tooltips during chart popup; penny-cell exclusion
+- [Option Chain Pct Change Grid] 326-357_DOCS-DOCS-OPTIONS: Code review docs for misc-fixes batch (472/473/483)
+
 ## [2026-09-21]
 
 ### Added
