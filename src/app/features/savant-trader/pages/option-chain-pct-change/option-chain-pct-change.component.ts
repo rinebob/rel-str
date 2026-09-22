@@ -1,7 +1,10 @@
 /**
  * Option Chain Pct Change Page
  *
- * Left panel: input form (symbol, start date, target dates, type, filters).
+ * Left panel: swing-compare entry at top (primary run builder — opens the
+ * picker dialog), divider, the shared Filters panel (expanded by default —
+ * applies to both manual and swing-compare runs), then the manual grid
+ * controls in a collapsed-by-default panel (start date, target dates, type).
  * Right panel: stacked grids (one per target date), loading/error states.
  *
  * Follows the existing options-strategy-dashboard.component pattern.
@@ -71,6 +74,7 @@ import { take } from 'rxjs';
       <div class="page-body">
         <div class="input-panel" [class.collapsed]="panelCollapsed()">
           <div class="panel-toolbar">
+            <span class="sidebar-title">Swing compare</span>
             <button
               type="button"
               mat-icon-button
@@ -82,40 +86,12 @@ import { take } from 'rxjs';
               <mat-icon>{{ panelCollapsed() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
             </button>
           </div>
-          <div class="form-group config-section">
-            <label for="configSelect">Saved Config</label>
-            <div class="config-controls">
-              <select
-                id="configSelect"
-                [value]="store.selectedConfigId() ?? ''"
-                (change)="onConfigSelect($event)"
-              >
-                <option value="">— Select —</option>
-                @for (cfg of store.savedConfigs(); track cfg.id) {
-                  <option [value]="cfg.id">{{ cfg.id }}</option>
-                }
-              </select>
-              <button
-                type="button"
-                mat-stroked-button
-                (click)="saveConfig()"
-                [disabled]="!store.canRun()"
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                mat-stroked-button
-                (click)="deleteConfig()"
-                [disabled]="!store.selectedConfigId()"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
+          <!-- Swing compare — the primary run builder. Top of the sidebar,
+               never collapsed into an expando: the dialog flow replaced the
+               manual form as the main path. Symbol sits here too — it
+               drives which saved analyses exist. -->
+          <div class="swing-compare-entry">
+            <div class="symbol-row">
               <label for="symbol">Symbol</label>
               <input
                 id="symbol"
@@ -125,50 +101,6 @@ import { take } from 'rxjs';
                 placeholder="QQQ"
               />
             </div>
-
-            <div class="form-group">
-              <label for="startDate">Start Date</label>
-              <input
-                id="startDate"
-                type="date"
-                [value]="store.startDate()"
-                (change)="store.setStartDate(inputValue($event))"
-              />
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Type</label>
-            <div class="type-toggle">
-              <button
-                type="button"
-                mat-stroked-button
-                [class.active]="store.type() === optionTypeCall"
-                (click)="store.setType(optionTypeCall)"
-              >
-                Calls
-              </button>
-              <button
-                type="button"
-                mat-stroked-button
-                [class.active]="store.type() === optionTypePut"
-                (click)="store.setType(optionTypePut)"
-              >
-                Puts
-              </button>
-            </div>
-          </div>
-
-          <mat-expansion-panel
-            class="panel-section"
-            [expanded]="swingCompareExpanded()"
-            (opened)="swingCompareExpanded.set(true)"
-            (closed)="swingCompareExpanded.set(false)"
-          >
-            <mat-expansion-panel-header>
-              <mat-panel-title>Swing Compare</mat-panel-title>
-            </mat-expansion-panel-header>
-
             @if (store.savedAnalyses().length === 0) {
               <p class="swing-empty" data-testid="swing-compare-empty">
                 No saved swing analyses for {{ store.symbol() || 'this symbol' }} —
@@ -184,8 +116,6 @@ import { take } from 'rxjs';
                     ({{ frame.direction === 'up' ? 'up' : 'down' }},
                     {{ frame.magnitudePercent.toFixed(1) }}%)
                   </span>
-                } @else {
-                  <span class="frame-summary none">No frame swing picked.</span>
                 }
                 <button
                   type="button"
@@ -197,21 +127,13 @@ import { take } from 'rxjs';
                 </button>
               </div>
             }
-          </mat-expansion-panel>
+          </div>
 
-          <mat-expansion-panel
-            class="panel-section"
-            [expanded]="targetDatesExpanded()"
-            (opened)="targetDatesExpanded.set(true)"
-            (closed)="targetDatesExpanded.set(false)"
-          >
-            <mat-expansion-panel-header>
-              <mat-panel-title>Target Dates</mat-panel-title>
-            </mat-expansion-panel-header>
+          <hr class="panel-divider">
 
-            <app-target-type-selector />
-          </mat-expansion-panel>
-
+          <!-- Filters — top-level and expanded by default: they apply to
+               BOTH run sources (manual runs and swing-compare grids), so
+               they can't live inside the collapsed manual panel. -->
           <mat-expansion-panel
             class="panel-section"
             [expanded]="filtersExpanded()"
@@ -222,79 +144,170 @@ import { take } from 'rxjs';
               <mat-panel-title>Filters</mat-panel-title>
             </mat-expansion-panel-header>
 
-          <div class="form-group">
-            <label>Duration Range (days)</label>
-            <div class="range-inputs">
-              <input
-                type="number"
-                placeholder="Min"
-                [value]="store.filter().durationGteDays ?? ''"
-                (change)="store.setFilter({ durationGteDays: toNum(inputValue($event)) })"
-              />
-              <span>–</span>
-              <input
-                type="number"
-                placeholder="Max"
-                [value]="store.filter().durationLteDays ?? ''"
-                (change)="store.setFilter({ durationLteDays: toNum(inputValue($event)) })"
-              />
+            <div class="form-group">
+              <label>Duration Range (days)</label>
+              <div class="range-inputs">
+                <input
+                  type="number"
+                  placeholder="Min"
+                  [value]="store.filter().durationGteDays ?? ''"
+                  (change)="store.setFilter({ durationGteDays: toNum(inputValue($event)) })"
+                />
+                <span>–</span>
+                <input
+                  type="number"
+                  placeholder="Max"
+                  [value]="store.filter().durationLteDays ?? ''"
+                  (change)="store.setFilter({ durationLteDays: toNum(inputValue($event)) })"
+                />
+              </div>
             </div>
-          </div>
 
-          <div class="form-group">
-            <label>Strike Range</label>
-            <div class="range-inputs">
-              <input
-                type="number"
-                placeholder="Min"
-                [value]="store.filter().strikeGte ?? ''"
-                (change)="store.setFilter({ strikeGte: toNum(inputValue($event)) })"
-              />
-              <span>–</span>
-              <input
-                type="number"
-                placeholder="Max"
-                [value]="store.filter().strikeLte ?? ''"
-                (change)="store.setFilter({ strikeLte: toNum(inputValue($event)) })"
-              />
+            <div class="form-group">
+              <label>Strike Range</label>
+              <div class="range-inputs">
+                <input
+                  type="number"
+                  placeholder="Min"
+                  [value]="store.filter().strikeGte ?? ''"
+                  (change)="store.setFilter({ strikeGte: toNum(inputValue($event)) })"
+                />
+                <span>–</span>
+                <input
+                  type="number"
+                  placeholder="Max"
+                  [value]="store.filter().strikeLte ?? ''"
+                  (change)="store.setFilter({ strikeLte: toNum(inputValue($event)) })"
+                />
+              </div>
             </div>
-          </div>
 
-          <div class="form-group">
-            <label>Delta Range</label>
-            <div class="range-inputs">
-              <input
-                type="number"
-                step="0.05"
-                placeholder="Min"
-                [value]="store.filter().deltaGte ?? ''"
-                (change)="store.setFilter({ deltaGte: toNum(inputValue($event)) })"
-              />
-              <span>–</span>
-              <input
-                type="number"
-                step="0.05"
-                placeholder="Max"
-                [value]="store.filter().deltaLte ?? ''"
-                (change)="store.setFilter({ deltaLte: toNum(inputValue($event)) })"
-              />
+            <div class="form-group">
+              <label>Delta Range</label>
+              <div class="range-inputs">
+                <input
+                  type="number"
+                  step="0.05"
+                  placeholder="Min"
+                  [value]="store.filter().deltaGte ?? ''"
+                  (change)="store.setFilter({ deltaGte: toNum(inputValue($event)) })"
+                />
+                <span>–</span>
+                <input
+                  type="number"
+                  step="0.05"
+                  placeholder="Max"
+                  [value]="store.filter().deltaLte ?? ''"
+                  (change)="store.setFilter({ deltaLte: toNum(inputValue($event)) })"
+                />
+              </div>
             </div>
-          </div>
           </mat-expansion-panel>
 
-          <div class="actions">
-            <button
-              type="button"
-              mat-stroked-button
-              [disabled]="!store.canRun() || store.loading()"
-              (click)="store.runAnalysis()"
+          <!-- Manual grid controls — secondary path now that the dialog
+               owns run building; collapsed by default. -->
+          <mat-expansion-panel
+            class="panel-section"
+            data-testid="manual-panel"
+            [expanded]="manualExpanded()"
+            (opened)="manualExpanded.set(true)"
+            (closed)="manualExpanded.set(false)"
+          >
+            <mat-expansion-panel-header>
+              <mat-panel-title>Manual run</mat-panel-title>
+            </mat-expansion-panel-header>
+
+            <div class="form-group config-section">
+              <label for="configSelect">Saved Config</label>
+              <div class="config-controls">
+                <select
+                  id="configSelect"
+                  [value]="store.selectedConfigId() ?? ''"
+                  (change)="onConfigSelect($event)"
+                >
+                  <option value="">— Select —</option>
+                  @for (cfg of store.savedConfigs(); track cfg.id) {
+                    <option [value]="cfg.id">{{ cfg.id }}</option>
+                  }
+                </select>
+                <button
+                  type="button"
+                  mat-stroked-button
+                  (click)="saveConfig()"
+                  [disabled]="!store.canRun()"
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  mat-stroked-button
+                  (click)="deleteConfig()"
+                  [disabled]="!store.selectedConfigId()"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="startDate">Start Date</label>
+              <input
+                id="startDate"
+                type="date"
+                [value]="store.startDate()"
+                (change)="store.setStartDate(inputValue($event))"
+              />
+            </div>
+
+            <div class="form-group">
+              <label>Type</label>
+              <div class="type-toggle">
+                <button
+                  type="button"
+                  mat-stroked-button
+                  [class.active]="store.type() === optionTypeCall"
+                  (click)="store.setType(optionTypeCall)"
+                >
+                  Calls
+                </button>
+                <button
+                  type="button"
+                  mat-stroked-button
+                  [class.active]="store.type() === optionTypePut"
+                  (click)="store.setType(optionTypePut)"
+                >
+                  Puts
+                </button>
+              </div>
+            </div>
+
+            <mat-expansion-panel
+              class="panel-section"
+              [expanded]="targetDatesExpanded()"
+              (opened)="targetDatesExpanded.set(true)"
+              (closed)="targetDatesExpanded.set(false)"
             >
-              Run Analysis
-            </button>
-            <button type="button" mat-stroked-button (click)="store.reset()">
-              Reset
-            </button>
-          </div>
+              <mat-expansion-panel-header>
+                <mat-panel-title>Target Dates</mat-panel-title>
+              </mat-expansion-panel-header>
+
+              <app-target-type-selector />
+            </mat-expansion-panel>
+
+            <div class="actions">
+              <button
+                type="button"
+                mat-stroked-button
+                [disabled]="!store.canRun() || store.loading()"
+                (click)="store.runAnalysis()"
+              >
+                Run Analysis
+              </button>
+              <button type="button" mat-stroked-button (click)="store.reset()">
+                Reset
+              </button>
+            </div>
+          </mat-expansion-panel>
         </div>
 
         <div class="results-panel">
@@ -379,10 +392,37 @@ import { take } from 'rxjs';
       .panel-toolbar {
         display: flex;
         justify-content: flex-end;
+        align-items: center;
         position: sticky;
         top: 0;
         z-index: 2;
         margin: 0 0 0.25rem;
+      }
+      .sidebar-title {
+        /* Push the collapse chevron to the far right; when the title hides
+           in rail mode the chevron stays put at flex-end. */
+        margin-right: auto;
+        font-size: 0.95rem;
+        font-weight: 600;
+      }
+      .symbol-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+      }
+      .symbol-row label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #555;
+      }
+      .symbol-row input[type="text"] {
+        box-sizing: border-box;
+        width: 100px;
+        padding: 0.35rem 0.5rem;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 0.85rem;
       }
       .panel-collapse-btn {
         --mdc-icon-button-state-layer-size: 28px;
@@ -395,18 +435,13 @@ import { take } from 'rxjs';
       .input-panel.collapsed > :not(.panel-toolbar) {
         display: none;
       }
+      /* In the 36px rail there's no room for the title — just the
+         expand chevron. */
+      .input-panel.collapsed .sidebar-title {
+        display: none;
+      }
       .form-group {
         margin-bottom: 1rem;
-      }
-      /* Side-by-side field row — symbol + start date are narrow enough to
-         share a line; labels stay stacked above their inputs. */
-      .form-row {
-        display: flex;
-        gap: 0.75rem;
-        align-items: flex-start;
-      }
-      .form-row .form-group {
-        flex: 0 0 auto;
       }
       .form-group label {
         display: block;
@@ -478,13 +513,20 @@ import { take } from 'rxjs';
         --mat-expansion-header-collapsed-state-height: 40px;
         --mat-expansion-header-expanded-state-height: 40px;
       }
+      .swing-compare-entry {
+        padding: 0.25rem 0.5rem 0;
+      }
+      .panel-divider {
+        border: none;
+        border-top: 1px solid #ddd;
+        margin: 0.75rem 0;
+      }
       .swing-frame {
         display: flex;
         flex-direction: column;
         gap: 8px;
       }
       .frame-summary { font-size: 0.85rem; }
-      .frame-summary.none { color: var(--mat-sys-on-surface-variant); font-style: italic; }
       .swing-empty {
         margin: 0;
         font-size: 0.8rem;
@@ -533,11 +575,12 @@ export class OptionChainPctChangeComponent implements OnInit, OnDestroy {
   readonly contrastMode = signal<CellTextMode>(DEFAULT_CELL_TEXT_MODE);
   /** Expanded state for the Target Dates config panel. */
   readonly targetDatesExpanded = signal(true);
-  /** Expanded state for the Filters config panel. */
-  readonly filtersExpanded = signal(false);
-  /** Expanded state for the Swing Compare input panel — open by default;
-   *  it's the swing-comparison entry point. */
-  readonly swingCompareExpanded = signal(true);
+  /** Expanded state for the Filters panel — open by default; it's a
+   *  shared control applying to both manual and swing-compare runs. */
+  readonly filtersExpanded = signal(true);
+  /** Expanded state for the manual run controls — collapsed by default;
+   *  the swing-compare dialog is the primary run builder now. */
+  readonly manualExpanded = signal(false);
   /** Route segments for the empty-state pointer — derived from
    *  AppRoutes.SWING_ANALYSIS (a multi-segment path; routerLink needs one
    *  element per segment). */
@@ -546,9 +589,12 @@ export class OptionChainPctChangeComponent implements OnInit, OnDestroy {
   constructor() {
     // Reopen the Target Dates panel when a resolve lands — the nonce only
     // bumps on a successful resolve, so config select and manual edits
-    // don't fight a user's collapsed panel.
+    // don't fight a user's collapsed panel. Also open the outer Manual
+    // run panel — Target Dates is nested inside it, so reopening just
+    // the inner panel would churn invisibly.
     effect(() => {
-      this.store.resolveNonce();
+      if (this.store.resolveNonce() === 0) return; // initial run — keep collapsed-by-default
+      this.manualExpanded.set(true);
       this.targetDatesExpanded.set(true);
     });
   }
@@ -598,13 +644,16 @@ export class OptionChainPctChangeComponent implements OnInit, OnDestroy {
   }
 
   /** Handle config dropdown selection change. Picking a saved config
-   *  collapses the config panels so the loaded state is visible. */
+   *  collapses the target-dates panel; Filters stays as-is (shared,
+   *  top-level — the loaded delta/strike/duration values are part of
+   *  what the user wants to see). */
   onConfigSelect(ev: Event): void {
     const value = (ev.target as HTMLSelectElement | null)?.value ?? '';
     if (value) {
       this.store.selectConfig(value);
       this.targetDatesExpanded.set(false);
-      this.filtersExpanded.set(false);
+      // Filters is a shared top-level panel now — config select doesn't
+      // touch it (its values are part of what the user wants to see).
     } else {
       this.store.deselectConfig();
     }

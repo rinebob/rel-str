@@ -86,16 +86,10 @@ describe('SwingCompareComponent', () => {
     fixture.detectChanges();
   });
 
-  it('shows a pick-a-frame hint when analyses exist but no swing is chosen', () => {
-    store.selectFrameSwing(null);
-    fixture.detectChanges();
-    const hint = fixture.debugElement.query(By.css('[data-testid="swing-compare-hint"]'));
-    expect(hint).toBeTruthy();
-    expect(hint.nativeElement.textContent).toContain('left panel');
-  });
-
-  it('the hint hides once a frame swing is picked', () => {
+  it('renders only the run list — no title or hint', () => {
     expect(fixture.debugElement.query(By.css('[data-testid="swing-compare-hint"]'))).toBeNull();
+    expect(fixture.debugElement.query(By.css('.section-title'))).toBeNull();
+    expect(fixture.debugElement.query(By.css('.run-list'))).toBeTruthy();
   });
 
   it('renders a numbered run section per run', () => {

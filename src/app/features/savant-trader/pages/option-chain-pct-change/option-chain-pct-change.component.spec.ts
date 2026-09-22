@@ -217,6 +217,69 @@ describe('OptionChainPctChangeComponent', () => {
     expect(summary.textContent).toContain('2025-04-30');
   });
 
+  it('swing-compare entry sits at the sidebar top — outside any expando — above a divider and collapsed manual controls', () => {
+    const frameDoc = makeSwingAnalysisDocFixture({
+      id: 'QQQ_frame',
+      swings: [makeSwingFixture('2025-04-01', '2025-04-30')],
+    });
+    const { fixture } = setupComponent(
+      mockConfigService(),
+      null,
+      mockBarReadService(),
+      { loadSavedAnalyses: () => of([frameDoc]) },
+    );
+
+    const entry = fixture.nativeElement.querySelector('.swing-compare-entry') as HTMLElement;
+    const btn = fixture.nativeElement.querySelector('[data-testid="pick-frame-btn"]') as HTMLElement;
+    expect(entry).not.toBeNull();
+    expect(btn).not.toBeNull();
+    // Top-level — the button is no longer inside an expansion panel.
+    expect(btn.closest('mat-expansion-panel')).toBeNull();
+
+    // The "Swing compare" title sits in the toolbar, left of the collapse
+    // chevron; the results-side title/hint are gone.
+    const toolbar = fixture.nativeElement.querySelector('.panel-toolbar') as HTMLElement;
+    const title = toolbar.querySelector('.sidebar-title') as HTMLElement;
+    const chevron = toolbar.querySelector('.panel-collapse-btn') as HTMLElement;
+    expect(title?.textContent).toContain('Swing compare');
+    expect(title.compareDocumentPosition(chevron) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.results-panel .section-title')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="swing-compare-hint"]')).toBeNull();
+
+    // Symbol input is extracted above the button — it drives which saved
+    // analyses exist, so it can't live inside the collapsed manual panel.
+    const symbolInput = entry.querySelector('#symbol') as HTMLElement;
+    expect(symbolInput).not.toBeNull();
+    expect(symbolInput.compareDocumentPosition(btn) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    // Divider between the entry and the manual controls.
+    const divider = fixture.nativeElement.querySelector('.panel-divider') as HTMLElement;
+    expect(divider).not.toBeNull();
+    expect(entry.compareDocumentPosition(divider) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    // Manual controls collapsed by default.
+    const manual = fixture.nativeElement.querySelector('[data-testid="manual-panel"]') as HTMLElement;
+    expect(manual).not.toBeNull();
+    expect(divider.compareDocumentPosition(manual) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(fixture.componentInstance.manualExpanded()).toBe(false);
+  });
+
+  it('filters panel is top-level and expanded by default — usable by both manual and swing-compare runs', () => {
+    const { fixture } = setupComponent();
+    const deltaMin = fixture.nativeElement.querySelectorAll('.range-inputs input')[4] as HTMLInputElement;
+    const filtersPanel = deltaMin.closest('mat-expansion-panel') as HTMLElement;
+    expect(filtersPanel).not.toBeNull();
+    // NOT inside the manual panel — the filters' own top-level expando.
+    expect(filtersPanel.getAttribute('data-testid')).not.toBe('manual-panel');
+    expect(filtersPanel.closest('[data-testid="manual-panel"]')).toBeNull();
+    // Expanded by default.
+    expect(fixture.componentInstance.filtersExpanded()).toBe(true);
+    // Default delta band: -0.6 (puts floor) / +0.6 (calls cap).
+    const inputs = filtersPanel.querySelectorAll('.range-inputs input');
+    expect((inputs[4] as HTMLInputElement).value).toBe('-0.6');
+    expect((inputs[5] as HTMLInputElement).value).toBe('0.6');
+  });
+
   it('shows the swing-compare empty state when no saved analyses exist', () => {
     const { fixture } = setupComponent();
     const empty = fixture.nativeElement.querySelector('[data-testid="swing-compare-empty"]');
@@ -263,7 +326,7 @@ describe('OptionChainPctChangeComponent', () => {
     expect(panel.classList.contains('collapsed')).toBe(false);
   });
 
-  it('collapses the config panels when a saved config is selected', () => {
+  it('collapses the target-dates panel (not filters) when a saved config is selected', () => {
     const { fixture, store } = setupComponent();
     jest.spyOn(store, 'selectConfig');
     const component = fixture.componentInstance;
@@ -280,7 +343,8 @@ describe('OptionChainPctChangeComponent', () => {
     component.onConfigSelect(captured!);
     expect(store.selectConfig).toHaveBeenCalledWith('cfg-1');
     expect(component.targetDatesExpanded()).toBe(false);
-    expect(component.filtersExpanded()).toBe(false);
+    // Filters is a shared top-level panel — config select leaves it alone.
+    expect(component.filtersExpanded()).toBe(true);
   });
 
   it('renders grids after runAnalysis completes', fakeAsync(() => {
@@ -464,6 +528,9 @@ describe('OptionChainPctChangeComponent', () => {
       fixture.detectChanges();
       expect(store.resolveNonce()).toBe(1);
       expect(component.targetDatesExpanded()).toBe(true);
+      // The outer manual panel opens too — reopening the inner panel
+      // inside a collapsed parent would be invisible otherwise.
+      expect(component.manualExpanded()).toBe(true);
     });
   });
 
