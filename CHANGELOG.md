@@ -12,6 +12,8 @@
 - [Watchlist management] 465-466_DOCS-SAVANT-TRADER: Add watchlist misc-issues PRD and code review doc (checkpoint)
 - [Current option pricing] 486-497_FE-IMPL-OPTIONS: Option chain page skeleton, route, and nav entry
 - [Current option pricing] 486-497_DOCS-OPTIONS: PRD, FE impl/test plans, code review doc, and glossary terms
+- [Trading Indicator Library] 261-506_DOCS-DOCS-INDICATOR-LIB: Symbol picker + company info header — PRD, IMPL, TEST (checkpoint)
+- [Trading Indicator Library] 261-444_DOCS-DOCS-INDICATOR-LIB: PRD — persist swing configurations (checkpoint)
 
 ### Changed
 - [Watchlist management] 465-466_FE-REFACTOR-SAVANT-TRADER: Consolidate list state ownership in SymbolListStore (checkpoint)
