@@ -1,5 +1,17 @@
 # Savant Trader Domain Glossary
 
+## SA (SavantApi)
+
+The SavantApi site/project — the data/API backend that owns corpus docs, GCS storage, and ingestion infrastructure. ST calls SA endpoints for data; SA owns the heavy data layer.
+
+_Avoid_: Savant Architect, "the partner" (when SA itself is meant), backend
+
+## ST (SavantTrader)
+
+The SavantTrader site/project — this repo/app. The frontend + its Firebase functions layer. Consumes SA data and adds its own caching/UX.
+
+_Avoid_: Savant Trader app vs SA confusion, frontend
+
 ## Signal Occurrence
 
 One detected signal identified by its source run, symbol, timeframe, and signal type. A later detection is a different occurrence even when it has the same symbol.
@@ -55,12 +67,12 @@ _Avoid_: Review status, review decision
 
 ## Monitor
 
-A non-exclusive symbol list (PAST_SIGNALS) for tracking symbols the user wants to keep an eye on. Can coexist with any exclusive list assignment.
+A non-exclusive symbol list (MONITOR; legacy Firestore doc name PAST_SIGNALS, migrated on load) for tracking symbols the user wants to keep an eye on. Can coexist with any exclusive list assignment.
 _Avoid_: Watch, watchlist
 
 ## Symbol List (Exclusive)
 
-One of Primary, Secondary, Neutral, or Avoid. A symbol is in at most one exclusive list at a time. Avoid absorbs the former Hide list. Mutually exclusive with each other but not with Review Flag or Monitor.
+One of Primary, Secondary, Neutral, Avoid, or Hide. A symbol is in at most one exclusive list at a time. Mutually exclusive with each other but not with Review Flag or Monitor.
 _Avoid_: Category, tag, bucket
 
 ## Stale Ticket
@@ -238,5 +250,17 @@ _Avoid_: swing preset, named config, saved analysis
 
 ## Symbol List
 
-A named, Firestore-backed grouping that classifies a tracked symbol for triage: PRIMARY, SECONDARY, NEUTRAL, AVOID, HIDE, or PAST_SIGNALS (plus the NONE unlisted state). Membership is exclusive - a symbol belongs to at most one list; moving it is an atomic remove-from-others/add-to-target write. Managed by SymbolListStore / SymbolListService and toggled via the SymbolListActionsComponent chip row. Used as a review filter in signal-review and as the swing-analysis nav-sequence filter.
+A named, Firestore-backed grouping that classifies a tracked symbol for triage: PRIMARY, SECONDARY, NEUTRAL, AVOID, HIDE, or MONITOR (plus the NONE unlisted state). Membership in the triage lists (PRIMARY/SECONDARY/NEUTRAL/AVOID/HIDE) is exclusive - moving a symbol is an atomic remove-from-others/add-to-target write. MONITOR is the exception: the Monitor action adds/removes it non-exclusively, so a symbol can be monitored while also filed in a triage list (re-filing does not strip MONITOR). Managed by SymbolListStore / SymbolListService and toggled via the SymbolListActionsComponent chip row. The Monitor toggle is membership-driven (`SymbolListStore.toggleMonitor`) — identical behavior on every surface; chip state reads membership, not the active filter. SymbolListStore is also the single owner of the tracked-symbols universe (`trackedSymbols` / `unlistedSymbols` / `loadTrackedSymbols`), which backs the "No memberships" pseudo-filter on all three surfaces. Used as a review filter in signal-review and as the swing-analysis nav-sequence filter.
 _Avoid_: watchlist (ambiguous - the lists ARE the watchlists), tag, folder
+
+## Option Chain Grid
+
+The single-session option chain browser (Topic: Current option pricing) that renders a full chain in the percent-change grid's matrix form — strikes as rows, expirations as columns — showing mark price, $/% change vs the prior session, delta, and IV per cell, with the full contract payload on hover. Supports CALLS / PUTS / BOTH layouts (BOTH shares a strike column, calls left / puts right) and per-side strike-order orientation (default high→low top→bottom). Distinct from the pct-change grid: same visual form, different data (one session's chain, not a start→target price comparison).
+
+_Avoid_: percent change grid (that is the analysis tool), option chain table
+
+## Session Resolution
+
+The rule that maps "today" to an actual trading-session date for the Option Chain Grid. Intraday (before the current session's EOD snapshot exists) resolves to the prior trading session; post-session it tries today's date and falls back to prior sessions when no snapshot exists. Resolution walks back over weekends/holidays to the most recent session with a snapshot.
+
+_Avoid_: current day, today's date (a calendar date is not necessarily a trading session)
