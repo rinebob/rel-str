@@ -10,8 +10,12 @@
 - [Trading Indicator Library] 261-446_CONFIG-IMPL-INDICATOR-LIB: Add bulk swing seed script (921 symbols x 4 configs swept)
 - [Trading Indicator Library] 261-429_DOCS-DOCS-INDICATOR-LIB: Update docs for st-swing-sets and add batch-UI code review
 - [Trading Indicator Library] 261-430_FE-IMPL-INDICATOR-LIB: Saved-sets browser — lazy load, symbol filter, N-slot multi-load
+- [Trading Indicator Library] 261-462_FE-IMPL-INDICATOR-LIB: Symbol nav store slice (symbol-nav.feature)
+- [Trading Indicator Library] 261-463_464_FE-IMPL-INDICATOR-LIB: Symbol nav UI — prev/next, N of M, watchlist filter + chips
+- [Trading Indicator Library] 261-461_DOCS-DOCS-INDICATOR-LIB: Nav thread docs (PRD/IMPL/TEST)
 
 ### Changed
+- [Trading Indicator Library] 261-430_FE-IMPL-INDICATOR-LIB: Saved-sets symbol-first picker; manual controls + batch sweep behind settings dialog; seeded-matching defaults (10/10/10, 3/3/3)
 - [Trading Indicator Library] 261-429_CONFIG-CONFIG-INDICATOR-LIB: Rename swing sets to st-swing-sets and tighten list rule
 
 ## [2026-09-20]
