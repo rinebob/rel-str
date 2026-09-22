@@ -23,6 +23,8 @@
 - [Flex Chart Maintenance] 468-476_DOCS-FLEX-CHART: Log Y-axis PRD, IMPL/TEST plans, and code review doc
 - [Flex Chart Maintenance] 468-478_FE-IMPL-FLEX-CHART: Synthetic data mode + edge-case presets (100x range, penny, bad-tick) for the sandbox
 - [Flex Chart Maintenance] 468-478_DOCS-FLEX-CHART: Code review doc for synthetic data mode
+- [Watchlist management] 465-524_FE-IMPL-WATCHLIST: Symbol list registry read path — defs, composite doc ids, live watchLists$, lazy migration
+- [Watchlist management] 465-524_DOCS-WATCHLIST: Unified list infrastructure PRD, IMPL/TEST plans, code review
 
 ### Changed
 - [Watchlist management] 465-466_FE-REFACTOR-SAVANT-TRADER: Consolidate list state ownership in SymbolListStore (checkpoint)
