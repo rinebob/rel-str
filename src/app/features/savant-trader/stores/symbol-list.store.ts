@@ -10,17 +10,21 @@
  * The store owns the local reactive state; persistence is delegated to
  * SymbolListService.
  */
-import { inject } from '@angular/core';
+import { computed, DestroyRef, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   signalStore,
   withState,
+  withComputed,
   withMethods,
   patchState,
 } from '@ngrx/signals';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { SymbolListService } from '../services/symbol-list.service';
-import { SymbolListName, ALL_SYMBOL_LIST_NAMES } from '../common/constants';
+import { RelStrDbV2Service } from '../../services/rel-str-db-v2.service';
+import { SymbolListName, ALL_SYMBOL_LIST_NAMES, type SymbolListFilter } from '../common/constants';
+import { isUnlisted, normalizeTrackedSymbols } from '../utils/utils';
 
 export interface SymbolListState {
   /** User-defined symbol lists: listName -> symbols[]. */
@@ -28,23 +32,39 @@ export interface SymbolListState {
   /** Loading state for symbol lists. */
   symbolListsLoading: boolean;
   /** Active list filter â€” 'ALL' shows everything. */
-  activeListFilter: SymbolListName | 'ALL';
+  activeListFilter: SymbolListFilter;
+  /** Tracked-symbols universe — the complement base for "No memberships". Lazy. */
+  trackedSymbols: string[];
 }
 
 const initialState: SymbolListState = {
   symbolLists: {},
   symbolListsLoading: false,
   activeListFilter: SymbolListName.PRIMARY,
+  trackedSymbols: [],
 };
 
 export const SymbolListStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
+  withComputed((state) => ({
+    /** Tracked symbols that belong to no list — the "No memberships" view. */
+    unlistedSymbols: computed(() => {
+      const membership = state.symbolLists();
+      return state.trackedSymbols().filter((s) => isUnlisted(s, membership));
+    }),
+  })),
   withMethods((
     state,
     listService = inject(SymbolListService),
+    relStrDbV2 = inject(RelStrDbV2Service),
     snackBar = inject(MatSnackBar),
-  ) => ({
+    destroyRef = inject(DestroyRef),
+  ) => {
+    /** Dedupes concurrent tracked-universe loads — one callable round-trip. */
+    let trackedInFlight: Promise<string[]> | null = null;
+
+    return {
     /** Load all user-defined symbol lists from Firestore. */
     loadSymbolLists(): void {
       patchState(state, { symbolListsLoading: true });
@@ -66,8 +86,38 @@ export const SymbolListStore = signalStore(
     },
 
     /** Set the active list filter for the grouped review. */
-    setActiveListFilter(filter: SymbolListName | 'ALL'): void {
+    setActiveListFilter(filter: SymbolListFilter): void {
       patchState(state, { activeListFilter: filter });
+    },
+
+    /**
+     * Load the tracked-symbols universe once — needed to compute the
+     * "No memberships" complement (a symbol is unlisted only if it's
+     * tracked AND in zero lists). TTL-cached upstream; the list doesn't
+     * change intra-session. Resolves to the loaded (or cached) symbols so
+     * callers can await availability.
+     */
+    loadTrackedSymbols(): Promise<string[]> {
+      if (state.trackedSymbols().length > 0) {
+        return Promise.resolve(state.trackedSymbols());
+      }
+      trackedInFlight ??= new Promise<string[]>((resolve) => {
+        relStrDbV2
+          .getTrackedSymbols$()
+          .pipe(takeUntilDestroyed(destroyRef))
+          .subscribe({
+            next: (companies) => {
+              const symbols = normalizeTrackedSymbols(companies);
+              patchState(state, { trackedSymbols: symbols });
+              resolve(symbols);
+            },
+            error: (err: unknown) => {
+              console.error('[SymbolListStore] getTrackedSymbols$ failed', err);
+              resolve([]);
+            },
+          });
+      });
+      return trackedInFlight;
     },
 
     /**
@@ -76,11 +126,18 @@ export const SymbolListStore = signalStore(
      * Uses an atomic Firestore batch write to guarantee consistency.
      */
     toggleSymbolInList(symbol: string, listName: string | SymbolListName): void {
+      // MONITOR is non-exclusive — route it through the membership toggle
+      // rather than an exclusive move.
+      if (listName === SymbolListName.MONITOR) {
+        this.toggleMonitor(symbol);
+        return;
+      }
       const normalized = symbol.toUpperCase();
       const previousLists = state.symbolLists();
       const isInList = (previousLists[listName] ?? []).includes(normalized);
 
       // Build the next state immutably: every list gets a fresh array.
+      // MONITOR membership is untouched — it coexists with any triage list.
       const nextLists: Record<string, string[]> = {};
       for (const name of Object.keys(previousLists)) {
         const sourceList = previousLists[name] ?? [];
@@ -88,7 +145,7 @@ export const SymbolListStore = signalStore(
           nextLists[name] = isInList
             ? sourceList.filter((s) => s !== normalized)
             : [...sourceList, normalized];
-        } else if (!isInList) {
+        } else if (!isInList && name !== SymbolListName.MONITOR) {
           nextLists[name] = sourceList.filter((s) => s !== normalized);
         } else {
           nextLists[name] = [...sourceList];
@@ -99,10 +156,14 @@ export const SymbolListStore = signalStore(
       }
       patchState(state, { symbolLists: nextLists });
 
-      // Atomic persist: add to target list and remove from all others in one batch.
-      // If toggling OFF (isInList=true), targetList is null (remove from all).
+      // Atomic persist: add to target list and remove from all other EXCLUSIVE
+      // lists in one batch. If toggling OFF (isInList=true), targetList is null
+      // (remove from all exclusive lists). MONITOR is never touched.
       const targetList = isInList ? null : (listName as string);
-      listService.moveToList(symbol, targetList, ALL_SYMBOL_LIST_NAMES.map(n => n as string)).subscribe({
+      const exclusiveListNames = ALL_SYMBOL_LIST_NAMES.filter(
+        (n) => n !== SymbolListName.MONITOR,
+      );
+      listService.moveToList(symbol, targetList, exclusiveListNames).subscribe({
         error: (err: unknown) => {
           const message = err instanceof Error ? err.message : 'Unknown error';
           console.error(`[SymbolListStore] Failed to toggle ${symbol} in ${listName}:`, err);
@@ -137,6 +198,22 @@ export const SymbolListStore = signalStore(
       });
     },
 
+    /**
+     * Toggle the symbol's MONITOR membership — membership-driven (add when
+     * absent, remove when present). MONITOR is the non-exclusive list, so
+     * this uses add/remove rather than moveToList.
+     */
+    toggleMonitor(symbol: string): void {
+      const inMonitor = (state.symbolLists()[SymbolListName.MONITOR] ?? []).includes(
+        symbol.toUpperCase(),
+      );
+      if (inMonitor) {
+        this.removeSymbolFromList(symbol, SymbolListName.MONITOR);
+      } else {
+        this.addSymbolToList(symbol, SymbolListName.MONITOR);
+      }
+    },
+
     /** Remove a symbol from a named list. */
     removeSymbolFromList(symbol: string, listName: string | SymbolListName): void {
       const normalized = symbol.toUpperCase();
@@ -157,5 +234,6 @@ export const SymbolListStore = signalStore(
         },
       });
     },
-  })),
+    };
+  }),
 );
