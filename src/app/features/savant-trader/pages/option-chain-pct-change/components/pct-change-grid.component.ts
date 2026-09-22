@@ -14,7 +14,7 @@ import { CdkConnectedOverlay, Overlay, type ConnectedPosition } from '@angular/c
 import { MatIconModule } from '@angular/material/icon';
 
 import type { PctChangeGrid, PctChangeCell } from '../utils/pct-change.utils';
-import { cellKey, CONTRACT_CHART_PANE_CLASS } from '../utils/pct-change.utils';
+import { cellKey, CONTRACT_CHART_PANE_CLASS, MIN_CELL_PRICE } from '../utils/pct-change.utils';
 import { pctChangeToCellColors, DEFAULT_CELL_TEXT_MODE, type CellTextMode } from '../utils/color-mapping.utils';
 import { DAYS } from '../../../../shared/utils/date.util';
 import { ContractMiniChartComponent } from './contract-mini-chart.component';
@@ -110,7 +110,7 @@ interface ExpHeader {
                   [style.text-shadow]="vc.shadow"
                   [class.top-gainer]="vc.isTop"
                   [class.linked-cell]="vc.key === linkedKey()"
-                  [title]="vc.tooltip"
+                  [attr.title]="tooltipsSuppressed() ? null : vc.tooltip"
                 >
                   <span class="pct-change">{{ vc.pctText }}</span>
                   <span class="price-detail">{{ vc.priceText }}</span>
@@ -390,12 +390,20 @@ export class PctChangeGridComponent implements OnDestroy {
     const g = this.grid();
     const mode = this.contrastMode();
     // Top-5 gainers per column (expiration) — highest positive pctChange
-    // cells among that column's strikes.
+    // cells among that column's strikes. Penny-priced cells (< $0.02 at
+    // either endpoint) are excluded — their degenerate pct changes would
+    // always win.
     const top = new Set<string>();
     for (const exp of g.expirations) {
       const column = g.strikes
         .map((s) => g.cells.get(cellKey(s, exp)))
-        .filter((c): c is PctChangeCell => c != null && c.pctChange > 0)
+        .filter(
+          (c): c is PctChangeCell =>
+            c != null &&
+            c.pctChange > 0 &&
+            c.startPrice >= MIN_CELL_PRICE &&
+            c.targetPrice >= MIN_CELL_PRICE,
+        )
         .sort((a, b) => b.pctChange - a.pctChange)
         .slice(0, 5);
       for (const c of column) top.add(cellKey(c.strike, c.expiration));
@@ -481,6 +489,10 @@ export class PctChangeGridComponent implements OnDestroy {
   /** data-cell-key of the cell currently showing the chart icon, or null.
    *  At most one icon exists in the grid at a time. */
   readonly iconCellKey = signal<string | null>(null);
+
+  /** Cell tooltips are suppressed while a contract chart is active —
+   *  the browser title popup would fight the overlay. */
+  readonly tooltipsSuppressed = computed(() => this.store.selectedCell() != null);
 
   /** Shared overlay is open when the store's selection matches the cell
    *  that opened it AND belongs to this grid's target date. */

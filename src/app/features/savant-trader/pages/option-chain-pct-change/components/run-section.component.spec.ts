@@ -69,6 +69,13 @@ describe('RunSectionComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('call');
   });
 
+  it('carries the type class so the accent stripe + badge are call/put colored', () => {
+    const section = fixture.nativeElement.querySelector('.run-section') as HTMLElement;
+    expect(section.classList.contains('call')).toBe(true);
+    expect(section.classList.contains('put')).toBe(false);
+    expect(section.querySelector('.run-type')).not.toBeNull();
+  });
+
   it('starts collapsed', () => {
     expect(details().open).toBe(false);
   });

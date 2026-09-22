@@ -223,6 +223,78 @@ describe('PctChangeGridComponent', () => {
     }
   });
 
+  it('excludes penny-priced cells (< $0.02) from top-5 marking', () => {
+    // 6 cells, one with a $0.01 start price and the biggest pctChange —
+    // it must NOT get the top-gainer ring.
+    const strikes = [90, 95, 100, 105, 110, 115];
+    const expirations = ['2024-03-15'];
+    const cells = new Map<string, PctChangeCell>();
+    strikes.forEach((s, i) => {
+      cells.set(cellKey(s, '2024-03-15'), makeCell({ strike: s, pctChange: i + 1 }));
+    });
+    cells.set(
+      cellKey(125, '2024-03-15'),
+      makeCell({ strike: 125, pctChange: 9999, startPrice: 0.01, targetPrice: 3 }),
+    );
+    const grid = makeGrid({
+      strikes: [...strikes, 125],
+      expirations,
+      cells,
+      p5: 0,
+      p95: 10,
+    });
+    const { fixture } = setupComponent(grid);
+    const marked = fixture.nativeElement.querySelectorAll('.data-cell.top-gainer');
+    expect(marked.length).toBe(5); // the 5 non-penny gainers
+    const penny = fixture.nativeElement.querySelector(
+      `[data-cell-key="${cellKey(125, '2024-03-15')}"]`,
+    ) as HTMLElement;
+    expect(penny.classList.contains('top-gainer')).toBe(false);
+  });
+
+  it('excludes cells with a penny TARGET price from top-5 too', () => {
+    const strikes = [90, 95, 100, 105, 110, 115];
+    const cells = new Map<string, PctChangeCell>();
+    strikes.forEach((s, i) => {
+      cells.set(cellKey(s, '2024-03-15'), makeCell({ strike: s, pctChange: i + 1 }));
+    });
+    // Normal start, penny target — still degenerate, excluded.
+    cells.set(
+      cellKey(125, '2024-03-15'),
+      makeCell({ strike: 125, pctChange: 9999, startPrice: 1, targetPrice: 0.01 }),
+    );
+    const grid = makeGrid({
+      strikes: [...strikes, 125],
+      expirations: ['2024-03-15'],
+      cells,
+      p5: 0,
+      p95: 10,
+    });
+    const { fixture } = setupComponent(grid);
+    expect(fixture.nativeElement.querySelectorAll('.data-cell.top-gainer').length).toBe(5);
+    const penny = fixture.nativeElement.querySelector(
+      `[data-cell-key="${cellKey(125, '2024-03-15')}"]`,
+    ) as HTMLElement;
+    expect(penny.classList.contains('top-gainer')).toBe(false);
+  });
+
+  it('suppresses cell tooltips while a contract chart is active', () => {
+    const { fixture } = setupComponent();
+    const store = TestBed.inject(OptionChainPctChangeStore);
+    const cellEl = fixture.nativeElement.querySelector('.data-cell') as HTMLElement;
+    expect(cellEl.getAttribute('title')).toBeTruthy();
+
+    const cell = makeCell();
+    store.previewContract(cell, '2024-02-15', undefined);
+    fixture.detectChanges();
+    expect(cellEl.getAttribute('title')).toBeNull();
+
+    // Restored once the chart selection clears.
+    store.clearContractSelection();
+    fixture.detectChanges();
+    expect(cellEl.getAttribute('title')).toBeTruthy();
+  });
+
   it('outlines the linked contract cell when linkedKey is set', () => {
     const { fixture } = setupComponent();
     const key = cellKey(100, '2024-03-15');
