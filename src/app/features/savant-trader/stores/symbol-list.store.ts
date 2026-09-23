@@ -1,14 +1,18 @@
 /**
  * SymbolListStore
  *
- * Manages user-defined symbol lists for the Savant Trader grouped review.
+ * Manages the symbol-list registry for the Savant Trader grouped review.
  * Responsibilities:
- * - Load symbol lists from Firestore
+ * - Live-sync the list catalog from Firestore (`watchLists$`)
  * - Track active list filter
- * - Toggle/add/remove symbols in named lists
+ * - Toggle/add/remove symbols in lists (role-routed)
  *
- * The store owns the local reactive state; persistence is delegated to
- * SymbolListService.
+ * Snapshot truth (Topic #465, Thread #492): the store holds the latest
+ * `watchLists$` emission in `listCatalog` and derives every consumer-facing
+ * view (`symbolLists`, `byKey`, `byRole`, `untriagedSymbols`) from it.
+ * Mutations only call the service — no optimistic patchState and no
+ * rollback; Firestore's latency-compensated snapshot emits the write, and
+ * a failed write auto-reverts on the next emission.
  */
 import { computed, DestroyRef, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -20,40 +24,95 @@ import {
   patchState,
 } from '@ngrx/signals';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { firstValueFrom, Observable } from 'rxjs';
 
 import { SymbolListService } from '../services/symbol-list.service';
+import { SignalService } from '../services/signal.service';
 import { RelStrDbV2Service } from '../../services/rel-str-db-v2.service';
-import { SymbolListName, ALL_SYMBOL_LIST_NAMES, type SymbolListFilter } from '../common/constants';
-import { isUnlisted, normalizeTrackedSymbols } from '../utils/utils';
+import { SymbolListName, type SymbolListFilter } from '../common/constants';
+import {
+  SymbolListDef,
+  systemListDef,
+  SYSTEM_LIST_DEFS,
+} from '../common/symbol-list-defs';
+import { normalizeTrackedSymbols } from '../utils/utils';
+import {
+  symbolProfilesInitialState,
+  symbolProfilesComputed,
+  symbolProfilesMethods,
+  type SymbolProfilesState,
+} from './symbol-profiles.feature';
 
-export interface SymbolListState {
-  /** User-defined symbol lists: listName -> symbols[]. */
-  symbolLists: Record<string, string[]>;
+export interface SymbolListState extends SymbolProfilesState {
+  /** Latest `watchLists$` emission — the registry source of truth. */
+  listCatalog: SymbolListDef[];
   /** Loading state for symbol lists. */
   symbolListsLoading: boolean;
-  /** Active list filter â€” 'ALL' shows everything. */
+  /** Active list filter — 'ALL' shows everything. */
   activeListFilter: SymbolListFilter;
-  /** Tracked-symbols universe — the complement base for "No memberships". Lazy. */
+  /** Tracked-symbols universe — the complement base for untriaged. Lazy. */
   trackedSymbols: string[];
 }
 
 const initialState: SymbolListState = {
-  symbolLists: {},
+  listCatalog: [],
   symbolListsLoading: false,
   activeListFilter: SymbolListName.PRIMARY,
   trackedSymbols: [],
+  ...symbolProfilesInitialState,
 };
 
 export const SymbolListStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
-  withComputed((state) => ({
-    /** Tracked symbols that belong to no list — the "No memberships" view. */
-    unlistedSymbols: computed(() => {
-      const membership = state.symbolLists();
-      return state.trackedSymbols().filter((s) => isUnlisted(s, membership));
-    }),
-  })),
+  withComputed((state) => {
+    /** Catalog defs sorted by display order — label breaks order ties. */
+    const catalog = computed(() =>
+      [...state.listCatalog()].sort(
+        (a, b) => a.order - b.order || a.label.localeCompare(b.label),
+      ),
+    );
+    /** key → def index. */
+    const byKey = computed(() => new Map(catalog().map((d) => [d.key, d])));
+    /** Defs grouped by role. */
+    const byRole = computed(() => ({
+      exclusive: catalog().filter((d) => d.role === 'exclusive'),
+      nonexclusive: catalog().filter((d) => d.role === 'nonexclusive'),
+    }));
+    /**
+     * Compat record — key → symbols[] — so existing `symbolLists`
+     * consumers keep working while surfaces migrate to catalog computeds.
+     * Arrays are copied per emission — consumers must not mutate them.
+     */
+    const symbolLists = computed(() => {
+      const record: Record<string, string[]> = {};
+      for (const d of catalog()) record[d.key] = [...d.symbols];
+      return record;
+    });
+    /**
+     * Tracked symbols in zero EXCLUSIVE lists — the "Not triaged" view.
+     * Role-aware: nonexclusive memberships (MONITOR, user lists) don't
+     * count; only tradeability-bucket membership does.
+     */
+    const untriagedSymbols = computed(() => {
+      const exclusiveKeys = byRole().exclusive.map((d) => d.key);
+      const membership = symbolLists();
+      return state.trackedSymbols().filter((s) =>
+        !exclusiveKeys.some((k) => (membership[k] ?? []).includes(s)),
+      );
+    });
+
+    return {
+      catalog,
+      byKey,
+      byRole,
+      symbolLists,
+      untriagedSymbols,
+      /** Compat alias for untriagedSymbols — same signal. */
+      unlistedSymbols: untriagedSymbols,
+      ...symbolProfilesComputed(state),
+    };
+  }),
   withMethods((
     state,
     listService = inject(SymbolListService),
@@ -63,21 +122,54 @@ export const SymbolListStore = signalStore(
   ) => {
     /** Dedupes concurrent tracked-universe loads — one callable round-trip. */
     let trackedInFlight: Promise<string[]> | null = null;
+    /** One live list subscription per store lifetime; resets on error so a
+     *  retry call re-opens it. */
+    let listsWatched = false;
+    /**
+     * Serializes list writes — moveToList is a read-then-batch; two rapid
+     * toggles could otherwise interleave reads before the first commit and
+     * leave a symbol in two exclusive lists. The queue makes each write
+     * observe the previous one.
+     */
+    let writeQueue: Promise<void> = Promise.resolve();
+    /** Enqueue a mutation; failures snackbar and the next snapshot reverts. */
+    function enqueueWrite(run: () => Observable<void>, failMsg: string): void {
+      writeQueue = writeQueue
+        .then(() => firstValueFrom(run()))
+        .catch((err: unknown) => {
+          const detail = err instanceof Error ? err.message : 'Unknown error';
+          console.error(`[SymbolListStore] ${failMsg}:`, err);
+          snackBar.open(`${failMsg}: ${detail}`, 'Dismiss', { duration: 5000 });
+          // No rollback — the stream still holds server truth.
+        });
+    }
+
+    /** Keys of exclusive-role lists — catalog first, system seeds as
+     *  fallback so triage moves still cover unloaded/empty catalogs. */
+    function exclusiveKeys(): string[] {
+      const fromCatalog = state.listCatalog().filter((d) => d.role === 'exclusive').map((d) => d.key);
+      const fromSeeds = SYSTEM_LIST_DEFS.filter((d) => d.role === 'exclusive').map((d) => d.key);
+      return [...new Set([...fromSeeds, ...fromCatalog])];
+    }
 
     return {
-    /** Load all user-defined symbol lists from Firestore. */
+    /**
+     * Open the live list subscription — one `watchLists$` stream for the
+     * store's lifetime; each emission re-derives every consumer computed.
+     * Guarded: repeated calls are no-ops; an errored stream resets the
+     * guard so a later call retries.
+     */
     loadSymbolLists(): void {
+      if (listsWatched) return;
+      listsWatched = true;
       patchState(state, { symbolListsLoading: true });
 
-      listService.loadAllLists().subscribe({
-        next: (lists) => {
-          const record: Record<string, string[]> = {};
-          for (const list of lists) {
-            record[list.name] = list.symbols.map((s) => s.toUpperCase());
-          }
-          patchState(state, { symbolLists: record, symbolListsLoading: false });
+      listService.watchLists$().pipe(takeUntilDestroyed(destroyRef)).subscribe({
+        next: (defs) => {
+          patchState(state, { listCatalog: defs, symbolListsLoading: false });
         },
         error: (err: unknown) => {
+          listsWatched = false;
           console.error('[SymbolListStore] Failed to load symbol lists:', err);
           patchState(state, { symbolListsLoading: false });
           snackBar.open('Failed to load symbol lists', 'Dismiss', { duration: 5000 });
@@ -92,10 +184,10 @@ export const SymbolListStore = signalStore(
 
     /**
      * Load the tracked-symbols universe once — needed to compute the
-     * "No memberships" complement (a symbol is unlisted only if it's
-     * tracked AND in zero lists). TTL-cached upstream; the list doesn't
-     * change intra-session. Resolves to the loaded (or cached) symbols so
-     * callers can await availability.
+     * "Not triaged" complement (a symbol is untriaged only if it's
+     * tracked AND in zero exclusive lists). TTL-cached upstream; the list
+     * doesn't change intra-session. Resolves to the loaded (or cached)
+     * symbols so callers can await availability.
      */
     loadTrackedSymbols(): Promise<string[]> {
       if (state.trackedSymbols().length > 0) {
@@ -113,6 +205,7 @@ export const SymbolListStore = signalStore(
             },
             error: (err: unknown) => {
               console.error('[SymbolListStore] getTrackedSymbols$ failed', err);
+              trackedInFlight = null; // allow a later call to retry
               resolve([]);
             },
           });
@@ -121,119 +214,65 @@ export const SymbolListStore = signalStore(
     },
 
     /**
-     * Toggle a symbol's membership in a named list.
-     * List membership is exclusive: a symbol can only be in one list at a time.
-     * Uses an atomic Firestore batch write to guarantee consistency.
+     * Toggle a symbol's membership in a list, routed by the list's role.
+     * Exclusive → atomic `moveToList` over the exclusive key set (add to
+     * target, strip from the rest; null target un-assigns). Nonexclusive →
+     * membership add/remove. No optimistic update — the snapshot echoes.
      */
-    toggleSymbolInList(symbol: string, listName: string | SymbolListName): void {
-      // MONITOR is non-exclusive — route it through the membership toggle
-      // rather than an exclusive move.
-      if (listName === SymbolListName.MONITOR) {
-        this.toggleMonitor(symbol);
+    toggleSymbolInList(symbol: string, listKey: string | SymbolListName): void {
+      const key = listKey as string;
+      const catalogDef = state.listCatalog().find((d) => d.key === key);
+      const def = catalogDef ?? systemListDef(key);
+      if (!def) {
+        // Unknown list key — refuse rather than materialize a malformed doc
+        // via the exclusive path.
+        console.error(`[SymbolListStore] Unknown list key: ${key}`);
+        snackBar.open(`Unknown list: ${key}`, 'Dismiss', { duration: 5000 });
         return;
       }
-      const normalized = symbol.toUpperCase();
-      const previousLists = state.symbolLists();
-      const isInList = (previousLists[listName] ?? []).includes(normalized);
+      const inList = (catalogDef?.symbols ?? []).includes(symbol.toUpperCase());
 
-      // Build the next state immutably: every list gets a fresh array.
-      // MONITOR membership is untouched — it coexists with any triage list.
-      const nextLists: Record<string, string[]> = {};
-      for (const name of Object.keys(previousLists)) {
-        const sourceList = previousLists[name] ?? [];
-        if (name === listName) {
-          nextLists[name] = isInList
-            ? sourceList.filter((s) => s !== normalized)
-            : [...sourceList, normalized];
-        } else if (!isInList && name !== SymbolListName.MONITOR) {
-          nextLists[name] = sourceList.filter((s) => s !== normalized);
-        } else {
-          nextLists[name] = [...sourceList];
-        }
+      if (def.role === 'nonexclusive') {
+        if (inList) this.removeSymbolFromList(symbol, key);
+        else this.addSymbolToList(symbol, key);
+        return;
       }
-      if (!isInList && !(listName in nextLists)) {
-        nextLists[listName] = [normalized];
-      }
-      patchState(state, { symbolLists: nextLists });
 
-      // Atomic persist: add to target list and remove from all other EXCLUSIVE
-      // lists in one batch. If toggling OFF (isInList=true), targetList is null
-      // (remove from all exclusive lists). MONITOR is never touched.
-      const targetList = isInList ? null : (listName as string);
-      const exclusiveListNames = ALL_SYMBOL_LIST_NAMES.filter(
-        (n) => n !== SymbolListName.MONITOR,
+      const target = inList ? null : key;
+      enqueueWrite(
+        () => listService.moveToList(symbol, target, exclusiveKeys()),
+        `Failed to save ${symbol} to ${key}`,
       );
-      listService.moveToList(symbol, targetList, exclusiveListNames).subscribe({
-        error: (err: unknown) => {
-          const message = err instanceof Error ? err.message : 'Unknown error';
-          console.error(`[SymbolListStore] Failed to toggle ${symbol} in ${listName}:`, err);
-          snackBar.open(`Failed to save ${symbol} to ${listName}: ${message}`, 'Dismiss', {
-            duration: 5000,
-          });
-          // Revert local change on failure
-          patchState(state, { symbolLists: previousLists });
-        },
-      });
     },
 
     /** Add a symbol to a named list. */
-    addSymbolToList(symbol: string, listName: string | SymbolListName): void {
-      const normalized = symbol.toUpperCase();
-      const current = { ...state.symbolLists() };
-      const list = current[listName] ?? [];
-      if (list.includes(normalized)) return;
-      current[listName] = [...list, normalized];
-      patchState(state, { symbolLists: current });
-
-      listService.addToList(symbol, listName).subscribe({
-        error: (err: unknown) => {
-          console.error(`[SymbolListStore] Failed to add ${symbol} to ${listName}:`, err);
-          patchState(state, {
-            symbolLists: {
-              ...state.symbolLists(),
-              [listName]: state.symbolLists()[listName]?.filter((s) => s !== normalized) ?? [],
-            },
-          });
-        },
-      });
+    addSymbolToList(symbol: string, listKey: string | SymbolListName): void {
+      enqueueWrite(
+        () => listService.addToList(symbol, listKey),
+        `Failed to add ${symbol} to ${listKey}`,
+      );
     },
 
     /**
-     * Toggle the symbol's MONITOR membership — membership-driven (add when
-     * absent, remove when present). MONITOR is the non-exclusive list, so
-     * this uses add/remove rather than moveToList.
+     * Toggle the symbol's MONITOR membership — delegates to the role-routed
+     * toggle (MONITOR is nonexclusive → membership add/remove).
      */
     toggleMonitor(symbol: string): void {
-      const inMonitor = (state.symbolLists()[SymbolListName.MONITOR] ?? []).includes(
-        symbol.toUpperCase(),
-      );
-      if (inMonitor) {
-        this.removeSymbolFromList(symbol, SymbolListName.MONITOR);
-      } else {
-        this.addSymbolToList(symbol, SymbolListName.MONITOR);
-      }
+      this.toggleSymbolInList(symbol, SymbolListName.MONITOR);
     },
 
     /** Remove a symbol from a named list. */
-    removeSymbolFromList(symbol: string, listName: string | SymbolListName): void {
-      const normalized = symbol.toUpperCase();
-      const current = { ...state.symbolLists() };
-      const list = current[listName] ?? [];
-      current[listName] = list.filter((s) => s !== normalized);
-      patchState(state, { symbolLists: current });
-
-      listService.removeFromList(symbol, listName).subscribe({
-        error: (err: unknown) => {
-          console.error(`[SymbolListStore] Failed to remove ${symbol} from ${listName}:`, err);
-          patchState(state, {
-            symbolLists: {
-              ...state.symbolLists(),
-              [listName]: [...(state.symbolLists()[listName] ?? []), normalized],
-            },
-          });
-        },
-      });
+    removeSymbolFromList(symbol: string, listKey: string | SymbolListName): void {
+      enqueueWrite(
+        () => listService.removeFromList(symbol, listKey),
+        `Failed to remove ${symbol} from ${listKey}`,
+      );
     },
     };
   }),
+
+  // Symbol profiles slice — see symbol-profiles.feature.ts.
+  withMethods((state, signalService = inject(SignalService)) =>
+    symbolProfilesMethods(state, { signalService }),
+  ),
 );

@@ -35,9 +35,12 @@ import { ChartService } from '../services/chart.service';
 import { SwingAnalysisService } from './swing-analysis.service';
 import { RelStrDbV2Service } from '../../services/rel-str-db-v2.service';
 import { SymbolListService } from '../services/symbol-list.service';
+import { SignalService } from '../services/signal.service';
 import { SymbolListStore } from '../stores/symbol-list.store';
 import { NO_MEMBERSHIP, SymbolListName } from '../common/constants';
+import { systemListDef, type SymbolListDef } from '../common/symbol-list-defs';
 import type { Company } from '../../shared/types/rs.interfaces';
+import { Subject } from 'rxjs';
 
 // =============================================================================
 // Fixtures
@@ -47,23 +50,36 @@ function makeCompany(symbol: string): Company {
   return { symbol, company: `${symbol} Corp` };
 }
 
+/** Convert the legacy {name,symbols} fixture shape into registry defs —
+ *  system keys get their seed metadata, anything else is nonexclusive. */
+function toDefs(lists: { name: string; symbols: string[] }[]): SymbolListDef[] {
+  return lists.map((l, i) => ({
+    ...(systemListDef(l.name) ?? { key: l.name, label: l.name, order: 100 + i, role: 'nonexclusive' as const, hidden: false }),
+    symbols: l.symbols,
+    userId: 'user-123',
+  }));
+}
+
 interface NavSetup {
   store: InstanceType<typeof SwingAnalysisStore>;
   listStore: InstanceType<typeof SymbolListStore>;
   db: { getTrackedSymbols$: jest.Mock };
   chart: { loadBars$: jest.Mock };
   listService: {
-    loadAllLists: jest.Mock;
+    watchLists$: jest.Mock;
     moveToList: jest.Mock;
     addToList: jest.Mock;
     removeFromList: jest.Mock;
   };
+  /** Push a fresh catalog emission — mirrors a Firestore snapshot. */
+  emitLists(lists?: { name: string; symbols: string[] }[]): void;
 }
 
 function setupNav(
   companies: Company[] = [],
   lists: { name: string; symbols: string[] }[] = [],
 ): NavSetup {
+  const watchSubject = new Subject<SymbolListDef[]>();
   const db = { getTrackedSymbols$: jest.fn(() => of(companies)) };
   const chart = {
     loadBars$: jest.fn(() =>
@@ -76,7 +92,7 @@ function setupNav(
     ),
   };
   const listService = {
-    loadAllLists: jest.fn(() => of(lists)),
+    watchLists$: jest.fn(() => watchSubject.asObservable()),
     moveToList: jest.fn(() => of(undefined)),
     addToList: jest.fn(() => of(undefined)),
     removeFromList: jest.fn(() => of(undefined)),
@@ -96,6 +112,7 @@ function setupNav(
       },
       { provide: RelStrDbV2Service, useValue: db },
       { provide: SymbolListService, useValue: listService },
+      { provide: SignalService, useValue: { getAllSymbols: jest.fn(() => of([])) } },
       { provide: MatSnackBar, useValue: { open: jest.fn() } },
       SwingAnalysisStore,
       SymbolListStore,
@@ -107,6 +124,7 @@ function setupNav(
     db,
     chart,
     listService,
+    emitLists: (l = lists) => watchSubject.next(toDefs(l)),
   };
 }
 
@@ -158,10 +176,11 @@ describe('SwingAnalysisStore nav sequence', () => {
   });
 
   it('list filter returns stored list order intersected with tracked', () => {
-    const { store, listStore } = setupNav(companies, [
+    const { store, listStore, emitLists } = setupNav(companies, [
       { name: SymbolListName.PRIMARY, symbols: ['NVDA', 'MSFT', 'GHOST'] },
     ]);
     listStore.loadSymbolLists();
+    emitLists();
     store.loadTrackedSymbols();
     store.setNavFilter(SymbolListName.PRIMARY);
     // GHOST is in the list but not tracked — dropped.
@@ -169,22 +188,24 @@ describe('SwingAnalysisStore nav sequence', () => {
     expect(store.navFilter()).toBe(SymbolListName.PRIMARY);
   });
 
-  it('NO_MEMBERSHIP returns tracked symbols that belong to zero lists', () => {
-    const { store, listStore } = setupNav(companies, [
+  it('NO_MEMBERSHIP returns tracked symbols in zero exclusive lists', () => {
+    const { store, listStore, emitLists } = setupNav(companies, [
       { name: SymbolListName.PRIMARY, symbols: ['NVDA'] },
       { name: SymbolListName.AVOID, symbols: ['MSFT'] },
     ]);
     listStore.loadSymbolLists();
+    emitLists();
     store.loadTrackedSymbols();
     store.setNavFilter(NO_MEMBERSHIP);
     expect(store.navSequence()).toEqual(['AAA', 'BBB']);
   });
 
   it('setNavFilter jumps to the new sequence\'s first symbol', () => {
-    const { store, listStore } = setupNav(companies, [
+    const { store, listStore, emitLists } = setupNav(companies, [
       { name: SymbolListName.PRIMARY, symbols: ['MSFT', 'NVDA'] },
     ]);
     listStore.loadSymbolLists();
+    emitLists();
     store.loadTrackedSymbols();
     store.setSymbol('AAA');
     store.setNavFilter(SymbolListName.PRIMARY);
@@ -283,10 +304,11 @@ describe('SwingAnalysisStore next/prev navigation', () => {
   });
 
   it('cycles only the filtered list when a watchlist filter is active', () => {
-    const { store, listStore } = setupNav(companies, [
+    const { store, listStore, emitLists } = setupNav(companies, [
       { name: SymbolListName.PRIMARY, symbols: ['CCC', 'AAA'] },
     ]);
     listStore.loadSymbolLists();
+    emitLists();
     store.loadTrackedSymbols();
     store.setNavFilter(SymbolListName.PRIMARY);
     store.setSymbol('AAA');
@@ -305,33 +327,47 @@ describe('SwingAnalysisStore next/prev navigation', () => {
 // =============================================================================
 
 describe('SymbolListStore MONITOR coexistence', () => {
-  it('filing into a triage list preserves MONITOR membership', () => {
-    const { listStore, listService } = setupNav([], [
+  it('filing into a triage list preserves MONITOR membership', async () => {
+    const { listStore, listService, emitLists } = setupNav([], [
       { name: SymbolListName.MONITOR, symbols: ['AAPL'] },
     ]);
     listStore.loadSymbolLists();
+    emitLists();
 
     listStore.toggleSymbolInList('AAPL', SymbolListName.PRIMARY);
+    await new Promise<void>((r) => setTimeout(r, 0)); // queued write
 
-    expect(listStore.symbolLists()[SymbolListName.MONITOR]).toEqual(['AAPL']);
-    expect(listStore.symbolLists()[SymbolListName.PRIMARY]).toEqual(['AAPL']);
     // Persisted batch targets exclusive lists only — MONITOR is never written.
     expect(listService.moveToList).toHaveBeenCalledWith('AAPL', SymbolListName.PRIMARY, [
       'PRIMARY', 'SECONDARY', 'NEUTRAL', 'AVOID', 'HIDE',
     ]);
+    // State follows the snapshot, not the call — emit the post-write truth.
+    emitLists([
+      { name: SymbolListName.MONITOR, symbols: ['AAPL'] },
+      { name: SymbolListName.PRIMARY, symbols: ['AAPL'] },
+    ]);
+    expect(listStore.symbolLists()[SymbolListName.MONITOR]).toEqual(['AAPL']);
+    expect(listStore.symbolLists()[SymbolListName.PRIMARY]).toEqual(['AAPL']);
   });
 
-  it('toggleSymbolInList(MONITOR) routes through the non-exclusive toggle', () => {
-    const { listStore, listService } = setupNav([], [
+  it('toggleSymbolInList(MONITOR) routes through the non-exclusive toggle', async () => {
+    const { listStore, listService, emitLists } = setupNav([], [
       { name: SymbolListName.PRIMARY, symbols: ['AAPL'] },
     ]);
     listStore.loadSymbolLists();
+    emitLists();
 
     listStore.toggleSymbolInList('AAPL', SymbolListName.MONITOR);
+    await new Promise<void>((r) => setTimeout(r, 0)); // queued write
 
     // Membership-driven add — never an exclusive move.
     expect(listService.moveToList).not.toHaveBeenCalled();
     expect(listService.addToList).toHaveBeenCalledWith('AAPL', SymbolListName.MONITOR);
+
+    emitLists([
+      { name: SymbolListName.PRIMARY, symbols: ['AAPL'] },
+      { name: SymbolListName.MONITOR, symbols: ['AAPL'] },
+    ]);
     expect(listStore.symbolLists()[SymbolListName.MONITOR]).toEqual(['AAPL']);
     expect(listStore.symbolLists()[SymbolListName.PRIMARY]).toEqual(['AAPL']);
   });

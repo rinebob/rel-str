@@ -11,7 +11,6 @@
 import { Injectable, inject, computed } from '@angular/core';
 
 import { NO_MEMBERSHIP, SymbolListName, ViewportMode, type SymbolListFilter } from '../common/constants';
-import { isUnlisted } from '../utils/utils';
 import { TriageStore } from '../stores/triage.store';
 import { SymbolListStore } from '../stores/symbol-list.store';
 
@@ -44,7 +43,9 @@ export class ChartReviewViewportService {
 
     if (listName === NO_MEMBERSHIP) {
       if (mode === 'signals') {
-        return reviewSymbols.filter((s) => isUnlisted(s, this.symbolListStore.symbolLists()));
+        // Role-driven untriaged set — same source as the browse branch.
+        const untriaged = new Set(this.symbolListStore.unlistedSymbols());
+        return reviewSymbols.filter((s) => untriaged.has(s));
       }
       // browse — the full unlisted tracked universe.
       return this.symbolListStore.unlistedSymbols();

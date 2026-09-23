@@ -8,6 +8,8 @@
 - [Option Chain Pct Change Grid] 326-483_FE-IMPL-OPTIONS: Delineate run containers; suppress cell tooltips during chart popup; penny-cell exclusion
 - [Option Chain Pct Change Grid] 326-357_DOCS-DOCS-OPTIONS: Code review docs for misc-fixes batch (472/473/483)
 - [Watchlist management] 465-466_FE-IMPL-SAVANT-TRADER: Rename PAST_SIGNALS to MONITOR and add canonical list-filter constants (checkpoint)
+- [Watchlist management] 465-525_FE-IMPL-WATCHLIST: Store catalog computeds over watchLists$ — snapshot-truth mutations, role-routed toggles, role-aware untriaged
+- [Watchlist management] 465-525_DOCS-WATCHLIST: Code review doc for store catalog computeds ship
 - [Option Chain Pct Change Grid] 326-518_DOCS-OPTIONS: SA corpus handoff spec — swing platform, enabled-options corpus, endpoint contract (no fetch-on-miss)
 - [Option Chain Pct Change Grid] 326-519_BE-IMPL-OPTIONS: OPTIONS_NOT_ENABLED maps to callable failed-precondition; partner code embedded in error message
 - [Option Chain Pct Change Grid] 326-516_FE-IMPL-OPTIONS: Corpus-chain error handling (unsupported-symbol message), per-date resilience with retry rows, live-fetch source badge (tasks 516/517/520)
