@@ -250,7 +250,25 @@ _Avoid_: swing preset, named config, saved analysis
 
 ## Symbol List
 
-A named, Firestore-backed grouping that classifies a tracked symbol for triage: PRIMARY, SECONDARY, NEUTRAL, AVOID, HIDE, or MONITOR (plus the NONE unlisted state). Membership in the triage lists (PRIMARY/SECONDARY/NEUTRAL/AVOID/HIDE) is exclusive - moving a symbol is an atomic remove-from-others/add-to-target write. MONITOR is the exception: the Monitor action adds/removes it non-exclusively, so a symbol can be monitored while also filed in a triage list (re-filing does not strip MONITOR). Managed by SymbolListStore / SymbolListService and toggled via the SymbolListActionsComponent chip row. The Monitor toggle is membership-driven (`SymbolListStore.toggleMonitor`) — identical behavior on every surface; chip state reads membership, not the active filter. SymbolListStore is also the single owner of the tracked-symbols universe (`trackedSymbols` / `unlistedSymbols` / `loadTrackedSymbols`), which backs the "No memberships" pseudo-filter on all three surfaces. Used as a review filter in signal-review and as the swing-analysis nav-sequence filter.
+A named, Firestore-backed grouping that classifies a tracked symbol. Under the registry model (Thread: unified-list-infra) every list — system or user-created — is a `st-symbol-lists/{userId}_{key}` doc carrying `{key, label, order, role, hidden, symbols[]}`; `key` is the immutable identifier, `label` is renameable cosmetics, and `role` drives behavior (`exclusive` lists strip each other on move; `nonexclusive` lists — MONITOR and all user lists — coexist freely). Managed by SymbolListStore / SymbolListService and toggled via the SymbolListActionsComponent chip row (chips render the fixed system set only). The Monitor toggle is membership-driven (`SymbolListStore.toggleMonitor`) — identical behavior on every surface; chip state reads membership, not the active filter. SymbolListStore is also the single owner of the tracked-symbols universe (`trackedSymbols` / `unlistedSymbols` / `loadTrackedSymbols`) and the ordered catalog computeds (`filterOptions`, `byKey`, `byRole`) every surface consumes. Used as a review filter in signal-review and as the swing-analysis nav-sequence filter.
+
+## Symbol Profile
+
+The per-symbol Firestore doc (`savant-trader/data/symbols/{symbol}`, type `StSymbolProfile`) written by SA's overview-sync pipeline — carries the display name plus sector, industry, exchange, market cap, cap tier, beta, P/E, 52-week range, MAs, dividend yield. `StSymbolProfile.name` is the single source of truth for a symbol's display name — the partner callable's `Company.company` field is the universe source only (which symbols are tracked), never a display-name source. SymbolListStore owns the session-cached `profilesBySymbol` map (`loadProfiles()`); a tracked symbol with no synced profile displays its ticker, not a partner name.
+
+_Avoid_: company name from getTrackedSymbols, partner name
+
+## Untriaged
+
+A symbol in zero exclusive (triage) lists — the "Not triaged" pseudo-filter (`NO_MEMBERSHIP`). Non-exclusive memberships (MONITOR, user lists) do not count: a monitored-but-unfiled symbol still surfaces for triage review. Implemented via `EXCLUSIVE_SYMBOL_LIST_NAMES` today; once the registry lands `role` as data it becomes `role === 'exclusive'` driven. Distinct from "no filter applied" (`NONE`/`'ALL'` anchors).
+
+_Avoid_: no memberships (former label), unlisted (ambiguous)
+
+## User List
+
+A non-exclusive symbol list created by the user (e.g. "coming earnings", "look for breakouts") — a registry doc with a generated slug key, user-supplied label, and `role: 'nonexclusive'`. A symbol may belong to many user lists at once. User lists appear in dropdowns, exports, and complement computations but not in the chip row (system set only). CRUD/reorder happens in the list-management UI (follow-on thread).
+
+_Avoid_: custom list (fine but "user list" is the canonical term), folder
 _Avoid_: watchlist (ambiguous - the lists ARE the watchlists), tag, folder
 
 ## Option Chain Grid
