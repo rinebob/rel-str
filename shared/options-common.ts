@@ -10,6 +10,17 @@ export enum OptionType {
   PUT = 'put',
 }
 
+/**
+ * Normalize an option-type value to the canonical enum. Alpha Vantage
+ * returns 'call'/'put' or 'C'/'P' in any case; anything else → null.
+ */
+export function normalizeOptionType(v: string | OptionType | null | undefined): OptionType | null {
+  const raw = String(v ?? '').trim().toLowerCase();
+  if (raw === 'call' || raw === 'c') return OptionType.CALL;
+  if (raw === 'put' || raw === 'p') return OptionType.PUT;
+  return null;
+}
+
 export enum OptionQuoteSource {
   AV_EOD = 'AV_EOD',
   RH_MCP = 'RH_MCP',
