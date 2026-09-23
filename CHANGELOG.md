@@ -21,6 +21,9 @@
 - [Current option pricing] 486-498_DOCS-OPTIONS: Code review doc for session-resolution utils
 - [Current option pricing] 486-499_FE-IMPL-OPTIONS: Option-chain store data pipeline (session+prior snapshots, underlying closes, priorError isolation)
 - [Current option pricing] 486-499_DOCS-OPTIONS: Code review doc for chain store
+- [Current option pricing] 486-501_SHARED-REFACTOR-OPTIONS: Shared option-grid helpers — normalizeOptionType, daysBetween, chainContracts, formatAtmDiff
+- [Current option pricing] 486-501_FE-IMPL-OPTIONS: Calls/puts/both layout toggle, compact pct-change-parity cells, per-side strike orientation, gated ATM scroll
+- [Current option pricing] 486-501_DOCS-OPTIONS: Code review doc for layout/orientation ship
 - [Trading Indicator Library] 261-506_DOCS-DOCS-INDICATOR-LIB: Symbol picker + company info header — PRD, IMPL, TEST (checkpoint)
 - [Trading Indicator Library] 261-444_DOCS-DOCS-INDICATOR-LIB: PRD — persist swing configurations (checkpoint)
 - [Flex Chart Maintenance] 468-477_FE-IMPL-FLEX-CHART: Auth-guarded flex-chart sandbox page (symbol, D/W/M, log toggle, debug readout)
@@ -30,12 +33,15 @@
 - [Flex Chart Maintenance] 468-478_DOCS-FLEX-CHART: Code review doc for synthetic data mode
 - [Watchlist management] 465-524_FE-IMPL-WATCHLIST: Symbol list registry read path — defs, composite doc ids, live watchLists$, lazy migration
 - [Watchlist management] 465-524_DOCS-WATCHLIST: Unified list infrastructure PRD, IMPL/TEST plans, code review
+- [Flex Chart Maintenance] 468-482_FE-IMPL-FLEX-CHART: Sandbox edge cases — decade-aware log ticks, sub-$1 label formatting, floor-clamped tick path, fullscreen page, indicator picker dismiss
+- [Flex Chart Maintenance] 468-482_DOCS-FLEX-CHART: Code review doc for edge-cases + PRD acceptance pass
 
 ### Changed
 - [Watchlist management] 465-466_FE-REFACTOR-SAVANT-TRADER: Consolidate list state ownership in SymbolListStore (checkpoint)
 
 ### Fixed
 - [Watchlist management] 465-466_FE-BUG-SAVANT-TRADER: Fix nav position, filter-jump, and saved-sets sync (checkpoint)
+- [Flex Chart Maintenance] 468-482_FE-BUG: Guard setPersistence so HMR re-bootstrap can't wipe the Firebase auth session
 
 ## [2026-09-21]
 
