@@ -2,7 +2,7 @@ import * as logger from "firebase-functions/logger";
 import { PartnerEndpointPath, PartnerHistoricalOptionsResponse, PartnerHistoricalOptionsContractV2Response, PartnerListContractsV2Response, ContractCatalogResponse, ContractSummaryResponse } from './types/partner';
 import { parseOccContractId } from '@options-contract/contracts';
 import type { QueryContractCatalogRequest } from '@options-contract/contracts';
-import { PARTNER_AUDIENCE, CALLER_SA, PartnerHttpError, generateIdTokenWithEmail, fetchWithRetry } from './partner-infrastructure';
+import { PARTNER_AUDIENCE, CALLER_SA, PartnerHttpError, extractPartnerCode, generateIdTokenWithEmail, fetchWithRetry } from './partner-infrastructure';
 
 // ==========================
 // URL + audience constants
@@ -238,6 +238,7 @@ export async function callPartnerHistoricalOptions(params: {
     throw new PartnerHttpError(
       `partnerHistoricalOptions upstream ${resp.status}: ${text}`,
       resp.status,
+      extractPartnerCode(text),
     );
   }
 

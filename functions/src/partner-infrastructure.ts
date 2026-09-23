@@ -14,10 +14,40 @@ export class PartnerHttpError extends Error {
   constructor(
     message: string,
     public readonly status: number,
+    /** Optional machine-readable `code` extracted from the partner error body. */
+    public readonly partnerCode?: string,
   ) {
     super(message);
     this.name = 'PartnerHttpError';
   }
+}
+
+/** Extract the `code` field from a partner error body, if present. */
+export function extractPartnerCode(text: string): string | undefined {
+  try {
+    const code = JSON.parse(text)?.code;
+    return typeof code === 'string' ? code : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Map a partner HTTP failure to a callable error code. A recognized partner
+ * body `code` wins over the status-derived mapping so the FE can tell e.g.
+ * "symbol not enabled for options" apart from a generic 404.
+ */
+export function partnerHttpErrorToCallableCode(
+  e: PartnerHttpError,
+): 'failed-precondition' | 'resource-exhausted' | 'not-found' | 'unavailable' | 'invalid-argument' {
+  if (e.partnerCode === 'OPTIONS_NOT_ENABLED') return 'failed-precondition';
+  return e.status === 429
+    ? 'resource-exhausted'
+    : e.status === 404
+      ? 'not-found'
+      : e.status >= 500
+        ? 'unavailable'
+        : 'invalid-argument';
 }
 
 export type PartnerInterval = "DAILY" | "WEEKLY" | "MONTHLY";

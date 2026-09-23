@@ -4,7 +4,7 @@ import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 
 import { callPartnerHistoricalOptionsContractV2, callPartnerListContractsV2, callPartnerContractCatalogV2, callPartnerHistoricalOptions } from './options-contract-proxy';
-import { PartnerHttpError } from './partner-infrastructure';
+import { PartnerHttpError, partnerHttpErrorToCallableCode } from './partner-infrastructure';
 import { ST_ALLOWED_ORIGINS } from './st-cloud-function/cors';
 import type {
   GetHistoricalOptionsContractRequest,
@@ -383,15 +383,9 @@ export const getHistoricalOptionsChain = onCall(
       // tell rate-limit (back off) from missing vendor data vs a generic
       // failure — a raw rethrow arrives as an undifferentiated 'internal'.
       if (e instanceof PartnerHttpError) {
-        const code =
-          e.status === 429
-            ? 'resource-exhausted'
-            : e.status === 404
-              ? 'not-found'
-              : e.status >= 500
-                ? 'unavailable'
-                : 'invalid-argument';
-        throw new HttpsError(code, `partner ${e.status}: ${e.message}`);
+        const code = partnerHttpErrorToCallableCode(e);
+        const suffix = e.partnerCode ? ` code=${e.partnerCode}` : '';
+        throw new HttpsError(code, `partner ${e.status}${suffix}: ${e.message}`);
       }
       throw e;
     }
