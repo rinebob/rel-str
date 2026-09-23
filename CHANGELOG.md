@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026-09-23]
+
+### Added
+- [Flex Chart Maintenance] 468-538-544_FE-IMPL-FLEX-CHART: FlexChartComponent default logScale and ChartToolbarComponent log toggle
+- [Flex Chart Maintenance] 468-538-544_DOCS-FLEX-CHART: Rollout PRD, impl/test plans, code review doc, and changelog entry
+
 ## [2026-09-22]
 
 ### Added
