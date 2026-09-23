@@ -7,7 +7,7 @@
 **Topic Parent:** #326  
 **Domain:** OPTIONS  
 **Type:** SPEC (SA handoff)  
-**Status:** Draft  
+**Status:** Complete  
 **Created:** 2026-09-22  
 **Last Updated:** 2026-09-22  
 
@@ -18,6 +18,59 @@
 **Audience:** SavantApi (SA) project team. SA creates its own Topic/Thread
 from this document — this is the consumer contract plus the platform work
 SavantTrader (ST) is depending on.
+
+## Background — what this is and how we got here
+
+**The product.** ST (SavantTrader) has an "option-chain percent-change
+grid" feature (Topic #326, live at `/savant-trader/option-chain-pct-change`):
+pick a symbol, a start date, and target dates; ST fetches the full option
+chain for each date, matches contracts across dates, and renders a heatmap
+of % price change (expiration columns × strike rows). The workflow centers
+on swing-compare: a ZigZag indicator picks swing pivots on the chart, the
+user frames a large swing, and each inside pivot becomes a target date —
+answering "which strike/expiration/delta captured the most option % move
+over this swing?"
+
+**The problem.** Every date in every run is a **live** upstream fetch to
+the options vendor through SA's `partnerHistoricalOptionsV2`. That has
+three costs:
+
+1. **Slow** — a 10-target run is 11 serial-ish upstream calls (ST caps
+   concurrency because the partner 502s on bursts).
+2. **Fragile** — rate limits and transient partner failures surface as
+   per-date errors mid-analysis.
+3. **Wasteful** — the same `(symbol, date)` chain is re-fetched on every
+   run, every session, every user.
+
+**History of the fix attempt.** Thread #327 shipped the original grid
+against live fetches. A first pass at caching (proposal #329) sketched
+fetch-on-miss into an SA-side snapshot cache — **rejected**: organic misses
+are the wrong trigger (unbounded, uncurated, and ST-driven). The pivot
+dates that matter are already known — ZigZag swing files say exactly which
+dates are analytically interesting per symbol — so the corpus should be
+built *deterministically from pivot data*, not incidentally from requests.
+
+**The architectural decision.** SA is the source of truth for all shared
+data; ST sites are consumers. Concretely for this thread: SA owns the
+options corpus, the canonical swing files, and the symbol flags that
+decide which symbols get corpus coverage. ST owns only the grid
+compute + rendering. Custom (non-canonical) ZigZag configs stay ST-side
+as preview-only — never persisted.
+
+**What ST already shipped against this.** The ST consumer side is live:
+
+- `source` field passthrough + a "live fetch" chip on grids served live.
+- `OPTIONS_NOT_ENABLED` → callable `failed-precondition` → a friendly
+  "Options analysis is not available for {SYMBOL}" message.
+- Per-date fetch resilience: one missing/unavailable date degrades to an
+  error row; the rest of the run renders.
+
+So the endpoint contract below is already coded on the consumer side —
+SA's implementation just needs to honor it.
+
+**Related work.** Topic #261 (ZigZag/indicator lib) is the upstream
+dependency that produces the pivots; ST's `st-swing-sets` collection is
+the *legacy* store SA replaces — no migration, SA regenerates fresh.
 
 ## The short version
 
