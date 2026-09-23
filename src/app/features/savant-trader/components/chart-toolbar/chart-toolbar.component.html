@@ -59,4 +59,10 @@
     [matTooltip]="fullscreen() ? 'Exit fullscreen' : 'Fullscreen'">
     <mat-icon>{{ fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
   </button>
+
+  <button type="button" class="log-btn" (click)="logScaleToggle.emit()"
+    [class.active]="logScale()"
+    [matTooltip]="logScale() ? 'Log Y-axis on' : 'Log Y-axis off'">
+    Log Y-axis {{ logScale() ? 'Yes' : 'No' }}
+  </button>
 </div>

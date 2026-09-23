@@ -119,6 +119,15 @@ export class FlexChartComponent implements OnDestroy {
   // Inputs
   chartData = input.required<FlexChartDataset | null>();
   config = input<FlexChartConfig>({ indicators: [] });
+
+  /** Effective config merges the default `logScale: true` with the parent-supplied
+   *  config. A parent can still opt out by passing `logScale: false`.
+   */
+  readonly effectiveConfig = computed<FlexChartConfig>(() => ({
+    ...this.config(),
+    logScale: this.config().logScale ?? true,
+  }));
+
   height = input<string>('400px');
   syncCrosshairDate = input<Date | null>(null);
   syncCrosshairPrice = input<number | null>(null);
@@ -181,7 +190,7 @@ export class FlexChartComponent implements OnDestroy {
   // primaryYAxis declarative config. The actual min/max are applied imperatively
   // by the lifecycle facade so the component does not mutate the chart.
   primaryYAxis = computed(() =>
-    this.yAxisController.buildAxisConfig(!!this.config().logScale, this.lowerPanes().length),
+    this.yAxisController.buildAxisConfig(!!this.effectiveConfig().logScale, this.lowerPanes().length),
   );
 
   /** Unique key that changes whenever chartData identity changes — used to key the
@@ -222,9 +231,9 @@ export class FlexChartComponent implements OnDestroy {
       this.priceLabelEl = native.querySelector('.crosshair-price-label');
     });
 
-    this.lifecycleFacade.connectAndActivate(this.typedChart, this.chartData, this.config, this.dataAdapter.computedSeries);
-    this.dataAdapter.connect(this.chartData, this.config);
-    this.axisLabels.connect(this.chartData, this.config);
+    this.lifecycleFacade.connectAndActivate(this.typedChart, this.chartData, this.effectiveConfig, this.dataAdapter.computedSeries);
+    this.dataAdapter.connect(this.chartData, this.effectiveConfig);
+    this.axisLabels.connect(this.chartData, this.effectiveConfig);
 
     // Sync incoming crosshair values (from parent input/output binding) into the store
     // so the overlay component can render them. Skip when this chart is hovered.
@@ -308,7 +317,7 @@ export class FlexChartComponent implements OnDestroy {
       const insidePrimaryY = pixelY >= 0 && pixelY <= yAxis.rect.height;
       if (insidePrimaryY) {
         crosshairPrice = this.yAxisController.priceFromPixel(
-          !!this.config().logScale,
+          !!this.effectiveConfig().logScale,
           pixelY,
           yAxis.rect,
           yAxis.visibleRange,

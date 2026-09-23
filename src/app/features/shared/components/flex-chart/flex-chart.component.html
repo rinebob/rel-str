@@ -308,5 +308,5 @@
   } @else {
     <div class="no-data">Select a signal to view chart</div>
   }
-  <app-chart-sync-overlay [bars]="categoryBars()" [logScale]="!!config().logScale"></app-chart-sync-overlay>
+  <app-chart-sync-overlay [bars]="categoryBars()" [logScale]="!!effectiveConfig().logScale"></app-chart-sync-overlay>
 </div>

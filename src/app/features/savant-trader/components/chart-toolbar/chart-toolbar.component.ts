@@ -39,7 +39,7 @@ export class ChartToolbarComponent {
   /** Whether the view is currently in fullscreen mode. */
   fullscreen = input.required<boolean>();
   /** Whether the price axis is using logarithmic scale. */
-  logScale = input.required<boolean>();
+  logScale = input<boolean>(false);
   /** Indicator options to display in the indicator menu. */
   indicatorOptions = input.required<IndicatorOption[]>();
   /** Currently selected indicator IDs — drives checkbox state in the indicator menu. */
