@@ -8,6 +8,7 @@
 - [Option Chain Pct Change Grid] 326-483_FE-IMPL-OPTIONS: Delineate run containers; suppress cell tooltips during chart popup; penny-cell exclusion
 - [Option Chain Pct Change Grid] 326-357_DOCS-DOCS-OPTIONS: Code review docs for misc-fixes batch (472/473/483)
 - [Watchlist management] 465-466_FE-IMPL-SAVANT-TRADER: Rename PAST_SIGNALS to MONITOR and add canonical list-filter constants (checkpoint)
+- [Option Chain Pct Change Grid] 326-518_DOCS-OPTIONS: SA corpus handoff spec — swing platform, enabled-options corpus, endpoint contract (no fetch-on-miss)
 - [Watchlist management] 465-466_FE-IMPL-SAVANT-TRADER: Wire canonical list filters and membership-driven Monitor across review surfaces (checkpoint)
 - [Watchlist management] 465-466_DOCS-SAVANT-TRADER: Add watchlist misc-issues PRD and code review doc (checkpoint)
 - [Current option pricing] 486-497_FE-IMPL-OPTIONS: Option chain page skeleton, route, and nav entry
