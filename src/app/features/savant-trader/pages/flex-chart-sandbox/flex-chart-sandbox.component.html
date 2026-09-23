@@ -67,6 +67,24 @@
       />
       Log Y
     </label>
+    <details class="indicator-picker" #indicatorPicker>
+      <summary data-testid="indicator-summary">
+        ST indicators ({{ enabledIndicators().size }})
+      </summary>
+      <div class="indicator-list">
+        @for (o of indicatorOptions; track o.id) {
+          <label class="field">
+            <input
+              type="checkbox"
+              [attr.data-testid]="'ind-' + o.id"
+              [checked]="enabledIndicators().has(o.id)"
+              (change)="toggleIndicator(o.id, $event)"
+            />
+            {{ o.label }}
+          </label>
+        }
+      </div>
+    </details>
   </header>
 
   <div class="debug-readout" data-testid="debug-readout">
@@ -88,7 +106,7 @@
     <app-flex-chart
       [chartData]="data"
       [config]="config()"
-      height="calc(100vh - 160px)"
+      height="100%"
       (debugStateChange)="onDebugStateChange($event)"
     />
   }

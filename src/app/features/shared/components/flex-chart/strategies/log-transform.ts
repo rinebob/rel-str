@@ -37,11 +37,35 @@ export function nicePriceStep(priceLo: number, priceHi: number, targetCount = DE
 }
 
 /** Nice round-price ticks covering [priceLo, priceHi] — the values axis
- *  labels should display in log mode (TradingView-style 1-2-5 steps). */
+ *  labels should display in log mode.
+ *
+ *  Sub-decade ranges use a linear 1-2-5 step (TradingView-style). Multi-decade
+ *  ranges switch to a decade grid — a linear step over a wide ratio leaves
+ *  the low decades unlabeled (0.01→10,000 would tick only at 2k,4k,6k…).
+ *  ≤3 decades get 1/2/5 per decade; wider spans collapse to powers of 10. */
 export function nicePriceTicks(priceLo: number, priceHi: number, targetCount = DEFAULT_TARGET_TICKS): number[] {
+  const decades = Math.log10(priceHi / Math.max(priceLo, LOG_AXIS_FLOOR));
+  if (decades > 1) {
+    const perDecade = decades <= 3 ? [1, 2, 5] : [1];
+    const loPow = Math.floor(Math.log10(Math.max(priceLo, LOG_AXIS_FLOOR)));
+    const hiPow = Math.ceil(Math.log10(priceHi));
+    const ticks: number[] = [];
+    for (let p = loPow; p <= hiPow; p++) {
+      for (const m of perDecade) {
+        const t = m * Math.pow(10, p);
+        if (t >= priceLo && t <= priceHi) ticks.push(t);
+      }
+    }
+    return ticks;
+  }
   const step = nicePriceStep(priceLo, priceHi, targetCount);
+  // Never emit non-positive ticks — a floor-pinned viewport can hand us a
+  // priceLo <= 0, and every tick below the floor clamps to the same smear.
+  const lo = Math.max(priceLo, LOG_AXIS_FLOOR);
   const ticks: number[] = [];
-  for (let t = Math.ceil(priceLo / step) * step; t <= priceHi + 1e-9; t += step) {
+  for (let i = Math.ceil(lo / step); ; i++) {
+    const t = Number((i * step).toFixed(10));
+    if (t > priceHi + 1e-9) break;
     ticks.push(t);
   }
   return ticks;

@@ -8,6 +8,7 @@
  * bound to the series upstream, so extents/labels stay under our control.
  */
 import { LogarithmicScaleStrategy } from './logarithmic-scale.strategy';
+import { nicePriceTicks } from './log-transform';
 import type { PriceBar } from '../flex-chart.types';
 
 function bar(low: number, high: number): PriceBar {
@@ -60,6 +61,17 @@ describe('LogarithmicScaleStrategy', () => {
     const pad = (hi - lo) * 0.03;
     expect(vp.min).toBeCloseTo(lo - pad);
     expect(vp.max).toBeCloseTo(hi + pad);
+  });
+
+  it('extreme ratio (0.01 → 10,000) keeps correct extents and tick labels', () => {
+    const visible = [bar(0.01, 10000)];
+    const vp = s.computeViewport(visible);
+    expect(vp.min).toBeLessThan(Math.log10(0.01));   // below -2
+    expect(vp.max).toBeGreaterThan(Math.log10(10000)); // above 4
+    // Round-price ticks span the full six-decade range.
+    const ticks = nicePriceTicks(Math.pow(10, vp.min), Math.pow(10, vp.max));
+    expect(ticks[0]).toBeLessThanOrEqual(0.1);
+    expect(ticks[ticks.length - 1]).toBeGreaterThanOrEqual(1000);
   });
 
   it('priceFromPixel returns the geometric midpoint at mid-height', () => {

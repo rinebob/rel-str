@@ -2,6 +2,13 @@ import { ChartDataAdapter } from './chart-data-adapter.service';
 import { StIndicator } from '../flex-chart.types';
 import type { FlexChartConfig, FlexChartDataset, IndicatorConfig } from '../flex-chart.types';
 import { signal } from '@angular/core';
+import { toLogAxis } from '../strategies/log-transform';
+import {
+  ST_TREND_BANDS_INDICATOR,
+  ST_TREND_STRENGTH_INDICATOR,
+  ST_STD_DEV_LINES_INDICATOR,
+  buildDefaultConfig,
+} from '../indicators/indicator-registry';
 
 // =============================================================================
 // Test helpers
@@ -127,5 +134,83 @@ describe('ChartDataAdapter.zigZagSeries', () => {
     if (result[0].lines.length > 0) {
       expect(result[0].lines[0].key.startsWith('my-zz-')).toBe(true);
     }
+  });
+});
+
+// =============================================================================
+// Log transform — ST indicator series (Topic #468 / Task #482)
+//
+// Overlays on the price pane are prices, so every y/OHLC field lands in
+// log10 space under logScale. Lower-pane ST indicators (trend strength,
+// zones) are in native units and must pass through untransformed.
+// =============================================================================
+
+describe('ChartDataAdapter — log transform of ST indicators', () => {
+  it('zigzag line prices land in log space under logScale', () => {
+    const data = makeBars(40);
+    const cfg = (log: boolean): FlexChartConfig => ({
+      indicators: [makeZigZagConfig('zz1')],
+      logScale: log,
+    });
+    const linear = setupAdapter(data, cfg(false)).zigZagSeries();
+    const log = setupAdapter(data, cfg(true)).zigZagSeries();
+    expect(log).toHaveLength(1);
+    expect(linear[0].lines.length).toBeGreaterThan(0);
+    for (let i = 0; i < linear[0].lines.length; i++) {
+      expect(log[0].lines[i].data.map((p) => p.y)).toEqual(
+        linear[0].lines[i].data.map((p) => toLogAxis(p.y)),
+      );
+    }
+  });
+
+  it('std-dev lines land in log space under logScale', () => {
+    // period defaults to 50 — the fixture must clear it.
+    const data = makeBars(120);
+    const cfg = (log: boolean): FlexChartConfig => ({
+      indicators: [buildDefaultConfig(ST_STD_DEV_LINES_INDICATOR)],
+      logScale: log,
+    });
+    const linear = setupAdapter(data, cfg(false)).stdDevLineSeries();
+    const log = setupAdapter(data, cfg(true)).stdDevLineSeries();
+    expect(linear.lines.length).toBeGreaterThan(0);
+    expect(log.lines.length).toBe(linear.lines.length);
+    for (let i = 0; i < linear.lines.length; i++) {
+      expect(log.lines[i].data.map((p) => p.y)).toEqual(
+        linear.lines[i].data.map((p) => toLogAxis(p.y)),
+      );
+    }
+  });
+
+  it('trend-band candles land in log space under logScale', () => {
+    const data = makeBars(40);
+    const cfg = (log: boolean): FlexChartConfig => ({
+      indicators: [buildDefaultConfig(ST_TREND_BANDS_INDICATOR)],
+      logScale: log,
+    });
+    const linear = setupAdapter(data, cfg(false)).trendBandSeries();
+    const log = setupAdapter(data, cfg(true)).trendBandSeries();
+    expect(linear.length).toBeGreaterThan(0);
+    expect(log.length).toBe(linear.length);
+    for (let i = 0; i < linear.length; i++) {
+      for (const f of ['open', 'high', 'low', 'close'] as const) {
+        expect(log[i].data.map((p) => p[f])).toEqual(
+          linear[i].data.map((p) => toLogAxis(p[f])),
+        );
+      }
+    }
+  });
+
+  it('lower-pane ST indicator series stay in native units under logScale', () => {
+    const data = makeBars(40);
+    const cfg = (log: boolean): FlexChartConfig => ({
+      indicators: [buildDefaultConfig(ST_TREND_STRENGTH_INDICATOR)],
+      logScale: log,
+    });
+    const linear = setupAdapter(data, cfg(false)).computedSeries();
+    const log = setupAdapter(data, cfg(true)).computedSeries();
+    expect(linear.length).toBe(1);
+    expect(linear[0].data.length).toBeGreaterThan(0);
+    // No transform — identical data regardless of scale.
+    expect(log[0].data).toEqual(linear[0].data);
   });
 });

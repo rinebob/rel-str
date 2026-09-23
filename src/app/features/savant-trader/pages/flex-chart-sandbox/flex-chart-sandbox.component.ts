@@ -15,12 +15,19 @@ import {
   Component,
   computed,
   effect,
+  ElementRef,
+  HostListener,
   inject,
   signal,
   ChangeDetectionStrategy,
+  OnDestroy,
+  OnInit,
+  ViewChild,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+
+import { UiStateService } from '../../../../core/services/ui-state.service';
 
 import { ChartStore } from '../../stores/chart.store';
 import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-chart.component';
@@ -31,6 +38,10 @@ import type {
 import { ChartIntervalKey } from '../../../shared/components/flex-chart/flex-chart.types';
 import type { ChartDebugSnapshot } from '../../../shared/components/flex-chart/services/chart-instance.types';
 import { BarsInterval } from '../../../../core/models/partner.types';
+import {
+  ST_INDICATOR_OPTIONS,
+  buildDefaultConfig,
+} from '../../../shared/components/flex-chart/indicators/indicator-registry';
 import {
   generateSyntheticBars,
   SYNTHETIC_PRESETS,
@@ -57,9 +68,10 @@ const INTERVAL_TO_BARS: Record<ChartIntervalKey, BarsInterval> = {
   styleUrl: './flex-chart-sandbox.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class FlexChartSandboxComponent {
+export class FlexChartSandboxComponent implements OnInit, OnDestroy {
   readonly ChartIntervalKey = ChartIntervalKey;
   readonly chartStore = inject(ChartStore);
+  private readonly ui = inject(UiStateService);
 
   readonly symbol = signal(DEFAULT_SYMBOL);
   readonly interval = signal<ChartIntervalKey>(ChartIntervalKey.DAILY);
@@ -67,7 +79,14 @@ export class FlexChartSandboxComponent {
   readonly dataMode = signal<DataMode>('real');
   readonly preset = signal<SyntheticPreset>('wide-ratio');
   readonly presets = SYNTHETIC_PRESETS;
+  /** ST indicator option ids currently enabled — the overlay-alignment
+   *  verification target for log mode (trend bands / std-dev lines /
+   *  zigzag on the price pane; lower-pane ST series stay raw). */
+  readonly enabledIndicators = signal<ReadonlySet<string>>(new Set());
+  readonly indicatorOptions = ST_INDICATOR_OPTIONS;
   readonly debugState = signal<ChartDebugSnapshot>({ viewport: null, axis: null, logTicks: [] });
+
+  @ViewChild('indicatorPicker') private indicatorPicker?: ElementRef<HTMLDetailsElement>;
 
   /** Memoized by the computed — bars regenerate only when the preset changes,
    *  so an unrelated signal flip doesn't produce a fresh array identity. */
@@ -93,9 +112,9 @@ export class FlexChartSandboxComponent {
   });
 
   readonly config = computed<FlexChartConfig>(() => ({
-    // Raw candles only — the sandbox exists to inspect Y-axis scaling,
-    // not indicator overlays.
-    indicators: [],
+    indicators: ST_INDICATOR_OPTIONS
+      .filter((o) => this.enabledIndicators().has(o.id))
+      .map(buildDefaultConfig),
     showCrosshair: true,
     showZoomToolbar: true,
     enableScrollbar: true,
@@ -148,6 +167,16 @@ export class FlexChartSandboxComponent {
     this.dataMode() === 'synthetic' ? `synthetic:${this.preset()}` : `real:${this.symbol()}`,
   );
 
+  /** Full-screen page like the other savant-trader tools — the chart
+   *  wants the whole viewport. */
+  ngOnInit(): void {
+    this.ui.setFullscreen(true);
+  }
+
+  ngOnDestroy(): void {
+    this.ui.setFullscreen(false);
+  }
+
   constructor() {
     effect(() => {
       const sym = this.symbol();
@@ -181,7 +210,27 @@ export class FlexChartSandboxComponent {
     this.logScale.set((event.target as HTMLInputElement).checked);
   }
 
+  toggleIndicator(id: string, event: Event): void {
+    const next = new Set(this.enabledIndicators());
+    if ((event.target as HTMLInputElement).checked) next.add(id);
+    else next.delete(id);
+    this.enabledIndicators.set(next);
+  }
+
   onDebugStateChange(snapshot: ChartDebugSnapshot): void {
     this.debugState.set(snapshot);
+  }
+
+  /** Native <details> doesn't close on outside click or Escape — do both. */
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const picker = this.indicatorPicker?.nativeElement;
+    if (picker?.open && !picker.contains(event.target as Node)) picker.open = false;
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    const picker = this.indicatorPicker?.nativeElement;
+    if (picker?.open) picker.open = false;
   }
 }

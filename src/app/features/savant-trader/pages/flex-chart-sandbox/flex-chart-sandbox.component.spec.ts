@@ -35,10 +35,11 @@ import { ChartStore } from '../../stores/chart.store';
 import { ChartService } from '../../services/chart.service';
 import { IndicatorSeriesStore } from '../../stores/indicator-series.store';
 import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-chart.component';
-import type {
-  FlexChartConfig,
-  FlexChartDataset,
-  PriceBar,
+import {
+  StIndicator,
+  type FlexChartConfig,
+  type FlexChartDataset,
+  type PriceBar,
 } from '../../../shared/components/flex-chart/flex-chart.types';
 import type { ChartAxisState, ChartDebugSnapshot } from '../../../shared/components/flex-chart/services/chart-instance.types';
 import { BarsInterval } from '../../../../core/models/partner.types';
@@ -283,6 +284,39 @@ describe('FlexChartSandboxComponent', () => {
 
     expect(chart.chartData?.symbol).toBe('QQQ');
     expect(chart.chartData?.bars.length).toBe(10);
+  });
+
+  it('indicator picker closes on outside click and Escape', async () => {
+    const { fixture } = await setup();
+    const details = fixture.nativeElement.querySelector('details.indicator-picker') as HTMLDetailsElement;
+    details.open = true;
+
+    // Click inside the open picker does not close it.
+    details.open = true;
+    details.querySelector('.indicator-list')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(details.open).toBe(true);
+
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(details.open).toBe(false);
+
+    details.open = true;
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(details.open).toBe(false);
+  });
+
+  it('indicator checkboxes add default-config ST indicators to the chart config', async () => {
+    const { fixture, chart } = await setup();
+    expect(chart.config?.indicators).toEqual([]);
+
+    const box = fixture.nativeElement.querySelector('[data-testid="ind-st-zigzag"]') as HTMLInputElement;
+    box.click();
+    fixture.detectChanges();
+    expect(chart.config?.indicators).toHaveLength(1);
+    expect(chart.config?.indicators[0].type).toBe(StIndicator.ST_ZIGZAG);
+
+    box.click();
+    fixture.detectChanges();
+    expect(chart.config?.indicators).toEqual([]);
   });
 });
 
