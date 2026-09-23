@@ -37,10 +37,16 @@ export const appConfig: ApplicationConfig = {
                 connectAuthEmulator(auth, 'http://127.0.0.1:9100', { disableWarnings: true });
                 (window as any).__EMULATORS__ = { ...(window as any).__EMULATORS__, auth: true };
             }
-            // Persist user across reloads
-            setPersistence(auth, browserLocalPersistence).catch((e) => {
-                console.warn('[Auth] setPersistence failed; falling back to default session persistence', e);
-            });
+            // Persist user across reloads. Guarded: dev-server HMR can
+            // re-bootstrap the app without a page reload, and calling
+            // setPersistence on an already-signed-in Auth can wipe the
+            // stored firebase:authUser session — one call per page load.
+            if (!(window as any).__AUTH_PERSISTENCE_SET__) {
+                (window as any).__AUTH_PERSISTENCE_SET__ = true;
+                setPersistence(auth, browserLocalPersistence).catch((e) => {
+                    console.warn('[Auth] setPersistence failed; falling back to default session persistence', e);
+                });
+            }
             return auth;
         }),
         provideFirestore(() => {
