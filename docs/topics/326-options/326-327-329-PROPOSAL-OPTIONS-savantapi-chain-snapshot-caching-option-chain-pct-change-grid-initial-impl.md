@@ -15,7 +15,9 @@
 
 # SavantAPI Chain Snapshot Caching — Proposal for SA Team
 
-**Status:** Proposal — for review with SavantAPI team
+> **⚠ SUPERSEDED (2026-09-22)** — by [326-504-505-PRD-OPTIONS-option-chain-pct-change-grid-corpus-chain-data.md](326-504-505-PRD-OPTIONS-option-chain-pct-change-grid-corpus-chain-data.md) (Thread #504, Corpus-backed chain data). The corpus concept evolved: SA owns the full platform (swing files, `optionable`/`optionsEnabled` flags, pivot-triggered ingest); ST stays a pure consumer. This doc remains for history — its fetch-once-cache-forever mechanism and `source` field ask carried into the new design, but fetch-on-miss organic growth was rejected in favor of curated-universe backfill.
+
+**Status:** Superseded — see above
 **Source:** Topic #326 (Option chain percent change grid) planning
 **Date:** 2026-09-15
 **SA discovery doc:** `av-proxy-api/docs/partner/options-data/historical-options-discovery.md`

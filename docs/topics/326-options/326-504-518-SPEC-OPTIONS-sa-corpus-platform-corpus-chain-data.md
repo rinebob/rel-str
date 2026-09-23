@@ -1,0 +1,156 @@
+**Topic:** Option chain percent change grid  
+**Topic Slug:** option-chain-pct-change-grid<br>
+**Thread:** Corpus-backed chain data
+**Thread Slug:** corpus-chain-data<br>
+**Issue:** #518  
+**Thread Parent:** #504
+**Topic Parent:** #326  
+**Domain:** OPTIONS  
+**Type:** SPEC (SA handoff)  
+**Status:** Draft  
+**Created:** 2026-09-22  
+**Last Updated:** 2026-09-22  
+
+---
+
+# SavantApi Handoff: Options corpus platform + swing-set generation
+
+**Audience:** SavantApi (SA) project team. SA creates its own Topic/Thread
+from this document — this is the consumer contract plus the platform work
+SavantTrader (ST) is depending on.
+
+## The short version
+
+SA becomes the sole owner of canonical options + swing data:
+
+1. Port ST's ZigZag swing-set generation into SA; SA generates swing files
+   for every tracked symbol under **4 fixed canonical configs**.
+2. Add `optionable` + `optionsEnabled` flags to SA's symbol records
+   (Symbol Manager); enabling a symbol triggers its corpus seeding.
+3. Build the options corpus on the existing GCS CSV-per-date infra — docs
+   keyed `(symbol, date)`, seeded on newly-confirmed pivot dates, plus a
+   one-time backfill of the enabled universe's historical pivots.
+4. Serve it through `partnerHistoricalOptionsV2` (unchanged shape) plus a
+   `source` field and distinguishable error codes.
+
+ST remains a pure consumer. No ST endpoints, no ST writes to SA data, no
+fetch-on-miss driven by ST requests (rejected — the corpus is built by SA's
+flag-driven seeding and backfill, not organic misses).
+
+## 1. Swing-set platform
+
+**Port from ST** (`rel-str` repo — code to move):
+
+- `src/app/features/shared/components/flex-chart/indicators/st-zigzag.engine.ts`
+  — `computeZigZagPivots`, `deriveSwings`, `computeSwingStats`
+- `scripts/bulk-swing-sweep.ts` — the build/persist sweep (reads symbol bars,
+  computes all 4 configs, writes docs). Ports nearly verbatim.
+- `st-swing-sets` doc shape — `{symbol}_{paramsId}` keyed docs; ST will read
+  SA's equivalent and retire this collection later (separate #261 work).
+
+**Canonical configs (fixed set of 4):**
+
+| devThreshold | leftDepth | rightDepth | allowZigZagOnOneBar | projectionPivots | showTriggerDots |
+|---|---|---|---|---|---|
+| 10 | 10 | 10 | true | true | true |
+| 5  | 5  | 5  | true | true | true |
+| 3  | 3  | 3  | true | true | true |
+| 2  | 2  | 2  | true | true | true |
+
+`paramsId` derivation lives in
+`src/app/features/savant-trader/swing-analysis/swing-analysis.types.ts`
+(`deriveParamsId`) — port it so doc keys match ST's existing format.
+
+**Scope:** every symbol in SA's `tracked_symbols`. New tracked symbols get
+swing files generated on add (hook the symbol-add path or run a scheduled
+sweep — SA's call).
+
+**No migration needed:** ST's existing `st-swing-sets` docs are abandoned —
+SA generates fresh files using the ported sweep. Cutover verification
+(SA files cover the expected symbols×configs) belongs to the ST #261 work.
+
+## 2. Symbol flags
+
+Two new boolean fields on SA's symbol record, editable in Symbol Manager:
+
+| Field | Meaning | Set by |
+|---|---|---|
+| `optionable` | Symbol has listed options — factual, system-derived | probe (below) |
+| `optionsEnabled` | Optionable **and** worth trading — liquid chain, broad strikes/expirations | user (curated) |
+
+- `optionsEnabled` is settable at symbol ingestion and editable afterward.
+- **Flipping `optionsEnabled` on triggers that symbol's corpus seeding**
+  (generate swing files → collect pivot dates → ingest those chains).
+- `optionable` population: probe `partnerHistoricalOptionsV2` for each
+  tracked symbol on a recent trading day. Non-empty chain → `optionable=true`.
+  The response's `analysis.summary` (`totalContracts`, `totalVolume`,
+  `totalOpenInterest`, `uniqueStrikes`, expiration breakdown) doubles as the
+  curation data for deciding `optionsEnabled`. One-time backfill job +
+  on-add probe for new symbols.
+
+## 3. Options corpus
+
+- Reuse the existing GCS corpus infra (the QQQ/TQQQ CSV-per-date layout)
+  unchanged.
+- Docs keyed `(symbol, date)`.
+- **Update trigger:** when the swing pipeline detects a newly-*confirmed*
+  pivot for an enabled symbol (config × symbol), ingest that pivot date's
+  chain. Repaint semantics: the doc lands when the pivot confirms
+  (rightDepth bars later), not when it first paints.
+- **One-time backfill:** after the `optionsEnabled` flag is populated, seed
+  the corpus with every enabled symbol's historical pivot dates across all
+  4 configs. Idempotent — rerunnable, skips existing docs.
+- Per-contract docs + contract-chart viewer stay SA-side, unchanged.
+
+## 4. Endpoint contract — what ST depends on
+
+### `partnerHistoricalOptionsV2` — unchanged shape + `source`
+
+```json
+{ "ok": true, "symbol": "QQQ", "date": "2024-03-15", "source": "gcs", ... }
+```
+
+- `source: "gcs"` — served from the corpus; `source: "live"` — fresh
+  upstream fetch. Whether SA serves live for a corpus gap (fetch-on-miss)
+  or errors instead is SA's call — the PRD's design assumption is
+  **no** fetch-on-miss (corpus = pivot-seeded + backfill only).
+- Response shape otherwise identical to today. ST's callable passes the body
+  through verbatim — no field mapping needed.
+
+### Error contract
+
+ST needs two distinguishable failures (current mapping flattens both to
+generic errors):
+
+| Condition | Proposed signal | ST callable maps to |
+|---|---|---|
+| Symbol not `optionsEnabled` | HTTP 404/403 with body `code: "OPTIONS_NOT_ENABLED"` | `failed-precondition` |
+| Date has no snapshot & no upstream data | existing "no data" signal | `not-found` (unchanged) |
+| Upstream transient failure | existing 502/504 | `unavailable` (unchanged) |
+
+Final shape is SA's call — ST just needs to tell the three apart.
+
+### Universe endpoints
+
+ST needs to read SA's symbol universes (replaces today's indirect
+`trackedSymbolsCache` path eventually — not blocking for this thread):
+
+- Tracked-symbol list (exists today via Symbol Manager surfaces)
+- Options-enabled subset — could be the same list with the flag exposed, or
+  a dedicated endpoint; SA's choice
+
+## 5. Out of scope for SA
+
+- oc%c grid compute, contract matching, filters, grid cache — all ST-side.
+- ST's `st-swing-sets` retirement — ST-side cleanup under #261.
+- ST custom swing-config previews — ST-side, preview-only, never persisted.
+
+## Open questions for SA
+
+1. Corpus seed latency: how quickly after pivot confirmation does the chain
+   doc land? Drives ST expectations for "recent swing" analyses.
+2. Does the corpus store raw AV JSON, or the parsed/normalized shape? ST's
+   `chainContracts()` reads `data.data` as `HistoricalOptionContract[]` —
+   the served response just needs to match today's shape.
+3. Availability/coverage endpoint (`symbol → dates[]` or enabled-symbol
+   list)? Nice-to-have for ST pre-run hints; not blocking.
