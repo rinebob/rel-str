@@ -302,13 +302,14 @@ describe('isUnlisted', () => {
     expect(isUnlisted('NVDA', lists)).toBe(true);
   });
 
-  it('returns false for a symbol in any list, case-insensitive on the input', () => {
+  it('returns false for a symbol in any exclusive list, case-insensitive on the input', () => {
     expect(isUnlisted('aapl', lists)).toBe(false);
     expect(isUnlisted('TSLA', lists)).toBe(false);
   });
 
-  it('counts MONITOR membership as listed', () => {
-    expect(isUnlisted('MSFT', { MONITOR: ['MSFT'] })).toBe(false);
+  it('does not count non-exclusive MONITOR membership — monitored-but-unfiled is unlisted', () => {
+    expect(isUnlisted('MSFT', { MONITOR: ['MSFT'] })).toBe(true);
+    expect(isUnlisted('MSFT', { MONITOR: ['MSFT'], PRIMARY: ['MSFT'] })).toBe(false);
   });
 });
 

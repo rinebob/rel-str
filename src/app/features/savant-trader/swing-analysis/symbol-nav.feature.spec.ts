@@ -339,7 +339,7 @@ describe('SymbolListStore MONITOR coexistence', () => {
 
     // Persisted batch targets exclusive lists only — MONITOR is never written.
     expect(listService.moveToList).toHaveBeenCalledWith('AAPL', SymbolListName.PRIMARY, [
-      'PRIMARY', 'SECONDARY', 'NEUTRAL', 'AVOID', 'HIDE',
+      'NEW', 'PRIMARY', 'SECONDARY', 'NEUTRAL', 'AVOID', 'HIDE',
     ]);
     // State follows the snapshot, not the call — emit the post-write truth.
     emitLists([

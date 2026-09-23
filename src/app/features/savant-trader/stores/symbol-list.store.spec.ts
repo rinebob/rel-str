@@ -161,7 +161,7 @@ describe('SymbolListStore snapshot-truth mutations', () => {
     // Delegated with the exclusive-key set â€” MONITOR untouched (re-filing
     // preserves nonexclusive memberships).
     expect(listService.moveToList).toHaveBeenCalledWith('AAPL', 'PRIMARY', [
-      'PRIMARY', 'SECONDARY', 'NEUTRAL', 'AVOID', 'HIDE',
+      'NEW', 'PRIMARY', 'SECONDARY', 'NEUTRAL', 'AVOID', 'HIDE',
     ]);
     // No optimistic patch â€” state still reflects the last emission.
     expect(listStore.symbolLists()['PRIMARY']).toEqual([]);
@@ -183,7 +183,7 @@ describe('SymbolListStore snapshot-truth mutations', () => {
     listStore.toggleSymbolInList('AAPL', 'PRIMARY');
     await new Promise<void>((r) => setTimeout(r, 0));
     expect(listService.moveToList).toHaveBeenCalledWith('AAPL', null, [
-      'PRIMARY', 'SECONDARY', 'NEUTRAL', 'AVOID', 'HIDE',
+      'NEW', 'PRIMARY', 'SECONDARY', 'NEUTRAL', 'AVOID', 'HIDE',
     ]);
   });
 

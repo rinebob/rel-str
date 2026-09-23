@@ -48,6 +48,7 @@ export type StatusCounts = {
 /** Canonical names for the built-in user-managed symbol lists. */
 export enum SymbolListName {
   NONE = 'NONE',
+  NEW = 'NEW',
   PRIMARY = 'PRIMARY',
   SECONDARY = 'SECONDARY',
   NEUTRAL = 'NEUTRAL',
@@ -58,6 +59,7 @@ export enum SymbolListName {
 
 /** All built-in symbol list names in display order. */
 export const ALL_SYMBOL_LIST_NAMES: SymbolListName[] = [
+  SymbolListName.NEW,
   SymbolListName.PRIMARY,
   SymbolListName.SECONDARY,
   SymbolListName.NEUTRAL,

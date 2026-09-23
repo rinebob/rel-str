@@ -38,6 +38,7 @@ export function symbolListDocId(userId: string, key: string): string {
 
 /** Reserved system keys in display order. */
 export const SYSTEM_LIST_KEYS = {
+  NEW: 'NEW',
   PRIMARY: 'PRIMARY',
   SECONDARY: 'SECONDARY',
   NEUTRAL: 'NEUTRAL',
@@ -52,12 +53,14 @@ export type SystemListKey = (typeof SYSTEM_LIST_KEYS)[keyof typeof SYSTEM_LIST_K
 export const LEGACY_MONITOR_LIST_NAME = 'PAST_SIGNALS';
 
 /**
- * Every pre-registry bare-name doc id that could hold membership: the six
+ * Every pre-registry bare-name doc id that could hold membership: the
  * system names plus the legacy Monitor name. Probed directly on first
  * `watchLists$` emission because docs written without a `userId` field are
- * invisible to the filtered collection query.
+ * invisible to the filtered collection query. NEW is included — the
+ * backend symbol-added writer still posts bare-name docs.
  */
 export const ALL_LEGACY_LIST_IDS: readonly string[] = [
+  'NEW',
   'PRIMARY', 'SECONDARY', 'NEUTRAL', 'AVOID', 'HIDE', 'MONITOR',
   LEGACY_MONITOR_LIST_NAME,
 ];
@@ -70,6 +73,10 @@ export const USER_LIST_ORDER_START = 100;
 export const SYSTEM_LIST_DEFS: ReadonlyArray<
   Pick<SymbolListDef, 'key' | 'label' | 'order' | 'role' | 'hidden'>
 > = [
+  // Inbox list — exclusive, sorts ahead of the triage block. A symbol sits
+  // here until it's filed; moveToList strips NEW on re-filing like any
+  // other exclusive list.
+  { key: SYSTEM_LIST_KEYS.NEW,       label: 'New symbols', order: -1, role: 'exclusive',  hidden: false },
   { key: SYSTEM_LIST_KEYS.PRIMARY,   label: 'Primary',   order: 0, role: 'exclusive',    hidden: false },
   { key: SYSTEM_LIST_KEYS.SECONDARY, label: 'Secondary', order: 1, role: 'exclusive',    hidden: false },
   { key: SYSTEM_LIST_KEYS.NEUTRAL,   label: 'Neutral',   order: 2, role: 'exclusive',    hidden: false },

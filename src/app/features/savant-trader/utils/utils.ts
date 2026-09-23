@@ -5,7 +5,7 @@
  */
 import { MarketCapTier, StSignalItem, StSymbolProfile, ST_SCHEDULE_CRON, StSymbolSource } from '../services/types';
 import type { SymbolRow, SymbolGroup } from '../stores/group.store';
-import { GroupDimension, NO_MEMBERSHIP, ReviewDecision, SignalFilter, SignalTimeframe, SignalDirection, type SymbolListFilter } from '../common/constants';
+import { GroupDimension, NO_MEMBERSHIP, ReviewDecision, SignalFilter, SignalTimeframe, SignalDirection, EXCLUSIVE_SYMBOL_LIST_NAMES, type SymbolListFilter } from '../common/constants';
 import type { Company } from '../../shared/types/rs.interfaces';
 
 /** Format a YYYY-MM-DD date string as a UTC date with the given Intl options. */
@@ -166,10 +166,17 @@ export function getGroupLabel(key: string, dimension: GroupDimension): string {
   return dimension === GroupDimension.MARKET_CAP_TIER ? key.toUpperCase() : key;
 }
 
-/** True when the symbol belongs to no list (list contents are uppercased). */
+/**
+ * True when the symbol belongs to no EXCLUSIVE (triage) list — i.e. it is
+ * untriaged. Membership in non-exclusive lists (MONITOR, user lists) does not
+ * count; only tradeability-bucket membership does. List contents are
+ * uppercased.
+ */
 export function isUnlisted(symbol: string, lists: Record<string, string[]>): boolean {
   const normalized = symbol.toUpperCase();
-  return !Object.values(lists).some((members) => members.includes(normalized));
+  return !EXCLUSIVE_SYMBOL_LIST_NAMES.some(
+    (name) => (lists[name] ?? []).includes(normalized),
+  );
 }
 
 /** Normalize the GET_TRACKED_SYMBOLS callable response — uppercased, deduped, sorted. */
@@ -184,9 +191,9 @@ export function normalizeTrackedSymbols(companies: Company[]): string[] {
 /**
  * Determine whether a symbol should appear under the active list filter.
  *
- * 'ALL' shows every symbol. NO_MEMBERSHIP shows only symbols that belong
- * to zero lists. Any other filter value shows only symbols that belong to
- * that named list.
+ * 'ALL' shows every symbol. NO_MEMBERSHIP shows only untriaged symbols —
+ * those in zero exclusive lists. Any other filter value shows only symbols
+ * that belong to that named list.
  */
 export function shouldShowInListFilter(symbol: string, lists: Record<string, string[]>, filter: SymbolListFilter): boolean {
   if (filter === 'ALL') return true;
@@ -201,6 +208,32 @@ export function tierLabel(tier: string | undefined): string {
     mega: 'MEGA', large: 'LG', mid: 'MID', small: 'SM', micro: 'µ',
   };
   return tier ? (map[tier] ?? tier.toUpperCase()) : '';
+}
+
+const DASH = '—';
+
+/** Market-cap display — $1.4T / $980B / $250M / raw dollars below $1M. */
+export function fmtCap(v: number | undefined): string {
+  if (v === undefined || v === null) return DASH;
+  if (v >= 1e12) return `$${(v / 1e12).toFixed(1)}T`;
+  if (v >= 1e9) return `$${(v / 1e9).toFixed(1)}B`;
+  if (v >= 1e6) return `$${(v / 1e6).toFixed(1)}M`;
+  return `$${v.toLocaleString('en-US')}`;
+}
+
+/** Rounded number with trailing zeros dropped — 2.30 → '2.3', 80 → '80'. */
+export function fmtNum(v: number | undefined, digits = 2): string {
+  return v === undefined || v === null ? DASH : String(parseFloat(v.toFixed(digits)));
+}
+
+/** Money display with a missing-value em-dash. */
+export function fmtMoney(v: number | undefined): string {
+  return v === undefined || v === null ? DASH : `$${v.toFixed(2)}`;
+}
+
+/** Percent display — input is a raw fraction (0.0301 → '3.0%'). */
+export function fmtPct(v: number | undefined): string {
+  return v === undefined || v === null ? DASH : `${(v * 100).toFixed(1)}%`;
 }
 
 /** Direction label from signal items. */
