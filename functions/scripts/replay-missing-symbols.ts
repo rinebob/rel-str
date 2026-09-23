@@ -47,7 +47,7 @@ async function getCollectionIds(collection: string): Promise<Set<string>> {
   return ids;
 }
 
-/** Add a symbol to the default PRIMARY watchlist (mirrors the consumer). */
+/** Add a symbol to the NEW inbox list (mirrors the consumer). */
 async function addSymbolToDefaultList(symbol: string): Promise<void> {
   await db
     .collection(ST_SYMBOL_LISTS_COLLECTION)

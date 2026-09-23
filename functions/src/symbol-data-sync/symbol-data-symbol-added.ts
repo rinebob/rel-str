@@ -36,7 +36,7 @@ import { decodeSymbolAddedMessage, normalizeSource } from '../common/st-symbol-a
 /** Deadline for the single-symbol ST run triggered after onboarding. */
 const RUN_DEADLINE_MINUTES = 30;
 
-/** Add a symbol to the default PRIMARY watchlist. */
+/** Add a symbol to the NEW inbox list (triaged by the user, not auto-filed). */
 async function addSymbolToDefaultList(symbol: string): Promise<void> {
   await db.collection(ST_SYMBOL_LISTS_COLLECTION).doc(DEFAULT_SYMBOL_LIST_NAME).set(
     { name: DEFAULT_SYMBOL_LIST_NAME, symbols: FieldValue.arrayUnion(symbol) },
@@ -69,7 +69,7 @@ async function triggerSymbolAddedRun(symbol: string): Promise<void> {
  * For each symbol in the payload:
  *   1. Runs a full backfill into symbol-data.
  *   2. Enables the symbol for ST scanning.
- *   3. Adds the symbol to the default PRIMARY watchlist.
+ *   3. Adds the symbol to the NEW inbox list.
  *   4. Fetches company overview so the symbol is reviewable right away.
  *   5. Creates a one-symbol ST run and enqueues the worker task so the
  *      symbol is immediately reviewable.

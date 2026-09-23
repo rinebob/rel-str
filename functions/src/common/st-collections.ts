@@ -22,11 +22,16 @@ export const ST_SCHEDULE_CRON = '0 1 * * 2-6';
 /** Symbol list collection for daily scanning. */
 export const ST_SYMBOLS_COLLECTION = 'savant-trader/data/symbols';
 
-/** User-defined symbol lists (PRIMARY, SECONDARY, etc.). */
+/** User-defined symbol lists (NEW, PRIMARY, SECONDARY, etc.). */
 export const ST_SYMBOL_LISTS_COLLECTION = 'savant-trader/data/symbol-lists';
 
-/** Default list name for newly onboarded symbols. */
-export const DEFAULT_SYMBOL_LIST_NAME = 'PRIMARY';
+/**
+ * Inbox list for newly onboarded symbols — lands them in NEW instead of
+ * PRIMARY so nothing enters the triage buckets unreviewed. Frontend
+ * registry treats NEW as an exclusive system list: filing the symbol
+ * elsewhere strips the NEW membership automatically.
+ */
+export const DEFAULT_SYMBOL_LIST_NAME = 'NEW';
 
 /** Known source values for how a symbol entered the ST tracked universe. */
 export enum StSymbolSource {
