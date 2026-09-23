@@ -2,12 +2,72 @@
   <div class="page-header">
     <h1>Option Chain</h1>
     <div class="header-context">
-      <!-- Company info, underlying session/prior close, session date, and
-           snapshot source land here with the data pipeline task. -->
+      <!-- Interim controls — the full header (company info, underlying
+           closes, session date, source, datepicker) lands in #503. -->
+      <label>
+        Symbol
+        <input
+          type="text"
+          data-testid="symbol-input"
+          [value]="store.symbol()"
+          (input)="onSymbolInput($event)"
+          (keydown.enter)="onLoad()"
+        />
+      </label>
+      <button type="button" data-testid="load-btn" (click)="onLoad()">Load</button>
+      <div class="filter-pill-group" role="group" aria-label="Side">
+        <button type="button" class="filter-pill" data-testid="side-calls" [class.active]="layout() === 'call'" (click)="layout.set('call')">Calls</button>
+        <button type="button" class="filter-pill" data-testid="side-puts" [class.active]="layout() === 'put'" (click)="layout.set('put')">Puts</button>
+        <button type="button" class="filter-pill" data-testid="side-both" [class.active]="layout() === 'both'" (click)="layout.set('both')">Both</button>
+      </div>
+      @if (store.resolvedDate()) {
+        <span class="session-date">{{ store.resolvedDate() }}</span>
+      }
+      @if (store.source()) {
+        <span class="source-label">{{ store.source() }}</span>
+      }
     </div>
   </div>
   <div class="page-body">
-    <!-- Filter panel, CALLS/PUTS/BOTH toggle, and chain grids land here
-         in later tasks. -->
+    @if (store.loading()) {
+      <div class="page-state">Loading chain…</div>
+    } @else if (store.error()) {
+      <div class="page-state error">{{ store.error() }}</div>
+    } @else if (store.resolvedNoData()) {
+      <div class="page-state">No chain data found in the last 7 days.</div>
+    } @else {
+      <div class="grids-row">
+        @if (layout() !== 'put') {
+          <div class="side-pane">
+            <div class="side-head">
+              <h2 class="side-title">Calls</h2>
+              <button
+                type="button"
+                class="orientation-btn"
+                data-testid="calls-orientation"
+                [title]="callOrientation() === 'desc' ? 'Strikes: high to low — click to flip' : 'Strikes: low to high — click to flip'"
+                (click)="toggleOrientation('call')"
+              >{{ callOrientation() === 'desc' ? '▼' : '▲' }}</button>
+            </div>
+            <app-chain-grid [model]="callsModel()" [side]="OptionType.CALL" [sessionDate]="store.resolvedDate()" />
+          </div>
+        }
+        @if (layout() !== 'call') {
+          <div class="side-pane">
+            <div class="side-head">
+              <h2 class="side-title">Puts</h2>
+              <button
+                type="button"
+                class="orientation-btn"
+                data-testid="puts-orientation"
+                [title]="putOrientation() === 'desc' ? 'Strikes: high to low — click to flip' : 'Strikes: low to high — click to flip'"
+                (click)="toggleOrientation('put')"
+              >{{ putOrientation() === 'desc' ? '▼' : '▲' }}</button>
+            </div>
+            <app-chain-grid [model]="putsModel()" [side]="OptionType.PUT" [sessionDate]="store.resolvedDate()" />
+          </div>
+        }
+      </div>
+    }
   </div>
 </div>

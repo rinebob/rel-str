@@ -214,6 +214,7 @@ describe('OptionChainStore', () => {
 
   it('requires a symbol', () => {
     setup();
+    store.setSymbol(''); // clear the QQQ default
     store.loadChain(POST_CLOSE_TUE);
 
     expect(optionsService.getHistoricalOptionsChain$).not.toHaveBeenCalled();

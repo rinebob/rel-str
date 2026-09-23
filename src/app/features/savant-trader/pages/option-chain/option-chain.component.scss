@@ -1,23 +1,129 @@
 .option-chain-page {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  // --header-height is set on mat-drawer-content: 0px in fullscreen mode.
+  height: calc(100vh - var(--header-height, 0px));
   padding: 0.5rem;
+  overflow: hidden;
 
   .page-header {
     display: flex;
     align-items: baseline;
     gap: 1rem;
+    flex: 0 0 auto;
 
     h1 {
       margin: 0;
       font-size: 1.25rem;
       font-weight: 500;
     }
+
+    .header-context {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    // Same pill-toggle styling as option-chart's filter pills.
+    .filter-pill-group {
+      display: inline-flex;
+      gap: 2px;
+      flex: 0 0 auto;
+    }
+
+    .filter-pill {
+      display: inline-flex;
+      align-items: center;
+      height: 22px;
+      padding: 0 8px;
+      border: 1px solid var(--mat-sys-outline-variant);
+      border-radius: 12px;
+      background: var(--mat-sys-surface);
+      color: var(--mat-sys-on-surface-variant);
+      font-size: 10px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+
+      &:hover {
+        background: var(--mat-sys-surface-container-high);
+      }
+
+      &.active {
+        background: var(--mat-sys-primary-container);
+        color: var(--mat-sys-on-primary-container);
+        border-color: var(--mat-sys-primary);
+        font-weight: 600;
+      }
+    }
   }
 
   .page-body {
     flex: 1;
     min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .page-state {
+    padding: 24px;
+    color: #666;
+
+    &.error {
+      color: #b3261e;
+    }
+  }
+
+  // Calls left, puts right — each pane scrolls independently.
+  .grids-row {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    gap: 12px;
+  }
+
+  .side-pane {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+
+    .side-head {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      flex: 0 0 auto;
+    }
+
+    .side-title {
+      margin: 4px 0;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #555;
+    }
+
+    .orientation-btn {
+      border: 1px solid var(--mat-sys-outline-variant);
+      border-radius: 4px;
+      background: var(--mat-sys-surface);
+      color: var(--mat-sys-on-surface-variant);
+      font-size: 9px;
+      line-height: 1;
+      padding: 2px 5px;
+      cursor: pointer;
+
+      &:hover {
+        background: var(--mat-sys-surface-container-high);
+      }
+    }
+
+    app-chain-grid {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
   }
 }

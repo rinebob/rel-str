@@ -30,6 +30,7 @@ import {
   resolveSession$,
   resolveSessionDate,
 } from './utils/session-resolution.utils';
+import { chainContracts } from '../../utils/contract-observation.utils';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -65,7 +66,7 @@ export interface OptionChainState {
 }
 
 const initialState: OptionChainState = {
-  symbol: '',
+  symbol: 'QQQ',
   dateInput: '',
   resolvedDate: null,
   priorDate: null,
@@ -158,7 +159,7 @@ export const OptionChainStore = signalStore(
           .pipe(
             map(
               (res: GetHistoricalOptionsChainResponse): ChainFetchResult => ({
-                contracts: res.data?.data ?? [],
+                contracts: chainContracts(res),
                 source: res.source ?? null,
               }),
             ),
@@ -192,13 +193,11 @@ export const OptionChainStore = signalStore(
         priorSub = resolveSession$(start, fetchChain$, hasContracts).subscribe({
           next: (prior) =>
             patchState(store, {
-              loading: false,
               priorDate: prior?.date ?? null,
               priorContracts: prior?.data.contracts ?? [],
             }),
           error: (err) =>
             patchState(store, {
-              loading: false,
               priorError: `${start}: ${errMsg(err)}`,
             }),
         });
@@ -242,6 +241,9 @@ export const OptionChainStore = signalStore(
               return;
             }
             patchState(store, {
+              // Session landed — drop the spinner now; the prior-session
+              // snapshot streams in behind it and only fills the chg column.
+              loading: false,
               resolvedDate: session.date,
               sessionContracts: session.data.contracts,
               source: session.data.source,
