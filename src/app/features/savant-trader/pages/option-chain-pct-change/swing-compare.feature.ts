@@ -20,6 +20,7 @@ import type { LocalBarReadService } from '../../../../core/services/local-bar-re
 import type { SwingAnalysisDoc } from '../../swing-analysis/swing-analysis.types';
 import type { Swing } from '../../../shared/components/flex-chart/indicators/st-zigzag.types';
 import { chainContracts, closestPriorCloses, newId, SNAPSHOT_FETCH_CONCURRENCY } from './utils/pct-change.utils';
+import { describeSnapshotError } from './utils/snapshot-errors.utils';
 import {
   mergeDateList,
   toUtcDateString,
@@ -40,6 +41,7 @@ export interface SwingCompareStoreApi
   signals(): StSignalItem[];
   snapshotCache(): Record<string, HistoricalOptionContract[]>;
   snapshotErrors(): Record<string, string>;
+  snapshotSources(): Record<string, 'gcs' | 'live' | undefined>;
   underlyingPrices(): Record<string, number>;
   dateList(): SwingCompareDateItem[];
 }
@@ -214,26 +216,23 @@ export function swingCompareMethods(store: SwingCompareStoreApi, deps: SwingComp
       // is a live Alpha Vantage fetch upstream; 8 was fine for the 75
       // req/min rate limit but the partner rejects concurrent bursts
       // with fast 502s, so the window stays small.
-      // Callable errors carry a `functions/<code>` — keep it in the
-      // message so the UI can distinguish rate-limit (resource-exhausted)
-      // from upstream gaps (unavailable) vs generic failures. The
-      // partner's own {"code":"..."} gets extracted when present — the
-      // raw JSON body is too noisy to render inline.
-      const describeError = (err: unknown): string => {
-        const code = (err as { code?: string })?.code?.replace('functions/', '');
-        const msg = err instanceof Error ? err.message : String(err);
-        const partnerCode = /"code"\s*:\s*"([^"]+)"/.exec(msg)?.[1];
-        const detail = partnerCode ?? (msg.length > 120 ? `${msg.slice(0, 120)}…` : msg);
-        return code ? `${code}: ${detail}` : detail;
-      };
       const fetchOne = (d: string) =>
         deps.optionsContractService.getHistoricalOptionsChain$(symbol, d).pipe(
-          map((r) => ({ date: d, contracts: chainContracts(r), error: null as string | null })),
+          map((r) => ({
+            date: d,
+            contracts: chainContracts(r),
+            error: null as string | null,
+            source:
+              r.source === 'gcs' || r.source === 'live'
+                ? (r.source as 'gcs' | 'live')
+                : undefined,
+          })),
           catchError((err: unknown) =>
             of({
               date: d,
               contracts: [] as HistoricalOptionContract[],
-              error: describeError(err),
+              error: describeSnapshotError(err, symbol),
+              source: undefined,
             }),
           ),
         );
@@ -256,21 +255,24 @@ export function swingCompareMethods(store: SwingCompareStoreApi, deps: SwingComp
 
             const snapshotCache = { ...store.snapshotCache() };
             const snapshotErrors = { ...store.snapshotErrors() };
+            const snapshotSources = { ...store.snapshotSources() };
             const okDates: string[] = [];
             for (const r of results) {
               if (r.error === null) {
                 snapshotCache[r.date] = r.contracts;
                 delete snapshotErrors[r.date];
+                if (r.source) snapshotSources[r.date] = r.source;
                 okDates.push(r.date);
               } else {
                 snapshotErrors[r.date] = r.error;
+                delete snapshotSources[r.date];
               }
             }
             const underlyingPrices = {
               ...store.underlyingPrices(),
               ...closestPriorCloses(bars, okDates),
             };
-            patchState(store, { snapshotCache, underlyingPrices, snapshotErrors });
+            patchState(store, { snapshotCache, underlyingPrices, snapshotErrors, snapshotSources });
           },
           error: (err: unknown) => {
             // Defensive — every inner stream is caught above, so this only

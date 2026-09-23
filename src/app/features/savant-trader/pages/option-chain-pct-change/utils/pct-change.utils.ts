@@ -4,15 +4,15 @@
  * Pure functions — no Angular dependencies, no side effects.
  */
 
-import { OptionType } from '@options-contract/contracts';
-import type {
-  HistoricalOptionContract,
-  GetHistoricalOptionsChainResponse,
-} from '@options-contract/contracts';
+import { normalizeOptionType, OptionType } from '@options-contract/contracts';
+import type { HistoricalOptionContract } from '@options-contract/contracts';
 import type { OhlcBar } from '../../../../../core/models/market-data.types';
 import { PctChangeFilter } from '@shared/pct-change-config-contracts';
 
 export { PctChangeFilter } from '@shared/pct-change-config-contracts';
+export { chainContracts } from '../../../utils/contract-observation.utils';
+
+import { daysBetween } from '../../../../shared/utils/date.util';
 
 /** One cell in the pct change grid — a matched contract pair. */
 export interface PctChangeCell {
@@ -155,18 +155,7 @@ function resolvePrice(c: HistoricalOptionContract): number | undefined {
  * The AV API may return 'Call', 'C', 'call', etc.
  */
 function normalizeType(v: string | OptionType | undefined): OptionType | undefined {
-  if (v == null) return undefined;
-  const raw = String(v).toLowerCase().trim();
-  if (raw === 'call' || raw === 'c') return OptionType.CALL;
-  if (raw === 'put' || raw === 'p') return OptionType.PUT;
-  return undefined;
-}
-
-/** Days between two YYYY-MM-DD dates. */
-function daysBetween(start: string, end: string): number {
-  const s = new Date(start + 'T00:00:00Z');
-  const e = new Date(end + 'T00:00:00Z');
-  return Math.round((e.getTime() - s.getTime()) / 86_400_000);
+  return normalizeOptionType(v) ?? undefined;
 }
 
 /** Compute the percentile of a sorted numeric array (linear interpolation). */
@@ -334,13 +323,6 @@ export function newId(): string {
     : Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
-/** Unwrap a getHistoricalOptionsChain$ callable response to its contract
- *  array (empty when absent � a date with no snapshot is not an error). */
-export function chainContracts(
-  res: GetHistoricalOptionsChainResponse | null | undefined,
-): HistoricalOptionContract[] {
-  return res?.data?.data ?? [];
-}
 
 /** Map each date to the close of the closest bar on or before it. Bars are
  *  sorted internally; dates absent from market days fall back to the prior

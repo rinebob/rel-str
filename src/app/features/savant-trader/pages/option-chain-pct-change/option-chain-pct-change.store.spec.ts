@@ -55,11 +55,15 @@ import {
 // Test fixtures
 // =============================================================================
 
-function makeChain(contracts: HistoricalOptionContract[]): GetHistoricalOptionsChainResponse {
+function makeChain(
+  contracts: HistoricalOptionContract[],
+  source?: 'gcs' | 'live',
+): GetHistoricalOptionsChainResponse {
   return {
     ok: true,
     symbol: 'QQQ',
     date: '2024-01-15',
+    source,
     endpoint: 'historical-options',
     data: { data: contracts },
     analysis: {
@@ -325,6 +329,83 @@ describe('OptionChainPctChangeStore', () => {
       expect(store.grids().length).toBe(1);
       expect(store.hasResults()).toBe(true);
       expect(store.snapshotCache()['2024-01-15']).toBeDefined();
+    });
+
+    it('records snapshotSources when responses carry source', () => {
+      const svc: Partial<OptionsContractService> = {
+        getHistoricalOptionsChain$: (symbol: string, date: string) =>
+          of(makeChain([makeContractFixture({ contractID: 'A', mark: '10.00' })], date === '2024-01-15' ? 'gcs' : 'live')),
+      } as Partial<OptionsContractService>;
+      const store = setupStore(svc);
+      store.setSymbol('QQQ');
+      store.setStartDate('2024-01-15');
+      store.addTargetDate('2024-02-15');
+
+      store.runAnalysis();
+
+      expect(store.snapshotSources()['2024-01-15']).toBe('gcs');
+      expect(store.snapshotSources()['2024-02-15']).toBe('live');
+    });
+
+    it('renders the unsupported-symbol message for failed-precondition', () => {
+      const err = new Error('partner 404 code=OPTIONS_NOT_ENABLED: nope');
+      (err as unknown as { code: string }).code = 'functions/failed-precondition';
+      const failingService: Partial<OptionsContractService> = {
+        getHistoricalOptionsChain$: () => throwError(() => err),
+      } as Partial<OptionsContractService>;
+      const store = setupStore(failingService);
+      store.setSymbol('XYZ');
+      store.setStartDate('2024-01-15');
+      store.addTargetDate('2024-02-15');
+
+      store.runAnalysis();
+
+      expect(store.error()).toContain('Options analysis is not available for XYZ');
+      expect(store.error()).not.toContain('OPTIONS_NOT_ENABLED');
+    });
+
+    it('a failed target date degrades to an error row — the rest of the run succeeds', () => {
+      const svc: Partial<OptionsContractService> = {
+        getHistoricalOptionsChain$: (symbol: string, date: string) => {
+          if (date === '2024-02-15') {
+            return throwError(() => new Error('upstream 502'));
+          }
+          return of(makeChain([makeContractFixture({ contractID: 'A', mark: '10.00' })]));
+        },
+      } as Partial<OptionsContractService>;
+      const store = setupStore(svc);
+      store.setSymbol('QQQ');
+      store.setStartDate('2024-01-15');
+      store.addTargetDate('2024-02-15');
+      store.addTargetDate('2024-03-15');
+
+      store.runAnalysis();
+
+      expect(store.loading()).toBe(false);
+      expect(store.error()).toBeNull();
+      expect(store.snapshotErrors()['2024-02-15']).toContain('upstream 502');
+      expect(store.snapshotCache()['2024-03-15']).toBeDefined();
+      expect(store.failedTargetDates()).toEqual(['2024-02-15']);
+      // Errored date is excluded from grids; the good one renders.
+      expect(store.grids().map((g) => g.targetDate)).toEqual(['2024-03-15']);
+    });
+
+    it('start-date failure still fails the whole run', () => {
+      const svc: Partial<OptionsContractService> = {
+        getHistoricalOptionsChain$: (symbol: string, date: string) =>
+          date === '2024-01-15'
+            ? throwError(() => new Error('start boom'))
+            : of(makeChain([makeContractFixture({ contractID: 'A', mark: '10.00' })])),
+      } as Partial<OptionsContractService>;
+      const store = setupStore(svc);
+      store.setSymbol('QQQ');
+      store.setStartDate('2024-01-15');
+      store.addTargetDate('2024-02-15');
+
+      store.runAnalysis();
+
+      expect(store.error()).toContain('start boom');
+      expect(store.grids()).toEqual([]);
     });
 
     it('sets error message on fetch failure', () => {

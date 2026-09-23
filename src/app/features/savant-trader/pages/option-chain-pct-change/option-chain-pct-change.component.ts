@@ -315,10 +315,22 @@ import { take } from 'rxjs';
             <mat-spinner />
           } @else if (store.error()) {
             <div class="error">{{ store.error() }}</div>
-          } @else if (store.hasResults()) {
+          } @else if (store.hasResults() || store.failedTargetDates().length > 0) {
+            @for (d of store.failedTargetDates(); track d) {
+              <p class="run-date-error" data-testid="run-date-error">
+                {{ d }}: snapshot unavailable — {{ store.snapshotErrors()[d] }}
+                <button
+                  type="button"
+                  class="retry-btn"
+                  data-testid="run-retry-btn"
+                  (click)="store.ensureSnapshots([d])"
+                >retry</button>
+              </p>
+            }
             @for (grid of store.grids(); track grid.targetDate) {
               <app-pct-change-grid
                 [grid]="grid"
+                [source]="store.snapshotSources()[grid.targetDate] ?? null"
                 [contrastMode]="contrastMode()"
                 [linkedKey]="store.highlightedKey()"
               />
@@ -560,6 +572,20 @@ import { take } from 'rxjs';
         background: #ffebee;
         border-radius: 4px;
         font-size: 0.85rem;
+      }
+      .run-date-error {
+        color: #c62828;
+        font-size: 0.8rem;
+        margin: 0 0 4px;
+      }
+      .retry-btn {
+        font-size: 0.7rem;
+        padding: 0 6px;
+        margin-left: 6px;
+        cursor: pointer;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background: #fff;
       }
     `,
   ],

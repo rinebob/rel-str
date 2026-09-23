@@ -1,4 +1,16 @@
 import type { HistoricalOptionsContractV2Observation } from '../../../core/models/partner.types';
+import type {
+  GetHistoricalOptionsChainResponse,
+  HistoricalOptionContract,
+} from '@options-contract/contracts';
+
+/** Unwrap a getHistoricalOptionsChain$ callable response to its contract
+ *  array (empty when absent — a date with no snapshot is not an error). */
+export function chainContracts(
+  res: GetHistoricalOptionsChainResponse | null | undefined,
+): HistoricalOptionContract[] {
+  return res?.data?.data ?? [];
+}
 
 /** Parsed observation with numeric values for charting. */
 export interface ParsedObservation {

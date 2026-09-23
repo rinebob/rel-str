@@ -84,6 +84,7 @@ import type { SwingCompareRun } from '../utils/swing-compare.utils';
             @for (grid of runGrids(); track grid.targetDate) {
               <app-pct-change-grid
                 [grid]="grid"
+                [source]="store.snapshotSources()[grid.targetDate] ?? null"
                 [linkedKey]="store.highlightedKey()"
                 [seriesScope]="scope()"
               />

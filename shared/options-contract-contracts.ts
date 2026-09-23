@@ -7,7 +7,7 @@
 
 import { OptionType } from './options-common';
 
-export { OptionType, parseOccContractId, buildOccContractId } from './options-common';
+export { OptionType, parseOccContractId, buildOccContractId, normalizeOptionType } from './options-common';
 export type { ParsedOccContractId } from './options-common';
 
 /** One historical options time-series observation for a single contract. */

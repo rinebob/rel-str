@@ -52,6 +52,15 @@ export function addDays(date: Date | number, days: number): Date {
 }
 
 /**
+ * Whole days between two YYYY-MM-DD dates (UTC).
+ */
+export function daysBetween(start: string, end: string): number {
+  const s = new Date(start + 'T00:00:00Z');
+  const e = new Date(end + 'T00:00:00Z');
+  return Math.round((e.getTime() - s.getTime()) / 86_400_000);
+}
+
+/**
  * Clamps a date between optional min and max bounds (inclusive).
  */
 export function clampDate(date: Date | number, min?: Date | number, max?: Date | number): Date {

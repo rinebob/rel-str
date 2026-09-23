@@ -16,7 +16,8 @@ import { MatIconModule } from '@angular/material/icon';
 import type { PctChangeGrid, PctChangeCell } from '../utils/pct-change.utils';
 import { cellKey, CONTRACT_CHART_PANE_CLASS, MIN_CELL_PRICE } from '../utils/pct-change.utils';
 import { pctChangeToCellColors, DEFAULT_CELL_TEXT_MODE, type CellTextMode } from '../utils/color-mapping.utils';
-import { DAYS } from '../../../../shared/utils/date.util';
+import { DAYS, daysBetween } from '../../../../shared/utils/date.util';
+import { formatAtmDiff as formatAtmDiffText } from '../../../utils/option-grid.utils';
 import { ContractMiniChartComponent } from './contract-mini-chart.component';
 import { OptionChainPctChangeStore, sameSelectedCell } from '../option-chain-pct-change.store';
 import type { SeriesScope } from '../option-chain-pct-change.store';
@@ -62,6 +63,9 @@ interface ExpHeader {
   template: `
     <div class="grid-header">
       <span class="grid-title">{{ grid().targetDate }} ({{ grid().durationDays }}d from start)</span>
+      @if (source() === 'live') {
+        <span class="src-live" data-testid="src-live" title="Fetched live from the upstream provider — not yet in the SA corpus">live fetch</span>
+      }
       @if (grid().startUnderlyingPrice != null && grid().targetUnderlyingPrice != null) {
         <span class="underlying-summary">
           {{ formatPrice(grid().startUnderlyingPrice!) }} → {{ formatPrice(grid().targetUnderlyingPrice!) }}
@@ -186,6 +190,18 @@ interface ExpHeader {
         gap: 0.5rem;
       }
       .grid-title {
+        flex-shrink: 0;
+      }
+      .src-live {
+        font-size: 0.62rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 0 6px;
+        border-radius: 8px;
+        background: #fff3e0;
+        color: #e65100;
+        border: 1px solid #ffcc80;
         flex-shrink: 0;
       }
       .underlying-summary {
@@ -338,6 +354,11 @@ export class PctChangeGridComponent implements OnDestroy {
    *  brighter ramp endpoints, or a halo behind dark text. */
   readonly contrastMode = input<CellTextMode>(DEFAULT_CELL_TEXT_MODE);
 
+  /** Snapshot source reported by SA — 'live' gets a chip in the title
+   *  (post-hoc; it only exists after the response lands). 'gcs' and
+   *  absent render nothing. */
+  readonly source = input<'gcs' | 'live' | null>(null);
+
   /** Key (strike-expiration) of the contract selected in a sibling grid —
    *  the matching cell here gets a blue outline. Null = no highlight. */
   readonly linkedKey = input<string | null>(null);
@@ -445,9 +466,7 @@ export class PctChangeGridComponent implements OnDestroy {
 
   /** Days from the start date to the given expiration. */
   daysFromStart(expiration: string): number {
-    const s = new Date(this.grid().startDate + 'T00:00:00Z');
-    const e = new Date(expiration + 'T00:00:00Z');
-    return Math.round((e.getTime() - s.getTime()) / 86_400_000);
+    return daysBetween(this.grid().startDate, expiration);
   }
 
   /** Amount difference from ATM strike. */
@@ -455,13 +474,6 @@ export class PctChangeGridComponent implements OnDestroy {
     const atm = this.grid().atmStrike;
     if (atm == null) return null;
     return strike - atm;
-  }
-
-  /** Percentage difference from ATM strike. */
-  atmPctDiff(strike: number): number | null {
-    const atm = this.grid().atmStrike;
-    if (atm == null || atm === 0) return null;
-    return ((strike - atm) / atm) * 100;
   }
 
   /** Format a delta for display in a cell. */
@@ -472,12 +484,7 @@ export class PctChangeGridComponent implements OnDestroy {
 
   /** Format the ATM diff: amount and percentage. */
   formatAtmDiff(strike: number): string {
-    const diff = this.atmDiff(strike);
-    if (diff == null) return '';
-    const pct = this.atmPctDiff(strike);
-    const sign = diff > 0 ? '+' : '';
-    const pctStr = pct != null ? ` (${sign}${pct.toFixed(1)}%)` : '';
-    return `${sign}${diff.toFixed(0)}${pctStr}`;
+    return formatAtmDiffText(strike, this.grid().atmStrike) ?? '';
   }
 
   /** Overlay anchor + content: the data-cell element (and its cell) that

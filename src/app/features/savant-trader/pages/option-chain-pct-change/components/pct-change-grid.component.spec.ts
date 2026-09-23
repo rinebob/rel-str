@@ -106,6 +106,21 @@ describe('PctChangeGridComponent', () => {
     expect(headerEl.textContent).toContain('31d');
   });
 
+  it('shows a "live fetch" chip only when source is live', () => {
+    const { fixture } = setupComponent(makeGrid({ targetDate: '2024-02-15' }));
+    expect(fixture.nativeElement.querySelector('[data-testid="src-live"]')).toBeNull();
+
+    fixture.componentRef.setInput('source', 'gcs');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="src-live"]')).toBeNull();
+
+    fixture.componentRef.setInput('source', 'live');
+    fixture.detectChanges();
+    const chip = fixture.nativeElement.querySelector('[data-testid="src-live"]');
+    expect(chip).not.toBeNull();
+    expect(chip.textContent).toContain('live fetch');
+  });
+
   it('renders "No contracts" message when grid has no cells', () => {
     const { fixture } = setupComponent(makeGrid({ strikes: [], expirations: [], cells: new Map() }));
     const noDataEl = fixture.nativeElement.querySelector('.no-data');

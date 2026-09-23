@@ -14,7 +14,7 @@ import {
   withMethods,
   patchState,
 } from '@ngrx/signals';
-import { forkJoin, from, mergeMap, Subscription, toArray } from 'rxjs';
+import { catchError, forkJoin, from, mergeMap, Observable, of, Subscription, toArray } from 'rxjs';
 import { map, take } from 'rxjs/operators';
 
 import { OptionsContractService } from '../../services/options-contract.service';
@@ -49,6 +49,7 @@ import {
 } from './utils/pct-change.utils';
 import { buildConfigId, resolvePctChangeTargets as resolvePctChangeDatesFromBars, buildPercentages, computeForwardEndDate } from './utils/pct-change-config.utils';
 import type { SwingCompareRun } from './utils/swing-compare.utils';
+import { describeSnapshotError } from './utils/snapshot-errors.utils';
 import {
   swingCompareComputedBlock,
   swingCompareMethods,
@@ -185,6 +186,12 @@ export interface OptionChainPctChangeState {
    *  and reset; a successful refetch deletes the key. */
   snapshotErrors: Record<string, string>;
 
+  /** Per-date snapshot source reported by SA — "gcs" (corpus hit) or
+   *  "live" (upstream fetch). Follows the snapshotErrors lifecycle:
+   *  symbol-scoped, cleared alongside it. Optional upstream — absent
+   *  dates mean "source unknown". */
+  snapshotSources: Record<string, 'gcs' | 'live' | undefined>;
+
   /** Currently selected config id, or null. */
   selectedConfigId: string | null;
 
@@ -214,7 +221,7 @@ export interface OptionChainPctChangeState {
  *  so the set selections, frame swing, and built runs can't dangle. */
 const SWING_COMPARE_CLEARED: Pick<
   OptionChainPctChangeState,
-  'savedAnalyses' | 'baselineSetId' | 'targetSetId' | 'frameSwing' | 'runs' | 'snapshotErrors'
+  'savedAnalyses' | 'baselineSetId' | 'targetSetId' | 'frameSwing' | 'runs' | 'snapshotErrors' | 'snapshotSources'
 > = {
   savedAnalyses: [],
   baselineSetId: null,
@@ -222,6 +229,7 @@ const SWING_COMPARE_CLEARED: Pick<
   frameSwing: null,
   runs: [],
   snapshotErrors: {},
+  snapshotSources: {},
 };
 
 /** Selection-clearing patch — spread into any patchState that invalidates
@@ -272,6 +280,7 @@ const initialState: OptionChainPctChangeState = {
   runs: [],
   snapshotCache: {},
   snapshotErrors: {},
+  snapshotSources: {},
   selectedConfigId: null,
   loading: false,
   error: null,
@@ -302,8 +311,14 @@ export const OptionChainPctChangeStore = signalStore(
         state.underlyingPrices(),
         state.filter(),
         state.startDate().trim(),
-        state.targetDates(),
+        // Errored target dates render as error rows, not empty grids.
+        state.targetDates().filter((d) => !(d in state.snapshotErrors())),
       ),
+    ),
+
+    /** Target dates whose snapshot fetch failed — rendered as error rows. */
+    failedTargetDates: computed(() =>
+      state.targetDates().filter((d) => d in state.snapshotErrors()),
     ),
 
     /** Key (strike-expiration) of the cross-grid highlighted contract —
@@ -593,6 +608,8 @@ export const OptionChainPctChangeStore = signalStore(
           loading: true,
           error: null,
           snapshotCache: {},
+          snapshotErrors: {},
+          snapshotSources: {},
           underlyingPrices: {},
           ...SELECTION_CLEARED,
         });
@@ -602,20 +619,21 @@ export const OptionChainPctChangeStore = signalStore(
         // swing-compare's ensureSnapshots). mergeMap emits in completion
         // order, so carry the input index and re-sort on the way out.
         const start$ = optionsContractService.getHistoricalOptionsChain$(symbol, startDate);
+        type TargetResult =
+          | { i: number; ok: true; res: GetHistoricalOptionsChainResponse }
+          | { i: number; ok: false; err: unknown };
         const targetReqs$ = from(targetDates).pipe(
           mergeMap(
-            (dt, i) =>
+            (dt, i): Observable<TargetResult> =>
               optionsContractService.getHistoricalOptionsChain$(symbol, dt).pipe(
-                map((res) => ({ i, res })),
+                map((res) => ({ i, ok: true as const, res })),
+                // Per-date catch — one bad target degrades to an error row,
+                // it must not sink the run.
+                catchError((err: unknown) => of({ i, ok: false as const, err })),
               ),
             SNAPSHOT_FETCH_CONCURRENCY,
           ),
           toArray(),
-          map((indexed) => {
-            const ordered: GetHistoricalOptionsChainResponse[] = new Array(indexed.length);
-            for (const { i, res } of indexed) ordered[i] = res;
-            return ordered;
-          }),
         );
 
         // Fetch underlying daily bars covering the full date range.
@@ -634,29 +652,42 @@ export const OptionChainPctChangeStore = signalStore(
               const snapshotCache: Record<string, HistoricalOptionContract[]> = {
                 [startDate]: chainContracts(start),
               };
-              targetDates.forEach((dt, i) => {
-                snapshotCache[dt] = chainContracts(targets[i]);
-              });
+              const snapshotSources: Record<string, 'gcs' | 'live'> = {};
+              const snapshotErrors: Record<string, string> = {};
+              if (start.source === 'gcs' || start.source === 'live') {
+                snapshotSources[startDate] = start.source;
+              }
+              for (const r of targets) {
+                const dt = targetDates[r.i];
+                if (r.ok) {
+                  snapshotCache[dt] = chainContracts(r.res);
+                  const s = r.res.source;
+                  if (s === 'gcs' || s === 'live') snapshotSources[dt] = s;
+                } else {
+                  snapshotErrors[dt] = describeSnapshotError(r.err, symbol);
+                }
+              }
               // Closest prior bar close for each requested date.
               const underlyingPrices = closestPriorCloses(bars, [startDate, ...targetDates]);
-              return { snapshotCache, underlyingPrices };
+              return { snapshotCache, snapshotSources, snapshotErrors, underlyingPrices };
             }),
           )
           .subscribe({
-            next: ({ snapshotCache, underlyingPrices }) => {
+            next: ({ snapshotCache, snapshotSources, snapshotErrors, underlyingPrices }) => {
               patchState(store, {
                 loading: false,
                 error: null,
                 snapshotCache,
+                snapshotSources,
+                snapshotErrors,
                 underlyingPrices,
               });
               runSub = null;
             },
             error: (err: unknown) => {
-              const msg = err instanceof Error ? err.message : String(err);
               patchState(store, {
                 loading: false,
-                error: `Failed to fetch chain snapshots: ${msg}`,
+                error: `Failed to fetch chain snapshots: ${describeSnapshotError(err, store.symbol())}`,
                 snapshotCache: {},
                 underlyingPrices: {},
                 ...SELECTION_CLEARED,
