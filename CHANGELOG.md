@@ -3,6 +3,8 @@
 ## [2026-09-24]
 
 ### Added
+- [Flex Chart Maintenance] 468-538-546_FE-IMPL-FLEX-CHART: Swing-analysis header Log Y-axis pill wired to the chart config
+- [Flex Chart Maintenance] 468-538-546_DOCS-FLEX-CHART: Code review doc for swing-analysis rollout
 - [Flex Chart Maintenance] 468-538-545_FE-IMPL-FLEX-CHART: Quick-charts panel Log Y-axis pill wired to all three charts
 - [Flex Chart Maintenance] 468-538-545_DOCS-FLEX-CHART: Code review doc for quick-charts rollout
 
