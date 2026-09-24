@@ -13,7 +13,7 @@
  * children), and the stats panel shows a Large / Small / All toggle
  * driven by `statsSets` ([large, small, all]).
  */
-import { ChangeDetectionStrategy, Component, computed, HostBinding, inject, OnDestroy } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, HostBinding, inject, OnDestroy, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
@@ -93,6 +93,16 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
       <p class="subtitle">ZigZag pivot indicator — historical swing magnitude & duration</p>
     </div>
     <div class="header-actions">
+      <button
+        type="button"
+        class="log-pill"
+        data-testid="log-pill"
+        [class.active]="logScale()"
+        [matTooltip]="logScale() ? 'Log Y-axis on' : 'Log Y-axis off'"
+        (click)="toggleLogScale()"
+      >
+        Log Y-axis {{ logScale() ? 'Yes' : 'No' }}
+      </button>
       <button
         mat-icon-button
         data-testid="settings-btn"
@@ -183,6 +193,24 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
     .header-actions {
       display: flex;
       gap: 4px;
+      align-items: center;
+    }
+    .log-pill {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 8px;
+      border: none;
+      background: var(--mat-sys-surface-container-high);
+      color: var(--mat-sys-on-surface-variant);
+      cursor: pointer;
+      transition: background 0.1s, color 0.1s;
+      white-space: nowrap;
+    }
+    .log-pill:hover { background: var(--mat-sys-surface-container-highest); }
+    .log-pill.active {
+      background: var(--mat-sys-primary-container);
+      color: var(--mat-sys-on-primary-container);
     }
     .swing-analysis-header .subtitle {
       margin: 0 0 16px;
@@ -264,6 +292,13 @@ export class SwingAnalysisPageComponent implements OnDestroy {
     };
   });
 
+  /** Page-level log-scale state — single chart on this page. */
+  readonly logScale = signal(true);
+
+  toggleLogScale(): void {
+    this.logScale.update(v => !v);
+  }
+
   /** Isolated chart config — one or two ST_ZIGZAG indicators, unique id each. */
   readonly chartConfig = computed<FlexChartConfig>(() => ({
     indicators: this.configs().map((c, i) => buildZigZagIndicator(c, i)),
@@ -271,6 +306,7 @@ export class SwingAnalysisPageComponent implements OnDestroy {
     showZoomToolbar: true,
     interval: ChartIntervalKey.DAILY,
     initialZoomDays: ALL_BARS_MAX,
+    logScale: this.logScale(),
   }));
 
   /** Reset store state on construction to avoid stale data from prior

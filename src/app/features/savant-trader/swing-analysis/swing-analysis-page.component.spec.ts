@@ -61,7 +61,7 @@ import type { ZigZagConfig } from '../../shared/components/flex-chart/indicators
 })
 class MockFlexChartComponent {
   @Input() chartData: { symbol: string; interval: BarsInterval; bars: PriceBar[] } | null = null;
-  @Input() config: { indicators: { type: StIndicator; params: Record<string, number | string | boolean> }[] } | undefined;
+  @Input() config: { indicators: { type: StIndicator; params: Record<string, number | string | boolean> }[]; logScale?: boolean } | undefined;
   @Input() height = '400px';
 }
 
@@ -241,6 +241,26 @@ describe('SwingAnalysisPageComponent', () => {
     expect(store.symbol()).toBe('QQQ');
     expect(store.bars().length).toBeGreaterThan(0);
     expect(store.stats()[0]).not.toBeNull();
+  });
+
+  it('defaults the chart to log scale and flips it via the Log Y-axis pill', async () => {
+    const { fixture } = await setupPage();
+    fixture.detectChanges();
+    const chart = fixture.debugElement.query(By.directive(MockFlexChartComponent)).componentInstance;
+    expect(chart.config?.logScale).toBe(true);
+
+    const btn = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('[data-testid="log-pill"]')!;
+    expect(btn.textContent).toContain('Yes');
+    btn.click();
+    fixture.detectChanges();
+
+    expect(chart.config?.logScale).toBe(false);
+    expect(btn.textContent).toContain('No');
+
+    btn.click();
+    fixture.detectChanges();
+    expect(chart.config?.logScale).toBe(true);
+    expect(btn.textContent).toContain('Yes');
   });
 
   it('enters fullscreen on init and restores the app header on destroy', async () => {
