@@ -26,13 +26,14 @@ import type {
 } from '@options-contract/contracts';
 import type { OhlcBar } from '../../../../core/models/market-data.types';
 import {
+  invalidIsoDateMessage,
+  isValidIsoDate,
   previousWeekday,
   resolveSession$,
   resolveSessionDate,
+  SessionFetchError,
 } from './utils/session-resolution.utils';
 import { chainContracts } from '../../utils/contract-observation.utils';
-
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Days of bar history fetched before resolvedDate so both closes resolve. */
 const BAR_LOOKBACK_DAYS = 14;
@@ -172,6 +173,13 @@ export const OptionChainStore = signalStore(
         return err instanceof Error ? err.message : String(err);
       }
 
+      /** Error label naming the date whose fetch actually failed —
+       *  SessionFetchError carries it; fall back to the walk's start. */
+      function fetchErrMsg(err: unknown, fallbackDate: string): string {
+        const date = err instanceof SessionFetchError ? err.date : fallbackDate;
+        return `${date}: ${errMsg(err)}`;
+      }
+
       function fetchUnderlyingBars(resolvedDate: string): void {
         patchState(store, { underlyingLoading: true });
         barsSub = barReadService
@@ -198,7 +206,7 @@ export const OptionChainStore = signalStore(
             }),
           error: (err) =>
             patchState(store, {
-              priorError: `${start}: ${errMsg(err)}`,
+              priorError: fetchErrMsg(err, start),
             }),
         });
       }
@@ -216,8 +224,8 @@ export const OptionChainStore = signalStore(
         }
 
         const manual = store.dateInput();
-        if (manual && (!DATE_RE.test(manual) || isNaN(Date.parse(manual)))) {
-          patchState(store, { error: `Invalid date '${manual}' — use YYYY-MM-DD` });
+        if (manual && !isValidIsoDate(manual)) {
+          patchState(store, { error: invalidIsoDateMessage(manual) });
           return;
         }
 
@@ -258,7 +266,7 @@ export const OptionChainStore = signalStore(
           error: (err) =>
             patchState(store, {
               loading: false,
-              error: `${startDate}: ${errMsg(err)}`,
+              error: fetchErrMsg(err, startDate),
             }),
         });
       }

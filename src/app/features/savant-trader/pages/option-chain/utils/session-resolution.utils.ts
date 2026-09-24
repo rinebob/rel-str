@@ -9,7 +9,7 @@
  * MAX_WALK_BACK_DAYS calendar days — holidays are handled implicitly by the
  * fetch loop (an empty snapshot just keeps the walk going).
  */
-import { Observable, concatMap, defaultIfEmpty, defer, filter, from, map, take } from 'rxjs';
+import { Observable, catchError, concatMap, defaultIfEmpty, defer, filter, from, map, take, throwError } from 'rxjs';
 
 import { getPtDayOfWeek, ptDateString } from '../../../utils/utils';
 
@@ -88,6 +88,39 @@ export interface ResolvedSession<T> {
   data: T;
 }
 
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * YYYY-MM-DD shape AND a real calendar date — Date.parse alone normalizes
+ * impossible dates ('2026-02-31' → Mar 3), so the parsed parts must
+ * round-trip. Shared by the page's inline validation and the store's
+ * loadChain guard.
+ */
+export function isValidIsoDate(v: string): boolean {
+  if (!ISO_DATE_RE.test(v)) return false;
+  const [y, m, d] = v.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
+}
+
+/** One message for both validation sites (page inline + store guard). */
+export function invalidIsoDateMessage(v: string): string {
+  return `Invalid date '${v}' — use YYYY-MM-DD`;
+}
+
+/** Fetch failure carrying the candidate date that actually errored —
+ *  resolveSession$ wraps fetch errors so callers can name the failed date
+ *  rather than the walk's start date. */
+export class SessionFetchError extends Error {
+  constructor(
+    readonly date: string,
+    override readonly cause: unknown,
+  ) {
+    super(cause instanceof Error ? cause.message : String(cause));
+    this.name = 'SessionFetchError';
+  }
+}
+
 /**
  * Walk back from startDate calling fetch$ per candidate until a result
  * satisfies hasData; emits the winning {date, data} or null when the walk
@@ -100,7 +133,12 @@ export function resolveSession$<T>(
   hasData: (data: T) => boolean,
 ): Observable<ResolvedSession<T> | null> {
   return defer(() => from(walkBackDates(startDate))).pipe(
-    concatMap((date) => fetch$(date).pipe(map((data) => ({ date, data })))),
+    concatMap((date) =>
+      fetch$(date).pipe(
+        map((data) => ({ date, data })),
+        catchError((err) => throwError(() => new SessionFetchError(date, err))),
+      ),
+    ),
     filter(({ data }) => hasData(data)),
     take(1),
     defaultIfEmpty(null as ResolvedSession<T> | null),

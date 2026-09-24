@@ -1,10 +1,13 @@
 import { firstValueFrom, of, throwError } from 'rxjs';
 
 import {
+  invalidIsoDateMessage,
+  isValidIsoDate,
   MAX_WALK_BACK_DAYS,
   previousWeekday,
   resolveSession$,
   resolveSessionDate,
+  SessionFetchError,
   walkBackDates,
 } from './session-resolution.utils';
 
@@ -178,5 +181,49 @@ describe('resolveSession$', () => {
       firstValueFrom(resolveSession$('2026-09-22', fetch$, () => true)),
     ).rejects.toThrow('boom');
     expect(fetch$).toHaveBeenCalledTimes(1);
+  });
+
+  it('wraps fetch errors in SessionFetchError carrying the failed date', async () => {
+    const cause = new Error('boom');
+    // First candidate ok-but-empty, second fails → the wrap names the
+    // FAILED date, not the walk's start date.
+    const fetch$ = jest.fn((date: string) =>
+      date === '2026-09-22' ? of([]) : throwError(() => cause),
+    );
+    const err = await firstValueFrom(
+      resolveSession$('2026-09-22', fetch$, (c: unknown[]) => c.length > 0),
+    ).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(SessionFetchError);
+    expect((err as SessionFetchError).date).toBe('2026-09-21');
+    expect((err as SessionFetchError).cause).toBe(cause);
+    expect((err as SessionFetchError).message).toBe('boom');
+  });
+});
+
+describe('isValidIsoDate', () => {
+  it('accepts real calendar dates', () => {
+    expect(isValidIsoDate('2026-09-22')).toBe(true);
+    expect(isValidIsoDate('2026-02-28')).toBe(true);
+    expect(isValidIsoDate('2028-02-29')).toBe(true); // leap year
+  });
+
+  it('rejects impossible dates Date.parse would normalize', () => {
+    expect(isValidIsoDate('2026-02-31')).toBe(false); // → Mar 3
+    expect(isValidIsoDate('2026-02-29')).toBe(false); // 2026 not a leap year
+    expect(isValidIsoDate('2026-13-01')).toBe(false);
+    expect(isValidIsoDate('2026-00-10')).toBe(false);
+    expect(isValidIsoDate('2026-04-31')).toBe(false);
+  });
+
+  it('rejects non-ISO shapes', () => {
+    expect(isValidIsoDate('9/22/2026')).toBe(false);
+    expect(isValidIsoDate('2026-9-2')).toBe(false);
+    expect(isValidIsoDate('2026-09-22T00:00:00Z')).toBe(false);
+    expect(isValidIsoDate('')).toBe(false);
+  });
+
+  it('invalidIsoDateMessage names the bad value', () => {
+    expect(invalidIsoDateMessage('2026-02-31'))
+      .toBe("Invalid date '2026-02-31' — use YYYY-MM-DD");
   });
 });
