@@ -53,6 +53,27 @@
     background: var(--mat-sys-tertiary-container);
     color: var(--mat-sys-on-tertiary-container);
   }
+
+  .qcp-log-pill {
+    margin-left: auto;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 8px;
+    border: none;
+    background: var(--mat-sys-surface-container-high);
+    color: var(--mat-sys-on-surface-variant);
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+    white-space: nowrap;
+
+    &:hover { background: var(--mat-sys-surface-container-highest); }
+
+    &.active {
+      background: var(--mat-sys-primary-container);
+      color: var(--mat-sys-on-primary-container);
+    }
+  }
 }
 
 .qcp-placeholder {

@@ -67,6 +67,11 @@ export class QuickChartsComponent {
     );
   });
 
+  /** Whether each chart in this panel should render its Y-axis in log scale.
+   *  Owned by the page-level wrapper so all three charts stay in sync.
+   */
+  readonly logScale = input<boolean>(true);
+
   /** Shared crosshair date and price — whichever chart is hovered broadcasts here; all charts receive it. */
   readonly sharedCrosshairDate = signal<Date | null>(null);
   readonly sharedCrosshairPrice = signal<number | null>(null);
@@ -90,6 +95,7 @@ export class QuickChartsComponent {
       enableScrollbar: false,
       initialZoomDays: QUICK_BARS,
       interval,
+      logScale: this.logScale(),
     };
   }
 

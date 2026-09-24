@@ -1,16 +1,20 @@
 <div class="quick-charts-panel">
   <div class="qcp-body">
     @if (symbol()) {
-      @if (profile()) {
-        <div class="qcp-meta">
+      <div class="qcp-meta">
+        @if (profile()) {
           <span class="qcp-symbol">{{ symbol() }}</span>
           <span class="qcp-name">{{ profile()?.name }}</span>
           <span class="qcp-sector">{{ profile()?.sector }}</span>
           <span class="qcp-industry">{{ profile()?.industry }}</span>
           <span class="qpc-mktcap">{{ marketCapLabel() }}</span>
-        </div>
-      }
-      <app-quick-charts [symbol]="symbol()"></app-quick-charts>
+        }
+        <button type="button" class="qcp-log-pill" [class.active]="logScale()" (click)="toggleLogScale()"
+          [title]="logScale() ? 'Log Y-axis on' : 'Log Y-axis off'">
+          Log Y-axis {{ logScale() ? 'Yes' : 'No' }}
+        </button>
+      </div>
+      <app-quick-charts [symbol]="symbol()" [logScale]="logScale()"></app-quick-charts>
     } @else {
       <div class="qcp-placeholder">
         <mat-icon>bar_chart</mat-icon>
