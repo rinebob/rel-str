@@ -34,6 +34,8 @@
 - [Watchlist management] 465-492-465_BE-IMPL-WATCHLIST: New-symbols inbox — backend writer targets NEW (checkpoint)
 - [Watchlist management] 465-492-465_FE-IMPL-WATCHLIST: NEW exclusive system list — seed, probe, exclusive-key sets (checkpoint)
 - [Watchlist management] 465-492-465_DOCS-WATCHLIST: CONTEXT glossary — registry defs, Monitor, New symbols inbox (checkpoint)
+- [Watchlist management] 465-492-526_FE-IMPL-WATCHLIST: User-list CRUD API — create/rename/delete/reorder with system-key guards and ghost-resurrection-safe writes
+- [Watchlist management] 465-492-526_DOCS-WATCHLIST: Code review doc for user-list CRUD (PASS, 2nd pass)
 - [Option Chain Pct Change Grid] 326-518_DOCS-OPTIONS: SA corpus handoff spec — swing platform, enabled-options corpus, endpoint contract (no fetch-on-miss)
 - [Option Chain Pct Change Grid] 326-519_BE-IMPL-OPTIONS: OPTIONS_NOT_ENABLED maps to callable failed-precondition; partner code embedded in error message
 - [Option Chain Pct Change Grid] 326-516_FE-IMPL-OPTIONS: Corpus-chain error handling (unsupported-symbol message), per-date resilience with retry rows, live-fetch source badge (tasks 516/517/520)
