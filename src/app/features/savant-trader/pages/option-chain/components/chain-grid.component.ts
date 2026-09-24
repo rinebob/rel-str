@@ -11,11 +11,11 @@
  * a cell reveals a corner icon; hovering the icon opens the contract
  * popup anchored to the cell element.
  */
-import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, effect, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, effect, inject, input, output, signal } from '@angular/core';
 import { Overlay, OverlayModule, type ConnectedPosition } from '@angular/cdk/overlay';
 import { MatIconModule } from '@angular/material/icon';
 
-import type { ChainCell, ChainGridModel } from '../utils/chain.utils';
+import { nearestStrikeIndex, type ChainCell, type ChainGridModel } from '../utils/chain.utils';
 import { OptionType } from '@options-contract/contracts';
 import { expirationMeta, formatAtmDiff, MIN_CELL_PRICE, percentile } from '../../../utils/option-grid.utils';
 import { pctChangeToCellColors } from '../../../utils/color-mapping.utils';
@@ -130,30 +130,71 @@ export class ChainGridComponent {
     afterRenderEffect(() => {
       const m = this.model();
       const session = this.sessionDate();
-      if (m.atmStrike == null) {
+      if (!m.rows.length) {
         this.lastScrolledKey = null;
         return;
       }
       const key = `${session}|${m.atmStrike}|${m.rows[0]?.strike}|${m.rows.length}`;
       if (key === this.lastScrolledKey) return;
       this.lastScrolledKey = key;
-      const row = this.host.nativeElement.querySelector<HTMLElement>(
-        `[data-strike="${m.atmStrike}"]`,
-      );
-      row?.scrollIntoView?.({ block: 'center' });
+      // Defer to next frame — afterRenderEffect can run before the pane
+      // has its final layout (rows measure ~0 height → wrong center).
+      requestAnimationFrame(() => {
+        if (!this.model().rows.length) return;
+        this.scrollToStrike(this.centerStrike());
+        // The page re-anchors the sync baselines on this — an auto-
+        // centered pane IS the aligned state, so both panes re-center.
+        this.centered.emit();
+      });
     });
   }
 
   private lastScrolledKey: string | null = null;
 
-  /** Scroll the ATM strike row to the middle of the viewport — the page's
-   *  re-sync button calls this on both panes. */
+  /** Emitted after the pane auto-centers on a new model identity —
+   *  the page uses it to re-anchor BOTH panes' sync baselines (a pane
+   *  centering itself is a new aligned-state producer, like resync). */
+  readonly centered = output<void>();
+
+  /** The strike to center on — ATM when a spot is available, else the
+   *  middle row so a missing underlying close never leaves the pane
+   *  parked at the top of the list. */
+  private centerStrike(): number {
+    const m = this.model();
+    return m.atmStrike ?? m.rows[Math.floor(m.rows.length / 2)]?.strike ?? 0;
+  }
+
+  /** The pane's scroll container — null while the no-data branch renders. */
+  scrollerEl(): HTMLElement | null {
+    return this.host.nativeElement.querySelector<HTMLElement>('.grid-scroll');
+  }
+
+  /** Center the row whose strike is nearest `strike` — writes scrollTop
+   *  directly (scrollIntoView would also scroll ancestor containers).
+   *  The target ROW's own rect locates it: rect.top − scroller.top +
+   *  scrollTop is its offset within the scroll content regardless of
+   *  the header, sticky cells, or offsetParent subtleties. */
+  scrollToStrike(strike: number): void {
+    const scroller = this.scrollerEl();
+    const rows = this.model().rows;
+    if (!scroller || !rows.length) return;
+    const row = scroller.querySelector<HTMLElement>(
+      `[data-strike="${rows[nearestStrikeIndex(rows, strike)].strike}"]`,
+    );
+    if (!row) return;
+    const rowTop =
+      row.getBoundingClientRect().top -
+      scroller.getBoundingClientRect().top +
+      scroller.scrollTop;
+    scroller.scrollTop =
+      rowTop + row.getBoundingClientRect().height / 2 - scroller.clientHeight / 2;
+  }
+
+  /** Center the ATM strike row (or the middle row when no ATM exists) —
+   *  the re-sync anchor and initial centering. */
   centerAtm(): void {
-    const atm = this.model().atmStrike;
-    if (atm == null) return;
-    this.host.nativeElement
-      .querySelector<HTMLElement>(`[data-strike="${atm}"]`)
-      ?.scrollIntoView?.({ block: 'center' });
+    if (!this.model().rows.length) return;
+    this.scrollToStrike(this.centerStrike());
   }
 
   /** Right of the cell, then left, then below, then above — first fit

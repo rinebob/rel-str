@@ -84,8 +84,33 @@ export interface ChainGridFilter {
   deltaGte?: number | null;
   /** |delta| upper bound — contracts above are excluded. */
   deltaLte?: number | null;
+  /** Strike lower bound — rows below are excluded. */
+  strikeGte?: number | null;
+  /** Strike upper bound — rows above are excluded. */
+  strikeLte?: number | null;
   /** Expiration columns to hide entirely (the Columns picker writes these). */
   excludeExpirations?: ReadonlySet<string> | null;
+}
+
+/** Index of the row whose strike is nearest `target` — the semantic
+ *  anchor for cross-pane scroll sync. Rows are sorted (either
+ *  orientation); a linear scan over ~100 rows is cheap and orientation-
+ *  agnostic, and nearest-match keeps sync working when the panes' strike
+ *  sets differ. */
+export function nearestStrikeIndex(
+  rows: readonly { strike: number }[],
+  target: number,
+): number {
+  let best = 0;
+  let bestD = Infinity;
+  for (let i = 0; i < rows.length; i++) {
+    const d = Math.abs(rows[i].strike - target);
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  }
+  return best;
 }
 
 export interface BuildChainGridOptions {
@@ -129,6 +154,8 @@ export function buildChainGrid(
     if (normalizeOptionType(c.type) !== side || !c.contractID || !c.expiration) continue;
     const strike = parseNumOrNull(c.strike);
     if (strike === null) continue;
+    if (filter?.strikeGte != null && strike < filter.strikeGte) continue;
+    if (filter?.strikeLte != null && strike > filter.strikeLte) continue;
 
     const mark = parseNumOrNull(c.mark);
     const priorMark = parseNumOrNull(priorById.get(c.contractID)?.mark);
