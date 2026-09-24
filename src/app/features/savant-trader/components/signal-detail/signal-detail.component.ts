@@ -235,8 +235,10 @@ export class SignalDetailComponent {
   /** True while `manualSymbol` is set — drives `@if (showChart())` in the template. */
   showChart = computed(() => !!this.manualSymbol());
 
-  /** Price-axis scale mode shared across all charts in this view. */
-  logScale = signal<boolean>(false);
+  /** Price-axis scale mode shared across all charts in this view.
+   *  Defaults to log — the shared chart default; the toolbar pill
+   *  toggles it for the session. */
+  logScale = signal<boolean>(true);
 
   /** Whether the Syncfusion zoom/pan toolbar is visible on all charts in this view. */
   showZoomToolbar = signal(false);

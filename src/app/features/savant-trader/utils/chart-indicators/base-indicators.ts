@@ -77,7 +77,9 @@ export function buildConfigForId(id: string): IndicatorConfig | undefined {
   return cfg ? { ...cfg } : undefined;
 }
 
-/** Add a zone-window indicator, returning a new indicator list. */
+/** Add a zone-window indicator, returning a new indicator list.
+ *  Upserts by id — a same-id placeholder selected in the indicator menu
+ *  is replaced rather than duplicated (duplicate ids break @for track). */
 export function addHtfZoneWindow(
   indicators: IndicatorConfig[],
   option: IndicatorOption,
@@ -87,10 +89,10 @@ export function addHtfZoneWindow(
   const cfg = buildDefaultConfig(option);
   cfg.pane = option.defaultPane ?? 'lower-3';
   cfg.data = data;
-  return [...indicators, cfg];
+  return [...indicators.filter(i => i.id !== cfg.id), cfg];
 }
 
-/** Add signal dots, returning a new indicator list. */
+/** Add signal dots, returning a new indicator list. Upserts by id. */
 export function addSignalDots(
   indicators: IndicatorConfig[],
   data: ChartScatterPoint[],
@@ -99,10 +101,10 @@ export function addSignalDots(
   const cfg = buildDefaultConfig(ST_SIGNAL_DOTS_INDICATOR);
   cfg.pane = 'lower-1';
   cfg.data = data;
-  return [...indicators, cfg];
+  return [...indicators.filter(i => i.id !== cfg.id), cfg];
 }
 
-/** Add ST Trend Rider dots, returning a new indicator list. */
+/** Add ST Trend Rider dots, returning a new indicator list. Upserts by id. */
 export function addUptickDots(
   indicators: IndicatorConfig[],
   option: IndicatorOption,
@@ -112,7 +114,7 @@ export function addUptickDots(
   const cfg = buildDefaultConfig(option);
   cfg.pane = 'overlay';
   cfg.data = data;
-  return [...indicators, cfg];
+  return [...indicators.filter(i => i.id !== cfg.id), cfg];
 }
 
 /** Bundle of optional Savant Trader extras to attach to a base indicator list. */
