@@ -11,6 +11,8 @@ import { PctChangeFilter } from '@shared/pct-change-config-contracts';
 
 export { PctChangeFilter } from '@shared/pct-change-config-contracts';
 export { chainContracts } from '../../../utils/contract-observation.utils';
+import { parseNumOrNull } from '../../../utils/contract-observation.utils';
+import { MIN_CELL_PRICE, percentile } from '../../../utils/option-grid.utils';
 
 import { daysBetween } from '../../../../shared/utils/date.util';
 
@@ -48,7 +50,7 @@ export const CONTRACT_CHART_PANE_CLASS = 'contract-chart-pane';
 /** Minimum contract price for a cell to count toward the color scale and
  *  top-5 highlights — penny-priced contracts produce meaningless pct
  *  changes that wreck both. */
-export const MIN_CELL_PRICE = 0.02;
+export { MIN_CELL_PRICE } from '../../../utils/option-grid.utils';
 
 /** Cap on concurrent chain-snapshot fetches — every call is a live Alpha
  *  Vantage fetch upstream; the partner rejects concurrent bursts with
@@ -124,11 +126,11 @@ export function extractContractSeries(
   return points;
 }
 
-/** Parse a string market-data value to a finite number, or return undefined. */
+/** Parse a string market-data value to a finite number, or return
+ *  undefined. Same ''-rejecting parse as parseNumOrNull, undefined-flavored
+ *  for optional-field call sites. */
 export function toNum(v: string | undefined): number | undefined {
-  if (v == null || v === '') return undefined;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : undefined;
+  return parseNumOrNull(v) ?? undefined;
 }
 
 /**
@@ -158,16 +160,7 @@ function normalizeType(v: string | OptionType | undefined): OptionType | undefin
   return normalizeOptionType(v) ?? undefined;
 }
 
-/** Compute the percentile of a sorted numeric array (linear interpolation). */
-function percentile(sorted: number[], p: number): number {
-  if (sorted.length === 0) return 0;
-  if (sorted.length === 1) return sorted[0];
-  const idx = (p / 100) * (sorted.length - 1);
-  const lo = Math.floor(idx);
-  const hi = Math.ceil(idx);
-  if (lo === hi) return sorted[lo];
-  return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
-}
+
 
 /**
  * Compute the pct change grid from a start and target chain snapshot.

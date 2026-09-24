@@ -15,9 +15,9 @@ import { MatIconModule } from '@angular/material/icon';
 
 import type { PctChangeGrid, PctChangeCell } from '../utils/pct-change.utils';
 import { cellKey, CONTRACT_CHART_PANE_CLASS, MIN_CELL_PRICE } from '../utils/pct-change.utils';
-import { pctChangeToCellColors, DEFAULT_CELL_TEXT_MODE, type CellTextMode } from '../utils/color-mapping.utils';
-import { DAYS, daysBetween } from '../../../../shared/utils/date.util';
-import { formatAtmDiff as formatAtmDiffText } from '../../../utils/option-grid.utils';
+import { DelegatedCellHover } from '../../../utils/delegated-cell-hover';
+import { pctChangeToCellColors, DEFAULT_CELL_TEXT_MODE, type CellTextMode } from '../../../utils/color-mapping.utils';
+import { expirationMeta, formatAtmDiff as formatAtmDiffText, formatSignedPct } from '../../../utils/option-grid.utils';
 import { ContractMiniChartComponent } from './contract-mini-chart.component';
 import { OptionChainPctChangeStore, sameSelectedCell } from '../option-chain-pct-change.store';
 import type { SeriesScope } from '../option-chain-pct-change.store';
@@ -50,7 +50,8 @@ interface GridRow {
 /** A precomputed expiration column header. */
 interface ExpHeader {
   date: string;
-  daysText: string;
+  /** Days from the start date to expiration — null when no start date. */
+  daysText: string | null;
   /** 3-letter day of week, e.g. 'Fri'. */
   dowText: string;
 }
@@ -400,8 +401,7 @@ export class PctChangeGridComponent implements OnDestroy {
   readonly expHeaders = computed<ExpHeader[]>(() =>
     this.grid().expirations.map((date) => ({
       date,
-      daysText: `${this.daysFromStart(date)}d`,
-      dowText: DAYS[new Date(date + 'T00:00:00Z').getUTCDay()],
+      ...expirationMeta(date, this.grid().startDate),
     })),
   );
 
@@ -464,11 +464,6 @@ export class PctChangeGridComponent implements OnDestroy {
     return ((g.targetUnderlyingPrice - g.startUnderlyingPrice) / g.startUnderlyingPrice) * 100;
   });
 
-  /** Days from the start date to the given expiration. */
-  daysFromStart(expiration: string): number {
-    return daysBetween(this.grid().startDate, expiration);
-  }
-
   /** Amount difference from ATM strike. */
   atmDiff(strike: number): number | null {
     const atm = this.grid().atmStrike;
@@ -493,9 +488,39 @@ export class PctChangeGridComponent implements OnDestroy {
    *  so it survives icon teardown when the pointer moves into the pane. */
   readonly activeOrigin = signal<HTMLElement | null>(null);
   readonly overlayCell = signal<PctChangeCell | null>(null);
+
+  /** Shared delegated-hover mechanics (icon reveal, intra-cell
+   *  suppression, icon enter/leave) — same controller the chain grid
+   *  uses; this grid's icon enter/leave preview/schedule the shared
+   *  contract-chart overlay. */
+  private readonly hover = new DelegatedCellHover<PctChangeCell>({
+    cellIdAttr: 'data-cell-key',
+    iconSelector: '.chart-icon-btn',
+    cellFor: (key) => this.grid().cells.get(key) ?? null,
+    onIconEnter: (cell, cellEl) => {
+      this.cancelPendingClear();
+      // No-ops while pinned: the pinned cell keeps its anchor.
+      if (this.store.isContractPinned()) return;
+      // Skip re-patching when this cell is already the selection — the
+      // bubbling mouseover refires on every internal move within the icon.
+      if (sameSelectedCell(this.store.selectedCell(), cell, this.grid().targetDate, this.seriesScope() ?? undefined)) {
+        return;
+      }
+      this.activeOrigin.set(cellEl);
+      this.overlayCell.set(cell);
+      this.store.previewContract(cell, this.grid().targetDate, this.seriesScope() ?? undefined);
+    },
+    onIconLeave: (to) => {
+      if (this.store.isContractPinned()) return;
+      // Pointer moved straight into this grid's chart pane — keep it open.
+      if (to?.closest(`.${this.CHART_PANE_CLASS}`)) return;
+      this.scheduleClear();
+    },
+  });
+
   /** data-cell-key of the cell currently showing the chart icon, or null.
    *  At most one icon exists in the grid at a time. */
-  readonly iconCellKey = signal<string | null>(null);
+  readonly iconCellKey = this.hover.iconCellId;
 
   /** Cell tooltips are suppressed while a contract chart is active —
    *  the browser title popup would fight the overlay. */
@@ -532,40 +557,18 @@ export class PctChangeGridComponent implements OnDestroy {
       this.grid();
       this.activeOrigin.set(null);
       this.overlayCell.set(null);
-      this.iconCellKey.set(null);
+      this.hover.reset();
     });
   }
 
   /**
    * Delegated pointer-enter on the grid body. Entering a data cell reveals
-   * its chart icon; entering the icon anchors the shared overlay to the
-   * cell element and previews the contract (no-ops while pinned: the
-   * pinned cell keeps its anchor). Cancels any pending clear so a
+   * its chart icon; entering the icon previews the contract (see the
+   * hover config — no-ops while pinned). Cancels any pending clear so a
    * leave→enter sweep can't wipe the new selection.
    */
   onCellOver(event: MouseEvent): void {
-    const target = event.target as HTMLElement | null;
-    const cellEl = target?.closest<HTMLElement>('.data-cell');
-    const key = cellEl?.getAttribute('data-cell-key');
-    if (!target || !cellEl || !key) return;
-
-    if (target.closest('.chart-icon-btn')) {
-      const cell = this.grid().cells.get(key);
-      if (!cell) return;
-      this.cancelPendingClear();
-      if (this.store.isContractPinned()) return;
-      // Skip re-patching when this cell is already the selection — the
-      // bubbling mouseover refires on every internal move within the icon.
-      if (sameSelectedCell(this.store.selectedCell(), cell, this.grid().targetDate, this.seriesScope() ?? undefined)) {
-        return;
-      }
-      this.activeOrigin.set(cellEl);
-      this.overlayCell.set(cell);
-      this.store.previewContract(cell, this.grid().targetDate, this.seriesScope() ?? undefined);
-      return;
-    }
-
-    if (this.iconCellKey() !== key) this.iconCellKey.set(key);
+    this.hover.over(event);
   }
 
   /**
@@ -576,26 +579,7 @@ export class PctChangeGridComponent implements OnDestroy {
    * icon and pane.
    */
   onCellOut(event: MouseEvent): void {
-    const from = event.target as HTMLElement | null;
-    const to = event.relatedTarget as HTMLElement | null;
-    const fromCell = from?.closest('.data-cell') ?? null;
-    const sameCell = fromCell != null && to?.closest('.data-cell') === fromCell;
-
-    if (
-      fromCell &&
-      !sameCell &&
-      this.iconCellKey() === fromCell.getAttribute('data-cell-key')
-    ) {
-      this.iconCellKey.set(null);
-    }
-
-    const leftIcon =
-      from?.closest('.chart-icon-btn') != null &&
-      to?.closest('.chart-icon-btn') == null;
-    if (!leftIcon) return;
-    if (this.store.isContractPinned()) return;
-    if (to?.closest(`.${this.CHART_PANE_CLASS}`)) return;
-    this.scheduleClear();
+    this.hover.out(event);
   }
 
   /**
@@ -625,7 +609,7 @@ export class PctChangeGridComponent implements OnDestroy {
       // across all grids. stopPropagation keeps the page's outside-click
       // dismissal from clearing the highlight on this same click.
       event.stopPropagation();
-      this.iconCellKey.set(key);
+      this.hover.revealIcon(key);
       const cell = this.grid().cells.get(key);
       if (cell) this.store.highlightContract(cell);
     }
@@ -673,9 +657,7 @@ export class PctChangeGridComponent implements OnDestroy {
 
   /** Format a percentage for display (handles negative zero). */
   formatPct(pct: number): string {
-    const v = Math.abs(pct) < 0.05 ? 0 : pct;
-    const sign = v > 0 ? '+' : '';
-    return `${sign}${v.toFixed(1)}%`;
+    return formatSignedPct(pct, 1);
   }
 
   /** Format a price for display (handles negative zero). */

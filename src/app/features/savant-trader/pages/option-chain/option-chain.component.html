@@ -20,6 +20,77 @@
         <button type="button" class="filter-pill" data-testid="side-puts" [class.active]="layout() === 'put'" (click)="layout.set('put')">Puts</button>
         <button type="button" class="filter-pill" data-testid="side-both" [class.active]="layout() === 'both'" (click)="layout.set('both')">Both</button>
       </div>
+      <div class="delta-filter" title="Filter cells by absolute delta — empty = unbounded">
+        <span class="delta-label">|Δ|</span>
+        <input
+          type="number" step="0.05" min="0" max="1" placeholder="Min"
+          class="delta-input" data-testid="delta-gte"
+          [value]="deltaGte() ?? ''" (input)="onDeltaBound('deltaGte', $event)"
+        />
+        <span>–</span>
+        <input
+          type="number" step="0.05" min="0" max="1" placeholder="Max"
+          class="delta-input" data-testid="delta-lte"
+          [value]="deltaLte() ?? ''" (input)="onDeltaBound('deltaLte', $event)"
+        />
+      </div>
+      <div class="filter-pill-group" role="group" aria-label="Shading">
+        <button
+          type="button" class="filter-pill" data-testid="shade-delta"
+          [class.active]="deltaShading()"
+          title="Shade cells in odd |delta| tenths (0.1x, 0.3x, 0.5x, 0.7x, 0.9x)"
+          (click)="deltaShading.set(!deltaShading())"
+        >Δ shade</button>
+        <button
+          type="button" class="filter-pill" data-testid="shade-time"
+          [class.active]="timeShading()"
+          title="Month-boundary separators and alternating-month tint"
+          (click)="timeShading.set(!timeShading())"
+        >Time shade</button>
+        <button
+          type="button" class="filter-pill" data-testid="shade-heatmap"
+          [class.active]="heatmap()"
+          title="Chg-vs-prior gradient + top-5-per-expiration gainer rings"
+          (click)="heatmap.set(!heatmap())"
+        >Heat</button>
+      </div>
+      <button
+        type="button" class="filter-pill" data-testid="resync"
+        title="Re-center both grids on their ATM strike"
+        (click)="resync()"
+      >Re-sync</button>
+      <app-column-picker
+        [exps]="allExpirations()"
+        [session]="store.resolvedDate()"
+        [(hidden)]="hiddenExpirations"
+      />
+      <div class="filter-pill-group" role="group" aria-label="Strike order">
+        <button
+          type="button" class="filter-pill" data-testid="calls-orientation"
+          [title]="callOrientation() === 'desc' ? 'Call strikes: high to low — click to flip' : 'Call strikes: low to high — click to flip'"
+          (click)="toggleOrientation('call')"
+        >Calls {{ callOrientation() === 'desc' ? '▼' : '▲' }}</button>
+        <button
+          type="button" class="filter-pill" data-testid="puts-orientation"
+          [title]="putOrientation() === 'desc' ? 'Put strikes: high to low — click to flip' : 'Put strikes: low to high — click to flip'"
+          (click)="toggleOrientation('put')"
+        >Puts {{ putOrientation() === 'desc' ? '▼' : '▲' }}</button>
+      </div>
+      @if (store.sessionClose() != null) {
+        <span
+          class="underlying-close"
+          data-testid="underlying-close"
+          [class.close-up]="store.priorClose() != null && store.sessionClose()! > store.priorClose()!"
+          [class.close-down]="store.priorClose() != null && store.sessionClose()! < store.priorClose()!"
+          title="Underlying close for the displayed session (prev session in parens)"
+        >
+          {{ store.sessionClose() | number:'1.2-2' }}
+          @if (store.priorClose() != null) {
+            <span class="underlying-pct">{{ underlyingPct() }}</span>
+            <span class="underlying-prior">({{ store.priorClose() | number:'1.2-2' }})</span>
+          }
+        </span>
+      }
       @if (store.resolvedDate()) {
         <span class="session-date">{{ store.resolvedDate() }}</span>
       }
@@ -41,30 +112,26 @@
           <div class="side-pane">
             <div class="side-head">
               <h2 class="side-title">Calls</h2>
-              <button
-                type="button"
-                class="orientation-btn"
-                data-testid="calls-orientation"
-                [title]="callOrientation() === 'desc' ? 'Strikes: high to low — click to flip' : 'Strikes: low to high — click to flip'"
-                (click)="toggleOrientation('call')"
-              >{{ callOrientation() === 'desc' ? '▼' : '▲' }}</button>
+              @if (callsStats(); as s) {
+                <span class="side-stats" data-testid="calls-stats">
+                  @if (s.atm != null) { ATM {{ s.atm }} · }{{ s.lo }}–{{ s.hi }} · {{ s.n }}{{ s.n !== s.total ? ' of ' + s.total : '' }} strikes
+                </span>
+              }
             </div>
-            <app-chain-grid [model]="callsModel()" [side]="OptionType.CALL" [sessionDate]="store.resolvedDate()" />
+            <app-chain-grid [model]="callsModel()" [side]="OptionType.CALL" [sessionDate]="store.resolvedDate()" [deltaShading]="deltaShading()" [timeShading]="timeShading()" [heatmap]="heatmap()" [topDirection]="callsTopDir()" />
           </div>
         }
         @if (layout() !== 'call') {
           <div class="side-pane">
             <div class="side-head">
               <h2 class="side-title">Puts</h2>
-              <button
-                type="button"
-                class="orientation-btn"
-                data-testid="puts-orientation"
-                [title]="putOrientation() === 'desc' ? 'Strikes: high to low — click to flip' : 'Strikes: low to high — click to flip'"
-                (click)="toggleOrientation('put')"
-              >{{ putOrientation() === 'desc' ? '▼' : '▲' }}</button>
+              @if (putsStats(); as s) {
+                <span class="side-stats" data-testid="puts-stats">
+                  @if (s.atm != null) { ATM {{ s.atm }} · }{{ s.lo }}–{{ s.hi }} · {{ s.n }}{{ s.n !== s.total ? ' of ' + s.total : '' }} strikes
+                </span>
+              }
             </div>
-            <app-chain-grid [model]="putsModel()" [side]="OptionType.PUT" [sessionDate]="store.resolvedDate()" />
+            <app-chain-grid [model]="putsModel()" [side]="OptionType.PUT" [sessionDate]="store.resolvedDate()" [deltaShading]="deltaShading()" [timeShading]="timeShading()" [heatmap]="heatmap()" [topDirection]="putsTopDir()" />
           </div>
         }
       </div>

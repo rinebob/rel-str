@@ -56,6 +56,51 @@
         font-weight: 600;
       }
     }
+
+    // Compact |delta| bound inputs — same idiom as the pct-change page's
+    // Delta Range group, sized for the header row.
+    .underlying-close {
+      font-size: 12px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--mat-sys-on-surface);
+
+      &.close-up { color: #0a7c2e; }
+      &.close-down { color: #b00; }
+
+      .underlying-pct {
+        font-weight: 500;
+        font-size: 10px;
+        opacity: 0.8;
+      }
+
+      .underlying-prior {
+        font-weight: 400;
+        font-size: 10px;
+        opacity: 0.65;
+      }
+    }
+
+    .delta-filter {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      color: var(--mat-sys-on-surface-variant);
+
+      .delta-label { font-weight: 600; }
+
+      .delta-input {
+        width: 42px;
+        height: 22px;
+        padding: 0 4px;
+        border: 1px solid var(--mat-sys-outline-variant);
+        border-radius: 4px;
+        background: var(--mat-sys-surface);
+        color: var(--mat-sys-on-surface);
+        font-size: 10px;
+      }
+    }
   }
 
   .page-body {
@@ -95,6 +140,12 @@
       flex: 0 0 auto;
     }
 
+    .side-stats {
+      font-size: 10px;
+      color: var(--mat-sys-on-surface-variant);
+      font-variant-numeric: tabular-nums;
+    }
+
     .side-title {
       margin: 4px 0;
       font-size: 0.85rem;
@@ -102,21 +153,6 @@
       text-transform: uppercase;
       letter-spacing: 0.05em;
       color: #555;
-    }
-
-    .orientation-btn {
-      border: 1px solid var(--mat-sys-outline-variant);
-      border-radius: 4px;
-      background: var(--mat-sys-surface);
-      color: var(--mat-sys-on-surface-variant);
-      font-size: 9px;
-      line-height: 1;
-      padding: 2px 5px;
-      cursor: pointer;
-
-      &:hover {
-        background: var(--mat-sys-surface-container-high);
-      }
     }
 
     app-chain-grid {

@@ -33,7 +33,7 @@ function avContract(over: Partial<HistoricalOptionContract> = {}): HistoricalOpt
     volume: '10',
     open_interest: '5',
     implied_volatility: '9.99512',
-    delta: '0.99617',
+    delta: '0.45',
     gamma: '0.00001',
     theta: '-0.01',
     vega: '0.02',

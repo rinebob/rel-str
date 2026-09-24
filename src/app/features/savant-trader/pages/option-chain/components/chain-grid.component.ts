@@ -6,16 +6,21 @@
  * session, delta, and IV — all strings precomputed by chain.utils.
  *
  * Perf contract mirrors pct-change-grid: delegated mouseover/mouseout on
- * the grid body (no per-cell components or listeners) and OnPush. Hover
- * events carry the cell element so one overlay per grid can anchor to it
- * (popup lands in a later task).
+ * the grid body (no per-cell components or listeners) and OnPush. The
+ * delegated-hover mechanics are shared via DelegatedCellHover — hovering
+ * a cell reveals a corner icon; hovering the icon opens the contract
+ * popup anchored to the cell element.
  */
-import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, inject, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, effect, inject, input, signal } from '@angular/core';
+import { Overlay, OverlayModule, type ConnectedPosition } from '@angular/cdk/overlay';
+import { MatIconModule } from '@angular/material/icon';
 
 import type { ChainCell, ChainGridModel } from '../utils/chain.utils';
 import { OptionType } from '@options-contract/contracts';
-import { DAYS, daysBetween } from '../../../../shared/utils/date.util';
-import { formatAtmDiff } from '../../../utils/option-grid.utils';
+import { expirationMeta, formatAtmDiff, MIN_CELL_PRICE, percentile } from '../../../utils/option-grid.utils';
+import { pctChangeToCellColors } from '../../../utils/color-mapping.utils';
+import { DelegatedCellHover } from '../../../utils/delegated-cell-hover';
+import { ChainCellPopupComponent } from './chain-cell-popup.component';
 
 /** A precomputed expiration column header. */
 interface ExpHeader {
@@ -24,174 +29,27 @@ interface ExpHeader {
   dowText: string;
   /** Days from the session date to expiration — null when no session date. */
   daysText: string | null;
+  /** First column of a new calendar month — gets a separator border. */
+  isMonthStart: boolean;
+  /** Alternates 0/1 per month block — subtle column tint for time grouping. */
+  monthParity: 0 | 1;
 }
 
-export interface ChainCellHover {
-  cell: ChainCell;
-  /** The hovered cell element — overlay anchor. */
-  target: HTMLElement;
+/** Per-cell view style — gradient colors + top-gainer flag. */
+interface CellView {
+  bg: string | null;
+  fg: string | null;
+  shadow: string | null;
+  isTop: boolean;
 }
 
 @Component({
   selector: 'app-chain-grid',
   standalone: true,
+  imports: [OverlayModule, MatIconModule, ChainCellPopupComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <div class="chain-grid" [attr.data-side]="side()">
-      @if (model().rows.length === 0) {
-        <div class="no-data">No contracts matched the current filters.</div>
-      } @else {
-        <div class="grid-scroll">
-          <div
-            class="grid-body"
-            [style.grid-template-columns]="'auto repeat(' + expHeaders().length + ', minmax(50px, 1fr))'"
-            (mouseover)="onCellOver($event)"
-            (mouseout)="onCellOut($event)"
-          >
-            <div class="grid-cell header-cell corner-cell"></div>
-            @for (exp of expHeaders(); track exp.date) {
-              <div class="grid-cell header-cell">
-                <span class="exp-date">{{ exp.date }} {{ exp.dowText }}</span>
-                @if (exp.daysText != null) {
-                  <span class="exp-days">{{ exp.daysText }}</span>
-                }
-              </div>
-            }
-            @for (row of viewRows(); track row.strike) {
-              <div
-                class="grid-cell row-header"
-                [attr.data-strike]="row.strike"
-                [class.atm]="row.strike === model().atmStrike"
-              >
-                <span class="strike-value">{{ row.strike }}</span>
-                @if (row.atmText != null) {
-                  <span class="atm-diff">{{ row.atmText }}</span>
-                }
-              </div>
-              @for (cell of row.cells; track $index) {
-                @if (cell) {
-                  <div
-                    class="grid-cell data-cell"
-                    [attr.data-cid]="cell.contractID"
-                    [class.atm]="row.strike === model().atmStrike"
-                    [class.chg-pos]="cell.chgAbs !== null && cell.chgAbs > 0"
-                    [class.chg-neg]="cell.chgAbs !== null && cell.chgAbs < 0"
-                  >
-                    <span class="cell-mark">{{ cell.markText }}</span>
-                    <span class="cell-chg">{{ cell.chgText }}</span>
-                    <span class="cell-greeks">{{ cell.deltaText }} · {{ cell.ivText }}</span>
-                  </div>
-                } @else {
-                  <div class="grid-cell empty-cell" [class.atm]="row.strike === model().atmStrike"></div>
-                }
-              }
-            }
-          </div>
-        </div>
-      }
-    </div>
-  `,
-  // Cell density/fonts mirror pct-change-grid.component (1px padding,
-  // 0.55rem base, minmax(50px,1fr) columns). No heatmap coloring yet —
-  // that's a later task.
-  styles: [`
-    :host {
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-      border: 1px solid #e0e0e0;
-      border-radius: 4px;
-      overflow: hidden;
-      background: #fff;
-    }
-    .chain-grid {
-      display: flex;
-      flex-direction: column;
-      flex: 1;
-      min-height: 0;
-    }
-    .grid-scroll {
-      flex: 1;
-      min-height: 0;
-      overflow: auto;
-    }
-    .grid-body {
-      display: grid;
-      gap: 1px;
-      background: #e0e0e0;
-      font-size: 0.55rem;
-      min-width: max-content;
-    }
-    .grid-cell {
-      padding: 1px 3px;
-      background: #fff;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      min-height: 14px;
-      line-height: 1.1;
-      min-width: 0;
-    }
-    .header-cell {
-      background: #f5f5f5;
-      font-weight: 600;
-      position: sticky;
-      top: 0;
-      z-index: 2;
-      gap: 0;
-      white-space: nowrap;
-    }
-    .exp-date {
-      font-size: 0.55rem;
-    }
-    .exp-days {
-      font-size: 0.45rem;
-      font-weight: 400;
-      opacity: 0.7;
-    }
-    .corner-cell {
-      left: 0;
-      z-index: 3;
-    }
-    .row-header {
-      background: #f5f5f5;
-      font-weight: 600;
-      align-items: flex-end;
-      padding-right: 3px;
-      position: sticky;
-      left: 0;
-      z-index: 1;
-      gap: 0;
-      font-variant-numeric: tabular-nums;
-    }
-    .strike-value {
-      font-size: 0.55rem;
-    }
-    .atm-diff {
-      font-size: 0.45rem;
-      font-weight: 400;
-      opacity: 0.6;
-    }
-    .data-cell {
-      cursor: default;
-    }
-    .data-cell:hover { opacity: 0.85; }
-    .row-header.atm { color: #1565c0; }
-    .data-cell.atm, .empty-cell.atm { background: #eef4fb; }
-    .cell-mark { font-weight: 700; font-size: 0.6rem; }
-    .cell-chg { font-size: 0.45rem; opacity: 0.8; }
-    .chg-pos .cell-chg { color: #0a7c2e; }
-    .chg-neg .cell-chg { color: #b00; }
-    .cell-greeks { font-size: 0.4rem; opacity: 0.6; }
-    .empty-cell { background: #fafafa; }
-    .no-data {
-      padding: 1rem;
-      text-align: center;
-      color: #999;
-      font-size: 0.8rem;
-    }
-  `],
+  templateUrl: './chain-grid.component.html',
+  styleUrl: './chain-grid.component.scss',
 })
 export class ChainGridComponent {
   readonly model = input.required<ChainGridModel>();
@@ -199,8 +57,69 @@ export class ChainGridComponent {
   /** Session date the snapshot belongs to — drives the DTE sub-label in
    *  expiration headers. Null hides the label. */
   readonly sessionDate = input<string | null>(null);
+  /** Toggle for the |delta| band shading (odd tenths shaded). */
+  readonly deltaShading = input<boolean>(true);
+  /** Toggle for the month-boundary separators + alternating-month tint. */
+  readonly timeShading = input<boolean>(true);
+  /** Toggle for the chg gradient + top-5 gainer rings (one layer). */
+  readonly heatmap = input<boolean>(true);
+  /** Direction of the per-column top-5 ring — 'gainers' = largest positive
+   *  chgPct, 'losers' = most negative, null = no rings (flat/missing
+   *  underlying closes make the ring meaningless). */
+  readonly topDirection = input<'gainers' | 'losers' | null>('gainers');
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly overlay = inject(Overlay);
+
+  /** Popup repositions with its anchor cell when the pane scrolls —
+   *  same strategy pct-change uses; noop (the default) leaves the popup
+   *  floating over unrelated cells. */
+  readonly scrollStrategy = this.overlay.scrollStrategies.reposition();
+
+  private readonly cellById = computed(() => {
+    const map = new Map<string, ChainCell>();
+    for (const row of this.model().rows) {
+      for (const cell of row.cells) {
+        if (cell) map.set(cell.contractID, cell);
+      }
+    }
+    return map;
+  });
+
+  /** The cell whose popup is open + the element it's anchored to. The
+   *  anchor is the CELL element, not the icon, so the overlay survives the
+   *  icon's teardown when the pointer moves between cells. */
+  readonly hoverCell = signal<ChainCell | null>(null);
+  readonly hoverOrigin = signal<HTMLElement | null>(null);
+
+  /** Shared delegated-hover mechanics (icon reveal, intra-cell
+   *  suppression, icon enter/leave) — see DelegatedCellHover. */
+  private readonly hover = new DelegatedCellHover<ChainCell>({
+    cellIdAttr: 'data-cid',
+    iconSelector: '.popup-icon-btn',
+    cellFor: (id) => this.cellById().get(id) ?? null,
+    onIconEnter: (cell, el) => {
+      this.hoverCell.set(cell);
+      this.hoverOrigin.set(el);
+    },
+    onIconLeave: () => {
+      this.hoverCell.set(null);
+      this.hoverOrigin.set(null);
+    },
+  });
+
+  /** contractID of the cell currently showing the popup icon — alias of
+   *  the shared controller's signal so the template stays terse. */
+  readonly iconCellId = this.hover.iconCellId;
+
+  // A model rebuild destroys the rendered cells — drop the hover anchor
+  // AND the icon id so neither can bind to a dead element.
+  private readonly clearHoverOnModel = effect(() => {
+    this.model();
+    this.hoverCell.set(null);
+    this.hoverOrigin.set(null);
+    this.hover.reset();
+  });
 
   constructor() {
     // The chain is a sparse cross-product — strikes descending puts the
@@ -227,19 +146,114 @@ export class ChainGridComponent {
 
   private lastScrolledKey: string | null = null;
 
-  /** Fires when the pointer enters a data cell (delegated). */
-  readonly cellEnter = output<ChainCellHover>();
-  /** Fires when the pointer leaves a data cell (delegated). */
-  readonly cellLeave = output<void>();
+  /** Scroll the ATM strike row to the middle of the viewport — the page's
+   *  re-sync button calls this on both panes. */
+  centerAtm(): void {
+    const atm = this.model().atmStrike;
+    if (atm == null) return;
+    this.host.nativeElement
+      .querySelector<HTMLElement>(`[data-strike="${atm}"]`)
+      ?.scrollIntoView?.({ block: 'center' });
+  }
 
-  /** Precomputed expiration headers — date + day-of-week + DTE resolved once. */
+  /** Right of the cell, then left, then below, then above — first fit
+   *  wins; the above fallback keeps the popup off-clamped for bottom rows. */
+  readonly popupPositions: ConnectedPosition[] = [
+    { originX: 'end', originY: 'center', overlayX: 'start', overlayY: 'center', offsetX: 6 },
+    { originX: 'start', originY: 'center', overlayX: 'end', overlayY: 'center', offsetX: -6 },
+    { originX: 'center', originY: 'bottom', overlayX: 'center', overlayY: 'top', offsetY: 6 },
+    { originX: 'center', originY: 'top', overlayX: 'center', overlayY: 'bottom', offsetY: -6 },
+  ];
+
+  onCellOver(event: MouseEvent): void {
+    this.hover.over(event);
+  }
+
+  onCellOut(event: MouseEvent): void {
+    this.hover.out(event);
+  }
+
+  /** Cell click reveals the icon (touch); icon click opens the popup. */
+  onCellClick(event: MouseEvent): void {
+    this.hover.click(event);
+  }
+
+  /** The icon is a real button — once revealed, Tab reaches it and
+   *  focusin opens the popup like hover; focusout closes it. */
+  onFocusIn(event: FocusEvent): void {
+    this.hover.focusIn(event);
+  }
+
+  onFocusOut(event: FocusEvent): void {
+    this.hover.focusOut(event);
+  }
+
+  /** Precomputed expiration headers — date + day-of-week + DTE resolved
+   *  once, plus month-boundary markers for the time-axis separators. */
   readonly expHeaders = computed<ExpHeader[]>(() => {
     const session = this.sessionDate();
-    return this.model().expirations.map((date) => ({
-      date,
-      dowText: DAYS[new Date(date + 'T00:00:00Z').getUTCDay()],
-      daysText: session ? `${daysBetween(session, date)}d` : null,
-    }));
+    let prevMonth = '';
+    let parity: 0 | 1 = 0;
+    return this.model().expirations.map((date) => {
+      const month = date.slice(0, 7);
+      const isMonthStart = month !== prevMonth;
+      if (isMonthStart) {
+        parity = parity === 0 ? 1 : 0;
+        prevMonth = month;
+      }
+      return { date, ...expirationMeta(date, session), isMonthStart, monthParity: parity };
+    });
+  });
+
+  /** Per-cell gradient colors + top-5-per-expiration gainer flags — same
+   *  scale and penny exclusion as the pct-change grid (chgPct vs prior
+   *  session is our lookback). Cells without a change render flat. */
+  readonly cellViews = computed(() => {
+    const m = this.model();
+    const cells: ChainCell[] = [];
+    for (const row of m.rows) {
+      for (const c of row.cells) if (c) cells.push(c);
+    }
+    // Penny-priced cells wreck the pct scale — excluded from the percentile
+    // range AND the top-5, same as pct-change's MIN_CELL_PRICE rule.
+    const scaleCells = cells.filter(
+      (c): c is ChainCell & { chgPct: number } =>
+        c.chgPct !== null &&
+        c.mark !== null && c.mark >= MIN_CELL_PRICE &&
+        c.priorMark !== null && c.priorMark >= MIN_CELL_PRICE,
+    );
+    const sorted = scaleCells.map((c) => c.chgPct * 100).sort((a, b) => a - b);
+    const p5 = percentile(sorted, 5);
+    const p95 = percentile(sorted, 95);
+
+    const losers = this.topDirection() === 'losers';
+    const top = new Set<string>();
+    if (this.topDirection() !== null) {
+      for (const exp of m.expirations) {
+        scaleCells
+          .filter((c) =>
+            c.expiration === exp && (losers ? c.chgPct < 0 : c.chgPct > 0),
+          )
+          .sort((a, b) => (losers ? a.chgPct - b.chgPct : b.chgPct - a.chgPct))
+          .slice(0, 5)
+          .forEach((c) => top.add(c.contractID));
+      }
+    }
+
+    const map = new Map<string, CellView>();
+    for (const c of cells) {
+      const colors =
+        c.chgPct !== null
+          ? pctChangeToCellColors(c.chgPct * 100, p5, p95, 'bright')
+          : null;
+      map.set(c.contractID, {
+        bg: colors?.bg ?? null,
+        fg: colors && colors.fg !== 'inherit' ? colors.fg : null,
+        shadow: colors && colors.shadow !== 'none' ? colors.shadow : null,
+        isTop: top.has(c.contractID),
+      });
+    }
+    return map;
   });
 
   /** Rows plus the "±N (±X%)" ATM-diff sub-label (same as pct-change's). */
@@ -251,33 +265,4 @@ export class ChainGridComponent {
       atmText: formatAtmDiff(row.strike, atm),
     }));
   });
-
-  private readonly cellById = computed(() => {
-    const map = new Map<string, ChainCell>();
-    for (const row of this.model().rows) {
-      for (const cell of row.cells) {
-        if (cell) map.set(cell.contractID, cell);
-      }
-    }
-    return map;
-  });
-
-  onCellOver(event: MouseEvent): void {
-    const el = (event.target as HTMLElement).closest<HTMLElement>('[data-cid]');
-    if (!el?.dataset['cid']) return;
-    // Ignore intra-cell moves (mark → chg span) — same suppression as onCellOut,
-    // so a single cell visit emits exactly one enter / one leave pair.
-    const from = event.relatedTarget as HTMLElement | null;
-    if (from && el.contains(from)) return;
-    const cell = this.cellById().get(el.dataset['cid']);
-    if (cell) this.cellEnter.emit({ cell, target: el });
-  }
-
-  onCellOut(event: MouseEvent): void {
-    const el = (event.target as HTMLElement).closest<HTMLElement>('[data-cid]');
-    if (!el) return;
-    const to = event.relatedTarget as HTMLElement | null;
-    // Ignore intra-cell moves (mark → chg span) — only fire on real exits.
-    if (!to || !el.contains(to)) this.cellLeave.emit();
-  }
 }

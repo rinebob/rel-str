@@ -1,0 +1,158 @@
+// Cell density/fonts mirror pct-change-grid.component (1px padding,
+// 0.55rem base, minmax(50px,1fr) columns).
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #fff;
+}
+.chain-grid {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.grid-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.grid-body {
+  display: grid;
+  gap: 1px;
+  background: #e0e0e0;
+  font-size: 0.55rem;
+  min-width: max-content;
+}
+.grid-cell {
+  padding: 1px 3px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 14px;
+  line-height: 1.1;
+  min-width: 0;
+}
+.header-cell {
+  background: #f5f5f5;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  gap: 0;
+  white-space: nowrap;
+}
+.exp-date {
+  font-size: 0.55rem;
+}
+.exp-days {
+  font-size: 0.45rem;
+  font-weight: 400;
+  opacity: 0.7;
+}
+.corner-cell {
+  left: 0;
+  z-index: 3;
+}
+.row-header {
+  background: #f5f5f5;
+  font-weight: 600;
+  align-items: flex-end;
+  padding-right: 3px;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  gap: 0;
+  font-variant-numeric: tabular-nums;
+}
+.strike-value {
+  font-size: 0.55rem;
+}
+.atm-diff {
+  font-size: 0.45rem;
+  font-weight: 400;
+  opacity: 0.6;
+}
+.data-cell {
+  cursor: default;
+  position: relative;
+}
+.data-cell:hover { opacity: 0.85; }
+// Same affordance as the pct-change grid's chart icon — a 10px corner
+// button revealed by cell hover; hovering IT opens the popup.
+.popup-icon-btn {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  opacity: 0.35;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #444;
+  cursor: pointer;
+}
+.data-cell:hover .popup-icon-btn,
+.popup-icon-btn:focus-visible { opacity: 1; }
+.popup-icon-btn mat-icon {
+  font-size: 8px;
+  width: 8px;
+  height: 8px;
+  line-height: 8px;
+}
+.row-header.atm { color: #1565c0; }
+.data-cell.atm, .empty-cell.atm { background: #eef4fb; }
+// Heavy box around the ATM row — per-cell ::before inset shadows (the
+// row is implicit in the grid; a pseudo keeps it composable with the
+// delta-shade/top-gainer box-shadows and shifts no layout). Header
+// gets the left edge, last column gets the right edge.
+.grid-cell.atm { position: relative; }
+.grid-cell.atm::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 3px 0 #000, inset 0 -3px 0 #000;
+  pointer-events: none;
+  z-index: 1;
+}
+.row-header.atm::before {
+  box-shadow: inset 3px 0 0 #000, inset 0 3px 0 #000, inset 0 -3px 0 #000;
+}
+.grid-cell.atm.last-col::before {
+  box-shadow: inset -3px 0 0 #000, inset 0 3px 0 #000, inset 0 -3px 0 #000;
+}
+.cell-mark { font-weight: 700; font-size: 0.6rem; }
+.cell-chg { font-size: 0.45rem; opacity: 0.8; }
+.chg-pos .cell-chg { color: #0a7c2e; }
+.chg-neg .cell-chg { color: #b00; }
+.cell-greeks { font-size: 0.4rem; opacity: 0.6; }
+.empty-cell { background: #fafafa; }
+// Gradient cells: chg text goes dark (bright ramp = readable dark
+// text, same as pct-change).
+.data-cell.colored .cell-chg { color: inherit; }
+// Top-5 gainers per expiration — same black inset ring as pct-change.
+.data-cell.top-gainer { box-shadow: inset 0 0 0 2px #000; }
+// Time axis: heavier border at each new calendar month + alternating
+// month tint. Data cells with a gradient keep it (inline bg wins);
+// the tint shows on empty cells and headers.
+.grid-cell.month-start { border-left: 2px solid #90a4ae; }
+.grid-cell.month-alt { background-color: #f2f5f8; }
+// |delta| odd-tenths band — inset overlay so it composes over the
+// chg gradient instead of replacing it.
+.data-cell.delta-shaded { box-shadow: inset 0 0 0 100px rgba(0,0,0,0.08); }
+.data-cell.delta-shaded.top-gainer { box-shadow: inset 0 0 0 100px rgba(0,0,0,0.08), inset 0 0 0 2px #000; }
+.no-data {
+  padding: 1rem;
+  text-align: center;
+  color: #999;
+  font-size: 0.8rem;
+}

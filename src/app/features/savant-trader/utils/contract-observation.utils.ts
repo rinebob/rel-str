@@ -34,20 +34,28 @@ export function parseNum(val: string | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** parseNum plus the empty-string guard — `Number('')` is 0, but a blank
+ *  AV field means missing, not zero. Use this anywhere a null means "no
+ *  data" (chain cells, popup fields). */
+export function parseNumOrNull(val: string | undefined): number | null {
+  if (val == null || val.trim() === '') return null;
+  return parseNum(val);
+}
+
 export function parseObservations(series: HistoricalOptionsContractV2Observation[]): ParsedObservation[] {
   return series.map((obs) => ({
     date: obs.date,
-    mark: parseNum(obs.mark),
-    bid: parseNum(obs.bid),
-    ask: parseNum(obs.ask),
-    volume: parseNum(obs.volume),
-    openInterest: parseNum(obs.open_interest),
-    iv: parseNum(obs.implied_volatility),
-    delta: parseNum(obs.delta),
-    gamma: parseNum(obs.gamma),
-    theta: parseNum(obs.theta),
-    vega: parseNum(obs.vega),
-    rho: parseNum(obs.rho),
+    mark: parseNumOrNull(obs.mark),
+    bid: parseNumOrNull(obs.bid),
+    ask: parseNumOrNull(obs.ask),
+    volume: parseNumOrNull(obs.volume),
+    openInterest: parseNumOrNull(obs.open_interest),
+    iv: parseNumOrNull(obs.implied_volatility),
+    delta: parseNumOrNull(obs.delta),
+    gamma: parseNumOrNull(obs.gamma),
+    theta: parseNumOrNull(obs.theta),
+    vega: parseNumOrNull(obs.vega),
+    rho: parseNumOrNull(obs.rho),
   }));
 }
 

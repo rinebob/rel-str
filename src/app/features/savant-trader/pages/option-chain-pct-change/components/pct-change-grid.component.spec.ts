@@ -488,6 +488,22 @@ describe('PctChangeGridComponent', () => {
       expect(fixture.nativeElement.querySelectorAll('.chart-icon-btn').length).toBe(0);
     });
 
+    it('clears a showing icon when the grid model rebuilds', () => {
+      const grid = makeGrid({ strikes: [100], expirations: ['2024-03-15'] });
+      const { fixture } = setupComponent(grid);
+      const dataCell = dataCellAt(fixture);
+      over(dataCell);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelectorAll('.chart-icon-btn').length).toBe(1);
+
+      fixture.componentRef.setInput(
+        'grid',
+        makeGrid({ strikes: [200], expirations: ['2024-03-15'] }),
+      );
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelectorAll('.chart-icon-btn').length).toBe(0);
+    });
+
     it('nests the icon inside the data cell (no extra grid element)', () => {
       const { fixture } = setupComponent();
       const dataCell = dataCellAt(fixture);

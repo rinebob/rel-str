@@ -29,7 +29,7 @@ import { ConfirmDialogComponent } from './components/confirm-dialog.component';
 import { toNum, CONTRACT_CHART_PANE_CLASS } from './utils/pct-change.utils';
 import { toUtcDateString } from './utils/swing-compare.utils';
 import type { Swing } from '../../../shared/components/flex-chart/indicators/st-zigzag.types';
-import { DEFAULT_CELL_TEXT_MODE, type CellTextMode } from './utils/color-mapping.utils';
+import { DEFAULT_CELL_TEXT_MODE, type CellTextMode } from '../../utils/color-mapping.utils';
 import { OptionType } from '@options-contract/contracts';
 import { take } from 'rxjs';
 

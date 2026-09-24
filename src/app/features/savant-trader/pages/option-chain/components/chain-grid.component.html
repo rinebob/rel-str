@@ -1,0 +1,100 @@
+<div class="chain-grid" [attr.data-side]="side()">
+  @if (model().rows.length === 0 || model().expirations.length === 0) {
+    <div class="no-data">No contracts matched the current filters.</div>
+  } @else {
+    <div class="grid-scroll">
+      <div
+        class="grid-body"
+        [style.grid-template-columns]="'auto repeat(' + expHeaders().length + ', minmax(50px, 1fr))'"
+        (mouseover)="onCellOver($event)"
+        (mouseout)="onCellOut($event)"
+        (click)="onCellClick($event)"
+        (focusin)="onFocusIn($event)"
+        (focusout)="onFocusOut($event)"
+      >
+        <div class="grid-cell header-cell corner-cell"></div>
+        @for (exp of expHeaders(); track exp.date) {
+          <div
+            class="grid-cell header-cell"
+            [class.month-start]="timeShading() && exp.isMonthStart"
+            [class.month-alt]="timeShading() && exp.monthParity === 1"
+          >
+            <span class="exp-date">{{ exp.date }} {{ exp.dowText }}</span>
+            @if (exp.daysText != null) {
+              <span class="exp-days">{{ exp.daysText }}</span>
+            }
+          </div>
+        }
+        @for (row of viewRows(); track row.strike) {
+          <div
+            class="grid-cell row-header"
+            [attr.data-strike]="row.strike"
+            [class.atm]="row.strike === model().atmStrike"
+          >
+            <span class="strike-value">{{ row.strike }}</span>
+            @if (row.atmText != null) {
+              <span class="atm-diff">{{ row.atmText }}</span>
+            }
+          </div>
+          @for (cell of row.cells; track $index; let ci = $index) {
+            @if (cell) {
+              @let view = cellViews().get(cell.contractID);
+              <div
+                class="grid-cell data-cell"
+                [attr.data-cid]="cell.contractID"
+                [class.atm]="row.strike === model().atmStrike"
+                [class.colored]="heatmap() && view?.bg != null"
+                [class.chg-pos]="cell.chgAbs !== null && cell.chgAbs > 0"
+                [class.chg-neg]="cell.chgAbs !== null && cell.chgAbs < 0"
+                [class.top-gainer]="heatmap() && view?.isTop === true"
+                [class.delta-shaded]="deltaShading() && cell.deltaShaded"
+                [class.last-col]="ci === expHeaders().length - 1"
+                [class.month-start]="timeShading() && expHeaders()[ci].isMonthStart"
+                [class.month-alt]="timeShading() && expHeaders()[ci].monthParity === 1"
+                [style.background-color]="heatmap() ? (view?.bg ?? null) : null"
+                [style.color]="heatmap() ? (view?.fg ?? null) : null"
+                [style.text-shadow]="heatmap() ? (view?.shadow ?? null) : null"
+              >
+                <span class="cell-mark">{{ cell.markText }}</span>
+                <span class="cell-chg">{{ cell.chgText }}</span>
+                <span class="cell-greeks">{{ cell.deltaText }} · {{ cell.ivText }} · {{ cell.volText }} · {{ cell.oiText }}</span>
+                @if (iconCellId() === cell.contractID) {
+                  <button
+                    type="button"
+                    class="popup-icon-btn"
+                    aria-label="Show contract details"
+                  >
+                    <mat-icon>info_outline</mat-icon>
+                  </button>
+                }
+              </div>
+            } @else {
+              <div
+                class="grid-cell empty-cell"
+                [class.atm]="row.strike === model().atmStrike"
+                [class.last-col]="ci === expHeaders().length - 1"
+                [class.month-start]="timeShading() && expHeaders()[ci].isMonthStart"
+                [class.month-alt]="timeShading() && expHeaders()[ci].monthParity === 1"
+              ></div>
+            }
+          }
+        }
+      </div>
+    </div>
+  }
+  @if (hoverOrigin(); as origin) {
+    <ng-template
+      cdkConnectedOverlay
+      [cdkConnectedOverlayOrigin]="origin"
+      [cdkConnectedOverlayOpen]="hoverCell() != null"
+      [cdkConnectedOverlayPositions]="popupPositions"
+      [cdkConnectedOverlayScrollStrategy]="scrollStrategy"
+      [cdkConnectedOverlayViewportMargin]="8"
+      cdkConnectedOverlayPanelClass="chain-popup-panel"
+    >
+      @if (hoverCell(); as hc) {
+        <app-chain-cell-popup [cell]="hc" />
+      }
+    </ng-template>
+  }
+</div>

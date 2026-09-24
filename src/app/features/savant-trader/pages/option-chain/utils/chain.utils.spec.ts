@@ -209,7 +209,7 @@ describe('buildChainGrid', () => {
       buildChainGrid(contracts, [], OptionType.CALL).rows.map((r: ChainGridRow) => r.strike),
     ).toEqual([605, 600, 595]);
     expect(
-      buildChainGrid(contracts, [], OptionType.CALL, null, 'asc').rows.map((r: ChainGridRow) => r.strike),
+      buildChainGrid(contracts, [], OptionType.CALL, { orientation: 'asc' }).rows.map((r: ChainGridRow) => r.strike),
     ).toEqual([595, 600, 605]);
   });
 
@@ -228,13 +228,118 @@ describe('buildChainGrid', () => {
       ],
       [],
       OptionType.CALL,
-      601,
+      { spot: 601 },
     );
     expect(model.atmStrike).toBe(600);
   });
 
   it('atmStrike is null without a spot price or with no strikes', () => {
     expect(buildChainGrid([oc()], [], OptionType.CALL).atmStrike).toBeNull();
-    expect(buildChainGrid([], [], OptionType.CALL, 600).atmStrike).toBeNull();
+    expect(buildChainGrid([], [], OptionType.CALL, { spot: 600 }).atmStrike).toBeNull();
+  });
+
+  describe('atmSymmetric window', () => {
+    const strikesOf = (m: ChainGridModel) => m.rows.map((r) => r.strike);
+
+    it('slices the long side so strikes balance above and below ATM', () => {
+      const session = [550, 560, 570, 580, 590, 600, 610, 620].map((s) =>
+        oc({ contractID: `s${s}`, strike: String(s) }),
+      );
+      // spot 585 → atm 590 (first in desc order wins the 5-vs-5 tie):
+      // 3 above, 4 below → keep 3 each side.
+      const m = buildChainGrid(session, [], OptionType.CALL, { spot: 585 });
+      expect(m.atmStrike).toBe(590);
+      expect(strikesOf(m)).toEqual([620, 610, 600, 590, 580, 570, 560]); // desc
+    });
+
+    it('excess above ATM is sliced equally', () => {
+      const session = [600, 610, 620, 630, 640, 650, 660].map((s) =>
+        oc({ contractID: `s${s}`, strike: String(s) }),
+      );
+      // spot 601 → atm 600: 0 below, 6 above → nothing above survives either.
+      const m = buildChainGrid(session, [], OptionType.CALL, { spot: 601 });
+      expect(strikesOf(m)).toEqual([600]);
+    });
+
+    it('off by default only when atmSymmetric is false or no spot', () => {
+      const session = [550, 600, 610, 620].map((s) =>
+        oc({ contractID: `s${s}`, strike: String(s) }),
+      );
+      const wide = buildChainGrid(session, [], OptionType.CALL, {
+        spot: 605,
+        atmSymmetric: false,
+      });
+      expect(strikesOf(wide).length).toBe(4);
+      const noSpot = buildChainGrid(session, [], OptionType.CALL);
+      expect(strikesOf(noSpot).length).toBe(4);
+    });
+  });
+
+  describe('excludeExpirations', () => {
+    it('drops hidden columns; cells realign to surviving expirations', () => {
+      const session = [
+        oc({ contractID: 'a', expiration: '2026-10-16' }),
+        oc({ contractID: 'b', expiration: '2026-11-20' }),
+        oc({ contractID: 'c', expiration: '2026-12-18' }),
+      ];
+      const m = buildChainGrid(session, [], OptionType.CALL, {
+        filter: { excludeExpirations: new Set(['2026-11-20']) },
+      });
+      expect(m.expirations).toEqual(['2026-10-16', '2026-12-18']);
+      expect(m.rows[0].cells.length).toBe(2);
+      expect(m.rows[0].cells[0]?.contractID).toBe('a');
+      expect(m.rows[0].cells[1]?.contractID).toBe('c');
+    });
+  });
+
+  describe('deltaShaded', () => {
+    const shaded = (delta: string | undefined) =>
+      buildChainGrid([oc({ delta })], [], OptionType.CALL).rows[0]?.cells[0]
+        ?.deltaShaded;
+
+    it('shades odd |delta| tenths, leaves even ones flat (1.0 folds into 0.9x)', () => {
+      expect(shaded('0.05')).toBe(false);
+      expect(shaded('0.15')).toBe(true);
+      expect(shaded('0.25')).toBe(false);
+      expect(shaded('0.35')).toBe(true); // also covers put-side via abs()
+      expect(shaded('-0.35')).toBe(true);
+      expect(shaded('0.55')).toBe(true);
+      expect(shaded('0.75')).toBe(true);
+      expect(shaded('0.95')).toBe(true);
+      expect(shaded('1.0')).toBe(true);
+      expect(shaded('0.85')).toBe(false);
+      expect(shaded(undefined)).toBe(false);
+    });
+  });
+
+  describe('delta filter', () => {
+    const contracts = () => [
+      oc({ contractID: 'low', strike: '595', delta: '0.20' }),
+      oc({ contractID: 'mid', strike: '600', delta: '-0.55' }),
+      oc({ contractID: 'high', strike: '605', delta: '0.85' }),
+      oc({ contractID: 'nod', strike: '610', delta: undefined }),
+    ];
+    const ids = (m: ChainGridModel) =>
+      m.rows.flatMap((r) => r.cells).map((c) => c?.contractID);
+
+    it('drops cells outside |delta| bounds — strikes with no survivors vanish', () => {
+      const m = buildChainGrid(contracts(), [], OptionType.CALL, {
+        filter: { deltaLte: 0.6 },
+      });
+      expect(ids(m)).toEqual(['mid', 'low']);
+      expect(m.rows.map((r) => r.strike)).toEqual([600, 595]);
+    });
+
+    it('missing delta fails the filter when a bound is set', () => {
+      const m = buildChainGrid(contracts(), [], OptionType.CALL, {
+        filter: { deltaLte: 0.6 },
+      });
+      expect(ids(m)).not.toContain('nod');
+    });
+
+    it('no bounds keeps every cell', () => {
+      const m = buildChainGrid(contracts(), [], OptionType.CALL);
+      expect(ids(m).sort()).toEqual(['high', 'low', 'mid', 'nod']);
+    });
   });
 });
