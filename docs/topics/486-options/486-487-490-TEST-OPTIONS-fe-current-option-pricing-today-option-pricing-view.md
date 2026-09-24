@@ -11,7 +11,7 @@
 **Type:** TEST  
 **Status:** Complete  
 **Created:** 2026-09-22  
-**Last Updated:** 2026-09-22  
+**Last Updated:** 2026-09-24  
 
 ## E2E User Journeys
 
@@ -21,8 +21,9 @@
   chg vs its prior session
 - Toggle CALLS / PUTS / BOTH → layout switches; BOTH shares strike column
 - Flip orientation per side in BOTH mode → sides reorder independently
-- Hover a cell → popup with full contract payload; move to adjacent cell →
-  popup re-anchors
+- Hover a cell → corner info icon appears; hover the icon → popup with
+  full contract payload; move to an adjacent cell's icon → popup
+  re-anchors
 - Narrow delta/strike/expiration filters → grid shrinks to matching
   contracts
 - Open page intraday → resolved date is prior session; post-1PM PT → today

@@ -11,7 +11,7 @@
 **Type:** IMPL  
 **Status:** Complete  
 **Created:** 2026-09-22  
-**Last Updated:** 2026-09-22  
+**Last Updated:** 2026-09-24  
 
 Single-area plan: **FE only**. The callable, contracts, and bar service
 already exist; no BE or SHARED work.
@@ -104,13 +104,16 @@ priorMark`, `chgPct = chgAbs / priorMark`. Missing `mark` → cell price
 
 ## Cell / popup
 
-Cell shows mark (or "n/a"), chg $, chg %, delta, IV — precomputed
-`ViewCell` strings per grid change; delegated `mouseover`/`mouseout` on the
-grid body (same perf contract as pct-change grid: no per-cell components,
-OnPush). Hover opens one overlay per grid anchored to the cell element,
-rendering `chain-cell-popup` with the full payload: contractID, mark, last,
-bid/ask + sizes, volume, OI, IV, delta, gamma, theta, vega, rho, chg $/%,
-prior mark.
+Cell shows mark (or "n/a"), chg $, chg %, delta, IV, volume, OI —
+precomputed `ChainCell` strings per grid change; delegated
+`mouseover`/`mouseout` on the grid body via the shared
+`DelegatedCellHover` controller (same perf contract as pct-change grid:
+no per-cell components, OnPush). Cell hover reveals a small icon in the
+cell's upper-right corner; hovering the icon opens one overlay per grid
+anchored to the cell element, rendering `chain-cell-popup` with the full
+payload: contractID, mark, last, bid/ask + sizes, volume, OI, IV, delta,
+gamma, theta, vega, rho, chg $/%, prior mark. The overlay repositions
+with its anchor on scroll (`scrollStrategies.reposition()`).
 
 ## Header
 
