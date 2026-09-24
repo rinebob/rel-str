@@ -3,6 +3,8 @@
 ## [2026-09-24]
 
 ### Added
+- [Options Current Pricing] 486-502_FE-IMPL-OPTIONS: Contract hover popup + shared DelegatedCellHover controller (also ships in-session filters/picker/shading work nominally scoped to #503)
+- [Options Current Pricing] 486-502_DOCS-OPTIONS: Code review doc (PASS, 2nd pass) + IMPL/TEST icon-hover updates
 - [Flex Chart Maintenance] 468-538-546_FE-IMPL-FLEX-CHART: Swing-analysis header Log Y-axis pill wired to the chart config
 - [Flex Chart Maintenance] 468-538-546_DOCS-FLEX-CHART: Code review doc for swing-analysis rollout
 - [Flex Chart Maintenance] 468-538-545_FE-IMPL-FLEX-CHART: Quick-charts panel Log Y-axis pill wired to all three charts
