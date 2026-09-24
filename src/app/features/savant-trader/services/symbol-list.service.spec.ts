@@ -1,6 +1,6 @@
-﻿/// <reference types="jest" />
+/// <reference types="jest" />
 /**
- * SymbolListService â€” registry read path (Topic #465, Thread #492).
+ * SymbolListService — registry read path (Topic #465, Thread #492).
  *
  * watchLists$ streams SymbolListDef[] via collectionSnapshots; legacy
  * pre-registry docs (bare-name ids, no `key` field) are lazily rekeyed to
@@ -13,6 +13,7 @@
 
 const mockBatch = {
   set: jest.fn(),
+  update: jest.fn(),
   delete: jest.fn(),
   commit: jest.fn(() => Promise.resolve()),
 };
@@ -25,6 +26,7 @@ jest.mock('@angular/fire/firestore', () => ({
   collection: jest.fn(() => ({ path: 'symbol-lists' })),
   doc: jest.fn((_fs: unknown, ...parts: string[]) => ({ path: parts.join('/') })),
   setDoc: jest.fn(() => Promise.resolve()),
+  updateDoc: jest.fn(() => Promise.resolve()),
   deleteDoc: jest.fn(() => Promise.resolve()),
   getDoc: jest.fn(() => Promise.resolve({ exists: () => false, data: () => undefined })),
   getDocs: jest.fn(),
@@ -43,7 +45,7 @@ jest.mock('@angular/fire/auth', () => ({
 import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { firstValueFrom, of, Subject } from 'rxjs';
-import { Firestore, setDoc, getDoc, writeBatch } from '@angular/fire/firestore';
+import { Firestore, setDoc, updateDoc, getDoc, getDocs, deleteDoc, writeBatch } from '@angular/fire/firestore';
 import { Auth } from '@angular/fire/auth';
 import { SymbolListService } from './symbol-list.service';
 import type { SymbolListDef } from '../common/symbol-list-defs';
@@ -86,7 +88,7 @@ describe('SymbolListService.watchLists$', () => {
     service = setupService();
   });
 
-  it('emits defs unchanged for already-registry docs â€” no writes', async () => {
+  it('emits defs unchanged for already-registry docs — no writes', async () => {
     const emissions: SymbolListDef[][] = [];
     const sub = service.watchLists$().subscribe((defs) => emissions.push(defs));
 
@@ -308,7 +310,7 @@ describe('SymbolListService writes use composite doc ids', () => {
 
   it('removeFromList targets {userId}_{key}', async () => {
     await firstValueFrom(service.removeFromList('AAPL', 'MONITOR'));
-    // Doc doesn't exist in the mock â€” early return, no write.
+    // Doc doesn't exist in the mock — early return, no write.
     expect(setDoc).not.toHaveBeenCalled();
   });
 
@@ -342,6 +344,120 @@ describe('SymbolListService writes use composite doc ids', () => {
       { merge: true },
     );
     expect(mockBatch.commit).toHaveBeenCalled();
+  });
+});
+
+describe('SymbolListService user-list CRUD', () => {
+  let service: SymbolListService;
+
+  beforeEach(() => {
+    service = setupService();
+    (getDocs as jest.Mock).mockResolvedValue({ docs: [] });
+  });
+
+  /** getDocs snapshot shape: [{data: () => docData}] */
+  function mockUserDocs(docs: Record<string, unknown>[]) {
+    (getDocs as jest.Mock).mockResolvedValue({ docs: docs.map((d) => ({ data: () => d })) });
+  }
+
+  it('createList generates a slug key, appends after existing orders, writes a nonexclusive def', async () => {
+    mockUserDocs([
+      { key: 'PRIMARY', order: 0 },
+      { key: 'my-picks', order: 100 },
+    ]);
+
+    const key = await firstValueFrom(service.createList('My Other Picks!'));
+
+    expect(key).toBe('my-other-picks');
+    expect(setDoc).toHaveBeenCalledWith(
+      expect.objectContaining({ path: 'savant-trader/data/symbol-lists/user-1_my-other-picks' }),
+      expect.objectContaining({
+        key: 'my-other-picks', label: 'My Other Picks!', order: 101,
+        role: 'nonexclusive', hidden: false, symbols: [], userId: 'user-1',
+      }),
+      { merge: true },
+    );
+  });
+
+  it('createList suffixes the slug on collision', async () => {
+    mockUserDocs([{ key: 'my-picks', order: 100 }, { key: 'my-picks-2', order: 101 }]);
+    expect(await firstValueFrom(service.createList('My Picks'))).toBe('my-picks-3');
+  });
+
+  it('createList falls back to a base slug when the label has no alphanumerics', async () => {
+    expect(await firstValueFrom(service.createList('!!!'))).toBe('list');
+  });
+
+  it('createList floors order at USER_LIST_ORDER_START when only system docs exist', async () => {
+    mockUserDocs([{ key: 'PRIMARY', order: 0 }, { key: 'MONITOR', order: 5 }]);
+    await firstValueFrom(service.createList('Fresh'));
+    expect(setDoc).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ key: 'fresh', order: 100 }),
+      { merge: true },
+    );
+  });
+
+  it('createList suffixes a slug that case-collides with a system key', async () => {
+    mockUserDocs([]);
+    expect(await firstValueFrom(service.createList('Primary'))).toBe('primary-2');
+  });
+
+  it('renameList writes only the label (updateDoc — rejects if the doc is gone)', async () => {
+    (getDoc as jest.Mock).mockImplementation(() =>
+      Promise.resolve({ exists: () => true, data: () => ({ key: 'my-picks' }) }),
+    );
+    await firstValueFrom(service.renameList('my-picks', 'Watchlist B'));
+    const [ref, payload] = (updateDoc as jest.Mock).mock.calls[0];
+    expect(ref.path).toBe('savant-trader/data/symbol-lists/user-1_my-picks');
+    expect(payload.label).toBe('Watchlist B');
+    expect(payload.symbols).toBeUndefined();
+    expect(payload.order).toBeUndefined();
+    expect(payload.role).toBeUndefined();
+    expect(setDoc).not.toHaveBeenCalled();
+  });
+
+  it('renameList rejects an unknown key instead of materializing a stub', async () => {
+    // Default getDoc mock → exists: false.
+    await expect(firstValueFrom(service.renameList('ghost', 'X'))).rejects.toThrow(
+      "List 'ghost' does not exist",
+    );
+    expect(setDoc).not.toHaveBeenCalled();
+  });
+
+  it('deleteList removes the composite doc', async () => {
+    await firstValueFrom(service.deleteList('my-picks'));
+    expect(deleteDoc).toHaveBeenCalledWith(
+      expect.objectContaining({ path: 'savant-trader/data/symbol-lists/user-1_my-picks' }),
+    );
+  });
+
+  it('deleteList rejects a system key', async () => {
+    await expect(firstValueFrom(service.deleteList('PRIMARY'))).rejects.toThrow('system list');
+    expect(deleteDoc).not.toHaveBeenCalled();
+  });
+
+  it('setListOrder updates order = USER_LIST_ORDER_START + index; system keys skipped', async () => {
+    await firstValueFrom(service.setListOrder(['b-list', 'PRIMARY', 'a-list']));
+
+    // update (not merge-set): a stale key fails the batch rather than
+    // resurrecting a ghost doc. PRIMARY is filtered — never touched.
+    expect(mockBatch.set).not.toHaveBeenCalled();
+    expect(mockBatch.update).toHaveBeenCalledWith(
+      expect.objectContaining({ path: 'savant-trader/data/symbol-lists/user-1_b-list' }),
+      expect.objectContaining({ order: 100 }),
+    );
+    expect(mockBatch.update).toHaveBeenCalledWith(
+      expect.objectContaining({ path: 'savant-trader/data/symbol-lists/user-1_a-list' }),
+      expect.objectContaining({ order: 101 }),
+    );
+    expect(mockBatch.update).toHaveBeenCalledTimes(2);
+    expect(mockBatch.commit).toHaveBeenCalled();
+  });
+
+  it('setListOrder propagates a commit rejection (stale key → atomic failure)', async () => {
+    mockBatch.commit.mockRejectedValue(new Error('no entity to update'));
+    await expect(firstValueFrom(service.setListOrder(['gone']))).rejects.toThrow();
   });
 });
 

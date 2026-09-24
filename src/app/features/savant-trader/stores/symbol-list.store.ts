@@ -25,6 +25,7 @@ import {
 } from '@ngrx/signals';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { firstValueFrom, Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 import { SymbolListService } from '../services/symbol-list.service';
 import { SignalService } from '../services/signal.service';
@@ -132,16 +133,23 @@ export const SymbolListStore = signalStore(
      * observe the previous one.
      */
     let writeQueue: Promise<void> = Promise.resolve();
-    /** Enqueue a mutation; failures snackbar and the next snapshot reverts. */
-    function enqueueWrite(run: () => Observable<void>, failMsg: string): void {
-      writeQueue = writeQueue
+    /**
+     * Enqueue a mutation; failures snackbar and the next snapshot reverts.
+     * Resolves the write's result (e.g. createList's generated key) —
+     * undefined on failure.
+     */
+    function enqueueWrite<T>(run: () => Observable<T>, failMsg: string): Promise<T | undefined> {
+      const result = writeQueue
         .then(() => firstValueFrom(run()))
-        .catch((err: unknown) => {
+        .catch((err: unknown): T | undefined => {
           const detail = err instanceof Error ? err.message : 'Unknown error';
           console.error(`[SymbolListStore] ${failMsg}:`, err);
           snackBar.open(`${failMsg}: ${detail}`, 'Dismiss', { duration: 5000 });
           // No rollback — the stream still holds server truth.
+          return undefined;
         });
+      writeQueue = result.then(() => undefined);
+      return result;
     }
 
     /** Keys of exclusive-role lists — catalog first, system seeds as
@@ -267,6 +275,38 @@ export const SymbolListStore = signalStore(
         () => listService.removeFromList(symbol, listKey),
         `Failed to remove ${symbol} from ${listKey}`,
       );
+    },
+
+    /**
+     * Create a user list — generated slug key, nonexclusive role, appended
+     * order. Resolves the key; the list appears on the next emission.
+     */
+    createList(label: string): Promise<string | undefined> {
+      return enqueueWrite(() => listService.createList(label), `Failed to create list ${label}`);
+    },
+
+    /** Rename a list — label only; key is immutable. */
+    renameList(key: string, label: string): Promise<void | undefined> {
+      return enqueueWrite(() => listService.renameList(key, label), `Failed to rename ${key}`);
+    },
+
+    /** Delete a list — the catalog drops it on the next emission. An
+     *  active filter still pointing at the deleted key resets to ALL
+     *  (only when the write actually succeeded — enqueueWrite resolves
+     *  the sentinel on success, undefined on failure). */
+    async deleteList(key: string): Promise<void> {
+      const ok = await enqueueWrite(
+        () => listService.deleteList(key).pipe(map(() => true)),
+        `Failed to delete ${key}`,
+      );
+      if (ok && state.activeListFilter() === key) {
+        patchState(state, { activeListFilter: 'ALL' });
+      }
+    },
+
+    /** Persist a user-list reorder (keys in desired sequence). */
+    setListOrder(orderedKeys: string[]): Promise<void | undefined> {
+      return enqueueWrite(() => listService.setListOrder(orderedKeys), 'Failed to reorder lists');
     },
     };
   }),

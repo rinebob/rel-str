@@ -40,6 +40,7 @@ import { SymbolListService } from '../services/symbol-list.service';
 import { RelStrDbV2Service } from '../../services/rel-str-db-v2.service';
 import { SignalService } from '../services/signal.service';
 import type { SymbolListDef } from '../common/symbol-list-defs';
+import type { SymbolListFilter } from '../common/constants';
 
 // =============================================================================
 // Fixtures
@@ -56,7 +57,16 @@ function def(key: string, over: Partial<SymbolListDef> = {}): SymbolListDef {
 
 interface Setup {
   listStore: InstanceType<typeof SymbolListStore>;
-  listService: { watchLists$: jest.Mock; moveToList: jest.Mock; addToList: jest.Mock; removeFromList: jest.Mock };
+  listService: {
+    watchLists$: jest.Mock;
+    moveToList: jest.Mock;
+    addToList: jest.Mock;
+    removeFromList: jest.Mock;
+    createList: jest.Mock;
+    renameList: jest.Mock;
+    deleteList: jest.Mock;
+    setListOrder: jest.Mock;
+  };
   db: { getTrackedSymbols$: jest.Mock };
   snackBar: { open: jest.Mock };
 }
@@ -68,6 +78,10 @@ function setup(tracked: string[] = []): Setup {
     moveToList: jest.fn(() => of(undefined)),
     addToList: jest.fn(() => of(undefined)),
     removeFromList: jest.fn(() => of(undefined)),
+    createList: jest.fn(() => of('my-picks')),
+    renameList: jest.fn(() => of(undefined)),
+    deleteList: jest.fn(() => of(undefined)),
+    setListOrder: jest.fn(() => of(undefined)),
   };
   const db = {
     getTrackedSymbols$: jest.fn(() => of(tracked.map((s) => ({ symbol: s, company: `${s} Corp` })))),
@@ -270,6 +284,56 @@ describe('SymbolListStore snapshot-truth mutations', () => {
 
     listStore.loadSymbolLists(); // retry — the mock reads the current subject
     expect(listService.watchLists$).toHaveBeenCalledTimes(2);
+  });
+});
+
+// =============================================================================
+// User-list CRUD pass-throughs (#526)
+// =============================================================================
+
+describe('SymbolListStore user-list CRUD', () => {
+  it('createList delegates and resolves the generated key', async () => {
+    const { listStore, listService } = setup();
+    const key = await listStore.createList('My Picks');
+    expect(listService.createList).toHaveBeenCalledWith('My Picks');
+    expect(key).toBe('my-picks');
+  });
+
+  it('renameList / deleteList / setListOrder delegate through the queue', async () => {
+    const { listStore, listService } = setup();
+    await listStore.renameList('my-picks', 'Watchlist B');
+    await listStore.deleteList('my-picks');
+    await listStore.setListOrder(['b-list', 'a-list']);
+    expect(listService.renameList).toHaveBeenCalledWith('my-picks', 'Watchlist B');
+    expect(listService.deleteList).toHaveBeenCalledWith('my-picks');
+    expect(listService.setListOrder).toHaveBeenCalledWith(['b-list', 'a-list']);
+  });
+
+  it('a failed CRUD write snackbars and resolves undefined', async () => {
+    const { listStore, listService, snackBar } = setup();
+    listService.createList.mockReturnValue(throwError(() => new Error('denied')));
+    const key = await listStore.createList('My Picks');
+    expect(key).toBeUndefined();
+    expect(snackBar.open).toHaveBeenCalled();
+  });
+
+  it('deleteList resets activeListFilter to ALL when it matches the deleted key', async () => {
+    const { listStore } = setup();
+    // Cast: user-list keys aren't in the enum-era union until #528.
+    listStore.setActiveListFilter('my-picks' as SymbolListFilter);
+    await listStore.deleteList('my-picks');
+    expect(listStore.activeListFilter()).toBe('ALL');
+  });
+
+  it('deleteList leaves activeListFilter alone for other keys — and on failure', async () => {
+    const { listStore, listService } = setup();
+    listStore.setActiveListFilter('my-picks' as SymbolListFilter);
+    await listStore.deleteList('other-list');
+    expect(listStore.activeListFilter()).toBe('my-picks');
+
+    listService.deleteList.mockReturnValue(throwError(() => new Error('denied')));
+    await listStore.deleteList('my-picks');
+    expect(listStore.activeListFilter()).toBe('my-picks');
   });
 });
 

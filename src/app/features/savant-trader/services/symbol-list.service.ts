@@ -18,7 +18,10 @@ import {
   collectionSnapshots,
   doc,
   setDoc,
+  updateDoc,
+  deleteDoc,
   getDoc,
+  getDocs,
   query,
   where,
   writeBatch,
@@ -36,13 +39,11 @@ import {
   SymbolListDef,
   symbolListDocId,
   systemListDef,
-  legacyListKey,
   ALL_LEGACY_LIST_IDS,
   USER_LIST_ORDER_START,
+  SYSTEM_LIST_KEYS,
 } from '../common/symbol-list-defs';
-
-/** Stable catalog ordering — by `order` field. */
-const byOrder = (a: SymbolListDef, b: SymbolListDef) => a.order - b.order;
+import { resolveSnapshot } from './symbol-list-registry';
 
 /** Compat shape for consumers still keyed on `name` (= registry key). */
 export interface SymbolList {
@@ -90,7 +91,7 @@ export class SymbolListService {
               firstEmission = false;
               docs.push(...await this.probeLegacyDocs(userId, docs));
             }
-            return this.resolveSnapshot(userId, docs);
+            return resolveSnapshot(this.firestore, userId, docs);
           }),
         );
       }),
@@ -118,12 +119,6 @@ export class SymbolListService {
   }
 
   /**
-   * Split the snapshot into registry docs and legacy docs; when legacy docs
-   * exist, batch-rekey them and emit the merged def view. On batch failure
-   * emit the best-effort view (docs-as-defs) — reads stay correct and the
-   * migration retries on the next emission.
-   */
-  /**
    * Probe the known legacy bare-name doc ids on the first emission — docs
    * written without a userId field (e.g. the symbol-added pipeline writer)
    * are invisible to the filtered query but still carry this user's data.
@@ -149,120 +144,6 @@ export class SymbolListService {
       );
     });
     return found;
-  }
-
-  private async resolveSnapshot(
-    userId: string,
-    docs: { id: string; data: DocumentData }[],
-  ): Promise<SymbolListDef[]> {
-    const prefix = `${userId}_`;
-    const registry = new Map<string, SymbolListDef>();
-    const legacy: typeof docs = [];
-
-    for (const d of docs) {
-      const isRegistry = d.id.startsWith(prefix) && d.data['key'];
-      if (isRegistry) registry.set(d.data['key'], this.toDef(d.data));
-      else legacy.push(d);
-    }
-    if (legacy.length === 0) return [...registry.values()].sort(byOrder);
-
-    const out = new Map(registry);
-    const batch = writeBatch(this.firestore);
-    // Deterministic order for synthetic ordering of unknown lists.
-    legacy.sort((a, b) => a.id.localeCompare(b.id));
-    let userOrder = USER_LIST_ORDER_START;
-    for (const d of legacy) {
-      // Name wins; a prefixed-but-unstamped id falls back to its suffix.
-      const name =
-        (d.data['name'] as string) ??
-        (d.id.startsWith(prefix) ? d.id.slice(prefix.length) : d.id);
-      const key = legacyListKey(name);
-      const template = systemListDef(key);
-      // Merge into the accumulated view — covers both an existing registry
-      // doc and a previous legacy doc that resolved to the same key.
-      const existing = out.get(key);
-      const symbols = [
-        ...new Set([...(existing?.symbols ?? []), ...((d.data['symbols'] as string[]) ?? [])]),
-      ];
-      const def: SymbolListDef = {
-        ...(existing ?? template ?? {
-          key, label: name, order: userOrder++, role: 'nonexclusive', hidden: false,
-        }),
-        symbols,
-        userId,
-        createdAt: existing?.createdAt ?? d.data['createdAt'],
-      };
-      batch.set(
-        doc(this.firestore, Collection.ST_SYMBOL_LISTS, symbolListDocId(userId, key)),
-        {
-          key: def.key,
-          label: def.label,
-          order: def.order,
-          role: def.role,
-          hidden: def.hidden,
-          symbols,
-          userId,
-          createdAt: def.createdAt ?? serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true },
-      );
-      // A prefixed-but-unstamped doc rekeys to itself — delete would erase it.
-      if (d.id !== symbolListDocId(userId, key)) {
-        batch.delete(doc(this.firestore, Collection.ST_SYMBOL_LISTS, d.id));
-      }
-      out.set(key, def);
-    }
-
-    try {
-      await batch.commit();
-    } catch (err) {
-      console.error('[SymbolListService] registry doc migration failed', err);
-      return this.fallbackDefs(userId, docs);
-    }
-    return [...out.values()].sort(byOrder);
-  }
-
-  /**
-   * Best-effort defs straight from the snapshot when the migration batch
-   * fails — legacy docs map name→key, same-key docs merge, nothing written.
-   */
-  private fallbackDefs(
-    userId: string,
-    docs: { id: string; data: DocumentData }[],
-  ): SymbolListDef[] {
-    const prefix = `${userId}_`;
-    const out = new Map<string, SymbolListDef>();
-    const sorted = [...docs].sort((a, b) => a.id.localeCompare(b.id));
-    let userOrder = USER_LIST_ORDER_START;
-    for (const d of sorted) {
-      const isRegistry = d.id.startsWith(prefix) && d.data['key'];
-      if (isRegistry) {
-        const def = this.toDef(d.data);
-        const prev = out.get(def.key);
-        out.set(def.key, {
-          ...def,
-          symbols: [...new Set([...(prev?.symbols ?? []), ...def.symbols])],
-        });
-        continue;
-      }
-      const name =
-        (d.data['name'] as string) ??
-        (d.id.startsWith(prefix) ? d.id.slice(prefix.length) : d.id);
-      const key = legacyListKey(name);
-      const template = systemListDef(key);
-      const symbols = (d.data['symbols'] as string[]) ?? [];
-      const prev = out.get(key);
-      out.set(key, {
-        ...(prev ?? template ?? {
-          key, label: name, order: userOrder++, role: 'nonexclusive', hidden: false,
-        }),
-        symbols: [...new Set([...(prev?.symbols ?? []), ...symbols])],
-        userId,
-        createdAt: prev?.createdAt ?? d.data['createdAt'],
-      });
-    }
-    return [...out.values()].sort(byOrder);
   }
 
   /** Add a symbol to a list if it is not already present. */
@@ -372,21 +253,117 @@ export class SymbolListService {
     );
   }
 
-  /** Convert a registry doc's data into the typed def shape. */
-  private toDef(data: DocumentData): SymbolListDef {
-    const key = String(data['key']);
-    const role = data['role'] === 'exclusive' ? 'exclusive' : 'nonexclusive';
-    return {
-      key,
-      label: data['label'] ?? key,
-      order: typeof data['order'] === 'number' ? data['order'] : 0,
-      role,
-      hidden: data['hidden'] === true,
-      symbols: Array.isArray(data['symbols']) ? (data['symbols'] as string[]) : [],
-      userId: data['userId'],
-      createdAt: data['createdAt'],
-      updatedAt: data['updatedAt'],
-    };
+  /**
+   * Create a user list: slug key generated from the label (collision-
+   * suffixed), `role: nonexclusive`, `order` appended after the highest
+   * existing order (floor USER_LIST_ORDER_START). Resolves the generated
+   * key so the caller can select/navigate to the new list.
+   */
+  createList(label: string): Observable<string> {
+    return requireUserId(this.auth, this.injector).pipe(
+      take(1),
+      switchMap((userId) => runInInjectionContext(this.injector, async () => {
+        const snap = await getDocs(
+          query(this.listsCollection, where('userId', '==', userId)),
+        );
+        // Case-insensitive taken set: system keys included so 'Primary'
+        // can't shadow 'PRIMARY' with a lookalike lowercase slug.
+        const taken = new Set<string>(
+          Object.values(SYSTEM_LIST_KEYS).map((k) => k.toLowerCase()),
+        );
+        let maxOrder = USER_LIST_ORDER_START - 1;
+        for (const d of snap.docs) {
+          const data = d.data();
+          if (data['key']) taken.add(String(data['key']).toLowerCase());
+          if (typeof data['order'] === 'number') {
+            maxOrder = Math.max(maxOrder, data['order']);
+          }
+        }
+
+        const base = label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'list';
+        let key = base;
+        for (let i = 2; taken.has(key); i++) key = `${base}-${i}`;
+
+        await setDoc(
+          doc(this.firestore, Collection.ST_SYMBOL_LISTS, symbolListDocId(userId, key)),
+          {
+            key,
+            label: label.trim() || key,
+            order: maxOrder + 1,
+            role: 'nonexclusive',
+            hidden: false,
+            symbols: [],
+            userId,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true },
+        );
+        return key;
+      })),
+    );
+  }
+
+  /**
+   * Rename a list — label-only write; nothing is keyed on label. Reads
+   * first so an unknown key can't materialize a stub doc. System lists
+   * are renameable (label is cosmetic; the key is immutable).
+   */
+  renameList(key: string, label: string): Observable<void> {
+    return requireUserId(this.auth, this.injector).pipe(
+      take(1),
+      switchMap((userId) => runInInjectionContext(this.injector, async () => {
+        const docRef = doc(this.firestore, Collection.ST_SYMBOL_LISTS, symbolListDocId(userId, key));
+        // Pre-read for the friendly error; updateDoc (not merge-set) so a
+        // doc deleted mid-flight rejects atomically instead of
+        // materializing a key-less stub the migration would resurrect.
+        const existing = await getDoc(docRef);
+        if (!existing.exists()) throw new Error(`List '${key}' does not exist`);
+        await updateDoc(docRef, { label: label.trim() || key, updatedAt: serverTimestamp() });
+      })),
+      map(() => undefined),
+    );
+  }
+
+  /**
+   * Delete a user-list doc; the catalog drops it on the next emission.
+   * System lists are structural (triage targets) — rejected.
+   */
+  deleteList(key: string): Observable<void> {
+    return requireUserId(this.auth, this.injector).pipe(
+      take(1),
+      switchMap((userId) => runInInjectionContext(this.injector, () => {
+        if (systemListDef(key)) {
+          throw new Error(`'${key}' is a system list and cannot be deleted`);
+        }
+        return deleteDoc(
+          doc(this.firestore, Collection.ST_SYMBOL_LISTS, symbolListDocId(userId, key)),
+        );
+      })),
+      map(() => undefined),
+    );
+  }
+
+  /**
+   * Persist a user-list reorder — system keys are filtered out (their
+   * order block is fixed). Uses `update` (not merge-set) so a stale key
+   * fails the batch atomically instead of resurrecting a ghost doc.
+   */
+  setListOrder(orderedKeys: string[]): Observable<void> {
+    return requireUserId(this.auth, this.injector).pipe(
+      take(1),
+      switchMap((userId) => runInInjectionContext(this.injector, async () => {
+        const batch = writeBatch(this.firestore);
+        orderedKeys.filter((key) => !systemListDef(key)).forEach((key, i) => {
+          batch.update(
+            doc(this.firestore, Collection.ST_SYMBOL_LISTS, symbolListDocId(userId, key)),
+            { order: USER_LIST_ORDER_START + i, updatedAt: serverTimestamp() },
+          );
+        });
+        await batch.commit();
+      })),
+      map(() => undefined),
+    );
   }
 
 }
