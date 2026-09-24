@@ -8,8 +8,12 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 
+import { signal } from '@angular/core';
+
 import { OptionChainComponent } from './option-chain.component';
 import { OptionChainStore } from './option-chain.store';
+import { SymbolListStore } from '../../stores/symbol-list.store';
+import type { StSymbolProfile } from '../../services/types';
 import { OptionsContractService } from '../../services/options-contract.service';
 import { LocalBarReadService } from '../../../../core/services/local-bar-read.service';
 import type {
@@ -102,6 +106,15 @@ describe('OptionChainComponent + real store (integration)', () => {
         OptionChainStore,
         { provide: OptionsContractService, useValue: optionsService },
         { provide: LocalBarReadService, useValue: barService },
+        // Header company-name slice — stubbed; the real store would
+        // reach for the callable.
+        {
+          provide: SymbolListStore,
+          useValue: {
+            loadProfiles: jest.fn(),
+            profilesBySymbol: signal(new Map<string, StSymbolProfile>()),
+          },
+        },
       ],
     }).compileComponents();
 

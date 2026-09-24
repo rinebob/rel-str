@@ -1,9 +1,7 @@
 <div class="option-chain-page">
   <div class="page-header">
-    <h1>Option Chain</h1>
     <div class="header-context">
-      <!-- Interim controls — the full header (company info, underlying
-           closes, session date, source, datepicker) lands in #503. -->
+      <h1>Option Chain</h1>
       <label>
         Symbol
         <input
@@ -15,23 +13,72 @@
         />
       </label>
       <button type="button" data-testid="load-btn" (click)="onLoad()">Load</button>
+      @if (companyName(); as name) {
+        <span class="company-name" data-testid="company-name">{{ name }}</span>
+      }
+      <div class="date-control">
+        <input
+          type="text"
+          class="date-input" data-testid="date-input"
+          aria-label="Session date (YYYY-MM-DD)"
+          placeholder="YYYY-MM-DD"
+          [value]="store.dateInput()"
+          (input)="dateError.set(null)"
+          (keydown.enter)="onDateCommitEvent($event)"
+        />
+        <!-- Zero-size but RENDERED anchor input carries the matDatepicker
+             association — the picker refuses to open without one, and the
+             overlay positions from this element's rect, so it must not be
+             display:none. The visible input stays a plain YYYY-MM-DD box:
+             a matDatepicker input would reformat display through the
+             locale adapter and parse ISO text as UTC midnight (off-by-one
+             in US timezones). -->
+        <input type="text" class="date-anchor" aria-hidden="true" tabindex="-1" readonly
+               [matDatepicker]="sessionPicker" (dateChange)="onPickedDate($event.value)" />
+        <mat-datepicker-toggle [for]="sessionPicker"></mat-datepicker-toggle>
+        <mat-datepicker #sessionPicker></mat-datepicker>
+      </div>
+      @if (dateError(); as err) {
+        <span class="date-error" role="alert" data-testid="date-error">{{ err }}</span>
+      }
+      <button
+        type="button" class="filter-pill" data-testid="today-btn"
+        title="Re-resolve the latest session"
+        (click)="store.loadToday()"
+      >Today</button>
+    </div>
+    <div class="filter-row">
       <div class="filter-pill-group" role="group" aria-label="Side">
         <button type="button" class="filter-pill" data-testid="side-calls" [class.active]="layout() === 'call'" (click)="layout.set('call')">Calls</button>
         <button type="button" class="filter-pill" data-testid="side-puts" [class.active]="layout() === 'put'" (click)="layout.set('put')">Puts</button>
         <button type="button" class="filter-pill" data-testid="side-both" [class.active]="layout() === 'both'" (click)="layout.set('both')">Both</button>
       </div>
       <div class="delta-filter" title="Filter cells by absolute delta — empty = unbounded">
-        <span class="delta-label">|Δ|</span>
+        <span class="delta-label">|Î”|</span>
         <input
           type="number" step="0.05" min="0" max="1" placeholder="Min"
           class="delta-input" data-testid="delta-gte"
-          [value]="deltaGte() ?? ''" (input)="onDeltaBound('deltaGte', $event)"
+          [value]="deltaGte() ?? ''" (input)="onBound('deltaGte', $event)"
         />
         <span>–</span>
         <input
           type="number" step="0.05" min="0" max="1" placeholder="Max"
           class="delta-input" data-testid="delta-lte"
-          [value]="deltaLte() ?? ''" (input)="onDeltaBound('deltaLte', $event)"
+          [value]="deltaLte() ?? ''" (input)="onBound('deltaLte', $event)"
+        />
+      </div>
+      <div class="delta-filter" title="Filter rows by strike — empty = unbounded">
+        <span class="delta-label">K</span>
+        <input
+          type="number" step="1" min="0" placeholder="Min"
+          class="delta-input strike-input" data-testid="strike-gte"
+          [value]="strikeGte() ?? ''" (input)="onBound('strikeGte', $event)"
+        />
+        <span>–</span>
+        <input
+          type="number" step="1" min="0" placeholder="Max"
+          class="delta-input strike-input" data-testid="strike-lte"
+          [value]="strikeLte() ?? ''" (input)="onBound('strikeLte', $event)"
         />
       </div>
       <div class="filter-pill-group" role="group" aria-label="Shading">
@@ -40,7 +87,7 @@
           [class.active]="deltaShading()"
           title="Shade cells in odd |delta| tenths (0.1x, 0.3x, 0.5x, 0.7x, 0.9x)"
           (click)="deltaShading.set(!deltaShading())"
-        >Δ shade</button>
+        >Î” shade</button>
         <button
           type="button" class="filter-pill" data-testid="shade-time"
           [class.active]="timeShading()"
@@ -62,7 +109,9 @@
       <app-column-picker
         [exps]="allExpirations()"
         [session]="store.resolvedDate()"
-        [(hidden)]="hiddenExpirations"
+        [(hiddenBands)]="hiddenBands"
+        [(expHidden)]="expHidden"
+        [(expShown)]="expShown"
       />
       <div class="filter-pill-group" role="group" aria-label="Strike order">
         <button
@@ -76,6 +125,8 @@
           (click)="toggleOrientation('put')"
         >Puts {{ putOrientation() === 'desc' ? '▼' : '▲' }}</button>
       </div>
+    </div>
+    <div class="info-row">
       @if (store.sessionClose() != null) {
         <span
           class="underlying-close"
@@ -105,7 +156,8 @@
     } @else if (store.error()) {
       <div class="page-state error">{{ store.error() }}</div>
     } @else if (store.resolvedNoData()) {
-      <div class="page-state">No chain data found in the last 7 days.</div>
+      <!-- Manual picks name the requested date; auto-mode names the window. -->
+      <div class="page-state">No chain data found{{ store.resolvedDate() ? ' for ' + store.resolvedDate() : ' in the last 7 days' }}.</div>
     } @else {
       <div class="grids-row">
         @if (layout() !== 'put') {
@@ -118,7 +170,7 @@
                 </span>
               }
             </div>
-            <app-chain-grid [model]="callsModel()" [side]="OptionType.CALL" [sessionDate]="store.resolvedDate()" [deltaShading]="deltaShading()" [timeShading]="timeShading()" [heatmap]="heatmap()" [topDirection]="callsTopDir()" />
+            <app-chain-grid [model]="callsModel()" [side]="OptionType.CALL" [sessionDate]="store.resolvedDate()" [deltaShading]="deltaShading()" [timeShading]="timeShading()" [heatmap]="heatmap()" [topDirection]="callsTopDir()" (centered)="resync()" />
           </div>
         }
         @if (layout() !== 'call') {
@@ -131,7 +183,7 @@
                 </span>
               }
             </div>
-            <app-chain-grid [model]="putsModel()" [side]="OptionType.PUT" [sessionDate]="store.resolvedDate()" [deltaShading]="deltaShading()" [timeShading]="timeShading()" [heatmap]="heatmap()" [topDirection]="putsTopDir()" />
+            <app-chain-grid [model]="putsModel()" [side]="OptionType.PUT" [sessionDate]="store.resolvedDate()" [deltaShading]="deltaShading()" [timeShading]="timeShading()" [heatmap]="heatmap()" [topDirection]="putsTopDir()" (centered)="resync()" />
           </div>
         }
       </div>

@@ -1,9 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { signal } from '@angular/core';
+import { By } from '@angular/platform-browser';
+import { MatDatepicker, MatDatepickerInput } from '@angular/material/datepicker';
 
 import { OptionChainComponent } from './option-chain.component';
 import { OptionChainStore } from './option-chain.store';
+import { SymbolListStore } from '../../stores/symbol-list.store';
+import type { StSymbolProfile } from '../../services/types';
 import { AppRoutes } from '../../../../core/common/interfaces';
 import { NAV_MENU_ITEMS } from '../../../../core/common/constants';
 import type { HistoricalOptionContract } from '@options-contract/contracts';
@@ -47,7 +51,7 @@ function makeMockStore() {
 
 describe('OptionChainComponent', () => {
   /** jsdom has no layout — install fake scrollable geometry + offset
-   *  storage so scroll-fraction math has real numbers to work on. */
+   *  storage so scroll math has real numbers to work on. */
   function stubScroller(
     el: HTMLElement,
     geo: { h: number; ch: number; w: number; cw: number },
@@ -57,23 +61,50 @@ describe('OptionChainComponent', () => {
     Object.defineProperty(el, 'clientHeight', { get: () => geo.ch, configurable: true });
     Object.defineProperty(el, 'scrollWidth', { get: () => geo.w, configurable: true });
     Object.defineProperty(el, 'clientWidth', { get: () => geo.cw, configurable: true });
-    Object.defineProperty(el, 'scrollTop', { get: () => top, set: (v: number) => { top = v; }, configurable: true });
-    Object.defineProperty(el, 'scrollLeft', { get: () => left, set: (v: number) => { left = v; }, configurable: true });
+    // Clamp like the real DOM — boundary behavior is part of the sync contract.
+    Object.defineProperty(el, 'scrollTop', { get: () => top, set: (v: number) => { top = Math.max(0, Math.min(v, geo.h - geo.ch)); }, configurable: true });
+    Object.defineProperty(el, 'scrollLeft', { get: () => left, set: (v: number) => { left = Math.max(0, Math.min(v, geo.w - geo.cw)); }, configurable: true });
     return { el };
   }
 
+  /** Fake the row geometry scrollToStrike reads: every [data-strike]
+   *  row's rect is contentOffset = headerH + idx*rowH, slid by scrollTop;
+   *  the scroller's own rect tops at 0. */
+  function stubRows(scroller: HTMLElement, headerH: number, rowH: number): void {
+    scroller.getBoundingClientRect = () =>
+      ({ top: 0, height: scroller.clientHeight }) as DOMRect;
+    scroller
+      .querySelectorAll<HTMLElement>('[data-strike]')
+      .forEach((row, idx) => {
+        row.getBoundingClientRect = () =>
+          ({
+            top: headerH + idx * rowH - scroller.scrollTop,
+            height: rowH,
+          }) as DOMRect;
+      });
+  }
+
   let mockStore: ReturnType<typeof makeMockStore>;
+  let mockLists: {
+    loadProfiles: jest.Mock;
+    profilesBySymbol: ReturnType<typeof signal<Map<string, StSymbolProfile>>>;
+  };
 
   beforeEach(() => localStorage.clear());
 
   async function render(initialSymbol = '') {
     mockStore = makeMockStore();
     mockStore.symbol.set(initialSymbol);
+    mockLists = {
+      loadProfiles: jest.fn(),
+      profilesBySymbol: signal(new Map<string, StSymbolProfile>()),
+    };
     await TestBed.configureTestingModule({
       imports: [OptionChainComponent],
       providers: [
         provideRouter([]),
         { provide: OptionChainStore, useValue: mockStore },
+        { provide: SymbolListStore, useValue: mockLists },
       ],
     }).compileComponents();
     const fixture = TestBed.createComponent(OptionChainComponent);
@@ -196,7 +227,7 @@ describe('OptionChainComponent', () => {
     expect(strikes('call')).toEqual(['600', '605']);
   });
 
-  it('mirrors scroll between both panes by scroll fraction on both axes', async () => {
+  it('syncs panes from the aligned baseline — same direction both axes', async () => {
     const fixture = await render();
     mockStore.sessionContracts.set([
       oc({ contractID: 'call-a', type: OptionType.CALL }),
@@ -204,84 +235,143 @@ describe('OptionChainComponent', () => {
     ]);
     fixture.detectChanges();
     await fixture.whenStable();
-    const scrollers = (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.grid-scroll');
+    const scrollers = (fixture.nativeElement as HTMLElement)
+      .querySelectorAll<HTMLElement>('.grid-scroll');
     expect(scrollers.length).toBe(2);
-    // jsdom has no layout — install fake scrollable geometry so offsets and
-    // ranges are real values the fraction math can work on. calls has a
-    // 900px scrollable range, puts 1800px (double).
-    const calls = stubScroller(scrollers[0], { h: 1000, ch: 100, w: 1000, cw: 500 });
-    const puts = stubScroller(scrollers[1], { h: 2000, ch: 200, w: 2000, cw: 1000 });
+    const calls = stubScroller(scrollers[0], { h: 1000, ch: 60, w: 1000, cw: 500 });
+    const puts = stubScroller(scrollers[1], { h: 1000, ch: 60, w: 2000, cw: 1000 });
 
-    // calls scrolled to 50% of its 900px v-range and 10% of its h-range —
-    // puts must land on the same FRACTIONS of its own (2x) ranges.
-    calls.el.scrollTop = 450;
+    // First event seeds the baseline — panes are auto-centered/aligned,
+    // so seeding at current positions is correct.
+    calls.el.dispatchEvent(new Event('scroll'));
+    expect(puts.el.scrollTop).toBe(0);
+
+    // calls +60 down / +50 right → puts lands at baseline + same offsets.
+    calls.el.scrollTop = 60;
     calls.el.scrollLeft = 50;
     calls.el.dispatchEvent(new Event('scroll'));
-    expect(puts.el.scrollTop).toBe(900);  // 0.5 × 1800
-    expect(puts.el.scrollLeft).toBe(100); // 0.1 × 1000
+    expect(puts.el.scrollTop).toBe(60);
+    expect(puts.el.scrollLeft).toBe(50);
 
-    puts.el.scrollTop = 90; // 5% of 1800
+    // Reverse direction: puts (baseline seeded at 0 during calls' first
+    // event) at 80 → calls lands at its baseline + 80.
+    puts.el.scrollTop = 80;
     puts.el.dispatchEvent(new Event('scroll'));
-    expect(calls.el.scrollTop).toBe(45); // 0.05 × 900
+    expect(calls.el.scrollTop).toBe(80);
   });
 
-  it('re-sync suppresses mirroring while the panes re-center', async () => {
+  it('boundary clamps self-heal — no persistent offset after overscroll', async () => {
     const fixture = await render();
     mockStore.sessionContracts.set([
-      oc({ contractID: 'call-a', type: OptionType.CALL }),
-      oc({ contractID: 'put-a', type: OptionType.PUT }),
+      oc({ contractID: 'call-700', type: OptionType.CALL, strike: '700' }),
+      oc({ contractID: 'call-600', type: OptionType.CALL, strike: '600' }),
+      oc({ contractID: 'call-590', type: OptionType.CALL, strike: '590' }),
+      oc({ contractID: 'put-560', type: OptionType.PUT, strike: '560' }),
+      oc({ contractID: 'put-580', type: OptionType.PUT, strike: '580' }),
+      oc({ contractID: 'put-600', type: OptionType.PUT, strike: '600' }),
+      oc({ contractID: 'put-620', type: OptionType.PUT, strike: '620' }),
+      oc({ contractID: 'put-640', type: OptionType.PUT, strike: '640' }),
     ]);
+    mockStore.sessionClose.set(600);
     fixture.detectChanges();
     await fixture.whenStable();
-    const scrollers = (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.grid-scroll');
-    const calls = stubScroller(scrollers[0], { h: 1000, ch: 100, w: 1000, cw: 500 });
-    const puts = stubScroller(scrollers[1], { h: 2000, ch: 200, w: 2000, cw: 1000 });
+    const scrollers = (fixture.nativeElement as HTMLElement)
+      .querySelectorAll<HTMLElement>('.grid-scroll');
+    const calls = stubScroller(scrollers[0], { h: 1000, ch: 60, w: 1000, cw: 500 });
+    const puts = stubScroller(scrollers[1], { h: 1000, ch: 60, w: 2000, cw: 1000 });
+    stubRows(scrollers[0], 30, 30);
+    stubRows(scrollers[1], 30, 30);
 
-    // puts sits at 500 when resync runs (scrollIntoView is a jsdom no-op)
-    // — its queued scroll event at that exact position is programmatic
-    // and must NOT mirror.
-    puts.el.scrollTop = 500;
+    // Resync seeds aligned baselines: calls 45, puts 75.
     (fixture.nativeElement as HTMLElement)
       .querySelector<HTMLButtonElement>('[data-testid="resync"]')!
       .click();
-    const callsBefore = calls.el.scrollTop;
-    puts.el.dispatchEvent(new Event('scroll'));
-    expect(calls.el.scrollTop).toBe(callsBefore);
+    expect(calls.el.scrollTop).toBe(45);
+    expect(puts.el.scrollTop).toBe(75);
 
-    // A scroll to a DIFFERENT position is a real user scroll — mirrors
-    // even inside the suppression window.
-    calls.el.scrollTop = 450;
+    // calls to the top (offset −45) → puts = 75 − 45 = 30.
+    calls.el.scrollTop = 0;
     calls.el.dispatchEvent(new Event('scroll'));
-    expect(puts.el.scrollTop).toBe(900);
+    expect(puts.el.scrollTop).toBe(30);
+
+    // puts to the top (offset −75 vs its baseline) → calls = 45 − 75 →
+    // clamps at 0. The overscroll is "virtual" — recomputed every event.
+    puts.el.scrollTop = 0;
+    puts.el.dispatchEvent(new Event('scroll'));
+    expect(calls.el.scrollTop).toBe(0);
+
+    // calls back to its baseline → puts recomputes to EXACTLY its own
+    // baseline 75 — clamped overscroll can't accumulate into a gap.
+    calls.el.scrollTop = 45;
+    calls.el.dispatchEvent(new Event('scroll'));
+    expect(puts.el.scrollTop).toBe(75);
   });
 
-  it('re-sync button centers both grids on their ATM row', async () => {
-    const scrollSpy = jest.fn();
-    const orig = window.HTMLElement.prototype.scrollIntoView;
-    window.HTMLElement.prototype.scrollIntoView = scrollSpy;
-    try {
-      const fixture = await render();
-      mockStore.sessionContracts.set([
-        oc({ contractID: 'call-a', type: OptionType.CALL }),
-        oc({ contractID: 'put-a', type: OptionType.PUT }),
-      ]);
-      mockStore.sessionClose.set(600);
-      fixture.detectChanges();
-      scrollSpy.mockClear(); // auto-center on load already called it
+  it('programmatic writes echo back as a no-op write — no feedback', async () => {
+    const fixture = await render();
+    mockStore.sessionContracts.set([
+      oc({ contractID: 'call-a', type: OptionType.CALL }),
+      oc({ contractID: 'put-a', type: OptionType.PUT }),
+    ]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const scrollers = (fixture.nativeElement as HTMLElement)
+      .querySelectorAll<HTMLElement>('.grid-scroll');
+    const calls = stubScroller(scrollers[0], { h: 1000, ch: 60, w: 1000, cw: 500 });
+    const puts = stubScroller(scrollers[1], { h: 1000, ch: 60, w: 2000, cw: 1000 });
+    calls.el.dispatchEvent(new Event('scroll'));
 
-      (fixture.nativeElement as HTMLElement)
-        .querySelector<HTMLButtonElement>('[data-testid="resync"]')!
-        .click();
-      expect(scrollSpy).toHaveBeenCalledTimes(2); // once per pane
-      expect(scrollSpy).toHaveBeenCalledWith({ block: 'center' });
-    } finally {
-      // Don't leak the prototype mock to later specs in this worker.
-      if (orig === undefined) {
-        delete (window.HTMLElement.prototype as { scrollIntoView?: unknown }).scrollIntoView;
-      } else {
-        window.HTMLElement.prototype.scrollIntoView = orig;
-      }
-    }
+    // calls +60 → puts moves to 60. puts' queued scroll event then maps
+    // puts→calls and writes calls to its own current position — a no-op
+    // that produces no further event.
+    calls.el.scrollTop = 60;
+    calls.el.dispatchEvent(new Event('scroll'));
+    expect(puts.el.scrollTop).toBe(60);
+    puts.el.dispatchEvent(new Event('scroll')); // the echo
+    expect(calls.el.scrollTop).toBe(60);        // unchanged
+  });
+
+  it('re-sync re-centers each pane and re-anchors the baselines', async () => {
+    const fixture = await render();
+    mockStore.sessionContracts.set([
+      oc({ contractID: 'call-700', type: OptionType.CALL, strike: '700' }),
+      oc({ contractID: 'call-600', type: OptionType.CALL, strike: '600' }),
+      oc({ contractID: 'call-590', type: OptionType.CALL, strike: '590' }),
+      oc({ contractID: 'put-560', type: OptionType.PUT, strike: '560' }),
+      oc({ contractID: 'put-580', type: OptionType.PUT, strike: '580' }),
+      oc({ contractID: 'put-600', type: OptionType.PUT, strike: '600' }),
+      oc({ contractID: 'put-620', type: OptionType.PUT, strike: '620' }),
+      oc({ contractID: 'put-640', type: OptionType.PUT, strike: '640' }),
+    ]);
+    mockStore.sessionClose.set(600);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const scrollers = (fixture.nativeElement as HTMLElement)
+      .querySelectorAll<HTMLElement>('.grid-scroll');
+    const calls = stubScroller(scrollers[0], { h: 1000, ch: 60, w: 1000, cw: 500 });
+    const puts = stubScroller(scrollers[1], { h: 1000, ch: 60, w: 2000, cw: 1000 });
+    stubRows(scrollers[0], 30, 30);
+    stubRows(scrollers[1], 30, 30);
+
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLButtonElement>('[data-testid="resync"]')!
+      .click();
+    // calls: ATM 600 at index 1 (desc) → 30 + 30 + 15 − 30 = 45.
+    expect(calls.el.scrollTop).toBe(45);
+    // puts: own ATM 600 at index 2 (asc) → 30 + 60 + 15 − 30 = 75.
+    expect(puts.el.scrollTop).toBe(75);
+
+    // The resync writes' queued events map back onto the same positions.
+    calls.el.dispatchEvent(new Event('scroll'));
+    puts.el.dispatchEvent(new Event('scroll'));
+    expect(calls.el.scrollTop).toBe(45);
+    expect(puts.el.scrollTop).toBe(75);
+
+    // First scroll after resync: calls +30 → puts 75 + 30 — alignment
+    // preserved row-for-row from the re-anchored baseline.
+    calls.el.scrollTop = 75;
+    calls.el.dispatchEvent(new Event('scroll'));
+    expect(puts.el.scrollTop).toBe(105);
   });
 
   it('delta inputs bound the grids — unbounded by default, settable', async () => {
@@ -365,7 +455,7 @@ describe('OptionChainComponent', () => {
     fixture.detectChanges();
 
     expect(localStorage.getItem('option-chain.hidden-expirations.QQQ'))
-      .toBe('["2026-10-16"]');
+      .toBe('{"bands":[],"hidden":["2026-10-16"],"shown":[]}');
 
     // Fresh component instance from the same TestBed — the hidden column
     // restores because the constructor re-reads localStorage.
@@ -413,6 +503,88 @@ describe('OptionChainComponent', () => {
     expect(divider.previousElementSibling!.classList.contains('picker-band')).toBe(true);
     expect(divider.nextElementSibling!.classList.contains('picker-item')).toBe(true);
     expect(divider.nextElementSibling!.classList.contains('picker-band')).toBe(false);
+  });
+
+  it('deselected bands re-derive against the session date — not frozen dates', async () => {
+    const fixture = await render();
+    mockStore.resolvedDate.set('2026-09-22');
+    mockStore.sessionContracts.set([
+      // 3d → <6d; 18d → 15–30d
+      oc({ contractID: 'near-c', type: OptionType.CALL, expiration: '2026-09-25' }),
+      oc({ contractID: 'mid-c', type: OptionType.CALL, expiration: '2026-10-10', strike: '605' }),
+    ]);
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+
+    el.querySelector<HTMLButtonElement>('[data-testid="columns-picker"]')!.click();
+    fixture.detectChanges();
+    const band = (id: string) =>
+      el.querySelector<HTMLInputElement>(`.picker-band [data-band="${id}"]`)!;
+
+    // Deselect 15–30d → the 18d expiration hides.
+    band('d15_30').click();
+    fixture.detectChanges();
+    expect(el.querySelector('[data-cid="mid-c"]')).toBeNull();
+    expect(el.querySelector('[data-cid="near-c"]')).toBeTruthy();
+
+    // Session moves forward: 2026-10-10 is now 15d out → falls into the
+    // 6–15d band → VISIBLE again (the band selection tracks the window,
+    // not the date it was toggled against).
+    mockStore.resolvedDate.set('2026-09-25');
+    fixture.detectChanges();
+    expect(el.querySelector('[data-cid="mid-c"]')).toBeTruthy();
+
+    // And a date now inside 15–30d hides without ever being touched:
+    // 2026-10-12 is 17d from the new session → hidden by the same band.
+    mockStore.sessionContracts.set([
+      oc({ contractID: 'near-c', type: OptionType.CALL, expiration: '2026-09-25' }),
+      oc({ contractID: 'new-c', type: OptionType.CALL, expiration: '2026-10-12', strike: '605' }),
+    ]);
+    fixture.detectChanges();
+    expect(el.querySelector('[data-cid="new-c"]')).toBeNull();
+  });
+
+  it('per-expiration override resurrects a date inside a deselected band', async () => {
+    const fixture = await render();
+    mockStore.resolvedDate.set('2026-09-22');
+    mockStore.sessionContracts.set([
+      oc({ contractID: 'a', type: OptionType.CALL, expiration: '2026-10-10' }),
+      oc({ contractID: 'b', type: OptionType.CALL, expiration: '2026-10-16', strike: '605' }),
+    ]);
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    el.querySelector<HTMLButtonElement>('[data-testid="columns-picker"]')!.click();
+    fixture.detectChanges();
+
+    // Deselect the band covering both (both are 15–30d) → both hidden.
+    el.querySelector<HTMLInputElement>('.picker-band [data-band="d15_30"]')!.click();
+    fixture.detectChanges();
+    expect(el.querySelector('[data-cid="a"]')).toBeNull();
+
+    // Explicitly re-check one expiration → it returns (expShown override).
+    const item = Array.from(
+      el.querySelectorAll<HTMLLabelElement>('.picker-item:not(.picker-band)'),
+    ).find((i) => i.textContent!.includes('2026-10-10'))!;
+    item.querySelector('input')!.click();
+    fixture.detectChanges();
+    expect(el.querySelector('[data-cid="a"]')).toBeTruthy();
+    expect(el.querySelector('[data-cid="b"]')).toBeNull();
+  });
+
+  it('legacy array-shaped column state migrates to per-expiration hides', async () => {
+    localStorage.setItem(
+      'option-chain.hidden-expirations.QQQ',
+      '["2026-10-16"]',
+    );
+    const fixture = await render('QQQ');
+    mockStore.sessionContracts.set([
+      oc({ contractID: 'call-a', type: OptionType.CALL, expiration: '2026-10-16' }),
+      oc({ contractID: 'call-b', type: OptionType.CALL, expiration: '2026-11-20', strike: '605' }),
+    ]);
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('[data-cid="call-a"]')).toBeNull();
+    expect(el.querySelector('[data-cid="call-b"]')).toBeTruthy();
   });
 
   it('shows per-pane strike stats and trims the long side around ATM', async () => {
@@ -502,6 +674,164 @@ describe('OptionChainComponent', () => {
     mockStore.priorClose.set(0);
     fixture.detectChanges();
     expect(close.textContent).toContain('n/a');
+  });
+
+  it('date input commits on Enter — setDateInput + loadChain', async () => {
+    const fixture = await render();
+    const el: HTMLElement = fixture.nativeElement;
+    const input = el.querySelector<HTMLInputElement>('[data-testid="date-input"]')!;
+
+    input.value = '2026-09-20';
+    input.dispatchEvent(new Event('input'));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    fixture.detectChanges();
+
+    expect(mockStore.setDateInput).toHaveBeenCalledWith('2026-09-20');
+    expect(mockStore.loadChain).toHaveBeenCalled();
+    expect(el.querySelector('[data-testid="date-error"]')).toBeFalsy();
+  });
+
+  it('invalid manual date shows inline validation and does not fetch', async () => {
+    const fixture = await render();
+    const el: HTMLElement = fixture.nativeElement;
+    mockStore.loadChain.mockClear();
+    const input = el.querySelector<HTMLInputElement>('[data-testid="date-input"]')!;
+
+    input.value = '09/20/2026';
+    input.dispatchEvent(new Event('input'));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    fixture.detectChanges();
+
+    expect(mockStore.loadChain).not.toHaveBeenCalled();
+    expect(el.querySelector('[data-testid="date-error"]')?.textContent)
+      .toContain('YYYY-MM-DD');
+  });
+
+  it('clearing the date + Enter re-resolves the latest session', async () => {
+    const fixture = await render();
+    const input = (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLInputElement>('[data-testid="date-input"]')!;
+
+    input.value = '';
+    input.dispatchEvent(new Event('input'));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+    expect(mockStore.loadToday).toHaveBeenCalled();
+  });
+
+  it('impossible calendar dates (Feb 31) are rejected — no fetch', async () => {
+    const fixture = await render();
+    const el: HTMLElement = fixture.nativeElement;
+    mockStore.loadChain.mockClear();
+    const input = el.querySelector<HTMLInputElement>('[data-testid="date-input"]')!;
+
+    // Date.parse normalizes '2026-02-31' to Mar 3 — must round-trip check.
+    input.value = '2026-02-31';
+    input.dispatchEvent(new Event('input'));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    fixture.detectChanges();
+
+    expect(mockStore.loadChain).not.toHaveBeenCalled();
+    expect(el.querySelector('[data-testid="date-error"]')).toBeTruthy();
+  });
+
+  it('Today button re-resolves the latest session', async () => {
+    const fixture = await render();
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLButtonElement>('[data-testid="today-btn"]')!
+      .click();
+    expect(mockStore.loadToday).toHaveBeenCalled();
+  });
+
+  it('datepicker selection commits the picked date as YYYY-MM-DD', async () => {
+    const fixture = await render();
+    mockStore.loadChain.mockClear();
+    // NativeDateAdapter produces local-midnight Dates — the handler must
+    // format local Y/M/D, not toISOString (which shifts back a day in PT).
+    fixture.componentInstance.onPickedDate(new Date(2026, 8, 20));
+    expect(mockStore.setDateInput).toHaveBeenCalledWith('2026-09-20');
+    expect(mockStore.loadChain).toHaveBeenCalled();
+  });
+
+  it('anchor input carries MatDatepickerInput bound to the session picker', async () => {
+    const fixture = await render();
+    // The picker refuses to open without an associated input — if the
+    // association breaks, the calendar silently stops working and no
+    // method-level spec would notice.
+    const dir = fixture.debugElement.query(By.directive(MatDatepickerInput));
+    expect(dir).toBeTruthy();
+    expect(dir.nativeElement.classList.contains('date-anchor')).toBe(true);
+    const picker = fixture.debugElement.query(By.directive(MatDatepicker));
+    expect(dir.injector.get(MatDatepickerInput)._datepicker)
+      .toBe(picker.componentInstance);
+  });
+
+  it('date input displays the store-pinned resolved session date', async () => {
+    const fixture = await render();
+    mockStore.dateInput.set('2026-09-22');
+    fixture.detectChanges();
+    const input = (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLInputElement>('[data-testid="date-input"]')!;
+    expect(input.value).toBe('2026-09-22');
+  });
+
+  it('shows the company name in the header when a profile exists', async () => {
+    const fixture = await render('QQQ');
+    mockLists.profilesBySymbol.set(new Map([
+      ['QQQ', { symbol: 'QQQ', name: 'Invesco QQQ Trust' } as StSymbolProfile],
+    ]));
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('[data-testid="company-name"]')?.textContent)
+      .toContain('Invesco QQQ Trust');
+  });
+
+  it('omits the company-name span for untracked symbols', async () => {
+    const fixture = await render('ZZZZ');
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('[data-testid="company-name"]')).toBeFalsy();
+  });
+
+  it('renders the snapshot source label', async () => {
+    const fixture = await render();
+    mockStore.source.set('av');
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('.source-label')?.textContent).toContain('av');
+  });
+
+  it('no-data state names the picked date when a manual session is empty', async () => {
+    const fixture = await render();
+    mockStore.resolvedNoData.set(true);
+    mockStore.resolvedDate.set('2026-09-18');
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent)
+      .toContain('No chain data found for 2026-09-18');
+  });
+
+  it('no-data state names the 7-day window in auto mode', async () => {
+    const fixture = await render();
+    mockStore.resolvedNoData.set(true);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent)
+      .toContain('No chain data found in the last 7 days');
+  });
+
+  it('strike range filter hides out-of-band strikes', async () => {
+    const fixture = await render();
+    mockStore.sessionContracts.set([
+      oc({ contractID: 'call-near', strike: '600' }),
+      oc({ contractID: 'call-far', strike: '700' }),
+    ]);
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('[data-cid="call-far"]')).toBeTruthy();
+
+    fixture.componentInstance.strikeLte.set(650);
+    fixture.detectChanges();
+    expect(el.querySelector('[data-cid="call-far"]')).toBeFalsy();
+    expect(el.querySelector('[data-cid="call-near"]')).toBeTruthy();
   });
 
   it('auto-loads on init when a symbol is already set, skips it when empty', async () => {

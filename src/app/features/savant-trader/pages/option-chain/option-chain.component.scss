@@ -8,8 +8,8 @@
 
   .page-header {
     display: flex;
-    align-items: baseline;
-    gap: 1rem;
+    flex-direction: column;
+    gap: 4px;
     flex: 0 0 auto;
 
     h1 {
@@ -22,6 +22,15 @@
       display: flex;
       align-items: center;
       gap: 0.75rem;
+    }
+
+    // Thin secondary rows — filters, then session info.
+    .filter-row,
+    .info-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      min-height: 22px;
     }
 
     // Same pill-toggle styling as option-chart's filter pills.
@@ -59,6 +68,56 @@
 
     // Compact |delta| bound inputs — same idiom as the pct-change page's
     // Delta Range group, sized for the header row.
+    .company-name {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--mat-sys-on-surface-variant);
+      white-space: nowrap;
+    }
+
+    .date-control {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      font-size: 11px;
+      color: var(--mat-sys-on-surface-variant);
+    }
+
+    .date-input {
+      width: 82px;
+      padding: 2px 6px;
+      border: 1px solid var(--mat-sys-outline-variant);
+      border-radius: 4px;
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    // Rendered-but-invisible matDatepicker anchor — the picker overlay
+    // positions from this element's rect (display:none would anchor at
+    // viewport 0,0). Zero-size at the control's left edge, uninteractive.
+    .date-anchor {
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 0;
+      height: 0;
+      padding: 0;
+      border: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .date-error {
+      font-size: 10px;
+      color: var(--mat-sys-error);
+      white-space: nowrap;
+    }
+
+    .strike-input {
+      width: 52px;
+    }
+
     .underlying-close {
       font-size: 12px;
       font-weight: 700;

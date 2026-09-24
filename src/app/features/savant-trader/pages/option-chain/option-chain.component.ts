@@ -13,12 +13,17 @@
  */
 import { Component, ChangeDetectionStrategy, computed, effect, ElementRef, inject, OnDestroy, OnInit, signal, viewChildren } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
 
 import { OptionChainStore } from './option-chain.store';
 import { ChainGridComponent } from './components/chain-grid.component';
 import { buildChainGrid, type ChainGridModel, type StrikeOrientation } from './utils/chain.utils';
+import { invalidIsoDateMessage, isValidIsoDate } from './utils/session-resolution.utils';
 import { OptionType } from '@options-contract/contracts';
 import { UiStateService } from '../../../../core/services/ui-state.service';
+import { SymbolListStore } from '../../stores/symbol-list.store';
+import { effectiveHiddenExpirations } from './utils/column-visibility.utils';
 import { sessionPctChange } from '../../utils/option-grid.utils';
 import { ColumnPickerComponent } from './components/column-picker.component';
 
@@ -28,13 +33,16 @@ type SideLayout = 'call' | 'put' | 'both';
 @Component({
   selector: 'app-option-chain',
   standalone: true,
-  imports: [ChainGridComponent, ColumnPickerComponent, DecimalPipe],
+  imports: [ChainGridComponent, ColumnPickerComponent, DecimalPipe, MatDatepickerModule, MatNativeDateModule],
   templateUrl: './option-chain.component.html',
   styleUrl: './option-chain.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class OptionChainComponent implements OnInit, OnDestroy {
   protected readonly store = inject(OptionChainStore);
+  /** Tracked-symbol profiles — company name in the header (SOT:
+   *  profile.name; untracked symbols show the bare ticker). */
+  protected readonly lists = inject(SymbolListStore);
   protected readonly OptionType = OptionType;
   private readonly ui = inject(UiStateService);
 
@@ -52,57 +60,93 @@ export class OptionChainComponent implements OnInit, OnDestroy {
   readonly deltaGte = signal<number | null>(null);
   readonly deltaLte = signal<number | null>(null);
 
+  /** Strike-range filter — empty = unbounded, same idiom as delta. */
+  readonly strikeGte = signal<number | null>(null);
+  readonly strikeLte = signal<number | null>(null);
+
   /** Visual-layer toggles — both default on. */
   readonly deltaShading = signal(true);
   readonly timeShading = signal(true);
   /** Gradient + top-gainer rings share one toggle — same layer. */
   readonly heatmap = signal(true);
 
-  /** Columns picker — hidden expirations (empty = all shown), persisted
-   *  to localStorage scoped per symbol so column choices for QQQ don't
-   *  bleed into SPY. Applies to both grids via the models' filter. The
-   *  store clears the chain on symbol change, so keying on symbol() is
-   *  the loaded-symbol key — the picker writes to whichever symbol's
-   *  chain is loaded. */
+  /** Columns picker state — deselected DTE band ids + per-expiration
+   *  overrides (expHidden hides within a shown band, expShown resurrects
+   *  within a hidden band). Persisted per symbol as {b,h,s}; band ids
+   *  re-derive against the current session's DTEs on every date change,
+   *  so buckets track windows rather than frozen dates. The store clears
+   *  the chain on symbol change, so keying on symbol() is the
+   *  loaded-symbol key. */
   private static readonly HIDDEN_KEY = 'option-chain.hidden-expirations';
-  readonly hiddenExpirations = signal<ReadonlySet<string>>(new Set());
+  readonly hiddenBands = signal<ReadonlySet<string>>(new Set());
+  readonly expHidden = signal<ReadonlySet<string>>(new Set());
+  readonly expShown = signal<ReadonlySet<string>>(new Set());
   private hiddenKey(): string {
     return `${OptionChainComponent.HIDDEN_KEY}.${this.store.symbol()}`;
   }
 
-  private loadHiddenExpirations(): ReadonlySet<string> {
+  private static strSet(v: unknown): Set<string> {
+    return new Set(Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+  }
+
+  private loadColumnState(): void {
     try {
       const raw = localStorage.getItem(this.hiddenKey());
-      const arr: unknown = raw ? JSON.parse(raw) : null;
-      return new Set(Array.isArray(arr) ? arr.filter((x): x is string => typeof x === 'string') : []);
+      const parsed: unknown = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(parsed)) {
+        // Legacy shape: bare array of hidden dates → expHidden.
+        this.hiddenBands.set(new Set());
+        this.expHidden.set(OptionChainComponent.strSet(parsed));
+        this.expShown.set(new Set());
+        return;
+      }
+      const o = (parsed ?? {}) as {
+        bands?: unknown; hidden?: unknown; shown?: unknown;
+        b?: unknown; h?: unknown; s?: unknown; // first-write key names
+      };
+      this.hiddenBands.set(OptionChainComponent.strSet(o.bands ?? o.b));
+      this.expHidden.set(OptionChainComponent.strSet(o.hidden ?? o.h));
+      this.expShown.set(OptionChainComponent.strSet(o.shown ?? o.s));
     } catch {
-      return new Set();
+      // Corrupt value → all visible — must reset, not keep the
+      // previous symbol's sets.
+      this.hiddenBands.set(new Set());
+      this.expHidden.set(new Set());
+      this.expShown.set(new Set());
     }
   }
 
-  /** Reload the hidden set when the symbol changes — declared BEFORE
-   *  persistHidden so first-run order loads the saved set before the
+  /** Reload the column state when the symbol changes — declared BEFORE
+   *  persistColumns so first-run order loads the saved state before the
    *  persist effect writes it (an empty write first would clobber it). */
-  private readonly reloadHiddenOnSymbol = effect(() => {
+  private readonly reloadColumnsOnSymbol = effect(() => {
     this.store.symbol();
-    this.hiddenExpirations.set(this.loadHiddenExpirations());
+    this.loadColumnState();
   });
 
-  /** Persist whenever the hidden set changes — keyed to the current
-   *  (loaded) symbol. */
-  private readonly persistHidden = effect(() => {
-    const set = this.hiddenExpirations();
+  /** Persist whenever any column-state set changes — keyed to the
+   *  current (loaded) symbol. */
+  private readonly persistColumns = effect(() => {
+    const b = this.hiddenBands();
+    const h = this.expHidden();
+    const s = this.expShown();
     try {
-      // Empty set → remove the key rather than writing '[]' — keeps
-      // partial-symbol keys (Q → QQ while typing) from littering storage.
-      if (set.size === 0) localStorage.removeItem(this.hiddenKey());
-      else localStorage.setItem(this.hiddenKey(), JSON.stringify([...set]));
+      // All empty → remove the key rather than writing an empty object —
+      // keeps partial-symbol keys (Q → QQ while typing) from littering.
+      if (!b.size && !h.size && !s.size) {
+        localStorage.removeItem(this.hiddenKey());
+      } else {
+        localStorage.setItem(
+          this.hiddenKey(),
+          JSON.stringify({ bands: [...b], hidden: [...h], shown: [...s] }),
+        );
+      }
     } catch { /* storage unavailable — selection stays session-local */ }
   });
 
   /** All expirations present in the session snapshot — the picker's
    *  checkbox list. Computed from raw contracts (not the models) so it
-   *  isn't circular with hiddenExpirations. */
+   *  isn't circular with the column-filter state. */
   readonly allExpirations = computed(() => {
     const set = new Set<string>();
     for (const c of this.store.sessionContracts()) {
@@ -111,93 +155,124 @@ export class OptionChainComponent implements OnInit, OnDestroy {
     return [...set].sort();
   });
 
-  onDeltaBound(which: 'deltaGte' | 'deltaLte', event: Event): void {
+  /** Hidden columns for the CURRENT session — band ids re-evaluate
+   *  against this session's DTEs every time the date changes, so a
+   *  deselected bucket keeps hiding its band as expirations shift. */
+  readonly effectiveHidden = computed(() =>
+    effectiveHiddenExpirations(
+      this.allExpirations(),
+      this.store.resolvedDate(),
+      this.hiddenBands(),
+      this.expHidden(),
+      this.expShown(),
+    ),
+  );
+
+  /** Numeric bound inputs (|Δ| and strike range share the parse: empty
+   *  = unbounded, non-finite = unbounded). */
+  onBound(
+    which: 'deltaGte' | 'deltaLte' | 'strikeGte' | 'strikeLte',
+    event: Event,
+  ): void {
     const v = (event.target as HTMLInputElement).value;
     const n = v === '' ? null : Number(v);
     this[which].set(n !== null && Number.isFinite(n) ? n : null);
   }
 
+  /** Inline validation for manual date entry — shown next to the input
+   *  WITHOUT fetching (the store's error path replaces the whole grid). */
+  readonly dateError = signal<string | null>(null);
+  /** Company display name from the tracked-symbol profile. */
+  readonly companyName = computed(
+    () => this.lists.profilesBySymbol().get(this.store.symbol())?.name ?? null,
+  );
+
+  /** Enter-key entry point — keeps $event.target casts out of the template. */
+  onDateCommitEvent(event: Event): void {
+    this.onDateCommit((event.target as HTMLInputElement).value);
+  }
+
+  /** Manual date commit (Enter) — validates first; invalid input sets an
+   *  inline message and never reaches the store/fetch path. Clearing the
+   *  box and committing re-resolves the latest session (same as Today). */
+  onDateCommit(raw: string): void {
+    const v = raw.trim();
+    if (v === '') {
+      this.dateError.set(null);
+      this.store.loadToday();
+      return;
+    }
+    if (!isValidIsoDate(v)) {
+      this.dateError.set(invalidIsoDateMessage(v));
+      return;
+    }
+    this.dateError.set(null);
+    this.store.setDateInput(v);
+    this.store.loadChain();
+  }
+
+  /** Datepicker commit — the native adapter hands us a local-midnight
+   *  Date; format its LOCAL parts (toISOString would shift back a day). */
+  onPickedDate(d: Date | null): void {
+    if (!d || isNaN(d.getTime())) return;
+    const p = (n: number) => String(n).padStart(2, '0');
+    this.onDateCommit(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`);
+  }
+
   toggleOrientation(side: 'call' | 'put'): void {
     const s = side === 'call' ? this.callOrientation : this.putOrientation;
     s.update((o) => (o === 'desc' ? 'asc' : 'desc'));
+    // The flipped pane's auto-center emits `centered` → resync() —
+    // re-anchors both panes on their ATMs.
   }
 
   /** BOTH-mode scroll sync — scroll doesn't bubble but DOES propagate in
    *  the capture phase, so one capture listener on the page host sees
-   *  every pane scroll. The sibling is positioned by scroll FRACTION, not
-   *  absolute offset — the panes have different scrollable extents, so
-   *  absolute copies drift and compound; a fraction recomputes from the
-   *  source's current position every event and cannot accumulate error. */
+   *  every pane scroll. Sync is ABSOLUTE-FROM-BASELINE: each pane maps
+   *  the source's offset-from-aligned-position onto its own baseline.
+   *  Recomputed from scratch on every event — a boundary clamp (top or
+   *  bottom of the shorter pane) self-heals on the way back, so no gap
+   *  can persist. Same-direction motion is correct for both orientation
+   *  modes (opposite orientations are how OTM-at-top is expressed).
+   *
+   *  Programmatic writes (sync + re-sync + auto-center) fire scroll
+   *  events that map the source back onto itself — a no-op write, so no
+   *  suppression bookkeeping is needed. WeakMap keys GC dead scroller
+   *  elements on rebuilds; first-seen panes seed their baseline lazily
+   *  (panes are auto-centered → aligned → a valid baseline). */
+  private syncBaselines = new WeakMap<HTMLElement, { top: number; left: number }>();
+
   private readonly onGridsScroll = (event: Event): void => {
     const src = event.target as HTMLElement | null;
     if (!src?.classList?.contains('grid-scroll')) return;
-    // A re-sync scrolls both panes programmatically — a queued scroll event
-    // at exactly the position resync wrote is that programmatic event:
-    // skip it once so it can't mirror its ATM fraction onto the sibling
-    // and undo the centering. (Position-matched, not time-windowed — a
-    // real user scroll to a different position during re-sync still
-    // mirrors normally.)
-    const expected = this.expectedScrolls.get(src);
-    if (
-      expected &&
-      src.scrollTop === expected.top &&
-      src.scrollLeft === expected.left
-    ) {
-      this.expectedScrolls.delete(src);
-      return;
+    if (!this.syncBaselines.has(src)) {
+      this.syncBaselines.set(src, { top: src.scrollTop, left: src.scrollLeft });
     }
-    const vRange = src.scrollHeight - src.clientHeight;
-    const hRange = src.scrollWidth - src.clientWidth;
-    const vFrac = vRange > 0 ? src.scrollTop / vRange : 0;
-    const hFrac = hRange > 0 ? src.scrollLeft / hRange : 0;
-    for (const s of this.gridScrollers()) {
-      if (s === src) continue;
-      const dstV = s.scrollHeight - s.clientHeight;
-      const dstH = s.scrollWidth - s.clientWidth;
-      if (dstV > 0) s.scrollTop = vFrac * dstV;
-      if (dstH > 0) s.scrollLeft = hFrac * dstH;
+    const srcBase = this.syncBaselines.get(src)!;
+    for (const g of this.grids()) {
+      const s = g.scrollerEl();
+      if (!s || s === src) continue;
+      if (!this.syncBaselines.has(s)) {
+        this.syncBaselines.set(s, { top: s.scrollTop, left: s.scrollLeft });
+      }
+      const sibBase = this.syncBaselines.get(s)!;
+      s.scrollTop = sibBase.top + (src.scrollTop - srcBase.top);
+      s.scrollLeft = sibBase.left + (src.scrollLeft - srcBase.left);
     }
   };
 
-  /** .grid-scroll elements, cached — layout() flips recreate them. */
-  private scrollerCache: HTMLElement[] | null = null;
-  private gridScrollers(): HTMLElement[] {
-    if (this.scrollerCache === null) {
-      this.scrollerCache = Array.from(
-        this.host.nativeElement.querySelectorAll<HTMLElement>('.grid-scroll'),
-      );
-    }
-    return this.scrollerCache;
-  }
-
-  /** Re-sync: center both panes on their own ATM strike row. Each pane's
-   *  resulting scroll event is suppressed by position-match in
-   *  onGridsScroll (above) so neither pane's centering overwrites the
-   *  other's. */
+  /** Re-sync: center each pane on its own ATM strike (middle row when no
+   *  spot is available) and re-anchor the sync baselines there — the
+   *  aligned state offset 0 maps onto. */
   private readonly grids = viewChildren(ChainGridComponent);
-  private readonly expectedScrolls = new Map<HTMLElement, { top: number; left: number }>();
-
-  /** Layout flips (both ↔ single pane) recreate the scroller elements —
-   *  drop the cache so the next scroll event re-queries. */
-  private readonly invalidateScrollers = effect(() => {
-    this.layout();
-    this.scrollerCache = null;
-  });
 
   resync(): void {
     for (const g of this.grids()) g.centerAtm();
-    for (const s of this.gridScrollers()) {
-      this.expectedScrolls.set(s, { top: s.scrollTop, left: s.scrollLeft });
+    for (const g of this.grids()) {
+      const s = g.scrollerEl();
+      if (s) this.syncBaselines.set(s, { top: s.scrollTop, left: s.scrollLeft });
     }
-    // Stale entries (a pane that was already centered fires no event)
-    // would otherwise suppress a coincidental future scroll to the same
-    // position — expire them after the events have had time to dispatch.
-    this.expiryTimer = setTimeout(() => {
-      this.expiryTimer = null;
-      this.expectedScrolls.clear();
-    }, 50);
   }
-  private expiryTimer: ReturnType<typeof setTimeout> | null = null;
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
@@ -206,16 +281,13 @@ export class OptionChainComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.ui.setFullscreen(true);
     this.host.nativeElement.addEventListener('scroll', this.onGridsScroll, true);
+    this.lists.loadProfiles();
     if (this.store.symbol()) this.store.loadChain();
   }
 
   ngOnDestroy(): void {
     this.ui.setFullscreen(false);
     this.host.nativeElement.removeEventListener('scroll', this.onGridsScroll, true);
-    if (this.expiryTimer !== null) {
-      clearTimeout(this.expiryTimer);
-      this.expiryTimer = null;
-    }
   }
 
   protected readonly callsModel = computed(() =>
@@ -229,7 +301,9 @@ export class OptionChainComponent implements OnInit, OnDestroy {
         filter: {
           deltaGte: this.deltaGte(),
           deltaLte: this.deltaLte(),
-          excludeExpirations: this.hiddenExpirations(),
+          strikeGte: this.strikeGte(),
+          strikeLte: this.strikeLte(),
+          excludeExpirations: this.effectiveHidden(),
         },
       },
     ),
@@ -246,7 +320,9 @@ export class OptionChainComponent implements OnInit, OnDestroy {
         filter: {
           deltaGte: this.deltaGte(),
           deltaLte: this.deltaLte(),
-          excludeExpirations: this.hiddenExpirations(),
+          strikeGte: this.strikeGte(),
+          strikeLte: this.strikeLte(),
+          excludeExpirations: this.effectiveHidden(),
         },
       },
     ),
@@ -294,6 +370,17 @@ export class OptionChainComponent implements OnInit, OnDestroy {
 
   readonly callsStats = computed(() => this.statsFor(this.callsModel()));
   readonly putsStats = computed(() => this.statsFor(this.putsModel()));
+
+  /** Any model rebuild (new session, filters, orientation, late-arriving
+   *  prior data) invalidates the sync baselines — they describe the
+   *  ALIGNED state, which a rebuild can change. Each pane re-seeds on
+   *  its next scroll event (auto-center or user), keeping the seeded
+   *  pair consistent. Declared after the models — field order. */
+  private readonly resetSyncOnRebuild = effect(() => {
+    this.callsModel();
+    this.putsModel();
+    this.syncBaselines = new WeakMap();
+  });
 
   onSymbolInput(event: Event): void {
     this.store.setSymbol((event.target as HTMLInputElement).value);
