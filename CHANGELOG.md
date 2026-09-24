@@ -3,6 +3,7 @@
 ## [2026-09-24]
 
 ### Added
+- [Flex Chart Maintenance] 468_FE-REFACTOR-FLEX-CHART: Shared LogScalePillComponent (power icons, aria-pressed, focus-visible) replaces 3 inline copies; flex-chart ResizeObserver dedupes on measured size
 - [Flex Chart Maintenance] 468-538-547_FE-IMPL-FLEX-CHART: Signal-detail defaults to log scale + dot-indicator extras upsert by id (NG0955 fix)
 - [Flex Chart Maintenance] 468-538-547_DOCS-FLEX-CHART: Code review doc for signal-detail rollout (PASS, 2nd pass)
 - [Options Current Pricing] 486-502_FE-IMPL-OPTIONS: Contract hover popup + shared DelegatedCellHover controller (also ships in-session filters/picker/shading work nominally scoped to #503)

@@ -9,10 +9,7 @@
           <span class="qcp-industry">{{ profile()?.industry }}</span>
           <span class="qpc-mktcap">{{ marketCapLabel() }}</span>
         }
-        <button type="button" class="qcp-log-pill" [class.active]="logScale()" (click)="toggleLogScale()"
-          [title]="logScale() ? 'Log Y-axis on' : 'Log Y-axis off'">
-          Log Y-axis {{ logScale() ? 'Yes' : 'No' }}
-        </button>
+        <app-log-scale-pill class="qcp-log-pill" [logScale]="logScale()" (toggle)="toggleLogScale()" />
       </div>
       <app-quick-charts [symbol]="symbol()" [logScale]="logScale()"></app-quick-charts>
     } @else {

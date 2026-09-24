@@ -33,25 +33,26 @@ describe('ChartToolbarComponent', () => {
   });
 
   it('renders the Log Y-axis toggle in the Yes state when logScale is true', () => {
-    const btn = fixture.debugElement.query(By.css('.log-btn'));
+    const btn = fixture.debugElement.query(By.css('.log-scale-pill'));
     expect(btn).toBeTruthy();
     expect(btn.nativeElement.textContent).toContain('Log Y-axis');
-    expect(btn.nativeElement.textContent).toContain('Yes');
+    expect(btn.nativeElement.getAttribute('aria-pressed')).toBe('true');
     expect(btn.nativeElement.classList.contains('active')).toBe(true);
   });
 
-  it('renders the Log Y-axis toggle in the No state when logScale is false', () => {
+  it('renders the Log Y-axis toggle in the off state when logScale is false', () => {
     fixture.componentRef.setInput('logScale', false);
     fixture.detectChanges();
 
-    const btn = fixture.debugElement.query(By.css('.log-btn'));
-    expect(btn.nativeElement.textContent).toContain('No');
+    const btn = fixture.debugElement.query(By.css('.log-scale-pill'));
+    expect(btn.nativeElement.getAttribute('aria-pressed')).toBe('false');
+    expect(btn.nativeElement.querySelector('mat-icon')!.textContent!.trim()).toBe('power_off');
     expect(btn.nativeElement.classList.contains('active')).toBe(false);
   });
 
   it('emits logScaleToggle when the Log Y-axis button is clicked', () => {
     const spy = jest.spyOn(component.logScaleToggle, 'emit');
-    const btn = fixture.debugElement.query(By.css('.log-btn'));
+    const btn = fixture.debugElement.query(By.css('.log-scale-pill'));
     btn.nativeElement.click();
     expect(spy).toHaveBeenCalledTimes(1);
   });

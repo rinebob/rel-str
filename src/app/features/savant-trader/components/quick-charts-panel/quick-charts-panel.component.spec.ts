@@ -40,15 +40,15 @@ describe('QuickChartsPanelComponent', () => {
 
   it('toggles the page-level pill and updates every chart input', async () => {
     await setup();
-    const btn = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.qcp-log-pill')!;
-    expect(btn.textContent).toContain('Yes');
+    const btn = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.log-scale-pill')!;
+    expect(btn.getAttribute('aria-pressed')).toBe('true');
 
     btn.click();
     fixture.detectChanges();
 
     const chart = fixture.debugElement.query(By.directive(MockQuickChartsComponent)).componentInstance;
     expect(chart.logScale()).toBe(false);
-    expect(btn.textContent).toContain('No');
+    expect(btn.getAttribute('aria-pressed')).toBe('false');
   });
 
   it('shows the log pill even when the symbol profile is missing', async () => {
@@ -56,7 +56,7 @@ describe('QuickChartsPanelComponent', () => {
     fixture.componentRef.setInput('profile', null);
     fixture.detectChanges();
 
-    const btn = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.qcp-log-pill');
+    const btn = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.log-scale-pill');
     expect(btn).toBeTruthy();
   });
 });

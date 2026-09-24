@@ -104,6 +104,8 @@ export class FlexChartComponent implements OnDestroy {
   private pendingPriceLabelRaf: number | null = null;
   private pendingHoverCrosshairRaf: number | null = null;
   private pendingResizeRaf: number | null = null;
+  private lastObservedWidth = -1;
+  private lastObservedHeight = -1;
 
   // Narrow viewChild Syncfusion component to the runtime properties we actually touch.
   // This is the only place an assertion crosses from SfChartComponent to our facade.
@@ -266,9 +268,15 @@ export class FlexChartComponent implements OnDestroy {
 
     // Watch for container resize (e.g. fullscreen toggle) and refresh chart.
     // Throttle with requestAnimationFrame so multiple consecutive resize events
-    // do not trigger repeated Syncfusion refreshes.
+    // do not trigger repeated Syncfusion refreshes. Dedupe on measured size —
+    // Syncfusion's scrollbar pins/restores element height during scroll
+    // gestures, which would otherwise fire a full refresh on every scrollEnd.
     this.zone.runOutsideAngular(() => {
       this.resizeObserver = new ResizeObserver(() => {
+        const { clientWidth, clientHeight } = this.el.nativeElement as HTMLElement;
+        if (clientWidth === this.lastObservedWidth && clientHeight === this.lastObservedHeight) return;
+        this.lastObservedWidth = clientWidth;
+        this.lastObservedHeight = clientHeight;
         if (this.pendingResizeRaf) cancelAnimationFrame(this.pendingResizeRaf);
         this.pendingResizeRaf = requestAnimationFrame(() => {
           this.pendingResizeRaf = null;

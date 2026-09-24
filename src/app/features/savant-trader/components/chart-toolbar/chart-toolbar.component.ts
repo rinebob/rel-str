@@ -13,11 +13,12 @@ import { BarsInterval } from '../../../../core/models/partner.types';
 import { ChartLayout } from '../../../../core/services/ui-state.service';
 import { IndicatorOption } from '../../../shared/components/flex-chart/flex-chart.types';
 import { IndicatorMenuComponent } from '../indicator-menu/indicator-menu.component';
+import { LogScalePillComponent } from '../log-scale-pill/log-scale-pill.component';
 
 @Component({
   selector: 'app-chart-toolbar',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatButtonModule, MatIconModule, MatTooltipModule, IndicatorMenuComponent],
+  imports: [CommonModule, MatButtonModule, MatIconModule, MatTooltipModule, IndicatorMenuComponent, LogScalePillComponent],
   templateUrl: './chart-toolbar.component.html',
   styleUrl: './chart-toolbar.component.scss',
 })
@@ -38,8 +39,9 @@ export class ChartToolbarComponent {
   layout = input.required<ChartLayout>();
   /** Whether the view is currently in fullscreen mode. */
   fullscreen = input.required<boolean>();
-  /** Whether the price axis is using logarithmic scale. */
-  logScale = input<boolean>(false);
+  /** Whether the price axis is using logarithmic scale — defaults to the
+   *  shared FlexChart default (log) so an unbound host stays consistent. */
+  logScale = input<boolean>(true);
   /** Indicator options to display in the indicator menu. */
   indicatorOptions = input.required<IndicatorOption[]>();
   /** Currently selected indicator IDs — drives checkbox state in the indicator menu. */

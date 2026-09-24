@@ -1,0 +1,12 @@
+<button
+  type="button"
+  class="log-scale-pill"
+  [class.active]="logScale()"
+  [attr.aria-pressed]="logScale()"
+  [attr.data-testid]="testId()"
+  [matTooltip]="logScale() ? 'Log Y-axis on' : 'Log Y-axis off'"
+  (click)="toggle.emit()"
+>
+  <span class="pill-label">Log Y-axis</span>
+  <mat-icon>{{ logScale() ? 'power' : 'power_off' }}</mat-icon>
+</button>

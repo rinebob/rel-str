@@ -33,8 +33,7 @@
 }
 
 .interval-btn,
-.range-btn,
-.log-btn {
+.range-btn {
   font-size: 10px;
   font-weight: 600;
   padding: 2px 7px;
@@ -52,11 +51,6 @@
     background: var(--mat-sys-primary-container);
     color: var(--mat-sys-on-primary-container);
   }
-}
-
-.log-btn {
-  min-width: 28px;
-  text-align: center;
 }
 
 .symbol-nav {
