@@ -13,6 +13,7 @@ deliberately, on-demand.
 | #240 — BE Normalize Robinhood Orders | [savant-trader-broker-orders.md](savant-trader-broker-orders.md) | MCP call → normalize → output | `savant-trader-broker-orders-list.ts`, `savant-trader-broker-orders-get.ts`, `savant-trader-broker-positions-list.ts` |
 | #334 — FE Swing Analysis Store | [indicator-lib-swing-analysis.md](indicator-lib-swing-analysis.md) | Firestore path construction + round-trip | `indicator-lib-swing-analysis-store.ts` |
 | #560 — SHARED Paper Trading Contracts | [paper-trading-contracts-560.md](paper-trading-contracts-560.md) | IDs + collection paths + kind guards | `paper-trading-contracts-560-ids.ts` |
+| #561 — BE Ledger Core | [paper-trading-ledger-561.md](paper-trading-ledger-561.md) | fill → ledger → Firestore persist (account + trade atomic write) | `functions/scripts/verify/paper-trading-ledger-561.ts` (needs ADC; runs from `functions/`) |
 
 ## Run All
 
