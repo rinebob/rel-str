@@ -86,6 +86,7 @@ const trade: PaperTradingDoc = {
   legs: [{ kind: 'share', side: TradeSide.LONG, quantity: 100, multiplier: 1, entryMark: 590, lastMark: 590 }],
   marks: {},
   variantRuns: [{ variantKey: 'trailing-20', governing: true, state: 'ACTIVE', workingState: {} }],
+  variantKeys: ['trailing-20'],
   realizedPnl: 0,
   unrealizedPnl: 0,
   createdAt: '2026-09-24T19:00:00Z',

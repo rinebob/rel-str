@@ -61,6 +61,7 @@ describe('paper-trading kind guards', () => {
       variantKey: 'trailing-20', governing: true, state: 'ACTIVE',
       workingState: { highWaterMark: 590 },
     }],
+    variantKeys: ['trailing-20'],
     realizedPnl: 0,
     unrealizedPnl: 0,
   };

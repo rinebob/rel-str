@@ -161,6 +161,8 @@ export interface PaperTrade extends PaperTradingDocBase {
   legs: PaperTradeLeg[];
   marks: Record<string, PaperMark>; // 'YYYY-MM-DD' → mark
   variantRuns: VariantRun[];
+  /** Denormalized `variantRuns[].variantKey` list for array-contains queries. */
+  variantKeys: string[];
   realizedPnl: number;
   unrealizedPnl: number;
   capitalRequired?: number;
