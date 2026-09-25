@@ -24,6 +24,8 @@
       "@common": ["./shared/common.ts"],
       "@options-strategy-engine/contracts": ["./shared/options-strategy-engine-contracts.ts"],
       "@options-strategy-engine/id": ["./shared/strategy-instance-id.ts"],
+      "@paper-trading/contracts": ["./shared/paper-trading-contracts.ts"],
+      "@paper-trading/ids": ["./shared/paper-trading-ids.ts"],
       "@spread/contracts": ["./shared/spread-contracts.ts"],
       "@shared/pct-change-config-contracts": ["./shared/pct-change-config-contracts.ts"]
     },

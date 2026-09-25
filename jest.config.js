@@ -29,6 +29,8 @@ module.exports = {
     '^@common$': '<rootDir>/shared/common.ts',
     '^@options-strategy-engine/contracts$': '<rootDir>/shared/options-strategy-engine-contracts.ts',
     '^@options-strategy-engine/id$': '<rootDir>/shared/strategy-instance-id.ts',
+    '^@paper-trading/contracts$': '<rootDir>/shared/paper-trading-contracts.ts',
+    '^@paper-trading/ids$': '<rootDir>/shared/paper-trading-ids.ts',
     '^@spread/contracts$': '<rootDir>/shared/spread-contracts.ts',
   },
 };
