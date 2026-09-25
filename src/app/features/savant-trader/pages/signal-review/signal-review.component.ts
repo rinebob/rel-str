@@ -80,8 +80,8 @@ export class SignalReviewComponent implements OnInit, OnDestroy {
   }
 
   /** Apply a list filter to the signal review. */
-  onListFilter(filter: string): void {
-    this.facade.setActiveListFilter(filter as SymbolListFilter);
+  onListFilter(filter: SymbolListFilter): void {
+    this.facade.setActiveListFilter(filter);
   }
 
   /** Toggle a symbol's membership in a named list. */

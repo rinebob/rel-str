@@ -77,7 +77,8 @@
 
   <app-rh-select-menu
     label="List"
-    [options]="listFilterOptions"
+    [options]="sentinelOptions"
+    [optionGroups]="listGroups()"
     [value]="activeListFilter()"
     (valueChange)="listFilterChange.emit($event)">
   </app-rh-select-menu>

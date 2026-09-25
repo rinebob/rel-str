@@ -10,10 +10,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { AppRoutes } from '../../../../core/common/interfaces';
-import { SymbolListFilter, SYMBOL_LIST_FILTER_OPTIONS, StatusCounts, GroupDimension, SignalTimeframe, SignalDirection } from '../../common/constants';
+import { SymbolListFilter, StatusCounts, GroupDimension, SignalTimeframe, SignalDirection } from '../../common/constants';
 import { StatusSummaryChipsComponent } from '../status-summary-chips/status-summary-chips.component';
 import { SignalFilterPillsComponent } from '../signal-filter-pills/signal-filter-pills.component';
-import { RhSelectMenuComponent, RhSelectOption } from '../rh-select-menu/rh-select-menu.component';
+import { RhSelectMenuComponent, RhSelectOption, RhSelectOptionGroup } from '../rh-select-menu/rh-select-menu.component';
 
 const DIMENSION_OPTIONS: RhSelectOption[] = [
   { value: GroupDimension.SECTOR,          label: 'Sector' },
@@ -21,9 +21,8 @@ const DIMENSION_OPTIONS: RhSelectOption[] = [
   { value: GroupDimension.MARKET_CAP_TIER, label: 'Market Cap' },
 ];
 
-const LIST_FILTER_OPTIONS: RhSelectOption[] = [
+const SENTINEL: RhSelectOption<SymbolListFilter>[] = [
   { value: 'ALL', label: 'All' },
-  ...SYMBOL_LIST_FILTER_OPTIONS,
 ];
 
 @Component({
@@ -43,7 +42,7 @@ const LIST_FILTER_OPTIONS: RhSelectOption[] = [
 })
 export class SignalReviewHeaderComponent {
   readonly dimensionOptions = DIMENSION_OPTIONS;
-  readonly listFilterOptions = LIST_FILTER_OPTIONS;
+  readonly sentinelOptions = SENTINEL;
   protected readonly appRoutes = AppRoutes;
 
   totalSignalCount = input(0);
@@ -56,6 +55,8 @@ export class SignalReviewHeaderComponent {
   acceptedCount = input(0);
   groupDimension = input<GroupDimension>(GroupDimension.SECTOR);
   activeListFilter = input<SymbolListFilter>('ALL');
+  /** Grouped catalog options — Triage then My lists, from the store. */
+  listGroups = input<RhSelectOptionGroup<SymbolListFilter>[]>([]);
   timeframe = input<SignalTimeframe>(SignalTimeframe.ALL);
   direction = input<SignalDirection>(SignalDirection.ALL);
   showAllSymbols = input(false);
@@ -72,7 +73,7 @@ export class SignalReviewHeaderComponent {
   goToOrder = output<void>();
   goToTriageReport = output<void>();
   dimensionChange = output<string>();
-  listFilterChange = output<string>();
+  listFilterChange = output<SymbolListFilter>();
   timeframeFilterChange = output<SignalTimeframe>();
   directionFilterChange = output<SignalDirection>();
   prev = output<void>();

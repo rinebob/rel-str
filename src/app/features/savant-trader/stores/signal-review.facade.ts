@@ -136,6 +136,7 @@ export class SignalReviewFacade {
   readonly groupDimension = computed(() => this.groupStore.groupDimension());
   readonly showAllSymbols = computed(() => this.groupStore.showAllSymbols());
   readonly activeListFilter = computed(() => this.symbolListStore.activeListFilter());
+  readonly filterOptionGroups = computed(() => this.symbolListStore.filterOptionGroups());
   readonly symbolLists = computed(() => this.symbolListStore.symbolLists());
 
   /** Triage state. */
