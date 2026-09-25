@@ -5,29 +5,34 @@
  * Usage:
  *   npx tsx scripts/verify/run-all.ts [accountNumber]
  *
- * If accountNumber is omitted, uses the ACCOUNT_NUMBER env var.
+ * If accountNumber is omitted, uses the ACCOUNT_NUMBER env var. Scripts that
+ * require it are skipped (reported as SKIPPED) when no account is supplied;
+ * scripts that need no credentials always run.
  */
 
-import { spawn } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 
 const accountNumber = process.argv[2] ?? process.env.ACCOUNT_NUMBER;
-if (!accountNumber) {
-  console.error('Usage: npx tsx scripts/verify/run-all.ts <accountNumber>');
-  console.error('   or: ACCOUNT_NUMBER=... npx tsx scripts/verify/run-all.ts');
-  process.exit(1);
-}
 
 const scripts = [
-  { name: 'list orders', file: 'savant-trader-broker-orders-list.ts', args: [accountNumber] },
-  { name: 'list positions', file: 'savant-trader-broker-positions-list.ts', args: [accountNumber] },
+  { name: 'list orders', file: 'savant-trader-broker-orders-list.ts', needsAccount: true },
+  { name: 'list positions', file: 'savant-trader-broker-positions-list.ts', needsAccount: true },
+  { name: 'paper-trading contracts', file: 'paper-trading-contracts-560-ids.ts', needsAccount: false },
 ];
 
 let passed = 0;
 let failed = 0;
+let skipped = 0;
 
 for (const script of scripts) {
+  if (script.needsAccount && !accountNumber) {
+    console.log(`\n--- ${script.name} --- SKIPPED (needs <accountNumber> arg or ACCOUNT_NUMBER env)`);
+    skipped++;
+    continue;
+  }
   console.log(`\n--- ${script.name} ---`);
-  const result = await runScript(script.file, script.args);
+  const args = script.needsAccount ? [accountNumber as string] : [];
+  const result = runScript(script.file, args);
   if (result) {
     passed++;
   } else {
@@ -35,16 +40,13 @@ for (const script of scripts) {
   }
 }
 
-console.log(`\n=== Summary: ${passed} passed, ${failed} failed ===`);
+console.log(`\n=== Summary: ${passed} passed, ${failed} failed, ${skipped} skipped ===`);
 process.exit(failed > 0 ? 1 : 0);
 
-function runScript(file: string, args: string[]): Promise<boolean> {
-  return new Promise((resolve) => {
-    const child = spawn('npx', ['tsx', `scripts/verify/${file}`, ...args], {
-      stdio: 'inherit',
-      shell: true,
-    });
-    child.on('close', (code) => resolve(code === 0));
-    child.on('error', () => resolve(false));
+function runScript(file: string, args: string[]): boolean {
+  const result = spawnSync('npx', ['tsx', `scripts/verify/${file}`, ...args], {
+    stdio: 'inherit',
+    shell: true,
   });
+  return result.status === 0;
 }

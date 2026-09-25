@@ -12,14 +12,15 @@ deliberately, on-demand.
 |---|---|---|---|
 | #240 — BE Normalize Robinhood Orders | [savant-trader-broker-orders.md](savant-trader-broker-orders.md) | MCP call → normalize → output | `savant-trader-broker-orders-list.ts`, `savant-trader-broker-orders-get.ts`, `savant-trader-broker-positions-list.ts` |
 | #334 — FE Swing Analysis Store | [indicator-lib-swing-analysis.md](indicator-lib-swing-analysis.md) | Firestore path construction + round-trip | `indicator-lib-swing-analysis-store.ts` |
+| #560 — SHARED Paper Trading Contracts | [paper-trading-contracts-560.md](paper-trading-contracts-560.md) | IDs + collection paths + kind guards | `paper-trading-contracts-560-ids.ts` |
 
 ## Run All
 
 ```bash
-npx tsx scripts/verify/run-all.ts <accountNumber>
+npx tsx scripts/verify/run-all.ts [accountNumber]
 ```
 
-Runs every verification script in documented order and reports a pass/fail summary.
+Runs every verification script in documented order and reports a pass/fail summary. Scripts that need the account number are skipped (reported as SKIPPED) when it isn't supplied; credential-free scripts always run.
 
 ## Conventions
 
