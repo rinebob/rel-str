@@ -288,6 +288,39 @@ describe('SymbolListStore snapshot-truth mutations', () => {
 });
 
 // =============================================================================
+// filterOptionGroups — grouped dropdown options (#527)
+// =============================================================================
+
+describe('SymbolListStore.filterOptionGroups', () => {
+  it('groups exclusive defs + Not-triaged under Triage, nonexclusive under My lists', async () => {
+    const { listStore } = setup();
+    listStore.loadSymbolLists();
+    await emit([
+      def('PRIMARY', { order: 0 }),
+      def('MONITOR', { order: 5, role: 'nonexclusive' }),
+      def('my-picks', { order: 100, role: 'nonexclusive', label: 'My Picks' }),
+    ]);
+
+    const groups = listStore.filterOptionGroups();
+    expect(groups.map((g) => g.label)).toEqual(['Triage', 'My lists']);
+    expect(groups[0].options.map((o) => o.value)).toEqual(['PRIMARY', 'NO_MEMBERSHIP']);
+    expect(groups[1].options.map((o) => o.value)).toEqual(['MONITOR', 'my-picks']);
+  });
+
+  it('omits My lists when no nonexclusive defs exist; hidden defs are excluded', async () => {
+    const { listStore } = setup();
+    listStore.loadSymbolLists();
+    await emit([
+      def('PRIMARY', { order: 0 }),
+      def('secret', { order: 100, role: 'nonexclusive', hidden: true }),
+    ]);
+
+    const groups = listStore.filterOptionGroups();
+    expect(groups.map((g) => g.label)).toEqual(['Triage']);
+  });
+});
+
+// =============================================================================
 // User-list CRUD pass-throughs (#526)
 // =============================================================================
 
@@ -319,15 +352,14 @@ describe('SymbolListStore user-list CRUD', () => {
 
   it('deleteList resets activeListFilter to ALL when it matches the deleted key', async () => {
     const { listStore } = setup();
-    // Cast: user-list keys aren't in the enum-era union until #528.
-    listStore.setActiveListFilter('my-picks' as SymbolListFilter);
+    listStore.setActiveListFilter('my-picks');
     await listStore.deleteList('my-picks');
     expect(listStore.activeListFilter()).toBe('ALL');
   });
 
   it('deleteList leaves activeListFilter alone for other keys — and on failure', async () => {
     const { listStore, listService } = setup();
-    listStore.setActiveListFilter('my-picks' as SymbolListFilter);
+    listStore.setActiveListFilter('my-picks');
     await listStore.deleteList('other-list');
     expect(listStore.activeListFilter()).toBe('my-picks');
 

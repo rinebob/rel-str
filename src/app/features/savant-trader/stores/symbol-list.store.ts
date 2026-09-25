@@ -30,7 +30,8 @@ import { map } from 'rxjs/operators';
 import { SymbolListService } from '../services/symbol-list.service';
 import { SignalService } from '../services/signal.service';
 import { RelStrDbV2Service } from '../../services/rel-str-db-v2.service';
-import { SymbolListName, type SymbolListFilter } from '../common/constants';
+import { NO_MEMBERSHIP, SymbolListName, type SymbolListFilter } from '../common/constants';
+import type { RhSelectOption, RhSelectOptionGroup } from '../components/rh-select-menu/rh-select-menu.component';
 import {
   SymbolListDef,
   systemListDef,
@@ -103,12 +104,38 @@ export const SymbolListStore = signalStore(
       );
     });
 
+    /**
+     * Grouped list-filter options for the dropdown surfaces — 'Triage'
+     * (exclusive lists in catalog order + the Not-triaged pseudo-filter)
+     * then 'My lists' (nonexclusive: Monitor + user lists). Hidden defs
+     * are excluded. The 'show everything' sentinel is per-surface — its
+     * label differs per surface — so it lives in the flat `options` slot,
+     * not in a group.
+     */
+    const filterOptionGroups = computed((): RhSelectOptionGroup<SymbolListFilter>[] => {
+      const toOption = (d: SymbolListDef): RhSelectOption<SymbolListFilter> =>
+        ({ value: d.key, label: d.label });
+      const visible = catalog().filter((d) => !d.hidden);
+      const triage = [
+        ...visible.filter((d) => d.role === 'exclusive').map(toOption),
+        { value: NO_MEMBERSHIP, label: 'Not triaged' },
+      ];
+      const myLists = visible.filter((d) => d.role === 'nonexclusive').map(toOption);
+      return [
+        { label: 'Triage', options: triage },
+        ...(myLists.length
+          ? [{ label: 'My lists', options: myLists } satisfies RhSelectOptionGroup<SymbolListFilter>]
+          : []),
+      ];
+    });
+
     return {
       catalog,
       byKey,
       byRole,
       symbolLists,
       untriagedSymbols,
+      filterOptionGroups,
       /** Compat alias for untriagedSymbols — same signal. */
       unlistedSymbols: untriagedSymbols,
       ...symbolProfilesComputed(state),

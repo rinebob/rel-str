@@ -47,7 +47,6 @@ export type StatusCounts = {
 
 /** Canonical names for the built-in user-managed symbol lists. */
 export enum SymbolListName {
-  NONE = 'NONE',
   NEW = 'NEW',
   PRIMARY = 'PRIMARY',
   SECONDARY = 'SECONDARY',
@@ -80,13 +79,21 @@ export const EXCLUSIVE_SYMBOL_LIST_NAMES: SymbolListName[] =
  * Filter value for the "No memberships" option — symbols that belong to zero
  * EXCLUSIVE (triage) lists, i.e. untriaged. Membership in non-exclusive lists
  * (MONITOR, user lists) does not count: the filter exists to feed the triage
- * review loop. Distinct from SymbolListName.NONE, which some surfaces use to
- * mean "no list filter applied" (i.e., show everything).
+ * review loop. 'ALL' is the shared "no list filter applied" sentinel —
+ * every surface uses the same value (labels may differ per surface).
  */
 export const NO_MEMBERSHIP = 'NO_MEMBERSHIP';
 
-/** Union of every value a list-filter dropdown can emit. */
-export type SymbolListFilter = SymbolListName | 'ALL' | typeof NO_MEMBERSHIP;
+/**
+ * Union of every value a list-filter dropdown can emit — system list keys,
+ * the 'ALL' sentinel, NO_MEMBERSHIP, and arbitrary user-list keys
+ * (`string & {}` widens the union without losing literal autocomplete).
+ */
+export type SymbolListFilter =
+  | SymbolListName
+  | 'ALL'
+  | typeof NO_MEMBERSHIP
+  | (string & {});
 
 /**
  * Canonical ordered options shared by every list-filter dropdown — derived
