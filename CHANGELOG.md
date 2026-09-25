@@ -14,6 +14,11 @@
 - [Flex Chart Maintenance] 468-538-546_DOCS-FLEX-CHART: Code review doc for swing-analysis rollout
 - [Flex Chart Maintenance] 468-538-545_FE-IMPL-FLEX-CHART: Quick-charts panel Log Y-axis pill wired to all three charts
 - [Flex Chart Maintenance] 468-538-545_DOCS-FLEX-CHART: Code review doc for quick-charts rollout
+- [Watchlist management] 465-523-527_FE-IMPL-WATCHLIST: Generic RhSelectMenu option values and grouped option rendering
+- [Watchlist management] 465-523-527_FE-IMPL-WATCHLIST: Catalog-derived Triage/My lists filter options and shared filter sentinel
+- [Watchlist management] 465-523-527_FE-IMPL-WATCHLIST: Grouped catalog list filters in chart review with deleted-list fallback
+- [Watchlist management] 465-523-527_FE-IMPL-WATCHLIST: Typed grouped list filters in signal review
+- [Watchlist management] 465-523-527_DOCS-WATCHLIST: Code review doc for grouped list filters (PASS, 2nd pass)
 
 ## [2026-09-23]
 
