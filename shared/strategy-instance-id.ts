@@ -9,6 +9,7 @@
  */
 
 import { PositionSpreadType, StrategyFrequency } from './options-common';
+import { formatDelta, formatDte, formatYYMMDD } from './id-format';
 import type { StrategyInstancePhase } from './options-strategy-engine-contracts';
 
 const SPREAD_TYPE_CODES: Record<PositionSpreadType, string> = {
@@ -42,7 +43,7 @@ export function generateInstanceId(
   }
 
   const phase = phases[0];
-  const datePart = formatDatePart(createdAt);
+  const datePart = formatYYMMDD(createdAt);
   const symbolPart = symbol.toUpperCase();
   const strategyPart = SPREAD_TYPE_CODES[phase.spreadType] ?? phase.spreadType;
   const deltaPart = formatDelta(phase.targetDelta);
@@ -55,19 +56,4 @@ export function generateInstanceId(
 
 function formatOpenTime(openTimePT: string): string {
   return openTimePT.replace(':', '');
-}
-
-function formatDatePart(date: Date): string {
-  const yy = String(date.getUTCFullYear()).slice(2);
-  const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(date.getUTCDate()).padStart(2, '0');
-  return `${yy}${mm}${dd}`;
-}
-
-function formatDelta(delta: number): string {
-  return String(Math.round(delta * 100)).padStart(3, '0');
-}
-
-function formatDte(dte: number): string {
-  return String(dte).padStart(2, '0');
 }
