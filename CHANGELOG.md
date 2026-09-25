@@ -3,6 +3,9 @@
 ## [2026-09-25]
 
 ### Added
+- [Paper Trading Infra] 553-554-561_SHARED-IMPL-PAPER-TRADING: PaperTrade.variantKeys denormalized for array-contains variantKey filtering
+- [Paper Trading Infra] 553-554-561_BE-IMPL-PAPER-TRADING: Ledger core — 6-kind repository, transactional applyEntryFill/applyExitFill, real-prod verification script
+- [Paper Trading Infra] 553-554-561_DOCS-PAPER-TRADING: Ledger-core code review doc (PASS, 2nd pass) + verify guide
 - [Paper Trading Infra] 553-554-560_SHARED-REFACTOR-PAPER-TRADING: Shared ID segment formatters (YYMMDD/delta/DTE) extracted to shared/id-format.ts; strategy-instance-id consumes them
 - [Paper Trading Infra] 553-554-560_SHARED-IMPL-PAPER-TRADING: Paper-trading record contracts (lifecycle-aggregate PaperTrade, discriminated PaperTradeLeg, variant runs), collection-path helpers, human-readable ID builders
 - [Paper Trading Infra] 553-554-560_CONFIG-IMPL-PAPER-TRADING: @paper-trading/contracts + @paper-trading/ids path aliases for app, functions, and jest
