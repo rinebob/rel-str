@@ -1,5 +1,14 @@
 # Changelog
 
+## [2026-09-25]
+
+### Added
+- [Paper Trading Infra] 553-554-560_SHARED-REFACTOR-PAPER-TRADING: Shared ID segment formatters (YYMMDD/delta/DTE) extracted to shared/id-format.ts; strategy-instance-id consumes them
+- [Paper Trading Infra] 553-554-560_SHARED-IMPL-PAPER-TRADING: Paper-trading record contracts (lifecycle-aggregate PaperTrade, discriminated PaperTradeLeg, variant runs), collection-path helpers, human-readable ID builders
+- [Paper Trading Infra] 553-554-560_CONFIG-IMPL-PAPER-TRADING: @paper-trading/contracts + @paper-trading/ids path aliases for app, functions, and jest
+- [Paper Trading Infra] 553-554-560_SHARED-IMPL-PAPER-TRADING: Permanent verification script + credential-free run-all skipping
+- [Paper Trading Infra] 553-554-560_DOCS-PAPER-TRADING: PRD, SHARED/BE/FE impl + test plans, second-pass code review (PASS), AGENTS.md collection-layout exception
+
 ## [2026-09-24]
 
 ### Added

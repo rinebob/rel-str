@@ -7,9 +7,9 @@
 **Topic Parent:** #553  
 **Domain:** PAPER-TRADING  
 **Type:** TEST  
-**Status:** Draft  
+**Status:** Complete  
 **Created:** 2026-09-24  
-**Last Updated:** 2026-09-24  
+**Last Updated:** 2026-09-25  
 
 # Test Plan: Paper Trading Infra — SHARED (contracts)
 
