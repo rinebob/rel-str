@@ -16,14 +16,14 @@
     </button>
   </ng-template>
 
+  <!-- Flat options render first — surfaces pin their 'show all' sentinel
+       ungrouped at the top, above the group headers. -->
+  @for (opt of options(); track opt.value) {
+    <ng-container *ngTemplateOutlet="optionItem; context: { $implicit: opt }"></ng-container>
+  }
   @for (group of optionGroups(); track group.label) {
     <button mat-menu-item disabled class="rh-menu-group-header">{{ group.label }}</button>
     @for (opt of group.options; track opt.value) {
-      <ng-container *ngTemplateOutlet="optionItem; context: { $implicit: opt }"></ng-container>
-    }
-  }
-  @if (optionGroups().length === 0) {
-    @for (opt of options(); track opt.value) {
       <ng-container *ngTemplateOutlet="optionItem; context: { $implicit: opt }"></ng-container>
     }
   }

@@ -12,16 +12,16 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-export interface RhSelectOption {
-  value: string;
+export interface RhSelectOption<T = string> {
+  value: T;
   label: string;
   badges?: string[];
   description?: string;
 }
 
-export interface RhSelectOptionGroup {
+export interface RhSelectOptionGroup<T = string> {
   label: string;
-  options: RhSelectOption[];
+  options: RhSelectOption<T>[];
 }
 
 @Component({
@@ -31,22 +31,24 @@ export interface RhSelectOptionGroup {
   templateUrl: './rh-select-menu.component.html',
   styleUrl: './rh-select-menu.component.scss',
 })
-export class RhSelectMenuComponent {
+export class RhSelectMenuComponent<T = string> {
   /** Short label shown above the active value on the trigger button (e.g. 'Group', 'List'). */
   label = input.required<string>();
-  /** Full list of selectable options. */
-  options = input<RhSelectOption[]>([]);
+  /** Ungrouped options rendered at the top (e.g. a 'show all' sentinel). */
+  options = input<RhSelectOption<T>[]>([]);
   /** Grouped options, rendered with non-selectable group headers. */
-  optionGroups = input<RhSelectOptionGroup[]>([]);
+  optionGroups = input<RhSelectOptionGroup<T>[]>([]);
   /** Currently selected value — drives the active checkmark and trigger display. */
-  value = input.required<string>();
+  value = input.required<T>();
 
   /** Emits the newly selected value when the user picks an option. */
-  valueChange = output<string>();
+  valueChange = output<T>();
 
   readonly activeLabel = computed(() => {
-    const groupedOptions = this.optionGroups().flatMap(g => g.options);
-    const allOptions = groupedOptions.length > 0 ? groupedOptions : this.options();
-    return allOptions.find(o => o.value === this.value())?.label;
+    const all = [
+      ...this.options(),
+      ...this.optionGroups().flatMap((g) => g.options),
+    ];
+    return all.find((o) => o.value === this.value())?.label;
   });
 }
