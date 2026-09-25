@@ -325,6 +325,27 @@ service cloud.firestore {
       allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
     }
 
+    // Paper trading — grouped {anchor}/items layout.
+    // - instances/items: user-scoped CRUD (Strategy Builder writes directly).
+    // - all other anchors (accounts/trades/cohorts/stats/raw-quotes):
+    //   authenticated read for the single-user app; writes are server-side
+    //   (admin SDK bypasses rules — ledger passes own all writes).
+    match /paper-trading/{anchor}/items/{docId} {
+      allow read: if request.auth != null;
+      allow create, update: if
+        anchor == 'instances' &&
+        request.auth != null &&
+        request.auth.uid == request.resource.data.userId;
+      allow delete: if
+        anchor == 'instances' &&
+        request.auth != null &&
+        request.auth.uid == resource.data.userId;
+      match /{sub}/{subDocId} {
+        allow read: if request.auth != null;
+        allow write: if false;
+      }
+    }
+
     // ZigZag swing sets — flat collection, user-scoped CRUD under
     // st-swing-sets/{symbol}_{paramsId}
     // - List queries must constrain userId (where('userId','==',uid)) or
