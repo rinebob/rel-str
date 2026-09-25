@@ -83,6 +83,12 @@ over nested trees — they allow single-query enumeration. Do not create
 catch-all collections that mix unrelated doc types (breaks security-rule
 granularity, query filters, and index management).
 
+**Approved exception (Topic #553, Blueprint #557):** `paper-trading` uses a
+single root collection with per-kind anchor docs — `paper-trading/{kind-anchor}/items/{id}` —
+so record types stay grouped (no mixed-type catch-all) while remaining
+browsable in the console. Each kind occupies its own `items` subcollection,
+so security rules and queries still scope per-kind via the path wildcard.
+
 ## Project Workflow
 
 ### Task stage labels
@@ -90,6 +96,8 @@ granularity, query filters, and index management).
 Tasks advance through stage labels on the GitHub issue:
 
 `4_BACKLOG` → `5_IMPLEMENT` → `6_REVIEW` → `7_QA` → `8_LIVE`
+
+`7_QA` is not automatic: after `/proj review` passes and the task reaches `7_QA`, run `/proj qa {topic} {task}` to execute the QA checklist and set the linked QA issue **Status** = `RESOLVED`. `/proj ship` will not proceed until the QA issue is RESOLVED.
 
 ### Advancing a task
 
