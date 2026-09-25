@@ -75,6 +75,16 @@ interface PaperTradeLegBase {
   multiplier: number;               // 100 for option legs, 1 for shares
   entryMark: number;
   lastMark: number;
+  /**
+   * Lifecycle metadata carried for legs migrated from / managed by the
+   * options-strategy-engine view. `id` is the human leg id
+   * (`CALL-97.50-2026-10-30`); `outcome`/`closeDate` are written at
+   * settlement.
+   */
+  id?: string;
+  openDate?: string;
+  closeDate?: string;
+  outcome?: 'EXPIRED_WORTHLESS' | 'ASSIGNED';
 }
 
 /**
@@ -92,10 +102,15 @@ export type PaperTradeLeg = PaperTradeLegBase & (
   | { kind: 'share' }
 );
 
-/** Date → mark entry in a trade's `marks` map. */
+/**
+ * Date → mark entry in a trade's `marks` map. Entries may carry only a
+ * position mark (engine mark-pass) or only the underlying close (settlement
+ * / held-shares updates pre-ledger), so both fields are optional — eval
+ * variants must tolerate whichever is present.
+ */
 export interface PaperMark {
-  mark: number;
-  underlyingClose: number;
+  mark?: number;
+  underlyingClose?: number;
 }
 
 export interface VariantExitEvent {
@@ -166,6 +181,29 @@ export interface PaperTrade extends PaperTradingDocBase {
   realizedPnl: number;
   unrealizedPnl: number;
   capitalRequired?: number;
+  /** ISO timestamp of the most recent mark write (engine adapter view). */
+  lastMarkedAt?: string;
+  /**
+   * Verbatim legacy `PositionStatus` for engine-managed trades — preserved so
+   * statuses without a PaperTradeStatus equivalent (e.g. COVERED_CALL_OPEN)
+   * survive the round-trip.
+   */
+  legacyStatus?: string;
+  /**
+   * Assignment outcome — set when a short option expires ITM and the
+   * position converts to held shares (ASSIGNED status).
+   */
+  assignment?: {
+    strikePrice: number;
+    underlyingCloseAtExpiration: number;
+    /** Market date (YYYY-MM-DD) the position was assigned. */
+    assignedAt: string;
+  };
+  /** Held shares after assignment (ASSIGNED status). */
+  shares?: {
+    quantity: number;
+    costBasis: number;
+  };
 }
 
 // ── Cohort ─────────────────────────────────────────────────────────────────
@@ -224,6 +262,10 @@ export interface PaperStats extends PaperTradingDocBase {
   closedTradeCount: number;
   maxDrawdown: number;
   equityCurve: EquityCurvePoint[];
+  /** Premium-roll metrics carried for the engine stats adapter. */
+  totalPremiumCollected?: number;
+  assignedCount?: number;
+  expiredWorthlessCount?: number;
 }
 
 // ── Raw quote ──────────────────────────────────────────────────────────────
