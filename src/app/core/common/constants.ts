@@ -260,7 +260,7 @@ export enum Collection {
   ST_TRADING_CONFIG = 'savant-trader/data/trading-config',
   SPREAD_RUNS = 'spread-runs',
   SPREAD_LISTS = 'spread-lists',
-  OPTIONS_STRATEGY_INSTANCES = 'options-strategy-instances',
+  PAPER_TRADING_INSTANCES = 'paper-trading/instances/items',
 }
 
 /** Known subcollection names under a user document. */

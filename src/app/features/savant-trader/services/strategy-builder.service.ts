@@ -19,6 +19,8 @@ import { Observable, throwError, map } from 'rxjs';
 import { Collection } from '../../../core/common/constants';
 import type { StrategyInstanceConfig } from '@options-strategy-engine/contracts';
 import { LifecycleState } from '@options-strategy-engine/contracts';
+import { PaperTradingKind } from '@paper-trading/contracts';
+import { buildAccountId } from '@paper-trading/ids';
 import { generateInstanceId } from '../../../../../shared/strategy-instance-id';
 
 const LIFECYCLE_ORDER: Record<LifecycleState, number> = {
@@ -46,7 +48,7 @@ export class StrategyBuilderService {
   loadInstances$(): Observable<StrategyInstanceConfig[]> {
     try {
       const uid = this.requireUserId();
-      const ref = collection(this.firestore, Collection.OPTIONS_STRATEGY_INSTANCES);
+      const ref = collection(this.firestore, Collection.PAPER_TRADING_INSTANCES);
       const q = query(ref, where('userId', '==', uid));
       return collectionData(q, { idField: 'id' }).pipe(
         map((docs) => {
@@ -68,11 +70,14 @@ export class StrategyBuilderService {
     const uid = this.requireUserId();
     const now = new Date();
     const id = generateInstanceId(now, config.symbol, config.phases, config.frequency, config.openTimePT);
-    const ref = doc(this.firestore, `${Collection.OPTIONS_STRATEGY_INSTANCES}/${id}`);
+    const ref = doc(this.firestore, `${Collection.PAPER_TRADING_INSTANCES}/${id}`);
 
     await setDoc(ref, {
       ...config,
       userId: uid,
+      kind: PaperTradingKind.INSTANCE,
+      paperAccountId: buildAccountId(uid),
+      governingVariant: 'none',
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
     });
@@ -80,8 +85,8 @@ export class StrategyBuilderService {
 
   /** Merge partial changes into an existing strategy instance. */
   async updateInstance(id: string, changes: Partial<StrategyInstanceConfig>): Promise<void> {
-    const uid = this.requireUserId();
-    const ref = doc(this.firestore, `${Collection.OPTIONS_STRATEGY_INSTANCES}/${id}`);
+    this.requireUserId();
+    const ref = doc(this.firestore, `${Collection.PAPER_TRADING_INSTANCES}/${id}`);
 
     await updateDoc(ref, {
       ...changes,
@@ -91,8 +96,8 @@ export class StrategyBuilderService {
 
   /** Soft-delete an instance by marking it STOPPED and recording the deletion time. */
   async deleteInstance(id: string): Promise<void> {
-    const uid = this.requireUserId();
-    const ref = doc(this.firestore, `${Collection.OPTIONS_STRATEGY_INSTANCES}/${id}`);
+    this.requireUserId();
+    const ref = doc(this.firestore, `${Collection.PAPER_TRADING_INSTANCES}/${id}`);
 
     await updateDoc(ref, {
       lifecycleState: LifecycleState.STOPPED,
@@ -103,8 +108,8 @@ export class StrategyBuilderService {
 
   /** Update only the lifecycle state of an instance. */
   async setLifecycleState(id: string, state: LifecycleState): Promise<void> {
-    const uid = this.requireUserId();
-    const ref = doc(this.firestore, `${Collection.OPTIONS_STRATEGY_INSTANCES}/${id}`);
+    this.requireUserId();
+    const ref = doc(this.firestore, `${Collection.PAPER_TRADING_INSTANCES}/${id}`);
 
     await updateDoc(ref, {
       lifecycleState: state,
