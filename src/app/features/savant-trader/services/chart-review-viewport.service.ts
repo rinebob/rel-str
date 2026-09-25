@@ -10,7 +10,7 @@
  */
 import { Injectable, inject, computed } from '@angular/core';
 
-import { NO_MEMBERSHIP, SymbolListName, ViewportMode, type SymbolListFilter } from '../common/constants';
+import { NO_MEMBERSHIP, ViewportMode, type SymbolListFilter } from '../common/constants';
 import { TriageStore } from '../stores/triage.store';
 import { SymbolListStore } from '../stores/symbol-list.store';
 
@@ -37,7 +37,7 @@ export class ChartReviewViewportService {
     const listName = this.triageStore.activeViewportList();
     const reviewSymbols = this.triageStore.reviewSymbols();
 
-    if (listName === SymbolListName.NONE) {
+    if (listName === 'ALL') {
       return reviewSymbols;
     }
 
@@ -49,6 +49,13 @@ export class ChartReviewViewportService {
       }
       // browse — the full unlisted tracked universe.
       return this.symbolListStore.unlistedSymbols();
+    }
+
+    // Deleted-list fallback: a filter value absent from the catalog
+    // (e.g. a deleted user list) degrades to show-all rather than an
+    // empty viewport with a blank trigger.
+    if (!this.symbolListStore.byKey().has(listName)) {
+      return reviewSymbols;
     }
 
     const listSymbols = this.symbolListStore.symbolLists()[listName] ?? [];

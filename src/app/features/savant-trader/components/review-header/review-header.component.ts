@@ -12,11 +12,11 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { AppRoutes } from '../../../../core/common/interfaces';
 import { RhSelectMenuComponent, RhSelectOption } from '../rh-select-menu/rh-select-menu.component';
-import { SymbolListName, SYMBOL_LIST_FILTER_OPTIONS, ViewportMode, type SymbolListFilter } from '../../common/constants';
+import { ViewportMode, type SymbolListFilter } from '../../common/constants';
+import type { RhSelectOptionGroup } from '../rh-select-menu/rh-select-menu.component';
 
-const LIST_OPTIONS: RhSelectOption[] = [
-  { value: SymbolListName.NONE, label: 'None' },
-  ...SYMBOL_LIST_FILTER_OPTIONS,
+const SENTINEL: RhSelectOption<SymbolListFilter>[] = [
+  { value: 'ALL', label: 'None' },
 ];
 
 @Component({
@@ -27,14 +27,16 @@ const LIST_OPTIONS: RhSelectOption[] = [
   styleUrl: './review-header.component.scss',
 })
 export class ReviewHeaderComponent {
-  readonly listOptions = LIST_OPTIONS;
+  readonly sentinelOptions = SENTINEL;
   protected readonly appRoutes = AppRoutes;
 
   selectedSymbol = input<string | null>(null);
   manualSymbol = input<string | null>(null);
   companyName = input<string | null>(null);
   status = input('PENDING');
-  activeList = input<SymbolListFilter>(SymbolListName.NONE);
+  activeList = input<SymbolListFilter>('ALL');
+  /** Grouped catalog options — Triage then My lists, from the store. */
+  listGroups = input<RhSelectOptionGroup<SymbolListFilter>[]>([]);
   viewportMode = input<ViewportMode>('signals');
   /** When false, ACR and queue mutation controls are disabled for the viewed historical run. */
   isActionableRun = input(true);
@@ -56,9 +58,4 @@ export class ReviewHeaderComponent {
   modeChange = output<void>();
   /** Emits when the user clicks the Order button to go to the order page. */
   goToOrder = output<void>();
-
-  /** Narrow the string-typed select emission to the filter union. */
-  onListPicked(value: string): void {
-    this.listChange.emit(value as SymbolListFilter);
-  }
 }

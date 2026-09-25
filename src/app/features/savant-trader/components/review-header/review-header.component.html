@@ -72,9 +72,10 @@
 
     <app-rh-select-menu
       label="List"
-      [options]="listOptions"
+      [options]="sentinelOptions"
+      [optionGroups]="listGroups()"
       [value]="activeList()"
-      (valueChange)="onListPicked($event)">
+      (valueChange)="listChange.emit($event)">
     </app-rh-select-menu>
 
     <button mat-icon-button

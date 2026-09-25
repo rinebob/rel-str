@@ -23,7 +23,7 @@ import {
 
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-import { ReviewDecision, SymbolListName, ViewportMode, type SymbolListFilter } from '../common/constants';
+import { ReviewDecision, ViewportMode, type SymbolListFilter } from '../common/constants';
 import { TriageService } from '../services/triage.service';
 
 // ---------------------------------------------------------------------------
@@ -49,7 +49,7 @@ const initialState: TriageState = {
   reviewFlags: {},
   screeningStatuses: {},
   viewportMode: 'signals',
-  activeViewportList: SymbolListName.NONE,
+  activeViewportList: 'ALL',
   reviewFlagsLoading: false,
   reviewFlagsError: null,
 };
