@@ -3,6 +3,11 @@
 ## [2026-09-25]
 
 ### Added
+- [Paper Trading Infra] 553-554-562_SHARED-REFACTOR-PAPER-TRADING: PaperTrade.legacyStatus for engine status round-trips
+- [Paper Trading Infra] 553-554-562_BE-REFACTOR-PAPER-TRADING: Engine migration onto paper-trading collections — passes + repositories under engine/, trade+account atomic open/settle, idempotent migration script, 24-check prod verify
+- [Paper Trading Infra] 553-554-562_CONFIG-REFACTOR-PAPER-TRADING: Firestore rules + composite index for paper-trading anchors
+- [Paper Trading Infra] 553-554-562_FE-IMPL-PAPER-TRADING: Strategy builder persists instances to paper-trading/instances/items
+- [Paper Trading Infra] 553-554-562_DOCS-PAPER-TRADING: Engine-migration code review (PASS, 5 passes) + verify guide
 - [Paper Trading Infra] 553-554-561_SHARED-IMPL-PAPER-TRADING: PaperTrade.variantKeys denormalized for array-contains variantKey filtering
 - [Paper Trading Infra] 553-554-561_BE-IMPL-PAPER-TRADING: Ledger core — 6-kind repository, transactional applyEntryFill/applyExitFill, real-prod verification script
 - [Paper Trading Infra] 553-554-561_DOCS-PAPER-TRADING: Ledger-core code review doc (PASS, 2nd pass) + verify guide
