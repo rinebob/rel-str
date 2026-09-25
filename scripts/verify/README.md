@@ -14,6 +14,7 @@ deliberately, on-demand.
 | #334 — FE Swing Analysis Store | [indicator-lib-swing-analysis.md](indicator-lib-swing-analysis.md) | Firestore path construction + round-trip | `indicator-lib-swing-analysis-store.ts` |
 | #560 — SHARED Paper Trading Contracts | [paper-trading-contracts-560.md](paper-trading-contracts-560.md) | IDs + collection paths + kind guards | `paper-trading-contracts-560-ids.ts` |
 | #561 — BE Ledger Core | [paper-trading-ledger-561.md](paper-trading-ledger-561.md) | fill → ledger → Firestore persist (account + trade atomic write) | `functions/scripts/verify/paper-trading-ledger-561.ts` (needs ADC; runs from `functions/`) |
+| #562 — BE Engine Migration | [paper-trading-engine-migration-562.md](paper-trading-engine-migration-562.md) | legacy options-strategy-* → `paper-trading/{anchor}/items` + Position-view adapter + P&L parity | `functions/scripts/verify/paper-trading-engine-migration-562.ts` + `functions/scripts/migrate-options-strategy-to-paper.ts` (needs ADC; runs from `functions/`) |
 
 ## Run All
 
