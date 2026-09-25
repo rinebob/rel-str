@@ -11,11 +11,14 @@
  */
 
 import { db } from '../src/firebase-admin-init';
-import { OPTIONS_STRATEGY_INSTANCES_COLLECTION } from '../src/options-strategy-engine/collections';
+import { PaperTradingKind } from '../../shared/paper-trading-contracts';
+import { paperTradingItemsPath, buildAccountId } from '../../shared/paper-trading-ids';
 import { OptionType, PositionSpreadType, StrategyFrequency } from '../../shared/options-common';
 import { TradeSide } from '../../shared/common';
 import { ExitPolicy, LifecycleState } from '../../shared/options-strategy-engine-contracts';
 import { generateInstanceId } from '../../shared/strategy-instance-id';
+
+const INSTANCES_COLLECTION = paperTradingItemsPath(PaperTradingKind.INSTANCE);
 
 const createdAt = new Date('2025-08-16T00:00:00Z');
 const symbol = 'QQQM';
@@ -58,10 +61,13 @@ const instance = {
   userId: 'system',
   createdAt: createdAt.toISOString(),
   updatedAt: createdAt.toISOString(),
+  kind: PaperTradingKind.INSTANCE,
+  paperAccountId: buildAccountId('system'),
+  governingVariant: 'none',
 };
 
 async function main(): Promise<void> {
-  const ref = db.collection(OPTIONS_STRATEGY_INSTANCES_COLLECTION).doc(instanceId);
+  const ref = db.collection(INSTANCES_COLLECTION).doc(instanceId);
   const existing = await ref.get();
 
   if (existing.exists) {
@@ -70,7 +76,7 @@ async function main(): Promise<void> {
   }
 
   await ref.set(instance);
-  console.log(`Seeded instance ${instanceId} to ${OPTIONS_STRATEGY_INSTANCES_COLLECTION}.`);
+  console.log(`Seeded instance ${instanceId} to ${INSTANCES_COLLECTION}.`);
 }
 
 main().catch((err) => {

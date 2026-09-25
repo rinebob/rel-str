@@ -1,26 +1,3 @@
-/**
- *
- * Types and interfaces for the OCC → Robinhood MCP instrument map.
- */
+﻿/** @topic #553 — shim: implementation moved to paper-trading/engine (task #562). */
+export * from '../../paper-trading/engine/instrument-map/occ-rh-instrument-map-types';
 
-import type { OptionContractRef, OccRhInstrumentMapEntry } from '@options-strategy-engine/contracts';
-
-export interface ResolvedRhInstrumentIds {
-  instrumentId: string;
-  chainId: string;
-}
-
-export interface OccRhInstrumentMapResolver {
-  resolve(quote: OptionContractRef): Promise<ResolvedRhInstrumentIds>;
-}
-
-export type OccRhInstrumentMapWriter = (entry: OccRhInstrumentMapEntry) => Promise<void>;
-
-export type OccRhInstrumentMapReader = (
-  occId: string,
-) => Promise<OccRhInstrumentMapEntry | null>;
-
-export type McpToolCaller = (
-  toolName: string,
-  args: Record<string, unknown>,
-) => Promise<unknown>;

@@ -11,9 +11,10 @@ import {
   listAllInstances,
   getInstance,
 } from '../../../functions/src/options-strategy-engine/strategy-instance-repository';
-import {
-  OPTIONS_STRATEGY_INSTANCES_COLLECTION,
-} from '../../../functions/src/options-strategy-engine/collections';
+import { PaperTradingKind } from '../../../shared/paper-trading-contracts';
+import { paperTradingItemsPath } from '../../../shared/paper-trading-ids';
+
+const OPTIONS_STRATEGY_INSTANCES_COLLECTION = paperTradingItemsPath(PaperTradingKind.INSTANCE);
 import { OptionType, PositionSpreadType, StrategyFrequency } from '../../../shared/options-common';
 import { TradeSide } from '../../../shared/common';
 import { ExitPolicy, LifecycleState, type StrategyInstanceConfig } from '../../../shared/options-strategy-engine-contracts';

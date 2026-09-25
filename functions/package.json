@@ -19,7 +19,7 @@
     "test:sds": "tsx --test ../tests/functions/sds-pdr-parser.test.ts ../tests/functions/sds-core.test.ts ../tests/functions/sds-worker-core.test.ts ../tests/functions/sds-completion.test.ts ../tests/functions/sds-fallback.test.ts",
     "test:signal-detection": "tsx --test ../tests/functions/signal-detection-zero-cross.test.ts",
     "test:options-error-mapping": "tsx --test ../tests/functions/options-error-mapping.test.ts",
-    "test:paper-trading": "tsx --test ../tests/functions/paper-trading/ledger.test.ts ../tests/functions/paper-trading/repository.test.ts",
+    "test:paper-trading": "tsx --test ../tests/functions/paper-trading/ledger.test.ts ../tests/functions/paper-trading/repository.test.ts ../tests/functions/paper-trading/trade-adapter.test.ts",
     "probe:rh-agent-mcp-auth": "tsx src/rh-agent-mcp/diagnostics/run-local-oauth-bootstrap.ts",
     "probe:rh-agent-mcp-tool": "tsx src/rh-agent-mcp/diagnostics/run-tool-observation.ts",
     "serve:observation": "tsx src/rh-agent-mcp/local-api/start-observation-api.ts",

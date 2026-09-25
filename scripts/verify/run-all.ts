@@ -26,6 +26,13 @@ const scripts = [
     needsAccount: false,
     needsAdc: true,
   },
+  {
+    name: 'paper-trading engine migration',
+    file: 'verify/paper-trading-engine-migration-562.ts',
+    cwd: 'functions',
+    needsAccount: false,
+    needsAdc: true,
+  },
 ];
 
 function hasAdc(): boolean {

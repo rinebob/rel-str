@@ -71,6 +71,9 @@ export interface EntryFillInput {
   dims: FillDimensions;
   /** Underlying close at fill; seeds marks[fill.date] when provided. */
   underlyingClose?: number;
+  /** Extra trade fields merged onto the constructed doc (e.g. engine view
+   *  fields like `capitalRequired`/`lastMarkedAt`). */
+  tradeOverrides?: Partial<PaperTrade>;
   now: string;
 }
 
@@ -220,6 +223,7 @@ export async function applyEntryFill(
       unrealizedPnl: 0,
       createdAt: input.now,
       updatedAt: input.now,
+      ...input.tradeOverrides,
     };
 
     const updatedAccount: PaperAccount = {
@@ -244,6 +248,16 @@ export async function applyEntryFill(
 
 // ── Exit ───────────────────────────────────────────────────────────────────
 
+/**
+ * NOTE for #563 (exit engine): this computes realizedPnl absolutely from
+ * `(exit − entry) × qty × mult` on the option entry fill. An ASSIGNED engine
+ * trade's entry fill is the option premium, not the share cost basis — a
+ * share-sale exit through this seam would miscompute P&L. The engine's own
+ * settlement path (position-repository.markPositionSettled) mirrors this
+ * account math inline (premium realized at expiry/assignment, assignment
+ * cash debit + share value) — the two formulas must stay consistent; extract
+ * a shared `applySettlement` helper when the share-sale path lands in #563.
+ */
 export async function applyExitFill(
   input: ExitFillInput,
   deps: LedgerDeps,
@@ -288,8 +302,11 @@ export async function applyExitFill(
         ? trade.legs.map((leg) => ({ ...leg, lastMark: input.fill.price }))
         : trade.legs;
 
+    // Drop legacyStatus — a ledger close must not leave a stale engine status
+    // (adapter prefers legacyStatus over status on read-back).
+    const { legacyStatus: _dropped, ...rest } = trade;
     const updatedTrade: PaperTrade = {
-      ...trade,
+      ...rest,
       status: PaperTradeStatus.CLOSED,
       fills: [...trade.fills, input.fill],
       legs,
