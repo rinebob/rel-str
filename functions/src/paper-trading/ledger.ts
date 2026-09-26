@@ -42,6 +42,7 @@ import {
   type PaperTicket,
   type PaperTrade,
   type PaperTradeLeg,
+  type SignalExpressionTemplate,
   type VariantRun,
 } from '@paper-trading/contracts';
 import { buildAccountId } from '@paper-trading/ids';
@@ -72,15 +73,59 @@ export interface EntryFillInput {
   /** Underlying close at fill; seeds marks[fill.date] when provided. */
   underlyingClose?: number;
   /** Extra trade fields merged onto the constructed doc (e.g. engine view
-   *  fields like `capitalRequired`/`lastMarkedAt`). */
-  tradeOverrides?: Partial<PaperTrade>;
+   *  fields like `capitalRequired`/`lastMarkedAt`). Whitelist — lifecycle
+   *  fields (status/fills/legs/marks/order/variants) can't be overridden. */
+  tradeOverrides?: PaperTradeOverrides;
   now: string;
 }
+
+/** Optional trade fields a fill input may merge — lifecycle and
+ *  variant-derived fields (governingVariant/variantKeys/variantRuns,
+ *  assignment/shares) excluded so overrides can't desync invariants. */
+export type PaperTradeOverrides = Partial<
+  Pick<
+    PaperTrade,
+    | 'userId'
+    | 'strategyInstanceId'
+    | 'cohortId'
+    | 'signalId'
+    | 'symbol'
+    | 'expression'
+    | 'ticket'
+    | 'expressionTemplate'
+    | 'capitalRequired'
+    | 'lastMarkedAt'
+    | 'legacyStatus'
+  >
+>;
 
 export interface ExitFillInput {
   userId: string;
   tradeId: string;
   fill: PaperFill;
+  now: string;
+}
+
+export interface PendingTradeInput {
+  userId: string;
+  tradeId: string;
+  order: PaperOrderTerms;
+  dims: FillDimensions;
+  /** Template params carried until the expression-fill pass resolves a contract. */
+  expressionTemplate?: SignalExpressionTemplate;
+  tradeOverrides?: PaperTradeOverrides;
+  now: string;
+}
+
+export interface PendingFillInput {
+  userId: string;
+  tradeId: string;
+  /** Legs with `entryMark` set to the filled price (lastMark is seeded from it). */
+  legs: PaperTradeLeg[];
+  fill: PaperFill;
+  /** Underlying close at fill; seeds marks[fill.date] when provided. */
+  underlyingClose?: number;
+  tradeOverrides?: PaperTradeOverrides;
   now: string;
 }
 
@@ -201,24 +246,7 @@ export async function applyEntryFill(
     const cashDelta = signedCashDelta(input.fill, input.order.side, input.legs);
     const legs = input.legs.map((leg) => ({ ...leg, lastMark: leg.entryMark }));
 
-    // Exactly one governing run is an invariant: dedupe keys (a dup would
-    // be unreachable via updateVariantRun's first-match index) and require
-    // the governing key to be present — otherwise the trade can never close.
-    const variantKeys = [...new Set(
-      input.dims.variantKeys?.length ? input.dims.variantKeys : [input.dims.governingVariant],
-    )];
-    if (!variantKeys.includes(input.dims.governingVariant)) {
-      throw new Error(
-        `variantKeys must include governingVariant ${input.dims.governingVariant} ` +
-          `for trade ${input.tradeId}`,
-      );
-    }
-    const variantRuns: VariantRun[] = variantKeys.map((key) => ({
-      variantKey: key,
-      governing: key === input.dims.governingVariant,
-      state: 'ACTIVE',
-      workingState: {},
-    }));
+    const { variantKeys, variantRuns } = seedVariantRuns(input.dims, input.tradeId);
 
     const marks: PaperTrade['marks'] =
       input.underlyingClose === undefined
@@ -229,6 +257,7 @@ export async function applyEntryFill(
       kind: PaperTradingKind.TRADE,
       id: input.tradeId,
       status: PaperTradeStatus.OPEN,
+      userId: input.userId,
       source: input.dims.source,
       symbol: input.dims.symbol,
       expression: input.dims.expression,
@@ -267,6 +296,157 @@ export async function applyEntryFill(
       cashDelta,
     });
     return { trade, account: updatedAccount, cashDelta };
+  });
+}
+
+/**
+ * Exactly one governing run is an invariant: dedupe keys (a dup would be
+ * unreachable via updateVariantRun's first-match index) and require the
+ * governing key to be present — otherwise the trade can never close.
+ */
+function seedVariantRuns(
+  dims: FillDimensions,
+  tradeId: string,
+): { variantKeys: string[]; variantRuns: VariantRun[] } {
+  const variantKeys = [...new Set(
+    dims.variantKeys?.length ? dims.variantKeys : [dims.governingVariant],
+  )];
+  if (!variantKeys.includes(dims.governingVariant)) {
+    throw new Error(
+      `variantKeys must include governingVariant ${dims.governingVariant} ` +
+        `for trade ${tradeId}`,
+    );
+  }
+  const variantRuns: VariantRun[] = variantKeys.map((key) => ({
+    variantKey: key,
+    governing: key === dims.governingVariant,
+    state: 'ACTIVE',
+    workingState: {},
+  }));
+  return { variantKeys, variantRuns };
+}
+
+// ── Pending trades (signal expression cohorts) ─────────────────────────────
+
+/**
+ * Create a PENDING trade — order accepted, awaiting a later fill (the
+ * noon-PT expression-fill pass resolves a real contract). No cash moves;
+ * the account doc is still created lazily so the trade's account anchor
+ * exists, but no counts/P&L change until `applyPendingFill`.
+ */
+export async function createPendingTrade(
+  input: PendingTradeInput,
+  deps: LedgerDeps,
+): Promise<PaperTrade> {
+  return deps.transact(async (txn) => {
+    if (await txn.getTrade(input.tradeId)) {
+      throw new Error(`paper trade ${input.tradeId} already exists`);
+    }
+    const account = (await txn.getAccount(input.userId)) ?? baseAccount(input.userId, input.now);
+    const { variantKeys, variantRuns } = seedVariantRuns(input.dims, input.tradeId);
+
+    const trade: PaperTrade = {
+      kind: PaperTradingKind.TRADE,
+      id: input.tradeId,
+      status: PaperTradeStatus.PENDING,
+      userId: input.userId,
+      source: input.dims.source,
+      symbol: input.dims.symbol,
+      expression: input.dims.expression,
+      governingVariant: input.dims.governingVariant,
+      ...(input.dims.strategyInstanceId ? { strategyInstanceId: input.dims.strategyInstanceId } : {}),
+      ...(input.dims.cohortId ? { cohortId: input.dims.cohortId } : {}),
+      ...(input.dims.signalId ? { signalId: input.dims.signalId } : {}),
+      ...(input.dims.ticket ? { ticket: input.dims.ticket } : {}),
+      ...(input.expressionTemplate ? { expressionTemplate: input.expressionTemplate } : {}),
+      order: input.order,
+      fills: [],
+      legs: [],
+      marks: {},
+      variantRuns,
+      variantKeys,
+      realizedPnl: 0,
+      unrealizedPnl: 0,
+      createdAt: input.now,
+      updatedAt: input.now,
+      ...input.tradeOverrides,
+    };
+
+    txn.write({
+      accountId: account.id,
+      account: { ...account, updatedAt: input.now },
+      tradeId: trade.id,
+      trade,
+      cashDelta: 0,
+    });
+    return trade;
+  });
+}
+
+/**
+ * Fill a PENDING trade: sets legs + entry fill + seeded marks, flips status
+ * to OPEN, and applies the entry cash delta — the PENDING→OPEN mirror of
+ * `applyEntryFill` for orders staged before a contract was known.
+ */
+export async function applyPendingFill(
+  input: PendingFillInput,
+  deps: LedgerDeps,
+): Promise<ApplyFillResult> {
+  if (input.fill.role !== 'entry') {
+    throw new Error(`fill role must be 'entry', got '${input.fill.role}'`);
+  }
+  return deps.transact(async (txn) => {
+    const trade = await txn.getTrade(input.tradeId);
+    if (!trade) {
+      throw new Error(`paper trade ${input.tradeId} not found`);
+    }
+    if (trade.status !== PaperTradeStatus.PENDING) {
+      throw new Error(`paper trade ${input.tradeId} is not pending (status ${trade.status})`);
+    }
+    if (input.fill.quantity !== trade.order.quantity) {
+      throw new Error(
+        `fill quantity ${input.fill.quantity} != order quantity ${trade.order.quantity}`,
+      );
+    }
+    const account =
+      (await txn.getAccount(input.userId)) ?? baseAccount(input.userId, input.now);
+
+    const cashDelta = signedCashDelta(input.fill, trade.order.side, input.legs);
+    const legs = input.legs.map((leg) => ({ ...leg, lastMark: leg.entryMark }));
+    const marks: PaperTrade['marks'] = {
+      ...trade.marks,
+      [input.fill.date]: {
+        mark: input.fill.price,
+        ...(input.underlyingClose !== undefined ? { underlyingClose: input.underlyingClose } : {}),
+      },
+    };
+
+    const updatedTrade: PaperTrade = {
+      ...trade,
+      status: PaperTradeStatus.OPEN,
+      fills: [...trade.fills, input.fill],
+      legs,
+      marks,
+      updatedAt: input.now,
+      ...input.tradeOverrides,
+    };
+
+    const updatedAccount: PaperAccount = {
+      ...account,
+      cash: account.cash + cashDelta,
+      equity: account.equity + cashDelta + positionValue(legs),
+      openTradeCount: account.openTradeCount + 1,
+      updatedAt: input.now,
+    };
+
+    txn.write({
+      accountId: updatedAccount.id,
+      account: updatedAccount,
+      tradeId: trade.id,
+      trade: updatedTrade,
+      cashDelta,
+    });
+    return { trade: updatedTrade, account: updatedAccount, cashDelta };
   });
 }
 

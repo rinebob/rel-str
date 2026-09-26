@@ -22,6 +22,8 @@ import {
 import {
   applyEntryFill,
   applyExitFill,
+  applyPendingFill,
+  createPendingTrade,
   type LedgerDeps,
   type LedgerWritePlan,
 } from '../../../functions/src/paper-trading/ledger';
@@ -519,5 +521,242 @@ describe('applyExitFill', () => {
       /partial exits/i,
     );
     assert.equal(plans.length, 0);
+  });
+});
+
+// -- Pending trades (task #564 � signal expression cohorts) -----------------
+
+function pendingTemplate() {
+  return {
+    key: 'csp-030-45',
+    expression: 'CSP',
+    optionType: OptionType.PUT,
+    side: TradeSide.SHORT,
+    targetDelta: 0.3,
+    targetDte: 45,
+    minDte: 30,
+    maxDte: 60,
+  };
+}
+
+function pendingTrade(overrides: Partial<PaperTrade> = {}): PaperTrade {
+  return {
+    kind: PaperTradingKind.TRADE,
+    id: '260924-sig-QQQM-CSP-030-45',
+    status: PaperTradeStatus.PENDING,
+    source: PaperTradeSource.SIGNAL,
+    symbol: 'QQQM',
+    expression: 'CSP',
+    governingVariant: 'none',
+    cohortId: 'cohort-260924-QQQM-01',
+    signalId: 'sig-1',
+    expressionTemplate: pendingTemplate(),
+    order: { side: TradeSide.SHORT, type: 'MARKET', quantity: 1 },
+    fills: [],
+    legs: [],
+    marks: {},
+    variantRuns: [
+      { variantKey: 'none', governing: true, state: 'ACTIVE', workingState: {} },
+      { variantKey: 'initial-stop-10', governing: false, state: 'ACTIVE', workingState: {} },
+    ],
+    variantKeys: ['none', 'initial-stop-10'],
+    realizedPnl: 0,
+    unrealizedPnl: 0,
+    createdAt: NOW,
+    updatedAt: NOW,
+    ...overrides,
+  };
+}
+
+describe('createPendingTrade', () => {
+  it('writes a PENDING trade with seeded runs, template, and dims � no fills/legs', async () => {
+    const { deps, plans } = makeDeps();
+    const trade = await createPendingTrade(
+      {
+        userId: 'user1',
+        tradeId: '260924-sig-QQQM-CSP-030-45',
+        order: { side: TradeSide.SHORT, type: 'MARKET', quantity: 1 },
+        dims: {
+          source: PaperTradeSource.SIGNAL,
+          symbol: 'QQQM',
+          expression: 'CSP',
+          governingVariant: 'none',
+          variantKeys: ['none', 'initial-stop-10', 'trailing-20', 'time-30d'],
+          cohortId: 'cohort-260924-QQQM-01',
+          signalId: 'sig-1',
+          ticket: { signalId: 'sig-1', refId: 'ref-1', acceptedAt: NOW },
+        },
+        expressionTemplate: pendingTemplate(),
+        now: NOW,
+      },
+      deps,
+    );
+
+    assert.equal(plans.length, 1);
+    const t = plans[0].trade;
+    assert.equal(t.status, PaperTradeStatus.PENDING);
+    assert.deepEqual(t.fills, []);
+    assert.deepEqual(t.legs, []);
+    assert.deepEqual(t.marks, {});
+    assert.equal(t.variantRuns.length, 4);
+    assert.equal(t.variantRuns.filter((r) => r.governing).length, 1);
+    assert.equal(t.cohortId, 'cohort-260924-QQQM-01');
+    assert.equal(t.signalId, 'sig-1');
+    assert.equal(t.ticket?.refId, 'ref-1');
+    assert.equal(t.expressionTemplate?.key, 'csp-030-45');
+    // account unchanged � pending is not open
+    assert.equal(plans[0].cashDelta, 0);
+    assert.equal(plans[0].account.openTradeCount, 0);
+    assert.equal(trade.id, t.id);
+  });
+
+  it('throws when the trade id is already taken', async () => {
+    const { deps, plans } = makeDeps({ getTrade: async () => pendingTrade() });
+    await assert.rejects(
+      createPendingTrade(
+        {
+          userId: 'user1',
+          tradeId: '260924-sig-QQQM-CSP-030-45',
+          order: { side: TradeSide.SHORT, type: 'MARKET', quantity: 1 },
+          dims: {
+            source: PaperTradeSource.SIGNAL,
+            symbol: 'QQQM',
+            expression: 'CSP',
+            governingVariant: 'none',
+          },
+          now: NOW,
+        },
+        deps,
+      ),
+      /already exists/i,
+    );
+    assert.equal(plans.length, 0);
+  });
+
+  it('throws when governingVariant is not in variantKeys', async () => {
+    const { deps } = makeDeps();
+    await assert.rejects(
+      createPendingTrade(
+        {
+          userId: 'user1',
+          tradeId: 't1',
+          order: { side: TradeSide.SHORT, type: 'MARKET', quantity: 1 },
+          dims: {
+            source: PaperTradeSource.SIGNAL,
+            symbol: 'QQQM',
+            expression: 'CSP',
+            governingVariant: 'none',
+            variantKeys: ['time-30d'],
+          },
+          now: NOW,
+        },
+        deps,
+      ),
+      /must include governingVariant/i,
+    );
+  });
+});
+
+describe('applyPendingFill', () => {
+  it('flips PENDING to OPEN: legs, entry fill, marks, cash credit, open count', async () => {
+    const { deps, plans } = makeDeps({
+      getTrade: async () => pendingTrade(),
+      getAccount: async () => existingAccount({ cash: 500 }),
+    });
+    const result = await applyPendingFill(
+      {
+        userId: 'user1',
+        tradeId: '260924-sig-QQQM-CSP-030-45',
+        legs: [cspLeg()],
+        fill: {
+          fillId: 'entry-1',
+          role: 'entry',
+          date: FILL_DATE,
+          price: 2.1,
+          quantity: 1,
+          quoteSource: OptionQuoteSource.RH_MCP,
+        },
+        underlyingClose: 590,
+        tradeOverrides: { capitalRequired: 57_000 },
+        now: NOW,
+      },
+      deps,
+    );
+
+    const t = plans[0].trade;
+    assert.equal(t.status, PaperTradeStatus.OPEN);
+    assert.equal(t.fills.length, 1);
+    assert.equal(t.fills[0].price, 2.1);
+    assert.equal(t.legs.length, 1);
+    assert.equal(t.legs[0].lastMark, 2.1);
+    assert.deepEqual(t.marks[FILL_DATE], { mark: 2.1, underlyingClose: 590 });
+    assert.equal(t.capitalRequired, 57_000);
+    assert.equal(result.cashDelta, 210); // +2.10 credit � 100
+    assert.equal(plans[0].account.cash, 710);
+    assert.equal(plans[0].account.equity, 0); // cash?asset swap (500 -500+... check: 500+210-210=500? equity = equity + cashDelta + posValue = 0+210-210=0) 
+    assert.equal(plans[0].account.openTradeCount, 1);
+  });
+
+  it('throws when the trade is not PENDING', async () => {
+    const { deps, plans } = makeDeps({ getTrade: async () => pendingTrade({ status: PaperTradeStatus.OPEN }) });
+    await assert.rejects(
+      applyPendingFill(
+        {
+          userId: 'user1',
+          tradeId: '260924-sig-QQQM-CSP-030-45',
+          legs: [cspLeg()],
+          fill: {
+            fillId: 'entry-1',
+            role: 'entry',
+            date: FILL_DATE,
+            price: 2.1,
+            quantity: 1,
+            quoteSource: OptionQuoteSource.RH_MCP,
+          },
+          now: NOW,
+        },
+        deps,
+      ),
+      /not pending/i,
+    );
+    assert.equal(plans.length, 0);
+  });
+
+  it('debits cash for a LONG-side expression fill', async () => {
+    const { deps, plans } = makeDeps({
+      getTrade: async () => pendingTrade({ order: { side: TradeSide.LONG, type: 'MARKET', quantity: 1 } }),
+      getAccount: async () => existingAccount({ cash: 1000 }),
+    });
+    const longLeg: PaperTradeLeg = {
+      kind: 'option',
+      contractID: 'QQQM251030C00600000',
+      type: OptionType.CALL,
+      strike: 600,
+      expiration: '2026-10-30',
+      side: TradeSide.LONG,
+      quantity: 1,
+      multiplier: 100,
+      entryMark: 5.0,
+      lastMark: 5.0,
+    };
+    await applyPendingFill(
+      {
+        userId: 'user1',
+        tradeId: '260924-sig-QQQM-CSP-030-45',
+        legs: [longLeg],
+        fill: {
+          fillId: 'entry-1',
+          role: 'entry',
+          date: FILL_DATE,
+          price: 5.0,
+          quantity: 1,
+          quoteSource: OptionQuoteSource.RH_MCP,
+        },
+        now: NOW,
+      },
+      deps,
+    );
+    assert.equal(plans[0].account.cash, 500); // -5.00 � 100
+    assert.equal(plans[0].account.equity, 0); // -500 cash +500 position
   });
 });
