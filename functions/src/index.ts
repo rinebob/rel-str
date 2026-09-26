@@ -144,6 +144,14 @@ export { openPassTimer } from './options-strategy-engine/passes/open-pass-timer'
 export { paperSignalOrder } from './paper-trading/callables';
 export { expressionFillPassTimer } from './paper-trading/passes/expression-fill-pass';
 
+// Paper trading — dashboard read APIs (#565)
+export {
+  listPaperTrades,
+  getPaperStats,
+  getPaperAccount,
+  listExitVariants,
+} from './paper-trading/read-callables';
+
 // Options strategy engine — dashboard callables
 export {
   listStrategyPositions,

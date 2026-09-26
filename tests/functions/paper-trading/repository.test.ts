@@ -256,6 +256,31 @@ describe('repository reads', () => {
     assert.equal(result.length, 1);
     assert.equal(result[0].id, TRADE_ID);
   });
+
+  it('listTrades AND-combines multi-field filters (cohort + expression + variantKey)', async () => {
+    const match = {
+      ...makeTrade(),
+      id: 'match',
+      cohortId: 'cohort-1',
+      expression: 'CSP',
+      variantKeys: ['trailing-20'],
+    };
+    const wrongCohort = { ...match, id: 'wrong-cohort', cohortId: 'cohort-2' };
+    const wrongExpr = { ...match, id: 'wrong-expr', expression: 'BCS' };
+    const wrongVar = { ...match, id: 'wrong-var', variantKeys: ['time-9d'] };
+    const { db } = createFakeDb({
+      'paper-trading/trades/items/match': match,
+      'paper-trading/trades/items/wrong-cohort': wrongCohort,
+      'paper-trading/trades/items/wrong-expr': wrongExpr,
+      'paper-trading/trades/items/wrong-var': wrongVar,
+    });
+    const result = await listTrades(db, {
+      cohortId: 'cohort-1',
+      expression: 'CSP',
+      variantKey: 'trailing-20',
+    });
+    assert.deepEqual(result.map((t) => t.id), ['match']);
+  });
 });
 
 // ── Writes ───────────────────────────────────────────────────────────────────

@@ -140,6 +140,10 @@ export function setStats(db: Firestore, stats: PaperStats): Promise<void> {
   return setItem(db, PaperTradingKind.STATS, stats);
 }
 
+export function listStats(db: Firestore): Promise<PaperStats[]> {
+  return listItems(db, PaperTradingKind.STATS, isPaperStats);
+}
+
 export function getRawQuote(db: Firestore, quoteId: string): Promise<RawQuoteDoc | null> {
   return getItem(db, PaperTradingKind.RAW_QUOTE, quoteId, isRawQuoteDoc);
 }
