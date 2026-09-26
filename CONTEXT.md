@@ -107,6 +107,12 @@ A cloud-evaluated exit policy. When the executable bid reaches its target, RH Ag
 
 The configured base dollar exposure used to normalize position sizing and portfolio capacity. Capacity accounting may use fractional units so projected exposure is not rounded away.
 
+## Allocation Bucket
+
+A named strategy group that owns a funding target (`targetPct` of the current live account value) and aggregates every live trade attributed to it. Buckets are scoped to a single Robinhood account — each account has its own bucket set, Cash bucket, and Unassigned view; non-agentic accounts are manageable locally via manual assignment only. Trades attribute via the strategy name stamped on the Order Ticket — automatic for strategy-driven flows, manual via a bucket picker otherwise; unattributed live activity lands in the derived **Unassigned** pseudo-bucket and can be assigned post-hoc. A system-managed **Cash bucket** always exists and holds the uninvested remainder. Live trades only — buckets never contain paper trades. Reassignment between buckets is a mistake-correction path and is audit-recorded.
+
+_Avoid_: Allocation Unit (per-trade sizing unit — different concept), position group, target weight
+
 ## Capacity Full
 
 A derived condition where configured allocation capacity is unavailable after accounting for positions and active buy orders. It blocks new exposure but does not cancel or alter existing broker activity.

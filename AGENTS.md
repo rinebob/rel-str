@@ -77,6 +77,7 @@ into visual groups and one-off names are avoided:
 | Agent pipeline | `rh-agent-` | `rh-agent-runs` |
 | Options | `options-` | `options-file-index` |
 | Backtest | `backtest-` | `backtest-runs` |
+| Portfolio | `portfolio-` | `portfolio-buckets`, `portfolio-attributions` |
 
 Flat collections with composite doc ids (`{entity}_{key}`) are preferred
 over nested trees — they allow single-query enumeration. Do not create
