@@ -16,7 +16,15 @@ import type { OptionQuoteProvider } from './option-quote-provider';
 import { OccRhInstrumentMapService } from '../instrument-map/occ-rh-instrument-map-service';
 import { McpOccRhInstrumentMapResolver } from '../instrument-map/mcp-instrument-map-resolver';
 import { createLogger } from '../logging';
-import { isPlainObject } from '@robinhood-mcp/utils';
+import {
+  MCP_PREFIX,
+  QUOTE_BATCH,
+  extractQuoteItems,
+  parseNum,
+  quoteItemId,
+  quoteMark,
+  type RhQuoteItem,
+} from '../rh-mcp-shapes';
 
 export type RobinhoodMcpToolCaller = (
   name: string,
@@ -41,109 +49,6 @@ function createDefaultMapService(
   );
 }
 
-interface RhQuote {
-  adjusted_mark_price?: string;
-  mark_price?: string;
-  ask_price?: string;
-  bid_price?: string;
-  last_trade_price?: string;
-  previous_close_price?: string;
-  implied_volatility?: string;
-  delta?: string;
-  gamma?: string;
-  theta?: string;
-  vega?: string;
-  rho?: string;
-  volume?: string | number;
-  open_interest?: string | number;
-  updated_at?: string;
-  last_trade_at?: string;
-}
-
-interface RhClose {
-  price?: string;
-  interpolated?: boolean;
-}
-
-interface RhQuoteItem {
-  instrument_id?: string;
-  instrument?: string;
-  id?: string;
-  quote?: RhQuote;
-  close?: RhClose;
-}
-
-function parseNumber(value: unknown): number | undefined {
-  if (value === null || value === undefined) {
-    return undefined;
-  }
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : undefined;
-  }
-  const n = Number(String(value).replace(/,/g, ''));
-  return Number.isFinite(n) ? n : undefined;
-}
-
-function parseQuoteItem(raw: unknown): RhQuoteItem | undefined {
-  if (!isPlainObject(raw)) {
-    return undefined;
-  }
-  const item = raw;
-  if (item.quote !== undefined && !isPlainObject(item.quote)) {
-    return undefined;
-  }
-  if (item.close !== undefined && !isPlainObject(item.close)) {
-    return undefined;
-  }
-  for (const key of ['instrument_id', 'instrument', 'id']) {
-    const value = item[key];
-    if (value !== undefined && typeof value !== 'string') {
-      return undefined;
-    }
-  }
-  return item as RhQuoteItem;
-}
-
-function extractQuoteItems(raw: unknown): RhQuoteItem[] {
-  if (Array.isArray(raw)) {
-    return raw.map(parseQuoteItem).filter((x): x is RhQuoteItem => !!x);
-  }
-  if (!raw || typeof raw !== 'object') {
-    return [];
-  }
-  const root = raw as Record<string, unknown>;
-  const candidates: unknown[] = [
-    root.results,
-    root.quotes,
-    root.options,
-    root.data,
-  ];
-  for (const candidate of candidates) {
-    if (Array.isArray(candidate)) {
-      return candidate.map(parseQuoteItem).filter((x): x is RhQuoteItem => !!x);
-    }
-    if (candidate && typeof candidate === 'object' && !Array.isArray(candidate)) {
-      const inner = candidate as Record<string, unknown>;
-      for (const key of ['results', 'quotes', 'options']) {
-        if (Array.isArray(inner[key])) {
-          return inner[key]!
-            .map(parseQuoteItem)
-            .filter((x): x is RhQuoteItem => !!x);
-        }
-      }
-    }
-  }
-  return [];
-}
-
-function findInstrumentId(item: RhQuoteItem): string | undefined {
-  return (
-    item.instrument_id ??
-    item.instrument ??
-    item.id
-  );
-}
-
 function mapQuote(
   contractID: string,
   mapEntry: OccRhInstrumentMapEntry,
@@ -154,17 +59,14 @@ function mapQuote(
   const q = item.quote ?? {};
   const close = item.close ?? {};
 
-  const closePrice = parseNumber(close.price);
+  const closePrice = parseNum(close.price);
   if (closePrice === undefined) {
     throw new Error(
       `RH MCP quote provider: missing close.price for ${contractID} (${mapEntry.instrumentId})`,
     );
   }
 
-  const mark =
-    parseNumber(q.adjusted_mark_price) ??
-    parseNumber(q.mark_price) ??
-    parseNumber(q.last_trade_price);
+  const mark = quoteMark(item);
   if (mark === undefined) {
     throw new Error(
       `RH MCP quote provider: missing mark for ${contractID} (${mapEntry.instrumentId})`,
@@ -185,17 +87,17 @@ function mapQuote(
     type: mapEntry.type,
     side,
     mark,
-    bid: parseNumber(q.bid_price),
-    ask: parseNumber(q.ask_price),
-    last: parseNumber(q.last_trade_price) ?? parseNumber(q.previous_close_price),
-    volume: parseNumber(q.volume),
-    openInterest: parseNumber(q.open_interest),
-    impliedVolatility: parseNumber(q.implied_volatility),
-    delta: parseNumber(q.delta),
-    gamma: parseNumber(q.gamma),
-    theta: parseNumber(q.theta),
-    vega: parseNumber(q.vega),
-    rho: parseNumber(q.rho),
+    bid: parseNum(q.bid_price),
+    ask: parseNum(q.ask_price),
+    last: parseNum(q.last_trade_price) ?? parseNum(q.previous_close_price),
+    volume: parseNum(q.volume),
+    openInterest: parseNum(q.open_interest),
+    impliedVolatility: parseNum(q.implied_volatility),
+    delta: parseNum(q.delta),
+    gamma: parseNum(q.gamma),
+    theta: parseNum(q.theta),
+    vega: parseNum(q.vega),
+    rho: parseNum(q.rho),
     source: OptionQuoteSource.RH_MCP,
     asOf: q.updated_at ?? q.last_trade_at ?? asOfFallback,
     interpolatedClose: close.interpolated === true,
@@ -226,7 +128,7 @@ export class RobinhoodMcpOptionQuoteProvider implements OptionQuoteProvider {
   constructor(options: RobinhoodMcpOptionQuoteProviderOptions) {
     this.mapService = options.mapService ?? createDefaultMapService(options.callTool);
     this.callTool = options.callTool;
-    this.maxBatchSize = options.maxBatchSize ?? 20;
+    this.maxBatchSize = options.maxBatchSize ?? QUOTE_BATCH;
   }
 
   private async resolveMapEntry(
@@ -279,13 +181,13 @@ export class RobinhoodMcpOptionQuoteProvider implements OptionQuoteProvider {
 
     for (let i = 0; i < instrumentIds.length; i += this.maxBatchSize) {
       const batchIds = instrumentIds.slice(i, i + this.maxBatchSize);
-      const raw = await this.callTool('mcp__robinhood-trading__get_option_quotes', {
+      const raw = await this.callTool(`${MCP_PREFIX}get_option_quotes`, {
         instrument_ids: batchIds,
       });
       const items = extractQuoteItems(raw);
 
       for (const item of items) {
-        const instrumentId = findInstrumentId(item);
+        const instrumentId = quoteItemId(item);
         if (!instrumentId) {
           continue;
         }

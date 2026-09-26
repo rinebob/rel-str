@@ -9,68 +9,13 @@
 
 import type { OptionContractRef } from '@options-strategy-engine/contracts';
 import { executeObservationTool } from '../../../rh-agent-mcp/tools/robinhood-tool-executor';
+import { extractChains, fetchAllOptionInstruments, MCP_PREFIX } from '../rh-mcp-shapes';
+import type { RhInstrument } from '../rh-mcp-shapes';
 import type {
   McpToolCaller,
   OccRhInstrumentMapResolver,
   ResolvedRhInstrumentIds,
 } from './occ-rh-instrument-map-types';
-
-interface RhInstrument {
-  id?: string;
-  chain_id?: string;
-  chain_symbol?: string;
-  expiration_date?: string;
-  strike_price?: string;
-  type?: string;
-}
-
-interface RhGetOptionInstrumentsResponse {
-  data?: {
-    instruments?: RhInstrument[];
-    next?: string;
-  };
-  instruments?: RhInstrument[];
-  next?: string;
-}
-
-interface RhChain {
-  id?: string;
-  symbol?: string;
-  expiration_dates?: string[];
-}
-
-interface RhGetOptionChainsResponse {
-  data?: {
-    chains?: RhChain[];
-  };
-  chains?: RhChain[];
-}
-
-function extractInstruments(
-  raw: unknown,
-): { instruments: RhInstrument[]; next?: string } {
-  const response = raw as RhGetOptionInstrumentsResponse | undefined;
-  const data = response?.data;
-  if (data && Array.isArray(data.instruments)) {
-    return { instruments: data.instruments, next: data.next };
-  }
-  if (Array.isArray(response?.instruments)) {
-    return { instruments: response.instruments, next: response.next };
-  }
-  return { instruments: [] };
-}
-
-function extractChains(raw: unknown): RhChain[] {
-  const response = raw as RhGetOptionChainsResponse | undefined;
-  const data = response?.data;
-  if (data && Array.isArray(data.chains)) {
-    return data.chains;
-  }
-  if (Array.isArray(response?.chains)) {
-    return response.chains;
-  }
-  return [];
-}
 
 function instrumentMatches(
   instrument: RhInstrument,
@@ -142,28 +87,11 @@ export class McpOccRhInstrumentMapResolver implements OccRhInstrumentMapResolver
     baseArgs: Record<string, unknown>,
     quote: OptionContractRef,
   ): Promise<ResolvedRhInstrumentIds | null> {
-    let cursor: string | undefined;
-    do {
-      const args: Record<string, unknown> = { ...baseArgs };
-      if (cursor) {
-        args.cursor = cursor;
-      }
-
-      const raw = await this.callTool(
-        'mcp__robinhood-trading__get_option_instruments',
-        args,
-      );
-      const { instruments, next } = extractInstruments(raw);
-      const match = instruments.find((i) => instrumentMatches(i, quote));
-      if (match?.id && match?.chain_id) {
-        return {
-          instrumentId: match.id,
-          chainId: match.chain_id,
-        };
-      }
-      cursor = next;
-    } while (cursor);
-
+    const instruments = await fetchAllOptionInstruments(this.callTool, baseArgs);
+    const match = instruments.find((i) => instrumentMatches(i, quote));
+    if (match?.id && match?.chain_id) {
+      return { instrumentId: match.id, chainId: match.chain_id };
+    }
     return null;
   }
 
@@ -172,7 +100,7 @@ export class McpOccRhInstrumentMapResolver implements OccRhInstrumentMapResolver
     expiration: string,
   ): Promise<string | undefined> {
     const raw = await this.callTool(
-      'mcp__robinhood-trading__get_option_chains',
+      `${MCP_PREFIX}get_option_chains`,
       { underlying_symbol: symbol },
     );
     const chains = extractChains(raw);
