@@ -7,6 +7,7 @@ import { TradeSide } from '../../../shared/common';
 import type { StrategyInstanceConfig, OptionQuote } from '../../../shared/options-strategy-engine-contracts';
 import type { Position, PositionLeg, RawQuote } from '../../../functions/src/options-strategy-engine/types';
 import { PositionStatus } from '../../../functions/src/options-strategy-engine/types';
+import { getMarketDatePT } from '../../../functions/src/common/pt-date-utils';
 
 function makeConfig(
   overrides: Partial<StrategyInstanceConfig> = {},
@@ -126,7 +127,8 @@ describe('runMarkPass', () => {
     assert.equal(marks[0].positionId, 'inst-1-2025-08-15');
     assert.equal(marks[0].update.currentValue, 40);
     assert.equal(marks[0].update.unrealizedPnl, 10);
-    assert.equal(marks[0].rawQuote.date, new Date().toISOString().slice(0, 10));
+    // Marks are keyed by PT market date (eval/settlement read them that way)
+  assert.equal(marks[0].rawQuote.date, getMarketDatePT());
   });
 
   it('records error when no leg with contractID is found', async () => {

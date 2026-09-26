@@ -21,6 +21,7 @@ import {
 } from '../position-repository';
 import type { Position, PositionLeg, RawQuote } from '../types';
 import { createLogger } from '../logging';
+import { normalizeMarketDate } from '../../../common/pt-date-utils';
 
 const logger = createLogger('MarkPass');
 
@@ -160,9 +161,12 @@ export async function runMarkPass(
       quote.mark,
     );
 
-    // 5. Atomically write raw quote and update position P&L
+    // 5. Atomically write raw quote and update position P&L.
+    // marks[] keys are PT market dates (eval/settlement read them that way)
+    // — normalize the UTC observation timestamp to its PT calendar date so
+    // a post-UTC-midnight mark doesn't land under tomorrow's key.
     const rawQuote: RawQuote = {
-      date: markedAt.slice(0, 10),
+      date: normalizeMarketDate(markedAt),
       rawResponse: quote,
     };
     await mark(pos.id, {

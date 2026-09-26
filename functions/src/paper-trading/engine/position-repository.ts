@@ -12,14 +12,15 @@
  * same transaction that creates the trade.
  */
 
-import { OptionQuoteSource } from '@options/common';
+import { OptionQuoteSource, OptionType } from '@options/common';
 import { TradeSide } from '@common';
 import { PaperTradeSource, PaperTradingKind, PaperTradeStatus } from '@paper-trading/contracts';
 import type { PaperAccount, PaperMark, PaperTrade } from '@paper-trading/contracts';
 import { buildAccountId, buildRawQuoteId } from '@paper-trading/ids';
 import { db } from '../../firebase-admin-init';
+import { calendarDaysBetween } from '../../common/pt-date-utils';
 import { paperDocRef, paperItemsRef } from '../collections';
-import { applyEntryFill, positionValue, signedCashDelta } from '../ledger';
+import { applyEntryFill, computeExitPnl, positionValue, signedCashDelta } from '../ledger';
 import { ledgerDeps } from '../repository';
 import { createLogger } from './logging';
 import {
@@ -328,7 +329,46 @@ export async function markPositionSettled(
         SHARES_PER_CONTRACT *
         (settlement.shares?.quantity ?? 0);
 
+    // Finalize the governing variant run honestly: settlement decides the
+    // real lifecycle. Expired options exit at 0; assigned options exit at
+    // intrinsic value (the ITM option is worth strike−underlying at
+    // assignment — recording premium-only would hide the assignment loss).
+    // Shadow runs stay ACTIVE — counterfactual eval only continues if marks
+    // land (they don't on settled trades; the runs are inert, not dropped).
+    const settleDate =
+      dailyUpdate?.date ?? legOutcomes[0]?.closeDate ?? now.slice(0, 10);
+    const settledLeg = legOutcomes[0]?.closeDate
+      ? trade.legs.find((l) => l.id === legOutcomes[0].legId)
+      : undefined;
+    const ulClose =
+      dailyUpdate?.underlyingClose ?? settlement.assignment?.strikePrice ?? 0;
+    const exitPrice = expired
+      ? 0
+      : Math.max(
+          0,
+          settledLeg?.kind === 'option' && settledLeg.type === OptionType.CALL
+            ? ulClose - (settlement.assignment?.strikePrice ?? 0)
+            : (settlement.assignment?.strikePrice ?? 0) - ulClose,
+        );
+    const variantRuns = trade.variantRuns.map((r) =>
+      r.governing && r.state === 'ACTIVE'
+        ? {
+            ...r,
+            state: 'EXITED' as const,
+            exitEvent: r.exitEvent ?? {
+              date: settleDate,
+              price: exitPrice,
+              pnl: entryFill
+                ? computeExitPnl(entryFill, exitPrice, trade.order.side, trade.legs)
+                : premium,
+              daysHeld: entryFill ? calendarDaysBetween(entryFill.date, settleDate) : 0,
+            },
+          }
+        : r,
+    );
+
     txn.update(ref, {
+      variantRuns,
       status: legacyToPaperStatus(settlement.status),
       legacyStatus: settlement.status,
       legs,
