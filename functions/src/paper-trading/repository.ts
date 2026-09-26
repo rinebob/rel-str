@@ -211,6 +211,12 @@ export async function updateVariantRun(
     if (idx === -1) {
       throw new Error(`variant run ${run.variantKey} not found on ${tradeId}`);
     }
+    // EXITED is terminal: a stale read must never resurrect a finalized run
+    // (eval-pass snapshots trades, then settlement may finalize the run
+    // before eval's write lands — the txn re-read here is the guard).
+    if (trade.variantRuns[idx].state === 'EXITED') {
+      return;
+    }
     const variantRuns = [...trade.variantRuns];
     variantRuns[idx] = run;
     // keep the denormalized key list in sync (needed for array-contains queries)

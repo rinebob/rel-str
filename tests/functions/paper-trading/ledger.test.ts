@@ -260,6 +260,72 @@ describe('applyEntryFill', () => {
     );
     assert.equal(plans.length, 0); // nothing written
   });
+
+  it('throws when variantKeys omit the governing variant (exactly-one-governing)', async () => {
+    const { deps, plans } = makeDeps();
+    await assert.rejects(
+      applyEntryFill(
+        {
+          userId: 'user1',
+          tradeId: '260924-st-QQQM-CSP-020-30',
+          order: { side: TradeSide.SHORT, type: 'MARKET', quantity: 1 },
+          legs: [cspLeg()],
+          fill: {
+            fillId: 'f1',
+            role: 'entry',
+            date: FILL_DATE,
+            price: 2.1,
+            quantity: 1,
+            quoteSource: OptionQuoteSource.RH_MCP,
+          },
+          dims: {
+            source: PaperTradeSource.STRATEGY,
+            symbol: 'QQQM',
+            expression: 'CSP',
+            governingVariant: 'trailing-20',
+            variantKeys: ['time-30d', 'initial-stop-10'],
+          },
+          now: NOW,
+        },
+        deps,
+      ),
+      /must include governingVariant/i,
+    );
+    assert.equal(plans.length, 0);
+  });
+
+  it('dedupes duplicate variantKeys so every run is reachable', async () => {
+    const { deps, plans } = makeDeps();
+    await applyEntryFill(
+      {
+        userId: 'user1',
+        tradeId: '260924-st-QQQM-CSP-020-30',
+        order: { side: TradeSide.SHORT, type: 'MARKET', quantity: 1 },
+        legs: [cspLeg()],
+        fill: {
+          fillId: 'f1',
+          role: 'entry',
+          date: FILL_DATE,
+          price: 2.1,
+          quantity: 1,
+          quoteSource: OptionQuoteSource.RH_MCP,
+        },
+        dims: {
+          source: PaperTradeSource.STRATEGY,
+          symbol: 'QQQM',
+          expression: 'CSP',
+          governingVariant: 'trailing-20',
+          variantKeys: ['trailing-20', 'time-30d', 'trailing-20'],
+        },
+        now: NOW,
+      },
+      deps,
+    );
+    const runs = plans[0].trade.variantRuns;
+    assert.equal(runs.length, 2);
+    assert.equal(runs.filter((r) => r.governing).length, 1);
+    assert.deepEqual(plans[0].trade.variantKeys, ['trailing-20', 'time-30d']);
+  });
 });
 
 describe('applyExitFill', () => {

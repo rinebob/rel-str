@@ -177,6 +177,22 @@ describe('tradeToPosition', () => {
     const back = tradeToPosition(marked);
     assert.equal(back.currentValue, 150);
   });
+
+  it('maps realizedPnl into unrealizedPnl for ledger-closed trades (engine stats convention)', () => {
+    // applyExitFill writes realizedPnl + unrealizedPnl:0; the engine's
+    // stats-utils reads a closed Position's realized P&L from
+    // `unrealizedPnl` — the adapter bridges the two conventions.
+    const trade: PaperTrade = {
+      ...positionToTrade(makePosition(), [makeLeg()], []),
+      status: PaperTradeStatus.CLOSED,
+      legacyStatus: undefined, // ledger exits clear stale legacyStatus
+      realizedPnl: -45,
+      unrealizedPnl: 0,
+    };
+    const back = tradeToPosition(trade);
+    assert.equal(back.status, PositionStatus.CLOSED);
+    assert.equal(back.unrealizedPnl, -45);
+  });
 });
 
 describe('round-trip', () => {
@@ -191,6 +207,16 @@ describe('round-trip', () => {
     assert.equal(back.instanceId, pos.instanceId);
     assert.equal(back.symbol, pos.symbol);
     assert.equal(back.status, pos.status);
+  });
+
+  it('round-trips realized P&L for CLOSED positions (stats convention both ways)', () => {
+    // CLOSED positions carry realized P&L in pos.unrealizedPnl →
+    // positionToTrade writes it to trade.realizedPnl → tradeToPosition
+    // maps it back. Symmetric for migration round-trips.
+    const pos = makePosition({ status: PositionStatus.CLOSED, unrealizedPnl: 95 });
+    const back = tradeToPosition(positionToTrade(pos, [makeLeg()], []));
+    assert.equal(back.unrealizedPnl, 95);
+    assert.equal(back.status, PositionStatus.CLOSED);
   });
 
   it('preserves leg fields through positionLegToPaper → paperLegToPositionLeg', () => {

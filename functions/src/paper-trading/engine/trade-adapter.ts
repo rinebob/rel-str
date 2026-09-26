@@ -238,7 +238,14 @@ export function tradeToPosition(trade: PaperTrade): Position {
     openDate: entryFill?.date ?? trade.createdAt.slice(0, 10),
     currentValue,
     currentValueAsOf: trade.lastMarkedAt ?? trade.updatedAt,
-    unrealizedPnl: trade.unrealizedPnl,
+    // Engine convention (stats-utils.ts): a CLOSED Position's realized P&L
+    // rides in `unrealizedPnl`. Ledger exits write `realizedPnl` and zero
+    // `unrealizedPnl`, so closed trades map realized here; open trades map
+    // the mark-driven unrealized value.
+    unrealizedPnl:
+      trade.status === PaperTradeStatus.CLOSED
+        ? trade.realizedPnl
+        : trade.unrealizedPnl,
     ...(trade.assignment ? { assignment: trade.assignment } : {}),
     ...(trade.shares ? { shares: trade.shares } : {}),
   };

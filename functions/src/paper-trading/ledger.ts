@@ -138,6 +138,21 @@ export function signedCashDelta(fill: PaperFill, side: TradeSide, legs: PaperTra
 }
 
 /**
+ * Realized P&L for a whole-order exit: `(exit − entry) × qty × multiplier`,
+ * signed by the entry side (SHORT gains when the exit is cheaper).
+ * Shared by `applyExitFill` and shadow-variant exit-event bookkeeping.
+ */
+export function computeExitPnl(
+  entryFill: PaperFill,
+  exitPrice: number,
+  entrySide: TradeSide,
+  legs: PaperTradeLeg[],
+): number {
+  const pnlDir = entrySide === TradeSide.SHORT ? -1 : 1;
+  return (exitPrice - entryFill.price) * entryFill.quantity * orderMultiplier(legs) * pnlDir;
+}
+
+/**
  * Liquidation value of a trade's legs at their last marks:
  * long legs positive, short legs negative.
  */
@@ -186,9 +201,18 @@ export async function applyEntryFill(
     const cashDelta = signedCashDelta(input.fill, input.order.side, input.legs);
     const legs = input.legs.map((leg) => ({ ...leg, lastMark: leg.entryMark }));
 
-    const variantKeys = input.dims.variantKeys?.length
-      ? input.dims.variantKeys
-      : [input.dims.governingVariant];
+    // Exactly one governing run is an invariant: dedupe keys (a dup would
+    // be unreachable via updateVariantRun's first-match index) and require
+    // the governing key to be present — otherwise the trade can never close.
+    const variantKeys = [...new Set(
+      input.dims.variantKeys?.length ? input.dims.variantKeys : [input.dims.governingVariant],
+    )];
+    if (!variantKeys.includes(input.dims.governingVariant)) {
+      throw new Error(
+        `variantKeys must include governingVariant ${input.dims.governingVariant} ` +
+          `for trade ${input.tradeId}`,
+      );
+    }
     const variantRuns: VariantRun[] = variantKeys.map((key) => ({
       variantKey: key,
       governing: key === input.dims.governingVariant,
@@ -286,13 +310,10 @@ export async function applyExitFill(
       throw new Error(`paper trade ${input.tradeId} has no entry fill`);
     }
     const entrySide = trade.order.side;
-    const multiplier = orderMultiplier(trade.legs);
 
     // closing direction is opposite the entry side
     const cashDelta = -signedCashDelta(input.fill, entrySide, trade.legs);
-    const pnlDir = entrySide === TradeSide.SHORT ? -1 : 1;
-    const realizedPnl =
-      (input.fill.price - entryFill.price) * input.fill.quantity * multiplier * pnlDir;
+    const realizedPnl = computeExitPnl(entryFill, input.fill.price, entrySide, trade.legs);
 
     const markedValue = positionValue(trade.legs); // value carried before this exit
     // An order-level exit price cannot decompose across legs — only stamp
