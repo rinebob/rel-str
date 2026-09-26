@@ -1,0 +1,10 @@
+%%{init: {'theme':'dark','themeVariables':{'fontSize':'18px','lineColor':'#8ab4f8','primaryTextColor':'#e8eaed','primaryBorderColor':'#8ab4f8'}}}%%
+flowchart LR
+    CREATE["CREATE<br/>name → bucketSlug →<br/>id = {account}_{slug}<br/>FROZEN forever"] --> CHK{"doc already exists?<br/>(same-name, alias,<br/>retired, renamed-away<br/>slugs all collide)"}
+    CHK -->|"occupied"| REJECT["Reject — name conflict<br/>(occupied ids never freed)"]
+    CHK -->|"free"| ACTIVE["ACTIVE<br/>ticket matches · target %<br/>stats roll up"]
+    ACTIVE -->|"rename"| REN{"any OTHER bucket's<br/>name-slug equal?"}
+    REN -->|"yes"| REJECT
+    REN -->|"no"| ACTIVE2["ACTIVE — same id<br/>name field only<br/>all refs intact"]
+    ACTIVE2 --> RETIRE
+    ACTIVE -->|"retire"| RETIRE["RETIRED<br/>rejects new attributions<br/>ticket never matches<br/>existing refs stay valid<br/>history preserved forever"]

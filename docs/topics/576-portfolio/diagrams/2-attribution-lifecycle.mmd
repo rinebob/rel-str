@@ -1,0 +1,15 @@
+flowchart TD
+    T["Order ticket<br/>strategyName (optional)"] --> SUB["Submit order<br/>(warn-not-block drift check only)"]
+    SUB --> FILL["Fill — per leg / execution"]
+    FILL --> RES{"resolve: exactly one ACTIVE bucket<br/>in same account with<br/>bucketSlug(name) = bucketSlug(strategyName)?"}
+    RES -->|"yes"| SEED["Create PositionAttribution per leg<br/>{account}_{instrumentId} → bucketId<br/>history: [null → bucket, at]<br/>linkKey = parent orderId (multi-leg)"]
+    RES -->|"no / ambiguous / un-slugifiable"| NONE["No attribution doc written"]
+    NONE --> UNS["Position appears in<br/>UNASSIGNED row"]
+    UNS --> POST["Post-hoc assign<br/>(Positions tab)"]
+    POST --> EVT["Create attribution doc OR<br/>append {from → to, at}"]
+    SEED --> STATS["Next refresh:<br/>bucket owns instrument's<br/>FULL history"]
+    EVT --> STATS
+    MOVE["Move between buckets<br/>(mis-tag correction)"] --> ATOMIC{"leg shares a linkKey<br/>with other legs?"}
+    ATOMIC -->|"yes — spread"| EVTALL["Append {from → to}<br/>to ALL linked legs atomically"]
+    ATOMIC -->|"no — single leg"| EVT
+    EVTALL --> STATS

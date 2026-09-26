@@ -1,0 +1,10 @@
+flowchart TD
+    LOGIN["RH login"] --> A1["Account A (agentic)<br/>own buckets · RH cash row · own Unassigned"]
+    LOGIN --> A2["Account B (agentic)<br/>own buckets · RH cash row · own Unassigned"]
+    LOGIN --> A3["Account C (non-agentic)<br/>own buckets · RH cash row · own Unassigned"]
+
+    A1 --- P1["ticket seeding ✓<br/>post-hoc assign ✓<br/>bucket CRUD ✓"]
+    A2 --- P2["ticket seeding ✓<br/>post-hoc assign ✓<br/>bucket CRUD ✓"]
+    A3 --- P3["no ticket path<br/>post-hoc assign ✓<br/>bucket CRUD ✓ (local)"]
+
+    XFER["Cash moved between accounts<br/>on the RH side (invisible event)"] -.->|"next refresh"| NV["reported cash changes →<br/>target $ (basis) / drift / Cash row<br/>recompute automatically"]

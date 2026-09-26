@@ -1,0 +1,14 @@
+flowchart TD
+    R(["Refresh / page load"]) --> AC["get_accounts (via MCP)<br/>ALL accounts incl. non-agentic"]
+    AC -->|"for each account"| F1["positions + fills<br/>(MCP — broker is authoritative)"]
+    AC -->|"for each account"| F2["buckets + attributions<br/>(Firestore — portfolio-buckets, portfolio-attributions)"]
+    AC -->|"cash, accountValue"| CS["RH cash (reported)<br/>= allocation basis"]
+    F1 --> J["attributePositions<br/>join positions → attribution docs"]
+    F2 --> J
+    J -->|"bucketId known"| S["computeBucketStats per bucket<br/>target % × RH cash → target $<br/>exposure · drift · P&L · counts · curve"]
+    J -->|"no doc"| U["UNASSIGNED row<br/>(derived — absence of attribution doc)"]
+    F1 --> CHK
+    CS --> CHK["cashCheck: RH cash vs<br/>accountValue − Σ signed positions<br/>(diverge beyond tolerance → flag row)"]
+    S --> V["Buckets tab · Positions tab · detail dialog<br/>as-of timestamp displayed"]
+    U --> V
+    CHK -->|"actual cash + flag"| V

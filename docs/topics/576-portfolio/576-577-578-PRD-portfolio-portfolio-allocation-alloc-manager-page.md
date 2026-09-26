@@ -81,9 +81,9 @@ A dedicated page in the **portfolio-dashboard** feature area that **reuses the d
 
 ### US1–US4 — Bucket CRUD and Cash
 - The user can create a bucket with a name (strategy group) and target percent; the bucket persists in Firestore.
-- Target percent is interpreted as a percent of the current live account value; the derived target dollars update when the account value changes.
-- A Cash bucket always exists, cannot be deleted, and reports the uninvested remainder (account value minus all bucket exposures).
-- Editing a bucket's target % shifts the implied allocation between that bucket and Cash; target percents are validated to warn (not block) if they sum above 100%.
+- Target percent is interpreted as a percent of the account's **broker-reported cash** — strategies allocate from the cash pool, not from total account value. Target dollars update when reported cash changes (fills, transfers). Caveat: the basis moves with deployment — buys shrink cash, premium credits grow it — so drift naturally accelerates as the pool drains; that is the intended stress signal.
+- Cash is **not** a pseudo-bucket you allocate into — it is the pool you allocate from. The Cash row displays the broker's reported cash figure; a derived residual (account value − Σ signed position value) runs alongside as a cross-check, and divergence beyond tolerance flags the row (stale snapshot, pending fills) rather than silently trusting either number.
+- Editing a bucket's target % shifts the implied claim on the cash pool; target percents are validated to warn (not block) if they sum above 100%.
 
 ### US5–US7 — Bucket list and lifecycle
 - The bucket list shows per bucket: name, target %, target $, current exposure $, drift (exposure minus target), and status (active/retired).
@@ -99,6 +99,7 @@ A dedicated page in the **portfolio-dashboard** feature area that **reuses the d
 - The page lists open positions; any position can be assigned to a bucket from that list or from the Unassigned bucket.
 - Post-hoc assignment attributes the position's history to the bucket — it is a normal workflow, not just error handling.
 - A trade can also be moved between buckets to correct a mis-tag.
+- **Multi-leg positions move atomically.** Legs of one order (spreads) share a grouping key (`linkKey` = parent `orderId`); moving any leg moves all legs in the account — a split leg would misrepresent strategy P&L (a lone short leg reads as naked).
 - Every attribution change writes an audit record (from bucket, to bucket, timestamp); the receiving bucket's analytics reflect the change.
 - Attribution applies to live trades only — no paper trades appear anywhere on the page.
 
@@ -110,7 +111,7 @@ A dedicated page in the **portfolio-dashboard** feature area that **reuses the d
 - Drilling into a bucket lists its attributed positions and orders.
 
 ### US20 — Completeness
-- Bucket exposures plus the Cash bucket reconcile to the selected account's current live value.
+- Buckets' signed position value + Unassigned + the Cash row reconcile to the selected account's current live value; when the derived residual disagrees with broker-reported cash beyond tolerance, the discrepancy is visibly flagged on the Cash row.
 
 ### US21–US23 — Layout and bucket detail
 - The page presents a Buckets tab, a Positions tab, and an account header.
@@ -156,9 +157,9 @@ flowchart LR
 
 - **AllocationBucket entity** — new first-class Firestore doc: `{ id, accountNumber, name, targetPct, status: ACTIVE|RETIRED, createdAt, updatedAt }`. `accountNumber` scopes the bucket to one RH account — buckets never span accounts. `id` is frozen at creation (`{accountNumber}_{nameSlug}`); renaming updates `name` only so every attribution reference stays intact. `name` is the strategy group key; order tickets resolve bucket by case-insensitive strategy-name match (a stale name lands in Unassigned — post-hoc assignment is the recovery path).
 - **Order Ticket gains `strategyName`** (and/or resolved `bucketId`) — optional; stamped automatically by strategy-driven flows, selectable manually otherwise. Never required for submission.
-- **PositionAttribution record** — per-position attribution: `{accountNumber}_{instrumentId} → bucketId` + append-only audit history. A bucket owns the instrument's full activity including order history; a fill seeds the record from the ticket's `strategyName`, and post-hoc assignment/moves append `{fromBucketId, toBucketId, at}` events.
+- **PositionAttribution record** — per-position attribution: `{accountNumber}_{instrumentId} → bucketId` + append-only audit history + optional `linkKey` (parent `orderId` — groups a multi-leg order's legs into one atomic attribution unit). A bucket owns the instrument's full activity including order history; a fill seeds the record from the ticket's `strategyName`, and post-hoc assignment/moves append `{fromBucketId, toBucketId, at}` events.
 - **Unassigned pseudo-bucket** — not a stored doc; a derived view of the selected account's live positions/orders with no resolvable attribution.
-- **Cash bucket** — system-managed, undeletable, per account; its exposure is computed (account value − sum of that account's bucket exposures), not stored.
+- **Cash row** — per account; displays the broker's *reported* cash (the pool strategies allocate from — allocation basis, not a pseudo-bucket). A derived residual (account value − Σ signed position value) cross-checks it; divergence beyond tolerance is flagged on the row.
 - **Account scoping** — all reads are per-account: the selector drives which positions/orders/value are fetched. `get_accounts` returns every account with `agentic_allowed`; the existing agentic-only filter is bypassed on this page so all accounts are readable. Bucket CRUD and manual assignment work on every account; auto-attribution only flows where order tickets exist (agentic accounts).
 - **Post-hoc assignment + reassignment audit** — positions can be assigned a bucket after the fact from an open-positions list, and trades can be moved between buckets; every change appends `{fromBucketId, toBucketId, at}` to the position's attribution record; analytics recompute from current attribution.
 - **Warn-not-block** — drift warning computed at ticket time (projected post-order exposure vs. target) and on the page (current exposure vs. target). Extends the existing order-guardrails pattern rather than blocking submission.
