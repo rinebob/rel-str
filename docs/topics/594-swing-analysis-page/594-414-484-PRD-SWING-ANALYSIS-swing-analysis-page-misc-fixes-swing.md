@@ -1,11 +1,11 @@
-**Topic:** Trading Indicator Library  
-**Topic Slug:** indicator-lib  
+**Topic:** Swing Analysis Page  
+**Topic Slug:** swing-analysis-page  
 **Thread:** Misc fixes & polish — swing analysis  
 **Thread Slug:** misc-fixes-swing  
 **Issue:** #484  
 **Thread Parent:** #414  
-**Topic Parent:** #261  
-**Domain:** INDICATOR-LIB  
+**Topic Parent:** #594  
+**Domain:** SWING-ANALYSIS  
 **Type:** PRD  
 **Status:** Approved  
 **Created:** 2026-09-22  

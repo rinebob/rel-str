@@ -1,10 +1,10 @@
-**Topic:** Trading Indicator Library  
-**Topic Slug:** indicator-lib  
+**Topic:** Swing Analysis Page  
+**Topic Slug:** swing-analysis-page  
 **Issue:** #387  
 **Task:** #389  
 **Thread Parent:** #383  
-**Topic Parent:** #261  
-**Domain:** INDICATOR-LIB  
+**Topic Parent:** #594  
+**Domain:** SWING-ANALYSIS  
 **Type:** Code Review  
 **Status:** Complete  
 **Created:** 2026-09-18  

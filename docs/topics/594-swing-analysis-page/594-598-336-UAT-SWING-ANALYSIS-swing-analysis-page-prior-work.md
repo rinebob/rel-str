@@ -1,11 +1,11 @@
-**Topic:** Trading Indicator Library  
-**Topic Slug:** indicator-lib  
-**Thread:** ST ZigZag Indicator  
-**Issue:** #330  
+**Topic:** Swing Analysis Page  
+**Topic Slug:** swing-analysis-page  
+**Thread:** Prior work (absorbed)  
+**Issue:** #598  
 **Task:** #336  
 **QA:** #363  
-**Topic Parent:** #261  
-**Domain:** INDICATOR-LIB  
+**Topic Parent:** #594  
+**Domain:** SWING-ANALYSIS  
 **Type:** UAT  
 **Status:** Draft  
 **Created:** 2026-09-15  

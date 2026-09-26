@@ -1,11 +1,11 @@
-**Topic:** Trading Indicator Library  
-**Topic Slug:** indicator-lib  
+**Topic:** Swing Analysis Page  
+**Topic Slug:** swing-analysis-page  
 **Thread:** Dual ST ZigZag Overlay  
 **Thread Slug:** dual-st-zigzag-overlay  
 **Issue:** #386  
 **Thread Parent:** #383  
-**Topic Parent:** #261  
-**Domain:** INDICATOR-LIB  
+**Topic Parent:** #594  
+**Domain:** SWING-ANALYSIS  
 **Type:** Test Plan  
 **Status:** Draft  
 **Created:** 2026-09-17  

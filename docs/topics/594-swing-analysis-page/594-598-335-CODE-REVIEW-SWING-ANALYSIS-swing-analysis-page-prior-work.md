@@ -1,12 +1,12 @@
-**Topic:** Trading Indicator Library  
-**Topic Slug:** indicator-lib  
-**Thread:** ST ZigZag Indicator  
-**Thread Slug:** st-zigzag  
-**Issue:** #330  
-**Thread Parent:** #322  
-**Topic Parent:** #261  
+**Topic:** Swing Analysis Page  
+**Topic Slug:** swing-analysis-page  
+**Thread:** Prior work (absorbed)  
+**Thread Slug:** prior-work  
+**Issue:** #598  
+**Thread Parent:** #595  
+**Topic Parent:** #594  
 **Task:** #335  
-**Domain:** INDICATOR-LIB  
+**Domain:** SWING-ANALYSIS  
 **Type:** Code Review  
 **Status:** Complete  
 **Created:** 2026-09-16  

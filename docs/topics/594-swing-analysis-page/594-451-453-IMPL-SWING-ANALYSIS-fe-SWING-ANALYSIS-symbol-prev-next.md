@@ -1,11 +1,11 @@
-**Topic:** Trading Indicator Library  
-**Topic Slug:** indicator-lib  
+**Topic:** Swing Analysis Page  
+**Topic Slug:** swing-analysis-page  
 **Thread:** Add previous/next symbols capability to Swing Analysis  
 **Thread Slug:** symbol-prev-next  
 **Issue:** #453  
 **Thread Parent:** #451  
-**Topic Parent:** #261  
-**Domain:** INDICATOR-LIB  
+**Topic Parent:** #594  
+**Domain:** SWING-ANALYSIS  
 **Type:** Implementation Plan  
 **Status:** Approved  
 **Created:** 2026-09-20  

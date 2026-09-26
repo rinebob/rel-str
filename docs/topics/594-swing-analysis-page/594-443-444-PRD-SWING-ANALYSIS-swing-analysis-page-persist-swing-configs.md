@@ -1,11 +1,11 @@
-**Topic:** Trading Indicator Library  
-**Topic Slug:** indicator-lib  
+**Topic:** Swing Analysis Page  
+**Topic Slug:** swing-analysis-page  
 **Thread:** Persist swing configurations  
 **Thread Slug:** persist-swing-configs  
 **Issue:** #444  
 **Thread Parent:** #443  
-**Topic Parent:** #261  
-**Domain:** INDICATOR-LIB  
+**Topic Parent:** #594  
+**Domain:** SWING-ANALYSIS  
 **Type:** PRD  
 **Status:** Approved  
 **Created:** 2026-09-20  

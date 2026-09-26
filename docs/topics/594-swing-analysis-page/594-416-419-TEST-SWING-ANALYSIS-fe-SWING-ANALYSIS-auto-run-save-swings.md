@@ -1,11 +1,11 @@
-**Topic:** Trading Indicator Library  
-**Topic Slug:** indicator-lib  
+**Topic:** Swing Analysis Page  
+**Topic Slug:** swing-analysis-page  
 **Thread:** Auto run/save swings  
 **Thread Slug:** auto-run-save-swings  
 **Issue:** #419  
 **Thread Parent:** #416  
-**Topic Parent:** #261  
-**Domain:** INDICATOR-LIB  
+**Topic Parent:** #594  
+**Domain:** SWING-ANALYSIS  
 **Type:** TEST  
 **Status:** Complete  
 **Created:** 2026-09-19  
