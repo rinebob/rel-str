@@ -145,6 +145,22 @@ export function normalizeMarketDate(
   return formatDateToPtCalendarString(parsed);
 }
 
+const MS_PER_DAY = 86_400_000;
+
+/**
+ * 'YYYY-MM-DD' calendar-day distance (DST-safe UTC-midnight diff).
+ * Trading days intentionally ignored — callers use wall-clock days.
+ * Named `calendarDaysBetween` to avoid collision with
+ * `option-contract-selection.ts`'s `daysBetween` (nullable contract).
+ */
+export function calendarDaysBetween(from: string, to: string): number {
+  return Math.round(
+    (Date.parse(`${to.slice(0, 10)}T00:00:00Z`) -
+      Date.parse(`${from.slice(0, 10)}T00:00:00Z`)) /
+      MS_PER_DAY,
+  );
+}
+
 /**
  * Compute the current 5-minute slot in HH:MM format (PT).
  * Truncates the minutes to the nearest 5-minute boundary.

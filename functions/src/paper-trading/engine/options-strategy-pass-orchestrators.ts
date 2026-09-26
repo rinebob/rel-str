@@ -16,6 +16,7 @@ import { runMarkPass } from './passes/mark-pass';
 import { runSettlementPass } from './passes/settlement-pass';
 import { runHeldSharesMarkPass } from './passes/held-shares-pass';
 import { runStatsPass, createDefaultStatsPassDeps } from './passes/stats-pass';
+import { runExitEvalPass, defaultEvalDeps, type ExitEvalSummary } from '../exits/eval-pass';
 import type { RobinhoodMcpOptionQuoteProvider } from './quote-providers/rh-mcp-option-quote-provider';
 import { getUnderlyingClose, getUnderlyingCloseForDate } from './options-strategy-market-data';
 import { createLogger } from './logging';
@@ -243,7 +244,26 @@ export async function runSettlementForAllInstances(
     deps: ReturnType<typeof createDefaultStatsPassDeps>,
   ) => ReturnType<typeof runStatsPass> = runStatsPass,
   statsDepsFactory: () => ReturnType<typeof createDefaultStatsPassDeps> = createDefaultStatsPassDeps,
+  evalPass: (date: string) => Promise<ExitEvalSummary> =
+    (date) => runExitEvalPass(date, defaultEvalDeps()),
 ): Promise<Record<string, SettlementPassSummary | { error: string }>> {
+  // Nightly chain: marks → exit-variant eval → settlement → stats. The eval
+  // pass is global (governing closes create fills/cash; shadow runs record
+  // counterfactual exits) — runs once before the per-instance loop.
+  try {
+    const evalSummary = await evalPass(marketDate);
+    log.info(
+      `Exit eval pass for ${marketDate}: evaluated=${evalSummary.evaluated} ` +
+        `closes=${evalSummary.governingCloses} shadowExits=${evalSummary.shadowExits} ` +
+        `stateUpdates=${evalSummary.stateUpdates} noMark=${evalSummary.skipsNoMark} ` +
+        `errors=${evalSummary.errors.length}`,
+    );
+  } catch (err) {
+    log.error(
+      `Exit eval pass failed for ${marketDate}: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
   return runPassForManageableInstances(
     'Settlement pass',
     async (instance) => {
