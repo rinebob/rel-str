@@ -10,6 +10,12 @@
 - [Paper Trading Infra] 553-554-563_BE-IMPL-PAPER-TRADING: Settlement run-finalization (intrinsic-value exit events) + PT market-date mark keys
 - [Paper Trading Infra] 553-554-563_BE-IMPL-PAPER-TRADING: Exit-eval verification script (15 prod checks), guide, run-all wiring, settle-finalization checks in 562 verify
 - [Paper Trading Infra] 553-554-563_DOCS-PAPER-TRADING: Exit-engine code review (PASS, 5 passes)
+- [Paper Trading Infra] 553-554-564_SHARED-IMPL-PAPER-TRADING: Signal expression templates (LONG→csp/lc, SHORT→sc/lp), shadow-variant defaults, PaperTrade.expressionTemplate + userId, signal-order contract
+- [Paper Trading Infra] 553-554-564_BE-IMPL-PAPER-TRADING: Pending-trade ledger seams — createPendingTrade (PENDING, no cash) + applyPendingFill (PENDING→OPEN atomic) + PaperTradeOverrides whitelist
+- [Paper Trading Infra] 553-554-564_BE-REFACTOR-PAPER-TRADING: Canonical RH MCP response shapes (rh-mcp-shapes.ts); resolver + quote provider migrated — fixes nested instrument_id extraction
+- [Paper Trading Infra] 553-554-564_BE-IMPL-PAPER-TRADING: paperSignalOrder callable (ticket provenance, acceptance-quote equity fill, cohort + PENDING fan-out, idempotent retry) + noon-PT expression-fill pass (chains→instruments→quotes→delta/DTE selection→OPEN)
+- [Paper Trading Infra] 553-554-564_CHORE-PAPER-TRADING: Signal→paper prod verification script (16 checks), guide, run-all registration
+- [Paper Trading Infra] 553-554-564_DOCS-PAPER-TRADING: Signal→paper code review (PASS, 4 rounds)
 
 ## [2026-09-25]
 
