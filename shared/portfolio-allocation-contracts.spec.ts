@@ -58,6 +58,17 @@ describe('AllocationBucket', () => {
 });
 
 describe('PositionAttribution', () => {
+  it('linkKey is optional and identifies the multi-leg group', () => {
+    const without: PositionAttribution = {
+      id: 'acct_SYM', accountNumber: 'acct', instrumentId: 'SYM',
+      bucketId: 'acct_b', history: [{ fromBucketId: null, toBucketId: 'acct_b', at: 't' }],
+      createdAt: 't', updatedAt: 't',
+    };
+    const withLink: PositionAttribution = { ...without, linkKey: 'order-123' };
+    expect(without.linkKey).toBeUndefined();
+    expect(withLink.linkKey).toBe('order-123');
+  });
+
   it('id matches the buildAttributionId format', () => {
     const attr: PositionAttribution = {
       id: buildAttributionId(ACCT, 'inst-1'),
@@ -108,6 +119,7 @@ describe('BucketStats', () => {
     const s: BucketStats = {
       bucketId: makeBucket().id,
       exposure: 5000,
+      netValue: 5000,
       targetDollars: 25000,
       drift: -20000,
       realizedPnl: 120,
@@ -121,7 +133,7 @@ describe('BucketStats', () => {
     // matter (compile fails if a field is dropped or renamed).
     expect(Object.keys(s).sort()).toEqual([
       'asOf', 'bucketId', 'closedCount', 'drift', 'equityCurve', 'exposure',
-      'openCount', 'realizedPnl', 'targetDollars', 'unrealizedPnl',
+      'netValue', 'openCount', 'realizedPnl', 'targetDollars', 'unrealizedPnl',
     ]);
   });
 });

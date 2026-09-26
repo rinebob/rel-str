@@ -100,6 +100,16 @@ export interface PositionAttribution {
   accountNumber: string;
   instrumentId: string;
   bucketId: string;
+  /**
+   * Optional multi-leg grouping key — the parent `orderId` shared by every
+   * leg of a spread order. Attributions that share a `linkKey` move as a
+   * UNIT: a post-hoc bucket move on any leg applies atomically to all legs
+   * in the same account (a split leg would read as a naked short/long in
+   * the receiving bucket and poison its P&L). Absent for single-leg
+   * positions. Writers set it at seed/assign time from the originating
+   * order; it never changes.
+   */
+  linkKey?: string;
   /** Audit trail — append-only, ordered oldest → newest. */
   history: AttributionEvent[];
   /** ISO timestamps. */
@@ -110,11 +120,16 @@ export interface PositionAttribution {
 /**
  * Computed per-bucket rollup — never persisted; produced client-side from
  * live positions + attributed order history via `computeBucketStats`
- * (lands with task #584 in `shared/portfolio-allocation-utils.ts`).
+ * (`shared/portfolio-allocation-utils.ts`).
  */
 export interface BucketStats {
   bucketId: string;
+  /** GROSS deployed capital — Σ|marketValue|. Drift/targets compare
+   *  against this, so short liabilities count toward allocation. */
   exposure: number;
+  /** SIGNED position value — Σ marketValue. The reconciliation value:
+   *  Σ netValue over buckets + Unassigned + Cash === account value. */
+  netValue: number;
   targetDollars: number;
   /** exposure − targetDollars; positive = over target. */
   drift: number;
