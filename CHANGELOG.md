@@ -16,6 +16,12 @@
 - [Paper Trading Infra] 553-554-564_BE-IMPL-PAPER-TRADING: paperSignalOrder callable (ticket provenance, acceptance-quote equity fill, cohort + PENDING fan-out, idempotent retry) + noon-PT expression-fill pass (chains→instruments→quotes→delta/DTE selection→OPEN)
 - [Paper Trading Infra] 553-554-564_CHORE-PAPER-TRADING: Signal→paper prod verification script (16 checks), guide, run-all registration
 - [Paper Trading Infra] 553-554-564_DOCS-PAPER-TRADING: Signal→paper code review (PASS, 4 rounds)
+- [Paper Trading Infra] 553-554-565_SHARED-IMPL-PAPER-TRADING: Canonical EquityCurvePoint in shared/common.ts + getPaperStats scope semantics
+- [Paper Trading Infra] 553-554-565_BE-IMPL-PAPER-TRADING: Generalized stats pass — all/inst/var/cohort/sig/sym rollups nightly post-settlement; tradeToPosition qty-aware premium fix
+- [Paper Trading Infra] 553-554-565_BE-IMPL-PAPER-TRADING: listExitVariantConfigs registry defaults + key↔params cross-check
+- [Paper Trading Infra] 553-554-565_BE-IMPL-PAPER-TRADING: Read callables — listPaperTrades, getPaperStats, getPaperAccount, listExitVariants
+- [Paper Trading Infra] 553-554-565_CHORE-PAPER-TRADING: Read-APIs prod verification (20 checks, self-healing cleanup) + guide + run-all
+- [Paper Trading Infra] 553-554-565_DOCS-PAPER-TRADING: Code review (PASS)
 - [Swing Analysis Page] 594-595-594_DOCS-SWING-ANALYSIS: Re-parented swing-analysis docs from #261 to #594 — 34 docs moved to docs/topics/594-swing-analysis-page/ with renumbered prefixes, headers, and domain; TOPICS-INVENTORY.md grouped reference added (checkpoint)
 
 ## [2026-09-25]
