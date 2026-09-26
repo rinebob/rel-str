@@ -17,6 +17,7 @@ deliberately, on-demand.
 | #562 — BE Engine Migration | [paper-trading-engine-migration-562.md](paper-trading-engine-migration-562.md) | legacy options-strategy-* → `paper-trading/{anchor}/items` + Position-view adapter + P&L parity | `functions/scripts/verify/paper-trading-engine-migration-562.ts` + `functions/scripts/migrate-options-strategy-to-paper.ts` (needs ADC; runs from `functions/`) |
 | #563 — BE Exit Engine | [paper-trading-exit-eval-563.md](paper-trading-exit-eval-563.md) | nightly variant eval → governing closing fill via ledger / shadow exitEvents / mark-gap + sentinel tolerance | `functions/scripts/verify/paper-trading-exit-eval-563.ts` (needs ADC; runs from `functions/`) |
 | #564 — BE Signal→paper path | [paper-trading-signal-order-564.md](paper-trading-signal-order-564.md) | order-ticket → `paperSignalOrder` (equity fill + cohort + PENDING expressions) → noon fill pass (chains → instruments → quotes → selection → OPEN) | `functions/scripts/verify/paper-trading-signal-order-564.ts` (needs ADC + local RH MCP OAuth; runs from `functions/`) |
+| #565 — BE Read APIs + stats scopes | [paper-trading-read-apis-565.md](paper-trading-read-apis-565.md) | generalized stats pass (all/inst/var/cohort/sig/sym scopes) + listPaperTrades / getPaperStats / getPaperAccount / listExitVariants callables | `functions/scripts/verify/paper-trading-read-apis-565.ts` (needs ADC; runs from `functions/`) |
 
 ## Run All
 

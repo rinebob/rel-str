@@ -47,6 +47,13 @@ const scripts = [
     needsAccount: false,
     needsAdc: true,
   },
+  {
+    name: 'paper-trading read APIs + stats scopes',
+    file: 'verify/paper-trading-read-apis-565.ts',
+    cwd: 'functions',
+    needsAccount: false,
+    needsAdc: true,
+  },
 ];
 
 function hasAdc(): boolean {
