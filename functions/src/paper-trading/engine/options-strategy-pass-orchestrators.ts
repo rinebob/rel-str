@@ -17,6 +17,11 @@ import { runSettlementPass } from './passes/settlement-pass';
 import { runHeldSharesMarkPass } from './passes/held-shares-pass';
 import { runStatsPass, createDefaultStatsPassDeps } from './passes/stats-pass';
 import { runExitEvalPass, defaultEvalDeps, type ExitEvalSummary } from '../exits/eval-pass';
+import {
+  createPaperStatsPassDeps,
+  runPaperStatsPass,
+  type PaperStatsPassResult,
+} from '../passes/paper-stats-pass';
 import type { RobinhoodMcpOptionQuoteProvider } from './quote-providers/rh-mcp-option-quote-provider';
 import { getUnderlyingClose, getUnderlyingCloseForDate } from './options-strategy-market-data';
 import { createLogger } from './logging';
@@ -246,6 +251,8 @@ export async function runSettlementForAllInstances(
   statsDepsFactory: () => ReturnType<typeof createDefaultStatsPassDeps> = createDefaultStatsPassDeps,
   evalPass: (date: string) => Promise<ExitEvalSummary> =
     (date) => runExitEvalPass(date, defaultEvalDeps()),
+  paperStatsPass: (date: string) => Promise<PaperStatsPassResult> =
+    (date) => runPaperStatsPass(date, createPaperStatsPassDeps()),
 ): Promise<Record<string, SettlementPassSummary | { error: string }>> {
   // Nightly chain: marks → exit-variant eval → settlement → stats. The eval
   // pass is global (governing closes create fills/cash; shadow runs record
@@ -264,7 +271,7 @@ export async function runSettlementForAllInstances(
     );
   }
 
-  return runPassForManageableInstances(
+  const results = await runPassForManageableInstances(
     'Settlement pass',
     async (instance) => {
       const getClose = getUnderlyingCloseForDate;
@@ -300,4 +307,20 @@ export async function runSettlementForAllInstances(
     },
     listInstances,
   );
+
+  // Paper-wide rollup scopes (all/inst/var/cohort/sig/sym) — runs once per
+  // night after settlement, not per instance.
+  try {
+    const paperStats = await paperStatsPass(marketDate);
+    log.info(
+      `Paper stats pass for ${marketDate}: scopes=${paperStats.scopesWritten.length} ` +
+        `errors=${paperStats.errors.length}`,
+    );
+  } catch (err) {
+    log.error(
+      `Paper stats pass failed for ${marketDate}: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
+  return results;
 }

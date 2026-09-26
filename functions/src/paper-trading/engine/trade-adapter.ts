@@ -229,7 +229,11 @@ export function tradeToPosition(trade: PaperTrade): Position {
       (Object.values(PositionStatus) as string[]).includes(trade.legacyStatus)
         ? (trade.legacyStatus as PositionStatus)
         : paperToLegacyStatus(trade.status),
-    premiumCollected: isShort && entryFill ? entryFill.price * SHARES_PER_CONTRACT : 0,
+    premiumCollected: isShort && entryFill
+      ? entryFill.price *
+          (trade.legs[0]?.multiplier ?? SHARES_PER_CONTRACT) *
+          (entryFill.quantity || trade.order.quantity)
+      : 0,
     capitalRequired:
       trade.capitalRequired ??
       (isShort && primary

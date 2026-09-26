@@ -44,7 +44,6 @@ export enum PartnerEndpointPath {
   REALTIME_OPTIONS = 'partnerRealtimeOptions',
 }
 
-import { OptionType } from '@options/common';
 export { OptionType } from '@options/common';
 
 import type {
