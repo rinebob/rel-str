@@ -3,6 +3,8 @@
 ## [2026-09-26]
 
 ### Added
+- [Portfolio] 576-577-584_SHARED-IMPL-PORTFOLIO: Allocation rollup utils?" target/drift/warn predicates, position attribution join, FIFO realized P&L, computeBucketStats seam, cash residual + cashCheck; contracts gain netValue + linkKey
+- [Portfolio] 576-577-584_DOCS-PORTFOLIO: Rollup-utils code review (PASS) + process diagrams + PRD/IMPL sync (cash-as-basis, atomic multi-leg)
 - [Paper Trading Infra] 553-554-563_SHARED-IMPL-PAPER-TRADING: Exit-variant contract doc corrections (exit-event price bases, working-state conventions)
 - [Paper Trading Infra] 553-554-563_BE-IMPL-PAPER-TRADING: Exit-variant registry — pure rules + typed params (initial/trailing/time-stop, limit-stddev stub)
 - [Paper Trading Infra] 553-554-563_BE-IMPL-PAPER-TRADING: Ledger + repo seams — dedup + governing invariant, EXITED-terminal runs, adapter realized-P&L stats bridge
