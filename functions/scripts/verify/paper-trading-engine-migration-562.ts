@@ -213,6 +213,17 @@ async function main(): Promise<void> {
   check('account seeded by migration (premium cash, open count)',
     acctSnap.exists && acct?.cash === 210 && acct?.openTradeCount === 1 && acct?.realizedPnl === 0);
 
+  // Give the migrated trade a governing + shadow run so settlement's
+  // run-finalization (task #563) is exercised end-to-end.
+  await db.doc(`paper-trading/trades/items/${POSITION_ID}`).update({
+    governingVariant: 'initial-stop-10',
+    variantKeys: ['initial-stop-10', 'time-30d'],
+    variantRuns: [
+      { variantKey: 'initial-stop-10', governing: true, state: 'ACTIVE', workingState: {} },
+      { variantKey: 'time-30d', governing: false, state: 'ACTIVE', workingState: {} },
+    ],
+  });
+
   // markPositionSettled runs a real Firestore transaction — exercises the
   // reads-before-writes ordering and account bookkeeping in one atomic unit.
   const legId = `PUT-97.50-${today}`;
@@ -237,6 +248,15 @@ async function main(): Promise<void> {
     settledTrade.realizedPnl === 210 && settledTrade.unrealizedPnl === 0);
   check('settlement: leg outcome + closeDate stamped',
     settledTrade.legs[0].outcome === 'EXPIRED_WORTHLESS' && settledTrade.legs[0].closeDate === today);
+  const govRun = settledTrade.variantRuns.find((r) => r.governing);
+  const shadowRun = settledTrade.variantRuns.find((r) => !r.governing);
+  check('settlement: governing run finalized EXITED with honest exitEvent',
+    govRun?.state === 'EXITED' &&
+      govRun.exitEvent?.price === 0 &&
+      govRun.exitEvent.pnl === 210 &&
+      govRun.exitEvent.date === today);
+  check('settlement: shadow run left ACTIVE (inert, not dropped)',
+    shadowRun?.state === 'ACTIVE' && shadowRun.exitEvent === undefined);
   const acctAfter = (await db.doc(`paper-trading/accounts/items/acct-${PREFIX}-user`).get())
     .data() as PaperAccount;
   check('settlement: account decremented + premium realized',

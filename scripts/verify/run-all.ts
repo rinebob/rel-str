@@ -33,6 +33,13 @@ const scripts = [
     needsAccount: false,
     needsAdc: true,
   },
+  {
+    name: 'paper-trading exit eval pass',
+    file: 'verify/paper-trading-exit-eval-563.ts',
+    cwd: 'functions',
+    needsAccount: false,
+    needsAdc: true,
+  },
 ];
 
 function hasAdc(): boolean {
