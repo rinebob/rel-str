@@ -164,6 +164,8 @@ export interface PaperTicket {
 export interface PaperTrade extends PaperTradingDocBase {
   kind: PaperTradingKind.TRADE;
   status: PaperTradeStatus;
+  /** Owning `acct-{userId}` — needed by server-side fills (no auth context). */
+  userId?: string;
   // dimension fields — rollup axes
   source: PaperTradeSource;
   strategyInstanceId?: string;
@@ -178,6 +180,9 @@ export interface PaperTrade extends PaperTradingDocBase {
   fills: PaperFill[];
   legs: PaperTradeLeg[];
   marks: Record<string, PaperMark>; // 'YYYY-MM-DD' → mark
+  /** Contract-selection recipe carried by PENDING expression trades until
+   *  the noon-PT pass resolves a contract (kept post-fill as provenance). */
+  expressionTemplate?: SignalExpressionTemplate;
   variantRuns: VariantRun[];
   /** Denormalized `variantRuns[].variantKey` list for array-contains queries. */
   variantKeys: string[];
@@ -208,6 +213,88 @@ export interface PaperTrade extends PaperTradingDocBase {
     costBasis: number;
   };
 }
+
+// ── Signal expression templates ─────────────────────────────────────────────
+
+/**
+ * One configured option expression for an accepted-as-paper signal —
+ * a single-leg contract-selection recipe (reuses the #108 strategy config
+ * shape: option type, side, target delta, DTE band). PENDING expression
+ * trades carry their template until the noon-PT expression-fill-pass
+ * resolves a real contract.
+ */
+export interface SignalExpressionTemplate {
+  /** Stable key stored in `cohort.expressionTemplates` (e.g. 'csp-030-45'). */
+  key: string;
+  /** Expression code written to `trade.expression` and the trade-id desc. */
+  expression: string;           // 'CSP' | 'LC' | 'SC' | 'LP' | ...
+  optionType: OptionType;
+  side: TradeSide;
+  targetDelta: number;
+  targetDte: number;
+  minDte: number;
+  maxDte: number;
+}
+
+/**
+ * Default expression templates by signal direction. The signal-order page
+ * (#567) and strategy-builder (#568) may make these configurable later;
+ * today the cohort fans out into the underlying plus these expressions.
+ */
+export const SIGNAL_EXPRESSION_TEMPLATES: Record<TradeSide, SignalExpressionTemplate[]> = {
+  [TradeSide.LONG]: [
+    {
+      key: 'csp-030-45',
+      expression: 'CSP',
+      optionType: OptionType.PUT,
+      side: TradeSide.SHORT,
+      targetDelta: 0.3,
+      targetDte: 45,
+      minDte: 30,
+      maxDte: 60,
+    },
+    {
+      key: 'lc-050-30',
+      expression: 'LC',
+      optionType: OptionType.CALL,
+      side: TradeSide.LONG,
+      targetDelta: 0.5,
+      targetDte: 30,
+      minDte: 20,
+      maxDte: 45,
+    },
+  ],
+  [TradeSide.SHORT]: [
+    {
+      key: 'sc-030-45',
+      expression: 'SC',
+      optionType: OptionType.CALL,
+      side: TradeSide.SHORT,
+      targetDelta: 0.3,
+      targetDte: 45,
+      minDte: 30,
+      maxDte: 60,
+    },
+    {
+      key: 'lp-050-30',
+      expression: 'LP',
+      optionType: OptionType.PUT,
+      side: TradeSide.LONG,
+      targetDelta: 0.5,
+      targetDte: 30,
+      minDte: 20,
+      maxDte: 45,
+    },
+  ],
+};
+
+/**
+ * Variant runs seeded on signal trades: `none` governs (no auto-close —
+ * signal trades are user-managed; #568 adds explicit config), real
+ * variants run as shadows for counterfactual measurement.
+ */
+export const SIGNAL_GOVERNING_VARIANT = 'none';
+export const SIGNAL_SHADOW_VARIANT_KEYS = ['initial-stop-10', 'trailing-20', 'time-30d'];
 
 // ── Cohort ─────────────────────────────────────────────────────────────────
 
@@ -288,14 +375,15 @@ export interface PaperSignalOrderRequest {
   signalId: string;
   symbol: string;
   direction: TradeSide;
-  quantity: number;                 // whole shares from the order ticket sizing
+  quantity?: number;                // whole shares; the order ticket's sizing wins when present
   refId: string;                    // order-ticket idempotency lineage
 }
 
 export interface PaperSignalOrderResponse {
   cohortId: string;
   equityTradeId: string;
-  pendingExpressionTradeIds: string[];
+  /** Expression-trade ids in the cohort (may be OPEN if a retry lands post-fill). */
+  expressionTradeIds: string[];
 }
 
 /** `listPaperTrades` request — all filters optional AND-combined. */
