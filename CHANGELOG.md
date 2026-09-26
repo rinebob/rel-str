@@ -1,5 +1,16 @@
 # Changelog
 
+## [2026-09-26]
+
+### Added
+- [Paper Trading Infra] 553-554-563_SHARED-IMPL-PAPER-TRADING: Exit-variant contract doc corrections (exit-event price bases, working-state conventions)
+- [Paper Trading Infra] 553-554-563_BE-IMPL-PAPER-TRADING: Exit-variant registry — pure rules + typed params (initial/trailing/time-stop, limit-stddev stub)
+- [Paper Trading Infra] 553-554-563_BE-IMPL-PAPER-TRADING: Ledger + repo seams — dedup + governing invariant, EXITED-terminal runs, adapter realized-P&L stats bridge
+- [Paper Trading Infra] 553-554-563_BE-IMPL-PAPER-TRADING: Nightly exit-eval pass — governing close, shadow counterfactuals, backfill, mark-gap tolerance, orchestrator wiring
+- [Paper Trading Infra] 553-554-563_BE-IMPL-PAPER-TRADING: Settlement run-finalization (intrinsic-value exit events) + PT market-date mark keys
+- [Paper Trading Infra] 553-554-563_BE-IMPL-PAPER-TRADING: Exit-eval verification script (15 prod checks), guide, run-all wiring, settle-finalization checks in 562 verify
+- [Paper Trading Infra] 553-554-563_DOCS-PAPER-TRADING: Exit-engine code review (PASS, 5 passes)
+
 ## [2026-09-25]
 
 ### Added
