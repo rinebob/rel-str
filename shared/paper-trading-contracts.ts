@@ -12,7 +12,7 @@
  */
 
 import { OptionType, OptionQuoteSource } from './options-common';
-import { TradeSide } from './common';
+import { TradeSide, type EquityCurvePoint } from './common';
 import type { StrategyInstanceConfig } from './options-strategy-engine-contracts';
 import { PaperTradingKind } from './paper-trading-ids';
 
@@ -337,10 +337,7 @@ export interface ExitVariantConfig {
 
 // ── Stats ──────────────────────────────────────────────────────────────────
 
-export interface EquityCurvePoint {
-  date: string;
-  cumulativePnl: number;
-}
+export type { EquityCurvePoint } from './common';
 
 /** Rollup stats doc scoped by rollup key (`all`, `inst-{id}`, `var-{key}`, ...). */
 export interface PaperStats extends PaperTradingDocBase {
@@ -403,7 +400,9 @@ export interface ListPaperTradesResponse {
 }
 
 export interface GetPaperStatsRequest {
-  scope?: string;                   // defaults to 'all'
+  /** Scope id ('all', 'inst-…', 'var-…', 'cohort-…', 'sig-…', 'sym-…').
+   *  Omitted → every stats doc (dashboard scope enumeration). */
+  scope?: string;
 }
 
 export interface GetPaperStatsResponse {
