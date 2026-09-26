@@ -115,6 +115,8 @@ export interface PaperMark {
 
 export interface VariantExitEvent {
   date: string;
+  /** Exit-basis per-contract price: today's mark for eval-triggered exits;
+   *  0 for worthless expiry; intrinsic value for assignment. */
   price: number;
   pnl: number;
   daysHeld: number;
@@ -132,8 +134,9 @@ export interface VariantRun {
   state: 'ACTIVE' | 'EXITED';
   /**
    * Variant-specific working state. Key conventions per variant:
-   * `trailing-stop` writes `highWaterMark`; `time-stop` writes `daysHeld`;
-   * `initial-stop` and `limit-stddev` keep no working state.
+   * `trailing-stop` writes `lowWaterMark`/`highWaterMark` (side-dependent);
+   * `initial-stop`, `time-stop`, and `limit-stddev` keep no working state
+   * (`daysHeld` is derived from the entry fill at eval time).
    */
   workingState: Record<string, number>;
   exitEvent?: VariantExitEvent;
