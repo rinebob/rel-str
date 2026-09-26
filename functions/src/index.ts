@@ -140,6 +140,10 @@ export {
 } from './options-strategy-engine/options-strategy-passes';
 export { openPassTimer } from './options-strategy-engine/passes/open-pass-timer';
 
+// Paper trading — signal accept + noon-PT expression fill (#564)
+export { paperSignalOrder } from './paper-trading/callables';
+export { expressionFillPassTimer } from './paper-trading/passes/expression-fill-pass';
+
 // Options strategy engine — dashboard callables
 export {
   listStrategyPositions,
