@@ -23,6 +23,8 @@
 - [Paper Trading Infra] 553-554-565_CHORE-PAPER-TRADING: Read-APIs prod verification (20 checks, self-healing cleanup) + guide + run-all
 - [Paper Trading Infra] 553-554-565_DOCS-PAPER-TRADING: Code review (PASS)
 - [Swing Analysis Page] 594-595-594_DOCS-SWING-ANALYSIS: Re-parented swing-analysis docs from #261 to #594 — 34 docs moved to docs/topics/594-swing-analysis-page/ with renumbered prefixes, headers, and domain; TOPICS-INVENTORY.md grouped reference added (checkpoint)
+- [Portfolio Allocation] 576-577-583_SHARED-IMPL-PORTFOLIO: Allocation bucket + attribution contracts and id builders — freeze-at-creation ids, slug-equality uniqueness, as-of rollups, 19 specs
+- [Portfolio Allocation] 576-577-583_DOCS-PORTFOLIO: Allocation Manager PRD/IMPL/TEST docs + #583 code review (PASS, 4 rounds); AGENTS.md portfolio- prefix; CONTEXT.md Allocation Bucket term
 
 ## [2026-09-25]
 
