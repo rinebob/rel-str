@@ -40,6 +40,13 @@ const scripts = [
     needsAccount: false,
     needsAdc: true,
   },
+  {
+    name: 'paper-trading signal→paper path',
+    file: 'verify/paper-trading-signal-order-564.ts',
+    cwd: 'functions',
+    needsAccount: false,
+    needsAdc: true,
+  },
 ];
 
 function hasAdc(): boolean {
