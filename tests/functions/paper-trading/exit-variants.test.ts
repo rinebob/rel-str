@@ -20,6 +20,7 @@ import {
 } from '../../../shared/paper-trading-contracts';
 import {
   evaluateVariant,
+  EXIT_VARIANT_CONFIGS,
   parseVariantKey,
   type VariantEvalCtx,
 } from '../../../functions/src/paper-trading/exits/registry';
@@ -184,5 +185,42 @@ describe('limit-stddev (stub)', () => {
     const run = makeRun('limit-sd1');
     const res = evaluateVariant(ctx({ run, underlyingClose: 99.5 }));
     assert.equal(res.trigger, false);
+  });
+});
+
+describe('EXIT_VARIANT_CONFIGS', () => {
+  it('every config key parses and its params match the key-embedded values', () => {
+    assert.ok(EXIT_VARIANT_CONFIGS.length >= 4);
+    for (const cfg of EXIT_VARIANT_CONFIGS) {
+      const def = parseVariantKey(cfg.key);
+      assert.ok(def, `${cfg.key} fails parseVariantKey`);
+      const p = cfg.params;
+      switch (def.family) {
+        case 'initial-stop':
+          assert.ok(
+            p.type === 'initial-stop' && p.pct === def.params.stopPct * 100,
+            cfg.key,
+          );
+          break;
+        case 'trailing-stop':
+          assert.ok(
+            p.type === 'trailing-stop' && p.pct === def.params.stopPct * 100,
+            cfg.key,
+          );
+          break;
+        case 'time-stop':
+          assert.ok(
+            p.type === 'time-stop' && p.days === def.params.days,
+            cfg.key,
+          );
+          break;
+        case 'limit-stddev':
+          assert.ok(
+            p.type === 'limit-stddev' && p.sdMultiplier === def.params.sigma,
+            cfg.key,
+          );
+          break;
+      }
+    }
   });
 });

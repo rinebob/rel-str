@@ -16,7 +16,11 @@
  */
 
 import { TradeSide } from '@common';
-import type { PaperTrade, VariantRun } from '@paper-trading/contracts';
+import type {
+  ExitVariantConfig,
+  PaperTrade,
+  VariantRun,
+} from '@paper-trading/contracts';
 
 // ── Key parsing ─────────────────────────────────────────────────────────────
 
@@ -44,6 +48,43 @@ const PATTERNS: [RegExp, (m: RegExpMatchArray) => VariantDef][] = [
     (m) => ({ family: 'limit-stddev', params: { sigma: Number(m[1]) } }),
   ],
 ];
+
+/**
+ * Registry of shippable variant configurations — the dashboard picker list
+ * (`listExitVariants`). `params.pct`/`sdMultiplier` carry the human number
+ * matching the key suffix (10 = 10%), not the registry's internal fraction.
+ */
+export const EXIT_VARIANT_CONFIGS: readonly ExitVariantConfig[] = [
+  {
+    key: 'initial-stop-10',
+    label: 'Initial stop — 10% adverse move off entry',
+    params: { type: 'initial-stop', pct: 10 },
+  },
+  {
+    key: 'trailing-20',
+    label: 'Trailing stop — 20% reversal off the water mark',
+    params: { type: 'trailing-stop', pct: 20 },
+  },
+  {
+    key: 'time-9d',
+    label: 'Time stop — close after 9 days',
+    params: { type: 'time-stop', days: 9 },
+  },
+  {
+    key: 'time-30d',
+    label: 'Time stop — close after 30 days',
+    params: { type: 'time-stop', days: 30 },
+  },
+  {
+    key: 'limit-sd1',
+    label: 'StdDev level cross — 1σ (stub, never fires yet)',
+    params: { type: 'limit-stddev', sdMultiplier: 1 },
+  },
+];
+
+export function listExitVariantConfigs(): ExitVariantConfig[] {
+  return [...EXIT_VARIANT_CONFIGS];
+}
 
 /** Parse a variantKey into its family + typed params; null when unknown. */
 export function parseVariantKey(variantKey: string): VariantDef | null {
