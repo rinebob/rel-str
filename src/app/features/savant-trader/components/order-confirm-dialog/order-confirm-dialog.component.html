@@ -1,6 +1,6 @@
 <h2 mat-dialog-title>
-  <mat-icon>warning_amber</mat-icon>
-  Confirm Order
+  <mat-icon>{{ isPaper() ? 'science' : 'warning_amber' }}</mat-icon>
+  {{ isPaper() ? 'Confirm Paper Order' : 'Confirm Order' }}
 </h2>
 
 <mat-dialog-content>
@@ -49,6 +49,13 @@
     </div>
   </div>
 
+  @if (isPaper()) {
+    <div class="paper-note">
+      <mat-icon>science</mat-icon>
+      <span>Paper only — the trade is tracked in the paper ledger; no order is placed at the broker.</span>
+    </div>
+  }
+
   @if (warnings().length > 0) {
     <div class="warnings">
       @for (w of warnings(); track w.message) {
@@ -64,7 +71,7 @@
 <mat-dialog-actions align="end">
   <button mat-button (click)="onCancel()">Cancel</button>
   <button mat-flat-button color="primary" (click)="onConfirm()" [disabled]="isBlocked()">
-    <mat-icon>send</mat-icon>
-    Submit Order
+    <mat-icon>{{ isPaper() ? 'science' : 'send' }}</mat-icon>
+    {{ isPaper() ? 'Accept as Paper' : 'Submit Order' }}
   </button>
 </mat-dialog-actions>

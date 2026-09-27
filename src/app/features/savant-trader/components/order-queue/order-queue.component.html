@@ -85,6 +85,9 @@
                 @if (ticket.side === 'buy' && hasProtection(ticket)) {
                   <span class="protected-badge">PROTECTED</span>
                 }
+                @if (ticket.status === TicketStatus.PAPER) {
+                  <span class="paper-badge">PAPER</span>
+                }
                 @if (ticket.status === TicketStatus.CANCELLED) {
                   <button
                     type="button"

@@ -17,6 +17,9 @@ import { GuardrailWarning } from '../../utils/order-guardrails.util';
 export interface OrderConfirmDialogData {
   ticket: OrderTicket;
   warnings?: GuardrailWarning[];
+  /** Paper-acceptance mode — the action writes to the paper ledger via the
+   *  paperSignalOrder callable; no broker order is placed. */
+  paper?: boolean;
 }
 
 @Component({
@@ -40,6 +43,10 @@ export class OrderConfirmDialogComponent {
 
   /** Whether the submit is blocked (hard stop). */
   readonly isBlocked = computed(() => this.warnings().some((w) => w.severity === 'block'));
+
+  /** Paper-acceptance mode — dialog copy distinguishes it from a real
+   *  broker submission. */
+  readonly isPaper = computed(() => this.data.paper === true);
 
   /** Display symbol for the ticket. */
   readonly symbol = computed(() => {

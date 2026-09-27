@@ -144,6 +144,7 @@
 
 // Status group dot colors
 .group-staged .group-dot { background: var(--mat-sys-tertiary); }
+.group-paper .group-dot { background: #00838f; }
 .group-submitting .group-dot { background: #e65100; }
 .group-submitted .group-dot { background: var(--mat-sys-primary); }
 .group-queued .group-dot { background: #1565c0; }
@@ -203,6 +204,16 @@
     border-radius: 3px;
     background: var(--mat-sys-secondary-container);
     color: var(--mat-sys-on-secondary-container);
+    flex-shrink: 0;
+  }
+
+  .paper-badge {
+    font-size: 8px;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: #00838f;
+    color: #fff;
     flex-shrink: 0;
   }
 

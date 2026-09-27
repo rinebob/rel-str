@@ -102,6 +102,36 @@ describe('OrderQueueComponent', () => {
       expect(groups[3].label).toBe('Failed');
     });
 
+    it('groups PAPER tickets under their own Paper group with a PAPER badge', () => {
+      const tickets = [
+        makeTicket('1', OrderTicketStatus.STAGED, 'AAPL'),
+        makeTicket('2', OrderTicketStatus.PAPER, 'NVDA'),
+        makeTicket('3', OrderTicketStatus.FILLED, 'MSFT'),
+      ];
+      fixture.componentRef.setInput('tickets', tickets);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      const groups = component.groups();
+      const paper = groups.find((g) => g.label === 'Paper');
+      expect(paper).toBeTruthy();
+      expect(paper!.tickets.map((t) => t.id)).toEqual(['2']);
+      expect(paper!.cssClass).toBe('group-paper');
+
+      // Paper group sits between Staged and the broker lifecycle groups.
+      expect(groups.map((g) => g.label)).toEqual(['Staged', 'Paper', 'Open Positions']);
+    });
+
+    it('renders the PAPER badge on the ticket row', () => {
+      fixture.componentRef.setInput('tickets', [makeTicket('1', OrderTicketStatus.PAPER, 'AAPL')]);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      const badge = fixture.nativeElement.querySelector('.paper-badge');
+      expect(badge).toBeTruthy();
+      expect(badge.textContent).toContain('PAPER');
+    });
+
     it('keeps locally-submitted tickets in Submitted until the RH merge derives Resting', () => {
       const limit = makeTicket('1', OrderTicketStatus.SUBMITTED, 'AAPL');
       limit.orderType = 'limit';

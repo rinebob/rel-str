@@ -12,6 +12,7 @@ import { EquityPriceService } from '../../services/equity-price.service';
 import { PortfolioService } from '../../services/portfolio.service';
 import { RobinhoodMcpObservationService } from '../../../../core/robinhood-mcp/robinhood-mcp-observation.service';
 import { OrderTicketService } from '../../services/order-ticket.service';
+import { PaperTradingService } from '../../services/paper-trading.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import {
   OrderTicket,
@@ -78,6 +79,7 @@ describe('OrderComponent', () => {
         { provide: PortfolioService, useValue: { getSnapshot: jasmine.createSpy('getSnapshot').and.returnValue(Promise.resolve(null)) } },
         { provide: RobinhoodMcpObservationService, useValue: { reauthenticate: jasmine.createSpy('reauthenticate') } },
         { provide: OrderTicketService, useValue: {} },
+        { provide: PaperTradingService, useValue: { paperSignalOrder$: jest.fn() } },
         { provide: MatDialog, useValue: { open: jasmine.createSpy('open').and.returnValue({ afterClosed: () => of(false) }) } },
         { provide: MatSnackBar, useValue: { open: jasmine.createSpy('open') } },
       ],
@@ -284,6 +286,28 @@ describe('OrderComponent', () => {
       expect(component.allTickets().length).toBe(1);
     });
 
+    it('shows PAPER tickets even before RH orders are loaded (no broker polling)', () => {
+      storeMock.tickets.set({ '1': makeTicket('1', 'AAPL', OrderTicketStatus.PAPER) });
+      fixture.detectChanges();
+
+      expect(component.allTickets().length).toBe(1);
+      expect(component.allTickets()[0].status).toBe(OrderTicketStatus.PAPER);
+    });
+
+    it('does not merge RH order state into a PAPER ticket (no result.orderId)', () => {
+      const paper = makeTicket('1', 'AAPL', OrderTicketStatus.PAPER);
+      storeMock.tickets.set({ '1': paper });
+      component.rhOrders.set({
+        'rh-1': { id: 'rh-1', symbol: 'AAPL', side: 'buy', type: 'market', state: 'filled', trigger: 'immediate' },
+      });
+      component.rhOrdersLoaded.set(true);
+      fixture.detectChanges();
+
+      const merged = component.allTickets()[0];
+      expect(merged.status).toBe(OrderTicketStatus.PAPER);
+      expect(merged.result).toBeUndefined();
+    });
+
     it('computes protectedSymbols from RH orders', () => {
       component.rhOrders.set({
         'rh-stop-1': makeStopOrder('rh-stop-1', 'AAPL'),
@@ -296,6 +320,20 @@ describe('OrderComponent', () => {
       expect(protectedSyms.has('AAPL')).toBe(true);
       expect(protectedSyms.has('NVDA')).toBe(true);
       expect(protectedSyms.has('TSLA')).toBe(false);
+    });
+  });
+
+  describe('onRemoveTickets', () => {
+    it('removes staged tickets but refuses PAPER tickets (cohort provenance)', () => {
+      const staged = makeTicket('1', 'AAPL', OrderTicketStatus.STAGED);
+      const paper = makeTicket('2', 'NVDA', OrderTicketStatus.PAPER);
+      storeMock.tickets.set({ '1': staged, '2': paper });
+      fixture.detectChanges();
+
+      component.onRemoveTickets(['1', '2']);
+
+      expect(storeMock.removeTicket).toHaveBeenCalledWith('1');
+      expect(storeMock.removeTicket).not.toHaveBeenCalledWith('2');
     });
   });
 

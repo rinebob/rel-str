@@ -124,6 +124,12 @@ export class OrderQueueComponent {
         cssClass: 'group-staged',
       },
       {
+        label: 'Paper',
+        status: [OrderTicketStatus.PAPER],
+        tickets: sortTickets(all.filter((i) => i.status === OrderTicketStatus.PAPER)),
+        cssClass: 'group-paper',
+      },
+      {
         label: 'Submitting',
         status: [OrderTicketStatus.SUBMITTING],
         tickets: sortTickets(all.filter((i) => i.status === OrderTicketStatus.SUBMITTING)),

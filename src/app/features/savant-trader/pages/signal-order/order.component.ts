@@ -139,7 +139,8 @@ export class OrderComponent implements OnInit {
         // — the local status may be stale (e.g. cancelled at RH)
         if (!rhLoaded) {
           return ticket.status === OrderTicketStatus.STAGED ||
-            ticket.status === OrderTicketStatus.FAILED;
+            ticket.status === OrderTicketStatus.FAILED ||
+            ticket.status === OrderTicketStatus.PAPER;
         }
         return true;
       });
@@ -327,12 +328,28 @@ export class OrderComponent implements OnInit {
     this.selectedTicketId.set(id);
   }
 
-  /** Handle batch remove from the queue. */
+  /** Handle batch remove from the queue. PAPER tickets are skipped — the
+   *  paper cohort survives server-side and deleting the ticket would orphan
+   *  the provenance record (retry by refId wouldn't find it). */
   onRemoveTickets(ids: string[]): void {
+    const paperSkipped: string[] = [];
     for (const id of ids) {
+      const ticket = this.stagingStore.tickets()[id];
+      if (ticket?.status === OrderTicketStatus.PAPER) {
+        paperSkipped.push('symbol' in ticket ? ticket.symbol : id);
+        continue;
+      }
       this.stagingStore.removeTicket(id);
     }
-    if (this.selectedTicketId() && ids.includes(this.selectedTicketId()!)) {
+    if (paperSkipped.length > 0) {
+      this.snackBar.open(
+        `Paper tickets can't be removed — the cohort persists in the paper ledger (${paperSkipped.join(', ')})`,
+        'Dismiss',
+        { duration: 5000 },
+      );
+    }
+    const selected = this.selectedTicketId();
+    if (selected && ids.includes(selected) && !this.stagingStore.tickets()[selected]) {
       this.selectedTicketId.set(null);
     }
   }
