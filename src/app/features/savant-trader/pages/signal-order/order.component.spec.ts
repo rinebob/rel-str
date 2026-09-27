@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { Router } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { of } from 'rxjs';
@@ -46,7 +46,6 @@ describe('OrderComponent', () => {
   let component: OrderComponent;
   let storeMock: any;
   let uiStateMock: any;
-  let routerMock: any;
 
   beforeEach(async () => {
     storeMock = {
@@ -63,17 +62,13 @@ describe('OrderComponent', () => {
       setFullscreen: jasmine.createSpy('setFullscreen'),
     };
 
-    routerMock = {
-      navigate: jasmine.createSpy('navigate'),
-    };
-
     await TestBed.configureTestingModule({
       imports: [OrderComponent],
       providers: [
         provideNoopAnimations(),
         { provide: OrderTicketStore, useValue: storeMock },
         { provide: UiStateService, useValue: uiStateMock },
-        { provide: Router, useValue: routerMock },
+        provideRouter([]),
         { provide: TradingConfigService, useValue: { loadConfig: jasmine.createSpy('loadConfig').and.returnValue(of(null)) } },
         { provide: EquityPriceService, useValue: { prices: signal({}), loading: signal(false), fetchPrices: jasmine.createSpy('fetchPrices') } },
         { provide: PortfolioService, useValue: { getSnapshot: jasmine.createSpy('getSnapshot').and.returnValue(Promise.resolve(null)) } },
@@ -180,8 +175,10 @@ describe('OrderComponent', () => {
   });
 
   it('navigates back to signal-review on goBack', () => {
+    const router = TestBed.inject(Router);
+    const navSpy = jest.spyOn(router, 'navigate').mockResolvedValue(true);
     component.goBack();
-    expect(routerMock.navigate).toHaveBeenCalledWith(['/signal-review']);
+    expect(navSpy).toHaveBeenCalledWith(['/signal-review']);
   });
 
   it('selects the first loaded ticket automatically', () => {

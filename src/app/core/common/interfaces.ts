@@ -47,8 +47,11 @@ export enum AppRoutes {
 	OPTION_CHART = 'option-chart',
 	SPREAD_CHART = 'spread-chart',
 	OPTIONS_STRATEGY_DASHBOARD = 'options-strategy-dashboard',
+	/** Paper trading dashboard: paper ledger trades + stats (#553/#569). */
+	PAPER_TRADING = 'paper-trading',
 	STRATEGY_BUILDER = 'strategy-builder',
 	PORTFOLIO_DASHBOARD = 'portfolio-dashboard',
+	PORTFOLIO_ALLOCATION = 'portfolio-allocation',
 	OPTION_CHAIN_PCT_CHANGE = 'option-chain-pct-change',
 	OPTION_CHAIN = 'savant-trader/option-chain',
 	SWING_ANALYSIS = 'savant-trader/swing-analysis',

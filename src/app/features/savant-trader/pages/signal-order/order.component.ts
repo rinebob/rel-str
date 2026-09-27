@@ -23,7 +23,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { AppRoutes } from '../../../../core/common/interfaces';
 import { firstValueFrom } from 'rxjs';
 
 import { OrderTicketStore } from '../../stores/order-ticket.store';
@@ -45,13 +46,14 @@ import { parseEquityOrdersResponse, isActiveStopLoss, rhStateToTerminalStatus, r
 @Component({
   selector: 'app-signal-order',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatButtonModule, MatIconModule, MatTooltipModule, OrderQueueComponent, OrderTicketComponent],
+  imports: [CommonModule, MatButtonModule, MatIconModule, MatTooltipModule, RouterLink, OrderQueueComponent, OrderTicketComponent],
   templateUrl: './order.component.html',
   styleUrl: './order.component.scss',
 })
 export class OrderComponent implements OnInit {
   readonly stagingStore = inject(OrderTicketStore);
   readonly uiState = inject(UiStateService);
+  protected readonly appRoutes = AppRoutes;
   private readonly router = inject(Router);
   private readonly configService = inject(TradingConfigService);
   private readonly priceService = inject(EquityPriceService);

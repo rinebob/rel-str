@@ -1,0 +1,206 @@
+<!-- @topic #553 — Paper Trading Infra | @task #569 -->
+<div class="paper-trading-dashboard">
+  <div class="dashboard-header">
+    <div class="header-left">
+      <h1 class="header-title">
+        Paper Trading
+        <span class="paper-badge">PAPER</span>
+      </h1>
+      <div class="header-stats">
+        <div class="stat-card">
+          <span class="stat-label">Cash</span>
+          <span class="stat-value" [class.negative]="(store.account()?.cash ?? 0) < 0">
+            {{ store.account() ? currency(store.account()!.cash) : '—' }}
+          </span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Equity</span>
+          <span class="stat-value" [class.negative]="(store.account()?.equity ?? 0) < 0">
+            {{ store.account() ? currency(store.account()!.equity) : '—' }}
+          </span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Realized</span>
+          <span class="stat-value"
+            [class.positive]="(store.account()?.realizedPnl ?? 0) > 0"
+            [class.negative]="(store.account()?.realizedPnl ?? 0) < 0">
+            {{ store.account() ? currency(store.account()!.realizedPnl) : '—' }}
+          </span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Unrealized</span>
+          <span class="stat-value" [class.positive]="unrealizedPnl() > 0" [class.negative]="unrealizedPnl() < 0">
+            {{ currency(unrealizedPnl()) }}
+          </span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Capital Required</span>
+          <span class="stat-value">{{ currency(capitalRequired()) }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Open</span>
+          <span class="stat-value">{{ store.account()?.openTradeCount ?? store.openTrades().length }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <mat-form-field appearance="outline" class="scope-select">
+        <mat-label>Group by</mat-label>
+        <mat-select [value]="groupBy()" (selectionChange)="groupBy.set($event.value)">
+          <mat-option value="all">All trades</mat-option>
+          <mat-option value="instance">Strategy instance</mat-option>
+          <mat-option value="cohort">Signal cohort</mat-option>
+          <mat-option value="variant">Exit variant</mat-option>
+          <mat-option value="expression">Expression</mat-option>
+          <mat-option value="symbol">Symbol</mat-option>
+        </mat-select>
+      </mat-form-field>
+      <a mat-stroked-button [routerLink]="'/' + appRoutes.STRATEGY_BUILDER" class="manage-strategies-btn">
+        Strategy Builder
+      </a>
+    </div>
+  </div>
+
+  @if (store.error()) {
+    <div class="error-banner" role="alert">{{ store.error() }}</div>
+  }
+
+  @if (store.isLoading()) {
+    <div class="loading-container">
+      <mat-spinner diameter="40"></mat-spinner>
+    </div>
+  } @else if (store.isEmpty()) {
+    <div class="empty-state">
+      <p>No paper trades yet. Accept a signal as paper from the signal-order page, or launch a strategy from the strategy builder.</p>
+    </div>
+  } @else {
+    <div class="dashboard-split">
+      <!-- Left: grouped trades -->
+      <div class="trades-panel">
+        @for (group of groupedTrades(); track group.key) {
+          <div class="table-section" [attr.data-group-key]="group.key">
+            <h2 class="section-title">
+              @if (groupBy() === 'cohort') {
+                <button mat-button class="cohort-toggle" (click)="toggleCohort(group.key)">
+                  <mat-icon>{{ selectedCohort() === group.key ? 'expand_less' : 'expand_more' }}</mat-icon>
+                  Cohort {{ group.key }}
+                </button>
+              } @else {
+                {{ group.key }}
+              }
+              @if (groupBy() !== 'all' && groupBy() !== 'expression' && group.key !== 'none') {
+                <button
+                  mat-icon-button
+                  class="scope-jump"
+                  matTooltip="Show {{ group.key }} equity curve"
+                  (click)="selectGroupScope(group.key)"
+                >
+                  <mat-icon>show_chart</mat-icon>
+                </button>
+              }
+              <span class="group-stats">
+                {{ group.trades.length }} trades · {{ group.openCount }} open
+                @if (group.pendingCount > 0) { · {{ group.pendingCount }} pending } ·
+                <span [class.positive]="group.realizedPnl > 0" [class.negative]="group.realizedPnl < 0">
+                  {{ currency(group.realizedPnl) }} realized
+                </span>
+              </span>
+            </h2>
+
+            <table class="trades-table">
+              <thead>
+                <tr>
+                  <th scope="col">ID</th>
+                  <th scope="col">Symbol</th>
+                  <th scope="col">Expr</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Qty</th>
+                  <th scope="col">Variant</th>
+                  <th scope="col">Realized</th>
+                  <th scope="col">Unrealized</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (trade of group.trades; track trade.id) {
+                  <tr>
+                    <td class="mono">{{ trade.id }}</td>
+                    <td>{{ trade.symbol }}</td>
+                    <td>{{ trade.expression }}</td>
+                    <td>{{ trade.status }}</td>
+                    <td>{{ trade.order.quantity }}</td>
+                    <td>{{ trade.governingVariant }}</td>
+                    <td [class.positive]="trade.realizedPnl > 0" [class.negative]="trade.realizedPnl < 0">
+                      {{ currency(trade.realizedPnl) }}
+                    </td>
+                    <td [class.positive]="trade.unrealizedPnl > 0" [class.negative]="trade.unrealizedPnl < 0">
+                      {{ currency(trade.unrealizedPnl) }}
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+
+            <!-- Cohort drill-down: expression groups + variant outcomes -->
+            @if (groupBy() === 'cohort' && selectedCohort() === group.key) {
+              <div class="cohort-detail">
+                @for (expr of cohortExpressions(); track expr.expression) {
+                  <div class="expression-block">
+                    <h3 class="expression-title">Expression {{ expr.expression }}</h3>
+                    @for (trade of expr.trades; track trade.id) {
+                      <div class="variant-runs">
+                        <span class="trade-ref mono">{{ trade.id }}</span>
+                        <span class="trade-legs" title="legs">{{ legsSummary(trade) }}</span>
+                        <span class="trade-mark" title="last mark">mark: {{ lastMark(trade) }}</span>
+                        @for (run of trade.variantRuns; track run.variantKey) {
+                          <div class="variant-run" [class.governing]="run.governing">
+                            <span class="variant-key">{{ run.variantKey }}</span>
+                            @if (run.governing) { <span class="gov-badge">governing</span> }
+                            <span class="variant-outcome">{{ variantOutcome(run) }}</span>
+                          </div>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- Right: equity curve -->
+      <div class="chart-panel">
+        <mat-form-field appearance="outline" class="scope-select">
+          <mat-label>Equity curve scope</mat-label>
+          <mat-select [value]="effectiveScope()" (selectionChange)="statsScope.set($event.value)">
+            @for (scope of scopeOptions(); track scope) {
+              <mat-option [value]="scope">{{ scope }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        @if (chartPoints().length > 0) {
+          <h2 class="section-title">Equity Curve — {{ effectiveScope() }}</h2>
+          <ejs-chart
+            [primaryXAxis]="primaryXAxis"
+            [primaryYAxis]="primaryYAxis"
+            [tooltip]="tooltip"
+          >
+            <e-series-collection>
+              <e-series
+                type="Line"
+                [dataSource]="chartPoints()"
+                xName="date"
+                yName="value"
+                name="Cumulative P&L"
+                [width]="2"
+                [animation]="animation"
+              ></e-series>
+            </e-series-collection>
+          </ejs-chart>
+        } @else {
+          <p class="empty-table-message">No equity curve data for this scope yet — stats are computed by the nightly pass.</p>
+        }
+      </div>
+    </div>
+  }
+</div>

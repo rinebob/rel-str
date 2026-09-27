@@ -45,6 +45,11 @@
 
     <div class="header-spacer"></div>
 
+    <a mat-stroked-button class="paper-dash-link" [routerLink]="['/' + appRoutes.PAPER_TRADING]" matTooltip="Paper trading dashboard">
+      <mat-icon>science</mat-icon>
+      Paper Trading
+    </a>
+
     <button mat-stroked-button class="manual-order-btn" (click)="onNewManualOrder()">
       <mat-icon>add</mat-icon>
       New manual order

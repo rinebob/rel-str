@@ -1,0 +1,254 @@
+/* @topic #553 — Paper Trading Infra | @task #569 */
+.paper-trading-dashboard {
+  padding: 24px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.header-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.paper-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #00838f;
+  color: #fff;
+  letter-spacing: 0.5px;
+}
+
+.header-stats {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.scope-select {
+  min-width: 220px;
+}
+
+.error-banner {
+  background-color: #ffebee;
+  color: #c62828;
+  padding: 12px 16px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  padding: 48px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px;
+  color: rgba(0, 0, 0, 0.54);
+
+  p { font-size: 16px; }
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background-color: #f5f5f5;
+  min-width: 80px;
+}
+
+.stat-label {
+  font-size: 10px;
+  color: rgba(0, 0, 0, 0.54);
+  margin-bottom: 0;
+}
+
+.stat-value {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+// ── Split layout ────────────────────────────────────────────────────────────
+
+.dashboard-split {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.trades-panel {
+  flex: 1 1 60%;
+  min-width: 0;
+}
+
+.chart-panel {
+  flex: 0 0 38%;
+  position: sticky;
+  top: 24px;
+  min-width: 0;
+}
+
+@media (max-width: 1100px) {
+  .dashboard-split {
+    flex-direction: column;
+  }
+
+  .trades-panel,
+  .chart-panel {
+    flex: 1 1 100%;
+  }
+
+  .chart-panel {
+    position: relative;
+    top: 0;
+  }
+}
+
+// ── Tables ──────────────────────────────────────────────────────────────────
+
+.section-title {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0 0 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.group-stats {
+  font-size: 12px;
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.54);
+}
+
+.table-section {
+  margin-bottom: 24px;
+}
+
+.empty-table-message {
+  color: rgba(0, 0, 0, 0.54);
+  font-style: italic;
+}
+
+.trades-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th {
+    text-align: left;
+    padding: 4px 8px;
+    border-bottom: 2px solid #e0e0e0;
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(0, 0, 0, 0.54);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 3px 8px;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+}
+
+.mono {
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.positive { color: #2e7d32; }
+.negative { color: #c62828; }
+
+// ── Cohort drill-down ───────────────────────────────────────────────────────
+
+.cohort-toggle {
+  padding: 0 4px;
+  min-width: 0;
+
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+}
+
+.cohort-detail {
+  margin: 8px 0 16px 24px;
+  padding: 8px 12px;
+  border-left: 3px solid #00838f;
+  background: #fafafa;
+  border-radius: 0 4px 4px 0;
+}
+
+.expression-block {
+  margin-bottom: 12px;
+}
+
+.expression-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 4px 0;
+}
+
+.variant-runs {
+  margin-left: 12px;
+  font-size: 12px;
+}
+
+.trade-ref {
+  color: rgba(0, 0, 0, 0.54);
+}
+
+.variant-run {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 12px 2px 0;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: var(--mat-sys-surface-container, #eee);
+  font-size: 11px;
+
+  &.governing {
+    border: 1px solid #00838f;
+    background: #00838f11;
+  }
+}
+
+.variant-key {
+  font-weight: 600;
+}
+
+.gov-badge {
+  font-size: 9px;
+  font-weight: 700;
+  color: #00838f;
+  text-transform: uppercase;
+}

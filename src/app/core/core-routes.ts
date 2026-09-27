@@ -78,6 +78,11 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.PortfolioDashboardComponent),
                 canActivate: [authGuard],
             },
+            {path: AppRoutes.PORTFOLIO_ALLOCATION,
+                loadComponent: () => import('../features/portfolio-dashboard/allocation-page.component')
+                .then(mod => mod.AllocationPageComponent),
+                canActivate: [authGuard],
+            },
             {path: AppRoutes.TRADE_JOURNAL,
                 loadComponent: () => import('../features/trade-journal/trade-journal.view')
                 .then(mod => mod.TradeJournalViewComponent),
@@ -156,6 +161,11 @@ import { authGuard } from './auth/auth.guard';
             {path: AppRoutes.STRATEGY_BUILDER,
                 loadComponent: () => import('../features/savant-trader/pages/strategy-builder/strategy-builder.component')
                 .then(mod => mod.StrategyBuilderComponent),
+                canActivate: [authGuard],
+            },
+            {path: AppRoutes.PAPER_TRADING,
+                loadComponent: () => import('../features/savant-trader/pages/paper-trading/paper-trading.component')
+                .then(mod => mod.PaperTradingComponent),
                 canActivate: [authGuard],
             },
             {path: AppRoutes.OPTION_CHAIN_PCT_CHANGE,
