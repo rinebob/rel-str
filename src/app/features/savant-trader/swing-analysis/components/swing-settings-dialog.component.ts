@@ -50,15 +50,6 @@ const CONFIG_LABELS = ['Large Swings', 'Small Swings'] as const;
       />
     </label>
 
-    <label class="control control-checkbox">
-      <input
-        data-testid="dual-mode-toggle"
-        type="checkbox"
-        [checked]="dualMode()"
-        (change)="onToggleDualMode($event)"
-      />
-      <span class="control-label">Dual Mode</span>
-    </label>
   </section>
 
   <section class="config-sections">
@@ -269,7 +260,6 @@ export class SwingSettingsDialogComponent implements OnDestroy {
 
   readonly symbol = this.store.symbol;
   readonly configs = this.store.configs;
-  readonly dualMode = this.store.dualMode;
   readonly loading = this.store.loading;
 
   /** Pending lineColor update awaiting the debounce window. */
@@ -301,12 +291,6 @@ export class SwingSettingsDialogComponent implements OnDestroy {
     this.store.setSymbol(value);
   }
 
-  onToggleDualMode(event: Event): void {
-    const checked = (event.target as HTMLInputElement).checked;
-    if (checked !== this.store.dualMode()) {
-      this.store.toggleDualMode();
-    }
-  }
 
   onNumberParam(index: number, key: NumericParam, event: Event): void {
     const raw = (event.target as HTMLInputElement).value;

@@ -45,10 +45,8 @@ import { StatsPanelComponent } from './components/stats-panel.component';
 import type { PriceBar, Swing, SwingStats } from '../../shared/components/flex-chart/indicators/st-zigzag.engine';
 import type { ChartDataset } from '../../heatmap-chart/heatmap-chart.types';
 import type { SwingAnalysisDoc } from './swing-analysis.types';
-import { deriveParamsId } from './swing-analysis.types';
 import { NO_MEMBERSHIP } from '../common/constants';
 import { isUnlisted } from '../utils/utils';
-import type { ZigZagConfig } from '../../shared/components/flex-chart/indicators/st-zigzag.types';
 
 // =============================================================================
 // Mock child components — capture inputs so the page test can assert wiring
@@ -420,7 +418,7 @@ describe('SwingAnalysisPageComponent', () => {
   it('passes null smallSwings to the swing table in single mode', async () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
-    store.toggleDualMode(); // dual is the default — turn off for single mode
+    store.removeActiveConfig(1); // two configs by default — drop slot 1
     fixture.detectChanges();
     const table = fixture.nativeElement.querySelector('.mock-swing-table');
     expect(table.getAttribute('data-small-swing-count')).toBe('null');
@@ -437,7 +435,7 @@ describe('SwingAnalysisPageComponent', () => {
   it('passes null statsSets to the stats panel in single mode', async () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
-    store.toggleDualMode(); // dual is the default — turn off for single mode
+    store.removeActiveConfig(1); // two configs by default — drop slot 1
     fixture.detectChanges();
     const panel = fixture.nativeElement.querySelector('.mock-stats-panel');
     expect(panel.getAttribute('data-stats-sets')).toBe('null');
@@ -543,20 +541,13 @@ describe('SwingAnalysisPageComponent', () => {
   });
 
   // =========================================================================
-  // Dual mode — toggle, collapsible config sections, unique indicator ids
+  // Config sections — collapsible config sections, unique indicator ids
   // =========================================================================
 
-  it('renders a dual-mode toggle control', async () => {
-    const { fixture } = await setupPage();
-    fixture.detectChanges();
-    openSettings(fixture);
-    const toggle = dlg().querySelector('[data-testid="dual-mode-toggle"]');
-    expect(toggle).toBeTruthy();
-  });
 
-  it('shows one config section when dual mode is off', async () => {
+  it('shows one config section with a single config', async () => {
     const { fixture, store } = await setupPage();
-    store.toggleDualMode(); // dual is the default — turn off
+    store.removeActiveConfig(1); // two configs by default — drop slot 1
     fixture.detectChanges();
     openSettings(fixture);
     const sections = dlg().querySelectorAll('.config-section');
@@ -582,23 +573,10 @@ describe('SwingAnalysisPageComponent', () => {
     expect(labels[1].textContent.trim()).toBe('Small Swings');
   });
 
-  it('calls store.toggleDualMode when the toggle is clicked', async () => {
-    const { fixture, store } = await setupPage();
-    store.setSymbol('AAPL');
-    fixture.detectChanges();
-    const toggleSpy = jest.spyOn(store, 'toggleDualMode');
-    openSettings(fixture);
-    const toggle = dlg().querySelector('[data-testid="dual-mode-toggle"]') as HTMLInputElement;
-    // Dual is the default — unchecking differs from dualMode() so the
-    // handler's guard passes and toggleDualMode is invoked.
-    toggle.checked = false;
-    toggle.dispatchEvent(new Event('change'));
-    expect(toggleSpy).toHaveBeenCalled();
-  });
 
-  it('builds chartConfig with one IndicatorConfig when dual mode off', async () => {
+  it('builds chartConfig with one IndicatorConfig when one config is active', async () => {
     const { fixture, store } = await setupPage();
-    store.toggleDualMode(); // dual is the default — turn off
+    store.removeActiveConfig(1); // two configs by default — drop slot 1
     fixture.detectChanges();
     const chartComp = fixture.debugElement.query((el: any) => el.nativeElement.classList?.contains('mock-flex-chart'));
     const config = chartComp.componentInstance.config;
@@ -720,7 +698,7 @@ describe('SwingAnalysisPageComponent', () => {
     openSettings(fixture);
     expect(dlg().querySelectorAll('.config-section').length).toBe(2);
 
-    store.toggleDualMode(); // dual is the default — this turns it off
+    store.removeActiveConfig(1); // two configs by default — drop slot 1
     fixture.detectChanges();
     expect(dlg().querySelectorAll('.config-section').length).toBe(1);
     const chartComp = fixture.debugElement.query((el: any) => el.nativeElement.classList?.contains('mock-flex-chart'));
@@ -908,185 +886,6 @@ describe('SwingAnalysisPageComponent — batch sweep UI', () => {
   });
 });
 
-// =============================================================================
-// Saved-sets browser — lazy collection load, filter, multi-select, N-slot load
-// =============================================================================
-
-function makeStats(): SwingStats {
-  const ds = { mean: 0, median: 0, stdDev: 0, min: 0, max: 0, p10: 0, p25: 0, p50: 0, p75: 0, p90: 0 };
-  const side = () => ({
-    count: 1, magnitudePercent: { ...ds }, magnitudeAbsolute: { ...ds },
-    duration: { ...ds }, magnitudeHistogram: { bins: [] }, durationHistogram: { bins: [] },
-  });
-  return { up: side(), down: side() };
-}
-
-function makeSetDoc(id: string, symbol: string, config: ZigZagConfig, savedAt: string): SwingAnalysisDoc {
-  return {
-    id, userId: 'u', symbol, paramsId: deriveParamsId(config),
-    config,
-    pivots: [], projection: null, swings: [], stats: makeStats(), savedAt,
-  };
-}
-
-describe('SwingAnalysisPageComponent — saved-sets browser', () => {
-  // The page opens on QQQ — the panel fetches the current symbol's sets.
-  const sets = () => [
-    // dev10 + dev3 match the live default slots (LARGE_CONFIG/SMALL_CONFIG)
-    // → their rows render checked when the panel opens.
-    makeSetDoc('QQQ_dev10', 'QQQ', { ...LARGE_CONFIG }, '2026-09-20T10:00:00Z'),
-    makeSetDoc('QQQ_dev3', 'QQQ', { ...SMALL_CONFIG }, '2026-09-21T10:00:00Z'),
-    makeSetDoc('QQQ_dev2', 'QQQ', { ...SMALL_CONFIG, devThreshold: 2, leftDepth: 2, rightDepth: 2 }, '2026-09-18T10:00:00Z'),
-    makeSetDoc('MSFT_dev5', 'MSFT', { ...LARGE_CONFIG, devThreshold: 5, leftDepth: 5, rightDepth: 5 }, '2026-09-19T10:00:00Z'),
-  ];
-
-  async function setupWithSets() {
-    const allSets = sets();
-    const service = mockSwingAnalysisService([], allSets);
-    // Symbol-scoped fetch — mirror the real query's where(symbol==).
-    service.loadSavedAnalyses.mockImplementation((sym: string) =>
-      of(allSets.filter((d) => d.symbol === sym)),
-    );
-    const { fixture, store } = await setupPage(
-      makeBars(40), undefined, service, ['QQQ', 'MSFT', 'AAPL'],
-    );
-    return { fixture, store, service };
-  }
-
-  function expandPanel(fixture: ComponentFixture<SwingAnalysisPageComponent>): void {
-    const details = fixture.nativeElement.querySelector('[data-testid="saved-sets-section"]') as HTMLDetailsElement;
-    details.open = true;
-    details.dispatchEvent(new Event('toggle'));
-    fixture.detectChanges();
-  }
-
-  it('lazy-loads the current symbol\'s sets on first expand only — never the whole collection', async () => {
-    const { fixture, service } = await setupWithSets();
-    expect(service.loadSavedAnalyses).not.toHaveBeenCalled();
-    expect(service.loadAllSwingSets).not.toHaveBeenCalled();
-
-    expandPanel(fixture);
-    expect(service.loadSavedAnalyses).toHaveBeenCalledWith('QQQ');
-    expect(service.loadAllSwingSets).not.toHaveBeenCalled();
-    expect(fixture.nativeElement.querySelectorAll('[data-testid="saved-set-row"]').length).toBe(3);
-
-    // Second expand does not refetch.
-    const details = fixture.nativeElement.querySelector('[data-testid="saved-sets-section"]') as HTMLDetailsElement;
-    details.open = false;
-    details.dispatchEvent(new Event('toggle'));
-    fixture.detectChanges();
-    details.open = true;
-    details.dispatchEvent(new Event('toggle'));
-    fixture.detectChanges();
-    expect(service.loadSavedAnalyses).toHaveBeenCalledTimes(1);
-  });
-
-  it('switching the symbol picker refetches that symbol\'s sets, newest-first', async () => {
-    const { fixture, service } = await setupWithSets();
-    expandPanel(fixture);
-
-    const select = fixture.nativeElement.querySelector('[data-testid="saved-sets-symbol"]') as HTMLSelectElement;
-    select.value = 'MSFT';
-    select.dispatchEvent(new Event('change'));
-    fixture.detectChanges();
-
-    expect(service.loadSavedAnalyses).toHaveBeenCalledWith('MSFT');
-    const rows = fixture.nativeElement.querySelectorAll('[data-testid="saved-set-row"]');
-    expect(rows.length).toBe(1);
-    expect(rows[0].textContent).toContain('dev5_L5_R5');
-  });
-
-  it('follows nav — symbol change refetches that symbol\'s sets and resyncs picker + checks', async () => {
-    const { fixture, store, service } = await setupWithSets();
-    expandPanel(fixture);
-    expect(service.loadSavedAnalyses).toHaveBeenCalledWith('QQQ');
-
-    store.setSymbol('MSFT');
-    fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
-
-    // Refetched for the new symbol — dropdown follows, rows show MSFT docs.
-    expect(service.loadSavedAnalyses).toHaveBeenCalledWith('MSFT');
-    const select = fixture.nativeElement.querySelector('[data-testid="saved-sets-symbol"]') as HTMLSelectElement;
-    expect(select.value).toBe('MSFT');
-    const rows = fixture.nativeElement.querySelectorAll('[data-testid="saved-set-row"]');
-    expect(rows.length).toBe(1);
-    expect(rows[0].textContent).toContain('dev5_L5_R5');
-
-    // Checks reflect the CURRENT symbol's configs — dev5 matches no live
-    // slot, so the row is unchecked (no stale QQQ checks carried over).
-    const box = rows[0].querySelector('[data-testid="saved-set-checkbox"]') as HTMLInputElement;
-    expect(box.checked).toBe(false);
-  });
-
-  it('doc rows sort newest savedAt first', async () => {
-    const { fixture } = await setupWithSets();
-    expandPanel(fixture);
-
-    const rows = fixture.nativeElement.querySelectorAll('[data-testid="saved-set-row"]');
-    expect(rows.length).toBe(3);
-    // Newest-first: dev3 (09-21), dev10 (09-20), dev2 (09-18).
-    expect(rows[0].textContent).toContain('dev3_L3_R3');
-    expect(rows[1].textContent).toContain('dev10_L10_R10');
-    expect(rows[2].textContent).toContain('dev2_L2_R2');
-  });
-
-  it('docs matching the live config slots are checked by default', async () => {
-    const { fixture } = await setupWithSets();
-    expandPanel(fixture);
-
-    const boxes = fixture.nativeElement.querySelectorAll('[data-testid="saved-set-checkbox"]') as NodeListOf<HTMLInputElement>;
-    // Rows newest-first: dev3 (slot 1), dev10 (slot 0) checked; dev2 not.
-    expect(boxes[0].checked).toBe(true);
-    expect(boxes[1].checked).toBe(true);
-    expect(boxes[2].checked).toBe(false);
-    const btn = fixture.nativeElement.querySelector('[data-testid="load-sets-btn"]') as HTMLButtonElement;
-    expect(btn.disabled).toBe(false);
-    expect(btn.textContent).toContain('Load 2 selected');
-  });
-
-  it('unchecking an auto-checked slot doc removes it; Load disables when none checked', async () => {
-    const { fixture } = await setupWithSets();
-    expandPanel(fixture);
-    const btn = () => fixture.nativeElement.querySelector('[data-testid="load-sets-btn"]') as HTMLButtonElement;
-    const boxes = () => fixture.nativeElement.querySelectorAll('[data-testid="saved-set-checkbox"]') as NodeListOf<HTMLInputElement>;
-
-    boxes()[0].click(); // uncheck dev3
-    fixture.detectChanges();
-    expect(boxes()[0].checked).toBe(false);
-    expect(btn().disabled).toBe(false); // dev10 still checked
-
-    boxes()[1].click(); // uncheck dev10
-    fixture.detectChanges();
-    expect(btn().disabled).toBe(true);
-  });
-
-  it('Load calls loadSwingSetsIntoSlots with the checked docs; N slots render N config sections', async () => {
-    const { fixture, store } = await setupWithSets();
-    expandPanel(fixture);
-    const spy = jest.spyOn(store, 'loadSwingSetsIntoSlots');
-
-    // dev3 + dev10 are already auto-checked (they match the live slots) —
-    // checking dev2 yields all three QQQ docs.
-    const boxes = fixture.nativeElement.querySelectorAll('[data-testid="saved-set-checkbox"]') as NodeListOf<HTMLInputElement>;
-    boxes[2].click();
-    fixture.detectChanges();
-
-    fixture.nativeElement.querySelector('[data-testid="load-sets-btn"]').click();
-    fixture.detectChanges();
-
-    expect(spy).toHaveBeenCalledTimes(1);
-    const docs = spy.mock.calls[0][0] as SwingAnalysisDoc[];
-    expect(docs.map((d) => d.id)).toEqual(['QQQ_dev3', 'QQQ_dev10', 'QQQ_dev2']);
-    expect(store.configs().length).toBe(3);
-    expect(store.configs().map((c) => c.devThreshold)).toEqual([3, 10, 2]);
-    // N>2 actually renders N config sections + N chart overlays.
-    openSettings(fixture);
-    expect(dlg().querySelectorAll('[data-testid^="config-section-"]').length).toBe(3);
-    expect(fixture.componentInstance.chartConfig().indicators.length).toBe(3);
-  });
-});
 
 describe('SwingAnalysisPageComponent — symbol nav', () => {
   it('renders prev/next, current symbol, and position in the nav sequence', async () => {

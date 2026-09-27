@@ -23,7 +23,6 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { SwingAnalysisStore } from './swing-analysis.store';
 import { SwingTableComponent } from './components/swing-table.component';
 import { StatsPanelComponent, StatsSets } from './components/stats-panel.component';
-import { SavedSetsComponent } from './components/saved-sets.component';
 import { SymbolNavComponent } from './components/symbol-nav.component';
 import { SwingSettingsDialogComponent } from './components/swing-settings-dialog.component';
 import { FlexChartComponent } from '../../shared/components/flex-chart/flex-chart.component';
@@ -81,7 +80,6 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
     FlexChartComponent,
     SwingTableComponent,
     StatsPanelComponent,
-    SavedSetsComponent,
     SymbolNavComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -136,9 +134,6 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
       {{ error() }}
     </div>
   }
-
-  <!-- Saved-sets browser — symbol-first picker, N-slot load. -->
-  <app-saved-sets />
 
   <section class="swing-analysis-chart">
     <app-flex-chart
@@ -257,7 +252,6 @@ export class SwingAnalysisPageComponent implements OnDestroy {
   // Re-expose store signals for template binding.
   readonly symbol = this.store.symbol;
   readonly configs = this.store.configs;
-  readonly dualMode = this.store.dualMode;
   readonly swings = computed(() => this.store.swings()[0] ?? []);
   /** Small swings for the nested tree table — only meaningful for the
    *  exact-2 (dual) layout; N>2 loaded sets show the flat slot-0 view. */
@@ -316,8 +310,8 @@ export class SwingAnalysisPageComponent implements OnDestroy {
     this.store.resetState();
     this.store.setSymbol(DEFAULT_SYMBOL);
     this.ui.setFullscreen(true);
-    // Tracked-symbols universe — feeds the nav sequence and the saved-sets
-    // symbol picker. Guarded no-op once loaded.
+    // Tracked-symbols universe — feeds the nav sequence.
+    // Guarded no-op once loaded.
     this.store.loadTrackedSymbols();
   }
 
