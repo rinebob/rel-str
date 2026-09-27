@@ -1,9 +1,9 @@
-/**
- * SwingSettingsDialogComponent — the swing-analysis page's settings gear.
+﻿/**
+ * SwingSettingsDialogComponent ΓÇö the swing-analysis page's settings gear.
  *
  * Two-list config manager: the top "Available" section lists canned presets
  * plus the user's st-swing-configs library (activated with `+`, deleted with
- * `×`); the bottom "Active" section lists the N live configs with edit-expand
+ * `├ù`); the bottom "Active" section lists the N live configs with edit-expand
  * param controls, clone/remove row actions, and a save-to-library row. The
  * library loads lazily when the dialog opens. Symbol selection lives in the
  * nav row's tracked-only autocomplete, not here.
@@ -30,7 +30,7 @@ const NUMERIC_BOUNDS: Record<NumericParam, { min: number; max: number }> = {
   rightDepth: { min: 2, max: 100 },
 };
 
-/** Labels for each config section — index 0 is the large/primary config. */
+/** Labels for each config section ΓÇö index 0 is the large/primary config. */
 const CONFIG_LABELS = ['Large Swings', 'Small Swings'] as const;
 
 @Component({
@@ -56,7 +56,7 @@ const CONFIG_LABELS = ['Large Swings', 'Small Swings'] as const;
     />
   </label>
 
-  <!-- Available configs — presets + saved library; "+" activates into configs[]. -->
+  <!-- Available configs ΓÇö presets + saved library; "+" activates into configs[]. -->
   <section class="available" data-testid="available-configs">
     <h3 class="section-heading">Available</h3>
     <div class="group-label">Presets</div>
@@ -74,7 +74,7 @@ const CONFIG_LABELS = ['Large Swings', 'Small Swings'] as const;
     }
     <div class="group-label">Saved</div>
     @if (configLibraryLoading()) {
-      <div class="lib-empty">Loading…</div>
+      <div class="lib-empty">LoadingΓÇª</div>
     } @else if (configLibrary().length === 0) {
       <div class="lib-empty" data-testid="library-empty">No saved configs</div>
     } @else {
@@ -93,13 +93,13 @@ const CONFIG_LABELS = ['Large Swings', 'Small Swings'] as const;
             [attr.data-testid]="'saved-delete-' + doc.paramsId"
             type="button"
             (click)="onDeleteSaved(doc)"
-          >×</button>
+          >├ù</button>
         </div>
       }
     }
   </section>
 
-  <!-- Active configs — N live slots; row actions + edit-expand param controls. -->
+  <!-- Active configs ΓÇö N live slots; row actions + edit-expand param controls. -->
   <section class="config-sections">
     <h3 class="section-heading">Active</h3>
   @for (cfg of configs(); track $index; let i = $index) {
@@ -215,6 +215,7 @@ const CONFIG_LABELS = ['Large Swings', 'Small Swings'] as const;
           mat-raised-button
           color="primary"
           type="button"
+          class="save-config-btn"
           (click)="onSaveToLibrary(i, saveName.value)"
         >
           Save
@@ -224,7 +225,7 @@ const CONFIG_LABELS = ['Large Swings', 'Small Swings'] as const;
   }
   </section>
 
-  <!-- Batch sweep — same store orchestration, tucked inside settings. -->
+  <!-- Batch sweep ΓÇö same store orchestration, tucked inside settings. -->
   <app-batch-sweep />
 </mat-dialog-content>
 <mat-dialog-actions align="end">
@@ -239,7 +240,7 @@ const CONFIG_LABELS = ['Large Swings', 'Small Swings'] as const;
       min-width: 640px;
     }
     .section-heading {
-      margin: 0 0 4px;
+      margin: 0 0 2px;
       font-size: 0.8rem;
       font-weight: 600;
       text-transform: uppercase;
@@ -263,7 +264,7 @@ const CONFIG_LABELS = ['Large Swings', 'Small Swings'] as const;
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 4px 8px;
+      padding: 2px 8px;
       border: 1px solid #e4e4e4;
       border-radius: 4px;
       background: #fafafa;
@@ -312,8 +313,8 @@ const CONFIG_LABELS = ['Large Swings', 'Small Swings'] as const;
       border-radius: 4px;
     }
     .row-btn {
-      font-size: 0.75rem;
-      padding: 2px 8px;
+      font-size: 0.72rem;
+      padding: 1px 6px;
       border: 1px solid #ccc;
       border-radius: 4px;
       background: #fff;
@@ -325,10 +326,16 @@ const CONFIG_LABELS = ['Large Swings', 'Small Swings'] as const;
     .row-btn-danger {
       color: #b3261e;
     }
+    .save-config-btn {
+      min-height: 26px;
+      line-height: 26px;
+      padding: 0 10px;
+      font-size: 0.75rem;
+    }
     .config-sections {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px;
     }
     .config-section {
       border: 1px solid #ddd;
@@ -338,8 +345,8 @@ const CONFIG_LABELS = ['Large Swings', 'Small Swings'] as const;
     .config-section-header {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
+      gap: 6px;
+      padding: 4px 8px;
       background: #f5f5f5;
       cursor: pointer;
       user-select: none;
@@ -364,44 +371,43 @@ const CONFIG_LABELS = ['Large Swings', 'Small Swings'] as const;
     .config-controls {
       display: flex;
       flex-wrap: wrap;
-      gap: 12px;
-      align-items: flex-end;
-      padding: 12px;
+      gap: 6px 10px;
+      align-items: center;
+      padding: 8px;
     }
     .control {
       display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .control-checkbox {
       flex-direction: row;
       align-items: center;
       gap: 6px;
     }
     .control-label {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       color: #666;
       text-transform: uppercase;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
     }
     .control input[type="number"] {
-      padding: 4px 8px;
+      padding: 2px 6px;
+      font-size: 0.8rem;
       border: 1px solid #ccc;
       border-radius: 4px;
-      width: 100px;
+      width: 64px;
     }
     .control input[type="text"] {
-      padding: 4px 8px;
+      padding: 2px 6px;
+      font-size: 0.8rem;
       border: 1px solid #ccc;
       border-radius: 4px;
-      width: 200px;
+      width: 150px;
     }
     .control input[type="color"] {
       padding: 0;
       border: 1px solid #ccc;
       border-radius: 4px;
-      width: 40px;
-      height: 28px;
+      width: 28px;
+      height: 22px;
       cursor: pointer;
     }
   `],
@@ -415,7 +421,7 @@ export class SwingSettingsDialogComponent implements OnDestroy {
   readonly configLibraryLoading = this.store.configLibraryLoading;
   readonly error = this.store.error;
 
-  /** Canned presets — display name + immutable template config. */
+  /** Canned presets ΓÇö display name + immutable template config. */
   readonly presets = [
     { name: 'Large', config: LARGE_CONFIG },
     { name: 'Small', config: SMALL_CONFIG },
@@ -427,7 +433,7 @@ export class SwingSettingsDialogComponent implements OnDestroy {
   private colorDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
-    // Lazy load — the saved group renders only after the dialog opens.
+    // Lazy load ΓÇö the saved group renders only after the dialog opens.
     this.store.loadConfigLibrary();
   }
 
@@ -435,12 +441,12 @@ export class SwingSettingsDialogComponent implements OnDestroy {
     if (this.colorDebounceTimer !== null) clearTimeout(this.colorDebounceTimer);
   }
 
-  /** Label for a config section — "Large Swings" or "Small Swings". */
+  /** Label for a config section ΓÇö "Large Swings" or "Small Swings". */
   configLabel(index: number): string {
     return CONFIG_LABELS[index] ?? `Config ${index}`;
   }
 
-  /** Compact param summary — fallback display for unnamed library docs and
+  /** Compact param summary ΓÇö fallback display for unnamed library docs and
    *  the save-name placeholder. Includes the flag params (paramsId segments)
    *  so two docs differing only in flags don't render identically. */
   paramSummary(cfg: ZigZagConfig): string {
@@ -449,7 +455,7 @@ export class SwingSettingsDialogComponent implements OnDestroy {
     return `dev${cfg.devThreshold} L${cfg.leftDepth} R${cfg.rightDepth} ${oneBar} ${trig}`;
   }
 
-  /** Numeric bounds for a param — single source of truth for template and handler. */
+  /** Numeric bounds for a param ΓÇö single source of truth for template and handler. */
   numericBounds(key: NumericParam): { min: number; max: number } {
     return NUMERIC_BOUNDS[key];
   }
@@ -459,7 +465,7 @@ export class SwingSettingsDialogComponent implements OnDestroy {
     this.store.setSymbol(value);
   }
 
-  /** Activate a preset or library config — pushes a copy into configs[]. */
+  /** Activate a preset or library config ΓÇö pushes a copy into configs[]. */
   activateConfig(cfg: ZigZagConfig): void {
     this.store.activateConfig({ ...cfg });
   }
@@ -498,7 +504,7 @@ export class SwingSettingsDialogComponent implements OnDestroy {
     this.store.updateConfig(index, { [key]: checked });
   }
 
-  /** Debounce the native color picker — it fires `input` continuously while
+  /** Debounce the native color picker ΓÇö it fires `input` continuously while
    *  dragging, and each event triggers a full pivots/swings/stats recompute
    *  in updateConfig. Hold the latest value for 300 ms (same window as the
    *  indicator-menu debounce) and apply once. */
