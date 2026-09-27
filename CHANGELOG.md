@@ -11,6 +11,8 @@
 ## [2026-09-26]
 
 ### Added
+- [Paper Trading Infra] 553-559-568_FE-IMPL-PAPER-TRADING: Strategy-builder governing-variant selector — family + param → BE-parseable keys, registry-driven options
+- [Paper Trading Infra] 553-559-568_DOCS-PAPER-TRADING: Code review (PASS, 4 rounds — param validation, silent-error surface)
 - [Paper Trading Infra] 553-559-569_FE-IMPL-PAPER-TRADING: Paper trading dashboard — account header, 5-dim group-by, cohort drill-down, per-scope equity curve
 - [Paper Trading Infra] 553-559-569_DOCS-PAPER-TRADING: Code review (PASS, 2 rounds — caught Map/Object.entries production bug)
 - [Paper Trading Infra] 553-559-567_FE-IMPL-PAPER-TRADING: Accept-as-paper on signal-order — PAPER status, confirm dialog paper mode, staged-signal gating
