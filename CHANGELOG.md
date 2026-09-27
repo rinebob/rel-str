@@ -3,6 +3,17 @@
 ## [2026-09-26]
 
 ### Added
+- [Portfolio] 576-582-586_SHARED-IMPL-PORTFOLIO: Owner-scoped allocation contracts — required userId on buckets + attributions
+- [Portfolio] 576-582-586_SHARED-IMPL-PORTFOLIO: Anchored collection paths — portfolio/{buckets,attributions}/items
+- [Portfolio] 576-582-586_CONFIG-IMPL-PORTFOLIO: @portfolio-allocation tsconfig/jest aliases
+- [Portfolio] 576-585-586_CONFIG-IMPL-PORTFOLIO: Owner-scoped Firestore rules for allocation collections
+- [Portfolio] 576-585-586_CONFIG-IMPL-PORTFOLIO: Composite indexes — items userId+accountNumber(+status)
+- [Portfolio] 576-582-586_FE-IMPL-PORTFOLIO: Broker order legs + executions on the MCP client
+- [Portfolio] 576-582-586_FE-IMPL-PORTFOLIO: MCP→domain allocation mappers (positions/fills, leg expansion, sell→close inference)
+- [Portfolio] 576-582-586_FE-IMPL-PORTFOLIO: AllocationBucketService — txn-guarded CRUD, frozen slug ids
+- [Portfolio] 576-582-586_FE-IMPL-PORTFOLIO: PositionAttributionService — atomic linkKey groups, ticket seeding, unassign
+- [Portfolio] 576-582-586_FE-IMPL-PORTFOLIO: AllocationDataService — all-accounts list, snapshot/positions/fills seam
+- [Portfolio] 576-582-586_DOCS-PORTFOLIO: Prod verify round-trip + code review (PASS) + UAT + anchored-collection doc sync
 - [Swing Analysis Page] 594-605_FE-IMPL-SWING-ANALYSIS: st-swing-configs config library - slim docs, paramsId-keyed CRUD, showTriggerDots hashing
 - [Swing Analysis Page] 594-605_CONFIG-IMPL-SWING-ANALYSIS: st-swing-configs security rules
 - [Swing Analysis Page] 594-605_FE-IMPL-SWING-ANALYSIS: Prod verify script - st-swing-configs round-trip
