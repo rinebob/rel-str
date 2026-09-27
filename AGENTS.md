@@ -77,18 +77,26 @@ into visual groups and one-off names are avoided:
 | Agent pipeline | `rh-agent-` | `rh-agent-runs` |
 | Options | `options-` | `options-file-index` |
 | Backtest | `backtest-` | `backtest-runs` |
-| Portfolio | `portfolio-` | `portfolio-buckets`, `portfolio-attributions` |
+| Portfolio | `portfolio` (anchored) | `portfolio/buckets/items`, `portfolio/attributions/items` |
 
 Flat collections with composite doc ids (`{entity}_{key}`) are preferred
-over nested trees — they allow single-query enumeration. Do not create
-catch-all collections that mix unrelated doc types (breaks security-rule
-granularity, query filters, and index management).
+over nested trees — they allow single-query enumeration. For domains with
+several record kinds, prefer ONE namespaced root using the anchor pattern
+(`{domain}/{kind-anchor}/items/{id}` — established by `paper-trading`,
+used by `portfolio`) over several `domain-*` root collections: the console
+stays browsable and each kind still scopes cleanly for rules/queries.
+Do not create catch-all collections that mix unrelated doc types (breaks
+security-rule granularity, query filters, and index management).
 
-**Approved exception (Topic #553, Blueprint #557):** `paper-trading` uses a
-single root collection with per-kind anchor docs — `paper-trading/{kind-anchor}/items/{id}` —
-so record types stay grouped (no mixed-type catch-all) while remaining
-browsable in the console. Each kind occupies its own `items` subcollection,
-so security rules and queries still scope per-kind via the path wildcard.
+**Anchor pattern (Topic #553, Blueprint #557 — generalized):** domains with
+multiple record kinds use a single root collection with per-kind anchor docs —
+`{domain}/{kind-anchor}/items/{id}` — so record types stay grouped (no
+mixed-type catch-all) while remaining browsable in the console. Each kind
+occupies its own `items` subcollection, so security rules and queries still
+scope per-kind via the path wildcard. Indexes declared on collectionGroup
+`items` are shared across all anchored domains — queries must target the
+full collection path (`collection(db, 'portfolio/buckets/items')`), not a
+collectionGroup, or they span domains.
 
 ## Project Workflow
 

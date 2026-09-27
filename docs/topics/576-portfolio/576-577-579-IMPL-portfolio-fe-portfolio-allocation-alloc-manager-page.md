@@ -24,9 +24,11 @@ A dedicated tabbed page in the `portfolio-dashboard` feature area. All live data
 
 ## 2. Services
 
-- `allocation-bucket.service.ts` — Firestore CRUD on `portfolio-buckets` (scoped by `accountNumber`); create/edit-target/rename/retire; slug generation for composite ids.
-- `position-attribution.service.ts` — `portfolio-attributions` reads + writes; `assign(position, bucketId)` and `move(position, toBucketId)` both append an `AttributionEvent`; seeds attribution from a ticket's `strategyName` → bucket `name` at fill time (agentic flow).
-- `allocation-data.service.ts` — thin wrappers over `RobinhoodMcpClient` for the selected account: portfolio/account value, equity + option positions, order history.
+- `allocation-bucket.service.ts` — CRUD on `portfolio/buckets/items` (scoped `userId` + `accountNumber`); `watchBuckets$`/`listBuckets$`/`createBucket$`/`updateTargetPct$`/`renameBucket$`/`retireBucket$`. Create + rename check the `{acct}_{slug}` doc id inside a transaction — occupied ids are never freed, so existence = conflict.
+- `position-attribution.service.ts` — `portfolio/attributions/items`; `attribute$` covers assign (new doc, `fromBucketId: null`) and move (append from→to); `unassign$` deletes the doc (absence = Unassigned); `seedFromTicket$` resolves `strategyName` → exactly-one ACTIVE bucket (0/>1 → Unassigned) and stamps `linkKey` = orderId. All mutators fan out atomically across `linkKey` siblings.
+- `allocation-data.service.ts` — MCP wrappers: `listAccounts` (all accounts, `agenticAllowed` surfaced not filtered), `getSnapshot` (broker cash = allocation basis), `getPositions` / `getFills` assembling domain inputs.
+- `allocation-mappers.ts` — pure MCP→domain mapping: equity keyed by symbol, options by instrumentId (×100), orders expand legs×executions into fills, equity sell→close inferred from `sharesHeldForSells`.
+- `RobinhoodMcpClient` — `BrokerOrder` gains optional `legs[]` (per-contract `optionId` + `positionEffect`) and `executions[]` (per-fill price/qty/timestamp); `normalizeOrder` parses both, tolerating `option_id` or `option` URL forms.
 
 ## 3. Store — `allocation.store.ts` (NgRx SignalStore)
 
@@ -52,7 +54,7 @@ Selectors (all per selected account):
 ## 5. Boundaries
 
 - Reads: `RobinhoodMcpClient` (existing) — no new MCP surface.
-- Writes: `portfolio-buckets`, `portfolio-attributions` via client SDK — no callables.
+- Writes: `portfolio/buckets/items`, `portfolio/attributions/items` via client SDK — no callables.
 - Shared: all math via `shared/portfolio-allocation-utils.ts`.
 - Order ticket: `strategyName` field added to `OrderTicket`/ticket types; strategy-driven flows stamp it; manual picker optional.
 

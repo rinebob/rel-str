@@ -25,9 +25,10 @@ export enum BucketStatus { ACTIVE = 'ACTIVE', RETIRED = 'RETIRED' }
 /** Named strategy group owning a funding target for ONE RH account. */
 export interface AllocationBucket {
   id: string;                    // `{accountNumber}_{slug}` — FROZEN at creation; rename updates `name` only
+  userId: string;                // owner uid — rules scope all access to it; list queries MUST filter userId==uid
   accountNumber: string;
   name: string;                  // strategy group name — ticket attribution key
-  targetPct: number;             // % of current account value
+  targetPct: number;             // % of allocation basis (broker-reported cash)
   status: BucketStatus;
   createdAt: string;
   updatedAt: string;
@@ -43,9 +44,11 @@ export interface AttributionEvent {
 /** Per-position attribution — a bucket owns the instrument's full activity. */
 export interface PositionAttribution {
   id: string;                    // `{accountNumber}_{instrumentId}` composite
+  userId: string;                // owner uid — rules scope all access to it
   accountNumber: string;
   instrumentId: string;
   bucketId: string;
+  linkKey?: string;              // parent orderId — multi-leg legs move atomically
   history: AttributionEvent[];   // appended on every change
   createdAt: string;
   updatedAt: string;
@@ -68,9 +71,10 @@ export interface BucketStats {
 
 ## 2. Firestore layout + rules
 
-- `portfolio-buckets/{account}_{slug}` — flat collection, composite ids (single-query enumeration per AGENTS.md convention). Bucket id is minted once at creation (frozen); renames update `name` only. **Uniqueness rule:** names compare by `bucketSlug(name)` — create fails if the `{account}_{slug}` doc exists (covers same-name, alias, and retired/renamed-away slugs — occupied ids are never freed); rename fails if any other bucket's name-slug equals the new name's. Both checks run in the same transaction as the write. Ticket match: ACTIVE bucket in the same account with equal name-slug; 0 or >1 → Unassigned. `toBucketId` never targets a RETIRED bucket.
-- `portfolio-attributions/{account}_{instrumentId}` — flat collection, composite ids.
-- `firestore.rules`: owner-scoped read/write (same pattern as `st-trading-config`); `portfolio.indexes.json` entries if queries need them (bucket list filters by `accountNumber` + `status`).
+- `portfolio/buckets/items/{account}_{slug}` — namespaced under the single `portfolio` root (anchor/items pattern, per AGENTS.md); composite ids, single-query enumeration. Queries MUST target the collection path — `items` collectionGroup indexes are shared across anchored domains. Bucket id is minted once at creation (frozen); renames update `name` only. **Uniqueness rule:** names compare by `bucketSlug(name)` — create fails if the `{account}_{slug}` doc exists (covers same-name, alias, and retired/renamed-away slugs — occupied ids are never freed); rename fails if any other bucket's name-slug equals the new name's. Both checks run in the same transaction as the write. Ticket match: ACTIVE bucket in the same account with equal name-slug; 0 or >1 → Unassigned. `toBucketId` never targets a RETIRED bucket.
+- `portfolio/attributions/items/{account}_{instrumentId}` — same anchored layout.
+- `firestore.rules`: owner-scoped read/write (`st-swing-sets` shape — `resource.data.userId` per-doc, no `resource==null` escape; **list queries must `where('userId','==',uid)`** or the rules engine denies the query outright). Anchor docs carry no data and are denied. Writers stamp `userId` = `request.auth.uid`.
+- `firestore.indexes.json`: composite indexes on collectionGroup `items` — (userId+accountNumber) and (userId+accountNumber+status, for ticket match). `linkKey` group fetches enumerate the account's attributions and filter client-side (small sets, no extra index).
 - Cash bucket and Unassigned are **derived views** — never stored docs.
 
 ## 3. Pure utils — `shared/portfolio-allocation-utils.ts` (+ `.spec.ts`)
