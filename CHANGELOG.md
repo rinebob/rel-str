@@ -3,6 +3,8 @@
 ## [2026-09-27]
 
 ### Added
+- [Swing Analysis Page] 594-608_FE-IMPL-SWING-ANALYSIS: Dialog compact control styling — inline label+input rows, compact inputs/buttons
+- [Swing Analysis Page] 594-608_DOCS-SWING-ANALYSIS: Code review (PASS) + UAT (Complete)
 - [Swing Analysis Page] 594-607_FE-IMPL-SWING-ANALYSIS: Dialog — two-list config manager (presets + saved library, active-row clone/remove/save-to-library); legacy snapshot store APIs removed
 - [Swing Analysis Page] 594-607_DOCS-SWING-ANALYSIS: Code review (PASS, 5 rounds) + UAT (Complete)
 
