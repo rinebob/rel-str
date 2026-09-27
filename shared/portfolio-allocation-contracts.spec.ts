@@ -22,6 +22,7 @@ function makeBucket(overrides: Partial<AllocationBucket> = {}): AllocationBucket
   const name = 'CSP Wheel';
   return {
     id: buildBucketId(ACCT, name),
+    userId: 'uid-1',
     accountNumber: ACCT,
     name,
     targetPct: 25,
@@ -60,7 +61,7 @@ describe('AllocationBucket', () => {
 describe('PositionAttribution', () => {
   it('linkKey is optional and identifies the multi-leg group', () => {
     const without: PositionAttribution = {
-      id: 'acct_SYM', accountNumber: 'acct', instrumentId: 'SYM',
+      id: 'acct_SYM', userId: 'uid-1', accountNumber: 'acct', instrumentId: 'SYM',
       bucketId: 'acct_b', history: [{ fromBucketId: null, toBucketId: 'acct_b', at: 't' }],
       createdAt: 't', updatedAt: 't',
     };
@@ -72,6 +73,7 @@ describe('PositionAttribution', () => {
   it('id matches the buildAttributionId format', () => {
     const attr: PositionAttribution = {
       id: buildAttributionId(ACCT, 'inst-1'),
+      userId: 'uid-1',
       accountNumber: ACCT,
       instrumentId: 'inst-1',
       bucketId: makeBucket().id,
@@ -99,6 +101,7 @@ describe('PositionAttribution', () => {
     const b2 = buildBucketId(ACCT, 'LEAP Drops');
     const attr: PositionAttribution = {
       id: buildAttributionId(ACCT, 'inst-1'),
+      userId: 'uid-1',
       accountNumber: ACCT,
       instrumentId: 'inst-1',
       bucketId: b2,

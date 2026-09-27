@@ -55,12 +55,16 @@ export enum BucketStatus {
 export interface AllocationBucket {
   /** Composite id `{accountNumber}_{slug}` — frozen at creation. */
   id: string;
+  /** Owner uid — Firestore rules scope all reads/writes to this field;
+   *  list queries must filter `userId == uid` (rules cannot evaluate
+   *  `resource` on queries). */
+  userId: string;
   accountNumber: string;
   /** Strategy group name — display + order-ticket attribution key. */
   name: string;
-  /** Percent of the account's current live value this bucket may hold.
-   *  Expected 0–100; the sum across buckets may exceed 100 (warn-only
-   *  drift state — never blocks order submission). */
+  /** Percent of the account's allocation basis (broker-reported cash) this
+   *  bucket may hold. Expected 0–100; the sum across buckets may exceed
+   *  100 (warn-only drift state — never blocks order submission). */
   targetPct: number;
   status: BucketStatus;
   /** ISO timestamps. */
@@ -97,6 +101,8 @@ export interface AttributionEvent {
 export interface PositionAttribution {
   /** Composite id `{accountNumber}_{instrumentId}` — see buildAttributionId. */
   id: string;
+  /** Owner uid — same rule-scoping contract as AllocationBucket.userId. */
+  userId: string;
   accountNumber: string;
   instrumentId: string;
   bucketId: string;
@@ -104,10 +110,12 @@ export interface PositionAttribution {
    * Optional multi-leg grouping key — the parent `orderId` shared by every
    * leg of a spread order. Attributions that share a `linkKey` move as a
    * UNIT: a post-hoc bucket move on any leg applies atomically to all legs
-   * in the same account (a split leg would read as a naked short/long in
-   * the receiving bucket and poison its P&L). Absent for single-leg
-   * positions. Writers set it at seed/assign time from the originating
-   * order; it never changes.
+   * carrying the key in the same account (a split leg would read as a
+   * naked short/long in the receiving bucket and poison its P&L). The
+   * unit bound is keyed legs — a leg with no attribution doc has no
+   * recorded group membership until seeded or assigned with `linkKey`.
+   * Absent for single-leg positions. Writers set it at seed/assign time
+   * from the originating order; it never changes.
    */
   linkKey?: string;
   /** Audit trail — append-only, ordered oldest → newest. */

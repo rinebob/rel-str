@@ -30,6 +30,7 @@ const NOW = '2026-09-26T12:00:00Z';
 function bucket(name = 'CSP Wheel', overrides: Partial<AllocationBucket> = {}): AllocationBucket {
   return {
     id: buildBucketId(ACCT, name),
+    userId: 'uid-1',
     accountNumber: ACCT,
     name,
     targetPct: 25,
@@ -43,6 +44,7 @@ function bucket(name = 'CSP Wheel', overrides: Partial<AllocationBucket> = {}): 
 function attribution(instrumentId: string, bucketId: string, accountNumber = ACCT): PositionAttribution {
   return {
     id: `${accountNumber}_${instrumentId}`,
+    userId: 'uid-1',
     accountNumber,
     instrumentId,
     bucketId,
