@@ -23,6 +23,8 @@ import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 
 import { StrategyBuilderFormComponent } from './strategy-builder-form.component';
 import { StrategyBuilderStore } from '../../stores/strategy-builder.store';
+import { PaperTradingStore } from '../../stores/paper-trading.store';
+import { PaperTradingKind, type ExitVariantConfig, type PaperStrategyInstance } from '@paper-trading/contracts';
 import { OptionType, PositionSpreadType, StrategyFrequency } from '@options/common';
 import { TradeSide } from '@common';
 import {
@@ -99,16 +101,33 @@ function makeInstance(overrides: Partial<StrategyInstanceConfig> = {}): Strategy
   };
 }
 
+// ── Paper-trading store stub — the variant registry selector ────────────────
+
+const VARIANTS: ExitVariantConfig[] = [
+  { key: 'initial-stop-10', label: 'Initial stop — 10%', params: { type: 'initial-stop', pct: 10 } },
+  { key: 'trailing-20', label: 'Trailing stop — 20%', params: { type: 'trailing-stop', pct: 20 } },
+  { key: 'time-30d', label: 'Time stop — 30d', params: { type: 'time-stop', days: 30 } },
+];
+
+function createMockPaperStore() {
+  return {
+    exitVariants: signal<ExitVariantConfig[]>(VARIANTS),
+    loadExitVariants: jest.fn(),
+  };
+}
+
 // ── Test setup ───────────────────────────────────────────────────────────────
 
 describe('StrategyBuilderFormComponent', () => {
   let fixture: ComponentFixture<StrategyBuilderFormComponent>;
   let component: StrategyBuilderFormComponent;
   let mockStore: ReturnType<typeof createMockStore>;
+  let mockPaperStore: ReturnType<typeof createMockPaperStore>;
   let mockDialogRef: { close: jest.Mock };
 
   async function configureWithStore(storeOverrides: Record<string, any> = {}, dialogData: { instance: StrategyInstanceConfig | null } = { instance: null }) {
     mockStore = createMockStore(storeOverrides);
+    mockPaperStore = createMockPaperStore();
     mockDialogRef = { close: jest.fn() };
 
     await TestBed.configureTestingModule({
@@ -116,6 +135,7 @@ describe('StrategyBuilderFormComponent', () => {
       providers: [
         provideNoopAnimations(),
         { provide: StrategyBuilderStore, useValue: mockStore },
+        { provide: PaperTradingStore, useValue: mockPaperStore },
         { provide: MatDialogRef, useValue: mockDialogRef },
         { provide: MAT_DIALOG_DATA, useValue: dialogData },
       ],
@@ -439,5 +459,104 @@ describe('StrategyBuilderFormComponent', () => {
   it('is in create mode when no instance provided', async () => {
     await configureWithStore();
     expect(component.isEditMode()).toBe(false);
+  });
+
+  // ── Governing variant selector (#568) ─────────────────────────────────────
+
+  it('loads the exit-variant registry and renders the family select', async () => {
+    await configureWithStore();
+    expect(mockPaperStore.loadExitVariants).toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('[data-testid="governing-variant-select"]')).toBeTruthy();
+    // Families derived from the registry's params.type.
+    expect(component.variantFamilies()).toEqual(['initial-stop', 'trailing-stop', 'time-stop']);
+  });
+
+  it('family+param derive the governingVariant key on save', async () => {
+    await configureWithStore();
+    expect(component.form.controls.variantFamily.value).toBe('none');
+    // No param input while 'none'.
+    expect(fixture.nativeElement.querySelector('[data-testid="variant-param-input"]')).toBeNull();
+
+    component.form.patchValue({
+      spreadType: PositionSpreadType.CASH_SECURED_PUT,
+      symbol: 'QQQM',
+      frequency: StrategyFrequency.DAILY,
+      openTimePT: '12:00',
+      targetDelta: 0.2,
+      dteMin: 21,
+      dteMax: 30,
+      variantFamily: 'trailing-stop',
+      variantParam: 15,
+    });
+    component.selectedExitPolicies.set([ExitPolicy.HOLD_TO_EXPIRATION]);
+    fixture.detectChanges();
+    // Param input appears for the selected family.
+    expect(fixture.nativeElement.querySelector('[data-testid="variant-param-input"]')).toBeTruthy();
+
+    await component.save();
+    expect(mockStore.create).toHaveBeenCalledWith(
+      expect.objectContaining({ governingVariant: 'trailing-15' }),
+    );
+  });
+
+  it('rejects a non-integer time-stop param — visible error, save disabled', async () => {
+    await configureWithStore();
+    component.form.patchValue({ variantFamily: 'time-stop', variantParam: 1.5 });
+    fixture.detectChanges();
+    expect(component.form.errors?.['variantParam']).toBe('integer');
+    expect(component.form.invalid).toBe(true);
+    // The error surfaces in the DOM — no silent dead-end.
+    const err = fixture.nativeElement.querySelector('[data-testid="variant-param-error"]');
+    expect(err?.textContent).toContain('whole number of days');
+    const saveBtn = fixture.nativeElement.querySelector('[data-testid="save-btn"]') as HTMLButtonElement;
+    expect(saveBtn.disabled).toBe(true);
+  });
+
+  it('rejects a null param for a non-none family', async () => {
+    await configureWithStore();
+    component.form.patchValue({ variantFamily: 'trailing-stop', variantParam: null });
+    fixture.detectChanges();
+    expect(component.form.errors?.['variantParam']).toBe('required');
+    expect(fixture.nativeElement.querySelector('[data-testid="variant-param-error"]')?.textContent)
+      .toContain('required');
+  });
+
+  it('family→none→family round-trip leaves the form valid as none', async () => {
+    await configureWithStore();
+    component.form.patchValue({ variantFamily: 'trailing-stop', variantParam: 20 });
+    component.form.patchValue({ variantFamily: 'none' });
+    fixture.detectChanges();
+    // 'none' is always valid — stale param is ignored by governingVariantKey.
+    expect(component.form.errors?.['variantParam'] ?? null).toBeNull();
+    expect((component as any).governingVariantKey()).toBe('none');
+  });
+
+  it('every family derives a registry-parseable key', async () => {
+    await configureWithStore();
+    const cases: [string, number, string][] = [
+      ['initial-stop', 10, 'initial-stop-10'],
+      ['trailing-stop', 20, 'trailing-20'],
+      ['time-stop', 30, 'time-30d'],
+      ['limit-stddev', 2.5, 'limit-sd2.5'],
+    ];
+    for (const [family, param, key] of cases) {
+      component.form.patchValue({ variantFamily: family, variantParam: param });
+      expect((component as any).governingVariantKey()).toBe(key);
+    }
+  });
+
+  it('pre-fills family+param from an existing instance in edit mode', async () => {
+    const instance = makeInstance() as PaperStrategyInstance;
+    instance.governingVariant = 'time-30d';
+    await configureWithStore({}, { instance });
+    expect(component.form.controls.variantFamily.value).toBe('time-stop');
+    expect(component.form.controls.variantParam.value).toBe(30);
+  });
+
+  it('unparseable stored variants surface as none (BE no-op parity)', async () => {
+    const instance = makeInstance() as PaperStrategyInstance;
+    instance.governingVariant = 'custom-legacy-key';
+    await configureWithStore({}, { instance });
+    expect(component.form.controls.variantFamily.value).toBe('none');
   });
 });

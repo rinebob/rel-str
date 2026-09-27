@@ -14,7 +14,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { catchError, of, Subscription } from 'rxjs';
 
-import { StrategyBuilderService } from '../services/strategy-builder.service';
+import { StrategyBuilderService, type InstanceInput } from '../services/strategy-builder.service';
 import type { StrategyInstanceConfig } from '@options-strategy-engine/contracts';
 import { LifecycleState } from '@options-strategy-engine/contracts';
 
@@ -86,7 +86,7 @@ export const StrategyBuilderStore = signalStore(
         },
 
         /** Create a new instance and refresh the list. */
-        async create(config: Omit<StrategyInstanceConfig, 'id' | 'userId' | 'createdAt' | 'updatedAt'>): Promise<void> {
+        async create(config: InstanceInput): Promise<void> {
           patchState(state, { isLoading: true, error: null });
           try {
             await service.createInstance(config);
@@ -98,7 +98,7 @@ export const StrategyBuilderStore = signalStore(
         },
 
         /** Update an existing instance and refresh the list. */
-        async update(id: string, changes: Partial<StrategyInstanceConfig>): Promise<void> {
+        async update(id: string, changes: Partial<InstanceInput>): Promise<void> {
           patchState(state, { isLoading: true, error: null });
           try {
             await service.updateInstance(id, changes);

@@ -114,6 +114,32 @@
         }
       </div>
 
+      <!-- Section: Governing exit variant (paper ledger) -->
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="field-sm" data-testid="governing-variant-select">
+          <mat-label>Governing Variant</mat-label>
+          <mat-select formControlName="variantFamily">
+            <mat-option value="none">None</mat-option>
+            @for (family of variantFamilies(); track family) {
+              <mat-option [value]="family">{{ familyLabels[family] }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        @if (variantParamMeta(); as meta) {
+          <mat-form-field appearance="outline" class="field-sm" data-testid="variant-param-input">
+            <mat-label>{{ meta.label }}</mat-label>
+            <input matInput type="number" formControlName="variantParam" [min]="meta.min" [step]="meta.step" />
+          </mat-form-field>
+        }
+        @if (form.errors?.['variantParam']) {
+          <div class="validation-error" data-testid="variant-param-error">
+            {{ form.errors?.['variantParam'] === 'integer'
+              ? 'Time stop requires a whole number of days'
+              : 'Variant param is required and must be positive' }}
+          </div>
+        }
+      </div>
+
       <!-- ID preview -->
       <div class="id-preview">
         <span class="id-label">ID:</span>

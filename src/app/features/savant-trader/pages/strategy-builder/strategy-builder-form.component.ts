@@ -14,6 +14,9 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 
 import { StrategyBuilderStore } from '../../stores/strategy-builder.store';
+import { PaperTradingStore } from '../../stores/paper-trading.store';
+import type { InstanceInput } from '../../services/strategy-builder.service';
+import type { ExitVariantParams, PaperStrategyInstance } from '@paper-trading/contracts';
 import { PositionSpreadType, StrategyFrequency, OptionType } from '@options/common';
 import { TradeSide } from '@common';
 import {
@@ -25,6 +28,64 @@ import {
 } from '@options-strategy-engine/contracts';
 import { generateInstanceId } from '@options-strategy-engine/id';
 
+/** Exit-variant families — mirrors the BE registry's parseVariantKey
+ *  patterns (functions/src/paper-trading/exits/registry.ts). The key is
+ *  param-encoded: initial-stop-{pct}, trailing-{pct}, time-{days}d,
+ *  limit-sd{sigma}. */
+type VariantFamily = ExitVariantParams['type'];
+
+const VARIANT_FAMILY_LABELS: Record<VariantFamily, string> = {
+  'initial-stop': 'Initial stop',
+  'trailing-stop': 'Trailing stop',
+  'time-stop': 'Time stop',
+  'limit-stddev': 'StdDev level',
+};
+
+const VARIANT_PARAM_META: Record<VariantFamily, { label: string; min: number; step: number }> = {
+  'initial-stop': { label: 'Stop %', min: 1, step: 1 },
+  'trailing-stop': { label: 'Trailing %', min: 1, step: 1 },
+  'time-stop': { label: 'Days', min: 1, step: 1 },
+  'limit-stddev': { label: 'σ multiplier', min: 0.5, step: 0.5 },
+};
+
+/** family+param → variantKey — the inverse of the BE's parseVariantKey. */
+export function variantKeyFor(family: VariantFamily, param: number): string {
+  switch (family) {
+    case 'initial-stop': return `initial-stop-${param}`;
+    case 'trailing-stop': return `trailing-${param}`;
+    case 'time-stop': return `time-${param}d`;
+    case 'limit-stddev': return `limit-sd${param}`;
+  }
+}
+
+/** variantKey → family+param — null when the key isn't parseable
+ *  (BE treats unparseable keys as no-op variants). */
+export function parseVariantKey(key: string): { family: VariantFamily; param: number } | null {
+  let m = key.match(/^initial-stop-(\d+(?:\.\d+)?)$/);
+  if (m) return { family: 'initial-stop', param: Number(m[1]) };
+  m = key.match(/^trailing-(\d+(?:\.\d+)?)$/);
+  if (m) return { family: 'trailing-stop', param: Number(m[1]) };
+  m = key.match(/^time-(\d+)d$/);
+  if (m) return { family: 'time-stop', param: Number(m[1]) };
+  m = key.match(/^limit-sd(\d+(?:\.\d+)?)$/);
+  if (m) return { family: 'limit-stddev', param: Number(m[1]) };
+  return null;
+}
+
+/** Group validator: a non-'none' family requires a positive finite param,
+ *  and time-stop requires an integer (BE regex is `\d+d`). */
+function variantParamValid(group: FormGroup): ValidationErrors | null {
+  const family = group.get('variantFamily')?.value;
+  if (!family || family === 'none') return null;
+  const param = group.get('variantParam')?.value;
+  if (param == null || !Number.isFinite(param) || param <= 0) {
+    return { variantParam: 'required' };
+  }
+  if (family === 'time-stop' && !Number.isInteger(param)) {
+    return { variantParam: 'integer' };
+  }
+  return null;
+}
 @Component({
   selector: 'app-strategy-builder-form-dialog',
   standalone: true,
@@ -43,6 +104,7 @@ import { generateInstanceId } from '@options-strategy-engine/id';
 })
 export class StrategyBuilderFormComponent {
   readonly store = inject(StrategyBuilderStore);
+  readonly paperStore = inject(PaperTradingStore);
   private readonly fb = inject(FormBuilder);
   private readonly dialogRef = inject(MatDialogRef<StrategyBuilderFormComponent>);
   private readonly data = inject<{ instance: StrategyInstanceConfig | null }>(MAT_DIALOG_DATA);
@@ -86,7 +148,11 @@ export class StrategyBuilderFormComponent {
     trailingStopPct: [null as number | null],
     rollDteThreshold: [null as number | null],
     rollTargetDelta: [null as number | null],
-  }, { validators: [dteMaxGreaterThanMin] });
+    /** Paper-ledger exit variant: family from the registry + param value
+     *  combine into the governingVariant key on save. */
+    variantFamily: ['none' as 'none' | VariantFamily, [Validators.required]],
+    variantParam: [null as number | null],
+  }, { validators: [dteMaxGreaterThanMin, variantParamValid] });
 
   /** Selected exit policies (multi-select). Defaults to HOLD_TO_EXPIRATION. */
   readonly selectedExitPolicies = signal<ExitPolicy[]>([ExitPolicy.HOLD_TO_EXPIRATION]);
@@ -143,6 +209,7 @@ export class StrategyBuilderFormComponent {
     if (instance) {
       this.prefillFromInstance(instance);
     }
+    this.paperStore.loadExitVariants();
 
     // Normalize symbol to uppercase on every change.
     this.form.controls.symbol.valueChanges.subscribe((val) => {
@@ -165,6 +232,8 @@ export class StrategyBuilderFormComponent {
 
   /** Pre-fill form from an existing instance (edit mode). */
   private prefillFromInstance(instance: StrategyInstanceConfig): void {
+    // governingVariant lives on the paper-ledger extension of the config.
+    const paper = instance as PaperStrategyInstance;
     const phase = instance.phases[0];
     this.form.patchValue({
       spreadType: phase?.spreadType ?? PositionSpreadType.CASH_SECURED_PUT,
@@ -174,6 +243,13 @@ export class StrategyBuilderFormComponent {
       targetDelta: phase?.targetDelta ?? 0.2,
       dteMin: phase?.dteMin ?? 21,
       dteMax: phase?.dteMax ?? 30,
+    });
+    // governingVariant key → family + param controls (unparseable keys
+    // surface as 'none' — matching the BE's no-op treatment).
+    const parsed = parseVariantKey(paper.governingVariant ?? 'none');
+    this.form.patchValue({
+      variantFamily: parsed?.family ?? 'none',
+      variantParam: parsed?.param ?? null,
     });
     const policies = instance.exitPolicies.map((p) => p.policy);
     this.selectedExitPolicies.set(policies);
@@ -192,7 +268,7 @@ export class StrategyBuilderFormComponent {
   }
 
   /** Build the config object from form values for store.create() or store.update(). */
-  private buildConfig(): Omit<StrategyInstanceConfig, 'id' | 'userId' | 'createdAt' | 'updatedAt'> {
+  private buildConfig(): InstanceInput {
     const v = this.form.value;
     const spreadType = v.spreadType!;
     const targetDelta = v.targetDelta!;
@@ -205,14 +281,15 @@ export class StrategyBuilderFormComponent {
 
     const exitPolicies: ExitPolicyConfig[] = this.selectedExitPolicies().map((policy) => {
       const cfg: ExitPolicyConfig = { policy };
+      // Conditional spreads — Firestore rejects explicit `undefined` values.
       switch (policy) {
-        case ExitPolicy.CLOSE_AT_TARGET_GAIN: cfg.targetGainPct = v.targetGainPct ?? undefined; break;
-        case ExitPolicy.CLOSE_AT_DTE_THRESHOLD: cfg.dteExitThreshold = v.dteExitThreshold ?? undefined; break;
-        case ExitPolicy.STOP_LOSS: cfg.stopLossPct = v.stopLossPct ?? undefined; break;
-        case ExitPolicy.TRAILING_STOP: cfg.trailingStopPct = v.trailingStopPct ?? undefined; break;
+        case ExitPolicy.CLOSE_AT_TARGET_GAIN: if (v.targetGainPct != null) cfg.targetGainPct = v.targetGainPct; break;
+        case ExitPolicy.CLOSE_AT_DTE_THRESHOLD: if (v.dteExitThreshold != null) cfg.dteExitThreshold = v.dteExitThreshold; break;
+        case ExitPolicy.STOP_LOSS: if (v.stopLossPct != null) cfg.stopLossPct = v.stopLossPct; break;
+        case ExitPolicy.TRAILING_STOP: if (v.trailingStopPct != null) cfg.trailingStopPct = v.trailingStopPct; break;
         case ExitPolicy.ROLL:
-          cfg.rollDteThreshold = v.rollDteThreshold ?? undefined;
-          cfg.rollTargetDelta = v.rollTargetDelta ?? undefined;
+          if (v.rollDteThreshold != null) cfg.rollDteThreshold = v.rollDteThreshold;
+          if (v.rollTargetDelta != null) cfg.rollTargetDelta = v.rollTargetDelta;
           break;
       }
       return cfg;
@@ -230,7 +307,40 @@ export class StrategyBuilderFormComponent {
       openTimePT: v.openTimePT!,
       exitPolicies,
       lifecycleState: this.data.instance?.lifecycleState ?? LifecycleState.ACTIVE,
+      governingVariant: this.governingVariantKey(),
     };
+  }
+
+  // ── Governing variant (#568) ────────────────────────────────────────────────
+
+  /** Families available in the registry — options sourced via
+   *  listExitVariants, filtered to families we have param metadata for
+   *  (a registry type without meta would render no param input while the
+   *  validator still demanded one — a dead-end save). */
+  readonly variantFamilies = computed<VariantFamily[]>(() => {
+    const families = new Set<VariantFamily>();
+    for (const cfg of this.paperStore.exitVariants()) {
+      const type = cfg.params.type;
+      if (type in VARIANT_PARAM_META) families.add(type);
+    }
+    return [...families];
+  });
+
+  readonly familyLabels = VARIANT_FAMILY_LABELS;
+
+  /** Param input metadata for the selected family (null when 'none'). */
+  variantParamMeta() {
+    const family = this.form.value.variantFamily as 'none' | VariantFamily | null;
+    return family && family !== 'none' ? VARIANT_PARAM_META[family] : null;
+  }
+
+  /** The derived variantKey for the form's family+param, or 'none'. */
+  private governingVariantKey(): string {
+    const v = this.form.value;
+    if (!v.variantFamily || v.variantFamily === 'none' || v.variantParam == null) {
+      return 'none';
+    }
+    return variantKeyFor(v.variantFamily, v.variantParam);
   }
 
   /** Save the strategy — calls store.create() or store.update() depending on mode. */

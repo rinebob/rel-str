@@ -19,9 +19,20 @@ import { Observable, throwError, map } from 'rxjs';
 import { Collection } from '../../../core/common/constants';
 import type { StrategyInstanceConfig } from '@options-strategy-engine/contracts';
 import { LifecycleState } from '@options-strategy-engine/contracts';
-import { PaperTradingKind } from '@paper-trading/contracts';
+import { PaperTradingKind, type PaperStrategyInstance } from '@paper-trading/contracts';
 import { buildAccountId } from '@paper-trading/ids';
 import { generateInstanceId } from '../../../../../shared/strategy-instance-id';
+
+/** Instance payload the form produces — StrategyInstanceConfig plus the
+ *  paper-ledger fields the caller controls (server stamps kind, paperAccountId,
+ *  userId, and timestamps). */
+export type InstanceInput = Omit<
+  PaperStrategyInstance,
+  'id' | 'userId' | 'createdAt' | 'updatedAt' | 'kind' | 'paperAccountId' | 'governingVariant'
+> & {
+  /** Governing exit-variant key; the service defaults it to 'none'. */
+  governingVariant?: string;
+};
 
 const LIFECYCLE_ORDER: Record<LifecycleState, number> = {
   [LifecycleState.ACTIVE]: 0,
@@ -66,7 +77,7 @@ export class StrategyBuilderService {
   }
 
   /** Create a new strategy instance with an ID generated from the naming convention. */
-  async createInstance(config: Omit<StrategyInstanceConfig, 'id' | 'userId' | 'createdAt' | 'updatedAt'>): Promise<void> {
+  async createInstance(config: InstanceInput): Promise<void> {
     const uid = this.requireUserId();
     const now = new Date();
     const id = generateInstanceId(now, config.symbol, config.phases, config.frequency, config.openTimePT);
@@ -77,14 +88,14 @@ export class StrategyBuilderService {
       userId: uid,
       kind: PaperTradingKind.INSTANCE,
       paperAccountId: buildAccountId(uid),
-      governingVariant: 'none',
+      governingVariant: config.governingVariant ?? 'none',
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
     });
   }
 
   /** Merge partial changes into an existing strategy instance. */
-  async updateInstance(id: string, changes: Partial<StrategyInstanceConfig>): Promise<void> {
+  async updateInstance(id: string, changes: Partial<InstanceInput>): Promise<void> {
     this.requireUserId();
     const ref = doc(this.firestore, `${Collection.PAPER_TRADING_INSTANCES}/${id}`);
 
