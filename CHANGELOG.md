@@ -3,6 +3,9 @@
 ## [2026-09-26]
 
 ### Added
+- [Swing Analysis Page] 594-605_FE-IMPL-SWING-ANALYSIS: st-swing-configs config library - slim docs, paramsId-keyed CRUD, showTriggerDots hashing
+- [Swing Analysis Page] 594-605_CONFIG-IMPL-SWING-ANALYSIS: st-swing-configs security rules
+- [Swing Analysis Page] 594-605_FE-IMPL-SWING-ANALYSIS: Prod verify script - st-swing-configs round-trip
 - [Portfolio] 576-577-584_SHARED-IMPL-PORTFOLIO: Allocation rollup utils?" target/drift/warn predicates, position attribution join, FIFO realized P&L, computeBucketStats seam, cash residual + cashCheck; contracts gain netValue + linkKey
 - [Portfolio] 576-577-584_DOCS-PORTFOLIO: Rollup-utils code review (PASS) + process diagrams + PRD/IMPL sync (cash-as-basis, atomic multi-leg)
 - [Paper Trading Infra] 553-554-563_SHARED-IMPL-PAPER-TRADING: Exit-variant contract doc corrections (exit-event price bases, working-state conventions)

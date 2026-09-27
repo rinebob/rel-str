@@ -52,15 +52,16 @@ Open topics are organized under proposed super-groups (derived 2026-09-26 from d
   - [#304 — Trend Rider Zero Cross](https://github.com/rinebob/rel-str/issues/304) · 3_BLUEPRINT · IN PROGRESS
   - [#322 — ST ZigZag Indicator](https://github.com/rinebob/rel-str/issues/322) · 8_LIVE · RESOLVED
 
-- **[#594 — Swing Analysis Page](https://github.com/rinebob/rel-str/issues/594)** · FEATURE · 1_IDEA · IN PROGRESS · *(re-parented out of #261 on 2026-09-26)*
+- **[#594 — Swing Analysis Page](https://github.com/rinebob/rel-str/issues/594)** · FEATURE · 2_PLAN · IN PROGRESS · *(re-parented out of #261 on 2026-09-26)*
   - [#383 — Dual ST ZigZag Overlay](https://github.com/rinebob/rel-str/issues/383) · 8_LIVE · RESOLVED
   - [#414 — Misc fixes & polish — swing analysis](https://github.com/rinebob/rel-str/issues/414) · 3_BLUEPRINT · IN PROGRESS
   - [#416 — Auto run/save swings](https://github.com/rinebob/rel-str/issues/416) · 8_LIVE · RESOLVED · CLOSED
   - [#443 — Persist swing configurations](https://github.com/rinebob/rel-str/issues/443) · 2_PLAN · IN PROGRESS
   - [#445 — Bulk swing seed script](https://github.com/rinebob/rel-str/issues/445) · 8_LIVE · RESOLVED · CLOSED
   - [#451 — Add previous/next symbols capability to Swing Analysis](https://github.com/rinebob/rel-str/issues/451) · 8_LIVE · RESOLVED · CLOSED
-  - [#541 — N-config swing overlay](https://github.com/rinebob/rel-str/issues/541) · 1_IDEA · IN PROGRESS
-  - [#595 — Prior work — swing analysis absorbed from #261](https://github.com/rinebob/rel-str/issues/595) · 1_IDEA · IN PROGRESS
+  - [#541 — N-config swing overlay](https://github.com/rinebob/rel-str/issues/541) · 1_IDEA · RESOLVED · CLOSED *(absorbed into #599)*
+  - [#595 — Prior work — swing analysis absorbed from #261](https://github.com/rinebob/rel-str/issues/595) · 8_LIVE · RESOLVED · CLOSED
+  - [#599 — Misc fixes — swing analysis](https://github.com/rinebob/rel-str/issues/599) · 3_BLUEPRINT · IN PROGRESS
   - *(+ tasks #334–338 under Blueprint #598; topic-level QAs #363, #375, #378, #436, #459, #529)*
 
 - **[#221 — Export ST indicators to PineScript for TradingView](https://github.com/rinebob/rel-str/issues/221)** · FEATURE · 3_BLUEPRINT · IN PROGRESS
