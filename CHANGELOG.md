@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026-09-27]
+
+### Added
+- [Swing Analysis Page] 594-607_FE-IMPL-SWING-ANALYSIS: Dialog — two-list config manager (presets + saved library, active-row clone/remove/save-to-library); legacy snapshot store APIs removed
+- [Swing Analysis Page] 594-607_DOCS-SWING-ANALYSIS: Code review (PASS, 5 rounds) + UAT (Complete)
+
 ## [2026-09-26]
 
 ### Added
