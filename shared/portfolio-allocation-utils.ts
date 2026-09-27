@@ -121,7 +121,9 @@ export function attributePositions(
   return positions.map((position) => ({ position, bucketId: byInstrument.get(position.instrumentId) ?? null }));
 }
 
-function isWellFormedPosition(p: AllocationPositionInput): boolean {
+/** Guard for finite, non-flat position inputs — callers composing their
+ *  own rollups (e.g. the store's Unassigned pseudo-row) share this check. */
+export function isWellFormedPosition(p: AllocationPositionInput): boolean {
   return Number.isFinite(p.quantity) && p.quantity !== 0
     && Number.isFinite(p.marketValue)
     && Number.isFinite(p.costBasis);
@@ -247,35 +249,7 @@ export function computeBucketStats(
   const openIds = new Set(bucketPositions.map((p) => p.instrumentId));
   const closedCount = [...owned].filter((id) => !openIds.has(id) && fills.some((f) => f.instrumentId === id && isWellFormed(f))).length;
 
-  // Cumulative realized P&L per market date (day buckets fold same-day
-  // matches across instruments, dates sorted).
-  const perDay = new Map<string, number>();
-  for (const m of bucketMatches) {
-    const day = new Date(m.closedAt).toISOString().slice(0, 10);
-    perDay.set(day, (perDay.get(day) ?? 0) + m.pnl);
-  }
-  const equityCurve: EquityCurvePoint[] = [];
-  let cumulative = 0;
-  for (const day of [...perDay.keys()].sort()) {
-    cumulative += perDay.get(day) as number;
-    equityCurve.push({ date: day, cumulativePnl: cumulative });
-  }
-  // Approximation: fold current unrealized into the as-of point so the
-  // curve lands on the bucket's real current P&L. If asOf predates the
-  // last realized day (stale snapshot/clock skew), merge into that point
-  // rather than emitting a backwards-dated point — the curve stays
-  // monotone in date order.
-  if (bucketPositions.length > 0 || hasAnyFill) {
-    const parsedAsOf = Date.parse(asOf);
-    const asOfDay = Number.isNaN(parsedAsOf) ? '' : new Date(parsedAsOf).toISOString().slice(0, 10);
-    const withUnrealized = cumulative + unrealizedPnl;
-    const last = equityCurve.length > 0 ? equityCurve[equityCurve.length - 1] : undefined;
-    if (last && last.date >= asOfDay) {
-      equityCurve[equityCurve.length - 1] = { date: last.date, cumulativePnl: withUnrealized };
-    } else {
-      equityCurve.push({ date: asOfDay, cumulativePnl: withUnrealized });
-    }
-  }
+  const equityCurve = buildEquityCurve(bucketMatches, unrealizedPnl, bucketPositions.length > 0 || hasAnyFill, asOf);
 
   return {
     bucketId: bucket.id,
@@ -290,6 +264,48 @@ export function computeBucketStats(
     asOf,
     equityCurve,
   };
+}
+
+/**
+ * Cumulative realized P&L per market date (UTC day buckets fold same-day
+ * matches across instruments, dates sorted), with current unrealized
+ * folded into the as-of point — the approximation the PRD sanctions (no
+ * historical marks exist). If `asOf` predates the last realized day (stale
+ * snapshot/clock skew) or isn't parseable, the unrealized point merges
+ * into the last realized day instead of emitting a backwards-dated point —
+ * the curve stays monotone in date order. Shared by computeBucketStats
+ * and the store's Unassigned pseudo-rollup.
+ */
+export function buildEquityCurve(
+  matches: RealizedMatch[],
+  unrealizedPnl: number,
+  /** Whether the row has live positions or any fill activity — controls
+   *  whether the unrealized as-of point is emitted at all. */
+  hasActivity: boolean,
+  asOf: string,
+): EquityCurvePoint[] {
+  const perDay = new Map<string, number>();
+  for (const m of matches) {
+    const day = new Date(m.closedAt).toISOString().slice(0, 10);
+    perDay.set(day, (perDay.get(day) ?? 0) + m.pnl);
+  }
+  const equityCurve: EquityCurvePoint[] = [];
+  let cumulative = 0;
+  for (const day of [...perDay.keys()].sort()) {
+    cumulative += perDay.get(day) as number;
+    equityCurve.push({ date: day, cumulativePnl: cumulative });
+  }
+  if (!hasActivity) return equityCurve;
+  const parsedAsOf = Date.parse(asOf);
+  const asOfDay = Number.isNaN(parsedAsOf) ? '' : new Date(parsedAsOf).toISOString().slice(0, 10);
+  const withUnrealized = cumulative + unrealizedPnl;
+  const last = equityCurve.length > 0 ? equityCurve[equityCurve.length - 1] : undefined;
+  if (last && last.date >= asOfDay) {
+    equityCurve[equityCurve.length - 1] = { date: last.date, cumulativePnl: withUnrealized };
+  } else {
+    equityCurve.push({ date: asOfDay, cumulativePnl: withUnrealized });
+  }
+  return equityCurve;
 }
 
 /**
