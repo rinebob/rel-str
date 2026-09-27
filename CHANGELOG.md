@@ -3,6 +3,9 @@
 ## [2026-09-26]
 
 ### Added
+- [Paper Trading Infra] 553-559-566_FE-IMPL-PAPER-TRADING: PaperTradingService — five-callable wrapper + CallableName entries + service spec
+- [Paper Trading Infra] 553-559-566_FE-IMPL-PAPER-TRADING: PaperTradingStore — account/trades/stats/variants state, groupTradesBy selectors, merge-vs-replace stats, 18 specs
+- [Paper Trading Infra] 553-559-566_DOCS-PAPER-TRADING: Code review (PASS, 3 rounds)
 - [Swing Analysis Page] 594-606_FE-IMPL-SWING-ANALYSIS: Store config library + always-N configs
 - [Swing Analysis Page] 594-606_FE-IMPL-SWING-ANALYSIS: Retire saved-sets panel + dual-mode toggle
 - [Portfolio] 576-582-586_SHARED-IMPL-PORTFOLIO: Owner-scoped allocation contracts — required userId on buckets + attributions
