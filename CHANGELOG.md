@@ -3,6 +3,9 @@
 ## [2026-09-26]
 
 ### Added
+- [Paper Trading Infra] 553-559-567_FE-IMPL-PAPER-TRADING: Accept-as-paper on signal-order — PAPER status, confirm dialog paper mode, staged-signal gating
+- [Paper Trading Infra] 553-559-567_FE-IMPL-PAPER-TRADING: Queue Paper group + teal PAPER badge; PAPER visible pre-RH-load; remove-skip guards cohort provenance
+- [Paper Trading Infra] 553-559-567_DOCS-PAPER-TRADING: Code review (PASS, 4 rounds)
 - [Paper Trading Infra] 553-559-566_FE-IMPL-PAPER-TRADING: PaperTradingService — five-callable wrapper + CallableName entries + service spec
 - [Paper Trading Infra] 553-559-566_FE-IMPL-PAPER-TRADING: PaperTradingStore — account/trades/stats/variants state, groupTradesBy selectors, merge-vs-replace stats, 18 specs
 - [Paper Trading Infra] 553-559-566_DOCS-PAPER-TRADING: Code review (PASS, 3 rounds)
