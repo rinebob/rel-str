@@ -32,5 +32,8 @@ module.exports = {
     '^@paper-trading/contracts$': '<rootDir>/shared/paper-trading-contracts.ts',
     '^@paper-trading/ids$': '<rootDir>/shared/paper-trading-ids.ts',
     '^@spread/contracts$': '<rootDir>/shared/spread-contracts.ts',
+    '^@portfolio-allocation/contracts$': '<rootDir>/shared/portfolio-allocation-contracts.ts',
+    '^@portfolio-allocation/ids$': '<rootDir>/shared/portfolio-allocation-ids.ts',
+    '^@portfolio-allocation/utils$': '<rootDir>/shared/portfolio-allocation-utils.ts',
   },
 };
