@@ -3,6 +3,8 @@
 ## [2026-09-26]
 
 ### Added
+- [Swing Analysis Page] 594-606_FE-IMPL-SWING-ANALYSIS: Store config library + always-N configs
+- [Swing Analysis Page] 594-606_FE-IMPL-SWING-ANALYSIS: Retire saved-sets panel + dual-mode toggle
 - [Portfolio] 576-582-586_SHARED-IMPL-PORTFOLIO: Owner-scoped allocation contracts — required userId on buckets + attributions
 - [Portfolio] 576-582-586_SHARED-IMPL-PORTFOLIO: Anchored collection paths — portfolio/{buckets,attributions}/items
 - [Portfolio] 576-582-586_CONFIG-IMPL-PORTFOLIO: @portfolio-allocation tsconfig/jest aliases
