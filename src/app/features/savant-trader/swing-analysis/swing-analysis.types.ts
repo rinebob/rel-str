@@ -35,12 +35,38 @@ export interface SwingAnalysisDoc extends SwingAnalysisInput {
   userId: string;
 }
 
+/** Input for saving a swing config to the global library. */
+export interface SwingConfigInput {
+  /** Optional user-facing name — falls back to a param summary label. */
+  name?: string;
+  /** The ZigZag config params. */
+  config: ZigZagConfig;
+  /** ISO timestamp of when the config was saved. */
+  savedAt: string;
+}
+
+/** A persisted swing config doc in `st-swing-configs/{paramsId}`. */
+export interface SwingConfigDoc extends SwingConfigInput {
+  /** Firestore document id — same value as paramsId. */
+  id: string;
+  /** Hash of the config params — the doc id (dedupe key). */
+  paramsId: string;
+  /** Owner of this config — stamped by the service from auth. */
+  userId: string;
+}
+
 /**
  * Derive a stable paramsId from a ZigZagConfig.
  * Combined with the symbol to form the Firestore document id:
  * `st-swing-sets/{symbol}_{paramsId}`.
  *
- * Format: dev{N}_L{N}_R{N}_1bar{Y|N}_proj{Y|N}
+ * Hashes every behavior-relevant field. `showTriggerDots` participates
+ * (normalized to its default `true` when unset — per ZigZagConfig docs) so
+ * configs differing only in that flag don't collide. `lineColor` is
+ * visual-only and deliberately excluded — configs differing only in color
+ * dedupe to one doc.
+ *
+ * Format: dev{N}_L{N}_R{N}_1bar{Y|N}_proj{Y|N}_trig{Y|N}
  */
 export function deriveParamsId(config: ZigZagConfig): string {
   const parts = [
@@ -49,6 +75,7 @@ export function deriveParamsId(config: ZigZagConfig): string {
     `R${config.rightDepth}`,
     `1bar${config.allowZigZagOnOneBar ? 'Y' : 'N'}`,
     `proj${config.projectionPivots ? 'Y' : 'N'}`,
+    `trig${(config.showTriggerDots ?? true) ? 'Y' : 'N'}`,
   ];
   return parts.join('_');
 }

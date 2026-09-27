@@ -13,6 +13,7 @@ import {
   collection,
   doc,
   setDoc,
+  deleteDoc,
   getDoc,
   getDocs,
   query,
@@ -22,12 +23,22 @@ import { Observable, from, of } from 'rxjs';
 import { map, switchMap, take } from 'rxjs/operators';
 
 import { requireUserId } from '../services/firestore-helpers';
-import type { SwingAnalysisDoc, SwingAnalysisInput } from './swing-analysis.types';
+import type {
+  SwingAnalysisDoc,
+  SwingAnalysisInput,
+  SwingConfigDoc,
+  SwingConfigInput,
+} from './swing-analysis.types';
+import { deriveParamsId } from './swing-analysis.types';
 
 const SWING_SETS_COLLECTION = 'st-swing-sets';
+const SWING_CONFIGS_COLLECTION = 'st-swing-configs';
 
 /** Fields persisted to Firestore (excludes the synthetic `id`). */
 type PersistedAnalysis = Omit<SwingAnalysisDoc, 'id'>;
+
+/** Fields persisted for a config-library doc (excludes the `id`). */
+type PersistedConfig = Omit<SwingConfigDoc, 'id'>;
 
 @Injectable({ providedIn: 'root' })
 export class SwingAnalysisService {
@@ -125,6 +136,64 @@ export class SwingAnalysisService {
               id: snap.id,
             })
           : null,
+      ),
+    );
+  }
+
+  // ── Config library (st-swing-configs/{paramsId}) ──────────────────────────
+
+  /** Load every saved config for the current user. The userId constraint
+   *  is required — the rules engine must prove ownership up front. */
+  loadConfigs(): Observable<SwingConfigDoc[]> {
+    return requireUserId(this.auth, this.injector).pipe(
+      switchMap((userId) =>
+        from(
+          getDocs(
+            query(
+              collection(this.firestore, SWING_CONFIGS_COLLECTION),
+              where('userId', '==', userId),
+            ),
+          ),
+        ),
+      ),
+      map((snap) =>
+        snap.docs.map((d) => ({
+          ...(d.data() as Omit<SwingConfigDoc, 'id'>),
+          id: d.id,
+        })),
+      ),
+    );
+  }
+
+  /** Save a config to the library. Doc id = paramsId — identical params
+   *  overwrite the same doc (dedupe is structural). Stamps userId. */
+  saveConfig(input: SwingConfigInput): Observable<void> {
+    return requireUserId(this.auth, this.injector).pipe(
+      switchMap((userId) => {
+        const paramsId = deriveParamsId(input.config);
+        const name = input.name?.trim();
+        const payload: PersistedConfig = {
+          paramsId,
+          userId,
+          config: input.config,
+          savedAt: input.savedAt,
+          ...(name ? { name } : {}),
+        };
+        return from(
+          setDoc(doc(this.firestore, SWING_CONFIGS_COLLECTION, paramsId), payload),
+        );
+      }),
+    );
+  }
+
+  /** Delete a saved config by paramsId (the doc id). */
+  deleteConfig(paramsId: string): Observable<void> {
+    if (!paramsId) return of(void 0);
+    return requireUserId(this.auth, this.injector).pipe(
+      switchMap(() =>
+        from(
+          deleteDoc(doc(this.firestore, SWING_CONFIGS_COLLECTION, paramsId)),
+        ),
       ),
     );
   }
