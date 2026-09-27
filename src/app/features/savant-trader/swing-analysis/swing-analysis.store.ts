@@ -1,11 +1,11 @@
 /**
  * Swing Analysis Store — NgRx SignalStore.
  *
- * Manages swing-analysis page state: symbol, configs (one or two ZigZag
- * instances), pivots, swings, stats, loading, error, and saved analyses.
- * Triggers bar loading and ZigZag recompute on symbol/config changes.
- * Persists analyses via SwingAnalysisService — each config is saved
- * independently under its own paramsId.
+ * Manages swing-analysis page state: symbol, configs (unbounded list of
+ * ZigZag instances), pivots, swings, stats, loading, error, and the
+ * config library. Triggers bar loading and ZigZag recompute on
+ * symbol/config changes. Persists configs via SwingAnalysisService —
+ * st-swing-configs/{paramsId}.
  */
 
 import { inject, DestroyRef } from '@angular/core';
@@ -30,7 +30,11 @@ import {
   type NavFilter,
 } from './symbol-nav.feature';
 import { deriveParamsId } from './swing-analysis.types';
-import type { SwingAnalysisDoc, SwingAnalysisInput } from './swing-analysis.types';
+import type {
+  SwingAnalysisDoc,
+  SwingAnalysisInput,
+  SwingConfigDoc,
+} from './swing-analysis.types';
 import {
   computeZigZagPivots,
   deriveSwings,
@@ -77,7 +81,7 @@ export const SMALL_CONFIG: ZigZagConfig = {
 
 export interface SwingAnalysisState {
   symbol: string;
-  /** One or two ZigZag configs — one when dual mode off, two when on. */
+  /** Active ZigZag configs — always-N, unbounded, positional. */
   configs: ZigZagConfig[];
   /** Loaded price bars — shared across all configs. */
   bars: PriceBar[];
@@ -97,11 +101,10 @@ export interface SwingAnalysisState {
   batchRunning: boolean;
   batchProgress: { done: number; total: number; current: string | null };
   batchResults: { symbol: string; ok: boolean; error?: string }[];
-  /** All saved swing sets across symbols — the saved-sets browser's
-   *  source. Populated lazily by loadSwingSets() (whole-collection read —
-   *  deliberately NOT on page init). */
-  savedSets: SwingAnalysisDoc[];
-  savedSetsLoading: boolean;
+  /** Global config library — st-swing-configs docs. Populated lazily by
+   *  loadConfigLibrary() when the settings dialog opens. */
+  configLibrary: SwingConfigDoc[];
+  configLibraryLoading: boolean;
   /** Watchlist filter narrowing the nav sequence; 'ALL' = all tracked. */
   navFilter: NavFilter;
 }
@@ -121,8 +124,8 @@ const initialState: SwingAnalysisState = {
   batchRunning: false,
   batchProgress: { done: 0, total: 0, current: null },
   batchResults: [],
-  savedSets: [],
-  savedSetsLoading: false,
+  configLibrary: [],
+  configLibraryLoading: false,
   navFilter: 'ALL',
 };
 
@@ -184,17 +187,14 @@ export const SwingAnalysisStore = signalStore(
     hasProjection: computed(() => store.projections().some((p) => p !== null)),
     /** paramsIds for all configs — each used as its own Firestore doc id. */
     paramsIds: computed(() => store.configs().map((c) => deriveParamsId(c))),
-    /** Multi-config mode — N>1 configs (the N-slot load from saved sets
-     *  makes N>2 possible; the UI treats "dual" as "more than one"). */
-    dualMode: computed(() => store.configs().length > 1),
     /**
-     * Combined stats across ALL config swing arrays (multi mode's "All"
+     * Combined stats across ALL config swing arrays (multi-config "All"
      * stats view). Recomputed from the merged swings — computeSwingStats
      * is order-insensitive (filters confirmed, aggregates by direction),
-     * so no sort is needed. Null in single-config mode or no swings.
+     * so no sort is needed. Null with fewer than two configs or no swings.
      */
     allStats: computed(() => {
-      // Same guard as dualMode — sibling computeds aren't visible to each
+      // Length guard — sibling computeds aren't visible to each
       // other inside a single withComputed block, so configs().length is
       // read directly here.
       if (store.configs().length < 2) return null;
@@ -222,9 +222,9 @@ export const SwingAnalysisStore = signalStore(
       // it — takeUntilDestroyed only fires on store teardown, and a root
       // store outlives any page visit.
       let batchSub: Subscription | null = null;
-      // Track the saved-sets collection load so resetState can't leave a
-      // zombie load patching savedSets after page re-entry.
-      let setsSub: Subscription | null = null;
+      // Track the config-library load so resetState can't leave a
+      // zombie load patching configLibrary after page re-entry.
+      let librarySub: Subscription | null = null;
 
       /**
        * Shared bar-load + recompute helper. Cancels any in-flight bar load,
@@ -234,7 +234,7 @@ export const SwingAnalysisStore = signalStore(
        * has already patched config).
        *
        * Reads `store.configs()` fresh inside the `next` handler to avoid
-       * stale-config desync when `toggleDualMode`/`updateConfig` mutate
+       * stale-config desync when config-list ops/`updateConfig` mutate
        * configs while a bar load is in flight.
        */
       function loadBarsAndRecompute(
@@ -315,7 +315,7 @@ export const SwingAnalysisStore = signalStore(
 
       /**
        * The setSymbol flow — normalize the symbol, clear derived state,
-       * kick off the bar load. Hoisted so loadSwingSetsIntoSlots can run
+       * kick off the bar load. Hoisted so config changes can run
        * it after patching configs (the in-flight bar load's recomputeAll
        * reads store.configs() fresh, so the N loaded slots are the ones
        * recomputed when bars arrive).
@@ -363,8 +363,8 @@ export const SwingAnalysisStore = signalStore(
           // writing batchResults into the "reset" store after page re-entry.
           batchSub?.unsubscribe();
           batchSub = null;
-          setsSub?.unsubscribe();
-          setsSub = null;
+          librarySub?.unsubscribe();
+          librarySub = null;
           patchState(store, {
             symbol: '',
             configs: [{ ...LARGE_CONFIG }, { ...SMALL_CONFIG }],
@@ -378,8 +378,8 @@ export const SwingAnalysisStore = signalStore(
             batchRunning: false,
             batchProgress: { done: 0, total: 0, current: null },
             batchResults: [],
-            savedSets: [],
-            savedSetsLoading: false,
+            configLibrary: [],
+            configLibraryLoading: false,
           });
         },
 
@@ -408,41 +408,132 @@ export const SwingAnalysisStore = signalStore(
         },
 
         /**
-         * Toggle dual mode. When turning on, adds a second config with small
-         * defaults and recomputes it from loaded bars. When turning off,
-         * removes the second config and its derived state.
-         *
-         * `dualMode` is a computed signal derived from `configs.length === 2`,
-         * so no separate flag is patched here — adding/removing the config
-         * drives the flag automatically.
+         * Append a config to the active list and recompute its slot from
+         * loaded bars. Unbounded — any count is legal.
          */
-        toggleDualMode(): void {
+        activateConfig(config: ZigZagConfig): void {
+          const copy = { ...config };
+          const bars = store.bars();
+          const r = recompute(bars, copy);
+          patchState(store, {
+            configs: [...store.configs(), copy],
+            pivots: [...store.pivots(), r.pivots],
+            projections: [...store.projections(), r.projection],
+            swings: [...store.swings(), r.swings],
+            stats: [...store.stats(), r.stats],
+            error: null,
+          });
+        },
+
+        /**
+         * Remove the config at `index` and splice its derived arrays.
+         * Index 0 is allowed — the list may shrink to zero.
+         */
+        removeActiveConfig(index: number): void {
           const configs = store.configs();
-          if (configs.length > 1) {
-            // Turn off — collapse to the first config. From N>2 loaded
-            // slots this discards slots 2+ — the toggle is explicitly a
-            // "single vs multi" switch, not a resize.
-            patchState(store, {
-              configs: [configs[0]],
-              pivots: [store.pivots()[0]],
-              projections: [store.projections()[0]],
-              swings: [store.swings()[0]],
-              stats: [store.stats()[0]],
+          if (index < 0 || index >= configs.length) return;
+          const drop = <T>(arr: T[]) => arr.filter((_, i) => i !== index);
+          patchState(store, {
+            configs: drop(configs),
+            pivots: drop(store.pivots()),
+            projections: drop(store.projections()),
+            swings: drop(store.swings()),
+            stats: drop(store.stats()),
+            error: null,
+          });
+        },
+
+        /**
+         * Append a deep copy of the config at `index` — the dialog's
+         * Clone path. Recomputes the new slot from loaded bars.
+         */
+        cloneConfig(index: number): void {
+          const configs = store.configs();
+          if (index < 0 || index >= configs.length) return;
+          const copy = { ...configs[index] };
+          const r = recompute(store.bars(), copy);
+          patchState(store, {
+            configs: [...configs, copy],
+            pivots: [...store.pivots(), r.pivots],
+            projections: [...store.projections(), r.projection],
+            swings: [...store.swings(), r.swings],
+            stats: [...store.stats(), r.stats],
+            error: null,
+          });
+        },
+
+        /**
+         * Persist the active config at `index` to the config library
+         * (st-swing-configs/{paramsId}) and upsert the library row —
+         * re-saves overwrite in place, no duplicate paramsId entries.
+         */
+        saveActiveConfig(index: number, name?: string): void {
+          const config = store.configs()[index];
+          if (!config) return;
+          const paramsId = deriveParamsId(config);
+          const input = {
+            name: name?.trim() || undefined,
+            config,
+            savedAt: new Date().toISOString(),
+          };
+          swingAnalysisService
+            .saveConfig(input)
+            .pipe(takeUntilDestroyed(destroyRef))
+            .subscribe({
+              next: () => {
+                const doc: SwingConfigDoc = {
+                  id: paramsId,
+                  paramsId,
+                  userId: '',
+                  name: input.name,
+                  config,
+                  savedAt: input.savedAt,
+                };
+                const rest = store
+                  .configLibrary()
+                  .filter((c) => c.paramsId !== paramsId);
+                patchState(store, { configLibrary: [...rest, doc], error: null });
+              },
+              error: (err: unknown) => {
+                const msg = err instanceof Error ? err.message : String(err);
+                console.error(
+                  '[SwingAnalysisStore] Failed to save config',
+                  paramsId,
+                  err,
+                );
+                patchState(store, { error: `Failed to save config: ${msg}` });
+              },
             });
-          } else {
-            // Turn on — add a second config with small defaults (from
-            // single mode; from N>2 the toggle reads "on" so this branch
-            // only runs when configs.length === 1).
-            const bars = store.bars();
-            const r = recompute(bars, { ...SMALL_CONFIG });
-            patchState(store, {
-              configs: [configs[0], { ...SMALL_CONFIG }],
-              pivots: [store.pivots()[0], r.pivots],
-              projections: [store.projections()[0], r.projection],
-              swings: [store.swings()[0], r.swings],
-              stats: [store.stats()[0], r.stats],
+        },
+
+        /**
+         * Delete a library doc by paramsId and drop it from the list.
+         * Active configs are unaffected — the library is independent.
+         */
+        deleteSavedConfig(paramsId: string): void {
+          if (!paramsId) return;
+          swingAnalysisService
+            .deleteConfig(paramsId)
+            .pipe(takeUntilDestroyed(destroyRef))
+            .subscribe({
+              next: () => {
+                patchState(store, {
+                  configLibrary: store
+                    .configLibrary()
+                    .filter((c) => c.paramsId !== paramsId),
+                  error: null,
+                });
+              },
+              error: (err: unknown) => {
+                const msg = err instanceof Error ? err.message : String(err);
+                console.error(
+                  '[SwingAnalysisStore] Failed to delete config',
+                  paramsId,
+                  err,
+                );
+                patchState(store, { error: `Failed to delete config: ${msg}` });
+              },
             });
-          }
         },
 
         /**
@@ -556,7 +647,7 @@ export const SwingAnalysisStore = signalStore(
                   patchState(store, { error: 'Analysis not found' });
                   return;
                 }
-                // Re-read configs fresh — toggleDualMode/updateConfig may
+                // Re-read configs fresh — list ops/updateConfig may
                 // have mutated the array while the fetch was in flight.
                 const configs = store.configs();
                 if (index >= configs.length) return;
@@ -671,87 +762,34 @@ export const SwingAnalysisStore = signalStore(
         },
 
         /**
-         * Populate `savedSets` — the saved-sets browser's source. Lazy:
-         * called when the panel expands, never on page init. With a symbol
-         * it reads that symbol's docs only (small); without it falls back
-         * to the whole-collection read (slow — thousands of pivot/swings
-         * docs — avoid in the UI). Re-invocation for another symbol
-         * refetches; in-flight re-entry for the same call is ignored.
+         * Populate `configLibrary` — the dialog's saved-config source.
+         * Lazy: called when the dialog opens, never on page init.
+         * In-flight re-entry is ignored.
          */
-        loadSwingSets(symbol?: string): void {
-          if (store.savedSetsLoading()) return;
-          setsSub?.unsubscribe();
-          patchState(store, { savedSets: [], savedSetsLoading: true });
-          const sym = String(symbol || '').trim().toUpperCase();
-          const src$ = sym
-            ? swingAnalysisService.loadSavedAnalyses(sym)
-            : swingAnalysisService.loadAllSwingSets();
-          setsSub = src$
+        loadConfigLibrary(): void {
+          if (store.configLibraryLoading()) return;
+          librarySub?.unsubscribe();
+          patchState(store, { configLibraryLoading: true });
+          librarySub = swingAnalysisService
+            .loadConfigs()
             .pipe(takeUntilDestroyed(destroyRef))
             .subscribe({
               next: (docs) => {
-                setsSub = null;
+                librarySub = null;
                 patchState(store, {
-                  savedSets: docs,
-                  savedSetsLoading: false,
+                  configLibrary: docs,
+                  configLibraryLoading: false,
                 });
               },
               error: (err: unknown) => {
-                setsSub = null;
+                librarySub = null;
                 const msg = err instanceof Error ? err.message : String(err);
                 patchState(store, {
-                  savedSetsLoading: false,
-                  error: `Failed to load swing sets: ${msg}`,
+                  configLibraryLoading: false,
+                  error: `Failed to load configs: ${msg}`,
                 });
               },
             });
-        },
-
-        /**
-         * Load N saved docs into N config slots. Replaces `configs` with
-         * the docs' configs and recomputes every slot on the current bars.
-         * Same-symbol guard re-validates the UI's constraint; a different
-         * symbol runs the setSymbol flow (the bar load recomputes the new
-         * N configs when bars arrive). Nothing is re-saved — the docs are
-         * already persisted snapshots.
-         */
-        loadSwingSetsIntoSlots(docs: SwingAnalysisDoc[]): void {
-          if (docs.length === 0) return;
-          // Cancel an in-flight loadAnalysis — its next handler re-reads
-          // configs() and would overwrite one just-loaded slot.
-          analysisSub?.unsubscribe();
-          analysisSub = null;
-          const symbols = new Set(
-            docs.map((d) => d.symbol.trim().toUpperCase()),
-          );
-          if (symbols.size !== 1) return; // same-symbol guard
-          const sym = [...symbols][0];
-          // Slot styling is positional, never from the doc: slot 0 renders
-          // as the large config (blue, trigger dots); slots 1+ render as
-          // small — black line, no trigger dots.
-          const configs = docs.map((d, i) => ({
-            ...d.config,
-            lineColor: i === 0 ? LARGE_CONFIG.lineColor : SMALL_CONFIG.lineColor,
-            showTriggerDots: i === 0 ? LARGE_CONFIG.showTriggerDots ?? true : false,
-          }));
-
-          if (sym !== store.symbol()) {
-            patchState(store, { configs, error: null });
-            applySymbol(sym); // recompute happens on bar arrival
-            return;
-          }
-          const { pivots, projections, swings, stats } = recomputeAll(
-            store.bars(),
-            configs,
-          );
-          patchState(store, {
-            configs,
-            pivots,
-            projections,
-            swings,
-            stats,
-            error: null,
-          });
         },
       };
     },

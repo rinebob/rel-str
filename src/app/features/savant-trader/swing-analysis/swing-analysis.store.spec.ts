@@ -36,7 +36,7 @@ import type {
   DistributionSummary,
   Histogram,
 } from '../../shared/components/flex-chart/indicators/st-zigzag.engine';
-import type { SwingAnalysisDoc, SwingAnalysisInput } from './swing-analysis.types';
+import type { SwingAnalysisDoc, SwingAnalysisInput, SwingConfigDoc } from './swing-analysis.types';
 
 // =============================================================================
 // Test fixtures
@@ -140,11 +140,15 @@ type ServiceMock = ReturnType<typeof mockSwingAnalysisService>;
 function mockSwingAnalysisService(
   docs: SwingAnalysisDoc[] = [],
   allSets: SwingAnalysisDoc[] = docs,
+  configs: SwingConfigDoc[] = [],
 ): Partial<SwingAnalysisService> & {
   saveAnalysis: jest.Mock;
   loadSavedAnalyses: jest.Mock;
   loadAllSwingSets: jest.Mock;
   loadAnalysis: jest.Mock;
+  loadConfigs: jest.Mock;
+  saveConfig: jest.Mock;
+  deleteConfig: jest.Mock;
 } {
   return {
     loadSavedAnalyses: jest.fn(() => of(docs)),
@@ -153,6 +157,9 @@ function mockSwingAnalysisService(
     loadAnalysis: jest.fn((_symbol: string, docId: string) =>
       of(docs.find((d) => d.id === docId) ?? null),
     ),
+    loadConfigs: jest.fn(() => of(configs)),
+    saveConfig: jest.fn(() => of(undefined)),
+    deleteConfig: jest.fn(() => of(undefined)),
   };
 }
 
@@ -184,11 +191,10 @@ function setupStore(
 // =============================================================================
 
 describe('SwingAnalysisStore — initial state', () => {
-  it('has two configs (large + small) and dualMode on by default', () => {
+  it('has two configs (large + small) by default', () => {
     const { store } = setupStore();
     expect(store.symbol()).toBe('');
     expect(store.configs()).toEqual([{ ...LARGE_CONFIG }, { ...SMALL_CONFIG }]);
-    expect(store.dualMode()).toBe(true);
     expect(store.bars()).toEqual([]);
     expect(store.pivots()).toEqual([[], []]);
     expect(store.projections()).toEqual([null, null]);
@@ -356,77 +362,82 @@ describe('SwingAnalysisStore.updateConfig', () => {
 });
 
 // =============================================================================
-// toggleDualMode — adds/removes second config
+// activateConfig / removeActiveConfig / cloneConfig — always-N list ops
 // =============================================================================
 
-describe('SwingAnalysisStore.toggleDualMode', () => {
-  // Dual mode is the default — the first toggle() call turns it OFF.
+describe('SwingAnalysisStore — config list (always-N)', () => {
+  // No dual-mode toggle — configs[] is the truth; the list is unbounded.
 
-  it('re-adds the second config with small defaults when toggled back on', () => {
+  it('activateConfig appends a config and recomputes it from loaded bars', () => {
     const { store } = setupStore(makeBars(40));
     store.setSymbol('AAPL');
-    store.toggleDualMode(); // off
-    store.toggleDualMode(); // back on
-    expect(store.dualMode()).toBe(true);
+    const custom = { ...LARGE_CONFIG, devThreshold: 7 };
+    store.activateConfig(custom);
+    expect(store.configs().length).toBe(3);
+    expect(store.configs()[2]).toEqual(custom);
+    expect(store.pivots()[2].length).toBeGreaterThan(0);
+    expect(store.swings()[2].length).toBeGreaterThan(0);
+    expect(store.stats()[2]).not.toBeNull();
+  });
+
+  it('activateConfig produces an aligned empty slot when no bars loaded', () => {
+    const { store } = setupStore(); // no setSymbol
+    store.activateConfig({ ...LARGE_CONFIG, devThreshold: 7 });
+    expect(store.configs().length).toBe(3);
+    expect(store.pivots()[2]).toEqual([]);
+    expect(store.projections()[2]).toBeNull();
+    expect(store.swings()[2]).toEqual([]);
+    expect(store.stats()[2]).toBeNull();
+  });
+
+  it('activateConfig is unbounded — a fourth config lands fine', () => {
+    const { store } = setupStore(makeBars(40));
+    store.setSymbol('AAPL');
+    store.activateConfig({ ...LARGE_CONFIG, devThreshold: 7 });
+    store.activateConfig({ ...LARGE_CONFIG, devThreshold: 20 });
+    expect(store.configs().length).toBe(4);
+    expect(store.pivots().length).toBe(4);
+    expect(store.swings().length).toBe(4);
+    expect(store.stats().length).toBe(4);
+  });
+
+  it('removeActiveConfig splices a middle slot and keeps survivors aligned', () => {
+    const { store } = setupStore(makeBars(40));
+    store.setSymbol('AAPL');
+    store.activateConfig({ ...LARGE_CONFIG, devThreshold: 7 });
+    store.removeActiveConfig(1); // drop SMALL_CONFIG
     expect(store.configs().length).toBe(2);
-    expect(store.configs()[1]).toEqual({ ...SMALL_CONFIG });
-  });
-
-  it('recomputes the second config from loaded bars when toggled back on', () => {
-    const { store } = setupStore(makeBars(40));
-    store.setSymbol('AAPL');
-    store.toggleDualMode(); // off — slot 1 removed
-    store.toggleDualMode(); // on — recomputed from loaded bars
-    expect(store.pivots()[1].length).toBeGreaterThan(0);
-    expect(store.swings()[1].length).toBeGreaterThan(0);
-    expect(store.stats()[1]).not.toBeNull();
-  });
-
-  it('removes the second config when turning off', () => {
-    const { store } = setupStore(makeBars(40));
-    store.setSymbol('AAPL');
-    store.toggleDualMode(); // off
-    expect(store.dualMode()).toBe(false);
-    expect(store.configs().length).toBe(1);
-    expect(store.configs()[0]).toEqual({ ...LARGE_CONFIG });
-  });
-
-  it('preserves the first config across an off→on cycle', () => {
-    const { store } = setupStore(makeBars(40));
-    store.setSymbol('AAPL');
-    store.updateConfig(0, { devThreshold: 20 });
-    store.toggleDualMode(); // off
-    store.toggleDualMode(); // on
-    expect(store.configs()[0].devThreshold).toBe(20);
-  });
-
-  it('produces aligned length-2 arrays when toggled back on with empty bars', () => {
-    const { store } = setupStore();
-    // No setSymbol — bars are empty. Dual is on by default; cycle off→on.
-    store.toggleDualMode();
-    store.toggleDualMode();
-    expect(store.dualMode()).toBe(true);
-    expect(store.configs().length).toBe(2);
+    expect(store.configs()[1].devThreshold).toBe(7);
     expect(store.pivots().length).toBe(2);
-    expect(store.projections().length).toBe(2);
-    expect(store.swings().length).toBe(2);
     expect(store.stats().length).toBe(2);
-    // Second slot's derived arrays are empty but present (not undefined).
-    expect(store.pivots()[1]).toEqual([]);
-    expect(store.projections()[1]).toBeNull();
-    expect(store.swings()[1]).toEqual([]);
-    expect(store.stats()[1]).toBeNull();
   });
 
-  it('truncates derived arrays to length 1 when turning off', () => {
+  it('removeActiveConfig(0) works — list can shrink to one then zero configs', () => {
     const { store } = setupStore(makeBars(40));
     store.setSymbol('AAPL');
-    expect(store.pivots().length).toBe(2);
-    store.toggleDualMode(); // off
-    expect(store.pivots().length).toBe(1);
-    expect(store.projections().length).toBe(1);
-    expect(store.swings().length).toBe(1);
-    expect(store.stats().length).toBe(1);
+    store.removeActiveConfig(0);
+    expect(store.configs().length).toBe(1);
+    expect(store.configs()[0]).toEqual({ ...SMALL_CONFIG });
+    store.removeActiveConfig(0);
+    expect(store.configs().length).toBe(0);
+    expect(store.pivots()).toEqual([]);
+    expect(store.stats()).toEqual([]);
+  });
+
+  it('removeActiveConfig ignores out-of-range indexes', () => {
+    const { store } = setupStore();
+    store.removeActiveConfig(5);
+    expect(store.configs().length).toBe(2);
+  });
+
+  it('cloneConfig appends a deep copy — mutating the clone leaves the original', () => {
+    const { store } = setupStore(makeBars(40));
+    store.setSymbol('AAPL');
+    store.cloneConfig(0);
+    expect(store.configs().length).toBe(3);
+    expect(store.configs()[2]).toEqual(store.configs()[0]);
+    store.updateConfig(2, { devThreshold: 42 });
+    expect(store.configs()[0].devThreshold).toBe(LARGE_CONFIG.devThreshold);
   });
 });
 
@@ -435,21 +446,21 @@ describe('SwingAnalysisStore.toggleDualMode', () => {
 // =============================================================================
 
 describe('SwingAnalysisStore.allStats', () => {
-  it('is null in single mode', () => {
+  it('is null with a single config', () => {
     const { store } = setupStore(makeBars(40));
     store.setSymbol('AAPL');
-    store.toggleDualMode(); // dual is the default — turn off for single mode
+    store.removeActiveConfig(1); // collapse to one config
     expect(store.stats()[0]).not.toBeNull();
     expect(store.allStats()).toBeNull();
   });
 
-  it('is null in dual mode with no swings', () => {
-    const { store } = setupStore(); // no bars — dual is the default
-    expect(store.dualMode()).toBe(true);
+  it('is null with multiple configs and no swings', () => {
+    const { store } = setupStore(); // no bars — two configs by default
+    expect(store.configs().length).toBe(2);
     expect(store.allStats()).toBeNull();
   });
 
-  it('recomputes combined stats from both configs in dual mode', () => {
+  it('recomputes combined stats across all configs', () => {
     const { store } = setupStore(makeBars(40));
     store.setSymbol('AAPL'); // dual is the default — both slots computed
 
@@ -462,11 +473,11 @@ describe('SwingAnalysisStore.allStats', () => {
     expect(all!.up.count + all!.down.count).toBe(expectedCount);
   });
 
-  it('returns to null when dual mode is toggled off', () => {
+  it('returns to null when the list collapses to one config', () => {
     const { store } = setupStore(makeBars(40));
     store.setSymbol('AAPL');
     expect(store.allStats()).not.toBeNull();
-    store.toggleDualMode(); // off
+    store.removeActiveConfig(1);
     expect(store.allStats()).toBeNull();
   });
 });
@@ -711,7 +722,7 @@ describe('SwingAnalysisStore.loadAnalysis', () => {
     expect(service.loadAnalysis).not.toHaveBeenCalled();
   });
 
-  it('does not desync when toggleDualMode is called during in-flight bar load', () => {
+  it('does not desync when a config is removed during in-flight bar load', () => {
     const barsSubject = new Subject<{
       daily: ChartDataset;
       weekly: ChartDataset;
@@ -731,9 +742,9 @@ describe('SwingAnalysisStore.loadAnalysis', () => {
     });
     const store = TestBed.inject(SwingAnalysisStore);
     store.setSymbol('AAPL');
-    // Bar load is in flight (2 configs — dual is the default).
-    // Toggle dual mode OFF mid-flight.
-    store.toggleDualMode();
+    // Bar load is in flight (2 configs by default).
+    // Remove the second config mid-flight.
+    store.removeActiveConfig(1);
     expect(store.configs().length).toBe(1);
     expect(store.pivots().length).toBe(1);
 
@@ -753,7 +764,7 @@ describe('SwingAnalysisStore.loadAnalysis', () => {
     barsSubject.complete();
   });
 
-  it('does not desync when toggleDualMode is called during in-flight loadAnalysis', () => {
+  it('does not desync when a config is removed during in-flight loadAnalysis', () => {
     const mockDoc = makeSwingAnalysisDoc({
       id: deriveParamsId(LARGE_CONFIG),
       config: { ...LARGE_CONFIG },
@@ -782,17 +793,17 @@ describe('SwingAnalysisStore.loadAnalysis', () => {
     });
     const store = TestBed.inject(SwingAnalysisStore);
     store.setSymbol('AAPL');
-    // Start loadAnalysis — analysis doc request is pending (2 configs —
-    // dual is the default). Toggle dual mode OFF while fetch is in flight.
+    // Start loadAnalysis — analysis doc request is pending (2 configs by
+    // default). Remove the second config while the fetch is in flight.
     store.loadAnalysis(deriveParamsId(LARGE_CONFIG), 0);
-    store.toggleDualMode();
+    store.removeActiveConfig(1);
     expect(store.configs().length).toBe(1);
 
     // Doc arrives — next handler re-reads store.configs() fresh (length 1),
     // so it applies to slot 0 without resurrecting the removed config.
     analysisSubject.next(mockDoc);
     expect(store.configs().length).toBe(1);
-    expect(store.dualMode()).toBe(false);
+    expect(store.configs().length).toBe(1);
     analysisSubject.complete();
     barsSubject.complete();
   });
@@ -902,7 +913,7 @@ describe('SwingAnalysisStore.runBatch', () => {
 
   it('saves once per symbol in single mode', () => {
     const { store, service } = setupBatch();
-    store.toggleDualMode(); // off -> 1 config
+    store.removeActiveConfig(1); // collapse to 1 config
     store.runBatch('AAPL, MSFT');
     expect(service.saveAnalysis).toHaveBeenCalledTimes(2);
     expect(savedSymbols(service)).toEqual(['AAPL', 'MSFT']);
@@ -910,7 +921,7 @@ describe('SwingAnalysisStore.runBatch', () => {
 
   it('normalizes the symbol list — trims, uppercases, dedupes, splits on comma/space/newline', () => {
     const { store, service } = setupBatch();
-    store.toggleDualMode();
+    store.removeActiveConfig(1);
     store.runBatch('aapl, msft\n  QQQ  aapl MSFT');
     expect(savedSymbols(service)).toEqual(['AAPL', 'MSFT', 'QQQ']);
   });
@@ -954,7 +965,7 @@ describe('SwingAnalysisStore.runBatch', () => {
 
   it('records save failures per symbol and continues', () => {
     const { store, service } = setupBatch({ saveFailFor: ['MSFT'] });
-    store.toggleDualMode();
+    store.removeActiveConfig(1);
     store.runBatch('AAPL, MSFT, QQQ');
     const results = store.batchResults();
     expect(results[1].symbol).toBe('MSFT');
@@ -965,7 +976,7 @@ describe('SwingAnalysisStore.runBatch', () => {
 
   it('marks a symbol failed when bars come back empty', () => {
     const { store } = setupBatch({ barsBySymbol: { EMPTY: [] } });
-    store.toggleDualMode();
+    store.removeActiveConfig(1);
     store.runBatch('AAPL, EMPTY, QQQ');
     const results = store.batchResults();
     expect(results[1].symbol).toBe('EMPTY');
@@ -1013,7 +1024,7 @@ describe('SwingAnalysisStore.runBatch', () => {
 
   it('fetches bars exactly once per symbol', () => {
     const { store, chart } = setupBatch();
-    store.toggleDualMode();
+    store.removeActiveConfig(1);
     store.runBatch('AAPL, MSFT, QQQ');
     expect(chart.loadBars$).toHaveBeenCalledTimes(3);
     expect(chart.loadBars$.mock.calls.map((c) => c[0])).toEqual(['AAPL', 'MSFT', 'QQQ']);
@@ -1035,7 +1046,7 @@ describe('SwingAnalysisStore.runBatch', () => {
 
   it('supports consecutive runs — a second run after completion starts clean', () => {
     const { store, service } = setupBatch();
-    store.toggleDualMode();
+    store.removeActiveConfig(1);
     store.runBatch('AAPL');
     store.runBatch('MSFT');
     expect(store.batchResults()).toEqual([{ symbol: 'MSFT', ok: true }]);
@@ -1065,16 +1076,24 @@ describe('SwingAnalysisStore.runBatch', () => {
 });
 
 // =============================================================================
-// loadSwingSets / loadSwingSetsIntoSlots — saved-sets browser
+// Config library — st-swing-configs (global, symbol-less)
 // =============================================================================
 
-describe('SwingAnalysisStore.loadSwingSets', () => {
-  it('patches savedSets from the service result and clears loading', () => {
-    const allSets = [
-      makeSwingAnalysisDoc({ id: 'a1', symbol: 'AAPL' }),
-      makeSwingAnalysisDoc({ id: 'm1', symbol: 'MSFT' }),
-    ];
-    const service = mockSwingAnalysisService([], allSets);
+describe('SwingAnalysisStore — config library', () => {
+  function makeConfigDoc(overrides: Partial<SwingConfigDoc> = {}): SwingConfigDoc {
+    return {
+      id: deriveParamsId(LARGE_CONFIG),
+      paramsId: deriveParamsId(LARGE_CONFIG),
+      userId: 'user-123',
+      name: 'Big',
+      config: { ...LARGE_CONFIG },
+      savedAt: '2026-09-26T00:00:00Z',
+      ...overrides,
+    };
+  }
+
+  function setupLibrary(configs: SwingConfigDoc[]) {
+    const service = mockSwingAnalysisService([], [], configs);
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
@@ -1085,264 +1104,83 @@ describe('SwingAnalysisStore.loadSwingSets', () => {
         SwingAnalysisStore,
       ],
     });
-    const store = TestBed.inject(SwingAnalysisStore);
+    return { store: TestBed.inject(SwingAnalysisStore), service };
+  }
 
-    store.loadSwingSets();
-
-    expect(service.loadAllSwingSets).toHaveBeenCalled();
-    expect(store.savedSets()).toEqual(allSets);
-    expect(store.savedSetsLoading()).toBe(false);
+  it('loadConfigLibrary patches configLibrary and clears loading', () => {
+    const cfgs = [makeConfigDoc({ id: 'c1', name: 'One' }), makeConfigDoc({ id: 'c2', name: 'Two' })];
+    const { store, service } = setupLibrary(cfgs);
+    store.loadConfigLibrary();
+    expect(service.loadConfigs).toHaveBeenCalled();
+    expect(store.configLibrary()).toEqual(cfgs);
+    expect(store.configLibraryLoading()).toBe(false);
   });
 
-  it('with a symbol uses the scoped loadSavedAnalyses query, not the collection sweep', () => {
-    const aapl = [makeSwingAnalysisDoc({ id: 'a1', symbol: 'AAPL' })];
-    const service = mockSwingAnalysisService(aapl, []);
-    TestBed.configureTestingModule({
-      providers: [
-        provideZonelessChangeDetection(),
-        { provide: ChartService, useValue: mockChartService(makeBars(40)) },
-        { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of([])) } },
-        { provide: SymbolListStore, useValue: { symbolLists: signal<Record<string, string[]>>({}) } },
-        { provide: SwingAnalysisService, useValue: service },
-        SwingAnalysisStore,
-      ],
-    });
-    const store = TestBed.inject(SwingAnalysisStore);
-
-    store.loadSwingSets('AAPL');
-
-    expect(service.loadSavedAnalyses).toHaveBeenCalledWith('AAPL');
-    expect(service.loadAllSwingSets).not.toHaveBeenCalled();
-    expect(store.savedSets()).toEqual(aapl);
-  });
-
-  it('a service error sets error and clears loading', () => {
-    const service = mockSwingAnalysisService();
-    service.loadAllSwingSets.mockReturnValue(throwError(() => new Error('rules deny')));
-    TestBed.configureTestingModule({
-      providers: [
-        provideZonelessChangeDetection(),
-        { provide: ChartService, useValue: mockChartService(makeBars(40)) },
-        { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of([])) } },
-        { provide: SymbolListStore, useValue: { symbolLists: signal<Record<string, string[]>>({}) } },
-        { provide: SwingAnalysisService, useValue: service },
-        SwingAnalysisStore,
-      ],
-    });
-    const store = TestBed.inject(SwingAnalysisStore);
-
-    store.loadSwingSets();
-
-    expect(store.savedSets()).toEqual([]);
-    expect(store.savedSetsLoading()).toBe(false);
+  it('a loadConfigs error sets error and clears loading', () => {
+    const { store, service } = setupLibrary([]);
+    service.loadConfigs.mockReturnValue(throwError(() => new Error('rules deny')));
+    store.loadConfigLibrary();
+    expect(store.configLibrary()).toEqual([]);
+    expect(store.configLibraryLoading()).toBe(false);
     expect(store.error()).toContain('rules deny');
   });
-});
 
-describe('SwingAnalysisStore.loadSwingSetsIntoSlots', () => {
-  const docFor = (symbol: string, dev: number, id: string) =>
-    makeSwingAnalysisDoc({
-      id,
-      symbol,
-      config: { ...LARGE_CONFIG, devThreshold: dev },
-    });
-
-  it('same-symbol: replaces configs with N doc configs and recomputes all slots on current bars', () => {
-    const { store } = setupStore();
-    store.setSymbol('AAPL');
-    const before = store.configs().length;
-    expect(before).toBe(2);
-
-    store.loadSwingSetsIntoSlots([
-      docFor('AAPL', 10, 's10'),
-      docFor('AAPL', 3, 's3'),
-      docFor('AAPL', 1, 's1'),
-    ]);
-
-    expect(store.configs().length).toBe(3);
-    expect(store.configs().map((c) => c.devThreshold)).toEqual([10, 3, 1]);
-    // All three parallel arrays grew to N slots and hold real recompute output.
-    expect(store.pivots().length).toBe(3);
-    expect(store.swings().length).toBe(3);
-    expect(store.stats().length).toBe(3);
-    expect(store.symbol()).toBe('AAPL');
-  });
-
-  it('slot styling is positional — doc lineColor/showTriggerDots are ignored', () => {
-    const { store } = setupStore();
-    store.setSymbol('AAPL');
-
-    store.loadSwingSetsIntoSlots([
-      makeSwingAnalysisDoc({ id: 's10', symbol: 'AAPL', config: { ...LARGE_CONFIG, devThreshold: 10, lineColor: '#ff0000', showTriggerDots: false } }),
-      makeSwingAnalysisDoc({ id: 's3', symbol: 'AAPL', config: { ...LARGE_CONFIG, devThreshold: 3, lineColor: '#00ff00', showTriggerDots: true } }),
-    ]);
-
-    // Slot 0 → large styling; slot 1 → small styling, regardless of the doc.
-    expect(store.configs()[0].lineColor).toBe(LARGE_CONFIG.lineColor);
-    expect(store.configs()[0].showTriggerDots).toBe(true);
-    expect(store.configs()[1].lineColor).toBe(SMALL_CONFIG.lineColor);
-    expect(store.configs()[1].showTriggerDots).toBe(false);
-  });
-
-  it('different symbol: runs the setSymbol flow — the N configs recompute on the new bars', () => {
+  it('saveActiveConfig writes the slim doc and upserts the library entry', () => {
     const { store, service } = setupStore();
     store.setSymbol('AAPL');
-
-    store.loadSwingSetsIntoSlots([
-      docFor('MSFT', 10, 'm10'),
-      docFor('MSFT', 4, 'm4'),
-    ]);
-
-    expect(store.symbol()).toBe('MSFT');
-    expect(store.configs().map((c) => c.devThreshold)).toEqual([10, 4]);
-    expect(store.bars().length).toBeGreaterThan(0);
-    expect(store.pivots().length).toBe(2);
-    expect(store.swings().length).toBe(2);
-    expect(service.saveAnalysis).not.toHaveBeenCalled();
+    store.saveActiveConfig(0, 'My preset');
+    expect(service.saveConfig).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'My preset', config: store.configs()[0] }),
+    );
+    // Slim shape — no snapshot fields escape into the config library.
+    const arg = service.saveConfig.mock.calls[0][0] as Record<string, unknown>;
+    for (const banned of ['symbol', 'pivots', 'swings', 'stats', 'projection']) {
+      expect(arg).not.toHaveProperty(banned);
+    }
+    expect(store.configLibrary().some((c) => c.paramsId === deriveParamsId(LARGE_CONFIG))).toBe(true);
   });
 
-  it('N>2 slots: dualMode reads true and allStats merges every slot', () => {
+  it('saveActiveConfig re-saves overwrite in place — no duplicate paramsId rows', () => {
     const { store } = setupStore();
-    store.setSymbol('AAPL');
-
-    store.loadSwingSetsIntoSlots([
-      docFor('AAPL', 10, 's10'),
-      docFor('AAPL', 3, 's3'),
-      docFor('AAPL', 1, 's1'),
-    ]);
-
-    expect(store.dualMode()).toBe(true);
-    expect(store.allStats()).not.toBeNull();
-    // allStats merges every slot's swings — its count equals the sum of
-    // the per-slot stats counts (computeSwingStats filters unconfirmed
-    // swings, so compare against stats, not raw swing arrays).
-    const perSlot = store.stats()
-      .reduce((n, s) => n + (s?.up.count ?? 0) + (s?.down.count ?? 0), 0);
-    expect(store.allStats()!.up.count + store.allStats()!.down.count)
-      .toBe(perSlot);
+    store.saveActiveConfig(0, 'v1');
+    store.saveActiveConfig(0, 'v2');
+    const ids = store.configLibrary().map((c) => c.paramsId);
+    expect(ids.filter((id) => id === deriveParamsId(LARGE_CONFIG)).length).toBe(1);
+    expect(store.configLibrary().find((c) => c.paramsId === deriveParamsId(LARGE_CONFIG))!.name).toBe('v2');
   });
 
-  it('toggleDualMode from N>2 collapses to the first config', () => {
-    const { store } = setupStore();
-    store.setSymbol('AAPL');
-    store.loadSwingSetsIntoSlots([
-      docFor('AAPL', 10, 's10'),
-      docFor('AAPL', 3, 's3'),
-      docFor('AAPL', 1, 's1'),
-    ]);
-    expect(store.configs().length).toBe(3);
-
-    store.toggleDualMode();
-
-    expect(store.configs().length).toBe(1);
-    expect(store.configs()[0].devThreshold).toBe(10);
-    expect(store.dualMode()).toBe(false);
-  });
-
-  it('cancels an in-flight loadAnalysis so it cannot overwrite a loaded slot', () => {
-    const barsSubject = new Subject<{
-      daily: ChartDataset;
-      weekly: ChartDataset;
-      monthly: ChartDataset;
-      version: string;
-    }>();
-    const analysisSubject = new Subject<SwingAnalysisDoc | null>();
-    const staleDoc = makeSwingAnalysisDoc({
-      config: { ...LARGE_CONFIG, devThreshold: 99 },
-    });
-    const service = {
-      loadSavedAnalyses: jest.fn(() => of([])),
-      loadAllSwingSets: jest.fn(() => of([])),
-      saveAnalysis: jest.fn(() => of(undefined)),
-      loadAnalysis: jest.fn(() => analysisSubject.asObservable()),
-    };
-    TestBed.configureTestingModule({
-      providers: [
-        provideZonelessChangeDetection(),
-        { provide: ChartService, useValue: { loadBars$: () => barsSubject.asObservable() } },
-        { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of([])) } },
-        { provide: SymbolListStore, useValue: { symbolLists: signal<Record<string, string[]>>({}) } },
-        { provide: SwingAnalysisService, useValue: service },
-        SwingAnalysisStore,
-      ],
-    });
-    const store = TestBed.inject(SwingAnalysisStore);
-    store.setSymbol('AAPL');
-    barsSubject.next({
-      daily: makeChartDataset(makeBars(40)),
-      weekly: makeChartDataset(makeBars(40)),
-      monthly: makeChartDataset(makeBars(40)),
-      version: 't',
-    });
-    // Start an analysis load, then load N sets before it resolves.
-    store.loadAnalysis(deriveParamsId(LARGE_CONFIG), 0);
-    store.loadSwingSetsIntoSlots([docFor('AAPL', 10, 's10'), docFor('AAPL', 3, 's3')]);
-    expect(store.configs().map((c) => c.devThreshold)).toEqual([10, 3]);
-
-    // The stale response lands — must not clobber a loaded slot.
-    analysisSubject.next(staleDoc);
-    analysisSubject.complete();
-    expect(store.configs().map((c) => c.devThreshold)).toEqual([10, 3]);
-  });
-
-  it('resetState clears savedSets and aborts an in-flight loadSwingSets', () => {
-    const setsSubject = new Subject<SwingAnalysisDoc[]>();
-    const service = mockSwingAnalysisService();
-    service.loadAllSwingSets.mockReturnValue(setsSubject.asObservable());
-    TestBed.configureTestingModule({
-      providers: [
-        provideZonelessChangeDetection(),
-        { provide: ChartService, useValue: mockChartService(makeBars(40)) },
-        { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of([])) } },
-        { provide: SymbolListStore, useValue: { symbolLists: signal<Record<string, string[]>>({}) } },
-        { provide: SwingAnalysisService, useValue: service },
-        SwingAnalysisStore,
-      ],
-    });
-    const store = TestBed.inject(SwingAnalysisStore);
-
-    store.loadSwingSets();
-    expect(store.savedSetsLoading()).toBe(true);
-    store.resetState();
-    expect(store.savedSets()).toEqual([]);
-    expect(store.savedSetsLoading()).toBe(false);
-
-    // Zombie check — a late response must not patch the reset store.
-    setsSubject.next([makeSwingAnalysisDoc()]);
-    setsSubject.complete();
-    expect(store.savedSets()).toEqual([]);
-  });
-
-  it('a selection spanning symbols is rejected — no state change', () => {
-    const { store } = setupStore();
-    store.setSymbol('AAPL');
-    const before = store.configs();
-
-    store.loadSwingSetsIntoSlots([
-      docFor('AAPL', 10, 'a'),
-      docFor('MSFT', 5, 'm'),
-    ]);
-
-    expect(store.configs()).toEqual(before);
-    expect(store.symbol()).toBe('AAPL');
-  });
-
-  it('an empty selection is a no-op', () => {
-    const { store } = setupStore();
-    store.setSymbol('AAPL');
-    const before = store.configs();
-
-    store.loadSwingSetsIntoSlots([]);
-
-    expect(store.configs()).toEqual(before);
-  });
-
-  it('never re-saves the loaded docs', () => {
+  it('saveActiveConfig ignores out-of-range indexes', () => {
     const { store, service } = setupStore();
-    store.setSymbol('AAPL');
+    store.saveActiveConfig(9, 'x');
+    expect(service.saveConfig).not.toHaveBeenCalled();
+  });
 
-    store.loadSwingSetsIntoSlots([docFor('AAPL', 10, 's10')]);
+  it('saveActiveConfig service error sets error', () => {
+    const { store, service } = setupStore();
+    service.saveConfig.mockReturnValue(throwError(() => new Error('denied')));
+    store.saveActiveConfig(0, 'x');
+    expect(store.error()).toContain('denied');
+  });
 
-    expect(service.saveAnalysis).not.toHaveBeenCalled();
+  it('deleteSavedConfig calls the service and drops the library row', () => {
+    const pid = deriveParamsId(LARGE_CONFIG);
+    const { store, service } = setupLibrary([
+      makeConfigDoc({ id: pid, paramsId: pid }),
+      makeConfigDoc({ id: 'other', paramsId: 'other' }),
+    ]);
+    store.loadConfigLibrary();
+    store.deleteSavedConfig(pid);
+    expect(service.deleteConfig).toHaveBeenCalledWith(pid);
+    expect(store.configLibrary().map((c) => c.paramsId)).toEqual(['other']);
+  });
+
+  it('deleteSavedConfig leaves the library untouched on service error', () => {
+    const pid = deriveParamsId(LARGE_CONFIG);
+    const { store, service } = setupLibrary([makeConfigDoc({ id: pid, paramsId: pid })]);
+    store.loadConfigLibrary();
+    service.deleteConfig.mockReturnValue(throwError(() => new Error('nope')));
+    store.deleteSavedConfig(pid);
+    expect(store.configLibrary().length).toBe(1);
+    expect(store.error()).toContain('nope');
   });
 });
