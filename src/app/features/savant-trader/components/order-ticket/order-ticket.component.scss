@@ -177,6 +177,7 @@
       &.status-filled { background: #1b5e2033; color: #1b5e20; }
       &.status-failed { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
       &.status-cancelled { background: var(--mat-sys-surface-container-highest); color: var(--mat-sys-on-surface-variant); }
+  &.status-paper { background: #00838f33; color: #006064; }
     }
 
     .header-price {

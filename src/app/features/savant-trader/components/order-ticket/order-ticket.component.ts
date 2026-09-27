@@ -30,6 +30,8 @@ import { firstValueFrom } from 'rxjs';
 
 import { OrderTicketStore } from '../../stores/order-ticket.store';
 import { OrderExecutionService } from '../../services/order-execution.service';
+import { PaperTradingService } from '../../services/paper-trading.service';
+import { TradeSide } from '@common';
 import { OrderConfirmDialogComponent } from '../order-confirm-dialog/order-confirm-dialog.component';
 import { evaluateOrderGuardrails, GuardrailContext } from '../../utils/order-guardrails.util';
 import {
@@ -71,6 +73,7 @@ import { StopLossFormComponent } from '../../../../shared/components/stop-loss-f
 export class OrderTicketComponent {
   private readonly stagingStore = inject(OrderTicketStore);
   private readonly orderExecution = inject(OrderExecutionService);
+  private readonly paperTrading = inject(PaperTradingService);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
 
@@ -197,6 +200,20 @@ export class OrderTicketComponent {
 
   /** Whether the ticket is currently being submitted. */
   readonly isSubmitting = computed(() => this.ticket()?.status === OrderTicketStatus.SUBMITTING);
+
+  /** In-flight flag for the paperSignalOrder callable. */
+  readonly acceptingPaper = signal(false);
+
+  /** Whether the staged ticket can be accepted as paper — signal-pipeline
+   *  equity/ETF tickets only (option tickets and non-signal sources have
+   *  no signal context to anchor the paper cohort to). */
+  readonly canAcceptAsPaper = computed(() => {
+    const i = this.ticket();
+    return !!i && i.status === OrderTicketStatus.STAGED &&
+      i.source === OrderSource.SIGNAL_PIPELINE &&
+      i.instrumentType !== InstrumentType.OPTION &&
+      !!i.signalContext?.decisionId;
+  });
 
   /** Whether the ticket is submitted and awaiting fill (or submitting). */
   readonly isSubmitted = computed(() => {
@@ -540,6 +557,72 @@ export class OrderTicketComponent {
 
     if (confirmed) {
       this.stagingStore.submitTicket(i.id);
+    }
+  }
+
+  /** Accept the staged signal ticket as paper: opens the confirm dialog in
+   *  paper mode, calls paperSignalOrder, and transitions the ticket to
+   *  PAPER on success. On failure the ticket stays STAGED. No RH calls —
+   *  the callable does all broker reads server-side. */
+  async onAcceptAsPaper(): Promise<void> {
+    const i = this.ticket();
+    if (!i || !this.canAcceptAsPaper() || this.acceptingPaper()) return;
+    const signalId = i.signalContext?.decisionId;
+    if (!signalId) {
+      this.snackBar.open('Ticket has no signal context — cannot accept as paper', 'Dismiss', { duration: 5000 });
+      return;
+    }
+    if (i.instrumentType === InstrumentType.OPTION) return;
+
+    // Persist pending edits first so the stored ticket, the dialog, and the
+    // request all agree (same ordering as onSubmit).
+    this.saveEdits();
+
+    // Held from dialog open through the callable so rapid re-entry can't
+    // open a second dialog or double-invoke paperSignalOrder.
+    this.acceptingPaper.set(true);
+
+    try {
+      const confirmed = await firstValueFrom(
+        this.dialog
+          .open(OrderConfirmDialogComponent, {
+            data: { ticket: { ...i, ...this.preview() }, warnings: [], paper: true },
+            width: '400px',
+          })
+          .afterClosed(),
+      );
+      if (!confirmed) return;
+
+      const quantity = this.wholeQuantity() > 0 ? this.wholeQuantity() : undefined;
+      // Direction comes from the ticket side — it can never disagree with the
+      // backend's side/direction cross-check (signalContext.direction is an
+      // untyped string and could be missing/garbage on legacy docs).
+      const direction = i.side === 'sell' ? TradeSide.SHORT : TradeSide.LONG;
+
+      const res = await firstValueFrom(
+        this.paperTrading.paperSignalOrder$({
+          signalId,
+          symbol: i.symbol,
+          direction,
+          quantity,
+          refId: i.refId,
+        }),
+      );
+      this.stagingStore.updateTicket(i.id, {
+        status: OrderTicketStatus.PAPER,
+        error: undefined,
+        updatedAt: new Date().toISOString(),
+      });
+      this.snackBar.open(
+        `Accepted as paper — cohort ${res.cohortId} (${res.expressionTradeIds.length} expression trades)`,
+        'Dismiss',
+        { duration: 5000 },
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.snackBar.open(`Failed to accept as paper: ${msg}`, 'Dismiss', { duration: 5000 });
+    } finally {
+      this.acceptingPaper.set(false);
     }
   }
 

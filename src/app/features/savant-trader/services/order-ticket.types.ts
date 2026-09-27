@@ -30,6 +30,9 @@ export enum OrderTicketStatus {
   FILLED = 'filled',
   FAILED = 'failed',
   CANCELLED = 'cancelled',
+  /** Accepted as paper via the paperSignalOrder callable — tracked in the
+   *  paper ledger, never sent to the broker (no RH-order polling). */
+  PAPER = 'paper',
 }
 
 /** Origin of the order ticket. */

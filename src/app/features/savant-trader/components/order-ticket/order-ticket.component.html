@@ -346,6 +346,19 @@
           </button>
         }
 
+        @if (canAcceptAsPaper()) {
+          <button
+            mat-stroked-button
+            class="paper-btn"
+            data-testid="accept-as-paper-btn"
+            (click)="onAcceptAsPaper()"
+            [disabled]="acceptingPaper()"
+          >
+            <mat-icon>science</mat-icon>
+            {{ acceptingPaper() ? 'Accepting…' : 'Accept as Paper' }}
+          </button>
+        }
+
         @if (ticket()?.status === OrderTicketStatus.FAILED && isRetryable()) {
           <button mat-stroked-button color="primary" (click)="onRetry()">
             <mat-icon>refresh</mat-icon>
