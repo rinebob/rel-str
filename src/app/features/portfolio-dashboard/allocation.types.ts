@@ -1,0 +1,75 @@
+/**
+ * Allocation Manager view types (Blueprint #582 / task #587).
+ *
+ * The store's selector shapes — the Cash and Unassigned rows are pseudo
+ * rows derived from live positions/snapshot, never stored documents.
+ */
+import type {
+  AllocationBucket,
+  BucketStats,
+  PositionAttribution,
+} from '@portfolio-allocation/contracts';
+import type {
+  AllocationFillInput,
+  AllocationPositionInput,
+  CashCheck,
+} from '@portfolio-allocation/utils';
+import type { PortfolioSnapshot } from '../../core/robinhood-mcp/types/robinhood-mcp.types';
+
+/** Per-account slice — everything the allocation page needs, cached per
+ *  accountNumber so tab switches don't re-fetch. */
+export interface AccountAllocation {
+  snapshot: PortfolioSnapshot | null;
+  positions: AllocationPositionInput[];
+  fills: AllocationFillInput[];
+  buckets: AllocationBucket[];
+  attributions: PositionAttribution[];
+  /** ISO timestamp of the last MCP fetch — the as-of label (PRD). */
+  asOf: string | null;
+  loading: boolean;
+  error: string | null;
+}
+
+export type BucketRowKind = 'bucket' | 'cash' | 'unassigned';
+
+export interface BucketRow {
+  kind: BucketRowKind;
+  /** Set only for kind 'bucket'. */
+  bucket: AllocationBucket | null;
+  /** Stats for 'bucket' and 'unassigned' rows (null for cash). */
+  stats: BucketStats | null;
+  /** Reconciliation detail for the 'cash' row (null otherwise). */
+  cash: CashCheck | null;
+}
+
+export interface PositionRow {
+  position: AllocationPositionInput;
+  bucketId: string | null;
+  /** Resolved display name — 'Unassigned' when bucketId is null,
+   *  'Unknown bucket' when the attribution points at a deleted bucket. */
+  bucketName: string;
+  /** The position's multi-leg group key, when attributed as one. */
+  linkKey?: string;
+}
+
+/** Account header — value / allocated / cash remainder completeness check. */
+export interface AccountHeader {
+  accountValue: number | null;
+  /** Gross deployed exposure — Σ|marketValue| over ALL positions. */
+  allocated: number;
+  /** Broker-reported cash (the allocation basis). */
+  cash: number | null;
+  /** Derived residual — accountValue − Σ marketValue (cross-check). */
+  derivedCash: number | null;
+  /** True when actual vs derived diverge beyond tolerance — warn, not block. */
+  cashDiverged: boolean;
+  /** Subset of `allocated` sitting in Unassigned. */
+  unassignedExposure: number;
+  asOf: string | null;
+}
+
+export interface BucketDetail {
+  bucket: AllocationBucket;
+  stats: BucketStats;
+  positions: PositionRow[];
+}
