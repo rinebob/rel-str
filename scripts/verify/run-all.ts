@@ -26,6 +26,12 @@ const scripts = [
     needsAdc: true,
   },
   {
+    name: 'portfolio allocation round-trip',
+    file: 'portfolio-allocation-586-roundtrip.ts',
+    needsAccount: false,
+    needsAdc: true,
+  },
+  {
     name: 'paper-trading ledger',
     file: 'verify/paper-trading-ledger-561.ts',
     cwd: 'functions',
