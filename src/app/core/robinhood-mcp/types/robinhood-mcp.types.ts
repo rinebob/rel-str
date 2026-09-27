@@ -92,6 +92,23 @@ export type OrderState =
 
 export type OrderType = 'market' | 'limit' | 'stop_market' | 'stop_limit' | 'unknown';
 
+/** One leg of an option order (single-leg orders carry one leg). */
+export interface BrokerOrderLeg {
+  side: OrderSide | null;
+  /** Option contract instrument UUID — the OptionPosition.instrumentId key. */
+  optionId: string | null;
+  quantity: number | null;
+  /** RH position_effect: open or close — may be absent on some payloads. */
+  positionEffect: 'open' | 'close' | null;
+}
+
+/** One execution (partial fill) on an order. */
+export interface BrokerOrderExecution {
+  price: number | null;
+  quantity: number | null;
+  timestamp: string | null;
+}
+
 export interface BrokerOrder {
   orderId: string;
   accountNumber: string;
@@ -106,6 +123,13 @@ export interface BrokerOrder {
   stopPrice: number | null;
   averageFillPrice: number | null;
   createdAt: string | null;
+  /** Present only when the raw order carried a `legs` array (option orders).
+   *  Per-leg identity is required for per-instrument attribution — a spread
+   *  is one order touching several instruments. */
+  legs?: BrokerOrderLeg[];
+  /** Present only when the raw order carried an `executions` array —
+   *  per-fill price/quantity/timestamp for FIFO matching. */
+  executions?: BrokerOrderExecution[];
 }
 
 // ---------------------------------------------------------------------------

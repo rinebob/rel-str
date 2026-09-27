@@ -23,6 +23,8 @@ import {
   EquityQuote,
   OptionQuote,
   BrokerOrder,
+  BrokerOrderExecution,
+  BrokerOrderLeg,
   OrderState,
   OrderType,
   PnlTrade,
@@ -283,7 +285,49 @@ export class RobinhoodMcpClient {
       stopPrice: this.toNumber(raw['stop_price']),
       averageFillPrice: this.toNumber(raw['average_price']),
       createdAt: typeof raw['created_at'] === 'string' ? raw['created_at'] : null,
+      legs: this.parseLegs(raw['legs'], rawSide),
+      executions: this.parseExecutions(raw['executions']),
     };
+  }
+
+  /** Option-order legs — per-instrument contract ids (option_id or the
+   *  instrument URL's final segment) + position_effect when the payload
+   *  carries it. Returns undefined when absent so `toEqual` consumers see
+   *  no phantom key. */
+  private parseLegs(raw: unknown, orderSide: 'buy' | 'sell'): BrokerOrderLeg[] | undefined {
+    if (!Array.isArray(raw) || raw.length === 0) return undefined;
+    return raw.map((l): BrokerOrderLeg => {
+      const leg = (l && typeof l === 'object' ? l : {}) as Record<string, unknown>;
+      const side = leg['side'] === 'buy' || leg['side'] === 'sell' ? leg['side'] : orderSide;
+      const optionRef = leg['option_id'] ?? leg['option'];
+      const optionId = typeof optionRef === 'string' && optionRef
+        ? optionRef.split('/').filter(Boolean).pop() ?? null
+        : null;
+      const effect = leg['position_effect'] === 'open' || leg['position_effect'] === 'close'
+        ? leg['position_effect']
+        : null;
+      return {
+        side,
+        optionId,
+        quantity: this.toNumber(leg['quantity'] ?? leg['ratio_quantity']),
+        positionEffect: effect,
+      };
+    });
+  }
+
+  /** Per-fill executions — price/quantity/timestamp per partial fill.
+   *  Returns undefined when absent. */
+  private parseExecutions(raw: unknown): BrokerOrderExecution[] | undefined {
+    if (!Array.isArray(raw) || raw.length === 0) return undefined;
+    return raw.map((e): BrokerOrderExecution => {
+      const ex = (e && typeof e === 'object' ? e : {}) as Record<string, unknown>;
+      return {
+        price: this.toNumber(ex['price']),
+        quantity: this.toNumber(ex['quantity']),
+        timestamp: typeof ex['timestamp'] === 'string' ? ex['timestamp']
+          : typeof ex['time'] === 'string' ? ex['time'] : null,
+      };
+    });
   }
 
   private parseOrderType(value: unknown): OrderType {

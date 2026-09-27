@@ -516,7 +516,8 @@ describe('RobinhoodMcpClient', () => {
               price: '3.50',
               created_at: '2026-01-15T11:00:00Z',
               chain_symbol: 'AAPL',
-              legs: [{ side: 'sell', option_id: 'opt-uuid-1', quantity: '1' }],
+              legs: [{ side: 'sell', option_id: 'opt-uuid-1', quantity: '1', position_effect: 'close' }],
+              executions: [{ price: '3.40', quantity: '1', timestamp: '2026-01-15T11:00:01Z' }],
             },
           ],
         },
@@ -541,7 +542,39 @@ describe('RobinhoodMcpClient', () => {
         stopPrice: null,
         averageFillPrice: null,
         createdAt: '2026-01-15T11:00:00Z',
+        legs: [{ side: 'sell', optionId: 'opt-uuid-1', quantity: 1, positionEffect: 'close' }],
+        executions: [{ price: 3.4, quantity: 1, timestamp: '2026-01-15T11:00:01Z' }],
       } satisfies BrokerOrder);
+    });
+
+    it('parses leg instrument ids from `option` URL form and tolerates missing effect', async () => {
+      mockResolve({
+        success: true,
+        parsed: {
+          results: [
+            {
+              id: 'opt-order-2',
+              side: 'buy',
+              type: 'limit',
+              state: 'filled',
+              quantity: '2',
+              chain_symbol: 'SPY',
+              legs: [
+                { side: 'buy', option: 'https://api.robinhood.com/options/instruments/leg-uuid-2/', quantity: '1' },
+                { side: 'sell', option: 'https://api.robinhood.com/options/instruments/leg-uuid-3/', quantity: '1' },
+              ],
+            },
+          ],
+        },
+        redacted: {},
+        tool: 'get_option_orders',
+      });
+
+      const orders = await client.getOptionOrders('123456789');
+      expect(orders[0].legs).toEqual([
+        { side: 'buy', optionId: 'leg-uuid-2', quantity: 1, positionEffect: null },
+        { side: 'sell', optionId: 'leg-uuid-3', quantity: 1, positionEffect: null },
+      ]);
     });
 
     it('throws RobinhoodMcpError on failure', async () => {
