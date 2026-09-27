@@ -388,6 +388,30 @@ service cloud.firestore {
       }
     }
 
+    // Portfolio allocation — single `portfolio` root, per-kind anchors with
+    // items subcollections (paper-trading pattern):
+    // - portfolio/buckets/items/{account}_{slug}
+    // - portfolio/attributions/items/{account}_{instrumentId}
+    // Both anchors are user-scoped CRUD (st-swing-sets shape): list queries
+    // must constrain userId (where('userId','==',uid)) or the rules engine
+    // cannot prove every returned doc is owned — the query is denied
+    // outright. No resource == null escape hatch. Anchor docs themselves
+    // carry no data — denied.
+    match /portfolio/{anchor} {
+      allow read, write: if false;
+      match /items/{docId} {
+        allow read: if request.auth != null
+          && (anchor == 'buckets' || anchor == 'attributions')
+          && request.auth.uid == resource.data.userId;
+        allow create: if request.auth != null
+          && (anchor == 'buckets' || anchor == 'attributions')
+          && request.auth.uid == request.resource.data.userId;
+        allow update, delete: if request.auth != null
+          && (anchor == 'buckets' || anchor == 'attributions')
+          && request.auth.uid == resource.data.userId;
+      }
+    }
+
     // Default deny for all other collections
     match /{document=**} {
       allow read, write: if false;
