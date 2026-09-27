@@ -238,6 +238,16 @@ export enum CallableName {
   LIST_STRATEGY_POSITIONS = 'listStrategyPositions',
   /** Options strategy dashboard: equity curve + stats for a scope */
   GET_STRATEGY_EQUITY_CURVE = 'getStrategyEquityCurve',
+  /** Paper trading: accept a signal/order ticket as paper trades */
+  PAPER_SIGNAL_ORDER = 'paperSignalOrder',
+  /** Paper trading: list trades with AND-combined filters */
+  LIST_PAPER_TRADES = 'listPaperTrades',
+  /** Paper trading: rollup stats for a scope, or all docs when omitted */
+  GET_PAPER_STATS = 'getPaperStats',
+  /** Paper trading: caller's paper account */
+  GET_PAPER_ACCOUNT = 'getPaperAccount',
+  /** Paper trading: exit-variant registry configs */
+  LIST_EXIT_VARIANTS = 'listExitVariants',
 }
 
 /** Top-level Firestore collections used by the FE. */
