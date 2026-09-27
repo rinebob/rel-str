@@ -9,6 +9,8 @@
 ## [2026-09-26]
 
 ### Added
+- [Paper Trading Infra] 553-559-569_FE-IMPL-PAPER-TRADING: Paper trading dashboard — account header, 5-dim group-by, cohort drill-down, per-scope equity curve
+- [Paper Trading Infra] 553-559-569_DOCS-PAPER-TRADING: Code review (PASS, 2 rounds — caught Map/Object.entries production bug)
 - [Paper Trading Infra] 553-559-567_FE-IMPL-PAPER-TRADING: Accept-as-paper on signal-order — PAPER status, confirm dialog paper mode, staged-signal gating
 - [Paper Trading Infra] 553-559-567_FE-IMPL-PAPER-TRADING: Queue Paper group + teal PAPER badge; PAPER visible pre-RH-load; remove-skip guards cohort provenance
 - [Paper Trading Infra] 553-559-567_DOCS-PAPER-TRADING: Code review (PASS, 4 rounds)
