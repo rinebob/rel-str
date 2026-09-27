@@ -3,8 +3,8 @@
  * (Blueprint #581 / task #583).
  *
  * Approved formats:
- *   portfolio-buckets/{account}_{slug}        (bucket name slugified)
- *   portfolio-attributions/{account}_{instrumentId}
+ *   portfolio/buckets/items/{account}_{slug}        (bucket name slugified)
+ *   portfolio/attributions/items/{account}_{instrumentId}
  *
  * Slug generation is intentionally lossy — distinct names may alias to the
  * same slug; creation is responsible for the existence check.
@@ -20,10 +20,10 @@ import {
 
 const ACCT = '5AC12345';
 
-describe('collection names', () => {
-  it('carries the portfolio- domain prefix', () => {
-    expect(PORTFOLIO_BUCKETS_COLLECTION).toBe('portfolio-buckets');
-    expect(PORTFOLIO_ATTRIBUTIONS_COLLECTION).toBe('portfolio-attributions');
+describe('collection paths', () => {
+  it('namespaces both kinds under the single `portfolio` root (anchor/items pattern)', () => {
+    expect(PORTFOLIO_BUCKETS_COLLECTION).toBe('portfolio/buckets/items');
+    expect(PORTFOLIO_ATTRIBUTIONS_COLLECTION).toBe('portfolio/attributions/items');
   });
 });
 

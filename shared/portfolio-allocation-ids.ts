@@ -2,12 +2,13 @@
  * Portfolio-allocation collection names and document ID builders
  * (Blueprint #581 / task #583).
  *
- * Layout (PRD #578): two flat root collections with composite doc ids so a
- * single query enumerates an account's data — per the repo's flat-collection
- * convention (AGENTS.md).
+ * Layout (PRD #578, namespaced under a single `portfolio` root — the
+ * anchor-doc pattern approved for `paper-trading`): one root collection
+ * groups the domain, each kind occupies its own `items` subcollection with
+ * composite doc ids so a single query enumerates an account's data.
  *
- *   portfolio-buckets/{accountNumber}_{slug}
- *   portfolio-attributions/{accountNumber}_{instrumentId}
+ *   portfolio/buckets/items/{accountNumber}_{slug}
+ *   portfolio/attributions/items/{accountNumber}_{instrumentId}
  *
  * The Cash bucket is a derived view (account value − Σ bucket exposures) and
  * is never stored; bucket docs only ever hold real strategy groups.
@@ -28,11 +29,11 @@
  *    frees a doc id, so a slug once minted is occupied permanently.
  */
 
-/** Flat collection of AllocationBucket docs. */
-export const PORTFOLIO_BUCKETS_COLLECTION = 'portfolio-buckets';
+/** Collection PATH of AllocationBucket docs under the `portfolio` root. */
+export const PORTFOLIO_BUCKETS_COLLECTION = 'portfolio/buckets/items';
 
-/** Flat collection of PositionAttribution docs. */
-export const PORTFOLIO_ATTRIBUTIONS_COLLECTION = 'portfolio-attributions';
+/** Collection PATH of PositionAttribution docs under the `portfolio` root. */
+export const PORTFOLIO_ATTRIBUTIONS_COLLECTION = 'portfolio/attributions/items';
 
 const ACCOUNT_NUMBER_RE = /^[A-Za-z0-9]+$/;
 
