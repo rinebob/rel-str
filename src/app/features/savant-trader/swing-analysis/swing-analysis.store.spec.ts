@@ -30,13 +30,8 @@ import { SymbolListStore } from '../stores/symbol-list.store';
 import { deriveParamsId } from './swing-analysis.types';
 import { BarsInterval } from '../../../core/models/partner.types';
 import type { ChartDataset } from '../../heatmap-chart/heatmap-chart.types';
-import type {
-  PriceBar,
-  SwingStats,
-  DistributionSummary,
-  Histogram,
-} from '../../shared/components/flex-chart/indicators/st-zigzag.engine';
-import type { SwingAnalysisDoc, SwingAnalysisInput, SwingConfigDoc } from './swing-analysis.types';
+import type { PriceBar } from '../../shared/components/flex-chart/indicators/st-zigzag.engine';
+import type { SwingAnalysisInput, SwingConfigDoc } from './swing-analysis.types';
 
 // =============================================================================
 // Test fixtures
@@ -74,55 +69,6 @@ function makeChartDataset(bars: PriceBar[]): ChartDataset {
     dateRange: { from: bars[0]?.date ?? '', to: bars[bars.length - 1]?.date ?? '' },
   };
 }
-
-function makeDistributionSummary(): DistributionSummary {
-  return {
-    mean: 0, median: 0, stdDev: 0, min: 0, max: 0,
-    p10: 0, p25: 0, p50: 0, p75: 0, p90: 0,
-  };
-}
-
-function makeHistogram(): Histogram {
-  return { bins: [] };
-}
-
-function makeSwingStats(): SwingStats {
-  return {
-    up: {
-      count: 0,
-      magnitudePercent: makeDistributionSummary(),
-      magnitudeAbsolute: makeDistributionSummary(),
-      duration: makeDistributionSummary(),
-      magnitudeHistogram: makeHistogram(),
-      durationHistogram: makeHistogram(),
-    },
-    down: {
-      count: 0,
-      magnitudePercent: makeDistributionSummary(),
-      magnitudeAbsolute: makeDistributionSummary(),
-      duration: makeDistributionSummary(),
-      magnitudeHistogram: makeHistogram(),
-      durationHistogram: makeHistogram(),
-    },
-  };
-}
-
-function makeSwingAnalysisDoc(overrides: Partial<SwingAnalysisDoc> = {}): SwingAnalysisDoc {
-  return {
-    id: deriveParamsId(LARGE_CONFIG),
-    userId: 'user-123',
-    symbol: 'AAPL',
-    paramsId: deriveParamsId(LARGE_CONFIG),
-    config: { ...LARGE_CONFIG },
-    pivots: [],
-    projection: null,
-    swings: [],
-    stats: makeSwingStats(),
-    savedAt: '2026-09-16T00:00:00Z',
-    ...overrides,
-  };
-}
-
 function mockChartService(bars: PriceBar[]): Partial<ChartService> {
   return {
     loadBars$: () =>
@@ -138,25 +84,15 @@ function mockChartService(bars: PriceBar[]): Partial<ChartService> {
 type ServiceMock = ReturnType<typeof mockSwingAnalysisService>;
 
 function mockSwingAnalysisService(
-  docs: SwingAnalysisDoc[] = [],
-  allSets: SwingAnalysisDoc[] = docs,
   configs: SwingConfigDoc[] = [],
 ): Partial<SwingAnalysisService> & {
   saveAnalysis: jest.Mock;
-  loadSavedAnalyses: jest.Mock;
-  loadAllSwingSets: jest.Mock;
-  loadAnalysis: jest.Mock;
   loadConfigs: jest.Mock;
   saveConfig: jest.Mock;
   deleteConfig: jest.Mock;
 } {
   return {
-    loadSavedAnalyses: jest.fn(() => of(docs)),
-    loadAllSwingSets: jest.fn(() => of(allSets)),
     saveAnalysis: jest.fn(() => of(undefined)),
-    loadAnalysis: jest.fn((_symbol: string, docId: string) =>
-      of(docs.find((d) => d.id === docId) ?? null),
-    ),
     loadConfigs: jest.fn(() => of(configs)),
     saveConfig: jest.fn(() => of(undefined)),
     deleteConfig: jest.fn(() => of(undefined)),
@@ -170,9 +106,8 @@ interface StoreSetup {
 
 function setupStore(
   bars: PriceBar[] = makeBars(40),
-  savedDocs: SwingAnalysisDoc[] = [],
 ): StoreSetup {
-  const service = mockSwingAnalysisService(savedDocs);
+  const service = mockSwingAnalysisService();
   TestBed.configureTestingModule({
     providers: [
       provideZonelessChangeDetection(),
@@ -202,7 +137,6 @@ describe('SwingAnalysisStore — initial state', () => {
     expect(store.stats()).toEqual([null, null]);
     expect(store.loading()).toBe(false);
     expect(store.error()).toBeNull();
-    expect(store.savedAnalyses()).toEqual([]);
   });
 
   it('derives paramsIds from configs', () => {
@@ -247,7 +181,7 @@ describe('SwingAnalysisStore.setSymbol', () => {
         { provide: ChartService, useValue: chartMock },
       { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of([])) } },
       { provide: SymbolListStore, useValue: { symbolLists: signal<Record<string, string[]>>({}) } },
-        { provide: SwingAnalysisService, useValue: mockSwingAnalysisService([]) },
+        { provide: SwingAnalysisService, useValue: mockSwingAnalysisService() },
         SwingAnalysisStore,
       ],
     });
@@ -290,7 +224,7 @@ describe('SwingAnalysisStore.setSymbol', () => {
         { provide: ChartService, useValue: chartMock },
       { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of([])) } },
       { provide: SymbolListStore, useValue: { symbolLists: signal<Record<string, string[]>>({}) } },
-        { provide: SwingAnalysisService, useValue: mockSwingAnalysisService([]) },
+        { provide: SwingAnalysisService, useValue: mockSwingAnalysisService() },
         SwingAnalysisStore,
       ],
     });
@@ -483,333 +417,6 @@ describe('SwingAnalysisStore.allStats', () => {
 });
 
 // =============================================================================
-// saveAnalysis — calls Firestore service for one config
-// =============================================================================
-
-describe('SwingAnalysisStore.saveAnalysis', () => {
-  it('does nothing when no symbol is set', () => {
-    const { store, service } = setupStore();
-    store.saveAnalysis(0);
-    expect(service.saveAnalysis).not.toHaveBeenCalled();
-    expect(store.error()).toBeNull();
-  });
-
-  it('does nothing when no stats are computed', () => {
-    const subject = new Subject<{
-      daily: ChartDataset;
-      weekly: ChartDataset;
-      monthly: ChartDataset;
-      version: string;
-    }>();
-    const chartMock = { loadBars$: () => subject.asObservable() };
-    const service = mockSwingAnalysisService([]);
-    TestBed.configureTestingModule({
-      providers: [
-        provideZonelessChangeDetection(),
-        { provide: ChartService, useValue: chartMock },
-      { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of([])) } },
-      { provide: SymbolListStore, useValue: { symbolLists: signal<Record<string, string[]>>({}) } },
-        { provide: SwingAnalysisService, useValue: service },
-        SwingAnalysisStore,
-      ],
-    });
-    const store = TestBed.inject(SwingAnalysisStore);
-    store.setSymbol('AAPL');
-    store.saveAnalysis(0);
-    expect(service.saveAnalysis).not.toHaveBeenCalled();
-    subject.complete();
-  });
-
-  it('calls service with correct paramsId and doc payload for config 0', () => {
-    const { store, service } = setupStore(makeBars(40));
-    store.setSymbol('AAPL');
-    store.saveAnalysis(0);
-    expect(service.saveAnalysis).toHaveBeenCalledTimes(1);
-    const arg = service.saveAnalysis.mock.calls[0][0];
-    expect(arg.paramsId).toBe(deriveParamsId(LARGE_CONFIG));
-    expect(arg.symbol).toBe('AAPL');
-    expect(arg.config).toEqual(store.configs()[0]);
-    expect(arg.pivots).toEqual(store.pivots()[0]);
-    expect(arg.swings).toEqual(store.swings()[0]);
-    expect(arg.stats).toEqual(store.stats()[0]);
-    expect(arg.bars).toBeUndefined();
-    expect(arg.savedAt).toBeDefined();
-  });
-
-  it('saves config 1 independently under its own paramsId in dual mode', () => {
-    const { store, service } = setupStore(makeBars(40));
-    store.setSymbol('AAPL'); // dual is the default — config 1 exists
-    store.saveAnalysis(1);
-    expect(service.saveAnalysis).toHaveBeenCalledTimes(1);
-    const arg = service.saveAnalysis.mock.calls[0][0];
-    expect(arg.paramsId).toBe(deriveParamsId(SMALL_CONFIG));
-    expect(arg.config).toEqual({ ...SMALL_CONFIG });
-  });
-
-  it('refreshes saved analyses after a successful save', () => {
-    const doc = makeSwingAnalysisDoc();
-    const { store, service } = setupStore(makeBars(40), [doc]);
-    store.setSymbol('AAPL');
-    service.loadSavedAnalyses.mockClear();
-    store.saveAnalysis(0);
-    expect(service.loadSavedAnalyses).toHaveBeenCalledTimes(1);
-  });
-});
-
-// =============================================================================
-// loadSavedAnalyses — reads st-swing-sets filtered by symbol
-// =============================================================================
-
-describe('SwingAnalysisStore.loadSavedAnalyses', () => {
-  it('populates savedAnalyses from the service', () => {
-    const doc = makeSwingAnalysisDoc({ id: deriveParamsId(LARGE_CONFIG) });
-    const { store } = setupStore(makeBars(40), [doc]);
-    store.setSymbol('AAPL');
-    store.loadSavedAnalyses();
-    expect(store.savedAnalyses().length).toBe(1);
-    expect(store.savedAnalyses()[0].id).toBe(deriveParamsId(LARGE_CONFIG));
-  });
-
-  it('does nothing when no symbol is set', () => {
-    const { store, service } = setupStore();
-    store.loadSavedAnalyses();
-    expect(service.loadSavedAnalyses).not.toHaveBeenCalled();
-  });
-});
-
-// =============================================================================
-// loadAnalysis — loads a saved analysis into a config slot
-// =============================================================================
-
-describe('SwingAnalysisStore.loadAnalysis', () => {
-  it('loads config into slot 0 and recomputes from existing bars', () => {
-    const mockConfig = { ...LARGE_CONFIG, devThreshold: 20 };
-    const mockDoc = makeSwingAnalysisDoc({
-      id: deriveParamsId(mockConfig),
-      paramsId: deriveParamsId(mockConfig),
-      config: mockConfig,
-    });
-    const setupBars = makeBars(40);
-    const { store } = setupStore(setupBars, [mockDoc]);
-    store.setSymbol('AAPL');
-    store.loadAnalysis(deriveParamsId(mockConfig), 0);
-    expect(store.configs()[0].devThreshold).toBe(20);
-    expect(store.bars()).toEqual(setupBars);
-    expect(store.pivots()[0].length).toBeGreaterThan(0);
-    expect(store.swings()[0].length).toBeGreaterThan(0);
-    expect(store.stats()[0]).not.toBeNull();
-  });
-
-  it('loads config into slot 1 in dual mode', () => {
-    const mockConfig = { ...SMALL_CONFIG, devThreshold: 7 };
-    const mockDoc = makeSwingAnalysisDoc({
-      id: deriveParamsId(mockConfig),
-      paramsId: deriveParamsId(mockConfig),
-      config: mockConfig,
-    });
-    const setupBars = makeBars(40);
-    const { store } = setupStore(setupBars, [mockDoc]);
-    store.setSymbol('AAPL'); // dual is the default — slot 1 exists
-    store.loadAnalysis(deriveParamsId(mockConfig), 1);
-    expect(store.configs()[1].devThreshold).toBe(7);
-    expect(store.pivots()[1].length).toBeGreaterThan(0);
-    expect(store.stats()[1]).not.toBeNull();
-  });
-
-  it('fetches bars from chart service when not yet loaded', () => {
-    const mockDoc = makeSwingAnalysisDoc({
-      id: deriveParamsId(LARGE_CONFIG),
-      config: { ...LARGE_CONFIG },
-    });
-    const fetchBars = makeBars(40);
-    const barsSubject = new Subject<{
-      daily: ChartDataset;
-      weekly: ChartDataset;
-      monthly: ChartDataset;
-      version: string;
-    }>();
-    const service = mockSwingAnalysisService([mockDoc]);
-    TestBed.configureTestingModule({
-      providers: [
-        provideZonelessChangeDetection(),
-        { provide: ChartService, useValue: { loadBars$: () => barsSubject.asObservable() } },
-        { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of([])) } },
-        { provide: SymbolListStore, useValue: { symbolLists: signal<Record<string, string[]>>({}) } },
-        { provide: SwingAnalysisService, useValue: service },
-        SwingAnalysisStore,
-      ],
-    });
-    const store = TestBed.inject(SwingAnalysisStore);
-    store.setSymbol('AAPL');
-    expect(store.bars()).toEqual([]);
-
-    store.loadAnalysis(deriveParamsId(LARGE_CONFIG), 0);
-    expect(store.loading()).toBe(true);
-
-    barsSubject.next({
-      daily: makeChartDataset(fetchBars),
-      weekly: makeChartDataset(fetchBars),
-      monthly: makeChartDataset(fetchBars),
-      version: 'test',
-    });
-    expect(store.loading()).toBe(false);
-    expect(store.bars()).toEqual(fetchBars);
-    expect(store.pivots()[0].length).toBeGreaterThan(0);
-    expect(store.stats()[0]).not.toBeNull();
-    barsSubject.complete();
-  });
-
-  it('cancels stale loadAnalysis when setSymbol is called during fetch', () => {
-    const mockDoc = makeSwingAnalysisDoc({
-      id: deriveParamsId(LARGE_CONFIG),
-      config: { ...LARGE_CONFIG },
-    });
-    const analysisSubject = new Subject<SwingAnalysisDoc | null>();
-    const barsSubject = new Subject<{
-      daily: ChartDataset;
-      weekly: ChartDataset;
-      monthly: ChartDataset;
-      version: string;
-    }>();
-    const service = {
-      loadSavedAnalyses: jest.fn(() => of([])),
-      saveAnalysis: jest.fn(() => of(undefined)),
-      loadAnalysis: jest.fn(() => analysisSubject.asObservable()),
-    };
-    TestBed.configureTestingModule({
-      providers: [
-        provideZonelessChangeDetection(),
-        { provide: ChartService, useValue: { loadBars$: () => barsSubject.asObservable() } },
-        { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of([])) } },
-        { provide: SymbolListStore, useValue: { symbolLists: signal<Record<string, string[]>>({}) } },
-        { provide: SwingAnalysisService, useValue: service },
-        SwingAnalysisStore,
-      ],
-    });
-    const store = TestBed.inject(SwingAnalysisStore);
-    store.setSymbol('AAPL');
-    store.loadAnalysis(deriveParamsId(LARGE_CONFIG), 0);
-    expect(store.loading()).toBe(true);
-
-    store.setSymbol('MSFT');
-    expect(store.symbol()).toBe('MSFT');
-
-    analysisSubject.next(mockDoc);
-    expect(store.symbol()).toBe('MSFT');
-    expect(store.configs()[0]).toEqual({ ...LARGE_CONFIG });
-    analysisSubject.complete();
-    barsSubject.complete();
-  });
-
-  it('sets error when doc is not found', () => {
-    const { store, service } = setupStore(makeBars(40));
-    store.setSymbol('AAPL');
-    service.loadAnalysis.mockReturnValue(of(null));
-    store.loadAnalysis('nonexistent-id', 0);
-    expect(store.error()).toBe('Analysis not found');
-  });
-
-  it('does nothing when no symbol is set', () => {
-    const { store, service } = setupStore();
-    store.loadAnalysis('some-id', 0);
-    expect(service.loadAnalysis).not.toHaveBeenCalled();
-  });
-
-  it('does nothing for an out-of-range index', () => {
-    const { store, service } = setupStore(makeBars(40));
-    store.setSymbol('AAPL');
-    store.loadAnalysis('some-id', 5);
-    expect(service.loadAnalysis).not.toHaveBeenCalled();
-  });
-
-  it('does not desync when a config is removed during in-flight bar load', () => {
-    const barsSubject = new Subject<{
-      daily: ChartDataset;
-      weekly: ChartDataset;
-      monthly: ChartDataset;
-      version: string;
-    }>();
-    const service = mockSwingAnalysisService([]);
-    TestBed.configureTestingModule({
-      providers: [
-        provideZonelessChangeDetection(),
-        { provide: ChartService, useValue: { loadBars$: () => barsSubject.asObservable() } },
-        { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of([])) } },
-        { provide: SymbolListStore, useValue: { symbolLists: signal<Record<string, string[]>>({}) } },
-        { provide: SwingAnalysisService, useValue: service },
-        SwingAnalysisStore,
-      ],
-    });
-    const store = TestBed.inject(SwingAnalysisStore);
-    store.setSymbol('AAPL');
-    // Bar load is in flight (2 configs by default).
-    // Remove the second config mid-flight.
-    store.removeActiveConfig(1);
-    expect(store.configs().length).toBe(1);
-    expect(store.pivots().length).toBe(1);
-
-    // Bars arrive — recomputeAll reads store.configs() fresh (length 1).
-    barsSubject.next({
-      daily: makeChartDataset(makeBars(40)),
-      weekly: makeChartDataset(makeBars(40)),
-      monthly: makeChartDataset(makeBars(40)),
-      version: 'test',
-    });
-    // All parallel arrays must be length 1 — no desync.
-    expect(store.configs().length).toBe(1);
-    expect(store.pivots().length).toBe(1);
-    expect(store.projections().length).toBe(1);
-    expect(store.swings().length).toBe(1);
-    expect(store.stats().length).toBe(1);
-    barsSubject.complete();
-  });
-
-  it('does not desync when a config is removed during in-flight loadAnalysis', () => {
-    const mockDoc = makeSwingAnalysisDoc({
-      id: deriveParamsId(LARGE_CONFIG),
-      config: { ...LARGE_CONFIG },
-    });
-    const analysisSubject = new Subject<SwingAnalysisDoc | null>();
-    const barsSubject = new Subject<{
-      daily: ChartDataset;
-      weekly: ChartDataset;
-      monthly: ChartDataset;
-      version: string;
-    }>();
-    const service = {
-      loadSavedAnalyses: jest.fn(() => of([])),
-      saveAnalysis: jest.fn(() => of(undefined)),
-      loadAnalysis: jest.fn(() => analysisSubject.asObservable()),
-    };
-    TestBed.configureTestingModule({
-      providers: [
-        provideZonelessChangeDetection(),
-        { provide: ChartService, useValue: { loadBars$: () => barsSubject.asObservable() } },
-        { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of([])) } },
-        { provide: SymbolListStore, useValue: { symbolLists: signal<Record<string, string[]>>({}) } },
-        { provide: SwingAnalysisService, useValue: service },
-        SwingAnalysisStore,
-      ],
-    });
-    const store = TestBed.inject(SwingAnalysisStore);
-    store.setSymbol('AAPL');
-    // Start loadAnalysis — analysis doc request is pending (2 configs by
-    // default). Remove the second config while the fetch is in flight.
-    store.loadAnalysis(deriveParamsId(LARGE_CONFIG), 0);
-    store.removeActiveConfig(1);
-    expect(store.configs().length).toBe(1);
-
-    // Doc arrives — next handler re-reads store.configs() fresh (length 1),
-    // so it applies to slot 0 without resurrecting the removed config.
-    analysisSubject.next(mockDoc);
-    expect(store.configs().length).toBe(1);
-    expect(store.configs().length).toBe(1);
-    analysisSubject.complete();
-    barsSubject.complete();
-  });
-});
-
-// =============================================================================
 // paramsIds computed — derived from configs
 // =============================================================================
 
@@ -851,7 +458,7 @@ describe('SwingAnalysisStore.runBatch', () => {
     chart: { loadBars$: jest.Mock };
     pendingSubject?: Subject<unknown>;
   } {
-    const service = mockSwingAnalysisService([]);
+    const service = mockSwingAnalysisService();
     const pendingSubject = opts.pending ? new Subject<unknown>() : undefined;
     const chart = {
       loadBars$: jest.fn((symbol: string) => {
@@ -1093,7 +700,7 @@ describe('SwingAnalysisStore — config library', () => {
   }
 
   function setupLibrary(configs: SwingConfigDoc[]) {
-    const service = mockSwingAnalysisService([], [], configs);
+    const service = mockSwingAnalysisService( configs);
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
@@ -1182,5 +789,43 @@ describe('SwingAnalysisStore — config library', () => {
     store.deleteSavedConfig(pid);
     expect(store.configLibrary().length).toBe(1);
     expect(store.error()).toContain('nope');
+  });
+
+  it('a save during an in-flight library load is not clobbered — the load refires post-write', () => {
+    const { store, service } = setupLibrary([]);
+    store.setSymbol('AAPL');
+    const stale = new Subject<SwingConfigDoc[]>();
+    const fresh = new Subject<SwingConfigDoc[]>();
+    service.loadConfigs
+      .mockReturnValueOnce(stale.asObservable())
+      .mockReturnValueOnce(fresh.asObservable());
+    store.loadConfigLibrary(); // in-flight on `stale`
+    store.saveActiveConfig(0, 'Wide');
+    // Optimistic row present + the stale load canceled + refired.
+    expect(service.loadConfigs).toHaveBeenCalledTimes(2);
+    const pid = deriveParamsId(LARGE_CONFIG);
+    stale.next([]); // pre-write snapshot — must not clobber
+    expect(store.configLibrary().some((c) => c.paramsId === pid)).toBe(true);
+    const authoritative = makeConfigDoc({ id: pid, paramsId: pid, name: 'Wide' });
+    fresh.next([authoritative]);
+    expect(store.configLibrary()).toEqual([authoritative]);
+  });
+
+  it('a delete during an in-flight library load does not resurrect — the load refires post-write', () => {
+    const pid = deriveParamsId(LARGE_CONFIG);
+    const doc = makeConfigDoc({ id: pid, paramsId: pid });
+    const { store, service } = setupLibrary([doc]);
+    const stale = new Subject<SwingConfigDoc[]>();
+    const fresh = new Subject<SwingConfigDoc[]>();
+    service.loadConfigs
+      .mockReturnValueOnce(stale.asObservable())
+      .mockReturnValueOnce(fresh.asObservable());
+    store.loadConfigLibrary();
+    store.deleteSavedConfig(pid);
+    expect(service.loadConfigs).toHaveBeenCalledTimes(2);
+    stale.next([doc]); // pre-delete snapshot — must not resurrect
+    expect(store.configLibrary()).toEqual([]);
+    fresh.next([]);
+    expect(store.configLibrary()).toEqual([]);
   });
 });

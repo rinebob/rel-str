@@ -1,6 +1,6 @@
 /// <reference types="jest" />
 /**
- * Tests for SwingAnalysisPageComponent — the page shell that wires the
+ * Tests for SwingAnalysisPageComponent ΓÇö the page shell that wires the
  * SwingAnalysisStore, param controls, isolated flex-chart (ST_ZIGZAG only),
  * swing table, stats panel, and Save Analysis button.
  *
@@ -44,12 +44,13 @@ import { SwingTableComponent } from './components/swing-table.component';
 import { StatsPanelComponent } from './components/stats-panel.component';
 import type { PriceBar, Swing, SwingStats } from '../../shared/components/flex-chart/indicators/st-zigzag.engine';
 import type { ChartDataset } from '../../heatmap-chart/heatmap-chart.types';
-import type { SwingAnalysisDoc } from './swing-analysis.types';
+import type { SwingConfigDoc } from './swing-analysis.types';
+import type { ZigZagConfig } from '../../shared/components/flex-chart/indicators/st-zigzag.types';
 import { NO_MEMBERSHIP } from '../common/constants';
 import { isUnlisted } from '../utils/utils';
 
 // =============================================================================
-// Mock child components — capture inputs so the page test can assert wiring
+// Mock child components ΓÇö capture inputs so the page test can assert wiring
 // =============================================================================
 
 @Component({
@@ -134,20 +135,24 @@ function mockChartService(bars: PriceBar[]): Partial<ChartService> {
   };
 }
 
+function makeConfigDoc(name: string | undefined, config: ZigZagConfig, id?: string): SwingConfigDoc {
+  const paramsId = id ?? `p-${config.devThreshold}-${config.leftDepth}-${config.rightDepth}`;
+  return { id: paramsId, userId: 'u', name, config, savedAt: '2026-01-01T00:00:00Z', paramsId };
+}
+
 function mockSwingAnalysisService(
-  docs: SwingAnalysisDoc[] = [],
-  allSets: SwingAnalysisDoc[] = docs,
+  library: SwingConfigDoc[] = [],
 ): Partial<SwingAnalysisService> & {
   saveAnalysis: jest.Mock;
-  loadSavedAnalyses: jest.Mock;
-  loadAllSwingSets: jest.Mock;
-  loadAnalysis: jest.Mock;
+  loadConfigs: jest.Mock;
+  saveConfig: jest.Mock;
+  deleteConfig: jest.Mock;
 } {
   return {
-    loadSavedAnalyses: jest.fn(() => of(docs)),
-    loadAllSwingSets: jest.fn(() => of(allSets)),
     saveAnalysis: jest.fn(() => of(undefined)),
-    loadAnalysis: jest.fn(() => of(null)),
+    loadConfigs: jest.fn(() => of(library)),
+    saveConfig: jest.fn(() => of(undefined)),
+    deleteConfig: jest.fn(() => of(undefined)),
   };
 }
 
@@ -157,9 +162,9 @@ interface PageSetup {
   fixture: ComponentFixture<SwingAnalysisPageComponent>;
 }
 
-/** The settings overlay — the dialog renders outside fixture.nativeElement.
+/** The settings overlay ΓÇö the dialog renders outside fixture.nativeElement.
  *  Returns `any` deliberately: the pre-dialog queries went through
- *  `nativeElement` (any) and cast at the call site — same contract. */
+ *  `nativeElement` (any) and cast at the call site ΓÇö same contract. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function dlg(): any {
   return document.querySelector('.cdk-overlay-container');
@@ -173,7 +178,7 @@ function openSettings(fixture: ComponentFixture<SwingAnalysisPageComponent>): vo
 async function setupPage(
   bars: PriceBar[] = makeBars(40),
   chart?: Partial<ChartService>,
-  service: ReturnType<typeof mockSwingAnalysisService> = mockSwingAnalysisService([]),
+  service: ReturnType<typeof mockSwingAnalysisService> = mockSwingAnalysisService(),
   navSymbols: string[] = [],
   navLists: Record<string, string[]> = {},
 ): Promise<PageSetup> {
@@ -182,7 +187,7 @@ async function setupPage(
     providers: [
       { provide: ChartService, useValue: chart ?? mockChartService(bars) },
       { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of(navSymbols.map((s) => ({ symbol: s })))) } },
-      // SymbolListStore owns the tracked-symbols universe — the mock
+      // SymbolListStore owns the tracked-symbols universe ΓÇö the mock
       // reproduces its loadTrackedSymbols/unlistedSymbols contract so the
       // nav sequence can read it.
       { provide: SymbolListStore, useValue: {
@@ -418,7 +423,7 @@ describe('SwingAnalysisPageComponent', () => {
   it('passes null smallSwings to the swing table in single mode', async () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
-    store.removeActiveConfig(1); // two configs by default — drop slot 1
+    store.removeActiveConfig(1); // two configs by default ΓÇö drop slot 1
     fixture.detectChanges();
     const table = fixture.nativeElement.querySelector('.mock-swing-table');
     expect(table.getAttribute('data-small-swing-count')).toBe('null');
@@ -426,7 +431,7 @@ describe('SwingAnalysisPageComponent', () => {
 
   it('passes swings()[1] as smallSwings to the swing table in dual mode', async () => {
     const { fixture, store } = await setupPage();
-    store.setSymbol('AAPL'); // dual is the default — slot 1 already computed
+    store.setSymbol('AAPL'); // dual is the default ΓÇö slot 1 already computed
     fixture.detectChanges();
     const table = fixture.nativeElement.querySelector('.mock-swing-table');
     expect(table.getAttribute('data-small-swing-count')).toBe(String(store.swings()[1].length));
@@ -435,7 +440,7 @@ describe('SwingAnalysisPageComponent', () => {
   it('passes null statsSets to the stats panel in single mode', async () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
-    store.removeActiveConfig(1); // two configs by default — drop slot 1
+    store.removeActiveConfig(1); // two configs by default ΓÇö drop slot 1
     fixture.detectChanges();
     const panel = fixture.nativeElement.querySelector('.mock-stats-panel');
     expect(panel.getAttribute('data-stats-sets')).toBe('null');
@@ -447,7 +452,7 @@ describe('SwingAnalysisPageComponent', () => {
     fixture.detectChanges();
     const panel = fixture.nativeElement.querySelector('.mock-stats-panel');
     expect(panel.getAttribute('data-stats-sets')).toBe('3');
-    // Assert content identity, not just length — [large, small, all] order.
+    // Assert content identity, not just length ΓÇö [large, small, all] order.
     const panelComp = fixture.debugElement.query(By.directive(MockStatsPanelComponent)).componentInstance as MockStatsPanelComponent;
     expect(panelComp.statsSets?.[0]).toBe(store.stats()[0]);
     expect(panelComp.statsSets?.[1]).toBe(store.stats()[1]);
@@ -464,52 +469,46 @@ describe('SwingAnalysisPageComponent', () => {
     expect(panel.getAttribute('data-has-stats')).toBe(String(store.stats()[0] !== null));
   });
 
-  it('renders a Save Analysis button', async () => {
+  it('renders a save-to-library name input and button per config', async () => {
     const { fixture } = await setupPage();
     fixture.detectChanges();
     openSettings(fixture);
-    const btn = dlg().querySelector('[data-testid="save-analysis-btn-0"]');
+    const input = dlg().querySelector('[data-testid="save-config-name-0"]');
+    const btn = dlg().querySelector('[data-testid="save-config-btn-0"]');
+    expect(input).toBeTruthy();
     expect(btn).toBeTruthy();
     expect(btn.textContent).toContain('Save');
   });
 
-  it('calls store.saveAnalysis when Save button clicked', async () => {
+  it('calls store.saveActiveConfig with the typed name', async () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
     fixture.detectChanges();
-    const saveSpy = jest.spyOn(store, 'saveAnalysis');
+    const saveSpy = jest.spyOn(store, 'saveActiveConfig');
     openSettings(fixture);
-    const btn = dlg().querySelector('[data-testid="save-analysis-btn-0"]');
-    btn.click();
-    expect(saveSpy).toHaveBeenCalledWith(0);
+    const input = dlg().querySelector('[data-testid="save-config-name-0"]') as HTMLInputElement;
+    input.value = 'Wide zigzag';
+    input.dispatchEvent(new Event('input'));
+    dlg().querySelector('[data-testid="save-config-btn-0"]').click();
+    expect(saveSpy).toHaveBeenCalledWith(0, 'Wide zigzag');
   });
 
-  it('Save button click reaches SwingAnalysisService.saveAnalysis', async () => {
-    const { fixture, store, service } = await setupPage();
-    store.setSymbol('AAPL');
-    fixture.detectChanges();
-    openSettings(fixture);
-    const btn = dlg().querySelector('[data-testid="save-analysis-btn-0"]');
-    btn.click();
-    expect(service.saveAnalysis).toHaveBeenCalled();
-  });
-
-  it('disables Save button when no symbol or no stats', async () => {
-    const { fixture, store } = await setupPage();
-    store.resetState(); // clear the auto-loaded QQQ analysis
-    fixture.detectChanges();
-    openSettings(fixture);
-    const btn = dlg().querySelector('[data-testid="save-analysis-btn-0"]') as HTMLButtonElement;
-    expect(btn.disabled).toBe(true);
-  });
-
-  it('enables Save button when symbol and stats exist', async () => {
+  it('saves without a name when the input is blank — library rows fall back to a param summary', async () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
     fixture.detectChanges();
+    const saveSpy = jest.spyOn(store, 'saveActiveConfig');
     openSettings(fixture);
-    const btn = dlg().querySelector('[data-testid="save-analysis-btn-0"]') as HTMLButtonElement;
-    expect(btn.disabled).toBe(false);
+    dlg().querySelector('[data-testid="save-config-btn-0"]').click();
+    expect(saveSpy).toHaveBeenCalledWith(0, undefined);
+  });
+
+  it('the name input placeholder surfaces the param-summary fallback', async () => {
+    const { fixture } = await setupPage();
+    fixture.detectChanges();
+    openSettings(fixture);
+    const input = dlg().querySelector('[data-testid="save-config-name-0"]') as HTMLInputElement;
+    expect(input.placeholder).toContain(String(LARGE_CONFIG.devThreshold));
   });
 
   it('renders an error message when store has an error', async () => {
@@ -541,13 +540,13 @@ describe('SwingAnalysisPageComponent', () => {
   });
 
   // =========================================================================
-  // Config sections — collapsible config sections, unique indicator ids
+  // Config sections ΓÇö collapsible config sections, unique indicator ids
   // =========================================================================
 
 
   it('shows one config section with a single config', async () => {
     const { fixture, store } = await setupPage();
-    store.removeActiveConfig(1); // two configs by default — drop slot 1
+    store.removeActiveConfig(1); // two configs by default ΓÇö drop slot 1
     fixture.detectChanges();
     openSettings(fixture);
     const sections = dlg().querySelectorAll('.config-section');
@@ -576,7 +575,7 @@ describe('SwingAnalysisPageComponent', () => {
 
   it('builds chartConfig with one IndicatorConfig when one config is active', async () => {
     const { fixture, store } = await setupPage();
-    store.removeActiveConfig(1); // two configs by default — drop slot 1
+    store.removeActiveConfig(1); // two configs by default ΓÇö drop slot 1
     fixture.detectChanges();
     const chartComp = fixture.debugElement.query((el: any) => el.nativeElement.classList?.contains('mock-flex-chart'));
     const config = chartComp.componentInstance.config;
@@ -669,26 +668,14 @@ describe('SwingAnalysisPageComponent', () => {
     }
   });
 
-  it('calls store.saveAnalysis with the correct index when a save button is clicked', async () => {
+  it('calls store.saveActiveConfig with the correct index when that row\'s save button is clicked', async () => {
     const { fixture, store } = await setupPage();
     store.setSymbol('AAPL');
     fixture.detectChanges();
-    const saveSpy = jest.spyOn(store, 'saveAnalysis');
+    const saveSpy = jest.spyOn(store, 'saveActiveConfig');
     openSettings(fixture);
-    const btn = dlg().querySelector('[data-testid="save-analysis-btn-1"]');
-    btn.click();
-    expect(saveSpy).toHaveBeenCalledWith(1);
-  });
-
-  it('enables each save button independently based on that config\'s stats', async () => {
-    const { fixture, store } = await setupPage();
-    store.setSymbol('AAPL');
-    fixture.detectChanges();
-    openSettings(fixture);
-    const btn0 = dlg().querySelector('[data-testid="save-analysis-btn-0"]') as HTMLButtonElement;
-    const btn1 = dlg().querySelector('[data-testid="save-analysis-btn-1"]') as HTMLButtonElement;
-    expect(btn0.disabled).toBe(false);
-    expect(btn1.disabled).toBe(false);
+    dlg().querySelector('[data-testid="save-config-btn-1"]').click();
+    expect(saveSpy).toHaveBeenCalledWith(1, undefined);
   });
 
   it('restores single config section and one indicator when toggled off', async () => {
@@ -698,7 +685,7 @@ describe('SwingAnalysisPageComponent', () => {
     openSettings(fixture);
     expect(dlg().querySelectorAll('.config-section').length).toBe(2);
 
-    store.removeActiveConfig(1); // two configs by default — drop slot 1
+    store.removeActiveConfig(1); // two configs by default ΓÇö drop slot 1
     fixture.detectChanges();
     expect(dlg().querySelectorAll('.config-section').length).toBe(1);
     const chartComp = fixture.debugElement.query((el: any) => el.nativeElement.classList?.contains('mock-flex-chart'));
@@ -733,7 +720,7 @@ describe('SwingAnalysisPageComponent', () => {
     store.setSymbol('AAPL');
     fixture.detectChanges();
     openSettings(fixture);
-    // SMALL_CONFIG defaults showTriggerDots=false — toggling sets true.
+    // SMALL_CONFIG defaults showTriggerDots=false ΓÇö toggling sets true.
     const cb = dlg().querySelector('[data-testid="param-showTriggerDots-1"]') as HTMLInputElement;
     cb.checked = true;
     cb.dispatchEvent(new Event('change'));
@@ -752,25 +739,136 @@ describe('SwingAnalysisPageComponent', () => {
     expect(indicators[0].params['showTriggerDots']).toBe(true);
     expect(indicators[1].params['showTriggerDots']).toBe(false);
   });
-
-  it('disables save button when that config has no stats', async () => {
-    const { fixture, store } = await setupPage();
-    store.resetState(); // clear the auto-loaded QQQ analysis
-    fixture.detectChanges();
-    openSettings(fixture);
-    const btn0 = dlg().querySelector('[data-testid="save-analysis-btn-0"]') as HTMLButtonElement;
-    expect(btn0.disabled).toBe(true);
-    // Dual is the default — config 1's button already exists after reset.
-    const btn1 = dlg().querySelector('[data-testid="save-analysis-btn-1"]') as HTMLButtonElement;
-    expect(btn1.disabled).toBe(true);
-  });
 });
 
 // =============================================================================
-// Batch sweep UI — textarea + Run + progress + results (#429)
+// Config manager — available list (presets + saved) + active-row actions
 // =============================================================================
 
-describe('SwingAnalysisPageComponent — batch sweep UI', () => {
+describe('SwingAnalysisPageComponent — config manager', () => {
+  const libraryDocs = (): SwingConfigDoc[] => [
+    makeConfigDoc('Wide', { ...LARGE_CONFIG, devThreshold: 12, leftDepth: 40, rightDepth: 40 }, 'p-12-40-40'),
+    makeConfigDoc(undefined, { ...SMALL_CONFIG, devThreshold: 4, leftDepth: 6, rightDepth: 6 }, 'p-4-6-6'),
+  ];
+
+  it('renders the Available section with Presets and Saved groups', async () => {
+    const { fixture } = await setupPage();
+    fixture.detectChanges();
+    openSettings(fixture);
+    const section = dlg().querySelector('[data-testid="available-configs"]');
+    expect(section).toBeTruthy();
+    expect(section.textContent).toContain('Presets');
+    expect(section.textContent).toContain('Saved');
+    expect(dlg().querySelector('[data-testid="preset-activate-0"]')).toBeTruthy();
+    expect(dlg().querySelector('[data-testid="preset-activate-1"]')).toBeTruthy();
+  });
+
+  it('preset + calls store.activateConfig with the preset config', async () => {
+    const { fixture, store } = await setupPage();
+    store.setSymbol('AAPL');
+    fixture.detectChanges();
+    const spy = jest.spyOn(store, 'activateConfig');
+    openSettings(fixture);
+    dlg().querySelector('[data-testid="preset-activate-0"]').click();
+    expect(spy).toHaveBeenCalled();
+    const arg = spy.mock.calls[0][0];
+    expect(arg.devThreshold).toBe(LARGE_CONFIG.devThreshold);
+    expect(arg.leftDepth).toBe(LARGE_CONFIG.leftDepth);
+  });
+
+  it('opens the dialog by loading the config library', async () => {
+    const { fixture, service } = await setupPage(
+      makeBars(40), undefined, mockSwingAnalysisService(libraryDocs()),
+    );
+    fixture.detectChanges();
+    expect(service.loadConfigs).not.toHaveBeenCalled();
+    openSettings(fixture);
+    expect(service.loadConfigs).toHaveBeenCalledTimes(1);
+  });
+
+  it('lists saved docs with names and param-summary fallback', async () => {
+    const { fixture } = await setupPage(
+      makeBars(40), undefined, mockSwingAnalysisService(libraryDocs()),
+    );
+    fixture.detectChanges();
+    openSettings(fixture);
+    const row0 = dlg().querySelector('[data-testid="saved-row-p-12-40-40"]');
+    expect(row0.textContent).toContain('Wide');
+    const row1 = dlg().querySelector('[data-testid="saved-row-p-4-6-6"]');
+    expect(row1.textContent).toContain('4'); // param summary fallback — no name
+  });
+
+  it('param summary distinguishes flag-differing docs (paramsId covers them)', async () => {
+    const docs = [
+      makeConfigDoc(undefined, { ...LARGE_CONFIG, showTriggerDots: true }, 'p-trig-y'),
+      makeConfigDoc(undefined, { ...LARGE_CONFIG, showTriggerDots: false }, 'p-trig-n'),
+    ];
+    const { fixture } = await setupPage(
+      makeBars(40), undefined, mockSwingAnalysisService(docs),
+    );
+    fixture.detectChanges();
+    openSettings(fixture);
+    const rowY = dlg().querySelector('[data-testid="saved-row-p-trig-y"]').textContent;
+    const rowN = dlg().querySelector('[data-testid="saved-row-p-trig-n"]').textContent;
+    expect(rowY).toContain('trigY');
+    expect(rowN).toContain('trigN');
+    expect(rowY).not.toBe(rowN);
+  });
+
+  it('saved + activates the doc config; saved × deletes it from the library', async () => {
+    const { fixture, store } = await setupPage(
+      makeBars(40), undefined, mockSwingAnalysisService(libraryDocs()),
+    );
+    store.setSymbol('AAPL');
+    fixture.detectChanges();
+    const activateSpy = jest.spyOn(store, 'activateConfig');
+    const deleteSpy = jest.spyOn(store, 'deleteSavedConfig');
+    openSettings(fixture);
+    dlg().querySelector('[data-testid="saved-activate-p-4-6-6"]').click();
+    expect(activateSpy).toHaveBeenCalled();
+    expect((activateSpy.mock.calls[0][0] as ZigZagConfig).devThreshold).toBe(4);
+    dlg().querySelector('[data-testid="saved-delete-p-12-40-40"]').click();
+    expect(deleteSpy).toHaveBeenCalledWith('p-12-40-40');
+  });
+
+  it('active rows expose clone and remove actions', async () => {
+    const { fixture, store } = await setupPage();
+    store.setSymbol('AAPL');
+    fixture.detectChanges();
+    const cloneSpy = jest.spyOn(store, 'cloneConfig');
+    const removeSpy = jest.spyOn(store, 'removeActiveConfig');
+    openSettings(fixture);
+    dlg().querySelector('[data-testid="clone-config-btn-0"]').click();
+    expect(cloneSpy).toHaveBeenCalledWith(0);
+    dlg().querySelector('[data-testid="remove-config-btn-1"]').click();
+    expect(removeSpy).toHaveBeenCalledWith(1);
+  });
+
+  it('surfaces store.error inside the dialog — the page banner sits behind the overlay', async () => {
+    const { fixture, store, service } = await setupPage();
+    store.setSymbol('AAPL');
+    fixture.detectChanges();
+    service.saveConfig.mockReturnValue(throwError(() => new Error('denied')));
+    openSettings(fixture);
+    dlg().querySelector('[data-testid="save-config-btn-0"]').click();
+    expect(dlg().querySelector('[data-testid="dialog-error"]').textContent).toContain('denied');
+  });
+
+  it('shows an empty-state when the library is empty', async () => {
+    const { fixture } = await setupPage();
+    fixture.detectChanges();
+    openSettings(fixture);
+    expect(dlg().querySelector('[data-testid="library-empty"]')).toBeTruthy();
+  });
+});
+
+// ===========================================================================
+
+// =============================================================================
+// Batch sweep UI ΓÇö textarea + Run + progress + results (#429)
+// =============================================================================
+
+describe('SwingAnalysisPageComponent ΓÇö batch sweep UI', () => {
   type LoadBarsResult = { daily: ChartDataset; weekly: ChartDataset; monthly: ChartDataset; version: string };
   const pendingChart = (): Partial<ChartService> => ({
     loadBars$: jest.fn((): Observable<LoadBarsResult> => new Subject<LoadBarsResult>().asObservable()),
@@ -798,7 +896,7 @@ describe('SwingAnalysisPageComponent — batch sweep UI', () => {
     ta.dispatchEvent(new Event('input'));
     fixture.detectChanges();
     expect(runBtn.disabled).toBe(true);
-    // Separators-only parses to zero symbols — Run must stay disabled
+    // Separators-only parses to zero symbols ΓÇö Run must stay disabled
     // (canRunBatch uses parseSymbols, matching the store's no-op guard).
     ta.value = ', , ,';
     ta.dispatchEvent(new Event('input'));
@@ -887,13 +985,13 @@ describe('SwingAnalysisPageComponent — batch sweep UI', () => {
 });
 
 
-describe('SwingAnalysisPageComponent — symbol nav', () => {
+describe('SwingAnalysisPageComponent ΓÇö symbol nav', () => {
   it('renders prev/next, current symbol, and position in the nav sequence', async () => {
     const { fixture } = await setupPage(makeBars(40), undefined, mockSwingAnalysisService([]), ['AAPL', 'MSFT', 'QQQ']);
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('[data-testid="nav-symbol"]').textContent).toContain('QQQ');
-    // Sorted sequence [AAPL, MSFT, QQQ] — QQQ is last.
+    // Sorted sequence [AAPL, MSFT, QQQ] ΓÇö QQQ is last.
     expect(fixture.nativeElement.querySelector('[data-testid="nav-position"]').textContent).toContain('3 of 3');
   });
 
@@ -933,7 +1031,7 @@ describe('SwingAnalysisPageComponent — symbol nav', () => {
     sel.dispatchEvent(new Event('change'));
     fixture.detectChanges();
 
-    // Filter change jumps to the first member — MSFT in [MSFT, QQQ].
+    // Filter change jumps to the first member ΓÇö MSFT in [MSFT, QQQ].
     expect(store.symbol()).toBe('MSFT');
     expect(fixture.nativeElement.querySelector('[data-testid="nav-position"]').textContent).toContain('1 of 2');
     (fixture.nativeElement.querySelector('[data-testid="nav-next"]') as HTMLButtonElement).click();
@@ -1012,7 +1110,7 @@ describe('SwingAnalysisPageComponent — symbol nav', () => {
           : of({ daily: makeChartDataset(makeBars(40)), weekly: makeChartDataset([]), monthly: makeChartDataset([]), version: 'test' }),
       ),
     };
-    // Sequence [AAPL, BAD, QQQ] — QQQ is current; prev lands on BAD.
+    // Sequence [AAPL, BAD, QQQ] ΓÇö QQQ is current; prev lands on BAD.
     const { fixture, store } = await setupPage(makeBars(40), chart, mockSwingAnalysisService([]), ['AAPL', 'BAD', 'QQQ']);
     fixture.detectChanges();
 
@@ -1024,7 +1122,7 @@ describe('SwingAnalysisPageComponent — symbol nav', () => {
     expect(store.error()).toContain('Failed to load bars');
     expect(fixture.nativeElement.querySelector('[data-testid="error-message"]')).toBeTruthy();
 
-    // Nav stays usable — next continues to QQQ.
+    // Nav stays usable ΓÇö next continues to QQQ.
     (fixture.nativeElement.querySelector('[data-testid="nav-next"]') as HTMLButtonElement).click();
     await new Promise<void>((r) => setTimeout(r, 0));
     expect(store.symbol()).toBe('QQQ');

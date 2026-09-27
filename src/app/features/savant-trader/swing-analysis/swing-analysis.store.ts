@@ -31,8 +31,6 @@ import {
 } from './symbol-nav.feature';
 import { deriveParamsId } from './swing-analysis.types';
 import type {
-  SwingAnalysisDoc,
-  SwingAnalysisInput,
   SwingConfigDoc,
 } from './swing-analysis.types';
 import {
@@ -96,7 +94,6 @@ export interface SwingAnalysisState {
   loading: boolean;
   /** Last error message from bar load or persistence — null when idle. */
   error: string | null;
-  savedAnalyses: SwingAnalysisDoc[];
   /** Batch sweep state — progress and per-symbol results of runBatch. */
   batchRunning: boolean;
   batchProgress: { done: number; total: number; current: string | null };
@@ -120,7 +117,6 @@ const initialState: SwingAnalysisState = {
   stats: [null, null],
   loading: false,
   error: null,
-  savedAnalyses: [],
   batchRunning: false,
   batchProgress: { done: 0, total: 0, current: null },
   batchResults: [],
@@ -214,10 +210,6 @@ export const SwingAnalysisStore = signalStore(
       // requests when setSymbol is called again before the previous one
       // completes.
       let barsSub: Subscription | null = null;
-      // Track the in-flight analysis-document-load subscription so that
-      // setSymbol/resetState can cancel a stale loadAnalysis request before
-      // its result overwrites newer state.
-      let analysisSub: Subscription | null = null;
       // Track the in-flight batch sweep so cancelBatch/resetState can abort
       // it — takeUntilDestroyed only fires on store teardown, and a root
       // store outlives any page visit.
@@ -227,11 +219,48 @@ export const SwingAnalysisStore = signalStore(
       let librarySub: Subscription | null = null;
 
       /**
+       * Cancel any in-flight library load and re-query st-swing-configs.
+       * Used by loadConfigLibrary (lazy entry) and as the post-write
+       * refresh after saveActiveConfig/deleteSavedConfig — a load issued
+       * before a write commits could otherwise overwrite the just-saved
+       * (or resurrect the just-deleted) row when its stale response lands.
+       */
+      function refreshLibrary(): void {
+        librarySub?.unsubscribe();
+        patchState(store, { configLibraryLoading: true });
+        // Assign after subscribe: a sync-completing observable runs the
+        // handler (which nulls librarySub) before the Subscription lands —
+        // keep null rather than a closed handle so `librarySub` truthiness
+        // stays a reliable in-flight signal.
+        const sub = swingAnalysisService
+          .loadConfigs()
+          .pipe(takeUntilDestroyed(destroyRef))
+          .subscribe({
+            next: (docs) => {
+              librarySub = null;
+              patchState(store, {
+                configLibrary: docs,
+                configLibraryLoading: false,
+              });
+            },
+            error: (err: unknown) => {
+              librarySub = null;
+              const msg = err instanceof Error ? err.message : String(err);
+              patchState(store, {
+                configLibraryLoading: false,
+                error: `Failed to load configs: ${msg}`,
+              });
+            },
+          });
+        librarySub = sub.closed ? null : sub;
+      }
+
+      /**
        * Shared bar-load + recompute helper. Cancels any in-flight bar load,
        * fetches bars for `symbol`, recomputes all configs, and patches the
        * store. `clearOnError` controls whether the error handler resets
-       * derived state (setSymbol) or only sets `error` (loadAnalysis, which
-       * has already patched config).
+       * derived state (setSymbol) or only sets `error` (config loads that
+       * have already patched config).
        *
        * Reads `store.configs()` fresh inside the `next` handler to avoid
        * stale-config desync when config-list ops/`updateConfig` mutate
@@ -289,7 +318,7 @@ export const SwingAnalysisStore = signalStore(
       /**
        * Recompute one config slot and return the four patched arrays.
        * Centralizes the index-mapped patch used by updateConfig and
-       * loadAnalysis — both recompute one slot while leaving the rest
+       * doc loads — both recompute one slot while leaving the rest
        * of the parallel arrays untouched.
        */
       function recomputeSlot(
@@ -322,9 +351,6 @@ export const SwingAnalysisStore = signalStore(
        */
       function applySymbol(symbol: string): void {
         const sym = String(symbol || '').trim().toUpperCase();
-        // Cancel any in-flight analysis load to prevent stale overwrites.
-        analysisSub?.unsubscribe();
-        analysisSub = null;
         const configs = store.configs();
         patchState(store, {
           symbol: sym,
@@ -351,14 +377,12 @@ export const SwingAnalysisStore = signalStore(
 
       return {
         /**
-         * Reset the store to initial state (except savedAnalyses).
+         * Reset the store to initial state (except configLibrary).
          * Called by the page on init to avoid stale data from prior visits.
          */
         resetState(): void {
           barsSub?.unsubscribe();
           barsSub = null;
-          analysisSub?.unsubscribe();
-          analysisSub = null;
           // Abort any in-flight batch too — otherwise a zombie sweep keeps
           // writing batchResults into the "reset" store after page re-entry.
           batchSub?.unsubscribe();
@@ -493,6 +517,9 @@ export const SwingAnalysisStore = signalStore(
                   .configLibrary()
                   .filter((c) => c.paramsId !== paramsId);
                 patchState(store, { configLibrary: [...rest, doc], error: null });
+                // An in-flight library load may carry a pre-write snapshot
+                // that would clobber this row when it lands — refire it.
+                if (librarySub) refreshLibrary();
               },
               error: (err: unknown) => {
                 const msg = err instanceof Error ? err.message : String(err);
@@ -523,6 +550,8 @@ export const SwingAnalysisStore = signalStore(
                     .filter((c) => c.paramsId !== paramsId),
                   error: null,
                 });
+                // Same stale-snapshot hazard as saveActiveConfig — refire.
+                if (librarySub) refreshLibrary();
               },
               error: (err: unknown) => {
                 const msg = err instanceof Error ? err.message : String(err);
@@ -532,158 +561,6 @@ export const SwingAnalysisStore = signalStore(
                   err,
                 );
                 patchState(store, { error: `Failed to delete config: ${msg}` });
-              },
-            });
-        },
-
-        /**
-         * Save one config's analysis to Firestore under its own paramsId.
-         */
-        saveAnalysis(index: number): void {
-          const symbol = store.symbol();
-          const configs = store.configs();
-          if (!symbol || index < 0 || index >= configs.length) return;
-
-          const config = configs[index];
-          const paramsId = deriveParamsId(config);
-          const stats = store.stats()[index];
-          if (!stats) return;
-
-          const doc: SwingAnalysisInput = {
-            symbol,
-            paramsId,
-            config,
-            pivots: store.pivots()[index],
-            projection: store.projections()[index],
-            swings: store.swings()[index],
-            stats,
-            savedAt: new Date().toISOString(),
-          };
-
-          swingAnalysisService
-            .saveAnalysis(doc)
-            .pipe(takeUntilDestroyed(destroyRef))
-            .subscribe({
-              next: () => {
-                patchState(store, { error: null });
-                // Refresh the saved analyses list.
-                swingAnalysisService
-                  .loadSavedAnalyses(symbol)
-                  .pipe(takeUntilDestroyed(destroyRef))
-                  .subscribe({
-                    next: (docs) => patchState(store, { savedAnalyses: docs }),
-                    error: (err: unknown) => {
-                      const msg = err instanceof Error ? err.message : String(err);
-                      console.error(
-                        '[SwingAnalysisStore] Failed to refresh saved analyses for',
-                        symbol,
-                        err,
-                      );
-                      patchState(store, { error: `Failed to refresh: ${msg}` });
-                    },
-                  });
-              },
-              error: (err: unknown) => {
-                const msg = err instanceof Error ? err.message : String(err);
-                console.error(
-                  '[SwingAnalysisStore] Failed to save analysis for',
-                  symbol,
-                  err,
-                );
-                patchState(store, { error: `Failed to save: ${msg}` });
-              },
-            });
-        },
-
-        /**
-         * Load all saved analyses for the current symbol.
-         */
-        loadSavedAnalyses(): void {
-          const symbol = store.symbol();
-          if (!symbol) return;
-
-          swingAnalysisService
-            .loadSavedAnalyses(symbol)
-            .pipe(takeUntilDestroyed(destroyRef))
-            .subscribe({
-              next: (docs) => {
-                patchState(store, { savedAnalyses: docs, error: null });
-              },
-              error: (err: unknown) => {
-                const msg = err instanceof Error ? err.message : String(err);
-                console.error(
-                  '[SwingAnalysisStore] Failed to load saved analyses for',
-                  symbol,
-                  err,
-                );
-                patchState(store, { error: `Failed to load saved analyses: ${msg}` });
-              },
-            });
-        },
-
-        /**
-         * Load a saved analysis into a specific config slot.
-         *
-         * Bars are NOT persisted in the doc — they are loaded from the chart
-         * service (same path as setSymbol). If bars are already loaded, the
-         * config from the doc is applied and that slot's pivots/swings/stats
-         * are recomputed. If bars are not yet loaded, bars are fetched from
-         * the chart service first, then all configs are recomputed.
-         */
-        loadAnalysis(docId: string, index: number): void {
-          const symbol = store.symbol();
-          if (!symbol || !docId) return;
-          if (index < 0 || index >= store.configs().length) return;
-
-          // Cancel any prior in-flight analysis load to prevent stale overwrites.
-          analysisSub?.unsubscribe();
-          analysisSub = swingAnalysisService
-            .loadAnalysis(symbol, docId)
-            .pipe(takeUntilDestroyed(destroyRef))
-            .subscribe({
-              next: (doc) => {
-                analysisSub = null;
-                if (!doc) {
-                  patchState(store, { error: 'Analysis not found' });
-                  return;
-                }
-                // Re-read configs fresh — list ops/updateConfig may
-                // have mutated the array while the fetch was in flight.
-                const configs = store.configs();
-                if (index >= configs.length) return;
-                const newConfig = doc.config;
-                const newConfigs = configs.map((c, i) =>
-                  i === index ? newConfig : c,
-                );
-                const bars = store.bars();
-
-                if (bars.length > 0) {
-                  // Bars already loaded — recompute only this slot.
-                  const slot = recomputeSlot(index, bars, newConfig);
-                  patchState(store, {
-                    configs: newConfigs,
-                    ...slot,
-                    error: null,
-                  });
-                } else {
-                  // No bars loaded — fetch from chart service, then recompute all.
-                  patchState(store, {
-                    configs: newConfigs,
-                    loading: true,
-                    error: null,
-                  });
-                  loadBarsAndRecompute(symbol, false);
-                }
-              },
-              error: (err: unknown) => {
-                analysisSub = null;
-                const msg = err instanceof Error ? err.message : String(err);
-                console.error(
-                  '[SwingAnalysisStore] Failed to load analysis',
-                  docId,
-                  err,
-                );
-                patchState(store, { error: `Failed to load analysis: ${msg}` });
               },
             });
         },
@@ -768,28 +645,7 @@ export const SwingAnalysisStore = signalStore(
          */
         loadConfigLibrary(): void {
           if (store.configLibraryLoading()) return;
-          librarySub?.unsubscribe();
-          patchState(store, { configLibraryLoading: true });
-          librarySub = swingAnalysisService
-            .loadConfigs()
-            .pipe(takeUntilDestroyed(destroyRef))
-            .subscribe({
-              next: (docs) => {
-                librarySub = null;
-                patchState(store, {
-                  configLibrary: docs,
-                  configLibraryLoading: false,
-                });
-              },
-              error: (err: unknown) => {
-                librarySub = null;
-                const msg = err instanceof Error ? err.message : String(err);
-                patchState(store, {
-                  configLibraryLoading: false,
-                  error: `Failed to load configs: ${msg}`,
-                });
-              },
-            });
+          refreshLibrary();
         },
       };
     },
