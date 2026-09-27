@@ -359,6 +359,18 @@ service cloud.firestore {
       allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
     }
 
+    // Swing config library — flat collection, user-scoped CRUD under
+    // st-swing-configs/{paramsId}
+    // Same rules shape as st-swing-sets: list queries must constrain
+    // userId or the rules engine denies the query outright.
+    match /st-swing-configs/{docId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update: if request.auth != null && request.auth.uid == resource.data.userId
+        && request.resource.data.userId == resource.data.userId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
     // Saved user configurations — authenticated CRUD, no user-scoping.
     // This is a single-user app (one developer account), so all authenticated
     // users are the owner. Path: configs/{feature-name}/configs/{configId}
