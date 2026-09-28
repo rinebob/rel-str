@@ -23,6 +23,8 @@ import { SwingAnalysisStore } from './swing-analysis.store';
 import { SwingTableComponent } from './components/swing-table.component';
 import { StatsPanelComponent, StatsSets } from './components/stats-panel.component';
 import { SymbolNavComponent } from './components/symbol-nav.component';
+import { CompanyInfoStripComponent } from './components/company-info.component';
+import { SymbolListStore } from '../stores/symbol-list.store';
 import { SwingSettingsDialogComponent } from './components/swing-settings-dialog.component';
 import { FlexChartComponent } from '../../shared/components/flex-chart/flex-chart.component';
 import { ChartIntervalKey, StIndicator } from '../../shared/components/flex-chart/flex-chart.types';
@@ -33,6 +35,7 @@ import type {
 } from '../../shared/components/flex-chart/flex-chart.types';
 import { BarsInterval } from '../../../core/models/partner.types';
 import { UiStateService } from '../../../core/services/ui-state.service';
+import { LogScalePillComponent } from '../components/log-scale-pill/log-scale-pill.component';
 import type { ZigZagConfig } from '../../shared/components/flex-chart/indicators/st-zigzag.types';
 
 /** Default symbol loaded when the page opens. */
@@ -80,6 +83,8 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
     SwingTableComponent,
     StatsPanelComponent,
     SymbolNavComponent,
+    CompanyInfoStripComponent,
+    LogScalePillComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -89,17 +94,16 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
       <h1>Swing Analysis</h1>
       <p class="subtitle">ZigZag pivot indicator — historical swing magnitude & duration</p>
     </div>
+    <app-company-info
+      [symbol]="symbol()"
+      [profile]="lists.profilesBySymbol().get(symbol())"
+    />
     <div class="header-actions">
-      <button
-        type="button"
-        class="log-pill"
-        data-testid="log-pill"
-        [class.active]="logScale()"
-        [matTooltip]="logScale() ? 'Log Y-axis on' : 'Log Y-axis off'"
-        (click)="toggleLogScale()"
-      >
-        Log Y-axis {{ logScale() ? 'Yes' : 'No' }}
-      </button>
+      <app-log-scale-pill
+        [logScale]="logScale()"
+        testId="log-pill"
+        (toggle)="toggleLogScale()"
+      />
       <button
         mat-icon-button
         data-testid="settings-btn"
@@ -189,23 +193,7 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
       gap: 4px;
       align-items: center;
     }
-    .log-pill {
-      font-size: 10px;
-      font-weight: 600;
-      padding: 2px 7px;
-      border-radius: 8px;
-      border: none;
-      background: var(--mat-sys-surface-container-high);
-      color: var(--mat-sys-on-surface-variant);
-      cursor: pointer;
-      transition: background 0.1s, color 0.1s;
-      white-space: nowrap;
-    }
-    .log-pill:hover { background: var(--mat-sys-surface-container-highest); }
-    .log-pill.active {
-      background: var(--mat-sys-primary-container);
-      color: var(--mat-sys-on-primary-container);
-    }
+
     .swing-analysis-header .subtitle {
       margin: 0 0 16px;
       color: #666;
@@ -238,6 +226,7 @@ function buildZigZagIndicator(config: ZigZagConfig, index: number): IndicatorCon
 })
 export class SwingAnalysisPageComponent implements OnDestroy {
   readonly store = inject(SwingAnalysisStore);
+  readonly lists = inject(SymbolListStore);
   readonly ui = inject(UiStateService);
   private readonly dialog = inject(MatDialog);
 
@@ -318,6 +307,10 @@ export class SwingAnalysisPageComponent implements OnDestroy {
     // Tracked-symbols universe — feeds the nav sequence.
     // Guarded no-op once loaded.
     this.store.loadTrackedSymbols();
+    // Symbol profiles — feeds the header info strip and (soon) the nav
+    // picker's display names. One session-cached fetch; header fills in
+    // when it lands, never blocks the chart.
+    this.lists.loadProfiles();
   }
 
   /** Open the settings dialog — the two-list config manager (presets /

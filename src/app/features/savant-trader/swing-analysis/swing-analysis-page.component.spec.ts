@@ -36,6 +36,7 @@ import { ChartService } from '../services/chart.service';
 import { SwingAnalysisService } from './swing-analysis.service';
 import { RelStrDbV2Service } from '../../services/rel-str-db-v2.service';
 import { SymbolListStore } from '../stores/symbol-list.store';
+import type { StSymbolProfile } from '../services/types';
 import { StIndicator } from '../../shared/components/flex-chart/flex-chart.types';
 import { BarsInterval } from '../../../core/models/partner.types';
 import { UiStateService } from '../../../core/services/ui-state.service';
@@ -47,10 +48,11 @@ import type { ChartDataset } from '../../heatmap-chart/heatmap-chart.types';
 import type { SwingConfigDoc } from './swing-analysis.types';
 import type { ZigZagConfig } from '../../shared/components/flex-chart/indicators/st-zigzag.types';
 import { NO_MEMBERSHIP } from '../common/constants';
-import { isUnlisted } from '../utils/utils';
+import { isUntriaged } from '../utils/utils';
+import { SYSTEM_LIST_DEFS } from '../common/symbol-list-defs';
 
 // =============================================================================
-// Mock child components ΓÇö capture inputs so the page test can assert wiring
+// Mock child components — capture inputs so the page test can assert wiring
 // =============================================================================
 
 @Component({
@@ -179,29 +181,65 @@ async function setupPage(
   service: ReturnType<typeof mockSwingAnalysisService> = mockSwingAnalysisService(),
   navSymbols: string[] = [],
   navLists: Record<string, string[]> = {},
+  profiles: StSymbolProfile[] = [],
 ): Promise<PageSetup> {
   const tracked = signal<string[]>([]);
+  const listCatalog = [
+    ...SYSTEM_LIST_DEFS.map((def) => ({
+      ...def,
+      symbols: navLists[def.key] ?? [],
+      userId: 'test-user',
+    })),
+    ...Object.entries(navLists)
+      .filter(([key]) => !SYSTEM_LIST_DEFS.some((def) => def.key === key))
+      .map(([key, symbols], index) => ({
+        key, label: key, order: 100 + index, role: 'nonexclusive' as const,
+        hidden: false, symbols, userId: 'test-user',
+      })),
+  ];
+  const filterOptionGroups = () => {
+    const visible = listCatalog.filter((def) => !def.hidden);
+    const toOption = (def: typeof listCatalog[number]) => ({ value: def.key, label: def.label });
+    const myLists = visible.filter((def) => def.role === 'nonexclusive').map(toOption);
+    return [
+      {
+        label: 'Triage',
+        options: [
+          ...visible.filter((def) => def.role === 'exclusive').map(toOption),
+          { value: NO_MEMBERSHIP, label: 'Not triaged' },
+        ],
+      },
+      ...(myLists.length ? [{ label: 'My lists', options: myLists }] : []),
+    ];
+  };
   TestBed.configureTestingModule({
     providers: [
       { provide: ChartService, useValue: chart ?? mockChartService(bars) },
       { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of(navSymbols.map((s) => ({ symbol: s })))) } },
-      // SymbolListStore owns the tracked-symbols universe ΓÇö the mock
+      // SymbolListStore owns the tracked-symbols universe — the mock
       // reproduces its loadTrackedSymbols/unlistedSymbols contract so the
       // nav sequence can read it.
       { provide: SymbolListStore, useValue: {
+        catalog: () => listCatalog,
+        filterOptionGroups,
         symbolLists: signal<Record<string, string[]>>(navLists),
         activeListFilter: signal('ALL'),
         trackedSymbols: tracked,
-        unlistedSymbols: computed(() => tracked().filter((s) => isUnlisted(s, navLists))),
+        unlistedSymbols: computed(() => tracked().filter((s) =>
+          isUntriaged(s, navLists, SYSTEM_LIST_DEFS.filter((d) => d.role === 'exclusive').map((d) => d.key)),
+        )),
         loadTrackedSymbols: jest.fn(() => {
           if (tracked().length === 0) tracked.set([...navSymbols].sort());
           return Promise.resolve(tracked());
         }),
         loadSymbolLists: jest.fn(),
         toggleSymbolInList: jest.fn(),
-        toggleMonitor: jest.fn(),
         addSymbolToList: jest.fn(),
         removeSymbolFromList: jest.fn(),
+        profiles: signal<StSymbolProfile[]>(profiles),
+        profilesLoading: signal(false),
+        profilesBySymbol: signal(new Map<string, StSymbolProfile>(profiles.map((p) => [p.symbol.toUpperCase(), p]))),
+        loadProfiles: jest.fn(() => Promise.resolve(profiles)),
       } },
       { provide: SwingAnalysisService, useValue: service },
       SwingAnalysisStore,
@@ -251,17 +289,17 @@ describe('SwingAnalysisPageComponent', () => {
     expect(chart.config?.logScale).toBe(true);
 
     const btn = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('[data-testid="log-pill"]')!;
-    expect(btn.textContent).toContain('Yes');
+    expect(btn.getAttribute('aria-pressed')).toBe('true');
     btn.click();
     fixture.detectChanges();
 
     expect(chart.config?.logScale).toBe(false);
-    expect(btn.textContent).toContain('No');
+    expect(btn.getAttribute('aria-pressed')).toBe('false');
 
     btn.click();
     fixture.detectChanges();
     expect(chart.config?.logScale).toBe(true);
-    expect(btn.textContent).toContain('Yes');
+    expect(btn.getAttribute('aria-pressed')).toBe('true');
   });
 
   it('enters fullscreen on init and restores the app header on destroy', async () => {
@@ -274,15 +312,11 @@ describe('SwingAnalysisPageComponent', () => {
     expect(ui.fullscreen()).toBe(false);
   });
 
-  it('renders a symbol input bound to store symbol', async () => {
-    const { fixture, store } = await setupPage();
-    store.setSymbol('AAPL');
-    expect(store.symbol()).toBe('AAPL');
+  it('does not render a free-text symbol input — the nav picker is the only entry point', async () => {
+    const { fixture } = await setupPage();
     fixture.detectChanges();
     openSettings(fixture);
-    const input = dlg().querySelector('input[data-testid="symbol-input"]') as HTMLInputElement;
-    expect(input).toBeTruthy();
-    expect(input.value).toBe('AAPL');
+    expect(dlg().querySelector('input[data-testid="symbol-input"]')).toBeNull();
   });
 
   it('renders param controls for devThreshold, leftDepth, rightDepth, lineColor, allowZigZagOnOneBar', async () => {
@@ -318,16 +352,6 @@ describe('SwingAnalysisPageComponent', () => {
     expect(Number(right.value)).toBe(LARGE_CONFIG.rightDepth);
     expect(color.value).toBe(LARGE_CONFIG.lineColor);
     expect(oneBar.checked).toBe(LARGE_CONFIG.allowZigZagOnOneBar);
-  });
-
-  it('calls store.setSymbol when symbol input changes', async () => {
-    const { fixture, store } = await setupPage();
-    fixture.detectChanges();
-    openSettings(fixture);
-    const input = dlg().querySelector('[data-testid="symbol-input"]') as HTMLInputElement;
-    input.value = 'MSFT';
-    input.dispatchEvent(new Event('input'));
-    expect(store.symbol()).toBe('MSFT');
   });
 
   it('calls store.updateConfig when a numeric param changes', async () => {
@@ -974,18 +998,18 @@ describe('SwingAnalysisPageComponent — config manager', () => {
 });
 
 
-describe('SwingAnalysisPageComponent ΓÇö symbol nav', () => {
+describe('SwingAnalysisPageComponent — symbol nav', () => {
   it('renders prev/next, current symbol, and position in the nav sequence', async () => {
-    const { fixture } = await setupPage(makeBars(40), undefined, mockSwingAnalysisService([]), ['AAPL', 'MSFT', 'QQQ']);
+    const { fixture } = await setupPage(makeBars(40), undefined, mockSwingAnalysisService(), ['AAPL', 'MSFT', 'QQQ']);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('[data-testid="nav-symbol"]').textContent).toContain('QQQ');
-    // Sorted sequence [AAPL, MSFT, QQQ] ΓÇö QQQ is last.
+    expect((fixture.nativeElement.querySelector('[data-testid="nav-picker"]') as HTMLInputElement).value).toBe('QQQ');
+    // Sorted sequence [AAPL, MSFT, QQQ] — QQQ is last.
     expect(fixture.nativeElement.querySelector('[data-testid="nav-position"]').textContent).toContain('3 of 3');
   });
 
   it('next/prev step through the sequence and wrap at the ends', async () => {
-    const { fixture, store } = await setupPage(makeBars(40), undefined, mockSwingAnalysisService([]), ['AAPL', 'MSFT', 'QQQ']);
+    const { fixture, store } = await setupPage(makeBars(40), undefined, mockSwingAnalysisService(), ['AAPL', 'MSFT', 'QQQ']);
     fixture.detectChanges();
 
     (fixture.nativeElement.querySelector('[data-testid="nav-next"]') as HTMLButtonElement).click();
@@ -1009,7 +1033,7 @@ describe('SwingAnalysisPageComponent ΓÇö symbol nav', () => {
 
   it('watchlist filter narrows the nav sequence to list members', async () => {
     const { fixture, store } = await setupPage(
-      makeBars(40), undefined, mockSwingAnalysisService([]),
+      makeBars(40), undefined, mockSwingAnalysisService(),
       ['AAPL', 'MSFT', 'QQQ', 'TSLA'],
       { 'PRIMARY': ['MSFT', 'QQQ'] },
     );
@@ -1020,7 +1044,7 @@ describe('SwingAnalysisPageComponent ΓÇö symbol nav', () => {
     sel.dispatchEvent(new Event('change'));
     fixture.detectChanges();
 
-    // Filter change jumps to the first member ΓÇö MSFT in [MSFT, QQQ].
+    // Filter change jumps to the first member — MSFT in [MSFT, QQQ].
     expect(store.symbol()).toBe('MSFT');
     expect(fixture.nativeElement.querySelector('[data-testid="nav-position"]').textContent).toContain('1 of 2');
     (fixture.nativeElement.querySelector('[data-testid="nav-next"]') as HTMLButtonElement).click();
@@ -1029,7 +1053,7 @@ describe('SwingAnalysisPageComponent ΓÇö symbol nav', () => {
 
   it('No memberships filter navs to tracked symbols in zero lists', async () => {
     const { fixture, store } = await setupPage(
-      makeBars(40), undefined, mockSwingAnalysisService([]),
+      makeBars(40), undefined, mockSwingAnalysisService(),
       ['AAPL', 'MSFT', 'QQQ', 'TSLA'],
       { 'PRIMARY': ['MSFT', 'QQQ', 'TSLA'] },
     );
@@ -1044,23 +1068,203 @@ describe('SwingAnalysisPageComponent ΓÇö symbol nav', () => {
     expect(store.symbol()).toBe('AAPL');
     expect(fixture.nativeElement.querySelector('[data-testid="nav-position"]').textContent).toContain('1 of 1');
   });
+});
 
-  it('watchlist filter select lists the canonical options in fixed order', async () => {
-    const { fixture } = await setupPage(
-      makeBars(40), undefined, mockSwingAnalysisService([]), ['QQQ'],
+// =============================================================================
+// Symbol picker — permanent autocomplete in the nav row
+// =============================================================================
+
+describe('SwingAnalysisPageComponent — symbol picker', () => {
+  const PROFILES: StSymbolProfile[] = [
+    { symbol: 'AAPL', enabled: true, createdAt: '', name: 'Apple Inc.' },
+    { symbol: 'MSFT', enabled: true, createdAt: '', name: 'Microsoft Corp.' },
+    { symbol: 'TSLA', enabled: true, createdAt: '', name: 'Tesla Inc.' },
+  ];
+  const UNIVERSE = ['AAPL', 'MSFT', 'QQQ', 'TSLA'];
+
+  function picker(fixture: ComponentFixture<SwingAnalysisPageComponent>): HTMLInputElement {
+    return fixture.nativeElement.querySelector('[data-testid="nav-picker"]');
+  }
+  function overlayOptions(): HTMLElement[] {
+    return Array.from(document.querySelectorAll('mat-option')) as HTMLElement[];
+  }
+  async function openAndType(fixture: ComponentFixture<SwingAnalysisPageComponent>, text: string): Promise<void> {
+    const input = picker(fixture);
+    input.dispatchEvent(new Event('focusin'));
+    input.value = text;
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    await new Promise<void>((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+  }
+
+  it('shows the current symbol in the picker input', async () => {
+    const { fixture } = await setupPage(makeBars(40), undefined, mockSwingAnalysisService(), UNIVERSE);
+    fixture.detectChanges();
+    expect(picker(fixture).value).toBe('QQQ');
+  });
+
+  it('filters options by ticker AND company name', async () => {
+    const { fixture } = await setupPage(makeBars(40), undefined, mockSwingAnalysisService(), UNIVERSE, {}, PROFILES);
+    fixture.detectChanges();
+    await openAndType(fixture, 'tesla');
+    const opts = overlayOptions();
+    expect(opts.length).toBe(1);
+    expect(opts[0].textContent).toContain('TSLA');
+    expect(opts[0].textContent).toContain('Tesla Inc.');
+  });
+
+  it('selecting a dropdown option commits the symbol', async () => {
+    const { fixture, store } = await setupPage(makeBars(40), undefined, mockSwingAnalysisService(), UNIVERSE, {}, PROFILES);
+    fixture.detectChanges();
+    await openAndType(fixture, 'tesla');
+    (overlayOptions()[0] as HTMLElement).click();
+    fixture.detectChanges();
+    expect(store.symbol()).toBe('TSLA');
+    expect(picker(fixture).value).toBe('TSLA');
+  });
+
+  it('Enter on an exact tracked ticker commits', async () => {
+    const { fixture, store } = await setupPage(makeBars(40), undefined, mockSwingAnalysisService(), UNIVERSE, {}, PROFILES);
+    fixture.detectChanges();
+    const input = picker(fixture);
+    input.value = 'msft';
+    input.dispatchEvent(new Event('input'));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    fixture.detectChanges();
+    expect(store.symbol()).toBe('MSFT');
+  });
+
+  it('Enter on a unique company-name match commits that option', async () => {
+    const { fixture, store } = await setupPage(makeBars(40), undefined, mockSwingAnalysisService(), UNIVERSE, {}, PROFILES);
+    fixture.detectChanges();
+    const input = picker(fixture);
+    input.value = 'tesla';
+    input.dispatchEvent(new Event('input'));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    fixture.detectChanges();
+    expect(store.symbol()).toBe('TSLA');
+  });
+
+  it('untracked input reverts on Enter — never navigates', async () => {
+    const { fixture, store } = await setupPage(makeBars(40), undefined, mockSwingAnalysisService(), UNIVERSE, {}, PROFILES);
+    fixture.detectChanges();
+    const input = picker(fixture);
+    input.value = 'SCAM';
+    input.dispatchEvent(new Event('input'));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    input.dispatchEvent(new Event('blur'));
+    fixture.detectChanges();
+    expect(store.symbol()).toBe('QQQ');
+    expect(picker(fixture).value).toBe('QQQ');
+  });
+
+  it('Escape reverts to the current symbol', async () => {
+    const { fixture, store } = await setupPage(makeBars(40), undefined, mockSwingAnalysisService(), UNIVERSE, {}, PROFILES);
+    fixture.detectChanges();
+    const input = picker(fixture);
+    input.value = 'tesla';
+    input.dispatchEvent(new Event('input'));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    fixture.detectChanges();
+    expect(store.symbol()).toBe('QQQ');
+    expect(picker(fixture).value).toBe('QQQ');
+  });
+
+  it('Enter honors a keyboard-highlighted option over the typed text', async () => {
+    const { fixture, store } = await setupPage(makeBars(40), undefined, mockSwingAnalysisService(), UNIVERSE, {}, PROFILES);
+    fixture.detectChanges();
+    await openAndType(fixture, 'msft');
+    const input = picker(fixture);
+    // ArrowDown highlights the first filtered option; Enter should commit
+    // it via optionSelected — the typed query must not win.
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+    fixture.detectChanges();
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    fixture.detectChanges();
+    expect(store.symbol()).toBe('MSFT');
+  });
+
+  it('blur without a selection reverts to the current symbol', async () => {
+    const { fixture, store } = await setupPage(makeBars(40), undefined, mockSwingAnalysisService(), UNIVERSE, {}, PROFILES);
+    fixture.detectChanges();
+    const input = picker(fixture);
+    input.value = 'garbage';
+    input.dispatchEvent(new Event('input'));
+    input.dispatchEvent(new Event('blur'));
+    fixture.detectChanges();
+    expect(store.symbol()).toBe('QQQ');
+    expect(picker(fixture).value).toBe('QQQ');
+  });
+
+  it('is disabled while the tracked universe is empty', async () => {
+    const { fixture } = await setupPage();
+    fixture.detectChanges();
+    expect(picker(fixture).disabled).toBe(true);
+  });
+});
+
+// =============================================================================
+// Company info strip — header metadata bound to the profile map
+// =============================================================================
+
+describe('SwingAnalysisPageComponent — company info strip', () => {
+  const PROFILES: StSymbolProfile[] = [
+    { symbol: 'AAPL', enabled: true, createdAt: '', name: 'Apple Inc.', sector: 'Technology' },
+    { symbol: 'MSFT', enabled: true, createdAt: '', name: 'Microsoft Corp.', sector: 'Technology' },
+    { symbol: 'QQQ', enabled: true, createdAt: '', name: 'Invesco QQQ Trust' },
+  ];
+
+  it('shows the current symbol profile in the header and updates on setSymbol', async () => {
+    const { fixture, store } = await setupPage(
+      makeBars(40), undefined, mockSwingAnalysisService(),
+      ['AAPL', 'MSFT', 'QQQ'], {}, PROFILES,
     );
     fixture.detectChanges();
 
-    const options = fixture.nativeElement.querySelectorAll('[data-testid="nav-filter"] option');
-    const values = [...options].map((o) => (o as HTMLOptionElement).value);
-    expect(values).toEqual(['ALL', 'PRIMARY', 'SECONDARY', 'NEUTRAL', 'AVOID', 'HIDE', 'NO_MEMBERSHIP', 'MONITOR']);
-    const labels = [...options].map((o) => (o as HTMLOptionElement).textContent.trim());
-    expect(labels).toContain('No memberships');
+    const strip = () => (fixture.nativeElement.querySelector('[data-testid="company-info"]') as HTMLElement).textContent ?? '';
+    expect(strip()).toContain('QQQ — Invesco QQQ Trust');
+
+    store.setSymbol('MSFT');
+    fixture.detectChanges();
+    expect(strip()).toContain('MSFT — Microsoft Corp.');
+    expect(strip()).toContain('Technology');
+  });
+
+  it('shows ticker + dashes for a tracked symbol with no synced profile', async () => {
+    const { fixture, store } = await setupPage(
+      makeBars(40), undefined, mockSwingAnalysisService(),
+      ['AAPL', 'MSFT', 'NEWCO', 'QQQ'], {}, PROFILES,
+    );
+    fixture.detectChanges();
+
+    store.setSymbol('NEWCO');
+    fixture.detectChanges();
+    const t = fixture.nativeElement.querySelector('[data-testid="company-info"]').textContent;
+    expect(t).toContain('NEWCO');
+    expect(t).not.toContain('Apple');
+    expect(t).toContain('—');
+  });
+
+  it('watchlist filter renders catalog groups and includes user lists dynamically', async () => {
+    const { fixture } = await setupPage(
+      makeBars(40), undefined, mockSwingAnalysisService(), ['QQQ'],
+      { 'my-picks': ['QQQ'] },
+    );
+    fixture.detectChanges();
+
+    const select = fixture.nativeElement.querySelector('[data-testid="nav-filter"]') as HTMLSelectElement;
+    const groups = Array.from(select.querySelectorAll('optgroup'));
+    expect(groups.map((group) => group.label)).toEqual(['Triage', 'My lists']);
+    const values = Array.from(select.querySelectorAll('option')).map((o) => (o as HTMLOptionElement).value);
+    expect(values).toEqual(['ALL', 'NEW', 'PRIMARY', 'SECONDARY', 'NEUTRAL', 'AVOID', 'HIDE', 'NO_MEMBERSHIP', 'MONITOR', 'my-picks']);
+    expect(select.textContent).toContain('Not triaged');
+    expect(select.textContent).toContain('my-picks');
   });
 
   it('renders the watchlist chip row bound to the current symbol', async () => {
     const { fixture } = await setupPage(
-      makeBars(40), undefined, mockSwingAnalysisService([]), ['QQQ'],
+      makeBars(40), undefined, mockSwingAnalysisService(), ['QQQ'],
       { 'PRIMARY': ['QQQ'] },
     );
     fixture.detectChanges();
@@ -1074,20 +1278,21 @@ describe('SwingAnalysisPageComponent ΓÇö symbol nav', () => {
 
   it('chip toggle delegates to SymbolListStore.toggleSymbolInList', async () => {
     const { fixture } = await setupPage(
-      makeBars(40), undefined, mockSwingAnalysisService([]), ['QQQ'], { 'PRIMARY': [] },
+      makeBars(40), undefined, mockSwingAnalysisService(), ['QQQ'], { 'PRIMARY': [] },
     );
     fixture.detectChanges();
-    const listStore = TestBed.inject(SymbolListStore) as unknown as { toggleSymbolInList: jest.Mock };
+    const listStore = TestBed.inject(SymbolListStore);
 
-    // Click the first chip (PRIMARY) in the actions row.
-    const chip = fixture.nativeElement.querySelector('[data-testid="nav-list-actions"] button') as HTMLButtonElement;
+    const chip = fixture.nativeElement.querySelector(
+      '[data-testid="nav-list-actions"] button.primary',
+    ) as HTMLButtonElement;
     chip.click();
     expect(listStore.toggleSymbolInList).toHaveBeenCalledWith('QQQ', 'PRIMARY');
   });
 
   it('loads symbol lists on mount when cold', async () => {
     await setupPage();
-    const listStore = TestBed.inject(SymbolListStore) as unknown as { loadSymbolLists: jest.Mock };
+    const listStore = TestBed.inject(SymbolListStore);
     expect(listStore.loadSymbolLists).toHaveBeenCalled();
   });
 
@@ -1099,8 +1304,8 @@ describe('SwingAnalysisPageComponent ΓÇö symbol nav', () => {
           : of({ daily: makeChartDataset(makeBars(40)), weekly: makeChartDataset([]), monthly: makeChartDataset([]), version: 'test' }),
       ),
     };
-    // Sequence [AAPL, BAD, QQQ] ΓÇö QQQ is current; prev lands on BAD.
-    const { fixture, store } = await setupPage(makeBars(40), chart, mockSwingAnalysisService([]), ['AAPL', 'BAD', 'QQQ']);
+    // Sequence [AAPL, BAD, QQQ] — QQQ is current; prev lands on BAD.
+    const { fixture, store } = await setupPage(makeBars(40), chart, mockSwingAnalysisService(), ['AAPL', 'BAD', 'QQQ']);
     fixture.detectChanges();
 
     (fixture.nativeElement.querySelector('[data-testid="nav-prev"]') as HTMLButtonElement).click();
@@ -1111,7 +1316,7 @@ describe('SwingAnalysisPageComponent ΓÇö symbol nav', () => {
     expect(store.error()).toContain('Failed to load bars');
     expect(fixture.nativeElement.querySelector('[data-testid="error-message"]')).toBeTruthy();
 
-    // Nav stays usable ΓÇö next continues to QQQ.
+    // Nav stays usable — next continues to QQQ.
     (fixture.nativeElement.querySelector('[data-testid="nav-next"]') as HTMLButtonElement).click();
     await new Promise<void>((r) => setTimeout(r, 0));
     expect(store.symbol()).toBe('QQQ');

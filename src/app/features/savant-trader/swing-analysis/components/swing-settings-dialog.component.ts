@@ -42,17 +42,6 @@ const NUMERIC_BOUNDS: Record<NumericParam, { min: number; max: number }> = {
   @if (error()) {
     <div class="dialog-error" data-testid="dialog-error">{{ error() }}</div>
   }
-  <label class="control control-symbol">
-    <span class="control-label symbol-label">Symbol</span>
-    <input
-      data-testid="symbol-input"
-      class="symbol-input"
-      type="text"
-      [value]="symbol()"
-      (input)="onSymbol($event)"
-      placeholder="AAPL"
-    />
-  </label>
 
   <!-- Available configs — presets + saved library; "+" activates into configs[]. -->
   <section class="available" data-testid="available-configs">
@@ -340,24 +329,6 @@ const NUMERIC_BOUNDS: Record<NumericParam, { min: number; max: number }> = {
       font-size: 0.8rem;
       color: #888;
     }
-    .control-symbol {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .control-symbol .symbol-label {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: #333;
-    }
-    .control-symbol .symbol-input {
-      font-size: 1.15rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      padding: 6px 10px;
-      width: 140px;
-    }
     .dialog-error {
       padding: 8px 12px;
       font-size: 0.8rem;
@@ -463,7 +434,6 @@ const NUMERIC_BOUNDS: Record<NumericParam, { min: number; max: number }> = {
 export class SwingSettingsDialogComponent implements OnDestroy {
   readonly store = inject(SwingAnalysisStore);
 
-  readonly symbol = this.store.symbol;
   readonly configs = this.store.configs;
   readonly configLibrary = this.store.configLibrary;
   readonly configLibraryLoading = this.store.configLibraryLoading;
@@ -510,11 +480,6 @@ export class SwingSettingsDialogComponent implements OnDestroy {
   /** Numeric bounds for a param — single source of truth for template and handler. */
   numericBounds(key: NumericParam): { min: number; max: number } {
     return NUMERIC_BOUNDS[key];
-  }
-
-  onSymbol(event: Event): void {
-    const value = (event.target as HTMLInputElement).value.trim().toUpperCase();
-    this.store.setSymbol(value);
   }
 
   /** Activate a preset or library config — pushes a copy into configs[]. */
