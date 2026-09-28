@@ -29,9 +29,15 @@ A single **config-management dialog**: the settings dialog becomes the one place
 
 ## Solution
 
-**Unified dialog.** The settings dialog hosts a two-list manager: an *available* list (canned presets + every saved config from the library) and an *active* list (the store's `configs[]`). Move controls (`+`/`−` or equivalent) move a config between lists; the active list also offers clone (duplicate a config for tweaking) and delete. Existing inline param editing per active config stays as-is.
+**Unified dialog.** The settings dialog hosts a two-list manager: an *available* list (canned presets + every saved config from the library) and an *active* list (the store's `configs[]`). Move controls (`+`/`−` or equivalent) move a config between lists; the active list also offers clone (duplicate a config for tweaking) and delete. (Amended 2026-09-27, #609: the active list renders **narrow rows with fully-inline param fields** — one dense row per config — not collapsible sections.)
 
-**N-config, always.** The dual-mode toggle and terminology are retired. `configs[]` is the model — the default session still opens with the two standard configs (Large/Small). No cap on active count: the chart and stats panel render whatever the user loads.
+**N-config, always.** The dual-mode toggle and terminology are retired. `configs[]` is the model — the default session still opens with the two standard configs (dev10 + dev3 presets). No cap on active count: the chart and stats panel render whatever the user loads. (Amended: Large/Small names are gone from all UI; rows are identified by param summary only.)
+
+**Presets (added 2026-09-27).** The preset group is the 4-config sweep set (dev/L/R `10·10·10`, `5·5·5`, `3·3·3`, `2·2·2`) ordered highest→lowest devThreshold, with `+` activate buttons. Presets carry no display names — the param summary is the row label.
+
+**Presets vs. sets (amended 2026-09-27b).** The library splits: **presets** are single-config docs (canned + user-saved singles live together under Presets); **saved sets** are `configs[]` docs — `Save set` on the Active header writes the whole active list as one doc keyed by joined member paramsIds, and applying a set (`+`) **replaces** the active list wholesale. Header ops also include `Clone all` and `Clear`. Each active row carries a runtime-only **on/off checkbox** (`configEnabled[]`, never persisted) so a config can be muted without leaving the list.
+
+**Batch sweep retired (added 2026-09-27).** The batch-sweep section leaves the dialog; `BatchSweepComponent`, `swing-batch.ts`, and the store's `runBatch`/`cancelBatch` are deleted. The flow was built around the old per-symbol snapshot model and is superseded by the config library.
 
 **Config library.** `st-swing-sets` docs slim to `{name?, config, savedAt}` keyed by `{paramsId}` — one doc per distinct config, no symbol binding, no persisted pivots/swings/stats. The whole-collection read is now cheap, so the dialog loads the full library on open. Optional user name on save ("CSP wheel — tight"); fallback label is a param summary (`dev 5% · L10 · R10`). Old heavyweight docs deserialize fine — the extra fields are ignored.
 
@@ -68,8 +74,9 @@ A single **config-management dialog**: the settings dialog becomes the one place
 - Activating a library config appends it to `configs[]` and recomputes its swings from the currently loaded bars.
 
 ### US3–US5 — Active-list management
-- The active list shows every entry of `configs[]` with remove, clone, and save actions.
-- Clone appends a deep copy to the active list; the copy is independently editable via the existing param controls.
+- The active list shows every entry of `configs[]` as a narrow inline row with remove, clone, and save actions.
+- Clone appends a deep copy to the active list; the copy is independently editable via the row's inline param inputs.
+- Param edits apply on commit (`change`, not `input`) — typing intermediate values doesn't thrash the recompute.
 - Save writes `{name?, config, savedAt}` to `st-swing-sets/{paramsId}`; saving the same params twice is idempotent (doc id = paramsId dedupe).
 
 ### US6 — Library delete

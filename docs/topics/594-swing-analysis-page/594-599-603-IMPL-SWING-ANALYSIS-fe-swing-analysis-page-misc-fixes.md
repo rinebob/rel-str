@@ -40,9 +40,9 @@ st-swing-configs/{paramsId}   →  { name?: string, config: ZigZagConfig, savedA
 | `swing-analysis-page.component.ts` | Drop saved-sets wiring; filter-row restyle hooks |
 | `components/swing-table.component.ts` | Filter controls styled visibly |
 
-## Canned presets
+## Canned presets (amended 2026-09-27 — #609 narrow-row redesign)
 
-Available list = presets + library docs. Presets are module constants — `LARGE_CONFIG`, `SMALL_CONFIG`, and any additional canned variants defined in the store/constants (each carries a display name, not persisted). Presets can be activated or cloned; delete/save does not apply to them.
+Available list = presets + library docs. Presets are a shared module constant `SWING_PRESETS` — the 4-config set previously in `scripts/bulk-swing-sweep.ts` (dev/L/R `10·10·10`, `5·5·5`, `3·3·3`, `2·2·2` with palette colors, all flags on), ordered highest→lowest devThreshold. Presets are **unnamed** — the row shows the param summary, not a display name. Presets can be activated or cloned; delete/save does not apply to them.
 
 ## Store design
 
@@ -61,24 +61,32 @@ deleteSavedConfig(paramsId: string): void        // delete doc + drop from libra
 ```
 
 - `dualMode` signal and `toggleDualMode` removed — `configs[]` is the truth; consumers currently guarding with `length === 2` generalize to index access (`swings()[i]`, `stats()[i]`).
-- Default session still opens with `[LARGE_CONFIG, SMALL_CONFIG]` — two entries in the list, not a mode.
+- Default session still opens with `[LARGE_CONFIG, SMALL_CONFIG]` — two entries in the list, not a mode. (Identifiers kept as store constants; no UI string uses Large/Small.)
 - `savedSets`/`savedSetsLoading`/`loadSwingSetsIntoSlots` removed; symbol-scoped fetch gone.
+- `runBatch`/`cancelBatch` + batch state removed — batch sweep machinery deleted (see below).
 
-## Dialog layout
+## Dialog layout (amended 2026-09-27 — #609 narrow-row + presets-vs-sets redesign)
 
-Sections, top→bottom (all compact-density):
+Sections, top→bottom:
 
-1. **Available configs** — list rows: name/params summary + `+` (activate). Two groups: `Presets` then `Saved`.
-2. **Active configs** — list rows: index, name/summary, actions: edit-expand (`<details>` with existing param controls), clone, save-to-library (inline name input), remove.
-3. **Batch sweep** — unchanged, moved under the manager.
+1. **Available configs** — list rows: param summary + `+` (activate). Two groups:
+   - `Presets` — 4 canned unnamed rows (`SWING_PRESETS` const, desc devThreshold) followed by user-saved **single** configs (swatch + name-or-summary + `+`/`✎`/`×`).
+   - `Saved sets` — library docs carrying `configs: ZigZagConfig[]` (keyed by `set_<member paramsIds joined>`); `N×cfg` badge + name-or-summary + `+` (applies the set — **replaces** `configs[]` wholesale) + `✎`/`×`.
+   - Both groups are symbol-less — configs apply to whatever symbol is loaded.
+2. **Active configs** — header row carries set-level ops `[Save set] [Clone all] [Clear]` beside the `Active` label. One narrow row per config, fully inline: `[on/off ☐] [color] [devThreshold] [leftDepth] [rightDepth] [1bar ☐] [trig ☐] [Save] [Clone] [×]`. No `<details>` sections, no row labels — params are the identity.
+   - Per-row `Save` writes a **single-config** doc (appears under Presets); header `Save set` writes the whole active list as a set doc (appears under Saved sets).
+   - The on/off checkbox is runtime-only (`configEnabled[]`, index-aligned with `configs[]` — never persisted): disabled slots compute nothing and render dimmed; toggling back on recomputes from loaded bars.
+3. **Batch sweep removed entirely** — `BatchSweepComponent`, `swing-batch.ts`, and `runBatch`/`cancelBatch` deleted; the sweep flow is outdated (superseded by the config library).
 
-Controls restyle: dense fields (smaller font/height), no full-width inputs; param inputs remain validated to existing bounds.
+New store methods (beyond the #607 set): `applyConfigSet(doc)` (replace+recompute), `saveActiveSet(name?)`, `cloneAllConfigs()`, `clearActiveConfigs()`, `renameSavedConfig(doc, name?)` (works for singles and sets), `toggleActiveConfig(index)` (runtime flag).
+
+Validation bounds unchanged; no full-width inputs.
 
 ## Page changes
 
 - `SavedSetsComponent` deleted; import removed from the page.
 - Swing-table filter row: `.filter` labels keep or lose `text-transform: uppercase` per look; controls get visible borders/outline so they read as interactive without a click.
-- Strings/tests referencing "dual mode" updated to N-config phrasing.
+- Strings/tests referencing "dual mode" or Large/Small updated to N-config/param-summary phrasing.
 
 ## Phase plan
 

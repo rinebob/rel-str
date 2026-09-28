@@ -3,6 +3,10 @@
 ## [2026-09-27]
 
 ### Added
+- [Swing Analysis Page] 594-609_FE-IMPL-SWING-ANALYSIS: Config sets + stricter save paths (set_ doc keys, paramsId rename passthrough, empty-input error)
+- [Swing Analysis Page] 594-609_FE-IMPL-SWING-ANALYSIS: Store — SWING_PRESETS, runtime configEnabled flag, set ops (save/apply/clone-all/clear), batch removal
+- [Swing Analysis Page] 594-609_FE-IMPL-SWING-ANALYSIS: Dialog two-list config manager — narrow active rows + per-row on/off, chart enable-filter
+- [Swing Analysis Page] 594-609_DOCS-SWING-ANALYSIS: PRD/IMPL amendments + code review (PASS) + UAT (Complete)
 - [Portfolio] 576-582-588_FE-IMPL-PORTFOLIO: Allocation page shell — /portfolio-allocation route + nav, account tabs (non-agentic flagged), header/subtabs, refresh; store selection-preservation
 - [Portfolio] 576-582-588_DOCS-PORTFOLIO: Page-shell code review (PASS, 3 rounds) + UAT (Complete)
 - [Swing Analysis Page] 594-608_FE-IMPL-SWING-ANALYSIS: Dialog compact control styling — inline label+input rows, compact inputs/buttons
