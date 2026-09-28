@@ -31,7 +31,7 @@ import { deriveParamsId } from './swing-analysis.types';
 import { BarsInterval } from '../../../core/models/partner.types';
 import type { ChartDataset } from '../../heatmap-chart/heatmap-chart.types';
 import type { PriceBar } from '../../shared/components/flex-chart/indicators/st-zigzag.engine';
-import type { SwingAnalysisInput, SwingConfigDoc } from './swing-analysis.types';
+import type { SwingConfigDoc } from './swing-analysis.types';
 
 // =============================================================================
 // Test fixtures
@@ -86,13 +86,11 @@ type ServiceMock = ReturnType<typeof mockSwingAnalysisService>;
 function mockSwingAnalysisService(
   configs: SwingConfigDoc[] = [],
 ): Partial<SwingAnalysisService> & {
-  saveAnalysis: jest.Mock;
   loadConfigs: jest.Mock;
   saveConfig: jest.Mock;
   deleteConfig: jest.Mock;
 } {
   return {
-    saveAnalysis: jest.fn(() => of(undefined)),
     loadConfigs: jest.fn(() => of(configs)),
     saveConfig: jest.fn(() => of(undefined)),
     deleteConfig: jest.fn(() => of(undefined)),
@@ -265,10 +263,10 @@ describe('SwingAnalysisStore.updateConfig', () => {
     expect(store.bars()).toBe(barsBefore);
   });
 
-  it('updates only the specified config in dual mode', () => {
+  it('updates only the specified config', () => {
     const { store } = setupStore(makeBars(40));
     store.setSymbol('AAPL');
-    // Dual mode is the default — config 1 already exists.
+    // Two default configs - slot 1 already exists.
     store.updateConfig(1, { devThreshold: 7 });
     expect(store.configs()[0].devThreshold).toBe(LARGE_CONFIG.devThreshold);
     expect(store.configs()[1].devThreshold).toBe(7);
@@ -300,7 +298,7 @@ describe('SwingAnalysisStore.updateConfig', () => {
 // =============================================================================
 
 describe('SwingAnalysisStore — config list (always-N)', () => {
-  // No dual-mode toggle — configs[] is the truth; the list is unbounded.
+  // No mode toggle - configs[] is the truth; the list is unbounded.
 
   it('activateConfig appends a config and recomputes it from loaded bars', () => {
     const { store } = setupStore(makeBars(40));
@@ -376,7 +374,7 @@ describe('SwingAnalysisStore — config list (always-N)', () => {
 });
 
 // =============================================================================
-// allStats - combined stats across both configs (dual mode "All" view)
+// allStats - combined stats across both configs (the merged "All" view)
 // =============================================================================
 
 describe('SwingAnalysisStore.allStats', () => {
@@ -396,7 +394,7 @@ describe('SwingAnalysisStore.allStats', () => {
 
   it('recomputes combined stats across all configs', () => {
     const { store } = setupStore(makeBars(40));
-    store.setSymbol('AAPL'); // dual is the default — both slots computed
+    store.setSymbol('AAPL'); // two configs by default - both slots computed
 
     const all = store.allStats();
     expect(all).not.toBeNull();
@@ -432,253 +430,11 @@ describe('SwingAnalysisStore.paramsIds', () => {
     expect(store.paramsIds()[0]).toBe(deriveParamsId({ ...LARGE_CONFIG, devThreshold: 20 }));
   });
 
-  it('has two entries by default (dual mode)', () => {
+  it('has two entries by default', () => {
     const { store } = setupStore();
     expect(store.paramsIds().length).toBe(2);
     expect(store.paramsIds()[0]).toBe(deriveParamsId(LARGE_CONFIG));
     expect(store.paramsIds()[1]).toBe(deriveParamsId(SMALL_CONFIG));
-  });
-});
-
-// =============================================================================
-// runBatch — serial per-symbol sweep: bars -> per-config compute -> save
-// =============================================================================
-
-describe('SwingAnalysisStore.runBatch', () => {
-  interface BatchSetupOpts {
-    barsBySymbol?: Record<string, PriceBar[]>;
-    errorSymbols?: string[];
-    saveFailFor?: string[];
-    pending?: boolean;
-  }
-
-  function setupBatch(opts: BatchSetupOpts = {}): {
-    store: InstanceType<typeof SwingAnalysisStore>;
-    service: ServiceMock;
-    chart: { loadBars$: jest.Mock };
-    pendingSubject?: Subject<unknown>;
-  } {
-    const service = mockSwingAnalysisService();
-    const pendingSubject = opts.pending ? new Subject<unknown>() : undefined;
-    const chart = {
-      loadBars$: jest.fn((symbol: string) => {
-        // NOTE: production loadBars$ swallows fetch errors into empty
-        // datasets (chart.service.ts) — it never errors. This throwError
-        // path exercises the store's defensive catchError; the realistic
-        // failure mode (empty bars) is covered by the empty-bars test.
-        if (opts.errorSymbols?.includes(symbol)) {
-          return throwError(() => new Error(`bars fail for ${symbol}`));
-        }
-        if (pendingSubject) {
-          return pendingSubject.asObservable();
-        }
-        const bars = opts.barsBySymbol?.[symbol] ?? makeBars(40);
-        return of({
-          daily: makeChartDataset(bars),
-          weekly: makeChartDataset(bars),
-          monthly: makeChartDataset(bars),
-          version: 'test',
-        });
-      }),
-    };
-    if (opts.saveFailFor?.length) {
-      const failSet = new Set(opts.saveFailFor);
-      service.saveAnalysis.mockImplementation((input: { symbol: string }) =>
-        failSet.has(input.symbol)
-          ? throwError(() => new Error('save fail'))
-          : of(undefined),
-      );
-    }
-    TestBed.configureTestingModule({
-      providers: [
-        provideZonelessChangeDetection(),
-        { provide: ChartService, useValue: chart },
-        { provide: RelStrDbV2Service, useValue: { getTrackedSymbols$: jest.fn(() => of([])) } },
-        { provide: SymbolListStore, useValue: { symbolLists: signal<Record<string, string[]>>({}) } },
-        { provide: SwingAnalysisService, useValue: service },
-        SwingAnalysisStore,
-      ],
-    });
-    return { store: TestBed.inject(SwingAnalysisStore), service, chart, pendingSubject };
-  }
-
-  const savedSymbols = (service: ServiceMock) =>
-    service.saveAnalysis.mock.calls.map((c) => (c[0] as SwingAnalysisInput).symbol);
-
-  it('saves one doc per active config per symbol (dual mode -> 2 saves per symbol)', () => {
-    const { store, service } = setupBatch();
-    store.runBatch('AAPL, MSFT');
-    expect(service.saveAnalysis).toHaveBeenCalledTimes(4);
-    expect(savedSymbols(service)).toEqual(['AAPL', 'AAPL', 'MSFT', 'MSFT']);
-    // Each config saved under its own paramsId.
-    const params = service.saveAnalysis.mock.calls.map((c) => c[0].paramsId);
-    expect(params).toEqual([
-      deriveParamsId(LARGE_CONFIG), deriveParamsId(SMALL_CONFIG),
-      deriveParamsId(LARGE_CONFIG), deriveParamsId(SMALL_CONFIG),
-    ]);
-  });
-
-  it('saves once per symbol in single mode', () => {
-    const { store, service } = setupBatch();
-    store.removeActiveConfig(1); // collapse to 1 config
-    store.runBatch('AAPL, MSFT');
-    expect(service.saveAnalysis).toHaveBeenCalledTimes(2);
-    expect(savedSymbols(service)).toEqual(['AAPL', 'MSFT']);
-  });
-
-  it('normalizes the symbol list — trims, uppercases, dedupes, splits on comma/space/newline', () => {
-    const { store, service } = setupBatch();
-    store.removeActiveConfig(1);
-    store.runBatch('aapl, msft\n  QQQ  aapl MSFT');
-    expect(savedSymbols(service)).toEqual(['AAPL', 'MSFT', 'QQQ']);
-  });
-
-  it('does not disturb displayed state — symbol, bars, derived arrays untouched', () => {
-    const { store } = setupBatch();
-    store.setSymbol('AAPL');
-    const bars = store.bars();
-    const pivots = store.pivots();
-    const stats = store.stats();
-    store.runBatch('MSFT, QQQ');
-    expect(store.symbol()).toBe('AAPL');
-    expect(store.bars()).toBe(bars);
-    expect(store.pivots()).toBe(pivots);
-    expect(store.stats()).toBe(stats);
-  });
-
-  it('records progress and results; batchRunning clears at the end', () => {
-    const { store } = setupBatch();
-    store.runBatch('AAPL, MSFT, QQQ');
-    expect(store.batchRunning()).toBe(false);
-    expect(store.batchProgress()).toEqual({ done: 3, total: 3, current: null });
-    expect(store.batchResults()).toEqual([
-      { symbol: 'AAPL', ok: true },
-      { symbol: 'MSFT', ok: true },
-      { symbol: 'QQQ', ok: true },
-    ]);
-  });
-
-  it('continues past a failed symbol and records the error', () => {
-    const { store } = setupBatch({ errorSymbols: ['BAD'] });
-    store.runBatch('AAPL, BAD, QQQ');
-    const results = store.batchResults();
-    expect(results[0]).toEqual({ symbol: 'AAPL', ok: true });
-    expect(results[1].symbol).toBe('BAD');
-    expect(results[1].ok).toBe(false);
-    expect(results[1].error).toContain('bars fail');
-    expect(results[2]).toEqual({ symbol: 'QQQ', ok: true });
-    expect(store.batchProgress().done).toBe(3);
-  });
-
-  it('records save failures per symbol and continues', () => {
-    const { store, service } = setupBatch({ saveFailFor: ['MSFT'] });
-    store.removeActiveConfig(1);
-    store.runBatch('AAPL, MSFT, QQQ');
-    const results = store.batchResults();
-    expect(results[1].symbol).toBe('MSFT');
-    expect(results[1].ok).toBe(false);
-    expect(results[2].ok).toBe(true);
-    expect(service.saveAnalysis).toHaveBeenCalledTimes(3);
-  });
-
-  it('marks a symbol failed when bars come back empty', () => {
-    const { store } = setupBatch({ barsBySymbol: { EMPTY: [] } });
-    store.removeActiveConfig(1);
-    store.runBatch('AAPL, EMPTY, QQQ');
-    const results = store.batchResults();
-    expect(results[1].symbol).toBe('EMPTY');
-    expect(results[1].ok).toBe(false);
-  });
-
-  it('no-ops on empty or whitespace input', () => {
-    const { store, service, chart } = setupBatch();
-    store.runBatch('   ');
-    store.runBatch('');
-    expect(chart.loadBars$).not.toHaveBeenCalled();
-    expect(service.saveAnalysis).not.toHaveBeenCalled();
-    expect(store.batchRunning()).toBe(false);
-  });
-
-  it('ignores a second run while one is in flight', () => {
-    const { store, service } = setupBatch({ pending: true });
-    store.runBatch('AAPL');
-    expect(store.batchRunning()).toBe(true);
-    store.runBatch('MSFT');
-    expect(service.saveAnalysis).not.toHaveBeenCalled();
-    expect(store.batchProgress().total).toBe(1);
-  });
-
-  it('uses the config snapshot taken at run start — mid-run edits do not leak into saves', () => {
-    const { store, service, pendingSubject } = setupBatch({ pending: true });
-    store.runBatch('AAPL');
-    // Change devThreshold mid-flight — the in-flight run must still save
-    // the snapshot's paramsId.
-    store.updateConfig(0, { devThreshold: 20 });
-    pendingSubject!.next({
-      daily: makeChartDataset(makeBars(40)),
-      weekly: makeChartDataset(makeBars(40)),
-      monthly: makeChartDataset(makeBars(40)),
-      version: 'test',
-    });
-    const params = service.saveAnalysis.mock.calls.map(
-      (c) => (c[0] as SwingAnalysisInput).paramsId,
-    );
-    expect(params).toEqual([
-      deriveParamsId(LARGE_CONFIG), // dev 5 — the snapshot, not dev 20
-      deriveParamsId(SMALL_CONFIG),
-    ]);
-  });
-
-  it('fetches bars exactly once per symbol', () => {
-    const { store, chart } = setupBatch();
-    store.removeActiveConfig(1);
-    store.runBatch('AAPL, MSFT, QQQ');
-    expect(chart.loadBars$).toHaveBeenCalledTimes(3);
-    expect(chart.loadBars$.mock.calls.map((c) => c[0])).toEqual(['AAPL', 'MSFT', 'QQQ']);
-  });
-
-  it('reports mid-run progress as each symbol completes', () => {
-    const { store, pendingSubject } = setupBatch({ pending: true });
-    store.runBatch('AAPL, MSFT');
-    expect(store.batchProgress()).toEqual({ done: 0, total: 2, current: 'AAPL' });
-    // Bars for AAPL arrive — serial concatMap moves on to MSFT.
-    pendingSubject!.next({
-      daily: makeChartDataset(makeBars(40)),
-      weekly: makeChartDataset(makeBars(40)),
-      monthly: makeChartDataset(makeBars(40)),
-      version: 'test',
-    });
-    expect(store.batchProgress()).toEqual({ done: 1, total: 2, current: 'MSFT' });
-  });
-
-  it('supports consecutive runs — a second run after completion starts clean', () => {
-    const { store, service } = setupBatch();
-    store.removeActiveConfig(1);
-    store.runBatch('AAPL');
-    store.runBatch('MSFT');
-    expect(store.batchResults()).toEqual([{ symbol: 'MSFT', ok: true }]);
-    expect(service.saveAnalysis).toHaveBeenCalledTimes(2);
-  });
-
-  it('cancelBatch aborts an in-flight sweep and clears batchRunning', () => {
-    const { store, service } = setupBatch({ pending: true });
-    store.runBatch('AAPL, MSFT');
-    expect(store.batchRunning()).toBe(true);
-    store.cancelBatch();
-    expect(store.batchRunning()).toBe(false);
-    expect(service.saveAnalysis).not.toHaveBeenCalled();
-    // A new run is unblocked after cancel.
-    store.runBatch('QQQ');
-  });
-
-  it('resetState aborts an in-flight batch and clears batch fields', () => {
-    const { store } = setupBatch({ pending: true });
-    store.runBatch('AAPL');
-    expect(store.batchRunning()).toBe(true);
-    store.resetState();
-    expect(store.batchRunning()).toBe(false);
-    expect(store.batchResults()).toEqual([]);
-    expect(store.batchProgress()).toEqual({ done: 0, total: 0, current: null });
   });
 });
 
@@ -769,6 +525,38 @@ describe('SwingAnalysisStore — config library', () => {
     expect(store.error()).toContain('denied');
   });
 
+  it('renameSavedConfig upserts the name on the same paramsId doc', () => {
+    const pid = deriveParamsId(LARGE_CONFIG);
+    const doc = makeConfigDoc({ id: pid, paramsId: pid, name: 'old' });
+    const { store, service } = setupLibrary([doc]);
+    store.loadConfigLibrary();
+    store.renameSavedConfig(doc, 'new name');
+    expect(service.saveConfig).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'new name', config: doc.config }),
+    );
+    expect(store.configLibrary()[0].name).toBe('new name');
+    expect(store.configLibrary().length).toBe(1);
+  });
+
+  it('renameSavedConfig with undefined clears the name → param-summary fallback', () => {
+    const pid = deriveParamsId(LARGE_CONFIG);
+    const doc = makeConfigDoc({ id: pid, paramsId: pid, name: 'old' });
+    const { store } = setupLibrary([doc]);
+    store.loadConfigLibrary();
+    store.renameSavedConfig(doc, undefined);
+    expect(store.configLibrary()[0].name).toBeUndefined();
+  });
+
+  it('renameSavedConfig service error sets error', () => {
+    const pid = deriveParamsId(LARGE_CONFIG);
+    const doc = makeConfigDoc({ id: pid, paramsId: pid });
+    const { store, service } = setupLibrary([doc]);
+    store.loadConfigLibrary();
+    service.saveConfig.mockReturnValue(throwError(() => new Error('denied')));
+    store.renameSavedConfig(doc, 'x');
+    expect(store.error()).toContain('denied');
+  });
+
   it('deleteSavedConfig calls the service and drops the library row', () => {
     const pid = deriveParamsId(LARGE_CONFIG);
     const { store, service } = setupLibrary([
@@ -827,5 +615,124 @@ describe('SwingAnalysisStore — config library', () => {
     expect(store.configLibrary()).toEqual([]);
     fresh.next([]);
     expect(store.configLibrary()).toEqual([]);
+  });
+
+  it('saveActiveSet writes a set doc keyed by the joined member paramsIds', () => {
+    const { store, service } = setupStore();
+    store.setSymbol('AAPL');
+    store.saveActiveSet();
+    const arg = service.saveConfig.mock.calls[0][0];
+    expect(arg.configs.length).toBe(store.configs().length);
+    expect(arg.config).toBeUndefined();
+    const setId = `set_${deriveParamsId(LARGE_CONFIG)}+${deriveParamsId(SMALL_CONFIG)}`;
+    expect(store.configLibrary().some((c) => c.paramsId === setId)).toBe(true);
+    expect(store.configLibrary().find((c) => c.paramsId === setId)!.configs!.length).toBe(2);
+  });
+
+  it('saveActiveSet is a no-op on an empty active list', () => {
+    const { store, service } = setupStore();
+    store.clearActiveConfigs();
+    store.saveActiveSet();
+    expect(service.saveConfig).not.toHaveBeenCalled();
+  });
+
+  it('applyConfigSet replaces the active list and recomputes every member', () => {
+    const pid = 'set-x';
+    const doc = makeConfigDoc({ id: pid, paramsId: pid });
+    doc.config = undefined;
+    doc.configs = [{ ...LARGE_CONFIG, devThreshold: 7 }, { ...SMALL_CONFIG, devThreshold: 2 }];
+    const { store } = setupStore();
+    store.setSymbol('AAPL');
+    store.applyConfigSet(doc);
+    expect(store.configs().map((c) => c.devThreshold)).toEqual([7, 2]);
+    expect(store.swings().length).toBe(2);
+    expect(store.stats().length).toBe(2);
+  });
+
+  it('applyConfigSet no-ops on a doc with no configs', () => {
+    const pid = 'empty-set';
+    const doc = makeConfigDoc({ id: pid, paramsId: pid });
+    doc.config = undefined; // neither config nor configs
+    const { store } = setupStore();
+    store.setSymbol('AAPL');
+    store.applyConfigSet(doc);
+    expect(store.configs().length).toBe(2); // defaults untouched
+  });
+
+  it('cloneAllConfigs duplicates every active config', () => {
+    const { store } = setupStore();
+    store.setSymbol('AAPL');
+    store.cloneAllConfigs();
+    expect(store.configs().length).toBe(4);
+    expect(store.swings().length).toBe(4);
+    expect(store.paramsIds()[2]).toBe(store.paramsIds()[0]);
+  });
+
+  it('clearActiveConfigs empties the active list and derived arrays', () => {
+    const { store } = setupStore();
+    store.setSymbol('AAPL');
+    store.clearActiveConfigs();
+    expect(store.configs()).toEqual([]);
+    expect(store.swings()).toEqual([]);
+    expect(store.stats()).toEqual([]);
+  });
+
+  it('toggleActiveConfig off zeroes the slot; on recomputes from bars', () => {
+    const { store } = setupStore();
+    store.setSymbol('AAPL');
+    expect(store.configEnabled()).toEqual([true, true]);
+    const swingsBefore = store.swings()[0].length;
+    expect(swingsBefore).toBeGreaterThan(0);
+
+    store.toggleActiveConfig(0);
+    expect(store.configEnabled()).toEqual([false, true]);
+    expect(store.swings()[0]).toEqual([]);
+    expect(store.stats()[0]).toBeNull();
+    expect(store.projections()[0]).toBeNull();
+    // Sibling slot untouched.
+    expect(store.swings()[1].length).toBeGreaterThan(0);
+
+    store.toggleActiveConfig(0);
+    expect(store.swings()[0].length).toBe(swingsBefore);
+  });
+
+  it('updateConfig on a disabled slot does NOT recompute — stays empty', () => {
+    const { store } = setupStore();
+    store.setSymbol('AAPL');
+    store.toggleActiveConfig(0); // off
+    expect(store.swings()[0]).toEqual([]);
+    store.updateConfig(0, { devThreshold: 7 });
+    expect(store.configs()[0].devThreshold).toBe(7); // config edited
+    expect(store.swings()[0]).toEqual([]);          // nothing computed
+    expect(store.stats()[0]).toBeNull();
+    // Re-enable → the edited params recompute.
+    store.toggleActiveConfig(0);
+    expect(store.swings()[0].length).toBeGreaterThan(0);
+  });
+
+  it('configEnabled stays index-aligned across activate/remove/clone/clear/applySet', () => {
+    const { store } = setupStore();
+    store.setSymbol('AAPL');
+    store.toggleActiveConfig(0); // [false, true]
+
+    store.activateConfig({ ...SMALL_CONFIG, devThreshold: 2 });
+    expect(store.configEnabled()).toEqual([false, true, true]);
+
+    store.cloneConfig(0); // disabled clone stays disabled
+    expect(store.configEnabled()).toEqual([false, true, true, false]);
+    expect(store.swings()[3]).toEqual([]);
+
+    store.removeActiveConfig(1); // drop slot 1 → flags shift
+    expect(store.configEnabled()).toEqual([false, true, false]);
+
+    const pid = 'set-y';
+    const doc = makeConfigDoc({ id: pid, paramsId: pid });
+    doc.config = undefined;
+    doc.configs = [{ ...LARGE_CONFIG }, { ...SMALL_CONFIG }];
+    store.applyConfigSet(doc); // applied sets start enabled
+    expect(store.configEnabled()).toEqual([true, true]);
+
+    store.clearActiveConfigs();
+    expect(store.configEnabled()).toEqual([]);
   });
 });
