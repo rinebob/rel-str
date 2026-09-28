@@ -1,5 +1,20 @@
 # Changelog
 
+## [2026-09-28]
+
+### Added
+- [Swing Analysis Page] 594-509_FE-IMPL-SWING-ANALYSIS: Company info strip in page header — all profile fields inline, em-dash fallbacks, never blocks chart (tasks #507–509)
+- [Swing Analysis Page] 594-509_FE-IMPL-SWING-ANALYSIS: Nav autocomplete picker — tracked-only, ticker + company-name match, commit/revert guards; settings-dialog free-text symbol input removed
+- [Watchlist Management] 465-523-528_CONFIG-IMPL-WATCHLIST: Legacy bare-id symbol-list docs readable/deletable by authed users — lazy rekey support
+- [Swing Analysis Page] 594-509_DOCS-SWING-ANALYSIS: QA PASS (#529) + UAT Complete for #507–509
+- [Watchlist Management] 465-528_DOCS-WATCHLIST: Code review (PASS) + QA PASS (#532) + UAT Complete for #528
+
+### Changed
+- [Watchlist Management] 465-523-528_FE-IMPL-WATCHLIST: All list surfaces rewired to catalog computeds — SymbolListName/enum-era plumbing retired, role-aware untriaged, deleted-list filter fallback
+
+### Fixed
+- [Watchlist Management] 465-523-528_FE-IMPL-WATCHLIST: Triage chips render icons again (fiber_new/star/visibility/remove_circle_outline/trending_down/block/history) with per-list active colors — text-pill regression reverted
+
 ## [2026-09-27]
 
 ### Added
