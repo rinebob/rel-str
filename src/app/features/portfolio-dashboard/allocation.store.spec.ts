@@ -351,6 +351,23 @@ describe('AllocationStore', () => {
     expect(store.bucketRows()).toEqual([]);
   });
 
+  it('loadAccounts preserves the selected account across reloads — resolved by accountNumber, not index', async () => {
+    const mocks = buildMocks();
+    const { store } = await setup(mocks);
+    await flush();
+    await store.selectAccount(1); // select ACCT_B
+    // Account list reorders AND drops ACCT_A on the next load.
+    mocks.data.listAccounts.mockResolvedValueOnce([account(ACCT_B, false), account('NEW33333')]);
+    await store.loadAccounts();
+    expect(store.selectedAccount()?.accountNumber).toBe(ACCT_B);
+    // Select the NEW account, then remove it from the next list — the
+    // selection falls back to index 0 rather than a stale pointer.
+    await store.selectAccount(1); // NEW33333
+    mocks.data.listAccounts.mockResolvedValueOnce([account(ACCT_A), account(ACCT_B, false)]);
+    await store.loadAccounts();
+    expect(store.selectedAccount()?.accountNumber).toBe(ACCT_A);
+  });
+
   it('an errored stream re-attaches on next selectAccount', async () => {
     const { store, mocks } = await setup(buildMocks());
     await flush();

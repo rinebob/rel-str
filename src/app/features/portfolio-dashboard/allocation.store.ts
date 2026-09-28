@@ -268,6 +268,7 @@ export const AllocationStore = signalStore(
     }
 
     let refreshing = false;
+    let accountsLoading = false;
 
     async function loadAccount(accountNumber: string): Promise<void> {
       const prev = slice(accountNumber);
@@ -290,17 +291,26 @@ export const AllocationStore = signalStore(
     return {
       /** Load all accounts and select the first — streams + data attach. */
       async loadAccounts(): Promise<void> {
+        if (accountsLoading) return;
+        accountsLoading = true;
         patchState(store, { loadError: null });
         try {
           const accounts = await data.listAccounts();
-          patchState(store, { accounts, selectedAccountIndex: 0 });
-          const first = accounts[0];
-          if (first) {
-            attachStreams(first.accountNumber);
-            await loadAccount(first.accountNumber);
+          // Preserve the previously selected account across page revisits —
+          // resolve by accountNumber, not index, since RH order can shift.
+          const prevSelected = store.accounts()[store.selectedAccountIndex()]?.accountNumber;
+          const idx = prevSelected ? accounts.findIndex((a) => a.accountNumber === prevSelected) : -1;
+          const selectedAccountIndex = idx >= 0 ? idx : 0;
+          patchState(store, { accounts, selectedAccountIndex });
+          const sel = accounts[selectedAccountIndex];
+          if (sel) {
+            attachStreams(sel.accountNumber);
+            await loadAccount(sel.accountNumber);
           }
         } catch (err) {
           patchState(store, { loadError: errMessage(err) });
+        } finally {
+          accountsLoading = false;
         }
       },
 

@@ -92,6 +92,14 @@ export const NAV_MENU_ITEMS: NavItem[] = [
         target: '_self',
     },
     {
+        name: 'portfolio-allocation',
+        text: 'Portfolio Allocation',
+        href: 'portfolio-allocation',
+        mobileOnly: false,
+        external: false,
+        target: '_self',
+    },
+    {
         name: 'trade-journal',
         text: 'trade journal',
         href: 'trade-journal',
