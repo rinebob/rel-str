@@ -3,6 +3,8 @@
 ## [2026-09-27]
 
 ### Added
+- [Portfolio] 576-582-588_FE-IMPL-PORTFOLIO: Allocation page shell — /portfolio-allocation route + nav, account tabs (non-agentic flagged), header/subtabs, refresh; store selection-preservation
+- [Portfolio] 576-582-588_DOCS-PORTFOLIO: Page-shell code review (PASS, 3 rounds) + UAT (Complete)
 - [Swing Analysis Page] 594-608_FE-IMPL-SWING-ANALYSIS: Dialog compact control styling — inline label+input rows, compact inputs/buttons
 - [Swing Analysis Page] 594-608_DOCS-SWING-ANALYSIS: Code review (PASS) + UAT (Complete)
 - [Swing Analysis Page] 594-607_FE-IMPL-SWING-ANALYSIS: Dialog — two-list config manager (presets + saved library, active-row clone/remove/save-to-library); legacy snapshot store APIs removed
