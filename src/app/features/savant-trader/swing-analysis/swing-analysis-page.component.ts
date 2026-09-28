@@ -7,11 +7,10 @@
  *
  * The page owns no calculation or persistence — it delegates to the store.
  *
- * When dual mode is on, the chart renders two ZigZag instances, each
- * config section has its own controls and save button, the swing
- * table renders a nested tree (large-swing parents, small-swing
- * children), and the stats panel shows a Large / Small / All toggle
- * driven by `statsSets` ([large, small, all]).
+ * Each active config renders one ZigZag overlay (enabled configs only —
+ * the dialog's on/off flag filters `chartConfig.indicators`). The swing
+ * table and stats panel read the per-slot derived arrays; the stats
+ * panel's toggle is driven by `statsSets`.
  */
 import { ChangeDetectionStrategy, Component, computed, HostBinding, inject, OnDestroy, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
@@ -253,8 +252,8 @@ export class SwingAnalysisPageComponent implements OnDestroy {
   readonly symbol = this.store.symbol;
   readonly configs = this.store.configs;
   readonly swings = computed(() => this.store.swings()[0] ?? []);
-  /** Small swings for the nested tree table — only meaningful for the
-   *  exact-2 (dual) layout; N>2 loaded sets show the flat slot-0 view. */
+  /** Second-config swings for the nested tree table — only meaningful for
+   *  the exact-2 layout; N>2 loaded sets show the flat slot-0 view. */
   readonly smallSwings = computed(() =>
     this.store.configs().length === 2 ? this.store.swings()[1] ?? [] : null,
   );
@@ -293,9 +292,15 @@ export class SwingAnalysisPageComponent implements OnDestroy {
     this.logScale.update(v => !v);
   }
 
-  /** Isolated chart config — one or two ST_ZIGZAG indicators, unique id each. */
+  /** Isolated chart config — one ST_ZIGZAG indicator per ENABLED config.
+   *  The indicator computes its own overlay from params, so the dialog's
+   *  runtime on/off has to filter here — zeroed swings[] alone don't
+   *  remove the line. */
   readonly chartConfig = computed<FlexChartConfig>(() => ({
-    indicators: this.configs().map((c, i) => buildZigZagIndicator(c, i)),
+    indicators: this.configs()
+      .map((c, i) => ({ c, i, on: this.store.configEnabled()[i] !== false }))
+      .filter((e) => e.on)
+      .map((e) => buildZigZagIndicator(e.c, e.i)),
     showCrosshair: true,
     showZoomToolbar: true,
     interval: ChartIntervalKey.DAILY,
@@ -315,8 +320,8 @@ export class SwingAnalysisPageComponent implements OnDestroy {
     this.store.loadTrackedSymbols();
   }
 
-  /** Open the settings dialog — symbol, dual-mode, N config sections,
-   *  and the batch sweep live there now (seeded sets made them secondary). */
+  /** Open the settings dialog — the two-list config manager (presets /
+   *  saved sets + narrow active rows) lives there. */
   openSettings(): void {
     this.dialog.open(SwingSettingsDialogComponent, { width: '720px' });
   }

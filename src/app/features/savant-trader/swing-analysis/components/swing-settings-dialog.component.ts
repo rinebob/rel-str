@@ -1,21 +1,22 @@
-﻿/**
- * SwingSettingsDialogComponent ΓÇö the swing-analysis page's settings gear.
+/**
+ * SwingSettingsDialogComponent — the swing-analysis page's settings gear.
  *
  * Two-list config manager: the top "Available" section lists canned presets
- * plus the user's st-swing-configs library (activated with `+`, deleted with
- * `├ù`); the bottom "Active" section lists the N live configs with edit-expand
- * param controls, clone/remove row actions, and a save-to-library row. The
+ * plus the user's st-swing-configs library (activated with `+`, renamed via
+ * `✎`, deleted with `×`); the bottom "Active" section renders one narrow
+ * inline row per live config — 3 number inputs + color swatch + flag
+ * checkboxes + Save/Clone/remove — so params are the row's identity. The
  * library loads lazily when the dialog opens. Symbol selection lives in the
  * nav row's tracked-only autocomplete, not here.
  */
-import { ChangeDetectionStrategy, Component, inject, OnDestroy } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnDestroy, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialogModule } from '@angular/material/dialog';
 
-import { LARGE_CONFIG, SMALL_CONFIG, SwingAnalysisStore } from '../swing-analysis.store';
+import { SwingAnalysisStore, SWING_PRESETS } from '../swing-analysis.store';
 import type { SwingConfigDoc } from '../swing-analysis.types';
+import { docConfigs, isConfigSet } from '../swing-analysis.types';
 import type { ZigZagConfig } from '../../../shared/components/flex-chart/indicators/st-zigzag.types';
-import { BatchSweepComponent } from './batch-sweep.component';
 
 /** Numeric ZigZagConfig keys that accept number values. */
 type NumericParam = 'devThreshold' | 'leftDepth' | 'rightDepth';
@@ -30,13 +31,10 @@ const NUMERIC_BOUNDS: Record<NumericParam, { min: number; max: number }> = {
   rightDepth: { min: 2, max: 100 },
 };
 
-/** Labels for each config section ΓÇö index 0 is the large/primary config. */
-const CONFIG_LABELS = ['Large Swings', 'Small Swings'] as const;
-
 @Component({
   selector: 'app-swing-settings-dialog',
   standalone: true,
-  imports: [MatDialogModule, MatButtonModule, BatchSweepComponent],
+  imports: [MatDialogModule, MatButtonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <h2 mat-dialog-title>Swing settings</h2>
@@ -56,177 +54,231 @@ const CONFIG_LABELS = ['Large Swings', 'Small Swings'] as const;
     />
   </label>
 
-  <!-- Available configs ΓÇö presets + saved library; "+" activates into configs[]. -->
+  <!-- Available configs — presets + saved library; "+" activates into configs[]. -->
   <section class="available" data-testid="available-configs">
     <h3 class="section-heading">Available</h3>
     <div class="group-label">Presets</div>
-    @for (preset of presets; track preset.name; let pi = $index) {
-      <div class="lib-row">
-        <span class="lib-name">{{ preset.name }}</span>
-        <span class="lib-summary">{{ paramSummary(preset.config) }}</span>
+    @for (preset of presets; track preset; let pi = $index) {
+      <div class="lib-row" [attr.data-testid]="'preset-row-' + pi">
+        <span class="swatch" [style.background-color]="preset.lineColor" aria-hidden="true"></span>
+        <span class="lib-summary">{{ paramSummary(preset) }}</span>
         <button
           class="row-btn"
           [attr.data-testid]="'preset-activate-' + pi"
           type="button"
-          (click)="activateConfig(preset.config)"
+          (click)="activateConfig(preset)"
         >+</button>
       </div>
     }
-    <div class="group-label">Saved</div>
+    @for (doc of savedPresets(); track doc.paramsId) {
+      <div class="lib-row" [attr.data-testid]="'saved-preset-row-' + doc.paramsId">
+        <span class="swatch" [style.background-color]="doc.config?.lineColor" aria-hidden="true"></span>
+        @if (renamingParamsId() === doc.paramsId) {
+          <input
+            class="rename-input"
+            [attr.data-testid]="'saved-rename-input-' + doc.paramsId"
+            type="text"
+            [value]="doc.name ?? ''"
+            [placeholder]="doc.config ? paramSummary(doc.config) : ''"
+            (keydown.enter)="onRenameSaved(doc, $event)"
+            (blur)="onRenameSaved(doc, $event)"
+          />
+        } @else {
+          @if (doc.name) {
+            <span class="lib-name">{{ doc.name }}</span>
+            <span class="lib-summary">{{ doc.config ? paramSummary(doc.config) : '' }}</span>
+          } @else {
+            <span class="lib-name">{{ doc.config ? paramSummary(doc.config) : '' }}</span>
+          }
+        }
+        <button
+          class="row-btn"
+          [attr.data-testid]="'saved-preset-activate-' + doc.paramsId"
+          type="button"
+          (click)="activateConfig(doc.config!)"
+        >+</button>
+        <button
+          class="row-btn"
+          [attr.data-testid]="'saved-rename-' + doc.paramsId"
+          type="button"
+          title="Rename"
+          (click)="renamingParamsId.set(doc.paramsId)"
+        >✎</button>
+        <button
+          class="row-btn row-btn-danger"
+          [attr.data-testid]="'saved-delete-' + doc.paramsId"
+          type="button"
+          (click)="onDeleteSaved(doc)"
+        >×</button>
+      </div>
+    }
+    <div class="group-label">Saved sets</div>
     @if (configLibraryLoading()) {
-      <div class="lib-empty">LoadingΓÇª</div>
-    } @else if (configLibrary().length === 0) {
-      <div class="lib-empty" data-testid="library-empty">No saved configs</div>
+      <div class="lib-empty">Loading…</div>
+    } @else if (savedSets().length === 0) {
+      <div class="lib-empty" data-testid="library-empty">No saved sets</div>
     } @else {
-      @for (doc of configLibrary(); track doc.id) {
+      @for (doc of savedSets(); track doc.paramsId) {
         <div class="lib-row" [attr.data-testid]="'saved-row-' + doc.paramsId">
-          <span class="lib-name">{{ doc.name ?? paramSummary(doc.config) }}</span>
-          <span class="lib-summary">{{ paramSummary(doc.config) }}</span>
+          <span class="set-badge" [attr.data-testid]="'saved-set-badge-' + doc.paramsId">{{ doc.configs?.length }}×cfg</span>
+          @if (renamingParamsId() === doc.paramsId) {
+            <input
+              class="rename-input"
+              [attr.data-testid]="'saved-rename-input-' + doc.paramsId"
+              type="text"
+              [value]="doc.name ?? ''"
+              [placeholder]="setSummary(doc)"
+              (keydown.enter)="onRenameSaved(doc, $event)"
+              (blur)="onRenameSaved(doc, $event)"
+            />
+          } @else {
+            <span class="lib-name">{{ doc.name ?? setSummary(doc) }}</span>
+            <span class="lib-summary">{{ doc.name ? setSummary(doc) : '' }}</span>
+          }
           <button
             class="row-btn"
             [attr.data-testid]="'saved-activate-' + doc.paramsId"
             type="button"
-            (click)="activateConfig(doc.config)"
+            title="Apply set — replaces active configs"
+            (click)="applySet(doc)"
           >+</button>
+          <button
+            class="row-btn"
+            [attr.data-testid]="'saved-rename-' + doc.paramsId"
+            type="button"
+            title="Rename"
+            (click)="renamingParamsId.set(doc.paramsId)"
+          >✎</button>
           <button
             class="row-btn row-btn-danger"
             [attr.data-testid]="'saved-delete-' + doc.paramsId"
             type="button"
             (click)="onDeleteSaved(doc)"
-          >├ù</button>
+          >×</button>
         </div>
       }
     }
   </section>
 
-  <!-- Active configs ΓÇö N live slots; row actions + edit-expand param controls. -->
+  <!-- Active configs — one narrow row per config; params are the identity. -->
   <section class="config-sections">
-    <h3 class="section-heading">Active</h3>
-  @for (cfg of configs(); track $index; let i = $index) {
-    <details
-      class="config-section"
-      [attr.data-testid]="'config-section-' + i"
-      open
-    >
-      <summary class="config-section-header">
-        <span class="config-section-label">{{ configLabel(i) }}</span>
-        <span
-          class="config-section-swatch"
-          [style.background-color]="cfg.lineColor"
-          aria-hidden="true"
-        ></span>
-        <span class="row-actions">
-          <button
-            class="row-btn"
-            [attr.data-testid]="'clone-config-btn-' + i"
-            type="button"
-            (click)="onClone(i, $event)"
-          >Clone</button>
-          <button
-            class="row-btn row-btn-danger"
-            [attr.data-testid]="'remove-config-btn-' + i"
-            type="button"
-            (click)="onRemove(i, $event)"
-          >Remove</button>
-        </span>
-      </summary>
-
-      <div class="config-controls">
-        <label class="control">
-          <span class="control-label">Dev Threshold</span>
-          <input
-            [attr.data-testid]="'param-devThreshold-' + i"
-            type="number"
-            [attr.min]="numericBounds('devThreshold').min"
-            [attr.max]="numericBounds('devThreshold').max"
-            step="0.1"
-            [value]="cfg.devThreshold"
-            (change)="onNumberParam(i, 'devThreshold', $event)"
-          />
-        </label>
-
-        <label class="control">
-          <span class="control-label">Left Depth</span>
-          <input
-            [attr.data-testid]="'param-leftDepth-' + i"
-            type="number"
-            [attr.min]="numericBounds('leftDepth').min"
-            [attr.max]="numericBounds('leftDepth').max"
-            step="1"
-            [value]="cfg.leftDepth"
-            (change)="onNumberParam(i, 'leftDepth', $event)"
-          />
-        </label>
-
-        <label class="control">
-          <span class="control-label">Right Depth</span>
-          <input
-            [attr.data-testid]="'param-rightDepth-' + i"
-            type="number"
-            [attr.min]="numericBounds('rightDepth').min"
-            [attr.max]="numericBounds('rightDepth').max"
-            step="1"
-            [value]="cfg.rightDepth"
-            (change)="onNumberParam(i, 'rightDepth', $event)"
-          />
-        </label>
-
-        <label class="control">
-          <span class="control-label">Line Color</span>
-          <input
-            [attr.data-testid]="'param-lineColor-' + i"
-            type="color"
-            [value]="cfg.lineColor"
-            (input)="onColorParam(i, 'lineColor', $event)"
-          />
-        </label>
-
-        <label class="control control-checkbox">
-          <input
-            [attr.data-testid]="'param-allowZigZagOnOneBar-' + i"
-            type="checkbox"
-            [checked]="cfg.allowZigZagOnOneBar"
-            (change)="onBoolParam(i, 'allowZigZagOnOneBar', $event)"
-          />
-          <span class="control-label">Allow ZigZag on One Bar</span>
-        </label>
-
-        <label class="control control-checkbox">
-          <input
-            [attr.data-testid]="'param-showTriggerDots-' + i"
-            type="checkbox"
-            [checked]="cfg.showTriggerDots !== false"
-            (change)="onBoolParam(i, 'showTriggerDots', $event)"
-          />
-          <span class="control-label">Trigger Dots</span>
-        </label>
-
-        <label class="control save-name">
-          <span class="control-label">Save to library</span>
-          <input
-            #saveName
-            [attr.data-testid]="'save-config-name-' + i"
-            type="text"
-            [placeholder]="paramSummary(cfg)"
-          />
-        </label>
+    <h3 class="section-heading">
+      Active
+      <span class="header-actions">
         <button
-          [attr.data-testid]="'save-config-btn-' + i"
-          mat-raised-button
-          color="primary"
+          class="row-btn save-btn"
+          data-testid="save-set-btn"
           type="button"
-          class="save-config-btn"
-          (click)="onSaveToLibrary(i, saveName.value)"
-        >
-          Save
-        </button>
-      </div>
-    </details>
+          title="Save the whole active list as a config set"
+          (click)="store.saveActiveSet()"
+        >Save set</button>
+        <button
+          class="row-btn"
+          data-testid="clone-all-btn"
+          type="button"
+          title="Duplicate every active config"
+          (click)="store.cloneAllConfigs()"
+        >Clone all</button>
+        <button
+          class="row-btn row-btn-danger"
+          data-testid="clear-all-btn"
+          type="button"
+          title="Remove every active config"
+          (click)="store.clearActiveConfigs()"
+        >Clear</button>
+      </span>
+    </h3>
+  @for (cfg of configs(); track $index; let i = $index) {
+    <div class="active-row" [class.disabled]="!store.configEnabled()[i]" [attr.data-testid]="'active-row-' + i">
+      <label class="chk" title="On/off — runtime only, not saved">
+        <input
+          [attr.data-testid]="'param-enabled-' + i"
+          type="checkbox"
+          [checked]="store.configEnabled()[i]"
+          (change)="store.toggleActiveConfig(i)"
+        />
+      </label>
+      <input
+        [attr.data-testid]="'param-lineColor-' + i"
+        class="swatch-input"
+        type="color"
+        [value]="cfg.lineColor"
+        title="Line color"
+        (input)="onColorParam(i, 'lineColor', $event)"
+      />
+      <input
+        [attr.data-testid]="'param-devThreshold-' + i"
+        class="num"
+        type="number"
+        title="Dev threshold"
+        [attr.min]="numericBounds('devThreshold').min"
+        [attr.max]="numericBounds('devThreshold').max"
+        step="0.1"
+        [value]="cfg.devThreshold"
+        (change)="onNumberParam(i, 'devThreshold', $event)"
+      />
+      <input
+        [attr.data-testid]="'param-leftDepth-' + i"
+        class="num"
+        type="number"
+        title="Left depth"
+        [attr.min]="numericBounds('leftDepth').min"
+        [attr.max]="numericBounds('leftDepth').max"
+        step="1"
+        [value]="cfg.leftDepth"
+        (change)="onNumberParam(i, 'leftDepth', $event)"
+      />
+      <input
+        [attr.data-testid]="'param-rightDepth-' + i"
+        class="num"
+        type="number"
+        title="Right depth"
+        [attr.min]="numericBounds('rightDepth').min"
+        [attr.max]="numericBounds('rightDepth').max"
+        step="1"
+        [value]="cfg.rightDepth"
+        (change)="onNumberParam(i, 'rightDepth', $event)"
+      />
+      <label class="chk" title="Allow zigzag on one bar">
+        <input
+          [attr.data-testid]="'param-allowZigZagOnOneBar-' + i"
+          type="checkbox"
+          [checked]="cfg.allowZigZagOnOneBar"
+          (change)="onBoolParam(i, 'allowZigZagOnOneBar', $event)"
+        />
+        <span>1bar</span>
+      </label>
+      <label class="chk" title="Show trigger dots">
+        <input
+          [attr.data-testid]="'param-showTriggerDots-' + i"
+          type="checkbox"
+          [checked]="cfg.showTriggerDots !== false"
+          (change)="onBoolParam(i, 'showTriggerDots', $event)"
+        />
+        <span>trig</span>
+      </label>
+      <button
+        [attr.data-testid]="'save-config-btn-' + i"
+        class="row-btn save-btn"
+        type="button"
+        title="Save to library"
+        (click)="onSaveToLibrary(i)"
+      >Save</button>
+      <button
+        class="row-btn"
+        [attr.data-testid]="'clone-config-btn-' + i"
+        type="button"
+        (click)="onClone(i, $event)"
+      >Clone</button>
+      <button
+        class="row-btn row-btn-danger"
+        [attr.data-testid]="'remove-config-btn-' + i"
+        type="button"
+        (click)="onRemove(i, $event)"
+      >×</button>
+    </div>
   }
   </section>
-
-  <!-- Batch sweep ΓÇö same store orchestration, tucked inside settings. -->
-  <app-batch-sweep />
 </mat-dialog-content>
 <mat-dialog-actions align="end">
   <button mat-button mat-dialog-close>Close</button>
@@ -240,6 +292,8 @@ const CONFIG_LABELS = ['Large Swings', 'Small Swings'] as const;
       min-width: 640px;
     }
     .section-heading {
+      display: flex;
+      align-items: center;
       margin: 0 0 2px;
       font-size: 0.8rem;
       font-weight: 600;
@@ -326,89 +380,83 @@ const CONFIG_LABELS = ['Large Swings', 'Small Swings'] as const;
     .row-btn-danger {
       color: #b3261e;
     }
-    .save-config-btn {
-      min-height: 26px;
-      line-height: 26px;
-      padding: 0 10px;
-      font-size: 0.75rem;
-    }
     .config-sections {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 4px;
     }
-    .config-section {
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      overflow: hidden;
-    }
-    .config-section-header {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 8px;
-      background: #f5f5f5;
-      cursor: pointer;
-      user-select: none;
-    }
-    .config-section-label {
-      font-size: 0.85rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-    .config-section-swatch {
-      width: 16px;
-      height: 16px;
+    .swatch {
+      width: 12px;
+      height: 12px;
       border-radius: 2px;
       border: 1px solid #999;
+      flex-shrink: 0;
     }
-    .row-actions {
+    .set-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: #555;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      padding: 0 3px;
+      flex-shrink: 0;
+    }
+    .header-actions {
       margin-left: auto;
       display: flex;
       gap: 6px;
     }
-    .config-controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px 10px;
-      align-items: center;
-      padding: 8px;
+    .rename-input {
+      flex: 1;
+      padding: 1px 6px;
+      font-size: 0.8rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      min-width: 0;
     }
-    .control {
+    .active-row {
       display: flex;
-      flex-direction: row;
       align-items: center;
       gap: 6px;
+      padding: 3px 8px;
+      border: 1px solid #e4e4e4;
+      border-radius: 4px;
+      background: #fafafa;
+      flex-wrap: wrap;
     }
-    .control-label {
-      font-size: 0.7rem;
-      color: #666;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
-      white-space: nowrap;
-    }
-    .control input[type="number"] {
-      padding: 2px 6px;
-      font-size: 0.8rem;
+    .active-row input.num {
+      padding: 1px 4px;
+      font-size: 0.78rem;
       border: 1px solid #ccc;
       border-radius: 4px;
-      width: 64px;
+      width: 52px;
     }
-    .control input[type="text"] {
-      padding: 2px 6px;
-      font-size: 0.8rem;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      width: 150px;
-    }
-    .control input[type="color"] {
+    .active-row input[type="color"].swatch-input {
       padding: 0;
       border: 1px solid #ccc;
       border-radius: 4px;
-      width: 28px;
-      height: 22px;
+      width: 26px;
+      height: 20px;
       cursor: pointer;
+      flex-shrink: 0;
+    }
+    .chk {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 0.72rem;
+      color: #666;
+      white-space: nowrap;
+    }
+    .active-row.disabled input.num,
+    .active-row.disabled .swatch-input,
+    .active-row.disabled .chk span {
+      opacity: 0.45;
+    }
+    .save-btn {
+      border-color: #1976d2;
+      color: #1976d2;
+      font-weight: 600;
     }
   `],
 })
@@ -421,11 +469,20 @@ export class SwingSettingsDialogComponent implements OnDestroy {
   readonly configLibraryLoading = this.store.configLibraryLoading;
   readonly error = this.store.error;
 
-  /** Canned presets ΓÇö display name + immutable template config. */
-  readonly presets = [
-    { name: 'Large', config: LARGE_CONFIG },
-    { name: 'Small', config: SMALL_CONFIG },
-  ] as const;
+  /** Canned presets — the sweep set, highest→lowest devThreshold. */
+  readonly presets = SWING_PRESETS;
+
+  /** paramsId of the saved row currently in rename mode — null otherwise. */
+  readonly renamingParamsId = signal<string | null>(null);
+
+  /** Library single-config docs — render in the Presets group. Docs with
+   *  no payload at all are malformed rows — filter them out. */
+  readonly savedPresets = computed(() =>
+    this.configLibrary().filter((d) => !isConfigSet(d) && !!d.config),
+  );
+
+  /** Library set docs — render in the Saved sets group. */
+  readonly savedSets = computed(() => this.configLibrary().filter(isConfigSet));
 
   /** Pending lineColor update awaiting the debounce window. */
   private pendingColor: { index: number; value: string } | null = null;
@@ -433,7 +490,7 @@ export class SwingSettingsDialogComponent implements OnDestroy {
   private colorDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
-    // Lazy load ΓÇö the saved group renders only after the dialog opens.
+    // Lazy load — the saved group renders only after the dialog opens.
     this.store.loadConfigLibrary();
   }
 
@@ -441,12 +498,7 @@ export class SwingSettingsDialogComponent implements OnDestroy {
     if (this.colorDebounceTimer !== null) clearTimeout(this.colorDebounceTimer);
   }
 
-  /** Label for a config section ΓÇö "Large Swings" or "Small Swings". */
-  configLabel(index: number): string {
-    return CONFIG_LABELS[index] ?? `Config ${index}`;
-  }
-
-  /** Compact param summary ΓÇö fallback display for unnamed library docs and
+  /** Compact param summary — fallback display for unnamed library docs and
    *  the save-name placeholder. Includes the flag params (paramsId segments)
    *  so two docs differing only in flags don't render identically. */
   paramSummary(cfg: ZigZagConfig): string {
@@ -455,7 +507,7 @@ export class SwingSettingsDialogComponent implements OnDestroy {
     return `dev${cfg.devThreshold} L${cfg.leftDepth} R${cfg.rightDepth} ${oneBar} ${trig}`;
   }
 
-  /** Numeric bounds for a param ΓÇö single source of truth for template and handler. */
+  /** Numeric bounds for a param — single source of truth for template and handler. */
   numericBounds(key: NumericParam): { min: number; max: number } {
     return NUMERIC_BOUNDS[key];
   }
@@ -465,9 +517,19 @@ export class SwingSettingsDialogComponent implements OnDestroy {
     this.store.setSymbol(value);
   }
 
-  /** Activate a preset or library config ΓÇö pushes a copy into configs[]. */
+  /** Activate a preset or library config — pushes a copy into configs[]. */
   activateConfig(cfg: ZigZagConfig): void {
     this.store.activateConfig({ ...cfg });
+  }
+
+  /** Apply a saved set — replaces the whole active list. */
+  applySet(doc: SwingConfigDoc): void {
+    this.store.applyConfigSet(doc);
+  }
+
+  /** Set row summary — joined member summaries, e.g. `dev10··· + dev3···`. */
+  setSummary(doc: SwingConfigDoc): string {
+    return docConfigs(doc).map((c) => this.paramSummary(c)).join(' + ');
   }
 
   onDeleteSaved(doc: SwingConfigDoc): void {
@@ -484,9 +546,17 @@ export class SwingSettingsDialogComponent implements OnDestroy {
     this.store.removeActiveConfig(index);
   }
 
-  onSaveToLibrary(index: number, name: string): void {
-    const trimmed = (name ?? '').trim();
-    this.store.saveActiveConfig(index, trimmed || undefined);
+  onSaveToLibrary(index: number): void {
+    this.store.saveActiveConfig(index);
+  }
+
+  /** Commit a Saved-row rename — blank input clears the name (summary
+   *  becomes the label again). Exits rename mode either way. */
+  onRenameSaved(doc: SwingConfigDoc, event: Event): void {
+    const value = (event.target as HTMLInputElement).value.trim();
+    this.renamingParamsId.set(null);
+    if (value === (doc.name ?? '') || (value === '' && !doc.name)) return;
+    this.store.renameSavedConfig(doc, value || undefined);
   }
 
   onNumberParam(index: number, key: NumericParam, event: Event): void {
@@ -504,7 +574,7 @@ export class SwingSettingsDialogComponent implements OnDestroy {
     this.store.updateConfig(index, { [key]: checked });
   }
 
-  /** Debounce the native color picker ΓÇö it fires `input` continuously while
+  /** Debounce the native color picker — it fires `input` continuously while
    *  dragging, and each event triggers a full pivots/swings/stats recompute
    *  in updateConfig. Hold the latest value for 300 ms (same window as the
    *  indicator-menu debounce) and apply once. */
