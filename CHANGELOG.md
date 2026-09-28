@@ -4,6 +4,8 @@
 ## [2026-09-28]
 
 ### Added
+- [GitHub read-only issue UI] 619-621-639_BE-IMPL-DEV-TOOLS: Lifecycle GraphQL fetch shell — paginated topic search, batched BFS, subIssues pagination, truncation counting, Status decode
+- [GitHub read-only issue UI] 619-621-639_DOCS-DEV-TOOLS: Code review (PASS, 3 iterations) + UAT (Complete) for #639
 - [Portfolio] 576-582-589_CONFIG-PORTFOLIO: Firestore rules get-vs-list split — txn id-probes (create/rename/attribution) no longer denied
 - [Portfolio] 576-582-589_FE-IMPL-PORTFOLIO: Buckets tab — unified config+analytics table, create/edit/retire/delete dialogs (writes stay open until success), retired section, >100% warn
 - [Portfolio] 576-582-589_DOCS-PORTFOLIO: Buckets-tab code review (PASS, 2 rounds) + UAT (Complete)

@@ -59,5 +59,8 @@ The callable's deps-injected handler (`handleGetLifecycleTree(request, deps)` �
 
 - Topic with zero children → leaf node, not an error
 - Closed Topic → still in `sections[].topics` (UI filters), `state: 'closed'`
-- Issue under two Topics (illegal but possible) → first-seen parent wins; count logged
+- Issue under two parents → listed under both in `childrenOf` (fetch layer keeps both edges); `buildTree` renders first-occurrence only
+- `nodes()` returns a null slot (deleted/transferred issue) → dropped from `childrenOf`, counted in `truncatedNodes`
+- Search page reports `hasNextPage` with a null `endCursor` → counted as truncation, no infinite loop
+- Issue deleted between batch fetch and subIssue pagination → `repository.issue === null` counts as truncation, no crash
 - PAT scoped to rel-str but not SA → SA request fails `permission-denied`, rel-str still works

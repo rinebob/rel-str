@@ -25,7 +25,7 @@ One callable that walks a repo's GitHub issue tree and returns grouped, topic-ro
 - `functions/src/gh-lifecycle/config.ts` — `SUPPORTED_REPOS: { owner, repo, projectNumber? }[]` (initially `rinebob/rel-str` + the SA repo, projectNumber where one exists). Checked-in constant — adding a repo = one-line change + redeploy.
 - `functions/src/gh-lifecycle/github-client.ts` — the fetch shell (GraphQL over `fetch`, Node 24 native — no Octokit dependency for a single query shape).
 - `functions/src/gh-lifecycle/callables.ts` — the `onCall` endpoint, auth guard, error mapping, deps injection (mirroring `read-callables.ts`).
-- `functions/src/gh-lifecycle/github-client.spec.ts` — pagination/truncation logic tests against fixture pages (never asserting on Octokit/fetch internals).
+- `tests/functions/gh-lifecycle/github-client.test.ts` — pagination/truncation logic tests against fixture pages (never asserting on Octokit/fetch internals); `tsx --test` convention, wired as `npm run test:gh-lifecycle`.
 - `functions/src/index.ts` — re-export.
 
 ## 3. Auth
@@ -40,7 +40,7 @@ GraphQL BFS with mandatory truncation detection — the "never silently miss iss
 
 1. **Roots** — `search(query: "repo:{o}/{r} is:issue Topic: in:title", type: ISSUE, first: 100)` paginated via `pageInfo.hasNextPage` to completion. Open + closed both returned (UI filters).
 2. **Expansion** — BFS by level. For each pending node, a `nodes(ids: [...])` batch query fetching `number, title, state, url, updatedAt, labels(first: 50), projectItems(first: 10) { nodes { project { number } fieldValues(first: 20) { ... SingleSelectValue { name field { name } } } } }, subIssues(first: 100) { nodes { number } totalCount pageInfo { hasNextPage endCursor } }`.
-3. **Pagination guard** — `subIssues.pageInfo.hasNextPage` (or `totalCount > fetched`) triggers a follow-up paginated query for that node until complete. The response carries `truncatedNodes: number` — must be 0, else the callable throws `internal` with the count rather than returning a partial tree.
+3. **Pagination guard** — `subIssues.pageInfo.hasNextPage` (or `totalCount > fetched`) triggers a follow-up paginated query for that node until complete. The response carries `truncatedNodes: number` — must be 0, else the callable throws `internal` with the count rather than returning a partial tree. The same counter covers: search pages that cannot advance (`hasNextPage` + null `endCursor` or `issueCount` not collected), `nodes()` null slots (deleted/transferred/inaccessible issues), issues vanishing mid-walk (`repository.issue === null`), and a hard `SUBISSUES_PAGE_CAP` (50 pages/node). The transport is an injectable `Gql` fn so tests drive fixture pages without mocking fetch; `subIssues` selects `id` alongside `number` for the `nodes(ids)` batch expansion. `fetchFileText` (raw contents-API read for the inventory doc) also lands here — it's GitHub I/O, used by both the callable and the verify script.
 4. **Depth** — unbounded; BFS terminates when a level yields no children. Cycle safety: a seen-set per repo walk (a node already visited as a child is not re-expanded — GitHub sub-issues can't technically cycle, but belt-and-suspenders against duplicate edges).
 5. **Status decode** — per node, `projectItems` → find the item whose `project.number` matches the repo's configured `projectNumber` → `fieldValues` → the field named `Status` → its `name`. Repo with no `projectNumber` skips the lookup entirely (`status` unset).
 
