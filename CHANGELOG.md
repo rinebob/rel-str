@@ -1,4 +1,6 @@
-# Changelog
+# Changel- [GitHub read-only issue UI] 619-621-637_SHARED-IMPL-DEV-TOOLS: Lifecycle tree contract + transforms — closed-label decode, node typing, tree assembly with subtree-max updatedAt, inventory-doc grouping
+- [GitHub read-only issue UI] 619-621-637_DOCS-DEV-TOOLS: PRD + IMPL/TEST plans + code review (PASS, 4 iterations) + UAT (Complete) for #637
+og
 
 ## [2026-09-28]
 
