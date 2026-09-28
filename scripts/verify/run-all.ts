@@ -43,6 +43,11 @@ const scripts = [
     needsGh: true,
   },
   {
+    name: 'workflow template conventions',
+    file: 'workflows-template-647.ts',
+    needsAccount: false,
+  },
+  {
     name: 'paper-trading ledger',
     file: 'verify/paper-trading-ledger-561.ts',
     cwd: 'functions',

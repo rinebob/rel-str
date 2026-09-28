@@ -22,6 +22,7 @@ deliberately, on-demand.
 | #586 — FE Allocation services | [portfolio-allocation-586.md](portfolio-allocation-586.md) | `portfolio/{buckets,attributions}/items` round-trip — bucket CRUD, attribution assign/group-move/unassign, composite-index queries | `portfolio-allocation-586-roundtrip.ts` (needs ADC) |
 | #637 — SHARED lifecycle-tree contract | [dev-tools-lifecycle-contracts-637.md](dev-tools-lifecycle-contracts-637.md) | TOPICS-INVENTORY parse → buildTree → orderTopics sections | `dev-tools-lifecycle-contracts-637.ts` (no credentials) |
 | #639 — BE lifecycle fetch shell | [dev-tools-gh-lifecycle-639.md](dev-tools-gh-lifecycle-639.md) | real GitHub BFS: search → batched nodes → subIssues pagination → status decode → inventory doc → sections | `dev-tools-gh-lifecycle-639-fetch.ts` (needs `GITHUB_READ_TOKEN` or `gh auth`) |
+| #647 — SHARED workflow template | [workflows-template-647.md](workflows-template-647.md) | conventions doc structure + optional workflow-doc conformance | `workflows-template-647.ts` (no credentials) |
 
 ## Run All
 
