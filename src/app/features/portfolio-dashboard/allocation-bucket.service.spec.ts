@@ -10,6 +10,7 @@ const mockTxn = {
   get: jest.fn(),
   set: jest.fn(),
   update: jest.fn(),
+  delete: jest.fn(),
 };
 const mockSnap = { subject: undefined as unknown as import('rxjs').Subject<unknown> };
 
@@ -156,5 +157,29 @@ describe('AllocationBucketService', () => {
       expect.objectContaining({ path: `${PORTFOLIO_BUCKETS_COLLECTION}/${ACCT}_csp-wheel` }),
       expect.objectContaining({ targetPct: 40 }),
     );
+  });
+
+  it('deleteBucket$ deletes the bucket + every attribution doc in one txn', async () => {
+    (getDocs as jest.Mock).mockResolvedValue({
+      docs: [
+        { id: 'a1', ref: { path: 'attr/a1' }, data: () => ({}) },
+        { id: 'a2', ref: { path: 'attr/a2' }, data: () => ({}) },
+      ],
+    });
+    await firstValueFrom(service.deleteBucket$(`${ACCT}_csp-wheel`));
+    expect(mockTxn.delete).toHaveBeenCalledTimes(3);
+    expect(mockTxn.delete).toHaveBeenCalledWith({ path: 'attr/a1' });
+    expect(mockTxn.delete).toHaveBeenCalledWith({ path: 'attr/a2' });
+    expect(mockTxn.delete).toHaveBeenCalledWith(
+      expect.objectContaining({ path: `${PORTFOLIO_BUCKETS_COLLECTION}/${ACCT}_csp-wheel` }),
+    );
+    // The membership query scopes by owner + bucket.
+    expect(where).toHaveBeenCalledWith('bucketId', '==', `${ACCT}_csp-wheel`);
+  });
+
+  it('deleteBucket$ with no contents deletes just the bucket doc', async () => {
+    (getDocs as jest.Mock).mockResolvedValue({ docs: [] });
+    await firstValueFrom(service.deleteBucket$(`${ACCT}_csp-wheel`));
+    expect(mockTxn.delete).toHaveBeenCalledTimes(1);
   });
 });

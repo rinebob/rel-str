@@ -364,6 +364,12 @@ export const AllocationStore = signalStore(
         await firstValueFrom(bucketService.retireBucket$(bucketId));
       },
 
+      /** Hard-delete — cascades the bucket's attributions back to
+       *  Unassigned atomically (see AllocationBucketService.deleteBucket$). */
+      async deleteBucket(_accountNumber: string, bucketId: string): Promise<void> {
+        await firstValueFrom(bucketService.deleteBucket$(bucketId));
+      },
+
       /** Bucket + stats + owned positions for the detail dialog. */
       bucketDetail(bucketId: string): BucketDetail | null {
         const acct = store.accounts()[store.selectedAccountIndex()];

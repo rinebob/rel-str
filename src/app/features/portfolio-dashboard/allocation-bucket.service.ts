@@ -30,7 +30,11 @@ import { map, switchMap, take } from 'rxjs/operators';
 
 import { requireUserId } from '../savant-trader/services/firestore-helpers';
 import { BucketStatus, type AllocationBucket } from '@portfolio-allocation/contracts';
-import { PORTFOLIO_BUCKETS_COLLECTION, buildBucketId } from '@portfolio-allocation/ids';
+import {
+  PORTFOLIO_ATTRIBUTIONS_COLLECTION,
+  PORTFOLIO_BUCKETS_COLLECTION,
+  buildBucketId,
+} from '@portfolio-allocation/ids';
 
 @Injectable({ providedIn: 'root' })
 export class AllocationBucketService {
@@ -114,6 +118,34 @@ export class AllocationBucketService {
             txn.set(ref, bucket as unknown as DocumentData);
           });
           return bucket;
+        }),
+      ),
+    );
+  }
+
+  /**
+   * Delete a bucket entirely — every attribution doc pointing at it goes
+   * too (absence of a doc IS the Unassigned encoding), so contents drop
+   * to Unassigned atomically: membership is queried outside the txn
+   * (queries can't run inside one), then all deletes commit together.
+   * Unlike retire, nothing of the bucket remains — no history row.
+   */
+  deleteBucket$(bucketId: string): Observable<void> {
+    return requireUserId(this.auth, this.injector).pipe(
+      take(1),
+      switchMap((userId) =>
+        runInInjectionContext(this.injector, async () => {
+          const coll = collection(this.firestore, PORTFOLIO_ATTRIBUTIONS_COLLECTION);
+          const snap = await getDocs(query(
+            coll,
+            where('userId', '==', userId),
+            where('bucketId', '==', bucketId),
+          ));
+          const attrRefs = snap.docs.map((d) => d.ref);
+          await runTransaction(this.firestore, async (txn) => {
+            for (const ref of attrRefs) txn.delete(ref);
+            txn.delete(doc(this.firestore, PORTFOLIO_BUCKETS_COLLECTION, bucketId));
+          });
         }),
       ),
     );

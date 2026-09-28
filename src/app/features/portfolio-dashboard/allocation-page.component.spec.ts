@@ -8,7 +8,9 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { of } from 'rxjs';
 
+import { MatDialog } from '@angular/material/dialog';
 import { AllocationPageComponent } from './allocation-page.component';
 import { AllocationStore } from './allocation.store';
 import type { AccountInfo } from '../../core/robinhood-mcp/types/robinhood-mcp.types';
@@ -20,6 +22,7 @@ import type {
 import CORE_ROUTES from '../../core/core-routes';
 import { AppRoutes } from '../../core/common/interfaces';
 import { NAV_MENU_ITEMS } from '../../core/common/constants';
+import { BucketStatus } from '@portfolio-allocation/contracts';
 
 const ACCT_A = '5AC11111';
 const ACCT_B = '9BB22222';
@@ -43,7 +46,7 @@ function bucketRow(name: string): BucketRow {
     kind: 'bucket',
     bucket: {
       id: 'b1', userId: 'u', accountNumber: ACCT_A, name,
-      targetPct: 25, status: 'active' as never,
+      targetPct: 25, status: BucketStatus.ACTIVE,
       createdAt: 'x', updatedAt: 'x',
     },
     stats: {
@@ -89,6 +92,7 @@ function mockStore() {
     accounts: signal<AccountInfo[]>([account(ACCT_A), account(ACCT_B, false)]),
     selectedAccountIndex: idx,
     loadError: signal<string | null>(null),
+    selectedAccount: signal<AccountInfo | null>(account(ACCT_A)),
     bucketRows,
     positionsRows,
     accountHeader: hdr,
@@ -99,6 +103,13 @@ function mockStore() {
     loadAccounts: jest.fn(async () => undefined),
     selectAccount,
     refresh: jest.fn(async () => undefined),
+    createBucket: jest.fn(async () => undefined),
+    renameBucket: jest.fn(async () => undefined),
+    updateTargetPct: jest.fn(async () => undefined),
+    retireBucket: jest.fn(async () => undefined),
+    deleteBucket: jest.fn(async () => undefined),
+    assignPosition: jest.fn(async () => undefined),
+    unassignPosition: jest.fn(async () => undefined),
   };
 }
 
@@ -114,6 +125,7 @@ describe('AllocationPageComponent', () => {
         provideZonelessChangeDetection(),
         provideNoopAnimations(),
         { provide: AllocationStore, useValue: store },
+        { provide: MatDialog, useValue: { open: jest.fn(() => ({ afterClosed: () => of(undefined) })) } },
       ],
     }).compileComponents();
     fixture = TestBed.createComponent(AllocationPageComponent);
@@ -161,7 +173,7 @@ describe('AllocationPageComponent', () => {
   it('Buckets tab renders bucket rows incl. Unassigned + Cash pinned last', async () => {
     await setup();
     const rows = Array.from<Element>(
-      fixture.nativeElement.querySelectorAll('[data-testid="bucket-row"]'),
+      fixture.nativeElement.querySelectorAll('[data-testid^="bucket-row-"]'),
     ).map((el) => el.textContent);
     expect(rows[0]).toContain('Wheel');
     expect(rows.some((t) => t.includes('Unassigned'))).toBe(true);
@@ -194,7 +206,7 @@ describe('AllocationPageComponent', () => {
     // mounted and mirror the selected account — query the active one).
     const active = () => fixture.nativeElement.querySelector('.mat-mdc-tab-body-active');
     expect(active().querySelector('[data-testid="account-header"]').textContent).toContain('5,000');
-    const bRows = active().querySelectorAll('[data-testid="bucket-row"]');
+    const bRows = active().querySelectorAll('[data-testid^="bucket-row-"]');
     expect(bRows[0].textContent).toContain('Income');
     (active().querySelector('[data-testid="subtab-positions"]') as HTMLElement)
       .closest('[role="tab"]')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));

@@ -15,11 +15,11 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { AllocationStore } from './allocation.store';
-import type { BucketRow } from './allocation.types';
+import { AllocationBucketsTableComponent } from './allocation-buckets-table.component';
 
 @Component({
   selector: 'app-allocation-page',
-  imports: [MatTabsModule, MatTooltipModule, DatePipe, DecimalPipe],
+  imports: [MatTabsModule, MatTooltipModule, DatePipe, DecimalPipe, AllocationBucketsTableComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="allocation-page">
@@ -84,25 +84,7 @@ import type { BucketRow } from './allocation.types';
                   } @else if (store.selectedAllocation().error; as err) {
                     <div class="error-banner" data-testid="account-error">{{ err }}</div>
                   } @else {
-                    <table class="alloc-table">
-                      @for (row of store.bucketRows(); track rowKey(row)) {
-                        <tr data-testid="bucket-row" [attr.data-kind]="row.kind">
-                          <td>{{ row.bucket?.name ?? (row.kind === 'cash' ? 'Cash' : 'Unassigned') }}</td>
-                          <td>
-                            @if (row.stats) {
-                              {{ row.stats.exposure | number:'1.0-0' }}
-                            } @else if (row.cash) {
-                              {{ row.cash.actual | number:'1.0-0' }}
-                            }
-                          </td>
-                          <td>
-                            @if (row.stats && row.kind === 'bucket') {
-                              {{ row.stats.realizedPnl + row.stats.unrealizedPnl | number:'1.0-0' }}
-                            }
-                          </td>
-                        </tr>
-                      }
-                    </table>
+                    <app-allocation-buckets-table />
                   }
                 </mat-tab>
                 <mat-tab>
@@ -152,8 +134,6 @@ import type { BucketRow } from './allocation.types';
     }
     .alloc-table { width: 100%; margin-top: 8px; border-collapse: collapse; }
     .alloc-table td { padding: 4px 8px; border-bottom: 1px solid #eee; }
-    .alloc-table tr[data-kind='cash'] td { background: #fafafa; font-style: italic; }
-    .alloc-table tr[data-kind='unassigned'] td { color: #888; }
     .error-banner {
       padding: 8px 12px; margin: 8px 0; border-radius: 4px;
       background: #fdecea; color: #b3261e; font-size: 0.85rem;
@@ -180,10 +160,6 @@ export class AllocationPageComponent implements OnInit {
     } else {
       this.store.refresh();
     }
-  }
-
-  rowKey(row: BucketRow): string {
-    return row.bucket?.id ?? row.kind;
   }
 
   fmt(v: number | null): string {
