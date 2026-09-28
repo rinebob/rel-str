@@ -32,6 +32,11 @@ const scripts = [
     needsAdc: true,
   },
   {
+    name: 'lifecycle-tree contract',
+    file: 'dev-tools-lifecycle-contracts-637.ts',
+    needsAccount: false,
+  },
+  {
     name: 'paper-trading ledger',
     file: 'verify/paper-trading-ledger-561.ts',
     cwd: 'functions',

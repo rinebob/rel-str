@@ -20,6 +20,7 @@ deliberately, on-demand.
 | #565 — BE Read APIs + stats scopes | [paper-trading-read-apis-565.md](paper-trading-read-apis-565.md) | generalized stats pass (all/inst/var/cohort/sig/sym scopes) + listPaperTrades / getPaperStats / getPaperAccount / listExitVariants callables | `functions/scripts/verify/paper-trading-read-apis-565.ts` (needs ADC; runs from `functions/`) |
 | #605 — FE swing-config library | [swing-analysis-misc-fixes-605.md](swing-analysis-misc-fixes-605.md) | `st-swing-configs` slim-doc write → read → idempotent overwrite → userId list → delete | `swing-analysis-misc-fixes-605-config-library.ts` (needs ADC) |
 | #586 — FE Allocation services | [portfolio-allocation-586.md](portfolio-allocation-586.md) | `portfolio/{buckets,attributions}/items` round-trip — bucket CRUD, attribution assign/group-move/unassign, composite-index queries | `portfolio-allocation-586-roundtrip.ts` (needs ADC) |
+| #637 — SHARED lifecycle-tree contract | [dev-tools-lifecycle-contracts-637.md](dev-tools-lifecycle-contracts-637.md) | TOPICS-INVENTORY parse → buildTree → orderTopics sections | `dev-tools-lifecycle-contracts-637.ts` (no credentials) |
 
 ## Run All
 
