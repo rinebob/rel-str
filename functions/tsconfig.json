@@ -20,7 +20,9 @@
       "@spread/contracts": ["../shared/spread-contracts.ts"],
       "@options-strategy-engine/contracts": ["../shared/options-strategy-engine-contracts.ts"],
       "@paper-trading/contracts": ["../shared/paper-trading-contracts.ts"],
-      "@paper-trading/ids": ["../shared/paper-trading-ids.ts"]
+      "@paper-trading/ids": ["../shared/paper-trading-ids.ts"],
+      "@lifecycle/contracts": ["../shared/lifecycle-contracts.ts"],
+      "@lifecycle/tree": ["../shared/lifecycle-tree.ts"]
     },
     "esModuleInterop": true,
     "isolatedModules": true,

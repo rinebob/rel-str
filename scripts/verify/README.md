@@ -21,6 +21,7 @@ deliberately, on-demand.
 | #605 — FE swing-config library | [swing-analysis-misc-fixes-605.md](swing-analysis-misc-fixes-605.md) | `st-swing-configs` slim-doc write → read → idempotent overwrite → userId list → delete | `swing-analysis-misc-fixes-605-config-library.ts` (needs ADC) |
 | #586 — FE Allocation services | [portfolio-allocation-586.md](portfolio-allocation-586.md) | `portfolio/{buckets,attributions}/items` round-trip — bucket CRUD, attribution assign/group-move/unassign, composite-index queries | `portfolio-allocation-586-roundtrip.ts` (needs ADC) |
 | #637 — SHARED lifecycle-tree contract | [dev-tools-lifecycle-contracts-637.md](dev-tools-lifecycle-contracts-637.md) | TOPICS-INVENTORY parse → buildTree → orderTopics sections | `dev-tools-lifecycle-contracts-637.ts` (no credentials) |
+| #639 — BE lifecycle fetch shell | [dev-tools-gh-lifecycle-639.md](dev-tools-gh-lifecycle-639.md) | real GitHub BFS: search → batched nodes → subIssues pagination → status decode → inventory doc → sections | `dev-tools-gh-lifecycle-639-fetch.ts` (needs `GITHUB_READ_TOKEN` or `gh auth`) |
 
 ## Run All
 

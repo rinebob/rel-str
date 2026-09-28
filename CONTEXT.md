@@ -288,3 +288,23 @@ _Avoid_: percent change grid (that is the analysis tool), option chain table
 The rule that maps "today" to an actual trading-session date for the Option Chain Grid. Before 1:00 PM PT (market close — the app standardizes on Pacific Time) resolves to the prior trading session; after 1 PM PT it tries today's date and falls back to prior sessions when no snapshot exists. Resolution walks back over weekends/holidays to the most recent session with a snapshot (cap: 7 calendar days).
 
 _Avoid_: current day, today's date (a calendar date is not necessarily a trading session)
+
+## Trading Workflow
+
+A documented, ordered procedure for one trading use case (signal review, order placement, portfolio management, …) — a checklist-style doc with defined entry criteria, steps, and exit criteria, designed to keep the trader on task during daily operations. Lives as a markdown doc; a future in-app checklist UI may consume the same source. Tracked under `Topic: Trading Workflows` (#625).
+
+_Avoid_: runbook (that is the ops doc type), process, SOP, task list
+
+## Workflow Handoff
+
+The declared link from one Trading Workflow's exit output to another workflow's entry condition. Workflows chain rather than run in isolation — e.g., signal review produces order candidates that order placement consumes. A workflow doc's `Feeds:` field names the downstream workflow(s); its exit criteria name *what* is handed off.
+
+## Workflow Template
+
+The shared doc format every Trading Workflow doc follows — defined by the foundation Thread of Topic #625. A template exists to be validated: the foundation Thread proves it by writing one complete pilot workflow (signal review) before per-workflow Threads adopt it.
+
+## Session Run-Sheet
+
+The per-session-type overview doc that sequences Trading Workflows into a day's plan — the single artifact opened at session start. Lists daily workflows in order plus a triggered section for event-driven workflows (with their triggers). Build order of workflow docs is independent of their position in the run-sheet sequence.
+
+_Avoid_: daily routine, session plan, checklist index

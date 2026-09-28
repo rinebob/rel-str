@@ -37,6 +37,12 @@ const scripts = [
     needsAccount: false,
   },
   {
+    name: 'gh-lifecycle fetch shell',
+    file: 'dev-tools-gh-lifecycle-639-fetch.ts',
+    needsAccount: false,
+    needsGh: true,
+  },
+  {
     name: 'paper-trading ledger',
     file: 'verify/paper-trading-ledger-561.ts',
     cwd: 'functions',
@@ -73,6 +79,12 @@ const scripts = [
   },
 ];
 
+function hasGhAuth(): boolean {
+  if (process.env.GITHUB_READ_TOKEN) return true;
+  const r = spawnSync('gh', ['auth', 'token'], { stdio: 'pipe', shell: true });
+  return r.status === 0 && (r.stdout ?? '').toString().trim().length > 0;
+}
+
 function hasAdc(): boolean {
   if (process.env.GOOGLE_APPLICATION_CREDENTIALS) return true;
   const adcPath = `${process.env.APPDATA ?? ''}/gcloud/application_default_credentials.json`;
@@ -90,6 +102,11 @@ let skipped = 0;
 for (const script of scripts) {
   if (script.needsAccount && !accountNumber) {
     console.log(`\n--- ${script.name} --- SKIPPED (needs <accountNumber> arg or ACCOUNT_NUMBER env)`);
+    skipped++;
+    continue;
+  }
+  if (script.needsGh && !hasGhAuth()) {
+    console.log(`\n--- ${script.name} --- SKIPPED (needs GITHUB_READ_TOKEN or authenticated gh CLI)`);
     skipped++;
     continue;
   }
