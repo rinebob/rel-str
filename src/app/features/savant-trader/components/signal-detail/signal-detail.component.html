@@ -23,10 +23,8 @@
       (nextSymbol)="nextSymbol.emit()">
       <app-symbol-list-actions chartToolbarCenter
         [symbol]="manualSymbol()!"
-        [symbolLists]="symbolLists()"
-
-        (toggleList)="toggleList.emit($event)"
-        (monitor)="monitor.emit($event)">
+        [listCatalog]="listCatalog()"
+        (toggleList)="toggleList.emit($event)">
       </app-symbol-list-actions>
     </app-chart-toolbar>
 

@@ -53,7 +53,7 @@ import { SignalReviewUiStore } from './signal-review-ui.store';
 // Types
 // ---------------------------------------------------------------------------
 
-/** A symbol row in the grouped list â€” profile + triage state. */
+/** A symbol row in the grouped list — profile + triage state. */
 export interface SymbolRow {
   profile: StSymbolProfile;
   /** True if the symbol has a signal for the active run. */
@@ -71,9 +71,9 @@ export interface SymbolRow {
 
 /** A rendered group in the expansion panel list. */
 export interface SymbolGroup {
-  /** Group key â€” e.g. 'Technology', 'large', 'NASDAQ' */
+  /** Group key — e.g. 'Technology', 'large', 'NASDAQ' */
   key: string;
-  /** Display label â€” e.g. 'Technology', 'LARGE', '(Unknown)' */
+  /** Display label — e.g. 'Technology', 'LARGE', '(Unknown)' */
   label: string;
   rows: SymbolRow[];
   /** Long signal count for the active timeframe. */
@@ -104,7 +104,7 @@ export interface GroupState {
   quickChartSymbol: string | null;
   /** Whether the "show all symbols" mode is active. */
   showAllSymbols: boolean;
-  /** All enabled symbols â€” loaded on demand when showAllSymbols is toggled on. */
+  /** All enabled symbols — loaded on demand when showAllSymbols is toggled on. */
   allSymbols: StSymbolProfile[];
   /** Loading state for the all-symbols query. */
   allSymbolsLoading: boolean;
@@ -153,15 +153,15 @@ export const GroupStore = signalStore(
       this.loadSymbolsWithSignals();
     },
 
-    /** Change group dimension (no reload needed â€” regrouping is computed). */
+    /** Change group dimension (no reload needed — regrouping is computed). */
     setGroupDimension(dimension: GroupDimension): void {
       patchState(state, { groupDimension: dimension });
     },
 
     /**
-     * Load signal symbols for current marketDate â€” fetches both W and D,
+     * Load signal symbols for current marketDate — fetches both W and D,
      * merges by symbol (union). A symbol appears if it has either timeframe signal.
-     * Profile fields from the W result take precedence (arbitrary â€” they're the same doc).
+     * Profile fields from the W result take precedence (arbitrary — they're the same doc).
      */
     loadSymbolsWithSignals(): void {
       const runId = state.activeRunId();
@@ -200,7 +200,7 @@ export const GroupStore = signalStore(
         });
     },
 
-    /** Select a symbol â€” delegates signal history loading to the history store. */
+    /** Select a symbol — delegates signal history loading to the history store. */
     selectSymbol(symbol: string): void {
       patchState(state, { selectedSymbol: symbol });
       historyStore.loadSignalHistory(symbol);
@@ -247,7 +247,7 @@ export const GroupStore = signalStore(
   withComputed((state, triageStore = inject(TriageStore), occurrenceStore = inject(OccurrenceDecisionStore), symbolListStore = inject(SymbolListStore), historyStore = inject(SymbolHistoryStore), uiStore = inject(SignalReviewUiStore)) => ({
     /**
      * Grouped view groups built from signalSymbols, sorted by marketCap desc within group.
-     * Reads signalFilter directly from SignalReviewUiStore â€” single source of truth, no copy.
+     * Reads signalFilter directly from SignalReviewUiStore — single source of truth, no copy.
      * When showAllSymbols is true, non-signal symbols are included; otherwise only signal symbols.
      */
     groups: computed((): SymbolGroup[] =>
@@ -257,6 +257,7 @@ export const GroupStore = signalStore(
         showAll: state.showAllSymbols(),
         dimension: state.groupDimension(),
         symbolLists: symbolListStore.symbolLists(),
+        exclusiveListKeys: symbolListStore.exclusiveListKeys(),
         activeListFilter: symbolListStore.activeListFilter(),
         statuses: {
           ...triageStore.screeningStatuses(),
@@ -289,6 +290,7 @@ export const GroupStore = signalStore(
         allSymbols: state.allSymbols(),
         showAll: state.showAllSymbols(),
         symbolLists: symbolListStore.symbolLists(),
+        exclusiveListKeys: symbolListStore.exclusiveListKeys(),
         activeListFilter: symbolListStore.activeListFilter(),
       });
       return candidates.filter((p) => profileMatchesSignalFilter(p, uiStore.signalFilter()));

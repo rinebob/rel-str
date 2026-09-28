@@ -134,12 +134,17 @@ export class SymbolListService {
     await runInInjectionContext(this.injector, async () => {
       await Promise.all(
         candidates.map(async (id) => {
-          const snap = await getDoc(doc(this.firestore, Collection.ST_SYMBOL_LISTS, id));
-          if (!snap.exists()) return;
-          const data = snap.data();
-          // A bare-id doc owned by another user stays for its owner.
-          if (data['userId'] && data['userId'] !== userId) return;
-          found.push({ id, data });
+          try {
+            const snap = await getDoc(doc(this.firestore, Collection.ST_SYMBOL_LISTS, id));
+            if (!snap.exists()) return;
+            const data = snap.data();
+            // A bare-id doc owned by another user stays for its owner.
+            if (data['userId'] && data['userId'] !== userId) return;
+            found.push({ id, data });
+          } catch {
+            // Denied (doc owned by another user) or transient — skip;
+            // killing the stream over one probe doc is worse.
+          }
         }),
       );
     });

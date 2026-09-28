@@ -1,4 +1,4 @@
-import { SignalTimeframe, SignalDirection, SignalStatus, SIGNAL_FILTER_ALL, ReviewDecision, GroupDimension, NO_MEMBERSHIP, SymbolListName } from '../common/constants';
+import { SignalTimeframe, SignalDirection, SignalStatus, SIGNAL_FILTER_ALL, ReviewDecision, GroupDimension, NO_MEMBERSHIP } from '../common/constants';
 import type { StSignalItem, StSymbolProfile } from '../services/types';
 import type { SymbolGroup } from '../stores/group.store';
 import {
@@ -11,7 +11,7 @@ import {
   BuildSymbolGroupsInput,
   mapSymbolProfile,
   formatTradingViewWatchlist,
-  isUnlisted,
+  isUntriaged,
   shouldShowInListFilter,
 } from './utils';
 import { StSymbolSource } from '../services/types';
@@ -160,6 +160,7 @@ describe('buildSymbolGroups', () => {
     showAll: false,
     dimension: GroupDimension.SECTOR,
     symbolLists: {},
+    exclusiveListKeys: [],
     activeListFilter: 'ALL',
     statuses: {},
     reviewFlagSymbols: new Set<string>(),
@@ -295,40 +296,43 @@ describe('mapSymbolProfile', () => {
   });
 });
 
-describe('isUnlisted', () => {
-  const lists = { PRIMARY: ['AAPL', 'MSFT'], AVOID: ['TSLA'] };
+describe('isUntriaged', () => {
+  const lists = { PRIMARY: ['AAPL', 'MSFT'], AVOID: ['TSLA'], Monitor: ['NVDA'] };
+  const exclusiveKeys = ['PRIMARY', 'AVOID'];
 
-  it('returns true for a symbol in no list', () => {
-    expect(isUnlisted('NVDA', lists)).toBe(true);
+  it('returns true for a symbol outside every exclusive list', () => {
+    expect(isUntriaged('NVDA', lists, exclusiveKeys)).toBe(true);
   });
 
-  it('returns false for a symbol in any exclusive list, case-insensitive on the input', () => {
-    expect(isUnlisted('aapl', lists)).toBe(false);
-    expect(isUnlisted('TSLA', lists)).toBe(false);
+  it('returns false for membership in any exclusive list, case-insensitive on the symbol', () => {
+    expect(isUntriaged('aapl', lists, exclusiveKeys)).toBe(false);
+    expect(isUntriaged('TSLA', lists, exclusiveKeys)).toBe(false);
   });
 
-  it('does not count non-exclusive MONITOR membership — monitored-but-unfiled is unlisted', () => {
-    expect(isUnlisted('MSFT', { MONITOR: ['MSFT'] })).toBe(true);
-    expect(isUnlisted('MSFT', { MONITOR: ['MSFT'], PRIMARY: ['MSFT'] })).toBe(false);
+  it('ignores nonexclusive memberships regardless of their key', () => {
+    expect(isUntriaged('NVDA', lists, exclusiveKeys)).toBe(true);
+    expect(isUntriaged('MSFT', lists, exclusiveKeys)).toBe(false);
   });
 });
 
 describe('shouldShowInListFilter', () => {
-  const lists = { PRIMARY: ['AAPL', 'MSFT'], AVOID: ['TSLA'] };
+  const lists = { PRIMARY: ['AAPL', 'MSFT'], AVOID: ['TSLA'], 'user-list': ['NVDA'] };
+  const exclusiveKeys = ['PRIMARY', 'AVOID'];
 
   it('ALL shows every symbol', () => {
-    expect(shouldShowInListFilter('NVDA', lists, 'ALL')).toBe(true);
-    expect(shouldShowInListFilter('AAPL', lists, 'ALL')).toBe(true);
+    expect(shouldShowInListFilter('NVDA', lists, 'ALL', exclusiveKeys)).toBe(true);
+    expect(shouldShowInListFilter('AAPL', lists, 'ALL', exclusiveKeys)).toBe(true);
   });
 
-  it('a named list shows only its members', () => {
-    expect(shouldShowInListFilter('AAPL', lists, SymbolListName.PRIMARY)).toBe(true);
-    expect(shouldShowInListFilter('TSLA', lists, SymbolListName.PRIMARY)).toBe(false);
+  it('a catalog list key shows only its members', () => {
+    expect(shouldShowInListFilter('AAPL', lists, 'PRIMARY', exclusiveKeys)).toBe(true);
+    expect(shouldShowInListFilter('NVDA', lists, 'user-list', exclusiveKeys)).toBe(true);
+    expect(shouldShowInListFilter('TSLA', lists, 'PRIMARY', exclusiveKeys)).toBe(false);
   });
 
-  it('NO_MEMBERSHIP shows only symbols in zero lists', () => {
-    expect(shouldShowInListFilter('NVDA', lists, NO_MEMBERSHIP)).toBe(true);
-    expect(shouldShowInListFilter('AAPL', lists, NO_MEMBERSHIP)).toBe(false);
-    expect(shouldShowInListFilter('TSLA', lists, NO_MEMBERSHIP)).toBe(false);
+  it('NO_MEMBERSHIP uses the supplied exclusive-role keys only', () => {
+    expect(shouldShowInListFilter('NVDA', lists, NO_MEMBERSHIP, exclusiveKeys)).toBe(true);
+    expect(shouldShowInListFilter('AAPL', lists, NO_MEMBERSHIP, exclusiveKeys)).toBe(false);
+    expect(shouldShowInListFilter('TSLA', lists, NO_MEMBERSHIP, exclusiveKeys)).toBe(false);
   });
 });

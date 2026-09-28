@@ -10,7 +10,8 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { SymbolGroup, SymbolRow } from '../../stores/group.store';
-import { SymbolListName, SignalDirection } from '../../common/constants';
+import { SignalDirection } from '../../common/constants';
+import type { SymbolListDef } from '../../common/symbol-list-defs';
 import { rowHasDirection } from '../../utils/utils';
 import { SymbolRowComponent } from '../symbol-row/symbol-row.component';
 
@@ -31,7 +32,7 @@ export class GroupPanelComponent {
   group = input.required<SymbolGroup>();
   expanded = input(false);
   visibleRows = input.required<SymbolRow[]>();
-  symbolLists = input.required<Record<string, string[]>>();
+  listCatalog = input.required<SymbolListDef[]>();
   selectedSymbol = input<string | null>(null);
   quickChartSymbol = input<string | null>(null);
   /** When false, ACR mutation controls are disabled for all rows in this group. */
@@ -57,8 +58,7 @@ export class GroupPanelComponent {
   rowReject = output<string>();
   rowReset = output<string>();
   rowClearHistory = output<string>();
-  rowToggleList = output<{ symbol: string; listName: SymbolListName }>();
-  rowMonitor = output<string>();
+  rowToggleList = output<{ symbol: string; listKey: string }>();
 
   onExpandAll(event: Event): void {
     event.stopPropagation();

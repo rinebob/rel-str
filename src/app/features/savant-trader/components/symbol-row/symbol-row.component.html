@@ -48,9 +48,8 @@
 
         <app-symbol-list-actions
           [symbol]="row().profile.symbol"
-          [symbolLists]="symbolLists()"
-          (toggleList)="toggleList.emit($event)"
-          (monitor)="monitor.emit($event)">
+          [listCatalog]="listCatalog()"
+          (toggleList)="toggleList.emit($event)">
         </app-symbol-list-actions>
       </div>
 

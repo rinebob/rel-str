@@ -52,11 +52,10 @@
     <app-signal-detail
       class="detail-wrapper"
       [manualSymbol]="selectedReviewSymbol() || manualSymbol()"
-      [symbolLists]="symbolListStore.symbolLists()"
+      [listCatalog]="symbolListStore.catalog()"
       [symbolIndex]="selectedReviewSymbolIndex()"
       [symbolCount]="reviewSymbolCount()"
       (toggleList)="onToggleList($event)"
-      (monitor)="onMonitor($event)"
       (prevSymbol)="onPrevSymbol()"
       (nextSymbol)="onNextSymbol()">
     </app-signal-detail>

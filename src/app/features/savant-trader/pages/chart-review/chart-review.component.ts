@@ -34,7 +34,7 @@ import { GroupStore } from '../../stores/group.store';
 import { SymbolListStore } from '../../stores/symbol-list.store';
 import { SymbolHistoryStore } from '../../stores/symbol-history.store';
 import { SignalService } from '../../services/signal.service';
-import { ReviewDecision, SymbolListName, type SymbolListFilter } from '../../common/constants';
+import { ReviewDecision, type SymbolListFilter } from '../../common/constants';
 import { ChartReviewViewportService } from '../../services/chart-review-viewport.service';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { todayDate } from '../../utils/utils';
@@ -248,13 +248,8 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
   }
 
   /** Toggle the active symbol's membership in a named list. */
-  onToggleList(event: { symbol: string; listName: SymbolListName }): void {
-    this.symbolListStore.toggleSymbolInList(event.symbol, event.listName);
-  }
-
-  /** Toggle the active symbol's membership in the MONITOR list. */
-  onMonitor(symbol: string): void {
-    this.symbolListStore.toggleMonitor(symbol);
+  onToggleList(event: { symbol: string; listKey: string }): void {
+    this.symbolListStore.toggleSymbolInList(event.symbol, event.listKey);
   }
 
   /** Load an arbitrary symbol for chart review without a decision queue. */
@@ -297,9 +292,9 @@ export class ChartReviewComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** Handle list dropdown change â€” purely a viewport filter, no triage mutations. */
-  onListChange(listName: SymbolListFilter): void {
-    this.viewportService.setActiveViewportList(listName);
+  /** Handle list dropdown change — purely a viewport filter, no triage mutations. */
+  onListChange(filter: SymbolListFilter): void {
+    this.viewportService.setActiveViewportList(filter);
     this.manualSymbol.set(null);
     this.selectedReviewSymbol.set(null);
   }

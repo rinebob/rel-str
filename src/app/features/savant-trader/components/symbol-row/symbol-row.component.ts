@@ -11,7 +11,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatBadgeModule } from '@angular/material/badge';
 import { SymbolRow } from '../../stores/group.store';
-import { SymbolListName, ReviewDecision } from '../../common/constants';
+import { ReviewDecision } from '../../common/constants';
+import type { SymbolListDef } from '../../common/symbol-list-defs';
 import { tierLabel } from '../../utils/utils';
 import { SymbolAcrActionsComponent } from '../symbol-acr-actions/symbol-acr-actions.component';
 import { SymbolListActionsComponent } from '../symbol-list-actions/symbol-list-actions.component';
@@ -40,11 +41,10 @@ export class SymbolRowComponent {
   isSelected = input(false);
   isChartActive = input(false);
   expanded = input(false);
-  symbolLists = input.required<Record<string, string[]>>();
+  listCatalog = input.required<SymbolListDef[]>();
   /** When false, ACR mutation controls are disabled for this historical row. */
   isActionableRun = input(true);
   readonly Status = ReviewDecision;
-  readonly ListName = SymbolListName;
 
   /** Expose helper to template. */
   readonly tierLabel = tierLabel;
@@ -57,6 +57,5 @@ export class SymbolRowComponent {
   reject = output<string>();
   reset = output<string>();
   clearHistory = output<string>();
-  toggleList = output<{ symbol: string; listName: SymbolListName }>();
-  monitor = output<string>();
+  toggleList = output<{ symbol: string; listKey: string }>();
 }

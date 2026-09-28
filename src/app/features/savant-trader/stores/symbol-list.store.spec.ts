@@ -1,12 +1,12 @@
 ﻿/// <reference types="jest" />
 /**
- * SymbolListStore â€” catalog computeds + snapshot-truth mutations
+ * SymbolListStore — catalog computeds + snapshot-truth mutations
  * (Topic #465, Thread #492, task #525).
  *
  * The store derives everything from the live `watchLists$` emission:
  * catalog/byKey/byRole/untriagedSymbols are computeds over `listCatalog`,
  * `symbolLists` is a derived compat record, and mutations delegate to the
- * service with no optimistic patchState â€” the next snapshot is the truth.
+ * service with no optimistic patchState — the next snapshot is the truth.
  *
  * Seam: SymbolListService / RelStrDbV2Service / SignalService are mocked;
  * the real store is injected.
@@ -39,7 +39,7 @@ import { SymbolListStore } from './symbol-list.store';
 import { SymbolListService } from '../services/symbol-list.service';
 import { RelStrDbV2Service } from '../../services/rel-str-db-v2.service';
 import { SignalService } from '../services/signal.service';
-import type { SymbolListDef } from '../common/symbol-list-defs';
+import { SYSTEM_LIST_DEFS, type SymbolListDef } from '../common/symbol-list-defs';
 import type { SymbolListFilter } from '../common/constants';
 
 // =============================================================================
@@ -114,7 +114,7 @@ describe('SymbolListStore catalog', () => {
   it('loadSymbolLists opens one watchLists$ subscription and derives the catalog', async () => {
     const { listStore, listService } = setup();
     listStore.loadSymbolLists();
-    listStore.loadSymbolLists(); // guarded â€” no second subscription
+    listStore.loadSymbolLists(); // guarded — no second subscription
 
     await emit([
       def('PRIMARY', { order: 0, role: 'exclusive', symbols: ['AAPL'] }),
@@ -140,7 +140,7 @@ describe('SymbolListStore catalog', () => {
     expect(listStore.symbolLists()['PRIMARY']).toEqual(['AAPL', 'MSFT']);
   });
 
-  it('untriagedSymbols counts exclusive memberships only â€” MONITOR membership leaves a symbol untriaged', async () => {
+  it('untriagedSymbols counts exclusive memberships only — MONITOR membership leaves a symbol untriaged', async () => {
     const { listStore } = setup(['AAA', 'BBB', 'CCC']);
     listStore.loadSymbolLists();
     await listStore.loadTrackedSymbols();
@@ -156,35 +156,33 @@ describe('SymbolListStore catalog', () => {
 });
 
 // =============================================================================
-// Snapshot-truth mutations â€” no optimistic updates, no rollback
+// Snapshot-truth mutations — no optimistic updates, no rollback
 // =============================================================================
 
 describe('SymbolListStore snapshot-truth mutations', () => {
-  it('exclusive toggle calls moveToList over exclusive keys â€” no local state change until the emission', async () => {
+  it('exclusive toggle calls moveToList over exclusive keys — no local state change until the emission', async () => {
     const { listStore, listService } = setup();
     listStore.loadSymbolLists();
-    await emit([
-      def('PRIMARY', { order: 0, role: 'exclusive' }),
-      def('SECONDARY', { order: 1, role: 'exclusive' }),
-      def('MONITOR', { order: 5, role: 'nonexclusive', symbols: ['AAPL'] }),
-    ]);
+    await emit(SYSTEM_LIST_DEFS.map((list) => def(list.key, {
+      ...list,
+      symbols: list.key === 'MONITOR' ? ['AAPL'] : [],
+    })));
 
     listStore.toggleSymbolInList('AAPL', 'PRIMARY');
     await new Promise<void>((r) => setTimeout(r, 0)); // queued write
 
-    // Delegated with the exclusive-key set â€” MONITOR untouched (re-filing
+    // Delegated with the exclusive-key set — MONITOR untouched (re-filing
     // preserves nonexclusive memberships).
     expect(listService.moveToList).toHaveBeenCalledWith('AAPL', 'PRIMARY', [
       'NEW', 'PRIMARY', 'SECONDARY', 'NEUTRAL', 'AVOID', 'HIDE',
     ]);
-    // No optimistic patch â€” state still reflects the last emission.
+    // No optimistic patch — state still reflects the last emission.
     expect(listStore.symbolLists()['PRIMARY']).toEqual([]);
 
-    await emit([
-      def('PRIMARY', { order: 0, role: 'exclusive', symbols: ['AAPL'] }),
-      def('SECONDARY', { order: 1, role: 'exclusive' }),
-      def('MONITOR', { order: 5, role: 'nonexclusive', symbols: ['AAPL'] }),
-    ]);
+    await emit(SYSTEM_LIST_DEFS.map((list) => def(list.key, {
+      ...list,
+      symbols: list.key === 'PRIMARY' || list.key === 'MONITOR' ? ['AAPL'] : [],
+    })));
     expect(listStore.symbolLists()['PRIMARY']).toEqual(['AAPL']);
     expect(listStore.symbolLists()['MONITOR']).toEqual(['AAPL']);
   });
@@ -192,7 +190,10 @@ describe('SymbolListStore snapshot-truth mutations', () => {
   it('exclusive toggle-off targets null (un-assign)', async () => {
     const { listStore, listService } = setup();
     listStore.loadSymbolLists();
-    await emit([def('PRIMARY', { role: 'exclusive', symbols: ['AAPL'] })]);
+    await emit(SYSTEM_LIST_DEFS.map((list) => def(list.key, {
+      ...list,
+      symbols: list.key === 'PRIMARY' ? ['AAPL'] : [],
+    })));
 
     listStore.toggleSymbolInList('AAPL', 'PRIMARY');
     await new Promise<void>((r) => setTimeout(r, 0));
@@ -201,7 +202,7 @@ describe('SymbolListStore snapshot-truth mutations', () => {
     ]);
   });
 
-  it('nonexclusive toggle routes to add/remove â€” never moveToList, no MONITOR name-check', async () => {
+  it('nonexclusive toggle routes to add/remove — never moveToList, no MONITOR name-check', async () => {
     const { listStore, listService } = setup();
     listStore.loadSymbolLists();
     await emit([def('MONITOR', { role: 'nonexclusive', symbols: [] })]);
@@ -228,7 +229,7 @@ describe('SymbolListStore snapshot-truth mutations', () => {
     await new Promise<void>((r) => setTimeout(r, 0)); // writes are queued
 
     expect(snackBar.open).toHaveBeenCalled();
-    // State is still the last emission â€” no optimistic write to roll back.
+    // State is still the last emission — no optimistic write to roll back.
     expect(listStore.symbolLists()['PRIMARY']).toEqual(['MSFT']);
   });
 
@@ -317,6 +318,21 @@ describe('SymbolListStore.filterOptionGroups', () => {
 
     const groups = listStore.filterOptionGroups();
     expect(groups.map((g) => g.label)).toEqual(['Triage']);
+  });
+
+  it('falls back to ALL when the active user-list key disappears from a live snapshot', async () => {
+    const { listStore } = setup();
+    listStore.loadSymbolLists();
+    await emit([
+      def('PRIMARY', { order: 0 }),
+      def('my-picks', { order: 100, role: 'nonexclusive' }),
+    ]);
+    listStore.setActiveListFilter('my-picks');
+    expect(listStore.activeListFilter()).toBe('my-picks');
+
+    await emit([def('PRIMARY', { order: 0 })]);
+
+    expect(listStore.activeListFilter()).toBe('ALL');
   });
 });
 

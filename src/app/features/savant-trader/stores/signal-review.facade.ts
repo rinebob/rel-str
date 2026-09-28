@@ -29,7 +29,6 @@ import { ScrollTargetService } from '../services/scroll-target.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import {
   GroupDimension,
-  SymbolListName,
   SymbolListFilter,
   NO_MEMBERSHIP,
   SignalTimeframe,
@@ -138,6 +137,7 @@ export class SignalReviewFacade {
   readonly activeListFilter = computed(() => this.symbolListStore.activeListFilter());
   readonly filterOptionGroups = computed(() => this.symbolListStore.filterOptionGroups());
   readonly symbolLists = computed(() => this.symbolListStore.symbolLists());
+  readonly listCatalog = computed(() => this.symbolListStore.catalog());
 
   /** Triage state. */
   readonly statusCounts = computed((): StatusCounts => {
@@ -194,7 +194,7 @@ export class SignalReviewFacade {
   async exportSelectedList(): Promise<void> {
     const listName = this.activeListFilter();
     if (listName === 'ALL') return;
-    const label = listName === NO_MEMBERSHIP ? 'No memberships' : listName;
+    const label = listName === NO_MEMBERSHIP ? 'Not triaged' : listName;
 
     // Named lists short-circuit before the profiles fetch; NO_MEMBERSHIP
     // uses the canonical unlisted universe (tracked symbols in zero lists)
@@ -370,8 +370,8 @@ export class SignalReviewFacade {
     this.groupStore.setQuickChartSymbol(current === symbol ? null : symbol);
   }
 
-  toggleSymbolInList(symbol: string, listName: SymbolListName): void {
-    this.symbolListStore.toggleSymbolInList(symbol, listName);
+  toggleSymbolInList(symbol: string, listKey: string): void {
+    this.symbolListStore.toggleSymbolInList(symbol, listKey);
   }
 
   /** Guard helper: mutation actions require the viewed run to be a completed run
@@ -456,11 +456,6 @@ export class SignalReviewFacade {
       this.occurrenceStore.clearSymbolHistory(symbol);
       this.removeStagedTicketForSymbol(symbol);
     });
-  }
-
-  /** Toggle MONITOR membership — delegates to the store's membership-driven toggle. */
-  toggleMonitor(symbol: string): void {
-    this.symbolListStore.toggleMonitor(symbol);
   }
 
   // -------------------------------------------------------------------------

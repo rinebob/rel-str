@@ -32,7 +32,7 @@ export {
   ST_MAX_TRADE_AMOUNT,
 } from './services/types';
 
-// Group Store (Phase 4 â€” symbol-centric grouped review)
+// Group Store (Phase 4 — symbol-centric grouped review)
 export {
   GroupStore,
   SymbolRow,
@@ -42,22 +42,20 @@ export {
 export {
   ReviewDecision,
   ALL_REVIEW_STATUSES,
-  SymbolListName,
-  ALL_SYMBOL_LIST_NAMES,
   SymbolType,
   GroupDimension,
 } from './common/constants';
 
-// Triage Store (Phase 5B â€” shared PACR state across pages)
+// Triage Store (Phase 5B — shared PACR state across pages)
 export { TriageStore } from './stores/triage.store';
 
-// Symbol List Store (Phase 0 â€” extracted list management)
+// Symbol List Store (Phase 0 — extracted list management)
 export { SymbolListStore } from './stores/symbol-list.store';
 
-// Symbol History Store (Phase 5 â€” extracted signal history cache)
+// Symbol History Store (Phase 5 — extracted signal history cache)
 export { SymbolHistoryStore } from './stores/symbol-history.store';
 
-// Chart Store (Phase 6 â€” shared chart data loading)
+// Chart Store (Phase 6 — shared chart data loading)
 export {
   ChartStore,
   DEFAULT_CHART_INTERVALS,
@@ -65,10 +63,10 @@ export {
   DEFAULT_CHART_STRATEGIES,
 } from './stores/chart.store';
 
-// Chart Indicator Builder (Phase 1 â€” shared indicator configuration)
+// Chart Indicator Builder (Phase 1 — shared indicator configuration)
 export * as ChartIndicators from './utils/chart-indicators';
 
-// Shared Firestore Helpers (Phase 6B â€” centralize duplicated utilities)
+// Shared Firestore Helpers (Phase 6B — centralize duplicated utilities)
 export { requireUserId, chunkArray, getDocData, CreatedAtDoc } from './services/firestore-helpers';
 
 // Persistence & Universe Services (Phase 5C)

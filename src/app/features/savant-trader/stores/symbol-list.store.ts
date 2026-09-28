@@ -30,13 +30,9 @@ import { map } from 'rxjs/operators';
 import { SymbolListService } from '../services/symbol-list.service';
 import { SignalService } from '../services/signal.service';
 import { RelStrDbV2Service } from '../../services/rel-str-db-v2.service';
-import { NO_MEMBERSHIP, SymbolListName, type SymbolListFilter } from '../common/constants';
+import { isLiveListFilter, NO_MEMBERSHIP, type SymbolListFilter } from '../common/constants';
 import type { RhSelectOption, RhSelectOptionGroup } from '../components/rh-select-menu/rh-select-menu.component';
-import {
-  SymbolListDef,
-  systemListDef,
-  SYSTEM_LIST_DEFS,
-} from '../common/symbol-list-defs';
+import { SymbolListDef, SYSTEM_LIST_KEYS } from '../common/symbol-list-defs';
 import { normalizeTrackedSymbols } from '../utils/utils';
 import {
   symbolProfilesInitialState,
@@ -59,7 +55,7 @@ export interface SymbolListState extends SymbolProfilesState {
 const initialState: SymbolListState = {
   listCatalog: [],
   symbolListsLoading: false,
-  activeListFilter: SymbolListName.PRIMARY,
+  activeListFilter: SYSTEM_LIST_KEYS.PRIMARY,
   trackedSymbols: [],
   ...symbolProfilesInitialState,
 };
@@ -81,6 +77,8 @@ export const SymbolListStore = signalStore(
       exclusive: catalog().filter((d) => d.role === 'exclusive'),
       nonexclusive: catalog().filter((d) => d.role === 'nonexclusive'),
     }));
+    /** Keys of exclusive-role lists — the triage bucket set. */
+    const exclusiveListKeys = computed(() => byRole().exclusive.map((d) => d.key));
     /**
      * Compat record — key → symbols[] — so existing `symbolLists`
      * consumers keep working while surfaces migrate to catalog computeds.
@@ -97,10 +95,9 @@ export const SymbolListStore = signalStore(
      * count; only tradeability-bucket membership does.
      */
     const untriagedSymbols = computed(() => {
-      const exclusiveKeys = byRole().exclusive.map((d) => d.key);
       const membership = symbolLists();
       return state.trackedSymbols().filter((s) =>
-        !exclusiveKeys.some((k) => (membership[k] ?? []).includes(s)),
+        !exclusiveListKeys().some((k) => (membership[k] ?? []).includes(s)),
       );
     });
 
@@ -133,6 +130,7 @@ export const SymbolListStore = signalStore(
       catalog,
       byKey,
       byRole,
+      exclusiveListKeys,
       symbolLists,
       untriagedSymbols,
       filterOptionGroups,
@@ -179,14 +177,6 @@ export const SymbolListStore = signalStore(
       return result;
     }
 
-    /** Keys of exclusive-role lists — catalog first, system seeds as
-     *  fallback so triage moves still cover unloaded/empty catalogs. */
-    function exclusiveKeys(): string[] {
-      const fromCatalog = state.listCatalog().filter((d) => d.role === 'exclusive').map((d) => d.key);
-      const fromSeeds = SYSTEM_LIST_DEFS.filter((d) => d.role === 'exclusive').map((d) => d.key);
-      return [...new Set([...fromSeeds, ...fromCatalog])];
-    }
-
     return {
     /**
      * Open the live list subscription — one `watchLists$` stream for the
@@ -201,7 +191,14 @@ export const SymbolListStore = signalStore(
 
       listService.watchLists$().pipe(takeUntilDestroyed(destroyRef)).subscribe({
         next: (defs) => {
-          patchState(state, { listCatalog: defs, symbolListsLoading: false });
+          const live = isLiveListFilter(state.activeListFilter(), (key) =>
+            defs.some((d) => d.key === key),
+          );
+          patchState(state, {
+            listCatalog: defs,
+            symbolListsLoading: false,
+            ...(live ? {} : { activeListFilter: 'ALL' }),
+          });
         },
         error: (err: unknown) => {
           listsWatched = false;
@@ -254,50 +251,40 @@ export const SymbolListStore = signalStore(
      * target, strip from the rest; null target un-assigns). Nonexclusive →
      * membership add/remove. No optimistic update — the snapshot echoes.
      */
-    toggleSymbolInList(symbol: string, listKey: string | SymbolListName): void {
-      const key = listKey as string;
-      const catalogDef = state.listCatalog().find((d) => d.key === key);
-      const def = catalogDef ?? systemListDef(key);
+    toggleSymbolInList(symbol: string, listKey: string): void {
+      const def = state.listCatalog().find((d) => d.key === listKey);
       if (!def) {
         // Unknown list key — refuse rather than materialize a malformed doc
         // via the exclusive path.
-        console.error(`[SymbolListStore] Unknown list key: ${key}`);
-        snackBar.open(`Unknown list: ${key}`, 'Dismiss', { duration: 5000 });
+        console.error(`[SymbolListStore] Unknown list key: ${listKey}`);
+        snackBar.open(`Unknown list: ${listKey}`, 'Dismiss', { duration: 5000 });
         return;
       }
-      const inList = (catalogDef?.symbols ?? []).includes(symbol.toUpperCase());
+      const inList = def.symbols.includes(symbol.toUpperCase());
 
       if (def.role === 'nonexclusive') {
-        if (inList) this.removeSymbolFromList(symbol, key);
-        else this.addSymbolToList(symbol, key);
+        if (inList) this.removeSymbolFromList(symbol, listKey);
+        else this.addSymbolToList(symbol, listKey);
         return;
       }
 
-      const target = inList ? null : key;
+      const target = inList ? null : listKey;
       enqueueWrite(
-        () => listService.moveToList(symbol, target, exclusiveKeys()),
-        `Failed to save ${symbol} to ${key}`,
+        () => listService.moveToList(symbol, target, state.exclusiveListKeys()),
+        `Failed to save ${symbol} to ${listKey}`,
       );
     },
 
     /** Add a symbol to a named list. */
-    addSymbolToList(symbol: string, listKey: string | SymbolListName): void {
+    addSymbolToList(symbol: string, listKey: string): void {
       enqueueWrite(
         () => listService.addToList(symbol, listKey),
         `Failed to add ${symbol} to ${listKey}`,
       );
     },
 
-    /**
-     * Toggle the symbol's MONITOR membership — delegates to the role-routed
-     * toggle (MONITOR is nonexclusive → membership add/remove).
-     */
-    toggleMonitor(symbol: string): void {
-      this.toggleSymbolInList(symbol, SymbolListName.MONITOR);
-    },
-
     /** Remove a symbol from a named list. */
-    removeSymbolFromList(symbol: string, listKey: string | SymbolListName): void {
+    removeSymbolFromList(symbol: string, listKey: string): void {
       enqueueWrite(
         () => listService.removeFromList(symbol, listKey),
         `Failed to remove ${symbol} from ${listKey}`,

@@ -8,6 +8,7 @@ import { QuickChartsComponent } from '../quick-charts/quick-charts.component';
 @Component({
   selector: 'app-quick-charts',
   standalone: true,
+  template: '',
 })
 class MockQuickChartsComponent {
   symbol = input<string | null>(null);

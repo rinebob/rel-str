@@ -78,7 +78,7 @@
             [group]="group"
             [expanded]="expandedMap[group.key] ?? false"
             [visibleRows]="group.rows"
-            [symbolLists]="facade.symbolLists()"
+            [listCatalog]="facade.listCatalog()"
             [selectedSymbol]="facade.selectedSymbol()"
             [quickChartSymbol]="facade.quickChartSymbol()"
             [isActionableRun]="facade.isActionableRun()"
@@ -92,8 +92,7 @@
             (rowReject)="onReject($event)"
             (rowReset)="onReset($event)"
             (rowClearHistory)="onClearHistory($event)"
-            (rowToggleList)="onToggleList($event)"
-            (rowMonitor)="onMonitor($event)">
+            (rowToggleList)="onToggleList($event)">
           </app-group-panel>
           }
         }

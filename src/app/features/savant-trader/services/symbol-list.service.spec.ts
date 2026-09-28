@@ -48,7 +48,7 @@ import { firstValueFrom, of, Subject } from 'rxjs';
 import { Firestore, setDoc, updateDoc, getDoc, getDocs, deleteDoc, writeBatch } from '@angular/fire/firestore';
 import { Auth } from '@angular/fire/auth';
 import { SymbolListService } from './symbol-list.service';
-import type { SymbolListDef } from '../common/symbol-list-defs';
+import { SYSTEM_LIST_DEFS, type SymbolListDef } from '../common/symbol-list-defs';
 
 /** Push a doc snapshot array through the subject and flush async migration. */
 async function emit(docs: { id: string; data: Record<string, unknown> }[]): Promise<void> {
@@ -88,16 +88,37 @@ describe('SymbolListService.watchLists$', () => {
     service = setupService();
   });
 
+  it('seeds missing system definitions so an empty registry still exposes the built-in lists', async () => {
+    const emissions: SymbolListDef[][] = [];
+    const sub = service.watchLists$().subscribe((defs) => emissions.push(defs));
+
+    await emit([]);
+
+    expect(emissions[0].map((d) => d.key)).toEqual(
+      [...SYSTEM_LIST_DEFS].sort((a, b) => a.order - b.order).map((d) => d.key),
+    );
+    expect(mockBatch.set).toHaveBeenCalledWith(
+      expect.objectContaining({ path: 'savant-trader/data/symbol-lists/user-1_PRIMARY' }),
+      expect.objectContaining({ key: 'PRIMARY', label: 'Primary', role: 'exclusive', symbols: [], userId: 'user-1' }),
+      { merge: true },
+    );
+    expect(mockBatch.commit).toHaveBeenCalled();
+    sub.unsubscribe();
+  });
+
   it('emits defs unchanged for already-registry docs — no writes', async () => {
     const emissions: SymbolListDef[][] = [];
     const sub = service.watchLists$().subscribe((defs) => emissions.push(defs));
 
-    await emit([registryDoc('PRIMARY', { symbols: ['AAPL'] })]);
+    await emit(SYSTEM_LIST_DEFS.map((d) => registryDoc(d.key, {
+      ...d,
+      symbols: d.key === 'PRIMARY' ? ['AAPL'] : [],
+    })));
 
     expect(emissions).toHaveLength(1);
-    const def = emissions[0][0];
+    const def = emissions[0].find((d) => d.key === 'PRIMARY');
     expect(def).toEqual(expect.objectContaining({
-      key: 'PRIMARY', label: 'PRIMARY', role: 'exclusive', symbols: ['AAPL'],
+      key: 'PRIMARY', label: 'Primary', role: 'exclusive', symbols: ['AAPL'],
     }));
     expect(writeBatch).not.toHaveBeenCalled();
     sub.unsubscribe();
@@ -145,7 +166,9 @@ describe('SymbolListService.watchLists$', () => {
     expect(mockBatch.delete).toHaveBeenCalledWith(
       expect.objectContaining({ path: 'savant-trader/data/symbol-lists/PAST_SIGNALS' }),
     );
-    expect(emissions[0].map((d) => d.key)).toEqual(['MONITOR']);
+    expect(emissions[0].map((d) => d.key)).toEqual(
+      [...SYSTEM_LIST_DEFS].sort((a, b) => a.order - b.order).map((d) => d.key),
+    );
     sub.unsubscribe();
   });
 
@@ -257,7 +280,9 @@ describe('SymbolListService.watchLists$', () => {
       registryDoc('PRIMARY', { order: 0 }),
     ]);
 
-    expect(emissions[0].map((d) => d.key)).toEqual(['PRIMARY', 'AVOID']);
+    const keys = emissions[0].map((d) => d.key);
+    expect(keys).toEqual([...SYSTEM_LIST_DEFS].sort((a, b) => a.order - b.order).map((d) => d.key));
+    expect(keys.indexOf('PRIMARY')).toBeLessThan(keys.indexOf('AVOID'));
     sub.unsubscribe();
   });
 
@@ -269,7 +294,7 @@ describe('SymbolListService.watchLists$', () => {
     await emit([registryDoc('PRIMARY', { symbols: ['AAPL', 'MSFT'] })]);
 
     expect(emissions).toHaveLength(2);
-    expect(emissions[1][0].symbols).toEqual(['AAPL', 'MSFT']);
+    expect(emissions[1].find((d) => d.key === 'PRIMARY')?.symbols).toEqual(['AAPL', 'MSFT']);
     sub.unsubscribe();
   });
 });
@@ -286,9 +311,10 @@ describe('SymbolListService.loadAllLists compat adapter', () => {
     await emit([registryDoc('MONITOR', { role: 'nonexclusive', symbols: ['AAPL'] })]);
 
     const lists = await pending;
-    expect(lists).toEqual([
+    expect(lists.find((list) => list.name === 'MONITOR')).toEqual(
       expect.objectContaining({ name: 'MONITOR', symbols: ['AAPL'] }),
-    ]);
+    );
+    expect(lists).toHaveLength(SYSTEM_LIST_DEFS.length);
   });
 });
 

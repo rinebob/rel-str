@@ -5,7 +5,7 @@
  */
 import { MarketCapTier, StSignalItem, StSymbolProfile, ST_SCHEDULE_CRON, StSymbolSource } from '../services/types';
 import type { SymbolRow, SymbolGroup } from '../stores/group.store';
-import { GroupDimension, NO_MEMBERSHIP, ReviewDecision, SignalFilter, SignalTimeframe, SignalDirection, EXCLUSIVE_SYMBOL_LIST_NAMES, type SymbolListFilter } from '../common/constants';
+import { GroupDimension, NO_MEMBERSHIP, ReviewDecision, SignalFilter, SignalTimeframe, SignalDirection, type SymbolListFilter } from '../common/constants';
 import type { Company } from '../../shared/types/rs.interfaces';
 
 /** Format a YYYY-MM-DD date string as a UTC date with the given Intl options. */
@@ -167,16 +167,17 @@ export function getGroupLabel(key: string, dimension: GroupDimension): string {
 }
 
 /**
- * True when the symbol belongs to no EXCLUSIVE (triage) list — i.e. it is
- * untriaged. Membership in non-exclusive lists (MONITOR, user lists) does not
- * count; only tradeability-bucket membership does. List contents are
- * uppercased.
+ * True when the symbol belongs to no exclusive (triage) list — i.e. it is
+ * untriaged. The caller supplies keys from the live catalog's exclusive role;
+ * nonexclusive memberships never count. List contents are uppercased.
  */
-export function isUnlisted(symbol: string, lists: Record<string, string[]>): boolean {
+export function isUntriaged(
+  symbol: string,
+  lists: Record<string, string[]>,
+  exclusiveKeys: readonly string[],
+): boolean {
   const normalized = symbol.toUpperCase();
-  return !EXCLUSIVE_SYMBOL_LIST_NAMES.some(
-    (name) => (lists[name] ?? []).includes(normalized),
-  );
+  return !exclusiveKeys.some((key) => (lists[key] ?? []).includes(normalized));
 }
 
 /** Normalize the GET_TRACKED_SYMBOLS callable response — uppercased, deduped, sorted. */
@@ -195,9 +196,14 @@ export function normalizeTrackedSymbols(companies: Company[]): string[] {
  * those in zero exclusive lists. Any other filter value shows only symbols
  * that belong to that named list.
  */
-export function shouldShowInListFilter(symbol: string, lists: Record<string, string[]>, filter: SymbolListFilter): boolean {
+export function shouldShowInListFilter(
+  symbol: string,
+  lists: Record<string, string[]>,
+  filter: SymbolListFilter,
+  exclusiveKeys: readonly string[],
+): boolean {
   if (filter === 'ALL') return true;
-  if (filter === NO_MEMBERSHIP) return isUnlisted(symbol, lists);
+  if (filter === NO_MEMBERSHIP) return isUntriaged(symbol, lists, exclusiveKeys);
   const list = lists[filter] ?? [];
   return list.includes(symbol.toUpperCase());
 }
@@ -590,6 +596,8 @@ export interface BuildFilteredCandidatesInput {
   allSymbols: StSymbolProfile[];
   showAll: boolean;
   symbolLists: Record<string, string[]>;
+  /** Current catalog keys whose role is exclusive — required so NO_MEMBERSHIP can't silently degenerate to everything-untriaged. */
+  exclusiveListKeys: readonly string[];
   activeListFilter: SymbolListFilter;
 }
 
@@ -599,22 +607,29 @@ export interface BuildFilteredCandidatesInput {
  * Pure function: no store access.
  */
 export function buildFilteredCandidates(input: BuildFilteredCandidatesInput): StSymbolProfile[] {
-  const { signalSymbols, allSymbols, showAll, symbolLists, activeListFilter } = input;
+  const {
+    signalSymbols, allSymbols, showAll, symbolLists,
+    exclusiveListKeys, activeListFilter,
+  } = input;
   const signalSet = new Set(signalSymbols.map((s) => s.symbol));
   const candidates = [
     ...signalSymbols,
     ...(showAll ? allSymbols.filter((p) => !signalSet.has(p.symbol)) : []),
   ];
-  return candidates.filter((p) => shouldShowInListFilter(p.symbol, symbolLists, activeListFilter));
+  return candidates.filter((p) =>
+    shouldShowInListFilter(p.symbol, symbolLists, activeListFilter, exclusiveListKeys),
+  );
 }
 
-/** Input shape for building a grouped view â€” kept generic so it can be computed from store state. */
+/** Input shape for building a grouped view — kept generic so it can be computed from store state. */
 export interface BuildSymbolGroupsInput {
   signalSymbols: StSymbolProfile[];
   allSymbols: StSymbolProfile[];
   showAll: boolean;
   dimension: GroupDimension;
   symbolLists: Record<string, string[]>;
+  /** Current catalog keys whose role is exclusive. */
+  exclusiveListKeys: readonly string[];
   activeListFilter: SymbolListFilter;
   statuses: Record<string, ReviewDecision>;
   /** Set of symbols flagged for review (bookmark), independent of accept/reject. */
@@ -640,6 +655,7 @@ export function buildSymbolGroups(input: BuildSymbolGroupsInput): SymbolGroup[] 
     showAll,
     dimension,
     symbolLists,
+    exclusiveListKeys,
     activeListFilter,
     statuses,
     reviewFlagSymbols,
@@ -658,6 +674,7 @@ export function buildSymbolGroups(input: BuildSymbolGroupsInput): SymbolGroup[] 
     allSymbols,
     showAll,
     symbolLists,
+    exclusiveListKeys,
     activeListFilter,
   });
 

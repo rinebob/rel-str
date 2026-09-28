@@ -19,6 +19,7 @@ import {
   SymbolListDef,
   symbolListDocId,
   systemListDef,
+  SYSTEM_LIST_DEFS,
   legacyListKey,
   USER_LIST_ORDER_START,
 } from '../common/symbol-list-defs';
@@ -63,7 +64,12 @@ export async function resolveSnapshot(
     if (isRegistry) registry.set(d.data['key'], toDef(d.data));
     else legacy.push(d);
   }
-  if (legacy.length === 0) return [...registry.values()].sort(byOrder);
+  if (
+    legacy.length === 0 &&
+    SYSTEM_LIST_DEFS.every((def) => registry.has(def.key))
+  ) {
+    return [...registry.values()].sort(byOrder);
+  }
 
   const out = new Map(registry);
   const batch = writeBatch(firestore);
@@ -113,6 +119,21 @@ export async function resolveSnapshot(
     out.set(key, def);
   }
 
+  for (const template of SYSTEM_LIST_DEFS) {
+    if (out.has(template.key)) continue;
+    const def: SymbolListDef = { ...template, symbols: [], userId };
+    batch.set(
+      doc(firestore, Collection.ST_SYMBOL_LISTS, symbolListDocId(userId, def.key)),
+      {
+        ...def,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+    out.set(def.key, def);
+  }
+
   try {
     await batch.commit();
   } catch (err) {
@@ -160,6 +181,11 @@ export function fallbackDefs(
       userId,
       createdAt: prev?.createdAt ?? d.data['createdAt'],
     });
+  }
+  for (const template of SYSTEM_LIST_DEFS) {
+    if (!out.has(template.key)) {
+      out.set(template.key, { ...template, symbols: [], userId });
+    }
   }
   return [...out.values()].sort(byOrder);
 }

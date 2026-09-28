@@ -16,7 +16,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-import { GroupDimension, SymbolListName, SymbolListFilter } from '../../common/constants';
+import { GroupDimension, SymbolListFilter } from '../../common/constants';
 import { SymbolGroup } from '../../stores/group.store';
 import { SignalReviewFacade } from '../../stores/signal-review.facade';
 import { SignalReviewHeaderComponent } from '../../components/signal-review-header/signal-review-header.component';
@@ -85,8 +85,8 @@ export class SignalReviewComponent implements OnInit, OnDestroy {
   }
 
   /** Toggle a symbol's membership in a named list. */
-  onToggleList(event: { symbol: string; listName: SymbolListName }): void {
-    this.facade.toggleSymbolInList(event.symbol, event.listName);
+  onToggleList(event: { symbol: string; listKey: string }): void {
+    this.facade.toggleSymbolInList(event.symbol, event.listKey);
   }
 
   /** Select a symbol for the detail panel and load its signal history. */
@@ -137,11 +137,6 @@ export class SignalReviewComponent implements OnInit, OnDestroy {
   /** Clear all review flags from the queue. */
   onClearReviewFlags(): void {
     this.facade.clearReviewFlags();
-  }
-
-  /** Toggle a symbol's membership in the MONITOR list. */
-  onMonitor(symbol: string): void {
-    this.facade.toggleMonitor(symbol);
   }
 
   /** Toggle the quick-charts panel for a symbol. */

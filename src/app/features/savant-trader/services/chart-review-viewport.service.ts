@@ -10,7 +10,7 @@
  */
 import { Injectable, inject, computed } from '@angular/core';
 
-import { NO_MEMBERSHIP, ViewportMode, type SymbolListFilter } from '../common/constants';
+import { isLiveListFilter, NO_MEMBERSHIP, ViewportMode, type SymbolListFilter } from '../common/constants';
 import { TriageStore } from '../stores/triage.store';
 import { SymbolListStore } from '../stores/symbol-list.store';
 
@@ -22,8 +22,13 @@ export class ChartReviewViewportService {
   /** Current viewport mode (delegates to store state). */
   readonly viewportMode = computed(() => this.triageStore.viewportMode());
 
-  /** Current active list filter (delegates to store state). */
-  readonly activeViewportList = computed(() => this.triageStore.activeViewportList());
+  /** Current viewport filter, falling back to show-all when its list was deleted. */
+  readonly activeViewportList = computed(() => {
+    const filter = this.triageStore.activeViewportList();
+    return isLiveListFilter(filter, (key) => this.symbolListStore.byKey().has(key))
+      ? filter
+      : 'ALL';
+  });
 
   /**
    * Viewport symbols for the chart-review sidebar.
@@ -34,31 +39,25 @@ export class ChartReviewViewportService {
    */
   readonly viewportSymbols = computed((): string[] => {
     const mode = this.triageStore.viewportMode();
-    const listName = this.triageStore.activeViewportList();
+    // activeViewportList already masks a deleted-list key to 'ALL'.
+    const filter = this.activeViewportList();
     const reviewSymbols = this.triageStore.reviewSymbols();
 
-    if (listName === 'ALL') {
+    if (filter === 'ALL') {
       return reviewSymbols;
     }
 
-    if (listName === NO_MEMBERSHIP) {
+    if (filter === NO_MEMBERSHIP) {
       if (mode === 'signals') {
         // Role-driven untriaged set — same source as the browse branch.
-        const untriaged = new Set(this.symbolListStore.unlistedSymbols());
+        const untriaged = new Set(this.symbolListStore.untriagedSymbols());
         return reviewSymbols.filter((s) => untriaged.has(s));
       }
-      // browse — the full unlisted tracked universe.
-      return this.symbolListStore.unlistedSymbols();
+      // browse — the full untriaged tracked universe.
+      return this.symbolListStore.untriagedSymbols();
     }
 
-    // Deleted-list fallback: a filter value absent from the catalog
-    // (e.g. a deleted user list) degrades to show-all rather than an
-    // empty viewport with a blank trigger.
-    if (!this.symbolListStore.byKey().has(listName)) {
-      return reviewSymbols;
-    }
-
-    const listSymbols = this.symbolListStore.symbolLists()[listName] ?? [];
+    const listSymbols = this.symbolListStore.symbolLists()[filter] ?? [];
 
     if (mode === 'signals') {
       const listSet = new Set(listSymbols);
@@ -75,11 +74,11 @@ export class ChartReviewViewportService {
   }
 
   /** Set the active list filter. */
-  setActiveViewportList(listName: SymbolListFilter): void {
-    // "No memberships" needs the tracked-symbols universe — load it lazily.
-    if (listName === NO_MEMBERSHIP) {
+  setActiveViewportList(filter: SymbolListFilter): void {
+    // "Not triaged" needs the tracked-symbols universe — load it lazily.
+    if (filter === NO_MEMBERSHIP) {
       this.symbolListStore.loadTrackedSymbols();
     }
-    this.triageStore.setActiveViewportList(listName);
+    this.triageStore.setActiveViewportList(filter);
   }
 }

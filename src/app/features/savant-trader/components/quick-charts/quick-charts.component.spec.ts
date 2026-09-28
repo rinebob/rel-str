@@ -13,6 +13,7 @@ const bar = { x: new Date(), open: 1, high: 1, low: 1, close: 1, volume: 1 };
 @Component({
   selector: 'app-flex-chart',
   standalone: true,
+  template: '',
 })
 class MockFlexChartComponent {
   chartData = input.required<FlexChartDataset | null>();

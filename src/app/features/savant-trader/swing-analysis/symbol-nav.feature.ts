@@ -12,10 +12,11 @@
  * — each appended AFTER the main blocks so `store` here already carries
  * `setSymbol` and the state signals.
  */
-import { computed } from '@angular/core';
+import { computed, effect } from '@angular/core';
 import { patchState, WritableStateSource } from '@ngrx/signals';
 
-import { NO_MEMBERSHIP, SymbolListFilter } from '../common/constants';
+import { isLiveListFilter, NO_MEMBERSHIP, SymbolListFilter } from '../common/constants';
+import type { SymbolListDef } from '../common/symbol-list-defs';
 import type { SwingAnalysisState } from './swing-analysis.store';
 
 /** Nav filter: all tracked symbols, one Symbol List name, or NO_MEMBERSHIP. */
@@ -29,6 +30,7 @@ export interface SymbolNavComputedInput {
 
 /** Minimal view of SymbolListStore the nav sequence reads. */
 export interface SymbolNavListsInput {
+  catalog(): SymbolListDef[];
   symbolLists(): Record<string, string[]>;
   trackedSymbols(): string[];
   unlistedSymbols(): string[];
@@ -87,6 +89,22 @@ export function symbolNavComputedBlock(
 
 /** Methods to spread into the store's `withMethods` block. */
 export function symbolNavMethods(store: SymbolNavStoreApi, deps: SymbolNavDeps) {
+  const filterExists = (filter: string) =>
+    isLiveListFilter(filter, (key) =>
+      deps.lists.catalog().some((def) => def.key === key),
+    );
+
+  function applyNavFilter(filter: NavFilter): void {
+    const next = filterExists(filter) ? filter : 'ALL';
+    patchState(store, { navFilter: next });
+    const seq = store.navSequence();
+    if (seq.length > 0 && store.symbol() !== seq[0]) store.setSymbol(seq[0]);
+  }
+
+  effect(() => {
+    if (!filterExists(store.navFilter())) applyNavFilter('ALL');
+  });
+
   /** Step to the adjacent symbol in the sequence — wraps at both ends. */
   function stepSymbol(direction: 1 | -1): void {
     const seq = store.navSequence();
@@ -116,11 +134,7 @@ export function symbolNavMethods(store: SymbolNavStoreApi, deps: SymbolNavDeps) 
      * this the stale symbol sits outside the list and shows "— of N".
      */
     setNavFilter(filter: NavFilter): void {
-      patchState(store, { navFilter: filter });
-      const seq = store.navSequence();
-      if (seq.length > 0 && store.symbol() !== seq[0]) {
-        store.setSymbol(seq[0]);
-      }
+      applyNavFilter(filter);
     },
 
     /** Advance to the next symbol in the sequence — wraps to first. */

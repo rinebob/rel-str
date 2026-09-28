@@ -16,7 +16,7 @@ import { ViewportMode, type SymbolListFilter } from '../../common/constants';
 import type { RhSelectOptionGroup } from '../rh-select-menu/rh-select-menu.component';
 
 const SENTINEL: RhSelectOption<SymbolListFilter>[] = [
-  { value: 'ALL', label: 'None' },
+  { value: 'ALL', label: 'All' },
 ];
 
 @Component({

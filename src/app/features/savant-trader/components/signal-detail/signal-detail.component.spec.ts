@@ -12,12 +12,14 @@ import { SymbolHistoryStore } from '../../stores/symbol-history.store';
 import { IndicatorSeriesStore } from '../../stores/indicator-series.store';
 import { UiStateService, ChartLayout } from '../../../../core/services/ui-state.service';
 import { BarsInterval } from '../../../../core/models/partner.types';
+import type { SymbolListDef } from '../../common/symbol-list-defs';
 
 const bar = { x: new Date(), open: 1, high: 1, low: 1, close: 1, volume: 1 };
 
 @Component({
   selector: 'app-flex-chart',
   standalone: true,
+  template: '',
 })
 class MockFlexChartComponent {
   chartData = input<unknown>(null);
@@ -60,12 +62,12 @@ class MockChartToolbarComponent {
 @Component({
   selector: 'app-symbol-list-actions',
   standalone: true,
+  template: '',
 })
 class MockSymbolListActionsComponent {
   symbol = input<string | null>(null);
-  symbolLists = input<Record<string, string[]>>({});
+  listCatalog = input<SymbolListDef[]>([]);
   toggleList = output<unknown>();
-  monitor = output<string>();
 }
 
 describe('SignalDetailComponent — log scale toggle', () => {
@@ -120,6 +122,7 @@ describe('SignalDetailComponent — log scale toggle', () => {
     fixture = TestBed.createComponent(SignalDetailComponent);
     component = fixture.componentRef.instance;
     fixture.componentRef.setInput('manualSymbol', 'QQQ');
+    fixture.componentRef.setInput('listCatalog', []);
     fixture.detectChanges();
   });
 

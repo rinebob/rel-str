@@ -49,7 +49,7 @@ import {
 import { SymbolHistoryStore } from '../../stores/symbol-history.store';
 import { IndicatorSeriesStore } from '../../stores/indicator-series.store';
 import type { SymbolIndicatorSeriesResponse } from '../../common/indicator.types';
-import { SymbolListName } from '../../common/constants';
+import type { SymbolListDef } from '../../common/symbol-list-defs';
 
 /** Savant Trader indicator menu options: shared ST base + Savant Trader-specific HTF zone windows. */
 const ST_EXTRA_INDICATOR_OPTIONS: IndicatorOption[] = [
@@ -206,8 +206,7 @@ export class SignalDetailComponent {
 
   /** Symbol to display. When non-null the chart panel renders; null collapses it. */
   manualSymbol = input<string | null>(null);
-  /** Map of list name -> symbols in that list. */
-  symbolLists = input<Record<string, string[]>>({});
+  listCatalog = input.required<SymbolListDef[]>();
   /** 0-based index of this symbol within the review queue, or -1 when not in queue. */
   symbolIndex = input<number>(-1);
   /** Total number of symbols in the review queue. */
@@ -220,9 +219,7 @@ export class SignalDetailComponent {
   /** Emits the signal ID when the user marks a signal as rejected (R key / button). */
   signalRejected = output<string>();
   /** Emits when the user toggles the active symbol's list membership. */
-  toggleList = output<{ symbol: string; listName: SymbolListName }>();
-  /** Emits when the user toggles the active symbol's monitor status. */
-  monitor = output<string>();
+  toggleList = output<{ symbol: string; listKey: string }>();
   /** Emits when the user clicks the previous-symbol nav button. */
   prevSymbol = output<void>();
   /** Emits when the user clicks the next-symbol nav button. */

@@ -26,6 +26,12 @@
   &:hover    { background: var(--mat-sys-surface-container-high); }
   &:disabled { opacity: 0.3; cursor: not-allowed; }
 
+  &.new.active {
+    background: #43a04733;
+    color: #43a047;
+    border-radius: 50%;
+    mat-icon { font-size: 14px; width: 14px; height: 14px; }
+  }
   &.primary.active {
     background: #1976d233;
     color: #1976d2;
