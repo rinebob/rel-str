@@ -35,14 +35,19 @@ export interface SwingAnalysisDoc extends SwingAnalysisInput {
   userId: string;
 }
 
-/** Input for saving a swing config to the global library. */
+/** Input for saving a swing config (or a set of them) to the global library. */
 export interface SwingConfigInput {
   /** Optional user-facing name — falls back to a param summary label. */
   name?: string;
-  /** The ZigZag config params. */
-  config: ZigZagConfig;
+  /** The ZigZag config params — present on single-config (preset) docs. */
+  config?: ZigZagConfig;
+  /** The config list — present on set docs (N configs applied together). */
+  configs?: ZigZagConfig[];
   /** ISO timestamp of when the config was saved. */
   savedAt: string;
+  /** Explicit doc id override — renames pass the existing paramsId so the
+   *  write targets the stored doc instead of re-deriving the key. */
+  paramsId?: string;
 }
 
 /** A persisted swing config doc in `st-swing-configs/{paramsId}`. */
@@ -53,6 +58,18 @@ export interface SwingConfigDoc extends SwingConfigInput {
   paramsId: string;
   /** Owner of this config — stamped by the service from auth. */
   userId: string;
+}
+
+/** The configs a library doc applies — singles normalize to length-1. */
+export function docConfigs(doc: SwingConfigDoc): ZigZagConfig[] {
+  if (doc.configs?.length) return doc.configs;
+  return doc.config ? [doc.config] : [];
+}
+
+/** True for multi-config set docs (written by "Save set"). Empty
+ *  `configs: []` does not count — such a doc has nothing to apply. */
+export function isConfigSet(doc: SwingConfigDoc): boolean {
+  return !!doc.configs?.length;
 }
 
 /**
@@ -78,4 +95,16 @@ export function deriveParamsId(config: ZigZagConfig): string {
     `trig${(config.showTriggerDots ?? true) ? 'Y' : 'N'}`,
   ];
   return parts.join('_');
+}
+
+/**
+ * Derive the doc id for a config SET — `set_` + member paramsIds joined
+ * by `+`. Distinct from single ids so a set can't collide with (or
+ * overwrite) a single-config doc sharing a member's params.
+ */
+export function deriveSetParamsId(configs: ZigZagConfig[]): string {
+  // Sorted+deduped → {A,B} and {B,A} key the same doc; a set's identity
+  // is its members, not their order.
+  const ids = [...new Set(configs.map(deriveParamsId))].sort();
+  return `set_${ids.join('+')}`;
 }
