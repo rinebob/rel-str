@@ -398,12 +398,23 @@ service cloud.firestore {
     // Both anchors are user-scoped CRUD (st-swing-sets shape): list queries
     // must constrain userId (where('userId','==',uid)) or the rules engine
     // cannot prove every returned doc is owned — the query is denied
-    // outright. No resource == null escape hatch. Anchor docs themselves
-    // carry no data — denied.
+    // outright. Anchor docs themselves carry no data — denied.
+    //
+    // `get` vs `list`: services probe doc ids inside transactions to prove
+    // create/rename conflicts ({acct}_{slug} ids are never freed). A get on
+    // a MISSING doc evaluates `resource == null` — a blanket
+    // `resource.data.userId == uid` read rule denies the probe, breaking
+    // createBucket$/renameBucket$/attribute$ with "insufficient
+    // permissions". `get` allows missing docs; existing docs still require
+    // ownership. `list` keeps the userId constraint — queries must still
+    // prove every doc returned is owned.
     match /portfolio/{anchor} {
       allow read, write: if false;
       match /items/{docId} {
-        allow read: if request.auth != null
+        allow get: if request.auth != null
+          && (anchor == 'buckets' || anchor == 'attributions')
+          && (resource == null || request.auth.uid == resource.data.userId);
+        allow list: if request.auth != null
           && (anchor == 'buckets' || anchor == 'attributions')
           && request.auth.uid == resource.data.userId;
         allow create: if request.auth != null
