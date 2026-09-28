@@ -1,10 +1,15 @@
-# Changel- [GitHub read-only issue UI] 619-621-637_SHARED-IMPL-DEV-TOOLS: Lifecycle tree contract + transforms — closed-label decode, node typing, tree assembly with subtree-max updatedAt, inventory-doc grouping
-- [GitHub read-only issue UI] 619-621-637_DOCS-DEV-TOOLS: PRD + IMPL/TEST plans + code review (PASS, 4 iterations) + UAT (Complete) for #637
-og
+# Changelog
+
 
 ## [2026-09-28]
 
 ### Added
+- [Portfolio] 576-582-589_CONFIG-PORTFOLIO: Firestore rules get-vs-list split — txn id-probes (create/rename/attribution) no longer denied
+- [Portfolio] 576-582-589_FE-IMPL-PORTFOLIO: Buckets tab — unified config+analytics table, create/edit/retire/delete dialogs (writes stay open until success), retired section, >100% warn
+- [Portfolio] 576-582-589_DOCS-PORTFOLIO: Buckets-tab code review (PASS, 2 rounds) + UAT (Complete)
+
+- [GitHub read-only issue UI] 619-621-637_SHARED-IMPL-DEV-TOOLS: Lifecycle tree contract + transforms — closed-label decode, node typing, tree assembly with subtree-max updatedAt, inventory-doc grouping
+- [GitHub read-only issue UI] 619-621-637_DOCS-DEV-TOOLS: PRD + IMPL/TEST plans + code review (PASS, 4 iterations) + UAT (Complete) for #637
 - [Swing Analysis Page] 594-509_FE-IMPL-SWING-ANALYSIS: Company info strip in page header — all profile fields inline, em-dash fallbacks, never blocks chart (tasks #507–509)
 - [Swing Analysis Page] 594-509_FE-IMPL-SWING-ANALYSIS: Nav autocomplete picker — tracked-only, ticker + company-name match, commit/revert guards; settings-dialog free-text symbol input removed
 - [Watchlist Management] 465-523-528_CONFIG-IMPL-WATCHLIST: Legacy bare-id symbol-list docs readable/deletable by authed users — lazy rekey support
