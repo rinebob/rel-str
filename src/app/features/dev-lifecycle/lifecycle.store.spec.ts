@@ -116,8 +116,10 @@ describe('LifecycleStore', () => {
     await store.refresh();
     store.selectTopic(2);
     store.expandAll();
+    // 20's only child is closed → not expandable under showClosed=false
     expect(store.treeRows().map(r => r.node.number)).toEqual([2, 20]);
     store.toggleShowClosed();
+    store.expandAll();
     expect(store.treeRows().map(r => r.node.number)).toEqual([2, 20, 30]);
   });
 

@@ -153,15 +153,20 @@ export const LifecycleStore = signalStore(
       return rows;
     }),
 
-    /** Node ids that are expandable (have children) — expandAll target. */
+    /** Node ids that are expandable (have *visible* children) — expandAll
+     *  target. A node whose children are all closed isn't expandable when
+     *  showClosed is off, same rule the tree caret applies. */
     expandableIds: computed<number[]>(() => {
       const topic = store.selectedTopic();
       if (!topic) return [];
+      const showClosed = store.showClosed();
+      const visible = (n: LifecycleNode) =>
+        n.children.filter(c => showClosed || c.state === 'open');
       const ids: number[] = [];
       const walk = (n: LifecycleNode) => {
-        if (n.children.length) {
+        if (visible(n).length) {
           ids.push(n.number);
-          n.children.forEach(walk);
+          visible(n).forEach(walk);
         }
       };
       walk(topic);
@@ -202,6 +207,7 @@ export const LifecycleStore = signalStore(
 
     return {
       async selectRepo(index: number): Promise<void> {
+        if (!store.repos()[index]) return; // dropdown can't emit this; guards programmatic calls
         if (index === store.selectedRepoIndex()) return;
         patchState(store, {
           selectedRepoIndex: index,
@@ -242,6 +248,12 @@ export const LifecycleStore = signalStore(
 
       toggleShowClosed(): void {
         patchState(store, { showClosed: !store.showClosed() });
+      },
+
+      /** Direct setter — the checkbox binds $event.checked so state can't
+       *  desync if showClosed is ever set elsewhere. */
+      setShowClosed(v: boolean): void {
+        patchState(store, { showClosed: v });
       },
     };
   }),
