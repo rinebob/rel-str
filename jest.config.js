@@ -35,5 +35,7 @@ module.exports = {
     '^@portfolio-allocation/contracts$': '<rootDir>/shared/portfolio-allocation-contracts.ts',
     '^@portfolio-allocation/ids$': '<rootDir>/shared/portfolio-allocation-ids.ts',
     '^@portfolio-allocation/utils$': '<rootDir>/shared/portfolio-allocation-utils.ts',
+    '^@lifecycle/contracts$': '<rootDir>/shared/lifecycle-contracts.ts',
+    '^@lifecycle/tree$': '<rootDir>/shared/lifecycle-tree.ts',
   },
 };

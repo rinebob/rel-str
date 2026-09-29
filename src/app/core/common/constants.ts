@@ -256,6 +256,8 @@ export enum CallableName {
   GET_PAPER_ACCOUNT = 'getPaperAccount',
   /** Paper trading: exit-variant registry configs */
   LIST_EXIT_VARIANTS = 'listExitVariants',
+  /** Dev lifecycle viewer: GitHub issue-hierarchy tree for supported repos */
+  GET_LIFECYCLE_TREE = 'getLifecycleTree',
 }
 
 /** Top-level Firestore collections used by the FE. */
