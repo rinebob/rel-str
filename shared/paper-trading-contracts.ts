@@ -51,6 +51,7 @@ export enum PaperTradeStatus {
   CLOSED = 'CLOSED',
   EXPIRED = 'EXPIRED',
   ASSIGNED = 'ASSIGNED',
+  CANCELLED = 'CANCELLED', // PENDING trade cancelled before fill — never held
 }
 
 export enum PaperTradeSource {
@@ -289,12 +290,15 @@ export const SIGNAL_EXPRESSION_TEMPLATES: Record<TradeSide, SignalExpressionTemp
 };
 
 /**
- * Variant runs seeded on signal trades: `none` governs (no auto-close —
- * signal trades are user-managed; #568 adds explicit config), real
- * variants run as shadows for counterfactual measurement.
+ * Variant runs seeded on new trades (#652): a single governing trailing
+ * stop — the real-world "one stop per position" model. `trailing-8` is
+ * the default; instances carry their configured pct. 'none' is no longer
+ * seeded; existing docs with inert 'none' runs are unaffected (the key
+ * never parses, so it can never fire).
  */
-export const SIGNAL_GOVERNING_VARIANT = 'none';
-export const SIGNAL_SHADOW_VARIANT_KEYS = ['initial-stop-10', 'trailing-20', 'time-30d'];
+export const DEFAULT_TRAILING_STOP_KEY = 'trailing-8';
+export const SIGNAL_GOVERNING_VARIANT = DEFAULT_TRAILING_STOP_KEY;
+export const SIGNAL_SHADOW_VARIANT_KEYS: string[] = [];
 
 // ── Cohort ─────────────────────────────────────────────────────────────────
 
@@ -334,6 +338,16 @@ export interface ExitVariantConfig {
   label: string;
   params: ExitVariantParams;
 }
+
+/**
+ * Variant families that may govern a real lifecycle (#652): a trailing
+ * stop is the only terminal family — its trigger ends the trade. The
+ * observational families (time-stop, limit-stddev, initial-stop) measure
+ * outcomes but never close a position; 'none' is not a family — it's the
+ * literal inert key, kept for existing docs.
+ */
+export type VariantFamily = ExitVariantParams['type'];
+export const TERMINAL_VARIANT_FAMILIES: readonly VariantFamily[] = ['trailing-stop'];
 
 // ── Stats ──────────────────────────────────────────────────────────────────
 
@@ -415,6 +429,26 @@ export interface GetPaperAccountResponse {
 
 export interface ListExitVariantsResponse {
   variants: ExitVariantConfig[];
+}
+
+/** `closePaperTrade` — close an OPEN trade at the live quote (whole unit). */
+export interface ClosePaperTradeRequest {
+  tradeId: string;
+}
+export interface ClosePaperTradeResponse {
+  tradeId: string;
+  /** Net order-level exit price from the live quote. */
+  exitPrice: number;
+  realizedPnl: number;
+  closedAt: string; // ISO
+}
+
+/** `cancelPaperTrade` — cancel a PENDING trade before its fill pass. */
+export interface CancelPaperTradeRequest {
+  tradeId: string;
+}
+export interface CancelPaperTradeResponse {
+  tradeId: string;
 }
 
 // ── Union + guards ─────────────────────────────────────────────────────────

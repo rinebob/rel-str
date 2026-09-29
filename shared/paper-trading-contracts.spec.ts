@@ -22,6 +22,14 @@ import {
   type VariantRun,
   type ExitVariantParams,
   isPaperStrategyInstance,
+  DEFAULT_TRAILING_STOP_KEY,
+  SIGNAL_GOVERNING_VARIANT,
+  SIGNAL_SHADOW_VARIANT_KEYS,
+  TERMINAL_VARIANT_FAMILIES,
+  type ClosePaperTradeRequest,
+  type ClosePaperTradeResponse,
+  type CancelPaperTradeRequest,
+  type CancelPaperTradeResponse,
 } from './paper-trading-contracts';
 import { OptionType, OptionQuoteSource, StrategyFrequency } from './options-common';
 import { TradeSide } from './common';
@@ -163,5 +171,38 @@ describe('ExitVariantParams', () => {
     for (const v of variants) {
       expect(JSON.parse(JSON.stringify(v)) as ExitVariantParams).toEqual(v);
     }
+  });
+});
+
+describe('trade exits contracts (#652)', () => {
+  it('CANCELLED is a PaperTradeStatus member serializing to CANCELLED', () => {
+    expect(PaperTradeStatus.CANCELLED).toBe('CANCELLED');
+    expect(Object.values(PaperTradeStatus)).toContain('CANCELLED');
+  });
+
+  it('signal defaults seed a single governing trailing-8 run', () => {
+    expect(SIGNAL_GOVERNING_VARIANT).toBe('trailing-8');
+    expect(DEFAULT_TRAILING_STOP_KEY).toBe('trailing-8');
+    expect(SIGNAL_SHADOW_VARIANT_KEYS).toEqual([]);
+  });
+
+  it('only trailing-stop is a terminal variant family', () => {
+    expect(TERMINAL_VARIANT_FAMILIES).toEqual(['trailing-stop']);
+    expect(TERMINAL_VARIANT_FAMILIES).not.toContain('initial-stop');
+    expect(TERMINAL_VARIANT_FAMILIES).not.toContain('time-stop');
+    expect(TERMINAL_VARIANT_FAMILIES).not.toContain('limit-stddev');
+  });
+
+  it('close/cancel callable contracts carry the documented shapes', () => {
+    const closeReq: ClosePaperTradeRequest = { tradeId: 't1' };
+    const closeRes: ClosePaperTradeResponse = {
+      tradeId: 't1', exitPrice: 1.25, realizedPnl: -50,
+      closedAt: '2026-09-28T20:00:00Z',
+    };
+    const cancelReq: CancelPaperTradeRequest = { tradeId: 't2' };
+    const cancelRes: CancelPaperTradeResponse = { tradeId: 't2' };
+    expect(closeReq.tradeId).toBe('t1');
+    expect(closeRes.realizedPnl).toBe(-50);
+    expect(cancelRes.tradeId).toBe(cancelReq.tradeId);
   });
 });
