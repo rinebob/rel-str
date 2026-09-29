@@ -210,5 +210,8 @@ export function orderTopics(
   if (ungrouped.length > 0) {
     sections.push({ name: UNGROUPED_SECTION, topics: ungrouped.sort(byUpdatedDesc) });
   }
+  // Empty repo (zero topic roots): keep the single-section guarantee the
+  // null-groups branch provides — callers treat sections[] as the render set.
+  if (sections.length === 0) return [{ name: UNGROUPED_SECTION, topics: [] }];
   return sections;
 }

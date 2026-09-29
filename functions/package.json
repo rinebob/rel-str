@@ -18,7 +18,7 @@
     "test:rh-agent-mcp-api": "tsx --test ../tests/functions/rh-agent-mcp-observation-api.test.ts",
     "test:sds": "tsx --test ../tests/functions/sds-pdr-parser.test.ts ../tests/functions/sds-core.test.ts ../tests/functions/sds-worker-core.test.ts ../tests/functions/sds-completion.test.ts ../tests/functions/sds-fallback.test.ts",
     "test:signal-detection": "tsx --test ../tests/functions/signal-detection-zero-cross.test.ts",
-    "test:gh-lifecycle": "tsx --test ../tests/functions/gh-lifecycle/github-client.test.ts",
+    "test:gh-lifecycle": "tsx --test ../tests/functions/gh-lifecycle/github-client.test.ts ../tests/functions/gh-lifecycle/callables.test.ts",
     "test:options-error-mapping": "tsx --test ../tests/functions/options-error-mapping.test.ts",
     "test:paper-trading": "tsx --test ../tests/functions/paper-trading/ledger.test.ts ../tests/functions/paper-trading/repository.test.ts ../tests/functions/paper-trading/trade-adapter.test.ts ../tests/functions/paper-trading/exit-variants.test.ts ../tests/functions/paper-trading/exit-eval-pass.test.ts ../tests/functions/paper-trading/signal-order.test.ts ../tests/functions/paper-trading/expression-fill-pass.test.ts ../tests/functions/paper-trading/paper-stats-pass.test.ts ../tests/functions/paper-trading/read-callables.test.ts",
     "probe:rh-agent-mcp-auth": "tsx src/rh-agent-mcp/diagnostics/run-local-oauth-bootstrap.ts",

@@ -246,4 +246,10 @@ describe('orderTopics', () => {
     ]);
     expect(sections[0].topics.map(x => x.number)).toEqual([9]);
   });
+
+  it('empty topic list still returns one Ungrouped section (sections never [])', () => {
+    const sections = orderTopics([], [{ name: 'A', topicNumbers: [999] }]);
+    expect(sections).toEqual([{ name: UNGROUPED_SECTION, topics: [] }]);
+    expect(orderTopics([], null)).toEqual([{ name: UNGROUPED_SECTION, topics: [] }]);
+  });
 });

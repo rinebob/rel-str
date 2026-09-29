@@ -91,8 +91,9 @@ const SEARCH_PAGE = `query($q: String!, $after: String) {
   }
 }`;
 
+// labels(first:50) soft-degrades — >50 labels misses the tail.
 const ISSUE_FIELDS = `number id title state url updatedAt
-  labels(first: 50) { nodes { name } } /* soft-degrade cap: >50 labels misses the tail */
+  labels(first: 50) { nodes { name } }
   projectItems(first: 10) { nodes {
     project { number }
     fieldValues(first: 20) { nodes {
@@ -338,7 +339,8 @@ export async function fetchFileText(
       (res.status === 403 &&
         (res.headers.get('x-ratelimit-remaining') === '0' ||
           res.headers.get('retry-after') !== null));
-    throw new GitHubApiError(res.status, rateLimited, `GitHub ${res.status}: ${await res.text()}`);
+    const body = (await res.text()).slice(0, 200); // bounded — never leak a huge upstream body into errors
+    throw new GitHubApiError(res.status, rateLimited, `GitHub ${res.status}: ${body}`);
   }
   return res.text();
 }

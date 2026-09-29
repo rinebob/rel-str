@@ -43,6 +43,12 @@ const scripts = [
     needsGh: true,
   },
   {
+    name: 'gh-lifecycle callable',
+    file: 'dev-tools-gh-lifecycle-640-callable.ts',
+    needsAccount: false,
+    needsGh: true,
+  },
+  {
     name: 'workflow template conventions',
     file: 'workflows-template-647.ts',
     needsAccount: false,

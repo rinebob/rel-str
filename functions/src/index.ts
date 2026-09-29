@@ -151,6 +151,7 @@ export {
   getPaperAccount,
   listExitVariants,
 } from './paper-trading/read-callables';
+export { getLifecycleTree } from './gh-lifecycle/callables';
 
 // Options strategy engine — dashboard callables
 export {
