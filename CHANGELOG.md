@@ -4,6 +4,8 @@
 ## [2026-09-28]
 
 ### Added
+- [GitHub read-only issue UI] 619-621-641_BE-IMPL-DEV-TOOLS: Deploy getLifecycleTree + GITHUB_READ_TOKEN secret + av-proxy-api whitelist (BE + FE mirror)
+- [GitHub read-only issue UI] 619-621-641_DOCS-DEV-TOOLS: Code review (PASS) + UAT (Complete) for #641
 - [GitHub read-only issue UI] 619-621-644_FE-IMPL-DEV-TOOLS: Topic Viewer route + nav — /tools/topic-viewer lazy route (auth-gated), nav entry, dev-lifecycle→topic-viewer rename
 - [GitHub read-only issue UI] 619-621-644_DOCS-DEV-TOOLS: Code review (PASS, 2 iterations) + UAT (Complete) for #644
 - [GitHub read-only issue UI] 619-621-643_FE-IMPL-DEV-TOOLS: Lifecycle viewer page + tree — repo picker, grouped topic list, expand/collapse tree, banners, empty states

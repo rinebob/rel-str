@@ -14,5 +14,5 @@ export interface SupportedRepo {
 
 export const SUPPORTED_REPOS: SupportedRepo[] = [
   { owner: 'rinebob', repo: 'rel-str', projectNumber: 1 },
-  // SA repo entry lands with task #638 (PAT mint + repo details).
+  { owner: 'rinebob', repo: 'av-proxy-api' }, // no project board — status absent
 ];

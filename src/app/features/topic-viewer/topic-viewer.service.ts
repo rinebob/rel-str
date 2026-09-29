@@ -23,6 +23,7 @@ export interface TopicViewerRepo {
 
 export const TOPIC_VIEWER_REPOS: TopicViewerRepo[] = [
   { owner: 'rinebob', repo: 'rel-str', label: 'rel-str' },
+  { owner: 'rinebob', repo: 'av-proxy-api', label: 'av-proxy-api' },
 ];
 
 @Injectable({ providedIn: 'root' })
