@@ -1,0 +1,43 @@
+{
+  "meta": {
+    "topic": 657,
+    "thread": 658,
+    "purpose": "Single source of truth for the RH MCP discovery run: every probe becomes a capture under captures/{id}.json; the coverage matrix joins this manifest against captures. Never store account_number values — use $ENV:RH_ACCOUNT_NUMBER placeholders, resolved at run time.",
+    "gates": "read = unattended batch; mutation = per-call y/n/abort prompt (no bypass flag)"
+  },
+  "probes": [
+    {
+      "id": "ro-accounts-01",
+      "tool": "get_accounts",
+      "args": {},
+      "group": "account",
+      "gate": "read",
+      "note": "Zero-param call; confirms envelope + agentic_allowed flag."
+    },
+    {
+      "id": "ro-portfolio-01",
+      "tool": "get_portfolio",
+      "args": { "account_number": "$ENV:RH_ACCOUNT_NUMBER" },
+      "group": "account",
+      "gate": "read",
+      "redactFields": ["account_number"],
+      "note": "Portfolio snapshot for the agentic account."
+    },
+    {
+      "id": "mut-eq-market-buy-01",
+      "tool": "place_equity_order",
+      "args": {
+        "account_number": "$ENV:RH_ACCOUNT_NUMBER",
+        "symbol": "OOMA",
+        "side": "buy",
+        "type": "market",
+        "quantity": "1",
+        "time_in_force": "gfd"
+      },
+      "group": "equity-orders",
+      "gate": "mutation",
+      "redactFields": ["account_number"],
+      "note": "E1 — 1-share market GFD buy, expected fill."
+    }
+  ]
+}

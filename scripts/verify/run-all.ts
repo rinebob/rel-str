@@ -96,6 +96,20 @@ const scripts = [
     needsAccount: false,
     needsAdc: true,
   },
+  {
+    name: 'paper-trading live-quote close',
+    file: 'verify/paper-trading-close-667.ts',
+    cwd: 'functions',
+    needsAccount: false,
+    needsAdc: true,
+  },
+  {
+    name: 'rh-mcp probe manifest',
+    file: 'verify/rh-mcp-manifest-681.ts',
+    cwd: 'functions',
+    needsAccount: false,
+    needsAdc: false,
+  },
 ];
 
 function hasGhAuth(): boolean {

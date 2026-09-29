@@ -20,12 +20,14 @@ deliberately, on-demand.
 | #565 — BE Read APIs + stats scopes | [paper-trading-read-apis-565.md](paper-trading-read-apis-565.md) | generalized stats pass (all/inst/var/cohort/sig/sym scopes) + listPaperTrades / getPaperStats / getPaperAccount / listExitVariants callables | `functions/scripts/verify/paper-trading-read-apis-565.ts` (needs ADC; runs from `functions/`) |
 | #665 — SHARED Trade Exits contracts | [paper-trading-contracts-665.md](paper-trading-contracts-665.md) | `CANCELLED` status, `trailing-8` defaults, `TERMINAL_VARIANT_FAMILIES`, close/cancel callable shapes | `paper-trading-contracts-665.ts` (no credentials) |
 | #666 — BE Pending cancel | [paper-trading-cancel-666.md](paper-trading-cancel-666.md) | PENDING→CANCELLED txn seam + `cancelPaperTrade` handler guards + no cash movement | `functions/scripts/verify/paper-trading-cancel-666.ts` (needs ADC; runs from `functions/`) |
+| #667 — BE Live-quote close | [paper-trading-close-667.md](paper-trading-close-667.md) | OPEN→CLOSED at live RH quote + governing run finalized + guards | `functions/scripts/verify/paper-trading-close-667.ts` (needs ADC + RH MCP; runs from `functions/`) |
 | #605 — FE swing-config library | [swing-analysis-misc-fixes-605.md](swing-analysis-misc-fixes-605.md) | `st-swing-configs` slim-doc write → read → idempotent overwrite → userId list → delete | `swing-analysis-misc-fixes-605-config-library.ts` (needs ADC) |
 | #586 — FE Allocation services | [portfolio-allocation-586.md](portfolio-allocation-586.md) | `portfolio/{buckets,attributions}/items` round-trip — bucket CRUD, attribution assign/group-move/unassign, composite-index queries | `portfolio-allocation-586-roundtrip.ts` (needs ADC) |
 | #637 — SHARED lifecycle-tree contract | [dev-tools-lifecycle-contracts-637.md](dev-tools-lifecycle-contracts-637.md) | TOPICS-INVENTORY parse → buildTree → orderTopics sections | `dev-tools-lifecycle-contracts-637.ts` (no credentials) |
 | #639 — BE lifecycle fetch shell | [dev-tools-gh-lifecycle-639.md](dev-tools-gh-lifecycle-639.md) | real GitHub BFS: search → batched nodes → subIssues pagination → status decode → inventory doc → sections | `dev-tools-gh-lifecycle-639-fetch.ts` (needs `GITHUB_READ_TOKEN` or `gh auth`) |
 | #640 — BE getLifecycleTree callable | [dev-tools-gh-lifecycle-640.md](dev-tools-gh-lifecycle-640.md) | handler + real deps → response shape, grouping, error mapping | `dev-tools-gh-lifecycle-640-callable.ts` (needs `GITHUB_READ_TOKEN` or `gh auth`) |
 | #647 — SHARED workflow template | [workflows-template-647.md](workflows-template-647.md) | conventions doc structure + optional workflow-doc conformance | `workflows-template-647.ts` (no credentials) |
+| #681 — BE RH-MCP probe manifest | [rh-mcp-manifest-681.md](rh-mcp-manifest-681.md) | manifest file → loader → catalog validate → gate checks → dry-run plan | `functions/scripts/verify/rh-mcp-manifest-681.ts` (no credentials; runs from `functions/`) |
 
 ## Run All
 
