@@ -1,5 +1,5 @@
 /**
- * DevLifecycleService — thin callable wrapper for the dev-lifecycle page
+ * TopicViewerService — thin callable wrapper for the topic-viewer page
  * (Topic #619 / Blueprint #635 / task #642). Same httpsCallable +
  * runInInjectionContext pattern as PaperTradingService.
  */
@@ -15,18 +15,18 @@ import type {
 
 /** Repos the BE will accept (SUPPORTED_REPOS in functions gh-lifecycle
  *  config is authoritative — keep this mirror in sync). */
-export interface DevLifecycleRepo {
+export interface TopicViewerRepo {
   owner: string;
   repo: string;
   label: string;
 }
 
-export const DEV_LIFECYCLE_REPOS: DevLifecycleRepo[] = [
+export const TOPIC_VIEWER_REPOS: TopicViewerRepo[] = [
   { owner: 'rinebob', repo: 'rel-str', label: 'rel-str' },
 ];
 
 @Injectable({ providedIn: 'root' })
-export class DevLifecycleService {
+export class TopicViewerService {
   private readonly functions = inject(Functions);
   private readonly env = inject(EnvironmentInjector);
 

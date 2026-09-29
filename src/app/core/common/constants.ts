@@ -180,6 +180,14 @@ export const NAV_MENU_ITEMS: NavItem[] = [
         target: '_self',
     },
     {
+        name: 'topic-viewer',
+        text: 'Topic Viewer',
+        href: 'tools/topic-viewer',
+        mobileOnly: false,
+        external: false,
+        target: '_self',
+    },
+    {
         name: 'logout',
         text: 'logout',
         href: '',

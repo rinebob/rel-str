@@ -1,5 +1,5 @@
 /**
- * LifecyclePageComponent — master-detail read-only GitHub issue-lifecycle
+ * TopicViewerPageComponent — master-detail read-only GitHub issue-lifecycle
  * viewer (Topic #619 / Blueprint #635 / task #643).
  *
  * Header: repo picker, Refresh (spinner while loading), as-of timestamp,
@@ -15,19 +15,19 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 
-import { LifecycleStore } from './lifecycle.store';
-import { LifecycleTreeComponent } from './lifecycle-tree.component';
+import { TopicViewerStore } from './topic-viewer.store';
+import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
 
 @Component({
-  selector: 'app-lifecycle-page',
+  selector: 'app-topic-viewer-page',
   imports: [
     MatButtonModule, MatCheckboxModule, MatFormFieldModule,
     MatProgressSpinnerModule, MatSelectModule,
-    LifecycleTreeComponent,
+    TopicViewerTreeComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="page" data-testid="lifecycle-page">
+    <div class="page" data-testid="topic-viewer-page">
       <header class="header">
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="repo-picker">
           <mat-select [value]="store.selectedRepoIndex()" aria-label="Repository"
@@ -85,7 +85,7 @@ import { LifecycleTreeComponent } from './lifecycle-tree.component';
               <button mat-button type="button" data-testid="expand-all" (click)="store.expandAll()">Expand all</button>
               <button mat-button type="button" data-testid="collapse-all" (click)="store.collapseAll()">Collapse all</button>
             </div>
-            <app-lifecycle-tree />
+            <app-topic-viewer-tree />
           } @else {
             <div class="empty" data-testid="tree-empty">Select a Topic to view its lifecycle tree</div>
           }
@@ -121,8 +121,8 @@ import { LifecycleTreeComponent } from './lifecycle-tree.component';
     .empty { color: #999; font-size: 0.85rem; padding: 24px 8px; }
   `],
 })
-export class LifecyclePageComponent implements OnInit {
-  protected readonly store = inject(LifecycleStore);
+export class TopicViewerPageComponent implements OnInit {
+  protected readonly store = inject(TopicViewerStore);
 
   ngOnInit(): void {
     // Refetch on entry when nothing is cached — a persisted failure

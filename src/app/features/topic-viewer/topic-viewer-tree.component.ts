@@ -1,5 +1,5 @@
 /**
- * LifecycleTreeComponent — flat-row tree renderer for the dev-lifecycle
+ * TopicViewerTreeComponent — flat-row tree renderer for the topic-viewer
  * page (Topic #619 / task #643). Renders the store's expandedIds-gated
  * `treeRows` with depth indentation; caret toggles expansion; titles link
  * out to github.com. Read-only — no write affordances.
@@ -10,10 +10,10 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
 import type { LifecycleNode } from '@lifecycle/contracts';
-import { LifecycleStore } from './lifecycle.store';
+import { TopicViewerStore } from './topic-viewer.store';
 
 @Component({
-  selector: 'app-lifecycle-tree',
+  selector: 'app-topic-viewer-tree',
   imports: [MatButtonModule, MatIconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -74,8 +74,8 @@ import { LifecycleStore } from './lifecycle.store';
     .chip.tag { background: #f3e5f5; color: #6a1b9a; }
   `],
 })
-export class LifecycleTreeComponent {
-  protected readonly store = inject(LifecycleStore);
+export class TopicViewerTreeComponent {
+  protected readonly store = inject(TopicViewerStore);
 
   private readonly expandedSet = computed(() => new Set(this.store.expandedIds()));
 

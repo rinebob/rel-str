@@ -1,5 +1,5 @@
 /**
- * LifecycleTreeComponent spec (task #643) — depth indentation, caret
+ * TopicViewerTreeComponent spec (task #643) — depth indentation, caret
  * visibility/toggle, github link hrefs, chips, closed styling.
  */
 
@@ -12,10 +12,10 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 
-import { LifecycleTreeComponent } from './lifecycle-tree.component';
-import { LifecycleStore } from './lifecycle.store';
+import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
+import { TopicViewerStore } from './topic-viewer.store';
 import type { LifecycleNode } from '@lifecycle/contracts';
-import type { TreeRow } from './lifecycle.store';
+import type { TreeRow } from './topic-viewer.store';
 
 const node = (n: number, overrides: Partial<LifecycleNode> = {}): LifecycleNode => ({
   number: n, title: `Issue ${n}`, state: 'open',
@@ -24,25 +24,25 @@ const node = (n: number, overrides: Partial<LifecycleNode> = {}): LifecycleNode 
   children: [], ...overrides,
 });
 
-describe('LifecycleTreeComponent', () => {
-  let fixture: ComponentFixture<LifecycleTreeComponent>;
+describe('TopicViewerTreeComponent', () => {
+  let fixture: ComponentFixture<TopicViewerTreeComponent>;
   const treeRows = signal<TreeRow[]>([]);
   const expandedIds = signal<number[]>([]);
   const toggleExpanded = jest.fn();
 
   async function setup() {
     await TestBed.configureTestingModule({
-      imports: [LifecycleTreeComponent],
+      imports: [TopicViewerTreeComponent],
       providers: [
         provideZonelessChangeDetection(),
         provideNoopAnimations(),
-        { provide: LifecycleStore, useValue: {
+        { provide: TopicViewerStore, useValue: {
           treeRows, expandedIds, toggleExpanded,
           showClosed: signal(true), // specs control visibility via treeRows
         } },
       ],
     }).compileComponents();
-    fixture = TestBed.createComponent(LifecycleTreeComponent);
+    fixture = TestBed.createComponent(TopicViewerTreeComponent);
     fixture.detectChanges();
     await fixture.whenStable();
   }
@@ -115,7 +115,7 @@ describe('LifecycleTreeComponent', () => {
     parent.children = [node(30, { state: 'closed' })];
     treeRows.set([{ node: parent, depth: 0 }]);
     await setup();
-    const store = fixture.debugElement.injector.get(LifecycleStore) as unknown as {
+    const store = fixture.debugElement.injector.get(TopicViewerStore) as unknown as {
       showClosed: ReturnType<typeof signal<boolean>>;
     };
     store.showClosed.set(false);

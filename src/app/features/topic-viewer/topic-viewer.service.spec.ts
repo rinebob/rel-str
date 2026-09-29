@@ -1,5 +1,5 @@
 /**
- * DevLifecycleService spec — httpsCallable wrapper for getLifecycleTree
+ * TopicViewerService spec — httpsCallable wrapper for getLifecycleTree
  * (task #642). Mocks @angular/fire/functions; asserts the callable name
  * and request/response typing pass-through.
  */
@@ -14,29 +14,29 @@ import { Functions, httpsCallable } from '@angular/fire/functions';
 import { firstValueFrom } from 'rxjs';
 
 import { CallableName } from '../../core/common/constants';
-import { DevLifecycleService, DEV_LIFECYCLE_REPOS } from './dev-lifecycle.service';
+import { TopicViewerService, TOPIC_VIEWER_REPOS } from './topic-viewer.service';
 import type { LifecycleTreeResponse } from '@lifecycle/contracts';
 
 const callable = jest.fn();
 
-describe('DevLifecycleService', () => {
-  let service: DevLifecycleService;
+describe('TopicViewerService', () => {
+  let service: TopicViewerService;
 
   beforeEach(async () => {
     jest.clearAllMocks();
     (httpsCallable as jest.Mock).mockReturnValue(callable);
     await TestBed.configureTestingModule({
       providers: [
-        DevLifecycleService,
+        TopicViewerService,
         { provide: Functions, useValue: {} },
       ],
     });
-    service = TestBed.inject(DevLifecycleService);
+    service = TestBed.inject(TopicViewerService);
   });
 
   it('repos constant exposes the supported mirror', () => {
-    expect(DEV_LIFECYCLE_REPOS.length).toBeGreaterThan(0);
-    expect(DEV_LIFECYCLE_REPOS[0].owner).toBe('rinebob');
+    expect(TOPIC_VIEWER_REPOS.length).toBeGreaterThan(0);
+    expect(TOPIC_VIEWER_REPOS[0].owner).toBe('rinebob');
   });
 
   it('calls getLifecycleTree callable and unwraps .data', async () => {

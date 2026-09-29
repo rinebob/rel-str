@@ -1,5 +1,5 @@
 /**
- * LifecycleStore spec (task #642) — section assembly, closed filtering,
+ * TopicViewerStore spec (task #642) — section assembly, closed filtering,
  * selection, expand/collapse, stale-response guard, error retention.
  */
 
@@ -11,8 +11,8 @@ jest.mock('@angular/fire/functions', () => ({
 import { TestBed } from '@angular/core/testing';
 import { firstValueFrom, of, Subject, throwError } from 'rxjs';
 
-import { LifecycleStore } from './lifecycle.store';
-import { DevLifecycleService } from './dev-lifecycle.service';
+import { TopicViewerStore } from './topic-viewer.store';
+import { TopicViewerService } from './topic-viewer.service';
 import type {
   LifecycleNode,
   LifecycleTreeResponse,
@@ -48,16 +48,16 @@ const FIXTURE = resp([
   },
 ]);
 
-function storeWith(service: Partial<DevLifecycleService>) {
+function storeWith(service: Partial<TopicViewerService>) {
   return TestBed.configureTestingModule({
     providers: [
-      LifecycleStore,
-      { provide: DevLifecycleService, useValue: service },
+      TopicViewerStore,
+      { provide: TopicViewerService, useValue: service },
     ],
-  }).inject(LifecycleStore);
+  }).inject(TopicViewerStore);
 }
 
-describe('LifecycleStore', () => {
+describe('TopicViewerStore', () => {
   beforeEach(() => TestBed.resetTestingModule());
 
   it('maps sections to view rows; closed filtered unless showClosed', async () => {

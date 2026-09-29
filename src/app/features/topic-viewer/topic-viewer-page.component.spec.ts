@@ -1,5 +1,5 @@
 /**
- * LifecyclePageComponent spec (task #643) — header controls, grouped
+ * TopicViewerPageComponent spec (task #643) — header controls, grouped
  * topic list, banners, empty states. Store is stubbed with signals.
  */
 
@@ -14,10 +14,13 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { By } from '@angular/platform-browser';
 import { MatSelect } from '@angular/material/select';
 
-import { LifecyclePageComponent } from './lifecycle-page.component';
-import { LifecycleStore } from './lifecycle.store';
+import { TopicViewerPageComponent } from './topic-viewer-page.component';
+import { TopicViewerStore } from './topic-viewer.store';
+import { NAV_MENU_ITEMS } from '../../core/common/constants';
+import { AppRoutes } from '../../core/common/interfaces';
+import CORE_ROUTES from '../../core/core-routes';
 import type { LifecycleNode, LifecycleTreeResponse } from '@lifecycle/contracts';
-import type { TopicSectionVm, TreeRow } from './lifecycle.store';
+import type { TopicSectionVm, TreeRow } from './topic-viewer.store';
 
 const node = (n: number, children: LifecycleNode[] = []): LifecycleNode => ({
   number: n, title: `Topic ${n}`, state: 'open',
@@ -31,8 +34,8 @@ const RESPONSE: LifecycleTreeResponse = {
   fetchedAt: '2026-09-28T12:00:00Z', truncatedNodes: 0,
 };
 
-describe('LifecyclePageComponent', () => {
-  let fixture: ComponentFixture<LifecyclePageComponent>;
+describe('TopicViewerPageComponent', () => {
+  let fixture: ComponentFixture<TopicViewerPageComponent>;
 
   const response = signal<LifecycleTreeResponse | null>(RESPONSE);
   const loading = signal(false);
@@ -76,12 +79,12 @@ describe('LifecyclePageComponent', () => {
       })).filter(s => s.topics.length > 0), // matches the store's drop
     );
     await TestBed.configureTestingModule({
-      imports: [LifecyclePageComponent],
+      imports: [TopicViewerPageComponent],
       providers: [
         provideZonelessChangeDetection(),
         provideNoopAnimations(),
         {
-          provide: LifecycleStore,
+          provide: TopicViewerStore,
           useValue: {
             repos: signal([{ owner: 'rinebob', repo: 'rel-str', label: 'rel-str' }]),
             selectedRepoIndex: signal(0),
@@ -97,7 +100,7 @@ describe('LifecyclePageComponent', () => {
         },
       ],
     }).compileComponents();
-    fixture = TestBed.createComponent(LifecyclePageComponent);
+    fixture = TestBed.createComponent(TopicViewerPageComponent);
     fixture.detectChanges();
     await fixture.whenStable();
   }
@@ -209,4 +212,23 @@ describe('LifecyclePageComponent', () => {
   function resp2Empty(): LifecycleTreeResponse {
     return { sections: [{ name: 'Ungrouped', topics: [] }], fetchedAt: 'x', truncatedNodes: 0 };
   }
+});
+
+describe('TopicViewer route + nav (task #644)', () => {
+  it('registers a lazy auth-gated route', async () => {
+    const route = CORE_ROUTES[0]?.children?.find(
+      (r) => r.path === AppRoutes.TOPIC_VIEWER,
+    );
+    expect(route).toBeTruthy();
+    expect(route?.canActivate?.length).toBeGreaterThan(0);
+    const mod = await (route!.loadComponent as () => Promise<unknown>)();
+    expect(mod).toBeTruthy();
+  });
+
+  it('exposes a nav entry', () => {
+    const nav = NAV_MENU_ITEMS.find((i) => i.href === AppRoutes.TOPIC_VIEWER);
+    expect(nav).toBeTruthy();
+    expect(nav?.text).toBe('Topic Viewer');
+    expect(nav?.external).toBe(false);
+  });
 });

@@ -56,6 +56,10 @@ export enum AppRoutes {
 	OPTION_CHAIN = 'savant-trader/option-chain',
 	SWING_ANALYSIS = 'savant-trader/swing-analysis',
 	FLEX_CHART_SANDBOX = 'savant-trader/flex-chart-sandbox',
+	/** PROTOTYPE — throwaway Today-surface variants route. Remove after decision. */
+	PROTOTYPE_TODAY = 'prototype-today',
+	/** Topic Viewer: read-only GitHub issue-lifecycle tree (#619). */
+	TOPIC_VIEWER = 'tools/topic-viewer',
 }
 
 export enum AuthLevel {

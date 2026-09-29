@@ -1,5 +1,5 @@
 /**
- * LifecycleStore — NgRx SignalStore for the dev-lifecycle page
+ * TopicViewerStore — NgRx SignalStore for the topic-viewer page
  * (Topic #619 / Blueprint #635 / task #642).
  *
  * Owns the fetched LifecycleTreeResponse and maps it to the view models
@@ -22,10 +22,10 @@ import type {
   LifecycleTreeResponse,
 } from '@lifecycle/contracts';
 import {
-  DEV_LIFECYCLE_REPOS,
-  DevLifecycleService,
-  type DevLifecycleRepo,
-} from './dev-lifecycle.service';
+  TOPIC_VIEWER_REPOS,
+  TopicViewerService,
+  type TopicViewerRepo,
+} from './topic-viewer.service';
 
 export interface TopicRow {
   number: number;
@@ -46,7 +46,7 @@ export interface TreeRow {
 }
 
 interface LifecycleState {
-  repos: DevLifecycleRepo[];
+  repos: TopicViewerRepo[];
   selectedRepoIndex: number;
   response: LifecycleTreeResponse | null;
   selectedTopicNumber: number | null;
@@ -61,7 +61,7 @@ interface LifecycleState {
 }
 
 const initialState: LifecycleState = {
-  repos: DEV_LIFECYCLE_REPOS,
+  repos: TOPIC_VIEWER_REPOS,
   selectedRepoIndex: 0,
   response: null,
   selectedTopicNumber: null,
@@ -89,7 +89,7 @@ function toRow(n: LifecycleNode): TopicRow {
   };
 }
 
-export const LifecycleStore = signalStore(
+export const TopicViewerStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
 
@@ -175,7 +175,7 @@ export const LifecycleStore = signalStore(
   })),
 
   withMethods((store) => {
-    const service = inject(DevLifecycleService);
+    const service = inject(TopicViewerService);
 
     async function fetch(): Promise<void> {
       const repo = store.selectedRepo();
