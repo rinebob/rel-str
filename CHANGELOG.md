@@ -8,6 +8,9 @@
 - [GitHub read-only issue UI] 619-621-644_DOCS-DEV-TOOLS: Code review (PASS, 2 iterations) + UAT (Complete) for #644
 - [GitHub read-only issue UI] 619-621-643_FE-IMPL-DEV-TOOLS: Lifecycle viewer page + tree — repo picker, grouped topic list, expand/collapse tree, banners, empty states
 - [GitHub read-only issue UI] 619-621-643_DOCS-DEV-TOOLS: Code review (PASS, 2 iterations) + UAT (Complete) for #643
+- [Paper Trading Infra] 553-665_SHARED-IMPL-PAPER-TRADING: Trade-exits contracts — CANCELLED status, trailing-8 seeding defaults (no shadows), TERMINAL_VARIANT_FAMILIES, close/cancel callable shapes
+- [Paper Trading Infra] 553-665_BE-IMPL-PAPER-TRADING: Cancelled stats exclusion + doc-userId owner resolution (governing closes now reach signal trades) + consumer re-baselines
+- [Paper Trading Infra] 553-665_DOCS-PAPER-TRADING: Trade Exits PRD/IMPL/TEST docs, code review (PASS, 3 rounds) + UAT (Complete) for #665, contract verify script
 - [GitHub read-only issue UI] 619-621-642_FE-IMPL-DEV-TOOLS: DevLifecycleService + LifecycleStore — callable wrapper, grouped topic sections, expansion-gated tree, stale-response guard
 - [GitHub read-only issue UI] 619-621-642_DOCS-DEV-TOOLS: Code review (PASS, 2 iterations) + UAT (Complete) for #642
 - [GitHub read-only issue UI] 619-621-640_BE-IMPL-DEV-TOOLS: getLifecycleTree callable — auth gate, repo validation, truncation-guard, grouping degrade, error mapping
