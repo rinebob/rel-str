@@ -31,12 +31,13 @@ npx tsx scripts/verify/paper-trading-signal-order-564.ts
 
 ### Pass criteria
 
-All 15 checks `OK`; exit code 0. Covers:
+All checks `OK`; exit code 0. Covers:
 
 - Response ids: equity + one pending per `SIGNAL_EXPRESSION_TEMPLATES[LONG]`.
 - Trade ids carry the `sig` origin.
 - Equity trade: OPEN, share leg, entry fill at a real price, signal/cohort
-  dims, `userId`, `none` governing + 3 shadow variant runs.
+  dims, `userId`, single governing `trailing-8` variant run (#652 model —
+  no shadows).
 - Pending trades: PENDING, carry `expressionTemplate`, no fills/legs.
 - Cohort: groups all member trades + template keys.
 - Account: cash debited by the equity fill, `openTradeCount` = 1.

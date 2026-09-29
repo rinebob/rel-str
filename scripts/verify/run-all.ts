@@ -19,6 +19,7 @@ const scripts = [
   { name: 'list orders', file: 'savant-trader-broker-orders-list.ts', needsAccount: true },
   { name: 'list positions', file: 'savant-trader-broker-positions-list.ts', needsAccount: true },
   { name: 'paper-trading contracts', file: 'paper-trading-contracts-560-ids.ts', needsAccount: false },
+  { name: 'paper-trading trade-exits contracts', file: 'paper-trading-contracts-665.ts', needsAccount: false },
   {
     name: 'swing config library',
     file: 'swing-analysis-misc-fixes-605-config-library.ts',
