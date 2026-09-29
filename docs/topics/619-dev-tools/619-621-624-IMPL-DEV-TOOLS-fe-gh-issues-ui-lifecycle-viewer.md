@@ -18,16 +18,16 @@
 
 ## 1. Scope
 
-New feature area `src/app/features/dev-lifecycle/` — a master-detail read-only page rendering `LifecycleTreeResponse` from the `getLifecycleTree` callable. Follows the `portfolio-dashboard` feature conventions (standalone components, NgRx SignalStore, service seam, `data-testid` hooks).
+New feature area `src/app/features/topic-viewer/` — a master-detail read-only page rendering `LifecycleTreeResponse` from the `getLifecycleTree` callable. Follows the `portfolio-dashboard` feature conventions (standalone components, NgRx SignalStore, service seam, `data-testid` hooks). (Renamed `dev-lifecycle` → `topic-viewer` in #644 per the nav-reorg PRD: surface is "Topic Viewer" at `/tools/topic-viewer`.)
 
 ## 2. Files
 
-- `dev-lifecycle.service.ts` — thin callable wrapper: `getLifecycleTree$({owner, repo}): Observable<LifecycleTreeResponse>` via `httpsCallable` (same pattern as `paper-trading.service.ts`); exposes `SUPPORTED_REPOS` for the picker (shared const or mirrored from BE config — decision: FE keeps its own 2-entry constant; the BE whitelist is authoritative).
-- `lifecycle.store.ts` — SignalStore: `repos`, `selectedRepo`, `response`, `topicSections` (view models), `selectedTopic`, `expandedIds` (`number[]` — serializable signal state; Set semantics applied at use sites), `groupingWarning` (BE degrade notice passthrough), `showClosed`, `loading`, `error`, `fetchedAt`. Methods: `selectRepo(i)`, `selectTopic(n)` (seeds the topic into `expandedIds` so depth-1 shows), `refresh()`, `toggleExpanded(n)`, `expandAll()`, `collapseAll()`, `toggleShowClosed()`. Repo list exported as `DEV_LIFECYCLE_REPOS` on the service; when #638 adds the SA repo BE-side, this mirror must update in the same change.
-- `lifecycle-page.component.ts` — the page shell (header row + two panes).
-- `lifecycle-tree.component.ts` — recursive tree renderer (component-per-node is fine at this scale; indentation by depth).
-- `core-routes.ts` — lazy route `/dev-lifecycle`, auth-gated like sibling pages.
-- `core/common/constants.ts` — nav entry "Dev Lifecycle" appended to the nav list.
+- `topic-viewer.service.ts` — thin callable wrapper: `getLifecycleTree$({owner, repo}): Observable<LifecycleTreeResponse>` via `httpsCallable` (same pattern as `paper-trading.service.ts`); exposes `TOPIC_VIEWER_REPOS` for the picker (FE-side mirror; the BE `SUPPORTED_REPOS` whitelist is authoritative — when #638 adds the SA repo BE-side, this mirror must update in the same change).
+- `topic-viewer.store.ts` — SignalStore: `repos`, `selectedRepo`, `response`, `topicSections` (view models), `selectedTopic`, `expandedIds` (`number[]` — serializable signal state; Set semantics applied at use sites), `groupingWarning` (BE degrade notice passthrough), `showClosed`, `loading`, `error`, `fetchedAt`. Methods: `selectRepo(i)`, `selectTopic(n)` (seeds the topic into `expandedIds` so depth-1 shows), `refresh()`, `toggleExpanded(n)`, `expandAll()`, `collapseAll()`, `toggleShowClosed()`/`setShowClosed(v)`.
+- `topic-viewer-page.component.ts` — the page shell (header row + two panes).
+- `topic-viewer-tree.component.ts` — flat-row tree renderer (indentation by depth; expandedIds-gated).
+- `core-routes.ts` — lazy route `/tools/topic-viewer`, auth-gated like sibling pages.
+- `core/common/constants.ts` — nav entry "Topic Viewer" appended to the nav list.
 - Specs alongside each file (`allocation-page.component.spec.ts` pattern).
 
 ## 3. View model
