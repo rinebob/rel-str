@@ -229,6 +229,63 @@ describe('PositionAttributionService', () => {
     expect(deleted).toHaveLength(2); // unlinked NVDA untouched
   });
 
+  it('attributeMany$ writes all items + linkKey siblings in ONE txn', async () => {
+    const other = `${ACCT}_other`;
+    const leg1 = attribution({ id: `${ACCT}_leg1`, instrumentId: 'leg1', bucketId: other, linkKey: 'ord-9' });
+    const leg2 = attribution({ id: `${ACCT}_leg2`, instrumentId: 'leg2', bucketId: other, linkKey: 'ord-9' });
+    mockDocs.attributions = [leg1, leg2].map((a) => ({ id: a.id, data: a }));
+    txnSeeds({
+      [`${ACCT}_csp-wheel`]: bucket(),
+      [`${ACCT}_leg1`]: leg1,
+      [`${ACCT}_leg2`]: leg2,
+    });
+    const { runTransaction } = await import('@angular/fire/firestore');
+
+    await firstValueFrom(service.attributeMany$(ACCT, [
+      { instrumentId: 'leg1', linkKey: 'ord-9' },  // pulls leg2 via the group
+      { instrumentId: 'MSFT' },
+    ], `${ACCT}_csp-wheel`));
+
+    expect(runTransaction).toHaveBeenCalledTimes(1);
+    const writtenPaths = mockTxn.set.mock.calls.map((c) => (c[0] as { path: string }).path);
+    expect(writtenPaths).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining(`${ACCT}_leg1`),
+        expect.stringContaining(`${ACCT}_leg2`), // sibling moves with the group
+        expect.stringContaining(`${ACCT}_MSFT`),
+      ]),
+    );
+  });
+
+  it('attributeMany$ rejects a retired bucket before any write', async () => {
+    txnSeeds({ [`${ACCT}_csp-wheel`]: bucket({ status: BucketStatus.RETIRED }) });
+    await expect(firstValueFrom(
+      service.attributeMany$(ACCT, [{ instrumentId: 'MSFT' }], `${ACCT}_csp-wheel`),
+    )).rejects.toThrow('missing or retired');
+    expect(mockTxn.set).not.toHaveBeenCalled();
+  });
+
+  it('unassignMany$ deletes every checked id + group siblings in ONE txn', async () => {
+    const leg1 = attribution({ id: `${ACCT}_leg1`, instrumentId: 'leg1', linkKey: 'ord-9' });
+    const leg2 = attribution({ id: `${ACCT}_leg2`, instrumentId: 'leg2', linkKey: 'ord-9' });
+    const aapl = attribution({ id: `${ACCT}_AAPL`, instrumentId: 'AAPL' });
+    mockDocs.attributions = [leg1, leg2, aapl].map((a) => ({ id: a.id, data: a }));
+    const { runTransaction } = await import('@angular/fire/firestore');
+
+    await firstValueFrom(service.unassignMany$(ACCT, ['leg1', 'AAPL']));
+
+    expect(runTransaction).toHaveBeenCalledTimes(1);
+    const deleted = mockTxn.delete.mock.calls.map((c) => (c[0] as { path: string }).path);
+    expect(deleted).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining(`${ACCT}_leg1`),
+        expect.stringContaining(`${ACCT}_leg2`), // sibling rides along
+        expect.stringContaining(`${ACCT}_AAPL`),
+      ]),
+    );
+    expect(deleted).toHaveLength(3);
+  });
+
   it('seedFromTicket$ resolves exactly-one ACTIVE name-slug match and seeds with linkKey', async () => {
     // Buckets read path: getDocs routes by collection path; seed needs a
     // buckets query — override getDocs for this test.

@@ -191,6 +191,115 @@ export class PositionAttributionService {
   }
 
   /**
+   * Bulk form of attribute$ — ONE read + ONE txn for the whole selection
+   * (the per-item path re-queries attributions each call; N items = N
+   * reads + N txns, which is why bulk assign felt slow). Group expansion
+   * unions every item's linkKey members into a single write set, so
+   * selecting one leg still moves the whole linked order.
+   */
+  attributeMany$(
+    accountNumber: string,
+    items: { instrumentId: string; linkKey?: string }[],
+    toBucketId: string,
+  ): Observable<void> {
+    return requireUserId(this.auth, this.injector).pipe(
+      take(1),
+      switchMap((userId) =>
+        runInInjectionContext(this.injector, async () => {
+          const existing = await this.readAttributions(userId, accountNumber);
+          // Union of every item's group — an existing linkKey on the doc
+          // always wins over the caller-supplied one.
+          const members = new Map<string, string>();
+          for (const item of items) {
+            const selfId = buildAttributionId(accountNumber, item.instrumentId);
+            const self = existing.find((a) => a.id === selfId);
+            const link = self?.linkKey ?? item.linkKey;
+            for (const a of link ? existing.filter((x) => x.linkKey === link) : []) {
+              members.set(a.id, a.instrumentId);
+            }
+            members.set(selfId, item.instrumentId);
+          }
+
+          const bucketRef = doc(this.firestore, PORTFOLIO_BUCKETS_COLLECTION, toBucketId);
+          await runTransaction(this.firestore, async (txn) => {
+            const bucket = await txn.get(bucketRef);
+            if (!bucket.exists()
+              || (bucket.data() as AllocationBucket).status !== BucketStatus.ACTIVE) {
+              throw new Error(`Target bucket '${toBucketId}' is missing or retired`);
+            }
+            const bucketData = bucket.data() as AllocationBucket;
+            if (bucketData.accountNumber !== accountNumber) {
+              throw new Error(`Bucket '${toBucketId}' belongs to a different account`);
+            }
+
+            const snaps = new Map<string, PositionAttribution | undefined>();
+            for (const id of members.keys()) {
+              const ref = doc(this.firestore, PORTFOLIO_ATTRIBUTIONS_COLLECTION, id);
+              const snap = await txn.get(ref);
+              snaps.set(id, snap.exists() ? (snap.data() as PositionAttribution) : undefined);
+            }
+
+            const now = new Date().toISOString();
+            for (const [id, memberInstrument] of members) {
+              const current = snaps.get(id);
+              const item = items.find((i) => buildAttributionId(accountNumber, i.instrumentId) === id);
+              const wantsLink = current?.linkKey ?? item?.linkKey;
+              if (current?.bucketId === toBucketId && current?.linkKey === wantsLink) {
+                continue;
+              }
+              const next: PositionAttribution = {
+                id,
+                userId,
+                accountNumber,
+                instrumentId: current?.instrumentId ?? memberInstrument,
+                bucketId: toBucketId,
+                ...(wantsLink ? { linkKey: wantsLink } : {}),
+                history: [...(current?.history ?? []),
+                  { fromBucketId: current?.bucketId ?? null, toBucketId, at: now }],
+                createdAt: current?.createdAt ?? now,
+                updatedAt: now,
+              };
+              txn.set(doc(this.firestore, PORTFOLIO_ATTRIBUTIONS_COLLECTION, id),
+                next as unknown as DocumentData);
+            }
+          });
+        }),
+      ),
+    );
+  }
+
+  /**
+   * Bulk unassign — same group-union semantics, one txn deletes every
+   * attribution doc (group members included).
+   */
+  unassignMany$(accountNumber: string, instrumentIds: string[]): Observable<void> {
+    return requireUserId(this.auth, this.injector).pipe(
+      take(1),
+      switchMap((userId) =>
+        runInInjectionContext(this.injector, async () => {
+          const existing = await this.readAttributions(userId, accountNumber);
+          const ids = new Set<string>();
+          for (const instrumentId of instrumentIds) {
+            const selfId = buildAttributionId(accountNumber, instrumentId);
+            const self = existing.find((a) => a.id === selfId);
+            for (const a of self?.linkKey
+              ? existing.filter((x) => x.linkKey === self.linkKey)
+              : []) {
+              ids.add(a.id);
+            }
+            ids.add(selfId);
+          }
+          await runTransaction(this.firestore, async (txn) => {
+            for (const id of ids) {
+              txn.delete(doc(this.firestore, PORTFOLIO_ATTRIBUTIONS_COLLECTION, id));
+            }
+          });
+        }),
+      ),
+    );
+  }
+
+  /**
    * Remove a position's attribution → lands back in Unassigned (absence of
    * a doc IS the Unassigned encoding, so this deletes — the audit history
    * inside the doc is discarded; group-aware: linked legs unassign as one).

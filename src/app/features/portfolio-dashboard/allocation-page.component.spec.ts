@@ -187,7 +187,7 @@ describe('AllocationPageComponent', () => {
     fixture.detectChanges();
     const rows = fixture.nativeElement
       .querySelector('.mat-mdc-tab-body-active')
-      .querySelectorAll('[data-testid="position-row"]');
+      .querySelectorAll('[data-testid^="position-row-"]');
     expect(rows.length).toBe(2);
     expect(rows[0].textContent).toContain('AAPL');
     expect(rows[0].textContent).toContain('Wheel');
@@ -211,7 +211,7 @@ describe('AllocationPageComponent', () => {
     (active().querySelector('[data-testid="subtab-positions"]') as HTMLElement)
       .closest('[role="tab"]')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     fixture.detectChanges();
-    const rows = active().querySelectorAll('[data-testid="position-row"]');
+    const rows = active().querySelectorAll('[data-testid^="position-row-"]');
     expect(rows.length).toBe(1);
     expect(rows[0].textContent).toContain('TSLA');
   });

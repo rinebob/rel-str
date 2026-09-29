@@ -125,6 +125,8 @@ function buildMocks(): Mocks {
     }),
     attribute$: jest.fn(() => of(void 0)),
     unassign$: jest.fn(() => of(void 0)),
+    attributeMany$: jest.fn(() => of(void 0)),
+    unassignMany$: jest.fn(() => of(void 0)),
   };
   return { data, buckets, attrs, bucketStreams, attrStreams };
 }
@@ -251,6 +253,23 @@ describe('AllocationStore', () => {
     const msft = rows.find((r) => r.position.instrumentId === 'MSFT');
     expect(msft?.bucketName).toBe('Unassigned');
     expect(msft?.bucketId).toBeNull();
+  });
+
+  it('positionsRows drops qty-0 placeholder rows (resting-order stubs, not positions)', async () => {
+    // RH's positions endpoint returns type:'empty' qty-0 rows for symbols
+    // with resting orders — they must never render or be assignable.
+    const mocks = buildMocks();
+    mocks.data.getPositions.mockImplementation(async (acct: string) => acct === ACCT_A
+      ? [
+        pos('AAPL', 1000, 800),
+        pos('MU', 0, 0, 0),          // qty=0 resting-order stub
+        pos('PLTR', NaN, NaN, 0),    // unpriced + qty 0
+      ]
+      : []);
+    const { store } = await setup(mocks);
+    await flush();
+    const rows = store.positionsRows();
+    expect(rows.map((r) => r.position.instrumentId)).toEqual(['AAPL']);
   });
 
   it('bucketDetail(id) returns the bucket, its stats, and its positions', async () => {

@@ -16,10 +16,12 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { AllocationStore } from './allocation.store';
 import { AllocationBucketsTableComponent } from './allocation-buckets-table.component';
+import { AllocationPositionsTableComponent } from './allocation-positions-table.component';
 
 @Component({
   selector: 'app-allocation-page',
-  imports: [MatTabsModule, MatTooltipModule, DatePipe, DecimalPipe, AllocationBucketsTableComponent],
+  imports: [MatTabsModule, MatTooltipModule, DatePipe, DecimalPipe,
+    AllocationBucketsTableComponent, AllocationPositionsTableComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="allocation-page">
@@ -94,15 +96,7 @@ import { AllocationBucketsTableComponent } from './allocation-buckets-table.comp
                   } @else if (store.selectedAllocation().error; as err) {
                     <div class="error-banner" data-testid="account-error">{{ err }}</div>
                   } @else {
-                  <table class="alloc-table">
-                    @for (row of store.positionsRows(); track row.position.instrumentId + '_' + $index) {
-                      <tr data-testid="position-row">
-                        <td>{{ row.position.instrumentId }}</td>
-                        <td>{{ row.position.marketValue | number:'1.0-0' }}</td>
-                        <td>{{ row.bucketName }}</td>
-                      </tr>
-                    }
-                  </table>
+                    <app-allocation-positions-table />
                   }
                 </mat-tab>
               </mat-tab-group>

@@ -48,6 +48,12 @@ export interface PositionRow {
   /** Resolved display name — 'Unassigned' when bucketId is null,
    *  'Unknown bucket' when the attribution points at a deleted bucket. */
   bucketName: string;
+  /** True when the attribution is dangling (bucketId set but the bucket
+   *  isn't in the loaded set — deleted out-of-band). Numerically the row
+   *  is unassigned (header/pseudo-row stats already fold it in) while the
+   *  label still surfaces the data issue — the Unassigned filter and
+   *  badge key off this + bucketId === null, matching the store. */
+  unresolved?: boolean;
   /** The position's multi-leg group key, when attributed as one. */
   linkKey?: string;
 }

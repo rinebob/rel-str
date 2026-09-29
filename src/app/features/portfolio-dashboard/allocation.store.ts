@@ -185,12 +185,24 @@ export const AllocationStore = signalStore(
       const bucketNames = new Map(alloc.buckets.map((b) => [b.id, b.name]));
       const attrByInstrument = new Map(acctAttributions.map((a) => [a.instrumentId, a]));
 
-      return attributePositions(alloc.positions, acctAttributions, acct.accountNumber).map((r) => ({
+      // Only well-formed (real) positions list — RH returns qty-0
+      // 'empty' placeholder rows for instruments with resting orders
+      // (verified against the live get_equity_positions payload). Those
+      // aren't positions, can't be valued, and must never appear or be
+      // assignable — a resting stop rides with the position it protects.
+      return attributePositions(
+        alloc.positions.filter(isWellFormedPosition),
+        acctAttributions, acct.accountNumber,
+      ).map((r) => ({
         position: r.position,
         bucketId: r.bucketId,
         bucketName: r.bucketId === null
           ? 'Unassigned'
           : (bucketNames.get(r.bucketId) ?? 'Unknown bucket'),
+        // Dangling attribution = numerically unassigned (same fold-in the
+        // header and pseudo-row apply) — flag it so the Positions tab's
+        // Unassigned filter/count can't disagree with the header total.
+        unresolved: r.bucketId !== null && !bucketNames.has(r.bucketId) ? true : undefined,
         linkKey: r.bucketId === null ? undefined : attrByInstrument.get(r.position.instrumentId)?.linkKey,
       }));
     }),
@@ -346,6 +358,21 @@ export const AllocationStore = signalStore(
 
       async unassignPosition(accountNumber: string, instrumentId: string): Promise<void> {
         await firstValueFrom(attrService.unassign$(accountNumber, instrumentId));
+      },
+
+      /** Bulk assign — ONE read + ONE txn for the whole selection
+       *  (attributeMany$ unions every item's linkKey group). A partial
+       *  failure can't strand the batch: all-or-nothing per txn. */
+      async assignPositions(
+        accountNumber: string,
+        items: { instrumentId: string; linkKey?: string }[],
+        bucketId: string,
+      ): Promise<void> {
+        await firstValueFrom(attrService.attributeMany$(accountNumber, items, bucketId));
+      },
+
+      async unassignPositions(accountNumber: string, instrumentIds: string[]): Promise<void> {
+        await firstValueFrom(attrService.unassignMany$(accountNumber, instrumentIds));
       },
 
       // -- bucket mutations --
