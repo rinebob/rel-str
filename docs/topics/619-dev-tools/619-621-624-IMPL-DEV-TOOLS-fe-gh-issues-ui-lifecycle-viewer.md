@@ -23,7 +23,7 @@ New feature area `src/app/features/dev-lifecycle/` — a master-detail read-only
 ## 2. Files
 
 - `dev-lifecycle.service.ts` — thin callable wrapper: `getLifecycleTree$({owner, repo}): Observable<LifecycleTreeResponse>` via `httpsCallable` (same pattern as `paper-trading.service.ts`); exposes `SUPPORTED_REPOS` for the picker (shared const or mirrored from BE config — decision: FE keeps its own 2-entry constant; the BE whitelist is authoritative).
-- `lifecycle.store.ts` — SignalStore: `repos`, `selectedRepo`, `response`, `topicSections` (view models), `selectedTopic`, `expandedIds` (Set), `showClosed`, `loading`, `error`, `fetchedAt`. Methods: `selectRepo(i)`, `selectTopic(n)`, `refresh()`, `toggleExpanded(n)`, `expandAll()`, `collapseAll()`, `toggleShowClosed()`.
+- `lifecycle.store.ts` — SignalStore: `repos`, `selectedRepo`, `response`, `topicSections` (view models), `selectedTopic`, `expandedIds` (`number[]` — serializable signal state; Set semantics applied at use sites), `groupingWarning` (BE degrade notice passthrough), `showClosed`, `loading`, `error`, `fetchedAt`. Methods: `selectRepo(i)`, `selectTopic(n)` (seeds the topic into `expandedIds` so depth-1 shows), `refresh()`, `toggleExpanded(n)`, `expandAll()`, `collapseAll()`, `toggleShowClosed()`. Repo list exported as `DEV_LIFECYCLE_REPOS` on the service; when #638 adds the SA repo BE-side, this mirror must update in the same change.
 - `lifecycle-page.component.ts` — the page shell (header row + two panes).
 - `lifecycle-tree.component.ts` — recursive tree renderer (component-per-node is fine at this scale; indentation by depth).
 - `core-routes.ts` — lazy route `/dev-lifecycle`, auth-gated like sibling pages.

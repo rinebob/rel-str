@@ -4,6 +4,8 @@
 ## [2026-09-28]
 
 ### Added
+- [GitHub read-only issue UI] 619-621-642_FE-IMPL-DEV-TOOLS: DevLifecycleService + LifecycleStore — callable wrapper, grouped topic sections, expansion-gated tree, stale-response guard
+- [GitHub read-only issue UI] 619-621-642_DOCS-DEV-TOOLS: Code review (PASS, 2 iterations) + UAT (Complete) for #642
 - [GitHub read-only issue UI] 619-621-640_BE-IMPL-DEV-TOOLS: getLifecycleTree callable — auth gate, repo validation, truncation-guard, grouping degrade, error mapping
 - [GitHub read-only issue UI] 619-621-640_DOCS-DEV-TOOLS: Code review (PASS, 2 iterations) + UAT (Complete) for #640
 - [Trading Workflows] 625-647_DOCS-WORKFLOWS: Workflow template + conventions — PRD/IMPL/TEST, conventions doc, code review (PASS, 2 rounds), UAT (Complete) for #647
