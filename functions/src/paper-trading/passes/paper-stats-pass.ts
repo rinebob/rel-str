@@ -32,7 +32,7 @@ import {
   statsScopeSymbol,
   statsScopeVariant,
 } from '@paper-trading/ids';
-import type { PaperTrade } from '@paper-trading/contracts';
+import { PaperTradeStatus, type PaperTrade } from '@paper-trading/contracts';
 import { db } from '../../firebase-admin-init';
 import type { Position } from '../engine/types';
 import { listTrades } from '../repository';
@@ -84,6 +84,9 @@ export async function runPaperStatsPass(
   const trades = await deps.listTrades();
   const byScope = new Map<string, PaperTrade[]>([[statsScopeAll(), []]]);
   for (const trade of trades) {
+    // A cancelled trade never held a position — it must not appear in
+    // rollups (counts or P&L) under any scope.
+    if (trade.status === PaperTradeStatus.CANCELLED) continue;
     for (const scope of tradeScopes(trade)) {
       const bucket = byScope.get(scope);
       if (bucket) bucket.push(trade);

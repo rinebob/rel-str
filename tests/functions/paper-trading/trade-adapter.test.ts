@@ -72,9 +72,13 @@ describe('status mapping', () => {
     assert.equal(legacyToPaperStatus(PositionStatus.CLOSED), PaperTradeStatus.CLOSED);
 
     assert.equal(paperToLegacyStatus(PaperTradeStatus.OPEN), PositionStatus.OPEN);
+    assert.equal(paperToLegacyStatus(PaperTradeStatus.PENDING), PositionStatus.OPEN);
     assert.equal(paperToLegacyStatus(PaperTradeStatus.EXPIRED), PositionStatus.EXPIRED_WORTHLESS);
     assert.equal(paperToLegacyStatus(PaperTradeStatus.ASSIGNED), PositionStatus.ASSIGNED_HOLDING_SHARES);
     assert.equal(paperToLegacyStatus(PaperTradeStatus.CLOSED), PositionStatus.CLOSED);
+    // CANCELLED has no legacy equivalent — a cancelled trade never held a
+    // position; CLOSED is the honest terminal mapping (#652).
+    assert.equal(paperToLegacyStatus(PaperTradeStatus.CANCELLED), PositionStatus.CLOSED);
   });
 });
 

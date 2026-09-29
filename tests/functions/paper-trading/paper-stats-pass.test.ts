@@ -128,6 +128,25 @@ describe('runPaperStatsPass', () => {
     assert.equal(variant.positions.length, 2);
   });
 
+  it('excludes CANCELLED trades from every scope (#652)', async () => {
+    const live = trade({ id: 't-live', symbol: 'QQQM' });
+    const cancelled = trade({
+      id: 't-cancelled',
+      status: PaperTradeStatus.CANCELLED,
+      symbol: 'AAPL',
+      cohortId: 'cohort-9',
+      variantKeys: ['trailing-8'],
+    });
+    const d = deps([live, cancelled]);
+    const res = await runPaperStatsPass(DATE, d);
+
+    // The cancelled trade contributes no scope buckets at all.
+    assert.deepEqual(res.scopesWritten.sort(), ['all', 'sym-QQQM']);
+    const all = d.written.find((w) => w.scope === 'all')!;
+    assert.equal(all.positions.length, 1);
+    assert.equal(all.positions[0].id, 't-live');
+  });
+
   it('still writes an all-scope doc when no trades exist', async () => {
     const d = deps([]);
     const res = await runPaperStatsPass(DATE, d);

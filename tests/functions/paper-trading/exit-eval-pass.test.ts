@@ -20,6 +20,7 @@ import {
   type VariantRun,
 } from '../../../shared/paper-trading-contracts';
 import {
+  resolveAccountOwner,
   runExitEvalPass,
   type ExitEvalDeps,
 } from '../../../functions/src/paper-trading/exits/eval-pass';
@@ -236,5 +237,44 @@ describe('runExitEvalPass', () => {
     await runExitEvalPass(DATE, makeDeps([trade], spy));
     assert.equal(spy.exits.length, 0);
     assert.equal(spy.runUpdates.length, 0);
+  });
+});
+
+describe('resolveAccountOwner (#652)', () => {
+  it('returns the trade userId without touching Firestore — signal-trade path', async () => {
+    // A signal trade has no strategyInstanceId; its doc-level userId is the
+    // account owner. A db that throws on any access proves the fast path.
+    const throwingDb = {
+      doc: () => { throw new Error('db touched'); },
+      collection: () => { throw new Error('db touched'); },
+    } as never;
+    const trade = makeTrade({ strategyInstanceId: undefined, userId: 'user-9' });
+    assert.equal(await resolveAccountOwner(throwingDb, trade), 'user-9');
+  });
+
+  it('falls back to the instance doc when the trade has no userId', async () => {
+    // Legacy strategy trades predate the doc-level userId — owner resolves
+    // through the instance.
+    const fakeDb = {
+      doc: () => ({
+        get: async () => ({
+          exists: true,
+          data: () => ({
+            kind: PaperTradingKind.INSTANCE,
+            userId: 'user-from-instance',
+          }),
+        }),
+      }),
+    } as never;
+    const trade = makeTrade({ userId: undefined, strategyInstanceId: 'inst-1' });
+    assert.equal(await resolveAccountOwner(fakeDb, trade), 'user-from-instance');
+  });
+
+  it('returns undefined when neither field resolves', async () => {
+    const fakeDb = {
+      doc: () => ({ get: async () => { throw new Error('unreachable'); } }),
+    } as never;
+    const trade = makeTrade({ userId: undefined, strategyInstanceId: undefined });
+    assert.equal(await resolveAccountOwner(fakeDb, trade), undefined);
   });
 });

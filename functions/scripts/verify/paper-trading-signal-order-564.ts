@@ -172,11 +172,11 @@ async function main(): Promise<void> {
       eqTrade.legs[0]?.kind === 'share' &&
       eqTrade.signalId === SIGNAL_ID &&
       eqTrade.cohortId === res.cohortId);
-    check('equity trade: userId + variant runs seeded (none governs)',
+    check('equity trade: userId + single governing trailing-8 run (#652)',
       eqTrade.userId === USER_ID &&
-      eqTrade.variantRuns.length === 4 &&
-      eqTrade.variantRuns.filter((r) => r.governing).length === 1 &&
-      eqTrade.variantRuns.find((r) => r.governing)?.variantKey === 'none');
+      eqTrade.variantRuns.length === 1 &&
+      eqTrade.variantRuns[0].governing === true &&
+      eqTrade.variantRuns[0].variantKey === 'trailing-8');
 
     const pendings = await Promise.all(
       res.expressionTradeIds.map(

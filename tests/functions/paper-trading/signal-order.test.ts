@@ -177,7 +177,8 @@ describe('handlePaperSignalOrder', () => {
     assert.equal(entry.dims.cohortId, 'cohort-260925-QQQM-01');
     assert.equal(entry.dims.ticket?.refId, 'ref-1');
     assert.equal(entry.dims.governingVariant, SIGNAL_GOVERNING_VARIANT);
-    assert.ok(entry.dims.variantKeys?.includes('initial-stop-10'));
+    // #652: exactly one governing trailing-8 run — no shadows.
+    assert.deepEqual(entry.dims.variantKeys, ['trailing-8']);
 
     // one PENDING trade per bullish template
     const templates = SIGNAL_EXPRESSION_TEMPLATES[TradeSide.LONG];

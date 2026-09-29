@@ -58,6 +58,7 @@ export function paperToLegacyStatus(s: PaperTradeStatus): PositionStatus {
     case PaperTradeStatus.ASSIGNED:
       return PositionStatus.ASSIGNED_HOLDING_SHARES;
     case PaperTradeStatus.CLOSED:
+    case PaperTradeStatus.CANCELLED:
       return PositionStatus.CLOSED;
   }
 }

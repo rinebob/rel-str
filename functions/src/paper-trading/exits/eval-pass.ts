@@ -55,7 +55,7 @@ const logger = createLogger('ExitEvalPass');
 /** Injected seams — production wiring lives in `defaultDeps`. */
 export interface ExitEvalDeps {
   /** Candidates: OPEN/ASSIGNED/CLOSED trades with ≥1 ACTIVE parsed run;
-   *  PENDING and EXPIRED are excluded by the caller's query. */
+   *  PENDING, EXPIRED, and CANCELLED are excluded by the caller's query. */
   listTrades(): Promise<PaperTrade[]>;
   /** Ledger closing fill (applyExitFill bound to its deps). */
   applyExit(input: ExitFillInput): Promise<ApplyFillResult>;
@@ -271,10 +271,17 @@ async function listCandidateTrades(db: Firestore): Promise<PaperTrade[]> {
     );
 }
 
-async function resolveAccountOwner(
+/**
+ * Owner resolution: the trade's own `userId` first — signal trades carry
+ * it precisely for server-side fills (#652) and have no strategyInstanceId
+ * to look through. The instance lookup is the legacy fallback for strategy
+ * trades that predate the field.
+ */
+export async function resolveAccountOwner(
   db: Firestore,
   trade: PaperTrade,
 ): Promise<string | undefined> {
+  if (trade.userId) return trade.userId;
   if (!trade.strategyInstanceId) return undefined;
   const inst = await getInstance(db, trade.strategyInstanceId);
   return inst?.userId;
