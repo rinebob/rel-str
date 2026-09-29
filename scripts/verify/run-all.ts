@@ -89,6 +89,13 @@ const scripts = [
     needsAccount: false,
     needsAdc: true,
   },
+  {
+    name: 'paper-trading pending cancel',
+    file: 'verify/paper-trading-cancel-666.ts',
+    cwd: 'functions',
+    needsAccount: false,
+    needsAdc: true,
+  },
 ];
 
 function hasGhAuth(): boolean {

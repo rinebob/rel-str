@@ -23,6 +23,7 @@ import {
   applyEntryFill,
   applyExitFill,
   applyPendingFill,
+  cancelPendingTrade,
   createPendingTrade,
   type LedgerDeps,
   type LedgerWritePlan,
@@ -758,5 +759,48 @@ describe('applyPendingFill', () => {
     );
     assert.equal(plans[0].account.cash, 500); // -5.00 � 100
     assert.equal(plans[0].account.equity, 0); // -500 cash +500 position
+  });
+});
+
+describe('cancelPendingTrade (#652/#666)', () => {
+  it('flips a PENDING trade to CANCELLED with no cash/count movement and runs finalized', async () => {
+    const { deps, plans } = makeDeps({
+      getTrade: async () => pendingTrade(),
+      getAccount: async () => existingAccount({ cash: 500, openTradeCount: 2 }),
+    });
+    const cancelled = await cancelPendingTrade(
+      { userId: 'user1', tradeId: '260924-sig-QQQM-CSP-030-45', now: NOW },
+      deps,
+    );
+
+    assert.equal(plans.length, 1);
+    const plan = plans[0];
+    assert.equal(plan.cashDelta, 0);
+    assert.equal(plan.account.cash, 500);
+    assert.equal(plan.account.openTradeCount, 2); // PENDING never counted — no decrement
+    assert.equal(cancelled.status, PaperTradeStatus.CANCELLED);
+    // Seeded runs finalize — a cancelled trade carries no ACTIVE runs.
+    assert.ok(cancelled.variantRuns.every((r) => r.state === 'EXITED'));
+  });
+
+  it('rejects a non-PENDING trade without writing', async () => {
+    const { deps, plans } = makeDeps({ getTrade: async () => openTrade() });
+    await assert.rejects(
+      cancelPendingTrade(
+        { userId: 'user1', tradeId: '260924-st-QQQM-CSP-020-30', now: NOW },
+        deps,
+      ),
+      /not pending/i,
+    );
+    assert.equal(plans.length, 0);
+  });
+
+  it('rejects a missing trade', async () => {
+    const { deps, plans } = makeDeps();
+    await assert.rejects(
+      cancelPendingTrade({ userId: 'user1', tradeId: 'ghost', now: NOW }, deps),
+      /not found/i,
+    );
+    assert.equal(plans.length, 0);
   });
 });

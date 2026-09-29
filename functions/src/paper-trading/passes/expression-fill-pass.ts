@@ -152,8 +152,15 @@ export async function runExpressionFillPass(
       else summary.skipped++;
     } else {
       const message = r.reason instanceof Error ? r.reason.message : String(r.reason);
-      summary.errors.push({ tradeId: pending[i].id, error: message });
-      logger.warn(`${pending[i].id}: fill failed — ${message}`);
+      // A trade cancelled mid-pass correctly rejects applyPendingFill with
+      // "not pending" — that's a legitimate race outcome, not a failure.
+      if (/not pending/i.test(message)) {
+        summary.skipped++;
+        logger.info(`${pending[i].id}: skipped — ${message}`);
+      } else {
+        summary.errors.push({ tradeId: pending[i].id, error: message });
+        logger.warn(`${pending[i].id}: fill failed — ${message}`);
+      }
     }
   }
 

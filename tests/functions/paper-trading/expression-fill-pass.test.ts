@@ -224,6 +224,20 @@ describe('runExpressionFillPass', () => {
     assert.equal(fills.length, 0);
   });
 
+  it('classifies a cancel-during-fill rejection as skipped, not an error (#666)', async () => {
+    const { deps } = makeDeps({
+      applyPendingFill: async () => {
+        throw new Error(
+          'paper trade 260925-sig-QQQM-CSP-030-45 is not pending (status CANCELLED)',
+        );
+      },
+    });
+    const summary = await runExpressionFillPass(MARKET_DATE, deps);
+    assert.equal(summary.filled, 0);
+    assert.equal(summary.skipped, 1);
+    assert.equal(summary.errors.length, 0, 'a legitimate cancel is not a pass failure');
+  });
+
   it('reports a per-trade error without aborting the pass', async () => {
     const { deps, fills } = makeDeps({
       listPendingTrades: async () => [

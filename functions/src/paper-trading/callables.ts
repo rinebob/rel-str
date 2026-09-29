@@ -19,9 +19,12 @@ import { OptionQuoteSource } from '@options/common';
 import {
   PaperTradingKind,
   PaperTradeSource,
+  PaperTradeStatus,
   SIGNAL_EXPRESSION_TEMPLATES,
   SIGNAL_GOVERNING_VARIANT,
   SIGNAL_SHADOW_VARIANT_KEYS,
+  type CancelPaperTradeRequest,
+  type CancelPaperTradeResponse,
   type PaperCohort,
   type PaperSignalOrderRequest,
   type PaperSignalOrderResponse,
@@ -38,10 +41,11 @@ import { db } from '../firebase-admin-init';
 import { getMarketDatePT } from '../common/pt-date-utils';
 import { ST_ORDER_INTENTS_COLLECTION } from '../common/st-collections';
 import { extractEquityPrice, MCP_PREFIX } from './engine/rh-mcp-shapes';
-import { applyEntryFill, createPendingTrade } from './ledger';
-import type { EntryFillInput, PendingTradeInput } from './ledger';
+import { applyEntryFill, cancelPendingTrade, createPendingTrade } from './ledger';
+import type { CancelTradeInput, EntryFillInput, PendingTradeInput } from './ledger';
 import {
   getCohort,
+  getTrade,
   ledgerDeps,
   listTrades,
   resolveTradeId,
@@ -384,6 +388,90 @@ export const paperSignalOrder = onCall<PaperSignalOrderRequest, Promise<PaperSig
       );
     } finally {
       await manager?.close();
+    }
+  },
+);
+
+// ── cancelPaperTrade (task #666) ───────────────────────────────────────────
+
+/**
+ * Cancel a PENDING trade before the expression-fill pass resolves it.
+ * Pure ledger — no MCP session needed. Guard ladder: auth → arg shape →
+ * not-found → ownership → pending status; the ledger txn re-checks status
+ * so a cancel racing the fill pass fails safe (its rejection maps back to
+ * failed-precondition).
+ */
+export interface CancelPaperTradeDeps {
+  getTrade(tradeId: string): Promise<PaperTrade | null>;
+  cancelPendingTrade(input: CancelTradeInput): Promise<unknown>;
+  now(): Date;
+}
+
+export async function handleCancelPaperTrade(
+  request: { data?: unknown; auth?: { uid: string } },
+  deps: CancelPaperTradeDeps,
+): Promise<CancelPaperTradeResponse> {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Must be signed in to cancel a paper trade');
+  }
+  const data = (request.data ?? {}) as Partial<CancelPaperTradeRequest>;
+  if (typeof data.tradeId !== 'string' || !data.tradeId) {
+    throw new HttpsError('invalid-argument', 'cancelPaperTrade requires tradeId');
+  }
+  const trade = await deps.getTrade(data.tradeId);
+  if (!trade) {
+    throw new HttpsError('not-found', `paper trade ${data.tradeId} not found`);
+  }
+  // Fail closed: a trade with no recorded owner isn't cancellable at all
+  // (every first-party PENDING producer sets userId — absent means corrupt).
+  if (!trade.userId || trade.userId !== request.auth.uid) {
+    throw new HttpsError('permission-denied', 'paper trade belongs to another user');
+  }
+  if (trade.status !== PaperTradeStatus.PENDING) {
+    throw new HttpsError(
+      'failed-precondition',
+      `paper trade ${trade.id} is not pending (status ${trade.status})`,
+    );
+  }
+  try {
+    await deps.cancelPendingTrade({
+      userId: request.auth.uid,
+      tradeId: trade.id,
+      now: deps.now().toISOString(),
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/not found/i.test(msg)) {
+      throw new HttpsError('not-found', msg);
+    }
+    if (/not pending/i.test(msg)) {
+      // Lost the race with the fill pass — same answer as the pre-check.
+      throw new HttpsError('failed-precondition', msg);
+    }
+    throw err;
+  }
+  return { tradeId: trade.id };
+}
+
+export const cancelPaperTrade = onCall<CancelPaperTradeRequest, Promise<CancelPaperTradeResponse>>(
+  {
+    cors: OPTIONS_STRATEGY_ALLOWED_ORIGINS,
+    memory: '256MiB',
+    timeoutSeconds: 30,
+  },
+  async (request) => {
+    try {
+      return await handleCancelPaperTrade(request, {
+        getTrade: (tradeId) => getTrade(db, tradeId),
+        cancelPendingTrade: (input) => cancelPendingTrade(input, ledgerDeps(db)),
+        now: () => new Date(),
+      });
+    } catch (err) {
+      if (err instanceof HttpsError) throw err;
+      throw new HttpsError(
+        'internal',
+        `cancelPaperTrade failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   },
 );

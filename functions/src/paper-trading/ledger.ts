@@ -129,6 +129,12 @@ export interface PendingFillInput {
   now: string;
 }
 
+export interface CancelTradeInput {
+  userId: string;
+  tradeId: string;
+  now: string;
+}
+
 /**
  * The atomic write set produced by a fill: the full account doc and the full
  * trade doc to persist together inside the surrounding transaction.
@@ -447,6 +453,52 @@ export async function applyPendingFill(
       cashDelta,
     });
     return { trade: updatedTrade, account: updatedAccount, cashDelta };
+  });
+}
+
+/**
+ * Cancel a PENDING trade before its fill pass runs. The transaction
+ * re-checks status — a cancel racing `applyPendingFill` fails loudly here
+ * instead of half-canceling a filled position. No cash/count movement:
+ * PENDING trades never moved either. Seeded variant runs finalize to
+ * EXITED so the doc carries no ACTIVE runs on a never-held trade.
+ */
+export async function cancelPendingTrade(
+  input: CancelTradeInput,
+  deps: LedgerDeps,
+): Promise<PaperTrade> {
+  return deps.transact(async (txn) => {
+    const trade = await txn.getTrade(input.tradeId);
+    if (!trade) {
+      throw new Error(`paper trade ${input.tradeId} not found`);
+    }
+    if (trade.status !== PaperTradeStatus.PENDING) {
+      throw new Error(`paper trade ${input.tradeId} is not pending (status ${trade.status})`);
+    }
+    // Write the trade's own account back untouched (the write plan carries
+    // account+trade); prefer the doc's owner over the caller so a stray
+    // input never mints or bumps a foreign account.
+    const owner = trade.userId ?? input.userId;
+    const account =
+      (await txn.getAccount(owner)) ?? baseAccount(owner, input.now);
+
+    const updatedTrade: PaperTrade = {
+      ...trade,
+      status: PaperTradeStatus.CANCELLED,
+      variantRuns: trade.variantRuns.map((r) =>
+        r.state === 'ACTIVE' ? { ...r, state: 'EXITED' } : r,
+      ),
+      updatedAt: input.now,
+    };
+
+    txn.write({
+      accountId: account.id,
+      account: { ...account, updatedAt: input.now },
+      tradeId: trade.id,
+      trade: updatedTrade,
+      cashDelta: 0,
+    });
+    return updatedTrade;
   });
 }
 
