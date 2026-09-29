@@ -397,17 +397,40 @@ export const AllocationStore = signalStore(
         await firstValueFrom(bucketService.deleteBucket$(bucketId));
       },
 
-      /** Bucket + stats + owned positions for the detail dialog. */
-      bucketDetail(bucketId: string): BucketDetail | null {
-        const acct = store.accounts()[store.selectedAccountIndex()];
-        if (!acct) return null;
-        const alloc = store.byAccount()[acct.accountNumber] ?? emptyAllocation();
+      /** Bucket + stats + owned positions + fills for the detail dialog.
+       *  Account is passed in (captured at dialog-open like every other
+       *  write path) — an account switch elsewhere can't silently swap
+       *  the viewed data. Same derivation recipe as bucketRows/
+       *  positionsRows, scoped to the given account slice. */
+      bucketDetail(accountNumber: string, bucketId: string): BucketDetail | null {
+        const alloc = store.byAccount()[accountNumber] ?? emptyAllocation();
         const bucket = alloc.buckets.find((b) => b.id === bucketId);
         if (!bucket) return null;
-        const stats = store.bucketRows().find((r) => r.bucket?.id === bucketId)?.stats;
-        if (!stats) return null;
-        const positions = store.positionsRows().filter((p) => p.bucketId === bucketId);
-        return { bucket, stats, positions };
+        const acctAttributions = alloc.attributions.filter((a) => a.accountNumber === accountNumber);
+        const basis = alloc.snapshot?.cash ?? alloc.snapshot?.totalValue ?? 0;
+        const stats = computeBucketStats(
+          bucket, basis, alloc.positions, alloc.fills, acctAttributions, alloc.asOf ?? '',
+        );
+        const attrByInstrument = new Map(acctAttributions.map((a) => [a.instrumentId, a]));
+        const positions = attributePositions(
+          alloc.positions.filter(isWellFormedPosition), acctAttributions, accountNumber,
+        ).filter((r) => r.bucketId === bucketId)
+          .map((r) => ({
+            position: r.position,
+            bucketId: r.bucketId,
+            bucketName: bucket.name,
+            linkKey: attrByInstrument.get(r.position.instrumentId)?.linkKey,
+          }));
+        // Ownership = attribution docs (same basis as computeBucketStats /
+        // closedCount) — a flat-but-attributed instrument's fills are the
+        // bucket's history too, not only its open positions'.
+        const owned = new Set(
+          acctAttributions.filter((a) => a.bucketId === bucketId).map((a) => a.instrumentId),
+        );
+        return {
+          bucket, stats, positions,
+          fills: alloc.fills.filter((f) => owned.has(f.instrumentId)),
+        };
       },
     };
   }),

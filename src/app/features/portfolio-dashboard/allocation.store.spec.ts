@@ -279,12 +279,15 @@ describe('AllocationStore', () => {
       [bucket(ACCT_A, 'Wheel')],
       [attribution(ACCT_A, 'AAPL', `${ACCT_A}_wheel`)]);
 
-    const detail = store.bucketDetail(`${ACCT_A}_wheel`);
+    const detail = store.bucketDetail(ACCT_A, `${ACCT_A}_wheel`);
     expect(detail?.bucket?.name).toBe('Wheel');
     expect(detail?.stats?.openCount).toBe(1);
     expect(detail?.positions.map((p) => p.position.instrumentId)).toEqual(['AAPL']);
-    expect(store.bucketDetail(`${ACCT_B}_nonexistent`)).toBeNull();
-    expect(store.bucketDetail(`${ACCT_A}_nonexistent`)).toBeNull();
+    // Fills follow attribution ownership — flat-but-attributed instruments
+    // contribute; non-owned instruments never do.
+    expect(detail?.fills.map((f) => f.instrumentId)).toEqual(['AAPL', 'AAPL']);
+    expect(store.bucketDetail(ACCT_B, `${ACCT_B}_nonexistent`)).toBeNull();
+    expect(store.bucketDetail(ACCT_A, `${ACCT_A}_nonexistent`)).toBeNull();
   });
 
   it('post-write selector refresh — attribution stream updates re-derive rows', async () => {
@@ -299,7 +302,7 @@ describe('AllocationStore', () => {
     expect(msft?.bucketName).toBe('Wheel');
     const wheel = store.bucketRows().find((r) => r.bucket?.name === 'Wheel');
     expect(wheel?.stats?.exposure).toBe(2000); // MSFT only now
-    expect(store.bucketDetail(`${ACCT_A}_wheel`)?.positions).toHaveLength(1);
+    expect(store.bucketDetail(ACCT_A, `${ACCT_A}_wheel`)?.positions).toHaveLength(1);
   });
 
   it('switching accounts attaches that account\'s streams and loads its data', async () => {

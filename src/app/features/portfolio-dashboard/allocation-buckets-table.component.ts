@@ -22,7 +22,11 @@ import {
   AllocationBucketDialogComponent,
   type BucketDialogData,
 } from './allocation-bucket-dialog.component';
-import type { BucketRow } from './allocation.types';
+import {
+  AllocationBucketDetailDialogComponent,
+  type BucketDetailDialogData,
+} from './allocation-bucket-detail-dialog.component';
+import { fmtDollars, type BucketRow } from './allocation.types';
 import { BucketStatus } from '@portfolio-allocation/contracts';
 
 @Component({
@@ -104,7 +108,11 @@ import { BucketStatus } from '@portfolio-allocation/contracts';
           <td class="num">{{ row.stats?.openCount ?? 0 }}/{{ row.stats?.closedCount ?? 0 }}</td>
           <td class="dim">—</td><td></td>
         } @else if (row.bucket && row.stats) {
-          <td>{{ row.bucket.name }}</td>
+          <td><button class="name-link" type="button"
+            [attr.data-testid]="'detail-' + row.bucket.id"
+            [attr.aria-label]="'Open ' + row.bucket.name + ' detail'"
+            (click)="openDetail(row)"
+          >{{ row.bucket.name }}</button></td>
           <td class="num">{{ row.bucket.targetPct }}%</td>
           <td class="num">{{ fmt(row.stats.targetDollars) }}</td>
           <td class="num">{{ fmt(row.stats.exposure) }}</td>
@@ -160,6 +168,12 @@ import { BucketStatus } from '@portfolio-allocation/contracts';
     .alloc-table.retired td { color: #999; font-style: italic; }
     .neg { color: #c62828; } .pos { color: #2e7d32; }
     .actions { white-space: nowrap; }
+    .name-link {
+      border: 0; background: none; padding: 0; cursor: pointer;
+      font: inherit; color: inherit; text-decoration: underline;
+      text-decoration-color: #bbb; text-underline-offset: 2px;
+    }
+    .name-link:hover { text-decoration-color: #555; }
     .retired-section { margin-top: 10px; }
     .retired-toggle {
       border: 0; background: none; padding: 4px 0; cursor: pointer;
@@ -203,9 +217,7 @@ export class AllocationBucketsTableComponent {
     return row.bucket?.id ?? row.kind;
   }
 
-  fmt(v: number | null | undefined): string {
-    return v == null ? '—' : v.toLocaleString('en-US', { maximumFractionDigits: 0 });
-  }
+  readonly fmt = fmtDollars;
 
   openCreate(): void {
     // Capture the account at open time — a create writes by accountNumber.
@@ -229,6 +241,17 @@ export class AllocationBucketsTableComponent {
     if (!acct) return;
     this.dialog.open(AllocationBucketDialogComponent, {
       data: { mode: 'retire', accountNumber: acct.accountNumber, bucket: row.bucket! } satisfies BucketDialogData,
+    });
+  }
+
+  /** Bucket detail — carousel + stats + chart stub (task #591). Works for
+   *  retired rows too: their stats are still meaningful. */
+  openDetail(row: BucketRow): void {
+    const acct = this.store.selectedAccount();
+    if (!row.bucket || !acct) return;
+    this.dialog.open(AllocationBucketDetailDialogComponent, {
+      data: { accountNumber: acct.accountNumber, bucketId: row.bucket.id } satisfies BucketDetailDialogData,
+      width: '560px', maxWidth: '95vw',
     });
   }
 

@@ -15,6 +15,7 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { AllocationStore } from './allocation.store';
+import { fmtDollars } from './allocation.types';
 import { AllocationBucketsTableComponent } from './allocation-buckets-table.component';
 import { AllocationPositionsTableComponent } from './allocation-positions-table.component';
 
@@ -156,7 +157,5 @@ export class AllocationPageComponent implements OnInit {
     }
   }
 
-  fmt(v: number | null): string {
-    return v === null ? '—' : v.toLocaleString('en-US', { maximumFractionDigits: 0 });
-  }
+  readonly fmt = fmtDollars;
 }

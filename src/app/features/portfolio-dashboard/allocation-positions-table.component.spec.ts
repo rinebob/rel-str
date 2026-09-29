@@ -13,7 +13,7 @@ import { AllocationPositionsTableComponent } from './allocation-positions-table.
 import { AllocationAssignDialogComponent } from './allocation-assign-dialog.component';
 import { AllocationStore } from './allocation.store';
 import type { AccountInfo } from '../../core/robinhood-mcp/types/robinhood-mcp.types';
-import type { PositionRow } from './allocation.types';
+import type { AccountAllocation, PositionRow } from './allocation.types';
 import { BucketStatus } from '@portfolio-allocation/contracts';
 import type { AllocationBucket, PositionAttribution } from '@portfolio-allocation/contracts';
 
@@ -32,9 +32,8 @@ function row(
 ): PositionRow {
   return {
     position: {
-      instrumentId, accountNumber: ACCT, symbol: instrumentId,
-      marketValue: 1000, costBasis: 900, quantity: 1, averageCost: 900,
-    } as never,
+      instrumentId, marketValue: 1000, costBasis: 900, quantity: 1,
+    },
     bucketId, bucketName, linkKey, unresolved,
   };
 }
@@ -42,7 +41,10 @@ function row(
 function mockStore(rows: PositionRow[], buckets: AllocationBucket[], attrs: PositionAttribution[] = []) {
   return {
     positionsRows: signal<PositionRow[]>(rows),
-    selectedAllocation: signal({ buckets, attributions: attrs } as never),
+    selectedAllocation: signal<AccountAllocation>({
+      snapshot: null, positions: [], fills: [], buckets, attributions: attrs,
+      asOf: null, loading: false, error: null,
+    }),
     selectedAccount: signal<AccountInfo | null>({
       accountNumber: ACCT, accountName: 'A', accountType: 'margin', agenticAllowed: true,
     }),

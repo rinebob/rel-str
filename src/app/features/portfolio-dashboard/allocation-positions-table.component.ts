@@ -20,7 +20,7 @@ import {
   AllocationAssignDialogComponent,
   type AssignDialogData,
 } from './allocation-assign-dialog.component';
-import type { PositionRow } from './allocation.types';
+import { fmtDollars, type PositionRow } from './allocation.types';
 import { BucketStatus } from '@portfolio-allocation/contracts';
 
 @Component({
@@ -153,9 +153,7 @@ export class AllocationPositionsTableComponent {
       : all;
   });
 
-  fmt(v: number | null | undefined): string {
-    return v == null ? '—' : v.toLocaleString('en-US', { maximumFractionDigits: 0 });
-  }
+  readonly fmt = fmtDollars;
 
   // -- bulk selection --
 

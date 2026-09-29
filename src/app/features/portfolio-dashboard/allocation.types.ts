@@ -78,4 +78,18 @@ export interface BucketDetail {
   bucket: AllocationBucket;
   stats: BucketStats;
   positions: PositionRow[];
+  /** Fills for the bucket's owned instruments — PRD: detail lists
+   *  "attributed positions and orders". Per-position filtering happens
+   *  in the dialog (fills are per-instrument, not per-position). */
+  fills: AllocationFillInput[];
+}
+
+/** Whole-dollar display convention shared by the allocation surfaces —
+ *  '—' for missing, tabular grouping otherwise. */
+export function fmtDollars(v: number | null | undefined): string {
+  // NaN (e.g. a corrupt Firestore targetPct double) renders '—' too —
+  // same guard the table's overTarget fold already applies.
+  return v != null && Number.isFinite(v)
+    ? v.toLocaleString('en-US', { maximumFractionDigits: 0 })
+    : '—';
 }

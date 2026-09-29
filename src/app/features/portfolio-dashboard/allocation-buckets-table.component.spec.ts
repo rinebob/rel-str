@@ -15,6 +15,7 @@ import { of } from 'rxjs';
 
 import { AllocationBucketsTableComponent } from './allocation-buckets-table.component';
 import { AllocationBucketDialogComponent } from './allocation-bucket-dialog.component';
+import { AllocationBucketDetailDialogComponent } from './allocation-bucket-detail-dialog.component';
 import { AllocationStore } from './allocation.store';
 import type { AccountInfo } from '../../core/robinhood-mcp/types/robinhood-mcp.types';
 import type { BucketRow } from './allocation.types';
@@ -78,7 +79,7 @@ describe('AllocationBucketsTableComponent', () => {
     await setup([
       bucketRow(bucket('b1', 'Wheel', 25)),
       { kind: 'unassigned', bucket: null, stats: null, cash: null },
-      { kind: 'cash', bucket: null, stats: null, cash: { actual: 4000, derived: 3900, diverged: false } as never },
+      { kind: 'cash', bucket: null, stats: null, cash: { actual: 4000, derived: 3900, discrepancy: 100, diverged: false } },
     ]);
     const rows = fixture.nativeElement.querySelectorAll('[data-testid^="bucket-row-"]');
     expect(rows.length).toBe(3);
@@ -146,7 +147,7 @@ describe('AllocationBucketsTableComponent', () => {
 
   it('cash row surfaces the diverged note when broker ≠ derived', async () => {
     await setup([
-      { kind: 'cash', bucket: null, stats: null, cash: { actual: 4000, derived: 3100, diverged: true } as never },
+      { kind: 'cash', bucket: null, stats: null, cash: { actual: 4000, derived: 3100, discrepancy: 900, diverged: true } },
     ]);
     const row = fixture.nativeElement.querySelector('[data-kind="cash"]');
     expect(row.textContent).toContain('diverge');
@@ -203,6 +204,16 @@ describe('AllocationBucketsTableComponent', () => {
       expect.objectContaining({
         data: expect.objectContaining({ mode: 'delete', accountNumber: ACCT, bucket: b }),
       }),
+    );
+  });
+
+  it('bucket name opens the detail dialog with the row bucketId', async () => {
+    const b = bucket('b1', 'Wheel', 25);
+    await setup([bucketRow(b)]);
+    (fixture.nativeElement.querySelector('[data-testid="detail-b1"]') as HTMLElement).click();
+    expect(dialog.open).toHaveBeenCalledWith(
+      AllocationBucketDetailDialogComponent,
+      expect.objectContaining({ data: { accountNumber: ACCT, bucketId: 'b1' } }),
     );
   });
 });
