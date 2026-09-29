@@ -11,6 +11,8 @@
 - [Portfolio] 576-582-589_CONFIG-PORTFOLIO: Firestore rules get-vs-list split — txn id-probes (create/rename/attribution) no longer denied
 - [Portfolio] 576-582-589_FE-IMPL-PORTFOLIO: Buckets tab — unified config+analytics table, create/edit/retire/delete dialogs (writes stay open until success), retired section, >100% warn
 - [Portfolio] 576-582-589_DOCS-PORTFOLIO: Buckets-tab code review (PASS, 2 rounds) + UAT (Complete)
+- [Portfolio] 576-582-590_FE-IMPL-PORTFOLIO: Positions tab — assign/move/unassign dialog, bulk select + Actions menu, single-txn batched writes, resting-order stub filter
+- [Portfolio] 576-582-590_DOCS-PORTFOLIO: Positions-tab code review (PASS, 2 rounds) + UAT (Complete)
 
 - [GitHub read-only issue UI] 619-621-637_SHARED-IMPL-DEV-TOOLS: Lifecycle tree contract + transforms — closed-label decode, node typing, tree assembly with subtree-max updatedAt, inventory-doc grouping
 - [GitHub read-only issue UI] 619-621-637_DOCS-DEV-TOOLS: PRD + IMPL/TEST plans + code review (PASS, 4 iterations) + UAT (Complete) for #637
