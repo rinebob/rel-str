@@ -16,7 +16,13 @@ import { MatButtonModule } from '@angular/material/button';
 import { StrategyBuilderStore } from '../../stores/strategy-builder.store';
 import { PaperTradingStore } from '../../stores/paper-trading.store';
 import type { InstanceInput } from '../../services/strategy-builder.service';
-import type { ExitVariantParams, PaperStrategyInstance } from '@paper-trading/contracts';
+import {
+  isGoverningEligiblePct,
+  NONE_VARIANT_KEY,
+  TERMINAL_VARIANT_FAMILIES,
+  type ExitVariantParams,
+  type PaperStrategyInstance,
+} from '@paper-trading/contracts';
 import { PositionSpreadType, StrategyFrequency, OptionType } from '@options/common';
 import { TradeSide } from '@common';
 import {
@@ -41,11 +47,11 @@ const VARIANT_FAMILY_LABELS: Record<VariantFamily, string> = {
   'limit-stddev': 'StdDev level',
 };
 
-const VARIANT_PARAM_META: Record<VariantFamily, { label: string; min: number; step: number }> = {
-  'initial-stop': { label: 'Stop %', min: 1, step: 1 },
-  'trailing-stop': { label: 'Trailing %', min: 1, step: 1 },
-  'time-stop': { label: 'Days', min: 1, step: 1 },
-  'limit-stddev': { label: 'σ multiplier', min: 0.5, step: 0.5 },
+const VARIANT_PARAM_META: Record<VariantFamily, { label: string; min: number; max: number; step: number }> = {
+  'initial-stop': { label: 'Stop %', min: 1, max: 99, step: 1 },
+  'trailing-stop': { label: 'Trailing %', min: 1, max: 99, step: 1 },
+  'time-stop': { label: 'Days', min: 1, max: 365, step: 1 },
+  'limit-stddev': { label: 'σ multiplier', min: 0.5, max: 10, step: 0.5 },
 };
 
 /** family+param → variantKey — the inverse of the BE's parseVariantKey. */
@@ -61,6 +67,8 @@ export function variantKeyFor(family: VariantFamily, param: number): string {
 /** variantKey → family+param — null when the key isn't parseable
  *  (BE treats unparseable keys as no-op variants). */
 export function parseVariantKey(key: string): { family: VariantFamily; param: number } | null {
+  // Firestore is schema-free — a stored governingVariant may not be a string.
+  if (typeof key !== 'string') return null;
   let m = key.match(/^initial-stop-(\d+(?:\.\d+)?)$/);
   if (m) return { family: 'initial-stop', param: Number(m[1]) };
   m = key.match(/^trailing-(\d+(?:\.\d+)?)$/);
@@ -78,11 +86,22 @@ function variantParamValid(group: FormGroup): ValidationErrors | null {
   const family = group.get('variantFamily')?.value;
   if (!family || family === 'none') return null;
   const param = group.get('variantParam')?.value;
-  if (param == null || !Number.isFinite(param) || param <= 0) {
+  if (param == null || !Number.isFinite(param)) {
     return { variantParam: 'required' };
   }
   if (family === 'time-stop' && !Number.isInteger(param)) {
     return { variantParam: 'integer' };
+  }
+  const meta = VARIANT_PARAM_META[family as VariantFamily];
+  // The key suffix is pct×100 — the shared bound rejects degenerate stops
+  // (trailing-0 fires instantly, trailing-100+ never protects).
+  if (
+    !TERMINAL_VARIANT_FAMILIES.includes(family) ||
+    param < meta.min ||
+    param > meta.max ||
+    !isGoverningEligiblePct(param / 100)
+  ) {
+    return { variantParam: 'range' };
   }
   return null;
 }
@@ -149,9 +168,10 @@ export class StrategyBuilderFormComponent {
     rollDteThreshold: [null as number | null],
     rollTargetDelta: [null as number | null],
     /** Paper-ledger exit variant: family from the registry + param value
-     *  combine into the governingVariant key on save. */
-    variantFamily: ['none' as 'none' | VariantFamily, [Validators.required]],
-    variantParam: [null as number | null],
+     *  combine into the governingVariant key on save. US4 — only terminal
+     *  (trailing-stop) families are offered; 'none' is not selectable. */
+    variantFamily: ['trailing-stop' as 'none' | VariantFamily, [Validators.required]],
+    variantParam: [8 as number | null],
   }, { validators: [dteMaxGreaterThanMin, variantParamValid] });
 
   /** Selected exit policies (multi-select). Defaults to HOLD_TO_EXPIRATION. */
@@ -244,12 +264,20 @@ export class StrategyBuilderFormComponent {
       dteMin: phase?.dteMin ?? 21,
       dteMax: phase?.dteMax ?? 30,
     });
-    // governingVariant key → family + param controls (unparseable keys
-    // surface as 'none' — matching the BE's no-op treatment).
-    const parsed = parseVariantKey(paper.governingVariant ?? 'none');
+    // governingVariant key → family + param controls. Only terminal
+    // families are selectable (US4) — a stored non-terminal or unparseable
+    // key coerces to the trailing-8 default, matching the BE resolver's
+    // warn-and-default treatment.
+    const parsed = parseVariantKey(paper.governingVariant ?? NONE_VARIANT_KEY);
+    const eligible =
+      parsed &&
+      TERMINAL_VARIANT_FAMILIES.includes(parsed.family) &&
+      isGoverningEligiblePct(parsed.param / 100)
+        ? parsed
+        : null;
     this.form.patchValue({
-      variantFamily: parsed?.family ?? 'none',
-      variantParam: parsed?.param ?? null,
+      variantFamily: eligible?.family ?? 'trailing-stop',
+      variantParam: eligible?.param ?? 8,
     });
     const policies = instance.exitPolicies.map((p) => p.policy);
     this.selectedExitPolicies.set(policies);
@@ -314,14 +342,17 @@ export class StrategyBuilderFormComponent {
   // ── Governing variant (#568) ────────────────────────────────────────────────
 
   /** Families available in the registry — options sourced via
-   *  listExitVariants, filtered to families we have param metadata for
-   *  (a registry type without meta would render no param input while the
-   *  validator still demanded one — a dead-end save). */
+   *  listExitVariants, filtered to TERMINAL families we have param
+   *  metadata for (US4: only governing-eligible families are selectable;
+   *  a non-terminal registry type or one without meta would render a
+   *  dead-end save). */
   readonly variantFamilies = computed<VariantFamily[]>(() => {
     const families = new Set<VariantFamily>();
     for (const cfg of this.paperStore.exitVariants()) {
       const type = cfg.params.type;
-      if (type in VARIANT_PARAM_META) families.add(type);
+      if (type in VARIANT_PARAM_META && TERMINAL_VARIANT_FAMILIES.includes(type)) {
+        families.add(type);
+      }
     }
     return [...families];
   });
@@ -337,8 +368,8 @@ export class StrategyBuilderFormComponent {
   /** The derived variantKey for the form's family+param, or 'none'. */
   private governingVariantKey(): string {
     const v = this.form.value;
-    if (!v.variantFamily || v.variantFamily === 'none' || v.variantParam == null) {
-      return 'none';
+    if (!v.variantFamily || v.variantFamily === NONE_VARIANT_KEY || v.variantParam == null) {
+      return NONE_VARIANT_KEY;
     }
     return variantKeyFor(v.variantFamily, v.variantParam);
   }

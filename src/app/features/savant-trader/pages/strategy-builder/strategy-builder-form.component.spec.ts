@@ -467,15 +467,16 @@ describe('StrategyBuilderFormComponent', () => {
     await configureWithStore();
     expect(mockPaperStore.loadExitVariants).toHaveBeenCalled();
     expect(fixture.nativeElement.querySelector('[data-testid="governing-variant-select"]')).toBeTruthy();
-    // Families derived from the registry's params.type.
-    expect(component.variantFamilies()).toEqual(['initial-stop', 'trailing-stop', 'time-stop']);
+    // US4: only terminal (trailing-stop) families are offered — 'none' and
+    // non-terminal families are not selectable for new instances.
+    expect(component.variantFamilies()).toEqual(['trailing-stop']);
   });
 
   it('family+param derive the governingVariant key on save', async () => {
     await configureWithStore();
-    expect(component.form.controls.variantFamily.value).toBe('none');
-    // No param input while 'none'.
-    expect(fixture.nativeElement.querySelector('[data-testid="variant-param-input"]')).toBeNull();
+    expect(component.form.controls.variantFamily.value).toBe('trailing-stop');
+    // Param input is always rendered — the only selectable family needs one.
+    expect(fixture.nativeElement.querySelector('[data-testid="variant-param-input"]')).toBeTruthy();
 
     component.form.patchValue({
       spreadType: PositionSpreadType.CASH_SECURED_PUT,
@@ -521,12 +522,24 @@ describe('StrategyBuilderFormComponent', () => {
       .toContain('required');
   });
 
-  it('family→none→family round-trip leaves the form valid as none', async () => {
+  it('rejects a degenerate trailing pct with a range error (shared bound)', async () => {
+    await configureWithStore();
+    for (const param of [0, 150]) {
+      component.form.patchValue({ variantFamily: 'trailing-stop', variantParam: param });
+      fixture.detectChanges();
+      expect(component.form.errors?.['variantParam']).toBe('range');
+    }
+    expect(fixture.nativeElement.querySelector('[data-testid="variant-param-error"]')?.textContent)
+      .toContain('Out of range');
+  });
+
+  it('governingVariantKey returns none only for an unset/invalid family — unreachable via the select', async () => {
     await configureWithStore();
     component.form.patchValue({ variantFamily: 'trailing-stop', variantParam: 20 });
+    // 'none' is not selectable (US4); a patched-in 'none' stays form-valid
+    // (stale param is ignored) and derives the inert key.
     component.form.patchValue({ variantFamily: 'none' });
     fixture.detectChanges();
-    // 'none' is always valid — stale param is ignored by governingVariantKey.
     expect(component.form.errors?.['variantParam'] ?? null).toBeNull();
     expect((component as any).governingVariantKey()).toBe('none');
   });
@@ -547,16 +560,20 @@ describe('StrategyBuilderFormComponent', () => {
 
   it('pre-fills family+param from an existing instance in edit mode', async () => {
     const instance = makeInstance() as PaperStrategyInstance;
-    instance.governingVariant = 'time-30d';
+    instance.governingVariant = 'trailing-15';
     await configureWithStore({}, { instance });
-    expect(component.form.controls.variantFamily.value).toBe('time-stop');
-    expect(component.form.controls.variantParam.value).toBe(30);
+    expect(component.form.controls.variantFamily.value).toBe('trailing-stop');
+    expect(component.form.controls.variantParam.value).toBe(15);
   });
 
-  it('unparseable stored variants surface as none (BE no-op parity)', async () => {
-    const instance = makeInstance() as PaperStrategyInstance;
-    instance.governingVariant = 'custom-legacy-key';
-    await configureWithStore({}, { instance });
-    expect(component.form.controls.variantFamily.value).toBe('none');
-  });
+  it.each(['time-30d', 'custom-legacy-key', 'none'])(
+    'stored ineligible variant %s coerces to the trailing-8 default (BE resolver parity)',
+    async (stored) => {
+      const instance = makeInstance() as PaperStrategyInstance;
+      instance.governingVariant = stored;
+      await configureWithStore({}, { instance });
+      expect(component.form.controls.variantFamily.value).toBe('trailing-stop');
+      expect(component.form.controls.variantParam.value).toBe(8);
+    },
+  );
 });
