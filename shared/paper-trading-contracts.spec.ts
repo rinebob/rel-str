@@ -25,6 +25,7 @@ import {
   DEFAULT_TRAILING_STOP_KEY,
   SIGNAL_GOVERNING_VARIANT,
   SIGNAL_SHADOW_VARIANT_KEYS,
+  isGoverningEligiblePct,
   TERMINAL_VARIANT_FAMILIES,
   type ClosePaperTradeRequest,
   type ClosePaperTradeResponse,
@@ -191,6 +192,15 @@ describe('trade exits contracts (#652)', () => {
     expect(TERMINAL_VARIANT_FAMILIES).not.toContain('initial-stop');
     expect(TERMINAL_VARIANT_FAMILIES).not.toContain('time-stop');
     expect(TERMINAL_VARIANT_FAMILIES).not.toContain('limit-stddev');
+  });
+
+  it('isGoverningEligiblePct rejects degenerate fractions', () => {
+    expect(isGoverningEligiblePct(0.08)).toBe(true);
+    expect(isGoverningEligiblePct(0.99)).toBe(true);
+    expect(isGoverningEligiblePct(0)).toBe(false);
+    expect(isGoverningEligiblePct(1)).toBe(false);
+    expect(isGoverningEligiblePct(1.5)).toBe(false);
+    expect(isGoverningEligiblePct(NaN)).toBe(false);
   });
 
   it('close/cancel callable contracts carry the documented shapes', () => {

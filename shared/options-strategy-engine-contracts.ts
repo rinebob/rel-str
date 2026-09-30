@@ -197,6 +197,10 @@ export interface StrategyInstanceConfig {
   frequency: StrategyFrequency;
   openTimePT: string;
   exitPolicies: ExitPolicyConfig[];
+  /** Paper-ledger extension written by the Strategy Builder (#553): the
+   *  variant key governing exits on launched trades (`trailing-{pct}`).
+   *  Absent/'none' on older docs — the engine defaults to trailing-8. */
+  governingVariant?: string;
   lifecycleState: LifecycleState;
   marketRegime?: MarketRegime;
   userId: string;

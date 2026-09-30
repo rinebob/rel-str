@@ -297,6 +297,9 @@ export const SIGNAL_EXPRESSION_TEMPLATES: Record<TradeSide, SignalExpressionTemp
  * never parses, so it can never fire).
  */
 export const DEFAULT_TRAILING_STOP_KEY = 'trailing-8';
+/** Inert legacy key — parses to nothing, can never fire; kept on existing
+ *  docs only, never offered for new trades. */
+export const NONE_VARIANT_KEY = 'none';
 export const SIGNAL_GOVERNING_VARIANT = DEFAULT_TRAILING_STOP_KEY;
 export const SIGNAL_SHADOW_VARIANT_KEYS: string[] = [];
 
@@ -340,14 +343,29 @@ export interface ExitVariantConfig {
 }
 
 /**
- * Variant families that may govern a real lifecycle (#652): a trailing
- * stop is the only terminal family — its trigger ends the trade. The
- * observational families (time-stop, limit-stddev, initial-stop) measure
- * outcomes but never close a position; 'none' is not a family — it's the
- * literal inert key, kept for existing docs.
+ * Variant families eligible to govern a real lifecycle (#652): a product
+ * gate, not a capability claim — `initial-stop` and `time-stop` have real
+ * triggers in `evaluateVariant` but are intentionally not offered for
+ * governing (US4: one trailing stop per trade, mirroring a real broker).
+ * `limit-stddev` is additionally a stub that cannot fire. `none` is not a
+ * family — it's the literal inert key, kept for existing docs.
  */
 export type VariantFamily = ExitVariantParams['type'];
 export const TERMINAL_VARIANT_FAMILIES: readonly VariantFamily[] = ['trailing-stop'];
+
+/**
+ * Sanity bound for pct-param governing stops, shared by the BE registry
+ * (`isTerminalVariantKey`) and the FE strategy-builder form — one source
+ * so the two can't drift. `pctFraction` is the fraction form (0.08 for
+ * `trailing-8`) — the FE divides its key-suffix param by 100. Degenerate
+ * values are rejected: `trailing-0` fires on the first mark, and a
+ * `trailing-99`/`100+` stop needs a ~99% reversal — protection already
+ * meaningless. Family membership is the caller's job via
+ * `TERMINAL_VARIANT_FAMILIES` (this bound applies to pct params only).
+ */
+export function isGoverningEligiblePct(pctFraction: number): boolean {
+  return pctFraction > 0 && pctFraction < 1;
+}
 
 // ── Stats ──────────────────────────────────────────────────────────────────
 
