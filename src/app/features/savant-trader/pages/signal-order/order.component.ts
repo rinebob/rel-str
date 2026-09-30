@@ -5,7 +5,7 @@
  * Left panel: OrderQueueComponent (staged tickets grouped by status).
  * Right panel: ticket placeholder (FE-C1b will replace with OrderTicketComponent).
  *
- * URL: /signal-order
+ * URL: /trading/live
  */
 import {
   Component,
@@ -441,7 +441,7 @@ export class OrderComponent implements OnInit {
 
   /** Navigate back to the signal review page. */
   goBack(): void {
-    this.router.navigate(['/signal-review']);
+    this.router.navigate(['/' + AppRoutes.SIGNAL_REVIEW]);
   }
 
   /**

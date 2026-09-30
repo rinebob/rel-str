@@ -608,8 +608,8 @@ export class OptionChainPctChangeComponent implements OnInit, OnDestroy {
    *  the swing-compare dialog is the primary run builder now. */
   readonly manualExpanded = signal(false);
   /** Route segments for the empty-state pointer — derived from
-   *  AppRoutes.SWING_ANALYSIS (a multi-segment path; routerLink needs one
-   *  element per segment). */
+   *  AppRoutes.SWING_ANALYSIS (a multi-segment path, split for clarity;
+   *  a single '/'-joined string would resolve identically). */
   readonly swingAnalysisLink = ['/', ...AppRoutes.SWING_ANALYSIS.split('/')];
 
   constructor() {

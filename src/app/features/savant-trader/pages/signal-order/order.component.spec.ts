@@ -192,7 +192,7 @@ describe('OrderComponent', () => {
     const router = TestBed.inject(Router);
     const navSpy = jest.spyOn(router, 'navigate').mockResolvedValue(true);
     component.goBack();
-    expect(navSpy).toHaveBeenCalledWith(['/signal-review']);
+    expect(navSpy).toHaveBeenCalledWith(['/signals/review']);
   });
 
   it('selects the first loaded ticket automatically', () => {

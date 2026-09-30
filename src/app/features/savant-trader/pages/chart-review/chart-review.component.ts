@@ -3,7 +3,7 @@
  *
  * Master-detail interface for opportunity triage and trade execution.
  * Focuses on current signals from the latest run only.
- * URL: /chart-review
+ * URL: /signals/charts
  */
 import {
   Component,

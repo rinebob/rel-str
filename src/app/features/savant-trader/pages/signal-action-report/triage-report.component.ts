@@ -28,6 +28,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatTableModule } from '@angular/material/table';
 import { Router } from '@angular/router';
 
+import { AppRoutes } from '../../../../core/common/interfaces';
 import { UiStateService } from '../../../../core/services/ui-state.service';
 import { ReviewDecision } from '../../common/constants';
 import { OccurrenceDecisionService } from '../../services/occurrence-decision.service';
@@ -193,7 +194,7 @@ export class TriageReportComponent implements OnInit {
 
   /** Navigate back to the signal review page. */
   goBack(): void {
-    this.router.navigate(['/signal-review']);
+    this.router.navigate(['/' + AppRoutes.SIGNAL_REVIEW]);
   }
 
   /** Return today's local date. */

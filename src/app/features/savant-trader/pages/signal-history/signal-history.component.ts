@@ -17,6 +17,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 
+import { AppRoutes } from '../../../../core/common/interfaces';
 import { BarsInterval } from '../../../../core/models/partner.types';
 import { HeatmapChartDataService } from '../../../heatmap-chart/heatmap-chart-data.service';
 import type { ChartDataset } from '../../../heatmap-chart/heatmap-chart.types';
@@ -125,7 +126,7 @@ export class SignalHistoryComponent {
 
   /** Navigate back to the Savant Trader dashboard. */
   goBack(): void {
-    this.router.navigate(['/run-dashboard']);
+    this.router.navigate(['/' + AppRoutes.RUN_DASHBOARD]);
   }
 
   /** Load D/W/M chart data and generate signals for the current symbol input. */

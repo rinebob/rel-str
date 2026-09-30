@@ -24,6 +24,7 @@ import { OrderTicketStore } from './order-ticket.store';
 import { SignalService } from '../services/signal.service';
 import { TradingConfigService } from '../services/trading-config.service';
 import type { StSignalItem } from '../services/types';
+import { AppRoutes } from '../../../core/common/interfaces';
 import { UiStateService } from '../../../core/services/ui-state.service';
 import { ScrollTargetService } from '../services/scroll-target.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -471,16 +472,16 @@ export class SignalReviewFacade {
   // -------------------------------------------------------------------------
 
   goBack(): void {
-    this.router.navigate(['/run-dashboard']);
+    this.router.navigate(['/' + AppRoutes.RUN_DASHBOARD]);
   }
 
   goToReview(): void {
-    this.router.navigate(['/chart-review']);
+    this.router.navigate(['/' + AppRoutes.CHART_REVIEW]);
   }
 
   /** Navigate to the signal order page. */
   async goToSignalOrder(): Promise<void> {
-    this.router.navigate(['/signal-order']);
+    this.router.navigate(['/' + AppRoutes.SIGNAL_ORDER]);
   }
 
   /**
@@ -557,6 +558,6 @@ export class SignalReviewFacade {
   }
 
   goToTriageReport(): void {
-    this.router.navigate(['/signal-action-report']);
+    this.router.navigate(['/' + AppRoutes.SIGNAL_ACTION_REPORT]);
   }
 }

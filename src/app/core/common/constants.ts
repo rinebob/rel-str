@@ -86,7 +86,7 @@ export const NAV_MENU_ITEMS: NavItem[] = [
     {
         name: 'portfolio-dashboard',
         text: 'Portfolio Dashboard',
-        href: 'portfolio-dashboard',
+        href: 'portfolio',
         mobileOnly: false,
         external: false,
         target: '_self',
@@ -94,7 +94,7 @@ export const NAV_MENU_ITEMS: NavItem[] = [
     {
         name: 'portfolio-allocation',
         text: 'Portfolio Allocation',
-        href: 'portfolio-allocation',
+        href: 'portfolio/allocation',
         mobileOnly: false,
         external: false,
         target: '_self',
@@ -150,7 +150,7 @@ export const NAV_MENU_ITEMS: NavItem[] = [
     {
         name: 'run-dashboard',
         text: 'Run Dashboard',
-        href: 'run-dashboard',
+        href: 'signals/runs',
         mobileOnly: false,
         external: false,
         target: '_self',
@@ -166,7 +166,7 @@ export const NAV_MENU_ITEMS: NavItem[] = [
     {
         name: 'option-chain-pct-change',
         text: 'Option Chain % Change',
-        href: 'option-chain-pct-change',
+        href: 'options/pct-change',
         mobileOnly: false,
         external: false,
         target: '_self',
@@ -174,7 +174,7 @@ export const NAV_MENU_ITEMS: NavItem[] = [
     {
         name: 'option-chain',
         text: 'Option Chain',
-        href: 'savant-trader/option-chain',
+        href: 'options/chain',
         mobileOnly: false,
         external: false,
         target: '_self',

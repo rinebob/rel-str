@@ -3,7 +3,7 @@
  *
  * Symbol-centric signal review UI.
  * Replaces the flat signal list with sector/industry expansion panels.
- * URL: /signal-review
+ * URL: /signals/review
  */
 import {
   Component,

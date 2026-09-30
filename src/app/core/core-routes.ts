@@ -11,6 +11,13 @@ import { authGuard } from './auth/auth.guard';
             {path: '', 
                 redirectTo: AppRoutes.PORTFOLIO_DASHBOARD, pathMatch: 'full',
             },
+            // Group roots — parents of the canonical prefixed trees (#660).
+            {path: 'signals',
+                redirectTo: AppRoutes.RUN_DASHBOARD, pathMatch: 'full',
+            },
+            {path: 'options',
+                redirectTo: AppRoutes.OPTION_CHAIN, pathMatch: 'full',
+            },
             {path: AppRoutes.DOCUMENTATION, 
                 loadComponent: () => import('./comps/documentation/documentation.component')
                 .then(mod => mod.DocumentationComponent),

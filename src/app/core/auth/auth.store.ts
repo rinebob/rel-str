@@ -38,7 +38,7 @@ export const AuthStore = signalStore(
       try {
         const u = await auth.signInWithEmail(email, password);
         patchState(store, { user: u });
-        await router.navigate([`/${AppRoutes.DASHBOARD_V2}`]);
+        await router.navigate([`/${AppRoutes.PORTFOLIO_DASHBOARD}`]);
         return u;
       } catch (e: any) {
         patchState(store, { error: { code: e?.code ?? 'auth/unknown', message: e?.message ?? 'Unknown error' } });
@@ -53,7 +53,7 @@ export const AuthStore = signalStore(
       try {
         const u = await auth.signUpWithEmail(email, password);
         patchState(store, { user: u });
-        await router.navigate([`/${AppRoutes.DASHBOARD_V2}`]);
+        await router.navigate([`/${AppRoutes.PORTFOLIO_DASHBOARD}`]);
         return u;
       } catch (e: any) {
         patchState(store, { error: { code: e?.code ?? 'auth/unknown', message: e?.message ?? 'Unknown error' } });
@@ -68,7 +68,7 @@ export const AuthStore = signalStore(
       try {
         const u = await auth.signInWithGoogle();
         patchState(store, { user: u });
-        await router.navigate([`/${AppRoutes.DASHBOARD_V2}`]);
+        await router.navigate([`/${AppRoutes.PORTFOLIO_DASHBOARD}`]);
         return u;
       } catch (e: any) {
         patchState(store, { error: { code: e?.code ?? 'auth/unknown', message: e?.message ?? 'Unknown error' } });

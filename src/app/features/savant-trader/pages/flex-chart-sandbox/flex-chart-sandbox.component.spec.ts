@@ -326,6 +326,6 @@ describe('sandbox route', () => {
     const route = (root.children ?? []).find((r) => r.path === AppRoutes.FLEX_CHART_SANDBOX);
     expect(route).toBeTruthy();
     expect(route?.canActivate).toContain(authGuard);
-    expect(AppRoutes.FLEX_CHART_SANDBOX).toBe('savant-trader/flex-chart-sandbox');
+    expect(AppRoutes.FLEX_CHART_SANDBOX).toBe('dev/flex-chart');
   });
 });

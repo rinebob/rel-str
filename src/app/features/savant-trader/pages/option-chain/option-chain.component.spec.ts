@@ -845,13 +845,13 @@ describe('OptionChainComponent', () => {
 });
 
 describe('option chain routing', () => {
-  it('registers the savant-trader/option-chain path', () => {
-    expect(AppRoutes.OPTION_CHAIN).toBe('savant-trader/option-chain');
+  it('registers the canonical options/chain path (#699)', () => {
+    expect(AppRoutes.OPTION_CHAIN).toBe('options/chain');
   });
 
   it('exposes a sidenav entry routing to the page', () => {
     const item = NAV_MENU_ITEMS.find((i) => i.text === 'Option Chain');
     expect(item).toBeTruthy();
-    expect(item?.href).toBe('savant-trader/option-chain');
+    expect(item?.href).toBe('options/chain');
   });
 });

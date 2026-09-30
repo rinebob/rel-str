@@ -254,6 +254,6 @@ describe('OptionsStrategyDashboardComponent', () => {
     await configureWithStore({ isEmpty: false });
     const link = fixture.nativeElement.querySelector('.manage-strategies-btn');
     expect(link?.textContent).toContain('Manage Strategies');
-    expect(link?.getAttribute('href')).toContain('/strategy-builder');
+    expect(link?.getAttribute('href')).toContain('/options/strategy/build');
   });
 });

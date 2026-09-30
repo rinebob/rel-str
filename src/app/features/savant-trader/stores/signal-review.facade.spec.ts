@@ -314,9 +314,9 @@ describe('SignalReviewFacade', () => {
   });
 
   describe('goToSignalOrder', () => {
-    it('navigates to /signal-order', async () => {
+    it('navigates to /trading/live', async () => {
       await facade.goToSignalOrder();
-      expect(routerMock.navigate).toHaveBeenCalledWith(['/signal-order']);
+      expect(routerMock.navigate).toHaveBeenCalledWith(['/trading/live']);
     });
   });
 });
