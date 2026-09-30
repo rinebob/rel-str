@@ -28,6 +28,7 @@ deliberately, on-demand.
 | #640 — BE getLifecycleTree callable | [dev-tools-gh-lifecycle-640.md](dev-tools-gh-lifecycle-640.md) | handler + real deps → response shape, grouping, error mapping | `dev-tools-gh-lifecycle-640-callable.ts` (needs `GITHUB_READ_TOKEN` or `gh auth`) |
 | #647 — SHARED workflow template | [workflows-template-647.md](workflows-template-647.md) | conventions doc structure + optional workflow-doc conformance | `workflows-template-647.ts` (no credentials) |
 | #681 — BE RH-MCP probe manifest | [rh-mcp-manifest-681.md](rh-mcp-manifest-681.md) | manifest file → loader → catalog validate → gate checks → dry-run plan | `functions/scripts/verify/rh-mcp-manifest-681.ts` (no credentials; runs from `functions/`) |
+| #682 — BE catalog drift check | [rh-mcp-drift-682.md](rh-mcp-drift-682.md) | diff logic offline; live run via `run-drift-check.ts` → captures/00-drift.json | `functions/scripts/verify/rh-mcp-drift-682.ts` (offline) + live `run-drift-check.ts` (needs RH MCP) |
 
 ## Run All
 

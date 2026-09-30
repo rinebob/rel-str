@@ -110,6 +110,13 @@ const scripts = [
     needsAccount: false,
     needsAdc: false,
   },
+  {
+    name: 'rh-mcp catalog drift (offline)',
+    file: 'verify/rh-mcp-drift-682.ts',
+    cwd: 'functions',
+    needsAccount: false,
+    needsAdc: false,
+  },
 ];
 
 function hasGhAuth(): boolean {
