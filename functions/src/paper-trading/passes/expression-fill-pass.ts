@@ -278,8 +278,8 @@ async function fillOne(
 
 /**
  * Fills PENDING expression trades queued by `paperSignalOrder`: RH option
- * chains ? instruments ? quotes ? delta/DTE selection ? `applyPendingFill`
- * ? OPEN. Runs at noon PT � the same cadence as strategy opens.
+ * chains → instruments → quotes → delta/DTE selection → `applyPendingFill`
+ * → OPEN. Runs at noon PT — the same cadence as strategy opens.
  */
 export const expressionFillPassTimer = onSchedule(
   {

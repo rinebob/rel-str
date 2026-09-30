@@ -210,7 +210,7 @@ describe('applyEntryFill', () => {
           source: PaperTradeSource.SIGNAL,
           symbol: 'QQQ',
           expression: 'EQ',
-          governingVariant: 'time-30d',
+          governingVariant: 'trailing-8',
         },
         now: NOW,
       },
@@ -227,9 +227,76 @@ describe('applyEntryFill', () => {
     // no variantKeys provided → seeds just the governing variant
     assert.deepEqual(
       plan.trade.variantRuns.map((r) => r.variantKey),
-      ['time-30d'],
+      ['trailing-8'],
     );
-    assert.deepEqual(plan.trade.variantKeys, ['time-30d']);
+    assert.deepEqual(plan.trade.variantKeys, ['trailing-8']);
+  });
+
+  it('rejects a non-terminal governing variant — never-fire run would leave the trade unprotected', async () => {
+    const { deps, plans } = makeDeps();
+    await assert.rejects(
+      applyEntryFill(
+        {
+          userId: 'user1',
+          tradeId: '260924-st-QQQM-CSP-020-30',
+          order: { side: TradeSide.SHORT, type: 'MARKET', quantity: 1 },
+          legs: [cspLeg()],
+          fill: {
+            fillId: 'f1',
+            role: 'entry',
+            date: FILL_DATE,
+            price: 2.1,
+            quantity: 1,
+            quoteSource: OptionQuoteSource.RH_MCP,
+          },
+          dims: {
+            source: PaperTradeSource.STRATEGY,
+            symbol: 'QQQM',
+            expression: 'CSP',
+            governingVariant: 'time-30d', // can evaluate but is not a stop
+            variantKeys: ['time-30d'],
+          },
+          now: NOW,
+        },
+        deps,
+      ),
+      /not.*terminal|not.*exit/i,
+    );
+    assert.equal(plans.length, 0);
+  });
+
+  it('rejects unparseable and inert governing variants — none included', async () => {
+    const { deps, plans } = makeDeps();
+    for (const key of ['limit-sd1', 'none', 'bogus', 'trailing-0', 'trailing-150']) {
+      await assert.rejects(
+        applyEntryFill(
+          {
+            userId: 'user1',
+            tradeId: '260924-st-QQQM-CSP-020-30',
+            order: { side: TradeSide.SHORT, type: 'MARKET', quantity: 1 },
+            legs: [cspLeg()],
+            fill: {
+              fillId: 'f1',
+              role: 'entry',
+              date: FILL_DATE,
+              price: 2.1,
+              quantity: 1,
+              quoteSource: OptionQuoteSource.RH_MCP,
+            },
+            dims: {
+              source: PaperTradeSource.STRATEGY,
+              symbol: 'QQQM',
+              expression: 'CSP',
+              governingVariant: key,
+            },
+            now: NOW,
+          },
+          deps,
+        ),
+        /not a terminal exit variant/i,
+      );
+    }
+    assert.equal(plans.length, 0);
   });
 
   it('fails loudly when the trade id is already taken', async () => {
@@ -525,7 +592,7 @@ describe('applyExitFill', () => {
   });
 });
 
-// -- Pending trades (task #564 � signal expression cohorts) -----------------
+// -- Pending trades (task #564 — signal expression cohorts) -----------------
 
 function pendingTemplate() {
   return {
@@ -570,7 +637,7 @@ function pendingTrade(overrides: Partial<PaperTrade> = {}): PaperTrade {
 }
 
 describe('createPendingTrade', () => {
-  it('writes a PENDING trade with seeded runs, template, and dims � no fills/legs', async () => {
+  it('writes a PENDING trade with seeded runs, template, and dims — no fills/legs', async () => {
     const { deps, plans } = makeDeps();
     const trade = await createPendingTrade(
       {
@@ -581,8 +648,8 @@ describe('createPendingTrade', () => {
           source: PaperTradeSource.SIGNAL,
           symbol: 'QQQM',
           expression: 'CSP',
-          governingVariant: 'none',
-          variantKeys: ['none', 'initial-stop-10', 'trailing-20', 'time-30d'],
+          governingVariant: 'trailing-8',
+          variantKeys: ['trailing-8', 'initial-stop-10', 'trailing-20', 'time-30d'],
           cohortId: 'cohort-260924-QQQM-01',
           signalId: 'sig-1',
           ticket: { signalId: 'sig-1', refId: 'ref-1', acceptedAt: NOW },
@@ -605,7 +672,7 @@ describe('createPendingTrade', () => {
     assert.equal(t.signalId, 'sig-1');
     assert.equal(t.ticket?.refId, 'ref-1');
     assert.equal(t.expressionTemplate?.key, 'csp-030-45');
-    // account unchanged � pending is not open
+    // account unchanged — pending is not open
     assert.equal(plans[0].cashDelta, 0);
     assert.equal(plans[0].account.openTradeCount, 0);
     assert.equal(trade.id, t.id);
@@ -623,7 +690,7 @@ describe('createPendingTrade', () => {
             source: PaperTradeSource.SIGNAL,
             symbol: 'QQQM',
             expression: 'CSP',
-            governingVariant: 'none',
+            governingVariant: 'trailing-8',
           },
           now: NOW,
         },
@@ -646,7 +713,7 @@ describe('createPendingTrade', () => {
             source: PaperTradeSource.SIGNAL,
             symbol: 'QQQM',
             expression: 'CSP',
-            governingVariant: 'none',
+            governingVariant: 'trailing-8',
             variantKeys: ['time-30d'],
           },
           now: NOW,
@@ -655,6 +722,53 @@ describe('createPendingTrade', () => {
       ),
       /must include governingVariant/i,
     );
+  });
+
+  it('applies the terminal-governing guard on the PENDING path too', async () => {
+    const { deps, plans } = makeDeps();
+    await assert.rejects(
+      createPendingTrade(
+        {
+          userId: 'user1',
+          tradeId: 't1',
+          order: { side: TradeSide.SHORT, type: 'MARKET', quantity: 1 },
+          dims: {
+            source: PaperTradeSource.SIGNAL,
+            symbol: 'QQQM',
+            expression: 'CSP',
+            governingVariant: 'limit-sd1', // stub — can never fire
+          },
+          now: NOW,
+        },
+        deps,
+      ),
+      /not a terminal exit variant/i,
+    );
+    assert.equal(plans.length, 0);
+  });
+
+  it('rejects unparseable variantKeys — a permanently-skipped run is dead weight', async () => {
+    const { deps, plans } = makeDeps();
+    await assert.rejects(
+      createPendingTrade(
+        {
+          userId: 'user1',
+          tradeId: 't1',
+          order: { side: TradeSide.SHORT, type: 'MARKET', quantity: 1 },
+          dims: {
+            source: PaperTradeSource.SIGNAL,
+            symbol: 'QQQM',
+            expression: 'CSP',
+            governingVariant: 'trailing-8',
+            variantKeys: ['trailing-8', 'garbage'],
+          },
+          now: NOW,
+        },
+        deps,
+      ),
+      /not a recognized variant/i,
+    );
+    assert.equal(plans.length, 0);
   });
 });
 
@@ -692,9 +806,9 @@ describe('applyPendingFill', () => {
     assert.equal(t.legs[0].lastMark, 2.1);
     assert.deepEqual(t.marks[FILL_DATE], { mark: 2.1, underlyingClose: 590 });
     assert.equal(t.capitalRequired, 57_000);
-    assert.equal(result.cashDelta, 210); // +2.10 credit � 100
+    assert.equal(result.cashDelta, 210); // +2.10 credit × 100
     assert.equal(plans[0].account.cash, 710);
-    assert.equal(plans[0].account.equity, 0); // cash?asset swap (500 -500+... check: 500+210-210=500? equity = equity + cashDelta + posValue = 0+210-210=0) 
+    assert.equal(plans[0].account.equity, 0); // cash→asset swap: equity unchanged
     assert.equal(plans[0].account.openTradeCount, 1);
   });
 
@@ -757,7 +871,7 @@ describe('applyPendingFill', () => {
       },
       deps,
     );
-    assert.equal(plans[0].account.cash, 500); // -5.00 � 100
+    assert.equal(plans[0].account.cash, 500); // -5.00 × 100
     assert.equal(plans[0].account.equity, 0); // -500 cash +500 position
   });
 });

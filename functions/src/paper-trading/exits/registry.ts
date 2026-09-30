@@ -16,6 +16,10 @@
  */
 
 import { TradeSide } from '@common';
+import {
+  isGoverningEligiblePct,
+  TERMINAL_VARIANT_FAMILIES,
+} from '@paper-trading/contracts';
 import type {
   ExitVariantConfig,
   PaperTrade,
@@ -93,6 +97,23 @@ export function parseVariantKey(variantKey: string): VariantDef | null {
     if (m) return build(m);
   }
   return null;
+}
+
+/** True when the key parses to a governing-eligible family (the US4
+ *  product gate: trailing stops only) with a sane param — `trailing-0`
+ *  would fire on the first mark, `trailing-100+` never triggers
+ *  realistically. (`seedVariantRuns` refuses non-terminal governing
+ *  keys; legacy `'none'` docs are written by positionToTrade directly
+ *  and never traverse seeding.) */
+export function isTerminalVariantKey(key: string): boolean {
+  const def = parseVariantKey(key);
+  if (!def || !TERMINAL_VARIANT_FAMILIES.includes(def.family)) return false;
+  // Pct-param families additionally need a sane bound; a non-pct family
+  // added later is governed by membership alone.
+  if ('stopPct' in def.params) {
+    return isGoverningEligiblePct(def.params.stopPct);
+  }
+  return true;
 }
 
 // ── Evaluation ──────────────────────────────────────────────────────────────

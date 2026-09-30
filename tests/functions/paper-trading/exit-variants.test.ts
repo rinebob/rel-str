@@ -21,6 +21,7 @@ import {
 import {
   evaluateVariant,
   EXIT_VARIANT_CONFIGS,
+  isTerminalVariantKey,
   parseVariantKey,
   type VariantEvalCtx,
 } from '../../../functions/src/paper-trading/exits/registry';
@@ -112,6 +113,30 @@ describe('parseVariantKey', () => {
     assert.equal(parseVariantKey('trailing-'), null);
     assert.equal(parseVariantKey('time-d'), null);
     assert.equal(parseVariantKey('limit-sdx'), null);
+  });
+});
+
+describe('isTerminalVariantKey', () => {
+  it('trailing-* keys are governing-eligible', () => {
+    assert.equal(isTerminalVariantKey('trailing-8'), true);
+    assert.equal(isTerminalVariantKey('trailing-15'), true);
+    assert.equal(isTerminalVariantKey('trailing-2.5'), true);
+  });
+
+  it('non-terminal families and sentinels are not governing-eligible', () => {
+    assert.equal(isTerminalVariantKey('initial-stop-10'), false);
+    assert.equal(isTerminalVariantKey('time-30d'), false);
+    assert.equal(isTerminalVariantKey('limit-sd1'), false);
+    assert.equal(isTerminalVariantKey('none'), false);
+    assert.equal(isTerminalVariantKey('trailing'), false);
+    assert.equal(isTerminalVariantKey('bogus'), false);
+  });
+
+  it('degenerate trailing params are not governing-eligible', () => {
+    // trailing-0 fires on the first mark; trailing-100+ never realistically
+    // triggers — both parse but would corrupt a lifecycle.
+    assert.equal(isTerminalVariantKey('trailing-0'), false);
+    assert.equal(isTerminalVariantKey('trailing-100'), false);
   });
 });
 

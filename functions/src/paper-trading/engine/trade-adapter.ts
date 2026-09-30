@@ -16,6 +16,8 @@
 import { OptionType, OptionQuoteSource } from '@options/common';
 import { TradeSide } from '@common';
 import {
+  DEFAULT_TRAILING_STOP_KEY,
+  NONE_VARIANT_KEY,
   PaperTradeSource,
   PaperTradeStatus,
   PaperTradingKind,
@@ -27,10 +29,36 @@ import {
 } from '@paper-trading/contracts';
 import type { DailyUpdate, Position, PositionLeg, RawQuote } from './types';
 import { LegOutcome, PositionStatus, SHARES_PER_CONTRACT } from './types';
+import type { StrategyInstanceConfig } from '@options-strategy-engine/contracts';
+import { isTerminalVariantKey } from '../exits/registry';
+import { createLogger } from './logging';
 
-/** Governing-variant sentinel for engine-produced/migrated trades — real
- *  variants are seeded by the exit engine (Phase 3). */
-export const LEGACY_GOVERNING_VARIANT = 'none';
+const logger = createLogger('TradeAdapter');
+
+/** Governing-variant sentinel for legacy/migrated docs — their inert `none`
+ *  runs simply never fire. New strategy trades get a real trailing stop via
+ *  `governingVariantForInstance`. */
+export const LEGACY_GOVERNING_VARIANT = NONE_VARIANT_KEY;
+
+/** Resolve the governing run a strategy launch seeds: the instance's stored
+ *  `governingVariant` key (written by the Strategy Builder) wins when it's
+ *  a terminal exit key; missing, 'none', or non-terminal/unparseable values
+ *  fall back to the default trailing-8 — every new trade gets a real exit,
+ *  matching the "one stop per position" model. */
+export function governingVariantForInstance(
+  instance: StrategyInstanceConfig,
+): string {
+  const key = instance.governingVariant;
+  // Firestore is schema-free — the stored value may not even be a string.
+  if (typeof key === 'string' && key && key !== NONE_VARIANT_KEY) {
+    if (isTerminalVariantKey(key)) return key;
+    logger.warn(
+      `Instance ${instance.id} governingVariant '${key}' is not a terminal ` +
+        `exit variant — defaulting to ${DEFAULT_TRAILING_STOP_KEY}`,
+    );
+  }
+  return DEFAULT_TRAILING_STOP_KEY;
+}
 
 // ── Status mapping ──────────────────────────────────────────────────────────
 

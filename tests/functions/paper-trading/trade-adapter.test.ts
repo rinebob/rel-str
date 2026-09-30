@@ -7,8 +7,8 @@
  */
 
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
-import { OptionType } from '../../../shared/options-common';
+import { describe, it, mock } from 'node:test';
+import { OptionType, StrategyFrequency } from '../../../shared/options-common';
 import { TradeSide } from '../../../shared/common';
 import {
   PaperTradeStatus,
@@ -18,6 +18,7 @@ import {
 } from '../../../shared/paper-trading-contracts';
 import {
   expressionForLeg,
+  governingVariantForInstance,
   legacyToPaperStatus,
   paperLegToPositionLeg,
   paperToLegacyStatus,
@@ -25,6 +26,10 @@ import {
   positionToTrade,
   tradeToPosition,
 } from '../../../functions/src/paper-trading/engine/trade-adapter';
+import {
+  LifecycleState,
+  type StrategyInstanceConfig,
+} from '../../../shared/options-strategy-engine-contracts';
 import {
   LegOutcome,
   PositionStatus,
@@ -79,6 +84,65 @@ describe('status mapping', () => {
     // CANCELLED has no legacy equivalent — a cancelled trade never held a
     // position; CLOSED is the honest terminal mapping (#652).
     assert.equal(paperToLegacyStatus(PaperTradeStatus.CANCELLED), PositionStatus.CLOSED);
+  });
+});
+
+function makeInstance(overrides: Partial<StrategyInstanceConfig> = {}): StrategyInstanceConfig {
+  return {
+    id: 'inst-1',
+    symbol: 'QQQM',
+    optionType: OptionType.PUT,
+    side: TradeSide.SHORT,
+    phases: [],
+    frequency: StrategyFrequency.DAILY,
+    openTimePT: '12:00',
+    exitPolicies: [],
+    lifecycleState: LifecycleState.ACTIVE,
+    userId: 'user1',
+    createdAt: '2026-08-20T12:00:00Z',
+    updatedAt: '2026-08-20T12:00:00Z',
+    ...overrides,
+  };
+}
+
+describe('governingVariantForInstance', () => {
+  it('honors the instance\'s stored governingVariant key', () => {
+    const inst = makeInstance({ governingVariant: 'trailing-15' });
+    assert.equal(governingVariantForInstance(inst), 'trailing-15');
+  });
+
+  it('defaults to trailing-8 when the field is missing or none', () => {
+    assert.equal(governingVariantForInstance(makeInstance()), 'trailing-8');
+    assert.equal(
+      governingVariantForInstance(makeInstance({ governingVariant: 'none' })),
+      'trailing-8',
+    );
+  });
+
+  it('falls back to trailing-8 — with a warn — when a stored key is non-terminal or unparseable', () => {
+    // The builder UI can store keys the seeding guard would reject (e.g.
+    // 'time-30d') — launch resolution must not crash the nightly pass.
+    const warn = mock.method(console, 'warn', () => undefined);
+    try {
+      const timeStop = makeInstance({ governingVariant: 'time-30d' });
+      assert.equal(governingVariantForInstance(timeStop), 'trailing-8');
+      const garbage = makeInstance({ governingVariant: 'bogus-key' });
+      assert.equal(governingVariantForInstance(garbage), 'trailing-8');
+      // Degenerate-but-parseable params are also ineligible.
+      assert.equal(
+        governingVariantForInstance(makeInstance({ governingVariant: 'trailing-0' })),
+        'trailing-8',
+      );
+      assert.equal(warn.mock.callCount(), 3);
+    } finally {
+      warn.mock.restore();
+    }
+  });
+
+  it('survives non-string governingVariant data (Firestore is schema-free)', () => {
+    const inst = makeInstance();
+    (inst as { governingVariant?: unknown }).governingVariant = 42;
+    assert.equal(governingVariantForInstance(inst), 'trailing-8');
   });
 });
 

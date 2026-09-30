@@ -24,7 +24,7 @@ import { applyEntryFill, computeExitPnl, positionValue, signedCashDelta } from '
 import { ledgerDeps } from '../repository';
 import { createLogger } from './logging';
 import {
-  LEGACY_GOVERNING_VARIANT,
+  governingVariantForInstance,
   expressionForLeg,
   legacyToPaperStatus,
   paperLegToPositionLeg,
@@ -179,7 +179,7 @@ export async function createPosition(
         source: PaperTradeSource.STRATEGY,
         symbol: position.symbol,
         expression: paperLegs.length ? expressionForLeg(paperLegs[0]) : 'UNK',
-        governingVariant: LEGACY_GOVERNING_VARIANT,
+        governingVariant: governingVariantForInstance(instance),
         strategyInstanceId: position.instanceId,
       },
       tradeOverrides: {

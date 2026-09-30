@@ -46,6 +46,7 @@ import {
   type VariantRun,
 } from '@paper-trading/contracts';
 import { buildAccountId } from '@paper-trading/ids';
+import { isTerminalVariantKey, parseVariantKey } from './exits/registry';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -314,9 +315,29 @@ function seedVariantRuns(
   dims: FillDimensions,
   tradeId: string,
 ): { variantKeys: string[]; variantRuns: VariantRun[] } {
+  // Governing runs must be able to actually close the trade — a key that
+  // parses to a non-terminal family (or nothing at all, 'none' included)
+  // would leave an OPEN trade permanently unprotected. Legacy 'none' docs
+  // are written by positionToTrade directly — they never traverse seeding,
+  // so there is no legit 'none' caller here.
+  if (!isTerminalVariantKey(dims.governingVariant)) {
+    throw new Error(
+      `governing variant '${dims.governingVariant}' is not a terminal ` +
+        `exit variant for trade ${tradeId}`,
+    );
+  }
   const variantKeys = [...new Set(
     dims.variantKeys?.length ? dims.variantKeys : [dims.governingVariant],
   )];
+  // Every seeded run must parse — an unparseable key ('none' included) is
+  // a permanently-skipped ACTIVE run: dead weight on the doc forever.
+  for (const key of variantKeys) {
+    if (!parseVariantKey(key)) {
+      throw new Error(
+        `variant key '${key}' is not a recognized variant for trade ${tradeId}`,
+      );
+    }
+  }
   if (!variantKeys.includes(dims.governingVariant)) {
     throw new Error(
       `variantKeys must include governingVariant ${dims.governingVariant} ` +
