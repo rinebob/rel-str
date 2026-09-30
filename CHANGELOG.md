@@ -4,6 +4,8 @@
 ## [2026-09-28]
 
 ### Added
+- [Paper Trading Infra] 553-667_BE-IMPL-PAPER-TRADING: Live-quote close — closePaperTrade callable (per-leg live marks → net order price, unavailable on miss, governing run finalized)
+- [Paper Trading Infra] 553-667_DOCS-PAPER-TRADING: Prod verify (7/7 real quote round-trip) + code review (PASS, 2 rounds) + UAT (Complete) for #667
 - [GitHub read-only issue UI] 619-621-641_BE-IMPL-DEV-TOOLS: Deploy getLifecycleTree + GITHUB_READ_TOKEN secret + av-proxy-api whitelist (BE + FE mirror)
 - [GitHub read-only issue UI] 619-621-641_DOCS-DEV-TOOLS: Code review (PASS) + UAT (Complete) for #641
 - [GitHub read-only issue UI] 619-621-644_FE-IMPL-DEV-TOOLS: Topic Viewer route + nav — /tools/topic-viewer lazy route (auth-gated), nav entry, dev-lifecycle→topic-viewer rename
