@@ -9,7 +9,9 @@
 **Type:** IMPL  
 **Status:** Draft  
 **Created:** 2026-09-28  
-**Last Updated:** 2026-09-28  
+**Last Updated:** 2026-09-29  
+
+> **2026-09-29 amendment.** Task 1 (manifest loader) and task 2 (drift check) shipped. Live server = **76 tools**; bundled catalog regenerated from live the same day (`.rh-mcp-tool-catalog.json`). The runner must validate the manifest against the **live** `tools/list` — the old catalog lacks `place_option_order.direction`, `create_scan.columns`, etc., and the strict unknown-arg check would falsely reject them. The read sweep expands to the ~20 newly-added read tools; newly-added mutation classes are deferred (see PRD amendment).  
 
 # IMPL — BE: Full RH MCP Tool Discovery
 
@@ -58,20 +60,20 @@ Three moving parts, all under `functions/src/rh-agent-mcp/diagnostics/`:
 ## 3. Phases → tasks
 
 ### Phase 1 — Probe harness
-1. **Manifest format + loader/validator** — schema-check each entry (known tool name from live list, valid gate value, unique ids); fail-fast on unknown tools (typos can't silently shrink coverage).
-2. **Drift check** — live `tools/list` → `captures/00-drift.json` (added/removed/renamed tools, per-tool inputSchema diffs vs bundled catalog).
-3. **Runner** — sequential iteration, capture writer, `read` batch mode vs `mutation` interactive gate (`y/n` per call + `abort` → post-abort checklist reminder), per-call metadata, `--only`/`--group`/`--dry-run` filters, resume-from-id.
+1. **Manifest format + loader/validator** ✅ #681 — schema-check each entry (known tool name, valid gate, unique ids); strict unknown-arg check; env placeholders.
+2. **Drift check** ✅ #682 — live `tools/list` → `captures/00-drift.json` + `captures/01-live-tools-list.json`; catalog regenerated via `refresh-tool-catalog.ts` (76 tools).
+3. **Runner** — sequential iteration, capture writer, `read` batch mode vs `mutation` interactive gate (`y/n` per call + `abort` → post-abort checklist reminder), per-call metadata, `--only`/`--group`/`--dry-run` filters, resume-from-id. **Must inject live `tools/list` into the manifest validator** (catalog-vs-live drift would falsely reject new fields like `direction`).
 
 ### Phase 2 — Probe execution (owner-gated sessions)
-4. **Read-only sweep** — ~36 read tools + both `review_*`; manifest enumerates every param permutation (each optional param, each enum value); cursor-follow ≥1 paginated tool. Unattended-batchable.
+4. **Read-only sweep** — ~36 original read tools + both `review_*` + the ~20 newly-added read tools (crypto reads, alerts list, SEC filings, historicals, analyst ratings, scanner datapoints…); manifest enumerates every param permutation; cursor-follow ≥1 paginated tool. **Requires extending `ALL_ENABLED_TOOLS` for the new reads** — `executeObservationTool` rejects non-allowlisted names. Unattended-batchable.
 5. **OOMA equity matrix** — the E1–E9 / X1–X8 probe list from PRD US4. Gated per call.
 6. **NFLX option matrix** — PRD US5: single-leg, debit + credit vertical call spreads, naked call, CSP. Gated per call.
 7. **Error probes** — invalid symbol, missing required field, bogus `order_id` cancel, oversell.
 
 ### Phase 3 — Doc + verification
-8. **Doc assembler** — manifest + captures + live schema → per-tool sections + coverage matrix skeleton.
-9. **Discovery doc** — hand-finish: safety classifications, gap callouts (no `trailing_stop`, no `delete_watchlist`/`delete_scan`, multi-leg verdict, sell-to-open requirements), envelope section, links to captures.
-10. **Verify script** — `scripts/verify/rh-mcp-tool-inventory-*.ts`: every catalog tool present in doc, every tool has params + ≥1 response block, matrix row count = catalog count; README + run-all registration.
+8. **Doc assembler** — manifest + captures + live schema → per-tool sections + coverage matrix skeleton (new domain sections for post-July groups).
+9. **Discovery doc** — hand-finish: safety classifications, gap callouts (no `trailing_stop`, no `delete_watchlist`/`delete_scan`, multi-leg verdict, sell-to-open requirements, `direction` semantics), envelope section, links to captures; deferred new mutations marked `deferred`.
+10. **Verify script** — `scripts/verify/rh-mcp-tool-inventory-*.ts`: every live tool present in doc, every tool has params + ≥1 response block or `deferred` marker, matrix row count = live tool count; README + run-all registration.
 
 ## 4. Decisions
 
@@ -89,5 +91,5 @@ Three moving parts, all under `functions/src/rh-agent-mcp/diagnostics/`:
 | Rate limiting during the read sweep | Sequential + spacing; honor 429/Retry-After; resume-from-id |
 | A resting order fills before cancel (moving market) | Limit prices chosen to rest (bid for buys, +2% for sells); abort procedure flattens; owner watching the app |
 | `place_option_order` CSP needs level-3/margin the account lacks | Rejection *is* the answer — captured verbatim |
-| Live schema differs from bundled catalog | Drift check runs first and gates the sweep |
+| Live schema differs from bundled catalog | ✅ Realized 2026-09-29 — 76 vs 49 tools; catalog regenerated (stamped 2026-09-30); runner injects live list into validation |
 | Manifest `account_number` leaks into repo | Env-injected at runtime; redactor strips from captures; verify script greps captures for account-number-shaped strings |

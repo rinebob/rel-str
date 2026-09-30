@@ -9,7 +9,9 @@
 **Type:** TEST  
 **Status:** Draft  
 **Created:** 2026-09-28  
-**Last Updated:** 2026-09-28  
+**Last Updated:** 2026-09-29  
+
+> **2026-09-29 amendment.** Manifest loader (24 cases) + drift diff (17 cases) shipped. Live surface = 76 tools — the read sweep target expands accordingly; coverage matrix rows = live tool count.  
 
 # TEST — BE: Full RH MCP Tool Discovery
 
@@ -25,13 +27,13 @@ Most of this Thread's "test surface" is the probe harness (pure/verifiable) plus
 
 - **Runner → `executeObservationTool`:** mock the executor; assert sequential order, capture write shape, `redactFields` passthrough, gate prompt on `mutation` entries, skip/abort bookkeeping.
 - **Pacing behavior:** post-fill settle poll waits for order to leave `new`/`queued`/`confirmed` before the next probe (timeout → operator prompt); `read` auto-pause on `success:false` and 429/Retry-After backoff; between-group checkpoint pause; `abort` prints the recovery checklist.
-- **Drift checker:** fixture live `tools/list` vs fixture bundled catalog → expected added/removed/changed-schema output.
+- **Drift checker:** ✅ shipped — fixture live `tools/list` vs fixture bundled catalog → added/removed/renamed/schema-changed output (17 cases); live capture `00-drift.json` produced 2026-09-30.
 - **Doc assembler:** fixture manifest + fixture captures → emitted sections contain the tool name, a params table from the fixture schema, a response field-tree derived from the capture, and a coverage-matrix row.
 
 ## Unit Tests
 
-- **Manifest loader/validator** — unknown tool → error naming it; duplicate id → error; missing gate → error; enum of gate values enforced.
-- **Drift diff** — pure function: added/removed/renamed/schema-changed classifications on small fixtures.
+- **Manifest loader/validator** — ✅ shipped (24 cases): unknown tool → error naming it; duplicate id → error; missing gate → error; mutation-over-read safety; strict unknown-arg check; env placeholders.
+- **Drift diff** — ✅ shipped: pure function — added/removed/renamed/schema-changed classifications on small fixtures.
 - **Field-tree summarizer** (reuse `summarizeShape` approach from `option-quote-discovery-function.ts`) — nested objects, arrays, nullability, depth cap.
 - **Coverage matrix join** — manifest×captures produces probed/skipped/missing rows.
 - **Capture redaction check** — sample capture contains no account-number-shaped values.

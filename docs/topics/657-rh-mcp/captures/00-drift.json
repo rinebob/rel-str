@@ -1,0 +1,342 @@
+{
+  "generatedAt": "2026-09-30T07:02:17.783Z",
+  "catalogGenerated": "2026-07-17",
+  "catalogSource": "robinhood-trading MCP tool definitions (schemas only — no tokens, account data, or tool results)",
+  "liveToolCount": 76,
+  "catalogToolCount": 49,
+  "added": [
+    "cancel_crypto_order",
+    "cancel_option_exercise",
+    "create_alert",
+    "delete_alert",
+    "exercise_option",
+    "get_alert_log",
+    "get_alerts",
+    "get_crypto_account_onboarding_info",
+    "get_crypto_orders",
+    "get_crypto_positions",
+    "get_crypto_quotes",
+    "get_currency_pairs",
+    "get_equity_analyst_ratings",
+    "get_index_historicals",
+    "get_limited_margin_upgrade_info",
+    "get_option_historicals",
+    "get_politician_trades",
+    "get_scanner_datapoints",
+    "get_sec_filing",
+    "get_sec_filing_facts",
+    "get_sec_filing_facts_catalog",
+    "get_sec_filing_index",
+    "mark_alerts_read",
+    "place_crypto_order",
+    "preview_crypto_order",
+    "preview_scan",
+    "update_alert"
+  ],
+  "removed": [],
+  "possiblyRenamed": [],
+  "changed": [
+    {
+      "tool": "add_to_watchlist",
+      "diffs": [
+        "properties.currency_pair_ids.description: changed"
+      ]
+    },
+    {
+      "tool": "cancel_equity_order",
+      "diffs": [
+        "properties.account_number.description: changed"
+      ]
+    },
+    {
+      "tool": "cancel_option_order",
+      "diffs": [
+        "properties.account_number.description: changed"
+      ]
+    },
+    {
+      "tool": "create_scan",
+      "diffs": [
+        "description: changed",
+        "+properties.columns",
+        "+properties.scan_id",
+        "properties.preset.description: changed",
+        "properties.filters.description: changed",
+        "properties.title.description: changed"
+      ]
+    },
+    {
+      "tool": "create_watchlist",
+      "diffs": [
+        "description: changed"
+      ]
+    },
+    {
+      "tool": "get_accounts",
+      "diffs": [
+        "description: changed"
+      ]
+    },
+    {
+      "tool": "get_earnings_calendar",
+      "diffs": [
+        "properties.days.description: changed",
+        "properties.filter.description: changed"
+      ]
+    },
+    {
+      "tool": "get_earnings_results",
+      "diffs": [
+        "description: changed",
+        "properties.symbol.description: changed"
+      ]
+    },
+    {
+      "tool": "get_equity_fundamentals",
+      "diffs": [
+        "properties.symbols.description: changed",
+        "properties.bounds.description: changed"
+      ]
+    },
+    {
+      "tool": "get_equity_historicals",
+      "diffs": [
+        "description: changed",
+        "properties.end_time.description: changed",
+        "properties.interval.description: changed",
+        "properties.adjustment_type.description: changed"
+      ]
+    },
+    {
+      "tool": "get_equity_orders",
+      "diffs": [
+        "description: changed",
+        "properties.order_id.description: changed",
+        "properties.symbol.description: changed",
+        "properties.created_at_gte.description: changed",
+        "properties.cursor.description: changed"
+      ]
+    },
+    {
+      "tool": "get_equity_positions",
+      "diffs": [
+        "properties.cursor.description: changed"
+      ]
+    },
+    {
+      "tool": "get_equity_tax_lots",
+      "diffs": [
+        "properties.symbol.description: changed",
+        "properties.cursor.description: changed"
+      ]
+    },
+    {
+      "tool": "get_equity_technical_indicators",
+      "diffs": [
+        "description: changed",
+        "properties.interval.description: changed",
+        "properties.end_time.description: changed",
+        "properties.period.description: changed",
+        "properties.output.description: changed"
+      ]
+    },
+    {
+      "tool": "get_equity_tradability",
+      "diffs": [
+        "description: changed",
+        "properties.symbols.description: changed"
+      ]
+    },
+    {
+      "tool": "get_financials",
+      "diffs": [
+        "properties.symbols.description: changed",
+        "properties.limit.description: changed"
+      ]
+    },
+    {
+      "tool": "get_indexes",
+      "diffs": [
+        "description: changed"
+      ]
+    },
+    {
+      "tool": "get_option_instruments",
+      "diffs": [
+        "description: changed",
+        "properties.state.description: changed",
+        "properties.cursor.description: changed"
+      ]
+    },
+    {
+      "tool": "get_option_level_upgrade_info",
+      "diffs": [
+        "description: changed"
+      ]
+    },
+    {
+      "tool": "get_option_orders",
+      "diffs": [
+        "description: changed",
+        "properties.order_id.description: changed",
+        "properties.created_at_gte.description: changed",
+        "properties.cursor.description: changed"
+      ]
+    },
+    {
+      "tool": "get_option_positions",
+      "diffs": [
+        "properties.cursor.description: changed"
+      ]
+    },
+    {
+      "tool": "get_option_watchlist",
+      "diffs": [
+        "description: changed"
+      ]
+    },
+    {
+      "tool": "get_pnl_trade_history",
+      "diffs": [
+        "description: changed",
+        "properties.span.description: changed",
+        "properties.symbol.description: changed"
+      ]
+    },
+    {
+      "tool": "get_realized_pnl",
+      "diffs": [
+        "description: changed",
+        "properties.span.description: changed",
+        "properties.start_date.description: changed",
+        "properties.end_date.description: changed",
+        "properties.asset_classes.description: changed",
+        "properties.timezone.description: changed"
+      ]
+    },
+    {
+      "tool": "get_scanner_filter_specs",
+      "diffs": [
+        "description: changed"
+      ]
+    },
+    {
+      "tool": "get_scans",
+      "diffs": [
+        "description: changed"
+      ]
+    },
+    {
+      "tool": "get_watchlist_items",
+      "diffs": [
+        "description: changed"
+      ]
+    },
+    {
+      "tool": "place_equity_order",
+      "diffs": [
+        "description: changed",
+        "properties.account_number.description: changed",
+        "properties.market_hours.description: changed",
+        "properties.ref_id.description: changed",
+        "properties.tax_lots.description: changed"
+      ]
+    },
+    {
+      "tool": "place_option_order",
+      "diffs": [
+        "description: changed",
+        "+properties.direction",
+        "properties.legs.description: changed",
+        "properties.quantity.description: changed",
+        "properties.type.description: changed",
+        "properties.price.description: changed",
+        "properties.market_hours.description: changed",
+        "properties.ref_id.description: changed"
+      ]
+    },
+    {
+      "tool": "remove_from_watchlist",
+      "diffs": [
+        "description: changed",
+        "properties.symbols.description: changed"
+      ]
+    },
+    {
+      "tool": "remove_option_from_watchlist",
+      "diffs": [
+        "properties.option_ids.description: changed"
+      ]
+    },
+    {
+      "tool": "review_equity_order",
+      "diffs": [
+        "description: changed",
+        "properties.account_number.description: changed",
+        "properties.market_hours.description: changed",
+        "properties.tax_lots.description: changed"
+      ]
+    },
+    {
+      "tool": "review_option_order",
+      "diffs": [
+        "description: changed",
+        "+properties.direction",
+        "properties.legs.description: changed",
+        "properties.quantity.description: changed",
+        "properties.type.description: changed",
+        "properties.price.description: changed",
+        "properties.stop_price.description: changed",
+        "properties.market_hours.description: changed",
+        "properties.chain_symbol.description: changed"
+      ]
+    },
+    {
+      "tool": "run_scan",
+      "diffs": [
+        "description: changed"
+      ]
+    },
+    {
+      "tool": "search",
+      "diffs": [
+        "description: changed",
+        "properties.asset_type.description: changed"
+      ]
+    },
+    {
+      "tool": "update_scan_config",
+      "diffs": [
+        "description: changed",
+        "required: -sorting_column",
+        "required: -sorting_direction",
+        "+properties.columns",
+        "properties.sorting_column.description: changed",
+        "properties.sorting_direction.description: changed"
+      ]
+    },
+    {
+      "tool": "update_scan_filters",
+      "diffs": [
+        "description: changed",
+        "properties.scan_id.description: changed",
+        "properties.filters.description: changed"
+      ]
+    }
+  ],
+  "unchanged": [
+    "add_option_to_watchlist",
+    "follow_watchlist",
+    "get_equity_price_book",
+    "get_equity_quotes",
+    "get_index_quotes",
+    "get_option_chains",
+    "get_option_quotes",
+    "get_popular_watchlists",
+    "get_portfolio",
+    "get_watchlists",
+    "unfollow_watchlist",
+    "update_watchlist"
+  ],
+  "hasDrift": true
+}
