@@ -4,6 +4,8 @@
 ## [2026-09-28]
 
 ### Added
+- [Robinhood MCP] 657-681_BE-IMPL-RH-MCP: Probe manifest loader/validator — fail-closed mutation gate (definition flag OR static set), strict arg checks, $ENV placeholders, dry-run plan printer
+- [Robinhood MCP] 657-681_DOCS-RH-MCP: Discovery PRD/IMPL/TEST + seed manifest + code review (PASS, 4 rounds) + UAT (Complete) + verify script (9/9) for #681
 - [Paper Trading Infra] 553-667_BE-IMPL-PAPER-TRADING: Live-quote close — closePaperTrade callable (per-leg live marks → net order price, unavailable on miss, governing run finalized)
 - [Paper Trading Infra] 553-667_DOCS-PAPER-TRADING: Prod verify (7/7 real quote round-trip) + code review (PASS, 2 rounds) + UAT (Complete) for #667
 - [GitHub read-only issue UI] 619-621-641_BE-IMPL-DEV-TOOLS: Deploy getLifecycleTree + GITHUB_READ_TOKEN secret + av-proxy-api whitelist (BE + FE mirror)
