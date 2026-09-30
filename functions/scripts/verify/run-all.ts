@@ -11,10 +11,21 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+// Documented order — ingest/ledger first, exits/actions last. Scripts
+// needing RH MCP OAuth (564 signal-order, 667 close) fail without a local
+// token; that's a real environment gap, not a script defect.
 const scripts = [
   'strat-lib-257-compute.ts',
   'strat-lib-258-comparison.ts',
   'indicator-lib-268-engine.ts',
+  'paper-trading-ledger-561.ts',
+  'paper-trading-engine-migration-562.ts',
+  'paper-trading-exit-eval-563.ts',
+  'paper-trading-signal-order-564.ts',
+  'paper-trading-read-apis-565.ts',
+  'paper-trading-cancel-666.ts',
+  'paper-trading-close-667.ts',
+  'paper-trading-trade-exits-669.ts',
 ];
 
 let passed = 0;
