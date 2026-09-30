@@ -46,14 +46,17 @@
 
 ## 3. Strategy builder — governing select
 
-- `VARIANT_PARAM_META` filtered by `TERMINAL_VARIANT_FAMILIES` → the
-  family select offers `trailing-stop` only (plus whatever the select
-  already does for display of legacy values on edit).
-- `trailing-stop` param default **8** (pct), min/step from existing meta.
-- 'none' no longer selectable for new configs; editing an old instance
-  still displays stored keys via the parse fallback.
-- `parseVariantKey`/family narrowing gains the `none` family for
-  display-only round-trip (SHARED §4).
+- `variantFamilies` filtered by `TERMINAL_VARIANT_FAMILIES` → the family
+  select offers `trailing-stop` only; the `'none'` mat-option is removed.
+- `trailing-stop` param default **8** (pct); `VARIANT_PARAM_META` gains a
+  `max` and `variantParamValid` enforces the shared eligibility bound
+  (`isGoverningEligibleParams`, SHARED §4) so `trailing-0`/`trailing-150`
+  can't be created or round-tripped.
+- Editing an instance whose stored key is non-terminal, unparseable, or
+  degenerate prefills the trailing-8 default (matching the BE resolver's
+  warn-and-default at launch).
+- `parseVariantKey` tolerates non-string input (Firestore is schema-free)
+  and returns null — 'none' is not a family.
 
 ## 4. Status display
 

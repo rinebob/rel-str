@@ -11,6 +11,15 @@
 > stop per trade — the real-world constraint. No shadow runs, `none` not
 > offered for new trades, no backward-compat handling (existing docs'
 > inert `none` runs simply never fire).
+>
+> **Amended 2026-09-29 — purpose clarified.** Paper trading is an
+> **execution-fidelity** system (did the plan get followed), not an
+> exit-policy research harness — counterfactual exit comparison belongs
+> to backtesting, which can replay N policies over the same history.
+> Consequence: the variant machinery stays as *pluggable exit
+> definitions* for enforcement (trailing stop now, std-dev target later),
+> and the governing-select guard simplifies from a terminal-family
+> taxonomy to "must be a registered exit variant".
 
 ## Problem
 
@@ -38,11 +47,13 @@ comparable outcomes that mimic a real broker's "one stop per position".
   identical to an initial stop — `initial-stop` is a redundant alias and is
   not offered for new trades.
 - No shadow runs are seeded. Post-exit counterfactual paths die with the
-  trade (marks stop landing anyway); wider exit comparisons are a later
-  back-calculation problem, not today's.
+  trade (marks stop landing anyway); exit-policy comparison is a
+  **backtesting** concern (replayed over shared history), not a live
+  shadow-eval concern.
 - `none` remains in the registry vocabulary but is never seeded or offered
-  on new trades; `time-*` and `limit-sd*` stay parseable observational
-  families for later work — never governing.
+  on new trades; the governing select is restricted to registered exit
+  variants (today: `trailing-*` — new exits like `limit-sd*` arrive as
+  registry defs when backtesting promotes them).
 
 ## User stories
 

@@ -48,16 +48,23 @@ matching the #564/#563 test seams.
 
 - `isTerminalVariantKey`: `trailing-*` true; `initial-stop`, `time-*`,
   `limit-sd*`, `none`, garbage → false.
-- `seedVariantRuns` rejects non-terminal governing keys (except `'none'`);
-  accepts `trailing-8`.
+- `seedVariantRuns` rejects non-terminal AND unparseable/inert governing
+  keys (`'none'` included — legacy docs bypass seeding via
+  `positionToTrade`, so no caller legitimately passes it); accepts
+  `trailing-8`. Non-governing `variantKeys` must all parse.
 
 ## Instance launch seeding
 
-- `positionToPaper`/`createPosition` with instance `governingVariant:
-  'trailing-15'` → trade carries that governing run (no shadows).
-- Instance missing/`none` → `trailing-8` default.
-- Instance read once per launch batch (assert call count if the path
-  batches).
+- `governingVariantForInstance` with stored `governingVariant:
+  'trailing-15'` → `'trailing-15'` governing key.
+- Missing / `'none'` / non-string stored key → silent `'trailing-8'`
+  default; non-terminal / unparseable / degenerate string key →
+  `'trailing-8'` + warn (a bad stored key must not crash the nightly open
+  pass).
+- `createPosition` seeds that key as the single governing run (no
+  shadows); resolution uses the instance doc `getInstance` already reads
+  inside `createPosition` (open-pass passes `instanceId`; the resolver
+  does not add fetches beyond that read).
 
 ## Edge cases
 

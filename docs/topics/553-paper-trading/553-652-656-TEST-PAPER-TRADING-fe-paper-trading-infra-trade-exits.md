@@ -43,11 +43,14 @@ Jest 30 + jest-preset-angular; async tests flush with a macrotask boundary
 
 ## Strategy builder
 
-- Governing family select offers only `trailing-stop` (+ legacy display).
+- Governing family select offers only `trailing-stop`; `'none'` is not an
+  option.
 - Param default 8 → key `trailing-8`; param 15 → `trailing-15`; decimal
   `8.5` → `trailing-8.5`.
 - `initial-stop`/`time-stop`/`limit-stddev`/`none` not selectable for new
   configs.
-- Editing a legacy instance with `governingVariant: 'none'` or
-  `time-30d` → displays via fallback; save writes a `trailing-*` or keeps
-  the unparseable key per the existing stale-key convention.
+- Out-of-range params (`0`, `150`) fail validation with a `range` error;
+  the input binds `[min]`/`[max]` from `VARIANT_PARAM_META`.
+- Editing an instance whose stored key is non-terminal, unparseable, or
+  degenerate (`time-30d`, `custom-legacy-key`, `none`, `trailing-150`)
+  prefills the `trailing-stop`/8 default — BE resolver parity.

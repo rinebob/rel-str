@@ -71,6 +71,9 @@ export type VariantFamily = 'initial-stop' | 'trailing-stop' | 'time-stop' | 'li
 export const TERMINAL_VARIANT_FAMILIES: readonly VariantFamily[] = ['trailing-stop'];
 ```
 
-'none' also parses to a `none` family for round-trip display of existing
-docs (it is not in `TERMINAL_VARIANT_FAMILIES`, so it's unselectable for
-new configs).
+`isGoverningEligibleParams(family, pctFraction)` is the single shared
+predicate both sides use (BE `isTerminalVariantKey`; FE
+`variantParamValid` + prefill): family ∈ `TERMINAL_VARIANT_FAMILIES` and a
+sane pct fraction (0 < p < 1 — `trailing-0` fires instantly, `trailing-100`
+never protects). 'none' is not a family and parses to nothing — existing
+docs carrying it are legacy-inert, not round-tripped for display.

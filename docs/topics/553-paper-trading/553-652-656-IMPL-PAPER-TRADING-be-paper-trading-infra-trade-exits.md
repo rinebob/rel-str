@@ -73,26 +73,48 @@ Flow (mirroring `paperSignalOrder`'s MCP wiring):
 Error map: not-found → `not-found`; not-OPEN → `failed-precondition`;
 quote failure → `unavailable`; MCP/session failure → `internal`.
 
-## 4. Registry — terminal classification
+## 4. Registry — governing-key guard
+
+**Amended 2026-09-29/30** (execution-fidelity reframe — see PRD): the
+guard is a *product gate*, not a capability claim — `initial-stop` and
+`time-stop` DO fire in `evaluateVariant`, but US4 offers only trailing
+stops as governing. `TERMINAL_VARIANT_FAMILIES` (`['trailing-stop']`)
+encodes that gate; `isTerminalVariantKey` additionally rejects
+degenerate params (`trailing-0` fires on the first mark):
 
 ```ts
-export const TERMINAL_VARIANT_FAMILIES = new Set(['trailing-stop']);
 export function isTerminalVariantKey(key: string): boolean {
   const def = parseVariantKey(key);
-  return !!def && TERMINAL_VARIANT_FAMILIES.has(def.family);
+  if (!def || !TERMINAL_VARIANT_FAMILIES.includes(def.family)) return false;
+  // Pct-param families additionally need a sane bound; a non-pct family
+  // added later is governed by membership alone.
+  if ('stopPct' in def.params) {
+    return isGoverningEligiblePct(def.params.stopPct);
+  }
+  return true;
 }
 ```
 
-`ledger.seedVariantRuns` gains the invariant: a governing key must be
-terminal or the literal `'none'` (existing inert docs) — throw otherwise.
-New call sites never pass `'none'`.
+`isGoverningEligiblePct` (shared contracts) is the single pct bound used
+by the BE registry and the FE form — `0 < fraction < 1` (`trailing-0`
+fires instantly; `trailing-99+` needs a ~99% reversal).
+
+`ledger.seedVariantRuns` invariants: `governingVariant` must be terminal —
+`'none'` is rejected outright (legacy inert docs are written by
+`positionToTrade` directly and never traverse seeding; no legit caller
+passes it) — and every `variantKeys` entry must parse. Adding an exit
+family later (std-dev target) = add to `TERMINAL_VARIANT_FAMILIES` +
+implement its trigger — the taxonomy grows with capability, no other
+wiring.
 
 ## 5. Instance launch seeding
 
-`trade-adapter.positionToPaper` + `position-repository.createPosition`
+`trade-adapter.positionToTrade` + `position-repository.createPosition`
 currently hardcode `LEGACY_GOVERNING_VARIANT = 'none'`. Change: resolve the
 instance doc (`getInstance(db, position.instanceId)`) and use its
-`governingVariant` (default `trailing-8` when the field is missing/'none').
+`governingVariant` (default `trailing-8` — with a warn — when the field is
+missing, `'none'`, non-terminal, or unparseable; a bad stored key must not
+crash the nightly open pass).
 variantKeys = `[governing]` — no shadow seeding. Ensure the instance read
 happens once per launch batch, not per trade, if open-pass creates many
 positions per instance.

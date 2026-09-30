@@ -87,15 +87,15 @@ stop at 15%).
 1. Signal-order → stage an equity ticket → Accept as Paper → teal badge.
 2. `/paper-trading` → trade row, cash decreased, group-by works.
 3. After the noon fill pass → option-expression trades fill.
-4. After the nightly stats pass → equity curves render; cohort view shows
-   governing vs shadow variant outcomes.
+4. After the nightly stats pass → equity curves render; the governing
+  trailing stop shows on each trade row.
 
 ## Known limitations (honest list)
 
-- **`governingVariant` on instances is stored but not yet consumed** when
-  strategy trades launch — the exit-engine wiring (Phase 3) isn't built, so
-  launched trades currently run `'none'`. The dashboard field and storage
-  are ready.
+- **`governingVariant` is consumed at launch** — launched strategy trades
+  carry the instance's configured `trailing-{pct}` as their single
+  governing run (missing/ineligible stored keys warn and default to
+  `trailing-8`). No shadow/counterfactual runs are seeded.
 - **No manual option entry or strategy launcher UI yet** — queued as
   follow-on threads (per the plan: one-off spread → backtest → promote,
   add-on/pyramiding).
