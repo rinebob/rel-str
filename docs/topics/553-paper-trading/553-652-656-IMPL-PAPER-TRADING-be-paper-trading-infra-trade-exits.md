@@ -50,11 +50,15 @@ Flow (mirroring `paperSignalOrder`'s MCP wiring):
    - share leg → `get_equity_quotes {symbols: [symbol]}` → `extractEquityPrice`
    - option leg → `get_option_quotes` / the provider path used by
      `rh-mcp-option-quote-provider.ts` → per-contract mark
-   - Net order-level exit price = Σ(side-sign × legMark × legQty × legMult) /
-     (orderQty × orderMultiplier) — reduces to the leg price for the
-     single-leg trades that exist today; forward-compatible with spreads
-     closing as a unit.
-   - Any missing/non-finite quote → `unavailable`; **no fallback**.
+   - Net order-level exit price: compute the liquidation value V =
+     Σ(leg-sign × legMark × legQty × legMult), then sign it by entry side —
+     `price = (entrySide==SHORT ? −V : V) / (orderQty × orderMult)` — so the
+     ledger's `cashDelta = −signedCashDelta(fill, entrySide)` equals V
+     exactly. Reduces to the leg mark for single-leg trades; a SHORT entry
+     closing for a net credit yields a negative price (correct).
+   - Any missing/non-finite quote → `unavailable`; **no fallback**. The
+     option provider *throws* on quote-miss — the handler catches and maps
+     to `unavailable`; provider/infra throws are not `internal`.
 4. `applyExitFill` with `fill.price = netExitPrice`, `role: 'exit'`,
    `quantity = order.quantity`, `quoteSource: RH_MCP`,
    `date = getMarketDatePT(now)`, `fillId = 'exit-{tradeId}-manual-{ts}'`.

@@ -25,11 +25,14 @@ import {
   SIGNAL_SHADOW_VARIANT_KEYS,
   type CancelPaperTradeRequest,
   type CancelPaperTradeResponse,
+  type ClosePaperTradeRequest,
+  type ClosePaperTradeResponse,
   type PaperCohort,
   type PaperSignalOrderRequest,
   type PaperSignalOrderResponse,
   type PaperTrade,
   type SignalExpressionTemplate,
+  type VariantRun,
 } from '@paper-trading/contracts';
 import {
   buildCohortId,
@@ -38,11 +41,24 @@ import {
   EQUITY_TRADE_DESC,
 } from '@paper-trading/ids';
 import { db } from '../firebase-admin-init';
-import { getMarketDatePT } from '../common/pt-date-utils';
+import { getMarketDatePT, calendarDaysBetween } from '../common/pt-date-utils';
 import { ST_ORDER_INTENTS_COLLECTION } from '../common/st-collections';
 import { extractEquityPrice, MCP_PREFIX } from './engine/rh-mcp-shapes';
-import { applyEntryFill, cancelPendingTrade, createPendingTrade } from './ledger';
-import type { CancelTradeInput, EntryFillInput, PendingTradeInput } from './ledger';
+import {
+  applyEntryFill,
+  applyExitFill,
+  cancelPendingTrade,
+  computeExitPnl,
+  createPendingTrade,
+  orderMultiplier,
+} from './ledger';
+import type {
+  ApplyFillResult,
+  CancelTradeInput,
+  EntryFillInput,
+  ExitFillInput,
+  PendingTradeInput,
+} from './ledger';
 import {
   getCohort,
   getTrade,
@@ -50,7 +66,9 @@ import {
   listTrades,
   resolveTradeId,
   setCohort,
+  updateVariantRun,
 } from './repository';
+import { RobinhoodMcpOptionQuoteProvider } from './engine/quote-providers/rh-mcp-option-quote-provider';
 import type { RobinhoodMcpSessionManager } from '../options-strategy-engine/mcp/robinhood-mcp-session-manager';
 import { createRobinhoodMcpSessionManagerFromEnv } from '../options-strategy-engine/mcp/robinhood-mcp-session-manager';
 import { OPTIONS_STRATEGY_ALLOWED_ORIGINS } from './engine/options-strategy-cors';
@@ -472,6 +490,219 @@ export const cancelPaperTrade = onCall<CancelPaperTradeRequest, Promise<CancelPa
         'internal',
         `cancelPaperTrade failed: ${err instanceof Error ? err.message : String(err)}`,
       );
+    }
+  },
+);
+
+// ── closePaperTrade (task #667) ────────────────────────────────────────────
+
+/**
+ * Close an OPEN paper trade at a *live* Robinhood quote — whole unit,
+ * multi-leg trades close as one order-level fill. No stored-mark fallback
+ * and no user-entered price: any missing/non-finite leg quote is
+ * `unavailable` with no ledger write. After the ledger close the governing
+ * variant run is finalized EXITED with its exitEvent (same handler, post-
+ * txn — a missed update is backfilled by the eval pass's CLOSED-trade path).
+ */
+export interface ClosePaperTradeDeps {
+  getTrade(tradeId: string): Promise<PaperTrade | null>;
+  /** Live option marks by OCC contract id (RobinhoodMcpOptionQuoteProvider). */
+  getOptionQuotes(
+    contractIds: string[],
+    side: TradeSide,
+  ): Promise<{ contractID: string; mark?: number }[]>;
+  /** Equity quote tool caller (`get_equity_quotes`). */
+  callTool(name: string, args: Record<string, unknown>): Promise<unknown>;
+  applyExitFill(input: ExitFillInput): Promise<ApplyFillResult>;
+  /** repository.updateVariantRun. */
+  updateRun(tradeId: string, run: VariantRun): Promise<void>;
+  now(): Date;
+}
+
+/** Net order-level exit price: signed so the ledger's cashDelta equals the
+ *  position's liquidation value (long legs sell for +value, short legs cost
+ *  −value at buyback). Returns undefined when any leg quote is missing. */
+export async function netExitPrice(
+  trade: PaperTrade,
+  deps: Pick<ClosePaperTradeDeps, 'getOptionQuotes' | 'callTool'>,
+): Promise<number | undefined> {
+  const optionLegs = trade.legs.filter((l) => l.kind === 'option');
+  const optionMarks = new Map<string, number>();
+  if (optionLegs.length) {
+    // The provider throws on quote-miss/unparseable ids — same contract as a
+    // missing mark: no quote, no close.
+    let quotes: { contractID: string; mark?: number }[];
+    try {
+      quotes = await deps.getOptionQuotes(
+        optionLegs.map((l) => l.contractID),
+        trade.order.side,
+      );
+    } catch (err) {
+      logger.warn(`option quote lookup failed for ${trade.id}: ${err}`);
+      return undefined;
+    }
+    for (const q of quotes) {
+      if (q.mark !== undefined && Number.isFinite(q.mark)) {
+        optionMarks.set(q.contractID, q.mark);
+      }
+    }
+    if (optionMarks.size !== optionLegs.length) return undefined;
+  }
+  let equityMark: number | undefined;
+  if (trade.legs.some((l) => l.kind === 'share')) {
+    // Same contract as the option path — a thrown tool error is a quote
+    // miss (unavailable), not an internal failure.
+    try {
+      const raw = await deps.callTool(`${MCP_PREFIX}get_equity_quotes`, {
+        symbols: [trade.symbol],
+      });
+      equityMark = extractEquityPrice(raw, trade.symbol);
+    } catch (err) {
+      logger.warn(`equity quote lookup failed for ${trade.id}: ${err}`);
+      return undefined;
+    }
+    if (equityMark === undefined || !Number.isFinite(equityMark)) return undefined;
+  }
+
+  // Liquidation value: long legs +mark, short legs −mark.
+  let value = 0;
+  for (const leg of trade.legs) {
+    const mark =
+      leg.kind === 'share' ? equityMark : optionMarks.get(leg.contractID);
+    if (mark === undefined) return undefined;
+    value += (leg.side === TradeSide.SHORT ? -1 : 1) * mark * leg.quantity * leg.multiplier;
+  }
+  // Sign for the ledger formula: -signedCashDelta(fill, entrySide) must equal
+  // the liquidation value → price carries the entry-side sign.
+  const signed =
+    trade.order.side === TradeSide.SHORT ? -value : value;
+  return signed / (trade.order.quantity * orderMultiplier(trade.legs));
+}
+
+export async function handleClosePaperTrade(
+  request: { data?: unknown; auth?: { uid: string } },
+  deps: ClosePaperTradeDeps,
+): Promise<ClosePaperTradeResponse> {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Must be signed in to close a paper trade');
+  }
+  const data = (request.data ?? {}) as Partial<ClosePaperTradeRequest>;
+  if (typeof data.tradeId !== 'string' || !data.tradeId) {
+    throw new HttpsError('invalid-argument', 'closePaperTrade requires tradeId');
+  }
+  const trade = await deps.getTrade(data.tradeId);
+  if (!trade) {
+    throw new HttpsError('not-found', `paper trade ${data.tradeId} not found`);
+  }
+  if (!trade.userId || trade.userId !== request.auth.uid) {
+    throw new HttpsError('permission-denied', 'paper trade belongs to another user');
+  }
+  if (trade.status !== PaperTradeStatus.OPEN) {
+    throw new HttpsError(
+      'failed-precondition',
+      `paper trade ${trade.id} is not open (status ${trade.status})`,
+    );
+  }
+  if (!trade.legs.length) {
+    throw new HttpsError('failed-precondition', `paper trade ${trade.id} has no legs`);
+  }
+
+  const now = deps.now();
+  const nowIso = now.toISOString();
+  const marketDate = getMarketDatePT(now);
+
+  const exitPrice = await netExitPrice(trade, deps);
+  if (exitPrice === undefined || !Number.isFinite(exitPrice)) {
+    throw new HttpsError('unavailable', `no live quote for ${trade.id} — close not attempted`);
+  }
+
+  let result: ApplyFillResult;
+  try {
+    result = await deps.applyExitFill({
+      userId: trade.userId,
+      tradeId: trade.id,
+      fill: {
+        fillId: `exit-${trade.id}-manual-${now.getTime()}`,
+        role: 'exit',
+        date: marketDate,
+        price: exitPrice,
+        quantity: trade.order.quantity,
+        quoteSource: OptionQuoteSource.RH_MCP,
+      },
+      now: nowIso,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/not found/i.test(msg)) throw new HttpsError('not-found', msg);
+    if (/not open/i.test(msg)) throw new HttpsError('failed-precondition', msg);
+    throw err;
+  }
+
+  // Finalize the governing run — a manual close is a governing exit. The
+  // ledger close already committed; a transient failure here must not hide
+  // the successful close from the client (the eval pass backfills the run
+  // on its next pass over CLOSED trades).
+  const governing = result.trade.variantRuns.find((r) => r.governing && r.state === 'ACTIVE');
+  if (governing) {
+    const entry = result.trade.fills.find((f) => f.role === 'entry');
+    try {
+      await deps.updateRun(trade.id, {
+        ...governing,
+        state: 'EXITED',
+        exitEvent: {
+          date: marketDate,
+          price: exitPrice,
+          pnl: entry
+            ? computeExitPnl(entry, exitPrice, trade.order.side, trade.legs)
+            : 0,
+          daysHeld: entry ? calendarDaysBetween(entry.date, marketDate) : 0,
+        },
+      });
+    } catch (err) {
+      logger.warn(`run finalize failed post-close on ${trade.id} — eval pass backfills: ${err}`);
+    }
+  }
+
+  logger.info(`closed ${trade.id} at ${exitPrice} (pnl ${result.trade.realizedPnl})`);
+  return {
+    tradeId: trade.id,
+    exitPrice,
+    realizedPnl: result.trade.realizedPnl,
+    closedAt: nowIso,
+  };
+}
+
+export const closePaperTrade = onCall<ClosePaperTradeRequest, Promise<ClosePaperTradeResponse>>(
+  {
+    cors: OPTIONS_STRATEGY_ALLOWED_ORIGINS,
+    memory: '512MiB',
+    timeoutSeconds: 120,
+    secrets: ['RH_CREDENTIAL_BUNDLE'],
+  },
+  async (request) => {
+    let manager: RobinhoodMcpSessionManager | undefined;
+    try {
+      const m = (manager = await createRobinhoodMcpSessionManagerFromEnv());
+      const callTool = (name: string, args: Record<string, unknown>) =>
+        m.callTool(name, args);
+      const optionQuotes = new RobinhoodMcpOptionQuoteProvider({ callTool });
+      return await handleClosePaperTrade(request, {
+        getTrade: (tradeId) => getTrade(db, tradeId),
+        getOptionQuotes: (ids, side) => optionQuotes.getQuotes(ids, side),
+        callTool,
+        applyExitFill: (input) => applyExitFill(input, ledgerDeps(db)),
+        updateRun: (tradeId, run) =>
+          updateVariantRun(db, tradeId, run, new Date().toISOString()),
+        now: () => new Date(),
+      });
+    } catch (err) {
+      if (err instanceof HttpsError) throw err;
+      throw new HttpsError(
+        'internal',
+        `closePaperTrade failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    } finally {
+      await manager?.close();
     }
   },
 );
