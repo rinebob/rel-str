@@ -4,6 +4,10 @@
 ## [2026-09-30]
 
 ### Added
+- [Paper Trading Infra] 553-668_BE-IMPL-PAPER-TRADING: Terminal-guard seeding + instance governingVariant resolution — seedVariantRuns rejects non-terminal/'none'/unparseable governing keys; strategy launches honor the stored trailing-{pct} (warn + trailing-8 fallback); no shadow runs
+- [Paper Trading Infra] 553-668_FE-IMPL-PAPER-TRADING: Builder governing select — trailing-stop only per US4 ('none' removed, default 8%, range validation, ineligible stored keys coerce to default on edit)
+- [Paper Trading Infra] 553-668_SHARED-IMPL-PAPER-TRADING: Governing-eligibility contracts — NONE_VARIANT_KEY + shared isGoverningEligiblePct bound + governingVariant field on StrategyInstanceConfig
+- [Paper Trading Infra] 553-668_DOCS-PAPER-TRADING: Trade-exits execution-fidelity amendments + code review (PASS, 4 rounds) + UAT (Complete) for #668
 - [Robinhood MCP] 657-682_BE-IMPL-RH-MCP: Catalog drift check — live tools/list vs bundled catalog (structural schema diff, rename hints, name-collision detection) + refresh-tool-catalog writer; captures 00-drift.json + 01-live-tools-list.json; 25-case spec + 6-check offline verify
 - [Robinhood MCP] 657-682_BE-CHORE-RH-MCP: Regenerate tool catalog from live — 49→76 tools (+27 new: crypto, alerts, SEC filings, politician trades, historicals, scanners)
 - [Robinhood MCP] 657-682_DOCS-RH-MCP: Drift/live-list captures + 76-tool amendments to discovery PRD/IMPL/TEST + code review (PASS, 4 rounds) + UAT (Complete) for #682
