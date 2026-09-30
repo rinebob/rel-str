@@ -1,9 +1,9 @@
 /**
  * Order Queue Component
  *
- * Left panel of the signal order screen. Lists all staged tickets grouped
- * by status. Each row shows source badge, symbol, side, order type, quantity,
- * and status. Clicking a row selects it (emits ticket id). Batch select with
+ * Left panel of the signal order screen. Lists all non-paper tickets grouped
+ * by status. Each row shows symbol, side, order type, quantity, and status.
+ * Clicking a row selects it (emits ticket id). Batch select with
  * checkboxes + remove action.
  *
  * Ref: IMPL-savant-trader-order-placement-fe.md §8 (Signal order screen)
@@ -25,7 +25,6 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import {
   OrderTicket,
   OrderTicketStatus,
-  OrderSource,
   InstrumentType,
 } from '../../services/order-ticket.types';
 import { computePositionSize } from '../../utils/position-sizing.util';
@@ -106,9 +105,15 @@ export class OrderQueueComponent {
     return this.protectedSymbols().has(sym);
   }
 
+  /** Tickets this page displays. PAPER tickets never render — once an order
+   *  is paper it belongs to the paper-trading dashboard, not this queue. */
+  private visibleTickets = computed(() =>
+    this.tickets().filter((t) => t.status !== OrderTicketStatus.PAPER),
+  );
+
   /** tickets grouped by status category, in display order. Every broker ticket appears once. */
   groups = computed<StatusGroup[]>(() => {
-    const all = this.tickets();
+    const all = this.visibleTickets();
     const sortTickets = (tickets: OrderTicket[]) =>
       [...tickets].sort((a, b) => {
         // Buy before sell
@@ -122,12 +127,6 @@ export class OrderQueueComponent {
         status: [OrderTicketStatus.STAGED],
         tickets: sortTickets(all.filter((i) => i.status === OrderTicketStatus.STAGED)),
         cssClass: 'group-staged',
-      },
-      {
-        label: 'Paper',
-        status: [OrderTicketStatus.PAPER],
-        tickets: sortTickets(all.filter((i) => i.status === OrderTicketStatus.PAPER)),
-        cssClass: 'group-paper',
       },
       {
         label: 'Submitting',
@@ -175,11 +174,10 @@ export class OrderQueueComponent {
   });
 
   /** Total count for header. */
-  totalCount = computed(() => this.tickets().length);
+  totalCount = computed(() => this.visibleTickets().length);
 
   /** Enums for template comparisons. */
   protected readonly TicketStatus = OrderTicketStatus;
-  protected readonly Source = OrderSource;
 
   /** Staged-group aggregates shown in the Staged group header, split by
    *  side so staged sells never inflate the buy total. Only tickets with
@@ -190,7 +188,7 @@ export class OrderQueueComponent {
     const zero = (): StagedAggregate => ({ shares: 0, units: 0, dollars: 0 });
     const buy = zero();
     const sell = zero();
-    for (const t of this.tickets()) {
+    for (const t of this.visibleTickets()) {
       if (t.status !== OrderTicketStatus.STAGED || t.instrumentType === InstrumentType.OPTION) continue;
       if (this.num(t.quantity) == null && this.num(t.dollarAmount) == null) continue;
       const bucket = t.side === 'sell' ? sell : buy;
@@ -212,16 +210,6 @@ export class OrderQueueComponent {
       return ticket.legs[0]?.symbol ?? '?';
     }
     return ticket.symbol;
-  }
-
-  /** Short source badge text; null when the source is unrecognized (badge omitted). */
-  sourceBadge(ticket: OrderTicket): string | null {
-    switch (ticket.source) {
-      case OrderSource.SIGNAL_PIPELINE: return 'SIG';
-      case OrderSource.MANUAL: return 'MAN';
-      case OrderSource.POSITION_MANAGEMENT: return 'POS';
-      default: return null;
-    }
   }
 
   /** Parse a ticket numeric field; null when absent or NaN. */
@@ -324,7 +312,7 @@ export class OrderQueueComponent {
 
   /** Select all tickets. */
   selectAll(): void {
-    this.checkedIds.set(new Set(this.tickets().map((i) => i.id)));
+    this.checkedIds.set(new Set(this.visibleTickets().map((i) => i.id)));
   }
 
   /** Clear all checkboxes. */
@@ -332,11 +320,15 @@ export class OrderQueueComponent {
     this.checkedIds.set(new Set());
   }
 
-  /** Emit remove event for all checked tickets. */
+  /** Emit remove event for checked tickets. Only currently-visible ids are
+   *  emitted — a checked id can linger after its ticket drops out of view
+   *  (e.g. accepted-as-paper), and removing a hidden paper ticket would
+   *  orphan the paper ledger's provenance doc. */
   removeChecked(): void {
-    const ids = Array.from(this.checkedIds());
+    const visible = new Set(this.visibleTickets().map((t) => t.id));
+    const ids = Array.from(this.checkedIds()).filter((id) => visible.has(id));
+    this.checkedIds.set(new Set());
     if (ids.length === 0) return;
     this.removeTickets.emit(ids);
-    this.checkedIds.set(new Set());
   }
 }

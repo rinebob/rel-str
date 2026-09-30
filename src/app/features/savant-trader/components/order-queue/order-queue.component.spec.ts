@@ -102,7 +102,7 @@ describe('OrderQueueComponent', () => {
       expect(groups[3].label).toBe('Failed');
     });
 
-    it('groups PAPER tickets under their own Paper group with a PAPER badge', () => {
+    it('excludes PAPER tickets entirely — no Paper group, no badge, not counted', () => {
       const tickets = [
         makeTicket('1', OrderTicketStatus.STAGED, 'AAPL'),
         makeTicket('2', OrderTicketStatus.PAPER, 'NVDA'),
@@ -113,23 +113,49 @@ describe('OrderQueueComponent', () => {
       fixture.detectChanges();
 
       const groups = component.groups();
-      const paper = groups.find((g) => g.label === 'Paper');
-      expect(paper).toBeTruthy();
-      expect(paper!.tickets.map((t) => t.id)).toEqual(['2']);
-      expect(paper!.cssClass).toBe('group-paper');
+      expect(groups.find((g) => g.label === 'Paper')).toBeUndefined();
+      expect(groups.map((g) => g.label)).toEqual(['Staged', 'Open Positions']);
+      expect(component.totalCount()).toBe(2);
 
-      // Paper group sits between Staged and the broker lifecycle groups.
-      expect(groups.map((g) => g.label)).toEqual(['Staged', 'Paper', 'Open Positions']);
+      expect(fixture.nativeElement.querySelector('.paper-badge')).toBeNull();
+      const rows = fixture.nativeElement.querySelectorAll('.queue-item');
+      expect(rows.length).toBe(2);
     });
 
-    it('renders the PAPER badge on the ticket row', () => {
-      fixture.componentRef.setInput('tickets', [makeTicket('1', OrderTicketStatus.PAPER, 'AAPL')]);
+    it('does not include PAPER tickets in select-all', () => {
+      const tickets = [
+        makeTicket('1', OrderTicketStatus.STAGED, 'AAPL'),
+        makeTicket('2', OrderTicketStatus.PAPER, 'NVDA'),
+      ];
+      fixture.componentRef.setInput('tickets', tickets);
       fixture.componentRef.setInput('selectedId', null);
       fixture.detectChanges();
 
-      const badge = fixture.nativeElement.querySelector('.paper-badge');
-      expect(badge).toBeTruthy();
-      expect(badge.textContent).toContain('PAPER');
+      component.selectAll();
+      fixture.detectChanges();
+
+      expect(component.isChecked('1')).toBe(true);
+      expect(component.isChecked('2')).toBe(false);
+    });
+
+    it('does not emit removal for checked ids whose tickets are no longer visible', () => {
+      fixture.componentRef.setInput('tickets', [makeTicket('1', OrderTicketStatus.STAGED, 'AAPL')]);
+      fixture.componentRef.setInput('selectedId', null);
+      fixture.detectChanges();
+
+      component.toggleCheck('1', true);
+
+      // The ticket becomes PAPER (accept-as-paper) → drops out of view
+      fixture.componentRef.setInput('tickets', [makeTicket('1', OrderTicketStatus.PAPER, 'AAPL')]);
+      fixture.detectChanges();
+
+      let emitted: string[] | null = null;
+      component.removeTickets.subscribe((ids) => (emitted = ids));
+      component.removeChecked();
+      fixture.detectChanges();
+
+      expect(emitted).toBeNull();
+      expect(component.isChecked('1')).toBe(false);
     });
 
     it('keeps locally-submitted tickets in Submitted until the RH merge derives Resting', () => {
@@ -535,26 +561,17 @@ describe('OrderQueueComponent', () => {
       expect(row.textContent).toContain('2 contracts');
     });
 
-    it('shows source badge', () => {
-      const ticket = makeTicket('1', OrderTicketStatus.STAGED, 'AAPL');
-      fixture.componentRef.setInput('tickets', [ticket]);
+    it('does not render source badges on rows', () => {
+      const tickets = [
+        makeTicket('1', OrderTicketStatus.STAGED, 'AAPL'),
+        makeTicket('2', OrderTicketStatus.STAGED, 'NVDA', 'buy', { source: OrderSource.MANUAL }),
+        makeTicket('3', OrderTicketStatus.FILLED, 'MSFT', 'buy', { source: OrderSource.POSITION_MANAGEMENT }),
+      ];
+      fixture.componentRef.setInput('tickets', tickets);
       fixture.componentRef.setInput('selectedId', null);
       fixture.detectChanges();
 
-      const badge = fixture.nativeElement.querySelector('.source-badge');
-      expect(badge.textContent).toContain('SIG');
-    });
-
-    it('omits the source badge for an unrecognized source instead of showing ???', () => {
-      const ticket = makeTicket('1', OrderTicketStatus.STAGED, 'AAPL', 'buy', {
-        source: 'legacy_feed' as OrderSource,
-      });
-      fixture.componentRef.setInput('tickets', [ticket]);
-      fixture.componentRef.setInput('selectedId', null);
-      fixture.detectChanges();
-
-      const badge = fixture.nativeElement.querySelector('.source-badge');
-      expect(badge).toBeNull();
+      expect(fixture.nativeElement.querySelector('.source-badge')).toBeNull();
     });
 
     it('omits the date span when the ticket has no signalContext or createdAt date', () => {

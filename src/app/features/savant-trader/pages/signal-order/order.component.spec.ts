@@ -104,14 +104,28 @@ describe('OrderComponent', () => {
     expect(component.allTickets()[0].id).toBe('1');
   });
 
-  it('computes ticketCount from allTickets', () => {
+  it('re-selects the first visible ticket when the selected ticket leaves the queue', () => {
     storeMock.tickets.set({
       '1': makeTicket('1', 'AAPL'),
       '2': makeTicket('2', 'NVDA'),
     });
+    component.rhOrdersLoaded.set(true);
     fixture.detectChanges();
 
-    expect(component.ticketCount()).toBe(2);
+    component.selectedTicketId.set('2');
+    fixture.detectChanges();
+    expect(component.selectedTicket()?.id).toBe('2');
+
+    // '2' becomes PAPER (accept-as-paper from the detail pane) → filtered
+    storeMock.tickets.set({
+      '1': makeTicket('1', 'AAPL'),
+      '2': makeTicket('2', 'NVDA', OrderTicketStatus.PAPER),
+    });
+    component.rhOrders.set({}); // re-dirty allTickets so the effect re-runs
+    fixture.detectChanges();
+
+    expect(component.selectedTicketId()).toBe('1');
+    expect(component.selectedTicket()?.id).toBe('1');
   });
 
   it('sets selectedTicketId on selection', () => {
@@ -283,26 +297,20 @@ describe('OrderComponent', () => {
       expect(component.allTickets().length).toBe(1);
     });
 
-    it('shows PAPER tickets even before RH orders are loaded (no broker polling)', () => {
-      storeMock.tickets.set({ '1': makeTicket('1', 'AAPL', OrderTicketStatus.PAPER) });
+    it('excludes PAPER tickets from allTickets — once paper, this page does not care', () => {
+      storeMock.tickets.set({
+        '1': makeTicket('1', 'AAPL', OrderTicketStatus.PAPER),
+        '2': makeTicket('2', 'NVDA', OrderTicketStatus.STAGED),
+      });
       fixture.detectChanges();
 
-      expect(component.allTickets().length).toBe(1);
-      expect(component.allTickets()[0].status).toBe(OrderTicketStatus.PAPER);
-    });
+      // Before RH load — paper still hidden
+      expect(component.allTickets().map((t) => t.id)).toEqual(['2']);
 
-    it('does not merge RH order state into a PAPER ticket (no result.orderId)', () => {
-      const paper = makeTicket('1', 'AAPL', OrderTicketStatus.PAPER);
-      storeMock.tickets.set({ '1': paper });
-      component.rhOrders.set({
-        'rh-1': { id: 'rh-1', symbol: 'AAPL', side: 'buy', type: 'market', state: 'filled', trigger: 'immediate' },
-      });
+      // After RH load — same
       component.rhOrdersLoaded.set(true);
       fixture.detectChanges();
-
-      const merged = component.allTickets()[0];
-      expect(merged.status).toBe(OrderTicketStatus.PAPER);
-      expect(merged.result).toBeUndefined();
+      expect(component.allTickets().map((t) => t.id)).toEqual(['2']);
     });
 
     it('computes protectedSymbols from RH orders', () => {
@@ -321,7 +329,7 @@ describe('OrderComponent', () => {
   });
 
   describe('onRemoveTickets', () => {
-    it('removes staged tickets but refuses PAPER tickets (cohort provenance)', () => {
+    it('removes every passed id — PAPER tickets are unreachable (never displayed)', () => {
       const staged = makeTicket('1', 'AAPL', OrderTicketStatus.STAGED);
       const paper = makeTicket('2', 'NVDA', OrderTicketStatus.PAPER);
       storeMock.tickets.set({ '1': staged, '2': paper });
@@ -330,7 +338,7 @@ describe('OrderComponent', () => {
       component.onRemoveTickets(['1', '2']);
 
       expect(storeMock.removeTicket).toHaveBeenCalledWith('1');
-      expect(storeMock.removeTicket).not.toHaveBeenCalledWith('2');
+      expect(storeMock.removeTicket).toHaveBeenCalledWith('2');
     });
   });
 

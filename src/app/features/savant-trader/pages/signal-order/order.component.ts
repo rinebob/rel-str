@@ -118,6 +118,9 @@ export class OrderComponent implements OnInit {
       .filter((ticket) => ticket.source === OrderSource.SIGNAL_PIPELINE)
       .map((ticket) => this.mergeWithRhOrder(ticket, rhOrders))
       .filter((ticket) => !this.isSupported(ticket))
+      // Paper tickets never display — once an order is paper it belongs to
+      // the paper-trading dashboard, not this queue.
+      .filter((ticket) => ticket.status !== OrderTicketStatus.PAPER)
       .filter((ticket) => {
         // Suppress local filled entries when a broker position already
         // represents that symbol. Non-filled entries are always kept.
@@ -141,8 +144,7 @@ export class OrderComponent implements OnInit {
         // — the local status may be stale (e.g. cancelled at RH)
         if (!rhLoaded) {
           return ticket.status === OrderTicketStatus.STAGED ||
-            ticket.status === OrderTicketStatus.FAILED ||
-            ticket.status === OrderTicketStatus.PAPER;
+            ticket.status === OrderTicketStatus.FAILED;
         }
         return true;
       });
@@ -166,9 +168,6 @@ export class OrderComponent implements OnInit {
     if (!id) return null;
     return this.allTickets().find((i) => i.id === id) ?? null;
   });
-
-  /** Total ticket count for header. */
-  readonly ticketCount = computed(() => this.allTickets().length);
 
   /** Loading state from store. */
   readonly loading = computed(() => this.stagingStore.loading());
@@ -237,15 +236,18 @@ export class OrderComponent implements OnInit {
   }
 
   constructor() {
-    // Fetch prices when tickets are loaded or change
+    // Fetch prices when tickets are loaded or change. Selection is clamped
+    // to visible tickets — if the selected ticket leaves the queue (removed,
+    // filtered, accepted-as-paper), select the first remaining row so the
+    // detail pane never dead-ends on an empty state with a full queue.
     effect(() => {
       const tickets = this.allTickets();
       untracked(() => {
-        if (tickets.length > 0) {
-          this.fetchPrices();
-          if (!this.selectedTicketId()) {
-            this.selectedTicketId.set(tickets[0].id);
-          }
+        if (tickets.length === 0) return;
+        this.fetchPrices();
+        const sel = this.selectedTicketId();
+        if (!sel || !tickets.some((t) => t.id === sel)) {
+          this.selectedTicketId.set(tickets[0].id);
         }
       });
     });
@@ -330,25 +332,11 @@ export class OrderComponent implements OnInit {
     this.selectedTicketId.set(id);
   }
 
-  /** Handle batch remove from the queue. PAPER tickets are skipped — the
-   *  paper cohort survives server-side and deleting the ticket would orphan
-   *  the provenance record (retry by refId wouldn't find it). */
+  /** Handle batch remove from the queue. PAPER tickets never reach this
+   *  handler — they are filtered from display in `allTickets`. */
   onRemoveTickets(ids: string[]): void {
-    const paperSkipped: string[] = [];
     for (const id of ids) {
-      const ticket = this.stagingStore.tickets()[id];
-      if (ticket?.status === OrderTicketStatus.PAPER) {
-        paperSkipped.push('symbol' in ticket ? ticket.symbol : id);
-        continue;
-      }
       this.stagingStore.removeTicket(id);
-    }
-    if (paperSkipped.length > 0) {
-      this.snackBar.open(
-        `Paper tickets can't be removed — the cohort persists in the paper ledger (${paperSkipped.join(', ')})`,
-        'Dismiss',
-        { duration: 5000 },
-      );
     }
     const selected = this.selectedTicketId();
     if (selected && ids.includes(selected) && !this.stagingStore.tickets()[selected]) {

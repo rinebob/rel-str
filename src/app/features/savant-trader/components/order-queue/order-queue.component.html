@@ -72,21 +72,11 @@
             @if (dateFor(ticket); as date) {
               <span class="item-date">{{ date }}</span>
             }
-            @if (sourceBadge(ticket); as badge) {
-              <span class="source-badge" [class.source-signal]="ticket.source === Source.SIGNAL_PIPELINE"
-                [class.source-manual]="ticket.source === Source.MANUAL"
-                [class.source-position]="ticket.source === Source.POSITION_MANAGEMENT">
-                {{ badge }}
-              </span>
-            }
             <div class="item-main">
               <div class="item-line-1">
                 <span class="item-symbol" [matTooltip]="symbolFor(ticket)">{{ symbolFor(ticket) }}</span>
                 @if (ticket.side === 'buy' && hasProtection(ticket)) {
                   <span class="protected-badge">PROTECTED</span>
-                }
-                @if (ticket.status === TicketStatus.PAPER) {
-                  <span class="paper-badge">PAPER</span>
                 }
                 @if (ticket.status === TicketStatus.CANCELLED) {
                   <button
