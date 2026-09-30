@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [2026-09-30]
+
+### Removed
+- [Signal Pipeline Maintenance] 433-705_FE-IMPL-SIGNAL-REVIEW: Order queue cleanup — Paper status group + PAPER badge and SIG/POS/MAN source chips removed; selection clamps to next row after accept-as-paper
+- [Signal Pipeline Maintenance] 433-705_DOCS-SIGNAL-REVIEW: Inventory promotion + code review (PASS) + UAT (Complete) for #705
+
+
 ## [2026-09-28]
 
 ### Added
