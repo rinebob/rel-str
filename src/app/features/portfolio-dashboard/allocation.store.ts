@@ -335,6 +335,15 @@ export const AllocationStore = signalStore(
         await loadAccount(acct.accountNumber);
       },
 
+      /** Load an account WITHOUT selecting it — sibling surfaces (the order
+       *  ticket's bucket picker, task #592) need a second account's buckets
+       *  and stats while the page may show another. Streams attach per
+       *  account so live writes still re-derive. */
+      async ensureAccount(accountNumber: string): Promise<void> {
+        attachStreams(accountNumber);
+        await loadAccount(accountNumber);
+      },
+
       /** Force-refresh the selected account's MCP data; also re-attaches
        *  any stream that died on error. Re-entrant-safe. */
       async refresh(): Promise<void> {

@@ -290,6 +290,22 @@ describe('AllocationStore', () => {
     expect(store.bucketDetail(ACCT_A, `${ACCT_A}_nonexistent`)).toBeNull();
   });
 
+  it('ensureAccount loads a non-selected account without changing selection', async () => {
+    const { store, mocks } = await setup(buildMocks());
+    await flush();
+    expect(store.selectedAccount()?.accountNumber).toBe(ACCT_A);
+    expect(store.byAccount()[ACCT_B]?.asOf ?? null).toBeNull(); // not yet loaded
+
+    await store.ensureAccount(ACCT_B);
+
+    // Selection untouched; ACCT_B slice populated + streams attached.
+    expect(store.selectedAccount()?.accountNumber).toBe(ACCT_A);
+    expect(store.byAccount()[ACCT_B]?.snapshot?.cash).toBe(1000);
+    expect(store.byAccount()[ACCT_B]?.positions).toHaveLength(1);
+    expect(mocks.bucketStreams.has(ACCT_B)).toBe(true);
+    expect(mocks.attrStreams.has(ACCT_B)).toBe(true);
+  });
+
   it('post-write selector refresh — attribution stream updates re-derive rows', async () => {
     const { store, mocks } = await setup(buildMocks());
     await flush();
