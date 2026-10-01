@@ -14,6 +14,14 @@
 - [Robinhood MCP] 657-682_DOCS-RH-MCP: Drift/live-list captures + 76-tool amendments to discovery PRD/IMPL/TEST + code review (PASS, 4 rounds) + UAT (Complete) for #682
 - [Signal Pipeline Maintenance] 433-706_FE-IMPL-SIGNAL-REVIEW: Queue rows show anchor → live price → %Δ — signalPrice at generation ("At signal") → avg cost (FILLED only) → stop/limit; direction-colored %, line-2 badges, <1200px date hide, ≥$1000 whole-dollar
 - [Signal Pipeline Maintenance] 433-706_DOCS-SIGNAL-REVIEW: Code review (PASS, 3 rounds) + UAT (PASS) for #706; inventory items 11–12 promoted (#717 ref_id requeue 409, #719 accept-toggle desync) + doc-header convention
+- [Portfolio] 576-592_SHARED-IMPL-PORTFOLIO: bucketId attribution contract comment — ticket stores the bucket doc id directly; name-slug resolution dropped
+- [Portfolio] 576-592_FE-IMPL-PORTFOLIO: bucketTargetWarnings — bucket over-target warn-not-block naming bucket/exposure/order cost/projected/target; buy-side only
+- [Portfolio] 576-592_FE-IMPL-PORTFOLIO: AllocationStore.ensureAccount — load a non-selected account's buckets/stats for the order-ticket picker without stealing page selection
+- [Portfolio] 576-592_FE-IMPL-PORTFOLIO: seedFromTicket$ — fill-time attribution by bucketId; txn verifies bucket exists/ACTIVE/same-account; linkKey = orderId; buy-only, no overwrite
+- [Portfolio] 576-592_FE-IMPL-PORTFOLIO: reconcileTerminalStatuses seeds attribution on FILLED tickets carrying bucketId; sells/cancels never seed
+- [Portfolio] 576-592_FE-IMPL-PORTFOLIO: Order-ticket bucket picker + read-only Signal row — optional, never gates submit; per-option [selected] binding; confirm-dialog warning-item styling hardened
+- [Portfolio] 576-592_FE-CHORE-PORTFOLIO: drop unused DecimalPipe on allocation page
+- [Portfolio] 576-592_DOCS-PORTFOLIO: PRD/IMPL amended to direct bucketId (no auto-stamp, no name resolution); attribution-lifecycle diagram; code review (PASS) + UAT (Complete, 8 scenarios) for #592
 
 ### Changed
 - [Trading Workflows] 625-699_FE-IMPL-WORKFLOWS: Canonical route tree — AppRoutes renamed to domain-prefixed paths (portfolio, signals/runs|review|charts, trading/live|paper, options/*, analysis/swings, tools/account, dev/flex-chart); '/'→/portfolio landing + /signals & /options parent redirects; post-login lands on /portfolio; literal nav sweep + route-table spec (66 assertions)

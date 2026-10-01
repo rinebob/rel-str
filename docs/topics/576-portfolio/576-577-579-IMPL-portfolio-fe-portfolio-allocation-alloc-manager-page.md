@@ -25,7 +25,7 @@ A dedicated tabbed page in the `portfolio-dashboard` feature area. All live data
 ## 2. Services
 
 - `allocation-bucket.service.ts` — CRUD on `portfolio/buckets/items` (scoped `userId` + `accountNumber`); `watchBuckets$`/`listBuckets$`/`createBucket$`/`updateTargetPct$`/`renameBucket$`/`retireBucket$`. Create + rename check the `{acct}_{slug}` doc id inside a transaction — occupied ids are never freed, so existence = conflict.
-- `position-attribution.service.ts` — `portfolio/attributions/items`; `attribute$` covers assign (new doc, `fromBucketId: null`) and move (append from→to); `unassign$` deletes the doc (absence = Unassigned); `seedFromTicket$` resolves `strategyName` → exactly-one ACTIVE bucket (0/>1 → Unassigned) and stamps `linkKey` = orderId. All mutators fan out atomically across `linkKey` siblings.
+- `position-attribution.service.ts` — `portfolio/attributions/items`; `attribute$` covers assign (new doc, `fromBucketId: null`) and move (append from→to); `unassign$` deletes the doc (absence = Unassigned); `seedFromTicket$` takes the ticket's `bucketId` verbatim — txn re-verifies the bucket exists, is ACTIVE, and belongs to the account (else no-op → Unassigned) — and stamps `linkKey` = orderId. All mutators fan out atomically across `linkKey` siblings. *(Amended 2026-09-30: the ticket stores the bucket id directly; the earlier name→bucket slug resolution was dropped as unnecessary indirection.)*
 - `allocation-data.service.ts` — MCP wrappers: `listAccounts` (all accounts, `agenticAllowed` surfaced not filtered), `getSnapshot` (broker cash = allocation basis), `getPositions` / `getFills` assembling domain inputs.
 - `allocation-mappers.ts` — pure MCP→domain mapping: equity keyed by symbol, options by instrumentId (×100), orders expand legs×executions into fills, equity sell→close inferred from `sharesHeldForSells`.
 - `RobinhoodMcpClient` — `BrokerOrder` gains optional `legs[]` (per-contract `optionId` + `positionEffect`) and `executions[]` (per-fill price/qty/timestamp); `normalizeOrder` parses both, tolerating `option_id` or `option` URL forms.
@@ -49,14 +49,14 @@ Selectors (all per selected account):
 - `positions-table` — position rows w/ bucket column + **assign** action (opens bucket picker); Unassigned filtered view.
 - `assign-bucket-dialog` — bucket picker for post-hoc assignment/move (shared by positions tab rows).
 - `bucket-detail-dialog` — large dialog: header = bucket metadata + **view-switcher dropdown** (view only); detail = **position carousel** — click through all positions without closing; per-position stats + **'trade chart' stub** (TBD dependency — render placeholder, spec deferred).
-- Ticket integration (savant-trader order ticket): optional `strategyName`/bucket selector — **never required for submission**; `wouldExceedTarget` warning on submit (extends `order-guardrails.util` — warn, not block).
+- Ticket integration (savant-trader order ticket): optional bucket selector — **never required for submission**; `wouldExceedTarget` warning on submit (extends `order-guardrails.util` — warn, not block).
 
 ## 5. Boundaries
 
 - Reads: `RobinhoodMcpClient` (existing) — no new MCP surface.
 - Writes: `portfolio/buckets/items`, `portfolio/attributions/items` via client SDK — no callables.
 - Shared: all math via `shared/portfolio-allocation-utils.ts`.
-- Order ticket: `strategyName` field added to `OrderTicket`/ticket types; strategy-driven flows stamp it; manual picker optional.
+- Order ticket: `bucketId` field added to `OrderTicket`/ticket types; the user selects a bucket on the ticket — no auto-stamp, no name resolution (amended 2026-09-30).
 
 ## 6. Risks
 

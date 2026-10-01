@@ -1,9 +1,9 @@
 flowchart TD
-    T["Order ticket<br/>strategyName (optional)"] --> SUB["Submit order<br/>(warn-not-block drift check only)"]
+    T["Order ticket<br/>bucketId (optional — user picks)"] --> SUB["Submit order<br/>(warn-not-block drift check only)"]
     SUB --> FILL["Fill — per leg / execution"]
-    FILL --> RES{"resolve: exactly one ACTIVE bucket<br/>in same account with<br/>bucketSlug(name) = bucketSlug(strategyName)?"}
+    FILL --> RES{"bucketId set AND bucket<br/>still exists + ACTIVE<br/>in the same account?<br/>(verified in the txn)"}
     RES -->|"yes"| SEED["Create PositionAttribution per leg<br/>{account}_{instrumentId} → bucketId<br/>history: [null → bucket, at]<br/>linkKey = parent orderId (multi-leg)"]
-    RES -->|"no / ambiguous / un-slugifiable"| NONE["No attribution doc written"]
+    RES -->|"no / stale / retired"| NONE["No attribution doc written"]
     NONE --> UNS["Position appears in<br/>UNASSIGNED row"]
     UNS --> POST["Post-hoc assign<br/>(Positions tab)"]
     POST --> EVT["Create attribution doc OR<br/>append {from → to, at}"]

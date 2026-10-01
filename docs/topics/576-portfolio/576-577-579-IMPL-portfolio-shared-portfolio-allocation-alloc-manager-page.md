@@ -93,7 +93,7 @@ export interface BucketStats {
 ## 4. Boundaries
 
 - FE consumes everything via imports from `shared/` — no backend build step.
-- The order ticket seeds attribution at fill: ticket `strategyName` → bucket `name` lookup happens in FE order flow, not in shared.
+- The order ticket seeds attribution at fill: the ticket's `bucketId` is copied to the attribution doc in FE order flow, not in shared (amended 2026-09-30 — no name resolution).
 - **#586 dependency:** `BrokerOrder` (FE MCP type) currently drops `instrument_id`, `legs[]` (multi-instrument option orders), and `executions[]` (per-fill detail — raw orders carry them; see `shared/broker-types.ts` `RawBrokerOrder`). The service layer must extend `normalizeOrder` to expose legs + executions and expand them into per-instrument `AllocationFillInput`s — leg `position_effect` (open/close) flows into `AllocationFillInput.positionEffect`.
 
 ## 5. Risks
