@@ -12,6 +12,8 @@
 - [Robinhood MCP] 657-682_BE-IMPL-RH-MCP: Catalog drift check — live tools/list vs bundled catalog (structural schema diff, rename hints, name-collision detection) + refresh-tool-catalog writer; captures 00-drift.json + 01-live-tools-list.json; 25-case spec + 6-check offline verify
 - [Robinhood MCP] 657-682_BE-CHORE-RH-MCP: Regenerate tool catalog from live — 49→76 tools (+27 new: crypto, alerts, SEC filings, politician trades, historicals, scanners)
 - [Robinhood MCP] 657-682_DOCS-RH-MCP: Drift/live-list captures + 76-tool amendments to discovery PRD/IMPL/TEST + code review (PASS, 4 rounds) + UAT (Complete) for #682
+- [Signal Pipeline Maintenance] 433-706_FE-IMPL-SIGNAL-REVIEW: Queue rows show anchor → live price → %Δ — signalPrice at generation ("At signal") → avg cost (FILLED only) → stop/limit; direction-colored %, line-2 badges, <1200px date hide, ≥$1000 whole-dollar
+- [Signal Pipeline Maintenance] 433-706_DOCS-SIGNAL-REVIEW: Code review (PASS, 3 rounds) + UAT (PASS) for #706; inventory items 11–12 promoted (#717 ref_id requeue 409, #719 accept-toggle desync) + doc-header convention
 
 ### Changed
 - [Trading Workflows] 625-699_FE-IMPL-WORKFLOWS: Canonical route tree — AppRoutes renamed to domain-prefixed paths (portfolio, signals/runs|review|charts, trading/live|paper, options/*, analysis/swings, tools/account, dev/flex-chart); '/'→/portfolio landing + /signals & /options parent redirects; post-login lands on /portfolio; literal nav sweep + route-table spec (66 assertions)

@@ -129,3 +129,31 @@ Project field IDs (Savant Trader project #1):
 Always include the **next `/proj` slash command** in task summaries so the user
 doesn't have to hunt for it. Examples: `/proj review 261 336`, `/proj ship 261 336`,
 `/proj implement 261 337`.
+
+### Doc header convention (non-negotiable)
+
+Every proj-workflow document header (PRD/IMPL/TEST/CODE-REVIEW/UAT/etc.) is
+plain markdown — NO `---` fences — with **each field on its own physical
+line**, each line ending in **two trailing spaces** (markdown line break).
+Never put multiple fields on one line, never use pipes between fields,
+never use `<br>`.
+
+Canonical field order for threaded docs:
+
+```markdown
+**Topic:** {Topic Name}  
+**Topic Slug:** {topic-slug}  
+**Thread:** {Thread Name}  
+**Thread Slug:** {thread-slug}  
+**Issue:** #{issue}  
+**Thread Parent:** #{thread-issue}  
+**Topic Parent:** #{topic-issue}  
+**Task:** #{task-issue}  
+**Domain:** {DOMAIN}  
+**Type:** {DOC TYPE}  
+**Status:** {Draft|Approved|Complete|Abandoned|Superseded}  
+**Created:** {YYYY-MM-DD}  
+**Last Updated:** {YYYY-MM-DD}  
+```
+
+Full spec: `.devin/skills/proj/REFERENCE.md` → "Doc header template".
